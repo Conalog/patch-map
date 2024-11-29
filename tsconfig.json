@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "allowJs": true,
+    "module": "ESNext",
+    "target": "ES5",
+    "moduleResolution": "node",
+    "strict": true,
+    "outFile": "dist/index.d.ts", // 단일 파일로 출력,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "lib": ["ES2020", "DOM"] // 불필요한 타입 제거,
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
