@@ -1,5 +1,6 @@
 import commonjs from '@rollup/plugin-commonjs';
 import resolve from '@rollup/plugin-node-resolve';
+import url from '@rollup/plugin-url';
 import pkg from './package.json' assert { type: 'json' };
 
 export default [
@@ -15,7 +16,7 @@ export default [
         format: 'esm', // ES Module 형식
       },
     ],
-    plugins: [resolve(), commonjs()],
+    plugins: [resolve(), commonjs(), url({ include: ['**/*.svg'] })],
     external: ['pixi.js'], // 외부 종속성
   },
 ];

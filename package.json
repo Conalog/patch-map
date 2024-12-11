@@ -37,6 +37,7 @@
 		"@biomejs/biome": "1.9.4",
 		"@rollup/plugin-commonjs": "^28.0.1",
 		"@rollup/plugin-node-resolve": "^15.3.0",
+		"@rollup/plugin-url": "^8.0.2",
 		"rollup": "^4.28.1",
 		"typescript": "^5.7.2"
 	}
