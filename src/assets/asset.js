@@ -1,7 +1,7 @@
 import { Assets } from 'pixi.js';
 import { getSVGSource } from '../utils/svg';
 
-export const getAsset = (key) => Assets.get(key).texture;
+export const getAsset = (key) => Assets.get(key);
 export const loadAsset = (key) => Assets.load(key);
 export const addSVGAsset = (key, svg) => {
   const svgSource = getSVGSource(svg);

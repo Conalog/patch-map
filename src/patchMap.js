@@ -3,9 +3,10 @@ import { Viewport } from 'pixi-viewport';
 import { deepMerge } from './utils/merge';
 import { getSVGSource } from './utils/svg';
 import { setCanvasEvents, toggleCanvasAddon } from './events/canvas';
-import { icons } from './assets/icons';
 import { frames } from './assets/frames';
-import { assetUtils } from './assets/asset';
+import { icons } from './assets/icons';
+import { frame } from './display/components/frame';
+import { icon } from './display/components/icon';
 
 const THEME = {
   primary: {
@@ -40,7 +41,6 @@ export class PatchMap extends PIXI.Application {
     this._resizeObserver = null;
 
     this.theme = null;
-    this.assets = this.assets();
   }
 
   get viewport() {
@@ -210,34 +210,25 @@ export class PatchMap extends PIXI.Application {
       {
         frames: {
           base: {
-            texture: frames.base(this, {
-              fill: THEME.white,
-              radius: 6,
-              borderColor: THEME.primary.dark,
-            }),
+            frame: 'base',
+            fill: THEME.white,
+            borderColor: THEME.primary.dark,
           },
-          'selected-base': {
-            texture: frames.base(this, {
-              fill: THEME.white,
-              radius: 6,
-              borderWidth: 4,
-              borderColor: THEME.red.default,
-            }),
+          'base-selected': {
+            frame: 'base',
+            borderWidth: 4,
+            borderColor: THEME.red.default,
           },
           label: {
-            texture: frames.label(this, {
-              fill: THEME.white,
-              radius: 6,
-              borderColor: THEME.primary.dark,
-            }),
+            frame: 'label',
+            fill: THEME.white,
+            borderColor: THEME.primary.dark,
           },
-          'selected-label': {
-            texture: frames.label(this, {
-              fill: THEME.white,
-              radius: 6,
-              borderWidth: 4,
-              borderColor: THEME.red.default,
-            }),
+          'label-selected': {
+            frame: 'label',
+            fill: THEME.white,
+            borderWidth: 4,
+            borderColor: THEME.red.default,
           },
         },
       },
@@ -245,13 +236,23 @@ export class PatchMap extends PIXI.Application {
     );
 
     for (const [key, textures] of Object.entries(options)) {
-      for (const [name, texture] of Object.entries(textures)) {
-        PIXI.Cache.set(`${key}-${name}`, texture);
+      for (const [name, option] of Object.entries(textures)) {
+        PIXI.Cache.set(
+          `${key}-${name}`,
+          frames[option.frame](this, {
+            ...option,
+          }),
+        );
       }
     }
   }
 
-  components() {}
+  components() {
+    return {
+      icon: icon,
+      frame: frame,
+    };
+  }
 
   assets() {
     return {

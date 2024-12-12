@@ -1,4 +1,4 @@
-import { deepMerge } from '../utils';
+import { deepMerge } from '../utils/merge';
 
 const CONFIG = {
   canvas: {

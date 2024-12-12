@@ -12,6 +12,7 @@ export const generateTexture = (
       y: (borderWidth / 2 / 40) * 0.9,
     };
   }
+  texture.borderWidth = borderWidth;
   return texture;
 };
 
@@ -24,6 +25,6 @@ export const defaultRoundedRect = ({
   const rect = new Graphics();
   rect.roundRect(0, 0, 40, 40, radius);
   rect.fill(fill);
-  rect.stroke({ width: borderWidth, color: borderColor });
+  if (borderWidth) rect.stroke({ width: borderWidth, color: borderColor });
   return rect;
 };
