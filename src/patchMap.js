@@ -5,8 +5,10 @@ import { getSVGSource } from './utils/svg';
 import { setCanvasEvents, toggleCanvasAddon } from './events/canvas';
 import { frames } from './assets/frames';
 import { icons } from './assets/icons';
-import { frame } from './display/components/frame';
-import { icon } from './display/components/icon';
+import { frameComponent } from './display/components/frame';
+import { iconComponent } from './display/components/icon';
+import { draw } from './display/draw';
+import { bars } from './assets/bar';
 
 const THEME = {
   primary: {
@@ -116,8 +118,8 @@ export class PatchMap extends PIXI.Application {
         antialias: true,
         autoStart: true,
         autoDensity: true,
-        useContextAlpha: false,
-        resolution: 3,
+        useContextAlpha: true,
+        resolution: 2,
       },
       userOptions,
     );
@@ -210,25 +212,49 @@ export class PatchMap extends PIXI.Application {
       {
         frames: {
           base: {
-            frame: 'base',
+            type: 'base',
             fill: THEME.white,
             borderColor: THEME.primary.dark,
           },
           'base-selected': {
-            frame: 'base',
+            type: 'base',
             borderWidth: 4,
             borderColor: THEME.red.default,
           },
           label: {
-            frame: 'label',
+            type: 'label',
             fill: THEME.white,
             borderColor: THEME.primary.dark,
           },
           'label-selected': {
-            frame: 'label',
+            type: 'label',
             fill: THEME.white,
             borderWidth: 4,
             borderColor: THEME.red.default,
+          },
+          icon: {
+            type: 'base',
+            fill: THEME.white,
+            borderColor: THEME.primary.default,
+            radius: 4,
+            defaultWidth: 24,
+            defaultHeight: 24,
+          },
+          'icon-selected': {
+            type: 'base',
+            fill: THEME.white,
+            borderWidth: 4,
+            borderColor: THEME.red.default,
+            radius: 4,
+            defaultWidth: 24,
+            defaultHeight: 24,
+          },
+        },
+        bars: {
+          rounded: {
+            type: 'rounded',
+            fill: THEME.white,
+            borderWidth: 0,
           },
         },
       },
@@ -237,20 +263,25 @@ export class PatchMap extends PIXI.Application {
 
     for (const [key, textures] of Object.entries(options)) {
       for (const [name, option] of Object.entries(textures)) {
-        PIXI.Cache.set(
-          `${key}-${name}`,
-          frames[option.frame](this, {
+        let texture = null;
+        if (key === 'frames') {
+          texture = frames[option.type](this, {
             ...option,
-          }),
-        );
+          });
+        } else if (key === 'bars') {
+          texture = bars[option.type](this, {
+            ...option,
+          });
+        }
+        PIXI.Cache.set(`${key}-${name}`, texture);
       }
     }
   }
 
   components() {
     return {
-      icon: icon,
-      frame: frame,
+      icon: iconComponent,
+      frame: frameComponent,
     };
   }
 
@@ -264,6 +295,10 @@ export class PatchMap extends PIXI.Application {
     };
   }
 
+  draw(data = {}, options = {}) {
+    draw(this.viewport, data, { ...options, theme: this.theme });
+  }
+
   /**
    * Configures multiple viewport addons (plugins) at once.
    *
@@ -273,7 +308,7 @@ export class PatchMap extends PIXI.Application {
    *  - An object to activate and configure the addon.
    */
   setCanvasEvents(events) {
-    setCanvasEvents(this._viewport, events);
+    setCanvasEvents(this.viewport, events);
   }
 
   /**
@@ -286,7 +321,7 @@ export class PatchMap extends PIXI.Application {
    *  - An object to activate and configure the addon.
    */
   toggleCanvasAddon(addonName, options) {
-    toggleCanvasAddon(this._viewport, addonName, options);
+    toggleCanvasAddon(this.viewport, addonName, options);
   }
 
   /**

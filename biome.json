@@ -29,6 +29,9 @@
 				"noUnusedFunctionParameters": "warn",
 				"noUnusedImports": "warn",
 				"noConstructorReturn": "off"
+			},
+			"complexity": {
+				"noForEach": "off"
 			}
 		}
 	},

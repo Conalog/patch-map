@@ -3,7 +3,15 @@ import { defaultRoundedRect, generateTexture } from '../utils';
 
 export const label = (
   app,
-  { fill, borderWidth = 2, borderColor, radius = 6, textHeight = 20 },
+  {
+    fill,
+    borderWidth = 2,
+    borderColor,
+    radius = 6,
+    textHeight = 20,
+    defaultWidth = 40,
+    defaultHeight = 40,
+  },
 ) => {
   const frame = defaultRoundedRect({ fill, borderWidth, borderColor, radius });
 
@@ -21,6 +29,14 @@ export const label = (
     topHeight: textHeight + 4,
     rightWidth: borderWidth + 4,
     bottomHeight: borderWidth + 4,
+    defaultWidth,
+    defaultHeight,
+    padding: {
+      left: 4,
+      top: 4 + textHeight + 1,
+      right: 4,
+      bottom: 4,
+    },
   };
   return texture;
 };
