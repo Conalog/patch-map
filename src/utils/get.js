@@ -1,4 +1,4 @@
-export const findCenterPoint = (object) => {
+export const getCenterPointObject = (object) => {
   const { x, y } = object.position;
   const { width, height } = object;
   const { padding = 0 } = object.metadata;

@@ -1,10 +1,13 @@
 import { NineSliceSprite } from 'pixi.js';
 import { getAsset } from '../../assets/asset';
-import { getPadding } from '../utils';
+import { getPadding } from '../../utils/get';
+import { findComponents } from '../../utils/find';
+import { deepMerge } from '../../utils/merge';
 
 export const barComponent = (
   assetName,
   {
+    id = null,
     percentWidth = 1,
     percentHeight = 1,
     parent,
@@ -25,27 +28,32 @@ export const barComponent = (
     return;
   }
   try {
-    const metadata = texture.metadata;
-
     let width = null;
     let height = null;
 
-    const padding = getPadding(frame.metadata.padding);
-    width = (frame.width - padding.left - padding.right) * percentWidth;
-    height = (frame.height - padding.top - padding.bottom) * percentHeight;
+    const metadata = {
+      ...getBarMaxSize(frame),
+      percentWidth,
+      percentHeight,
+    };
+    width = metadata.width * percentWidth;
+    height = metadata.height * percentHeight;
 
     const bar = new NineSliceSprite({
       texture,
-      leftWidth: metadata.leftWidth,
-      topHeight: metadata.topHeight,
-      rightWidth: metadata.rightWidth,
-      bottomHeight: metadata.bottomHeight,
+      leftWidth: texture.metadata.leftWidth,
+      topHeight: texture.metadata.topHeight,
+      rightWidth: texture.metadata.rightWidth,
+      bottomHeight: texture.metadata.bottomHeight,
       width: width,
       height: height,
     });
     setBarPosition(frame, bar);
+    bar.assetName = 'bar';
+    bar.label = id;
     bar.zIndex = zIndex;
     bar.tint = color;
+    bar.eventMode = 'none';
     bar.metadata = metadata;
     if (parent) parent.addChild(bar);
     return bar;
@@ -55,9 +63,43 @@ export const barComponent = (
   }
 };
 
+const getBarMaxSize = (frame) => {
+  const padding = getPadding(frame.texture.metadata.padding);
+  return {
+    width: frame.width - padding.left - padding.right,
+    height: frame.height - padding.top - padding.bottom,
+  };
+};
+
+export const updateBarComponent = (frame, options = {}) => {
+  const { percentWidth, percentHeight, color } = deepMerge(
+    { percentWidth: 1, percentHeight: 1, color: null },
+    options,
+  );
+
+  const { bar } = findComponents(frame.label, [frame.parent]);
+  bar.metadata = {
+    ...bar.metadata,
+    ...getBarMaxSize(frame),
+    percentWidth,
+    percentHeight,
+  };
+
+  const barMinHeight =
+    bar.texture.metadata.topHeight + bar.texture.metadata.bottomHeight;
+  bar.setSize(
+    bar.metadata.width * percentWidth,
+    Math.max(barMinHeight, bar.metadata.height * percentHeight),
+  );
+  setBarPosition(frame, bar);
+
+  if (color) bar.tint = color;
+};
+
 const setBarPosition = (frame, bar) => {
-  const padding = getPadding(frame.metadata.padding);
+  const padding = getPadding(frame.texture.metadata.padding);
   const x = frame.x + padding.left;
   const y = frame.y + frame.height - bar.height - padding.bottom;
+
   bar.position.set(x, y);
 };

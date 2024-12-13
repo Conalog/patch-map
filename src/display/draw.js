@@ -8,7 +8,7 @@ export const DEFAULT_OPTIONS = {
   grids: {
     show: true,
     frameName: 'base',
-    isGridSelected: true,
+    isSelected: true,
     components: {
       bar: {
         name: 'rounded',
@@ -25,7 +25,7 @@ export const DEFAULT_OPTIONS = {
   },
   inverters: {
     show: true,
-    frameName: 'label',
+    frameName: 'icon',
     components: {
       icon: {
         name: 'inverter',
@@ -90,6 +90,7 @@ export function draw(viewport, data = {}, userOptions = {}) {
 
             const id = `${object.id}.${y}.${x}`;
             const frame = frameComponent(option.frameName, {
+              id,
               parent: container,
               x: x * (frameWidth + PANEL_CONFIG.margin),
               y: y * (frameHeight + PANEL_CONFIG.margin),
@@ -97,8 +98,6 @@ export function draw(viewport, data = {}, userOptions = {}) {
               height: frameHeight,
             });
             if (!frame) continue;
-            frame.id = id;
-            frame.label = 'frame';
             frame.interactive = true;
             frame.properties = {
               stringId: col,
@@ -114,12 +113,14 @@ export function draw(viewport, data = {}, userOptions = {}) {
               )) {
                 if (componentId === 'icon') {
                   iconComponent(componentOption.name, {
+                    id,
                     parent: container,
                     frame: frame,
-                    zIndex: 5,
+                    zIndex: 10,
                   });
                 } else if (componentId === 'bar') {
                   barComponent(componentOption.name, {
+                    id,
                     parent: container,
                     frame: frame,
                     zIndex: 5,
@@ -141,16 +142,17 @@ export function draw(viewport, data = {}, userOptions = {}) {
       const container = new Container({ isRenderGroup: true });
       container.id = key;
       container.type = key;
-      container.interactive = false;
       container.zIndex = 10;
 
       for (const object of values) {
         const properties = object.properties;
         const frame = frameComponent(option.frameName, {
+          id: object.id,
           parent: container,
           x: properties.transform.x,
           y: properties.transform.y,
         });
+        frame.interactive = true;
 
         if (option.components && typeof option.components === 'object') {
           for (const [componentId, componentOption] of Object.entries(
@@ -158,6 +160,7 @@ export function draw(viewport, data = {}, userOptions = {}) {
           )) {
             if (componentId === 'icon') {
               iconComponent(componentOption.name, {
+                id: object.id,
                 parent: container,
                 frame: frame,
                 color: options.theme.primary.default,

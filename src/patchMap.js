@@ -5,10 +5,20 @@ import { getSVGSource } from './utils/svg';
 import { setCanvasEvents, toggleCanvasAddon } from './events/canvas';
 import { frames } from './assets/frames';
 import { icons } from './assets/icons';
-import { frameComponent } from './display/components/frame';
-import { iconComponent } from './display/components/icon';
+import {
+  changeFrameComponent,
+  frameComponent,
+} from './display/components/frame';
+import { changeIconComponent, iconComponent } from './display/components/icon';
 import { draw } from './display/draw';
 import { bars } from './assets/bar';
+import { updateBarComponent } from './display/components/bar';
+import {
+  findAssetComponents,
+  findComponents,
+  findContainers,
+} from './utils/find';
+import * as event from './events/component';
 
 const THEME = {
   primary: {
@@ -150,6 +160,7 @@ export class PatchMap extends PIXI.Application {
       userOptions,
     );
     this._viewport = new Viewport(options);
+    this._viewport.events = {};
     this.setCanvasEvents(options.canvasEvents);
     this.stage.addChild(this.viewport);
   }
@@ -266,6 +277,7 @@ export class PatchMap extends PIXI.Application {
         let texture = null;
         if (key === 'frames') {
           texture = frames[option.type](this, {
+            name,
             ...option,
           });
         } else if (key === 'bars') {
@@ -285,6 +297,34 @@ export class PatchMap extends PIXI.Application {
     };
   }
 
+  findAssetComponents(name, containerType = null) {
+    const containers = this.findContainers(containerType);
+    return findAssetComponents(name, containers);
+  }
+
+  findComponents(id, { containerType = null, containers = [] }) {
+    const targetContainers = containerType
+      ? this.findContainers(containerType)
+      : containers;
+    return findComponents(id, targetContainers);
+  }
+
+  changeFrameComponent(frame, newAssetName) {
+    changeFrameComponent(frame, newAssetName);
+  }
+
+  changeIconComponent(frame, newAssetName) {
+    changeIconComponent(frame, newAssetName);
+  }
+
+  updateBarComponent(frame, options) {
+    updateBarComponent(frame, options);
+  }
+
+  findContainers(type = null) {
+    return findContainers(this.viewport, type);
+  }
+
   assets() {
     return {
       add: assetUtils.addSVGAsset,
@@ -297,6 +337,31 @@ export class PatchMap extends PIXI.Application {
 
   draw(data = {}, options = {}) {
     draw(this.viewport, data, { ...options, theme: this.theme });
+  }
+
+  event() {
+    return {
+      add: (containerType, type, fn, options = {}) => {
+        const containers = this.findContainers(containerType);
+        const eventId = event.addEvent(
+          this.viewport,
+          containers,
+          type,
+          fn,
+          options,
+        );
+        return eventId;
+      },
+      remove: (eventId) => {
+        event.removeEvent(this.viewport, eventId);
+      },
+      on: (eventId) => {
+        event.onEvent(this.viewport, eventId);
+      },
+      off: (eventId) => {
+        event.offEvent(this.viewport, eventId);
+      },
+    };
   }
 
   /**

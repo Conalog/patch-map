@@ -37,6 +37,7 @@ export const label = (
       right: 4,
       bottom: 4,
     },
+    assetName: 'label'
   };
   return texture;
 };

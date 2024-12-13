@@ -7,10 +7,10 @@ export const rounded = (
   const frame = defaultRoundedRect({ fill, radius });
   const texture = generateTexture(app, { target: frame });
   texture.metadata = {
-    leftWidth: 6,
-    topHeight: 6,
-    rightWidth: 6,
-    bottomHeight: 6,
+    leftWidth: 4,
+    topHeight: 4,
+    rightWidth: 4,
+    bottomHeight: 4,
     defaultWidth,
     defaultHeight,
   };

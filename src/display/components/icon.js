@@ -1,10 +1,12 @@
 import { Sprite } from 'pixi.js';
 import { getAsset } from '../../assets/asset';
-import { findCenterPoint } from '../utils';
+import { findComponents } from '../../utils/find';
+import { getCenterPointObject } from '../../utils/get';
 
 export const iconComponent = (
   assetName,
   {
+    id = null,
     x = 0,
     y = 0,
     parent = null,
@@ -26,7 +28,7 @@ export const iconComponent = (
   try {
     const icon = new Sprite(texture);
     if (frame) {
-      const centerPoint = findCenterPoint(frame);
+      const centerPoint = getCenterPointObject(frame);
       icon.anchor.set(0.5);
       icon.position.set(centerPoint.x, centerPoint.y);
     } else {
@@ -34,12 +36,21 @@ export const iconComponent = (
       icon.position.set(x, y);
     }
     icon.setSize(size);
+    icon.assetName = 'icon';
+    icon.label = id;
     icon.zIndex = zIndex;
     icon.tint = color;
+    icon.eventMode = 'none';
     if (parent) parent.addChild(icon);
     return icon;
   } catch (e) {
     console.error(e);
     throw e;
   }
+};
+
+export const changeIconComponent = (frame, newAssetName) => {
+  const iconAsset = getAsset(`icons-${newAssetName}`);
+  const { icon } = findComponents(frame.label, [frame.parent]);
+  icon.texture = iconAsset;
 };
