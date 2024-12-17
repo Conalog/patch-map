@@ -1,4 +1,4 @@
-# PATCH MAP 라이브러리
+# PATCH MAP
 
 본 라이브러리는 `pixijs` 라이브러리를 이용하여 PATCH 서비스의 요구사항에 맞는 PATCH MAP을 제공하고자 함
 
@@ -17,21 +17,35 @@
   - [theme](#theme)
   - [asset](#asset)
   - [texture](#texture)
+- [draw(options)](#drawoptions)
+  - [mapData](#mapdata)
+  - [grids](#grids)
+  - [strings](#strings)
+  - [inverters](#inverters)
+  - [combines](#combines)
+  - [edges](#edges)
+- [Events](#events)
+  - [add(type, action, fn, eventId)](#addtype-action-fn-eventid)
+  - [remove(eventId)](#removeeventid)
+  - [on(eventId)](#oneventid)
+  - [off(eventId)](#offeventid)
+  - [get(eventId)](#geteventid)
+  - [getAll()](#getall)
 
 ## Setup
 
 ### NPM Install
-```
+```sh
 npm install patch-map
 ```
 
 ### import
-```
+```js
 import { PatchMap } from 'patch-map';
 ```
 
 ### 기본 사용 예시
-```
+```js
 import { PatchMap } from 'patch-map';
 
 (async () => {
@@ -51,47 +65,43 @@ import { PatchMap } from 'patch-map';
 <details>
   <summary>svelte</summary>
   
-    <script>
-      import { onMount } from 'svelte';
-      import { PatchMap } from 'patch-map';
+```html
+<script>
+  import { onMount } from 'svelte';
+  import { PatchMap } from 'patch-map';
 
-      onMount(async () => {
-        const panelmapData = await getPanelmap();
-        const data = await getData();
+  onMount(async () => {
+    const panelmapData = await getPanelmap();
+    const data = await getData();
 
-        const element = document.getElementById('patchmap');
-        const patchMap = new PatchMap();
-        await patchMap.init(element);
-        patchMap.draw({ mapData: panelmapData });
-      });
+    const element = document.getElementById('patchmap');
+    const patchMap = new PatchMap();
+    await patchMap.init(element);
+    patchMap.draw({ mapData: panelmapData });
+  });
 
-      const getPanelmap = async () => {
-        const response = await fetch('panelmap.json');
-        const result = await response.json();
-        return result;
-      };
+  const getPanelmap = async () => {
+    const response = await fetch('panelmap.json');
+    const result = await response.json();
+    return result;
+  };
 
-      const getData = async () => {
-        const response = await fetch('data.json');
-        const result = await response.json();
-        return result;
-      };
-    </script>
+  const getData = async () => {
+    const response = await fetch('data.json');
+    const result = await response.json();
+    return result;
+  };
+</script>
 
-    <main class="flex h-svh w-full flex-col">
-      <div id="patchmap" class="h-full grow"></div>
-    </main>
+<main class="flex h-svh w-full flex-col">
+  <div id="patchmap" class="h-full grow"></div>
+</main>
+```
 </details>
-
-
-
-
-
-
 
 ## init(el, options)
 - `app` - `pixijs`의 [ApplicationOptions](https://pixijs.download/release/docs/app.ApplicationOptions.html) 참고
-  ```
+  ```js
   // default options
   {
     background: '#FAFAFA',
@@ -104,7 +114,7 @@ import { PatchMap } from 'patch-map';
   ```
 - `viewport` - `pixi-viewport`의 [ViewportOptions](https://pixi-viewport.github.io/pixi-viewport/jsdoc/Viewport.html#Viewport) 참고
   - `plugins` - `pixi-viewport`의 plugins을 추가하거나 기본 동작 diable 가능
-  ```
+  ```js
   // default options
   {
     passiveWheel: false,
@@ -119,7 +129,7 @@ import { PatchMap } from 'patch-map';
   ```
 
 - `theme` - `PATCH MAP`에 사용될 색상 테마
-  ```
+  ```js
   // default options
   {
     primary: {
@@ -139,29 +149,30 @@ import { PatchMap } from 'patch-map';
   }
   ```
 - `asset` - svg/png 등 asset 설정
-  ```
+  ```js
+  // default options
   {
     icons: {
       inverter: {
-        src: icons.inverter,
+        src: inverterSVG,
       },
       combine: {
-        src: icons.combine,
+        src: combineSVG,
       },
       edge: {
-        src: icons.edge,
+        src: edgeSVG,
       },
       device: {
-        src: icons.device,
+        src: deviceSVG,
       },
       loading: {
-        src: icons.loading,
+        src: loadingSVG,
       },
       warning: {
-        src: icons.warning,
+        src: warningSVG,
       },
       wifi: {
-        src: icons.wifi
+        src: wifiSVG
       },
     },
   }
@@ -169,7 +180,7 @@ import { PatchMap } from 'patch-map';
 - `texture` - 개발 중
 
 ### **Example**
-```
+```js
 init(el, {
   app: {
     background: '#CCC'
@@ -203,13 +214,13 @@ init(el, {
       - `color` - 해당 컴포넌트의 색상
 
 ### **example**
-```
+```js
 draw({
   mapData: data,
   grids: {
     components: {
       icon: {
-        show: true
+        show: true,
         name: 'loading',
       },
       bar: {
@@ -233,25 +244,45 @@ draw({
 - `fn` - 이벤트에 등록할 함수, 매개변수로 `event` 전달됨
 - `eventId` - 해당 event를 쉽게 찾기 위해 Id 전달 가능함 (옵션)
 
+```js
+event().add('grids', 'click', (e) => {
+  console.log('id: ', e.target.label);
+}, 'grid-click');
+```
+
 ### remove(eventId)
 전달된 `eventId`로 등록된 이벤트 삭제함
+```js
+event().remove('grid-click');
+```
 
 ### on(eventId)
 전달된 `eventId`에 해당하는 이벤트 활성화
+```js
+event().on('grid-click');
+```
 
 ### off(eventId)
 전달된 `eventId`에 해당하는 이벤트 비활성화
+```js
+event().off('grid-click');
+```
 
 ### get(eventId)
 전달된 `eventId`에 해당하는 이벤트 반환함
+```js
+event().get('grid-click');
+```
 
 ### getAll()
 등록되어 있는 이벤트 모두 반환함
+```js
+event().getAll();
+```
 
 <br/>
 <br/>
 
----
 ---
 
 <br/>
