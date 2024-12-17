@@ -8,10 +8,10 @@ export const DRAW_DEFAULT_OPTIONS = {
     data: null,
     components: {
       bar: {
+        show: false,
         name: 'base',
         minPercentHeight: 0.1,
         percentHeight: 0,
-        show: false,
       },
       icon: {
         show: true,

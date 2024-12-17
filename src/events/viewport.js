@@ -1,5 +1,6 @@
 export const addPlugins = (viewport, plugins = {}) => {
   for (const [name, options] of Object.entries(plugins)) {
+    if (options.disabled) continue;
     viewport.plugins.remove(name);
     viewport[name](options);
   }
