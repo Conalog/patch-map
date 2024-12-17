@@ -7,6 +7,7 @@ import { addTexture, generateTexture } from './assets/textures/utils';
 import { components } from './display/components';
 import { draw } from './display/draw';
 import { DRAW_DEFAULT_OPTIONS } from './display/config';
+import { event } from './events/container';
 
 export class PatchMap {
   _app = null;
@@ -98,10 +99,32 @@ export class PatchMap {
 
   event() {
     return {
-      add: () => {},
-      remove: () => {},
-      on: () => {},
-      off: () => {},
+      add: (containerType, action, fn, eventId) => {
+        const id = event.addEvent(
+          this.viewport,
+          containerType,
+          action,
+          fn,
+          eventId,
+        );
+        event.onEvent(this.viewport, id);
+        return id;
+      },
+      remove: (eventId) => {
+        event.removeEvent(this.viewport, eventId);
+      },
+      on: (eventId) => {
+        event.onEvent(this.viewport, eventId);
+      },
+      off: (eventId) => {
+        event.offEvent(this.viewport, eventId);
+      },
+      get: (eventId) => {
+        return event.getEvent(this.viewport, eventId);
+      },
+      getAll: () => {
+        return event.getAllEvent(this.viewport);
+      },
     };
   }
 }

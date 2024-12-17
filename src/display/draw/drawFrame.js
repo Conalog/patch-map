@@ -23,7 +23,7 @@ export const drawFrame = (viewport, data, opts = {}) => {
         container.id = item.id;
         container.type = key;
         container.label = item.name;
-        container.interactive = false;
+        container.interactive = true;
         container.properties = properties;
         container.position.set(properties.transform.x, properties.transform.y);
         container.angle = properties.transform.rotation;
@@ -61,7 +61,7 @@ export const drawFrame = (viewport, data, opts = {}) => {
       container.id = key;
       container.type = key;
       container.zIndex = 10;
-      container.interactive = false;
+      container.interactive = true;
 
       for (const item of items) {
         const properties = item.properties;
