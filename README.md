@@ -1,6 +1,9 @@
 # PATCH MAP 라이브러리
 
-본 라이브러리는 [pixijs](https://github.com/pixijs/pixijs) 라이브러리를 이용하여 PATCH 서비스의 요구사항에 맞는 PATCH MAP을 제공하고자 함
+본 라이브러리는 `pixijs` 라이브러리를 이용하여 PATCH 서비스의 요구사항에 맞는 PATCH MAP을 제공하고자 함
+
+- [pixijs](https://github.com/pixijs/pixijs)
+- [pixi-viewport](https://github.com/pixi-viewport/pixi-viewport)
 
 
 ## Setup
@@ -9,6 +12,30 @@
 ```
 npm install patch-map
 ```
+
+### import
+```
+import { PatchMap } from 'patch-map';
+```
+
+### Basic Usage Example
+```
+import { PatchMap } from 'patch-map';
+
+(async () => {
+  const body = document.body;
+
+  // Create a new patchMap
+  const patchMap = new PatchMap();
+
+  // Initialize
+  await patchMap.init(element);
+
+  // patchMap render
+  patchMap.draw(data);
+})()
+```
+
 
 <br/>
 <br/>

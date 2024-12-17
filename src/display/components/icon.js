@@ -1,56 +1,57 @@
 import { Sprite } from 'pixi.js';
-import { getAsset } from '../../assets/asset';
-import { findComponents } from '../../utils/find';
-import { getCenterPointObject } from '../../utils/get';
+import { getAsset } from '../../assets/utils';
+import { deepMerge } from '../../utils/merge';
+import { ICON_COMPONENT_CONFIG } from './config';
+import { setPosiionCenter } from '../utils';
+import { getNestedValue } from '../../utils/get';
 
-export const iconComponent = (
-  assetName,
-  {
-    id = null,
-    x = 0,
-    y = 0,
-    parent = null,
-    size = 16,
-    color = '#1A1A1A',
-    frame = null,
-    zIndex = 0,
-  },
-) => {
-  if (!assetName) {
-    console.warn('변수 assetName이 전달되지 않았습니다.');
-    return;
-  }
-  const texture = getAsset(`icons-${assetName}`);
+export const iconComponent = (name, theme, opts = {}) => {
+  const options = deepMerge(ICON_COMPONENT_CONFIG, opts);
+
+  const texture = getAsset(`icons-${name}`);
   if (!texture) {
-    console.warn(`${texture}에 해당하는 aaset이 존재하지 않습니다.`);
+    console.warn(`${name}에 해당하는 aaset이 존재하지 않습니다.`);
     return;
   }
-  try {
-    const icon = new Sprite(texture);
-    if (frame) {
-      const centerPoint = getCenterPointObject(frame);
-      icon.anchor.set(0.5);
-      icon.position.set(centerPoint.x, centerPoint.y);
-    } else {
-      icon.anchor.set(1);
-      icon.position.set(x, y);
-    }
-    icon.setSize(size);
-    icon.assetName = 'icon';
-    icon.label = id;
-    icon.zIndex = zIndex;
-    icon.tint = color;
-    icon.eventMode = 'none';
-    if (parent) parent.addChild(icon);
-    return icon;
-  } catch (e) {
-    console.error(e);
-    throw e;
+
+  const icon = new Sprite(texture);
+  icon.setSize(options.size);
+  if (options.frame) {
+    setPosiionCenter(options.frame, icon);
+  } else {
+    icon.position.set(options.x, options.y);
   }
+  icon.type = 'icon';
+  icon.label = options.label;
+  icon.zIndex = options.zIndex;
+  if (options?.tint || options.color) {
+    const tint = options.tint ?? getNestedValue(theme, options.color);
+    if (tint) icon.tint = tint;
+  }
+  icon.eventMode = 'none';
+  if (options.parent) {
+    options.parent.addChild(icon);
+  }
+  icon.option = {
+    name,
+    color: options.color,
+    zIndex: options.zIndex,
+  };
+  return icon;
 };
 
-export const changeIconComponent = (frame, newAssetName) => {
-  const iconAsset = getAsset(`icons-${newAssetName}`);
-  const { icon } = findComponents(frame.label, [frame.parent]);
-  icon.texture = iconAsset;
+export const updateIconComponent = (component, theme, opts = {}) => {
+  if (opts.name) {
+    const texture = getAsset(`icons-${opts.name}`);
+    if (texture) component.texture = texture;
+    component.option.name = opts.name;
+  }
+  if (opts.tint || opts.color) {
+    const tint = opts.tint ?? getNestedValue(theme, opts.color);
+    if (tint) component.tint = tint;
+  }
+  if (opts.zIndex) {
+    component.zIndex = opts.zIndex;
+    component.option.zIndex = opts.zIndex;
+  }
 };

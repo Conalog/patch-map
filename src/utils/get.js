@@ -23,3 +23,8 @@ export const getPadding = (padding) => {
     : padding || {};
   return { left, top, right, bottom };
 };
+
+export const getNestedValue = (object, path = null) => {
+  if (!path) return null;
+  return path.split('.').reduce((acc, key) => (acc ? acc[key] : null), object);
+};

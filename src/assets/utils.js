@@ -1,30 +1,44 @@
-import { Graphics } from 'pixi.js';
-const RESOLUTION = 5;
+import { Assets } from 'pixi.js';
 
-export const generateTexture = (
-  app,
-  { target, borderWidth = 0, resolution = RESOLUTION },
-) => {
-  const texture = app.renderer.generateTexture({ target, resolution });
-  if (borderWidth > 0) {
-    texture.defaultAnchor = {
-      x: (borderWidth / 2 / 40) * 0.9,
-      y: (borderWidth / 2 / 40) * 0.9,
-    };
-  }
-  texture.borderWidth = borderWidth;
-  return texture;
+export const getAsset = (key) => {
+  return Assets.get(key);
 };
 
-export const defaultRoundedRect = ({
-  fill,
-  borderWidth,
-  borderColor,
-  radius,
-}) => {
-  const rect = new Graphics();
-  rect.roundRect(0, 0, 40, 40, radius);
-  rect.fill(fill);
-  if (borderWidth) rect.stroke({ width: borderWidth, color: borderColor });
-  return rect;
+export const loadAsset = (key) => {
+  return Assets.load(key);
+};
+
+export const addAsset = (key, src) => {
+  Assets.add({ alias: key, src });
+};
+
+export const loadAssetBundle = (bundleId) => {
+  return Assets.loadBundle(bundleId);
+};
+
+export const addAssetBundle = (bundleId, assets) => {
+  Assets.addBundle(bundleId, assets);
+};
+
+export const transformManifest = (data) => {
+  return {
+    bundles: Object.entries(data).map(([name, assets]) => ({
+      name,
+      assets: Object.entries(assets)
+        .filter(([_, details]) => !details.isDisabled)
+        .map(([alias, details]) => ({
+          alias,
+          src: details.src,
+          data: { resolution: 3 },
+        })),
+    })),
+  };
+};
+
+export const assets = {
+  getAsset,
+  loadAsset,
+  addAsset,
+  loadAssetBundle,
+  addAssetBundle,
 };
