@@ -36,17 +36,17 @@
 
 ### NPM Install
 ```sh
-npm install patch-map
+npm install @conalog/patch-map
 ```
 
 ### import
 ```js
-import { PatchMap } from 'patch-map';
+import { PatchMap } from '@conalog/patch-map';
 ```
 
 ### 기본 사용 예시
 ```js
-import { PatchMap } from 'patch-map';
+import { PatchMap } from '@conalog/patch-map';
 
 (async () => {
   const body = document.body;
@@ -55,10 +55,10 @@ import { PatchMap } from 'patch-map';
   const patchMap = new PatchMap();
 
   // Initialize
-  await patchMap.init(element);
+  await patchMap.init(body);
 
   // patchMap render
-  patchMap.draw(data);
+  patchMap.draw({ mapData: data });
 })()
 ```
 
@@ -68,11 +68,10 @@ import { PatchMap } from 'patch-map';
 ```html
 <script>
   import { onMount } from 'svelte';
-  import { PatchMap } from 'patch-map';
+  import { PatchMap } from '@conalog/patch-map';
 
   onMount(async () => {
     const panelmapData = await getPanelmap();
-    const data = await getData();
 
     const element = document.getElementById('patchmap');
     const patchMap = new PatchMap();
@@ -82,12 +81,6 @@ import { PatchMap } from 'patch-map';
 
   const getPanelmap = async () => {
     const response = await fetch('panelmap.json');
-    const result = await response.json();
-    return result;
-  };
-
-  const getData = async () => {
-    const response = await fetch('data.json');
     const result = await response.json();
     return result;
   };

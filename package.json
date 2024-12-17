@@ -1,8 +1,8 @@
 {
 	"type": "module",
-	"name": "patch-map",
+	"name": "@conalog/patch-map",
 	"version": "0.0.1",
-	"description": "",
+	"description": "본 라이브러리는 `pixijs` 라이브러리를 이용하여 PATCH 서비스의 요구사항에 맞는 PATCH MAP을 제공하고자 함",
 	"exports": {
 		"import": "./dist/index.esm.js",
 		"require": "./dist/index.cjs.js",
@@ -41,5 +41,13 @@
 		"@rollup/plugin-url": "^8.0.2",
 		"rollup": "^4.28.1",
 		"typescript": "^5.7.2"
-	}
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Conalog/patch-map.git"
+	},
+	"bugs": {
+		"url": "https://github.com/Conalog/patch-map/issues"
+	},
+	"homepage": "https://github.com/Conalog/patch-map#readme"
 }
