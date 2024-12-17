@@ -6,6 +6,18 @@
 - [pixi-viewport](https://github.com/pixi-viewport/pixi-viewport)
 
 
+## 목차
+- [Setup](#setup)
+  - [NPM Install](#npm-install)
+  - [import](#import)
+  - [기본 사용 예시](#기본-사용-예시)
+- [init(el, options)](#initel-options)
+  - [app](#app)
+  - [viewport](#viewport)
+  - [theme](#theme)
+  - [asset](#asset)
+  - [texture](#texture)
+
 ## Setup
 
 ### NPM Install
@@ -18,7 +30,7 @@ npm install patch-map
 import { PatchMap } from 'patch-map';
 ```
 
-### Basic Usage Example
+### 기본 사용 예시
 ```
 import { PatchMap } from 'patch-map';
 
@@ -36,6 +48,211 @@ import { PatchMap } from 'patch-map';
 })()
 ```
 
+<details>
+  <summary>svelte</summary>
+  
+    <script>
+      import { onMount } from 'svelte';
+      import { PatchMap } from 'patch-map';
+
+      onMount(async () => {
+        const panelmapData = await getPanelmap();
+        const data = await getData();
+
+        const element = document.getElementById('patchmap');
+        const patchMap = new PatchMap();
+        await patchMap.init(element);
+        patchMap.draw({ mapData: panelmapData });
+      });
+
+      const getPanelmap = async () => {
+        const response = await fetch('panelmap.json');
+        const result = await response.json();
+        return result;
+      };
+
+      const getData = async () => {
+        const response = await fetch('data.json');
+        const result = await response.json();
+        return result;
+      };
+    </script>
+
+    <main class="flex h-svh w-full flex-col">
+      <div id="patchmap" class="h-full grow"></div>
+    </main>
+</details>
+
+
+
+
+
+
+
+## init(el, options)
+- `app` - `pixijs`의 [ApplicationOptions](https://pixijs.download/release/docs/app.ApplicationOptions.html) 참고
+  ```
+  // default options
+  {
+    background: '#FAFAFA',
+    antialias: true,
+    autoStart: true,
+    autoDensity: true,
+    useContextAlpha: true,
+    resolution: 2,
+  }
+  ```
+- `viewport` - `pixi-viewport`의 [ViewportOptions](https://pixi-viewport.github.io/pixi-viewport/jsdoc/Viewport.html#Viewport) 참고
+  - `plugins` - `pixi-viewport`의 plugins을 추가하거나 기본 동작 diable 가능
+  ```
+  // default options
+  {
+    passiveWheel: false,
+    plugins: {
+      clampZoom: { minScale: 0.5, maxScale: 30 },
+      drag: {},
+      wheel: {},
+      pinch: {},
+      decelerate: {},
+    },
+  }
+  ```
+
+- `theme` - `PATCH MAP`에 사용될 색상 테마
+  ```
+  // default options
+  {
+    primary: {
+      default: '#0C73BF',
+      dark: '#083967',
+    },
+    gray: {
+      light: '#9EB3C3',
+      default: '#D9D9D9',
+      dark: '#71717A',
+    },
+    red: {
+      default: '#EF4444',
+    },
+    white: '#FFFFFF',
+    black: '#1A1A1A',
+  }
+  ```
+- `asset` - svg/png 등 asset 설정
+  ```
+  {
+    icons: {
+      inverter: {
+        src: icons.inverter,
+      },
+      combine: {
+        src: icons.combine,
+      },
+      edge: {
+        src: icons.edge,
+      },
+      device: {
+        src: icons.device,
+      },
+      loading: {
+        src: icons.loading,
+      },
+      warning: {
+        src: icons.warning,
+      },
+      wifi: {
+        src: icons.wifi
+      },
+    },
+  }
+  ```
+- `texture` - 개발 중
+
+### **Example**
+```
+init(el, {
+  app: {
+    background: '#CCC'
+  },
+  viewport: {
+    plugins: {
+      decelerate: {
+        disabled: true
+      }
+    }
+  },
+  assets: {
+    icons: {
+      wifi: {
+        disabled: true
+      }
+    }
+  }
+})
+```
+
+## draw(options)
+- `mapData` - `PATCH MAP`에 사용될 map data
+- `grids`, `strings`, `inverters`, `combines`, `edges` map data의 객체 key
+  - `show` - 해당 객체를 보여줄지 여부
+  - `frame` - 해당 객체에 사용할 frame 이름
+  - `components` - 해당 객체별로 보여줄 컴포넌트 종류
+    - `bar`, `icon`, `text` 각 컴포넌트 보여줄 수 있음
+      - `show` - 해당 컴포넌트 보여줄지 여부
+      - `name` - 해당 컴포넌트에 쓰일 asset 이름
+      - `color` - 해당 컴포넌트의 색상
+
+### **example**
+```
+draw({
+  mapData: data,
+  grids: {
+    components: {
+      icon: {
+        show: true
+        name: 'loading',
+      },
+      bar: {
+        show: true,
+        color: 'primary.dark'
+      },
+      text: {
+        show: false
+      }
+    }
+  }
+})
+```
+
+## Events
+
+### add(type, action, fn, eventId)
+- `type` - 각 type(grid, inverter, edge)별로 이벤트를 등록할 수 있음
+- `action` - `pixijs`의 이벤트
+  - `click`, `pointerdown`, `rightclick` 등
+- `fn` - 이벤트에 등록할 함수, 매개변수로 `event` 전달됨
+- `eventId` - 해당 event를 쉽게 찾기 위해 Id 전달 가능함 (옵션)
+
+### remove(eventId)
+전달된 `eventId`로 등록된 이벤트 삭제함
+
+### on(eventId)
+전달된 `eventId`에 해당하는 이벤트 활성화
+
+### off(eventId)
+전달된 `eventId`에 해당하는 이벤트 비활성화
+
+### get(eventId)
+전달된 `eventId`에 해당하는 이벤트 반환함
+
+### getAll()
+등록되어 있는 이벤트 모두 반환함
+
+<br/>
+<br/>
+
+---
+---
 
 <br/>
 <br/>
