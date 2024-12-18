@@ -40,7 +40,9 @@ export const onEvent = (viewport, eventId = '') => {
 
   const containers = findContainers(viewport, event.containerType);
   for (const container of containers) {
-    container.on(event.action, event.fn);
+    event.action.split(' ').forEach((action) => {
+      container.on(action, event.fn);
+    });
   }
 };
 
@@ -53,7 +55,9 @@ export const offEvent = (viewport, eventId = '') => {
 
   const containers = findContainers(viewport, event.containerType);
   for (const container of containers) {
-    container.off(event.action, event.fn);
+    event.action.split(' ').forEach((action) => {
+      container.off(action, event.fn);
+    });
   }
 };
 
