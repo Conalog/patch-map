@@ -1,6 +1,6 @@
 import { deepMerge } from '../../../utils/merge';
-import { createDefaultRect, generateTexture } from '../utils';
 import { FRAME_CONFIG } from '../config';
+import { createDefaultRect, generateTexture } from '../utils';
 
 export const base = (app, opts = {}) => {
   const options = deepMerge({ ...FRAME_CONFIG.options, name: 'base' }, opts);

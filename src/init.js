@@ -1,13 +1,13 @@
-import { Assets } from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
-import * as viewportEvents from './events/viewport';
-import { deepMerge } from './utils/merge';
-import { THEME_CONFIG } from './configs/theme';
+import { Assets } from 'pixi.js';
 import { icons } from './assets/icons';
-import { transformManifest } from './assets/utils';
+import { bars } from './assets/textures/bars';
 import { frames } from './assets/textures/frames';
 import { addTexture } from './assets/textures/utils';
-import { bars } from './assets/textures/bars';
+import { transformManifest } from './assets/utils';
+import { THEME_CONFIG } from './configs/theme';
+import * as viewportEvents from './events/viewport';
+import { deepMerge } from './utils/merge';
 
 const DEFAULT_INIT_OPTIONS = {
   app: {

@@ -1,6 +1,6 @@
 import { Container } from 'pixi.js';
-import { frameComponent } from '../components/frame';
 import { findContainers } from '../../utils/find';
+import { frameComponent } from '../components/frame';
 
 const GRID_CONFIG = {
   scale: 40,

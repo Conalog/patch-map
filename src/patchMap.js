@@ -1,13 +1,13 @@
 import { Application } from 'pixi.js';
-import { THEME_CONFIG } from './configs/theme';
-import { deepMerge } from './utils/merge';
-import { initApp, initAssets, initTextures, initViewport } from './init';
-import { assets } from './assets/utils';
 import { addTexture, generateTexture } from './assets/textures/utils';
+import { assets } from './assets/utils';
+import { THEME_CONFIG } from './configs/theme';
 import { components } from './display/components';
-import { draw } from './display/draw';
 import { DRAW_DEFAULT_OPTIONS } from './display/config';
+import { draw } from './display/draw';
 import { event } from './events/container';
+import { initApp, initAssets, initTextures, initViewport } from './init';
+import { deepMerge } from './utils/merge';
 
 export class PatchMap {
   _app = null;

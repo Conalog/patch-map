@@ -1,7 +1,7 @@
 import { NineSliceSprite } from 'pixi.js';
+import { getAsset } from '../../assets/utils';
 import { getNestedValue, getPadding } from '../../utils/get';
 import { deepMerge } from '../../utils/merge';
-import { getAsset } from '../../assets/utils';
 import { BAR_COMPONENT_CONFIG } from './config';
 
 export const barComponent = (name, frame, theme, opts = {}) => {

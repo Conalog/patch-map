@@ -1,9 +1,9 @@
 import { Sprite } from 'pixi.js';
 import { getAsset } from '../../assets/utils';
-import { deepMerge } from '../../utils/merge';
-import { ICON_COMPONENT_CONFIG } from './config';
-import { setPosiionCenter } from '../utils';
 import { getNestedValue } from '../../utils/get';
+import { deepMerge } from '../../utils/merge';
+import { setPosiionCenter } from '../utils';
+import { ICON_COMPONENT_CONFIG } from './config';
 
 export const iconComponent = (name, theme, opts = {}) => {
   const options = deepMerge(ICON_COMPONENT_CONFIG, opts);

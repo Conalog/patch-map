@@ -1,0 +1,63 @@
+name: "💡 Feature Request"
+description: "Suggest a new feature or improvement"
+title: "Feature: "
+labels: ['💡 Feature Request']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please describe the requested feature or improvement.
+
+  - type: input
+    id: summary
+    # 요약: 제안하는 기능 또는 개선사항의 간략한 설명. (필수)
+    attributes:
+      label: "Summary"
+      description: "A brief summary of the requested feature.\n제안하는 기능 또는 개선사항의 간략한 설명."
+      placeholder: "e.g. 'Add a new option to configure X'"
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    # 상세 설명: 왜 이 기능이 필요한지, 어떤 문제를 해결하는지 구체적으로 작성. (필수)
+    attributes:
+      label: "Detailed Description"
+      description: "Explain why the feature is needed and what it should do.\n왜 이 기능이 필요한지, 어떤 문제를 해결하는지 구체적으로 작성."
+      placeholder: "Describe the feature in detail, including rationale."
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_cases
+    # 사용 사례: 이 기능이 실제 사용될 상황, 예제, 시나리오를 제시. (필수)
+    attributes:
+      label: "Use Cases / Examples"
+      description: "How will this feature be used? Provide concrete examples or scenarios.\n이 기능이 실제 사용될 상황, 예제, 시나리오를 제시."
+      placeholder: "1. User sets option X to true and observes Y behavior.\n2. Used in combination with Z for a workflow."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    # 고려한 대안: 다른 방법이나 우회로가 있는 경우 기재. (선택)
+    attributes:
+      label: "Alternatives Considered"
+      description: "If applicable, mention alternative solutions or workarounds you've considered.\n다른 방법이나 우회로가 있는 경우 기재."
+      placeholder: "Optional"
+
+  - type: textarea
+    id: additional_context
+    # 추가 정보: 관련된 링크, 이슈, 참고 사항 등 자유롭게 기재. (선택)
+    attributes:
+      label: "Additional Context"
+      description: "Any other context, related issues, or links.\n관련된 링크, 이슈, 참고 사항 등 자유롭게 기재."
+      placeholder: "Optional"
+
+  - type: markdown
+    attributes:
+      value: |
+        **Conventional Commits & Semantic Versioning Reminder:**
+        - Consider using `fix:` for bug fixes.
+        - If you submit a PR, `fix:` commits result in a patch release.
+        - For more info, see [Conventional Commits](https://www.conventionalcommits.org/) and [SemVer](https://semver.org/).

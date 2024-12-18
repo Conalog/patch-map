@@ -17,5 +17,3 @@ export const getDifferentValues = (obj1, obj2) => {
   }
   return differences;
 };
-
-

@@ -1,47 +1,56 @@
 {
-	"type": "module",
-	"name": "@conalog/patch-map",
-	"version": "0.0.1",
-	"description": "본 라이브러리는 `pixijs` 라이브러리를 이용하여 PATCH 서비스의 요구사항에 맞는 PATCH MAP을 제공하고자 함",
-	"license": "MIT",
-	"author": "Conalog",
-	"keywords": [],
-	"homepage": "https://github.com/Conalog/patch-map#readme",
-	"bugs": "https://github.com/Conalog/patch-map/issues",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/Conalog/patch-map.git"
-	},
-	"exports": {
-		"import": "./dist/index.esm.js",
-		"require": "./dist/index.cjs.js",
-		"types": "./dist/index.d.ts"
-	},
-	"main": "dist/index.cjs.js",
-	"module": "dist/index.esm.js",
-	"types": "dist/index.d.ts",
-	"scripts": {
-		"build": "tsc && rollup -c",
-		"format": "biome format",
-		"lint": "biome check",
-		"lint:fix": "biome check . --apply"
-	},
-	"files": ["dist"],
-	"dependencies": {
-		"deepmerge": "^4.3.1",
-		"is-plain-object": "^5.0.0",
-		"uuid": "^11.0.3"
-	},
-	"peerDependencies": {
-		"pixi-viewport": "^6.0.3",
-		"pixi.js": "^8.6.3"
-	},
-	"devDependencies": {
-		"typescript": "^5.7.2",
-		"@biomejs/biome": "1.9.4",
-		"rollup": "^4.28.1",
-		"@rollup/plugin-commonjs": "^28.0.1",
-		"@rollup/plugin-node-resolve": "^15.3.0",
-		"@rollup/plugin-url": "^8.0.2"
-	}
+  "type": "module",
+  "name": "@conalog/patch-map",
+  "version": "0.0.1",
+  "description": "본 라이브러리는 `pixijs` 라이브러리를 이용하여 PATCH 서비스의 요구사항에 맞는 PATCH MAP을 제공하고자 함",
+  "license": "MIT",
+  "author": "Conalog",
+  "keywords": [],
+  "homepage": "https://github.com/Conalog/patch-map#readme",
+  "bugs": "https://github.com/Conalog/patch-map/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Conalog/patch-map.git"
+  },
+  "commitlint": {
+    "extends": ["@commitlint/config-conventional"]
+  },
+  "exports": {
+    "import": "./dist/index.esm.js",
+    "require": "./dist/index.cjs.js",
+    "types": "./dist/index.d.ts"
+  },
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc && rollup -c",
+    "format": "biome format",
+    "lint": "biome check",
+    "lint:fix": "biome check . --apply",
+    "prepare": "husky",
+    "release": "standard-version"
+  },
+  "files": ["dist"],
+  "dependencies": {
+    "deepmerge": "^4.3.1",
+    "is-plain-object": "^5.0.0",
+    "uuid": "^11.0.3"
+  },
+  "peerDependencies": {
+    "pixi-viewport": "^6.0.3",
+    "pixi.js": "^8.6.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "@commitlint/cli": "^19.6.1",
+    "@commitlint/config-conventional": "^19.6.0",
+    "@rollup/plugin-commonjs": "^28.0.1",
+    "@rollup/plugin-node-resolve": "^15.3.0",
+    "@rollup/plugin-url": "^8.0.2",
+    "husky": "^9.1.7",
+    "rollup": "^4.28.1",
+    "standard-version": "^9.5.0",
+    "typescript": "^5.7.2"
+  }
 }

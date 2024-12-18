@@ -1,14 +1,12 @@
 import { findComponents, findContainers } from '../utils/find';
-import { getDifferentValues } from './utils';
+import { updateBarComponent } from './components/bar';
+import { updateFrameComponent } from './components/frame';
+import { updateIconComponent } from './components/icon';
 import { drawComponents } from './draw/drawComponents';
 import { drawFrame } from './draw/drawFrame';
-import { updateBarComponent } from './components/bar';
-import { updateIconComponent } from './components/icon';
-import { updateFrameComponent } from './components/frame';
+import { getDifferentValues } from './utils';
 
 export const draw = (viewport, isNewData, opts = {}) => {
-  const { updateMode, mapData } = opts;
-
   if (isNewData) {
     drawFrame(viewport, opts.mapData, opts);
   }

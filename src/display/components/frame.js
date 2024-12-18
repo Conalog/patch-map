@@ -1,7 +1,7 @@
 import { NineSliceSprite } from 'pixi.js';
+import { getAsset } from '../../assets/utils';
 import { deepMerge } from '../../utils/merge';
 import { FRAME_COMPONENT_CONFIG } from './config';
-import { getAsset } from '../../assets/utils';
 
 export const frameComponent = (name, opts = {}) => {
   const options = deepMerge(FRAME_COMPONENT_CONFIG, opts);
@@ -38,8 +38,8 @@ export const frameComponent = (name, opts = {}) => {
     options.parent.addChild(frame);
   }
   frame.option = {
-    name
-  }
+    name,
+  };
   return frame;
 };
 

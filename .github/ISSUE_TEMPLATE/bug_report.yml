@@ -1,0 +1,75 @@
+name: "🐞 Bug Report"
+description: "Something is wrong with PATCH-MAP"
+title: "Bug: "
+labels: ['🐞 Bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please fill out the following details to help us diagnose and fix the issue.
+
+  - type: input
+    id: summary
+    # 요약: 버그 현상을 간략히 기재. (필수)
+    attributes:
+      label: "Summary"
+      description: "A brief description of the bug.\n버그 현상을 간략히 기재."
+      placeholder: "e.g. 'Crash when calling myFunction()'"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    # 재현 절차: 버그를 재현하기 위한 단계별 설명. (필수)
+    attributes:
+      label: "Steps to Reproduce"
+      description: "List the steps to reproduce the bug.\n버그를 재현하기 위한 단계별 설명."
+      placeholder: "1. Install the package\n2. Run `myFunction()`\n3. Observe the error"
+    validations:
+      required: true
+
+  - type: input
+    id: expected_behavior
+    # 기대 동작: 정상적으로 동작했을 때의 예상 결과. (필수)
+    attributes:
+      label: "Expected Behavior"
+      description: "What did you expect to happen?\n정상적으로 동작했을 때의 예상 결과."
+      placeholder: "e.g. 'The function should return a result without errors.'"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    # 실제 동작: 관찰된 문제 상황과 에러 로그, 스크린샷 등. (필수)
+    attributes:
+      label: "Actual Behavior"
+      description: "What actually happened? Include error messages, logs, or screenshots if possible.\n관찰된 문제 상황과 에러 로그, 스크린샷 등."
+      placeholder: "Provide logs, error messages, or screenshots."
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    # 환경 정보: 패키지 버전, Node.js 버전, OS 등 상세 기술. (필수)
+    attributes:
+      label: "Environment"
+      description: "Package version, Node.js version, OS, etc.\n패키지 버전, Node.js 버전, OS 등 상세 기술."
+      placeholder: "Package: 1.2.3, Node: 14.17.0, npm: 7.19.0, OS: macOS 11.5"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    # 추가 정보: 관련된 다른 이슈나 특이사항 등을 기재. (선택)
+    attributes:
+      label: "Additional Context"
+      description: "Any other details or links to related issues/PRs.\n관련된 다른 이슈나 특이사항 등을 기재."
+      placeholder: "Optional"
+
+  - type: markdown
+    attributes:
+      value: |
+        **Conventional Commits & Semantic Versioning Reminder:**
+        - Consider using `fix:` for bug fixes.
+        - If you submit a PR, `fix:` commits result in a patch release.
+        - For more info, see [Conventional Commits](https://www.conventionalcommits.org/) and [SemVer](https://semver.org/).
