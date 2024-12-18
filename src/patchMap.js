@@ -5,7 +5,7 @@ import { THEME_CONFIG } from './configs/theme';
 import { components } from './display/components';
 import { DRAW_DEFAULT_OPTIONS } from './display/config';
 import { draw } from './display/draw';
-import { event } from './events/container';
+import { event } from './events/canvas';
 import { initApp, initAssets, initTextures, initViewport } from './init';
 import { deepMerge } from './utils/merge';
 
@@ -99,14 +99,8 @@ export class PatchMap {
 
   event() {
     return {
-      add: (containerType, action, fn, eventId) => {
-        const id = event.addEvent(
-          this.viewport,
-          containerType,
-          action,
-          fn,
-          eventId,
-        );
+      add: (type, action, fn, opts = {}) => {
+        const id = event.addEvent(this.viewport, type, action, fn, opts);
         event.onEvent(this.viewport, id);
         return id;
       },
