@@ -3,20 +3,22 @@ import { findContainers } from '../utils/find';
 
 export const addEvent = (
   viewport,
-  containerType = '',
+  type = '',
   action = '',
   fn = () => {},
-  eventId = uuidv4(),
+  opts = {},
 ) => {
+  const { eventId = uuidv4(), options = {} } = opts;
   if (eventId in viewport.componentEvents) {
     notEventConsole(eventId);
     return;
   }
 
   viewport.componentEvents[eventId] = {
-    containerType,
+    type,
     action,
     fn,
+    options,
   };
   return eventId;
 };
@@ -38,11 +40,16 @@ export const onEvent = (viewport, eventId = '') => {
     return;
   }
 
-  const containers = findContainers(viewport, event.containerType);
-  for (const container of containers) {
-    event.action.split(' ').forEach((action) => {
-      container.on(action, event.fn);
-    });
+  const actions = event.action.split(' ');
+  for (const action of actions) {
+    if (event.type === 'canvas') {
+      viewport.addEventListener(action, event.fn, event.options);
+    } else {
+      const containers = findContainers(viewport, event.type);
+      for (const container of containers) {
+        container.addEventListener(action, event.fn, event.options);
+      }
+    }
   }
 };
 
@@ -53,11 +60,16 @@ export const offEvent = (viewport, eventId = '') => {
     return;
   }
 
-  const containers = findContainers(viewport, event.containerType);
-  for (const container of containers) {
-    event.action.split(' ').forEach((action) => {
-      container.off(action, event.fn);
-    });
+  const actions = event.action.split(' ');
+  for (const action of actions) {
+    if (event.type === 'canvas') {
+      viewport.removeEventListener(action, event.fn, event.options);
+    } else {
+      const containers = findContainers(viewport, event.type);
+      for (const container of containers) {
+        container.removeEventListener(action, event.fn, event.options);
+      }
+    }
   }
 };
 
