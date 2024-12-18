@@ -9,6 +9,8 @@ import { THEME_CONFIG } from './configs/theme';
 import * as viewportEvents from './events/viewport';
 import { deepMerge } from './utils/merge';
 
+class _Canvas extends Viewport {}
+
 const DEFAULT_INIT_OPTIONS = {
   app: {
     background: '#FAFAFA',
@@ -124,7 +126,7 @@ export const initViewport = (app, opts = {}) => {
     },
     opts,
   );
-  const viewport = new Viewport(options);
+  const viewport = new _Canvas(options);
   viewport.plugins.addItems = (plugins = {}) =>
     viewportEvents.addPlugins(viewport, plugins);
   viewport.plugins.removeItems = (plugins = []) =>
