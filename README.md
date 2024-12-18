@@ -258,7 +258,7 @@ event().add('canvas', 'click', (e) => {
 #### double click
 - `pixijs` [addEventListener](https://pixijs.download/release/docs/scene.Container.html#addEventListener) 참고
 ```js
-eventId = patchMap.event().add('canvas', 'click', (e) => {
+event().add('canvas', 'click', (e) => {
   let prefix;
   switch (e.detail) {
     case 1:
