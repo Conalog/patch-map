@@ -235,8 +235,8 @@ draw({
 - `action` - `pixijs`의 이벤트
   - `click`, `pointerdown`, `rightclick` 등
 - `fn` - 이벤트에 등록할 함수, 매개변수로 `event` 전달됨
-- `options` - 기타 이벤트 옵션
-  - `eventId` - 해당 event를 쉽게 찾기 위해 Id 전달 가능함 (선택)
+- `options` - 기타 이벤트 옵션 (선택)
+  - `eventId` - 해당 event를 쉽게 찾기 위해 Id 전달 가능함
   - `options` - [AddEventListenerOptions](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#options) 참고
 ```js
 event().add('grids', 'click', (e) => {
@@ -245,7 +245,7 @@ event().add('grids', 'click', (e) => {
 ```
 
 #### canvas
-- canvas에 이벤트를 등록하고자 한다면 `canvas` type을 사용할 것
+- canvas에 이벤트를 등록하고자 한다면 type `canvas`을 사용할 것
 ```js
 event().add('canvas', 'click', (e) => {
   if (e.target.constructor.name === '_Canvas') {
