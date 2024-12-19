@@ -187,6 +187,7 @@ Supports customization for various map elements such as grids, inverters, combin
 - `grids`, `strings`, `inverters`, `combines`, `edges` - Configuration for individual map elements.  
   - `show` - Toggle visibility of the element.  
   - `frame` - Specifies the frame to use for the element.  
+    (default frames include: ***`base`***, ***`base-selected`***, ***`icon`***, ***`icon-selected`***)
   - `components` - Defines the components to display for each element,  
   including: `bar`, `icon`, `text`
 
@@ -196,6 +197,8 @@ Common Options (applies to all components):
 
 Specific Options:  
 - `name` (bar, icon only) - Asset name used for the component.  
+  (default bars include: ***`base`***)  
+  (default icons include: ***`inverter`***, ***`combine`***, ***`edge`***, ***`device`***, ***`loading`***, ***`warning`***, ***`wifi`***)
 - `color` (bar, icon only) - Specifies the color of the component using the theme key, such as `'white'`, `'black'`, `'primary.default'`, or `'gray.light'`.
   
 #### **Example:**
