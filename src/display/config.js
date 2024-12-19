@@ -4,12 +4,11 @@ export const DRAW_DEFAULT_OPTIONS = {
   grids: {
     show: true,
     frame: 'base',
-    // [{id: '123', value: 123}]
-    data: null,
     components: {
       bar: {
         show: false,
         name: 'base',
+        color: 'black',
         minPercentHeight: 0.1,
         percentHeight: 0,
       },
@@ -20,17 +19,16 @@ export const DRAW_DEFAULT_OPTIONS = {
       },
       text: {
         show: false,
+        color: 'black',
       },
     },
   },
   strings: {
     show: false,
-    data: null,
   },
   inverters: {
     show: true,
     frame: 'icon',
-    data: null,
     components: {
       icon: {
         show: true,
@@ -42,7 +40,6 @@ export const DRAW_DEFAULT_OPTIONS = {
   combines: {
     show: true,
     frame: 'icon',
-    data: null,
     components: {
       icon: {
         show: true,
@@ -54,7 +51,6 @@ export const DRAW_DEFAULT_OPTIONS = {
   edges: {
     show: true,
     frame: 'icon',
-    data: null,
     components: {
       icon: {
         show: true,
