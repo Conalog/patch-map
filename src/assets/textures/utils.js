@@ -33,10 +33,10 @@ export const createDefaultRect = ({
   } else {
     rect.rect(0, 0, FRAME_CONFIG.size.width, FRAME_CONFIG.size.height);
   }
+  rect.fill(fill);
   if (borderWidth) {
     rect.stroke({ width: borderWidth, color: borderColor });
   }
-  rect.fill(fill);
   return rect;
 };
 
