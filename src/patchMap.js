@@ -72,6 +72,31 @@ export class PatchMap {
     update(this.viewport, { ...opts, theme: this.theme });
   }
 
+  event() {
+    return {
+      add: (type, action, fn, opts = {}) => {
+        const id = event.addEvent(this.viewport, type, action, fn, opts);
+        event.onEvent(this.viewport, id);
+        return id;
+      },
+      remove: (eventId) => {
+        event.removeEvent(this.viewport, eventId);
+      },
+      on: (eventId) => {
+        event.onEvent(this.viewport, eventId);
+      },
+      off: (eventId) => {
+        event.offEvent(this.viewport, eventId);
+      },
+      get: (eventId) => {
+        return event.getEvent(this.viewport, eventId);
+      },
+      getAll: () => {
+        return event.getAllEvent(this.viewport);
+      },
+    };
+  }
+
   asset() {
     return {
       get: assets.getAsset,
@@ -95,31 +120,6 @@ export class PatchMap {
       bar: components.bar,
       icon: components.icon,
       text: components.text,
-    };
-  }
-
-  event() {
-    return {
-      add: (type, action, fn, opts = {}) => {
-        const id = event.addEvent(this.viewport, type, action, fn, opts);
-        event.onEvent(this.viewport, id);
-        return id;
-      },
-      remove: (eventId) => {
-        event.removeEvent(this.viewport, eventId);
-      },
-      on: (eventId) => {
-        event.onEvent(this.viewport, eventId);
-      },
-      off: (eventId) => {
-        event.offEvent(this.viewport, eventId);
-      },
-      get: (eventId) => {
-        return event.getEvent(this.viewport, eventId);
-      },
-      getAll: () => {
-        return event.getAllEvent(this.viewport);
-      },
     };
   }
 }
