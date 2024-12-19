@@ -4,6 +4,8 @@ import { textComponent } from '../components/text';
 
 export const drawComponents = (frame, componentOptions = {}, theme = {}) => {
   for (const [compoType, compoOpt] of Object.entries(componentOptions)) {
+    if (!('show' in compoOpt)) continue;
+
     if (compoOpt.show) {
       if (compoType in frame.components) {
         frame.components[compoType].renderable = true;

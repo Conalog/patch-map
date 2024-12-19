@@ -9,11 +9,9 @@ export const draw = (viewport, isNewData, opts = {}) => {
 
   const containers = findContainers(viewport);
   for (const container of containers) {
-    const componentOptions = opts[container.type].components ?? {};
     const frames = findComponents('frame', [container]);
-
     for (const frame of frames) {
-      drawUpdate(frame, componentOptions, opts.theme);
+      drawUpdate(frame, opts[container.type], opts.theme);
     }
   }
 };

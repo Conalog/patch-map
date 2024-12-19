@@ -7,20 +7,23 @@ import { updateFrame } from './update/updateFrame';
 import { getDifferentValues } from './utils';
 
 export const drawUpdate = (frame, changes, theme) => {
-  drawComponents(frame, changes, theme);
+  drawComponents(frame, changes.components, theme);
 
   if (frame.option.name !== changes.frame) {
     updateFrame(frame, { name: changes.frame });
   }
 
-  for (const [type, component] of Object.entries(frame.components)) {
-    if (!component.renderable) continue;
-    const options = getDifferentValues(component.option, changes[type]);
+  if (changes.components && typeof changes.components === 'object') {
+    for (const [type, change] of Object.entries(changes.components)) {
+      const component = frame.components[type];
+      if (!component || !component.renderable) continue;
 
-    if (type === 'icon') {
-      updateIconComponent(component, theme, options);
-    } else if (type === 'bar') {
-      updateBarComponent(component, theme, options);
+      const options = getDifferentValues(component.option, change);
+      if (type === 'icon') {
+        updateIconComponent(component, theme, options);
+      } else if (type === 'bar') {
+        updateBarComponent(component, theme, options);
+      }
     }
   }
 };
