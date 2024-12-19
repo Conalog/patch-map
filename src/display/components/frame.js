@@ -1,6 +1,7 @@
 import { NineSliceSprite } from 'pixi.js';
 import { getAsset } from '../../assets/utils';
 import { deepMerge } from '../../utils/merge';
+import { getBorderPadding } from '../utils';
 import { FRAME_COMPONENT_CONFIG } from './config';
 
 export const frameComponent = (name, opts = {}) => {
@@ -42,13 +43,3 @@ export const frameComponent = (name, opts = {}) => {
   };
   return frame;
 };
-
-export const updateFrameComponent = (component, opts = {}) => {
-  if (opts.name) {
-    const texture = getAsset(`frames-${opts.name}`);
-    if (texture) component.texture = texture;
-    component.option.name = opts.name;
-  }
-};
-
-const getBorderPadding = (borderWidth) => (borderWidth ? borderWidth / 2 : 0);

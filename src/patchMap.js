@@ -4,7 +4,8 @@ import { assets } from './assets/utils';
 import { THEME_CONFIG } from './configs/theme';
 import { components } from './display/components';
 import { DRAW_DEFAULT_OPTIONS } from './display/config';
-import { draw } from './display/draw';
+import { draw } from './display/draw/draw';
+import { update } from './display/update/update';
 import { event } from './events/canvas';
 import { initApp, initAssets, initTextures, initViewport } from './init';
 import { deepMerge } from './utils/merge';
@@ -30,10 +31,6 @@ export class PatchMap {
 
   get theme() {
     return this._theme;
-  }
-
-  get data() {
-    return this._data;
   }
 
   _setTheme(opts = {}) {
@@ -69,6 +66,10 @@ export class PatchMap {
     });
     const isNewMapData = 'mapData' in opts && typeof opts.mapData === 'object';
     draw(this.viewport, isNewMapData, this._setOptions);
+  }
+
+  update(opts = {}) {
+    update(this.viewport, { ...opts, theme: this.theme });
   }
 
   asset() {
