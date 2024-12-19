@@ -23,6 +23,9 @@ It enables flexible and fast creation of 2D content.
     - [Options](#options-1)
     - [Component Options](#component-options)
     - [Example](#example-1)
+  - [update(options)](#updateoptions)
+    - [Options](#options-2)
+    - [Example](#example-2)
   - [event()](#event)
     - [Methods](#methods)
       - [add(type, action, fn, options)](#addtype-action-fn-options)
@@ -180,20 +183,20 @@ Render map data on the canvas.
 Supports customization for various map elements such as grids, inverters, combines, and edges.
 
 #### **`Options`**
-- `mapData`: The primary data used for rendering the map.  
-- `grids`, `strings`, `inverters`, `combines`, `edges`: Configuration for individual map elements.  
-  - `show`: Toggle visibility of the element.  
-  - `frame`: Specifies the frame to use for the element.  
-  - `components`: Defines the components to display for each element,  
+- `mapData` - The primary data used for rendering the map.  
+- `grids`, `strings`, `inverters`, `combines`, `edges` - Configuration for individual map elements.  
+  - `show` - Toggle visibility of the element.  
+  - `frame` - Specifies the frame to use for the element.  
+  - `components` - Defines the components to display for each element,  
   including: `bar`, `icon`, `text`
 
 #### **Component Options**
 Common Options (applies to all components):  
-- `show`: Toggle visibility of the component.  
+- `show` - Toggle visibility of the component.  
 
 Specific Options:  
-- `name` (bar, icon only): Asset name used for the component.  
-- `color` (bar, icon only): Specifies the color of the component using the theme key, such as `'white'`, `'black'`, `'primary.default'`, or `'gray.light'`.
+- `name` (bar, icon only) - Asset name used for the component.  
+- `color` (bar, icon only) - Specifies the color of the component using the theme key, such as `'white'`, `'black'`, `'primary.default'`, or `'gray.light'`.
   
 #### **Example:**
 ```js
@@ -211,6 +214,33 @@ draw({
 
 <br/>
 
+### `update(options)`
+Updates the state of specific objects on the canvas. Use this to change properties like color or text visibility for already rendered objects.
+
+#### **`Options`**
+- `ids`(required, string | string[]) - The ID or list of IDs of the objects to update.
+- `changes`(required, object) - The new properties to apply (e.g., color, text.show).
+
+#### **Example:**
+
+##### ***Single ID***
+```js
+update({
+  ids: 'grid1',
+  changes: { frame: 'base-selected' }
+})
+```
+
+##### ***Multiple IDs***
+```js
+update({
+  ids: ['grid1', 'grid2'],
+  changes: { components: { bar: { color: 'red.default' } } }
+})
+```
+
+<br/>
+
 ### `event()`
 Add interactivity with events for different components such as `grids`, `inverters`, `edges`, and even the canvas itself.
 
@@ -218,11 +248,11 @@ Add interactivity with events for different components such as `grids`, `inverte
 
 ##### `add(type, action, fn, options)`
 Registers an event for a specific component type.
-- `type`: Specifies the target for the event (e.g., `'grids'`, `'inverters'`, `'edges'`, or `'canvas'`).  
-- `action`: The event type to listen for (e.g., `'click'`, `'pointerdown'`, `'rightclick'`). Multiple actions can be registered simultaneously using a space-separated string. (e.g., `'click tap'`)
-- `fn`: The callback function to execute when the event is triggered. Receives the event object as a parameter.  
-- `options` (optional): Additional options for event configuration.
-  - `eventId`: A unique identifier for the event, useful for managing it later.  
+- `type` - Specifies the target for the event (e.g., `'grids'`, `'inverters'`, `'edges'`, or `'canvas'`).  
+- `action` - The event type to listen for (e.g., `'click'`, `'pointerdown'`, `'rightclick'`). Multiple actions can be registered simultaneously using a space-separated string. (e.g., `'click tap'`)
+- `fn` - The callback function to execute when the event is triggered. Receives the event object as a parameter.  
+- `options` (optional) - Additional options for event configuration.
+  - `eventId` - A unique identifier for the event, useful for managing it later.  
   - Other options are passed to [AddEventListenerOptions](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#options).
 ```js
 event().add('grids', 'click', (e) => {

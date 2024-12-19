@@ -17,3 +17,6 @@ export const getDifferentValues = (obj1, obj2) => {
   }
   return differences;
 };
+
+export const getBorderPadding = (borderWidth) =>
+  borderWidth ? borderWidth / 2 : 0;

@@ -16,6 +16,19 @@ export const findContainer = (viewport, id) => {
   return viewport.children.find((child) => child.id === id) ?? null;
 };
 
+export const findComponent = (viewport, type, id) => {
+  const containers = findContainers(viewport);
+  for (const container of containers) {
+    const find = container.children.find(
+      (child) => child.type === type && child.label === id,
+    );
+    if (find) {
+      return find;
+    }
+  }
+  return null;
+};
+
 export const findComponents = (type, containers = []) => {
   const components = [];
   for (const container of containers) {
