@@ -20,11 +20,11 @@
   "exports": {
     "import": "./dist/index.esm.js",
     "require": "./dist/index.cjs.js",
-    "types": "./dist/index.d.ts"
+    "types": "./dist/types/src/patchMap.d.ts"
   },
   "main": "dist/index.cjs.js",
   "module": "dist/index.esm.js",
-  "types": "dist/index.d.ts",
+  "types": "dist/types/src/patchMap.d.ts",
   "scripts": {
     "build": "tsc && rollup -c",
     "format": "biome format",
