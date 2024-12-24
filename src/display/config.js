@@ -12,11 +12,18 @@ export const DRAW_DEFAULT_OPTIONS = {
   panelGroups: {
     show: true,
     frame: 'base',
-    zIndex: 10,
+    components: {
+      icon: {
+        show: true,
+        name: 'loading',
+        color: 'black',
+      },
+    },
   },
   inverters: {
     show: true,
     frame: 'icon',
+    zIndex: 10,
     components: {
       icon: {
         show: true,
@@ -28,6 +35,7 @@ export const DRAW_DEFAULT_OPTIONS = {
   edges: {
     show: true,
     frame: 'icon',
+    zIndex: 10,
     components: {
       icon: {
         show: true,
@@ -39,6 +47,7 @@ export const DRAW_DEFAULT_OPTIONS = {
   combines: {
     show: true,
     frame: 'icon',
+    zIndex: 10,
     components: {
       icon: {
         show: true,
