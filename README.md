@@ -186,6 +186,7 @@ Supports customization for various map elements such as panelGroups, inverters, 
 - `mapData` - The primary data used for rendering the map.  
   - If you are using the legacy panel map data schema, it is essential to insert the converted data using the `convertLegacyData` method.
 - `panelGroups`, `strings`, `inverters`, `combines`, `edges` - Configuration for individual map elements.  
+  - **Note:** This is where you specify the `group` for logical grouping of objects as defined in the Object Schema below.  
   - `show` - Toggle visibility of the element.  
   - `frame` - Specifies the frame to use for the element.  
     (default frames include: ***`base`***, ***`base-selected`***, ***`icon`***, ***`icon-selected`***)
