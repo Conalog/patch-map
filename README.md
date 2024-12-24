@@ -180,12 +180,12 @@ init(el, {
 
 ### `draw(options)`
 Render map data on the canvas.  
-Supports customization for various map elements such as grids, inverters, combines, and edges.
+Supports customization for various map elements such as panelGroups, inverters, combines, and edges.
 
 #### **`Options`**
 - `mapData` - The primary data used for rendering the map.  
   - If you are using the legacy panel map data schema, it is essential to insert the converted data using the `convertLegacyData` method.
-- `grids`, `strings`, `inverters`, `combines`, `edges` - Configuration for individual map elements.  
+- `panelGroups`, `strings`, `inverters`, `combines`, `edges` - Configuration for individual map elements.  
   - `show` - Toggle visibility of the element.  
   - `frame` - Specifies the frame to use for the element.  
     (default frames include: ***`base`***, ***`base-selected`***, ***`icon`***, ***`icon-selected`***)
@@ -234,7 +234,7 @@ Specific Options:
 ```js
 draw({
   mapData: data,
-  grids: {
+  panelGroups: {
     components: {
       bar: { show: true, name: 'base', color: 'primary.default' },
       icon: { show: true, name: 'loading', color: 'red.default' },
@@ -258,7 +258,7 @@ Updates the state of specific objects on the canvas. Use this to change properti
 ##### ***Single ID***
 ```js
 update({
-  ids: 'grid1',
+  ids: 'objectId1',
   changes: { frame: 'base-selected' }
 })
 ```
@@ -266,7 +266,7 @@ update({
 ##### ***Multiple IDs***
 ```js
 update({
-  ids: ['grid1', 'grid2'],
+  ids: ['objectId1', 'objectId2'],
   changes: { components: { bar: { color: 'red.default' } } }
 })
 ```
@@ -274,29 +274,29 @@ update({
 <br/>
 
 ### `event()`
-Add interactivity with events for different components such as `grids`, `inverters`, `edges`, and even the canvas itself.
+Add interactivity with events for different components such as `panelGroups`, `inverters`, `edges`, and even the canvas itself.
 
 #### **Methods**
 
 ##### `add(type, action, fn, options)`
 Registers an event for a specific component type.
-- `type` - Specifies the target for the event (e.g., `'grids'`, `'inverters'`, `'edges'`, or `'canvas'`).  
+- `type` - Specifies the target for the event (e.g., `'panelGroups'`, `'inverters'`, `'edges'`, or `'canvas'`).  
 - `action` - The event type to listen for (e.g., `'click'`, `'pointerdown'`, `'rightclick'`). Multiple actions can be registered simultaneously using a space-separated string. (e.g., `'click tap'`)
 - `fn` - The callback function to execute when the event is triggered. Receives the event object as a parameter.  
 - `options` (optional) - Additional options for event configuration.
   - `eventId` - A unique identifier for the event, useful for managing it later.  
   - Other options are passed to [AddEventListenerOptions](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#options).
 ```js
-event().add('grids', 'click', (e) => {
-  console.log('Grid clicked: ', e.target.id);
-}, { eventId: 'grid-click' });
+event().add('panelGroups', 'click', (e) => {
+  console.log('panelGroup clicked: ', e.target.id);
+}, { eventId: 'panelGroup-click' });
 ```
 
 
 ##### `remove(eventId)`
 Remove an event:
 ```js
-event().remove('grid-click');
+event().remove('panelGroup-click');
 ```
 
 
@@ -328,9 +328,9 @@ event().add('canvas', 'click', (e) => {
 ##### ***Double Click Handling***
 PixiJS supports detecting multiple clicks using the detail property of events. Refer to the pixijs [addEventListener documentation](https://pixijs.download/release/docs/scene.Container.html#addEventListener) for more details.
 ```js
-event().add('grids', 'click', (e) => {
+event().add('panelGroups', 'click', (e) => {
   if (e.detail === 2) {
-    console.log('Double click detected on grid:', e.target.id);
+    console.log('Double click detected on panelGroup:', e.target.id);
   }
 });
 ```
@@ -338,8 +338,8 @@ event().add('grids', 'click', (e) => {
 ##### ***Multiple Actions***
 You can register multiple actions in one call by separating them with a space.
 ```js
-patchMap.event().add('grids', 'click pointerdown', (e) => {
-  console.log('Grid event: ', e.target.id);
+patchMap.event().add('panelGroups', 'click pointerdown', (e) => {
+  console.log('panelGroup event: ', e.target.id);
 });
 ```
 
