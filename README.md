@@ -201,8 +201,36 @@ Specific Options:
   (default bars include: ***`base`***)  
   (default icons include: ***`inverter`***, ***`combine`***, ***`edge`***, ***`device`***, ***`loading`***, ***`warning`***, ***`wifi`***)
 - `color` (bar, icon only) - Specifies the color of the component using the theme key, such as `'white'`, `'black'`, `'primary.default'`, or `'gray.light'`.
-  
-#### **Example:**
+
+#### **mapData Schema Definition**
+
+##### ***Root Schema***
+| Key | Type | Description | Required |
+|-----|------|-------------|----------|
+| `objects` | `Array<Object>` | List of objects to render. Each object must follow the structure defined below. | Yes |
+
+##### ***Object Schema***
+| Key | Type | Description | Required |
+|-----|------|-------------|----------|
+| `type` | `string` | The type of the object. Must be either `grid` or `each`. | Yes |
+| `group` | `string` | Group identifier for logical grouping of objects. | Yes |
+| `id` | `string` | Unique identifier for the object. | Yes |
+| `name` | `string` | Human-readable name for the object. | No |
+| `layout` | `Array<Array<number>>` | 2D array defining the object's layout (only applicable to `type: grid`). | Yes |
+| `transform` | `Object` | Defines the position, rotation, and dimensions of the object. | Yes |
+| `metadata` | `Object` | Additional metadata for the object. Example: custom properties or user data. | No |
+
+##### ***Transform Schema***
+| Key | Type | Description | Required |
+|-----|------|-------------|----------|
+| `x` | `number` | X-coordinate of the object. | Yes |
+| `y` | `number` | Y-coordinate of the object. | Yes |
+| `width` | `number` | Width of the object. | No |
+| `height` | `number` | Height of the object. | No |
+| `rotation` | `number` | Rotation of the object in degrees. (only applicable to `type: grid`). | No |
+
+
+#### ***Example:***
 ```js
 draw({
   mapData: data,
