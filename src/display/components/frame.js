@@ -9,11 +9,12 @@ export const frameComponent = (name, opts = {}) => {
 
   const texture = getAsset(`frames-${name}`);
   if (!texture) {
-    console.warn(`${name}에 해당하는 aaset이 존재하지 않습니다.`);
+    console.warn(`No asset exists for ${name}.`);
     return;
   }
 
   const textureMetadata = texture.metadata;
+
   const frame = new NineSliceSprite({
     texture,
     ...textureMetadata.slice,
@@ -24,20 +25,22 @@ export const frameComponent = (name, opts = {}) => {
       (options.height ?? textureMetadata.defaultHeight) +
       textureMetadata.borderWidth,
   });
+  frame.id = options.id;
   frame.type = 'frame';
   frame.label = options.label;
-  frame.metadata = {
-    x: options.x,
-    y: options.y,
+  frame.interactive = true;
+  frame._props = {
+    x: options.x ?? 0,
+    y: options.y ?? 0,
     width: options.width ?? textureMetadata.defaultWidth,
     height: options.height ?? textureMetadata.defaultHeight,
   };
-  frame.components = {};
   const borderWidth = getBorderPadding(textureMetadata.borderWidth);
   frame.position.set(options.x - borderWidth, options.y - borderWidth);
   if (options.parent) {
     options.parent.addChild(frame);
   }
+  frame.components = {};
   frame.option = {
     name,
   };

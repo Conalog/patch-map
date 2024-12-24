@@ -184,6 +184,7 @@ Supports customization for various map elements such as grids, inverters, combin
 
 #### **`Options`**
 - `mapData` - The primary data used for rendering the map.  
+  - If you are using the legacy panel map data schema, it is essential to insert the converted data using the `convertLegacyData` method.
 - `grids`, `strings`, `inverters`, `combines`, `edges` - Configuration for individual map elements.  
   - `show` - Toggle visibility of the element.  
   - `frame` - Specifies the frame to use for the element.  

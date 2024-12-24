@@ -1,5 +1,5 @@
 import { Cache, Graphics } from 'pixi.js';
-import { THEME_CONFIG } from '../../configs/theme';
+import { THEME_CONFIG } from '../../config/theme';
 import { deepMerge } from '../../utils/merge';
 import { FRAME_CONFIG } from './config';
 

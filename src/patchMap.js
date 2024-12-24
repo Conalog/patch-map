@@ -1,13 +1,13 @@
 import { Application } from 'pixi.js';
-import { addTexture, generateTexture } from './assets/textures/utils';
+import {} from './assets/textures/utils';
 import { assets } from './assets/utils';
-import { THEME_CONFIG } from './configs/theme';
-import { components } from './display/components';
+import { THEME_CONFIG } from './config/theme';
 import { DRAW_DEFAULT_OPTIONS } from './display/config';
 import { draw } from './display/draw/draw';
 import { update } from './display/update/update';
 import { event } from './events/canvas';
 import { initApp, initAssets, initTextures, initViewport } from './init';
+import { convertLegacyData } from './utils/convert';
 import { deepMerge } from './utils/merge';
 
 export class PatchMap {
@@ -97,6 +97,10 @@ export class PatchMap {
     };
   }
 
+  convertLegacyData(data) {
+    return convertLegacyData(data);
+  }
+
   asset() {
     return {
       get: assets.getAsset,
@@ -107,19 +111,19 @@ export class PatchMap {
     };
   }
 
-  texture() {
-    return {
-      add: addTexture,
-      create: generateTexture,
-    };
-  }
+  // texture() {
+  //   return {
+  //     add: addTexture,
+  //     create: generateTexture,
+  //   };
+  // }
 
-  component() {
-    return {
-      frame: components.frame,
-      bar: components.bar,
-      icon: components.icon,
-      text: components.text,
-    };
-  }
+  // component() {
+  //   return {
+  //     frame: components.frame,
+  //     bar: components.bar,
+  //     icon: components.icon,
+  //     text: components.text,
+  //   };
+  // }
 }

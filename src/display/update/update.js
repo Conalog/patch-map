@@ -1,5 +1,7 @@
 import { findComponent } from '../../utils/find';
-import { drawUpdate } from '../drawUpdate';
+import { drawComponents } from '../draw/components';
+import { updateComponents } from './components';
+import { updateFrame } from './frame';
 
 export const update = (viewport, { ids, changes, theme } = {}) => {
   if (!ids) {
@@ -13,5 +15,13 @@ export const update = (viewport, { ids, changes, theme } = {}) => {
   for (const id of idArray) {
     const frame = findComponent(viewport, 'frame', id);
     drawUpdate(frame, changes, theme);
+  }
+};
+
+export const drawUpdate = (frame, changes, theme) => {
+  updateFrame(frame, { name: changes.frame });
+  if (changes.components && typeof changes.components === 'object') {
+    drawComponents(frame, changes.components, theme);
+    updateComponents(frame, changes.components, theme);
   }
 };

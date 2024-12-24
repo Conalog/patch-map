@@ -1,26 +1,44 @@
-import { Container } from 'pixi.js';
+export const findContainers = (viewport, group = null) => {
+  const results = [];
+  traverse(viewport);
+  return results;
 
-export const findContainers = (viewport, type = null) => {
-  let containers = [];
-  if (type) {
-    containers = viewport.children.filter((child) => child.type === type);
-  } else {
-    containers = viewport.children.filter(
-      (child) => child instanceof Container,
-    );
+  function traverse(container) {
+    for (const child of container.children) {
+      if (child.type === 'container') {
+        if (!group || child.group === group) {
+          results.push(child);
+        }
+        traverse(child);
+      }
+    }
   }
-  return containers;
 };
 
 export const findContainer = (viewport, id) => {
-  return viewport.children.find((child) => child.id === id) ?? null;
+  let result = null;
+  traverse(viewport);
+  return result;
+
+  function traverse(container) {
+    for (const child of container.children) {
+      if (child.type === 'container') {
+        if (child.id === id) {
+          result = child;
+          return;
+        }
+        traverse(child);
+        if (result) return;
+      }
+    }
+  }
 };
 
 export const findComponent = (viewport, type, id) => {
   const containers = findContainers(viewport);
   for (const container of containers) {
     const find = container.children.find(
-      (child) => child.type === type && child.label === id,
+      (child) => child.type === type && child.id === id,
     );
     if (find) {
       return find;

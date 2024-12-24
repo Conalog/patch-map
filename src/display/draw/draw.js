@@ -1,17 +1,16 @@
 import { findComponents, findContainers } from '../../utils/find';
-import { drawUpdate } from '../drawUpdate';
-import { drawFrame } from './drawFrame';
+import { drawUpdate } from '../update/update';
+import { drawFrame } from './frame';
 
 export const draw = (viewport, isNewData, opts = {}) => {
   if (isNewData) {
-    drawFrame(viewport, opts.mapData, opts);
+    drawFrame(viewport, opts.mapData.objects, opts);
   }
 
   const containers = findContainers(viewport);
-  for (const container of containers) {
-    const frames = findComponents('frame', [container]);
-    for (const frame of frames) {
-      drawUpdate(frame, opts[container.type], opts.theme);
-    }
+  const frames = findComponents('frame', containers);
+  for (const frame of frames) {
+    if (!opts[frame.parent.group]) continue;
+    drawUpdate(frame, opts[frame.parent.group], opts.theme);
   }
 };

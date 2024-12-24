@@ -4,22 +4,25 @@ import { getNestedValue, getPadding } from '../../utils/get';
 import { deepMerge } from '../../utils/merge';
 import { BAR_COMPONENT_CONFIG } from './config';
 
-export const barComponent = (name, frame, theme, opts = {}) => {
+export const barComponent = (name, theme, opts = {}) => {
   const options = deepMerge(BAR_COMPONENT_CONFIG, opts);
+
+  if (!opts.frame) throw 'The frame option is missing.';
 
   const texture = getAsset(`bars-${name}`);
   if (!texture) {
-    console.warn(`${name}에 해당하는 aaset이 존재하지 않습니다.`);
+    console.warn(`No asset exists for ${name}.`);
     return;
   }
 
-  const metadata = {
-    max: getBarMaxSize(frame),
-    percentWidth: options.percentWidth,
-    percentHeight: Math.max(options.minPercentHeight, options.percentHeight),
-  };
-  const width = metadata.max.width * metadata.percentWidth;
-  const height = metadata.max.height * metadata.percentHeight;
+  const percentWidth = options.percentWidth;
+  const percentHeight = Math.max(
+    options.minPercentHeight,
+    options.percentHeight,
+  );
+  const maxSize = getBarMaxSize(options.frame);
+  const width = maxSize.width * percentWidth;
+  const height = maxSize.height * percentHeight;
 
   const bar = new NineSliceSprite({
     texture,
@@ -27,25 +30,30 @@ export const barComponent = (name, frame, theme, opts = {}) => {
     width,
     height,
   });
-  setBarPosition(frame, bar);
+  setBarPosition(options.frame, bar);
   bar.type = 'bar';
   bar.label = options.label;
   bar.zIndex = options.zIndex;
-  if (options.tint || options.color) {
-    const tint = options.tint ?? getNestedValue(theme, options.color);
-    if (tint) bar.tint = tint;
+  bar.renderable = options.show ?? false;
+  if (options.color) {
+    bar.tint = options.color.startsWith('#')
+      ? options.color
+      : getNestedValue(theme, options.color);
   }
   bar.eventMode = 'none';
-  bar.metadata = metadata;
   if (options.parent) {
     options.parent.addChild(bar);
   }
   bar.option = {
     name,
+    show: bar.renderable,
     color: options.color,
     zIndex: options.zIndex,
     minPercentHeight: options.minPercentHeight,
+    percentWidth,
+    percentHeight,
   };
+  options.frame.components[bar.type] = bar;
   return bar;
 };
 

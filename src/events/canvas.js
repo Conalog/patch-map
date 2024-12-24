@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { findContainers } from '../utils/find';
+import { findContainer } from '../utils/find';
 
 export const addEvent = (
   viewport,
@@ -45,10 +45,8 @@ export const onEvent = (viewport, eventId = '') => {
     if (event.type === 'canvas') {
       viewport.addEventListener(action, event.fn, event.options);
     } else {
-      const containers = findContainers(viewport, event.type);
-      for (const container of containers) {
-        container.addEventListener(action, event.fn, event.options);
-      }
+      const container = findContainer(viewport, event.type);
+      container.addEventListener(action, event.fn, event.options);
     }
   }
 };
@@ -65,10 +63,8 @@ export const offEvent = (viewport, eventId = '') => {
     if (event.type === 'canvas') {
       viewport.removeEventListener(action, event.fn, event.options);
     } else {
-      const containers = findContainers(viewport, event.type);
-      for (const container of containers) {
-        container.removeEventListener(action, event.fn, event.options);
-      }
+      const container = findContainer(viewport, event.type);
+      container.removeEventListener(action, event.fn, event.options);
     }
   }
 };
@@ -91,5 +87,5 @@ export const event = {
 };
 
 const notEventConsole = (eventId) => {
-  console.warn(`${eventId}에 해당하는 이벤트가 존재하지 않습니다.`);
+  console.warn(`No event exists for the eventId: ${eventId}.`);
 };

@@ -8,7 +8,7 @@ export const label = (app, opts = {}) => {
     {
       ...FRAME_CONFIG.options,
       name: 'label',
-      textHeight: 20,
+      textHeight: 16,
     },
     opts,
   );
@@ -20,18 +20,18 @@ export const label = (app, opts = {}) => {
   });
 
   const dividerGraphics = new Graphics();
-  dividerGraphics.rect(0, options.textHeight, 40, 2);
+  dividerGraphics.rect(0, 0, FRAME_CONFIG.size.width, 2);
+  dividerGraphics.position.set(0, options.textHeight);
   dividerGraphics.fill(options.borderColor);
 
   const container = new Container();
-  container.addChild(frame);
-  container.addChild(dividerGraphics);
+  container.addChild(frame, dividerGraphics);
 
   const texture = generateTexture(app, container);
   texture.label = options.label;
   texture.metadata = {
     name: 'label',
-    slic: {
+    slice: {
       leftWidth: options.borderWidth + 6,
       topHeight: options.textHeight + 6,
       rightWidth: options.borderWidth + 6,
@@ -41,7 +41,7 @@ export const label = (app, opts = {}) => {
     defaultHeight: options.defaultHeight,
     padding: {
       left: options.borderWidth + 2,
-      top: options.borderWidth + 2 + options.textHeight + 1,
+      top: options.borderWidth + dividerGraphics.y + dividerGraphics.height + 2,
       right: options.borderWidth + 2,
       bottom: options.borderWidth + 2,
     },
