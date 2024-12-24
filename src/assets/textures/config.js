@@ -1,4 +1,4 @@
-import { THEME_CONFIG } from '../../configs/theme';
+import { THEME_CONFIG } from '../../config/theme';
 
 export const FRAME_CONFIG = {
   size: {

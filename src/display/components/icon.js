@@ -10,7 +10,7 @@ export const iconComponent = (name, theme, opts = {}) => {
 
   const texture = getAsset(`icons-${name}`);
   if (!texture) {
-    console.warn(`${name}에 해당하는 aaset이 존재하지 않습니다.`);
+    console.warn(`No asset exists for ${name}.`);
     return;
   }
 
@@ -23,10 +23,12 @@ export const iconComponent = (name, theme, opts = {}) => {
   }
   icon.type = 'icon';
   icon.label = options.label;
-  icon.zIndex = options.zIndex;
-  if (options?.tint || options.color) {
-    const tint = options.tint ?? getNestedValue(theme, options.color);
-    if (tint) icon.tint = tint;
+  icon.zIndex = options.zIndex ?? 0;
+  icon.renderable = options.show ?? false;
+  if (options.color) {
+    icon.tint = options.color.startsWith('#')
+      ? options.color
+      : getNestedValue(theme, options.color);
   }
   icon.eventMode = 'none';
   if (options.parent) {
@@ -34,8 +36,10 @@ export const iconComponent = (name, theme, opts = {}) => {
   }
   icon.option = {
     name,
+    show: icon.renderable,
     color: options.color,
-    zIndex: options.zIndex,
+    zIndex: icon.zIndex,
   };
+  options.frame.components[icon.type] = icon;
   return icon;
 };

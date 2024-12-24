@@ -5,7 +5,7 @@ import { bars } from './assets/textures/bars';
 import { frames } from './assets/textures/frames';
 import { addTexture } from './assets/textures/utils';
 import { transformManifest } from './assets/utils';
-import { THEME_CONFIG } from './configs/theme';
+import { THEME_CONFIG } from './config/theme';
 import * as viewportEvents from './events/viewport';
 import { deepMerge } from './utils/merge';
 
@@ -32,6 +32,9 @@ const DEFAULT_INIT_OPTIONS = {
   },
   assets: {
     icons: {
+      object: {
+        src: icons.object,
+      },
       inverter: {
         src: icons.inverter,
       },

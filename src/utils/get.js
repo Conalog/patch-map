@@ -1,7 +1,7 @@
 export const getCenterPointObject = (object) => {
   const { x, y } = object.position;
   const { width, height } = object;
-  const { padding = 0 } = object.metadata;
+  const { padding = 0 } = object.texture.metadata;
   const { left = 0, top = 0, right = 0, bottom = 0 } = getPadding(padding);
   const adjustedWidth = width - (left + right);
   const adjustedHeight = height - (top + bottom);
