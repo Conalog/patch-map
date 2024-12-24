@@ -288,7 +288,7 @@ Registers an event for a specific component type.
   - Other options are passed to [AddEventListenerOptions](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#options).
 ```js
 event().add('grids', 'click', (e) => {
-  console.log('Grid clicked: ', e.target.label);
+  console.log('Grid clicked: ', e.target.id);
 }, { eventId: 'grid-click' });
 ```
 
@@ -330,7 +330,7 @@ PixiJS supports detecting multiple clicks using the detail property of events. R
 ```js
 event().add('grids', 'click', (e) => {
   if (e.detail === 2) {
-    console.log('Double click detected on grid:', e.target.label);
+    console.log('Double click detected on grid:', e.target.id);
   }
 });
 ```
@@ -339,7 +339,7 @@ event().add('grids', 'click', (e) => {
 You can register multiple actions in one call by separating them with a space.
 ```js
 patchMap.event().add('grids', 'click pointerdown', (e) => {
-  console.log('Grid event: ', e.target.label);
+  console.log('Grid event: ', e.target.id);
 });
 ```
 
