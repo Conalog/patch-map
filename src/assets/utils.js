@@ -1,14 +1,7 @@
 import { Assets } from 'pixi.js';
 
-export const addAsset = async (assets) => {
-  if (Array.isArray(assets)) {
-    for (const asset of assets) {
-      await addAsset(asset);
-    }
-  } else if (typeof assets === 'object') {
-    Assets.add({ data: { resolution: 3 }, ...assets });
-    await loadAsset(assets.alias);
-  }
+export const addAsset = (assets) => {
+  Assets.add(assets);
 };
 
 export const loadAsset = async (urls, onProgress) => {
@@ -19,9 +12,8 @@ export const getAsset = (keys) => {
   return Assets.get(keys);
 };
 
-export const addAssetBundle = async (bundleId, assets) => {
+export const addAssetBundle = (bundleId, assets) => {
   Assets.addBundle(bundleId, assets);
-  await loadAssetBundle(bundleId);
 };
 
 export const loadAssetBundle = async (bundleIds, onProgress) => {
