@@ -1,23 +1,31 @@
 import { Assets } from 'pixi.js';
 
-export const getAsset = (key) => {
-  return Assets.get(key);
+export const addAsset = async (assets) => {
+  if (Array.isArray(assets)) {
+    for (const asset of assets) {
+      await addAsset(asset);
+    }
+  } else if (typeof assets === 'object') {
+    Assets.add({ data: { resolution: 3 }, ...assets });
+    await loadAsset(assets.alias);
+  }
 };
 
-export const loadAsset = (key) => {
-  return Assets.load(key);
+export const loadAsset = async (urls, onProgress) => {
+  return Assets.load(urls, onProgress);
 };
 
-export const addAsset = (key, src) => {
-  Assets.add({ alias: key, src });
+export const getAsset = (keys) => {
+  return Assets.get(keys);
 };
 
-export const loadAssetBundle = (bundleId) => {
-  return Assets.loadBundle(bundleId);
-};
-
-export const addAssetBundle = (bundleId, assets) => {
+export const addAssetBundle = async (bundleId, assets) => {
   Assets.addBundle(bundleId, assets);
+  await loadAssetBundle(bundleId);
+};
+
+export const loadAssetBundle = async (bundleIds, onProgress) => {
+  return Assets.loadBundle(bundleIds, onProgress);
 };
 
 export const transformManifest = (data) => {

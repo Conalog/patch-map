@@ -103,9 +103,9 @@ export class PatchMap {
 
   asset() {
     return {
-      get: assets.getAsset,
       add: assets.addAsset,
       load: assets.loadAsset,
+      get: assets.getAsset,
       addBundle: assets.addAssetBundle,
       loadBundle: assets.loadAssetBundle,
     };
