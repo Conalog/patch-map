@@ -1,6 +1,6 @@
 import { getAsset } from '../../assets/utils';
 import { getNestedValue } from '../../utils/get';
-import { getDifferentValues } from '../utils';
+import { getDifferentValues, setPosiionCenter } from '../utils';
 
 export const updateComponents = (frame, componentOptions, theme) => {
   if (!componentOptions || typeof componentOptions !== 'object') return;
@@ -27,6 +27,7 @@ const updateBarComponent = (component, theme, options = {}) => {
 
 const updateIconComponent = (component, theme, options = {}) => {
   changeTexture(component, { assetGroup: 'icons', name: options.name });
+  changeSize(component, { size: options.size });
   changeShow(component, { show: options.show });
   changeColor(component, { theme, color: options.color });
   changeZIndex(component, { zIndex: options.zIndex });
@@ -43,6 +44,13 @@ const changeTexture = (component, { assetGroup, name }) => {
   const texture = getAsset(`${assetGroup}-${name}`);
   component.texture = texture ?? null;
   component.option.name = name;
+};
+
+const changeSize = (component, { size }) => {
+  if (!size) return;
+  component.setSize(size, size);
+  if (component.frame) setPosiionCenter(component.frame, component);
+  component.option.size = size;
 };
 
 const changeColor = (component, { color, theme }) => {

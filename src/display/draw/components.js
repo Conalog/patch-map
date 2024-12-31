@@ -11,6 +11,8 @@ export const drawComponents = (frame, componentOptions, theme) => {
         frame,
         parent: frame.parent,
         color: option.color,
+        size: option.size,
+        zIndex: option.zIndex,
       });
     } else if (type === 'bar') {
       barComponent(option.name, theme, {
@@ -18,6 +20,7 @@ export const drawComponents = (frame, componentOptions, theme) => {
         frame,
         parent: frame.parent,
         color: option.color,
+        zIndex: option.zIndex,
         percentHeight: option.percentHeight,
         minPercentHeight: option.minPercentHeight,
       });

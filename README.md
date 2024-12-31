@@ -201,14 +201,16 @@ Supports customization for various map elements such as panelGroups, inverters, 
   including: `bar`, `icon`, `text`
 
 #### **Component Options**
-Common Options (applies to all components):  
-- `show` - Toggle visibility of the component.  
+Here are the options available for components:  
+- `show` - Use this to toggle the visibility of the component as needed.  
+- `zIndex` - This determines the stacking order of the component in relation to others.  
 
 Specific Options:  
 - `name` (bar, icon only) - Asset name used for the component.  
   (default bars include: ***`base`***)  
   (default icons include: ***`inverter`***, ***`combine`***, ***`edge`***, ***`device`***, ***`loading`***, ***`warning`***, ***`wifi`***)
 - `color` (bar, icon only) - Specifies the color of the component using the theme key, such as `'white'`, `'black'`, `'primary.default'`, or `'gray.light'`.
+- `size` (icon only) - Defines the dimensions of the icon, allowing customization of its visual appearance. 
 
 #### **mapData Schema Definition**
 
