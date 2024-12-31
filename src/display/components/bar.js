@@ -44,6 +44,7 @@ export const barComponent = (name, theme, opts = {}) => {
   if (options.parent) {
     options.parent.addChild(bar);
   }
+  bar.frame = options.frame;
   bar.option = {
     name,
     show: bar.renderable,

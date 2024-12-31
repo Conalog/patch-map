@@ -34,11 +34,13 @@ export const iconComponent = (name, theme, opts = {}) => {
   if (options.parent) {
     options.parent.addChild(icon);
   }
+  icon.frame = options.frame;
   icon.option = {
     name,
     show: icon.renderable,
     color: options.color,
     zIndex: icon.zIndex,
+    size: icon.getSize().width,
   };
   options.frame.components[icon.type] = icon;
   return icon;
