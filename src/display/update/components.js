@@ -1,8 +1,17 @@
 import { getAsset } from '../../assets/utils';
-import { getDiffObjects, getNestedValue } from '../../utils/get';
+import {
+  getDiffObjects,
+  getFrameInnerSize,
+  getNestedValue,
+} from '../../utils/get';
+import { getColor } from '../../utils/get';
 import { deepMerge } from '../../utils/merge';
 import { FONT_WEIGHT } from '../components/config';
-import { formatText, getColor, setCenterPosition } from '../components/utils';
+import {
+  formatText,
+  setCenterPosition,
+  setFitFontSize,
+} from '../components/utils';
 
 export const updateComponents = (frame, componentOptions, theme) => {
   if (!componentOptions || typeof componentOptions !== 'object') return;
@@ -82,7 +91,7 @@ const changeText = (component, { content, split }) => {
   content ??= component.option.content;
   split ??= component.option.split;
   component.text = formatText(content, split);
-  if (component.frame) setCenterPosition(component, component.frame);
+  fitText(component, component.option.style.fontSize);
   component.option.content = content;
   component.option.split = split;
 };
@@ -107,5 +116,12 @@ const changeFontStyle = (component, { theme, style }) => {
       component.style[key] = value;
     }
   }
-  if (component.frame) setCenterPosition(component, component.frame);
+  fitText(component, style.fontSize);
+};
+
+const fitText = (text, fontSize) => {
+  if (fontSize === 'auto') {
+    setFitFontSize(text, getFrameInnerSize(text.frame, text.option.margin));
+  }
+  if (text.frame) setCenterPosition(text, text.frame);
 };

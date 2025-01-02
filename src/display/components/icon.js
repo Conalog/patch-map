@@ -1,8 +1,9 @@
 import { Sprite } from 'pixi.js';
 import { getAsset } from '../../assets/utils';
+import { getColor } from '../../utils/get';
 import { deepMerge } from '../../utils/merge';
 import { ICON_COMPONENT_CONFIG } from './config';
-import { getColor, setCenterPosition } from './utils';
+import { setCenterPosition } from './utils';
 
 export const iconComponent = (name, theme, opts = {}) => {
   const options = deepMerge(ICON_COMPONENT_CONFIG, opts);

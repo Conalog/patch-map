@@ -32,6 +32,7 @@ export const TEXT_COMPONENT_CONFIG = {
   },
   zIndex: 20,
   split: 4,
+  margin: 2,
 };
 
 export const FONT_WEIGHT = {

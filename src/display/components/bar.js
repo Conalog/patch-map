@@ -1,6 +1,6 @@
 import { NineSliceSprite } from 'pixi.js';
 import { getAsset } from '../../assets/utils';
-import { getNestedValue, getPadding } from '../../utils/get';
+import { getFrameInnerSize, getNestedValue, getPadding } from '../../utils/get';
 import { deepMerge } from '../../utils/merge';
 import { BAR_COMPONENT_CONFIG } from './config';
 
@@ -20,7 +20,7 @@ export const barComponent = (name, theme, opts = {}) => {
     options.minPercentHeight,
     options.percentHeight,
   );
-  const maxSize = getBarMaxSize(options.frame);
+  const maxSize = getFrameInnerSize(options.frame);
   const width = maxSize.width * percentWidth;
   const height = maxSize.height * percentHeight;
 
@@ -56,14 +56,6 @@ export const barComponent = (name, theme, opts = {}) => {
   };
   options.frame.components[bar.type] = bar;
   return bar;
-};
-
-const getBarMaxSize = (frame) => {
-  const padding = getPadding(frame.texture.metadata.padding);
-  return {
-    width: frame.width - padding.left - padding.right,
-    height: frame.height - padding.top - padding.bottom,
-  };
 };
 
 const setBarPosition = (frame, bar) => {

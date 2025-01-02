@@ -25,14 +25,15 @@ export const drawComponents = (frame, componentOptions, theme) => {
         color: option.color,
         size: option.size,
       });
-    } else if (type === 'text' && option.content) {
-      textComponent(option.content, theme, {
+    } else if (type === 'text') {
+      textComponent(option.content ?? '', theme, {
         label: frame.id,
         frame,
         parent: frame.parent,
         zIndex: option.zIndex,
         style: option.style,
         split: option.split,
+        margin: option.margin,
       });
     }
   }

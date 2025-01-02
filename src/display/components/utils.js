@@ -1,4 +1,4 @@
-import { getCenterPointObject, getNestedValue } from '../../utils/get';
+import { getCenterPointObject } from '../../utils/get';
 
 export const setPosition = (component, position = {}) => {
   component.position.set(position.x, position.y);
@@ -12,12 +12,6 @@ export const setCenterPosition = (component, frame) => {
   );
 };
 
-export const getColor = (color, theme) => {
-  return (
-    (color.startsWith('#') ? color : getNestedValue(theme, color)) ?? '#000'
-  );
-};
-
 export const formatText = (text, chunkSize) => {
   if (chunkSize === 0 || chunkSize == null) {
     return text;
@@ -27,4 +21,21 @@ export const formatText = (text, chunkSize) => {
     result += `${text.slice(i, i + chunkSize)}\n`;
   }
   return result.trim();
+};
+
+export const setFitFontSize = (text, { width, height }) => {
+  let minSize = 1;
+  let maxSize = 100;
+
+  while (minSize <= maxSize) {
+    const fontSize = Math.floor((minSize + maxSize) / 2);
+    text.style.fontSize = fontSize;
+
+    const metrics = text.getLocalBounds();
+    if (metrics.width <= width && metrics.height <= height) {
+      minSize = fontSize + 1;
+    } else {
+      maxSize = fontSize - 1;
+    }
+  }
 };

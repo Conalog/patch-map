@@ -39,6 +39,14 @@ export const getCenterPointObject = (object) => {
   };
 };
 
+export const getFrameInnerSize = (frame, margin = 0) => {
+  const padding = getPadding(frame.texture.metadata.padding);
+  return {
+    width: frame.width - padding.left - padding.right - margin * 2,
+    height: frame.height - padding.top - padding.bottom - margin * 2,
+  };
+};
+
 export const getPadding = (padding) => {
   const {
     left = 0,
@@ -53,3 +61,9 @@ export const getPadding = (padding) => {
 
 export const getBorderPadding = (borderWidth) =>
   borderWidth ? borderWidth / 2 : 0;
+
+export const getColor = (color, theme) => {
+  return (
+    (color.startsWith('#') ? color : getNestedValue(theme, color)) ?? '#000'
+  );
+};
