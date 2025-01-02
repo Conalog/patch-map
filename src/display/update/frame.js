@@ -1,5 +1,5 @@
 import { getAsset } from '../../assets/utils';
-import { getBorderPadding } from '../utils';
+import { getBorderPadding } from '../../utils/get';
 
 export const updateFrame = (component, opts = {}) => {
   if (!opts.name || component.option.name === opts.name) return;

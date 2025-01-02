@@ -1,5 +1,6 @@
 import { Viewport } from 'pixi-viewport';
 import { Assets } from 'pixi.js';
+import { firaCode } from './assets/fonts';
 import { icons } from './assets/icons';
 import { bars } from './assets/textures/bars';
 import { frames } from './assets/textures/frames';
@@ -149,7 +150,13 @@ export const initAssets = async (opts = {}) => {
   const options = deepMerge(DEFAULT_INIT_OPTIONS.assets, opts);
   const manifest = transformManifest(options);
   await Assets.init({ manifest });
-  await Assets.loadBundle(Object.keys(options));
+  Assets.addBundle('fonts', [
+    ...Object.entries(firaCode).map(([key, font]) => ({
+      alias: `firaCode-${key}`,
+      src: font,
+    })),
+  ]);
+  await Assets.loadBundle([...Object.keys(options), 'fonts']);
 };
 
 export const initTextures = (app, opts = {}) => {

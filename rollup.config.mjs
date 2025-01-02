@@ -1,22 +1,36 @@
 import commonjs from '@rollup/plugin-commonjs';
 import resolve from '@rollup/plugin-node-resolve';
-import url from '@rollup/plugin-url';
+import copy from 'rollup-plugin-copy';
 import pkg from './package.json' assert { type: 'json' };
 
 export default [
   {
-    input: 'src/patch-map.ts', // 진입점 파일
+    input: 'src/patch-map.ts',
     output: [
       {
         file: pkg.main,
-        format: 'cjs', // CommonJS 형식
+        format: 'cjs',
+        exportess: 'named',
       },
       {
         file: pkg.module,
-        format: 'esm', // ES Module 형식
+        format: 'esm',
       },
     ],
-    plugins: [resolve(), commonjs(), url({ include: ['**/*.svg'] })],
-    external: ['pixi.js'], // 외부 종속성
+    plugins: [
+      resolve(),
+      commonjs(),
+      copy({
+        targets: [{ src: 'src/**/*.svg', dest: 'dist/assets/icons' }],
+      }),
+      copy({
+        targets: [
+          { src: 'src/**/*.woff2', dest: 'dist/assets/fonts' },
+          { src: 'src/assets/fonts/OFL-1.1.txt', dest: 'dist/assets/fonts' },
+        ],
+      }),
+    ],
+    external: (id) =>
+      id === 'pixi.js' || id.endsWith('.svg') || id.endsWith('.woff2'),
   },
 ];

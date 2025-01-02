@@ -1,9 +1,9 @@
 import { Sprite } from 'pixi.js';
 import { getAsset } from '../../assets/utils';
-import { getNestedValue } from '../../utils/get';
+import { getColor } from '../../utils/get';
 import { deepMerge } from '../../utils/merge';
-import { setPosiionCenter } from '../utils';
 import { ICON_COMPONENT_CONFIG } from './config';
+import { setCenterPosition } from './utils';
 
 export const iconComponent = (name, theme, opts = {}) => {
   const options = deepMerge(ICON_COMPONENT_CONFIG, opts);
@@ -16,19 +16,13 @@ export const iconComponent = (name, theme, opts = {}) => {
 
   const icon = new Sprite(texture);
   icon.setSize(options.size);
-  if (options.frame) {
-    setPosiionCenter(options.frame, icon);
-  } else {
-    icon.position.set(options.x, options.y);
-  }
+  setCenterPosition(icon, options.frame);
   icon.type = 'icon';
   icon.label = options.label;
   icon.zIndex = options.zIndex ?? 0;
   icon.renderable = options.show ?? false;
   if (options.color) {
-    icon.tint = options.color.startsWith('#')
-      ? options.color
-      : getNestedValue(theme, options.color);
+    icon.tint = getColor(options.color, theme);
   }
   icon.eventMode = 'none';
   if (options.parent) {
