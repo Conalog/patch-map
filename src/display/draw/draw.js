@@ -13,4 +13,5 @@ export const draw = (viewport, isNewData, opts = {}) => {
     if (!opts[frame.parent.group]) continue;
     drawUpdate(frame, opts[frame.parent.group], opts.theme);
   }
+  containers.forEach((container) => container.sortChildren());
 };

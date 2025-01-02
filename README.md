@@ -438,3 +438,10 @@ For specific extensions, add their settings individually:
   }
 }
 ```
+
+## License
+- [MIT](./LICENSE)
+
+## Fira Code
+This project incorporates the [Fira Code](https://github.com/tonsky/FiraCode) font to enhance code readability.  
+Fira Code is distributed under the [SIL Open Font License, Version 1.1](https://scripts.sil.org/OFL), and a copy of the license is provided in [OFL-1.1.txt](./src/assets/fonts/OFL-1.1.txt).

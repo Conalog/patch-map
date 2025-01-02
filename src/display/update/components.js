@@ -1,6 +1,8 @@
 import { getAsset } from '../../assets/utils';
-import { getNestedValue } from '../../utils/get';
-import { getDifferentValues, setPosiionCenter } from '../utils';
+import { getDiffObjects, getNestedValue } from '../../utils/get';
+import { deepMerge } from '../../utils/merge';
+import { FONT_WEIGHT } from '../components/config';
+import { formatText, getColor, setCenterPosition } from '../components/utils';
 
 export const updateComponents = (frame, componentOptions, theme) => {
   if (!componentOptions || typeof componentOptions !== 'object') return;
@@ -9,11 +11,13 @@ export const updateComponents = (frame, componentOptions, theme) => {
     const component = frame.components[type];
     if (!component) continue;
 
-    const diffOption = getDifferentValues(component.option, change);
-    if (type === 'icon') {
-      updateIconComponent(component, theme, diffOption);
-    } else if (type === 'bar') {
+    const diffOption = getDiffObjects(component.option, change);
+    if (type === 'bar') {
       updateBarComponent(component, theme, diffOption);
+    } else if (type === 'icon') {
+      updateIconComponent(component, theme, diffOption);
+    } else if (type === 'text') {
+      updateTextComponent(component, theme, diffOption);
     }
   }
 };
@@ -33,6 +37,13 @@ const updateIconComponent = (component, theme, options = {}) => {
   changeZIndex(component, { zIndex: options.zIndex });
 };
 
+const updateTextComponent = (component, theme, options = {}) => {
+  changeShow(component, { show: options.show });
+  changeZIndex(component, { zIndex: options.zIndex });
+  changeFontStyle(component, { theme, style: options.style });
+  changeText(component, { content: options.content, split: options.split });
+};
+
 const changeShow = (component, { show }) => {
   if (show == null) return;
   component.renderable = show;
@@ -49,7 +60,7 @@ const changeTexture = (component, { assetGroup, name }) => {
 const changeSize = (component, { size }) => {
   if (!size) return;
   component.setSize(size, size);
-  if (component.frame) setPosiionCenter(component.frame, component);
+  if (component.frame) setCenterPosition(component, component.frame);
   component.option.size = size;
 };
 
@@ -64,4 +75,37 @@ const changeZIndex = (component, { zIndex }) => {
   if (!zIndex) return;
   component.zIndex = zIndex;
   component.option.zIndex = zIndex;
+};
+
+const changeText = (component, { content, split }) => {
+  if (!content && !split) return;
+  content ??= component.option.content;
+  split ??= component.option.split;
+  component.text = formatText(content, split);
+  if (component.frame) setCenterPosition(component, component.frame);
+  component.option.content = content;
+  component.option.split = split;
+};
+
+const changeFontStyle = (component, { theme, style }) => {
+  if (!style) return;
+  component.option.style = deepMerge(component.option.style, style);
+
+  if ('fill' in style) {
+    style.fill = getColor(style.fill, theme);
+  }
+
+  if ('fontFamily' in style || 'fontWeight' in style) {
+    const fontFamily = style.fontFamily ?? component.option.style.fontFamily;
+    const fontWeight = style.fontWeight ?? component.option.style.fontWeight;
+    style.fontFamily = `${fontFamily} ${FONT_WEIGHT[fontWeight]}`;
+  }
+
+  const { fontWeight, ...filteredStyle } = style;
+  for (const [key, value] of Object.entries(filteredStyle)) {
+    if (value) {
+      component.style[key] = value;
+    }
+  }
+  if (component.frame) setCenterPosition(component, component.frame);
 };
