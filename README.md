@@ -197,7 +197,7 @@ draw({
     components: {
       bar: { show: true, name: 'base', color: 'primary.default' },
       icon: { show: true, name: 'loading', color: 'red.default' },
-      text: { show: false },
+      text: { show: true, content: '123456780987', style: { fontSize: 'auto' }, split: 2, margin: 4 },
     },
   },
 });
@@ -226,8 +226,9 @@ Specific Options:
 - `color` (bar, icon only) - Specifies the color of the component using the theme key, such as `'white'`, `'black'`, `'primary.default'`, or `'gray.light'`.
 - `size` (icon only) - Defines the dimensions of the icon, allowing customization of its visual appearance. 
 - `content` (text only) - The actual text content to be displayed.
-- `style` (text only) - The styling options for the text, such as font size, color, and weight. ([Docs](https://pixijs.download/release/docs/text.TextStyleOptions.html))
+- `style` (text only) - The styling options for the text, such as fontSize (which can be set to "auto"), color, and weight. ([Docs](https://pixijs.download/release/docs/text.TextStyleOptions.html))
 - `split` (text only) - Determines how many characters to split the text into for line breaks.
+- `margin` (text only) - Margin is applied when the font size of the text component's style is set to 'auto'.
 
 
 #### **mapData Schema Definition**
