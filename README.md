@@ -189,6 +189,20 @@ init(el, {
 Render map data on the canvas.  
 Supports customization for various map elements such as panelGroups, inverters, combines, and edges.
 
+#### ***Example:***
+```js
+draw({
+  mapData: data,
+  panelGroups: {
+    components: {
+      bar: { show: true, name: 'base', color: 'primary.default' },
+      icon: { show: true, name: 'loading', color: 'red.default' },
+      text: { show: false },
+    },
+  },
+});
+```
+
 #### **`Options`**
 - `mapData` - The primary data used for rendering the map.  
   - If you are using the legacy panel map data schema, it is essential to insert the converted data using the `convertLegacyData` method.
@@ -211,6 +225,10 @@ Specific Options:
   (default icons include: ***`inverter`***, ***`combine`***, ***`edge`***, ***`device`***, ***`loading`***, ***`warning`***, ***`wifi`***)
 - `color` (bar, icon only) - Specifies the color of the component using the theme key, such as `'white'`, `'black'`, `'primary.default'`, or `'gray.light'`.
 - `size` (icon only) - Defines the dimensions of the icon, allowing customization of its visual appearance. 
+- `content` (text only) - The actual text content to be displayed.
+- `style` (text only) - The styling options for the text, such as font size, color, and weight. ([Docs](https://pixijs.download/release/docs/text.TextStyleOptions.html))
+- `split` (text only) - Determines how many characters to split the text into for line breaks.
+
 
 #### **mapData Schema Definition**
 
@@ -239,20 +257,6 @@ Specific Options:
 | `height` | `number` | Height of the object. | No |
 | `rotation` | `number` | Rotation of the object in degrees. (only applicable to `type: grid`). | No |
 
-
-#### ***Example:***
-```js
-draw({
-  mapData: data,
-  panelGroups: {
-    components: {
-      bar: { show: true, name: 'base', color: 'primary.default' },
-      icon: { show: true, name: 'loading', color: 'red.default' },
-      text: { show: false },
-    },
-  },
-});
-```
 
 <br/>
 
