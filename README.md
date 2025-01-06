@@ -191,6 +191,7 @@ Supports customization for various map elements such as panelGroups, inverters, 
 
 #### ***Example:***
 ```js
+data = convertLegacyData(data); // if the data is legacy panel map data
 draw({
   mapData: data,
   panelGroups: {
