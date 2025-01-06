@@ -7,6 +7,7 @@ import { draw } from './display/draw/draw';
 import { update } from './display/update/update';
 import { event } from './events/canvas';
 import { initApp, initAssets, initTextures, initViewport } from './init';
+import { fit, focus } from './utils/canvas';
 import { convertLegacyData } from './utils/convert';
 import { deepMerge } from './utils/merge';
 
@@ -111,19 +112,10 @@ export class PatchMap {
     };
   }
 
-  // texture() {
-  //   return {
-  //     add: addTexture,
-  //     create: generateTexture,
-  //   };
-  // }
-
-  // component() {
-  //   return {
-  //     frame: components.frame,
-  //     bar: components.bar,
-  //     icon: components.icon,
-  //     text: components.text,
-  //   };
-  // }
+  canvas() {
+    return {
+      focus: (id) => focus(this.viewport, id),
+      fit: (id) => fit(this.viewport, id),
+    };
+  }
 }
