@@ -124,8 +124,8 @@ export const initViewport = (app, opts = {}) => {
   const options = deepMerge(
     {
       ...DEFAULT_INIT_OPTIONS.viewport,
-      worldWidth: app.canvas.width,
-      worldHeight: app.canvas.height,
+      screenWidth: app.screen.width,
+      screenHeight: app.screen.height,
       events: app.renderer.events,
     },
     opts,
