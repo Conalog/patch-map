@@ -7,16 +7,18 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "ignore": ["node_modules", "dist", "package.json", "package-lock.json"]
+    "ignore": ["node_modules", "dist", "package-lock.json"]
   },
   "formatter": {
-    "useEditorconfig": true
+    "useEditorconfig": true,
+    "ignore": ["package.json"]
   },
   "organizeImports": {
     "enabled": true
   },
   "linter": {
     "enabled": true,
+    "ignore": ["package.json"],
     "rules": {
       "recommended": true,
       "suspicious": {
