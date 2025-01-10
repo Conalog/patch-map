@@ -45,6 +45,10 @@ It enables flexible and fast creation of 2D content.
       - [get(keys)](#getkeys)
       - [addBundle(bundleId, assets)](#addbundlebundleid-assets)
       - [loadBundle(bundleIds, onProgress)](#loadbundlebundleids-onprogress-promiseany)
+  - [canvas()](#canvas)
+    - [Methods](#methods-2)
+      - [focus(id)](#focusid)
+      - [fit(id)](#fitid)
 - [🧑‍💻 Development](#-development)
   - [Setting up the development environment](#setting-up-the-development-environment)
   - [VSCode Integration](#vscode-integration)
@@ -405,6 +409,30 @@ patchMap.draw({
 ##### `loadBundle(bundleIds, onProgress)`: Promise\<any>
 - Loads a bundle of assets based on the provided bundle IDs. See the [pixiJS loadBundle method](https://pixijs.download/release/docs/assets.Assets.html#loadBundle) for more information.
 
+
+<br/>
+
+### `canvas()`
+
+#### **Methods**
+
+##### `focus(id)`
+```js
+focus() // focus based on the entire canvas object
+
+focus('groupId') // focus based on the group
+
+focus('objectId') // focus based on the object
+```
+
+##### `fit(id)`
+```js
+fit() // fit based on the entire canvas object
+
+fit('groupId') // fit based on the group
+
+fit('objectId') // fit based on the object
+```
 
 <br/>
 
