@@ -10,8 +10,6 @@ describe('layoutSchema', () => {
       {
         type: 'background',
         texture: 'background.png',
-        width: 100,
-        height: 200,
       },
       {
         type: 'bar',
@@ -60,33 +58,16 @@ describe('layoutSchema', () => {
         {
           type: 'background',
           texture: 'bg.png',
-          width: 1920,
-          height: 1080,
         },
       ];
       const result = layoutSchema.safeParse(data);
       expect(result.success).toBe(true);
     });
 
-    it('should fail if width is negative', () => {
-      const data = [
-        {
-          type: 'background',
-          texture: 'bg.png',
-          width: -100,
-          height: 400,
-        },
-      ];
-      const result = layoutSchema.safeParse(data);
-      expect(result.success).toBe(false);
-    });
-
     it('should fail if texture is missing', () => {
       const data = [
         {
           type: 'background',
-          width: 100,
-          height: 100,
         },
       ];
       const result = layoutSchema.safeParse(data);
@@ -159,9 +140,6 @@ describe('layoutSchema', () => {
       expect(result.success).toBe(true);
 
       if (result.success) {
-        // color 기본값 확인
-        expect(result.data[0].color).toBe('#FFFFFF');
-        // show, zIndex 등의 기본값
         expect(result.data[0].show).toBe(true);
         expect(result.data[0].zIndex).toBe(0);
       }
@@ -263,8 +241,6 @@ describe('layoutSchema', () => {
       const data = {
         type: 'background',
         texture: 'bg.png',
-        width: 100,
-        height: 100,
       };
       const result = layoutSchema.safeParse(data);
       expect(result.success).toBe(false);
@@ -275,8 +251,6 @@ describe('layoutSchema', () => {
         {
           type: 'background',
           texture: 'bg.png',
-          width: 100,
-          height: 100,
         },
         1234, // 비객체
       ];

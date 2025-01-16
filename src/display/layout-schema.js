@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const placement = z.enum([
+export const Placement = z.enum([
   'left',
   'left-top',
   'left-bottom',
@@ -12,39 +12,55 @@ const placement = z.enum([
   'center',
 ]);
 
+export const Margin = z.string().regex(/^(\d+(\.\d+)?(\s+\d+(\.\d+)?){0,3})$/);
+
 const defaultConfig = z.object({
   show: z.boolean().default(true),
-  zIndex: z.number().nonnegative().default(0),
+  label: z.nullable(z.string()).default(null),
+  zIndex: z.number().default(0),
 });
 
 const background = defaultConfig.extend({
   type: z.literal('background'),
   texture: z.string(),
-  width: z.number().nonnegative(),
-  height: z.number().nonnegative(),
+  color: z.string().default('#FFFFFF'),
 });
 
 const bar = defaultConfig.extend({
   type: z.literal('bar'),
   texture: z.string(),
-  placement: placement.default('center'),
+  placement: Placement.default('bottom'),
+  color: z.string().default('primary.default'),
   percentWidth: z.number().min(0).max(1).default(1),
   percentHeight: z.number().min(0).max(1).default(1),
+  margin: Margin.default('0'),
 });
 
 const icon = defaultConfig.extend({
   type: z.literal('icon'),
   texture: z.string(),
-  placement: placement.default('center'),
-  size: z.number().int().nonnegative(),
-  color: z.string().default('#FFFFFF'),
+  placement: Placement.default('center'),
+  size: z.number().nonnegative(),
+  color: z.string().default('primary.default'),
 });
 
 const text = defaultConfig.extend({
   type: z.literal('text'),
-  placement: placement.default('center'),
+  placement: Placement.default('center'),
   content: z.string().default(''),
-  style: z.record(z.unknown()).optional(),
+  style: z
+    .preprocess(
+      (val) => ({
+        fontFamily: 'FiraCode',
+        fontWeight: 400,
+        fill: 'black',
+        ...val,
+      }),
+      z.record(z.unknown()),
+    )
+    .default({}),
+  split: z.number().int().default(0),
+  margin: Margin.default('0'),
 });
 
 export const layoutSchema = z

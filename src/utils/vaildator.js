@@ -1,5 +1,5 @@
 import { fromError } from 'zod-validation-error';
-import { mapDataSchema } from '../display/draw/schema';
+import { mapDataSchema } from '../display/schema';
 
 export const validate = (data, schema) => {
   try {

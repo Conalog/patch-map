@@ -1,3 +1,7 @@
+export const convertArray = (items) => {
+  return Array.isArray(items) ? items : [items];
+};
+
 export const convertLegacyData = (data) => {
   const newData = { objects: [], relations: [] };
 

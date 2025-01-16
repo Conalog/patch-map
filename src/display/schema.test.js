@@ -61,12 +61,12 @@ describe('mapDataSchema (modified tests for required fields)', () => {
     expect(result.success).toBe(true);
   });
 
-  it('should validate a valid relation-group object (type=relation-group)', () => {
+  it('should validate a valid relations object (type=relations)', () => {
     // relation이 required이므로, links 내부 요소도 제대로 있어야 함
     const data = [
       {
-        id: 'relation-group-1',
-        type: 'relation-group',
+        id: 'relations-1',
+        type: 'relations',
         links: [
           { source: 'itemA', target: 'itemB' },
           { source: 'itemC', target: 'itemD' },
@@ -77,11 +77,11 @@ describe('mapDataSchema (modified tests for required fields)', () => {
     expect(result.success).toBe(true);
   });
 
-  it('should pass if links in relation-group is empty or has missing fields', () => {
+  it('should pass if links in relations is empty or has missing fields', () => {
     const data = [
       {
-        id: 'relation-group-bad-links',
-        type: 'relation-group',
+        id: 'relations-bad-links',
+        type: 'relations',
         links: [],
       },
     ];
@@ -116,8 +116,8 @@ describe('mapDataSchema (modified tests for required fields)', () => {
     it('should fail if links contain invalid fields', () => {
       const data = [
         {
-          id: 'relation-group-bad-links',
-          type: 'relation-group',
+          id: 'relations-bad-links',
+          type: 'relations',
           links: [{ sourec: 'typo' }],
         },
       ];
@@ -128,8 +128,8 @@ describe('mapDataSchema (modified tests for required fields)', () => {
     it('should fail if relation object is missing required fields', () => {
       const data = [
         {
-          id: 'relation-group-bad-link',
-          type: 'relation-group',
+          id: 'relations-bad-link',
+          type: 'relations',
           links: [
             // source, target 모두 반드시 있어야 함
             { source: 'itemA' }, // target 누락
@@ -239,7 +239,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
         {
           id: 'group-1',
           type: 'group',
-          name: 'Sample Group',
+          label: 'Sample Group',
           metadata: {
             customKey: 'customValue',
           },
@@ -277,7 +277,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
         const group = result.data[0];
         expect(group.id).toBe('group-1');
         expect(group.type).toBe('group');
-        expect(group.name).toBe('Sample Group');
+        expect(group.label).toBe('Sample Group');
 
         // items 배열 확인
         expect(Array.isArray(group.items)).toBe(true);

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { layoutSchema } from './layoutSchema';
+import { layoutSchema } from './layout-schema';
 
 const position = z
   .object({
@@ -29,8 +29,10 @@ const relation = z
   .strict();
 
 const defaultInfo = z.object({
+  show: z.boolean().default(true),
   id: z.string(),
-  name: z.nullable(z.string()).default(null),
+  label: z.nullable(z.string()).default(null),
+  zIndex: z.number().default(0),
   metadata: z.record(z.unknown()).default({}),
 });
 
@@ -50,9 +52,9 @@ const singleObject = defaultInfo
   .extend(transform.shape);
 
 const relationGroupObject = defaultInfo.extend({
-  type: z.literal('relation-group'),
+  type: z.literal('relations'),
   links: z.array(relation),
-  style: z.record(z.unknown()).optional(),
+  relationStyle: z.record(z.unknown()).optional(),
 });
 
 const groupObject = defaultInfo.extend({

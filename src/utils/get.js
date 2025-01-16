@@ -25,6 +25,12 @@ export const getDiffObjects = (obj1, obj2) => {
   return diff;
 };
 
+export const getTheme = (object) => {
+  return object.type ? object.viewport.theme : getTheme(object.parent);
+};
+
+
+
 export const getCenterPointObject = (object) => {
   const { x, y } = object.position;
   const { width, height } = object;
