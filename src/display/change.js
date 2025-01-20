@@ -1,5 +1,7 @@
+import { isValidationError } from 'zod-validation-error';
 import { getAsset } from '../assets/utils';
 import { getColor, getTheme } from '../utils/get';
+import { validate } from '../utils/vaildator';
 import {
   backgroundComponent,
   updateBackgroundComponent,
@@ -8,32 +10,46 @@ import { barComponent, updateBarComponent } from './components/bar';
 import { FONT_WEIGHT } from './components/config';
 import { iconComponent, updateIconComponent } from './components/icon';
 import { textComponent, updateTextComponent } from './components/text';
+import { layoutSchema } from './layout-schema';
 import { parseMargin } from './utils';
 
+export const isMatch = (object, key, value) => {
+  return value == null || object.config[key] === value;
+};
+
 export const changeShow = (object, { show }) => {
-  if (show == null) return;
+  if (isMatch(object, 'show', show)) return;
   object.renderable = show;
 };
 
 export const changeZIndex = (object, { zIndex }) => {
-  if (zIndex == null) return;
+  if (isMatch(object, 'zIndex', zIndex)) return;
   object.zIndex = zIndex;
 };
 
-export const changeTexture = (object, { texture: textureName }) => {
-  if (textureName == null) return;
+export const changeTexture = (component, { texture: textureName }) => {
+  if (isMatch(component, 'texture', textureName)) return;
   const texture = getAsset(textureName);
-  object.texture = texture ?? null;
+  component.texture = texture ?? null;
 };
 
-export const changeColor = (object, { theme, color }) => {
-  if (!color || !theme) return;
-  const tint = getColor(color, theme);
-  object.tint = tint;
+export const changeColor = (component, { color }) => {
+  if (isMatch(component, 'color', color)) return;
+  const tint = getColor(color, component.config.theme);
+  component.tint = tint;
 };
 
-export const changePlacement = (component, { placement, margin = '0' }) => {
-  if (!placement) return;
+export const changeSize = (component, { size }) => {
+  if (isMatch(component, 'size', size)) return;
+  component.setSize(size);
+  changePlacement(component, {});
+};
+
+export const changePlacement = (
+  component,
+  { placement = component.config.placement, margin = component.config.margin },
+) => {
+  if (!placement || !margin) return;
 
   const directionMap = {
     left: { h: 'left', v: 'center' },
@@ -54,19 +70,21 @@ export const changePlacement = (component, { placement, margin = '0' }) => {
   component.visible = true;
 
   function getHorizontalPosition(component, alignment, margin) {
+    const parentWidth = component.parent.config.size.width;
     const positions = {
       left: margin.left,
-      right: component.parent.width - component.width - margin.right,
-      center: (component.parent.width - component.width) / 2,
+      right: parentWidth - component.width - margin.right,
+      center: (parentWidth - component.width) / 2,
     };
     return positions[alignment] ?? positions.center;
   }
 
   function getVerticalPosition(component, alignment, margin) {
+    const parentHeight = component.parent.config.size.height;
     const positions = {
       top: margin.top,
-      bottom: component.parent.height - component.height - margin.bottom,
-      center: (component.parent.height - component.height) / 2,
+      bottom: parentHeight - component.height - margin.bottom,
+      center: (parentHeight - component.height) / 2,
     };
     return positions[alignment] ?? positions.center;
   }
@@ -74,37 +92,54 @@ export const changePlacement = (component, { placement, margin = '0' }) => {
 
 export const changePercentSize = (
   component,
-  { percentWidth, percentHeight, margin = '0' },
+  {
+    percentWidth = component.config.percentWidth,
+    percentHeight = component.config.percentHeight,
+    margin = component.config.margin,
+  },
 ) => {
-  if (!percentWidth && !percentHeight) return;
+  if (
+    isMatch(component, 'percentWidth', percentWidth) &&
+    isMatch(component, 'percentHeight', percentHeight) &&
+    isMatch(component, 'margin', margin)
+  ) {
+    return;
+  }
 
   const marginObj = parseMargin(margin);
   if (percentWidth) changeWidth(component, percentWidth, marginObj);
   if (percentHeight) changeHeight(component, percentHeight, marginObj);
 
+  changePlacement(component, {});
+
   function changeWidth(component, percentWidth, marginObj) {
     const maxWidth =
-      component.parent.width - (marginObj.left + marginObj.right);
-    component.width = Math.min(maxWidth, component.parent.width * percentWidth);
+      component.parent.config.size.width - (marginObj.left + marginObj.right);
+
+    component.width = maxWidth * percentWidth;
   }
 
   function changeHeight(component, percentHeight) {
     const maxHeight =
-      component.parent.height - (marginObj.top + marginObj.bottom);
-    component.height = Math.min(
-      maxHeight,
-      component.parent.height * percentHeight,
-    );
+      component.parent.config.size.height - (marginObj.top + marginObj.bottom);
+    component.height = maxHeight * percentHeight;
   }
 };
 
-export const changeContent = (component, { content, split }) => {
-  if (!content) return;
+export const changeContent = (
+  component,
+  { content = component.config.content, split = component.config.split },
+) => {
+  if (
+    isMatch(component, 'content', content) &&
+    isMatch(component, 'split', split)
+  ) {
+    return;
+  }
 
-  if (split) component.split = split;
-  component.text = splitText(content, component.split);
+  component.text = splitText(content, split);
 
-  if (component.fontSize === 'auto') {
+  if (component.config?.style?.fontSize === 'auto') {
     chnageTextStyle(component, { style: { fontSize: 'auto' } });
   }
 
@@ -120,21 +155,26 @@ export const changeContent = (component, { content, split }) => {
   }
 };
 
-export const chnageTextStyle = (component, { style, theme, margin }) => {
-  if (!style) return;
-  if (margin) component.margin = margin;
+export const chnageTextStyle = (
+  component,
+  { style = component.config.style, margin = component.config.margin },
+) => {
+  if (
+    isMatch(component, 'style', style) &&
+    isMatch(component, 'margin', margin)
+  ) {
+    return;
+  }
 
   for (const key in style) {
     if (key === 'fontFamily') {
       component.style[key] =
         `${style.fontFamily} ${FONT_WEIGHT[style.fontWeight ?? component.style.fontWeight]}`;
     } else if (key === 'fill') {
-      component.style[key] = getColor(style.fill, theme);
+      component.style[key] = getColor(style.fill, component.config.theme);
     } else if (key === 'fontSize' && style[key] === 'auto') {
-      component.fontSize = style[key];
-      const marginObj = parseMargin(component.margin);
+      const marginObj = parseMargin(margin);
       setAutoFontSize(component, marginObj);
-      component.style.fontSize++;
     } else {
       component.style[key] = style[key];
     }
@@ -170,6 +210,8 @@ export const chnageTextStyle = (component, { style, theme, margin }) => {
 };
 
 export const changeLayout = (item, { layout }) => {
+  if (!layout) return;
+
   const componentFn = {
     background: {
       create: backgroundComponent,
@@ -188,35 +230,34 @@ export const changeLayout = (item, { layout }) => {
       update: updateTextComponent,
     },
   };
-  let children = [...item.children];
+  const children = [...item.children];
 
-  for (const config of layout) {
-    if (!(config.type in componentFn)) continue;
-
-    const index = children.findIndex(
-      (child) =>
-        matchValue('type', child, config) && matchValue('label', child, config),
+  for (let config of layout) {
+    const index = children.findIndex((child) =>
+      matchValue('type', child, config),
     );
 
     let component = null;
     if (index === -1) {
+      config = validate(config, layoutSchema);
+      if (isValidationError(config)) break;
       component = componentFn[config.type].create({
         ...config,
         ...item.size,
         theme: getTheme(item),
       });
+      component.config = { ...component.config, theme: getTheme(item) };
       if (component) {
         item.addChild(component);
       }
     } else {
       component = children[index];
-      children = children.slice(index, 1)[0];
+      if (component) children.splice(index, 1);
     }
 
     if (component) {
       componentFn[component.type].update(component, {
         ...config,
-        theme: getTheme(item),
       });
     }
   }

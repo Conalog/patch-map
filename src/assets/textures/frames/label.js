@@ -1,5 +1,6 @@
 import { Container, Graphics } from 'pixi.js';
-import { deepMerge } from '../../../utils/merge';
+
+import { deepMerge } from '../../../utils/deepmerge/deepmerge';
 import { FRAME_CONFIG } from '../config';
 import { createDefaultRect, generateTexture } from '../utils';
 

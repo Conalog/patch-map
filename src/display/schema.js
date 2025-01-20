@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { layoutSchema } from './layout-schema';
+import { layoutArraySchema } from './layout-schema';
 
 const position = z
   .object({
@@ -40,14 +40,14 @@ const gridObject = defaultInfo
   .extend({
     type: z.literal('grid'),
     cells: z.array(z.array(z.union([z.literal(0), z.literal(1)]))),
-    layout: layoutSchema,
+    layout: layoutArraySchema,
   })
   .extend(transform.shape);
 
 const singleObject = defaultInfo
   .extend({
     type: z.literal('item'),
-    layout: layoutSchema,
+    layout: layoutArraySchema,
   })
   .extend(transform.shape);
 

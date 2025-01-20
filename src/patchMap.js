@@ -1,22 +1,23 @@
 import { Application } from 'pixi.js';
+import { isValidationError } from 'zod-validation-error';
 import {} from './assets/textures/utils';
 import { assets } from './assets/utils';
 import { THEME_CONFIG } from './config/theme';
-import { DRAW_DEFAULT_OPTIONS } from './display/config';
-import { draw } from './display/draw/draw';
-import { update } from './display/update/update';
+import { draw } from './display/draw';
+import { update } from './display/update';
 import { event } from './events/canvas';
 import { initApp, initAssets, initTextures, initViewport } from './init';
 import { fit, focus } from './utils/canvas';
 import { convertLegacyData } from './utils/convert';
-import { deepMerge } from './utils/merge';
+import { deepMerge } from './utils/deepmerge/deepmerge';
+import { selector } from './utils/selector/selector';
+import { validateMapData } from './utils/vaildator';
 
 export class PatchMap {
   _app = null;
   _viewport = null;
   _resizeObserver = null;
   _theme = THEME_CONFIG;
-  _setOptions = DRAW_DEFAULT_OPTIONS;
 
   constructor() {
     this._app = new Application();
@@ -50,6 +51,7 @@ export class PatchMap {
     this._setTheme(themeOptions);
     await initApp(this.app, { resizeTo: element, ...appOptions });
     this._viewport = initViewport(this.app, viewportOptions);
+    this._viewport.theme = this._theme;
 
     await initAssets(assetOptions);
     initTextures(this.app, textureOptions);
@@ -60,17 +62,29 @@ export class PatchMap {
     element.appendChild(div);
   }
 
-  draw(opts = {}) {
-    this._setOptions = deepMerge(this._setOptions, {
-      ...opts,
-      theme: this.theme,
-    });
-    const isNewMapData = 'mapData' in opts && typeof opts.mapData === 'object';
-    draw(this.viewport, isNewMapData, this._setOptions);
+  draw(data) {
+    let zData = isLegacyData(data) ? convertLegacyData(data) : data;
+    if (!Array.isArray(zData)) {
+      console.error('Invalid data format. Expected an array.');
+      return;
+    }
+    this.app.stop();
+
+    zData = validateMapData(zData);
+    if (!isValidationError(zData)) {
+      draw(this.viewport, zData);
+    }
+    this.app.start();
+
+    function isLegacyData(data) {
+      return (
+        !Array.isArray(data) && typeof data === 'object' && 'grids' in data
+      );
+    }
   }
 
-  update(opts = {}) {
-    update(this.viewport, { ...opts, theme: this.theme });
+  update(config) {
+    update(this.viewport, config);
   }
 
   event() {
@@ -117,5 +131,13 @@ export class PatchMap {
       focus: (id) => focus(this.viewport, id),
       fit: (id) => fit(this.viewport, id),
     };
+  }
+
+  selector(config) {
+    return selector(this.viewport, config);
+  }
+
+  deepMerge(target, source) {
+    return deepMerge(target, source);
   }
 }

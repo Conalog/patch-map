@@ -2,6 +2,7 @@ import { NineSliceSprite } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { getAsset } from '../../assets/utils';
+import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { validate } from '../../utils/vaildator';
 import { changeColor, changeTexture } from '../change';
 import { changeZIndex } from '../change';
@@ -35,7 +36,8 @@ export const backgroundComponent = (opts) => {
   });
   component.type = 'background';
   component.label = options.label;
-  component.position.set(options.position.x, options.position.y);
+  component.config = {};
+  component.position.set(-texture.metadata.borderWidth / 2);
   return component;
 };
 
@@ -45,7 +47,6 @@ const updateBackgroundSchema = z
     zIndex: z.number(),
     texture: z.string(),
     color: z.string(),
-    theme: z.record(z.unknown()),
   })
   .partial();
 
@@ -56,6 +57,22 @@ export const updateBackgroundComponent = (component, opts) => {
 
   changeShow(component, options);
   changeZIndex(component, options);
-  changeTexture(component, { texture: `frames-${options.texture}` });
+  changeTexture(component, {
+    texture: options.texture && `frames-${options.texture}`,
+  });
+  if (options.texture) {
+    changeTransform(component);
+  }
   changeColor(component, options);
+  component.config = deepMerge(component.config, options);
+};
+
+export const changeTransform = (component) => {
+  const borderWidth = component.texture.metadata.borderWidth;
+  const parentSize = component.parent.config.size;
+  component.setSize(
+    parentSize.width + borderWidth,
+    parentSize.height + borderWidth,
+  );
+  component.position.set(-borderWidth / 2);
 };

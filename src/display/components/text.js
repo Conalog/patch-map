@@ -1,6 +1,7 @@
 import { BitmapText } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
+import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { validate } from '../../utils/vaildator';
 import {
   changeContent,
@@ -24,6 +25,7 @@ export const textComponent = (opts) => {
   });
   component.type = 'text';
   component.label = options.label;
+  component.config = {};
   return component;
 };
 
@@ -31,7 +33,6 @@ const updateTextSchema = z
   .object({
     show: z.boolean(),
     zIndex: z.number(),
-    theme: z.record(z.unknown()),
     placement: Placement,
     margin: Margin,
     content: z.string(),
@@ -47,7 +48,8 @@ export const updateTextComponent = (component, opts) => {
 
   changeShow(component, options);
   changeZIndex(component, options);
-  chnageTextStyle(component, options);
   changeContent(component, options);
+  chnageTextStyle(component, options);
   changePlacement(component, options);
+  component.config = deepMerge(component.config, options);
 };

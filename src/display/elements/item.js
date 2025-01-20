@@ -1,17 +1,20 @@
+import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { changeLayout, changeZIndex } from '../change';
 import { changeShow } from '../change';
 import { createContainer } from '../utils';
 
 export const createItem = (config) => {
-  const container = createContainer(config);
-  container.position.set(config.position.x, config.position.y);
-  container.angle = config.rotation ?? 0;
-  container.size = { ...config.size };
-  return container;
+  const element = createContainer(config);
+  element.position.set(config.position.x, config.position.y);
+  element.angle = config.rotation ?? 0;
+  element.size = { ...config.size };
+  element.config = config;
+  return element;
 };
 
 export const updateItem = (element, config) => {
   changeShow(element, config);
   changeZIndex(element, config);
   changeLayout(element, config);
+  element.config = deepMerge(element.config, config);
 };

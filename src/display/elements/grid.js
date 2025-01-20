@@ -1,3 +1,4 @@
+import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { changeZIndex } from '../change';
 import { changeShow } from '../change';
 import { changeLayout } from '../change';
@@ -9,13 +10,14 @@ const GRID_OBJECT_CONFIG = {
 };
 
 export const createGrid = (config) => {
-  const container = createContainer(config);
-  container.position.set(config.position.x, config.position.y);
-  container.angle = config.rotation;
-  container.transform = { ...config.size };
+  const element = createContainer(config);
+  element.position.set(config.position.x, config.position.y);
+  element.angle = config.rotation;
+  element.transform = { ...config.size };
+  element.config = config;
 
-  addItemElements(container, config.cells);
-  return container;
+  addItemElements(element, config.cells);
+  return element;
 };
 
 export const updateGrid = (element, config) => {
@@ -25,6 +27,7 @@ export const updateGrid = (element, config) => {
   for (const cell of element.children) {
     changeLayout(cell, config);
   }
+  element.config = deepMerge(element.config, config);
 };
 
 const addItemElements = (container, cells) => {
@@ -35,6 +38,7 @@ const addItemElements = (container, cells) => {
       if (!col || col === 0) continue;
 
       const item = createItem({
+        type: 'item',
         id: `${container.id}.${rowIndex}.${colIndex}`,
         position: {
           x: colIndex * (container.transform.width + GRID_OBJECT_CONFIG.margin),

@@ -2,20 +2,21 @@ import { Sprite } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { getAsset } from '../../assets/utils';
+import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { validate } from '../../utils/vaildator';
 import {
   changeColor,
   changePlacement,
   changeShow,
+  changeSize,
   changeTexture,
   changeZIndex,
 } from '../change';
-import { Placement } from '../layout-schema';
+import { Margin, Placement } from '../layout-schema';
 
 const iconSchema = z.object({
   texture: z.string(),
   label: z.nullable(z.string()).default(null),
-  size: z.number().nonnegative(),
 });
 
 export const iconComponent = (opts) => {
@@ -28,7 +29,7 @@ export const iconComponent = (opts) => {
   const component = new Sprite(texture);
   component.type = 'icon';
   component.label = options.label;
-  component.setSize(options.size);
+  component.config = {};
   return component;
 };
 
@@ -37,9 +38,10 @@ const updateIconSchema = z
     show: z.boolean(),
     texture: z.string(),
     color: z.string(),
-    theme: z.record(z.unknown()),
     zIndex: z.number(),
     placement: Placement,
+    margin: Margin,
+    size: z.number().nonnegative(),
   })
   .partial();
 
@@ -49,8 +51,12 @@ export const updateIconComponent = (component, opts = {}) => {
   if (isValidationError(options)) return;
 
   changeShow(component, options);
-  changeTexture(component, { texture: `icons-${options.texture}` });
+  changeTexture(component, {
+    texture: options.texture && `icons-${options.texture}`,
+  });
+  changeSize(component, options);
   changeColor(component, options);
   changeZIndex(component, options);
   changePlacement(component, options);
+  component.config = deepMerge(component.config, options);
 };

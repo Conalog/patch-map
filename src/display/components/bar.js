@@ -2,6 +2,7 @@ import { NineSliceSprite } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { getAsset } from '../../assets/utils';
+import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { validate } from '../../utils/vaildator';
 import {
   changeColor,
@@ -33,6 +34,7 @@ export const barComponent = (opts) => {
   });
   component.type = 'bar';
   component.label = options.label;
+  component.config = {};
   return component;
 };
 
@@ -42,7 +44,6 @@ const updateBarSchema = z
     zIndex: z.number(),
     texture: z.string(),
     color: z.string(),
-    theme: z.record(z.unknown()),
     placement: Placement,
     margin: Margin,
     percentWidth: z.number().min(0).max(1),
@@ -57,8 +58,11 @@ export const updateBarComponent = (component, opts) => {
 
   changeShow(component, options);
   changeZIndex(component, options);
-  changeTexture(component, { texture: `bars-${options.texture}` });
+  changeTexture(component, {
+    texture: options.texture && `bars-${options.texture}`,
+  });
   changeColor(component, options);
   changePercentSize(component, options);
   changePlacement(component, options);
+  component.config = deepMerge(component.config, options);
 };

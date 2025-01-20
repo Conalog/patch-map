@@ -41,7 +41,8 @@ const icon = defaultConfig.extend({
   texture: z.string(),
   placement: Placement.default('center'),
   size: z.number().nonnegative(),
-  color: z.string().default('primary.default'),
+  color: z.string().default('black'),
+  margin: Margin.default('0'),
 });
 
 const text = defaultConfig.extend({
@@ -63,6 +64,13 @@ const text = defaultConfig.extend({
   margin: Margin.default('0'),
 });
 
-export const layoutSchema = z
+export const layoutSchema = z.discriminatedUnion('type', [
+  background,
+  bar,
+  icon,
+  text,
+]);
+
+export const layoutArraySchema = z
   .discriminatedUnion('type', [background, bar, icon, text])
   .array();

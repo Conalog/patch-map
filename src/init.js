@@ -8,7 +8,7 @@ import { addTexture } from './assets/textures/utils';
 import { transformManifest } from './assets/utils';
 import { THEME_CONFIG } from './config/theme';
 import * as viewportEvents from './events/viewport';
-import { deepMerge } from './utils/merge';
+import { deepMerge } from './utils/deepmerge/deepmerge';
 
 class _Canvas extends Viewport {}
 

@@ -1,6 +1,6 @@
 import { Cache, Graphics } from 'pixi.js';
 import { THEME_CONFIG } from '../../config/theme';
-import { deepMerge } from '../../utils/merge';
+import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { FRAME_CONFIG } from './config';
 
 const RESOLUTION = 5;

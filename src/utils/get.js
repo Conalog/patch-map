@@ -26,47 +26,8 @@ export const getDiffObjects = (obj1, obj2) => {
 };
 
 export const getTheme = (object) => {
-  return object.type ? object.viewport.theme : getTheme(object.parent);
+  return object.viewport?.theme ?? getTheme(object.parent);
 };
-
-
-
-export const getCenterPointObject = (object) => {
-  const { x, y } = object.position;
-  const { width, height } = object;
-  const { padding = 0 } = object.texture.metadata;
-  const { left = 0, top = 0, right = 0, bottom = 0 } = getPadding(padding);
-  const adjustedWidth = width - (left + right);
-  const adjustedHeight = height - (top + bottom);
-
-  return {
-    x: x + left + adjustedWidth / 2,
-    y: y + top + adjustedHeight / 2,
-  };
-};
-
-export const getFrameInnerSize = (frame, margin = 0) => {
-  const padding = getPadding(frame.texture.metadata.padding);
-  return {
-    width: frame.width - padding.left - padding.right - margin * 2,
-    height: frame.height - padding.top - padding.bottom - margin * 2,
-  };
-};
-
-export const getPadding = (padding) => {
-  const {
-    left = 0,
-    top = 0,
-    right = 0,
-    bottom = 0,
-  } = typeof padding === 'number'
-    ? { left: padding, top: padding, right: padding, bottom: padding }
-    : padding || {};
-  return { left, top, right, bottom };
-};
-
-export const getBorderPadding = (borderWidth) =>
-  borderWidth ? borderWidth / 2 : 0;
 
 export const getColor = (color, theme) => {
   return (
