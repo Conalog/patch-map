@@ -50,6 +50,7 @@ const addItemElements = (container, cells) => {
           height: container.transform.height,
         },
       });
+      item.eventMode = 'static';
       container.addChild(item);
     }
   }

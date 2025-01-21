@@ -139,7 +139,7 @@ export const initViewport = (app, opts = {}) => {
     viewportEvents.resumePlugins(viewport, plugins);
   viewport.plugins.pauseItems = (plugins = []) =>
     viewportEvents.pausePlugins(viewport, plugins);
-  viewport.componentEvents = {};
+  viewport.events = {};
 
   viewport.plugins.addItems(options.plugins);
   app.stage.addChild(viewport);

@@ -1,6 +1,5 @@
 import { Application } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
-import {} from './assets/textures/utils';
 import { assets } from './assets/utils';
 import { THEME_CONFIG } from './config/theme';
 import { draw } from './display/draw';
@@ -18,6 +17,29 @@ export class PatchMap {
   _viewport = null;
   _resizeObserver = null;
   _theme = THEME_CONFIG;
+
+  event = {
+    add: (opts) => {
+      const id = event.addEvent(this.viewport, opts);
+      event.onEvent(this.viewport, id);
+      return id;
+    },
+    remove: (id) => {
+      event.removeEvent(this.viewport, id);
+    },
+    on: (id) => {
+      event.onEvent(this.viewport, id);
+    },
+    off: (id) => {
+      event.offEvent(this.viewport, id);
+    },
+    get: (id) => {
+      return event.getEvent(this.viewport, id);
+    },
+    getAll: () => {
+      return event.getAllEvent(this.viewport);
+    },
+  };
 
   constructor() {
     this._app = new Application();
@@ -85,31 +107,6 @@ export class PatchMap {
 
   update(config) {
     update(this.viewport, config);
-  }
-
-  event() {
-    return {
-      add: (type, action, fn, opts = {}) => {
-        const id = event.addEvent(this.viewport, type, action, fn, opts);
-        event.onEvent(this.viewport, id);
-        return id;
-      },
-      remove: (eventId) => {
-        event.removeEvent(this.viewport, eventId);
-      },
-      on: (eventId) => {
-        event.onEvent(this.viewport, eventId);
-      },
-      off: (eventId) => {
-        event.offEvent(this.viewport, eventId);
-      },
-      get: (eventId) => {
-        return event.getEvent(this.viewport, eventId);
-      },
-      getAll: () => {
-        return event.getAllEvent(this.viewport);
-      },
-    };
   }
 
   convertLegacyData(data) {
