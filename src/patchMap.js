@@ -18,29 +18,6 @@ export class PatchMap {
   _resizeObserver = null;
   _theme = THEME_CONFIG;
 
-  event = {
-    add: (opts) => {
-      const id = event.addEvent(this.viewport, opts);
-      event.onEvent(this.viewport, id);
-      return id;
-    },
-    remove: (id) => {
-      event.removeEvent(this.viewport, id);
-    },
-    on: (id) => {
-      event.onEvent(this.viewport, id);
-    },
-    off: (id) => {
-      event.offEvent(this.viewport, id);
-    },
-    get: (id) => {
-      return event.getEvent(this.viewport, id);
-    },
-    getAll: () => {
-      return event.getAllEvent(this.viewport);
-    },
-  };
-
   constructor() {
     this._app = new Application();
   }
@@ -55,6 +32,31 @@ export class PatchMap {
 
   get theme() {
     return this._theme;
+  }
+
+  get event() {
+    return {
+      add: (opts) => {
+        const id = event.addEvent(this.viewport, opts);
+        event.onEvent(this.viewport, id);
+        return id;
+      },
+      remove: (id) => event.removeEvent(this.viewport, id),
+      on: (id) => event.onEvent(this.viewport, id),
+      off: (id) => event.offEvent(this.viewport, id),
+      get: (id) => event.getEvent(this.viewport, id),
+      getAll: () => event.getAllEvent(this.viewport),
+    };
+  }
+
+  get asset() {
+    return {
+      add: assets.addAsset,
+      load: assets.loadAsset,
+      get: assets.getAsset,
+      addBundle: assets.addAssetBundle,
+      loadBundle: assets.loadAssetBundle,
+    };
   }
 
   _setTheme(opts = {}) {
@@ -91,7 +93,6 @@ export class PatchMap {
       return;
     }
     this.app.stop();
-
     zData = validateMapData(zData);
     if (!isValidationError(zData)) {
       draw(this.viewport, zData);
@@ -109,25 +110,12 @@ export class PatchMap {
     update(this.viewport, config);
   }
 
-  convertLegacyData(data) {
-    return convertLegacyData(data);
+  focus(idLabel) {
+    focus(this.viewport, idLabel);
   }
 
-  asset() {
-    return {
-      add: assets.addAsset,
-      load: assets.loadAsset,
-      get: assets.getAsset,
-      addBundle: assets.addAssetBundle,
-      loadBundle: assets.loadAssetBundle,
-    };
-  }
-
-  canvas() {
-    return {
-      focus: (id) => focus(this.viewport, id),
-      fit: (id) => fit(this.viewport, id),
-    };
+  fit(idLabel) {
+    fit(this.viewport, idLabel);
   }
 
   selector(config) {

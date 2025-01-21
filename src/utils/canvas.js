@@ -1,23 +1,29 @@
-import { findComponent, findContainer } from './find';
+import { selector } from './selector/selector';
 
-export const focus = (viewport, id) => {
-  const bounds = getScaleBounds(viewport, getObject(viewport, id) ?? viewport);
+export const focus = (viewport, idLabel) => {
+  const object = getObject(viewport, idLabel);
+  const bounds = getScaleBounds(viewport, object[0]);
   viewport.moveCenter(
     bounds.x + bounds.width / 2,
     bounds.y + bounds.height / 2,
   );
 };
 
-export const fit = (viewport, id) => {
-  focus(viewport, id);
-  const bounds = getScaleBounds(viewport, getObject(viewport, id) ?? viewport);
+export const fit = (viewport, idLabel) => {
+  focus(viewport, idLabel);
+  const object = getObject(viewport, idLabel);
+  const bounds = getScaleBounds(viewport, object[0]);
   viewport.fit(true, bounds.width, bounds.height);
 };
 
-const getObject = (viewport, id) =>
-  id
-    ? findContainer(viewport, id) || findComponent(viewport, 'frame', id)
-    : null;
+const getObject = (viewport, idLabel) => {
+  return idLabel
+    ? selector(
+        viewport,
+        `$..children[?(@.id=="${idLabel}" || @.label=="${idLabel}")]`,
+      )
+    : [viewport];
+};
 
 export const getScaleBounds = (viewport, object) => {
   const bounds = object.getBounds();
