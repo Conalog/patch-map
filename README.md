@@ -41,7 +41,6 @@ npm install @conalog/patch-map
 
 ### Usage
 Here’s a quick example to get you started:
-[example](https://codesandbox.io/p/devbox/patch-map-basic-usage-mzp42y?embed=1)
 ```js
 (async () => {
   import { PatchMap } from '@conalog/patch-map';
