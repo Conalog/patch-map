@@ -8,6 +8,6 @@ export const firaCode = {
   light: firaCodeLight,
   regular: firaCodeRegular,
   medium: firaCodeMedium,
-  semiBold: firaCodeSemiBold,
+  semibold: firaCodeSemiBold,
   bold: firaCodeBold,
 };

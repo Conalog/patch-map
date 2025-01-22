@@ -136,6 +136,7 @@ export const initAssets = async (opts = {}) => {
     ...Object.entries(firaCode).map(([key, font]) => ({
       alias: `firaCode-${key}`,
       src: font,
+      data: { family: `FiraCode ${key}` },
     })),
   ]);
   await Assets.loadBundle([...Object.keys(options), 'fonts']);

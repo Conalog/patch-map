@@ -167,9 +167,8 @@ export const chnageTextStyle = (
   }
 
   for (const key in style) {
-    if (key === 'fontFamily') {
-      component.style[key] =
-        `${style.fontFamily} ${FONT_WEIGHT[style.fontWeight ?? component.style.fontWeight]}`;
+    if (key === 'fontFamily' || key === 'fontWeight') {
+      component.style.fontFamily = `${style.fontFamily ?? component.style.fontFamily.split(' ')[0]} ${FONT_WEIGHT[style.fontWeight ?? component.style.fontWeight]}`;
     } else if (key === 'fill') {
       component.style[key] = getColor(style.fill, component.config.theme);
     } else if (key === 'fontSize' && style[key] === 'auto') {
