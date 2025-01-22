@@ -78,7 +78,7 @@ export class PatchMap {
     this._viewport.theme = this._theme;
 
     await initAssets(assetOptions);
-    initTextures(this.app, textureOptions);
+    initTextures(this.app, { texture: textureOptions, theme: this._theme });
 
     const div = document.createElement('div');
     div.classList.add('w-full', 'h-full', 'overflow-hidden');
