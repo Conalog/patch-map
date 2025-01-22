@@ -91,7 +91,7 @@ export class PatchMap {
   }
 
   destroy() {
-    Assets.destroy();
+    Assets.reset();
     this.app.destroy(true);
   }
 
