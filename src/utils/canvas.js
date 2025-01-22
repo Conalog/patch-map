@@ -1,7 +1,8 @@
 import { selector } from './selector/selector';
 
-export const focus = (viewport, idLabel) => {
-  const object = getObject(viewport, idLabel);
+export const focus = (viewport, id) => {
+  const object = getObject(viewport, id);
+  if (!object.length) return;
   const bounds = getScaleBounds(viewport, object[0]);
   viewport.moveCenter(
     bounds.x + bounds.width / 2,
@@ -9,20 +10,16 @@ export const focus = (viewport, idLabel) => {
   );
 };
 
-export const fit = (viewport, idLabel) => {
-  focus(viewport, idLabel);
-  const object = getObject(viewport, idLabel);
+export const fit = (viewport, id) => {
+  focus(viewport, id);
+  const object = getObject(viewport, id);
+  if (!object.length) return;
   const bounds = getScaleBounds(viewport, object[0]);
   viewport.fit(true, bounds.width, bounds.height);
 };
 
-const getObject = (viewport, idLabel) => {
-  return idLabel
-    ? selector(
-        viewport,
-        `$..children[?(@.id=="${idLabel}" || @.label=="${idLabel}")]`,
-      )
-    : [viewport];
+const getObject = (viewport, id) => {
+  return id ? selector(viewport, `$..children[?(@.id=="${id}")]`) : [viewport];
 };
 
 export const getScaleBounds = (viewport, object) => {
