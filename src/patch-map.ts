@@ -1,3 +1,2 @@
-import { PatchMap } from './patchMap';
-
-export { PatchMap };
+export { PatchMap } from './patchMap';
+export { deepMerge } from './utils/deepmerge/deepmerge';

@@ -121,8 +121,4 @@ export class PatchMap {
   selector(config) {
     return selector(this.viewport, config);
   }
-
-  deepMerge(target, source) {
-    return deepMerge(target, source);
-  }
 }
