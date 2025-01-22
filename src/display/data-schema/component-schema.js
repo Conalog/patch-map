@@ -64,13 +64,13 @@ const text = defaultConfig.extend({
   margin: Margin.default('0'),
 });
 
-export const layoutSchema = z.discriminatedUnion('type', [
+export const componentSchema = z.discriminatedUnion('type', [
   background,
   bar,
   icon,
   text,
 ]);
 
-export const layoutArraySchema = z
+export const componentArraySchema = z
   .discriminatedUnion('type', [background, bar, icon, text])
   .array();

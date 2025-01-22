@@ -1,7 +1,7 @@
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { changeZIndex } from '../change';
 import { changeShow } from '../change';
-import { changeLayout } from '../change';
+import { changeComponents } from '../change';
 import { createContainer } from '../utils';
 import { createItem } from './item';
 
@@ -25,7 +25,7 @@ export const updateGrid = (element, config) => {
   changeZIndex(element, config);
 
   for (const cell of element.children) {
-    changeLayout(cell, config);
+    changeComponents(cell, config);
   }
   element.config = deepMerge(element.config, config);
 };

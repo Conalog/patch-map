@@ -1,5 +1,5 @@
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
-import { changeLayout, changeZIndex } from '../change';
+import { changeComponents, changeZIndex } from '../change';
 import { changeShow } from '../change';
 import { createContainer } from '../utils';
 
@@ -15,6 +15,6 @@ export const createItem = (config) => {
 export const updateItem = (element, config) => {
   changeShow(element, config);
   changeZIndex(element, config);
-  changeLayout(element, config);
+  changeComponents(element, config);
   element.config = deepMerge(element.config, config);
 };

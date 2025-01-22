@@ -12,7 +12,7 @@ import {
   changeTexture,
   changeZIndex,
 } from '../change';
-import { Margin, Placement } from '../layout-schema';
+import { Margin, Placement } from '../data-schema/component-schema';
 
 const barSchema = z.object({
   texture: z.string(),

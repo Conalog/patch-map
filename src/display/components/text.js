@@ -10,7 +10,7 @@ import {
   changeZIndex,
   chnageTextStyle,
 } from '../change';
-import { Margin, Placement } from '../layout-schema';
+import { Margin, Placement } from '../data-schema/component-schema';
 
 const textSchema = z.object({
   label: z.nullable(z.string()).default(null),

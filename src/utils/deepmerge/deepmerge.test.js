@@ -6,7 +6,7 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
     [
       {
         show: true,
-        layout: [
+        components: [
           {
             id: 1,
             data: [10, 20],
@@ -16,7 +16,7 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
       },
       {
         show: false,
-        layout: [
+        components: [
           {
             id: 1,
             data: [30, 40],
@@ -26,7 +26,7 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
       },
       {
         show: false,
-        layout: [
+        components: [
           {
             id: 1,
             data: [30, 40],
@@ -40,13 +40,15 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
     ],
     [
       {
-        layout: [{ name: 'legend', visible: true, style: { color: 'red' } }],
+        components: [
+          { name: 'legend', visible: true, style: { color: 'red' } },
+        ],
       },
       {
-        layout: [{ name: 'legend', style: { fontSize: 12 } }],
+        components: [{ name: 'legend', style: { fontSize: 12 } }],
       },
       {
-        layout: [
+        components: [
           {
             name: 'legend',
             visible: true,
@@ -60,28 +62,28 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
     ],
     [
       {
-        layout: [{ type: 'bar', width: 100 }],
+        components: [{ type: 'bar', width: 100 }],
       },
       {
-        layout: [{ type: 'bar', height: 200 }],
+        components: [{ type: 'bar', height: 200 }],
       },
       {
-        layout: [{ type: 'bar', width: 100, height: 200 }],
+        components: [{ type: 'bar', width: 100, height: 200 }],
       },
     ],
     [
       {
-        layout: [{ id: 1, value: 10 }],
+        components: [{ id: 1, value: 10 }],
       },
       {
-        layout: [
+        components: [
           { id: 2, value: 20 },
           { name: 'title' },
           { type: 'pie', data: [1] },
         ],
       },
       {
-        layout: [
+        components: [
           { id: 1, value: 10 },
           { id: 2, value: 20 },
           { name: 'title' },
@@ -92,14 +94,14 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
     [
       {
         show: true,
-        layout: [
+        components: [
           { id: 100, type: 'bar', data: [1], style: { color: 'blue' } },
           { name: 'legend', visible: false },
         ],
       },
       {
         show: false,
-        layout: [
+        components: [
           { id: 100, style: { fontSize: 14 }, data: [2, 3] },
           { type: 'bar', data: [5] },
           { name: 'legend', visible: true },
@@ -108,7 +110,7 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
       },
       {
         show: false,
-        layout: [
+        components: [
           {
             id: 100,
             type: 'bar',
@@ -126,7 +128,7 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
     ],
     [
       {
-        layout: [
+        components: [
           { type: 'text', content: '1' },
           { type: 'text', content: '2' },
           { type: 'text', content: '3' },
@@ -134,14 +136,14 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
         ],
       },
       {
-        layout: [
+        components: [
           { type: 'text', content: '5' },
           { type: 'text', content: '6' },
           { type: 'text', content: '7' },
         ],
       },
       {
-        layout: [
+        components: [
           { type: 'text', content: '5' },
           { type: 'text', content: '6' },
           { type: 'text', content: '7' },

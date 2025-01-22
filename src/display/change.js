@@ -10,7 +10,7 @@ import { barComponent, updateBarComponent } from './components/bar';
 import { FONT_WEIGHT } from './components/config';
 import { iconComponent, updateIconComponent } from './components/icon';
 import { textComponent, updateTextComponent } from './components/text';
-import { layoutSchema } from './layout-schema';
+import { componentSchema } from './data-schema/component-schema';
 import { parseMargin } from './utils';
 
 export const isMatch = (object, key, value) => {
@@ -209,8 +209,8 @@ export const chnageTextStyle = (
   }
 };
 
-export const changeLayout = (item, { layout }) => {
-  if (!layout) return;
+export const changeComponents = (item, { components }) => {
+  if (!components) return;
 
   const componentFn = {
     background: {
@@ -232,14 +232,14 @@ export const changeLayout = (item, { layout }) => {
   };
   const children = [...item.children];
 
-  for (let config of layout) {
+  for (let config of components) {
     const index = children.findIndex((child) =>
       matchValue('type', child, config),
     );
 
     let component = null;
     if (index === -1) {
-      config = validate(config, layoutSchema);
+      config = validate(config, componentSchema);
       if (isValidationError(config)) break;
       component = componentFn[config.type].create({
         ...config,

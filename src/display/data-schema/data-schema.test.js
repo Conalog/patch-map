@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapDataSchema } from './schema';
+import { mapDataSchema } from './data-schema';
 
 describe('mapDataSchema (modified tests for required fields)', () => {
   // --------------------------------------------------------------------------
@@ -11,7 +11,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
       {
         id: 'unique-item-1',
         type: 'item',
-        layout: [], // layoutSchema는 배열
+        components: [], // componentSchema는 배열
         size: { width: 100, height: 50 },
       },
     ];
@@ -39,7 +39,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
           [0, 1, 0],
           [1, 0, 1],
         ],
-        layout: [
+        components: [
           {
             type: 'background',
             texture: 'bg.png',
@@ -98,7 +98,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
         {
           id: 'item-1',
           type: 'item',
-          layout: [],
+          components: [],
           // size 필드가 없음
         },
       ];
@@ -153,14 +153,14 @@ describe('mapDataSchema (modified tests for required fields)', () => {
         {
           id: 'dupId',
           type: 'item',
-          layout: [],
+          components: [],
           size: { width: 100, height: 100 },
         },
         {
           id: 'dupId',
           type: 'grid',
           cells: [[0]],
-          layout: [],
+          components: [],
           size: { width: 50, height: 50 },
         },
       ];
@@ -179,7 +179,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
           cells: [
             [2, 0], // 2는 허용되지 않음
           ],
-          layout: [],
+          components: [],
           size: { width: 100, height: 100 },
         },
       ];
@@ -192,7 +192,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
         {
           id: 'item-2',
           type: 'item',
-          layout: [],
+          components: [],
           size: { width: -100, height: 100 }, // width가 음수
         },
       ];
@@ -205,7 +205,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
         {
           id: 'item-3',
           type: 'item',
-          layout: [],
+          components: [],
           rotation: 'not-a-number', // 숫자가 아님
           size: { width: 10, height: 10 },
         },
@@ -219,7 +219,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
         {
           id: 'item-4',
           type: 'item',
-          layout: [],
+          components: [],
           position: 'invalid-position', // 객체가 아님
           size: { width: 10, height: 10 },
         },
@@ -251,7 +251,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
                 [0, 1],
                 [1, 0],
               ],
-              layout: [],
+              components: [],
               // transform 필드
               position: { x: 10, y: 20 },
               size: { width: 100, height: 50 },
@@ -260,7 +260,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
             {
               id: 'nested-item-1',
               type: 'item',
-              layout: [],
+              components: [],
               // transform 필드
               position: { x: 5, y: 5 },
               size: { width: 50, height: 50 },
@@ -300,7 +300,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
             {
               id: '123',
               type: 'item',
-              layout: [],
+              components: [],
               position: { x: 0, y: 0 },
               size: { width: 10, height: 10 },
             },
@@ -308,7 +308,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
               id: 'duplicate-item',
               type: 'grid',
               cells: [[0]],
-              layout: [],
+              components: [],
               position: { x: 10, y: 10 },
               size: { width: 20, height: 20 },
             },
@@ -364,7 +364,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
       const data = {
         id: 'wrong-root',
         type: 'item',
-        layout: [],
+        components: [],
         size: { width: 10, height: 10 },
       };
       const result = mapDataSchema.safeParse(data);

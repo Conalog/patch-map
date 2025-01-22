@@ -56,7 +56,7 @@ Here’s a quick example to get you started:
         cells: [ [1, 0, 1], [1, 1, 1] ],
         position: { x: 0, y: 0 },
         size: { width: 40, height: 80 },
-        layout: [
+        components: [
           { type: 'background', texture: 'base' },
           { type: 'icon', texture: 'loading', size: 16 }
         ]
@@ -163,7 +163,7 @@ const data = [
       cells: [ [1, 0, 1], [1, 1, 1] ],
       position: { x: 0, y: 0 },
       size: { width: 40, height: 80 },
-      layout: [
+      components: [
         { type: 'background', texture: 'base' },
         { type: 'icon', texture: 'loading', size: 16 }
       ]
@@ -176,7 +176,7 @@ patchMap.draw(data);
 **Data Schema**
 
 The **data structure** required by draw method.  
-For **detailed type definitions**, refer to the [data.d.ts](src/display/data.d.ts) file.
+For **detailed type definitions**, refer to the [data.d.ts](src/display/data-schema/data.d.ts) file.
 
 
 <br/>
@@ -193,7 +193,7 @@ Updates the state of specific objects on the canvas. Use this to change properti
 patchMap.update({
   path: `$..children[?(@.label=="grid-label-1")]`,
   changes: {
-    layout: [{ type: 'icon', texture: 'wifi' }]
+    components: [{ type: 'icon', texture: 'wifi' }]
   }
 });
 
@@ -207,7 +207,7 @@ patchMap.update({
 patchMap.update({
   path: `$..children[?(@.type=="group")].children[?(@.type=="grid")]`,
   changes: {
-    layout: [
+    components: [
       { type: 'icon', color: 'black' }
     ]
   }

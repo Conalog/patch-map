@@ -29,7 +29,7 @@ export interface Grid {
   metadata?: Record<string, unknown>; // 기본값: {}
 
   cells: Array<Array<0 | 1>>;
-  layout: Layout[];
+  components: components[];
 
   position?: {
     x?: number; // 기본값: 0
@@ -53,7 +53,7 @@ export interface Item {
   zIndex?: number; // 기본값: 0
   metadata?: Record<string, unknown>; // 기본값: {}
 
-  layout: Layout[];
+  components: components[];
 
   position?: {
     x?: number; // 기본값: 0
@@ -82,14 +82,18 @@ export interface Relations {
 }
 
 /**
- * Layout 타입 (배경, 바, 아이콘, 텍스트)
+ * components 타입 (배경, 바, 아이콘, 텍스트)
  */
-export type Layout = BackgroundLayout | BarLayout | IconLayout | TextLayout;
+export type components =
+  | BackgroundComponent
+  | BarComponent
+  | IconComponent
+  | TextComponent;
 
 /**
- * Background Layout
+ * Background components
  */
-export interface BackgroundLayout {
+export interface BackgroundComponent {
   type: 'background';
   show?: boolean; // 기본값: true
   label?: string | null; // 기본값: null
@@ -100,9 +104,9 @@ export interface BackgroundLayout {
 }
 
 /**
- * Bar Layout
+ * Bar components
  */
-export interface BarLayout {
+export interface BarComponent {
   type: 'bar';
   show?: boolean; // 기본값: true
   label?: string | null; // 기본값: null
@@ -117,9 +121,9 @@ export interface BarLayout {
 }
 
 /**
- * Icon Layout
+ * Icon components
  */
-export interface IconLayout {
+export interface IconComponent {
   type: 'icon';
   show?: boolean; // 기본값: true
   label?: string | null; // 기본값: null
@@ -133,9 +137,9 @@ export interface IconLayout {
 }
 
 /**
- * Text Layout
+ * Text components
  */
-export interface TextLayout {
+export interface TextComponent {
   type: 'text';
   show?: boolean; // 기본값: true
   label?: string | null; // 기본값: null

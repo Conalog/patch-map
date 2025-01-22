@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { layoutArraySchema, layoutSchema } from './layout-schema';
+import { componentArraySchema, componentSchema } from './component-schema';
 
-describe('layoutArraySchema', () => {
+describe('componentArraySchema', () => {
   // --------------------------------------------------------------------------
   // 1) 전체 레이아웃 배열 구조 테스트
   // --------------------------------------------------------------------------
-  it('should validate a valid layout array with multiple items', () => {
-    const validLayout = [
+  it('should validate a valid component array with multiple items', () => {
+    const validComponent = [
       {
         type: 'background',
         texture: 'background.png',
@@ -31,19 +31,19 @@ describe('layoutArraySchema', () => {
       },
     ];
 
-    const result = layoutArraySchema.safeParse(validLayout);
+    const result = componentArraySchema.safeParse(validComponent);
     expect(result.success).toBe(true);
     expect(result.success && result.data).toBeDefined();
   });
 
-  it('should fail if an invalid type is present in the layout', () => {
-    const invalidLayout = {
+  it('should fail if an invalid type is present in the component', () => {
+    const invalidComponent = {
       // 여기에 존재하지 않는 type
       type: 'wrongType',
       texture: 'wrong.png',
     };
 
-    const result = layoutSchema.safeParse(invalidLayout);
+    const result = componentSchema.safeParse(invalidComponent);
     expect(result.success).toBe(false);
   });
 
@@ -58,7 +58,7 @@ describe('layoutArraySchema', () => {
           texture: 'bg.png',
         },
       ];
-      const result = layoutArraySchema.safeParse(data);
+      const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(true);
     });
 
@@ -68,7 +68,7 @@ describe('layoutArraySchema', () => {
           type: 'background',
         },
       ];
-      const result = layoutArraySchema.safeParse(data);
+      const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(false);
     });
   });
@@ -84,7 +84,7 @@ describe('layoutArraySchema', () => {
           texture: 'bar.png',
         },
       ];
-      const result = layoutArraySchema.safeParse(data);
+      const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(true);
 
       // percentWidth, percentHeight는 기본값이 1로 설정됨
@@ -105,7 +105,7 @@ describe('layoutArraySchema', () => {
           percentWidth: 1.1,
         },
       ];
-      const result = layoutArraySchema.safeParse(data);
+      const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(false);
     });
 
@@ -117,7 +117,7 @@ describe('layoutArraySchema', () => {
           placement: 'unknown-placement',
         },
       ];
-      const result = layoutArraySchema.safeParse(data);
+      const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(false);
     });
   });
@@ -134,7 +134,7 @@ describe('layoutArraySchema', () => {
           size: 64,
         },
       ];
-      const result = layoutArraySchema.safeParse(data);
+      const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(true);
 
       if (result.success) {
@@ -151,7 +151,7 @@ describe('layoutArraySchema', () => {
           size: -1,
         },
       ];
-      const result = layoutArraySchema.safeParse(data);
+      const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(false);
     });
 
@@ -162,7 +162,7 @@ describe('layoutArraySchema', () => {
           size: 32,
         },
       ];
-      const result = layoutArraySchema.safeParse(data);
+      const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(false);
     });
   });
@@ -177,7 +177,7 @@ describe('layoutArraySchema', () => {
           type: 'text',
         },
       ];
-      const result = layoutArraySchema.safeParse(data);
+      const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(true);
 
       if (result.success) {
@@ -199,7 +199,7 @@ describe('layoutArraySchema', () => {
           },
         },
       ];
-      const result = layoutArraySchema.safeParse(data);
+      const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(true);
     });
 
@@ -210,7 +210,7 @@ describe('layoutArraySchema', () => {
           placement: 'invalid-placement',
         },
       ];
-      const result = layoutArraySchema.safeParse(data);
+      const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(false);
     });
   });
@@ -227,10 +227,10 @@ describe('layoutArraySchema', () => {
       const data = [];
       // 현재 스키마는 빈 배열도 가능하므로 success가 true가 됩니다.
       // 정말로 실패를 원한다면 아래 주석 처럼 변경해주세요:
-      // export const layoutArraySchema = z
+      // export const componentArraySchema = z
       //   .discriminatedUnion('type', [background, bar, icon, text])
       //   .array().min(1);
-      const result = layoutArraySchema.safeParse(data);
+      const result = componentArraySchema.safeParse(data);
       // 여기서는 빈 배열도 "성공" 케이스임
       expect(result.success).toBe(true);
     });
@@ -240,7 +240,7 @@ describe('layoutArraySchema', () => {
         type: 'background',
         texture: 'bg.png',
       };
-      const result = layoutArraySchema.safeParse(data);
+      const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(false);
     });
 
@@ -252,7 +252,7 @@ describe('layoutArraySchema', () => {
         },
         1234, // 비객체
       ];
-      const result = layoutArraySchema.safeParse(data);
+      const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(false);
     });
   });
