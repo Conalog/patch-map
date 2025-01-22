@@ -90,6 +90,11 @@ export class PatchMap {
     this._isInit = true;
   }
 
+  destroy() {
+    Assets.destroy();
+    this.app.destroy(true);
+  }
+
   draw(data) {
     let zData = isLegacyData(data) ? convertLegacyData(data) : data;
     if (!Array.isArray(zData)) {
