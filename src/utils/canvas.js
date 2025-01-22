@@ -1,7 +1,9 @@
-import { findComponent, findContainer } from './find';
+import { selector } from './selector/selector';
 
 export const focus = (viewport, id) => {
-  const bounds = getScaleBounds(viewport, getObject(viewport, id) ?? viewport);
+  const object = getObject(viewport, id);
+  if (!object.length) return;
+  const bounds = getScaleBounds(viewport, object[0]);
   viewport.moveCenter(
     bounds.x + bounds.width / 2,
     bounds.y + bounds.height / 2,
@@ -10,14 +12,15 @@ export const focus = (viewport, id) => {
 
 export const fit = (viewport, id) => {
   focus(viewport, id);
-  const bounds = getScaleBounds(viewport, getObject(viewport, id) ?? viewport);
+  const object = getObject(viewport, id);
+  if (!object.length) return;
+  const bounds = getScaleBounds(viewport, object[0]);
   viewport.fit(true, bounds.width, bounds.height);
 };
 
-const getObject = (viewport, id) =>
-  id
-    ? findContainer(viewport, id) || findComponent(viewport, 'frame', id)
-    : null;
+const getObject = (viewport, id) => {
+  return id ? selector(viewport, `$..children[?(@.id=="${id}")]`) : [viewport];
+};
 
 export const getScaleBounds = (viewport, object) => {
   const bounds = object.getBounds();

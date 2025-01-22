@@ -1,4 +1,5 @@
 # PATCH MAP
+English | [한국어](./README_KR.md)
 
 PATCH MAP is an optimized canvas library built on pixijs and pixi-viewport, tailored to meet the requirements of PATCH services.
 It enables flexible and fast creation of 2D content.
@@ -8,50 +9,25 @@ It enables flexible and fast creation of 2D content.
 
 <br/>
 
-
 ## 📚 Table of Contents
 
 - [🚀 Getting Started](#-getting-started)
   - [Install](#install)
   - [Usage](#usage)
-    - [Svelte Example](#svelte-example)
 - [🛠 API Overview](#-api-overview)
   - [init(el, options)](#initel-options)
-    - [Options](#options)
-    - [Example](#example)
-  - [draw(options)](#drawoptions)
-    - [Options](#options-1)
-    - [Component Options](#component-options)
-    - [Example](#example-1)
+  - [draw(data)](#drawdata)
   - [update(options)](#updateoptions)
-    - [Options](#options-2)
-    - [Example](#example-2)
-  - [event()](#event)
-    - [Methods](#methods)
-      - [add(type, action, fn, options)](#addtype-action-fn-options)
-      - [remove(eventId)](#removeeventid)
-      - [on(eventId)](#oneventid)
-      - [off(eventId)](#offeventid)
-      - [get(eventId)](#geteventid)
-      - [getAll()](#getall)
-    - [Special Use Cases](#special-use-cases)
-      - [Canvas Events](#canvas-events)
-      - [Double Click Handling](#double-click-handling)
-      - [Multiple Actions](#multiple-actions)
-  - [asset()](#asset)
-    - [Methods](#methods-1)
-      - [add(assets)](#addassets)
-      - [load(urls, onProgress)](#loadurls-onprogress-promiseany)
-      - [get(keys)](#getkeys)
-      - [addBundle(bundleId, assets)](#addbundlebundleid-assets)
-      - [loadBundle(bundleIds, onProgress)](#loadbundlebundleids-onprogress-promiseany)
-  - [canvas()](#canvas)
-    - [Methods](#methods-2)
-      - [focus(id)](#focusid)
-      - [fit(id)](#fitid)
+  - [event](#event)
+  - [asset](#asset)
+  - [focus(id)](#focusid)
+  - [fit(id)](#fitid)
+  - [selector(path)](#selectorpath)
 - [🧑‍💻 Development](#-development)
   - [Setting up the development environment](#setting-up-the-development-environment)
   - [VSCode Integration](#vscode-integration)
+- [📄 License](#license)
+- [🔤 Fira Code](#fira-code)
 
 <br/>
 
@@ -67,48 +43,36 @@ npm install @conalog/patch-map
 Here’s a quick example to get you started:
 [example](https://codesandbox.io/p/devbox/patch-map-basic-usage-mzp42y?embed=1)
 ```js
-import { PatchMap } from '@conalog/patch-map';
-
 (async () => {
-  const body = document.body;
-
-  // Create a new PatchMap instance
-  const patchMap = new PatchMap();
-
-  // Initialize the map
-  await patchMap.init(body);
-
-  // Render the map with data
-  patchMap.draw({ mapData: data });
-})();
-```
-<details>
-  <summary>Svelte Example</summary>
-
-```html
-<script>
-  import { onMount } from 'svelte';
   import { PatchMap } from '@conalog/patch-map';
 
-  onMount(async () => {
-    const data = await fetchMapData();
+  const data = [
+    {
+      type: 'group',
+      id: 'group-id-1',
+      label: 'group-label-1',
+      items: [{
+        type: 'grid',
+        id: 'grid-1',
+        label: 'grid-label-1',
+        cells: [ [1, 0, 1], [1, 1, 1] ],
+        position: { x: 0, y: 0 },
+        size: { width: 40, height: 80 },
+        components: [
+          { type: 'background', texture: 'base' },
+          { type: 'icon', texture: 'loading', size: 16 }
+        ]
+      }]
+    }
+  ];
 
-    const patchMap = new PatchMap();
-    await patchMap.init(document.getElementById('patchmap'));
-    patchMap.draw({ mapData: data });
-  });
+  const patchMap = new PatchMap();
 
-  async function fetchMapData() {
-    const res = await fetch('panelmap.json');
-    return res.json();
-  }
-</script>
-
-<main style="height: 100vh">
-	<div id="patchmap" style="height: 100%;"></div>
-</main>
+  await patchMap.init(document.body);
+  
+  patchMap.draw(data);
+})()
 ```
-</details>
 
 <br/>
 
@@ -117,7 +81,19 @@ import { PatchMap } from '@conalog/patch-map';
 ### `init(el, options)`
 Initialize PATCH MAP with options.  
 
-#### **`Options`**
+```js
+await patchMap.init(el, {
+  app: { background: '#CCCCCC' },
+  viewport: {
+    plugins: { decelerate: { disabled: true } }
+  },
+  theme: {
+    primary: { default: '#c2410c' }
+  }
+});
+```
+
+#### **Options**
 Customize the rendering behavior using the following options:
 
 - `app`
@@ -157,112 +133,50 @@ Customize the rendering behavior using the following options:
     primary: {
       default: '#0C73BF',
       dark: '#083967',
+      accent: '#EF4444',
     },
     gray: {
       light: '#9EB3C3',
       default: '#D9D9D9',
       dark: '#71717A',
     },
-    red: {
-      default: '#EF4444',
-    },
     white: '#FFFFFF',
     black: '#1A1A1A',
   }
   ```
 
-#### **Example:**
-```js
-init(el, {
-  app: {
-    background: '#CCCCCC'
-  },
-  viewport: {
-    plugins: {
-      decelerate: { disabled: true }
-    }
-  },
-  theme: {
-    primary: { default: '#c2410c' }
-  }
-})
-```
-
 <br/>
 
-### `draw(options)`
+### `draw(data)`
 Render map data on the canvas.  
-Supports customization for various map elements such as panelGroups, inverters, combines, and edges.
 
-#### ***Example:***
 ```js
-data = convertLegacyData(data); // if the data is legacy panel map data
-draw({
-  mapData: data,
-  panelGroups: {
-    components: {
-      bar: { show: true, name: 'base', color: 'primary.default' },
-      icon: { show: true, name: 'loading', color: 'red.default' },
-      text: { show: true, content: '123456780987', style: { fontSize: 'auto' }, split: 2, margin: 4 },
-    },
-  },
-});
+const data = [
+  {
+    type: 'group',
+    id: 'group-id-1',
+    label: 'group-label-1',
+    items: [{
+      type: 'grid',
+      id: 'grid-1',
+      label: 'grid-label-1',
+      cells: [ [1, 0, 1], [1, 1, 1] ],
+      position: { x: 0, y: 0 },
+      size: { width: 40, height: 80 },
+      components: [
+        { type: 'background', texture: 'base' },
+        { type: 'icon', texture: 'loading', size: 16 }
+      ]
+    }]
+  }
+];
+patchMap.draw(data);
 ```
 
-#### **`Options`**
-- `mapData` - The primary data used for rendering the map.  
-  - If you are using the legacy panel map data schema, it is essential to insert the converted data using the `convertLegacyData` method.
-- `panelGroups`, `strings`, `inverters`, `combines`, `edges` - Configuration for individual map elements.  
-  - **Note:** This is where you specify the `group` for logical grouping of objects as defined in the Object Schema below.  
-  - `show` - Toggle visibility of the element.  
-  - `frame` - Specifies the frame to use for the element.  
-    (default frames include: ***`base`***, ***`base-selected`***, ***`icon`***, ***`icon-selected`***)
-  - `components` - Defines the components to display for each element,  
-  including: `bar`, `icon`, `text`
+**Data Schema**
 
-#### **Component Options**
-Here are the options available for components:  
-- `show` - Use this to toggle the visibility of the component as needed.  
-- `zIndex` - This determines the stacking order of the component in relation to others.  
-
-Specific Options:  
-- `name` (bar, icon only) - Asset name used for the component.  
-  (default bars include: ***`base`***)  
-  (default icons include: ***`inverter`***, ***`combine`***, ***`edge`***, ***`device`***, ***`loading`***, ***`warning`***, ***`wifi`***)
-- `color` (bar, icon only) - Specifies the color of the component using the theme key, such as `'white'`, `'black'`, `'primary.default'`, or `'gray.light'`.
-- `size` (icon only) - Defines the dimensions of the icon, allowing customization of its visual appearance. 
-- `content` (text only) - The actual text content to be displayed.
-- `style` (text only) - The styling options for the text, such as fontSize (which can be set to "auto"), color, and weight. ([Docs](https://pixijs.download/release/docs/text.TextStyleOptions.html))
-- `split` (text only) - Determines how many characters to split the text into for line breaks.
-- `margin` (text only) - Margin is applied when the font size of the text component's style is set to 'auto'.
-
-
-#### **mapData Schema Definition**
-
-##### ***Root Schema***
-| Key | Type | Description | Required |
-|-----|------|-------------|----------|
-| `objects` | `Array<Object>` | List of objects to render. Each object must follow the structure defined below. | Yes |
-
-##### ***Object Schema***
-| Key | Type | Description | Required |
-|-----|------|-------------|----------|
-| `type` | `string` | The type of the object. Must be either `grid` or `each`. | Yes |
-| `group` | `string` | Group identifier for logical grouping of objects. | Yes |
-| `id` | `string` | Unique identifier for the object. | Yes |
-| `name` | `string` | Human-readable name for the object. | No |
-| `layout` | `Array<Array<number>>` | 2D array defining the object's layout (only applicable to `type: grid`). | Yes |
-| `transform` | `Object` | Defines the position, rotation, and dimensions of the object. | Yes |
-| `metadata` | `Object` | Additional metadata for the object. Example: custom properties or user data. | No |
-
-##### ***Transform Schema***
-| Key | Type | Description | Required |
-|-----|------|-------------|----------|
-| `x` | `number` | X-coordinate of the object. | Yes |
-| `y` | `number` | Y-coordinate of the object. | Yes |
-| `width` | `number` | Width of the object. | No |
-| `height` | `number` | Height of the object. | No |
-| `rotation` | `number` | Rotation of the object in degrees. (only applicable to `type: grid`). | No |
+The **data structure** required by draw method.  
+For **detailed type definitions**, refer to the [data.d.ts](src/display/data-schema/data.d.ts) file.
 
 
 <br/>
@@ -271,168 +185,167 @@ Specific Options:
 Updates the state of specific objects on the canvas. Use this to change properties like color or text visibility for already rendered objects.
 
 #### **`Options`**
-- `ids`(required, string | string[]) - The ID or list of IDs of the objects to update.
-- `changes`(required, object) - The new properties to apply (e.g., color, text.show).
+- `path`(required, string) - Selector for the object to which the event will be applied, following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax.
+- `changes`(required, object) - New properties to apply (e.g., color, text visibility).
 
-#### **Example:**
-
-##### ***Single ID***
 ```js
-update({
-  ids: 'objectId1',
-  changes: { frame: 'base-selected' }
-})
-```
-
-##### ***Multiple IDs***
-```js
-update({
-  ids: ['objectId1', 'objectId2'],
-  changes: { components: { bar: { color: 'red.default' } } }
-})
-```
-
-<br/>
-
-### `event()`
-Add interactivity with events for different components such as `panelGroups`, `inverters`, `edges`, and even the canvas itself.
-
-#### **Methods**
-
-##### `add(type, action, fn, options)`
-Registers an event for a specific component type.
-- `type` - Specifies the target for the event (e.g., `'panelGroups'`, `'inverters'`, `'edges'`, or `'canvas'`).  
-- `action` - The event type to listen for (e.g., `'click'`, `'pointerdown'`, `'rightclick'`). Multiple actions can be registered simultaneously using a space-separated string. (e.g., `'click tap'`)
-- `fn` - The callback function to execute when the event is triggered. Receives the event object as a parameter.  
-- `options` (optional) - Additional options for event configuration.
-  - `eventId` - A unique identifier for the event, useful for managing it later.  
-  - Other options are passed to [AddEventListenerOptions](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#options).
-```js
-event().add('panelGroups', 'click', (e) => {
-  console.log('panelGroup clicked: ', e.target.id);
-}, { eventId: 'panelGroup-click' });
-```
-
-
-##### `remove(eventId)`
-Remove an event:
-```js
-event().remove('panelGroup-click');
-```
-
-
-##### `on(eventId)`
-Enables a previously registered event.
-
-##### `off(eventId)`
-Disables a previously registered event.
-
-##### `get(eventId)`
-Gets an event by its eventId.
-
-##### `getAll()`
-Gets all registered events.
-
-
-#### **Special Use Cases**
-
-##### ***Canvas Events***
-To register events on the canvas itself, use the type 'canvas'.
-```js
-event().add('canvas', 'click', (e) => {
-  if (e.target.constructor.name === '_Canvas') {
-    console.log('canvas clicked');
+// Apply changes to objects with the label "grid-label-1"
+patchMap.update({
+  path: `$..children[?(@.label=="grid-label-1")]`,
+  changes: {
+    components: [
+      { type: 'icon', texture: 'wifi' }
+    ]
   }
 });
-```
 
-##### ***Double Click Handling***
-PixiJS supports detecting multiple clicks using the detail property of events. Refer to the pixijs [addEventListener documentation](https://pixijs.download/release/docs/scene.Container.html#addEventListener) for more details.
-```js
-event().add('panelGroups', 'click', (e) => {
-  if (e.detail === 2) {
-    console.log('Double click detected on panelGroup:', e.target.id);
+// Apply changes to objects of type "group"
+patchMap.update({
+  path: `$..children[?(@.type=="group")]`,
+  changes: { 
+    show: false
   }
 });
-```
 
-##### ***Multiple Actions***
-You can register multiple actions in one call by separating them with a space.
-```js
-patchMap.event().add('panelGroups', 'click pointerdown', (e) => {
-  console.log('panelGroup event: ', e.target.id);
+// Apply changes to objects of type "grid" within objects of type "group"
+patchMap.update({
+  path: `$..children[?(@.type=="group")].children[?(@.type=="grid")]`,
+  changes: {
+    components: [
+      { type: 'icon', color: 'black' }
+    ]
+  }
 });
 ```
 
 <br/>
 
-### `asset()`
+### `event`
+Manages events for the canvas and various components.  
+If you want to learn about multiple event actions such as double-click, refer to the [addEventListener documentation](https://pixijs.download/release/docs/scene.Container.html#addEventListener).
 
-#### **Methods**
+#### add(options)
+- `id` (optional, string) - A unique identifier for the event. Useful for managing the event later.
+- `path` (required, string) - Selector for the object to which the event will be applied, following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax.
+- `action` (required, string) - Specifies the type of event. For example, 'click', 'pointerdown', etc.
+- `fn` (required, function) - The callback function to execute when the event is triggered. Receives the event object as a parameter.
 
-##### `add(assets)`
-- Adds assets to the PixiJS Assets manager. See the [pixiJS add method](https://pixijs.download/release/docs/assets.Assets.html#add) for more information.
-- If you want to specify the icon resolution, you can add the `data: { resolution: <your_value> }` option.
-- To add an **icon asset**, make sure to prefix the `alias` with `icons-`.
 ```js
-patchMap.asset().add({
-  alias: 'icons-home',
-  src: '/path/to/home.svg',
-  data: { resolution: 2 }
-})
-```
+const id = patchMap.event.add({
+  path: '$',
+  action: 'click tap',
+  fn: (e) => {
+    console.log(e.target.id)
+  }
+});
 
+patchMap.event.add({
+  id: 'pointerdown-event',
+  path: '$..[?(@.label=="group-label-1")]',
+  action: 'pointerdown',
+  fn: (e) => {
+    console.log(e.target.type);
+  }
+});
 
-##### `load(urls, onProgress)`: Promise\<any>
-- Loads assets from the specified URLs. Refer to the [pixiJS load method](https://pixijs.download/release/docs/assets.Assets.html#load) for more information.
-```js
-await patchMap.asset().load({
-  alias: 'icons-expand-less',
-  src: '/path/to/expand-less.svg',
-  data: { resolution: 3 }
-})
-
-patchMap.draw({
-  panelGroups: {
-    components: {
-      icon: { name: 'expand-less' }
+patchMap.event.add({
+  id: 'double-click',
+  path: '$',
+  action: 'click',
+  fn: (e) => {
+    if (e.detail === 2 && e.target.type === 'canvas') {
+      console.log('Double click detected on canvas');
     }
   }
 });
 ```
+```js
+// Activate 'pointerdown-event' & 'double-click' events.
+patchMap.event.on('pointerdown-event double-click');
 
-##### `get(keys)`
+// Deactivate 'pointerdown-event' & 'double-click' events.
+patchMap.event.off('pointerdown-event double-click');
+
+// Remove 'pointerdown-event' & 'double-click' events.
+patchMap.event.remove('pointerdown-event');
+
+// Get the registered 'double-click' event.
+const event = patchMap.event.get('double-click');
+
+// Get all registered events.
+const events = patchMap.event.getAll();
+```
+
+<br/>
+
+### `asset`
+
+#### `add(assets)`
+- Adds assets to the PixiJS Assets manager. See the [pixiJS add method](https://pixijs.download/release/docs/assets.Assets.html#add) for more information.
+- If you want to specify the icon resolution, you can add the `data: { resolution: <your_value> }` option.
+- To add an **icon asset**, make sure to prefix the `alias` with `icons-`.
+```js
+patchMap.asset.add({
+  alias: 'icons-expand',
+  src: '/expand.svg',
+  data: { resolution: 3 }
+});
+```
+
+
+#### `load(urls, onProgress)`: Promise\<any>
+- Loads assets from the specified URLs. Refer to the [pixiJS load method](https://pixijs.download/release/docs/assets.Assets.html#load) for more information.
+```js
+await patchMap.asset.load('icons-expand');
+
+await patchMap.asset.load({
+  alias: 'icons-plus',
+  src: '/plus.svg',
+  data: { resolution: 2 }
+});
+```
+
+#### `get(keys)`
 - Retrieves assets using the specified keys. Check the [pixiJS get method](https://pixijs.download/release/docs/assets.Assets.html#get) for more information.
 
-##### `addBundle(bundleId, assets)`
+#### `addBundle(bundleId, assets)`
 - Adds a bundle of assets to the PixiJS Assets manager. More information can be found in the [pixiJS addBundle method](https://pixijs.download/release/docs/assets.Assets.html#addBundle).
 
-##### `loadBundle(bundleIds, onProgress)`: Promise\<any>
+#### `loadBundle(bundleIds, onProgress)`: Promise\<any>
 - Loads a bundle of assets based on the provided bundle IDs. See the [pixiJS loadBundle method](https://pixijs.download/release/docs/assets.Assets.html#loadBundle) for more information.
 
 
 <br/>
 
-### `canvas()`
-
-#### **Methods**
-
-##### `focus(id)`
+### `focus(id)`
 ```js
-focus() // focus based on the entire canvas object
+ // Focus on the entire canvas object
+patchMap.focus()
 
-focus('groupId') // focus based on the group
+// Focus on the object with id 'group-id-1'
+patchMap.focus('group-id-1')
 
-focus('objectId') // focus based on the object
+// Focus on the object with id 'grid-1'
+patchMap.focus('grid-1')
 ```
 
-##### `fit(id)`
+### `fit(id)`
 ```js
-fit() // fit based on the entire canvas object
+// Fit to the entire canvas object
+patchMap.fit()
 
-fit('groupId') // fit based on the group
+// Fit to the object with id 'group-id-1'
+patchMap.fit('group-id-1')
 
-fit('objectId') // fit based on the object
+// Fit to the object with id 'grid-1'
+patchMap.fit('grid-1')
+```
+
+### `selector(path)`
+Object explorer following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax.
+
+```js
+  const result = patchMap.selector('$..[?(@.label=="group-label-1")]')
 ```
 
 <br/>

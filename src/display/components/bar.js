@@ -1,66 +1,68 @@
 import { NineSliceSprite } from 'pixi.js';
+import { z } from 'zod';
+import { isValidationError } from 'zod-validation-error';
 import { getAsset } from '../../assets/utils';
-import { getFrameInnerSize, getNestedValue, getPadding } from '../../utils/get';
-import { deepMerge } from '../../utils/merge';
-import { BAR_COMPONENT_CONFIG } from './config';
+import { deepMerge } from '../../utils/deepmerge/deepmerge';
+import { validate } from '../../utils/vaildator';
+import {
+  changeColor,
+  changePercentSize,
+  changePlacement,
+  changeShow,
+  changeTexture,
+  changeZIndex,
+} from '../change';
+import { Margin, Placement } from '../data-schema/component-schema';
 
-export const barComponent = (name, theme, opts = {}) => {
-  const options = deepMerge(BAR_COMPONENT_CONFIG, opts);
+const barSchema = z.object({
+  texture: z.string(),
+  label: z.nullable(z.string()).default(null),
+});
 
-  if (!opts.frame) throw 'The frame option is missing.';
+export const barComponent = (opts) => {
+  const options = validate(opts, barSchema);
+  if (isValidationError(options)) return;
 
-  const texture = getAsset(`bars-${name}`);
-  if (!texture) {
-    console.warn(`No asset exists for ${name}.`);
-    return;
-  }
+  const texture = getAsset(`bars-${options.texture}`);
+  if (!texture) return;
 
-  const percentWidth = options.percentWidth;
-  const percentHeight = Math.max(
-    options.minPercentHeight,
-    options.percentHeight,
-  );
-  const maxSize = getFrameInnerSize(options.frame);
-  const width = maxSize.width * percentWidth;
-  const height = maxSize.height * percentHeight;
-
-  const bar = new NineSliceSprite({
+  const component = new NineSliceSprite({
     texture,
     ...texture.metadata.slice,
-    width,
-    height,
+    width: 0,
+    height: 0,
   });
-  setBarPosition(options.frame, bar);
-  bar.type = 'bar';
-  bar.label = options.label;
-  bar.zIndex = options.zIndex;
-  bar.renderable = options.show ?? false;
-  if (options.color) {
-    bar.tint = options.color.startsWith('#')
-      ? options.color
-      : getNestedValue(theme, options.color);
-  }
-  bar.eventMode = 'none';
-  if (options.parent) {
-    options.parent.addChild(bar);
-  }
-  bar.frame = options.frame;
-  bar.option = {
-    name,
-    show: bar.renderable,
-    color: options.color,
-    zIndex: options.zIndex,
-    minPercentHeight: options.minPercentHeight,
-    percentWidth,
-    percentHeight,
-  };
-  options.frame.components[bar.type] = bar;
-  return bar;
+  component.type = 'bar';
+  component.label = options.label;
+  component.config = {};
+  return component;
 };
 
-const setBarPosition = (frame, bar) => {
-  const padding = getPadding(frame.texture.metadata.padding);
-  const x = frame.x + padding.left;
-  const y = frame.y + frame.height - bar.height - padding.bottom;
-  bar.position.set(x, y);
+const updateBarSchema = z
+  .object({
+    show: z.boolean(),
+    zIndex: z.number(),
+    texture: z.string(),
+    color: z.string(),
+    placement: Placement,
+    margin: Margin,
+    percentWidth: z.number().min(0).max(1),
+    percentHeight: z.number().min(0).max(1),
+  })
+  .partial();
+
+export const updateBarComponent = (component, opts) => {
+  if (!component) return;
+  const options = validate(opts, updateBarSchema);
+  if (isValidationError(options)) return;
+
+  changeShow(component, options);
+  changeZIndex(component, options);
+  changeTexture(component, {
+    texture: options.texture && `bars-${options.texture}`,
+  });
+  changeColor(component, options);
+  changePercentSize(component, options);
+  changePlacement(component, options);
+  component.config = deepMerge(component.config, options);
 };

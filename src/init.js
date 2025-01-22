@@ -2,15 +2,13 @@ import { Viewport } from 'pixi-viewport';
 import { Assets } from 'pixi.js';
 import { firaCode } from './assets/fonts';
 import { icons } from './assets/icons';
+import { background } from './assets/textures/background';
 import { bars } from './assets/textures/bars';
-import { frames } from './assets/textures/frames';
 import { addTexture } from './assets/textures/utils';
 import { transformManifest } from './assets/utils';
-import { THEME_CONFIG } from './config/theme';
 import * as viewportEvents from './events/viewport';
-import { deepMerge } from './utils/merge';
-
-class _Canvas extends Viewport {}
+import { deepMerge } from './utils/deepmerge/deepmerge';
+import { getColor } from './utils/get';
 
 const DEFAULT_INIT_OPTIONS = {
   app: {
@@ -33,64 +31,47 @@ const DEFAULT_INIT_OPTIONS = {
   },
   assets: {
     icons: {
-      object: {
-        src: icons.object,
-      },
-      inverter: {
-        src: icons.inverter,
-      },
-      combine: {
-        src: icons.combine,
-      },
-      edge: {
-        src: icons.edge,
-      },
-      device: {
-        src: icons.device,
-      },
-      loading: {
-        src: icons.loading,
-      },
-      warning: {
-        src: icons.warning,
-      },
-      wifi: {
-        src: icons.wifi,
-        disabled: true,
-      },
+      object: { src: icons.object },
+      inverter: { src: icons.inverter },
+      combine: { src: icons.combine },
+      edge: { src: icons.edge },
+      device: { src: icons.device },
+      loading: { src: icons.loading },
+      warning: { src: icons.warning },
+      wifi: { src: icons.wifi },
     },
   },
   textures: {
-    frames: {
+    background: {
       base: {
         label: 'base',
         type: 'base',
         borderWidth: 2,
-        borderColor: THEME_CONFIG.primary.dark,
+        borderColor: 'primary.dark',
       },
       'base-selected': {
         label: 'base',
         type: 'base',
         borderWidth: 4,
-        borderColor: THEME_CONFIG.red.default,
+        borderColor: 'primary.accent',
       },
       label: {
         label: 'label',
         type: 'label',
         borderWidth: 2,
-        borderColor: THEME_CONFIG.primary.dark,
+        borderColor: 'primary.dark',
       },
       'label-selected': {
         label: 'label',
         type: 'label',
         borderWidth: 4,
-        borderColor: THEME_CONFIG.red.default,
+        borderColor: 'primary.accent',
       },
       icon: {
         label: 'icon',
         type: 'base',
         borderWidth: 2,
-        borderColor: THEME_CONFIG.primary.default,
+        borderColor: 'primary.default',
         radius: 4,
         defaultWidth: 24,
         defaultHeight: 24,
@@ -99,7 +80,7 @@ const DEFAULT_INIT_OPTIONS = {
         label: 'icon',
         type: 'base',
         borderWidth: 4,
-        borderColor: THEME_CONFIG.red.default,
+        borderColor: 'primary.accent',
         radius: 4,
         defaultWidth: 24,
         defaultHeight: 24,
@@ -130,7 +111,8 @@ export const initViewport = (app, opts = {}) => {
     },
     opts,
   );
-  const viewport = new _Canvas(options);
+  const viewport = new Viewport(options);
+  viewport.type = 'canvas';
   viewport.plugins.addItems = (plugins = {}) =>
     viewportEvents.addPlugins(viewport, plugins);
   viewport.plugins.removeItems = (plugins = []) =>
@@ -139,7 +121,7 @@ export const initViewport = (app, opts = {}) => {
     viewportEvents.resumePlugins(viewport, plugins);
   viewport.plugins.pauseItems = (plugins = []) =>
     viewportEvents.pausePlugins(viewport, plugins);
-  viewport.componentEvents = {};
+  viewport.events = {};
 
   viewport.plugins.addItems(options.plugins);
   app.stage.addChild(viewport);
@@ -165,8 +147,12 @@ export const initTextures = (app, opts = {}) => {
   for (const [key, textures] of Object.entries(options)) {
     for (const [name, option] of Object.entries(textures)) {
       let texture = null;
-      if (key === 'frames') {
-        texture = frames[option.type](app, { name, ...option });
+      if (key === 'background') {
+        texture = background[option.type](app, {
+          name,
+          ...option,
+          borderColor: getColor(option.borderColor, opts.theme),
+        });
       } else if (key === 'bars') {
         texture = bars[option.type](app, { name, ...option });
       }

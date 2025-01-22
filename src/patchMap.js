@@ -1,22 +1,22 @@
 import { Application } from 'pixi.js';
-import {} from './assets/textures/utils';
+import { isValidationError } from 'zod-validation-error';
 import { assets } from './assets/utils';
 import { THEME_CONFIG } from './config/theme';
-import { DRAW_DEFAULT_OPTIONS } from './display/config';
-import { draw } from './display/draw/draw';
-import { update } from './display/update/update';
+import { draw } from './display/draw';
+import { update } from './display/update';
 import { event } from './events/canvas';
 import { initApp, initAssets, initTextures, initViewport } from './init';
 import { fit, focus } from './utils/canvas';
 import { convertLegacyData } from './utils/convert';
-import { deepMerge } from './utils/merge';
+import { deepMerge } from './utils/deepmerge/deepmerge';
+import { selector } from './utils/selector/selector';
+import { validateMapData } from './utils/vaildator';
 
 export class PatchMap {
   _app = null;
   _viewport = null;
   _resizeObserver = null;
   _theme = THEME_CONFIG;
-  _setOptions = DRAW_DEFAULT_OPTIONS;
 
   constructor() {
     this._app = new Application();
@@ -34,6 +34,31 @@ export class PatchMap {
     return this._theme;
   }
 
+  get event() {
+    return {
+      add: (opts) => {
+        const id = event.addEvent(this.viewport, opts);
+        event.onEvent(this.viewport, id);
+        return id;
+      },
+      remove: (id) => event.removeEvent(this.viewport, id),
+      on: (id) => event.onEvent(this.viewport, id),
+      off: (id) => event.offEvent(this.viewport, id),
+      get: (id) => event.getEvent(this.viewport, id),
+      getAll: () => event.getAllEvent(this.viewport),
+    };
+  }
+
+  get asset() {
+    return {
+      add: assets.addAsset,
+      load: assets.loadAsset,
+      get: assets.getAsset,
+      addBundle: assets.addAssetBundle,
+      loadBundle: assets.loadAssetBundle,
+    };
+  }
+
   _setTheme(opts = {}) {
     this._theme = deepMerge(this.theme, opts);
   }
@@ -44,15 +69,16 @@ export class PatchMap {
       viewport: viewportOptions = {},
       theme: themeOptions = {},
       asset: assetOptions = {},
-      texture: textureOptions = {},
+      textures: textureOptions = {},
     } = opts;
 
     this._setTheme(themeOptions);
     await initApp(this.app, { resizeTo: element, ...appOptions });
     this._viewport = initViewport(this.app, viewportOptions);
+    this._viewport.theme = this._theme;
 
     await initAssets(assetOptions);
-    initTextures(this.app, textureOptions);
+    initTextures(this.app, { texture: textureOptions, theme: this._theme });
 
     const div = document.createElement('div');
     div.classList.add('w-full', 'h-full', 'overflow-hidden');
@@ -60,62 +86,39 @@ export class PatchMap {
     element.appendChild(div);
   }
 
-  draw(opts = {}) {
-    this._setOptions = deepMerge(this._setOptions, {
-      ...opts,
-      theme: this.theme,
-    });
-    const isNewMapData = 'mapData' in opts && typeof opts.mapData === 'object';
-    draw(this.viewport, isNewMapData, this._setOptions);
+  draw(data) {
+    let zData = isLegacyData(data) ? convertLegacyData(data) : data;
+    if (!Array.isArray(zData)) {
+      console.error('Invalid data format. Expected an array.');
+      return;
+    }
+    this.app.stop();
+    zData = validateMapData(zData);
+    if (!isValidationError(zData)) {
+      draw(this.viewport, zData);
+    }
+    this.app.start();
+
+    function isLegacyData(data) {
+      return (
+        !Array.isArray(data) && typeof data === 'object' && 'grids' in data
+      );
+    }
   }
 
-  update(opts = {}) {
-    update(this.viewport, { ...opts, theme: this.theme });
+  update(config) {
+    update(this.viewport, config);
   }
 
-  event() {
-    return {
-      add: (type, action, fn, opts = {}) => {
-        const id = event.addEvent(this.viewport, type, action, fn, opts);
-        event.onEvent(this.viewport, id);
-        return id;
-      },
-      remove: (eventId) => {
-        event.removeEvent(this.viewport, eventId);
-      },
-      on: (eventId) => {
-        event.onEvent(this.viewport, eventId);
-      },
-      off: (eventId) => {
-        event.offEvent(this.viewport, eventId);
-      },
-      get: (eventId) => {
-        return event.getEvent(this.viewport, eventId);
-      },
-      getAll: () => {
-        return event.getAllEvent(this.viewport);
-      },
-    };
+  focus(idLabel) {
+    focus(this.viewport, idLabel);
   }
 
-  convertLegacyData(data) {
-    return convertLegacyData(data);
+  fit(idLabel) {
+    fit(this.viewport, idLabel);
   }
 
-  asset() {
-    return {
-      add: assets.addAsset,
-      load: assets.loadAsset,
-      get: assets.getAsset,
-      addBundle: assets.addAssetBundle,
-      loadBundle: assets.loadAssetBundle,
-    };
-  }
-
-  canvas() {
-    return {
-      focus: (id) => focus(this.viewport, id),
-      fit: (id) => fit(this.viewport, id),
-    };
+  selector(path) {
+    return selector(this.viewport, path);
   }
 }

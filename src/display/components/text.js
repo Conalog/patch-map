@@ -1,44 +1,55 @@
 import { BitmapText } from 'pixi.js';
-import { getColor, getFrameInnerSize } from '../../utils/get';
-import { deepMerge } from '../../utils/merge';
-import { FONT_WEIGHT, TEXT_COMPONENT_CONFIG } from './config';
-import { formatText, setCenterPosition, setFitFontSize } from './utils';
+import { z } from 'zod';
+import { isValidationError } from 'zod-validation-error';
+import { deepMerge } from '../../utils/deepmerge/deepmerge';
+import { validate } from '../../utils/vaildator';
+import {
+  changeContent,
+  changePlacement,
+  changeShow,
+  changeZIndex,
+  chnageTextStyle,
+} from '../change';
+import { Margin, Placement } from '../data-schema/component-schema';
 
-export const textComponent = (content, theme, opts = {}) => {
-  const options = deepMerge(TEXT_COMPONENT_CONFIG, opts);
+const textSchema = z.object({
+  label: z.nullable(z.string()).default(null),
+});
 
-  const bitmapText = new BitmapText({
-    text: formatText(content, options.split),
-    ...options,
-    style: {
-      ...options.style,
-      fill: getColor(options.style.fill, theme),
-      fontFamily: `${options.style.fontFamily} ${FONT_WEIGHT[options.style.fontWeight]}`,
-    },
+export const textComponent = (opts) => {
+  const options = validate(opts, textSchema);
+  if (isValidationError(options)) return;
+
+  const component = new BitmapText({
+    text: '',
   });
-  if (options.style.fontSize === 'auto') {
-    setFitFontSize(
-      bitmapText,
-      getFrameInnerSize(options.frame, options.margin),
-    );
-  }
-  setCenterPosition(bitmapText, options.frame);
-  bitmapText.type = 'text';
-  bitmapText.label = options.label;
-  bitmapText.zIndex = options.zIndex ?? 0;
-  bitmapText.eventMode = 'none';
-  if (options.parent) {
-    options.parent.addChild(bitmapText);
-  }
-  bitmapText.frame = options.frame;
-  bitmapText.option = {
-    show: bitmapText.renderable,
-    zIndex: bitmapText.zIndex,
-    content,
-    style: options.style,
-    split: options.split,
-    margin: options.margin,
-  };
-  options.frame.components[bitmapText.type] = bitmapText;
-  return bitmapText;
+  component.type = 'text';
+  component.label = options.label;
+  component.config = {};
+  return component;
+};
+
+const updateTextSchema = z
+  .object({
+    show: z.boolean(),
+    zIndex: z.number(),
+    placement: Placement,
+    margin: Margin,
+    content: z.string(),
+    style: z.record(z.unknown()),
+    split: z.number().int(),
+  })
+  .partial();
+
+export const updateTextComponent = (component, opts) => {
+  if (!component) return;
+  const options = validate(opts, updateTextSchema);
+  if (isValidationError(options)) return;
+
+  changeShow(component, options);
+  changeZIndex(component, options);
+  changeContent(component, options);
+  chnageTextStyle(component, options);
+  changePlacement(component, options);
+  component.config = deepMerge(component.config, options);
 };

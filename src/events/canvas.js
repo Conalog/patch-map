@@ -1,80 +1,111 @@
-import { v4 as uuidv4 } from 'uuid';
-import { findContainer } from '../utils/find';
+import { z } from 'zod';
+import { isValidationError } from 'zod-validation-error';
+import { selector } from '../utils/selector/selector';
+import { createUUID } from '../utils/uuid';
+import { validate } from '../utils/vaildator';
 
-export const addEvent = (
-  viewport,
-  type = '',
-  action = '',
-  fn = () => {},
-  opts = {},
-) => {
-  const { eventId = uuidv4(), options = {} } = opts;
-  if (eventId in viewport.componentEvents) {
-    notEventConsole(eventId);
+const addEventSchema = z.object({
+  id: z.string().default(createUUID()),
+  path: z.string(),
+  action: z.string(),
+  fn: z.function(),
+  options: z.record(z.unknown()).default({}),
+});
+
+export const addEvent = (viewport, opts) => {
+  const config = validate(opts, addEventSchema);
+  if (isValidationError(config)) return;
+
+  const { id, path, action, fn, options } = config;
+  if (id in viewport.events) {
+    notEventConsole(id);
     return;
   }
-
-  viewport.componentEvents[eventId] = {
-    type,
-    action,
-    fn,
-    options,
-  };
-  return eventId;
+  viewport.events[id] = { path, action, fn, options };
+  return id;
 };
 
-export const removeEvent = (viewport, eventId = '') => {
-  const event = getEvent(viewport, eventId);
-  if (!event) {
-    notEventConsole(eventId);
-    return;
+export const removeEvent = (viewport, id) => {
+  const splitedIds = splitByWhitespace(id);
+  if (!splitedIds.length) return;
+
+  const currId = splitedIds[0];
+  const event = getEvent(viewport, currId);
+  if (event) {
+    offEvent(viewport, currId);
+    const { [currId]: _, ...rest } = viewport.events;
+    viewport.events = rest;
+  } else {
+    notEventConsole(currId);
   }
-  offEvent(viewport, eventId);
-  delete viewport.componentEvents[eventId];
+
+  if (splitedIds.length > 1) {
+    removeEvent(viewport, splitedIds.slice(1).join(' '));
+  }
 };
 
-export const onEvent = (viewport, eventId = '') => {
-  const event = getEvent(viewport, eventId);
-  if (!event) {
-    notEventConsole(eventId);
-    return;
+export const onEvent = (viewport, id) => {
+  const splitedIds = splitByWhitespace(id);
+  if (!splitedIds.length) return;
+
+  const currId = splitedIds[0];
+  const event = getEvent(viewport, currId);
+  if (event) {
+    const actions = splitByWhitespace(event.action);
+    const objects = selector(viewport, event.path);
+    for (const object of objects) {
+      object.eventMode = 'static';
+      addAction(object, actions, event);
+    }
+  } else {
+    notEventConsole(currId);
   }
 
-  const actions = event.action.split(' ');
-  for (const action of actions) {
-    if (event.type === 'canvas') {
-      viewport.addEventListener(action, event.fn, event.options);
-    } else {
-      const container = findContainer(viewport, event.type);
-      container.addEventListener(action, event.fn, event.options);
+  if (splitedIds.length > 1) {
+    onEvent(viewport, splitedIds.slice(1).join(' '));
+  }
+
+  function addAction(object, actions, event) {
+    for (const action of actions) {
+      object.addEventListener(action, event.fn, event.options);
     }
   }
 };
 
-export const offEvent = (viewport, eventId = '') => {
-  const event = getEvent(viewport, eventId);
-  if (!event) {
-    notEventConsole(eventId);
-    return;
+export const offEvent = (viewport, id) => {
+  const splitedIds = splitByWhitespace(id);
+  if (!splitedIds.length) return;
+
+  const currId = splitedIds[0];
+  const event = getEvent(viewport, currId);
+  if (event) {
+    const actions = splitByWhitespace(event.action);
+    const objects = selector(viewport, event.path);
+    for (const object of objects) {
+      object.eventMode = 'passive';
+      removeAction(object, actions, event);
+    }
+  } else {
+    notEventConsole(currId);
   }
 
-  const actions = event.action.split(' ');
-  for (const action of actions) {
-    if (event.type === 'canvas') {
-      viewport.removeEventListener(action, event.fn, event.options);
-    } else {
-      const container = findContainer(viewport, event.type);
-      container.removeEventListener(action, event.fn, event.options);
+  if (splitedIds.length > 1) {
+    offEvent(viewport, splitedIds.slice(1).join(' '));
+  }
+
+  function removeAction(object, actions, event) {
+    for (const action of actions) {
+      object.removeEventListener(action, event.fn, event.options);
     }
   }
 };
 
-export const getEvent = (viewport, eventId) => {
-  return viewport.componentEvents[eventId] ?? null;
+export const getEvent = (viewport, id) => {
+  return viewport.events[id] ?? null;
 };
 
 export const getAllEvent = (viewport) => {
-  return viewport.componentEvents;
+  return viewport.events;
 };
 
 export const event = {
@@ -89,3 +120,5 @@ export const event = {
 const notEventConsole = (eventId) => {
   console.warn(`No event exists for the eventId: ${eventId}.`);
 };
+
+const splitByWhitespace = (str) => str.split(/\s+/).filter(Boolean);
