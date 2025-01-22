@@ -1,4 +1,4 @@
-import { Application } from 'pixi.js';
+import { Application, Assets } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { assets } from './assets/utils';
 import { THEME_CONFIG } from './config/theme';
@@ -17,6 +17,7 @@ export class PatchMap {
   _viewport = null;
   _resizeObserver = null;
   _theme = THEME_CONFIG;
+  _isInit = false;
 
   constructor() {
     this._app = new Application();
@@ -71,6 +72,8 @@ export class PatchMap {
       asset: assetOptions = {},
       textures: textureOptions = {},
     } = opts;
+    if (this._isInit) return;
+    Assets.reset();
 
     this._setTheme(themeOptions);
     await initApp(this.app, { resizeTo: element, ...appOptions });
@@ -84,6 +87,7 @@ export class PatchMap {
     div.classList.add('w-full', 'h-full', 'overflow-hidden');
     div.appendChild(this.app.canvas);
     element.appendChild(div);
+    this._isInit = true;
   }
 
   draw(data) {
