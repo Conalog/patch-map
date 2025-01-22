@@ -4,6 +4,7 @@ import { createItem } from './elements/item';
 import { update } from './update';
 
 export const draw = (viewport, data) => {
+  destroyChildren(viewport);
   render(viewport, data);
 
   function render(parent, data) {
@@ -32,5 +33,12 @@ export const draw = (viewport, data) => {
         parent.addChild(element);
       }
     }
+  }
+};
+
+const destroyChildren = (parent) => {
+  const children = [...parent.children];
+  for (const child of children) {
+    child.destroy({ children: true });
   }
 };
