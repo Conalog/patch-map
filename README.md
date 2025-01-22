@@ -22,6 +22,7 @@ It enables flexible and fast creation of 2D content.
   - [asset](#asset)
   - [focus(id)](#focusid)
   - [fit(id)](#fitid)
+  - [selector(path)](#selectorpath)
 - [🧑‍💻 Development](#-development)
   - [Setting up the development environment](#setting-up-the-development-environment)
   - [VSCode Integration](#vscode-integration)
@@ -337,6 +338,13 @@ patchMap.fit('group-id-1')
 
 // Fit to the object with id 'grid-1'
 patchMap.fit('grid-1')
+```
+
+### `selector(path)`
+Object explorer following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax.
+
+```js
+  const result = patchMap.selector('$..[?(@.label=="group-label-1")]')
 ```
 
 <br/>

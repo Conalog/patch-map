@@ -118,7 +118,7 @@ export class PatchMap {
     fit(this.viewport, idLabel);
   }
 
-  selector(config) {
-    return selector(this.viewport, config);
+  selector(path) {
+    return selector(this.viewport, path);
   }
 }

@@ -23,6 +23,7 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixijs`
   - [asset](#asset)
   - [focus(id)](#focusid)
   - [fit(id)](#fitid)
+  - [selector(path)](#selectorpath)
 - [🧑‍💻 개발](#-개발)
   - [개발 환경 세팅](#개발-환경-세팅)
   - [VSCode 통합](#vscode-통합)
@@ -335,6 +336,13 @@ patchMap.fit('group-id-1')
 
 // id가 'grid-1'인 객체를 기준으로 fit
 patchMap.fit('grid-1')
+```
+
+### `selector(path)`
+[jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 객체 탐색기입니다.
+
+```js
+const result = patchMap.selector('$..[?(@.label=="group-label-1")]')
 ```
 
 <br/>
