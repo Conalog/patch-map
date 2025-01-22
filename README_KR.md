@@ -191,14 +191,18 @@ draw method가 요구하는 **데이터 구조**입니다.
 patchMap.update({
   path: `$..children[?(@.label=="grid-label-1")]`,
   changes: {
-    components: [{ type: 'icon', texture: 'wifi' }]
+    components: [
+      { type: 'icon', texture: 'wifi' }
+    ]
   }
 });
 
 // type이 "group"인 객체들에 대해 변경 사항 적용
 patchMap.update({
   path: `$..children[?(@.type=="group")]`,
-  changes: { show: false }
+  changes: { 
+    show: false
+  }
 });
 
 // type이 "group"인 객체 내에 type이 "grid"인 객체에 대해 변경 사항 적용

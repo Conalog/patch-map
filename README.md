@@ -193,14 +193,18 @@ Updates the state of specific objects on the canvas. Use this to change properti
 patchMap.update({
   path: `$..children[?(@.label=="grid-label-1")]`,
   changes: {
-    components: [{ type: 'icon', texture: 'wifi' }]
+    components: [
+      { type: 'icon', texture: 'wifi' }
+    ]
   }
 });
 
 // Apply changes to objects of type "group"
 patchMap.update({
   path: `$..children[?(@.type=="group")]`,
-  changes: { show: false }
+  changes: { 
+    show: false
+  }
 });
 
 // Apply changes to objects of type "grid" within objects of type "group"
