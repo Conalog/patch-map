@@ -1,28 +1,20 @@
+import { z } from 'zod';
+import { isValidationError } from 'zod-validation-error';
 import { convertArray } from '../utils/convert';
 import { selector } from '../utils/selector/selector';
+import { validate } from '../utils/vaildator';
 import { updateGrid } from './elements/grid';
 import { updateGroup } from './elements/group';
 import { updateItem } from './elements/item';
 
-/**
- * Schema for updating configuration.
- *
- * @typedef {Object} UpdateConfig
- * @property {Array<Record<string, unknown>> | Record<string, unknown>} elements - The elements to be updated. Must be an array of objects or a single object.
- * @property {string} [path=''] - The path to the elements.
- * @property {Record<string, unknown>} changes - The changes to be applied to the elements. Must be an object.
- */
+const updateSchema = z.object({
+  path: z.nullable(z.string()).default(null),
+  changes: z.record(z.unknown()),
+});
 
-export const update = (parent, config) => {
-  if (typeof config !== 'object') {
-    console.error('Invalid config: expected an object.');
-    return;
-  }
-
-  if (!('changes' in config)) {
-    console.error('Missing "changes" in config.');
-    return;
-  }
+export const update = (parent, opts) => {
+  const config = validate(opts, updateSchema.passthrough());
+  if (isValidationError(config)) return;
 
   const elements = 'elements' in config ? convertArray(config.elements) : [];
   if (parent && config.path) {
