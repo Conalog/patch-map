@@ -102,6 +102,7 @@ export class PatchMap {
       draw(this.viewport, zData);
     }
     this.app.start();
+    return zData;
 
     function isLegacyData(data) {
       return (
@@ -114,12 +115,12 @@ export class PatchMap {
     update(this.viewport, config);
   }
 
-  focus(idLabel) {
-    focus(this.viewport, idLabel);
+  focus(id) {
+    focus(this.viewport, id);
   }
 
-  fit(idLabel) {
-    fit(this.viewport, idLabel);
+  fit(id) {
+    fit(this.viewport, id);
   }
 
   selector(path) {
