@@ -69,7 +69,7 @@ export class PatchMap {
       viewport: viewportOptions = {},
       theme: themeOptions = {},
       asset: assetOptions = {},
-      texture: textureOptions = {},
+      textures: textureOptions = {},
     } = opts;
 
     this._setTheme(themeOptions);

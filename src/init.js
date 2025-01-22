@@ -54,7 +54,6 @@ const DEFAULT_INIT_OPTIONS = {
       },
       wifi: {
         src: icons.wifi,
-        disabled: true,
       },
     },
   },
