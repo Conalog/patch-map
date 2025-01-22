@@ -1,32 +1,32 @@
 import { Container, Graphics } from 'pixi.js';
 
 import { deepMerge } from '../../../utils/deepmerge/deepmerge';
-import { FRAME_CONFIG } from '../config';
+import { BACKGROUND_CONFIG } from '../config';
 import { createDefaultRect, generateTexture } from '../utils';
 
 export const label = (app, opts = {}) => {
   const options = deepMerge(
     {
-      ...FRAME_CONFIG.options,
+      ...BACKGROUND_CONFIG.options,
       name: 'label',
       textHeight: 16,
     },
     opts,
   );
 
-  const frame = createDefaultRect({
+  const rect = createDefaultRect({
     borderWidth: options.borderWidth,
     borderColor: options.borderColor,
     radius: options.radius,
   });
 
   const dividerGraphics = new Graphics();
-  dividerGraphics.rect(0, 0, FRAME_CONFIG.size.width, 2);
+  dividerGraphics.rect(0, 0, BACKGROUND_CONFIG.size.width, 2);
   dividerGraphics.position.set(0, options.textHeight);
   dividerGraphics.fill(options.borderColor);
 
   const container = new Container();
-  container.addChild(frame, dividerGraphics);
+  container.addChild(rect, dividerGraphics);
 
   const texture = generateTexture(app, container);
   texture.label = options.label;

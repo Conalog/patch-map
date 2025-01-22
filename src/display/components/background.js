@@ -25,7 +25,7 @@ export const backgroundComponent = (opts) => {
   const options = validate(opts, backgroundSchema);
   if (isValidationError(options)) return;
 
-  const texture = getAsset(`frames-${options.texture}`);
+  const texture = getAsset(`background-${options.texture}`);
   if (!texture) return;
 
   const component = new NineSliceSprite({
@@ -58,7 +58,7 @@ export const updateBackgroundComponent = (component, opts) => {
   changeShow(component, options);
   changeZIndex(component, options);
   changeTexture(component, {
-    texture: options.texture && `frames-${options.texture}`,
+    texture: options.texture && `background-${options.texture}`,
   });
   if (options.texture) {
     changeTransform(component);

@@ -1,6 +1,6 @@
 import { THEME_CONFIG } from '../../config/theme';
 
-export const FRAME_CONFIG = {
+export const BACKGROUND_CONFIG = {
   size: {
     width: 40,
     height: 40,

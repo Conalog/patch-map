@@ -1,16 +1,19 @@
 import { deepMerge } from '../../../utils/deepmerge/deepmerge';
-import { FRAME_CONFIG } from '../config';
+import { BACKGROUND_CONFIG } from '../config';
 import { createDefaultRect, generateTexture } from '../utils';
 
 export const base = (app, opts = {}) => {
-  const options = deepMerge({ ...FRAME_CONFIG.options, name: 'base' }, opts);
+  const options = deepMerge(
+    { ...BACKGROUND_CONFIG.options, name: 'base' },
+    opts,
+  );
 
-  const frame = createDefaultRect({
+  const rect = createDefaultRect({
     borderWidth: options.borderWidth,
     borderColor: options.borderColor,
     radius: options.radius,
   });
-  const texture = generateTexture(app, frame);
+  const texture = generateTexture(app, rect);
   texture.label = options.label;
   texture.metadata = {
     name: options.name,

@@ -2,8 +2,8 @@ import { Viewport } from 'pixi-viewport';
 import { Assets } from 'pixi.js';
 import { firaCode } from './assets/fonts';
 import { icons } from './assets/icons';
+import { background } from './assets/textures/background';
 import { bars } from './assets/textures/bars';
-import { frames } from './assets/textures/frames';
 import { addTexture } from './assets/textures/utils';
 import { transformManifest } from './assets/utils';
 import { THEME_CONFIG } from './config/theme';
@@ -58,7 +58,7 @@ const DEFAULT_INIT_OPTIONS = {
     },
   },
   textures: {
-    frames: {
+    background: {
       base: {
         label: 'base',
         type: 'base',
@@ -163,8 +163,8 @@ export const initTextures = (app, opts = {}) => {
   for (const [key, textures] of Object.entries(options)) {
     for (const [name, option] of Object.entries(textures)) {
       let texture = null;
-      if (key === 'frames') {
-        texture = frames[option.type](app, { name, ...option });
+      if (key === 'background') {
+        texture = background[option.type](app, { name, ...option });
       } else if (key === 'bars') {
         texture = bars[option.type](app, { name, ...option });
       }

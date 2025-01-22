@@ -1,7 +1,7 @@
 import { Cache, Graphics } from 'pixi.js';
 import { THEME_CONFIG } from '../../config/theme';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
-import { FRAME_CONFIG } from './config';
+import { BACKGROUND_CONFIG } from './config';
 
 const RESOLUTION = 5;
 
@@ -26,12 +26,17 @@ export const createDefaultRect = ({
     rect.roundRect(
       0,
       0,
-      FRAME_CONFIG.size.width,
-      FRAME_CONFIG.size.height,
+      BACKGROUND_CONFIG.size.width,
+      BACKGROUND_CONFIG.size.height,
       radius,
     );
   } else {
-    rect.rect(0, 0, FRAME_CONFIG.size.width, FRAME_CONFIG.size.height);
+    rect.rect(
+      0,
+      0,
+      BACKGROUND_CONFIG.size.width,
+      BACKGROUND_CONFIG.size.height,
+    );
   }
   rect.fill(fill);
   if (borderWidth) {
