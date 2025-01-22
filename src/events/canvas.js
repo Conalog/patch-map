@@ -26,46 +26,76 @@ export const addEvent = (viewport, opts) => {
 };
 
 export const removeEvent = (viewport, id) => {
-  const event = getEvent(viewport, id);
+  const splitedIds = splitByWhitespace(id);
+  if (!splitedIds.length) return;
+
+  const currId = splitedIds[0];
+  const event = getEvent(viewport, currId);
   if (event) {
-    offEvent(viewport, id);
-    const { [id]: _, ...rest } = viewport.events;
+    offEvent(viewport, currId);
+    const { [currId]: _, ...rest } = viewport.events;
     viewport.events = rest;
   } else {
-    notEventConsole(id);
+    notEventConsole(currId);
+  }
+
+  if (splitedIds.length > 1) {
+    removeEvent(viewport, splitedIds.slice(1).join(' '));
   }
 };
 
 export const onEvent = (viewport, id) => {
-  const event = getEvent(viewport, id);
-  if (!event) {
-    notEventConsole(id);
-    return;
-  }
+  const splitedIds = splitByWhitespace(id);
+  if (!splitedIds.length) return;
 
-  const actions = event.action.split(' ');
-  for (const action of actions) {
+  const currId = splitedIds[0];
+  const event = getEvent(viewport, currId);
+  if (event) {
+    const actions = splitByWhitespace(event.action);
     const objects = selector(viewport, event.path);
     for (const object of objects) {
       object.eventMode = 'static';
+      addAction(object, actions, event);
+    }
+  } else {
+    notEventConsole(currId);
+  }
+
+  if (splitedIds.length > 1) {
+    onEvent(viewport, splitedIds.slice(1).join(' '));
+  }
+
+  function addAction(object, actions, event) {
+    for (const action of actions) {
       object.addEventListener(action, event.fn, event.options);
     }
   }
 };
 
 export const offEvent = (viewport, id) => {
-  const event = getEvent(viewport, id);
-  if (!event) {
-    notEventConsole(id);
-    return;
-  }
+  const splitedIds = splitByWhitespace(id);
+  if (!splitedIds.length) return;
 
-  const actions = event.action.split(' ');
-  for (const action of actions) {
+  const currId = splitedIds[0];
+  const event = getEvent(viewport, currId);
+  if (event) {
+    const actions = splitByWhitespace(event.action);
     const objects = selector(viewport, event.path);
     for (const object of objects) {
-      object.removeEventListener(action, event.fn, event.options);
       object.eventMode = 'passive';
+      removeAction(object, actions, event);
+    }
+  } else {
+    notEventConsole(currId);
+  }
+
+  if (splitedIds.length > 1) {
+    offEvent(viewport, splitedIds.slice(1).join(' '));
+  }
+
+  function removeAction(object, actions, event) {
+    for (const action of actions) {
+      object.removeEventListener(action, event.fn, event.options);
     }
   }
 };
@@ -90,3 +120,5 @@ export const event = {
 const notEventConsole = (eventId) => {
   console.warn(`No event exists for the eventId: ${eventId}.`);
 };
+
+const splitByWhitespace = (str) => str.split(/\s+/).filter(Boolean);
