@@ -35,6 +35,10 @@ export class PatchMap {
     return this._theme;
   }
 
+  get isInit() {
+    return this._isInit;
+  }
+
   get event() {
     return {
       add: (opts) => {
@@ -72,7 +76,7 @@ export class PatchMap {
       asset: assetOptions = {},
       textures: textureOptions = {},
     } = opts;
-    if (this._isInit) return;
+    if (this.isInit) return;
     Assets.reset();
 
     this._setTheme(themeOptions);
