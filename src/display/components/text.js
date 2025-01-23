@@ -18,7 +18,7 @@ const textSchema = z.object({
 
 export const textComponent = (opts) => {
   const options = validate(opts, textSchema);
-  if (isValidationError(options)) return;
+  if (isValidationError(options)) throw options;
 
   const component = new BitmapText({
     text: '',
@@ -44,7 +44,7 @@ const updateTextSchema = z
 export const updateTextComponent = (component, opts) => {
   if (!component) return;
   const options = validate(opts, updateTextSchema);
-  if (isValidationError(options)) return;
+  if (isValidationError(options)) throw options;
 
   changeShow(component, options);
   changeZIndex(component, options);

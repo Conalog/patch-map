@@ -239,7 +239,7 @@ export const changeComponents = (item, { components }) => {
     let component = null;
     if (index === -1) {
       config = validate(config, componentSchema);
-      if (isValidationError(config)) break;
+      if (isValidationError(config)) throw config;
       component = componentFn[config.type].create({
         ...config,
         ...item.size,

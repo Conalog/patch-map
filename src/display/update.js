@@ -14,7 +14,7 @@ const updateSchema = z.object({
 
 export const update = (parent, opts) => {
   const config = validate(opts, updateSchema.passthrough());
-  if (isValidationError(config)) return;
+  if (isValidationError(config)) throw config;
 
   const elements = 'elements' in config ? convertArray(config.elements) : [];
   if (parent && config.path) {

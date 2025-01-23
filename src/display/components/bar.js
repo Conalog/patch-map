@@ -21,7 +21,7 @@ const barSchema = z.object({
 
 export const barComponent = (opts) => {
   const options = validate(opts, barSchema);
-  if (isValidationError(options)) return;
+  if (isValidationError(options)) throw options;
 
   const texture = getAsset(`bars-${options.texture}`);
   if (!texture) return;
@@ -54,7 +54,7 @@ const updateBarSchema = z
 export const updateBarComponent = (component, opts) => {
   if (!component) return;
   const options = validate(opts, updateBarSchema);
-  if (isValidationError(options)) return;
+  if (isValidationError(options)) throw options;
 
   changeShow(component, options);
   changeZIndex(component, options);

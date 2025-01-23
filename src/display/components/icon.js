@@ -21,7 +21,7 @@ const iconSchema = z.object({
 
 export const iconComponent = (opts) => {
   const options = validate(opts, iconSchema);
-  if (isValidationError(options)) return;
+  if (isValidationError(options)) throw options;
 
   const texture = getAsset(`icons-${options.texture}`);
   if (!texture) return;
@@ -48,7 +48,7 @@ const updateIconSchema = z
 export const updateIconComponent = (component, opts = {}) => {
   if (!component) return;
   const options = validate(opts, updateIconSchema);
-  if (isValidationError(options)) return;
+  if (isValidationError(options)) throw options;
 
   changeShow(component, options);
   changeTexture(component, {
