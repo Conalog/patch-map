@@ -23,7 +23,7 @@ const backgroundSchema = z.object({
 
 export const backgroundComponent = (opts) => {
   const options = validate(opts, backgroundSchema);
-  if (isValidationError(options)) return;
+  if (isValidationError(options)) throw options;
 
   const texture = getAsset(`background-${options.texture}`);
   if (!texture) return;
@@ -53,7 +53,7 @@ const updateBackgroundSchema = z
 export const updateBackgroundComponent = (component, opts) => {
   if (!component) return;
   const options = validate(opts, updateBackgroundSchema);
-  if (isValidationError(options)) return;
+  if (isValidationError(options)) throw options;
 
   changeShow(component, options);
   changeZIndex(component, options);

@@ -14,7 +14,7 @@ const addEventSchema = z.object({
 
 export const addEvent = (viewport, opts) => {
   const config = validate(opts, addEventSchema);
-  if (isValidationError(config)) return;
+  if (isValidationError(config)) throw config;
 
   const { id, path, action, fn, options } = config;
   if (id in viewport.events) {
