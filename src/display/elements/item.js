@@ -1,6 +1,7 @@
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
-import { changeComponents, changeZIndex } from '../change';
+import { changeZIndex } from '../change';
 import { changeShow } from '../change';
+import { upateComponents } from '../update-components';
 import { createContainer } from '../utils';
 
 export const createItem = (config) => {
@@ -15,6 +16,6 @@ export const createItem = (config) => {
 export const updateItem = (element, config) => {
   changeShow(element, config);
   changeZIndex(element, config);
-  changeComponents(element, config);
+  upateComponents(element, config);
   element.config = deepMerge(element.config, config);
 };

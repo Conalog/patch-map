@@ -20,10 +20,16 @@ JSONSearch.prototype._walk = function (val, f) {
       f(i);
     }
   } else if (val && typeof val === 'object') {
-    Object.keys(val).forEach((m) => {
-      if (!this.searchableKeys || this.searchableKeys.includes(m)) {
+    if (this.searchableKeys) {
+      this.searchableKeys.forEach((m) => {
+        if (m in val && val[m].length > 0) {
+          f(m);
+        }
+      });
+    } else {
+      Object.keys(val).forEach((m) => {
         f(m);
-      }
-    });
+      });
+    }
   }
 };

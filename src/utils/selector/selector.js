@@ -1,7 +1,8 @@
 import { JSONSearch } from './json-search';
 
-export const selector = (json, path) => {
+export const selector = (json, path, options = {}) => {
   return JSONSearch({
+    ...options,
     path: path ?? '',
     json: json ?? {},
     searchableKeys: ['children'],

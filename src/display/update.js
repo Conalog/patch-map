@@ -6,6 +6,7 @@ import { validate } from '../utils/vaildator';
 import { updateGrid } from './elements/grid';
 import { updateGroup } from './elements/group';
 import { updateItem } from './elements/item';
+import { updateRelations } from './elements/relations';
 
 const updateSchema = z.object({
   path: z.nullable(z.string()).default(null),
@@ -28,6 +29,8 @@ export const update = (parent, opts) => {
       updateGrid(element, config.changes);
     } else if (element.type === 'item') {
       updateItem(element, config.changes);
+    } else if (element.type === 'relations') {
+      updateRelations(element, config.changes);
     }
   }
 };

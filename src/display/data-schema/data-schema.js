@@ -21,7 +21,7 @@ const transform = z.object({
   rotation: z.number().default(0),
 });
 
-const relation = z
+export const relation = z
   .object({
     source: z.string(),
     target: z.string(),
@@ -54,7 +54,10 @@ const singleObject = defaultInfo
 const relationGroupObject = defaultInfo.extend({
   type: z.literal('relations'),
   links: z.array(relation),
-  relationStyle: z.record(z.unknown()).optional(),
+  lineStyle: z.preprocess(
+    (val) => ({ color: 'black', ...val }),
+    z.record(z.unknown()),
+  ),
 });
 
 const groupObject = defaultInfo.extend({
