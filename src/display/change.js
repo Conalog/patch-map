@@ -1,4 +1,5 @@
 import { getAsset } from '../assets/utils';
+import { getScaleBounds } from '../utils/canvas';
 import { getColor } from '../utils/get';
 import { selector } from '../utils/selector/selector';
 import { FONT_WEIGHT } from './components/config';
@@ -199,12 +200,19 @@ export const chnageTextStyle = (
   }
 };
 
-export const changeLineStyle = (element, { lineStyle }) => {
+export const changeLineStyle = (element, { lineStyle, links }) => {
   if (!lineStyle) return;
   const path = selector(element, '$.children[?(@.type==="path")]')[0];
   if (!path) return;
 
   path.setStrokeStyle({ ...path.strokeStyle, ...lineStyle });
+  if (!links && path.links.length > 0) {
+    for (const link of path.links) {
+      path.moveTo(...link.sourcePoint);
+      path.lineTo(...link.targetPoint);
+    }
+    path.stroke();
+  }
 };
 
 export const changeLinks = (element, { links }) => {
@@ -222,18 +230,21 @@ export const changeLinks = (element, { links }) => {
       .map((item) => [item.id, item]),
   );
 
+  path.links = [];
   for (const link of links) {
-    const sourcePoint = getPoint(objs[link.source]);
-    const targetPoint = getPoint(objs[link.target]);
+    const sourcePoint = getPoint(
+      getScaleBounds(element.viewport, objs[link.source]),
+    );
+    const targetPoint = getPoint(
+      getScaleBounds(element.viewport, objs[link.target]),
+    );
     path.moveTo(...sourcePoint);
     path.lineTo(...targetPoint);
+    path.links.push({ sourcePoint, targetPoint });
   }
   path.stroke();
 
-  function getPoint(object) {
-    return [
-      object.getGlobalPosition().x + object.getSize().width / 2,
-      object.getGlobalPosition().y + object.getSize().height / 2,
-    ];
+  function getPoint(bounds) {
+    return [bounds.x + bounds.width / 2, bounds.y + bounds.height / 2];
   }
 };

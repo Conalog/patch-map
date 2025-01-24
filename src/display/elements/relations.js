@@ -46,6 +46,6 @@ export const updateRelations = (element, config) => {
 
 const createPath = ({ id, label }) => {
   const path = new Graphics();
-  Object.assign(path, { type: 'path', id, label });
+  Object.assign(path, { type: 'path', id, label, links: [] });
   return path;
 };

@@ -62,6 +62,7 @@ export const convertLegacyData = (data) => {
             cap: 'round',
             join: 'rooud',
           },
+          show: false,
           metadata: value.properties,
         });
       }
