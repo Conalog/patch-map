@@ -17,7 +17,6 @@ const relationSchema = z.object({
   id: z.string(),
   label: z.nullable(z.string()),
   metadata: z.record(z.unknown()),
-  links: z.array(relation),
   viewport: z.unknown(),
 });
 
@@ -28,15 +27,23 @@ export const createRelations = (opts) => {
   const element = createContainer(config);
   const path = createPath(config);
   element.addChild(path);
-
-  element.config = {
-    metadata: config.metadata,
-    links: config.links,
-  };
+  element.config = {};
   return element;
 };
 
-export const updateRelations = (element, config) => {
+const updateRelationSchema = z
+  .object({
+    show: z.boolean(),
+    zIndex: z.number(),
+    lineStyle: z.record(z.unknown()),
+    links: z.array(relation),
+  })
+  .partial();
+
+export const updateRelations = (element, opts) => {
+  const config = validate(opts, updateRelationSchema);
+  if (isValidationError(config)) throw config;
+
   changeShow(element, config);
   changeZIndex(element, config);
   changeLineStyle(element, config);
