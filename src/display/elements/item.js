@@ -4,7 +4,6 @@ import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { validate } from '../../utils/vaildator';
 import { changeZIndex } from '../change';
 import { changeShow } from '../change';
-import { componentArraySchema } from '../data-schema/component-schema';
 import { upateComponents } from '../update-components';
 import { createContainer } from '../utils';
 
@@ -21,7 +20,18 @@ const updateItemSchema = z
   .object({
     show: z.boolean(),
     zIndex: z.number(),
-    components: componentArraySchema,
+    components: z.array(
+      z
+        .object({
+          type: z.union([
+            z.literal('background'),
+            z.literal('bar'),
+            z.literal('icon'),
+            z.literal('text'),
+          ]),
+        })
+        .passthrough(),
+    ),
   })
   .partial();
 
