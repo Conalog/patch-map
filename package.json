@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@conalog/patch-map",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "본 라이브러리는 `pixijs` 라이브러리를 이용하여 PATCH 서비스의 요구사항에 맞는 PATCH MAP을 제공하고자 함",
   "license": "MIT",
   "author": "Conalog",
