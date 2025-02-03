@@ -9,7 +9,7 @@ const addEventSchema = z.object({
   path: z.string(),
   action: z.string(),
   fn: z.function(),
-  options: z.record(z.unknown()).default({}),
+  options: z.unknown(),
 });
 
 export const addEvent = (viewport, opts) => {
