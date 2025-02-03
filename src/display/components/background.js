@@ -69,7 +69,7 @@ export const updateBackgroundComponent = (component, opts) => {
 
 export const changeTransform = (component) => {
   const borderWidth = component.texture.metadata.borderWidth;
-  const parentSize = component.parent.config.size;
+  const parentSize = component.parent.size;
   component.setSize(
     parentSize.width + borderWidth,
     parentSize.height + borderWidth,

@@ -13,6 +13,10 @@ export const draw = (viewport, data) => {
       if (config.type === 'group') {
         const element = createGroup(config);
         element.viewport = viewport;
+        update(null, {
+          elements: element,
+          changes: config,
+        });
         parent.addChild(element);
         render(element, config.items);
       } else if (config.type === 'grid') {
