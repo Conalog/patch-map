@@ -12,18 +12,7 @@ import {
 import { relation } from '../data-schema/data-schema';
 import { createContainer } from '../utils';
 
-const relationSchema = z.object({
-  type: z.literal('relations'),
-  id: z.string(),
-  label: z.nullable(z.string()),
-  metadata: z.record(z.unknown()),
-  viewport: z.unknown(),
-});
-
-export const createRelations = (opts) => {
-  const config = validate(opts, relationSchema);
-  if (isValidationError(config)) throw config;
-
+export const createRelations = (config) => {
   const element = createContainer(config);
   const path = createPath(config);
   element.addChild(path);

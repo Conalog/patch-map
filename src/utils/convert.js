@@ -47,6 +47,7 @@ export const convertLegacyData = (data) => {
         });
       }
     } else if (key === 'strings') {
+      objs[key].show = false;
       for (const value of values) {
         objs[key].items.push({
           type: 'relations',
@@ -62,7 +63,6 @@ export const convertLegacyData = (data) => {
             cap: 'round',
             join: 'rooud',
           },
-          show: false,
           metadata: value.properties,
         });
       }

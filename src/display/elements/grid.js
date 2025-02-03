@@ -1,6 +1,10 @@
+import { z } from 'zod';
+import { isValidationError } from 'zod-validation-error';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
+import { validate } from '../../utils/vaildator';
 import { changeZIndex } from '../change';
 import { changeShow } from '../change';
+import { componentArraySchema } from '../data-schema/component-schema';
 import { upateComponents } from '../update-components';
 import { createContainer } from '../utils';
 import { createItem } from './item';
@@ -13,24 +17,32 @@ export const createGrid = (config) => {
   const element = createContainer(config);
   element.position.set(config.position.x, config.position.y);
   element.angle = config.rotation;
-  element.transform = { ...config.size };
-  element.config = config;
-
-  addItemElements(element, config.cells);
+  element.config = {};
+  addItemElements(element, config.cells, config.size);
   return element;
 };
 
-export const updateGrid = (element, config) => {
+const updateGridSchema = z
+  .object({
+    show: z.boolean(),
+    zIndex: z.number(),
+    components: componentArraySchema,
+  })
+  .partial();
+
+export const updateGrid = (element, opts) => {
+  const config = validate(opts, updateGridSchema);
+  if (isValidationError(config)) throw config;
+
   changeShow(element, config);
   changeZIndex(element, config);
-
   for (const cell of element.children) {
     upateComponents(cell, config);
   }
   element.config = deepMerge(element.config, config);
 };
 
-const addItemElements = (container, cells) => {
+const addItemElements = (container, cells, cellSize) => {
   for (let rowIndex = 0; rowIndex < cells.length; rowIndex++) {
     const row = cells[rowIndex];
     for (let colIndex = 0; colIndex < row.length; colIndex++) {
@@ -41,13 +53,12 @@ const addItemElements = (container, cells) => {
         type: 'item',
         id: `${container.id}.${rowIndex}.${colIndex}`,
         position: {
-          x: colIndex * (container.transform.width + GRID_OBJECT_CONFIG.margin),
-          y:
-            rowIndex * (container.transform.height + GRID_OBJECT_CONFIG.margin),
+          x: colIndex * (cellSize.width + GRID_OBJECT_CONFIG.margin),
+          y: rowIndex * (cellSize.height + GRID_OBJECT_CONFIG.margin),
         },
         size: {
-          width: container.transform.width,
-          height: container.transform.height,
+          width: cellSize.width,
+          height: cellSize.height,
         },
       });
       item.eventMode = 'static';

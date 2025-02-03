@@ -19,17 +19,10 @@ export const createContainer = ({
   type,
   id,
   label,
-  zIndex,
   metadata,
   isRenderGroup = false,
 }) => {
   const container = new Container({ isRenderGroup });
-  Object.assign(container, {
-    type,
-    id,
-    label,
-    zIndex,
-    metadata,
-  });
+  Object.assign(container, { type, id, label, metadata });
   return container;
 };

@@ -62,7 +62,7 @@ export const changePlacement = (
   component.visible = true;
 
   function getHorizontalPosition(component, alignment, margin) {
-    const parentWidth = component.parent.config.size.width;
+    const parentWidth = component.parent.size.width;
     const positions = {
       left: margin.left,
       right: parentWidth - component.width - margin.right,
@@ -72,7 +72,7 @@ export const changePlacement = (
   }
 
   function getVerticalPosition(component, alignment, margin) {
-    const parentHeight = component.parent.config.size.height;
+    const parentHeight = component.parent.size.height;
     const positions = {
       top: margin.top,
       bottom: parentHeight - component.height - margin.bottom,
@@ -101,19 +101,17 @@ export const changePercentSize = (
   const marginObj = parseMargin(margin);
   if (percentWidth) changeWidth(component, percentWidth, marginObj);
   if (percentHeight) changeHeight(component, percentHeight, marginObj);
-
   changePlacement(component, {});
 
   function changeWidth(component, percentWidth, marginObj) {
     const maxWidth =
-      component.parent.config.size.width - (marginObj.left + marginObj.right);
-
+      component.parent.size.width - (marginObj.left + marginObj.right);
     component.width = maxWidth * percentWidth;
   }
 
   function changeHeight(component, percentHeight) {
     const maxHeight =
-      component.parent.config.size.height - (marginObj.top + marginObj.bottom);
+      component.parent.size.height - (marginObj.top + marginObj.bottom);
     component.height = maxHeight * percentHeight;
   }
 };
