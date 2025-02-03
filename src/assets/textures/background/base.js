@@ -9,6 +9,7 @@ export const base = (app, opts = {}) => {
   );
 
   const rect = createDefaultRect({
+    fill: options.fill,
     borderWidth: options.borderWidth,
     borderColor: options.borderColor,
     radius: options.radius,

@@ -143,7 +143,7 @@ export const initAssets = async (opts = {}) => {
 };
 
 export const initTextures = (app, opts = {}) => {
-  const options = deepMerge(DEFAULT_INIT_OPTIONS.textures, opts);
+  const options = deepMerge(DEFAULT_INIT_OPTIONS.textures, opts.textures);
 
   for (const [key, textures] of Object.entries(options)) {
     for (const [name, option] of Object.entries(textures)) {
