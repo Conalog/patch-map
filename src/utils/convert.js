@@ -47,6 +47,25 @@ export const convertLegacyData = (data) => {
         });
       }
     } else if (key === 'strings') {
+      for (const value of values) {
+        objs[key].items.push({
+          type: 'relations',
+          id: value.id,
+          label: value.name,
+          links: value.children.slice(0, -1).map((child, i) => ({
+            source: child.join('.'),
+            target: value.children[i + 1].join('.'),
+          })),
+          lineStyle: {
+            width: 4,
+            color: value.properties.color.dark,
+            cap: 'round',
+            join: 'rooud',
+          },
+          show: false,
+          metadata: value.properties,
+        });
+      }
     } else {
       for (const value of values) {
         const { transform } = value.properties;

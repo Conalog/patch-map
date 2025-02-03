@@ -77,7 +77,6 @@ export class PatchMap {
       textures: textureOptions = {},
     } = opts;
     if (this.isInit) return;
-    Assets.reset();
 
     this._setTheme(themeOptions);
     await initApp(this.app, { resizeTo: element, ...appOptions });

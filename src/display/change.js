@@ -1,16 +1,8 @@
-import { isValidationError } from 'zod-validation-error';
 import { getAsset } from '../assets/utils';
-import { getColor, getTheme } from '../utils/get';
-import { validate } from '../utils/vaildator';
-import {
-  backgroundComponent,
-  updateBackgroundComponent,
-} from './components/background';
-import { barComponent, updateBarComponent } from './components/bar';
+import { getScaleBounds } from '../utils/canvas';
+import { getColor } from '../utils/get';
+import { selector } from '../utils/selector/selector';
 import { FONT_WEIGHT } from './components/config';
-import { iconComponent, updateIconComponent } from './components/icon';
-import { textComponent, updateTextComponent } from './components/text';
-import { componentSchema } from './data-schema/component-schema';
 import { parseMargin } from './utils';
 
 export const isMatch = (object, key, value) => {
@@ -208,60 +200,51 @@ export const chnageTextStyle = (
   }
 };
 
-export const changeComponents = (item, { components }) => {
-  if (!components) return;
+export const changeLineStyle = (element, { lineStyle, links }) => {
+  if (!lineStyle) return;
+  const path = selector(element, '$.children[?(@.type==="path")]')[0];
+  if (!path) return;
 
-  const componentFn = {
-    background: {
-      create: backgroundComponent,
-      update: updateBackgroundComponent,
-    },
-    icon: {
-      create: iconComponent,
-      update: updateIconComponent,
-    },
-    bar: {
-      create: barComponent,
-      update: updateBarComponent,
-    },
-    text: {
-      create: textComponent,
-      update: updateTextComponent,
-    },
-  };
-  const children = [...item.children];
-
-  for (let config of components) {
-    const index = children.findIndex((child) =>
-      matchValue('type', child, config),
-    );
-
-    let component = null;
-    if (index === -1) {
-      config = validate(config, componentSchema);
-      if (isValidationError(config)) throw config;
-      component = componentFn[config.type].create({
-        ...config,
-        ...item.size,
-        theme: getTheme(item),
-      });
-      component.config = { ...component.config, theme: getTheme(item) };
-      if (component) {
-        item.addChild(component);
-      }
-    } else {
-      component = children[index];
-      if (component) children.splice(index, 1);
+  path.setStrokeStyle({ ...path.strokeStyle, ...lineStyle });
+  if (!links && path.links.length > 0) {
+    for (const link of path.links) {
+      path.moveTo(...link.sourcePoint);
+      path.lineTo(...link.targetPoint);
     }
-
-    if (component) {
-      componentFn[component.type].update(component, {
-        ...config,
-      });
-    }
+    path.stroke();
   }
+};
 
-  function matchValue(key, child, config) {
-    return config[key] ? child[key] === config[key] : true;
+export const changeLinks = (element, { links }) => {
+  if (!links) return;
+  const path = selector(element, '$.children[?(@.type==="path")]')[0];
+  if (!path) return;
+  path.clear();
+
+  const uniqueIds = new Set(
+    links.flatMap((link) => [link.source, link.target]),
+  );
+  const objs = Object.fromEntries(
+    selector(element.viewport, '$..children')
+      .filter((item) => uniqueIds.has(item.id))
+      .map((item) => [item.id, item]),
+  );
+
+  path.links = [];
+  for (const link of links) {
+    const sourcePoint = getPoint(
+      getScaleBounds(element.viewport, objs[link.source]),
+    );
+    const targetPoint = getPoint(
+      getScaleBounds(element.viewport, objs[link.target]),
+    );
+    path.moveTo(...sourcePoint);
+    path.lineTo(...targetPoint);
+    path.links.push({ sourcePoint, targetPoint });
+  }
+  path.stroke();
+
+  function getPoint(bounds) {
+    return [bounds.x + bounds.width / 2, bounds.y + bounds.height / 2];
   }
 };

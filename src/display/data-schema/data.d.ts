@@ -78,7 +78,7 @@ export interface Relations {
   metadata?: Record<string, unknown>; // 기본값: {}
 
   links: Array<{ source: string; target: string }>;
-  relationStyle?: Record<string, unknown>;
+  lineStyle?: Record<string, unknown>;
 }
 
 /**
