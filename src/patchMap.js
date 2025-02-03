@@ -90,12 +90,19 @@ export class PatchMap {
     div.classList.add('w-full', 'h-full', 'overflow-hidden');
     div.appendChild(this.app.canvas);
     element.appendChild(div);
+
+    this._resizeObserver = new ResizeObserver(() => {
+      const screen = this.app.screen;
+      this.viewport.resize(screen.width, screen.height);
+    });
+    this._resizeObserver.observe(element);
     this._isInit = true;
   }
 
   destroy() {
     Assets.reset();
     this.app.destroy(true);
+    if (this._resizeObserver) this._resizeObserver.disconnect();
   }
 
   draw(data) {
