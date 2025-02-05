@@ -4,6 +4,7 @@ import { isValidationError } from 'zod-validation-error';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { validate } from '../../utils/vaildator';
 import {
+  changeAlpha,
   changeLineStyle,
   changeLinks,
   changeShow,
@@ -26,6 +27,7 @@ const updateRelationSchema = z
     zIndex: z.number(),
     lineStyle: z.record(z.unknown()),
     links: z.array(relation),
+    alpha: z.number(),
   })
   .partial();
 
@@ -37,6 +39,7 @@ export const updateRelations = (element, opts) => {
   changeZIndex(element, config);
   changeLineStyle(element, config);
   changeLinks(element, config);
+  changeAlpha(element, config);
   element.config = deepMerge(element.config, config);
 };
 

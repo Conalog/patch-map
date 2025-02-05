@@ -246,3 +246,8 @@ export const changeLinks = (element, { links }) => {
     return [bounds.x + bounds.width / 2, bounds.y + bounds.height / 2];
   }
 };
+
+export const changeAlpha = (element, { alpha }) => {
+  if (isMatch(element, 'alpha', alpha)) return;
+  element.alpha = alpha;
+};
