@@ -61,7 +61,7 @@ export const convertLegacyData = (data) => {
             width: 4,
             color: value.properties.color.dark,
             cap: 'round',
-            join: 'rooud',
+            join: 'round',
           },
           metadata: value.properties,
         });

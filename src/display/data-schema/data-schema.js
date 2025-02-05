@@ -58,6 +58,7 @@ const relationGroupObject = defaultInfo.extend({
     (val) => ({ color: 'black', ...val }),
     z.record(z.unknown()),
   ),
+  alpha: z.number().min(0).max(1).default(1),
 });
 
 const groupObject = defaultInfo.extend({

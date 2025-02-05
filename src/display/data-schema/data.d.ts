@@ -79,6 +79,7 @@ export interface Relations {
 
   links: Array<{ source: string; target: string }>;
   lineStyle?: Record<string, unknown>;
+  alpha?: number; // 기본값: 1 (0~1)
 }
 
 /**
