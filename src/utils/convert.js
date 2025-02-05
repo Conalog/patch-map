@@ -20,7 +20,7 @@ export const convertLegacyData = (data) => {
 
     if (key === 'grids') {
       for (const value of values) {
-        const { transform, spec } = value.properties;
+        const { transform, ...props } = value.properties;
         objs[key].items.push({
           type: 'grid',
           id: value.id,
@@ -30,7 +30,10 @@ export const convertLegacyData = (data) => {
           ),
           position: { x: transform.x, y: transform.y },
           rotation: transform.rotation,
-          size: { width: spec.width * 40, height: spec.height * 40 },
+          size: {
+            width: props.spec.width * 40,
+            height: props.spec.height * 40,
+          },
           components: [
             {
               type: 'background',
@@ -43,7 +46,7 @@ export const convertLegacyData = (data) => {
               margin: '3',
             },
           ],
-          metadata: value.properties,
+          metadata: props,
         });
       }
     } else if (key === 'strings') {
@@ -68,7 +71,7 @@ export const convertLegacyData = (data) => {
       }
     } else {
       for (const value of values) {
-        const { transform } = value.properties;
+        const { transform, ...props } = value.properties;
         objs[key].items.push({
           type: 'item',
           id: value.id,
@@ -89,6 +92,7 @@ export const convertLegacyData = (data) => {
               placement: 'center',
             },
           ],
+          metadata: props,
         });
       }
     }
