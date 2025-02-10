@@ -118,7 +118,9 @@ export interface BarComponent {
   placement?: Placement; // 기본값: 'bottom'
   percentWidth?: number; // 기본값: 1 (0~1)
   percentHeight?: number; // 기본값: 1 (0~1)
-  margin?: string; // 기본값: '0'
+  margin?: string; // 기본값: '0',
+  animation?: boolean; // 기본값: true
+  animationDuration?: number; // 기본값: 200
 }
 
 /**

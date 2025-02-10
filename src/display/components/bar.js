@@ -48,6 +48,8 @@ const updateBarSchema = z
     margin: Margin,
     percentWidth: z.number().min(0).max(1),
     percentHeight: z.number().min(0).max(1),
+    animation: z.boolean(),
+    animationDuration: z.number(),
   })
   .partial();
 

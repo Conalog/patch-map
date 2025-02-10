@@ -34,6 +34,8 @@ const bar = defaultConfig.extend({
   percentWidth: z.number().min(0).max(1).default(1),
   percentHeight: z.number().min(0).max(1).default(1),
   margin: Margin.default('0'),
+  animation: z.boolean().default(true),
+  animationDuration: z.number().default(200),
 });
 
 const icon = defaultConfig.extend({

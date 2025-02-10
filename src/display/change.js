@@ -1,3 +1,4 @@
+import gsap from 'gsap';
 import { getAsset } from '../assets/utils';
 import { getScaleBounds } from '../utils/canvas';
 import { getColor } from '../utils/get';
@@ -88,6 +89,8 @@ export const changePercentSize = (
     percentWidth = component.config.percentWidth,
     percentHeight = component.config.percentHeight,
     margin = component.config.margin,
+    animation = component.config.animation,
+    animationDuration = component.config.animationDuration,
   },
 ) => {
   if (
@@ -101,18 +104,37 @@ export const changePercentSize = (
   const marginObj = parseMargin(margin);
   if (percentWidth) changeWidth(component, percentWidth, marginObj);
   if (percentHeight) changeHeight(component, percentHeight, marginObj);
-  changePlacement(component, {});
 
   function changeWidth(component, percentWidth, marginObj) {
     const maxWidth =
       component.parent.size.width - (marginObj.left + marginObj.right);
-    component.width = maxWidth * percentWidth;
+
+    if (animation) {
+      gsap.to(component, {
+        pixi: { width: maxWidth * percentWidth },
+        duration: animationDuration / 1000,
+        ease: 'power2.inOut',
+        onUpdate: () => changePlacement(component, {}),
+      });
+    } else {
+      component.width = maxWidth * percentWidth;
+    }
   }
 
   function changeHeight(component, percentHeight) {
     const maxHeight =
       component.parent.size.height - (marginObj.top + marginObj.bottom);
-    component.height = maxHeight * percentHeight;
+
+    if (animation) {
+      gsap.to(component, {
+        pixi: { height: maxHeight * percentHeight },
+        duration: animationDuration / 1000,
+        ease: 'power2.inOut',
+        onUpdate: () => changePlacement(component, {}),
+      });
+    } else {
+      component.height = maxHeight * percentHeight;
+    }
   }
 };
 
