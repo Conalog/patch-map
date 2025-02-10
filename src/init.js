@@ -1,5 +1,7 @@
+import { gsap } from 'gsap';
+import { PixiPlugin } from 'gsap/PixiPlugin';
 import { Viewport } from 'pixi-viewport';
-import { Assets } from 'pixi.js';
+import * as PIXI from 'pixi.js';
 import { firaCode } from './assets/fonts';
 import { icons } from './assets/icons';
 import { background } from './assets/textures/background';
@@ -9,6 +11,8 @@ import { transformManifest } from './assets/utils';
 import * as viewportEvents from './events/viewport';
 import { deepMerge } from './utils/deepmerge/deepmerge';
 import { getColor } from './utils/get';
+gsap.registerPlugin(PixiPlugin);
+PixiPlugin.registerPIXI(PIXI);
 
 const DEFAULT_INIT_OPTIONS = {
   app: {
@@ -131,15 +135,15 @@ export const initViewport = (app, opts = {}) => {
 export const initAssets = async (opts = {}) => {
   const options = deepMerge(DEFAULT_INIT_OPTIONS.assets, opts);
   const manifest = transformManifest(options);
-  await Assets.init({ manifest });
-  Assets.addBundle('fonts', [
+  await PIXI.Assets.init({ manifest });
+  PIXI.Assets.addBundle('fonts', [
     ...Object.entries(firaCode).map(([key, font]) => ({
       alias: `firaCode-${key}`,
       src: font,
       data: { family: `FiraCode ${key}` },
     })),
   ]);
-  await Assets.loadBundle([...Object.keys(options), 'fonts']);
+  await PIXI.Assets.loadBundle([...Object.keys(options), 'fonts']);
 };
 
 export const initTextures = (app, opts = {}) => {
