@@ -250,6 +250,7 @@ export const changeLinks = (element, { links }) => {
     path.links.push({ sourcePoint, targetPoint });
   }
   path.stroke();
+  element.links = links;
 
   function getPoint(bounds) {
     return [bounds.x + bounds.width / 2, bounds.y + bounds.height / 2];
