@@ -15,7 +15,7 @@ import { createContainer } from '../utils';
 
 export const createRelations = (config) => {
   const element = createContainer(config);
-  const path = createPath(config);
+  const path = createPath();
   element.addChild(path);
   element.config = {};
   return element;
@@ -43,8 +43,8 @@ export const updateRelations = (element, opts) => {
   element.config = deepMerge(element.config, config);
 };
 
-const createPath = ({ id, label }) => {
+const createPath = () => {
   const path = new Graphics();
-  Object.assign(path, { type: 'path', id, label, links: [] });
+  Object.assign(path, { type: 'path', links: [] });
   return path;
 };

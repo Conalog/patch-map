@@ -70,6 +70,9 @@ const addItemElements = (container, cells, cellSize) => {
           width: cellSize.width,
           height: cellSize.height,
         },
+        metadata: {
+          index: colIndex + row.length * rowIndex,
+        },
       });
       item.eventMode = 'static';
       container.addChild(item);
