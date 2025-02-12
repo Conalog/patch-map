@@ -252,12 +252,15 @@ export const changeLinks = (element, { links }) => {
 
   path.links = [];
   for (const link of links) {
-    const sourcePoint = getPoint(
-      getScaleBounds(element.viewport, objs[link.source]),
-    );
-    const targetPoint = getPoint(
-      getScaleBounds(element.viewport, objs[link.target]),
-    );
+    const sourcePoint = objs[link.source]
+      ? getPoint(getScaleBounds(element.viewport, objs[link.source]))
+      : null;
+    const targetPoint = objs[link.target]
+      ? getPoint(getScaleBounds(element.viewport, objs[link.target]))
+      : null;
+    if (sourcePoint == null || targetPoint == null) {
+      continue;
+    }
 
     const lastLink = path.links[path.links.length - 1];
     const shouldMoveToSource =

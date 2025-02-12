@@ -138,7 +138,7 @@ export class PatchMap {
     fit(this.viewport, id);
   }
 
-  selector(path) {
-    return selector(this.viewport, path);
+  selector(path, options) {
+    return selector(this.viewport, path, options);
   }
 }
