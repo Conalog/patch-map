@@ -40,7 +40,8 @@ body:
     # 환경 정보 (필수)
     attributes:
       label: "Environment"
-      placeholder: "Output of `npx envinfo --system --npmPackages @conalog/patch-map --binaries --browsers`"
+      description: "Output of `npx envinfo --system --npmPackages @conalog/patch-map --binaries --browsers`"
+      placeholder: "System, Binaries, Browsers, npmPackages"
     validations:
       required: true
 
