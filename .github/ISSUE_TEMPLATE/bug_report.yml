@@ -35,7 +35,7 @@ body:
     validations:
       required: true
 
-  - type: input
+  - type: textarea
     id: environment
     # 환경 정보 (필수)
     attributes:
