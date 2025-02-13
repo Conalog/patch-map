@@ -11,7 +11,7 @@ export default [
       {
         file: pkg.main,
         format: 'cjs',
-        exportess: 'named',
+        exports: 'named',
       },
       {
         file: pkg.module,
@@ -28,6 +28,7 @@ export default [
       copy({
         targets: [
           { src: 'src/assets/fonts/OFL-1.1.txt', dest: 'dist/assets/fonts' },
+          { src: 'src/utils/worker/worker.js', dest: 'dist' },
         ],
       }),
     ],
