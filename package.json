@@ -41,27 +41,27 @@
     "deepmerge": "^4.3.1",
     "gsap": "^3.12.7",
     "is-plain-object": "^5.0.0",
-    "jsonpath-plus": "^10.2.0",
+    "jsonpath-plus": "^10.3.0",
     "pixi-viewport": "^6.0.3",
-    "uuid": "^11.0.3",
+    "uuid": "^11.0.5",
     "zod-validation-error": "^3.4.0"
   },
   "peerDependencies": {
-    "pixi.js": "^8.7.3",
-    "zod": "^3.24.1"
+    "pixi.js": "^8.8.0",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
-    "@commitlint/cli": "^19.6.1",
-    "@commitlint/config-conventional": "^19.6.0",
-    "@rollup/plugin-commonjs": "^28.0.1",
+    "@commitlint/cli": "^19.7.1",
+    "@commitlint/config-conventional": "^19.7.1",
+    "@rollup/plugin-commonjs": "^28.0.2",
     "@rollup/plugin-node-resolve": "^15.3.0",
     "@rollup/plugin-url": "^8.0.2",
     "husky": "^9.1.7",
-    "rollup": "^4.28.1",
+    "rollup": "^4.34.8",
     "rollup-plugin-copy": "^3.5.0",
     "standard-version": "^9.5.0",
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.6"
   }
 }
