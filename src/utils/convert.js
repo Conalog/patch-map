@@ -1,7 +1,17 @@
 import { createUUID } from './uuid';
 
-export const convertArray = (items) => {
-  return Array.isArray(items) ? items : [items];
+export const convertDisplayObject = (obj) => {
+  const info = {
+    type: obj.type ?? null,
+    id: obj.id ?? null,
+    label: obj.label ?? null,
+    metadata: obj.metadata ?? {},
+    config: obj.config ?? null,
+  };
+  if (obj.children && obj.children.length > 0) {
+    info.children = obj.children.map((child) => convertDisplayObject(child));
+  }
+  return info;
 };
 
 export const convertLegacyData = (data) => {
@@ -102,4 +112,8 @@ export const convertLegacyData = (data) => {
 
   console.log('Transformed data output:', result);
   return result;
+};
+
+export const convertArray = (items) => {
+  return Array.isArray(items) ? items : [items];
 };

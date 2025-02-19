@@ -4,6 +4,8 @@ import url from '@rollup/plugin-url';
 import copy from 'rollup-plugin-copy';
 import pkg from './package.json' assert { type: 'json' };
 
+const EXTERNAL_PKGS = ['pixi.js', 'worker_threads', 'child_process', 'os'];
+
 export default [
   {
     input: 'src/patch-map.ts',
@@ -28,10 +30,25 @@ export default [
       copy({
         targets: [
           { src: 'src/assets/fonts/OFL-1.1.txt', dest: 'dist/assets/fonts' },
-          { src: 'src/utils/worker/worker.js', dest: 'dist' },
         ],
       }),
     ],
-    external: ['pixi.js'],
+    external: (id) => {
+      return EXTERNAL_PKGS.includes(id) || id.includes('?');
+    },
+  },
+  {
+    input: 'src/utils/worker/worker.js',
+    output: [
+      {
+        dir: 'dist/utils/worker',
+        format: 'esm',
+        inlineDynamicImports: true,
+      },
+    ],
+    plugins: [resolve(), commonjs()],
+    external: (id) => {
+      return id.includes('?');
+    },
   },
 ];

@@ -222,7 +222,7 @@ export const chnageTextStyle = (
 
 export const changeLineStyle = (element, { lineStyle, links }) => {
   if (!lineStyle) return;
-  const path = selector(element, '$.children[?(@.type==="path")]')[0];
+  const path = element.children.find((child) => child.type === 'path');
   if (!path) return;
 
   path.setStrokeStyle({ ...path.strokeStyle, ...lineStyle });
@@ -237,7 +237,7 @@ export const changeLineStyle = (element, { lineStyle, links }) => {
 
 export const changeLinks = (element, { links }) => {
   if (!links) return;
-  const path = selector(element, '$.children[?(@.type==="path")]')[0];
+  const path = element.children.find((child) => child.type === 'path');
   if (!path) return;
   path.clear();
 

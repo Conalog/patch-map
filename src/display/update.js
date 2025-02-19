@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { convertArray } from '../utils/convert';
-import { selector } from '../utils/selector/selector';
+import { selectorWithWorker } from '../utils/selector/selector';
 import { validate } from '../utils/vaildator';
 import { updateGrid } from './elements/grid';
 import { updateGroup } from './elements/group';
@@ -13,13 +13,14 @@ const updateSchema = z.object({
   changes: z.record(z.unknown()),
 });
 
-export const update = (parent, opts) => {
+export const update = async (viewport, opts) => {
   const config = validate(opts, updateSchema.passthrough());
   if (isValidationError(config)) throw config;
 
   const elements = 'elements' in config ? convertArray(config.elements) : [];
-  if (parent && config.path) {
-    elements.push(...selector(parent, config.path));
+  if (viewport && config.path) {
+    const selectElements = await selectorWithWorker(viewport, config.path);
+    elements.push(...selectElements);
   }
 
   for (const element of elements) {

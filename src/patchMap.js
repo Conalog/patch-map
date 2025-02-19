@@ -7,9 +7,9 @@ import { update } from './display/update';
 import { event } from './events/canvas';
 import { initApp, initAssets, initTextures, initViewport } from './init';
 import { fit, focus } from './utils/canvas';
-import { convertLegacyData } from './utils/convert';
+import { convertDisplayObject, convertLegacyData } from './utils/convert';
 import { deepMerge } from './utils/deepmerge/deepmerge';
-import { selector } from './utils/selector/selector';
+import { selector, selectorWithWorker } from './utils/selector/selector';
 import { validateMapData } from './utils/vaildator';
 
 export class PatchMap {
@@ -105,7 +105,7 @@ export class PatchMap {
     if (this._resizeObserver) this._resizeObserver.disconnect();
   }
 
-  draw(data) {
+  async draw(data) {
     let zData = isLegacyData(data) ? convertLegacyData(data) : data;
     if (!Array.isArray(zData)) {
       console.error('Invalid data format. Expected an array.');
@@ -114,9 +114,10 @@ export class PatchMap {
     this.app.stop();
     zData = validateMapData(zData);
     if (!isValidationError(zData)) {
-      draw(this.viewport, zData);
+      await draw(this.viewport, zData);
     }
     this.app.start();
+    this.viewport.displayObject = convertDisplayObject(this.viewport);
     return zData;
 
     function isLegacyData(data) {
@@ -126,7 +127,7 @@ export class PatchMap {
     }
   }
 
-  update(config) {
+  async update(config) {
     update(this.viewport, config);
   }
 
@@ -140,5 +141,9 @@ export class PatchMap {
 
   selector(path) {
     return selector(this.viewport, path);
+  }
+
+  selectorWithWorker(path, options) {
+    return selectorWithWorker(this.viewport, path, options);
   }
 }
