@@ -6,34 +6,30 @@ import { selector } from '../utils/selector/selector';
 import { FONT_WEIGHT } from './components/config';
 import { parseMargin } from './utils';
 
-export const isMatch = (object, key, value) => {
-  return value == null || object.config[key] === value;
+export const changeProperty = (object, { key, value }) => {
+  if (isMatch(object, key, value)) return;
+  object[key] = value;
 };
 
 export const changeShow = (object, { show }) => {
-  if (isMatch(object, 'show', show)) return;
+  if (isConfigMatch(object, 'show', show)) return;
   object.renderable = show;
 };
 
-export const changeZIndex = (object, { zIndex }) => {
-  if (isMatch(object, 'zIndex', zIndex)) return;
-  object.zIndex = zIndex;
-};
-
 export const changeTexture = (component, { texture: textureName }) => {
-  if (isMatch(component, 'texture', textureName)) return;
+  if (isConfigMatch(component, 'texture', textureName)) return;
   const texture = getAsset(textureName);
   component.texture = texture ?? null;
 };
 
 export const changeColor = (component, { color }) => {
-  if (isMatch(component, 'color', color)) return;
+  if (isConfigMatch(component, 'color', color)) return;
   const tint = getColor(color, component.config.theme);
   component.tint = tint;
 };
 
 export const changeSize = (component, { size }) => {
-  if (isMatch(component, 'size', size)) return;
+  if (isConfigMatch(component, 'size', size)) return;
   component.setSize(size);
   changePlacement(component, {});
 };
@@ -94,9 +90,9 @@ export const changePercentSize = (
   },
 ) => {
   if (
-    isMatch(component, 'percentWidth', percentWidth) &&
-    isMatch(component, 'percentHeight', percentHeight) &&
-    isMatch(component, 'margin', margin)
+    isConfigMatch(component, 'percentWidth', percentWidth) &&
+    isConfigMatch(component, 'percentHeight', percentHeight) &&
+    isConfigMatch(component, 'margin', margin)
   ) {
     return;
   }
@@ -143,8 +139,8 @@ export const changeContent = (
   { content = component.config.content, split = component.config.split },
 ) => {
   if (
-    isMatch(component, 'content', content) &&
-    isMatch(component, 'split', split)
+    isConfigMatch(component, 'content', content) &&
+    isConfigMatch(component, 'split', split)
   ) {
     return;
   }
@@ -172,8 +168,8 @@ export const chnageTextStyle = (
   { style = component.config.style, margin = component.config.margin },
 ) => {
   if (
-    isMatch(component, 'style', style) &&
-    isMatch(component, 'margin', margin)
+    isConfigMatch(component, 'style', style) &&
+    isConfigMatch(component, 'margin', margin)
   ) {
     return;
   }
@@ -227,6 +223,10 @@ export const changeLineStyle = (element, { lineStyle, links }) => {
 
   path.setStrokeStyle({ ...path.strokeStyle, ...lineStyle });
   if (!links && path.links.length > 0) {
+    reRenderPath(path);
+  }
+
+  function reRenderPath(path) {
     for (const link of path.links) {
       path.moveTo(...link.sourcePoint);
       path.lineTo(...link.targetPoint);
@@ -275,14 +275,16 @@ export const changeLinks = (element, { links }) => {
     path.links.push({ sourcePoint, targetPoint });
   }
   path.stroke();
-  element.links = links;
 
   function getPoint(bounds) {
     return [bounds.x + bounds.width / 2, bounds.y + bounds.height / 2];
   }
 };
 
-export const changeAlpha = (element, { alpha }) => {
-  if (isMatch(element, 'alpha', alpha)) return;
-  element.alpha = alpha;
+const isConfigMatch = (object, key, value) => {
+  return value == null || object.config[key] === value;
+};
+
+const isMatch = (object, key, value) => {
+  return object[key] === value;
 };

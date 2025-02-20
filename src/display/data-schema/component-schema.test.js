@@ -93,7 +93,6 @@ describe('componentArraySchema', () => {
         expect(result.data[0].percentHeight).toBe(1);
         // show, zIndex 등 defaultConfig 값도 확인
         expect(result.data[0].show).toBe(true);
-        expect(result.data[0].zIndex).toBe(0);
       }
     });
 
@@ -139,7 +138,6 @@ describe('componentArraySchema', () => {
 
       if (result.success) {
         expect(result.data[0].show).toBe(true);
-        expect(result.data[0].zIndex).toBe(0);
       }
     });
 

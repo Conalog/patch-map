@@ -1,38 +1,35 @@
 import { isValidationError } from 'zod-validation-error';
-import { getTheme } from '../utils/get';
-import { validate } from '../utils/vaildator';
-import {
-  backgroundComponent,
-  updateBackgroundComponent,
-} from './components/background';
-import { barComponent, updateBarComponent } from './components/bar';
-import { iconComponent, updateIconComponent } from './components/icon';
-import { textComponent, updateTextComponent } from './components/text';
-import { componentSchema } from './data-schema/component-schema';
+import { getTheme } from '../../utils/get';
+import { validate } from '../../utils/vaildator';
+import { componentSchema } from '../data-schema/component-schema';
+import { backgroundComponent, updateBackgroundComponent } from './background';
+import { barComponent, updateBarComponent } from './bar';
+import { iconComponent, updateIconComponent } from './icon';
+import { textComponent, updateTextComponent } from './text';
+
+const componentFn = {
+  background: {
+    create: backgroundComponent,
+    update: updateBackgroundComponent,
+  },
+  icon: {
+    create: iconComponent,
+    update: updateIconComponent,
+  },
+  bar: {
+    create: barComponent,
+    update: updateBarComponent,
+  },
+  text: {
+    create: textComponent,
+    update: updateTextComponent,
+  },
+};
 
 export const upateComponents = (item, { components }) => {
   if (!components) return;
 
-  const componentFn = {
-    background: {
-      create: backgroundComponent,
-      update: updateBackgroundComponent,
-    },
-    icon: {
-      create: iconComponent,
-      update: updateIconComponent,
-    },
-    bar: {
-      create: barComponent,
-      update: updateBarComponent,
-    },
-    text: {
-      create: textComponent,
-      update: updateTextComponent,
-    },
-  };
   const children = [...item.children];
-
   for (let config of components) {
     const index = children.findIndex((child) =>
       matchValue('type', child, config),
