@@ -223,6 +223,10 @@ export const changeLineStyle = (element, { lineStyle, links }) => {
 
   path.setStrokeStyle({ ...path.strokeStyle, ...lineStyle });
   if (!links && path.links.length > 0) {
+    reRenderPath(path);
+  }
+
+  function reRenderPath(path) {
     for (const link of path.links) {
       path.moveTo(...link.sourcePoint);
       path.lineTo(...link.targetPoint);
@@ -268,7 +272,6 @@ export const changeLinks = (element, { links }) => {
     path.links.push({ sourcePoint, targetPoint });
   }
   path.stroke();
-  element.links = links;
 
   function getPoint(bounds) {
     return [bounds.x + bounds.width / 2, bounds.y + bounds.height / 2];
