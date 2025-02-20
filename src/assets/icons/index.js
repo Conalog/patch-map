@@ -1,4 +1,4 @@
-import combine from './combine.svg';
+import combiner from './combiner.svg';
 import device from './device.svg';
 import edge from './edge.svg';
 import inverter from './inverter.svg';
@@ -10,7 +10,7 @@ import wifi from './wifi.svg';
 export const icons = {
   object,
   inverter,
-  combine,
+  combiner,
   device,
   edge,
   loading,
