@@ -14,11 +14,11 @@ export const Placement = z.enum([
 
 export const Margin = z.string().regex(/^(\d+(\.\d+)?(\s+\d+(\.\d+)?){0,3})$/);
 
-const defaultConfig = z.object({
-  show: z.boolean().default(true),
-  label: z.nullable(z.string()).default(null),
-  zIndex: z.number().default(0),
-});
+const defaultConfig = z
+  .object({
+    show: z.boolean().default(true),
+  })
+  .passthrough();
 
 const background = defaultConfig.extend({
   type: z.literal('background'),

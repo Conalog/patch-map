@@ -1,4 +1,11 @@
 /**
+ * 모든 객체에 공통으로 들어갈 수 있는 확장 속성용 인터페이스
+ */
+export interface BaseObject {
+  [key: string]: unknown;
+}
+
+/**
  * 최상위 데이터 구조
  */
 export type Data = Array<Group | Grid | Item | Relations>;
@@ -6,12 +13,10 @@ export type Data = Array<Group | Grid | Item | Relations>;
 /**
  * Group 타입
  */
-export interface Group {
+export interface Group extends BaseObject {
   type: 'group';
   id: string;
-  label?: string | null;
   show?: boolean; // 기본값: true
-  zIndex?: number; // 기본값: 0
   metadata?: Record<string, unknown>; // 기본값: {}
 
   items: Array<Group | Grid | Item | Relations>;
@@ -20,12 +25,10 @@ export interface Group {
 /**
  * Grid 타입
  */
-export interface Grid {
+export interface Grid extends BaseObject {
   type: 'grid';
   id: string;
-  label?: string | null;
   show?: boolean; // 기본값: true
-  zIndex?: number; // 기본값: 0
   metadata?: Record<string, unknown>; // 기본값: {}
 
   cells: Array<Array<0 | 1>>;
@@ -45,12 +48,10 @@ export interface Grid {
 /**
  * Item 타입
  */
-export interface Item {
+export interface Item extends BaseObject {
   type: 'item';
   id: string;
-  label?: string | null;
   show?: boolean; // 기본값: true
-  zIndex?: number; // 기본값: 0
   metadata?: Record<string, unknown>; // 기본값: {}
 
   components: components[];
@@ -69,17 +70,14 @@ export interface Item {
 /**
  * Relations 타입 (선/연결)
  */
-export interface Relations {
+export interface Relations extends BaseObject {
   type: 'relations';
   id: string;
-  label?: string | null;
   show?: boolean; // 기본값: true
-  zIndex?: number; // 기본값: 0
   metadata?: Record<string, unknown>; // 기본값: {}
 
   links: Array<{ source: string; target: string }>;
   lineStyle?: Record<string, unknown>;
-  alpha?: number; // 기본값: 1 (0~1)
 }
 
 /**
@@ -94,12 +92,9 @@ export type components =
 /**
  * Background components
  */
-export interface BackgroundComponent {
+export interface BackgroundComponent extends BaseObject {
   type: 'background';
   show?: boolean; // 기본값: true
-  label?: string | null; // 기본값: null
-  zIndex?: number; // 기본값: 0
-
   texture: string;
   color?: string; // 기본값: '#FFFFFF'
 }
@@ -107,12 +102,9 @@ export interface BackgroundComponent {
 /**
  * Bar components
  */
-export interface BarComponent {
+export interface BarComponent extends BaseObject {
   type: 'bar';
   show?: boolean; // 기본값: true
-  label?: string | null; // 기본값: null
-  zIndex?: number; // 기본값: 0
-
   texture: string;
   color?: string; // 기본값: 'primary.default'
   placement?: Placement; // 기본값: 'bottom'
@@ -126,12 +118,9 @@ export interface BarComponent {
 /**
  * Icon components
  */
-export interface IconComponent {
+export interface IconComponent extends BaseObject {
   type: 'icon';
   show?: boolean; // 기본값: true
-  label?: string | null; // 기본값: null
-  zIndex?: number; // 기본값: 0
-
   texture: string;
   color?: string; // 기본값: 'black'
   size: number; // 0 이상
@@ -142,12 +131,9 @@ export interface IconComponent {
 /**
  * Text components
  */
-export interface TextComponent {
+export interface TextComponent extends BaseObject {
   type: 'text';
   show?: boolean; // 기본값: true
-  label?: string | null; // 기본값: null
-  zIndex?: number; // 기본값: 0
-
   placement?: Placement; // 기본값: 'center'
   content?: string; // 기본값: ''
   style?: Record<string, unknown>;
