@@ -10,39 +10,48 @@ export const draw = (viewport, data) => {
 
   function render(parent, data) {
     for (const config of data) {
-      if (config.type === 'group') {
-        const element = createGroup(config);
-        element.viewport = viewport;
-        update(null, {
-          elements: element,
-          changes: config,
-        });
-        parent.addChild(element);
-        render(element, config.items);
-      } else if (config.type === 'grid') {
-        const element = createGrid(config);
-        element.viewport = viewport;
-        update(null, {
-          elements: element,
-          changes: config,
-        });
-        parent.addChild(element);
-      } else if (config.type === 'item') {
-        const element = createItem(config);
-        element.viewport = viewport;
-        update(null, {
-          elements: element,
-          changes: config,
-        });
-        parent.addChild(element);
-      } else if (config.type === 'relations') {
-        const element = createRelations({ viewport, ...config });
-        element.viewport = viewport;
-        update(null, {
-          elements: element,
-          changes: config,
-        });
-        parent.addChild(element);
+      switch (config.type) {
+        case 'group': {
+          const element = createGroup(config);
+          element.viewport = viewport;
+          update(null, {
+            elements: element,
+            changes: config,
+          });
+          parent.addChild(element);
+          render(element, config.items);
+          break;
+        }
+        case 'grid': {
+          const element = createGrid(config);
+          element.viewport = viewport;
+          update(null, {
+            elements: element,
+            changes: config,
+          });
+          parent.addChild(element);
+          break;
+        }
+        case 'item': {
+          const element = createItem(config);
+          element.viewport = viewport;
+          update(null, {
+            elements: element,
+            changes: config,
+          });
+          parent.addChild(element);
+          break;
+        }
+        case 'relations': {
+          const element = createRelations({ viewport, ...config });
+          element.viewport = viewport;
+          update(null, {
+            elements: element,
+            changes: config,
+          });
+          parent.addChild(element);
+          break;
+        }
       }
     }
   }
