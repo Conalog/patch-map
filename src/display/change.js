@@ -278,10 +278,10 @@ export const changeLinks = (element, { links }) => {
   }
 };
 
-export const isConfigMatch = (object, key, value) => {
+const isConfigMatch = (object, key, value) => {
   return value == null || object.config[key] === value;
 };
 
-export const isMatch = (object, key, value) => {
+const isMatch = (object, key, value) => {
   return object[key] === value;
 };
