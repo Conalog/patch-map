@@ -1,16 +1,14 @@
 import { BitmapText } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
-import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { validate } from '../../utils/vaildator';
 import {
   changeContent,
   changePlacement,
   changeShow,
-  changeZIndex,
   chnageTextStyle,
 } from '../change';
-import { Margin, Placement } from '../data-schema/component-schema';
+import { updateObject } from '../update-object';
 
 const textSchema = z.object({
   label: z.nullable(z.string()).default(null),
@@ -29,27 +27,14 @@ export const textComponent = (opts) => {
   return component;
 };
 
-const updateTextSchema = z
-  .object({
-    show: z.boolean(),
-    zIndex: z.number(),
-    placement: Placement,
-    margin: Margin,
-    content: z.string(),
-    style: z.record(z.unknown()),
-    split: z.number().int(),
-  })
-  .partial();
+const pipeline = [
+  { keys: ['show'], handler: changeShow },
+  { keys: ['content', 'split'], handler: changeContent },
+  { keys: ['style', 'margin'], handler: chnageTextStyle },
+  { keys: ['placement', 'margin'], handler: changePlacement },
+];
+const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
 
-export const updateTextComponent = (component, opts) => {
-  if (!component) return;
-  const options = validate(opts, updateTextSchema);
-  if (isValidationError(options)) throw options;
-
-  changeShow(component, options);
-  changeZIndex(component, options);
-  changeContent(component, options);
-  chnageTextStyle(component, options);
-  changePlacement(component, options);
-  component.config = deepMerge(component.config, options);
+export const updateTextComponent = (component, options) => {
+  updateObject(component, options, pipeline, pipelineKeys, exceptionKeys);
 };

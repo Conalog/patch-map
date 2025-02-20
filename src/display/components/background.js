@@ -2,11 +2,10 @@ import { NineSliceSprite } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { getAsset } from '../../assets/utils';
-import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { validate } from '../../utils/vaildator';
 import { changeColor, changeTexture } from '../change';
-import { changeZIndex } from '../change';
 import { changeShow } from '../change';
+import { updateObject } from '../update-object';
 
 const backgroundSchema = z.object({
   texture: z.string(),
@@ -41,30 +40,21 @@ export const backgroundComponent = (opts) => {
   return component;
 };
 
-const updateBackgroundSchema = z
-  .object({
-    show: z.boolean(),
-    zIndex: z.number(),
-    texture: z.string(),
-    color: z.string(),
-  })
-  .partial();
+const pipeline = [
+  { keys: ['show'], handler: changeShow },
+  {
+    keys: ['texture'],
+    handler: (component, options) => {
+      changeTexture(component, { texture: `background-${options.texture}` });
+      changeTransform(component);
+    },
+  },
+  { keys: ['color'], handler: changeColor },
+];
+const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
 
-export const updateBackgroundComponent = (component, opts) => {
-  if (!component) return;
-  const options = validate(opts, updateBackgroundSchema);
-  if (isValidationError(options)) throw options;
-
-  changeShow(component, options);
-  changeZIndex(component, options);
-  changeTexture(component, {
-    texture: options.texture && `background-${options.texture}`,
-  });
-  if (options.texture) {
-    changeTransform(component);
-  }
-  changeColor(component, options);
-  component.config = deepMerge(component.config, options);
+export const updateBackgroundComponent = (component, options) => {
+  updateObject(component, options, pipeline, pipelineKeys);
 };
 
 export const changeTransform = (component) => {
