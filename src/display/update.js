@@ -23,14 +23,19 @@ export const update = (parent, opts) => {
   }
 
   for (const element of elements) {
-    if (element.type === 'group') {
-      updateGroup(element, config.changes);
-    } else if (element.type === 'grid') {
-      updateGrid(element, config.changes);
-    } else if (element.type === 'item') {
-      updateItem(element, config.changes);
-    } else if (element.type === 'relations') {
-      updateRelations(element, config.changes);
+    switch (element.type) {
+      case 'group':
+        updateGroup(element, config.changes);
+        break;
+      case 'grid':
+        updateGrid(element, config.changes);
+        break;
+      case 'item':
+        updateItem(element, config.changes);
+        break;
+      case 'relations':
+        updateRelations(element, config.changes);
+        break;
     }
   }
 };
