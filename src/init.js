@@ -37,7 +37,7 @@ const DEFAULT_INIT_OPTIONS = {
     icons: {
       object: { src: icons.object },
       inverter: { src: icons.inverter },
-      combine: { src: icons.combine },
+      combiner: { src: icons.combiner },
       edge: { src: icons.edge },
       device: { src: icons.device },
       loading: { src: icons.loading },
