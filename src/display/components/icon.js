@@ -2,7 +2,6 @@ import { Sprite } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { getAsset } from '../../assets/utils';
-import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { validate } from '../../utils/vaildator';
 import {
   changeColor,
@@ -10,9 +9,9 @@ import {
   changeShow,
   changeSize,
   changeTexture,
-  changeZIndex,
 } from '../change';
-import { Margin, Placement } from '../data-schema/component-schema';
+import {} from '../data-schema/component-schema';
+import { updateObject } from '../update-object';
 
 const iconSchema = z.object({
   texture: z.string(),
@@ -33,30 +32,26 @@ export const iconComponent = (opts) => {
   return component;
 };
 
-const updateIconSchema = z
-  .object({
-    show: z.boolean(),
-    texture: z.string(),
-    color: z.string(),
-    zIndex: z.number(),
-    placement: Placement,
-    margin: Margin,
-    size: z.number().nonnegative(),
-  })
-  .partial();
+const pipeline = [
+  { keys: ['show'], handler: changeShow },
+  {
+    keys: ['texture'],
+    handler: (component, options) => {
+      changeTexture(component, { texture: `icons-${options.texture}` });
+    },
+  },
+  {
+    keys: ['size'],
+    handler: (component, options) => {
+      changeSize(component, options);
+      changePlacement(component, {});
+    },
+  },
+  { keys: ['color'], handler: changeColor },
+  { keys: ['placement', 'margin'], handler: changePlacement },
+];
+const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
 
-export const updateIconComponent = (component, opts = {}) => {
-  if (!component) return;
-  const options = validate(opts, updateIconSchema);
-  if (isValidationError(options)) throw options;
-
-  changeShow(component, options);
-  changeTexture(component, {
-    texture: options.texture && `icons-${options.texture}`,
-  });
-  changeSize(component, options);
-  changeColor(component, options);
-  changeZIndex(component, options);
-  changePlacement(component, options);
-  component.config = deepMerge(component.config, options);
+export const updateIconComponent = (component, options) => {
+  updateObject(component, options, pipeline, pipelineKeys);
 };

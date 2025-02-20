@@ -1,10 +1,6 @@
-import { z } from 'zod';
-import { isValidationError } from 'zod-validation-error';
-import { deepMerge } from '../../utils/deepmerge/deepmerge';
-import { validate } from '../../utils/vaildator';
-import { changeZIndex } from '../change';
 import { changeShow } from '../change';
-import { upateComponents } from '../update-components';
+import { upateComponents } from '../components/update-components';
+import { updateObject } from '../update-object';
 import { createContainer } from '../utils';
 
 export const createItem = (config) => {
@@ -16,31 +12,12 @@ export const createItem = (config) => {
   return element;
 };
 
-const updateItemSchema = z
-  .object({
-    show: z.boolean(),
-    zIndex: z.number(),
-    components: z.array(
-      z
-        .object({
-          type: z.union([
-            z.literal('background'),
-            z.literal('bar'),
-            z.literal('icon'),
-            z.literal('text'),
-          ]),
-        })
-        .passthrough(),
-    ),
-  })
-  .partial();
+const pipeline = [
+  { keys: ['show'], handler: changeShow },
+  { keys: ['components'], handler: upateComponents },
+];
+const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
 
-export const updateItem = (element, opts) => {
-  const config = validate(opts, updateItemSchema);
-  if (isValidationError(config)) throw config;
-
-  changeShow(element, config);
-  changeZIndex(element, config);
-  upateComponents(element, config);
-  element.config = deepMerge(element.config, config);
+export const updateItem = (element, options) => {
+  updateObject(element, options, pipeline, pipelineKeys);
 };
