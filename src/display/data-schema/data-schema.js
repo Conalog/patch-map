@@ -28,13 +28,13 @@ export const relation = z
   })
   .strict();
 
-const defaultInfo = z.object({
-  show: z.boolean().default(true),
-  id: z.string(),
-  label: z.nullable(z.string()).default(null),
-  zIndex: z.number().default(0),
-  metadata: z.record(z.unknown()).default({}),
-});
+const defaultInfo = z
+  .object({
+    show: z.boolean().default(true),
+    id: z.string(),
+    metadata: z.record(z.unknown()).default({}),
+  })
+  .passthrough();
 
 const gridObject = defaultInfo
   .extend({
@@ -58,7 +58,6 @@ const relationGroupObject = defaultInfo.extend({
     (val) => ({ color: 'black', ...val }),
     z.record(z.unknown()),
   ),
-  alpha: z.number().min(0).max(1).default(1),
 });
 
 const groupObject = defaultInfo.extend({

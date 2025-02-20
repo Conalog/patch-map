@@ -2,7 +2,6 @@ import { NineSliceSprite } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { getAsset } from '../../assets/utils';
-import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { validate } from '../../utils/vaildator';
 import {
   changeColor,
@@ -10,9 +9,8 @@ import {
   changePlacement,
   changeShow,
   changeTexture,
-  changeZIndex,
 } from '../change';
-import { Margin, Placement } from '../data-schema/component-schema';
+import { updateObject } from '../update-object';
 
 const barSchema = z.object({
   texture: z.string(),
@@ -38,33 +36,27 @@ export const barComponent = (opts) => {
   return component;
 };
 
-const updateBarSchema = z
-  .object({
-    show: z.boolean(),
-    zIndex: z.number(),
-    texture: z.string(),
-    color: z.string(),
-    placement: Placement,
-    margin: Margin,
-    percentWidth: z.number().min(0).max(1),
-    percentHeight: z.number().min(0).max(1),
-    animation: z.boolean(),
-    animationDuration: z.number(),
-  })
-  .partial();
+const pipeline = [
+  { keys: ['show'], handler: changeShow },
+  {
+    keys: ['texture'],
+    handler: (component, options) => {
+      changeTexture(component, { texture: `bars-${options.texture}` });
+    },
+  },
+  { keys: ['color'], handler: changeColor },
+  {
+    keys: ['percentWidth', 'percentHeight', 'margin'],
+    handler: (component, options) => {
+      changePercentSize(component, options);
+      changePlacement(component, {});
+    },
+  },
+  { keys: ['placement', 'margin'], handler: changePlacement },
+];
+const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
+const exceptionKeys = new Set(['animation', 'animationDuration']);
 
-export const updateBarComponent = (component, opts) => {
-  if (!component) return;
-  const options = validate(opts, updateBarSchema);
-  if (isValidationError(options)) throw options;
-
-  changeShow(component, options);
-  changeZIndex(component, options);
-  changeTexture(component, {
-    texture: options.texture && `bars-${options.texture}`,
-  });
-  changeColor(component, options);
-  changePercentSize(component, options);
-  changePlacement(component, options);
-  component.config = deepMerge(component.config, options);
+export const updateBarComponent = (component, options) => {
+  updateObject(component, options, pipeline, pipelineKeys, exceptionKeys);
 };

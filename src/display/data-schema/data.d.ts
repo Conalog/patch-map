@@ -1,89 +1,87 @@
 /**
- * 최상위 데이터 구조
+ * An interface for extended properties that can be commonly applied to all objects.
+ */
+export interface BaseObject {
+  [key: string]: unknown;
+}
+
+/**
+ * Top-level data structure
  */
 export type Data = Array<Group | Grid | Item | Relations>;
 
 /**
- * Group 타입
+ * Group Type
  */
-export interface Group {
+export interface Group extends BaseObject {
   type: 'group';
   id: string;
-  label?: string | null;
-  show?: boolean; // 기본값: true
-  zIndex?: number; // 기본값: 0
-  metadata?: Record<string, unknown>; // 기본값: {}
+  show?: boolean; // default: true
+  metadata?: Record<string, unknown>; // default: {}
 
   items: Array<Group | Grid | Item | Relations>;
 }
 
 /**
- * Grid 타입
+ * Grid Type
  */
-export interface Grid {
+export interface Grid extends BaseObject {
   type: 'grid';
   id: string;
-  label?: string | null;
-  show?: boolean; // 기본값: true
-  zIndex?: number; // 기본값: 0
-  metadata?: Record<string, unknown>; // 기본값: {}
+  show?: boolean; // default: true
+  metadata?: Record<string, unknown>; // default: {}
 
   cells: Array<Array<0 | 1>>;
   components: components[];
 
   position?: {
-    x?: number; // 기본값: 0
-    y?: number; // 기본값: 0
+    x?: number; // default: 0
+    y?: number; // default: 0
   };
   size: {
     width: number;
     height: number;
   };
-  rotation?: number; // 기본값: 0
+  rotation?: number; // default: 0
 }
 
 /**
- * Item 타입
+ * Item Type
  */
-export interface Item {
+export interface Item extends BaseObject {
   type: 'item';
   id: string;
-  label?: string | null;
-  show?: boolean; // 기본값: true
-  zIndex?: number; // 기본값: 0
-  metadata?: Record<string, unknown>; // 기본값: {}
+  show?: boolean; // default: true
+  metadata?: Record<string, unknown>; // default: {}
 
   components: components[];
 
   position?: {
-    x?: number; // 기본값: 0
-    y?: number; // 기본값: 0
+    x?: number; // default: 0
+    y?: number; // default: 0
   };
   size: {
     width: number;
     height: number;
   };
-  rotation?: number; // 기본값: 0
+  rotation?: number; // default: 0
 }
 
 /**
- * Relations 타입 (선/연결)
+ * Relations Type
  */
-export interface Relations {
+export interface Relations extends BaseObject {
   type: 'relations';
   id: string;
-  label?: string | null;
-  show?: boolean; // 기본값: true
-  zIndex?: number; // 기본값: 0
-  metadata?: Record<string, unknown>; // 기본값: {}
+  show?: boolean; // default: true
+  metadata?: Record<string, unknown>; // default: {}
 
   links: Array<{ source: string; target: string }>;
   lineStyle?: Record<string, unknown>;
-  alpha?: number; // 기본값: 1 (0~1)
 }
 
 /**
- * components 타입 (배경, 바, 아이콘, 텍스트)
+ * components Type (background, bar, icon, text)
  */
 export type components =
   | BackgroundComponent
@@ -94,69 +92,57 @@ export type components =
 /**
  * Background components
  */
-export interface BackgroundComponent {
+export interface BackgroundComponent extends BaseObject {
   type: 'background';
-  show?: boolean; // 기본값: true
-  label?: string | null; // 기본값: null
-  zIndex?: number; // 기본값: 0
-
+  show?: boolean; // default: true
   texture: string;
-  color?: string; // 기본값: '#FFFFFF'
+  color?: string; // default: '#FFFFFF'
 }
 
 /**
  * Bar components
  */
-export interface BarComponent {
+export interface BarComponent extends BaseObject {
   type: 'bar';
-  show?: boolean; // 기본값: true
-  label?: string | null; // 기본값: null
-  zIndex?: number; // 기본값: 0
-
+  show?: boolean; // default: true
   texture: string;
-  color?: string; // 기본값: 'primary.default'
-  placement?: Placement; // 기본값: 'bottom'
-  percentWidth?: number; // 기본값: 1 (0~1)
-  percentHeight?: number; // 기본값: 1 (0~1)
-  margin?: string; // 기본값: '0'
-  animation?: boolean; // 기본값: true
-  animationDuration?: number; // 기본값: 200
+  color?: string; // default: 'primary.default'
+  placement?: Placement; // default: 'bottom'
+  percentWidth?: number; // default: 1 (0~1)
+  percentHeight?: number; // default: 1 (0~1)
+  margin?: string; // default: '0'
+  animation?: boolean; // default: true
+  animationDuration?: number; // default: 200
 }
 
 /**
  * Icon components
  */
-export interface IconComponent {
+export interface IconComponent extends BaseObject {
   type: 'icon';
-  show?: boolean; // 기본값: true
-  label?: string | null; // 기본값: null
-  zIndex?: number; // 기본값: 0
-
+  show?: boolean; // default: true
   texture: string;
-  color?: string; // 기본값: 'black'
-  size: number; // 0 이상
-  placement?: Placement; // 기본값: 'center'
-  margin?: string; // 기본값: '0'
+  color?: string; // default: 'black'
+  size: number; // 0 or higher
+  placement?: Placement; // default: 'center'
+  margin?: string; // default: '0'
 }
 
 /**
  * Text components
  */
-export interface TextComponent {
+export interface TextComponent extends BaseObject {
   type: 'text';
-  show?: boolean; // 기본값: true
-  label?: string | null; // 기본값: null
-  zIndex?: number; // 기본값: 0
-
-  placement?: Placement; // 기본값: 'center'
-  content?: string; // 기본값: ''
+  show?: boolean; // default: true
+  placement?: Placement; // default: 'center'
+  content?: string; // default: ''
   style?: Record<string, unknown>;
-  split?: number; // 기본값: 0
-  margin?: string; // 기본값: '0'
+  split?: number; // default: 0
+  margin?: string; // default: '0'
 }
 
 /**
- * 배치(placement)에 사용되는 문자열
+ * String used for placement
  */
 export type Placement =
   | 'left'
