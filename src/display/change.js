@@ -1,6 +1,8 @@
 import gsap from 'gsap';
-import { getAsset } from '../assets/utils';
+import { getTexture } from '../assets/textures/utils';
 import { getScaleBounds } from '../utils/canvas';
+import { deepMerge } from '../utils/deepmerge/deepmerge';
+import { diffJson } from '../utils/diff/diff-json';
 import { getColor } from '../utils/get';
 import { selector } from '../utils/selector/selector';
 import { FONT_WEIGHT } from './components/config';
@@ -16,9 +18,18 @@ export const changeShow = (object, { show }) => {
   object.renderable = show;
 };
 
-export const changeTexture = (component, { texture: textureName }) => {
-  if (isConfigMatch(component, 'texture', textureName)) return;
-  const texture = getAsset(textureName);
+export const changeTexture = (component, { texture: textureId, style }) => {
+  if (
+    isConfigMatch(component, 'texture', textureId) &&
+    Object.keys(diffJson(component.config.style, style)).length === 0
+  ) {
+    return;
+  }
+
+  const texture = getTexture(
+    textureId,
+    deepMerge(component.config.style, style),
+  );
   component.texture = texture ?? null;
 };
 

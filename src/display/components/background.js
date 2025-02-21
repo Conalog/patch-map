@@ -1,14 +1,16 @@
 import { NineSliceSprite } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
-import { getAsset } from '../../assets/utils';
+import { getTexture } from '../../assets/textures/utils';
 import { validate } from '../../utils/vaildator';
 import { changeColor, changeTexture } from '../change';
 import { changeShow } from '../change';
+import { Style } from '../data-schema/component-schema';
 import { updateObject } from '../update-object';
 
 const backgroundSchema = z.object({
-  texture: z.string(),
+  texture: z.nullable(z.string()).default(null),
+  style: Style,
   label: z.nullable(z.string()).default(null),
   position: z
     .object({
@@ -24,7 +26,7 @@ export const backgroundComponent = (opts) => {
   const options = validate(opts, backgroundSchema);
   if (isValidationError(options)) throw options;
 
-  const texture = getAsset(`background-${options.texture}`);
+  const texture = getTexture(options.texture, options.style);
   if (!texture) return;
 
   const component = new NineSliceSprite({
@@ -43,9 +45,9 @@ export const backgroundComponent = (opts) => {
 const pipeline = [
   { keys: ['show'], handler: changeShow },
   {
-    keys: ['texture'],
+    keys: ['texture', 'style'],
     handler: (component, options) => {
-      changeTexture(component, { texture: `background-${options.texture}` });
+      changeTexture(component, options);
       changeTransform(component);
     },
   },
