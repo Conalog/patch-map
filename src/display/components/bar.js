@@ -1,7 +1,7 @@
 import { NineSliceSprite } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
-import { getTexture } from '../../assets/textures/utils';
+import { getTexture } from '../../assets/textures/texture';
 import { validate } from '../../utils/vaildator';
 import {
   changePercentSize,

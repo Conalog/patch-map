@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { getTexture } from '../assets/textures/utils';
+import { getTexture } from '../assets/textures/texture';
 import { getScaleBounds } from '../utils/canvas';
 import { deepMerge } from '../utils/deepmerge/deepmerge';
 import { diffJson } from '../utils/diff/diff-json';
