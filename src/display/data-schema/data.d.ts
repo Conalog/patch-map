@@ -107,6 +107,7 @@ export interface BarComponent extends BaseObject {
   show?: boolean; // default: true
   texture: string;
   tint?: string; // default: 'primary.default'
+
   placement?: Placement; // default: 'bottom'
   percentWidth?: number; // default: 1 (0~1)
   percentHeight?: number; // default: 1 (0~1)
@@ -123,8 +124,9 @@ export interface IconComponent extends BaseObject {
   show?: boolean; // default: true
   texture: string;
   tint?: string; // default: 'black'
-  size: number; // 0 or higher
+
   placement?: Placement; // default: 'center'
+  size: number; // 0 or higher
   margin?: string; // default: '0'
 }
 
@@ -134,8 +136,9 @@ export interface IconComponent extends BaseObject {
 export interface TextComponent extends BaseObject {
   type: 'text';
   show?: boolean; // default: true
+
   placement?: Placement; // default: 'center'
-  content?: string; // default: ''
+  text?: string; // default: ''
   style?: Record<string, unknown>;
   split?: number; // default: 0
   margin?: string; // default: '0'

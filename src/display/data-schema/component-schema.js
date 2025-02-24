@@ -40,11 +40,11 @@ const background = defaultConfig.extend({
 const bar = defaultConfig.extend({
   type: z.literal('bar'),
   texture: z.union([z.string(), TextureStyle]),
-  placement: Placement.default('bottom'),
   tint: z.string().default('primary.default'),
+  placement: Placement.default('bottom'),
+  margin: Margin.default('0'),
   percentWidth: z.number().min(0).max(1).default(1),
   percentHeight: z.number().min(0).max(1).default(1),
-  margin: Margin.default('0'),
   animation: z.boolean().default(true),
   animationDuration: z.number().default(200),
 });
@@ -52,16 +52,17 @@ const bar = defaultConfig.extend({
 const icon = defaultConfig.extend({
   type: z.literal('icon'),
   asset: z.string(),
-  placement: Placement.default('center'),
-  size: z.number().nonnegative(),
   tint: z.string().default('black'),
+  placement: Placement.default('center'),
   margin: Margin.default('0'),
+  size: z.number().nonnegative(),
 });
 
 const text = defaultConfig.extend({
   type: z.literal('text'),
   placement: Placement.default('center'),
-  content: z.string().default(''),
+  margin: Margin.default('0'),
+  text: z.string().default(''),
   style: z
     .preprocess(
       (val) => ({
@@ -74,7 +75,6 @@ const text = defaultConfig.extend({
     )
     .default({}),
   split: z.number().int().default(0),
-  margin: Margin.default('0'),
 });
 
 export const componentSchema = z.discriminatedUnion('type', [
