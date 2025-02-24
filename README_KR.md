@@ -200,7 +200,8 @@ draw method가 요구하는 **데이터 구조**입니다.
 캔버스에 이미 렌더링된 객체의 상태를 업데이트합니다. 색상이나 텍스트 가시성 같은 속성을 변경하는 데 사용하세요.
 
 #### **`Options`**
-- `path`(required, string) - [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 selector로, 이벤트가 적용될 객체를 선택합니다.
+- `path`(optional, string) - [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 selector로, 이벤트가 적용될 객체를 선택합니다.
+- `elements`(optional, object \| array) - 업데이트할 하나 이상의 객체에 대한 직접 참조입니다. 단일 객체 또는 배열을 허용합니다. ([selector](#selectorpath)에서 반환된 객체 등).
 - `changes`(required, object) - 적용할 새로운 속성 (예: 색상, 텍스트 가시성).
 
 ```js
