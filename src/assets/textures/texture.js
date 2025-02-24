@@ -1,15 +1,14 @@
-import { Cache } from 'pixi.js';
-import { getAsset } from '../asset';
+import { Assets, Cache } from 'pixi.js';
 import { createRectTexture } from './rect';
 import { cacheKey } from './utils';
 
 export const getTexture = (config) => {
   let texture = null;
   if (typeof config === 'string') {
-    texture = getAsset(config);
+    texture = Assets.get(config);
   } else {
     texture = Cache.has(cacheKey(config))
-      ? getAsset(cacheKey(config))
+      ? Assets.get(cacheKey(config))
       : createTexture(config);
   }
   return texture;

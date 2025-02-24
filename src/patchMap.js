@@ -1,6 +1,5 @@
 import { Application, Assets } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
-import { assets } from './assets/asset';
 import { draw } from './display/draw';
 import { update } from './display/update';
 import { event } from './events/canvas';
@@ -51,16 +50,6 @@ export class PatchMap {
       off: (id) => event.offEvent(this.viewport, id),
       get: (id) => event.getEvent(this.viewport, id),
       getAll: () => event.getAllEvent(this.viewport),
-    };
-  }
-
-  get asset() {
-    return {
-      add: assets.addAsset,
-      load: assets.loadAsset,
-      get: assets.getAsset,
-      addBundle: assets.addAssetBundle,
-      loadBundle: assets.loadAssetBundle,
     };
   }
 
