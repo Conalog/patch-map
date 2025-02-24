@@ -2,15 +2,11 @@ import { gsap } from 'gsap';
 import { PixiPlugin } from 'gsap/PixiPlugin';
 import { Viewport } from 'pixi-viewport';
 import * as PIXI from 'pixi.js';
+import { transformManifest } from './assets/asset';
 import { firaCode } from './assets/fonts';
 import { icons } from './assets/icons';
-import { background } from './assets/textures/background';
-import { bars } from './assets/textures/bars';
-import { addTexture } from './assets/textures/utils';
-import { transformManifest } from './assets/utils';
 import * as viewportEvents from './events/viewport';
 import { deepMerge } from './utils/deepmerge/deepmerge';
-import { getColor } from './utils/get';
 gsap.registerPlugin(PixiPlugin);
 PixiPlugin.registerPIXI(PIXI);
 
@@ -43,59 +39,6 @@ const DEFAULT_INIT_OPTIONS = {
       loading: { src: icons.loading },
       warning: { src: icons.warning },
       wifi: { src: icons.wifi },
-    },
-  },
-  textures: {
-    background: {
-      base: {
-        label: 'base',
-        type: 'base',
-        borderWidth: 2,
-        borderColor: 'primary.dark',
-      },
-      'base-selected': {
-        label: 'base',
-        type: 'base',
-        borderWidth: 4,
-        borderColor: 'primary.accent',
-      },
-      label: {
-        label: 'label',
-        type: 'label',
-        borderWidth: 2,
-        borderColor: 'primary.dark',
-      },
-      'label-selected': {
-        label: 'label',
-        type: 'label',
-        borderWidth: 4,
-        borderColor: 'primary.accent',
-      },
-      icon: {
-        label: 'icon',
-        type: 'base',
-        borderWidth: 2,
-        borderColor: 'primary.default',
-        radius: 4,
-        defaultWidth: 24,
-        defaultHeight: 24,
-      },
-      'icon-selected': {
-        label: 'icon',
-        type: 'base',
-        borderWidth: 4,
-        borderColor: 'primary.accent',
-        radius: 4,
-        defaultWidth: 24,
-        defaultHeight: 24,
-      },
-    },
-    bars: {
-      base: {
-        label: 'bar',
-        type: 'base',
-        borderWidth: 0,
-      },
     },
   },
 };
@@ -144,24 +87,4 @@ export const initAssets = async (opts = {}) => {
     })),
   ]);
   await PIXI.Assets.loadBundle([...Object.keys(options), 'fonts']);
-};
-
-export const initTextures = (app, opts = {}) => {
-  const options = deepMerge(DEFAULT_INIT_OPTIONS.textures, opts.textures);
-
-  for (const [key, textures] of Object.entries(options)) {
-    for (const [name, option] of Object.entries(textures)) {
-      let texture = null;
-      if (key === 'background') {
-        texture = background[option.type](app, {
-          name,
-          ...option,
-          borderColor: getColor(option.borderColor, opts.theme),
-        });
-      } else if (key === 'bars') {
-        texture = bars[option.type](app, { name, ...option });
-      }
-      addTexture(key, name, texture);
-    }
-  }
 };

@@ -54,7 +54,7 @@ const singleObject = defaultInfo
 const relationGroupObject = defaultInfo.extend({
   type: z.literal('relations'),
   links: z.array(relation),
-  lineStyle: z.preprocess(
+  strokeStyle: z.preprocess(
     (val) => ({ color: 'black', ...val }),
     z.record(z.unknown()),
   ),

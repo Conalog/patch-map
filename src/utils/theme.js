@@ -1,4 +1,4 @@
-export const THEME_CONFIG = {
+let theme = {
   primary: {
     default: '#0C73BF',
     dark: '#083967',
@@ -11,4 +11,9 @@ export const THEME_CONFIG = {
   },
   white: '#FFFFFF',
   black: '#1A1A1A',
+};
+
+export const getTheme = () => theme;
+export const setTheme = (newValue) => {
+  theme = newValue;
 };

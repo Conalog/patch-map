@@ -20,14 +20,14 @@ describe('componentArraySchema', () => {
       },
       {
         type: 'icon',
-        texture: 'icon.png',
+        asset: 'icon.png',
         size: 32,
         zIndex: 10,
       },
       {
         type: 'text',
         placement: 'top',
-        content: 'Hello World',
+        text: 'Hello World',
       },
     ];
 
@@ -129,7 +129,7 @@ describe('componentArraySchema', () => {
       const data = [
         {
           type: 'icon',
-          texture: 'icon.png',
+          asset: 'icon.png',
           size: 64,
         },
       ];
@@ -145,7 +145,7 @@ describe('componentArraySchema', () => {
       const data = [
         {
           type: 'icon',
-          texture: 'icon.png',
+          asset: 'icon.png',
           size: -1,
         },
       ];
@@ -179,8 +179,8 @@ describe('componentArraySchema', () => {
       expect(result.success).toBe(true);
 
       if (result.success) {
-        // content 디폴트값 확인
-        expect(result.data[0].content).toBe('');
+        // text 디폴트값 확인
+        expect(result.data[0].text).toBe('');
         // placement 디폴트값 확인
         expect(result.data[0].placement).toBe('center');
       }
@@ -190,7 +190,7 @@ describe('componentArraySchema', () => {
       const data = [
         {
           type: 'text',
-          content: 'Hello!',
+          text: 'Hello!',
           style: {
             fontWeight: 'bold',
             customProp: 123,

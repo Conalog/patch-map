@@ -129,25 +129,25 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
     [
       {
         components: [
-          { type: 'text', content: '1' },
-          { type: 'text', content: '2' },
-          { type: 'text', content: '3' },
-          { type: 'text', content: '4' },
+          { type: 'text', text: '1' },
+          { type: 'text', text: '2' },
+          { type: 'text', text: '3' },
+          { type: 'text', text: '4' },
         ],
       },
       {
         components: [
-          { type: 'text', content: '5' },
-          { type: 'text', content: '6' },
-          { type: 'text', content: '7' },
+          { type: 'text', text: '5' },
+          { type: 'text', text: '6' },
+          { type: 'text', text: '7' },
         ],
       },
       {
         components: [
-          { type: 'text', content: '5' },
-          { type: 'text', content: '6' },
-          { type: 'text', content: '7' },
-          { type: 'text', content: '4' },
+          { type: 'text', text: '5' },
+          { type: 'text', text: '6' },
+          { type: 'text', text: '7' },
+          { type: 'text', text: '4' },
         ],
       },
     ],

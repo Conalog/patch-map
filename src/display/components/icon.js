@@ -1,20 +1,19 @@
 import { Sprite } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
-import { getAsset } from '../../assets/utils';
+import { getTexture } from '../../assets/textures/texture';
 import { validate } from '../../utils/vaildator';
 import {
-  changeColor,
   changePlacement,
   changeShow,
   changeSize,
   changeTexture,
+  changeTint,
 } from '../change';
-import {} from '../data-schema/component-schema';
 import { updateObject } from '../update-object';
 
 const iconSchema = z.object({
-  texture: z.string(),
+  asset: z.string(),
   label: z.nullable(z.string()).default(null),
 });
 
@@ -22,10 +21,10 @@ export const iconComponent = (opts) => {
   const options = validate(opts, iconSchema);
   if (isValidationError(options)) throw options;
 
-  const texture = getAsset(`icons-${options.texture}`);
-  if (!texture) return;
+  const asset = getTexture(`icons-${options.asset}`);
+  if (!asset) return;
 
-  const component = new Sprite(texture);
+  const component = new Sprite(asset);
   component.type = 'icon';
   component.label = options.label;
   component.config = {};
@@ -35,9 +34,9 @@ export const iconComponent = (opts) => {
 const pipeline = [
   { keys: ['show'], handler: changeShow },
   {
-    keys: ['texture'],
+    keys: ['asset'],
     handler: (component, options) => {
-      changeTexture(component, { texture: `icons-${options.texture}` });
+      changeTexture(component, options);
     },
   },
   {
@@ -47,7 +46,7 @@ const pipeline = [
       changePlacement(component, {});
     },
   },
-  { keys: ['color'], handler: changeColor },
+  { keys: ['tint'], handler: changeTint },
   { keys: ['placement', 'margin'], handler: changePlacement },
 ];
 const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
