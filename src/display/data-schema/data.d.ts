@@ -77,7 +77,7 @@ export interface Relations extends BaseObject {
   metadata?: Record<string, unknown>; // default: {}
 
   links: Array<{ source: string; target: string }>;
-  lineStyle?: Record<string, unknown>;
+  strokeStyle?: Record<string, unknown>;
 }
 
 /**

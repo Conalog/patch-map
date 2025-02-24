@@ -70,7 +70,7 @@ export const convertLegacyData = (data) => {
             source: child.join('.'),
             target: value.children[i + 1].join('.'),
           })),
-          lineStyle: {
+          strokeStyle: {
             width: 4,
             color: value.properties.color.dark,
             cap: 'round',

@@ -145,21 +145,21 @@ export const changePercentSize = (
   }
 };
 
-export const changeContent = (
+export const changeText = (
   component,
-  { content = component.config.content, split = component.config.split },
+  { text = component.config.text, split = component.config.split },
 ) => {
   if (
-    isConfigMatch(component, 'content', content) &&
+    isConfigMatch(component, 'text', text) &&
     isConfigMatch(component, 'split', split)
   ) {
     return;
   }
 
-  component.text = splitText(content, split);
+  component.text = splitText(text, split);
 
   if (component.config?.style?.fontSize === 'auto') {
-    chnageTextStyle(component, { style: { fontSize: 'auto' } });
+    changeTextStyle(component, { style: { fontSize: 'auto' } });
   }
 
   function splitText(text, chunkSize) {
@@ -174,7 +174,7 @@ export const changeContent = (
   }
 };
 
-export const chnageTextStyle = (
+export const changeTextStyle = (
   component,
   { style = component.config.style, margin = component.config.margin },
 ) => {
@@ -227,12 +227,12 @@ export const chnageTextStyle = (
   }
 };
 
-export const changeLineStyle = (element, { lineStyle, links }) => {
-  if (!lineStyle) return;
+export const changeStrokeStyle = (element, { strokeStyle, links }) => {
+  if (!strokeStyle) return;
   const path = selector(element, '$.children[?(@.type==="path")]')[0];
   if (!path) return;
 
-  path.setStrokeStyle({ ...path.strokeStyle, ...lineStyle });
+  path.setStrokeStyle({ ...path.strokeStyle, ...strokeStyle });
   if (!links && path.links.length > 0) {
     reRenderPath(path);
   }

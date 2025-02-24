@@ -3,10 +3,10 @@ import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { validate } from '../../utils/vaildator';
 import {
-  changeContent,
   changePlacement,
   changeShow,
-  chnageTextStyle,
+  changeText,
+  changeTextStyle,
 } from '../change';
 import { updateObject } from '../update-object';
 
@@ -29,8 +29,8 @@ export const textComponent = (opts) => {
 
 const pipeline = [
   { keys: ['show'], handler: changeShow },
-  { keys: ['content', 'split'], handler: changeContent },
-  { keys: ['style', 'margin'], handler: chnageTextStyle },
+  { keys: ['text', 'split'], handler: changeText },
+  { keys: ['style', 'margin'], handler: changeTextStyle },
   { keys: ['placement', 'margin'], handler: changePlacement },
 ];
 const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
