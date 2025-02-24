@@ -296,41 +296,7 @@ const events = patchMap.event.getAll();
 <br/>
 
 ### `asset`
-
-#### `add(assets)`
-- Adds assets to the PixiJS Assets manager. See the [pixiJS add method](https://pixijs.download/release/docs/assets.Assets.html#add) for more information.
-- If you want to specify the icon resolution, you can add the `data: { resolution: <your_value> }` option.
-- To add an **icon asset**, make sure to prefix the `alias` with `icons-`.
-```js
-patchMap.asset.add({
-  alias: 'icons-expand',
-  src: '/expand.svg',
-  data: { resolution: 3 }
-});
-```
-
-
-#### `load(urls, onProgress)`: Promise\<any>
-- Loads assets from the specified URLs. Refer to the [pixiJS load method](https://pixijs.download/release/docs/assets.Assets.html#load) for more information.
-```js
-await patchMap.asset.load('icons-expand');
-
-await patchMap.asset.load({
-  alias: 'icons-plus',
-  src: '/plus.svg',
-  data: { resolution: 2 }
-});
-```
-
-#### `get(keys)`
-- Retrieves assets using the specified keys. Check the [pixiJS get method](https://pixijs.download/release/docs/assets.Assets.html#get) for more information.
-
-#### `addBundle(bundleId, assets)`
-- Adds a bundle of assets to the PixiJS Assets manager. More information can be found in the [pixiJS addBundle method](https://pixijs.download/release/docs/assets.Assets.html#addBundle).
-
-#### `loadBundle(bundleIds, onProgress)`: Promise\<any>
-- Loads a bundle of assets based on the provided bundle IDs. See the [pixiJS loadBundle method](https://pixijs.download/release/docs/assets.Assets.html#loadBundle) for more information.
-
+- Refer to [pixiJS Assets](https://pixijs.download/release/docs/assets.Assets.html) for information about assets.
 
 <br/>
 

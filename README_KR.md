@@ -295,40 +295,7 @@ const events = patchMap.event.getAll();
 <br/>
 
 ### `asset`
-
-#### `add(assets)`
-- PixiJS Assets 매니저에 에셋을 추가합니다. 자세한 내용은 [pixiJS add method](https://pixijs.download/release/docs/assets.Assets.html#add)를 참조하세요.
-- 아이콘 해상도를 지정하려면 `data: { resolution: <your_value> }` 옵션을 추가할 수 있습니다.
-- **아이콘 에셋**을 추가하려면 `alias`에 `icons-` 접두사를 붙이세요.
-```js
-patchMap.asset.add({
-  alias: 'icons-expand',
-  src: '/expand.svg',
-  data: { resolution: 3 }
-});
-```
-
-#### `load(urls, onProgress)`
-- 지정된 URL에서 에셋을 로드합니다. 자세한 내용은 [pixiJS load method](https://pixijs.download/release/docs/assets.Assets.html#load)를 참조하세요.
-```js
-await patchMap.asset.load('icons-expand');
-
-await patchMap.asset.load({
-  alias: 'icons-plus',
-  src: '/plus.svg',
-  data: { resolution: 2 }
-});
-```
-
-##### `get(keys)`
-- 지정된 키를 사용하여 에셋을 검색합니다. 자세한 내용은 [pixiJS get method](https://pixijs.download/release/docs/assets.Assets.html#get)를 참조하세요.
-
-##### `addBundle(bundleId, assets)`
-- PixiJS Assets 매니저에 에셋 번들을 추가합니다. 자세한 내용은 [pixiJS addBundle method](https://pixijs.download/release/docs/assets.Assets.html#addBundle)를 참조하세요.
-
-##### `loadBundle(bundleIds, onProgress)`
-- 제공된 번들 ID를 기반으로 에셋 번들을 로드합니다. 자세한 내용은 [pixiJS loadBundle method](https://pixijs.download/release/docs/assets.Assets.html#loadBundle)를 참조하세요.
-
+- asset에 대한 내용은 [pixiJS Assets](https://pixijs.download/release/docs/assets.Assets.html)를 참조하세요.
 
 <br/>
 
