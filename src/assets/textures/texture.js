@@ -1,5 +1,5 @@
 import { Cache } from 'pixi.js';
-import { getAsset } from '../utils';
+import { getAsset } from '../asset';
 import { createRectTexture } from './rect';
 import { cacheKey } from './utils';
 

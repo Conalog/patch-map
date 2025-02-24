@@ -1,16 +1,16 @@
 import { Application, Assets } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
-import { assets } from './assets/utils';
+import { assets } from './assets/asset';
 import { draw } from './display/draw';
 import { update } from './display/update';
 import { event } from './events/canvas';
 import { initApp, initAssets, initViewport } from './init';
-import { initRenderer } from './renderer';
-import { getTheme, setTheme } from './theme';
 import { fit, focus } from './utils/canvas';
 import { convertLegacyData } from './utils/convert';
 import { deepMerge } from './utils/deepmerge/deepmerge';
+import { initRenderer } from './utils/renderer';
 import { selector } from './utils/selector/selector';
+import { getTheme, setTheme } from './utils/theme';
 import { validateMapData } from './utils/vaildator';
 
 export class PatchMap {

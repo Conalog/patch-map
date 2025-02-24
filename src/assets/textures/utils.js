@@ -1,6 +1,6 @@
 import { TextureStyle } from '../../display/data-schema/component-schema';
-import { renderer } from '../../renderer';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
+import { renderer } from '../../utils/renderer';
 
 const RESOLUTION = 5;
 

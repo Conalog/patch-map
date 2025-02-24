@@ -1,4 +1,4 @@
-import { getTheme } from '../theme';
+import { getTheme } from './theme';
 
 export const getNestedValue = (object, path = null) => {
   if (!path) return null;
