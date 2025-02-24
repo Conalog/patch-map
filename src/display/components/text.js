@@ -36,5 +36,5 @@ const pipeline = [
 const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
 
 export const updateTextComponent = (component, options) => {
-  updateObject(component, options, pipeline, pipelineKeys, exceptionKeys);
+  updateObject(component, options, pipeline, pipelineKeys);
 };
