@@ -116,17 +116,7 @@ export const changePercentSize = (
   function changeWidth(component, percentWidth, marginObj) {
     const maxWidth =
       component.parent.size.width - (marginObj.left + marginObj.right);
-
-    if (animation) {
-      gsap.to(component, {
-        pixi: { width: maxWidth * percentWidth },
-        duration: animationDuration / 1000,
-        ease: 'power2.inOut',
-        onUpdate: () => changePlacement(component, {}),
-      });
-    } else {
-      component.width = maxWidth * percentWidth;
-    }
+    component.width = maxWidth * percentWidth;
   }
 
   function changeHeight(component, percentHeight) {
