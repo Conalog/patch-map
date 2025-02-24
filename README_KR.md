@@ -58,8 +58,17 @@ npm install @conalog/patch-map
         position: { x: 0, y: 0 },
         size: { width: 40, height: 80 },
         components: [
-          { type: 'background', texture: 'base' },
-          { type: 'icon', texture: 'loading', size: 16 }
+          {
+            type: 'background',
+            texture: {
+              type: 'rect',
+              fill: 'white',
+              borderWidth: 2,
+              borderColor: 'primary.dark',
+              radius: 4,
+            },
+          }
+          { type: 'icon', asset: 'loading', size: 16 }
         ]
       }]
     }
@@ -162,7 +171,16 @@ const data = [
       position: { x: 0, y: 0 },
       size: { width: 40, height: 80 },
       components: [
-        { type: 'background', texture: 'base' },
+        {
+          type: 'background',
+          texture: {
+            type: 'rect',
+            fill: 'white',
+            borderWidth: 2,
+            borderColor: 'primary.dark',
+            radius: 4,
+          },
+        }
         { type: 'icon', texture: 'loading', size: 16 }
       ]
     }]
@@ -191,7 +209,7 @@ patchMap.update({
   path: `$..children[?(@.label=="grid-label-1")]`,
   changes: {
     components: [
-      { type: 'icon', texture: 'wifi' }
+      { type: 'icon', asset: 'wifi' }
     ]
   }
 });
@@ -209,7 +227,7 @@ patchMap.update({
   path: `$..children[?(@.type=="group")].children[?(@.type=="grid")]`,
   changes: {
     components: [
-      { type: 'icon', color: 'black' }
+      { type: 'icon', tint: 'black' }
     ]
   }
 });
