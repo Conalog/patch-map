@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { getTexture } from '../../assets/textures/texture';
 import { validate } from '../../utils/vaildator';
-import { changeTexture, changeTint } from '../change';
+import { changeRenderOrder, changeTexture, changeTint } from '../change';
 import { changeShow } from '../change';
 import { TextureStyle } from '../data-schema/component-schema';
 import { updateObject } from '../update-object';
@@ -51,6 +51,7 @@ const pipeline = [
     },
   },
   { keys: ['tint'], handler: changeTint },
+  { keys: ['renderOrder'], handler: changeRenderOrder },
 ];
 const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
 

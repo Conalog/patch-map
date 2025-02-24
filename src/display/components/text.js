@@ -4,6 +4,7 @@ import { isValidationError } from 'zod-validation-error';
 import { validate } from '../../utils/vaildator';
 import {
   changePlacement,
+  changeRenderOrder,
   changeShow,
   changeText,
   changeTextStyle,
@@ -32,6 +33,7 @@ const pipeline = [
   { keys: ['text', 'split'], handler: changeText },
   { keys: ['style', 'margin'], handler: changeTextStyle },
   { keys: ['placement', 'margin'], handler: changePlacement },
+  { keys: ['renderOrder'], handler: changeRenderOrder },
 ];
 const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
 

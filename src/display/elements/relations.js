@@ -1,5 +1,10 @@
 import { Graphics } from 'pixi.js';
-import { changeLinks, changeShow, changeStrokeStyle } from '../change';
+import {
+  changeLinks,
+  changeRenderOrder,
+  changeShow,
+  changeStrokeStyle,
+} from '../change';
 import { updateObject } from '../update-object';
 import { createContainer } from '../utils';
 
@@ -15,6 +20,7 @@ const pipeline = [
   { keys: ['show'], handler: changeShow },
   { keys: ['strokeStyle'], handler: changeStrokeStyle },
   { keys: ['links'], handler: changeLinks },
+  { keys: ['renderOrder'], handler: changeRenderOrder },
 ];
 const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
 

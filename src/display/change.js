@@ -1,9 +1,10 @@
 import gsap from 'gsap';
+import { RenderLayer } from 'pixi.js';
 import { getTexture } from '../assets/textures/texture';
 import { getScaleBounds } from '../utils/canvas';
 import { deepMerge } from '../utils/deepmerge/deepmerge';
 import { diffJson } from '../utils/diff/diff-json';
-import { getColor } from '../utils/get';
+import { getColor, getViewport } from '../utils/get';
 import { selector } from '../utils/selector/selector';
 import { FONT_WEIGHT } from './components/config';
 import { parseMargin } from './utils';
@@ -11,6 +12,23 @@ import { parseMargin } from './utils';
 export const changeProperty = (object, { key, value }) => {
   if (isMatch(object, key, value)) return;
   object[key] = value;
+};
+
+export const changeRenderOrder = (object, { renderOrder }) => {
+  if (isConfigMatch(object, 'renderOrder', renderOrder)) return;
+
+  const viewport = getViewport(object);
+  const renderLayers = viewport.children.filter(
+    (child) => child.type === 'renderLayer',
+  );
+  let renderLayer = renderLayers.find((layer) => layer.zIndex === renderOrder);
+  if (!renderLayer) {
+    renderLayer = new RenderLayer();
+    renderLayer.type = 'renderLayer';
+    renderLayer.zIndex = renderOrder;
+    viewport.addChild(renderLayer);
+  }
+  renderLayer.attach(object);
 };
 
 export const changeShow = (object, { show }) => {

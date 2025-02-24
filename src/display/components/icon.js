@@ -5,6 +5,7 @@ import { getTexture } from '../../assets/textures/texture';
 import { validate } from '../../utils/vaildator';
 import {
   changePlacement,
+  changeRenderOrder,
   changeShow,
   changeSize,
   changeTexture,
@@ -48,6 +49,7 @@ const pipeline = [
   },
   { keys: ['tint'], handler: changeTint },
   { keys: ['placement', 'margin'], handler: changePlacement },
+  { keys: ['renderOrder'], handler: changeRenderOrder },
 ];
 const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
 

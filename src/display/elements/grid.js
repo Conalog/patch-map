@@ -1,4 +1,4 @@
-import { changeShow } from '../change';
+import { changeRenderOrder, changeShow } from '../change';
 import { updateComponents } from '../components/update-components';
 import { updateObject } from '../update-object';
 import { createContainer } from '../utils';
@@ -27,6 +27,7 @@ const pipeline = [
       }
     },
   },
+  { keys: ['renderOrder'], handler: changeRenderOrder },
 ];
 const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
 

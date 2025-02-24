@@ -28,6 +28,7 @@ export const TextureStyle = z
 const defaultConfig = z
   .object({
     show: z.boolean().default(true),
+    renderOrder: z.number().default(0),
   })
   .passthrough();
 

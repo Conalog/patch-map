@@ -6,6 +6,7 @@ import { validate } from '../../utils/vaildator';
 import {
   changePercentSize,
   changePlacement,
+  changeRenderOrder,
   changeShow,
   changeTexture,
   changeTint,
@@ -54,6 +55,7 @@ const pipeline = [
     },
   },
   { keys: ['placement', 'margin'], handler: changePlacement },
+  { keys: ['renderOrder'], handler: changeRenderOrder },
 ];
 const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
 const exceptionKeys = new Set(['animation', 'animationDuration']);

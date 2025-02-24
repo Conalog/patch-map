@@ -11,3 +11,7 @@ export const getColor = (color) => {
     '#000'
   );
 };
+
+export const getViewport = (object) => {
+  return object.viewport ?? getViewport(object.parent);
+};

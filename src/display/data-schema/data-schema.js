@@ -33,6 +33,7 @@ const defaultInfo = z
     show: z.boolean().default(true),
     id: z.string(),
     metadata: z.record(z.unknown()).default({}),
+    renderOrder: z.number().default(0),
   })
   .passthrough();
 
