@@ -1,19 +1,20 @@
 import { NineSliceSprite } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
-import { getAsset } from '../../assets/utils';
+import { getTexture } from '../../assets/textures/texture';
 import { validate } from '../../utils/vaildator';
 import {
-  changeColor,
   changePercentSize,
   changePlacement,
   changeShow,
   changeTexture,
+  changeTint,
 } from '../change';
+import { TextureStyle } from '../data-schema/component-schema';
 import { updateObject } from '../update-object';
 
 const barSchema = z.object({
-  texture: z.string(),
+  texture: z.union([z.string(), TextureStyle]),
   label: z.nullable(z.string()).default(null),
 });
 
@@ -21,7 +22,7 @@ export const barComponent = (opts) => {
   const options = validate(opts, barSchema);
   if (isValidationError(options)) throw options;
 
-  const texture = getAsset(`bars-${options.texture}`);
+  const texture = getTexture(options.texture);
   if (!texture) return;
 
   const component = new NineSliceSprite({
@@ -41,10 +42,10 @@ const pipeline = [
   {
     keys: ['texture'],
     handler: (component, options) => {
-      changeTexture(component, { texture: `bars-${options.texture}` });
+      changeTexture(component, options);
     },
   },
-  { keys: ['color'], handler: changeColor },
+  { keys: ['tint'], handler: changeTint },
   {
     keys: ['percentWidth', 'percentHeight', 'margin'],
     handler: (component, options) => {

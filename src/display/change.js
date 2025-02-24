@@ -1,6 +1,8 @@
 import gsap from 'gsap';
-import { getAsset } from '../assets/utils';
+import { getTexture } from '../assets/textures/texture';
 import { getScaleBounds } from '../utils/canvas';
+import { deepMerge } from '../utils/deepmerge/deepmerge';
+import { diffJson } from '../utils/diff/diff-json';
 import { getColor } from '../utils/get';
 import { selector } from '../utils/selector/selector';
 import { FONT_WEIGHT } from './components/config';
@@ -16,16 +18,26 @@ export const changeShow = (object, { show }) => {
   object.renderable = show;
 };
 
-export const changeTexture = (component, { texture: textureName }) => {
-  if (isConfigMatch(component, 'texture', textureName)) return;
-  const texture = getAsset(textureName);
+export const changeTexture = (component, { texture: textureConfig }) => {
+  if (
+    isConfigMatch(component, 'texture', textureConfig) ||
+    Object.keys(diffJson(component.config.texture, textureConfig)).length === 0
+  ) {
+    return;
+  }
+
+  const texture = getTexture(
+    typeof textureConfig === 'string'
+      ? textureConfig
+      : deepMerge(component.texture.metadata.config, textureConfig),
+  );
   component.texture = texture ?? null;
 };
 
-export const changeColor = (component, { color }) => {
-  if (isConfigMatch(component, 'color', color)) return;
-  const tint = getColor(color, component.config.theme);
-  component.tint = tint;
+export const changeTint = (component, { tint }) => {
+  if (isConfigMatch(component, 'tint', tint)) return;
+  const color = getColor(tint);
+  component.tint = color;
 };
 
 export const changeSize = (component, { size }) => {
@@ -104,17 +116,7 @@ export const changePercentSize = (
   function changeWidth(component, percentWidth, marginObj) {
     const maxWidth =
       component.parent.size.width - (marginObj.left + marginObj.right);
-
-    if (animation) {
-      gsap.to(component, {
-        pixi: { width: maxWidth * percentWidth },
-        duration: animationDuration / 1000,
-        ease: 'power2.inOut',
-        onUpdate: () => changePlacement(component, {}),
-      });
-    } else {
-      component.width = maxWidth * percentWidth;
-    }
+    component.width = maxWidth * percentWidth;
   }
 
   function changeHeight(component, percentHeight) {
@@ -134,21 +136,21 @@ export const changePercentSize = (
   }
 };
 
-export const changeContent = (
+export const changeText = (
   component,
-  { content = component.config.content, split = component.config.split },
+  { text = component.config.text, split = component.config.split },
 ) => {
   if (
-    isConfigMatch(component, 'content', content) &&
+    isConfigMatch(component, 'text', text) &&
     isConfigMatch(component, 'split', split)
   ) {
     return;
   }
 
-  component.text = splitText(content, split);
+  component.text = splitText(text, split);
 
   if (component.config?.style?.fontSize === 'auto') {
-    chnageTextStyle(component, { style: { fontSize: 'auto' } });
+    changeTextStyle(component, { style: { fontSize: 'auto' } });
   }
 
   function splitText(text, chunkSize) {
@@ -163,7 +165,7 @@ export const changeContent = (
   }
 };
 
-export const chnageTextStyle = (
+export const changeTextStyle = (
   component,
   { style = component.config.style, margin = component.config.margin },
 ) => {
@@ -178,7 +180,7 @@ export const chnageTextStyle = (
     if (key === 'fontFamily' || key === 'fontWeight') {
       component.style.fontFamily = `${style.fontFamily ?? component.style.fontFamily.split(' ')[0]} ${FONT_WEIGHT[style.fontWeight ?? component.style.fontWeight]}`;
     } else if (key === 'fill') {
-      component.style[key] = getColor(style.fill, component.config.theme);
+      component.style[key] = getColor(style.fill);
     } else if (key === 'fontSize' && style[key] === 'auto') {
       const marginObj = parseMargin(margin);
       setAutoFontSize(component, marginObj);
@@ -216,12 +218,12 @@ export const chnageTextStyle = (
   }
 };
 
-export const changeLineStyle = (element, { lineStyle, links }) => {
-  if (!lineStyle) return;
+export const changeStrokeStyle = (element, { strokeStyle, links }) => {
+  if (!strokeStyle) return;
   const path = selector(element, '$.children[?(@.type==="path")]')[0];
   if (!path) return;
 
-  path.setStrokeStyle({ ...path.strokeStyle, ...lineStyle });
+  path.setStrokeStyle({ ...path.strokeStyle, ...strokeStyle });
   if (!links && path.links.length > 0) {
     reRenderPath(path);
   }

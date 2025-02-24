@@ -1,5 +1,5 @@
 import { changeShow } from '../change';
-import { upateComponents } from '../components/update-components';
+import { updateComponents } from '../components/update-components';
 import { updateObject } from '../update-object';
 import { createContainer } from '../utils';
 import { createItem } from './item';
@@ -23,7 +23,7 @@ const pipeline = [
     keys: ['components'],
     handler: (element, options) => {
       for (const cell of element.children) {
-        upateComponents(cell, options);
+        updateComponents(cell, options);
       }
     },
   },

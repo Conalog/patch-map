@@ -37,11 +37,22 @@ export const convertLegacyData = (data) => {
           components: [
             {
               type: 'background',
-              texture: 'base',
+              texture: {
+                type: 'rect',
+                fill: 'white',
+                borderWidth: 2,
+                borderColor: 'primary.dark',
+                radius: 6,
+              },
             },
             {
               type: 'bar',
-              texture: 'base',
+              texture: {
+                type: 'rect',
+                fill: 'white',
+                radius: 3,
+              },
+              tint: 'primary.default',
               show: false,
               margin: '3',
             },
@@ -60,7 +71,7 @@ export const convertLegacyData = (data) => {
             source: child.join('.'),
             target: value.children[i + 1].join('.'),
           })),
-          lineStyle: {
+          strokeStyle: {
             width: 4,
             color: value.properties.color.dark,
             cap: 'round',
@@ -82,13 +93,19 @@ export const convertLegacyData = (data) => {
           components: [
             {
               type: 'background',
-              texture: 'icon',
+              texture: {
+                type: 'rect',
+                fill: 'white',
+                borderWidth: 2,
+                borderColor: 'primary.default',
+                radius: 4,
+              },
             },
             {
               type: 'icon',
-              texture: key.slice(0, -1),
+              asset: key.slice(0, -1),
               size: 16,
-              color: 'primary.default',
+              tint: 'primary.default',
               placement: 'center',
             },
           ],
