@@ -1,22 +1,22 @@
 import { Application, Assets } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
-import { assets } from './assets/utils';
-import { THEME_CONFIG } from './config/theme';
+import { assets } from './assets/asset';
 import { draw } from './display/draw';
 import { update } from './display/update';
 import { event } from './events/canvas';
-import { initApp, initAssets, initTextures, initViewport } from './init';
+import { initApp, initAssets, initViewport } from './init';
 import { fit, focus } from './utils/canvas';
 import { convertLegacyData } from './utils/convert';
 import { deepMerge } from './utils/deepmerge/deepmerge';
+import { initRenderer } from './utils/renderer';
 import { selector } from './utils/selector/selector';
+import { getTheme, setTheme } from './utils/theme';
 import { validateMapData } from './utils/vaildator';
 
 export class PatchMap {
   _app = null;
   _viewport = null;
   _resizeObserver = null;
-  _theme = THEME_CONFIG;
   _isInit = false;
 
   constructor() {
@@ -32,7 +32,7 @@ export class PatchMap {
   }
 
   get theme() {
-    return this._theme;
+    return getTheme();
   }
 
   get isInit() {
@@ -65,7 +65,7 @@ export class PatchMap {
   }
 
   _setTheme(opts = {}) {
-    this._theme = deepMerge(this.theme, opts);
+    setTheme(deepMerge(this.theme, opts));
   }
 
   async init(element, opts = {}) {
@@ -74,18 +74,15 @@ export class PatchMap {
       viewport: viewportOptions = {},
       theme: themeOptions = {},
       asset: assetOptions = {},
-      textures: textureOptions = {},
     } = opts;
     if (this.isInit) return;
 
     this._setTheme(themeOptions);
     await initApp(this.app, { resizeTo: element, ...appOptions });
+    initRenderer(this.app);
     this._viewport = initViewport(this.app, viewportOptions);
-    this._viewport.theme = this._theme;
 
     await initAssets(assetOptions);
-    initTextures(this.app, { textures: textureOptions, theme: this._theme });
-
     const div = document.createElement('div');
     div.classList.add('w-full', 'h-full', 'overflow-hidden');
     div.appendChild(this.app.canvas);
