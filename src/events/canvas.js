@@ -5,7 +5,7 @@ import { createUUID } from '../utils/uuid';
 import { validate } from '../utils/vaildator';
 
 const addEventSchema = z.object({
-  id: z.string().default(createUUID()),
+  id: z.string().default(''),
   path: z.string(),
   action: z.string(),
   fn: z.function(),
@@ -16,9 +16,11 @@ export const addEvent = (viewport, opts) => {
   const config = validate(opts, addEventSchema);
   if (isValidationError(config)) throw config;
 
-  const { id, path, action, fn, options } = config;
+  const { path, action, fn, options } = config;
+  const id = config.id || createUUID();
+
   if (id in viewport.events) {
-    notEventConsole(id);
+    logEventExists(id);
     return;
   }
   viewport.events[id] = { path, action, fn, options };
@@ -36,7 +38,7 @@ export const removeEvent = (viewport, id) => {
     const { [currId]: _, ...rest } = viewport.events;
     viewport.events = rest;
   } else {
-    notEventConsole(currId);
+    logNoEventExists(currId);
   }
 
   if (splitedIds.length > 1) {
@@ -58,7 +60,7 @@ export const onEvent = (viewport, id) => {
       addAction(object, actions, event);
     }
   } else {
-    notEventConsole(currId);
+    logNoEventExists(currId);
   }
 
   if (splitedIds.length > 1) {
@@ -86,7 +88,7 @@ export const offEvent = (viewport, id) => {
       removeAction(object, actions, event);
     }
   } else {
-    notEventConsole(currId);
+    logNoEventExists(currId);
   }
 
   if (splitedIds.length > 1) {
@@ -117,7 +119,11 @@ export const event = {
   getAllEvent,
 };
 
-const notEventConsole = (eventId) => {
+const logEventExists = (eventId) => {
+  console.warn(`The eventId: ${eventId} already exists.`);
+};
+
+const logNoEventExists = (eventId) => {
   console.warn(`No event exists for the eventId: ${eventId}.`);
 };
 
