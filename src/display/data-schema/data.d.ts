@@ -95,8 +95,8 @@ export type components =
 export interface BackgroundComponent extends BaseObject {
   type: 'background';
   show?: boolean; // default: true
-  texture: string;
-  tint?: string; // default: '#FFFFFF'
+  texture: string | TextureStyle;
+  tint?: string; // default: 'white'
 }
 
 /**
@@ -105,13 +105,13 @@ export interface BackgroundComponent extends BaseObject {
 export interface BarComponent extends BaseObject {
   type: 'bar';
   show?: boolean; // default: true
-  texture: string;
+  texture: string | TextureStyle;
   tint?: string; // default: 'primary.default'
 
   placement?: Placement; // default: 'bottom'
+  margin?: string; // default: '0'
   percentWidth?: number; // default: 1 (0~1)
   percentHeight?: number; // default: 1 (0~1)
-  margin?: string; // default: '0'
   animation?: boolean; // default: true
   animationDuration?: number; // default: 200
 }
@@ -122,12 +122,12 @@ export interface BarComponent extends BaseObject {
 export interface IconComponent extends BaseObject {
   type: 'icon';
   show?: boolean; // default: true
-  texture: string;
+  texture: string | TextureStyle;
   tint?: string; // default: 'black'
 
   placement?: Placement; // default: 'center'
-  size: number; // 0 or higher
   margin?: string; // default: '0'
+  size: number; // 0 or higher
 }
 
 /**
@@ -138,10 +138,10 @@ export interface TextComponent extends BaseObject {
   show?: boolean; // default: true
 
   placement?: Placement; // default: 'center'
+  margin?: string; // default: '0'
   text?: string; // default: ''
   style?: Record<string, unknown>;
   split?: number; // default: 0
-  margin?: string; // default: '0'
 }
 
 /**
@@ -157,3 +157,12 @@ export type Placement =
   | 'right-bottom'
   | 'bottom'
   | 'center';
+
+export type TextureType = 'rect';
+export interface TextureStyle {
+  type?: TextureType;
+  fill?: string | null;
+  borderWidth?: number | null;
+  borderColor?: string | null;
+  radius?: number | null;
+}

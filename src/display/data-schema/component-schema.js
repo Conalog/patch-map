@@ -34,7 +34,7 @@ const defaultConfig = z
 const background = defaultConfig.extend({
   type: z.literal('background'),
   texture: z.union([z.string(), TextureStyle]),
-  tint: z.string().default('#FFFFFF'),
+  tint: z.string().default('white'),
 });
 
 const bar = defaultConfig.extend({
