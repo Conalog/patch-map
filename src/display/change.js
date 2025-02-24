@@ -229,11 +229,20 @@ export const changeStrokeStyle = (element, { strokeStyle, links }) => {
   }
 
   function reRenderPath(path) {
-    for (const link of path.links) {
-      path.moveTo(...link.sourcePoint);
-      path.lineTo(...link.targetPoint);
+    path.clear();
+    const { links } = path;
+    for (let i = 0; i < path.links.length; i++) {
+      const { sourcePoint, targetPoint } = links[i];
+      if (i === 0 || !pointsMatch(links[i - 1].targetPoint, sourcePoint)) {
+        path.moveTo(...sourcePoint);
+      }
+      path.lineTo(...targetPoint);
     }
     path.stroke();
+  }
+
+  function pointsMatch([x1, y1], [x2, y2]) {
+    return x1 === x2 && y1 === y2;
   }
 };
 
@@ -241,42 +250,53 @@ export const changeLinks = (element, { links }) => {
   if (!links) return;
   const path = selector(element, '$.children[?(@.type==="path")]')[0];
   if (!path) return;
+
   path.clear();
-
-  const uniqueIds = new Set(
-    links.flatMap((link) => [link.source, link.target]),
-  );
-  const objs = Object.fromEntries(
-    selector(element.viewport, '$..children')
-      .filter((item) => uniqueIds.has(item.id))
-      .map((item) => [item.id, item]),
-  );
-
   path.links = [];
+  const objs = collectLinkedObjects(element.viewport, links);
   for (const link of links) {
-    const sourcePoint = objs[link.source]
-      ? getPoint(getScaleBounds(element.viewport, objs[link.source]))
-      : null;
-    const targetPoint = objs[link.target]
-      ? getPoint(getScaleBounds(element.viewport, objs[link.target]))
-      : null;
-    if (sourcePoint == null || targetPoint == null) {
-      continue;
-    }
+    const { sourcePoint, targetPoint } = getLinkPoints(
+      link,
+      objs,
+      element.viewport,
+    );
+    if (!sourcePoint || !targetPoint) continue;
 
-    const lastLink = path.links[path.links.length - 1];
-    const shouldMoveToSource =
-      !lastLink ||
-      lastLink.targetPoint[0] !== sourcePoint[0] ||
-      lastLink.targetPoint[1] !== sourcePoint[1];
-    if (shouldMoveToSource) {
+    if (shouldMovePoint(path, sourcePoint)) {
       path.moveTo(...sourcePoint);
     }
-
     path.lineTo(...targetPoint);
     path.links.push({ sourcePoint, targetPoint });
   }
   path.stroke();
+
+  function collectLinkedObjects(viewport, links) {
+    const uniqueIds = new Set(
+      links.flatMap((link) => [link.source, link.target]),
+    );
+    const items = selector(viewport, '$..children').filter((item) =>
+      uniqueIds.has(item.id),
+    );
+    return Object.fromEntries(items.map((item) => [item.id, item]));
+  }
+
+  function getLinkPoints(link, objs, viewport) {
+    const sourceObject = objs[link.source];
+    const targetObject = objs[link.target];
+    const sourcePoint = sourceObject
+      ? getPoint(getScaleBounds(viewport, sourceObject))
+      : null;
+    const targetPoint = targetObject
+      ? getPoint(getScaleBounds(viewport, targetObject))
+      : null;
+    return { sourcePoint, targetPoint };
+  }
+
+  function shouldMovePoint(path, [sx, sy]) {
+    const lastLink = path.links[path.links.length - 1];
+    if (!lastLink) return true;
+    return lastLink.targetPoint[0] !== sx || lastLink.targetPoint[1] !== sy;
+  }
 
   function getPoint(bounds) {
     return [bounds.x + bounds.width / 2, bounds.y + bounds.height / 2];
