@@ -1,4 +1,5 @@
 import { Cache } from 'pixi.js';
+import { TextureStyle } from '../../display/data-schema/component-schema';
 import { getAsset } from '../utils';
 import { createRectTexture } from './rect';
 
@@ -7,8 +8,9 @@ export const getTexture = (config) => {
   if (typeof config === 'string') {
     texture = getAsset(config);
   } else {
-    texture = getAsset(Object.values(config).join('.'));
-    texture ??= createTexture(config);
+    texture = Cache.has(cacheKey(config))
+      ? getAsset(cacheKey(config))
+      : createTexture(config);
   }
   return texture;
 };
@@ -20,6 +22,12 @@ export const createTexture = (config) => {
       texture = createRectTexture(config);
       break;
   }
-  Cache.set(Object.values(config).join('.'), texture);
+  Cache.set(cacheKey(config), texture);
   return texture;
+};
+
+export const cacheKey = (config) => {
+  return TextureStyle.keyof()
+    .options.map((key) => config[key])
+    .join('-');
 };

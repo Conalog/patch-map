@@ -21,7 +21,7 @@ export const changeShow = (object, { show }) => {
 export const changeTexture = (component, { texture: textureConfig }) => {
   if (
     isConfigMatch(component, 'texture', textureConfig) ||
-    Object.keys(diffJson(component.config.texture, textureConfig))
+    Object.keys(diffJson(component.config.texture, textureConfig)).length === 0
   ) {
     return;
   }

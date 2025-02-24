@@ -25,7 +25,7 @@ const componentFn = {
   },
 };
 
-export const upateComponents = (item, { components }) => {
+export const updateComponents = (item, { components }) => {
   if (!components) return;
 
   const children = [...item.children];
