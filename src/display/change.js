@@ -36,7 +36,7 @@ export const changeTexture = (component, { texture: textureConfig }) => {
 
 export const changeTint = (component, { tint }) => {
   if (isConfigMatch(component, 'tint', tint)) return;
-  const color = getColor(tint, component.config.theme);
+  const color = getColor(tint);
   component.tint = color;
 };
 
@@ -190,7 +190,7 @@ export const changeTextStyle = (
     if (key === 'fontFamily' || key === 'fontWeight') {
       component.style.fontFamily = `${style.fontFamily ?? component.style.fontFamily.split(' ')[0]} ${FONT_WEIGHT[style.fontWeight ?? component.style.fontWeight]}`;
     } else if (key === 'fill') {
-      component.style[key] = getColor(style.fill, component.config.theme);
+      component.style[key] = getColor(style.fill);
     } else if (key === 'fontSize' && style[key] === 'auto') {
       const marginObj = parseMargin(margin);
       setAutoFontSize(component, marginObj);

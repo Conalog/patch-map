@@ -1,5 +1,4 @@
 import { Graphics } from 'pixi.js';
-import { getTheme } from '../../theme';
 import { getColor } from '../../utils/get';
 import { generateTexture } from './generate-texture';
 
@@ -38,11 +37,11 @@ const createRect = ({ fill, borderWidth, borderColor, radius }) => {
     graphics.rect(...xywh);
   }
 
-  if (fill) graphics.fill(getColor(fill, getTheme()));
+  if (fill) graphics.fill(getColor(fill));
   if (borderWidth) {
     graphics.stroke({
       width: borderWidth,
-      color: getColor(borderColor, getTheme()),
+      color: getColor(borderColor),
     });
   }
   return graphics;

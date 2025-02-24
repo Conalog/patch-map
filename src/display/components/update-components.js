@@ -1,5 +1,4 @@
 import { isValidationError } from 'zod-validation-error';
-import { getTheme } from '../../theme';
 import { validate } from '../../utils/vaildator';
 import { componentSchema } from '../data-schema/component-schema';
 import { backgroundComponent, updateBackgroundComponent } from './background';
@@ -42,9 +41,8 @@ export const upateComponents = (item, { components }) => {
       component = componentFn[config.type].create({
         ...config,
         ...item.size,
-        theme: getTheme(),
       });
-      component.config = { ...component.config, theme: getTheme() };
+      component.config = { ...component.config };
       if (component) {
         item.addChild(component);
       }

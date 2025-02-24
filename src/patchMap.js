@@ -17,7 +17,6 @@ export class PatchMap {
   _app = null;
   _viewport = null;
   _resizeObserver = null;
-  _theme = getTheme();
   _isInit = false;
 
   constructor() {
@@ -33,7 +32,7 @@ export class PatchMap {
   }
 
   get theme() {
-    return this._theme;
+    return getTheme();
   }
 
   get isInit() {
@@ -67,7 +66,6 @@ export class PatchMap {
 
   _setTheme(opts = {}) {
     setTheme(deepMerge(this.theme, opts));
-    this._theme = getTheme();
   }
 
   async init(element, opts = {}) {
@@ -83,7 +81,6 @@ export class PatchMap {
     await initApp(this.app, { resizeTo: element, ...appOptions });
     initRenderer(this.app);
     this._viewport = initViewport(this.app, viewportOptions);
-    this._viewport.theme = this._theme;
 
     await initAssets(assetOptions);
     const div = document.createElement('div');
