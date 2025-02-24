@@ -5,12 +5,11 @@ import { getTexture } from '../../assets/textures/utils';
 import { validate } from '../../utils/vaildator';
 import { changeTexture, changeTint } from '../change';
 import { changeShow } from '../change';
-import { Style } from '../data-schema/component-schema';
+import { TextureStyle } from '../data-schema/component-schema';
 import { updateObject } from '../update-object';
 
 const backgroundSchema = z.object({
-  texture: z.nullable(z.string()).default(null),
-  style: Style,
+  texture: z.union([z.string(), TextureStyle]),
   label: z.nullable(z.string()).default(null),
   position: z
     .object({
@@ -26,7 +25,7 @@ export const backgroundComponent = (opts) => {
   const options = validate(opts, backgroundSchema);
   if (isValidationError(options)) throw options;
 
-  const texture = getTexture(options.texture, options.style);
+  const texture = getTexture(options.texture);
   if (!texture) return;
 
   const component = new NineSliceSprite({
@@ -45,7 +44,7 @@ export const backgroundComponent = (opts) => {
 const pipeline = [
   { keys: ['show'], handler: changeShow },
   {
-    keys: ['texture', 'style'],
+    keys: ['texture'],
     handler: (component, options) => {
       changeTexture(component, options);
       changeTransform(component);

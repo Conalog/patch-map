@@ -2,24 +2,24 @@ import { Cache } from 'pixi.js';
 import { getAsset } from '../utils';
 import { createRectTexture } from './rect';
 
-export const getTexture = (textureId, style) => {
+export const getTexture = (config) => {
   let texture = null;
-  if (textureId) {
-    texture = getAsset(textureId);
+  if (typeof config === 'string') {
+    texture = getAsset(config);
   } else {
-    texture = getAsset(Object.values(style).join('.'));
-    texture ??= createTexture(style);
+    texture = getAsset(Object.values(config).join('.'));
+    texture ??= createTexture(config);
   }
   return texture;
 };
 
-export const createTexture = (style) => {
+export const createTexture = (config) => {
   let texture = null;
-  switch (style.type) {
+  switch (config.type) {
     case 'rect':
-      texture = createRectTexture({ ...style });
+      texture = createRectTexture(config);
       break;
   }
-  Cache.set(Object.values(style).join('.'), texture);
+  Cache.set(Object.values(config).join('.'), texture);
   return texture;
 };

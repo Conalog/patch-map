@@ -18,17 +18,18 @@ export const changeShow = (object, { show }) => {
   object.renderable = show;
 };
 
-export const changeTexture = (component, { texture: textureId, style }) => {
+export const changeTexture = (component, { texture: textureConfig }) => {
   if (
-    isConfigMatch(component, 'texture', textureId) &&
-    Object.keys(diffJson(component.config.style, style)).length === 0
+    isConfigMatch(component, 'texture', textureConfig) ||
+    Object.keys(diffJson(component.config.texture, textureConfig))
   ) {
     return;
   }
 
   const texture = getTexture(
-    textureId,
-    deepMerge(component.config.style, style),
+    typeof textureConfig === 'string'
+      ? textureConfig
+      : deepMerge(component.texture.metadata.config, textureConfig),
   );
   component.texture = texture ?? null;
 };

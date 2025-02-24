@@ -3,7 +3,7 @@ import { getTheme } from '../../theme';
 import { getColor } from '../../utils/get';
 import { generateTexture } from './generate-texture';
 
-export const createRectTexture = (rectOpts, textureOpts) => {
+export const createRectTexture = (rectOpts) => {
   const {
     fill = null,
     borderWidth = null,
@@ -11,7 +11,7 @@ export const createRectTexture = (rectOpts, textureOpts) => {
     radius = null,
   } = rectOpts;
   const rect = createRect({ fill, borderWidth, borderColor, radius });
-  const texture = generateTexture(rect, textureOpts);
+  const texture = generateTexture(rect);
 
   texture.id = [fill, borderWidth, borderColor, radius].join('.');
   texture.metadata = {
@@ -22,6 +22,7 @@ export const createRectTexture = (rectOpts, textureOpts) => {
       bottomHeight: borderWidth + 4,
     },
     borderWidth: borderWidth,
+    config: { ...rectOpts },
   };
   return texture;
 };

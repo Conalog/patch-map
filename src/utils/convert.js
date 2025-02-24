@@ -37,23 +37,24 @@ export const convertLegacyData = (data) => {
           components: [
             {
               type: 'background',
-              style: {
+              texture: {
                 type: 'rect',
                 fill: 'white',
                 borderWidth: 2,
-                borderColor: 'primary.default',
+                borderColor: 'primary.dark',
                 radius: 6,
               },
             },
             {
               type: 'bar',
-              show: false,
-              margin: '3',
-              style: {
+              texture: {
                 type: 'rect',
-                fill: 'primary.default',
+                fill: 'white',
                 radius: 3,
               },
+              tint: 'primary.default',
+              show: false,
+              margin: '3',
             },
           ],
           metadata: props,
@@ -92,7 +93,7 @@ export const convertLegacyData = (data) => {
           components: [
             {
               type: 'background',
-              style: {
+              texture: {
                 type: 'rect',
                 fill: 'white',
                 borderWidth: 2,
@@ -102,9 +103,8 @@ export const convertLegacyData = (data) => {
             },
             {
               type: 'icon',
-              texture: key.slice(0, -1),
+              asset: key.slice(0, -1),
               size: 16,
-              tint: 'primary.default',
               placement: 'center',
             },
           ],

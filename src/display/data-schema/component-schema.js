@@ -14,9 +14,10 @@ export const Placement = z.enum([
 
 export const Margin = z.string().regex(/^(\d+(\.\d+)?(\s+\d+(\.\d+)?){0,3})$/);
 
-export const Style = z
+const TextureType = z.enum(['rect']);
+export const TextureStyle = z
   .object({
-    type: z.nullable(z.string()),
+    type: TextureType,
     fill: z.nullable(z.string()),
     borderWidth: z.nullable(z.number()),
     borderColor: z.nullable(z.string()),
@@ -32,15 +33,13 @@ const defaultConfig = z
 
 const background = defaultConfig.extend({
   type: z.literal('background'),
-  texture: z.nullable(z.string()).default(null),
-  style: Style,
+  texture: z.union([z.string(), TextureStyle]),
   tint: z.string().default('#FFFFFF'),
 });
 
 const bar = defaultConfig.extend({
   type: z.literal('bar'),
-  texture: z.nullable(z.string()).default(null),
-  style: Style,
+  texture: z.union([z.string(), TextureStyle]),
   placement: Placement.default('bottom'),
   tint: z.string().default('primary.default'),
   percentWidth: z.number().min(0).max(1).default(1),
@@ -52,7 +51,7 @@ const bar = defaultConfig.extend({
 
 const icon = defaultConfig.extend({
   type: z.literal('icon'),
-  texture: z.string(),
+  asset: z.string(),
   placement: Placement.default('center'),
   size: z.number().nonnegative(),
   tint: z.string().default('black'),

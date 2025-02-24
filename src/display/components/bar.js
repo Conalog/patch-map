@@ -10,12 +10,11 @@ import {
   changeTexture,
   changeTint,
 } from '../change';
-import { Style } from '../data-schema/component-schema';
+import { TextureStyle } from '../data-schema/component-schema';
 import { updateObject } from '../update-object';
 
 const barSchema = z.object({
-  texture: z.nullable(z.string()).default(null),
-  style: Style,
+  texture: z.union([z.string(), TextureStyle]),
   label: z.nullable(z.string()).default(null),
 });
 
@@ -23,7 +22,7 @@ export const barComponent = (opts) => {
   const options = validate(opts, barSchema);
   if (isValidationError(options)) throw options;
 
-  const texture = getTexture(options.texture, options.style);
+  const texture = getTexture(options.texture);
   if (!texture) return;
 
   const component = new NineSliceSprite({
@@ -41,7 +40,7 @@ export const barComponent = (opts) => {
 const pipeline = [
   { keys: ['show'], handler: changeShow },
   {
-    keys: ['texture', 'style'],
+    keys: ['texture'],
     handler: (component, options) => {
       changeTexture(component, options);
     },

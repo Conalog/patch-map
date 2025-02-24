@@ -20,7 +20,7 @@ describe('componentArraySchema', () => {
       },
       {
         type: 'icon',
-        texture: 'icon.png',
+        asset: 'icon.png',
         size: 32,
         zIndex: 10,
       },
@@ -129,7 +129,7 @@ describe('componentArraySchema', () => {
       const data = [
         {
           type: 'icon',
-          texture: 'icon.png',
+          asset: 'icon.png',
           size: 64,
         },
       ];
@@ -145,7 +145,7 @@ describe('componentArraySchema', () => {
       const data = [
         {
           type: 'icon',
-          texture: 'icon.png',
+          asset: 'icon.png',
           size: -1,
         },
       ];
