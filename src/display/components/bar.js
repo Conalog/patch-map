@@ -4,11 +4,11 @@ import { isValidationError } from 'zod-validation-error';
 import { getTexture } from '../../assets/textures/utils';
 import { validate } from '../../utils/vaildator';
 import {
-  changeColor,
   changePercentSize,
   changePlacement,
   changeShow,
   changeTexture,
+  changeTint,
 } from '../change';
 import { Style } from '../data-schema/component-schema';
 import { updateObject } from '../update-object';
@@ -46,7 +46,7 @@ const pipeline = [
       changeTexture(component, options);
     },
   },
-  { keys: ['color'], handler: changeColor },
+  { keys: ['tint'], handler: changeTint },
   {
     keys: ['percentWidth', 'percentHeight', 'margin'],
     handler: (component, options) => {

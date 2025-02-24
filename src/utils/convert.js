@@ -104,7 +104,7 @@ export const convertLegacyData = (data) => {
               type: 'icon',
               texture: key.slice(0, -1),
               size: 16,
-              color: 'primary.default',
+              tint: 'primary.default',
               placement: 'center',
             },
           ],

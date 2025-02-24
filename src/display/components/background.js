@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { getTexture } from '../../assets/textures/utils';
 import { validate } from '../../utils/vaildator';
-import { changeColor, changeTexture } from '../change';
+import { changeTexture, changeTint } from '../change';
 import { changeShow } from '../change';
 import { Style } from '../data-schema/component-schema';
 import { updateObject } from '../update-object';
@@ -51,7 +51,7 @@ const pipeline = [
       changeTransform(component);
     },
   },
-  { keys: ['color'], handler: changeColor },
+  { keys: ['tint'], handler: changeTint },
 ];
 const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
 

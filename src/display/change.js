@@ -33,10 +33,10 @@ export const changeTexture = (component, { texture: textureId, style }) => {
   component.texture = texture ?? null;
 };
 
-export const changeColor = (component, { color }) => {
-  if (isConfigMatch(component, 'color', color)) return;
-  const tint = getColor(color, component.config.theme);
-  component.tint = tint;
+export const changeTint = (component, { tint }) => {
+  if (isConfigMatch(component, 'tint', tint)) return;
+  const color = getColor(tint, component.config.theme);
+  component.tint = color;
 };
 
 export const changeSize = (component, { size }) => {

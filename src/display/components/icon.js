@@ -4,11 +4,11 @@ import { isValidationError } from 'zod-validation-error';
 import { getAsset } from '../../assets/utils';
 import { validate } from '../../utils/vaildator';
 import {
-  changeColor,
   changePlacement,
   changeShow,
   changeSize,
   changeTexture,
+  changeTint,
 } from '../change';
 import {} from '../data-schema/component-schema';
 import { updateObject } from '../update-object';
@@ -47,7 +47,7 @@ const pipeline = [
       changePlacement(component, {});
     },
   },
-  { keys: ['color'], handler: changeColor },
+  { keys: ['tint'], handler: changeTint },
   { keys: ['placement', 'margin'], handler: changePlacement },
 ];
 const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));

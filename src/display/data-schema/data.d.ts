@@ -96,7 +96,7 @@ export interface BackgroundComponent extends BaseObject {
   type: 'background';
   show?: boolean; // default: true
   texture: string;
-  color?: string; // default: '#FFFFFF'
+  tint?: string; // default: '#FFFFFF'
 }
 
 /**
@@ -106,7 +106,7 @@ export interface BarComponent extends BaseObject {
   type: 'bar';
   show?: boolean; // default: true
   texture: string;
-  color?: string; // default: 'primary.default'
+  tint?: string; // default: 'primary.default'
   placement?: Placement; // default: 'bottom'
   percentWidth?: number; // default: 1 (0~1)
   percentHeight?: number; // default: 1 (0~1)
@@ -122,7 +122,7 @@ export interface IconComponent extends BaseObject {
   type: 'icon';
   show?: boolean; // default: true
   texture: string;
-  color?: string; // default: 'black'
+  tint?: string; // default: 'black'
   size: number; // 0 or higher
   placement?: Placement; // default: 'center'
   margin?: string; // default: '0'
