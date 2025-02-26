@@ -113,7 +113,7 @@ export class PatchMap {
   }
 
   update(config) {
-    update(this.viewport, config);
+    update(this.app.stage, config);
   }
 
   focus(id) {

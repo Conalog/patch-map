@@ -51,7 +51,7 @@ const pipeline = [
     },
   },
   { keys: ['tint'], handler: changeTint },
-  { keys: ['renderOrder'], handler: changeRenderOrder },
+  // { keys: ['renderOrder'], handler: changeRenderOrder },
 ];
 const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
 

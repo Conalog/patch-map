@@ -6,7 +6,7 @@ import { update } from './update';
 
 export const draw = (viewport, data) => {
   destroyChildren(viewport);
-  render(viewport, data);
+  render(viewport.parent, data);
 
   function render(parent, data) {
     for (const config of data) {

@@ -15,7 +15,7 @@ export const createItem = (config) => {
 const pipeline = [
   { keys: ['show'], handler: changeShow },
   { keys: ['components'], handler: updateComponents },
-  { keys: ['renderOrder'], handler: changeRenderOrder },
+  // { keys: ['renderOrder'], handler: changeRenderOrder },
 ];
 const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
 

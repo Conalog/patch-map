@@ -18,7 +18,7 @@ export const changeRenderOrder = (object, { renderOrder }) => {
   if (isConfigMatch(object, 'renderOrder', renderOrder)) return;
 
   const viewport = getViewport(object);
-  const renderLayers = viewport.children.filter(
+  const renderLayers = viewport.parent.children.filter(
     (child) => child.type === 'renderLayer',
   );
   let renderLayer = renderLayers.find((layer) => layer.zIndex === renderOrder);
@@ -26,7 +26,7 @@ export const changeRenderOrder = (object, { renderOrder }) => {
     renderLayer = new RenderLayer();
     renderLayer.type = 'renderLayer';
     renderLayer.zIndex = renderOrder;
-    viewport.addChild(renderLayer);
+    viewport.parent.addChild(renderLayer);
   }
   renderLayer.attach(object);
 };

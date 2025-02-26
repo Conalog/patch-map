@@ -20,7 +20,7 @@ const pipeline = [
   { keys: ['show'], handler: changeShow },
   { keys: ['strokeStyle'], handler: changeStrokeStyle },
   { keys: ['links'], handler: changeLinks },
-  { keys: ['renderOrder'], handler: changeRenderOrder },
+  // { keys: ['renderOrder'], handler: changeRenderOrder },
 ];
 const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
 
