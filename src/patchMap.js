@@ -92,6 +92,7 @@ export class PatchMap {
     element.appendChild(div);
 
     this._resizeObserver = new ResizeObserver(() => {
+      this.app.resize();
       const screen = this.app.screen;
       this.viewport.resize(screen.width, screen.height);
     });
