@@ -72,7 +72,7 @@ export const initViewport = (app, opts = {}) => {
   return viewport;
 };
 
-export const initAssets = async (opts = {}) => {
+export const initAsset = async (opts = {}) => {
   const options = deepMerge(DEFAULT_INIT_OPTIONS.assets, opts);
   const manifest = transformManifest(options);
   await PIXI.Assets.init({ manifest });
@@ -84,4 +84,21 @@ export const initAssets = async (opts = {}) => {
     })),
   ]);
   await PIXI.Assets.loadBundle([...Object.keys(options), 'fonts']);
+};
+
+export const initResizeObserver = (el, app, viewport) => {
+  const resizeObserver = new ResizeObserver(() => {
+    app.resize();
+    const screen = app.screen;
+    viewport.resize(screen.width, screen.height);
+  });
+  resizeObserver.observe(el);
+  return resizeObserver;
+};
+
+export const addCanvas = (el, app) => {
+  const div = document.createElement('div');
+  div.classList.add('w-full', 'h-full', 'overflow-hidden');
+  div.appendChild(app.canvas);
+  el.appendChild(div);
 };

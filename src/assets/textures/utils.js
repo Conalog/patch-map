@@ -8,7 +8,7 @@ export const generateTexture = (target = null, opts = {}) => {
   const options = deepMerge({ resolution: RESOLUTION }, opts);
   if (!target) return;
 
-  const texture = renderer.generateTexture({
+  const texture = renderer.get().generateTexture({
     target,
     resolution: options.resolution,
   });

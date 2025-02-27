@@ -1,4 +1,4 @@
-import { getTheme } from './theme';
+import { theme } from './theme';
 
 export const getNestedValue = (object, path = null) => {
   if (!path) return null;
@@ -7,7 +7,7 @@ export const getNestedValue = (object, path = null) => {
 
 export const getColor = (color) => {
   return (
-    (color.startsWith('#') ? color : getNestedValue(getTheme(), color)) ??
+    (color.startsWith('#') ? color : getNestedValue(theme.get(), color)) ??
     '#000'
   );
 };

@@ -1,5 +1,13 @@
-export let renderer = null;
+const rendererStore = () => {
+  let _renderer = null;
 
-export const initRenderer = (app) => {
-  renderer = app.renderer;
+  const set = (app) => {
+    _renderer = app.renderer;
+  };
+
+  const get = () => _renderer;
+
+  return { set, get };
 };
+
+export const renderer = rendererStore();

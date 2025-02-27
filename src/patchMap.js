@@ -3,13 +3,19 @@ import { isValidationError } from 'zod-validation-error';
 import { draw } from './display/draw';
 import { update } from './display/update';
 import { event } from './events/canvas';
-import { initApp, initAssets, initViewport } from './init';
+import {
+  addCanvas,
+  initApp,
+  initAsset,
+  initResizeObserver,
+  initViewport,
+} from './init';
 import { fit, focus } from './utils/canvas';
 import { convertLegacyData } from './utils/convert';
 import { deepMerge } from './utils/deepmerge/deepmerge';
-import { initRenderer } from './utils/renderer';
+import { renderer } from './utils/renderer';
 import { selector } from './utils/selector/selector';
-import { getTheme, setTheme } from './utils/theme';
+import { theme } from './utils/theme';
 import { validateMapData } from './utils/vaildator';
 
 export class PatchMap {
@@ -31,7 +37,7 @@ export class PatchMap {
   }
 
   get theme() {
-    return getTheme();
+    return theme.get();
   }
 
   get isInit() {
@@ -53,10 +59,6 @@ export class PatchMap {
     };
   }
 
-  _setTheme(opts = {}) {
-    setTheme(deepMerge(this.theme, opts));
-  }
-
   async init(element, opts = {}) {
     const {
       app: appOptions = {},
@@ -66,23 +68,14 @@ export class PatchMap {
     } = opts;
     if (this.isInit) return;
 
-    this._setTheme(themeOptions);
+    theme.set(deepMerge(this.theme, themeOptions));
     await initApp(this.app, { resizeTo: element, ...appOptions });
-    initRenderer(this.app);
     this._viewport = initViewport(this.app, viewportOptions);
+    await initAsset(assetOptions);
+    renderer.set(this.app);
+    addCanvas(element, this.app);
 
-    await initAssets(assetOptions);
-    const div = document.createElement('div');
-    div.classList.add('w-full', 'h-full', 'overflow-hidden');
-    div.appendChild(this.app.canvas);
-    element.appendChild(div);
-
-    this._resizeObserver = new ResizeObserver(() => {
-      this.app.resize();
-      const screen = this.app.screen;
-      this.viewport.resize(screen.width, screen.height);
-    });
-    this._resizeObserver.observe(element);
+    this._resizeObserver = initResizeObserver(element, this.app, this.viewport);
     this._isInit = true;
   }
 
@@ -98,6 +91,7 @@ export class PatchMap {
       console.error('Invalid data format. Expected an array.');
       return;
     }
+
     this.app.stop();
     zData = validateMapData(zData);
     if (!isValidationError(zData)) {
