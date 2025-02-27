@@ -5,7 +5,7 @@ import * as PIXI from 'pixi.js';
 import { firaCode } from './assets/fonts';
 import { icons } from './assets/icons';
 import { transformManifest } from './assets/utils';
-import * as viewportEvents from './events/viewport';
+import { plugin } from './events/viewport';
 import { deepMerge } from './utils/deepmerge/deepmerge';
 gsap.registerPlugin(PixiPlugin);
 PixiPlugin.registerPIXI(PIXI);
@@ -60,17 +60,14 @@ export const initViewport = (app, opts = {}) => {
   );
   const viewport = new Viewport(options);
   viewport.type = 'canvas';
-  viewport.plugins.addItems = (plugins = {}) =>
-    viewportEvents.addPlugins(viewport, plugins);
-  viewport.plugins.removeItems = (plugins = []) =>
-    viewportEvents.removePlugins(viewport, plugins);
-  viewport.plugins.resumeItems = (plugins = []) =>
-    viewportEvents.resumePlugins(viewport, plugins);
-  viewport.plugins.pauseItems = (plugins = []) =>
-    viewportEvents.pausePlugins(viewport, plugins);
   viewport.events = {};
-
-  viewport.plugins.addItems(options.plugins);
+  viewport.plugin = {
+    add: (plugins) => plugin.add(viewport, plugins),
+    remove: (keys) => plugin.remove(viewport, keys),
+    start: (keys) => plugin.start(viewport, keys),
+    stop: (keys) => plugin.stop(viewport, keys),
+  };
+  viewport.plugin.add(options.plugins);
   app.stage.addChild(viewport);
   return viewport;
 };

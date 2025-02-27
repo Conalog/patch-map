@@ -1,25 +1,29 @@
-export const addPlugins = (viewport, plugins = {}) => {
-  for (const [name, options] of Object.entries(plugins)) {
+import { convertArray } from '../utils/convert';
+
+export const add = (viewport, plugins = {}) => {
+  for (const [key, options] of Object.entries(plugins)) {
     if (options.disabled) continue;
-    viewport.plugins.remove(name);
-    viewport[name](options);
+    viewport.plugins.remove(key);
+    viewport[key](options);
   }
 };
 
-export const removePlugins = (viewport, plugins = []) => {
-  for (const name of plugins) {
-    viewport.plugins.remove(name);
+export const remove = (viewport, keys) => {
+  for (const key of convertArray(keys)) {
+    viewport.plugins.remove(key);
   }
 };
 
-export const resumePlugins = (viewport, plugins = []) => {
-  for (const name of plugins) {
-    viewport.plugins.resume(name);
+export const start = (viewport, keys) => {
+  for (const key of convertArray(keys)) {
+    viewport.plugins.resume(key);
   }
 };
 
-export const pausePlugins = (viewport, plugins = []) => {
-  for (const name of plugins) {
-    viewport.plugins.pause(name);
+export const stop = (viewport, keys) => {
+  for (const key of convertArray(keys)) {
+    viewport.plugins.pause(key);
   }
 };
+
+export const plugin = { add, remove, start, stop };
