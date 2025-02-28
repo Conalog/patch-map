@@ -19,52 +19,46 @@ export const addEvent = (viewport, opts) => {
   const { path, action, fn, options } = config;
   const id = config.id || createUUID();
 
-  if (id in viewport.events) {
+  if (!(id in viewport.events)) {
+    viewport.events[id] = { path, action, fn, options };
+  } else {
     logEventExists(id);
-    return;
   }
-  viewport.events[id] = { path, action, fn, options };
   return id;
 };
 
 export const removeEvent = (viewport, id) => {
-  const splitedIds = splitByWhitespace(id);
-  if (!splitedIds.length) return;
+  const eventIds = splitByWhitespace(id);
+  if (!eventIds.length) return;
 
-  const currId = splitedIds[0];
-  const event = getEvent(viewport, currId);
-  if (event) {
-    offEvent(viewport, currId);
-    const { [currId]: _, ...rest } = viewport.events;
-    viewport.events = rest;
-  } else {
-    logNoEventExists(currId);
-  }
-
-  if (splitedIds.length > 1) {
-    removeEvent(viewport, splitedIds.slice(1).join(' '));
+  for (const eventId of eventIds) {
+    const event = getEvent(viewport, eventId);
+    if (event) {
+      offEvent(viewport, eventId);
+      const { [currId]: _, ...rest } = viewport.events;
+      viewport.events = rest;
+    } else {
+      logNoEventExists(eventId);
+    }
   }
 };
 
 export const onEvent = (viewport, id) => {
-  const splitedIds = splitByWhitespace(id);
-  if (!splitedIds.length) return;
+  const eventIds = splitByWhitespace(id);
+  if (!eventIds.length) return;
 
-  const currId = splitedIds[0];
-  const event = getEvent(viewport, currId);
-  if (event) {
-    const actions = splitByWhitespace(event.action);
-    const objects = selector(viewport, event.path);
-    for (const object of objects) {
-      object.eventMode = 'static';
-      addAction(object, actions, event);
+  for (const eventId of eventIds) {
+    const event = getEvent(viewport, eventId);
+    if (event) {
+      const actions = splitByWhitespace(event.action);
+      const objects = selector(viewport, event.path);
+      for (const object of objects) {
+        object.eventMode = 'static';
+        addAction(object, actions, event);
+      }
+    } else {
+      logNoEventExists(eventId);
     }
-  } else {
-    logNoEventExists(currId);
-  }
-
-  if (splitedIds.length > 1) {
-    onEvent(viewport, splitedIds.slice(1).join(' '));
   }
 
   function addAction(object, actions, event) {
@@ -75,26 +69,22 @@ export const onEvent = (viewport, id) => {
 };
 
 export const offEvent = (viewport, id) => {
-  const splitedIds = splitByWhitespace(id);
-  if (!splitedIds.length) return;
+  const eventIds = splitByWhitespace(id);
+  if (!eventIds.length) return;
 
-  const currId = splitedIds[0];
-  const event = getEvent(viewport, currId);
-  if (event) {
-    const actions = splitByWhitespace(event.action);
-    const objects = selector(viewport, event.path);
-    for (const object of objects) {
-      object.eventMode = 'passive';
-      removeAction(object, actions, event);
+  for (const eventId of eventIds) {
+    const event = getEvent(viewport, eventId);
+    if (event) {
+      const actions = splitByWhitespace(event.action);
+      const objects = selector(viewport, event.path);
+      for (const object of objects) {
+        object.eventMode = 'passive';
+        removeAction(object, actions, event);
+      }
+    } else {
+      logNoEventExists(eventId);
     }
-  } else {
-    logNoEventExists(currId);
   }
-
-  if (splitedIds.length > 1) {
-    offEvent(viewport, splitedIds.slice(1).join(' '));
-  }
-
   function removeAction(object, actions, event) {
     for (const action of actions) {
       object.removeEventListener(action, event.fn, event.options);
@@ -102,13 +92,9 @@ export const offEvent = (viewport, id) => {
   }
 };
 
-export const getEvent = (viewport, id) => {
-  return viewport.events[id] ?? null;
-};
+export const getEvent = (viewport, id) => viewport.events[id] ?? null;
 
-export const getAllEvent = (viewport) => {
-  return viewport.events;
-};
+export const getAllEvent = (viewport) => viewport.events;
 
 export const event = {
   addEvent,
