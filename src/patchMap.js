@@ -3,23 +3,26 @@ import { isValidationError } from 'zod-validation-error';
 import { draw } from './display/draw';
 import { update } from './display/update';
 import { event } from './events/canvas';
-import { initApp, initAssets, initViewport } from './init';
+import {
+  initApp,
+  initAsset,
+  initCanvas,
+  initResizeObserver,
+  initViewport,
+} from './init';
 import { fit, focus } from './utils/canvas';
 import { convertLegacyData } from './utils/convert';
-import { deepMerge } from './utils/deepmerge/deepmerge';
-import { initRenderer } from './utils/renderer';
+import { renderer } from './utils/renderer';
 import { selector } from './utils/selector/selector';
-import { getTheme, setTheme } from './utils/theme';
+import { theme } from './utils/theme';
 import { validateMapData } from './utils/vaildator';
 
-export class PatchMap {
-  _app = null;
-  _viewport = null;
-  _resizeObserver = null;
-  _isInit = false;
-
+class PatchMap {
   constructor() {
     this._app = new Application();
+    this._viewport = null;
+    this._resizeObserver = null;
+    this._isInit = false;
   }
 
   get app() {
@@ -31,7 +34,7 @@ export class PatchMap {
   }
 
   get theme() {
-    return getTheme();
+    return theme.get();
   }
 
   get isInit() {
@@ -53,36 +56,24 @@ export class PatchMap {
     };
   }
 
-  _setTheme(opts = {}) {
-    setTheme(deepMerge(this.theme, opts));
-  }
-
   async init(element, opts = {}) {
+    if (this.isInit) return;
+
     const {
       app: appOptions = {},
       viewport: viewportOptions = {},
       theme: themeOptions = {},
       asset: assetOptions = {},
     } = opts;
-    if (this.isInit) return;
 
-    this._setTheme(themeOptions);
+    theme.set(themeOptions);
     await initApp(this.app, { resizeTo: element, ...appOptions });
-    initRenderer(this.app);
     this._viewport = initViewport(this.app, viewportOptions);
+    await initAsset(assetOptions);
+    renderer.set(this.app.renderer);
+    initCanvas(element, this.app);
 
-    await initAssets(assetOptions);
-    const div = document.createElement('div');
-    div.classList.add('w-full', 'h-full', 'overflow-hidden');
-    div.appendChild(this.app.canvas);
-    element.appendChild(div);
-
-    this._resizeObserver = new ResizeObserver(() => {
-      this.app.resize();
-      const screen = this.app.screen;
-      this.viewport.resize(screen.width, screen.height);
-    });
-    this._resizeObserver.observe(element);
+    this._resizeObserver = initResizeObserver(element, this.app, this.viewport);
     this._isInit = true;
   }
 
@@ -93,18 +84,30 @@ export class PatchMap {
   }
 
   draw(data) {
-    let zData = isLegacyData(data) ? convertLegacyData(data) : data;
-    if (!Array.isArray(zData)) {
-      console.error('Invalid data format. Expected an array.');
-      return;
-    }
+    const zData = preprocessData(data);
+    if (!zData) return;
+
     this.app.stop();
-    zData = validateMapData(zData);
-    if (!isValidationError(zData)) {
-      draw(this.viewport, zData);
+    const validatedData = validateMapData(zData);
+
+    if (!isValidationError(validatedData)) {
+      draw(this.viewport, validatedData);
     }
+
     this.app.start();
-    return zData;
+    return validatedData;
+
+    function preprocessData(data) {
+      if (isLegacyData(data)) {
+        return convertLegacyData(data);
+      }
+
+      if (!Array.isArray(data)) {
+        console.error('Invalid data format. Expected an array.');
+        return null;
+      }
+      return data;
+    }
 
     function isLegacyData(data) {
       return (
@@ -129,3 +132,5 @@ export class PatchMap {
     return selector(this.viewport, path, options);
   }
 }
+
+export { PatchMap };
