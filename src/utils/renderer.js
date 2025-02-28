@@ -1,8 +1,8 @@
 const rendererStore = () => {
   let _renderer = null;
 
-  const set = (app) => {
-    _renderer = app.renderer;
+  const set = (renderer) => {
+    _renderer = renderer;
   };
 
   const get = () => _renderer;

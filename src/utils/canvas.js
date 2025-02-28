@@ -18,10 +18,6 @@ export const fit = (viewport, id) => {
   viewport.fit(true, bounds.width, bounds.height);
 };
 
-const getObject = (viewport, id) => {
-  return id ? selector(viewport, `$..children[?(@.id=="${id}")]`) : [viewport];
-};
-
 export const getScaleBounds = (viewport, object) => {
   const bounds = object.getBounds();
   return {
@@ -30,4 +26,8 @@ export const getScaleBounds = (viewport, object) => {
     width: bounds.width / viewport.scale.x,
     height: bounds.height / viewport.scale.y,
   };
+};
+
+const getObject = (viewport, id) => {
+  return id ? selector(viewport, `$..children[?(@.id=="${id}")]`) : [viewport];
 };

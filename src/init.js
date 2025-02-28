@@ -7,6 +7,7 @@ import { icons } from './assets/icons';
 import { transformManifest } from './assets/utils';
 import { plugin } from './events/viewport';
 import { deepMerge } from './utils/deepmerge/deepmerge';
+
 gsap.registerPlugin(PixiPlugin);
 PixiPlugin.registerPIXI(PIXI);
 
@@ -76,13 +77,12 @@ export const initAsset = async (opts = {}) => {
   const options = deepMerge(DEFAULT_INIT_OPTIONS.assets, opts);
   const manifest = transformManifest(options);
   await PIXI.Assets.init({ manifest });
-  PIXI.Assets.addBundle('fonts', [
-    ...Object.entries(firaCode).map(([key, font]) => ({
-      alias: `firaCode-${key}`,
-      src: font,
-      data: { family: `FiraCode ${key}` },
-    })),
-  ]);
+  const fontBundle = Object.entries(firaCode).map(([key, font]) => ({
+    alias: `firaCode-${key}`,
+    src: font,
+    data: { family: `FiraCode ${key}` },
+  }));
+  PIXI.Assets.addBundle('fonts', fontBundle);
   await PIXI.Assets.loadBundle([...Object.keys(options), 'fonts']);
 };
 
@@ -96,7 +96,7 @@ export const initResizeObserver = (el, app, viewport) => {
   return resizeObserver;
 };
 
-export const addCanvas = (el, app) => {
+export const initCanvas = (el, app) => {
   const div = document.createElement('div');
   div.classList.add('w-full', 'h-full', 'overflow-hidden');
   div.appendChild(app.canvas);

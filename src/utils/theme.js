@@ -1,3 +1,5 @@
+import { deepMerge } from './deepmerge/deepmerge';
+
 const themeStore = () => {
   let _theme = {
     primary: {
@@ -15,10 +17,10 @@ const themeStore = () => {
   };
 
   const set = (value) => {
-    _theme = value;
+    _theme = deepMerge(_theme, value);
   };
 
-  const get = () => _theme;
+  const get = () => ({ ..._theme });
 
   return { set, get };
 };
