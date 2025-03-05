@@ -24,5 +24,6 @@ export const createContainer = ({
 }) => {
   const container = new Container({ isRenderGroup });
   Object.assign(container, { type, id, label, metadata });
+  container.config = { type, id, label, metadata };
   return container;
 };

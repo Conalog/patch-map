@@ -2,27 +2,22 @@ import gsap from 'gsap';
 import { getTexture } from '../assets/textures/texture';
 import { getScaleBounds } from '../utils/canvas';
 import { deepMerge } from '../utils/deepmerge/deepmerge';
-import { diffJson } from '../utils/diff/diff-json';
+import { diff } from '../utils/diff/diff';
 import { getColor } from '../utils/get';
 import { selector } from '../utils/selector/selector';
 import { FONT_WEIGHT } from './components/config';
 import { parseMargin } from './utils';
 
-export const changeProperty = (object, { key, value }) => {
-  if (isMatch(object, key, value)) return;
+export const changeProperty = (object, key, value) => {
   object[key] = value;
 };
 
 export const changeShow = (object, { show }) => {
-  if (isConfigMatch(object, 'show', show)) return;
   object.renderable = show;
 };
 
 export const changeTexture = (component, { texture: textureConfig }) => {
-  if (
-    isConfigMatch(component, 'texture', textureConfig) ||
-    Object.keys(diffJson(component.config.texture, textureConfig)).length === 0
-  ) {
+  if (isConfigMatch(component, 'texture', textureConfig)) {
     return;
   }
 
@@ -35,13 +30,15 @@ export const changeTexture = (component, { texture: textureConfig }) => {
 };
 
 export const changeTint = (component, { tint }) => {
-  if (isConfigMatch(component, 'tint', tint)) return;
   const color = getColor(tint);
   component.tint = color;
 };
 
+export const changePosition = (component, { position }) => {
+  component.position.set(position.x, position.y);
+};
+
 export const changeSize = (component, { size }) => {
-  if (isConfigMatch(component, 'size', size)) return;
   component.setSize(size);
   changePlacement(component, {});
 };
@@ -219,7 +216,6 @@ export const changeTextStyle = (
 };
 
 export const changeStrokeStyle = (element, { strokeStyle, links }) => {
-  if (!strokeStyle) return;
   const path = selector(element, '$.children[?(@.type==="path")]')[0];
   if (!path) return;
 
@@ -247,7 +243,6 @@ export const changeStrokeStyle = (element, { strokeStyle, links }) => {
 };
 
 export const changeLinks = (element, { links }) => {
-  if (!links) return;
   const path = selector(element, '$.children[?(@.type==="path")]')[0];
   if (!path) return;
 
@@ -304,9 +299,5 @@ export const changeLinks = (element, { links }) => {
 };
 
 const isConfigMatch = (object, key, value) => {
-  return value == null || object.config[key] === value;
-};
-
-const isMatch = (object, key, value) => {
-  return object[key] === value;
+  return value == null || diff(object.config[key], value);
 };

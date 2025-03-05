@@ -1,4 +1,4 @@
-import { changeShow } from '../change';
+import { changePosition, changeShow } from '../change';
 import { updateComponents } from '../components/update-components';
 import { updateObject } from '../update-object';
 import { createContainer } from '../utils';
@@ -11,14 +11,19 @@ const GRID_OBJECT_CONFIG = {
 export const createGrid = (config) => {
   const element = createContainer(config);
   element.position.set(config.position.x, config.position.y);
-  element.angle = config.rotation;
-  element.config = {};
-  addItemElements(element, config.cells, config.size);
+  element.config = {
+    ...element.config,
+    position: config.position,
+    cells: config.cells,
+    itemSize: config.itemSize,
+  };
+  addItemElements(element, config.cells, config.itemSize);
   return element;
 };
 
 const pipeline = [
   { keys: ['show'], handler: changeShow },
+  { keys: ['position'], handler: changePosition },
   {
     keys: ['components'],
     handler: (element, options) => {

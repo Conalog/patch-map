@@ -34,13 +34,11 @@ const defaultConfig = z
 const background = defaultConfig.extend({
   type: z.literal('background'),
   texture: z.union([z.string(), TextureStyle]),
-  tint: z.string().default('white'),
 });
 
 const bar = defaultConfig.extend({
   type: z.literal('bar'),
   texture: z.union([z.string(), TextureStyle]),
-  tint: z.string().default('primary.default'),
   placement: Placement.default('bottom'),
   margin: Margin.default('0'),
   percentWidth: z.number().min(0).max(1).default(1),
@@ -52,7 +50,6 @@ const bar = defaultConfig.extend({
 const icon = defaultConfig.extend({
   type: z.literal('icon'),
   asset: z.string(),
-  tint: z.string().default('black'),
   placement: Placement.default('center'),
   margin: Margin.default('0'),
   size: z.number().nonnegative(),

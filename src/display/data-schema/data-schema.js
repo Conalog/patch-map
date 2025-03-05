@@ -15,12 +15,6 @@ const size = z
   })
   .strict();
 
-const transform = z.object({
-  position: position.default({}),
-  size: size,
-  rotation: z.number().default(0),
-});
-
 export const relation = z
   .object({
     source: z.string(),
@@ -36,20 +30,20 @@ const defaultInfo = z
   })
   .passthrough();
 
-const gridObject = defaultInfo
-  .extend({
-    type: z.literal('grid'),
-    cells: z.array(z.array(z.union([z.literal(0), z.literal(1)]))),
-    components: componentArraySchema,
-  })
-  .extend(transform.shape);
+const gridObject = defaultInfo.extend({
+  type: z.literal('grid'),
+  cells: z.array(z.array(z.union([z.literal(0), z.literal(1)]))),
+  components: componentArraySchema,
+  position: position.default({}),
+  itemSize: size,
+});
 
-const singleObject = defaultInfo
-  .extend({
-    type: z.literal('item'),
-    components: componentArraySchema,
-  })
-  .extend(transform.shape);
+const singleObject = defaultInfo.extend({
+  type: z.literal('item'),
+  components: componentArraySchema,
+  position: position.default({}),
+  size: size,
+});
 
 const relationGroupObject = defaultInfo.extend({
   type: z.literal('relations'),
