@@ -117,8 +117,8 @@ class PatchMap {
     }
   }
 
-  update(config) {
-    update(this.viewport, config);
+  update(opts) {
+    update(this.viewport, opts);
   }
 
   focus(id) {
@@ -129,12 +129,12 @@ class PatchMap {
     fit(this.viewport, id);
   }
 
-  selector(path, options) {
-    return selector(this.viewport, path, options);
+  selector(path, opts) {
+    return selector(this.viewport, path, opts);
   }
 
-  dragSelect(config) {
-    dragSelect(this.viewport, config);
+  dragSelect(opts) {
+    dragSelect(this.viewport, opts);
   }
 }
 
