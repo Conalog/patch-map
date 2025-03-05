@@ -23,6 +23,7 @@ It enables flexible and fast creation of 2D content.
   - [focus(id)](#focusid)
   - [fit(id)](#fitid)
   - [selector(path)](#selectorpath)
+  - [dragSelect(options)](#dragselectoptions)
 - [🧑‍💻 Development](#-development)
   - [Setting up the development environment](#setting-up-the-development-environment)
   - [VSCode Integration](#vscode-integration)
@@ -330,6 +331,26 @@ Object explorer following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 
 
 ```js
   const result = patchMap.selector('$..[?(@.label=="group-label-1")]')
+```
+
+### `dragSelect(options)`
+Enables the drag selection feature, allowing users to detect selected objects when dragging on the screen and pass them to a callback function.
+- `enabled` (optional, boolean): Determines whether the drag selection feature is enabled.
+- `filter` (optional, function): A function that can filter the target objects based on conditions.
+- `fn` (required, function): The callback function that is called when a drag selection occurs.
+- `isSelectGroup` (optional, boolean): Decides whether to select group objects.
+- `isSelectGrid` (optional, boolean): Decides whether to select grid objects.
+
+```js
+patchMap.dragSelect({
+  enabled: true,
+  filter: (obj) => obj.id.split('.')[0] === 'grid-1',
+  fn: (objs) => {
+    console.log(objs);
+  },
+  isSelectGroup: false,
+  isSelectGrid: true,
+});
 ```
 
 <br/>
