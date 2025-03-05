@@ -7,7 +7,6 @@ export const createRelations = (config) => {
   const element = createContainer(config);
   const path = createPath();
   element.addChild(path);
-  element.config = {};
   return element;
 };
 

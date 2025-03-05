@@ -38,11 +38,10 @@ export interface Grid extends BaseObject {
     x?: number; // default: 0
     y?: number; // default: 0
   };
-  size: {
+  itemSize: {
     width: number;
     height: number;
   };
-  rotation?: number; // default: 0
 }
 
 /**
@@ -64,7 +63,6 @@ export interface Item extends BaseObject {
     width: number;
     height: number;
   };
-  rotation?: number; // default: 0
 }
 
 /**
@@ -96,7 +94,6 @@ export interface BackgroundComponent extends BaseObject {
   type: 'background';
   show?: boolean; // default: true
   texture: string | TextureStyle;
-  tint?: string; // default: 'white'
 }
 
 /**
@@ -106,7 +103,6 @@ export interface BarComponent extends BaseObject {
   type: 'bar';
   show?: boolean; // default: true
   texture: string | TextureStyle;
-  tint?: string; // default: 'primary.default'
 
   placement?: Placement; // default: 'bottom'
   margin?: string; // default: '0'
@@ -123,7 +119,6 @@ export interface IconComponent extends BaseObject {
   type: 'icon';
   show?: boolean; // default: true
   texture: string | TextureStyle;
-  tint?: string; // default: 'black'
 
   placement?: Placement; // default: 'center'
   margin?: string; // default: '0'
