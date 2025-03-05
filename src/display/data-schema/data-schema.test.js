@@ -22,7 +22,6 @@ describe('mapDataSchema (modified tests for required fields)', () => {
       // position은 default(0,0), angle은 default(0)
       expect(result.data[0].position.x).toBe(0);
       expect(result.data[0].position.y).toBe(0);
-      expect(result.data[0].angle).toBe(0);
 
       // size가 정상적으로 들어왔는지
       expect(result.data[0].size.width).toBe(100);
@@ -47,7 +46,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
             height: 100,
           },
         ],
-        size: {
+        itemSize: {
           width: 200,
           height: 200,
         },
@@ -161,7 +160,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
           type: 'grid',
           cells: [[0]],
           components: [],
-          size: { width: 50, height: 50 },
+          itemSize: { width: 50, height: 50 },
         },
       ];
       const result = mapDataSchema.safeParse(data);
@@ -194,20 +193,6 @@ describe('mapDataSchema (modified tests for required fields)', () => {
           type: 'item',
           components: [],
           size: { width: -100, height: 100 }, // width가 음수
-        },
-      ];
-      const result = mapDataSchema.safeParse(data);
-      expect(result.success).toBe(false);
-    });
-
-    it('should fail if angle is not a number', () => {
-      const data = [
-        {
-          id: 'item-3',
-          type: 'item',
-          components: [],
-          angle: 'not-a-number', // 숫자가 아님
-          size: { width: 10, height: 10 },
         },
       ];
       const result = mapDataSchema.safeParse(data);
@@ -254,7 +239,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
               components: [],
               // transform 필드
               position: { x: 10, y: 20 },
-              size: { width: 100, height: 50 },
+              itemSize: { width: 100, height: 50 },
               angle: 45,
             },
             {
@@ -310,7 +295,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
               cells: [[0]],
               components: [],
               position: { x: 10, y: 10 },
-              size: { width: 20, height: 20 },
+              itemSize: { width: 20, height: 20 },
             },
           ],
         },

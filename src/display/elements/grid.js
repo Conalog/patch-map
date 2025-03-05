@@ -15,9 +15,9 @@ export const createGrid = (config) => {
     ...element.config,
     position: config.position,
     cells: config.cells,
-    size: config.size,
+    itemSize: config.itemSize,
   };
-  addItemElements(element, config.cells, config.size);
+  addItemElements(element, config.cells, config.itemSize);
   return element;
 };
 

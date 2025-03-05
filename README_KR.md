@@ -56,7 +56,7 @@ npm install @conalog/patch-map
         label: 'grid-label-1',
         cells: [ [1, 0, 1], [1, 1, 1] ],
         position: { x: 0, y: 0 },
-        size: { width: 40, height: 80 },
+        itemSize: { width: 40, height: 80 },
         components: [
           {
             type: 'background',
@@ -169,7 +169,7 @@ const data = [
       label: 'grid-label-1',
       cells: [ [1, 0, 1], [1, 1, 1] ],
       position: { x: 0, y: 0 },
-      size: { width: 40, height: 80 },
+      itemSize: { width: 40, height: 80 },
       components: [
         {
           type: 'background',
