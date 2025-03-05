@@ -24,6 +24,7 @@ const dragSelectSchema = z.object({
   enabled: z.boolean().default(false),
   fn: z.function(),
   filter: z.nullable(z.function()).default(null),
+  isSelectGroup: z.boolean().default(false),
   isSelectGrid: z.boolean().default(false),
 });
 
@@ -153,8 +154,25 @@ const findIntersectingObjects = (viewport) => {
   function addIfIntersect(obj) {
     const passesFilter = config.filter ? config.filter(obj) : true;
     if (passesFilter && intersects(state.box, obj)) {
-      result.push(obj);
+      if (config.isSelectGroup) {
+        result.push(findTopGroupParent(obj));
+      } else {
+        result.push(obj);
+      }
     }
+  }
+
+  function findTopGroupParent(obj) {
+    let highestGroup = null;
+    let current = obj.parent;
+
+    while (current && current !== viewport) {
+      if (current.type === 'group') {
+        highestGroup = current;
+      }
+      current = current.parent;
+    }
+    return highestGroup;
   }
 };
 
