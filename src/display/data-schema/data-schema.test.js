@@ -19,10 +19,10 @@ describe('mapDataSchema (modified tests for required fields)', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       // 기본값으로 세팅된 transform 속성 확인
-      // position은 default(0,0), rotation은 default(0)
+      // position은 default(0,0), angle은 default(0)
       expect(result.data[0].position.x).toBe(0);
       expect(result.data[0].position.y).toBe(0);
-      expect(result.data[0].rotation).toBe(0);
+      expect(result.data[0].angle).toBe(0);
 
       // size가 정상적으로 들어왔는지
       expect(result.data[0].size.width).toBe(100);
@@ -200,13 +200,13 @@ describe('mapDataSchema (modified tests for required fields)', () => {
       expect(result.success).toBe(false);
     });
 
-    it('should fail if rotation is not a number', () => {
+    it('should fail if angle is not a number', () => {
       const data = [
         {
           id: 'item-3',
           type: 'item',
           components: [],
-          rotation: 'not-a-number', // 숫자가 아님
+          angle: 'not-a-number', // 숫자가 아님
           size: { width: 10, height: 10 },
         },
       ];
@@ -255,7 +255,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
               // transform 필드
               position: { x: 10, y: 20 },
               size: { width: 100, height: 50 },
-              rotation: 45,
+              angle: 45,
             },
             {
               id: 'nested-item-1',

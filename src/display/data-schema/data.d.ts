@@ -42,7 +42,7 @@ export interface Grid extends BaseObject {
     width: number;
     height: number;
   };
-  rotation?: number; // default: 0
+  angle?: number; // default: 0
 }
 
 /**
@@ -64,7 +64,7 @@ export interface Item extends BaseObject {
     width: number;
     height: number;
   };
-  rotation?: number; // default: 0
+  angle?: number; // default: 0
 }
 
 /**

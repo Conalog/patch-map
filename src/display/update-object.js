@@ -1,6 +1,8 @@
 import { deepMerge } from '../utils/deepmerge/deepmerge';
 import { changeProperty } from './change';
 
+const DEFAULT_EXCEPTION_KEYS = new Set(['position']);
+
 export const updateObject = (
   object,
   options,
@@ -17,8 +19,12 @@ export const updateObject = (
     }
   }
   for (const [key, value] of Object.entries(options)) {
-    if (!pipelineKeys.has(key) && !exceptionKeys.has(key)) {
-      changeProperty(object, { key, value });
+    if (
+      !pipelineKeys.has(key) &&
+      !exceptionKeys.has(key) &&
+      !DEFAULT_EXCEPTION_KEYS.has(key)
+    ) {
+      changeProperty(object, key, value);
     }
   }
   object.config = deepMerge(object.config, options);

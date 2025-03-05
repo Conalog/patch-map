@@ -29,7 +29,7 @@ export const convertLegacyData = (data) => {
             row.map((child) => (child === '0' ? 0 : 1)),
           ),
           position: { x: transform.x, y: transform.y },
-          rotation: transform.rotation,
+          angle: transform.rotation,
           size: {
             width: props.spec.width * 40,
             height: props.spec.height * 40,
@@ -88,7 +88,7 @@ export const convertLegacyData = (data) => {
           id: value.id,
           label: value.name,
           position: { x: transform.x, y: transform.y },
-          rotation: 0,
+          angle: 0,
           size: { width: 24, height: 24 },
           components: [
             {

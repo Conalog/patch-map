@@ -18,7 +18,7 @@ const size = z
 const transform = z.object({
   position: position.default({}),
   size: size,
-  rotation: z.number().default(0),
+  angle: z.number().default(0),
 });
 
 export const relation = z
