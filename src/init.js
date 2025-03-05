@@ -5,8 +5,8 @@ import * as PIXI from 'pixi.js';
 import { firaCode } from './assets/fonts';
 import { icons } from './assets/icons';
 import { transformManifest } from './assets/utils';
-import { plugin } from './events/viewport';
 import { deepMerge } from './utils/deepmerge/deepmerge';
+import { plugin } from './utils/event/viewport';
 
 gsap.registerPlugin(PixiPlugin);
 PixiPlugin.registerPIXI(PIXI);

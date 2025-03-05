@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
-import { selector } from '../utils/selector/selector';
-import { createUUID } from '../utils/uuid';
-import { validate } from '../utils/vaildator';
+import { selector } from '../selector/selector';
+import { createUUID } from '../uuid';
+import { validate } from '../vaildator';
 
 const addEventSchema = z.object({
   id: z.string().default(''),
-  path: z.string(),
+  path: z.string().default('$'),
   action: z.string(),
   fn: z.function(),
   options: z.unknown(),
@@ -20,7 +20,7 @@ export const addEvent = (viewport, opts) => {
   const id = config.id || createUUID();
 
   if (!(id in viewport.events)) {
-    viewport.events[id] = { path, action, fn, options };
+    viewport.events[id] = { path, action, fn, options, active: false };
   } else {
     logEventExists(id);
   }
@@ -35,10 +35,8 @@ export const removeEvent = (viewport, id) => {
     const event = getEvent(viewport, eventId);
     if (event) {
       offEvent(viewport, eventId);
-      const { [currId]: _, ...rest } = viewport.events;
+      const { [eventId]: _, ...rest } = viewport.events;
       viewport.events = rest;
-    } else {
-      logNoEventExists(eventId);
     }
   }
 };
@@ -50,12 +48,15 @@ export const onEvent = (viewport, id) => {
   for (const eventId of eventIds) {
     const event = getEvent(viewport, eventId);
     if (event) {
+      if (event.active) continue;
+
       const actions = splitByWhitespace(event.action);
       const objects = selector(viewport, event.path);
       for (const object of objects) {
         object.eventMode = 'static';
         addAction(object, actions, event);
       }
+      event.active = true;
     } else {
       logNoEventExists(eventId);
     }
@@ -75,12 +76,15 @@ export const offEvent = (viewport, id) => {
   for (const eventId of eventIds) {
     const event = getEvent(viewport, eventId);
     if (event) {
+      if (!event.active) continue;
+
       const actions = splitByWhitespace(event.action);
       const objects = selector(viewport, event.path);
       for (const object of objects) {
         object.eventMode = 'passive';
         removeAction(object, actions, event);
       }
+      event.active = false;
     } else {
       logNoEventExists(eventId);
     }

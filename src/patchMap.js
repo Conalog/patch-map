@@ -2,7 +2,7 @@ import { Application, Assets } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { draw } from './display/draw';
 import { update } from './display/update';
-import { event } from './events/canvas';
+import { dragSelect } from './events/drag-select';
 import {
   initApp,
   initAsset,
@@ -12,6 +12,7 @@ import {
 } from './init';
 import { fit, focus } from './utils/canvas';
 import { convertLegacyData } from './utils/convert';
+import { event } from './utils/event/canvas';
 import { renderer } from './utils/renderer';
 import { selector } from './utils/selector/selector';
 import { theme } from './utils/theme';
@@ -130,6 +131,10 @@ class PatchMap {
 
   selector(path, options) {
     return selector(this.viewport, path, options);
+  }
+
+  dragSelect(config) {
+    dragSelect(this.viewport, config);
   }
 }
 
