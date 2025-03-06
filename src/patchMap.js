@@ -79,8 +79,13 @@ class PatchMap {
 
   destroy() {
     Assets.reset();
+    this.viewport.destroy(true);
     this.app.destroy(true);
     if (this._resizeObserver) this._resizeObserver.disconnect();
+
+    this._viewport = null;
+    this._resizeObserver = null;
+    this._isInit = false;
   }
 
   draw(data) {
