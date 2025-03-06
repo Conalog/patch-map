@@ -23,6 +23,7 @@ export const createContainer = ({
   isRenderGroup = false,
 }) => {
   const container = new Container({ isRenderGroup });
+  container.eventMode = 'static';
   Object.assign(container, { type, id, label, metadata });
   container.config = { type, id, label, metadata };
   return container;
