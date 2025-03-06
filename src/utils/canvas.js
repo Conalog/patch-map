@@ -1,3 +1,4 @@
+import { renderer } from './renderer';
 import { selector } from './selector/selector';
 
 export const focus = (viewport, id) => {
@@ -26,6 +27,11 @@ export const getScaleBounds = (viewport, object) => {
     width: bounds.width / viewport.scale.x,
     height: bounds.height / viewport.scale.y,
   };
+};
+
+export const getPointerPosition = (viewport) => {
+  const global = renderer.get().events.pointer.global;
+  return viewport ? viewport.toWorld(global.x, global.y) : global;
 };
 
 const getObject = (viewport, id) => {

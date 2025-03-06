@@ -1,4 +1,4 @@
-import { convertArray } from '../utils/convert';
+import { convertArray } from '../convert';
 
 export const add = (viewport, plugins = {}) => {
   for (const [key, options] of Object.entries(plugins)) {

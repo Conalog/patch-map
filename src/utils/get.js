@@ -14,3 +14,8 @@ export const getColor = (color) => {
       : getNestedValue(theme.get(), color)) ?? '#000'
   );
 };
+
+export const getViewport = (object) => {
+  if (!object) return null;
+  return object.viewport ?? getViewport(object.parent);
+};
