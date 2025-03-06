@@ -19,7 +19,7 @@ import { validateMapData } from './utils/vaildator';
 
 class PatchMap {
   constructor() {
-    this._app = new Application();
+    this._app = null;
     this._viewport = null;
     this._resizeObserver = null;
     this._isInit = false;
@@ -67,6 +67,7 @@ class PatchMap {
     } = opts;
 
     theme.set(themeOptions);
+    this._app = new Application();
     await initApp(this.app, { resizeTo: element, ...appOptions });
     this._viewport = initViewport(this.app, viewportOptions);
     await initAsset(assetOptions);
@@ -79,10 +80,13 @@ class PatchMap {
 
   destroy() {
     Assets.reset();
+    const parentElement = this.app.canvas.parentElement;
     this.viewport.destroy(true);
     this.app.destroy(true);
+    parentElement.remove();
     if (this._resizeObserver) this._resizeObserver.disconnect();
 
+    this._app = null;
     this._viewport = null;
     this._resizeObserver = null;
     this._isInit = false;
