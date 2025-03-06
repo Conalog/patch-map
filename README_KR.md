@@ -17,6 +17,7 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixijs`
   - [기본 예제](#기본-예제)
 - [🛠 API 문서](#-api-문서)
   - [init(el, options)](#initel-options)
+  - [destroy()](#destroy)
   - [draw(data)](#drawdata)
   - [update(options)](#updateoptions)
   - [event](#event)
@@ -152,6 +153,11 @@ await patchMap.init(el, {
     black: '#1A1A1A',
   }
   ```
+
+<br/>
+
+### `destroy()`
+메모리 누수를 방지하고자 등록된 Asset 및 Application을 destroy합니다.
 
 <br/>
 
