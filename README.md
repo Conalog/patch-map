@@ -16,6 +16,7 @@ It enables flexible and fast creation of 2D content.
   - [Usage](#usage)
 - [🛠 API Overview](#-api-overview)
   - [init(el, options)](#initel-options)
+  - [destroy()](#destroy)
   - [draw(data)](#drawdata)
   - [update(options)](#updateoptions)
   - [event](#event)
@@ -152,6 +153,11 @@ Customize the rendering behavior using the following options:
     black: '#1A1A1A',
   }
   ```
+
+<br/>
+
+### `destroy()`
+Destroys registered assets and the application to prevent memory leaks.
 
 <br/>
 
