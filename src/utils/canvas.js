@@ -2,7 +2,7 @@ import { renderer } from './renderer';
 import { selector } from './selector/selector';
 
 export const focus = (viewport, id) => {
-  const object = getObject(viewport, id);
+  const object = getObjectById(viewport, id);
   if (!object.length) return;
   const bounds = getScaleBounds(viewport, object[0]);
   viewport.moveCenter(
@@ -13,7 +13,7 @@ export const focus = (viewport, id) => {
 
 export const fit = (viewport, id) => {
   focus(viewport, id);
-  const object = getObject(viewport, id);
+  const object = getObjectById(viewport, id);
   if (!object.length) return;
   const bounds = getScaleBounds(viewport, object[0]);
   viewport.fit(true, bounds.width, bounds.height);
@@ -34,6 +34,6 @@ export const getPointerPosition = (viewport) => {
   return viewport ? viewport.toWorld(global.x, global.y) : global;
 };
 
-const getObject = (viewport, id) => {
+const getObjectById = (viewport, id) => {
   return id ? selector(viewport, `$..children[?(@.id=="${id}")]`) : [viewport];
 };

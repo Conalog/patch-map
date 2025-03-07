@@ -3,6 +3,7 @@ import { isValidationError } from 'zod-validation-error';
 import { draw } from './display/draw';
 import { update } from './display/update';
 import { dragSelect } from './events/drag-select';
+import { select } from './events/select';
 import {
   initApp,
   initAsset,
@@ -140,6 +141,10 @@ class PatchMap {
 
   selector(path, opts) {
     return selector(this.viewport, path, opts);
+  }
+
+  select(opts) {
+    select(this.viewport, opts);
   }
 
   dragSelect(opts) {
