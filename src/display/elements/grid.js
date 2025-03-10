@@ -61,7 +61,6 @@ const addItemElements = (container, cells, cellSize) => {
           index: colIndex + row.length * rowIndex,
         },
       });
-      item.eventMode = 'static';
       container.addChild(item);
     }
   }
