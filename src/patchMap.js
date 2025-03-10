@@ -145,9 +145,6 @@ class PatchMap {
 
   select(opts) {
     select(this.viewport, opts);
-  }
-
-  dragSelect(opts) {
     dragSelect(this.viewport, opts);
   }
 }

@@ -13,17 +13,18 @@ export const findIntersectObject = (viewport, state, options) => {
     });
 
     for (const child of children) {
-      if (options.filter && !options.filter(child)) {
-        continue;
-      }
-
       if (
         child.renderPipeId ||
         child.type === 'item' ||
         (options.isSelectGrid && child.type === 'grid')
       ) {
-        if (intersectPoint(child, state.point)) {
-          return getSelectObject(child, options);
+        const isIntersecting = intersectPoint(child, state.point);
+        const selectObject = isIntersecting
+          ? getSelectObject(child, options)
+          : null;
+
+        if (selectObject && (!options.filter || options.filter(selectObject))) {
+          return selectObject;
         }
       }
 
@@ -39,16 +40,17 @@ export const findIntersectObjects = (viewport, state, options) => {
 
   function searchIntersect(parent) {
     let found = [];
-
     const children = [...parent.children];
-    for (const child of children) {
-      if (options.filter && !options.filter(child)) {
-        continue;
-      }
 
+    for (const child of children) {
       if (child.renderPipeId || ['item', 'relations'].includes(child.type)) {
-        if (intersect(state.box, child)) {
-          found.push(getSelectObject(child, options));
+        const isIntersecting = intersect(state.box, child);
+        const selectObject = isIntersecting
+          ? getSelectObject(child, options)
+          : null;
+
+        if (selectObject && (!options.filter || options.filter(selectObject))) {
+          found.push(selectObject);
         }
       } else {
         found = found.concat(searchIntersect(child));

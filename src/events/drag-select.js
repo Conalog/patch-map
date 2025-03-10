@@ -5,8 +5,7 @@ import { deepMerge } from '../utils/deepmerge/deepmerge';
 import { event } from '../utils/event/canvas';
 import { validate } from '../utils/vaildator';
 import { findIntersectObject, findIntersectObjects } from './find';
-import { selectEventSchema } from './schema';
-import { SELECT_EVENT_ID } from './select';
+import { dragSelectEventSchema } from './schema';
 import { checkEvents } from './utils';
 
 const DRAG_SELECT_EVENT_ID = 'drag-select-down drag-select-move drag-select-up';
@@ -23,14 +22,18 @@ const state = {
 };
 
 export const dragSelect = (viewport, opts) => {
-  const options = validate(deepMerge(config, opts), selectEventSchema);
+  const options = validate(deepMerge(config, opts), dragSelectEventSchema);
   if (isValidationError(options)) throw options;
 
   if (!checkEvents(viewport, DRAG_SELECT_EVENT_ID)) {
     addEvents(viewport);
   }
 
-  changeEnableState(viewport, config.enabled, options.enabled);
+  changeEnableState(
+    viewport,
+    config.enabled,
+    options.enabled && options.draggable,
+  );
   config = options;
 };
 
@@ -48,16 +51,11 @@ const addEvents = (viewport) => {
         resetState();
 
         const point = getPointerPosition(viewport);
-        if (
-          checkEvents(viewport, SELECT_EVENT_ID) &&
-          findIntersectObject(viewport, { point }, config)
-        ) {
-          return;
+        if (!findIntersectObject(viewport, { point }, config)) {
+          state.isDragging = true;
+          state.box.renderable = true;
+          state.startPoint = { ...point };
         }
-
-        state.isDragging = true;
-        state.box.renderable = true;
-        state.startPoint = { ...point };
       },
     });
   }
@@ -66,7 +64,7 @@ const addEvents = (viewport) => {
     event.addEvent(viewport, {
       id: 'drag-select-move',
       action: 'mousemove touchmove moved',
-      fn: (e) => {
+      fn: () => {
         if (!state.isDragging) return;
 
         viewport.plugin.start('mouse-edges');
@@ -79,7 +77,7 @@ const addEvents = (viewport) => {
           Math.abs(deltaX) > MOVE_DELTA / viewport.scale.x ||
           Math.abs(deltaY) > MOVE_DELTA / viewport.scale.y
         ) {
-          triggerFn(viewport, e);
+          triggerFn(viewport);
         }
       },
     });
@@ -117,7 +115,7 @@ const drawSelectionBox = () => {
     .stroke({ width: 2, color: '#1099FF', pixelLine: true });
 };
 
-const triggerFn = (viewport, e) => {
+const triggerFn = (viewport) => {
   const now = performance.now();
   if (now - lastMoveTime < DEBOUNCE_FN_INTERVAL) {
     return;
@@ -128,7 +126,9 @@ const triggerFn = (viewport, e) => {
     state.startPoint && state.endPoint
       ? findIntersectObjects(viewport, state, config)
       : [];
-  config.fn(intersectObjs, e);
+  if ('ondrag' in config) {
+    config.ondrag(intersectObjs);
+  }
 };
 
 const changeEnableState = (viewport, wasEnabled, isEnabled) => {

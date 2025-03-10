@@ -7,7 +7,7 @@ import { findIntersectObject } from './find';
 import { selectEventSchema } from './schema';
 import { checkEvents } from './utils';
 
-export const SELECT_EVENT_ID = 'select-down select-over select-out';
+const SELECT_EVENT_ID = 'select-down select-over';
 
 let config = {};
 const state = { point: null };
@@ -28,15 +28,16 @@ const addEvents = (viewport) => {
   event.removeEvent(viewport, SELECT_EVENT_ID);
   registerClickEvent();
   registerOverEvent();
-  registerOutEvent();
 
   function registerClickEvent() {
     event.addEvent(viewport, {
       id: 'select-down',
       action: 'mousedown touchstart',
-      fn: (e) => {
+      fn: () => {
         state.point = { ...getPointerPosition(viewport) };
-        config.fn(findIntersectObject(viewport, state, config), e);
+        if ('onclick' in config) {
+          config.onclick(findIntersectObject(viewport, state, config));
+        }
       },
     });
   }
@@ -45,22 +46,11 @@ const addEvents = (viewport) => {
     event.addEvent(viewport, {
       id: 'select-over',
       action: 'mouseover',
-      fn: (e) => {
-        if (e.target.type === 'canvas') return;
-
+      fn: () => {
         state.point = { ...getPointerPosition(viewport) };
-        config.fn(findIntersectObject(viewport, state, config), e);
-      },
-    });
-  }
-
-  function registerOutEvent() {
-    event.addEvent(viewport, {
-      id: 'select-out',
-      action: 'mouseout',
-      fn: (e) => {
-        state.point = null;
-        config.fn(null, e);
+        if ('onover' in config) {
+          config.onover(findIntersectObject(viewport, state, config));
+        }
       },
     });
   }
