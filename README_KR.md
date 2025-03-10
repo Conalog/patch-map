@@ -25,7 +25,7 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixijs`
   - [focus(id)](#focusid)
   - [fit(id)](#fitid)
   - [selector(path)](#selectorpath)
-  - [dragSelect(options)](#dragselectoptions)
+  - [select(options)](#selectoptions)
 - [🧑‍💻 개발](#-개발)
   - [개발 환경 세팅](#개발-환경-세팅)
   - [VSCode 통합](#vscode-통합)
@@ -319,6 +319,8 @@ patchMap.focus('group-id-1')
 patchMap.focus('grid-1')
 ```
 
+<br/>
+
 ### `fit(id)`
 ```js
 // 전체 캔버스 객체를 기준으로 fit
@@ -331,6 +333,8 @@ patchMap.fit('group-id-1')
 patchMap.fit('grid-1')
 ```
 
+<br/>
+
 ### `selector(path)`
 [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 객체 탐색기입니다.
 
@@ -338,23 +342,35 @@ patchMap.fit('grid-1')
 const result = patchMap.selector('$..[?(@.label=="group-label-1")]')
 ```
 
-### `dragSelect(options)`
-드래그 선택 기능을 활성화하여, 사용자가 화면에서 드래그할 때 선택된 객체들을 감지하고 콜백 함수에 전달합니다.
-- `enabled` (optional, boolean): 드래그 선택 기능의 활성화 여부를 결정합니다.
-- `filter` (optional, function): 선택 대상 객체를 조건에 따라 필터링할 수 있는 함수입니다.
-- `fn` (required, function): 드래그 선택이 발생할 때 호출될 콜백 함수입니다.
+<br/>
+
+### `select(options)`
+선택 이벤트를 활성화하여, 사용자가 화면에서 선택한 객체들을 감지하고 콜백 함수에 전달합니다.
+- `enabled` (optional, boolean): 선택 이벤트의 활성화 여부를 결정합니다.
+- `draggable` (optional, boolean): 드래그 활성화 여부를 결정합니다.
 - `isSelectGroup` (optional, boolean): group 객체를 선택할지 결정합니다.
 - `isSelectGrid` (optional, boolean): grid 객체를 선택할지 결정합니다.
+- `filter` (optional, function): 선택 대상 객체를 조건에 따라 필터링할 수 있는 함수입니다.
+- `onclick` (optional, function): 선택이 발생할 때 호출될 콜백 함수입니다.
+- `onover` (optional, function): 마우스 오버가 발생할 때 호출될 콜백 함수입니다.
+- `ondrag` (optional, function): 드래그가 발생할 때 호출될 콜백 함수입니다.
 
 ```js
-patchMap.dragSelect({
+patchMap.select({
   enabled: true,
-  filter: (obj) => obj.id.split('.')[0] === 'grid-1',
-  fn: (objs) => {
-    console.log(objs);
-  },
+  draggable: true,
   isSelectGroup: false,
   isSelectGrid: true,
+  filter: (obj) => obj.type !== 'relations',
+  onclick: (obj) => {
+    console.log(obj);
+  },
+  onover: (obj) => {
+    console.log(obj);
+  },
+  ondrag: (objs) => {
+    console.log(objs);
+  }
 });
 ```
 

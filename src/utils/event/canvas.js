@@ -53,7 +53,6 @@ export const onEvent = (viewport, id) => {
       const actions = splitByWhitespace(event.action);
       const objects = selector(viewport, event.path);
       for (const object of objects) {
-        object.eventMode = 'static';
         addAction(object, actions, event);
       }
       event.active = true;
@@ -81,7 +80,6 @@ export const offEvent = (viewport, id) => {
       const actions = splitByWhitespace(event.action);
       const objects = selector(viewport, event.path);
       for (const object of objects) {
-        object.eventMode = 'passive';
         removeAction(object, actions, event);
       }
       event.active = false;
