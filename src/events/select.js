@@ -36,7 +36,7 @@ const addEvents = (viewport) => {
       action: 'mousedown touchstart',
       fn: (e) => {
         state.point = { ...getPointerPosition(viewport) };
-        config.fn(findIntersectObject(viewport, state, config), e.type);
+        config.fn(findIntersectObject(viewport, state, config), e);
       },
     });
   }
@@ -49,7 +49,7 @@ const addEvents = (viewport) => {
         if (e.target.type === 'canvas') return;
 
         state.point = { ...getPointerPosition(viewport) };
-        config.fn(findIntersectObject(viewport, state, config), e.type);
+        config.fn(findIntersectObject(viewport, state, config), e);
       },
     });
   }
@@ -60,7 +60,7 @@ const addEvents = (viewport) => {
       action: 'mouseout',
       fn: (e) => {
         state.point = null;
-        config.fn(null, e.type);
+        config.fn(null, e);
       },
     });
   }

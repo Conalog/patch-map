@@ -66,7 +66,7 @@ const addEvents = (viewport) => {
     event.addEvent(viewport, {
       id: 'drag-select-move',
       action: 'mousemove touchmove moved',
-      fn: () => {
+      fn: (e) => {
         if (!state.isDragging) return;
 
         viewport.plugin.start('mouse-edges');
@@ -79,7 +79,7 @@ const addEvents = (viewport) => {
           Math.abs(deltaX) > MOVE_DELTA / viewport.scale.x ||
           Math.abs(deltaY) > MOVE_DELTA / viewport.scale.y
         ) {
-          triggerFn(viewport);
+          triggerFn(viewport, e);
         }
       },
     });
@@ -117,7 +117,7 @@ const drawSelectionBox = () => {
     .stroke({ width: 2, color: '#1099FF', pixelLine: true });
 };
 
-const triggerFn = (viewport) => {
+const triggerFn = (viewport, e) => {
   const now = performance.now();
   if (now - lastMoveTime < DEBOUNCE_FN_INTERVAL) {
     return;
@@ -128,7 +128,7 @@ const triggerFn = (viewport) => {
     state.startPoint && state.endPoint
       ? findIntersectObjects(viewport, state, config)
       : [];
-  config.fn(intersectObjs);
+  config.fn(intersectObjs, e);
 };
 
 const changeEnableState = (viewport, wasEnabled, isEnabled) => {
