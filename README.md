@@ -24,7 +24,6 @@ It enables flexible and fast creation of 2D content.
   - [focus(id)](#focusid)
   - [fit(id)](#fitid)
   - [selector(path)](#selectorpath)
-  - [dragSelect(options)](#dragselectoptions)
   - [select(options)](#selectoptions)
 - [🧑‍💻 Development](#-development)
   - [Setting up the development environment](#setting-up-the-development-environment)
@@ -361,22 +360,32 @@ patchMap.dragSelect({
 
 ```
 ### `select(options)`
-Enables the selection feature, allowing users to detect selected objects when dragging on the screen and pass them to a callback function.
-- `enabled` (optional, boolean): Determines whether the selection feature is enabled.
-- `filter` (optional, function): A function that can filter the target objects based on conditions.
-- `fn` (required, function): The callback function that is called when a selection occurs.
+The selection event is activated to detect objects that the user selects on the screen and pass them to a callback function.
+- `enabled` (optional, boolean): Determines whether the selection event is enabled.
+- `draggable` (optional, boolean): Determines whether dragging is enabled.
 - `isSelectGroup` (optional, boolean): Decides whether to select group objects.
 - `isSelectGrid` (optional, boolean): Decides whether to select grid objects.
+- `filter` (optional, function): A function that filters the target objects based on specific conditions.
+- `onclick` (optional, function): The callback function that is called when a selection occurs.
+- `onover` (optional, function): The callback function that is called when a mouse-over event occurs.
+- `ondrag` (optional, function): The callback function that is called when a drag event occurs.
 
 ```js
 patchMap.select({
   enabled: true,
-  filter: (obj) => obj.id.split('.')[0] === 'grid-1',
-  fn: (obj, e) => {
-    console.log(obj, e);
-  },
+  draggable: true,
   isSelectGroup: false,
   isSelectGrid: true,
+  filter: (obj) => obj.type !== 'relations',
+  onclick: (obj) => {
+    console.log(obj);
+  },
+  onover: (obj) => {
+    console.log(obj);
+  },
+  ondrag: (objs) => {
+    console.log(objs);
+  }
 });
 ```
 
