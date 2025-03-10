@@ -11,6 +11,7 @@ import { checkEvents } from './utils';
 
 const DRAG_SELECT_EVENT_ID = 'drag-select-down drag-select-move drag-select-up';
 const DEBOUNCE_FN_INTERVAL = 50; // ms
+const MOVE_DELTA = 4;
 
 let config = {};
 let lastMoveTime = 0;
@@ -71,7 +72,15 @@ const addEvents = (viewport) => {
         viewport.plugin.start('mouse-edges');
         state.endPoint = { ...getPointerPosition(viewport) };
         drawSelectionBox();
-        triggerFn(viewport);
+
+        const deltaX = state.endPoint.x - state.startPoint.x;
+        const deltaY = state.endPoint.y - state.startPoint.y;
+        if (
+          Math.abs(deltaX) > MOVE_DELTA / viewport.scale.x ||
+          Math.abs(deltaY) > MOVE_DELTA / viewport.scale.y
+        ) {
+          triggerFn(viewport);
+        }
       },
     });
   }
