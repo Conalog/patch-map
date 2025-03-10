@@ -320,6 +320,8 @@ patchMap.focus('group-id-1')
 patchMap.focus('grid-1')
 ```
 
+<br/>
+
 ### `fit(id)`
 ```js
 // Fit to the entire canvas object
@@ -332,12 +334,16 @@ patchMap.fit('group-id-1')
 patchMap.fit('grid-1')
 ```
 
+<br/>
+
 ### `selector(path)`
 Object explorer following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax.
 
 ```js
   const result = patchMap.selector('$..[?(@.label=="group-label-1")]')
 ```
+
+<br/>
 
 ### `select(options)`
 The selection event is activated to detect objects that the user selects on the screen and pass them to a callback function.

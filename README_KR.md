@@ -319,6 +319,8 @@ patchMap.focus('group-id-1')
 patchMap.focus('grid-1')
 ```
 
+<br/>
+
 ### `fit(id)`
 ```js
 // 전체 캔버스 객체를 기준으로 fit
@@ -331,12 +333,16 @@ patchMap.fit('group-id-1')
 patchMap.fit('grid-1')
 ```
 
+<br/>
+
 ### `selector(path)`
 [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 객체 탐색기입니다.
 
 ```js
 const result = patchMap.selector('$..[?(@.label=="group-label-1")]')
 ```
+
+<br/>
 
 ### `select(options)`
 선택 이벤트를 활성화하여, 사용자가 화면에서 선택한 객체들을 감지하고 콜백 함수에 전달합니다.
