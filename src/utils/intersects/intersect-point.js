@@ -6,7 +6,7 @@ export const intersectPoint = (obj, point) => {
   const viewport = getViewport(obj);
   if (!viewport) return false;
 
-  if ('containsPoint' in obj) {
+  if (obj.context && 'containsPoint' in obj) {
     return obj.containsPoint(point);
   }
 
