@@ -31,7 +31,7 @@ export const dragSelect = (viewport, opts) => {
 
   changeEnableState(
     viewport,
-    config.enabled,
+    config.enabled && config.draggable,
     options.enabled && options.draggable,
   );
   config = options;
