@@ -20,7 +20,7 @@ export const select = (viewport, opts) => {
     addEvents(viewport);
   }
 
-  changeEnableState(viewport, config.enabled, opts.enabled);
+  changeEnableState(viewport, config.enabled, options.enabled);
   config = options;
 };
 
