@@ -25,6 +25,7 @@ It enables flexible and fast creation of 2D content.
   - [fit(id)](#fitid)
   - [selector(path)](#selectorpath)
   - [dragSelect(options)](#dragselectoptions)
+  - [select(options)](#selectoptions)
 - [🧑‍💻 Development](#-development)
   - [Setting up the development environment](#setting-up-the-development-environment)
   - [VSCode Integration](#vscode-integration)
@@ -351,8 +352,28 @@ Enables the drag selection feature, allowing users to detect selected objects wh
 patchMap.dragSelect({
   enabled: true,
   filter: (obj) => obj.id.split('.')[0] === 'grid-1',
-  fn: (objs) => {
-    console.log(objs);
+  fn: (objs, e) => {
+    console.log(objs, e);
+  },
+  isSelectGroup: false,
+  isSelectGrid: true,
+});
+
+```
+### `select(options)`
+Enables the selection feature, allowing users to detect selected objects when dragging on the screen and pass them to a callback function.
+- `enabled` (optional, boolean): Determines whether the selection feature is enabled.
+- `filter` (optional, function): A function that can filter the target objects based on conditions.
+- `fn` (required, function): The callback function that is called when a selection occurs.
+- `isSelectGroup` (optional, boolean): Decides whether to select group objects.
+- `isSelectGrid` (optional, boolean): Decides whether to select grid objects.
+
+```js
+patchMap.select({
+  enabled: true,
+  filter: (obj) => obj.id.split('.')[0] === 'grid-1',
+  fn: (obj, e) => {
+    console.log(obj, e);
   },
   isSelectGroup: false,
   isSelectGrid: true,

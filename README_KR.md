@@ -26,6 +26,7 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixijs`
   - [fit(id)](#fitid)
   - [selector(path)](#selectorpath)
   - [dragSelect(options)](#dragselectoptions)
+  - [select(options)](#selectoptions)
 - [🧑‍💻 개발](#-개발)
   - [개발 환경 세팅](#개발-환경-세팅)
   - [VSCode 통합](#vscode-통합)
@@ -350,8 +351,28 @@ const result = patchMap.selector('$..[?(@.label=="group-label-1")]')
 patchMap.dragSelect({
   enabled: true,
   filter: (obj) => obj.id.split('.')[0] === 'grid-1',
-  fn: (objs) => {
-    console.log(objs);
+  fn: (objs, e) => {
+    console.log(objs, e);
+  },
+  isSelectGroup: false,
+  isSelectGrid: true,
+});
+
+```
+### `select(options)`
+선택 기능을 활성화하여, 사용자가 화면에서 선택한 객체들을 감지하고 콜백 함수에 전달합니다.
+- `enabled` (optional, boolean): 선택 기능의 활성화 여부를 결정합니다.
+- `filter` (optional, function): 선택 대상 객체를 조건에 따라 필터링할 수 있는 함수입니다.
+- `fn` (required, function): 선택이 발생할 때 호출될 콜백 함수입니다.
+- `isSelectGroup` (optional, boolean): group 객체를 선택할지 결정합니다.
+- `isSelectGrid` (optional, boolean): grid 객체를 선택할지 결정합니다.
+
+```js
+patchMap.select({
+  enabled: true,
+  filter: (obj) => obj.id.split('.')[0] === 'grid-1',
+  fn: (obj, e) => {
+    console.log(obj, e);
   },
   isSelectGroup: false,
   isSelectGrid: true,
