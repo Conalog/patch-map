@@ -1,5 +1,7 @@
 import gsap from 'gsap';
 import { getTexture } from '../assets/textures/texture';
+import { MoveCommand } from '../commands/move-command';
+import { undoRedoManager } from '../commands/undo-redo-manager';
 import { getScaleBounds } from '../utils/canvas';
 import { deepMerge } from '../utils/deepmerge/deepmerge';
 import { diff } from '../utils/diff/diff';
@@ -35,7 +37,7 @@ export const changeTint = (component, { tint }) => {
 };
 
 export const changePosition = (component, { position }) => {
-  component.position.set(position.x, position.y);
+  undoRedoManager.execute(new MoveCommand(component, position.x, position.y));
 };
 
 export const changeSize = (component, { size }) => {

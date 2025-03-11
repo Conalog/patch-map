@@ -1,5 +1,6 @@
 import { Application, Assets } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
+import { undoRedoManager } from './commands/undo-redo-manager';
 import { draw } from './display/draw';
 import { update } from './display/update';
 import { dragSelect } from './events/drag-select';
@@ -106,6 +107,7 @@ class PatchMap {
     }
 
     this.app.start();
+    undoRedoManager.clear();
     return validatedData;
 
     function preprocessData(data) {
