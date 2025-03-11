@@ -7,10 +7,10 @@ import { findIntersectObject } from './find';
 import { selectEventSchema } from './schema';
 import { checkEvents } from './utils';
 
-const SELECT_EVENT_ID = 'select-down select-over';
+const SELECT_EVENT_ID = 'select-down select-up select-over';
 
 let config = {};
-const state = { point: null };
+const state = { point: null, isDown: false };
 
 export const select = (viewport, opts) => {
   const options = validate(deepMerge(config, opts), selectEventSchema);
@@ -26,18 +26,28 @@ export const select = (viewport, opts) => {
 
 const addEvents = (viewport) => {
   event.removeEvent(viewport, SELECT_EVENT_ID);
-  registerClickEvent();
+  registerDownEvent();
+  registerUpEvent();
   registerOverEvent();
 
-  function registerClickEvent() {
+  function registerDownEvent() {
     event.addEvent(viewport, {
       id: 'select-down',
       action: 'mousedown touchstart',
       fn: () => {
-        state.point = { ...getPointerPosition(viewport) };
-        if ('onclick' in config) {
-          config.onclick(findIntersectObject(viewport, state, config));
-        }
+        state.isDown = true;
+        executeFn('onSelect');
+      },
+    });
+  }
+
+  function registerUpEvent() {
+    event.addEvent(viewport, {
+      id: 'select-up',
+      action: 'mouseup touchend',
+      fn: () => {
+        state.isDown = false;
+        executeFn('onOver');
       },
     });
   }
@@ -47,12 +57,17 @@ const addEvents = (viewport) => {
       id: 'select-over',
       action: 'mouseover',
       fn: () => {
-        state.point = { ...getPointerPosition(viewport) };
-        if ('onover' in config) {
-          config.onover(findIntersectObject(viewport, state, config));
-        }
+        if (state.isDown) return;
+        executeFn('onOver');
       },
     });
+  }
+
+  function executeFn(fnName) {
+    state.point = { ...getPointerPosition(viewport) };
+    if (fnName in config) {
+      config[fnName](findIntersectObject(viewport, state, config));
+    }
   }
 };
 

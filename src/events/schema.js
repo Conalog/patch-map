@@ -8,11 +8,11 @@ const selectDefaultSchema = z.object({
 });
 
 export const selectEventSchema = selectDefaultSchema.extend({
-  onclick: z.function().optional(),
-  onover: z.function().optional(),
+  onSelect: z.function().optional(),
+  onOver: z.function().optional(),
 });
 
 export const dragSelectEventSchema = selectDefaultSchema.extend({
   draggable: z.boolean().default(false),
-  ondrag: z.function().optional(),
+  onDragSelect: z.function().optional(),
 });

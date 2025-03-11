@@ -126,8 +126,8 @@ const triggerFn = (viewport) => {
     state.startPoint && state.endPoint
       ? findIntersectObjects(viewport, state, config)
       : [];
-  if ('ondrag' in config) {
-    config.ondrag(intersectObjs);
+  if ('onDragSelect' in config) {
+    config.onDragSelect(intersectObjs);
   }
 };
 

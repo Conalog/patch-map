@@ -352,9 +352,9 @@ The selection event is activated to detect objects that the user selects on the 
 - `isSelectGroup` (optional, boolean): Decides whether to select group objects.
 - `isSelectGrid` (optional, boolean): Decides whether to select grid objects.
 - `filter` (optional, function): A function that filters the target objects based on specific conditions.
-- `onclick` (optional, function): The callback function that is called when a selection occurs.
-- `onover` (optional, function): The callback function that is called when a mouse-over event occurs.
-- `ondrag` (optional, function): The callback function that is called when a drag event occurs.
+- `onSelect` (optional, function): The callback function that is called when a selection occurs.
+- `onOver` (optional, function): The callback function that is called when a pointer-over event occurs.
+- `onDragSelect` (optional, function): The callback function that is called when a drag event occurs.
 
 ```js
 patchMap.select({
@@ -363,13 +363,13 @@ patchMap.select({
   isSelectGroup: false,
   isSelectGrid: true,
   filter: (obj) => obj.type !== 'relations',
-  onclick: (obj) => {
+  onSelect: (obj) => {
     console.log(obj);
   },
-  onover: (obj) => {
+  onOver: (obj) => {
     console.log(obj);
   },
-  ondrag: (objs) => {
+  onDragSelect: (objs) => {
     console.log(objs);
   }
 });
