@@ -3,7 +3,7 @@ import { isValidationError } from 'zod-validation-error';
 import { draw } from './display/draw';
 import { update } from './display/update';
 import { dragSelect } from './events/drag-select';
-import { select } from './events/select';
+import { select } from './events/single-select';
 import {
   initApp,
   initAsset,
