@@ -351,9 +351,9 @@ const result = patchMap.selector('$..[?(@.label=="group-label-1")]')
 - `isSelectGroup` (optional, boolean): group 객체를 선택할지 결정합니다.
 - `isSelectGrid` (optional, boolean): grid 객체를 선택할지 결정합니다.
 - `filter` (optional, function): 선택 대상 객체를 조건에 따라 필터링할 수 있는 함수입니다.
-- `onclick` (optional, function): 선택이 발생할 때 호출될 콜백 함수입니다.
-- `onover` (optional, function): 마우스 오버가 발생할 때 호출될 콜백 함수입니다.
-- `ondrag` (optional, function): 드래그가 발생할 때 호출될 콜백 함수입니다.
+- `onSelect` (optional, function): 선택이 발생할 때 호출될 콜백 함수입니다.
+- `onOver` (optional, function): 포인터 오버가 발생할 때 호출될 콜백 함수입니다.
+- `onDragSelect` (optional, function): 드래그가 발생할 때 호출될 콜백 함수입니다.
 
 ```js
 patchMap.select({
@@ -362,13 +362,13 @@ patchMap.select({
   isSelectGroup: false,
   isSelectGrid: true,
   filter: (obj) => obj.type !== 'relations',
-  onclick: (obj) => {
+  onSelect: (obj) => {
     console.log(obj);
   },
-  onover: (obj) => {
+  onOver: (obj) => {
     console.log(obj);
   },
-  ondrag: (objs) => {
+  onDragSelect: (objs) => {
     console.log(objs);
   }
 });
