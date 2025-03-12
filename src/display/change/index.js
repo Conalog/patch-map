@@ -1,0 +1,13 @@
+export { changeProperty } from './property';
+export { changeShow } from './show';
+export { changePosition } from './position';
+export { changeLinks } from './links';
+export { changeStrokeStyle } from './stroke-style';
+export { changeTint } from './tint';
+export { changeTexture } from './texture';
+export { changeTransform } from './transform';
+export { changePercentSize } from './percent-size';
+export { changeSize } from './size';
+export { changePlacement } from './placement';
+export { changeText } from './text';
+export { changeTextStyle } from './text-style';
