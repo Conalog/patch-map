@@ -4,6 +4,7 @@ export class UndoRedoManager {
   constructor() {
     this._commands = [];
     this._index = -1;
+    this._listeners = new Set();
   }
 
   get commands() {
@@ -39,6 +40,7 @@ export class UndoRedoManager {
       this._commands.push(commandToPush);
       this._index++;
     }
+    this._emitChange();
   }
 
   undo() {
@@ -46,6 +48,7 @@ export class UndoRedoManager {
       const command = this._commands[this._index];
       command.undo();
       this._index--;
+      this._emitChange();
     }
   }
 
@@ -54,6 +57,7 @@ export class UndoRedoManager {
       this._index++;
       const command = this._commands[this._index];
       command.execute();
+      this._emitChange();
     }
   }
 
@@ -68,5 +72,18 @@ export class UndoRedoManager {
   clear() {
     this._commands = [];
     this._index = -1;
+    this._emitChange();
+  }
+
+  subscribe(listener) {
+    this._listeners.add(listener);
+    listener(this);
+    return () => {
+      this._listeners.delete(listener);
+    };
+  }
+
+  _emitChange() {
+    this._listeners.forEach((listener) => listener(this));
   }
 }
