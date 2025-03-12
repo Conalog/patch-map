@@ -1,4 +1,5 @@
 import { Commands } from '.';
+import { isInput } from './utils';
 
 export class UndoRedoManager {
   constructor() {
@@ -85,5 +86,25 @@ export class UndoRedoManager {
 
   _emitChange() {
     this._listeners.forEach((listener) => listener(this));
+  }
+
+  setHotkeys() {
+    document.addEventListener(
+      'keydown',
+      (e) => {
+        const key = (e.key || '').toLowerCase();
+        if (isInput(e.target)) return;
+
+        if (key === 'z' && (e.ctrlKey || e.metaKey)) {
+          this.undo();
+          e.preventDefault();
+        }
+        if (key === 'y' && (e.ctrlKey || e.metaKey)) {
+          this.redo();
+          e.preventDefault();
+        }
+      },
+      false,
+    );
   }
 }
