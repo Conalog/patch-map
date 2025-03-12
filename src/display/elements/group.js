@@ -1,4 +1,4 @@
-import { elementPipeline } from '../change/pipeline/element-pipeline';
+import { elementPipeline } from '../change/pipeline/element';
 import { updateObject } from '../update/update-object';
 import { createContainer } from '../utils';
 

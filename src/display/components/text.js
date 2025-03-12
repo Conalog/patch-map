@@ -2,7 +2,7 @@ import { BitmapText } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { validate } from '../../utils/vaildator';
-import { componentPipeline } from '../change/pipeline/component-pipeline';
+import { componentPipeline } from '../change/pipeline/component';
 import { updateObject } from '../update/update-object';
 
 const textSchema = z.object({
