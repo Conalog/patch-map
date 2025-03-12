@@ -1,5 +1,4 @@
-import { changePosition, changeShow } from '../change';
-import { updateComponents } from '../components/update-components';
+import { elementPipeline } from '../change/element-pipeline';
 import { updateObject } from '../update-object';
 import { createContainer } from '../utils';
 
@@ -15,13 +14,7 @@ export const createItem = (config) => {
   return element;
 };
 
-const pipeline = [
-  { keys: ['show'], handler: changeShow },
-  { keys: ['position'], handler: changePosition },
-  { keys: ['components'], handler: updateComponents },
-];
-const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
-
+const pipelineKeys = ['show', 'position', 'components'];
 export const updateItem = (element, options) => {
-  updateObject(element, options, pipeline, pipelineKeys);
+  updateObject(element, options, elementPipeline, pipelineKeys);
 };

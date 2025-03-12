@@ -2,12 +2,7 @@ import { BitmapText } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { validate } from '../../utils/vaildator';
-import {
-  changePlacement,
-  changeShow,
-  changeText,
-  changeTextStyle,
-} from '../change';
+import { componentPipeline } from '../change/component-pipeline';
 import { updateObject } from '../update-object';
 
 const textSchema = z.object({
@@ -27,14 +22,7 @@ export const textComponent = (opts) => {
   return component;
 };
 
-const pipeline = [
-  { keys: ['show'], handler: changeShow },
-  { keys: ['text', 'split'], handler: changeText },
-  { keys: ['style', 'margin'], handler: changeTextStyle },
-  { keys: ['placement', 'margin'], handler: changePlacement },
-];
-const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
-
+const pipelineKeys = ['show', 'text', 'style', 'placement'];
 export const updateTextComponent = (component, options) => {
-  updateObject(component, options, pipeline, pipelineKeys);
+  updateObject(component, options, componentPipeline, pipelineKeys);
 };

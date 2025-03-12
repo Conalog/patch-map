@@ -3,13 +3,7 @@ import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { getTexture } from '../../assets/textures/texture';
 import { validate } from '../../utils/vaildator';
-import {
-  changePlacement,
-  changeShow,
-  changeSize,
-  changeTexture,
-  changeTint,
-} from '../change';
+import { componentPipeline } from '../change/component-pipeline';
 import { updateObject } from '../update-object';
 
 const iconSchema = z.object({
@@ -31,26 +25,7 @@ export const iconComponent = (opts) => {
   return component;
 };
 
-const pipeline = [
-  { keys: ['show'], handler: changeShow },
-  {
-    keys: ['asset'],
-    handler: (component, options) => {
-      changeTexture(component, options);
-    },
-  },
-  {
-    keys: ['size'],
-    handler: (component, options) => {
-      changeSize(component, options);
-      changePlacement(component, {});
-    },
-  },
-  { keys: ['tint'], handler: changeTint },
-  { keys: ['placement', 'margin'], handler: changePlacement },
-];
-const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
-
+const pipelineKeys = ['show', 'texture', 'size', 'tint', 'placement'];
 export const updateIconComponent = (component, options) => {
-  updateObject(component, options, pipeline, pipelineKeys);
+  updateObject(component, options, componentPipeline, pipelineKeys);
 };

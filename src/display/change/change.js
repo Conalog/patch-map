@@ -1,16 +1,17 @@
 import gsap from 'gsap';
-import { getTexture } from '../assets/textures/texture';
-import { Commands, undoRedoManager } from '../command';
-import { getScaleBounds } from '../utils/canvas';
-import { deepMerge } from '../utils/deepmerge/deepmerge';
-import { diff } from '../utils/diff/diff';
-import { getColor } from '../utils/get';
-import { selector } from '../utils/selector/selector';
-import { FONT_WEIGHT } from './components/config';
-import { parseMargin } from './utils';
+import { getTexture } from '../../assets/textures/texture';
+import { getScaleBounds } from '../../utils/canvas';
+import { deepMerge } from '../../utils/deepmerge/deepmerge';
+import { diff } from '../../utils/diff/diff';
+import { getColor } from '../../utils/get';
+import { selector } from '../../utils/selector/selector';
+import { FONT_WEIGHT } from '../components/config';
+import { parseMargin } from '../utils';
 
 export const changeProperty = (object, key, value) => {
-  object[key] = value;
+  if (key === 'metadata' || key in object) {
+    object[key] = value;
+  }
 };
 
 export const changeShow = (object, { show }) => {
@@ -36,9 +37,7 @@ export const changeTint = (component, { tint }) => {
 };
 
 export const changePosition = (component, { position }) => {
-  undoRedoManager.execute(
-    new Commands.MoveObjectCommand(component, position.x, position.y),
-  );
+  component.position.set(position.x, position.y);
 };
 
 export const changeSize = (component, { size }) => {
@@ -299,6 +298,17 @@ export const changeLinks = (element, { links }) => {
   function getPoint(bounds) {
     return [bounds.x + bounds.width / 2, bounds.y + bounds.height / 2];
   }
+};
+
+export const changeTransform = (component) => {
+  const borderWidth = component.texture.metadata.borderWidth;
+  if (!borderWidth) return;
+  const parentSize = component.parent.size;
+  component.setSize(
+    parentSize.width + borderWidth,
+    parentSize.height + borderWidth,
+  );
+  component.position.set(-borderWidth / 2);
 };
 
 const isConfigMatch = (object, key, value) => {

@@ -1,5 +1,5 @@
 import { Graphics } from 'pixi.js';
-import { changeLinks, changeShow, changeStrokeStyle } from '../change';
+import { elementPipeline } from '../change/element-pipeline';
 import { updateObject } from '../update-object';
 import { createContainer } from '../utils';
 
@@ -10,15 +10,9 @@ export const createRelations = (config) => {
   return element;
 };
 
-const pipeline = [
-  { keys: ['show'], handler: changeShow },
-  { keys: ['strokeStyle'], handler: changeStrokeStyle },
-  { keys: ['links'], handler: changeLinks },
-];
-const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
-
+const pipelineKeys = ['show', 'strokeStyle', 'links'];
 export const updateRelations = (element, options) => {
-  updateObject(element, options, pipeline, pipelineKeys);
+  updateObject(element, options, elementPipeline, pipelineKeys);
 };
 
 const createPath = () => {
