@@ -1,6 +1,6 @@
 import { Application, Assets } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
-import { undoRedoManager } from './commands/undo-redo-manager';
+import { undoRedoManager } from './command';
 import { draw } from './display/draw';
 import { update } from './display/update';
 import { dragSelect } from './events/drag-select';

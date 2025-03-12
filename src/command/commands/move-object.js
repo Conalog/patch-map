@@ -1,8 +1,8 @@
-import { Command } from './command';
+import { Command } from './base';
 
-export class MoveCommand extends Command {
+export class MoveObjectCommand extends Command {
   constructor(object, x, y) {
-    super();
+    super('move_object');
     this.object = object;
     this.prevX = object.x;
     this.prevY = object.y;
