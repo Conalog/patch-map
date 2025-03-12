@@ -38,7 +38,6 @@ export const changeTint = (component, { tint }) => {
 export const changePosition = (component, { position }) => {
   undoRedoManager.execute(
     new Commands.MoveObjectCommand(component, position.x, position.y),
-    // { merge: 'position' },
   );
 };
 
