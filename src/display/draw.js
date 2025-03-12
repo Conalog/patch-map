@@ -2,7 +2,7 @@ import { createGrid } from './elements/grid';
 import { createGroup } from './elements/group';
 import { createItem } from './elements/item';
 import { createRelations } from './elements/relations';
-import { update } from './update';
+import { update } from './update/update';
 
 export const draw = (viewport, data) => {
   destroyChildren(viewport);

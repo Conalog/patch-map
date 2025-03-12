@@ -1,4 +1,4 @@
-import { updateComponents } from '../components/update-components';
+import { updateComponents } from '../update/update-components';
 import * as change from './change';
 import { pipeline } from './pipeline';
 

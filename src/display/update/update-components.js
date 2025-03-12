@@ -1,10 +1,13 @@
 import { isValidationError } from 'zod-validation-error';
 import { validate } from '../../utils/vaildator';
+import {
+  backgroundComponent,
+  updateBackgroundComponent,
+} from '../components/background';
+import { barComponent, updateBarComponent } from '../components/bar';
+import { iconComponent, updateIconComponent } from '../components/icon';
+import { textComponent, updateTextComponent } from '../components/text';
 import { componentSchema } from '../data-schema/component-schema';
-import { backgroundComponent, updateBackgroundComponent } from './background';
-import { barComponent, updateBarComponent } from './bar';
-import { iconComponent, updateIconComponent } from './icon';
-import { textComponent, updateTextComponent } from './text';
 
 const componentFn = {
   background: {

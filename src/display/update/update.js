@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
-import { convertArray } from '../utils/convert';
-import { selector } from '../utils/selector/selector';
-import { validate } from '../utils/vaildator';
-import { updateGrid } from './elements/grid';
-import { updateGroup } from './elements/group';
-import { updateItem } from './elements/item';
-import { updateRelations } from './elements/relations';
+import { convertArray } from '../../utils/convert';
+import { selector } from '../../utils/selector/selector';
+import { validate } from '../../utils/vaildator';
+import { updateGrid } from '../elements/grid';
+import { updateGroup } from '../elements/group';
+import { updateItem } from '../elements/item';
+import { updateRelations } from '../elements/relations';
 
 const updateSchema = z.object({
   path: z.nullable(z.string()).default(null),

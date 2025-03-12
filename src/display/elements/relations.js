@@ -1,6 +1,6 @@
 import { Graphics } from 'pixi.js';
 import { elementPipeline } from '../change/element-pipeline';
-import { updateObject } from '../update-object';
+import { updateObject } from '../update/update-object';
 import { createContainer } from '../utils';
 
 export const createRelations = (config) => {

@@ -4,7 +4,7 @@ import { isValidationError } from 'zod-validation-error';
 import { getTexture } from '../../assets/textures/texture';
 import { validate } from '../../utils/vaildator';
 import { componentPipeline } from '../change/component-pipeline';
-import { updateObject } from '../update-object';
+import { updateObject } from '../update/update-object';
 
 const iconSchema = z.object({
   asset: z.string(),

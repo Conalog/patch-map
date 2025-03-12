@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { validate } from '../../utils/vaildator';
 import { componentPipeline } from '../change/component-pipeline';
-import { updateObject } from '../update-object';
+import { updateObject } from '../update/update-object';
 
 const textSchema = z.object({
   label: z.nullable(z.string()).default(null),
