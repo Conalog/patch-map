@@ -1,4 +1,4 @@
-import * as change from './change';
+import * as change from '..';
 import { pipeline } from './pipeline';
 
 export const componentPipeline = {

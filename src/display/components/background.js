@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { getTexture } from '../../assets/textures/texture';
 import { validate } from '../../utils/vaildator';
-import { componentPipeline } from '../change/component-pipeline';
+import { componentPipeline } from '../change/pipeline/component-pipeline';
 import { TextureStyle } from '../data-schema/component-schema';
 import { updateObject } from '../update/update-object';
 

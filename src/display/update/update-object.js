@@ -1,5 +1,5 @@
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
-import { changeProperty } from '../change/change';
+import { changeProperty } from '../change';
 
 const DEFAULT_EXCEPTION_KEYS = new Set(['position']);
 

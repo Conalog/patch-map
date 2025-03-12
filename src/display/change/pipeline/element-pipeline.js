@@ -1,5 +1,5 @@
-import { updateComponents } from '../update/update-components';
-import * as change from './change';
+import * as change from '..';
+import { updateComponents } from '../../update/update-components';
 import { pipeline } from './pipeline';
 
 export const elementPipeline = {
