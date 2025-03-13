@@ -9,9 +9,16 @@ export class PositionCommand extends Command {
   constructor(object, config) {
     super('position_object');
     this.object = object;
+    this._config = parsePick(config, optionKeys);
+    this._prevConfig = parsePick(this.object.config, optionKeys);
+  }
 
-    this.config = parsePick(config, optionKeys);
-    this.prevConfig = parsePick(this.object.config, optionKeys);
+  get config() {
+    return this._config;
+  }
+
+  get prevConfig() {
+    return this._prevConfig;
   }
 
   execute() {

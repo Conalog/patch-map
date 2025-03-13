@@ -1,5 +1,5 @@
-import { diff } from '../../utils/diff/diff';
+import { isSame } from '../../utils/diff/isSame';
 
 export const isConfigMatch = (object, key, value) => {
-  return value == null || diff(object.config[key], value);
+  return value == null || isSame(object.config[key], value);
 };

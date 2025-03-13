@@ -9,9 +9,16 @@ export class TintCommand extends Command {
   constructor(object, config) {
     super('tint_object');
     this.object = object;
+    this._config = parsePick(config, optionKeys);
+    this._prevConfig = parsePick(object.config, optionKeys);
+  }
 
-    this.config = parsePick(config, optionKeys);
-    this.prevConfig = parsePick(object.config, optionKeys);
+  get config() {
+    return this._config;
+  }
+
+  get prevConfig() {
+    return this._prevConfig;
   }
 
   execute() {
