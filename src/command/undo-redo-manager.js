@@ -1,4 +1,4 @@
-import { Commands } from '.';
+import { BundleCommand } from './commands';
 import { isInput } from './utils';
 
 export class UndoRedoManager {
@@ -16,22 +16,24 @@ export class UndoRedoManager {
     command.execute();
     this._commands = this._commands.slice(0, this._index + 1);
 
-    const mergeId = options.merge;
+    const historyId = options.historyId;
     let shouldPush = false;
     let commandToPush = command;
 
-    if (mergeId) {
+    if (historyId) {
       const lastCommand = this._commands[this._commands.length - 1];
-      if (lastCommand && lastCommand.id === mergeId) {
-        if (lastCommand instanceof Commands.BundleCommand) {
+      if (lastCommand && lastCommand.id === historyId) {
+        if (lastCommand instanceof BundleCommand) {
           lastCommand.addCommand(command);
         } else {
-          this._commands[this._commands.length - 1] =
-            new Commands.BundleCommand(mergeId, [lastCommand, command]);
+          this._commands[this._commands.length - 1] = new BundleCommand(
+            historyId,
+            [lastCommand, command],
+          );
         }
       } else {
         shouldPush = true;
-        commandToPush = new Commands.BundleCommand(mergeId, [command]);
+        commandToPush = new BundleCommand(historyId, [command]);
       }
     } else {
       shouldPush = true;

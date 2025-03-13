@@ -8,6 +8,6 @@ export const createGroup = (config) => {
 };
 
 const pipelineKeys = ['show', 'position'];
-export const updateGroup = (element, options) => {
-  updateObject(element, options, elementPipeline, pipelineKeys);
+export const updateGroup = (element, config, options) => {
+  updateObject(element, config, elementPipeline, pipelineKeys, options);
 };

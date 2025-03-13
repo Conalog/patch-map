@@ -23,6 +23,6 @@ export const textComponent = (opts) => {
 };
 
 const pipelineKeys = ['show', 'text', 'style', 'placement'];
-export const updateTextComponent = (component, options) => {
-  updateObject(component, options, componentPipeline, pipelineKeys);
+export const updateTextComponent = (component, config, options) => {
+  updateObject(component, config, componentPipeline, pipelineKeys, options);
 };

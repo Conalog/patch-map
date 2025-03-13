@@ -21,8 +21,8 @@ export const createGrid = (config) => {
 };
 
 const pipelineKeys = ['show', 'position', 'gridComponents'];
-export const updateGrid = (element, options) => {
-  updateObject(element, options, elementPipeline, pipelineKeys);
+export const updateGrid = (element, config, options) => {
+  updateObject(element, config, elementPipeline, pipelineKeys, options);
 };
 
 const addItemElements = (container, cells, cellSize) => {

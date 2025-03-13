@@ -11,8 +11,8 @@ export const createRelations = (config) => {
 };
 
 const pipelineKeys = ['show', 'strokeStyle', 'links'];
-export const updateRelations = (element, options) => {
-  updateObject(element, options, elementPipeline, pipelineKeys);
+export const updateRelations = (element, config, options) => {
+  updateObject(element, config, elementPipeline, pipelineKeys, options);
 };
 
 const createPath = () => {

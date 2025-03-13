@@ -5,7 +5,7 @@ export { changeLinks } from './links';
 export { changeStrokeStyle } from './stroke-style';
 export { changeTint } from './tint';
 export { changeTexture } from './texture';
-export { changeTransform } from './transform';
+export { changeTextureTransform } from './texture-transform';
 export { changePercentSize } from './percent-size';
 export { changeSize } from './size';
 export { changePlacement } from './placement';

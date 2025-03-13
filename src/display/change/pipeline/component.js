@@ -9,28 +9,28 @@ export const componentPipeline = {
   },
   texture: {
     keys: ['asset', 'texture'],
-    handler: (component, options) => {
-      change.changeTexture(component, options);
+    handler: (component, config) => {
+      change.changeTexture(component, config);
     },
   },
   textureTransform: {
     keys: ['texture'],
-    handler: (component, options) => {
-      change.changeTexture(component, options);
-      change.changeTransform(component);
+    handler: (component, config) => {
+      change.changeTexture(component, config);
+      change.changeTextureTransform(component);
     },
   },
   percentSize: {
     keys: ['percentWidth', 'percentHeight', 'margin'],
-    handler: (component, options) => {
-      change.changePercentSize(component, options);
+    handler: (component, config) => {
+      change.changePercentSize(component, config);
       change.changePlacement(component, {});
     },
   },
   size: {
     keys: ['size'],
-    handler: (component, options) => {
-      change.changeSize(component, options);
+    handler: (component, config) => {
+      change.changeSize(component, config);
       change.changePlacement(component, {});
     },
   },

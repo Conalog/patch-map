@@ -15,6 +15,6 @@ export const createItem = (config) => {
 };
 
 const pipelineKeys = ['show', 'position', 'components'];
-export const updateItem = (element, options) => {
-  updateObject(element, options, elementPipeline, pipelineKeys);
+export const updateItem = (element, config, options) => {
+  updateObject(element, config, elementPipeline, pipelineKeys, options);
 };

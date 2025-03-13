@@ -41,6 +41,6 @@ export const backgroundComponent = (opts) => {
 };
 
 const pipelineKeys = ['show', 'textureTransform', 'tint'];
-export const updateBackgroundComponent = (component, options) => {
-  updateObject(component, options, componentPipeline, pipelineKeys);
+export const updateBackgroundComponent = (component, config, options) => {
+  updateObject(component, config, componentPipeline, pipelineKeys, options);
 };

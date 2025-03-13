@@ -32,6 +32,6 @@ export const barComponent = (opts) => {
 };
 
 const pipelineKeys = ['show', 'texture', 'tint', 'percentSize', 'placement'];
-export const updateBarComponent = (component, options) => {
-  updateObject(component, options, componentPipeline, pipelineKeys);
+export const updateBarComponent = (component, config, options) => {
+  updateObject(component, config, componentPipeline, pipelineKeys, options);
 };

@@ -26,6 +26,6 @@ export const iconComponent = (opts) => {
 };
 
 const pipelineKeys = ['show', 'texture', 'size', 'tint', 'placement'];
-export const updateIconComponent = (component, options) => {
-  updateObject(component, options, componentPipeline, pipelineKeys);
+export const updateIconComponent = (component, config, options) => {
+  updateObject(component, config, componentPipeline, pipelineKeys, options);
 };

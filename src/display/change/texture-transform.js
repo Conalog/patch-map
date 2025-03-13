@@ -1,4 +1,4 @@
-export const changeTransform = (component) => {
+export const changeTextureTransform = (component) => {
   const borderWidth = component.texture.metadata.borderWidth;
   if (!borderWidth) return;
   const parentSize = component.parent.size;

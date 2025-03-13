@@ -1,2 +1,2 @@
 export { BundleCommand } from './bundle';
-export { MoveObjectCommand } from './move-object';
+export { PositionCommand } from './position';
