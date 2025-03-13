@@ -101,7 +101,11 @@ export class UndoRedoManager {
         if (isInput(e.target)) return;
 
         if (key === 'z' && (e.ctrlKey || e.metaKey)) {
-          this.undo();
+          if (e.shiftKey) {
+            this.redo();
+          } else {
+            this.undo();
+          }
           e.preventDefault();
         }
         if (key === 'y' && (e.ctrlKey || e.metaKey)) {
