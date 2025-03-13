@@ -1,5 +1,5 @@
 import * as change from '..';
-import { pipeline } from './pipeline';
+import { pipeline } from './base';
 
 export const componentPipeline = {
   ...pipeline,

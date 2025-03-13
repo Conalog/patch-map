@@ -28,7 +28,7 @@ const componentFn = {
   },
 };
 
-export const updateComponents = (item, { components }) => {
+export const updateComponents = (item, { components }, options) => {
   if (!components) return;
 
   const children = [...item.children];
@@ -55,9 +55,7 @@ export const updateComponents = (item, { components }) => {
     }
 
     if (component) {
-      componentFn[component.type].update(component, {
-        ...config,
-      });
+      componentFn[component.type].update(component, { ...config }, options);
     }
   }
 

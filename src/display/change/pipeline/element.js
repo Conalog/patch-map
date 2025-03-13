@@ -1,7 +1,7 @@
 import * as change from '..';
 import { Commands, undoRedoManager } from '../../../command';
 import { updateComponents } from '../../update/update-components';
-import { pipeline } from './pipeline';
+import { pipeline } from './base';
 
 export const elementPipeline = {
   ...pipeline,
@@ -20,9 +20,9 @@ export const elementPipeline = {
   },
   gridComponents: {
     keys: ['components'],
-    handler: (element, config) => {
+    handler: (element, config, options) => {
       for (const cell of element.children) {
-        updateComponents(cell, config);
+        updateComponents(cell, config, options);
       }
     },
   },
