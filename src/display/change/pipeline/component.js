@@ -1,11 +1,13 @@
 import * as change from '..';
+import { Commands } from '../../../command';
 import { pipeline } from './base';
+import { createCommandHandler } from './utils';
 
 export const componentPipeline = {
   ...pipeline,
   tint: {
     keys: ['tint'],
-    handler: change.changeTint,
+    handler: createCommandHandler(Commands.TintCommand, change.changeTint),
   },
   texture: {
     keys: ['asset', 'texture'],
