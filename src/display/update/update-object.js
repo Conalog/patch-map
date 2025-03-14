@@ -1,4 +1,3 @@
-import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { changeProperty } from '../change';
 
 const DEFAULT_EXCEPTION_KEYS = new Set(['position']);
@@ -26,5 +25,4 @@ export const updateObject = (
       changeProperty(object, key, value);
     }
   }
-  object.config = deepMerge(object.config, config);
 };

@@ -1,5 +1,4 @@
 import { changePosition } from '../../display/change';
-import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { parsePick } from '../utils';
 import { Command } from './base';
 
@@ -23,11 +22,9 @@ export class PositionCommand extends Command {
 
   execute() {
     changePosition(this.object, this.config);
-    this.object.config = deepMerge(this.object.config, this.config);
   }
 
   undo() {
     changePosition(this.object, this.prevConfig);
-    this.object.config = deepMerge(this.object.config, this.prevConfig);
   }
 }
