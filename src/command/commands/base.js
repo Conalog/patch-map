@@ -13,15 +13,9 @@ export class Command {
     throw new Error('The undo() method must be implemented.');
   }
 
-  get config() {
-    throw new Error('config getter must be implemented.');
-  }
-
-  get prevConfig() {
-    throw new Error('prevConfig getter must be implemented.');
-  }
-
   isStateChanged() {
-    return !isSame(this.config, this.prevConfig);
+    return this.config && this.prevConfig
+      ? !isSame(this.config, this.prevConfig)
+      : true;
   }
 }
