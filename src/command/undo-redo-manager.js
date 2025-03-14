@@ -9,6 +9,10 @@ export class UndoRedoManager {
     this._maxCommands = maxCommands;
   }
 
+  /**
+   * Returns the list of commands in the history.
+   * @returns {Array<Command>}
+   */
   get commands() {
     return this._commands;
   }
@@ -54,6 +58,9 @@ export class UndoRedoManager {
     this._emitChange();
   }
 
+  /**
+   * Undoes the last executed command.
+   */
   undo() {
     if (this.canUndo()) {
       const command = this._commands[this._index];
@@ -63,6 +70,9 @@ export class UndoRedoManager {
     }
   }
 
+  /**
+   * Redoes the last undone command.
+   */
   redo() {
     if (this.canRedo()) {
       this._index++;
@@ -72,20 +82,36 @@ export class UndoRedoManager {
     }
   }
 
+  /**
+   * Checks if there are any commands to undo.
+   * @returns {boolean}
+   */
   canUndo() {
     return this._index >= 0;
   }
 
+  /**
+   * Checks if there are any commands to redo.
+   * @returns {boolean}
+   */
   canRedo() {
     return this._index < this._commands.length - 1;
   }
 
+  /**
+   * Clears the command history.
+   */
   clear() {
     this._commands = [];
     this._index = -1;
     this._emitChange();
   }
 
+  /**
+   * Subscribes a listener to be called when the command history changes.
+   * @param {Function} listener - The listener function to call.
+   * @returns {Function} - A function to unsubscribe the listener.
+   */
   subscribe(listener) {
     this._listeners.add(listener);
     listener(this);
@@ -94,10 +120,18 @@ export class UndoRedoManager {
     };
   }
 
+  /**
+   * Emits a change event to all listeners.
+   * @private
+   */
   _emitChange() {
     this._listeners.forEach((listener) => listener(this));
   }
 
+  /**
+   * Sets up hotkeys for undo/redo functionality (Ctrl+Z, Ctrl+Y).
+   * @private
+   */
   _setHotkeys() {
     document.addEventListener(
       'keydown',
