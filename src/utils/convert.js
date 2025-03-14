@@ -1,4 +1,4 @@
-import { createUUID } from './uuid';
+import { uid } from './uuid';
 
 export const convertArray = (items) => {
   return Array.isArray(items) ? items : [items];
@@ -13,7 +13,7 @@ export const convertLegacyData = (data) => {
 
     objs[key] = {
       type: 'group',
-      id: createUUID(),
+      id: uid(),
       label: key === 'grids' ? 'panelGroups' : key,
       items: [],
     };

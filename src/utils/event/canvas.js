@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { selector } from '../selector/selector';
-import { createUUID } from '../uuid';
+import { uid } from '../uuid';
 import { validate } from '../vaildator';
 
 const addEventSchema = z.object({
@@ -17,7 +17,7 @@ export const addEvent = (viewport, opts) => {
   if (isValidationError(config)) throw config;
 
   const { path, action, fn, options } = config;
-  const id = config.id || createUUID();
+  const id = config.id || uid();
 
   if (!(id in viewport.events)) {
     viewport.events[id] = { path, action, fn, options, active: false };

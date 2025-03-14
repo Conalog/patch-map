@@ -15,7 +15,7 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixijs`
 - [🚀 시작하기](#-시작하기)
   - [설치](#설치)
   - [기본 예제](#기본-예제)
-- [🛠 API 문서](#-api-문서)
+- [PatchMap](#patchmap)
   - [init(el, options)](#initel-options)
   - [destroy()](#destroy)
   - [draw(data)](#drawdata)
@@ -26,6 +26,14 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixijs`
   - [fit(id)](#fitid)
   - [selector(path)](#selectorpath)
   - [select(options)](#selectoptions)
+- [undoRedoManager](#undoredomanager)
+  - [execute(command, options)](#executecommand-options)
+  - [undo()](#undo)
+  - [redo()](#redo)
+  - [canUndo()](#canundo)
+  - [canRedo()](#canredo)
+  - [clear()](#clear)
+  - [subscribe(listener)](#subscribelistener)  
 - [🧑‍💻 개발](#-개발)
   - [개발 환경 세팅](#개발-환경-세팅)
   - [VSCode 통합](#vscode-통합)
@@ -86,7 +94,8 @@ npm install @conalog/patch-map
 
 <br/>
 
-## 🛠 API 문서
+
+## PatchMap
 
 ### `init(el, options)`
 PATCH MAP을 초기화하는 것으로, 1번만 실행되어야 합니다.
@@ -210,6 +219,8 @@ draw method가 요구하는 **데이터 구조**입니다.
 - `path`(optional, string) - [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 selector로, 이벤트가 적용될 객체를 선택합니다.
 - `elements`(optional, object \| array) - 업데이트할 하나 이상의 객체에 대한 직접 참조입니다. 단일 객체 또는 배열을 허용합니다. ([selector](#selectorpath)에서 반환된 객체 등).
 - `changes`(required, object) - 적용할 새로운 속성 (예: 색상, 텍스트 가시성).
+- `saveToHistory`(optional, boolean \| string) - 해당 `update` 메소드에 의한 변경 사항을 `undoRedoManager`에 기록할 것인지 결정합니다. 이전에 저장된 기록의 historyId와 일치하는 문자열이 제공되면, 두 기록이 하나의 실행 취소/재실행 단계로 병합됩니다.
+- `relativeTransform`(optional, boolean) - `position`, `rotation`, `angle` 값에 대해서 상대값을 이용할 지 결정합니다. 만약, `true` 라면 전달된 값을 객체의 값에 더합니다.
 
 ```js
 // label이 "grid-label-1"인 객체들에 대해 변경 사항 적용
@@ -371,6 +382,49 @@ patchMap.select({
   onDragSelect: (objs) => {
     console.log(objs);
   }
+});
+```
+
+<br/>
+
+## undoRedoManager
+`UndoRedoManager` 클래스의 인스턴스입니다. 이 매니저는 실행된 명령을 기록하고, 이를 통해 실행 취소(undo) 및 재실행(redo) 기능을 제공합니다.
+
+### method
+
+#### `execute(command, options)`
+주어진 명령을 실행하고, 이를 기록합니다. `options` 객체를 통해 `historyId`를 설정할 수 있습니다.
+
+#### `undo()`
+마지막으로 실행된 명령을 취소합니다.
+```js
+undoRedoManager.undo();
+```
+
+#### `redo()`
+마지막으로 취소된 명령을 재실행합니다.
+```js
+undoRedoManager.redo();
+```
+
+#### `canUndo()`
+실행 취소가 가능한지 여부를 반환합니다.
+
+#### `canRedo()`
+재실행이 가능한지 여부를 반환합니다.
+
+#### `clear()`
+모든 명령 기록을 초기화합니다.
+
+#### `subscribe(listener)`
+리스너를 구독하여 명령 관련 변경 사항이 이루어졌을 때, 해당 리스너가 호출됩니다. 반환된 함수를 호출하여 구독을 취소할 수 있습니다.
+```js
+let canUndo = false;
+let canRedo = false;
+
+const unsubscribe = undoRedoManager.subscribe((manager) => {
+  canUndo = manager.canUndo();
+  canRedo = manager.canRedo();
 });
 ```
 
