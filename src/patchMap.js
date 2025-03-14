@@ -1,7 +1,8 @@
 import { Application, Assets } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
+import { undoRedoManager } from './command';
 import { draw } from './display/draw';
-import { update } from './display/update';
+import { update } from './display/update/update';
 import { dragSelect } from './events/drag-select';
 import { select } from './events/single-select';
 import {
@@ -68,6 +69,7 @@ class PatchMap {
       asset: assetOptions = {},
     } = opts;
 
+    undoRedoManager._setHotkeys();
     theme.set(themeOptions);
     this._app = new Application();
     await initApp(this.app, { resizeTo: element, ...appOptions });
@@ -106,6 +108,7 @@ class PatchMap {
     }
 
     this.app.start();
+    undoRedoManager.clear();
     return validatedData;
 
     function preprocessData(data) {

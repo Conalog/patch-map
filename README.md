@@ -14,7 +14,7 @@ It enables flexible and fast creation of 2D content.
 - [🚀 Getting Started](#-getting-started)
   - [Install](#install)
   - [Usage](#usage)
-- [🛠 API Overview](#-api-overview)
+- [PatchMap](#patchmap)
   - [init(el, options)](#initel-options)
   - [destroy()](#destroy)
   - [draw(data)](#drawdata)
@@ -25,6 +25,14 @@ It enables flexible and fast creation of 2D content.
   - [fit(id)](#fitid)
   - [selector(path)](#selectorpath)
   - [select(options)](#selectoptions)
+- [undoRedoManager](#undoredomanager)
+  - [execute(command, options)](#executecommand-options)
+  - [undo()](#undo)
+  - [redo()](#redo)
+  - [canUndo()](#canundo)
+  - [canRedo()](#canredo)
+  - [clear()](#clear)
+  - [subscribe(listener)](#subscribelistener)  
 - [🧑‍💻 Development](#-development)
   - [Setting up the development environment](#setting-up-the-development-environment)
   - [VSCode Integration](#vscode-integration)
@@ -86,7 +94,7 @@ Here’s a quick example to get you started:
 
 <br/>
 
-## 🛠 API Overview
+## PatchMap
 
 ### `init(el, options)`
 Initialize PATCH MAP with options.  
@@ -212,6 +220,8 @@ Updates the state of specific objects on the canvas. Use this to change properti
 - `path`(optional, string) - Selector for the object to which the event will be applied, following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax.
 - `elements`(optional, object \| array) - Direct references to one or more objects to update. Accepts a single object or an array. (Objects returned from [selector](#selectorpath), etc.).
 - `changes`(required, object) - New properties to apply (e.g., color, text visibility).
+- `saveToHistory`(optional, boolean \| string) - Determines whether to record changes made by this `update` method in the `undoRedoManager`. If a string that matches the historyId of a previously saved record is provided, the two records will be merged into a single undo/redo step.
+- `relativeTransform`(optional, boolean) - Determines whether to use relative values for `position`, `rotation`, and `angle`. If `true`, the provided values will be added to the object's values.
 
 ```js
 // Apply changes to objects with the label "grid-label-1"
@@ -372,6 +382,49 @@ patchMap.select({
   onDragSelect: (objs) => {
     console.log(objs);
   }
+});
+```
+
+<br/>
+
+## undoRedoManager
+An instance of the `UndoRedoManager` class. This manager records executed commands, allowing for undo and redo functionality.
+
+### method
+
+#### `execute(command, options)`
+Executes the given command and records it. You can set the `historyId` through the `options` object.
+
+#### `undo()`
+Cancels the last executed command.
+```js
+undoRedoManager.undo();
+```
+
+#### `redo()`
+Re-executes the last canceled command.
+```js
+undoRedoManager.redo();
+```
+
+#### `canUndo()`
+Returns whether undo is possible.
+
+#### `canRedo()`
+Returns whether redo is possible.
+
+#### `clear()`
+Clears all command history.
+
+#### `subscribe(listener)`
+Subscribes a listener that will be called when command-related changes occur. You can call the returned function to unsubscribe.
+```js
+let canUndo = false;
+let canRedo = false;
+
+const unsubscribe = undoRedoManager.subscribe((manager) => {
+  canUndo = manager.canUndo();
+  canRedo = manager.canRedo();
 });
 ```
 

@@ -3,10 +3,9 @@ import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { getTexture } from '../../assets/textures/texture';
 import { validate } from '../../utils/vaildator';
-import { changeTexture, changeTint } from '../change';
-import { changeShow } from '../change';
+import { componentPipeline } from '../change/pipeline/component';
 import { TextureStyle } from '../data-schema/component-schema';
-import { updateObject } from '../update-object';
+import { updateObject } from '../update/update-object';
 
 const backgroundSchema = z.object({
   texture: z.union([z.string(), TextureStyle]),
@@ -41,29 +40,7 @@ export const backgroundComponent = (opts) => {
   return component;
 };
 
-const pipeline = [
-  { keys: ['show'], handler: changeShow },
-  {
-    keys: ['texture'],
-    handler: (component, options) => {
-      changeTexture(component, options);
-      changeTransform(component);
-    },
-  },
-  { keys: ['tint'], handler: changeTint },
-];
-const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
-
-export const updateBackgroundComponent = (component, options) => {
-  updateObject(component, options, pipeline, pipelineKeys);
-};
-
-export const changeTransform = (component) => {
-  const borderWidth = component.texture.metadata.borderWidth;
-  const parentSize = component.parent.size;
-  component.setSize(
-    parentSize.width + borderWidth,
-    parentSize.height + borderWidth,
-  );
-  component.position.set(-borderWidth / 2);
+const pipelineKeys = ['show', 'textureTransform', 'tint'];
+export const updateBackgroundComponent = (component, config, options) => {
+  updateObject(component, config, componentPipeline, pipelineKeys, options);
 };

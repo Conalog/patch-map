@@ -1,6 +1,5 @@
-import { changePosition, changeShow } from '../change';
-import { updateComponents } from '../components/update-components';
-import { updateObject } from '../update-object';
+import { elementPipeline } from '../change/pipeline/element';
+import { updateObject } from '../update/update-object';
 import { createContainer } from '../utils';
 import { createItem } from './item';
 
@@ -21,22 +20,9 @@ export const createGrid = (config) => {
   return element;
 };
 
-const pipeline = [
-  { keys: ['show'], handler: changeShow },
-  { keys: ['position'], handler: changePosition },
-  {
-    keys: ['components'],
-    handler: (element, options) => {
-      for (const cell of element.children) {
-        updateComponents(cell, options);
-      }
-    },
-  },
-];
-const pipelineKeys = new Set(pipeline.flatMap((item) => item.keys));
-
-export const updateGrid = (element, options) => {
-  updateObject(element, options, pipeline, pipelineKeys);
+const pipelineKeys = ['show', 'position', 'gridComponents'];
+export const updateGrid = (element, config, options) => {
+  updateObject(element, config, elementPipeline, pipelineKeys, options);
 };
 
 const addItemElements = (container, cells, cellSize) => {
