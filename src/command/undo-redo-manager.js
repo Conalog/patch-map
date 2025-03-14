@@ -2,10 +2,11 @@ import { BundleCommand } from './commands';
 import { isInput } from './utils';
 
 export class UndoRedoManager {
-  constructor() {
+  constructor(maxCommands = 50) {
     this._commands = [];
     this._index = -1;
     this._listeners = new Set();
+    this._maxCommands = maxCommands;
   }
 
   get commands() {
@@ -45,6 +46,10 @@ export class UndoRedoManager {
     if (shouldPush) {
       this._commands.push(commandToPush);
       this._index++;
+      if (this._commands.length > this._maxCommands) {
+        this._commands.shift();
+        this._index--;
+      }
     }
     this._emitChange();
   }
