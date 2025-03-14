@@ -219,7 +219,7 @@ draw method가 요구하는 **데이터 구조**입니다.
 - `path`(optional, string) - [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 selector로, 이벤트가 적용될 객체를 선택합니다.
 - `elements`(optional, object \| array) - 업데이트할 하나 이상의 객체에 대한 직접 참조입니다. 단일 객체 또는 배열을 허용합니다. ([selector](#selectorpath)에서 반환된 객체 등).
 - `changes`(required, object) - 적용할 새로운 속성 (예: 색상, 텍스트 가시성).
-- `recordHistory`(optional, boolean \| string) - 해당 `update` 메소드에 의한 변경 사항을 `undoRedoManager`에 기록할 것인지 결정합니다. 만약, 이전에 저장된 기록의 id와 같은 문자열이 전달되면 두 기록은 합쳐집니다.
+- `recordHistory`(optional, boolean \| string) - 해당 `update` 메소드에 의한 변경 사항을 `undoRedoManager`에 기록할 것인지 결정합니다. 이전에 저장된 기록의 historyId와 일치하는 문자열이 제공되면, 두 기록이 하나의 실행 취소/재실행 단계로 병합됩니다.
 - `relativeTransform`(optional, boolean) - `position`, `rotation`, `angle` 값에 대해서 상대값을 이용할 지 결정합니다. 만약, `true` 라면 전달된 값을 객체의 값에 더합니다.
 
 ```js

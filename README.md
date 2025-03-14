@@ -220,7 +220,7 @@ Updates the state of specific objects on the canvas. Use this to change properti
 - `path`(optional, string) - Selector for the object to which the event will be applied, following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax.
 - `elements`(optional, object \| array) - Direct references to one or more objects to update. Accepts a single object or an array. (Objects returned from [selector](#selectorpath), etc.).
 - `changes`(required, object) - New properties to apply (e.g., color, text visibility).
-- `recordHistory`(optional, boolean \| string) - Determines whether to record changes made by this `update` method in the `undoRedoManager`. If a string that matches the id of a previously saved record is provided, the two records will be merged.
+- `recordHistory`(optional, boolean \| string) - Determines whether to record changes made by this `update` method in the `undoRedoManager`. If a string that matches the historyId of a previously saved record is provided, the two records will be merged into a single undo/redo step.
 - `relativeTransform`(optional, boolean) - Determines whether to use relative values for `position`, `rotation`, and `angle`. If `true`, the provided values will be added to the object's values.
 
 ```js
