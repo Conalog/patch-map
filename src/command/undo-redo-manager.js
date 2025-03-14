@@ -98,7 +98,7 @@ export class UndoRedoManager {
     this._listeners.forEach((listener) => listener(this));
   }
 
-  setHotkeys() {
+  _setHotkeys() {
     document.addEventListener(
       'keydown',
       (e) => {

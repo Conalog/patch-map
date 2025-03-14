@@ -69,7 +69,7 @@ class PatchMap {
       asset: assetOptions = {},
     } = opts;
 
-    undoRedoManager.setHotkeys();
+    undoRedoManager._setHotkeys();
     theme.set(themeOptions);
     this._app = new Application();
     await initApp(this.app, { resizeTo: element, ...appOptions });
