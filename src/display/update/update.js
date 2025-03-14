@@ -12,7 +12,7 @@ import { updateRelations } from '../elements/relations';
 const updateSchema = z.object({
   path: z.nullable(z.string()).default(null),
   changes: z.record(z.unknown()),
-  recordHistory: z.union([z.boolean(), z.string()]).default(false),
+  saveToHistory: z.union([z.boolean(), z.string()]).default(false),
   relativeTransform: z.boolean().default(false),
 });
 
@@ -20,7 +20,7 @@ export const update = (parent, opts) => {
   const config = validate(opts, updateSchema.passthrough());
   if (isValidationError(config)) throw config;
 
-  const historyId = createHistoryId(config.recordHistory);
+  const historyId = createHistoryId(config.saveToHistory);
   const elements = 'elements' in config ? convertArray(config.elements) : [];
   if (parent && config.path) {
     elements.push(...selector(parent, config.path));
@@ -68,10 +68,10 @@ const applyRelativeTransform = (element, changes) => {
   return newChanges;
 };
 
-const createHistoryId = (recordHistory) => {
+const createHistoryId = (saveToHistory) => {
   let historyId = null;
-  if (recordHistory) {
-    historyId = typeof recordHistory === 'string' ? recordHistory : uid();
+  if (saveToHistory) {
+    historyId = typeof saveToHistory === 'string' ? saveToHistory : uid();
   }
   return historyId;
 };
