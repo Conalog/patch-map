@@ -1,13 +1,15 @@
 import { selector } from '../../utils/selector/selector';
+import { updateConfig } from './utils';
 
-export const changeStrokeStyle = (element, { strokeStyle, links }) => {
-  const path = selector(element, '$.children[?(@.type==="path")]')[0];
+export const changeStrokeStyle = (object, { strokeStyle, links }) => {
+  const path = selector(object, '$.children[?(@.type==="path")]')[0];
   if (!path) return;
 
   path.setStrokeStyle({ ...path.strokeStyle, ...strokeStyle });
   if (!links && path.links.length > 0) {
     reRenderPath(path);
   }
+  updateConfig(object, { strokeStyle, links });
 
   function reRenderPath(path) {
     path.clear();

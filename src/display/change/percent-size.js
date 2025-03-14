@@ -1,29 +1,36 @@
 import gsap from 'gsap';
 import { parseMargin } from '../utils';
 import { changePlacement } from './placement';
-import { isConfigMatch } from './utils';
+import { isConfigMatch, updateConfig } from './utils';
 
 export const changePercentSize = (
-  component,
+  object,
   {
-    percentWidth = component.config.percentWidth,
-    percentHeight = component.config.percentHeight,
-    margin = component.config.margin,
-    animation = component.config.animation,
-    animationDuration = component.config.animationDuration,
+    percentWidth = object.config.percentWidth,
+    percentHeight = object.config.percentHeight,
+    margin = object.config.margin,
+    animation = object.config.animation,
+    animationDuration = object.config.animationDuration,
   },
 ) => {
   if (
-    isConfigMatch(component, 'percentWidth', percentWidth) &&
-    isConfigMatch(component, 'percentHeight', percentHeight) &&
-    isConfigMatch(component, 'margin', margin)
+    isConfigMatch(object, 'percentWidth', percentWidth) &&
+    isConfigMatch(object, 'percentHeight', percentHeight) &&
+    isConfigMatch(object, 'margin', margin)
   ) {
     return;
   }
 
   const marginObj = parseMargin(margin);
-  if (percentWidth) changeWidth(component, percentWidth, marginObj);
-  if (percentHeight) changeHeight(component, percentHeight, marginObj);
+  if (percentWidth) changeWidth(object, percentWidth, marginObj);
+  if (percentHeight) changeHeight(object, percentHeight, marginObj);
+  updateConfig(object, {
+    percentWidth,
+    percentHeight,
+    margin,
+    animation,
+    animationDuration,
+  });
 
   function changeWidth(component, percentWidth, marginObj) {
     const maxWidth =

@@ -1,29 +1,30 @@
 import { parseMargin } from '../utils';
-import { isConfigMatch } from './utils';
+import { isConfigMatch, updateConfig } from './utils';
 
 export const changeTextStyle = (
-  component,
-  { style = component.config.style, margin = component.config.margin },
+  object,
+  { style = object.config.style, margin = object.config.margin },
 ) => {
   if (
-    isConfigMatch(component, 'style', style) &&
-    isConfigMatch(component, 'margin', margin)
+    isConfigMatch(object, 'style', style) &&
+    isConfigMatch(object, 'margin', margin)
   ) {
     return;
   }
 
   for (const key in style) {
     if (key === 'fontFamily' || key === 'fontWeight') {
-      component.style.fontFamily = `${style.fontFamily ?? component.style.fontFamily.split(' ')[0]} ${FONT_WEIGHT[style.fontWeight ?? component.style.fontWeight]}`;
+      object.style.fontFamily = `${style.fontFamily ?? object.style.fontFamily.split(' ')[0]} ${FONT_WEIGHT[style.fontWeight ?? object.style.fontWeight]}`;
     } else if (key === 'fill') {
-      component.style[key] = getColor(style.fill);
+      object.style[key] = getColor(style.fill);
     } else if (key === 'fontSize' && style[key] === 'auto') {
       const marginObj = parseMargin(margin);
-      setAutoFontSize(component, marginObj);
+      setAutoFontSize(object, marginObj);
     } else {
-      component.style[key] = style[key];
+      object.style[key] = style[key];
     }
   }
+  updateConfig(object, { style, margin });
 
   function setAutoFontSize(component, margin) {
     component.visible = false;

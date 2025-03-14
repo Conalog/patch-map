@@ -1,16 +1,17 @@
 import { getTexture } from '../../assets/textures/texture';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
-import { isConfigMatch } from './utils';
+import { isConfigMatch, updateConfig } from './utils';
 
-export const changeTexture = (component, { texture: textureConfig }) => {
-  if (isConfigMatch(component, 'texture', textureConfig)) {
+export const changeTexture = (object, { texture: textureConfig }) => {
+  if (isConfigMatch(object, 'texture', textureConfig)) {
     return;
   }
 
   const texture = getTexture(
     typeof textureConfig === 'string'
       ? textureConfig
-      : deepMerge(component.texture.metadata.config, textureConfig),
+      : deepMerge(object.texture.metadata.config, textureConfig),
   );
-  component.texture = texture ?? null;
+  object.texture = texture ?? null;
+  updateConfig(object, { textureConfig });
 };

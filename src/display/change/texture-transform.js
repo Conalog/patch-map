@@ -1,10 +1,10 @@
-export const changeTextureTransform = (component) => {
-  const borderWidth = component.texture.metadata.borderWidth;
+export const changeTextureTransform = (object) => {
+  const borderWidth = object.texture.metadata.borderWidth;
   if (!borderWidth) return;
-  const parentSize = component.parent.size;
-  component.setSize(
+  const parentSize = object.parent.size;
+  object.setSize(
     parentSize.width + borderWidth,
     parentSize.height + borderWidth,
   );
-  component.position.set(-borderWidth / 2);
+  object.position.set(-borderWidth / 2);
 };

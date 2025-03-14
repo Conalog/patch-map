@@ -1,18 +1,19 @@
 import { getScaleBounds } from '../../utils/canvas';
 import { selector } from '../../utils/selector/selector';
+import { updateConfig } from './utils';
 
-export const changeLinks = (element, { links }) => {
-  const path = selector(element, '$.children[?(@.type==="path")]')[0];
+export const changeLinks = (object, { links }) => {
+  const path = selector(object, '$.children[?(@.type==="path")]')[0];
   if (!path) return;
 
   path.clear();
   path.links = [];
-  const objs = collectLinkedObjects(element.viewport, links);
+  const objs = collectLinkedObjects(object.viewport, links);
   for (const link of links) {
     const { sourcePoint, targetPoint } = getLinkPoints(
       link,
       objs,
-      element.viewport,
+      object.viewport,
     );
     if (!sourcePoint || !targetPoint) continue;
 
@@ -23,6 +24,7 @@ export const changeLinks = (element, { links }) => {
     path.links.push({ sourcePoint, targetPoint });
   }
   path.stroke();
+  updateConfig(object, { links });
 
   function collectLinkedObjects(viewport, links) {
     const uniqueIds = new Set(

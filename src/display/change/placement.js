@@ -1,8 +1,9 @@
 import { parseMargin } from '../utils';
+import { updateConfig } from './utils';
 
 export const changePlacement = (
-  component,
-  { placement = component.config.placement, margin = component.config.margin },
+  object,
+  { placement = object.config.placement, margin = object.config.margin },
 ) => {
   if (!placement || !margin) return;
 
@@ -18,11 +19,12 @@ export const changePlacement = (
   const [first, second] = placement.split('-');
   const directions = second ? { h: first, v: second } : directionMap[first];
 
-  component.visible = false;
-  const x = getHorizontalPosition(component, directions.h, marginObj);
-  const y = getVerticalPosition(component, directions.v, marginObj);
-  component.position.set(x, y);
-  component.visible = true;
+  object.visible = false;
+  const x = getHorizontalPosition(object, directions.h, marginObj);
+  const y = getVerticalPosition(object, directions.v, marginObj);
+  object.position.set(x, y);
+  object.visible = true;
+  updateConfig(object, { placement, margin });
 
   function getHorizontalPosition(component, alignment, margin) {
     const parentWidth = component.parent.size.width;

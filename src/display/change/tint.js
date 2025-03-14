@@ -1,6 +1,8 @@
 import { getColor } from '../../utils/get';
+import { updateConfig } from './utils';
 
-export const changeTint = (component, { tint }) => {
+export const changeTint = (object, { tint }) => {
   const color = getColor(tint);
-  component.tint = color;
+  object.tint = color;
+  updateConfig(object, { tint });
 };
