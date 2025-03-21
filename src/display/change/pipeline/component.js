@@ -6,7 +6,7 @@ import { createCommandHandler } from './utils';
 export const componentPipeline = {
   ...pipeline,
   tint: {
-    keys: ['tint'],
+    keys: ['color', 'tint'],
     handler: createCommandHandler(Commands.TintCommand, change.changeTint),
   },
   texture: {
