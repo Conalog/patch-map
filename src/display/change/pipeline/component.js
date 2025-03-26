@@ -10,15 +10,20 @@ export const componentPipeline = {
     handler: createCommandHandler(Commands.TintCommand, change.changeTint),
   },
   texture: {
-    keys: ['asset', 'texture'],
+    keys: ['texture'],
     handler: (component, config) => {
       change.changeTexture(component, config);
     },
   },
+  asset: {
+    keys: ['asset'],
+    handler: (component, config) => {
+      change.changeAsset(component, config);
+    },
+  },
   textureTransform: {
     keys: ['texture'],
-    handler: (component, config) => {
-      change.changeTexture(component, config);
+    handler: (component) => {
       change.changeTextureTransform(component);
     },
   },
