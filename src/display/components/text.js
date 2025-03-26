@@ -1,23 +1,11 @@
 import { BitmapText } from 'pixi.js';
-import { z } from 'zod';
-import { isValidationError } from 'zod-validation-error';
-import { validate } from '../../utils/vaildator';
 import { componentPipeline } from '../change/pipeline/component';
 import { updateObject } from '../update/update-object';
 
-const textSchema = z.object({
-  label: z.nullable(z.string()).default(null),
-});
-
-export const textComponent = (opts) => {
-  const options = validate(opts, textSchema);
-  if (isValidationError(options)) throw options;
-
-  const component = new BitmapText({
-    text: '',
-  });
+export const textComponent = () => {
+  const component = new BitmapText({ text: '' });
   component.type = 'text';
-  component.label = options.label;
+  component.id = null;
   component.config = {};
   return component;
 };

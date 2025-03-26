@@ -41,10 +41,7 @@ export const updateComponents = (item, { components }, options) => {
     if (index === -1) {
       config = validate(config, componentSchema);
       if (isValidationError(config)) throw config;
-      component = componentFn[config.type].create({
-        ...config,
-        ...item.size,
-      });
+      component = componentFn[config.type].create({ ...config });
       component.config = { ...component.config };
       if (component) {
         item.addChild(component);
