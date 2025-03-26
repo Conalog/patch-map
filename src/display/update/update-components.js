@@ -1,4 +1,5 @@
 import { isValidationError } from 'zod-validation-error';
+import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { validate } from '../../utils/vaildator';
 import {
   backgroundComponent,
@@ -28,35 +29,36 @@ const componentFn = {
   },
 };
 
-export const updateComponents = (item, { components }, options) => {
-  if (!components) return;
+export const updateComponents = (
+  item,
+  { components: componentConfig },
+  options,
+) => {
+  if (!componentConfig) return;
 
-  const children = [...item.children];
-  for (let config of components) {
-    const index = children.findIndex((child) =>
-      matchValue('type', child, config),
-    );
-
+  const itemComponents = [...item.children];
+  for (let config of componentConfig) {
+    const idx = findIndexByPriority(itemComponents, config);
     let component = null;
-    if (index === -1) {
+
+    if (idx !== -1) {
+      component = itemComponents[idx];
+      itemComponents.splice(idx, 1);
+    } else {
       config = validate(config, componentSchema);
       if (isValidationError(config)) throw config;
-      component = componentFn[config.type].create({ ...config });
-      component.config = { ...component.config };
-      if (component) {
-        item.addChild(component);
-      }
-    } else {
-      component = children[index];
-      if (component) children.splice(index, 1);
+
+      component = createComponent(config);
+      if (!component) continue;
+      item.addChild(component);
     }
 
-    if (component) {
-      componentFn[component.type].update(component, { ...config }, options);
-    }
+    componentFn[component.type].update(component, { ...config }, options);
   }
+};
 
-  function matchValue(key, child, config) {
-    return config[key] ? child[key] === config[key] : true;
-  }
+const createComponent = (config) => {
+  const component = componentFn[config.type].create({ ...config });
+  component.config = { ...component.config };
+  return component;
 };
