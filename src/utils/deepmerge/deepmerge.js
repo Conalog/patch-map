@@ -1,5 +1,6 @@
 import deepmerge from 'deepmerge';
 import { isPlainObject } from 'is-plain-object';
+import { findIndexByPriority } from '../findIndexByPriority';
 
 export const deepMerge = (target = {}, source = {}, options = {}) => {
   return deepmerge(target, source, {
@@ -13,43 +14,28 @@ export const deepMerge = (target = {}, source = {}, options = {}) => {
 };
 
 const mergeArray = (target, source, options) => {
-  const result = [...target];
+  const mergedArray = [...target];
   const usedIndexes = new Set();
 
-  source.forEach((srcItem) => {
+  source.forEach((srcItem, srcIndex) => {
     if (typeof srcItem === 'number') {
-      const idx = source.indexOf(srcItem);
-      if (idx < result.length) {
-        result[idx] = srcItem;
+      if (srcIndex < mergedArray.length) {
+        mergedArray[srcIndex] = srcItem;
       } else {
-        result.push(srcItem);
+        mergedArray.push(srcItem);
       }
       return;
     }
 
-    let foundIndex = -1;
-    if (srcItem && typeof srcItem === 'object') {
-      if (srcItem.id) {
-        foundIndex = result.findIndex(
-          (item, idx) => !usedIndexes.has(idx) && item?.id === srcItem.id,
-        );
-      } else if (srcItem.name) {
-        foundIndex = result.findIndex(
-          (item, idx) => !usedIndexes.has(idx) && item?.name === srcItem.name,
-        );
-      } else if (srcItem.type) {
-        foundIndex = result.findIndex(
-          (item, idx) => !usedIndexes.has(idx) && item?.type === srcItem.type,
-        );
+    if (srcItem && typeof srcItem === 'object' && !Array.isArray(srcItem)) {
+      const idx = findIndexByPriority(mergedArray, srcItem, usedIndexes);
+      if (idx !== -1) {
+        mergedArray[idx] = deepmerge(mergedArray[idx], srcItem, options);
+        usedIndexes.add(idx);
+        return;
       }
     }
-
-    if (foundIndex > -1) {
-      result[foundIndex] = deepmerge(result[foundIndex], srcItem, options);
-      usedIndexes.add(foundIndex);
-    } else {
-      result.push(srcItem);
-    }
+    mergedArray.push(srcItem);
   });
-  return result;
+  return mergedArray;
 };
