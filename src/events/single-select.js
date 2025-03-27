@@ -34,9 +34,9 @@ const addEvents = (viewport) => {
     event.addEvent(viewport, {
       id: 'select-down',
       action: 'mousedown touchstart',
-      fn: () => {
+      fn: (e) => {
         state.isDown = true;
-        executeFn('onSelect');
+        executeFn('onSelect', e);
       },
     });
   }
@@ -45,9 +45,9 @@ const addEvents = (viewport) => {
     event.addEvent(viewport, {
       id: 'select-up',
       action: 'mouseup touchend',
-      fn: () => {
+      fn: (e) => {
         state.isDown = false;
-        executeFn('onOver');
+        executeFn('onOver', e);
       },
     });
   }
@@ -56,17 +56,17 @@ const addEvents = (viewport) => {
     event.addEvent(viewport, {
       id: 'select-over',
       action: 'mouseover',
-      fn: () => {
+      fn: (e) => {
         if (state.isDown) return;
-        executeFn('onOver');
+        executeFn('onOver', e);
       },
     });
   }
 
-  function executeFn(fnName) {
+  function executeFn(fnName, e) {
     state.point = { ...getPointerPosition(viewport) };
     if (fnName in config) {
-      config[fnName](findIntersectObject(viewport, state, config));
+      config[fnName](findIntersectObject(viewport, state, config), e);
     }
   }
 };
