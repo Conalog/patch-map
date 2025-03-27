@@ -357,6 +357,7 @@ const result = patchMap.selector('$..[?(@.label=="group-label-1")]')
 
 ### `select(options)`
 선택 이벤트를 활성화하여, 사용자가 화면에서 선택한 객체들을 감지하고 콜백 함수에 전달합니다.
+`draw` 메소드 이후에 실행되어야 합니다.
 - `enabled` (optional, boolean): 선택 이벤트의 활성화 여부를 결정합니다.
 - `draggable` (optional, boolean): 드래그 활성화 여부를 결정합니다.
 - `isSelectGroup` (optional, boolean): group 객체를 선택할지 결정합니다.

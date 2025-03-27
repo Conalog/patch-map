@@ -29,7 +29,7 @@ export const dragSelect = (viewport, opts) => {
     addEvents(viewport);
   }
 
-  changeEnableState(
+  changeDragState(
     viewport,
     config.enabled && config.draggable,
     options.enabled && options.draggable,
@@ -131,20 +131,20 @@ const triggerFn = (viewport) => {
   }
 };
 
-const changeEnableState = (viewport, wasEnabled, isEnabled) => {
-  if (wasEnabled === isEnabled) return;
+const changeDragState = (viewport, wasDraggable, isDraggable) => {
+  if (wasDraggable === isDraggable) return;
 
-  if (isEnabled) {
+  if (isDraggable) {
     viewport.plugin.add({
       mouseEdges: { speed: 16, distance: 20, allowButtons: true },
     });
     viewport.plugin.stop('mouse-edges');
     event.onEvent(viewport, DRAG_SELECT_EVENT_ID);
-    viewport.addChild(state.box);
+    addChildBox(viewport);
   } else {
     viewport.plugin.remove('mouse-edges');
     event.offEvent(viewport, DRAG_SELECT_EVENT_ID);
-    viewport.removeChild(state.box);
+    removeChildBox(viewport);
   }
 };
 
@@ -154,4 +154,16 @@ const resetState = () => {
   state.endPoint = null;
   state.box.clear();
   state.box.renderable = false;
+};
+
+const addChildBox = (viewport) => {
+  if (!state.box.parent) {
+    viewport.addChild(state.box);
+  }
+};
+
+const removeChildBox = (viewport) => {
+  if (state.box.parent) {
+    viewport.removeChild(state.box);
+  }
 };
