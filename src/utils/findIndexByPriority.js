@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const schema = z.object({
-  arr: z.array(z.object({}).passthrough()),
+  arr: z.array(z.unknown()),
   criteria: z.object({}).passthrough(),
 });
 
