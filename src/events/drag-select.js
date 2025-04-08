@@ -145,6 +145,7 @@ const changeDragState = (viewport, wasDraggable, isDraggable) => {
   } else {
     viewport.plugin.remove('mouse-edges');
     event.offEvent(viewport, DRAG_SELECT_EVENT_ID);
+    resetState();
     removeChildBox(viewport);
   }
 };
