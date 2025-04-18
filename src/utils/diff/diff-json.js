@@ -1,6 +1,9 @@
 import { isPlainObject } from 'is-plain-object';
 
 export const diffJson = (obj1, obj2) => {
+  if (obj1 != null && obj2 == null) return obj1;
+  if (obj1 == null && obj2 != null) return obj2;
+
   if (!isPlainObject(obj1) || !isPlainObject(obj2)) {
     return obj1 === obj2 ? {} : obj2;
   }

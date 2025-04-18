@@ -41,7 +41,7 @@ describe('mapDataSchema (modified tests for required fields)', () => {
         components: [
           {
             type: 'background',
-            texture: 'bg.png',
+            texture: { type: 'rect' },
             width: 100,
             height: 100,
           },
