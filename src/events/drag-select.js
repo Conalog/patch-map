@@ -29,7 +29,7 @@ export const dragSelect = (viewport, opts) => {
     addEvents(viewport);
   }
 
-  changeDragState(
+  changeDraggableState(
     viewport,
     config.enabled && config.draggable,
     options.enabled && options.draggable,
@@ -118,7 +118,11 @@ const drawSelectionBox = () => {
 
 const triggerFn = (viewport, e) => {
   const now = performance.now();
-  if (e.type !== 'pointerup' && now - lastMoveTime < DEBOUNCE_FN_INTERVAL) {
+  if (
+    e.type !== 'mouseup' &&
+    e.type !== 'touchend' &&
+    now - lastMoveTime < DEBOUNCE_FN_INTERVAL
+  ) {
     return;
   }
   lastMoveTime = now;
@@ -132,7 +136,7 @@ const triggerFn = (viewport, e) => {
   }
 };
 
-const changeDragState = (viewport, wasDraggable, isDraggable) => {
+const changeDraggableState = (viewport, wasDraggable, isDraggable) => {
   if (wasDraggable === isDraggable) return;
 
   if (isDraggable) {
