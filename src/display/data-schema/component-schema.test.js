@@ -9,11 +9,11 @@ describe('componentArraySchema', () => {
     const validComponent = [
       {
         type: 'background',
-        texture: 'background.png',
+        texture: { type: 'rect' },
       },
       {
         type: 'bar',
-        texture: 'bar.png',
+        texture: { type: 'rect' },
         percentWidth: 0.5,
         percentHeight: 1,
         show: false,
@@ -40,7 +40,7 @@ describe('componentArraySchema', () => {
     const invalidComponent = {
       // 여기에 존재하지 않는 type
       type: 'wrongType',
-      texture: 'wrong.png',
+      texture: { type: 'rect' },
     };
 
     const result = componentSchema.safeParse(invalidComponent);
@@ -55,7 +55,7 @@ describe('componentArraySchema', () => {
       const data = [
         {
           type: 'background',
-          texture: 'bg.png',
+          texture: { type: 'rect' },
         },
       ];
       const result = componentArraySchema.safeParse(data);
@@ -81,7 +81,7 @@ describe('componentArraySchema', () => {
       const data = [
         {
           type: 'bar',
-          texture: 'bar.png',
+          texture: { type: 'rect' },
         },
       ];
       const result = componentArraySchema.safeParse(data);
@@ -100,7 +100,7 @@ describe('componentArraySchema', () => {
       const data = [
         {
           type: 'bar',
-          texture: 'bar.png',
+          texture: { type: 'rect' },
           percentWidth: 1.1,
         },
       ];
@@ -112,7 +112,7 @@ describe('componentArraySchema', () => {
       const data = [
         {
           type: 'bar',
-          texture: 'bar.png',
+          texture: { type: 'rect' },
           placement: 'unknown-placement',
         },
       ];
@@ -236,7 +236,7 @@ describe('componentArraySchema', () => {
     it('should fail if the input is not an array at all', () => {
       const data = {
         type: 'background',
-        texture: 'bg.png',
+        texture: { type: 'rect' },
       };
       const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(false);
@@ -246,7 +246,7 @@ describe('componentArraySchema', () => {
       const data = [
         {
           type: 'background',
-          texture: 'bg.png',
+          texture: { type: 'rect' },
         },
         1234, // 비객체
       ];

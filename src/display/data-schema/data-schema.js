@@ -57,6 +57,7 @@ const relationGroupObject = defaultInfo.extend({
 const groupObject = defaultInfo.extend({
   type: z.literal('group'),
   items: z.array(z.lazy(() => itemTypes)),
+  position: position.default({}),
 });
 
 const itemTypes = z.discriminatedUnion('type', [

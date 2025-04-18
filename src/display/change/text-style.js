@@ -1,3 +1,4 @@
+import { FONT_WEIGHT } from '../components/config';
 import { parseMargin } from '../utils';
 import { isConfigMatch, updateConfig } from './utils';
 

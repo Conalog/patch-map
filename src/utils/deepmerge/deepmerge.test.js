@@ -41,16 +41,16 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
     [
       {
         components: [
-          { name: 'legend', visible: true, style: { color: 'red' } },
+          { label: 'legend', visible: true, style: { color: 'red' } },
         ],
       },
       {
-        components: [{ name: 'legend', style: { fontSize: 12 } }],
+        components: [{ label: 'legend', style: { fontSize: 12 } }],
       },
       {
         components: [
           {
-            name: 'legend',
+            label: 'legend',
             visible: true,
             style: {
               color: 'red',
@@ -78,7 +78,7 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
       {
         components: [
           { id: 2, value: 20 },
-          { name: 'title' },
+          { label: 'title' },
           { type: 'pie', data: [1] },
         ],
       },
@@ -86,7 +86,7 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
         components: [
           { id: 1, value: 10 },
           { id: 2, value: 20 },
-          { name: 'title' },
+          { label: 'title' },
           { type: 'pie', data: [1] },
         ],
       },
@@ -96,7 +96,7 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
         show: true,
         components: [
           { id: 100, type: 'bar', data: [1], style: { color: 'blue' } },
-          { name: 'legend', visible: false },
+          { label: 'legend', visible: false },
         ],
       },
       {
@@ -104,7 +104,7 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
         components: [
           { id: 100, style: { fontSize: 14 }, data: [2, 3] },
           { type: 'bar', data: [5] },
-          { name: 'legend', visible: true },
+          { label: 'legend', visible: true },
           { extraProp: true },
         ],
       },
@@ -120,7 +120,7 @@ describe('deepMerge - arrayMerge by id → name → type', () => {
               fontSize: 14,
             },
           },
-          { name: 'legend', visible: true },
+          { label: 'legend', visible: true },
           { type: 'bar', data: [5] },
           { extraProp: true },
         ],
