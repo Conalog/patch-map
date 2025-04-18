@@ -29,7 +29,7 @@ export const dragSelect = (viewport, opts) => {
     addEvents(viewport);
   }
 
-  changeEnableState(
+  changeDraggableState(
     viewport,
     config.enabled && config.draggable,
     options.enabled && options.draggable,
@@ -64,7 +64,7 @@ const addEvents = (viewport) => {
     event.addEvent(viewport, {
       id: 'drag-select-move',
       action: 'mousemove touchmove moved',
-      fn: () => {
+      fn: (e) => {
         if (!state.isDragging) return;
 
         viewport.plugin.start('mouse-edges');
@@ -77,7 +77,7 @@ const addEvents = (viewport) => {
           Math.abs(deltaX) > MOVE_DELTA / viewport.scale.x ||
           Math.abs(deltaY) > MOVE_DELTA / viewport.scale.y
         ) {
-          triggerFn(viewport);
+          triggerFn(viewport, e);
         }
       },
     });
@@ -87,7 +87,8 @@ const addEvents = (viewport) => {
     event.addEvent(viewport, {
       id: 'drag-select-up',
       action: 'mouseup touchend mouseleave',
-      fn: () => {
+      fn: (e) => {
+        triggerFn(viewport, e);
         viewport.plugin.stop('mouse-edges');
         resetState();
       },
@@ -115,9 +116,13 @@ const drawSelectionBox = () => {
     .stroke({ width: 2, color: '#1099FF', pixelLine: true });
 };
 
-const triggerFn = (viewport) => {
+const triggerFn = (viewport, e) => {
   const now = performance.now();
-  if (now - lastMoveTime < DEBOUNCE_FN_INTERVAL) {
+  if (
+    e.type !== 'mouseup' &&
+    e.type !== 'touchend' &&
+    now - lastMoveTime < DEBOUNCE_FN_INTERVAL
+  ) {
     return;
   }
   lastMoveTime = now;
@@ -127,24 +132,25 @@ const triggerFn = (viewport) => {
       ? findIntersectObjects(viewport, state, config)
       : [];
   if ('onDragSelect' in config) {
-    config.onDragSelect(intersectObjs);
+    config.onDragSelect(intersectObjs, e);
   }
 };
 
-const changeEnableState = (viewport, wasEnabled, isEnabled) => {
-  if (wasEnabled === isEnabled) return;
+const changeDraggableState = (viewport, wasDraggable, isDraggable) => {
+  if (wasDraggable === isDraggable) return;
 
-  if (isEnabled) {
+  if (isDraggable) {
     viewport.plugin.add({
       mouseEdges: { speed: 16, distance: 20, allowButtons: true },
     });
     viewport.plugin.stop('mouse-edges');
     event.onEvent(viewport, DRAG_SELECT_EVENT_ID);
-    viewport.addChild(state.box);
+    addChildBox(viewport);
   } else {
     viewport.plugin.remove('mouse-edges');
     event.offEvent(viewport, DRAG_SELECT_EVENT_ID);
-    viewport.removeChild(state.box);
+    resetState();
+    removeChildBox(viewport);
   }
 };
 
@@ -154,4 +160,16 @@ const resetState = () => {
   state.endPoint = null;
   state.box.clear();
   state.box.renderable = false;
+};
+
+const addChildBox = (viewport) => {
+  if (!state.box.parent) {
+    viewport.addChild(state.box);
+  }
+};
+
+const removeChildBox = (viewport) => {
+  if (state.box.parent) {
+    viewport.removeChild(state.box);
+  }
 };

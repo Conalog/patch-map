@@ -33,12 +33,12 @@ const defaultConfig = z
 
 const background = defaultConfig.extend({
   type: z.literal('background'),
-  texture: z.union([z.string(), TextureStyle]),
+  texture: TextureStyle,
 });
 
 const bar = defaultConfig.extend({
   type: z.literal('bar'),
-  texture: z.union([z.string(), TextureStyle]),
+  texture: TextureStyle,
   placement: Placement.default('bottom'),
   margin: Margin.default('0'),
   percentWidth: z.number().min(0).max(1).default(1),

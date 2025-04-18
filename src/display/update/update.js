@@ -27,6 +27,7 @@ export const update = (parent, opts) => {
   }
 
   for (const element of elements) {
+    if (!element) continue;
     const elConfig = { ...config };
     if (elConfig.relativeTransform) {
       elConfig.changes = applyRelativeTransform(element, elConfig.changes);

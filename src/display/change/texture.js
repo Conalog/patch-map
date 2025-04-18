@@ -8,10 +8,9 @@ export const changeTexture = (object, { texture: textureConfig }) => {
   }
 
   const texture = getTexture(
-    typeof textureConfig === 'string'
-      ? textureConfig
-      : deepMerge(object.texture.metadata.config, textureConfig),
+    deepMerge(object.texture?.metadata?.config, textureConfig),
   );
   object.texture = texture ?? null;
-  updateConfig(object, { textureConfig });
+  Object.assign(object, { ...texture.metadata.slice });
+  updateConfig(object, { texture: textureConfig });
 };
