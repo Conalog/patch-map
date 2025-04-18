@@ -357,6 +357,7 @@ Object explorer following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 
 
 ### `select(options)`
 The selection event is activated to detect objects that the user selects on the screen and pass them to a callback function.
+This should be executed after the `draw` method.
 - `enabled` (optional, boolean): Determines whether the selection event is enabled.
 - `draggable` (optional, boolean): Determines whether dragging is enabled.
 - `isSelectGroup` (optional, boolean): Decides whether to select group objects.

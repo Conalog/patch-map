@@ -37,6 +37,7 @@ export const convertLegacyData = (data) => {
           components: [
             {
               type: 'background',
+              id: 'default',
               texture: {
                 type: 'rect',
                 fill: 'white',
@@ -47,6 +48,7 @@ export const convertLegacyData = (data) => {
             },
             {
               type: 'bar',
+              id: 'default',
               texture: {
                 type: 'rect',
                 fill: 'white',
@@ -92,6 +94,7 @@ export const convertLegacyData = (data) => {
           components: [
             {
               type: 'background',
+              id: 'default',
               texture: {
                 type: 'rect',
                 fill: 'white',
@@ -102,7 +105,8 @@ export const convertLegacyData = (data) => {
             },
             {
               type: 'icon',
-              asset: key.slice(0, -1),
+              id: 'default',
+              asset: key === 'combines' ? 'combiner' : key.slice(0, -1),
               size: 16,
               tint: 'primary.default',
               placement: 'center',
