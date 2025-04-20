@@ -18,6 +18,18 @@ export const getSelectObject = (obj, { isSelectGroup, isSelectGrid }) => {
   return obj.renderPipeId ? obj.parent : obj;
 };
 
+const MOVE_DELTA = 4;
+export const isMoved = (viewport, point1, point2) => {
+  const { x, y } = {
+    x: point2.x - point1.x,
+    y: point2.y - point1.y,
+  };
+  return (
+    Math.abs(x) > MOVE_DELTA / viewport.scale.x ||
+    Math.abs(y) > MOVE_DELTA / viewport.scale.y
+  );
+};
+
 const getHighestParentByType = (obj, typeName) => {
   let highest = null;
   let current = obj.parent;

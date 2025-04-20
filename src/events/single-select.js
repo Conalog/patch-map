@@ -5,12 +5,12 @@ import { event } from '../utils/event/canvas';
 import { validate } from '../utils/vaildator';
 import { findIntersectObject } from './find';
 import { selectEventSchema } from './schema';
-import { checkEvents } from './utils';
+import { checkEvents, isMoved } from './utils';
 
 const SELECT_EVENT_ID = 'select-down select-up select-over';
 
 let config = {};
-const state = { point: null, isDown: false };
+let state = { startPosition: null, endPosition: null };
 
 export const select = (viewport, opts) => {
   const options = validate(deepMerge(config, opts), selectEventSchema);
@@ -34,9 +34,11 @@ const addEvents = (viewport) => {
     event.addEvent(viewport, {
       id: 'select-down',
       action: 'mousedown touchstart',
-      fn: (e) => {
-        state.isDown = true;
-        executeFn('onSelect', e);
+      fn: () => {
+        state.startPosition = {
+          x: viewport.position.x,
+          y: viewport.position.y,
+        };
       },
     });
   }
@@ -46,7 +48,16 @@ const addEvents = (viewport) => {
       id: 'select-up',
       action: 'mouseup touchend',
       fn: (e) => {
-        state.isDown = false;
+        state.endPosition = {
+          x: viewport.position.x,
+          y: viewport.position.y,
+        };
+
+        if (!isMoved(viewport, state.endPosition, state.startPosition)) {
+          executeFn('onSelect', e);
+        }
+
+        state = { startPosition: null, endPosition: null };
         executeFn('onOver', e);
       },
     });
@@ -57,16 +68,15 @@ const addEvents = (viewport) => {
       id: 'select-over',
       action: 'mouseover',
       fn: (e) => {
-        if (state.isDown) return;
         executeFn('onOver', e);
       },
     });
   }
 
   function executeFn(fnName, e) {
-    state.point = { ...getPointerPosition(viewport) };
+    const point = getPointerPosition(viewport);
     if (fnName in config) {
-      config[fnName](findIntersectObject(viewport, state, config), e);
+      config[fnName](findIntersectObject(viewport, { point }, config), e);
     }
   }
 };
