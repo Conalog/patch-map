@@ -4,13 +4,12 @@ import { getPointerPosition } from '../utils/canvas';
 import { deepMerge } from '../utils/deepmerge/deepmerge';
 import { event } from '../utils/event/canvas';
 import { validate } from '../utils/vaildator';
-import { findIntersectObject, findIntersectObjects } from './find';
+import { findIntersectObjects } from './find';
 import { dragSelectEventSchema } from './schema';
-import { checkEvents } from './utils';
+import { checkEvents, isMoved } from './utils';
 
 const DRAG_SELECT_EVENT_ID = 'drag-select-down drag-select-move drag-select-up';
-const DEBOUNCE_FN_INTERVAL = 50; // ms
-const MOVE_DELTA = 4;
+const DEBOUNCE_FN_INTERVAL = 25; // ms
 
 let config = {};
 let lastMoveTime = 0;
@@ -18,6 +17,7 @@ const state = {
   isDragging: false,
   startPoint: null,
   endPoint: null,
+  movePoint: null,
   box: new Graphics(),
 };
 
@@ -51,11 +51,10 @@ const addEvents = (viewport) => {
         resetState();
 
         const point = getPointerPosition(viewport);
-        if (!findIntersectObject(viewport, { point }, config)) {
-          state.isDragging = true;
-          state.box.renderable = true;
-          state.startPoint = { ...point };
-        }
+        state.isDragging = true;
+        state.box.renderable = true;
+        state.startPoint = { ...point };
+        state.movePoint = { ...point };
       },
     });
   }
@@ -71,13 +70,9 @@ const addEvents = (viewport) => {
         state.endPoint = { ...getPointerPosition(viewport) };
         drawSelectionBox();
 
-        const deltaX = state.endPoint.x - state.startPoint.x;
-        const deltaY = state.endPoint.y - state.startPoint.y;
-        if (
-          Math.abs(deltaX) > MOVE_DELTA / viewport.scale.x ||
-          Math.abs(deltaY) > MOVE_DELTA / viewport.scale.y
-        ) {
+        if (isMoved(viewport, state.movePoint, state.endPoint)) {
           triggerFn(viewport, e);
+          state.movePoint = JSON.parse(JSON.stringify(state.endPoint));
         }
       },
     });
@@ -118,11 +113,7 @@ const drawSelectionBox = () => {
 
 const triggerFn = (viewport, e) => {
   const now = performance.now();
-  if (
-    e.type !== 'mouseup' &&
-    e.type !== 'touchend' &&
-    now - lastMoveTime < DEBOUNCE_FN_INTERVAL
-  ) {
+  if (e.type === 'pointermove' && now - lastMoveTime < DEBOUNCE_FN_INTERVAL) {
     return;
   }
   lastMoveTime = now;
@@ -158,6 +149,7 @@ const resetState = () => {
   state.isDragging = false;
   state.startPoint = null;
   state.endPoint = null;
+  state.movePoint = null;
   state.box.clear();
   state.box.renderable = false;
 };
