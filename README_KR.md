@@ -21,6 +21,7 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixijs`
   - [draw(data)](#drawdata)
   - [update(options)](#updateoptions)
   - [event](#event)
+  - [viewport](#viewport)
   - [asset](#asset)
   - [focus(id)](#focusid)
   - [fit(id)](#fitid)
@@ -312,6 +313,22 @@ const events = patchMap.event.getAll();
 ```
 
 <br/>
+
+### `viewport`
+- viewport 플러그인에 대한 자세한 내용은 [pixi-viewport](https://viewport.pixijs.io/jsdoc/Viewport.html)를 참조하세요.
+```js
+patchMap.viewport.plugin.add({
+  mouseEdges: { speed: 16, distance: 20, allowButtons: true },
+});
+
+patchMap.viewport.plugin.stop('mouse-edges');
+
+patchMap.viewport.plugin.start('mouse-edges');
+
+patchMap.viewport.plugin.remove('mouse-edges');
+```
+<br/>
+
 
 ### `asset`
 - asset에 대한 내용은 [pixiJS Assets](https://pixijs.download/release/docs/assets.Assets.html)를 참조하세요.
