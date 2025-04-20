@@ -83,6 +83,7 @@ export const convertLegacyData = (data) => {
         });
       }
     } else {
+      objs[key].zIndex = 10;
       for (const value of values) {
         const { transform, ...props } = value.properties;
         objs[key].items.push({
