@@ -20,6 +20,7 @@ It enables flexible and fast creation of 2D content.
   - [draw(data)](#drawdata)
   - [update(options)](#updateoptions)
   - [event](#event)
+  - [viewport](#viewport)
   - [asset](#asset)
   - [focus(id)](#focusid)
   - [fit(id)](#fitid)
@@ -311,6 +312,22 @@ const event = patchMap.event.get('double-click');
 const events = patchMap.event.getAll();
 ```
 
+<br/>
+
+
+### `viewport`
+- For detailed information on the viewport plugin, refer to [pixi-viewport](https://viewport.pixijs.io/jsdoc/Viewport.html)
+```js
+patchMap.viewport.plugin.add({
+  mouseEdges: { speed: 16, distance: 20, allowButtons: true },
+});
+
+patchMap.viewport.plugin.stop('mouse-edges');
+
+patchMap.viewport.plugin.start('mouse-edges');
+
+patchMap.viewport.plugin.remove('mouse-edges');
+```
 <br/>
 
 ### `asset`
