@@ -36,7 +36,7 @@ export const findIntersectObject = (viewport, state, options) => {
 };
 
 export const findIntersectObjects = (viewport, state, options) => {
-  return searchIntersect(viewport);
+  return Array.from(new Set(searchIntersect(viewport)));
 
   function searchIntersect(parent) {
     let found = [];
