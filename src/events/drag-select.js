@@ -83,7 +83,7 @@ const addEvents = (viewport) => {
       id: 'drag-select-up',
       action: 'mouseup touchend mouseleave',
       fn: (e) => {
-        if (isMoved(viewport, state.movePoint, state.endPoint)) {
+        if (isMoved(viewport, state.startPoint, state.endPoint)) {
           triggerFn(viewport, e);
           viewport.plugin.stop('mouse-edges');
         }
