@@ -66,11 +66,11 @@ const addEvents = (viewport) => {
       fn: (e) => {
         if (!state.isDragging) return;
 
-        viewport.plugin.start('mouse-edges');
         state.endPoint = { ...getPointerPosition(viewport) };
         drawSelectionBox();
 
         if (isMoved(viewport, state.movePoint, state.endPoint)) {
+          viewport.plugin.start('mouse-edges');
           triggerFn(viewport, e);
           state.movePoint = JSON.parse(JSON.stringify(state.endPoint));
         }
@@ -83,8 +83,10 @@ const addEvents = (viewport) => {
       id: 'drag-select-up',
       action: 'mouseup touchend mouseleave',
       fn: (e) => {
-        triggerFn(viewport, e);
-        viewport.plugin.stop('mouse-edges');
+        if (isMoved(viewport, state.movePoint, state.endPoint)) {
+          triggerFn(viewport, e);
+          viewport.plugin.stop('mouse-edges');
+        }
         resetState();
       },
     });
