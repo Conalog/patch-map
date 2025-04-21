@@ -10,7 +10,7 @@ export const textComponent = () => {
   return component;
 };
 
-const pipelineKeys = ['show', 'text', 'style', 'placement'];
+const pipelineKeys = ['show', 'text', 'textStyle', 'placement'];
 export const updateTextComponent = (component, config, options) => {
   updateObject(component, config, componentPipeline, pipelineKeys, options);
 };
