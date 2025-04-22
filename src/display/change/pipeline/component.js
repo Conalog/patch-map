@@ -47,10 +47,16 @@ export const componentPipeline = {
   },
   text: {
     keys: ['text', 'split'],
-    handler: change.changeText,
+    handler: (component, config) => {
+      change.changeText(component, config);
+      change.changePlacement(component, config);
+    },
   },
   textStyle: {
     keys: ['style', 'margin'],
-    handler: change.changeTextStyle,
+    handler: (component, config) => {
+      change.changeTextStyle(component, config);
+      change.changePlacement(component, config);
+    },
   },
 };
