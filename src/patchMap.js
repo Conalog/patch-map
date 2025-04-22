@@ -20,7 +20,7 @@ import { selector } from './utils/selector/selector';
 import { theme } from './utils/theme';
 import { validateMapData } from './utils/vaildator';
 
-class PatchMap {
+class Patchmap {
   constructor() {
     this._app = null;
     this._viewport = null;
@@ -152,4 +152,4 @@ class PatchMap {
   }
 }
 
-export { PatchMap };
+export { Patchmap };
