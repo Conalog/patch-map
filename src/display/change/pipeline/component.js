@@ -49,14 +49,14 @@ export const componentPipeline = {
     keys: ['text', 'split'],
     handler: (component, config) => {
       change.changeText(component, config);
-      change.changePlacement(component, config);
+      change.changePlacement(component, config); // Ensure placement is updated after text change
     },
   },
   textStyle: {
     keys: ['style', 'margin'],
     handler: (component, config) => {
       change.changeTextStyle(component, config);
-      change.changePlacement(component, config);
+      change.changePlacement(component, config); // Ensure placement is updated after style change
     },
   },
 };
