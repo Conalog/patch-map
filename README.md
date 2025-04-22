@@ -14,7 +14,7 @@ It enables flexible and fast creation of 2D content.
 - [🚀 Getting Started](#-getting-started)
   - [Install](#install)
   - [Usage](#usage)
-- [PatchMap](#patchmap)
+- [Patchmap](#patchmap)
   - [init(el, options)](#initel-options)
   - [destroy()](#destroy)
   - [draw(data)](#drawdata)
@@ -54,7 +54,7 @@ npm install @conalog/patch-map
 Here’s a quick example to get you started:
 ```js
 (async () => {
-  import { PatchMap } from '@conalog/patch-map';
+  import { Patchmap } from '@conalog/patch-map';
 
   const data = [
     {
@@ -85,23 +85,23 @@ Here’s a quick example to get you started:
     }
   ];
 
-  const patchMap = new PatchMap();
+  const patchmap = new Patchmap();
 
-  await patchMap.init(document.body);
+  await patchmap.init(document.body);
   
-  patchMap.draw(data);
+  patchmap.draw(data);
 })()
 ```
 
 <br/>
 
-## PatchMap
+## Patchmap
 
 ### `init(el, options)`
 Initialize PATCH MAP with options.  
 
 ```js
-await patchMap.init(el, {
+await patchmap.init(el, {
   app: { background: '#CCCCCC' },
   viewport: {
     plugins: { decelerate: { disabled: true } }
@@ -203,7 +203,7 @@ const data = [
     }]
   }
 ];
-patchMap.draw(data);
+patchmap.draw(data);
 ```
 
 **Data Schema**
@@ -226,7 +226,7 @@ Updates the state of specific objects on the canvas. Use this to change properti
 
 ```js
 // Apply changes to objects with the label "grid-label-1"
-patchMap.update({
+patchmap.update({
   path: `$..children[?(@.label=="grid-label-1")]`,
   changes: {
     components: [
@@ -236,7 +236,7 @@ patchMap.update({
 });
 
 // Apply changes to objects of type "group"
-patchMap.update({
+patchmap.update({
   path: `$..children[?(@.type=="group")]`,
   changes: { 
     show: false
@@ -244,7 +244,7 @@ patchMap.update({
 });
 
 // Apply changes to objects of type "grid" within objects of type "group"
-patchMap.update({
+patchmap.update({
   path: `$..children[?(@.type=="group")].children[?(@.type=="grid")]`,
   changes: {
     components: [
@@ -267,7 +267,7 @@ If you want to learn about multiple event actions such as double-click, refer to
 - `fn` (required, function) - The callback function to execute when the event is triggered. Receives the event object as a parameter.
 
 ```js
-const id = patchMap.event.add({
+const id = patchmap.event.add({
   path: '$',
   action: 'click tap',
   fn: (e) => {
@@ -275,7 +275,7 @@ const id = patchMap.event.add({
   }
 });
 
-patchMap.event.add({
+patchmap.event.add({
   id: 'pointerdown-event',
   path: '$..[?(@.label=="group-label-1")]',
   action: 'pointerdown',
@@ -284,7 +284,7 @@ patchMap.event.add({
   }
 });
 
-patchMap.event.add({
+patchmap.event.add({
   id: 'double-click',
   path: '$',
   action: 'click',
@@ -297,19 +297,19 @@ patchMap.event.add({
 ```
 ```js
 // Activate 'pointerdown-event' & 'double-click' events.
-patchMap.event.on('pointerdown-event double-click');
+patchmap.event.on('pointerdown-event double-click');
 
 // Deactivate 'pointerdown-event' & 'double-click' events.
-patchMap.event.off('pointerdown-event double-click');
+patchmap.event.off('pointerdown-event double-click');
 
 // Remove 'pointerdown-event' & 'double-click' events.
-patchMap.event.remove('pointerdown-event');
+patchmap.event.remove('pointerdown-event');
 
 // Get the registered 'double-click' event.
-const event = patchMap.event.get('double-click');
+const event = patchmap.event.get('double-click');
 
 // Get all registered events.
-const events = patchMap.event.getAll();
+const events = patchmap.event.getAll();
 ```
 
 <br/>
@@ -318,15 +318,15 @@ const events = patchMap.event.getAll();
 ### `viewport`
 - For detailed information on the viewport plugin, refer to [pixi-viewport](https://viewport.pixijs.io/jsdoc/Viewport.html)
 ```js
-patchMap.viewport.plugin.add({
+patchmap.viewport.plugin.add({
   mouseEdges: { speed: 16, distance: 20, allowButtons: true },
 });
 
-patchMap.viewport.plugin.stop('mouse-edges');
+patchmap.viewport.plugin.stop('mouse-edges');
 
-patchMap.viewport.plugin.start('mouse-edges');
+patchmap.viewport.plugin.start('mouse-edges');
 
-patchMap.viewport.plugin.remove('mouse-edges');
+patchmap.viewport.plugin.remove('mouse-edges');
 ```
 <br/>
 
@@ -338,13 +338,13 @@ patchMap.viewport.plugin.remove('mouse-edges');
 ### `focus(id)`
 ```js
  // Focus on the entire canvas object
-patchMap.focus()
+patchmap.focus()
 
 // Focus on the object with id 'group-id-1'
-patchMap.focus('group-id-1')
+patchmap.focus('group-id-1')
 
 // Focus on the object with id 'grid-1'
-patchMap.focus('grid-1')
+patchmap.focus('grid-1')
 ```
 
 <br/>
@@ -352,13 +352,13 @@ patchMap.focus('grid-1')
 ### `fit(id)`
 ```js
 // Fit to the entire canvas object
-patchMap.fit()
+patchmap.fit()
 
 // Fit to the object with id 'group-id-1'
-patchMap.fit('group-id-1')
+patchmap.fit('group-id-1')
 
 // Fit to the object with id 'grid-1'
-patchMap.fit('grid-1')
+patchmap.fit('grid-1')
 ```
 
 <br/>
@@ -367,7 +367,7 @@ patchMap.fit('grid-1')
 Object explorer following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax.
 
 ```js
-  const result = patchMap.selector('$..[?(@.label=="group-label-1")]')
+  const result = patchmap.selector('$..[?(@.label=="group-label-1")]')
 ```
 
 <br/>
@@ -385,7 +385,7 @@ This should be executed after the `draw` method.
 - `onDragSelect` (optional, function): The callback function that is called when a drag event occurs.
 
 ```js
-patchMap.select({
+patchmap.select({
   enabled: true,
   draggable: true,
   isSelectGroup: false,

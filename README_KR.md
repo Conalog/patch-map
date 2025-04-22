@@ -15,7 +15,7 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixijs`
 - [🚀 시작하기](#-시작하기)
   - [설치](#설치)
   - [기본 예제](#기본-예제)
-- [PatchMap](#patchmap)
+- [Patchmap](#patchmap)
   - [init(el, options)](#initel-options)
   - [destroy()](#destroy)
   - [draw(data)](#drawdata)
@@ -54,7 +54,7 @@ npm install @conalog/patch-map
 시작하는 데 도움이 되는 간단한 예제입니다:
 ```js
 (async () => {
-  import { PatchMap } from '@conalog/patch-map';
+  import { Patchmap } from '@conalog/patch-map';
 
   const data = [
     {
@@ -85,24 +85,24 @@ npm install @conalog/patch-map
     }
   ];
 
-  const patchMap = new PatchMap();
+  const patchmap = new Patchmap();
 
-  await patchMap.init(document.body);
+  await patchmap.init(document.body);
   
-  patchMap.draw(data);
+  patchmap.draw(data);
 })()
 ```
 
 <br/>
 
 
-## PatchMap
+## Patchmap
 
 ### `init(el, options)`
 PATCH MAP을 초기화하는 것으로, 1번만 실행되어야 합니다.
 
 ```js
-await patchMap.init(el, {
+await patchmap.init(el, {
   app: { background: '#CCCCCC' },
   viewport: {
     plugins: { decelerate: { disabled: true } }
@@ -203,7 +203,7 @@ const data = [
     }]
   }
 ];
-patchMap.draw(data);
+patchmap.draw(data);
 ```
 
 **Data Schema**
@@ -225,7 +225,7 @@ draw method가 요구하는 **데이터 구조**입니다.
 
 ```js
 // label이 "grid-label-1"인 객체들에 대해 변경 사항 적용
-patchMap.update({
+patchmap.update({
   path: `$..children[?(@.label=="grid-label-1")]`,
   changes: {
     components: [
@@ -235,7 +235,7 @@ patchMap.update({
 });
 
 // type이 "group"인 객체들에 대해 변경 사항 적용
-patchMap.update({
+patchmap.update({
   path: `$..children[?(@.type=="group")]`,
   changes: { 
     show: false
@@ -243,7 +243,7 @@ patchMap.update({
 });
 
 // type이 "group"인 객체 내에 type이 "grid"인 객체에 대해 변경 사항 적용
-patchMap.update({
+patchmap.update({
   path: `$..children[?(@.type=="group")].children[?(@.type=="grid")]`,
   changes: {
     components: [
@@ -266,7 +266,7 @@ patchMap.update({
 - `fn` (required, function) - 이벤트가 발생했을 때 실행될 콜백 함수입니다. 이벤트 객체를 매개변수로 받습니다.
 
 ```js
-const id = patchMap.event.add({
+const id = patchmap.event.add({
   path: '$',
   action: 'click tap',
   fn: (e) => {
@@ -274,7 +274,7 @@ const id = patchMap.event.add({
   }
 });
 
-patchMap.event.add({
+patchmap.event.add({
   id: 'pointerdown-event',
   path: '$..[?(@.label=="group-label-1")]',
   action: 'pointerdown',
@@ -283,7 +283,7 @@ patchMap.event.add({
   }
 });
 
-patchMap.event.add({
+patchmap.event.add({
   id: 'double-click',
   path: '$',
   action: 'click',
@@ -297,19 +297,19 @@ patchMap.event.add({
 
 ```js
 // 'pointerdown-event' & 'double-click' 이벤트를 활성화합니다.
-patchMap.event.on('pointerdown-event double-click');
+patchmap.event.on('pointerdown-event double-click');
 
 // 'pointerdown-event' & 'double-click' 이벤트를 비활성화합니다.
-patchMap.event.off('pointerdown-event double-click');
+patchmap.event.off('pointerdown-event double-click');
 
 // 'pointerdown-event' & 'double-click' 이벤트를 제거합니다.
-patchMap.event.remove('pointerdown-event');
+patchmap.event.remove('pointerdown-event');
 
 // 등록되어 있는 'double-click' 이벤트를 가져옵니다.
-const event = patchMap.event.get('double-click');
+const event = patchmap.event.get('double-click');
 
 // 등록된 모든 이벤트를 가져옵니다.
-const events = patchMap.event.getAll();
+const events = patchmap.event.getAll();
 ```
 
 <br/>
@@ -317,15 +317,15 @@ const events = patchMap.event.getAll();
 ### `viewport`
 - viewport 플러그인에 대한 자세한 내용은 [pixi-viewport](https://viewport.pixijs.io/jsdoc/Viewport.html)를 참조하세요.
 ```js
-patchMap.viewport.plugin.add({
+patchmap.viewport.plugin.add({
   mouseEdges: { speed: 16, distance: 20, allowButtons: true },
 });
 
-patchMap.viewport.plugin.stop('mouse-edges');
+patchmap.viewport.plugin.stop('mouse-edges');
 
-patchMap.viewport.plugin.start('mouse-edges');
+patchmap.viewport.plugin.start('mouse-edges');
 
-patchMap.viewport.plugin.remove('mouse-edges');
+patchmap.viewport.plugin.remove('mouse-edges');
 ```
 <br/>
 
@@ -338,13 +338,13 @@ patchMap.viewport.plugin.remove('mouse-edges');
 ### `focus(id)`
 ```js
 // 전체 캔버스 객체를 기준으로 focus
-patchMap.focus()
+patchmap.focus()
 
 // id가 'group-id-1'인 객체를 기준으로 focus
-patchMap.focus('group-id-1')
+patchmap.focus('group-id-1')
 
 // id가 'grid-1'인 객체를 기준으로 focus
-patchMap.focus('grid-1')
+patchmap.focus('grid-1')
 ```
 
 <br/>
@@ -352,13 +352,13 @@ patchMap.focus('grid-1')
 ### `fit(id)`
 ```js
 // 전체 캔버스 객체를 기준으로 fit
-patchMap.fit()
+patchmap.fit()
 
 // id가 'group-id-1'인 객체를 기준으로 fit
-patchMap.fit('group-id-1')
+patchmap.fit('group-id-1')
 
 // id가 'grid-1'인 객체를 기준으로 fit
-patchMap.fit('grid-1')
+patchmap.fit('grid-1')
 ```
 
 <br/>
@@ -367,7 +367,7 @@ patchMap.fit('grid-1')
 [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 객체 탐색기입니다.
 
 ```js
-const result = patchMap.selector('$..[?(@.label=="group-label-1")]')
+const result = patchmap.selector('$..[?(@.label=="group-label-1")]')
 ```
 
 <br/>
@@ -385,7 +385,7 @@ const result = patchMap.selector('$..[?(@.label=="group-label-1")]')
 - `onDragSelect` (optional, function): 드래그가 발생할 때 호출될 콜백 함수입니다.
 
 ```js
-patchMap.select({
+patchmap.select({
   enabled: true,
   draggable: true,
   isSelectGroup: false,
