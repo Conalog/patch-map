@@ -1,8 +1,6 @@
-import { changePlacement } from './placement';
 import { updateConfig } from './utils';
 
-export const changeSize = (object, { size }) => {
+export const changeSize = (object, { size = object.config.size }) => {
   object.setSize(size);
-  changePlacement(object, {});
   updateConfig(object, { size });
 };
