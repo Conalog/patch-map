@@ -70,6 +70,7 @@ const mergeArray = (target, source, options, visited) => {
 };
 
 export const deepMerge = (target, source, options = {}) => {
+  if (source === undefined) return target;
   const visited = new WeakMap();
   return _deepMerge(target, source, options, visited);
 };

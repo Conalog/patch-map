@@ -38,8 +38,8 @@ describe('deepMerge – primitive / basic combinations', () => {
 /* 2. Edge-case override                                                      */
 /* -------------------------------------------------------------------------- */
 describe('deepMerge – edge-case behavior', () => {
-  test('object + undefined → undefined', () =>
-    expect(deepMerge({ a: 1 }, undefined)).toBeUndefined());
+  test('object + undefined → object', () =>
+    expect(deepMerge({ a: 1 }, undefined)).toEqual({ a: 1 }));
 
   test('undefined + object → object', () =>
     expect(deepMerge(undefined, { a: 1 })).toEqual({ a: 1 }));
@@ -219,8 +219,10 @@ describe('deepMerge – MockContainer replace / in-place', () => {
     expect(c2.x).toBe(50);
   });
 
-  test('container + undefined → undefined', () =>
-    expect(deepMerge(new MockContainer(), undefined)).toBeUndefined());
+  test('container + undefined → container', () => {
+    const container = new MockContainer();
+    expect(deepMerge(container, undefined)).toEqual(container);
+  });
 
   test('undefined + container → container', () => {
     const c = new MockContainer();
