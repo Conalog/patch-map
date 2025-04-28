@@ -6,7 +6,6 @@ export const validate = (data, schema) => {
     return schema.parse(data);
   } catch (err) {
     const validationError = fromError(err);
-    console.error('Validation Error:', validationError.toString());
     return validationError;
   }
 };
