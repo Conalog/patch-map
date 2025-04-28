@@ -2,40 +2,75 @@ import deepmerge from 'deepmerge';
 import { isPlainObject } from 'is-plain-object';
 import { findIndexByPriority } from '../findIndexByPriority';
 
-export const deepMerge = (target = {}, source = {}, options = {}) => {
-  return deepmerge(target, source, {
-    isMergeableObject: (value) => {
-      if (Array.isArray(value)) return true;
-      return isPlainObject(value);
-    },
-    arrayMerge: mergeArray,
-    ...options,
-  });
+const isPrimitive = (value) =>
+  value === null ||
+  ['string', 'number', 'boolean', 'bigint', 'symbol', 'undefined'].includes(
+    typeof value,
+  );
+
+const _deepMerge = (target, source, options, visited) => {
+  if (isPrimitive(source) || typeof source === 'function') return source;
+  if (visited.has(source)) return visited.get(source);
+
+  if (Array.isArray(target) && Array.isArray(source)) {
+    return mergeArray(target, source, options, visited);
+  }
+
+  if (isPlainObject(target) && isPlainObject(source)) {
+    const out = { ...target };
+    visited.set(source, out);
+    for (const key of Object.keys(source)) {
+      out[key] = _deepMerge(target[key], source[key], options, visited);
+    }
+    return out;
+  }
+
+  if (
+    target &&
+    typeof target === 'object' &&
+    !Array.isArray(target) &&
+    !isPlainObject(target) &&
+    isPlainObject(source)
+  ) {
+    visited.set(source, target);
+    for (const key of Object.keys(source)) {
+      target[key] = _deepMerge(target[key], source[key], options, visited);
+    }
+    return target;
+  }
+  return source;
 };
 
-const mergeArray = (target, source, options) => {
-  const mergedArray = [...target];
-  const usedIndexes = new Set();
+const mergeArray = (target, source, options, visited) => {
+  const merged = [...target];
+  const used = new Set();
 
-  source.forEach((srcItem, srcIndex) => {
-    if (typeof srcItem === 'number') {
-      if (srcIndex < mergedArray.length) {
-        mergedArray[srcIndex] = srcItem;
-      } else {
-        mergedArray.push(srcItem);
-      }
-      return;
-    }
-
-    if (srcItem && typeof srcItem === 'object' && !Array.isArray(srcItem)) {
-      const idx = findIndexByPriority(mergedArray, srcItem, usedIndexes);
+  source.forEach((item, i) => {
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const idx = findIndexByPriority(merged, item, used);
       if (idx !== -1) {
-        mergedArray[idx] = deepmerge(mergedArray[idx], srcItem, options);
-        usedIndexes.add(idx);
+        merged[idx] = deepmerge(merged[idx], item, {
+          isMergeableObject: (value) =>
+            Array.isArray(value) || isPlainObject(value),
+          arrayMerge: (target, src) =>
+            mergeArray(target, src, options, visited),
+          ...options,
+        });
+        used.add(idx);
         return;
       }
+    } else if (i < merged.length) {
+      merged[i] = item;
+      return;
     }
-    mergedArray.push(srcItem);
+    merged.push(item);
   });
-  return mergedArray;
+
+  return merged;
+};
+
+export const deepMerge = (target, source, options = {}) => {
+  if (source === undefined) return target;
+  const visited = new WeakMap();
+  return _deepMerge(target, source, options, visited);
 };

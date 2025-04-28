@@ -1,8 +1,5 @@
-import { updateConfig } from './utils';
+import { deepMerge } from '../../utils/deepmerge/deepmerge';
 
 export const changeProperty = (object, key, value) => {
-  if (key === 'metadata' || key in object) {
-    object[key] = value;
-    updateConfig(object, { [key]: value });
-  }
+  deepMerge(object, { [key]: value });
 };
