@@ -118,7 +118,7 @@ export interface BarComponent extends BaseObject {
 export interface IconComponent extends BaseObject {
   type: 'icon';
   show?: boolean; // default: true
-  texture: string | TextureStyle;
+  asset: string;
 
   placement?: Placement; // default: 'center'
   margin?: string; // default: '0'
