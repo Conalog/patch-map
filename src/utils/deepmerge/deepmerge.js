@@ -9,7 +9,12 @@ const isPrimitive = (value) =>
   );
 
 export const deepMerge = (target, source, options = {}) => {
-  if (isPrimitive(target) || isPrimitive(source)) {
+  if (
+    isPrimitive(target) ||
+    isPrimitive(source) ||
+    !isPlainObject(target) ||
+    !isPlainObject(source)
+  ) {
     return source;
   }
   return deepmerge(target, source, {
