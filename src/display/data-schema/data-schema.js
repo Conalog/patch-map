@@ -30,7 +30,7 @@ const defaultInfo = z
   })
   .passthrough();
 
-const gridObject = defaultInfo.extend({
+export const gridObject = defaultInfo.extend({
   type: z.literal('grid'),
   cells: z.array(z.array(z.union([z.literal(0), z.literal(1)]))),
   components: componentArraySchema,
@@ -38,14 +38,14 @@ const gridObject = defaultInfo.extend({
   itemSize: size,
 });
 
-const singleObject = defaultInfo.extend({
+export const singleObject = defaultInfo.extend({
   type: z.literal('item'),
   components: componentArraySchema,
   position: position.default({}),
   size: size,
 });
 
-const relationGroupObject = defaultInfo.extend({
+export const relationGroupObject = defaultInfo.extend({
   type: z.literal('relations'),
   links: z.array(relation),
   strokeStyle: z.preprocess(
@@ -54,7 +54,7 @@ const relationGroupObject = defaultInfo.extend({
   ),
 });
 
-const groupObject = defaultInfo.extend({
+export const groupObject = defaultInfo.extend({
   type: z.literal('group'),
   items: z.array(z.lazy(() => itemTypes)),
   position: position.default({}),
