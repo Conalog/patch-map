@@ -3,6 +3,8 @@ import { deepMerge } from './deepmerge';
 
 describe('deepMerge - arrayMerge by id → name → type', () => {
   test.each([
+    ['123', '456', '456'],
+    [123, 456, 456],
     [
       {
         show: true,
