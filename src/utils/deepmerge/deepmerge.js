@@ -8,7 +8,7 @@ const isPrimitive = (value) =>
     typeof value,
   );
 
-export const deepMerge = (target = {}, source = {}, options = {}) => {
+export const deepMerge = (target, source, options = {}) => {
   if (isPrimitive(target) || isPrimitive(source)) {
     return source;
   }
