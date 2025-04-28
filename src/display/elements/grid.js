@@ -1,4 +1,7 @@
+import { isValidationError } from 'zod-validation-error';
+import { validate } from '../../utils/vaildator';
 import { elementPipeline } from '../change/pipeline/element';
+import { gridObject } from '../data-schema/data-schema';
 import { updateObject } from '../update/update-object';
 import { createContainer } from '../utils';
 import { createItem } from './item';
@@ -22,6 +25,8 @@ export const createGrid = (config) => {
 
 const pipelineKeys = ['show', 'position', 'gridComponents'];
 export const updateGrid = (element, config, options) => {
+  const validateConfig = validate(config, gridObject.partial());
+  if (isValidationError(validateConfig)) throw validateConfig;
   updateObject(element, config, elementPipeline, pipelineKeys, options);
 };
 

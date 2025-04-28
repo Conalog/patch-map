@@ -100,13 +100,11 @@ class Patchmap {
     const zData = preprocessData(data);
     if (!zData) return;
 
-    this.app.stop();
     const validatedData = validateMapData(zData);
+    if (isValidationError(validatedData)) throw validatedData;
 
-    if (!isValidationError(validatedData)) {
-      draw(this.viewport, validatedData);
-    }
-
+    this.app.stop();
+    draw(this.viewport, validatedData);
     this.app.start();
     undoRedoManager.clear();
     return validatedData;
