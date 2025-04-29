@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { deepPartial } from '../../utils/zod-deep-strict-partial';
 import { componentArraySchema } from './component-schema';
 
 const position = z
@@ -30,22 +31,24 @@ const defaultInfo = z
   })
   .passthrough();
 
-export const gridObject = defaultInfo.extend({
+const gridObject = defaultInfo.extend({
   type: z.literal('grid'),
   cells: z.array(z.array(z.union([z.literal(0), z.literal(1)]))),
   components: componentArraySchema,
   position: position.default({}),
   itemSize: size,
 });
+export const deepGridObject = deepPartial(gridObject);
 
-export const singleObject = defaultInfo.extend({
+const singleObject = defaultInfo.extend({
   type: z.literal('item'),
   components: componentArraySchema,
   position: position.default({}),
   size: size,
 });
+export const deepSingleObject = deepPartial(singleObject);
 
-export const relationGroupObject = defaultInfo.extend({
+const relationGroupObject = defaultInfo.extend({
   type: z.literal('relations'),
   links: z.array(relation),
   strokeStyle: z.preprocess(
@@ -53,12 +56,14 @@ export const relationGroupObject = defaultInfo.extend({
     z.record(z.unknown()),
   ),
 });
+export const deepRelationGroupObject = deepPartial(relationGroupObject);
 
-export const groupObject = defaultInfo.extend({
+const groupObject = defaultInfo.extend({
   type: z.literal('group'),
   items: z.array(z.lazy(() => itemTypes)),
   position: position.default({}),
 });
+export const deepGroupObject = deepPartial(groupObject);
 
 const itemTypes = z.discriminatedUnion('type', [
   groupObject,
