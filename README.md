@@ -51,7 +51,7 @@ npm install @conalog/patch-map
 ```
 
 ### Usage
-Here’s a quick example to get you started:
+Here's a quick example to get you started:
 ```js
 (async () => {
   import { Patchmap } from '@conalog/patch-map';
@@ -486,7 +486,12 @@ For specific extensions, add their settings individually:
 ```
 
 ## License
-- [MIT](./LICENSE)
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+### Third-party Code
+
+The file `src/utils/zod-deep-strict-partial.js` contains code originally licensed under Apache License 2.0. The original copyright notice and license terms are preserved in the file.
 
 ## Fira Code
 This project incorporates the [Fira Code](https://github.com/tonsky/FiraCode) font to enhance code readability.  
