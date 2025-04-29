@@ -1,6 +1,16 @@
-import deepmerge from 'deepmerge';
 import { isPlainObject } from 'is-plain-object';
 import { findIndexByPriority } from '../findIndexByPriority';
+
+const forbiddenKeys = new Set(['__proto__', 'prototype', 'constructor']);
+
+const enumKeys = (obj) => {
+  const out = [];
+  for (const key of Reflect.ownKeys(obj)) {
+    if (forbiddenKeys.has(key)) continue;
+    if (Object.prototype.propertyIsEnumerable.call(obj, key)) out.push(key);
+  }
+  return out;
+};
 
 const isPrimitive = (value) =>
   value === null ||
@@ -17,10 +27,14 @@ const _deepMerge = (target, source, options, visited) => {
   }
 
   if (isPlainObject(target) && isPlainObject(source)) {
-    const out = { ...target };
+    const out = {};
+    for (const key of enumKeys(target)) {
+      out[key] = target[key];
+    }
     visited.set(source, out);
-    for (const key of Object.keys(source)) {
-      out[key] = _deepMerge(target[key], source[key], options, visited);
+
+    for (const key of enumKeys(source)) {
+      out[key] = _deepMerge(out[key], source[key], options, visited);
     }
     return out;
   }
@@ -49,13 +63,7 @@ const mergeArray = (target, source, options, visited) => {
     if (item && typeof item === 'object' && !Array.isArray(item)) {
       const idx = findIndexByPriority(merged, item, used);
       if (idx !== -1) {
-        merged[idx] = deepmerge(merged[idx], item, {
-          isMergeableObject: (value) =>
-            Array.isArray(value) || isPlainObject(value),
-          arrayMerge: (target, src) =>
-            mergeArray(target, src, options, visited),
-          ...options,
-        });
+        merged[idx] = _deepMerge(merged[idx], item, options, visited);
         used.add(idx);
         return;
       }
