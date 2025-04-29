@@ -1,7 +1,7 @@
 import { isValidationError } from 'zod-validation-error';
 import { validate } from '../../utils/vaildator';
 import { elementPipeline } from '../change/pipeline/element';
-import { singleObject } from '../data-schema/data-schema';
+import { deepSingleObject } from '../data-schema/data-schema';
 import { updateObject } from '../update/update-object';
 import { createContainer } from '../utils';
 
@@ -19,7 +19,7 @@ export const createItem = (config) => {
 
 const pipelineKeys = ['show', 'position', 'components'];
 export const updateItem = (element, config, options) => {
-  const validateConfig = validate(config, singleObject.partial());
+  const validateConfig = validate(config, deepSingleObject);
   if (isValidationError(validateConfig)) throw validateConfig;
   updateObject(element, config, elementPipeline, pipelineKeys, options);
 };

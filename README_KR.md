@@ -488,6 +488,10 @@ npm run lint:fix # 코드 포맷팅 수정
 ## 라이선스
 - [MIT](./LICENSE)
 
+### Third-party Code
+
+`src/utils/zod-deep-strict-partial.js` 파일은 원래 Apache License 2.0 하에 라이선스된 코드를 포함합니다. 원래의 저작권 고지 및 라이선스 조건이 파일에 보존되어 있습니다.
+
 ## Fira Code
 이 프로젝트는 캔버스 상에서 문자 가독성을 높이기 위해 [Fira Code](https://github.com/tonsky/FiraCode) 폰트를 사용합니다.  
 Fira Code는 [SIL Open Font License, Version 1.1](https://scripts.sil.org/OFL) 하에 배포되며, 라이선스 사본은 [OFL-1.1.txt](./src/assets/fonts/OFL-1.1.txt)에 제공됩니다.

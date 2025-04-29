@@ -2,7 +2,7 @@ import { Graphics } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { validate } from '../../utils/vaildator';
 import { elementPipeline } from '../change/pipeline/element';
-import { relationGroupObject } from '../data-schema/data-schema';
+import { deepRelationGroupObject } from '../data-schema/data-schema';
 import { updateObject } from '../update/update-object';
 import { createContainer } from '../utils';
 
@@ -15,7 +15,7 @@ export const createRelations = (config) => {
 
 const pipelineKeys = ['show', 'strokeStyle', 'links'];
 export const updateRelations = (element, config, options) => {
-  const validateConfig = validate(config, relationGroupObject.partial());
+  const validateConfig = validate(config, deepRelationGroupObject);
   if (isValidationError(validateConfig)) throw validateConfig;
   updateObject(element, config, elementPipeline, pipelineKeys, options);
 };

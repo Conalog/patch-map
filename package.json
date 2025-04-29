@@ -44,11 +44,11 @@
     "jsonpath-plus": "^10.3.0",
     "pixi-viewport": "^6.0.3",
     "uuid": "^11.1.0",
+    "zod": "^3.24.3",
     "zod-validation-error": "^3.4.0"
   },
   "peerDependencies": {
-    "pixi.js": "^8.8.0",
-    "zod": "^3.24.2"
+    "pixi.js": "^8.8.0"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
