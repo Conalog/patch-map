@@ -9,7 +9,6 @@ export const changePercentSize = (
     percentWidth = object.config.percentWidth,
     percentHeight = object.config.percentHeight,
     margin = object.config.margin,
-    animation = object.config.animation,
     animationDuration = object.config.animationDuration,
   },
 ) => {
@@ -28,7 +27,6 @@ export const changePercentSize = (
     percentWidth,
     percentHeight,
     margin,
-    animation,
     animationDuration,
   });
 
@@ -42,10 +40,10 @@ export const changePercentSize = (
     const maxHeight =
       component.parent.size.height - (marginObj.top + marginObj.bottom);
 
-    if (animation) {
+    if (object.config.animation) {
       gsap.to(component, {
         pixi: { height: maxHeight * percentHeight },
-        duration: animationDuration / 1000,
+        duration: animationDuration / 100,
         ease: 'power2.inOut',
         onUpdate: () => changePlacement(component, {}),
       });

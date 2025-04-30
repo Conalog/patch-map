@@ -27,6 +27,12 @@ export const componentPipeline = {
       change.changeTextureTransform(component);
     },
   },
+  animation: {
+    keys: ['animation'],
+    handler: (component, config) => {
+      change.changeAnimation(component, config);
+    },
+  },
   percentSize: {
     keys: ['percentWidth', 'percentHeight', 'margin'],
     handler: (component, config) => {
