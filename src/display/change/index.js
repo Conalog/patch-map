@@ -12,3 +12,4 @@ export { changeSize } from './size';
 export { changePlacement } from './placement';
 export { changeText } from './text';
 export { changeTextStyle } from './text-style';
+export { changeAnimation } from './animation';
