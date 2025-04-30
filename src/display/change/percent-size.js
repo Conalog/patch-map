@@ -43,7 +43,7 @@ export const changePercentSize = (
     if (object.config.animation) {
       gsap.to(component, {
         pixi: { height: maxHeight * percentHeight },
-        duration: animationDuration / 100,
+        duration: animationDuration / 1000,
         ease: 'power2.inOut',
         onUpdate: () => changePlacement(component, {}),
       });
