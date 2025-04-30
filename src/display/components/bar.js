@@ -10,7 +10,14 @@ export const barComponent = () => {
   return component;
 };
 
-const pipelineKeys = ['show', 'texture', 'tint', 'percentSize', 'placement'];
+const pipelineKeys = [
+  'animation',
+  'show',
+  'texture',
+  'tint',
+  'percentSize',
+  'placement',
+];
 export const updateBarComponent = (component, config, options) => {
   updateObject(component, config, componentPipeline, pipelineKeys, options);
 };
