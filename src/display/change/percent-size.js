@@ -1,7 +1,7 @@
 import gsap from 'gsap';
 import { parseMargin } from '../utils';
 import { changePlacement } from './placement';
-import { isConfigMatch, tweensOf, updateConfig } from './utils';
+import { isConfigMatch, killTweensOf, updateConfig } from './utils';
 
 export const changePercentSize = (
   object,
@@ -41,7 +41,7 @@ export const changePercentSize = (
       component.parent.size.height - (marginObj.top + marginObj.bottom);
 
     if (object.config.animation) {
-      tweensOf(component).forEach((tween) => tween.kill());
+      killTweensOf(component);
       gsap.to(component, {
         pixi: { height: maxHeight * percentHeight },
         duration: animationDuration / 1000,

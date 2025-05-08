@@ -11,3 +11,5 @@ export const updateConfig = (object, config) => {
 };
 
 export const tweensOf = (object) => gsap.getTweensOf(object);
+
+export const killTweensOf = (object) => gsap.killTweensOf(object);
