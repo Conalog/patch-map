@@ -132,12 +132,12 @@ class Patchmap {
     update(this.viewport, opts);
   }
 
-  focus(id) {
-    focus(this.viewport, id);
+  focus(ids) {
+    focus(this.viewport, ids);
   }
 
-  fit(id) {
-    fit(this.viewport, id);
+  fit(ids) {
+    fit(this.viewport, ids);
   }
 
   selector(path, opts) {
