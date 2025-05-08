@@ -1,6 +1,6 @@
 import { isValidationError } from 'zod-validation-error';
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
-import { validate } from '../../utils/vaildator';
+import { validate } from '../../utils/validator';
 import {
   backgroundComponent,
   updateBackgroundComponent,

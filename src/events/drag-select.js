@@ -3,7 +3,7 @@ import { isValidationError } from 'zod-validation-error';
 import { getPointerPosition } from '../utils/canvas';
 import { deepMerge } from '../utils/deepmerge/deepmerge';
 import { event } from '../utils/event/canvas';
-import { validate } from '../utils/vaildator';
+import { validate } from '../utils/validator';
 import { findIntersectObjects } from './find';
 import { dragSelectEventSchema } from './schema';
 import { checkEvents, isMoved } from './utils';

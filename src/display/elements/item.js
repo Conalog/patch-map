@@ -1,5 +1,5 @@
 import { isValidationError } from 'zod-validation-error';
-import { validate } from '../../utils/vaildator';
+import { validate } from '../../utils/validator';
 import { elementPipeline } from '../change/pipeline/element';
 import { deepSingleObject } from '../data-schema/data-schema';
 import { updateObject } from '../update/update-object';
