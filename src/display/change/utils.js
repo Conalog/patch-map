@@ -6,8 +6,12 @@ export const isConfigMatch = (object, key, value) => {
   return value == null || isSame(object.config[key], value);
 };
 
-export const updateConfig = (object, config) => {
-  object.config = deepMerge(object.config, config);
+export const updateConfig = (object, config, overwrite = false) => {
+  if (overwrite) {
+    object.config = { ...object.config, ...config };
+  } else {
+    object.config = deepMerge(object.config, config);
+  }
 };
 
 export const tweensOf = (object) => gsap.getTweensOf(object);

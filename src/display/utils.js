@@ -15,16 +15,10 @@ export const parseMargin = (margin) => {
   return { top, right, bottom, left };
 };
 
-export const createContainer = ({
-  type,
-  id,
-  label,
-  metadata,
-  isRenderGroup = false,
-}) => {
+export const createContainer = ({ type, id, label, isRenderGroup = false }) => {
   const container = new Container({ isRenderGroup });
   container.eventMode = 'static';
-  Object.assign(container, { type, id, label, metadata });
-  container.config = { type, id, label, metadata };
+  Object.assign(container, { type, id, label });
+  container.config = { type, id, label };
   return container;
 };
