@@ -336,32 +336,36 @@ patchmap.viewport.plugin.remove('mouse-edges');
 <br/>
 
 ### `focus(ids)`
+- `ids` (optional, string \| string[]) - The string or string array representing the object ID to focus on. If not specified, the entire canvas object is the target.
 ```js
  // Focus on the entire canvas object
 patchmap.focus()
 
 // Focus on the object with id 'group-id-1'
-patchmap.focus(['group-id-1'])
+patchmap.focus('group-id-1')
 
 // Focus on the object with id 'grid-1'
-patchmap.focus(['grid-1'])
+patchmap.focus('grid-1')
 
+// Focus on objects with ids 'item-1' and 'item-2'
 patchmap.focus(['item-1', 'item-2'])
 ```
 
 <br/>
 
 ### `fit(ids)`
+- `ids` (optional, string \| string[]) - The string or string array representing the object ID to fit. If not specified, the entire canvas object is the target.
 ```js
 // Fit to the entire canvas object
 patchmap.fit()
 
 // Fit to the object with id 'group-id-1'
-patchmap.fit(['group-id-1'])
+patchmap.fit('group-id-1')
 
 // Fit to the object with id 'grid-1'
-patchmap.fit(['grid-1'])
+patchmap.fit('grid-1')
 
+// Fit on objects with ids 'item-1' and 'item-2'
 patchmap.fit(['item-1', 'item-2'])
 ```
 
