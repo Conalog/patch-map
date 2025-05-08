@@ -9,7 +9,7 @@ export const changeStrokeStyle = (object, { strokeStyle, links }) => {
   if (!links && path.links.length > 0) {
     reRenderPath(path);
   }
-  updateConfig(object, { strokeStyle, links });
+  updateConfig(object, { strokeStyle });
 
   function reRenderPath(path) {
     path.clear();
