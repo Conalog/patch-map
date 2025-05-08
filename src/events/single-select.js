@@ -53,7 +53,10 @@ const addEvents = (viewport) => {
           y: viewport.position.y,
         };
 
-        if (!isMoved(viewport, state.endPosition, state.startPosition)) {
+        if (
+          state.startPosition &&
+          !isMoved(viewport, state.startPosition, state.endPosition)
+        ) {
           executeFn('onSelect', e);
         }
 
