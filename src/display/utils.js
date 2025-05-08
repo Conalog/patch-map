@@ -1,6 +1,6 @@
 import { Container } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
-import { validate } from '../utils/vaildator';
+import { validate } from '../utils/validator';
 import { Margin } from './data-schema/component-schema';
 
 export const parseMargin = (margin) => {

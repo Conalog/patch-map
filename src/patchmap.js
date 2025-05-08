@@ -4,6 +4,7 @@ import { undoRedoManager } from './command';
 import { draw } from './display/draw';
 import { update } from './display/update/update';
 import { dragSelect } from './events/drag-select';
+import { fit, focus } from './events/focus-fit';
 import { select } from './events/single-select';
 import {
   initApp,
@@ -12,13 +13,12 @@ import {
   initResizeObserver,
   initViewport,
 } from './init';
-import { fit, focus } from './utils/canvas';
 import { convertLegacyData } from './utils/convert';
 import { event } from './utils/event/canvas';
 import { renderer } from './utils/renderer';
 import { selector } from './utils/selector/selector';
 import { theme } from './utils/theme';
-import { validateMapData } from './utils/vaildator';
+import { validateMapData } from './utils/validator';
 
 class Patchmap {
   constructor() {
@@ -132,12 +132,12 @@ class Patchmap {
     update(this.viewport, opts);
   }
 
-  focus(id) {
-    focus(this.viewport, id);
+  focus(ids) {
+    focus(this.viewport, ids);
   }
 
-  fit(id) {
-    fit(this.viewport, id);
+  fit(ids) {
+    fit(this.viewport, ids);
   }
 
   selector(path, opts) {

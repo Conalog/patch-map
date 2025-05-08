@@ -23,8 +23,8 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixijs`
   - [event](#event)
   - [viewport](#viewport)
   - [asset](#asset)
-  - [focus(id)](#focusid)
-  - [fit(id)](#fitid)
+  - [focus(ids)](#focusids)
+  - [fit(ids)](#fitids)
   - [selector(path)](#selectorpath)
   - [select(options)](#selectoptions)
 - [undoRedoManager](#undoredomanager)
@@ -335,7 +335,8 @@ patchmap.viewport.plugin.remove('mouse-edges');
 
 <br/>
 
-### `focus(id)`
+### `focus(ids)`
+- `ids` (optional, string \| string[]) - focus할 객체 ID를 나타내는 문자열 또는 문자열 배열입니다. 지정하지 않으면 캔버스 전체 객체가 대상이 됩니다.
 ```js
 // 전체 캔버스 객체를 기준으로 focus
 patchmap.focus()
@@ -345,11 +346,15 @@ patchmap.focus('group-id-1')
 
 // id가 'grid-1'인 객체를 기준으로 focus
 patchmap.focus('grid-1')
+
+// id가 'item-1'과 'item-2'인 객체들을 기준으로 focus
+patchmap.focus(['item-1', 'item-2'])
 ```
 
 <br/>
 
-### `fit(id)`
+### `fit(ids)`
+- `ids` (optional, string \| string[]) - fit할 객체 ID를 나타내는 문자열 또는 문자열 배열입니다. 지정하지 않으면 캔버스 전체 객체가 대상이 됩니다.
 ```js
 // 전체 캔버스 객체를 기준으로 fit
 patchmap.fit()
@@ -359,6 +364,9 @@ patchmap.fit('group-id-1')
 
 // id가 'grid-1'인 객체를 기준으로 fit
 patchmap.fit('grid-1')
+
+// id가 'item-1'과 'item-2'인 객체들을 기준으로 fit
+patchmap.fit(['item-1', 'item-2'])
 ```
 
 <br/>

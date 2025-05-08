@@ -1,23 +1,4 @@
 import { renderer } from './renderer';
-import { selector } from './selector/selector';
-
-export const focus = (viewport, id) => {
-  const object = getObjectById(viewport, id);
-  if (!object.length) return;
-  const bounds = getScaleBounds(viewport, object[0]);
-  viewport.moveCenter(
-    bounds.x + bounds.width / 2,
-    bounds.y + bounds.height / 2,
-  );
-};
-
-export const fit = (viewport, id) => {
-  focus(viewport, id);
-  const object = getObjectById(viewport, id);
-  if (!object.length) return;
-  const bounds = getScaleBounds(viewport, object[0]);
-  viewport.fit(true, bounds.width, bounds.height);
-};
 
 export const getScaleBounds = (viewport, object) => {
   const bounds = object.getBounds();
@@ -32,8 +13,4 @@ export const getScaleBounds = (viewport, object) => {
 export const getPointerPosition = (viewport) => {
   const global = renderer.get().events.pointer.global;
   return viewport ? viewport.toWorld(global.x, global.y) : global;
-};
-
-const getObjectById = (viewport, id) => {
-  return id ? selector(viewport, `$..children[?(@.id=="${id}")]`) : [viewport];
 };

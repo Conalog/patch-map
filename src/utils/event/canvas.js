@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { selector } from '../selector/selector';
 import { uid } from '../uuid';
-import { validate } from '../vaildator';
+import { validate } from '../validator';
 
 const addEventSchema = z.object({
   id: z.string().default(''),

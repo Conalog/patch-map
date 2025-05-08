@@ -3,7 +3,7 @@ import { isValidationError } from 'zod-validation-error';
 import { convertArray } from '../../utils/convert';
 import { selector } from '../../utils/selector/selector';
 import { uid } from '../../utils/uuid';
-import { validate } from '../../utils/vaildator';
+import { validate } from '../../utils/validator';
 import { updateGrid } from '../elements/grid';
 import { updateGroup } from '../elements/group';
 import { updateItem } from '../elements/item';

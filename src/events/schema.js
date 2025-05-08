@@ -16,3 +16,7 @@ export const dragSelectEventSchema = selectDefaultSchema.extend({
   draggable: z.boolean().default(false),
   onDragSelect: z.function().optional(),
 });
+
+export const focusFitIdsSchema = z
+  .union([z.string(), z.array(z.string())])
+  .nullish();
