@@ -1,3 +1,4 @@
+import gsap from 'gsap';
 import { createGrid } from './elements/grid';
 import { createGroup } from './elements/group';
 import { createItem } from './elements/item';
@@ -5,6 +6,7 @@ import { createRelations } from './elements/relations';
 import { update } from './update/update';
 
 export const draw = (viewport, data) => {
+  gsap.globalTimeline.clear();
   destroyChildren(viewport);
   render(viewport, data);
 
