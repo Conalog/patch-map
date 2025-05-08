@@ -6,8 +6,8 @@ export const isConfigMatch = (object, key, value) => {
   return value == null || isSame(object.config[key], value);
 };
 
-export const updateConfig = (object, config, overWrite = false) => {
-  if (overWrite) {
+export const updateConfig = (object, config, overwrite = false) => {
+  if (overwrite) {
     object.config = { ...object.config, ...config };
   } else {
     object.config = deepMerge(object.config, config);
