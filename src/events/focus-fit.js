@@ -1,8 +1,8 @@
 import { isValidationError } from 'zod-validation-error';
-import { getScaleBounds } from './bounds';
+import { getScaleBounds } from '../utils/canvas';
+import { selector } from '../utils/selector/selector';
+import { validate } from '../utils/validator';
 import { focusFitIdsSchema } from './schema';
-import { selector } from './selector/selector';
-import { validate } from './validator';
 
 export const focus = (viewport, ids) => centerViewport(viewport, ids, false);
 export const fit = (viewport, ids) => centerViewport(viewport, ids, true);
