@@ -1,4 +1,5 @@
 import { getScaleBounds } from '../../utils/canvas';
+import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { selector } from '../../utils/selector/selector';
 import { updateConfig } from './utils';
 
@@ -24,7 +25,8 @@ export const changeLinks = (object, { links }) => {
     path.links.push({ sourcePoint, targetPoint });
   }
   path.stroke();
-  updateConfig(object, { links });
+  updateConfig(object, { links }, true);
+  deepMerge(object, { metadata: { linkedIds: Object.keys(objs) } });
 
   function collectLinkedObjects(viewport, links) {
     const uniqueIds = new Set(
