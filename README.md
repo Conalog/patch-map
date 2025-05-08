@@ -22,8 +22,8 @@ It enables flexible and fast creation of 2D content.
   - [event](#event)
   - [viewport](#viewport)
   - [asset](#asset)
-  - [focus(id)](#focusid)
-  - [fit(id)](#fitid)
+  - [focus(ids)](#focusids)
+  - [fit(ids)](#fitids)
   - [selector(path)](#selectorpath)
   - [select(options)](#selectoptions)
 - [undoRedoManager](#undoredomanager)
@@ -335,30 +335,34 @@ patchmap.viewport.plugin.remove('mouse-edges');
 
 <br/>
 
-### `focus(id)`
+### `focus(ids)`
 ```js
  // Focus on the entire canvas object
 patchmap.focus()
 
 // Focus on the object with id 'group-id-1'
-patchmap.focus('group-id-1')
+patchmap.focus(['group-id-1'])
 
 // Focus on the object with id 'grid-1'
-patchmap.focus('grid-1')
+patchmap.focus(['grid-1'])
+
+patchmap.focus(['item-1', 'item-2'])
 ```
 
 <br/>
 
-### `fit(id)`
+### `fit(ids)`
 ```js
 // Fit to the entire canvas object
 patchmap.fit()
 
 // Fit to the object with id 'group-id-1'
-patchmap.fit('group-id-1')
+patchmap.fit(['group-id-1'])
 
 // Fit to the object with id 'grid-1'
-patchmap.fit('grid-1')
+patchmap.fit(['grid-1'])
+
+patchmap.fit(['item-1', 'item-2'])
 ```
 
 <br/>

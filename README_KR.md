@@ -23,8 +23,8 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixijs`
   - [event](#event)
   - [viewport](#viewport)
   - [asset](#asset)
-  - [focus(id)](#focusid)
-  - [fit(id)](#fitid)
+  - [focus(ids)](#focusids)
+  - [fit(ids)](#fitids)
   - [selector(path)](#selectorpath)
   - [select(options)](#selectoptions)
 - [undoRedoManager](#undoredomanager)
@@ -335,30 +335,34 @@ patchmap.viewport.plugin.remove('mouse-edges');
 
 <br/>
 
-### `focus(id)`
+### `focus(ids)`
 ```js
 // 전체 캔버스 객체를 기준으로 focus
 patchmap.focus()
 
 // id가 'group-id-1'인 객체를 기준으로 focus
-patchmap.focus('group-id-1')
+patchmap.focus(['group-id-1'])
 
 // id가 'grid-1'인 객체를 기준으로 focus
-patchmap.focus('grid-1')
+patchmap.focus(['grid-1'])
+
+patchmap.focus(['item-1', 'item-2'])
 ```
 
 <br/>
 
-### `fit(id)`
+### `fit(ids)`
 ```js
 // 전체 캔버스 객체를 기준으로 fit
 patchmap.fit()
 
 // id가 'group-id-1'인 객체를 기준으로 fit
-patchmap.fit('group-id-1')
+patchmap.fit(['group-id-1'])
 
 // id가 'grid-1'인 객체를 기준으로 fit
-patchmap.fit('grid-1')
+patchmap.fit(['grid-1'])
+
+patchmap.fit(['item-1', 'item-2'])
 ```
 
 <br/>
