@@ -70,19 +70,19 @@ export const convertLegacyData = (data) => {
           id: value.id,
           label: value.name,
           links:
-            value.children.length > 0
-              ? value.children.length > 1
-                ? value.children.slice(0, -1).map((child, i) => ({
-                    source: child.join('.'),
-                    target: value.children[i + 1].join('.'),
-                  }))
-                : [
+            value.children.length > 1
+              ? value.children.slice(0, -1).map((child, i) => ({
+                  source: child.join('.'),
+                  target: value.children[i + 1].join('.'),
+                }))
+              : value.children.length === 1
+                ? [
                     {
                       source: value.children[0].join('.'),
                       target: value.children[0].join('.'),
                     },
                   ]
-              : [],
+                : [],
           strokeStyle: {
             width: 4,
             color: value.properties.color.dark,
