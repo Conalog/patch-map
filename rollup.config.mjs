@@ -18,8 +18,9 @@ export default [
         format: 'esm',
       },
       {
-        file: pkg.iife,
-        format: 'iife',
+        file: pkg.umd,
+        format: 'umd',
+        name: 'Patchmap',
       },
     ],
     plugins: [
