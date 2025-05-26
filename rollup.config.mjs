@@ -11,11 +11,15 @@ export default [
       {
         file: pkg.main,
         format: 'cjs',
-        exportess: 'named',
+        exports: 'named',
       },
       {
         file: pkg.module,
         format: 'esm',
+      },
+      {
+        file: pkg.iife,
+        format: 'iife',
       },
     ],
     plugins: [
