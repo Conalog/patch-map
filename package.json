@@ -8,6 +8,9 @@
   "keywords": [],
   "homepage": "https://github.com/Conalog/patch-map#readme",
   "bugs": "https://github.com/Conalog/patch-map/issues",
+  "engines": {
+    "node": ">=20"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/Conalog/patch-map.git"
