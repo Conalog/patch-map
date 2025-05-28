@@ -21,6 +21,7 @@ export default [
         file: pkg.umd,
         format: 'umd',
         name: 'Patchmap',
+        inlineDynamicImports: true,
       },
     ],
     plugins: [
