@@ -11,11 +11,17 @@ export default [
       {
         file: pkg.main,
         format: 'cjs',
-        exportess: 'named',
+        exports: 'named',
       },
       {
         file: pkg.module,
         format: 'esm',
+      },
+      {
+        file: pkg.umd,
+        format: 'umd',
+        name: 'Patchmap',
+        inlineDynamicImports: true,
       },
     ],
     plugins: [

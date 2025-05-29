@@ -27,6 +27,7 @@
   },
   "main": "dist/index.cjs.js",
   "module": "dist/index.esm.js",
+  "umd": "dist/index.umd.js",
   "types": "dist/types/src/patchmap.d.ts",
   "scripts": {
     "build": "tsc && rollup -c",
