@@ -197,7 +197,7 @@ const data = [
             borderColor: 'primary.dark',
             radius: 4,
           },
-        }
+        },
         { type: 'icon', asset: 'loading', size: 16 }
       ]
     }]
