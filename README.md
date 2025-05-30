@@ -2,7 +2,9 @@
 English | [한국어](./README_KR.md)
 
 PATCH MAP is an optimized canvas library built on pixi.js and pixi-viewport, tailored to meet the requirements of PATCH services.
+<br/>
 It enables flexible and fast creation of 2D content.
+<br/>
 Therefore, it is necessary to learn about the following two libraries.
 
 - **[pixi.js](https://github.com/pixijs/pixijs)**  
