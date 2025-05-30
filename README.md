@@ -1,11 +1,12 @@
 # PATCH MAP
 English | [한국어](./README_KR.md)
 
-PATCH MAP is an optimized canvas library built on pixijs and pixi-viewport, tailored to meet the requirements of PATCH services.
-It enables flexible and fast creation of 2D content.
+PATCH MAP is an optimized canvas library built on pixi.js and pixi-viewport, tailored to meet the requirements of PATCH services.
+<br/>
+Therefore, to use this, an understanding of the following two libraries is essential.
 
-- **[PixiJS](https://github.com/pixijs/pixijs)**  
-- **[Pixi-Viewport](https://github.com/pixi-viewport/pixi-viewport)**  
+- **[pixi.js](https://github.com/pixijs/pixijs)**  
+- **[pixi-viewport](https://github.com/pixi-viewport/pixi-viewport)**  
 
 <br/>
 
@@ -45,52 +46,56 @@ It enables flexible and fast creation of 2D content.
 ## 🚀 Getting Started
 
 ### Install
-Install `@conalog/patch-map` using npm:
+#### NPM
 ```sh
 npm install @conalog/patch-map
 ```
 
+#### CDN
+```html
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@8.9.2/dist/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@conalog/patch-map@v0.1.9/dist/index.umd.js"></script>
+```
+
 ### Usage
-Here's a quick example to get you started:
+Here's a quick example to get you started: [Example](https://codesandbox.io/p/sandbox/yvjrpx)
 ```js
-(async () => {
-  import { Patchmap } from '@conalog/patch-map';
+import { Patchmap } from '@conalog/patch-map';
 
-  const data = [
-    {
-      type: 'group',
-      id: 'group-id-1',
-      label: 'group-label-1',
-      items: [{
-        type: 'grid',
-        id: 'grid-1',
-        label: 'grid-label-1',
-        cells: [ [1, 0, 1], [1, 1, 1] ],
-        position: { x: 0, y: 0 },
-        itemSize: { width: 40, height: 80 },
-        components: [
-          {
-            type: 'background',
-            texture: {
-              type: 'rect',
-              fill: 'white',
-              borderWidth: 2,
-              borderColor: 'primary.dark',
-              radius: 4,
-            },
+const data = [
+  {
+    type: 'group',
+    id: 'group-id-1',
+    label: 'group-label-1',
+    items: [{
+      type: 'grid',
+      id: 'grid-1',
+      label: 'grid-label-1',
+      cells: [ [1, 0, 1], [1, 1, 1] ],
+      position: { x: 0, y: 0 },
+      itemSize: { width: 40, height: 80 },
+      components: [
+        {
+          type: 'background',
+          texture: {
+            type: 'rect',
+            fill: 'white',
+            borderWidth: 2,
+            borderColor: 'primary.dark',
+            radius: 4,
           }
-          { type: 'icon', asset: 'loading', size: 16 }
-        ]
-      }]
-    }
-  ];
+        },
+        { type: 'icon', asset: 'loading', size: 16 }
+      ]
+    }]
+  }
+];
 
-  const patchmap = new Patchmap();
+const patchmap = new Patchmap();
 
-  await patchmap.init(document.body);
-  
-  patchmap.draw(data);
-})()
+await patchmap.init(document.body);
+
+patchmap.draw(data);
 ```
 
 <br/>
@@ -116,7 +121,7 @@ await patchmap.init(el, {
 Customize the rendering behavior using the following options:
 
 - `app`
-  - `PixiJS Application options` ([Docs](https://pixijs.download/release/docs/app.ApplicationOptions.html))  
+  - `pixi.js Application options` ([Docs](https://pixijs.download/release/docs/app.ApplicationOptions.html))  
 
   Default:
   ```js
@@ -129,7 +134,7 @@ Customize the rendering behavior using the following options:
   ```
 
 - `viewport`
-  - `Viewport options` ([Docs](https://pixi-viewport.github.io/pixi-viewport/jsdoc/Viewport.html#Viewport))  
+  - `Viewport options` ([Docs](https://viewport.pixijs.io/jsdoc/Viewport.html))  
   - `plugins` - Plugins to enhance or modify the viewport's behavior. You can add new plugins or disable default ones.  
   
   Default:
@@ -196,8 +201,8 @@ const data = [
             borderWidth: 2,
             borderColor: 'primary.dark',
             radius: 4,
-          },
-        }
+          }
+        },
         { type: 'icon', asset: 'loading', size: 16 }
       ]
     }]
@@ -331,7 +336,7 @@ patchmap.viewport.plugin.remove('mouse-edges');
 <br/>
 
 ### `asset`
-- Refer to [pixiJS Assets](https://pixijs.download/release/docs/assets.Assets.html) for information about assets.
+- Refer to [pixi.js Assets](https://pixijs.download/release/docs/assets.Assets.html) for information about assets.
 
 <br/>
 

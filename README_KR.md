@@ -1,11 +1,12 @@
 # PATCH MAP
 [English](./README.md) | 한국어
 
-PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixijs`와 `pixi-viewport`를 기반으로 최적화된 캔버스 라이브러리입니다.
-유연하고 빠른 2D 콘텐츠 생성을 가능하게 합니다.
+PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js`와 `pixi-viewport`를 기반으로 최적화된 캔버스 라이브러리입니다.
+<br/>
+따라서 이를 사용하기 위해서는 아래 두 라이브러리에 대한 이해가 필수적입니다.
 
-- **[PixiJS](https://github.com/pixijs/pixijs)**  
-- **[Pixi-Viewport](https://github.com/pixi-viewport/pixi-viewport)**  
+- **[pixi.js](https://github.com/pixijs/pixijs)**  
+- **[pixi-viewport](https://github.com/pixi-viewport/pixi-viewport)**  
 
 <br/>
 
@@ -45,52 +46,56 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixijs`
 ## 🚀 시작하기
 
 ### 설치
-npm을 이용한 `@conalog/patch-map` 설치:
+#### NPM
 ```sh
 npm install @conalog/patch-map
 ```
 
+#### CDN
+```html
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@8.9.2/dist/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@conalog/patch-map@v0.1.9/dist/index.umd.js"></script>
+```
+
 ### 기본 예제
-시작하는 데 도움이 되는 간단한 예제입니다:
+시작하는 데 도움이 되는 간단한 예제입니다: [예제](https://codesandbox.io/p/sandbox/yvjrpx)
 ```js
-(async () => {
-  import { Patchmap } from '@conalog/patch-map';
+import { Patchmap } from '@conalog/patch-map';
 
-  const data = [
-    {
-      type: 'group',
-      id: 'group-id-1',
-      label: 'group-label-1',
-      items: [{
-        type: 'grid',
-        id: 'grid-1',
-        label: 'grid-label-1',
-        cells: [ [1, 0, 1], [1, 1, 1] ],
-        position: { x: 0, y: 0 },
-        itemSize: { width: 40, height: 80 },
-        components: [
-          {
-            type: 'background',
-            texture: {
-              type: 'rect',
-              fill: 'white',
-              borderWidth: 2,
-              borderColor: 'primary.dark',
-              radius: 4,
-            },
+const data = [
+  {
+    type: 'group',
+    id: 'group-id-1',
+    label: 'group-label-1',
+    items: [{
+      type: 'grid',
+      id: 'grid-1',
+      label: 'grid-label-1',
+      cells: [ [1, 0, 1], [1, 1, 1] ],
+      position: { x: 0, y: 0 },
+      itemSize: { width: 40, height: 80 },
+      components: [
+        {
+          type: 'background',
+          texture: {
+            type: 'rect',
+            fill: 'white',
+            borderWidth: 2,
+            borderColor: 'primary.dark',
+            radius: 4,
           }
-          { type: 'icon', asset: 'loading', size: 16 }
-        ]
-      }]
-    }
-  ];
+        },
+        { type: 'icon', asset: 'loading', size: 16 }
+      ]
+    }]
+  }
+];
 
-  const patchmap = new Patchmap();
+const patchmap = new Patchmap();
 
-  await patchmap.init(document.body);
-  
-  patchmap.draw(data);
-})()
+await patchmap.init(document.body);
+
+patchmap.draw(data);
 ```
 
 <br/>
@@ -117,7 +122,7 @@ await patchmap.init(el, {
 렌더링 동작을 사용자 정의하려면 다음 옵션을 사용하세요:
 
 - `app`
-  - `PixiJS Application options` ([Docs](https://pixijs.download/release/docs/app.ApplicationOptions.html))  
+  - `pixi.js Application options` ([Docs](https://pixijs.download/release/docs/app.ApplicationOptions.html))  
 
   Default:
   ```js
@@ -130,7 +135,7 @@ await patchmap.init(el, {
   ```
 
 - `viewport`
-  - `Viewport options` ([Docs](https://pixi-viewport.github.io/pixi-viewport/jsdoc/Viewport.html#Viewport))  
+  - `Viewport options` ([Docs](https://viewport.pixijs.io/jsdoc/Viewport.html))  
   - `plugins` - Viewport의 동작을 향상시키거나 수정하는 플러그인입니다. 새로운 플러그인을 추가하거나 기본 플러그인을 비활성화할 수 있습니다.  
   
   Default:
@@ -196,8 +201,8 @@ const data = [
             borderWidth: 2,
             borderColor: 'primary.dark',
             radius: 4,
-          },
-        }
+          }
+        },
         { type: 'icon', texture: 'loading', size: 16 }
       ]
     }]
@@ -331,7 +336,7 @@ patchmap.viewport.plugin.remove('mouse-edges');
 
 
 ### `asset`
-- asset에 대한 내용은 [pixiJS Assets](https://pixijs.download/release/docs/assets.Assets.html)를 참조하세요.
+- asset에 대한 내용은 [pixi.js Assets](https://pixijs.download/release/docs/assets.Assets.html)를 참조하세요.
 
 <br/>
 
