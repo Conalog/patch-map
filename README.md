@@ -78,8 +78,8 @@ Here's a quick example to get you started: [Example](https://codesandbox.io/p/sa
               borderWidth: 2,
               borderColor: 'primary.dark',
               radius: 4,
-            },
-          }
+            }
+          },
           { type: 'icon', asset: 'loading', size: 16 }
         ]
       }]
@@ -197,7 +197,7 @@ const data = [
             borderWidth: 2,
             borderColor: 'primary.dark',
             radius: 4,
-          },
+          }
         },
         { type: 'icon', asset: 'loading', size: 16 }
       ]

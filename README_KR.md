@@ -78,8 +78,8 @@ npm install @conalog/patch-map
               borderWidth: 2,
               borderColor: 'primary.dark',
               radius: 4,
-            },
-          }
+            }
+          },
           { type: 'icon', asset: 'loading', size: 16 }
         ]
       }]
@@ -197,7 +197,7 @@ const data = [
             borderWidth: 2,
             borderColor: 'primary.dark',
             radius: 4,
-          },
+          }
         },
         { type: 'icon', texture: 'loading', size: 16 }
       ]
