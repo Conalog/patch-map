@@ -93,7 +93,7 @@ export type components =
 export interface BackgroundComponent extends BaseObject {
   type: 'background';
   show?: boolean; // default: true
-  texture: string | TextureStyle;
+  texture: TextureStyle;
 }
 
 /**
@@ -102,10 +102,10 @@ export interface BackgroundComponent extends BaseObject {
 export interface BarComponent extends BaseObject {
   type: 'bar';
   show?: boolean; // default: true
-  texture: string | TextureStyle;
+  texture: TextureStyle;
 
   placement?: Placement; // default: 'bottom'
-  margin?: string; // default: '0'
+  margin?: string; // default: '0', ('4 2', '2 1 3 4')
   percentWidth?: number; // default: 1 (0~1)
   percentHeight?: number; // default: 1 (0~1)
   animation?: boolean; // default: true
@@ -118,10 +118,10 @@ export interface BarComponent extends BaseObject {
 export interface IconComponent extends BaseObject {
   type: 'icon';
   show?: boolean; // default: true
-  asset: string;
+  asset: string; // object, inverter, combiner, edge, device, loading, warning, wifi, etc.
 
   placement?: Placement; // default: 'center'
-  margin?: string; // default: '0'
+  margin?: string; // default: '0', ('4 2', '2 1 3 4')
   size: number; // 0 or higher
 }
 
@@ -133,7 +133,7 @@ export interface TextComponent extends BaseObject {
   show?: boolean; // default: true
 
   placement?: Placement; // default: 'center'
-  margin?: string; // default: '0'
+  margin?: string; // default: '0', ('4 2', '2 1 3 4')
   text?: string; // default: ''
   style?: Record<string, unknown>;
   split?: number; // default: 0
