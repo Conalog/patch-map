@@ -9,45 +9,32 @@ body:
         Thanks for taking the time to fill out this bug report!
 
   - type: textarea
-    id: current_behavior
-    # 현재 동작 (필수)
+    id: bug-description
     attributes:
-      label: "Current Behavior"
-      placeholder: "Leave a comment"
+      label: "Describe the bug",
+      description: "A clear and concise description of what the bug is."
+      placeholder: "Bug description"
     validations:
       required: true
 
   - type: textarea
-    id: expected_behavior
-    # 예상 동작 (필수)
+    id: reproduction
     attributes:
-      label: "Expected Behavior"
-      placeholder: "Leave a comment"
-    validations:
-      required: true
-
-  - type: textarea
-    id: steps
-    # 재현 단계 (필수)
-    attributes:
-      label: "Steps to Reproduce"
-      placeholder: "If possible, provide a link to a reproducible example or include the relevant code."
+      label: "Reproduction"
+      description: "How do you trigger this bug? Please walk us through it step by step."
+      placeholder: "Reproduction"
+      value: |
+        1.
+        2.
+        3.
     validations:
       required: true
 
   - type: textarea
     id: environment
-    # 환경 정보 (필수)
     attributes:
       label: "Environment"
       description: "Output of `npx envinfo --system --npmPackages @conalog/patch-map --binaries --browsers`"
       placeholder: "System, Binaries, Browsers, npmPackages"
     validations:
       required: true
-
-  - type: textarea
-    id: additional_context
-    # 추가 정보 (선택)
-    attributes:
-      label: "Additional Context"
-      placeholder: "Leave a comment"
