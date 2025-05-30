@@ -118,7 +118,7 @@ await patchmap.init(el, {
 렌더링 동작을 사용자 정의하려면 다음 옵션을 사용하세요:
 
 - `app`
-  - `PixiJS Application options` ([Docs](https://pixijs.download/release/docs/app.ApplicationOptions.html))  
+  - `pixi.js Application options` ([Docs](https://pixijs.download/release/docs/app.ApplicationOptions.html))  
 
   Default:
   ```js
@@ -332,7 +332,7 @@ patchmap.viewport.plugin.remove('mouse-edges');
 
 
 ### `asset`
-- asset에 대한 내용은 [pixiJS Assets](https://pixijs.download/release/docs/assets.Assets.html)를 참조하세요.
+- asset에 대한 내용은 [pixi.js Assets](https://pixijs.download/release/docs/assets.Assets.html)를 참조하세요.
 
 <br/>
 
