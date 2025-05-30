@@ -46,9 +46,15 @@ Therefore, to use this, an understanding of the following two libraries is essen
 ## 🚀 Getting Started
 
 ### Install
-Install `@conalog/patch-map` using npm:
+#### NPM
 ```sh
 npm install @conalog/patch-map
+```
+
+#### CDN
+```html
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@8.9.2/dist/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@conalog/patch-map@v0.1.9/dist/index.umd.js"></script>
 ```
 
 ### Usage

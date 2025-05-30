@@ -46,9 +46,15 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js
 ## 🚀 시작하기
 
 ### 설치
-npm을 이용한 `@conalog/patch-map` 설치:
+#### NPM
 ```sh
 npm install @conalog/patch-map
+```
+
+#### CDN
+```html
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@8.9.2/dist/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@conalog/patch-map@v0.1.9/dist/index.umd.js"></script>
 ```
 
 ### 기본 예제
