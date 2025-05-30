@@ -51,7 +51,7 @@ npm install @conalog/patch-map
 ```
 
 ### Usage
-Here's a quick example to get you started:
+Here's a quick example to get you started: [Example](https://codesandbox.io/p/sandbox/yvjrpx)
 ```js
 (async () => {
   import { Patchmap } from '@conalog/patch-map';
