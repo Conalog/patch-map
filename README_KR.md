@@ -60,44 +60,42 @@ npm install @conalog/patch-map
 ### 기본 예제
 시작하는 데 도움이 되는 간단한 예제입니다: [예제](https://codesandbox.io/p/sandbox/yvjrpx)
 ```js
-(async () => {
-  import { Patchmap } from '@conalog/patch-map';
+import { Patchmap } from '@conalog/patch-map';
 
-  const data = [
-    {
-      type: 'group',
-      id: 'group-id-1',
-      label: 'group-label-1',
-      items: [{
-        type: 'grid',
-        id: 'grid-1',
-        label: 'grid-label-1',
-        cells: [ [1, 0, 1], [1, 1, 1] ],
-        position: { x: 0, y: 0 },
-        itemSize: { width: 40, height: 80 },
-        components: [
-          {
-            type: 'background',
-            texture: {
-              type: 'rect',
-              fill: 'white',
-              borderWidth: 2,
-              borderColor: 'primary.dark',
-              radius: 4,
-            }
-          },
-          { type: 'icon', asset: 'loading', size: 16 }
-        ]
-      }]
-    }
-  ];
+const data = [
+  {
+    type: 'group',
+    id: 'group-id-1',
+    label: 'group-label-1',
+    items: [{
+      type: 'grid',
+      id: 'grid-1',
+      label: 'grid-label-1',
+      cells: [ [1, 0, 1], [1, 1, 1] ],
+      position: { x: 0, y: 0 },
+      itemSize: { width: 40, height: 80 },
+      components: [
+        {
+          type: 'background',
+          texture: {
+            type: 'rect',
+            fill: 'white',
+            borderWidth: 2,
+            borderColor: 'primary.dark',
+            radius: 4,
+          }
+        },
+        { type: 'icon', asset: 'loading', size: 16 }
+      ]
+    }]
+  }
+];
 
-  const patchmap = new Patchmap();
+const patchmap = new Patchmap();
 
-  await patchmap.init(document.body);
-  
-  patchmap.draw(data);
-})()
+await patchmap.init(document.body);
+
+patchmap.draw(data);
 ```
 
 <br/>
