@@ -130,7 +130,7 @@ await patchmap.init(el, {
   ```
 
 - `viewport`
-  - `Viewport options` ([Docs](https://pixi-viewport.github.io/pixi-viewport/jsdoc/Viewport.html#Viewport))  
+  - `Viewport options` ([Docs](https://viewport.pixijs.io/jsdoc/Viewport.html))  
   - `plugins` - Viewport의 동작을 향상시키거나 수정하는 플러그인입니다. 새로운 플러그인을 추가하거나 기본 플러그인을 비활성화할 수 있습니다.  
   
   Default:

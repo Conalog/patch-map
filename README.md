@@ -129,7 +129,7 @@ Customize the rendering behavior using the following options:
   ```
 
 - `viewport`
-  - `Viewport options` ([Docs](https://pixi-viewport.github.io/pixi-viewport/jsdoc/Viewport.html#Viewport))  
+  - `Viewport options` ([Docs](https://viewport.pixijs.io/jsdoc/Viewport.html))  
   - `plugins` - Plugins to enhance or modify the viewport's behavior. You can add new plugins or disable default ones.  
   
   Default:
