@@ -3,9 +3,7 @@
 
 PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js`와 `pixi-viewport`를 기반으로 최적화된 캔버스 라이브러리입니다.
 <br/>
-유연하고 빠른 2D 콘텐츠 생성을 가능하게 합니다.
-<br/>
-그러므로, 아래 두 라이브러리에 대한 학습이 필요합니다.
+따라서 이를 사용하기 위해서는 아래 두 라이브러리에 대한 이해가 필수적입니다.
 
 - **[pixi.js](https://github.com/pixijs/pixijs)**  
 - **[pixi-viewport](https://github.com/pixi-viewport/pixi-viewport)**  
