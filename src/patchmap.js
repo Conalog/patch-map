@@ -1,3 +1,4 @@
+import gsap from 'gsap';
 import { Application, Assets } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { undoRedoManager } from './command';
@@ -83,6 +84,7 @@ class Patchmap {
   }
 
   destroy() {
+    gsap.globalTimeline.clear();
     Assets.reset();
     const parentElement = this.app.canvas.parentElement;
     this.viewport.destroy(true);
