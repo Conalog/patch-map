@@ -75,14 +75,22 @@ export const initViewport = (app, opts = {}) => {
 
 export const initAsset = async (opts = {}) => {
   const options = deepMerge(DEFAULT_INIT_OPTIONS.assets, opts);
-  const manifest = transformManifest(options);
-  await PIXI.Assets.init({ manifest });
-  const fontBundle = Object.entries(firaCode).map(([key, font]) => ({
-    alias: `firaCode-${key}`,
-    src: font,
-    data: { family: `FiraCode ${key}` },
-  }));
-  PIXI.Assets.addBundle('fonts', fontBundle);
+
+  if (!PIXI.Assets._initialized) {
+    const manifest = transformManifest(options);
+    await PIXI.Assets.init({ manifest });
+  }
+
+  const fontsBundle = await PIXI.Assets.loadBundle(['fonts']);
+  if (!('fonts' in fontsBundle)) {
+    const fontBundle = Object.entries(firaCode).map(([key, font]) => ({
+      alias: `firaCode-${key}`,
+      src: font,
+      data: { family: `FiraCode ${key}` },
+    }));
+    PIXI.Assets.addBundle('fonts', fontBundle);
+  }
+
   await PIXI.Assets.loadBundle([...Object.keys(options), 'fonts']);
 };
 
