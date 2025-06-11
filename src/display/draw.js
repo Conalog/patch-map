@@ -5,6 +5,13 @@ import { createItem } from './elements/item';
 import { createRelations } from './elements/relations';
 import { update } from './update/update';
 
+const elementcreators = {
+  group: createGroup,
+  grid: createGrid,
+  item: createItem,
+  relations: createRelations,
+};
+
 export const draw = (context, data) => {
   const { viewport } = context;
   gsap.globalTimeline.clear();
@@ -13,47 +20,15 @@ export const draw = (context, data) => {
 
   function render(parent, data) {
     for (const config of data) {
-      switch (config.type) {
-        case 'group': {
-          const element = createGroup(config);
-          element.viewport = viewport;
-          update(context, {
-            elements: element,
-            changes: config,
-          });
-          parent.addChild(element);
+      const creator = elementcreators[config.type];
+      if (creator) {
+        const element = creator(config);
+        element.viewport = viewport;
+        update(context, { elements: element, changes: config });
+        parent.addChild(element);
+
+        if (config.type === 'group') {
           render(element, config.items);
-          break;
-        }
-        case 'grid': {
-          const element = createGrid(config);
-          element.viewport = viewport;
-          update(context, {
-            elements: element,
-            changes: config,
-          });
-          parent.addChild(element);
-          break;
-        }
-        case 'item': {
-          const element = createItem(config);
-          element.viewport = viewport;
-          update(context, {
-            elements: element,
-            changes: config,
-          });
-          parent.addChild(element);
-          break;
-        }
-        case 'relations': {
-          const element = createRelations({ viewport, ...config });
-          element.viewport = viewport;
-          update(context, {
-            elements: element,
-            changes: config,
-          });
-          parent.addChild(element);
-          break;
         }
       }
     }
