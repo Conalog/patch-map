@@ -16,7 +16,6 @@ import {
 } from './init';
 import { convertLegacyData } from './utils/convert';
 import { event } from './utils/event/canvas';
-import { renderer } from './utils/renderer';
 import { selector } from './utils/selector/selector';
 import { theme } from './utils/theme';
 import { validateMapData } from './utils/validator';
@@ -81,7 +80,6 @@ class Patchmap {
     await initApp(this.app, { resizeTo: element, ...appOptions });
     this._viewport = initViewport(this.app, viewportOptions);
     await initAsset(assetOptions);
-    renderer.set(this.app.renderer);
     initCanvas(element, this.app);
 
     this._resizeObserver = initResizeObserver(element, this.app, this.viewport);

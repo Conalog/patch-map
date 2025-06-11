@@ -7,6 +7,7 @@ import { icons } from './assets/icons';
 import { transformManifest } from './assets/utils';
 import { deepMerge } from './utils/deepmerge/deepmerge';
 import { plugin } from './utils/event/viewport';
+import { uid } from './utils/uuid';
 
 gsap.registerPlugin(PixiPlugin);
 PixiPlugin.registerPIXI(PIXI);
@@ -47,6 +48,7 @@ const DEFAULT_INIT_OPTIONS = {
 export const initApp = async (app, opts = {}) => {
   const options = deepMerge(DEFAULT_INIT_OPTIONS.app, opts);
   await app.init(options);
+  app.renderer.uid = uid();
 };
 
 export const initViewport = (app, opts = {}) => {
@@ -60,6 +62,7 @@ export const initViewport = (app, opts = {}) => {
     opts,
   );
   const viewport = new Viewport(options);
+  viewport.app = app;
   viewport.type = 'canvas';
   viewport.events = {};
   viewport.plugin = {

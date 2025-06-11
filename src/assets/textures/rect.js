@@ -2,7 +2,7 @@ import { Graphics } from 'pixi.js';
 import { getColor } from '../../utils/get';
 import { cacheKey, generateTexture } from './utils';
 
-export const createRectTexture = (rectOpts) => {
+export const createRectTexture = (renderer, rectOpts) => {
   const {
     fill = null,
     borderWidth = null,
@@ -10,9 +10,9 @@ export const createRectTexture = (rectOpts) => {
     radius = null,
   } = rectOpts;
   const rect = createRect({ fill, borderWidth, borderColor, radius });
-  const texture = generateTexture(rect);
+  const texture = generateTexture(rect, renderer);
 
-  texture.id = cacheKey(rectOpts);
+  texture.id = cacheKey(renderer, rectOpts);
   texture.metadata = {
     slice: {
       topHeight: borderWidth + 4,

@@ -1,5 +1,3 @@
-import { renderer } from './renderer';
-
 export const getScaleBounds = (viewport, object) => {
   const bounds = object.getBounds();
   return {
@@ -11,6 +9,7 @@ export const getScaleBounds = (viewport, object) => {
 };
 
 export const getPointerPosition = (viewport) => {
-  const global = renderer.get().events.pointer.global;
+  const renderer = viewport.app.renderer;
+  const global = renderer.events.pointer.global;
   return viewport ? viewport.toWorld(global.x, global.y) : global;
 };
