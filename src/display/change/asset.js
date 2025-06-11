@@ -1,4 +1,5 @@
 import { getTexture } from '../../assets/textures/texture';
+import { getViewport } from '../../utils/get';
 import { isConfigMatch, updateConfig } from './utils';
 
 export const changeAsset = (object, { asset: assetConfig }, { theme }) => {

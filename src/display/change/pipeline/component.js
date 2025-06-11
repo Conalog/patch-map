@@ -17,8 +17,8 @@ export const componentPipeline = {
   },
   asset: {
     keys: ['asset'],
-    handler: (component, config) => {
-      change.changeAsset(component, config);
+    handler: (component, config, options) => {
+      change.changeAsset(component, config, options);
     },
   },
   textureTransform: {
