@@ -53,7 +53,7 @@ export const updateComponents = (
       item.addChild(component);
     }
 
-    componentFn[component.type].update(component, { ...config }, options);
+    componentFn[component.type].update(component, config, options);
   }
 };
 

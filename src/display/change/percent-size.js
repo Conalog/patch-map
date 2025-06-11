@@ -22,8 +22,12 @@ export const changePercentSize = (
   }
 
   const marginObj = parseMargin(margin);
-  if (percentWidth) changeWidth(object, percentWidth, marginObj);
-  if (percentHeight) changeHeight(object, percentHeight, marginObj);
+  if (!Number.isNaN(percentWidth)) {
+    changeWidth(object, percentWidth, marginObj);
+  }
+  if (!Number.isNaN(percentHeight)) {
+    changeHeight(object, percentHeight, marginObj);
+  }
   updateConfig(object, {
     percentWidth,
     percentHeight,
