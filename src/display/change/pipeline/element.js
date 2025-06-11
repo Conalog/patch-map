@@ -1,11 +1,11 @@
 import * as change from '..';
 import { Commands } from '../../../command';
 import { updateComponents } from '../../update/update-components';
-import { pipeline } from './base';
+import { basePipeline } from './base';
 import { createCommandHandler } from './utils';
 
 export const elementPipeline = {
-  ...pipeline,
+  ...basePipeline,
   position: {
     keys: ['position'],
     handler: createCommandHandler(
