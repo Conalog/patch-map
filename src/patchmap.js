@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { Application, Assets } from 'pixi.js';
+import { Application, Assets, Graphics } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { UndoRedoManager } from './command/undo-redo-manager';
 import { draw } from './display/draw';
@@ -29,6 +29,18 @@ class Patchmap {
     this._theme = themeStore();
     this._undoRedoManager = new UndoRedoManager();
     this._animationContext = gsap.context(() => {});
+
+    this._singleSelectState = {
+      config: {},
+      position: { start: null, end: null },
+    };
+    this._dragSelectState = {
+      config: {},
+      lastMoveTime: 0,
+      isDragging: false,
+      point: { start: null, end: null, move: null },
+      box: new Graphics(),
+    };
   }
 
   get app() {
@@ -168,8 +180,8 @@ class Patchmap {
   }
 
   select(opts) {
-    select(this.viewport, opts);
-    dragSelect(this.viewport, opts);
+    select(this.viewport, this._singleSelectState, opts);
+    dragSelect(this.viewport, this._dragSelectState, opts);
   }
 }
 
