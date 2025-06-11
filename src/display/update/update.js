@@ -20,7 +20,7 @@ export const update = (context, opts) => {
   const config = validate(opts, updateSchema.passthrough());
   if (isValidationError(config)) throw config;
 
-  const { viewport, undoRedoManager } = context;
+  const { viewport = null, undoRedoManager, theme } = context;
   const historyId = createHistoryId(config.saveToHistory);
   const elements = 'elements' in config ? convertArray(config.elements) : [];
   if (viewport && config.path) {
@@ -36,23 +36,31 @@ export const update = (context, opts) => {
 
     switch (element.type) {
       case 'group':
-        updateGroup(element, elConfig.changes, undoRedoManager, {
+        updateGroup(element, elConfig.changes, {
           historyId,
+          theme,
+          undoRedoManager,
         });
         break;
       case 'grid':
-        updateGrid(element, elConfig.changes, undoRedoManager, {
+        updateGrid(element, elConfig.changes, {
           historyId,
+          theme,
+          undoRedoManager,
         });
         break;
       case 'item':
-        updateItem(element, elConfig.changes, undoRedoManager, {
+        updateItem(element, elConfig.changes, {
           historyId,
+          theme,
+          undoRedoManager,
         });
         break;
       case 'relations':
-        updateRelations(element, elConfig.changes, undoRedoManager, {
+        updateRelations(element, elConfig.changes, {
           historyId,
+          theme,
+          undoRedoManager,
         });
         break;
     }

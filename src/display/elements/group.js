@@ -11,15 +11,8 @@ export const createGroup = (config) => {
 };
 
 const pipelineKeys = ['show', 'position'];
-export const updateGroup = (element, changes, undoRedoManager, options) => {
+export const updateGroup = (element, changes, options) => {
   const validated = validate(changes, deepGroupObject);
   if (isValidationError(validated)) throw validated;
-  updateObject(
-    element,
-    changes,
-    elementPipeline,
-    pipelineKeys,
-    undoRedoManager,
-    options,
-  );
+  updateObject(element, changes, elementPipeline, pipelineKeys, options);
 };

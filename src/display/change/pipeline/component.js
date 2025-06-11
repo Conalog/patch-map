@@ -11,8 +11,8 @@ export const componentPipeline = {
   },
   texture: {
     keys: ['texture'],
-    handler: (component, config) => {
-      change.changeTexture(component, config);
+    handler: (component, config, options) => {
+      change.changeTexture(component, config, options);
     },
   },
   asset: {
@@ -60,8 +60,8 @@ export const componentPipeline = {
   },
   textStyle: {
     keys: ['style', 'margin'],
-    handler: (component, config) => {
-      change.changeTextStyle(component, config);
+    handler: (component, config, options) => {
+      change.changeTextStyle(component, config, options);
       change.changePlacement(component, config); // Ensure placement is updated after style change
     },
   },

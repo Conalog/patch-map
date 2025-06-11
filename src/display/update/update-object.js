@@ -7,7 +7,6 @@ export const updateObject = (
   changes,
   pipeline,
   pipelineKeys,
-  undoRedoManager,
   options,
 ) => {
   if (!object) return;
@@ -16,7 +15,7 @@ export const updateObject = (
   for (const { keys, handler } of pipelines) {
     const hasMatch = keys.some((key) => key in changes);
     if (hasMatch) {
-      handler(object, changes, undoRedoManager, options);
+      handler(object, changes, options);
     }
   }
 

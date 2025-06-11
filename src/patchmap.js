@@ -113,6 +113,7 @@ class Patchmap {
     const context = {
       viewport: this.viewport,
       undoRedoManager: this.undoRedoManager,
+      theme: this.theme,
     };
     draw(context, validatedData);
     this.app.start();
@@ -142,6 +143,7 @@ class Patchmap {
     const context = {
       viewport: this.viewport,
       undoRedoManager: this.undoRedoManager,
+      theme: this.theme,
     };
     update(context, opts);
   }

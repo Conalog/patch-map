@@ -1,12 +1,13 @@
 import { getTexture } from '../../assets/textures/texture';
 import { isConfigMatch, updateConfig } from './utils';
 
-export const changeAsset = (object, { asset: assetConfig }) => {
+export const changeAsset = (object, { asset: assetConfig }, { theme }) => {
   if (isConfigMatch(object, 'asset', assetConfig)) {
     return;
   }
 
-  const asset = getTexture(assetConfig);
+  const renderer = getViewport(object).app.renderer;
+  const asset = getTexture(renderer, theme, assetConfig);
   if (!asset) {
     console.warn(`Asset not found for config: ${JSON.stringify(assetConfig)}`);
   }

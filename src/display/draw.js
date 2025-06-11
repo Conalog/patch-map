@@ -6,7 +6,7 @@ import { createRelations } from './elements/relations';
 import { update } from './update/update';
 
 export const draw = (context, data) => {
-  const { viewport, undoRedoManager } = context;
+  const { viewport } = context;
   gsap.globalTimeline.clear();
   destroyChildren(viewport);
   render(viewport, data);
@@ -17,7 +17,7 @@ export const draw = (context, data) => {
         case 'group': {
           const element = createGroup(config);
           element.viewport = viewport;
-          update(null, undoRedoManager, {
+          update(context, {
             elements: element,
             changes: config,
           });
@@ -28,7 +28,7 @@ export const draw = (context, data) => {
         case 'grid': {
           const element = createGrid(config);
           element.viewport = viewport;
-          update(null, undoRedoManager, {
+          update(context, {
             elements: element,
             changes: config,
           });
@@ -38,7 +38,7 @@ export const draw = (context, data) => {
         case 'item': {
           const element = createItem(config);
           element.viewport = viewport;
-          update(null, undoRedoManager, {
+          update(context, {
             elements: element,
             changes: config,
           });
@@ -48,7 +48,7 @@ export const draw = (context, data) => {
         case 'relations': {
           const element = createRelations({ viewport, ...config });
           element.viewport = viewport;
-          update(null, undoRedoManager, {
+          update(context, {
             elements: element,
             changes: config,
           });

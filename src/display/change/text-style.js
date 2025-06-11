@@ -6,6 +6,7 @@ import { isConfigMatch, updateConfig } from './utils';
 export const changeTextStyle = (
   object,
   { style = object.config.style, margin = object.config.margin },
+  { theme },
 ) => {
   if (
     isConfigMatch(object, 'style', style) &&
@@ -18,7 +19,7 @@ export const changeTextStyle = (
     if (key === 'fontFamily' || key === 'fontWeight') {
       object.style.fontFamily = `${style.fontFamily ?? object.style.fontFamily.split(' ')[0]} ${FONT_WEIGHT[style.fontWeight ?? object.style.fontWeight]}`;
     } else if (key === 'fill') {
-      object.style[key] = getColor(style.fill);
+      object.style[key] = getColor(theme, style.fill);
     } else if (key === 'fontSize' && style[key] === 'auto') {
       const marginObj = parseMargin(margin);
       setAutoFontSize(object, marginObj);

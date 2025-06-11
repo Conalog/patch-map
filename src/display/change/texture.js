@@ -3,7 +3,11 @@ import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { getViewport } from '../../utils/get';
 import { isConfigMatch, updateConfig } from './utils';
 
-export const changeTexture = (object, { texture: textureConfig }) => {
+export const changeTexture = (
+  object,
+  { texture: textureConfig },
+  { theme },
+) => {
   if (isConfigMatch(object, 'texture', textureConfig)) {
     return;
   }
@@ -11,6 +15,7 @@ export const changeTexture = (object, { texture: textureConfig }) => {
   const renderer = getViewport(object).app.renderer;
   const texture = getTexture(
     renderer,
+    theme,
     deepMerge(object.texture?.metadata?.config, textureConfig),
   );
   object.texture = texture ?? null;

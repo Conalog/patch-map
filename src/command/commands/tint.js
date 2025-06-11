@@ -18,11 +18,12 @@ export class TintCommand extends Command {
    * @param {Object} object - The Pixi.js display object whose tint will be changed.
    * @param {Object} config - The new configuration for the object's tint.
    */
-  constructor(object, config) {
+  constructor(object, config, options) {
     super('tint_object');
     this.object = object;
     this._config = parsePick(config, optionKeys);
     this._prevConfig = parsePick(object.config, optionKeys);
+    this._options = options;
   }
 
   get config() {
@@ -33,17 +34,21 @@ export class TintCommand extends Command {
     return this._prevConfig;
   }
 
+  get options() {
+    return this._options;
+  }
+
   /**
    * Executes the command to change the object's tint.
    */
   execute() {
-    changeTint(this.object, this.config);
+    changeTint(this.object, this.config, this.options);
   }
 
   /**
    * Undoes the command, reverting the object's tint to its previous state.
    */
   undo() {
-    changeTint(this.object, this.prevConfig);
+    changeTint(this.object, this.prevConfig, this.options);
   }
 }
