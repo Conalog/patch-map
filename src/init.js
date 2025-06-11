@@ -84,8 +84,7 @@ export const initAsset = async (opts = {}) => {
     await PIXI.Assets.init({ manifest });
   }
 
-  const fontsBundle = await PIXI.Assets.loadBundle(['fonts']);
-  if (!('fonts' in fontsBundle)) {
+  if (!PIXI.Assets.resolver.hasBundle('fonts')) {
     const fontBundle = Object.entries(firaCode).map(([key, font]) => ({
       alias: `firaCode-${key}`,
       src: font,
