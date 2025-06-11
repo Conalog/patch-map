@@ -1,4 +1,3 @@
-import gsap from 'gsap';
 import { createGrid } from './elements/grid';
 import { createGroup } from './elements/group';
 import { createItem } from './elements/item';
@@ -13,8 +12,8 @@ const elementcreators = {
 };
 
 export const draw = (context, data) => {
-  const { viewport } = context;
-  gsap.globalTimeline.clear();
+  const { viewport, animationContext } = context;
+  animationContext.revert();
   destroyChildren(viewport);
   render(viewport, data);
 

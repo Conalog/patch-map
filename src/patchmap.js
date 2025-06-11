@@ -28,6 +28,7 @@ class Patchmap {
     this._isInit = false;
     this._theme = themeStore();
     this._undoRedoManager = new UndoRedoManager();
+    this._animationContext = gsap.context(() => {});
   }
 
   get app() {
@@ -48,6 +49,10 @@ class Patchmap {
 
   get undoRedoManager() {
     return this._undoRedoManager;
+  }
+
+  get animationContext() {
+    return this._animationContext;
   }
 
   get event() {
@@ -88,7 +93,7 @@ class Patchmap {
   }
 
   destroy() {
-    gsap.globalTimeline.clear();
+    this.animationContext.revert();
     Assets.reset();
     const parentElement = this.app.canvas.parentElement;
     this.viewport.destroy(true);
@@ -114,6 +119,7 @@ class Patchmap {
       viewport: this.viewport,
       undoRedoManager: this.undoRedoManager,
       theme: this.theme,
+      animationContext: this.animationContext,
     };
     draw(context, validatedData);
     this.app.start();
@@ -144,6 +150,7 @@ class Patchmap {
       viewport: this.viewport,
       undoRedoManager: this.undoRedoManager,
       theme: this.theme,
+      animationContext: this.animationContext,
     };
     update(context, opts);
   }

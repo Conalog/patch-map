@@ -27,7 +27,7 @@ export const update = (context, opts) => {
   const config = validate(opts, updateSchema.passthrough());
   if (isValidationError(config)) throw config;
 
-  const { viewport = null, undoRedoManager, theme } = context;
+  const { viewport = null, ...otherContext } = context;
   const historyId = createHistoryId(config.saveToHistory);
   const elements = 'elements' in config ? convertArray(config.elements) : [];
   if (viewport && config.path) {
@@ -43,11 +43,7 @@ export const update = (context, opts) => {
 
     const updater = elementUpdaters[element.type];
     if (updater) {
-      updater(element, elConfig.changes, {
-        historyId,
-        theme,
-        undoRedoManager,
-      });
+      updater(element, elConfig.changes, { historyId, ...otherContext });
     }
   }
 };

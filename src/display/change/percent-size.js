@@ -11,6 +11,7 @@ export const changePercentSize = (
     margin = object.config.margin,
     animationDuration = object.config.animationDuration,
   },
+  { animationContext },
 ) => {
   if (
     isConfigMatch(object, 'percentWidth', percentWidth) &&
@@ -41,12 +42,14 @@ export const changePercentSize = (
       component.parent.size.height - (marginObj.top + marginObj.bottom);
 
     if (object.config.animation) {
-      killTweensOf(component);
-      gsap.to(component, {
-        pixi: { height: maxHeight * percentHeight },
-        duration: animationDuration / 1000,
-        ease: 'power2.inOut',
-        onUpdate: () => changePlacement(component, {}),
+      animationContext.add(() => {
+        killTweensOf(component);
+        gsap.to(component, {
+          pixi: { height: maxHeight * percentHeight },
+          duration: animationDuration / 1000,
+          ease: 'power2.inOut',
+          onUpdate: () => changePlacement(component, {}),
+        });
       });
     } else {
       component.height = maxHeight * percentHeight;
