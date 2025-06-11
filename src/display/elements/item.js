@@ -18,8 +18,15 @@ export const createItem = (config) => {
 };
 
 const pipelineKeys = ['show', 'position', 'components'];
-export const updateItem = (element, config, options) => {
-  const validateConfig = validate(config, deepSingleObject);
-  if (isValidationError(validateConfig)) throw validateConfig;
-  updateObject(element, config, elementPipeline, pipelineKeys, options);
+export const updateItem = (element, changes, undoRedoManager, options) => {
+  const validated = validate(changes, deepSingleObject);
+  if (isValidationError(validated)) throw validated;
+  updateObject(
+    element,
+    changes,
+    elementPipeline,
+    pipelineKeys,
+    undoRedoManager,
+    options,
+  );
 };

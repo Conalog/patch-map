@@ -16,7 +16,7 @@ const updateSchema = z.object({
   relativeTransform: z.boolean().default(false),
 });
 
-export const update = (parent, opts) => {
+export const update = (parent, undoRedoManager, opts) => {
   const config = validate(opts, updateSchema.passthrough());
   if (isValidationError(config)) throw config;
 
@@ -35,16 +35,24 @@ export const update = (parent, opts) => {
 
     switch (element.type) {
       case 'group':
-        updateGroup(element, elConfig.changes, { historyId });
+        updateGroup(element, elConfig.changes, undoRedoManager, {
+          historyId,
+        });
         break;
       case 'grid':
-        updateGrid(element, elConfig.changes, { historyId });
+        updateGrid(element, elConfig.changes, undoRedoManager, {
+          historyId,
+        });
         break;
       case 'item':
-        updateItem(element, elConfig.changes, { historyId });
+        updateItem(element, elConfig.changes, undoRedoManager, {
+          historyId,
+        });
         break;
       case 'relations':
-        updateRelations(element, elConfig.changes, { historyId });
+        updateRelations(element, elConfig.changes, undoRedoManager, {
+          historyId,
+        });
         break;
     }
   }

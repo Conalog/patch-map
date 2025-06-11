@@ -1,7 +1,7 @@
 import gsap from 'gsap';
 import { Application, Assets } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
-import { undoRedoManager } from './command';
+import { UndoRedoManager } from './command/undo-redo-manager';
 import { draw } from './display/draw';
 import { update } from './display/update/update';
 import { dragSelect } from './events/drag-select';
@@ -27,6 +27,7 @@ class Patchmap {
     this._viewport = null;
     this._resizeObserver = null;
     this._isInit = false;
+    this._undoRedoManager = new UndoRedoManager();
   }
 
   get app() {
@@ -43,6 +44,10 @@ class Patchmap {
 
   get isInit() {
     return this._isInit;
+  }
+
+  get undoRedoManager() {
+    return this._undoRedoManager;
   }
 
   get event() {
@@ -70,7 +75,7 @@ class Patchmap {
       asset: assetOptions = {},
     } = opts;
 
-    undoRedoManager._setHotkeys();
+    this.undoRedoManager._setHotkeys();
     theme.set(themeOptions);
     this._app = new Application();
     await initApp(this.app, { resizeTo: element, ...appOptions });
@@ -106,9 +111,9 @@ class Patchmap {
     if (isValidationError(validatedData)) throw validatedData;
 
     this.app.stop();
-    draw(this.viewport, validatedData);
+    draw(this.viewport, validatedData, this.undoRedoManager);
     this.app.start();
-    undoRedoManager.clear();
+    this.undoRedoManager.clear();
     return validatedData;
 
     function preprocessData(data) {
@@ -131,7 +136,7 @@ class Patchmap {
   }
 
   update(opts) {
-    update(this.viewport, opts);
+    update(this.viewport, this.undoRedoManager, opts);
   }
 
   focus(ids) {
