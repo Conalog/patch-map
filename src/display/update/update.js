@@ -16,14 +16,15 @@ const updateSchema = z.object({
   relativeTransform: z.boolean().default(false),
 });
 
-export const update = (parent, undoRedoManager, opts) => {
+export const update = (context, opts) => {
   const config = validate(opts, updateSchema.passthrough());
   if (isValidationError(config)) throw config;
 
+  const { viewport, undoRedoManager } = context;
   const historyId = createHistoryId(config.saveToHistory);
   const elements = 'elements' in config ? convertArray(config.elements) : [];
-  if (parent && config.path) {
-    elements.push(...selector(parent, config.path));
+  if (viewport && config.path) {
+    elements.push(...selector(viewport, config.path));
   }
 
   for (const element of elements) {

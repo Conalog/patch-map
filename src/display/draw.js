@@ -5,7 +5,8 @@ import { createItem } from './elements/item';
 import { createRelations } from './elements/relations';
 import { update } from './update/update';
 
-export const draw = (viewport, data, undoRedoManager) => {
+export const draw = (context, data) => {
+  const { viewport, undoRedoManager } = context;
   gsap.globalTimeline.clear();
   destroyChildren(viewport);
   render(viewport, data);

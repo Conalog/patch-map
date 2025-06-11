@@ -1,6 +1,6 @@
 import { deepMerge } from './deepmerge/deepmerge';
 
-const themeStore = () => {
+export const themeStore = () => {
   let _theme = {
     primary: {
       default: '#0C73BF',
@@ -24,5 +24,3 @@ const themeStore = () => {
 
   return { set, get };
 };
-
-export const theme = themeStore();

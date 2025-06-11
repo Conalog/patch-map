@@ -17,7 +17,7 @@ import {
 import { convertLegacyData } from './utils/convert';
 import { event } from './utils/event/canvas';
 import { selector } from './utils/selector/selector';
-import { theme } from './utils/theme';
+import { themeStore } from './utils/theme';
 import { validateMapData } from './utils/validator';
 
 class Patchmap {
@@ -26,6 +26,7 @@ class Patchmap {
     this._viewport = null;
     this._resizeObserver = null;
     this._isInit = false;
+    this._theme = themeStore();
     this._undoRedoManager = new UndoRedoManager();
   }
 
@@ -38,7 +39,7 @@ class Patchmap {
   }
 
   get theme() {
-    return theme.get();
+    return this._theme.get();
   }
 
   get isInit() {
@@ -75,7 +76,7 @@ class Patchmap {
     } = opts;
 
     this.undoRedoManager._setHotkeys();
-    theme.set(themeOptions);
+    this._theme.set(themeOptions);
     this._app = new Application();
     await initApp(this.app, { resizeTo: element, ...appOptions });
     this._viewport = initViewport(this.app, viewportOptions);
@@ -109,7 +110,11 @@ class Patchmap {
     if (isValidationError(validatedData)) throw validatedData;
 
     this.app.stop();
-    draw(this.viewport, validatedData, this.undoRedoManager);
+    const context = {
+      viewport: this.viewport,
+      undoRedoManager: this.undoRedoManager,
+    };
+    draw(context, validatedData);
     this.app.start();
     this.undoRedoManager.clear();
     return validatedData;
@@ -134,7 +139,11 @@ class Patchmap {
   }
 
   update(opts) {
-    update(this.viewport, this.undoRedoManager, opts);
+    const context = {
+      viewport: this.viewport,
+      undoRedoManager: this.undoRedoManager,
+    };
+    update(context, opts);
   }
 
   focus(ids) {
