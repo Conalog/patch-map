@@ -37,6 +37,6 @@ export const draw = (context, data) => {
 const destroyChildren = (parent) => {
   const children = [...parent.children];
   for (const child of children) {
-    child.destroy({ children: true });
+    child.destroy({ children: true, context: true, style: true });
   }
 };

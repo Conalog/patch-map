@@ -30,17 +30,8 @@ class Patchmap {
     this._undoRedoManager = new UndoRedoManager();
     this._animationContext = gsap.context(() => {});
 
-    this._singleSelectState = {
-      config: {},
-      position: { start: null, end: null },
-    };
-    this._dragSelectState = {
-      config: {},
-      lastMoveTime: 0,
-      isDragging: false,
-      point: { start: null, end: null, move: null },
-      box: new Graphics(),
-    };
+    this._singleSelectState = null;
+    this._dragSelectState = null;
   }
 
   get app() {
@@ -126,6 +117,10 @@ class Patchmap {
     if (isValidationError(validatedData)) throw validatedData;
 
     this.app.stop();
+    Object.keys(event.getAllEvent(this.viewport)).forEach((id) =>
+      event.removeEvent(this.viewport, id),
+    );
+    this.initSelectState();
     const context = {
       viewport: this.viewport,
       undoRedoManager: this.undoRedoManager,
@@ -133,8 +128,8 @@ class Patchmap {
       animationContext: this.animationContext,
     };
     draw(context, validatedData);
-    this.app.start();
     this.undoRedoManager.clear();
+    this.app.start();
     return validatedData;
 
     function preprocessData(data) {
@@ -181,6 +176,20 @@ class Patchmap {
   select(opts) {
     select(this.viewport, this._singleSelectState, opts);
     dragSelect(this.viewport, this._dragSelectState, opts);
+  }
+
+  initSelectState() {
+    this._singleSelectState = {
+      config: {},
+      position: { start: null, end: null },
+    };
+    this._dragSelectState = {
+      config: {},
+      lastMoveTime: 0,
+      isDragging: false,
+      point: { start: null, end: null, move: null },
+      box: new Graphics(),
+    };
   }
 }
 
