@@ -98,6 +98,7 @@ class Patchmap {
   destroy() {
     this.animationContext.revert();
     const parentElement = this.app.canvas.parentElement;
+    event.removeAllEvent(this.viewport);
     this.viewport.destroy({ children: true, context: true, style: true });
     this.app.destroy(true);
     parentElement.remove();
@@ -119,14 +120,13 @@ class Patchmap {
     this.app.stop();
     this.undoRedoManager.clear();
     this.animationContext.revert();
-    Object.keys(event.getAllEvent(this.viewport)).forEach((id) => {
-      event.removeEvent(this.viewport, id);
-    });
+    event.removeAllEvent(this.viewport);
     this.initSelectState();
     const context = {
       viewport: this.viewport,
       undoRedoManager: this.undoRedoManager,
       theme: this.theme,
+      animationContext: this.animationContext,
     };
     draw(context, validatedData);
     this.app.start();

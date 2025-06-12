@@ -22,10 +22,10 @@ export const changePercentSize = (
   }
 
   const marginObj = parseMargin(margin);
-  if (!Number.isFinite(percentWidth)) {
+  if (Number.isFinite(percentWidth)) {
     changeWidth(object, percentWidth, marginObj);
   }
-  if (!Number.isFinite(percentHeight)) {
+  if (Number.isFinite(percentHeight)) {
     changeHeight(object, percentHeight, marginObj);
   }
   updateConfig(object, {
