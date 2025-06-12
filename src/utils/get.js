@@ -1,5 +1,3 @@
-import { theme } from './theme';
-
 export const getNestedValue = (object, path = null) => {
   if (!path) return null;
   return path
@@ -7,11 +5,11 @@ export const getNestedValue = (object, path = null) => {
     .reduce((acc, key) => (acc && acc[key] != null ? acc[key] : null), object);
 };
 
-export const getColor = (color) => {
+export const getColor = (theme, color) => {
   return (
     (typeof color === 'string' && color.startsWith('#')
       ? color
-      : getNestedValue(theme.get(), color)) ?? '#000'
+      : getNestedValue(theme, color)) ?? '#000'
   );
 };
 

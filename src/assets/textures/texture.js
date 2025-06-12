@@ -1,26 +1,26 @@
-import { Assets, Cache } from 'pixi.js';
+import { Assets } from 'pixi.js';
 import { createRectTexture } from './rect';
 import { cacheKey } from './utils';
 
-export const getTexture = (config) => {
+export const getTexture = (renderer, theme, config) => {
   let texture = null;
   if (typeof config === 'string') {
     texture = Assets.get(config);
   } else {
-    texture = Cache.has(cacheKey(config))
-      ? Assets.get(cacheKey(config))
-      : createTexture(config);
+    texture = Assets.cache.has(cacheKey(renderer, config))
+      ? Assets.cache.get(cacheKey(renderer, config))
+      : createTexture(renderer, theme, config);
   }
   return texture;
 };
 
-export const createTexture = (config) => {
+export const createTexture = (renderer, theme, config) => {
   let texture = null;
   switch (config.type) {
     case 'rect':
-      texture = createRectTexture(config);
+      texture = createRectTexture(renderer, theme, config);
       break;
   }
-  Cache.set(cacheKey(config), texture);
+  Assets.cache.set(cacheKey(renderer, config), texture);
   return texture;
 };

@@ -2,17 +2,17 @@ import { Graphics } from 'pixi.js';
 import { getColor } from '../../utils/get';
 import { cacheKey, generateTexture } from './utils';
 
-export const createRectTexture = (rectOpts) => {
+export const createRectTexture = (renderer, theme, rectOpts) => {
   const {
     fill = null,
     borderWidth = null,
     borderColor = null,
     radius = null,
   } = rectOpts;
-  const rect = createRect({ fill, borderWidth, borderColor, radius });
-  const texture = generateTexture(rect);
+  const rect = createRect(theme, { fill, borderWidth, borderColor, radius });
+  const texture = generateTexture(rect, renderer);
 
-  texture.id = cacheKey(rectOpts);
+  texture.id = cacheKey(renderer, rectOpts);
   texture.metadata = {
     slice: {
       topHeight: borderWidth + 4,
@@ -26,7 +26,7 @@ export const createRectTexture = (rectOpts) => {
   return texture;
 };
 
-const createRect = ({ fill, borderWidth, borderColor, radius }) => {
+const createRect = (theme, { fill, borderWidth, borderColor, radius }) => {
   const graphics = new Graphics();
   const size = 20 + borderWidth;
 
@@ -37,11 +37,11 @@ const createRect = ({ fill, borderWidth, borderColor, radius }) => {
     graphics.rect(...xywh);
   }
 
-  if (fill) graphics.fill(getColor(fill));
+  if (fill) graphics.fill(getColor(theme, fill));
   if (borderWidth) {
     graphics.stroke({
       width: borderWidth,
-      color: getColor(borderColor),
+      color: getColor(theme, borderColor),
     });
   }
   return graphics;

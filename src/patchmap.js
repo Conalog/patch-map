@@ -1,7 +1,7 @@
 import gsap from 'gsap';
-import { Application, Assets } from 'pixi.js';
+import { Application, Graphics } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
-import { undoRedoManager } from './command';
+import { UndoRedoManager } from './command/undo-redo-manager';
 import { draw } from './display/draw';
 import { update } from './display/update/update';
 import { dragSelect } from './events/drag-select';
@@ -16,9 +16,8 @@ import {
 } from './init';
 import { convertLegacyData } from './utils/convert';
 import { event } from './utils/event/canvas';
-import { renderer } from './utils/renderer';
 import { selector } from './utils/selector/selector';
-import { theme } from './utils/theme';
+import { themeStore } from './utils/theme';
 import { validateMapData } from './utils/validator';
 
 class Patchmap {
@@ -27,6 +26,12 @@ class Patchmap {
     this._viewport = null;
     this._resizeObserver = null;
     this._isInit = false;
+    this._theme = themeStore();
+    this._undoRedoManager = new UndoRedoManager();
+    this._animationContext = gsap.context(() => {});
+
+    this._singleSelectState = null;
+    this._dragSelectState = null;
   }
 
   get app() {
@@ -38,11 +43,19 @@ class Patchmap {
   }
 
   get theme() {
-    return theme.get();
+    return this._theme.get();
   }
 
   get isInit() {
     return this._isInit;
+  }
+
+  get undoRedoManager() {
+    return this._undoRedoManager;
+  }
+
+  get animationContext() {
+    return this._animationContext;
   }
 
   get event() {
@@ -53,6 +66,7 @@ class Patchmap {
         return id;
       },
       remove: (id) => event.removeEvent(this.viewport, id),
+      removeAll: () => event.removeAllEvent(this.viewport),
       on: (id) => event.onEvent(this.viewport, id),
       off: (id) => event.offEvent(this.viewport, id),
       get: (id) => event.getEvent(this.viewport, id),
@@ -67,16 +81,15 @@ class Patchmap {
       app: appOptions = {},
       viewport: viewportOptions = {},
       theme: themeOptions = {},
-      asset: assetOptions = {},
+      assets: assetsOptions = [],
     } = opts;
 
-    undoRedoManager._setHotkeys();
-    theme.set(themeOptions);
+    this.undoRedoManager._setHotkeys();
+    this._theme.set(themeOptions);
     this._app = new Application();
     await initApp(this.app, { resizeTo: element, ...appOptions });
     this._viewport = initViewport(this.app, viewportOptions);
-    await initAsset(assetOptions);
-    renderer.set(this.app.renderer);
+    await initAsset(assetsOptions);
     initCanvas(element, this.app);
 
     this._resizeObserver = initResizeObserver(element, this.app, this.viewport);
@@ -84,10 +97,11 @@ class Patchmap {
   }
 
   destroy() {
-    gsap.globalTimeline.clear();
-    Assets.reset();
+    this.undoRedoManager.destroy();
+    this.animationContext.revert();
+    event.removeAllEvent(this.viewport);
+    this.viewport.destroy({ children: true, context: true, style: true });
     const parentElement = this.app.canvas.parentElement;
-    this.viewport.destroy(true);
     this.app.destroy(true);
     parentElement.remove();
     if (this._resizeObserver) this._resizeObserver.disconnect();
@@ -96,6 +110,11 @@ class Patchmap {
     this._viewport = null;
     this._resizeObserver = null;
     this._isInit = false;
+    this._theme = themeStore();
+    this._undoRedoManager = new UndoRedoManager();
+    this._animationContext = gsap.context(() => {});
+    this._singleSelectState = null;
+    this._dragSelectState = null;
   }
 
   draw(data) {
@@ -106,9 +125,18 @@ class Patchmap {
     if (isValidationError(validatedData)) throw validatedData;
 
     this.app.stop();
-    draw(this.viewport, validatedData);
+    this.undoRedoManager.clear();
+    this.animationContext.revert();
+    event.removeAllEvent(this.viewport);
+    this.initSelectState();
+    const context = {
+      viewport: this.viewport,
+      undoRedoManager: this.undoRedoManager,
+      theme: this.theme,
+      animationContext: this.animationContext,
+    };
+    draw(context, validatedData);
     this.app.start();
-    undoRedoManager.clear();
     return validatedData;
 
     function preprocessData(data) {
@@ -131,7 +159,13 @@ class Patchmap {
   }
 
   update(opts) {
-    update(this.viewport, opts);
+    const context = {
+      viewport: this.viewport,
+      undoRedoManager: this.undoRedoManager,
+      theme: this.theme,
+      animationContext: this.animationContext,
+    };
+    update(context, opts);
   }
 
   focus(ids) {
@@ -147,8 +181,22 @@ class Patchmap {
   }
 
   select(opts) {
-    select(this.viewport, opts);
-    dragSelect(this.viewport, opts);
+    select(this.viewport, this._singleSelectState, opts);
+    dragSelect(this.viewport, this._dragSelectState, opts);
+  }
+
+  initSelectState() {
+    this._singleSelectState = {
+      config: {},
+      position: { start: null, end: null },
+    };
+    this._dragSelectState = {
+      config: {},
+      lastMoveTime: 0,
+      isDragging: false,
+      point: { start: null, end: null, move: null },
+      box: new Graphics(),
+    };
   }
 }
 

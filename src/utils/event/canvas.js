@@ -41,6 +41,10 @@ export const removeEvent = (viewport, id) => {
   }
 };
 
+export const removeAllEvent = (viewport) => {
+  removeEvent(viewport, Object.keys(getAllEvent(viewport)).join(' '));
+};
+
 export const onEvent = (viewport, id) => {
   const eventIds = splitByWhitespace(id);
   if (!eventIds.length) return;
@@ -101,6 +105,7 @@ export const getAllEvent = (viewport) => viewport.events;
 export const event = {
   addEvent,
   removeEvent,
+  removeAllEvent,
   onEvent,
   offEvent,
   getEvent,

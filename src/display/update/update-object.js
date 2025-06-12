@@ -4,7 +4,7 @@ const DEFAULT_EXCEPTION_KEYS = new Set(['position']);
 
 export const updateObject = (
   object,
-  config,
+  changes,
   pipeline,
   pipelineKeys,
   options,
@@ -13,14 +13,14 @@ export const updateObject = (
 
   const pipelines = pipelineKeys.map((key) => pipeline[key]).filter(Boolean);
   for (const { keys, handler } of pipelines) {
-    const hasMatch = keys.some((key) => key in config);
+    const hasMatch = keys.some((key) => key in changes);
     if (hasMatch) {
-      handler(object, config, options);
+      handler(object, changes, options);
     }
   }
 
   const matchedKeys = new Set(pipelines.flatMap((item) => item.keys));
-  for (const [key, value] of Object.entries(config)) {
+  for (const [key, value] of Object.entries(changes)) {
     if (!matchedKeys.has(key) && !DEFAULT_EXCEPTION_KEYS.has(key)) {
       changeProperty(object, key, value);
     }

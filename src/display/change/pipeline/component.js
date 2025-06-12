@@ -1,24 +1,24 @@
 import * as change from '..';
 import { Commands } from '../../../command';
-import { pipeline } from './base';
+import { basePipeline } from './base';
 import { createCommandHandler } from './utils';
 
 export const componentPipeline = {
-  ...pipeline,
+  ...basePipeline,
   tint: {
     keys: ['color', 'tint'],
     handler: createCommandHandler(Commands.TintCommand, change.changeTint),
   },
   texture: {
     keys: ['texture'],
-    handler: (component, config) => {
-      change.changeTexture(component, config);
+    handler: (component, config, options) => {
+      change.changeTexture(component, config, options);
     },
   },
   asset: {
     keys: ['asset'],
-    handler: (component, config) => {
-      change.changeAsset(component, config);
+    handler: (component, config, options) => {
+      change.changeAsset(component, config, options);
     },
   },
   textureTransform: {
@@ -35,8 +35,8 @@ export const componentPipeline = {
   },
   percentSize: {
     keys: ['percentWidth', 'percentHeight', 'margin'],
-    handler: (component, config) => {
-      change.changePercentSize(component, config);
+    handler: (component, config, options) => {
+      change.changePercentSize(component, config, options);
       change.changePlacement(component, {});
     },
   },
@@ -60,8 +60,8 @@ export const componentPipeline = {
   },
   textStyle: {
     keys: ['style', 'margin'],
-    handler: (component, config) => {
-      change.changeTextStyle(component, config);
+    handler: (component, config, options) => {
+      change.changeTextStyle(component, config, options);
       change.changePlacement(component, config); // Ensure placement is updated after style change
     },
   },

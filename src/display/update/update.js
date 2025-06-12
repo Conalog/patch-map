@@ -16,14 +16,22 @@ const updateSchema = z.object({
   relativeTransform: z.boolean().default(false),
 });
 
-export const update = (parent, opts) => {
+const elementUpdaters = {
+  group: updateGroup,
+  grid: updateGrid,
+  item: updateItem,
+  relations: updateRelations,
+};
+
+export const update = (context, opts) => {
   const config = validate(opts, updateSchema.passthrough());
   if (isValidationError(config)) throw config;
 
+  const { viewport = null, ...otherContext } = context;
   const historyId = createHistoryId(config.saveToHistory);
   const elements = 'elements' in config ? convertArray(config.elements) : [];
-  if (parent && config.path) {
-    elements.push(...selector(parent, config.path));
+  if (viewport && config.path) {
+    elements.push(...selector(viewport, config.path));
   }
 
   for (const element of elements) {
@@ -33,19 +41,9 @@ export const update = (parent, opts) => {
       elConfig.changes = applyRelativeTransform(element, elConfig.changes);
     }
 
-    switch (element.type) {
-      case 'group':
-        updateGroup(element, elConfig.changes, { historyId });
-        break;
-      case 'grid':
-        updateGrid(element, elConfig.changes, { historyId });
-        break;
-      case 'item':
-        updateItem(element, elConfig.changes, { historyId });
-        break;
-      case 'relations':
-        updateRelations(element, elConfig.changes, { historyId });
-        break;
+    const updater = elementUpdaters[element.type];
+    if (updater) {
+      updater(element, elConfig.changes, { historyId, ...otherContext });
     }
   }
 };

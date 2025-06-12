@@ -24,10 +24,10 @@ export const createGrid = (config) => {
 };
 
 const pipelineKeys = ['show', 'position', 'gridComponents'];
-export const updateGrid = (element, config, options) => {
-  const validateConfig = validate(config, deepGridObject);
-  if (isValidationError(validateConfig)) throw validateConfig;
-  updateObject(element, config, elementPipeline, pipelineKeys, options);
+export const updateGrid = (element, changes, options) => {
+  const validated = validate(changes, deepGridObject);
+  if (isValidationError(validated)) throw validated;
+  updateObject(element, changes, elementPipeline, pipelineKeys, options);
 };
 
 const addItemElements = (container, cells, cellSize) => {

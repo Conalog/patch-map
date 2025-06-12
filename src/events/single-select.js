@@ -9,22 +9,19 @@ import { checkEvents, isMoved } from './utils';
 
 const SELECT_EVENT_ID = 'select-down select-up select-over';
 
-let config = {};
-let state = { startPosition: null, endPosition: null };
-
-export const select = (viewport, opts) => {
-  const options = validate(deepMerge(config, opts), selectEventSchema);
+export const select = (viewport, state, opts) => {
+  const options = validate(deepMerge(state.config, opts), selectEventSchema);
   if (isValidationError(options)) throw options;
 
   if (!checkEvents(viewport, SELECT_EVENT_ID)) {
-    addEvents(viewport);
+    addEvents(viewport, state);
   }
 
-  changeEnableState(viewport, config.enabled, options.enabled);
-  config = options;
+  changeEnableState(viewport, state.config.enabled, options.enabled);
+  state.config = options;
 };
 
-const addEvents = (viewport) => {
+const addEvents = (viewport, state) => {
   event.removeEvent(viewport, SELECT_EVENT_ID);
   registerDownEvent();
   registerUpEvent();
@@ -35,7 +32,7 @@ const addEvents = (viewport) => {
       id: 'select-down',
       action: 'mousedown touchstart',
       fn: () => {
-        state.startPosition = {
+        state.position.start = {
           x: viewport.position.x,
           y: viewport.position.y,
         };
@@ -48,19 +45,19 @@ const addEvents = (viewport) => {
       id: 'select-up',
       action: 'mouseup touchend',
       fn: (e) => {
-        state.endPosition = {
+        state.position.end = {
           x: viewport.position.x,
           y: viewport.position.y,
         };
 
         if (
-          state.startPosition &&
-          !isMoved(viewport, state.startPosition, state.endPosition)
+          state.position.start &&
+          !isMoved(viewport, state.position.start, state.position.end)
         ) {
           executeFn('onSelect', e);
         }
 
-        state = { startPosition: null, endPosition: null };
+        state.position = { start: null, end: null };
         executeFn('onOver', e);
       },
     });
@@ -78,8 +75,11 @@ const addEvents = (viewport) => {
 
   function executeFn(fnName, e) {
     const point = getPointerPosition(viewport);
-    if (fnName in config) {
-      config[fnName](findIntersectObject(viewport, { point }, config), e);
+    if (fnName in state.config) {
+      state.config[fnName](
+        findIntersectObject(viewport, { point }, state.config),
+        e,
+      );
     }
   }
 };

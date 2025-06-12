@@ -1,4 +1,3 @@
-import { Graphics } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { getPointerPosition } from '../utils/canvas';
 import { deepMerge } from '../utils/deepmerge/deepmerge';
@@ -11,33 +10,27 @@ import { checkEvents, isMoved } from './utils';
 const DRAG_SELECT_EVENT_ID = 'drag-select-down drag-select-move drag-select-up';
 const DEBOUNCE_FN_INTERVAL = 25; // ms
 
-let config = {};
-let lastMoveTime = 0;
-const state = {
-  isDragging: false,
-  startPoint: null,
-  endPoint: null,
-  movePoint: null,
-  box: new Graphics(),
-};
-
-export const dragSelect = (viewport, opts) => {
-  const options = validate(deepMerge(config, opts), dragSelectEventSchema);
+export const dragSelect = (viewport, state, opts) => {
+  const options = validate(
+    deepMerge(state.config, opts),
+    dragSelectEventSchema,
+  );
   if (isValidationError(options)) throw options;
 
   if (!checkEvents(viewport, DRAG_SELECT_EVENT_ID)) {
-    addEvents(viewport);
+    addEvents(viewport, state);
   }
 
   changeDraggableState(
     viewport,
-    config.enabled && config.draggable,
+    state,
+    state.config.enabled && state.config.draggable,
     options.enabled && options.draggable,
   );
-  config = options;
+  state.config = options;
 };
 
-const addEvents = (viewport) => {
+const addEvents = (viewport, state) => {
   event.removeEvent(viewport, DRAG_SELECT_EVENT_ID);
   registerDownEvent();
   registerMoveEvent();
@@ -48,13 +41,13 @@ const addEvents = (viewport) => {
       id: 'drag-select-down',
       action: 'mousedown touchstart',
       fn: () => {
-        resetState();
+        resetState(state);
 
         const point = getPointerPosition(viewport);
         state.isDragging = true;
         state.box.renderable = true;
-        state.startPoint = { ...point };
-        state.movePoint = { ...point };
+        state.point.start = { ...point };
+        state.point.move = { ...point };
       },
     });
   }
@@ -66,13 +59,13 @@ const addEvents = (viewport) => {
       fn: (e) => {
         if (!state.isDragging) return;
 
-        state.endPoint = { ...getPointerPosition(viewport) };
-        drawSelectionBox();
+        state.point.end = { ...getPointerPosition(viewport) };
+        drawSelectionBox(state);
 
-        if (isMoved(viewport, state.movePoint, state.endPoint)) {
+        if (isMoved(viewport, state.point.move, state.point.end)) {
           viewport.plugin.start('mouse-edges');
-          triggerFn(viewport, e);
-          state.movePoint = JSON.parse(JSON.stringify(state.endPoint));
+          triggerFn(viewport, e, state);
+          state.point.move = JSON.parse(JSON.stringify(state.point.end));
         }
       },
     });
@@ -84,56 +77,59 @@ const addEvents = (viewport) => {
       action: 'mouseup touchend mouseleave',
       fn: (e) => {
         if (
-          state.startPoint &&
-          state.endPoint &&
-          isMoved(viewport, state.startPoint, state.endPoint)
+          state.point.start &&
+          state.point.end &&
+          isMoved(viewport, state.point.start, state.point.end)
         ) {
-          triggerFn(viewport, e);
+          triggerFn(viewport, e, state);
           viewport.plugin.stop('mouse-edges');
         }
-        resetState();
+        resetState(state);
       },
     });
   }
 };
 
-const drawSelectionBox = () => {
-  const { box, startPoint, endPoint } = state;
-  if (!startPoint || !endPoint) return;
+const drawSelectionBox = (state) => {
+  const { box, point } = state;
+  if (!point.start || !point.end) return;
 
   box.clear();
   box.position.set(
-    Math.min(startPoint.x, endPoint.x),
-    Math.min(startPoint.y, endPoint.y),
+    Math.min(point.start.x, point.end.x),
+    Math.min(point.start.y, point.end.y),
   );
   box
     .rect(
       0,
       0,
-      Math.abs(startPoint.x - endPoint.x),
-      Math.abs(startPoint.y - endPoint.y),
+      Math.abs(point.start.x - point.end.x),
+      Math.abs(point.start.y - point.end.y),
     )
     .fill({ color: '#9FD6FF', alpha: 0.2 })
     .stroke({ width: 2, color: '#1099FF', pixelLine: true });
 };
 
-const triggerFn = (viewport, e) => {
+const triggerFn = (viewport, e, state) => {
   const now = performance.now();
-  if (e.type === 'pointermove' && now - lastMoveTime < DEBOUNCE_FN_INTERVAL) {
+  if (
+    e.type === 'pointermove' &&
+    now - state.lastMoveTime < DEBOUNCE_FN_INTERVAL
+  ) {
     return;
   }
-  lastMoveTime = now;
+  state.lastMoveTime = now;
 
   const intersectObjs =
-    state.startPoint && state.endPoint
-      ? findIntersectObjects(viewport, state, config)
+    state.point.start && state.point.end
+      ? findIntersectObjects(viewport, state, state.config)
       : [];
-  if ('onDragSelect' in config) {
-    config.onDragSelect(intersectObjs, e);
+  if ('onDragSelect' in state.config) {
+    state.config.onDragSelect(intersectObjs, e);
   }
 };
 
-const changeDraggableState = (viewport, wasDraggable, isDraggable) => {
+const changeDraggableState = (viewport, state, wasDraggable, isDraggable) => {
   if (wasDraggable === isDraggable) return;
 
   if (isDraggable) {
@@ -142,31 +138,29 @@ const changeDraggableState = (viewport, wasDraggable, isDraggable) => {
     });
     viewport.plugin.stop('mouse-edges');
     event.onEvent(viewport, DRAG_SELECT_EVENT_ID);
-    addChildBox(viewport);
+    addChildBox(viewport, state);
   } else {
     viewport.plugin.remove('mouse-edges');
     event.offEvent(viewport, DRAG_SELECT_EVENT_ID);
-    resetState();
-    removeChildBox(viewport);
+    resetState(state);
+    removeChildBox(viewport, state);
   }
 };
 
-const resetState = () => {
+const resetState = (state) => {
   state.isDragging = false;
-  state.startPoint = null;
-  state.endPoint = null;
-  state.movePoint = null;
+  state.point = { start: null, end: null, move: null };
   state.box.clear();
   state.box.renderable = false;
 };
 
-const addChildBox = (viewport) => {
+const addChildBox = (viewport, state) => {
   if (!state.box.parent) {
     viewport.addChild(state.box);
   }
 };
 
-const removeChildBox = (viewport) => {
+const removeChildBox = (viewport, state) => {
   if (state.box.parent) {
     viewport.removeChild(state.box);
   }

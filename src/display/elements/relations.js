@@ -14,10 +14,10 @@ export const createRelations = (config) => {
 };
 
 const pipelineKeys = ['show', 'strokeStyle', 'links'];
-export const updateRelations = (element, config, options) => {
-  const validateConfig = validate(config, deepRelationGroupObject);
-  if (isValidationError(validateConfig)) throw validateConfig;
-  updateObject(element, config, elementPipeline, pipelineKeys, options);
+export const updateRelations = (element, changes, options) => {
+  const validated = validate(changes, deepRelationGroupObject);
+  if (isValidationError(validated)) throw validated;
+  updateObject(element, changes, elementPipeline, pipelineKeys, options);
 };
 
 const createPath = () => {

@@ -7,6 +7,7 @@ export class UndoRedoManager {
     this._index = -1;
     this._listeners = new Set();
     this._maxCommands = maxCommands;
+    this._hotkeyListener = null;
   }
 
   /**
@@ -133,26 +134,36 @@ export class UndoRedoManager {
    * @private
    */
   _setHotkeys() {
-    document.addEventListener(
-      'keydown',
-      (e) => {
-        const key = (e.key || '').toLowerCase();
-        if (isInput(e.target)) return;
+    this._hotkeyListener = (e) => {
+      const key = (e.key || '').toLowerCase();
+      if (isInput(e.target)) return;
 
-        if (key === 'z' && (e.ctrlKey || e.metaKey)) {
-          if (e.shiftKey) {
-            this.redo();
-          } else {
-            this.undo();
-          }
-          e.preventDefault();
-        }
-        if (key === 'y' && (e.ctrlKey || e.metaKey)) {
+      if (key === 'z' && (e.ctrlKey || e.metaKey)) {
+        if (e.shiftKey) {
           this.redo();
-          e.preventDefault();
+        } else {
+          this.undo();
         }
-      },
-      false,
-    );
+        e.preventDefault();
+      }
+      if (key === 'y' && (e.ctrlKey || e.metaKey)) {
+        this.redo();
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('keydown', this._hotkeyListener, false);
+  }
+
+  /**
+   * Removes event listeners and clears all internal states to prevent memory leaks.
+   */
+  destroy() {
+    if (this._hotkeyListener) {
+      document.removeEventListener('keydown', this._hotkeyListener, false);
+      this._hotkeyListener = null;
+    }
+    this.clear();
+    this._listeners.clear();
   }
 }
