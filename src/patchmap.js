@@ -117,18 +117,18 @@ class Patchmap {
     if (isValidationError(validatedData)) throw validatedData;
 
     this.app.stop();
-    Object.keys(event.getAllEvent(this.viewport)).forEach((id) =>
-      event.removeEvent(this.viewport, id),
-    );
+    this.undoRedoManager.clear();
+    this.animationContext.revert();
+    Object.keys(event.getAllEvent(this.viewport)).forEach((id) => {
+      event.removeEvent(this.viewport, id);
+    });
     this.initSelectState();
     const context = {
       viewport: this.viewport,
       undoRedoManager: this.undoRedoManager,
       theme: this.theme,
-      animationContext: this.animationContext,
     };
     draw(context, validatedData);
-    this.undoRedoManager.clear();
     this.app.start();
     return validatedData;
 

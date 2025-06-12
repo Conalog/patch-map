@@ -12,8 +12,7 @@ const elementcreators = {
 };
 
 export const draw = (context, data) => {
-  const { viewport, animationContext } = context;
-  animationContext.revert();
+  const { viewport } = context;
   destroyChildren(viewport);
   render(viewport, data);
 
