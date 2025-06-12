@@ -17,6 +17,7 @@ export class TintCommand extends Command {
    * Creates an instance of TintCommand.
    * @param {Object} object - The Pixi.js display object whose tint will be changed.
    * @param {Object} config - The new configuration for the object's tint.
+   * @param {object} options - Options for command execution.
    */
   constructor(object, config, options) {
     super('tint_object');
