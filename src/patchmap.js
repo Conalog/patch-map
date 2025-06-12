@@ -96,6 +96,7 @@ class Patchmap {
   }
 
   destroy() {
+    this.undoRedoManager.destroy();
     this.animationContext.revert();
     const parentElement = this.app.canvas.parentElement;
     event.removeAllEvent(this.viewport);
