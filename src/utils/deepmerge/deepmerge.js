@@ -56,12 +56,13 @@ const _deepMerge = (target, source, options, visited) => {
 };
 
 const mergeArray = (target, source, options, visited) => {
+  const { mergeBy } = options;
   const merged = [...target];
   const used = new Set();
 
   source.forEach((item, i) => {
     if (item && typeof item === 'object' && !Array.isArray(item)) {
-      const idx = findIndexByPriority(merged, item, used);
+      const idx = findIndexByPriority(merged, item, used, mergeBy);
       if (idx !== -1) {
         merged[idx] = _deepMerge(merged[idx], item, options, visited);
         used.add(idx);
