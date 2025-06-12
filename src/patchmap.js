@@ -66,6 +66,7 @@ class Patchmap {
         return id;
       },
       remove: (id) => event.removeEvent(this.viewport, id),
+      removeAll: () => event.removeAllEvent(this.viewport),
       on: (id) => event.onEvent(this.viewport, id),
       off: (id) => event.offEvent(this.viewport, id),
       get: (id) => event.getEvent(this.viewport, id),
