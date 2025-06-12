@@ -4,7 +4,6 @@ import { Viewport } from 'pixi-viewport';
 import * as PIXI from 'pixi.js';
 import { firaCode } from './assets/fonts';
 import { icons } from './assets/icons';
-import { transformManifest } from './assets/utils';
 import { deepMerge } from './utils/deepmerge/deepmerge';
 import { plugin } from './utils/event/viewport';
 import { uid } from './utils/uuid';
@@ -31,18 +30,24 @@ const DEFAULT_INIT_OPTIONS = {
       decelerate: {},
     },
   },
-  assets: {
-    icons: {
-      object: { src: icons.object },
-      inverter: { src: icons.inverter },
-      combiner: { src: icons.combiner },
-      edge: { src: icons.edge },
-      device: { src: icons.device },
-      loading: { src: icons.loading },
-      warning: { src: icons.warning },
-      wifi: { src: icons.wifi },
+  assets: [
+    {
+      name: 'icons',
+      items: Object.entries(icons).map(([alias, src]) => ({
+        alias,
+        src,
+        data: { resolution: 3 },
+      })),
     },
-  },
+    {
+      name: 'fonts',
+      items: Object.entries(firaCode).map(([key, font]) => ({
+        alias: `firaCode-${key}`,
+        src: font,
+        data: { family: `FiraCode ${key}` },
+      })),
+    },
+  ],
 };
 
 export const initApp = async (app, opts = {}) => {
@@ -77,23 +82,33 @@ export const initViewport = (app, opts = {}) => {
 };
 
 export const initAsset = async (opts = {}) => {
-  const options = deepMerge(DEFAULT_INIT_OPTIONS.assets, opts);
+  const assets = deepMerge(DEFAULT_INIT_OPTIONS.assets, opts, {
+    mergeBy: ['name', 'alias'],
+  });
 
-  if (!PIXI.Assets._initialized) {
-    const manifest = transformManifest(options);
-    await PIXI.Assets.init({ manifest });
+  const bundlesToLoad = [];
+  const assetsToLoad = [];
+  for (const asset of assets) {
+    if (asset.name && Array.isArray(asset.items)) {
+      if (!PIXI.Assets.resolver.hasBundle(asset.name)) {
+        PIXI.Assets.addBundle(asset.name, asset.items);
+        bundlesToLoad.push(asset.name);
+      }
+    } else if (asset.alias && asset.src) {
+      if (!PIXI.Assets.cache.has(asset.alias)) {
+        PIXI.Assets.add(asset);
+        assetsToLoad.push(asset.alias);
+      }
+    }
   }
-
-  if (!PIXI.Assets.resolver.hasBundle('fonts')) {
-    const fontBundle = Object.entries(firaCode).map(([key, font]) => ({
-      alias: `firaCode-${key}`,
-      src: font,
-      data: { family: `FiraCode ${key}` },
-    }));
-    PIXI.Assets.addBundle('fonts', fontBundle);
-  }
-
-  await PIXI.Assets.loadBundle([...Object.keys(options), 'fonts']);
+  await Promise.all([
+    bundlesToLoad.length > 0
+      ? PIXI.Assets.loadBundle(bundlesToLoad)
+      : Promise.resolve(),
+    assetsToLoad.length > 0
+      ? PIXI.Assets.load(assetsToLoad)
+      : Promise.resolve(),
+  ]);
 };
 
 export const initResizeObserver = (el, app, viewport) => {
