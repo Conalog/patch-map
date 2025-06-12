@@ -107,7 +107,7 @@ class Patchmap {
   destroy() {
     this.animationContext.revert();
     const parentElement = this.app.canvas.parentElement;
-    this.viewport.destroy(true);
+    this.viewport.destroy({ children: true, context: true, style: true });
     this.app.destroy(true);
     parentElement.remove();
     if (this._resizeObserver) this._resizeObserver.disconnect();
