@@ -98,9 +98,9 @@ class Patchmap {
   destroy() {
     this.undoRedoManager.destroy();
     this.animationContext.revert();
-    const parentElement = this.app.canvas.parentElement;
     event.removeAllEvent(this.viewport);
     this.viewport.destroy({ children: true, context: true, style: true });
+    const parentElement = this.app.canvas.parentElement;
     this.app.destroy(true);
     parentElement.remove();
     if (this._resizeObserver) this._resizeObserver.disconnect();
@@ -109,6 +109,11 @@ class Patchmap {
     this._viewport = null;
     this._resizeObserver = null;
     this._isInit = false;
+    this._theme = themeStore();
+    this._undoRedoManager = new UndoRedoManager();
+    this._animationContext = gsap.context(() => {});
+    this._singleSelectState = null;
+    this._dragSelectState = null;
   }
 
   draw(data) {
