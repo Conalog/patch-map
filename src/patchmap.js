@@ -80,7 +80,7 @@ class Patchmap {
       app: appOptions = {},
       viewport: viewportOptions = {},
       theme: themeOptions = {},
-      assets: assetOptions = [],
+      assets: assetsOptions = [],
     } = opts;
 
     this.undoRedoManager._setHotkeys();
@@ -88,7 +88,7 @@ class Patchmap {
     this._app = new Application();
     await initApp(this.app, { resizeTo: element, ...appOptions });
     this._viewport = initViewport(this.app, viewportOptions);
-    await initAsset(assetOptions);
+    await initAsset(assetsOptions);
     initCanvas(element, this.app);
 
     this._resizeObserver = initResizeObserver(element, this.app, this.viewport);
