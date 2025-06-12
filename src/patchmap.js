@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { Application, Assets, Graphics } from 'pixi.js';
+import { Application, Graphics } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { UndoRedoManager } from './command/undo-redo-manager';
 import { draw } from './display/draw';
@@ -89,7 +89,7 @@ class Patchmap {
       app: appOptions = {},
       viewport: viewportOptions = {},
       theme: themeOptions = {},
-      asset: assetOptions = {},
+      assets: assetOptions = [],
     } = opts;
 
     this.undoRedoManager._setHotkeys();
@@ -106,7 +106,6 @@ class Patchmap {
 
   destroy() {
     this.animationContext.revert();
-    Assets.reset();
     const parentElement = this.app.canvas.parentElement;
     this.viewport.destroy(true);
     this.app.destroy(true);
