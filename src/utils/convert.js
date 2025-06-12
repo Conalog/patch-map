@@ -131,6 +131,5 @@ export const convertLegacyData = (data) => {
     result = Object.values(objs);
   }
 
-  console.log('Transformed data output:', result);
   return result;
 };

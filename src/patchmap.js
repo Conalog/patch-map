@@ -118,7 +118,7 @@ class Patchmap {
   }
 
   draw(data) {
-    const zData = preprocessData(data);
+    const zData = preprocessData(JSON.parse(JSON.stringify(data)));
     if (!zData) return;
 
     const validatedData = validateMapData(zData);
