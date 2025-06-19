@@ -48,7 +48,8 @@
     "pixi-viewport": "^6.0.3",
     "uuid": "^11.1.0",
     "zod": "^3.24.3",
-    "zod-validation-error": "^3.4.0"
+    "zod-validation-error": "^3.4.0",
+    "@pixi-essentials/bounds": "^3.0.0"
   },
   "peerDependencies": {
     "pixi.js": "^8.8.0"
