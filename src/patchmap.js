@@ -50,6 +50,10 @@ class Patchmap {
     return this._isInit;
   }
 
+  set isInit(value) {
+    this._isInit = value;
+  }
+
   get undoRedoManager() {
     return this._undoRedoManager;
   }
@@ -93,7 +97,7 @@ class Patchmap {
     initCanvas(element, this.app);
 
     this._resizeObserver = initResizeObserver(element, this.app, this.viewport);
-    this._isInit = true;
+    this.isInit = true;
   }
 
   destroy() {
@@ -109,7 +113,7 @@ class Patchmap {
     this._app = null;
     this._viewport = null;
     this._resizeObserver = null;
-    this._isInit = false;
+    this.isInit = false;
     this._theme = themeStore();
     this._undoRedoManager = new UndoRedoManager();
     this._animationContext = gsap.context(() => {});
