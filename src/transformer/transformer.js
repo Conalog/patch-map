@@ -1,11 +1,11 @@
 import { OrientedBounds } from '@pixi-essentials/bounds';
 import { Matrix, RenderContainer, Transform } from 'pixi.js';
-import { decomposeTransform } from './decomposeTransform';
 import {
+  decomposeTransform,
   getBoundsFromPoints,
   getCentroid,
   getObjectWorldCorners,
-} from './helper';
+} from './utils';
 import { Wireframe } from './wireframe';
 
 const tempBounds = new OrientedBounds();
