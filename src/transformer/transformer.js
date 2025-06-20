@@ -31,6 +31,7 @@ export class Transformer extends RenderContainer {
       DEFAULT_WIREFRAME_STYLE,
       options.wireframeStyle || {},
     );
+    this.boundsDisplayMode = options.boundsDisplayMode || 'all'; // 'all | 'groupOnly' | 'elementOnly' | 'none'
   }
 
   get elements() {
@@ -71,22 +72,34 @@ export class Transformer extends RenderContainer {
 
     const { color, thickness } = this._wireframeStyle;
     this.wireframe.clear();
-    this.wireframe.setStrokeStyle({
-      width: thickness / this.parent.scale.x,
-      color,
-    });
+    if (this.boundsDisplayMode !== 'none') {
+      this.wireframe.setStrokeStyle({
+        width: thickness / this.parent.scale.x,
+        color,
+      });
+    }
 
-    elements.forEach((element) => {
-      this.wireframe.drawBounds(
-        this.calculateOrientedBounds(element, tempBounds),
-      );
-    });
+    if (
+      this.boundsDisplayMode === 'all' ||
+      this.boundsDisplayMode === 'elementOnly'
+    ) {
+      elements.forEach((element) => {
+        this.wireframe.drawBounds(
+          this.calculateOrientedBounds(element, tempBounds),
+        );
+      });
+    }
 
-    const groupBounds =
-      elements.length > 1
-        ? this.calculateGroupOrientedBounds(elements, tempBounds)
-        : null;
-    this.wireframe.drawBounds(groupBounds);
+    if (
+      this.boundsDisplayMode === 'all' ||
+      this.boundsDisplayMode === 'groupOnly'
+    ) {
+      const groupBounds =
+        elements.length > 1
+          ? this.calculateGroupOrientedBounds(elements, tempBounds)
+          : null;
+      this.wireframe.drawBounds(groupBounds);
+    }
 
     this.lazyTrigger = false;
   }
