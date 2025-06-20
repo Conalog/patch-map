@@ -6,13 +6,13 @@ export class Wireframe extends Graphics {
     this.transformer = transformer;
   }
 
-  drawBounds(bounds, scale) {
+  drawBounds(bounds) {
     if (bounds) {
       const hull = bounds.hull.map((worldPoint) => {
         return this.transformer.parent.toWorld(worldPoint);
       });
 
-      this.poly(hull).stroke({ width: 2 / scale, color: 'red' });
+      this.poly(hull).stroke();
     }
   }
 }

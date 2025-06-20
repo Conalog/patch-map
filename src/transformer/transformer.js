@@ -12,16 +12,25 @@ const tempBounds = new OrientedBounds();
 const tempTransform = new Transform();
 const tempMatrix = new Matrix();
 
+const DEFAULT_WIREFRAME_STYLE = {
+  thickness: 1.5,
+  color: '#1099FF',
+};
+
 export class Transformer extends RenderContainer {
   constructor(options = {}) {
     super({});
     this.zIndex = 100;
     this.allowChildren = true;
+    this.lazyTrigger = true;
+    this.wireframe = this.addChild(new Wireframe(this));
+
     this._elements = options.elements || [];
     this.lazyMode = options.lazyMode || false;
-    this.lazyTrigger = true;
-
-    this.wireframe = this.addChild(new Wireframe(this));
+    this._wireframeStyle = Object.assign(
+      DEFAULT_WIREFRAME_STYLE,
+      options.wireframeStyle || {},
+    );
   }
 
   get elements() {
@@ -33,6 +42,14 @@ export class Transformer extends RenderContainer {
     if (this.lazyMode) {
       this.update();
     }
+  }
+
+  get wireframeStyle() {
+    return this._wireframeStyle;
+  }
+
+  set wireframeStyle(value) {
+    this._wireframeStyle = Object.assign(this._wireframeStyle, value);
   }
 
   render(renderer) {
@@ -52,11 +69,16 @@ export class Transformer extends RenderContainer {
       return;
     }
 
+    const { color, thickness } = this._wireframeStyle;
     this.wireframe.clear();
+    this.wireframe.setStrokeStyle({
+      width: thickness / this.parent.scale.x,
+      color,
+    });
+
     elements.forEach((element) => {
       this.wireframe.drawBounds(
         this.calculateOrientedBounds(element, tempBounds),
-        this.parent.scale.x,
       );
     });
 
@@ -64,7 +86,7 @@ export class Transformer extends RenderContainer {
       elements.length > 1
         ? this.calculateGroupOrientedBounds(elements, tempBounds)
         : null;
-    this.wireframe.drawBounds(groupBounds, this.parent.scale.x);
+    this.wireframe.drawBounds(groupBounds);
 
     this.lazyTrigger = false;
   }
