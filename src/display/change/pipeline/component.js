@@ -53,8 +53,8 @@ export const componentPipeline = {
   },
   text: {
     keys: ['text', 'split'],
-    handler: (component, config) => {
-      change.changeText(component, config);
+    handler: (component, config, options) => {
+      change.changeText(component, config, options);
       change.changePlacement(component, config); // Ensure placement is updated after text change
     },
   },

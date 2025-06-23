@@ -4,6 +4,7 @@ import { isConfigMatch, updateConfig } from './utils';
 export const changeText = (
   object,
   { text = object.config.text, split = object.config.split },
+  { theme },
 ) => {
   if (
     isConfigMatch(object, 'text', text) &&
@@ -15,7 +16,7 @@ export const changeText = (
   object.text = splitText(text, split);
 
   if (object.config?.style?.fontSize === 'auto') {
-    changeTextStyle(object, { style: { fontSize: 'auto' } });
+    changeTextStyle(object, { style: { fontSize: 'auto' } }, { theme });
   }
   updateConfig(object, { text, split });
 
