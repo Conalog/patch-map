@@ -1,5 +1,5 @@
 import { describe, expect, it, test } from 'vitest';
-import { gridSchema, mapDataSchema } from './element-schema';
+import { Grid, mapDataSchema } from './element-schema';
 
 // --- Test Suite for valid data structures ---
 describe('Success Cases', () => {
@@ -221,7 +221,7 @@ describe('Edge Cases and Constraints', () => {
 
 describe('`gap` Validation', () => {
   describe('Success Cases and Normalization', () => {
-    const gapSchema = gridSchema.pick({ type: true, gap: true });
+    const gapSchema = Grid.pick({ type: true, gap: true });
 
     test.each([
       {
@@ -274,7 +274,7 @@ describe('`gap` Validation', () => {
   });
 
   describe('Failure Cases', () => {
-    const gapSchema = gridSchema.pick({ type: true, gap: true });
+    const gapSchema = Grid.pick({ type: true, gap: true });
 
     test.each([
       {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Base } from './element-schema';
 
 export const Placement = z.enum([
   'left',
@@ -12,12 +13,30 @@ export const Placement = z.enum([
   'center',
 ]);
 
-export const Margin = z.string().regex(/^(\d+(\.\d+)?(\s+\d+(\.\d+)?){0,3})$/);
+export const Margin = z.preprocess(
+  (val) => {
+    if (typeof val === 'number') {
+      return { top: val, right: val, bottom: val, left: val };
+    }
+    if (val && typeof val === 'object' && ('x' in val || 'y' in val)) {
+      const { x = 0, y = 0 } = val;
+      return { top: y, right: x, bottom: y, left: x };
+    }
+    return val;
+  },
+  z
+    .object({
+      top: z.number().default(0),
+      right: z.number().default(0),
+      bottom: z.number().default(0),
+      left: z.number().default(0),
+    })
+    .default({ top: 0, right: 0, bottom: 0, left: 0 }),
+);
 
-const TextureType = z.enum(['rect']);
 export const TextureStyle = z
   .object({
-    type: TextureType,
+    type: z.enum(['rect']),
     fill: z.nullable(z.string()),
     borderWidth: z.nullable(z.number()),
     borderColor: z.nullable(z.string()),
@@ -25,40 +44,50 @@ export const TextureStyle = z
   })
   .partial();
 
-const defaultConfig = z
-  .object({
-    show: z.boolean().default(true),
-  })
-  .passthrough();
+const sizeValueSchema = z
+  .union([z.number().nonnegative(), z.string().regex(/^\d+(\.\d+)?%$/)])
+  .transform((val) => {
+    return typeof val === 'number'
+      ? { value: val, unit: 'px' }
+      : { value: Number.parseFloat(val.slice(0, -1)), unit: '%' };
+  });
 
-const background = defaultConfig.extend({
+const layout = {
+  x: z.number().default(0),
+  y: z.number().default(0),
+  margin: Margin.default(0),
+  placement: Placement.default('left-top'),
+};
+
+const size = {
+  width: sizeValueSchema,
+  height: sizeValueSchema,
+};
+
+const Background = Base.extend({
   type: z.literal('background'),
-  texture: TextureStyle,
+  source: z.union([TextureStyle, z.string()]),
 });
 
-const bar = defaultConfig.extend({
+const Bar = Base.extend({
   type: z.literal('bar'),
-  texture: TextureStyle,
-  placement: Placement.default('bottom'),
-  margin: Margin.default('0'),
-  percentWidth: z.number().min(0).max(1).default(1),
-  percentHeight: z.number().min(0).max(1).default(1),
+  source: TextureStyle,
   animation: z.boolean().default(true),
   animationDuration: z.number().default(200),
+  ...layout,
+  ...size,
+  placement: Placement.default('bottom'),
 });
 
-const icon = defaultConfig.extend({
+const Icon = Base.extend({
   type: z.literal('icon'),
-  asset: z.string(),
-  placement: Placement.default('center'),
-  margin: Margin.default('0'),
-  size: z.number().nonnegative(),
+  source: z.string(),
+  ...layout,
+  ...size,
 });
 
-const text = defaultConfig.extend({
+const Text = Base.extend({
   type: z.literal('text'),
-  placement: Placement.default('center'),
-  margin: Margin.default('0'),
   text: z.string().default(''),
   style: z
     .preprocess(
@@ -72,15 +101,14 @@ const text = defaultConfig.extend({
     )
     .default({}),
   split: z.number().int().default(0),
+  ...layout,
 });
 
 export const componentSchema = z.discriminatedUnion('type', [
-  background,
-  bar,
-  icon,
-  text,
+  Background,
+  Bar,
+  Icon,
+  Text,
 ]);
 
-export const componentArraySchema = z
-  .discriminatedUnion('type', [background, bar, icon, text])
-  .array();
+export const componentArraySchema = componentSchema.array();

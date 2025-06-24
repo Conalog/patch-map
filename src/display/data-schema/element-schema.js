@@ -2,29 +2,25 @@ import { z } from 'zod';
 import { uid } from '../../utils/uuid';
 import { componentArraySchema } from './component-schema';
 
-const transformParts = {
-  position: z
-    .object({
-      x: z.number().default(0),
-      y: z.number().default(0),
-    })
-    .default({}),
-  size: z.object({
-    width: z.number().nonnegative(),
-    height: z.number().nonnegative(),
-  }),
-};
+export const Position = z.object({
+  x: z.number().default(0),
+  y: z.number().default(0),
+});
 
-const defaultSchema = z
+const Size = z.object({
+  width: z.number().nonnegative(),
+  height: z.number().nonnegative(),
+});
+
+export const Base = z
   .object({
     show: z.boolean().default(true),
     id: z.string().default(() => uid()),
   })
   .passthrough();
 
-export const gridSchema = defaultSchema.extend({
+export const Grid = Base.merge(Position).extend({
   type: z.literal('grid'),
-  position: transformParts.position,
   cells: z.array(z.array(z.union([z.literal(0), z.literal(1)]))),
   gap: z.preprocess(
     (val) => {
@@ -37,20 +33,21 @@ export const gridSchema = defaultSchema.extend({
       })
       .default({}),
   ),
-  itemTemplate: z.object({
-    size: transformParts.size,
+  itemTemplate: z
+    .object({
+      components: componentArraySchema,
+    })
+    .merge(Size),
+});
+
+export const Item = Base.merge(Position)
+  .merge(Size)
+  .extend({
+    type: z.literal('item'),
     components: componentArraySchema,
-  }),
-});
+  });
 
-export const itemSchema = defaultSchema.extend({
-  type: z.literal('item'),
-  position: transformParts.position,
-  size: transformParts.size,
-  components: componentArraySchema,
-});
-
-export const relationsSchema = defaultSchema.extend({
+export const Relations = Base.extend({
   type: z.literal('relations'),
   links: z.array(z.object({ source: z.string(), target: z.string() })),
   style: z.preprocess(
@@ -59,17 +56,16 @@ export const relationsSchema = defaultSchema.extend({
   ), // https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html
 });
 
-export const groupSchema = defaultSchema.extend({
+export const Group = Base.merge(Position).extend({
   type: z.literal('group'),
   children: z.array(z.lazy(() => elementTypes)),
-  position: transformParts.position,
 });
 
 const elementTypes = z.discriminatedUnion('type', [
-  groupSchema,
-  gridSchema,
-  itemSchema,
-  relationsSchema,
+  Group,
+  Grid,
+  Item,
+  Relations,
 ]);
 
 export const mapDataSchema = z
