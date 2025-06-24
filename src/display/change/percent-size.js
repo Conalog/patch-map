@@ -1,5 +1,4 @@
 import gsap from 'gsap';
-import { parseMargin } from '../utils';
 import { changePlacement } from './placement';
 import { isConfigMatch, killTweensOf, updateConfig } from './utils';
 
@@ -21,12 +20,11 @@ export const changePercentSize = (
     return;
   }
 
-  const marginObj = parseMargin(margin);
   if (Number.isFinite(percentWidth)) {
-    changeWidth(object, percentWidth, marginObj);
+    changeWidth(object, percentWidth, margin);
   }
   if (Number.isFinite(percentHeight)) {
-    changeHeight(object, percentHeight, marginObj);
+    changeHeight(object, percentHeight, margin);
   }
   updateConfig(object, {
     percentWidth,
@@ -43,7 +41,7 @@ export const changePercentSize = (
 
   function changeHeight(component, percentHeight) {
     const maxHeight =
-      component.parent.size.height - (marginObj.top + marginObj.bottom);
+      component.parent.size.height - (margin.top + margin.bottom);
 
     if (object.config.animation) {
       animationContext.add(() => {

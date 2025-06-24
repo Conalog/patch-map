@@ -1,7 +1,8 @@
 import { isValidationError } from 'zod-validation-error';
 import { validate } from '../../utils/validator';
+import { deepPartial } from '../../utils/zod-deep-strict-partial';
 import { elementPipeline } from '../change/pipeline/element';
-import { deepGridObject } from '../data-schema/element-schema';
+import { Grid } from '../data-schema/element-schema';
 import { updateObject } from '../update/update-object';
 import { createContainer } from '../utils';
 import { createItem } from './item';
@@ -12,12 +13,15 @@ const GRID_OBJECT_CONFIG = {
 
 export const createGrid = (config) => {
   const element = createContainer(config);
-  element.position.set(config.position.x, config.position.y);
+  element.position.set(config.x, config.y);
   element.config = {
     ...element.config,
-    position: config.position,
+    position: { x: config.x, y: config.y },
     cells: config.cells,
-    itemSize: config.itemSize,
+    itemSize: {
+      width: config.itemTemplate.width,
+      height: config.itemTemplate.height,
+    },
   };
   addItemElements(element, config.cells, config.itemSize);
   return element;
@@ -25,7 +29,7 @@ export const createGrid = (config) => {
 
 const pipelineKeys = ['show', 'position', 'gridComponents'];
 export const updateGrid = (element, changes, options) => {
-  const validated = validate(changes, deepGridObject);
+  const validated = validate(changes, deepPartial(Grid));
   if (isValidationError(validated)) throw validated;
   updateObject(element, changes, elementPipeline, pipelineKeys, options);
 };

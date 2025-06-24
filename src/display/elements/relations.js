@@ -1,8 +1,9 @@
 import { Graphics } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { validate } from '../../utils/validator';
+import { deepPartial } from '../../utils/zod-deep-strict-partial';
 import { elementPipeline } from '../change/pipeline/element';
-import { deepRelationGroupObject } from '../data-schema/element-schema';
+import { Relations } from '../data-schema/element-schema';
 import { updateObject } from '../update/update-object';
 import { createContainer } from '../utils';
 
@@ -15,7 +16,7 @@ export const createRelations = (config) => {
 
 const pipelineKeys = ['show', 'strokeStyle', 'links'];
 export const updateRelations = (element, changes, options) => {
-  const validated = validate(changes, deepRelationGroupObject);
+  const validated = validate(changes, deepPartial(Relations));
   if (isValidationError(validated)) throw validated;
   updateObject(element, changes, elementPipeline, pipelineKeys, options);
 };

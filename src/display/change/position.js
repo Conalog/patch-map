@@ -1,6 +1,6 @@
 import { updateConfig } from './utils';
 
-export const changePosition = (object, { position }) => {
-  object.position.set(position.x, position.y);
+export const changePosition = (object, { x, y }) => {
+  object.position.set(x, y);
   updateConfig(object, { position });
 };

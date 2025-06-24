@@ -1,25 +1,26 @@
 import { isValidationError } from 'zod-validation-error';
 import { validate } from '../../utils/validator';
+import { deepPartial } from '../../utils/zod-deep-strict-partial';
 import { elementPipeline } from '../change/pipeline/element';
-import { deepSingleObject } from '../data-schema/element-schema';
+import { Item } from '../data-schema/element-schema';
 import { updateObject } from '../update/update-object';
 import { createContainer } from '../utils';
 
 export const createItem = (config) => {
   const element = createContainer(config);
-  element.position.set(config.position.x, config.position.y);
-  element.size = config.size;
+  element.position.set(config.x, config.y);
+  element.size = { width: config.width, height: config.height };
   element.config = {
     ...element.config,
-    position: config.position,
-    size: config.size,
+    position: { x: config.x, y: config.y },
+    size: element.size,
   };
   return element;
 };
 
 const pipelineKeys = ['show', 'position', 'components'];
 export const updateItem = (element, changes, options) => {
-  const validated = validate(changes, deepSingleObject);
+  const validated = validate(changes, deepPartial(Item));
   if (isValidationError(validated)) throw validated;
   updateObject(element, changes, elementPipeline, pipelineKeys, options);
 };

@@ -1,4 +1,3 @@
-import { parseMargin } from '../utils';
 import { updateConfig } from './utils';
 
 export const changePlacement = (
@@ -14,14 +13,13 @@ export const changePlacement = (
     bottom: { h: 'center', v: 'bottom' },
     center: { h: 'center', v: 'center' },
   };
-  const marginObj = parseMargin(margin);
 
   const [first, second] = placement.split('-');
   const directions = second ? { h: first, v: second } : directionMap[first];
 
   object.visible = false;
-  const x = getHorizontalPosition(object, directions.h, marginObj);
-  const y = getVerticalPosition(object, directions.v, marginObj);
+  const x = getHorizontalPosition(object, directions.h, margin);
+  const y = getVerticalPosition(object, directions.v, margin);
   object.position.set(x, y);
   object.visible = true;
   updateConfig(object, { placement, margin });

@@ -1,6 +1,5 @@
 import { getColor } from '../../utils/get';
 import { FONT_WEIGHT } from '../components/config';
-import { parseMargin } from '../utils';
 import { isConfigMatch, updateConfig } from './utils';
 
 export const changeTextStyle = (
@@ -21,8 +20,7 @@ export const changeTextStyle = (
     } else if (key === 'fill') {
       object.style[key] = getColor(theme, style.fill);
     } else if (key === 'fontSize' && style[key] === 'auto') {
-      const marginObj = parseMargin(margin);
-      setAutoFontSize(object, marginObj);
+      setAutoFontSize(object, margin);
     } else {
       object.style[key] = style[key];
     }

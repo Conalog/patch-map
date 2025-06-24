@@ -7,7 +7,7 @@ import { createCommandHandler } from './utils';
 export const elementPipeline = {
   ...basePipeline,
   position: {
-    keys: ['position'],
+    keys: ['x', 'y'],
     handler: createCommandHandler(
       Commands.PositionCommand,
       change.changePosition,
