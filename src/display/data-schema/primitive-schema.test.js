@@ -65,12 +65,12 @@ describe('Base Schema Tests', () => {
       {
         case: 'missing properties apply defaults',
         input: {},
-        expected: { x: 0, y: 0 },
+        expected: {},
       },
       {
         case: 'one missing property',
         input: { x: 55 },
-        expected: { x: 55, y: 0 },
+        expected: { x: 55 },
       },
     ])(
       'should correctly parse position object for $case',

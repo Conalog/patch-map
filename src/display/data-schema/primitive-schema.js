@@ -7,10 +7,12 @@ export const Base = z
   })
   .passthrough();
 
-export const Position = z.object({
-  x: z.number().default(0),
-  y: z.number().default(0),
-});
+export const Position = z
+  .object({
+    x: z.number().default(0),
+    y: z.number().default(0),
+  })
+  .partial();
 
 export const Size = z.object({
   width: z.number().nonnegative(),

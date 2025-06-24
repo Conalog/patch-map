@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { componentArraySchema } from './component-schema';
 import { Base, Gap, Position, RelationsStyle, Size } from './primitive-schema';
 
-export const Group = Base.merge(Position).extend({
+export const Group = Base.extend({
   type: z.literal('group'),
   children: z.array(z.lazy(() => elementTypes)),
 });
