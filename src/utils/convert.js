@@ -21,26 +21,25 @@ export const convertLegacyData = (data) => {
     if (key === 'grids') {
       for (const value of values) {
         const { transform, ...props } = value.properties;
-        objs[key].items.push({
+        objs[key].children.push({
           type: 'grid',
           id: value.id,
           label: value.name,
           cells: value.children.map((row) =>
             row.map((child) => (child === '0' ? 0 : 1)),
           ),
-          position: { x: transform.x, y: transform.y },
+          x: transform.x,
+          y: transform.y,
           angle: transform.rotation,
           gap: 4,
           itemTemplate: {
-            size: {
-              width: props.spec.width * 40,
-              height: props.spec.height * 40,
-            },
+            width: props.spec.width * 40,
+            height: props.spec.height * 40,
             components: [
               {
                 type: 'background',
-                id: 'default',
-                texture: {
+                id: uid(),
+                source: {
                   type: 'rect',
                   fill: 'white',
                   borderWidth: 2,
@@ -50,11 +49,13 @@ export const convertLegacyData = (data) => {
               },
               {
                 type: 'bar',
-                id: 'default',
-                texture: { type: 'rect', fill: 'white', radius: 3 },
-                tint: 'primary.default',
+                id: uid(),
+                width: '100%',
+                height: '100%',
+                source: { type: 'rect', fill: 'white', radius: 3 },
+                color: 'primary.default',
                 show: false,
-                margin: '3',
+                margin: 3,
               },
             ],
           },
@@ -64,7 +65,7 @@ export const convertLegacyData = (data) => {
     } else if (key === 'strings') {
       objs[key].show = false;
       for (const value of values) {
-        objs[key].items.push({
+        objs[key].children.push({
           type: 'relations',
           id: value.id,
           label: value.name,
@@ -95,17 +96,19 @@ export const convertLegacyData = (data) => {
       objs[key].zIndex = 10;
       for (const value of values) {
         const { transform, ...props } = value.properties;
-        objs[key].items.push({
+        objs[key].children.push({
           type: 'item',
           id: value.id,
           label: value.name,
-          position: { x: transform.x, y: transform.y },
-          size: { width: 24, height: 24 },
+          x: transform.x,
+          y: transform.y,
+          width: 40,
+          height: 40,
           components: [
             {
               type: 'background',
-              id: 'default',
-              texture: {
+              id: uid(),
+              source: {
                 type: 'rect',
                 fill: 'white',
                 borderWidth: 2,
@@ -115,10 +118,10 @@ export const convertLegacyData = (data) => {
             },
             {
               type: 'icon',
-              id: 'default',
-              asset: key === 'combines' ? 'combiner' : key.slice(0, -1),
-              size: 16,
-              tint: 'primary.default',
+              id: uid(),
+              source: key === 'combines' ? 'combiner' : key.slice(0, -1),
+              size: 20,
+              color: 'primary.default',
               placement: 'center',
             },
           ],
