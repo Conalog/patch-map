@@ -1,43 +1,17 @@
 import { z } from 'zod';
-import { uid } from '../../utils/uuid';
 import { componentArraySchema } from './component-schema';
+import { Base, Gap, Position, RelationsStyle, Size } from './primitive-schema';
 
-export const Position = z.object({
-  x: z.number().default(0),
-  y: z.number().default(0),
+export const Group = Base.merge(Position).extend({
+  type: z.literal('group'),
+  children: z.array(z.lazy(() => elementTypes)),
 });
-
-const Size = z.object({
-  width: z.number().nonnegative(),
-  height: z.number().nonnegative(),
-});
-
-export const Base = z
-  .object({
-    show: z.boolean().default(true),
-    id: z.string().default(() => uid()),
-  })
-  .passthrough();
 
 export const Grid = Base.merge(Position).extend({
   type: z.literal('grid'),
   cells: z.array(z.array(z.union([z.literal(0), z.literal(1)]))),
-  gap: z.preprocess(
-    (val) => {
-      return typeof val === 'number' ? { x: val, y: val } : val;
-    },
-    z
-      .object({
-        x: z.number().nonnegative().default(0),
-        y: z.number().nonnegative().default(0),
-      })
-      .default({}),
-  ),
-  itemTemplate: z
-    .object({
-      components: componentArraySchema,
-    })
-    .merge(Size),
+  gap: Gap,
+  itemTemplate: z.object({ components: componentArraySchema }).merge(Size),
 });
 
 export const Item = Base.merge(Position)
@@ -50,15 +24,7 @@ export const Item = Base.merge(Position)
 export const Relations = Base.extend({
   type: z.literal('relations'),
   links: z.array(z.object({ source: z.string(), target: z.string() })),
-  style: z.preprocess(
-    (val) => ({ color: 'black', ...val }),
-    z.record(z.unknown()),
-  ), // https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html
-});
-
-export const Group = Base.merge(Position).extend({
-  type: z.literal('group'),
-  children: z.array(z.lazy(() => elementTypes)),
+  style: RelationsStyle,
 });
 
 const elementTypes = z.discriminatedUnion('type', [

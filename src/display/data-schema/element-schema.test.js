@@ -1,321 +1,313 @@
-import { describe, expect, it, test } from 'vitest';
-import { Grid, mapDataSchema } from './element-schema';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
-// --- Test Suite for valid data structures ---
-describe('Success Cases', () => {
-  it('should validate a minimal `item` and apply default values', () => {
-    const data = [
-      {
-        type: 'item',
-        id: 'item-1',
-        size: { width: 100, height: 50 },
-        components: [],
-      },
-    ];
-    const result = mapDataSchema.safeParse(data);
-    expect(result.success, 'Validation should pass').toBe(true);
+import {
+  Grid,
+  Group,
+  Item,
+  Relations,
+  mapDataSchema,
+} from './element-schema.js';
 
-    if (result.success) {
-      const parsed = result.data[0];
-      expect(parsed.position).toEqual({ x: 0, y: 0 });
-      expect(parsed.show).toBe(true);
-    }
-  });
+// We still mock component-schema as its details are not relevant for this test.
+vi.mock('./component-schema', () => ({
+  componentArraySchema: z.array(z.any()).default([]),
+}));
 
-  it('should validate a `grid` with a complete itemTemplate', () => {
-    const data = [
-      {
-        type: 'grid',
-        cells: [[1]],
-        itemTemplate: {
-          size: { width: 50, height: 50 },
-          components: [{ type: 'background', texture: { type: 'rect' } }],
-        },
-      },
-    ];
-    const result = mapDataSchema.safeParse(data);
-    expect(result.success, 'Grid validation should pass').toBe(true);
-  });
+// --- Global Setup ---
 
-  it('should validate a `group` with nested children and optional size', () => {
-    const data = [
-      {
-        type: 'group',
-        id: 'group-1',
-        position: { x: 10, y: 10 },
-        size: { width: 200, height: 200 },
-        children: [
-          {
-            type: 'item',
-            id: 'nested-item',
-            size: { width: 20, height: 20 },
-            components: [],
-          },
-        ],
-      },
-    ];
-    const result = mapDataSchema.safeParse(data);
-    expect(result.success, 'Group validation should pass').toBe(true);
-  });
+// Mocking a unique ID generator for predictable test outcomes.
+let idCounter = 0;
+const uid = vi.fn(() => `mock-id-${idCounter++}`);
+global.uid = uid;
 
-  it('should validate `relations` with custom styles and apply defaults', () => {
-    const data = [
-      {
-        type: 'relations',
-        links: [{ source: 'a', target: 'b' }],
-        style: { width: 5, color: '0xff0000' },
-      },
-    ];
-    const result = mapDataSchema.safeParse(data);
-    expect(result.success, 'Relations validation should pass').toBe(true);
-
-    if (result.success) {
-      const parsed = result.data[0];
-      expect(parsed.style.width).toBe(5);
-      expect(parsed.style.color).toBe('0xff0000');
-    }
-  });
-
-  it('should allow passthrough of unknown properties', () => {
-    const data = [
-      {
-        type: 'item',
-        id: 'item-1',
-        size: { width: 10, height: 10 },
-        components: [],
-        // `passthrough` allows adding properties not defined in the schema
-        customData: { value: 123 },
-        anotherProp: 'hello',
-      },
-    ];
-    const result = mapDataSchema.safeParse(data);
-    expect(result.success, 'Passthrough properties should be allowed').toBe(
-      true,
-    );
-    if (result.success) {
-      expect(result.data[0].customData).toEqual({ value: 123 });
-      expect(result.data[0].anotherProp).toEqual('hello');
-    }
-  });
-
-  it('should generate a default ID if one is not provided', () => {
-    const data = [
-      { type: 'item', size: { width: 1, height: 1 }, components: [] },
-    ];
-    const result = mapDataSchema.safeParse(data);
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data[0].id).toBeDefined();
-      expect(typeof result.data[0].id).toBe('string');
-    }
-  });
+beforeEach(() => {
+  // Reset counter before each test to ensure test isolation
+  idCounter = 0;
+  uid.mockClear();
 });
 
-// --- Test Suite for invalid data structures ---
-describe('Failure Cases', () => {
-  test.each([
-    {
-      name: 'missing required `size` in `item`',
-      data: [{ type: 'item', id: 'item-1', components: [] }],
-      expectedPath: [0, 'size'],
-    },
-    {
-      name: 'missing required `components` in `item`',
-      data: [{ type: 'item', id: 'item-1', size: { width: 1, height: 1 } }],
-      expectedPath: [0, 'components'],
-    },
-    {
-      name: 'missing `itemTemplate` in `grid`',
-      data: [{ type: 'grid', id: 'grid-1', cells: [[1]] }],
-      expectedPath: [0, 'itemTemplate'],
-    },
-    {
-      name: 'missing `children` in `group`',
-      data: [{ type: 'group', id: 'group-1' }],
-      expectedPath: [0, 'children'],
-    },
-    {
-      name: 'negative `width` in `size`',
-      data: [
-        {
-          type: 'item',
-          id: 'item-1',
-          components: [],
-          size: { width: -10, height: 10 },
-        },
-      ],
-      expectedPath: [0, 'size', 'width'],
-    },
-    {
-      name: 'invalid `cells` value in `grid`',
-      data: [
-        {
-          type: 'grid',
-          cells: [[2]],
-          itemTemplate: { size: { w: 1, h: 1 }, components: [] },
-        },
-      ],
-      expectedPath: [0, 'cells', 0, 0],
-    },
-  ])('should fail for $name', ({ name, data, expectedPath }) => {
-    const result = mapDataSchema.safeParse(data);
-    expect(result.success, `Should fail for: ${name}`).toBe(false);
-    if (!result.success) {
-      const errorPaths = result.error.issues.map((issue) =>
-        issue.path.join('.'),
-      );
-      expect(errorPaths).toContain(expectedPath.join('.'));
-    }
-  });
-});
+// --- Test Suites ---
 
-// --- Test Suite for edge cases and constraints ---
-describe('Edge Cases and Constraints', () => {
-  it('should fail if an ID is duplicated, even in nested structures', () => {
-    const data = [
-      {
-        type: 'item',
-        id: 'duplicate-id',
-        size: { width: 1, height: 1 },
-        components: [],
-      },
-      {
+describe('Element Schema Tests (with real dependencies)', () => {
+  // A minimal valid item for use in other tests
+  const validItem = {
+    type: 'item',
+    id: 'item-1',
+    width: 100,
+    height: 100,
+  };
+
+  describe('Group Schema', () => {
+    it('should parse a valid group with no children', () => {
+      const groupData = { type: 'group', id: 'group-1', children: [] };
+      expect(() => Group.parse(groupData)).not.toThrow();
+    });
+
+    it('should parse a valid group with nested elements (lazy schema)', () => {
+      const groupData = {
         type: 'group',
         id: 'group-1',
-        children: [
-          {
-            type: 'item',
-            id: 'duplicate-id',
-            size: { width: 1, height: 1 },
-            components: [],
-          },
-        ],
-      },
-    ];
-    const result = mapDataSchema.safeParse(data);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const customError = result.error.issues.find((i) => i.code === 'custom');
-      expect(customError).toBeDefined();
-      expect(customError.message).toContain('Duplicate id: duplicate-id');
-    }
+        children: [validItem],
+      };
+      const parsed = Group.parse(groupData);
+      expect(parsed.children).toHaveLength(1);
+      expect(parsed.children[0].type).toBe('item');
+    });
+
+    it('should fail if children contains an invalid element', () => {
+      const invalidGroupData = {
+        type: 'group',
+        id: 'group-1',
+        children: [{ type: 'invalid-type' }], // an object that doesn't match any element type
+      };
+      expect(() => Group.parse(invalidGroupData)).toThrow();
+    });
   });
 
-  it('should pass validation for an empty array', () => {
-    const data = [];
-    const result = mapDataSchema.safeParse(data);
-    expect(result.success).toBe(true);
-  });
-
-  it('should fail if the root data is not an array', () => {
-    const data = {
-      type: 'item',
-      id: 'item-1',
-      size: { width: 1, height: 1 },
-      components: [],
+  describe('Grid Schema', () => {
+    // This test data is valid for the real Gap schema from base-schema
+    const baseGrid = {
+      type: 'grid',
+      id: 'grid-1',
+      itemTemplate: { width: 50, height: 50, components: [] },
+      gap: 5, // Using a number, which the real Gap schema preprocesses
     };
-    const result = mapDataSchema.safeParse(data);
-    expect(result.success).toBe(false);
+
+    it.each([
+      {
+        case: 'a standard 2x2 grid',
+        cells: [
+          [1, 0],
+          [0, 1],
+        ],
+      },
+      { case: 'an empty grid', cells: [] },
+      { case: 'a grid with an empty row', cells: [[]] },
+      { case: 'a ragged grid', cells: [[1], [0, 1]] },
+    ])('should parse a valid grid for $case', ({ cells }) => {
+      const gridData = { ...baseGrid, cells };
+      const parsed = Grid.parse(gridData);
+      // Check if the real Gap schema's preprocess worked
+      expect(parsed.gap).toEqual({ x: 5, y: 5 });
+    });
+
+    it.each([
+      { case: 'cells containing a non-array', cells: [1, [0, 1]] },
+      {
+        case: 'cells containing invalid numbers',
+        cells: [
+          [1, 2],
+          [0, 1],
+        ],
+      },
+      { case: 'cells being not an array', cells: {} },
+    ])(
+      'should throw an error for invalid cells property for $case',
+      ({ cells }) => {
+        const gridData = { ...baseGrid, cells };
+        expect(() => Grid.parse(gridData)).toThrow();
+      },
+    );
+
+    it('should fail if itemTemplate is missing required size', () => {
+      const gridData = { ...baseGrid, itemTemplate: { components: [] } };
+      expect(() => Grid.parse(gridData)).toThrow(); // width/height are required in Size schema
+    });
   });
-});
 
-describe('`gap` Validation', () => {
-  describe('Success Cases and Normalization', () => {
-    const gapSchema = Grid.pick({ type: true, gap: true });
+  describe('Item Schema', () => {
+    it('should parse a full valid item', () => {
+      const itemData = {
+        type: 'item',
+        id: 'item-1',
+        x: 10,
+        y: 20,
+        width: 100,
+        height: 200,
+        components: [{ type: 'text', content: 'hello' }],
+      };
+      expect(() => Item.parse(itemData)).not.toThrow();
+    });
 
-    test.each([
+    it('should fail if required properties from merged schemas are missing', () => {
+      // Item merges with Size, which requires width and height
+      const itemData = { type: 'item', id: 'item-1' };
+      expect(() => Item.parse(itemData)).toThrow();
+    });
+  });
+
+  describe('Relations Schema', () => {
+    // The `style` property is required. Pass an empty object to trigger its preprocess.
+    const baseRelations = { type: 'relations', id: 'rel-1', style: {} };
+
+    it.each([
+      { case: 'a valid links array', links: [{ source: 'a', target: 'b' }] },
+      { case: 'an empty links array', links: [] },
+    ])('should parse valid relations for $case', ({ links }) => {
+      const relationsData = { ...baseRelations, links };
+      const parsed = Relations.parse(relationsData);
+      expect(parsed.links).toEqual(links);
+      // Check if the real RelationsStyle schema's preprocess worked
+      expect(parsed.style).toEqual({ color: 'black' });
+    });
+
+    it.each([
+      { case: 'links not being an array', links: {} },
       {
-        name: 'a single number (shorthand)',
-        input: { type: 'grid', gap: 10 },
-        expected: { x: 10, y: 10 },
+        case: 'links array with invalid object (missing source)',
+        links: [{ target: 'b' }],
       },
       {
-        name: 'a full object with x and y',
-        input: { type: 'grid', gap: { x: 20, y: 15 } },
-        expected: { x: 20, y: 15 },
-      },
-      {
-        name: 'a partial object with only x',
-        input: { type: 'grid', gap: { x: 5 } },
-        expected: { x: 5, y: 0 }, // y should default to 0
-      },
-      {
-        name: 'a partial object with only y',
-        input: { type: 'grid', gap: { y: 8 } },
-        expected: { x: 0, y: 8 }, // x should default to 0
-      },
-      {
-        name: 'undefined (should apply all defaults)',
-        input: { type: 'grid' },
-        expected: { x: 0, y: 0 },
-      },
-      {
-        name: 'an empty object',
-        input: { type: 'grid', gap: {} },
-        expected: { x: 0, y: 0 },
-      },
-      {
-        name: 'zero as a number',
-        input: { type: 'grid', gap: 0 },
-        expected: { x: 0, y: 0 },
+        case: 'links array with invalid object (source is not a string)',
+        links: [{ source: 123, target: 'b' }],
       },
     ])(
-      'should correctly parse and default when `gap` is $name',
-      ({ name, input, expected }) => {
-        const result = gapSchema.safeParse(input);
-        expect(result.success, `Validation failed for case: ${name}`).toBe(
-          true,
-        );
-        if (result.success) {
-          expect(result.data.gap).toEqual(expected);
-        }
+      'should throw an error for invalid links property for $case',
+      ({ links }) => {
+        const relationsData = { ...baseRelations, links };
+        expect(() => Relations.parse(relationsData)).toThrow();
       },
     );
   });
 
-  describe('Failure Cases', () => {
-    const gapSchema = Grid.pick({ type: true, gap: true });
+  describe('mapDataSchema (Integration and ID Uniqueness)', () => {
+    it('should parse a valid array of different elements with unique IDs', () => {
+      const data = [
+        { type: 'item', id: 'item-10', width: 10, height: 10 },
+        { type: 'group', id: 'group-20', children: [] },
+      ];
+      expect(() => mapDataSchema.parse(data)).not.toThrow();
+    });
 
-    test.each([
-      {
-        name: 'a negative number',
-        input: { type: 'grid', gap: -10 },
-        expectedPath: ['gap', 'x'], // The preprocessor turns it into {x: -10, y: -10}
-      },
-      {
-        name: 'an object with a negative x value',
-        input: { type: 'grid', gap: { x: -5, y: 10 } },
-        expectedPath: ['gap', 'x'],
-      },
-      {
-        name: 'an object with a non-numeric value',
-        input: { type: 'grid', gap: { x: 10, y: 'invalid' } },
-        expectedPath: ['gap', 'y'],
-      },
-      {
-        name: 'a string value',
-        input: { type: 'grid', gap: '10' },
-        expectedPath: ['gap'], // Fails the object check after preprocessing
-      },
-      {
-        name: 'null',
-        input: { type: 'grid', gap: null },
-        expectedPath: ['gap'],
-      },
-      {
-        name: 'an array',
-        input: { type: 'grid', gap: [10, 10] },
-        expectedPath: ['gap'],
-      },
-    ])('should fail when `gap` is $name', ({ name, input, expectedPath }) => {
-      const result = gapSchema.safeParse(input);
-      expect(result.success, `Should fail for case: ${name}`).toBe(false);
-      if (!result.success) {
-        const errorPaths = result.error.issues.map((issue) =>
-          issue.path.join('.'),
-        );
-        expect(errorPaths).toContain(expectedPath.join('.'));
-      }
+    it('should parse correctly with default IDs applied', () => {
+      const data = [
+        { type: 'item', width: 10, height: 10 }, // no id
+        { type: 'item', width: 10, height: 10 }, // no id
+      ];
+      // uid() will be called, returning mock-id-0, mock-id-1, etc.
+      const parsed = mapDataSchema.parse(data);
+      expect(parsed[0].id).toBe('mock-id-0');
+      expect(parsed[1].id).toBe('mock-id-1');
+      expect(uid).toHaveBeenCalledTimes(2);
+    });
+
+    // --- Extreme Edge Cases for ID Uniqueness ---
+    describe('ID uniqueness validation (superRefine)', () => {
+      const getFirstError = (data) => {
+        const result = mapDataSchema.safeParse(data);
+        if (result.success) return null;
+        return result.error.issues[0].message;
+      };
+
+      it.each([
+        {
+          case: 'duplicate IDs at the root level',
+          data: [
+            { type: 'item', id: 'dup-id', width: 10, height: 10 },
+            { type: 'item', id: 'dup-id', width: 10, height: 10 },
+          ],
+          expectedError: 'Duplicate id: dup-id at 1',
+        },
+        {
+          case: 'duplicate ID inside a nested group',
+          data: [
+            {
+              type: 'group',
+              id: 'group-1',
+              children: [
+                { type: 'item', id: 'nested-dup', width: 10, height: 10 },
+                { type: 'item', id: 'nested-dup', width: 10, height: 10 },
+              ],
+            },
+          ],
+          expectedError: 'Duplicate id: nested-dup at 0.children.1',
+        },
+        {
+          case: 'ID at root is duplicated in a nested group',
+          data: [
+            { type: 'item', id: 'cross-level-dup', width: 10, height: 10 },
+            {
+              type: 'group',
+              id: 'group-1',
+              children: [
+                { type: 'item', id: 'cross-level-dup', width: 10, height: 10 },
+              ],
+            },
+          ],
+          expectedError: 'Duplicate id: cross-level-dup at 1.children.0',
+        },
+        {
+          case: 'ID in a nested group is duplicated at the root',
+          data: [
+            {
+              type: 'group',
+              id: 'group-1',
+              children: [
+                { type: 'item', id: 'cross-level-dup', width: 10, height: 10 },
+              ],
+            },
+            { type: 'item', id: 'cross-level-dup', width: 10, height: 10 },
+          ],
+          expectedError: 'Duplicate id: cross-level-dup at 1',
+        },
+        {
+          case: 'duplicate IDs in deeply nested groups',
+          data: [
+            {
+              type: 'group',
+              id: 'group-1',
+              children: [
+                {
+                  type: 'group',
+                  id: 'group-2',
+                  children: [
+                    { type: 'item', id: 'deep-dup', width: 10, height: 10 },
+                  ],
+                },
+                {
+                  type: 'group',
+                  id: 'group-3',
+                  children: [
+                    { type: 'item', id: 'deep-dup', width: 10, height: 10 },
+                  ],
+                },
+              ],
+            },
+          ],
+          expectedError: 'Duplicate id: deep-dup at 0.children.1.children.0',
+        },
+        {
+          case: 'duplicate with default IDs',
+          data: [
+            { type: 'item', id: 'mock-id-0', width: 10, height: 10 },
+            { type: 'item', width: 10, height: 10 }, // This will get default id 'mock-id-0'
+          ],
+          expectedError: 'Duplicate id: mock-id-0 at 1',
+        },
+      ])('should fail with error: $case', ({ data, expectedError }) => {
+        const message = getFirstError(data);
+        expect(message).toBe(expectedError);
+      });
+    });
+
+    // --- Discriminated Union Edge Cases ---
+    describe('Discriminated Union validation', () => {
+      it('should fail if an element has an unknown type', () => {
+        const data = [{ type: 'rectangle', id: 'rect-1' }];
+        expect(() => mapDataSchema.parse(data)).toThrow();
+      });
+
+      it('should fail if an element has a correct type but incorrect properties', () => {
+        // 'grid' type requires a 'cells' property
+        const data = [
+          { type: 'grid', id: 'grid-1', itemTemplate: { width: 1, height: 1 } },
+        ];
+        const result = mapDataSchema.safeParse(data);
+        expect(result.success).toBe(false);
+        expect(result.error.issues[0].message).toBe('Required'); // Zod's error for missing property
+        expect(result.error.issues[0].path).toEqual([0, 'cells']);
+      });
     });
   });
 });
