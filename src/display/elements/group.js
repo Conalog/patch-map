@@ -1,7 +1,7 @@
 import { isValidationError } from 'zod-validation-error';
 import { validate } from '../../utils/validator';
 import { elementPipeline } from '../change/pipeline/element';
-import { deepGroupObject } from '../data-schema/data-schema';
+import { deepGroupObject } from '../data-schema/element-schema';
 import { updateObject } from '../update/update-object';
 import { createContainer } from '../utils';
 

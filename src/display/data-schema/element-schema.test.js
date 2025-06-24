@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapDataSchema } from './data-schema';
+import { mapDataSchema } from './element-schema';
 
 describe('mapDataSchema (modified tests for required fields)', () => {
   // --------------------------------------------------------------------------
