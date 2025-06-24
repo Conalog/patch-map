@@ -2,7 +2,7 @@ import { getTexture } from '../../assets/textures/texture';
 import { getViewport } from '../../utils/get';
 import { isConfigMatch, updateConfig } from './utils';
 
-export const changeAsset = (object, { asset: assetConfig }, { theme }) => {
+export const changeAsset = (object, { source: assetConfig }, { theme }) => {
   if (isConfigMatch(object, 'asset', assetConfig)) {
     return;
   }

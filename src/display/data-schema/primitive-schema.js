@@ -1,11 +1,10 @@
 import { z } from 'zod';
+import { uid } from '../../utils/uuid';
 
-export const Base = z
-  .object({
-    show: z.boolean().default(true),
-    id: z.string().default(() => uid()),
-  })
-  .passthrough();
+export const Base = z.object({
+  show: z.boolean().default(true),
+  id: z.string().default(() => uid()),
+});
 
 export const Position = z
   .object({
@@ -20,11 +19,19 @@ export const Size = z.object({
 });
 
 export const pxOrPercentSchema = z
-  .union([z.number().nonnegative(), z.string().regex(/^\d+(\.\d+)?%$/)])
+  .union([
+    z.number().nonnegative(),
+    z.string().regex(/^\d+(\.\d+)?%$/),
+    z.object({ value: z.number().nonnegative(), unit: z.enum(['px', '%']) }),
+  ])
   .transform((val) => {
-    return typeof val === 'number'
-      ? { value: val, unit: 'px' }
-      : { value: Number.parseFloat(val.slice(0, -1)), unit: '%' };
+    if (typeof val === 'number') {
+      return { value: val, unit: 'px' };
+    }
+    if (typeof val === 'string') {
+      return { value: Number.parseFloat(val.slice(0, -1)), unit: '%' };
+    }
+    return val;
   });
 
 export const PxOrPercentSize = z.object({

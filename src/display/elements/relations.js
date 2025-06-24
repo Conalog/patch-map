@@ -18,7 +18,7 @@ const pipelineKeys = ['show', 'strokeStyle', 'links'];
 export const updateRelations = (element, changes, options) => {
   const validated = validate(changes, deepPartial(Relations));
   if (isValidationError(validated)) throw validated;
-  updateObject(element, changes, elementPipeline, pipelineKeys, options);
+  updateObject(element, validated, elementPipeline, pipelineKeys, options);
 };
 
 const createPath = () => {

@@ -23,7 +23,7 @@ export const createGrid = (config) => {
       height: config.itemTemplate.height,
     },
   };
-  addItemElements(element, config.cells, config.itemSize);
+  addItemElements(element, config.cells, element.config.itemSize);
   return element;
 };
 
@@ -31,7 +31,7 @@ const pipelineKeys = ['show', 'position', 'gridComponents'];
 export const updateGrid = (element, changes, options) => {
   const validated = validate(changes, deepPartial(Grid));
   if (isValidationError(validated)) throw validated;
-  updateObject(element, changes, elementPipeline, pipelineKeys, options);
+  updateObject(element, validated, elementPipeline, pipelineKeys, options);
 };
 
 const addItemElements = (container, cells, cellSize) => {
@@ -44,14 +44,10 @@ const addItemElements = (container, cells, cellSize) => {
       const item = createItem({
         type: 'item',
         id: `${container.id}.${rowIndex}.${colIndex}`,
-        position: {
-          x: colIndex * (cellSize.width + GRID_OBJECT_CONFIG.margin),
-          y: rowIndex * (cellSize.height + GRID_OBJECT_CONFIG.margin),
-        },
-        size: {
-          width: cellSize.width,
-          height: cellSize.height,
-        },
+        x: colIndex * (cellSize.width + GRID_OBJECT_CONFIG.margin),
+        y: rowIndex * (cellSize.height + GRID_OBJECT_CONFIG.margin),
+        width: cellSize.width,
+        height: cellSize.height,
         metadata: {
           index: colIndex + row.length * rowIndex,
         },

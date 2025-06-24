@@ -22,5 +22,5 @@ const pipelineKeys = ['show', 'position', 'components'];
 export const updateItem = (element, changes, options) => {
   const validated = validate(changes, deepPartial(Item));
   if (isValidationError(validated)) throw validated;
-  updateObject(element, changes, elementPipeline, pipelineKeys, options);
+  updateObject(element, validated, elementPipeline, pipelineKeys, options);
 };

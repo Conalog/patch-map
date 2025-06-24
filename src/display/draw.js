@@ -26,7 +26,7 @@ export const draw = (context, data) => {
         parent.addChild(element);
 
         if (config.type === 'group') {
-          render(element, config.items);
+          render(element, config.children);
         }
       }
     }

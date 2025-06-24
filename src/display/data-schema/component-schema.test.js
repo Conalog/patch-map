@@ -64,7 +64,7 @@ describe('Component Schema Tests (Final Version)', () => {
 
     it('should parse a valid bar and apply all defaults', () => {
       const parsed = Bar.parse(baseBar);
-      expect(parsed.placemnet).toBe('bottom');
+      expect(parsed.placement).toBe('bottom');
       // Margin preprocesses to a full object
       expect(parsed.margin).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
       expect(parsed.animation).toBe(true);
@@ -77,12 +77,12 @@ describe('Component Schema Tests (Final Version)', () => {
     it('should correctly override default values', () => {
       const data = {
         ...baseBar,
-        placemnet: 'top',
+        placement: 'top',
         margin: { x: 10, y: 20 }, // Use object syntax for margin
         animation: false,
       };
       const parsed = Bar.parse(data);
-      expect(parsed.placemnet).toBe('top');
+      expect(parsed.placement).toBe('top');
       expect(parsed.margin).toEqual({
         top: 20,
         right: 10,
@@ -114,7 +114,7 @@ describe('Component Schema Tests (Final Version)', () => {
       const parsed = Icon.parse(data);
       expect(parsed.size).toEqual(expected);
       // Check if defaults are applied
-      expect(parsed.placemnet).toBe('center');
+      expect(parsed.placement).toBe('center');
     });
 
     // Edge cases for the `size` property (which uses pxOrPercentSchema)
@@ -146,7 +146,7 @@ describe('Component Schema Tests (Final Version)', () => {
       expect(parsed.style.fill).toBe('black');
       expect(parsed.style.fontWeight).toBe(400);
       expect(parsed.split).toBe(0);
-      expect(parsed.placemnet).toBe('center');
+      expect(parsed.placement).toBe('center');
     });
 
     it('should correctly merge provided styles with defaults', () => {

@@ -14,10 +14,10 @@ export const elementPipeline = {
     ),
   },
   gridComponents: {
-    keys: ['components'],
+    keys: ['itemTemplate'],
     handler: (element, config, options) => {
       for (const cell of element.children) {
-        updateComponents(cell, config, options);
+        updateComponents(cell, config.itemTemplate, options);
       }
     },
   },
@@ -30,7 +30,7 @@ export const elementPipeline = {
     handler: change.changeLinks,
   },
   strokeStyle: {
-    keys: ['strokeStyle'],
+    keys: ['style'],
     handler: change.changeStrokeStyle,
   },
 };

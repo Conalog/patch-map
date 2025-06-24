@@ -5,27 +5,30 @@ import { Base, Gap, Position, RelationsStyle, Size } from './primitive-schema';
 export const Group = Base.extend({
   type: z.literal('group'),
   children: z.array(z.lazy(() => elementTypes)),
-});
+}).passthrough();
 
-export const Grid = Base.merge(Position).extend({
-  type: z.literal('grid'),
-  cells: z.array(z.array(z.union([z.literal(0), z.literal(1)]))),
-  gap: Gap,
-  itemTemplate: z.object({ components: componentArraySchema }).merge(Size),
-});
+export const Grid = Base.merge(Position)
+  .extend({
+    type: z.literal('grid'),
+    cells: z.array(z.array(z.union([z.literal(0), z.literal(1)]))),
+    gap: Gap,
+    itemTemplate: z.object({ components: componentArraySchema }).merge(Size),
+  })
+  .passthrough();
 
 export const Item = Base.merge(Position)
   .merge(Size)
   .extend({
     type: z.literal('item'),
     components: componentArraySchema,
-  });
+  })
+  .passthrough();
 
 export const Relations = Base.extend({
   type: z.literal('relations'),
   links: z.array(z.object({ source: z.string(), target: z.string() })),
   style: RelationsStyle,
-});
+}).passthrough();
 
 const elementTypes = z.discriminatedUnion('type', [
   Group,

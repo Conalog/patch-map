@@ -2,23 +2,19 @@ import { getColor } from '../../utils/get';
 import { selector } from '../../utils/selector/selector';
 import { updateConfig } from './utils';
 
-export const changeStrokeStyle = (
-  object,
-  { strokeStyle, links },
-  { theme },
-) => {
+export const changeStrokeStyle = (object, { style, links }, { theme }) => {
   const path = selector(object, '$.children[?(@.type==="path")]')[0];
   if (!path) return;
 
-  if ('color' in strokeStyle) {
-    strokeStyle.color = getColor(theme, strokeStyle.color);
+  if ('color' in style) {
+    style.color = getColor(theme, style.color);
   }
 
-  path.setStrokeStyle({ ...path.strokeStyle, ...strokeStyle });
+  path.setStrokeStyle({ ...path.strokeStyle, ...style });
   if (!links && path.links.length > 0) {
     reRenderPath(path);
   }
-  updateConfig(object, { strokeStyle });
+  updateConfig(object, { style });
 
   function reRenderPath(path) {
     path.clear();

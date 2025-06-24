@@ -105,9 +105,9 @@ export interface Grid {
  *   height: 100,
  *   components: [
  *     { type: 'background', id: 'bg1', source: { fill: '#fff', borderColor: '#ddd', borderWidth: 1 } },
- *     { type: 'text', id: 'label1', text: 'Main Server', placemnet: 'top', margin: 8 },
+ *     { type: 'text', id: 'label1', text: 'Main Server', placement: 'top', margin: 8 },
  *     { type: 'bar', id: 'cpu-bar', source: { fill: 'lightblue' }, width: '80%', height: 8, y: 40 },
- *     { type: 'icon', id: 'status-icon', source: 'ok.svg', size: 16, placemnet: 'bottom-right', margin: 4 }
+ *     { type: 'icon', id: 'status-icon', source: 'ok.svg', size: 16, placement: 'bottom-right', margin: 4 }
  *   ]
  * }
  */
@@ -192,7 +192,7 @@ export interface Background {
  *   source: { fill: 'green' },
  *   width: '80%', // 80% of the parent item's width
  *   height: 10,   // 10 pixels high
- *   placemnet: 'bottom'
+ *   placement: 'bottom'
  * }
  */
 export interface Bar {
@@ -204,7 +204,7 @@ export interface Bar {
   width: PxOrPercent;
   height: PxOrPercent;
   source: TextureStyle;
-  placemnet?: Placement; // Default: 'bottom'
+  placement?: Placement; // Default: 'bottom'
   margin?: Margin; // Default: 0
   animation?: boolean; // Default: true
   animationDuration?: number; // Default: 200
@@ -220,7 +220,7 @@ export interface Bar {
  *   id: 'icon1',
  *   source: 'warning.svg',
  *   size: 24, // 24px
- *   placemnet: 'left-top',
+ *   placement: 'left-top',
  *   margin: { x: 4, y: 4 }
  * }
  */
@@ -231,7 +231,7 @@ export interface Icon {
   x?: number; // Default: 0
   y?: number; // Default: 0
   source: string;
-  placemnet?: Placement; // Default: 'center'
+  placement?: Placement; // Default: 'center'
   margin?: Margin; // Default: 0
   size?: PxOrPercent;
   [key: string]: unknown; // Allows other properties
@@ -245,7 +245,7 @@ export interface Icon {
  *   type: 'text',
  *   id: 'text1',
  *   text: 'Hello World',
- *   placemnet: 'center',
+ *   placement: 'center',
  *   style: { fill: '#333', fontSize: 14, fontWeight: 'bold' }
  * }
  */
@@ -255,7 +255,7 @@ export interface Text {
   show?: boolean; // Default: true
   x?: number; // Default: 0
   y?: number; // Default: 0
-  placemnet?: Placement; // Default: 'center'
+  placement?: Placement; // Default: 'center'
   margin?: Margin; // Default: 0
   text?: string; // Default: ''
   style?: Record<string, unknown>; // Corresponds to PIXI.TextStyle

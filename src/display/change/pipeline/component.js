@@ -10,19 +10,19 @@ export const componentPipeline = {
     handler: createCommandHandler(Commands.TintCommand, change.changeTint),
   },
   texture: {
-    keys: ['texture'],
+    keys: ['source'],
     handler: (component, config, options) => {
       change.changeTexture(component, config, options);
     },
   },
   asset: {
-    keys: ['asset'],
+    keys: ['source'],
     handler: (component, config, options) => {
       change.changeAsset(component, config, options);
     },
   },
   textureTransform: {
-    keys: ['texture'],
+    keys: ['source'],
     handler: (component) => {
       change.changeTextureTransform(component);
     },
@@ -34,7 +34,7 @@ export const componentPipeline = {
     },
   },
   percentSize: {
-    keys: ['percentWidth', 'percentHeight', 'margin'],
+    keys: ['width', 'height', 'margin'],
     handler: (component, config, options) => {
       change.changePercentSize(component, config, options);
       change.changePlacement(component, {});

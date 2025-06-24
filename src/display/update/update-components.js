@@ -1,6 +1,4 @@
-import { isValidationError } from 'zod-validation-error';
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
-import { validate } from '../../utils/validator';
 import {
   backgroundComponent,
   updateBackgroundComponent,
@@ -8,7 +6,6 @@ import {
 import { barComponent, updateBarComponent } from '../components/bar';
 import { iconComponent, updateIconComponent } from '../components/icon';
 import { textComponent, updateTextComponent } from '../components/text';
-import { componentSchema } from '../data-schema/component-schema';
 
 const componentFn = {
   background: {
@@ -37,7 +34,7 @@ export const updateComponents = (
   if (!componentConfig) return;
 
   const itemComponents = [...item.children];
-  for (let config of componentConfig) {
+  for (const config of componentConfig) {
     const idx = findIndexByPriority(itemComponents, config);
     let component = null;
 
@@ -45,9 +42,6 @@ export const updateComponents = (
       component = itemComponents[idx];
       itemComponents.splice(idx, 1);
     } else {
-      config = validate(config, componentSchema);
-      if (isValidationError(config)) throw config;
-
       component = createComponent(config);
       if (!component) continue;
       item.addChild(component);
