@@ -1,359 +1,321 @@
-import { describe, expect, it } from 'vitest';
-import { mapDataSchema } from './element-schema';
+import { describe, expect, it, test } from 'vitest';
+import { gridSchema, mapDataSchema } from './element-schema';
 
-describe('mapDataSchema (modified tests for required fields)', () => {
-  // --------------------------------------------------------------------------
-  // 1) 정상 케이스 테스트
-  // --------------------------------------------------------------------------
-  it('should validate a minimal valid single item object (type=item) with size', () => {
-    // 이제 size가 required이므로 반드시 포함해야 함
+// --- Test Suite for valid data structures ---
+describe('Success Cases', () => {
+  it('should validate a minimal `item` and apply default values', () => {
     const data = [
       {
-        id: 'unique-item-1',
         type: 'item',
-        components: [], // componentSchema는 배열
+        id: 'item-1',
         size: { width: 100, height: 50 },
+        components: [],
       },
+    ];
+    const result = mapDataSchema.safeParse(data);
+    expect(result.success, 'Validation should pass').toBe(true);
+
+    if (result.success) {
+      const parsed = result.data[0];
+      expect(parsed.position).toEqual({ x: 0, y: 0 });
+      expect(parsed.show).toBe(true);
+    }
+  });
+
+  it('should validate a `grid` with a complete itemTemplate', () => {
+    const data = [
+      {
+        type: 'grid',
+        cells: [[1]],
+        itemTemplate: {
+          size: { width: 50, height: 50 },
+          components: [{ type: 'background', texture: { type: 'rect' } }],
+        },
+      },
+    ];
+    const result = mapDataSchema.safeParse(data);
+    expect(result.success, 'Grid validation should pass').toBe(true);
+  });
+
+  it('should validate a `group` with nested children and optional size', () => {
+    const data = [
+      {
+        type: 'group',
+        id: 'group-1',
+        position: { x: 10, y: 10 },
+        size: { width: 200, height: 200 },
+        children: [
+          {
+            type: 'item',
+            id: 'nested-item',
+            size: { width: 20, height: 20 },
+            components: [],
+          },
+        ],
+      },
+    ];
+    const result = mapDataSchema.safeParse(data);
+    expect(result.success, 'Group validation should pass').toBe(true);
+  });
+
+  it('should validate `relations` with custom styles and apply defaults', () => {
+    const data = [
+      {
+        type: 'relations',
+        links: [{ source: 'a', target: 'b' }],
+        style: { width: 5, color: '0xff0000' },
+      },
+    ];
+    const result = mapDataSchema.safeParse(data);
+    expect(result.success, 'Relations validation should pass').toBe(true);
+
+    if (result.success) {
+      const parsed = result.data[0];
+      expect(parsed.style.width).toBe(5);
+      expect(parsed.style.color).toBe('0xff0000');
+    }
+  });
+
+  it('should allow passthrough of unknown properties', () => {
+    const data = [
+      {
+        type: 'item',
+        id: 'item-1',
+        size: { width: 10, height: 10 },
+        components: [],
+        // `passthrough` allows adding properties not defined in the schema
+        customData: { value: 123 },
+        anotherProp: 'hello',
+      },
+    ];
+    const result = mapDataSchema.safeParse(data);
+    expect(result.success, 'Passthrough properties should be allowed').toBe(
+      true,
+    );
+    if (result.success) {
+      expect(result.data[0].customData).toEqual({ value: 123 });
+      expect(result.data[0].anotherProp).toEqual('hello');
+    }
+  });
+
+  it('should generate a default ID if one is not provided', () => {
+    const data = [
+      { type: 'item', size: { width: 1, height: 1 }, components: [] },
     ];
     const result = mapDataSchema.safeParse(data);
     expect(result.success).toBe(true);
     if (result.success) {
-      // 기본값으로 세팅된 transform 속성 확인
-      // position은 default(0,0), angle은 default(0)
-      expect(result.data[0].position.x).toBe(0);
-      expect(result.data[0].position.y).toBe(0);
+      expect(result.data[0].id).toBeDefined();
+      expect(typeof result.data[0].id).toBe('string');
+    }
+  });
+});
 
-      // size가 정상적으로 들어왔는지
-      expect(result.data[0].size.width).toBe(100);
-      expect(result.data[0].size.height).toBe(50);
+// --- Test Suite for invalid data structures ---
+describe('Failure Cases', () => {
+  test.each([
+    {
+      name: 'missing required `size` in `item`',
+      data: [{ type: 'item', id: 'item-1', components: [] }],
+      expectedPath: [0, 'size'],
+    },
+    {
+      name: 'missing required `components` in `item`',
+      data: [{ type: 'item', id: 'item-1', size: { width: 1, height: 1 } }],
+      expectedPath: [0, 'components'],
+    },
+    {
+      name: 'missing `itemTemplate` in `grid`',
+      data: [{ type: 'grid', id: 'grid-1', cells: [[1]] }],
+      expectedPath: [0, 'itemTemplate'],
+    },
+    {
+      name: 'missing `children` in `group`',
+      data: [{ type: 'group', id: 'group-1' }],
+      expectedPath: [0, 'children'],
+    },
+    {
+      name: 'negative `width` in `size`',
+      data: [
+        {
+          type: 'item',
+          id: 'item-1',
+          components: [],
+          size: { width: -10, height: 10 },
+        },
+      ],
+      expectedPath: [0, 'size', 'width'],
+    },
+    {
+      name: 'invalid `cells` value in `grid`',
+      data: [
+        {
+          type: 'grid',
+          cells: [[2]],
+          itemTemplate: { size: { w: 1, h: 1 }, components: [] },
+        },
+      ],
+      expectedPath: [0, 'cells', 0, 0],
+    },
+  ])('should fail for $name', ({ name, data, expectedPath }) => {
+    const result = mapDataSchema.safeParse(data);
+    expect(result.success, `Should fail for: ${name}`).toBe(false);
+    if (!result.success) {
+      const errorPaths = result.error.issues.map((issue) =>
+        issue.path.join('.'),
+      );
+      expect(errorPaths).toContain(expectedPath.join('.'));
+    }
+  });
+});
+
+// --- Test Suite for edge cases and constraints ---
+describe('Edge Cases and Constraints', () => {
+  it('should fail if an ID is duplicated, even in nested structures', () => {
+    const data = [
+      {
+        type: 'item',
+        id: 'duplicate-id',
+        size: { width: 1, height: 1 },
+        components: [],
+      },
+      {
+        type: 'group',
+        id: 'group-1',
+        children: [
+          {
+            type: 'item',
+            id: 'duplicate-id',
+            size: { width: 1, height: 1 },
+            components: [],
+          },
+        ],
+      },
+    ];
+    const result = mapDataSchema.safeParse(data);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const customError = result.error.issues.find((i) => i.code === 'custom');
+      expect(customError).toBeDefined();
+      expect(customError.message).toContain('Duplicate id: duplicate-id');
     }
   });
 
-  it('should validate a valid grid object (type=grid) with cells and size', () => {
-    const data = [
-      {
-        id: 'grid-1',
-        type: 'grid',
-        cells: [
-          [0, 1, 0],
-          [1, 0, 1],
-        ],
-        components: [
-          {
-            type: 'background',
-            texture: { type: 'rect' },
-            width: 100,
-            height: 100,
-          },
-        ],
-        itemSize: {
-          width: 200,
-          height: 200,
-        },
-        position: {
-          x: 50,
-          y: 50,
-        },
-      },
-    ];
+  it('should pass validation for an empty array', () => {
+    const data = [];
     const result = mapDataSchema.safeParse(data);
     expect(result.success).toBe(true);
   });
 
-  it('should validate a valid relations object (type=relations)', () => {
-    // relation이 required이므로, links 내부 요소도 제대로 있어야 함
-    const data = [
-      {
-        id: 'relations-1',
-        type: 'relations',
-        links: [
-          { source: 'itemA', target: 'itemB' },
-          { source: 'itemC', target: 'itemD' },
-        ],
-      },
-    ];
+  it('should fail if the root data is not an array', () => {
+    const data = {
+      type: 'item',
+      id: 'item-1',
+      size: { width: 1, height: 1 },
+      components: [],
+    };
     const result = mapDataSchema.safeParse(data);
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
+});
 
-  it('should pass if links in relations is empty or has missing fields', () => {
-    const data = [
+describe('`gap` Validation', () => {
+  describe('Success Cases and Normalization', () => {
+    const gapSchema = gridSchema.pick({ type: true, gap: true });
+
+    test.each([
       {
-        id: 'relations-bad-links',
-        type: 'relations',
-        links: [],
+        name: 'a single number (shorthand)',
+        input: { type: 'grid', gap: 10 },
+        expected: { x: 10, y: 10 },
       },
-    ];
-    const result = mapDataSchema.safeParse(data);
-    expect(result.success).toBe(true);
+      {
+        name: 'a full object with x and y',
+        input: { type: 'grid', gap: { x: 20, y: 15 } },
+        expected: { x: 20, y: 15 },
+      },
+      {
+        name: 'a partial object with only x',
+        input: { type: 'grid', gap: { x: 5 } },
+        expected: { x: 5, y: 0 }, // y should default to 0
+      },
+      {
+        name: 'a partial object with only y',
+        input: { type: 'grid', gap: { y: 8 } },
+        expected: { x: 0, y: 8 }, // x should default to 0
+      },
+      {
+        name: 'undefined (should apply all defaults)',
+        input: { type: 'grid' },
+        expected: { x: 0, y: 0 },
+      },
+      {
+        name: 'an empty object',
+        input: { type: 'grid', gap: {} },
+        expected: { x: 0, y: 0 },
+      },
+      {
+        name: 'zero as a number',
+        input: { type: 'grid', gap: 0 },
+        expected: { x: 0, y: 0 },
+      },
+    ])(
+      'should correctly parse and default when `gap` is $name',
+      ({ name, input, expected }) => {
+        const result = gapSchema.safeParse(input);
+        expect(result.success, `Validation failed for case: ${name}`).toBe(
+          true,
+        );
+        if (result.success) {
+          expect(result.data.gap).toEqual(expected);
+        }
+      },
+    );
   });
 
-  // --------------------------------------------------------------------------
-  // 2) 에러 케이스 테스트
-  // --------------------------------------------------------------------------
-  describe('Error cases (required fields and stricter checks)', () => {
-    it('should fail if size is missing (now required) in item', () => {
-      const data = [
-        {
-          id: 'item-1',
-          type: 'item',
-          components: [],
-          // size 필드가 없음
-        },
-      ];
-      const result = mapDataSchema.safeParse(data);
-      expect(result.success).toBe(false);
+  describe('Failure Cases', () => {
+    const gapSchema = gridSchema.pick({ type: true, gap: true });
+
+    test.each([
+      {
+        name: 'a negative number',
+        input: { type: 'grid', gap: -10 },
+        expectedPath: ['gap', 'x'], // The preprocessor turns it into {x: -10, y: -10}
+      },
+      {
+        name: 'an object with a negative x value',
+        input: { type: 'grid', gap: { x: -5, y: 10 } },
+        expectedPath: ['gap', 'x'],
+      },
+      {
+        name: 'an object with a non-numeric value',
+        input: { type: 'grid', gap: { x: 10, y: 'invalid' } },
+        expectedPath: ['gap', 'y'],
+      },
+      {
+        name: 'a string value',
+        input: { type: 'grid', gap: '10' },
+        expectedPath: ['gap'], // Fails the object check after preprocessing
+      },
+      {
+        name: 'null',
+        input: { type: 'grid', gap: null },
+        expectedPath: ['gap'],
+      },
+      {
+        name: 'an array',
+        input: { type: 'grid', gap: [10, 10] },
+        expectedPath: ['gap'],
+      },
+    ])('should fail when `gap` is $name', ({ name, input, expectedPath }) => {
+      const result = gapSchema.safeParse(input);
+      expect(result.success, `Should fail for case: ${name}`).toBe(false);
       if (!result.success) {
-        // size is required
-        const sizeError = result.error.issues.find((issue) =>
-          issue.path.includes('size'),
+        const errorPaths = result.error.issues.map((issue) =>
+          issue.path.join('.'),
         );
-        expect(sizeError).toBeDefined();
+        expect(errorPaths).toContain(expectedPath.join('.'));
       }
-    });
-
-    it('should fail if links contain invalid fields', () => {
-      const data = [
-        {
-          id: 'relations-bad-links',
-          type: 'relations',
-          links: [{ sourec: 'typo' }],
-        },
-      ];
-      const result = mapDataSchema.safeParse(data);
-      expect(result.success).toBe(false);
-    });
-
-    it('should fail if relation object is missing required fields', () => {
-      const data = [
-        {
-          id: 'relations-bad-link',
-          type: 'relations',
-          links: [
-            // source, target 모두 반드시 있어야 함
-            { source: 'itemA' }, // target 누락
-          ],
-        },
-      ];
-      const result = mapDataSchema.safeParse(data);
-      expect(result.success).toBe(false);
-
-      if (!result.success) {
-        // relation의 target 누락 관련 에러를 체크
-        const targetError = result.error.issues.find((issue) =>
-          issue.path.includes('links'),
-        );
-        expect(targetError).toBeDefined();
-      }
-    });
-
-    it('should fail if id is duplicated', () => {
-      const data = [
-        {
-          id: 'dupId',
-          type: 'item',
-          components: [],
-          size: { width: 100, height: 100 },
-        },
-        {
-          id: 'dupId',
-          type: 'grid',
-          cells: [[0]],
-          components: [],
-          itemSize: { width: 50, height: 50 },
-        },
-      ];
-      const result = mapDataSchema.safeParse(data);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.issues[0].message).toMatch(/Duplicate id/);
-      }
-    });
-
-    it('should fail if cells in grid are not 0 or 1', () => {
-      const data = [
-        {
-          id: 'grid-bad-cells',
-          type: 'grid',
-          cells: [
-            [2, 0], // 2는 허용되지 않음
-          ],
-          components: [],
-          size: { width: 100, height: 100 },
-        },
-      ];
-      const result = mapDataSchema.safeParse(data);
-      expect(result.success).toBe(false);
-    });
-
-    it('should fail if size has negative width or height', () => {
-      const data = [
-        {
-          id: 'item-2',
-          type: 'item',
-          components: [],
-          size: { width: -100, height: 100 }, // width가 음수
-        },
-      ];
-      const result = mapDataSchema.safeParse(data);
-      expect(result.success).toBe(false);
-    });
-
-    it('should fail if position is not an object', () => {
-      const data = [
-        {
-          id: 'item-4',
-          type: 'item',
-          components: [],
-          position: 'invalid-position', // 객체가 아님
-          size: { width: 10, height: 10 },
-        },
-      ];
-      const result = mapDataSchema.safeParse(data);
-      expect(result.success).toBe(false);
-    });
-  });
-
-  // --------------------------------------------------------------------------
-  // 3) type=group 케이스
-  // --------------------------------------------------------------------------
-  describe('Group object (type=group)', () => {
-    it('should pass when group has valid nested items', () => {
-      // group 내부에 grid와 item을 예시로 넣어봄
-      const data = [
-        {
-          id: 'group-1',
-          type: 'group',
-          label: 'Sample Group',
-          metadata: {
-            customKey: 'customValue',
-          },
-          items: [
-            {
-              id: 'nested-grid-1',
-              type: 'grid',
-              cells: [
-                [0, 1],
-                [1, 0],
-              ],
-              components: [],
-              // transform 필드
-              position: { x: 10, y: 20 },
-              itemSize: { width: 100, height: 50 },
-              angle: 45,
-            },
-            {
-              id: 'nested-item-1',
-              type: 'item',
-              components: [],
-              // transform 필드
-              position: { x: 5, y: 5 },
-              size: { width: 50, height: 50 },
-            },
-          ],
-        },
-      ];
-
-      const result = mapDataSchema.safeParse(data);
-      expect(result.success).toBe(true);
-
-      if (result.success) {
-        // 그룹 객체에 대한 필드 확인
-        const group = result.data[0];
-        expect(group.id).toBe('group-1');
-        expect(group.type).toBe('group');
-        expect(group.label).toBe('Sample Group');
-
-        // items 배열 확인
-        expect(Array.isArray(group.items)).toBe(true);
-        expect(group.items).toHaveLength(2);
-
-        // 첫 번째는 grid
-        expect(group.items[0].type).toBe('grid');
-        // 두 번째는 item
-        expect(group.items[1].type).toBe('item');
-      }
-    });
-
-    it('should fail if group items have duplicate id', () => {
-      // group 내부에 중복 id를 가진 아이템
-      const data = [
-        {
-          id: 'duplicate-item',
-          type: 'group',
-          items: [
-            {
-              id: '123',
-              type: 'item',
-              components: [],
-              position: { x: 0, y: 0 },
-              size: { width: 10, height: 10 },
-            },
-            {
-              id: 'duplicate-item',
-              type: 'grid',
-              cells: [[0]],
-              components: [],
-              position: { x: 10, y: 10 },
-              itemSize: { width: 20, height: 20 },
-            },
-          ],
-        },
-      ];
-
-      const result = mapDataSchema.safeParse(data);
-      expect(result.success).toBe(false);
-
-      if (!result.success) {
-        // 중복 id 관련 에러 메시지를 확인
-        const duplicateError = result.error.issues.find((issue) =>
-          issue.message.includes('Duplicate id: duplicate-item'),
-        );
-        expect(duplicateError).toBeDefined();
-      }
-    });
-
-    it('should fail if items is missing or not an array', () => {
-      // items 필드 자체가 없는 경우
-      const data = [
-        {
-          id: 'group-without-items',
-          type: 'group',
-          // items 누락
-        },
-      ];
-
-      const result = mapDataSchema.safeParse(data);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        const missingItemsError = result.error.issues.find((issue) =>
-          issue.path.includes('items'),
-        );
-        expect(missingItemsError).toBeDefined();
-      }
-    });
-  });
-
-  // --------------------------------------------------------------------------
-  // 4) 기타 / 엣지 케이스
-  // --------------------------------------------------------------------------
-  describe('Edge cases', () => {
-    it('should pass an empty array (if no items are required)', () => {
-      // 스키마상 array().min(1)이 아니므로 빈 배열도 "성공"으로 본다.
-      const data = [];
-      const result = mapDataSchema.safeParse(data);
-      expect(result.success).toBe(true);
-    });
-
-    it('should fail if the root data is not an array', () => {
-      const data = {
-        id: 'wrong-root',
-        type: 'item',
-        components: [],
-        size: { width: 10, height: 10 },
-      };
-      const result = mapDataSchema.safeParse(data);
-      expect(result.success).toBe(false);
     });
   });
 });

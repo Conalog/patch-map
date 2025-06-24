@@ -15,7 +15,7 @@ export const convertLegacyData = (data) => {
       type: 'group',
       id: uid(),
       label: key === 'grids' ? 'panelGroups' : key,
-      items: [],
+      children: [],
     };
 
     if (key === 'grids') {
@@ -30,35 +30,34 @@ export const convertLegacyData = (data) => {
           ),
           position: { x: transform.x, y: transform.y },
           angle: transform.rotation,
-          itemSize: {
-            width: props.spec.width * 40,
-            height: props.spec.height * 40,
+          gap: 4,
+          itemTemplate: {
+            size: {
+              width: props.spec.width * 40,
+              height: props.spec.height * 40,
+            },
+            components: [
+              {
+                type: 'background',
+                id: 'default',
+                texture: {
+                  type: 'rect',
+                  fill: 'white',
+                  borderWidth: 2,
+                  borderColor: 'primary.dark',
+                  radius: 6,
+                },
+              },
+              {
+                type: 'bar',
+                id: 'default',
+                texture: { type: 'rect', fill: 'white', radius: 3 },
+                tint: 'primary.default',
+                show: false,
+                margin: '3',
+              },
+            ],
           },
-          components: [
-            {
-              type: 'background',
-              id: 'default',
-              texture: {
-                type: 'rect',
-                fill: 'white',
-                borderWidth: 2,
-                borderColor: 'primary.dark',
-                radius: 6,
-              },
-            },
-            {
-              type: 'bar',
-              id: 'default',
-              texture: {
-                type: 'rect',
-                fill: 'white',
-                radius: 3,
-              },
-              tint: 'primary.default',
-              show: false,
-              margin: '3',
-            },
-          ],
           metadata: props,
         });
       }
@@ -83,7 +82,7 @@ export const convertLegacyData = (data) => {
                     },
                   ]
                 : [],
-          strokeStyle: {
+          style: {
             width: 4,
             color: value.properties.color.dark,
             cap: 'round',
