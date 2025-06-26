@@ -28,9 +28,6 @@ export const convertLegacyData = (data) => {
           cells: value.children.map((row) =>
             row.map((child) => (child === '0' ? 0 : 1)),
           ),
-          x: transform.x,
-          y: transform.y,
-          angle: transform.rotation,
           gap: 4,
           item: {
             width: props.spec.width * 40,
@@ -38,10 +35,8 @@ export const convertLegacyData = (data) => {
             components: [
               {
                 type: 'background',
-                id: uid(),
                 source: {
                   type: 'rect',
-                  fill: 'white',
                   borderWidth: 2,
                   borderColor: 'primary.dark',
                   radius: 6,
@@ -49,17 +44,21 @@ export const convertLegacyData = (data) => {
               },
               {
                 type: 'bar',
-                id: uid(),
+                show: false,
                 width: '100%',
                 height: '100%',
-                source: { type: 'rect', fill: 'white', radius: 3 },
-                color: 'primary.default',
-                show: false,
+                source: { type: 'rect', radius: 3 },
+                tint: 'primary.default',
                 margin: 3,
               },
             ],
           },
-          metadata: props,
+          attrs: {
+            x: transform.x,
+            y: transform.y,
+            angle: transform.rotation,
+            metadata: props,
+          },
         });
       }
     } else if (key === 'strings') {
@@ -89,28 +88,27 @@ export const convertLegacyData = (data) => {
             cap: 'round',
             join: 'round',
           },
-          metadata: value.properties,
+          attrs: {
+            metadata: value.properties,
+          },
         });
       }
     } else {
-      objs[key].zIndex = 10;
+      objs[key].attrs = {};
+      objs[key].attrs.zIndex = 10;
       for (const value of values) {
         const { transform, ...props } = value.properties;
         objs[key].children.push({
           type: 'item',
           id: value.id,
           label: value.name,
-          x: transform.x,
-          y: transform.y,
           width: 40,
           height: 40,
           components: [
             {
               type: 'background',
-              id: uid(),
               source: {
                 type: 'rect',
-                fill: 'white',
                 borderWidth: 2,
                 borderColor: 'primary.default',
                 radius: 6,
@@ -118,14 +116,17 @@ export const convertLegacyData = (data) => {
             },
             {
               type: 'icon',
-              id: uid(),
               source: key === 'combines' ? 'combiner' : key.slice(0, -1),
               size: 24,
-              color: 'primary.default',
+              tint: 'primary.default',
               placement: 'center',
             },
           ],
-          metadata: props,
+          attrs: {
+            x: transform.x,
+            y: transform.y,
+            metadata: props,
+          },
         });
       }
     }
