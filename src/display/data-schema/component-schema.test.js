@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-// We import the actual schemas from the provided files for integration testing.
+import { uid } from '../../utils/uuid';
 import {
   Background,
   Bar,
@@ -10,138 +9,136 @@ import {
   componentSchema,
 } from './component-schema.js';
 
-// --- Global Setup ---
-
 // Mocking a unique ID generator for predictable test outcomes.
-// This is used by the `Base` schema in `primitive-schema.js`.
-let idCounter = 0;
-const uid = vi.fn(() => `mock-id-${idCounter++}`);
-global.uid = uid;
+vi.mock('../../utils/uuid', () => ({
+  uid: vi.fn(),
+}));
 
 beforeEach(() => {
-  // Reset counter before each test to ensure test isolation.
-  idCounter = 0;
-  uid.mockClear();
+  vi.mocked(uid).mockClear();
+  vi.mocked(uid).mockReturnValue('mock-id-0');
 });
 
-// --- Test Suites ---
-
-describe('Component Schema Tests (Final Version)', () => {
-  // --- Test each component schema individually ---
-
+describe('Component Schemas', () => {
   describe('Background Schema', () => {
-    it.each([
-      {
-        case: 'with a string source',
-        source: 'image.png',
-        expected: 'image.png',
-      },
-      {
-        case: 'with a TextureStyle object source',
-        source: { type: 'rect', fill: 'red' },
-        expected: { type: 'rect', fill: 'red' },
-      },
-    ])('should parse a valid background $case', ({ source, expected }) => {
-      const data = { type: 'background', source };
+    it('should parse with a string source', () => {
+      const data = { type: 'background', source: 'image.png' };
       const parsed = Background.parse(data);
-      expect(parsed.source).toEqual(expected);
+      expect(parsed.source).toBe('image.png');
+      expect(parsed.id).toBe('mock-id-0'); // check default from Base
+    });
+
+    it('should parse with a TextureStyle object source', () => {
+      const data = {
+        type: 'background',
+        source: { type: 'rect', fill: 'red' },
+      };
+      const parsed = Background.parse(data);
+      expect(parsed.source).toEqual({ type: 'rect', fill: 'red' });
     });
 
     it('should fail with an invalid source type', () => {
-      const data = { type: 'background', source: 123 }; // Source must be string or TextureStyle
+      const data = { type: 'background', source: 123 };
+      expect(() => Background.parse(data)).toThrow();
+    });
+
+    it('should fail if an unknown property is provided', () => {
+      const data = {
+        type: 'background',
+        source: 'image.png',
+        unknown: 'property',
+      };
       expect(() => Background.parse(data)).toThrow();
     });
   });
 
   describe('Bar Schema', () => {
-    // Base valid data for Bar tests
-    const baseBar = {
-      type: 'bar',
-      width: 100,
-      height: 20,
-      source: { fill: 'blue' },
-    };
+    const baseBar = { type: 'bar', source: { type: 'rect', fill: 'blue' } };
 
-    it('should parse a valid bar and apply all defaults', () => {
+    it('should parse a minimal valid bar and apply all defaults', () => {
       const parsed = Bar.parse(baseBar);
       expect(parsed.placement).toBe('bottom');
-      // Margin preprocesses to a full object
       expect(parsed.margin).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
       expect(parsed.animation).toBe(true);
       expect(parsed.animationDuration).toBe(200);
-      // Check if PxOrPercentSize transformation worked
-      expect(parsed.width.unit).toBe('px');
-      expect(parsed.height.value).toBe(20);
+      expect(parsed.width).toBeUndefined();
+      expect(parsed.height).toBeUndefined();
     });
 
-    it('should correctly override default values', () => {
+    it('should correctly parse all properties and override defaults', () => {
       const data = {
         ...baseBar,
+        width: '50%',
+        height: 20,
         placement: 'top',
-        margin: { x: 10, y: 20 }, // Use object syntax for margin
+        margin: { x: 10, y: -20 }, // Negative margin is allowed
         animation: false,
+        animationDuration: 1000,
       };
       const parsed = Bar.parse(data);
       expect(parsed.placement).toBe('top');
       expect(parsed.margin).toEqual({
-        top: 20,
+        top: -20,
         right: 10,
-        bottom: 20,
+        bottom: -20,
         left: 10,
       });
       expect(parsed.animation).toBe(false);
+      expect(parsed.animationDuration).toBe(1000);
+      // Check if PxOrPercentSize transformation worked
+      expect(parsed.width).toEqual({ value: 50, unit: '%' });
+      expect(parsed.height).toEqual({ value: 20, unit: 'px' });
     });
 
-    it('should fail if required properties from merged schemas (PxOrPercentSize) are missing', () => {
-      const { width, ...rest } = baseBar; // Missing width
-      expect(() => Bar.parse(rest)).toThrow();
+    it('should fail if source is missing or has invalid type', () => {
+      const { source, ...rest } = baseBar;
+      expect(() => Bar.parse(rest)).toThrow(); // Missing source
+      expect(() => Bar.parse({ ...baseBar, source: 'a-string' })).toThrow(); // Invalid source type
+    });
+
+    it('should fail if an unknown property is provided', () => {
+      const data = { ...baseBar, width: 100, another: 'property' };
+      expect(() => Bar.parse(data)).toThrow();
     });
   });
 
   describe('Icon Schema', () => {
     const baseIcon = { type: 'icon', source: 'icon.svg' };
 
-    it.each([
-      { case: 'a number size', size: 50, expected: { value: 50, unit: 'px' } },
-      {
-        case: 'a percentage string size',
-        size: '75%',
-        expected: { value: 75, unit: '%' },
-      },
-      { case: 'a zero size', size: 0, expected: { value: 0, unit: 'px' } },
-    ])('should parse a valid icon with $case', ({ size, expected }) => {
-      const data = { ...baseIcon, size };
-      const parsed = Icon.parse(data);
-      expect(parsed.size).toEqual(expected);
-      // Check if defaults are applied
+    it('should parse a minimal valid icon and apply defaults', () => {
+      const parsed = Icon.parse(baseIcon);
+      expect(parsed.source).toBe('icon.svg');
       expect(parsed.placement).toBe('center');
+      expect(parsed.margin).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+      expect(parsed.size).toBeUndefined();
     });
 
-    // Edge cases for the `size` property (which uses pxOrPercentSchema)
-    it.each([
-      { case: 'a negative number', size: -10 },
-      { case: 'a malformed percentage string', size: '50 percent' },
-      { case: 'an invalid type like an object', size: { value: 50 } },
-      { case: 'null or undefined', size: undefined },
-    ])('should fail for an invalid size like $case', ({ size }) => {
-      const data = { ...baseIcon, size };
-      // `size: undefined` will fail because the property is required
-      expect(() => Icon.parse(data)).toThrow();
+    it('should parse correctly with size properties', () => {
+      const data = { ...baseIcon, size: '75%' };
+      const parsed = Icon.parse(data);
+      expect(parsed.size).toEqual({ value: 75, unit: '%' });
     });
 
     it('should fail if required `source` is missing', () => {
       const data = { type: 'icon', size: 50 };
       expect(() => Icon.parse(data)).toThrow();
     });
+
+    it('should fail if `source` is not a string', () => {
+      const data = { type: 'icon', source: {} };
+      expect(() => Icon.parse(data)).toThrow();
+    });
+
+    it('should fail if an unknown property is provided', () => {
+      const data = { ...baseIcon, extra: 'property' };
+      expect(() => Icon.parse(data)).toThrow();
+    });
   });
 
   describe('Text Schema', () => {
-    const baseText = { type: 'text' };
-
     it('should parse valid text and apply all defaults', () => {
-      const parsed = Text.parse(baseText);
+      const parsed = Text.parse({ type: 'text' });
       expect(parsed.text).toBe('');
-      // Check for default style properties from TextStyle's preprocess
       expect(parsed.style.fontFamily).toBe('FiraCode');
       expect(parsed.style.fill).toBe('black');
       expect(parsed.style.fontWeight).toBe(400);
@@ -151,26 +148,31 @@ describe('Component Schema Tests (Final Version)', () => {
 
     it('should correctly merge provided styles with defaults', () => {
       const data = {
-        ...baseText,
-        style: { fill: 'red', fontSize: 24, customProp: true },
+        type: 'text',
+        style: { fill: 'red', fontSize: 24 },
       };
       const parsed = Text.parse(data);
       expect(parsed.style.fill).toBe('red'); // Overridden
       expect(parsed.style.fontSize).toBe(24); // Added
       expect(parsed.style.fontFamily).toBe('FiraCode'); // Default maintained
-      expect(parsed.style.customProp).toBe(true); // Passthrough via z.record(z.unknown())
+    });
+
+    it('should fail if `split` is not an integer', () => {
+      const data = { type: 'text', split: 1.5 };
+      expect(() => Text.parse(data)).toThrow();
+    });
+
+    it('should fail if an unknown property is provided', () => {
+      const data = { type: 'text', text: 'hello', somethingElse: 'test' };
+      expect(() => Text.parse(data)).toThrow();
     });
   });
 
-  // --- Test the discriminated union and array schemas ---
   describe('componentSchema (Discriminated Union)', () => {
     it.each([
-      { case: 'a valid background', data: { type: 'background', source: '' } },
-      {
-        case: 'a valid bar',
-        data: { type: 'bar', width: 1, height: 1, source: {} },
-      },
-      { case: 'a valid icon', data: { type: 'icon', size: 1, source: '' } },
+      { case: 'a valid background', data: { type: 'background', source: 'a' } },
+      { case: 'a valid bar', data: { type: 'bar', source: {} } },
+      { case: 'a valid icon', data: { type: 'icon', source: 'a' } },
       { case: 'a valid text', data: { type: 'text' } },
     ])('should correctly parse $case', ({ data }) => {
       expect(() => componentSchema.parse(data)).not.toThrow();
@@ -180,43 +182,42 @@ describe('Component Schema Tests (Final Version)', () => {
       const data = { type: 'chart', value: 100 };
       const result = componentSchema.safeParse(data);
       expect(result.success).toBe(false);
-      // Check for the specific discriminated union error
       expect(result.error.issues[0].code).toBe('invalid_union_discriminator');
     });
 
     it('should fail for a known type with missing required properties', () => {
-      // 'icon' requires 'source' and 'size'
-      const data = { type: 'icon', source: 'image.png' };
+      // 'icon' requires 'source'
+      const data = { type: 'icon' };
       const result = componentSchema.safeParse(data);
       expect(result.success).toBe(false);
-      // The error should point to the missing 'size' field
-      expect(result.error.issues[0].path).toEqual(['size']);
+      expect(result.error.issues[0].path).toEqual(['source']);
     });
   });
 
   describe('componentArraySchema', () => {
-    it('should parse a valid array of mixed, well-formed components', () => {
+    it('should parse a valid array of mixed components', () => {
       const data = [
         { type: 'background', source: 'bg.png' },
         { type: 'text', text: 'Hello World' },
         { type: 'icon', source: 'icon.svg', size: '10%' },
+        { type: 'bar', source: { fill: 'green' }, width: 100 },
       ];
       expect(() => componentArraySchema.parse(data)).not.toThrow();
     });
 
-    it('should correctly parse an empty array', () => {
+    it('should parse an empty array', () => {
       expect(() => componentArraySchema.parse([])).not.toThrow();
     });
 
     it('should fail if any single element in the array is invalid', () => {
       const data = [
         { type: 'text', text: 'Valid' },
-        { type: 'icon', source: 'missing-size.svg' }, // This one is invalid
+        { type: 'bar' }, // Invalid: missing 'source'
       ];
       const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(false);
-      // The error path should correctly point to the invalid element in the array
-      expect(result.error.issues[0].path).toEqual([1, 'size']);
+      // The error path should correctly point to the invalid element.
+      expect(result.error.issues[0].path).toEqual([1, 'source']);
     });
   });
 });

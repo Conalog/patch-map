@@ -1,10 +1,10 @@
 /**
  * data.d.ts
  *
- * This file contains TypeScript definitions generated from the Zod schemas.
- * It is designed for developers to understand the data structure they need to provide.
- * All properties are explicitly defined in each interface for readability,
- * avoiding the need to trace `extends` clauses.
+ * This file contains TypeScript type definitions generated from the Zod schemas
+ * to help library users easily understand the required data structure.
+ * For readability, each interface explicitly includes all its properties
+ * rather than using 'extends'.
  */
 
 //================================================================================
@@ -12,20 +12,20 @@
 //================================================================================
 
 /**
- * The root of the map data, which is an array of elements.
+ * The root structure of the entire map data, which is an array of Element objects.
  *
  * @example
  * const mapData: MapData = [
- *   { type: 'grid', id: 'grid1', ... },
- *   { type: 'item', id: 'item1', ... },
- *   { type: 'relations', id: 'rels1', ... }
+ *   { type: 'grid', id: 'g1', ... },
+ *   { type: 'item', id: 'i1', ... },
+ *   { type: 'relations', id: 'r1', ... },
  * ];
  */
 export type MapData = Element[];
 
 /**
- * A discriminated union of all possible root-level elements.
- * The `type` property is used to determine the specific element type.
+ * A union type of all possible top-level elements that constitute the map data.
+ * The specific type of element is determined by the 'type' property.
  */
 export type Element = Group | Grid | Item | Relations;
 
@@ -34,44 +34,46 @@ export type Element = Group | Grid | Item | Relations;
 //================================================================================
 
 /**
- * Groups a collection of other elements, applying a position to all children.
+ * Groups multiple elements to apply common properties.
+ * You can specify coordinates (x, y) for the entire group via 'attrs'.
  *
  * @example
  * {
  *   type: 'group',
- *   id: 'group1',
- *   x: 100,
- *   y: 200,
+ *   id: 'group-api-servers',
  *   children: [
- *     { type: 'item', id: 'childItem', width: 50, height: 50, components: [] }
+ *     { type: 'item', id: 'server-1', width: 80, height: 80 },
+ *     { type: 'item', id: 'server-2', width: 80, height: 80 }
  *   ]
+ *   attrs: { x: 100, y: 50 },
  * }
  */
 export interface Group {
   type: 'group';
   id: string;
   show?: boolean; // Default: true
-  x?: number; // Default: 0
-  y?: number; // Default: 0
   children: Element[];
-  [key: string]: unknown; // Allows other properties
+  attrs?: Record<string, unknown>;
 }
 
 /**
- * Creates a grid layout of items based on a template.
+ * Lays out items in a grid format.
+ * The visibility of an item is determined by 1 or 0 in the 'cells' array.
  *
  * @example
  * {
  *   type: 'grid',
- *   id: 'grid1',
- *   cells: [[1, 1, 0], [1, 0, 1]],
+ *   id: 'server-rack',
  *   gap: 10,
- *   itemTemplate: {
- *     width: 64,
- *     height: 64,
+ *   cells: [
+ *     [1, 1, 0],
+ *     [1, 0, 1]
+ *   ],
+ *   item: {
+ *     width: 60,
+ *     height: 60,
  *     components: [
- *       { type: 'background', id: 'bg-tpl', source: { fill: '#eee', radius: 4 } },
- *       { type: 'icon', id: 'icon-tpl', source: 'default.svg', size: '50%' }
+ *       { type: 'background', source: { fill: '#eee', radius: 4 } }
  *     ]
  *   }
  * }
@@ -80,61 +82,58 @@ export interface Grid {
   type: 'grid';
   id: string;
   show?: boolean; // Default: true
-  x?: number; // Default: 0
-  y?: number; // Default: 0
   cells: (0 | 1)[][];
-  gap: Gap;
-  itemTemplate: {
-    components: Component[];
+  gap?: Gap;
+  item: {
     width: number;
     height: number;
+    components?: Component[];
   };
-  [key: string]: unknown; // Allows other properties
+  attrs?: Record<string, unknown>;
 }
 
 /**
- * A single, placeable item that contains visual components.
+ * The most basic single element that constitutes the map.
+ * It contains various components (Background, Text, Icon, etc.) to form its visual representation.
  *
  * @example
  * {
  *   type: 'item',
- *   id: 'server1',
- *   x: 50,
- *   y: 50,
+ *   id: 'main-server',
  *   width: 120,
  *   height: 100,
  *   components: [
- *     { type: 'background', id: 'bg1', source: { fill: '#fff', borderColor: '#ddd', borderWidth: 1 } },
- *     { type: 'text', id: 'label1', text: 'Main Server', placement: 'top', margin: 8 },
- *     { type: 'bar', id: 'cpu-bar', source: { fill: 'lightblue' }, width: '80%', height: 8, y: 40 },
- *     { type: 'icon', id: 'status-icon', source: 'ok.svg', size: 16, placement: 'bottom-right', margin: 4 }
+ *     { type: 'background', source: { fill: '#fff', borderColor: '#ddd', borderWidth: 1 } },
+ *     { type: 'text', text: 'Main Server', placement: 'top', margin: 8 },
+ *     { type: 'bar', source: { fill: 'lightblue' }, width: '80%', height: 8 },
+ *     { type: 'icon', source: 'ok.svg', size: 16, placement: 'bottom-right', margin: 4 }
  *   ]
+ *   attrs: { x: 300, y: 150 },
  * }
  */
 export interface Item {
   type: 'item';
   id: string;
   show?: boolean; // Default: true
-  x?: number; // Default: 0
-  y?: number; // Default: 0
   width: number;
   height: number;
-  components: Component[];
-  [key: string]: unknown; // Allows other properties
+  components?: Component[];
+  attrs?: Record<string, unknown>;
 }
 
 /**
- * Defines visual links between elements.
+ * Represents relationships between elements by connecting them with lines.
+ * Specify the IDs of the elements to connect in the 'links' array.
  *
  * @example
  * {
  *   type: 'relations',
- *   id: 'relations1',
+ *   id: 'server-connections',
  *   links: [
- *     { source: 'server1', target: 'server2' },
- *     { source: 'server1', target: 'switch1' }
+ *     { source: 'main-server', target: 'sub-server-1' },
+ *     { source: 'main-server', target: 'sub-server-2' }
  *   ],
- *   style: { color: 'rgba(0,0,255,0.5)', width: 2 }
+ *   style: { color: '#083967', width: 2 }
  * }
  */
 export interface Relations {
@@ -142,8 +141,8 @@ export interface Relations {
   id: string;
   show?: boolean; // Default: true
   links: { source: string; target: string }[];
-  style?: Record<string, unknown>; // Corresponds to PIXI.ConvertedStrokeStyle
-  [key: string]: unknown; // Allows other properties
+  style?: RelationsStyle;
+  attrs?: Record<string, unknown>;
 }
 
 //================================================================================
@@ -151,27 +150,25 @@ export interface Relations {
 //================================================================================
 
 /**
- * A discriminated union of all possible visual components within an Item.
+ * A union type for all visual components that can be included inside an Item.
  */
 export type Component = Background | Bar | Icon | Text;
 
 /**
- * A background for an item. The source can be a color/style object or an image URL.
+ * The background of an Item. Can be specified as a style object or an image URL.
  *
  * @example
- * // Provide a style object
+ * // As a style object
  * {
  *   type: 'background',
- *   id: 'bg1',
- *   source: { fill: 'rgba(0,0,0,0.1)', radius: 8 }
+ *   source: { fill: '#1A1A1A', radius: 8 }
  * }
  *
  * @example
- * // Provide an image URL
+ * // As an image URL
  * {
  *   type: 'background',
- *   id: 'bg2',
- *   source: 'bg.png'
+ *   source: 'path/to/background-image.png'
  * }
  */
 export interface Background {
@@ -179,19 +176,18 @@ export interface Background {
   id: string;
   show?: boolean; // Default: true
   source: TextureStyle | string;
-  [key: string]: unknown; // Allows other properties
+  attrs?: Record<string, unknown>;
 }
 
 /**
- * A progress bar or indicator.
+ * A component for progress bars or bar graphs.
  *
  * @example
  * {
  *   type: 'bar',
- *   id: 'bar1',
  *   source: { fill: 'green' },
- *   width: '80%', // 80% of the parent item's width
- *   height: 10,   // 10 pixels high
+ *   width: '80%', // 80% of the parent Item's width
+ *   height: 10,   // 10px height
  *   placement: 'bottom'
  * }
  */
@@ -199,27 +195,25 @@ export interface Bar {
   type: 'bar';
   id: string;
   show?: boolean; // Default: true
-  x?: number; // Default: 0
-  y?: number; // Default: 0
-  width: PxOrPercent;
-  height: PxOrPercent;
   source: TextureStyle;
+  width?: PxOrPercent;
+  height?: PxOrPercent;
+  size?: PxOrPercent;
   placement?: Placement; // Default: 'bottom'
   margin?: Margin; // Default: 0
   animation?: boolean; // Default: true
   animationDuration?: number; // Default: 200
-  [key: string]: unknown; // Allows other properties
+  attrs?: Record<string, unknown>;
 }
 
 /**
- * An icon image.
+ * A component for displaying an icon image.
  *
  * @example
  * {
  *   type: 'icon',
- *   id: 'icon1',
- *   source: 'warning.svg',
- *   size: 24, // 24px
+ *   source: 'path/to/warning-icon.svg',
+ *   size: 24, // 24px x 24px
  *   placement: 'left-top',
  *   margin: { x: 4, y: 4 }
  * }
@@ -228,23 +222,22 @@ export interface Icon {
   type: 'icon';
   id: string;
   show?: boolean; // Default: true
-  x?: number; // Default: 0
-  y?: number; // Default: 0
   source: string;
+  width?: PxOrPercent;
+  height?: PxOrPercent;
+  size?: PxOrPercent;
   placement?: Placement; // Default: 'center'
   margin?: Margin; // Default: 0
-  size?: PxOrPercent;
-  [key: string]: unknown; // Allows other properties
+  attrs?: Record<string, unknown>;
 }
 
 /**
- * A text label.
+ * A text label component.
  *
  * @example
  * {
  *   type: 'text',
- *   id: 'text1',
- *   text: 'Hello World',
+ *   text: 'CPU Usage',
  *   placement: 'center',
  *   style: { fill: '#333', fontSize: 14, fontWeight: 'bold' }
  * }
@@ -253,14 +246,12 @@ export interface Text {
   type: 'text';
   id: string;
   show?: boolean; // Default: true
-  x?: number; // Default: 0
-  y?: number; // Default: 0
+  text?: string; // Default: ''
   placement?: Placement; // Default: 'center'
   margin?: Margin; // Default: 0
-  text?: string; // Default: ''
-  style?: Record<string, unknown>; // Corresponds to PIXI.TextStyle
+  style?: TextStyle;
   split?: number; // Default: 0
-  [key: string]: unknown; // Allows other properties
+  attrs?: Record<string, unknown>;
 }
 
 //================================================================================
@@ -268,7 +259,8 @@ export interface Text {
 //================================================================================
 
 /**
- * A value that can be specified in pixels (number) or as a percentage (string).
+ * A value that can be specified in pixels (number), as a percentage (string),
+ * or as an object with value and unit.
  *
  * @example
  * // For a 100px width:
@@ -277,11 +269,15 @@ export interface Text {
  * @example
  * // For a 75% height:
  * height: '75%'
+ *
+ * @example
+ * // As an object:
+ * size: { value: 50, unit: '%' }
  */
-export type PxOrPercent = number | string;
+export type PxOrPercent = number | string | { value: number; unit: 'px' | '%' };
 
 /**
- * Defines the placement of a component within its parent item.
+ * Specifies the position of a component within its parent Item.
  */
 export type Placement =
   | 'left'
@@ -296,14 +292,14 @@ export type Placement =
   | 'none';
 
 /**
- * Defines the gap between grid cells.
+ * Defines the gap between cells in a Grid.
  *
  * @example
- * // To apply a 10px gap for both x and y:
+ * // To set a 10px gap for both x and y:
  * gap: 10
  *
  * @example
- * // To apply a 5px horizontal and 15px vertical gap:
+ * // To set a 5px horizontal and 15px vertical gap:
  * gap: { x: 5, y: 15 }
  */
 export type Gap =
@@ -314,10 +310,10 @@ export type Gap =
     };
 
 /**
- * Defines margin around a component.
+ * Defines the margin around a component.
  *
  * @example
- * // To apply a 10px margin to all four sides:
+ * // To apply a 10px margin on all four sides:
  * margin: 10
  *
  * @example
@@ -325,24 +321,17 @@ export type Gap =
  * margin: { y: 10, x: 5 }
  *
  * @example
- * // To apply margins for each side individually:
+ * // To apply individual margins for each side:
  * margin: { top: 1, right: 2, bottom: 3, left: 4 }
  */
 export type Margin =
   | number
-  | {
-      x?: number;
-      y?: number;
-    }
-  | {
-      top?: number;
-      right?: number;
-      bottom?: number;
-      left?: number;
-    };
+  | { x?: number; y?: number }
+  | { top?: number; right?: number; bottom?: number; left?: number };
 
 /**
- * Defines the visual style of a rectangular texture. All properties are optional.
+ * Defines the style for a rectangular texture, used for backgrounds, bars, etc.
+ * All properties are optional.
  *
  * @example
  * const style: TextureStyle = {
@@ -359,3 +348,34 @@ export interface TextureStyle {
   borderColor?: string | null;
   radius?: number | null;
 }
+
+/**
+ * Defines the line style for a Relations element.
+ * You can pass an object similar to PIXI.Graphics' lineStyle options.
+ * https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html
+ *
+ * @example
+ * {
+ *   color: 'red',
+ *   width: 2,
+ *   cap: 'square'
+ * }
+ */
+export type RelationsStyle = Record<string, unknown>;
+
+/**
+ * Defines the text style for a Text component.
+ * You can pass an object similar to PIXI.TextStyle options.
+ * https://pixijs.download/release/docs/text.TextStyleOptions.html
+ *
+ * Defaults: `{ fontFamily: 'FiraCode', fontWeight: 400, fill: 'black' }`
+ *
+ * @example
+ * {
+ *   fontFamily: 'Arial',
+ *   fontSize: 24,
+ *   fill: 'white',
+ *   stroke: { color: 'black', width: 2 }
+ * }
+ */
+export type TextStyle = Record<string, unknown>;

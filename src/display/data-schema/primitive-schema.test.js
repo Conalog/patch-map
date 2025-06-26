@@ -1,122 +1,71 @@
 import { describe, expect, it, vi } from 'vitest';
+import { uid } from '../../utils/uuid';
 import {
   Base,
   Gap,
   Margin,
   Placement,
-  Position,
   PxOrPercentSize,
   RelationsStyle,
   Size,
   TextStyle,
   TextureStyle,
-} from './primitive-schema'; // Assuming the schemas are in './base-schema.js'
+  pxOrPercentSchema,
+} from './primitive-schema';
 
-// --- Mocks ---
+vi.mock('../../utils/uuid');
+vi.mocked(uid).mockReturnValue('mock-uid-123');
 
-// Mock for the global uid function used in the Base schema.
-// Vitest's `vi.fn()` provides mocking capabilities.
-const uid = vi.fn(() => 'mock-uid-123');
-global.uid = uid;
-
-// --- Test Suites ---
-
-describe('Base Schema Tests', () => {
-  // Test suite for the Base schema
+describe('Primitive Schema Tests', () => {
   describe('Base Schema', () => {
-    it('should parse a valid object with all properties and allow passthrough', () => {
-      const data = { show: false, id: 'custom-id', extra: 'passthrough-value' };
+    it('should parse a valid object with all properties', () => {
+      const data = { show: false, id: 'custom-id', attrs: { extra: 'value' } };
       const result = Base.parse(data);
-      expect(result).toEqual({
-        show: false,
-        id: 'custom-id',
-        extra: 'passthrough-value',
-      });
+      expect(result).toEqual(data);
     });
 
-    it('should apply default values for missing properties', () => {
+    it('should apply default values for missing optional properties', () => {
       const data = {};
       const result = Base.parse(data);
-      // The mock uid function should be called to generate a default id.
       expect(result).toEqual({ show: true, id: 'mock-uid-123' });
       expect(uid).toHaveBeenCalled();
     });
-  });
 
-  // Test suite for the Position schema
-  describe('Position Schema', () => {
-    it.each([
-      {
-        case: 'standard positive integers',
-        input: { x: 100, y: 200 },
-        expected: { x: 100, y: 200 },
-      },
-      { case: 'zero values', input: { x: 0, y: 0 }, expected: { x: 0, y: 0 } },
-      {
-        case: 'negative values',
-        input: { x: -50, y: -150 },
-        expected: { x: -50, y: -150 },
-      },
-      {
-        case: 'floating point numbers',
-        input: { x: 10.5, y: 20.5 },
-        expected: { x: 10.5, y: 20.5 },
-      },
-      {
-        case: 'missing properties apply defaults',
-        input: {},
-        expected: {},
-      },
-      {
-        case: 'one missing property',
-        input: { x: 55 },
-        expected: { x: 55 },
-      },
-    ])(
-      'should correctly parse position object for $case',
-      ({ input, expected }) => {
-        // The imported Position is now a Zod schema, so we can use it directly.
-        expect(Position.parse(input)).toEqual(expected);
-      },
-    );
+    it('should throw an error for unknown properties due to .strict()', () => {
+      const data = { show: true, unknownProperty: 'test' };
+      expect(() => Base.parse(data)).toThrow();
+    });
 
-    it('should fail parsing with invalid types', () => {
-      expect(() => Position.parse({ x: '100', y: '200' })).toThrow();
-      expect(() => Position.parse({ x: 100, y: null })).toThrow();
+    it('should allow "attrs" to contain any data type', () => {
+      const data = {
+        attrs: {
+          aNumber: 123,
+          aString: 'hello',
+          aBoolean: false,
+          aNull: null,
+          anObject: { nested: true },
+        },
+      };
+      const result = Base.parse(data);
+      expect(result.attrs).toEqual(data.attrs);
     });
   });
 
-  // Test suite for the Size schema
   describe('Size Schema', () => {
     it.each([
-      {
-        case: 'standard positive integers',
-        input: { width: 100, height: 200 },
-        expected: { width: 100, height: 200 },
-      },
-      {
-        case: 'zero values',
-        input: { width: 0, height: 0 },
-        expected: { width: 0, height: 0 },
-      },
-      {
-        case: 'floating point numbers',
-        input: { width: 10.5, height: 20.5 },
-        expected: { width: 10.5, height: 20.5 },
-      },
-    ])(
-      'should correctly parse size object for $case',
-      ({ input, expected }) => {
-        // The imported Size is now a Zod schema.
-        expect(Size.parse(input)).toEqual(expected);
-      },
-    );
+      { case: 'positive integers', input: { width: 100, height: 200 } },
+      { case: 'zero values', input: { width: 0, height: 0 } },
+      { case: 'floating point numbers', input: { width: 10.5, height: 20.5 } },
+    ])('should correctly parse valid size object for $case', ({ input }) => {
+      expect(Size.parse(input)).toEqual(input);
+    });
 
     it.each([
-      { case: 'negative numbers', input: { width: -100, height: 100 } },
-      { case: 'one negative number', input: { width: 100, height: -1 } },
+      { case: 'negative width', input: { width: -100, height: 100 } },
+      { case: 'negative height', input: { width: 100, height: -1 } },
       { case: 'invalid type (string)', input: { width: '100', height: 100 } },
-      { case: 'missing property (no defaults)', input: { width: 100 } },
+      { case: 'missing height property', input: { width: 100 } },
+      { case: 'NaN value', input: { width: 100, height: Number.NaN } },
     ])(
       'should throw an error for invalid size object for $case',
       ({ input }) => {
@@ -125,157 +74,176 @@ describe('Base Schema Tests', () => {
     );
   });
 
-  // Test suite for the PxOrPercentSize schema
-  describe('PxOrPercentSize Schema', () => {
+  describe('pxOrPercentSchema', () => {
     it.each([
       {
-        case: 'pixel values (numbers)',
-        input: { width: 100, height: 50 },
-        expected: {
-          width: { value: 100, unit: 'px' },
-          height: { value: 50, unit: 'px' },
-        },
+        case: 'pixel number',
+        input: 100,
+        expected: { value: 100, unit: 'px' },
       },
       {
-        case: 'percentage values (strings)',
-        input: { width: '80%', height: '100%' },
-        expected: {
-          width: { value: 80, unit: '%' },
-          height: { value: 100, unit: '%' },
-        },
+        case: 'percentage string',
+        input: '80%',
+        expected: { value: 80, unit: '%' },
       },
       {
-        case: 'mix of pixel and percentage',
-        input: { width: 150, height: '75%' },
-        expected: {
-          width: { value: 150, unit: 'px' },
-          height: { value: 75, unit: '%' },
-        },
+        case: 'float percentage string',
+        input: '33.3%',
+        expected: { value: 33.3, unit: '%' },
       },
       {
-        case: 'floating point values',
-        input: { width: 99.9, height: '33.3%' },
-        expected: {
-          width: { value: 99.9, unit: 'px' },
-          height: { value: 33.3, unit: '%' },
-        },
+        case: 'zero pixel',
+        input: 0,
+        expected: { value: 0, unit: 'px' },
       },
       {
-        case: 'zero values',
-        input: { width: 0, height: '0%' },
-        expected: {
-          width: { value: 0, unit: 'px' },
-          height: { value: 0, unit: '%' },
-        },
+        case: 'zero percent',
+        input: '0%',
+        expected: { value: 0, unit: '%' },
       },
-    ])(
-      'should correctly parse and transform for $case',
-      ({ input, expected }) => {
-        // The imported PxOrPercentSize is now a Zod schema.
-        expect(PxOrPercentSize.parse(input)).toEqual(expected);
+      {
+        case: 'pre-formatted object',
+        input: { value: 50, unit: 'px' },
+        expected: { value: 50, unit: 'px' },
       },
-    );
+    ])('should correctly parse and transform $case', ({ input, expected }) => {
+      expect(pxOrPercentSchema.parse(input)).toEqual(expected);
+    });
 
     it.each([
-      { case: 'negative number', input: { width: -100, height: 50 } },
+      { case: 'negative number', input: -100 },
+      { case: 'malformed percentage string', input: '100' },
+      { case: 'percentage with space', input: '50 %' },
+      { case: 'invalid unit string', input: '100em' },
       {
-        case: 'malformed percentage string',
-        input: { width: '100', height: '50%' },
+        case: 'invalid pre-formatted object unit',
+        input: { value: 50, unit: 'em' },
       },
-      {
-        case: 'percentage with space',
-        input: { width: '50 %', height: '50%' },
-      },
-      { case: 'invalid unit', input: { width: '100em', height: '50%' } },
-      { case: 'missing property', input: { width: 100 } },
+      { case: 'null input', input: null },
     ])('should throw an error for invalid input for $case', ({ input }) => {
-      expect(() => PxOrPercentSize.parse(input)).toThrow();
+      expect(() => pxOrPercentSchema.parse(input)).toThrow();
     });
   });
 
-  // Test suite for the Placement schema
+  describe('PxOrPercentSize Schema', () => {
+    it('should parse and transform mixed pixel and percentage values', () => {
+      const input = { width: 150, height: '75%' };
+      const expected = {
+        width: { value: 150, unit: 'px' },
+        height: { value: 75, unit: '%' },
+      };
+      expect(PxOrPercentSize.parse(input)).toEqual(expected);
+    });
+
+    it('should correctly parse the new "size" property', () => {
+      const input = { size: '50%' };
+      const expected = { size: { value: 50, unit: '%' } };
+      expect(PxOrPercentSize.parse(input)).toEqual(expected);
+    });
+
+    it('should parse an empty object', () => {
+      expect(PxOrPercentSize.parse({})).toEqual({});
+    });
+
+    it('should handle all properties at once', () => {
+      const input = { width: 100, height: '50%', size: 25 };
+      const expected = {
+        width: { value: 100, unit: 'px' },
+        height: { value: 50, unit: '%' },
+        size: { value: 25, unit: 'px' },
+      };
+      expect(PxOrPercentSize.parse(input)).toEqual(expected);
+    });
+  });
+
   describe('Placement Schema', () => {
     it.each([
-      { placement: 'left' },
-      { placement: 'left-top' },
-      { placement: 'left-bottom' },
-      { placement: 'top' },
-      { placement: 'right' },
-      { placement: 'right-top' },
-      { placement: 'right-bottom' },
-      { placement: 'bottom' },
-      { placement: 'center' },
-      { placement: 'none' },
-    ])('should accept valid placement value: $placement', ({ placement }) => {
+      'left',
+      'left-top',
+      'left-bottom',
+      'top',
+      'right',
+      'right-top',
+      'right-bottom',
+      'bottom',
+      'center',
+      'none',
+    ])('should accept valid placement value: %s', (placement) => {
       expect(() => Placement.parse(placement)).not.toThrow();
     });
 
-    it('should reject an invalid placement value', () => {
-      expect(() => Placement.parse('top-left')).toThrow(); // Invalid enum
-    });
+    it.each(['top-left', 'center-top', 'invalid-placement', '', null])(
+      'should reject invalid placement value: %s',
+      (placement) => {
+        expect(() => Placement.parse(placement)).toThrow();
+      },
+    );
   });
 
-  // Test suite for the Gap schema
   describe('Gap Schema', () => {
     it.each([
       { case: 'a single number', input: 20, expected: { x: 20, y: 20 } },
       {
-        case: 'an object with x and y',
+        case: 'object with x and y',
         input: { x: 10, y: 30 },
         expected: { x: 10, y: 30 },
       },
       {
-        case: 'an object with only x',
+        case: 'object with only x',
         input: { x: 15 },
         expected: { x: 15, y: 0 },
       },
       {
-        case: 'an object with only y',
+        case: 'object with only y',
         input: { y: 25 },
-        expected: { y: 25, x: 0 },
+        expected: { x: 0, y: 25 },
       },
-      { case: 'an empty object', input: {}, expected: { x: 0, y: 0 } },
+      { case: 'empty object', input: {}, expected: { x: 0, y: 0 } },
       { case: 'undefined', input: undefined, expected: { x: 0, y: 0 } },
     ])('should correctly preprocess and parse $case', ({ input, expected }) => {
       expect(Gap.parse(input)).toEqual(expected);
     });
 
-    it('should throw an error for negative numbers', () => {
-      expect(() => Gap.parse(-10)).toThrow();
-      expect(() => Gap.parse({ x: -10, y: 10 })).toThrow();
+    it.each([
+      { case: 'negative number', input: -10 },
+      { case: 'object with negative x', input: { x: -10, y: 10 } },
+      { case: 'null input', input: null },
+      { case: 'string input', input: '20' },
+      { case: 'object with non-numeric value', input: { x: '10', y: 10 } },
+    ])('should throw an error for invalid input for $case', ({ input }) => {
+      expect(() => Gap.parse(input)).toThrow();
     });
   });
 
-  // Test suite for the Margin schema
   describe('Margin Schema', () => {
     it.each([
       {
-        case: 'a single number',
+        case: 'single number',
         input: 15,
         expected: { top: 15, right: 15, bottom: 15, left: 15 },
       },
       {
-        case: 'an object with x and y',
+        case: 'object with x and y',
         input: { x: 10, y: 20 },
         expected: { top: 20, right: 10, bottom: 20, left: 10 },
       },
       {
-        case: 'a full object',
+        case: 'full object',
         input: { top: 5, right: 10, bottom: 15, left: 20 },
         expected: { top: 5, right: 10, bottom: 15, left: 20 },
       },
       {
-        case: 'an object with only x',
+        case: 'object with only x',
         input: { x: 30 },
         expected: { top: 0, right: 30, bottom: 0, left: 30 },
       },
       {
-        case: 'an object with only y',
+        case: 'object with only y',
         input: { y: 40 },
         expected: { top: 40, right: 0, bottom: 40, left: 0 },
       },
       {
-        case: 'an empty object',
+        case: 'empty object',
         input: {},
         expected: { top: 0, right: 0, bottom: 0, left: 0 },
       },
@@ -284,12 +252,33 @@ describe('Base Schema Tests', () => {
         input: undefined,
         expected: { top: 0, right: 0, bottom: 0, left: 0 },
       },
+      {
+        case: 'partial object with undefined',
+        input: { top: 10, right: undefined },
+        expected: { top: 10, right: 0, bottom: 0, left: 0 },
+      },
+      {
+        case: 'negative number',
+        input: -10,
+        expected: { top: -10, right: -10, bottom: -10, left: -10 },
+      },
+      {
+        case: 'object with negative value',
+        input: { top: -5, right: 10, bottom: -15, left: 20 },
+        expected: { top: -5, right: 10, bottom: -15, left: 20 },
+      },
     ])('should correctly preprocess and parse $case', ({ input, expected }) => {
       expect(Margin.parse(input)).toEqual(expected);
     });
+
+    it.each([
+      { case: 'null input', input: null },
+      { case: 'object with non-numeric value', input: { top: '10' } },
+    ])('should throw an error for invalid input for $case', ({ input }) => {
+      expect(() => Margin.parse(input)).toThrow();
+    });
   });
 
-  // Test suite for the TextureStyle schema
   describe('TextureStyle Schema', () => {
     it('should parse a full valid object', () => {
       const data = {
@@ -302,28 +291,19 @@ describe('Base Schema Tests', () => {
       expect(TextureStyle.parse(data)).toEqual(data);
     });
 
-    it('should parse a partial object', () => {
-      const data = { fill: '#FFF' };
-      expect(TextureStyle.parse(data)).toEqual({ fill: '#FFF' });
+    it('should parse an empty object', () => {
+      expect(TextureStyle.parse({})).toEqual({});
     });
 
-    it('should accept null values', () => {
-      const data = {
-        fill: null,
-        borderWidth: null,
-        borderColor: null,
-        radius: null,
-      };
-      expect(TextureStyle.parse(data)).toEqual(data);
-    });
-
-    it('should fail on invalid enum for type', () => {
-      const data = { type: 'circle' };
-      expect(() => TextureStyle.parse(data)).toThrow();
+    it.each([
+      { case: 'invalid enum for type', input: { type: 'circle' } },
+      { case: 'invalid type for fill', input: { fill: 123 } },
+      { case: 'invalid type for borderWidth', input: { borderWidth: '2px' } },
+    ])('should fail on invalid data types ($case)', ({ input }) => {
+      expect(() => TextureStyle.parse(input)).toThrow();
     });
   });
 
-  // Test suite for the RelationsStyle schema
   describe('RelationsStyle Schema', () => {
     it('should add default color if not provided', () => {
       const data = { lineWidth: 2 };
@@ -334,25 +314,21 @@ describe('Base Schema Tests', () => {
     });
 
     it('should not override provided color', () => {
-      const data = { color: 'blue', lineStyle: 'dashed' };
-      expect(RelationsStyle.parse(data)).toEqual({
-        color: 'blue',
-        lineStyle: 'dashed',
-      });
+      const data = { color: 'blue' };
+      expect(RelationsStyle.parse(data)).toEqual({ color: 'blue' });
     });
 
-    it('should accept any other properties', () => {
-      const data = { customProp: true };
-      expect(RelationsStyle.parse(data)).toEqual({
-        color: 'black',
-        customProp: true,
-      });
+    it.each([
+      { case: 'undefined', input: undefined },
+      { case: 'null', input: null },
+      { case: 'empty object', input: {} },
+    ])('should return default object for $case input', ({ input }) => {
+      expect(RelationsStyle.parse(input)).toEqual({ color: 'black' });
     });
   });
 
-  // Test suite for the TextStyle schema
   describe('TextStyle Schema', () => {
-    it('should apply default styles', () => {
+    it('should apply default styles for a partial object', () => {
       const data = { fontSize: 16 };
       expect(TextStyle.parse(data)).toEqual({
         fontFamily: 'FiraCode',
@@ -363,23 +339,23 @@ describe('Base Schema Tests', () => {
     });
 
     it('should not override provided styles', () => {
-      const data = { fontFamily: 'Arial', fill: 'red' };
+      const data = { fontFamily: 'Arial', fill: 'red', fontWeight: 'bold' };
       expect(TextStyle.parse(data)).toEqual({
         fontFamily: 'Arial',
-        fontWeight: 400,
+        fontWeight: 'bold',
         fill: 'red',
       });
     });
 
-    it('should accept any other valid text properties', () => {
-      const data = { align: 'center', stroke: 'white', strokeThickness: 2 };
-      expect(TextStyle.parse(data)).toEqual({
+    it.each([
+      { case: 'undefined', input: undefined },
+      { case: 'null', input: null },
+      { case: 'empty object', input: {} },
+    ])('should return full default object for $case input', ({ input }) => {
+      expect(TextStyle.parse(input)).toEqual({
         fontFamily: 'FiraCode',
         fontWeight: 400,
         fill: 'black',
-        align: 'center',
-        stroke: 'white',
-        strokeThickness: 2,
       });
     });
   });

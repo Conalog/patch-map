@@ -30,11 +30,13 @@ export const pxOrPercentSchema = z
     return val;
   });
 
-export const PxOrPercentSize = z.object({
-  width: pxOrPercentSchema.optional(),
-  height: pxOrPercentSchema.optional(),
-  size: pxOrPercentSchema.optional(),
-});
+export const PxOrPercentSize = z
+  .object({
+    width: pxOrPercentSchema,
+    height: pxOrPercentSchema,
+    size: pxOrPercentSchema,
+  })
+  .partial();
 
 export const Placement = z.enum([
   'left',
@@ -83,18 +85,20 @@ export const Margin = z.preprocess(
 export const TextureStyle = z
   .object({
     type: z.enum(['rect']),
-    fill: z.nullable(z.string()),
-    borderWidth: z.nullable(z.number()),
-    borderColor: z.nullable(z.string()),
-    radius: z.nullable(z.number()),
+    fill: z.string(),
+    borderWidth: z.number(),
+    borderColor: z.string(),
+    radius: z.number(),
   })
   .partial();
 
+// https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html
 export const RelationsStyle = z.preprocess(
   (val) => ({ color: 'black', ...(val ?? {}) }),
   z.record(z.string(), z.unknown()),
-); // https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html
+);
 
+// https://pixijs.download/release/docs/text.TextStyleOptions.html
 export const TextStyle = z.preprocess(
   (val) => ({
     fontFamily: 'FiraCode',
