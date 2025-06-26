@@ -1,5 +1,14 @@
 import { z } from 'zod';
 import { uid } from '../../utils/uuid';
+import {
+  Color,
+  HslColor,
+  HslaColor,
+  HsvColor,
+  HsvaColor,
+  RgbColor,
+  RgbaColor,
+} from './color-schema';
 
 export const Base = z
   .object({
@@ -86,20 +95,24 @@ export const Margin = z.preprocess(
 export const TextureStyle = z
   .object({
     type: z.enum(['rect']),
-    fill: z.string(),
+    fill: z.string().default('white'),
     borderWidth: z.number(),
     borderColor: z.string(),
     radius: z.number(),
   })
   .partial();
 
-// https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html
+/**
+ * @see {@link https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html}
+ */
 export const RelationsStyle = z.preprocess(
   (val) => ({ color: 'black', ...(val ?? {}) }),
   z.record(z.string(), z.unknown()),
 );
 
-// https://pixijs.download/release/docs/text.TextStyleOptions.html
+/**
+ * @see {@link https://pixijs.download/release/docs/text.TextStyleOptions.html}
+ */
 export const TextStyle = z.preprocess(
   (val) => ({
     fontFamily: 'FiraCode',
@@ -109,3 +122,22 @@ export const TextStyle = z.preprocess(
   }),
   z.record(z.string(), z.unknown()),
 );
+
+/**
+ * @see {@link https://pixijs.download/release/docs/color.ColorSource.html}
+ */
+export const Tint = z.union([
+  z.string(),
+  z.number(),
+  z.array(z.number()),
+  z.instanceof(Float32Array),
+  z.instanceof(Uint8Array),
+  z.instanceof(Uint8ClampedArray),
+  HslColor,
+  HslaColor,
+  HsvColor,
+  HsvaColor,
+  RgbColor,
+  RgbaColor,
+  Color,
+]);

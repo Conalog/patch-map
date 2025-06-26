@@ -7,6 +7,16 @@
  * rather than using 'extends'.
  */
 
+import type {
+  Color,
+  HslColor,
+  HslaColor,
+  HsvColor,
+  HsvaColor,
+  RgbColor,
+  RgbaColor,
+} from './color';
+
 //================================================================================
 // 1. Top-Level Data Structure
 //================================================================================
@@ -181,6 +191,7 @@ export interface Background {
   id: string;
   show?: boolean; // Default: true
   source: TextureStyle | string;
+  tint?: Tint;
   attrs?: Record<string, unknown>;
 }
 
@@ -207,6 +218,7 @@ export interface Bar {
   size?: PxOrPercent;
   placement?: Placement; // Default: 'bottom'
   margin?: Margin; // Default: 0
+  tint?: Tint;
   animation?: boolean; // Default: true
   animationDuration?: number; // Default: 200
   attrs?: Record<string, unknown>;
@@ -235,6 +247,7 @@ export interface Icon {
   size?: PxOrPercent;
   placement?: Placement; // Default: 'center'
   margin?: Margin; // Default: 0
+  tint?: Tint;
   attrs?: Record<string, unknown>;
 }
 
@@ -257,6 +270,7 @@ export interface Text {
   text?: string; // Default: ''
   placement?: Placement; // Default: 'center'
   margin?: Margin; // Default: 0
+  tint?: Tint;
   style?: TextStyle;
   split?: number; // Default: 0
   attrs?: Record<string, unknown>;
@@ -388,3 +402,41 @@ export type RelationsStyle = Record<string, unknown>;
  * }
  */
 export type TextStyle = Record<string, unknown>;
+
+/**
+ * Defines a tint color to be applied to a component.
+ * Accepts any valid PixiJS ColorSource format, such as theme keys,
+ * hex codes, numbers, or color objects.
+ *
+ * @example
+ * // As a theme key (string)
+ * tint: 'primary.main'
+ *
+ * @example
+ * // As a hex string
+ * tint: '#ff0000'
+ *
+ * @example
+ * // As a hex number
+ * tint: 0xff0000
+ *
+ * @example
+ * // As an RGB object
+ * tint: { r: 255, g: 0, b: 0 }
+ *
+ * @see {@link https://pixijs.download/release/docs/color.ColorSource.html}
+ */
+export type Tint =
+  | string
+  | number
+  | number[]
+  | Float32Array
+  | Uint8Array
+  | Uint8ClampedArray
+  | HslColor
+  | HslaColor
+  | HsvColor
+  | HsvaColor
+  | RgbColor
+  | RgbaColor
+  | Color;

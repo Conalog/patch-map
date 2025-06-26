@@ -10,6 +10,7 @@ import {
   Size,
   TextStyle,
   TextureStyle,
+  Tint,
   pxOrPercentSchema,
 } from './primitive-schema';
 
@@ -17,6 +18,53 @@ vi.mock('../../utils/uuid');
 vi.mocked(uid).mockReturnValue('mock-uid-123');
 
 describe('Primitive Schema Tests', () => {
+  describe('Tint Schema', () => {
+    const validColorSourceCases = [
+      // CSS Color Names (pass as string)
+      { case: 'CSS color name', value: 'red' },
+      // Hex Values (string passes as string, number passes as any)
+      { case: 'number hex', value: 0xff0000 },
+      { case: '6-digit hex string', value: '#ff0000' },
+      { case: '3-digit hex string', value: '#f00' },
+      { case: '8-digit hex string with alpha', value: '#ff0000ff' },
+      { case: '4-digit hex string with alpha', value: '#f00f' },
+      // RGB/RGBA Objects (pass as any)
+      { case: 'RGB object', value: { r: 255, g: 0, b: 0 } },
+      { case: 'RGBA object', value: { r: 255, g: 0, b: 0, a: 0.5 } },
+      // RGB/RGBA Strings (pass as string)
+      { case: 'rgb string', value: 'rgb(255, 0, 0)' },
+      { case: 'rgba string', value: 'rgba(255, 0, 0, 0.5)' },
+      // Arrays (pass as any)
+      { case: 'normalized RGB array', value: [1, 0, 0] },
+      { case: 'normalized RGBA array', value: [1, 0, 0, 0.5] },
+      // Typed Arrays (pass as any)
+      { case: 'Float32Array', value: new Float32Array([1, 0, 0, 0.5]) },
+      { case: 'Uint8Array', value: new Uint8Array([255, 0, 0]) },
+      {
+        case: 'Uint8ClampedArray',
+        value: new Uint8ClampedArray([255, 0, 0, 128]),
+      },
+      // HSL/HSLA (object passes as any, string passes as string)
+      { case: 'HSL object', value: { h: 0, s: 100, l: 50 } },
+      { case: 'HSLA object', value: { h: 0, s: 100, l: 50, a: 0.5 } },
+      { case: 'hsl string', value: 'hsl(0, 100%, 50%)' },
+      // HSV/HSVA (pass as any)
+      { case: 'HSV object', value: { h: 0, s: 100, v: 100 } },
+      { case: 'HSVA object', value: { h: 0, s: 100, v: 100, a: 0.5 } },
+    ];
+
+    it.each(validColorSourceCases)(
+      'should correctly parse various color source types: $case',
+      ({ value }) => {
+        // Since the schema is z.union([z.string(), z.any()]),
+        // it should not throw for any of these valid ColorSource formats.
+        expect(() => Tint.parse(value)).not.toThrow();
+        const parsed = Tint.parse(value);
+        expect(parsed).toEqual(value);
+      },
+    );
+  });
+
   describe('Base Schema', () => {
     it('should parse a valid object with all properties', () => {
       const data = { show: false, id: 'custom-id', attrs: { extra: 'value' } };
