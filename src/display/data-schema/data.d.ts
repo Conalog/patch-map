@@ -36,6 +36,7 @@ export type Element = Group | Grid | Item | Relations;
 /**
  * Groups multiple elements to apply common properties.
  * You can specify coordinates (x, y) for the entire group via 'attrs'.
+ * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  *
  * @example
  * {
@@ -59,6 +60,7 @@ export interface Group {
 /**
  * Lays out items in a grid format.
  * The visibility of an item is determined by 1 or 0 in the 'cells' array.
+ * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  *
  * @example
  * {
@@ -95,6 +97,7 @@ export interface Grid {
 /**
  * The most basic single element that constitutes the map.
  * It contains various components (Background, Text, Icon, etc.) to form its visual representation.
+ * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  *
  * @example
  * {
@@ -124,6 +127,7 @@ export interface Item {
 /**
  * Represents relationships between elements by connecting them with lines.
  * Specify the IDs of the elements to connect in the 'links' array.
+ * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  *
  * @example
  * {
@@ -155,7 +159,8 @@ export interface Relations {
 export type Component = Background | Bar | Icon | Text;
 
 /**
- * The background of an Item. Can be specified as a style object or an image URL.
+ * An Item's background, sourced from a style object or an asset URL.
+ * @see {@link https://pixijs.download/release/docs/scene.NineSliceSprite.html}
  *
  * @example
  * // As a style object
@@ -181,6 +186,7 @@ export interface Background {
 
 /**
  * A component for progress bars or bar graphs.
+ * @see {@link https://pixijs.download/release/docs/scene.NineSliceSprite.html}
  *
  * @example
  * {
@@ -208,6 +214,7 @@ export interface Bar {
 
 /**
  * A component for displaying an icon image.
+ * @see {@link https://pixijs.download/release/docs/scene.Sprite.html}
  *
  * @example
  * {
@@ -233,6 +240,7 @@ export interface Icon {
 
 /**
  * A text label component.
+ * @see {@link https://pixijs.download/release/docs/scene.BitmapText.html}
  *
  * @example
  * {
@@ -352,7 +360,7 @@ export interface TextureStyle {
 /**
  * Defines the line style for a Relations element.
  * You can pass an object similar to PIXI.Graphics' lineStyle options.
- * https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html
+ * @see {@link https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html}
  *
  * @example
  * {
@@ -366,9 +374,10 @@ export type RelationsStyle = Record<string, unknown>;
 /**
  * Defines the text style for a Text component.
  * You can pass an object similar to PIXI.TextStyle options.
- * https://pixijs.download/release/docs/text.TextStyleOptions.html
  *
  * Defaults: `{ fontFamily: 'FiraCode', fontWeight: 400, fill: 'black' }`
+ *
+ * @see {@link https://pixijs.download/release/docs/text.TextStyleOptions.html}
  *
  * @example
  * {

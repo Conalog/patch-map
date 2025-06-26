@@ -8,11 +8,21 @@ import {
   TextureStyle,
 } from './primitive-schema';
 
+/**
+ * An Item's background, sourced from a style object or an asset URL.
+ * Visually represented by a `NineSliceSprite`.
+ * @see {@link https://pixijs.download/release/docs/scene.NineSliceSprite.html}
+ */
 export const Background = Base.extend({
   type: z.literal('background'),
   source: z.union([TextureStyle, z.string()]),
 }).strict();
 
+/**
+ * A component for progress bars or bar graphs.
+ * Visually represented by a `NineSliceSprite`.
+ * @see {@link https://pixijs.download/release/docs/scene.NineSliceSprite.html}
+ */
 export const Bar = Base.merge(PxOrPercentSize)
   .extend({
     type: z.literal('bar'),
@@ -24,6 +34,11 @@ export const Bar = Base.merge(PxOrPercentSize)
   })
   .strict();
 
+/**
+ * A component for displaying an icon image.
+ * Visually represented by a `Sprite`.
+ * @see {@link https://pixijs.download/release/docs/scene.Sprite.html}
+ */
 export const Icon = Base.merge(PxOrPercentSize)
   .extend({
     type: z.literal('icon'),
@@ -33,6 +48,11 @@ export const Icon = Base.merge(PxOrPercentSize)
   })
   .strict();
 
+/**
+ * A text label component.
+ * Visually represented by a `BitmapText`.
+ * @see {@link https://pixijs.download/release/docs/scene.BitmapText.html}
+ */
 export const Text = Base.extend({
   type: z.literal('text'),
   placement: Placement.default('center'),

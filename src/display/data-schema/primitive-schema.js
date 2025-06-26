@@ -5,6 +5,7 @@ export const Base = z
   .object({
     show: z.boolean().default(true),
     id: z.string().default(() => uid()),
+    label: z.string().optional(),
     attrs: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
