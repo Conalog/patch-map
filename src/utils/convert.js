@@ -32,7 +32,7 @@ export const convertLegacyData = (data) => {
           y: transform.y,
           angle: transform.rotation,
           gap: 4,
-          itemTemplate: {
+          item: {
             width: props.spec.width * 40,
             height: props.spec.height * 40,
             components: [

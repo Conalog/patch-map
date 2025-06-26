@@ -14,10 +14,10 @@ export const elementPipeline = {
     ),
   },
   gridComponents: {
-    keys: ['itemTemplate'],
+    keys: ['item'],
     handler: (element, config, options) => {
       for (const cell of element.children) {
-        updateComponents(cell, config.itemTemplate, options);
+        updateComponents(cell, config.item, options);
       }
     },
   },

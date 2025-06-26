@@ -19,8 +19,8 @@ export const createGrid = (config) => {
     position: { x: config.x, y: config.y },
     cells: config.cells,
     itemSize: {
-      width: config.itemTemplate.width,
-      height: config.itemTemplate.height,
+      width: config.item.width,
+      height: config.item.height,
     },
   };
   addItemElements(element, config.cells, element.config.itemSize);

@@ -1,17 +1,13 @@
 import { z } from 'zod';
 import { uid } from '../../utils/uuid';
 
-export const Base = z.object({
-  show: z.boolean().default(true),
-  id: z.string().default(() => uid()),
-});
-
-export const Position = z
+export const Base = z
   .object({
-    x: z.number().default(0),
-    y: z.number().default(0),
+    show: z.boolean().default(true),
+    id: z.string().default(() => uid()),
+    attrs: z.record(z.string(), z.unknown()).optional(),
   })
-  .partial();
+  .strict();
 
 export const Size = z.object({
   width: z.number().nonnegative(),
@@ -35,8 +31,9 @@ export const pxOrPercentSchema = z
   });
 
 export const PxOrPercentSize = z.object({
-  width: pxOrPercentSchema,
-  height: pxOrPercentSchema,
+  width: pxOrPercentSchema.optional(),
+  height: pxOrPercentSchema.optional(),
+  size: pxOrPercentSchema.optional(),
 });
 
 export const Placement = z.enum([
@@ -53,9 +50,7 @@ export const Placement = z.enum([
 ]);
 
 export const Gap = z.preprocess(
-  (val) => {
-    return typeof val === 'number' ? { x: val, y: val } : val;
-  },
+  (val) => (typeof val === 'number' ? { x: val, y: val } : val),
   z
     .object({
       x: z.number().nonnegative().default(0),
@@ -82,7 +77,7 @@ export const Margin = z.preprocess(
       bottom: z.number().default(0),
       left: z.number().default(0),
     })
-    .default({ top: 0, right: 0, bottom: 0, left: 0 }),
+    .default({}),
 );
 
 export const TextureStyle = z
@@ -96,8 +91,8 @@ export const TextureStyle = z
   .partial();
 
 export const RelationsStyle = z.preprocess(
-  (val) => ({ color: 'black', ...val }),
-  z.record(z.unknown()),
+  (val) => ({ color: 'black', ...(val ?? {}) }),
+  z.record(z.string(), z.unknown()),
 ); // https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html
 
 export const TextStyle = z.preprocess(
@@ -105,7 +100,7 @@ export const TextStyle = z.preprocess(
     fontFamily: 'FiraCode',
     fontWeight: 400,
     fill: 'black',
-    ...val,
+    ...(val ?? {}),
   }),
-  z.record(z.unknown()),
+  z.record(z.string(), z.unknown()),
 );

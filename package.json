@@ -47,7 +47,7 @@
     "jsonpath-plus": "^10.3.0",
     "pixi-viewport": "^6.0.3",
     "uuid": "^11.1.0",
-    "zod": "^3.24.3",
+    "zod": "^3.25.67",
     "zod-validation-error": "^3.4.0"
   },
   "peerDependencies": {
