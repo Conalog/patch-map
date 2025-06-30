@@ -1,6 +1,6 @@
 import { changeProperty } from '../change';
 
-const DEFAULT_EXCEPTION_KEYS = new Set(['position', 'children']);
+const DEFAULT_EXCEPTION_KEYS = new Set(['position', 'children', 'type']);
 
 export const updateObject = (
   object,

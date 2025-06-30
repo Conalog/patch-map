@@ -14,7 +14,7 @@ import {
  * Visually represented by a `NineSliceSprite`.
  * @see {@link https://pixijs.download/release/docs/scene.NineSliceSprite.html}
  */
-export const Background = Base.extend({
+export const backgroundSchema = Base.extend({
   type: z.literal('background'),
   source: z.union([TextureStyle, z.string()]),
   tint: Tint.optional(),
@@ -25,7 +25,7 @@ export const Background = Base.extend({
  * Visually represented by a `NineSliceSprite`.
  * @see {@link https://pixijs.download/release/docs/scene.NineSliceSprite.html}
  */
-export const Bar = Base.merge(PxOrPercentSize)
+export const barSchema = Base.merge(PxOrPercentSize)
   .extend({
     type: z.literal('bar'),
     source: TextureStyle,
@@ -42,7 +42,7 @@ export const Bar = Base.merge(PxOrPercentSize)
  * Visually represented by a `Sprite`.
  * @see {@link https://pixijs.download/release/docs/scene.Sprite.html}
  */
-export const Icon = Base.merge(PxOrPercentSize)
+export const iconSchema = Base.merge(PxOrPercentSize)
   .extend({
     type: z.literal('icon'),
     source: z.string(),
@@ -57,7 +57,7 @@ export const Icon = Base.merge(PxOrPercentSize)
  * Visually represented by a `BitmapText`.
  * @see {@link https://pixijs.download/release/docs/scene.BitmapText.html}
  */
-export const Text = Base.extend({
+export const textSchema = Base.extend({
   type: z.literal('text'),
   placement: Placement.default('center'),
   margin: Margin.default(0),
@@ -68,10 +68,10 @@ export const Text = Base.extend({
 }).strict();
 
 export const componentSchema = z.discriminatedUnion('type', [
-  Background,
-  Bar,
-  Icon,
-  Text,
+  backgroundSchema,
+  barSchema,
+  iconSchema,
+  textSchema,
 ]);
 
 export const componentArraySchema = componentSchema.array();

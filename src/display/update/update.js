@@ -4,10 +4,6 @@ import { convertArray } from '../../utils/convert';
 import { selector } from '../../utils/selector/selector';
 import { uid } from '../../utils/uuid';
 import { validate } from '../../utils/validator';
-import { updateGrid } from '../elements/grid';
-import { updateGroup } from '../elements/group';
-import { updateItem } from '../elements/item';
-import { updateRelations } from '../elements/relations';
 
 const updateSchema = z.object({
   path: z.nullable(z.string()).default(null),
@@ -15,13 +11,6 @@ const updateSchema = z.object({
   saveToHistory: z.union([z.boolean(), z.string()]).default(false),
   relativeTransform: z.boolean().default(false),
 });
-
-const elementUpdaters = {
-  group: updateGroup,
-  grid: updateGrid,
-  item: updateItem,
-  relations: updateRelations,
-};
 
 export const update = (context, opts) => {
   const config = validate(opts, updateSchema.passthrough());
@@ -41,10 +30,7 @@ export const update = (context, opts) => {
       elConfig.changes = applyRelativeTransform(element, elConfig.changes);
     }
 
-    const updater = elementUpdaters[element.type];
-    if (updater) {
-      updater(element, elConfig.changes, { historyId, ...otherContext });
-    }
+    element.update(elConfig.changes, { historyId, ...otherContext });
   }
 };
 

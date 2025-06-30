@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { uid } from '../../utils/uuid';
 import {
-  Background,
-  Bar,
-  Icon,
-  Text,
+  backgroundSchema,
+  barSchema,
   componentArraySchema,
   componentSchema,
+  iconSchema,
+  textSchema,
 } from './component-schema.js';
 
 // Mocking a unique ID generator for predictable test outcomes.
@@ -23,7 +23,7 @@ describe('Component Schemas', () => {
   describe('Background Schema', () => {
     it('should parse with a string source', () => {
       const data = { type: 'background', source: 'image.png' };
-      const parsed = Background.parse(data);
+      const parsed = backgroundSchema.parse(data);
       expect(parsed.source).toBe('image.png');
       expect(parsed.id).toBe('mock-id-0'); // check default from Base
     });
@@ -33,13 +33,13 @@ describe('Component Schemas', () => {
         type: 'background',
         source: { type: 'rect', fill: 'red' },
       };
-      const parsed = Background.parse(data);
+      const parsed = backgroundSchema.parse(data);
       expect(parsed.source).toEqual({ type: 'rect', fill: 'red' });
     });
 
     it('should fail with an invalid source type', () => {
       const data = { type: 'background', source: 123 };
-      expect(() => Background.parse(data)).toThrow();
+      expect(() => backgroundSchema.parse(data)).toThrow();
     });
 
     it('should fail if an unknown property is provided', () => {
@@ -48,7 +48,7 @@ describe('Component Schemas', () => {
         source: 'image.png',
         unknown: 'property',
       };
-      expect(() => Background.parse(data)).toThrow();
+      expect(() => backgroundSchema.parse(data)).toThrow();
     });
   });
 
@@ -56,7 +56,7 @@ describe('Component Schemas', () => {
     const baseBar = { type: 'bar', source: { type: 'rect', fill: 'blue' } };
 
     it('should parse a minimal valid bar and apply all defaults', () => {
-      const parsed = Bar.parse(baseBar);
+      const parsed = barSchema.parse(baseBar);
       expect(parsed.placement).toBe('bottom');
       expect(parsed.margin).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
       expect(parsed.animation).toBe(true);
@@ -75,7 +75,7 @@ describe('Component Schemas', () => {
         animation: false,
         animationDuration: 1000,
       };
-      const parsed = Bar.parse(data);
+      const parsed = barSchema.parse(data);
       expect(parsed.placement).toBe('top');
       expect(parsed.margin).toEqual({
         top: -20,
@@ -92,13 +92,15 @@ describe('Component Schemas', () => {
 
     it('should fail if source is missing or has invalid type', () => {
       const { source, ...rest } = baseBar;
-      expect(() => Bar.parse(rest)).toThrow(); // Missing source
-      expect(() => Bar.parse({ ...baseBar, source: 'a-string' })).toThrow(); // Invalid source type
+      expect(() => barSchema.parse(rest)).toThrow(); // Missing source
+      expect(() =>
+        barSchema.parse({ ...baseBar, source: 'a-string' }),
+      ).toThrow(); // Invalid source type
     });
 
     it('should fail if an unknown property is provided', () => {
       const data = { ...baseBar, width: 100, another: 'property' };
-      expect(() => Bar.parse(data)).toThrow();
+      expect(() => barSchema.parse(data)).toThrow();
     });
   });
 
@@ -106,7 +108,7 @@ describe('Component Schemas', () => {
     const baseIcon = { type: 'icon', source: 'icon.svg' };
 
     it('should parse a minimal valid icon and apply defaults', () => {
-      const parsed = Icon.parse(baseIcon);
+      const parsed = iconSchema.parse(baseIcon);
       expect(parsed.source).toBe('icon.svg');
       expect(parsed.placement).toBe('center');
       expect(parsed.margin).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
@@ -115,29 +117,29 @@ describe('Component Schemas', () => {
 
     it('should parse correctly with size properties', () => {
       const data = { ...baseIcon, size: '75%' };
-      const parsed = Icon.parse(data);
+      const parsed = iconSchema.parse(data);
       expect(parsed.size).toEqual({ value: 75, unit: '%' });
     });
 
     it('should fail if required `source` is missing', () => {
       const data = { type: 'icon', size: 50 };
-      expect(() => Icon.parse(data)).toThrow();
+      expect(() => iconSchema.parse(data)).toThrow();
     });
 
     it('should fail if `source` is not a string', () => {
       const data = { type: 'icon', source: {} };
-      expect(() => Icon.parse(data)).toThrow();
+      expect(() => iconSchema.parse(data)).toThrow();
     });
 
     it('should fail if an unknown property is provided', () => {
       const data = { ...baseIcon, extra: 'property' };
-      expect(() => Icon.parse(data)).toThrow();
+      expect(() => iconSchema.parse(data)).toThrow();
     });
   });
 
   describe('Text Schema', () => {
     it('should parse valid text and apply all defaults', () => {
-      const parsed = Text.parse({ type: 'text' });
+      const parsed = textSchema.parse({ type: 'text' });
       expect(parsed.text).toBe('');
       expect(parsed.style.fontFamily).toBe('FiraCode');
       expect(parsed.style.fill).toBe('black');
@@ -151,7 +153,7 @@ describe('Component Schemas', () => {
         type: 'text',
         style: { fill: 'red', fontSize: 24 },
       };
-      const parsed = Text.parse(data);
+      const parsed = textSchema.parse(data);
       expect(parsed.style.fill).toBe('red'); // Overridden
       expect(parsed.style.fontSize).toBe(24); // Added
       expect(parsed.style.fontFamily).toBe('FiraCode'); // Default maintained
@@ -159,12 +161,12 @@ describe('Component Schemas', () => {
 
     it('should fail if `split` is not an integer', () => {
       const data = { type: 'text', split: 1.5 };
-      expect(() => Text.parse(data)).toThrow();
+      expect(() => textSchema.parse(data)).toThrow();
     });
 
     it('should fail if an unknown property is provided', () => {
       const data = { type: 'text', text: 'hello', somethingElse: 'test' };
-      expect(() => Text.parse(data)).toThrow();
+      expect(() => textSchema.parse(data)).toThrow();
     });
   });
 

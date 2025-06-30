@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { uid } from '../../utils/uuid';
 import {
-  Grid,
-  Group,
-  Item,
-  Relations,
+  gridSchema,
+  groupSchema,
+  itemSchema,
   mapDataSchema,
+  relationsSchema,
 } from './element-schema.js';
 
 // Mock component-schema as its details are not relevant for these element tests.
@@ -31,14 +31,14 @@ describe('Element Schemas', () => {
         id: 'group-1',
         children: [{ type: 'item', id: 'item-1', width: 100, height: 100 }],
       };
-      const parsed = Group.parse(groupData);
+      const parsed = groupSchema.parse(groupData);
       expect(parsed.children).toHaveLength(1);
       expect(parsed.children[0].type).toBe('item');
     });
 
     it('should parse a group with empty children', () => {
       const groupData = { type: 'group', id: 'group-1', children: [] };
-      expect(() => Group.parse(groupData)).not.toThrow();
+      expect(() => groupSchema.parse(groupData)).not.toThrow();
     });
 
     it('should fail if children contains an invalid element', () => {
@@ -47,7 +47,7 @@ describe('Element Schemas', () => {
         id: 'group-1',
         children: [{ type: 'invalid-type' }],
       };
-      expect(() => Group.parse(invalidGroupData)).toThrow();
+      expect(() => groupSchema.parse(invalidGroupData)).toThrow();
     });
 
     it('should fail if an unknown property is provided', () => {
@@ -57,7 +57,7 @@ describe('Element Schemas', () => {
         children: [],
         extra: 'property',
       };
-      expect(() => Group.parse(groupData)).toThrow();
+      expect(() => groupSchema.parse(groupData)).toThrow();
     });
   });
 
@@ -70,35 +70,35 @@ describe('Element Schemas', () => {
     };
 
     it('should parse a valid grid and preprocess gap', () => {
-      const parsed = Grid.parse(baseGrid);
+      const parsed = gridSchema.parse(baseGrid);
       expect(parsed.gap).toEqual({ x: 0, y: 0 });
       expect(parsed.item).toEqual({ width: 50, height: 50, components: [] });
     });
 
     it('should fail if cells contains invalid values', () => {
       const gridData = { ...baseGrid, cells: [[1, 2]] };
-      expect(() => Grid.parse(gridData)).toThrow();
+      expect(() => gridSchema.parse(gridData)).toThrow();
     });
 
     it('should fail if item is missing required size', () => {
       const gridData = { ...baseGrid, item: { components: [] } };
-      expect(() => Grid.parse(gridData)).toThrow();
+      expect(() => gridSchema.parse(gridData)).toThrow();
     });
 
     it('should fail if required properties are missing', () => {
-      expect(() => Grid.parse({ type: 'grid', id: 'g1' })).toThrow(); // missing cells, item
+      expect(() => gridSchema.parse({ type: 'grid', id: 'g1' })).toThrow(); // missing cells, item
     });
 
     it('should fail if an unknown property is provided', () => {
       const gridData = { ...baseGrid, unknown: 'property' };
-      expect(() => Grid.parse(gridData)).toThrow();
+      expect(() => gridSchema.parse(gridData)).toThrow();
     });
   });
 
   describe('Item Schema', () => {
     it('should parse a valid item with required properties', () => {
       const itemData = { type: 'item', id: 'item-1', width: 100, height: 200 };
-      const parsed = Item.parse(itemData);
+      const parsed = itemSchema.parse(itemData);
       expect(parsed.width).toBe(100);
       expect(parsed.height).toBe(200);
       expect(parsed.components).toEqual([]); // default value
@@ -106,7 +106,7 @@ describe('Element Schemas', () => {
 
     it('should fail if required size properties are missing', () => {
       const itemData = { type: 'item', id: 'item-1' };
-      expect(() => Item.parse(itemData)).toThrow();
+      expect(() => itemSchema.parse(itemData)).toThrow();
     });
 
     it('should fail if an unknown property is provided', () => {
@@ -117,7 +117,7 @@ describe('Element Schemas', () => {
         height: 100,
         x: 50, // This is an unknown property
       };
-      expect(() => Item.parse(itemData)).toThrow();
+      expect(() => itemSchema.parse(itemData)).toThrow();
     });
   });
 
@@ -128,7 +128,7 @@ describe('Element Schemas', () => {
         id: 'rel-1',
         links: [{ source: 'a', target: 'b' }],
       };
-      const parsed = Relations.parse(relationsData);
+      const parsed = relationsSchema.parse(relationsData);
       expect(parsed.links).toHaveLength(1);
       expect(parsed.style).toEqual({ color: 'black' });
     });
@@ -140,7 +140,7 @@ describe('Element Schemas', () => {
         links: [],
         style: { color: 'blue', lineWidth: 2 },
       };
-      const parsed = Relations.parse(relationsData);
+      const parsed = relationsSchema.parse(relationsData);
       expect(parsed.style).toEqual({ color: 'blue', lineWidth: 2 });
     });
 
@@ -150,7 +150,7 @@ describe('Element Schemas', () => {
         id: 'rel-1',
         links: [{ source: 'a' }], // missing target
       };
-      expect(() => Relations.parse(relationsData)).toThrow();
+      expect(() => relationsSchema.parse(relationsData)).toThrow();
     });
 
     it('should fail if an unknown property is provided', () => {
@@ -160,7 +160,7 @@ describe('Element Schemas', () => {
         links: [],
         extra: 'data',
       };
-      expect(() => Relations.parse(relationsData)).toThrow();
+      expect(() => relationsSchema.parse(relationsData)).toThrow();
     });
   });
 

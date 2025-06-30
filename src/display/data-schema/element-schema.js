@@ -7,7 +7,7 @@ import { Base, Gap, RelationsStyle, Size } from './primitive-schema';
  * Visually represented by a `Container`.
  * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  */
-export const Group = Base.extend({
+export const groupSchema = Base.extend({
   type: z.literal('group'),
   children: z.array(z.lazy(() => elementTypes)),
 }).strict();
@@ -18,7 +18,7 @@ export const Group = Base.extend({
  * Visually represented by a `Container`.
  * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  */
-export const Grid = Base.extend({
+export const gridSchema = Base.extend({
   type: z.literal('grid'),
   cells: z.array(z.array(z.union([z.literal(0), z.literal(1)]))),
   gap: Gap,
@@ -31,7 +31,7 @@ export const Grid = Base.extend({
  * Visually represented by a `Container`.
  * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  */
-export const Item = Base.merge(Size)
+export const itemSchema = Base.merge(Size)
   .extend({
     type: z.literal('item'),
     components: componentArraySchema,
@@ -44,17 +44,17 @@ export const Item = Base.merge(Size)
  * Visually represented by a `Container`.
  * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  */
-export const Relations = Base.extend({
+export const relationsSchema = Base.extend({
   type: z.literal('relations'),
   links: z.array(z.object({ source: z.string(), target: z.string() })),
   style: RelationsStyle,
 }).strict();
 
 const elementTypes = z.discriminatedUnion('type', [
-  Group,
-  Grid,
-  Item,
-  Relations,
+  groupSchema,
+  gridSchema,
+  itemSchema,
+  relationsSchema,
 ]);
 
 export const mapDataSchema = z
