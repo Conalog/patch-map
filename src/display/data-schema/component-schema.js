@@ -25,32 +25,30 @@ export const backgroundSchema = Base.extend({
  * Visually represented by a `NineSliceSprite`.
  * @see {@link https://pixijs.download/release/docs/scene.NineSliceSprite.html}
  */
-export const barSchema = Base.merge(PxOrPercentSize)
-  .extend({
-    type: z.literal('bar'),
-    source: TextureStyle,
-    placement: Placement.default('bottom'),
-    margin: Margin.default(0),
-    tint: Tint.optional(),
-    animation: z.boolean().default(true),
-    animationDuration: z.number().default(200),
-  })
-  .strict();
+export const barSchema = Base.extend({
+  type: z.literal('bar'),
+  source: TextureStyle,
+  size: PxOrPercentSize,
+  placement: Placement.default('bottom'),
+  margin: Margin.default(0),
+  tint: Tint.optional(),
+  animation: z.boolean().default(true),
+  animationDuration: z.number().default(200),
+}).strict();
 
 /**
  * A component for displaying an icon image.
  * Visually represented by a `Sprite`.
  * @see {@link https://pixijs.download/release/docs/scene.Sprite.html}
  */
-export const iconSchema = Base.merge(PxOrPercentSize)
-  .extend({
-    type: z.literal('icon'),
-    source: z.string(),
-    placement: Placement.default('center'),
-    margin: Margin.default(0),
-    tint: Tint.optional(),
-  })
-  .strict();
+export const iconSchema = Base.extend({
+  type: z.literal('icon'),
+  source: z.string(),
+  size: PxOrPercentSize,
+  placement: Placement.default('center'),
+  margin: Margin.default(0),
+  tint: Tint.optional(),
+}).strict();
 
 /**
  * A text label component.

@@ -5,20 +5,23 @@ import { isConfigMatch, killTweensOf, updateConfig } from './utils';
 export const changePercentSize = (
   object,
   {
-    width = object.config.width,
-    height = object.config.height,
+    size = object.config.size,
     margin = object.config.margin,
     animationDuration = object.config.animationDuration,
   },
   { animationContext },
 ) => {
   if (
-    isConfigMatch(object, 'width', width) &&
-    isConfigMatch(object, 'height', height) &&
+    isConfigMatch(object, 'size', size) &&
     isConfigMatch(object, 'margin', margin)
   ) {
     return;
   }
+
+  const {
+    width = object.config.size.width,
+    height = object.config.size.height,
+  } = size;
 
   if (width.unit === '%') {
     changeWidth(object, width, margin);
@@ -27,8 +30,7 @@ export const changePercentSize = (
     changeHeight(object, height, margin);
   }
   updateConfig(object, {
-    width,
-    height,
+    size,
     margin,
     animationDuration,
   });

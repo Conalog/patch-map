@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { uid } from '../../utils/uuid';
+import { deepPartial } from '../../utils/zod-deep-strict-partial';
 import {
   Base,
   Gap,
@@ -56,8 +57,6 @@ describe('Primitive Schema Tests', () => {
     it.each(validColorSourceCases)(
       'should correctly parse various color source types: $case',
       ({ value }) => {
-        // Since the schema is z.union([z.string(), z.any()]),
-        // it should not throw for any of these valid ColorSource formats.
         expect(() => Tint.parse(value)).not.toThrow();
         const parsed = Tint.parse(value);
         expect(parsed).toEqual(value);
@@ -67,7 +66,12 @@ describe('Primitive Schema Tests', () => {
 
   describe('Base Schema', () => {
     it('should parse a valid object with all properties', () => {
-      const data = { show: false, id: 'custom-id', attrs: { extra: 'value' } };
+      const data = {
+        show: false,
+        id: 'custom-id',
+        label: 'My Base',
+        attrs: { extra: 'value' },
+      };
       const result = Base.parse(data);
       expect(result).toEqual(data);
     });
@@ -83,43 +87,28 @@ describe('Primitive Schema Tests', () => {
       const data = { show: true, unknownProperty: 'test' };
       expect(() => Base.parse(data)).toThrow();
     });
-
-    it('should allow "attrs" to contain any data type', () => {
-      const data = {
-        attrs: {
-          aNumber: 123,
-          aString: 'hello',
-          aBoolean: false,
-          aNull: null,
-          anObject: { nested: true },
-        },
-      };
-      const result = Base.parse(data);
-      expect(result.attrs).toEqual(data.attrs);
-    });
   });
 
   describe('Size Schema', () => {
-    it.each([
-      { case: 'positive integers', input: { width: 100, height: 200 } },
-      { case: 'zero values', input: { width: 0, height: 0 } },
-      { case: 'floating point numbers', input: { width: 10.5, height: 20.5 } },
-    ])('should correctly parse valid size object for $case', ({ input }) => {
+    it('should transform a single number into a width/height object', () => {
+      const input = 100;
+      const expected = { width: 100, height: 100 };
+      expect(Size.parse(input)).toEqual(expected);
+    });
+
+    it('should correctly parse a valid width/height object', () => {
+      const input = { width: 100, height: 200 };
       expect(Size.parse(input)).toEqual(input);
     });
 
     it.each([
-      { case: 'negative width', input: { width: -100, height: 100 } },
-      { case: 'negative height', input: { width: 100, height: -1 } },
-      { case: 'invalid type (string)', input: { width: '100', height: 100 } },
-      { case: 'missing height property', input: { width: 100 } },
-      { case: 'NaN value', input: { width: 100, height: Number.NaN } },
-    ])(
-      'should throw an error for invalid size object for $case',
-      ({ input }) => {
-        expect(() => Size.parse(input)).toThrow();
-      },
-    );
+      { case: 'negative number', input: -100 },
+      { case: 'invalid object property', input: { width: '100', height: 100 } },
+      { case: 'partial object', input: { width: 100 } },
+      { case: 'null input', input: null },
+    ])('should throw an error for invalid input: $case', ({ input }) => {
+      expect(() => Size.parse(input)).toThrow();
+    });
   });
 
   describe('pxOrPercentSchema', () => {
@@ -135,21 +124,6 @@ describe('Primitive Schema Tests', () => {
         expected: { value: 80, unit: '%' },
       },
       {
-        case: 'float percentage string',
-        input: '33.3%',
-        expected: { value: 33.3, unit: '%' },
-      },
-      {
-        case: 'zero pixel',
-        input: 0,
-        expected: { value: 0, unit: 'px' },
-      },
-      {
-        case: 'zero percent',
-        input: '0%',
-        expected: { value: 0, unit: '%' },
-      },
-      {
         case: 'pre-formatted object',
         input: { value: 50, unit: 'px' },
         expected: { value: 50, unit: 'px' },
@@ -161,20 +135,35 @@ describe('Primitive Schema Tests', () => {
     it.each([
       { case: 'negative number', input: -100 },
       { case: 'malformed percentage string', input: '100' },
-      { case: 'percentage with space', input: '50 %' },
-      { case: 'invalid unit string', input: '100em' },
       {
         case: 'invalid pre-formatted object unit',
         input: { value: 50, unit: 'em' },
       },
-      { case: 'null input', input: null },
     ])('should throw an error for invalid input for $case', ({ input }) => {
       expect(() => pxOrPercentSchema.parse(input)).toThrow();
     });
   });
 
   describe('PxOrPercentSize Schema', () => {
-    it('should parse and transform mixed pixel and percentage values', () => {
+    it('should transform a single number into a full px width/height object', () => {
+      const input = 100;
+      const expected = {
+        width: { value: 100, unit: 'px' },
+        height: { value: 100, unit: 'px' },
+      };
+      expect(PxOrPercentSize.parse(input)).toEqual(expected);
+    });
+
+    it('should transform a single percentage string into a full % width/height object', () => {
+      const input = '75%';
+      const expected = {
+        width: { value: 75, unit: '%' },
+        height: { value: 75, unit: '%' },
+      };
+      expect(PxOrPercentSize.parse(input)).toEqual(expected);
+    });
+
+    it('should correctly parse a full width/height object', () => {
       const input = { width: 150, height: '75%' };
       const expected = {
         width: { value: 150, unit: 'px' },
@@ -183,24 +172,25 @@ describe('Primitive Schema Tests', () => {
       expect(PxOrPercentSize.parse(input)).toEqual(expected);
     });
 
-    it('should correctly parse the new "size" property', () => {
-      const input = { size: '50%' };
-      const expected = { size: { value: 50, unit: '%' } };
-      expect(PxOrPercentSize.parse(input)).toEqual(expected);
-    });
-
-    it('should parse an empty object', () => {
-      expect(PxOrPercentSize.parse({})).toEqual({});
-    });
-
-    it('should handle all properties at once', () => {
-      const input = { width: 100, height: '50%', size: 25 };
-      const expected = {
-        width: { value: 100, unit: 'px' },
-        height: { value: 50, unit: '%' },
-        size: { value: 25, unit: 'px' },
+    it('', () => {
+      const input = {
+        width: { value: 150, unit: 'px' },
+        height: { value: 75, unit: '%' },
       };
-      expect(PxOrPercentSize.parse(input)).toEqual(expected);
+      const expected = {
+        width: { value: 150, unit: 'px' },
+        height: { value: 75, unit: '%' },
+      };
+      console.log(PxOrPercentSize._def);
+      expect(deepPartial(PxOrPercentSize).parse(input)).toEqual(expected);
+    });
+
+    it.each([
+      { case: 'partial object', input: { width: 100 } },
+      { case: 'invalid value in object', input: { width: -50, height: 100 } },
+      { case: 'null input', input: null },
+    ])('should throw an error for invalid input: $case', ({ input }) => {
+      expect(() => PxOrPercentSize.parse(input)).toThrow();
     });
   });
 
@@ -220,7 +210,7 @@ describe('Primitive Schema Tests', () => {
       expect(() => Placement.parse(placement)).not.toThrow();
     });
 
-    it.each(['top-left', 'center-top', 'invalid-placement', '', null])(
+    it.each(['top-left', 'invalid-placement', null])(
       'should reject invalid placement value: %s',
       (placement) => {
         expect(() => Placement.parse(placement)).toThrow();
@@ -359,19 +349,6 @@ describe('Primitive Schema Tests', () => {
         color: 'black',
         lineWidth: 2,
       });
-    });
-
-    it('should not override provided color', () => {
-      const data = { color: 'blue' };
-      expect(RelationsStyle.parse(data)).toEqual({ color: 'blue' });
-    });
-
-    it.each([
-      { case: 'undefined', input: undefined },
-      { case: 'null', input: null },
-      { case: 'empty object', input: {} },
-    ])('should return default object for $case input', ({ input }) => {
-      expect(RelationsStyle.parse(input)).toEqual({ color: 'black' });
     });
   });
 

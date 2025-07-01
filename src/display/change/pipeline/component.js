@@ -34,7 +34,7 @@ export const componentPipeline = {
     },
   },
   percentSize: {
-    keys: ['width', 'height', 'margin'],
+    keys: ['size', 'margin'],
     handler: (component, config, options) => {
       change.changePercentSize(component, config, options);
       change.changePlacement(component, {});

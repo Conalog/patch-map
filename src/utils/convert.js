@@ -48,8 +48,7 @@ export const convertLegacyData = (data) => {
               {
                 type: 'bar',
                 show: false,
-                width: '100%',
-                height: '100%',
+                size: '100%',
                 source: { type: 'rect', radius: 3 },
                 tint: 'primary.default',
                 margin: 3,
@@ -105,7 +104,7 @@ export const convertLegacyData = (data) => {
           type: 'item',
           id: value.id,
           label: value.name,
-          size: { width: 40, height: 40 },
+          size: 40,
           components: [
             {
               type: 'background',

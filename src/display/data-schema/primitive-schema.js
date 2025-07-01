@@ -19,16 +19,24 @@ export const Base = z
   })
   .strict();
 
-export const Size = z.object({
-  width: z.number().nonnegative(),
-  height: z.number().nonnegative(),
-});
+export const Size = z.union([
+  z
+    .number()
+    .nonnegative()
+    .transform((val) => ({ width: val, height: val })),
+  z.object({
+    width: z.number().nonnegative(),
+    height: z.number().nonnegative(),
+  }),
+]);
 
 export const pxOrPercentSchema = z
   .union([
     z.number().nonnegative(),
     z.string().regex(/^\d+(\.\d+)?%$/),
-    z.object({ value: z.number().nonnegative(), unit: z.enum(['px', '%']) }),
+    z
+      .object({ value: z.number().nonnegative(), unit: z.enum(['px', '%']) })
+      .strict(),
   ])
   .transform((val) => {
     if (typeof val === 'number') {
@@ -40,13 +48,13 @@ export const pxOrPercentSchema = z
     return val;
   });
 
-export const PxOrPercentSize = z
-  .object({
+export const PxOrPercentSize = z.union([
+  pxOrPercentSchema.transform((val) => ({ width: val, height: val })),
+  z.object({
     width: pxOrPercentSchema,
     height: pxOrPercentSchema,
-    size: pxOrPercentSchema,
-  })
-  .partial();
+  }),
+]);
 
 export const Placement = z.enum([
   'left',

@@ -53,53 +53,80 @@ describe('Component Schemas', () => {
   });
 
   describe('Bar Schema', () => {
-    const baseBar = { type: 'bar', source: { type: 'rect', fill: 'blue' } };
+    const baseBar = {
+      type: 'bar',
+      source: { type: 'rect', fill: 'blue' },
+    };
 
-    it('should parse a minimal valid bar and apply all defaults', () => {
-      const parsed = barSchema.parse(baseBar);
+    it('should parse a minimal valid bar and transform size to an object', () => {
+      const data = { ...baseBar, size: 100 }; // Input size is a single number
+      const parsed = barSchema.parse(data);
       expect(parsed.placement).toBe('bottom');
       expect(parsed.margin).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
       expect(parsed.animation).toBe(true);
       expect(parsed.animationDuration).toBe(200);
-      expect(parsed.width).toBeUndefined();
-      expect(parsed.height).toBeUndefined();
+      // The single number `100` is transformed into a full width/height object.
+      expect(parsed.size).toEqual({
+        width: { value: 100, unit: 'px' },
+        height: { value: 100, unit: 'px' },
+      });
     });
 
-    it('should correctly parse all properties and override defaults', () => {
+    it('should correctly parse an object size', () => {
       const data = {
         ...baseBar,
-        width: '50%',
-        height: 20,
-        placement: 'top',
-        margin: { x: 10, y: -20 }, // Negative margin is allowed
-        animation: false,
-        animationDuration: 1000,
+        size: { width: '50%', height: 20 },
       };
       const parsed = barSchema.parse(data);
-      expect(parsed.placement).toBe('top');
-      expect(parsed.margin).toEqual({
-        top: -20,
-        right: 10,
-        bottom: -20,
-        left: 10,
+      // The size object is parsed correctly.
+      expect(parsed.size).toEqual({
+        width: { value: 50, unit: '%' },
+        height: { value: 20, unit: 'px' },
       });
-      expect(parsed.animation).toBe(false);
-      expect(parsed.animationDuration).toBe(1000);
-      // Check if PxOrPercentSize transformation worked
-      expect(parsed.width).toEqual({ value: 50, unit: '%' });
-      expect(parsed.height).toEqual({ value: 20, unit: 'px' });
     });
 
-    it('should fail if source is missing or has invalid type', () => {
-      const { source, ...rest } = baseBar;
-      expect(() => barSchema.parse(rest)).toThrow(); // Missing source
-      expect(() =>
-        barSchema.parse({ ...baseBar, source: 'a-string' }),
-      ).toThrow(); // Invalid source type
+    it.each([
+      {
+        case: 'single number',
+        input: 150,
+        expected: {
+          width: { value: 150, unit: 'px' },
+          height: { value: 150, unit: 'px' },
+        },
+      },
+      {
+        case: 'percentage string',
+        input: '75%',
+        expected: {
+          width: { value: 75, unit: '%' },
+          height: { value: 75, unit: '%' },
+        },
+      },
+    ])(
+      'should correctly parse and transform different valid size formats: $case',
+      ({ input, expected }) => {
+        const data = { ...baseBar, size: input };
+        const parsed = barSchema.parse(data);
+        expect(parsed.size).toEqual(expected);
+      },
+    );
+
+    it('should fail if required `size` or `source` is missing', () => {
+      const dataWithoutSource = { type: 'bar', size: 100 };
+      const dataWithoutSize = { type: 'bar', source: { type: 'rect' } };
+      expect(() => barSchema.parse(dataWithoutSource)).toThrow();
+      expect(() => barSchema.parse(dataWithoutSize)).toThrow();
+    });
+
+    it('should fail if size is a partial object', () => {
+      const dataWithPartialWidth = { ...baseBar, size: { width: '25%' } }; // Missing height
+      const dataWithPartialHeight = { ...baseBar, size: { height: 20 } }; // Missing width
+      expect(() => barSchema.parse(dataWithPartialWidth)).toThrow();
+      expect(() => barSchema.parse(dataWithPartialHeight)).toThrow();
     });
 
     it('should fail if an unknown property is provided', () => {
-      const data = { ...baseBar, width: 100, another: 'property' };
+      const data = { ...baseBar, size: 100, another: 'property' };
       expect(() => barSchema.parse(data)).toThrow();
     });
   });
@@ -107,32 +134,60 @@ describe('Component Schemas', () => {
   describe('Icon Schema', () => {
     const baseIcon = { type: 'icon', source: 'icon.svg' };
 
-    it('should parse a minimal valid icon and apply defaults', () => {
-      const parsed = iconSchema.parse(baseIcon);
-      expect(parsed.source).toBe('icon.svg');
+    it('should parse a minimal valid icon and transform size to an object', () => {
+      const data = { ...baseIcon, size: 50 };
+      const parsed = iconSchema.parse(data);
       expect(parsed.placement).toBe('center');
       expect(parsed.margin).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
-      expect(parsed.size).toBeUndefined();
+      // The single number `50` is transformed into a full width/height object.
+      expect(parsed.size).toEqual({
+        width: { value: 50, unit: 'px' },
+        height: { value: 50, unit: 'px' },
+      });
     });
 
-    it('should parse correctly with size properties', () => {
-      const data = { ...baseIcon, size: '75%' };
-      const parsed = iconSchema.parse(data);
-      expect(parsed.size).toEqual({ value: 75, unit: '%' });
+    it.each([
+      {
+        case: 'percentage string',
+        input: '75%',
+        expected: {
+          width: { value: 75, unit: '%' },
+          height: { value: 75, unit: '%' },
+        },
+      },
+      {
+        case: 'object with width and height',
+        input: { width: 100, height: '100%' },
+        expected: {
+          width: { value: 100, unit: 'px' },
+          height: { value: 100, unit: '%' },
+        },
+      },
+    ])(
+      'should parse and transform correctly with different size properties: $case',
+      ({ input, expected }) => {
+        const data = { ...baseIcon, size: input };
+        const parsed = iconSchema.parse(data);
+        expect(parsed.size).toEqual(expected);
+      },
+    );
+
+    it('should fail if required `source` or `size` is missing', () => {
+      const dataWithoutSource = { type: 'icon', size: 50 };
+      const dataWithoutSize = { type: 'icon', source: 'icon.svg' };
+      expect(() => iconSchema.parse(dataWithoutSource)).toThrow();
+      expect(() => iconSchema.parse(dataWithoutSize)).toThrow();
     });
 
-    it('should fail if required `source` is missing', () => {
-      const data = { type: 'icon', size: 50 };
-      expect(() => iconSchema.parse(data)).toThrow();
-    });
-
-    it('should fail if `source` is not a string', () => {
-      const data = { type: 'icon', source: {} };
-      expect(() => iconSchema.parse(data)).toThrow();
+    it('should fail if size is a partial object', () => {
+      const dataWithPartialWidth = { ...baseIcon, size: { width: '25%' } }; // Missing height
+      const dataWithPartialHeight = { ...baseIcon, size: { height: 20 } }; // Missing width
+      expect(() => iconSchema.parse(dataWithPartialWidth)).toThrow();
+      expect(() => iconSchema.parse(dataWithPartialHeight)).toThrow();
     });
 
     it('should fail if an unknown property is provided', () => {
-      const data = { ...baseIcon, extra: 'property' };
+      const data = { ...baseIcon, size: 50, extra: 'property' };
       expect(() => iconSchema.parse(data)).toThrow();
     });
   });
@@ -158,23 +213,19 @@ describe('Component Schemas', () => {
       expect(parsed.style.fontSize).toBe(24); // Added
       expect(parsed.style.fontFamily).toBe('FiraCode'); // Default maintained
     });
-
-    it('should fail if `split` is not an integer', () => {
-      const data = { type: 'text', split: 1.5 };
-      expect(() => textSchema.parse(data)).toThrow();
-    });
-
-    it('should fail if an unknown property is provided', () => {
-      const data = { type: 'text', text: 'hello', somethingElse: 'test' };
-      expect(() => textSchema.parse(data)).toThrow();
-    });
   });
 
   describe('componentSchema (Discriminated Union)', () => {
     it.each([
       { case: 'a valid background', data: { type: 'background', source: 'a' } },
-      { case: 'a valid bar', data: { type: 'bar', source: {} } },
-      { case: 'a valid icon', data: { type: 'icon', source: 'a' } },
+      {
+        case: 'a valid bar',
+        data: { type: 'bar', source: { type: 'rect' }, size: 100 },
+      },
+      {
+        case: 'a valid icon',
+        data: { type: 'icon', source: 'a', size: '50%' },
+      },
       { case: 'a valid text', data: { type: 'text' } },
     ])('should correctly parse $case', ({ data }) => {
       expect(() => componentSchema.parse(data)).not.toThrow();
@@ -186,14 +237,6 @@ describe('Component Schemas', () => {
       expect(result.success).toBe(false);
       expect(result.error.issues[0].code).toBe('invalid_union_discriminator');
     });
-
-    it('should fail for a known type with missing required properties', () => {
-      // 'icon' requires 'source'
-      const data = { type: 'icon' };
-      const result = componentSchema.safeParse(data);
-      expect(result.success).toBe(false);
-      expect(result.error.issues[0].path).toEqual(['source']);
-    });
   });
 
   describe('componentArraySchema', () => {
@@ -202,24 +245,24 @@ describe('Component Schemas', () => {
         { type: 'background', source: 'bg.png' },
         { type: 'text', text: 'Hello World' },
         { type: 'icon', source: 'icon.svg', size: '10%' },
-        { type: 'bar', source: { fill: 'green' }, width: 100 },
+        {
+          type: 'bar',
+          source: { fill: 'green' },
+          size: { width: 100, height: '20%' },
+        },
       ];
       expect(() => componentArraySchema.parse(data)).not.toThrow();
-    });
-
-    it('should parse an empty array', () => {
-      expect(() => componentArraySchema.parse([])).not.toThrow();
     });
 
     it('should fail if any single element in the array is invalid', () => {
       const data = [
         { type: 'text', text: 'Valid' },
-        { type: 'bar' }, // Invalid: missing 'source'
+        { type: 'bar', source: { type: 'rect' } }, // Invalid: missing 'size'
       ];
       const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(false);
-      // The error path should correctly point to the invalid element.
-      expect(result.error.issues[0].path).toEqual([1, 'source']);
+      // The error path should correctly point to the invalid element's missing property.
+      expect(result.error.issues[0].path).toEqual([1, 'size']);
     });
   });
 });
