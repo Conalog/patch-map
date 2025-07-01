@@ -1,10 +1,10 @@
 import { getTexture } from '../../assets/textures/texture';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { getViewport } from '../../utils/get';
-import { isConfigMatch, updateConfig } from './utils';
+import { isMatch, mergeProps } from './utils';
 
 export const changeTexture = (object, { source: textureConfig }, { theme }) => {
-  if (isConfigMatch(object, 'texture', textureConfig)) {
+  if (isMatch(object, { source: textureConfig })) {
     return;
   }
 
@@ -16,5 +16,5 @@ export const changeTexture = (object, { source: textureConfig }, { theme }) => {
   );
   object.texture = texture ?? null;
   Object.assign(object, { ...texture.metadata.slice });
-  updateConfig(object, { texture: textureConfig });
+  mergeProps(object, { source: textureConfig });
 };

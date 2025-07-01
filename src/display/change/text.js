@@ -1,24 +1,21 @@
 import { changeTextStyle } from './text-style';
-import { isConfigMatch, updateConfig } from './utils';
+import { isMatch, mergeProps } from './utils';
 
 export const changeText = (
   object,
-  { text = object.config.text, split = object.config.split },
+  { text = object.text, split = object.split },
   { theme },
 ) => {
-  if (
-    isConfigMatch(object, 'text', text) &&
-    isConfigMatch(object, 'split', split)
-  ) {
+  if (isMatch(object, { text, split })) {
     return;
   }
 
   object.text = splitText(text, split);
 
-  if (object.config?.style?.fontSize === 'auto') {
+  if (object?.style?.fontSize === 'auto') {
     changeTextStyle(object, { style: { fontSize: 'auto' } }, { theme });
   }
-  updateConfig(object, { text, split });
+  mergeProps(object, { text, split });
 
   function splitText(text, chunkSize) {
     if (chunkSize === 0 || chunkSize == null) {

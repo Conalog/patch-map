@@ -1,27 +1,21 @@
 import gsap from 'gsap';
 import { changePlacement } from './placement';
-import { isConfigMatch, killTweensOf, updateConfig } from './utils';
+import { isMatch, killTweensOf, mergeProps } from './utils';
 
 export const changePercentSize = (
   object,
   {
-    size = object.config.size,
-    margin = object.config.margin,
-    animationDuration = object.config.animationDuration,
+    size = object.size,
+    margin = object.margin,
+    animationDuration = object.animationDuration,
   },
   { animationContext },
 ) => {
-  if (
-    isConfigMatch(object, 'size', size) &&
-    isConfigMatch(object, 'margin', margin)
-  ) {
+  if (isMatch(object, { size, margin })) {
     return;
   }
 
-  const {
-    width = object.config.size.width,
-    height = object.config.size.height,
-  } = size;
+  const { width = object.size.width, height = object.size.height } = size;
 
   if (width.unit === '%') {
     changeWidth(object, width, margin);
@@ -29,11 +23,7 @@ export const changePercentSize = (
   if (height.unit === '%') {
     changeHeight(object, height, margin);
   }
-  updateConfig(object, {
-    size,
-    margin,
-    animationDuration,
-  });
+  mergeProps(object, { size, margin, animationDuration });
 
   function changeWidth(component, width, marginObj) {
     const maxWidth =
@@ -45,7 +35,7 @@ export const changePercentSize = (
     const maxHeight =
       component.parent.size.height - (margin.top + margin.bottom);
 
-    if (object.config.animation) {
+    if (object.animation) {
       animationContext.add(() => {
         killTweensOf(component);
         gsap.to(component, {

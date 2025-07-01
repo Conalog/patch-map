@@ -14,13 +14,13 @@ export const draw = (context, data) => {
   render(viewport, data);
 
   function render(parent, data) {
-    for (const config of data) {
-      const element = new Creator[config.type](viewport);
-      update(context, { elements: element, changes: config });
+    for (const changes of data) {
+      const element = new Creator[changes.type](viewport);
+      update(context, { elements: element, changes });
       parent.addChild(element);
 
-      if (config.type === 'group') {
-        render(element, config.children);
+      if (changes.type === 'group') {
+        render(element, changes.children);
       }
     }
   }

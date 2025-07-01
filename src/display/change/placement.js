@@ -1,8 +1,8 @@
-import { updateConfig } from './utils';
+import { mergeProps } from './utils';
 
 export const changePlacement = (
   object,
-  { placement = object.config.placement, margin = object.config.margin },
+  { placement = object.placement, margin = object.margin },
 ) => {
   if (!placement || !margin) return;
 
@@ -22,7 +22,7 @@ export const changePlacement = (
   const y = getVerticalPosition(object, directions.v, margin);
   object.position.set(x, y);
   object.visible = true;
-  updateConfig(object, { placement, margin });
+  mergeProps(object, { placement, margin });
 
   function getHorizontalPosition(component, alignment, margin) {
     const parentWidth = component.parent.size.width;

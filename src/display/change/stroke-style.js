@@ -1,6 +1,6 @@
 import { getColor } from '../../utils/get';
 import { selector } from '../../utils/selector/selector';
-import { updateConfig } from './utils';
+import { mergeProps } from './utils';
 
 export const changeStrokeStyle = (object, { style, links }, { theme }) => {
   const path = selector(object, '$.children[?(@.type==="path")]')[0];
@@ -14,7 +14,7 @@ export const changeStrokeStyle = (object, { style, links }, { theme }) => {
   if (!links && path.links.length > 0) {
     reRenderPath(path);
   }
-  updateConfig(object, { style });
+  mergeProps(object, { style });
 
   function reRenderPath(path) {
     path.clear();

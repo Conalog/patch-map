@@ -1,16 +1,13 @@
 import { getColor } from '../../utils/get';
 import { FONT_WEIGHT } from '../components/config';
-import { isConfigMatch, updateConfig } from './utils';
+import { isMatch, mergeProps } from './utils';
 
 export const changeTextStyle = (
   object,
-  { style = object.config.style, margin = object.config.margin },
+  { style = object.style, margin = object.margin },
   { theme },
 ) => {
-  if (
-    isConfigMatch(object, 'style', style) &&
-    isConfigMatch(object, 'margin', margin)
-  ) {
+  if (isMatch(object, { style, margin })) {
     return;
   }
 
@@ -25,7 +22,7 @@ export const changeTextStyle = (
       object.style[key] = style[key];
     }
   }
-  updateConfig(object, { style, margin });
+  mergeProps(object, { style, margin });
 
   function setAutoFontSize(component, margin) {
     component.visible = false;

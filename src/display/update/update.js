@@ -16,7 +16,7 @@ export const update = (context, opts) => {
   const config = validate(opts, updateSchema.passthrough());
   if (isValidationError(config)) throw config;
 
-  const { viewport = null, ...otherContext } = context;
+  const { viewport, ...otherContext } = context;
   const historyId = createHistoryId(config.saveToHistory);
   const elements = 'elements' in config ? convertArray(config.elements) : [];
   if (viewport && config.path) {
