@@ -29,7 +29,7 @@ export const changeTextStyle = (
 
   function setAutoFontSize(component, margin) {
     component.visible = false;
-    const { width, height } = component.parent.getSize();
+    const { width, height } = component.parent.size;
     const parentSize = {
       width: width - margin.left - margin.right,
       height: height - margin.top - margin.bottom,

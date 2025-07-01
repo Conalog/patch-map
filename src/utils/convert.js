@@ -30,8 +30,10 @@ export const convertLegacyData = (data) => {
           ),
           gap: 4,
           item: {
-            width: props.spec.width * 40,
-            height: props.spec.height * 40,
+            size: {
+              width: props.spec.width * 40,
+              height: props.spec.height * 40,
+            },
             components: [
               {
                 type: 'background',
@@ -102,8 +104,7 @@ export const convertLegacyData = (data) => {
           type: 'item',
           id: value.id,
           label: value.name,
-          width: 40,
-          height: 40,
+          size: { width: 40, height: 40 },
           components: [
             {
               type: 'background',

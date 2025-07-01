@@ -22,7 +22,7 @@ export const gridSchema = Base.extend({
   type: z.literal('grid'),
   cells: z.array(z.array(z.union([z.literal(0), z.literal(1)]))),
   gap: Gap,
-  item: z.object({ components: componentArraySchema }).merge(Size),
+  item: z.object({ components: componentArraySchema, size: Size }),
 }).strict();
 
 /**
@@ -31,12 +31,11 @@ export const gridSchema = Base.extend({
  * Visually represented by a `Container`.
  * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  */
-export const itemSchema = Base.merge(Size)
-  .extend({
-    type: z.literal('item'),
-    components: componentArraySchema,
-  })
-  .strict();
+export const itemSchema = Base.extend({
+  type: z.literal('item'),
+  components: componentArraySchema,
+  size: Size,
+}).strict();
 
 /**
  * Represents relationships between elements by connecting them with lines.

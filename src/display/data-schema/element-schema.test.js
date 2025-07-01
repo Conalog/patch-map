@@ -29,7 +29,9 @@ describe('Element Schemas', () => {
       const groupData = {
         type: 'group',
         id: 'group-1',
-        children: [{ type: 'item', id: 'item-1', width: 100, height: 100 }],
+        children: [
+          { type: 'item', id: 'item-1', size: { width: 100, height: 100 } },
+        ],
       };
       const parsed = groupSchema.parse(groupData);
       expect(parsed.children).toHaveLength(1);
@@ -66,13 +68,16 @@ describe('Element Schemas', () => {
       type: 'grid',
       id: 'grid-1',
       cells: [[1]],
-      item: { width: 50, height: 50 },
+      item: { size: { width: 50, height: 50 } },
     };
 
     it('should parse a valid grid and preprocess gap', () => {
       const parsed = gridSchema.parse(baseGrid);
       expect(parsed.gap).toEqual({ x: 0, y: 0 });
-      expect(parsed.item).toEqual({ width: 50, height: 50, components: [] });
+      expect(parsed.item).toEqual({
+        size: { width: 50, height: 50 },
+        components: [],
+      });
     });
 
     it('should fail if cells contains invalid values', () => {
@@ -97,10 +102,14 @@ describe('Element Schemas', () => {
 
   describe('Item Schema', () => {
     it('should parse a valid item with required properties', () => {
-      const itemData = { type: 'item', id: 'item-1', width: 100, height: 200 };
+      const itemData = {
+        type: 'item',
+        id: 'item-1',
+        size: { width: 100, height: 200 },
+      };
       const parsed = itemSchema.parse(itemData);
-      expect(parsed.width).toBe(100);
-      expect(parsed.height).toBe(200);
+      expect(parsed.size.width).toBe(100);
+      expect(parsed.size.height).toBe(200);
       expect(parsed.components).toEqual([]); // default value
     });
 
@@ -113,8 +122,7 @@ describe('Element Schemas', () => {
       const itemData = {
         type: 'item',
         id: 'item-1',
-        width: 100,
-        height: 100,
+        size: { width: 100, height: 100 },
         x: 50, // This is an unknown property
       };
       expect(() => itemSchema.parse(itemData)).toThrow();
@@ -167,11 +175,13 @@ describe('Element Schemas', () => {
   describe('mapDataSchema (Full Integration)', () => {
     it('should parse a valid array of mixed elements with unique IDs', () => {
       const data = [
-        { type: 'item', id: 'item-1', width: 10, height: 10 },
+        { type: 'item', id: 'item-1', size: { width: 10, height: 10 } },
         {
           type: 'group',
           id: 'group-1',
-          children: [{ type: 'item', id: 'item-2', width: 10, height: 10 }],
+          children: [
+            { type: 'item', id: 'item-2', size: { width: 10, height: 10 } },
+          ],
         },
       ];
       expect(() => mapDataSchema.parse(data)).not.toThrow();
@@ -182,8 +192,8 @@ describe('Element Schemas', () => {
         .mockReturnValueOnce('mock-id-0')
         .mockReturnValueOnce('mock-id-1');
       const data = [
-        { type: 'item', width: 10, height: 10 },
-        { type: 'item', width: 10, height: 10 },
+        { type: 'item', size: { width: 10, height: 10 } },
+        { type: 'item', size: { width: 10, height: 10 } },
       ];
       const parsed = mapDataSchema.parse(data);
       expect(parsed[0].id).toBe('mock-id-0');
@@ -206,20 +216,28 @@ describe('Element Schemas', () => {
 
       it('should fail for duplicate IDs at the root level', () => {
         const data = [
-          { type: 'item', id: 'dup-id', width: 10, height: 10 },
-          { type: 'item', id: 'dup-id', width: 10, height: 10 },
+          { type: 'item', id: 'dup-id', size: { width: 10, height: 10 } },
+          { type: 'item', id: 'dup-id', size: { width: 10, height: 10 } },
         ];
         expect(getFirstError(data)).toBe('Duplicate id: dup-id at 1');
       });
 
       it('should fail for duplicate ID between root and a nested group', () => {
         const data = [
-          { type: 'item', id: 'cross-level-dup', width: 10, height: 10 },
+          {
+            type: 'item',
+            id: 'cross-level-dup',
+            size: { width: 10, height: 10 },
+          },
           {
             type: 'group',
             id: 'group-1',
             children: [
-              { type: 'item', id: 'cross-level-dup', width: 10, height: 10 },
+              {
+                type: 'item',
+                id: 'cross-level-dup',
+                size: { width: 10, height: 10 },
+              },
             ],
           },
         ];
@@ -238,10 +256,14 @@ describe('Element Schemas', () => {
                 type: 'group',
                 id: 'g2',
                 children: [
-                  { type: 'item', id: 'deep-dup', width: 1, height: 1 },
+                  {
+                    type: 'item',
+                    id: 'deep-dup',
+                    size: { width: 1, height: 1 },
+                  },
                 ],
               },
-              { type: 'item', id: 'deep-dup', width: 1, height: 1 },
+              { type: 'item', id: 'deep-dup', size: { width: 1, height: 1 } },
             ],
           },
         ];
@@ -253,8 +275,8 @@ describe('Element Schemas', () => {
       it('should fail when a default ID clashes with a provided ID', () => {
         vi.mocked(uid).mockReturnValueOnce('mock-id-0');
         const data = [
-          { type: 'item', id: 'mock-id-0', width: 10, height: 10 },
-          { type: 'item', width: 10, height: 10 }, // This will get default id 'mock-id-0'
+          { type: 'item', id: 'mock-id-0', size: { width: 10, height: 10 } },
+          { type: 'item', size: { width: 10, height: 10 } }, // This will get default id 'mock-id-0'
         ];
         expect(getFirstError(data)).toBe('Duplicate id: mock-id-0 at 1');
       });
