@@ -19,6 +19,7 @@ export const elementPipeline = {
       for (const cell of element.children) {
         updateComponents(cell, config.item, options);
       }
+      change.changeProperty(element, 'item', config.item);
     },
   },
   components: {

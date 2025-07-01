@@ -95,7 +95,7 @@ export const Margin = z.preprocess(
 export const TextureStyle = z
   .object({
     type: z.enum(['rect']),
-    fill: z.string().default('white'),
+    fill: z.string(),
     borderWidth: z.number(),
     borderColor: z.string(),
     radius: z.number(),

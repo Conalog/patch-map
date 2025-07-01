@@ -39,6 +39,7 @@ export const convertLegacyData = (data) => {
                 type: 'background',
                 source: {
                   type: 'rect',
+                  fill: 'white',
                   borderWidth: 2,
                   borderColor: 'primary.dark',
                   radius: 6,
@@ -110,6 +111,7 @@ export const convertLegacyData = (data) => {
               type: 'background',
               source: {
                 type: 'rect',
+                fill: 'white',
                 borderWidth: 2,
                 borderColor: 'primary.default',
                 radius: 6,
