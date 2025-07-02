@@ -8,7 +8,7 @@ import { validate } from '../../utils/validator';
 const updateSchema = z.object({
   path: z.nullable(z.string()).default(null),
   changes: z.record(z.unknown()),
-  saveToHistory: z.union([z.boolean(), z.string()]).default(false),
+  history: z.union([z.boolean(), z.string()]).default(false),
   relativeTransform: z.boolean().default(false),
 });
 
@@ -17,7 +17,7 @@ export const update = (context, opts) => {
   if (isValidationError(config)) throw config;
 
   const { viewport, ...otherContext } = context;
-  const historyId = createHistoryId(config.saveToHistory);
+  const historyId = createHistoryId(config.history);
   const elements = 'elements' in config ? convertArray(config.elements) : [];
   if (viewport && config.path) {
     elements.push(...selector(viewport, config.path));
@@ -55,10 +55,10 @@ const applyRelativeTransform = (element, changes) => {
   return newChanges;
 };
 
-const createHistoryId = (saveToHistory) => {
+const createHistoryId = (history) => {
   let historyId = null;
-  if (saveToHistory) {
-    historyId = typeof saveToHistory === 'string' ? saveToHistory : uid();
+  if (history) {
+    historyId = typeof history === 'string' ? history : uid();
   }
   return historyId;
 };

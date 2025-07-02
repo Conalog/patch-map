@@ -181,7 +181,6 @@ describe('Primitive Schema Tests', () => {
         width: { value: 150, unit: 'px' },
         height: { value: 75, unit: '%' },
       };
-      console.log(PxOrPercentSize._def);
       expect(deepPartial(PxOrPercentSize).parse(input)).toEqual(expected);
     });
 

@@ -21,7 +21,7 @@ export class ShowCommand extends Command {
     super('show_object');
     this.object = object;
     this._config = parsePick(config, optionKeys);
-    this._prevConfig = parsePick(object.config, optionKeys);
+    this._prevConfig = parsePick(object, optionKeys);
   }
 
   get config() {
