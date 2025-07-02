@@ -53,8 +53,8 @@ npm install @conalog/patch-map
 
 #### CDN
 ```html
-<script src="https://cdn.jsdelivr.net/npm/pixi.js@8.9.2/dist/pixi.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@conalog/patch-map@v0.1.9/dist/index.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@latest/dist/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@conalog/patch-map@latest/dist/index.umd.js"></script>
 ```
 
 ### 기본 예제
@@ -67,27 +67,30 @@ const data = [
     type: 'group',
     id: 'group-id-1',
     label: 'group-label-1',
-    items: [{
+    children: [{
       type: 'grid',
       id: 'grid-1',
       label: 'grid-label-1',
       cells: [ [1, 0, 1], [1, 1, 1] ],
-      position: { x: 0, y: 0 },
-      itemSize: { width: 40, height: 80 },
-      components: [
-        {
-          type: 'background',
-          texture: {
-            type: 'rect',
-            fill: 'white',
-            borderWidth: 2,
-            borderColor: 'primary.dark',
-            radius: 4,
-          }
-        },
-        { type: 'icon', asset: 'loading', size: 16 }
-      ]
-    }]
+      gap: 4,
+      item: {
+        size: { width: 40, height: 80 },
+        components: [
+          {
+            type: 'background',
+            source: {
+              type: 'rect',
+              fill: 'white',
+              borderWidth: 2,
+              borderColor: 'primary.dark',
+              radius: 4,
+            }
+          },
+          { type: 'icon', source: 'loading', tint: 'black', size: 16 },
+        ]
+      },
+    }],
+    attrs: { x: 100, y: 100, },
   }
 ];
 
@@ -185,27 +188,30 @@ const data = [
     type: 'group',
     id: 'group-id-1',
     label: 'group-label-1',
-    items: [{
+    children: [{
       type: 'grid',
       id: 'grid-1',
       label: 'grid-label-1',
       cells: [ [1, 0, 1], [1, 1, 1] ],
-      position: { x: 0, y: 0 },
-      itemSize: { width: 40, height: 80 },
-      components: [
-        {
-          type: 'background',
-          texture: {
-            type: 'rect',
-            fill: 'white',
-            borderWidth: 2,
-            borderColor: 'primary.dark',
-            radius: 4,
-          }
-        },
-        { type: 'icon', texture: 'loading', size: 16 }
-      ]
-    }]
+      gap: 4,
+      item: {
+        size: { width: 40, height: 80 },
+        components: [
+          {
+            type: 'background',
+            source: {
+              type: 'rect',
+              fill: 'white',
+              borderWidth: 2,
+              borderColor: 'primary.dark',
+              radius: 4,
+            }
+          },
+          { type: 'icon', source: 'loading', tint: 'black', size: 16 },
+        ]
+      },
+    }],
+    attrs: { x: 100, y: 100, },
   }
 ];
 patchmap.draw(data);
@@ -225,7 +231,7 @@ draw method가 요구하는 **데이터 구조**입니다.
 - `path`(optional, string) - [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 selector로, 이벤트가 적용될 객체를 선택합니다.
 - `elements`(optional, object \| array) - 업데이트할 하나 이상의 객체에 대한 직접 참조입니다. 단일 객체 또는 배열을 허용합니다. ([selector](#selectorpath)에서 반환된 객체 등).
 - `changes`(required, object) - 적용할 새로운 속성 (예: 색상, 텍스트 가시성).
-- `saveToHistory`(optional, boolean \| string) - 해당 `update` 메소드에 의한 변경 사항을 `undoRedoManager`에 기록할 것인지 결정합니다. 이전에 저장된 기록의 historyId와 일치하는 문자열이 제공되면, 두 기록이 하나의 실행 취소/재실행 단계로 병합됩니다.
+- `history`(optional, boolean \| string) - 해당 `update` 메소드에 의한 변경 사항을 `undoRedoManager`에 기록할 것인지 결정합니다. 이전에 저장된 기록의 historyId와 일치하는 문자열이 제공되면, 두 기록이 하나의 실행 취소/재실행 단계로 병합됩니다.
 - `relativeTransform`(optional, boolean) - `position`, `rotation`, `angle` 값에 대해서 상대값을 이용할 지 결정합니다. 만약, `true` 라면 전달된 값을 객체의 값에 더합니다.
 
 ```js
@@ -233,10 +239,10 @@ draw method가 요구하는 **데이터 구조**입니다.
 patchmap.update({
   path: `$..children[?(@.label=="grid-label-1")]`,
   changes: {
-    components: [
-      { type: 'icon', asset: 'wifi' }
-    ]
-  }
+    item: {
+      components: [{ type: 'icon', source: 'wifi' }],
+    },
+  },
 });
 
 // type이 "group"인 객체들에 대해 변경 사항 적용
@@ -251,10 +257,10 @@ patchmap.update({
 patchmap.update({
   path: `$..children[?(@.type=="group")].children[?(@.type=="grid")]`,
   changes: {
-    components: [
-      { type: 'icon', tint: 'black' }
-    ]
-  }
+    item: {
+      components: [{ type: 'icon', tint: 'red' }],
+    },
+  },
 });
 ```
 
