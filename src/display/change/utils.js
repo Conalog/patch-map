@@ -18,3 +18,8 @@ export const mergeProps = (object, props = {}, overwrite = false) => {
 export const tweensOf = (object) => gsap.getTweensOf(object);
 
 export const killTweensOf = (object) => gsap.killTweensOf(object);
+
+export const getMaxSize = (size, margin) => ({
+  width: size.width - (margin.left + margin.right),
+  height: size.height - (margin.top + margin.bottom),
+});

@@ -41,7 +41,7 @@ export const componentPipeline = {
     },
   },
   size: {
-    keys: ['size'],
+    keys: ['size', 'margin'],
     handler: (component, config) => {
       change.changeSize(component, config);
       change.changePlacement(component, {});
