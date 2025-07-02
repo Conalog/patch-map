@@ -1,4 +1,5 @@
 import { isValidationError } from 'zod-validation-error';
+import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { selector } from '../../utils/selector/selector';
 import { validate } from '../../utils/validator';
 import { deepPartial } from '../../utils/zod-deep-strict-partial';
@@ -23,7 +24,10 @@ export class Grid extends Element {
   updateItem(opts, options) {
     const changes = validate(opts, deepPartial(gridSchema));
     if (isValidationError(changes)) throw changes;
-    const { gap = this.gap, cells = this.cells, item = this.item } = changes;
+    const gap = deepMerge(this.gap, changes.gap);
+    const cells = deepMerge(this.cells, changes.cells);
+    const item = deepMerge(this.item, changes.item);
+
     for (let rowIndex = 0; rowIndex < cells.length; rowIndex++) {
       const row = cells[rowIndex];
       for (let colIndex = 0; colIndex < row.length; colIndex++) {
