@@ -1,4 +1,7 @@
+import { isValidationError } from 'zod-validation-error';
 import { selector } from '../../utils/selector/selector';
+import { validate } from '../../utils/validator';
+import { deepPartial } from '../../utils/zod-deep-strict-partial';
 import { gridSchema } from '../data-schema/element-schema';
 import Element from './Element';
 import { Item } from './Item';
@@ -17,7 +20,9 @@ export class Grid extends Element {
     this.updateItem(changes, options);
   }
 
-  updateItem(changes, options) {
+  updateItem(opts, options) {
+    const changes = validate(opts, deepPartial(gridSchema));
+    if (isValidationError(changes)) throw changes;
     const { gap = this.gap, cells = this.cells, item = this.item } = changes;
     for (let rowIndex = 0; rowIndex < cells.length; rowIndex++) {
       const row = cells[rowIndex];
