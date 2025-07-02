@@ -24,25 +24,27 @@ export const update = (context, opts) => {
   }
 
   for (const element of elements) {
-    if (!element) continue;
-    const elConfig = { ...config };
-    if (elConfig.relativeTransform) {
-      elConfig.changes = applyRelativeTransform(element, elConfig.changes);
+    if (!element) {
+      continue;
     }
-
-    element.update(elConfig.changes, { historyId, ...otherContext });
+    const { relativeTransform } = config;
+    const changes = JSON.parse(JSON.stringify(config.changes));
+    if (relativeTransform && changes.attrs) {
+      changes.attrs = applyRelativeTransform(element, changes.attrs);
+    }
+    element.update(changes, { historyId, ...otherContext });
   }
 };
 
 const applyRelativeTransform = (element, changes) => {
-  const newChanges = { ...changes };
-  const { position, rotation, angle } = newChanges;
+  const newChanges = JSON.parse(JSON.stringify(changes));
+  const { x, y, rotation, angle } = newChanges;
 
-  if (position) {
-    newChanges.position = {
-      x: element.x + position.x,
-      y: element.y + position.y,
-    };
+  if (x) {
+    newChanges.x = element.x + x;
+  }
+  if (y) {
+    newChanges.y = element.y + y;
   }
   if (rotation) {
     newChanges.rotation = element.rotation + rotation;
