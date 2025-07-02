@@ -26,9 +26,9 @@ import type {
  *
  * @example
  * const mapData: MapData = [
- *   { type: 'grid', id: 'g1', ... },
- *   { type: 'item', id: 'i1', ... },
- *   { type: 'relations', id: 'r1', ... },
+ *   { type: 'grid', id: 'g1', cells: [[1, 1]], item: { components: [], size: 100 } },
+ *   { type: 'item', id: 'i1', components: [], size: 100 },
+ *   { type: 'relations', id: 'r1', links: [{ source: 'g1', target: 'i1' }] },
  * ];
  */
 export type MapData = Element[];
@@ -49,19 +49,20 @@ export type Element = Group | Grid | Item | Relations;
  * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  *
  * @example
- * {
+ * const groupExample: Group = {
  *   type: 'group',
  *   id: 'group-api-servers',
  *   children: [
- *     { type: 'item', id: 'server-1', width: 80, height: 80 },
- *     { type: 'item', id: 'server-2', width: 80, height: 80 }
- *   ]
+ *     { type: 'item', id: 'server-1', components: [] },
+ *     { type: 'item', id: 'server-2', components: [], attrs: { x: 100, y: 200 } }
+ *   ],
  *   attrs: { x: 100, y: 50 },
- * }
+ * };
  */
 export interface Group {
   type: 'group';
-  id: string;
+  id?: string; // Default: uid
+  label?: string;
   show?: boolean; // Default: true
   children: Element[];
   attrs?: Record<string, unknown>;
@@ -73,33 +74,35 @@ export interface Group {
  * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  *
  * @example
- * {
+ * const gridExample: Grid = {
  *   type: 'grid',
  *   id: 'server-rack',
- *   gap: 10,
+ *   gap: { x: 10, y: 10 },
  *   cells: [
  *     [1, 1, 0],
  *     [1, 0, 1]
  *   ],
  *   item: {
- *     width: 60,
- *     height: 60,
  *     components: [
- *       { type: 'background', source: { fill: '#eee', radius: 4 } }
- *     ]
- *   }
- * }
+ *       {
+ *         type: 'background',
+ *         source: { type: 'rect', fill: '#eee', radius: 4 },
+ *       }
+ *     ],
+ *     size: 60,
+ *   },
+ * };
  */
 export interface Grid {
   type: 'grid';
-  id: string;
+  id?: string; // Default: uid
+  label?: string;
   show?: boolean; // Default: true
   cells: (0 | 1)[][];
   gap?: Gap;
   item: {
-    width: number;
-    height: number;
     components?: Component[];
+    size: Size;
   };
   attrs?: Record<string, unknown>;
 }
@@ -110,27 +113,43 @@ export interface Grid {
  * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  *
  * @example
- * {
+ * const itemExample: Item = {
  *   type: 'item',
  *   id: 'main-server',
- *   width: 120,
- *   height: 100,
+ *   size: { width: 120, height: 100 },
  *   components: [
- *     { type: 'background', source: { fill: '#fff', borderColor: '#ddd', borderWidth: 1 } },
- *     { type: 'text', text: 'Main Server', placement: 'top', margin: 8 },
- *     { type: 'bar', source: { fill: 'lightblue' }, width: '80%', height: 8 },
- *     { type: 'icon', source: 'ok.svg', size: 16, placement: 'bottom-right', margin: 4 }
- *   ]
+ *     {
+ *       type: 'background',
+ *       source: { type: 'rect', fill: '#fff', borderColor: '#ddd', borderWidth: 1 }
+ *     },
+ *     {
+ *       type: 'text',
+ *       text: 'Main Server',
+ *       placement: 'top',
+ *       margin: 8
+ *     },
+ *     {
+ *       type: 'bar',
+ *       source: { type: 'rect', fill: 'black' },
+ *       size: { width: '80%', height: 8 },
+ *       tint: 'primary.default',
+ *       placement: 'bottom'
+ *     },
+ *     {
+ *       type: 'icon',
+ *       source: 'ok.svg', size: 16, placement: 'right-bottom'
+ *     }
+ *   ],
  *   attrs: { x: 300, y: 150 },
  * }
  */
 export interface Item {
   type: 'item';
-  id: string;
+  id?: string; // Default: uid
+  label?: string;
   show?: boolean; // Default: true
-  width: number;
-  height: number;
   components?: Component[];
+  size: Size;
   attrs?: Record<string, unknown>;
 }
 
@@ -140,19 +159,20 @@ export interface Item {
  * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  *
  * @example
- * {
+ * const relationsExample: Relations = {
  *   type: 'relations',
  *   id: 'server-connections',
  *   links: [
  *     { source: 'main-server', target: 'sub-server-1' },
  *     { source: 'main-server', target: 'sub-server-2' }
  *   ],
- *   style: { color: '#083967', width: 2 }
- * }
+ *   style: { color: '#083967', width: 2, cap: 'round', join: 'round' }
+ * };
  */
 export interface Relations {
   type: 'relations';
-  id: string;
+  id?: string; // Default: uid
+  label?: string;
   show?: boolean; // Default: true
   links: { source: string; target: string }[];
   style?: RelationsStyle;
@@ -174,21 +194,24 @@ export type Component = Background | Bar | Icon | Text;
  *
  * @example
  * // As a style object
- * {
+ * const backgroundStyleExample: Background = {
  *   type: 'background',
- *   source: { fill: '#1A1A1A', radius: 8 }
- * }
+ *   id: 'bg-rect',
+ *   source: { type: 'rect', fill: '#1A1A1A', radius: 8 }
+ * };
  *
  * @example
  * // As an image URL
- * {
+ * const backgroundUrlExample: Background = {
  *   type: 'background',
- *   source: 'path/to/background-image.png'
- * }
+ *   id: 'bg-image',
+ *   source: 'background-image.png'
+ * };
  */
 export interface Background {
   type: 'background';
-  id: string;
+  id?: string; // Default: uid
+  label?: string;
   show?: boolean; // Default: true
   source: TextureStyle | string;
   tint?: Tint;
@@ -200,22 +223,23 @@ export interface Background {
  * @see {@link https://pixijs.download/release/docs/scene.NineSliceSprite.html}
  *
  * @example
- * {
+ * const barExample: Bar = {
  *   type: 'bar',
- *   source: { fill: 'green' },
- *   width: '80%', // 80% of the parent Item's width
- *   height: 10,   // 10px height
- *   placement: 'bottom'
- * }
+ *   id: 'cpu-usage-bar',
+ *   source: { type: 'rect', fill: 'green' },
+ *   size: { width: '80%', height: 10 }, // 80% of the parent Item's width, 10px height
+ *   placement: 'bottom',
+ *   animation: true,
+ *   animationDuration: 200,
+ * };
  */
 export interface Bar {
   type: 'bar';
-  id: string;
+  id?: string; // Default: uid
+  label?: string;
   show?: boolean; // Default: true
   source: TextureStyle;
-  width?: PxOrPercent;
-  height?: PxOrPercent;
-  size?: PxOrPercent;
+  size: PxOrPercentSize;
   placement?: Placement; // Default: 'bottom'
   margin?: Margin; // Default: 0
   tint?: Tint;
@@ -229,22 +253,21 @@ export interface Bar {
  * @see {@link https://pixijs.download/release/docs/scene.Sprite.html}
  *
  * @example
- * {
+ * const iconExample: Icon = {
  *   type: 'icon',
- *   source: 'path/to/warning-icon.svg',
+ *   id: 'warning-icon',
+ *   source: 'warning-icon.svg',
  *   size: 24, // 24px x 24px
  *   placement: 'left-top',
- *   margin: { x: 4, y: 4 }
- * }
+ * };
  */
 export interface Icon {
   type: 'icon';
-  id: string;
+  id?: string; // Default: uid
+  label?: string;
   show?: boolean; // Default: true
   source: string;
-  width?: PxOrPercent;
-  height?: PxOrPercent;
-  size?: PxOrPercent;
+  size: PxOrPercentSize;
   placement?: Placement; // Default: 'center'
   margin?: Margin; // Default: 0
   tint?: Tint;
@@ -256,16 +279,19 @@ export interface Icon {
  * @see {@link https://pixijs.download/release/docs/scene.BitmapText.html}
  *
  * @example
- * {
+ * const textExample: Text = {
  *   type: 'text',
+ *   id: 'cpu-label',
  *   text: 'CPU Usage',
  *   placement: 'center',
- *   style: { fill: '#333', fontSize: 14, fontWeight: 'bold' }
- * }
+ *   style: { fill: '#333', fontSize: 14, fontWeight: 'bold' },
+ *   split: 0,
+ * };
  */
 export interface Text {
   type: 'text';
-  id: string;
+  id?: string; // Default: uid
+  label?: string;
   show?: boolean; // Default: true
   text?: string; // Default: ''
   placement?: Placement; // Default: 'center'
@@ -285,18 +311,58 @@ export interface Text {
  * or as an object with value and unit.
  *
  * @example
- * // For a 100px width:
- * width: 100
+ * // For a 100px value:
+ * const pxValue: PxOrPercent = 100;
  *
  * @example
- * // For a 75% height:
- * height: '75%'
+ * // For a 75% value:
+ * const percentValue: PxOrPercent = '75%';
  *
  * @example
  * // As an object:
- * size: { value: 50, unit: '%' }
+ * const objectValue: PxOrPercent = { value: 50, unit: '%' };
  */
 export type PxOrPercent = number | string | { value: number; unit: 'px' | '%' };
+
+/**
+ * Defines a size with width and height, where each can be specified in pixels or percentage.
+ *
+ * @example
+ * // For a 100px by 100px size:
+ * const squareSize: PxOrPercentSize = 100;
+ *
+ * @example
+ * // For a 50% width and 75% height:
+ * const responsiveSize: PxOrPercentSize = { width: '50%', height: '75%' };
+ *
+ * @example
+ * // For a 25% width and 25% height:
+ * const uniformResponsiveSize: PxOrPercentSize = '25%';
+ */
+export type PxOrPercentSize =
+  | PxOrPercent
+  | {
+      width: PxOrPercent;
+      height: PxOrPercent;
+    };
+
+/**
+ * Defines a size with width and height in numbers (pixels).
+ *
+ * @example
+ * // For a 100px by 100px size:
+ * const sizeExample: Size = 100;
+ *
+ * @example
+ * // For a 120px width and 80px height:
+ * const rectSizeExample: Size = { width: 120, height: 80 };
+ */
+export type Size =
+  | number
+  | {
+      width: number;
+      height: number;
+    };
 
 /**
  * Specifies the position of a component within its parent Item.
@@ -318,11 +384,11 @@ export type Placement =
  *
  * @example
  * // To set a 10px gap for both x and y:
- * gap: 10
+ * const uniformGap: Gap = 10;
  *
  * @example
  * // To set a 5px horizontal and 15px vertical gap:
- * gap: { x: 5, y: 15 }
+ * const customGap: Gap = { x: 5, y: 15 };
  */
 export type Gap =
   | number
@@ -336,15 +402,15 @@ export type Gap =
  *
  * @example
  * // To apply a 10px margin on all four sides:
- * margin: 10
+ * const uniformMargin: Margin = 10;
  *
  * @example
  * // To apply 10px top/bottom and 5px left/right margins:
- * margin: { y: 10, x: 5 }
+ * const axisMargin: Margin = { y: 10, x: 5 };
  *
  * @example
  * // To apply individual margins for each side:
- * margin: { top: 1, right: 2, bottom: 3, left: 4 }
+ * const detailedMargin: Margin = { top: 1, right: 2, bottom: 3, left: 4 };
  */
 export type Margin =
   | number
@@ -356,19 +422,20 @@ export type Margin =
  * All properties are optional.
  *
  * @example
- * const style: TextureStyle = {
+ * const textureStyleExample: TextureStyle = {
+ *   type: 'rect',
  *   fill: '#ff0000',
  *   borderWidth: 2,
  *   borderColor: '#000000',
  *   radius: 5
- * }
+ * };
  */
 export interface TextureStyle {
-  type?: 'rect';
-  fill?: string | null;
-  borderWidth?: number | null;
-  borderColor?: string | null;
-  radius?: number | null;
+  type: 'rect';
+  fill?: string;
+  borderWidth?: number;
+  borderColor?: string;
+  radius?: number;
 }
 
 /**
@@ -377,11 +444,11 @@ export interface TextureStyle {
  * @see {@link https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html}
  *
  * @example
- * {
+ * const relationsStyleExample: RelationsStyle = {
  *   color: 'red',
  *   width: 2,
  *   cap: 'square'
- * }
+ * };
  */
 export type RelationsStyle = Record<string, unknown>;
 
@@ -394,12 +461,12 @@ export type RelationsStyle = Record<string, unknown>;
  * @see {@link https://pixijs.download/release/docs/text.TextStyleOptions.html}
  *
  * @example
- * {
+ * const textStyleExample: TextStyle = {
  *   fontFamily: 'Arial',
  *   fontSize: 24,
  *   fill: 'white',
  *   stroke: { color: 'black', width: 2 }
- * }
+ * };
  */
 export type TextStyle = Record<string, unknown>;
 
@@ -410,19 +477,19 @@ export type TextStyle = Record<string, unknown>;
  *
  * @example
  * // As a theme key (string)
- * tint: 'primary.main'
+ * const tintThemeKey: Tint = 'primary.default';
  *
  * @example
  * // As a hex string
- * tint: '#ff0000'
+ * const tintHexString: Tint = '#ff0000';
  *
  * @example
  * // As a hex number
- * tint: 0xff0000
+ * const tintHexNumber: Tint = 0xff0000;
  *
  * @example
  * // As an RGB object
- * tint: { r: 255, g: 0, b: 0 }
+ * const tintRgbObject: Tint = { r: 255, g: 0, b: 0 };
  *
  * @see {@link https://pixijs.download/release/docs/color.ColorSource.html}
  */

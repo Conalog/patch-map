@@ -43,6 +43,11 @@ describe('Element Schemas', () => {
       expect(() => groupSchema.parse(groupData)).not.toThrow();
     });
 
+    it('should fail if children is missing', () => {
+      const groupData = { type: 'group', id: 'group-1' };
+      expect(() => groupSchema.parse(groupData)).toThrow();
+    });
+
     it('should fail if children contains an invalid element', () => {
       const invalidGroupData = {
         type: 'group',
@@ -88,6 +93,11 @@ describe('Element Schemas', () => {
     it('should fail if item is missing required size', () => {
       const gridData = { ...baseGrid, item: { components: [] } };
       expect(() => gridSchema.parse(gridData)).toThrow();
+    });
+
+    it('should parse a valid grid with default size', () => {
+      const gridData = { ...baseGrid, item: { size: 80 } };
+      expect(() => gridSchema.parse(gridData)).not.toThrow();
     });
 
     it('should fail if required properties are missing', () => {
@@ -167,6 +177,14 @@ describe('Element Schemas', () => {
         id: 'rel-1',
         links: [],
         extra: 'data',
+      };
+      expect(() => relationsSchema.parse(relationsData)).toThrow();
+    });
+
+    it('should fail if links is missing', () => {
+      const relationsData = {
+        type: 'relations',
+        id: 'rel-1',
       };
       expect(() => relationsSchema.parse(relationsData)).toThrow();
     });
