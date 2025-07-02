@@ -1,6 +1,6 @@
 import gsap from 'gsap';
 import { changePlacement } from './placement';
-import { isMatch, killTweensOf, mergeProps } from './utils';
+import { getMaxSize, isMatch, killTweensOf, mergeProps } from './utils';
 
 export const changeBarSize = (
   object,
@@ -22,14 +22,13 @@ export const changeBarSize = (
   mergeProps(object, { size, margin, animationDuration });
 
   function changeWidth(component, width, margin) {
-    const maxWidth = component.parent.size.width - (margin.left + margin.right);
+    const { width: maxWidth } = getMaxSize(component.parent.size, margin);
     component.width =
       width.unit === '%' ? maxWidth * (width.value / 100) : width.value;
   }
 
   function changeHeight(component, height, margin) {
-    const maxHeight =
-      component.parent.size.height - (margin.top + margin.bottom);
+    const { height: maxHeight } = getMaxSize(component.parent.size, margin);
     const heightValue =
       height.unit === '%' ? maxHeight * (height.value / 100) : height.value;
 
