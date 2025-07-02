@@ -7,7 +7,7 @@ export { changeTint } from './tint';
 export { changeTexture } from './texture';
 export { changeAsset } from './asset';
 export { changeTextureTransform } from './texture-transform';
-export { changePercentSize } from './percent-size';
+export { changeBarSize } from './bar-size';
 export { changeSize } from './size';
 export { changePlacement } from './placement';
 export { changeText } from './text';

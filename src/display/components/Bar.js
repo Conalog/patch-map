@@ -15,7 +15,7 @@ export class Bar extends NineSliceSprite {
       'show',
       'texture',
       'tint',
-      'percentSize',
+      'barSize',
       'placement',
     ];
   }

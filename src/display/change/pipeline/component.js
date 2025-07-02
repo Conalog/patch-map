@@ -33,10 +33,10 @@ export const componentPipeline = {
       change.changeAnimation(component, config);
     },
   },
-  percentSize: {
+  barSize: {
     keys: ['size', 'margin'],
     handler: (component, config, options) => {
-      change.changePercentSize(component, config, options);
+      change.changeBarSize(component, config, options);
       change.changePlacement(component, {});
     },
   },
