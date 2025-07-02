@@ -1,4 +1,4 @@
-export const changeTextureTransform = (object) => {
+export const changeBackgroundTransform = (object) => {
   const borderWidth = object.texture.metadata.borderWidth;
   if (!borderWidth) return;
   const parentSize = object.parent.size;

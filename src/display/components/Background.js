@@ -10,7 +10,7 @@ export class Background extends NineSliceSprite {
   constructor() {
     super({ texture: Texture.WHITE });
     this.#type = 'background';
-    this.#pipelines = ['show', 'texture', 'textureTransform', 'tint'];
+    this.#pipelines = ['show', 'texture', 'backgroundTransform', 'tint'];
   }
 
   get type() {

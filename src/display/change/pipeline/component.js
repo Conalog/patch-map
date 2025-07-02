@@ -21,10 +21,10 @@ export const componentPipeline = {
       change.changeAsset(component, config, options);
     },
   },
-  textureTransform: {
+  backgroundTransform: {
     keys: ['source'],
     handler: (component) => {
-      change.changeTextureTransform(component);
+      change.changeBackgroundTransform(component);
     },
   },
   animation: {

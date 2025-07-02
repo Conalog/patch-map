@@ -6,7 +6,7 @@ export { changeStrokeStyle } from './stroke-style';
 export { changeTint } from './tint';
 export { changeTexture } from './texture';
 export { changeAsset } from './asset';
-export { changeTextureTransform } from './texture-transform';
+export { changeBackgroundTransform } from './background-transform';
 export { changeBarSize } from './bar-size';
 export { changeSize } from './size';
 export { changePlacement } from './placement';
