@@ -1,27 +1,13 @@
 import { BitmapText } from 'pixi.js';
+import { Base } from '../Base';
 import { textSchema } from '../data-schema/component-schema';
-import { validateUpdate } from './validate-update';
 
-export class Text extends BitmapText {
-  #type;
-
-  #pipelines;
-
-  constructor() {
-    super({ text: '' });
-    this.#type = 'text';
-    this.#pipelines = ['show', 'text', 'textStyle', 'placement'];
+export class Text extends Base(BitmapText) {
+  constructor(context) {
+    super({ type: 'text', context, text: '' });
   }
 
-  get type() {
-    return this.#type;
-  }
-
-  get pipelines() {
-    return this.#pipelines;
-  }
-
-  update(changes, options) {
-    validateUpdate(this, changes, textSchema, options);
+  update(changes) {
+    super.update(changes, textSchema);
   }
 }

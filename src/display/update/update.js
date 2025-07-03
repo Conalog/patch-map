@@ -12,11 +12,10 @@ const updateSchema = z.object({
   relativeTransform: z.boolean().default(false),
 });
 
-export const update = (context, opts) => {
+export const update = (viewport, opts) => {
   const config = validate(opts, updateSchema.passthrough());
   if (isValidationError(config)) throw config;
 
-  const { viewport, ...otherContext } = context;
   const historyId = createHistoryId(config.history);
   const elements = 'elements' in config ? convertArray(config.elements) : [];
   if (viewport && config.path) {
@@ -32,7 +31,7 @@ export const update = (context, opts) => {
     if (relativeTransform && changes.attrs) {
       changes.attrs = applyRelativeTransform(element, changes.attrs);
     }
-    element.update(changes, { historyId, ...otherContext });
+    element.update(changes, { historyId });
   }
 };
 

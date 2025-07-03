@@ -1,34 +1,13 @@
 import { NineSliceSprite, Texture } from 'pixi.js';
+import { Base } from '../Base';
 import { barSchema } from '../data-schema/component-schema';
-import { validateUpdate } from './validate-update';
 
-export class Bar extends NineSliceSprite {
-  #type;
-
-  #pipelines;
-
-  constructor() {
-    super({ texture: Texture.WHITE });
-    this.#type = 'bar';
-    this.#pipelines = [
-      'animation',
-      'show',
-      'texture',
-      'tint',
-      'barSize',
-      'placement',
-    ];
+export class Bar extends Base(NineSliceSprite) {
+  constructor(context) {
+    super({ type: 'bar', context, texture: Texture.WHITE });
   }
 
-  get type() {
-    return this.#type;
-  }
-
-  get pipelines() {
-    return this.#pipelines;
-  }
-
-  update(changes, options) {
-    validateUpdate(this, changes, barSchema, options);
+  update(changes) {
+    super.update(changes, barSchema);
   }
 }

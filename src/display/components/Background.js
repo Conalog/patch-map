@@ -1,27 +1,13 @@
 import { NineSliceSprite, Texture } from 'pixi.js';
+import { Base } from '../Base';
 import { backgroundSchema } from '../data-schema/component-schema';
-import { validateUpdate } from './validate-update';
 
-export class Background extends NineSliceSprite {
-  #type;
-
-  #pipelines;
-
-  constructor() {
-    super({ texture: Texture.WHITE });
-    this.#type = 'background';
-    this.#pipelines = ['show', 'texture', 'backgroundTransform', 'tint'];
+export class Background extends Base(NineSliceSprite) {
+  constructor(context) {
+    super({ type: 'background', context, texture: Texture.WHITE });
   }
 
-  get type() {
-    return this.#type;
-  }
-
-  get pipelines() {
-    return this.#pipelines;
-  }
-
-  update(changes, options) {
-    validateUpdate(this, changes, backgroundSchema, options);
+  update(changes) {
+    super.update(changes, backgroundSchema);
   }
 }

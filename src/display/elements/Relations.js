@@ -3,17 +3,13 @@ import { relationsSchema } from '../data-schema/element-schema';
 import Element from './Element';
 
 export class Relations extends Element {
-  constructor(viewport) {
-    super({
-      type: 'relations',
-      viewport,
-      pipelines: ['show', 'strokeStyle', 'links'],
-    });
+  constructor(context) {
+    super({ type: 'relations', context });
     this.initPath();
   }
 
-  update(changes, options) {
-    super.update(changes, relationsSchema, options);
+  update(changes) {
+    super.update(changes, relationsSchema);
   }
 
   initPath() {

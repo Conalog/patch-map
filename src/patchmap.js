@@ -156,13 +156,7 @@ class Patchmap {
   }
 
   update(opts) {
-    const context = {
-      viewport: this.viewport,
-      undoRedoManager: this.undoRedoManager,
-      theme: this.theme,
-      animationContext: this.animationContext,
-    };
-    update(context, opts);
+    update(this.viewport, opts);
   }
 
   focus(ids) {

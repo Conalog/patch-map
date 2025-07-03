@@ -15,7 +15,7 @@ export const draw = (context, data) => {
 
   function render(parent, data) {
     for (const changes of data) {
-      const element = new Creator[changes.type](viewport);
+      const element = new Creator[changes.type](context);
       update(context, { elements: element, changes });
       parent.addChild(element);
 

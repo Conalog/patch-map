@@ -4,6 +4,7 @@ import { Viewport } from 'pixi-viewport';
 import * as PIXI from 'pixi.js';
 import { firaCode } from './assets/fonts';
 import { icons } from './assets/icons';
+import { Type } from './display/Base';
 import { deepMerge } from './utils/deepmerge/deepmerge';
 import { plugin } from './utils/event/viewport';
 import { uid } from './utils/uuid';
@@ -66,9 +67,8 @@ export const initViewport = (app, opts = {}) => {
     },
     opts,
   );
-  const viewport = new Viewport(options);
+  const viewport = new (Type(Viewport))({ ...options, type: 'canvas' });
   viewport.app = app;
-  viewport.type = 'canvas';
   viewport.events = {};
   viewport.plugin = {
     add: (plugins) => plugin.add(viewport, plugins),
