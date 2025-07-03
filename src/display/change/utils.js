@@ -19,7 +19,13 @@ export const tweensOf = (object) => gsap.getTweensOf(object);
 
 export const killTweensOf = (object) => gsap.killTweensOf(object);
 
-export const getMaxSize = (size, margin) => ({
-  width: size.width - (margin.left + margin.right),
-  height: size.height - (margin.top + margin.bottom),
-});
+export const getMaxSize = (
+  size,
+  margin = { top: 0, right: 0, bottom: 0, left: 0 },
+) => {
+  const { top = 0, right = 0, bottom = 0, left = 0 } = margin || {};
+  return {
+    width: size.width - (left + right),
+    height: size.height - (top + bottom),
+  };
+};

@@ -1,8 +1,12 @@
 import { Graphics } from 'pixi.js';
 import { relationsSchema } from '../data-schema/element-schema';
+import { Relationstyleable } from '../mixins/Relationstyleable';
+import { Linksable } from '../mixins/linksable';
 import Element from './Element';
 
-export class Relations extends Element {
+const ComposedRelations = Relationstyleable(Linksable(Element));
+
+export class Relations extends ComposedRelations {
   constructor(context) {
     super({ type: 'relations', context });
     this.initPath();

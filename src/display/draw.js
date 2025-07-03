@@ -1,7 +1,6 @@
 import { Grid, Group, Item, Relations } from './elements';
-import { update } from './update/update';
 
-const Creator = {
+export const elementCreator = {
   group: Group,
   grid: Grid,
   item: Item,
@@ -15,13 +14,9 @@ export const draw = (context, data) => {
 
   function render(parent, data) {
     for (const changes of data) {
-      const element = new Creator[changes.type](context);
-      update(context, { elements: element, changes });
+      const element = new elementCreator[changes.type](context);
+      element.update(changes);
       parent.addChild(element);
-
-      if (changes.type === 'group') {
-        render(element, changes.children);
-      }
     }
   }
 };

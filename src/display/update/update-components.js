@@ -4,7 +4,7 @@ import { validate } from '../../utils/validator';
 import { Background, Bar, Icon, Text } from '../components';
 import { componentSchema } from '../data-schema/component-schema';
 
-const Creator = {
+export const ComponentCreator = {
   background: Background,
   bar: Bar,
   icon: Icon,
@@ -40,6 +40,6 @@ export const updateComponents = (
 };
 
 const createComponent = (config) => {
-  const component = new Creator[config.type]();
+  const component = new ComponentCreator[config.type]();
   return component;
 };

@@ -17,6 +17,13 @@ import {
 export const backgroundSchema = Base.extend({
   type: z.literal('background'),
   source: z.union([TextureStyle, z.string()]),
+  size: z
+    .any()
+    .optional()
+    .transform(() => ({
+      width: { value: 100, unit: '%' },
+      height: { value: 100, unit: '%' },
+    })),
   tint: Tint.optional(),
 }).strict();
 

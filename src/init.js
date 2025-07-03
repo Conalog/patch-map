@@ -4,7 +4,7 @@ import { Viewport } from 'pixi-viewport';
 import * as PIXI from 'pixi.js';
 import { firaCode } from './assets/fonts';
 import { icons } from './assets/icons';
-import { Type } from './display/Base';
+import { Type } from './display/mixins/Type';
 import { deepMerge } from './utils/deepmerge/deepmerge';
 import { plugin } from './utils/event/viewport';
 import { uid } from './utils/uuid';

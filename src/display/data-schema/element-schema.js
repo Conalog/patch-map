@@ -49,7 +49,7 @@ export const relationsSchema = Base.extend({
   style: RelationsStyle,
 }).strict();
 
-const elementTypes = z.discriminatedUnion('type', [
+export const elementTypes = z.discriminatedUnion('type', [
   groupSchema,
   gridSchema,
   itemSchema,
