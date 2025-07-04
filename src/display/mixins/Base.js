@@ -40,16 +40,16 @@ export const Base = (superClass) => {
       });
     }
 
-    update(changes, schema) {
+    update(changes, schema, options = {}) {
       const validatedChanges = validate(changes, deepPartial(schema));
       if (isValidationError(validatedChanges)) throw validatedChanges;
 
-      const {
-        id,
-        label,
-        attrs = {},
-        ...diffChanges
-      } = diffJson(this.props, validatedChanges) ?? {};
+      const { overwrite = false } = options;
+
+      const diff = overwrite
+        ? validatedChanges
+        : (diffJson(this.props, validatedChanges) ?? {});
+      const { id, label, attrs = {}, ...diffChanges } = diff;
       this.props = deepMerge(this.props, validatedChanges);
 
       if (id || label || attrs) {

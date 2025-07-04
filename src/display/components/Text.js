@@ -29,7 +29,7 @@ export class Text extends ComposedText {
     );
   }
 
-  update(changes) {
-    super.update(changes, textSchema);
+  update(changes, options) {
+    super.update(changes, textSchema, options);
   }
 }
