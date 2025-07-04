@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
-import { convertArray } from '../../utils/convert';
-import { selector } from '../../utils/selector/selector';
-import { uid } from '../../utils/uuid';
-import { validate } from '../../utils/validator';
+import { convertArray } from '../utils/convert';
+import { selector } from '../utils/selector/selector';
+import { uid } from '../utils/uuid';
+import { validate } from '../utils/validator';
 
 const updateSchema = z.object({
   path: z.nullable(z.string()).default(null),

@@ -3,7 +3,7 @@ import { Application, Graphics } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { UndoRedoManager } from './command/undo-redo-manager';
 import { draw } from './display/draw';
-import { update } from './display/update/update';
+import { update } from './display/update';
 import { dragSelect } from './events/drag-select';
 import { fit, focus } from './events/focus-fit';
 import { select } from './events/single-select';
