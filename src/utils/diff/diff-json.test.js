@@ -10,6 +10,12 @@ describe('diffJson function tests', () => {
       expected: {},
     },
     {
+      name: 'obj2 is null',
+      obj1: { a: 1, b: 2 },
+      obj2: null,
+      expected: { a: 1, b: 2 },
+    },
+    {
       name: 'Key only in obj2',
       obj1: { a: 1 },
       obj2: { a: 1, b: 2 },

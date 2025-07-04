@@ -1,14 +1,10 @@
-import { createGrid } from './elements/grid';
-import { createGroup } from './elements/group';
-import { createItem } from './elements/item';
-import { createRelations } from './elements/relations';
-import { update } from './update/update';
+import { Grid, Group, Item, Relations } from './elements';
 
-const elementcreators = {
-  group: createGroup,
-  grid: createGrid,
-  item: createItem,
-  relations: createRelations,
+export const elementCreator = {
+  group: Group,
+  grid: Grid,
+  item: Item,
+  relations: Relations,
 };
 
 export const draw = (context, data) => {
@@ -17,18 +13,10 @@ export const draw = (context, data) => {
   render(viewport, data);
 
   function render(parent, data) {
-    for (const config of data) {
-      const creator = elementcreators[config.type];
-      if (creator) {
-        const element = creator(config);
-        element.viewport = viewport;
-        update(context, { elements: element, changes: config });
-        parent.addChild(element);
-
-        if (config.type === 'group') {
-          render(element, config.items);
-        }
-      }
+    for (const changes of data) {
+      const element = new elementCreator[changes.type](context);
+      element.update(changes);
+      parent.addChild(element);
     }
   }
 };

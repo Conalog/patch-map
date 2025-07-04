@@ -1,16 +1,20 @@
-export const getNestedValue = (object, path = null) => {
-  if (!path) return null;
-  return path
+export const getNestedValue = (object, path) => {
+  if (typeof path !== 'string' || !path) {
+    return null;
+  }
+
+  const value = path
     .split('.')
     .reduce((acc, key) => (acc && acc[key] != null ? acc[key] : null), object);
+  return typeof value === 'string' ? value : null;
 };
 
 export const getColor = (theme, color) => {
-  return (
-    (typeof color === 'string' && color.startsWith('#')
-      ? color
-      : getNestedValue(theme, color)) ?? '#000'
-  );
+  if (typeof color !== 'string') {
+    return color;
+  }
+  const themeColor = getNestedValue(theme, color);
+  return themeColor ?? color;
 };
 
 export const getViewport = (object) => {

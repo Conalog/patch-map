@@ -1,86 +1,82 @@
 import { z } from 'zod';
+import {
+  Base,
+  Margin,
+  Placement,
+  PxOrPercentSize,
+  TextStyle,
+  TextureStyle,
+  Tint,
+} from './primitive-schema';
 
-export const Placement = z.enum([
-  'left',
-  'left-top',
-  'left-bottom',
-  'top',
-  'right',
-  'right-top',
-  'right-bottom',
-  'bottom',
-  'center',
-]);
-
-export const Margin = z.string().regex(/^(\d+(\.\d+)?(\s+\d+(\.\d+)?){0,3})$/);
-
-const TextureType = z.enum(['rect']);
-export const TextureStyle = z
-  .object({
-    type: TextureType,
-    fill: z.nullable(z.string()),
-    borderWidth: z.nullable(z.number()),
-    borderColor: z.nullable(z.string()),
-    radius: z.nullable(z.number()),
-  })
-  .partial();
-
-const defaultConfig = z
-  .object({
-    show: z.boolean().default(true),
-  })
-  .passthrough();
-
-const background = defaultConfig.extend({
+/**
+ * An Item's background, sourced from a style object or an asset URL.
+ * Visually represented by a `NineSliceSprite`.
+ * @see {@link https://pixijs.download/release/docs/scene.NineSliceSprite.html}
+ */
+export const backgroundSchema = Base.extend({
   type: z.literal('background'),
-  texture: TextureStyle,
-});
+  source: z.union([TextureStyle, z.string()]),
+  size: z
+    .any()
+    .optional()
+    .transform(() => ({
+      width: { value: 100, unit: '%' },
+      height: { value: 100, unit: '%' },
+    })),
+  tint: Tint.optional(),
+}).strict();
 
-const bar = defaultConfig.extend({
+/**
+ * A component for progress bars or bar graphs.
+ * Visually represented by a `NineSliceSprite`.
+ * @see {@link https://pixijs.download/release/docs/scene.NineSliceSprite.html}
+ */
+export const barSchema = Base.extend({
   type: z.literal('bar'),
-  texture: TextureStyle,
+  source: TextureStyle,
+  size: PxOrPercentSize,
   placement: Placement.default('bottom'),
-  margin: Margin.default('0'),
-  percentWidth: z.number().min(0).max(1).default(1),
-  percentHeight: z.number().min(0).max(1).default(1),
+  margin: Margin.default(0),
+  tint: Tint.optional(),
   animation: z.boolean().default(true),
   animationDuration: z.number().default(200),
-});
+}).strict();
 
-const icon = defaultConfig.extend({
+/**
+ * A component for displaying an icon image.
+ * Visually represented by a `Sprite`.
+ * @see {@link https://pixijs.download/release/docs/scene.Sprite.html}
+ */
+export const iconSchema = Base.extend({
   type: z.literal('icon'),
-  asset: z.string(),
+  source: z.string(),
+  size: PxOrPercentSize,
   placement: Placement.default('center'),
-  margin: Margin.default('0'),
-  size: z.number().nonnegative(),
-});
+  margin: Margin.default(0),
+  tint: Tint.optional(),
+}).strict();
 
-const text = defaultConfig.extend({
+/**
+ * A text label component.
+ * Visually represented by a `BitmapText`.
+ * @see {@link https://pixijs.download/release/docs/scene.BitmapText.html}
+ */
+export const textSchema = Base.extend({
   type: z.literal('text'),
   placement: Placement.default('center'),
-  margin: Margin.default('0'),
+  margin: Margin.default(0),
+  tint: Tint.optional(),
   text: z.string().default(''),
-  style: z
-    .preprocess(
-      (val) => ({
-        fontFamily: 'FiraCode',
-        fontWeight: 400,
-        fill: 'black',
-        ...val,
-      }),
-      z.record(z.unknown()),
-    )
-    .default({}),
+  style: TextStyle.optional(),
   split: z.number().int().default(0),
-});
+}).strict();
 
 export const componentSchema = z.discriminatedUnion('type', [
-  background,
-  bar,
-  icon,
-  text,
+  backgroundSchema,
+  barSchema,
+  iconSchema,
+  textSchema,
 ]);
 
-export const componentArraySchema = z
-  .discriminatedUnion('type', [background, bar, icon, text])
-  .array();
+export const componentArraySchema = componentSchema.array();

@@ -1,4 +1,4 @@
-import { TextureStyle } from '../../display/data-schema/component-schema';
+import { TextureStyle } from '../../display/data-schema/primitive-schema';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
 
 const RESOLUTION = 5;
