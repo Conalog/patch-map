@@ -172,7 +172,7 @@ describe('Primitive Schema Tests', () => {
       expect(PxOrPercentSize.parse(input)).toEqual(expected);
     });
 
-    it('', () => {
+    it('should allow partial PxOrPercentSize objects with deepPartial', () => {
       const input = {
         width: { value: 150, unit: 'px' },
         height: { value: 75, unit: '%' },
@@ -344,22 +344,14 @@ describe('Primitive Schema Tests', () => {
   describe('RelationsStyle Schema', () => {
     it('should add default color if not provided', () => {
       const data = { lineWidth: 2 };
-      expect(RelationsStyle.parse(data)).toEqual({
-        color: 'black',
-        lineWidth: 2,
-      });
+      expect(RelationsStyle.parse(data)).toEqual({ lineWidth: 2 });
     });
   });
 
   describe('TextStyle Schema', () => {
     it('should apply default styles for a partial object', () => {
       const data = { fontSize: 16 };
-      expect(TextStyle.parse(data)).toEqual({
-        fontFamily: 'FiraCode',
-        fontWeight: 400,
-        fill: 'black',
-        fontSize: 16,
-      });
+      expect(TextStyle.parse(data)).toEqual({ fontSize: 16 });
     });
 
     it('should not override provided styles', () => {
@@ -368,18 +360,6 @@ describe('Primitive Schema Tests', () => {
         fontFamily: 'Arial',
         fontWeight: 'bold',
         fill: 'red',
-      });
-    });
-
-    it.each([
-      { case: 'undefined', input: undefined },
-      { case: 'null', input: null },
-      { case: 'empty object', input: {} },
-    ])('should return full default object for $case input', ({ input }) => {
-      expect(TextStyle.parse(input)).toEqual({
-        fontFamily: 'FiraCode',
-        fontWeight: 400,
-        fill: 'black',
       });
     });
   });

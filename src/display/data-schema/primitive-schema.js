@@ -113,23 +113,12 @@ export const TextureStyle = z
 /**
  * @see {@link https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html}
  */
-export const RelationsStyle = z.preprocess(
-  (val) => ({ color: 'black', ...(val ?? {}) }),
-  z.record(z.string(), z.unknown()),
-);
+export const RelationsStyle = z.record(z.string(), z.unknown());
 
 /**
  * @see {@link https://pixijs.download/release/docs/text.TextStyleOptions.html}
  */
-export const TextStyle = z.preprocess(
-  (val) => ({
-    fontFamily: 'FiraCode',
-    fontWeight: 400,
-    fill: 'black',
-    ...(val ?? {}),
-  }),
-  z.record(z.string(), z.unknown()),
-);
+export const TextStyle = z.record(z.string(), z.unknown());
 
 /**
  * @see {@link https://pixijs.download/release/docs/color.ColorSource.html}

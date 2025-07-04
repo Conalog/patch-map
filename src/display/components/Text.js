@@ -16,7 +16,12 @@ const ComposedText = Placementable(
 
 export class Text extends ComposedText {
   constructor(context) {
-    super({ type: 'text', context, text: '' });
+    super({
+      type: 'text',
+      context,
+      text: '',
+      style: { fontFamily: 'FiraCode regular', fill: 'black' },
+    });
 
     this.constructor.registerHandler(
       EXTRA_KEYS.PLACEMENT,

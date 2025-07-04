@@ -148,7 +148,6 @@ describe('Element Schemas', () => {
       };
       const parsed = relationsSchema.parse(relationsData);
       expect(parsed.links).toHaveLength(1);
-      expect(parsed.style).toEqual({ color: 'black' });
     });
 
     it('should accept an overridden style', () => {

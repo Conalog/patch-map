@@ -68,7 +68,7 @@ export const textSchema = Base.extend({
   margin: Margin.default(0),
   tint: Tint.optional(),
   text: z.string().default(''),
-  style: TextStyle,
+  style: TextStyle.optional(),
   split: z.number().int().default(0),
 }).strict();
 

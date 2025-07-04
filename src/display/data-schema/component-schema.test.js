@@ -196,9 +196,6 @@ describe('Component Schemas', () => {
     it('should parse valid text and apply all defaults', () => {
       const parsed = textSchema.parse({ type: 'text' });
       expect(parsed.text).toBe('');
-      expect(parsed.style.fontFamily).toBe('FiraCode');
-      expect(parsed.style.fill).toBe('black');
-      expect(parsed.style.fontWeight).toBe(400);
       expect(parsed.split).toBe(0);
       expect(parsed.placement).toBe('center');
     });
@@ -211,7 +208,6 @@ describe('Component Schemas', () => {
       const parsed = textSchema.parse(data);
       expect(parsed.style.fill).toBe('red'); // Overridden
       expect(parsed.style.fontSize).toBe(24); // Added
-      expect(parsed.style.fontFamily).toBe('FiraCode'); // Default maintained
     });
   });
 
