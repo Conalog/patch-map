@@ -1,11 +1,10 @@
 import { isValidationError } from 'zod-validation-error';
-import { getPointerPosition } from '../utils/canvas';
 import { deepMerge } from '../utils/deepmerge/deepmerge';
 import { event } from '../utils/event/canvas';
 import { validate } from '../utils/validator';
 import { findIntersectObjects } from './find';
 import { dragSelectEventSchema } from './schema';
-import { checkEvents, isMoved } from './utils';
+import { checkEvents, getPointerPosition, isMoved } from './utils';
 
 const DRAG_SELECT_EVENT_ID = 'drag-select-down drag-select-move drag-select-up';
 const DEBOUNCE_FN_INTERVAL = 25; // ms
