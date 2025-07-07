@@ -56,7 +56,8 @@ export class Relations extends ComposedRelations {
       const targetPoint = [targetBounds.x, targetBounds.y];
       if (
         !lastPoint ||
-        JSON.stringify(lastPoint) === JSON.stringify(sourcePoint)
+        lastPoint[0] !== sourcePoint[0] ||
+        lastPoint[1] !== sourcePoint[1]
       ) {
         path.moveTo(...sourcePoint);
       }

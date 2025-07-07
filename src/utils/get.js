@@ -3,10 +3,9 @@ export const getNestedValue = (object, path) => {
     return null;
   }
 
-  const value = path
+  return path
     .split('.')
     .reduce((acc, key) => (acc && acc[key] != null ? acc[key] : null), object);
-  return typeof value === 'string' ? value : null;
 };
 
 export const getColor = (theme, color) => {
