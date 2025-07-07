@@ -1,12 +1,10 @@
 import { BitmapText } from 'pixi.js';
 import { textSchema } from '../data-schema/component-schema';
-import {
-  Base,
-  Placementable,
-  Showable,
-  Textable,
-  Textstyleable,
-} from '../mixins';
+import { Base } from '../mixins/Base';
+import { Placementable } from '../mixins/Placementable';
+import { Showable } from '../mixins/Showable';
+import { Textable } from '../mixins/Textable';
+import { Textstyleable } from '../mixins/Textstyleable';
 import { mixins } from '../mixins/utils';
 
 const EXTRA_KEYS = {

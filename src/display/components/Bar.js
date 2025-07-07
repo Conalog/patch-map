@@ -1,14 +1,12 @@
 import { NineSliceSprite, Texture } from 'pixi.js';
 import { barSchema } from '../data-schema/component-schema';
-import {
-  AnimationSizeable,
-  Animationable,
-  Base,
-  Placementable,
-  Showable,
-  Sourceable,
-  Tintable,
-} from '../mixins';
+import { Animationable } from '../mixins/Animationable';
+import { AnimationSizeable } from '../mixins/Animationsizeable';
+import { Base } from '../mixins/Base';
+import { Placementable } from '../mixins/Placementable';
+import { Showable } from '../mixins/Showable';
+import { Sourceable } from '../mixins/Sourceable';
+import { Tintable } from '../mixins/Tintable';
 import { mixins } from '../mixins/utils';
 
 const EXTRA_KEYS = {

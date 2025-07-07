@@ -1,13 +1,11 @@
 import { Sprite, Texture } from 'pixi.js';
 import { iconSchema } from '../data-schema/component-schema';
-import {
-  Base,
-  ComponentSizeable,
-  Placementable,
-  Showable,
-  Sourceable,
-  Tintable,
-} from '../mixins';
+import { Base } from '../mixins/Base';
+import { ComponentSizeable } from '../mixins/Componentsizeable';
+import { Placementable } from '../mixins/Placementable';
+import { Showable } from '../mixins/Showable';
+import { Sourceable } from '../mixins/Sourceable';
+import { Tintable } from '../mixins/Tintable';
 import { mixins } from '../mixins/utils';
 
 const EXTRA_KEYS = {

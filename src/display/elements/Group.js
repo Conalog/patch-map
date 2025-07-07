@@ -1,5 +1,5 @@
 import { groupSchema } from '../data-schema/element-schema';
-import { Childrenable } from '../mixins';
+import { Childrenable } from '../mixins/Childrenable';
 import { mixins } from '../mixins/utils';
 import Element from './Element';
 

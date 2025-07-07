@@ -1,5 +1,6 @@
 import { Container } from 'pixi.js';
-import { Base, Showable } from '../mixins';
+import { Base } from '../mixins/Base';
+import { Showable } from '../mixins/Showable';
 import { mixins } from '../mixins/utils';
 
 const ComposedElement = mixins(Container, Base, Showable);

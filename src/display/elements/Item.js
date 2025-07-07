@@ -1,5 +1,6 @@
 import { itemSchema } from '../data-schema/element-schema';
-import { Componentsable, ItemSizeable } from '../mixins';
+import { Componentsable } from '../mixins/Componentsable';
+import { ItemSizeable } from '../mixins/Itemsizeable';
 import { mixins } from '../mixins/utils';
 import Element from './Element';
 

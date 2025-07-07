@@ -1,5 +1,6 @@
 import { gridSchema } from '../data-schema/element-schema';
-import { Cellsable, Itemable } from '../mixins';
+import { Cellsable } from '../mixins/Cellsable';
+import { Itemable } from '../mixins/Itemable';
 import { mixins } from '../mixins/utils';
 import Element from './Element';
 

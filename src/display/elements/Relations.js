@@ -1,7 +1,8 @@
 import { Graphics } from 'pixi.js';
 import { selector } from '../../utils/selector/selector';
 import { relationsSchema } from '../data-schema/element-schema';
-import { Linksable, Relationstyleable } from '../mixins';
+import { Relationstyleable } from '../mixins/Relationstyleable';
+import { Linksable } from '../mixins/linksable';
 import { calcOrientedBounds, mixins } from '../mixins/utils';
 import RenderElement from './RenderElement';
 
