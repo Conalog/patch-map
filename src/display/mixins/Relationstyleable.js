@@ -15,6 +15,7 @@ export const Relationstyleable = (superClass) => {
         style.color = getColor(this.context.theme, style.color);
       }
       path.setStrokeStyle({ ...path.strokeStyle, ...style });
+      this._renderDirty = true;
     }
   };
   MixedClass.registerHandler(

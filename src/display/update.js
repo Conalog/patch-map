@@ -7,9 +7,10 @@ import { validate } from '../utils/validator';
 
 const updateSchema = z.object({
   path: z.nullable(z.string()).default(null),
-  changes: z.record(z.unknown()),
+  changes: z.record(z.unknown()).nullable().default(null),
   history: z.union([z.boolean(), z.string()]).default(false),
   relativeTransform: z.boolean().default(false),
+  overwrite: z.boolean().default(false),
 });
 
 export const update = (viewport, opts) => {
@@ -31,7 +32,7 @@ export const update = (viewport, opts) => {
     if (relativeTransform && changes.attrs) {
       changes.attrs = applyRelativeTransform(element, changes.attrs);
     }
-    element.update(changes, { historyId });
+    element.update(changes, { historyId, overwrite: config.overwrite });
   }
 };
 

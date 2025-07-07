@@ -11,7 +11,7 @@ export class Grid extends ComposedGrid {
     super({ type: 'grid', context });
   }
 
-  update(changes) {
-    super.update(changes, gridSchema);
+  update(changes, options) {
+    super.update(changes, gridSchema, options);
   }
 }

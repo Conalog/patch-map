@@ -41,23 +41,23 @@ export const Base = (superClass) => {
     }
 
     update(changes, schema, options = {}) {
-      const validatedChanges = validate(changes, deepPartial(schema));
+      const { overwrite = false } = options;
+      const effectiveChanges = overwrite && !changes ? this.props : changes;
+      const validatedChanges = validate(effectiveChanges, deepPartial(schema));
       if (isValidationError(validatedChanges)) throw validatedChanges;
 
-      const { overwrite = false } = options;
-
-      const diff = overwrite
-        ? validatedChanges
-        : (diffJson(this.props, validatedChanges) ?? {});
-      const { id, label, attrs = {}, ...diffChanges } = diff;
+      const keysToProcess = overwrite
+        ? Object.keys(validatedChanges)
+        : Object.keys(diffJson(this.props, validatedChanges) ?? {});
       this.props = deepMerge(this.props, validatedChanges);
 
+      const { id, label, attrs } = validatedChanges;
       if (id || label || attrs) {
         this._applyRaw({ id, label, ...attrs });
       }
 
       const tasks = new Map();
-      for (const key in diffChanges) {
+      for (const key of keysToProcess) {
         const handlers = this.constructor._handlerMap.get(key);
         if (handlers) {
           handlers.forEach((handler) => {

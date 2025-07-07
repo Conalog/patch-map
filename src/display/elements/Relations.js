@@ -17,11 +17,8 @@ export class Relations extends ComposedRelations {
     this._renderDirty = true;
   }
 
-  update(changes) {
-    if (changes.links || changes.style) {
-      this._renderDirty = true;
-    }
-    super.update(changes, relationsSchema);
+  update(changes, options) {
+    super.update(changes, relationsSchema, options);
   }
 
   initPath() {

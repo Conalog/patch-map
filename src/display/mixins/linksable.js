@@ -8,6 +8,7 @@ export const Linksable = (superClass) => {
     _applyLinks(relevantChanges) {
       const { links } = relevantChanges;
       this.linkedObjects = uniqueLinked(this.context.viewport, links);
+      this._renderDirty = true;
     }
   };
   MixedClass.registerHandler(
