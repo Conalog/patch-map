@@ -36,22 +36,21 @@ export const update = (viewport, opts) => {
 };
 
 const applyRelativeTransform = (element, changes) => {
-  const newChanges = JSON.parse(JSON.stringify(changes));
-  const { x, y, rotation, angle } = newChanges;
+  const { x, y, rotation, angle } = changes;
 
   if (x) {
-    newChanges.x = element.x + x;
+    changes.x = element.x + x;
   }
   if (y) {
-    newChanges.y = element.y + y;
+    changes.y = element.y + y;
   }
   if (rotation) {
-    newChanges.rotation = element.rotation + rotation;
+    changes.rotation = element.rotation + rotation;
   }
   if (angle) {
-    newChanges.angle = element.angle + angle;
+    changes.angle = element.angle + angle;
   }
-  return newChanges;
+  return changes;
 };
 
 const createHistoryId = (history) => {
