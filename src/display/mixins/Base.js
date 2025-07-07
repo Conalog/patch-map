@@ -46,10 +46,14 @@ export const Base = (superClass) => {
       const validatedChanges = validate(effectiveChanges, deepPartial(schema));
       if (isValidationError(validatedChanges)) throw validatedChanges;
 
+      const prevProps = JSON.parse(JSON.stringify(this.props));
+      this.props = deepMerge(prevProps, validatedChanges, {
+        arrayMerge: 'overwrite',
+      });
+
       const keysToProcess = overwrite
-        ? Object.keys(validatedChanges)
-        : Object.keys(diffJson(this.props, validatedChanges) ?? {});
-      this.props = deepMerge(this.props, validatedChanges);
+        ? Object.keys(this.props)
+        : Object.keys(diffJson(prevProps, this.props) ?? {});
 
       const { id, label, attrs } = validatedChanges;
       if (id || label || attrs) {
@@ -105,7 +109,7 @@ export const Base = (superClass) => {
     }
 
     _updateProperty(key, value) {
-      deepMerge(this, { [key]: value });
+      deepMerge(this, { [key]: value }, { arrayMerge: 'overwrite' });
     }
   };
 };

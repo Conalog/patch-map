@@ -341,3 +341,31 @@ describe('deepMerge – additional edge‑case coverage', () => {
     expect(result).toEqual([a, b]);
   });
 });
+
+describe('deepMerge – arrayMerge option', () => {
+  test.each([
+    {
+      name: 'should overwrite array when arrayMerge is "overwrite"',
+      left: { arr: [1, 2, 3] },
+      right: { arr: [4, 5] },
+      options: { arrayMerge: 'overwrite' },
+      expected: { arr: [4, 5] },
+    },
+    {
+      name: 'should merge arrays by default (no option)',
+      left: { arr: [1, 2, 3] },
+      right: { arr: [4, 5] },
+      options: {},
+      expected: { arr: [4, 5, 3] },
+    },
+    {
+      name: 'should merge nested arrays when arrayMerge is "overwrite" at top level',
+      left: { nested: { arr: ['a', 'b'] } },
+      right: { nested: { arr: ['c'] } },
+      options: { arrayMerge: 'overwrite' },
+      expected: { nested: { arr: ['c'] } },
+    },
+  ])('$name', ({ left, right, options, expected }) => {
+    expect(deepMerge(left, right, options)).toEqual(expected);
+  });
+});

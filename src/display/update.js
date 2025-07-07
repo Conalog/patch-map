@@ -17,7 +17,8 @@ export const update = (viewport, opts) => {
   const config = validate(opts, updateSchema.passthrough());
   if (isValidationError(config)) throw config;
 
-  const historyId = createHistoryId(config.history);
+  const { history, relativeTransform, overwrite } = config;
+  const historyId = createHistoryId(history);
   const elements = 'elements' in config ? convertArray(config.elements) : [];
   if (viewport && config.path) {
     elements.push(...selector(viewport, config.path));
@@ -27,12 +28,11 @@ export const update = (viewport, opts) => {
     if (!element) {
       continue;
     }
-    const { relativeTransform } = config;
     const changes = JSON.parse(JSON.stringify(config.changes));
     if (relativeTransform && changes.attrs) {
       changes.attrs = applyRelativeTransform(element, changes.attrs);
     }
-    element.update(changes, { historyId, overwrite: config.overwrite });
+    element.update(changes, { historyId, overwrite });
   }
 };
 

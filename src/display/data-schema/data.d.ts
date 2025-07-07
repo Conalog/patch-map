@@ -137,7 +137,9 @@ export interface Grid {
  *     },
  *     {
  *       type: 'icon',
- *       source: 'ok.svg', size: 16, placement: 'right-bottom'
+ *       source: 'ok.svg',
+ *       size: 16,
+ *       placement: 'right-bottom'
  *     }
  *   ],
  *   attrs: { x: 300, y: 150 },
@@ -441,6 +443,7 @@ export interface TextureStyle {
 /**
  * Defines the line style for a Relations element.
  * You can pass an object similar to PIXI.Graphics' lineStyle options.
+ *
  * @see {@link https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html}
  *
  * @example
@@ -455,8 +458,6 @@ export type RelationsStyle = Record<string, unknown>;
 /**
  * Defines the text style for a Text component.
  * You can pass an object similar to PIXI.TextStyle options.
- *
- * Defaults: `{ fontFamily: 'FiraCode', fontWeight: 400, fill: 'black' }`
  *
  * @see {@link https://pixijs.download/release/docs/text.TextStyleOptions.html}
  *
