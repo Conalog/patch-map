@@ -2,7 +2,7 @@ import { Polygon } from 'pixi.js';
 import { getPoints } from './get-points';
 
 export const intersectPoint = (obj, point) => {
-  const viewport = obj.context.viewport;
+  const viewport = obj?.context?.viewport;
   if (!viewport) return false;
 
   if ('containsPoint' in obj) {
