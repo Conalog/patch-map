@@ -225,14 +225,19 @@ draw method가 요구하는 **데이터 구조**입니다.
 <br/>
 
 ### `update(options)`
-캔버스에 이미 렌더링된 객체의 상태를 업데이트합니다. 색상이나 텍스트 가시성 같은 속성을 변경하는 데 사용하세요.
+캔버스에 렌더링된 객체의 속성을 업데이트합니다. 기본적으로 변경된 속성만 반영하지만, `overwrite` 옵션을 통해 특정 또는 전체 속성을 강제로 재계산하고 다시 렌더링할 수 있습니다.
 
 #### **`Options`**
 - `path`(optional, string) - [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 selector로, 이벤트가 적용될 객체를 선택합니다.
 - `elements`(optional, object \| array) - 업데이트할 하나 이상의 객체에 대한 직접 참조입니다. 단일 객체 또는 배열을 허용합니다. ([selector](#selectorpath)에서 반환된 객체 등).
-- `changes`(required, object) - 적용할 새로운 속성 (예: 색상, 텍스트 가시성).
+- `changes`(optional, object) - 적용할 새로운 속성 (예: 색상, 텍스트 가시성). `overwrite` 옵션을 `true`로 설정할 경우 생략할 수 있습니다.
 - `history`(optional, boolean \| string) - 해당 `update` 메소드에 의한 변경 사항을 `undoRedoManager`에 기록할 것인지 결정합니다. 이전에 저장된 기록의 historyId와 일치하는 문자열이 제공되면, 두 기록이 하나의 실행 취소/재실행 단계로 병합됩니다.
 - `relativeTransform`(optional, boolean) - `position`, `rotation`, `angle` 값에 대해서 상대값을 이용할 지 결정합니다. 만약, `true` 라면 전달된 값을 객체의 값에 더합니다.
+- `overwrite`(optional, boolean) - 업데이트 동작을 제어합니다.
+  - `false` (기본값): `changes`로 전달된 값 중 실제로 변경된 속성에 대해서만 업데이트됩니다.
+  - `true`:
+    - `changes`가 있을 경우: `changes`로 전달된 **모든 속성**에 대해 강제로 업데이트 로직을 다시 실행합니다. (값이 이전과 같더라도 실행됩니다.)
+    - `changes`가 없을 경우: 객체가 가진 **기존의 모든 속성**을 기반으로 전체 업데이트를 수행하여 객체를 "새로고침"합니다. 부모의 상태 변화에 따라 자식 객체를 업데이트할 때 유용합니다.
 
 ```js
 // label이 "grid-label-1"인 객체들에 대해 변경 사항 적용
@@ -261,6 +266,12 @@ patchmap.update({
       components: [{ type: 'icon', tint: 'red' }],
     },
   },
+});
+
+// type이 "relations"인 모든 객체를 찾아서(overwrite: true로) 강제로 전체 속성 업데이트(새로고침) 수행
+patchmap.update({
+  path: `$..children[?(@.type==="relations")]`,
+  overwrite: true
 });
 ```
 

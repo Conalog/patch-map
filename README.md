@@ -226,14 +226,20 @@ For **detailed type definitions**, refer to the [data.d.ts](src/display/data-sch
 <br/>
 
 ### `update(options)`
-Updates the state of specific objects on the canvas. Use this to change properties like color or text visibility for already rendered objects.
+Updates the properties of objects rendered on the canvas. By default, it applies only what has changed, but the overwrite option can be used to forcibly recalculate and re-render specific or all properties.
 
 #### **`Options`**
 - `path`(optional, string) - Selector for the object to which the event will be applied, following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax.
 - `elements`(optional, object \| array) - Direct references to one or more objects to update. Accepts a single object or an array. (Objects returned from [selector](#selectorpath), etc.).
-- `changes`(required, object) - New properties to apply (e.g., color, text visibility).
+- `changes` (optional, object) - New properties to apply (e.g., color, text visibility). If the `overwrite` option is set to `true`, this can be omitted.
 - `history`(optional, boolean \| string) - Determines whether to record changes made by this `update` method in the `undoRedoManager`. If a string that matches the historyId of a previously saved record is provided, the two records will be merged into a single undo/redo step.
 - `relativeTransform`(optional, boolean) - Determines whether to use relative values for `position`, `rotation`, and `angle`. If `true`, the provided values will be added to the object's values.
+
+- `overwrite`(optional, boolean) - Controls the update behavior.
+  - `false` (Default): The update logic runs only for properties in `changes` that have actually changed.
+  - true:
+    - If `changes` is provided: Forcibly re-runs the update logic for **all properties** passed in `changes`, even if the values are the same as before.
+    - If `changes` is omitted: Performs a full update based on **all of the object's existing properties**, effectively "refreshing" it. This is useful for updating a child object in response to a parent's state change.
 
 ```js
 // Apply changes to objects with the label "grid-label-1"
@@ -262,6 +268,12 @@ patchmap.update({
       components: [{ type: 'icon', tint: 'red' }],
     },
   },
+});
+
+// Force a full property update (refresh) for all objects of type "relations" using overwrite: true
+patchmap.update({
+  path: `$..children[?(@.type==="relations")]`,
+  overwrite: true
 });
 ```
 
