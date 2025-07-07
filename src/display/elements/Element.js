@@ -1,8 +1,8 @@
 import { Container } from 'pixi.js';
-import { Base } from '../mixins/Base';
-import { Showable } from '../mixins/Showable';
+import { Base, Showable } from '../mixins';
+import { mixins } from '../mixins/utils';
 
-const ComposedElement = Showable(Base(Container));
+const ComposedElement = mixins(Container, Base, Showable);
 
 export default class Element extends ComposedElement {
   constructor(options) {

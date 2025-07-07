@@ -73,3 +73,7 @@ export const calcOrientedBounds = (object, bounds = tempBounds) => {
   resultBounds.update();
   return resultBounds;
 };
+
+export const mixins = (baseClass, ...mixins) => {
+  return mixins.reduce((target, mixin) => mixin(target), baseClass);
+};

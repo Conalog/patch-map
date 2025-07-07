@@ -1,13 +1,21 @@
 import { NineSliceSprite, Texture } from 'pixi.js';
 import { backgroundSchema } from '../data-schema/component-schema';
-import { Base } from '../mixins/Base';
-import { ComponentSizeable } from '../mixins/Componentsizeable';
-import { Showable } from '../mixins/Showable';
-import { Sourceable } from '../mixins/Sourceable';
-import { Tintable } from '../mixins/Tintable';
+import {
+  Base,
+  ComponentSizeable,
+  Showable,
+  Sourceable,
+  Tintable,
+} from '../mixins';
+import { mixins } from '../mixins/utils';
 
-const ComposedBackground = ComponentSizeable(
-  Tintable(Sourceable(Showable(Base(NineSliceSprite)))),
+const ComposedBackground = mixins(
+  NineSliceSprite,
+  Base,
+  Showable,
+  Sourceable,
+  Tintable,
+  ComponentSizeable,
 );
 
 export class Background extends ComposedBackground {

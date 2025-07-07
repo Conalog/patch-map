@@ -1,12 +1,11 @@
 import { Graphics } from 'pixi.js';
 import { selector } from '../../utils/selector/selector';
 import { relationsSchema } from '../data-schema/element-schema';
-import { Relationstyleable } from '../mixins/Relationstyleable';
-import { Linksable } from '../mixins/linksable';
-import { calcOrientedBounds } from '../mixins/utils';
+import { Linksable, Relationstyleable } from '../mixins';
+import { calcOrientedBounds, mixins } from '../mixins/utils';
 import RenderElement from './RenderElement';
 
-const ComposedRelations = Relationstyleable(Linksable(RenderElement));
+const ComposedRelations = mixins(RenderElement, Linksable, Relationstyleable);
 
 export class Relations extends ComposedRelations {
   allowChildren = true;

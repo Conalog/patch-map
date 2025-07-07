@@ -1,9 +1,9 @@
 import { gridSchema } from '../data-schema/element-schema';
-import { Cellsable } from '../mixins/Cellsable';
-import { Itemable } from '../mixins/Itemable';
+import { Cellsable, Itemable } from '../mixins';
+import { mixins } from '../mixins/utils';
 import Element from './Element';
 
-const ComposedGrid = Itemable(Cellsable(Element));
+const ComposedGrid = mixins(Element, Cellsable, Itemable);
 
 export class Grid extends ComposedGrid {
   constructor(context) {
