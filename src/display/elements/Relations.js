@@ -1,9 +1,10 @@
 import { Graphics } from 'pixi.js';
+import { calcOrientedBounds } from '../../utils/bounds';
 import { selector } from '../../utils/selector/selector';
 import { relationsSchema } from '../data-schema/element-schema';
 import { Relationstyleable } from '../mixins/Relationstyleable';
 import { Linksable } from '../mixins/linksable';
-import { calcOrientedBounds, mixins } from '../mixins/utils';
+import { mixins } from '../mixins/utils';
 import RenderElement from './RenderElement';
 
 const ComposedRelations = mixins(RenderElement, Linksable, Relationstyleable);
