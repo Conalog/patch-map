@@ -5,17 +5,20 @@ import { relationsSchema } from '../data-schema/element-schema';
 import { Relationstyleable } from '../mixins/Relationstyleable';
 import { Linksable } from '../mixins/linksable';
 import { mixins } from '../mixins/utils';
-import RenderElement from './RenderElement';
+import Element from './Element';
 
-const ComposedRelations = mixins(RenderElement, Linksable, Relationstyleable);
+const ComposedRelations = mixins(Element, Linksable, Relationstyleable);
 
 export class Relations extends ComposedRelations {
-  allowChildren = true;
+  _renderDirty = true;
+  _renderOnNextTick = false;
 
   constructor(context) {
     super({ type: 'relations', context });
     this.initPath();
-    this._renderDirty = true;
+
+    this._updateTransform = this._updateTransform.bind(this);
+    this.context.viewport.app.ticker.add(this._updateTransform);
   }
 
   update(changes, options) {
@@ -29,12 +32,21 @@ export class Relations extends ComposedRelations {
     this.addChild(path);
   }
 
-  render(renderer) {
-    if (this._renderDirty) {
+  _updateTransform() {
+    if (this._renderOnNextTick) {
       this.renderLink();
+      this._renderOnNextTick = false;
+    }
+
+    if (this._renderDirty) {
+      this._renderOnNextTick = true;
       this._renderDirty = false;
     }
-    super.render(renderer);
+  }
+
+  destroy(options) {
+    this.context.viewport.app.ticker.remove(this._updateTransform);
+    super.destroy(options);
   }
 
   renderLink() {
