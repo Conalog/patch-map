@@ -57,11 +57,23 @@ export class Relations extends ComposedRelations {
     let lastPoint = null;
 
     for (const link of links) {
+      const sourceObject = this.linkedObjects[link.source];
+      const targetObject = this.linkedObjects[link.target];
+
+      if (
+        !sourceObject ||
+        !targetObject ||
+        sourceObject?.destroyed ||
+        targetObject?.destroyed
+      ) {
+        continue;
+      }
+
       const sourceBounds = this.toLocal(
-        calcOrientedBounds(this.linkedObjects[link.source]).center,
+        calcOrientedBounds(sourceObject).center,
       );
       const targetBounds = this.toLocal(
-        calcOrientedBounds(this.linkedObjects[link.target]).center,
+        calcOrientedBounds(targetObject).center,
       );
 
       const sourcePoint = [sourceBounds.x, sourceBounds.y];

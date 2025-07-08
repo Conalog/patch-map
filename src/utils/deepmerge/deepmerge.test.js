@@ -345,10 +345,10 @@ describe('deepMerge – additional edge‑case coverage', () => {
 describe('deepMerge – arrayMerge option', () => {
   test.each([
     {
-      name: 'should overwrite array when arrayMerge is "overwrite"',
+      name: 'should replace array when arrayMerge is "replace"',
       left: { arr: [1, 2, 3] },
       right: { arr: [4, 5] },
-      options: { arrayMerge: 'overwrite' },
+      options: { arrayMerge: 'replace' },
       expected: { arr: [4, 5] },
     },
     {
@@ -359,10 +359,10 @@ describe('deepMerge – arrayMerge option', () => {
       expected: { arr: [4, 5, 3] },
     },
     {
-      name: 'should merge nested arrays when arrayMerge is "overwrite" at top level',
+      name: 'should merge nested arrays when arrayMerge is "replace" at top level',
       left: { nested: { arr: ['a', 'b'] } },
       right: { nested: { arr: ['c'] } },
-      options: { arrayMerge: 'overwrite' },
+      options: { arrayMerge: 'replace' },
       expected: { nested: { arr: ['c'] } },
     },
   ])('$name', ({ left, right, options, expected }) => {

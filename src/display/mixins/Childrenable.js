@@ -9,10 +9,18 @@ const KEYS = ['children'];
 
 export const Childrenable = (superClass) => {
   const MixedClass = class extends superClass {
-    _applyChildren(relevantChanges) {
+    _applyChildren(relevantChanges, options) {
       const { children } = relevantChanges;
+      let elements = [...this.children];
 
-      const elements = [...this.children];
+      if (options.arrayMerge === 'replace') {
+        elements.forEach((element) => {
+          this.removeChild(element);
+          element.destroy({ children: true });
+        });
+        elements = [];
+      }
+
       for (let childChange of children) {
         const idx = findIndexByPriority(elements, childChange);
         let element = null;
@@ -27,7 +35,7 @@ export const Childrenable = (superClass) => {
           element = newElement(childChange.type, this.context);
           this.addChild(element);
         }
-        element.update(childChange);
+        element.update(childChange, options);
       }
     }
   };

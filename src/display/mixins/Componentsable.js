@@ -9,10 +9,18 @@ const KEYS = ['components'];
 
 export const Componentsable = (superClass) => {
   const MixedClass = class extends superClass {
-    _applyComponents(relevantChanges) {
+    _applyComponents(relevantChanges, options) {
       const { components: componentsChanges } = relevantChanges;
+      let components = [...this.children];
 
-      const components = [...this.children];
+      if (options.arrayMerge === 'replace') {
+        components.forEach((component) => {
+          this.removeChild(component);
+          component.destroy({ children: true });
+        });
+        components = [];
+      }
+
       for (let componentChange of componentsChanges) {
         const idx = findIndexByPriority(components, componentChange);
         let component = null;
@@ -27,7 +35,7 @@ export const Componentsable = (superClass) => {
           component = newComponent(componentChange.type, this.context);
           this.addChild(component);
         }
-        component.update(componentChange);
+        component.update(componentChange, options);
       }
     }
   };

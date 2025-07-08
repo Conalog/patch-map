@@ -41,23 +41,21 @@ export const Base = (superClass) => {
     }
 
     update(changes, schema, options = {}) {
-      const { overwrite = false } = options;
-      const effectiveChanges = overwrite && !changes ? this.props : changes;
+      const { arrayMerge = 'merge', refresh = false } = options;
+      const effectiveChanges = refresh && !changes ? this.props : changes;
       const validatedChanges = validate(effectiveChanges, deepPartial(schema));
       if (isValidationError(validatedChanges)) throw validatedChanges;
 
       const prevProps = JSON.parse(JSON.stringify(this.props));
-      this.props = deepMerge(prevProps, validatedChanges, {
-        arrayMerge: overwrite ? 'overwrite' : null,
-      });
+      this.props = deepMerge(prevProps, validatedChanges, { arrayMerge });
 
-      const keysToProcess = overwrite
+      const keysToProcess = refresh
         ? Object.keys(this.props)
         : Object.keys(diffJson(prevProps, this.props) ?? {});
 
       const { id, label, attrs } = validatedChanges;
       if (id || label || attrs) {
-        this._applyRaw({ id, label, ...attrs }, overwrite);
+        this._applyRaw({ id, label, ...attrs }, arrayMerge);
       }
 
       const tasks = new Map();
@@ -85,11 +83,11 @@ export const Base = (superClass) => {
             fullPayload[key] = this.props[key];
           }
         });
-        handler.call(this, fullPayload);
+        handler.call(this, fullPayload, { arrayMerge, refresh });
       });
     }
 
-    _applyRaw(attrs, overwrite) {
+    _applyRaw(attrs, arrayMerge) {
       for (const [key, value] of Object.entries(attrs)) {
         if (value === undefined) continue;
 
@@ -103,17 +101,13 @@ export const Base = (superClass) => {
             key === 'height' ? value : (attrs?.height ?? this.height);
           this.setSize(width, height);
         } else {
-          this._updateProperty(key, value, overwrite);
+          this._updateProperty(key, value, arrayMerge);
         }
       }
     }
 
-    _updateProperty(key, value, overwrite = false) {
-      deepMerge(
-        this,
-        { [key]: value },
-        { arrayMerge: overwrite ? 'overwrite' : null },
-      );
+    _updateProperty(key, value, arrayMerge) {
+      deepMerge(this, { [key]: value }, { arrayMerge });
     }
   };
 };

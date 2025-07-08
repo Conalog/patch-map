@@ -10,7 +10,8 @@ const updateSchema = z.object({
   changes: z.record(z.unknown()).nullable().default(null),
   history: z.union([z.boolean(), z.string()]).default(false),
   relativeTransform: z.boolean().default(false),
-  overwrite: z.boolean().default(false),
+  arrayMerge: z.enum(['merge', 'replace']).default('merge'),
+  refresh: z.boolean().default(false),
 });
 
 export const update = (viewport, opts) => {
@@ -31,7 +32,11 @@ export const update = (viewport, opts) => {
     if (config.relativeTransform && changes.attrs) {
       changes.attrs = applyRelativeTransform(element, changes.attrs);
     }
-    element.update(changes, { historyId, overwrite: config.overwrite });
+    element.update(changes, {
+      historyId,
+      arrayMerge: config.arrayMerge,
+      refresh: config.refresh,
+    });
   }
 };
 
