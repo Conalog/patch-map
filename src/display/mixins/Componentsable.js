@@ -1,16 +1,9 @@
 import { isValidationError } from 'zod-validation-error';
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { validate } from '../../utils/validator';
-import { Background, Bar, Icon, Text } from '../components';
+import { newComponent } from '../components/creator';
 import { componentSchema } from '../data-schema/component-schema';
 import { UPDATE_STAGES } from './constants';
-
-const ComponentCreator = {
-  background: Background,
-  bar: Bar,
-  icon: Icon,
-  text: Text,
-};
 
 const KEYS = ['components'];
 
@@ -31,7 +24,7 @@ export const Componentsable = (superClass) => {
           componentChange = validate(componentChange, componentSchema);
           if (isValidationError(componentChange)) throw componentChange;
 
-          component = new ComponentCreator[componentChange.type](this.context);
+          component = newComponent(componentChange.type, this.context);
           this.addChild(component);
         }
         component.update(componentChange);

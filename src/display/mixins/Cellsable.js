@@ -1,5 +1,5 @@
 import { selector } from '../../utils/selector/selector';
-import { Item } from '../elements';
+import { newElement } from '../elements/creator';
 import { UPDATE_STAGES } from './constants';
 
 const KEYS = ['cells'];
@@ -21,7 +21,7 @@ export const Cellsable = (superClass) => {
           if (col === 0 && item) {
             this.removeChild(item);
           } else if (col === 1 && !item) {
-            item = new Item(this.context);
+            item = newElement('item', this.context);
             const itemProps = this.props.item;
             item.update({
               id: `${this.id}.${rowIndex}.${colIndex}`,

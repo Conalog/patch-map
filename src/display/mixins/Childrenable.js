@@ -2,7 +2,7 @@ import { isValidationError } from 'zod-validation-error';
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { validate } from '../../utils/validator';
 import { elementTypes } from '../data-schema/element-schema';
-import { elementCreator } from '../draw';
+import { newElement } from '../elements/creator';
 import { UPDATE_STAGES } from './constants';
 
 const KEYS = ['children'];
@@ -24,7 +24,7 @@ export const Childrenable = (superClass) => {
           childChange = validate(childChange, elementTypes);
           if (isValidationError(childChange)) throw childChange;
 
-          element = new elementCreator[childChange.type](this.context);
+          element = newElement(childChange.type, this.context);
           this.addChild(element);
         }
         element.update(childChange);
