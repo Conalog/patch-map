@@ -1,26 +1,27 @@
 import { UPDATE_STAGES } from './constants';
 
-const KEYS = ['cells', 'item', 'gap'];
+const KEYS = ['item', 'gap'];
 
 export const Itemable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyItem(relevantChanges) {
-      const { cells, item, gap } = relevantChanges;
+      const { item: itemProps, gap } = relevantChanges;
 
-      const childrenLength = this.children.length;
-      const colSize = cells[0].length;
-      for (let index = 0; index < childrenLength; index++) {
-        const rowIndex = Math.floor(index / colSize);
-        const colIndex = index % colSize;
+      const gridIdPrefix = `${this.id}.`;
+      for (const child of this.children) {
+        if (!child.id.startsWith(gridIdPrefix)) continue;
+        const coordsPart = child.id.substring(gridIdPrefix.length);
+        const [rowIndex, colIndex] = coordsPart.split('.').map(Number);
 
-        const child = this.children[index];
-        child.update({
-          ...item,
-          attrs: {
-            x: colIndex * (item.size.width + gap.x),
-            y: rowIndex * (item.size.height + gap.y),
-          },
-        });
+        if (!Number.isNaN(rowIndex) && !Number.isNaN(colIndex)) {
+          child.update({
+            ...itemProps,
+            attrs: {
+              x: colIndex * (itemProps.size.width + gap.x),
+              y: rowIndex * (itemProps.size.height + gap.y),
+            },
+          });
+        }
       }
     }
   };
