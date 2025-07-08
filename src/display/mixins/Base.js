@@ -48,7 +48,7 @@ export const Base = (superClass) => {
 
       const prevProps = JSON.parse(JSON.stringify(this.props));
       this.props = deepMerge(prevProps, validatedChanges, {
-        arrayMerge: 'overwrite',
+        arrayMerge: overwrite ? 'overwrite' : null,
       });
 
       const keysToProcess = overwrite
@@ -57,7 +57,7 @@ export const Base = (superClass) => {
 
       const { id, label, attrs } = validatedChanges;
       if (id || label || attrs) {
-        this._applyRaw({ id, label, ...attrs });
+        this._applyRaw({ id, label, ...attrs }, overwrite);
       }
 
       const tasks = new Map();
@@ -89,7 +89,7 @@ export const Base = (superClass) => {
       });
     }
 
-    _applyRaw(attrs) {
+    _applyRaw(attrs, overwrite) {
       for (const [key, value] of Object.entries(attrs)) {
         if (value === undefined) continue;
 
@@ -103,13 +103,17 @@ export const Base = (superClass) => {
             key === 'height' ? value : (attrs?.height ?? this.height);
           this.setSize(width, height);
         } else {
-          this._updateProperty(key, value);
+          this._updateProperty(key, value, overwrite);
         }
       }
     }
 
-    _updateProperty(key, value) {
-      deepMerge(this, { [key]: value }, { arrayMerge: 'overwrite' });
+    _updateProperty(key, value, overwrite = false) {
+      deepMerge(
+        this,
+        { [key]: value },
+        { arrayMerge: overwrite ? 'overwrite' : null },
+      );
     }
   };
 };
