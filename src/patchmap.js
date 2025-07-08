@@ -19,6 +19,8 @@ import { event } from './utils/event/canvas';
 import { selector } from './utils/selector/selector';
 import { themeStore } from './utils/theme';
 import { validateMapData } from './utils/validator';
+import './display/elements/registry';
+import './display/components/registry';
 
 class Patchmap {
   constructor() {
