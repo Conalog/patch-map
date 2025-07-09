@@ -1,4 +1,5 @@
 import { isValidationError } from 'zod-validation-error';
+import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { validate } from '../../utils/validator';
 import { elementTypes } from '../data-schema/element-schema';
@@ -36,6 +37,20 @@ export const Childrenable = (superClass) => {
           this.addChild(element);
         }
         element.update(childChange, options);
+      }
+    }
+
+    _onChildUpdate(childId, changes, arrayMerge) {
+      if (!this.props.children) return;
+
+      const childIndex = this.props.children.findIndex((c) => c.id === childId);
+      if (childIndex !== -1) {
+        const updatedChildProps = deepMerge(
+          this.props.children[childIndex],
+          changes,
+          { arrayMerge },
+        );
+        this.props.children[childIndex] = updatedChildProps;
       }
     }
   };

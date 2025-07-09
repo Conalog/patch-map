@@ -85,6 +85,14 @@ export const Base = (superClass) => {
         });
         handler.call(this, fullPayload, { arrayMerge, refresh });
       });
+
+      if (this.parent?._onChildUpdate) {
+        this.parent._onChildUpdate(
+          this.id,
+          diffJson(prevProps, this.props),
+          arrayMerge,
+        );
+      }
     }
 
     _applyRaw(attrs, arrayMerge) {
