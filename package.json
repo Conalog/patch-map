@@ -35,6 +35,8 @@
     "lint": "biome check --staged",
     "lint:fix": "biome check --staged --write",
     "test:unit": "vitest",
+    "test:browser": "vitest --browser=chromium",
+    "test:headless": "vitest --browser.headless",
     "prepare": "husky",
     "release": "standard-version"
   },
@@ -61,11 +63,13 @@
     "@rollup/plugin-commonjs": "^28.0.2",
     "@rollup/plugin-node-resolve": "^15.3.0",
     "@rollup/plugin-url": "^8.0.2",
+    "@vitest/browser": "^3.2.4",
     "husky": "^9.1.7",
+    "playwright": "^1.53.2",
     "rollup": "^4.34.8",
     "rollup-plugin-copy": "^3.5.0",
     "standard-version": "^9.5.0",
     "typescript": "^5.7.3",
-    "vitest": "^3.0.6"
+    "vitest": "^3.2.4"
   }
 }
