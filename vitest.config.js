@@ -6,14 +6,14 @@ export default defineConfig({
       {
         test: {
           include: ['./src/**/*.{test,spec}.js'],
-          exclude: ['./src/patchmap.test.js'],
+          exclude: ['**/tests/**'],
           name: 'unit',
           environment: 'node',
         },
       },
       {
         test: {
-          include: ['./src/patchmap.test.js'],
+          include: ['**/tests/**/*.{test,spec}.js'],
           name: 'browser',
           browser: {
             provider: 'playwright',

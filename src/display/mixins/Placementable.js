@@ -41,7 +41,9 @@ const getHorizontalPosition = (component, align, margin) => {
   } else if (align === 'right') {
     result = parentWidth - component.width - margin.right;
   } else if (align === 'center') {
-    result = (parentWidth - component.width) / 2;
+    const marginWidth = component.width + margin.left + margin.right;
+    const blockStartPosition = (parentWidth - marginWidth) / 2;
+    result = blockStartPosition + margin.left;
   }
   return result;
 };
@@ -54,7 +56,9 @@ const getVerticalPosition = (component, align, margin) => {
   } else if (align === 'bottom') {
     result = parentHeight - component.height - margin.bottom;
   } else if (align === 'center') {
-    result = (parentHeight - component.height) / 2;
+    const marginHeight = component.height + margin.top + margin.bottom;
+    const blockStartPosition = (parentHeight - marginHeight) / 2;
+    result = blockStartPosition + margin.top;
   }
   return result;
 };

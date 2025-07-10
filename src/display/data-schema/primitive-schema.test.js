@@ -363,4 +363,50 @@ describe('Primitive Schema Tests', () => {
       });
     });
   });
+
+  describe('pxOrPercentSchema with calc() support', () => {
+    describe('Valid calc() Expressions', () => {
+      const validCalcCases = [
+        { case: 'simple subtraction', input: 'calc(100% - 20px)' },
+        { case: 'different order', input: 'calc(10px - 100%)' },
+        { case: 'simple addition', input: 'calc(20px + 40%)' },
+        { case: 'multiple px values', input: 'calc(5px + 1px - 4px)' },
+        {
+          case: 'multiple mixed values',
+          input: 'calc(10% + 20% - 14px + 40%)',
+        },
+        { case: 'multiple spaces', input: 'calc( 100%  -  20px )' },
+        { case: '', input: 'calc( 100% + -20px )' },
+      ];
+
+      it.each(validCalcCases)(
+        'should parse valid calc expression: $case',
+        ({ input }) => {
+          expect(pxOrPercentSchema.parse(input)).toBe(input);
+        },
+      );
+    });
+
+    describe('Invalid calc() Expressions', () => {
+      const invalidCalcCases = [
+        { case: 'invalid unit (rem)', input: 'calc(100% - 20rem)' },
+        { case: 'missing closing parenthesis', input: 'calc(100% - 20px' },
+        { case: 'missing opening parenthesis', input: '100% - 20px)' },
+        { case: 'empty calc', input: 'calc()' },
+        { case: 'ending with operator', input: 'calc(100% -)' },
+        { case: 'starting with operator', input: 'calc(- 100%)' },
+        { case: 'double operators', input: 'calc(100% -- 20px)' },
+        { case: 'invalid operator', input: 'calc(100% * 20px)' },
+        { case: 'no units', input: 'calc(100 - 20)' },
+        { case: 'no spaces', input: 'calc(100%-20px)' },
+      ];
+
+      it.each(invalidCalcCases)(
+        'should throw an error for invalid calc expression: $case',
+        ({ input }) => {
+          expect(() => pxOrPercentSchema.parse(input)).toThrow();
+        },
+      );
+    });
+  });
 });

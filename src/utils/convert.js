@@ -48,10 +48,9 @@ export const convertLegacyData = (data) => {
               {
                 type: 'bar',
                 show: false,
-                size: '100%',
+                size: 'calc(100% - 6px)',
                 source: { type: 'rect', radius: 3, fill: 'white' },
                 tint: 'primary.default',
-                margin: 3,
               },
             ],
           },
