@@ -103,6 +103,8 @@ class Patchmap {
   }
 
   destroy() {
+    if (!this.isInit) return;
+
     this.undoRedoManager.destroy();
     this.animationContext.revert();
     event.removeAllEvent(this.viewport);
