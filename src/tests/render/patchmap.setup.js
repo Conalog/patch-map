@@ -16,12 +16,12 @@ export const setupPatchmapTests = () => {
   });
 
   afterEach(() => {
-    // if (patchmap) {
-    //   patchmap.destroy();
-    // }
-    // if (element?.parentElement) {
-    //   document.body.removeChild(element);
-    // }
+    if (patchmap) {
+      patchmap.destroy();
+    }
+    if (element?.parentElement) {
+      document.body.removeChild(element);
+    }
   });
 
   return {

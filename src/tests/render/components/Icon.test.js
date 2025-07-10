@@ -311,4 +311,68 @@ describe('Icon Component Tests', () => {
       },
     );
   });
+
+  describe('tint', () => {
+    const itemWithIcon = {
+      type: 'item',
+      id: 'item-1',
+      size: 100,
+      components: [
+        {
+          type: 'icon',
+          id: 'icon-1',
+          source: 'object',
+          size: 50,
+          tint: 'white',
+        },
+      ],
+    };
+
+    it('should apply tint from a theme color string', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw([itemWithIcon]);
+
+      patchmap.update({
+        path: '$..[?(@.id=="icon-1")]',
+        changes: { tint: 'primary.default' },
+      });
+
+      const icon = patchmap.selector('$..[?(@.id=="icon-1")]')[0];
+      expect(icon.tint).toBe(0x0c73bf);
+    });
+
+    it('should apply tint from a direct hex color string', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw([itemWithIcon]);
+
+      patchmap.update({
+        path: '$..[?(@.id=="icon-1")]',
+        changes: { tint: '#FF0000' },
+      });
+
+      const icon = patchmap.selector('$..[?(@.id=="icon-1")]')[0];
+      expect(icon.tint).toBe(0xff0000);
+    });
+
+    it('should apply tint from a direct hex color number', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw([itemWithIcon]);
+
+      patchmap.update({
+        path: '$..[?(@.id=="icon-1")]',
+        changes: { tint: 0x00ff00 },
+      });
+
+      let icon = patchmap.selector('$..[?(@.id=="icon-1")]')[0];
+      expect(icon.tint).toBe(0x00ff00);
+
+      patchmap.update({
+        path: '$..[?(@.id=="icon-1")]',
+        changes: { tint: 0x0000ff },
+      });
+
+      icon = patchmap.selector('$..[?(@.id=="icon-1")]')[0];
+      expect(icon.tint).toBe(0x0000ff);
+    });
+  });
 });
