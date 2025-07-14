@@ -42,7 +42,7 @@ export const Base = (superClass) => {
 
     update(changes, schema, options = {}) {
       const { arrayMerge = 'merge', refresh = false } = options;
-      const effectiveChanges = refresh && !changes ? this.props : changes;
+      const effectiveChanges = refresh && !changes ? {} : changes;
       const validatedChanges = validate(effectiveChanges, deepPartial(schema));
       if (isValidationError(validatedChanges)) throw validatedChanges;
 

@@ -34,7 +34,7 @@
     "format": "biome format",
     "lint": "biome check --staged",
     "lint:fix": "biome check --staged --write",
-    "test:unit": "vitest",
+    "test:unit": "vitest --project unit",
     "test:browser": "vitest --browser=chromium",
     "test:headless": "vitest --browser.headless",
     "prepare": "husky",

@@ -16,9 +16,13 @@ const schema = z.object({
 export const findIndexByPriority = (
   arr,
   criteria,
-  usedIndexes = new Set(),
-  priorityKeys = ['id', 'label', 'type'],
+  usedIndexes,
+  priorityKeys,
 ) => {
+  if (!priorityKeys || priorityKeys.length === 0) {
+    return -1;
+  }
+
   const validation = schema.safeParse({ arr, criteria });
   if (!validation.success) {
     throw new TypeError(validation.error.message);

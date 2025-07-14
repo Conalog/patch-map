@@ -56,7 +56,7 @@ const _deepMerge = (target, source, options, visited) => {
 };
 
 const mergeArray = (target, source, options, visited) => {
-  const { mergeBy, arrayMerge = null } = options;
+  const { mergeBy = ['id', 'label', 'type'], arrayMerge = null } = options;
 
   if (arrayMerge === 'replace') {
     return source;
