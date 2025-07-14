@@ -19,10 +19,6 @@ export const findIndexByPriority = (
   usedIndexes = new Set(),
   priorityKeys = ['id', 'label', 'type'],
 ) => {
-  if (!priorityKeys || priorityKeys.length === 0) {
-    return -1;
-  }
-
   const validation = schema.safeParse({ arr, criteria });
   if (!validation.success) {
     throw new TypeError(validation.error.message);
