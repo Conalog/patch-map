@@ -16,8 +16,8 @@ const schema = z.object({
 export const findIndexByPriority = (
   arr,
   criteria,
-  usedIndexes,
-  priorityKeys,
+  usedIndexes = new Set(),
+  priorityKeys = ['id', 'label', 'type'],
 ) => {
   if (!priorityKeys || priorityKeys.length === 0) {
     return -1;
