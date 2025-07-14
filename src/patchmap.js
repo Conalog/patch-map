@@ -3,7 +3,7 @@ import { Application, Graphics } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { UndoRedoManager } from './command/undo-redo-manager';
 import { draw } from './display/draw';
-import { update } from './display/update/update';
+import { update } from './display/update';
 import { dragSelect } from './events/drag-select';
 import { fit, focus } from './events/focus-fit';
 import { select } from './events/single-select';
@@ -19,6 +19,8 @@ import { event } from './utils/event/canvas';
 import { selector } from './utils/selector/selector';
 import { themeStore } from './utils/theme';
 import { validateMapData } from './utils/validator';
+import './display/elements/registry';
+import './display/components/registry';
 
 class Patchmap {
   constructor() {
@@ -101,6 +103,8 @@ class Patchmap {
   }
 
   destroy() {
+    if (!this.isInit) return;
+
     this.undoRedoManager.destroy();
     this.animationContext.revert();
     event.removeAllEvent(this.viewport);
@@ -122,37 +126,30 @@ class Patchmap {
   }
 
   draw(data) {
-    const zData = preprocessData(JSON.parse(JSON.stringify(data)));
-    if (!zData) return;
+    const processedData = processData(JSON.parse(JSON.stringify(data)));
+    if (!processedData) return;
 
-    const validatedData = validateMapData(zData);
+    const validatedData = validateMapData(processedData);
     if (isValidationError(validatedData)) throw validatedData;
 
-    this.app.stop();
-    this.undoRedoManager.clear();
-    this.animationContext.revert();
-    event.removeAllEvent(this.viewport);
-    this.initSelectState();
     const context = {
       viewport: this.viewport,
       undoRedoManager: this.undoRedoManager,
       theme: this.theme,
       animationContext: this.animationContext,
     };
+
+    this.app.stop();
+    this.undoRedoManager.clear();
+    this.animationContext.revert();
+    event.removeAllEvent(this.viewport);
+    this.initSelectState();
     draw(context, validatedData);
     this.app.start();
     return validatedData;
 
-    function preprocessData(data) {
-      if (isLegacyData(data)) {
-        return convertLegacyData(data);
-      }
-
-      if (!Array.isArray(data)) {
-        console.error('Invalid data format. Expected an array.');
-        return null;
-      }
-      return data;
+    function processData(data) {
+      return isLegacyData(data) ? convertLegacyData(data) : data;
     }
 
     function isLegacyData(data) {
@@ -163,13 +160,7 @@ class Patchmap {
   }
 
   update(opts) {
-    const context = {
-      viewport: this.viewport,
-      undoRedoManager: this.undoRedoManager,
-      theme: this.theme,
-      animationContext: this.animationContext,
-    };
-    update(context, opts);
+    update(this.viewport, opts);
   }
 
   focus(ids) {

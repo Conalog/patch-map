@@ -56,7 +56,12 @@ const _deepMerge = (target, source, options, visited) => {
 };
 
 const mergeArray = (target, source, options, visited) => {
-  const { mergeBy } = options;
+  const { mergeBy, arrayMerge = null } = options;
+
+  if (arrayMerge === 'replace') {
+    return source;
+  }
+
   const merged = [...target];
   const used = new Set();
 

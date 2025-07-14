@@ -53,8 +53,8 @@ npm install @conalog/patch-map
 
 #### CDN
 ```html
-<script src="https://cdn.jsdelivr.net/npm/pixi.js@8.9.2/dist/pixi.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@conalog/patch-map@v0.1.9/dist/index.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@latest/dist/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@conalog/patch-map@latest/dist/index.umd.js"></script>
 ```
 
 ### Usage
@@ -67,27 +67,30 @@ const data = [
     type: 'group',
     id: 'group-id-1',
     label: 'group-label-1',
-    items: [{
+    children: [{
       type: 'grid',
       id: 'grid-1',
       label: 'grid-label-1',
       cells: [ [1, 0, 1], [1, 1, 1] ],
-      position: { x: 0, y: 0 },
-      itemSize: { width: 40, height: 80 },
-      components: [
-        {
-          type: 'background',
-          texture: {
-            type: 'rect',
-            fill: 'white',
-            borderWidth: 2,
-            borderColor: 'primary.dark',
-            radius: 4,
-          }
-        },
-        { type: 'icon', asset: 'loading', size: 16 }
-      ]
-    }]
+      gap: 4,
+      item: {
+        size: { width: 40, height: 80 },
+        components: [
+          {
+            type: 'background',
+            source: {
+              type: 'rect',
+              fill: 'white',
+              borderWidth: 2,
+              borderColor: 'primary.dark',
+              radius: 4,
+            }
+          },
+          { type: 'icon', source: 'loading', tint: 'black', size: 16 },
+        ]
+      },
+    }],
+    attrs: { x: 100, y: 100, },
   }
 ];
 
@@ -185,27 +188,30 @@ const data = [
     type: 'group',
     id: 'group-id-1',
     label: 'group-label-1',
-    items: [{
+    children: [{
       type: 'grid',
       id: 'grid-1',
       label: 'grid-label-1',
       cells: [ [1, 0, 1], [1, 1, 1] ],
-      position: { x: 0, y: 0 },
-      itemSize: { width: 40, height: 80 },
-      components: [
-        {
-          type: 'background',
-          texture: {
-            type: 'rect',
-            fill: 'white',
-            borderWidth: 2,
-            borderColor: 'primary.dark',
-            radius: 4,
-          }
-        },
-        { type: 'icon', asset: 'loading', size: 16 }
-      ]
-    }]
+      gap: 4,
+      item: {
+        size: { width: 40, height: 80 },
+        components: [
+          {
+            type: 'background',
+            source: {
+              type: 'rect',
+              fill: 'white',
+              borderWidth: 2,
+              borderColor: 'primary.dark',
+              radius: 4,
+            }
+          },
+          { type: 'icon', source: 'loading', tint: 'black', size: 16 },
+        ]
+      },
+    }],
+    attrs: { x: 100, y: 100, },
   }
 ];
 patchmap.draw(data);
@@ -220,24 +226,29 @@ For **detailed type definitions**, refer to the [data.d.ts](src/display/data-sch
 <br/>
 
 ### `update(options)`
-Updates the state of specific objects on the canvas. Use this to change properties like color or text visibility for already rendered objects.
+Updates the properties of objects rendered on the canvas. By default, only the changed properties are applied, but you can precisely control the update behavior using the `refresh` or `arrayMerge` options.
 
 #### **`Options`**
-- `path`(optional, string) - Selector for the object to which the event will be applied, following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax.
-- `elements`(optional, object \| array) - Direct references to one or more objects to update. Accepts a single object or an array. (Objects returned from [selector](#selectorpath), etc.).
-- `changes`(required, object) - New properties to apply (e.g., color, text visibility).
-- `saveToHistory`(optional, boolean \| string) - Determines whether to record changes made by this `update` method in the `undoRedoManager`. If a string that matches the historyId of a previously saved record is provided, the two records will be merged into a single undo/redo step.
-- `relativeTransform`(optional, boolean) - Determines whether to use relative values for `position`, `rotation`, and `angle`. If `true`, the provided values will be added to the object's values.
+- `path` (optional, string) - Selector for the object to which the event will be applied, following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax.
+- `elements` (optional, object \| array) - Direct references to one or more objects to update. Accepts a single object or an array. (Objects returned from [selector](#selectorpath), etc.).
+- `changes` (optional, object) - New properties to apply (e.g., color, text visibility). If the `refresh` option is set to `true`, this can be omitted.
+- `history` (optional, boolean \| string) - Determines whether to record changes made by this `update` method in the `undoRedoManager`. If a string that matches the historyId of a previously saved record is provided, the two records will be merged into a single undo/redo step.
+- `relativeTransform` (optional, boolean) - Determines whether to use relative values for `position`, `rotation`, and `angle`. If `true`, the provided values will be added to the object's values.
+- `arrayMerge` (optional, string) - Determines how to merge array properties. The default is `'merge'`.
+  - `'merge'` (default): Merges the target and source arrays.
+  - `'replace'`: Completely replaces the target array with the source array. Useful for forcing a specific state.
+- `refresh` (optional, boolean) - If set to `true`, all property handlers are forcibly re-executed and the object is "refreshed" even if the values in `changes` are the same as before. This is useful when child objects need to be recalculated due to changes in the parent. Default is `false`.
+
 
 ```js
 // Apply changes to objects with the label "grid-label-1"
 patchmap.update({
   path: `$..children[?(@.label=="grid-label-1")]`,
   changes: {
-    components: [
-      { type: 'icon', asset: 'wifi' }
-    ]
-  }
+    item: {
+      components: [{ type: 'icon', source: 'wifi' }],
+    },
+  },
 });
 
 // Apply changes to objects of type "group"
@@ -252,10 +263,16 @@ patchmap.update({
 patchmap.update({
   path: `$..children[?(@.type=="group")].children[?(@.type=="grid")]`,
   changes: {
-    components: [
-      { type: 'icon', tint: 'black' }
-    ]
-  }
+    item: {
+      components: [{ type: 'icon', tint: 'red' }],
+    },
+  },
+});
+
+// Force a full property update (refresh) for all objects of type "relations" using refresh: true
+patchmap.update({
+  path: `$..children[?(@.type==="relations")]`,
+  refresh: true
 });
 ```
 
