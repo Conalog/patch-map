@@ -1,6 +1,6 @@
 /**
- * @param {Point[]} points1 - [{x, y}, ...]
- * @param {Point[]} points2 - [{x, y}, ...]
+ * @param {Point[]} points1 - [x1, y1, ...]
+ * @param {Point[]} points2 - [x1, y1, ...]
  * @returns {boolean}
  */
 export function sat(points1, points2) {

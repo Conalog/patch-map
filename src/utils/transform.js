@@ -34,6 +34,23 @@ export const getObjectWorldCorners = (displayObject) => {
 };
 
 /**
+ * Calculates the four corners of a DisplayObject and transforms them into the local space of the Viewport.
+ * This is useful for positioning elements that are children of the Viewport.
+ *
+ * @param {PIXI.DisplayObject} displayObject - The DisplayObject to measure.
+ * @param {PIXI.Viewport} viewport - The Viewport to which the coordinates will be relative.
+ * @returns {Array<PIXI.Point>} An array of 4 new Point instances for the local-space corners relative to the viewport.
+ */
+export const getObjectLocalCorners = (displayObject, viewport) => {
+  if (!displayObject || !viewport) {
+    return [];
+  }
+  return getObjectWorldCorners(displayObject).map((point) =>
+    viewport.toLocal(point),
+  );
+};
+
+/**
  * Calculates the geometric center (centroid) of an array of points.
  *
  * @param {Array<PIXI.Point>} points - An array of points to calculate the centroid from.

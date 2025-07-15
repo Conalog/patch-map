@@ -94,14 +94,10 @@ const drawSelectionBox = (state) => {
   if (!point.start || !point.end) return;
 
   box.clear();
-  box.position.set(
-    Math.min(point.start.x, point.end.x),
-    Math.min(point.start.y, point.end.y),
-  );
   box
     .rect(
-      0,
-      0,
+      Math.min(point.start.x, point.end.x),
+      Math.min(point.start.y, point.end.y),
       Math.abs(point.start.x - point.end.x),
       Math.abs(point.start.y - point.end.y),
     )
