@@ -4,7 +4,7 @@ import { event } from '../utils/event/canvas';
 import { validate } from '../utils/validator';
 import { findIntersectObject } from './find';
 import { selectEventSchema } from './schema';
-import { checkEvents, getPointerPosition, isMoved } from './utils';
+import { checkEvents, isMoved } from './utils';
 
 const SELECT_EVENT_ID = 'select-down select-up select-over';
 
@@ -73,7 +73,7 @@ const addEvents = (viewport, state) => {
   }
 
   function executeFn(fnName, e) {
-    const point = getPointerPosition(viewport);
+    const point = viewport.toWorld(e.global);
     if (fnName in state.config) {
       state.config[fnName](
         findIntersectObject(viewport, { point }, state.config),
