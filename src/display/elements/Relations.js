@@ -69,10 +69,10 @@ export class Relations extends ComposedRelations {
         continue;
       }
 
-      const sourceBounds = this.toLocal(
+      const sourceBounds = this.context.viewport.toLocal(
         calcOrientedBounds(sourceObject).center,
       );
-      const targetBounds = this.toLocal(
+      const targetBounds = this.context.viewport.toLocal(
         calcOrientedBounds(targetObject).center,
       );
 
