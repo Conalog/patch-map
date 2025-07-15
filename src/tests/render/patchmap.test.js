@@ -284,7 +284,7 @@ describe('patchmap test', () => {
             expectedId: null,
           },
           {
-            case: 'clicking on an empty area #7',
+            case: 'clicking on an empty area #6',
             position: { x: 200, y: 280 },
             expectedId: null,
           },
