@@ -15,3 +15,8 @@ export const getColor = (theme, color) => {
   const themeColor = getNestedValue(theme, color);
   return themeColor ?? color;
 };
+
+export const getViewport = (displayObject) => {
+  if (!displayObject) return null;
+  return displayObject?.context?.viewport ?? getViewport(displayObject.parent);
+};
