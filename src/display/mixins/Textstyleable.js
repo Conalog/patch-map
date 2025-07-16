@@ -18,7 +18,6 @@ export const Textstyleable = (superClass) => {
         } else if (key === 'fontSize' && style[key] === 'auto') {
           const range = style.autoFont ?? DEFAULT_AUTO_FONT_RANGE;
           setAutoFontSize(this, margin, range);
-          console.log(this.style.fontSize);
         } else {
           this.style[key] = style[key];
         }
