@@ -186,10 +186,24 @@ export const TextureStyle = z
  */
 export const RelationsStyle = z.record(z.string(), z.unknown());
 
+export const DEFAULT_AUTO_FONT_RANGE = { min: 1, max: 100 };
 /**
  * @see {@link https://pixijs.download/release/docs/text.TextStyleOptions.html}
  */
-export const TextStyle = z.record(z.string(), z.unknown());
+export const TextStyle = z
+  .object({
+    fontSize: z.union([z.number(), z.literal('auto'), z.string()]).optional(),
+    autoFont: z
+      .object({
+        min: z.number().positive().default(DEFAULT_AUTO_FONT_RANGE.min),
+        max: z.number().positive().default(DEFAULT_AUTO_FONT_RANGE.max),
+      })
+      .refine((data) => data.min <= data.max, {
+        message: 'autoFont.min must not be greater than autoFont.max',
+      })
+      .optional(),
+  })
+  .passthrough();
 
 /**
  * @see {@link https://pixijs.download/release/docs/color.ColorSource.html}

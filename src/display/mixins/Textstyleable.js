@@ -1,4 +1,5 @@
 import { getColor } from '../../utils/get';
+import { DEFAULT_AUTO_FONT_RANGE } from '../data-schema/primitive-schema';
 import { FONT_WEIGHT, UPDATE_STAGES } from './constants';
 
 const KEYS = ['text', 'split', 'style', 'margin'];
@@ -15,7 +16,8 @@ export const Textstyleable = (superClass) => {
         } else if (key === 'fill') {
           this.style[key] = getColor(theme, style.fill);
         } else if (key === 'fontSize' && style[key] === 'auto') {
-          setAutoFontSize(this, margin);
+          const range = style.autoFont ?? DEFAULT_AUTO_FONT_RANGE;
+          setAutoFontSize(this, margin, range);
         } else {
           this.style[key] = style[key];
         }
@@ -30,7 +32,7 @@ export const Textstyleable = (superClass) => {
   return MixedClass;
 };
 
-const setAutoFontSize = (object, margin) => {
+const setAutoFontSize = (object, margin, range) => {
   object.visible = false;
   const { width, height } = object.parent.props.size;
   const parentSize = {
@@ -39,9 +41,7 @@ const setAutoFontSize = (object, margin) => {
   };
   object.visible = true;
 
-  let minSize = 1;
-  let maxSize = 100;
-
+  let { min: minSize, max: maxSize } = range;
   while (minSize <= maxSize) {
     const fontSize = Math.floor((minSize + maxSize) / 2);
     object.style.fontSize = fontSize;
