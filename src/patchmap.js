@@ -190,6 +190,7 @@ class Patchmap {
     this._singleSelectState = {
       config: {},
       position: { start: null, end: null },
+      viewportPosStart: null,
     };
     this._dragSelectState = {
       config: {},

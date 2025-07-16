@@ -32,6 +32,7 @@ const addEvents = (viewport, state) => {
       action: 'mousedown touchstart',
       fn: (e) => {
         state.position.start = viewport.toWorld({ ...e.global });
+        state.viewportPosStart = { x: viewport.x, y: viewport.y };
       },
     });
   }
@@ -42,15 +43,24 @@ const addEvents = (viewport, state) => {
       action: 'mouseup touchend',
       fn: (e) => {
         state.position.end = viewport.toWorld({ ...e.global });
+        const viewportPosEnd = { x: viewport.x, y: viewport.y };
 
-        if (
-          state.position.start &&
-          !isMoved(viewport, state.position.start, state.position.end)
-        ) {
+        const mouseHasMoved = isMoved(
+          state.position.start,
+          state.position.end,
+          viewport.scale,
+        );
+        const viewportHasMoved = isMoved(
+          state.viewportPosStart,
+          viewportPosEnd,
+        );
+
+        if (state.position.start && !mouseHasMoved && !viewportHasMoved) {
           executeFn('onSelect', e);
         }
 
         state.position = { start: null, end: null };
+        state.viewportPosStart = null;
         executeFn('onOver', e);
       },
     });
