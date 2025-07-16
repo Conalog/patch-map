@@ -30,11 +30,8 @@ const addEvents = (viewport, state) => {
     event.addEvent(viewport, {
       id: 'select-down',
       action: 'mousedown touchstart',
-      fn: () => {
-        state.position.start = {
-          x: viewport.position.x,
-          y: viewport.position.y,
-        };
+      fn: (e) => {
+        state.position.start = viewport.toWorld(e.global);
       },
     });
   }
@@ -44,10 +41,7 @@ const addEvents = (viewport, state) => {
       id: 'select-up',
       action: 'mouseup touchend',
       fn: (e) => {
-        state.position.end = {
-          x: viewport.position.x,
-          y: viewport.position.y,
-        };
+        state.position.end = viewport.toWorld(e.global);
 
         if (
           state.position.start &&
