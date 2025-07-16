@@ -406,8 +406,11 @@ const result = patchmap.selector('$..[?(@.label=="group-label-1")]')
 `draw` 메소드 이후에 실행되어야 합니다.
 - `enabled` (optional, boolean): 선택 이벤트의 활성화 여부를 결정합니다.
 - `draggable` (optional, boolean): 드래그 활성화 여부를 결정합니다.
-- `isSelectGroup` (optional, boolean): group 객체를 선택할지 결정합니다.
-- `isSelectGrid` (optional, boolean): grid 객체를 선택할지 결정합니다.
+- `selectUnit` (optional, string): 선택 시 반환될 논리적 단위를 지정합니다. 기본값은 'entity' 입니다.
+  - `'entity'`: 개별 객체를 선택합니다.
+  - `'closestGroup'`: 선택된 객체에서 가장 가까운 상위 그룹을 선택합니다.
+  - `'highestGroup'`: 선택된 객체에서 가장 최상위 그룹을 선택합니다.
+  - `'grid'`: 선택된 객체가 속한 그리드를 선택합니다.
 - `filter` (optional, function): 선택 대상 객체를 조건에 따라 필터링할 수 있는 함수입니다.
 - `onSelect` (optional, function): 선택이 발생할 때 호출될 콜백 함수입니다.
 - `onOver` (optional, function): 포인터 오버가 발생할 때 호출될 콜백 함수입니다.
@@ -417,8 +420,7 @@ const result = patchmap.selector('$..[?(@.label=="group-label-1")]')
 patchmap.select({
   enabled: true,
   draggable: true,
-  isSelectGroup: false,
-  isSelectGrid: true,
+  selectUnit: 'grid',
   filter: (obj) => obj.type !== 'relations',
   onSelect: (obj) => {
     console.log(obj);
