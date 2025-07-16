@@ -70,6 +70,12 @@ export const textSchema = Base.extend({
   text: z.string().default(''),
   style: TextStyle.optional(),
   split: z.number().int().default(0),
+  autoFontSize: z
+    .object({
+      min: z.number().positive().default(1),
+      max: z.number().positive().default(100),
+    })
+    .optional(),
 }).strict();
 
 export const componentSchema = z.discriminatedUnion('type', [

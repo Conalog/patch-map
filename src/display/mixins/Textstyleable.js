@@ -1,12 +1,12 @@
 import { getColor } from '../../utils/get';
 import { FONT_WEIGHT, UPDATE_STAGES } from './constants';
 
-const KEYS = ['text', 'split', 'style', 'margin'];
+const KEYS = ['text', 'split', 'style', 'margin', 'autoFontSize'];
 
 export const Textstyleable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyTextstyle(relevantChanges) {
-      const { style, margin } = relevantChanges;
+      const { style, margin, autoFontSize } = relevantChanges;
       const { theme } = this.context.theme;
 
       for (const key in style) {
@@ -15,7 +15,7 @@ export const Textstyleable = (superClass) => {
         } else if (key === 'fill') {
           this.style[key] = getColor(theme, style.fill);
         } else if (key === 'fontSize' && style[key] === 'auto') {
-          setAutoFontSize(this, margin);
+          setAutoFontSize(this, margin, autoFontSize);
         } else {
           this.style[key] = style[key];
         }
@@ -30,7 +30,7 @@ export const Textstyleable = (superClass) => {
   return MixedClass;
 };
 
-const setAutoFontSize = (object, margin) => {
+const setAutoFontSize = (object, margin, autoFontSize) => {
   object.visible = false;
   const { width, height } = object.parent.props.size;
   const parentSize = {
@@ -39,8 +39,8 @@ const setAutoFontSize = (object, margin) => {
   };
   object.visible = true;
 
-  let minSize = 1;
-  let maxSize = 100;
+  let minSize = autoFontSize?.min ?? 1;
+  let maxSize = autoFontSize?.max ?? 100;
 
   while (minSize <= maxSize) {
     const fontSize = Math.floor((minSize + maxSize) / 2);
