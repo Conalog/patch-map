@@ -1,3 +1,4 @@
+import { Matrix } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { diffJson } from '../../utils/diff/diff-json';
@@ -16,10 +17,27 @@ export const Base = (superClass) => {
       super(rest);
       this.#context = context;
       this.props = {};
+
+      this._lastGroupTransform = new Matrix();
+      this.onRender = this._onObjectUpdate;
     }
 
     get context() {
       return this.#context;
+    }
+
+    _onObjectUpdate() {
+      if (!this.groupTransform || !this.visible) return;
+
+      if (!this.groupTransform.equals(this._lastGroupTransform)) {
+        this.emit('transform_updated', this);
+        this._lastGroupTransform.copyFrom(this.groupTransform);
+      }
+    }
+
+    destroy(options) {
+      this.onRender = null;
+      super.destroy(options);
     }
 
     static registerHandler(keys, handler, stage) {

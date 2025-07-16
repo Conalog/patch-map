@@ -5,10 +5,26 @@ const KEYS = ['links'];
 
 export const Linksable = (superClass) => {
   const MixedClass = class extends superClass {
+    _onLinkedObjectUpdate = () => {
+      this._renderDirty = true;
+    };
+
     _applyLinks(relevantChanges) {
       const { links } = relevantChanges;
+      if (this.linkedObjects) {
+        Object.values(this.linkedObjects).forEach((obj) => {
+          if (obj) {
+            obj.off('transform_updated', this._onLinkedObjectUpdate);
+          }
+        });
+      }
+
       this.linkedObjects = uniqueLinked(this.context.viewport, links);
-      this._renderDirty = true;
+      Object.values(this.linkedObjects).forEach((obj) => {
+        if (obj) {
+          obj.on('transform_updated', this._onLinkedObjectUpdate, this);
+        }
+      });
     }
   };
   MixedClass.registerHandler(

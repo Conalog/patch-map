@@ -1,6 +1,5 @@
 import { Graphics } from 'pixi.js';
 import { calcOrientedBounds } from '../../utils/bounds';
-import { selector } from '../../utils/selector/selector';
 import { relationsSchema } from '../data-schema/element-schema';
 import { Relationstyleable } from '../mixins/Relationstyleable';
 import { Linksable } from '../mixins/linksable';
@@ -14,14 +13,11 @@ export class Relations extends ComposedRelations {
   static hitScope = 'children';
 
   _renderDirty = true;
-  _renderOnNextTick = false;
 
   constructor(context) {
     super({ type: 'relations', context });
-    this.initPath();
-
-    this._updateTransform = this._updateTransform.bind(this);
-    this.context.viewport.app.ticker.add(this._updateTransform);
+    this.path = this.initPath();
+    this.onRender = this._onUpdate;
   }
 
   update(changes, options) {
@@ -33,30 +29,19 @@ export class Relations extends ComposedRelations {
     path.setStrokeStyle({ color: 'black' });
     Object.assign(path, { type: 'path', links: [] });
     this.addChild(path);
+    return path;
   }
 
-  _updateTransform() {
-    if (this._renderOnNextTick) {
-      this.renderLink();
-      this._renderOnNextTick = false;
-    }
-
+  _onUpdate() {
     if (this._renderDirty) {
-      this._renderOnNextTick = true;
-      this._renderDirty = false;
+      this.renderLink();
     }
-  }
-
-  destroy(options) {
-    this.context.viewport.app.ticker.remove(this._updateTransform);
-    super.destroy(options);
   }
 
   renderLink() {
     const { links } = this.props;
-    const path = selector(this, '$.children[?(@.type==="path")]')[0];
-    if (!path) return;
-    path.clear();
+    if (!this.path) return;
+    this.path.clear();
     let lastPoint = null;
 
     for (const link of links) {
@@ -86,11 +71,13 @@ export class Relations extends ComposedRelations {
         lastPoint[0] !== sourcePoint[0] ||
         lastPoint[1] !== sourcePoint[1]
       ) {
-        path.moveTo(...sourcePoint);
+        this.path.moveTo(...sourcePoint);
       }
-      path.lineTo(...targetPoint);
+      this.path.lineTo(...targetPoint);
       lastPoint = targetPoint;
     }
-    path.stroke();
+    this.path.stroke();
+
+    this._renderDirty = false;
   }
 }
