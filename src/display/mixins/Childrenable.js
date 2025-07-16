@@ -2,7 +2,7 @@ import { isValidationError } from 'zod-validation-error';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { validate } from '../../utils/validator';
-import { elementTypes } from '../data-schema/element-schema';
+import { mapDataSchema } from '../data-schema/element-schema';
 import { newElement } from '../elements/creator';
 import { UPDATE_STAGES } from './constants';
 
@@ -14,6 +14,17 @@ export const Childrenable = (superClass) => {
       const { children } = relevantChanges;
       let elements = [...this.children];
 
+      const newElementDefs = children.filter(
+        (change) => findIndexByPriority(elements, change) === -1,
+      );
+
+      if (newElementDefs.length > 0) {
+        const validationResult = validate(newElementDefs, mapDataSchema);
+        if (isValidationError(validationResult)) {
+          throw validationResult;
+        }
+      }
+
       if (options.arrayMerge === 'replace') {
         elements.forEach((element) => {
           this.removeChild(element);
@@ -22,7 +33,7 @@ export const Childrenable = (superClass) => {
         elements = [];
       }
 
-      for (let childChange of children) {
+      for (const childChange of children) {
         const idx = findIndexByPriority(elements, childChange);
         let element = null;
 
@@ -30,9 +41,6 @@ export const Childrenable = (superClass) => {
           element = elements[idx];
           elements.splice(idx, 1);
         } else {
-          childChange = validate(childChange, elementTypes);
-          if (isValidationError(childChange)) throw childChange;
-
           element = newElement(childChange.type, this.context);
           this.addChild(element);
         }
