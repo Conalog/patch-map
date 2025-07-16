@@ -1,4 +1,5 @@
 import { getColor } from '../../utils/get';
+import { DEFAULT_AUTO_FONT_RANGE } from '../data-schema/primitive-schema';
 import { FONT_WEIGHT, UPDATE_STAGES } from './constants';
 
 const KEYS = ['text', 'split', 'style', 'margin'];
@@ -15,8 +16,9 @@ export const Textstyleable = (superClass) => {
         } else if (key === 'fill') {
           this.style[key] = getColor(theme, style.fill);
         } else if (key === 'fontSize' && style[key] === 'auto') {
-          const range = style.autoFont ?? { min: 1, max: 100 };
+          const range = style.autoFont ?? DEFAULT_AUTO_FONT_RANGE;
           setAutoFontSize(this, margin, range);
+          console.log(this.style.fontSize);
         } else {
           this.style[key] = style[key];
         }
