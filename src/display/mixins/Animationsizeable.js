@@ -13,7 +13,7 @@ export const AnimationSizeable = (superClass) => {
 
       if (animation) {
         this.context.animationContext.add(() => {
-          this?.killTweens();
+          this.killTweens();
           const tween = gsap.to(this, {
             pixi: {
               width: newSize.width,
@@ -28,9 +28,7 @@ export const AnimationSizeable = (superClass) => {
               });
             },
           });
-          if (this.tweens) {
-            this.tweens.push(tween);
-          }
+          this.tweens.push(tween);
         });
       } else {
         this.setSize(newSize.width, newSize.height);
