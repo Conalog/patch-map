@@ -1,15 +1,16 @@
-import { Polygon } from 'pixi.js';
-import { getPoints } from './get-points';
+import { Graphics, Polygon } from 'pixi.js';
+import { getViewport } from '../get';
+import { getObjectLocalCorners } from '../transform';
 
 export const intersectPoint = (obj, point) => {
-  const viewport = obj?.context?.viewport;
+  const viewport = getViewport(obj);
   if (!viewport) return false;
 
-  if ('containsPoint' in obj) {
+  if (obj instanceof Graphics) {
     return obj.containsPoint(point);
   }
 
-  const points = getPoints(viewport, obj);
-  const polygon = new Polygon(points);
+  const localCorners = getObjectLocalCorners(obj, viewport);
+  const polygon = new Polygon(localCorners);
   return polygon.contains(point.x, point.y);
 };

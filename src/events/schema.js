@@ -3,8 +3,9 @@ import { z } from 'zod';
 const selectDefaultSchema = z.object({
   enabled: z.boolean().default(false),
   filter: z.nullable(z.function()).default(null),
-  isSelectGroup: z.boolean().default(false),
-  isSelectGrid: z.boolean().default(false),
+  selectUnit: z
+    .enum(['entity', 'closestGroup', 'highestGroup', 'grid'])
+    .default('entity'),
 });
 
 export const selectEventSchema = selectDefaultSchema.extend({

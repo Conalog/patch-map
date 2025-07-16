@@ -10,6 +10,9 @@ import Element from './Element';
 const ComposedRelations = mixins(Element, Linksable, Relationstyleable);
 
 export class Relations extends ComposedRelations {
+  static isSelectable = true;
+  static hitScope = 'children';
+
   _renderDirty = true;
   _renderOnNextTick = false;
 
@@ -69,10 +72,10 @@ export class Relations extends ComposedRelations {
         continue;
       }
 
-      const sourceBounds = this.toLocal(
+      const sourceBounds = this.context.viewport.toLocal(
         calcOrientedBounds(sourceObject).center,
       );
-      const targetBounds = this.toLocal(
+      const targetBounds = this.context.viewport.toLocal(
         calcOrientedBounds(targetObject).center,
       );
 

@@ -7,6 +7,9 @@ import Element from './Element';
 const ComposedItem = mixins(Element, Componentsable, ItemSizeable);
 
 export class Item extends ComposedItem {
+  static isSelectable = true;
+  static hitScope = 'children';
+
   constructor(context) {
     super({ type: 'item', context });
   }

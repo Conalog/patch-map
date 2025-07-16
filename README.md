@@ -407,8 +407,11 @@ The selection event is activated to detect objects that the user selects on the 
 This should be executed after the `draw` method.
 - `enabled` (optional, boolean): Determines whether the selection event is enabled.
 - `draggable` (optional, boolean): Determines whether dragging is enabled.
-- `isSelectGroup` (optional, boolean): Decides whether to select group objects.
-- `isSelectGrid` (optional, boolean): Decides whether to select grid objects.
+- `selectUnit` (optional, string): Specifies the logical unit to return when selecting. The default is `'entity'`.
+  - `'entity'`: Selects individual objects.
+  - `'closestGroup'`: Selects the closest parent group of the selected object.
+  - `'highestGroup'`: Selects the highest-level group of the selected object.
+  - `'grid'`: Selects the grid to which the selected object belongs.
 - `filter` (optional, function): A function that filters the target objects based on specific conditions.
 - `onSelect` (optional, function): The callback function that is called when a selection occurs.
 - `onOver` (optional, function): The callback function that is called when a pointer-over event occurs.
@@ -418,8 +421,7 @@ This should be executed after the `draw` method.
 patchmap.select({
   enabled: true,
   draggable: true,
-  isSelectGroup: false,
-  isSelectGrid: true,
+  selectUnit: 'grid',
   filter: (obj) => obj.type !== 'relations',
   onSelect: (obj) => {
     console.log(obj);

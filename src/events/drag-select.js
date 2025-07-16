@@ -4,7 +4,7 @@ import { event } from '../utils/event/canvas';
 import { validate } from '../utils/validator';
 import { findIntersectObjects } from './find';
 import { dragSelectEventSchema } from './schema';
-import { checkEvents, getPointerPosition, isMoved } from './utils';
+import { checkEvents, isMoved } from './utils';
 
 const DRAG_SELECT_EVENT_ID = 'drag-select-down drag-select-move drag-select-up';
 const DEBOUNCE_FN_INTERVAL = 25; // ms
@@ -39,10 +39,10 @@ const addEvents = (viewport, state) => {
     event.addEvent(viewport, {
       id: 'drag-select-down',
       action: 'mousedown touchstart',
-      fn: () => {
+      fn: (e) => {
         resetState(state);
 
-        const point = getPointerPosition(viewport);
+        const point = viewport.toWorld({ ...e.global });
         state.isDragging = true;
         state.box.renderable = true;
         state.point.start = { ...point };
@@ -56,9 +56,9 @@ const addEvents = (viewport, state) => {
       id: 'drag-select-move',
       action: 'mousemove touchmove moved',
       fn: (e) => {
-        if (!state.isDragging) return;
+        if (!state.isDragging || !e.global) return;
 
-        state.point.end = { ...getPointerPosition(viewport) };
+        state.point.end = viewport.toWorld({ ...e.global });
         drawSelectionBox(state);
 
         if (isMoved(viewport, state.point.move, state.point.end)) {
@@ -94,14 +94,10 @@ const drawSelectionBox = (state) => {
   if (!point.start || !point.end) return;
 
   box.clear();
-  box.position.set(
-    Math.min(point.start.x, point.end.x),
-    Math.min(point.start.y, point.end.y),
-  );
   box
     .rect(
-      0,
-      0,
+      Math.min(point.start.x, point.end.x),
+      Math.min(point.start.y, point.end.y),
       Math.abs(point.start.x - point.end.x),
       Math.abs(point.start.y - point.end.y),
     )

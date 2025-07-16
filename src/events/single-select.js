@@ -4,7 +4,7 @@ import { event } from '../utils/event/canvas';
 import { validate } from '../utils/validator';
 import { findIntersectObject } from './find';
 import { selectEventSchema } from './schema';
-import { checkEvents, getPointerPosition, isMoved } from './utils';
+import { checkEvents, isMoved } from './utils';
 
 const SELECT_EVENT_ID = 'select-down select-up select-over';
 
@@ -30,11 +30,8 @@ const addEvents = (viewport, state) => {
     event.addEvent(viewport, {
       id: 'select-down',
       action: 'mousedown touchstart',
-      fn: () => {
-        state.position.start = {
-          x: viewport.position.x,
-          y: viewport.position.y,
-        };
+      fn: (e) => {
+        state.position.start = viewport.toWorld({ ...e.global });
       },
     });
   }
@@ -44,10 +41,7 @@ const addEvents = (viewport, state) => {
       id: 'select-up',
       action: 'mouseup touchend',
       fn: (e) => {
-        state.position.end = {
-          x: viewport.position.x,
-          y: viewport.position.y,
-        };
+        state.position.end = viewport.toWorld({ ...e.global });
 
         if (
           state.position.start &&
@@ -73,7 +67,7 @@ const addEvents = (viewport, state) => {
   }
 
   function executeFn(fnName, e) {
-    const point = getPointerPosition(viewport);
+    const point = viewport.toWorld({ ...e.global });
     if (fnName in state.config) {
       state.config[fnName](
         findIntersectObject(viewport, { point }, state.config),
