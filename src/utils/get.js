@@ -22,12 +22,20 @@ export const getViewport = (displayObject) => {
 };
 
 export const collectCandidates = (parent, filterFn = () => true) => {
-  let candidates = [];
-  for (const child of parent.children) {
+  const candidates = [];
+  const stack = [...parent.children];
+
+  while (stack.length > 0) {
+    const child = stack.pop();
+
     if (filterFn(child)) {
       candidates.push(child);
     }
-    candidates = candidates.concat(collectCandidates(child, filterFn));
+
+    if (child.children && child.children.length > 0) {
+      stack.push(...child.children);
+    }
   }
+
   return candidates;
 };
