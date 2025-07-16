@@ -17,7 +17,7 @@ export const Animationable = (superClass) => {
       }
     }
 
-    tweensKill() {
+    killTweens() {
       this.tweens.forEach((tween) => tween.kill());
       this.tweens = [];
     }
