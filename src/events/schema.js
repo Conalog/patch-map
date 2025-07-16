@@ -3,7 +3,7 @@ import { z } from 'zod';
 const selectDefaultSchema = z.object({
   enabled: z.boolean().default(false),
   filter: z.nullable(z.function()).default(null),
-  scope: z
+  selectUnit: z
     .enum(['entity', 'closestGroup', 'highestGroup', 'grid'])
     .default('entity'),
 });

@@ -11,7 +11,7 @@ const ComposedRelations = mixins(Element, Linksable, Relationstyleable);
 
 export class Relations extends ComposedRelations {
   static isSelectable = true;
-  static selectionScope = 'children';
+  static hitScope = 'children';
 
   _renderDirty = true;
   _renderOnNextTick = false;

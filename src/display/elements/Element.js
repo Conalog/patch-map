@@ -7,7 +7,7 @@ const ComposedElement = mixins(Container, Base, Showable);
 
 export default class Element extends ComposedElement {
   static isSelectable = false;
-  static selectionScope = 'self'; // 'self' | 'children'
+  static hitScope = 'self'; // 'self' | 'children'
 
   constructor(options) {
     super(Object.assign(options, { eventMode: 'static' }));

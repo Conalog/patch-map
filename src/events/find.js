@@ -30,7 +30,7 @@ export const findIntersectObject = (viewport, state, options) => {
 
   for (const candidate of sortedCandidates) {
     const targets =
-      candidate.constructor.selectionScope === 'children'
+      candidate.constructor.hitScope === 'children'
         ? candidate.children
         : [candidate];
 
@@ -57,7 +57,7 @@ export const findIntersectObjects = (viewport, state, options) => {
 
   for (const candidate of allCandidates) {
     const targets =
-      candidate.constructor.selectionScope === 'children'
+      candidate.constructor.hitScope === 'children'
         ? candidate.children
         : [candidate];
 

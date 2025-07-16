@@ -205,7 +205,7 @@ describe('patchmap test', () => {
         patchmap.select({
           enabled: true,
           draggable: false,
-          scope: 'grid',
+          selectUnit: 'grid',
           onSelect,
           onOver,
           onDragSelect,

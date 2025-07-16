@@ -4,12 +4,12 @@ export const checkEvents = (viewport, eventId) => {
   return eventId.split(' ').every((id) => event.getEvent(viewport, id));
 };
 
-export const getSelectObject = (obj, { scope }) => {
+export const getSelectObject = (obj, { selectUnit }) => {
   if (!obj || !obj.constructor.isSelectable) {
     return null;
   }
 
-  switch (scope) {
+  switch (selectUnit) {
     case 'entity':
       return obj;
 
@@ -45,9 +45,6 @@ export const isMoved = (viewport, point1, point2) => {
   );
 };
 
-/**
- * 가장 가까운 부모 중 지정된 type을 가진 객체를 찾습니다.
- */
 const findClosestParent = (obj, type) => {
   let current = obj;
   while (current && current.type !== 'canvas') {
@@ -59,9 +56,6 @@ const findClosestParent = (obj, type) => {
   return null; // 해당하는 부모가 없음
 };
 
-/**
- * 최상위 부모 중 지정된 type을 가진 객체를 찾습니다.
- */
 const findHighestParent = (obj, type) => {
   let topParent = null;
   let current = obj;

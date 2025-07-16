@@ -8,7 +8,7 @@ const ComposedItem = mixins(Element, Componentsable, ItemSizeable);
 
 export class Item extends ComposedItem {
   static isSelectable = true;
-  static selectionScope = 'children';
+  static hitScope = 'children';
 
   constructor(context) {
     super({ type: 'item', context });
