@@ -189,7 +189,17 @@ export const RelationsStyle = z.record(z.string(), z.unknown());
 /**
  * @see {@link https://pixijs.download/release/docs/text.TextStyleOptions.html}
  */
-export const TextStyle = z.record(z.string(), z.unknown());
+export const TextStyle = z
+  .object({
+    fontSize: z.union([z.number(), z.literal('auto'), z.string()]).optional(),
+    autoFont: z
+      .object({
+        min: z.number().positive().default(1),
+        max: z.number().positive().default(100),
+      })
+      .optional(),
+  })
+  .passthrough();
 
 /**
  * @see {@link https://pixijs.download/release/docs/color.ColorSource.html}

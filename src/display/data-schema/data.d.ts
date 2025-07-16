@@ -457,19 +457,50 @@ export type RelationsStyle = Record<string, unknown>;
 
 /**
  * Defines the text style for a Text component.
- * You can pass an object similar to PIXI.TextStyle options.
+ * You can pass an object with properties similar to PIXI.TextStyleOptions,
+ * along with custom properties for this library.
  *
  * @see {@link https://pixijs.download/release/docs/text.TextStyleOptions.html}
  *
  * @example
- * const textStyleExample: TextStyle = {
- *   fontFamily: 'Arial',
- *   fontSize: 24,
- *   fill: 'white',
- *   stroke: { color: 'black', width: 2 }
+ * // Fixed font size
+ * const fixedSizeStyle: TextStyle = { fontSize: 24, fill: 'red' };
+ *
+ * @example
+ * // Font size as a string (delegated to PixiJS)
+ * const stringSizeStyle: TextStyle = { fontSize: '2px', fill: '#00FF00' };
+ *
+ * @example
+ * // Auto font size with custom range
+ * const autoSizeStyle: TextStyle = {
+ *   fontSize: 'auto',
+ *   autoFont: { min: 10, max: 50 },
+ *   fill: 'blue'
  * };
  */
-export type TextStyle = Record<string, unknown>;
+export interface TextStyle {
+  /**
+   * The font size. Can be a number (in pixels), a string parsable by PixiJS (e.g., '16px'),
+   * or the keyword 'auto' to enable dynamic sizing based on the `autoFont` options.
+   */
+  fontSize?: number | 'auto' | string;
+
+  /**
+   * Configuration for the 'auto' font size mode.
+   * This is only active when `fontSize` is 'auto'.
+   */
+  autoFont?: {
+    min?: number;
+    max?: number;
+  };
+
+  /**
+   * Allows any other properties, similar to PIXI.TextStyleOptions.
+   * This provides flexibility for standard text styling.
+   * e.g., fill, fontFamily, fontWeight, etc.
+   */
+  [key: string]: unknown;
+}
 
 /**
  * Defines a tint color to be applied to a component.
