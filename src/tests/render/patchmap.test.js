@@ -324,5 +324,82 @@ describe('patchmap test', () => {
         );
       });
     });
+
+    describe('with selectUnit option', () => {
+      it.each([
+        {
+          selectUnit: 'entity',
+          clickPosition: { x: 105, y: 105 },
+          expectedId: 'grid-1.0.0',
+        },
+        {
+          selectUnit: 'grid',
+          clickPosition: { x: 105, y: 105 },
+          expectedId: 'grid-1',
+        },
+        {
+          selectUnit: 'closestGroup',
+          clickPosition: { x: 105, y: 105 },
+          expectedId: 'group-1',
+        },
+        {
+          selectUnit: 'highestGroup',
+          clickPosition: { x: 105, y: 105 },
+          expectedId: 'group-2',
+        },
+        {
+          selectUnit: 'entity',
+          clickPosition: { x: 210, y: 310 },
+          expectedId: 'item-1',
+        },
+        {
+          selectUnit: 'closestGroup',
+          clickPosition: { x: 210, y: 310 },
+          expectedId: 'group-1',
+        },
+        {
+          selectUnit: 'highestGroup',
+          clickPosition: { x: 210, y: 310 },
+          expectedId: 'group-2',
+        },
+      ])(
+        'should return the correct object when selectUnit is "$selectUnit"',
+        async ({ selectUnit, clickPosition, expectedId }) => {
+          const patchmap = getPatchmap();
+          patchmap.draw([
+            { type: 'group', id: 'group-2', children: sampleData },
+          ]);
+          await new Promise((resolve) => setTimeout(resolve, 50));
+
+          const onSelect = vi.fn();
+
+          patchmap.select({
+            enabled: true,
+            selectUnit: selectUnit,
+            onSelect: onSelect,
+          });
+
+          const viewport = patchmap.viewport;
+          viewport.emit('mousedown', {
+            global: viewport.toGlobal(clickPosition),
+            stopPropagation: () => {},
+          });
+          viewport.emit('mouseup', {
+            global: viewport.toGlobal(clickPosition),
+            stopPropagation: () => {},
+          });
+
+          expect(onSelect).toHaveBeenCalledTimes(1);
+          const selectedObject = onSelect.mock.calls[0][0];
+
+          if (expectedId) {
+            expect(selectedObject).toBeDefined();
+            expect(selectedObject.id).toBe(expectedId);
+          } else {
+            expect(selectedObject).toBeNull();
+          }
+        },
+      );
+    });
   });
 });
