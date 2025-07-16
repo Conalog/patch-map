@@ -1,4 +1,4 @@
-import { selector } from '../../utils/selector/selector';
+import { collectCandidates } from '../../utils/get';
 import { UPDATE_STAGES } from './constants';
 
 const KEYS = ['links'];
@@ -21,8 +21,8 @@ export const Linksable = (superClass) => {
 
 const uniqueLinked = (viewport, links) => {
   const uniqueIds = new Set(links.flatMap((link) => Object.values(link)));
-  const objects = selector(viewport, '$..children').filter((obj) =>
-    uniqueIds.has(obj.id),
+  const objects = collectCandidates(viewport, (child) =>
+    uniqueIds.has(child.id),
   );
   return Object.fromEntries(objects.map((obj) => [obj.id, obj]));
 };

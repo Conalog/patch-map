@@ -20,3 +20,14 @@ export const getViewport = (displayObject) => {
   if (!displayObject) return null;
   return displayObject?.context?.viewport ?? getViewport(displayObject.parent);
 };
+
+export const collectCandidates = (parent, filterFn = () => true) => {
+  let candidates = [];
+  for (const child of parent.children) {
+    if (filterFn(child)) {
+      candidates.push(child);
+    }
+    candidates = candidates.concat(collectCandidates(child, filterFn));
+  }
+  return candidates;
+};
