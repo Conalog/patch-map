@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { calcSize, killTweensOf } from '../mixins/utils';
+import { calcSize } from '../mixins/utils';
 import { UPDATE_STAGES } from './constants';
 
 const KEYS = ['animation', 'animationDuration', 'source', 'size', 'margin'];
@@ -13,8 +13,8 @@ export const AnimationSizeable = (superClass) => {
 
       if (animation) {
         this.context.animationContext.add(() => {
-          killTweensOf(this);
-          gsap.to(this, {
+          this.tweensKill();
+          const tween = gsap.to(this, {
             pixi: {
               width: newSize.width,
               height: newSize.height,
@@ -28,6 +28,7 @@ export const AnimationSizeable = (superClass) => {
               });
             },
           });
+          this.tweens.push(tween);
         });
       } else {
         this.setSize(newSize.width, newSize.height);
