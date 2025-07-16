@@ -3,7 +3,7 @@ import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { validate } from '../../utils/validator';
 import { newComponent } from '../components/creator';
-import { componentSchema } from '../data-schema/component-schema';
+import { componentArraySchema } from '../data-schema/component-schema';
 import { UPDATE_STAGES } from './constants';
 
 const KEYS = ['components'];
@@ -14,6 +14,20 @@ export const Componentsable = (superClass) => {
       const { components: componentsChanges } = relevantChanges;
       let components = [...this.children];
 
+      const newComponentDefs = componentsChanges.filter(
+        (change) => findIndexByPriority(components, change) === -1,
+      );
+
+      if (newComponentDefs.length > 0) {
+        const validationResult = validate(
+          newComponentDefs,
+          componentArraySchema,
+        );
+        if (isValidationError(validationResult)) {
+          throw validationResult;
+        }
+      }
+
       if (options.arrayMerge === 'replace') {
         components.forEach((component) => {
           this.removeChild(component);
@@ -22,7 +36,7 @@ export const Componentsable = (superClass) => {
         components = [];
       }
 
-      for (let componentChange of componentsChanges) {
+      for (const componentChange of componentsChanges) {
         const idx = findIndexByPriority(components, componentChange);
         let component = null;
 
@@ -30,9 +44,6 @@ export const Componentsable = (superClass) => {
           component = components[idx];
           components.splice(idx, 1);
         } else {
-          componentChange = validate(componentChange, componentSchema);
-          if (isValidationError(componentChange)) throw componentChange;
-
           component = newComponent(componentChange.type, this.context);
           this.addChild(component);
         }
