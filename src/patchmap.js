@@ -145,6 +145,12 @@ class Patchmap {
     event.removeAllEvent(this.viewport);
     this.initSelectState();
     draw(context, validatedData);
+
+    // Force a refresh of all relation elements after the initial draw. This ensures
+    // that all link targets exist in the scene graph before the relations
+    // attempt to draw their links.
+    this.update({ path: '$..children[?(@.type=="relations")]', refresh: true });
+
     this.app.start();
     return validatedData;
 
