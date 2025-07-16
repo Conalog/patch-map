@@ -65,6 +65,7 @@ export const convertLegacyData = (data) => {
       }
     } else if (key === 'strings') {
       objs[key].show = false;
+      objs[key].attrs = { zIndex: 20 };
       for (const value of values) {
         objs[key].children.push({
           type: 'relations',
@@ -96,8 +97,7 @@ export const convertLegacyData = (data) => {
         });
       }
     } else {
-      objs[key].attrs = {};
-      objs[key].attrs.zIndex = 10;
+      objs[key].attrs = { zIndex: 10 };
       for (const value of values) {
         const { transform, ...props } = value.properties;
         objs[key].children.push({

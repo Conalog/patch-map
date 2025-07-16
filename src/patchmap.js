@@ -145,6 +145,7 @@ class Patchmap {
     event.removeAllEvent(this.viewport);
     this.initSelectState();
     draw(context, validatedData);
+    this.update({ path: '$..children[?(@.type=="relations")]', refresh: true });
     this.app.start();
     return validatedData;
 
