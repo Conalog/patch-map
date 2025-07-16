@@ -42,7 +42,7 @@ const addEvents = (viewport, state) => {
       fn: (e) => {
         resetState(state);
 
-        const point = viewport.toWorld(e.global);
+        const point = viewport.toWorld({ ...e.global });
         state.isDragging = true;
         state.box.renderable = true;
         state.point.start = { ...point };
@@ -58,7 +58,7 @@ const addEvents = (viewport, state) => {
       fn: (e) => {
         if (!state.isDragging || !e.global) return;
 
-        state.point.end = viewport.toWorld(e.global);
+        state.point.end = viewport.toWorld({ ...e.global });
         drawSelectionBox(state);
 
         if (isMoved(viewport, state.point.move, state.point.end)) {

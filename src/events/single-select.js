@@ -31,7 +31,7 @@ const addEvents = (viewport, state) => {
       id: 'select-down',
       action: 'mousedown touchstart',
       fn: (e) => {
-        state.position.start = viewport.toWorld(e.global);
+        state.position.start = viewport.toWorld({ ...e.global });
       },
     });
   }
@@ -41,7 +41,7 @@ const addEvents = (viewport, state) => {
       id: 'select-up',
       action: 'mouseup touchend',
       fn: (e) => {
-        state.position.end = viewport.toWorld(e.global);
+        state.position.end = viewport.toWorld({ ...e.global });
 
         if (
           state.position.start &&
@@ -67,7 +67,7 @@ const addEvents = (viewport, state) => {
   }
 
   function executeFn(fnName, e) {
-    const point = viewport.toWorld(e.global);
+    const point = viewport.toWorld({ ...e.global });
     if (fnName in state.config) {
       state.config[fnName](
         findIntersectObject(viewport, { point }, state.config),
