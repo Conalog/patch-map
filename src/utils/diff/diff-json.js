@@ -12,11 +12,7 @@ export const diffJson = (obj1, obj2) => {
 
     for (let i = 0; i < obj1.length; i++) {
       const itemDiff = diffJson(obj1[i], obj2[i]);
-      if (
-        typeof itemDiff !== 'object' ||
-        itemDiff === null ||
-        Object.keys(itemDiff).length > 0
-      ) {
+      if (!isPlainObject(itemDiff) || Object.keys(itemDiff).length > 0) {
         return obj2;
       }
     }

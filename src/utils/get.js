@@ -34,8 +34,8 @@ export const collectCandidates = (parent, filterFn = () => true) => {
 
     if (child.children?.length) {
       // A loop is safer than spread syntax for large arrays to avoid stack overflow.
-      for (const c of child.children) {
-        stack.push(c);
+      for (let i = child.children.length - 1; i >= 0; i--) {
+        stack.push(child.children[i]);
       }
     }
   }
