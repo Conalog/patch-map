@@ -34,14 +34,13 @@ export const getSelectObject = (obj, { selectUnit }) => {
 };
 
 const MOVE_DELTA = 4;
-export const isMoved = (viewport, point1, point2) => {
-  const { x, y } = {
-    x: point2.x - point1.x,
-    y: point2.y - point1.y,
-  };
+export const isMoved = (point1, point2, scale = { x: 1, y: 1 }) => {
+  if (!point1 || !point2) return false;
+
+  const dx = point2.x - point1.x;
+  const dy = point2.y - point1.y;
   return (
-    Math.abs(x) > MOVE_DELTA / viewport.scale.x ||
-    Math.abs(y) > MOVE_DELTA / viewport.scale.y
+    Math.abs(dx) > MOVE_DELTA / scale.x || Math.abs(dy) > MOVE_DELTA / scale.y
   );
 };
 

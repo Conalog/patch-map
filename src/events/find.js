@@ -1,3 +1,4 @@
+import { collectCandidates } from '../utils/get';
 import { intersect } from '../utils/intersects/intersect';
 import { intersectPoint } from '../utils/intersects/intersect-point';
 import { getSelectObject } from './utils';
@@ -74,17 +75,6 @@ export const findIntersectObjects = (viewport, state, options) => {
   }
 
   return Array.from(new Set(found));
-};
-
-const collectCandidates = (parent, filterFn) => {
-  let candidates = [];
-  for (const child of parent.children) {
-    if (filterFn(child)) {
-      candidates.push(child);
-    }
-    candidates = candidates.concat(collectCandidates(child, filterFn));
-  }
-  return candidates;
 };
 
 const getAncestorPath = (obj, stopAt) => {

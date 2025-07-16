@@ -127,6 +127,43 @@ describe('diffJson function tests', () => {
         },
       },
     },
+    {
+      name: 'Identical arrays of objects should return an empty object',
+      obj1: {
+        data: [
+          { id: 1, value: 'a' },
+          { id: 2, value: 'b' },
+        ],
+      },
+      obj2: {
+        data: [
+          { id: 1, value: 'a' },
+          { id: 2, value: 'b' },
+        ],
+      },
+      expected: {},
+    },
+    {
+      name: 'Different arrays of objects should return the new array',
+      obj1: {
+        data: [
+          { id: 1, value: 'a' },
+          { id: 2, value: 'b' },
+        ],
+      },
+      obj2: {
+        data: [
+          { id: 1, value: 'a' },
+          { id: 2, value: 'c' },
+        ],
+      },
+      expected: {
+        data: [
+          { id: 1, value: 'a' },
+          { id: 2, value: 'c' },
+        ],
+      },
+    },
   ])('$name', ({ obj1, obj2, expected }) => {
     const result = diffJson(obj1, obj2);
     expect(result).toEqual(expected);

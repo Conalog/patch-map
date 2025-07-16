@@ -2,7 +2,7 @@ import { isValidationError } from 'zod-validation-error';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { validate } from '../../utils/validator';
-import { elementTypes } from '../data-schema/element-schema';
+import { mapDataSchema } from '../data-schema/element-schema';
 import { newElement } from '../elements/creator';
 import { UPDATE_STAGES } from './constants';
 
@@ -11,8 +11,39 @@ const KEYS = ['children'];
 export const Childrenable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyChildren(relevantChanges, options) {
-      const { children } = relevantChanges;
+      const { children: childrenChanges } = relevantChanges;
       let elements = [...this.children];
+
+      // --- Start of Performance Optimization ---
+      // This logic mirrors the optimization in `Componentsable.js`.
+      // Instead of validating each new element inside the loop, we identify
+      // new elements beforehand and validate them all at once.
+
+      // 1. Filter out only the definitions for new elements.
+      const newElementDefs = [];
+      const newElementIndices = []; // Store original indices to update the array later.
+      childrenChanges.forEach((change, index) => {
+        if (findIndexByPriority(elements, change) === -1) {
+          newElementDefs.push(change);
+          newElementIndices.push(index);
+        }
+      });
+
+      // 2. If new elements exist, perform a single batch validation.
+      // This is far more efficient than validating one-by-one inside the loop.
+      if (newElementDefs.length > 0) {
+        const validatedNewDefs = validate(newElementDefs, mapDataSchema);
+        if (isValidationError(validatedNewDefs)) {
+          throw validatedNewDefs;
+        }
+
+        // 3. Update the original changes array with the validated, default-filled definitions.
+        validatedNewDefs.forEach((validatedDef, i) => {
+          const originalIndex = newElementIndices[i];
+          childrenChanges[originalIndex] = validatedDef;
+        });
+      }
+      // --- End of Performance Optimization ---
 
       if (options.arrayMerge === 'replace') {
         elements.forEach((element) => {
@@ -22,7 +53,7 @@ export const Childrenable = (superClass) => {
         elements = [];
       }
 
-      for (let childChange of children) {
+      for (const childChange of childrenChanges) {
         const idx = findIndexByPriority(elements, childChange);
         let element = null;
 
@@ -30,9 +61,6 @@ export const Childrenable = (superClass) => {
           element = elements[idx];
           elements.splice(idx, 1);
         } else {
-          childChange = validate(childChange, elementTypes);
-          if (isValidationError(childChange)) throw childChange;
-
           element = newElement(childChange.type, this.context);
           this.addChild(element);
         }

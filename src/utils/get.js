@@ -20,3 +20,25 @@ export const getViewport = (displayObject) => {
   if (!displayObject) return null;
   return displayObject?.context?.viewport ?? getViewport(displayObject.parent);
 };
+
+export const collectCandidates = (parent, filterFn = () => true) => {
+  const candidates = [];
+  const stack = [...parent.children];
+
+  while (stack.length > 0) {
+    const child = stack.pop();
+
+    if (filterFn(child)) {
+      candidates.push(child);
+    }
+
+    if (child.children?.length) {
+      // A loop is safer than spread syntax for large arrays to avoid stack overflow.
+      for (let i = child.children.length - 1; i >= 0; i--) {
+        stack.push(child.children[i]);
+      }
+    }
+  }
+
+  return candidates;
+};
