@@ -1,9 +1,12 @@
+import { Matrix } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { diffJson } from '../../utils/diff/diff-json';
 import { validate } from '../../utils/validator';
 import { deepPartial } from '../../utils/zod-deep-strict-partial';
 import { Type } from './Type';
+
+const tempMatrix = new Matrix();
 
 export const Base = (superClass) => {
   return class extends Type(superClass) {
@@ -16,10 +19,32 @@ export const Base = (superClass) => {
       super(rest);
       this.#context = context;
       this.props = {};
+
+      this._lastLocalTransform = tempMatrix.clone();
+      this.onRender = () => {
+        this._onObjectUpdate();
+        this._afterRender();
+      };
     }
 
     get context() {
       return this.#context;
+    }
+
+    _afterRender() {}
+
+    _onObjectUpdate() {
+      if (!this.localTransform || !this.visible) return;
+
+      if (!this.localTransform.equals(this._lastLocalTransform)) {
+        this.context.viewport.emit('object_transformed', this);
+        this._lastLocalTransform.copyFrom(this.localTransform);
+      }
+    }
+
+    destroy(options) {
+      this.onRender = null;
+      super.destroy(options);
     }
 
     static registerHandler(keys, handler, stage) {
