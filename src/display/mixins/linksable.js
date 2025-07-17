@@ -21,7 +21,7 @@ export const Linksable = (superClass) => {
         if (!newIds.has(id)) {
           const obj = oldLinkedObjects[id];
           if (obj) {
-            obj.off('transform_updated', this._onLinkedObjectUpdate);
+            obj.off('transform_updated', this._onLinkedObjectUpdate, this);
           }
         }
       });
