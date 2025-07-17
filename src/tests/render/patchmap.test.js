@@ -47,6 +47,7 @@ const sampleData = [
           },
           { type: 'text', text: 'text-1' },
           { type: 'text', text: 'text-2' },
+          { type: 'text', id: 'new-text' },
         ],
         attrs: { x: 200, y: 300 },
       },
@@ -92,7 +93,7 @@ describe('patchmap test', () => {
     expect(item.id).toBe('item-1');
 
     const itemChildren = [...item.children];
-    expect(itemChildren.length).toBe(3);
+    expect(itemChildren.length).toBe(4);
     expect(itemChildren[0].type).toBe('background');
     expect(itemChildren[1].type).toBe('text');
     expect(itemChildren[2].type).toBe('text');
@@ -190,6 +191,24 @@ describe('patchmap test', () => {
       const group = patchmap.selector('$..[?(@.id=="group-1")]')[0];
       expect(group.x).toBe(350);
       expect(group.y).toBe(250);
+    });
+
+    it('', () => {
+      patchmap.update({
+        path: '$..[?(@.id=="item-1")]',
+        changes: {
+          components: [
+            { type: 'text', id: 'new-text', text: '2' },
+            { type: 'text', id: 'B', text: '99' },
+            { type: 'text', id: 'new-text', text: '3' },
+          ],
+        },
+      });
+
+      const item = patchmap.selector('$..[?(@.id=="item-1")]')[0];
+      expect(item.children.length).toBe(6);
+      expect(item.children[3].text).toBe('2');
+      expect(item.children[4].text).toBe('99');
     });
   });
 

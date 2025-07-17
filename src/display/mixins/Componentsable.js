@@ -24,11 +24,12 @@ export const Componentsable = (superClass) => {
       const newComponentDefs = [];
       const newComponentIndices = []; // Store original indices to update the array later.
       componentsChanges.forEach((change, index) => {
-        if (findIndexByPriority(components, change, used) === -1) {
+        const foundIndex = findIndexByPriority(components, change, used);
+        if (foundIndex === -1) {
           newComponentDefs.push(change);
           newComponentIndices.push(index);
         } else {
-          used.add(index);
+          used.add(foundIndex);
         }
       });
 
