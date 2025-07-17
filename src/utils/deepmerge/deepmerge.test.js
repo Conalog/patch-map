@@ -217,15 +217,9 @@ describe('deepMerge – arrayMerge by id → label → type', () => {
       },
     ],
     [
-      {
-        components: [{ type: 'text', text: 'original' }],
-      },
-      {
-        components: [null, { type: 'text', text: 'new' }],
-      },
-      {
-        components: [null, { type: 'text', text: 'new' }],
-      },
+      { components: [{ type: 'text', text: 'original' }] },
+      { components: [null, { type: 'text', text: 'new' }] },
+      { components: [null, { type: 'text', text: 'new' }] },
     ],
   ])('Case %#', (left, right, expected) => {
     expect(deepMerge(left, right)).toEqual(expected);
