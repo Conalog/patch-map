@@ -45,6 +45,8 @@ const sampleData = [
               radius: 6,
             },
           },
+          { type: 'text', text: 'text-1' },
+          { type: 'text', text: 'text-2' },
         ],
         attrs: { x: 200, y: 300 },
       },
@@ -88,6 +90,12 @@ describe('patchmap test', () => {
     const item = patchmap.selector('$..[?(@.id=="item-1")]')[0];
     expect(item).toBeDefined();
     expect(item.id).toBe('item-1');
+
+    const itemChildren = [...item.children];
+    expect(itemChildren.length).toBe(3);
+    expect(itemChildren[0].type).toBe('background');
+    expect(itemChildren[1].type).toBe('text');
+    expect(itemChildren[2].type).toBe('text');
 
     const gridItems = grid.children;
     expect(gridItems.length).toBe(5);
