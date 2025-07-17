@@ -6,6 +6,8 @@ import { validate } from '../../utils/validator';
 import { deepPartial } from '../../utils/zod-deep-strict-partial';
 import { Type } from './Type';
 
+const tempMatrix = new Matrix();
+
 export const Base = (superClass) => {
   return class extends Type(superClass) {
     static _handlerMap = new Map();
@@ -18,7 +20,7 @@ export const Base = (superClass) => {
       this.#context = context;
       this.props = {};
 
-      this._lastGroupTransform = new Matrix();
+      this._lastGroupTransform = tempMatrix.clone();
       this.onRender = this._onObjectUpdate;
     }
 

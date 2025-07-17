@@ -24,6 +24,11 @@ export class Relations extends ComposedRelations {
     super.update(changes, relationsSchema, options);
   }
 
+  destroy(options) {
+    this.onRender = null;
+    super.destroy(options);
+  }
+
   initPath() {
     const path = new Graphics();
     path.setStrokeStyle({ color: 'black' });
