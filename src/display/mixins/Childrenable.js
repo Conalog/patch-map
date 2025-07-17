@@ -20,12 +20,15 @@ export const Childrenable = (superClass) => {
       // new elements beforehand and validate them all at once.
 
       // 1. Filter out only the definitions for new elements.
+      const used = new Set();
       const newElementDefs = [];
       const newElementIndices = []; // Store original indices to update the array later.
       childrenChanges.forEach((change, index) => {
-        if (findIndexByPriority(elements, change) === -1) {
+        if (findIndexByPriority(elements, change, used) === -1) {
           newElementDefs.push(change);
           newElementIndices.push(index);
+        } else {
+          used.add(index);
         }
       });
 

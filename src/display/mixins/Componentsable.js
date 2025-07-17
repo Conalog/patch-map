@@ -20,12 +20,15 @@ export const Componentsable = (superClass) => {
       // validate them all at once.
 
       // 1. Filter out only the definitions for components that need to be newly created.
+      const used = new Set();
       const newComponentDefs = [];
       const newComponentIndices = []; // Store original indices to update the array later.
       componentsChanges.forEach((change, index) => {
-        if (findIndexByPriority(components, change) === -1) {
+        if (findIndexByPriority(components, change, used) === -1) {
           newComponentDefs.push(change);
           newComponentIndices.push(index);
+        } else {
+          used.add(index);
         }
       });
 
