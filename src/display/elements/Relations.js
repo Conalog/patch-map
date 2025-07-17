@@ -17,16 +17,15 @@ export class Relations extends ComposedRelations {
   constructor(context) {
     super({ type: 'relations', context });
     this.path = this.initPath();
-    this.onRender = this._onUpdate;
+    const baseOnRender = this.onRender.bind(this);
+    this.onRender = () => {
+      baseOnRender();
+      this._onUpdate();
+    };
   }
 
   update(changes, options) {
     super.update(changes, relationsSchema, options);
-  }
-
-  destroy(options) {
-    this.onRender = null;
-    super.destroy(options);
   }
 
   initPath() {

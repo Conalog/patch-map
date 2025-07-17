@@ -5,38 +5,48 @@ const KEYS = ['links'];
 
 export const Linksable = (superClass) => {
   const MixedClass = class extends superClass {
-    _onLinkedObjectUpdate = () => {
-      this._renderDirty = true;
-    };
+    constructor(options = {}) {
+      super(options);
+
+      this._boundOnObjectTransformed = this._onObjectTransformed.bind(this);
+      this.context.viewport.on(
+        'object_transformed',
+        this._boundOnObjectTransformed,
+      );
+    }
+
+    destroy(options) {
+      if (this?.context?.viewport) {
+        this.context.viewport.off(
+          'object_transformed',
+          this._boundOnObjectTransformed,
+        );
+      }
+      super.destroy(options);
+    }
+
+    _onObjectTransformed(changedObject) {
+      if (this._renderDirty) return;
+      if (!this.linkedObjects) return;
+
+      for (const key in this.linkedObjects) {
+        const linkedObj = this.linkedObjects[key];
+        if (!linkedObj || linkedObj.destroyed) continue;
+
+        if (
+          linkedObj === changedObject ||
+          isAncestor(changedObject, linkedObj)
+        ) {
+          this._renderDirty = true;
+          return;
+        }
+      }
+    }
 
     _applyLinks(relevantChanges) {
       const { links } = relevantChanges;
-
-      const oldLinkedObjects = this.linkedObjects || {};
-      const oldIds = new Set(Object.keys(oldLinkedObjects));
-      const newLinkedObjects = uniqueLinked(this.context.viewport, links);
-      const newIds = new Set(Object.keys(newLinkedObjects));
-
-      oldIds.forEach((id) => {
-        if (!newIds.has(id)) {
-          const obj = oldLinkedObjects[id];
-          if (obj) {
-            obj.off('transform_updated', this._onLinkedObjectUpdate, this);
-          }
-        }
-      });
-
-      newIds.forEach((id) => {
-        if (!oldIds.has(id)) {
-          const obj = newLinkedObjects[id];
-          if (obj) {
-            obj.on('transform_updated', this._onLinkedObjectUpdate, this);
-          }
-        }
-      });
-
-      this.linkedObjects = newLinkedObjects;
-      this._onLinkedObjectUpdate();
+      this.linkedObjects = uniqueLinked(this.context.viewport, links);
+      this._renderDirty = true;
     }
   };
   MixedClass.registerHandler(
@@ -45,6 +55,22 @@ export const Linksable = (superClass) => {
     UPDATE_STAGES.RENDER,
   );
   return MixedClass;
+};
+
+const isAncestor = (parent, target) => {
+  if (!target || !parent) return false;
+
+  let current = target.parent;
+  while (current) {
+    if (current === parent) {
+      return true;
+    }
+    if (current.type === 'canvas' || !current.parent) {
+      return false;
+    }
+    current = current.parent;
+  }
+  return false;
 };
 
 const uniqueLinked = (viewport, links) => {

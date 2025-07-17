@@ -20,7 +20,7 @@ export const Base = (superClass) => {
       this.#context = context;
       this.props = {};
 
-      this._lastGroupTransform = tempMatrix.clone();
+      this._lastLocalTransform = tempMatrix.clone();
       this.onRender = this._onObjectUpdate;
     }
 
@@ -29,11 +29,11 @@ export const Base = (superClass) => {
     }
 
     _onObjectUpdate() {
-      if (!this.groupTransform || !this.visible) return;
+      if (!this.localTransform || !this.visible) return;
 
-      if (!this.groupTransform.equals(this._lastGroupTransform)) {
-        this.emit('transform_updated', this);
-        this._lastGroupTransform.copyFrom(this.groupTransform);
+      if (!this.localTransform.equals(this._lastLocalTransform)) {
+        this.context.viewport.emit('object_transformed', this);
+        this._lastLocalTransform.copyFrom(this.localTransform);
       }
     }
 
