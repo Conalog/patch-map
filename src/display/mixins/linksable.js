@@ -36,9 +36,7 @@ export const Linksable = (superClass) => {
       });
 
       this.linkedObjects = newLinkedObjects;
-      if (newIds.size === 0) {
-        this._onLinkedObjectUpdate();
-      }
+      this._onLinkedObjectUpdate();
     }
   };
   MixedClass.registerHandler(

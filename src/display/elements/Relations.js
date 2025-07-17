@@ -39,7 +39,11 @@ export class Relations extends ComposedRelations {
 
   _onUpdate() {
     if (this._renderDirty) {
-      this.renderLink();
+      try {
+        this.renderLink();
+      } finally {
+        this._renderDirty = false;
+      }
     }
   }
 
@@ -82,7 +86,5 @@ export class Relations extends ComposedRelations {
       lastPoint = targetPoint;
     }
     this.path.stroke();
-
-    this._renderDirty = false;
   }
 }
