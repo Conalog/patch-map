@@ -11,20 +11,34 @@ export const Linksable = (superClass) => {
 
     _applyLinks(relevantChanges) {
       const { links } = relevantChanges;
-      if (this.linkedObjects) {
-        Object.values(this.linkedObjects).forEach((obj) => {
+
+      const oldLinkedObjects = this.linkedObjects || {};
+      const oldIds = new Set(Object.keys(oldLinkedObjects));
+      const newLinkedObjects = uniqueLinked(this.context.viewport, links);
+      const newIds = new Set(Object.keys(newLinkedObjects));
+
+      oldIds.forEach((id) => {
+        if (!newIds.has(id)) {
+          const obj = oldLinkedObjects[id];
           if (obj) {
             obj.off('transform_updated', this._onLinkedObjectUpdate);
           }
-        });
-      }
-
-      this.linkedObjects = uniqueLinked(this.context.viewport, links);
-      Object.values(this.linkedObjects).forEach((obj) => {
-        if (obj) {
-          obj.on('transform_updated', this._onLinkedObjectUpdate, this);
         }
       });
+
+      newIds.forEach((id) => {
+        if (!oldIds.has(id)) {
+          const obj = newLinkedObjects[id];
+          if (obj) {
+            obj.on('transform_updated', this._onLinkedObjectUpdate, this);
+          }
+        }
+      });
+
+      this.linkedObjects = newLinkedObjects;
+      if (newIds.size === 0) {
+        this._onLinkedObjectUpdate();
+      }
     }
   };
   MixedClass.registerHandler(
