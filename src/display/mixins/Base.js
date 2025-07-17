@@ -21,12 +21,17 @@ export const Base = (superClass) => {
       this.props = {};
 
       this._lastLocalTransform = tempMatrix.clone();
-      this.onRender = this._onObjectUpdate;
+      this.onRender = () => {
+        this._onObjectUpdate();
+        this._afterRender();
+      };
     }
 
     get context() {
       return this.#context;
     }
+
+    _afterRender() {}
 
     _onObjectUpdate() {
       if (!this.localTransform || !this.visible) return;

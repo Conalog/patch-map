@@ -9,15 +9,15 @@ export const Linksable = (superClass) => {
       super(options);
 
       this._boundOnObjectTransformed = this._onObjectTransformed.bind(this);
-      this.context.viewport.on(
+      this.context?.viewport?.on(
         'object_transformed',
         this._boundOnObjectTransformed,
       );
     }
 
     destroy(options) {
-      if (this?.context?.viewport) {
-        this.context.viewport.off(
+      if (this.context?.viewport) {
+        this.context?.viewport?.off(
           'object_transformed',
           this._boundOnObjectTransformed,
         );
@@ -29,8 +29,7 @@ export const Linksable = (superClass) => {
       if (this._renderDirty) return;
       if (!this.linkedObjects) return;
 
-      for (const key in this.linkedObjects) {
-        const linkedObj = this.linkedObjects[key];
+      for (const linkedObj of Object.values(this.linkedObjects)) {
         if (!linkedObj || linkedObj.destroyed) continue;
 
         if (

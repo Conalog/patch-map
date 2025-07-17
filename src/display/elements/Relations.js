@@ -17,11 +17,6 @@ export class Relations extends ComposedRelations {
   constructor(context) {
     super({ type: 'relations', context });
     this.path = this.initPath();
-    const baseOnRender = this.onRender.bind(this);
-    this.onRender = () => {
-      baseOnRender();
-      this._onUpdate();
-    };
   }
 
   update(changes, options) {
@@ -34,6 +29,11 @@ export class Relations extends ComposedRelations {
     Object.assign(path, { type: 'path', links: [] });
     this.addChild(path);
     return path;
+  }
+
+  _afterRender() {
+    super._afterRender();
+    this._onUpdate();
   }
 
   _onUpdate() {
