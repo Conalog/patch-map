@@ -30,6 +30,7 @@ export const convertLegacyData = (data) => {
           ),
           gap: 4,
           item: {
+            padding: 3,
             size: {
               width: props.spec.width * 40,
               height: props.spec.height * 40,
@@ -48,10 +49,9 @@ export const convertLegacyData = (data) => {
               {
                 type: 'bar',
                 show: false,
-                size: 'calc(100% - 6px)',
+                size: '100%',
                 source: { type: 'rect', radius: 3, fill: 'white' },
                 tint: 'primary.default',
-                margin: { bottom: 3 },
               },
             ],
           },

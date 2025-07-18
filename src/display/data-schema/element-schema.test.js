@@ -81,6 +81,7 @@ describe('Element Schemas', () => {
       expect(parsed.gap).toEqual({ x: 0, y: 0 });
       expect(parsed.item).toEqual({
         size: { width: 50, height: 50 },
+        padding: { bottom: 0, left: 0, right: 0, top: 0 },
         components: [],
       });
     });
