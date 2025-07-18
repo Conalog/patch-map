@@ -72,64 +72,57 @@ export const Base = (superClass) => {
       const validatedChanges = validate(effectiveChanges, deepPartial(schema));
       if (isValidationError(validatedChanges)) throw validatedChanges;
 
-      if (options?.historyId) {
-        const prevProps = JSON.parse(JSON.stringify(this.props));
-        const nextProps = deepMerge(prevProps, validatedChanges, {
-          arrayMerge,
-        });
-        const changesForCommand = diffJson(prevProps, nextProps);
+      const nextProps = deepMerge(this.props, validatedChanges, {
+        arrayMerge,
+      });
+      const actualChanges = diffJson(this.props, nextProps) ?? {};
 
-        if (Object.keys(changesForCommand).length > 0) {
-          const command = new UpdateCommand(this, changesForCommand, options);
-          this.context.undoRedoManager.execute(command, options);
-        }
-      } else {
-        this.props = deepMerge(this.props, validatedChanges, { arrayMerge });
-        const keysToProcess = refresh
-          ? Object.keys(this.props)
-          : Object.keys(diffJson(prevProps, this.props) ?? {});
+      if (options?.historyId && Object.keys(actualChanges).length > 0) {
+        const command = new UpdateCommand(this, actualChanges, options);
+        this.context.undoRedoManager.execute(command, options);
+        return;
+      }
 
-        const { id, label, attrs } = validatedChanges;
-        if (id || label || attrs) {
-          this._applyRaw({ id, label, ...attrs }, arrayMerge);
-        }
+      this.props = nextProps;
+      const keysToProcess = refresh
+        ? Object.keys(nextProps)
+        : Object.keys(actualChanges);
 
-        const tasks = new Map();
-        for (const key of keysToProcess) {
-          const handlers = this.constructor._handlerMap.get(key);
-          if (handlers) {
-            handlers.forEach((handler) => {
-              if (!tasks.has(handler)) {
-                const { stage } =
-                  this.constructor._handlerRegistry.get(handler);
-                tasks.set(handler, { stage });
-              }
-            });
-          }
-        }
+      const { id, label, attrs } = validatedChanges;
+      if (id || label || attrs) {
+        this._applyRaw({ id, label, ...attrs }, arrayMerge);
+      }
 
-        const sortedTasks = [...tasks.entries()].sort(
-          (a, b) => a[1].stage - b[1].stage,
-        );
-        sortedTasks.forEach(([handler, _]) => {
-          const keysForHandler =
-            this.constructor._handlerRegistry.get(handler).keys;
-          const fullPayload = {};
-          keysForHandler.forEach((key) => {
-            if (Object.prototype.hasOwnProperty.call(this.props, key)) {
-              fullPayload[key] = this.props[key];
+      const tasks = new Map();
+      for (const key of keysToProcess) {
+        const handlers = this.constructor._handlerMap.get(key);
+        if (handlers) {
+          handlers.forEach((handler) => {
+            if (!tasks.has(handler)) {
+              const { stage } = this.constructor._handlerRegistry.get(handler);
+              tasks.set(handler, { stage });
             }
           });
-          handler.call(this, fullPayload, { arrayMerge, refresh });
-        });
-
-        if (this.parent?._onChildUpdate) {
-          this.parent._onChildUpdate(
-            this.id,
-            diffJson(prevProps, this.props),
-            arrayMerge,
-          );
         }
+      }
+
+      const sortedTasks = [...tasks.entries()].sort(
+        (a, b) => a[1].stage - b[1].stage,
+      );
+      sortedTasks.forEach(([handler, _]) => {
+        const keysForHandler =
+          this.constructor._handlerRegistry.get(handler).keys;
+        const fullPayload = {};
+        keysForHandler.forEach((key) => {
+          if (Object.prototype.hasOwnProperty.call(this.props, key)) {
+            fullPayload[key] = this.props[key];
+          }
+        });
+        handler.call(this, fullPayload, { arrayMerge, refresh });
+      });
+
+      if (this.parent?._onChildUpdate) {
+        this.parent._onChildUpdate(this.id, actualChanges, arrayMerge);
       }
     }
 
