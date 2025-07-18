@@ -1,5 +1,6 @@
 import { Matrix } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
+import { UpdateCommand } from '../../command/commands/update';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { diffJson } from '../../utils/diff/diff-json';
 import { validate } from '../../utils/validator';
@@ -67,56 +68,63 @@ export const Base = (superClass) => {
 
     update(changes, schema, options = {}) {
       const { arrayMerge = 'merge', refresh = false } = options;
+      const prevProps = JSON.parse(JSON.stringify(this.props));
+
       const effectiveChanges = refresh && !changes ? {} : changes;
       const validatedChanges = validate(effectiveChanges, deepPartial(schema));
       if (isValidationError(validatedChanges)) throw validatedChanges;
+      const nextProps = deepMerge(prevProps, validatedChanges, { arrayMerge });
 
-      const prevProps = JSON.parse(JSON.stringify(this.props));
-      this.props = deepMerge(prevProps, validatedChanges, { arrayMerge });
+      if (options?.historyId) {
+        const command = new UpdateCommand(this, nextProps, options);
+        this.context.undoRedoManager.execute(command, options);
+      } else {
+        this.props = nextProps;
+        const keysToProcess = refresh
+          ? Object.keys(this.props)
+          : Object.keys(diffJson(prevProps, this.props) ?? {});
 
-      const keysToProcess = refresh
-        ? Object.keys(this.props)
-        : Object.keys(diffJson(prevProps, this.props) ?? {});
+        const { id, label, attrs } = validatedChanges;
+        if (id || label || attrs) {
+          this._applyRaw({ id, label, ...attrs }, arrayMerge);
+        }
 
-      const { id, label, attrs } = validatedChanges;
-      if (id || label || attrs) {
-        this._applyRaw({ id, label, ...attrs }, arrayMerge);
-      }
+        const tasks = new Map();
+        for (const key of keysToProcess) {
+          const handlers = this.constructor._handlerMap.get(key);
+          if (handlers) {
+            handlers.forEach((handler) => {
+              if (!tasks.has(handler)) {
+                const { stage } =
+                  this.constructor._handlerRegistry.get(handler);
+                tasks.set(handler, { stage });
+              }
+            });
+          }
+        }
 
-      const tasks = new Map();
-      for (const key of keysToProcess) {
-        const handlers = this.constructor._handlerMap.get(key);
-        if (handlers) {
-          handlers.forEach((handler) => {
-            if (!tasks.has(handler)) {
-              const { stage } = this.constructor._handlerRegistry.get(handler);
-              tasks.set(handler, { stage });
+        const sortedTasks = [...tasks.entries()].sort(
+          (a, b) => a[1].stage - b[1].stage,
+        );
+        sortedTasks.forEach(([handler, _]) => {
+          const keysForHandler =
+            this.constructor._handlerRegistry.get(handler).keys;
+          const fullPayload = {};
+          keysForHandler.forEach((key) => {
+            if (Object.prototype.hasOwnProperty.call(this.props, key)) {
+              fullPayload[key] = this.props[key];
             }
           });
-        }
-      }
-
-      const sortedTasks = [...tasks.entries()].sort(
-        (a, b) => a[1].stage - b[1].stage,
-      );
-      sortedTasks.forEach(([handler, _]) => {
-        const keysForHandler =
-          this.constructor._handlerRegistry.get(handler).keys;
-        const fullPayload = {};
-        keysForHandler.forEach((key) => {
-          if (Object.prototype.hasOwnProperty.call(this.props, key)) {
-            fullPayload[key] = this.props[key];
-          }
+          handler.call(this, fullPayload, { arrayMerge, refresh });
         });
-        handler.call(this, fullPayload, { arrayMerge, refresh });
-      });
 
-      if (this.parent?._onChildUpdate) {
-        this.parent._onChildUpdate(
-          this.id,
-          diffJson(prevProps, this.props),
-          arrayMerge,
-        );
+        if (this.parent?._onChildUpdate) {
+          this.parent._onChildUpdate(
+            this.id,
+            diffJson(prevProps, this.props),
+            arrayMerge,
+          );
+        }
       }
     }
 

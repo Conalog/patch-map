@@ -204,7 +204,6 @@ describe('Primitive Schema Tests', () => {
       'right-bottom',
       'bottom',
       'center',
-      'none',
     ])('should accept valid placement value: %s', (placement) => {
       expect(() => Placement.parse(placement)).not.toThrow();
     });
@@ -351,12 +350,16 @@ describe('Primitive Schema Tests', () => {
   describe('TextStyle Schema', () => {
     it('should apply default styles for a partial object', () => {
       const data = { fontSize: 16 };
-      expect(TextStyle.parse(data)).toEqual({ fontSize: 16 });
+      expect(TextStyle.parse(data)).toEqual({
+        fontSize: 16,
+        autoFont: { min: 1, max: 100 },
+      });
     });
 
     it('should not override provided styles', () => {
       const data = { fontFamily: 'Arial', fill: 'red', fontWeight: 'bold' };
       expect(TextStyle.parse(data)).toEqual({
+        autoFont: { min: 1, max: 100 },
         fontFamily: 'Arial',
         fontWeight: 'bold',
         fill: 'red',

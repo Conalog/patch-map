@@ -1,9 +1,4 @@
 /**
- * @fileoverview Base command class for undo/redo operations.
- */
-import { isSame } from '../../utils/diff/isSame';
-
-/**
  * Base Command class.
  * Represents an abstract command with execute, undo, and state change checking methods.
  */
@@ -32,15 +27,5 @@ export class Command {
    */
   undo() {
     throw new Error('The undo() method must be implemented.');
-  }
-
-  /**
-   * Checks if the command's state has changed.
-   * @returns {boolean} True if the state has changed, false otherwise.
-   */
-  isStateChanged() {
-    return this.config && this.prevConfig
-      ? !isSame(this.config, this.prevConfig)
-      : true;
   }
 }

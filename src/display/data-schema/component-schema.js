@@ -38,7 +38,7 @@ export const barSchema = Base.extend({
   size: PxOrPercentSize,
   placement: Placement.default('bottom'),
   margin: Margin.default(0),
-  tint: Tint.optional(),
+  tint: Tint,
   animation: z.boolean().default(true),
   animationDuration: z.number().default(200),
 }).strict();
@@ -54,7 +54,7 @@ export const iconSchema = Base.extend({
   size: PxOrPercentSize,
   placement: Placement.default('center'),
   margin: Margin.default(0),
-  tint: Tint.optional(),
+  tint: Tint,
 }).strict();
 
 /**
@@ -66,7 +66,7 @@ export const textSchema = Base.extend({
   type: z.literal('text'),
   placement: Placement.default('center'),
   margin: Margin.default(0),
-  tint: Tint.optional(),
+  tint: Tint,
   text: z.string().default(''),
   style: TextStyle.optional(),
   split: z.number().int().default(0),

@@ -19,9 +19,6 @@ export class UndoRedoManager {
   }
 
   execute(command, options = {}) {
-    if (!command.isStateChanged()) {
-      return;
-    }
     command.execute();
     this._commands = this._commands.slice(0, this._index + 1);
 

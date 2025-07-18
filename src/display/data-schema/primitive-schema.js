@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { uid } from '../../utils/uuid';
-import { ZERO_MARGIN } from '../mixins/constants';
 import {
   Color,
   HslColor,
@@ -128,18 +127,19 @@ export const PxOrPercentSize = z.union([
   }),
 ]);
 
-export const Placement = z.enum([
-  'left',
-  'left-top',
-  'left-bottom',
-  'top',
-  'right',
-  'right-top',
-  'right-bottom',
-  'bottom',
-  'center',
-  'none',
-]);
+export const Placement = z
+  .enum([
+    'left',
+    'left-top',
+    'left-bottom',
+    'top',
+    'right',
+    'right-top',
+    'right-bottom',
+    'bottom',
+    'center',
+  ])
+  .default('left-top');
 
 export const Gap = z.preprocess(
   (val) => (typeof val === 'number' ? { x: val, y: val } : val),
@@ -169,16 +169,16 @@ export const Margin = z.preprocess(
       bottom: z.number().default(0),
       left: z.number().default(0),
     })
-    .default(ZERO_MARGIN),
+    .default({}),
 );
 
 export const TextureStyle = z
   .object({
     type: z.enum(['rect']),
-    fill: z.string(),
-    borderWidth: z.number(),
-    borderColor: z.string(),
-    radius: z.number(),
+    fill: z.string().default('transparent'),
+    borderWidth: z.number().default(0),
+    borderColor: z.string().default('black'),
+    radius: z.number().default(0),
   })
   .partial();
 
@@ -202,25 +202,27 @@ export const TextStyle = z
       .refine((data) => data.min <= data.max, {
         message: 'autoFont.min must not be greater than autoFont.max',
       })
-      .optional(),
+      .default({}),
   })
   .passthrough();
 
 /**
  * @see {@link https://pixijs.download/release/docs/color.ColorSource.html}
  */
-export const Tint = z.union([
-  z.string(),
-  z.number(),
-  z.array(z.number()),
-  z.instanceof(Float32Array),
-  z.instanceof(Uint8Array),
-  z.instanceof(Uint8ClampedArray),
-  HslColor,
-  HslaColor,
-  HsvColor,
-  HsvaColor,
-  RgbColor,
-  RgbaColor,
-  Color,
-]);
+export const Tint = z
+  .union([
+    z.string(),
+    z.number(),
+    z.array(z.number()),
+    z.instanceof(Float32Array),
+    z.instanceof(Uint8Array),
+    z.instanceof(Uint8ClampedArray),
+    HslColor,
+    HslaColor,
+    HsvColor,
+    HsvaColor,
+    RgbColor,
+    RgbaColor,
+    Color,
+  ])
+  .default(0xffffff);
