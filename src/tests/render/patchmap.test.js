@@ -207,9 +207,14 @@ describe('patchmap test', () => {
 
       const item = patchmap.selector('$..[?(@.id=="item-1")]')[0];
       expect(item.children.length).toBe(6);
-      expect(item.children[3].text).toBe('2');
-      expect(item.children[4].text).toBe('99');
-      expect(item.children[5].text).toBe('3');
+
+      const newTextChildren = item.children.filter((c) => c.id === 'new-text');
+      expect(newTextChildren.length).toBe(2);
+      expect(newTextChildren.map((c) => c.text).sort()).toEqual(['2', '3']);
+
+      const childB = item.children.find((c) => c.id === 'B');
+      expect(childB).toBeDefined();
+      expect(childB.text).toBe('99');
     });
   });
 

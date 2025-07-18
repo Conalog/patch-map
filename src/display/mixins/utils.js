@@ -70,7 +70,7 @@ export const mixins = (baseClass, ...mixins) => {
  * and performs batch validation using a Zod schema.
  *
  * @param {Array<object>} currentElements - Array of current child elements (components) in the DOM
- * @param {Array<object>} preparedChanges - Array of change data to apply
+ * @param {Array<object>} changes - Array of change data to apply
  * @param {import('zod').ZodSchema} schema - Zod schema to use for validation
  * @returns {Array<object>} The changes array, with validated and default-filled data
  */
