@@ -17,6 +17,8 @@ const ComposedBackground = mixins(
 );
 
 export class Background extends ComposedBackground {
+  static respectsPadding = false;
+
   constructor(context) {
     super({ type: 'background', context, texture: Texture.WHITE });
   }

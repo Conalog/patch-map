@@ -1,4 +1,5 @@
 import { UPDATE_STAGES } from './constants';
+import { getLayoutContext } from './utils';
 
 const KEYS = ['placement', 'margin'];
 
@@ -34,31 +35,36 @@ export const Placementable = (superClass) => {
 };
 
 const getHorizontalPosition = (component, align, margin) => {
-  const parentWidth = component.parent.props.size.width;
+  const { parentWidth, contentWidth, parentPadding } =
+    getLayoutContext(component);
+
   let result = null;
   if (align === 'left') {
-    result = margin.left;
+    result = parentPadding.left + margin.left;
   } else if (align === 'right') {
-    result = parentWidth - component.width - margin.right;
+    result = parentWidth - component.width - margin.right - parentPadding.right;
   } else if (align === 'center') {
     const marginWidth = component.width + margin.left + margin.right;
-    const blockStartPosition = (parentWidth - marginWidth) / 2;
-    result = blockStartPosition + margin.left;
+    const blockStartPosition = (contentWidth - marginWidth) / 2;
+    result = parentPadding.left + blockStartPosition + margin.left;
   }
   return result;
 };
 
 const getVerticalPosition = (component, align, margin) => {
-  const parentHeight = component.parent.props.size.height;
+  const { parentHeight, contentHeight, parentPadding } =
+    getLayoutContext(component);
+
   let result = null;
   if (align === 'top') {
-    result = margin.top;
+    result = parentPadding.top + margin.top;
   } else if (align === 'bottom') {
-    result = parentHeight - component.height - margin.bottom;
+    result =
+      parentHeight - component.height - margin.bottom - parentPadding.bottom;
   } else if (align === 'center') {
     const marginHeight = component.height + margin.top + margin.bottom;
-    const blockStartPosition = (parentHeight - marginHeight) / 2;
-    result = blockStartPosition + margin.top;
+    const blockStartPosition = (contentHeight - marginHeight) / 2;
+    result = parentPadding.top + blockStartPosition + margin.top;
   }
   return result;
 };

@@ -27,3 +27,10 @@ export const FONT_WEIGHT = {
   extrabold: 'extrabold',
   black: 'black',
 };
+
+export const ZERO_MARGIN = Object.freeze({
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0,
+});

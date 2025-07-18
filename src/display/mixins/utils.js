@@ -2,6 +2,7 @@ import gsap from 'gsap';
 import { isValidationError } from 'zod-validation-error';
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { validate } from '../../utils/validator';
+import { ZERO_MARGIN } from './constants';
 
 export const tweensOf = (object) => gsap.getTweensOf(object);
 
@@ -27,8 +28,8 @@ const parseCalcExpression = (expression, parentDimension) => {
 };
 
 export const calcSize = (component, { source, size }) => {
-  const { width: parentWidth, height: parentHeight } =
-    component.parent.props.size;
+  const { contentWidth, contentHeight } = getLayoutContext(component);
+
   const borderWidth =
     typeof source === 'object' ? (source?.borderWidth ?? 0) : 0;
 
@@ -36,20 +37,20 @@ export const calcSize = (component, { source, size }) => {
   let finalHeight = null;
 
   if (typeof size.width === 'string' && size.width.startsWith('calc')) {
-    finalWidth = parseCalcExpression(size.width, parentWidth);
+    finalWidth = parseCalcExpression(size.width, contentWidth);
   } else {
     finalWidth =
       size.width.unit === '%'
-        ? parentWidth * (size.width.value / 100)
+        ? contentWidth * (size.width.value / 100)
         : size.width.value;
   }
 
   if (typeof size.height === 'string' && size.height.startsWith('calc')) {
-    finalHeight = parseCalcExpression(size.height, parentHeight);
+    finalHeight = parseCalcExpression(size.height, contentHeight);
   } else {
     finalHeight =
       size.height.unit === '%'
-        ? parentHeight * (size.height.value / 100)
+        ? contentHeight * (size.height.value / 100)
         : size.height.value;
   }
 
@@ -105,4 +106,31 @@ export const validateAndPrepareChanges = (currentElements, changes, schema) => {
   }
 
   return preparedChanges;
+};
+
+/**
+ * Calculates the layout context of a component (content area size, padding, etc).
+ * @param {PIXI.DisplayObject} component - The component for which to calculate the layout context
+ * @returns {{parentWidth: number, parentHeight: number, contentWidth: number, contentHeight: number, parentPadding: object}}
+ */
+export const getLayoutContext = (component) => {
+  const usePadding = component.constructor.respectsPadding !== false;
+  const parent = component.parent;
+
+  const parentPadding =
+    usePadding && parent.props.padding ? parent.props.padding : ZERO_MARGIN;
+
+  const parentWidth = parent.props.size.width;
+  const parentHeight = parent.props.size.height;
+
+  const contentWidth = parentWidth - parentPadding.left - parentPadding.right;
+  const contentHeight = parentHeight - parentPadding.top - parentPadding.bottom;
+
+  return {
+    parentWidth,
+    parentHeight,
+    contentWidth,
+    contentHeight,
+    parentPadding,
+  };
 };

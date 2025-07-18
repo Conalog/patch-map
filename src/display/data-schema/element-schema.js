@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { componentArraySchema } from './component-schema';
-import { Base, Gap, RelationsStyle, Size } from './primitive-schema';
+import { Base, Gap, Margin, RelationsStyle, Size } from './primitive-schema';
 
 /**
  * Groups multiple elements to apply common properties..
@@ -35,6 +35,7 @@ export const itemSchema = Base.extend({
   type: z.literal('item'),
   components: componentArraySchema,
   size: Size,
+  padding: Margin.default(0),
 }).strict();
 
 /**
