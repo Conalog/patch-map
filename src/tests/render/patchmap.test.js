@@ -45,6 +45,9 @@ const sampleData = [
               radius: 6,
             },
           },
+          { type: 'text', text: 'text-1' },
+          { type: 'text', text: 'text-2' },
+          { type: 'text', id: 'new-text' },
         ],
         attrs: { x: 200, y: 300 },
       },
@@ -88,6 +91,12 @@ describe('patchmap test', () => {
     const item = patchmap.selector('$..[?(@.id=="item-1")]')[0];
     expect(item).toBeDefined();
     expect(item.id).toBe('item-1');
+
+    const itemChildren = [...item.children];
+    expect(itemChildren.length).toBe(4);
+    expect(itemChildren[0].type).toBe('background');
+    expect(itemChildren[1].type).toBe('text');
+    expect(itemChildren[2].type).toBe('text');
 
     const gridItems = grid.children;
     expect(gridItems.length).toBe(5);
@@ -182,6 +191,30 @@ describe('patchmap test', () => {
       const group = patchmap.selector('$..[?(@.id=="group-1")]')[0];
       expect(group.x).toBe(350);
       expect(group.y).toBe(250);
+    });
+
+    it('should handle array updates with duplicate ids correctly', () => {
+      patchmap.update({
+        path: '$..[?(@.id=="item-1")]',
+        changes: {
+          components: [
+            { type: 'text', id: 'new-text', text: '2' },
+            { type: 'text', id: 'B', text: '99' },
+            { type: 'text', id: 'new-text', text: '3' },
+          ],
+        },
+      });
+
+      const item = patchmap.selector('$..[?(@.id=="item-1")]')[0];
+      expect(item.children.length).toBe(6);
+
+      const newTextChildren = item.children.filter((c) => c.id === 'new-text');
+      expect(newTextChildren.length).toBe(2);
+      expect(newTextChildren.map((c) => c.text).sort()).toEqual(['2', '3']);
+
+      const childB = item.children.find((c) => c.id === 'B');
+      expect(childB).toBeDefined();
+      expect(childB.text).toBe('99');
     });
   });
 

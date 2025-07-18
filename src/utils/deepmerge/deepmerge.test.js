@@ -197,6 +197,30 @@ describe('deepMerge – arrayMerge by id → label → type', () => {
         ],
       },
     ],
+    [
+      {
+        components: [],
+      },
+      {
+        components: [
+          { type: 'text', text: '5' },
+          { type: 'text', text: '6' },
+          { type: 'text', text: '7' },
+        ],
+      },
+      {
+        components: [
+          { type: 'text', text: '5' },
+          { type: 'text', text: '6' },
+          { type: 'text', text: '7' },
+        ],
+      },
+    ],
+    [
+      { components: [{ type: 'text', text: 'original' }] },
+      { components: [null, { type: 'text', text: 'new' }] },
+      { components: [null, { type: 'text', text: 'new' }] },
+    ],
   ])('Case %#', (left, right, expected) => {
     expect(deepMerge(left, right)).toEqual(expected);
   });

@@ -75,9 +75,11 @@ const mergeArray = (target, source, options, visited) => {
       }
     } else if (i < merged.length) {
       merged[i] = item;
+      used.add(i);
       return;
     }
     merged.push(item);
+    used.add(merged.length - 1);
   });
 
   return merged;
