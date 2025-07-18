@@ -70,16 +70,17 @@ export const mixins = (baseClass, ...mixins) => {
  * and performs batch validation using a Zod schema.
  *
  * @param {Array<object>} currentElements - Array of current child elements (components) in the DOM
- * @param {Array<object>} changes - Array of change data to apply
+ * @param {Array<object>} preparedChanges - Array of change data to apply
  * @param {import('zod').ZodSchema} schema - Zod schema to use for validation
  * @returns {Array<object>} The changes array, with validated and default-filled data
  */
-export function validateAndPrepareChanges(currentElements, changes, schema) {
+export const validateAndPrepareChanges = (currentElements, changes, schema) => {
+  const preparedChanges = [...changes];
   const used = new Set();
   const newElementDefs = [];
   const newElementIndices = [];
 
-  changes.forEach((change, index) => {
+  preparedChanges.forEach((change, index) => {
     const foundIndex = findIndexByPriority(currentElements, change, used);
     if (foundIndex === -1) {
       newElementDefs.push(change);
@@ -99,9 +100,9 @@ export function validateAndPrepareChanges(currentElements, changes, schema) {
     // Update the original changes array with the validated definitions (including defaults)
     validatedNewDefs.forEach((validatedDef, i) => {
       const originalIndex = newElementIndices[i];
-      changes[originalIndex] = validatedDef;
+      preparedChanges[originalIndex] = validatedDef;
     });
   }
 
-  return changes;
-}
+  return preparedChanges;
+};

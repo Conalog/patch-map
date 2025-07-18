@@ -209,6 +209,7 @@ describe('patchmap test', () => {
       expect(item.children.length).toBe(6);
       expect(item.children[3].text).toBe('2');
       expect(item.children[4].text).toBe('99');
+      expect(item.children[5].text).toBe('3');
     });
   });
 
