@@ -68,19 +68,23 @@ export const Base = (superClass) => {
 
     update(changes, schema, options = {}) {
       const { arrayMerge = 'merge', refresh = false } = options;
-      const prevProps = JSON.parse(JSON.stringify(this.props));
-
       const effectiveChanges = refresh && !changes ? {} : changes;
       const validatedChanges = validate(effectiveChanges, deepPartial(schema));
       if (isValidationError(validatedChanges)) throw validatedChanges;
-      const nextProps = deepMerge(prevProps, validatedChanges, { arrayMerge });
 
       if (options?.historyId) {
-        const changes = diffJson(prevProps, nextProps);
-        const command = new UpdateCommand(this, changes, options);
-        this.context.undoRedoManager.execute(command, options);
+        const prevProps = JSON.parse(JSON.stringify(this.props));
+        const nextProps = deepMerge(prevProps, validatedChanges, {
+          arrayMerge,
+        });
+        const changesForCommand = diffJson(prevProps, nextProps);
+
+        if (Object.keys(changesForCommand).length > 0) {
+          const command = new UpdateCommand(this, changesForCommand, options);
+          this.context.undoRedoManager.execute(command, options);
+        }
       } else {
-        this.props = nextProps;
+        this.props = deepMerge(this.props, validatedChanges, { arrayMerge });
         const keysToProcess = refresh
           ? Object.keys(this.props)
           : Object.keys(diffJson(prevProps, this.props) ?? {});
