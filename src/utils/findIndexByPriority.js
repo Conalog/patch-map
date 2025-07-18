@@ -27,7 +27,7 @@ export const findIndexByPriority = (
   for (const key of priorityKeys) {
     if (key in criteria) {
       return arr.findIndex(
-        (item, idx) => !usedIndexes.has(idx) && item?.[key] === criteria?.[key],
+        (item, idx) => !usedIndexes.has(idx) && item?.[key] === criteria[key],
       );
     }
   }

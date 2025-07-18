@@ -193,7 +193,7 @@ describe('patchmap test', () => {
       expect(group.y).toBe(250);
     });
 
-    it('', () => {
+    it('should handle array updates with duplicate ids correctly', () => {
       patchmap.update({
         path: '$..[?(@.id=="item-1")]',
         changes: {
