@@ -123,8 +123,14 @@ export const getLayoutContext = (component) => {
   const parentWidth = parent.props.size.width;
   const parentHeight = parent.props.size.height;
 
-  const contentWidth = parentWidth - parentPadding.left - parentPadding.right;
-  const contentHeight = parentHeight - parentPadding.top - parentPadding.bottom;
+  const contentWidth = Math.max(
+    0,
+    parentWidth - parentPadding.left - parentPadding.right,
+  );
+  const contentHeight = Math.max(
+    0,
+    parentHeight - parentPadding.top - parentPadding.bottom,
+  );
 
   return {
     parentWidth,
