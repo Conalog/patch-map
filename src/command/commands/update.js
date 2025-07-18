@@ -1,55 +1,59 @@
-import { isPlainObject } from 'is-plain-object';
 import { Command } from './base';
 
 export class UpdateCommand extends Command {
-  constructor(element, nextProps, options) {
+  constructor(element, changes, options) {
     super(options.historyId);
     this.element = element;
-    this.prevProps = this._reversePatch(nextProps);
-    this.nextProps = nextProps;
+    this.changes = changes;
     this.options = options;
+    this.inverseChanges = this._createInversePatch(changes);
   }
 
   execute() {
-    this.element.update(this.nextProps, {
+    this.element.update(this.changes, {
       ...this.options,
-      refresh: true,
       historyId: false,
     });
   }
 
   undo() {
-    this.element.update(this.prevProps, {
+    this.element.update(this.inverseChanges, {
       ...this.options,
-      refresh: true,
       historyId: false,
     });
   }
 
-  _reversePatch(changes) {
-    const reversePatch = {};
+  _createInversePatch(changes) {
+    const inverse = {};
+    const currentProps = this.element.props;
 
     for (const key in changes) {
-      if (!Object.prototype.hasOwnProperty.call(changes, key)) continue;
-
-      const changeValue = changes[key];
-      const object = this.element;
-
-      if (key === 'attrs' && isPlainObject(changeValue)) {
-        reversePatch.attrs = {};
-        for (const attrKey in changeValue) {
-          if (object[attrKey] && typeof object[attrKey].clone === 'function') {
-            reversePatch.attrs[attrKey] = object[attrKey].clone();
-          } else if (object[attrKey] !== undefined) {
-            reversePatch.attrs[attrKey] = object[attrKey];
+      if (key === 'attrs') {
+        inverse.attrs = {};
+        for (const attrKey in changes.attrs) {
+          if (this.element[attrKey] !== undefined) {
+            inverse.attrs[attrKey] = this._deepClone(this.element[attrKey]);
           } else {
-            reversePatch.attrs[attrKey] = object.props.attrs?.[attrKey];
+            inverse.attrs[attrKey] = this._deepClone(
+              currentProps.attrs?.[attrKey],
+            );
           }
         }
       } else {
-        reversePatch[key] = object.props[key];
+        inverse[key] = this._deepClone(currentProps[key]);
       }
     }
-    return reversePatch;
+    return inverse;
+  }
+
+  _deepClone(value) {
+    if (value && typeof value.clone === 'function') {
+      return value.clone();
+    }
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch (_) {
+      return value;
+    }
   }
 }

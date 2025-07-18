@@ -76,7 +76,8 @@ export const Base = (superClass) => {
       const nextProps = deepMerge(prevProps, validatedChanges, { arrayMerge });
 
       if (options?.historyId) {
-        const command = new UpdateCommand(this, nextProps, options);
+        const changes = diffJson(prevProps, nextProps);
+        const command = new UpdateCommand(this, changes, options);
         this.context.undoRedoManager.execute(command, options);
       } else {
         this.props = nextProps;
