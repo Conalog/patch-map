@@ -24,7 +24,7 @@ export const Childrenable = (superClass) => {
       const newElementDefs = [];
       const newElementIndices = []; // Store original indices to update the array later.
       childrenChanges.forEach((change, index) => {
-        const foundIndex = findIndexByPriority(elements, change, used) === -1;
+        const foundIndex = findIndexByPriority(elements, change, used);
         if (foundIndex === -1) {
           newElementDefs.push(change);
           newElementIndices.push(index);
