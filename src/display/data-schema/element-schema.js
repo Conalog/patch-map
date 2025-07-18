@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { componentArraySchema } from './component-schema';
-import { Base, Gap, RelationsStyle, Size } from './primitive-schema';
+import { Base, Gap, Margin, RelationsStyle, Size } from './primitive-schema';
 
 /**
  * Groups multiple elements to apply common properties..
@@ -22,7 +22,11 @@ export const gridSchema = Base.extend({
   type: z.literal('grid'),
   cells: z.array(z.array(z.union([z.literal(0), z.literal(1)]))),
   gap: Gap,
-  item: z.object({ components: componentArraySchema, size: Size }),
+  item: z.object({
+    components: componentArraySchema,
+    size: Size,
+    padding: Margin.default(0),
+  }),
 }).strict();
 
 /**
@@ -35,6 +39,7 @@ export const itemSchema = Base.extend({
   type: z.literal('item'),
   components: componentArraySchema,
   size: Size,
+  padding: Margin.default(0),
 }).strict();
 
 /**

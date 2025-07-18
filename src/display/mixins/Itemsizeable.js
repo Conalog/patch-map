@@ -1,6 +1,6 @@
 import { UPDATE_STAGES } from './constants';
 
-const KEYS = ['size'];
+const KEYS = ['size', 'padding'];
 
 export const ItemSizeable = (superClass) => {
   const MixedClass = class extends superClass {

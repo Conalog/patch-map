@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { uid } from '../../utils/uuid';
+import { ZERO_MARGIN } from '../mixins/constants';
 import {
   Color,
   HslColor,
@@ -168,7 +169,7 @@ export const Margin = z.preprocess(
       bottom: z.number().default(0),
       left: z.number().default(0),
     })
-    .default({}),
+    .default(ZERO_MARGIN),
 );
 
 export const TextureStyle = z
