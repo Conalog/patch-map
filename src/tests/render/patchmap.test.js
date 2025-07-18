@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setupPatchmapTests } from './patchmap.setup';
 
 const sampleData = [
@@ -224,13 +224,17 @@ describe('patchmap test', () => {
     let onOver;
     let onDragSelect;
 
-    beforeEach(async () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
       patchmap = getPatchmap();
       patchmap.draw(sampleData);
       onSelect = vi.fn();
       onOver = vi.fn();
       onDragSelect = vi.fn();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
     });
 
     describe('when draggable is false', () => {
@@ -331,7 +335,7 @@ describe('patchmap test', () => {
           async ({ position, expectedId }) => {
             const viewport = patchmap.viewport;
             transform(viewport);
-            await new Promise((resolve) => setTimeout(resolve, 50));
+            await vi.advanceTimersByTimeAsync(100);
 
             viewport.emit('mousedown', {
               global: viewport.toGlobal(position),
@@ -402,7 +406,7 @@ describe('patchmap test', () => {
           patchmap.draw([
             { type: 'group', id: 'group-2', children: sampleData },
           ]);
-          await new Promise((resolve) => setTimeout(resolve, 50));
+          await vi.advanceTimersByTimeAsync(100);
 
           const onSelect = vi.fn();
 
