@@ -115,7 +115,16 @@ export const validateAndPrepareChanges = (currentElements, changes, schema) => {
  */
 export const getLayoutContext = (component) => {
   const usePadding = component.constructor.respectsPadding !== false;
-  const parent = component.parent;
+  const parent = component?.parent;
+  if (!parent) {
+    return {
+      parentWidth: 0,
+      parentHeight: 0,
+      contentWidth: 0,
+      contentHeight: 0,
+      parentPadding: ZERO_MARGIN,
+    };
+  }
 
   const parentPadding =
     usePadding && parent.props.padding ? parent.props.padding : ZERO_MARGIN;
