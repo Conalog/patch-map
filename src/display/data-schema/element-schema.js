@@ -22,7 +22,11 @@ export const gridSchema = Base.extend({
   type: z.literal('grid'),
   cells: z.array(z.array(z.union([z.literal(0), z.literal(1)]))),
   gap: Gap,
-  item: z.object({ components: componentArraySchema, size: Size }),
+  item: z.object({
+    components: componentArraySchema,
+    size: Size,
+    padding: Margin.default(0),
+  }),
 }).strict();
 
 /**
