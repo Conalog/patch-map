@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { uid } from '../../utils/uuid';
 import {
+  DEFAULT_AUTO_FONT_RANGE,
+  DEFAULT_TEXTSTYLE,
+} from '../mixins/constants';
+import {
   Color,
   HslColor,
   HslaColor,
@@ -187,7 +191,6 @@ export const TextureStyle = z
  */
 export const RelationsStyle = z.record(z.string(), z.unknown());
 
-export const DEFAULT_AUTO_FONT_RANGE = { min: 1, max: 100 };
 /**
  * @see {@link https://pixijs.download/release/docs/text.TextStyleOptions.html}
  */
@@ -203,6 +206,9 @@ export const TextStyle = z
         message: 'autoFont.min must not be greater than autoFont.max',
       })
       .default({}),
+    fontFamily: z.any().default(DEFAULT_TEXTSTYLE.fontFamily),
+    fontWeight: z.any().default(DEFAULT_TEXTSTYLE.fontWeight),
+    fill: z.any().default(DEFAULT_TEXTSTYLE.fill),
   })
   .passthrough();
 

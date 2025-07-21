@@ -1,18 +1,32 @@
+import { TextStyle } from 'pixi.js';
 import { getColor } from '../../utils/get';
-import { DEFAULT_AUTO_FONT_RANGE } from '../data-schema/primitive-schema';
-import { FONT_WEIGHT, UPDATE_STAGES } from './constants';
+import {
+  DEFAULT_AUTO_FONT_RANGE,
+  DEFAULT_TEXTSTYLE,
+  FONT_WEIGHT,
+  UPDATE_STAGES,
+} from './constants';
 
 const KEYS = ['text', 'split', 'style', 'margin'];
 
 export const Textstyleable = (superClass) => {
   const MixedClass = class extends superClass {
-    _applyTextstyle(relevantChanges) {
+    _applyTextstyle(relevantChanges, options) {
       const { style, margin } = relevantChanges;
       const { theme } = this.context.theme;
 
+      if (options.arrayMerge === 'replace') {
+        this.style = new TextStyle({
+          ...DEFAULT_TEXTSTYLE,
+          fontWeight: this._getFontWeight(DEFAULT_TEXTSTYLE.fontWeight),
+          fontFamily: this._getFontFamily(DEFAULT_TEXTSTYLE.fontFamily),
+        });
+      }
+
       for (const key in style) {
         if (key === 'fontFamily' || key === 'fontWeight') {
-          this.style.fontFamily = `${style.fontFamily ?? this.style.fontFamily.split(' ')[0]} ${FONT_WEIGHT[style.fontWeight ?? this.style.fontWeight]}`;
+          this.style.fontWeight = this._getFontWeight(style.fontWeight);
+          this.style.fontFamily = this._getFontFamily(style.fontFamily);
         } else if (key === 'fill') {
           this.style[key] = getColor(theme, style.fill);
         } else if (key === 'fontSize' && style[key] === 'auto') {
@@ -22,6 +36,14 @@ export const Textstyleable = (superClass) => {
           this.style[key] = style[key];
         }
       }
+    }
+
+    _getFontFamily(value) {
+      return `${value ?? this.style.fontFamily.split(' ')[0]} ${FONT_WEIGHT.STRING[this.style.fontWeight]}`;
+    }
+
+    _getFontWeight(value) {
+      return FONT_WEIGHT.NUMBER[value ?? this.style.fontWeight];
     }
   };
   MixedClass.registerHandler(

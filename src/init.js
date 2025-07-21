@@ -5,6 +5,7 @@ import * as PIXI from 'pixi.js';
 import { firaCode } from './assets/fonts';
 import { icons } from './assets/icons';
 import { Type } from './display/mixins/Type';
+import { FONT_WEIGHT } from './display/mixins/constants';
 import { deepMerge } from './utils/deepmerge/deepmerge';
 import { plugin } from './utils/event/viewport';
 import { uid } from './utils/uuid';
@@ -45,7 +46,10 @@ const DEFAULT_INIT_OPTIONS = {
       items: Object.entries(firaCode).map(([key, font]) => ({
         alias: `firaCode-${key}`,
         src: font,
-        data: { family: `FiraCode ${key}` },
+        data: {
+          family: `FiraCode ${key}`,
+          weights: [FONT_WEIGHT.NUMBER[key]],
+        },
       })),
     },
   ],

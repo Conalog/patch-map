@@ -8,24 +8,46 @@ export const UPDATE_STAGES = Object.freeze({
 });
 
 export const FONT_WEIGHT = {
-  100: 'thin',
-  200: 'extralight',
-  300: 'light',
-  400: 'regular',
-  500: 'medium',
-  600: 'semibold',
-  700: 'bold',
-  800: 'extrabold',
-  900: 'black',
-  thin: 'thin',
-  extralight: 'extralight',
-  light: 'light',
-  regular: 'regular',
-  medium: 'medium',
-  semibold: 'semibold',
-  bold: 'bold',
-  extrabold: 'extrabold',
-  black: 'black',
+  STRING: {
+    100: 'thin',
+    200: 'extralight',
+    300: 'light',
+    400: 'regular',
+    500: 'medium',
+    600: 'semibold',
+    700: 'bold',
+    800: 'extrabold',
+    900: 'black',
+    thin: 'thin',
+    extralight: 'extralight',
+    light: 'light',
+    regular: 'regular',
+    medium: 'medium',
+    semibold: 'semibold',
+    bold: 'bold',
+    extrabold: 'extrabold',
+    black: 'black',
+  },
+  NUMBER: {
+    100: '100',
+    200: '200',
+    300: '300',
+    400: '400',
+    500: '500',
+    600: '600',
+    700: '700',
+    800: '800',
+    900: '900',
+    thin: '100',
+    extralight: '200',
+    light: '300',
+    regular: '400',
+    medium: '500',
+    semibold: '600',
+    bold: '700',
+    extrabold: '800',
+    black: '900',
+  },
 };
 
 export const ZERO_MARGIN = Object.freeze({
@@ -34,3 +56,11 @@ export const ZERO_MARGIN = Object.freeze({
   bottom: 0,
   left: 0,
 });
+
+export const DEFAULT_AUTO_FONT_RANGE = { min: 1, max: 100 };
+
+export const DEFAULT_TEXTSTYLE = {
+  fontFamily: 'FiraCode',
+  fill: 'black',
+  fontWeight: 400,
+};

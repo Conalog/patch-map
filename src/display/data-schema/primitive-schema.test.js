@@ -351,8 +351,11 @@ describe('Primitive Schema Tests', () => {
     it('should apply default styles for a partial object', () => {
       const data = { fontSize: 16 };
       expect(TextStyle.parse(data)).toEqual({
-        fontSize: 16,
         autoFont: { min: 1, max: 100 },
+        fill: 'black',
+        fontFamily: 'FiraCode',
+        fontSize: 16,
+        fontWeight: 400,
       });
     });
 
