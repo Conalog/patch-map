@@ -80,7 +80,7 @@ describe('deepMerge – edge-case behavior', () => {
 /* -------------------------------------------------------------------------- */
 /* 3. Array/Object merge priority (id → label → type)                         */
 /* -------------------------------------------------------------------------- */
-describe('deepMerge – arrayMerge by id → label → type', () => {
+describe('deepMerge – mergeStrategy by id → label → type', () => {
   test.each([
     [
       {
@@ -366,13 +366,13 @@ describe('deepMerge – additional edge‑case coverage', () => {
   });
 });
 
-describe('deepMerge – arrayMerge option', () => {
+describe('deepMerge – mergeStrategy option', () => {
   test.each([
     {
-      name: 'should replace array when arrayMerge is "replace"',
+      name: 'should replace array when mergeStrategy is "replace"',
       left: { arr: [1, 2, 3] },
       right: { arr: [4, 5] },
-      options: { arrayMerge: 'replace' },
+      options: { mergeStrategy: 'replace' },
       expected: { arr: [4, 5] },
     },
     {
@@ -383,10 +383,10 @@ describe('deepMerge – arrayMerge option', () => {
       expected: { arr: [4, 5, 3] },
     },
     {
-      name: 'should merge nested arrays when arrayMerge is "replace" at top level',
+      name: 'should merge nested arrays when mergeStrategy is "replace" at top level',
       left: { nested: { arr: ['a', 'b'] } },
       right: { nested: { arr: ['c'] } },
-      options: { arrayMerge: 'replace' },
+      options: { mergeStrategy: 'replace' },
       expected: { nested: { arr: ['c'] } },
     },
   ])('$name', ({ left, right, options, expected }) => {

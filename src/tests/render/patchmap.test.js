@@ -144,7 +144,7 @@ describe('patchmap test', () => {
       expect(background.props.source.fill).toBe('blue');
     });
 
-    it('should replace an array completely when arrayMerge is "replace"', () => {
+    it('should replace an array completely when mergeStrategy is "replace"', () => {
       const initialGridItemCount = patchmap.selector(
         '$..[?(@.id=="grid-1")]',
       )[0].children.length;
@@ -154,7 +154,7 @@ describe('patchmap test', () => {
         changes: {
           cells: [[1, 1, 1, 1]],
         },
-        arrayMerge: 'replace',
+        mergeStrategy: 'replace',
       });
       const gridItems = patchmap.selector('$..[?(@.id=="grid-1")]')[0].children;
       expect(gridItems.length).toBe(4);

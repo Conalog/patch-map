@@ -99,7 +99,7 @@ describe('Background Component In Item', () => {
     });
   });
 
-  it('should replace the entire component array when arrayMerge is "replace"', () => {
+  it('should replace the entire component array when mergeStrategy is "replace"', () => {
     const patchmap = getPatchmap();
     patchmap.draw([baseItemData]);
 
@@ -113,7 +113,7 @@ describe('Background Component In Item', () => {
       changes: {
         components: [newBackground],
       },
-      arrayMerge: 'replace',
+      mergeStrategy: 'replace',
     });
 
     const item = patchmap.selector('$..[?(@.id=="item-with-background")]')[0];

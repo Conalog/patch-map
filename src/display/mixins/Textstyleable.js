@@ -2,7 +2,6 @@ import { TextStyle } from 'pixi.js';
 import { getColor } from '../../utils/get';
 import {
   DEFAULT_AUTO_FONT_RANGE,
-  DEFAULT_TEXTSTYLE,
   FONT_WEIGHT,
   UPDATE_STAGES,
 } from './constants';
@@ -15,12 +14,8 @@ export const Textstyleable = (superClass) => {
       const { style, margin } = relevantChanges;
       const { theme } = this.context.theme;
 
-      if (options.arrayMerge === 'replace') {
-        this.style = new TextStyle({
-          ...DEFAULT_TEXTSTYLE,
-          fontWeight: this._getFontWeight(DEFAULT_TEXTSTYLE.fontWeight),
-          fontFamily: this._getFontFamily(DEFAULT_TEXTSTYLE.fontFamily),
-        });
+      if (options.mergeStrategy === 'replace') {
+        this.style = new TextStyle();
       }
 
       for (const key in style) {

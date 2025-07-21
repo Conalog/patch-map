@@ -67,14 +67,17 @@ export const Base = (superClass) => {
     }
 
     update(changes, schema, options = {}) {
-      const { arrayMerge = 'merge', refresh = false } = options;
+      const { mergeStrategy = 'merge', refresh = false } = options;
       const effectiveChanges = refresh && !changes ? {} : changes;
       const validatedChanges = validate(effectiveChanges, deepPartial(schema));
       if (isValidationError(validatedChanges)) throw validatedChanges;
 
-      const nextProps = deepMerge(this.props, validatedChanges, {
-        arrayMerge,
-      });
+      let nextProps;
+      if (mergeStrategy === 'replace') {
+        nextProps = validate({ ...this.props, ...validatedChanges }, schema);
+      } else {
+        nextProps = deepMerge(this.props, validatedChanges);
+      }
       const actualChanges = diffJson(this.props, nextProps) ?? {};
 
       if (options?.historyId && Object.keys(actualChanges).length > 0) {
@@ -90,7 +93,7 @@ export const Base = (superClass) => {
 
       const { id, label, attrs } = validatedChanges;
       if (id || label || attrs) {
-        this._applyRaw({ id, label, ...attrs }, arrayMerge);
+        this._applyRaw({ id, label, ...attrs }, mergeStrategy);
       }
 
       const tasks = new Map();
@@ -118,15 +121,15 @@ export const Base = (superClass) => {
             fullPayload[key] = this.props[key];
           }
         });
-        handler.call(this, fullPayload, { arrayMerge, refresh });
+        handler.call(this, fullPayload, { mergeStrategy, refresh });
       });
 
       if (this.parent?._onChildUpdate) {
-        this.parent._onChildUpdate(this.id, actualChanges, arrayMerge);
+        this.parent._onChildUpdate(this.id, actualChanges, mergeStrategy);
       }
     }
 
-    _applyRaw(attrs, arrayMerge) {
+    _applyRaw(attrs, mergeStrategy) {
       for (const [key, value] of Object.entries(attrs)) {
         if (value === undefined) continue;
 
@@ -140,13 +143,13 @@ export const Base = (superClass) => {
             key === 'height' ? value : (attrs?.height ?? this.height);
           this.setSize(width, height);
         } else {
-          this._updateProperty(key, value, arrayMerge);
+          this._updateProperty(key, value, mergeStrategy);
         }
       }
     }
 
-    _updateProperty(key, value, arrayMerge) {
-      deepMerge(this, { [key]: value }, { arrayMerge });
+    _updateProperty(key, value, mergeStrategy) {
+      deepMerge(this, { [key]: value }, { mergeStrategy });
     }
   };
 };
