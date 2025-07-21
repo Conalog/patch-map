@@ -72,12 +72,10 @@ export const Base = (superClass) => {
       const validatedChanges = validate(effectiveChanges, deepPartial(schema));
       if (isValidationError(validatedChanges)) throw validatedChanges;
 
-      let nextProps;
-      if (mergeStrategy === 'replace') {
-        nextProps = validate({ ...this.props, ...validatedChanges }, schema);
-      } else {
-        nextProps = deepMerge(this.props, validatedChanges);
-      }
+      const nextProps =
+        mergeStrategy === 'replace'
+          ? validate({ ...this.props, ...validatedChanges }, schema)
+          : deepMerge(this.props, validatedChanges);
       const actualChanges = diffJson(this.props, nextProps) ?? {};
 
       if (options?.historyId && Object.keys(actualChanges).length > 0) {

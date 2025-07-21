@@ -17,11 +17,9 @@ export class UpdateCommand extends Command {
   }
 
   undo() {
-    this.element.props = this.previousProps;
-    this.element.update(null, {
+    this.element.update(this.previousProps, {
       mergeStrategy: 'replace',
       historyId: false,
-      refresh: true,
     });
   }
 
