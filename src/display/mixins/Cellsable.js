@@ -20,6 +20,7 @@ export const Cellsable = (superClass) => {
             if (!currentItemIds.has(id)) {
               const item = newElement('item', this.context);
               item.update({
+                type: 'item',
                 id,
                 ...itemProps,
                 attrs: {

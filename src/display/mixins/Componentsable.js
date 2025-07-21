@@ -38,7 +38,10 @@ export const Componentsable = (superClass) => {
           component = newComponent(componentChange.type, this.context);
           this.addChild(component);
         }
-        component.update(componentChange, options);
+        component.update(
+          { type: componentChange.type, ...componentChange },
+          options,
+        );
       }
     }
 
