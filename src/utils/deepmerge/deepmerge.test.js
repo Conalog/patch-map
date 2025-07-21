@@ -389,6 +389,15 @@ describe('deepMerge – mergeStrategy option', () => {
       options: { mergeStrategy: 'replace' },
       expected: { nested: { arr: ['c'] } },
     },
+    {
+      name: 'should merge nested arrays when mergeStrategy is "replace" at second level',
+      left: [{ source: '1', target: '2' }],
+      right: [{ source: '2', target: '3' }],
+      expected: [
+        { source: '1', target: '2' },
+        { source: '2', target: '3' },
+      ],
+    },
   ])('$name', ({ left, right, options, expected }) => {
     expect(deepMerge(left, right, options)).toEqual(expected);
   });

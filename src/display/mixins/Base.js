@@ -80,7 +80,7 @@ export const Base = (superClass) => {
       const actualChanges = diffJson(this.props, nextProps) ?? {};
 
       if (options?.historyId && Object.keys(actualChanges).length > 0) {
-        const command = new UpdateCommand(this, actualChanges, options);
+        const command = new UpdateCommand(this, changes, options);
         this.context.undoRedoManager.execute(command, options);
         return;
       }
