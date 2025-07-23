@@ -6,7 +6,7 @@ export class UpdateCommand extends Command {
     this.element = element;
     this.changes = changes;
     this.options = options;
-    this.previousProps = this._createPreviousState(changes);
+    this.previousProps = this._createPreviousState(this.changes);
   }
 
   execute() {
