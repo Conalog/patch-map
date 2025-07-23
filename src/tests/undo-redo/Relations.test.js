@@ -61,7 +61,7 @@ describe('Undo/Redo: Relations Element', () => {
 
   it('should undo/redo changes to the "links" property', () => {
     const patchmap = getPatchmap();
-    patchmap.draw(JSON.parse(JSON.stringify(baseMapData)));
+    patchmap.draw(baseMapData);
 
     const originalLinks = getRelations(patchmap).props.links;
     expect(originalLinks.length).toBe(1);
@@ -91,7 +91,7 @@ describe('Undo/Redo: Relations Element', () => {
 
   it('should undo/redo changes to the "style" property', () => {
     const patchmap = getPatchmap();
-    patchmap.draw(JSON.parse(JSON.stringify(baseMapData)));
+    patchmap.draw(baseMapData);
 
     const path = getPath(patchmap);
     const originalStyle = { ...path.strokeStyle };
@@ -168,7 +168,7 @@ describe('Undo/Redo: Relations Element', () => {
 
   it('should redraw correctly after a linked item is moved and then undone', async () => {
     const patchmap = getPatchmap();
-    patchmap.draw(JSON.parse(JSON.stringify(baseMapData)));
+    patchmap.draw(baseMapData);
     await vi.advanceTimersByTimeAsync(100);
 
     const path = getPath(patchmap);
@@ -210,7 +210,7 @@ describe('Undo/Redo: Relations Element', () => {
 
   it('should handle additional stroke properties like "cap" and "join" in style', async () => {
     const patchmap = getPatchmap();
-    patchmap.draw(JSON.parse(JSON.stringify(baseMapData)));
+    patchmap.draw(baseMapData);
     await vi.advanceTimersByTimeAsync(100);
 
     const path = getPath(patchmap);

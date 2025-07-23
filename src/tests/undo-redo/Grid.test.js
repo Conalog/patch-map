@@ -39,7 +39,7 @@ describe('Undo/Redo: Grid Element', () => {
 
   it('should undo/redo changes to the "cells" property, altering the number of items', () => {
     const patchmap = getPatchmap();
-    patchmap.draw(JSON.parse(JSON.stringify(baseGridData)));
+    patchmap.draw(baseGridData);
 
     expect(getGridItems(patchmap).length).toBe(4);
 
@@ -63,7 +63,7 @@ describe('Undo/Redo: Grid Element', () => {
 
   it('should undo/redo changes to the "gap" property, altering item positions', () => {
     const patchmap = getPatchmap();
-    patchmap.draw(JSON.parse(JSON.stringify(baseGridData)));
+    patchmap.draw(baseGridData);
 
     const item1_1 = getGrid(patchmap).children.find(
       (item) => item.id === 'grid-1.1.1',
@@ -90,7 +90,7 @@ describe('Undo/Redo: Grid Element', () => {
 
   it('should undo/redo changes to the "item.size" property, altering item size and positions', () => {
     const patchmap = getPatchmap();
-    patchmap.draw(JSON.parse(JSON.stringify(baseGridData)));
+    patchmap.draw(baseGridData);
 
     const items = getGridItems(patchmap);
     const item1_1 = items.find((c) => c.id === 'grid-1.1.1');
@@ -125,7 +125,7 @@ describe('Undo/Redo: Grid Element', () => {
 
   it('should undo/redo changes to "item.components", altering all items style', () => {
     const patchmap = getPatchmap();
-    patchmap.draw(JSON.parse(JSON.stringify(baseGridData)));
+    patchmap.draw(baseGridData);
 
     const getItemBackground = (item) => item.getChildByLabel('bg-component');
 
@@ -161,7 +161,7 @@ describe('Undo/Redo: Grid Element', () => {
 
   it('should handle simultaneous changes to multiple properties correctly', () => {
     const patchmap = getPatchmap();
-    patchmap.draw(JSON.parse(JSON.stringify(baseGridData)));
+    patchmap.draw(baseGridData);
 
     const originalState = {
       itemCount: getGridItems(patchmap).length,
