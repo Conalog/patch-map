@@ -28,10 +28,10 @@ export class UpdateCommand extends Command {
     const slice = {};
     const currentProps = this.element.props;
 
-    for (const key in changes) {
+    for (const key of Object.keys(changes)) {
       if (key === 'attrs' && typeof changes.attrs === 'object') {
         const prevAttrs = {};
-        for (const attrKey in changes.attrs) {
+        for (const attrKey of Object.keys(changes.attrs)) {
           prevAttrs[attrKey] = this._deepClone(this.element[attrKey]);
         }
         slice.attrs = prevAttrs;
