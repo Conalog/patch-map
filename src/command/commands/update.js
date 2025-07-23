@@ -47,7 +47,7 @@ export class UpdateCommand extends Command {
       return value.clone();
     }
     try {
-      return JSON.parse(JSON.stringify(value));
+      return structuredClone(value);
     } catch (_) {
       return value;
     }
