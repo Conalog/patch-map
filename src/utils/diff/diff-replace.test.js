@@ -220,4 +220,51 @@ describe('diffReplace function tests', () => {
     const obj2 = { action: func1 };
     expect(diffReplace(obj1, obj2)).toEqual({});
   });
+
+  describe('Critical Edge Cases for diffReplace', () => {
+    test('should NOT throw error on circular references and return correct diff', () => {
+      const obj1 = { name: 'obj1' };
+      obj1.self = obj1;
+
+      const obj2 = { name: 'obj2' };
+      obj2.self = obj2;
+
+      const obj3 = { name: 'obj1' };
+      obj3.self = obj3;
+
+      expect(() => diffReplace(obj1, obj2)).not.toThrow();
+      expect(diffReplace(obj1, obj2)).toEqual({ name: 'obj2', self: obj2 });
+      expect(diffReplace(obj1, obj3)).toEqual({});
+    });
+
+    test('should replace object when a property is changed from a value to undefined', () => {
+      const obj1 = { a: 1, b: 2, c: 3 };
+      const obj2 = { a: 1, b: undefined, c: 3 };
+
+      expect(diffReplace(obj1, obj2)).toEqual({ b: undefined });
+    });
+
+    test('should replace object when a property is removed', () => {
+      const obj1 = { a: 1, b: 2 };
+      const obj2 = { a: 1 };
+
+      expect(diffReplace(obj1, obj2)).toEqual({});
+      expect(diffReplace(obj2, obj1)).toEqual({ b: 2 });
+    });
+
+    test('should replace array when sparse vs undefined elements are present', () => {
+      const obj1 = { data: [1, null, 3] };
+      const obj2 = { data: [1, undefined, 3] };
+
+      expect(diffReplace(obj1, obj2)).toEqual({ data: [1, undefined, 3] });
+    });
+
+    test('should correctly diff objects with different prototypes', () => {
+      const obj1 = { a: 1 };
+      const obj2 = Object.create(null);
+      obj2.a = 1;
+
+      expect(diffReplace(obj1, obj2)).toEqual(obj2);
+    });
+  });
 });

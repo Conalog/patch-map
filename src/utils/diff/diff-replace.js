@@ -6,7 +6,11 @@ export const diffReplace = (obj1, obj2) => {
     return {};
   }
 
-  if (!isPlainObject(obj1) || !isPlainObject(obj2)) {
+  if (
+    !isPlainObject(obj1) ||
+    !isPlainObject(obj2) ||
+    Object.getPrototypeOf(obj1) !== Object.getPrototypeOf(obj2)
+  ) {
     return obj2;
   }
 
