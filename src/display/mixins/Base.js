@@ -2,7 +2,7 @@ import { Matrix } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { UpdateCommand } from '../../command/commands/update';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
-import { diffJson } from '../../utils/diff/diff-json';
+import { diffReplace } from '../../utils/diff/diff-replace';
 import { validate } from '../../utils/validator';
 import { deepPartial } from '../../utils/zod-deep-strict-partial';
 import { Type } from './Type';
@@ -77,7 +77,7 @@ export const Base = (superClass) => {
           ? validate({ ...this.props, ...validatedChanges }, schema)
           : deepMerge(this.props, validatedChanges);
       if (isValidationError(nextProps)) throw nextProps;
-      const actualChanges = diffJson(this.props, nextProps) ?? {};
+      const actualChanges = diffReplace(this.props, nextProps) ?? {};
 
       if (options?.historyId && Object.keys(actualChanges).length > 0) {
         const command = new UpdateCommand(this, changes, options);
