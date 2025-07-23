@@ -103,6 +103,7 @@ export interface Grid {
   item: {
     components?: Component[];
     size: Size;
+    padding?: Margin; // Default: 0
   };
   attrs?: Record<string, unknown>;
 }
@@ -152,6 +153,7 @@ export interface Item {
   show?: boolean; // Default: true
   components?: Component[];
   size: Size;
+  padding?: Margin; // Default: 0
   attrs?: Record<string, unknown>;
 }
 
@@ -434,10 +436,10 @@ export type Margin =
  */
 export interface TextureStyle {
   type: 'rect';
-  fill?: string;
-  borderWidth?: number;
-  borderColor?: string;
-  radius?: number;
+  fill?: string; // Default: 'transparent'
+  borderWidth?: number; // Default: 0
+  borderColor?: string; // Default: 'black'
+  radius?: number; // Default: 0
 }
 
 /**
@@ -484,6 +486,24 @@ export interface TextStyle {
    * or the keyword 'auto' to enable dynamic sizing based on the `autoFont` options.
    */
   fontSize?: number | 'auto' | string;
+
+  /**
+   * The font family.
+   * @default 'FiraCode'
+   */
+  fontFamily?: unknown;
+
+  /**
+   * The font weight.
+   * @default 400
+   */
+  fontWeight?: unknown;
+
+  /**
+   * The fill color.
+   * @default 'black'
+   */
+  fill?: unknown;
 
   /**
    * Configuration for the 'auto' font size mode.
