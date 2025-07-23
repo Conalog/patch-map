@@ -19,7 +19,7 @@ export const Componentsable = (superClass) => {
         componentArraySchema,
       );
 
-      if (options.arrayMerge === 'replace') {
+      if (options.mergeStrategy === 'replace') {
         components.forEach((component) => {
           this.removeChild(component);
           component.destroy({ children: true });
@@ -38,11 +38,14 @@ export const Componentsable = (superClass) => {
           component = newComponent(componentChange.type, this.context);
           this.addChild(component);
         }
-        component.update(componentChange, options);
+        component.update(
+          { type: componentChange.type, ...componentChange },
+          options,
+        );
       }
     }
 
-    _onChildUpdate(childId, changes, arrayMerge) {
+    _onChildUpdate(childId, changes, mergeStrategy) {
       if (!this.props.components) return;
 
       const childIndex = this.props.components.findIndex(
@@ -52,7 +55,7 @@ export const Componentsable = (superClass) => {
         const updatedChildProps = deepMerge(
           this.props.components[childIndex],
           changes,
-          { arrayMerge },
+          { mergeStrategy },
         );
         this.props.components[childIndex] = updatedChildProps;
       }

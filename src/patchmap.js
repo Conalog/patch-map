@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { Application, Graphics } from 'pixi.js';
+import { Application, Graphics, UPDATE_PRIORITY } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { UndoRedoManager } from './command/undo-redo-manager';
 import { draw } from './display/draw';
@@ -149,7 +149,13 @@ class Patchmap {
     // Force a refresh of all relation elements after the initial draw. This ensures
     // that all link targets exist in the scene graph before the relations
     // attempt to draw their links.
-    this.update({ path: '$..children[?(@.type=="relations")]', refresh: true });
+    this.app.ticker.addOnce(
+      () => {
+        this.update({ path: '$..[?(@.type=="relations")]', refresh: true });
+      },
+      undefined,
+      UPDATE_PRIORITY.UTILITY,
+    );
 
     this.app.start();
     return validatedData;

@@ -8,7 +8,7 @@ export const tweensOf = (object) => gsap.getTweensOf(object);
 
 export const killTweensOf = (object) => gsap.killTweensOf(object);
 
-const parseCalcExpression = (expression, parentDimension) => {
+export const parseCalcExpression = (expression, parentDimension) => {
   const innerExpression = expression.substring(5, expression.length - 1);
   const sanitizedExpression = innerExpression.replace(/\s-\s/g, ' + -');
   const terms = sanitizedExpression.split(/\s\+\s/);

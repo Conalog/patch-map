@@ -8,11 +8,11 @@
  */
 
 import type {
-  Color,
   HslColor,
   HslaColor,
   HsvColor,
   HsvaColor,
+  Color as PixiColor,
   RgbColor,
   RgbaColor,
 } from './color';
@@ -103,6 +103,7 @@ export interface Grid {
   item: {
     components?: Component[];
     size: Size;
+    padding?: Margin; // Default: 0
   };
   attrs?: Record<string, unknown>;
 }
@@ -152,6 +153,7 @@ export interface Item {
   show?: boolean; // Default: true
   components?: Component[];
   size: Size;
+  padding?: Margin; // Default: 0
   attrs?: Record<string, unknown>;
 }
 
@@ -216,7 +218,7 @@ export interface Background {
   label?: string;
   show?: boolean; // Default: true
   source: TextureStyle | string;
-  tint?: Tint;
+  tint?: Color;
   attrs?: Record<string, unknown>;
 }
 
@@ -244,7 +246,7 @@ export interface Bar {
   size: PxOrPercentSize;
   placement?: Placement; // Default: 'bottom'
   margin?: Margin; // Default: 0
-  tint?: Tint;
+  tint?: Color;
   animation?: boolean; // Default: true
   animationDuration?: number; // Default: 200
   attrs?: Record<string, unknown>;
@@ -272,7 +274,7 @@ export interface Icon {
   size: PxOrPercentSize;
   placement?: Placement; // Default: 'center'
   margin?: Margin; // Default: 0
-  tint?: Tint;
+  tint?: Color;
   attrs?: Record<string, unknown>;
 }
 
@@ -298,7 +300,7 @@ export interface Text {
   text?: string; // Default: ''
   placement?: Placement; // Default: 'center'
   margin?: Margin; // Default: 0
-  tint?: Tint;
+  tint?: Color;
   style?: TextStyle;
   split?: number; // Default: 0
   attrs?: Record<string, unknown>;
@@ -434,10 +436,10 @@ export type Margin =
  */
 export interface TextureStyle {
   type: 'rect';
-  fill?: string;
-  borderWidth?: number;
-  borderColor?: string;
-  radius?: number;
+  fill?: string; // Default: 'transparent'
+  borderWidth?: number; // Default: 0
+  borderColor?: string; // Default: 'black'
+  radius?: number; // Default: 0
 }
 
 /**
@@ -453,7 +455,19 @@ export interface TextureStyle {
  *   cap: 'square'
  * };
  */
-export type RelationsStyle = Record<string, unknown>;
+export interface RelationsStyle {
+  /**
+   * The color of the line. Can be any valid PixiJS ColorSource.
+   * @default 'black'
+   */
+  color?: Color;
+
+  /**
+   * Allows any other properties compatible with PIXI.Graphics' stroke style,
+   * such as `width`, `cap`, `join`, etc.
+   */
+  [key: string]: unknown;
+}
 
 /**
  * Defines the text style for a Text component.
@@ -486,6 +500,24 @@ export interface TextStyle {
   fontSize?: number | 'auto' | string;
 
   /**
+   * The font family.
+   * @default 'FiraCode'
+   */
+  fontFamily?: unknown;
+
+  /**
+   * The font weight.
+   * @default 400
+   */
+  fontWeight?: unknown;
+
+  /**
+   * The fill color.
+   * @default 'black'
+   */
+  fill?: unknown;
+
+  /**
    * Configuration for the 'auto' font size mode.
    * This is only active when `fontSize` is 'auto'.
    */
@@ -509,23 +541,23 @@ export interface TextStyle {
  *
  * @example
  * // As a theme key (string)
- * const tintThemeKey: Tint = 'primary.default';
+ * const tintThemeKey: Color = 'primary.default';
  *
  * @example
  * // As a hex string
- * const tintHexString: Tint = '#ff0000';
+ * const tintHexString: Color = '#ff0000';
  *
  * @example
  * // As a hex number
- * const tintHexNumber: Tint = 0xff0000;
+ * const tintHexNumber: Color = 0xff0000;
  *
  * @example
  * // As an RGB object
- * const tintRgbObject: Tint = { r: 255, g: 0, b: 0 };
+ * const tintRgbObject: Color = { r: 255, g: 0, b: 0 };
  *
  * @see {@link https://pixijs.download/release/docs/color.ColorSource.html}
  */
-export type Tint =
+export type Color =
   | string
   | number
   | number[]
@@ -538,4 +570,4 @@ export type Tint =
   | HsvaColor
   | RgbColor
   | RgbaColor
-  | Color;
+  | PixiColor;

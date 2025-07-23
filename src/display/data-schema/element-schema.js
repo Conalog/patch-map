@@ -23,7 +23,7 @@ export const gridSchema = Base.extend({
   cells: z.array(z.array(z.union([z.literal(0), z.literal(1)]))),
   gap: Gap,
   item: z.object({
-    components: componentArraySchema,
+    components: componentArraySchema.default([]),
     size: Size,
     padding: Margin.default(0),
   }),
@@ -37,7 +37,7 @@ export const gridSchema = Base.extend({
  */
 export const itemSchema = Base.extend({
   type: z.literal('item'),
-  components: componentArraySchema,
+  components: componentArraySchema.default([]),
   size: Size,
   padding: Margin.default(0),
 }).strict();
@@ -51,7 +51,7 @@ export const itemSchema = Base.extend({
 export const relationsSchema = Base.extend({
   type: z.literal('relations'),
   links: z.array(z.object({ source: z.string(), target: z.string() })),
-  style: RelationsStyle.optional(),
+  style: RelationsStyle,
 }).strict();
 
 export const elementTypes = z.discriminatedUnion('type', [

@@ -226,7 +226,7 @@ For **detailed type definitions**, refer to the [data.d.ts](src/display/data-sch
 <br/>
 
 ### `update(options)`
-Updates the properties of objects rendered on the canvas. By default, only the changed properties are applied, but you can precisely control the update behavior using the `refresh` or `arrayMerge` options.
+Updates the properties of objects rendered on the canvas. By default, only the changed properties are applied, but you can precisely control the update behavior using the `refresh` or `mergeStrategy` options.
 
 #### **`Options`**
 - `path` (optional, string) - Selector for the object to which the event will be applied, following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax.
@@ -234,9 +234,9 @@ Updates the properties of objects rendered on the canvas. By default, only the c
 - `changes` (optional, object) - New properties to apply (e.g., color, text visibility). If the `refresh` option is set to `true`, this can be omitted.
 - `history` (optional, boolean \| string) - Determines whether to record changes made by this `update` method in the `undoRedoManager`. If a string that matches the historyId of a previously saved record is provided, the two records will be merged into a single undo/redo step.
 - `relativeTransform` (optional, boolean) - Determines whether to use relative values for `position`, `rotation`, and `angle`. If `true`, the provided values will be added to the object's values.
-- `arrayMerge` (optional, string) - Determines how to merge array properties. The default is `'merge'`.
-  - `'merge'` (default): Merges the target and source arrays.
-  - `'replace'`: Completely replaces the target array with the source array. Useful for forcing a specific state.
+- `mergeStrategy` (optional, string) - Determines how to apply the `changes` object to the existing properties. The default is `'merge'`.
+  - `'merge'` (default): Deep merges the `changes` object into the existing properties. Individual properties within objects are updated.
+  - `'replace'`: Replaces the top-level properties specified in `changes` entirely. This is useful for undo operations or for completely resetting a complex property like `style` or `components` to a specific state.
 - `refresh` (optional, boolean) - If set to `true`, all property handlers are forcibly re-executed and the object is "refreshed" even if the values in `changes` are the same as before. This is useful when child objects need to be recalculated due to changes in the parent. Default is `false`.
 
 

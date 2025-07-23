@@ -5,6 +5,7 @@ import { Placementable } from '../mixins/Placementable';
 import { Showable } from '../mixins/Showable';
 import { Textable } from '../mixins/Textable';
 import { Textstyleable } from '../mixins/Textstyleable';
+import { Tintable } from '../mixins/Tintable';
 import { mixins } from '../mixins/utils';
 
 const EXTRA_KEYS = {
@@ -17,17 +18,13 @@ const ComposedText = mixins(
   Showable,
   Textable,
   Textstyleable,
+  Tintable,
   Placementable,
 );
 
 export class Text extends ComposedText {
   constructor(context) {
-    super({
-      type: 'text',
-      context,
-      text: '',
-      style: { fontFamily: 'FiraCode regular', fill: 'black' },
-    });
+    super({ type: 'text', context, text: '' });
 
     this.constructor.registerHandler(
       EXTRA_KEYS.PLACEMENT,

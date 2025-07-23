@@ -10,7 +10,7 @@ const updateSchema = z.object({
   changes: z.record(z.unknown()).nullable().default(null),
   history: z.union([z.boolean(), z.string()]).default(false),
   relativeTransform: z.boolean().default(false),
-  arrayMerge: z.enum(['merge', 'replace']).default('merge'),
+  mergeStrategy: z.enum(['merge', 'replace']).default('merge'),
   refresh: z.boolean().default(false),
 });
 
@@ -34,7 +34,7 @@ export const update = (viewport, opts) => {
     }
     element.update(changes, {
       historyId,
-      arrayMerge: config.arrayMerge,
+      mergeStrategy: config.mergeStrategy,
       refresh: config.refresh,
     });
   }

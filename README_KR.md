@@ -225,7 +225,7 @@ draw method가 요구하는 **데이터 구조**입니다.
 <br/>
 
 ### `update(options)`
-캔버스에 렌더링된 객체의 속성을 업데이트합니다. 기본적으로 변경된 속성만 반영하지만, refresh 또는 arrayMerge 옵션을 통해 업데이트 동작을 정밀하게 제어할 수 있습니다.
+캔버스에 렌더링된 객체의 속성을 업데이트합니다. 기본적으로 변경된 속성만 반영하지만, refresh 또는 mergeStrategy 옵션을 통해 업데이트 동작을 정밀하게 제어할 수 있습니다.
 
 #### **`Options`**
 - `path` (optional, string) - [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 selector로, 이벤트가 적용될 객체를 선택합니다.
@@ -233,9 +233,9 @@ draw method가 요구하는 **데이터 구조**입니다.
 - `changes` (optional, object) - 적용할 새로운 속성 (예: 색상, 텍스트 가시성). `refresh` 옵션을 `true`로 설정할 경우 생략할 수 있습니다.
 - `history` (optional, boolean \| string) - 해당 `update` 메소드에 의한 변경 사항을 `undoRedoManager`에 기록할 것인지 결정합니다. 이전에 저장된 기록의 historyId와 일치하는 문자열이 제공되면, 두 기록이 하나의 실행 취소/재실행 단계로 병합됩니다.
 - `relativeTransform` (optional, boolean) - `position`, `rotation`, `angle` 값에 대해서 상대값을 이용할 지 결정합니다. 만약, `true` 라면 전달된 값을 객체의 값에 더합니다.
-- `arrayMerge` (optional, string) - 배열 속성을 병합하는 방식을 결정합니다. 기본값은 `'merge'` 입니다.
-  - `'merge'` (기본값): 대상 배열과 소스 배열을 병합합니다.
-  - `'replace'`: 대상 배열을 소스 배열로 완전히 교체하여, 특정 상태로 강제할 때 유용합니다.
+- `mergeStrategy` (optional, string) - `changes` 객체를 기존 속성에 적용하는 방식을 결정합니다. 기본값은 `'merge'` 입니다.
+  - `'merge'` (기본값): `changes` 객체를 기존 속성에 깊게 병합(deep merge)합니다. 객체 내의 개별 속성이 업데이트됩니다.
+  - `'replace'`: `changes`에 지정된 최상위 속성을 통째로 교체합니다. `undo`를 실행하거나 `style`, `components`와 같은 복잡한 속성을 특정 상태로 완전히 리셋할 때 유용합니다.
 - `refresh` (optional, boolean) - `true`로 설정하면, `changes`의 속성 값이 이전과 동일하더라도 모든 속성 핸들러를 강제로 다시 실행하여 객체를 "새로고침"합니다. 부모의 상태 변화에 따라 자식 객체를 다시 계산해야 할 때 유용합니다. 기본값은 `false` 입니다.
 
 ```js

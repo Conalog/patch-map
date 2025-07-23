@@ -1,15 +1,40 @@
 import { z } from 'zod';
 import { uid } from '../../utils/uuid';
-import { ZERO_MARGIN } from '../mixins/constants';
 import {
-  Color,
+  DEFAULT_AUTO_FONT_RANGE,
+  DEFAULT_PATHSTYLE,
+  DEFAULT_TEXTSTYLE,
+} from '../mixins/constants';
+import {
   HslColor,
   HslaColor,
   HsvColor,
   HsvaColor,
+  Color as PixiColor,
   RgbColor,
   RgbaColor,
 } from './color-schema';
+
+/**
+ * @see {@link https://pixijs.download/release/docs/color.ColorSource.html}
+ */
+export const Color = z
+  .union([
+    z.string(),
+    z.number(),
+    z.array(z.number()),
+    z.instanceof(Float32Array),
+    z.instanceof(Uint8Array),
+    z.instanceof(Uint8ClampedArray),
+    HslColor,
+    HslaColor,
+    HsvColor,
+    HsvaColor,
+    RgbColor,
+    RgbaColor,
+    PixiColor,
+  ])
+  .default(0xffffff);
 
 export const Base = z
   .object({
@@ -128,18 +153,19 @@ export const PxOrPercentSize = z.union([
   }),
 ]);
 
-export const Placement = z.enum([
-  'left',
-  'left-top',
-  'left-bottom',
-  'top',
-  'right',
-  'right-top',
-  'right-bottom',
-  'bottom',
-  'center',
-  'none',
-]);
+export const Placement = z
+  .enum([
+    'left',
+    'left-top',
+    'left-bottom',
+    'top',
+    'right',
+    'right-top',
+    'right-bottom',
+    'bottom',
+    'center',
+  ])
+  .default('left-top');
 
 export const Gap = z.preprocess(
   (val) => (typeof val === 'number' ? { x: val, y: val } : val),
@@ -169,25 +195,29 @@ export const Margin = z.preprocess(
       bottom: z.number().default(0),
       left: z.number().default(0),
     })
-    .default(ZERO_MARGIN),
+    .default({}),
 );
 
 export const TextureStyle = z
   .object({
     type: z.enum(['rect']),
-    fill: z.string(),
-    borderWidth: z.number(),
-    borderColor: z.string(),
-    radius: z.number(),
+    fill: z.string().default('transparent'),
+    borderWidth: z.number().default(0),
+    borderColor: z.string().default('black'),
+    radius: z.number().default(0),
   })
   .partial();
 
 /**
  * @see {@link https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html}
  */
-export const RelationsStyle = z.record(z.string(), z.unknown());
+export const RelationsStyle = z
+  .object({
+    color: Color.default(DEFAULT_PATHSTYLE.color),
+  })
+  .passthrough()
+  .default({});
 
-export const DEFAULT_AUTO_FONT_RANGE = { min: 1, max: 100 };
 /**
  * @see {@link https://pixijs.download/release/docs/text.TextStyleOptions.html}
  */
@@ -202,25 +232,10 @@ export const TextStyle = z
       .refine((data) => data.min <= data.max, {
         message: 'autoFont.min must not be greater than autoFont.max',
       })
-      .optional(),
+      .default({}),
+    fontFamily: z.any().default(DEFAULT_TEXTSTYLE.fontFamily),
+    fontWeight: z.any().default(DEFAULT_TEXTSTYLE.fontWeight),
+    fill: z.any().default(DEFAULT_TEXTSTYLE.fill),
   })
-  .passthrough();
-
-/**
- * @see {@link https://pixijs.download/release/docs/color.ColorSource.html}
- */
-export const Tint = z.union([
-  z.string(),
-  z.number(),
-  z.array(z.number()),
-  z.instanceof(Float32Array),
-  z.instanceof(Uint8Array),
-  z.instanceof(Uint8ClampedArray),
-  HslColor,
-  HslaColor,
-  HsvColor,
-  HsvaColor,
-  RgbColor,
-  RgbaColor,
-  Color,
-]);
+  .passthrough()
+  .default({});

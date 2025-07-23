@@ -3,6 +3,7 @@ import { uid } from '../../utils/uuid';
 import { deepPartial } from '../../utils/zod-deep-strict-partial';
 import {
   Base,
+  Color,
   Gap,
   Margin,
   Placement,
@@ -11,7 +12,6 @@ import {
   Size,
   TextStyle,
   TextureStyle,
-  Tint,
   pxOrPercentSchema,
 } from './primitive-schema';
 
@@ -19,7 +19,7 @@ vi.mock('../../utils/uuid');
 vi.mocked(uid).mockReturnValue('mock-uid-123');
 
 describe('Primitive Schema Tests', () => {
-  describe('Tint Schema', () => {
+  describe('Color Schema', () => {
     const validColorSourceCases = [
       // CSS Color Names (pass as string)
       { case: 'CSS color name', value: 'red' },
@@ -57,8 +57,8 @@ describe('Primitive Schema Tests', () => {
     it.each(validColorSourceCases)(
       'should correctly parse various color source types: $case',
       ({ value }) => {
-        expect(() => Tint.parse(value)).not.toThrow();
-        const parsed = Tint.parse(value);
+        expect(() => Color.parse(value)).not.toThrow();
+        const parsed = Color.parse(value);
         expect(parsed).toEqual(value);
       },
     );
@@ -204,7 +204,6 @@ describe('Primitive Schema Tests', () => {
       'right-bottom',
       'bottom',
       'center',
-      'none',
     ])('should accept valid placement value: %s', (placement) => {
       expect(() => Placement.parse(placement)).not.toThrow();
     });
@@ -344,19 +343,29 @@ describe('Primitive Schema Tests', () => {
   describe('RelationsStyle Schema', () => {
     it('should add default color if not provided', () => {
       const data = { lineWidth: 2 };
-      expect(RelationsStyle.parse(data)).toEqual({ lineWidth: 2 });
+      expect(RelationsStyle.parse(data)).toEqual({
+        lineWidth: 2,
+        color: 'black',
+      });
     });
   });
 
   describe('TextStyle Schema', () => {
     it('should apply default styles for a partial object', () => {
       const data = { fontSize: 16 };
-      expect(TextStyle.parse(data)).toEqual({ fontSize: 16 });
+      expect(TextStyle.parse(data)).toEqual({
+        autoFont: { min: 1, max: 100 },
+        fill: 'black',
+        fontFamily: 'FiraCode',
+        fontSize: 16,
+        fontWeight: 400,
+      });
     });
 
     it('should not override provided styles', () => {
       const data = { fontFamily: 'Arial', fill: 'red', fontWeight: 'bold' };
       expect(TextStyle.parse(data)).toEqual({
+        autoFont: { min: 1, max: 100 },
         fontFamily: 'Arial',
         fontWeight: 'bold',
         fill: 'red',

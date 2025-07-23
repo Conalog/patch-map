@@ -6,7 +6,7 @@ const KEYS = ['style'];
 
 export const Relationstyleable = (superClass) => {
   const MixedClass = class extends superClass {
-    _applyRelationstyle(relevantChanges) {
+    _applyRelationstyle(relevantChanges, options) {
       const { style } = relevantChanges;
       const path = selector(this, '$.children[?(@.type==="path")]')[0];
       if (!path) return;
@@ -14,7 +14,12 @@ export const Relationstyleable = (superClass) => {
       if ('color' in style) {
         style.color = getColor(this.context.theme, style.color);
       }
-      path.setStrokeStyle({ ...path.strokeStyle, ...style });
+
+      const newStrokeStyle =
+        options.mergeStrategy === 'replace'
+          ? style
+          : { ...path.strokeStyle, ...style };
+      path.setStrokeStyle(newStrokeStyle);
       this._renderDirty = true;
     }
   };

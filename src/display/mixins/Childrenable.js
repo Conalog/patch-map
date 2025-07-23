@@ -19,7 +19,7 @@ export const Childrenable = (superClass) => {
         mapDataSchema,
       );
 
-      if (options.arrayMerge === 'replace') {
+      if (options.mergeStrategy === 'replace') {
         elements.forEach((element) => {
           this.removeChild(element);
           element.destroy({ children: true });
@@ -42,7 +42,7 @@ export const Childrenable = (superClass) => {
       }
     }
 
-    _onChildUpdate(childId, changes, arrayMerge) {
+    _onChildUpdate(childId, changes, mergeStrategy) {
       if (!this.props.children) return;
 
       const childIndex = this.props.children.findIndex((c) => c.id === childId);
@@ -50,7 +50,7 @@ export const Childrenable = (superClass) => {
         const updatedChildProps = deepMerge(
           this.props.children[childIndex],
           changes,
-          { arrayMerge },
+          { mergeStrategy },
         );
         this.props.children[childIndex] = updatedChildProps;
       }

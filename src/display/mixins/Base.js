@@ -1,7 +1,8 @@
 import { Matrix } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
+import { UpdateCommand } from '../../command/commands/update';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
-import { diffJson } from '../../utils/diff/diff-json';
+import { diffReplace } from '../../utils/diff/diff-replace';
 import { validate } from '../../utils/validator';
 import { deepPartial } from '../../utils/zod-deep-strict-partial';
 import { Type } from './Type';
@@ -66,21 +67,32 @@ export const Base = (superClass) => {
     }
 
     update(changes, schema, options = {}) {
-      const { arrayMerge = 'merge', refresh = false } = options;
+      const { mergeStrategy = 'merge', refresh = false } = options;
       const effectiveChanges = refresh && !changes ? {} : changes;
       const validatedChanges = validate(effectiveChanges, deepPartial(schema));
       if (isValidationError(validatedChanges)) throw validatedChanges;
 
-      const prevProps = JSON.parse(JSON.stringify(this.props));
-      this.props = deepMerge(prevProps, validatedChanges, { arrayMerge });
+      const nextProps =
+        mergeStrategy === 'replace'
+          ? validate({ ...this.props, ...validatedChanges }, schema)
+          : deepMerge(this.props, validatedChanges);
+      if (isValidationError(nextProps)) throw nextProps;
+      const actualChanges = diffReplace(this.props, nextProps) ?? {};
 
+      if (options?.historyId && Object.keys(actualChanges).length > 0) {
+        const command = new UpdateCommand(this, changes, options);
+        this.context.undoRedoManager.execute(command, options);
+        return;
+      }
+
+      this.props = nextProps;
       const keysToProcess = refresh
-        ? Object.keys(this.props)
-        : Object.keys(diffJson(prevProps, this.props) ?? {});
+        ? Object.keys(nextProps)
+        : Object.keys(actualChanges);
 
       const { id, label, attrs } = validatedChanges;
       if (id || label || attrs) {
-        this._applyRaw({ id, label, ...attrs }, arrayMerge);
+        this._applyRaw({ id, label, ...attrs }, mergeStrategy);
       }
 
       const tasks = new Map();
@@ -108,21 +120,22 @@ export const Base = (superClass) => {
             fullPayload[key] = this.props[key];
           }
         });
-        handler.call(this, fullPayload, { arrayMerge, refresh });
+        handler.call(this, fullPayload, { mergeStrategy, refresh });
       });
 
       if (this.parent?._onChildUpdate) {
-        this.parent._onChildUpdate(
-          this.id,
-          diffJson(prevProps, this.props),
-          arrayMerge,
-        );
+        this.parent._onChildUpdate(this.id, actualChanges, mergeStrategy);
       }
     }
 
-    _applyRaw(attrs, arrayMerge) {
+    _applyRaw(attrs, mergeStrategy) {
       for (const [key, value] of Object.entries(attrs)) {
-        if (value === undefined) continue;
+        if (value === undefined) {
+          if (key !== 'id') {
+            delete this[key];
+          }
+          continue;
+        }
 
         if (key === 'x' || key === 'y') {
           const x = key === 'x' ? value : (attrs?.x ?? this.x);
@@ -134,13 +147,13 @@ export const Base = (superClass) => {
             key === 'height' ? value : (attrs?.height ?? this.height);
           this.setSize(width, height);
         } else {
-          this._updateProperty(key, value, arrayMerge);
+          this._updateProperty(key, value, mergeStrategy);
         }
       }
     }
 
-    _updateProperty(key, value, arrayMerge) {
-      deepMerge(this, { [key]: value }, { arrayMerge });
+    _updateProperty(key, value, mergeStrategy) {
+      deepMerge(this, { [key]: value }, { mergeStrategy });
     }
   };
 };
