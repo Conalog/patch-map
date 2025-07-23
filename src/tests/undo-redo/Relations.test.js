@@ -121,6 +121,51 @@ describe('Undo/Redo: Relations Element', () => {
     expect(redoneStyle.color).toBe(0xef4444);
   });
 
+  it('should correctly undo/redo adding a style property when it was initially undefined', async () => {
+    const patchmap = getPatchmap();
+    const dataWithoutStyle = JSON.parse(JSON.stringify(baseMapData));
+    dataWithoutStyle[3].style = undefined;
+
+    patchmap.draw(dataWithoutStyle);
+    await vi.advanceTimersByTimeAsync(100);
+
+    const relations = getRelations(patchmap);
+    const path = getPath(patchmap);
+
+    expect(relations.props.style).toStrictEqual({ color: '#1A1A1A' });
+    const initialStrokeStyle = { ...path.strokeStyle };
+    expect(initialStrokeStyle.width).toBe(1);
+
+    const newStyle = { width: 3, color: 'red', cap: 'round' };
+    patchmap.update({
+      path: '$..[?(@.id=="rel-1")]',
+      changes: { style: newStyle },
+      history: true,
+    });
+
+    const updatedStrokeStyle = getPath(patchmap).strokeStyle;
+    expect(getRelations(patchmap).props.style).toEqual(newStyle);
+    expect(updatedStrokeStyle.width).toBe(3);
+    expect(updatedStrokeStyle.color).toBe(0xff0000);
+    expect(updatedStrokeStyle.cap).toBe('round');
+
+    patchmap.undoRedoManager.undo();
+    const undoneRelations = getRelations(patchmap);
+    const undonePath = getPath(patchmap);
+    expect(undoneRelations.props.style).toStrictEqual({ color: '#1A1A1A' });
+    expect(undonePath.strokeStyle.width).toBe(initialStrokeStyle.width);
+    expect(undonePath.strokeStyle.color).toBe(initialStrokeStyle.color);
+    expect(undonePath.strokeStyle.cap).not.toBe('round');
+
+    patchmap.undoRedoManager.redo();
+    const redoneRelations = getRelations(patchmap);
+    const redonePath = getPath(patchmap);
+    expect(redoneRelations.props.style).toEqual(newStyle);
+    expect(redonePath.strokeStyle.width).toBe(3);
+    expect(redonePath.strokeStyle.color).toBe(0xff0000);
+    expect(redonePath.strokeStyle.cap).toBe('round');
+  });
+
   it('should redraw correctly after a linked item is moved and then undone', async () => {
     const patchmap = getPatchmap();
     patchmap.draw(JSON.parse(JSON.stringify(baseMapData)));

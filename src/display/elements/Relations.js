@@ -25,7 +25,6 @@ export class Relations extends ComposedRelations {
 
   initPath() {
     const path = new Graphics();
-    path.setStrokeStyle({ color: 'black' });
     Object.assign(path, { type: 'path', links: [] });
     this.addChild(path);
     return path;

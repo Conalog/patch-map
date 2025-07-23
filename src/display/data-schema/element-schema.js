@@ -51,7 +51,7 @@ export const itemSchema = Base.extend({
 export const relationsSchema = Base.extend({
   type: z.literal('relations'),
   links: z.array(z.object({ source: z.string(), target: z.string() })),
-  style: RelationsStyle.optional(),
+  style: RelationsStyle,
 }).strict();
 
 export const elementTypes = z.discriminatedUnion('type', [

@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import {
   Base,
+  Color,
   Margin,
   Placement,
   PxOrPercentSize,
   TextStyle,
   TextureStyle,
-  Tint,
 } from './primitive-schema';
 
 /**
@@ -24,7 +24,7 @@ export const backgroundSchema = Base.extend({
       width: { value: 100, unit: '%' },
       height: { value: 100, unit: '%' },
     })),
-  tint: Tint.optional(),
+  tint: Color,
 }).strict();
 
 /**
@@ -38,7 +38,7 @@ export const barSchema = Base.extend({
   size: PxOrPercentSize,
   placement: Placement.default('bottom'),
   margin: Margin.default(0),
-  tint: Tint,
+  tint: Color,
   animation: z.boolean().default(true),
   animationDuration: z.number().default(200),
 }).strict();
@@ -54,7 +54,7 @@ export const iconSchema = Base.extend({
   size: PxOrPercentSize,
   placement: Placement.default('center'),
   margin: Margin.default(0),
-  tint: Tint,
+  tint: Color,
 }).strict();
 
 /**
@@ -66,9 +66,9 @@ export const textSchema = Base.extend({
   type: z.literal('text'),
   placement: Placement.default('center'),
   margin: Margin.default(0),
-  tint: Tint,
+  tint: Color,
   text: z.string().default(''),
-  style: TextStyle.default({}),
+  style: TextStyle,
   split: z.number().int().default(0),
 }).strict();
 

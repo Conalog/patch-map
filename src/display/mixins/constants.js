@@ -64,3 +64,5 @@ export const DEFAULT_TEXTSTYLE = {
   fill: 'black',
   fontWeight: 400,
 };
+
+export const DEFAULT_PATHSTYLE = { color: 'black' };

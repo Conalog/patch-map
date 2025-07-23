@@ -2,17 +2,39 @@ import { z } from 'zod';
 import { uid } from '../../utils/uuid';
 import {
   DEFAULT_AUTO_FONT_RANGE,
+  DEFAULT_PATHSTYLE,
   DEFAULT_TEXTSTYLE,
 } from '../mixins/constants';
 import {
-  Color,
   HslColor,
   HslaColor,
   HsvColor,
   HsvaColor,
+  Color as PixiColor,
   RgbColor,
   RgbaColor,
 } from './color-schema';
+
+/**
+ * @see {@link https://pixijs.download/release/docs/color.ColorSource.html}
+ */
+export const Color = z
+  .union([
+    z.string(),
+    z.number(),
+    z.array(z.number()),
+    z.instanceof(Float32Array),
+    z.instanceof(Uint8Array),
+    z.instanceof(Uint8ClampedArray),
+    HslColor,
+    HslaColor,
+    HsvColor,
+    HsvaColor,
+    RgbColor,
+    RgbaColor,
+    PixiColor,
+  ])
+  .default(0xffffff);
 
 export const Base = z
   .object({
@@ -189,7 +211,12 @@ export const TextureStyle = z
 /**
  * @see {@link https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html}
  */
-export const RelationsStyle = z.record(z.string(), z.unknown());
+export const RelationsStyle = z
+  .object({
+    color: Color.default(DEFAULT_PATHSTYLE.color),
+  })
+  .passthrough()
+  .default({});
 
 /**
  * @see {@link https://pixijs.download/release/docs/text.TextStyleOptions.html}
@@ -210,25 +237,5 @@ export const TextStyle = z
     fontWeight: z.any().default(DEFAULT_TEXTSTYLE.fontWeight),
     fill: z.any().default(DEFAULT_TEXTSTYLE.fill),
   })
-  .passthrough();
-
-/**
- * @see {@link https://pixijs.download/release/docs/color.ColorSource.html}
- */
-export const Tint = z
-  .union([
-    z.string(),
-    z.number(),
-    z.array(z.number()),
-    z.instanceof(Float32Array),
-    z.instanceof(Uint8Array),
-    z.instanceof(Uint8ClampedArray),
-    HslColor,
-    HslaColor,
-    HsvColor,
-    HsvaColor,
-    RgbColor,
-    RgbaColor,
-    Color,
-  ])
-  .default(0xffffff);
+  .passthrough()
+  .default({});

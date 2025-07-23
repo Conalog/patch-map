@@ -35,7 +35,7 @@ export class UpdateCommand extends Command {
           prevAttrs[attrKey] = this._deepClone(this.element[attrKey]);
         }
         slice.attrs = prevAttrs;
-      } else if (Object.prototype.hasOwnProperty.call(currentProps, key)) {
+      } else {
         slice[key] = this._deepClone(currentProps[key]);
       }
     }
