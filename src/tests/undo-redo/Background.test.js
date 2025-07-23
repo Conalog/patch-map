@@ -148,4 +148,69 @@ describe('Undo/Redo: Background Component', () => {
     patchmap.undoRedoManager.redo();
     expect(background.props.source).toEqual(expectedMergedSource);
   });
+
+  it('should correctly undo/redo pixi attributes (alpha, angle) via attrs', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([baseItemData]);
+
+    const background = getBackground(patchmap);
+    const originalAlpha = background.alpha;
+    const originalAngle = background.angle;
+
+    expect(originalAlpha).toBe(1);
+    expect(originalAngle).toBe(0);
+
+    const changes = { attrs: { alpha: 0.5, angle: 45 } };
+    patchmap.update({
+      path: '$..[?(@.id=="background-1")]',
+      changes,
+      history: true,
+    });
+
+    const updatedBackground = getBackground(patchmap);
+    expect(updatedBackground.alpha).toBe(0.5);
+    expect(updatedBackground.angle).toBe(45);
+
+    // Undo
+    patchmap.undoRedoManager.undo();
+    const undoneBackground = getBackground(patchmap);
+    expect(undoneBackground.alpha).toBe(originalAlpha);
+    expect(undoneBackground.angle).toBe(originalAngle);
+
+    // Redo
+    patchmap.undoRedoManager.redo();
+    const redoneBackground = getBackground(patchmap);
+    expect(redoneBackground.alpha).toBe(0.5);
+    expect(redoneBackground.angle).toBe(45);
+  });
+
+  it('should correctly undo/redo custom metadata via attrs', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([baseItemData]);
+
+    const background = getBackground(patchmap);
+    expect(background?.customMeta).toBeUndefined();
+
+    const customData = { version: 1, author: 'test' };
+    const changes = { attrs: { customMeta: customData } };
+
+    patchmap.update({
+      path: '$..[?(@.id=="background-1")]',
+      changes,
+      history: true,
+    });
+
+    const updatedBackground = getBackground(patchmap);
+    expect(updatedBackground.customMeta).toEqual(customData);
+
+    // Undo
+    patchmap.undoRedoManager.undo();
+    const undoneBackground = getBackground(patchmap);
+    expect(undoneBackground?.customMeta).toBeUndefined();
+
+    // Redo
+    patchmap.undoRedoManager.redo();
+    const redoneBackground = getBackground(patchmap);
+    expect(redoneBackground.customMeta).toEqual(customData);
+  });
 });

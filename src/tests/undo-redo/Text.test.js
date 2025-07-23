@@ -156,7 +156,7 @@ describe('Undo/Redo: Text Component', () => {
       patchmap.draw([baseItemData]);
 
       const originalFill = getText(patchmap).style.fill;
-      expect(originalFill).toBe('black');
+      expect(originalFill).toBe('#1A1A1A');
 
       patchmap.update({
         path: '$..[?(@.id=="text-1")]',
@@ -185,7 +185,7 @@ describe('Undo/Redo: Text Component', () => {
         fontWeight: textComponent.style.fontWeight,
       };
 
-      expect(originalStyle.fill).toBe('black');
+      expect(originalStyle.fill).toBe('#1A1A1A');
       expect(originalStyle.fontSize).toBe(24);
       expect(originalStyle.fontWeight).toBe('400');
 

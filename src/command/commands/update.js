@@ -6,7 +6,7 @@ export class UpdateCommand extends Command {
     this.element = element;
     this.changes = changes;
     this.options = options;
-    this.previousProps = this._createPreviousState(element.props);
+    this.previousProps = this._createPreviousState(changes);
   }
 
   execute() {
@@ -29,7 +29,13 @@ export class UpdateCommand extends Command {
     const currentProps = this.element.props;
 
     for (const key in changes) {
-      if (Object.prototype.hasOwnProperty.call(currentProps, key)) {
+      if (key === 'attrs' && typeof changes.attrs === 'object') {
+        const prevAttrs = {};
+        for (const attrKey in changes.attrs) {
+          prevAttrs[attrKey] = this._deepClone(this.element[attrKey]);
+        }
+        slice.attrs = prevAttrs;
+      } else if (Object.prototype.hasOwnProperty.call(currentProps, key)) {
         slice[key] = this._deepClone(currentProps[key]);
       }
     }

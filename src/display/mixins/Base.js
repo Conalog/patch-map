@@ -130,7 +130,12 @@ export const Base = (superClass) => {
 
     _applyRaw(attrs, mergeStrategy) {
       for (const [key, value] of Object.entries(attrs)) {
-        if (value === undefined) continue;
+        if (value === undefined) {
+          if (key !== 'id' && key !== 'label') {
+            delete this[key];
+          }
+          continue;
+        }
 
         if (key === 'x' || key === 'y') {
           const x = key === 'x' ? value : (attrs?.x ?? this.x);
