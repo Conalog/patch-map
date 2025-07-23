@@ -12,7 +12,7 @@ export const Textstyleable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyTextstyle(relevantChanges, options) {
       const { style, margin } = relevantChanges;
-      const { theme } = this.context.theme;
+      const { theme } = this.context;
 
       if (options.mergeStrategy === 'replace') {
         this.style = new TextStyle();
