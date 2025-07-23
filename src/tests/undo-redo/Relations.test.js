@@ -162,4 +162,42 @@ describe('Undo/Redo: Relations Element', () => {
     expect(redonePathSize.width).toBeCloseTo(updatedPathSize.width);
     expect(redonePathSize.height).toBeCloseTo(updatedPathSize.height);
   });
+
+  it('should handle additional stroke properties like "cap" and "join" in style', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(JSON.parse(JSON.stringify(baseMapData)));
+    await vi.advanceTimersByTimeAsync(100);
+
+    const path = getPath(patchmap);
+    // PixiJS's default for cap is 'butt'
+    const originalCap = path.strokeStyle.cap;
+    const originalJoin = path.strokeStyle.join;
+    expect(originalCap).toBe('butt');
+    expect(originalJoin).toBe('miter');
+
+    patchmap.update({
+      path: '$..[?(@.id=="rel-1")]',
+      changes: {
+        style: {
+          cap: 'round',
+          join: 'round',
+        },
+      },
+      history: true,
+    });
+
+    const updatedStyle = getPath(patchmap).strokeStyle;
+    expect(updatedStyle.cap).toBe('round');
+    expect(updatedStyle.join).toBe('round');
+
+    patchmap.undoRedoManager.undo();
+    const undoneStyle = getPath(patchmap).strokeStyle;
+    expect(undoneStyle.cap).toBe(originalCap);
+    expect(undoneStyle.join).not.toBe('round'); // It should revert to its default
+
+    patchmap.undoRedoManager.redo();
+    const redoneStyle = getPath(patchmap).strokeStyle;
+    expect(redoneStyle.cap).toBe('round');
+    expect(redoneStyle.join).toBe('round');
+  });
 });
