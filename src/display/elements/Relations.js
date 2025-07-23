@@ -32,10 +32,10 @@ export class Relations extends ComposedRelations {
 
   _afterRender() {
     super._afterRender();
-    this._onUpdate();
+    this._refreshLink();
   }
 
-  _onUpdate() {
+  _refreshLink() {
     if (this._renderDirty) {
       try {
         this.renderLink();
@@ -52,8 +52,8 @@ export class Relations extends ComposedRelations {
     let lastPoint = null;
 
     for (const link of links) {
-      const sourceObject = this.linkedObjects[link.source];
-      const targetObject = this.linkedObjects[link.target];
+      const sourceObject = this.linkedObjects?.[link.source];
+      const targetObject = this.linkedObjects?.[link.target];
 
       if (
         !sourceObject ||
