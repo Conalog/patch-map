@@ -43,6 +43,13 @@ export class Transformer extends Container {
         this[key] = options[key];
       }
     }
+
+    this.on('added', () => {
+      const viewport = getViewport(this);
+      if (viewport) {
+        viewport.on('zoomed', this.update);
+      }
+    });
   }
 
   get wireframe() {
@@ -87,6 +94,10 @@ export class Transformer extends Container {
 
   destroy(options) {
     this.onRender = null;
+    const viewport = getViewport(this);
+    if (viewport) {
+      viewport.off('zoomed', this.update);
+    }
     super.destroy(options);
   }
 
