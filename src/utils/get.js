@@ -1,3 +1,5 @@
+import { Viewport } from 'pixi-viewport';
+
 export const getNestedValue = (object, path) => {
   if (typeof path !== 'string' || !path) {
     return null;
@@ -18,7 +20,14 @@ export const getColor = (theme, color) => {
 
 export const getViewport = (displayObject) => {
   if (!displayObject) return null;
-  return displayObject?.context?.viewport ?? getViewport(displayObject.parent);
+
+  if (displayObject?.context?.viewport) {
+    return displayObject.context.viewport;
+  }
+  if (displayObject instanceof Viewport) {
+    return displayObject;
+  }
+  return getViewport(displayObject.parent);
 };
 
 export const collectCandidates = (parent, filterFn = () => true) => {

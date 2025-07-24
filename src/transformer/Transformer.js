@@ -2,6 +2,7 @@ import { Container } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { calcGroupOrientedBounds, calcOrientedBounds } from '../utils/bounds';
+import { getViewport } from '../utils/get';
 import { validate } from '../utils/validator';
 import { Wireframe } from './Wireframe';
 
@@ -108,7 +109,7 @@ export class Transformer extends Container {
     this.wireframe.clear();
     if (this.boundsDisplayMode !== 'none') {
       this.wireframe.strokeStyle.width =
-        this.wireframeStyle.thickness / this.parent.scale.x;
+        this.wireframeStyle.thickness / (getViewport(this)?.scale?.x ?? 1);
     }
 
     if (
