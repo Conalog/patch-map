@@ -134,10 +134,7 @@ export const Base = (superClass) => {
           if (key !== 'id' && key !== 'label') {
             delete this[key];
           }
-          continue;
-        }
-
-        if (key === 'x' || key === 'y') {
+        } else if (key === 'x' || key === 'y') {
           const x = key === 'x' ? value : (attrs?.x ?? this.x);
           const y = key === 'y' ? value : (attrs?.y ?? this.y);
           this.position.set(x, y);
