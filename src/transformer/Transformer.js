@@ -25,6 +25,7 @@ export class Transformer extends Container {
   _elements = [];
   _renderDirty = true;
   _wireframeStyle = DEFAULT_WIREFRAME_STYLE;
+  _viewport = null;
 
   constructor(opts) {
     super({ zIndex: 999, isRenderGroup: true });
@@ -43,9 +44,9 @@ export class Transformer extends Container {
     }
 
     this.on('added', () => {
-      const viewport = getViewport(this);
-      if (viewport) {
-        viewport.on('zoomed', this.update);
+      this._viewport = getViewport(this);
+      if (this._viewport) {
+        this._viewport.on('zoomed', this.update);
       }
     });
   }
@@ -82,9 +83,8 @@ export class Transformer extends Container {
 
   destroy(options) {
     this.onRender = null;
-    const viewport = getViewport(this);
-    if (viewport) {
-      viewport.off('zoomed', this.update);
+    if (this._viewport) {
+      this._viewport.off('zoomed', this.update);
     }
     super.destroy(options);
   }
@@ -104,7 +104,7 @@ export class Transformer extends Container {
     this.wireframe.clear();
     if (this.boundsDisplayMode !== 'none') {
       this.wireframe.strokeStyle.width =
-        this.wireframeStyle.thickness / (getViewport(this)?.scale?.x ?? 1);
+        this.wireframeStyle.thickness / (this._viewport?.scale?.x ?? 1);
     }
 
     if (
