@@ -131,13 +131,10 @@ export const Base = (superClass) => {
     _applyRaw(attrs, mergeStrategy) {
       for (const [key, value] of Object.entries(attrs)) {
         if (value === undefined) {
-          if (key !== 'id') {
+          if (!['id', 'label'].includes(key)) {
             delete this[key];
           }
-          continue;
-        }
-
-        if (key === 'x' || key === 'y') {
+        } else if (key === 'x' || key === 'y') {
           const x = key === 'x' ? value : (attrs?.x ?? this.x);
           const y = key === 'y' ? value : (attrs?.y ?? this.y);
           this.position.set(x, y);
