@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { calcGroupOrientedBounds, calcOrientedBounds } from '../utils/bounds';
 import { validate } from '../utils/validator';
+import { Wireframe } from './Wireframe';
 
 const DEFAULT_WIREFRAME_STYLE = {
   thickness: 1.5,
@@ -31,6 +32,9 @@ export class Transformer extends Container {
 
     const options = validate(opts, TransformerSchema);
     if (isValidationError(options)) throw options;
+
+    this.#wireframe = this.addChild(new Wireframe(this));
+    this.onRender = this._refresh.bind(this);
     for (const key in options) {
       if (key === 'wireframeStyle') {
         this[key] = Object.assign(this[key], options[key]);
@@ -38,9 +42,6 @@ export class Transformer extends Container {
         this[key] = options[key];
       }
     }
-
-    this.#wireframe = this.addChild(new Wireframe(this));
-    this.onRender = this._refresh.bind(this);
   }
 
   get wireframe() {

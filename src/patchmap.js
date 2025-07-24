@@ -21,7 +21,7 @@ import { themeStore } from './utils/theme';
 import { validateMapData } from './utils/validator';
 import './display/elements/registry';
 import './display/components/registry';
-import { Transformer } from './transformer/transformer';
+import { Transformer } from './transformer/Transformer';
 
 class Patchmap {
   _app = null;
