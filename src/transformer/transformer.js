@@ -1,5 +1,8 @@
 import { Container } from 'pixi.js';
+import { z } from 'zod';
+import { isValidationError } from 'zod-validation-error';
 import { calcGroupOrientedBounds, calcOrientedBounds } from '../utils/bounds';
+import { validate } from '../utils/validator';
 import { Wireframe } from './wireframe';
 
 const DEFAULT_WIREFRAME_STYLE = {
@@ -7,21 +10,57 @@ const DEFAULT_WIREFRAME_STYLE = {
   color: '#1099FF',
 };
 
-export class Transformer extends Container {
-  _renderDirty = true;
+const TransformerSchema = z
+  .object({
+    elements: z.array(),
+    lazyMode: z.boolean(),
+    wireframeStyle: z.record(z.string(), z.unknown()),
+    boundsDisplayMode: z.enum(['all', 'groupOnly', 'elementOnly', 'none']),
+  })
+  .partial();
 
-  constructor(options = {}) {
+export class Transformer extends Container {
+  #wireframe;
+  _boundsDisplayMode = 'all';
+  _elements = [];
+  _lazyMode = false;
+  _renderDirty = true;
+  _wireframeStyle = DEFAULT_WIREFRAME_STYLE;
+
+  constructor(opts) {
     super({ zIndex: 999, isRenderGroup: true });
-    this.wireframe = this.addChild(new Wireframe(this));
+    this.#wireframe = this.addChild(new Wireframe(this));
     this.onRender = this._refresh.bind(this);
 
-    this._elements = options.elements || [];
-    this.lazyMode = options.lazyMode || false;
-    this._wireframeStyle = Object.assign(
-      DEFAULT_WIREFRAME_STYLE,
-      options.wireframeStyle || {},
-    );
-    this.boundsDisplayMode = options.boundsDisplayMode || 'all'; // 'all | 'groupOnly' | 'elementOnly' | 'none'
+    const options = validate(opts, TransformerSchema);
+    if (isValidationError(options)) throw options;
+    for (const key in options) {
+      if (key === 'wireframeStyle') {
+        this[key] = Object.assign(this[key], options[key]);
+      } else {
+        this[key] = options[key];
+      }
+    }
+  }
+
+  get wireframe() {
+    return this.#wireframe;
+  }
+
+  get boundsDisplayMode() {
+    return this._boundsDisplayMode;
+  }
+
+  set boundsDisplayMode(value) {
+    this._boundsDisplayMode = value;
+  }
+
+  get lazyMode() {
+    return this._lazyMode;
+  }
+
+  set lazyMode(value) {
+    this._lazyMode = value;
   }
 
   get elements() {
@@ -41,6 +80,7 @@ export class Transformer extends Container {
 
   set wireframeStyle(value) {
     this._wireframeStyle = Object.assign(this._wireframeStyle, value);
+    this.wireframe.setStrokeStyle(this.wireframeStyle);
   }
 
   destroy(options) {
@@ -64,13 +104,10 @@ export class Transformer extends Container {
       return;
     }
 
-    const { color, thickness } = this._wireframeStyle;
     this.wireframe.clear();
     if (this.boundsDisplayMode !== 'none') {
-      this.wireframe.setStrokeStyle({
-        width: thickness / this.parent.scale.x,
-        color,
-      });
+      this.wireframe.strokeStyle.width =
+        this.wireframeStyle.thickness / this.parent.scale.x;
     }
 
     if (
