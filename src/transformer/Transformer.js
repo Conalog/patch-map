@@ -133,7 +133,7 @@ export class Transformer extends Container {
     this._renderDirty = false;
   }
 
-  update() {
+  update = () => {
     this._renderDirty = true;
-  }
+  };
 }

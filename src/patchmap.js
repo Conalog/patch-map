@@ -65,6 +65,7 @@ class Patchmap {
 
   set transformer(value) {
     if (this._transformer && !this._transformer.destroyed) {
+      this.viewport.off('object_transformed', this.transformer.update);
       this._transformer.destroy(true);
     }
 
@@ -79,6 +80,7 @@ class Patchmap {
     this._transformer = value;
     if (this._transformer) {
       this.viewport.addChild(this._transformer);
+      this.viewport.on('object_transformed', this.transformer.update);
     }
   }
 
