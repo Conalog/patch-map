@@ -8,10 +8,10 @@ const DEFAULT_WIREFRAME_STYLE = {
 };
 
 export class Transformer extends Container {
+  _renderDirty = true;
+
   constructor(options = {}) {
-    super({});
-    this.zIndex = 100;
-    this.lazyTrigger = true;
+    super({ zIndex: 999, isRenderGroup: true });
     this.wireframe = this.addChild(new Wireframe(this));
     this.onRender = this._refresh.bind(this);
 
@@ -52,7 +52,7 @@ export class Transformer extends Container {
     if (
       this.renderable &&
       this.visible &&
-      (!this.lazyMode || this.lazyTrigger)
+      (!this.lazyMode || this._renderDirty)
     ) {
       this.draw();
     }
@@ -91,10 +91,10 @@ export class Transformer extends Container {
       this.wireframe.drawBounds(groupBounds);
     }
 
-    this.lazyTrigger = false;
+    this._renderDirty = false;
   }
 
   update() {
-    this.lazyTrigger = true;
+    this._renderDirty = true;
   }
 }

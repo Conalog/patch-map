@@ -11,7 +11,6 @@ export class Wireframe extends Graphics {
       const hull = bounds.hull.map((worldPoint) => {
         return this.toLocal(worldPoint);
       });
-
       this.poly(hull).stroke();
     }
   }
