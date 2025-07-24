@@ -131,7 +131,7 @@ export const Base = (superClass) => {
     _applyRaw(attrs, mergeStrategy) {
       for (const [key, value] of Object.entries(attrs)) {
         if (value === undefined) {
-          if (key !== 'id' && key !== 'label') {
+          if (!['id', 'label'].includes(key)) {
             delete this[key];
           }
         } else if (key === 'x' || key === 'y') {
