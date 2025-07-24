@@ -14,7 +14,6 @@ const DEFAULT_WIREFRAME_STYLE = {
 const TransformerSchema = z
   .object({
     elements: z.array(),
-    lazyMode: z.boolean(),
     wireframeStyle: z.record(z.string(), z.unknown()),
     boundsDisplayMode: z.enum(['all', 'groupOnly', 'elementOnly', 'none']),
   })
@@ -24,7 +23,6 @@ export class Transformer extends Container {
   #wireframe;
   _boundsDisplayMode = 'all';
   _elements = [];
-  _lazyMode = false;
   _renderDirty = true;
   _wireframeStyle = DEFAULT_WIREFRAME_STYLE;
 
@@ -64,23 +62,13 @@ export class Transformer extends Container {
     this._boundsDisplayMode = value;
   }
 
-  get lazyMode() {
-    return this._lazyMode;
-  }
-
-  set lazyMode(value) {
-    this._lazyMode = value;
-  }
-
   get elements() {
     return this._elements;
   }
 
   set elements(value) {
     this._elements = Array.isArray(value) ? value : [value];
-    if (this.lazyMode) {
-      this.update();
-    }
+    this.update();
   }
 
   get wireframeStyle() {
@@ -102,11 +90,7 @@ export class Transformer extends Container {
   }
 
   _refresh() {
-    if (
-      this.renderable &&
-      this.visible &&
-      (!this.lazyMode || this._renderDirty)
-    ) {
+    if (this.renderable && this.visible && this._renderDirty) {
       this.draw();
     }
   }
