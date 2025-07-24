@@ -21,20 +21,19 @@ import { themeStore } from './utils/theme';
 import { validateMapData } from './utils/validator';
 import './display/elements/registry';
 import './display/components/registry';
+import { Transformer } from './transformer/transformer';
 
 class Patchmap {
-  constructor() {
-    this._app = null;
-    this._viewport = null;
-    this._resizeObserver = null;
-    this._isInit = false;
-    this._theme = themeStore();
-    this._undoRedoManager = new UndoRedoManager();
-    this._animationContext = gsap.context(() => {});
-
-    this._singleSelectState = null;
-    this._dragSelectState = null;
-  }
+  _app = null;
+  _viewport = null;
+  _resizeObserver = null;
+  _isInit = false;
+  _theme = themeStore();
+  _undoRedoManager = new UndoRedoManager();
+  _animationContext = gsap.context(() => {});
+  _singleSelectState = null;
+  _dragSelectState = null;
+  _transformer = null;
 
   get app() {
     return this._app;
@@ -58,6 +57,29 @@ class Patchmap {
 
   get undoRedoManager() {
     return this._undoRedoManager;
+  }
+
+  get transformer() {
+    return this._transformer;
+  }
+
+  set transformer(value) {
+    if (this._transformer && !this._transformer.destroyed) {
+      this._transformer.destroy(true);
+    }
+
+    if (value && !(value instanceof Transformer)) {
+      console.error(
+        'Transformer must be an instance of the Transformer class.',
+      );
+      this._transformer = null;
+      return;
+    }
+
+    this._transformer = value;
+    if (this._transformer) {
+      this.viewport.addChild(this._transformer);
+    }
   }
 
   get animationContext() {
