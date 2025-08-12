@@ -1,7 +1,9 @@
 import { Graphics } from 'pixi.js';
+import Transformer from '../../transformer/Transformer';
 import { findIntersectObject, findIntersectObjects } from '../find';
 import { isMoved } from '../utils';
 import State from './State';
+import TransformState from './TransformState';
 
 export default class SelectionState extends State {
   static handledEvents = ['onpointerdown', 'onpointermove', 'onpointerup'];
@@ -15,13 +17,21 @@ export default class SelectionState extends State {
     super.enter(context);
     this.config = {
       draggable: false,
-      filter: null,
+      filter: () => true,
       selectUnit: 'entity',
+      transformer: null,
       onOver: () => {},
       onSelect: () => {},
       onDragSelect: () => {},
       ...config,
     };
+
+    if (
+      this.config.transformer &&
+      !this.context.stateManager.stateRegistry.has('transform')
+    ) {
+      this.context.stateManager.register('transform', TransformState, false);
+    }
   }
 
   exit() {
@@ -29,9 +39,34 @@ export default class SelectionState extends State {
     this.#clear();
   }
 
+  destroy() {
+    this._selectionBox.destroy(true);
+    super.destroy();
+  }
+
   onpointerdown(e) {
     this.isDragging = true;
     this.dragStartPoint = this.context.viewport.toWorld(e.global);
+
+    const transformer = this.config.transformer;
+    if (transformer) {
+      const selected = this.findPoint(this.dragStartPoint);
+      if (
+        !transformer.elements.includes(selected) &&
+        selected !== transformer
+      ) {
+        this.config.onSelect(selected, e);
+      }
+
+      if (selected) {
+        this.context.stateManager.pushState(
+          'transform',
+          e,
+          transformer.elements,
+        );
+        this.#clear();
+      }
+    }
   }
 
   onpointermove(e) {
@@ -51,17 +86,15 @@ export default class SelectionState extends State {
     if (!this.isDragging) return;
 
     if (this.isDragSelecting) {
-      const selected = findIntersectObjects(
-        this.context.viewport,
+      const selected = this.findPolygon(
         this._selectionBox,
-        this.config,
+        (obj) => this.config.filter(obj) && !(obj instanceof Transformer),
       );
       this.config.onDragSelect(selected, e);
     } else {
-      const selected = findIntersectObject(
-        this.context.viewport,
+      const selected = this.findPoint(
         this.dragStartPoint,
-        this.config,
+        (obj) => this.config.filter(obj) && !(obj instanceof Transformer),
       );
       this.config.onSelect(selected, e);
     }
@@ -92,5 +125,19 @@ export default class SelectionState extends State {
     this.dragStartPoint = null;
     this.isDragSelecting = false;
     this._selectionBox.clear();
+  }
+
+  findPoint(point, filter) {
+    return findIntersectObject(this.context.viewport, point, {
+      ...this.config,
+      filter,
+    });
+  }
+
+  findPolygon(polygon, filter) {
+    return findIntersectObjects(this.context.viewport, polygon, {
+      ...this.config,
+      filter,
+    });
   }
 }

@@ -18,4 +18,8 @@ export default class State {
   pause() {}
 
   resume() {}
+
+  destroy() {
+    this.exit();
+  }
 }

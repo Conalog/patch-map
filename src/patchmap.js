@@ -21,7 +21,7 @@ import './display/elements/registry';
 import './display/components/registry';
 import StateManager from './events/StateManager';
 import SelectionState from './events/states/SelectionState';
-import { Transformer } from './transformer/Transformer';
+import Transformer from './transformer/Transformer';
 
 class Patchmap {
   _app = null;
@@ -133,10 +133,10 @@ class Patchmap {
       undoRedoManager: this.undoRedoManager,
       theme: this.theme,
       animationContext: this.animationContext,
-      state: null,
+      stateManager: null,
     };
     this._stateManager = new StateManager(context);
-    context.state = this._stateManager;
+    context.stateManager = this._stateManager;
     this._stateManager.register('selection', SelectionState, true);
 
     this.isInit = true;

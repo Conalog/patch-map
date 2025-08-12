@@ -1,4 +1,4 @@
-import { Container } from 'pixi.js';
+import { Container, Polygon } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { calcGroupOrientedBounds, calcOrientedBounds } from '../utils/bounds';
@@ -19,7 +19,9 @@ const TransformerSchema = z
   })
   .partial();
 
-export class Transformer extends Container {
+export default class Transformer extends Container {
+  static isSelectable = true;
+
   #wireframe;
   _boundsDisplayMode = 'all';
   _elements = [];
@@ -97,11 +99,15 @@ export class Transformer extends Container {
 
   draw() {
     const elements = this.elements;
-    if (!elements) {
+    let groupBounds = null;
+    this.hitArea = null;
+    this.wireframe.clear();
+
+    if (!elements || elements.length === 0) {
+      this._renderDirty = false;
       return;
     }
 
-    this.wireframe.clear();
     if (this.boundsDisplayMode !== 'none') {
       this.wireframe.strokeStyle.width =
         this.wireframeStyle.thickness / (this._viewport?.scale?.x ?? 1);
@@ -120,9 +126,15 @@ export class Transformer extends Container {
       this.boundsDisplayMode === 'all' ||
       this.boundsDisplayMode === 'groupOnly'
     ) {
-      const groupBounds =
-        elements.length > 1 ? calcGroupOrientedBounds(elements) : null;
+      groupBounds = calcGroupOrientedBounds(elements);
       this.wireframe.drawBounds(groupBounds);
+    }
+
+    if (groupBounds) {
+      const hullPoints = groupBounds.hull.map((worldPoint) =>
+        this.toLocal(worldPoint),
+      );
+      this.hitArea = new Polygon(hullPoints);
     }
 
     this._renderDirty = false;

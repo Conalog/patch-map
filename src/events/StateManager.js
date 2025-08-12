@@ -25,6 +25,10 @@ export default class StateManager {
     return this.#modifierState;
   }
 
+  get stateRegistry() {
+    return this.#stateRegistry;
+  }
+
   /**
    * Registers a state class or singleton instance.
    * @param {string} name - The unique name of the state.
@@ -209,6 +213,14 @@ export default class StateManager {
         this.#context.viewport.off(pixiEventName, listener);
       }
     }
+    this.#stateRegistry.forEach((stateDef) => {
+      if (
+        stateDef.instance &&
+        typeof stateDef.instance.destroy === 'function'
+      ) {
+        stateDef.instance.destroy();
+      }
+    });
     this.#stateRegistry.clear();
     this.#stateStack = [];
     this.#modifierState = null;
