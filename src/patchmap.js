@@ -19,7 +19,7 @@ import { themeStore } from './utils/theme';
 import { validateMapData } from './utils/validator';
 import './display/elements/registry';
 import './display/components/registry';
-import ToolManager from './interaction/ToolManager';
+import StateManager from './events/StateManager';
 import { Transformer } from './transformer/Transformer';
 
 class Patchmap {
@@ -31,7 +31,7 @@ class Patchmap {
   _undoRedoManager = new UndoRedoManager();
   _animationContext = gsap.context(() => {});
   _transformer = null;
-  _toolManager = null;
+  _stateManager = null;
 
   get app() {
     return this._app;
@@ -61,8 +61,8 @@ class Patchmap {
     return this._transformer;
   }
 
-  get toolManager() {
-    return this._toolManager;
+  get stateManager() {
+    return this._stateManager;
   }
 
   set transformer(value) {
@@ -125,7 +125,18 @@ class Patchmap {
     initCanvas(element, this.app);
 
     this._resizeObserver = initResizeObserver(element, this.app, this.viewport);
-    this._toolManager = new ToolManager();
+
+    const context = {
+      app: this.app,
+      viewport: this.viewport,
+      undoRedoManager: this.undoRedoManager,
+      theme: this.theme,
+      animationContext: this.animationContext,
+      state: null,
+    };
+    this._stateManager = new StateManager(context);
+    context.state = this._stateManager;
+
     this.isInit = true;
   }
 
@@ -148,7 +159,6 @@ class Patchmap {
     this._theme = themeStore();
     this._undoRedoManager = new UndoRedoManager();
     this._animationContext = gsap.context(() => {});
-    this.toolManager.destroy();
   }
 
   draw(data) {
