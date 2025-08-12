@@ -1,12 +1,10 @@
 import gsap from 'gsap';
-import { Application, Graphics, UPDATE_PRIORITY } from 'pixi.js';
+import { Application, UPDATE_PRIORITY } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { UndoRedoManager } from './command/undo-redo-manager';
 import { draw } from './display/draw';
 import { update } from './display/update';
-import { dragSelect } from './events/drag-select';
 import { fit, focus } from './events/focus-fit';
-import { select } from './events/single-select';
 import {
   initApp,
   initAsset,
@@ -21,6 +19,7 @@ import { themeStore } from './utils/theme';
 import { validateMapData } from './utils/validator';
 import './display/elements/registry';
 import './display/components/registry';
+import ToolManager from './interaction/ToolManager';
 import { Transformer } from './transformer/Transformer';
 
 class Patchmap {
@@ -31,9 +30,8 @@ class Patchmap {
   _theme = themeStore();
   _undoRedoManager = new UndoRedoManager();
   _animationContext = gsap.context(() => {});
-  _singleSelectState = null;
-  _dragSelectState = null;
   _transformer = null;
+  _toolManager = null;
 
   get app() {
     return this._app;
@@ -61,6 +59,10 @@ class Patchmap {
 
   get transformer() {
     return this._transformer;
+  }
+
+  get toolManager() {
+    return this._toolManager;
   }
 
   set transformer(value) {
@@ -123,6 +125,7 @@ class Patchmap {
     initCanvas(element, this.app);
 
     this._resizeObserver = initResizeObserver(element, this.app, this.viewport);
+    this._toolManager = new ToolManager();
     this.isInit = true;
   }
 
@@ -145,8 +148,7 @@ class Patchmap {
     this._theme = themeStore();
     this._undoRedoManager = new UndoRedoManager();
     this._animationContext = gsap.context(() => {});
-    this._singleSelectState = null;
-    this._dragSelectState = null;
+    this.toolManager.destroy();
   }
 
   draw(data) {
@@ -167,7 +169,6 @@ class Patchmap {
     this.undoRedoManager.clear();
     this.animationContext.revert();
     event.removeAllEvent(this.viewport);
-    this.initSelectState();
     draw(context, validatedData);
 
     // Force a refresh of all relation elements after the initial draw. This ensures
@@ -209,26 +210,6 @@ class Patchmap {
 
   selector(path, opts) {
     return selector(this.viewport, path, opts);
-  }
-
-  select(opts) {
-    select(this.viewport, this._singleSelectState, opts);
-    dragSelect(this.viewport, this._dragSelectState, opts);
-  }
-
-  initSelectState() {
-    this._singleSelectState = {
-      config: {},
-      position: { start: null, end: null },
-      viewportPosStart: null,
-    };
-    this._dragSelectState = {
-      config: {},
-      lastMoveTime: 0,
-      isDragging: false,
-      point: { start: null, end: null, move: null },
-      box: new Graphics(),
-    };
   }
 }
 
