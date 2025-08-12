@@ -20,6 +20,7 @@ import { validateMapData } from './utils/validator';
 import './display/elements/registry';
 import './display/components/registry';
 import StateManager from './events/StateManager';
+import SelectionState from './events/states/SelectionState';
 import { Transformer } from './transformer/Transformer';
 
 class Patchmap {
@@ -136,6 +137,7 @@ class Patchmap {
     };
     this._stateManager = new StateManager(context);
     context.state = this._stateManager;
+    this._stateManager.register('selection', SelectionState, true);
 
     this.isInit = true;
   }

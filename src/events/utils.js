@@ -4,7 +4,7 @@ export const checkEvents = (viewport, eventId) => {
   return eventId.split(' ').every((id) => event.getEvent(viewport, id));
 };
 
-export const getSelectObject = (obj, { selectUnit }) => {
+export const getSelectObject = (obj, selectUnit) => {
   if (!obj || !obj.constructor.isSelectable) {
     return null;
   }
