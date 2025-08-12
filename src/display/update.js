@@ -43,18 +43,12 @@ export const update = (viewport, opts) => {
 const applyRelativeTransform = (element, changes) => {
   const { x, y, rotation, angle } = changes;
 
-  if (x) {
-    changes.x = element.x + x;
-  }
-  if (y) {
-    changes.y = element.y + y;
-  }
-  if (rotation) {
-    changes.rotation = element.rotation + rotation;
-  }
-  if (angle) {
-    changes.angle = element.angle + angle;
-  }
+  Object.assign(changes, {
+    x: element.x + (typeof x === 'number' ? x : 0),
+    y: element.y + (typeof y === 'number' ? y : 0),
+    rotation: element.rotation + (typeof rotation === 'number' ? rotation : 0),
+    angle: element.angle + (typeof angle === 'number' ? angle : 0),
+  });
   return changes;
 };
 
