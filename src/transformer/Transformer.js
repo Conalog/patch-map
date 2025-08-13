@@ -20,8 +20,6 @@ const TransformerSchema = z
   .partial();
 
 export default class Transformer extends Container {
-  static isSelectable = true;
-
   #wireframe;
   _boundsDisplayMode = 'all';
   _elements = [];
@@ -30,12 +28,12 @@ export default class Transformer extends Container {
   _viewport = null;
 
   constructor(opts) {
-    super({ zIndex: 999, isRenderGroup: true });
+    super({ zIndex: 999, isRenderGroup: true, id: 'transformer' });
 
     const options = validate(opts, TransformerSchema);
     if (isValidationError(options)) throw options;
 
-    this.#wireframe = this.addChild(new Wireframe(this));
+    this.#wireframe = this.addChild(new Wireframe({ label: 'wireframe' }));
     this.onRender = this._refresh.bind(this);
     for (const key in options) {
       if (key === 'wireframeStyle') {
@@ -100,7 +98,7 @@ export default class Transformer extends Container {
   draw() {
     const elements = this.elements;
     let groupBounds = null;
-    this.hitArea = null;
+    this.wireframe.hitArea = null;
     this.wireframe.clear();
 
     if (!elements || elements.length === 0) {
@@ -134,7 +132,7 @@ export default class Transformer extends Container {
       const hullPoints = groupBounds.hull.map((worldPoint) =>
         this.toLocal(worldPoint),
       );
-      this.hitArea = new Polygon(hullPoints);
+      this.wireframe.hitArea = new Polygon(hullPoints);
     }
 
     this._renderDirty = false;

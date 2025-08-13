@@ -1,16 +1,14 @@
 import { Graphics } from 'pixi.js';
-import Transformer from '../../transformer/Transformer';
 import { findIntersectObject, findIntersectObjects } from '../find';
 import { isMoved } from '../utils';
 import State from './State';
-import TransformState from './TransformState';
 
 export default class SelectionState extends State {
   static handledEvents = ['onpointerdown', 'onpointermove', 'onpointerup'];
 
-  isDragging = false;
+  isPointerdown = false;
   dragStartPoint = null;
-  isDragSelecting = false;
+  isDragging = false;
   _selectionBox = new Graphics();
 
   enter(context, config) {
@@ -19,23 +17,19 @@ export default class SelectionState extends State {
       draggable: false,
       filter: () => true,
       selectUnit: 'entity',
-      transformer: null,
       onOver: () => {},
       onSelect: () => {},
       onDragSelect: () => {},
       ...config,
     };
-
-    if (
-      this.config.transformer &&
-      !this.context.stateManager.stateRegistry.has('transform')
-    ) {
-      this.context.stateManager.register('transform', TransformState, false);
-    }
   }
 
   exit() {
     super.exit();
+    this.#clear();
+  }
+
+  pause() {
     this.#clear();
   }
 
@@ -45,57 +39,34 @@ export default class SelectionState extends State {
   }
 
   onpointerdown(e) {
-    this.isDragging = true;
+    this.isPointerdown = true;
     this.dragStartPoint = this.context.viewport.toWorld(e.global);
 
-    const transformer = this.config.transformer;
-    if (transformer) {
-      const selected = this.findPoint(this.dragStartPoint);
-      if (
-        !transformer.elements.includes(selected) &&
-        selected !== transformer
-      ) {
-        this.config.onSelect(selected, e);
-      }
-
-      if (selected) {
-        this.context.stateManager.pushState(
-          'transform',
-          e,
-          transformer.elements,
-        );
-        this.#clear();
-      }
-    }
+    const selected = this.findPoint(this.dragStartPoint);
+    this.config.onSelect(selected, e);
   }
 
   onpointermove(e) {
-    if (!this.isDragging) return;
+    if (!this.isPointerdown) return;
     const currentPoint = this.context.viewport.toWorld(e.global);
 
     if (
       this.config.draggable &&
       isMoved(this.dragStartPoint, currentPoint, this.context.viewport.scale)
     ) {
-      this.isDragSelecting = true;
+      this.isDragging = true;
       this.#drawSelectionBox(this.dragStartPoint, currentPoint);
     }
   }
 
   onpointerup(e) {
-    if (!this.isDragging) return;
+    if (!this.isPointerdown) return;
 
-    if (this.isDragSelecting) {
-      const selected = this.findPolygon(
-        this._selectionBox,
-        (obj) => this.config.filter(obj) && !(obj instanceof Transformer),
-      );
+    if (this.isDragging) {
+      const selected = this.findPolygon(this._selectionBox);
       this.config.onDragSelect(selected, e);
     } else {
-      const selected = this.findPoint(
-        this.dragStartPoint,
-        (obj) => this.config.filter(obj) && !(obj instanceof Transformer),
-      );
+      const selected = this.findPoint(this.dragStartPoint);
       this.config.onSelect(selected, e);
     }
     this.#clear();
@@ -121,23 +92,17 @@ export default class SelectionState extends State {
   }
 
   #clear() {
-    this.isDragging = false;
+    this.isPointerdown = false;
     this.dragStartPoint = null;
-    this.isDragSelecting = false;
+    this.isDragging = false;
     this._selectionBox.clear();
   }
 
-  findPoint(point, filter) {
-    return findIntersectObject(this.context.viewport, point, {
-      ...this.config,
-      filter,
-    });
+  findPoint(point) {
+    return findIntersectObject(this.context.viewport, point, this.config);
   }
 
-  findPolygon(polygon, filter) {
-    return findIntersectObjects(this.context.viewport, polygon, {
-      ...this.config,
-      filter,
-    });
+  findPolygon(polygon) {
+    return findIntersectObjects(this.context.viewport, polygon, this.config);
   }
 }

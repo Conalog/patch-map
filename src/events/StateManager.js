@@ -58,7 +58,7 @@ export default class StateManager {
   /**
    * Transitions to a new state, maintaining the modifier state.
    */
-  transitionTo(name, ...args) {
+  set(name, ...args) {
     while (this.#stateStack.length > 0) {
       this.popState();
     }

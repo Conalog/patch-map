@@ -1,10 +1,7 @@
 import { Graphics } from 'pixi.js';
 
 export class Wireframe extends Graphics {
-  constructor(transformer) {
-    super();
-    this.transformer = transformer;
-  }
+  static isSelectable = true;
 
   drawBounds(bounds) {
     if (bounds) {
