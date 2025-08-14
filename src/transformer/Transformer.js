@@ -1,4 +1,4 @@
-import { Container, Polygon } from 'pixi.js';
+import { Container } from 'pixi.js';
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
 import { calcGroupOrientedBounds, calcOrientedBounds } from '../utils/bounds';
@@ -98,7 +98,6 @@ export default class Transformer extends Container {
   draw() {
     const elements = this.elements;
     let groupBounds = null;
-    this.wireframe.hitArea = null;
     this.wireframe.clear();
 
     if (!elements || elements.length === 0) {
@@ -127,14 +126,6 @@ export default class Transformer extends Container {
       groupBounds = calcGroupOrientedBounds(elements);
       this.wireframe.drawBounds(groupBounds);
     }
-
-    if (groupBounds) {
-      const hullPoints = groupBounds.hull.map((worldPoint) =>
-        this.toLocal(worldPoint),
-      );
-      this.wireframe.hitArea = new Polygon(hullPoints);
-    }
-
     this._renderDirty = false;
   }
 
