@@ -79,6 +79,7 @@ export default class Transformer extends Container {
   set wireframeStyle(value) {
     this._wireframeStyle = Object.assign(this._wireframeStyle, value);
     this.wireframe.setStrokeStyle(this.wireframeStyle);
+    this.update();
   }
 
   destroy(options) {
