@@ -26,7 +26,9 @@ Therefore, to use this, an understanding of the following two libraries is essen
   - [focus(ids)](#focusids)
   - [fit(ids)](#fitids)
   - [selector(path)](#selectorpath)
-  - [select(options)](#selectoptions)
+  - [stateManager](#statemanager)  
+  - [SelectionState](#selectionstate)
+  - [Transformer](#transformer)
 - [undoRedoManager](#undoredomanager)
   - [execute(command, options)](#executecommand-options)
   - [undo()](#undo)
@@ -400,39 +402,161 @@ Object explorer following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 
   const result = patchmap.selector('$..[?(@.label=="group-label-1")]')
 ```
 
-<br/>
+### `stateManager`
+A `StateManager` instance that manages the event state of the `patchmap` instance. You can define your own states by extending the `State` class and register them with the `stateManager`. This allows for systematic management of complex user interactions.
 
-### `select(options)`
-The selection event is activated to detect objects that the user selects on the screen and pass them to a callback function.
-This should be executed after the `draw` method.
-- `enabled` (optional, boolean): Determines whether the selection event is enabled.
-- `draggable` (optional, boolean): Determines whether dragging is enabled.
-- `selectUnit` (optional, string): Specifies the logical unit to return when selecting. The default is `'entity'`.
-  - `'entity'`: Selects individual objects.
-  - `'closestGroup'`: Selects the closest parent group of the selected object.
-  - `'highestGroup'`: Selects the highest-level group of the selected object.
-  - `'grid'`: Selects the grid to which the selected object belongs.
-- `filter` (optional, function): A function that filters the target objects based on specific conditions.
-- `onSelect` (optional, function): The callback function that is called when a selection occurs.
-- `onOver` (optional, function): The callback function that is called when a pointer-over event occurs.
-- `onDragSelect` (optional, function): The callback function that is called when a drag event occurs.
+When `patchmap.draw()` is executed, a `SelectionState` named `selection` is registered by default.
 
 ```js
-patchmap.select({
-  enabled: true,
+// Activates the 'selection' state to use object selection and drag-selection features.
+patchmap.stateManager.set('selection', {
   draggable: true,
   selectUnit: 'grid',
   filter: (obj) => obj.type !== 'relations',
-  onSelect: (obj) => {
-    console.log(obj);
+  onSelect: (obj, event) => {
+    console.log('Selected:', obj);
+    // Assign the selected object to the transformer
+    if (patchmap.transformer) {
+      patchmap.transformer.elements = obj;
+    }
   },
-  onOver: (obj) => {
-    console.log(obj);
+  onDragSelect: (objs, event) => {
+    console.log('Drag Selected:', objs);
+    if (patchmap.transformer) {
+      patchmap.transformer.elements = objs;
+    }
   },
-  onDragSelect: (objs) => {
-    console.log(objs);
-  }
 });
+```
+
+#### Creating Custom States
+
+You can create a new state class by extending `State` and use it by registering it with the `stateManager`.
+
+```js
+import { State, PROPAGATE_EVENT } from '@conalog/patch-map';
+
+// 1. Define a new state class
+class CustomState extends State {
+  // Define the events this state will handle as a static property.
+  static handledEvents = ['onpointerdown', 'onkeydown'];
+
+  enter(context, customOptions) {
+    super.enter(context);
+    console.log('CustomState has started.', customOptions);
+  }
+
+  exit() {
+    console.log('CustomState has ended.');
+    super.exit();
+  }
+
+  onpointerdown(event) {
+    console.log('Pointer down in CustomState');
+    // Handle the event here and stop its propagation.
+  }
+
+  onkeydown(event) {
+    if (event.key === 'Escape') {
+      // Switch to the 'idle' state (the default state).
+      this.context.stateManager.set('idle');
+    }
+    // Return PROPAGATE_EVENT to propagate the event to the next state in the stack.
+    return PROPAGATE_EVENT;
+  }
+}
+
+// 2. Register with the StateManager
+patchmap.stateManager.register('custom', CustomState);
+
+// 3. Switch states when needed
+patchmap.stateManager.set('custom', { message: 'Hello World' });
+```
+
+<br/>
+
+### `SelectionState`
+
+The default state that handles user selection and drag events. It is automatically registered with the `stateManager` under the name 'selection' when `patchmap.draw()` is executed. You can activate it and pass configuration by calling `stateManager.set('selection', options)`.
+
+  - `draggable` (optional, boolean): Determines whether to enable multi-selection via dragging.
+  - `selectUnit` (optional, string): Specifies the logical unit to be returned upon selection. The default is `'entity'`.
+      - `'entity'`: Selects the individual object.
+      - `'closestGroup'`: Selects the nearest parent group of the selected object.
+      - `'highestGroup'`: Selects the topmost parent group of the selected object.
+      - `'grid'`: Selects the grid to which the selected object belongs.
+  - `filter` (optional, function): A function to filter selectable objects based on a condition.
+  - `onSelect` (optional, function): A callback function invoked when an object is selected via a single click. It receives the selected object and the event object as arguments.
+  - `onDragSelect` (optional, function): A callback function invoked when multiple objects are selected via dragging. It receives an array of selected objects and the event object as arguments.
+
+<!-- end list -->
+
+```js
+patchmap.stateManager.set('selection', {
+  draggable: true,
+  selectUnit: 'grid',
+  filter: (obj) => obj.type !== 'relations',
+  onSelect: (obj, event) => {
+    console.log('Selected:', obj);
+    // Assign the selected object to the transformer
+    if (patchmap.transformer) {
+      patchmap.transformer.elements = obj ? [obj] : [];
+    }
+  },
+  onDragSelect: (objs, event) => {
+    console.log('Drag Selected:', objs);
+    if (patchmap.transformer) {
+      patchmap.transformer.elements = objs;
+    }
+  },
+});
+```
+
+<br/>
+
+### `Transformer`
+
+A visual tool for displaying an outline around selected elements and performing transformations such as resizing or rotating. It is activated by creating a `Transformer` instance and assigning it to `patchmap.transformer`.
+
+#### new Transformer(options)
+
+You can control the behavior by passing the following options when creating a `Transformer` instance.
+
+  - `elements` (optional, Array\<Element\>): An array of elements to display an outline for initially.
+  - `wireframeStyle` (optional, object): Specifies the style of the outline.
+      - `thickness` (number): The thickness of the line (default: `1.5`).
+      - `color` (string): The color of the line (default: `'#1099FF'`).
+  - `boundsDisplayMode` (optional, string): Determines the unit for displaying the outline (default: `'all'`).
+      - `'all'`: Displays both the overall outline of a group and the outlines of individual elements within it.
+      - `'groupOnly'`: Displays only the overall outline of the group.
+      - `'elementOnly'`: Displays only the outlines of individual elements within the group.
+      - `'none'`: Does not display any outline.
+
+<!-- end list -->
+
+```js
+import { Patchmap, Transformer } from '@conalog/patch-map';
+
+const patchmap = new Patchmap();
+await patchmap.init(element);
+patchmap.draw(data);
+
+// 1. Create and assign a Transformer instance
+const transformer = new Transformer({
+  wireframeStyle: {
+    thickness: 2,
+    color: '#FF00FF',
+  },
+  boundsDisplayMode: 'groupOnly',
+});
+patchmap.transformer = transformer;
+
+// 2. Assign the selected object to the transformer's elements property to display the outline
+const selectedObject = patchmap.selector('$..[?(@.id=="group-id-1")]')[0];
+patchmap.transformer.elements = [selectedObject];
+
+// To deselect
+patchmap.transformer.elements = [];
 ```
 
 <br/>
