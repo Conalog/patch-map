@@ -1,3 +1,5 @@
+export const PROPAGATE_EVENT = Symbol('propagate_event');
+
 export default class State {
   static handledEvents = [];
   abortController = new AbortController();

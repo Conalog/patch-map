@@ -1,3 +1,5 @@
+import { PROPAGATE_EVENT } from './states/State';
+
 /**
  * Manages the state of the application, including the registration, transition, and management of states.
  */
@@ -107,6 +109,12 @@ export default class StateManager {
     return currentState;
   }
 
+  exitAll() {
+    this.#stateStack.forEach((state) => {
+      state?.exit?.();
+    });
+  }
+
   /**
    * Gets the current active state.
    * @returns {(object | null)} The current active state or null if none is active.
@@ -179,8 +187,19 @@ export default class StateManager {
     const dispatch = (eventName, event) => {
       if (this.#modifierState) {
         this.#modifierState[eventName]?.(event);
-      } else {
-        this.getCurrentState()?.[eventName]?.(event);
+        return;
+      }
+
+      for (let i = this.#stateStack.length - 1; i >= 0; i--) {
+        const state = this.#stateStack[i];
+        if (!state || typeof state[eventName] !== 'function') {
+          continue;
+        }
+
+        const result = state[eventName](event);
+        if (result !== PROPAGATE_EVENT) {
+          break;
+        }
       }
     };
 

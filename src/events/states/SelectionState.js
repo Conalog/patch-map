@@ -31,7 +31,7 @@ export default class SelectionState extends State {
   }
 
   pause() {
-    this.#clear();
+    this._selectionBox.clear();
   }
 
   destroy() {
