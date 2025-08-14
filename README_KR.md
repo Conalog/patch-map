@@ -489,6 +489,9 @@ patchmap.stateManager.set('custom', { message: 'Hello World' });
 - `filter` (optional, function): 선택 대상 객체를 조건에 따라 필터링할 수 있는 함수입니다.
 - `onSelect` (optional, function): 단일 클릭으로 객체 선택이 발생했을 때 호출될 콜백 함수입니다. 선택된 객체와 이벤트 객체를 인자로 받습니다.
 - `onDragSelect` (optional, function): 드래그를 통해 다수의 객체가 선택되었을 때 호출될 콜백 함수입니다. 선택된 객체 배열과 이벤트 객체를 인자로 받습니다.
+- `selectionBoxStyle` (optional, object): 드래그 선택 시 표시되는 사각형의 스타일을 지정합니다.
+  - `fill` (object): 채우기 스타일. 기본값: `{ color: '#9FD6FF', alpha: 0.2 }`.
+  - `stroke` (object): 테두리 스타일. 기본값: `{ width: 2, color: '#1099FF' }`.
 
 ```js
 patchmap.stateManager.set('selection', {

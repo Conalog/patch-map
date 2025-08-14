@@ -479,17 +479,18 @@ patchmap.stateManager.set('custom', { message: 'Hello World' });
 
 The default state that handles user selection and drag events. It is automatically registered with the `stateManager` under the name 'selection' when `patchmap.draw()` is executed. You can activate it and pass configuration by calling `stateManager.set('selection', options)`.
 
-  - `draggable` (optional, boolean): Determines whether to enable multi-selection via dragging.
-  - `selectUnit` (optional, string): Specifies the logical unit to be returned upon selection. The default is `'entity'`.
-      - `'entity'`: Selects the individual object.
-      - `'closestGroup'`: Selects the nearest parent group of the selected object.
-      - `'highestGroup'`: Selects the topmost parent group of the selected object.
-      - `'grid'`: Selects the grid to which the selected object belongs.
-  - `filter` (optional, function): A function to filter selectable objects based on a condition.
-  - `onSelect` (optional, function): A callback function invoked when an object is selected via a single click. It receives the selected object and the event object as arguments.
-  - `onDragSelect` (optional, function): A callback function invoked when multiple objects are selected via dragging. It receives an array of selected objects and the event object as arguments.
-
-<!-- end list -->
+- `draggable` (optional, boolean): Determines whether to enable multi-selection via dragging.
+- `selectUnit` (optional, string): Specifies the logical unit to be returned upon selection. The default is `'entity'`.
+  - `'entity'`: Selects the individual object.
+  - `'closestGroup'`: Selects the nearest parent group of the selected object.
+  - `'highestGroup'`: Selects the topmost parent group of the selected object.
+  - `'grid'`: Selects the grid to which the selected object belongs.
+- `filter` (optional, function): A function to filter selectable objects based on a condition.
+- `onSelect` (optional, function): A callback function invoked when an object is selected via a single click. It receives the selected object and the event object as arguments.
+- `onDragSelect` (optional, function): A callback function invoked when multiple objects are selected via dragging. It receives an array of selected objects and the event object as arguments.
+- `selectionBoxStyle` (optional, object): Specifies the style of the selection box displayed during drag-selection.
+  - `fill` (object): The fill style. Default: `{ color: '#9FD6FF', alpha: 0.2 }`.
+  - `stroke` (object): The stroke style. Default: `{ width: 2, color: '#1099FF' }`.
 
 ```js
 patchmap.stateManager.set('selection', {
