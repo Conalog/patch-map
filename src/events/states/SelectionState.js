@@ -22,6 +22,7 @@ export default class SelectionState extends State {
       onDragSelect: () => {},
       ...config,
     };
+    this.viewport = this.context.viewport;
   }
 
   exit() {
@@ -40,22 +41,21 @@ export default class SelectionState extends State {
 
   onpointerdown(e) {
     this.isPointerdown = true;
-    this.dragStartPoint = this.context.viewport.toWorld(e.global);
-
-    const selected = this.findPoint(this.dragStartPoint);
-    this.config.onSelect(selected, e);
+    this.dragStartPoint = this.viewport.toWorld(e.global);
+    this.select(e);
   }
 
   onpointermove(e) {
     if (!this.isPointerdown) return;
-    const currentPoint = this.context.viewport.toWorld(e.global);
+    const currentPoint = this.viewport.toWorld(e.global);
 
     if (
       this.config.draggable &&
-      isMoved(this.dragStartPoint, currentPoint, this.context.viewport.scale)
+      isMoved(this.dragStartPoint, currentPoint, this.viewport.scale)
     ) {
       this.isDragging = true;
       this.#drawSelectionBox(this.dragStartPoint, currentPoint);
+      this.dragSelect(e);
     }
   }
 
@@ -63,11 +63,9 @@ export default class SelectionState extends State {
     if (!this.isPointerdown) return;
 
     if (this.isDragging) {
-      const selected = this.findPolygon(this._selectionBox);
-      this.config.onDragSelect(selected, e);
+      this.dragSelect(e);
     } else {
-      const selected = this.findPoint(this.dragStartPoint);
-      this.config.onSelect(selected, e);
+      this.select(e);
     }
     this.#clear();
   }
@@ -76,7 +74,7 @@ export default class SelectionState extends State {
     if (!p1 || !p2) return;
 
     if (!this._selectionBox.parent) {
-      this.context.viewport.addChild(this._selectionBox);
+      this.viewport.addChild(this._selectionBox);
     }
 
     this._selectionBox.clear();
@@ -98,11 +96,21 @@ export default class SelectionState extends State {
     this._selectionBox.clear();
   }
 
+  select(e) {
+    const selected = this.findPoint(this.dragStartPoint);
+    this.config.onSelect(selected, e);
+  }
+
+  dragSelect(e) {
+    const selected = this.findPolygon(this._selectionBox);
+    this.config.onDragSelect(selected, e);
+  }
+
   findPoint(point) {
-    return findIntersectObject(this.context.viewport, point, this.config);
+    return findIntersectObject(this.viewport, point, this.config);
   }
 
   findPolygon(polygon) {
-    return findIntersectObjects(this.context.viewport, polygon, this.config);
+    return findIntersectObjects(this.viewport, polygon, this.config);
   }
 }
