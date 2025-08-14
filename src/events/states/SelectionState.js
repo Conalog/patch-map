@@ -4,7 +4,12 @@ import { isMoved } from '../utils';
 import State from './State';
 
 export default class SelectionState extends State {
-  static handledEvents = ['onpointerdown', 'onpointermove', 'onpointerup'];
+  static handledEvents = [
+    'onpointerdown',
+    'onpointermove',
+    'onpointerup',
+    'onpointerover',
+  ];
 
   isPointerdown = false;
   dragStartPoint = null;
@@ -70,6 +75,10 @@ export default class SelectionState extends State {
     this.#clear();
   }
 
+  onpointerover(e) {
+    this.hover(e);
+  }
+
   #drawSelectionBox(p1, p2) {
     if (!p1 || !p2) return;
 
@@ -104,6 +113,11 @@ export default class SelectionState extends State {
   dragSelect(e) {
     const selected = this.findPolygon(this._selectionBox);
     this.config.onDragSelect(selected, e);
+  }
+
+  hover(e) {
+    const selected = this.findPoint(this.viewport.toWorld(e.global));
+    this.config.onOver(selected, e);
   }
 
   findPoint(point) {
