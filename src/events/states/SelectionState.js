@@ -5,9 +5,9 @@ import { isMoved } from '../utils';
 import State from './State';
 
 const InteractionState = {
-  IDLE: 'idle', // 아무것도 안 하는 상태
-  PRESSING: 'pressing', // 누르고 있지만 아직 움직이지 않은 상태
-  DRAGGING: 'dragging', // 누른 채로 움직이는 상태
+  IDLE: 'idle',
+  PRESSING: 'pressing',
+  DRAGGING: 'dragging',
 };
 
 /**
