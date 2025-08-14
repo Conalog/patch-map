@@ -58,7 +58,11 @@ export default class SelectionState extends State {
       this.config.draggable &&
       isMoved(this.dragStartPoint, currentPoint, this.viewport.scale)
     ) {
-      this.isDragging = true;
+      if (!this.isDragging) {
+        this.isDragging = true;
+        this.viewport.plugin.start('mouse-edges');
+      }
+
       this.#drawSelectionBox(this.dragStartPoint, currentPoint);
       this.dragSelect(e);
     }
@@ -69,6 +73,7 @@ export default class SelectionState extends State {
 
     if (this.isDragging) {
       this.dragSelect(e);
+      this.viewport.plugin.stop('mouse-edges');
     } else {
       this.select(e);
     }
