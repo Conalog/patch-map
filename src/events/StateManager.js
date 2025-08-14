@@ -61,9 +61,8 @@ export default class StateManager {
    * Transitions to a new state, maintaining the modifier state.
    */
   set(name, ...args) {
-    while (this.#stateStack.length > 0) {
-      this.popState();
-    }
+    this.exitAll();
+    this.#stateStack.length = 0;
     this.pushState(name, ...args);
   }
 
@@ -244,5 +243,6 @@ export default class StateManager {
     this.#stateStack = [];
     this.#modifierState = null;
     this.#boundEvents.clear();
+    this.#eventListeners = {};
   }
 }
