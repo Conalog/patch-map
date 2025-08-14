@@ -74,6 +74,10 @@ export default class SelectionState extends State {
     this._selectionBox.clear();
   }
 
+  resume() {
+    this.#clear();
+  }
+
   destroy() {
     this._selectionBox.destroy(true);
     super.destroy();
