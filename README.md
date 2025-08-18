@@ -501,7 +501,7 @@ patchmap.stateManager.setState('selection', {
     console.log('Selected:', obj);
     // Assign the selected object to the transformer
     if (patchmap.transformer) {
-      patchmap.transformer.elements = obj ? [obj] : [];
+      patchmap.transformer.elements = obj;
     }
   },
   onDragSelect: (objs, event) => {
@@ -523,7 +523,7 @@ A visual tool for displaying an outline around selected elements and performing 
 
 You can control the behavior by passing the following options when creating a `Transformer` instance.
 
-  - `elements` (optional, Array\<Element\>): An array of elements to display an outline for initially.
+  - `elements` (optional, Array<PIXI.DisplayObject>): An array of elements to display an outline for initially.
   - `wireframeStyle` (optional, object): Specifies the style of the outline.
       - `thickness` (number): The thickness of the line (default: `1.5`).
       - `color` (string): The color of the line (default: `'#1099FF'`).

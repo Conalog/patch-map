@@ -502,7 +502,7 @@ patchmap.stateManager.setState('selection', {
     console.log('Selected:', obj);
     // 선택된 객체를 transformer에 할당
     if (patchmap.transformer) {
-      patchmap.transformer.elements = obj ? [obj] : [];
+      patchmap.transformer.elements = obj;
     }
   },
   onDragSelect: (objs, event) => {
@@ -524,7 +524,7 @@ patchmap.stateManager.setState('selection', {
 
 `Transformer` 인스턴스를 생성할 때 다음과 같은 옵션을 전달하여 동작을 제어할 수 있습니다.
 
-  - `elements` (optional, Array\<Element\>): 초기에 외곽선을 표시할 요소들의 배열입니다.
+  - `elements` (optional, Array<PIXI.DisplayObject>): 초기에 외곽선을 표시할 요소들의 배열입니다.
   - `wireframeStyle` (optional, object): 외곽선의 스타일을 지정합니다.
       - `thickness` (number): 선의 두께 (기본값: `1.5`).
       - `color` (string): 선의 색상 (기본값: `'#1099FF'`).
