@@ -148,7 +148,7 @@ export default class Transformer extends Container {
    * @param {PIXI.DisplayObject | PIXI.DisplayObject[]} value
    */
   set elements(value) {
-    this._elements = Array.isArray(value) ? value : [value];
+    this._elements = value ? (Array.isArray(value) ? value : [value]) : [];
     this.update();
   }
 
