@@ -411,7 +411,7 @@ const result = patchmap.selector('$..[?(@.label=="group-label-1")]')
 
 ```js
 // selection 상태를 활성화하여 객체 선택 및 드래그 선택 기능을 사용합니다.
-patchmap.stateManager.set('selection', {
+patchmap.stateManager.setState('selection', {
   draggable: true,
   selectUnit: 'grid',
   filter: (obj) => obj.type !== 'relations',
@@ -461,7 +461,7 @@ class CustomState extends State {
   onkeydown(event) {
     if (event.key === 'Escape') {
       // 'idle' 상태(기본 상태)로 전환합니다.
-      this.context.stateManager.set('idle');
+      this.context.stateManager.setState('idle');
     }
     // 이벤트를 스택의 다음 상태로 전파하려면 PROPAGATE_EVENT를 반환합니다.
     return PROPAGATE_EVENT;
@@ -472,13 +472,13 @@ class CustomState extends State {
 patchmap.stateManager.register('custom', CustomState);
 
 // 3. 필요할 때 상태 전환
-patchmap.stateManager.set('custom', { message: 'Hello World' });
+patchmap.stateManager.setState('custom', { message: 'Hello World' });
 ```
 
 <br/>
 
 ### `SelectionState`
-사용자의 선택 및 드래그 이벤트를 처리하는 기본 상태(State)입니다. `patchmap.draw()`가 실행되면 'selection'이라는 이름으로 `stateManager`에 자동으로 등록됩니다. `stateManager.set('selection', options)`를 호출하여 활성화하고 설정을 전달할 수 있습니다.
+사용자의 선택 및 드래그 이벤트를 처리하는 기본 상태(State)입니다. `patchmap.draw()`가 실행되면 'selection'이라는 이름으로 `stateManager`에 자동으로 등록됩니다. `stateManager.setState('selection', options)`를 호출하여 활성화하고 설정을 전달할 수 있습니다.
 
 - `draggable` (optional, boolean): 드래그를 통한 다중 선택 활성화 여부를 결정합니다.
 - `selectUnit` (optional, string): 선택 시 반환될 논리적 단위를 지정합니다. 기본값은 `'entity'` 입니다.
@@ -494,7 +494,7 @@ patchmap.stateManager.set('custom', { message: 'Hello World' });
   - `stroke` (object): 테두리 스타일. 기본값: `{ width: 2, color: '#1099FF' }`.
 
 ```js
-patchmap.stateManager.set('selection', {
+patchmap.stateManager.setState('selection', {
   draggable: true,
   selectUnit: 'grid',
   filter: (obj) => obj.type !== 'relations',

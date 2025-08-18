@@ -409,7 +409,7 @@ When `patchmap.draw()` is executed, a `SelectionState` named `selection` is regi
 
 ```js
 // Activates the 'selection' state to use object selection and drag-selection features.
-patchmap.stateManager.set('selection', {
+patchmap.stateManager.setState('selection', {
   draggable: true,
   selectUnit: 'grid',
   filter: (obj) => obj.type !== 'relations',
@@ -459,7 +459,7 @@ class CustomState extends State {
   onkeydown(event) {
     if (event.key === 'Escape') {
       // Switch to the 'idle' state (the default state).
-      this.context.stateManager.set('idle');
+      this.context.stateManager.setState('idle');
     }
     // Return PROPAGATE_EVENT to propagate the event to the next state in the stack.
     return PROPAGATE_EVENT;
@@ -470,14 +470,14 @@ class CustomState extends State {
 patchmap.stateManager.register('custom', CustomState);
 
 // 3. Switch states when needed
-patchmap.stateManager.set('custom', { message: 'Hello World' });
+patchmap.stateManager.setState('custom', { message: 'Hello World' });
 ```
 
 <br/>
 
 ### `SelectionState`
 
-The default state that handles user selection and drag events. It is automatically registered with the `stateManager` under the name 'selection' when `patchmap.draw()` is executed. You can activate it and pass configuration by calling `stateManager.set('selection', options)`.
+The default state that handles user selection and drag events. It is automatically registered with the `stateManager` under the name 'selection' when `patchmap.draw()` is executed. You can activate it and pass configuration by calling `stateManager.setState('selection', options)`.
 
 - `draggable` (optional, boolean): Determines whether to enable multi-selection via dragging.
 - `selectUnit` (optional, string): Specifies the logical unit to be returned upon selection. The default is `'entity'`.
@@ -493,7 +493,7 @@ The default state that handles user selection and drag events. It is automatical
   - `stroke` (object): The stroke style. Default: `{ width: 2, color: '#1099FF' }`.
 
 ```js
-patchmap.stateManager.set('selection', {
+patchmap.stateManager.setState('selection', {
   draggable: true,
   selectUnit: 'grid',
   filter: (obj) => obj.type !== 'relations',

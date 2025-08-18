@@ -60,12 +60,12 @@ export default class StateManager {
   /**
    * Transitions to a new state, maintaining the modifier state.
    */
-  set(name, ...args) {
-    this.reset();
+  setState(name, ...args) {
+    this.resetState();
     this.pushState(name, ...args);
   }
 
-  reset() {
+  resetState() {
     this.exitAll();
     this.#stateStack.length = 0;
   }

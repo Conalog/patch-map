@@ -239,7 +239,7 @@ describe('patchmap test', () => {
 
     describe('when draggable is false', () => {
       beforeEach(() => {
-        patchmap.stateManager.set('selection', {
+        patchmap.stateManager.setState('selection', {
           enabled: true,
           draggable: false,
           selectUnit: 'grid',
@@ -410,7 +410,7 @@ describe('patchmap test', () => {
 
           const onSelect = vi.fn();
 
-          patchmap.stateManager.set('selection', {
+          patchmap.stateManager.setState('selection', {
             enabled: true,
             selectUnit: selectUnit,
             onSelect: onSelect,
