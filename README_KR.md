@@ -460,8 +460,8 @@ class CustomState extends State {
 
   onkeydown(event) {
     if (event.key === 'Escape') {
-      // 'idle' 상태(기본 상태)로 전환합니다.
-      this.context.stateManager.setState('idle');
+      // 'selection' 상태(기본 상태)로 전환합니다.
+      this.context.stateManager.setState('selection');
     }
     // 이벤트를 스택의 다음 상태로 전파하려면 PROPAGATE_EVENT를 반환합니다.
     return PROPAGATE_EVENT;

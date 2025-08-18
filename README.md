@@ -458,8 +458,8 @@ class CustomState extends State {
 
   onkeydown(event) {
     if (event.key === 'Escape') {
-      // Switch to the 'idle' state (the default state).
-      this.context.stateManager.setState('idle');
+      // Switch to the 'selection' state (the default state).
+      this.context.stateManager.setState('selection');
     }
     // Return PROPAGATE_EVENT to propagate the event to the next state in the stack.
     return PROPAGATE_EVENT;
