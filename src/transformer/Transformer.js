@@ -88,7 +88,7 @@ export default class Transformer extends Container {
   /**
    * @param {TransformerOptions} [opts] - The options for the transformer.
    */
-  constructor(opts) {
+  constructor(opts = {}) {
     super({ zIndex: 999, isRenderGroup: true, id: 'transformer' });
 
     const options = validate(opts, TransformerSchema);
