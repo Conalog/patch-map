@@ -11,22 +11,83 @@ const DEFAULT_WIREFRAME_STYLE = {
   color: '#1099FF',
 };
 
+/**
+ * @typedef {'all' | 'groupOnly' | 'elementOnly' | 'none'} BoundsDisplayMode
+ */
+
+/**
+ * @typedef {object} WireframeStyle
+ * @property {number} [thickness=1.5] - The thickness of the wireframe lines.
+ * @property {string | number} [color='#1099FF'] - The color of the wireframe lines.
+ */
+
+/**
+ * @typedef {object} TransformerOptions
+ * @property {PIXI.DisplayObject[]} [elements] - The initial elements to be transformed.
+ * @property {WireframeStyle} [wireframeStyle] - The style of the wireframe.
+ * @property {BoundsDisplayMode} [boundsDisplayMode='all'] - The mode for displaying bounds.
+ */
+
 const TransformerSchema = z
   .object({
-    elements: z.array(),
+    elements: z.array(z.any()),
     wireframeStyle: z.record(z.string(), z.unknown()),
     boundsDisplayMode: z.enum(['all', 'groupOnly', 'elementOnly', 'none']),
   })
   .partial();
 
+/**
+ * A visual tool to display and manipulate the bounds of selected elements.
+ * It draws a wireframe around the elements and can be configured to show bounds
+ * for individual elements, the entire group, or both.
+ * @extends PIXI.Container
+ */
 export default class Transformer extends Container {
+  /** @private */
   #wireframe;
+
+  /**
+   * The mode for displaying the wireframe bounds.
+   * - 'all': Show bounds for both the group and individual elements.
+   * - 'groupOnly': Show only the encompassing bounds of all elements.
+   * - 'elementOnly': Show bounds for each individual element.
+   * - 'none': Do not show any bounds.
+   * @private
+   * @type {BoundsDisplayMode}
+   */
   _boundsDisplayMode = 'all';
+
+  /**
+   * The array of elements currently being transformed.
+   * @private
+   * @type {PIXI.DisplayObject[]}
+   */
   _elements = [];
+
+  /**
+   * A flag to indicate that the wireframe needs to be redrawn.
+   * @private
+   * @type {boolean}
+   */
   _renderDirty = true;
+
+  /**
+   * The style configuration for the wireframe.
+   * @private
+   * @type {WireframeStyle}
+   */
   _wireframeStyle = DEFAULT_WIREFRAME_STYLE;
+
+  /**
+   * A reference to the viewport, obtained when this container is added to the stage.
+   * @private
+   * @type {import('pixi-viewport').Viewport | null}
+   */
   _viewport = null;
 
+  /**
+   * @param {TransformerOptions} [opts] - The options for the transformer.
+   */
   constructor(opts) {
     super({ zIndex: 999, isRenderGroup: true, id: 'transformer' });
 
@@ -34,7 +95,7 @@ export default class Transformer extends Container {
     if (isValidationError(options)) throw options;
 
     this.#wireframe = this.addChild(new Wireframe({ label: 'wireframe' }));
-    this.onRender = this._refresh.bind(this);
+    this.onRender = this.#refresh.bind(this);
     for (const key in options) {
       if (key === 'wireframeStyle') {
         this[key] = Object.assign(this[key], options[key]);
@@ -51,37 +112,68 @@ export default class Transformer extends Container {
     });
   }
 
+  /**
+   * The wireframe graphics instance.
+   * @returns {Wireframe}
+   */
   get wireframe() {
     return this.#wireframe;
   }
 
+  /**
+   * The current bounds display mode.
+   * @returns {BoundsDisplayMode}
+   */
   get boundsDisplayMode() {
     return this._boundsDisplayMode;
   }
 
+  /**
+   * @param {BoundsDisplayMode} value
+   */
   set boundsDisplayMode(value) {
     this._boundsDisplayMode = value;
+    this.update();
   }
 
+  /**
+   * The array of elements to be transformed.
+   * @returns {PIXI.DisplayObject[]}
+   */
   get elements() {
     return this._elements;
   }
 
+  /**
+   * @param {PIXI.DisplayObject | PIXI.DisplayObject[]} value
+   */
   set elements(value) {
     this._elements = Array.isArray(value) ? value : [value];
     this.update();
   }
 
+  /**
+   * The style of the wireframe.
+   * @returns {WireframeStyle}
+   */
   get wireframeStyle() {
     return this._wireframeStyle;
   }
 
+  /**
+   * @param {Partial<WireframeStyle>} value
+   */
   set wireframeStyle(value) {
     this._wireframeStyle = Object.assign(this._wireframeStyle, value);
     this.wireframe.setStrokeStyle(this.wireframeStyle);
     this.update();
   }
 
+  /**
+   * Destroys the transformer, removing listeners and cleaning up resources.
+   * @override
+   * @param {import('pixi.js').DestroyOptions} [options]
+   */
   destroy(options) {
     this.onRender = null;
     if (this._viewport) {
@@ -90,12 +182,20 @@ export default class Transformer extends Container {
     super.destroy(options);
   }
 
-  _refresh() {
+  /**
+   * Called on every render frame. Redraws the wireframe if it's dirty.
+   * @private
+   */
+  #refresh() {
     if (this.renderable && this.visible && this._renderDirty) {
       this.draw();
     }
   }
 
+  /**
+   * Clears and redraws the wireframe based on the current elements and display mode.
+   * Adjusts line thickness based on the viewport scale to maintain a consistent appearance.
+   */
   draw() {
     const elements = this.elements;
     let groupBounds = null;
@@ -130,6 +230,10 @@ export default class Transformer extends Container {
     this._renderDirty = false;
   }
 
+  /**
+   * Marks the transformer as dirty, scheduling a redraw on the next frame.
+   * This method is an arrow function to preserve `this` context when used as an event listener.
+   */
   update = () => {
     this._renderDirty = true;
   };
