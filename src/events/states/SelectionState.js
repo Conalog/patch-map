@@ -1,4 +1,4 @@
-import { Graphics, Point } from 'pixi.js';
+import { Graphics } from 'pixi.js';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { findIntersectObject, findIntersectObjects } from '../find';
 import { isMoved } from '../utils';
@@ -34,7 +34,7 @@ export default class SelectionState extends State {
   /** @type {SelectionStateConfig} */
   config = {};
   interactionState = InteractionState.IDLE;
-  dragStartPoint = new Point();
+  dragStartPoint = null;
   _selectionBox = new Graphics();
 
   /**
@@ -71,11 +71,8 @@ export default class SelectionState extends State {
   }
 
   pause() {
+    this.dragStartPoint = null;
     this._selectionBox.clear();
-  }
-
-  resume() {
-    this.#clear();
   }
 
   destroy() {
@@ -85,7 +82,7 @@ export default class SelectionState extends State {
 
   onpointerdown(e) {
     this.interactionState = InteractionState.PRESSING;
-    this.dragStartPoint.copyFrom(this.viewport.toWorld(e.global));
+    this.dragStartPoint = this.viewport.toWorld(e.global);
     this.select(e);
   }
 
@@ -152,11 +149,12 @@ export default class SelectionState extends State {
   #clear() {
     this.interactionState = InteractionState.IDLE;
     this._selectionBox.clear();
+    this.dragStartPoint = null;
   }
 
   /** Finalizes a single object selection. */
   select(e) {
-    const selected = this.findPoint(this.dragStartPoint);
+    const selected = this.findPoint(this.viewport.toWorld(e.global));
     this.config.onSelect(selected, e);
   }
 
