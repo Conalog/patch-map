@@ -98,7 +98,7 @@ export const offEvent = (viewport, id) => {
   }
 };
 
-export const getEvent = (viewport, id) => viewport.events[id] ?? null;
+export const getEvent = (viewport, id) => viewport.events?.[id] ?? null;
 
 export const getAllEvent = (viewport) => viewport.events;
 

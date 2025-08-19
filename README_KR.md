@@ -27,7 +27,9 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js
   - [focus(ids)](#focusids)
   - [fit(ids)](#fitids)
   - [selector(path)](#selectorpath)
-  - [select(options)](#selectoptions)
+  - [stateManager](#statemanager)  
+  - [SelectionState](#selectionstate)
+  - [Transformer](#transformer)
 - [undoRedoManager](#undoredomanager)
   - [execute(command, options)](#executecommand-options)
   - [undo()](#undo)
@@ -401,37 +403,160 @@ const result = patchmap.selector('$..[?(@.label=="group-label-1")]')
 
 <br/>
 
-### `select(options)`
-선택 이벤트를 활성화하여, 사용자가 화면에서 선택한 객체들을 감지하고 콜백 함수에 전달합니다.
-`draw` 메소드 이후에 실행되어야 합니다.
-- `enabled` (optional, boolean): 선택 이벤트의 활성화 여부를 결정합니다.
-- `draggable` (optional, boolean): 드래그 활성화 여부를 결정합니다.
-- `selectUnit` (optional, string): 선택 시 반환될 논리적 단위를 지정합니다. 기본값은 'entity' 입니다.
+### `stateManager`
+
+`patchmap` 인스턴스의 이벤트 상태를 관리하는 `StateManager` 인스턴스입니다. `State` 클래스를 상속받아 자신만의 상태를 정의하고, `stateManager`에 등록하여 사용할 수 있습니다. 이를 통해 사용자의 복잡한 인터랙션을 체계적으로 관리할 수 있습니다.
+
+`patchmap.draw()`가 실행되면 기본적으로 `selection`이라는 이름의 `SelectionState`가 등록됩니다.
+
+```js
+// selection 상태를 활성화하여 객체 선택 및 드래그 선택 기능을 사용합니다.
+patchmap.stateManager.setState('selection', {
+  draggable: true,
+  selectUnit: 'grid',
+  filter: (obj) => obj.type !== 'relations',
+  onSelect: (obj, event) => {
+    console.log('Selected:', obj);
+    // 선택된 객체를 transformer에 할당
+    if (patchmap.transformer) {
+      patchmap.transformer.elements = obj;
+    }
+  },
+  onDragSelect: (objs, event) => {
+    console.log('Drag Selected:', objs);
+    if (patchmap.transformer) {
+      patchmap.transformer.elements = objs;
+    }
+  },
+});
+```
+
+#### 사용자 정의 상태 만들기
+
+`State`를 상속하여 새로운 상태 클래스를 만들고, `stateManager`에 등록하여 사용할 수 있습니다.
+
+```js
+import { State, PROPAGATE_EVENT } from '@conalog/patch-map';
+
+// 1. 새로운 상태 클래스 정의
+class CustomState extends State {
+  // 이 상태가 처리할 이벤트를 static 속성으로 정의합니다.
+  static handledEvents = ['onpointerdown', 'onkeydown'];
+
+  enter(context, customOptions) {
+    super.enter(context);
+    console.log('CustomState가 시작되었습니다.', customOptions);
+  }
+
+  exit() {
+    console.log('CustomState가 종료되었습니다.');
+    super.exit();
+  }
+
+  onpointerdown(event) {
+    console.log('Pointer down in CustomState');
+    // 이벤트를 여기서 처리하고 전파를 중지합니다.
+  }
+
+  onkeydown(event) {
+    if (event.key === 'Escape') {
+      // 'selection' 상태(기본 상태)로 전환합니다.
+      this.context.stateManager.setState('selection');
+    }
+    // 이벤트를 스택의 다음 상태로 전파하려면 PROPAGATE_EVENT를 반환합니다.
+    return PROPAGATE_EVENT;
+  }
+}
+
+// 2. StateManager에 등록
+patchmap.stateManager.register('custom', CustomState);
+
+// 3. 필요할 때 상태 전환
+patchmap.stateManager.setState('custom', { message: 'Hello World' });
+```
+
+<br/>
+
+### `SelectionState`
+사용자의 선택 및 드래그 이벤트를 처리하는 기본 상태(State)입니다. `patchmap.draw()`가 실행되면 'selection'이라는 이름으로 `stateManager`에 자동으로 등록됩니다. `stateManager.setState('selection', options)`를 호출하여 활성화하고 설정을 전달할 수 있습니다.
+
+- `draggable` (optional, boolean): 드래그를 통한 다중 선택 활성화 여부를 결정합니다.
+- `selectUnit` (optional, string): 선택 시 반환될 논리적 단위를 지정합니다. 기본값은 `'entity'` 입니다.
   - `'entity'`: 개별 객체를 선택합니다.
   - `'closestGroup'`: 선택된 객체에서 가장 가까운 상위 그룹을 선택합니다.
   - `'highestGroup'`: 선택된 객체에서 가장 최상위 그룹을 선택합니다.
   - `'grid'`: 선택된 객체가 속한 그리드를 선택합니다.
 - `filter` (optional, function): 선택 대상 객체를 조건에 따라 필터링할 수 있는 함수입니다.
-- `onSelect` (optional, function): 선택이 발생할 때 호출될 콜백 함수입니다.
-- `onOver` (optional, function): 포인터 오버가 발생할 때 호출될 콜백 함수입니다.
-- `onDragSelect` (optional, function): 드래그가 발생할 때 호출될 콜백 함수입니다.
+- `onSelect` (optional, function): 단일 클릭으로 객체 선택이 발생했을 때 호출될 콜백 함수입니다. 선택된 객체와 이벤트 객체를 인자로 받습니다.
+- `onDragSelect` (optional, function): 드래그를 통해 다수의 객체가 선택되었을 때 호출될 콜백 함수입니다. 선택된 객체 배열과 이벤트 객체를 인자로 받습니다.
+- `selectionBoxStyle` (optional, object): 드래그 선택 시 표시되는 사각형의 스타일을 지정합니다.
+  - `fill` (object): 채우기 스타일. 기본값: `{ color: '#9FD6FF', alpha: 0.2 }`.
+  - `stroke` (object): 테두리 스타일. 기본값: `{ width: 2, color: '#1099FF' }`.
 
 ```js
-patchmap.select({
-  enabled: true,
+patchmap.stateManager.setState('selection', {
   draggable: true,
   selectUnit: 'grid',
   filter: (obj) => obj.type !== 'relations',
-  onSelect: (obj) => {
-    console.log(obj);
+  onSelect: (obj, event) => {
+    console.log('Selected:', obj);
+    // 선택된 객체를 transformer에 할당
+    if (patchmap.transformer) {
+      patchmap.transformer.elements = obj;
+    }
   },
-  onOver: (obj) => {
-    console.log(obj);
+  onDragSelect: (objs, event) => {
+    console.log('Drag Selected:', objs);
+    if (patchmap.transformer) {
+      patchmap.transformer.elements = objs;
+    }
   },
-  onDragSelect: (objs) => {
-    console.log(objs);
-  }
 });
+```
+
+<br/>
+
+### `Transformer`
+
+선택된 요소의 외곽선을 시각적으로 표시하고, 크기 조절이나 회전과 같은 변형 작업을 수행하기 위한 시각적 도구입니다. `Transformer` 인스턴스를 생성하여 `patchmap.transformer`에 할당하면 활성화됩니다.
+
+#### new Transformer(options)
+
+`Transformer` 인스턴스를 생성할 때 다음과 같은 옵션을 전달하여 동작을 제어할 수 있습니다.
+
+  - `elements` (optional, Array<PIXI.DisplayObject>): 초기에 외곽선을 표시할 요소들의 배열입니다.
+  - `wireframeStyle` (optional, object): 외곽선의 스타일을 지정합니다.
+      - `thickness` (number): 선의 두께 (기본값: `1.5`).
+      - `color` (string): 선의 색상 (기본값: `'#1099FF'`).
+  - `boundsDisplayMode` (optional, string): 외곽선을 표시할 단위를 결정합니다 (기본값: `'all'`).
+      - `'all'`: 그룹의 전체 외곽선과 그룹 내 개별 요소의 외곽선을 모두 표시합니다.
+      - `'groupOnly'`: 그룹의 전체 외곽선만 표시합니다.
+      - `'elementOnly'`: 그룹 내 개별 요소의 외곽선만 표시합니다.
+      - `'none'`: 외곽선을 표시하지 않습니다.
+
+```js
+import { Patchmap, Transformer } from '@conalog/patch-map';
+
+const patchmap = new Patchmap();
+await patchmap.init(element);
+patchmap.draw(data);
+
+// 1. Transformer 인스턴스 생성 및 할당
+const transformer = new Transformer({
+  wireframeStyle: {
+    thickness: 2,
+    color: '#FF00FF',
+  },
+  boundsDisplayMode: 'groupOnly',
+});
+patchmap.transformer = transformer;
+
+// 2. 선택된 객체를 transformer의 elements 속성에 할당하여 외곽선 표시
+const selectedObject = patchmap.selector('$..[?(@.id=="group-id-1")]')[0];
+patchmap.transformer.elements = [selectedObject];
+
+// 선택 해제 시
+patchmap.transformer.elements = [];
 ```
 
 <br/>

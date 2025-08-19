@@ -3,7 +3,11 @@ import { intersect } from '../utils/intersects/intersect';
 import { intersectPoint } from '../utils/intersects/intersect-point';
 import { getSelectObject } from './utils';
 
-export const findIntersectObject = (viewport, state, options) => {
+export const findIntersectObject = (
+  viewport,
+  point,
+  { filter, selectUnit } = {},
+) => {
   const allCandidates = collectCandidates(
     viewport,
     (child) => child.constructor.isSelectable,
@@ -36,10 +40,10 @@ export const findIntersectObject = (viewport, state, options) => {
         : [candidate];
 
     for (const target of targets) {
-      const isIntersecting = intersectPoint(target, state.point);
+      const isIntersecting = intersectPoint(target, point);
       if (isIntersecting) {
-        const selectObject = getSelectObject(candidate, options);
-        if (selectObject && (!options.filter || options.filter(selectObject))) {
+        const selectObject = getSelectObject(candidate, selectUnit);
+        if (selectObject && (!filter || filter(selectObject))) {
           return selectObject;
         }
       }
@@ -49,7 +53,11 @@ export const findIntersectObject = (viewport, state, options) => {
   return null;
 };
 
-export const findIntersectObjects = (viewport, state, options) => {
+export const findIntersectObjects = (
+  viewport,
+  selectionBox,
+  { filter, selectUnit } = {},
+) => {
   const allCandidates = collectCandidates(
     viewport,
     (child) => child.constructor.isSelectable,
@@ -63,10 +71,10 @@ export const findIntersectObjects = (viewport, state, options) => {
         : [candidate];
 
     for (const target of targets) {
-      const isIntersecting = intersect(state.box, target);
+      const isIntersecting = intersect(selectionBox, target);
       if (isIntersecting) {
-        const selectObject = getSelectObject(candidate, options);
-        if (selectObject && (!options.filter || options.filter(selectObject))) {
+        const selectObject = getSelectObject(candidate, selectUnit);
+        if (selectObject && (!filter || filter(selectObject))) {
           found.push(selectObject);
           break;
         }

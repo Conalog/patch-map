@@ -38,7 +38,7 @@ export const calcOrientedBounds = (object, bounds = tempBounds) => {
 
 export const calcGroupOrientedBounds = (group, bounds = tempBounds) => {
   if (!group || group.length === 0) {
-    return;
+    return null;
   }
 
   const allWorldCorners = group.flatMap((element) => {

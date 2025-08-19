@@ -239,7 +239,7 @@ describe('patchmap test', () => {
 
     describe('when draggable is false', () => {
       beforeEach(() => {
-        patchmap.select({
+        patchmap.stateManager.setState('selection', {
           enabled: true,
           draggable: false,
           selectUnit: 'grid',
@@ -337,16 +337,16 @@ describe('patchmap test', () => {
             transform(viewport);
             await vi.advanceTimersByTimeAsync(100);
 
-            viewport.emit('mousedown', {
+            viewport.emit('pointerdown', {
               global: viewport.toGlobal(position),
               stopPropagation: () => {},
             });
-            viewport.emit('mouseup', {
+            viewport.emit('pointerup', {
               global: viewport.toGlobal(position),
               stopPropagation: () => {},
             });
 
-            expect(onSelect).toHaveBeenCalledTimes(1);
+            expect(onSelect).toHaveBeenCalledTimes(2);
             const receivedElement = onSelect.mock.calls[0][0];
 
             if (expectedId === null) {
@@ -410,23 +410,23 @@ describe('patchmap test', () => {
 
           const onSelect = vi.fn();
 
-          patchmap.select({
+          patchmap.stateManager.setState('selection', {
             enabled: true,
             selectUnit: selectUnit,
             onSelect: onSelect,
           });
 
           const viewport = patchmap.viewport;
-          viewport.emit('mousedown', {
+          viewport.emit('pointerdown', {
             global: viewport.toGlobal(clickPosition),
             stopPropagation: () => {},
           });
-          viewport.emit('mouseup', {
+          viewport.emit('pointerup', {
             global: viewport.toGlobal(clickPosition),
             stopPropagation: () => {},
           });
 
-          expect(onSelect).toHaveBeenCalledTimes(1);
+          expect(onSelect).toHaveBeenCalledTimes(2);
           const selectedObject = onSelect.mock.calls[0][0];
 
           if (expectedId) {

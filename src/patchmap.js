@@ -1,12 +1,10 @@
 import gsap from 'gsap';
-import { Application, Graphics, UPDATE_PRIORITY } from 'pixi.js';
+import { Application, UPDATE_PRIORITY } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { UndoRedoManager } from './command/undo-redo-manager';
 import { draw } from './display/draw';
 import { update } from './display/update';
-import { dragSelect } from './events/drag-select';
 import { fit, focus } from './events/focus-fit';
-import { select } from './events/single-select';
 import {
   initApp,
   initAsset,
@@ -21,20 +19,20 @@ import { themeStore } from './utils/theme';
 import { validateMapData } from './utils/validator';
 import './display/elements/registry';
 import './display/components/registry';
+import StateManager from './events/StateManager';
+import SelectionState from './events/states/SelectionState';
+import Transformer from './transformer/Transformer';
 
 class Patchmap {
-  constructor() {
-    this._app = null;
-    this._viewport = null;
-    this._resizeObserver = null;
-    this._isInit = false;
-    this._theme = themeStore();
-    this._undoRedoManager = new UndoRedoManager();
-    this._animationContext = gsap.context(() => {});
-
-    this._singleSelectState = null;
-    this._dragSelectState = null;
-  }
+  _app = null;
+  _viewport = null;
+  _resizeObserver = null;
+  _isInit = false;
+  _theme = themeStore();
+  _undoRedoManager = new UndoRedoManager();
+  _animationContext = gsap.context(() => {});
+  _transformer = null;
+  _stateManager = null;
 
   get app() {
     return this._app;
@@ -58,6 +56,35 @@ class Patchmap {
 
   get undoRedoManager() {
     return this._undoRedoManager;
+  }
+
+  get transformer() {
+    return this._transformer;
+  }
+
+  set transformer(value) {
+    if (this._transformer && !this._transformer.destroyed) {
+      this.viewport.off('object_transformed', this.transformer.update);
+      this._transformer.destroy(true);
+    }
+
+    if (value && !(value instanceof Transformer)) {
+      console.error(
+        'Transformer must be an instance of the Transformer class.',
+      );
+      this._transformer = null;
+      return;
+    }
+
+    this._transformer = value;
+    if (this._transformer) {
+      this.viewport.addChild(this._transformer);
+      this.viewport.on('object_transformed', this.transformer.update);
+    }
+  }
+
+  get stateManager() {
+    return this._stateManager;
   }
 
   get animationContext() {
@@ -99,6 +126,7 @@ class Patchmap {
     initCanvas(element, this.app);
 
     this._resizeObserver = initResizeObserver(element, this.app, this.viewport);
+    this._stateManager = new StateManager(this);
     this.isInit = true;
   }
 
@@ -121,8 +149,6 @@ class Patchmap {
     this._theme = themeStore();
     this._undoRedoManager = new UndoRedoManager();
     this._animationContext = gsap.context(() => {});
-    this._singleSelectState = null;
-    this._dragSelectState = null;
   }
 
   draw(data) {
@@ -143,8 +169,8 @@ class Patchmap {
     this.undoRedoManager.clear();
     this.animationContext.revert();
     event.removeAllEvent(this.viewport);
-    this.initSelectState();
     draw(context, validatedData);
+    this._stateManager.register('selection', SelectionState, true);
 
     // Force a refresh of all relation elements after the initial draw. This ensures
     // that all link targets exist in the scene graph before the relations
@@ -185,26 +211,6 @@ class Patchmap {
 
   selector(path, opts) {
     return selector(this.viewport, path, opts);
-  }
-
-  select(opts) {
-    select(this.viewport, this._singleSelectState, opts);
-    dragSelect(this.viewport, this._dragSelectState, opts);
-  }
-
-  initSelectState() {
-    this._singleSelectState = {
-      config: {},
-      position: { start: null, end: null },
-      viewportPosStart: null,
-    };
-    this._dragSelectState = {
-      config: {},
-      lastMoveTime: 0,
-      isDragging: false,
-      point: { start: null, end: null, move: null },
-      box: new Graphics(),
-    };
   }
 }
 
