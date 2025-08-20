@@ -1,3 +1,4 @@
+import Element from './elements/Element';
 import { newElement } from './elements/creator';
 
 export const draw = (context, data) => {
@@ -17,6 +18,8 @@ export const draw = (context, data) => {
 const destroyChildren = (parent) => {
   const children = [...parent.children];
   for (const child of children) {
-    child.destroy({ children: true });
+    if (child instanceof Element) {
+      child.destroy({ children: true });
+    }
   }
 };
