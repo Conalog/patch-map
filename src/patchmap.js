@@ -128,6 +128,7 @@ class Patchmap {
 
     this._resizeObserver = initResizeObserver(element, this.app, this.viewport);
     this._stateManager = new StateManager(this);
+    this._stateManager.register('selection', SelectionState, true);
     this.transformer = transformer;
     this.isInit = true;
   }
@@ -137,6 +138,7 @@ class Patchmap {
 
     this.undoRedoManager.destroy();
     this.animationContext.revert();
+    this.stateManager.resetState();
     event.removeAllEvent(this.viewport);
     this.viewport.destroy({ children: true, context: true, style: true });
     const parentElement = this.app.canvas.parentElement;
@@ -173,7 +175,6 @@ class Patchmap {
     this.animationContext.revert();
     event.removeAllEvent(this.viewport);
     draw(context, validatedData);
-    this._stateManager.register('selection', SelectionState, true);
 
     // Force a refresh of all relation elements after the initial draw. This ensures
     // that all link targets exist in the scene graph before the relations
