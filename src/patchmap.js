@@ -138,6 +138,7 @@ class Patchmap {
 
     this.undoRedoManager.destroy();
     this.animationContext.revert();
+    this.stateManager.resetState();
     event.removeAllEvent(this.viewport);
     this.viewport.destroy({ children: true, context: true, style: true });
     const parentElement = this.app.canvas.parentElement;
@@ -152,7 +153,6 @@ class Patchmap {
     this._theme = themeStore();
     this._undoRedoManager = new UndoRedoManager();
     this._animationContext = gsap.context(() => {});
-    this.stateManager.resetState();
     this._transformer = null;
   }
 
