@@ -115,6 +115,7 @@ class Patchmap {
       viewport: viewportOptions = {},
       theme: themeOptions = {},
       assets: assetsOptions = [],
+      transformer,
     } = opts;
 
     this.undoRedoManager._setHotkeys();
@@ -127,6 +128,7 @@ class Patchmap {
 
     this._resizeObserver = initResizeObserver(element, this.app, this.viewport);
     this._stateManager = new StateManager(this);
+    this.transformer = transformer;
     this.isInit = true;
   }
 
