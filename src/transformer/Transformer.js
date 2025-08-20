@@ -76,7 +76,7 @@ export default class Transformer extends Container {
    * @private
    * @type {WireframeStyle}
    */
-  _wireframeStyle = DEFAULT_WIREFRAME_STYLE;
+  _wireframeStyle = {};
 
   /**
    * A reference to the viewport, obtained when this container is added to the stage.
@@ -95,6 +95,7 @@ export default class Transformer extends Container {
     if (isValidationError(options)) throw options;
 
     this.#wireframe = this.addChild(new Wireframe({ label: 'wireframe' }));
+    this.wireframeStyle = DEFAULT_WIREFRAME_STYLE;
     this.onRender = this.#refresh.bind(this);
     for (const key in options) {
       if (key === 'wireframeStyle') {
@@ -150,6 +151,7 @@ export default class Transformer extends Container {
   set elements(value) {
     this._elements = value ? (Array.isArray(value) ? value : [value]) : [];
     this.update();
+    this.emit('update_elements');
   }
 
   /**
