@@ -115,6 +115,7 @@ class Patchmap {
       viewport: viewportOptions = {},
       theme: themeOptions = {},
       assets: assetsOptions = [],
+      transformer,
     } = opts;
 
     this.undoRedoManager._setHotkeys();
@@ -127,6 +128,7 @@ class Patchmap {
 
     this._resizeObserver = initResizeObserver(element, this.app, this.viewport);
     this._stateManager = new StateManager(this);
+    this.transformer = transformer;
     this.isInit = true;
   }
 
@@ -149,6 +151,7 @@ class Patchmap {
     this._theme = themeStore();
     this._undoRedoManager = new UndoRedoManager();
     this._animationContext = gsap.context(() => {});
+    this._transformer = null;
   }
 
   draw(data) {
