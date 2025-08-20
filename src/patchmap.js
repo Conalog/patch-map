@@ -127,6 +127,7 @@ class Patchmap {
 
     this._resizeObserver = initResizeObserver(element, this.app, this.viewport);
     this._stateManager = new StateManager(this);
+    this._stateManager.register('selection', SelectionState, true);
     this.isInit = true;
   }
 
@@ -149,6 +150,7 @@ class Patchmap {
     this._theme = themeStore();
     this._undoRedoManager = new UndoRedoManager();
     this._animationContext = gsap.context(() => {});
+    this.stateManager.resetState();
   }
 
   draw(data) {
@@ -170,7 +172,6 @@ class Patchmap {
     this.animationContext.revert();
     event.removeAllEvent(this.viewport);
     draw(context, validatedData);
-    this._stateManager.register('selection', SelectionState, true);
 
     // Force a refresh of all relation elements after the initial draw. This ensures
     // that all link targets exist in the scene graph before the relations
