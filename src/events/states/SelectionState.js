@@ -125,7 +125,6 @@ export default class SelectionState extends State {
    * @param {PIXI.Point} p1 - The starting point of the drag.
    * @param {PIXI.Point} p2 - The current pointer position.
    */
-
   #drawSelectionBox(p1, p2) {
     if (!p1 || !p2) return;
 
