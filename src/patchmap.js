@@ -151,6 +151,7 @@ class Patchmap {
     this._theme = themeStore();
     this._undoRedoManager = new UndoRedoManager();
     this._animationContext = gsap.context(() => {});
+    this._transformer = null;
   }
 
   draw(data) {
