@@ -38,6 +38,7 @@ export const update = (viewport, opts) => {
       refresh: config.refresh,
     });
   }
+  return elements;
 };
 
 const applyRelativeTransform = (element, changes) => {

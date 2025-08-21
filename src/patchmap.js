@@ -1,7 +1,7 @@
 import gsap from 'gsap';
 import { Application, UPDATE_PRIORITY } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
-import { UndoRedoManager } from './command/undo-redo-manager';
+import { UndoRedoManager } from './command/UndoRedoManager';
 import { draw } from './display/draw';
 import { update } from './display/update';
 import { fit, focus } from './events/focus-fit';
@@ -22,8 +22,9 @@ import './display/components/registry';
 import StateManager from './events/StateManager';
 import SelectionState from './events/states/SelectionState';
 import Transformer from './transformer/Transformer';
+import { WildcardEventEmitter } from './utils/event/WildcardEventEmitter';
 
-class Patchmap {
+class Patchmap extends WildcardEventEmitter {
   _app = null;
   _viewport = null;
   _resizeObserver = null;
@@ -131,6 +132,7 @@ class Patchmap {
     this._stateManager.register('selection', SelectionState, true);
     this.transformer = transformer;
     this.isInit = true;
+    this.emit('patchmap:initialized', { target: this });
   }
 
   destroy() {
@@ -139,6 +141,7 @@ class Patchmap {
     this.undoRedoManager.destroy();
     this.animationContext.revert();
     this.stateManager.resetState();
+    this.stateManager.destroy();
     event.removeAllEvent(this.viewport);
     this.viewport.destroy({ children: true, context: true, style: true });
     const parentElement = this.app.canvas.parentElement;
@@ -154,6 +157,9 @@ class Patchmap {
     this._undoRedoManager = new UndoRedoManager();
     this._animationContext = gsap.context(() => {});
     this._transformer = null;
+    this._stateManager = null;
+    this.emit('patchmap:destroyed', { target: this });
+    this.removeAllListeners();
   }
 
   draw(data) {
@@ -188,6 +194,7 @@ class Patchmap {
     );
 
     this.app.start();
+    this.emit('patchmap:draw', { data: validatedData, target: this });
     return validatedData;
 
     function processData(data) {
@@ -202,7 +209,8 @@ class Patchmap {
   }
 
   update(opts) {
-    update(this.viewport, opts);
+    const updatedElements = update(this.viewport, opts);
+    this.emit('patchmap:updated', { elements: updatedElements, target: this });
   }
 
   focus(ids) {
