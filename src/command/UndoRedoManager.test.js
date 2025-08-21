@@ -149,7 +149,7 @@ describe('UndoRedoManager', () => {
   it('should correctly notify subscribers on state changes', () => {
     const manager = new UndoRedoManager();
     const listener = vi.fn();
-    manager.on('change', listener);
+    manager.on('history:*', listener);
 
     manager.execute(new MockCommand());
     expect(listener).toHaveBeenCalledTimes(1);
@@ -163,7 +163,7 @@ describe('UndoRedoManager', () => {
     manager.clear();
     expect(listener).toHaveBeenCalledTimes(4);
 
-    manager.off('change', listener);
+    manager.off('history:*', listener);
     manager.execute(new MockCommand());
     expect(listener).toHaveBeenCalledTimes(4);
   });
