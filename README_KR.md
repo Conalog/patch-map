@@ -37,6 +37,7 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js
   - [canUndo()](#canundo)
   - [canRedo()](#canredo)
   - [clear()](#clear)
+- [📢 사용 가능한 전체 이벤트 목록](#-사용-가능한-전체-이벤트-목록)
 - [🧑‍💻 개발](#-개발)
   - [개발 환경 세팅](#개발-환경-세팅)
   - [VSCode 통합](#vscode-통합)
@@ -47,19 +48,24 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js
 ## 🚀 시작하기
 
 ### 설치
+
 #### NPM
+
 ```sh
 npm install @conalog/patch-map
 ```
 
 #### CDN
+
 ```html
 <script src="https://cdn.jsdelivr.net/npm/pixi.js@latest/dist/pixi.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@conalog/patch-map@latest/dist/index.umd.js"></script>
 ```
 
 ### 기본 예제
+
 시작하는 데 도움이 되는 간단한 예제입니다: [예제](https://codesandbox.io/p/sandbox/yvjrpx)
+
 ```js
 import { Patchmap } from '@conalog/patch-map';
 
@@ -108,6 +114,7 @@ patchmap.draw(data);
 ## Patchmap
 
 ### `init(el, options)`
+
 PATCH MAP을 초기화하는 것으로, 1번만 실행되어야 합니다.
 
 ```js
@@ -123,6 +130,7 @@ await patchmap.init(el, {
 ```
 
 #### **Options**
+
 렌더링 동작을 사용자 정의하려면 다음 옵션을 사용하세요:
 
 - `app`
@@ -394,6 +402,7 @@ patchmap.fit(['item-1', 'item-2'])
 <br/>
 
 ### `selector(path)`
+
 [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 객체 탐색기입니다.
 
 ```js
@@ -558,6 +567,22 @@ patchmap.transformer.elements = [selectedObject];
 patchmap.transformer.elements = [];
 ```
 
+#### transformer.selection
+
+`Transformer`의 선택 상태를 전문적으로 관리하는 `SelectionModel` 인스턴스입니다. 이를 통해 선택된 요소를 프로그래밍 방식으로 제어할 수 있습니다.
+
+```js
+// 선택 요소 추가, 제거, 교체
+transformer.selection.add(item1);
+transformer.selection.remove(item1);
+transformer.selection.set([item2]);
+
+// 선택 변경 이벤트 구독
+transformer.on('update_elements', ({ current, added, removed }) => {
+  console.log('현재 선택:', current);
+});
+```
+
 <br/>
 
 ## undoRedoManager
@@ -581,19 +606,61 @@ undoRedoManager.redo();
 ```
 
 #### `canUndo()`
+
 실행 취소가 가능한지 여부를 반환합니다.
 
 #### `canRedo()`
+
 재실행이 가능한지 여부를 반환합니다.
 
 #### `clear()`
+
 모든 명령 기록을 초기화합니다.
+
+<br/>
+
+## 📢 사용 가능한 전체 이벤트 목록
+
+이번 업데이트로 인해 구독 가능한 이벤트 목록입니다. `.on(eventName, callback)`을 사용하여 구독할 수 있습니다.
+
+#### `Patchmap`
+
+  * `patchmap:initialized`: `patchmap.init()`이 성공적으로 완료되었을 때 발생합니다.
+  * `patchmap:draw`: `patchmap.draw()`를 통해 새로운 데이터가 렌더링되었을 때 발생합니다.
+  * `patchmap:updated`: `patchmap.update()`를 통해 요소가 업데이트되었을 때 발생합니다.
+  * `patchmap:destroyed`: `patchmap.destroy()`가 호출되어 인스턴스가 파괴될 때 발생합니다.
+
+#### `UndoRedoManager`
+
+  * `history:executed`: 새로운 커맨드가 실행 스택에 추가되었을 때 발생합니다.
+  * `history:undone`: `undo()`가 실행되었을 때 발생합니다.
+  * `history:redone`: `redo()`가 실행되었을 때 발생합니다.
+  * `history:cleared`: `clear()`로 모든 히스토리가 삭제되었을 때 발생합니다.
+  * `history:destroyed`: `destroy()`가 호출되었을 때 발생합니다.
+  * `history:*`: 위의 모든 `history:` 네임스페이스 이벤트를 구독합니다.
+
+#### `StateManager`
+
+  * `state:pushed`: 새로운 상태가 스택에 추가되었을 때 발생합니다.
+  * `state:popped`: 현재 상태가 스택에서 제거되었을 때 발생합니다.
+  * `state:set`: `setState()`를 통해 상태 스택이 리셋되고 새로운 상태가 설정되었을 때 발생합니다.
+  * `state:reset`: `resetState()`로 모든 상태가 제거되었을 때 발생합니다.
+  * `state:destroyed`: `destroy()`가 호출되었을 때 발생합니다.
+  * `modifier:activated`: 수정자(Modifier) 상태가 활성화되었을 때 발생합니다.
+  * `modifier:deactivated`: 수정자(Modifier) 상태가 비활성화되었을 때 발생합니다.
+  * `state:*`: 위의 모든 `state:` 네임스페이스 이벤트를 구독합니다.
+  * `modifier:*`: 위의 모든 `modifier:` 네임스페이스 이벤트를 구독합니다.
+
+#### `Transformer`
+
+  * `update_elements`: `transformer.elements` 또는 `transformer.selection`의 내용이 변경될 때 발생합니다.
 
 <br/>
 
 ## 🧑‍💻 개발
 
 ### 개발 환경 세팅
+
 ```sh
 npm install      # 의존성 설치
 npm run dev      # 개발 서버 시작
@@ -602,9 +669,12 @@ npm run lint:fix # 코드 포맷팅 수정
 ```
 
 ### VSCode 통합
+
 일관된 코드 포맷팅을 위해 Biome을 설정하세요.
-1.	[Biome 확장](https://biomejs.dev/reference/vscode/)을 설치하세요.
-2.	VSCode 설정을 업데이트하세요:
+
+1.  [Biome 확장](https://biomejs.dev/reference/vscode/)을 설치하세요.
+2.  VSCode 설정을 업데이트하세요:
+
 ```json
 {
   "editor.formatOnSave": true,

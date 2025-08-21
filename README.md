@@ -36,6 +36,7 @@ Therefore, to use this, an understanding of the following two libraries is essen
   - [canUndo()](#canundo)
   - [canRedo()](#canredo)
   - [clear()](#clear)
+- [📢 Full List of Available Events](#-full-list-of-available-events)
 - [🧑‍💻 Development](#-development)
   - [Setting up the development environment](#setting-up-the-development-environment)
   - [VSCode Integration](#vscode-integration)
@@ -559,6 +560,22 @@ patchmap.transformer.elements = [selectedObject];
 patchmap.transformer.elements = [];
 ```
 
+#### transformer.selection
+
+An instance of `SelectionModel` for dedicated management of the `Transformer`'s selection state. This allows you to programmatically control the selected elements.
+
+```js
+// Add, remove, and replace selected elements
+transformer.selection.add(item1);
+transformer.selection.remove(item1);
+transformer.selection.set([item2]);
+
+// Subscribe to selection change events
+transformer.on('update_elements', ({ current, added, removed }) => {
+  console.log('Current selection:', current);
+});
+```
+
 <br/>
 
 ## undoRedoManager
@@ -589,6 +606,46 @@ Returns whether redo is possible.
 
 #### `clear()`
 Clears all command history.
+
+Of course. Here is the English translation of the event list:
+
+<br/>
+
+## 📢 Full List of Available Events
+
+This is the list of events that can be subscribed to with this update. You can subscribe using `.on(eventName, callback)`.
+
+#### `Patchmap`
+
+  * `patchmap:initialized`: Fired when `patchmap.init()` completes successfully.
+  * `patchmap:draw`: Fired when new data is rendered via `patchmap.draw()`.
+  * `patchmap:updated`: Fired when elements are updated via `patchmap.update()`.
+  * `patchmap:destroyed`: Fired when the instance is destroyed by calling `patchmap.destroy()`.
+
+#### `UndoRedoManager`
+
+  * `history:executed`: Fired when a new command is added to the execution stack.
+  * `history:undone`: Fired when `undo()` is executed.
+  * `history:redone`: Fired when `redo()` is executed.
+  * `history:cleared`: Fired when all history is deleted with `clear()`.
+  * `history:destroyed`: Fired when `destroy()` is called.
+  * `history:*`: Subscribes to all of the above `history:` namespace events.
+
+#### `StateManager`
+
+  * `state:pushed`: Fired when a new state is added to the stack.
+  * `state:popped`: Fired when the current state is removed from the stack.
+  * `state:set`: Fired when the state stack is reset and a new state is set via `setState()`.
+  * `state:reset`: Fired when all states are removed with `resetState()`.
+  * `state:destroyed`: Fired when `destroy()` is called.
+  * `modifier:activated`: Fired when a modifier state is activated.
+  * `modifier:deactivated`: Fired when a modifier state is deactivated.
+  * `state:*`: Subscribes to all of the above `state:` namespace events.
+  * `modifier:*`: Subscribes to all of the above `modifier:` namespace events.
+
+#### `Transformer`
+
+  * `update_elements`: Fired when the content of `transformer.elements` or `transformer.selection` changes.
 
 <br/>
 
