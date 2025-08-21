@@ -5,7 +5,7 @@ export default class SelectionModel extends WildcardEventEmitter {
   #elements = [];
 
   get elements() {
-    return this.#elements;
+    return [...this.#elements];
   }
 
   set(elements) {
