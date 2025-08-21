@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { UndoRedoManager } from './UndoRedoManager';
 import { Command } from './commands/base';
 import { BundleCommand } from './commands/bundle';
-import { UndoRedoManager } from './undo-redo-manager';
 
 /**
  * A mock command for testing purposes.
@@ -149,24 +149,22 @@ describe('UndoRedoManager', () => {
   it('should correctly notify subscribers on state changes', () => {
     const manager = new UndoRedoManager();
     const listener = vi.fn();
-    const unsubscribe = manager.subscribe(listener);
+    manager.on('change', listener);
 
+    manager.execute(new MockCommand());
     expect(listener).toHaveBeenCalledTimes(1);
 
-    manager.execute(new MockCommand());
+    manager.undo();
     expect(listener).toHaveBeenCalledTimes(2);
 
-    manager.undo();
+    manager.redo();
     expect(listener).toHaveBeenCalledTimes(3);
 
-    manager.redo();
+    manager.clear();
     expect(listener).toHaveBeenCalledTimes(4);
 
-    manager.clear();
-    expect(listener).toHaveBeenCalledTimes(5);
-
-    unsubscribe();
+    manager.off('change', listener);
     manager.execute(new MockCommand());
-    expect(listener).toHaveBeenCalledTimes(5);
+    expect(listener).toHaveBeenCalledTimes(4);
   });
 });
