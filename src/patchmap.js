@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { Application, EventEmitter, UPDATE_PRIORITY } from 'pixi.js';
+import { Application, UPDATE_PRIORITY } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { UndoRedoManager } from './command/UndoRedoManager';
 import { draw } from './display/draw';
@@ -22,8 +22,9 @@ import './display/components/registry';
 import StateManager from './events/StateManager';
 import SelectionState from './events/states/SelectionState';
 import Transformer from './transformer/Transformer';
+import { WildcardEventEmitter } from './utils/event/WildcardEventEmitter';
 
-class Patchmap extends EventEmitter {
+class Patchmap extends WildcardEventEmitter {
   _app = null;
   _viewport = null;
   _resizeObserver = null;
@@ -131,7 +132,7 @@ class Patchmap extends EventEmitter {
     this._stateManager.register('selection', SelectionState, true);
     this.transformer = transformer;
     this.isInit = true;
-    this.emit('initialized', { target: this });
+    this.emit('patchmap:initialized', { target: this });
   }
 
   destroy() {
@@ -155,6 +156,8 @@ class Patchmap extends EventEmitter {
     this._undoRedoManager = new UndoRedoManager();
     this._animationContext = gsap.context(() => {});
     this._transformer = null;
+    this.emit('patchmap:destroyed', { target: this });
+    this.removeAllListeners();
   }
 
   draw(data) {
@@ -189,7 +192,7 @@ class Patchmap extends EventEmitter {
     );
 
     this.app.start();
-    this.emit('draw', { data: validatedData, target: this });
+    this.emit('patchmap:draw', { data: validatedData, target: this });
     return validatedData;
 
     function processData(data) {
@@ -205,7 +208,7 @@ class Patchmap extends EventEmitter {
 
   update(opts) {
     const updatedElements = update(this.viewport, opts);
-    this.emit('updated', { elements: updatedElements, target: this });
+    this.emit('patchmap:updated', { elements: updatedElements, target: this });
   }
 
   focus(ids) {

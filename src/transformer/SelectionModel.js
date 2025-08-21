@@ -1,7 +1,7 @@
-import { EventEmitter } from 'pixi.js';
 import { convertArray } from '../utils/convert';
+import { WildcardEventEmitter } from '../utils/event/WildcardEventEmitter';
 
-export default class SelectionModel extends EventEmitter {
+export default class SelectionModel extends WildcardEventEmitter {
   #elements = [];
 
   get elements() {
@@ -58,5 +58,9 @@ export default class SelectionModel extends EventEmitter {
         removed,
       });
     }
+  }
+
+  destroy() {
+    this.removeAllListeners();
   }
 }

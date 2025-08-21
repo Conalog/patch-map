@@ -5,14 +5,14 @@ import { PROPAGATE_EVENT } from './states/State';
  * Manages the state of the application, including the registration, transition, and management of states.
  * This class implements a stack-based state machine, allowing for nested states and complex interaction flows.
  *
- * @extends PIXI.EventEmitter
+ * @extends WildcardEventEmitter
  * @fires StateManager#state:pushed
  * @fires StateManager#state:popped
  * @fires StateManager#state:set
  * @fires StateManager#state:reset
+ * @fires StateManager#state:destroyed
  * @fires StateManager#modifier:activated
  * @fires StateManager#modifier:deactivated
- * @fires StateManager#destroyed
  */
 export default class StateManager extends WildcardEventEmitter {
   /** @private */
@@ -320,7 +320,7 @@ export default class StateManager extends WildcardEventEmitter {
     this.#boundEvents.clear();
     this.#eventListeners = {};
 
-    this.emit('destroyed', { target: this });
+    this.emit('state:destroyed', { target: this });
     this.removeAllListeners();
   }
 }

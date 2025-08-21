@@ -207,7 +207,7 @@ export default class Transformer extends Container {
     if (this._viewport) {
       this._viewport.off('zoomed', this.update);
     }
-    this.selection.removeAllListeners();
+    this.selection.destroy();
     super.destroy(options);
   }
 

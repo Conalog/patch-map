@@ -1,21 +1,20 @@
-import { EventEmitter } from 'pixi.js';
+import { WildcardEventEmitter } from '../utils/event/WildcardEventEmitter';
 import { BundleCommand } from './commands';
 import { isInput } from './utils';
 
 /**
  * Manages the command history for undo and redo operations.
  * It records executed commands, allowing for sequential undoing and redoing.
- * This class extends PIXI.EventEmitter to notify about state changes.
+ * This class extends WildcardEventEmitter to notify about state changes.
  *
- * @extends PIEI.EventEmitter
- * @fires UndoRedoManager#executed
- * @fires UndoRedoManager#undone
- * @fires UndoRedoManager#redone
- * @fires UndoRedoManager#cleared
- * @fires UndoRedoManager#change
- * @fires UndoRedoManager#destroyed
+ * @extends WildcardEventEmitter
+ * @fires UndoRedoManager#history:executed
+ * @fires UndoRedoManager#history:undone
+ * @fires UndoRedoManager#history:redone
+ * @fires UndoRedoManager#history:cleared
+ * @fires UndoRedoManager#history:destroyed
  */
-export class UndoRedoManager extends EventEmitter {
+export class UndoRedoManager extends WildcardEventEmitter {
   /**
    * @private
    * @type {import('./commands/base').Command[]}
@@ -99,8 +98,7 @@ export class UndoRedoManager extends EventEmitter {
       }
     }
 
-    this.emit('executed', { command: commandToPush, target: this });
-    this.emit('change', { target: this });
+    this.emit('history:executed', { command: commandToPush, target: this });
   }
 
   /**
@@ -112,8 +110,7 @@ export class UndoRedoManager extends EventEmitter {
       command.undo();
       this.#index--;
 
-      this.emit('undone', { command, target: this });
-      this.emit('change', { target: this });
+      this.emit('history:undone', { command, target: this });
     }
   }
 
@@ -126,8 +123,7 @@ export class UndoRedoManager extends EventEmitter {
       const command = this.#commands[this.#index];
       command.execute();
 
-      this.emit('redone', { command, target: this });
-      this.emit('change', { target: this });
+      this.emit('history:redone', { command, target: this });
     }
   }
 
@@ -154,8 +150,7 @@ export class UndoRedoManager extends EventEmitter {
     this.#commands = [];
     this.#index = -1;
 
-    this.emit('cleared', { target: this });
-    this.emit('change', { target: this });
+    this.emit('history:cleared', { target: this });
   }
 
   /**
@@ -194,7 +189,7 @@ export class UndoRedoManager extends EventEmitter {
     }
     this.clear();
 
-    this.emit('destroyed', { target: this });
+    this.emit('history:destroyed', { target: this });
     this.removeAllListeners();
   }
 }

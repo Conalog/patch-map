@@ -41,12 +41,22 @@ export class WildcardEventEmitter extends EventEmitter {
     // 2. Check for a namespace separator.
     const separatorIndex = eventName.indexOf(':');
     if (separatorIndex > 0) {
-      // 3. Construct and emit the wildcard event.
       const namespace = eventName.substring(0, separatorIndex);
       const wildcardEvent = `${namespace}:*`;
-      const wildcardResult = super.emit(wildcardEvent, ...args);
 
-      // Return true if either the specific or wildcard listener was found.
+      const originalPayload = args[0];
+      let wildcardArgs = args;
+
+      if (
+        originalPayload &&
+        typeof originalPayload === 'object' &&
+        !Array.isArray(originalPayload)
+      ) {
+        const wildcardPayload = { ...originalPayload, type: eventName };
+        wildcardArgs = [wildcardPayload, ...args.slice(1)];
+      }
+
+      const wildcardResult = super.emit(wildcardEvent, ...wildcardArgs);
       return specificResult || wildcardResult;
     }
 
