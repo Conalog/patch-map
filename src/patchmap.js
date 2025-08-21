@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { Application, UPDATE_PRIORITY } from 'pixi.js';
+import { Application, EventEmitter, UPDATE_PRIORITY } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { UndoRedoManager } from './command/undo-redo-manager';
 import { draw } from './display/draw';
@@ -23,7 +23,7 @@ import StateManager from './events/StateManager';
 import SelectionState from './events/states/SelectionState';
 import Transformer from './transformer/Transformer';
 
-class Patchmap {
+class Patchmap extends EventEmitter {
   _app = null;
   _viewport = null;
   _resizeObserver = null;
@@ -131,6 +131,7 @@ class Patchmap {
     this._stateManager.register('selection', SelectionState, true);
     this.transformer = transformer;
     this.isInit = true;
+    this.emit('initialized', this);
   }
 
   destroy() {
@@ -188,6 +189,7 @@ class Patchmap {
     );
 
     this.app.start();
+    this.emit('draw', { data: validatedData });
     return validatedData;
 
     function processData(data) {
@@ -202,7 +204,8 @@ class Patchmap {
   }
 
   update(opts) {
-    update(this.viewport, opts);
+    const updatedElements = update(this.viewport, opts);
+    this.emit('updated', updatedElements);
   }
 
   focus(ids) {
