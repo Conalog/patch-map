@@ -1,10 +1,20 @@
+import { WildcardEventEmitter } from '../utils/event/WildcardEventEmitter';
 import { PROPAGATE_EVENT } from './states/State';
 
 /**
  * Manages the state of the application, including the registration, transition, and management of states.
  * This class implements a stack-based state machine, allowing for nested states and complex interaction flows.
+ *
+ * @extends PIXI.EventEmitter
+ * @fires StateManager#state:pushed
+ * @fires StateManager#state:popped
+ * @fires StateManager#state:set
+ * @fires StateManager#state:reset
+ * @fires StateManager#modifier:activated
+ * @fires StateManager#modifier:deactivated
+ * @fires StateManager#destroyed
  */
-export default class StateManager {
+export default class StateManager extends WildcardEventEmitter {
   /** @private */
   #context;
   /** @private */
@@ -23,6 +33,7 @@ export default class StateManager {
    * @param {object} context - The context in which the StateManager operates, typically containing the viewport and other global instances.
    */
   constructor(context) {
+    super();
     this.#context = context;
   }
 
@@ -77,7 +88,11 @@ export default class StateManager {
    */
   setState(name, ...args) {
     this.resetState();
-    this.pushState(name, ...args);
+    const newState = this.pushState(name, ...args);
+
+    if (newState) {
+      this.emit('state:set', { state: newState, target: this });
+    }
   }
 
   /**
@@ -86,16 +101,19 @@ export default class StateManager {
   resetState() {
     this.exitAll();
     this.#stateStack.length = 0;
+
+    this.emit('state:reset', { target: this });
   }
 
   /**
    * Pushes a new state onto the stack, pausing the previous state.
    * @param {string} name - The name of the state to push.
    * @param {...*} args - Additional arguments to pass to the new state's `enter` method.
+   * @returns {import('./states/State').default | undefined} The new state instance that was pushed, or undefined if not found.
    */
   pushState(name, ...args) {
-    const currentState = this.getCurrentState();
-    currentState?.pause?.();
+    const pausedState = this.getCurrentState();
+    pausedState?.pause?.();
 
     const stateDef = this.#stateRegistry.get(name);
     if (!stateDef) {
@@ -114,6 +132,13 @@ export default class StateManager {
 
     this.#stateStack.push(instance);
     instance.enter?.(this.#context, ...args);
+
+    this.emit('state:pushed', {
+      pushedState: instance,
+      pausedState,
+      target: this,
+    });
+    return instance;
   }
 
   /**
@@ -124,12 +149,14 @@ export default class StateManager {
   popState(payload) {
     if (this.#stateStack.length === 0) return null;
 
-    const currentState = this.#stateStack.pop();
-    currentState?.exit?.();
+    const poppedState = this.#stateStack.pop();
+    poppedState?.exit?.();
 
-    const previousState = this.getCurrentState();
-    previousState?.resume?.(payload);
-    return currentState;
+    const resumedState = this.getCurrentState();
+    resumedState?.resume?.(payload);
+
+    this.emit('state:popped', { poppedState, resumedState, target: this });
+    return poppedState;
   }
 
   /**
@@ -199,14 +226,26 @@ export default class StateManager {
 
     this.#modifierState = instance;
     this.#modifierState.enter?.(this.#context, ...args);
+
+    this.emit('modifier:activated', {
+      modifierState: this.#modifierState,
+      target: this,
+    });
   }
 
   /**
    * Deactivates the current modifier state, restoring event handling to the main state stack.
    */
   deactivateModifier() {
-    this.#modifierState?.exit?.();
-    this.#modifierState = null;
+    const deactivatedModifier = this.#modifierState;
+    if (deactivatedModifier) {
+      deactivatedModifier.exit?.();
+      this.#modifierState = null;
+      this.emit('modifier:deactivated', {
+        modifierState: deactivatedModifier,
+        target: this,
+      });
+    }
   }
 
   /**
@@ -280,5 +319,8 @@ export default class StateManager {
     this.#modifierState = null;
     this.#boundEvents.clear();
     this.#eventListeners = {};
+
+    this.emit('destroyed', { target: this });
+    this.removeAllListeners();
   }
 }
