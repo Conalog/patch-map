@@ -37,7 +37,6 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js
   - [canUndo()](#canundo)
   - [canRedo()](#canredo)
   - [clear()](#clear)
-  - [subscribe(listener)](#subscribelistener)  
 - [🧑‍💻 개발](#-개발)
   - [개발 환경 세팅](#개발-환경-세팅)
   - [VSCode 통합](#vscode-통합)
@@ -589,18 +588,6 @@ undoRedoManager.redo();
 
 #### `clear()`
 모든 명령 기록을 초기화합니다.
-
-#### `subscribe(listener)`
-리스너를 구독하여 명령 관련 변경 사항이 이루어졌을 때, 해당 리스너가 호출됩니다. 반환된 함수를 호출하여 구독을 취소할 수 있습니다.
-```js
-let canUndo = false;
-let canRedo = false;
-
-const unsubscribe = undoRedoManager.subscribe((manager) => {
-  canUndo = manager.canUndo();
-  canRedo = manager.canRedo();
-});
-```
 
 <br/>
 

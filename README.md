@@ -36,7 +36,6 @@ Therefore, to use this, an understanding of the following two libraries is essen
   - [canUndo()](#canundo)
   - [canRedo()](#canredo)
   - [clear()](#clear)
-  - [subscribe(listener)](#subscribelistener)  
 - [🧑‍💻 Development](#-development)
   - [Setting up the development environment](#setting-up-the-development-environment)
   - [VSCode Integration](#vscode-integration)
@@ -590,18 +589,6 @@ Returns whether redo is possible.
 
 #### `clear()`
 Clears all command history.
-
-#### `subscribe(listener)`
-Subscribes a listener that will be called when command-related changes occur. You can call the returned function to unsubscribe.
-```js
-let canUndo = false;
-let canRedo = false;
-
-const unsubscribe = undoRedoManager.subscribe((manager) => {
-  canUndo = manager.canUndo();
-  canRedo = manager.canRedo();
-});
-```
 
 <br/>
 
