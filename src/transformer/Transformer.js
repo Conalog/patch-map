@@ -14,6 +14,11 @@ const DEFAULT_WIREFRAME_STYLE = {
 
 /**
  * @typedef {'all' | 'groupOnly' | 'elementOnly' | 'none'} BoundsDisplayMode
+ * The mode for displaying wireframe bounds.
+ * - 'all': Show bounds for both the group and individual elements.
+ * - 'groupOnly': Show only the encompassing bounds of all elements.
+ * - 'elementOnly': Show bounds for each individual element.
+ * - 'none': Do not show any bounds.
  */
 
 /**
@@ -42,6 +47,7 @@ const TransformerSchema = z
  * It draws a wireframe around the elements and can be configured to show bounds
  * for individual elements, the entire group, or both.
  * @extends PIXI.Container
+ * @fires Transformer#update_elements
  */
 export default class Transformer extends Container {
   /** @private */
@@ -49,21 +55,10 @@ export default class Transformer extends Container {
 
   /**
    * The mode for displaying the wireframe bounds.
-   * - 'all': Show bounds for both the group and individual elements.
-   * - 'groupOnly': Show only the encompassing bounds of all elements.
-   * - 'elementOnly': Show bounds for each individual element.
-   * - 'none': Do not show any bounds.
    * @private
    * @type {BoundsDisplayMode}
    */
   _boundsDisplayMode = 'all';
-
-  /**
-   * The array of elements currently being transformed.
-   * @private
-   * @type {PIXI.DisplayObject[]}
-   */
-  _elements = [];
 
   /**
    * A flag to indicate that the wireframe needs to be redrawn.
@@ -86,7 +81,12 @@ export default class Transformer extends Container {
    */
   _viewport = null;
 
-  _selection = null;
+  /**
+   * Manages the state of the currently selected elements.
+   * @private
+   * @type {SelectionModel}
+   */
+  _selection;
 
   /**
    * @param {TransformerOptions} [opts] - The options for the transformer.
@@ -109,6 +109,13 @@ export default class Transformer extends Container {
       }
     }
 
+    /**
+     * @event Transformer#update_elements
+     * @type {object}
+     * @property {PIXI.DisplayObject[]} current - The current array of selected elements.
+     * @property {PIXI.DisplayObject[]} added - The elements that were added in this update.
+     * @property {PIXI.DisplayObject[]} removed - The elements that were removed in this update.
+     */
     this._selection.on('update', ({ current, added, removed }) => {
       this.update();
       this.emit('update_elements', { current, added, removed });
@@ -123,8 +130,9 @@ export default class Transformer extends Container {
   }
 
   /**
-   * The wireframe graphics instance.
-   * @returns {Wireframe}
+   * The wireframe graphics instance used for drawing bounds.
+   * @type {Wireframe}
+   * @readonly
    */
   get wireframe() {
     return this.#wireframe;
@@ -132,33 +140,43 @@ export default class Transformer extends Container {
 
   /**
    * The current bounds display mode.
-   * @returns {BoundsDisplayMode}
+   * @type {BoundsDisplayMode}
    */
   get boundsDisplayMode() {
     return this._boundsDisplayMode;
   }
 
-  /**
-   * @param {BoundsDisplayMode} value
-   */
   set boundsDisplayMode(value) {
     this._boundsDisplayMode = value;
     this.update();
   }
 
+  /**
+   * The selection model instance that manages the selected elements.
+   * Use this to programmatically add, remove, or set the selection.
+   * @type {SelectionModel}
+   * @readonly
+   * @example
+   * transformer.selection.add(newElement);
+   * transformer.selection.remove(oldElement);
+   * transformer.selection.set([element1, element2]);
+   */
   get selection() {
     return this._selection;
   }
 
   /**
-   * The array of elements to be transformed.
-   * @returns {PIXI.DisplayObject[]}
+   * The array of elements currently being transformed.
+   * This is a convenient getter for `selection.elements`.
+   * @type {PIXI.DisplayObject[]}
    */
   get elements() {
     return this._selection.elements;
   }
 
   /**
+   * Sets the elements to be transformed, replacing any existing selection.
+   * This is a convenient setter for `selection.set()`.
    * @param {PIXI.DisplayObject | PIXI.DisplayObject[]} value
    */
   set elements(value) {
@@ -167,15 +185,12 @@ export default class Transformer extends Container {
 
   /**
    * The style of the wireframe.
-   * @returns {WireframeStyle}
+   * @type {WireframeStyle}
    */
   get wireframeStyle() {
     return this._wireframeStyle;
   }
 
-  /**
-   * @param {Partial<WireframeStyle>} value
-   */
   set wireframeStyle(value) {
     this._wireframeStyle = Object.assign(this._wireframeStyle, value);
     this.wireframe.setStrokeStyle(this.wireframeStyle);
