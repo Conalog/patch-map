@@ -146,6 +146,9 @@ export default class Transformer extends Container {
     return this._boundsDisplayMode;
   }
 
+  /**
+   * @param {BoundsDisplayMode} value
+   */
   set boundsDisplayMode(value) {
     this._boundsDisplayMode = value;
     this.update();
