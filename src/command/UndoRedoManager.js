@@ -53,7 +53,7 @@ export class UndoRedoManager extends WildcardEventEmitter {
    * @readonly
    */
   get commands() {
-    return this.#commands;
+    return [...this.#commands];
   }
 
   /**
