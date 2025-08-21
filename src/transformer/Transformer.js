@@ -4,6 +4,7 @@ import { isValidationError } from 'zod-validation-error';
 import { calcGroupOrientedBounds, calcOrientedBounds } from '../utils/bounds';
 import { getViewport } from '../utils/get';
 import { validate } from '../utils/validator';
+import SelectionModel from './SelectionModel';
 import { Wireframe } from './Wireframe';
 
 const DEFAULT_WIREFRAME_STYLE = {
@@ -85,6 +86,8 @@ export default class Transformer extends Container {
    */
   _viewport = null;
 
+  _selection = null;
+
   /**
    * @param {TransformerOptions} [opts] - The options for the transformer.
    */
@@ -94,6 +97,7 @@ export default class Transformer extends Container {
     const options = validate(opts, TransformerSchema);
     if (isValidationError(options)) throw options;
 
+    this._selection = new SelectionModel();
     this.#wireframe = this.addChild(new Wireframe({ label: 'wireframe' }));
     this.wireframeStyle = DEFAULT_WIREFRAME_STYLE;
     this.onRender = this.#refresh.bind(this);
@@ -104,6 +108,11 @@ export default class Transformer extends Container {
         this[key] = options[key];
       }
     }
+
+    this._selection.on('update', ({ current, added, removed }) => {
+      this.update();
+      this.emit('update_elements', { current, added, removed });
+    });
 
     this.on('added', () => {
       this._viewport = getViewport(this);
@@ -137,21 +146,23 @@ export default class Transformer extends Container {
     this.update();
   }
 
+  get selection() {
+    return this._selection;
+  }
+
   /**
    * The array of elements to be transformed.
    * @returns {PIXI.DisplayObject[]}
    */
   get elements() {
-    return this._elements;
+    return this._selection.elements;
   }
 
   /**
    * @param {PIXI.DisplayObject | PIXI.DisplayObject[]} value
    */
   set elements(value) {
-    this._elements = value ? (Array.isArray(value) ? value : [value]) : [];
-    this.update();
-    this.emit('update_elements');
+    this._selection.set(value);
   }
 
   /**
@@ -181,6 +192,7 @@ export default class Transformer extends Container {
     if (this._viewport) {
       this._viewport.off('zoomed', this.update);
     }
+    this.selection.removeAllListeners();
     super.destroy(options);
   }
 
