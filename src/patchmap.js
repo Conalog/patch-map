@@ -141,6 +141,7 @@ class Patchmap extends WildcardEventEmitter {
     this.undoRedoManager.destroy();
     this.animationContext.revert();
     this.stateManager.resetState();
+    this.stateManager.destroy();
     event.removeAllEvent(this.viewport);
     this.viewport.destroy({ children: true, context: true, style: true });
     const parentElement = this.app.canvas.parentElement;
@@ -156,6 +157,7 @@ class Patchmap extends WildcardEventEmitter {
     this._undoRedoManager = new UndoRedoManager();
     this._animationContext = gsap.context(() => {});
     this._transformer = null;
+    this._stateManager = null;
     this.emit('patchmap:destroyed', { target: this });
     this.removeAllListeners();
   }

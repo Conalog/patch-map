@@ -607,8 +607,6 @@ Returns whether redo is possible.
 #### `clear()`
 Clears all command history.
 
-Of course. Here is the English translation of the event list:
-
 <br/>
 
 ## 📢 Full List of Available Events
