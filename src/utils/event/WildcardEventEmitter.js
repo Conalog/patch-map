@@ -2,9 +2,8 @@ import { EventEmitter } from 'pixi.js';
 
 /**
  * Extends PIXI.EventEmitter to add support for namespace-based wildcard events.
- * When an event with a namespace (e.g., 'namespace:event') is emitted,
- * it automatically triggers a corresponding wildcard event (e.g., 'namespace:*').
- * This allows for listening to all events within a specific category.
+ * It enriches the wildcard event payload with structured data, including the
+ * original namespace and event type.
  *
  * @extends PIXI.EventEmitter
  * @example
@@ -27,21 +26,23 @@ import { EventEmitter } from 'pixi.js';
 export class WildcardEventEmitter extends EventEmitter {
   /**
    * Emits an event to listeners.
-   * If the event name contains a colon (`:`), it also emits a wildcard event
-   * for the corresponding namespace (e.g., emitting 'state:pushed' will also emit 'state:*').
+   * If the event name has a namespace (e.g., 'namespace:event'), this method
+   * will first emit the specific event. Then, it will emit a corresponding
+   * wildcard event ('namespace:*') with a structured payload that includes
+   * the `namespace` and `type` of the original event.
+   *
    * @override
    * @param {string} eventName - The name of the event to emit.
    * @param {...*} args - The arguments to pass to the listeners.
-   * @returns {boolean} `true` if the event had listeners (either specific or wildcard), else `false`.
+   * @returns {boolean} `true` if the event had listeners, else `false`.
    */
   emit(eventName, ...args) {
-    // 1. Emit the original, specific event first.
     const specificResult = super.emit(eventName, ...args);
 
-    // 2. Check for a namespace separator.
     const separatorIndex = eventName.indexOf(':');
     if (separatorIndex > 0) {
       const namespace = eventName.substring(0, separatorIndex);
+      const type = eventName.substring(separatorIndex + 1);
       const wildcardEvent = `${namespace}:*`;
 
       const originalPayload = args[0];
@@ -52,7 +53,7 @@ export class WildcardEventEmitter extends EventEmitter {
         typeof originalPayload === 'object' &&
         !Array.isArray(originalPayload)
       ) {
-        const wildcardPayload = { ...originalPayload, type: eventName };
+        const wildcardPayload = { ...originalPayload, namespace, type };
         wildcardArgs = [wildcardPayload, ...args.slice(1)];
       }
 
