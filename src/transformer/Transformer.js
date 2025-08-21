@@ -118,7 +118,7 @@ export default class Transformer extends Container {
      */
     this._selection.on('update', ({ current, added, removed }) => {
       this.update();
-      this.emit('update_elements', { current, added, removed });
+      this.emit('update_elements', { current, added, removed }, this);
     });
 
     this.on('added', () => {

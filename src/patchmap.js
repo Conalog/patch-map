@@ -189,7 +189,7 @@ class Patchmap extends EventEmitter {
     );
 
     this.app.start();
-    this.emit('draw', { data: validatedData });
+    this.emit('draw', validatedData, this);
     return validatedData;
 
     function processData(data) {
@@ -205,7 +205,7 @@ class Patchmap extends EventEmitter {
 
   update(opts) {
     const updatedElements = update(this.viewport, opts);
-    this.emit('updated', updatedElements);
+    this.emit('updated', updatedElements, this);
   }
 
   focus(ids) {

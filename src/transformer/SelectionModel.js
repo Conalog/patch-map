@@ -15,7 +15,7 @@ export default class SelectionModel extends EventEmitter {
 
     const added = newElements.filter((el) => !oldElements.includes(el));
     const removed = oldElements.filter((el) => !newElements.includes(el));
-    this.emit('update', { current: this.#elements, added, removed });
+    this.emit('update', { current: this.#elements, added, removed }, this);
   }
 
   add(elementsToAdd) {
@@ -24,7 +24,7 @@ export default class SelectionModel extends EventEmitter {
     );
     if (added.length > 0) {
       this.#elements.push(...added);
-      this.emit('update', { current: this.#elements, added, removed: [] });
+      this.emit('update', { current: this.#elements, added, removed: [] }.this);
     }
   }
 
@@ -41,7 +41,11 @@ export default class SelectionModel extends EventEmitter {
 
     if (removed.length > 0) {
       this.#elements = newElements;
-      this.emit('update', { current: this.#elements, added: [], removed });
+      this.emit(
+        'update',
+        { current: this.#elements, added: [], removed },
+        this,
+      );
     }
   }
 }
