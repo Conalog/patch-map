@@ -1,61 +1,96 @@
+import { collectCandidates } from '../utils/get';
 import { intersect } from '../utils/intersects/intersect';
 import { intersectPoint } from '../utils/intersects/intersect-point';
 import { getSelectObject } from './utils';
 
-export const findIntersectObject = (viewport, state, options) => {
-  return searchIntersect(viewport);
+export const findIntersectObject = (
+  viewport,
+  point,
+  { filter, selectUnit } = {},
+) => {
+  const allCandidates = collectCandidates(
+    viewport,
+    (child) => child.constructor.isSelectable,
+  );
 
-  function searchIntersect(parent) {
-    const children = [...parent.children].sort((a, b) => {
-      const zDiff = (b.zIndex || 0) - (a.zIndex || 0);
-      if (zDiff !== 0) return zDiff;
-      return parent.getChildIndex(b) - parent.getChildIndex(a);
-    });
+  const sortedCandidates = allCandidates.sort((a, b) => {
+    const zDiff = (b.zIndex || 0) - (a.zIndex || 0);
+    if (zDiff !== 0) return zDiff;
 
-    for (const child of children) {
-      if (
-        child.renderPipeId ||
-        child.type === 'item' ||
-        (options.isSelectGrid && child.type === 'grid')
-      ) {
-        const isIntersecting = intersectPoint(child, state.point);
-        const selectObject = isIntersecting
-          ? getSelectObject(child, options)
-          : null;
+    const pathA = getAncestorPath(a, viewport);
+    const pathB = getAncestorPath(b, viewport);
 
-        if (selectObject && (!options.filter || options.filter(selectObject))) {
+    const minLength = Math.min(pathA.length, pathB.length);
+    for (let i = 0; i < minLength; i++) {
+      if (pathA[i] !== pathB[i]) {
+        const commonParent = pathA[i].parent;
+        return (
+          commonParent.getChildIndex(pathB[i]) -
+          commonParent.getChildIndex(pathA[i])
+        );
+      }
+    }
+    return pathB.length - pathA.length;
+  });
+
+  for (const candidate of sortedCandidates) {
+    const targets =
+      candidate.constructor.hitScope === 'children'
+        ? candidate.children
+        : [candidate];
+
+    for (const target of targets) {
+      const isIntersecting = intersectPoint(target, point);
+      if (isIntersecting) {
+        const selectObject = getSelectObject(candidate, selectUnit);
+        if (selectObject && (!filter || filter(selectObject))) {
           return selectObject;
         }
       }
-
-      const found = searchIntersect(child);
-      if (found) return found;
     }
-    return null;
   }
+
+  return null;
 };
 
-export const findIntersectObjects = (viewport, state, options) => {
-  return Array.from(new Set(searchIntersect(viewport)));
+export const findIntersectObjects = (
+  viewport,
+  selectionBox,
+  { filter, selectUnit } = {},
+) => {
+  const allCandidates = collectCandidates(
+    viewport,
+    (child) => child.constructor.isSelectable,
+  );
+  const found = [];
 
-  function searchIntersect(parent) {
-    let found = [];
-    const children = [...parent.children];
+  for (const candidate of allCandidates) {
+    const targets =
+      candidate.constructor.hitScope === 'children'
+        ? candidate.children
+        : [candidate];
 
-    for (const child of children) {
-      if (child.renderPipeId || ['item', 'relations'].includes(child.type)) {
-        const isIntersecting = intersect(state.box, child);
-        const selectObject = isIntersecting
-          ? getSelectObject(child, options)
-          : null;
-
-        if (selectObject && (!options.filter || options.filter(selectObject))) {
+    for (const target of targets) {
+      const isIntersecting = intersect(selectionBox, target);
+      if (isIntersecting) {
+        const selectObject = getSelectObject(candidate, selectUnit);
+        if (selectObject && (!filter || filter(selectObject))) {
           found.push(selectObject);
+          break;
         }
-      } else {
-        found = found.concat(searchIntersect(child));
       }
     }
-    return found;
   }
+
+  return Array.from(new Set(found));
+};
+
+const getAncestorPath = (obj, stopAt) => {
+  const path = [];
+  let current = obj;
+  while (current && current !== stopAt) {
+    path.unshift(current);
+    current = current.parent;
+  }
+  return path;
 };

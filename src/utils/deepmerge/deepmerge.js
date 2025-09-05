@@ -56,7 +56,12 @@ const _deepMerge = (target, source, options, visited) => {
 };
 
 const mergeArray = (target, source, options, visited) => {
-  const { mergeBy } = options;
+  const { mergeBy, mergeStrategy = null } = options;
+
+  if (mergeStrategy === 'replace') {
+    return source;
+  }
+
   const merged = [...target];
   const used = new Set();
 
@@ -70,9 +75,11 @@ const mergeArray = (target, source, options, visited) => {
       }
     } else if (i < merged.length) {
       merged[i] = item;
+      used.add(i);
       return;
     }
     merged.push(item);
+    used.add(merged.length - 1);
   });
 
   return merged;

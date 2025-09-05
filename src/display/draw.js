@@ -1,15 +1,5 @@
-import { createGrid } from './elements/grid';
-import { createGroup } from './elements/group';
-import { createItem } from './elements/item';
-import { createRelations } from './elements/relations';
-import { update } from './update/update';
-
-const elementcreators = {
-  group: createGroup,
-  grid: createGrid,
-  item: createItem,
-  relations: createRelations,
-};
+import Element from './elements/Element';
+import { newElement } from './elements/creator';
 
 export const draw = (context, data) => {
   const { viewport } = context;
@@ -17,18 +7,10 @@ export const draw = (context, data) => {
   render(viewport, data);
 
   function render(parent, data) {
-    for (const config of data) {
-      const creator = elementcreators[config.type];
-      if (creator) {
-        const element = creator(config);
-        element.viewport = viewport;
-        update(context, { elements: element, changes: config });
-        parent.addChild(element);
-
-        if (config.type === 'group') {
-          render(element, config.items);
-        }
-      }
+    for (const changes of data) {
+      const element = newElement(changes.type, context);
+      element.update(changes);
+      parent.addChild(element);
     }
   }
 };
@@ -36,6 +18,8 @@ export const draw = (context, data) => {
 const destroyChildren = (parent) => {
   const children = [...parent.children];
   for (const child of children) {
-    child.destroy({ children: true });
+    if (child instanceof Element) {
+      child.destroy({ children: true });
+    }
   }
 };

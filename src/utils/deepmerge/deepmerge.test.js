@@ -80,7 +80,7 @@ describe('deepMerge – edge-case behavior', () => {
 /* -------------------------------------------------------------------------- */
 /* 3. Array/Object merge priority (id → label → type)                         */
 /* -------------------------------------------------------------------------- */
-describe('deepMerge – arrayMerge by id → label → type', () => {
+describe('deepMerge – mergeStrategy by id → label → type', () => {
   test.each([
     [
       {
@@ -196,6 +196,30 @@ describe('deepMerge – arrayMerge by id → label → type', () => {
           { type: 'text', text: '4' },
         ],
       },
+    ],
+    [
+      {
+        components: [],
+      },
+      {
+        components: [
+          { type: 'text', text: '5' },
+          { type: 'text', text: '6' },
+          { type: 'text', text: '7' },
+        ],
+      },
+      {
+        components: [
+          { type: 'text', text: '5' },
+          { type: 'text', text: '6' },
+          { type: 'text', text: '7' },
+        ],
+      },
+    ],
+    [
+      { components: [{ type: 'text', text: 'original' }] },
+      { components: [null, { type: 'text', text: 'new' }] },
+      { components: [null, { type: 'text', text: 'new' }] },
     ],
   ])('Case %#', (left, right, expected) => {
     expect(deepMerge(left, right)).toEqual(expected);
@@ -339,5 +363,42 @@ describe('deepMerge – additional edge‑case coverage', () => {
     const right = [b];
     const result = deepMerge(left, right);
     expect(result).toEqual([a, b]);
+  });
+});
+
+describe('deepMerge – mergeStrategy option', () => {
+  test.each([
+    {
+      name: 'should replace array when mergeStrategy is "replace"',
+      left: { arr: [1, 2, 3] },
+      right: { arr: [4, 5] },
+      options: { mergeStrategy: 'replace' },
+      expected: { arr: [4, 5] },
+    },
+    {
+      name: 'should merge arrays by default (no option)',
+      left: { arr: [1, 2, 3] },
+      right: { arr: [4, 5] },
+      options: {},
+      expected: { arr: [4, 5, 3] },
+    },
+    {
+      name: 'should merge nested arrays when mergeStrategy is "replace" at top level',
+      left: { nested: { arr: ['a', 'b'] } },
+      right: { nested: { arr: ['c'] } },
+      options: { mergeStrategy: 'replace' },
+      expected: { nested: { arr: ['c'] } },
+    },
+    {
+      name: 'should merge nested arrays when mergeStrategy is "replace" at second level',
+      left: [{ source: '1', target: '2' }],
+      right: [{ source: '2', target: '3' }],
+      expected: [
+        { source: '1', target: '2' },
+        { source: '2', target: '3' },
+      ],
+    },
+  ])('$name', ({ left, right, options, expected }) => {
+    expect(deepMerge(left, right, options)).toEqual(expected);
   });
 });

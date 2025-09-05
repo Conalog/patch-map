@@ -193,6 +193,8 @@ export function mapOnSchema(schema, fn) {
   return fn(mapInner());
 }
 
+const partialSchemaCache = new WeakMap();
+
 /**
  * Deeply converts every object property in a Zod schema to optional.
  * @template {import('zod').ZodTypeAny} T
@@ -200,10 +202,16 @@ export function mapOnSchema(schema, fn) {
  * @returns {T}
  */
 export function deepPartial(schema) {
+  if (partialSchemaCache.has(schema)) {
+    return partialSchemaCache.get(schema);
+  }
+
   /* @ts-ignore -- runtime cast only for developer hint */
-  return mapOnSchema(schema, (s) =>
+  const partialSchema = mapOnSchema(schema, (s) =>
     s instanceof z.ZodObject ? s.partial() : s,
   );
+  partialSchemaCache.set(schema, partialSchema);
+  return partialSchema;
 }
 
 /**

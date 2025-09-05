@@ -1,4 +1,6 @@
 export { Patchmap } from './patchmap';
-export { UndoRedoManager } from './command/undo-redo-manager';
+export { UndoRedoManager } from './command/UndoRedoManager';
 export { Command } from './command/commands/base';
-export * as change from './display/change';
+export { default as Transformer } from './transformer/Transformer';
+export { default as State, PROPAGATE_EVENT } from './events/states/State';
+export * from './utils';

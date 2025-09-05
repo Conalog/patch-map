@@ -1,257 +1,264 @@
-import { describe, expect, it } from 'vitest';
-import { componentArraySchema, componentSchema } from './component-schema';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { uid } from '../../utils/uuid';
+import {
+  backgroundSchema,
+  barSchema,
+  componentArraySchema,
+  componentSchema,
+  iconSchema,
+  textSchema,
+} from './component-schema.js';
 
-describe('componentArraySchema', () => {
-  // --------------------------------------------------------------------------
-  // 1) 전체 레이아웃 배열 구조 테스트
-  // --------------------------------------------------------------------------
-  it('should validate a valid component array with multiple items', () => {
-    const validComponent = [
-      {
-        type: 'background',
-        texture: { type: 'rect' },
-      },
-      {
-        type: 'bar',
-        texture: { type: 'rect' },
-        percentWidth: 0.5,
-        percentHeight: 1,
-        show: false,
-      },
-      {
-        type: 'icon',
-        asset: 'icon.png',
-        size: 32,
-        zIndex: 10,
-      },
-      {
-        type: 'text',
-        placement: 'top',
-        text: 'Hello World',
-      },
-    ];
+// Mocking a unique ID generator for predictable test outcomes.
+vi.mock('../../utils/uuid', () => ({
+  uid: vi.fn(),
+}));
 
-    const result = componentArraySchema.safeParse(validComponent);
-    expect(result.success).toBe(true);
-    expect(result.success && result.data).toBeDefined();
-  });
+beforeEach(() => {
+  vi.mocked(uid).mockClear();
+  vi.mocked(uid).mockReturnValue('mock-id-0');
+});
 
-  it('should fail if an invalid type is present in the component', () => {
-    const invalidComponent = {
-      // 여기에 존재하지 않는 type
-      type: 'wrongType',
-      texture: { type: 'rect' },
-    };
-
-    const result = componentSchema.safeParse(invalidComponent);
-    expect(result.success).toBe(false);
-  });
-
-  // --------------------------------------------------------------------------
-  // 2) background 타입 테스트
-  // --------------------------------------------------------------------------
-  describe('background type', () => {
-    it('should pass with valid background data', () => {
-      const data = [
-        {
-          type: 'background',
-          texture: { type: 'rect' },
-        },
-      ];
-      const result = componentArraySchema.safeParse(data);
-      expect(result.success).toBe(true);
+describe('Component Schemas', () => {
+  describe('Background Schema', () => {
+    it('should parse with a string source', () => {
+      const data = { type: 'background', source: 'image.png' };
+      const parsed = backgroundSchema.parse(data);
+      expect(parsed.source).toBe('image.png');
+      expect(parsed.id).toBe('mock-id-0'); // check default from Base
     });
 
-    it('should fail if texture is missing', () => {
-      const data = [
-        {
-          type: 'background',
-        },
-      ];
-      const result = componentArraySchema.safeParse(data);
-      expect(result.success).toBe(false);
-    });
-  });
-
-  // --------------------------------------------------------------------------
-  // 3) bar 타입 테스트
-  // --------------------------------------------------------------------------
-  describe('bar type', () => {
-    it('should pass with valid bar data (checking defaults too)', () => {
-      const data = [
-        {
-          type: 'bar',
-          texture: { type: 'rect' },
-        },
-      ];
-      const result = componentArraySchema.safeParse(data);
-      expect(result.success).toBe(true);
-
-      // percentWidth, percentHeight는 기본값이 1로 설정됨
-      if (result.success) {
-        expect(result.data[0].percentWidth).toBe(1);
-        expect(result.data[0].percentHeight).toBe(1);
-        // show, zIndex 등 defaultConfig 값도 확인
-        expect(result.data[0].show).toBe(true);
-      }
-    });
-
-    it('should fail if percentWidth is larger than 1', () => {
-      const data = [
-        {
-          type: 'bar',
-          texture: { type: 'rect' },
-          percentWidth: 1.1,
-        },
-      ];
-      const result = componentArraySchema.safeParse(data);
-      expect(result.success).toBe(false);
-    });
-
-    it('should fail if placement is not in the enum list', () => {
-      const data = [
-        {
-          type: 'bar',
-          texture: { type: 'rect' },
-          placement: 'unknown-placement',
-        },
-      ];
-      const result = componentArraySchema.safeParse(data);
-      expect(result.success).toBe(false);
-    });
-  });
-
-  // --------------------------------------------------------------------------
-  // 4) icon 타입 테스트
-  // --------------------------------------------------------------------------
-  describe('icon type', () => {
-    it('should pass with valid icon data (checking defaults)', () => {
-      const data = [
-        {
-          type: 'icon',
-          asset: 'icon.png',
-          size: 64,
-        },
-      ];
-      const result = componentArraySchema.safeParse(data);
-      expect(result.success).toBe(true);
-
-      if (result.success) {
-        expect(result.data[0].show).toBe(true);
-      }
-    });
-
-    it('should fail if size is negative', () => {
-      const data = [
-        {
-          type: 'icon',
-          asset: 'icon.png',
-          size: -1,
-        },
-      ];
-      const result = componentArraySchema.safeParse(data);
-      expect(result.success).toBe(false);
-    });
-
-    it('should fail if texture is missing in icon', () => {
-      const data = [
-        {
-          type: 'icon',
-          size: 32,
-        },
-      ];
-      const result = componentArraySchema.safeParse(data);
-      expect(result.success).toBe(false);
-    });
-  });
-
-  // --------------------------------------------------------------------------
-  // 5) text 타입 테스트
-  // --------------------------------------------------------------------------
-  describe('text type', () => {
-    it('should pass with minimal text data (checking defaults)', () => {
-      const data = [
-        {
-          type: 'text',
-        },
-      ];
-      const result = componentArraySchema.safeParse(data);
-      expect(result.success).toBe(true);
-
-      if (result.success) {
-        // text 디폴트값 확인
-        expect(result.data[0].text).toBe('');
-        // placement 디폴트값 확인
-        expect(result.data[0].placement).toBe('center');
-      }
-    });
-
-    it('should pass with a custom style object', () => {
-      const data = [
-        {
-          type: 'text',
-          text: 'Hello!',
-          style: {
-            fontWeight: 'bold',
-            customProp: 123,
-          },
-        },
-      ];
-      const result = componentArraySchema.safeParse(data);
-      expect(result.success).toBe(true);
-    });
-
-    it('should fail if placement is invalid in text', () => {
-      const data = [
-        {
-          type: 'text',
-          placement: 'invalid-placement',
-        },
-      ];
-      const result = componentArraySchema.safeParse(data);
-      expect(result.success).toBe(false);
-    });
-  });
-
-  // --------------------------------------------------------------------------
-  // 6) 기타 에러 케이스 / 엣지 케이스
-  // --------------------------------------------------------------------------
-  describe('edge cases', () => {
-    it('should fail if array is empty (though empty array is actually valid syntax-wise, might be logic error)', () => {
-      // 스키마상 빈 배열도 통과하지만,
-      // "레이아웃은 최소 1개 이상의 요소가 있어야 한다"라는
-      // 요구사항이 있는 경우를 가정해볼 수 있음.
-      // 만약 최소 1개 이상이 필요하면 .min(1)을 사용하세요.
-      const data = [];
-      // 현재 스키마는 빈 배열도 가능하므로 success가 true가 됩니다.
-      // 정말로 실패를 원한다면 아래 주석 처럼 변경해주세요:
-      // export const componentArraySchema = z
-      //   .discriminatedUnion('type', [background, bar, icon, text])
-      //   .array().min(1);
-      const result = componentArraySchema.safeParse(data);
-      // 여기서는 빈 배열도 "성공" 케이스임
-      expect(result.success).toBe(true);
-    });
-
-    it('should fail if the input is not an array at all', () => {
+    it('should parse with a TextureStyle object source', () => {
       const data = {
         type: 'background',
-        texture: { type: 'rect' },
+        source: { type: 'rect', fill: 'red' },
       };
-      const result = componentArraySchema.safeParse(data);
-      expect(result.success).toBe(false);
+      const parsed = backgroundSchema.parse(data);
+      expect(parsed.source).toEqual({ type: 'rect', fill: 'red' });
     });
 
-    it('should fail if non-object is included in the array', () => {
-      const data = [
-        {
-          type: 'background',
-          texture: { type: 'rect' },
+    it('should fail with an invalid source type', () => {
+      const data = { type: 'background', source: 123 };
+      expect(() => backgroundSchema.parse(data)).toThrow();
+    });
+
+    it('should fail if an unknown property is provided', () => {
+      const data = {
+        type: 'background',
+        source: 'image.png',
+        unknown: 'property',
+      };
+      expect(() => backgroundSchema.parse(data)).toThrow();
+    });
+  });
+
+  describe('Bar Schema', () => {
+    const baseBar = {
+      type: 'bar',
+      source: { type: 'rect', fill: 'blue' },
+    };
+
+    it('should parse a minimal valid bar and transform size to an object', () => {
+      const data = { ...baseBar, size: 100 }; // Input size is a single number
+      const parsed = barSchema.parse(data);
+      expect(parsed.placement).toBe('bottom');
+      expect(parsed.margin).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+      expect(parsed.animation).toBe(true);
+      expect(parsed.animationDuration).toBe(200);
+      // The single number `100` is transformed into a full width/height object.
+      expect(parsed.size).toEqual({
+        width: { value: 100, unit: 'px' },
+        height: { value: 100, unit: 'px' },
+      });
+    });
+
+    it('should correctly parse an object size', () => {
+      const data = {
+        ...baseBar,
+        size: { width: '50%', height: 20 },
+      };
+      const parsed = barSchema.parse(data);
+      // The size object is parsed correctly.
+      expect(parsed.size).toEqual({
+        width: { value: 50, unit: '%' },
+        height: { value: 20, unit: 'px' },
+      });
+    });
+
+    it.each([
+      {
+        case: 'single number',
+        input: 150,
+        expected: {
+          width: { value: 150, unit: 'px' },
+          height: { value: 150, unit: 'px' },
         },
-        1234, // 비객체
+      },
+      {
+        case: 'percentage string',
+        input: '75%',
+        expected: {
+          width: { value: 75, unit: '%' },
+          height: { value: 75, unit: '%' },
+        },
+      },
+    ])(
+      'should correctly parse and transform different valid size formats: $case',
+      ({ input, expected }) => {
+        const data = { ...baseBar, size: input };
+        const parsed = barSchema.parse(data);
+        expect(parsed.size).toEqual(expected);
+      },
+    );
+
+    it('should fail if required `size` or `source` is missing', () => {
+      const dataWithoutSource = { type: 'bar', size: 100 };
+      const dataWithoutSize = { type: 'bar', source: { type: 'rect' } };
+      expect(() => barSchema.parse(dataWithoutSource)).toThrow();
+      expect(() => barSchema.parse(dataWithoutSize)).toThrow();
+    });
+
+    it('should fail if size is a partial object', () => {
+      const dataWithPartialWidth = { ...baseBar, size: { width: '25%' } }; // Missing height
+      const dataWithPartialHeight = { ...baseBar, size: { height: 20 } }; // Missing width
+      expect(() => barSchema.parse(dataWithPartialWidth)).toThrow();
+      expect(() => barSchema.parse(dataWithPartialHeight)).toThrow();
+    });
+
+    it('should fail if an unknown property is provided', () => {
+      const data = { ...baseBar, size: 100, another: 'property' };
+      expect(() => barSchema.parse(data)).toThrow();
+    });
+  });
+
+  describe('Icon Schema', () => {
+    const baseIcon = { type: 'icon', source: 'icon.svg' };
+
+    it('should parse a minimal valid icon and transform size to an object', () => {
+      const data = { ...baseIcon, size: 50 };
+      const parsed = iconSchema.parse(data);
+      expect(parsed.placement).toBe('center');
+      expect(parsed.margin).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+      // The single number `50` is transformed into a full width/height object.
+      expect(parsed.size).toEqual({
+        width: { value: 50, unit: 'px' },
+        height: { value: 50, unit: 'px' },
+      });
+    });
+
+    it.each([
+      {
+        case: 'percentage string',
+        input: '75%',
+        expected: {
+          width: { value: 75, unit: '%' },
+          height: { value: 75, unit: '%' },
+        },
+      },
+      {
+        case: 'object with width and height',
+        input: { width: 100, height: '100%' },
+        expected: {
+          width: { value: 100, unit: 'px' },
+          height: { value: 100, unit: '%' },
+        },
+      },
+    ])(
+      'should parse and transform correctly with different size properties: $case',
+      ({ input, expected }) => {
+        const data = { ...baseIcon, size: input };
+        const parsed = iconSchema.parse(data);
+        expect(parsed.size).toEqual(expected);
+      },
+    );
+
+    it('should fail if required `source` or `size` is missing', () => {
+      const dataWithoutSource = { type: 'icon', size: 50 };
+      const dataWithoutSize = { type: 'icon', source: 'icon.svg' };
+      expect(() => iconSchema.parse(dataWithoutSource)).toThrow();
+      expect(() => iconSchema.parse(dataWithoutSize)).toThrow();
+    });
+
+    it('should fail if size is a partial object', () => {
+      const dataWithPartialWidth = { ...baseIcon, size: { width: '25%' } }; // Missing height
+      const dataWithPartialHeight = { ...baseIcon, size: { height: 20 } }; // Missing width
+      expect(() => iconSchema.parse(dataWithPartialWidth)).toThrow();
+      expect(() => iconSchema.parse(dataWithPartialHeight)).toThrow();
+    });
+
+    it('should fail if an unknown property is provided', () => {
+      const data = { ...baseIcon, size: 50, extra: 'property' };
+      expect(() => iconSchema.parse(data)).toThrow();
+    });
+  });
+
+  describe('Text Schema', () => {
+    it('should parse valid text and apply all defaults', () => {
+      const parsed = textSchema.parse({ type: 'text' });
+      expect(parsed.text).toBe('');
+      expect(parsed.split).toBe(0);
+      expect(parsed.placement).toBe('center');
+    });
+
+    it('should correctly merge provided styles with defaults', () => {
+      const data = {
+        type: 'text',
+        style: { fill: 'red', fontSize: 24 },
+      };
+      const parsed = textSchema.parse(data);
+      expect(parsed.style.fill).toBe('red'); // Overridden
+      expect(parsed.style.fontSize).toBe(24); // Added
+    });
+  });
+
+  describe('componentSchema (Discriminated Union)', () => {
+    it.each([
+      { case: 'a valid background', data: { type: 'background', source: 'a' } },
+      {
+        case: 'a valid bar',
+        data: { type: 'bar', source: { type: 'rect' }, size: 100 },
+      },
+      {
+        case: 'a valid icon',
+        data: { type: 'icon', source: 'a', size: '50%' },
+      },
+      { case: 'a valid text', data: { type: 'text' } },
+    ])('should correctly parse $case', ({ data }) => {
+      expect(() => componentSchema.parse(data)).not.toThrow();
+    });
+
+    it('should fail for an object with an unknown type', () => {
+      const data = { type: 'chart', value: 100 };
+      const result = componentSchema.safeParse(data);
+      expect(result.success).toBe(false);
+      expect(result.error.issues[0].code).toBe('invalid_union_discriminator');
+    });
+  });
+
+  describe('componentArraySchema', () => {
+    it('should parse a valid array of mixed components', () => {
+      const data = [
+        { type: 'background', source: 'bg.png' },
+        { type: 'text', text: 'Hello World' },
+        { type: 'icon', source: 'icon.svg', size: '10%' },
+        {
+          type: 'bar',
+          source: { fill: 'green' },
+          size: { width: 100, height: '20%' },
+        },
+      ];
+      expect(() => componentArraySchema.parse(data)).not.toThrow();
+    });
+
+    it('should fail if any single element in the array is invalid', () => {
+      const data = [
+        { type: 'text', text: 'Valid' },
+        { type: 'bar', source: { type: 'rect' } }, // Invalid: missing 'size'
       ];
       const result = componentArraySchema.safeParse(data);
       expect(result.success).toBe(false);
+      // The error path should correctly point to the invalid element's missing property.
+      expect(result.error.issues[0].path).toEqual([1, 'size']);
     });
   });
 });

@@ -4,6 +4,8 @@ import { Viewport } from 'pixi-viewport';
 import * as PIXI from 'pixi.js';
 import { firaCode } from './assets/fonts';
 import { icons } from './assets/icons';
+import { Type } from './display/mixins/Type';
+import { FONT_WEIGHT } from './display/mixins/constants';
 import { deepMerge } from './utils/deepmerge/deepmerge';
 import { plugin } from './utils/event/viewport';
 import { uid } from './utils/uuid';
@@ -44,7 +46,10 @@ const DEFAULT_INIT_OPTIONS = {
       items: Object.entries(firaCode).map(([key, font]) => ({
         alias: `firaCode-${key}`,
         src: font,
-        data: { family: `FiraCode ${key}` },
+        data: {
+          family: `FiraCode ${key}`,
+          weights: [FONT_WEIGHT.NUMBER[key]],
+        },
       })),
     },
   ],
@@ -66,9 +71,8 @@ export const initViewport = (app, opts = {}) => {
     },
     opts,
   );
-  const viewport = new Viewport(options);
+  const viewport = new (Type(Viewport))({ ...options, type: 'canvas' });
   viewport.app = app;
-  viewport.type = 'canvas';
   viewport.events = {};
   viewport.plugin = {
     add: (plugins) => plugin.add(viewport, plugins),
@@ -123,7 +127,7 @@ export const initResizeObserver = (el, app, viewport) => {
 
 export const initCanvas = (el, app) => {
   const div = document.createElement('div');
-  div.classList.add('w-full', 'h-full', 'overflow-hidden');
+  div.style = 'width:100%;height:100%;overflow:hidden;';
   div.appendChild(app.canvas);
   el.appendChild(div);
 };

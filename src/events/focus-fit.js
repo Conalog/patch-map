@@ -1,5 +1,5 @@
 import { isValidationError } from 'zod-validation-error';
-import { getScaleBounds } from '../utils/canvas';
+import { calcGroupOrientedBounds } from '../utils/bounds';
 import { selector } from '../utils/selector/selector';
 import { validate } from '../utils/validator';
 import { focusFitIdsSchema } from './schema';
@@ -18,14 +18,16 @@ const centerViewport = (viewport, ids, shouldFit = false) => {
   checkValidate(ids);
   const objects = getObjectsById(viewport, ids);
   if (!objects.length) return null;
-  const bounds = calculateBounds(viewport, objects);
+  const bounds = calcGroupOrientedBounds(objects);
+  const center = viewport.toLocal(bounds.center);
   if (bounds) {
-    viewport.moveCenter(
-      bounds.x + bounds.width / 2,
-      bounds.y + bounds.height / 2,
-    );
+    viewport.moveCenter(center.x, center.y);
     if (shouldFit) {
-      viewport.fit(true, bounds.width, bounds.height);
+      viewport.fit(
+        true,
+        bounds.innerBounds.width / viewport.scale.x,
+        bounds.innerBounds.height / viewport.scale.y,
+      );
     }
   }
 };
@@ -48,13 +50,4 @@ const getObjectsById = (viewport, ids) => {
     return acc;
   }, {});
   return idsArr.flatMap((i) => objs[i]).filter((obj) => obj);
-};
-
-const calculateBounds = (viewport, objects) => {
-  const boundsArray = objects.map((obj) => getScaleBounds(viewport, obj));
-  const minX = Math.min(...boundsArray.map((b) => b.x));
-  const minY = Math.min(...boundsArray.map((b) => b.y));
-  const maxX = Math.max(...boundsArray.map((b) => b.x + b.width));
-  const maxY = Math.max(...boundsArray.map((b) => b.y + b.height));
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 };

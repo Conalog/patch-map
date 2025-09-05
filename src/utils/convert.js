@@ -1,7 +1,7 @@
 import { uid } from './uuid';
 
 export const convertArray = (items) => {
-  return Array.isArray(items) ? items : [items];
+  return Array.isArray(items) ? [...items] : [items];
 };
 
 export const convertLegacyData = (data) => {
@@ -15,57 +15,59 @@ export const convertLegacyData = (data) => {
       type: 'group',
       id: uid(),
       label: key === 'grids' ? 'panelGroups' : key,
-      items: [],
+      children: [],
     };
 
     if (key === 'grids') {
       for (const value of values) {
         const { transform, ...props } = value.properties;
-        objs[key].items.push({
+        objs[key].children.push({
           type: 'grid',
           id: value.id,
           label: value.name,
           cells: value.children.map((row) =>
             row.map((child) => (child === '0' ? 0 : 1)),
           ),
-          position: { x: transform.x, y: transform.y },
-          angle: transform.rotation,
-          itemSize: {
-            width: props.spec.width * 40,
-            height: props.spec.height * 40,
+          gap: 4,
+          item: {
+            padding: 3,
+            size: {
+              width: props.spec.width * 40,
+              height: props.spec.height * 40,
+            },
+            components: [
+              {
+                type: 'background',
+                source: {
+                  type: 'rect',
+                  fill: 'white',
+                  borderWidth: 2,
+                  borderColor: 'primary.dark',
+                  radius: 6,
+                },
+              },
+              {
+                type: 'bar',
+                show: false,
+                size: '100%',
+                source: { type: 'rect', radius: 3, fill: 'white' },
+                tint: 'primary.default',
+              },
+            ],
           },
-          components: [
-            {
-              type: 'background',
-              id: 'default',
-              texture: {
-                type: 'rect',
-                fill: 'white',
-                borderWidth: 2,
-                borderColor: 'primary.dark',
-                radius: 6,
-              },
-            },
-            {
-              type: 'bar',
-              id: 'default',
-              texture: {
-                type: 'rect',
-                fill: 'white',
-                radius: 3,
-              },
-              tint: 'primary.default',
-              show: false,
-              margin: '3',
-            },
-          ],
-          metadata: props,
+          attrs: {
+            x: transform.x,
+            y: transform.y,
+            angle: transform.rotation,
+            metadata: props,
+          },
         });
       }
     } else if (key === 'strings') {
       objs[key].show = false;
+      objs[key].attrs = { zIndex: 20 };
       for (const value of values) {
-        objs[key].items.push({
+        objs[key].children.push({
           type: 'relations',
           id: value.id,
           label: value.name,
@@ -83,47 +85,50 @@ export const convertLegacyData = (data) => {
                     },
                   ]
                 : [],
-          strokeStyle: {
+          style: {
             width: 4,
             color: value.properties.color.dark,
             cap: 'round',
             join: 'round',
           },
-          metadata: value.properties,
+          attrs: {
+            metadata: value.properties,
+          },
         });
       }
     } else {
-      objs[key].zIndex = 10;
+      objs[key].attrs = { zIndex: 10 };
       for (const value of values) {
         const { transform, ...props } = value.properties;
-        objs[key].items.push({
+        objs[key].children.push({
           type: 'item',
           id: value.id,
           label: value.name,
-          position: { x: transform.x, y: transform.y },
-          size: { width: 24, height: 24 },
+          size: 40,
           components: [
             {
               type: 'background',
-              id: 'default',
-              texture: {
+              source: {
                 type: 'rect',
                 fill: 'white',
                 borderWidth: 2,
                 borderColor: 'primary.default',
-                radius: 4,
+                radius: 6,
               },
             },
             {
               type: 'icon',
-              id: 'default',
-              asset: key === 'combines' ? 'combiner' : key.slice(0, -1),
-              size: 16,
+              source: key === 'combines' ? 'combiner' : key.slice(0, -1),
+              size: 24,
               tint: 'primary.default',
               placement: 'center',
             },
           ],
-          metadata: props,
+          attrs: {
+            x: transform.x,
+            y: transform.y,
+            metadata: props,
+          },
         });
       }
     }

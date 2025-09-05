@@ -39,7 +39,6 @@ export class BundleCommand extends Command {
    * @param {Command} command - The command to add and execute.
    */
   addCommand(command) {
-    command.execute();
     this.commands.push(command);
   }
 }
