@@ -147,7 +147,9 @@ export default class SelectionState extends State {
    */
   #clear() {
     this.interactionState = InteractionState.IDLE;
-    this._selectionBox.clear();
+    if (!this._selectionBox.destroyed) {
+      this._selectionBox.clear();
+    }
     this.dragStartPoint = null;
   }
 
