@@ -1,4 +1,6 @@
 # PATCH MAP
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Conalog/patch-map)
+
 [English](./README.md) | 한국어
 
 PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js`와 `pixi-viewport`를 기반으로 최적화된 캔버스 라이브러리입니다.

@@ -1,4 +1,6 @@
 # PATCH MAP
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Conalog/patch-map)
+
 English | [한국어](./README_KR.md)
 
 PATCH MAP is an optimized canvas library built on pixi.js and pixi-viewport, tailored to meet the requirements of PATCH services.
