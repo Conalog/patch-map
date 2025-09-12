@@ -11,6 +11,7 @@ const ComposedRelations = mixins(Element, Linksable, Relationstyleable);
 export class Relations extends ComposedRelations {
   static isSelectable = true;
   static hitScope = 'children';
+  linkPoints = [];
 
   _renderDirty = true;
 
@@ -25,7 +26,7 @@ export class Relations extends ComposedRelations {
 
   initPath() {
     const path = new Graphics();
-    Object.assign(path, { type: 'path', links: [], allowContainsPoint: true });
+    Object.assign(path, { type: 'path', allowContainsPoint: true });
     this.addChild(path);
     return path;
   }
@@ -49,6 +50,7 @@ export class Relations extends ComposedRelations {
     const { links } = this.props;
     if (!this.path) return;
     this.path.clear();
+    this.linkPoints.length = 0;
     let lastPoint = null;
 
     for (const link of links) {
@@ -82,6 +84,7 @@ export class Relations extends ComposedRelations {
       }
       this.path.lineTo(...targetPoint);
       lastPoint = targetPoint;
+      this.linkPoints.push({ sourcePoint, targetPoint });
     }
     this.path.stroke();
   }
