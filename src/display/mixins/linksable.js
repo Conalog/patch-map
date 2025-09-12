@@ -36,6 +36,7 @@ export const Linksable = (superClass) => {
           linkedObj === changedObject ||
           isAncestor(changedObject, linkedObj)
         ) {
+          this._calculateLinkPoints();
           this._renderDirty = true;
           return;
         }
@@ -45,6 +46,7 @@ export const Linksable = (superClass) => {
     _applyLinks(relevantChanges) {
       const { links } = relevantChanges;
       this.linkedObjects = uniqueLinked(this.context.viewport, links);
+      this._calculateLinkPoints();
       this._renderDirty = true;
     }
   };

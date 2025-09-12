@@ -11,6 +11,7 @@ const ComposedRelations = mixins(Element, Linksable, Relationstyleable);
 export class Relations extends ComposedRelations {
   static isSelectable = true;
   static hitScope = 'children';
+  linkPoints = [];
 
   _renderDirty = true;
 
@@ -25,7 +26,7 @@ export class Relations extends ComposedRelations {
 
   initPath() {
     const path = new Graphics();
-    Object.assign(path, { type: 'path', links: [], allowContainsPoint: true });
+    Object.assign(path, { type: 'path', allowContainsPoint: true });
     this.addChild(path);
     return path;
   }
@@ -46,12 +47,28 @@ export class Relations extends ComposedRelations {
   }
 
   renderLink() {
-    const { links } = this.props;
     if (!this.path) return;
     this.path.clear();
-    this.path.links.length = 0;
     let lastPoint = null;
 
+    for (const points of this.linkPoints) {
+      const { sourcePoint, targetPoint } = points;
+      if (
+        !lastPoint ||
+        lastPoint[0] !== sourcePoint[0] ||
+        lastPoint[1] !== sourcePoint[1]
+      ) {
+        this.path.moveTo(...sourcePoint);
+      }
+      this.path.lineTo(...targetPoint);
+      lastPoint = targetPoint;
+    }
+    this.path.stroke();
+  }
+
+  _calculateLinkPoints() {
+    this.linkPoints.length = 0;
+    const { links } = this.props;
     for (const link of links) {
       const sourceObject = this.linkedObjects?.[link.source];
       const targetObject = this.linkedObjects?.[link.target];
@@ -74,17 +91,7 @@ export class Relations extends ComposedRelations {
 
       const sourcePoint = [sourceBounds.x, sourceBounds.y];
       const targetPoint = [targetBounds.x, targetBounds.y];
-      if (
-        !lastPoint ||
-        lastPoint[0] !== sourcePoint[0] ||
-        lastPoint[1] !== sourcePoint[1]
-      ) {
-        this.path.moveTo(...sourcePoint);
-      }
-      this.path.lineTo(...targetPoint);
-      this.path.links.push({ sourcePoint, targetPoint });
-      lastPoint = targetPoint;
+      this.linkPoints.push({ sourcePoint, targetPoint });
     }
-    this.path.stroke();
   }
 }
