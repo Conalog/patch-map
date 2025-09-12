@@ -49,6 +49,7 @@ export class Relations extends ComposedRelations {
     const { links } = this.props;
     if (!this.path) return;
     this.path.clear();
+    this.path.links.length = 0;
     let lastPoint = null;
 
     for (const link of links) {
@@ -81,6 +82,7 @@ export class Relations extends ComposedRelations {
         this.path.moveTo(...sourcePoint);
       }
       this.path.lineTo(...targetPoint);
+      this.path.links.push({ sourcePoint, targetPoint });
       lastPoint = targetPoint;
     }
     this.path.stroke();
