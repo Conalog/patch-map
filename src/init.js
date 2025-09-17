@@ -85,6 +85,12 @@ export const initViewport = (app, opts = {}) => {
   return viewport;
 };
 
+export const initWorld = (viewport) => {
+  const world = new (Type(PIXI.Container))({ type: 'world', id: 'world' });
+  viewport.addChild(world);
+  return world;
+};
+
 export const initAsset = async (opts = {}) => {
   const assets = deepMerge(DEFAULT_INIT_OPTIONS.assets, opts, {
     mergeBy: ['name', 'alias'],

@@ -2,9 +2,9 @@ import Element from './elements/Element';
 import { newElement } from './elements/creator';
 
 export const draw = (context, data) => {
-  const { viewport } = context;
-  destroyChildren(viewport);
-  render(viewport, data);
+  const { world } = context;
+  destroyChildren(world);
+  render(world, data);
 
   function render(parent, data) {
     for (const changes of data) {

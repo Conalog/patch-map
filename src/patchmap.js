@@ -11,6 +11,7 @@ import {
   initCanvas,
   initResizeObserver,
   initViewport,
+  initWorld,
 } from './init';
 import { convertLegacyData } from './utils/convert';
 import { event } from './utils/event/canvas';
@@ -27,6 +28,7 @@ import { WildcardEventEmitter } from './utils/event/WildcardEventEmitter';
 class Patchmap extends WildcardEventEmitter {
   _app = null;
   _viewport = null;
+  _world = null;
   _resizeObserver = null;
   _isInit = false;
   _theme = themeStore();
@@ -41,6 +43,10 @@ class Patchmap extends WildcardEventEmitter {
 
   get viewport() {
     return this._viewport;
+  }
+
+  get world() {
+    return this._world;
   }
 
   get theme() {
@@ -124,6 +130,7 @@ class Patchmap extends WildcardEventEmitter {
     this._app = new Application();
     await initApp(this.app, { resizeTo: element, ...appOptions });
     this._viewport = initViewport(this.app, viewportOptions);
+    this._world = initWorld(this._viewport);
     await initAsset(assetsOptions);
     initCanvas(element, this.app);
 
@@ -171,6 +178,7 @@ class Patchmap extends WildcardEventEmitter {
 
     const context = {
       viewport: this.viewport,
+      world: this.world,
       undoRedoManager: this.undoRedoManager,
       theme: this.theme,
       animationContext: this.animationContext,
@@ -209,7 +217,7 @@ class Patchmap extends WildcardEventEmitter {
   }
 
   update(opts) {
-    const updatedElements = update(this.viewport, opts);
+    const updatedElements = update(this.world, opts);
     this.emit('patchmap:updated', { elements: updatedElements, target: this });
   }
 
@@ -222,7 +230,16 @@ class Patchmap extends WildcardEventEmitter {
   }
 
   selector(path, opts) {
-    return selector(this.viewport, path, opts);
+    return selector(this.world, path, opts);
+  }
+
+  rotateCanvas(angle) {
+    if (!this.world) return;
+
+    const pivotPoint = this.viewport.center;
+    this.world.pivot.copyFrom(pivotPoint);
+    this.world.position.copyFrom(pivotPoint);
+    this.world.angle = angle;
   }
 }
 

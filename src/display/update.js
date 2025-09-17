@@ -14,14 +14,14 @@ const updateSchema = z.object({
   refresh: z.boolean().default(false),
 });
 
-export const update = (viewport, opts) => {
+export const update = (parent, opts) => {
   const config = validate(opts, updateSchema.passthrough());
   if (isValidationError(config)) throw config;
 
   const historyId = createHistoryId(config.history);
   const elements = 'elements' in config ? convertArray(config.elements) : [];
-  if (viewport && config.path) {
-    elements.push(...selector(viewport, config.path));
+  if (parent && config.path) {
+    elements.push(...selector(parent, config.path));
   }
 
   for (const element of elements) {
