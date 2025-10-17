@@ -60,6 +60,7 @@ export const convertLegacyData = (data) => {
             y: transform.y,
             angle: transform.rotation,
             metadata: props,
+            display: 'panelGroup',
           },
         });
       }
@@ -93,6 +94,7 @@ export const convertLegacyData = (data) => {
           },
           attrs: {
             metadata: value.properties,
+            display: key.slice(0, -1),
           },
         });
       }
@@ -128,6 +130,7 @@ export const convertLegacyData = (data) => {
             x: transform.x,
             y: transform.y,
             metadata: props,
+            display: key === 'combines' ? 'combiner' : key.slice(0, -1),
           },
         });
       }
