@@ -17,6 +17,6 @@ export const generateTexture = (target, renderer, opts = {}) => {
 export const cacheKey = (renderer, config) => {
   return [
     renderer.uid,
-    ...TextureStyle.keyof().options.map((key) => config[key]),
+    ...TextureStyle.keyof().options.map((key) => JSON.stringify(config[key])),
   ].join('-');
 };

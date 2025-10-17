@@ -1,4 +1,5 @@
 import { Graphics } from 'pixi.js';
+import { EachRadius } from '../../display/data-schema/primitive-schema';
 import { getColor } from '../../utils/get';
 import { cacheKey, generateTexture } from './utils';
 
@@ -31,8 +32,18 @@ const createRect = (theme, { fill, borderWidth, borderColor, radius }) => {
   const size = 20 + borderWidth;
 
   const xywh = [0, 0, size, size];
-  if (radius > 0) {
+  if (typeof radius === 'number' && radius > 0) {
     graphics.roundRect(...xywh, radius);
+  } else if (EachRadius.safeParse(radius).success) {
+    graphics.roundShape(
+      [
+        { x: 0, y: 0, radius: radius.topLeft },
+        { x: size, y: 0, radius: radius.topRight },
+        { x: size, y: size, radius: radius.bottomRight },
+        { x: 0, y: size, radius: radius.bottomLeft },
+      ],
+      0,
+    );
   } else {
     graphics.rect(...xywh);
   }
