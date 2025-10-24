@@ -17,14 +17,15 @@ export const createRectTexture = (renderer, theme, rectOpts) => {
   texture.metadata = {
     slice: {
       topHeight:
-        getSliceDimension(radius, 'topLeft', 'topRight') + borderWidth ?? 0,
+        getSliceDimension(radius, 'topLeft', 'topRight') + (borderWidth ?? 0),
       leftWidth:
-        getSliceDimension(radius, 'topLeft', 'bottomLeft') + borderWidth ?? 0,
+        getSliceDimension(radius, 'topLeft', 'bottomLeft') + (borderWidth ?? 0),
       rightWidth:
-        getSliceDimension(radius, 'topRight', 'bottomRight') + borderWidth ?? 0,
+        getSliceDimension(radius, 'topRight', 'bottomRight') +
+        (borderWidth ?? 0),
       bottomHeight:
-        getSliceDimension(radius, 'bottomLeft', 'bottomRight') + borderWidth ??
-        0,
+        getSliceDimension(radius, 'bottomLeft', 'bottomRight') +
+        (borderWidth ?? 0),
     },
     borderWidth: borderWidth,
     config: { ...rectOpts },
