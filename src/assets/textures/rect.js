@@ -16,10 +16,22 @@ export const createRectTexture = (renderer, theme, rectOpts) => {
   texture.id = cacheKey(renderer, rectOpts);
   texture.metadata = {
     slice: {
-      topHeight: borderWidth + 4,
-      leftWidth: borderWidth + 4,
-      rightWidth: borderWidth + 4,
-      bottomHeight: borderWidth + 4,
+      topHeight:
+        typeof radius === 'number'
+          ? radius
+          : Math.max(radius?.topLeft, radius?.topRight),
+      leftWidth:
+        typeof radius === 'number'
+          ? radius
+          : Math.max(radius?.topLeft, radius?.bottomLeft),
+      rightWidth:
+        typeof radius === 'number'
+          ? radius
+          : Math.max(radius?.topRight, radius?.bottomRight),
+      bottomHeight:
+        typeof radius === 'number'
+          ? radius
+          : Math.max(radius?.bottomRight, radius?.bottomLeft),
     },
     borderWidth: borderWidth,
     config: { ...rectOpts },
