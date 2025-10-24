@@ -111,10 +111,7 @@ export default class SelectionState extends State {
   onpointerup(e) {
     if (this.interactionState === InteractionState.PRESSING) {
       this.select(e);
-    } else if (
-      this.interactionState === InteractionState.DRAGGING &&
-      this.config.draggable
-    ) {
+    } else if (this.interactionState === InteractionState.DRAGGING) {
       this.dragSelect(e);
       this.viewport.plugin.stop('mouse-edges');
     }
