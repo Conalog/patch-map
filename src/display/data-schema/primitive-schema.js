@@ -198,13 +198,20 @@ export const Margin = z.preprocess(
     .default({}),
 );
 
+export const EachRadius = z.object({
+  topLeft: z.number().nonnegative().default(0),
+  topRight: z.number().nonnegative().default(0),
+  bottomRight: z.number().nonnegative().default(0),
+  bottomLeft: z.number().nonnegative().default(0),
+});
+
 export const TextureStyle = z
   .object({
     type: z.enum(['rect']),
     fill: z.string().default('transparent'),
     borderWidth: z.number().default(0),
     borderColor: z.string().default('black'),
-    radius: z.number().default(0),
+    radius: z.union([z.number().nonnegative(), EachRadius]).default(0),
   })
   .partial();
 

@@ -9,7 +9,7 @@ export const Sourceable = (superClass) => {
       const { source } = relevantChanges;
       const { viewport, theme } = this.context;
       const texture = getTexture(viewport.app.renderer, theme, source);
-      this.texture = texture;
+      Object.assign(this, { texture, ...(texture?.metadata?.slice ?? {}) });
     }
   };
   MixedClass.registerHandler(
