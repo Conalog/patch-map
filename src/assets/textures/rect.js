@@ -16,22 +16,10 @@ export const createRectTexture = (renderer, theme, rectOpts) => {
   texture.id = cacheKey(renderer, rectOpts);
   texture.metadata = {
     slice: {
-      topHeight:
-        typeof radius === 'number'
-          ? radius
-          : Math.max(radius?.topLeft, radius?.topRight),
-      leftWidth:
-        typeof radius === 'number'
-          ? radius
-          : Math.max(radius?.topLeft, radius?.bottomLeft),
-      rightWidth:
-        typeof radius === 'number'
-          ? radius
-          : Math.max(radius?.topRight, radius?.bottomRight),
-      bottomHeight:
-        typeof radius === 'number'
-          ? radius
-          : Math.max(radius?.bottomRight, radius?.bottomLeft),
+      topHeight: getSliceDimension(radius, 'topLeft', 'topRight'),
+      leftWidth: getSliceDimension(radius, 'topLeft', 'bottomLeft'),
+      rightWidth: getSliceDimension(radius, 'topRight', 'bottomRight'),
+      bottomHeight: getSliceDimension(radius, 'bottomLeft', 'bottomRight'),
     },
     borderWidth: borderWidth,
     config: { ...rectOpts },
@@ -44,15 +32,17 @@ const createRect = (theme, { fill, borderWidth, borderColor, radius }) => {
   const size = 20 + borderWidth;
 
   const xywh = [0, 0, size, size];
+  const parsedRadius = EachRadius.safeParse(radius);
   if (typeof radius === 'number' && radius > 0) {
     graphics.roundRect(...xywh, radius);
-  } else if (EachRadius.safeParse(radius).success) {
+  } else if (parsedRadius.success) {
+    const r = parsedRadius.data;
     graphics.roundShape(
       [
-        { x: 0, y: 0, radius: radius.topLeft },
-        { x: size, y: 0, radius: radius.topRight },
-        { x: size, y: size, radius: radius.bottomRight },
-        { x: 0, y: size, radius: radius.bottomLeft },
+        { x: 0, y: 0, radius: r.topLeft },
+        { x: size, y: 0, radius: r.topRight },
+        { x: size, y: size, radius: r.bottomRight },
+        { x: 0, y: size, radius: r.bottomLeft },
       ],
       0,
     );
@@ -68,4 +58,10 @@ const createRect = (theme, { fill, borderWidth, borderColor, radius }) => {
     });
   }
   return graphics;
+};
+
+const getSliceDimension = (radius, key1, key2) => {
+  return typeof radius === 'number'
+    ? radius
+    : Math.max(radius?.[key1] ?? 0, radius?.[key2] ?? 0);
 };
