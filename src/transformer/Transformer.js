@@ -125,6 +125,7 @@ export default class Transformer extends Container {
       this._viewport = getViewport(this);
       if (this._viewport) {
         this._viewport.on('zoomed', this.update);
+        this._viewport.on('zoomed-end', this.update);
       }
     });
   }
@@ -209,6 +210,7 @@ export default class Transformer extends Container {
     this.onRender = null;
     if (this._viewport) {
       this._viewport.off('zoomed', this.update);
+      this._viewport.off('zoomed-end', this.update);
     }
     this.selection.destroy();
     super.destroy(options);
