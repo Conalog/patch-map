@@ -87,7 +87,11 @@ export default class SelectionState extends State {
   }
 
   onpointermove(e) {
-    if (this.interactionState === InteractionState.IDLE) return;
+    if (
+      this.interactionState === InteractionState.IDLE ||
+      !this.config.draggable
+    )
+      return;
     const currentPoint = this.viewport.toWorld(e.global);
 
     if (
@@ -107,7 +111,10 @@ export default class SelectionState extends State {
   onpointerup(e) {
     if (this.interactionState === InteractionState.PRESSING) {
       this.select(e);
-    } else if (this.interactionState === InteractionState.DRAGGING) {
+    } else if (
+      this.interactionState === InteractionState.DRAGGING &&
+      this.config.draggable
+    ) {
       this.dragSelect(e);
       this.viewport.plugin.stop('mouse-edges');
     }
