@@ -87,7 +87,12 @@ export default class SelectionState extends State {
   }
 
   onpointermove(e) {
-    if (this.interactionState === InteractionState.IDLE) return;
+    if (
+      this.interactionState === InteractionState.IDLE ||
+      !this.config.draggable
+    ) {
+      return;
+    }
     const currentPoint = this.viewport.toWorld(e.global);
 
     if (
