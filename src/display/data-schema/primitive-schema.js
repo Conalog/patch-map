@@ -199,10 +199,10 @@ export const Margin = z.preprocess(
 );
 
 export const EachRadius = z.object({
-  topLeft: z.number().default(0),
-  topRight: z.number().default(0),
-  bottomRight: z.number().default(0),
-  bottomLeft: z.number().default(0),
+  topLeft: z.number().nonnegative().default(0),
+  topRight: z.number().nonnegative().default(0),
+  bottomRight: z.number().nonnegative().default(0),
+  bottomLeft: z.number().nonnegative().default(0),
 });
 
 export const TextureStyle = z
@@ -211,7 +211,7 @@ export const TextureStyle = z
     fill: z.string().default('transparent'),
     borderWidth: z.number().default(0),
     borderColor: z.string().default('black'),
-    radius: z.union([z.number(), EachRadius]).default(0),
+    radius: z.union([z.number().nonnegative(), EachRadius]).default(0),
   })
   .partial();
 
