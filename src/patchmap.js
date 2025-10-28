@@ -43,6 +43,10 @@ class Patchmap extends WildcardEventEmitter {
     return this._viewport;
   }
 
+  set viewport(value) {
+    this._viewport = value;
+  }
+
   get theme() {
     return this._theme.get();
   }
@@ -123,7 +127,7 @@ class Patchmap extends WildcardEventEmitter {
     this._theme.set(themeOptions);
     this._app = new Application();
     await initApp(this.app, { resizeTo: element, ...appOptions });
-    this._viewport = initViewport(this.app, viewportOptions);
+    this.viewport = initViewport(this.app, viewportOptions);
     await initAsset(assetsOptions);
     initCanvas(element, this.app);
 
@@ -150,7 +154,7 @@ class Patchmap extends WildcardEventEmitter {
     if (this._resizeObserver) this._resizeObserver.disconnect();
 
     this._app = null;
-    this._viewport = null;
+    this.viewport = null;
     this._resizeObserver = null;
     this.isInit = false;
     this._theme = themeStore();
