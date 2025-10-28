@@ -90,29 +90,42 @@ export const initAsset = async (opts = {}) => {
     mergeBy: ['name', 'alias'],
   });
 
-  const bundlesToLoad = [];
-  const assetsToLoad = [];
-  for (const asset of assets) {
-    if (asset.name && Array.isArray(asset.items)) {
-      if (!PIXI.Assets.resolver.hasBundle(asset.name)) {
-        PIXI.Assets.addBundle(asset.name, asset.items);
-        bundlesToLoad.push(asset.name);
+  const bundlesToAdd = new Map();
+  const assetsToAdd = new Map();
+  const requiredBundles = new Set();
+  const requiredAssets = new Set();
+
+  for (const assetDef of assets) {
+    if (assetDef.name && Array.isArray(assetDef.items)) {
+      requiredBundles.add(assetDef.name);
+      if (
+        !PIXI.Assets.resolver.hasBundle(assetDef.name) &&
+        !bundlesToAdd.has(assetDef.name)
+      ) {
+        bundlesToAdd.set(assetDef.name, assetDef.items);
       }
-    } else if (asset.alias && asset.src) {
-      if (!PIXI.Assets.cache.has(asset.alias)) {
-        PIXI.Assets.add(asset);
-        assetsToLoad.push(asset.alias);
+    } else if (assetDef.alias && assetDef.src) {
+      requiredAssets.add(assetDef.alias);
+      if (
+        !PIXI.Assets.resolver.hasKey(assetDef.alias) &&
+        !assetsToAdd.has(assetDef.alias)
+      ) {
+        assetsToAdd.set(assetDef.alias, assetDef);
       }
     }
   }
-  await Promise.all([
-    bundlesToLoad.length > 0
-      ? PIXI.Assets.loadBundle(bundlesToLoad)
-      : Promise.resolve(),
-    assetsToLoad.length > 0
-      ? PIXI.Assets.load(assetsToLoad)
-      : Promise.resolve(),
-  ]);
+  bundlesToAdd.forEach((items, name) => PIXI.Assets.addBundle(name, items));
+  assetsToAdd.forEach((assetDef) => PIXI.Assets.add(assetDef));
+
+  const bundleLoadPromise =
+    requiredBundles.size > 0
+      ? PIXI.Assets.loadBundle([...requiredBundles])
+      : Promise.resolve();
+  const assetLoadPromise =
+    requiredAssets.size > 0
+      ? PIXI.Assets.load([...requiredAssets])
+      : Promise.resolve();
+  await Promise.all([bundleLoadPromise, assetLoadPromise]);
 };
 
 export const initResizeObserver = (el, app, viewport) => {
