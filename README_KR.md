@@ -425,14 +425,14 @@ patchmap.stateManager.setState('selection', {
   draggable: true,
   selectUnit: 'grid',
   filter: (obj) => obj.type !== 'relations',
-  onSelect: (obj, event) => {
+  onClick: (obj, event) => {
     console.log('Selected:', obj);
     // 선택된 객체를 transformer에 할당
     if (patchmap.transformer) {
       patchmap.transformer.elements = obj;
     }
   },
-  onDragSelect: (objs, event) => {
+  onDrag: (objs, event) => {
     console.log('Drag Selected:', objs);
     if (patchmap.transformer) {
       patchmap.transformer.elements = objs;

@@ -63,6 +63,7 @@ export default class SelectionState extends State {
   config = {};
   interactionState = InteractionState.IDLE;
   dragStartPoint = null;
+  movedViewport = false;
   _selectionBox = new Graphics();
 
   /**
@@ -123,6 +124,13 @@ export default class SelectionState extends State {
 
   onpointermove(e) {
     if (
+      this.interactionState === InteractionState.PRESSING &&
+      this.viewport.moving
+    ) {
+      this.movedViewport = true;
+    }
+
+    if (
       this.interactionState === InteractionState.IDLE ||
       !this.config.draggable
     ) {
@@ -155,7 +163,9 @@ export default class SelectionState extends State {
       this.config.onDragEnd(selected, e);
       this.viewport.plugin.stop('mouse-edges');
     }
-    this.#clear();
+
+    // Use setTimeout to clear the selection state after onclick handler has executed.
+    setTimeout(() => this.#clear(), 0);
   }
 
   onpointerover(e) {
@@ -165,7 +175,14 @@ export default class SelectionState extends State {
   }
 
   onclick(e) {
-    const target = this.findPoint(this.viewport.toWorld(e.global));
+    if (this.movedViewport) return;
+
+    const currentPoint = this.viewport.toWorld(e.global);
+    if (isMoved(this.dragStartPoint, currentPoint, this.viewport.scale)) {
+      return;
+    }
+
+    const target = this.findPoint(currentPoint);
     if (e.detail === 2) {
       this.config.onDoubleClick(target, e);
     } else {
@@ -205,6 +222,7 @@ export default class SelectionState extends State {
       this._selectionBox.clear();
     }
     this.dragStartPoint = null;
+    this.movedViewport = false;
   }
 
   findPoint(point) {
