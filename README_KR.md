@@ -497,30 +497,58 @@ patchmap.stateManager.setState('custom', { message: 'Hello World' });
   - `'highestGroup'`: 선택된 객체에서 가장 최상위 그룹을 선택합니다.
   - `'grid'`: 선택된 객체가 속한 그리드를 선택합니다.
 - `filter` (optional, function): 선택 대상 객체를 조건에 따라 필터링할 수 있는 함수입니다.
-- `onSelect` (optional, function): 단일 클릭으로 객체 선택이 발생했을 때 호출될 콜백 함수입니다. 선택된 객체와 이벤트 객체를 인자로 받습니다.
-- `onDragSelect` (optional, function): 드래그를 통해 다수의 객체가 선택되었을 때 호출될 콜백 함수입니다. 선택된 객체 배열과 이벤트 객체를 인자로 받습니다.
 - `selectionBoxStyle` (optional, object): 드래그 선택 시 표시되는 사각형의 스타일을 지정합니다.
   - `fill` (object): 채우기 스타일. 기본값: `{ color: '#9FD6FF', alpha: 0.2 }`.
   - `stroke` (object): 테두리 스타일. 기본값: `{ width: 2, color: '#1099FF' }`.
+
+#### 이벤트 콜백
+- `onDown` (optional, function): 포인터를 눌렀을 때 '즉시' 호출됩니다. 'Select-on-Down' UX(즉각적인 선택 피드백)를 구현할 때 사용합니다.
+- `onUp` (optional, function):  드래그가 아닐 경우, `pointerup` 시점에 호출됩니다.
+- `onClick` (optional, function): '클릭'이 '완료'되었을 때 호출됩니다. 더블클릭이 아닐 때만 호출됩니다.
+- `onDoubleClick` (optional, function): '더블클릭'이 '완료'되었을 때 호출됩니다. `e.detail === 2`를 기반으로 호출됩니다.
+- `onDragStart` (optional, function): 드래그(다중 선택)가 '시작'되는 시점 (일정 거리 이상 이동)에 1회 호출됩니다.
+- `onDrag` (optional, function): 드래그가 '진행'되는 동안 실시간으로 호출됩니다.
+- `onDragEnd` (optional, function): 드래그가 '종료'되었을 때 (`pointerup`) 호출됩니다.
+- `onOver` (optional, function): 포인터가 (드래그 중이 아닐 때) 객체 위로 이동했을 때 호출됩니다.
 
 ```js
 patchmap.stateManager.setState('selection', {
   draggable: true,
   selectUnit: 'grid',
   filter: (obj) => obj.type !== 'relations',
-  onSelect: (obj, event) => {
-    console.log('Selected:', obj);
-    // 선택된 객체를 transformer에 할당
+
+  // '클릭' 완료 시 선택을 확정합니다.
+  onClick: (target, event) => {
+    console.log('Clicked:', target?.id);
     if (patchmap.transformer) {
-      patchmap.transformer.elements = obj;
+      patchmap.transformer.elements = target ? [target] : [];
     }
   },
-  onDragSelect: (objs, event) => {
-    console.log('Drag Selected:', objs);
+
+  // '더블클릭' 시 다른 동작을 수행합니다. (이 경우 onClick은 호출되지 않습니다)
+  onDoubleClick: (target, event) => {
+    console.log('Double Clicked:', target?.id);
+    // 예: patchmap.stateManager.setState('textEdit', target);
+  },
+
+  // 드래그가 끝났을 때 최종 선택을 확정합니다.
+  onDragEnd: (selected, event) => {
+    console.log('Drag Selected:', selected.map(s => s.id));
     if (patchmap.transformer) {
-      patchmap.transformer.elements = objs;
+      patchmap.transformer.elements = selected;
     }
   },
+  
+  // onDown: (target) => {
+  //   if (patchmap.transformer) {
+  //     patchmap.transformer.elements = target ? [target] : [];
+  //   }
+  // },
+  // onDragStart: () => {
+  //   if (patchmap.transformer) {
+  //     patchmap.transformer.elements = [];
+  //   }
+  // },
 });
 ```
 
