@@ -243,6 +243,7 @@ export const TextStyle = z
     fontFamily: z.any().default(DEFAULT_TEXTSTYLE.fontFamily),
     fontWeight: z.any().default(DEFAULT_TEXTSTYLE.fontWeight),
     fill: z.any().default(DEFAULT_TEXTSTYLE.fill),
+    wordWrapWidth: z.union([z.number(), z.literal('auto')]).optional(),
   })
   .passthrough()
   .default({});

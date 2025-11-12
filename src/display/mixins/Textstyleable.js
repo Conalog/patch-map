@@ -5,6 +5,7 @@ import {
   FONT_WEIGHT,
   UPDATE_STAGES,
 } from './constants';
+import { getLayoutContext } from './utils';
 
 const KEYS = ['text', 'split', 'style', 'margin'];
 
@@ -19,17 +20,30 @@ export const Textstyleable = (superClass) => {
       }
 
       for (const key in style) {
+        if (
+          (key === 'fontSize' || key === 'wordWrapWidth') &&
+          style[key] === 'auto'
+        ) {
+          continue;
+        }
+
         if (key === 'fontFamily' || key === 'fontWeight') {
           this.style.fontWeight = this._getFontWeight(style.fontWeight);
           this.style.fontFamily = this._getFontFamily(style.fontFamily);
         } else if (key === 'fill') {
           this.style[key] = getColor(theme, style.fill);
-        } else if (key === 'fontSize' && style[key] === 'auto') {
-          const range = style.autoFont ?? DEFAULT_AUTO_FONT_RANGE;
-          setAutoFontSize(this, margin, range);
         } else {
           this.style[key] = style[key];
         }
+      }
+
+      if (style.wordWrapWidth === 'auto') {
+        setAutoWordWrapWidth(this, margin);
+      }
+
+      if (style.fontSize === 'auto') {
+        const range = style.autoFont ?? DEFAULT_AUTO_FONT_RANGE;
+        setAutoFontSize(this, margin, range);
       }
     }
 
@@ -50,27 +64,34 @@ export const Textstyleable = (superClass) => {
 };
 
 const setAutoFontSize = (object, margin, range) => {
-  object.visible = false;
-  const { width, height } = object.parent.props.size;
-  const parentSize = {
-    width: width - margin.left - margin.right,
-    height: height - margin.top - margin.bottom,
-  };
-  object.visible = true;
+  const { contentWidth, contentHeight } = getContentSize(object, margin);
 
   let { min: minSize, max: maxSize } = range;
+  let bestFitSize = range.min;
   while (minSize <= maxSize) {
     const fontSize = Math.floor((minSize + maxSize) / 2);
     object.style.fontSize = fontSize;
 
     const metrics = object.getLocalBounds();
-    if (
-      metrics.width <= parentSize.width &&
-      metrics.height <= parentSize.height
-    ) {
+    if (metrics.width <= contentWidth && metrics.height <= contentHeight) {
+      bestFitSize = fontSize;
       minSize = fontSize + 1;
     } else {
       maxSize = fontSize - 1;
     }
   }
+  object.style.fontSize = bestFitSize;
+};
+
+const setAutoWordWrapWidth = (object, margin) => {
+  const { contentWidth } = getContentSize(object, margin);
+  object.style.wordWrapWidth = contentWidth;
+};
+
+const getContentSize = (object, margin) => {
+  const { contentWidth, contentHeight } = getLayoutContext(object);
+  return {
+    contentWidth: contentWidth - (margin.left + margin.right),
+    contentHeight: contentHeight - (margin.top + margin.bottom),
+  };
 };

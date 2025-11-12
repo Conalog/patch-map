@@ -527,6 +527,12 @@ export interface TextStyle {
   };
 
   /**
+   * The maximum width of the text before it wraps to the next line.
+   * Can be a number (pixels) or 'auto' to automatically fit the content area.
+   */
+  wordWrapWidth?: number | 'auto';
+
+  /**
    * Allows any other properties, similar to PIXI.TextStyleOptions.
    * This provides flexibility for standard text styling.
    * e.g., fill, fontFamily, fontWeight, etc.
