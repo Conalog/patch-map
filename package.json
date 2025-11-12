@@ -49,7 +49,6 @@
     "is-plain-object": "^5.0.0",
     "jsonpath-plus": "^10.3.0",
     "pixi-viewport": "^6.0.3",
-    "uuid": "^11.1.0",
     "zod": "^3.25.67",
     "zod-validation-error": "^3.4.0"
   },
@@ -57,13 +56,14 @@
     "pixi.js": ">=8"
   },
   "devDependencies": {
-    "@biomejs/biome": "1.9.4",
-    "@commitlint/cli": "^19.7.1",
-    "@commitlint/config-conventional": "^19.7.1",
-    "@rollup/plugin-commonjs": "^28.0.2",
-    "@rollup/plugin-node-resolve": "^15.3.0",
+    "@biomejs/biome": "^2.3.5",
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
+    "@rollup/plugin-commonjs": "^29.0.0",
+    "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-url": "^8.0.2",
-    "@vitest/browser": "^3.2.4",
+    "@vitest/browser": "^4.0.8",
+    "@vitest/browser-playwright": "^4.0.8",
     "husky": "^9.1.7",
     "pixi.js": "^8.14.1",
     "playwright": "^1.56.1",
@@ -71,6 +71,7 @@
     "rollup-plugin-copy": "^3.5.0",
     "standard-version": "^9.5.0",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "uuid": "^13.0.0",
+    "vitest": "^4.0.8"
   }
 }
