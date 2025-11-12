@@ -220,17 +220,15 @@ describe('patchmap test', () => {
 
   describe('select', () => {
     let patchmap;
-    let onSelect;
-    let onOver;
-    let onDragSelect;
+    let onClick;
+    let onDrag;
 
     beforeEach(() => {
       vi.useFakeTimers();
       patchmap = getPatchmap();
       patchmap.draw(sampleData);
-      onSelect = vi.fn();
-      onOver = vi.fn();
-      onDragSelect = vi.fn();
+      onClick = vi.fn();
+      onDrag = vi.fn();
     });
 
     afterEach(() => {
@@ -243,9 +241,8 @@ describe('patchmap test', () => {
           enabled: true,
           draggable: false,
           selectUnit: 'grid',
-          onSelect,
-          onOver,
-          onDragSelect,
+          onClick,
+          onDrag,
         });
       });
 
@@ -337,17 +334,13 @@ describe('patchmap test', () => {
             transform(viewport);
             await vi.advanceTimersByTimeAsync(100);
 
-            viewport.emit('pointerdown', {
-              global: viewport.toGlobal(position),
-              stopPropagation: () => {},
-            });
-            viewport.emit('pointerup', {
+            viewport.emit('click', {
               global: viewport.toGlobal(position),
               stopPropagation: () => {},
             });
 
-            expect(onSelect).toHaveBeenCalledTimes(2);
-            const receivedElement = onSelect.mock.calls[0][0];
+            expect(onClick).toHaveBeenCalledTimes(1);
+            const receivedElement = onClick.mock.calls[0][0];
 
             if (expectedId === null) {
               expect(receivedElement).toBeNull();
@@ -356,7 +349,7 @@ describe('patchmap test', () => {
               expect(receivedElement.id).toBe(expectedId);
             }
 
-            expect(onDragSelect).not.toHaveBeenCalled();
+            expect(onDrag).not.toHaveBeenCalled();
           },
         );
       });
@@ -408,26 +401,22 @@ describe('patchmap test', () => {
           ]);
           await vi.advanceTimersByTimeAsync(100);
 
-          const onSelect = vi.fn();
+          const onClick = vi.fn();
 
           patchmap.stateManager.setState('selection', {
             enabled: true,
             selectUnit: selectUnit,
-            onSelect: onSelect,
+            onClick: onClick,
           });
 
           const viewport = patchmap.viewport;
-          viewport.emit('pointerdown', {
-            global: viewport.toGlobal(clickPosition),
-            stopPropagation: () => {},
-          });
-          viewport.emit('pointerup', {
+          viewport.emit('click', {
             global: viewport.toGlobal(clickPosition),
             stopPropagation: () => {},
           });
 
-          expect(onSelect).toHaveBeenCalledTimes(2);
-          const selectedObject = onSelect.mock.calls[0][0];
+          expect(onClick).toHaveBeenCalledTimes(1);
+          const selectedObject = onClick.mock.calls[0][0];
 
           if (expectedId) {
             expect(selectedObject).toBeDefined();
