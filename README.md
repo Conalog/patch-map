@@ -415,14 +415,14 @@ patchmap.stateManager.setState('selection', {
   draggable: true,
   selectUnit: 'grid',
   filter: (obj) => obj.type !== 'relations',
-  onSelect: (obj, event) => {
+  onClick: (obj, event) => {
     console.log('Selected:', obj);
     // Assign the selected object to the transformer
     if (patchmap.transformer) {
       patchmap.transformer.elements = obj;
     }
   },
-  onDragSelect: (objs, event) => {
+  onDrag: (objs, event) => {
     console.log('Drag Selected:', objs);
     if (patchmap.transformer) {
       patchmap.transformer.elements = objs;
@@ -488,30 +488,59 @@ The default state that handles user selection and drag events. It is automatical
   - `'highestGroup'`: Selects the topmost parent group of the selected object.
   - `'grid'`: Selects the grid to which the selected object belongs.
 - `filter` (optional, function): A function to filter selectable objects based on a condition.
-- `onSelect` (optional, function): A callback function invoked when an object is selected via a single click. It receives the selected object and the event object as arguments.
-- `onDragSelect` (optional, function): A callback function invoked when multiple objects are selected via dragging. It receives an array of selected objects and the event object as arguments.
 - `selectionBoxStyle` (optional, object): Specifies the style of the selection box displayed during drag-selection.
   - `fill` (object): The fill style. Default: `{ color: '#9FD6FF', alpha: 0.2 }`.
   - `stroke` (object): The stroke style. Default: `{ width: 2, color: '#1099FF' }`.
+
+#### Event Callbacks
+
+- `onDown` (optional, function): Callback fired immediately on `pointerdown`. Used to implement 'Select-on-Down' UX (instant selection feedback).
+- `onUp` (optional, function): Callback fired on `pointerup` if it was not a drag operation.
+- `onClick` (optional, function): Callback fired when a complete 'click' is detected. This will not fire if `onDoubleClick` fires.
+- `onDoubleClick` (optional, function): Callback fired when a complete 'double-click' is detected. Based on `e.detail === 2`.
+- `onDragStart` (optional, function): Callback fired *once* when a drag operation (for multi-selection) begins (after moving beyond a threshold).
+- `onDrag` (optional, function): Callback fired repeatedly *during* a drag operation.
+- `onDragEnd` (optional, function): Callback fired when the drag operation *ends* (`pointerup`).
+- `onOver` (optional, function): Callback fired on `pointerover` when the pointer enters a new object (and not dragging).
 
 ```js
 patchmap.stateManager.setState('selection', {
   draggable: true,
   selectUnit: 'grid',
   filter: (obj) => obj.type !== 'relations',
-  onSelect: (obj, event) => {
-    console.log('Selected:', obj);
-    // Assign the selected object to the transformer
+
+  // Confirms selection on 'click' completion.
+  onClick: (target, event) => {
+    console.log('Clicked:', target?.id);
     if (patchmap.transformer) {
-      patchmap.transformer.elements = obj;
+      patchmap.transformer.elements = target ? [target] : [];
     }
   },
-  onDragSelect: (objs, event) => {
-    console.log('Drag Selected:', objs);
+
+  // Performs another action on 'double-click'. (onClick will not be called in this case)
+  onDoubleClick: (target, event) => {
+    console.log('Double Clicked:', target?.id);
+    // e.g., patchmap.stateManager.setState('textEdit', target);
+  },
+
+  // Confirms the final selection when the drag ends.
+  onDragEnd: (selected, event) => {
+    console.log('Drag Selected:', selected.map(s => s.id));
     if (patchmap.transformer) {
-      patchmap.transformer.elements = objs;
+      patchmap.transformer.elements = selected;
     }
   },
+  
+  // onDown: (target) => {
+  //   if (patchmap.transformer) {
+  //     patchmap.transformer.elements = target ? [target] : [];
+  //   }
+  // },
+  // onDragStart: () => {
+  //   if (patchmap.transformer) {
+  //     patchmap.transformer.elements = [];
+  //   }
+  // },
 });
 ```
 

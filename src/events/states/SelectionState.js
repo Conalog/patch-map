@@ -15,12 +15,39 @@ const InteractionState = {
  * @property {boolean} [draggable=false] - Enables drag-to-select functionality.
  * @property {(obj: PIXI.DisplayObject) => boolean} [filter=() => true] - A function to filter which objects can be selected.
  * @property {'entity' | 'closestGroup' | 'highestGroup' | 'grid'} [selectUnit='entity'] - The logical unit of selection.
- * @property {(selected: PIXI.DisplayObject | null, event: PIXI.FederatedPointerEvent) => void} [onSelect=() => {}] - Callback for a single-object selection (click).
- * @property {(selected: PIXI.DisplayObject[], event: PIXI.FederatedPointerEvent) => void} [onDragSelect=() => {}] - Callback for a multi-object selection (drag).
- * @property {(hovered: PIXI.DisplayObject | null, event: PIXI.FederatedPointerEvent) => void} [onOver=() => {}] - Callback for hover events.
  * @property {object} [selectionBoxStyle] - Style options for the drag selection box.
- * @property {object} [selectionBoxStyle.fill={ color: '#9FD6FF', alpha: 0.2 }] - Fill style.
- * @property {object} [selectionBoxStyle.stroke={ width: 2, color: '#1099FF' }] - Stroke style.
+ * @property {object} [selectionBoxStyle.fill] - Fill style.
+ * @property {string | number} [selectionBoxStyle.fill.color='#9FD6FF'] - Fill color.
+ * @property {number} [selectionBoxStyle.fill.alpha=0.2] - Fill alpha.
+ * @property {object} [selectionBoxStyle.stroke] - Stroke style.
+ * @property {number} [selectionBoxStyle.stroke.width=2] - Stroke width.
+ * @property {string | number} [selectionBoxStyle.stroke.color='#1099FF'] - Stroke color.
+ *
+ * @property {(target: PIXI.DisplayObject | null, event: PIXI.FederatedPointerEvent) => void} [onDown]
+ * Callback fired immediately on `pointerdown`. Useful for "Figma-style" instant selection feedback.
+ *
+ * @property {(target: PIXI.DisplayObject | null, event: PIXI.FederatedPointerEvent) => void} [onUp]
+ * Callback fired on `pointerup` *only if* it was not a drag operation.
+ * This is a low-level event; for click logic, prefer `onClick`.
+ *
+ * @property {(target: PIXI.DisplayObject | null, event: PIXI.FederatedPointerEvent) => void} [onClick]
+ * Callback fired when a complete, non-drag click is detected.
+ * This will *not* fire if `onDoubleClick` fires.
+ *
+ * @property {(target: PIXI.DisplayObject | null, event: PIXI.FederatedPointerEvent) => void} [onDoubleClick]
+ * Callback fired when a complete, non-drag double-click is detected.
+ *
+ * @property {(event: PIXI.FederatedPointerEvent) => void} [onDragStart]
+ * Callback fired *once* when the pointer moves beyond the movement threshold after a `pointerdown`.
+ *
+ * @property {(selected: PIXI.DisplayObject[], event: PIXI.FederatedPointerEvent) => void} [onDrag]
+ * Callback fired repeatedly during `pointermove` *after* a drag has started.
+ *
+ * @property {(selected: PIXI.DisplayObject[], event: PIXI.FederatedPointerEvent) => void} [onDragEnd]
+ * Callback fired on `pointerup` *only if* a drag operation was in progress.
+ *
+ * @property {(hovered: PIXI.DisplayObject | null, event: PIXI.FederatedPointerEvent) => void} [onOver]
+ * Callback fired on `pointerover` when the pointer enters a new object (and not dragging).
  */
 
 export default class SelectionState extends State {
@@ -29,12 +56,14 @@ export default class SelectionState extends State {
     'onpointermove',
     'onpointerup',
     'onpointerover',
+    'onclick',
   ];
 
   /** @type {SelectionStateConfig} */
   config = {};
   interactionState = InteractionState.IDLE;
   dragStartPoint = null;
+  movedViewport = false;
   _selectionBox = new Graphics();
 
   /**
@@ -48,9 +77,14 @@ export default class SelectionState extends State {
       draggable: false,
       filter: () => true,
       selectUnit: 'entity',
+      onDown: () => {},
+      onUp: () => {},
+      onClick: () => {},
+      onDoubleClick: () => {},
+      onDragStart: () => {},
+      onDrag: () => {},
+      onDragEnd: () => {},
       onOver: () => {},
-      onSelect: () => {},
-      onDragSelect: () => {},
       selectionBoxStyle: {
         fill: { color: '#9FD6FF', alpha: 0.2 },
         stroke: { width: 2, color: '#1099FF' },
@@ -71,8 +105,7 @@ export default class SelectionState extends State {
   }
 
   pause() {
-    this.dragStartPoint = null;
-    this._selectionBox.clear();
+    this.#clear();
   }
 
   destroy() {
@@ -81,12 +114,22 @@ export default class SelectionState extends State {
   }
 
   onpointerdown(e) {
+    this.#clearGesture();
     this.interactionState = InteractionState.PRESSING;
     this.dragStartPoint = this.viewport.toWorld(e.global);
-    this.select(e);
+
+    const target = this.findPoint(this.dragStartPoint);
+    this.config.onDown(target, e);
   }
 
   onpointermove(e) {
+    if (
+      this.interactionState === InteractionState.PRESSING &&
+      this.viewport.moving
+    ) {
+      this.movedViewport = true;
+    }
+
     if (
       this.interactionState === InteractionState.IDLE ||
       !this.config.draggable
@@ -101,27 +144,53 @@ export default class SelectionState extends State {
     ) {
       this.interactionState = InteractionState.DRAGGING;
       this.viewport.plugin.start('mouse-edges');
+      this.config.onDragStart(e);
     }
 
     if (this.interactionState === InteractionState.DRAGGING) {
       this.#drawSelectionBox(this.dragStartPoint, currentPoint);
-      this.dragSelect(e);
+      const selected = this.findPolygon(this._selectionBox);
+      this.config.onDrag(selected, e);
     }
   }
 
   onpointerup(e) {
     if (this.interactionState === InteractionState.PRESSING) {
-      this.select(e);
+      const target = this.findPoint(this.viewport.toWorld(e.global));
+      this.config.onUp(target, e);
     } else if (this.interactionState === InteractionState.DRAGGING) {
-      this.dragSelect(e);
+      const selected = this.findPolygon(this._selectionBox);
+      this.config.onDragEnd(selected, e);
       this.viewport.plugin.stop('mouse-edges');
     }
-    this.#clear();
+    this.#clearInteractionState();
   }
 
   onpointerover(e) {
     if (this.interactionState !== InteractionState.IDLE) return;
-    this.hover(e);
+    const selected = this.findPoint(this.viewport.toWorld(e.global));
+    this.config.onOver(selected, e);
+  }
+
+  onclick(e) {
+    if (this.movedViewport) {
+      this.#clearGesture();
+      return;
+    }
+
+    const currentPoint = this.viewport.toWorld(e.global);
+    if (isMoved(this.dragStartPoint, currentPoint, this.viewport.scale)) {
+      this.#clearGesture();
+      return;
+    }
+
+    const target = this.findPoint(currentPoint);
+    if (e.detail === 2) {
+      this.config.onDoubleClick(target, e);
+    } else {
+      this.config.onClick(target, e);
+    }
+    this.#clearGesture();
   }
 
   /**
@@ -147,33 +216,34 @@ export default class SelectionState extends State {
   }
 
   /**
-   * Resets the internal state of the selection handler.
+   * Clears the current interaction state and resets to IDLE.
+   * If the selection box exists and is not destroyed, clears its graphics.
    * @private
    */
-  #clear() {
+  #clearInteractionState() {
     this.interactionState = InteractionState.IDLE;
     if (!this._selectionBox.destroyed) {
       this._selectionBox.clear();
     }
+  }
+
+  /**
+   * Resets gesture-related properties, clearing drag start point and moved viewport state.
+   * @private
+   */
+  #clearGesture() {
     this.dragStartPoint = null;
+    this.movedViewport = false;
   }
 
-  /** Finalizes a single object selection. */
-  select(e) {
-    const selected = this.findPoint(this.viewport.toWorld(e.global));
-    this.config.onSelect(selected, e);
-  }
-
-  /** Finalizes a multi-object drag selection. */
-  dragSelect(e) {
-    const selected = this.findPolygon(this._selectionBox);
-    this.config.onDragSelect(selected, e);
-  }
-
-  /** Handles hover-over objects. */
-  hover(e) {
-    const selected = this.findPoint(this.viewport.toWorld(e.global));
-    this.config.onOver(selected, e);
+  /**
+   * Resets the interaction and gesture states to their initial values.
+   * Calls {@link #clearInteractionState} and {@link #clearGesture}.
+   * @private
+   */
+  #clear() {
+    this.#clearInteractionState();
+    this.#clearGesture();
   }
 
   findPoint(point) {
