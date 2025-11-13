@@ -5,7 +5,7 @@ describe('uuid', () => {
   describe('createUUID', () => {
     it('should create a UUID string of length 8', () => {
       const uuid = uid();
-      expect(uuid).toHaveLength(12);
+      expect(uuid).toHaveLength(15);
     });
 
     it('should create a UUID string containing only alphanumeric characters', () => {
@@ -20,11 +20,12 @@ describe('uuid', () => {
     });
 
     it('should create a new UUID every time it is called.', () => {
+      const size = 100000;
       const uuids = new Set();
-      for (let i = 0; i < 1000; i++) {
+      for (let i = 0; i < size; i++) {
         uuids.add(uid());
       }
-      expect(uuids.size).toBe(1000);
+      expect(uuids.size).toBe(size);
     });
   });
 });

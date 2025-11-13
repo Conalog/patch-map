@@ -1,3 +1,10 @@
-import { v4 as uuidv4 } from 'uuid';
+import { customAlphabet } from 'nanoid';
 
-export const uid = () => uuidv4().replace(/-/g, '').substring(0, 12);
+// uuidv4 provides completely random values. (CSPRNG)
+// nanoid includes uppercase alphabets, making it more secure (completely random like uuidv4).
+// nanoid allows direct length adjustment in the function.
+export const uid = () =>
+  customAlphabet(
+    '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
+    15,
+  )();
