@@ -105,8 +105,7 @@ export default class SelectionState extends State {
   }
 
   pause() {
-    this.dragStartPoint = null;
-    this._selectionBox.clear();
+    this.#clear();
   }
 
   destroy() {
@@ -115,6 +114,7 @@ export default class SelectionState extends State {
   }
 
   onpointerdown(e) {
+    this.#clearGesture();
     this.interactionState = InteractionState.PRESSING;
     this.dragStartPoint = this.viewport.toWorld(e.global);
 
@@ -163,9 +163,7 @@ export default class SelectionState extends State {
       this.config.onDragEnd(selected, e);
       this.viewport.plugin.stop('mouse-edges');
     }
-
-    // Use setTimeout to clear the selection state after onclick handler has executed.
-    setTimeout(() => this.#clear(), 0);
+    this.#clearInteractionState();
   }
 
   onpointerover(e) {
@@ -175,10 +173,14 @@ export default class SelectionState extends State {
   }
 
   onclick(e) {
-    if (this.movedViewport) return;
+    if (this.movedViewport) {
+      this.#clearGesture();
+      return;
+    }
 
     const currentPoint = this.viewport.toWorld(e.global);
     if (isMoved(this.dragStartPoint, currentPoint, this.viewport.scale)) {
+      this.#clearGesture();
       return;
     }
 
@@ -188,6 +190,7 @@ export default class SelectionState extends State {
     } else {
       this.config.onClick(target, e);
     }
+    this.#clearGesture();
   }
 
   /**
@@ -213,16 +216,34 @@ export default class SelectionState extends State {
   }
 
   /**
-   * Resets the internal state of the selection handler.
+   * Clears the current interaction state and resets to IDLE.
+   * If the selection box exists and is not destroyed, clears its graphics.
    * @private
    */
-  #clear() {
+  #clearInteractionState() {
     this.interactionState = InteractionState.IDLE;
     if (!this._selectionBox.destroyed) {
       this._selectionBox.clear();
     }
+  }
+
+  /**
+   * Resets gesture-related properties, clearing drag start point and moved viewport state.
+   * @private
+   */
+  #clearGesture() {
     this.dragStartPoint = null;
     this.movedViewport = false;
+  }
+
+  /**
+   * Resets the interaction and gesture states to their initial values.
+   * Calls {@link #clearInteractionState} and {@link #clearGesture}.
+   * @private
+   */
+  #clear() {
+    this.#clearInteractionState();
+    this.#clearGesture();
   }
 
   findPoint(point) {
