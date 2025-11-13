@@ -156,7 +156,7 @@ export default class SelectionState extends State {
 
   onpointerup(e) {
     if (this.interactionState === InteractionState.PRESSING) {
-      const target = this.findPoint(this.dragStartPoint);
+      const target = this.findPoint(this.viewport.toWorld(e.global));
       this.config.onUp(target, e);
     } else if (this.interactionState === InteractionState.DRAGGING) {
       const selected = this.findPolygon(this._selectionBox);
