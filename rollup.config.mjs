@@ -37,6 +37,6 @@ export default [
         ],
       }),
     ],
-    external: ['pixi.js'],
+    external: ['pixi.js', 'nanoid'],
   },
 ];
