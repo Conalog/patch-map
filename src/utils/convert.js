@@ -129,7 +129,10 @@ export const convertLegacyData = (data) => {
           attrs: {
             x: transform.x,
             y: transform.y,
-            metadata: props,
+            metadata: Object.assign(
+              props,
+              key === 'inverters' ? { strings: value.children } : {},
+            ),
             display: key === 'combines' ? 'combiner' : key.slice(0, -1),
           },
         });
