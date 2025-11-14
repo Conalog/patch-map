@@ -3,7 +3,7 @@ import { uid } from './uuid';
 
 describe('uuid', () => {
   describe('createUUID', () => {
-    it('should create a UUID string of length 8', () => {
+    it('should create a UUID string of length 15', () => {
       const uuid = uid();
       expect(uuid).toHaveLength(15);
     });
