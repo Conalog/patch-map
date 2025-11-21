@@ -69,6 +69,7 @@ export const convertLegacyData = (data) => {
       objs[key].attrs = { zIndex: 20 };
       for (const value of values) {
         const props = value.properties;
+        console.log(props);
         objs[key].children.push({
           type: 'relations',
           id: value.id,
@@ -95,16 +96,11 @@ export const convertLegacyData = (data) => {
           },
           attrs: {
             metadata: {
-              ...(props?.props
-                ? {
-                    ...props.props,
-                    ...(() => {
-                      if (!props?.props) return props;
-                      const { props: nested, ...rest } = props;
-                      return { ...nested, ...rest };
-                    })(),
-                  }
-                : props),
+              ...(() => {
+                if (!props?.props) return props;
+                const { props: nested, ...rest } = props;
+                return { ...nested, ...rest };
+              })(),
             },
             display: key.slice(0, -1),
           },
