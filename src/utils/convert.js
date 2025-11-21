@@ -98,9 +98,11 @@ export const convertLegacyData = (data) => {
               ...(props?.props
                 ? {
                     ...props.props,
-                    ...Object.fromEntries(
-                      Object.entries(props).filter(([k]) => k !== 'props'),
-                    ),
+                    ...(() => {
+                      if (!props?.props) return props;
+                      const { props: nested, ...rest } = props;
+                      return { ...nested, ...rest };
+                    })(),
                   }
                 : props),
             },
