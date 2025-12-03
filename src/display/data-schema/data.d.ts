@@ -533,6 +533,15 @@ export interface TextStyle {
   wordWrapWidth?: number | 'auto';
 
   /**
+   * Determines how to handle text that overflows its content area.
+   * - 'visible': Text flows outside the bounds (default).
+   * - 'hidden': Text exceeding the bounds is clipped.
+   * - 'ellipsis': Text exceeding the bounds is replaced with '...'.
+   * @default 'visible'
+   */
+  overflow?: 'visible' | 'hidden' | 'ellipsis';
+
+  /**
    * Allows any other properties, similar to PIXI.TextStyleOptions.
    * This provides flexibility for standard text styling.
    * e.g., fill, fontFamily, fontWeight, etc.
