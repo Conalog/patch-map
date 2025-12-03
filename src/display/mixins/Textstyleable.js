@@ -54,10 +54,7 @@ export const Textstyleable = (superClass) => {
       }
 
       if (style.overflow && style.overflow !== 'visible') {
-        const fullText =
-          this._fullText ??
-          splitText(this.props.text || '', this.props.split || 0);
-        applyOverflow(this, margin, style.overflow, fullText);
+        applyOverflow(this, margin, style.overflow, this.text);
       }
     }
 
