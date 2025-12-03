@@ -21,8 +21,7 @@
       "recommended": true,
       "suspicious": {
         "noDebugger": "error",
-        "noImportAssign": "error",
-        "useIterableCallbackReturn": "off"
+        "noImportAssign": "error"
       },
       "correctness": {
         "noUnusedVariables": "error",
