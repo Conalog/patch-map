@@ -8,11 +8,11 @@ import {
   Margin,
   Placement,
   PxOrPercentSize,
+  pxOrPercentSchema,
   RelationsStyle,
   Size,
   TextStyle,
   TextureStyle,
-  pxOrPercentSchema,
 } from './primitive-schema';
 
 vi.mock('../../utils/uuid');
@@ -359,6 +359,7 @@ describe('Primitive Schema Tests', () => {
         fontFamily: 'FiraCode',
         fontSize: 16,
         fontWeight: 400,
+        overflow: 'visible',
       });
     });
 
@@ -369,6 +370,7 @@ describe('Primitive Schema Tests', () => {
         fontFamily: 'Arial',
         fontWeight: 'bold',
         fill: 'red',
+        overflow: 'visible',
       });
     });
   });
