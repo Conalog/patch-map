@@ -6,13 +6,13 @@ import {
   DEFAULT_TEXTSTYLE,
 } from '../mixins/constants';
 import {
-  HslColor,
   HslaColor,
-  HsvColor,
+  HslColor,
   HsvaColor,
+  HsvColor,
   Color as PixiColor,
-  RgbColor,
   RgbaColor,
+  RgbColor,
 } from './color-schema';
 
 /**
@@ -244,6 +244,7 @@ export const TextStyle = z
     fontWeight: z.any().default(DEFAULT_TEXTSTYLE.fontWeight),
     fill: z.any().default(DEFAULT_TEXTSTYLE.fill),
     wordWrapWidth: z.union([z.number(), z.literal('auto')]).optional(),
+    overflow: z.enum(['visible', 'hidden', 'ellipsis']).default('visible'),
   })
   .passthrough()
   .default({});
