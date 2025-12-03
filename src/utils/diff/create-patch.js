@@ -15,10 +15,7 @@ export const createPatch = (obj1, obj2) => {
 
   const result = {};
   for (const key of Object.keys(obj2)) {
-    if (
-      !Object.prototype.hasOwnProperty.call(obj1, key) ||
-      !isSame(obj1[key], obj2[key])
-    ) {
+    if (!Object.hasOwn(obj1, key) || !isSame(obj1[key], obj2[key])) {
       const patchValue = createPatch(obj1[key], obj2[key]);
       result[key] = patchValue;
     }

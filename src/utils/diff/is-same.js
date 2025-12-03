@@ -58,10 +58,7 @@ function _isSame(a, b, visited) {
   if (keysA.length !== keysB.length) return false;
 
   for (const key of keysA) {
-    if (
-      !Object.prototype.hasOwnProperty.call(b, key) ||
-      !_isSame(a[key], b[key], visited)
-    ) {
+    if (!Object.hasOwn(b, key) || !_isSame(a[key], b[key], visited)) {
       return false;
     }
   }
