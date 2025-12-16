@@ -38,6 +38,7 @@ export const Componentsable = (superClass) => {
 
       if (options.mergeStrategy === 'replace') {
         components.forEach((component) => {
+          if (!component.type) return; // Don't remove components that are not managed by patchmap (e.g. raw PIXI objects)
           this.removeChild(component);
           component.destroy({ children: true });
         });

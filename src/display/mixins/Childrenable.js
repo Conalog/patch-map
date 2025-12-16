@@ -35,7 +35,7 @@ export const Childrenable = (superClass) => {
 
       if (options.mergeStrategy === 'replace') {
         elements.forEach((element) => {
-          if (!element.type) return;
+          if (!element.type) return; // Don't remove children that are not managed by patchmap (e.g. raw PIXI objects)
           this.removeChild(element);
           element.destroy({ children: true });
         });
