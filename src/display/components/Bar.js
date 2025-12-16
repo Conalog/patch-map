@@ -34,7 +34,7 @@ export class Bar extends ComposedBar {
     );
   }
 
-  update(changes, options) {
-    super.update(changes, barSchema, options);
+  apply(changes, options) {
+    super.apply(changes, barSchema, options);
   }
 }

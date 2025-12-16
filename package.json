@@ -72,6 +72,12 @@
     "rollup-plugin-copy": "^3.5.0",
     "standard-version": "^9.5.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.8"
+    "vitest": "^4.0.8",
+    "lint-staged": "^15.2.10"
+  },
+  "lint-staged": {
+    "*.{js,ts,svelte}": [
+      "biome check --write --no-errors-on-unmatched"
+    ]
   }
 }

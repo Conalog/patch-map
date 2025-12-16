@@ -38,7 +38,7 @@ export const Childrenable = (superClass) => {
           element = newElement(childChange.type, this.context);
           this.addChild(element);
         }
-        element.update(childChange, options);
+        element.apply(childChange, options);
       }
     }
 

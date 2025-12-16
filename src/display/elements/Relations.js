@@ -20,8 +20,8 @@ export class Relations extends ComposedRelations {
     this.path = this.initPath();
   }
 
-  update(changes, options) {
-    super.update(changes, relationsSchema, {
+  apply(changes, options) {
+    super.apply(changes, relationsSchema, {
       ...options,
       mergeStrategy: 'replace',
     });

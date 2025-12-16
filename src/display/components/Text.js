@@ -32,7 +32,7 @@ export class Text extends ComposedText {
     );
   }
 
-  update(changes, options) {
-    super.update(changes, textSchema, options);
+  apply(changes, options) {
+    super.apply(changes, textSchema, options);
   }
 }

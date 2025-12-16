@@ -68,7 +68,7 @@ export const Base = (superClass) => {
       });
     }
 
-    update(changes, schema, options = {}) {
+    apply(changes, schema, options = {}) {
       const { mergeStrategy = 'merge', refresh = false } = options;
       const effectiveChanges = refresh && !changes ? {} : changes;
       const validatedChanges = validate(effectiveChanges, deepPartial(schema));

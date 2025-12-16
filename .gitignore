@@ -2,4 +2,4 @@
 node_modules
 dist
 *.tgz
-src/tests/*/__screenshots__
+src/tests/**/__screenshots__
