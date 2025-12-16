@@ -38,7 +38,7 @@ export const Componentsable = (superClass) => {
           component = newComponent(componentChange.type, this.context);
           this.addChild(component);
         }
-        component.update(
+        component.apply(
           { type: componentChange.type, ...componentChange },
           options,
         );

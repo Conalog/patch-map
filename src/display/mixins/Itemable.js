@@ -14,7 +14,7 @@ export const Itemable = (superClass) => {
         const [rowIndex, colIndex] = coordsPart.split('.').map(Number);
 
         if (!Number.isNaN(rowIndex) && !Number.isNaN(colIndex)) {
-          child.update(
+          child.apply(
             {
               ...itemProps,
               attrs: {

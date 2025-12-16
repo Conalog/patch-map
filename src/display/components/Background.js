@@ -23,7 +23,7 @@ export class Background extends ComposedBackground {
     super({ type: 'background', context, texture: Texture.WHITE });
   }
 
-  update(changes, options) {
-    super.update(changes, backgroundSchema, options);
+  apply(changes, options) {
+    super.apply(changes, backgroundSchema, options);
   }
 }

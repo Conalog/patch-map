@@ -14,7 +14,7 @@ export class Item extends ComposedItem {
     super({ type: 'item', context });
   }
 
-  update(changes, options) {
-    super.update(changes, itemSchema, options);
+  apply(changes, options) {
+    super.apply(changes, itemSchema, options);
   }
 }

@@ -32,7 +32,7 @@ export class Icon extends ComposedIcon {
     );
   }
 
-  update(changes, options) {
-    super.update(changes, iconSchema, options);
+  apply(changes, options) {
+    super.apply(changes, iconSchema, options);
   }
 }
