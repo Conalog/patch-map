@@ -1,5 +1,5 @@
 import { Viewport } from 'pixi-viewport';
-import { groupSchema } from './data-schema/element-schema';
+import { canvasSchema } from './data-schema/element-schema';
 import { Base } from './mixins/Base';
 import { Childrenable } from './mixins/Childrenable';
 import { mixins } from './mixins/utils';
@@ -13,6 +13,6 @@ export default class BaseViewport extends ComposedViewport {
   }
 
   apply(changes, options) {
-    super.apply(changes, groupSchema, options);
+    super.apply(changes, canvasSchema, options);
   }
 }

@@ -3,6 +3,16 @@ import { componentArraySchema } from './component-schema';
 import { Base, Gap, Margin, RelationsStyle, Size } from './primitive-schema';
 
 /**
+ * A viewport is a container that can be panned and zoomed.
+ * Visually represented by a `Viewport`.
+ * @see {@link https://viewport.pixijs.io/jsdoc/Viewport.html}
+ */
+export const canvasSchema = Base.extend({
+  type: z.literal('canvas'),
+  children: z.array(z.lazy(() => elementTypes)),
+}).strict();
+
+/**
  * Groups multiple elements to apply common properties..
  * Visually represented by a `Container`.
  * @see {@link https://pixijs.download/release/docs/scene.Container.html}
