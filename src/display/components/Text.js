@@ -9,7 +9,7 @@ import { Tintable } from '../mixins/Tintable';
 import { mixins } from '../mixins/utils';
 
 const EXTRA_KEYS = {
-  PLACEMENT: ['text', 'split'],
+  PLACEMENT: ['text', 'style', 'split'],
 };
 
 const ComposedText = mixins(
