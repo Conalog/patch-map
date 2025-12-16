@@ -149,3 +149,14 @@ export const getLayoutContext = (component) => {
     parentPadding,
   };
 };
+
+export const splitText = (text, split) => {
+  if (!split || split === 0) {
+    return text;
+  }
+  let result = '';
+  for (let i = 0; i < text.length; i += split) {
+    result += `${text.slice(i, i + split)}\n`;
+  }
+  return result.trim();
+};

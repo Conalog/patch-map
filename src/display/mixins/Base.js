@@ -58,7 +58,9 @@ export const Base = (superClass) => {
         keys: new Set(),
         stage: stage ?? 99,
       };
-      keys.forEach((key) => registration.keys.add(key));
+      keys.forEach((key) => {
+        registration.keys.add(key);
+      });
       this._handlerRegistry.set(handler, registration);
       registration.keys.forEach((key) => {
         if (!this._handlerMap.has(key)) this._handlerMap.set(key, new Set());

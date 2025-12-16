@@ -5,7 +5,7 @@ import {
   FONT_WEIGHT,
   UPDATE_STAGES,
 } from './constants';
-import { getLayoutContext } from './utils';
+import { getLayoutContext, splitText } from './utils';
 
 const KEYS = ['text', 'split', 'style', 'margin'];
 
@@ -17,6 +17,13 @@ export const Textstyleable = (superClass) => {
 
       if (options.mergeStrategy === 'replace') {
         this.style = new TextStyle();
+      }
+
+      if (this._isTruncated) {
+        this.text =
+          this._fullText ??
+          splitText(this.props.text || '', this.props.split || 0);
+        this._isTruncated = false;
       }
 
       for (const key in style) {
@@ -44,6 +51,10 @@ export const Textstyleable = (superClass) => {
       if (style.fontSize === 'auto') {
         const range = style.autoFont ?? DEFAULT_AUTO_FONT_RANGE;
         setAutoFontSize(this, margin, range);
+      }
+
+      if (style.overflow && style.overflow !== 'visible') {
+        applyOverflow(this, margin, style.overflow, this.text);
       }
     }
 
@@ -86,6 +97,41 @@ const setAutoFontSize = (object, margin, range) => {
 const setAutoWordWrapWidth = (object, margin) => {
   const { contentWidth } = getContentSize(object, margin);
   object.style.wordWrapWidth = contentWidth;
+};
+
+const applyOverflow = (object, margin, overflowType, fullText) => {
+  const { contentWidth, contentHeight } = getContentSize(object, margin);
+  const bounds = object.getLocalBounds();
+
+  if (bounds.width <= contentWidth && bounds.height <= contentHeight) {
+    return;
+  }
+
+  const suffix = overflowType === 'ellipsis' ? '…' : '';
+  let low = 0;
+  let high = fullText.length;
+  let bestFitText = '';
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const sliced = fullText.slice(0, mid);
+    const candidate = mid === fullText.length ? sliced : sliced + suffix;
+
+    if (doesFit(candidate)) {
+      bestFitText = candidate;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+  object.text = bestFitText;
+  object._isTruncated = bestFitText !== fullText;
+
+  function doesFit(text) {
+    object.text = text;
+    const b = object.getLocalBounds();
+    return b.width <= contentWidth && b.height <= contentHeight;
+  }
 };
 
 const getContentSize = (object, margin) => {
