@@ -4,7 +4,7 @@ import { isValidationError } from 'zod-validation-error';
 import { UndoRedoManager } from './command/UndoRedoManager';
 import { draw } from './display/draw';
 import { update } from './display/update';
-import { fit, focus } from './events/focus-fit';
+import { fit as fitViewport, focus } from './events/focus-fit';
 import {
   initApp,
   initAsset,
@@ -127,14 +127,23 @@ class Patchmap extends WildcardEventEmitter {
     this._theme.set(themeOptions);
     this._app = new Application();
     await initApp(this.app, { resizeTo: element, ...appOptions });
-    this.viewport = initViewport(this.app, viewportOptions);
+
+    const context = {
+      undoRedoManager: this.undoRedoManager,
+      theme: this.theme,
+      animationContext: this.animationContext,
+    };
+    this.viewport = initViewport(this.app, viewportOptions, context);
+
     await initAsset(assetsOptions);
     initCanvas(element, this.app);
 
     this._resizeObserver = initResizeObserver(element, this.app, this.viewport);
     this._stateManager = new StateManager(this);
     this._stateManager.register('selection', SelectionState, true);
-    this.transformer = transformer;
+    if (transformer) {
+      this.transformer = transformer;
+    }
     this.isInit = true;
     this.emit('patchmap:initialized', { target: this });
   }
@@ -222,7 +231,7 @@ class Patchmap extends WildcardEventEmitter {
   }
 
   fit(ids) {
-    fit(this.viewport, ids);
+    fitViewport(this.viewport, ids);
   }
 
   selector(path, opts) {

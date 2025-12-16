@@ -10,7 +10,7 @@ export class Group extends ComposedGroup {
     super({ type: 'group', context, isRenderGroup: true });
   }
 
-  update(changes, options) {
-    super.update(changes, groupSchema, options);
+  apply(changes, options) {
+    super.apply(changes, groupSchema, options);
   }
 }

@@ -49,7 +49,7 @@ export const Base = (superClass) => {
     }
 
     static registerHandler(keys, handler, stage) {
-      if (!Object.prototype.hasOwnProperty.call(this, '_handlerRegistry')) {
+      if (!Object.hasOwn(this, '_handlerRegistry')) {
         this._handlerRegistry = new Map(this._handlerRegistry);
         this._handlerMap = new Map(this._handlerMap);
       }
@@ -66,7 +66,7 @@ export const Base = (superClass) => {
       });
     }
 
-    update(changes, schema, options = {}) {
+    apply(changes, schema, options = {}) {
       const { mergeStrategy = 'merge', refresh = false } = options;
       const effectiveChanges = refresh && !changes ? {} : changes;
       const validatedChanges = validate(effectiveChanges, deepPartial(schema));
@@ -116,7 +116,7 @@ export const Base = (superClass) => {
           this.constructor._handlerRegistry.get(handler).keys;
         const fullPayload = {};
         keysForHandler.forEach((key) => {
-          if (Object.prototype.hasOwnProperty.call(this.props, key)) {
+          if (Object.hasOwn(this.props, key)) {
             fullPayload[key] = this.props[key];
           }
         });

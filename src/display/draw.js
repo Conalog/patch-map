@@ -1,5 +1,5 @@
-import Element from './elements/Element';
 import { newElement } from './elements/creator';
+import Element from './elements/Element';
 
 export const draw = (context, data) => {
   const { viewport } = context;
@@ -9,7 +9,7 @@ export const draw = (context, data) => {
   function render(parent, data) {
     for (const changes of data) {
       const element = newElement(changes.type, context);
-      element.update(changes);
+      element.apply(changes);
       parent.addChild(element);
     }
   }

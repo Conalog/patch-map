@@ -32,7 +32,7 @@ export const update = (viewport, opts) => {
     if (config.relativeTransform && changes.attrs) {
       changes.attrs = applyRelativeTransform(element, changes.attrs);
     }
-    element.update(changes, {
+    element.apply(changes, {
       historyId,
       mergeStrategy: config.mergeStrategy,
       refresh: config.refresh,

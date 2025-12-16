@@ -1,11 +1,10 @@
-import { gsap } from 'gsap';
+import gsap from 'gsap';
 import { PixiPlugin } from 'gsap/PixiPlugin';
-import { Viewport } from 'pixi-viewport';
 import * as PIXI from 'pixi.js';
 import { firaCode } from './assets/fonts';
 import { icons } from './assets/icons';
-import { Type } from './display/mixins/Type';
 import { FONT_WEIGHT } from './display/mixins/constants';
+import BaseViewport from './display/Viewport';
 import { deepMerge } from './utils/deepmerge/deepmerge';
 import { plugin } from './utils/event/viewport';
 import { uid } from './utils/uuid';
@@ -61,7 +60,7 @@ export const initApp = async (app, opts = {}) => {
   app.renderer.uid = uid();
 };
 
-export const initViewport = (app, opts = {}) => {
+export const initViewport = (app, opts = {}, context) => {
   const options = deepMerge(
     {
       ...DEFAULT_INIT_OPTIONS.viewport,
@@ -71,7 +70,7 @@ export const initViewport = (app, opts = {}) => {
     },
     opts,
   );
-  const viewport = new (Type(Viewport))({ ...options, type: 'canvas' });
+  const viewport = new BaseViewport({ ...options, context });
   viewport.app = app;
   viewport.events = {};
   viewport.plugin = {

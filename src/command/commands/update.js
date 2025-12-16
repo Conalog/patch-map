@@ -10,14 +10,14 @@ export class UpdateCommand extends Command {
   }
 
   execute() {
-    this.element.update(this.changes, {
+    this.element.apply(this.changes, {
       ...this.options,
       historyId: false,
     });
   }
 
   undo() {
-    this.element.update(this.previousProps, {
+    this.element.apply(this.previousProps, {
       ...this.options,
       mergeStrategy: 'replace',
       historyId: false,

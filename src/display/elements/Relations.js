@@ -1,8 +1,8 @@
 import { Graphics } from 'pixi.js';
 import { calcOrientedBounds } from '../../utils/bounds';
 import { relationsSchema } from '../data-schema/element-schema';
-import { Relationstyleable } from '../mixins/Relationstyleable';
 import { Linksable } from '../mixins/linksable';
+import { Relationstyleable } from '../mixins/Relationstyleable';
 import { mixins } from '../mixins/utils';
 import Element from './Element';
 
@@ -20,8 +20,8 @@ export class Relations extends ComposedRelations {
     this.path = this.initPath();
   }
 
-  update(changes, options) {
-    super.update(changes, relationsSchema, options);
+  apply(changes, options) {
+    super.apply(changes, relationsSchema, options);
   }
 
   initPath() {
