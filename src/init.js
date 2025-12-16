@@ -71,6 +71,7 @@ export const initViewport = (app, opts = {}, context) => {
     opts,
   );
   const viewport = new BaseViewport({ ...options, context });
+  context.viewport = viewport;
   viewport.app = app;
   viewport.events = {};
   viewport.plugin = {
