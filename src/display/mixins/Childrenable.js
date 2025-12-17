@@ -26,6 +26,9 @@ export const Childrenable = (superClass) => {
         if (idx !== -1) {
           element = elements[idx];
           elements.splice(idx, 1);
+          if (options.mergeStrategy === 'replace') {
+            this.addChild(element);
+          }
         } else {
           element = newElement(childChange.type, this.context);
           this.addChild(element);

@@ -26,6 +26,9 @@ export const Componentsable = (superClass) => {
         if (idx !== -1) {
           component = components[idx];
           components.splice(idx, 1);
+          if (options.mergeStrategy === 'replace') {
+            this.addChild(component);
+          }
         } else {
           component = newComponent(componentChange.type, this.context);
           this.addChild(component);
