@@ -1,11 +1,15 @@
 import { Graphics } from 'pixi.js';
+import { Type } from '../display/mixins/Type';
+import { mixins } from '../display/mixins/utils';
+
+const ComposedWireframe = mixins(Graphics, Type);
 
 /**
  * A specialized Graphics class for drawing the wireframe outlines of transformed objects.
  * It extends PIXI.Graphics to provide a dedicated method for rendering bounds.
  * @extends PIXI.Graphics
  */
-export class Wireframe extends Graphics {
+export class Wireframe extends ComposedWireframe {
   /**
    * A static flag to indicate that this object can be targeted by selection logic.
    * @type {boolean}

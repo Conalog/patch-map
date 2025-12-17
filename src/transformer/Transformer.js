@@ -98,7 +98,7 @@ export default class Transformer extends Container {
     if (isValidationError(options)) throw options;
 
     this._selection = new SelectionModel();
-    this.#wireframe = this.addChild(new Wireframe({ label: 'wireframe' }));
+    this.#wireframe = this.addChild(new Wireframe({ type: 'wireframe' }));
     this.wireframeStyle = DEFAULT_WIREFRAME_STYLE;
     this.onRender = this.#refresh.bind(this);
     for (const key in options) {
