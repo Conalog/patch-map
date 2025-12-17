@@ -105,7 +105,7 @@ export default class SelectionState extends State {
   }
 
   pause() {
-    this.#clear();
+    this.#clearSelectionBox();
   }
 
   destroy() {
@@ -163,6 +163,7 @@ export default class SelectionState extends State {
       this.config.onDragEnd(selected, e);
       this.viewport.plugin.stop('mouse-edges');
     }
+    this.#clearSelectionBox();
     this.#clearInteractionState();
   }
 
@@ -216,15 +217,21 @@ export default class SelectionState extends State {
   }
 
   /**
+   * Clears the selection box if it exists and is not destroyed.
+   * @private
+   */
+  #clearSelectionBox() {
+    if (!this._selectionBox.destroyed) {
+      this._selectionBox.clear();
+    }
+  }
+
+  /**
    * Clears the current interaction state and resets to IDLE.
-   * If the selection box exists and is not destroyed, clears its graphics.
    * @private
    */
   #clearInteractionState() {
     this.interactionState = InteractionState.IDLE;
-    if (!this._selectionBox.destroyed) {
-      this._selectionBox.clear();
-    }
   }
 
   /**
@@ -243,6 +250,7 @@ export default class SelectionState extends State {
    */
   #clear() {
     this.#clearInteractionState();
+    this.#clearSelectionBox();
     this.#clearGesture();
   }
 
