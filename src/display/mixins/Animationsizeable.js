@@ -22,6 +22,10 @@ export const AnimationSizeable = (superClass) => {
             duration: animationDuration / 1000,
             ease: 'power2.inOut',
             onUpdate: () => {
+              if (this.destroyed) {
+                this.killTweens();
+                return;
+              }
               this._applyPlacement({
                 placement: this.props.placement,
                 margin: this.props.margin,

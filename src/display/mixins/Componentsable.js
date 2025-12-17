@@ -11,21 +11,13 @@ export const Componentsable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyComponents(relevantChanges, options) {
       let { components: componentsChanges } = relevantChanges;
-      let components = [...this.children];
+      const components = [...this.children];
 
       componentsChanges = validateAndPrepareChanges(
         components,
         componentsChanges,
         componentArraySchema,
       );
-
-      if (options.mergeStrategy === 'replace') {
-        components.forEach((component) => {
-          this.removeChild(component);
-          component.destroy({ children: true });
-        });
-        components = [];
-      }
 
       for (const componentChange of componentsChanges) {
         const idx = findIndexByPriority(components, componentChange);
@@ -42,6 +34,14 @@ export const Componentsable = (superClass) => {
           { type: componentChange.type, ...componentChange },
           options,
         );
+      }
+
+      if (options.mergeStrategy === 'replace') {
+        components.forEach((component) => {
+          if (!component.type) return; // Don't remove components that are not managed by patchmap (e.g. raw PIXI objects)
+          this.removeChild(component);
+          component.destroy({ children: true });
+        });
       }
     }
 

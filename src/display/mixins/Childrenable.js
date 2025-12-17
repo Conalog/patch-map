@@ -11,21 +11,13 @@ export const Childrenable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyChildren(relevantChanges, options) {
       let { children: childrenChanges } = relevantChanges;
-      let elements = [...this.children];
+      const elements = [...this.children];
 
       childrenChanges = validateAndPrepareChanges(
         elements,
         childrenChanges,
         mapDataSchema,
       );
-
-      if (options.mergeStrategy === 'replace') {
-        elements.forEach((element) => {
-          this.removeChild(element);
-          element.destroy({ children: true });
-        });
-        elements = [];
-      }
 
       for (const childChange of childrenChanges) {
         const idx = findIndexByPriority(elements, childChange);
@@ -39,6 +31,14 @@ export const Childrenable = (superClass) => {
           this.addChild(element);
         }
         element.apply(childChange, options);
+      }
+
+      if (options.mergeStrategy === 'replace') {
+        elements.forEach((element) => {
+          if (!element.type) return; // Don't remove children that are not managed by patchmap (e.g. raw PIXI objects)
+          this.removeChild(element);
+          element.destroy({ children: true });
+        });
       }
     }
 
