@@ -496,6 +496,8 @@ patchmap.stateManager.setState('custom', { message: 'Hello World' });
   - `'closestGroup'`: 선택된 객체에서 가장 가까운 상위 그룹을 선택합니다.
   - `'highestGroup'`: 선택된 객체에서 가장 최상위 그룹을 선택합니다.
   - `'grid'`: 선택된 객체가 속한 그리드를 선택합니다.
+- `drillDown` (optional, boolean): 더블 클릭(또는 연속 클릭) 시 중첩된 그룹 내부로 단계별로 진입하며 하위 요소를 탐색하여 선택하는 기능을 활성화합니다. 활성화 시 이미 상위 그룹이 선택된 상태에서 다시 클릭하면, 해당 클릭 지점에 있는 더 깊은 단계의 자식 객체를 찾아 선택합니다.
+- `deepSelect` (optional, boolean): Ctrl(Windows) 또는 Meta(Mac) 키를 누른 상태에서 클릭할 때, 설정된 selectUnit과 관계없이 즉시 하위 요소(기본 'grid' 단위)를 검색하여 선택할 수 있는 기능을 활성화합니다. 복잡한 그룹 구조를 거치지 않고 특정 요소를 빠르게 선택하고 싶을 때 유용합니다.
 - `filter` (optional, function): 선택 대상 객체를 조건에 따라 필터링할 수 있는 함수입니다.
 - `selectionBoxStyle` (optional, object): 드래그 선택 시 표시되는 사각형의 스타일을 지정합니다.
   - `fill` (object): 채우기 스타일. 기본값: `{ color: '#9FD6FF', alpha: 0.2 }`.
