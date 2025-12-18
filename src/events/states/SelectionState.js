@@ -4,10 +4,10 @@ import { findIntersectObject, findIntersectObjects } from '../find';
 import { isMoved } from '../utils';
 import State from './State';
 
-const InteractionState = {
-  IDLE: 'idle',
-  PRESSING: 'pressing',
-  DRAGGING: 'dragging',
+const stateSymbol = {
+  IDLE: Symbol('IDLE'),
+  PRESSING: Symbol('PRESSING'),
+  DRAGGING: Symbol('DRAGGING'),
 };
 
 /**
@@ -15,6 +15,8 @@ const InteractionState = {
  * @property {boolean} [draggable=false] - Enables drag-to-select functionality.
  * @property {(obj: PIXI.DisplayObject) => boolean} [filter=() => true] - A function to filter which objects can be selected.
  * @property {'entity' | 'closestGroup' | 'highestGroup' | 'grid'} [selectUnit='entity'] - The logical unit of selection.
+ * @property {boolean} [drillDown=false] - Enables drill-down selection on double click.
+ * @property {boolean} [deepSelect=false] - Enables deep selection (force 'entity') when holding Ctrl/Meta key.
  * @property {object} [selectionBoxStyle] - Style options for the drag selection box.
  * @property {object} [selectionBoxStyle.fill] - Fill style.
  * @property {string | number} [selectionBoxStyle.fill.color='#9FD6FF'] - Fill color.
@@ -50,6 +52,26 @@ const InteractionState = {
  * Callback fired on `pointerover` when the pointer enters a new object (and not dragging).
  */
 
+const defaultConfig = {
+  draggable: false,
+  filter: () => true,
+  selectUnit: 'entity',
+  drillDown: false,
+  deepSelect: false,
+  onDown: () => {},
+  onUp: () => {},
+  onClick: () => {},
+  onDoubleClick: () => {},
+  onDragStart: () => {},
+  onDrag: () => {},
+  onDragEnd: () => {},
+  onOver: () => {},
+  selectionBoxStyle: {
+    fill: { color: '#9FD6FF', alpha: 0.2 },
+    stroke: { width: 2, color: '#1099FF' },
+  },
+};
+
 export default class SelectionState extends State {
   static handledEvents = [
     'onpointerdown',
@@ -61,7 +83,7 @@ export default class SelectionState extends State {
 
   /** @type {SelectionStateConfig} */
   config = {};
-  interactionState = InteractionState.IDLE;
+  interactionState = stateSymbol.IDLE;
   dragStartPoint = null;
   movedViewport = false;
   _selectionBox = new Graphics();
@@ -71,127 +93,170 @@ export default class SelectionState extends State {
    * @param {object} context - The application context, containing the viewport.
    * @param {SelectionStateConfig} config - Configuration for the selection behavior.
    */
-  enter(context, config) {
+  enter(context, config = {}) {
     super.enter(context);
-    const defaultConfig = {
-      draggable: false,
-      filter: () => true,
-      selectUnit: 'entity',
-      onDown: () => {},
-      onUp: () => {},
-      onClick: () => {},
-      onDoubleClick: () => {},
-      onDragStart: () => {},
-      onDrag: () => {},
-      onDragEnd: () => {},
-      onOver: () => {},
-      selectionBoxStyle: {
-        fill: { color: '#9FD6FF', alpha: 0.2 },
-        stroke: { width: 2, color: '#1099FF' },
-      },
-    };
-    this.config = deepMerge(defaultConfig, config || {});
-
+    this.config = deepMerge(defaultConfig, config);
     this.viewport = this.context.viewport;
     this.viewport.addChild(this._selectionBox);
   }
 
   exit() {
     super.exit();
-    this.#clear();
-    if (this._selectionBox.parent) {
-      this._selectionBox.parent.removeChild(this._selectionBox);
-    }
+    this.#clear({ state: true, selectionBox: true, gesture: true });
+    this._selectionBox?.destroy(true);
   }
 
   pause() {
-    this.#clearSelectionBox();
-  }
-
-  destroy() {
-    this._selectionBox.destroy(true);
-    super.destroy();
+    this.#clear({ selectionBox: true });
   }
 
   onpointerdown(e) {
-    this.#clearGesture();
-    this.interactionState = InteractionState.PRESSING;
+    this.#clear({ gesture: true });
+    this.interactionState = stateSymbol.PRESSING;
     this.dragStartPoint = this.viewport.toWorld(e.global);
 
-    const target = this.findPoint(this.dragStartPoint);
+    const target = this.#searchObject(this.dragStartPoint, e);
     this.config.onDown(target, e);
   }
 
   onpointermove(e) {
+    if (this.interactionState === stateSymbol.IDLE || !this.config.draggable) {
+      return;
+    }
+
     if (
-      this.interactionState === InteractionState.PRESSING &&
+      this.interactionState === stateSymbol.PRESSING &&
       this.viewport.moving
     ) {
       this.movedViewport = true;
     }
 
-    if (
-      this.interactionState === InteractionState.IDLE ||
-      !this.config.draggable
-    ) {
-      return;
-    }
     const currentPoint = this.viewport.toWorld(e.global);
-
     if (
-      this.interactionState === InteractionState.PRESSING &&
+      this.interactionState === stateSymbol.PRESSING &&
       isMoved(this.dragStartPoint, currentPoint, this.viewport.scale)
     ) {
-      this.interactionState = InteractionState.DRAGGING;
+      this.interactionState = stateSymbol.DRAGGING;
       this.viewport.plugin.start('mouse-edges');
       this.config.onDragStart(e);
     }
 
-    if (this.interactionState === InteractionState.DRAGGING) {
+    if (this.interactionState === stateSymbol.DRAGGING) {
       this.#drawSelectionBox(this.dragStartPoint, currentPoint);
-      const selected = this.findPolygon(this._selectionBox);
+      const selected = this.#searchObjects(this._selectionBox);
       this.config.onDrag(selected, e);
     }
   }
 
   onpointerup(e) {
-    if (this.interactionState === InteractionState.PRESSING) {
-      const target = this.findPoint(this.viewport.toWorld(e.global));
+    if (this.interactionState === stateSymbol.PRESSING) {
+      const target = this.#searchObject(this.viewport.toWorld(e.global), e);
       this.config.onUp(target, e);
-    } else if (this.interactionState === InteractionState.DRAGGING) {
-      const selected = this.findPolygon(this._selectionBox);
+    } else if (this.interactionState === stateSymbol.DRAGGING) {
+      const selected = this.#searchObjects(this._selectionBox);
       this.config.onDragEnd(selected, e);
       this.viewport.plugin.stop('mouse-edges');
     }
-    this.#clearSelectionBox();
-    this.#clearInteractionState();
+    this.#clear({ state: true, selectionBox: true, gesture: true });
   }
 
   onpointerover(e) {
-    if (this.interactionState !== InteractionState.IDLE) return;
-    const selected = this.findPoint(this.viewport.toWorld(e.global));
-    this.config.onOver(selected, e);
+    if (this.interactionState !== stateSymbol.IDLE) return;
+    const target = this.#searchObject(this.viewport.toWorld(e.global), e);
+    this.config.onOver(target, e);
   }
 
   onclick(e) {
     if (this.movedViewport) {
-      this.#clearGesture();
+      this.#clear({ gesture: true });
       return;
     }
 
     const currentPoint = this.viewport.toWorld(e.global);
     if (isMoved(this.dragStartPoint, currentPoint, this.viewport.scale)) {
-      this.#clearGesture();
+      this.#clear({ gesture: true });
       return;
     }
 
-    const target = this.findPoint(currentPoint);
+    let target = this.#searchObject(currentPoint, e);
+    if (this.config.drillDown && e.detail >= 2) {
+      for (let i = 1; i < e.detail; i++) {
+        if (!target) break;
+        const deeperTarget = findIntersectObject(
+          target,
+          currentPoint,
+          this.config,
+        );
+        if (!deeperTarget) break;
+        target = deeperTarget;
+      }
+    }
+
     if (e.detail === 2) {
       this.config.onDoubleClick(target, e);
     } else {
       this.config.onClick(target, e);
     }
-    this.#clearGesture();
+    this.#clear({ gesture: true });
+  }
+
+  #searchObject(point, e) {
+    if (this.config.deepSelect && (e.ctrlKey || e.metaKey)) {
+      return this.#findByPoint(point, { ...this.config, selectUnit: 'grid' });
+    }
+
+    return this.#findByPoint(point, {
+      ...this.config,
+      filterParent: this.#getSelectionAncestors(),
+    });
+  }
+
+  #searchObjects(polygon) {
+    return this.#findByPolygon(polygon, {
+      ...this.config,
+      filterParent: this.#getSelectionAncestors(),
+    });
+  }
+
+  #findByPoint(point, config = this.config) {
+    const object = findIntersectObject(this.viewport, point, config);
+    if (!object || object.type !== 'wireframe') {
+      return object;
+    }
+
+    const underObject = findIntersectObject(this.viewport, point, {
+      ...config,
+      filter: (obj) => this.config.filter(obj) && obj.type !== 'wireframe',
+    });
+    if (!underObject || underObject.type === 'canvas') {
+      return object;
+    }
+    return underObject;
+  }
+
+  #findByPolygon(polygon, config = this.config) {
+    return findIntersectObjects(this.viewport, polygon, {
+      ...config,
+      filter: (obj) => this.config.filter(obj) && obj.type !== 'wireframe',
+    });
+  }
+
+  /**
+   * Retrieves the ancestors of selected elements.
+   * @private
+   * @returns {Set<PIXI.DisplayObject>} A set of ancestors of selected elements.
+   */
+  #getSelectionAncestors() {
+    const selectionAncestors = new Set();
+    for (const element of this.context.transformer.elements) {
+      let current = element.parent;
+      while (current) {
+        if (current.type === 'canvas') break;
+        selectionAncestors.add(current);
+        current = current.parent;
+      }
+    }
+    return selectionAncestors;
   }
 
   /**
@@ -217,48 +282,23 @@ export default class SelectionState extends State {
   }
 
   /**
-   * Clears the selection box if it exists and is not destroyed.
+   * Clears the selection state and optional components.
    * @private
+   * @param {object} options - Options to control what to clear.
+   * @param {boolean} [options.state=false] - Clear the interaction state.
+   * @param {boolean} [options.selectionBox=false] - Clear the selection box.
+   * @param {boolean} [options.gesture=false] - Clear gesture-related data.
    */
-  #clearSelectionBox() {
-    if (!this._selectionBox.destroyed) {
+  #clear({ state = false, selectionBox = false, gesture = false }) {
+    if (state) {
+      this.interactionState = stateSymbol.IDLE;
+    }
+    if (selectionBox && !this._selectionBox.destroyed) {
       this._selectionBox.clear();
     }
-  }
-
-  /**
-   * Clears the current interaction state and resets to IDLE.
-   * @private
-   */
-  #clearInteractionState() {
-    this.interactionState = InteractionState.IDLE;
-  }
-
-  /**
-   * Resets gesture-related properties, clearing drag start point and moved viewport state.
-   * @private
-   */
-  #clearGesture() {
-    this.dragStartPoint = null;
-    this.movedViewport = false;
-  }
-
-  /**
-   * Resets the interaction and gesture states to their initial values.
-   * Calls {@link #clearInteractionState} and {@link #clearGesture}.
-   * @private
-   */
-  #clear() {
-    this.#clearInteractionState();
-    this.#clearSelectionBox();
-    this.#clearGesture();
-  }
-
-  findPoint(point) {
-    return findIntersectObject(this.viewport, point, this.config);
-  }
-
-  findPolygon(polygon) {
-    return findIntersectObjects(this.viewport, polygon, this.config);
+    if (gesture) {
+      this.dragStartPoint = null;
+      this.movedViewport = false;
+    }
   }
 }

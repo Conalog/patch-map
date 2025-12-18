@@ -4,33 +4,30 @@ export const checkEvents = (viewport, eventId) => {
   return eventId.split(' ').every((id) => event.getEvent(viewport, id));
 };
 
-export const getSelectObject = (obj, selectUnit) => {
-  if (!obj || !obj.constructor.isSelectable) {
+export const getSelectObject = (
+  parent,
+  obj,
+  selectUnit,
+  filterParent = new Set(),
+) => {
+  if (!obj?.constructor?.isSelectable) {
     return null;
   }
 
-  switch (selectUnit) {
-    case 'entity':
-      return obj;
+  const strategies = {
+    entity: () => obj,
+    closestGroup: () =>
+      findClosestParent(parent, obj, 'group', filterParent) ||
+      findClosestParent(parent, obj, 'grid', filterParent),
+    highestGroup: () =>
+      findHighestParent(parent, obj, 'group', filterParent) ||
+      findClosestParent(parent, obj, 'grid', filterParent),
+    grid: () => findClosestParent(parent, obj, 'grid', filterParent),
+  };
 
-    case 'closestGroup': {
-      const closestGroup = findClosestParent(obj, 'group');
-      return closestGroup || obj;
-    }
-
-    case 'highestGroup': {
-      const highestGroup = findHighestParent(obj, 'group');
-      return highestGroup || obj;
-    }
-
-    case 'grid': {
-      const parentGrid = findClosestParent(obj, 'grid');
-      return parentGrid || obj;
-    }
-
-    default:
-      return obj;
-  }
+  const finder = strategies[selectUnit];
+  const target = finder ? finder() : obj;
+  return target || obj;
 };
 
 const MOVE_DELTA = 4;
@@ -44,22 +41,28 @@ export const isMoved = (point1, point2, scale = { x: 1, y: 1 }) => {
   );
 };
 
-const findClosestParent = (obj, type) => {
+const findClosestParent = (parent, obj, type, filterParent) => {
   let current = obj;
-  while (current && current.type !== 'canvas') {
-    if (current.type === type) {
+  while (current && current.type !== 'canvas' && current !== parent) {
+    if (
+      current.type === type &&
+      (!filterParent || !filterParent.has(current))
+    ) {
       return current;
     }
     current = current.parent;
   }
-  return null; // 해당하는 부모가 없음
+  return null;
 };
 
-const findHighestParent = (obj, type) => {
+const findHighestParent = (parent, obj, type, filterParent) => {
   let topParent = null;
   let current = obj;
-  while (current && current.type !== 'canvas') {
-    if (current.type === type) {
+  while (current && current.type !== 'canvas' && current !== parent) {
+    if (
+      current.type === type &&
+      (!filterParent || !filterParent.has(current))
+    ) {
       topParent = current;
     }
     current = current.parent;
