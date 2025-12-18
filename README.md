@@ -487,6 +487,8 @@ The default state that handles user selection and drag events. It is automatical
   - `'closestGroup'`: Selects the nearest parent group of the selected object.
   - `'highestGroup'`: Selects the topmost parent group of the selected object.
   - `'grid'`: Selects the grid to which the selected object belongs.
+- `drillDown` (optional, boolean): Enables step-by-step navigation into nested groups through double-clicks (or consecutive clicks). When a parent group is already selected, subsequent clicks will search for and select deeper child objects at that specific location.
+- `deepSelect` (optional, boolean): Enables immediate searching and selection of sub-elements (defaulting to the 'grid' unit) regardless of the configured selectUnit when holding the Ctrl (Windows) or Meta (Mac) key. This is useful for quickly picking specific items without navigating through complex group structures.
 - `filter` (optional, function): A function to filter selectable objects based on a condition.
 - `selectionBoxStyle` (optional, object): Specifies the style of the selection box displayed during drag-selection.
   - `fill` (object): The fill style. Default: `{ color: '#9FD6FF', alpha: 0.2 }`.

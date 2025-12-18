@@ -4,12 +4,12 @@ import { intersectPoint } from '../utils/intersects/intersect-point';
 import { getSelectObject } from './utils';
 
 export const findIntersectObject = (
-  viewport,
+  parent,
   point,
-  { filter, selectUnit } = {},
+  { filter, selectUnit, filterParent } = {},
 ) => {
   const allCandidates = collectCandidates(
-    viewport,
+    parent,
     (child) => child.constructor.isSelectable,
   );
 
@@ -17,8 +17,8 @@ export const findIntersectObject = (
     const zDiff = (b.zIndex || 0) - (a.zIndex || 0);
     if (zDiff !== 0) return zDiff;
 
-    const pathA = getAncestorPath(a, viewport);
-    const pathB = getAncestorPath(b, viewport);
+    const pathA = getAncestorPath(a, parent);
+    const pathB = getAncestorPath(b, parent);
 
     const minLength = Math.min(pathA.length, pathB.length);
     for (let i = 0; i < minLength; i++) {
@@ -42,7 +42,12 @@ export const findIntersectObject = (
     for (const target of targets) {
       const isIntersecting = intersectPoint(target, point);
       if (isIntersecting) {
-        const selectObject = getSelectObject(candidate, selectUnit);
+        const selectObject = getSelectObject(
+          parent,
+          candidate,
+          selectUnit,
+          filterParent,
+        );
         if (selectObject && (!filter || filter(selectObject))) {
           return selectObject;
         }
@@ -54,12 +59,12 @@ export const findIntersectObject = (
 };
 
 export const findIntersectObjects = (
-  viewport,
+  parent,
   selectionBox,
-  { filter, selectUnit } = {},
+  { filter, selectUnit, filterParent } = {},
 ) => {
   const allCandidates = collectCandidates(
-    viewport,
+    parent,
     (child) => child.constructor.isSelectable,
   );
   const found = [];
@@ -73,7 +78,12 @@ export const findIntersectObjects = (
     for (const target of targets) {
       const isIntersecting = intersect(selectionBox, target);
       if (isIntersecting) {
-        const selectObject = getSelectObject(candidate, selectUnit);
+        const selectObject = getSelectObject(
+          parent,
+          candidate,
+          selectUnit,
+          filterParent,
+        );
         if (selectObject && (!filter || filter(selectObject))) {
           found.push(selectObject);
           break;
