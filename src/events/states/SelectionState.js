@@ -173,7 +173,7 @@ export default class SelectionState extends State {
       targets.forEach((target) => this._paintedObjects.add(target));
 
       if (this._paintedObjects.size > initialSize) {
-        this.config.onDrag(Array.from(this._paintedObjects), e);
+        this.config.onDrag(targets, e);
       }
     }
 
