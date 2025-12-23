@@ -169,15 +169,10 @@ export default class SelectionState extends State {
         { ...this.config, filterParent: this.#getSelectionAncestors() },
       );
 
-      let foundNew = false;
-      for (const target of targets) {
-        if (!this._paintedObjects.has(target)) {
-          this._paintedObjects.add(target);
-          foundNew = true;
-        }
-      }
+      const initialSize = this._paintedObjects.size;
+      targets.forEach((target) => this._paintedObjects.add(target));
 
-      if (foundNew) {
+      if (this._paintedObjects.size > initialSize) {
         this.config.onDrag(Array.from(this._paintedObjects), e);
       }
     }
