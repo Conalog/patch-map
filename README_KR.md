@@ -491,6 +491,7 @@ patchmap.stateManager.setState('custom', { message: 'Hello World' });
 사용자의 선택 및 드래그 이벤트를 처리하는 기본 상태(State)입니다. `patchmap.draw()`가 실행되면 'selection'이라는 이름으로 `stateManager`에 자동으로 등록됩니다. `stateManager.setState('selection', options)`를 호출하여 활성화하고 설정을 전달할 수 있습니다.
 
 - `draggable` (optional, boolean): 드래그를 통한 다중 선택 활성화 여부를 결정합니다.
+- `paintSelection` (optional, boolean): 마우스를 누른 채 이동하는 경로상의 객체들을 실시간으로 누적 선택하는 '페인트 선택' 기능을 활성화합니다. 활성화 시 기존의 사각형 범위 선택 대신, 붓으로 칠하듯 자유로운 궤적을 따라 원하는 객체들을 훑어서 선택할 수 있습니다.
 - `selectUnit` (optional, string): 선택 시 반환될 논리적 단위를 지정합니다. 기본값은 `'entity'` 입니다.
   - `'entity'`: 개별 객체를 선택합니다.
   - `'closestGroup'`: 선택된 객체에서 가장 가까운 상위 그룹을 선택합니다.

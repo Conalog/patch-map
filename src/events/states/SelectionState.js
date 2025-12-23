@@ -18,7 +18,7 @@ const stateSymbol = {
 /**
  * @typedef {object} SelectionStateConfig
  * @property {boolean} [draggable=false] - Enables drag-to-select functionality.
- * @property {'drag' | 'paint'} [dragMode='drag'] - The drag mode.
+ * @property {boolean} [paintSelection=false] - Enables paint-to-select functionality.
  * @property {(obj: PIXI.DisplayObject) => boolean} [filter=() => true] - A function to filter which objects can be selected.
  * @property {'entity' | 'closestGroup' | 'highestGroup' | 'grid'} [selectUnit='entity'] - The logical unit of selection.
  * @property {boolean} [drillDown=false] - Enables drill-down selection on double click.
@@ -63,7 +63,7 @@ const stateSymbol = {
 
 const defaultConfig = {
   draggable: false,
-  dragMode: 'drag',
+  paintSelection: false,
   filter: () => true,
   selectUnit: 'entity',
   drillDown: false,
@@ -151,10 +151,9 @@ export default class SelectionState extends State {
       this.interactionState === stateSymbol.PRESSING &&
       isMoved(this.dragStartPoint, currentPoint, this.viewport.scale)
     ) {
-      this.interactionState =
-        this.config.dragMode === 'paint'
-          ? stateSymbol.PAINTING
-          : stateSymbol.DRAGGING;
+      this.interactionState = this.config.paintSelection
+        ? stateSymbol.PAINTING
+        : stateSymbol.DRAGGING;
       this.viewport.plugin.start('mouse-edges');
       this.config.onDragStart(e);
 
