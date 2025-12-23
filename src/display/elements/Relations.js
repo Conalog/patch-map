@@ -21,10 +21,19 @@ export class Relations extends ComposedRelations {
   }
 
   apply(changes, options) {
-    super.apply(changes, relationsSchema, {
-      ...options,
-      mergeStrategy: 'replace',
-    });
+    // Filter out duplicates that already exist in the current props.
+    if (options?.mergeStrategy === 'merge') {
+      const existingLinks = this.props?.links;
+      if (changes?.links && existingLinks) {
+        const existingKeys = new Set(
+          existingLinks.map(({ source, target }) => `${source}|${target}`),
+        );
+        changes.links = changes.links.filter(
+          ({ source, target }) => !existingKeys.has(`${source}|${target}`),
+        );
+      }
+    }
+    super.apply(changes, relationsSchema, options);
   }
 
   initPath() {
