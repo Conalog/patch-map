@@ -1,5 +1,5 @@
 import { collectCandidates } from '../utils/get';
-import { intersect } from '../utils/intersects/intersect';
+import { intersect, intersectSegment } from '../utils/intersects/intersect';
 import { intersectPoint } from '../utils/intersects/intersect-point';
 import { getSelectObject } from './utils';
 
@@ -77,6 +77,45 @@ export const findIntersectObjects = (
 
     for (const target of targets) {
       const isIntersecting = intersect(selectionBox, target);
+      if (isIntersecting) {
+        const selectObject = getSelectObject(
+          parent,
+          candidate,
+          selectUnit,
+          filterParent,
+        );
+        if (selectObject && (!filter || filter(selectObject))) {
+          found.push(selectObject);
+          break;
+        }
+      }
+    }
+  }
+
+  return Array.from(new Set(found));
+};
+
+export const findIntersectObjectsBySegment = (
+  parent,
+  p1,
+  p2,
+  { filter, selectUnit, filterParent } = {},
+) => {
+  const allCandidates = collectCandidates(
+    parent,
+    (child) => child.constructor.isSelectable,
+  );
+  const found = [];
+  const segment = [p1, p2];
+
+  for (const candidate of allCandidates) {
+    const targets =
+      candidate.constructor.hitScope === 'children'
+        ? candidate.children
+        : [candidate];
+
+    for (const target of targets) {
+      const isIntersecting = intersectSegment(segment, target);
       if (isIntersecting) {
         const selectObject = getSelectObject(
           parent,
