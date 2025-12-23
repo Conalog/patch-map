@@ -90,12 +90,14 @@ export default class SelectionState extends State {
 
   /** @type {SelectionStateConfig} */
   config = {};
+
   interactionState = stateSymbol.IDLE;
   dragStartPoint = null;
   movedViewport = false;
   _selectionBox = new Graphics();
+
   _paintedObjects = new Set();
-  _lastPoint = null;
+  _lastPaintPoint = null;
 
   /**
    * Enters the selection state with a given context and configuration.
@@ -125,7 +127,7 @@ export default class SelectionState extends State {
     this.#clear({ gesture: true });
     this.interactionState = stateSymbol.PRESSING;
     this.dragStartPoint = this.viewport.toWorld(e.global);
-    this._lastPoint = this.dragStartPoint;
+    this._lastPaintPoint = this.dragStartPoint;
 
     const target = this.#searchObject(this.dragStartPoint, e);
     this.config.onDown(target, e);
@@ -170,7 +172,7 @@ export default class SelectionState extends State {
     } else if (this.interactionState === stateSymbol.PAINTING) {
       const targets = findIntersectObjectsBySegment(
         this.viewport,
-        this._lastPoint,
+        this._lastPaintPoint,
         currentPoint,
         {
           ...this.config,
@@ -191,7 +193,7 @@ export default class SelectionState extends State {
       }
     }
 
-    this._lastPoint = currentPoint;
+    this._lastPaintPoint = currentPoint;
   }
 
   onpointerup(e) {
@@ -349,7 +351,7 @@ export default class SelectionState extends State {
       this.dragStartPoint = null;
       this.movedViewport = false;
       this._paintedObjects.clear();
-      this._lastPoint = null;
+      this._lastPaintPoint = null;
     }
   }
 }
