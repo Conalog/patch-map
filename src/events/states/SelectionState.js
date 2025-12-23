@@ -51,7 +51,7 @@ const stateSymbol = {
  * @property {(selected: PIXI.DisplayObject[], event: PIXI.FederatedPointerEvent) => void} [onDrag]
  * Callback fired repeatedly during `pointermove` *after* a drag or paint has started.
  * In 'drag' mode, `selected` contains all objects within the selection box.
- * In 'paint' mode, `selected` contains objects encountered on the path (returned one by one).
+ * In 'paint' mode, `selected` contains objects encountered on the path.
  *
  * @property {(selected: PIXI.DisplayObject[], event: PIXI.FederatedPointerEvent) => void} [onDragEnd]
  * Callback fired on `pointerup` *only if* a drag or paint operation was in progress.
