@@ -90,8 +90,7 @@ export default class SelectionState extends State {
 
   /**
    * Enters the selection state with a given context and configuration.
-   * @param {object} context - The application context, containing the viewport.
-   * @param {SelectionStateConfig} config - Configuration for the selection behavior.
+   * @param {...*} args - Additional arguments passed to the state.
    */
   enter(...args) {
     super.enter(...args);

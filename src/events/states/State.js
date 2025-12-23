@@ -49,6 +49,7 @@ export default class State {
    * A new AbortController is created here for the state's lifecycle.
    *
    * @param {object} context - The shared application context from the StateManager.
+   * @param {...*} args - Additional arguments passed to the state.
    */
   enter(context, ...args) {
     this.context = context;
