@@ -1,6 +1,8 @@
 import { collectCandidates } from '../utils/get';
 import { intersect } from '../utils/intersects/intersect';
 import { intersectPoint } from '../utils/intersects/intersect-point';
+import { getSegmentEntryT } from '../utils/intersects/segment-polygon-t';
+import { getObjectLocalCorners } from '../utils/transform';
 import { getSelectObject } from './utils';
 
 export const findIntersectObject = (
@@ -93,6 +95,51 @@ export const findIntersectObjects = (
   }
 
   return Array.from(new Set(found));
+};
+
+export const findIntersectObjectsBySegment = (
+  parent,
+  p1,
+  p2,
+  { filter, selectUnit, filterParent } = {},
+) => {
+  const allCandidates = collectCandidates(
+    parent,
+    (child) => child.constructor.isSelectable,
+  );
+  const foundMap = new Map();
+
+  for (const candidate of allCandidates) {
+    const targets =
+      candidate.constructor.hitScope === 'children'
+        ? candidate.children
+        : [candidate];
+
+    for (const target of targets) {
+      const corners = getObjectLocalCorners(target, parent);
+      const t = getSegmentEntryT(target, p1, p2, corners);
+
+      if (t !== null) {
+        const selectObject = getSelectObject(
+          parent,
+          candidate,
+          selectUnit,
+          filterParent,
+        );
+        if (selectObject && (!filter || filter(selectObject))) {
+          const currentT = foundMap.get(selectObject);
+          if (currentT === undefined || t < currentT) {
+            foundMap.set(selectObject, t);
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  return Array.from(foundMap.entries())
+    .toSorted((a, b) => a[1] - b[1])
+    .map((entry) => entry[0]);
 };
 
 const getAncestorPath = (obj, stopAt) => {

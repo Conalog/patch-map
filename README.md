@@ -482,6 +482,7 @@ patchmap.stateManager.setState('custom', { message: 'Hello World' });
 The default state that handles user selection and drag events. It is automatically registered with the `stateManager` under the name 'selection' when `patchmap.draw()` is executed. You can activate it and pass configuration by calling `stateManager.setState('selection', options)`.
 
 - `draggable` (optional, boolean): Determines whether to enable multi-selection via dragging.
+- `paintSelection` (optional, boolean): Enables 'Paint Selection' mode to select objects by brushing over them in real-time. When active, it replaces the default rectangular box selection with a freeform path-based selection.
 - `selectUnit` (optional, string): Specifies the logical unit to be returned upon selection. The default is `'entity'`.
   - `'entity'`: Selects the individual object.
   - `'closestGroup'`: Selects the nearest parent group of the selected object.

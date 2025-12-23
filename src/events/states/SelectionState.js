@@ -1,6 +1,10 @@
 import { Graphics } from 'pixi.js';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
-import { findIntersectObject, findIntersectObjects } from '../find';
+import {
+  findIntersectObject,
+  findIntersectObjects,
+  findIntersectObjectsBySegment,
+} from '../find';
 import { isMoved } from '../utils';
 import State from './State';
 
@@ -8,11 +12,13 @@ const stateSymbol = {
   IDLE: Symbol('IDLE'),
   PRESSING: Symbol('PRESSING'),
   DRAGGING: Symbol('DRAGGING'),
+  PAINTING: Symbol('PAINTING'),
 };
 
 /**
  * @typedef {object} SelectionStateConfig
  * @property {boolean} [draggable=false] - Enables drag-to-select functionality.
+ * @property {boolean} [paintSelection=false] - Enables paint-to-select functionality.
  * @property {(obj: PIXI.DisplayObject) => boolean} [filter=() => true] - A function to filter which objects can be selected.
  * @property {'entity' | 'closestGroup' | 'highestGroup' | 'grid'} [selectUnit='entity'] - The logical unit of selection.
  * @property {boolean} [drillDown=false] - Enables drill-down selection on double click.
@@ -43,10 +49,10 @@ const stateSymbol = {
  * Callback fired *once* when the pointer moves beyond the movement threshold after a `pointerdown`.
  *
  * @property {(selected: PIXI.DisplayObject[], event: PIXI.FederatedPointerEvent) => void} [onDrag]
- * Callback fired repeatedly during `pointermove` *after* a drag has started.
+ * Callback fired repeatedly during `pointermove` *after* a drag or paint has started.
  *
  * @property {(selected: PIXI.DisplayObject[], event: PIXI.FederatedPointerEvent) => void} [onDragEnd]
- * Callback fired on `pointerup` *only if* a drag operation was in progress.
+ * Callback fired on `pointerup` *only if* a drag or paint operation was in progress.
  *
  * @property {(hovered: PIXI.DisplayObject | null, event: PIXI.FederatedPointerEvent) => void} [onOver]
  * Callback fired on `pointerover` when the pointer enters a new object (and not dragging).
@@ -54,6 +60,7 @@ const stateSymbol = {
 
 const defaultConfig = {
   draggable: false,
+  paintSelection: false,
   filter: () => true,
   selectUnit: 'entity',
   drillDown: false,
@@ -83,10 +90,14 @@ export default class SelectionState extends State {
 
   /** @type {SelectionStateConfig} */
   config = {};
+
   interactionState = stateSymbol.IDLE;
   dragStartPoint = null;
   movedViewport = false;
   _selectionBox = new Graphics();
+
+  _paintedObjects = new Set();
+  _lastPaintPoint = null;
 
   /**
    * Enters the selection state with a given context and configuration.
@@ -116,6 +127,7 @@ export default class SelectionState extends State {
     this.#clear({ gesture: true });
     this.interactionState = stateSymbol.PRESSING;
     this.dragStartPoint = this.viewport.toWorld(e.global);
+    this._lastPaintPoint = this.dragStartPoint;
 
     const target = this.#searchObject(this.dragStartPoint, e);
     this.config.onDown(target, e);
@@ -138,7 +150,9 @@ export default class SelectionState extends State {
       this.interactionState === stateSymbol.PRESSING &&
       isMoved(this.dragStartPoint, currentPoint, this.viewport.scale)
     ) {
-      this.interactionState = stateSymbol.DRAGGING;
+      this.interactionState = this.config.paintSelection
+        ? stateSymbol.PAINTING
+        : stateSymbol.DRAGGING;
       this.viewport.plugin.start('mouse-edges');
       this.config.onDragStart(e);
     }
@@ -147,7 +161,23 @@ export default class SelectionState extends State {
       this.#drawSelectionBox(this.dragStartPoint, currentPoint);
       const selected = this.#searchObjects(this._selectionBox);
       this.config.onDrag(selected, e);
+    } else if (this.interactionState === stateSymbol.PAINTING) {
+      const targets = findIntersectObjectsBySegment(
+        this.viewport,
+        this._lastPaintPoint,
+        currentPoint,
+        { ...this.config, filterParent: this.#getSelectionAncestors() },
+      );
+
+      const initialSize = this._paintedObjects.size;
+      targets.forEach((target) => this._paintedObjects.add(target));
+
+      if (this._paintedObjects.size > initialSize) {
+        this.config.onDrag(Array.from(this._paintedObjects), e);
+      }
     }
+
+    this._lastPaintPoint = currentPoint;
   }
 
   onpointerup(e) {
@@ -157,6 +187,9 @@ export default class SelectionState extends State {
     } else if (this.interactionState === stateSymbol.DRAGGING) {
       const selected = this.#searchObjects(this._selectionBox);
       this.config.onDragEnd(selected, e);
+      this.viewport.plugin.stop('mouse-edges');
+    } else if (this.interactionState === stateSymbol.PAINTING) {
+      this.config.onDragEnd(Array.from(this._paintedObjects), e);
       this.viewport.plugin.stop('mouse-edges');
     }
     this.#clear({ state: true, selectionBox: true, gesture: true });
@@ -301,6 +334,8 @@ export default class SelectionState extends State {
     if (gesture) {
       this.dragStartPoint = null;
       this.movedViewport = false;
+      this._paintedObjects.clear();
+      this._lastPaintPoint = null;
     }
   }
 }

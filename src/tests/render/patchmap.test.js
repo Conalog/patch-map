@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Transformer } from '../../patch-map';
 import { setupPatchmapTests } from './patchmap.setup';
 
 const sampleData = [
@@ -226,6 +227,7 @@ describe('patchmap test', () => {
     beforeEach(() => {
       vi.useFakeTimers();
       patchmap = getPatchmap();
+      patchmap.transformer = new Transformer();
       patchmap.draw(sampleData);
       onClick = vi.fn();
       onDrag = vi.fn();
@@ -395,7 +397,6 @@ describe('patchmap test', () => {
       ])(
         'should return the correct object when selectUnit is "$selectUnit"',
         async ({ selectUnit, clickPosition, expectedId }) => {
-          const patchmap = getPatchmap();
           patchmap.draw([
             { type: 'group', id: 'group-2', children: sampleData },
           ]);

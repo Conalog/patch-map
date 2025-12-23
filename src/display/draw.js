@@ -3,7 +3,10 @@ import Element from './elements/Element';
 export const draw = (context, data) => {
   const { viewport } = context;
   destroyChildren(viewport);
-  viewport.apply({ type: 'canvas', children: data });
+  viewport.apply(
+    { type: 'canvas', children: data },
+    { mergeStrategy: 'replace' },
+  );
 };
 
 const destroyChildren = (parent) => {
