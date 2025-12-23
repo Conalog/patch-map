@@ -90,11 +90,11 @@ export default class SelectionState extends State {
 
   /**
    * Enters the selection state with a given context and configuration.
-   * @param {object} context - The application context, containing the viewport.
-   * @param {SelectionStateConfig} config - Configuration for the selection behavior.
+   * @param {...*} args - Additional arguments passed to the state.
    */
-  enter(context, config = {}) {
-    super.enter(context);
+  enter(...args) {
+    super.enter(...args);
+    const [_, config] = args;
     this.config = deepMerge(defaultConfig, config);
     this.viewport = this.context.viewport;
     this.viewport.addChild(this._selectionBox);
@@ -103,7 +103,9 @@ export default class SelectionState extends State {
   exit() {
     super.exit();
     this.#clear({ state: true, selectionBox: true, gesture: true });
-    this._selectionBox?.destroy(true);
+    if (this._selectionBox.parent) {
+      this._selectionBox.parent.removeChild(this._selectionBox);
+    }
   }
 
   pause() {

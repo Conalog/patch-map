@@ -31,7 +31,7 @@ export default class State {
    */
   abortController = new AbortController();
 
-  constructor() {
+  constructor(name) {
     /**
      * A reference to the shared context object provided by the StateManager.
      * This context typically contains references to global objects like the viewport,
@@ -39,6 +39,7 @@ export default class State {
      * @type {object | null}
      */
     this.context = null;
+    this.key = name;
   }
 
   /**
@@ -48,9 +49,11 @@ export default class State {
    * A new AbortController is created here for the state's lifecycle.
    *
    * @param {object} context - The shared application context from the StateManager.
+   * @param {...*} args - Additional arguments passed to the state.
    */
-  enter(context) {
+  enter(context, ...args) {
     this.context = context;
+    this.args = args;
     this.abortController = new AbortController();
   }
 

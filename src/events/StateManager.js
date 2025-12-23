@@ -124,7 +124,7 @@ export default class StateManager extends WildcardEventEmitter {
     let instance = stateDef.instance;
     if (!instance || !stateDef.isSingleton) {
       const StateClass = stateDef.Class;
-      instance = new StateClass();
+      instance = new StateClass(name);
       if (stateDef.isSingleton) {
         stateDef.instance = instance;
       }

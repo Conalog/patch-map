@@ -41,6 +41,7 @@ export const Cellsable = (superClass) => {
           item.destroy({ children: true });
         }
       });
+      this.context.viewport.emit('object_transformed', this);
     }
   };
   MixedClass.registerHandler(
