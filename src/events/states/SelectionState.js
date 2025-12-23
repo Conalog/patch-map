@@ -155,14 +155,6 @@ export default class SelectionState extends State {
         : stateSymbol.DRAGGING;
       this.viewport.plugin.start('mouse-edges');
       this.config.onDragStart(e);
-
-      if (this.interactionState === stateSymbol.PAINTING) {
-        const target = this.#searchObject(this.dragStartPoint, e);
-        if (target) {
-          this._paintedObjects.add(target);
-          this.config.onDrag(Array.from(this._paintedObjects), e);
-        }
-      }
     }
 
     if (this.interactionState === stateSymbol.DRAGGING) {
@@ -174,10 +166,7 @@ export default class SelectionState extends State {
         this.viewport,
         this._lastPaintPoint,
         currentPoint,
-        {
-          ...this.config,
-          filterParent: this.#getSelectionAncestors(),
-        },
+        { ...this.config, filterParent: this.#getSelectionAncestors() },
       );
 
       let foundNew = false;
