@@ -30,7 +30,7 @@ export const groupSchema = Base.extend({
  */
 export const gridSchema = Base.extend({
   type: z.literal('grid'),
-  cells: z.array(z.array(z.union([z.literal(0), z.literal(1)]))),
+  cells: z.array(z.array(z.union([z.literal(0), z.literal(1), z.string()]))),
   gap: Gap,
   item: z.object({
     components: componentArraySchema.default([]),

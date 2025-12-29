@@ -98,7 +98,7 @@ export interface Grid {
   id?: string; // Default: uid
   label?: string;
   show?: boolean; // Default: true
-  cells: (0 | 1)[][];
+  cells: (0 | 1 | string)[][];
   gap?: Gap;
   item: {
     components?: Component[];
