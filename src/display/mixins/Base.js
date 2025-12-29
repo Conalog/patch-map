@@ -92,8 +92,12 @@ export const Base = (superClass) => {
         ? Object.keys(nextProps)
         : Object.keys(actualChanges);
 
-      const { id, label, attrs } = validatedChanges;
-      if (id || label || attrs) {
+      if (
+        ['id', 'label', 'attrs'].some((key) =>
+          Object.hasOwn(validatedChanges, key),
+        )
+      ) {
+        const { id, label, attrs } = validatedChanges;
         this._applyRaw({ id, label, ...attrs }, mergeStrategy);
       }
 
