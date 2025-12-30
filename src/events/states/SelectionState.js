@@ -86,6 +86,7 @@ export default class SelectionState extends State {
     'onpointermove',
     'onpointerup',
     'onpointerover',
+    'onpointerleave',
     'onclick',
     'rightclick',
   ];
@@ -234,6 +235,10 @@ export default class SelectionState extends State {
     this.#processClick(e, (target) => {
       this.config.onRightClick(target, e);
     });
+  }
+
+  onpointerleave(e) {
+    this.onpointerup(e);
   }
 
   #processClick(e, callback) {

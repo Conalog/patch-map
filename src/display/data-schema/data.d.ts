@@ -99,6 +99,7 @@ export interface Grid {
   label?: string;
   show?: boolean; // Default: true
   cells: (0 | 1 | string)[][];
+  inactiveCellStrategy?: 'destroy' | 'hide'; // Default: 'destroy'
   gap?: Gap;
   item: {
     components?: Component[];
