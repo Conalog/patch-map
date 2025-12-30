@@ -1,14 +1,13 @@
 import { newElement } from '../elements/creator';
 import { UPDATE_STAGES } from './constants';
 
-const KEYS = ['cells'];
+const KEYS = ['cells', 'inactiveCellStrategy'];
 
 export const Cellsable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyCells(relevantChanges) {
-      const { cells } = relevantChanges;
-
-      const { gap, item: itemProps } = this.props;
+      const cells = relevantChanges.cells ?? this.props.cells;
+      const { gap, item: itemProps, inactiveCellStrategy } = this.props;
 
       const requiredItemIds = new Set();
       const childrenMap = new Map(
@@ -17,11 +16,14 @@ export const Cellsable = (superClass) => {
 
       cells.forEach((row, rowIndex) => {
         row.forEach((col, colIndex) => {
-          if (!col) return;
           const id = `${this.id}.${rowIndex}.${colIndex}`;
+          const isInactive = !col;
+          const label = String(col);
+
+          if (isInactive && inactiveCellStrategy !== 'hide') return;
+
           requiredItemIds.add(id);
 
-          const label = typeof col === 'string' ? col : '';
           const existingItem = childrenMap.get(id);
           if (!existingItem) {
             const attrs = {
@@ -30,10 +32,17 @@ export const Cellsable = (superClass) => {
               y: rowIndex * (itemProps.size.height + gap.y),
             };
             const item = newElement('item', this.context);
-            item.apply({ type: 'item', id, ...itemProps, label, attrs });
+            item.apply({
+              type: 'item',
+              id,
+              ...itemProps,
+              label,
+              attrs,
+              show: !isInactive,
+            });
             this.addChild(item);
           } else {
-            existingItem.apply({ label });
+            existingItem.apply({ label, show: !isInactive });
           }
         });
       });
