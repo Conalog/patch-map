@@ -141,6 +141,7 @@ export const initResizeObserver = (el, app, viewport) => {
 export const initCanvas = (el, app) => {
   const div = document.createElement('div');
   div.style = 'width:100%;height:100%;overflow:hidden;';
+  div.oncontextmenu = (e) => e.preventDefault();
   div.appendChild(app.canvas);
   el.appendChild(div);
 };

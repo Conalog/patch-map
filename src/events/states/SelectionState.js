@@ -69,6 +69,7 @@ const defaultConfig = {
   onUp: () => {},
   onClick: () => {},
   onDoubleClick: () => {},
+  onRightClick: () => {},
   onDragStart: () => {},
   onDrag: () => {},
   onDragEnd: () => {},
@@ -86,6 +87,7 @@ export default class SelectionState extends State {
     'onpointerup',
     'onpointerover',
     'onclick',
+    'rightclick',
   ];
 
   /** @type {SelectionStateConfig} */
@@ -129,8 +131,12 @@ export default class SelectionState extends State {
     this.dragStartPoint = this.viewport.toWorld(e.global);
     this._lastPaintPoint = this.dragStartPoint;
 
-    const target = this.#searchObject(this.dragStartPoint, e);
+    const target = this.#searchObject(this.dragStartPoint, e, true);
     this.config.onDown(target, e);
+
+    if (e.button === 2) {
+      this.#clear({ state: true, selectionBox: true, gesture: true });
+    }
   }
 
   onpointermove(e) {
@@ -202,48 +208,61 @@ export default class SelectionState extends State {
   }
 
   onclick(e) {
-    if (this.movedViewport) {
-      this.#clear({ gesture: true });
-      return;
-    }
-
-    const currentPoint = this.viewport.toWorld(e.global);
-    if (isMoved(this.dragStartPoint, currentPoint, this.viewport.scale)) {
-      this.#clear({ gesture: true });
-      return;
-    }
-
-    let target = this.#searchObject(currentPoint, e);
-    if (this.config.drillDown && e.detail >= 2) {
-      for (let i = 1; i < e.detail; i++) {
-        if (!target) break;
-        const deeperTarget = findIntersectObject(
-          target,
-          currentPoint,
-          this.config,
-        );
-        if (!deeperTarget) break;
-        target = deeperTarget;
+    this.#processClick(e, (target, currentPoint) => {
+      if (this.config.drillDown && e.detail >= 2) {
+        for (let i = 1; i < e.detail; i++) {
+          if (!target) break;
+          const deeperTarget = findIntersectObject(
+            target,
+            currentPoint,
+            this.config,
+          );
+          if (!deeperTarget) break;
+          target = deeperTarget;
+        }
       }
-    }
 
-    if (e.detail === 2) {
-      this.config.onDoubleClick(target, e);
-    } else {
-      this.config.onClick(target, e);
+      if (e.detail === 2) {
+        this.config.onDoubleClick(target, e);
+      } else {
+        this.config.onClick(target, e);
+      }
+    });
+  }
+
+  rightclick(e) {
+    this.#processClick(e, (target) => {
+      this.config.onRightClick(target, e);
+    });
+  }
+
+  #processClick(e, callback) {
+    const currentPoint = this.viewport.toWorld(e.global);
+    const isActuallyMoved =
+      this.movedViewport ||
+      isMoved(this.dragStartPoint, currentPoint, this.viewport.scale);
+
+    if (!isActuallyMoved) {
+      const target = this.#searchObject(currentPoint, e);
+      callback(target, currentPoint);
     }
     this.#clear({ gesture: true });
   }
 
-  #searchObject(point, e) {
+  #searchObject(point, e, skipWireframeCheck) {
     if (this.config.deepSelect && (e.ctrlKey || e.metaKey)) {
-      return this.#findByPoint(point, { ...this.config, selectUnit: 'grid' });
+      return this.#findByPoint(
+        point,
+        { ...this.config, selectUnit: 'grid' },
+        skipWireframeCheck,
+      );
     }
 
-    return this.#findByPoint(point, {
-      ...this.config,
-      filterParent: this.#getSelectionAncestors(),
-    });
+    return this.#findByPoint(
+      point,
+      { ...this.config, filterParent: this.#getSelectionAncestors() },
+      skipWireframeCheck,
+    );
   }
 
   #searchObjects(polygon) {
@@ -253,9 +272,9 @@ export default class SelectionState extends State {
     });
   }
 
-  #findByPoint(point, config = this.config) {
+  #findByPoint(point, config = this.config, skipWireframeCheck = false) {
     const object = findIntersectObject(this.viewport, point, config);
-    if (!object || object.type !== 'wireframe') {
+    if (skipWireframeCheck || !object || object.type !== 'wireframe') {
       return object;
     }
 

@@ -501,6 +501,7 @@ The default state that handles user selection and drag events. It is automatical
 - `onUp` (optional, function): Callback fired on `pointerup` if it was not a drag operation.
 - `onClick` (optional, function): Callback fired when a complete 'click' is detected. This will not fire if `onDoubleClick` fires.
 - `onDoubleClick` (optional, function): Callback fired when a complete 'double-click' is detected. Based on `e.detail === 2`.
+- `onRightClick` (optional, function): Callback fired when a complete right-click is detected. The browser's default context menu is automatically prevented within the canvas area.
 - `onDragStart` (optional, function): Callback fired *once* when a drag operation (for multi-selection) begins (after moving beyond a threshold).
 - `onDrag` (optional, function): Callback fired repeatedly *during* a drag operation.
 - `onDragEnd` (optional, function): Callback fired when the drag operation *ends* (`pointerup`).

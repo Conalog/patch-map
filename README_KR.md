@@ -509,6 +509,7 @@ patchmap.stateManager.setState('custom', { message: 'Hello World' });
 - `onUp` (optional, function):  드래그가 아닐 경우, `pointerup` 시점에 호출됩니다.
 - `onClick` (optional, function): '클릭'이 '완료'되었을 때 호출됩니다. 더블클릭이 아닐 때만 호출됩니다.
 - `onDoubleClick` (optional, function): '더블클릭'이 '완료'되었을 때 호출됩니다. `e.detail === 2`를 기반으로 호출됩니다.
+- `onRightClick` (optional, function): '우클릭'이 '완료'되었을 때 호출됩니다. 캔버스 영역 내에서 브라우저 기본 컨텍스트 메뉴가 나타나지 않도록 자동으로 방지됩니다.
 - `onDragStart` (optional, function): 드래그(다중 선택)가 '시작'되는 시점 (일정 거리 이상 이동)에 1회 호출됩니다.
 - `onDrag` (optional, function): 드래그가 '진행'되는 동안 실시간으로 호출됩니다.
 - `onDragEnd` (optional, function): 드래그가 '종료'되었을 때 (`pointerup`) 호출됩니다.
