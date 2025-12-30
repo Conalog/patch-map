@@ -20,7 +20,9 @@ export class Relations extends ComposedRelations {
     this.path = this.initPath();
   }
 
-  apply(changes, options) {
+  apply(_changes, options) {
+    const changes = structuredClone(_changes);
+
     // Filter out duplicates that already exist in the current props.
     if (options?.mergeStrategy === 'merge') {
       const existingLinks = this.props?.links;
