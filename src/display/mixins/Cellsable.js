@@ -16,12 +16,11 @@ export const Cellsable = (superClass) => {
 
       cells.forEach((row, rowIndex) => {
         row.forEach((col, colIndex) => {
-          const id = `${this.id}.${rowIndex}.${colIndex}`;
           const isInactive = !col;
-          const label = String(col);
-
           if (isInactive && inactiveCellStrategy !== 'hide') return;
 
+          const id = `${this.id}.${rowIndex}.${colIndex}`;
+          const label = String(col);
           requiredItemIds.add(id);
 
           const existingItem = childrenMap.get(id);
