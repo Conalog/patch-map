@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Patchmap Playground</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="logo">PM</div>
+          <div class="title">Playground</div>
+        </div>
+      </header>
+
+      <div class="content">
+        <aside class="data-panel">
+          <section class="panel-section">
+            <div class="btn-row data-controls">
+              <select id="scenario" aria-label="Example"></select>
+              <button id="draw" class="btn">Reload</button>
+              <button id="apply-data" class="btn">Apply</button>
+              <button id="prettify-data" class="btn">Prettify</button>
+              <button id="reset-data" class="btn">Reset</button>
+            </div>
+            <div class="data-tabs" role="tablist">
+              <button
+                id="data-mode-json"
+                class="data-tab is-active"
+                role="tab"
+                aria-selected="true"
+                aria-controls="data-json"
+                type="button"
+              >
+                JSON
+              </button>
+              <button
+                id="data-mode-form"
+                class="data-tab"
+                role="tab"
+                aria-selected="false"
+                aria-controls="data-form"
+                type="button"
+              >
+                FORM
+              </button>
+            </div>
+            <div class="data-view" id="data-json" role="tabpanel">
+              <textarea
+                id="data-editor"
+                spellcheck="false"
+                aria-label="Map data JSON"
+              ></textarea>
+              <div class="editor-error" id="editor-error" role="status"></div>
+            </div>
+            <div
+              class="data-view data-form"
+              id="data-form"
+              role="tabpanel"
+              hidden
+            >
+              <div class="data-popover" id="data-popover" hidden>
+                <div class="inspector-field">
+                  <div class="inspector-label">Parent</div>
+                  <select id="add-parent" class="inspector-input"></select>
+                </div>
+                <div class="inspector-field">
+                  <div class="inspector-label">Type</div>
+                  <select id="add-type" class="inspector-input"></select>
+                </div>
+                <div class="inspector-field">
+                  <div class="inspector-label">Id</div>
+                  <input id="add-id" class="inspector-input" type="text" />
+                </div>
+                <div class="inspector-field">
+                  <div class="inspector-label">Label</div>
+                  <input id="add-label" class="inspector-input" type="text" />
+                </div>
+                <div class="data-popover-actions">
+                  <button id="add-element" class="btn" type="button">
+                    Add
+                  </button>
+                  <button id="add-cancel" class="btn" type="button">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+              <div class="data-tree" id="data-tree"></div>
+              <div class="data-inspector" id="data-inspector">
+                <div class="inspector-content" id="inspector-content">
+                  <div class="inspector-empty">Select a node</div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <main class="stage">
+          <div class="stage-controls">
+            <button id="randomize" class="btn">Randomize</button>
+            <button id="shuffle-links" class="btn">Shuffle</button>
+            <button id="focus-target" class="btn">Focus</button>
+            <button id="fit-view" class="btn">Fit</button>
+            <button id="reset-view" class="btn">Reset</button>
+          </div>
+          <div class="stage-canvas">
+            <div id="patchmap-root"></div>
+            <div class="stage-hint">
+              Drag to pan, scroll to zoom, click to select.
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <div class="statusbar">
+        <div class="status-line">
+          <span class="status-label">Selection</span>
+          <strong id="selected-id" class="status-value">None</strong>
+          <span class="status-divider">|</span>
+          <span class="status-label">Last</span>
+          <strong id="last-action" class="status-value status-value--grow">
+            Ready
+          </strong>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

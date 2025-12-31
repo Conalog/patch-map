@@ -683,10 +683,14 @@ This is the list of events that can be subscribed to with this update. You can s
 
 ## 🧑‍💻 Development
 
+### Playground
+The local playground lives in `playground/` and is served via Vite. It is excluded from the published package (only `dist/` is shipped).
+
 ### Setting up the development environment
 ```sh
 npm install      # Install dependencies
-npm run dev      # Start development server
+npm run dev      # Start playground server
+npm run playground # Start playground server (alias)
 npm run build    # Build the library
 npm run lint:fix # Fix code formatting
 ```
