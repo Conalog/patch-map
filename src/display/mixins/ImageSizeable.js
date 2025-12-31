@@ -10,6 +10,8 @@ export const ImageSizeable = (superClass) => {
 
       if (size.width !== undefined) this.sprite.width = size.width;
       if (size.height !== undefined) this.sprite.height = size.height;
+
+      this.context.viewport.emit('object_transformed', this);
     }
 
     // Hook from Sourceable to ensure size is applied after async texture load
