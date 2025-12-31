@@ -65,11 +65,23 @@ export const relationsSchema = Base.extend({
   style: RelationsStyle,
 }).strict();
 
+/**
+ * Renders an image from a URL or an asset key.
+ * Visually represented by a `Container` containing a `Sprite`.
+ * @see {@link https://pixijs.download/release/docs/scene.Sprite.html}
+ */
+export const imageSchema = Base.extend({
+  type: z.literal('image'),
+  source: z.string(),
+  size: Size.optional(),
+}).strict();
+
 export const elementTypes = z.discriminatedUnion('type', [
   groupSchema,
   gridSchema,
   itemSchema,
   relationsSchema,
+  imageSchema,
 ]);
 
 export const mapDataSchema = z

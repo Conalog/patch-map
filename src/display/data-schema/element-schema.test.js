@@ -4,6 +4,7 @@ import { uid } from '../../utils/uuid';
 import {
   gridSchema,
   groupSchema,
+  imageSchema,
   itemSchema,
   mapDataSchema,
   relationsSchema,
@@ -187,6 +188,44 @@ describe('Element Schemas', () => {
         id: 'rel-1',
       };
       expect(() => relationsSchema.parse(relationsData)).toThrow();
+    });
+  });
+
+  describe('Image Schema', () => {
+    it('should parse a valid image with source', () => {
+      const imageData = {
+        type: 'image',
+        id: 'img-1',
+        source: 'https://example.com/image.png',
+      };
+      const parsed = imageSchema.parse(imageData);
+      expect(parsed.source).toBe('https://example.com/image.png');
+    });
+
+    it('should parse a valid image with source and size', () => {
+      const imageData = {
+        type: 'image',
+        id: 'img-1',
+        source: 'asset-key',
+        size: { width: 100, height: 200 },
+      };
+      const parsed = imageSchema.parse(imageData);
+      expect(parsed.size).toEqual({ width: 100, height: 200 });
+    });
+
+    it('should fail if source is missing', () => {
+      const imageData = { type: 'image', id: 'img-1' };
+      expect(() => imageSchema.parse(imageData)).toThrow();
+    });
+
+    it('should fail if an unknown property is provided', () => {
+      const imageData = {
+        type: 'image',
+        id: 'img-1',
+        source: 'url',
+        invalid: true,
+      };
+      expect(() => imageSchema.parse(imageData)).toThrow();
     });
   });
 
