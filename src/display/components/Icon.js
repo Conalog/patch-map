@@ -7,6 +7,7 @@ import { Showable } from '../mixins/Showable';
 import { Sourceable } from '../mixins/Sourceable';
 import { Tintable } from '../mixins/Tintable';
 import { mixins } from '../mixins/utils';
+import { applyWorldFlip } from '../utils/world-flip';
 
 const EXTRA_KEYS = {
   PLACEMENT: ['source', 'size'],
@@ -34,5 +35,10 @@ export class Icon extends ComposedIcon {
 
   apply(changes, options) {
     super.apply(changes, iconSchema, options);
+    this._applyWorldFlip();
+  }
+
+  _applyWorldFlip() {
+    applyWorldFlip(this, this.context?.view);
   }
 }
