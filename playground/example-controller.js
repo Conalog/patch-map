@@ -1,30 +1,30 @@
-export const createScenarioController = ({
+export const createExampleController = ({
   patchmap,
   dataEditor,
   elements,
-  scenarios,
+  examples,
   setLastAction,
   syncRotationUI,
   syncFlipUI,
 }) => {
-  let currentScenario = scenarios[0];
+  let currentExample = examples[0];
   let linkSetIndex = 0;
 
-  const setupScenarioOptions = () => {
-    scenarios.forEach((scenario) => {
+  const setupExampleOptions = () => {
+    examples.forEach((example) => {
       const option = document.createElement('option');
-      option.value = scenario.id;
-      option.textContent = scenario.name;
+      option.value = example.id;
+      option.textContent = example.name;
       elements.scenario.append(option);
     });
-    elements.scenario.value = currentScenario.id;
+    elements.scenario.value = currentExample.id;
   };
 
-  const applyScenario = (scenario, { shouldFit = true } = {}) => {
-    currentScenario = scenario;
+  const applyExample = (example, { shouldFit = true } = {}) => {
+    currentExample = example;
     linkSetIndex = 0;
 
-    const data = currentScenario.data();
+    const data = currentExample.data();
     patchmap.draw(data);
     if (shouldFit) {
       patchmap.fit();
@@ -36,37 +36,37 @@ export const createScenarioController = ({
     updateActionButtons();
     syncRotationUI();
     syncFlipUI();
-    setLastAction(`Loaded ${currentScenario.name}`);
+    setLastAction(`Loaded ${currentExample.name}`);
   };
 
-  const setScenarioById = (scenarioId, options) => {
-    const scenario = scenarios.find((item) => item.id === scenarioId);
-    if (scenario) {
-      applyScenario(scenario, options);
+  const setExampleById = (exampleId, options) => {
+    const example = examples.find((item) => item.id === exampleId);
+    if (example) {
+      applyExample(example, options);
     }
   };
 
   const updateSceneInfo = () => {
     if (elements.sceneName) {
-      elements.sceneName.textContent = currentScenario.name;
+      elements.sceneName.textContent = currentExample.name;
     }
     if (elements.sceneTitle) {
-      elements.sceneTitle.textContent = currentScenario.name;
+      elements.sceneTitle.textContent = currentExample.name;
     }
     if (elements.sceneDescription) {
-      elements.sceneDescription.textContent = currentScenario.description;
+      elements.sceneDescription.textContent = currentExample.description;
     }
   };
 
   const updateActionButtons = () => {
-    const dynamic = currentScenario.dynamic ?? {};
+    const dynamic = currentExample.dynamic ?? {};
     elements.randomize.disabled = (dynamic.bars ?? []).length === 0;
     elements.shuffle.disabled =
       !dynamic.relationsId || (dynamic.linkSets ?? []).length < 2;
   };
 
   const randomizeMetrics = () => {
-    const bars = currentScenario.dynamic?.bars ?? [];
+    const bars = currentExample.dynamic?.bars ?? [];
     bars.forEach((bar) => {
       if (bar.path) {
         const targets = patchmap.selector(bar.path);
@@ -102,15 +102,15 @@ export const createScenarioController = ({
   };
 
   const shuffleLinks = () => {
-    const links = currentScenario.dynamic?.linkSets ?? [];
-    if (!currentScenario.dynamic?.relationsId || links.length === 0) {
+    const links = currentExample.dynamic?.linkSets ?? [];
+    if (!currentExample.dynamic?.relationsId || links.length === 0) {
       return;
     }
 
     linkSetIndex = (linkSetIndex + 1) % links.length;
 
     patchmap.update({
-      path: `$..[?(@.id=="${currentScenario.dynamic.relationsId}")]`,
+      path: `$..[?(@.id=="${currentExample.dynamic.relationsId}")]`,
       changes: { links: links[linkSetIndex] },
       mergeStrategy: 'replace',
     });
@@ -118,7 +118,7 @@ export const createScenarioController = ({
     setLastAction('Rerouted links');
   };
 
-  const getCurrentScenario = () => currentScenario;
+  const getCurrentExample = () => currentExample;
 
   const buildBarSize = (bar, value) => {
     const axis = bar.axis ?? 'width';
@@ -133,11 +133,11 @@ export const createScenarioController = ({
   };
 
   return {
-    setupScenarioOptions,
-    applyScenario,
-    setScenarioById,
+    setupExampleOptions,
+    applyExample,
+    setExampleById,
     randomizeMetrics,
     shuffleLinks,
-    getCurrentScenario,
+    getCurrentExample,
   };
 };

@@ -1,7 +1,7 @@
 import { Patchmap, Transformer } from '@patchmap';
 import { createDataEditor } from './data-editor.js';
-import { createScenarioController } from './scenario-controller.js';
-import { scenarios } from './scenarios.js';
+import { createExampleController } from './example-controller.js';
+import { examples } from './examples/index.js';
 import { createSelectionController } from './selection-controller.js';
 import { createViewControls } from './view-controls.js';
 
@@ -57,11 +57,11 @@ const setLastAction = (text) => {
 
 const dataEditor = createDataEditor({ patchmap, elements, setLastAction });
 const viewControls = createViewControls({ patchmap, elements, setLastAction });
-const scenarioController = createScenarioController({
+const exampleController = createExampleController({
   patchmap,
   dataEditor,
   elements,
-  scenarios,
+  examples,
   setLastAction,
   syncRotationUI: viewControls.syncRotationUI,
   syncFlipUI: viewControls.syncFlipUI,
@@ -85,9 +85,9 @@ const init = async () => {
 
   selectionController.bindSelectionState();
 
-  scenarioController.setupScenarioOptions();
+  exampleController.setupExampleOptions();
   bindControls();
-  scenarioController.applyScenario(scenarioController.getCurrentScenario(), {
+  exampleController.applyExample(exampleController.getCurrentExample(), {
     shouldFit: true,
   });
   dataEditor.setDataMode('json');
@@ -95,18 +95,18 @@ const init = async () => {
   viewControls.syncFlipUI();
 
   window.patchmap = patchmap;
-  window.patchmapScenarios = scenarios;
+  window.patchmapExamples = examples;
 };
 
 const bindControls = () => {
   elements.scenario.addEventListener('change', (event) => {
-    scenarioController.setScenarioById(event.target.value, {
+    exampleController.setExampleById(event.target.value, {
       shouldFit: true,
     });
   });
 
   elements.draw.addEventListener('click', () => {
-    scenarioController.applyScenario(scenarioController.getCurrentScenario(), {
+    exampleController.applyExample(exampleController.getCurrentExample(), {
       shouldFit: true,
     });
   });
@@ -120,10 +120,10 @@ const bindControls = () => {
   });
 
   elements.resetData.addEventListener('click', () => {
-    scenarioController.applyScenario(scenarioController.getCurrentScenario(), {
+    exampleController.applyExample(exampleController.getCurrentExample(), {
       shouldFit: true,
     });
-    setLastAction('Reset to scenario');
+    setLastAction('Reset to example');
   });
 
   elements.dataModeJson.addEventListener('click', () => {
@@ -175,16 +175,16 @@ const bindControls = () => {
   }
 
   elements.randomize.addEventListener('click', () => {
-    scenarioController.randomizeMetrics();
+    exampleController.randomizeMetrics();
   });
 
   elements.shuffle.addEventListener('click', () => {
-    scenarioController.shuffleLinks();
+    exampleController.shuffleLinks();
   });
 
   elements.focus.addEventListener('click', () => {
-    const currentScenario = scenarioController.getCurrentScenario();
-    const targetId = dataEditor.getSelectedNodeId() ?? currentScenario.focusId;
+    const currentExample = exampleController.getCurrentExample();
+    const targetId = dataEditor.getSelectedNodeId() ?? currentExample.focusId;
     if (targetId) {
       patchmap.focus(targetId);
       setLastAction(`Focus ${targetId}`);
