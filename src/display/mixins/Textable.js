@@ -7,8 +7,14 @@ export const Textable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyText(relevantChanges) {
       const { text, split } = relevantChanges;
-      this._fullText = splitText(text, split);
-      this.text = this._fullText;
+      const fullText = splitText(text, split);
+
+      if (this.bitmapText) {
+        this.bitmapText.text = fullText;
+      } else {
+        this.text = fullText;
+      }
+      this._fullText = fullText;
       this._isTruncated = false;
     }
   };

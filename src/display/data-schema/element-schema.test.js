@@ -8,6 +8,7 @@ import {
   itemSchema,
   mapDataSchema,
   relationsSchema,
+  textSchema,
 } from './element-schema.js';
 
 // Mock component-schema as its details are not relevant for these element tests.
@@ -226,6 +227,41 @@ describe('Element Schemas', () => {
         invalid: true,
       };
       expect(() => imageSchema.parse(imageData)).toThrow();
+    });
+  });
+
+  describe('Text Schema', () => {
+    it('should parse a valid text element', () => {
+      const textData = {
+        type: 'text',
+        id: 'text-1',
+        text: 'hello world',
+      };
+      const parsed = textSchema.parse(textData);
+      expect(parsed.text).toBe('hello world');
+    });
+
+    it('should parse with style and size', () => {
+      const textData = {
+        type: 'text',
+        id: 'text-1',
+        text: 'hello',
+        style: { fontSize: 20, fill: 'red' },
+        size: { width: 100, height: 50 },
+      };
+      const parsed = textSchema.parse(textData);
+      expect(parsed.style.fontSize).toBe(20);
+      expect(parsed.size).toEqual({ width: 100, height: 50 });
+    });
+
+    it('should fail if an unknown property is provided', () => {
+      const textData = {
+        type: 'text',
+        id: 'text-1',
+        text: 'hello',
+        unknown: 'property',
+      };
+      expect(() => textSchema.parse(textData)).toThrow();
     });
   });
 
