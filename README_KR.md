@@ -692,11 +692,15 @@ undoRedoManager.redo();
 
 ## 🧑‍💻 개발
 
+### Playground
+로컬 playground는 `playground/`에 있으며 Vite로 실행됩니다. 배포 패키지에는 포함되지 않습니다 (`dist/`만 배포).
+
 ### 개발 환경 세팅
 
 ```sh
 npm install      # 의존성 설치
-npm run dev      # 개발 서버 시작
+npm run dev      # playground 서버 시작
+npm run playground # playground 서버 시작 (alias)
 npm run build    # 라이브러리 빌드
 npm run lint:fix # 코드 포맷팅 수정
 ```
