@@ -110,11 +110,40 @@
             <button id="focus-target" class="btn">Focus</button>
             <button id="fit-view" class="btn">Fit</button>
             <button id="reset-view" class="btn">Reset</button>
+            <button id="flip-x" class="btn" type="button">Flip X</button>
+            <button id="flip-y" class="btn" type="button">Flip Y</button>
+            <div class="rotate-controls">
+              <span class="rotate-label">Rotate</span>
+              <button id="rotate-left" class="btn" type="button">-15°</button>
+              <input
+                id="rotate-angle"
+                class="rotate-range"
+                type="range"
+                min="-180"
+                max="180"
+                step="1"
+                value="0"
+                aria-label="Rotation angle"
+              />
+              <input
+                id="rotate-input"
+                class="rotate-input"
+                type="number"
+                min="-180"
+                max="180"
+                step="1"
+                value="0"
+                aria-label="Rotation angle value"
+              />
+              <button id="rotate-right" class="btn" type="button">+15°</button>
+              <button id="rotate-reset" class="btn" type="button">0°</button>
+            </div>
           </div>
           <div class="stage-canvas">
             <div id="patchmap-root"></div>
             <div class="stage-hint">
-              Drag to pan, scroll to zoom, click to select.
+              Middle-drag or Space+drag to pan, drag to select, Cmd/Ctrl-click
+              to add, right-click to clear.
             </div>
           </div>
         </main>
