@@ -7,6 +7,7 @@ import { Textable } from '../mixins/Textable';
 import { Textstyleable } from '../mixins/Textstyleable';
 import { Tintable } from '../mixins/Tintable';
 import { mixins } from '../mixins/utils';
+import { applyWorldFlip } from '../utils/world-flip';
 
 const EXTRA_KEYS = {
   PLACEMENT: ['text', 'style', 'split'],
@@ -34,5 +35,10 @@ export class Text extends ComposedText {
 
   apply(changes, options) {
     super.apply(changes, textSchema, options);
+    this._applyWorldFlip();
+  }
+
+  _applyWorldFlip() {
+    applyWorldFlip(this, this.context?.view);
   }
 }

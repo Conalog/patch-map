@@ -75,7 +75,9 @@ describe('patchmap test', () => {
   it('draw', () => {
     const patchmap = getPatchmap();
     patchmap.draw(sampleData);
-    expect(patchmap.viewport.children.length).toBe(2);
+    expect(patchmap.world).toBeDefined();
+    expect(patchmap.viewport.children).toContain(patchmap.world);
+    expect(patchmap.world.children.length).toBe(2);
 
     const group = patchmap.selector('$..[?(@.id=="group-1")]')[0];
     expect(group).toBeDefined();
