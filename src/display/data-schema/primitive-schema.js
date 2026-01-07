@@ -218,12 +218,16 @@ export const TextureStyle = z
 /**
  * @see {@link https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html}
  */
-export const RelationsStyle = z
+export const StrokeStyle = z
   .object({
     color: Color.default(DEFAULT_PATHSTYLE.color),
   })
-  .passthrough()
-  .default({});
+  .passthrough();
+
+/**
+ * @see {@link https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html}
+ */
+export const RelationsStyle = StrokeStyle.default({});
 
 /**
  * Common text properties shared by all text-based objects.

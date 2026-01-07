@@ -7,6 +7,7 @@ import {
   imageSchema,
   itemSchema,
   mapDataSchema,
+  rectSchema,
   relationsSchema,
   textSchema,
 } from './element-schema.js';
@@ -262,6 +263,36 @@ describe('Element Schemas', () => {
         unknown: 'property',
       };
       expect(() => textSchema.parse(textData)).toThrow();
+    });
+  });
+
+  describe('Rect Schema', () => {
+    it('should parse a valid rect element', () => {
+      const rectData = {
+        type: 'rect',
+        id: 'rect-1',
+        size: { width: 120, height: 80 },
+        fill: 'red',
+        stroke: { color: 'blue', width: 2 },
+        radius: 6,
+      };
+      const parsed = rectSchema.parse(rectData);
+      expect(parsed.size).toEqual({ width: 120, height: 80 });
+    });
+
+    it('should fail if size is missing', () => {
+      const rectData = { type: 'rect', id: 'rect-1' };
+      expect(() => rectSchema.parse(rectData)).toThrow();
+    });
+
+    it('should fail if an unknown property is provided', () => {
+      const rectData = {
+        type: 'rect',
+        id: 'rect-1',
+        size: { width: 10, height: 10 },
+        unknown: 'property',
+      };
+      expect(() => rectSchema.parse(rectData)).toThrow();
     });
   });
 

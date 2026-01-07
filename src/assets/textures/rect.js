@@ -1,6 +1,4 @@
-import { Graphics } from 'pixi.js';
-import { EachRadius } from '../../display/data-schema/primitive-schema';
-import { getColor } from '../../utils/get';
+import { Rect } from '../../display/elements/Rect';
 import { cacheKey, generateTexture } from './utils';
 
 export const createRectTexture = (renderer, theme, rectOpts) => {
@@ -34,36 +32,20 @@ export const createRectTexture = (renderer, theme, rectOpts) => {
 };
 
 const createRect = (theme, { fill, borderWidth, borderColor, radius }) => {
-  const graphics = new Graphics();
-  const size = 20 + borderWidth;
-
-  const xywh = [0, 0, size, size];
-  const parsedRadius = EachRadius.safeParse(radius);
-  if (typeof radius === 'number' && radius > 0) {
-    graphics.roundRect(...xywh, radius);
-  } else if (parsedRadius.success) {
-    const r = parsedRadius.data;
-    graphics.roundShape(
-      [
-        { x: 0, y: 0, radius: r.topLeft },
-        { x: size, y: 0, radius: r.topRight },
-        { x: size, y: size, radius: r.bottomRight },
-        { x: 0, y: size, radius: r.bottomLeft },
-      ],
-      0,
-    );
-  } else {
-    graphics.rect(...xywh);
-  }
-
-  if (fill) graphics.fill(getColor(theme, fill));
-  if (borderWidth) {
-    graphics.stroke({
-      width: borderWidth,
-      color: getColor(theme, borderColor),
-    });
-  }
-  return graphics;
+  const safeBorderWidth = borderWidth ?? 0;
+  const size = 20 + safeBorderWidth;
+  const stroke =
+    safeBorderWidth > 0
+      ? { width: safeBorderWidth, color: borderColor }
+      : undefined;
+  const rect = new Rect({ theme });
+  rect.apply({
+    size: { width: size, height: size },
+    fill,
+    stroke,
+    radius,
+  });
+  return rect;
 };
 
 const getSliceDimension = (radius, key1, key2) => {

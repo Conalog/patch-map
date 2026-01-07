@@ -2,11 +2,14 @@ import { z } from 'zod';
 import { componentArraySchema } from './component-schema';
 import {
   Base,
+  Color,
+  EachRadius,
   ElementTextStyle,
   Gap,
   Margin,
   RelationsStyle,
   Size,
+  StrokeStyle,
 } from './primitive-schema';
 
 /**
@@ -95,6 +98,19 @@ export const textSchema = Base.extend({
   size: Size.optional(),
 }).strict();
 
+/**
+ * Renders a rectangle using a Graphics object.
+ * Visually represented by a `Graphics`.
+ * @see {@link https://pixijs.download/release/docs/scene.Graphics.html}
+ */
+export const rectSchema = Base.extend({
+  type: z.literal('rect'),
+  size: Size,
+  fill: Color.optional(),
+  stroke: StrokeStyle.optional(),
+  radius: z.union([z.number().nonnegative(), EachRadius]).default(0),
+}).strict();
+
 export const elementTypes = z.discriminatedUnion('type', [
   groupSchema,
   gridSchema,
@@ -102,6 +118,7 @@ export const elementTypes = z.discriminatedUnion('type', [
   relationsSchema,
   imageSchema,
   textSchema,
+  rectSchema,
 ]);
 
 export const mapDataSchema = z
