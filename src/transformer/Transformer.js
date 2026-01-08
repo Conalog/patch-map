@@ -266,7 +266,7 @@ export default class Transformer extends Container {
 
   /**
    * Marks the transformer as dirty, scheduling a redraw on the next frame.
-   * This method is an arrow function to preserve `this` context when used as an event listener.
+   * This method is an arrow function to preserve `this` store when used as an event listener.
    */
   update = () => {
     this._renderDirty = true;

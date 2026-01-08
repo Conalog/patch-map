@@ -7,8 +7,8 @@ import Element from './Element';
 const ComposedGrid = mixins(Element, Cellsable, Itemable);
 
 export class Grid extends ComposedGrid {
-  constructor(context) {
-    super({ type: 'grid', context });
+  constructor(store) {
+    super({ type: 'grid', store });
   }
 
   apply(changes, options) {

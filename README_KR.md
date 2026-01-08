@@ -453,8 +453,8 @@ class CustomState extends State {
   // 이 상태가 처리할 이벤트를 static 속성으로 정의합니다.
   static handledEvents = ['onpointerdown', 'onkeydown'];
 
-  enter(context, customOptions) {
-    super.enter(context);
+  enter(store, customOptions) {
+    super.enter(store);
     console.log('CustomState가 시작되었습니다.', customOptions);
   }
 
@@ -471,7 +471,7 @@ class CustomState extends State {
   onkeydown(event) {
     if (event.key === 'Escape') {
       // 'selection' 상태(기본 상태)로 전환합니다.
-      this.context.stateManager.setState('selection');
+      this.store.stateManager.setState('selection');
     }
     // 이벤트를 스택의 다음 상태로 전파하려면 PROPAGATE_EVENT를 반환합니다.
     return PROPAGATE_EVENT;

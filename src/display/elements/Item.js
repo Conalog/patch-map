@@ -10,8 +10,8 @@ export class Item extends ComposedItem {
   static isSelectable = true;
   static hitScope = 'children';
 
-  constructor(context) {
-    super({ type: 'item', context });
+  constructor(store) {
+    super({ type: 'item', store });
   }
 
   apply(changes, options) {

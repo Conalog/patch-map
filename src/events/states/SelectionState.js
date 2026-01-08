@@ -103,14 +103,14 @@ export default class SelectionState extends State {
   _lastPaintPoint = null;
 
   /**
-   * Enters the selection state with a given context and configuration.
+   * Enters the selection state with a given store and configuration.
    * @param {...*} args - Additional arguments passed to the state.
    */
   enter(...args) {
     super.enter(...args);
     const [_, config] = args;
     this.config = deepMerge(defaultConfig, config);
-    this.viewport = this.context.viewport;
+    this.viewport = this.store.viewport;
     this.viewport.addChild(this._selectionBox);
   }
 
@@ -237,7 +237,7 @@ export default class SelectionState extends State {
     });
   }
 
-  onpointerleave(e) {
+  onpointerleave() {
     this.#clear({ state: true, selectionBox: true, gesture: true });
   }
 
@@ -307,7 +307,7 @@ export default class SelectionState extends State {
    */
   #getSelectionAncestors() {
     const selectionAncestors = new Set();
-    for (const element of this.context.transformer.elements) {
+    for (const element of this.store.transformer.elements) {
       let current = element.parent;
       while (current) {
         if (current.type === 'canvas') break;

@@ -16,7 +16,7 @@ export const ElementTextLayoutable = (superClass) => {
       }
 
       // Emit transformation event as text wrapping might change local bounds/alignment
-      this.context.viewport.emit('object_transformed', this);
+      this.store.viewport.emit('object_transformed', this);
     }
   };
 

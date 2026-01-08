@@ -14,8 +14,8 @@ export class Rect extends ComposedRect {
   static isSelectable = true;
   static hitScope = 'self';
 
-  constructor(context) {
-    super({ type: 'rect', context });
+  constructor(store) {
+    super({ type: 'rect', store });
     this.eventMode = 'static';
   }
 
@@ -34,7 +34,7 @@ export class Rect extends ComposedRect {
 
     this._drawPath(width, height, radius);
 
-    const theme = this.context?.theme;
+    const theme = this.store?.theme;
     if (fill !== undefined && fill !== null) {
       this.fill(getColor(theme, fill));
     }

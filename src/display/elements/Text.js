@@ -21,8 +21,8 @@ export class Text extends ComposedText {
   static isSelectable = true;
   static hitScope = 'children';
 
-  constructor(context) {
-    super({ type: 'text', context });
+  constructor(store) {
+    super({ type: 'text', store });
 
     // Initialize internal BitmapText
     this.bitmapText = new BitmapText({ text: '', style: {} });

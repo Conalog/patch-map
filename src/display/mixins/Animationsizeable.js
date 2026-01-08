@@ -12,7 +12,7 @@ export const AnimationSizeable = (superClass) => {
       const newSize = calcSize(this, { source, size, margin });
 
       if (animation) {
-        this.context.animationContext.add(() => {
+        this.store.animationContext.add(() => {
           this.killTweens();
           const tween = gsap.to(this, {
             pixi: {

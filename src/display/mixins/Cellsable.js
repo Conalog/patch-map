@@ -30,7 +30,7 @@ export const Cellsable = (superClass) => {
               x: colIndex * (itemProps.size.width + gap.x),
               y: rowIndex * (itemProps.size.height + gap.y),
             };
-            const item = newElement('item', this.context);
+            const item = newElement('item', this.store);
             item.apply({
               type: 'item',
               id,
@@ -53,7 +53,7 @@ export const Cellsable = (superClass) => {
           item.destroy({ children: true });
         }
       });
-      this.context.viewport.emit('object_transformed', this);
+      this.store.viewport.emit('object_transformed', this);
     }
   };
   MixedClass.registerHandler(

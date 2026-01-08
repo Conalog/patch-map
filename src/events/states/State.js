@@ -33,12 +33,12 @@ export default class State {
 
   constructor(name) {
     /**
-     * A reference to the shared context object provided by the StateManager.
-     * This context typically contains references to global objects like the viewport,
+     * A reference to the shared store object provided by the StateManager.
+     * This store typically contains references to global objects like the viewport,
      * the application instance, etc. It is null until `enter()` is called.
      * @type {object | null}
      */
-    this.context = null;
+    this.store = null;
     this.key = name;
   }
 
@@ -48,11 +48,11 @@ export default class State {
    * adding temporary scene elements.
    * A new AbortController is created here for the state's lifecycle.
    *
-   * @param {object} context - The shared application context from the StateManager.
+   * @param {object} store - The shared application store from the StateManager.
    * @param {...*} args - Additional arguments passed to the state.
    */
-  enter(context, ...args) {
-    this.context = context;
+  enter(store, ...args) {
+    this.store = store;
     this.args = args;
     this.abortController = new AbortController();
   }
