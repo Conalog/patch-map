@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
+import { convertArray } from '../convert';
 import { selector } from '../selector/selector';
 import { uid } from '../uuid';
 import { validate } from '../validator';
@@ -7,6 +8,7 @@ import { validate } from '../validator';
 const addEventSchema = z.object({
   id: z.string().default(''),
   path: z.string().default('$'),
+  elements: z.unknown().optional(),
   action: z.string(),
   fn: z.function(),
   options: z.unknown(),
@@ -16,11 +18,24 @@ export const addEvent = (viewport, opts) => {
   const config = validate(opts, addEventSchema);
   if (isValidationError(config)) throw config;
 
-  const { path, action, fn, options } = config;
+  const { action, fn, options } = config;
   const id = config.id || uid();
+  const hasElements = opts && Object.hasOwn(opts, 'elements');
+  const hasPath = opts && Object.hasOwn(opts, 'path');
+  const elements = hasElements
+    ? convertArray(config.elements).filter(Boolean)
+    : null;
+  const path = hasPath || !hasElements ? config.path : null;
 
   if (!(id in viewport.events)) {
-    viewport.events[id] = { path, action, fn, options, active: false };
+    viewport.events[id] = {
+      path,
+      elements,
+      action,
+      fn,
+      options,
+      active: false,
+    };
   } else {
     logEventExists(id);
   }
@@ -55,7 +70,7 @@ export const onEvent = (viewport, id) => {
       if (event.active) continue;
 
       const actions = splitByWhitespace(event.action);
-      const objects = selector(viewport, event.path);
+      const objects = getEventObjects(viewport, event);
       for (const object of objects) {
         addAction(object, actions, event);
       }
@@ -82,7 +97,7 @@ export const offEvent = (viewport, id) => {
       if (!event.active) continue;
 
       const actions = splitByWhitespace(event.action);
-      const objects = selector(viewport, event.path);
+      const objects = getEventObjects(viewport, event);
       for (const object of objects) {
         removeAction(object, actions, event);
       }
@@ -118,6 +133,17 @@ const logEventExists = (eventId) => {
 
 const logNoEventExists = (eventId) => {
   console.warn(`No event exists for the eventId: ${eventId}.`);
+};
+
+const getEventObjects = (viewport, event) => {
+  const objects = [];
+  if (event.elements?.length) {
+    objects.push(...event.elements);
+  }
+  if (event.path) {
+    objects.push(...selector(viewport, event.path));
+  }
+  return objects;
 };
 
 const splitByWhitespace = (str) => str.split(/\s+/).filter(Boolean);
