@@ -2,10 +2,10 @@ import { z } from 'zod';
 import {
   Base,
   Color,
+  LabelTextStyle,
   Margin,
   Placement,
   PxOrPercentSize,
-  TextStyle,
   TextureStyle,
 } from './primitive-schema';
 
@@ -68,7 +68,7 @@ export const textSchema = Base.extend({
   margin: Margin.default(0),
   tint: Color,
   text: z.string().default(''),
-  style: TextStyle,
+  style: LabelTextStyle,
   split: z.number().int().default(0),
 }).strict();
 

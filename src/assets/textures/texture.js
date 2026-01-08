@@ -5,7 +5,7 @@ import { cacheKey } from './utils';
 export const getTexture = (renderer, theme, config) => {
   let texture = null;
   if (typeof config === 'string') {
-    texture = Assets.get(config);
+    texture = Assets.cache.has(config) ? Assets.get(config) : null;
   } else {
     texture = Assets.cache.has(cacheKey(renderer, config))
       ? Assets.cache.get(cacheKey(renderer, config))

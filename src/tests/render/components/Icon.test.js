@@ -80,10 +80,6 @@ describe('Icon Component Tests', () => {
     });
 
     const icon = patchmap.selector('$..[?(@.id=="icon-1")]')[0];
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'PixiJS Warning: ',
-      '[Assets] Asset id unregistered-icon-asset was not found in the Cache',
-    );
     expect(icon.texture).toBeDefined();
     expect(icon.props.source).toBe(unregisteredSource);
     consoleSpy.mockRestore();

@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { componentArraySchema } from './component-schema';
-import { Base, Gap, Margin, RelationsStyle, Size } from './primitive-schema';
+import {
+  Base,
+  ElementTextStyle,
+  Gap,
+  Margin,
+  RelationsStyle,
+  Size,
+} from './primitive-schema';
 
 /**
  * A viewport is a container that can be panned and zoomed.
@@ -65,11 +72,36 @@ export const relationsSchema = Base.extend({
   style: RelationsStyle,
 }).strict();
 
+/**
+ * Renders an image from a URL or an asset key.
+ * Visually represented by a `Container` containing a `Sprite`.
+ * @see {@link https://pixijs.download/release/docs/scene.Sprite.html}
+ */
+export const imageSchema = Base.extend({
+  type: z.literal('image'),
+  source: z.string(),
+  size: Size.optional(),
+}).strict();
+
+/**
+ * Renders text using BitmapText.
+ * Visually represented by a `Container` containing a `BitmapText`.
+ * @see {@link https://pixijs.download/release/docs/text_bitmap.BitmapText.html}
+ */
+export const textSchema = Base.extend({
+  type: z.literal('text'),
+  text: z.string().default(''),
+  style: ElementTextStyle,
+  size: Size.optional(),
+}).strict();
+
 export const elementTypes = z.discriminatedUnion('type', [
   groupSchema,
   gridSchema,
   itemSchema,
   relationsSchema,
+  imageSchema,
+  textSchema,
 ]);
 
 export const mapDataSchema = z

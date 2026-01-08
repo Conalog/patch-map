@@ -238,7 +238,7 @@ export default class SelectionState extends State {
   }
 
   onpointerleave(e) {
-    this.onpointerup(e);
+    this.#clear({ state: true, selectionBox: true, gesture: true });
   }
 
   #processClick(e, callback) {
