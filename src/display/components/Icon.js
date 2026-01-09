@@ -8,6 +8,7 @@ import { Sourceable } from '../mixins/Sourceable';
 import { Tintable } from '../mixins/Tintable';
 import { mixins } from '../mixins/utils';
 import { applyWorldFlip } from '../utils/world-flip';
+import { applyWorldRotation } from '../utils/world-rotation';
 
 const EXTRA_KEYS = {
   PLACEMENT: ['source', 'size'],
@@ -31,14 +32,41 @@ export class Icon extends ComposedIcon {
       EXTRA_KEYS.PLACEMENT,
       this._applyPlacement,
     );
+
+    this._boundOnObjectTransformed = this._onObjectTransformed.bind(this);
+    this.context?.viewport?.on(
+      'object_transformed',
+      this._boundOnObjectTransformed,
+    );
+    this._applyWorldFlip();
+    this._applyWorldRotation();
   }
 
   apply(changes, options) {
     super.apply(changes, iconSchema, options);
-    this._applyWorldFlip();
   }
 
   _applyWorldFlip() {
     applyWorldFlip(this, this.context?.view);
+  }
+
+  _applyWorldRotation() {
+    applyWorldRotation(this, this.context?.view);
+  }
+
+  _onObjectTransformed(changedObject) {
+    if (changedObject !== this.context?.world) return;
+    this._applyWorldFlip();
+    this._applyWorldRotation();
+  }
+
+  destroy(options) {
+    if (this.context?.viewport && this._boundOnObjectTransformed) {
+      this.context.viewport.off(
+        'object_transformed',
+        this._boundOnObjectTransformed,
+      );
+    }
+    super.destroy(options);
   }
 }

@@ -4,6 +4,7 @@ import { isValidationError } from 'zod-validation-error';
 import { UndoRedoManager } from './command/UndoRedoManager';
 import { draw } from './display/draw';
 import { update } from './display/update';
+import ViewTransform from './display/view-transform/ViewTransform';
 import World from './display/World';
 import { fit as fitViewport, focus } from './events/focus-fit';
 import {
@@ -18,10 +19,6 @@ import { event } from './utils/event/canvas';
 import { selector } from './utils/selector/selector';
 import { themeStore } from './utils/theme';
 import { validateMapData } from './utils/validator';
-import {
-  getViewportWorldCenter,
-  getWorldLocalCenter,
-} from './utils/viewport-rotation';
 import './display/elements/registry';
 import './display/components/registry';
 import StateManager from './events/StateManager';
@@ -40,7 +37,7 @@ class Patchmap extends WildcardEventEmitter {
   _transformer = null;
   _stateManager = null;
   _world = null;
-  _viewState = { flipX: false, flipY: false };
+  _viewTransform = this._createViewTransform();
 
   get app() {
     return this._app;
@@ -144,11 +141,12 @@ class Patchmap extends WildcardEventEmitter {
       theme: this.theme,
       animationContext: this.animationContext,
     };
-    context.view = this._viewState;
+    context.view = this._viewTransform.viewState;
     this.viewport = initViewport(this.app, viewportOptions, context);
     this._world = new World({ context });
     context.world = this._world;
     this.viewport.addChild(this._world);
+    this._viewTransform.attach({ viewport: this.viewport, world: this._world });
 
     await initAsset(assetsOptions);
     initCanvas(element, this.app);
@@ -187,7 +185,7 @@ class Patchmap extends WildcardEventEmitter {
     this._transformer = null;
     this._stateManager = null;
     this._world = null;
-    this._viewState = { flipX: false, flipY: false };
+    this._viewTransform = this._createViewTransform();
     this.emit('patchmap:destroyed', { target: this });
     this.removeAllListeners();
   }
@@ -252,80 +250,24 @@ class Patchmap extends WildcardEventEmitter {
     fitViewport(this.viewport, ids);
   }
 
-  getRotation() {
-    return this.world?.angle ?? 0;
+  get rotation() {
+    return this._viewTransform.rotation;
   }
 
-  setRotation(angle) {
-    if (!this.viewport || !this.world) return;
-    const nextAngle = Number(angle);
-    if (Number.isNaN(nextAngle)) return;
-    this.#applyWorldTransform({ angle: nextAngle });
-    this.emit('patchmap:rotated', { angle: nextAngle, target: this });
-  }
-
-  rotateBy(delta) {
-    const currentAngle = this.getRotation();
-    const nextAngle = Number(delta) + currentAngle;
-    this.setRotation(nextAngle);
-  }
-
-  resetRotation() {
-    this.setRotation(0);
-  }
-
-  getFlip() {
-    return { x: this._viewState.flipX, y: this._viewState.flipY };
-  }
-
-  setFlip({ x, y } = {}) {
-    if (typeof x === 'boolean') {
-      this._viewState.flipX = x;
-    }
-    if (typeof y === 'boolean') {
-      this._viewState.flipY = y;
-    }
-    if (!this.viewport || !this.world) return;
-    this.#applyWorldTransform();
-    this.#syncViewFlip();
-    this.emit('patchmap:flipped', { ...this.getFlip(), target: this });
-  }
-
-  toggleFlipX() {
-    this.setFlip({ x: !this._viewState.flipX });
-  }
-
-  toggleFlipY() {
-    this.setFlip({ y: !this._viewState.flipY });
-  }
-
-  resetFlip() {
-    this.setFlip({ x: false, y: false });
+  get flip() {
+    return this._viewTransform.flip;
   }
 
   selector(path, opts) {
     return selector(this.viewport, path, opts);
   }
 
-  #applyWorldTransform({ angle = this.world?.angle ?? 0 } = {}) {
-    if (!this.viewport || !this.world) return;
-    const center = getViewportWorldCenter(this.viewport);
-    const localCenter = getWorldLocalCenter(this.viewport, this.world);
-    this.world.pivot.set(localCenter.x, localCenter.y);
-    this.world.position.set(center.x, center.y);
-    this.world.angle = angle;
-    this.world.scale.set(
-      this._viewState.flipX ? -1 : 1,
-      this._viewState.flipY ? -1 : 1,
-    );
-  }
-
-  #syncViewFlip() {
-    const texts = selector(this.viewport, '$..[?(@.type=="text")]');
-    const icons = selector(this.viewport, '$..[?(@.type=="icon")]');
-    [...texts, ...icons].forEach((element) => {
-      if (typeof element?._applyWorldFlip !== 'function') return;
-      element._applyWorldFlip();
+  _createViewTransform() {
+    return new ViewTransform({
+      onRotate: (angle) =>
+        this.emit('patchmap:rotated', { angle, target: this }),
+      onFlip: (flip) =>
+        this.emit('patchmap:flipped', { ...flip, target: this }),
     });
   }
 }
