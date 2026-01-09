@@ -23,7 +23,9 @@ export const Placementable = (superClass) => {
 
       const x = getHorizontalPosition(this, directions.h, margin);
       const y = getVerticalPosition(this, directions.v, margin);
-      this.position.set(x, y);
+      const pivotX = this.pivot?.x ?? 0;
+      const pivotY = this.pivot?.y ?? 0;
+      this.position.set(x + pivotX, y + pivotY);
     }
   };
   MixedClass.registerHandler(

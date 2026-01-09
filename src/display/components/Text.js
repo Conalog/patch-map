@@ -44,6 +44,8 @@ export class Text extends ComposedText {
 
   apply(changes, options) {
     super.apply(changes, textSchema, options);
+    this._applyWorldRotation();
+    this._applyWorldFlip();
   }
 
   _applyWorldFlip() {
@@ -56,8 +58,8 @@ export class Text extends ComposedText {
 
   _onObjectTransformed(changedObject) {
     if (changedObject !== this.context?.world) return;
-    this._applyWorldFlip();
     this._applyWorldRotation();
+    this._applyWorldFlip();
   }
 
   destroy(options) {

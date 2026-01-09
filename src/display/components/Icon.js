@@ -44,6 +44,8 @@ export class Icon extends ComposedIcon {
 
   apply(changes, options) {
     super.apply(changes, iconSchema, options);
+    this._applyWorldRotation();
+    this._applyWorldFlip();
   }
 
   _applyWorldFlip() {
@@ -56,8 +58,8 @@ export class Icon extends ComposedIcon {
 
   _onObjectTransformed(changedObject) {
     if (changedObject !== this.context?.world) return;
-    this._applyWorldFlip();
     this._applyWorldRotation();
+    this._applyWorldFlip();
   }
 
   destroy(options) {
