@@ -271,4 +271,60 @@ describe('View Transform Tests', () => {
     expect(afterFlipY.x).toBeCloseTo(before.x);
     expect(afterFlipY.y).toBeCloseTo(before.y);
   });
+
+  it('should swap bar percent size on 90-degree rotation', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      createItemWithComponents([
+        {
+          type: 'bar',
+          id: 'bar-rotate-size',
+          source: { fill: 'blue', borderWidth: 0, borderColor: 'transparent' },
+          size: { width: '60%', height: '20%' },
+          placement: 'center',
+          animation: false,
+        },
+      ]),
+    ]);
+    gsap.exportRoot().totalProgress(1);
+
+    const bar = getById(patchmap, 'bar-rotate-size');
+
+    patchmap.rotation.set(90);
+    patchmap.flip.set({ x: true, y: true });
+    patchmap.viewport.emit('object_transformed', patchmap.world);
+
+    expect(bar.width).toBeCloseTo(60); // 60% of item height (100)
+    expect(bar.height).toBeCloseTo(40); // 20% of item width (200)
+  });
+
+  it('should keep bar at screen bottom under rotation/flip', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      createItemWithComponents([
+        {
+          type: 'bar',
+          id: 'bar-screen-bottom',
+          source: { fill: 'blue', borderWidth: 0, borderColor: 'transparent' },
+          size: { width: '40%', height: '20%' },
+          placement: 'bottom',
+          animation: false,
+        },
+      ]),
+    ]);
+    gsap.exportRoot().totalProgress(1);
+
+    const bar = getById(patchmap, 'bar-screen-bottom');
+    const item = getById(patchmap, 'item-transform');
+
+    patchmap.rotation.set(90);
+    patchmap.flip.set({ y: true });
+    patchmap.viewport.emit('object_transformed', patchmap.world);
+
+    const barBounds = bar.getBounds();
+    const itemBounds = item.getBounds();
+    expect(barBounds.y + barBounds.height).toBeCloseTo(
+      itemBounds.y + itemBounds.height,
+    );
+  });
 });
