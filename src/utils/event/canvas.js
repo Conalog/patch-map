@@ -135,15 +135,9 @@ const logNoEventExists = (eventId) => {
   console.warn(`No event exists for the eventId: ${eventId}.`);
 };
 
-const getEventObjects = (viewport, event) => {
-  const objects = [];
-  if (event.elements?.length) {
-    objects.push(...event.elements);
-  }
-  if (event.path) {
-    objects.push(...selector(viewport, event.path));
-  }
-  return objects;
-};
+const getEventObjects = (viewport, event) => [
+  ...(event.elements ?? []),
+  ...(event.path ? selector(viewport, event.path) : []),
+];
 
 const splitByWhitespace = (str) => str.split(/\s+/).filter(Boolean);
