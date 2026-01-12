@@ -1,5 +1,5 @@
 import { UPDATE_STAGES } from './constants';
-import { getLayoutContext } from './utils';
+import { getLayoutContext, mapViewDirection } from './utils';
 
 const KEYS = ['placement', 'margin'];
 
@@ -21,9 +21,37 @@ export const Placementable = (superClass) => {
         ? { h: first, v: second }
         : DIRECTION_MAP[first];
 
-      const x = getHorizontalPosition(this, directions.h, margin);
-      const y = getVerticalPosition(this, directions.v, margin);
-      this.position.set(x, y);
+      let layoutDirections = directions;
+      const useViewPlacement =
+        (this.constructor.useViewPlacement === true ||
+          this.useViewPlacement === true) &&
+        this.context?.view;
+      if (useViewPlacement) {
+        const localDirections = { h: 'center', v: 'center' };
+        if (directions.h && directions.h !== 'center') {
+          const mapped = mapViewDirection(this.context.view, directions.h);
+          if (mapped === 'left' || mapped === 'right') {
+            localDirections.h = mapped;
+          } else {
+            localDirections.v = mapped;
+          }
+        }
+        if (directions.v && directions.v !== 'center') {
+          const mapped = mapViewDirection(this.context.view, directions.v);
+          if (mapped === 'top' || mapped === 'bottom') {
+            localDirections.v = mapped;
+          } else {
+            localDirections.h = mapped;
+          }
+        }
+        layoutDirections = localDirections;
+      }
+
+      const x = getHorizontalPosition(this, layoutDirections.h, margin);
+      const y = getVerticalPosition(this, layoutDirections.v, margin);
+      const pivotX = this.pivot?.x ?? 0;
+      const pivotY = this.pivot?.y ?? 0;
+      this.position.set(x + pivotX, y + pivotY);
     }
   };
   MixedClass.registerHandler(

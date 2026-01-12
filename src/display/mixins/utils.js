@@ -129,16 +129,52 @@ export const getLayoutContext = (component) => {
   const parentPadding =
     usePadding && parent.props.padding ? parent.props.padding : ZERO_MARGIN;
 
-  const parentWidth = parent.props.size.width;
-  const parentHeight = parent.props.size.height;
+  let parentWidth = parent.props.size.width;
+  let parentHeight = parent.props.size.height;
+  let effectivePadding = parentPadding;
+
+  const useViewLayout =
+    component.constructor.useViewLayout === true ||
+    component.useViewLayout === true;
+  const view = component?.context?.view;
+  if (useViewLayout && view) {
+    const mapped = {
+      left: mapViewDirection(view, 'left'),
+      right: mapViewDirection(view, 'right'),
+      top: mapViewDirection(view, 'top'),
+      bottom: mapViewDirection(view, 'bottom'),
+    };
+
+    effectivePadding = {
+      left: parentPadding[mapped.left],
+      right: parentPadding[mapped.right],
+      top: parentPadding[mapped.top],
+      bottom: parentPadding[mapped.bottom],
+    };
+
+    const screenRightAxis = mapViewDirection(view, 'right', {
+      ignoreFlip: true,
+    });
+    const screenBottomAxis = mapViewDirection(view, 'bottom', {
+      ignoreFlip: true,
+    });
+    parentWidth =
+      screenRightAxis === 'left' || screenRightAxis === 'right'
+        ? parent.props.size.width
+        : parent.props.size.height;
+    parentHeight =
+      screenBottomAxis === 'top' || screenBottomAxis === 'bottom'
+        ? parent.props.size.height
+        : parent.props.size.width;
+  }
 
   const contentWidth = Math.max(
     0,
-    parentWidth - parentPadding.left - parentPadding.right,
+    parentWidth - effectivePadding.left - effectivePadding.right,
   );
   const contentHeight = Math.max(
     0,
-    parentHeight - parentPadding.top - parentPadding.bottom,
+    parentHeight - effectivePadding.top - effectivePadding.bottom,
   );
 
   return {
@@ -146,8 +182,32 @@ export const getLayoutContext = (component) => {
     parentHeight,
     contentWidth,
     contentHeight,
-    parentPadding,
+    parentPadding: effectivePadding,
   };
+};
+
+export const mapViewDirection = (view, direction, options = {}) => {
+  if (!view) return direction;
+  const angle = ((view.angle ?? 0) * Math.PI) / 180;
+  const ignoreFlip = options.ignoreFlip === true;
+  const flipX = ignoreFlip ? 1 : view.flipX ? -1 : 1;
+  const flipY = ignoreFlip ? 1 : view.flipY ? -1 : 1;
+  const vectors = {
+    left: { x: -1, y: 0 },
+    right: { x: 1, y: 0 },
+    top: { x: 0, y: -1 },
+    bottom: { x: 0, y: 1 },
+  };
+  const base = vectors[direction] ?? vectors.right;
+  const scaled = { x: base.x * flipX, y: base.y * flipY };
+  const cos = Math.cos(-angle);
+  const sin = Math.sin(-angle);
+  const x = cos * scaled.x - sin * scaled.y;
+  const y = sin * scaled.x + cos * scaled.y;
+  if (Math.abs(x) >= Math.abs(y)) {
+    return x >= 0 ? 'right' : 'left';
+  }
+  return y >= 0 ? 'bottom' : 'top';
 };
 
 export const splitText = (text, split) => {

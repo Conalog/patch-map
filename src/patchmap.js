@@ -4,6 +4,8 @@ import { isValidationError } from 'zod-validation-error';
 import { UndoRedoManager } from './command/UndoRedoManager';
 import { draw } from './display/draw';
 import { update } from './display/update';
+import ViewTransform from './display/view-transform/ViewTransform';
+import World from './display/World';
 import { fit as fitViewport, focus } from './events/focus-fit';
 import {
   initApp,
@@ -34,6 +36,8 @@ class Patchmap extends WildcardEventEmitter {
   _animationContext = gsap.context(() => {});
   _transformer = null;
   _stateManager = null;
+  _world = null;
+  _viewTransform = this._createViewTransform();
 
   get app() {
     return this._app;
@@ -45,6 +49,10 @@ class Patchmap extends WildcardEventEmitter {
 
   set viewport(value) {
     this._viewport = value;
+  }
+
+  get world() {
+    return this._world;
   }
 
   get theme() {
@@ -133,7 +141,12 @@ class Patchmap extends WildcardEventEmitter {
       theme: this.theme,
       animationContext: this.animationContext,
     };
+    context.view = this._viewTransform.viewState;
     this.viewport = initViewport(this.app, viewportOptions, context);
+    this._world = new World({ context });
+    context.world = this._world;
+    this.viewport.addChild(this._world);
+    this._viewTransform.attach({ viewport: this.viewport, world: this._world });
 
     await initAsset(assetsOptions);
     initCanvas(element, this.app);
@@ -171,6 +184,8 @@ class Patchmap extends WildcardEventEmitter {
     this._animationContext = gsap.context(() => {});
     this._transformer = null;
     this._stateManager = null;
+    this._world = null;
+    this._viewTransform = this._createViewTransform();
     this.emit('patchmap:destroyed', { target: this });
     this.removeAllListeners();
   }
@@ -184,6 +199,7 @@ class Patchmap extends WildcardEventEmitter {
 
     const context = {
       viewport: this.viewport,
+      world: this.world,
       undoRedoManager: this.undoRedoManager,
       theme: this.theme,
       animationContext: this.animationContext,
@@ -234,8 +250,25 @@ class Patchmap extends WildcardEventEmitter {
     fitViewport(this.viewport, ids);
   }
 
+  get rotation() {
+    return this._viewTransform.rotation;
+  }
+
+  get flip() {
+    return this._viewTransform.flip;
+  }
+
   selector(path, opts) {
     return selector(this.viewport, path, opts);
+  }
+
+  _createViewTransform() {
+    return new ViewTransform({
+      onRotate: (angle) =>
+        this.emit('patchmap:rotated', { angle, target: this }),
+      onFlip: (flip) =>
+        this.emit('patchmap:flipped', { ...flip, target: this }),
+    });
   }
 }
 

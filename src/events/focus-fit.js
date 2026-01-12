@@ -2,6 +2,7 @@ import { isValidationError } from 'zod-validation-error';
 import { calcGroupOrientedBounds } from '../utils/bounds';
 import { selector } from '../utils/selector/selector';
 import { validate } from '../utils/validator';
+import { moveViewportCenter } from '../utils/viewport-rotation';
 import { focusFitIdsSchema } from './schema';
 
 export const focus = (viewport, ids) => centerViewport(viewport, ids, false);
@@ -21,13 +22,18 @@ const centerViewport = (viewport, ids, shouldFit = false) => {
   const bounds = calcGroupOrientedBounds(objects);
   const center = viewport.toLocal(bounds.center);
   if (bounds) {
-    viewport.moveCenter(center.x, center.y);
+    moveViewportCenter(viewport, center);
     if (shouldFit) {
-      viewport.fit(
-        true,
-        bounds.innerBounds.width / viewport.scale.x,
-        bounds.innerBounds.height / viewport.scale.y,
+      const width = bounds.innerBounds.width / viewport.scale.x;
+      const height = bounds.innerBounds.height / viewport.scale.y;
+      const scale = Math.min(
+        viewport.screenWidth / width,
+        viewport.screenHeight / height,
       );
+      viewport.scale.set(scale);
+      const clampZoom = viewport.plugins?.get?.('clamp-zoom', true);
+      clampZoom?.clamp?.();
+      moveViewportCenter(viewport, center);
     }
   }
 };
@@ -46,7 +52,9 @@ const getObjectsById = (viewport, ids) => {
     viewport,
     '$..children[?(@.type != null && @.parent.type !== "item" && @.parent.type !== "relations")]',
   ).reduce((acc, curr) => {
-    acc[curr.id] = curr;
+    if (curr.id) {
+      acc[curr.id] = curr;
+    }
     return acc;
   }, {});
   return idsArr.flatMap((i) => objs[i]).filter((obj) => obj);
