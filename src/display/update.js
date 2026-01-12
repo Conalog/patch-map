@@ -7,6 +7,7 @@ import { validate } from '../utils/validator';
 
 const updateSchema = z.object({
   path: z.nullable(z.string()).default(null),
+  elements: z.unknown().optional(),
   changes: z.record(z.unknown()).nullable().default(null),
   history: z.union([z.boolean(), z.string()]).default(false),
   relativeTransform: z.boolean().default(false),
