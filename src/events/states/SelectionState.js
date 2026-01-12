@@ -90,6 +90,7 @@ export default class SelectionState extends State {
     'onclick',
     'rightclick',
   ];
+  static VIEWPORT_CHANGE_EPSILON = 0.0001;
 
   /** @type {SelectionStateConfig} */
   config = {};
@@ -380,12 +381,15 @@ export default class SelectionState extends State {
   #hasViewportChanged() {
     if (!this.viewportSnapshot || !this.viewport) return false;
     const current = this.#captureViewportState();
-    const epsilon = 0.0001;
     return (
-      Math.abs(current.x - this.viewportSnapshot.x) > epsilon ||
-      Math.abs(current.y - this.viewportSnapshot.y) > epsilon ||
-      Math.abs(current.scaleX - this.viewportSnapshot.scaleX) > epsilon ||
-      Math.abs(current.scaleY - this.viewportSnapshot.scaleY) > epsilon
+      Math.abs(current.x - this.viewportSnapshot.x) >
+        this.VIEWPORT_CHANGE_EPSILON ||
+      Math.abs(current.y - this.viewportSnapshot.y) >
+        this.VIEWPORT_CHANGE_EPSILON ||
+      Math.abs(current.scaleX - this.viewportSnapshot.scaleX) >
+        this.VIEWPORT_CHANGE_EPSILON ||
+      Math.abs(current.scaleY - this.viewportSnapshot.scaleY) >
+        this.VIEWPORT_CHANGE_EPSILON
     );
   }
 }
