@@ -15,6 +15,8 @@ const stateSymbol = {
   PAINTING: Symbol('PAINTING'),
 };
 
+const VIEWPORT_CHANGE_EPSILON = 0.0001;
+
 /**
  * @typedef {object} SelectionStateConfig
  * @property {boolean} [draggable=false] - Enables drag-to-select functionality.
@@ -97,6 +99,7 @@ export default class SelectionState extends State {
   interactionState = stateSymbol.IDLE;
   dragStartPoint = null;
   movedViewport = false;
+  viewportSnapshot = null;
   _selectionBox = new Graphics();
 
   _paintedObjects = new Set();
@@ -131,6 +134,7 @@ export default class SelectionState extends State {
     this.interactionState = stateSymbol.PRESSING;
     this.dragStartPoint = this.viewport.toWorld(e.global);
     this._lastPaintPoint = this.dragStartPoint;
+    this.viewportSnapshot = this.#captureViewportState();
 
     const target = this.#searchObject(this.dragStartPoint, e, true);
     this.config.onDown(target, e);
@@ -199,7 +203,7 @@ export default class SelectionState extends State {
       this.config.onDragEnd(Array.from(this._paintedObjects), e);
       this.viewport.plugin.stop('mouse-edges');
     }
-    this.#clear({ state: true, selectionBox: true, gesture: true });
+    this.#clear({ state: true, selectionBox: true });
   }
 
   onpointerover(e) {
@@ -237,14 +241,15 @@ export default class SelectionState extends State {
     });
   }
 
-  onpointerleave(e) {
-    this.onpointerup(e);
+  onpointerleave() {
+    this.#clear({ state: true, selectionBox: true, gesture: true });
   }
 
   #processClick(e, callback) {
     const currentPoint = this.viewport.toWorld(e.global);
     const isActuallyMoved =
       this.movedViewport ||
+      this.#hasViewportChanged() ||
       isMoved(this.dragStartPoint, currentPoint, this.viewport.scale);
 
     if (!isActuallyMoved) {
@@ -358,8 +363,32 @@ export default class SelectionState extends State {
     if (gesture) {
       this.dragStartPoint = null;
       this.movedViewport = false;
+      this.viewportSnapshot = null;
       this._paintedObjects.clear();
       this._lastPaintPoint = null;
     }
+  }
+
+  #captureViewportState() {
+    if (!this.viewport) return null;
+    return {
+      x: this.viewport.x,
+      y: this.viewport.y,
+      scaleX: this.viewport.scale?.x ?? 1,
+      scaleY: this.viewport.scale?.y ?? 1,
+    };
+  }
+
+  #hasViewportChanged() {
+    if (!this.viewportSnapshot || !this.viewport) return false;
+    const current = this.#captureViewportState();
+    return (
+      Math.abs(current.x - this.viewportSnapshot.x) > VIEWPORT_CHANGE_EPSILON ||
+      Math.abs(current.y - this.viewportSnapshot.y) > VIEWPORT_CHANGE_EPSILON ||
+      Math.abs(current.scaleX - this.viewportSnapshot.scaleX) >
+        VIEWPORT_CHANGE_EPSILON ||
+      Math.abs(current.scaleY - this.viewportSnapshot.scaleY) >
+        VIEWPORT_CHANGE_EPSILON
+    );
   }
 }
