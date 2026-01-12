@@ -15,6 +15,8 @@ const stateSymbol = {
   PAINTING: Symbol('PAINTING'),
 };
 
+const VIEWPORT_CHANGE_EPSILON = 0.0001;
+
 /**
  * @typedef {object} SelectionStateConfig
  * @property {boolean} [draggable=false] - Enables drag-to-select functionality.
@@ -90,7 +92,6 @@ export default class SelectionState extends State {
     'onclick',
     'rightclick',
   ];
-  static VIEWPORT_CHANGE_EPSILON = 0.0001;
 
   /** @type {SelectionStateConfig} */
   config = {};
@@ -382,14 +383,12 @@ export default class SelectionState extends State {
     if (!this.viewportSnapshot || !this.viewport) return false;
     const current = this.#captureViewportState();
     return (
-      Math.abs(current.x - this.viewportSnapshot.x) >
-        this.VIEWPORT_CHANGE_EPSILON ||
-      Math.abs(current.y - this.viewportSnapshot.y) >
-        this.VIEWPORT_CHANGE_EPSILON ||
+      Math.abs(current.x - this.viewportSnapshot.x) > VIEWPORT_CHANGE_EPSILON ||
+      Math.abs(current.y - this.viewportSnapshot.y) > VIEWPORT_CHANGE_EPSILON ||
       Math.abs(current.scaleX - this.viewportSnapshot.scaleX) >
-        this.VIEWPORT_CHANGE_EPSILON ||
+        VIEWPORT_CHANGE_EPSILON ||
       Math.abs(current.scaleY - this.viewportSnapshot.scaleY) >
-        this.VIEWPORT_CHANGE_EPSILON
+        VIEWPORT_CHANGE_EPSILON
     );
   }
 }
