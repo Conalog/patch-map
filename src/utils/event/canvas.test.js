@@ -45,10 +45,13 @@ describe('canvas event utilities', () => {
       path: '$',
       elements: null,
       action: 'click',
-      fn: handler,
+      fn: expect.any(Function),
       options: { passive: true },
       active: false,
     });
+
+    viewport.events.evt.fn();
+    expect(handler).toHaveBeenCalled();
   });
 
   it('stores elements without path when only elements are provided', () => {
