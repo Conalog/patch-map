@@ -1,0 +1,41 @@
+:root {
+  color-scheme: light;
+  --bg: #f2f3f5;
+  --ink: #1f2428;
+  --muted: #6b737b;
+  --accent: #1f2933;
+  --panel: #ffffff;
+  --panel-border: rgba(31, 36, 40, 0.16);
+  --mono: 'IBM Plex Mono', monospace;
+  --radius-lg: 22px;
+  --radius-md: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: 'Space Grotesk', sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
