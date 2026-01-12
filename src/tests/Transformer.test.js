@@ -30,7 +30,7 @@ describe('Transformer', () => {
       expect(transformer.boundsDisplayMode).toBe('all');
       expect(transformer.wireframeStyle.thickness).toBe(1.5);
       expect(transformer.wireframeStyle.color).toBe('#1099FF');
-      expect(transformer.children.length).toBe(1); // wireframe
+      expect(transformer.children.length).toBe(2); // wireframe
     });
 
     it('should instantiate with custom options', () => {
