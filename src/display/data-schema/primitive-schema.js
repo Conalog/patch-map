@@ -218,33 +218,50 @@ export const TextureStyle = z
 /**
  * @see {@link https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html}
  */
-export const RelationsStyle = z
+export const StrokeStyle = z
   .object({
     color: Color.default(DEFAULT_PATHSTYLE.color),
   })
-  .passthrough()
-  .default({});
+  .passthrough();
 
 /**
- * @see {@link https://pixijs.download/release/docs/text.TextStyleOptions.html}
+ * @see {@link https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html}
+ */
+export const RelationsStyle = StrokeStyle.default({});
+
+/**
+ * Common text properties shared by all text-based objects.
  */
 export const TextStyle = z
   .object({
-    fontSize: z.union([z.number(), z.literal('auto'), z.string()]).optional(),
-    autoFont: z
-      .object({
-        min: z.number().positive().default(DEFAULT_AUTO_FONT_RANGE.min),
-        max: z.number().positive().default(DEFAULT_AUTO_FONT_RANGE.max),
-      })
-      .refine((data) => data.min <= data.max, {
-        message: 'autoFont.min must not be greater than autoFont.max',
-      })
-      .default({}),
     fontFamily: z.any().default(DEFAULT_TEXTSTYLE.fontFamily),
     fontWeight: z.any().default(DEFAULT_TEXTSTYLE.fontWeight),
     fill: z.any().default(DEFAULT_TEXTSTYLE.fill),
-    wordWrapWidth: z.union([z.number(), z.literal('auto')]).optional(),
-    overflow: z.enum(['visible', 'hidden', 'ellipsis']).default('visible'),
+    fontSize: z.number().default(16),
   })
-  .passthrough()
-  .default({});
+  .passthrough();
+
+/**
+ * Text style for item labels/components that supports auto-sizing.
+ * @see {@link https://pixijs.download/release/docs/text.TextStyleOptions.html}
+ */
+export const LabelTextStyle = TextStyle.extend({
+  fontSize: z.union([z.number(), z.literal('auto'), z.string()]).optional(),
+  autoFont: z
+    .object({
+      min: z.number().positive().default(DEFAULT_AUTO_FONT_RANGE.min),
+      max: z.number().positive().default(DEFAULT_AUTO_FONT_RANGE.max),
+    })
+    .default({}),
+  wordWrapWidth: z.union([z.number(), z.literal('auto')]).optional(),
+  overflow: z.enum(['visible', 'hidden', 'ellipsis']).default('visible'),
+}).default({});
+
+/**
+ * Text style for standalone Text elements, following design tool behaviors.
+ */
+export const ElementTextStyle = TextStyle.extend({
+  wordWrap: z.boolean().default(true),
+  lineHeight: z.number().optional(),
+  letterSpacing: z.number().default(0),
+}).default({});

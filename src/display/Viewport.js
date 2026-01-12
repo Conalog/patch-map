@@ -8,7 +8,7 @@ const ComposedViewport = mixins(Viewport, Base, Childrenable);
 
 export default class BaseViewport extends ComposedViewport {
   constructor(options) {
-    super({ type: 'canvas', ...options });
+    super({ type: 'canvas', sortableChildren: true, ...options });
   }
 
   apply(changes, options) {

@@ -5,13 +5,13 @@ import {
   Base,
   Color,
   Gap,
+  LabelTextStyle,
   Margin,
   Placement,
   PxOrPercentSize,
   pxOrPercentSchema,
   RelationsStyle,
   Size,
-  TextStyle,
   TextureStyle,
 } from './primitive-schema';
 
@@ -350,10 +350,10 @@ describe('Primitive Schema Tests', () => {
     });
   });
 
-  describe('TextStyle Schema', () => {
+  describe('LabelTextStyle Schema', () => {
     it('should apply default styles for a partial object', () => {
       const data = { fontSize: 16 };
-      expect(TextStyle.parse(data)).toEqual({
+      expect(LabelTextStyle.parse(data)).toEqual({
         autoFont: { min: 1, max: 100 },
         fill: 'black',
         fontFamily: 'FiraCode',
@@ -365,7 +365,7 @@ describe('Primitive Schema Tests', () => {
 
     it('should not override provided styles', () => {
       const data = { fontFamily: 'Arial', fill: 'red', fontWeight: 'bold' };
-      expect(TextStyle.parse(data)).toEqual({
+      expect(LabelTextStyle.parse(data)).toEqual({
         autoFont: { min: 1, max: 100 },
         fontFamily: 'Arial',
         fontWeight: 'bold',

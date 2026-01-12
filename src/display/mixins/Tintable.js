@@ -7,7 +7,7 @@ export const Tintable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyTint(relevantChanges) {
       const { tint } = relevantChanges;
-      this.tint = getColor(this.context.theme, tint);
+      this.tint = getColor(this.store.theme, tint);
     }
   };
   MixedClass.registerHandler(

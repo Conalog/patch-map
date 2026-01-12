@@ -109,8 +109,8 @@ export const validateAndPrepareChanges = (currentElements, changes, schema) => {
 };
 
 /**
- * Calculates the layout context of a component (content area size, padding, etc).
- * @param {PIXI.DisplayObject} component - The component for which to calculate the layout context
+ * Calculates the layout store of a component (content area size, padding, etc).
+ * @param {PIXI.DisplayObject} component - The component for which to calculate the layout store
  * @returns {{parentWidth: number, parentHeight: number, contentWidth: number, contentHeight: number, parentPadding: object}}
  */
 export const getLayoutContext = (component) => {

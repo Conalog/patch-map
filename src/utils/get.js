@@ -21,8 +21,8 @@ export const getColor = (theme, color) => {
 export const getViewport = (displayObject) => {
   if (!displayObject) return null;
 
-  if (displayObject?.context?.viewport) {
-    return displayObject.context.viewport;
+  if (displayObject?.store?.viewport) {
+    return displayObject.store.viewport;
   }
   if (displayObject instanceof Viewport) {
     return displayObject;

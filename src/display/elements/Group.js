@@ -6,8 +6,8 @@ import Element from './Element';
 const ComposedGroup = mixins(Element, Childrenable);
 
 export class Group extends ComposedGroup {
-  constructor(context) {
-    super({ type: 'group', context, isRenderGroup: true });
+  constructor(store) {
+    super({ type: 'group', store, isRenderGroup: true });
   }
 
   apply(changes, options) {

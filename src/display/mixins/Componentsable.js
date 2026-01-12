@@ -30,7 +30,7 @@ export const Componentsable = (superClass) => {
             this.addChild(component);
           }
         } else {
-          component = newComponent(componentChange.type, this.context);
+          component = newComponent(componentChange.type, this.store);
           this.addChild(component);
         }
         component.apply(

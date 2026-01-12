@@ -4,6 +4,7 @@ import { Base } from '../mixins/Base';
 import { Placementable } from '../mixins/Placementable';
 import { Showable } from '../mixins/Showable';
 import { Textable } from '../mixins/Textable';
+import { TextLayoutable } from '../mixins/TextLayoutable';
 import { Textstyleable } from '../mixins/Textstyleable';
 import { Tintable } from '../mixins/Tintable';
 import { mixins } from '../mixins/utils';
@@ -18,13 +19,14 @@ const ComposedText = mixins(
   Showable,
   Textable,
   Textstyleable,
+  TextLayoutable,
   Tintable,
   Placementable,
 );
 
 export class Text extends ComposedText {
-  constructor(context) {
-    super({ type: 'text', context, text: '' });
+  constructor(store) {
+    super({ type: 'text', store, text: '' });
 
     this.constructor.registerHandler(
       EXTRA_KEYS.PLACEMENT,

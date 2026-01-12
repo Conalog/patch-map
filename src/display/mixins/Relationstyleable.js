@@ -12,7 +12,7 @@ export const Relationstyleable = (superClass) => {
       if (!path) return;
 
       if ('color' in style) {
-        style.color = getColor(this.context.theme, style.color);
+        style.color = getColor(this.store.theme, style.color);
       }
 
       const newStrokeStyle =

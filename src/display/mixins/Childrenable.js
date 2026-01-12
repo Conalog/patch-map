@@ -30,7 +30,7 @@ export const Childrenable = (superClass) => {
             this.addChild(element);
           }
         } else {
-          element = newElement(childChange.type, this.context);
+          element = newElement(childChange.type, this.store);
           this.addChild(element);
         }
         element.apply(childChange, options);
@@ -42,6 +42,10 @@ export const Childrenable = (superClass) => {
           this.removeChild(element);
           element.destroy({ children: true });
         });
+      }
+
+      if (this.sortableChildren) {
+        this.sortDirty = true;
       }
     }
 

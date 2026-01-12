@@ -13,12 +13,12 @@ export const Base = (superClass) => {
   return class extends Type(superClass) {
     static _handlerMap = new Map();
     static _handlerRegistry = new Map();
-    #context;
+    #store;
 
     constructor(options = {}) {
-      const { context = null, ...rest } = options;
+      const { store = null, ...rest } = options;
       super(rest);
-      this.#context = context;
+      this.#store = store;
       this.props = {};
 
       this._lastLocalTransform = tempMatrix.clone();
@@ -28,8 +28,8 @@ export const Base = (superClass) => {
       };
     }
 
-    get context() {
-      return this.#context;
+    get store() {
+      return this.#store;
     }
 
     _afterRender() {}
@@ -38,7 +38,7 @@ export const Base = (superClass) => {
       if (!this.localTransform || !this.visible) return;
 
       if (!this.localTransform.equals(this._lastLocalTransform)) {
-        this.context.viewport.emit('object_transformed', this);
+        this.store.viewport?.emit('object_transformed', this);
         this._lastLocalTransform.copyFrom(this.localTransform);
       }
     }
@@ -81,9 +81,13 @@ export const Base = (superClass) => {
       if (isValidationError(nextProps)) throw nextProps;
       const actualChanges = diffReplace(this.props, nextProps) ?? {};
 
-      if (options?.historyId && Object.keys(actualChanges).length > 0) {
+      if (
+        options?.historyId &&
+        Object.keys(actualChanges).length > 0 &&
+        this.store.undoRedoManager
+      ) {
         const command = new UpdateCommand(this, changes, options);
-        this.context.undoRedoManager.execute(command, options);
+        this.store?.undoRedoManager.execute(command, options);
         return;
       }
 

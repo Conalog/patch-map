@@ -128,12 +128,12 @@ class Patchmap extends WildcardEventEmitter {
     this._app = new Application();
     await initApp(this.app, { resizeTo: element, ...appOptions });
 
-    const context = {
+    const store = {
       undoRedoManager: this.undoRedoManager,
       theme: this.theme,
       animationContext: this.animationContext,
     };
-    this.viewport = initViewport(this.app, viewportOptions, context);
+    this.viewport = initViewport(this.app, viewportOptions, store);
 
     await initAsset(assetsOptions);
     initCanvas(element, this.app);
@@ -182,7 +182,7 @@ class Patchmap extends WildcardEventEmitter {
     const validatedData = validateMapData(processedData);
     if (isValidationError(validatedData)) throw validatedData;
 
-    const context = {
+    const store = {
       viewport: this.viewport,
       undoRedoManager: this.undoRedoManager,
       theme: this.theme,
@@ -193,7 +193,7 @@ class Patchmap extends WildcardEventEmitter {
     this.undoRedoManager.clear();
     this.animationContext.revert();
     event.removeAllEvent(this.viewport);
-    draw(context, validatedData);
+    draw(store, validatedData);
 
     // Force a refresh of all relation elements after the initial draw. This ensures
     // that all link targets exist in the scene graph before the relations

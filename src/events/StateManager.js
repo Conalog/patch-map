@@ -16,7 +16,7 @@ import { PROPAGATE_EVENT } from './states/State';
  */
 export default class StateManager extends WildcardEventEmitter {
   /** @private */
-  #context;
+  #store;
   /** @private */
   #stateRegistry = new Map();
   /** @private */
@@ -29,12 +29,12 @@ export default class StateManager extends WildcardEventEmitter {
   #eventListeners = {};
 
   /**
-   * Initializes the StateManager with a context.
-   * @param {object} context - The context in which the StateManager operates, typically containing the viewport and other global instances.
+   * Initializes the StateManager with a store.
+   * @param {object} store - The store in which the StateManager operates, typically containing the viewport and other global instances.
    */
-  constructor(context) {
+  constructor(store) {
     super();
-    this.#context = context;
+    this.#store = store;
   }
 
   /**
@@ -131,7 +131,7 @@ export default class StateManager extends WildcardEventEmitter {
     }
 
     this.#stateStack.push(instance);
-    instance.enter?.(this.#context, ...args);
+    instance.enter?.(this.#store, ...args);
 
     this.emit('state:pushed', {
       pushedState: instance,
@@ -225,7 +225,7 @@ export default class StateManager extends WildcardEventEmitter {
     }
 
     this.#modifierState = instance;
-    this.#modifierState.enter?.(this.#context, ...args);
+    this.#modifierState.enter?.(this.#store, ...args);
 
     this.emit('modifier:activated', {
       modifierState: this.#modifierState,
@@ -256,7 +256,7 @@ export default class StateManager extends WildcardEventEmitter {
    * @param {string[]} [eventNames=[]] - The names of the events to ensure listeners for (e.g., 'onpointerdown').
    */
   _ensureEventListeners(eventNames = []) {
-    const viewport = this.#context.viewport;
+    const viewport = this.#store.viewport;
     const dispatch = (eventName, event) => {
       if (this.#modifierState) {
         this.#modifierState[eventName]?.(event);
@@ -303,7 +303,7 @@ export default class StateManager extends WildcardEventEmitter {
       if (pixiEventName.startsWith('key')) {
         window.removeEventListener(pixiEventName, listener);
       } else {
-        this.#context.viewport.off(pixiEventName, listener);
+        this.#store.viewport.off(pixiEventName, listener);
       }
     }
     this.#stateRegistry.forEach((stateDef) => {
