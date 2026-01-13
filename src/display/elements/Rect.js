@@ -46,6 +46,8 @@ export class Rect extends ComposedRect {
       }
       this.stroke(strokeStyle);
     }
+
+    this.store?.viewport?.emit('object_transformed', this);
   }
 
   _drawPath(width, height, radius) {
