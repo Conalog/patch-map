@@ -75,7 +75,15 @@ describe('patchmap test', () => {
   it('draw', () => {
     const patchmap = getPatchmap();
     patchmap.draw(sampleData);
-    expect(patchmap.viewport.children.length).toBe(2);
+    expect(patchmap.world).toBeDefined();
+    expect(patchmap.overlay).toBeDefined();
+    expect(patchmap.viewport.children).toContain(patchmap.world);
+    expect(patchmap.viewport.children).toContain(patchmap.overlay);
+    expect(patchmap.world.children.length).toBe(1);
+
+    const relations = patchmap.selector('$..[?(@.id=="relations-1")]')[0];
+    expect(relations).toBeDefined();
+    expect(relations.parent).toBe(patchmap.overlay);
 
     const group = patchmap.selector('$..[?(@.id=="group-1")]')[0];
     expect(group).toBeDefined();
@@ -329,31 +337,31 @@ describe('patchmap test', () => {
             position: { x: 220, y: 280 },
             expectedId: 'relations-1',
           },
-        ])(
-          'should select the correct element when $case',
-          async ({ position, expectedId }) => {
-            const viewport = patchmap.viewport;
-            transform(viewport);
-            await vi.advanceTimersByTimeAsync(100);
+        ])('should select the correct element when $case', async ({
+          position,
+          expectedId,
+        }) => {
+          const viewport = patchmap.viewport;
+          transform(viewport);
+          await vi.advanceTimersByTimeAsync(100);
 
-            viewport.emit('click', {
-              global: viewport.toGlobal(position),
-              stopPropagation: () => {},
-            });
+          viewport.emit('click', {
+            global: viewport.toGlobal(position),
+            stopPropagation: () => {},
+          });
 
-            expect(onClick).toHaveBeenCalledTimes(1);
-            const receivedElement = onClick.mock.calls[0][0];
+          expect(onClick).toHaveBeenCalledTimes(1);
+          const receivedElement = onClick.mock.calls[0][0];
 
-            if (expectedId === null) {
-              expect(receivedElement).toBeNull();
-            } else {
-              expect(receivedElement).toBeDefined();
-              expect(receivedElement.id).toBe(expectedId);
-            }
+          if (expectedId === null) {
+            expect(receivedElement).toBeNull();
+          } else {
+            expect(receivedElement).toBeDefined();
+            expect(receivedElement.id).toBe(expectedId);
+          }
 
-            expect(onDrag).not.toHaveBeenCalled();
-          },
-        );
+          expect(onDrag).not.toHaveBeenCalled();
+        });
       });
     });
 
@@ -394,39 +402,38 @@ describe('patchmap test', () => {
           clickPosition: { x: 210, y: 310 },
           expectedId: 'group-2',
         },
-      ])(
-        'should return the correct object when selectUnit is "$selectUnit"',
-        async ({ selectUnit, clickPosition, expectedId }) => {
-          patchmap.draw([
-            { type: 'group', id: 'group-2', children: sampleData },
-          ]);
-          await vi.advanceTimersByTimeAsync(100);
+      ])('should return the correct object when selectUnit is "$selectUnit"', async ({
+        selectUnit,
+        clickPosition,
+        expectedId,
+      }) => {
+        patchmap.draw([{ type: 'group', id: 'group-2', children: sampleData }]);
+        await vi.advanceTimersByTimeAsync(100);
 
-          const onClick = vi.fn();
+        const onClick = vi.fn();
 
-          patchmap.stateManager.setState('selection', {
-            enabled: true,
-            selectUnit: selectUnit,
-            onClick: onClick,
-          });
+        patchmap.stateManager.setState('selection', {
+          enabled: true,
+          selectUnit: selectUnit,
+          onClick: onClick,
+        });
 
-          const viewport = patchmap.viewport;
-          viewport.emit('click', {
-            global: viewport.toGlobal(clickPosition),
-            stopPropagation: () => {},
-          });
+        const viewport = patchmap.viewport;
+        viewport.emit('click', {
+          global: viewport.toGlobal(clickPosition),
+          stopPropagation: () => {},
+        });
 
-          expect(onClick).toHaveBeenCalledTimes(1);
-          const selectedObject = onClick.mock.calls[0][0];
+        expect(onClick).toHaveBeenCalledTimes(1);
+        const selectedObject = onClick.mock.calls[0][0];
 
-          if (expectedId) {
-            expect(selectedObject).toBeDefined();
-            expect(selectedObject.id).toBe(expectedId);
-          } else {
-            expect(selectedObject).toBeNull();
-          }
-        },
-      );
+        if (expectedId) {
+          expect(selectedObject).toBeDefined();
+          expect(selectedObject.id).toBe(expectedId);
+        } else {
+          expect(selectedObject).toBeNull();
+        }
+      });
     });
   });
 });
