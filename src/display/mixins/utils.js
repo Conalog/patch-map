@@ -2,7 +2,7 @@ import gsap from 'gsap';
 import { isValidationError } from 'zod-validation-error';
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { validate } from '../../utils/validator';
-import { ZERO_MARGIN } from './constants';
+import { ROTATION_THRESHOLD, ZERO_MARGIN } from './constants';
 
 export const tweensOf = (object) => gsap.getTweensOf(object);
 
@@ -131,14 +131,15 @@ export const getLayoutContext = (component) => {
 
   const parentWidth = parent.props.size.width;
   const parentHeight = parent.props.size.height;
+  const effectivePadding = parentPadding;
 
   const contentWidth = Math.max(
     0,
-    parentWidth - parentPadding.left - parentPadding.right,
+    parentWidth - effectivePadding.left - effectivePadding.right,
   );
   const contentHeight = Math.max(
     0,
-    parentHeight - parentPadding.top - parentPadding.bottom,
+    parentHeight - effectivePadding.top - effectivePadding.bottom,
   );
 
   return {
@@ -146,8 +147,41 @@ export const getLayoutContext = (component) => {
     parentHeight,
     contentWidth,
     contentHeight,
-    parentPadding,
+    parentPadding: effectivePadding,
   };
+};
+
+export const mapViewDirection = (view, direction, options = {}) => {
+  if (!view) return direction;
+  const viewAngle = (((view.angle ?? 0) % 360) + 360) % 360;
+
+  let hFlipped = false;
+  let vFlipped = false;
+
+  // 90도~270도 구간 (Readable 모드) 보정
+  if (
+    viewAngle >= ROTATION_THRESHOLD.MIN &&
+    viewAngle < ROTATION_THRESHOLD.MAX
+  ) {
+    hFlipped = !hFlipped;
+    vFlipped = !vFlipped;
+  }
+
+  // 뷰 자체의 플립 상태 반영
+  if (view.flipX) hFlipped = !hFlipped;
+  if (view.flipY) vFlipped = !vFlipped;
+
+  if (direction === 'left' || direction === 'right') {
+    if (hFlipped) return direction === 'left' ? 'right' : 'left';
+    return direction;
+  }
+
+  if (direction === 'top' || direction === 'bottom') {
+    if (vFlipped) return direction === 'top' ? 'bottom' : 'top';
+    return direction;
+  }
+
+  return direction;
 };
 
 export const splitText = (text, split) => {

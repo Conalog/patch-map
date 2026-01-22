@@ -38,7 +38,7 @@ export const Base = (superClass) => {
       if (!this.localTransform || !this.visible) return;
 
       if (!this.localTransform.equals(this._lastLocalTransform)) {
-        this.store.viewport?.emit('object_transformed', this);
+        this.store?.viewport?.emit('object_transformed', this);
         this._lastLocalTransform.copyFrom(this.localTransform);
       }
     }
@@ -81,13 +81,9 @@ export const Base = (superClass) => {
       if (isValidationError(nextProps)) throw nextProps;
       const actualChanges = diffReplace(this.props, nextProps) ?? {};
 
-      if (
-        options?.historyId &&
-        Object.keys(actualChanges).length > 0 &&
-        this.store.undoRedoManager
-      ) {
+      if (options?.historyId && Object.keys(actualChanges).length > 0) {
         const command = new UpdateCommand(this, changes, options);
-        this.store?.undoRedoManager.execute(command, options);
+        this.store.undoRedoManager.execute(command, options);
         return;
       }
 
