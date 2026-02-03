@@ -49,7 +49,6 @@ export const convertLegacyData = (data) => {
             x: transform.x,
             y: transform.y,
             angle: transform.rotation,
-            metadata: props,
             display: 'panelGroup',
           },
         });
@@ -96,7 +95,7 @@ export const convertLegacyData = (data) => {
       }
     } else {
       for (const value of values) {
-        const { transform, ...props } = value.properties;
+        const { transform } = value.properties;
         result.push({
           type: 'item',
           id: value.id,
@@ -131,10 +130,6 @@ export const convertLegacyData = (data) => {
           attrs: {
             x: transform.x,
             y: transform.y,
-            metadata: {
-              ...props,
-              ...(key === 'inverters' ? { strings: value.children } : {}),
-            },
             display: key === 'combines' ? 'combiner' : key.slice(0, -1),
             zIndex: 10,
           },
