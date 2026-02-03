@@ -1,27 +1,17 @@
-import { uid } from './uuid';
-
 export const convertArray = (items) => {
   return Array.isArray(items) ? [...items] : [items];
 };
 
 export const convertLegacyData = (data) => {
-  let result = [];
-  const objs = {};
+  const result = [];
 
   for (const [key, values] of Object.entries(data)) {
     if (key === 'metadata') continue;
 
-    objs[key] = {
-      type: 'group',
-      id: uid(),
-      label: key === 'grids' ? 'panelGroups' : key,
-      children: [],
-    };
-
     if (key === 'grids') {
       for (const value of values) {
         const { transform, ...props } = value.properties;
-        objs[key].children.push({
+        result.push({
           type: 'grid',
           id: value.id,
           label: value.name,
@@ -65,11 +55,9 @@ export const convertLegacyData = (data) => {
         });
       }
     } else if (key === 'strings') {
-      objs[key].show = false;
-      objs[key].attrs = { zIndex: 20 };
       for (const value of values) {
         const props = value.properties;
-        objs[key].children.push({
+        result.push({
           type: 'relations',
           id: value.id,
           label: value.name,
@@ -102,14 +90,14 @@ export const convertLegacyData = (data) => {
               })(),
             },
             display: key.slice(0, -1),
+            zIndex: 20,
           },
         });
       }
     } else {
-      objs[key].attrs = { zIndex: 10 };
       for (const value of values) {
         const { transform, ...props } = value.properties;
-        objs[key].children.push({
+        result.push({
           type: 'item',
           id: value.id,
           label: value.name,
@@ -148,12 +136,11 @@ export const convertLegacyData = (data) => {
               ...(key === 'inverters' ? { strings: value.children } : {}),
             },
             display: key === 'combines' ? 'combiner' : key.slice(0, -1),
+            zIndex: 10,
           },
         });
       }
     }
-
-    result = Object.values(objs);
   }
 
   return result;
