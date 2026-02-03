@@ -95,7 +95,7 @@ export const convertLegacyData = (data) => {
       }
     } else {
       for (const value of values) {
-        const { transform } = value.properties;
+        const { transform, ...props } = value.properties;
         result.push({
           type: 'item',
           id: value.id,
@@ -130,6 +130,7 @@ export const convertLegacyData = (data) => {
           attrs: {
             x: transform.x,
             y: transform.y,
+            metadata: props,
             display: key === 'combines' ? 'combiner' : key.slice(0, -1),
             zIndex: 10,
           },
