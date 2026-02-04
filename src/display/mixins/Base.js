@@ -38,7 +38,9 @@ export const Base = (superClass) => {
       if (!this.localTransform || !this.visible) return;
 
       if (!this.localTransform.equals(this._lastLocalTransform)) {
-        this.store.viewport?.emit('object_transformed', this);
+        if (this.parent?.type !== 'item') {
+          this.store.viewport?.emit('object_transformed', this);
+        }
         this._lastLocalTransform.copyFrom(this.localTransform);
       }
     }
