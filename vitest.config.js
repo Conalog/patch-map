@@ -15,6 +15,9 @@ export default defineConfig({
       {
         test: {
           include: ['**/tests/**/*.{test,spec}.js'],
+          benchmark: {
+            include: ['**/tests/**/*.bench.js'],
+          },
           name: 'browser',
           browser: {
             provider: playwright(),
