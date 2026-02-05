@@ -25,11 +25,14 @@ export const update = (viewport, opts) => {
     elements.push(...selector(viewport, config.path));
   }
 
+  const baseChanges = config.changes ?? null;
   for (const element of elements) {
     if (!element) {
       continue;
     }
-    const changes = JSON.parse(JSON.stringify(config.changes));
+    const changes = config.relativeTransform
+      ? structuredClone(baseChanges)
+      : baseChanges;
     if (config.relativeTransform && changes.attrs) {
       changes.attrs = applyRelativeTransform(element, changes.attrs);
     }
