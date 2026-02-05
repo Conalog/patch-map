@@ -207,7 +207,10 @@ class Patchmap extends WildcardEventEmitter {
     );
 
     this.app.start();
-    this.emit('patchmap:draw', { data: validatedData, target: this });
+    scheduler.postTask(
+      () => this.emit('patchmap:draw', { data: validatedData, target: this }),
+      { priority: 'user-visible' },
+    );
     return validatedData;
 
     function processData(data) {
