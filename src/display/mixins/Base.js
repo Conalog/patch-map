@@ -62,6 +62,18 @@ export const Base = (superClass) => {
         this._handlerMap = new Map(this._handlerMap);
         this._handlerOrder = this._handlerOrder ?? 0;
         this._handlerList = [...this._handlerList];
+
+        for (const [key, handlers] of this._handlerMap.entries()) {
+          const normalizedHandlers = new Set();
+          for (const entry of handlers) {
+            if (typeof entry === 'function') {
+              normalizedHandlers.add(entry);
+            } else if (entry?.handler) {
+              normalizedHandlers.add(entry.handler);
+            }
+          }
+          this._handlerMap.set(key, normalizedHandlers);
+        }
       }
 
       let entry = this._handlerRegistry.get(handler);
@@ -88,16 +100,17 @@ export const Base = (superClass) => {
       keys.forEach((key) => {
         if (entry.keys.has(key)) return;
         entry.keys.add(key);
-        let entries = this._handlerMap.get(key);
-        if (!entries) {
-          entries = new Set();
-          this._handlerMap.set(key, entries);
+        let handlers = this._handlerMap.get(key);
+        if (!handlers) {
+          handlers = new Set();
+          this._handlerMap.set(key, handlers);
         }
-        entries.add(entry);
+        handlers.add(handler);
       });
     }
 
     apply(_changes = {}, schema, options = {}) {
+      if (this.destroyed) return;
       const changes = _changes ?? {};
       const {
         mergeStrategy = 'merge',
@@ -144,13 +157,13 @@ export const Base = (superClass) => {
       const keysToProcess = refresh
         ? Object.keys(this.props)
         : Object.keys(actualChanges);
-      // const handlerChanges =
-      //   options.changes ??
-      //   (isNormalize ? normalizeChanges(changes, this.type) : changes);
+      const handlerChanges =
+        options.changes ??
+        (isNormalize ? normalizeChanges(changes, this.type) : changes);
       this._applyHandlers(keysToProcess, {
         mergeStrategy,
         refresh,
-        // changes: handlerChanges,
+        changes: handlerChanges,
       });
 
       if (this.parent?._onChildUpdate) {
@@ -162,27 +175,39 @@ export const Base = (superClass) => {
       if (keysToProcess.length === 0) return;
       const handlerMap = this.constructor._handlerMap;
       const handlerList = this.constructor._handlerList;
+      const handlerRegistry = this.constructor._handlerRegistry;
       if (handlerMap.size === 0 || handlerList.length === 0) return;
 
-      const candidates = new Set();
+      const candidates = new Map();
       for (const key of keysToProcess) {
-        const entries = handlerMap.get(key);
-        if (!entries) continue;
-        for (const entry of entries) {
-          candidates.add(entry);
+        const handlers = handlerMap.get(key);
+        if (!handlers) continue;
+        for (const entryOrHandler of handlers) {
+          if (typeof entryOrHandler === 'function') {
+            const registryEntry = handlerRegistry.get(entryOrHandler);
+            if (!registryEntry) continue;
+            if (!candidates.has(registryEntry)) {
+              candidates.set(registryEntry, entryOrHandler);
+            }
+            continue;
+          }
+          if (entryOrHandler?.handler && !candidates.has(entryOrHandler)) {
+            candidates.set(entryOrHandler, entryOrHandler.handler);
+          }
         }
       }
       if (candidates.size === 0) return;
 
       for (const entry of handlerList) {
-        if (!candidates.has(entry)) continue;
+        const handler = candidates.get(entry);
+        if (!handler) continue;
         const payload = {};
         for (const key of entry.keys) {
           if (Object.hasOwn(this.props, key)) {
             payload[key] = this.props[key];
           }
         }
-        entry.handler.call(this, payload, options);
+        handler.call(this, payload, options);
       }
     }
 

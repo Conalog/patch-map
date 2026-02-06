@@ -41,7 +41,7 @@ export const Childrenable = (superClass) => {
           element = newElement(childChange.type, this.store);
           this.addChild(element);
         }
-        element.apply(childChange, childOptions);
+        element.apply(childChange, { ...childOptions, changes: childChange });
       }
 
       if (options.mergeStrategy === 'replace') {

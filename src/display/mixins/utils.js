@@ -27,6 +27,12 @@ export const parseCalcExpression = (expression, parentDimension) => {
   return totalValue;
 };
 
+const roundToPrecision = (value, precision = 6) => {
+  if (!Number.isFinite(value)) return value;
+  const factor = 10 ** precision;
+  return Math.round((value + Number.EPSILON) * factor) / factor;
+};
+
 export const calcSize = (component, { source, size }) => {
   const { contentWidth, contentHeight } = getLayoutContext(component);
 
@@ -55,8 +61,8 @@ export const calcSize = (component, { source, size }) => {
   }
 
   return {
-    width: finalWidth + borderWidth,
-    height: finalHeight + borderWidth,
+    width: roundToPrecision(finalWidth + borderWidth),
+    height: roundToPrecision(finalHeight + borderWidth),
     borderWidth: borderWidth,
   };
 };
@@ -95,6 +101,7 @@ export const validateAndPrepareChanges = (currentElements, changes, schema) => {
   if (newElementDefs.length > 0) {
     const validatedNewDefs = validate(newElementDefs, schema);
     if (isValidationError(validatedNewDefs)) {
+      console.log(newElementDefs);
       throw validatedNewDefs;
     }
 

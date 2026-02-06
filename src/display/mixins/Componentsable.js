@@ -41,10 +41,11 @@ export const Componentsable = (superClass) => {
           component = newComponent(componentChange.type, this.store);
           this.addChild(component);
         }
-        component.apply(
-          { type: componentChange.type, ...componentChange },
-          childOptions,
-        );
+        const applyChanges = { type: componentChange.type, ...componentChange };
+        component.apply(applyChanges, {
+          ...childOptions,
+          changes: applyChanges,
+        });
       }
 
       if (options.mergeStrategy === 'replace') {
