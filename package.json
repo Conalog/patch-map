@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@conalog/patch-map",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "This library utilizes pixi.js to provide a PATCH MAP tailored to the requirements of the PATCH service.",
   "license": "MIT",
   "author": "Conalog",
