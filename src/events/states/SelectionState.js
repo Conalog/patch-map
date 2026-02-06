@@ -42,6 +42,7 @@ const VIEWPORT_CHANGE_EPSILON = 0.0001;
  *
  * @property {(target: PIXI.DisplayObject | null, event: PIXI.FederatedPointerEvent) => void} [onClick]
  * Callback fired when a complete, non-drag click is detected.
+ * Tap events (`ontap`) are routed to this callback as well.
  * This will *not* fire if `onDoubleClick` fires.
  *
  * @property {(target: PIXI.DisplayObject | null, event: PIXI.FederatedPointerEvent) => void} [onDoubleClick]
@@ -90,6 +91,7 @@ export default class SelectionState extends State {
     'onpointerover',
     'onpointerleave',
     'onclick',
+    'ontap',
     'rightclick',
   ];
 
@@ -233,6 +235,10 @@ export default class SelectionState extends State {
         this.config.onClick(target, e);
       }
     });
+  }
+
+  ontap(e) {
+    this.onclick(e);
   }
 
   rightclick(e) {
