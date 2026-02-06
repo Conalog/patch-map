@@ -40,6 +40,7 @@ export const update = (viewport, opts) => {
       historyId,
       mergeStrategy: config.mergeStrategy,
       refresh: config.refresh,
+      isValidateSchema: config.isValidateSchema,
     });
   }
   return elements;

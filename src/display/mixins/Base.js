@@ -4,7 +4,7 @@ import { UpdateCommand } from '../../command/commands/update';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { diffReplace } from '../../utils/diff/diff-replace';
 import { validate } from '../../utils/validator';
-import { deepPartial } from '../../utils/zod-deep-strict-partial';
+import { normalizeChanges } from '../normalize';
 import { Type } from './Type';
 
 const tempMatrix = new Matrix();
@@ -13,13 +13,15 @@ export const Base = (superClass) => {
   return class extends Type(superClass) {
     static _handlerMap = new Map();
     static _handlerRegistry = new Map();
+    static _handlerOrder = 0;
+    static _handlerList = [];
     #store;
 
     constructor(options = {}) {
       const { store = null, ...rest } = options;
       super(rest);
       this.#store = store;
-      this.props = {};
+      this.props = rest?.type ? { type: rest.type } : {};
 
       this._lastLocalTransform = tempMatrix.clone();
       this.onRender = () => {
@@ -58,89 +60,129 @@ export const Base = (superClass) => {
       if (!Object.hasOwn(this, '_handlerRegistry')) {
         this._handlerRegistry = new Map(this._handlerRegistry);
         this._handlerMap = new Map(this._handlerMap);
+        this._handlerOrder = this._handlerOrder ?? 0;
+        this._handlerList = [...this._handlerList];
       }
 
-      const registration = this._handlerRegistry.get(handler) ?? {
-        keys: new Set(),
-        stage: stage ?? 99,
-      };
+      let entry = this._handlerRegistry.get(handler);
+      if (!entry) {
+        entry = {
+          handler,
+          keys: new Set(),
+          stage: stage ?? 99,
+          order: this._handlerOrder++,
+        };
+        this._handlerRegistry.set(handler, entry);
+        const insertAt = this._handlerList.findIndex(
+          (item) =>
+            item.stage > entry.stage ||
+            (item.stage === entry.stage && item.order > entry.order),
+        );
+        if (insertAt === -1) {
+          this._handlerList.push(entry);
+        } else {
+          this._handlerList.splice(insertAt, 0, entry);
+        }
+      }
+
       keys.forEach((key) => {
-        registration.keys.add(key);
-      });
-      this._handlerRegistry.set(handler, registration);
-      registration.keys.forEach((key) => {
-        if (!this._handlerMap.has(key)) this._handlerMap.set(key, new Set());
-        this._handlerMap.get(key).add(handler);
+        if (entry.keys.has(key)) return;
+        entry.keys.add(key);
+        let entries = this._handlerMap.get(key);
+        if (!entries) {
+          entries = new Set();
+          this._handlerMap.set(key, entries);
+        }
+        entries.add(entry);
       });
     }
 
-    apply(changes, schema, options = {}) {
-      const { mergeStrategy = 'merge', refresh = false } = options;
-      const effectiveChanges = refresh && !changes ? {} : changes;
-      const validatedChanges = validate(effectiveChanges, deepPartial(schema));
-      if (isValidationError(validatedChanges)) throw validatedChanges;
+    apply(_changes = {}, schema, options = {}) {
+      const changes = _changes ?? {};
+      const {
+        mergeStrategy = 'merge',
+        refresh = false,
+        isValidateSchema = true,
+        isNormalize = true,
+      } = options;
 
-      const nextProps =
-        mergeStrategy === 'replace'
-          ? validate({ ...this.props, ...validatedChanges }, schema)
-          : deepMerge(this.props, validatedChanges);
-      if (isValidationError(nextProps)) throw nextProps;
-      const actualChanges = diffReplace(this.props, nextProps) ?? {};
+      const diffProps = diffReplace(this.props, changes);
+      const actualChanges = refresh ? { ...this.props } : diffProps;
 
-      if (
-        options?.historyId &&
-        Object.keys(actualChanges).length > 0 &&
-        this.store.undoRedoManager
-      ) {
+      if (!actualChanges || Object.keys(actualChanges).length === 0) return;
+
+      if (options?.historyId && this.store.undoRedoManager) {
         const command = new UpdateCommand(this, changes, options);
         this.store?.undoRedoManager.execute(command, options);
         return;
       }
 
-      this.props = nextProps;
-      const keysToProcess = refresh
-        ? Object.keys(nextProps)
-        : Object.keys(actualChanges);
+      const mergedProps =
+        mergeStrategy === 'replace'
+          ? { ...this.props, ...changes }
+          : deepMerge(this.props, changes);
+
+      const normalizedProps = isNormalize
+        ? normalizeChanges(mergedProps, this.type)
+        : mergedProps;
+      const validatedProps = isValidateSchema
+        ? validate(normalizedProps, schema)
+        : normalizedProps;
+      if (isValidationError(validatedProps)) {
+        throw validatedProps;
+      }
+
+      this.props = validatedProps;
 
       if (
-        ['id', 'label', 'attrs'].some((key) =>
-          Object.hasOwn(validatedChanges, key),
-        )
+        ['id', 'label', 'attrs'].some((key) => Object.hasOwn(diffProps, key))
       ) {
-        const { id, label, attrs } = validatedChanges;
+        const { id, label, attrs } = diffProps;
         this._applyRaw({ id, label, ...attrs }, mergeStrategy);
       }
 
-      const tasks = new Map();
-      for (const key of keysToProcess) {
-        const handlers = this.constructor._handlerMap.get(key);
-        if (handlers) {
-          handlers.forEach((handler) => {
-            if (!tasks.has(handler)) {
-              const { stage } = this.constructor._handlerRegistry.get(handler);
-              tasks.set(handler, { stage });
-            }
-          });
-        }
-      }
-
-      const sortedTasks = [...tasks.entries()].sort(
-        (a, b) => a[1].stage - b[1].stage,
-      );
-      sortedTasks.forEach(([handler, _]) => {
-        const keysForHandler =
-          this.constructor._handlerRegistry.get(handler).keys;
-        const fullPayload = {};
-        keysForHandler.forEach((key) => {
-          if (Object.hasOwn(this.props, key)) {
-            fullPayload[key] = this.props[key];
-          }
-        });
-        handler.call(this, fullPayload, { mergeStrategy, refresh });
+      const keysToProcess = refresh
+        ? Object.keys(this.props)
+        : Object.keys(actualChanges);
+      // const handlerChanges =
+      //   options.changes ??
+      //   (isNormalize ? normalizeChanges(changes, this.type) : changes);
+      this._applyHandlers(keysToProcess, {
+        mergeStrategy,
+        refresh,
+        // changes: handlerChanges,
       });
 
       if (this.parent?._onChildUpdate) {
         this.parent._onChildUpdate(this.id, actualChanges, mergeStrategy);
+      }
+    }
+
+    _applyHandlers(keysToProcess, options) {
+      if (keysToProcess.length === 0) return;
+      const handlerMap = this.constructor._handlerMap;
+      const handlerList = this.constructor._handlerList;
+      if (handlerMap.size === 0 || handlerList.length === 0) return;
+
+      const candidates = new Set();
+      for (const key of keysToProcess) {
+        const entries = handlerMap.get(key);
+        if (!entries) continue;
+        for (const entry of entries) {
+          candidates.add(entry);
+        }
+      }
+      if (candidates.size === 0) return;
+
+      for (const entry of handlerList) {
+        if (!candidates.has(entry)) continue;
+        const payload = {};
+        for (const key of entry.keys) {
+          if (Object.hasOwn(this.props, key)) {
+            payload[key] = this.props[key];
+          }
+        }
+        entry.handler.call(this, payload, options);
       }
     }
 

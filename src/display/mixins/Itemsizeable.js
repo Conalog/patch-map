@@ -6,7 +6,7 @@ export const ItemSizeable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyItemSize() {
       for (const child of this.children) {
-        child.apply(null, { refresh: true });
+        child.apply(undefined, { refresh: true });
       }
     }
   };

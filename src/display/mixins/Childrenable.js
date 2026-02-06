@@ -9,7 +9,12 @@ const KEYS = ['children'];
 
 export const Childrenable = (superClass) => {
   const MixedClass = class extends superClass {
-    _applyChildren(relevantChanges, options) {
+    _applyChildren(relevantChanges, options = {}) {
+      const childOptions = {
+        ...options,
+        isValidateSchema: false,
+        isNormalize: false,
+      };
       let childrenChanges = options.refresh
         ? relevantChanges?.children
         : (options.changes?.children ?? relevantChanges?.children);
@@ -36,7 +41,7 @@ export const Childrenable = (superClass) => {
           element = newElement(childChange.type, this.store);
           this.addChild(element);
         }
-        element.apply(childChange, options);
+        element.apply(childChange, childOptions);
       }
 
       if (options.mergeStrategy === 'replace') {

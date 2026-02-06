@@ -10,6 +10,11 @@ const KEYS = ['components'];
 export const Componentsable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyComponents(relevantChanges, options = {}) {
+      const childOptions = {
+        ...options,
+        isValidateSchema: false,
+        isNormalize: false,
+      };
       let componentsChanges = options.refresh
         ? relevantChanges?.components
         : (options.changes?.components ?? relevantChanges?.components);
@@ -38,7 +43,7 @@ export const Componentsable = (superClass) => {
         }
         component.apply(
           { type: componentChange.type, ...componentChange },
-          options,
+          childOptions,
         );
       }
 

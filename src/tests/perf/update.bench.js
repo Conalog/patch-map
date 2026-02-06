@@ -87,7 +87,7 @@ describe('perf: update hot path', () => {
 
     changesListBarHeight = items.map((_, i) => {
       const percent = i % 2 ? 70 : 30;
-      const tint = i % 2 ? 'primary.default' : 'status.success';
+      const tint = i % 2 ? 'primary.default' : 'primary.dark';
       return {
         components: [
           {
