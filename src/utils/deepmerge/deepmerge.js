@@ -1,16 +1,7 @@
 import { isPlainObject } from 'is-plain-object';
 import { findIndexByPriority } from '../findIndexByPriority';
 
-const forbiddenKeys = new Set(['__proto__', 'prototype', 'constructor']);
-
-const enumKeys = (obj) => {
-  const out = [];
-  for (const key of Reflect.ownKeys(obj)) {
-    if (forbiddenKeys.has(key)) continue;
-    if (Object.prototype.propertyIsEnumerable.call(obj, key)) out.push(key);
-  }
-  return out;
-};
+const enumKeys = (obj) => Object.keys(obj);
 
 const isPrimitive = (value) =>
   value === null ||
@@ -47,7 +38,7 @@ const _deepMerge = (target, source, options, visited) => {
     isPlainObject(source)
   ) {
     visited.set(source, target);
-    for (const key of Object.keys(source)) {
+    for (const key of enumKeys(source)) {
       target[key] = _deepMerge(target[key], source[key], options, visited);
     }
     return target;

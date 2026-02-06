@@ -10,7 +10,10 @@ const KEYS = ['children'];
 export const Childrenable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyChildren(relevantChanges, options) {
-      let { children: childrenChanges } = relevantChanges;
+      let childrenChanges = options.refresh
+        ? relevantChanges?.children
+        : (options.changes?.children ?? relevantChanges?.children);
+      childrenChanges = childrenChanges ?? [];
       const elements = [...this.children];
 
       childrenChanges = validateAndPrepareChanges(

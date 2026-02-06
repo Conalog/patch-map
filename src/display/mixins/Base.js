@@ -35,12 +35,16 @@ export const Base = (superClass) => {
     _afterRender() {}
 
     _onObjectUpdate() {
-      if (!this.localTransform || !this.visible) return;
+      if (
+        !this.localTransform ||
+        !this.visible ||
+        this.parent?.type === 'item'
+      ) {
+        return;
+      }
 
       if (!this.localTransform.equals(this._lastLocalTransform)) {
-        if (this.parent?.type !== 'item') {
-          this.store.viewport?.emit('object_transformed', this);
-        }
+        this.store.viewport?.emit('object_transformed', this);
         this._lastLocalTransform.copyFrom(this.localTransform);
       }
     }
