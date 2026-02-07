@@ -2,10 +2,13 @@ import { isValidationError } from 'zod-validation-error';
 import { calcGroupOrientedBounds } from '../utils/bounds';
 import { selector } from '../utils/selector/selector';
 import { validate } from '../utils/validator';
+import { moveViewportCenter } from '../utils/viewport-rotation';
 import { focusFitIdsSchema } from './schema';
 
-export const focus = (viewport, ids) => centerViewport(viewport, ids, false);
-export const fit = (viewport, ids) => centerViewport(viewport, ids, true);
+export const focus = (viewport, ids, viewAngle) =>
+  centerViewport(viewport, ids, false, viewAngle);
+export const fit = (viewport, ids, viewAngle) =>
+  centerViewport(viewport, ids, true, viewAngle);
 
 /**
  * Centers and optionally fits the viewport to given object IDs.
@@ -14,20 +17,25 @@ export const fit = (viewport, ids) => centerViewport(viewport, ids, true);
  * @param {boolean} shouldFit - Whether to fit the viewport to the objects' bounds.
  * @returns {void|null} Returns null if no objects found.
  */
-const centerViewport = (viewport, ids, shouldFit = false) => {
+const centerViewport = (viewport, ids, shouldFit = false, viewAngle) => {
   checkValidate(ids);
   const objects = getObjectsById(viewport, ids);
   if (!objects.length) return null;
   const bounds = calcGroupOrientedBounds(objects);
   const center = viewport.toLocal(bounds.center);
   if (bounds) {
-    viewport.moveCenter(center.x, center.y);
+    moveViewportCenter(viewport, center, viewAngle);
     if (shouldFit) {
-      viewport.fit(
-        true,
-        bounds.innerBounds.width / viewport.scale.x,
-        bounds.innerBounds.height / viewport.scale.y,
+      const width = bounds.innerBounds.width / viewport.scale.x;
+      const height = bounds.innerBounds.height / viewport.scale.y;
+      const scale = Math.min(
+        viewport.screenWidth / width,
+        viewport.screenHeight / height,
       );
+      viewport.scale.set(scale);
+      const clampZoom = viewport.plugins?.get?.('clamp-zoom', true);
+      clampZoom?.clamp?.();
+      moveViewportCenter(viewport, center, viewAngle);
     }
   }
 };
@@ -46,7 +54,9 @@ const getObjectsById = (viewport, ids) => {
     viewport,
     '$..children[?(@.type != null && @.parent.type !== "item" && @.parent.type !== "relations")]',
   ).reduce((acc, curr) => {
-    acc[curr.id] = curr;
+    if (curr.id) {
+      acc[curr.id] = curr;
+    }
     return acc;
   }, {});
   return idsArr.flatMap((i) => objs[i]).filter((obj) => obj);

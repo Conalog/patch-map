@@ -1,5 +1,5 @@
 import { UPDATE_STAGES } from './constants';
-import { getLayoutContext } from './utils';
+import { getLayoutContext, mapViewDirection } from './utils';
 
 const KEYS = ['placement', 'margin'];
 
@@ -21,9 +21,70 @@ export const Placementable = (superClass) => {
         ? { h: first, v: second }
         : DIRECTION_MAP[first];
 
-      const x = getHorizontalPosition(this, directions.h, margin);
-      const y = getVerticalPosition(this, directions.v, margin);
-      this.position.set(x, y);
+      let layoutDirections = directions;
+      const layoutMargin = { ...margin };
+
+      const useViewPlacement =
+        (this.constructor.useViewPlacement === true ||
+          this.useViewPlacement === true) &&
+        this.store?.view;
+      if (useViewPlacement) {
+        const h =
+          directions.h && directions.h !== 'center'
+            ? mapViewDirection(this.store.view, directions.h)
+            : 'center';
+        const v =
+          directions.v && directions.v !== 'center'
+            ? mapViewDirection(this.store.view, directions.v)
+            : 'center';
+
+        // 방향이 원래와 달라졌다면 마진도 스왑
+        if (h !== directions.h) {
+          layoutMargin.left = margin.right;
+          layoutMargin.right = margin.left;
+        }
+        if (v !== directions.v) {
+          layoutMargin.top = margin.bottom;
+          layoutMargin.bottom = margin.top;
+        }
+        layoutDirections = { h, v };
+      }
+
+      const x = getHorizontalPosition(this, layoutDirections.h, layoutMargin);
+      const y = getVerticalPosition(this, layoutDirections.v, layoutMargin);
+
+      const bounds = this.getLocalBounds();
+      const pivot = this.pivot || { x: 0, y: 0 };
+      const scale = this.scale || { x: 1, y: 1 };
+      const angle = (this.angle || 0) * (Math.PI / 180);
+
+      // 로컬 경계의 네 모서리를 구함
+      const corners = [
+        { x: bounds.x, y: bounds.y },
+        { x: bounds.x + bounds.width, y: bounds.y },
+        { x: bounds.x, y: bounds.y + bounds.height },
+        { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+      ];
+
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+
+      let visualLeftMin = Number.POSITIVE_INFINITY;
+      let visualTopMin = Number.POSITIVE_INFINITY;
+
+      // 각 모서리를 피봇 기준으로 변환(Scale + Rotation)하여 부모 좌표계에서의 시각적 최소 지점을 찾음
+      for (const corner of corners) {
+        const lx = (corner.x - pivot.x) * scale.x;
+        const ly = (corner.y - pivot.y) * scale.y;
+
+        const rotatedX = lx * cos - ly * sin;
+        const rotatedY = lx * sin + ly * cos;
+
+        if (rotatedX < visualLeftMin) visualLeftMin = rotatedX;
+        if (rotatedY < visualTopMin) visualTopMin = rotatedY;
+      }
+
+      this.position.set(x - visualLeftMin, y - visualTopMin);
     }
   };
   MixedClass.registerHandler(
@@ -37,14 +98,16 @@ export const Placementable = (superClass) => {
 const getHorizontalPosition = (component, align, margin) => {
   const { parentWidth, contentWidth, parentPadding } =
     getLayoutContext(component);
+  const bounds = component.getLocalBounds();
+  const componentWidth = bounds.width * Math.abs(component.scale.x);
 
   let result = null;
   if (align === 'left') {
     result = parentPadding.left + margin.left;
   } else if (align === 'right') {
-    result = parentWidth - component.width - margin.right - parentPadding.right;
+    result = parentWidth - componentWidth - margin.right - parentPadding.right;
   } else if (align === 'center') {
-    const marginWidth = component.width + margin.left + margin.right;
+    const marginWidth = componentWidth + margin.left + margin.right;
     const blockStartPosition = (contentWidth - marginWidth) / 2;
     result = parentPadding.left + blockStartPosition + margin.left;
   }
@@ -54,15 +117,17 @@ const getHorizontalPosition = (component, align, margin) => {
 const getVerticalPosition = (component, align, margin) => {
   const { parentHeight, contentHeight, parentPadding } =
     getLayoutContext(component);
+  const bounds = component.getLocalBounds();
+  const componentHeight = bounds.height * Math.abs(component.scale.y);
 
   let result = null;
   if (align === 'top') {
     result = parentPadding.top + margin.top;
   } else if (align === 'bottom') {
     result =
-      parentHeight - component.height - margin.bottom - parentPadding.bottom;
+      parentHeight - componentHeight - margin.bottom - parentPadding.bottom;
   } else if (align === 'center') {
-    const marginHeight = component.height + margin.top + margin.bottom;
+    const marginHeight = componentHeight + margin.top + margin.bottom;
     const blockStartPosition = (contentHeight - marginHeight) / 2;
     result = parentPadding.top + blockStartPosition + margin.top;
   }

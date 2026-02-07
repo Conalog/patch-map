@@ -392,7 +392,34 @@ patchmap.fit('group-id-1')
 patchmap.fit('grid-1')
 
 // Fit on objects with ids 'item-1' and 'item-2'
-patchmap.fit(['item-1', 'item-2'])
+patchmap.fit(['item-1', 'item-2']);
+```
+
+<br/>
+
+### `rotation`
+
+Rotation controller for world view. Use degrees.
+
+```js
+patchmap.rotation.value = 90;
+patchmap.rotation.rotateBy(90);
+patchmap.rotation.reset();
+```
+
+<br/>
+
+### `flip`
+
+Flip controller for world view.
+
+```js
+patchmap.flip.x = true;
+patchmap.flip.y = false;
+patchmap.flip.set({ x: true, y: true });
+patchmap.flip.toggleX();
+patchmap.flip.toggleY();
+patchmap.flip.reset();
 ```
 
 <br/>

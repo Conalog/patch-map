@@ -13,25 +13,37 @@ export const Childrenable = (superClass) => {
       let { children: childrenChanges } = relevantChanges;
       const elements = [...this.children];
 
+      const overlay = this.type === 'canvas' ? this.store?.overlay : null;
+      const overlayElements = overlay
+        ? [...overlay.children].filter((child) => child.type === 'relations')
+        : [];
+
+      const attachChild = (child, useOverlay) =>
+        useOverlay ? overlay.addChild(child) : this.addChild(child);
+      const detachChild = (child, useOverlay) =>
+        useOverlay ? overlay.removeChild(child) : this.removeChild(child);
+
       childrenChanges = validateAndPrepareChanges(
-        elements,
+        [...elements, ...overlayElements],
         childrenChanges,
         mapDataSchema,
       );
 
       for (const childChange of childrenChanges) {
-        const idx = findIndexByPriority(elements, childChange);
+        const isOverlay = overlay && childChange.type === 'relations';
+        const searchElements = isOverlay ? overlayElements : elements;
+        const idx = findIndexByPriority(searchElements, childChange);
         let element = null;
 
         if (idx !== -1) {
-          element = elements[idx];
-          elements.splice(idx, 1);
+          element = searchElements[idx];
+          searchElements.splice(idx, 1);
           if (options.mergeStrategy === 'replace') {
-            this.addChild(element);
+            attachChild(element, isOverlay);
           }
         } else {
           element = newElement(childChange.type, this.store);
-          this.addChild(element);
+          attachChild(element, isOverlay);
         }
         element.apply(childChange, options);
       }
@@ -39,7 +51,12 @@ export const Childrenable = (superClass) => {
       if (options.mergeStrategy === 'replace') {
         elements.forEach((element) => {
           if (!element.type) return; // Don't remove children that are not managed by patchmap (e.g. raw PIXI objects)
-          this.removeChild(element);
+          detachChild(element, false);
+          element.destroy({ children: true });
+        });
+        overlayElements.forEach((element) => {
+          if (!element.type || !overlay) return;
+          detachChild(element, true);
           element.destroy({ children: true });
         });
       }
