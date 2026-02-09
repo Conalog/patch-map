@@ -41,8 +41,5 @@
 - [ ] none (internal only)
 - [ ] patch (dependency/tooling changes affecting release artifacts)
 
-## Rollback Plan
-- How to revert if issues are found
-
 ## Notes (Optional)
 - Anything reviewers should pay attention to
