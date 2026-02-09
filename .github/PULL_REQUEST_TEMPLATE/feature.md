@@ -1,24 +1,24 @@
 ## Summary
-- Briefly describe what this feature adds.
+- What is added in this PR? (1-3 lines)
 
 ## Related Issue / Discussion
 - Fixes #
 - Refs #
 
-## Background / Problem
-- What user/developer problem does this solve?
-- What was missing before this PR?
+## Problem / Goal
+- What problem does this solve?
+- Why is this needed now?
 
-## What’s New
-- [ ] Feature A
-- [ ] Feature B
-- [ ] API or option changes
+## Scope
+- Included:
+- Not included:
 
-## Breaking Changes
-- [ ] No
-- [ ] Yes (if yes, explain below)
+## API / Behavior Changes
+- Public API changes:
+- Default value changes:
+- Breaking changes: none / yes (explain)
 
-## Migration Guide (if needed)
+## Migration Guide (if applicable)
 - Before:
 ```js
 // previous usage
@@ -28,30 +28,28 @@
 // new usage
 ```
 
-## Usage Example
+## Usage Example (if applicable)
 ```js
 // minimal runnable example
 ```
 
-## Documentation Impact
-- [ ] `README.md` updated
-- [ ] `README_KR.md` updated
-- [ ] No documentation update needed
-
-## Validation Commands
+## Validation
 - [ ] `npm run test:unit`
 - [ ] `npm run build`
 - [ ] `npm run test:headless` (if UI interaction changed)
+- Manual checks performed:
+- Test coverage added/updated:
 
-## Testing Notes
-- [ ] Unit tests added/updated
-- [ ] Manual verification completed
-- [ ] Regression check completed
+## Documentation
+- [ ] `README.md` updated
+- [ ] `README_KR.md` updated
+- [ ] No documentation update needed
 
 ## Release Impact
 - [ ] none (internal only)
 - [ ] patch (backward-compatible fix/improvement)
 - [ ] minor (new backward-compatible feature)
 
-## Notes (Optional)
-- Performance considerations, limitations, follow-up work
+## Risks / Follow-up (Optional)
+- Risks:
+- Follow-up tasks:

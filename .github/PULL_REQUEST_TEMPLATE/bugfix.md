@@ -1,38 +1,31 @@
 ## Summary
-- Briefly describe the bug and the fix.
+- What bug is fixed in this PR? (1-3 lines)
 
 ## Related Issue / Discussion
 - Fixes #
 - Refs #
 
-## What was wrong?
-- Reproduction condition:
+## Reproduction (Before Fix)
+- Steps:
 - Actual behavior:
 - Expected behavior:
 
 ## Root Cause
 - Why did this happen?
 
-## How it’s fixed
+## Fix Strategy
 - Key fix approach:
 - Why this fix is safe:
 
-## Reproduction Evidence
-- Minimal repro steps:
-- Failing behavior before fix:
-- Passing behavior after fix:
-
-## Validation Commands
+## Validation
 - [ ] `npm run test:unit`
 - [ ] `npm run build`
 - [ ] `npm run test:headless` (if UI interaction changed)
+- Before fix verification:
+- After fix verification:
+- Regression test added/updated:
 
-## Testing Notes
-- [ ] Reproduced before fix
-- [ ] Verified after fix
-- [ ] Regression test added/updated (if applicable)
-
-## Documentation Impact
+## Documentation
 - [ ] `README.md` updated
 - [ ] `README_KR.md` updated
 - [ ] No documentation update needed
@@ -47,5 +40,6 @@
 - Potential side effects:
 - Mitigation:
 
-## Notes (Optional)
-- Remaining gaps or follow-up tasks
+## Remaining Gaps / Follow-up (Optional)
+- Gaps:
+- Follow-up tasks:
