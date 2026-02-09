@@ -42,6 +42,7 @@ Therefore, to use this, an understanding of the following two libraries is essen
 - [🧑‍💻 Development](#-development)
   - [Setting up the development environment](#setting-up-the-development-environment)
   - [VSCode Integration](#vscode-integration)
+- [🤝 Contributing](#-contributing)
 - [📄 License](#license)
 - [🔤 Fira Code](#fira-code)
 
@@ -718,6 +719,10 @@ For specific extensions, add their settings individually:
   }
 }
 ```
+
+## 🤝 Contributing
+
+For contribution guidelines, PR templates, and workflow details, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
