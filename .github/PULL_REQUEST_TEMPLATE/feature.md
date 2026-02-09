@@ -9,10 +9,6 @@
 - What problem does this solve?
 - Why is this needed now?
 
-## Scope
-- Included:
-- Not included:
-
 ## API / Behavior Changes
 - Public API changes:
 - Default value changes:
