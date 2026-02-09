@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  computeResize,
-  resizeElementState,
-} from '../../transformer/resize-utils';
+import { computeResize, resizeElementState } from './resize-utils';
 
 describe('resize-utils', () => {
   it('scales width from the right handle', () => {
@@ -175,5 +172,19 @@ describe('resize-utils', () => {
     expect(shrink.height).toBe(80);
     expect(Number.isInteger(grow.width)).toBe(true);
     expect(Number.isInteger(shrink.height)).toBe(true);
+  });
+
+  it('normalizes decimal base sizes to integer units even with no scale change', () => {
+    const state = { x: 10, y: 10, width: 100.4, height: 80.6 };
+    const resized = resizeElementState(state, {
+      origin: { x: 0, y: 0 },
+      scaleX: 1,
+      scaleY: 1,
+    });
+
+    expect(resized.width).toBe(100);
+    expect(resized.height).toBe(81);
+    expect(Number.isInteger(resized.width)).toBe(true);
+    expect(Number.isInteger(resized.height)).toBe(true);
   });
 });

@@ -14,15 +14,8 @@ import {
 import SelectionModel from './SelectionModel';
 import { Wireframe } from './Wireframe';
 
-const DEFAULT_WIREFRAME_STYLE = {
-  thickness: 1.5,
-  color: '#1099FF',
-};
-const DEFAULT_HANDLE_STYLE = {
-  fill: '#FFFFFF',
-  stroke: '#1099FF',
-  size: 8,
-};
+const DEFAULT_WIREFRAME_STYLE = { thickness: 1.5, color: '#1099FF' };
+const DEFAULT_HANDLE_STYLE = { fill: '#FFFFFF', stroke: '#1099FF', size: 8 };
 
 const HANDLE_CURSORS = {
   'top-left': 'nwse-resize',
@@ -361,7 +354,7 @@ export default class Transformer extends Container {
    */
   draw() {
     const elements = this.elements;
-    const resizeElements = this.#getResizableElements(elements);
+    const resizeContext = this.#buildResizeContext(elements);
     this.wireframe.clear();
 
     if (this.#isEmptySelection(elements)) return this.#finishEmptyDraw();
@@ -369,7 +362,7 @@ export default class Transformer extends Container {
     this.#syncWireframeStrokeWidth();
     this.#drawElementBounds(elements);
     this.#drawGroupBounds(elements);
-    this.#drawResizeHandlesFor(elements, resizeElements);
+    this.#drawResizeHandlesFor(resizeContext);
     this._renderDirty = false;
   }
 
@@ -423,17 +416,16 @@ export default class Transformer extends Container {
     }
   }
 
-  #drawResizeHandlesFor(elements, resizeElements) {
+  #drawResizeHandlesFor(resizeContext) {
     if (!this.#shouldShowResizeHandles()) {
       this.#clearResizeHandles();
       return;
     }
-    if (!resizeElements || resizeElements.length === 0) {
+    if (!resizeContext) {
       this.#clearResizeHandles();
       return;
     }
-    const resizeBounds = this.#getGroupBoundsInViewportSpace(elements);
-    this.#drawResizeHandles(resizeBounds);
+    this.#drawResizeHandles(resizeContext.bounds);
   }
 
   #ensureResizeHandles() {
@@ -593,41 +585,22 @@ export default class Transformer extends Container {
   #onResizeHandleDown(handle, event) {
     if (!this.#shouldShowResizeHandles() || !this._viewport) return;
     event.stopPropagation();
-    const selectedElements = this.elements;
-    if (!selectedElements || selectedElements.length === 0) return;
-    const resizeElements = this.#getResizableElements(selectedElements);
-    if (!resizeElements || resizeElements.length === 0) return;
 
     this.#endResizeSession();
-    const groupBounds = this.#getGroupBoundsInViewportSpace(selectedElements);
-    if (!groupBounds) return;
+    const resizeContext = this.#buildResizeContext();
+    if (!resizeContext) return;
 
     const startPoint = this._viewport.toWorld(event.global);
-    const elementStates = resizeElements.map((element) => {
-      const worldPosition = element.getGlobalPosition();
-      const viewportPosition = this._viewport.toLocal(worldPosition);
-      const size = this.#getElementSize(element);
-      return {
-        element,
-        x: viewportPosition.x,
-        y: viewportPosition.y,
-        width: size.width,
-        height: size.height,
-      };
-    });
+    const elementStates = this.#createResizeElementStates(
+      resizeContext.elements,
+    );
 
-    this._activeResize = {
+    this._activeResize = this.#createResizeSession({
       handle,
       startPoint,
-      bounds: {
-        x: groupBounds.x ?? 0,
-        y: groupBounds.y ?? 0,
-        width: groupBounds.width ?? 0,
-        height: groupBounds.height ?? 0,
-      },
+      bounds: resizeContext.bounds,
       elementStates,
-      historyId: this._resizeHistory ? uid() : null,
-    };
+    });
 
     this.#startResizeMouseEdges();
     this._viewport.on('pointermove', this.#onResizeHandleMove);
@@ -639,26 +612,71 @@ export default class Transformer extends Container {
     if (!this._activeResize || !this._viewport) return;
     event.stopPropagation();
     const currentPoint = this._viewport.toWorld(event.global);
-    const delta = {
-      x: currentPoint.x - this._activeResize.startPoint.x,
-      y: currentPoint.y - this._activeResize.startPoint.y,
-    };
-
-    const resizeInfo = computeResize({
-      bounds: this._activeResize.bounds,
-      handle: this._activeResize.handle,
+    const delta = this.#createResizeDelta(
+      this._activeResize.startPoint,
+      currentPoint,
+    );
+    const updates = this.#computeResizeUpdates({
+      activeResize: this._activeResize,
       delta,
       keepRatio: Boolean(event.shiftKey),
     });
-
-    this._activeResize.elementStates.forEach((state) => {
-      const updated = resizeElementState(state, resizeInfo);
-      this.#applyElementResize(state.element, updated);
-    });
+    this.#applyResizeUpdates(updates);
 
     this.#emitUpdateElements();
     this.update();
   };
+
+  #createResizeSession({ handle, startPoint, bounds, elementStates }) {
+    return {
+      handle,
+      startPoint,
+      bounds: this.#normalizeBounds(bounds),
+      elementStates,
+      historyId: this._resizeHistory ? uid() : null,
+    };
+  }
+
+  #createResizeElementStates(elements) {
+    return elements.map((element) => {
+      const worldPosition = element.getGlobalPosition();
+      const viewportPosition = this._viewport.toLocal(worldPosition);
+      const size = this.#getElementSize(element);
+      return {
+        element,
+        x: viewportPosition.x,
+        y: viewportPosition.y,
+        width: size.width,
+        height: size.height,
+      };
+    });
+  }
+
+  #createResizeDelta(startPoint, currentPoint) {
+    return {
+      x: currentPoint.x - startPoint.x,
+      y: currentPoint.y - startPoint.y,
+    };
+  }
+
+  #computeResizeUpdates({ activeResize, delta, keepRatio }) {
+    const resizeInfo = computeResize({
+      bounds: activeResize.bounds,
+      handle: activeResize.handle,
+      delta,
+      keepRatio,
+    });
+    return activeResize.elementStates.map((state) => ({
+      element: state.element,
+      updatedState: resizeElementState(state, resizeInfo),
+    }));
+  }
+
+  #applyResizeUpdates(updates) {
+    updates.forEach(({ element, updatedState }) => {
+      this.#applyElementResize(element, updatedState);
+    });
+  }
 
   #onResizeHandleUp = (event) => {
     if (!this._activeResize) return;
@@ -713,8 +731,8 @@ export default class Transformer extends Container {
         y: localPosition.y,
       },
       size: {
-        width: Math.max(1, Math.round(updatedState.width)),
-        height: Math.max(1, Math.round(updatedState.height)),
+        width: Math.max(1, updatedState.width),
+        height: Math.max(1, updatedState.height),
       },
     };
 
@@ -741,6 +759,27 @@ export default class Transformer extends Container {
   #getResizableElements(elements) {
     if (!Array.isArray(elements) || elements.length === 0) return [];
     return elements.filter((element) => this.#isResizableElement(element));
+  }
+
+  #buildResizeContext(elements = this.elements) {
+    if (!Array.isArray(elements) || elements.length === 0) return null;
+    const resizableElements = this.#getResizableElements(elements);
+    if (resizableElements.length === 0) return null;
+    const bounds = this.#getGroupBoundsInViewportSpace(elements);
+    if (!bounds) return null;
+    return {
+      elements: resizableElements,
+      bounds: this.#normalizeBounds(bounds),
+    };
+  }
+
+  #normalizeBounds(bounds) {
+    return {
+      x: bounds.x ?? 0,
+      y: bounds.y ?? 0,
+      width: bounds.width ?? 0,
+      height: bounds.height ?? 0,
+    };
   }
 
   #getGroupBoundsInViewportSpace(elements) {

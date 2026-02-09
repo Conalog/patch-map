@@ -208,9 +208,12 @@ const snapSizeToUnit = (rawSize, baseSize, minSize = 1) => {
   const safeRaw = Number.isFinite(rawSize) ? rawSize : minUnit;
   const safeBase = Number.isFinite(baseSize) ? baseSize : minUnit;
   const EPSILON = 1e-6;
+  const normalizedBase = Number.isInteger(safeBase)
+    ? safeBase
+    : Math.round(safeBase);
 
   if (Math.abs(safeRaw - safeBase) <= EPSILON) {
-    return Math.max(minUnit, safeBase);
+    return Math.max(minUnit, normalizedBase);
   }
 
   const baseUp = Number.isInteger(safeBase) ? safeBase : Math.ceil(safeBase);
