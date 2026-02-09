@@ -101,7 +101,6 @@ export const validateAndPrepareChanges = (currentElements, changes, schema) => {
   if (newElementDefs.length > 0) {
     const validatedNewDefs = validate(newElementDefs, schema);
     if (isValidationError(validatedNewDefs)) {
-      console.log(newElementDefs);
       throw validatedNewDefs;
     }
 
