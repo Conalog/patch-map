@@ -149,6 +149,14 @@ export default class Transformer extends Container {
   _activeResize = null;
 
   /**
+   * Tracks whether this transformer started the mouse-edges plugin
+   * for the current resize gesture.
+   * @private
+   * @type {boolean}
+   */
+  _resizeMouseEdgesActive = false;
+
+  /**
    * @private
    * @type {Map<string, PIXI.Graphics>}
    */
@@ -621,6 +629,7 @@ export default class Transformer extends Container {
       historyId: this._resizeHistory ? uid() : null,
     };
 
+    this.#startResizeMouseEdges();
     this._viewport.on('pointermove', this.#onResizeHandleMove);
     this._viewport.on('pointerup', this.#onResizeHandleUp);
     this._viewport.on('pointerupoutside', this.#onResizeHandleUp);
@@ -658,6 +667,7 @@ export default class Transformer extends Container {
   };
 
   #endResizeSession() {
+    this.#stopResizeMouseEdges();
     if (!this._viewport) {
       this._activeResize = null;
       return;
@@ -666,6 +676,18 @@ export default class Transformer extends Container {
     this._viewport.off('pointerup', this.#onResizeHandleUp);
     this._viewport.off('pointerupoutside', this.#onResizeHandleUp);
     this._activeResize = null;
+  }
+
+  #startResizeMouseEdges() {
+    if (!this._viewport?.plugin?.start || this._resizeMouseEdgesActive) return;
+    this._viewport.plugin.start('mouse-edges');
+    this._resizeMouseEdgesActive = true;
+  }
+
+  #stopResizeMouseEdges() {
+    if (!this._resizeMouseEdgesActive) return;
+    this._viewport?.plugin?.stop?.('mouse-edges');
+    this._resizeMouseEdgesActive = false;
   }
 
   #getElementSize(element) {

@@ -348,6 +348,24 @@ describe('Transformer', () => {
       expect(payload.removed).toEqual([]);
     });
 
+    it('should start and stop mouse-edges plugin during resize', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+
+      const startSpy = vi.spyOn(patchmap.viewport.plugin, 'start');
+      const stopSpy = vi.spyOn(patchmap.viewport.plugin, 'stop');
+
+      resizeWithBottomRightHandle(patchmap, transformer, { x: 40, y: 30 });
+
+      expect(startSpy).toHaveBeenCalledWith('mouse-edges');
+      expect(stopSpy).toHaveBeenCalledWith('mouse-edges');
+    });
+
     it('should apply integer sizes when resizing elements with decimal sizes', () => {
       const patchmap = getPatchmap();
       patchmap.draw([
