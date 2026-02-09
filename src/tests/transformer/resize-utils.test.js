@@ -75,4 +75,53 @@ describe('resize-utils', () => {
       height: 45,
     });
   });
+
+  it('keeps aspect ratio from a corner when keepRatio is true', () => {
+    const bounds = { x: 0, y: 0, width: 200, height: 100 };
+    const resizeInfo = computeResize({
+      bounds,
+      handle: 'bottom-right',
+      delta: { x: 100, y: 0 },
+      keepRatio: true,
+    });
+
+    expect(resizeInfo.bounds).toEqual({ x: 0, y: 0, width: 300, height: 150 });
+    expect(resizeInfo.scaleX).toBeCloseTo(1.5);
+    expect(resizeInfo.scaleY).toBeCloseTo(1.5);
+  });
+
+  it('keeps aspect ratio from an edge when keepRatio is true', () => {
+    const bounds = { x: 0, y: 0, width: 200, height: 100 };
+    const resizeInfo = computeResize({
+      bounds,
+      handle: 'right',
+      delta: { x: 100, y: 0 },
+      keepRatio: true,
+    });
+
+    expect(resizeInfo.bounds).toEqual({
+      x: 0,
+      y: -25,
+      width: 300,
+      height: 150,
+    });
+    expect(resizeInfo.origin).toEqual({ x: 0, y: 50 });
+  });
+
+  it('does not shrink on corner keepRatio when only opposite-axis delta is negative', () => {
+    const bounds = { x: 0, y: 0, width: 200, height: 100 };
+    const resizeInfo = computeResize({
+      bounds,
+      handle: 'bottom-right',
+      delta: { x: 0, y: -20 },
+      keepRatio: true,
+    });
+
+    expect(resizeInfo.bounds).toEqual({
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 100,
+    });
+  });
 });
