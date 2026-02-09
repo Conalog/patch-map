@@ -5,7 +5,7 @@ export const draw = (store, data) => {
   destroyChildren(viewport);
   viewport.apply(
     { type: 'canvas', children: data },
-    { mergeStrategy: 'replace', isValidateSchema: false },
+    { mergeStrategy: 'replace', validateSchema: false },
   );
 };
 

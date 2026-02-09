@@ -12,8 +12,8 @@ export const Componentsable = (superClass) => {
     _applyComponents(relevantChanges, options = {}) {
       const childOptions = {
         ...options,
-        isValidateSchema: false,
-        isNormalize: false,
+        validateSchema: false,
+        normalize: false,
       };
       let componentsChanges = options.refresh
         ? relevantChanges?.components

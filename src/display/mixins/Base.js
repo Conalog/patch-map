@@ -3,11 +3,35 @@ import { isValidationError } from 'zod-validation-error';
 import { UpdateCommand } from '../../command/commands/update';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { diffReplace } from '../../utils/diff/diff-replace';
+import { isSame } from '../../utils/diff/is-same';
 import { validate } from '../../utils/validator';
 import { normalizeChanges } from '../normalize';
 import { Type } from './Type';
 
 const tempMatrix = new Matrix();
+const RAW_SYNC_KEYS = ['id', 'label', 'attrs'];
+
+const getPatchDiff = (currentProps, changes) => {
+  if (
+    !changes ||
+    typeof changes !== 'object' ||
+    Array.isArray(changes) ||
+    Object.getPrototypeOf(currentProps) !== Object.getPrototypeOf(changes)
+  ) {
+    return diffReplace(currentProps, changes);
+  }
+
+  const diff = {};
+  const patchKeys = Object.keys(changes);
+  for (const key of patchKeys) {
+    const currentValue = currentProps[key];
+    const nextValue = changes[key];
+    if (!isSame(currentValue, nextValue)) {
+      diff[key] = nextValue;
+    }
+  }
+  return diff;
+};
 
 export const Base = (superClass) => {
   return class extends Type(superClass) {
@@ -38,9 +62,9 @@ export const Base = (superClass) => {
 
     _onObjectUpdate() {
       if (
+        this.parent?.type === 'item' ||
         !this.localTransform ||
-        !this.visible ||
-        this.parent?.type === 'item'
+        !this.visible
       ) {
         return;
       }
@@ -115,14 +139,16 @@ export const Base = (superClass) => {
       const {
         mergeStrategy = 'merge',
         refresh = false,
-        isValidateSchema = true,
-        isNormalize = true,
+        validateSchema = true,
+        normalize = true,
       } = options;
 
-      const diffProps = diffReplace(this.props, changes);
+      const diffProps = getPatchDiff(this.props, changes);
       const actualChanges = refresh ? { ...this.props } : diffProps;
-
-      if (!actualChanges || Object.keys(actualChanges).length === 0) return;
+      const keysToProcess = refresh
+        ? Object.keys(this.props)
+        : Object.keys(actualChanges);
+      if (keysToProcess.length === 0) return;
 
       if (options?.historyId && this.store.undoRedoManager) {
         const command = new UpdateCommand(this, changes, options);
@@ -135,10 +161,10 @@ export const Base = (superClass) => {
           ? { ...this.props, ...changes }
           : deepMerge(this.props, changes);
 
-      const normalizedProps = isNormalize
+      const normalizedProps = normalize
         ? normalizeChanges(mergedProps, this.type)
         : mergedProps;
-      const validatedProps = isValidateSchema
+      const validatedProps = validateSchema
         ? validate(normalizedProps, schema)
         : normalizedProps;
       if (isValidationError(validatedProps)) {
@@ -147,19 +173,14 @@ export const Base = (superClass) => {
 
       this.props = validatedProps;
 
-      if (
-        ['id', 'label', 'attrs'].some((key) => Object.hasOwn(diffProps, key))
-      ) {
+      if (RAW_SYNC_KEYS.some((key) => Object.hasOwn(diffProps, key))) {
         const { id, label, attrs } = diffProps;
         this._applyRaw({ id, label, ...attrs }, mergeStrategy);
       }
 
-      const keysToProcess = refresh
-        ? Object.keys(this.props)
-        : Object.keys(actualChanges);
       const handlerChanges =
         options.changes ??
-        (isNormalize ? normalizeChanges(changes, this.type) : changes);
+        (normalize ? normalizeChanges(changes, this.type) : changes);
       this._applyHandlers(keysToProcess, {
         mergeStrategy,
         refresh,

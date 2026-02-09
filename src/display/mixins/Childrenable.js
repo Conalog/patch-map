@@ -12,8 +12,8 @@ export const Childrenable = (superClass) => {
     _applyChildren(relevantChanges, options = {}) {
       const childOptions = {
         ...options,
-        isValidateSchema: false,
-        isNormalize: false,
+        validateSchema: false,
+        normalize: false,
       };
       let childrenChanges = options.refresh
         ? relevantChanges?.children

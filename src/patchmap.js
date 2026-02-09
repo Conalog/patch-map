@@ -224,9 +224,15 @@ class Patchmap extends WildcardEventEmitter {
     }
   }
 
-  update(opts) {
+  update(opts = {}) {
     const updatedElements = update(this.viewport, opts);
-    this.emit('patchmap:updated', { elements: updatedElements, target: this });
+    if (opts.emit !== false) {
+      this.emit('patchmap:updated', {
+        elements: updatedElements,
+        target: this,
+      });
+    }
+    return updatedElements;
   }
 
   focus(ids) {
