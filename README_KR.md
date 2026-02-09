@@ -43,6 +43,7 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js
 - [🧑‍💻 개발](#-개발)
   - [개발 환경 세팅](#개발-환경-세팅)
   - [VSCode 통합](#vscode-통합)
+- [🤝 기여하기](#-기여하기)
 - [📄 라이선스](#라이선스)
 - [🔤 Fira Code](#fira-code)
 
@@ -731,6 +732,10 @@ npm run lint:fix # 코드 포맷팅 수정
   }
 }
 ```
+
+## 🤝 기여하기
+
+기여 가이드, PR 템플릿, 작업 흐름은 [CONTRIBUTING.md](./CONTRIBUTING.md)를 참고하세요.
 
 ## 라이선스
 - [MIT](./LICENSE)
