@@ -9,8 +9,16 @@ const KEYS = ['components'];
 
 export const Componentsable = (superClass) => {
   const MixedClass = class extends superClass {
-    _applyComponents(relevantChanges, options) {
-      let { components: componentsChanges } = relevantChanges;
+    _applyComponents(relevantChanges, options = {}) {
+      const childOptions = {
+        ...options,
+        validateSchema: false,
+        normalize: false,
+      };
+      let componentsChanges = options.refresh
+        ? relevantChanges?.components
+        : (options.changes?.components ?? relevantChanges?.components);
+      componentsChanges = componentsChanges ?? [];
       const components = [...this.children];
 
       componentsChanges = validateAndPrepareChanges(
@@ -33,10 +41,11 @@ export const Componentsable = (superClass) => {
           component = newComponent(componentChange.type, this.store);
           this.addChild(component);
         }
-        component.apply(
-          { type: componentChange.type, ...componentChange },
-          options,
-        );
+        const applyChanges = { type: componentChange.type, ...componentChange };
+        component.apply(applyChanges, {
+          ...childOptions,
+          changes: applyChanges,
+        });
       }
 
       if (options.mergeStrategy === 'replace') {

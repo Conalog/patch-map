@@ -27,14 +27,11 @@ const ComposedText = mixins(
 export class Text extends ComposedText {
   constructor(store) {
     super({ type: 'text', store, text: '' });
-
-    this.constructor.registerHandler(
-      EXTRA_KEYS.PLACEMENT,
-      this._applyPlacement,
-    );
   }
 
   apply(changes, options) {
     super.apply(changes, textSchema, options);
   }
 }
+
+Text.registerHandler(EXTRA_KEYS.PLACEMENT, Text.prototype._applyPlacement);

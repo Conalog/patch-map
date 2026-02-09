@@ -29,7 +29,8 @@ export const Linksable = (superClass) => {
       if (this._renderDirty) return;
       if (!this.linkedObjects) return;
 
-      for (const linkedObj of Object.values(this.linkedObjects)) {
+      const values = Object.values(this.linkedObjects);
+      for (const linkedObj of values) {
         if (!linkedObj || linkedObj.destroyed) continue;
 
         if (

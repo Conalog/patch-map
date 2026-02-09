@@ -27,14 +27,11 @@ const ComposedBar = mixins(
 export class Bar extends ComposedBar {
   constructor(store) {
     super({ type: 'bar', store, texture: Texture.WHITE });
-
-    this.constructor.registerHandler(
-      EXTRA_KEYS.PLACEMENT,
-      this._applyPlacement,
-    );
   }
 
   apply(changes, options) {
     super.apply(changes, barSchema, options);
   }
 }
+
+Bar.registerHandler(EXTRA_KEYS.PLACEMENT, Bar.prototype._applyPlacement);

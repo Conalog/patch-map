@@ -1,10 +1,3 @@
-import { z } from 'zod';
-
-const schema = z.object({
-  arr: z.array(z.unknown()),
-  criteria: z.object({}).passthrough(),
-});
-
 /**
  * Finds the index of the first item in an array that matches the criteria, based on a priority list of keys.
  * @param {Array<Object>} arr - The array to search.
@@ -19,11 +12,6 @@ export const findIndexByPriority = (
   usedIndexes = new Set(),
   priorityKeys = ['id', 'label', 'type'],
 ) => {
-  const validation = schema.safeParse({ arr, criteria });
-  if (!validation.success) {
-    throw new TypeError(validation.error.message);
-  }
-
   for (const key of priorityKeys) {
     if (key in criteria) {
       return arr.findIndex(

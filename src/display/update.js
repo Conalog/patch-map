@@ -1,35 +1,45 @@
-import { z } from 'zod';
-import { isValidationError } from 'zod-validation-error';
 import { convertArray } from '../utils/convert';
 import { selector } from '../utils/selector/selector';
 import { uid } from '../utils/uuid';
-import { validate } from '../utils/validator';
 
-const updateSchema = z.object({
-  path: z.nullable(z.string()).default(null),
-  elements: z.unknown().optional(),
-  changes: z.record(z.unknown()).nullable().default(null),
-  history: z.union([z.boolean(), z.string()]).default(false),
-  relativeTransform: z.boolean().default(false),
-  mergeStrategy: z.enum(['merge', 'replace']).default('merge'),
-  refresh: z.boolean().default(false),
+const DEFAULT_UPDATE_CONFIG = Object.freeze({
+  path: null,
+  elements: [],
+  changes: null,
+  history: false,
+  relativeTransform: false,
+  mergeStrategy: 'merge',
+  refresh: false,
 });
 
-export const update = (viewport, opts) => {
-  const config = validate(opts, updateSchema.passthrough());
-  if (isValidationError(config)) throw config;
+export const update = (viewport, opts = {}) => {
+  const config = {
+    ...opts,
+    ...DEFAULT_UPDATE_CONFIG,
+    path: opts.path ?? DEFAULT_UPDATE_CONFIG.path,
+    elements: opts.elements ?? DEFAULT_UPDATE_CONFIG.elements,
+    changes: opts.changes ?? DEFAULT_UPDATE_CONFIG.changes,
+    history: opts.history ?? DEFAULT_UPDATE_CONFIG.history,
+    relativeTransform:
+      opts.relativeTransform ?? DEFAULT_UPDATE_CONFIG.relativeTransform,
+    mergeStrategy: opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy,
+    refresh: opts.refresh ?? DEFAULT_UPDATE_CONFIG.refresh,
+  };
 
   const historyId = createHistoryId(config.history);
-  const elements = 'elements' in config ? convertArray(config.elements) : [];
+  const elements = convertArray(config.elements);
   if (viewport && config.path) {
     elements.push(...selector(viewport, config.path));
   }
 
+  const baseChanges = config.changes ?? null;
   for (const element of elements) {
     if (!element) {
       continue;
     }
-    const changes = JSON.parse(JSON.stringify(config.changes));
+    const changes = config.relativeTransform
+      ? structuredClone(baseChanges)
+      : baseChanges;
     if (config.relativeTransform && changes.attrs) {
       changes.attrs = applyRelativeTransform(element, changes.attrs);
     }
@@ -37,6 +47,8 @@ export const update = (viewport, opts) => {
       historyId,
       mergeStrategy: config.mergeStrategy,
       refresh: config.refresh,
+      validateSchema: config.validateSchema,
+      normalize: config.normalize,
     });
   }
   return elements;

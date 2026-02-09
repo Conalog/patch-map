@@ -207,7 +207,10 @@ class Patchmap extends WildcardEventEmitter {
     );
 
     this.app.start();
-    this.emit('patchmap:draw', { data: validatedData, target: this });
+    scheduler.postTask(
+      () => this.emit('patchmap:draw', { data: validatedData, target: this }),
+      { priority: 'user-visible' },
+    );
     return validatedData;
 
     function processData(data) {
@@ -221,9 +224,15 @@ class Patchmap extends WildcardEventEmitter {
     }
   }
 
-  update(opts) {
+  update(opts = {}) {
     const updatedElements = update(this.viewport, opts);
-    this.emit('patchmap:updated', { elements: updatedElements, target: this });
+    if (opts.emit !== false) {
+      this.emit('patchmap:updated', {
+        elements: updatedElements,
+        target: this,
+      });
+    }
+    return updatedElements;
   }
 
   focus(ids) {
