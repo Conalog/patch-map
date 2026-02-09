@@ -691,8 +691,8 @@ export default class Transformer extends Container {
         y: localPosition.y,
       },
       size: {
-        width: updatedState.width,
-        height: updatedState.height,
+        width: Math.max(1, Math.round(updatedState.width)),
+        height: Math.max(1, Math.round(updatedState.height)),
       },
     };
 

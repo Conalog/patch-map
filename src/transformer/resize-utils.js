@@ -44,11 +44,13 @@ export const computeResize = ({
 };
 
 export const resizeElementState = (state, { origin, scaleX, scaleY }) => {
+  const rawWidth = state.width * scaleX;
+  const rawHeight = state.height * scaleY;
   return {
     x: origin.x + (state.x - origin.x) * scaleX,
     y: origin.y + (state.y - origin.y) * scaleY,
-    width: state.width * scaleX,
-    height: state.height * scaleY,
+    width: snapSizeToUnit(rawWidth, state.width),
+    height: snapSizeToUnit(rawHeight, state.height),
   };
 };
 
@@ -199,4 +201,28 @@ const createResizeResult = (geometry, axes, box) => {
     scaleY: height / geometry.safeHeight,
     origin: { x: originX, y: originY },
   };
+};
+
+const snapSizeToUnit = (rawSize, baseSize, minSize = 1) => {
+  const minUnit = Math.max(1, Math.ceil(minSize));
+  const safeRaw = Number.isFinite(rawSize) ? rawSize : minUnit;
+  const safeBase = Number.isFinite(baseSize) ? baseSize : minUnit;
+  const EPSILON = 1e-6;
+
+  if (Math.abs(safeRaw - safeBase) <= EPSILON) {
+    return Math.max(minUnit, safeBase);
+  }
+
+  const baseUp = Number.isInteger(safeBase) ? safeBase : Math.ceil(safeBase);
+  const baseDown = Number.isInteger(safeBase) ? safeBase : Math.floor(safeBase);
+
+  if (safeRaw > safeBase) {
+    const snapped =
+      safeRaw < baseUp ? baseUp : baseUp + Math.floor(safeRaw - baseUp);
+    return Math.max(minUnit, snapped);
+  }
+
+  const snapped =
+    safeRaw > baseDown ? baseDown : baseDown - Math.floor(baseDown - safeRaw);
+  return Math.max(minUnit, snapped);
 };

@@ -348,6 +348,30 @@ describe('Transformer', () => {
       expect(payload.removed).toEqual([]);
     });
 
+    it('should apply integer sizes when resizing elements with decimal sizes', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw([
+        {
+          type: 'rect',
+          id: 'rect-decimal',
+          size: { width: 100.4, height: 80.6 },
+          attrs: { x: 100, y: 100 },
+        },
+      ]);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-decimal")]')[0];
+      transformer.elements = [rect];
+      const rectApplySpy = vi.spyOn(rect, 'apply');
+
+      resizeWithBottomRightHandle(patchmap, transformer, { x: 20, y: 20 });
+
+      const [rectChanges] = rectApplySpy.mock.calls.at(-1);
+      expect(Number.isInteger(rectChanges.size.width)).toBe(true);
+      expect(Number.isInteger(rectChanges.size.height)).toBe(true);
+    });
+
     it('should hide resize handles when selection has no resizable elements', () => {
       const patchmap = getPatchmap();
       patchmap.draw(resizeSampleData);

@@ -124,4 +124,56 @@ describe('resize-utils', () => {
       height: 100,
     });
   });
+
+  it('snaps resize size changes to 1-unit steps for integer base sizes', () => {
+    const state = { x: 10, y: 10, width: 100, height: 80 };
+    const origin = { x: 0, y: 0 };
+
+    const growSubUnit = resizeElementState(state, {
+      origin,
+      scaleX: 1.009,
+      scaleY: 1,
+    });
+    const growOneUnit = resizeElementState(state, {
+      origin,
+      scaleX: 1.01,
+      scaleY: 1,
+    });
+    const shrinkSubUnit = resizeElementState(state, {
+      origin,
+      scaleX: 0.991,
+      scaleY: 1,
+    });
+    const shrinkOneUnit = resizeElementState(state, {
+      origin,
+      scaleX: 0.99,
+      scaleY: 1,
+    });
+
+    expect(growSubUnit.width).toBe(100);
+    expect(growOneUnit.width).toBe(101);
+    expect(shrinkSubUnit.width).toBe(100);
+    expect(shrinkOneUnit.width).toBe(99);
+  });
+
+  it('drops decimal size values on resize and keeps integer unit steps', () => {
+    const state = { x: 10, y: 10, width: 100.4, height: 80.6 };
+    const origin = { x: 0, y: 0 };
+
+    const grow = resizeElementState(state, {
+      origin,
+      scaleX: 100.5 / 100.4,
+      scaleY: 1,
+    });
+    const shrink = resizeElementState(state, {
+      origin,
+      scaleX: 1,
+      scaleY: 80.5 / 80.6,
+    });
+
+    expect(grow.width).toBe(101);
+    expect(shrink.height).toBe(80);
+    expect(Number.isInteger(grow.width)).toBe(true);
+    expect(Number.isInteger(shrink.height)).toBe(true);
+  });
 });
