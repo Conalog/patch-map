@@ -42,6 +42,7 @@ Therefore, to use this, an understanding of the following two libraries is essen
 - [🧑‍💻 Development](#-development)
   - [Setting up the development environment](#setting-up-the-development-environment)
   - [VSCode Integration](#vscode-integration)
+- [🤝 Contributing](#-contributing)
 - [📄 License](#license)
 - [🔤 Fira Code](#fira-code)
 
@@ -443,8 +444,8 @@ class CustomState extends State {
   // Define the events this state will handle as a static property.
   static handledEvents = ['onpointerdown', 'onkeydown'];
 
-  enter(context, customOptions) {
-    super.enter(context);
+  enter(store, customOptions) {
+    super.enter(store);
     console.log('CustomState has started.', customOptions);
   }
 
@@ -461,7 +462,7 @@ class CustomState extends State {
   onkeydown(event) {
     if (event.key === 'Escape') {
       // Switch to the 'selection' state (the default state).
-      this.context.stateManager.setState('selection');
+      this.store.stateManager.setState('selection');
     }
     // Return PROPAGATE_EVENT to propagate the event to the next state in the stack.
     return PROPAGATE_EVENT;
@@ -499,9 +500,9 @@ The default state that handles user selection and drag events. It is automatical
 
 - `onDown` (optional, function): Callback fired immediately on `pointerdown`. Used to implement 'Select-on-Down' UX (instant selection feedback).
 - `onUp` (optional, function): Callback fired on `pointerup` if it was not a drag operation.
-- `onClick` (optional, function): Callback fired when a complete 'click' is detected. This will not fire if `onDoubleClick` fires.
+- `onClick` (optional, function): Callback fired when a complete 'click' is detected. Tap events also trigger this callback. This will not fire if `onDoubleClick` fires.
 - `onDoubleClick` (optional, function): Callback fired when a complete 'double-click' is detected. Based on `e.detail === 2`.
-- `onRightClick` (optional, function): Callback fired when a complete right-click is detected. The browser's default context menu is automatically prevented within the canvas area.
+- `onRightClick` (optional, function): Callback fired when a complete right-click is detected. The browser's default store menu is automatically prevented within the canvas area.
 - `onDragStart` (optional, function): Callback fired *once* when a drag operation (for multi-selection) begins (after moving beyond a threshold).
 - `onDrag` (optional, function): Callback fired repeatedly *during* a drag operation.
 - `onDragEnd` (optional, function): Callback fired when the drag operation *ends* (`pointerup`).
@@ -718,6 +719,10 @@ For specific extensions, add their settings individually:
   }
 }
 ```
+
+## 🤝 Contributing
+
+For contribution guidelines, PR templates, and workflow details, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 

@@ -15,8 +15,8 @@ export class Relations extends ComposedRelations {
 
   _renderDirty = true;
 
-  constructor(context) {
-    super({ type: 'relations', context });
+  constructor(store) {
+    super({ type: 'relations', store });
     this.path = this.initPath();
   }
 
@@ -80,10 +80,10 @@ export class Relations extends ComposedRelations {
         continue;
       }
 
-      const sourceBounds = this.context.viewport.toLocal(
+      const sourceBounds = this.store.viewport.toLocal(
         calcOrientedBounds(sourceObject).center,
       );
-      const targetBounds = this.context.viewport.toLocal(
+      const targetBounds = this.store.viewport.toLocal(
         calcOrientedBounds(targetObject).center,
       );
 

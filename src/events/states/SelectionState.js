@@ -15,6 +15,8 @@ const stateSymbol = {
   PAINTING: Symbol('PAINTING'),
 };
 
+const VIEWPORT_CHANGE_EPSILON = 0.0001;
+
 /**
  * @typedef {object} SelectionStateConfig
  * @property {boolean} [draggable=false] - Enables drag-to-select functionality.
@@ -40,6 +42,7 @@ const stateSymbol = {
  *
  * @property {(target: PIXI.DisplayObject | null, event: PIXI.FederatedPointerEvent) => void} [onClick]
  * Callback fired when a complete, non-drag click is detected.
+ * Tap events (`ontap`) are routed to this callback as well.
  * This will *not* fire if `onDoubleClick` fires.
  *
  * @property {(target: PIXI.DisplayObject | null, event: PIXI.FederatedPointerEvent) => void} [onDoubleClick]
@@ -88,6 +91,7 @@ export default class SelectionState extends State {
     'onpointerover',
     'onpointerleave',
     'onclick',
+    'ontap',
     'rightclick',
   ];
 
@@ -97,20 +101,21 @@ export default class SelectionState extends State {
   interactionState = stateSymbol.IDLE;
   dragStartPoint = null;
   movedViewport = false;
+  viewportSnapshot = null;
   _selectionBox = new Graphics();
 
   _paintedObjects = new Set();
   _lastPaintPoint = null;
 
   /**
-   * Enters the selection state with a given context and configuration.
+   * Enters the selection state with a given store and configuration.
    * @param {...*} args - Additional arguments passed to the state.
    */
   enter(...args) {
     super.enter(...args);
     const [_, config] = args;
     this.config = deepMerge(defaultConfig, config);
-    this.viewport = this.context.viewport;
+    this.viewport = this.store.viewport;
     this.viewport.addChild(this._selectionBox);
   }
 
@@ -131,6 +136,7 @@ export default class SelectionState extends State {
     this.interactionState = stateSymbol.PRESSING;
     this.dragStartPoint = this.viewport.toWorld(e.global);
     this._lastPaintPoint = this.dragStartPoint;
+    this.viewportSnapshot = this.#captureViewportState();
 
     const target = this.#searchObject(this.dragStartPoint, e, true);
     this.config.onDown(target, e);
@@ -199,7 +205,7 @@ export default class SelectionState extends State {
       this.config.onDragEnd(Array.from(this._paintedObjects), e);
       this.viewport.plugin.stop('mouse-edges');
     }
-    this.#clear({ state: true, selectionBox: true, gesture: true });
+    this.#clear({ state: true, selectionBox: true });
   }
 
   onpointerover(e) {
@@ -231,13 +237,17 @@ export default class SelectionState extends State {
     });
   }
 
+  ontap(e) {
+    this.onclick(e);
+  }
+
   rightclick(e) {
     this.#processClick(e, (target) => {
       this.config.onRightClick(target, e);
     });
   }
 
-  onpointerleave(e) {
+  onpointerleave() {
     this.#clear({ state: true, selectionBox: true, gesture: true });
   }
 
@@ -245,6 +255,7 @@ export default class SelectionState extends State {
     const currentPoint = this.viewport.toWorld(e.global);
     const isActuallyMoved =
       this.movedViewport ||
+      this.#hasViewportChanged() ||
       isMoved(this.dragStartPoint, currentPoint, this.viewport.scale);
 
     if (!isActuallyMoved) {
@@ -307,7 +318,7 @@ export default class SelectionState extends State {
    */
   #getSelectionAncestors() {
     const selectionAncestors = new Set();
-    for (const element of this.context.transformer.elements) {
+    for (const element of this.store.transformer.elements) {
       let current = element.parent;
       while (current) {
         if (current.type === 'canvas') break;
@@ -358,8 +369,32 @@ export default class SelectionState extends State {
     if (gesture) {
       this.dragStartPoint = null;
       this.movedViewport = false;
+      this.viewportSnapshot = null;
       this._paintedObjects.clear();
       this._lastPaintPoint = null;
     }
+  }
+
+  #captureViewportState() {
+    if (!this.viewport) return null;
+    return {
+      x: this.viewport.x,
+      y: this.viewport.y,
+      scaleX: this.viewport.scale?.x ?? 1,
+      scaleY: this.viewport.scale?.y ?? 1,
+    };
+  }
+
+  #hasViewportChanged() {
+    if (!this.viewportSnapshot || !this.viewport) return false;
+    const current = this.#captureViewportState();
+    return (
+      Math.abs(current.x - this.viewportSnapshot.x) > VIEWPORT_CHANGE_EPSILON ||
+      Math.abs(current.y - this.viewportSnapshot.y) > VIEWPORT_CHANGE_EPSILON ||
+      Math.abs(current.scaleX - this.viewportSnapshot.scaleX) >
+        VIEWPORT_CHANGE_EPSILON ||
+      Math.abs(current.scaleY - this.viewportSnapshot.scaleY) >
+        VIEWPORT_CHANGE_EPSILON
+    );
   }
 }

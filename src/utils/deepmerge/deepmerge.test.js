@@ -30,8 +30,7 @@ describe('deepMerge – primitive / basic combinations', () => {
     ['array → object', [1, 2], { a: 1 }, { a: 1 }],
     ['object → array', { a: 1 }, [1, 2], [1, 2]],
   ])('%s', (_, left, right, expected) =>
-    expect(deepMerge(left, right)).toEqual(expected),
-  );
+    expect(deepMerge(left, right)).toEqual(expected));
 });
 
 /* -------------------------------------------------------------------------- */

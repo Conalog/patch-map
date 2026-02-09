@@ -43,6 +43,7 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js
 - [🧑‍💻 개발](#-개발)
   - [개발 환경 세팅](#개발-환경-세팅)
   - [VSCode 통합](#vscode-통합)
+- [🤝 기여하기](#-기여하기)
 - [📄 라이선스](#라이선스)
 - [🔤 Fira Code](#fira-code)
 
@@ -453,8 +454,8 @@ class CustomState extends State {
   // 이 상태가 처리할 이벤트를 static 속성으로 정의합니다.
   static handledEvents = ['onpointerdown', 'onkeydown'];
 
-  enter(context, customOptions) {
-    super.enter(context);
+  enter(store, customOptions) {
+    super.enter(store);
     console.log('CustomState가 시작되었습니다.', customOptions);
   }
 
@@ -471,7 +472,7 @@ class CustomState extends State {
   onkeydown(event) {
     if (event.key === 'Escape') {
       // 'selection' 상태(기본 상태)로 전환합니다.
-      this.context.stateManager.setState('selection');
+      this.store.stateManager.setState('selection');
     }
     // 이벤트를 스택의 다음 상태로 전파하려면 PROPAGATE_EVENT를 반환합니다.
     return PROPAGATE_EVENT;
@@ -507,7 +508,7 @@ patchmap.stateManager.setState('custom', { message: 'Hello World' });
 #### 이벤트 콜백
 - `onDown` (optional, function): 포인터를 눌렀을 때 '즉시' 호출됩니다. 'Select-on-Down' UX(즉각적인 선택 피드백)를 구현할 때 사용합니다.
 - `onUp` (optional, function):  드래그가 아닐 경우, `pointerup` 시점에 호출됩니다.
-- `onClick` (optional, function): '클릭'이 '완료'되었을 때 호출됩니다. 더블클릭이 아닐 때만 호출됩니다.
+- `onClick` (optional, function): '클릭'이 '완료'되었을 때 호출됩니다. 탭(tap)도 동일하게 onClick으로 처리됩니다. 더블클릭이 아닐 때만 호출됩니다.
 - `onDoubleClick` (optional, function): '더블클릭'이 '완료'되었을 때 호출됩니다. `e.detail === 2`를 기반으로 호출됩니다.
 - `onRightClick` (optional, function): '우클릭'이 '완료'되었을 때 호출됩니다. 캔버스 영역 내에서 브라우저 기본 컨텍스트 메뉴가 나타나지 않도록 자동으로 방지됩니다.
 - `onDragStart` (optional, function): 드래그(다중 선택)가 '시작'되는 시점 (일정 거리 이상 이동)에 1회 호출됩니다.
@@ -731,6 +732,10 @@ npm run lint:fix # 코드 포맷팅 수정
   }
 }
 ```
+
+## 🤝 기여하기
+
+기여 가이드, PR 템플릿, 작업 흐름은 [CONTRIBUTING.md](./CONTRIBUTING.md)를 참고하세요.
 
 ## 라이선스
 - [MIT](./LICENSE)

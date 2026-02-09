@@ -23,16 +23,13 @@ const ComposedIcon = mixins(
 );
 
 export class Icon extends ComposedIcon {
-  constructor(context) {
-    super({ type: 'icon', context, texture: Texture.WHITE });
-
-    this.constructor.registerHandler(
-      EXTRA_KEYS.PLACEMENT,
-      this._applyPlacement,
-    );
+  constructor(store) {
+    super({ type: 'icon', store, texture: Texture.WHITE });
   }
 
   apply(changes, options) {
     super.apply(changes, iconSchema, options);
   }
 }
+
+Icon.registerHandler(EXTRA_KEYS.PLACEMENT, Icon.prototype._applyPlacement);

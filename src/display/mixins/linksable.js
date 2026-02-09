@@ -9,15 +9,15 @@ export const Linksable = (superClass) => {
       super(options);
 
       this._boundOnObjectTransformed = this._onObjectTransformed.bind(this);
-      this.context?.viewport?.on(
+      this.store?.viewport?.on(
         'object_transformed',
         this._boundOnObjectTransformed,
       );
     }
 
     destroy(options) {
-      if (this.context?.viewport) {
-        this.context?.viewport?.off(
+      if (this.store?.viewport) {
+        this.store?.viewport?.off(
           'object_transformed',
           this._boundOnObjectTransformed,
         );
@@ -29,7 +29,8 @@ export const Linksable = (superClass) => {
       if (this._renderDirty) return;
       if (!this.linkedObjects) return;
 
-      for (const linkedObj of Object.values(this.linkedObjects)) {
+      const values = Object.values(this.linkedObjects);
+      for (const linkedObj of values) {
         if (!linkedObj || linkedObj.destroyed) continue;
 
         if (
@@ -44,7 +45,7 @@ export const Linksable = (superClass) => {
 
     _applyLinks(relevantChanges) {
       const { links } = relevantChanges;
-      this.linkedObjects = uniqueLinked(this.context.viewport, links);
+      this.linkedObjects = uniqueLinked(this.store.viewport, links);
       this._renderDirty = true;
     }
   };

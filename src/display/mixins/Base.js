@@ -3,23 +3,49 @@ import { isValidationError } from 'zod-validation-error';
 import { UpdateCommand } from '../../command/commands/update';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { diffReplace } from '../../utils/diff/diff-replace';
+import { isSame } from '../../utils/diff/is-same';
 import { validate } from '../../utils/validator';
-import { deepPartial } from '../../utils/zod-deep-strict-partial';
+import { normalizeChanges } from '../normalize';
 import { Type } from './Type';
 
 const tempMatrix = new Matrix();
+const RAW_SYNC_KEYS = ['id', 'label', 'attrs'];
+
+const getPatchDiff = (currentProps, changes) => {
+  if (
+    !changes ||
+    typeof changes !== 'object' ||
+    Array.isArray(changes) ||
+    Object.getPrototypeOf(currentProps) !== Object.getPrototypeOf(changes)
+  ) {
+    return diffReplace(currentProps, changes);
+  }
+
+  const diff = {};
+  const patchKeys = Object.keys(changes);
+  for (const key of patchKeys) {
+    const currentValue = currentProps[key];
+    const nextValue = changes[key];
+    if (!isSame(currentValue, nextValue)) {
+      diff[key] = nextValue;
+    }
+  }
+  return diff;
+};
 
 export const Base = (superClass) => {
   return class extends Type(superClass) {
     static _handlerMap = new Map();
     static _handlerRegistry = new Map();
-    #context;
+    static _handlerOrder = 0;
+    static _handlerList = [];
+    #store;
 
     constructor(options = {}) {
-      const { context = null, ...rest } = options;
+      const { store = null, ...rest } = options;
       super(rest);
-      this.#context = context;
-      this.props = {};
+      this.#store = store;
+      this.props = rest?.type ? { type: rest.type } : {};
 
       this._lastLocalTransform = tempMatrix.clone();
       this.onRender = () => {
@@ -28,17 +54,23 @@ export const Base = (superClass) => {
       };
     }
 
-    get context() {
-      return this.#context;
+    get store() {
+      return this.#store;
     }
 
     _afterRender() {}
 
     _onObjectUpdate() {
-      if (!this.localTransform || !this.visible) return;
+      if (
+        this.parent?.type === 'item' ||
+        !this.localTransform ||
+        !this.visible
+      ) {
+        return;
+      }
 
       if (!this.localTransform.equals(this._lastLocalTransform)) {
-        this.context.viewport.emit('object_transformed', this);
+        this.store.viewport?.emit('object_transformed', this);
         this._lastLocalTransform.copyFrom(this.localTransform);
       }
     }
@@ -52,85 +84,151 @@ export const Base = (superClass) => {
       if (!Object.hasOwn(this, '_handlerRegistry')) {
         this._handlerRegistry = new Map(this._handlerRegistry);
         this._handlerMap = new Map(this._handlerMap);
-      }
+        this._handlerOrder = this._handlerOrder ?? 0;
+        this._handlerList = [...this._handlerList];
 
-      const registration = this._handlerRegistry.get(handler) ?? {
-        keys: new Set(),
-        stage: stage ?? 99,
-      };
-      keys.forEach((key) => {
-        registration.keys.add(key);
-      });
-      this._handlerRegistry.set(handler, registration);
-      registration.keys.forEach((key) => {
-        if (!this._handlerMap.has(key)) this._handlerMap.set(key, new Set());
-        this._handlerMap.get(key).add(handler);
-      });
-    }
-
-    apply(changes, schema, options = {}) {
-      const { mergeStrategy = 'merge', refresh = false } = options;
-      const effectiveChanges = refresh && !changes ? {} : changes;
-      const validatedChanges = validate(effectiveChanges, deepPartial(schema));
-      if (isValidationError(validatedChanges)) throw validatedChanges;
-
-      const nextProps =
-        mergeStrategy === 'replace'
-          ? validate({ ...this.props, ...validatedChanges }, schema)
-          : deepMerge(this.props, validatedChanges);
-      if (isValidationError(nextProps)) throw nextProps;
-      const actualChanges = diffReplace(this.props, nextProps) ?? {};
-
-      if (options?.historyId && Object.keys(actualChanges).length > 0) {
-        const command = new UpdateCommand(this, changes, options);
-        this.context.undoRedoManager.execute(command, options);
-        return;
-      }
-
-      this.props = nextProps;
-      const keysToProcess = refresh
-        ? Object.keys(nextProps)
-        : Object.keys(actualChanges);
-
-      if (
-        ['id', 'label', 'attrs'].some((key) =>
-          Object.hasOwn(validatedChanges, key),
-        )
-      ) {
-        const { id, label, attrs } = validatedChanges;
-        this._applyRaw({ id, label, ...attrs }, mergeStrategy);
-      }
-
-      const tasks = new Map();
-      for (const key of keysToProcess) {
-        const handlers = this.constructor._handlerMap.get(key);
-        if (handlers) {
-          handlers.forEach((handler) => {
-            if (!tasks.has(handler)) {
-              const { stage } = this.constructor._handlerRegistry.get(handler);
-              tasks.set(handler, { stage });
+        for (const [key, handlers] of this._handlerMap.entries()) {
+          const normalizedHandlers = new Set();
+          for (const entry of handlers) {
+            if (typeof entry === 'function') {
+              normalizedHandlers.add(entry);
+            } else if (entry?.handler) {
+              normalizedHandlers.add(entry.handler);
             }
-          });
+          }
+          this._handlerMap.set(key, normalizedHandlers);
         }
       }
 
-      const sortedTasks = [...tasks.entries()].sort(
-        (a, b) => a[1].stage - b[1].stage,
-      );
-      sortedTasks.forEach(([handler, _]) => {
-        const keysForHandler =
-          this.constructor._handlerRegistry.get(handler).keys;
-        const fullPayload = {};
-        keysForHandler.forEach((key) => {
-          if (Object.hasOwn(this.props, key)) {
-            fullPayload[key] = this.props[key];
-          }
-        });
-        handler.call(this, fullPayload, { mergeStrategy, refresh });
+      let entry = this._handlerRegistry.get(handler);
+      if (!entry) {
+        entry = {
+          handler,
+          keys: new Set(),
+          stage: stage ?? 99,
+          order: this._handlerOrder++,
+        };
+        this._handlerRegistry.set(handler, entry);
+        const insertAt = this._handlerList.findIndex(
+          (item) =>
+            item.stage > entry.stage ||
+            (item.stage === entry.stage && item.order > entry.order),
+        );
+        if (insertAt === -1) {
+          this._handlerList.push(entry);
+        } else {
+          this._handlerList.splice(insertAt, 0, entry);
+        }
+      }
+
+      keys.forEach((key) => {
+        if (entry.keys.has(key)) return;
+        entry.keys.add(key);
+        let handlers = this._handlerMap.get(key);
+        if (!handlers) {
+          handlers = new Set();
+          this._handlerMap.set(key, handlers);
+        }
+        handlers.add(handler);
+      });
+    }
+
+    apply(_changes = {}, schema, options = {}) {
+      if (this.destroyed) return;
+      const changes = _changes ?? {};
+      const {
+        mergeStrategy = 'merge',
+        refresh = false,
+        validateSchema = true,
+        normalize = true,
+      } = options;
+
+      const diffProps = getPatchDiff(this.props, changes);
+      const actualChanges = refresh ? { ...this.props } : diffProps;
+      const keysToProcess = refresh
+        ? Object.keys(this.props)
+        : Object.keys(actualChanges);
+      if (keysToProcess.length === 0) return;
+
+      if (options?.historyId && this.store.undoRedoManager) {
+        const command = new UpdateCommand(this, changes, options);
+        this.store?.undoRedoManager.execute(command, options);
+        return;
+      }
+
+      const mergedProps =
+        mergeStrategy === 'replace'
+          ? { ...this.props, ...changes }
+          : deepMerge(this.props, changes);
+
+      const normalizedProps = normalize
+        ? normalizeChanges(mergedProps, this.type)
+        : mergedProps;
+      const validatedProps = validateSchema
+        ? validate(normalizedProps, schema)
+        : normalizedProps;
+      if (isValidationError(validatedProps)) {
+        throw validatedProps;
+      }
+
+      this.props = validatedProps;
+
+      if (RAW_SYNC_KEYS.some((key) => Object.hasOwn(diffProps, key))) {
+        const { id, label, attrs } = diffProps;
+        this._applyRaw({ id, label, ...attrs }, mergeStrategy);
+      }
+
+      const handlerChanges =
+        options.changes ??
+        (normalize ? normalizeChanges(changes, this.type) : changes);
+      this._applyHandlers(keysToProcess, {
+        mergeStrategy,
+        refresh,
+        changes: handlerChanges,
       });
 
       if (this.parent?._onChildUpdate) {
         this.parent._onChildUpdate(this.id, actualChanges, mergeStrategy);
+      }
+    }
+
+    _applyHandlers(keysToProcess, options) {
+      if (keysToProcess.length === 0) return;
+      const handlerMap = this.constructor._handlerMap;
+      const handlerList = this.constructor._handlerList;
+      const handlerRegistry = this.constructor._handlerRegistry;
+      if (handlerMap.size === 0 || handlerList.length === 0) return;
+
+      const candidates = new Map();
+      for (const key of keysToProcess) {
+        const handlers = handlerMap.get(key);
+        if (!handlers) continue;
+        for (const entryOrHandler of handlers) {
+          if (typeof entryOrHandler === 'function') {
+            const registryEntry = handlerRegistry.get(entryOrHandler);
+            if (!registryEntry) continue;
+            if (!candidates.has(registryEntry)) {
+              candidates.set(registryEntry, entryOrHandler);
+            }
+            continue;
+          }
+          if (entryOrHandler?.handler && !candidates.has(entryOrHandler)) {
+            candidates.set(entryOrHandler, entryOrHandler.handler);
+          }
+        }
+      }
+      if (candidates.size === 0) return;
+
+      for (const entry of handlerList) {
+        const handler = candidates.get(entry);
+        if (!handler) continue;
+        const payload = {};
+        for (const key of entry.keys) {
+          if (Object.hasOwn(this.props, key)) {
+            payload[key] = this.props[key];
+          }
+        }
+        handler.call(this, payload, options);
       }
     }
 

@@ -9,7 +9,7 @@ export class UpdateCommand extends Command {
     this.elementId = element.id;
 
     this.parent = element.parent;
-    this.context = element.context;
+    this.store = element.store;
 
     this.changes = changes;
     this.options = options;
@@ -52,9 +52,9 @@ export class UpdateCommand extends Command {
       }
     }
 
-    if (this.context?.viewport && !this.context.viewport.destroyed) {
+    if (this.store?.viewport && !this.store.viewport.destroyed) {
       const candidates = collectCandidates(
-        this.context.viewport,
+        this.store.viewport,
         (node) => node.id === targetId,
       );
       if (candidates[0]) {

@@ -1,4 +1,4 @@
-import gsap from 'gsap';
+import { getSizeBatcher } from '../animation/sizeBatchTween';
 import { calcSize } from '../mixins/utils';
 import { UPDATE_STAGES } from './constants';
 
@@ -12,30 +12,62 @@ export const AnimationSizeable = (superClass) => {
       const newSize = calcSize(this, { source, size, margin });
 
       if (animation) {
-        this.context.animationContext.add(() => {
-          this.killTweens();
-          const tween = gsap.to(this, {
-            pixi: {
-              width: newSize.width,
-              height: newSize.height,
-            },
-            duration: animationDuration / 1000,
-            ease: 'power2.inOut',
-            onUpdate: () => {
-              if (this.destroyed) {
-                this.killTweens();
-                return;
-              }
-              this._applyPlacement({
-                placement: this.props.placement,
-                margin: this.props.margin,
-              });
-            },
+        const batcher = getSizeBatcher(this.store);
+        if (!batcher || !this._calcPlacementForSize) {
+          this.setSize(newSize.width, newSize.height);
+          this._applyPlacement({
+            placement: this.props.placement,
+            margin: this.props.margin,
           });
-          this.tweens.push(tween);
+          return;
+        }
+
+        if (this._sizeAnimJob) {
+          batcher.cancel(this._sizeAnimJob);
+          this._sizeAnimJob = null;
+        }
+
+        const fromPosition = this._calcPlacementForSize({
+          placement: this.props.placement,
+          margin: this.props.margin,
+          width: this.width,
+          height: this.height,
+        });
+        const toPosition = this._calcPlacementForSize({
+          placement: this.props.placement,
+          margin: this.props.margin,
+          width: newSize.width,
+          height: newSize.height,
+        });
+
+        this._sizeAnimJob = batcher.enqueue({
+          target: this,
+          from: {
+            w: this.width,
+            h: this.height,
+            x: fromPosition.x,
+            y: fromPosition.y,
+          },
+          to: {
+            w: newSize.width,
+            h: newSize.height,
+            x: toPosition.x,
+            y: toPosition.y,
+          },
+          durationMs: animationDuration,
+          ease: 'power2.inOut',
         });
       } else {
+        const batcher = getSizeBatcher(this.store);
+        if (this._sizeAnimJob && batcher) {
+          batcher.cancel(this._sizeAnimJob, { applyToEnd: true });
+          this._sizeAnimJob = null;
+        }
         this.setSize(newSize.width, newSize.height);
+        this._applyPlacement({
+          placement: this.props.placement,
+          margin: this.props.margin,
+        });
       }
     }
   };

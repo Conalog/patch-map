@@ -13,9 +13,9 @@ export const registerComponent = (type, componentClass) => {
   creator[type] = componentClass;
 };
 
-export const newComponent = (type, context) => {
+export const newComponent = (type, store) => {
   if (!creator[type]) {
     throw new Error(`Component type "${type}" has not been registered.`);
   }
-  return new creator[type](context);
+  return new creator[type](store);
 };

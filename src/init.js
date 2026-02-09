@@ -60,7 +60,7 @@ export const initApp = async (app, opts = {}) => {
   app.renderer.uid = uid();
 };
 
-export const initViewport = (app, opts = {}, context) => {
+export const initViewport = (app, opts = {}, store) => {
   const options = deepMerge(
     {
       ...DEFAULT_INIT_OPTIONS.viewport,
@@ -70,8 +70,8 @@ export const initViewport = (app, opts = {}, context) => {
     },
     opts,
   );
-  const viewport = new BaseViewport({ ...options, context });
-  context.viewport = viewport;
+  const viewport = new BaseViewport({ ...options, store });
+  store.viewport = viewport;
   viewport.app = app;
   viewport.events = {};
   viewport.plugin = {

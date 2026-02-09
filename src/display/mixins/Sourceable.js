@@ -8,7 +8,7 @@ export const Sourceable = (superClass) => {
   const MixedClass = class extends superClass {
     async _applySource(relevantChanges) {
       const { source } = relevantChanges;
-      const { viewport, theme } = this.context;
+      const { viewport, theme } = this.store;
 
       if (!source) {
         this._setTexture(Texture.EMPTY);
@@ -19,12 +19,17 @@ export const Sourceable = (superClass) => {
       let texture = null;
       try {
         texture = getTexture(viewport.app.renderer, theme, source);
-      } catch (_e) {
+      } catch {
         // Fallback to async loading
       }
 
       if (texture) {
         this._setTexture(texture);
+        return;
+      }
+
+      if (typeof source !== 'string') {
+        this._setTexture(Texture.EMPTY);
         return;
       }
 

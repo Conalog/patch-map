@@ -10,7 +10,7 @@ export const Textstyleable = (superClass) => {
       const { style } = relevantChanges;
       if (!style) return;
 
-      const { theme } = this.context;
+      const { theme } = this.store;
       const visual = this.bitmapText || this;
 
       if (options.mergeStrategy === 'replace') {

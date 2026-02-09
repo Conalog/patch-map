@@ -15,15 +15,35 @@ export const Placementable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyPlacement(relevantChanges) {
       const { placement, margin } = relevantChanges;
+      const { x, y } = this._calcPlacementForSize({
+        placement,
+        margin,
+        width: this.width,
+        height: this.height,
+      });
+      this.position.set(x, y);
+    }
 
+    _calcPlacementForSize({ placement, margin, width, height }) {
       const [first, second] = placement.split('-');
       const directions = second
         ? { h: first, v: second }
         : DIRECTION_MAP[first];
 
-      const x = getHorizontalPosition(this, directions.h, margin);
-      const y = getVerticalPosition(this, directions.v, margin);
-      this.position.set(x, y);
+      const layoutContext = getLayoutContext(this);
+      const x = calcHorizontalPosition(
+        layoutContext,
+        directions.h,
+        margin,
+        width,
+      );
+      const y = calcVerticalPosition(
+        layoutContext,
+        directions.v,
+        margin,
+        height,
+      );
+      return { x, y };
     }
   };
   MixedClass.registerHandler(
@@ -34,37 +54,41 @@ export const Placementable = (superClass) => {
   return MixedClass;
 };
 
-const getHorizontalPosition = (component, align, margin) => {
-  const { parentWidth, contentWidth, parentPadding } =
-    getLayoutContext(component);
+const calcHorizontalPosition = (layoutContext, align, margin, width) => {
+  const { parentWidth, contentWidth, parentPadding } = layoutContext;
+  const marginLeft = margin?.left ?? 0;
+  const marginRight = margin?.right ?? 0;
+  const componentWidth = Number.isFinite(width) ? width : 0;
 
   let result = null;
   if (align === 'left') {
-    result = parentPadding.left + margin.left;
+    result = parentPadding.left + marginLeft;
   } else if (align === 'right') {
-    result = parentWidth - component.width - margin.right - parentPadding.right;
+    result = parentWidth - componentWidth - marginRight - parentPadding.right;
   } else if (align === 'center') {
-    const marginWidth = component.width + margin.left + margin.right;
+    const marginWidth = componentWidth + marginLeft + marginRight;
     const blockStartPosition = (contentWidth - marginWidth) / 2;
-    result = parentPadding.left + blockStartPosition + margin.left;
+    result = parentPadding.left + blockStartPosition + marginLeft;
   }
   return result;
 };
 
-const getVerticalPosition = (component, align, margin) => {
-  const { parentHeight, contentHeight, parentPadding } =
-    getLayoutContext(component);
+const calcVerticalPosition = (layoutContext, align, margin, height) => {
+  const { parentHeight, contentHeight, parentPadding } = layoutContext;
+  const marginTop = margin?.top ?? 0;
+  const marginBottom = margin?.bottom ?? 0;
+  const componentHeight = Number.isFinite(height) ? height : 0;
 
   let result = null;
   if (align === 'top') {
-    result = parentPadding.top + margin.top;
+    result = parentPadding.top + marginTop;
   } else if (align === 'bottom') {
     result =
-      parentHeight - component.height - margin.bottom - parentPadding.bottom;
+      parentHeight - componentHeight - marginBottom - parentPadding.bottom;
   } else if (align === 'center') {
-    const marginHeight = component.height + margin.top + margin.bottom;
+    const marginHeight = componentHeight + marginTop + marginBottom;
     const blockStartPosition = (contentHeight - marginHeight) / 2;
-    result = parentPadding.top + blockStartPosition + margin.top;
+    result = parentPadding.top + blockStartPosition + marginTop;
   }
   return result;
 };

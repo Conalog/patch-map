@@ -52,7 +52,7 @@ describe('diffReplace function tests', () => {
       },
     },
   ])('$name', ({ obj1, obj2, expected }) => {
-    expect(diffReplace(obj1, obj2)).toEqual(expected);
+    expect(diffReplace(obj1, obj2)).toStrictEqual(expected);
   });
 
   test.each([
@@ -75,7 +75,7 @@ describe('diffReplace function tests', () => {
       expected: { b: 'world' },
     },
   ])('$name', ({ obj1, obj2, expected }) => {
-    expect(diffReplace(obj1, obj2)).toEqual(expected);
+    expect(diffReplace(obj1, obj2)).toStrictEqual(expected);
   });
 
   test.each([
@@ -123,7 +123,7 @@ describe('diffReplace function tests', () => {
       },
     },
   ])('$name', ({ obj1, obj2, expected }) => {
-    expect(diffReplace(obj1, obj2)).toEqual(expected);
+    expect(diffReplace(obj1, obj2)).toStrictEqual(expected);
   });
 
   test.each([
@@ -158,7 +158,7 @@ describe('diffReplace function tests', () => {
       expected: { config: { setting: 'on', value: undefined } },
     },
   ])('$name', ({ obj1, obj2, expected }) => {
-    expect(diffReplace(obj1, obj2)).toEqual(expected);
+    expect(diffReplace(obj1, obj2)).toStrictEqual(expected);
   });
 
   test.each([
@@ -200,7 +200,7 @@ describe('diffReplace function tests', () => {
     if (typeof expected.action === 'function') {
       expect(result.action).toBe(expected.action);
     } else {
-      expect(result).toEqual(expected);
+      expect(result).toStrictEqual(expected);
     }
   });
 
@@ -218,7 +218,7 @@ describe('diffReplace function tests', () => {
     const func1 = () => 1;
     const obj1 = { action: func1 };
     const obj2 = { action: func1 };
-    expect(diffReplace(obj1, obj2)).toEqual({});
+    expect(diffReplace(obj1, obj2)).toStrictEqual({});
   });
 
   describe('Critical Edge Cases for diffReplace', () => {
@@ -233,30 +233,35 @@ describe('diffReplace function tests', () => {
       obj3.self = obj3;
 
       expect(() => diffReplace(obj1, obj2)).not.toThrow();
-      expect(diffReplace(obj1, obj2)).toEqual({ name: 'obj2', self: obj2 });
-      expect(diffReplace(obj1, obj3)).toEqual({});
+      expect(diffReplace(obj1, obj2)).toStrictEqual({
+        name: 'obj2',
+        self: obj2,
+      });
+      expect(diffReplace(obj1, obj3)).toStrictEqual({});
     });
 
     test('should replace object when a property is changed from a value to undefined', () => {
       const obj1 = { a: 1, b: 2, c: 3 };
       const obj2 = { a: 1, b: undefined, c: 3 };
 
-      expect(diffReplace(obj1, obj2)).toEqual({ b: undefined });
+      expect(diffReplace(obj1, obj2)).toStrictEqual({ b: undefined });
     });
 
     test('should replace object when a property is removed', () => {
-      const obj1 = { a: 1, b: 2 };
-      const obj2 = { a: 1 };
+      const obj1 = { a: { a: 1 }, b: 2, c: 3 };
+      const obj2 = { a: { a: 1 } };
 
-      expect(diffReplace(obj1, obj2)).toEqual({});
-      expect(diffReplace(obj2, obj1)).toEqual({ b: 2 });
+      expect(diffReplace(obj1, obj2)).toStrictEqual({});
+      expect(diffReplace(obj2, obj1)).toStrictEqual({ b: 2, c: 3 });
     });
 
     test('should replace array when sparse vs undefined elements are present', () => {
       const obj1 = { data: [1, null, 3] };
       const obj2 = { data: [1, undefined, 3] };
 
-      expect(diffReplace(obj1, obj2)).toEqual({ data: [1, undefined, 3] });
+      expect(diffReplace(obj1, obj2)).toStrictEqual({
+        data: [1, undefined, 3],
+      });
     });
 
     test('should correctly diff objects with different prototypes', () => {
@@ -264,7 +269,7 @@ describe('diffReplace function tests', () => {
       const obj2 = Object.create(null);
       obj2.a = 1;
 
-      expect(diffReplace(obj1, obj2)).toEqual(obj2);
+      expect(diffReplace(obj1, obj2)).toStrictEqual(obj2);
     });
   });
 });
