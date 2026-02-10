@@ -203,29 +203,36 @@ const createResizeResult = (geometry, axes, box) => {
   };
 };
 
+const SNAP_SIZE_EPSILON = 1e-6;
+
 const snapSizeToUnit = (rawSize, baseSize, minSize = 1) => {
   const minUnit = Math.max(1, Math.ceil(minSize));
   const safeRaw = Number.isFinite(rawSize) ? rawSize : minUnit;
   const safeBase = Number.isFinite(baseSize) ? baseSize : minUnit;
-  const EPSILON = 1e-6;
-  const normalizedBase = Number.isInteger(safeBase)
-    ? safeBase
-    : Math.round(safeBase);
 
-  if (Math.abs(safeRaw - safeBase) <= EPSILON) {
+  if (Math.abs(safeRaw - safeBase) <= SNAP_SIZE_EPSILON) {
+    const normalizedBase = Number.isInteger(safeBase)
+      ? safeBase
+      : Math.round(safeBase);
     return Math.max(minUnit, normalizedBase);
   }
 
-  const baseUp = Number.isInteger(safeBase) ? safeBase : Math.ceil(safeBase);
-  const baseDown = Number.isInteger(safeBase) ? safeBase : Math.floor(safeBase);
-
-  if (safeRaw > safeBase) {
-    const snapped =
-      safeRaw < baseUp ? baseUp : baseUp + Math.floor(safeRaw - baseUp);
-    return Math.max(minUnit, snapped);
-  }
-
+  const lower = Number.isInteger(safeBase) ? safeBase : Math.floor(safeBase);
+  const upper = Number.isInteger(safeBase) ? safeBase : Math.ceil(safeBase);
   const snapped =
-    safeRaw > baseDown ? baseDown : baseDown - Math.floor(baseDown - safeRaw);
+    safeRaw > safeBase
+      ? snapGrowingSize(safeRaw, upper)
+      : snapShrinkingSize(safeRaw, lower);
+
   return Math.max(minUnit, snapped);
 };
+
+const snapGrowingSize = (rawSize, upperBound) =>
+  rawSize < upperBound
+    ? upperBound
+    : upperBound + Math.floor(rawSize - upperBound);
+
+const snapShrinkingSize = (rawSize, lowerBound) =>
+  rawSize > lowerBound
+    ? lowerBound
+    : lowerBound - Math.floor(lowerBound - rawSize);
