@@ -35,7 +35,7 @@ const DEFAULT_HANDLE_STYLE = { fill: '#FFFFFF', stroke: '#1099FF', size: 8 };
  * @property {WireframeStyle} [wireframeStyle] - The style of the wireframe.
  * @property {BoundsDisplayMode} [boundsDisplayMode='all'] - The mode for displaying bounds.
  * @property {boolean} [resizeHandles=false] - Enable group resize handles.
- * @property {boolean} [resizeHistory=false] - Store history while resizing.
+ * @property {boolean} [resizeHistory=false] - Record resize changes to undo/redo history.
  */
 
 const TransformerSchema = z
@@ -95,7 +95,7 @@ export default class Transformer extends Container {
   _resizeHandles = false;
 
   /**
-   * Flag to store history while resizing.
+   * Flag to record resize changes to undo/redo history.
    * @private
    * @type {boolean}
    */
@@ -294,7 +294,7 @@ export default class Transformer extends Container {
   }
 
   /**
-   * Enables or disables history recording during resize.
+   * Enables or disables recording resize changes to undo/redo history.
    * @type {boolean}
    */
   get resizeHistory() {
