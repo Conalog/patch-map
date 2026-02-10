@@ -220,6 +220,13 @@ describe('Transformer', () => {
         : [];
     };
 
+    const getResizeFrame = (transformer) => {
+      const handleLayer = getHandleLayer(transformer);
+      return handleLayer?.children.find(
+        (child) => child.visible && child.label === 'resize-frame',
+      );
+    };
+
     const getEdgeTarget = (transformer, edge) => {
       const handleLayer = getHandleLayer(transformer);
       const target = handleLayer?.children.find(
@@ -478,6 +485,43 @@ describe('Transformer', () => {
       transformer.draw();
 
       expect(getVisibleHandles(transformer)).toHaveLength(4);
+    });
+
+    it('should position handles based on resizable elements in mixed selection', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({
+        resizeHandles: true,
+        boundsDisplayMode: 'groupOnly',
+      });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      const item = patchmap.selector('$..[?(@.id=="item-4")]')[0];
+
+      transformer.elements = [rect];
+      transformer.draw();
+      const soloBottomRightHandle = getBottomRightHandle(transformer);
+
+      transformer.elements = [rect, item];
+      transformer.draw();
+      const bottomRightHandle = getBottomRightHandle(transformer);
+
+      expect(bottomRightHandle.x).toBeCloseTo(soloBottomRightHandle.x, 3);
+      expect(bottomRightHandle.y).toBeCloseTo(soloBottomRightHandle.y, 3);
+    });
+
+    it('should render a visible resize frame when resize handles are shown', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      transformer.draw();
+
+      expect(getResizeFrame(transformer)).toBeTruthy();
     });
 
     it('should prioritize corner handles over edge hit targets in overlap areas', () => {

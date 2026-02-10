@@ -40,6 +40,7 @@ const CORNER_RESIZE_HANDLES = [
 const EDGE_RESIZE_HANDLES = ['top', 'right', 'bottom', 'left'];
 const EDGE_HIT_WIDTH = 12;
 const CORNER_HIT_SIZE = 12;
+const RESIZE_FRAME_Z_INDEX = 0;
 const EDGE_TARGET_Z_INDEX = 1;
 const CORNER_HANDLE_Z_INDEX = 2;
 const MIN_VIEWPORT_SCALE = 1e-6;
@@ -104,6 +105,12 @@ export default class ResizeHandleLayer {
   _edgeMap = new Map();
 
   /**
+   * @private
+   * @type {PIXI.Graphics | null}
+   */
+  _resizeFrame = null;
+
+  /**
    * @param {object} options
    * @param {PIXI.Container} options.transformer
    * @param {PIXI.Container} options.layer
@@ -134,6 +141,11 @@ export default class ResizeHandleLayer {
    * @returns {void}
    */
   clear() {
+    if (this._resizeFrame) {
+      this._resizeFrame.clear();
+      this._resizeFrame.visible = false;
+    }
+
     this._handleMap.forEach((handle) => {
       handle.clear();
       handle.visible = false;
@@ -160,6 +172,7 @@ export default class ResizeHandleLayer {
 
     this.#ensureHandles();
     this.#ensureEdges();
+    this.#ensureResizeFrame();
 
     const viewport = this._getViewport();
     const viewportScale = getSafeViewportScale(viewport);
@@ -201,6 +214,13 @@ export default class ResizeHandleLayer {
       handle.visible = true;
     });
 
+    this.#drawResizeFrame({
+      bounds,
+      viewport,
+      viewportScale,
+      strokeWidth,
+      strokeColor: handleStyle.stroke,
+    });
     this.#drawEdgeTargets(bounds, positions, viewportScale);
   }
 
@@ -238,11 +258,91 @@ export default class ResizeHandleLayer {
     });
   }
 
+  #ensureResizeFrame() {
+    if (this._resizeFrame) return;
+
+    const frame = new Graphics();
+    frame.eventMode = 'none';
+    frame.zIndex = RESIZE_FRAME_Z_INDEX;
+    frame.label = 'resize-frame';
+    frame.visible = false;
+    this._resizeFrame = frame;
+    this._layer.addChild(frame);
+  }
+
+  #drawResizeFrame({
+    bounds,
+    viewport,
+    viewportScale,
+    strokeWidth,
+    strokeColor,
+  }) {
+    if (!this._resizeFrame) return;
+
+    const localRect = this.#toLocalRect(bounds, viewport, viewportScale);
+    this._resizeFrame.clear();
+    this._resizeFrame
+      .rect(localRect.x, localRect.y, localRect.width, localRect.height)
+      .stroke({
+        color: strokeColor,
+        width: strokeWidth,
+      });
+    this._resizeFrame.visible = true;
+  }
+
   #drawEdgeTargets(bounds, positions, viewportScale) {
     const edgeHitWidth = EDGE_HIT_WIDTH / viewportScale;
-    const minEdgeSize = 1 / viewportScale;
     const viewport = this._getViewport();
+    const { x, y, width, height } = this.#toLocalRect(
+      bounds,
+      viewport,
+      viewportScale,
+    );
 
+    const edgeAreas = {
+      top: {
+        x,
+        y: y - edgeHitWidth / 2,
+        width,
+        height: edgeHitWidth,
+      },
+      right: {
+        x: x + width - edgeHitWidth / 2,
+        y,
+        width: edgeHitWidth,
+        height,
+      },
+      bottom: {
+        x,
+        y: y + height - edgeHitWidth / 2,
+        width,
+        height: edgeHitWidth,
+      },
+      left: {
+        x: x - edgeHitWidth / 2,
+        y,
+        width: edgeHitWidth,
+        height,
+      },
+    };
+
+    this._edgeMap.forEach((edge, key) => {
+      const area = edgeAreas[key];
+      if (!area) {
+        edge.visible = false;
+        return;
+      }
+      edge.clear();
+      edge.rect(area.x, area.y, area.width, area.height).fill({
+        color: this._getHandleStyle().fill,
+        alpha: 0.001,
+      });
+      edge.visible = Boolean(positions[key]);
+    });
+  }
+
+  #toLocalRect(bounds, viewport, viewportScale) {
+    const minEdgeSize = 1 / viewportScale;
     const topLeft = this._transformer.toLocal(
       new Point(bounds.x, bounds.y),
       viewport ?? undefined,
@@ -265,45 +365,11 @@ export default class ResizeHandleLayer {
     const topY = Math.min(topLeft.y, topRight.y);
     const bottomY = Math.max(bottomLeft.y, bottomRight.y);
 
-    const edgeAreas = {
-      top: {
-        x: leftX,
-        y: topY - edgeHitWidth / 2,
-        width: Math.max(minEdgeSize, rightX - leftX),
-        height: edgeHitWidth,
-      },
-      right: {
-        x: rightX - edgeHitWidth / 2,
-        y: topY,
-        width: edgeHitWidth,
-        height: Math.max(minEdgeSize, bottomY - topY),
-      },
-      bottom: {
-        x: leftX,
-        y: bottomY - edgeHitWidth / 2,
-        width: Math.max(minEdgeSize, rightX - leftX),
-        height: edgeHitWidth,
-      },
-      left: {
-        x: leftX - edgeHitWidth / 2,
-        y: topY,
-        width: edgeHitWidth,
-        height: Math.max(minEdgeSize, bottomY - topY),
-      },
+    return {
+      x: leftX,
+      y: topY,
+      width: Math.max(minEdgeSize, rightX - leftX),
+      height: Math.max(minEdgeSize, bottomY - topY),
     };
-
-    this._edgeMap.forEach((edge, key) => {
-      const area = edgeAreas[key];
-      if (!area) {
-        edge.visible = false;
-        return;
-      }
-      edge.clear();
-      edge.rect(area.x, area.y, area.width, area.height).fill({
-        color: this._getHandleStyle().fill,
-        alpha: 0.001,
-      });
-      edge.visible = Boolean(positions[key]);
-    });
   }
 }

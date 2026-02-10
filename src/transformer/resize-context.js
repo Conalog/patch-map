@@ -74,7 +74,10 @@ export const buildResizeContext = ({ elements, viewport }) => {
   const resizableElements = getResizableElements(elements);
   if (resizableElements.length === 0) return null;
 
-  const bounds = getGroupBoundsInViewportSpace({ elements, viewport });
+  const bounds = getGroupBoundsInViewportSpace({
+    elements: resizableElements,
+    viewport,
+  });
   if (!bounds) return null;
 
   return {
