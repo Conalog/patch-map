@@ -473,6 +473,15 @@ describe('Transformer', () => {
       });
     });
 
+    it('should sync handle stroke when wireframeStyle.color is numeric zero', () => {
+      const transformer = new Transformer({
+        resizeHandles: true,
+        wireframeStyle: { color: 0 },
+      });
+
+      expect(transformer._resizeHandleStyle.stroke).toBe(0);
+    });
+
     it('should render only four corner handles', () => {
       const patchmap = getPatchmap();
       patchmap.draw(resizeSampleData);
