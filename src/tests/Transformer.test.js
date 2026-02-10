@@ -358,6 +358,8 @@ describe('Transformer', () => {
       patchmap.draw(resizeSampleData);
       const transformer = new Transformer({ resizeHandles: true });
       patchmap.transformer = transformer;
+      patchmap.viewport.plugin.add({ mouseEdges: {} });
+      patchmap.viewport.plugin.stop('mouse-edges');
 
       const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
       transformer.elements = [rect];
@@ -369,6 +371,27 @@ describe('Transformer', () => {
 
       expect(startSpy).toHaveBeenCalledWith('mouse-edges');
       expect(stopSpy).toHaveBeenCalledWith('mouse-edges');
+    });
+
+    it('should keep mouse-edges active when it was already active before resize', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+      patchmap.viewport.plugin.add({ mouseEdges: {} });
+      patchmap.viewport.plugin.start('mouse-edges');
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+
+      const startSpy = vi.spyOn(patchmap.viewport.plugin, 'start');
+      const stopSpy = vi.spyOn(patchmap.viewport.plugin, 'stop');
+
+      resizeWithBottomRightHandle(patchmap, transformer, { x: 40, y: 30 });
+
+      expect(startSpy).not.toHaveBeenCalled();
+      expect(stopSpy).not.toHaveBeenCalled();
+      expect(patchmap.viewport.plugins.get('mouse-edges')?.paused).toBe(false);
     });
 
     it('should apply integer sizes when resizing elements with decimal sizes', () => {
@@ -421,6 +444,26 @@ describe('Transformer', () => {
 
       expect(getVisibleHandles(transformer)).toHaveLength(0);
       expect(getVisibleEdges(transformer)).toHaveLength(0);
+    });
+
+    it('should keep positive stroke and hit areas when viewport scale.x is negative', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      patchmap.viewport.scale.set(-2, 2);
+      transformer.draw();
+
+      const visibleHandles = getVisibleHandles(transformer);
+      expect(transformer.wireframe.strokeStyle.width).toBeGreaterThan(0);
+      expect(visibleHandles.length).toBeGreaterThan(0);
+      visibleHandles.forEach((handle) => {
+        expect(handle.hitArea?.width).toBeGreaterThan(0);
+        expect(handle.hitArea?.height).toBeGreaterThan(0);
+      });
     });
 
     it('should render only four corner handles', () => {

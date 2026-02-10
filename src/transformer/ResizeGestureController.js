@@ -83,7 +83,7 @@ export default class ResizeGestureController {
    * @private
    * @type {boolean}
    */
-  _mouseEdgesActive = false;
+  _ownsMouseEdgesSession = false;
 
   /**
    * @param {ResizeGestureControllerOptions} options
@@ -203,17 +203,29 @@ export default class ResizeGestureController {
 
   #startMouseEdges() {
     const viewport = this._getViewport();
-    if (!viewport?.plugin?.start || this._mouseEdgesActive) return;
+    if (!viewport?.plugin?.start || this._ownsMouseEdgesSession) return;
+
+    const mouseEdgesPlugin = viewport?.plugins?.get?.('mouse-edges');
+    if (!mouseEdgesPlugin) {
+      this._ownsMouseEdgesSession = false;
+      return;
+    }
+
+    const wasPaused = Boolean(mouseEdgesPlugin.paused);
+    if (!wasPaused) {
+      this._ownsMouseEdgesSession = false;
+      return;
+    }
 
     viewport.plugin.start('mouse-edges');
-    this._mouseEdgesActive = true;
+    this._ownsMouseEdgesSession = true;
   }
 
   #stopMouseEdges() {
-    if (!this._mouseEdgesActive) return;
+    if (!this._ownsMouseEdgesSession) return;
 
     const viewport = this._getViewport();
     viewport?.plugin?.stop?.('mouse-edges');
-    this._mouseEdgesActive = false;
+    this._ownsMouseEdgesSession = false;
   }
 }

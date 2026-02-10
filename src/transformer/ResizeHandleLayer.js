@@ -42,6 +42,13 @@ const EDGE_HIT_WIDTH = 12;
 const CORNER_HIT_SIZE = 12;
 const EDGE_TARGET_Z_INDEX = 1;
 const CORNER_HANDLE_Z_INDEX = 2;
+const MIN_VIEWPORT_SCALE = 1e-6;
+
+const getSafeViewportScale = (viewport) => {
+  const rawScale = viewport?.scale?.x ?? 1;
+  const normalizedScale = Number.isFinite(rawScale) ? Math.abs(rawScale) : 1;
+  return Math.max(MIN_VIEWPORT_SCALE, normalizedScale);
+};
 
 /**
  * Renders resize corner handles and edge hit targets onto a dedicated layer.
@@ -155,7 +162,7 @@ export default class ResizeHandleLayer {
     this.#ensureEdges();
 
     const viewport = this._getViewport();
-    const viewportScale = viewport?.scale?.x ?? 1;
+    const viewportScale = getSafeViewportScale(viewport);
     const handleStyle = this._getHandleStyle();
     const strokeWidth = this._getStrokeWidth();
     const size = handleStyle.size / viewportScale;
