@@ -207,13 +207,11 @@ export default class ResizeGestureController {
 
     const mouseEdgesPlugin = viewport?.plugins?.get?.('mouse-edges');
     if (!mouseEdgesPlugin) {
-      this._ownsMouseEdgesSession = false;
       return;
     }
 
     const wasPaused = Boolean(mouseEdgesPlugin.paused);
     if (!wasPaused) {
-      this._ownsMouseEdgesSession = false;
       return;
     }
 

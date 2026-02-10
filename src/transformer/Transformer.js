@@ -4,6 +4,7 @@ import { isValidationError } from 'zod-validation-error';
 import { calcGroupOrientedBounds, calcOrientedBounds } from '../utils/bounds';
 import { getViewport } from '../utils/get';
 import { validate } from '../utils/validator';
+import { getSafeViewportScale } from '../utils/viewport';
 import ResizeGestureController from './ResizeGestureController';
 import ResizeHandleLayer from './ResizeHandleLayer';
 import { buildResizeContext } from './resize-context';
@@ -12,7 +13,6 @@ import { Wireframe } from './Wireframe';
 
 const DEFAULT_WIREFRAME_STYLE = { thickness: 1.5, color: '#1099FF' };
 const DEFAULT_HANDLE_STYLE = { fill: '#FFFFFF', stroke: '#1099FF', size: 8 };
-const MIN_VIEWPORT_SCALE = 1e-6;
 
 /**
  * @typedef {'all' | 'groupOnly' | 'elementOnly' | 'none'} BoundsDisplayMode
@@ -371,11 +371,7 @@ export default class Transformer extends Container {
   #syncWireframeStrokeWidth() {
     if (this.boundsDisplayMode === 'none' && !this._resizeHandles) return;
 
-    const rawScale = this._viewport?.scale?.x ?? 1;
-    const viewportScale = Math.max(
-      MIN_VIEWPORT_SCALE,
-      Number.isFinite(rawScale) ? Math.abs(rawScale) : 1,
-    );
+    const viewportScale = getSafeViewportScale(this._viewport);
 
     this.wireframe.strokeStyle.width =
       this.wireframeStyle.thickness / viewportScale;
