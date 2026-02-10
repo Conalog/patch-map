@@ -4,13 +4,15 @@ import { isValidationError } from 'zod-validation-error';
 import { calcGroupOrientedBounds, calcOrientedBounds } from '../utils/bounds';
 import { getViewport } from '../utils/get';
 import { validate } from '../utils/validator';
+import { getSafeViewportScale } from '../utils/viewport';
+import ResizeGestureController from './ResizeGestureController';
+import ResizeHandleLayer from './ResizeHandleLayer';
+import { buildResizeContext } from './resize-context';
 import SelectionModel from './SelectionModel';
 import { Wireframe } from './Wireframe';
 
-const DEFAULT_WIREFRAME_STYLE = {
-  thickness: 1.5,
-  color: '#1099FF',
-};
+const DEFAULT_WIREFRAME_STYLE = { thickness: 1.5, color: '#1099FF' };
+const DEFAULT_HANDLE_STYLE = { fill: '#FFFFFF', stroke: '#1099FF', size: 8 };
 
 /**
  * @typedef {'all' | 'groupOnly' | 'elementOnly' | 'none'} BoundsDisplayMode
@@ -32,6 +34,8 @@ const DEFAULT_WIREFRAME_STYLE = {
  * @property {PIXI.DisplayObject[]} [elements] - The initial elements to be transformed.
  * @property {WireframeStyle} [wireframeStyle] - The style of the wireframe.
  * @property {BoundsDisplayMode} [boundsDisplayMode='all'] - The mode for displaying bounds.
+ * @property {boolean} [resizeHandles=false] - Enable group resize handles.
+ * @property {boolean} [resizeHistory=false] - Record resize changes to undo/redo history.
  */
 
 const TransformerSchema = z
@@ -39,6 +43,8 @@ const TransformerSchema = z
     elements: z.array(z.any()),
     wireframeStyle: z.record(z.string(), z.unknown()),
     boundsDisplayMode: z.enum(['all', 'groupOnly', 'elementOnly', 'none']),
+    resizeHandles: z.boolean(),
+    resizeHistory: z.boolean(),
   })
   .partial();
 
@@ -82,11 +88,52 @@ export default class Transformer extends Container {
   _viewport = null;
 
   /**
+   * Flag to enable resize handles for group bounds.
+   * @private
+   * @type {boolean}
+   */
+  _resizeHandles = false;
+
+  /**
+   * Flag to record resize changes to undo/redo history.
+   * @private
+   * @type {boolean}
+   */
+  _resizeHistory = false;
+
+  /**
+   * The container holding resize handle graphics.
+   * @private
+   * @type {PIXI.Container}
+   */
+  _resizeHandleLayer;
+
+  /**
+   * @private
+   * @type {{ fill: string | number, stroke: string | number, size: number }}
+   */
+  _resizeHandleStyle = { ...DEFAULT_HANDLE_STYLE };
+
+  /**
    * Manages the state of the currently selected elements.
    * @private
    * @type {SelectionModel}
    */
   _selection;
+
+  /**
+   * Handles drawing and hit-target rendering for resize handles.
+   * @private
+   * @type {ResizeHandleLayer}
+   */
+  _resizeHandleRenderer;
+
+  /**
+   * Handles pointer gesture lifecycle for resizing.
+   * @private
+   * @type {ResizeGestureController}
+   */
+  _resizeGesture;
 
   /**
    * @param {TransformerOptions} [opts] - The options for the transformer.
@@ -99,8 +146,33 @@ export default class Transformer extends Container {
 
     this._selection = new SelectionModel();
     this.#wireframe = this.addChild(new Wireframe({ type: 'wireframe' }));
+    this._resizeHandleLayer = this.addChild(
+      new Container({ label: 'resize-handles', sortableChildren: true }),
+    );
+
+    this._resizeHandleRenderer = new ResizeHandleLayer({
+      transformer: this,
+      layer: this._resizeHandleLayer,
+      getViewport: () => this._viewport,
+      getHandleStyle: () => this._resizeHandleStyle,
+      getStrokeWidth: () => this.wireframe.strokeStyle.width,
+      onHandlePointerDown: (handle, event) => {
+        this._resizeGesture.begin(handle, event);
+      },
+    });
+
+    this._resizeGesture = new ResizeGestureController({
+      getViewport: () => this._viewport,
+      canStart: () => this.#shouldShowResizeHandles(),
+      getResizeContext: () => this.#buildResizeContext(),
+      getResizeHistory: () => this._resizeHistory,
+      emitUpdateElements: () => this.#emitUpdateElements(),
+      requestRender: this.update,
+    });
+
     this.wireframeStyle = DEFAULT_WIREFRAME_STYLE;
     this.onRender = this.#refresh.bind(this);
+
     for (const key in options) {
       if (key === 'wireframeStyle') {
         this[key] = Object.assign(this[key], options[key]);
@@ -118,7 +190,7 @@ export default class Transformer extends Container {
      */
     this._selection.on('update', ({ current, added, removed }) => {
       this.update();
-      this.emit('update_elements', { target: this, current, added, removed });
+      this.#emitUpdateElements({ current, added, removed });
     });
 
     this.on('added', () => {
@@ -198,7 +270,39 @@ export default class Transformer extends Container {
   set wireframeStyle(value) {
     this._wireframeStyle = Object.assign(this._wireframeStyle, value);
     this.wireframe.setStrokeStyle(this.wireframeStyle);
+    if (this.wireframeStyle?.color != null) {
+      this._resizeHandleStyle.stroke = this.wireframeStyle.color;
+    }
     this.update();
+  }
+
+  /**
+   * Enables or disables resize handles for group bounds.
+   * @type {boolean}
+   */
+  get resizeHandles() {
+    return this._resizeHandles;
+  }
+
+  set resizeHandles(value) {
+    this._resizeHandles = Boolean(value);
+    if (!this._resizeHandles) {
+      this._resizeHandleRenderer.clear();
+      this._resizeGesture.end();
+    }
+    this.update();
+  }
+
+  /**
+   * Enables or disables recording resize changes to undo/redo history.
+   * @type {boolean}
+   */
+  get resizeHistory() {
+    return this._resizeHistory;
+  }
+
+  set resizeHistory(value) {
+    this._resizeHistory = Boolean(value);
   }
 
   /**
@@ -212,6 +316,9 @@ export default class Transformer extends Container {
       this._viewport.off('zoomed', this.update);
       this._viewport.off('zoomed-end', this.update);
     }
+
+    this._resizeGesture.destroy();
+    this._resizeHandleRenderer.clear();
     this.selection.destroy();
     super.destroy(options);
   }
@@ -232,35 +339,20 @@ export default class Transformer extends Container {
    */
   draw() {
     const elements = this.elements;
-    let groupBounds = null;
+    const resizeContext = this.#buildResizeContext(elements);
+
     this.wireframe.clear();
 
-    if (!elements || elements.length === 0) {
+    if (this.#isEmptySelection(elements)) {
       this._renderDirty = false;
+      this._resizeHandleRenderer.clear();
       return;
     }
 
-    if (this.boundsDisplayMode !== 'none') {
-      this.wireframe.strokeStyle.width =
-        this.wireframeStyle.thickness / (this._viewport?.scale?.x ?? 1);
-    }
-
-    if (
-      this.boundsDisplayMode === 'all' ||
-      this.boundsDisplayMode === 'elementOnly'
-    ) {
-      elements.forEach((element) => {
-        this.wireframe.drawBounds(calcOrientedBounds(element));
-      });
-    }
-
-    if (
-      this.boundsDisplayMode === 'all' ||
-      this.boundsDisplayMode === 'groupOnly'
-    ) {
-      groupBounds = calcGroupOrientedBounds(elements);
-      this.wireframe.drawBounds(groupBounds);
-    }
+    this.#syncWireframeStrokeWidth();
+    this.#drawElementBounds(elements);
+    this.#drawGroupBounds(elements);
+    this.#drawResizeHandlesFor(resizeContext);
     this._renderDirty = false;
   }
 
@@ -271,4 +363,74 @@ export default class Transformer extends Container {
   update = () => {
     this._renderDirty = true;
   };
+
+  #isEmptySelection(elements) {
+    return !elements || elements.length === 0;
+  }
+
+  #syncWireframeStrokeWidth() {
+    if (this.boundsDisplayMode === 'none' && !this._resizeHandles) return;
+
+    const viewportScale = getSafeViewportScale(this._viewport);
+
+    this.wireframe.strokeStyle.width =
+      this.wireframeStyle.thickness / viewportScale;
+  }
+
+  #drawElementBounds(elements) {
+    if (
+      this.boundsDisplayMode !== 'all' &&
+      this.boundsDisplayMode !== 'elementOnly'
+    ) {
+      return;
+    }
+
+    elements.forEach((element) => {
+      this.wireframe.drawBounds(calcOrientedBounds(element));
+    });
+  }
+
+  #drawGroupBounds(elements) {
+    const shouldShowResizeHandles = this.#shouldShowResizeHandles();
+    if (
+      this.boundsDisplayMode !== 'all' &&
+      this.boundsDisplayMode !== 'groupOnly' &&
+      !shouldShowResizeHandles
+    ) {
+      return;
+    }
+
+    const groupBounds = calcGroupOrientedBounds(elements);
+    if (groupBounds) {
+      this.wireframe.drawBounds(groupBounds);
+    }
+  }
+
+  #drawResizeHandlesFor(resizeContext) {
+    if (!this.#shouldShowResizeHandles() || !resizeContext) {
+      this._resizeHandleRenderer.clear();
+      return;
+    }
+
+    this._resizeHandleRenderer.draw(resizeContext.bounds);
+  }
+
+  #shouldShowResizeHandles() {
+    return this._resizeHandles && this.boundsDisplayMode !== 'none';
+  }
+
+  #emitUpdateElements({
+    current = this.elements,
+    added = [],
+    removed = [],
+  } = {}) {
+    this.emit('update_elements', { target: this, current, added, removed });
+  }
+
+  #buildResizeContext(elements = this.elements) {
+    return buildResizeContext({
+      elements,
+      viewport: this._viewport,
+    });
+  }
 }

@@ -576,6 +576,8 @@ patchmap.stateManager.setState('selection', {
       - `'groupOnly'`: 그룹의 전체 외곽선만 표시합니다.
       - `'elementOnly'`: 그룹 내 개별 요소의 외곽선만 표시합니다.
       - `'none'`: 외곽선을 표시하지 않습니다.
+  - `resizeHandles` (optional, boolean): 그룹 리사이즈 핸들과 엣지 히트 타깃을 활성화합니다 (기본값: `false`).
+  - `resizeHistory` (optional, boolean): 리사이즈 변경 사항을 `undoRedoManager`에 기록할지 결정합니다 (기본값: `false`). 활성화하면 한 번의 드래그 제스처 내 업데이트가 하나의 실행 취소/재실행 단계로 묶입니다.
 
 ```js
 import { Patchmap, Transformer } from '@conalog/patch-map';

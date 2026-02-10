@@ -1,6 +1,8 @@
+import { Container, Point } from 'pixi.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Transformer } from '../patch-map';
 import { setupPatchmapTests } from '../tests/render/patchmap.setup';
+import ResizeHandleLayer from '../transformer/ResizeHandleLayer';
 
 const sampleData = [
   {
@@ -30,7 +32,12 @@ describe('Transformer', () => {
       expect(transformer.boundsDisplayMode).toBe('all');
       expect(transformer.wireframeStyle.thickness).toBe(1.5);
       expect(transformer.wireframeStyle.color).toBe('#1099FF');
-      expect(transformer.children.length).toBe(1); // wireframe
+      expect(
+        transformer.children.some((child) => child.type === 'wireframe'),
+      ).toBe(true);
+      expect(
+        transformer.children.some((child) => child.label === 'resize-handles'),
+      ).toBe(true);
     });
 
     it('should instantiate with custom options', () => {
@@ -156,6 +163,564 @@ describe('Transformer', () => {
       transformer.elements = [item1, item2];
       transformer.draw();
       expect(drawBoundsSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Resize Handles', () => {
+    const resizeSampleData = [
+      {
+        type: 'rect',
+        id: 'rect-1',
+        size: { width: 100, height: 80 },
+        attrs: { x: 100, y: 100 },
+      },
+      {
+        type: 'image',
+        id: 'image-1',
+        source: '',
+        size: { width: 120, height: 90 },
+        attrs: { x: 260, y: 120 },
+      },
+      {
+        type: 'item',
+        id: 'item-4',
+        size: 70,
+        attrs: { x: 420, y: 140 },
+      },
+    ];
+
+    const getBottomRightHandle = (transformer) => {
+      const handleLayer = getHandleLayer(transformer);
+      if (!handleLayer) throw new Error('resize handle layer is missing');
+      const visibleHandles = getVisibleHandles(transformer);
+      if (visibleHandles.length === 0)
+        throw new Error('visible resize handle is missing');
+      return visibleHandles.reduce((maxHandle, handle) =>
+        handle.x + handle.y > maxHandle.x + maxHandle.y ? handle : maxHandle,
+      );
+    };
+
+    const getHandleLayer = (transformer) =>
+      transformer.children.find((child) => child.label === 'resize-handles');
+
+    const getVisibleHandles = (transformer) => {
+      const handleLayer = getHandleLayer(transformer);
+      return handleLayer
+        ? handleLayer.children.filter(
+            (child) =>
+              child.visible && child.label?.startsWith('resize-handle:'),
+          )
+        : [];
+    };
+
+    const getVisibleEdges = (transformer) => {
+      const handleLayer = getHandleLayer(transformer);
+      return handleLayer
+        ? handleLayer.children.filter(
+            (child) => child.visible && child.label?.startsWith('resize-edge:'),
+          )
+        : [];
+    };
+
+    const getResizeFrame = (transformer) => {
+      const handleLayer = getHandleLayer(transformer);
+      return handleLayer?.children.find(
+        (child) => child.visible && child.label === 'resize-frame',
+      );
+    };
+
+    const getEdgeTarget = (transformer, edge) => {
+      const handleLayer = getHandleLayer(transformer);
+      const target = handleLayer?.children.find(
+        (child) => child.label === `resize-edge:${edge}`,
+      );
+      if (!target || !target.visible) {
+        throw new Error(`resize edge target is missing: ${edge}`);
+      }
+      return target;
+    };
+
+    const resizeWithBottomRightHandle = (
+      patchmap,
+      transformer,
+      delta,
+      { shiftKey = false } = {},
+    ) => {
+      transformer.draw();
+      const handle = getBottomRightHandle(transformer);
+      const startGlobal = transformer.toGlobal({ x: handle.x, y: handle.y });
+      const endGlobal = {
+        x: startGlobal.x + delta.x,
+        y: startGlobal.y + delta.y,
+      };
+
+      handle.emit('pointerdown', {
+        global: startGlobal,
+        stopPropagation: vi.fn(),
+      });
+      patchmap.viewport.emit('pointermove', {
+        global: endGlobal,
+        shiftKey,
+        stopPropagation: vi.fn(),
+      });
+      patchmap.viewport.emit('pointerup', {
+        global: endGlobal,
+        stopPropagation: vi.fn(),
+      });
+    };
+
+    const resizeWithEdge = (
+      patchmap,
+      transformer,
+      edge,
+      delta,
+      startPoint,
+      { shiftKey = false } = {},
+    ) => {
+      transformer.draw();
+      const edgeTarget = getEdgeTarget(transformer, edge);
+      const edgeBounds = edgeTarget.getLocalBounds();
+      const defaultCenter = edgeTarget.toGlobal({
+        x: edgeBounds.x + edgeBounds.width / 2,
+        y: edgeBounds.y + edgeBounds.height / 2,
+      });
+      const startGlobal = startPoint ?? {
+        x: defaultCenter.x,
+        y: defaultCenter.y,
+      };
+      const endGlobal = {
+        x: startGlobal.x + delta.x,
+        y: startGlobal.y + delta.y,
+      };
+
+      edgeTarget.emit('pointerdown', {
+        global: startGlobal,
+        stopPropagation: vi.fn(),
+      });
+      patchmap.viewport.emit('pointermove', {
+        global: endGlobal,
+        shiftKey,
+        stopPropagation: vi.fn(),
+      });
+      patchmap.viewport.emit('pointerup', {
+        global: endGlobal,
+        stopPropagation: vi.fn(),
+      });
+    };
+
+    it('should resize only rect and image elements', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      const image = patchmap.selector('$..[?(@.id=="image-1")]')[0];
+      const item = patchmap.selector('$..[?(@.id=="item-4")]')[0];
+      transformer.elements = [rect, image, item];
+
+      const rectApplySpy = vi.spyOn(rect, 'apply');
+      const imageApplySpy = vi.spyOn(image, 'apply');
+      const itemApplySpy = vi.spyOn(item, 'apply');
+      const initialItemProps = structuredClone(item.props);
+
+      resizeWithBottomRightHandle(patchmap, transformer, { x: 40, y: 30 });
+
+      expect(rectApplySpy).toHaveBeenCalled();
+      expect(imageApplySpy).toHaveBeenCalled();
+      expect(itemApplySpy).not.toHaveBeenCalled();
+
+      const [rectChanges] = rectApplySpy.mock.calls.at(-1);
+      expect(rectChanges.size.width).toBeGreaterThan(100);
+      expect(rectChanges.size.height).toBeGreaterThan(80);
+      expect(rectChanges.attrs.width).toBeUndefined();
+      expect(rectChanges.attrs.height).toBeUndefined();
+
+      expect(item.props.size).toEqual(initialItemProps.size);
+      expect(item.props.attrs).toEqual(initialItemProps.attrs);
+    });
+
+    it('should emit update_elements while resizing', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+
+      const updateElementsSpy = vi.fn();
+      transformer.on('update_elements', updateElementsSpy);
+
+      resizeWithBottomRightHandle(patchmap, transformer, { x: 40, y: 30 });
+
+      expect(updateElementsSpy).toHaveBeenCalled();
+      const [payload] = updateElementsSpy.mock.calls.at(-1);
+      expect(payload.target).toBe(transformer);
+      expect(payload.current).toEqual([rect]);
+      expect(payload.added).toEqual([]);
+      expect(payload.removed).toEqual([]);
+    });
+
+    it('should start and stop mouse-edges plugin during resize', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+      patchmap.viewport.plugin.add({ mouseEdges: {} });
+      patchmap.viewport.plugin.stop('mouse-edges');
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+
+      const startSpy = vi.spyOn(patchmap.viewport.plugin, 'start');
+      const stopSpy = vi.spyOn(patchmap.viewport.plugin, 'stop');
+
+      resizeWithBottomRightHandle(patchmap, transformer, { x: 40, y: 30 });
+
+      expect(startSpy).toHaveBeenCalledWith('mouse-edges');
+      expect(stopSpy).toHaveBeenCalledWith('mouse-edges');
+    });
+
+    it('should keep mouse-edges active when it was already active before resize', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+      patchmap.viewport.plugin.add({ mouseEdges: {} });
+      patchmap.viewport.plugin.start('mouse-edges');
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+
+      const startSpy = vi.spyOn(patchmap.viewport.plugin, 'start');
+      const stopSpy = vi.spyOn(patchmap.viewport.plugin, 'stop');
+
+      resizeWithBottomRightHandle(patchmap, transformer, { x: 40, y: 30 });
+
+      expect(startSpy).not.toHaveBeenCalled();
+      expect(stopSpy).not.toHaveBeenCalled();
+      expect(patchmap.viewport.plugins.get('mouse-edges')?.paused).toBe(false);
+    });
+
+    it('should apply integer sizes when resizing elements with decimal sizes', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw([
+        {
+          type: 'rect',
+          id: 'rect-decimal',
+          size: { width: 100.4, height: 80.6 },
+          attrs: { x: 100, y: 100 },
+        },
+      ]);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-decimal")]')[0];
+      transformer.elements = [rect];
+      const rectApplySpy = vi.spyOn(rect, 'apply');
+
+      resizeWithBottomRightHandle(patchmap, transformer, { x: 20, y: 20 });
+
+      const [rectChanges] = rectApplySpy.mock.calls.at(-1);
+      expect(Number.isInteger(rectChanges.size.width)).toBe(true);
+      expect(Number.isInteger(rectChanges.size.height)).toBe(true);
+    });
+
+    it('should hide resize handles when selection has no resizable elements', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const item = patchmap.selector('$..[?(@.id=="item-4")]')[0];
+      transformer.elements = [item];
+      transformer.draw();
+
+      expect(getVisibleHandles(transformer)).toHaveLength(0);
+    });
+
+    it('should hide resize handles when boundsDisplayMode is none', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      transformer.boundsDisplayMode = 'none';
+      transformer.draw();
+
+      expect(getVisibleHandles(transformer)).toHaveLength(0);
+      expect(getVisibleEdges(transformer)).toHaveLength(0);
+    });
+
+    it('should keep positive stroke and hit areas when viewport scale.x is negative', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      patchmap.viewport.scale.set(-2, 2);
+      transformer.draw();
+
+      const visibleHandles = getVisibleHandles(transformer);
+      expect(transformer.wireframe.strokeStyle.width).toBeGreaterThan(0);
+      expect(visibleHandles.length).toBeGreaterThan(0);
+      visibleHandles.forEach((handle) => {
+        expect(handle.hitArea?.width).toBeGreaterThan(0);
+        expect(handle.hitArea?.height).toBeGreaterThan(0);
+      });
+    });
+
+    it('should sync handle stroke when wireframeStyle.color is numeric zero', () => {
+      const transformer = new Transformer({
+        resizeHandles: true,
+        wireframeStyle: { color: 0 },
+      });
+
+      expect(transformer._resizeHandleStyle.stroke).toBe(0);
+    });
+
+    it('should render only four corner handles', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      const image = patchmap.selector('$..[?(@.id=="image-1")]')[0];
+      transformer.elements = [rect, image];
+      transformer.draw();
+
+      expect(getVisibleHandles(transformer)).toHaveLength(4);
+    });
+
+    it('should position handles based on resizable elements in mixed selection', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({
+        resizeHandles: true,
+        boundsDisplayMode: 'groupOnly',
+      });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      const item = patchmap.selector('$..[?(@.id=="item-4")]')[0];
+
+      transformer.elements = [rect];
+      transformer.draw();
+      const soloBottomRightHandle = getBottomRightHandle(transformer);
+
+      transformer.elements = [rect, item];
+      transformer.draw();
+      const bottomRightHandle = getBottomRightHandle(transformer);
+
+      expect(bottomRightHandle.x).toBeCloseTo(soloBottomRightHandle.x, 3);
+      expect(bottomRightHandle.y).toBeCloseTo(soloBottomRightHandle.y, 3);
+    });
+
+    it('should render a visible resize frame when resize handles are shown', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      transformer.draw();
+
+      expect(getResizeFrame(transformer)).toBeTruthy();
+    });
+
+    it('should build resize frame bounds from all transformed corners', () => {
+      const angle = (105 * Math.PI) / 180;
+      const cos = Math.cos(-angle);
+      const sin = Math.sin(-angle);
+      const toLocal = ({ x, y }) =>
+        new Point(cos * x - sin * y, sin * x + cos * y);
+
+      const layer = new Container({ sortableChildren: true });
+      const resizeLayer = new ResizeHandleLayer({
+        transformer: { toLocal },
+        layer,
+        getViewport: () => null,
+        getHandleStyle: () => ({ fill: '#fff', stroke: '#1099ff', size: 8 }),
+        getStrokeWidth: () => 0,
+        onHandlePointerDown: () => {},
+      });
+
+      const bounds = { x: 100, y: 100, width: 100, height: 80 };
+      resizeLayer.draw(bounds);
+
+      const frame = layer.children.find(
+        (child) => child.label === 'resize-frame' && child.visible,
+      );
+      expect(frame).toBeTruthy();
+
+      const corners = [
+        toLocal({ x: bounds.x, y: bounds.y }),
+        toLocal({ x: bounds.x + bounds.width, y: bounds.y }),
+        toLocal({
+          x: bounds.x + bounds.width,
+          y: bounds.y + bounds.height,
+        }),
+        toLocal({ x: bounds.x, y: bounds.y + bounds.height }),
+      ];
+      const expectedLeftX = Math.min(...corners.map((corner) => corner.x));
+      const expectedRightX = Math.max(...corners.map((corner) => corner.x));
+      const expectedTopY = Math.min(...corners.map((corner) => corner.y));
+      const expectedBottomY = Math.max(...corners.map((corner) => corner.y));
+
+      const frameBounds = frame.getLocalBounds();
+      expect(frameBounds.x).toBeCloseTo(expectedLeftX, 4);
+      expect(frameBounds.y).toBeCloseTo(expectedTopY, 4);
+      expect(frameBounds.width).toBeCloseTo(expectedRightX - expectedLeftX, 4);
+      expect(frameBounds.height).toBeCloseTo(expectedBottomY - expectedTopY, 4);
+    });
+
+    it('should keep all corner handles inside resize frame bounds when transformer is rotated', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      transformer.rotation = (105 * Math.PI) / 180;
+      transformer.toGlobal({ x: 0, y: 0 });
+      transformer.draw();
+
+      const resizeFrame = getResizeFrame(transformer);
+      const visibleHandles = getVisibleHandles(transformer);
+      expect(resizeFrame).toBeTruthy();
+      expect(visibleHandles).toHaveLength(4);
+
+      const frameBounds = resizeFrame.getLocalBounds();
+      const epsilon = 0.001;
+      visibleHandles.forEach((handle) => {
+        expect(handle.x).toBeGreaterThanOrEqual(frameBounds.x - epsilon);
+        expect(handle.x).toBeLessThanOrEqual(
+          frameBounds.x + frameBounds.width + epsilon,
+        );
+        expect(handle.y).toBeGreaterThanOrEqual(frameBounds.y - epsilon);
+        expect(handle.y).toBeLessThanOrEqual(
+          frameBounds.y + frameBounds.height + epsilon,
+        );
+      });
+    });
+
+    it('should prioritize corner handles over edge hit targets in overlap areas', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      transformer.draw();
+
+      const handleLayer = getHandleLayer(transformer);
+      const visibleHandles = getVisibleHandles(transformer);
+      const visibleEdges = getVisibleEdges(transformer);
+
+      expect(handleLayer?.sortableChildren).toBe(true);
+      expect(visibleEdges.length).toBeGreaterThan(0);
+      visibleHandles.forEach((handle) => {
+        visibleEdges.forEach((edge) => {
+          expect(handle.zIndex).toBeGreaterThan(edge.zIndex);
+        });
+      });
+    });
+
+    it('should resize width from the right edge without changing height', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      const rectApplySpy = vi.spyOn(rect, 'apply');
+      const startOnRightEdge = transformer.toGlobal({
+        x: rect.x + rect.props.size.width,
+        y: rect.y + rect.props.size.height / 2,
+      });
+
+      resizeWithEdge(
+        patchmap,
+        transformer,
+        'right',
+        { x: 40, y: 0 },
+        startOnRightEdge,
+      );
+
+      const [rectChanges] = rectApplySpy.mock.calls.at(-1);
+      expect(rectChanges.size.width).toBeGreaterThan(100);
+      expect(rectChanges.size.height).toBeCloseTo(80);
+    });
+
+    it('should keep aspect ratio when shift is pressed on edge resize', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      const rectApplySpy = vi.spyOn(rect, 'apply');
+      const startOnRightEdge = transformer.toGlobal({
+        x: rect.x + rect.props.size.width,
+        y: rect.y + rect.props.size.height / 2,
+      });
+
+      resizeWithEdge(
+        patchmap,
+        transformer,
+        'right',
+        { x: 40, y: 0 },
+        startOnRightEdge,
+        { shiftKey: true },
+      );
+
+      const [rectChanges] = rectApplySpy.mock.calls.at(-1);
+      expect(rectChanges.size.width / rectChanges.size.height).toBeCloseTo(
+        100 / 80,
+        3,
+      );
+    });
+
+    it('should share one historyId for a single resize gesture when resizeHistory is true', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({
+        resizeHandles: true,
+        resizeHistory: true,
+      });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      const image = patchmap.selector('$..[?(@.id=="image-1")]')[0];
+      transformer.elements = [rect, image];
+
+      const rectApplySpy = vi.spyOn(rect, 'apply');
+      const imageApplySpy = vi.spyOn(image, 'apply');
+
+      resizeWithBottomRightHandle(patchmap, transformer, { x: 30, y: 20 });
+
+      const rectOptionsWithHistory = rectApplySpy.mock.calls
+        .map(([, options]) => options)
+        .find((options) => typeof options?.historyId === 'string');
+      const imageOptionsWithHistory = imageApplySpy.mock.calls
+        .map(([, options]) => options)
+        .find((options) => typeof options?.historyId === 'string');
+
+      expect(typeof rectOptionsWithHistory?.historyId).toBe('string');
+      expect(rectOptionsWithHistory?.historyId).toBe(
+        imageOptionsWithHistory?.historyId,
+      );
     });
   });
 

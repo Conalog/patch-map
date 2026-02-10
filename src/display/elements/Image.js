@@ -9,6 +9,7 @@ const ComposedImage = mixins(Element, Sourceable, ImageSizeable);
 
 export class Image extends ComposedImage {
   static isSelectable = true;
+  static isResizable = true;
   static hitScope = 'children';
 
   constructor(store) {

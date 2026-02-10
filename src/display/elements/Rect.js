@@ -12,6 +12,7 @@ const ComposedRect = mixins(Graphics, Base, Showable);
 
 export class Rect extends ComposedRect {
   static isSelectable = true;
+  static isResizable = true;
   static hitScope = 'self';
 
   constructor(store) {

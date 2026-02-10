@@ -568,6 +568,8 @@ You can control the behavior by passing the following options when creating a `T
       - `'groupOnly'`: Displays only the overall outline of the group.
       - `'elementOnly'`: Displays only the outlines of individual elements within the group.
       - `'none'`: Does not display any outline.
+  - `resizeHandles` (optional, boolean): Enables group resize handles and edge hit targets (default: `false`).
+  - `resizeHistory` (optional, boolean): Determines whether resize changes are recorded in `undoRedoManager` (default: `false`). When enabled, updates in one drag gesture are grouped into a single undo/redo step.
 
 <!-- end list -->
 
