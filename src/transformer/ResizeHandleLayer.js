@@ -354,10 +354,15 @@ export default class ResizeHandleLayer {
       viewport ?? undefined,
     );
 
-    const leftX = Math.min(topLeft.x, bottomLeft.x);
-    const rightX = Math.max(topRight.x, bottomRight.x);
-    const topY = Math.min(topLeft.y, topRight.y);
-    const bottomY = Math.max(bottomLeft.y, bottomRight.y);
+    const leftX = Math.min(topLeft.x, topRight.x, bottomRight.x, bottomLeft.x);
+    const rightX = Math.max(topLeft.x, topRight.x, bottomRight.x, bottomLeft.x);
+    const topY = Math.min(topLeft.y, topRight.y, bottomRight.y, bottomLeft.y);
+    const bottomY = Math.max(
+      topLeft.y,
+      topRight.y,
+      bottomRight.y,
+      bottomLeft.y,
+    );
 
     return {
       x: leftX,

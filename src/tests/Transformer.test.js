@@ -1,6 +1,8 @@
+import { Container, Point } from 'pixi.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Transformer } from '../patch-map';
 import { setupPatchmapTests } from '../tests/render/patchmap.setup';
+import ResizeHandleLayer from '../transformer/ResizeHandleLayer';
 
 const sampleData = [
   {
@@ -531,6 +533,83 @@ describe('Transformer', () => {
       transformer.draw();
 
       expect(getResizeFrame(transformer)).toBeTruthy();
+    });
+
+    it('should build resize frame bounds from all transformed corners', () => {
+      const angle = (105 * Math.PI) / 180;
+      const cos = Math.cos(-angle);
+      const sin = Math.sin(-angle);
+      const toLocal = ({ x, y }) =>
+        new Point(cos * x - sin * y, sin * x + cos * y);
+
+      const layer = new Container({ sortableChildren: true });
+      const resizeLayer = new ResizeHandleLayer({
+        transformer: { toLocal },
+        layer,
+        getViewport: () => null,
+        getHandleStyle: () => ({ fill: '#fff', stroke: '#1099ff', size: 8 }),
+        getStrokeWidth: () => 0,
+        onHandlePointerDown: () => {},
+      });
+
+      const bounds = { x: 100, y: 100, width: 100, height: 80 };
+      resizeLayer.draw(bounds);
+
+      const frame = layer.children.find(
+        (child) => child.label === 'resize-frame' && child.visible,
+      );
+      expect(frame).toBeTruthy();
+
+      const corners = [
+        toLocal({ x: bounds.x, y: bounds.y }),
+        toLocal({ x: bounds.x + bounds.width, y: bounds.y }),
+        toLocal({
+          x: bounds.x + bounds.width,
+          y: bounds.y + bounds.height,
+        }),
+        toLocal({ x: bounds.x, y: bounds.y + bounds.height }),
+      ];
+      const expectedLeftX = Math.min(...corners.map((corner) => corner.x));
+      const expectedRightX = Math.max(...corners.map((corner) => corner.x));
+      const expectedTopY = Math.min(...corners.map((corner) => corner.y));
+      const expectedBottomY = Math.max(...corners.map((corner) => corner.y));
+
+      const frameBounds = frame.getLocalBounds();
+      expect(frameBounds.x).toBeCloseTo(expectedLeftX, 4);
+      expect(frameBounds.y).toBeCloseTo(expectedTopY, 4);
+      expect(frameBounds.width).toBeCloseTo(expectedRightX - expectedLeftX, 4);
+      expect(frameBounds.height).toBeCloseTo(expectedBottomY - expectedTopY, 4);
+    });
+
+    it('should keep all corner handles inside resize frame bounds when transformer is rotated', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      transformer.rotation = (105 * Math.PI) / 180;
+      transformer.toGlobal({ x: 0, y: 0 });
+      transformer.draw();
+
+      const resizeFrame = getResizeFrame(transformer);
+      const visibleHandles = getVisibleHandles(transformer);
+      expect(resizeFrame).toBeTruthy();
+      expect(visibleHandles).toHaveLength(4);
+
+      const frameBounds = resizeFrame.getLocalBounds();
+      const epsilon = 0.001;
+      visibleHandles.forEach((handle) => {
+        expect(handle.x).toBeGreaterThanOrEqual(frameBounds.x - epsilon);
+        expect(handle.x).toBeLessThanOrEqual(
+          frameBounds.x + frameBounds.width + epsilon,
+        );
+        expect(handle.y).toBeGreaterThanOrEqual(frameBounds.y - epsilon);
+        expect(handle.y).toBeLessThanOrEqual(
+          frameBounds.y + frameBounds.height + epsilon,
+        );
+      });
     });
 
     it('should prioritize corner handles over edge hit targets in overlap areas', () => {
