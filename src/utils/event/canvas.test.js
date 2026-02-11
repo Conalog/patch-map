@@ -7,6 +7,7 @@ vi.mock('../selector/selector', () => {
 import { selector } from '../selector/selector';
 import {
   addEvent,
+  getEvent,
   offEvent,
   onEvent,
   removeAllEvent,
@@ -186,5 +187,24 @@ describe('canvas event utilities', () => {
     onEvent(viewport, 'missing');
 
     expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns null for nullish viewport and prototype properties', () => {
+    const viewport = createViewport();
+
+    expect(getEvent(null, 'some-id')).toBeNull();
+    expect(getEvent(undefined, 'some-id')).toBeNull();
+    expect(getEvent(viewport, 'toString')).toBeNull();
+    expect(getEvent(viewport, '__proto__')).toBeNull();
+  });
+
+  it('does not throw when activating inherited property id', () => {
+    const viewport = createViewport();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(() => onEvent(viewport, 'toString')).not.toThrow();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'No event exists for the eventId: toString.',
+    );
   });
 });
