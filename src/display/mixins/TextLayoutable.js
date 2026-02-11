@@ -1,46 +1,88 @@
 import { DEFAULT_AUTO_FONT_RANGE, UPDATE_STAGES } from './constants';
-import { getLayoutContext, splitText } from './utils';
+import { assertFiniteNumber, getLayoutContext, splitText } from './utils';
 
 const KEYS = ['text', 'split', 'style', 'margin', 'size'];
+
+const normalizeMargin = (margin = {}) => ({
+  top: margin?.top ?? 0,
+  right: margin?.right ?? 0,
+  bottom: margin?.bottom ?? 0,
+  left: margin?.left ?? 0,
+});
+
+const getDisplayLabel = (displayObject) => {
+  const type = displayObject?.type ?? 'unknown';
+  const id = displayObject?.id ?? 'unknown';
+  return `type=${type}, id=${id}`;
+};
+
+const ensureFinite = (value, label, displayObject) => {
+  try {
+    return assertFiniteNumber(value, label);
+  } catch {
+    throw new RangeError(
+      `Non-finite text layout value (${label}=${value}, ${getDisplayLabel(displayObject)})`,
+    );
+  }
+};
 
 export const TextLayoutable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyTextLayout(relevantChanges) {
-      const { style, margin } = relevantChanges;
+      const { style } = relevantChanges;
+      const margin = normalizeMargin(relevantChanges.margin);
       const visual = this.bitmapText || this;
 
-      // 1. Recover original text if previously truncated
-      if (this._isTruncated) {
-        visual.text =
-          this._fullText ||
-          splitText(this.props.text || '', this.props.split || 0);
-        this._isTruncated = false;
-      }
+      this._restoreTextBeforeLayout(visual);
 
       const bounds = this._getLayoutBounds(visual, margin);
 
-      // 2. Word Wrap: Auto
       if (style?.wordWrapWidth === 'auto') {
         visual.style.wordWrapWidth = bounds.width;
       }
 
-      // 3. Font Size: Auto
       if (style?.fontSize === 'auto') {
         const range = style.autoFont ?? DEFAULT_AUTO_FONT_RANGE;
         this._setAutoFontSize(visual, bounds, range);
       }
 
-      // 4. Overflow Handling
       if (style?.overflow && style.overflow !== 'visible') {
         this._applyOverflow(visual, bounds, style.overflow);
       }
     }
 
+    _restoreTextBeforeLayout(visual) {
+      if (!this._isTruncated) return;
+
+      visual.text =
+        this._fullText ||
+        splitText(this.props.text || '', this.props.split || 0);
+      this._isTruncated = false;
+    }
+
     _getLayoutBounds(visual, margin) {
       const { contentWidth, contentHeight } = getLayoutContext(visual);
+
+      const safeContentWidth = ensureFinite(contentWidth, 'contentWidth', this);
+      const safeContentHeight = ensureFinite(
+        contentHeight,
+        'contentHeight',
+        this,
+      );
+      const marginLeft = ensureFinite(margin.left, 'margin.left', this);
+      const marginRight = ensureFinite(margin.right, 'margin.right', this);
+      const marginTop = ensureFinite(margin.top, 'margin.top', this);
+      const marginBottom = ensureFinite(margin.bottom, 'margin.bottom', this);
+
+      const width = Math.max(0, safeContentWidth - (marginLeft + marginRight));
+      const height = Math.max(
+        0,
+        safeContentHeight - (marginTop + marginBottom),
+      );
+
       return {
-        width: Math.max(0, contentWidth - (margin.left + margin.right)),
-        height: Math.max(0, contentHeight - (margin.top + margin.bottom)),
+        width: ensureFinite(width, 'layout.width', this),
+        height: ensureFinite(height, 'layout.height', this),
       };
     }
 

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { calcOrientedBounds } from '../../utils/bounds';
 import { setupPatchmapTests } from './patchmap.setup';
 
 describe('Relations Component Rendering Tests', () => {
@@ -120,5 +121,67 @@ describe('Relations Component Rendering Tests', () => {
 
     const path = getPath(patchmap);
     expect(path.getBounds().width).toBeGreaterThan(0);
+  });
+
+  it('should keep link points aligned after world rotation/flip', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(baseMapData);
+    await vi.advanceTimersByTimeAsync(100);
+
+    patchmap.rotation.set(90);
+    patchmap.flip.set({ x: true, y: true });
+    await vi.advanceTimersByTimeAsync(100);
+
+    const relations = getRelations(patchmap);
+    expect(relations.linkPoints).toHaveLength(1);
+
+    const point = relations.linkPoints[0];
+    const itemA = patchmap.selector('$..[?(@.id=="item-A")]')[0];
+    const itemB = patchmap.selector('$..[?(@.id=="item-B")]')[0];
+
+    const sourceCenter = relations.parent.toLocal(
+      calcOrientedBounds(itemA).center,
+    );
+    const targetCenter = relations.parent.toLocal(
+      calcOrientedBounds(itemB).center,
+    );
+
+    expect(point.sourcePoint[0]).toBeCloseTo(sourceCenter.x);
+    expect(point.sourcePoint[1]).toBeCloseTo(sourceCenter.y);
+    expect(point.targetPoint[0]).toBeCloseTo(targetCenter.x);
+    expect(point.targetPoint[1]).toBeCloseTo(targetCenter.y);
+  });
+
+  it('should keep link points aligned after 270-degree rotation with live updates', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(baseMapData);
+    await vi.advanceTimersByTimeAsync(100);
+
+    patchmap.rotation.set(270);
+    patchmap.flip.set({ x: true, y: true });
+    patchmap.update({
+      path: '$..[?(@.id=="item-B")]',
+      changes: { attrs: { x: 360, y: 180 } },
+    });
+    await vi.advanceTimersByTimeAsync(100);
+
+    const relations = getRelations(patchmap);
+    expect(relations.linkPoints).toHaveLength(1);
+
+    const point = relations.linkPoints[0];
+    const itemA = patchmap.selector('$..[?(@.id=="item-A")]')[0];
+    const itemB = patchmap.selector('$..[?(@.id=="item-B")]')[0];
+
+    const sourceCenter = relations.parent.toLocal(
+      calcOrientedBounds(itemA).center,
+    );
+    const targetCenter = relations.parent.toLocal(
+      calcOrientedBounds(itemB).center,
+    );
+
+    expect(point.sourcePoint[0]).toBeCloseTo(sourceCenter.x);
+    expect(point.sourcePoint[1]).toBeCloseTo(sourceCenter.y);
+    expect(point.targetPoint[0]).toBeCloseTo(targetCenter.x);
+    expect(point.targetPoint[1]).toBeCloseTo(targetCenter.y);
   });
 });

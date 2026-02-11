@@ -135,7 +135,8 @@ const advanceBatch = (batch) => {
     const easedProgress = job.easeFn(localProgress);
     const nextState = interpolateState(job.from, job.to, easedProgress);
 
-    applyTargetState(target, nextState);
+    applyTargetState(target, nextState, job.positionMode);
+    notifyJobUpdate(job, nextState, localProgress);
 
     if (localProgress >= 1) {
       completeJob(job);
@@ -156,15 +157,20 @@ const finishBatch = (batch) => {
 const applyJobState = (job, state) => {
   const target = job?.target;
   if (!isRenderableTarget(target)) return;
-  applyTargetState(target, state);
+  applyTargetState(target, state, job.positionMode);
+  notifyJobUpdate(job, state, 1);
 };
 
-const applyTargetState = (target, state) => {
+const applyTargetState = (target, state, positionMode = 'internal') => {
   if (typeof target.setSize === 'function') {
     target.setSize(state.w, state.h);
   } else {
     target.width = state.w;
     target.height = state.h;
+  }
+
+  if (positionMode === 'external') {
+    return;
   }
 
   if (target.position && typeof target.position.set === 'function') {
@@ -186,6 +192,12 @@ const completeJob = (job) => {
   if (!job || job.done) return;
   job.done = true;
   if (typeof job.onDone === 'function') job.onDone();
+};
+
+const notifyJobUpdate = (job, state, progress) => {
+  if (typeof job?.onUpdate === 'function') {
+    job.onUpdate({ state, progress });
+  }
 };
 
 const isPendingJob = (job) => job && !job.done && !job.cancelled;

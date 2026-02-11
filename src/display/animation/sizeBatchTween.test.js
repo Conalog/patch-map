@@ -114,6 +114,7 @@ describe('sizeBatchTween', () => {
     });
     const target = createTarget();
     const onDone = vi.fn();
+    const onUpdate = vi.fn();
 
     const job = batcher.enqueue({
       target,
@@ -121,6 +122,7 @@ describe('sizeBatchTween', () => {
       to: { w: 100, h: 80, x: 40, y: 20 },
       durationMs: 1000,
       ease: 'none',
+      onUpdate,
       onDone,
     });
 
@@ -129,6 +131,10 @@ describe('sizeBatchTween', () => {
     tween.tick(0.5);
     expect(target.setSize).toHaveBeenLastCalledWith(50, 40);
     expect(target.position.set).toHaveBeenLastCalledWith(20, 10);
+    expect(onUpdate).toHaveBeenLastCalledWith({
+      state: { w: 50, h: 40, x: 20, y: 10 },
+      progress: 0.5,
+    });
     expect(job.done).toBe(false);
 
     tween.tick(1);
@@ -137,6 +143,28 @@ describe('sizeBatchTween', () => {
 
     tween.complete();
     expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips position writes when positionMode is external', () => {
+    const batcher = getSizeBatcher({
+      animationContext: immediateAnimationContext(),
+    });
+    const target = createTarget();
+
+    batcher.enqueue({
+      target,
+      from: { w: 0, h: 0, x: 10, y: 20 },
+      to: { w: 100, h: 80, x: 40, y: 60 },
+      durationMs: 1000,
+      ease: 'none',
+      positionMode: 'external',
+    });
+
+    const [{ tween }] = gsapState.tweens;
+    tween.tick(0.5);
+
+    expect(target.setSize).toHaveBeenLastCalledWith(50, 40);
+    expect(target.position.set).not.toHaveBeenCalled();
   });
 
   it('cancels job without applying end state by default', () => {

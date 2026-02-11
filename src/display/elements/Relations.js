@@ -80,10 +80,11 @@ export class Relations extends ComposedRelations {
         continue;
       }
 
-      const sourceBounds = this.store.viewport.toLocal(
+      const coordinateRoot = this.parent ?? this.store.viewport;
+      const sourceBounds = coordinateRoot.toLocal(
         calcOrientedBounds(sourceObject).center,
       );
-      const targetBounds = this.store.viewport.toLocal(
+      const targetBounds = coordinateRoot.toLocal(
         calcOrientedBounds(targetObject).center,
       );
 
