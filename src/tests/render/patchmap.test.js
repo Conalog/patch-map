@@ -75,7 +75,14 @@ describe('patchmap test', () => {
   it('draw', () => {
     const patchmap = getPatchmap();
     patchmap.draw(sampleData);
-    expect(patchmap.viewport.children.length).toBe(2);
+    expect(patchmap.world).toBeDefined();
+    expect(patchmap.viewport.children).toContain(patchmap.world);
+    expect(patchmap.viewport.children.length).toBe(1);
+    expect(patchmap.world.children.length).toBe(2);
+
+    const relations = patchmap.selector('$..[?(@.id=="relations-1")]')[0];
+    expect(relations).toBeDefined();
+    expect(relations.parent).toBe(patchmap.world);
 
     const group = patchmap.selector('$..[?(@.id=="group-1")]')[0];
     expect(group).toBeDefined();
@@ -101,6 +108,46 @@ describe('patchmap test', () => {
 
     const gridItems = grid.children;
     expect(gridItems.length).toBe(5);
+  });
+
+  it('keeps relations under world during view rotation and flip', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(sampleData);
+
+    const relations = patchmap.selector('$..[?(@.id=="relations-1")]')[0];
+    expect(relations).toBeDefined();
+    expect(relations.parent).toBe(patchmap.world);
+
+    const beforeAngle = relations.angle ?? 0;
+    const beforeScaleX = relations.scale?.x ?? 1;
+    const beforeScaleY = relations.scale?.y ?? 1;
+
+    patchmap.rotation.set(90);
+    patchmap.flip.set({ x: true, y: true });
+
+    expect(relations.parent).toBe(patchmap.world);
+    expect(relations.angle ?? 0).toBeCloseTo(beforeAngle);
+    expect(relations.scale?.x ?? 1).toBeCloseTo(beforeScaleX);
+    expect(relations.scale?.y ?? 1).toBeCloseTo(beforeScaleY);
+  });
+
+  it('keeps focus/fit stable under rotation and flip', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(sampleData);
+
+    patchmap.rotation.set(90);
+    patchmap.flip.set({ x: true, y: true });
+
+    expect(() => patchmap.focus(['group-1'])).not.toThrow();
+    const focusedCenter = patchmap.viewport.center;
+    expect(Number.isFinite(focusedCenter?.x)).toBe(true);
+    expect(Number.isFinite(focusedCenter?.y)).toBe(true);
+
+    expect(() => patchmap.fit(['group-1'])).not.toThrow();
+    expect(Number.isFinite(patchmap.viewport.scale.x)).toBe(true);
+    expect(Number.isFinite(patchmap.viewport.scale.y)).toBe(true);
+    expect(patchmap.viewport.scale.x).toBeGreaterThan(0);
+    expect(patchmap.viewport.scale.y).toBeGreaterThan(0);
   });
 
   describe('update', () => {

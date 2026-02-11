@@ -2,7 +2,7 @@ import gsap from 'gsap';
 import { isValidationError } from 'zod-validation-error';
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { validate } from '../../utils/validator';
-import { ZERO_MARGIN } from './constants';
+import { ROTATION_THRESHOLD, ZERO_MARGIN } from './constants';
 
 export const tweensOf = (object) => gsap.getTweensOf(object);
 
@@ -27,10 +27,34 @@ export const parseCalcExpression = (expression, parentDimension) => {
   return totalValue;
 };
 
+export const assertFiniteNumber = (value, label) => {
+  if (!Number.isFinite(value)) {
+    throw new RangeError(`Non-finite number detected: ${label}=${value}`);
+  }
+  return value;
+};
+
+export const assertFiniteDisplaySize = (displayObject, context = 'unknown') => {
+  const width = displayObject?.width;
+  const height = displayObject?.height;
+  if (!Number.isFinite(width) || !Number.isFinite(height)) {
+    const type = displayObject?.type ?? 'unknown';
+    const id = displayObject?.id ?? 'unknown';
+    throw new RangeError(
+      `Non-finite display size at ${context} (type=${type}, id=${id}, width=${width}, height=${height})`,
+    );
+  }
+};
+
 const roundToPrecision = (value, precision = 6) => {
   if (!Number.isFinite(value)) return value;
   const factor = 10 ** precision;
   return Math.round((value + Number.EPSILON) * factor) / factor;
+};
+
+const normalizeViewAngle = (angle) => {
+  if (!Number.isFinite(angle)) return null;
+  return ((angle % 360) + 360) % 360;
 };
 
 export const calcSize = (component, { source, size }) => {
@@ -154,6 +178,38 @@ export const getLayoutContext = (component) => {
     contentHeight,
     parentPadding,
   };
+};
+
+export const mapViewDirection = (view, direction) => {
+  if (!view) return direction;
+  const viewAngle = normalizeViewAngle(view.angle ?? 0);
+  if (viewAngle == null) return direction;
+
+  let hFlipped = false;
+  let vFlipped = false;
+
+  if (
+    viewAngle >= ROTATION_THRESHOLD.MIN &&
+    viewAngle < ROTATION_THRESHOLD.MAX
+  ) {
+    hFlipped = !hFlipped;
+    vFlipped = !vFlipped;
+  }
+
+  if (view.flipX) hFlipped = !hFlipped;
+  if (view.flipY) vFlipped = !vFlipped;
+
+  if (direction === 'left' || direction === 'right') {
+    if (hFlipped) return direction === 'left' ? 'right' : 'left';
+    return direction;
+  }
+
+  if (direction === 'top' || direction === 'bottom') {
+    if (vFlipped) return direction === 'top' ? 'bottom' : 'top';
+    return direction;
+  }
+
+  return direction;
 };
 
 export const splitText = (text, split) => {

@@ -4,8 +4,14 @@ export const UPDATE_STAGES = Object.freeze({
   VISUAL: 20,
   ANIMATION: 25,
   SIZE: 30,
+  WORLD_TRANSFORM: 35,
   LAYOUT: 40,
 });
+
+export const ROTATION_THRESHOLD = {
+  MIN: 90,
+  MAX: 270,
+};
 
 export const FONT_WEIGHT = {
   STRING: {

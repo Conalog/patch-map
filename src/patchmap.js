@@ -2,9 +2,15 @@ import gsap from 'gsap';
 import { Application, UPDATE_PRIORITY } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { UndoRedoManager } from './command/UndoRedoManager';
+import './display/components/registry';
 import { draw } from './display/draw';
+import './display/elements/registry';
 import { update } from './display/update';
+import ViewTransform from './display/view-transform/ViewTransform';
+import World from './display/World';
 import { fit as fitViewport, focus } from './events/focus-fit';
+import StateManager from './events/StateManager';
+import SelectionState from './events/states/SelectionState';
 import {
   initApp,
   initAsset,
@@ -12,17 +18,13 @@ import {
   initResizeObserver,
   initViewport,
 } from './init';
+import Transformer from './transformer/Transformer';
 import { convertLegacyData } from './utils/convert';
 import { event } from './utils/event/canvas';
+import { WildcardEventEmitter } from './utils/event/WildcardEventEmitter';
 import { selector } from './utils/selector/selector';
 import { themeStore } from './utils/theme';
 import { validateMapData } from './utils/validator';
-import './display/elements/registry';
-import './display/components/registry';
-import StateManager from './events/StateManager';
-import SelectionState from './events/states/SelectionState';
-import Transformer from './transformer/Transformer';
-import { WildcardEventEmitter } from './utils/event/WildcardEventEmitter';
 
 class Patchmap extends WildcardEventEmitter {
   _app = null;
@@ -34,6 +36,8 @@ class Patchmap extends WildcardEventEmitter {
   _animationContext = gsap.context(() => {});
   _transformer = null;
   _stateManager = null;
+  _world = null;
+  _viewTransform = this._createViewTransform();
 
   get app() {
     return this._app;
@@ -45,6 +49,10 @@ class Patchmap extends WildcardEventEmitter {
 
   set viewport(value) {
     this._viewport = value;
+  }
+
+  get world() {
+    return this._world;
   }
 
   get theme() {
@@ -133,7 +141,12 @@ class Patchmap extends WildcardEventEmitter {
       theme: this.theme,
       animationContext: this.animationContext,
     };
+    store.view = this._viewTransform.viewState;
     this.viewport = initViewport(this.app, viewportOptions, store);
+    this._world = new World({ store });
+    store.world = this._world;
+    this.viewport.addChild(this._world);
+    this._viewTransform.attach({ viewport: this.viewport, world: this._world });
 
     await initAsset(assetsOptions);
     initCanvas(element, this.app);
@@ -171,6 +184,8 @@ class Patchmap extends WildcardEventEmitter {
     this._animationContext = gsap.context(() => {});
     this._transformer = null;
     this._stateManager = null;
+    this._world = null;
+    this._viewTransform = this._createViewTransform();
     this.emit('patchmap:destroyed', { target: this });
     this.removeAllListeners();
   }
@@ -184,6 +199,7 @@ class Patchmap extends WildcardEventEmitter {
 
     const store = {
       viewport: this.viewport,
+      world: this.world,
       undoRedoManager: this.undoRedoManager,
       theme: this.theme,
       animationContext: this.animationContext,
@@ -243,8 +259,25 @@ class Patchmap extends WildcardEventEmitter {
     fitViewport(this.viewport, ids);
   }
 
+  get rotation() {
+    return this._viewTransform.rotation;
+  }
+
+  get flip() {
+    return this._viewTransform.flip;
+  }
+
   selector(path, opts) {
     return selector(this.viewport, path, opts);
+  }
+
+  _createViewTransform() {
+    return new ViewTransform({
+      onRotate: (angle) =>
+        this.emit('patchmap:rotated', { angle, target: this }),
+      onFlip: (flip) =>
+        this.emit('patchmap:flipped', { ...flip, target: this }),
+    });
   }
 }
 

@@ -1,5 +1,64 @@
 import { describe, expect, it } from 'vitest';
-import { calcSize, parseCalcExpression } from './utils';
+import { ROTATION_THRESHOLD } from './constants';
+import { calcSize, mapViewDirection, parseCalcExpression } from './utils';
+
+describe('mapViewDirection', () => {
+  it('should return original direction if view is not provided', () => {
+    expect(mapViewDirection(null, 'left')).toBe('left');
+  });
+
+  it('should not flip when angle is 0 and no flip is active', () => {
+    const view = { angle: 0, flipX: false, flipY: false };
+    expect(mapViewDirection(view, 'left')).toBe('left');
+    expect(mapViewDirection(view, 'right')).toBe('right');
+    expect(mapViewDirection(view, 'top')).toBe('top');
+    expect(mapViewDirection(view, 'bottom')).toBe('bottom');
+  });
+
+  it('should flip both axes when angle is within threshold (e.g., 180)', () => {
+    const view = { angle: 180, flipX: false, flipY: false };
+    expect(mapViewDirection(view, 'left')).toBe('right');
+    expect(mapViewDirection(view, 'right')).toBe('left');
+    expect(mapViewDirection(view, 'top')).toBe('bottom');
+    expect(mapViewDirection(view, 'bottom')).toBe('top');
+  });
+
+  it('should respect flipX', () => {
+    const view = { angle: 0, flipX: true, flipY: false };
+    expect(mapViewDirection(view, 'left')).toBe('right');
+    expect(mapViewDirection(view, 'right')).toBe('left');
+    expect(mapViewDirection(view, 'top')).toBe('top');
+  });
+
+  it('should respect flipY', () => {
+    const view = { angle: 0, flipX: false, flipY: true };
+    expect(mapViewDirection(view, 'left')).toBe('left');
+    expect(mapViewDirection(view, 'top')).toBe('bottom');
+    expect(mapViewDirection(view, 'bottom')).toBe('top');
+  });
+
+  it('should cancel out flipX and angle flip (180 deg)', () => {
+    const view = { angle: 180, flipX: true, flipY: false };
+    expect(mapViewDirection(view, 'left')).toBe('left');
+    expect(mapViewDirection(view, 'top')).toBe('bottom');
+  });
+
+  it('should handle boundary angles correctly', () => {
+    const minView = {
+      angle: ROTATION_THRESHOLD.MIN,
+      flipX: false,
+      flipY: false,
+    };
+    expect(mapViewDirection(minView, 'left')).toBe('right');
+
+    const justBeforeMin = {
+      angle: ROTATION_THRESHOLD.MIN - 1,
+      flipX: false,
+      flipY: false,
+    };
+    expect(mapViewDirection(justBeforeMin, 'left')).toBe('left');
+  });
+});
 
 describe('parseCalcExpression', () => {
   const parentDimension = 200;
@@ -53,12 +112,12 @@ describe('parseCalcExpression', () => {
     },
   ];
 
-  it.each(testCases)(
-    'should correctly parse $name',
-    ({ expression, expected }) => {
-      expect(parseCalcExpression(expression, parentDimension)).toBe(expected);
-    },
-  );
+  it.each(testCases)('should correctly parse $name', ({
+    expression,
+    expected,
+  }) => {
+    expect(parseCalcExpression(expression, parentDimension)).toBe(expected);
+  });
 });
 
 describe('calcSize', () => {
@@ -182,15 +241,17 @@ describe('calcSize', () => {
     },
   ];
 
-  it.each(testCases)(
-    'should calculate size correctly $name',
-    ({ props, respectsPadding, parent = mockParent, expected }) => {
-      const mockComponent = {
-        constructor: { respectsPadding },
-        parent,
-      };
-      const result = calcSize(mockComponent, props);
-      expect(result).toEqual(expected);
-    },
-  );
+  it.each(testCases)('should calculate size correctly $name', ({
+    props,
+    respectsPadding,
+    parent = mockParent,
+    expected,
+  }) => {
+    const mockComponent = {
+      constructor: { respectsPadding },
+      parent,
+    };
+    const result = calcSize(mockComponent, props);
+    expect(result).toEqual(expected);
+  });
 });
