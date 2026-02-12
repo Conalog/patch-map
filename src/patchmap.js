@@ -207,10 +207,9 @@ class Patchmap extends WildcardEventEmitter {
     );
 
     this.app.start();
-    scheduler.postTask(
-      () => this.emit('patchmap:draw', { data: validatedData, target: this }),
-      { priority: 'user-visible' },
-    );
+    scheduleUserVisibleTask(() => {
+      this.emit('patchmap:draw', { data: validatedData, target: this });
+    });
     return validatedData;
 
     function processData(data) {
@@ -246,6 +245,17 @@ class Patchmap extends WildcardEventEmitter {
   selector(path, opts) {
     return selector(this.viewport, path, opts);
   }
+}
+
+function scheduleUserVisibleTask(task) {
+  const scheduler = globalThis.scheduler;
+
+  if (scheduler?.postTask) {
+    scheduler.postTask(task, { priority: 'user-visible' });
+    return;
+  }
+
+  setTimeout(task, 0);
 }
 
 export { Patchmap };
