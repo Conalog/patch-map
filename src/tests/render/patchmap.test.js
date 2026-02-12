@@ -103,6 +103,23 @@ describe('patchmap test', () => {
     expect(gridItems.length).toBe(5);
   });
 
+  it('emits draw event even when scheduler API is unavailable', async () => {
+    const patchmap = getPatchmap();
+    const onDraw = vi.fn();
+    patchmap.on('patchmap:draw', onDraw);
+
+    vi.stubGlobal('scheduler', undefined);
+    try {
+      patchmap.draw(sampleData);
+      expect(onDraw).not.toHaveBeenCalled();
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(onDraw).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   describe('update', () => {
     let patchmap = null;
     beforeEach(() => {
