@@ -102,14 +102,14 @@ describe('Component Schemas', () => {
           height: { value: 75, unit: '%' },
         },
       },
-    ])(
-      'should correctly parse and transform different valid size formats: $case',
-      ({ input, expected }) => {
-        const data = { ...baseBar, size: input };
-        const parsed = barSchema.parse(data);
-        expect(parsed.size).toEqual(expected);
-      },
-    );
+    ])('should correctly parse and transform different valid size formats: $case', ({
+      input,
+      expected,
+    }) => {
+      const data = { ...baseBar, size: input };
+      const parsed = barSchema.parse(data);
+      expect(parsed.size).toEqual(expected);
+    });
 
     it('should fail if required `size` or `source` is missing', () => {
       const dataWithoutSource = { type: 'bar', size: 100 };
@@ -127,6 +127,11 @@ describe('Component Schemas', () => {
 
     it('should fail if an unknown property is provided', () => {
       const data = { ...baseBar, size: 100, another: 'property' };
+      expect(() => barSchema.parse(data)).toThrow();
+    });
+
+    it('should fail if item content orientation leaks into component schema', () => {
+      const data = { ...baseBar, size: 100, contentOrientation: 'upright' };
       expect(() => barSchema.parse(data)).toThrow();
     });
   });
@@ -163,14 +168,14 @@ describe('Component Schemas', () => {
           height: { value: 100, unit: '%' },
         },
       },
-    ])(
-      'should parse and transform correctly with different size properties: $case',
-      ({ input, expected }) => {
-        const data = { ...baseIcon, size: input };
-        const parsed = iconSchema.parse(data);
-        expect(parsed.size).toEqual(expected);
-      },
-    );
+    ])('should parse and transform correctly with different size properties: $case', ({
+      input,
+      expected,
+    }) => {
+      const data = { ...baseIcon, size: input };
+      const parsed = iconSchema.parse(data);
+      expect(parsed.size).toEqual(expected);
+    });
 
     it('should fail if required `source` or `size` is missing', () => {
       const dataWithoutSource = { type: 'icon', size: 50 };

@@ -135,7 +135,7 @@ const advanceBatch = (batch) => {
     const easedProgress = job.easeFn(localProgress);
     const nextState = interpolateState(job.from, job.to, easedProgress);
 
-    applyTargetState(target, nextState);
+    resolveApplyState(job)(target, nextState);
 
     if (localProgress >= 1) {
       completeJob(job);
@@ -156,7 +156,13 @@ const finishBatch = (batch) => {
 const applyJobState = (job, state) => {
   const target = job?.target;
   if (!isRenderableTarget(target)) return;
-  applyTargetState(target, state);
+  resolveApplyState(job)(target, state);
+};
+
+const resolveApplyState = (job) => {
+  return typeof job?.applyState === 'function'
+    ? job.applyState
+    : applyTargetState;
 };
 
 const applyTargetState = (target, state) => {

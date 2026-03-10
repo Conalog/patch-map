@@ -28,6 +28,8 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js
   - [asset](#asset)
   - [focus(ids)](#focusids)
   - [fit(ids)](#fitids)
+  - [rotation](#rotation)
+  - [flip](#flip)
   - [selector(path)](#selectorpath)
   - [stateManager](#statemanager)  
   - [SelectionState](#selectionstate)
@@ -401,6 +403,37 @@ patchmap.fit('grid-1')
 // id가 'item-1'과 'item-2'인 객체들을 기준으로 fit
 patchmap.fit(['item-1', 'item-2'])
 ```
+
+<br/>
+
+### `rotation`
+월드 뷰 회전을 제어하는 컨트롤러입니다. 각도는 degrees 기준입니다.
+
+```js
+patchmap.rotation.value = 90
+patchmap.rotation.rotateBy(90)
+patchmap.rotation.reset()
+```
+
+<br/>
+
+### `flip`
+월드 뷰 플립을 제어하는 컨트롤러입니다.
+
+```js
+patchmap.flip.x = true
+patchmap.flip.y = false
+patchmap.flip.set({ x: true, y: true })
+patchmap.flip.toggleX()
+patchmap.flip.toggleY()
+patchmap.flip.reset()
+```
+
+`contentOrientation`은 `item` 또는 `grid.item` 내부 `text` / `icon` /
+`bar`가 아이템 각도와 월드 회전 / 플립에 어떻게 반응할지 정합니다.
+기본값 `contentOrientation: 'follow-item'`은 아이템 각도를 따라가고,
+`contentOrientation: 'upright'`는 월드 회전과 플립이 걸려도 화면에서
+똑바로 읽히는 방향을 유지합니다.
 
 <br/>
 

@@ -1,14 +1,22 @@
+import {
+  calcPlacementPoint,
+  resolvePlacementFrame,
+} from '../utils/placement-frame';
+import { resolvePlacementOffset } from '../utils/placement-offset';
 import { UPDATE_STAGES } from './constants';
 import { getLayoutContext } from './utils';
 
 const KEYS = ['placement', 'margin'];
 
-const DIRECTION_MAP = {
-  left: { h: 'left', v: 'center' },
-  right: { h: 'right', v: 'center' },
-  top: { h: 'center', v: 'top' },
-  bottom: { h: 'center', v: 'bottom' },
-  center: { h: 'center', v: 'center' },
+const calcEffectiveSize = (component, width, height) => {
+  const bounds = component.getLocalBounds();
+  const scaleX = Math.abs(component.scale?.x ?? 1);
+  const scaleY = Math.abs(component.scale?.y ?? 1);
+
+  return {
+    width: Number.isFinite(width) ? width : bounds.width * scaleX,
+    height: Number.isFinite(height) ? height : bounds.height * scaleY,
+  };
 };
 
 export const Placementable = (superClass) => {
@@ -25,70 +33,28 @@ export const Placementable = (superClass) => {
     }
 
     _calcPlacementForSize({ placement, margin, width, height }) {
-      const [first, second] = placement.split('-');
-      const directions = second
-        ? { h: first, v: second }
-        : DIRECTION_MAP[first];
-
       const layoutContext = getLayoutContext(this);
-      const x = calcHorizontalPosition(
+      const layoutFrame = resolvePlacementFrame(this, placement, margin);
+      const effectiveSize = calcEffectiveSize(this, width, height);
+      const point = calcPlacementPoint(
         layoutContext,
-        directions.h,
-        margin,
-        width,
+        layoutFrame,
+        effectiveSize,
       );
-      const y = calcVerticalPosition(
+      const { offsetX, offsetY } = resolvePlacementOffset(
+        this,
+        effectiveSize.width,
         layoutContext,
-        directions.v,
-        margin,
-        height,
       );
-      return { x, y };
+      return { x: point.x - offsetX, y: point.y - offsetY };
     }
   };
+
   MixedClass.registerHandler(
     KEYS,
     MixedClass.prototype._applyPlacement,
     UPDATE_STAGES.LAYOUT,
   );
+
   return MixedClass;
-};
-
-const calcHorizontalPosition = (layoutContext, align, margin, width) => {
-  const { parentWidth, contentWidth, parentPadding } = layoutContext;
-  const marginLeft = margin?.left ?? 0;
-  const marginRight = margin?.right ?? 0;
-  const componentWidth = Number.isFinite(width) ? width : 0;
-
-  let result = null;
-  if (align === 'left') {
-    result = parentPadding.left + marginLeft;
-  } else if (align === 'right') {
-    result = parentWidth - componentWidth - marginRight - parentPadding.right;
-  } else if (align === 'center') {
-    const marginWidth = componentWidth + marginLeft + marginRight;
-    const blockStartPosition = (contentWidth - marginWidth) / 2;
-    result = parentPadding.left + blockStartPosition + marginLeft;
-  }
-  return result;
-};
-
-const calcVerticalPosition = (layoutContext, align, margin, height) => {
-  const { parentHeight, contentHeight, parentPadding } = layoutContext;
-  const marginTop = margin?.top ?? 0;
-  const marginBottom = margin?.bottom ?? 0;
-  const componentHeight = Number.isFinite(height) ? height : 0;
-
-  let result = null;
-  if (align === 'top') {
-    result = parentPadding.top + marginTop;
-  } else if (align === 'bottom') {
-    result =
-      parentHeight - componentHeight - marginBottom - parentPadding.bottom;
-  } else if (align === 'center') {
-    const marginHeight = componentHeight + marginTop + marginBottom;
-    const blockStartPosition = (contentHeight - marginHeight) / 2;
-    result = parentPadding.top + blockStartPosition + marginTop;
-  }
-  return result;
 };

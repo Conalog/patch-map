@@ -69,13 +69,51 @@ const sampleData = [
   },
 ];
 
+const waitForScene = (ms = 50) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+const getStageElement = (patchmap) =>
+  patchmap.app.canvas.parentElement.parentElement;
+
+const getWorldRoot = (patchmap) => patchmap.viewport.children[0];
+
+const getMaxBoundsOverflow = (outerBounds, innerBounds) =>
+  Math.max(
+    Math.max(0, outerBounds.x - innerBounds.x),
+    Math.max(0, outerBounds.y - innerBounds.y),
+    Math.max(
+      0,
+      innerBounds.x + innerBounds.width - (outerBounds.x + outerBounds.width),
+    ),
+    Math.max(
+      0,
+      innerBounds.y + innerBounds.height - (outerBounds.y + outerBounds.height),
+    ),
+  );
+
+const expectFiniteViewportState = (patchmap) => {
+  expect(Number.isFinite(patchmap.viewport.center?.x)).toBe(true);
+  expect(Number.isFinite(patchmap.viewport.center?.y)).toBe(true);
+  expect(Number.isFinite(patchmap.viewport.scale.x)).toBe(true);
+  expect(Number.isFinite(patchmap.viewport.scale.y)).toBe(true);
+  expect(patchmap.viewport.scale.x).toBeGreaterThan(0);
+  expect(patchmap.viewport.scale.y).toBeGreaterThan(0);
+};
+
 describe('patchmap test', () => {
   const { getPatchmap } = setupPatchmapTests();
 
   it('draw', () => {
     const patchmap = getPatchmap();
     patchmap.draw(sampleData);
-    expect(patchmap.viewport.children.length).toBe(2);
+    const world = getWorldRoot(patchmap);
+    expect(world).toBeDefined();
+    expect(patchmap.viewport.children).toContain(world);
+    expect(patchmap.viewport.children.length).toBe(1);
+    expect(world.children.length).toBe(2);
+
+    const relations = patchmap.selector('$..[?(@.id=="relations-1")]')[0];
+    expect(relations).toBeDefined();
 
     const group = patchmap.selector('$..[?(@.id=="group-1")]')[0];
     expect(group).toBeDefined();
@@ -120,6 +158,115 @@ describe('patchmap test', () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it('keeps focus/fit stable under rotation and flip', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(sampleData);
+
+    patchmap.rotation.set(90);
+    patchmap.flip.set({ x: true, y: true });
+
+    expect(() => patchmap.focus(['group-1'])).not.toThrow();
+    expectFiniteViewportState(patchmap);
+
+    expect(() => patchmap.fit(['group-1'])).not.toThrow();
+    expectFiniteViewportState(patchmap);
+  });
+
+  it.each([
+    {
+      case: 'attrs.angle',
+      changes: { attrs: { angle: 30 } },
+    },
+    {
+      case: 'attrs.rotation',
+      changes: { attrs: { rotation: Math.PI / 6 } },
+    },
+  ])('re-applies component world transform when local $case changes', async ({
+    changes,
+  }) => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'probe-item',
+        label: 'Probe',
+        size: { width: 220, height: 120 },
+        padding: { x: 12, y: 10 },
+        attrs: { x: 240, y: 120 },
+        components: [
+          {
+            type: 'background',
+            id: 'bg-probe',
+            source: {
+              type: 'rect',
+              fill: 'white',
+              borderWidth: 2,
+              borderColor: 'primary.default',
+              radius: 12,
+            },
+          },
+          {
+            type: 'bar',
+            id: 'bar-probe',
+            source: { type: 'rect', fill: 'primary.default', radius: 6 },
+            size: { width: '64%', height: 10 },
+            placement: 'bottom',
+            margin: { left: 14, right: 14, bottom: 16 },
+          },
+        ],
+      },
+    ]);
+    patchmap.rotation.set(180);
+    await waitForScene();
+
+    patchmap.update({
+      path: '$..[?(@.id=="bar-probe")]',
+      changes,
+    });
+    await waitForScene();
+
+    const item = patchmap.selector('$..[?(@.id=="probe-item")]')[0];
+    const bar = patchmap.selector('$..[?(@.id=="bar-probe")]')[0];
+
+    expect(bar.angle).toBeCloseTo(210);
+
+    expect(
+      getMaxBoundsOverflow(item.getBounds(), bar.getBounds()),
+    ).toBeLessThanOrEqual(1);
+  });
+
+  it('re-centers world when viewport resizes after rotation and flip', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(sampleData);
+    patchmap.rotation.set(45);
+    patchmap.flip.set({ x: true, y: false });
+
+    const stageElement = getStageElement(patchmap);
+    stageElement.style.width = '1400px';
+    stageElement.style.height = '900px';
+    await waitForScene(150);
+
+    const center = patchmap.viewport.toWorld(
+      patchmap.viewport.screenWidth / 2,
+      patchmap.viewport.screenHeight / 2,
+    );
+
+    const world = getWorldRoot(patchmap);
+    expect(world.position.x).toBeCloseTo(center.x, 3);
+    expect(world.position.y).toBeCloseTo(center.y, 3);
+  });
+
+  it('keeps fit-to-content finite when rotation is set before draw', async () => {
+    const patchmap = getPatchmap();
+    patchmap.rotation.set(-15);
+    patchmap.draw(sampleData);
+    patchmap.fit();
+    await waitForScene();
+
+    expectFiniteViewportState(patchmap);
+  });
+
   describe('update', () => {
     let patchmap = null;
     beforeEach(() => {

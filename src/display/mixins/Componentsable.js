@@ -5,7 +5,8 @@ import { componentArraySchema } from '../data-schema/component-schema';
 import { UPDATE_STAGES } from './constants';
 import { validateAndPrepareChanges } from './utils';
 
-const KEYS = ['components'];
+const COMPONENT_KEYS = ['components'];
+const ORIENTATION_KEYS = ['contentOrientation'];
 
 export const Componentsable = (superClass) => {
   const MixedClass = class extends superClass {
@@ -72,11 +73,22 @@ export const Componentsable = (superClass) => {
         this.props.components[childIndex] = updatedChildProps;
       }
     }
+
+    _refreshComponentOrientation() {
+      for (const component of this.children) {
+        component?._onWorldTransformChanged?.();
+      }
+    }
   };
   MixedClass.registerHandler(
-    KEYS,
+    COMPONENT_KEYS,
     MixedClass.prototype._applyComponents,
     UPDATE_STAGES.CHILD_RENDER,
+  );
+  MixedClass.registerHandler(
+    ORIENTATION_KEYS,
+    MixedClass.prototype._refreshComponentOrientation,
+    UPDATE_STAGES.WORLD_TRANSFORM,
   );
   return MixedClass;
 };
