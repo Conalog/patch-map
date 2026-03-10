@@ -128,11 +128,12 @@ export const initAsset = async (opts = {}) => {
   await Promise.all([bundleLoadPromise, assetLoadPromise]);
 };
 
-export const initResizeObserver = (el, app, viewport) => {
+export const initResizeObserver = (el, app, viewport, onResize) => {
   const resizeObserver = new ResizeObserver(() => {
     app.resize();
     const screen = app.screen;
     viewport.resize(screen.width, screen.height);
+    onResize?.();
   });
   resizeObserver.observe(el);
   return resizeObserver;

@@ -9,10 +9,17 @@ export const Linksable = (superClass) => {
       super(options);
 
       this._boundOnObjectTransformed = this._onObjectTransformed.bind(this);
+      this._boundOnViewportChanged = this._onViewportChanged.bind(this);
       this.store?.viewport?.on(
         'object_transformed',
         this._boundOnObjectTransformed,
       );
+      this.store?.viewport?.on(
+        'world_transformed',
+        this._boundOnViewportChanged,
+      );
+      this.store?.viewport?.on('moved', this._boundOnViewportChanged);
+      this.store?.viewport?.on('zoomed', this._boundOnViewportChanged);
     }
 
     destroy(options) {
@@ -21,13 +28,24 @@ export const Linksable = (superClass) => {
           'object_transformed',
           this._boundOnObjectTransformed,
         );
+        this.store?.viewport?.off(
+          'world_transformed',
+          this._boundOnViewportChanged,
+        );
+        this.store?.viewport?.off('moved', this._boundOnViewportChanged);
+        this.store?.viewport?.off('zoomed', this._boundOnViewportChanged);
       }
       super.destroy(options);
     }
 
+    _refreshLinkedPath() {
+      this._renderDirty = true;
+      this._refreshLink?.();
+    }
+
     _onObjectTransformed(changedObject) {
-      if (this._renderDirty) return;
       if (!this.linkedObjects) return;
+      if (changedObject === this.store?.world) return;
 
       const values = Object.values(this.linkedObjects);
       for (const linkedObj of values) {
@@ -35,12 +53,18 @@ export const Linksable = (superClass) => {
 
         if (
           linkedObj === changedObject ||
-          isAncestor(changedObject, linkedObj)
+          isAncestor(changedObject, linkedObj) ||
+          isAncestor(linkedObj, changedObject)
         ) {
-          this._renderDirty = true;
+          this._refreshLinkedPath();
           return;
         }
       }
+    }
+
+    _onViewportChanged() {
+      if (!this.linkedObjects) return;
+      this._refreshLinkedPath();
     }
 
     _applyLinks(relevantChanges) {

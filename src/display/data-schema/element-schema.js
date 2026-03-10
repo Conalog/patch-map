@@ -13,6 +13,10 @@ import {
   StrokeStyle,
 } from './primitive-schema';
 
+const ContentOrientation = z
+  .enum(['follow-item', 'upright'])
+  .default('follow-item');
+
 /**
  * A viewport is a container that can be panned and zoomed.
  * Visually represented by a `Viewport`.
@@ -48,6 +52,7 @@ export const gridSchema = ElementBase.extend({
     components: componentArraySchema.default([]),
     size: Size,
     padding: Margin.default(0),
+    contentOrientation: ContentOrientation,
   }),
 }).strict();
 
@@ -62,6 +67,7 @@ export const itemSchema = ElementBase.extend({
   components: componentArraySchema.default([]),
   size: Size,
   padding: Margin.default(0),
+  contentOrientation: ContentOrientation,
 }).strict();
 
 /**

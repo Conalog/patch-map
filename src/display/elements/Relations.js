@@ -1,5 +1,5 @@
 import { Graphics } from 'pixi.js';
-import { calcOrientedBounds } from '../../utils/bounds';
+import { getCentroid, getObjectWorldCorners } from '../../utils/transform';
 import { relationsSchema } from '../data-schema/element-schema';
 import { Linksable } from '../mixins/linksable';
 import { Relationstyleable } from '../mixins/Relationstyleable';
@@ -80,12 +80,8 @@ export class Relations extends ComposedRelations {
         continue;
       }
 
-      const sourceBounds = this.store.viewport.toLocal(
-        calcOrientedBounds(sourceObject).center,
-      );
-      const targetBounds = this.store.viewport.toLocal(
-        calcOrientedBounds(targetObject).center,
-      );
+      const sourceBounds = this.toLocal(getObjectBoundsCenter(sourceObject));
+      const targetBounds = this.toLocal(getObjectBoundsCenter(targetObject));
 
       const sourcePoint = [sourceBounds.x, sourceBounds.y];
       const targetPoint = [targetBounds.x, targetBounds.y];
@@ -103,3 +99,7 @@ export class Relations extends ComposedRelations {
     this.path.stroke();
   }
 }
+
+const getObjectBoundsCenter = (object) => {
+  return getCentroid(getObjectWorldCorners(object));
+};

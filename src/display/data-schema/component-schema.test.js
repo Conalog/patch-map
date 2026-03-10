@@ -139,6 +139,11 @@ describe('Component Schemas', () => {
       const data = { ...baseBar, size: 100, another: 'property' };
       expect(() => barSchema.parse(data)).toThrow();
     });
+
+    it('should fail if item content orientation leaks into component schema', () => {
+      const data = { ...baseBar, size: 100, contentOrientation: 'upright' };
+      expect(() => barSchema.parse(data)).toThrow();
+    });
   });
 
   describe('Icon Schema', () => {
