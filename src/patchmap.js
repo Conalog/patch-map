@@ -47,6 +47,10 @@ class Patchmap extends WildcardEventEmitter {
     return this._viewport;
   }
 
+  get world() {
+    return this._world;
+  }
+
   get theme() {
     return this._theme.get();
   }
