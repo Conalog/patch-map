@@ -20,15 +20,13 @@ const centerViewport = (viewport, ids, shouldFit = false) => {
   if (!objects.length) return null;
   const bounds = calcGroupOrientedBounds(objects);
   const center = viewport.toLocal(bounds.center);
-  if (bounds) {
-    viewport.moveCenter(center.x, center.y);
-    if (shouldFit) {
-      viewport.fit(
-        true,
-        bounds.innerBounds.width / viewport.scale.x,
-        bounds.innerBounds.height / viewport.scale.y,
-      );
-    }
+  viewport.moveCenter(center.x, center.y);
+  if (shouldFit) {
+    viewport.fit(
+      true,
+      bounds.innerBounds.width / viewport.scale.x,
+      bounds.innerBounds.height / viewport.scale.y,
+    );
   }
 };
 
@@ -40,7 +38,13 @@ const checkValidate = (ids) => {
 };
 
 const getObjectsById = (viewport, ids) => {
-  if (!ids) return [viewport];
+  if (!ids) {
+    const topLevelObjects = selector(
+      viewport,
+      '$..children[?(@.type != null && @.parent.type === "canvas")]',
+    );
+    return topLevelObjects.length ? topLevelObjects : [viewport];
+  }
   const idsArr = Array.isArray(ids) ? ids : [ids];
   const objs = selector(
     viewport,

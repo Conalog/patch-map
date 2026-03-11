@@ -12,7 +12,7 @@ const tempCorners = [new Point(), new Point(), new Point(), new Point()];
 export const getObjectWorldCorners = (displayObject) => {
   const corners = tempCorners;
   const localBounds = displayObject.getLocalBounds();
-  const worldTransform = displayObject.worldTransform;
+  const worldTransform = displayObject.getGlobalTransform(undefined, false);
 
   // Set the four corners based on the object's original (local) bounds.
   corners[0].set(localBounds.x, localBounds.y);

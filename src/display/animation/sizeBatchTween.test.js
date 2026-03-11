@@ -66,6 +66,40 @@ const immediateAnimationContext = () => ({
   add: vi.fn((callback) => callback()),
 });
 
+const renderCompensatedBatchUpdate = ({
+  view,
+  parentProps,
+  resolvedPosition,
+}) => {
+  const batcher = getSizeBatcher({
+    animationContext: immediateAnimationContext(),
+  });
+
+  const target = createTarget();
+  if (parentProps) {
+    target.parent = { props: parentProps };
+  }
+  target.store = { view };
+  target.props = { placement: 'bottom', margin: { left: 1, right: 2 } };
+  const applyState = vi.fn((nextTarget, state) => {
+    nextTarget.setSize(state.w, state.h);
+    target.position.set(resolvedPosition.x, resolvedPosition.y);
+  });
+
+  batcher.enqueue({
+    target,
+    applyState,
+    from: { w: 0, h: 0, x: 0, y: 0 },
+    to: { w: 100, h: 80, x: 40, y: 20 },
+    durationMs: 1000,
+    ease: 'none',
+  });
+
+  const [{ tween }] = gsapState.tweens;
+  tween.tick(0.5);
+  return { target, applyState };
+};
+
 describe('sizeBatchTween', () => {
   beforeEach(() => {
     gsapState.tweens.length = 0;
@@ -251,5 +285,63 @@ describe('sizeBatchTween', () => {
 
     tween.tick(1);
     expect(secondJob.done).toBe(true);
+  });
+
+  it.each([
+    {
+      case: 'compensated rotation range',
+      view: { angle: 90 },
+      resolvedPosition: { x: 999, y: 888 },
+    },
+    {
+      case: 'screen flip',
+      view: { angle: 10, flipX: true, flipY: false },
+      resolvedPosition: { x: 777, y: 666 },
+    },
+    {
+      case: 'upright item content',
+      view: { angle: 12, flipX: false, flipY: false },
+      parentProps: { contentOrientation: 'upright' },
+      resolvedPosition: { x: 555, y: 444 },
+    },
+  ])('re-applies world transform and placement for $case', ({
+    view,
+    parentProps,
+    resolvedPosition,
+  }) => {
+    const { target, applyState } = renderCompensatedBatchUpdate({
+      view,
+      parentProps,
+      resolvedPosition,
+    });
+
+    expect(target.setSize).toHaveBeenLastCalledWith(50, 40);
+    expect(applyState).toHaveBeenCalledTimes(1);
+    expect(target.position.set).toHaveBeenLastCalledWith(
+      resolvedPosition.x,
+      resolvedPosition.y,
+    );
+    expect(target.position.set).not.toHaveBeenCalledWith(20, 10);
+  });
+
+  it('uses default target state application when job has no custom applyState', () => {
+    const batcher = getSizeBatcher({
+      animationContext: immediateAnimationContext(),
+    });
+    const target = createTarget();
+
+    batcher.enqueue({
+      target,
+      from: { w: 0, h: 0, x: 0, y: 0 },
+      to: { w: 100, h: 80, x: 40, y: 20 },
+      durationMs: 1000,
+      ease: 'none',
+    });
+
+    const [{ tween }] = gsapState.tweens;
+    tween.tick(0.5);
+
+    expect(target.setSize).toHaveBeenLastCalledWith(50, 40);
+    expect(target.position.set).toHaveBeenLastCalledWith(20, 10);
   });
 });

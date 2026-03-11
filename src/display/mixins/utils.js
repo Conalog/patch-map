@@ -27,6 +27,13 @@ export const parseCalcExpression = (expression, parentDimension) => {
   return totalValue;
 };
 
+export const assertFiniteNumber = (value, label) => {
+  if (!Number.isFinite(value)) {
+    throw new RangeError(`Non-finite number detected: ${label}=${value}`);
+  }
+  return value;
+};
+
 const roundToPrecision = (value, precision = 6) => {
   if (!Number.isFinite(value)) return value;
   const factor = 10 ** precision;
