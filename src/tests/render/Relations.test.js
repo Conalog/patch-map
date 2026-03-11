@@ -39,6 +39,12 @@ describe('Relations Component Rendering Tests', () => {
       element.id === 'rel-1' ? { ...element, attrs } : element,
     );
 
+  const withRelationsFirst = (data = baseMapData) => {
+    const relation = data.find((element) => element.type === 'relations');
+    const others = data.filter((element) => element.type !== 'relations');
+    return relation ? [relation, ...others] : data;
+  };
+
   const createGroupedGridRelationsMap = ({ withFocusItem = false } = {}) => [
     {
       type: 'group',
@@ -173,6 +179,21 @@ describe('Relations Component Rendering Tests', () => {
     const points = relations.linkPoints[0];
     expect(points.sourcePoint).toEqual([itemA.x, itemA.y]);
     expect(points.targetPoint).toEqual([itemB.x, itemB.y]);
+  });
+
+  it('should refresh relation links after draw when relations appear before targets', async () => {
+    const {
+      patchmap,
+      relations,
+      source: itemA,
+      target: itemB,
+    } = await renderRelationScene({
+      data: withRelationsFirst(),
+    });
+
+    expect(relations.linkPoints).toHaveLength(1);
+    expectFirstLinkAligned(relations, itemA, itemB);
+    expect(getPath(patchmap).getBounds().width).toBeGreaterThan(0);
   });
 
   it('should update path style when the "style" property changes', async () => {

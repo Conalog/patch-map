@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { Application } from 'pixi.js';
+import { Application, UPDATE_PRIORITY } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { UndoRedoManager } from './command/UndoRedoManager';
 import './display/components/registry';
@@ -53,6 +53,10 @@ class Patchmap extends WildcardEventEmitter {
 
   get isInit() {
     return this._isInit;
+  }
+
+  set isInit(value) {
+    this._isInit = value;
   }
 
   get undoRedoManager() {
@@ -145,7 +149,7 @@ class Patchmap extends WildcardEventEmitter {
     if (transformer) {
       this.transformer = transformer;
     }
-    this._isInit = true;
+    this.isInit = true;
     this.emit('patchmap:initialized', { target: this });
   }
 
@@ -166,7 +170,7 @@ class Patchmap extends WildcardEventEmitter {
     this._app = null;
     this._viewport = null;
     this._resizeObserver = null;
-    this._isInit = false;
+    this.isInit = false;
     this._theme = themeStore();
     this._undoRedoManager = new UndoRedoManager();
     this._animationContext = gsap.context(() => {});
@@ -192,6 +196,17 @@ class Patchmap extends WildcardEventEmitter {
     this.animationContext.revert();
     event.removeAllEvent(this.viewport);
     draw(store, validatedData);
+
+    // Force a refresh of all relation elements after the initial draw. This ensures
+    // that all link targets exist in the scene graph before the relations
+    // attempt to draw their links.
+    this.app.ticker.addOnce(
+      () => {
+        this.update({ path: '$..[?(@.type=="relations")]', refresh: true });
+      },
+      undefined,
+      UPDATE_PRIORITY.UTILITY,
+    );
 
     this.app.start();
     scheduleUserVisibleTask(() => {
