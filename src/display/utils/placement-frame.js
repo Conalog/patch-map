@@ -41,7 +41,7 @@ const parsePercentDimension = (dimension) => {
   return null;
 };
 
-const targetsVerticalFillPlacement = (component) => {
+const targetsFullWidth = (component) => {
   const size = component?.props?.size;
   const widthPercent = parsePercentDimension(size?.width);
   const heightPercent = parsePercentDimension(size?.height);
@@ -150,7 +150,7 @@ const resolveFollowItemVerticalFrame = (
   margin,
   viewStateForPlacement,
 ) => {
-  if (!targetsVerticalFillPlacement(component)) {
+  if (!targetsFullWidth(component)) {
     return { directions, margin };
   }
 
