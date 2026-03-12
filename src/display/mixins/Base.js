@@ -10,7 +10,6 @@ import { Type } from './Type';
 
 const tempMatrix = new Matrix();
 const RAW_SYNC_KEYS = ['id', 'label', 'attrs'];
-const LOCK_KEYS = ['locked'];
 
 const getPatchDiff = (currentProps, changes) => {
   if (
@@ -60,15 +59,6 @@ export const Base = (superClass) => {
     }
 
     _afterRender() {}
-
-    _applyLocked({ locked }) {
-      if (typeof locked !== 'boolean') {
-        return;
-      }
-
-      this.eventMode = locked ? 'none' : 'static';
-      this.store?.viewport?.emit('object_transformed', this);
-    }
 
     _onObjectUpdate() {
       if (
@@ -268,6 +258,5 @@ export const Base = (superClass) => {
     }
   };
 
-  MixedClass.registerHandler(LOCK_KEYS, MixedClass.prototype._applyLocked);
   return MixedClass;
 };
