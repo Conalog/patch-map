@@ -15,7 +15,6 @@ export class Rect extends ComposedRect {
   static isSelectable = true;
   static isResizable = true;
   static hitScope = 'self';
-  static unlockedEventMode = 'static';
 
   constructor(store) {
     super({ type: 'rect', store });

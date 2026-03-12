@@ -1,14 +1,11 @@
 const KEYS = ['locked'];
 const DEFAULT_UNLOCKED_EVENT_MODE = 'static';
 
-const getUnlockedEventMode = (instance) =>
-  instance?.constructor?.unlockedEventMode ?? DEFAULT_UNLOCKED_EVENT_MODE;
-
 export const Lockedable = (superClass) => {
   const MixedClass = class extends superClass {
     constructor(options = {}) {
       super(options);
-      this.eventMode = getUnlockedEventMode(this);
+      this.eventMode = DEFAULT_UNLOCKED_EVENT_MODE;
     }
 
     _applyLocked({ locked }) {
@@ -16,7 +13,7 @@ export const Lockedable = (superClass) => {
         return;
       }
 
-      this.eventMode = locked ? 'none' : getUnlockedEventMode(this);
+      this.eventMode = locked ? 'none' : DEFAULT_UNLOCKED_EVENT_MODE;
       this.store?.viewport?.emit('object_transformed', this);
     }
   };

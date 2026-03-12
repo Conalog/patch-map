@@ -10,7 +10,6 @@ export default class Element extends ComposedElement {
   static isSelectable = false;
   static isResizable = false;
   static hitScope = 'self'; // 'self' | 'children'
-  static unlockedEventMode = 'static';
 
   constructor(options) {
     super(options);
