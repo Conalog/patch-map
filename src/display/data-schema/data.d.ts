@@ -37,7 +37,14 @@ export type MapData = Element[];
  * A union type of all possible top-level elements that constitute the map data.
  * The specific type of element is determined by the 'type' property.
  */
-export type Element = Group | Grid | Item | Relations;
+export type Element =
+  | Group
+  | Grid
+  | Item
+  | Relations
+  | ImageElement
+  | TextElement
+  | RectElement;
 
 //================================================================================
 // 2. Element Types (from element-schema.js)
@@ -185,6 +192,55 @@ export interface Relations {
   locked?: boolean; // Default: false
   links: { source: string; target: string }[];
   style?: RelationsStyle;
+  attrs?: Record<string, unknown>;
+}
+
+/**
+ * Renders an image from a URL or asset key as a standalone map element.
+ * @see {@link https://pixijs.download/release/docs/scene.Sprite.html}
+ */
+export interface ImageElement {
+  type: 'image';
+  id?: string; // Default: uid
+  label?: string;
+  show?: boolean; // Default: true
+  locked?: boolean; // Default: false
+  source: string;
+  size?: Size;
+  attrs?: Record<string, unknown>;
+}
+
+/**
+ * Renders text as a standalone map element.
+ * This is distinct from the `Text` component used inside an `Item`.
+ * @see {@link https://pixijs.download/release/docs/text_bitmap.BitmapText.html}
+ */
+export interface TextElement {
+  type: 'text';
+  id?: string; // Default: uid
+  label?: string;
+  show?: boolean; // Default: true
+  locked?: boolean; // Default: false
+  text?: string; // Default: ''
+  style?: TextStyle;
+  size?: Size;
+  attrs?: Record<string, unknown>;
+}
+
+/**
+ * Renders a rectangle as a standalone map element.
+ * @see {@link https://pixijs.download/release/docs/scene.Graphics.html}
+ */
+export interface RectElement {
+  type: 'rect';
+  id?: string; // Default: uid
+  label?: string;
+  show?: boolean; // Default: true
+  locked?: boolean; // Default: false
+  size: Size;
+  fill?: Color;
+  stroke?: Record<string, unknown>;
+  radius?: number | Record<string, number>; // Default: 0
   attrs?: Record<string, unknown>;
 }
 

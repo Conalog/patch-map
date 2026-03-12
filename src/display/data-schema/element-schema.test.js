@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { uid } from '../../utils/uuid';
 import {
+  canvasSchema,
   gridSchema,
   groupSchema,
   imageSchema,
@@ -27,6 +28,18 @@ beforeEach(() => {
 });
 
 describe('Element Schemas', () => {
+  describe('Canvas Schema', () => {
+    it('should reject locked on canvas', () => {
+      const canvasData = {
+        type: 'canvas',
+        children: [],
+        locked: true,
+      };
+
+      expect(() => canvasSchema.parse(canvasData)).toThrow();
+    });
+  });
+
   describe('Group Schema', () => {
     it('should parse a valid group with nested elements', () => {
       const groupData = {
@@ -262,6 +275,18 @@ describe('Element Schemas', () => {
       };
       expect(() => imageSchema.parse(imageData)).toThrow();
     });
+
+    it('should parse locked on image elements', () => {
+      const imageData = {
+        type: 'image',
+        id: 'img-1',
+        source: 'asset-key',
+        locked: true,
+      };
+
+      const parsed = imageSchema.parse(imageData);
+      expect(parsed.locked).toBe(true);
+    });
   });
 
   describe('Text Schema', () => {
@@ -297,6 +322,18 @@ describe('Element Schemas', () => {
       };
       expect(() => textSchema.parse(textData)).toThrow();
     });
+
+    it('should parse locked on text elements', () => {
+      const textData = {
+        type: 'text',
+        id: 'text-1',
+        text: 'hello',
+        locked: true,
+      };
+
+      const parsed = textSchema.parse(textData);
+      expect(parsed.locked).toBe(true);
+    });
   });
 
   describe('Rect Schema', () => {
@@ -326,6 +363,18 @@ describe('Element Schemas', () => {
         unknown: 'property',
       };
       expect(() => rectSchema.parse(rectData)).toThrow();
+    });
+
+    it('should parse locked on rect elements', () => {
+      const rectData = {
+        type: 'rect',
+        id: 'rect-1',
+        size: { width: 120, height: 80 },
+        locked: true,
+      };
+
+      const parsed = rectSchema.parse(rectData);
+      expect(parsed.locked).toBe(true);
     });
   });
 
