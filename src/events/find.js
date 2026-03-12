@@ -1,4 +1,8 @@
-import { collectCandidates, isInteractionLocked } from '../utils/get';
+import { collectCandidates } from '../utils/get';
+import {
+  isInteractionLocked,
+  isSelectableCandidate,
+} from '../utils/interaction-locks';
 import { intersect } from '../utils/intersects/intersect';
 import { intersectPoint } from '../utils/intersects/intersect-point';
 import { getSegmentEntryT } from '../utils/intersects/segment-polygon-t';
@@ -17,8 +21,7 @@ const getSelectableCandidates = (parent) => {
 
   return collectCandidates(
     parent,
-    (child) =>
-      child.constructor.isSelectable && !isInteractionLocked(child, parent),
+    (child) => isSelectableCandidate(child, parent),
     { shouldDescend: (child) => !isInteractionLocked(child, parent) },
   );
 };

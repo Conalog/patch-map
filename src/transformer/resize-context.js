@@ -1,4 +1,4 @@
-import { isInteractionLocked } from '../utils/get';
+import { isResizableCandidate } from '../utils/interaction-locks';
 import { getBoundsFromPoints, getObjectLocalCorners } from '../utils/transform';
 
 /**
@@ -17,8 +17,7 @@ import { getBoundsFromPoints, getObjectLocalCorners } from '../utils/transform';
  * @returns {boolean}
  */
 export const isResizableElement = (element, stopAt = null) =>
-  Boolean(element?.constructor?.isResizable) &&
-  !isInteractionLocked(element, stopAt);
+  isResizableCandidate(element, stopAt);
 
 /**
  * Filters an element list to only resizable elements.
