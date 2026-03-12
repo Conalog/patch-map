@@ -1,4 +1,4 @@
-import { collectCandidates, isInteractionLocked } from '../utils/get';
+import { collectCandidates, isLocked } from '../utils/get';
 import { intersect } from '../utils/intersects/intersect';
 import { intersectPoint } from '../utils/intersects/intersect-point';
 import { getSegmentEntryT } from '../utils/intersects/segment-polygon-t';
@@ -12,8 +12,8 @@ export const findIntersectObject = (
 ) => {
   const allCandidates = collectCandidates(
     parent,
-    (child) =>
-      child.constructor.isSelectable && !isInteractionLocked(child, parent),
+    (child) => child.constructor.isSelectable && !isLocked(child),
+    { shouldDescend: (child) => !isLocked(child) },
   );
 
   const sortedCandidates = allCandidates.sort((a, b) => {
@@ -68,8 +68,8 @@ export const findIntersectObjects = (
 ) => {
   const allCandidates = collectCandidates(
     parent,
-    (child) =>
-      child.constructor.isSelectable && !isInteractionLocked(child, parent),
+    (child) => child.constructor.isSelectable && !isLocked(child),
+    { shouldDescend: (child) => !isLocked(child) },
   );
   const found = [];
 
@@ -107,8 +107,8 @@ export const findIntersectObjectsBySegment = (
 ) => {
   const allCandidates = collectCandidates(
     parent,
-    (child) =>
-      child.constructor.isSelectable && !isInteractionLocked(child, parent),
+    (child) => child.constructor.isSelectable && !isLocked(child),
+    { shouldDescend: (child) => !isLocked(child) },
   );
   const foundMap = new Map();
 

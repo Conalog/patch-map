@@ -440,6 +440,27 @@ describe('Transformer', () => {
       expect(getVisibleHandles(transformer)).toHaveLength(0);
     });
 
+    it('should mark transformer dirty and hide handles immediately when a selected element is locked', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      transformer.draw();
+
+      expect(getVisibleHandles(transformer)).toHaveLength(4);
+
+      transformer._renderDirty = false;
+      rect.apply({ locked: true });
+
+      expect(transformer._renderDirty).toBe(true);
+
+      transformer.draw();
+      expect(getVisibleHandles(transformer)).toHaveLength(0);
+    });
+
     it('should hide resize handles when boundsDisplayMode is none', () => {
       const patchmap = getPatchmap();
       patchmap.draw(resizeSampleData);

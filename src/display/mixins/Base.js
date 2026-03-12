@@ -67,6 +67,7 @@ export const Base = (superClass) => {
       }
 
       this.eventMode = locked ? 'none' : 'static';
+      this.store?.viewport?.emit('object_transformed', this);
     }
 
     _onObjectUpdate() {
