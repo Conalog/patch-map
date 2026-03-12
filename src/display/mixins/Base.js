@@ -10,6 +10,7 @@ import { Type } from './Type';
 
 const tempMatrix = new Matrix();
 const RAW_SYNC_KEYS = ['id', 'label', 'attrs'];
+const LOCK_KEYS = ['locked'];
 
 const getPatchDiff = (currentProps, changes) => {
   if (
@@ -34,7 +35,7 @@ const getPatchDiff = (currentProps, changes) => {
 };
 
 export const Base = (superClass) => {
-  return class extends Type(superClass) {
+  const MixedClass = class extends Type(superClass) {
     static _handlerMap = new Map();
     static _handlerRegistry = new Map();
     static _handlerOrder = 0;
@@ -59,6 +60,14 @@ export const Base = (superClass) => {
     }
 
     _afterRender() {}
+
+    _applyLocked({ locked }) {
+      if (typeof locked !== 'boolean') {
+        return;
+      }
+
+      this.eventMode = locked ? 'none' : 'static';
+    }
 
     _onObjectUpdate() {
       if (
@@ -257,4 +266,7 @@ export const Base = (superClass) => {
       deepMerge(this, { [key]: value }, { mergeStrategy });
     }
   };
+
+  MixedClass.registerHandler(LOCK_KEYS, MixedClass.prototype._applyLocked);
+  return MixedClass;
 };

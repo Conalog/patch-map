@@ -41,6 +41,27 @@ describe('Element Schemas', () => {
       expect(parsed.children[0].type).toBe('item');
     });
 
+    it('should parse locked state on a group and its nested child', () => {
+      const groupData = {
+        type: 'group',
+        id: 'group-1',
+        locked: true,
+        children: [
+          {
+            type: 'item',
+            id: 'item-1',
+            locked: true,
+            size: { width: 100, height: 100 },
+          },
+        ],
+      };
+
+      const parsed = groupSchema.parse(groupData);
+
+      expect(parsed.locked).toBe(true);
+      expect(parsed.children[0].locked).toBe(true);
+    });
+
     it('should parse a group with empty children', () => {
       const groupData = { type: 'group', id: 'group-1', children: [] };
       expect(() => groupSchema.parse(groupData)).not.toThrow();
@@ -125,6 +146,18 @@ describe('Element Schemas', () => {
       expect(parsed.size.width).toBe(100);
       expect(parsed.size.height).toBe(200);
       expect(parsed.components).toEqual([]); // default value
+    });
+
+    it('should default locked to false when omitted', () => {
+      const itemData = {
+        type: 'item',
+        id: 'item-1',
+        size: { width: 100, height: 200 },
+      };
+
+      const parsed = itemSchema.parse(itemData);
+
+      expect(parsed.locked).toBe(false);
     });
 
     it('should fail if required size properties are missing', () => {

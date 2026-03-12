@@ -64,6 +64,7 @@ export interface Group {
   id?: string; // Default: uid
   label?: string;
   show?: boolean; // Default: true
+  locked?: boolean; // Default: false
   children: Element[];
   attrs?: Record<string, unknown>;
 }
@@ -98,6 +99,7 @@ export interface Grid {
   id?: string; // Default: uid
   label?: string;
   show?: boolean; // Default: true
+  locked?: boolean; // Default: false
   cells: (0 | 1 | string)[][];
   inactiveCellStrategy?: 'destroy' | 'hide'; // Default: 'destroy'
   gap?: Gap;
@@ -152,6 +154,7 @@ export interface Item {
   id?: string; // Default: uid
   label?: string;
   show?: boolean; // Default: true
+  locked?: boolean; // Default: false
   components?: Component[];
   size: Size;
   padding?: Margin; // Default: 0
@@ -179,6 +182,7 @@ export interface Relations {
   id?: string; // Default: uid
   label?: string;
   show?: boolean; // Default: true
+  locked?: boolean; // Default: false
   links: { source: string; target: string }[];
   style?: RelationsStyle;
   attrs?: Record<string, unknown>;
