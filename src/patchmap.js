@@ -238,8 +238,8 @@ class Patchmap extends WildcardEventEmitter {
     focus(this.viewport, ids);
   }
 
-  fit(ids) {
-    fitViewport(this.viewport, ids);
+  fit(ids, opts = {}) {
+    fitViewport(this.viewport, ids, opts);
   }
 
   selector(path, opts) {

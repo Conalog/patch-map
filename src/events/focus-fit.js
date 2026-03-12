@@ -2,20 +2,31 @@ import { isValidationError } from 'zod-validation-error';
 import { calcGroupOrientedBounds } from '../utils/bounds';
 import { selector } from '../utils/selector/selector';
 import { validate } from '../utils/validator';
-import { focusFitIdsSchema } from './schema';
+import { fitOptionsSchema, focusFitIdsSchema } from './schema';
+
+const DEFAULT_FIT_PADDING = Object.freeze({
+  top: 32,
+  right: 32,
+  bottom: 32,
+  left: 32,
+});
+
+const ZERO_MARGIN = Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 });
 
 export const focus = (viewport, ids) => centerViewport(viewport, ids, false);
-export const fit = (viewport, ids) => centerViewport(viewport, ids, true);
+export const fit = (viewport, ids, opts) =>
+  centerViewport(viewport, ids, true, opts);
 
 /**
  * Centers and optionally fits the viewport to given object IDs.
  * @param {Viewport} viewport - The viewport instance.
  * @param {string|string[]} ids - ID or IDs of objects to center on.
  * @param {boolean} shouldFit - Whether to fit the viewport to the objects' bounds.
+ * @param {{padding?: number|{x?: number, y?: number}|{top?: number, right?: number, bottom?: number, left?: number}}} opts
  * @returns {void|null} Returns null if no objects found.
  */
-const centerViewport = (viewport, ids, shouldFit = false) => {
-  checkValidate(ids);
+const centerViewport = (viewport, ids, shouldFit = false, opts = {}) => {
+  const fitOptions = checkValidate(ids, opts);
   const objects = getObjectsById(viewport, ids);
   if (!objects.length) return null;
   const bounds = calcGroupOrientedBounds(objects);
@@ -23,21 +34,35 @@ const centerViewport = (viewport, ids, shouldFit = false) => {
   if (bounds) {
     viewport.moveCenter(center.x, center.y);
     if (shouldFit) {
+      const padding = fitOptions?.padding ?? ZERO_MARGIN;
       viewport.fit(
         true,
-        bounds.innerBounds.width / viewport.scale.x,
-        bounds.innerBounds.height / viewport.scale.y,
+        bounds.innerBounds.width / viewport.scale.x +
+          (padding.left + padding.right) / viewport.scale.x,
+        bounds.innerBounds.height / viewport.scale.y +
+          (padding.top + padding.bottom) / viewport.scale.y,
       );
     }
   }
 };
 
-const checkValidate = (ids) => {
+const checkValidate = (ids, opts) => {
   const validated = validate(ids, focusFitIdsSchema);
   if (isValidationError(validated)) {
     throw validated;
   }
+
+  const validatedOptions = validate(opts, fitOptionsSchema);
+  if (isValidationError(validatedOptions)) {
+    throw validatedOptions;
+  }
+
+  return resolveFitOptions(validatedOptions);
 };
+
+const resolveFitOptions = (options = {}) => ({
+  padding: { ...DEFAULT_FIT_PADDING, ...options?.padding },
+});
 
 const getObjectsById = (viewport, ids) => {
   if (!ids) return [viewport];
