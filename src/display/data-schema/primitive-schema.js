@@ -177,25 +177,52 @@ export const Gap = z.preprocess(
     .default({}),
 );
 
+export const normalizeMarginInput = (val) => {
+  if (typeof val === 'number') {
+    return { top: val, right: val, bottom: val, left: val };
+  }
+
+  if (val && typeof val === 'object') {
+    const next = {};
+
+    if ('x' in val) {
+      const x = val.x ?? 0;
+      next.right = x;
+      next.left = x;
+    }
+
+    if ('y' in val) {
+      const y = val.y ?? 0;
+      next.top = y;
+      next.bottom = y;
+    }
+
+    if ('top' in val) next.top = val.top ?? 0;
+    if ('right' in val) next.right = val.right ?? 0;
+    if ('bottom' in val) next.bottom = val.bottom ?? 0;
+    if ('left' in val) next.left = val.left ?? 0;
+
+    return next;
+  }
+
+  return val;
+};
+
+const marginShape = z.object({
+  top: z.number().default(0),
+  right: z.number().default(0),
+  bottom: z.number().default(0),
+  left: z.number().default(0),
+});
+
+export const PartialMargin = z.preprocess(
+  normalizeMarginInput,
+  marginShape.partial(),
+);
+
 export const Margin = z.preprocess(
-  (val) => {
-    if (typeof val === 'number') {
-      return { top: val, right: val, bottom: val, left: val };
-    }
-    if (val && typeof val === 'object' && ('x' in val || 'y' in val)) {
-      const { x = 0, y = 0 } = val;
-      return { top: y, right: x, bottom: y, left: x };
-    }
-    return val;
-  },
-  z
-    .object({
-      top: z.number().default(0),
-      right: z.number().default(0),
-      bottom: z.number().default(0),
-      left: z.number().default(0),
-    })
-    .default({}),
+  normalizeMarginInput,
+  marginShape.default({}),
 );
 
 export const EachRadius = z.object({

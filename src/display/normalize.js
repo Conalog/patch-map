@@ -1,5 +1,7 @@
 const COMPONENT_TYPES = new Set(['background', 'bar', 'icon', 'text']);
 
+import { normalizeMarginInput } from './data-schema/primitive-schema';
+
 const isPlainObject = (value) =>
   Boolean(value && typeof value === 'object' && !Array.isArray(value));
 
@@ -35,15 +37,7 @@ const normalizeGap = (value) => {
 };
 
 const normalizeMargin = (value) => {
-  if (typeof value === 'number') {
-    return { top: value, right: value, bottom: value, left: value };
-  }
-  if (isPlainObject(value) && ('x' in value || 'y' in value)) {
-    const x = value.x ?? 0;
-    const y = value.y ?? 0;
-    return { top: y, right: x, bottom: y, left: x };
-  }
-  return value;
+  return normalizeMarginInput(value);
 };
 
 const normalizePxOrPercent = (value) => {
