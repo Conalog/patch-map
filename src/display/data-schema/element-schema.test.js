@@ -25,6 +25,7 @@ vi.mock('../../utils/uuid', () => ({
 
 beforeEach(() => {
   vi.mocked(uid).mockClear();
+  vi.mocked(uid).mockReturnValue('mock-id-default');
 });
 
 describe('Element Schemas', () => {
@@ -32,11 +33,14 @@ describe('Element Schemas', () => {
     it('should reject locked on canvas', () => {
       const canvasData = {
         type: 'canvas',
+        id: 'canvas-1',
         children: [],
         locked: true,
       };
 
-      expect(() => canvasSchema.parse(canvasData)).toThrow();
+      const result = canvasSchema.safeParse(canvasData);
+
+      expect(result.success).toBe(false);
     });
   });
 

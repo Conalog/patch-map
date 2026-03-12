@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { componentArraySchema } from './component-schema';
 import {
+  Base,
   Color,
   EachRadius,
   ElementBase,
@@ -17,7 +18,7 @@ import {
  * Visually represented by a `Viewport`.
  * @see {@link https://viewport.pixijs.io/jsdoc/Viewport.html}
  */
-export const canvasSchema = ElementBase.extend({
+export const canvasSchema = Base.extend({
   type: z.literal('canvas'),
   children: z.array(z.lazy(() => elementTypes)),
 }).strict();
