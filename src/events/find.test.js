@@ -62,6 +62,24 @@ describe('findIntersectObject', () => {
     vi.clearAllMocks();
   });
 
+  it('should return null when the search root itself is locked', () => {
+    const unlockedChild = createNode({
+      id: 'unlocked-child',
+      hit: true,
+    });
+    const lockedGroup = createNode({
+      id: 'locked-group',
+      type: 'group',
+      locked: true,
+      isSelectable: false,
+      children: [unlockedChild],
+    });
+
+    const result = findIntersectObject(lockedGroup, { x: 0, y: 0 });
+
+    expect(result).toBeNull();
+  });
+
   it('should ignore a directly locked selectable object', () => {
     const lockedRect = createNode({
       id: 'locked-rect',
@@ -114,6 +132,24 @@ describe('findIntersectObjects', () => {
     vi.clearAllMocks();
   });
 
+  it('should return an empty list when the search root itself is locked', () => {
+    const unlockedChild = createNode({
+      id: 'unlocked-child',
+      hit: true,
+    });
+    const lockedGroup = createNode({
+      id: 'locked-group',
+      type: 'group',
+      locked: true,
+      isSelectable: false,
+      children: [unlockedChild],
+    });
+
+    const result = findIntersectObjects(lockedGroup, {});
+
+    expect(result).toEqual([]);
+  });
+
   it('should exclude locked objects from box selection results', () => {
     const unlockedRect = createNode({
       id: 'unlocked-rect',
@@ -140,6 +176,29 @@ describe('findIntersectObjects', () => {
 describe('findIntersectObjectsBySegment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('should return an empty list when the search root itself is locked', () => {
+    const unlockedChild = createNode({
+      id: 'unlocked-child',
+      hit: true,
+      entryT: 0.1,
+    });
+    const lockedGroup = createNode({
+      id: 'locked-group',
+      type: 'group',
+      locked: true,
+      isSelectable: false,
+      children: [unlockedChild],
+    });
+
+    const result = findIntersectObjectsBySegment(
+      lockedGroup,
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+    );
+
+    expect(result).toEqual([]);
   });
 
   it('should exclude descendants of locked ancestors from segment selection', () => {

@@ -1,20 +1,29 @@
-import { collectCandidates, isLocked } from '../utils/get';
+import { collectCandidates, isInteractionLocked } from '../utils/get';
 import { intersect } from '../utils/intersects/intersect';
 import { intersectPoint } from '../utils/intersects/intersect-point';
 import { getSegmentEntryT } from '../utils/intersects/segment-polygon-t';
 import { getObjectLocalCorners } from '../utils/transform';
 import { getSelectObject } from './utils';
 
+const getSelectableCandidates = (parent) => {
+  if (isInteractionLocked(parent)) {
+    return [];
+  }
+
+  return collectCandidates(
+    parent,
+    (child) =>
+      child.constructor.isSelectable && !isInteractionLocked(child, parent),
+    { shouldDescend: (child) => !isInteractionLocked(child, parent) },
+  );
+};
+
 export const findIntersectObject = (
   parent,
   point,
   { filter, selectUnit, filterParent } = {},
 ) => {
-  const allCandidates = collectCandidates(
-    parent,
-    (child) => child.constructor.isSelectable && !isLocked(child),
-    { shouldDescend: (child) => !isLocked(child) },
-  );
+  const allCandidates = getSelectableCandidates(parent);
 
   const sortedCandidates = allCandidates.sort((a, b) => {
     const zDiff = (b.zIndex || 0) - (a.zIndex || 0);
@@ -66,11 +75,7 @@ export const findIntersectObjects = (
   selectionBox,
   { filter, selectUnit, filterParent } = {},
 ) => {
-  const allCandidates = collectCandidates(
-    parent,
-    (child) => child.constructor.isSelectable && !isLocked(child),
-    { shouldDescend: (child) => !isLocked(child) },
-  );
+  const allCandidates = getSelectableCandidates(parent);
   const found = [];
 
   for (const candidate of allCandidates) {
@@ -105,11 +110,7 @@ export const findIntersectObjectsBySegment = (
   p2,
   { filter, selectUnit, filterParent } = {},
 ) => {
-  const allCandidates = collectCandidates(
-    parent,
-    (child) => child.constructor.isSelectable && !isLocked(child),
-    { shouldDescend: (child) => !isLocked(child) },
-  );
+  const allCandidates = getSelectableCandidates(parent);
   const foundMap = new Map();
 
   for (const candidate of allCandidates) {
