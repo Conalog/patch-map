@@ -26,7 +26,7 @@ Therefore, to use this, an understanding of the following two libraries is essen
   - [viewport](#viewport)
   - [asset](#asset)
   - [focus(ids)](#focusids)
-  - [fit(ids)](#fitids)
+  - [fit(ids, options)](#fitids-options)
   - [selector(path)](#selectorpath)
   - [stateManager](#statemanager)  
   - [SelectionState](#selectionstate)
@@ -380,8 +380,10 @@ patchmap.focus(['item-1', 'item-2'])
 
 <br/>
 
-### `fit(ids)`
+### `fit(ids, options)`
 - `ids` (optional, string \| string[]) - The string or string array representing the object ID to fit. If not specified, the entire canvas object is the target.
+- `options` (optional, object)
+  - `padding` (optional, number \| { x?: number, y?: number } \| { top?: number, right?: number, bottom?: number, left?: number }) - Additional spacing applied around the fitted bounds. `fit()` uses a fixed default padding of `32` on all sides, and the provided value overrides only the specified edges.
 ```js
 // Fit to the entire canvas object
 patchmap.fit()
@@ -394,6 +396,12 @@ patchmap.fit('grid-1')
 
 // Fit on objects with ids 'item-1' and 'item-2'
 patchmap.fit(['item-1', 'item-2'])
+
+// Fit with uniform extra padding
+patchmap.fit('group-id-1', { padding: 24 })
+
+// Fit with per-edge overrides on top of the default 32px padding
+patchmap.fit('grid-1', { padding: { top: 10, x: 5 } })
 ```
 
 <br/>

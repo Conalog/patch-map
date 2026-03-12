@@ -27,7 +27,7 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js
   - [viewport](#viewport)
   - [asset](#asset)
   - [focus(ids)](#focusids)
-  - [fit(ids)](#fitids)
+  - [fit(ids, options)](#fitids-options)
   - [selector(path)](#selectorpath)
   - [stateManager](#statemanager)  
   - [SelectionState](#selectionstate)
@@ -386,8 +386,10 @@ patchmap.focus(['item-1', 'item-2'])
 
 <br/>
 
-### `fit(ids)`
+### `fit(ids, options)`
 - `ids` (optional, string \| string[]) - fit할 객체 ID를 나타내는 문자열 또는 문자열 배열입니다. 지정하지 않으면 캔버스 전체 객체가 대상이 됩니다.
+- `options` (optional, object)
+  - `padding` (optional, number \| { x?: number, y?: number } \| { top?: number, right?: number, bottom?: number, left?: number }) - fit 대상 주변에 추가 여백을 적용합니다. `fit()`은 기본적으로 상하좌우 `32`의 고정 패딩을 사용하고, 전달한 값은 지정한 방향만 덮어씁니다.
 ```js
 // 전체 캔버스 객체를 기준으로 fit
 patchmap.fit()
@@ -400,6 +402,12 @@ patchmap.fit('grid-1')
 
 // id가 'item-1'과 'item-2'인 객체들을 기준으로 fit
 patchmap.fit(['item-1', 'item-2'])
+
+// 균일한 추가 패딩으로 fit
+patchmap.fit('group-id-1', { padding: 24 })
+
+// 기본 32px 패딩 위에 일부 방향만 덮어써서 fit
+patchmap.fit('grid-1', { padding: { top: 10, x: 5 } })
 ```
 
 <br/>
