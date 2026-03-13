@@ -122,16 +122,21 @@ describe('patchmap test', () => {
   });
 
   it('does not emit updated event during the internal relation refresh after draw', async () => {
-    const patchmap = getPatchmap();
-    const onUpdated = vi.fn();
-    patchmap.on('patchmap:updated', onUpdated);
+    vi.useFakeTimers();
+    try {
+      const patchmap = getPatchmap();
+      const onUpdated = vi.fn();
+      patchmap.on('patchmap:updated', onUpdated);
 
-    patchmap.draw(sampleData);
+      patchmap.draw(sampleData);
 
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+      await vi.advanceTimersToNextFrame();
+      await vi.advanceTimersToNextFrame();
 
-    expect(onUpdated).not.toHaveBeenCalled();
+      expect(onUpdated).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   describe('fit', () => {
