@@ -1,5 +1,4 @@
-const isPlainObject = (value) =>
-  Boolean(value && typeof value === 'object' && !Array.isArray(value));
+import { isPlainObject } from 'is-plain-object';
 
 export const normalizeAxisSpacing = (value) => {
   if (typeof value === 'number') {

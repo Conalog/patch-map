@@ -1,9 +1,8 @@
+import { isPlainObject } from 'is-plain-object';
+
 const COMPONENT_TYPES = new Set(['background', 'bar', 'icon', 'text']);
 
 import { normalizeBoxSpacing } from '../utils/spacing';
-
-const isPlainObject = (value) =>
-  Boolean(value && typeof value === 'object' && !Array.isArray(value));
 
 const normalizeArray = (items, normalizeItem) => {
   let changed = false;
