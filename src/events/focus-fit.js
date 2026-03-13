@@ -37,6 +37,7 @@ const getBoundsForIds = (viewport, ids, filter) => {
   const objects = resolveFocusFitTargets(viewport, ids, filter);
   if (!objects.length) return null;
 
+  console.log(objects);
   return calcGroupOrientedBounds(objects);
 };
 
@@ -125,4 +126,6 @@ const collectNodeContributors = (node, filter, collected, seen) => {
 };
 
 const isManagedViewportElement = (node) =>
-  node?.type && Boolean(node?.constructor?.isElement);
+  node?.type &&
+  Boolean(node?.constructor?.isElement) &&
+  node.type !== 'relations';
