@@ -26,7 +26,7 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js
   - [event](#event)
   - [viewport](#viewport)
   - [asset](#asset)
-  - [focus(ids)](#focusids)
+  - [focus(ids, opts)](#focusids-opts)
   - [fit(ids, options)](#fitids-options)
   - [selector(path)](#selectorpath)
   - [stateManager](#statemanager)  

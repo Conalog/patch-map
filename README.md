@@ -25,7 +25,7 @@ Therefore, to use this, an understanding of the following two libraries is essen
   - [event](#event)
   - [viewport](#viewport)
   - [asset](#asset)
-  - [focus(ids)](#focusids)
+  - [focus(ids, opts)](#focusids-opts)
   - [fit(ids, options)](#fitids-options)
   - [selector(path)](#selectorpath)
   - [stateManager](#statemanager)  
