@@ -234,12 +234,27 @@ class Patchmap extends WildcardEventEmitter {
     return updatedElements;
   }
 
-  focus(ids) {
-    focus(this.viewport, ids);
+  /**
+   * @typedef {object} FocusFitOptions
+   * @property {(obj: object) => boolean} filter
+   */
+
+  /**
+   * @param {string|string[]|null} [ids]
+   * @param {FocusFitOptions} [opts]
+   * @returns {void|null}
+   */
+  focus(ids, opts) {
+    return focus(this.viewport, ids, opts);
   }
 
-  fit(ids) {
-    fitViewport(this.viewport, ids);
+  /**
+   * @param {string|string[]|null} [ids]
+   * @param {FocusFitOptions} [opts]
+   * @returns {void|null}
+   */
+  fit(ids, opts) {
+    return fitViewport(this.viewport, ids, opts);
   }
 
   selector(path, opts) {

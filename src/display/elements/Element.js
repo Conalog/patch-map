@@ -6,6 +6,7 @@ import { mixins } from '../mixins/utils';
 const ComposedElement = mixins(Container, Base, Showable);
 
 export default class Element extends ComposedElement {
+  static isElement = true;
   static isSelectable = false;
   static isResizable = false;
   static hitScope = 'self'; // 'self' | 'children'

@@ -368,10 +368,16 @@ patchmap.viewport.plugin.remove('mouse-edges');
 
 <br/>
 
-### `focus(ids)`
-- `ids` (optional, string \| string[]) - focus할 객체 ID를 나타내는 문자열 또는 문자열 배열입니다. 지정하지 않으면 캔버스 전체 객체가 대상이 됩니다.
+### `focus(ids, opts)`
+- `ids` (optional, string \| string[]) - focus할 객체 ID를 나타내는 문자열 또는 문자열 배열입니다.
+- `opts` (optional, object)
+  `filter` (`(obj) => boolean`) - 최종 viewport 대상 집합에서 유지할 객체만 남깁니다. `true`를 반환하면 포함됩니다.
+- `ids`를 지정하지 않으면 관리되는 캔버스 element 전체가 focus 대상 집합이 됩니다.
+- `filter`는 `ids`를 명시한 경우에도 항상 마지막에 적용됩니다.
+- 옵션만 전달할 때는 `ids` 자리에 `null` 또는 `undefined`를 넣습니다.
+- `group` 같은 컨테이너 element는 viewport bounds 계산 시 필터링된 관리 대상 하위 element 기준으로 반영됩니다.
 ```js
-// 전체 캔버스 객체를 기준으로 focus
+// 관리되는 전체 캔버스 element를 기준으로 focus
 patchmap.focus()
 
 // id가 'group-id-1'인 객체를 기준으로 focus
@@ -382,14 +388,30 @@ patchmap.focus('grid-1')
 
 // id가 'item-1'과 'item-2'인 객체들을 기준으로 focus
 patchmap.focus(['item-1', 'item-2'])
+
+// background 이미지를 제외하고 전체 element를 기준으로 focus
+patchmap.focus(null, {
+  filter: (obj) => obj.id !== 'background-image',
+})
+
+// 명시한 ids를 기준으로 찾은 뒤 filter를 적용
+patchmap.focus(['item-1', 'item-2'], {
+  filter: (obj) => obj.id !== 'item-2',
+})
 ```
 
 <br/>
 
-### `fit(ids)`
-- `ids` (optional, string \| string[]) - fit할 객체 ID를 나타내는 문자열 또는 문자열 배열입니다. 지정하지 않으면 캔버스 전체 객체가 대상이 됩니다.
+### `fit(ids, opts)`
+- `ids` (optional, string \| string[]) - fit할 객체 ID를 나타내는 문자열 또는 문자열 배열입니다.
+- `opts` (optional, object)
+  `filter` (`(obj) => boolean`) - 최종 viewport 대상 집합에서 유지할 객체만 남깁니다. `true`를 반환하면 포함됩니다.
+- `ids`를 지정하지 않으면 관리되는 캔버스 element 전체가 fit 대상 집합이 됩니다.
+- `filter`는 `ids`를 명시한 경우에도 항상 마지막에 적용됩니다.
+- 옵션만 전달할 때는 `ids` 자리에 `null` 또는 `undefined`를 넣습니다.
+- `group` 같은 컨테이너 element는 viewport bounds 계산 시 필터링된 관리 대상 하위 element 기준으로 반영됩니다.
 ```js
-// 전체 캔버스 객체를 기준으로 fit
+// 관리되는 전체 캔버스 element를 기준으로 fit
 patchmap.fit()
 
 // id가 'group-id-1'인 객체를 기준으로 fit
@@ -400,6 +422,16 @@ patchmap.fit('grid-1')
 
 // id가 'item-1'과 'item-2'인 객체들을 기준으로 fit
 patchmap.fit(['item-1', 'item-2'])
+
+// background 이미지를 제외하고 전체 element를 기준으로 fit
+patchmap.fit(null, {
+  filter: (obj) => obj.id !== 'background-image',
+})
+
+// 명시한 ids를 기준으로 찾은 뒤 filter를 적용
+patchmap.fit(['item-1', 'item-2'], {
+  filter: (obj) => obj.id !== 'item-2',
+})
 ```
 
 <br/>

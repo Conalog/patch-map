@@ -362,10 +362,16 @@ patchmap.viewport.plugin.remove('mouse-edges');
 
 <br/>
 
-### `focus(ids)`
-- `ids` (optional, string \| string[]) - The string or string array representing the object ID to focus on. If not specified, the entire canvas object is the target.
+### `focus(ids, opts)`
+- `ids` (optional, string \| string[]) - The string or string array representing the object ID to focus on.
+- `opts` (optional, object)
+  `filter` (`(obj) => boolean`) - Filters the resolved viewport targets. Return `true` to keep a target.
+- If `ids` is not specified, all managed canvas elements are used as the focus target set.
+- `filter` is always applied last, even when `ids` are explicitly provided.
+- To pass only options, use `null` or `undefined` for `ids`.
+- Container elements such as `group` contribute through their filtered managed descendants when viewport bounds are calculated.
 ```js
- // Focus on the entire canvas object
+// Focus on all managed canvas elements
 patchmap.focus()
 
 // Focus on the object with id 'group-id-1'
@@ -376,14 +382,30 @@ patchmap.focus('grid-1')
 
 // Focus on objects with ids 'item-1' and 'item-2'
 patchmap.focus(['item-1', 'item-2'])
+
+// Focus on all managed canvas elements except the background image
+patchmap.focus(null, {
+  filter: (obj) => obj.id !== 'background-image',
+})
+
+// Focus on explicit ids, then filter the resolved targets
+patchmap.focus(['item-1', 'item-2'], {
+  filter: (obj) => obj.id !== 'item-2',
+})
 ```
 
 <br/>
 
-### `fit(ids)`
-- `ids` (optional, string \| string[]) - The string or string array representing the object ID to fit. If not specified, the entire canvas object is the target.
+### `fit(ids, opts)`
+- `ids` (optional, string \| string[]) - The string or string array representing the object ID to fit.
+- `opts` (optional, object)
+  `filter` (`(obj) => boolean`) - Filters the resolved viewport targets. Return `true` to keep a target.
+- If `ids` is not specified, all managed canvas elements are used as the fit target set.
+- `filter` is always applied last, even when `ids` are explicitly provided.
+- To pass only options, use `null` or `undefined` for `ids`.
+- Container elements such as `group` contribute through their filtered managed descendants when viewport bounds are calculated.
 ```js
-// Fit to the entire canvas object
+// Fit to all managed canvas elements
 patchmap.fit()
 
 // Fit to the object with id 'group-id-1'
@@ -394,6 +416,16 @@ patchmap.fit('grid-1')
 
 // Fit on objects with ids 'item-1' and 'item-2'
 patchmap.fit(['item-1', 'item-2'])
+
+// Fit to all managed canvas elements except the background image
+patchmap.fit(null, {
+  filter: (obj) => obj.id !== 'background-image',
+})
+
+// Fit to explicit ids, then filter the resolved targets
+patchmap.fit(['item-1', 'item-2'], {
+  filter: (obj) => obj.id !== 'item-2',
+})
 ```
 
 <br/>
