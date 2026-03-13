@@ -3,14 +3,13 @@ const getTargets = (candidate) =>
     ? candidate.children
     : [candidate];
 
-const resolveCandidateSelection = (candidate, resolveSelection) =>
-  resolveSelection ? resolveSelection(candidate) : candidate;
+const selectCandidate = (candidate) => candidate;
 
 export const collectPointHit = ({
   candidates,
   point,
   intersectsPoint,
-  resolveSelection,
+  resolveSelection = selectCandidate,
 }) => {
   for (const candidate of candidates) {
     const targets = getTargets(candidate);
@@ -20,7 +19,7 @@ export const collectPointHit = ({
         continue;
       }
 
-      const selection = resolveCandidateSelection(candidate, resolveSelection);
+      const selection = resolveSelection(candidate);
       if (selection) {
         return selection;
       }
@@ -34,7 +33,7 @@ export const collectPolygonHits = ({
   candidates,
   polygon,
   intersectsPolygon,
-  resolveSelection,
+  resolveSelection = selectCandidate,
 }) => {
   const found = [];
 
@@ -46,7 +45,7 @@ export const collectPolygonHits = ({
         continue;
       }
 
-      const selection = resolveCandidateSelection(candidate, resolveSelection);
+      const selection = resolveSelection(candidate);
       if (selection) {
         found.push(selection);
         break;
@@ -63,7 +62,7 @@ export const collectSegmentHits = ({
   segmentEnd,
   getEntryT,
   getCorners,
-  resolveSelection,
+  resolveSelection = selectCandidate,
 }) => {
   const foundMap = new Map();
 
@@ -78,7 +77,7 @@ export const collectSegmentHits = ({
         continue;
       }
 
-      const selection = resolveCandidateSelection(candidate, resolveSelection);
+      const selection = resolveSelection(candidate);
       if (selection) {
         const currentT = foundMap.get(selection);
         if (currentT === undefined || t < currentT) {

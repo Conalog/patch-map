@@ -125,6 +125,35 @@ describe('findIntersectObject', () => {
 
     expect(result).toBe(unlockedRect);
   });
+
+  it('should resolve the selected group before applying the filter', () => {
+    const child = createNode({
+      id: 'child',
+      hit: true,
+    });
+    const group = createNode({
+      id: 'group',
+      type: 'group',
+      children: [child],
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [group],
+    });
+
+    const result = findIntersectObject(
+      root,
+      { x: 0, y: 0 },
+      {
+        selectUnit: 'closestGroup',
+        filter: (target) => target.type === 'group',
+      },
+    );
+
+    expect(result).toBe(group);
+  });
 });
 
 describe('findIntersectObjects', () => {

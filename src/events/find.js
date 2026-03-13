@@ -26,46 +26,62 @@ const getSelectableCandidates = (parent) => {
   );
 };
 
+const createFindSelectionResolver = (
+  parent,
+  { filter, selectUnit, filterParent } = {},
+) => {
+  return (candidate) => {
+    const selection = getSelectObject(
+      parent,
+      candidate,
+      selectUnit,
+      filterParent,
+    );
+
+    return selection && (!filter || filter(selection)) ? selection : null;
+  };
+};
+
+const compareCandidatesByDisplayOrder = (parent, a, b) => {
+  const zDiff = (b.zIndex || 0) - (a.zIndex || 0);
+  if (zDiff !== 0) return zDiff;
+
+  const pathA = getAncestorPath(a, parent);
+  const pathB = getAncestorPath(b, parent);
+  const minLength = Math.min(pathA.length, pathB.length);
+
+  for (let i = 0; i < minLength; i++) {
+    if (pathA[i] !== pathB[i]) {
+      const commonParent = pathA[i].parent;
+      return (
+        commonParent.getChildIndex(pathB[i]) -
+        commonParent.getChildIndex(pathA[i])
+      );
+    }
+  }
+
+  return pathB.length - pathA.length;
+};
+
 export const findIntersectObject = (
   parent,
   point,
   { filter, selectUnit, filterParent } = {},
 ) => {
-  const allCandidates = getSelectableCandidates(parent);
-  const sortedCandidates = allCandidates.sort((a, b) => {
-    const zDiff = (b.zIndex || 0) - (a.zIndex || 0);
-    if (zDiff !== 0) return zDiff;
-
-    const pathA = getAncestorPath(a, parent);
-    const pathB = getAncestorPath(b, parent);
-
-    const minLength = Math.min(pathA.length, pathB.length);
-    for (let i = 0; i < minLength; i++) {
-      if (pathA[i] !== pathB[i]) {
-        const commonParent = pathA[i].parent;
-        return (
-          commonParent.getChildIndex(pathB[i]) -
-          commonParent.getChildIndex(pathA[i])
-        );
-      }
-    }
-    return pathB.length - pathA.length;
+  const candidates = getSelectableCandidates(parent);
+  const resolveSelection = createFindSelectionResolver(parent, {
+    filter,
+    selectUnit,
+    filterParent,
   });
+
   return collectPointHit({
-    candidates: sortedCandidates,
+    candidates: candidates.sort((a, b) =>
+      compareCandidatesByDisplayOrder(parent, a, b),
+    ),
     point,
     intersectsPoint: intersectPoint,
-    resolveSelection: (candidate) => {
-      const selectObject = getSelectObject(
-        parent,
-        candidate,
-        selectUnit,
-        filterParent,
-      );
-      return selectObject && (!filter || filter(selectObject))
-        ? selectObject
-        : null;
-    },
+    resolveSelection,
   });
 };
 
@@ -74,22 +90,17 @@ export const findIntersectObjects = (
   selectionBox,
   { filter, selectUnit, filterParent } = {},
 ) => {
-  const allCandidates = getSelectableCandidates(parent);
+  const candidates = getSelectableCandidates(parent);
+  const resolveSelection = createFindSelectionResolver(parent, {
+    filter,
+    selectUnit,
+    filterParent,
+  });
   return collectPolygonHits({
-    candidates: allCandidates,
+    candidates,
     polygon: selectionBox,
     intersectsPolygon: intersect,
-    resolveSelection: (candidate) => {
-      const selectObject = getSelectObject(
-        parent,
-        candidate,
-        selectUnit,
-        filterParent,
-      );
-      return selectObject && (!filter || filter(selectObject))
-        ? selectObject
-        : null;
-    },
+    resolveSelection,
   });
 };
 
@@ -99,24 +110,19 @@ export const findIntersectObjectsBySegment = (
   p2,
   { filter, selectUnit, filterParent } = {},
 ) => {
-  const allCandidates = getSelectableCandidates(parent);
+  const candidates = getSelectableCandidates(parent);
+  const resolveSelection = createFindSelectionResolver(parent, {
+    filter,
+    selectUnit,
+    filterParent,
+  });
   return collectSegmentHits({
-    candidates: allCandidates,
+    candidates,
     segmentStart: p1,
     segmentEnd: p2,
     getEntryT: getSegmentEntryT,
     getCorners: (target) => getObjectLocalCorners(target, parent),
-    resolveSelection: (candidate) => {
-      const selectObject = getSelectObject(
-        parent,
-        candidate,
-        selectUnit,
-        filterParent,
-      );
-      return selectObject && (!filter || filter(selectObject))
-        ? selectObject
-        : null;
-    },
+    resolveSelection,
   });
 };
 
