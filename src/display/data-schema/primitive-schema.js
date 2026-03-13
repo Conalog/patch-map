@@ -208,6 +208,39 @@ export const normalizeMarginInput = (val) => {
   return val;
 };
 
+const normalizeMarginInputStrict = (val) => {
+  if (typeof val === 'number') {
+    return { top: val, right: val, bottom: val, left: val };
+  }
+
+  if (val && typeof val === 'object') {
+    const next = { ...val };
+
+    if ('x' in val) {
+      const x = val.x ?? 0;
+      next.right = x;
+      next.left = x;
+      delete next.x;
+    }
+
+    if ('y' in val) {
+      const y = val.y ?? 0;
+      next.top = y;
+      next.bottom = y;
+      delete next.y;
+    }
+
+    if ('top' in val) next.top = val.top ?? 0;
+    if ('right' in val) next.right = val.right ?? 0;
+    if ('bottom' in val) next.bottom = val.bottom ?? 0;
+    if ('left' in val) next.left = val.left ?? 0;
+
+    return next;
+  }
+
+  return val;
+};
+
 const marginShape = z.object({
   top: z.number().default(0),
   right: z.number().default(0),
@@ -218,6 +251,11 @@ const marginShape = z.object({
 export const PartialMargin = z.preprocess(
   normalizeMarginInput,
   marginShape.partial(),
+);
+
+export const StrictPartialMargin = z.preprocess(
+  normalizeMarginInputStrict,
+  marginShape.partial().strict(),
 );
 
 export const Margin = z.preprocess(

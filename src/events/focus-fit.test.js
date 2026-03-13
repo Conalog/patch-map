@@ -78,4 +78,14 @@ describe('focus-fit', () => {
       fitViewport(viewport, 'item-1', { padding: { top: 8 }, extra: true }),
     ).toThrow();
   });
+
+  it('throws for unknown padding keys', () => {
+    const viewport = createViewport();
+
+    expect(() =>
+      fitViewport(viewport, 'item-1', {
+        padding: { top: 8, typo: 4 },
+      }),
+    ).toThrow();
+  });
 });

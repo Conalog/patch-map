@@ -24,6 +24,25 @@ import SelectionState from './events/states/SelectionState';
 import Transformer from './transformer/Transformer';
 import { WildcardEventEmitter } from './utils/event/WildcardEventEmitter';
 
+/**
+ * @typedef {object} FitPaddingAxis
+ * @property {number} [x]
+ * @property {number} [y]
+ */
+
+/**
+ * @typedef {object} FitPaddingEdges
+ * @property {number} [top]
+ * @property {number} [right]
+ * @property {number} [bottom]
+ * @property {number} [left]
+ */
+
+/**
+ * @typedef {object} FitOptions
+ * @property {number | FitPaddingAxis | FitPaddingEdges} [padding]
+ */
+
 class Patchmap extends WildcardEventEmitter {
   _app = null;
   _viewport = null;
@@ -238,6 +257,11 @@ class Patchmap extends WildcardEventEmitter {
     focus(this.viewport, ids);
   }
 
+  /**
+   * @param {string | string[]} [ids]
+   * @param {FitOptions} [opts]
+   * @returns {void}
+   */
   fit(ids, opts = {}) {
     fitViewport(this.viewport, ids, opts);
   }
