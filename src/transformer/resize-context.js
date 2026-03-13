@@ -1,3 +1,4 @@
+import { isResizableCandidate } from '../utils/interaction-locks';
 import { getBoundsFromPoints, getObjectLocalCorners } from '../utils/transform';
 
 /**
@@ -15,8 +16,8 @@ import { getBoundsFromPoints, getObjectLocalCorners } from '../utils/transform';
  * @param {PIXI.DisplayObject} element
  * @returns {boolean}
  */
-export const isResizableElement = (element) =>
-  Boolean(element?.constructor?.isResizable);
+export const isResizableElement = (element, stopAt = null) =>
+  isResizableCandidate(element, stopAt);
 
 /**
  * Filters an element list to only resizable elements.
@@ -24,9 +25,9 @@ export const isResizableElement = (element) =>
  * @param {PIXI.DisplayObject[]} elements
  * @returns {PIXI.DisplayObject[]}
  */
-export const getResizableElements = (elements) => {
+export const getResizableElements = (elements, stopAt = null) => {
   if (!Array.isArray(elements) || elements.length === 0) return [];
-  return elements.filter((element) => isResizableElement(element));
+  return elements.filter((element) => isResizableElement(element, stopAt));
 };
 
 /**
@@ -71,7 +72,7 @@ export const getGroupBoundsInViewportSpace = ({ elements, viewport }) => {
 export const buildResizeContext = ({ elements, viewport }) => {
   if (!Array.isArray(elements) || elements.length === 0) return null;
 
-  const resizableElements = getResizableElements(elements);
+  const resizableElements = getResizableElements(elements, viewport);
   if (resizableElements.length === 0) return null;
 
   const bounds = getGroupBoundsInViewportSpace({

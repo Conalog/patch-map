@@ -2,51 +2,68 @@ import { isValidationError } from 'zod-validation-error';
 import { calcGroupOrientedBounds } from '../utils/bounds';
 import { selector } from '../utils/selector/selector';
 import { validate } from '../utils/validator';
-import { focusFitIdsSchema, focusFitOptionsSchema } from './schema';
+import {
+  focusFitIdsSchema,
+  focusFitOptionsSchema,
+  parseFitOptions,
+} from './schema';
 
 const FOCUS_FIT_SELECTOR =
   '$..children[?(@.type != null && @.parent.type !== "item" && @.parent.type !== "relations")]';
 
-export const focus = (viewport, ids, opts) =>
-  centerViewport(viewport, ids, false, opts);
-export const fit = (viewport, ids, opts) =>
-  centerViewport(viewport, ids, true, opts);
+export const focus = (viewport, ids, opts) => {
+  validateIds(ids);
+  validateFocusOptions(opts);
+  const bounds = getBoundsForIds(viewport, ids, opts?.filter);
+  if (!bounds) return null;
 
-/**
- * Centers and optionally fits the viewport to given object IDs.
- * @param {Viewport} viewport - The viewport instance.
- * @param {string|string[]|null|undefined} ids - ID(s) for target resolution.
- * @param {boolean} shouldFit - Whether to fit the viewport to the objects' bounds.
- * @param {{filter?: (obj: object) => boolean}} [opts] - Optional viewport target filter options.
- * @returns {void|null} Returns null if no objects found.
- */
-const centerViewport = (viewport, ids, shouldFit = false, opts) => {
-  checkValidateIds(ids);
-  checkValidateOptions(opts);
-  const objects = getObjectsById(viewport, ids, opts?.filter);
-  if (!objects.length) return null;
-  const bounds = calcGroupOrientedBounds(objects);
-  const center = viewport.toLocal(bounds.center);
-  if (bounds) {
-    viewport.moveCenter(center.x, center.y);
-    if (shouldFit) {
-      viewport.fit(
-        true,
-        bounds.innerBounds.width / viewport.scale.x,
-        bounds.innerBounds.height / viewport.scale.y,
-      );
-    }
-  }
+  moveViewportToBounds(viewport, bounds);
 };
 
-const checkValidateIds = (ids) => {
+export const fit = (viewport, ids, opts) => {
+  validateIds(ids);
+  const { filter, padding } = parseFitOptions(opts);
+  const bounds = getBoundsForIds(viewport, ids, filter);
+  if (!bounds) return null;
+
+  moveViewportToBounds(viewport, bounds);
+  fitViewportToBounds(viewport, bounds, padding);
+};
+
+/**
+ * @param {Viewport} viewport
+ * @param {string|string[]|null|undefined} ids
+ * @param {(obj: object) => boolean} [filter]
+ * @returns {void|null} Returns null if no objects found.
+ */
+const getBoundsForIds = (viewport, ids, filter) => {
+  const objects = getObjectsById(viewport, ids, filter);
+  if (!objects.length) return null;
+
+  return calcGroupOrientedBounds(objects);
+};
+
+const moveViewportToBounds = (viewport, bounds) => {
+  const center = viewport.toLocal(bounds.center);
+  viewport.moveCenter(center.x, center.y);
+};
+
+const fitViewportToBounds = (viewport, bounds, padding) => {
+  viewport.fit(
+    true,
+    bounds.innerBounds.width / viewport.scale.x + padding.x * 2,
+    bounds.innerBounds.height / viewport.scale.y + padding.y * 2,
+  );
+};
+
+const validateIds = (ids) => {
   const validated = validate(ids, focusFitIdsSchema);
   if (isValidationError(validated)) {
     throw validated;
   }
 };
 
-const checkValidateOptions = (opts) => {
+const validateFocusOptions = (opts) => {
   const validated = validate(opts, focusFitOptionsSchema);
   if (isValidationError(validated)) {
     throw validated;
@@ -88,7 +105,7 @@ const collectBoundsContributors = (targets, filter) => {
 };
 
 const collectNodeContributors = (node, filter, collected, seen) => {
-  if (!node || seen.has(node) || (filter && !filter(node))) {
+  if (!node || seen.has(node)) {
     return;
   }
 
@@ -99,6 +116,10 @@ const collectNodeContributors = (node, filter, collected, seen) => {
     managedChildren.forEach((child) =>
       collectNodeContributors(child, filter, collected, seen),
     );
+    return;
+  }
+
+  if (filter && !filter(node)) {
     return;
   }
 

@@ -17,9 +17,18 @@ vi.mock('../utils/selector/selector', () => ({
   selector: vi.fn(),
 }));
 
+vi.mock('./schema', async () => {
+  const actual = await vi.importActual('./schema');
+  return {
+    ...actual,
+    parseFitOptions: vi.fn(actual.parseFitOptions),
+  };
+});
+
 import { calcGroupOrientedBounds } from '../utils/bounds';
 import { selector } from '../utils/selector/selector';
-import { fit, focus } from './focus-fit';
+import { fit as fitViewport, focus as focusViewport } from './focus-fit';
+import { parseFitOptions } from './schema';
 
 const createTarget = (id, overrides = {}) => ({
   id,
@@ -32,7 +41,7 @@ const createTarget = (id, overrides = {}) => ({
   ...overrides,
 });
 
-const createViewport = (children = []) => ({
+const createViewport = (children = [], overrides = {}) => ({
   id: 'viewport',
   type: 'canvas',
   children,
@@ -40,6 +49,7 @@ const createViewport = (children = []) => ({
   moveCenter: vi.fn(),
   fit: vi.fn(),
   toLocal: vi.fn((point) => point),
+  ...overrides,
 });
 
 const linkChildren = (parent, children) => {
@@ -67,7 +77,7 @@ describe('focus-fit', () => {
     );
     const viewport = createViewport([background, node]);
 
-    focus(viewport, null, {
+    focusViewport(viewport, null, {
       filter: (obj) => obj.id !== 'background-image',
     });
 
@@ -84,7 +94,7 @@ describe('focus-fit', () => {
     const skip = markAsElement(createTarget('node-2'));
     vi.mocked(selector).mockReturnValue([keep, skip]);
 
-    focus(viewport, ['node-1', 'node-2'], {
+    focusViewport(viewport, ['node-1', 'node-2'], {
       filter: (obj) => obj.id !== 'node-2',
     });
 
@@ -97,7 +107,7 @@ describe('focus-fit', () => {
       markAsElement(createTarget('background-image')),
     ]);
 
-    const result = focus(viewport, null, {
+    const result = focusViewport(viewport, null, {
       filter: () => false,
     });
 
@@ -106,18 +116,98 @@ describe('focus-fit', () => {
     expect(viewport.moveCenter).not.toHaveBeenCalled();
   });
 
+  it('fits selected objects with merged padding using viewport-space padding', () => {
+    const target = markAsElement(
+      createTarget('item-1', { width: 100, height: 40 }),
+    );
+    const viewport = createViewport([], {
+      toLocal: vi.fn(() => ({ x: 25, y: 30 })),
+    });
+    vi.mocked(selector).mockReturnValue([target]);
+
+    fitViewport(viewport, 'item-1', { padding: { y: 10, x: 5 } });
+
+    expect(selector).toHaveBeenCalledWith(
+      viewport,
+      '$..children[?(@.type != null && @.parent.type !== "item" && @.parent.type !== "relations")]',
+    );
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([target]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(25, 30);
+    expect(viewport.fit).toHaveBeenCalledWith(true, 60, 30);
+  });
+
+  it('centers selected objects without fitting when using focus', () => {
+    const target = markAsElement(
+      createTarget('item-2', { centerX: 10, centerY: 20 }),
+    );
+    const viewport = createViewport([], {
+      toLocal: vi.fn(() => ({ x: 10, y: 20 })),
+    });
+    vi.mocked(selector).mockReturnValue([target]);
+
+    focusViewport(viewport, 'item-2');
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([target]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(10, 20);
+    expect(viewport.fit).not.toHaveBeenCalled();
+    expect(parseFitOptions).not.toHaveBeenCalled();
+  });
+
+  it('returns null without moving when no matching objects are found', () => {
+    vi.mocked(selector).mockReturnValue([]);
+    const viewport = createViewport();
+
+    const result = fitViewport(viewport, 'missing-id');
+
+    expect(result).toBeNull();
+    expect(calcGroupOrientedBounds).not.toHaveBeenCalled();
+    expect(viewport.moveCenter).not.toHaveBeenCalled();
+    expect(viewport.fit).not.toHaveBeenCalled();
+  });
+
+  it('still validates fit options when no matching objects are found', () => {
+    vi.mocked(selector).mockReturnValue([]);
+    const viewport = createViewport();
+
+    expect(() =>
+      fitViewport(viewport, 'missing-id', { padding: { top: 8 } }),
+    ).toThrow();
+
+    expect(parseFitOptions).toHaveBeenCalledWith({ padding: { top: 8 } });
+    expect(viewport.moveCenter).not.toHaveBeenCalled();
+    expect(viewport.fit).not.toHaveBeenCalled();
+  });
+
   it('rejects an options object passed as the first argument', () => {
     const viewport = createViewport();
 
-    expect(() => focus(viewport, {})).toThrow(/string|array/i);
+    expect(() => focusViewport(viewport, {})).toThrow(/string|array/i);
   });
 
   it('rejects a filter options object passed as the first argument', () => {
     const viewport = createViewport();
 
     expect(() =>
-      fit(viewport, {
+      fitViewport(viewport, {
         filter: () => true,
+      }),
+    ).toThrow();
+  });
+
+  it('throws for unknown fit option keys', () => {
+    const viewport = createViewport();
+
+    expect(() =>
+      fitViewport(viewport, 'item-1', { padding: { top: 8 }, extra: true }),
+    ).toThrow();
+  });
+
+  it('throws for unknown padding keys', () => {
+    const viewport = createViewport();
+
+    expect(() =>
+      fitViewport(viewport, 'item-1', {
+        padding: { top: 8 },
       }),
     ).toThrow();
   });
@@ -125,9 +215,20 @@ describe('focus-fit', () => {
   it('rejects a non-function filter', () => {
     const viewport = createViewport();
 
-    expect(() => fit(viewport, ['node-1'], { filter: 'nope' })).toThrow(
+    expect(() => fitViewport(viewport, ['node-1'], { filter: 'nope' })).toThrow(
       /function/i,
     );
+  });
+
+  it('does not move the viewport before rejecting invalid fit options', () => {
+    const viewport = createViewport();
+
+    expect(() =>
+      fitViewport(viewport, 'item-1', { padding: { top: 8 } }),
+    ).toThrow();
+
+    expect(viewport.moveCenter).not.toHaveBeenCalled();
+    expect(viewport.fit).not.toHaveBeenCalled();
   });
 
   it('accepts null ids with filter options for fit and applies fit math to filtered targets', () => {
@@ -144,13 +245,13 @@ describe('focus-fit', () => {
     );
     const viewport = createViewport([background, node]);
 
-    fit(viewport, null, {
+    fitViewport(viewport, null, {
       filter: (obj) => obj.id === 'node-1',
     });
 
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([node]);
     expect(viewport.moveCenter).toHaveBeenCalledWith(9, 7);
-    expect(viewport.fit).toHaveBeenCalledWith(true, 50, 20);
+    expect(viewport.fit).toHaveBeenCalledWith(true, 82, 52);
   });
 
   it('uses filtered child contributors instead of the parent group bounds', () => {
@@ -183,8 +284,9 @@ describe('focus-fit', () => {
     const viewport = createViewport([group]);
     vi.mocked(selector).mockReturnValue([group, childA, childB]);
 
-    fit(viewport, 'group-1', {
+    fitViewport(viewport, 'group-1', {
       filter: (obj) => obj.id !== 'child-b',
+      padding: 0,
     });
 
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([childA]);
@@ -201,7 +303,7 @@ describe('focus-fit', () => {
     const viewport = createViewport([group]);
     vi.mocked(selector).mockReturnValue([group, child]);
 
-    focus(viewport, ['group-1', 'child-1']);
+    focusViewport(viewport, ['group-1', 'child-1']);
 
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([child]);
   });
@@ -225,10 +327,20 @@ describe('focus-fit', () => {
     rawTypedChild.parent = viewport;
     vi.mocked(selector).mockReturnValue([item, rawTypedChild]);
 
-    focus(viewport);
+    focusViewport(viewport);
     expect(calcGroupOrientedBounds).toHaveBeenLastCalledWith([item]);
 
-    const byId = focus(viewport, 'custom-1');
+    const byId = focusViewport(viewport, 'custom-1');
     expect(byId).toBeNull();
+  });
+
+  it('parses fit options only for fit calls', () => {
+    const target = markAsElement(createTarget('item-1'));
+    const viewport = createViewport();
+    vi.mocked(selector).mockReturnValue([target]);
+
+    fitViewport(viewport, 'item-1', { padding: { x: 5 } });
+
+    expect(parseFitOptions).toHaveBeenCalledWith({ padding: { x: 5 } });
   });
 });

@@ -4,9 +4,11 @@ import { deepPartial } from '../../utils/zod-deep-strict-partial';
 import {
   Base,
   Color,
+  ElementBase,
   Gap,
   LabelTextStyle,
   Margin,
+  normalizeMarginInput,
   Placement,
   PxOrPercentSize,
   pxOrPercentSchema,
@@ -54,14 +56,15 @@ describe('Primitive Schema Tests', () => {
       { case: 'HSVA object', value: { h: 0, s: 100, v: 100, a: 0.5 } },
     ];
 
-    it.each(validColorSourceCases)(
-      'should correctly parse various color source types: $case',
-      ({ value }) => {
-        expect(() => Color.parse(value)).not.toThrow();
-        const parsed = Color.parse(value);
-        expect(parsed).toEqual(value);
-      },
-    );
+    it.each(
+      validColorSourceCases,
+    )('should correctly parse various color source types: $case', ({
+      value,
+    }) => {
+      expect(() => Color.parse(value)).not.toThrow();
+      const parsed = Color.parse(value);
+      expect(parsed).toEqual(value);
+    });
   });
 
   describe('Base Schema', () => {
@@ -82,10 +85,37 @@ describe('Primitive Schema Tests', () => {
       expect(result).toEqual({ show: true, id: 'mock-uid-123' });
       expect(uid).toHaveBeenCalled();
     });
+  });
+
+  describe('ElementBase Schema', () => {
+    it('should parse locked as an element-only property', () => {
+      const data = {
+        show: false,
+        locked: true,
+        id: 'custom-id',
+        label: 'My Base',
+        attrs: { extra: 'value' },
+      };
+
+      const result = ElementBase.parse(data);
+
+      expect(result).toEqual(data);
+    });
+
+    it('should apply locked=false by default', () => {
+      const data = {};
+      const result = ElementBase.parse(data);
+      expect(result).toEqual({
+        show: true,
+        locked: false,
+        id: 'mock-uid-123',
+      });
+      expect(uid).toHaveBeenCalled();
+    });
 
     it('should throw an error for unknown properties due to .strict()', () => {
       const data = { show: true, unknownProperty: 'test' };
-      expect(() => Base.parse(data)).toThrow();
+      expect(() => ElementBase.parse(data)).toThrow();
     });
   });
 
@@ -208,12 +238,13 @@ describe('Primitive Schema Tests', () => {
       expect(() => Placement.parse(placement)).not.toThrow();
     });
 
-    it.each(['top-left', 'invalid-placement', null])(
-      'should reject invalid placement value: %s',
-      (placement) => {
-        expect(() => Placement.parse(placement)).toThrow();
-      },
-    );
+    it.each([
+      'top-left',
+      'invalid-placement',
+      null,
+    ])('should reject invalid placement value: %s', (placement) => {
+      expect(() => Placement.parse(placement)).toThrow();
+    });
   });
 
   describe('Gap Schema', () => {
@@ -279,6 +310,11 @@ describe('Primitive Schema Tests', () => {
         expected: { top: 40, right: 0, bottom: 40, left: 0 },
       },
       {
+        case: 'object with axis and edge overrides',
+        input: { top: 10, x: 5 },
+        expected: { top: 10, right: 5, bottom: 0, left: 5 },
+      },
+      {
         case: 'empty object',
         input: {},
         expected: { top: 0, right: 0, bottom: 0, left: 0 },
@@ -312,6 +348,16 @@ describe('Primitive Schema Tests', () => {
       { case: 'object with non-numeric value', input: { top: '10' } },
     ])('should throw an error for invalid input for $case', ({ input }) => {
       expect(() => Margin.parse(input)).toThrow();
+    });
+  });
+
+  describe('normalizeMarginInput', () => {
+    it('accepts axis keys while normalizing them into edges', () => {
+      expect(normalizeMarginInput({ top: 10, x: 5 })).toEqual({
+        top: 10,
+        right: 5,
+        left: 5,
+      });
     });
   });
 
@@ -390,12 +436,11 @@ describe('Primitive Schema Tests', () => {
         { case: '', input: 'calc( 100% + -20px )' },
       ];
 
-      it.each(validCalcCases)(
-        'should parse valid calc expression: $case',
-        ({ input }) => {
-          expect(pxOrPercentSchema.parse(input)).toBe(input);
-        },
-      );
+      it.each(validCalcCases)('should parse valid calc expression: $case', ({
+        input,
+      }) => {
+        expect(pxOrPercentSchema.parse(input)).toBe(input);
+      });
     });
 
     describe('Invalid calc() Expressions', () => {
@@ -412,12 +457,13 @@ describe('Primitive Schema Tests', () => {
         { case: 'no spaces', input: 'calc(100%-20px)' },
       ];
 
-      it.each(invalidCalcCases)(
-        'should throw an error for invalid calc expression: $case',
-        ({ input }) => {
-          expect(() => pxOrPercentSchema.parse(input)).toThrow();
-        },
-      );
+      it.each(
+        invalidCalcCases,
+      )('should throw an error for invalid calc expression: $case', ({
+        input,
+      }) => {
+        expect(() => pxOrPercentSchema.parse(input)).toThrow();
+      });
     });
   });
 });

@@ -235,13 +235,8 @@ class Patchmap extends WildcardEventEmitter {
   }
 
   /**
-   * @typedef {object} FocusFitOptions
-   * @property {(obj: object) => boolean} filter
-   */
-
-  /**
    * @param {string|string[]|null} [ids]
-   * @param {FocusFitOptions} [opts]
+   * @param {import('./events/schema').FocusFitOptions} [opts]
    * @returns {void|null}
    */
   focus(ids, opts) {
@@ -250,7 +245,7 @@ class Patchmap extends WildcardEventEmitter {
 
   /**
    * @param {string|string[]|null} [ids]
-   * @param {FocusFitOptions} [opts]
+   * @param {import('./events/schema').FitOptions} [opts]
    * @returns {void|null}
    */
   fit(ids, opts) {

@@ -1,12 +1,65 @@
 import { z } from 'zod';
+import { isValidationError } from 'zod-validation-error';
+import { normalizeAxisSpacing } from '../utils/spacing';
+import { validate } from '../utils/validator';
+
+/**
+ * @typedef {object} FocusFitOptions
+ * @property {(obj: object) => boolean} [filter]
+ */
+
+/**
+ * @typedef {object} FitPaddingAxis
+ * @property {number} [x]
+ * @property {number} [y]
+ */
+
+/**
+ * @typedef {object} FitOptions
+ * @property {(obj: object) => boolean} [filter]
+ * @property {number | FitPaddingAxis} [padding]
+ */
+
+export const DEFAULT_FIT_PADDING = Object.freeze({ x: 16, y: 16 });
 
 export const focusFitIdsSchema = z
   .union([z.string(), z.array(z.string())])
   .nullish();
 
-export const focusFitOptionsSchema = z
-  .object({
-    filter: z.function().args(z.any()).returns(z.boolean()),
+const focusFitOptionsBaseSchema = z.object({
+  filter: z.function().args(z.any()).returns(z.boolean()).optional(),
+});
+
+export const focusFitOptionsSchema = focusFitOptionsBaseSchema
+  .strict()
+  .nullish();
+
+const fitPaddingAxisSchema = z
+  .object({ x: z.number().optional(), y: z.number().optional() })
+  .strict();
+
+export const fitOptionsSchema = focusFitOptionsBaseSchema
+  .extend({
+    padding: z
+      .union([z.number(), fitPaddingAxisSchema])
+      .transform(normalizeAxisSpacing)
+      .optional(),
   })
   .strict()
   .nullish();
+
+/**
+ * @param {FitOptions | null | undefined} options
+ * @returns {{filter?: (obj: object) => boolean, padding: {x: number, y: number}}}
+ */
+export const parseFitOptions = (options) => {
+  const validatedOptions = validate(options, fitOptionsSchema);
+  if (isValidationError(validatedOptions)) {
+    throw validatedOptions;
+  }
+
+  return {
+    ...validatedOptions,
+    padding: { ...DEFAULT_FIT_PADDING, ...validatedOptions?.padding },
+  };
+};

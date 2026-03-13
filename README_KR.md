@@ -27,7 +27,7 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js
   - [viewport](#viewport)
   - [asset](#asset)
   - [focus(ids)](#focusids)
-  - [fit(ids)](#fitids)
+  - [fit(ids, options)](#fitids-options)
   - [selector(path)](#selectorpath)
   - [stateManager](#statemanager)  
   - [SelectionState](#selectionstate)
@@ -234,6 +234,30 @@ patchmap.draw(data);
 draw method가 요구하는 **데이터 구조**입니다.  
 **자세한 타입 정의**는 [data.d.ts](src/display/data-schema/data.d.ts) 파일을 참조하세요.
 
+#### Spacing shorthand
+
+컴포넌트의 `margin`, element/item의 `padding` 같은 박스형 spacing 필드는 `draw(data)`와 `update({ changes })` 모두에서 아래 입력을 정규화합니다.
+
+- `number` - 네 방향 모두 같은 값을 적용합니다.
+- `{ x, y }` - `x`는 `left/right`, `y`는 `top/bottom`에 적용합니다.
+- `{ top, right, bottom, left }` - 각 방향 값을 그대로 적용합니다.
+- 축 키와 edge 키를 함께 사용한 경우 - `top/right/bottom/left`가 `x` 또는 `y`로부터 만들어진 값을 덮어씁니다.
+
+```js
+patchmap.update({
+  path: '$..[?(@.id=="item-1")]',
+  changes: {
+    padding: { bottom: 12, x: 3 },
+    components: [
+      {
+        type: 'text',
+        margin: { top: 10, x: 5 },
+      },
+    ],
+  },
+});
+```
+
 <br/>
 
 ### `update(options)`
@@ -402,17 +426,22 @@ patchmap.focus(['item-1', 'item-2'], {
 
 <br/>
 
-### `fit(ids, opts)`
+### `fit(ids, options)`
 - `ids` (optional, string \| string[]) - fit할 객체 ID를 나타내는 문자열 또는 문자열 배열입니다.
-- `opts` (optional, object)
-  `filter` (`(obj) => boolean`) - 최종 viewport 대상 집합에서 유지할 객체만 남깁니다. `true`를 반환하면 포함됩니다.
-- `ids`를 지정하지 않으면 관리되는 캔버스 element 전체가 fit 대상 집합이 됩니다.
-- `filter`는 `ids`를 명시한 경우에도 항상 마지막에 적용됩니다.
-- 옵션만 전달할 때는 `ids` 자리에 `null` 또는 `undefined`를 넣습니다.
-- `group` 같은 컨테이너 element는 viewport bounds 계산 시 필터링된 관리 대상 하위 element 기준으로 반영됩니다.
+- `options` (optional, object)
+  - `filter` (`(obj) => boolean`) - 최종 viewport 대상 집합에서 유지할 객체만 남깁니다. `true`를 반환하면 포함됩니다.
+  - `padding` (optional, number \| { x?: number, y?: number }) - 축 기반 fit 패딩입니다. `fit()`은 기본적으로 각 방향에 `16` 패딩을 사용합니다. 숫자를 전달하면 네 방향 모두 그 값으로 대체되고, 객체를 전달하면 지정한 축만 덮어쓰며 나머지는 `16`을 유지합니다.
+  - `fit()`의 `padding`은 숫자 또는 `{ x, y }`만 허용합니다. `{ top, right, bottom, left }` 같은 edge 기반 키는 유효하지 않습니다.
+  - `ids`를 지정하지 않으면 관리되는 캔버스 element 전체가 fit 대상 집합이 됩니다.
+  - `filter`는 `ids`를 명시한 경우에도 항상 마지막에 적용됩니다.
+  - 옵션만 전달할 때는 `ids` 자리에 `null` 또는 `undefined`를 넣습니다. 첫 번째 인자에 객체 하나만 넘기면 `options`가 아니라 `ids`로 해석됩니다.
+  - `group` 같은 컨테이너 element는 viewport bounds 계산 시 필터링된 관리 대상 하위 element 기준으로 반영됩니다.
 ```js
 // 관리되는 전체 캔버스 element를 기준으로 fit
 patchmap.fit()
+
+// 전체 캔버스에 네 방향 모두 24px 패딩을 적용해 fit
+patchmap.fit(undefined, { padding: 24 })
 
 // id가 'group-id-1'인 객체를 기준으로 fit
 patchmap.fit('group-id-1')
@@ -428,9 +457,16 @@ patchmap.fit(null, {
   filter: (obj) => obj.id !== 'background-image',
 })
 
-// 명시한 ids를 기준으로 찾은 뒤 filter를 적용
+// 대상 객체에 네 방향 모두 24px 패딩으로 fit
+patchmap.fit('group-id-1', { padding: 24 })
+
+// top/bottom=10px, left/right=5px로 fit
+patchmap.fit('grid-1', { padding: { y: 10, x: 5 } })
+
+// 명시한 ids를 기준으로 찾은 뒤 filter와 padding을 함께 적용
 patchmap.fit(['item-1', 'item-2'], {
   filter: (obj) => obj.id !== 'item-2',
+  padding: { y: 10, x: 5 },
 })
 ```
 

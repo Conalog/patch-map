@@ -1,63 +1,88 @@
 import { collectCandidates } from '../utils/get';
+import {
+  isInteractionLocked,
+  isSelectableCandidate,
+} from '../utils/interaction-locks';
 import { intersect } from '../utils/intersects/intersect';
 import { intersectPoint } from '../utils/intersects/intersect-point';
 import { getSegmentEntryT } from '../utils/intersects/segment-polygon-t';
 import { getObjectLocalCorners } from '../utils/transform';
+import {
+  collectPointHit,
+  collectPolygonHits,
+  collectSegmentHits,
+} from './find-helpers';
 import { getSelectObject } from './utils';
+
+const getSelectableCandidates = (parent) => {
+  if (isInteractionLocked(parent)) {
+    return [];
+  }
+
+  return collectCandidates(
+    parent,
+    (child) => isSelectableCandidate(child, parent),
+    { shouldDescend: (child) => !isInteractionLocked(child, parent) },
+  );
+};
+
+const createFindSelectionResolver = (
+  parent,
+  { filter, selectUnit, filterParent } = {},
+) => {
+  return (candidate) => {
+    const selection = getSelectObject(
+      parent,
+      candidate,
+      selectUnit,
+      filterParent,
+    );
+
+    return selection && (!filter || filter(selection)) ? selection : null;
+  };
+};
+
+const compareCandidatesByDisplayOrder = (parent, a, b) => {
+  const zDiff = (b.zIndex || 0) - (a.zIndex || 0);
+  if (zDiff !== 0) return zDiff;
+
+  const pathA = getAncestorPath(a, parent);
+  const pathB = getAncestorPath(b, parent);
+  const minLength = Math.min(pathA.length, pathB.length);
+
+  for (let i = 0; i < minLength; i++) {
+    if (pathA[i] !== pathB[i]) {
+      const commonParent = pathA[i].parent;
+      return (
+        commonParent.getChildIndex(pathB[i]) -
+        commonParent.getChildIndex(pathA[i])
+      );
+    }
+  }
+
+  return pathB.length - pathA.length;
+};
 
 export const findIntersectObject = (
   parent,
   point,
   { filter, selectUnit, filterParent } = {},
 ) => {
-  const allCandidates = collectCandidates(
-    parent,
-    (child) => child.constructor.isSelectable,
-  );
-
-  const sortedCandidates = allCandidates.sort((a, b) => {
-    const zDiff = (b.zIndex || 0) - (a.zIndex || 0);
-    if (zDiff !== 0) return zDiff;
-
-    const pathA = getAncestorPath(a, parent);
-    const pathB = getAncestorPath(b, parent);
-
-    const minLength = Math.min(pathA.length, pathB.length);
-    for (let i = 0; i < minLength; i++) {
-      if (pathA[i] !== pathB[i]) {
-        const commonParent = pathA[i].parent;
-        return (
-          commonParent.getChildIndex(pathB[i]) -
-          commonParent.getChildIndex(pathA[i])
-        );
-      }
-    }
-    return pathB.length - pathA.length;
+  const candidates = getSelectableCandidates(parent);
+  const resolveSelection = createFindSelectionResolver(parent, {
+    filter,
+    selectUnit,
+    filterParent,
   });
 
-  for (const candidate of sortedCandidates) {
-    const targets =
-      candidate.constructor.hitScope === 'children'
-        ? candidate.children
-        : [candidate];
-
-    for (const target of targets) {
-      const isIntersecting = intersectPoint(target, point);
-      if (isIntersecting) {
-        const selectObject = getSelectObject(
-          parent,
-          candidate,
-          selectUnit,
-          filterParent,
-        );
-        if (selectObject && (!filter || filter(selectObject))) {
-          return selectObject;
-        }
-      }
-    }
-  }
-
-  return null;
+  return collectPointHit({
+    candidates: candidates.sort((a, b) =>
+      compareCandidatesByDisplayOrder(parent, a, b),
+    ),
+    point,
+    intersectsPoint: intersectPoint,
+    resolveSelection,
+  });
 };
 
 export const findIntersectObjects = (
@@ -65,36 +90,18 @@ export const findIntersectObjects = (
   selectionBox,
   { filter, selectUnit, filterParent } = {},
 ) => {
-  const allCandidates = collectCandidates(
-    parent,
-    (child) => child.constructor.isSelectable,
-  );
-  const found = [];
-
-  for (const candidate of allCandidates) {
-    const targets =
-      candidate.constructor.hitScope === 'children'
-        ? candidate.children
-        : [candidate];
-
-    for (const target of targets) {
-      const isIntersecting = intersect(selectionBox, target);
-      if (isIntersecting) {
-        const selectObject = getSelectObject(
-          parent,
-          candidate,
-          selectUnit,
-          filterParent,
-        );
-        if (selectObject && (!filter || filter(selectObject))) {
-          found.push(selectObject);
-          break;
-        }
-      }
-    }
-  }
-
-  return Array.from(new Set(found));
+  const candidates = getSelectableCandidates(parent);
+  const resolveSelection = createFindSelectionResolver(parent, {
+    filter,
+    selectUnit,
+    filterParent,
+  });
+  return collectPolygonHits({
+    candidates,
+    polygon: selectionBox,
+    intersectsPolygon: intersect,
+    resolveSelection,
+  });
 };
 
 export const findIntersectObjectsBySegment = (
@@ -103,43 +110,20 @@ export const findIntersectObjectsBySegment = (
   p2,
   { filter, selectUnit, filterParent } = {},
 ) => {
-  const allCandidates = collectCandidates(
-    parent,
-    (child) => child.constructor.isSelectable,
-  );
-  const foundMap = new Map();
-
-  for (const candidate of allCandidates) {
-    const targets =
-      candidate.constructor.hitScope === 'children'
-        ? candidate.children
-        : [candidate];
-
-    for (const target of targets) {
-      const corners = getObjectLocalCorners(target, parent);
-      const t = getSegmentEntryT(target, p1, p2, corners);
-
-      if (t !== null) {
-        const selectObject = getSelectObject(
-          parent,
-          candidate,
-          selectUnit,
-          filterParent,
-        );
-        if (selectObject && (!filter || filter(selectObject))) {
-          const currentT = foundMap.get(selectObject);
-          if (currentT === undefined || t < currentT) {
-            foundMap.set(selectObject, t);
-          }
-          break;
-        }
-      }
-    }
-  }
-
-  return Array.from(foundMap.entries())
-    .toSorted((a, b) => a[1] - b[1])
-    .map((entry) => entry[0]);
+  const candidates = getSelectableCandidates(parent);
+  const resolveSelection = createFindSelectionResolver(parent, {
+    filter,
+    selectUnit,
+    filterParent,
+  });
+  return collectSegmentHits({
+    candidates,
+    segmentStart: p1,
+    segmentEnd: p2,
+    getEntryT: getSegmentEntryT,
+    getCorners: (target) => getObjectLocalCorners(target, parent),
+    resolveSelection,
+  });
 };
 
 const getAncestorPath = (obj, stopAt) => {

@@ -120,6 +120,54 @@ describe('patchmap test', () => {
       vi.unstubAllGlobals();
     }
   });
+
+  describe('fit', () => {
+    it('applies the default viewport padding when fitting elements', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(sampleData);
+
+      const fitSpy = vi.spyOn(patchmap.viewport, 'fit');
+
+      patchmap.fit('item-1', { padding: 0 });
+      const [baselineWidth, baselineHeight] = fitSpy.mock.lastCall.slice(1);
+      patchmap.viewport.setZoom(1, true);
+
+      patchmap.fit('item-1');
+
+      expect(fitSpy).toHaveBeenCalledWith(
+        true,
+        baselineWidth + 32,
+        baselineHeight + 32,
+      );
+    });
+
+    it('merges per-call fit padding with the fixed default padding', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(sampleData);
+
+      const fitSpy = vi.spyOn(patchmap.viewport, 'fit');
+
+      patchmap.fit('item-1', { padding: 0 });
+      const [baselineWidth, baselineHeight] = fitSpy.mock.lastCall.slice(1);
+      patchmap.viewport.setZoom(1, true);
+
+      patchmap.fit('item-1', { padding: { y: 10, x: 5 } });
+
+      expect(fitSpy).toHaveBeenCalledWith(
+        true,
+        baselineWidth + 10,
+        baselineHeight + 20,
+      );
+    });
+
+    it('rejects edge-based fit padding keys', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(sampleData);
+
+      expect(() => patchmap.fit('item-1', { padding: { top: 10 } })).toThrow();
+    });
+  });
+
   describe('update', () => {
     let patchmap = null;
     beforeEach(() => {

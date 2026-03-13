@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizeBoxSpacing } from '../../utils/spacing';
 import { uid } from '../../utils/uuid';
 import {
   DEFAULT_AUTO_FONT_RANGE,
@@ -44,6 +45,10 @@ export const Base = z
     attrs: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
+
+export const ElementBase = Base.extend({
+  locked: z.boolean().default(false),
+}).strict();
 
 export const Size = z.union([
   z
@@ -177,25 +182,23 @@ export const Gap = z.preprocess(
     .default({}),
 );
 
+export const normalizeMarginInput = (val) => normalizeBoxSpacing(val);
+
+const marginShape = z.object({
+  top: z.number().default(0),
+  right: z.number().default(0),
+  bottom: z.number().default(0),
+  left: z.number().default(0),
+});
+
+export const PartialMargin = z.preprocess(
+  normalizeMarginInput,
+  marginShape.partial(),
+);
+
 export const Margin = z.preprocess(
-  (val) => {
-    if (typeof val === 'number') {
-      return { top: val, right: val, bottom: val, left: val };
-    }
-    if (val && typeof val === 'object' && ('x' in val || 'y' in val)) {
-      const { x = 0, y = 0 } = val;
-      return { top: y, right: x, bottom: y, left: x };
-    }
-    return val;
-  },
-  z
-    .object({
-      top: z.number().default(0),
-      right: z.number().default(0),
-      bottom: z.number().default(0),
-      left: z.number().default(0),
-    })
-    .default({}),
+  normalizeMarginInput,
+  marginShape.default({}),
 );
 
 export const EachRadius = z.object({
