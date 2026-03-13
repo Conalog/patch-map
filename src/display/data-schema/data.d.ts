@@ -37,7 +37,14 @@ export type MapData = Element[];
  * A union type of all possible top-level elements that constitute the map data.
  * The specific type of element is determined by the 'type' property.
  */
-export type Element = Group | Grid | Item | Relations;
+export type Element =
+  | Group
+  | Grid
+  | Item
+  | Relations
+  | ImageElement
+  | TextElement
+  | RectElement;
 
 //================================================================================
 // 2. Element Types (from element-schema.js)
@@ -64,6 +71,7 @@ export interface Group {
   id?: string; // Default: uid
   label?: string;
   show?: boolean; // Default: true
+  locked?: boolean; // Default: false
   children: Element[];
   attrs?: Record<string, unknown>;
 }
@@ -98,6 +106,7 @@ export interface Grid {
   id?: string; // Default: uid
   label?: string;
   show?: boolean; // Default: true
+  locked?: boolean; // Default: false
   cells: (0 | 1 | string)[][];
   inactiveCellStrategy?: 'destroy' | 'hide'; // Default: 'destroy'
   gap?: Gap;
@@ -152,6 +161,7 @@ export interface Item {
   id?: string; // Default: uid
   label?: string;
   show?: boolean; // Default: true
+  locked?: boolean; // Default: false
   components?: Component[];
   size: Size;
   padding?: Margin; // Default: 0
@@ -179,8 +189,58 @@ export interface Relations {
   id?: string; // Default: uid
   label?: string;
   show?: boolean; // Default: true
+  locked?: boolean; // Default: false
   links: { source: string; target: string }[];
   style?: RelationsStyle;
+  attrs?: Record<string, unknown>;
+}
+
+/**
+ * Renders an image from a URL or asset key as a standalone map element.
+ * @see {@link https://pixijs.download/release/docs/scene.Sprite.html}
+ */
+export interface ImageElement {
+  type: 'image';
+  id?: string; // Default: uid
+  label?: string;
+  show?: boolean; // Default: true
+  locked?: boolean; // Default: false
+  source: string;
+  size?: Size;
+  attrs?: Record<string, unknown>;
+}
+
+/**
+ * Renders text as a standalone map element.
+ * This is distinct from the `Text` component used inside an `Item`.
+ * @see {@link https://pixijs.download/release/docs/text_bitmap.BitmapText.html}
+ */
+export interface TextElement {
+  type: 'text';
+  id?: string; // Default: uid
+  label?: string;
+  show?: boolean; // Default: true
+  locked?: boolean; // Default: false
+  text?: string; // Default: ''
+  style?: ElementTextStyle;
+  size?: Size;
+  attrs?: Record<string, unknown>;
+}
+
+/**
+ * Renders a rectangle as a standalone map element.
+ * @see {@link https://pixijs.download/release/docs/scene.Graphics.html}
+ */
+export interface RectElement {
+  type: 'rect';
+  id?: string; // Default: uid
+  label?: string;
+  show?: boolean; // Default: true
+  locked?: boolean; // Default: false
+  size: Size;
+  fill?: Color;
+  stroke?: StrokeStyle;
+  radius?: number | EachRadius; // Default: 0
   attrs?: Record<string, unknown>;
 }
 
@@ -302,7 +362,7 @@ export interface Text {
   placement?: Placement; // Default: 'center'
   margin?: Margin; // Default: 0
   tint?: Color;
-  style?: TextStyle;
+  style?: LabelTextStyle;
   split?: number; // Default: 0
   attrs?: Record<string, unknown>;
 }
@@ -423,6 +483,16 @@ export type Margin =
   | { top?: number; right?: number; bottom?: number; left?: number };
 
 /**
+ * Defines per-corner radius values for rectangular shapes.
+ */
+export interface EachRadius {
+  topLeft?: number; // Default: 0
+  topRight?: number; // Default: 0
+  bottomRight?: number; // Default: 0
+  bottomLeft?: number; // Default: 0
+}
+
+/**
  * Defines the style for a rectangular texture, used for backgrounds, bars, etc.
  * All properties are optional.
  *
@@ -440,23 +510,23 @@ export interface TextureStyle {
   fill?: string; // Default: 'transparent'
   borderWidth?: number; // Default: 0
   borderColor?: string; // Default: 'black'
-  radius?: number; // Default: 0
+  radius?: number | EachRadius; // Default: 0
 }
 
 /**
- * Defines the line style for a Relations element.
+ * Defines a generic stroke style used by standalone rects and relations.
  * You can pass an object similar to PIXI.Graphics' lineStyle options.
  *
  * @see {@link https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html}
  *
  * @example
- * const relationsStyleExample: RelationsStyle = {
+ * const strokeStyleExample: StrokeStyle = {
  *   color: 'red',
  *   width: 2,
  *   cap: 'square'
  * };
  */
-export interface RelationsStyle {
+export interface StrokeStyle {
   /**
    * The color of the line. Can be any valid PixiJS ColorSource.
    * @default 'black'
@@ -471,34 +541,27 @@ export interface RelationsStyle {
 }
 
 /**
+ * Defines the line style for a Relations element.
+ * This matches the generic `StrokeStyle` shape used by the runtime schema.
+ */
+export interface RelationsStyle extends StrokeStyle {}
+
+/**
  * Defines the text style for a Text component.
- * You can pass an object with properties similar to PIXI.TextStyleOptions,
- * along with custom properties for this library.
+ * This is the shared base shape for all text-based schemas.
  *
  * @see {@link https://pixijs.download/release/docs/text.TextStyleOptions.html}
  *
  * @example
  * // Fixed font size
  * const fixedSizeStyle: TextStyle = { fontSize: 24, fill: 'red' };
- *
- * @example
- * // Font size as a string (delegated to PixiJS)
- * const stringSizeStyle: TextStyle = { fontSize: '2px', fill: '#00FF00' };
- *
- * @example
- * // Auto font size with custom range
- * const autoSizeStyle: TextStyle = {
- *   fontSize: 'auto',
- *   autoFont: { min: 10, max: 50 },
- *   fill: 'blue'
- * };
  */
 export interface TextStyle {
   /**
-   * The font size. Can be a number (in pixels), a string parsable by PixiJS (e.g., '16px'),
-   * or the keyword 'auto' to enable dynamic sizing based on the `autoFont` options.
+   * The font size in pixels.
+   * @default 16
    */
-  fontSize?: number | 'auto' | string;
+  fontSize?: number;
 
   /**
    * The font family.
@@ -519,35 +582,35 @@ export interface TextStyle {
   fill?: unknown;
 
   /**
-   * Configuration for the 'auto' font size mode.
-   * This is only active when `fontSize` is 'auto'.
-   */
-  autoFont?: {
-    min?: number;
-    max?: number;
-  };
-
-  /**
-   * The maximum width of the text before it wraps to the next line.
-   * Can be a number (pixels) or 'auto' to automatically fit the content area.
-   */
-  wordWrapWidth?: number | 'auto';
-
-  /**
-   * Determines how to handle text that overflows its content area.
-   * - 'visible': Text flows outside the bounds (default).
-   * - 'hidden': Text exceeding the bounds is clipped.
-   * - 'ellipsis': Text exceeding the bounds is replaced with '...'.
-   * @default 'visible'
-   */
-  overflow?: 'visible' | 'hidden' | 'ellipsis';
-
-  /**
    * Allows any other properties, similar to PIXI.TextStyleOptions.
    * This provides flexibility for standard text styling.
    * e.g., fill, fontFamily, fontWeight, etc.
    */
   [key: string]: unknown;
+}
+
+/**
+ * Text style for `Text` components inside items.
+ * Adds the auto-sizing and overflow fields from `LabelTextStyle`.
+ */
+export interface LabelTextStyle extends TextStyle {
+  fontSize?: number | 'auto' | string;
+  autoFont?: {
+    min?: number;
+    max?: number;
+  };
+  wordWrapWidth?: number | 'auto';
+  overflow?: 'visible' | 'hidden' | 'ellipsis';
+}
+
+/**
+ * Text style for standalone `TextElement` nodes.
+ * Mirrors the `ElementTextStyle` runtime schema.
+ */
+export interface ElementTextStyle extends TextStyle {
+  wordWrap?: boolean;
+  lineHeight?: number;
+  letterSpacing?: number;
 }
 
 /**

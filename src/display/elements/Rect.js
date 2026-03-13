@@ -4,11 +4,12 @@ import { rectSchema } from '../data-schema/element-schema';
 import { EachRadius } from '../data-schema/primitive-schema';
 import { Base } from '../mixins/Base';
 import { UPDATE_STAGES } from '../mixins/constants';
+import { Lockedable } from '../mixins/Lockedable';
 import { Showable } from '../mixins/Showable';
 import { mixins } from '../mixins/utils';
 
 const KEYS = ['size', 'fill', 'stroke', 'radius'];
-const ComposedRect = mixins(Graphics, Base, Showable);
+const ComposedRect = mixins(Graphics, Base, Showable, Lockedable);
 
 export class Rect extends ComposedRect {
   static isSelectable = true;
@@ -17,7 +18,6 @@ export class Rect extends ComposedRect {
 
   constructor(store) {
     super({ type: 'rect', store });
-    this.eventMode = 'static';
   }
 
   apply(changes, options) {

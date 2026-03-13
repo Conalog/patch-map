@@ -34,7 +34,7 @@ const getPatchDiff = (currentProps, changes) => {
 };
 
 export const Base = (superClass) => {
-  return class extends Type(superClass) {
+  const MixedClass = class extends Type(superClass) {
     static _handlerMap = new Map();
     static _handlerRegistry = new Map();
     static _handlerOrder = 0;
@@ -257,4 +257,6 @@ export const Base = (superClass) => {
       deepMerge(this, { [key]: value }, { mergeStrategy });
     }
   };
+
+  return MixedClass;
 };
