@@ -8,9 +8,18 @@ vi.mock('../utils/selector/selector', () => ({
   selector: vi.fn(),
 }));
 
+vi.mock('./schema', async () => {
+  const actual = await vi.importActual('./schema');
+  return {
+    ...actual,
+    parseFitOptions: vi.fn(actual.parseFitOptions),
+  };
+});
+
 import { calcGroupOrientedBounds } from '../utils/bounds';
 import { selector } from '../utils/selector/selector';
 import { fit as fitViewport, focus as focusViewport } from './focus-fit';
+import { parseFitOptions } from './schema';
 
 const createViewport = (overrides = {}) => ({
   scale: { x: 1, y: 1 },
@@ -57,6 +66,7 @@ describe('focus-fit', () => {
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([{ id: 'item-2' }]);
     expect(viewport.moveCenter).toHaveBeenCalledWith(10, 20);
     expect(viewport.fit).not.toHaveBeenCalled();
+    expect(parseFitOptions).not.toHaveBeenCalled();
   });
 
   it('returns null without moving when no matching objects are found', () => {
@@ -67,6 +77,19 @@ describe('focus-fit', () => {
 
     expect(result).toBeNull();
     expect(calcGroupOrientedBounds).not.toHaveBeenCalled();
+    expect(viewport.moveCenter).not.toHaveBeenCalled();
+    expect(viewport.fit).not.toHaveBeenCalled();
+  });
+
+  it('still validates fit options when no matching objects are found', () => {
+    selector.mockReturnValue([]);
+    const viewport = createViewport();
+
+    expect(() =>
+      fitViewport(viewport, 'missing-id', { padding: { top: 8 } }),
+    ).toThrow();
+
+    expect(parseFitOptions).toHaveBeenCalledWith({ padding: { top: 8 } });
     expect(viewport.moveCenter).not.toHaveBeenCalled();
     expect(viewport.fit).not.toHaveBeenCalled();
   });
@@ -87,5 +110,24 @@ describe('focus-fit', () => {
         padding: { top: 8 },
       }),
     ).toThrow();
+  });
+
+  it('does not move the viewport before rejecting invalid fit options', () => {
+    const viewport = createViewport();
+
+    expect(() =>
+      fitViewport(viewport, 'item-1', { padding: { top: 8 } }),
+    ).toThrow();
+
+    expect(viewport.moveCenter).not.toHaveBeenCalled();
+    expect(viewport.fit).not.toHaveBeenCalled();
+  });
+
+  it('parses fit options only for fit calls', () => {
+    const viewport = createViewport();
+
+    fitViewport(viewport, 'item-1', { padding: { x: 5 } });
+
+    expect(parseFitOptions).toHaveBeenCalledWith({ padding: { x: 5 } });
   });
 });
