@@ -37,7 +37,6 @@ const getBoundsForIds = (viewport, ids, filter) => {
   const objects = resolveFocusFitTargets(viewport, ids, filter);
   if (!objects.length) return null;
 
-  console.log(objects);
   return calcGroupOrientedBounds(objects);
 };
 
@@ -74,7 +73,7 @@ const resolveFocusFitTargets = (viewport, ids, filter) => {
   }
 
   const objects = selector(viewport, '$..children[?(@.type != null)]').filter(
-    isManagedViewportElement,
+    isAddressableFocusFitElement,
   );
   const idsArr = Array.isArray(ids) ? ids : [ids];
   const objs = objects.reduce((acc, curr) => {
@@ -87,7 +86,7 @@ const resolveFocusFitTargets = (viewport, ids, filter) => {
 
 const collectTopLevelViewportTargets = (viewport, filter) =>
   collectBoundsContributors(
-    (viewport?.children ?? []).filter(isManagedViewportElement),
+    (viewport?.children ?? []).filter(isDefaultFocusFitElement),
     filter,
   );
 
@@ -108,7 +107,7 @@ const collectNodeContributors = (node, filter, collected, seen) => {
   }
 
   const managedChildren = (node.children ?? []).filter(
-    isManagedViewportElement,
+    isAddressableFocusFitElement,
   );
   if (managedChildren.length > 0 && node?.type !== 'grid') {
     managedChildren.forEach((child) =>
@@ -125,7 +124,8 @@ const collectNodeContributors = (node, filter, collected, seen) => {
   collected.push(node);
 };
 
-const isManagedViewportElement = (node) =>
-  node?.type &&
-  Boolean(node?.constructor?.isElement) &&
-  node.type !== 'relations';
+const isAddressableFocusFitElement = (node) =>
+  node?.type && Boolean(node?.constructor?.isElement);
+
+const isDefaultFocusFitElement = (node) =>
+  isAddressableFocusFitElement(node) && node.type !== 'relations';

@@ -116,6 +116,25 @@ describe('focus-fit', () => {
     expect(viewport.moveCenter).not.toHaveBeenCalled();
   });
 
+  it('ignores relations when ids are omitted', () => {
+    const item = markAsElement(
+      createTarget('item-1', { type: 'item', centerX: 5, centerY: 6 }),
+    );
+    const relations = markAsElement(
+      createTarget('relations-1', {
+        type: 'relations',
+        centerX: 100,
+        centerY: 200,
+      }),
+    );
+    const viewport = createViewport([item, relations]);
+
+    focusViewport(viewport);
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([item]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(5, 6);
+  });
+
   it('fits selected objects with merged padding using viewport-space padding', () => {
     const target = markAsElement(
       createTarget('item-1', { width: 100, height: 40 }),
