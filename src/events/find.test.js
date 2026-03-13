@@ -5,7 +5,7 @@ vi.mock('../utils/intersects/intersect-point', () => ({
 }));
 
 vi.mock('../utils/intersects/intersect', () => ({
-  intersect: vi.fn((selectionBox, target) => Boolean(target.hit)),
+  intersect: vi.fn((_selectionBox, target) => Boolean(target.hit)),
 }));
 
 vi.mock('../utils/intersects/segment-polygon-t', () => ({
