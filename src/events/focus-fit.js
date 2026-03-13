@@ -5,10 +5,10 @@ import { validate } from '../utils/validator';
 import { fitOptionsSchema, focusFitIdsSchema } from './schema';
 
 const DEFAULT_FIT_PADDING = Object.freeze({
-  top: 32,
-  right: 32,
-  bottom: 32,
-  left: 32,
+  top: 16,
+  right: 16,
+  bottom: 16,
+  left: 16,
 });
 
 const ZERO_MARGIN = Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 });
