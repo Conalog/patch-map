@@ -38,9 +38,9 @@ const centerViewport = (viewport, ids, shouldFit = false, opts = {}) => {
       viewport.fit(
         true,
         bounds.innerBounds.width / viewport.scale.x +
-          (padding.left + padding.right) / viewport.scale.x,
+          (padding.left + padding.right),
         bounds.innerBounds.height / viewport.scale.y +
-          (padding.top + padding.bottom) / viewport.scale.y,
+          (padding.top + padding.bottom),
       );
     }
   }
