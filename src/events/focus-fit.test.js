@@ -352,6 +352,39 @@ describe('focus-fit', () => {
     expect(viewport.fit).toHaveBeenCalledWith(true, 100, 25);
   });
 
+  it('resolves relation ids through linked endpoint targets before calculating bounds', () => {
+    const source = markAsElement(
+      createTarget('item-1', {
+        type: 'item',
+        centerX: 11,
+        centerY: 12,
+      }),
+    );
+    const target = markAsElement(
+      createTarget('item-2', {
+        type: 'item',
+        centerX: 31,
+        centerY: 44,
+      }),
+    );
+    const relations = markAsElement(
+      createTarget('relations-1', {
+        type: 'relations',
+        links: [{ source: 'item-1', target: 'item-2' }],
+        props: { links: [{ source: 'item-1', target: 'item-2' }] },
+      }),
+    );
+    const viewport = createViewport([], {
+      toLocal: vi.fn(() => ({ x: 42, y: 56 })),
+    });
+    vi.mocked(selector).mockReturnValue([source, target, relations]);
+
+    focusViewport(viewport, 'relations-1');
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([source, target]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(42, 56);
+  });
+
   it('keeps relations addressable by explicit id lookup', () => {
     const relations = markAsElement(
       createTarget('relations-1', {

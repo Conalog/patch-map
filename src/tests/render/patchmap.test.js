@@ -79,6 +79,15 @@ const restoreViewportTransform = (viewport, snapshot) => {
   viewport.scale.set(snapshot.scale.x, snapshot.scale.y);
 };
 
+const relationEndpointIds = [
+  'grid-1.0.0',
+  'grid-1.0.1',
+  'grid-1.0.2',
+  'grid-1.1.1',
+  'grid-1.1.2',
+  'item-1',
+];
+
 describe('patchmap test', () => {
   const { getPatchmap } = setupPatchmapTests();
 
@@ -222,6 +231,26 @@ describe('patchmap test', () => {
       expect(fitSpy.mock.lastCall).toEqual(explicitFitArgs);
       expect(moveCenterSpy.mock.lastCall).toEqual(explicitCenterArgs);
     });
+
+    it('matches linked endpoint fit when fitting relations immediately after draw', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(sampleData);
+
+      const fitSpy = vi.spyOn(patchmap.viewport, 'fit');
+      const moveCenterSpy = vi.spyOn(patchmap.viewport, 'moveCenter');
+      const initialTransform = snapshotViewportTransform(patchmap.viewport);
+
+      patchmap.fit(relationEndpointIds, { padding: 0 });
+      const endpointFitArgs = fitSpy.mock.lastCall;
+      const endpointCenterArgs = moveCenterSpy.mock.lastCall;
+
+      restoreViewportTransform(patchmap.viewport, initialTransform);
+
+      patchmap.fit('relations-1', { padding: 0 });
+
+      expect(fitSpy.mock.lastCall).toEqual(endpointFitArgs);
+      expect(moveCenterSpy.mock.lastCall).toEqual(endpointCenterArgs);
+    });
   });
 
   describe('focus', () => {
@@ -254,6 +283,23 @@ describe('patchmap test', () => {
 
       expect(result).toBeUndefined();
       expect(moveCenterSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('matches linked endpoint focus when focusing relations immediately after draw', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(sampleData);
+
+      const moveCenterSpy = vi.spyOn(patchmap.viewport, 'moveCenter');
+      const initialTransform = snapshotViewportTransform(patchmap.viewport);
+
+      patchmap.focus(relationEndpointIds);
+      const endpointCenterArgs = moveCenterSpy.mock.lastCall;
+
+      restoreViewportTransform(patchmap.viewport, initialTransform);
+
+      patchmap.focus('relations-1');
+
+      expect(moveCenterSpy.mock.lastCall).toEqual(endpointCenterArgs);
     });
   });
 

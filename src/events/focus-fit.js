@@ -80,8 +80,27 @@ const resolveFocusFitTargets = (viewport, ids, filter) => {
     acc[curr.id] = curr;
     return acc;
   }, {});
-  const selected = idsArr.flatMap((i) => objs[i]).filter((obj) => obj);
+  const selected = idsArr.flatMap((i) => resolveExplicitTarget(objs[i], objs));
   return collectBoundsContributors(selected, filter);
+};
+
+const resolveExplicitTarget = (node, objectById) => {
+  if (!node) return [];
+  if (node.type !== 'relations') return [node];
+
+  // Relations may not have stable rendered bounds until a later refresh tick,
+  // so focus/fit should resolve through the linked endpoints instead.
+  const linkedTargets = resolveRelationTargets(node, objectById);
+  return linkedTargets.length > 0 ? linkedTargets : [node];
+};
+
+const resolveRelationTargets = (relations, objectById) => {
+  const links = relations?.props?.links ?? [];
+  const linkedIds = new Set(
+    links.flatMap(({ source, target }) => [source, target]),
+  );
+
+  return [...linkedIds].map((linkedId) => objectById[linkedId]).filter(Boolean);
 };
 
 const collectTopLevelViewportTargets = (viewport, filter) =>
