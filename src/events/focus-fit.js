@@ -2,14 +2,7 @@ import { isValidationError } from 'zod-validation-error';
 import { calcGroupOrientedBounds } from '../utils/bounds';
 import { selector } from '../utils/selector/selector';
 import { validate } from '../utils/validator';
-import { fitOptionsSchema, focusFitIdsSchema } from './schema';
-
-const DEFAULT_FIT_PADDING = Object.freeze({
-  top: 16,
-  right: 16,
-  bottom: 16,
-  left: 16,
-});
+import { focusFitIdsSchema, parseFitOptions } from './schema';
 
 const ZERO_MARGIN = Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 });
 
@@ -22,7 +15,7 @@ export const fit = (viewport, ids, opts) =>
  * @param {Viewport} viewport - The viewport instance.
  * @param {string|string[]} ids - ID or IDs of objects to center on.
  * @param {boolean} shouldFit - Whether to fit the viewport to the objects' bounds.
- * @param {{padding?: number|{x?: number, y?: number}|{top?: number, right?: number, bottom?: number, left?: number}}} opts
+ * @param {import('./schema').FitOptions} [opts]
  * @returns {void|null} Returns null if no objects found.
  */
 const centerViewport = (viewport, ids, shouldFit = false, opts = {}) => {
@@ -52,17 +45,8 @@ const checkValidate = (ids, opts) => {
     throw validated;
   }
 
-  const validatedOptions = validate(opts, fitOptionsSchema);
-  if (isValidationError(validatedOptions)) {
-    throw validatedOptions;
-  }
-
-  return resolveFitOptions(validatedOptions);
+  return parseFitOptions(opts);
 };
-
-const resolveFitOptions = (options = {}) => ({
-  padding: { ...DEFAULT_FIT_PADDING, ...options?.padding },
-});
 
 const getObjectsById = (viewport, ids) => {
   if (!ids) return [viewport];
