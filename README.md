@@ -25,7 +25,7 @@ Therefore, to use this, an understanding of the following two libraries is essen
   - [event](#event)
   - [viewport](#viewport)
   - [asset](#asset)
-  - [focus(ids)](#focusids)
+  - [focus(ids, opts)](#focusids-opts)
   - [fit(ids, options)](#fitids-options)
   - [selector(path)](#selectorpath)
   - [stateManager](#statemanager)  
@@ -386,10 +386,16 @@ patchmap.viewport.plugin.remove('mouse-edges');
 
 <br/>
 
-### `focus(ids)`
-- `ids` (optional, string \| string[]) - The string or string array representing the object ID to focus on. If not specified, the entire canvas object is the target.
+### `focus(ids, opts)`
+- `ids` (optional, string \| string[]) - The string or string array representing the object ID to focus on.
+- `opts` (optional, object)
+  `filter` (`(obj) => unknown`) - Filters the resolved viewport targets. Truthy return values keep a target, falsy values remove it.
+- If `ids` is not specified, the default focus target set is the top-level managed elements, excluding `relations`.
+- `filter` is applied during target traversal. If a container such as `group` returns a falsy value, its subtree is excluded from the viewport bounds.
+- To pass only options, use `null` or `undefined` for `ids`.
+- Container elements such as `group` contribute through their managed descendants when viewport bounds are calculated, unless the container itself is filtered out first.
 ```js
- // Focus on the entire canvas object
+// Focus on the default target set (top-level managed elements except relations)
 patchmap.focus()
 
 // Focus on the object with id 'group-id-1'
@@ -400,21 +406,35 @@ patchmap.focus('grid-1')
 
 // Focus on objects with ids 'item-1' and 'item-2'
 patchmap.focus(['item-1', 'item-2'])
+
+// Focus on all managed canvas elements except the background image
+patchmap.focus(null, {
+  filter: (obj) => obj.id !== 'background-image',
+})
+
+// Focus on explicit ids, then filter the resolved targets
+patchmap.focus(['item-1', 'item-2'], {
+  filter: (obj) => obj.id !== 'item-2',
+})
 ```
 
 <br/>
 
 ### `fit(ids, options)`
-- `ids` (optional, string \| string[]) - The string or string array representing the object ID to fit. If not specified, the entire canvas object is the target.
+- `ids` (optional, string \| string[]) - The string or string array representing the object ID to fit.
 - `options` (optional, object)
+  - `filter` (`(obj) => unknown`) - Filters the resolved viewport targets. Truthy return values keep a target, falsy values remove it.
   - `padding` (optional, number \| { x?: number, y?: number }) - Axis-based fit padding. `fit()` starts from a default padding of `16` on every side. Passing a number replaces all four sides, while an object overrides only the specified axes and leaves the rest at `16`.
   - `padding` only accepts a number or `{ x, y }`. Edge-based keys such as `{ top, right, bottom, left }` are invalid for `fit()`.
-  - If you want to pass `options` without specifying `ids`, call `patchmap.fit(undefined, options)`. A single object passed as the first argument is treated as `ids`, not `options`.
+  - If `ids` is not specified, the default fit target set is the top-level managed elements, excluding `relations`.
+  - `filter` is applied during target traversal. If a container such as `group` returns a falsy value, its subtree is excluded from the viewport bounds.
+  - To pass only options, use `null` or `undefined` for `ids`. A single object passed as the first argument is treated as `ids`, not `options`.
+  - Container elements such as `group` contribute through their managed descendants when viewport bounds are calculated, unless the container itself is filtered out first.
 ```js
-// Fit to the entire canvas object
+// Fit to the default target set (top-level managed elements except relations)
 patchmap.fit()
 
-// Fit to the entire canvas with 24px padding on all four sides
+// Fit to the default target set with 24px padding on all four sides
 patchmap.fit(undefined, { padding: 24 })
 
 // Fit to the object with id 'group-id-1'
@@ -426,11 +446,22 @@ patchmap.fit('grid-1')
 // Fit on objects with ids 'item-1' and 'item-2'
 patchmap.fit(['item-1', 'item-2'])
 
+// Fit to all managed canvas elements except the background image
+patchmap.fit(null, {
+  filter: (obj) => obj.id !== 'background-image',
+})
+
 // Fit the target object with 24px padding on all four sides
 patchmap.fit('group-id-1', { padding: 24 })
 
 // Fit with top/bottom=10px and left/right=5px
 patchmap.fit('grid-1', { padding: { y: 10, x: 5 } })
+
+// Fit to explicit ids, then filter the resolved targets with custom padding
+patchmap.fit(['item-1', 'item-2'], {
+  filter: (obj) => obj.id !== 'item-2',
+  padding: { y: 10, x: 5 },
+})
 ```
 
 <br/>

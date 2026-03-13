@@ -36,4 +36,14 @@ describe('events schema', () => {
   it('rejects edge-based fit padding keys', () => {
     expect(() => parseFitOptions({ padding: { top: 10 } })).toThrow();
   });
+
+  it('preserves truthy filter predicates without requiring boolean returns', () => {
+    const options = parseFitOptions({
+      filter: (obj) => obj.type,
+      padding: 0,
+    });
+
+    expect(options.filter({ type: 'item' })).toBe('item');
+    expect(options.filter({ type: '' })).toBe('');
+  });
 });

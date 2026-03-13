@@ -1,7 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../utils/bounds', () => ({
-  calcGroupOrientedBounds: vi.fn(),
+  calcGroupOrientedBounds: vi.fn((objects) => ({
+    center: {
+      x: objects.reduce((sum, obj) => sum + obj.centerX, 0),
+      y: objects.reduce((sum, obj) => sum + obj.centerY, 0),
+    },
+    innerBounds: {
+      width: objects.reduce((sum, obj) => sum + obj.width, 0),
+      height: objects.reduce((sum, obj) => sum + obj.height, 0),
+    },
+  })),
 }));
 
 vi.mock('../utils/selector/selector', () => ({
@@ -21,56 +30,150 @@ import { selector } from '../utils/selector/selector';
 import { fit as fitViewport, focus as focusViewport } from './focus-fit';
 import { parseFitOptions } from './schema';
 
-const createViewport = (overrides = {}) => ({
-  scale: { x: 1, y: 1 },
-  toLocal: vi.fn((value) => value),
-  moveCenter: vi.fn(),
-  fit: vi.fn(),
+const createTarget = (id, overrides = {}) => ({
+  id,
+  type: 'rect',
+  children: [],
+  centerX: 10,
+  centerY: 20,
+  width: 30,
+  height: 40,
   ...overrides,
 });
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  selector.mockReturnValue([{ id: 'item-1' }, { id: 'item-2' }]);
-  calcGroupOrientedBounds.mockReturnValue({
-    center: { x: 50, y: 75 },
-    innerBounds: { width: 100, height: 40 },
-  });
+const createViewport = (children = [], overrides = {}) => ({
+  id: 'viewport',
+  type: 'canvas',
+  children,
+  scale: { x: 2, y: 4 },
+  moveCenter: vi.fn(),
+  fit: vi.fn(),
+  toLocal: vi.fn((point) => point),
+  ...overrides,
 });
 
+const linkChildren = (parent, children) => {
+  parent.children = children;
+  children.forEach((child) => {
+    child.parent = parent;
+  });
+  return parent;
+};
+
+const markAsElement = (node, isElement = true) => {
+  node.constructor = { isElement };
+  return node;
+};
+
 describe('focus-fit', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('accepts null ids with filter options for focus and resolves managed viewport targets', () => {
+    const background = markAsElement(createTarget('background-image'));
+    const node = markAsElement(
+      createTarget('node-1', { centerX: 5, centerY: 6 }),
+    );
+    const viewport = createViewport([background, node]);
+
+    focusViewport(viewport, null, {
+      filter: (obj) => obj.id !== 'background-image',
+    });
+
+    expect(selector).not.toHaveBeenCalled();
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([node]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(5, 6);
+  });
+
+  it('applies filter after resolving explicit ids', () => {
+    const viewport = createViewport();
+    const keep = markAsElement(
+      createTarget('node-1', { centerX: 11, centerY: 12 }),
+    );
+    const skip = markAsElement(createTarget('node-2'));
+    vi.mocked(selector).mockReturnValue([keep, skip]);
+
+    focusViewport(viewport, ['node-1', 'node-2'], {
+      filter: (obj) => obj.id !== 'node-2',
+    });
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([keep]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(11, 12);
+  });
+
+  it('returns null when the filter removes every managed target', () => {
+    const viewport = createViewport([
+      markAsElement(createTarget('background-image')),
+    ]);
+
+    const result = focusViewport(viewport, null, {
+      filter: () => false,
+    });
+
+    expect(result).toBeNull();
+    expect(calcGroupOrientedBounds).not.toHaveBeenCalled();
+    expect(viewport.moveCenter).not.toHaveBeenCalled();
+  });
+
+  it('ignores relations when ids are omitted', () => {
+    const item = markAsElement(
+      createTarget('item-1', { type: 'item', centerX: 5, centerY: 6 }),
+    );
+    const relations = markAsElement(
+      createTarget('relations-1', {
+        type: 'relations',
+        centerX: 100,
+        centerY: 200,
+      }),
+    );
+    const viewport = createViewport([item, relations]);
+
+    focusViewport(viewport);
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([item]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(5, 6);
+  });
+
   it('fits selected objects with merged padding using viewport-space padding', () => {
-    const viewport = createViewport({
-      scale: { x: 2, y: 4 },
+    const target = markAsElement(
+      createTarget('item-1', { width: 100, height: 40 }),
+    );
+    const viewport = createViewport([], {
       toLocal: vi.fn(() => ({ x: 25, y: 30 })),
     });
+    vi.mocked(selector).mockReturnValue([target]);
 
     fitViewport(viewport, 'item-1', { padding: { y: 10, x: 5 } });
 
     expect(selector).toHaveBeenCalledWith(
       viewport,
-      '$..children[?(@.type != null && @.parent.type !== "item" && @.parent.type !== "relations")]',
+      '$..children[?(@.type != null)]',
     );
-    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([{ id: 'item-1' }]);
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([target]);
     expect(viewport.moveCenter).toHaveBeenCalledWith(25, 30);
     expect(viewport.fit).toHaveBeenCalledWith(true, 60, 30);
   });
 
   it('centers selected objects without fitting when using focus', () => {
-    const viewport = createViewport({
+    const target = markAsElement(
+      createTarget('item-2', { centerX: 10, centerY: 20 }),
+    );
+    const viewport = createViewport([], {
       toLocal: vi.fn(() => ({ x: 10, y: 20 })),
     });
+    vi.mocked(selector).mockReturnValue([target]);
 
     focusViewport(viewport, 'item-2');
 
-    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([{ id: 'item-2' }]);
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([target]);
     expect(viewport.moveCenter).toHaveBeenCalledWith(10, 20);
     expect(viewport.fit).not.toHaveBeenCalled();
     expect(parseFitOptions).not.toHaveBeenCalled();
   });
 
   it('returns null without moving when no matching objects are found', () => {
-    selector.mockReturnValue([]);
+    vi.mocked(selector).mockReturnValue([]);
     const viewport = createViewport();
 
     const result = fitViewport(viewport, 'missing-id');
@@ -82,7 +185,7 @@ describe('focus-fit', () => {
   });
 
   it('still validates fit options when no matching objects are found', () => {
-    selector.mockReturnValue([]);
+    vi.mocked(selector).mockReturnValue([]);
     const viewport = createViewport();
 
     expect(() =>
@@ -92,6 +195,22 @@ describe('focus-fit', () => {
     expect(parseFitOptions).toHaveBeenCalledWith({ padding: { top: 8 } });
     expect(viewport.moveCenter).not.toHaveBeenCalled();
     expect(viewport.fit).not.toHaveBeenCalled();
+  });
+
+  it('rejects an options object passed as the first argument', () => {
+    const viewport = createViewport();
+
+    expect(() => focusViewport(viewport, {})).toThrow(/string|array/i);
+  });
+
+  it('rejects a filter options object passed as the first argument', () => {
+    const viewport = createViewport();
+
+    expect(() =>
+      fitViewport(viewport, {
+        filter: () => true,
+      }),
+    ).toThrow();
   });
 
   it('throws for unknown fit option keys', () => {
@@ -112,6 +231,62 @@ describe('focus-fit', () => {
     ).toThrow();
   });
 
+  it('rejects a non-function filter', () => {
+    const viewport = createViewport();
+
+    expect(() => fitViewport(viewport, ['node-1'], { filter: 'nope' })).toThrow(
+      /function/i,
+    );
+  });
+
+  it('accepts truthy filter return values for focus', () => {
+    const keep = markAsElement(
+      createTarget('node-1', { type: 'item', centerX: 11, centerY: 12 }),
+    );
+    const skip = markAsElement(
+      createTarget('node-2', { type: '', centerX: 99, centerY: 98 }),
+    );
+    const viewport = createViewport([keep, skip]);
+
+    focusViewport(viewport, null, {
+      filter: (obj) => obj.type,
+    });
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([keep]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(11, 12);
+  });
+
+  it('accepts truthy filter return values for fit', () => {
+    const keep = markAsElement(
+      createTarget('node-1', {
+        type: 'item',
+        centerX: 9,
+        centerY: 7,
+        width: 100,
+        height: 80,
+      }),
+    );
+    const skip = markAsElement(
+      createTarget('node-2', {
+        type: '',
+        centerX: 90,
+        centerY: 70,
+        width: 500,
+        height: 400,
+      }),
+    );
+    const viewport = createViewport([keep, skip]);
+
+    fitViewport(viewport, null, {
+      filter: (obj) => obj.type,
+      padding: 0,
+    });
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([keep]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(9, 7);
+    expect(viewport.fit).toHaveBeenCalledWith(true, 50, 20);
+  });
+
   it('does not move the viewport before rejecting invalid fit options', () => {
     const viewport = createViewport();
 
@@ -123,8 +298,256 @@ describe('focus-fit', () => {
     expect(viewport.fit).not.toHaveBeenCalled();
   });
 
-  it('parses fit options only for fit calls', () => {
+  it('accepts null ids with filter options for fit and applies fit math to filtered targets', () => {
+    const background = markAsElement(
+      createTarget('background-image', { width: 400, height: 200 }),
+    );
+    const node = markAsElement(
+      createTarget('node-1', {
+        centerX: 9,
+        centerY: 7,
+        width: 100,
+        height: 80,
+      }),
+    );
+    const viewport = createViewport([background, node]);
+
+    fitViewport(viewport, null, {
+      filter: (obj) => obj.id === 'node-1',
+    });
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([node]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(9, 7);
+    expect(viewport.fit).toHaveBeenCalledWith(true, 82, 52);
+  });
+
+  it('uses filtered child contributors instead of the parent group bounds', () => {
+    const childA = markAsElement(
+      createTarget('child-a', {
+        centerX: 3,
+        centerY: 4,
+        width: 10,
+        height: 20,
+      }),
+    );
+    const childB = markAsElement(
+      createTarget('child-b', {
+        centerX: 100,
+        centerY: 200,
+        width: 500,
+        height: 600,
+      }),
+    );
+    const group = markAsElement(
+      linkChildren(
+        createTarget('group-1', {
+          type: 'group',
+          width: 999,
+          height: 999,
+        }),
+        [childA, childB],
+      ),
+    );
+    const viewport = createViewport([group]);
+    vi.mocked(selector).mockReturnValue([group, childA, childB]);
+
+    fitViewport(viewport, 'group-1', {
+      filter: (obj) => obj.id !== 'child-b',
+      padding: 0,
+    });
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([childA]);
+    expect(viewport.fit).toHaveBeenCalledWith(true, 5, 5);
+  });
+
+  it('drops a top-level container subtree when the container filter returns falsy', () => {
+    const child = markAsElement(
+      createTarget('child-1', {
+        centerX: 8,
+        centerY: 9,
+        width: 20,
+        height: 30,
+      }),
+    );
+    const group = markAsElement(
+      linkChildren(createTarget('group-1', { type: 'group' }), [child]),
+    );
+    const viewport = createViewport([group]);
+
+    const result = focusViewport(viewport, null, {
+      filter: (obj) => obj.id !== 'group-1',
+    });
+
+    expect(result).toBeNull();
+    expect(calcGroupOrientedBounds).not.toHaveBeenCalled();
+    expect(viewport.moveCenter).not.toHaveBeenCalled();
+  });
+
+  it('drops an explicit container target before descending when the filter returns falsy', () => {
+    const child = markAsElement(
+      createTarget('child-1', {
+        centerX: 8,
+        centerY: 9,
+        width: 20,
+        height: 30,
+      }),
+    );
+    const group = markAsElement(
+      linkChildren(createTarget('group-1', { type: 'group' }), [child]),
+    );
     const viewport = createViewport();
+    vi.mocked(selector).mockReturnValue([group, child]);
+
+    const result = fitViewport(viewport, 'group-1', {
+      filter: (obj) => obj.id !== 'group-1',
+      padding: 0,
+    });
+
+    expect(result).toBeNull();
+    expect(calcGroupOrientedBounds).not.toHaveBeenCalled();
+    expect(viewport.moveCenter).not.toHaveBeenCalled();
+    expect(viewport.fit).not.toHaveBeenCalled();
+  });
+
+  it('treats grid as a bounds contributor instead of descending into its children', () => {
+    const gridChildA = markAsElement(
+      createTarget('grid-1.0.0', {
+        type: 'item',
+        centerX: 3,
+        centerY: 4,
+        width: 10,
+        height: 20,
+      }),
+    );
+    const gridChildB = markAsElement(
+      createTarget('grid-1.0.1', {
+        type: 'item',
+        centerX: 100,
+        centerY: 200,
+        width: 500,
+        height: 600,
+      }),
+    );
+    const grid = markAsElement(
+      linkChildren(
+        createTarget('grid-1', {
+          type: 'grid',
+          centerX: 50,
+          centerY: 60,
+          width: 200,
+          height: 100,
+        }),
+        [gridChildA, gridChildB],
+      ),
+    );
+    const viewport = createViewport([grid]);
+    vi.mocked(selector).mockReturnValue([grid, gridChildA, gridChildB]);
+
+    fitViewport(viewport, 'grid-1', { padding: 0 });
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([grid]);
+    expect(viewport.fit).toHaveBeenCalledWith(true, 100, 25);
+  });
+
+  it('resolves relation ids through linked endpoint targets before calculating bounds', () => {
+    const source = markAsElement(
+      createTarget('item-1', {
+        type: 'item',
+        centerX: 11,
+        centerY: 12,
+      }),
+    );
+    const target = markAsElement(
+      createTarget('item-2', {
+        type: 'item',
+        centerX: 31,
+        centerY: 44,
+      }),
+    );
+    const relations = markAsElement(
+      createTarget('relations-1', {
+        type: 'relations',
+        links: [{ source: 'item-1', target: 'item-2' }],
+        props: { links: [{ source: 'item-1', target: 'item-2' }] },
+      }),
+    );
+    const viewport = createViewport([], {
+      toLocal: vi.fn(() => ({ x: 42, y: 56 })),
+    });
+    vi.mocked(selector).mockReturnValue([source, target, relations]);
+
+    focusViewport(viewport, 'relations-1');
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([source, target]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(42, 56);
+  });
+
+  it('keeps relations addressable by explicit id lookup', () => {
+    const relations = markAsElement(
+      createTarget('relations-1', {
+        type: 'relations',
+        centerX: 21,
+        centerY: 34,
+        width: 80,
+        height: 60,
+      }),
+    );
+    const viewport = createViewport([], {
+      toLocal: vi.fn(() => ({ x: 21, y: 34 })),
+    });
+    vi.mocked(selector).mockReturnValue([relations]);
+
+    focusViewport(viewport, 'relations-1');
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([relations]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(21, 34);
+  });
+
+  it('dedupes contributors when a container and its child are both explicitly targeted', () => {
+    const child = markAsElement(
+      createTarget('child-1', { centerX: 8, centerY: 9 }),
+    );
+    const group = markAsElement(
+      linkChildren(createTarget('group-1', { type: 'group' }), [child]),
+    );
+    const viewport = createViewport([group]);
+    vi.mocked(selector).mockReturnValue([group, child]);
+
+    focusViewport(viewport, ['group-1', 'child-1']);
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([child]);
+  });
+
+  it('ignores typed non-element nodes in both traversal and id lookup', () => {
+    const item = markAsElement(createTarget('item-1', { type: 'item' }));
+    const rawTypedChild = markAsElement(
+      {
+        id: 'custom-1',
+        type: 'custom',
+        children: [],
+        parent: null,
+        centerX: 999,
+        centerY: 999,
+        width: 999,
+        height: 999,
+      },
+      false,
+    );
+    const viewport = createViewport([item, rawTypedChild]);
+    rawTypedChild.parent = viewport;
+    vi.mocked(selector).mockReturnValue([item]);
+
+    focusViewport(viewport);
+    expect(calcGroupOrientedBounds).toHaveBeenLastCalledWith([item]);
+
+    const byId = focusViewport(viewport, 'custom-1');
+    expect(byId).toBeNull();
+  });
+
+  it('parses fit options only for fit calls', () => {
+    const target = markAsElement(createTarget('item-1'));
+    const viewport = createViewport();
+    vi.mocked(selector).mockReturnValue([target]);
 
     fitViewport(viewport, 'item-1', { padding: { x: 5 } });
 
