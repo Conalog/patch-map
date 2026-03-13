@@ -409,9 +409,13 @@ patchmap.focus(['item-1', 'item-2'])
 - `options` (optional, object)
   - `padding` (optional, number \| { x?: number, y?: number }) - Axis-based fit padding. `fit()` starts from a default padding of `16` on every side. Passing a number replaces all four sides, while an object overrides only the specified axes and leaves the rest at `16`.
   - `padding` only accepts a number or `{ x, y }`. Edge-based keys such as `{ top, right, bottom, left }` are invalid for `fit()`.
+  - If you want to pass `options` without specifying `ids`, call `patchmap.fit(undefined, options)`. A single object passed as the first argument is treated as `ids`, not `options`.
 ```js
 // Fit to the entire canvas object
 patchmap.fit()
+
+// Fit to the entire canvas with 24px padding on all four sides
+patchmap.fit(undefined, { padding: 24 })
 
 // Fit to the object with id 'group-id-1'
 patchmap.fit('group-id-1')
@@ -422,7 +426,7 @@ patchmap.fit('grid-1')
 // Fit on objects with ids 'item-1' and 'item-2'
 patchmap.fit(['item-1', 'item-2'])
 
-// Fit with 24px padding on all four sides
+// Fit the target object with 24px padding on all four sides
 patchmap.fit('group-id-1', { padding: 24 })
 
 // Fit with top/bottom=10px and left/right=5px

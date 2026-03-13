@@ -415,9 +415,13 @@ patchmap.focus(['item-1', 'item-2'])
 - `options` (optional, object)
   - `padding` (optional, number \| { x?: number, y?: number }) - 축 기반 fit 패딩입니다. `fit()`은 기본적으로 각 방향에 `16` 패딩을 사용합니다. 숫자를 전달하면 네 방향 모두 그 값으로 대체되고, 객체를 전달하면 지정한 축만 덮어쓰며 나머지는 `16`을 유지합니다.
   - `fit()`의 `padding`은 숫자 또는 `{ x, y }`만 허용합니다. `{ top, right, bottom, left }` 같은 edge 기반 키는 유효하지 않습니다.
+  - `ids` 없이 `options`만 전달하려면 `patchmap.fit(undefined, options)` 형태로 호출해야 합니다. 첫 번째 인자에 객체 하나만 넘기면 `options`가 아니라 `ids`로 해석됩니다.
 ```js
 // 전체 캔버스 객체를 기준으로 fit
 patchmap.fit()
+
+// 전체 캔버스에 네 방향 모두 24px 패딩을 적용해 fit
+patchmap.fit(undefined, { padding: 24 })
 
 // id가 'group-id-1'인 객체를 기준으로 fit
 patchmap.fit('group-id-1')
@@ -428,7 +432,7 @@ patchmap.fit('grid-1')
 // id가 'item-1'과 'item-2'인 객체들을 기준으로 fit
 patchmap.fit(['item-1', 'item-2'])
 
-// 네 방향 모두 24px 패딩으로 fit
+// 대상 객체에 네 방향 모두 24px 패딩으로 fit
 patchmap.fit('group-id-1', { padding: 24 })
 
 // top/bottom=10px, left/right=5px로 fit
