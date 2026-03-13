@@ -200,7 +200,11 @@ class Patchmap extends WildcardEventEmitter {
     // attempt to draw their links.
     this.app.ticker.addOnce(
       () => {
-        this.update({ path: '$..[?(@.type=="relations")]', refresh: true });
+        this.update({
+          path: '$..[?(@.type=="relations")]',
+          refresh: true,
+          emit: false,
+        });
       },
       undefined,
       UPDATE_PRIORITY.UTILITY,

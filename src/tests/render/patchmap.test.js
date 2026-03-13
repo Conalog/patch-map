@@ -121,6 +121,24 @@ describe('patchmap test', () => {
     }
   });
 
+  it('does not emit updated event during the internal relation refresh after draw', async () => {
+    vi.useFakeTimers();
+    try {
+      const patchmap = getPatchmap();
+      const onUpdated = vi.fn();
+      patchmap.on('patchmap:updated', onUpdated);
+
+      patchmap.draw(sampleData);
+
+      await vi.advanceTimersToNextFrame();
+      await vi.advanceTimersToNextFrame();
+
+      expect(onUpdated).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   describe('fit', () => {
     it('applies the default viewport padding when fitting elements', () => {
       const patchmap = getPatchmap();
