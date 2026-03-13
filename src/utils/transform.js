@@ -1,4 +1,6 @@
-import { Point, Rectangle } from 'pixi.js';
+import { Matrix, Point, Rectangle } from 'pixi.js';
+
+const tempMatrix = new Matrix();
 
 // A temporary array of points to be reused across calculations, avoiding frequent object allocation.
 const tempCorners = [new Point(), new Point(), new Point(), new Point()];
@@ -12,7 +14,7 @@ const tempCorners = [new Point(), new Point(), new Point(), new Point()];
 export const getObjectWorldCorners = (displayObject) => {
   const corners = tempCorners;
   const localBounds = displayObject.getLocalBounds();
-  const worldTransform = displayObject.worldTransform;
+  const worldTransform = displayObject.getGlobalTransform(tempMatrix, false);
 
   // Set the four corners based on the object's original (local) bounds.
   corners[0].set(localBounds.x, localBounds.y);
