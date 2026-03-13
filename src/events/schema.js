@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
-import { StrictPartialMargin } from '../display/data-schema/primitive-schema';
 import { validate } from '../utils/validator';
 
 /**
@@ -10,37 +9,51 @@ import { validate } from '../utils/validator';
  */
 
 /**
- * @typedef {object} FitPaddingEdges
- * @property {number} [top]
- * @property {number} [right]
- * @property {number} [bottom]
- * @property {number} [left]
- */
-
-/**
  * @typedef {object} FitOptions
- * @property {number | FitPaddingAxis | FitPaddingEdges} [padding]
+ * @property {number | FitPaddingAxis} [padding]
  */
 
 export const DEFAULT_FIT_PADDING = Object.freeze({
-  top: 16,
-  right: 16,
-  bottom: 16,
-  left: 16,
+  x: 16,
+  y: 16,
 });
 
 export const focusFitIdsSchema = z
   .union([z.string(), z.array(z.string())])
   .nullish();
 
+const fitPaddingAxisSchema = z
+  .object({
+    x: z.number().optional(),
+    y: z.number().optional(),
+  })
+  .strict();
+
+const normalizeFitPadding = (padding) => {
+  if (typeof padding === 'number') {
+    return {
+      x: padding,
+      y: padding,
+    };
+  }
+
+  if (!padding) return padding;
+  return padding;
+};
+
 export const fitOptionsSchema = z
-  .object({ padding: StrictPartialMargin.optional() })
+  .object({
+    padding: z
+      .union([z.number(), fitPaddingAxisSchema])
+      .transform(normalizeFitPadding)
+      .optional(),
+  })
   .strict()
   .nullish();
 
 /**
  * @param {FitOptions | null | undefined} options
- * @returns {{padding: {top: number, right: number, bottom: number, left: number}}}
+ * @returns {{padding: {x: number, y: number}}}
  */
 export const parseFitOptions = (options) => {
   const validatedOptions = validate(options, fitOptionsSchema);

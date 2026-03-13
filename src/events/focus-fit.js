@@ -4,7 +4,7 @@ import { selector } from '../utils/selector/selector';
 import { validate } from '../utils/validator';
 import { focusFitIdsSchema, parseFitOptions } from './schema';
 
-const ZERO_MARGIN = Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 });
+const ZERO_PADDING = Object.freeze({ x: 0, y: 0 });
 
 export const focus = (viewport, ids) => centerViewport(viewport, ids, false);
 export const fit = (viewport, ids, opts) =>
@@ -27,13 +27,11 @@ const centerViewport = (viewport, ids, shouldFit = false, opts = {}) => {
   if (bounds) {
     viewport.moveCenter(center.x, center.y);
     if (shouldFit) {
-      const padding = fitOptions?.padding ?? ZERO_MARGIN;
+      const padding = fitOptions?.padding ?? ZERO_PADDING;
       viewport.fit(
         true,
-        bounds.innerBounds.width / viewport.scale.x +
-          (padding.left + padding.right),
-        bounds.innerBounds.height / viewport.scale.y +
-          (padding.top + padding.bottom),
+        bounds.innerBounds.width / viewport.scale.x + padding.x * 2,
+        bounds.innerBounds.height / viewport.scale.y + padding.y * 2,
       );
     }
   }

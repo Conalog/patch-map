@@ -389,7 +389,7 @@ patchmap.focus(['item-1', 'item-2'])
 ### `fit(ids, options)`
 - `ids` (optional, string \| string[]) - fit할 객체 ID를 나타내는 문자열 또는 문자열 배열입니다. 지정하지 않으면 캔버스 전체 객체가 대상이 됩니다.
 - `options` (optional, object)
-  - `padding` (optional, number \| { x?: number, y?: number } \| { top?: number, right?: number, bottom?: number, left?: number }) - 방향별 fit 패딩입니다. `fit()`은 기본적으로 각 방향에 `16` 패딩을 사용합니다. 숫자를 전달하면 네 방향 모두 그 값으로 대체되고, 객체를 전달하면 지정한 축 또는 방향만 덮어쓰며 나머지는 `16`을 유지합니다.
+  - `padding` (optional, number \| { x?: number, y?: number }) - 축 기반 fit 패딩입니다. `fit()`은 기본적으로 각 방향에 `16` 패딩을 사용합니다. 숫자를 전달하면 네 방향 모두 그 값으로 대체되고, 객체를 전달하면 지정한 축만 덮어쓰며 나머지는 `16`을 유지합니다.
 ```js
 // 전체 캔버스 객체를 기준으로 fit
 patchmap.fit()
@@ -406,8 +406,8 @@ patchmap.fit(['item-1', 'item-2'])
 // 네 방향 모두 24px 패딩으로 fit
 patchmap.fit('group-id-1', { padding: 24 })
 
-// top=10px, left/right=5px로 fit하고 bottom은 기본값 16px 유지
-patchmap.fit('grid-1', { padding: { top: 10, x: 5 } })
+// top/bottom=10px, left/right=5px로 fit
+patchmap.fit('grid-1', { padding: { y: 10, x: 5 } })
 ```
 
 <br/>

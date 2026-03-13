@@ -36,7 +36,7 @@ describe('focus-fit', () => {
       toLocal: vi.fn(() => ({ x: 25, y: 30 })),
     });
 
-    fitViewport(viewport, 'item-1', { padding: { top: 10, x: 5 } });
+    fitViewport(viewport, 'item-1', { padding: { y: 10, x: 5 } });
 
     expect(selector).toHaveBeenCalledWith(
       viewport,
@@ -44,7 +44,7 @@ describe('focus-fit', () => {
     );
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([{ id: 'item-1' }]);
     expect(viewport.moveCenter).toHaveBeenCalledWith(25, 30);
-    expect(viewport.fit).toHaveBeenCalledWith(true, 60, 36);
+    expect(viewport.fit).toHaveBeenCalledWith(true, 60, 30);
   });
 
   it('centers selected objects without fitting when using focus', () => {
@@ -84,7 +84,7 @@ describe('focus-fit', () => {
 
     expect(() =>
       fitViewport(viewport, 'item-1', {
-        padding: { top: 8, typo: 4 },
+        padding: { top: 8 },
       }),
     ).toThrow();
   });

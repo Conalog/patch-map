@@ -151,13 +151,20 @@ describe('patchmap test', () => {
       const [baselineWidth, baselineHeight] = fitSpy.mock.lastCall.slice(1);
       patchmap.viewport.setZoom(1, true);
 
-      patchmap.fit('item-1', { padding: { top: 10, x: 5 } });
+      patchmap.fit('item-1', { padding: { y: 10, x: 5 } });
 
       expect(fitSpy).toHaveBeenCalledWith(
         true,
         baselineWidth + 10,
-        baselineHeight + 26,
+        baselineHeight + 20,
       );
+    });
+
+    it('rejects edge-based fit padding keys', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(sampleData);
+
+      expect(() => patchmap.fit('item-1', { padding: { top: 10 } })).toThrow();
     });
   });
 
