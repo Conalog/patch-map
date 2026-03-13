@@ -125,6 +125,10 @@ const collectNodeContributors = (node, filter, collected, seen) => {
     return;
   }
 
+  if (filter && !filter(node)) {
+    return;
+  }
+
   const managedChildren = (node.children ?? []).filter(
     isAddressableFocusFitElement,
   );
@@ -132,10 +136,6 @@ const collectNodeContributors = (node, filter, collected, seen) => {
     managedChildren.forEach((child) =>
       collectNodeContributors(child, filter, collected, seen),
     );
-    return;
-  }
-
-  if (filter && !filter(node)) {
     return;
   }
 

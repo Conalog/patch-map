@@ -391,9 +391,9 @@ patchmap.viewport.plugin.remove('mouse-edges');
 - `opts` (optional, object)
   `filter` (`(obj) => unknown`) - Filters the resolved viewport targets. Truthy return values keep a target, falsy values remove it.
 - If `ids` is not specified, the default focus target set is the top-level managed elements, excluding `relations`.
-- `filter` is always applied last, even when `ids` are explicitly provided.
+- `filter` is applied during target traversal. If a container such as `group` returns a falsy value, its subtree is excluded from the viewport bounds.
 - To pass only options, use `null` or `undefined` for `ids`.
-- Container elements such as `group` contribute through their filtered managed descendants when viewport bounds are calculated.
+- Container elements such as `group` contribute through their managed descendants when viewport bounds are calculated, unless the container itself is filtered out first.
 ```js
 // Focus on the default target set (top-level managed elements except relations)
 patchmap.focus()
@@ -427,9 +427,9 @@ patchmap.focus(['item-1', 'item-2'], {
   - `padding` (optional, number \| { x?: number, y?: number }) - Axis-based fit padding. `fit()` starts from a default padding of `16` on every side. Passing a number replaces all four sides, while an object overrides only the specified axes and leaves the rest at `16`.
   - `padding` only accepts a number or `{ x, y }`. Edge-based keys such as `{ top, right, bottom, left }` are invalid for `fit()`.
   - If `ids` is not specified, the default fit target set is the top-level managed elements, excluding `relations`.
-  - `filter` is always applied last, even when `ids` are explicitly provided.
+  - `filter` is applied during target traversal. If a container such as `group` returns a falsy value, its subtree is excluded from the viewport bounds.
   - To pass only options, use `null` or `undefined` for `ids`. A single object passed as the first argument is treated as `ids`, not `options`.
-  - Container elements such as `group` contribute through their filtered managed descendants when viewport bounds are calculated.
+  - Container elements such as `group` contribute through their managed descendants when viewport bounds are calculated, unless the container itself is filtered out first.
 ```js
 // Fit to the default target set (top-level managed elements except relations)
 patchmap.fit()

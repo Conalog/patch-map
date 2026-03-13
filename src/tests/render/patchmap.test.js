@@ -209,7 +209,7 @@ describe('patchmap test', () => {
       expect(moveCenterSpy.mock.lastCall).toEqual(explicitCenterArgs);
     });
 
-    it('matches explicit child fit when filtering group descendants', () => {
+    it('matches explicit child fit when filtering the default target set', () => {
       const patchmap = getPatchmap();
       patchmap.draw(sampleData);
 
@@ -223,13 +223,30 @@ describe('patchmap test', () => {
 
       restoreViewportTransform(patchmap.viewport, initialTransform);
 
-      patchmap.fit('group-1', {
+      patchmap.fit(null, {
         filter: (obj) => obj.id === 'grid-1',
         padding: 0,
       });
 
       expect(fitSpy.mock.lastCall).toEqual(explicitFitArgs);
       expect(moveCenterSpy.mock.lastCall).toEqual(explicitCenterArgs);
+    });
+
+    it('drops a filtered top-level container subtree', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(sampleData);
+
+      const fitSpy = vi.spyOn(patchmap.viewport, 'fit');
+      const moveCenterSpy = vi.spyOn(patchmap.viewport, 'moveCenter');
+
+      const result = patchmap.fit(null, {
+        filter: (obj) => obj.id !== 'group-1',
+        padding: 0,
+      });
+
+      expect(result).toBeNull();
+      expect(moveCenterSpy).not.toHaveBeenCalled();
+      expect(fitSpy).not.toHaveBeenCalled();
     });
 
     it('matches linked endpoint fit when fitting relations immediately after draw', () => {

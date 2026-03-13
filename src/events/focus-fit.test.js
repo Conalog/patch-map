@@ -360,6 +360,55 @@ describe('focus-fit', () => {
     expect(viewport.fit).toHaveBeenCalledWith(true, 5, 5);
   });
 
+  it('drops a top-level container subtree when the container filter returns falsy', () => {
+    const child = markAsElement(
+      createTarget('child-1', {
+        centerX: 8,
+        centerY: 9,
+        width: 20,
+        height: 30,
+      }),
+    );
+    const group = markAsElement(
+      linkChildren(createTarget('group-1', { type: 'group' }), [child]),
+    );
+    const viewport = createViewport([group]);
+
+    const result = focusViewport(viewport, null, {
+      filter: (obj) => obj.id !== 'group-1',
+    });
+
+    expect(result).toBeNull();
+    expect(calcGroupOrientedBounds).not.toHaveBeenCalled();
+    expect(viewport.moveCenter).not.toHaveBeenCalled();
+  });
+
+  it('drops an explicit container target before descending when the filter returns falsy', () => {
+    const child = markAsElement(
+      createTarget('child-1', {
+        centerX: 8,
+        centerY: 9,
+        width: 20,
+        height: 30,
+      }),
+    );
+    const group = markAsElement(
+      linkChildren(createTarget('group-1', { type: 'group' }), [child]),
+    );
+    const viewport = createViewport();
+    vi.mocked(selector).mockReturnValue([group, child]);
+
+    const result = fitViewport(viewport, 'group-1', {
+      filter: (obj) => obj.id !== 'group-1',
+      padding: 0,
+    });
+
+    expect(result).toBeNull();
+    expect(calcGroupOrientedBounds).not.toHaveBeenCalled();
+    expect(viewport.moveCenter).not.toHaveBeenCalled();
+    expect(viewport.fit).not.toHaveBeenCalled();
+  });
+
   it('treats grid as a bounds contributor instead of descending into its children', () => {
     const gridChildA = markAsElement(
       createTarget('grid-1.0.0', {
