@@ -1,6 +1,6 @@
 const COMPONENT_TYPES = new Set(['background', 'bar', 'icon', 'text']);
 
-import { normalizeMarginInput } from './data-schema/primitive-schema';
+import { normalizeBoxSpacing } from '../utils/spacing';
 
 const isPlainObject = (value) =>
   Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -89,7 +89,7 @@ const normalizeComponent = (value, typeHint = value?.type) => {
       next,
       value,
       'margin',
-      normalizeMarginInput(value.margin),
+      normalizeBoxSpacing(value.margin),
     );
   }
   if ('size' in value) {
@@ -118,7 +118,7 @@ const normalizeGridItem = (value) => {
       next,
       value,
       'padding',
-      normalizeMarginInput(value.padding),
+      normalizeBoxSpacing(value.padding),
     );
   }
   if (Array.isArray(value.components)) {
@@ -146,7 +146,7 @@ const normalizeElement = (value) => {
       next,
       value,
       'padding',
-      normalizeMarginInput(value.padding),
+      normalizeBoxSpacing(value.padding),
     );
   }
   if (Array.isArray(value.components)) {

@@ -20,6 +20,15 @@ describe('events schema', () => {
     });
   });
 
+  it('keeps the default padding for omitted axes', () => {
+    expect(parseFitOptions({ padding: { x: 5 } })).toEqual({
+      padding: {
+        x: 5,
+        y: 16,
+      },
+    });
+  });
+
   it('rejects unknown fit option keys', () => {
     expect(() => parseFitOptions({ extra: true })).toThrow();
   });

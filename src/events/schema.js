@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isValidationError } from 'zod-validation-error';
+import { normalizeAxisSpacing } from '../utils/spacing';
 import { validate } from '../utils/validator';
 
 /**
@@ -29,23 +30,11 @@ const fitPaddingAxisSchema = z
   })
   .strict();
 
-const normalizeFitPadding = (padding) => {
-  if (typeof padding === 'number') {
-    return {
-      x: padding,
-      y: padding,
-    };
-  }
-
-  if (!padding) return padding;
-  return padding;
-};
-
 export const fitOptionsSchema = z
   .object({
     padding: z
       .union([z.number(), fitPaddingAxisSchema])
-      .transform(normalizeFitPadding)
+      .transform(normalizeAxisSpacing)
       .optional(),
   })
   .strict()

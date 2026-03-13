@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizeBoxSpacing } from '../../utils/spacing';
 import { uid } from '../../utils/uuid';
 import {
   DEFAULT_AUTO_FONT_RANGE,
@@ -181,55 +182,7 @@ export const Gap = z.preprocess(
     .default({}),
 );
 
-const createUniformMargin = (value) => ({
-  top: value,
-  right: value,
-  bottom: value,
-  left: value,
-});
-
-const normalizeMarginInputWithOptions = (
-  val,
-  { preserveUnknownKeys = false } = {},
-) => {
-  if (typeof val === 'number') {
-    return createUniformMargin(val);
-  }
-
-  if (val && typeof val === 'object') {
-    const next = preserveUnknownKeys ? { ...val } : {};
-
-    if ('x' in val) {
-      const x = val.x ?? 0;
-      next.right = x;
-      next.left = x;
-      delete next.x;
-    }
-
-    if ('y' in val) {
-      const y = val.y ?? 0;
-      next.top = y;
-      next.bottom = y;
-      delete next.y;
-    }
-
-    if ('top' in val) next.top = val.top ?? 0;
-    if ('right' in val) next.right = val.right ?? 0;
-    if ('bottom' in val) next.bottom = val.bottom ?? 0;
-    if ('left' in val) next.left = val.left ?? 0;
-
-    return next;
-  }
-
-  return val;
-};
-
-export const normalizeMarginInput = (val) =>
-  normalizeMarginInputWithOptions(val);
-
-const normalizeMarginInputStrict = (val) => {
-  return normalizeMarginInputWithOptions(val, { preserveUnknownKeys: true });
-};
+export const normalizeMarginInput = (val) => normalizeBoxSpacing(val);
 
 const marginShape = z.object({
   top: z.number().default(0),
@@ -241,11 +194,6 @@ const marginShape = z.object({
 export const PartialMargin = z.preprocess(
   normalizeMarginInput,
   marginShape.partial(),
-);
-
-export const StrictPartialMargin = z.preprocess(
-  normalizeMarginInputStrict,
-  marginShape.partial().strict(),
 );
 
 export const Margin = z.preprocess(

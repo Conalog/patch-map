@@ -8,12 +8,12 @@ import {
   Gap,
   LabelTextStyle,
   Margin,
+  normalizeMarginInput,
   Placement,
   PxOrPercentSize,
   pxOrPercentSchema,
   RelationsStyle,
   Size,
-  StrictPartialMargin,
   TextureStyle,
 } from './primitive-schema';
 
@@ -351,17 +351,13 @@ describe('Primitive Schema Tests', () => {
     });
   });
 
-  describe('StrictPartialMargin Schema', () => {
+  describe('normalizeMarginInput', () => {
     it('accepts axis keys while normalizing them into edges', () => {
-      expect(StrictPartialMargin.parse({ top: 10, x: 5 })).toEqual({
+      expect(normalizeMarginInput({ top: 10, x: 5 })).toEqual({
         top: 10,
         right: 5,
         left: 5,
       });
-    });
-
-    it('rejects unknown keys after normalization', () => {
-      expect(() => StrictPartialMargin.parse({ top: 8, typo: 4 })).toThrow();
     });
   });
 
