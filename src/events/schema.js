@@ -5,7 +5,7 @@ import { validate } from '../utils/validator';
 
 /**
  * @typedef {object} FocusFitOptions
- * @property {(obj: object) => boolean} [filter]
+ * @property {(obj: object) => unknown} [filter]
  */
 
 /**
@@ -16,7 +16,7 @@ import { validate } from '../utils/validator';
 
 /**
  * @typedef {object} FitOptions
- * @property {(obj: object) => boolean} [filter]
+ * @property {(obj: object) => unknown} [filter]
  * @property {number | FitPaddingAxis} [padding]
  */
 
@@ -27,7 +27,7 @@ export const focusFitIdsSchema = z
   .nullish();
 
 const focusFitOptionsBaseSchema = z.object({
-  filter: z.function().args(z.any()).returns(z.boolean()).optional(),
+  filter: z.function().args(z.any()).returns(z.any()).optional(),
 });
 
 export const focusFitOptionsSchema = focusFitOptionsBaseSchema
@@ -50,7 +50,7 @@ export const fitOptionsSchema = focusFitOptionsBaseSchema
 
 /**
  * @param {FitOptions | null | undefined} options
- * @returns {{filter?: (obj: object) => boolean, padding: {x: number, y: number}}}
+ * @returns {{filter?: (obj: object) => unknown, padding: {x: number, y: number}}}
  */
 export const parseFitOptions = (options) => {
   const validatedOptions = validate(options, fitOptionsSchema);

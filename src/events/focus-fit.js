@@ -30,7 +30,7 @@ export const fit = (viewport, ids, opts) => {
 /**
  * @param {Viewport} viewport
  * @param {string|string[]|null|undefined} ids
- * @param {(obj: object) => boolean} [filter]
+ * @param {(obj: object) => unknown} [filter]
  * @returns {void|null} Returns null if no objects found.
  */
 const getBoundsForIds = (viewport, ids, filter) => {

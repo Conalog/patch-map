@@ -389,7 +389,7 @@ patchmap.viewport.plugin.remove('mouse-edges');
 ### `focus(ids, opts)`
 - `ids` (optional, string \| string[]) - The string or string array representing the object ID to focus on.
 - `opts` (optional, object)
-  `filter` (`(obj) => boolean`) - Filters the resolved viewport targets. Return `true` to keep a target.
+  `filter` (`(obj) => unknown`) - Filters the resolved viewport targets. Truthy return values keep a target, falsy values remove it.
 - If `ids` is not specified, the default focus target set is the top-level managed elements, excluding `relations`.
 - `filter` is always applied last, even when `ids` are explicitly provided.
 - To pass only options, use `null` or `undefined` for `ids`.
@@ -423,7 +423,7 @@ patchmap.focus(['item-1', 'item-2'], {
 ### `fit(ids, options)`
 - `ids` (optional, string \| string[]) - The string or string array representing the object ID to fit.
 - `options` (optional, object)
-  - `filter` (`(obj) => boolean`) - Filters the resolved viewport targets. Return `true` to keep a target.
+  - `filter` (`(obj) => unknown`) - Filters the resolved viewport targets. Truthy return values keep a target, falsy values remove it.
   - `padding` (optional, number \| { x?: number, y?: number }) - Axis-based fit padding. `fit()` starts from a default padding of `16` on every side. Passing a number replaces all four sides, while an object overrides only the specified axes and leaves the rest at `16`.
   - `padding` only accepts a number or `{ x, y }`. Edge-based keys such as `{ top, right, bottom, left }` are invalid for `fit()`.
   - If `ids` is not specified, the default fit target set is the top-level managed elements, excluding `relations`.

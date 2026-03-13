@@ -395,7 +395,7 @@ patchmap.viewport.plugin.remove('mouse-edges');
 ### `focus(ids, opts)`
 - `ids` (optional, string \| string[]) - focus할 객체 ID를 나타내는 문자열 또는 문자열 배열입니다.
 - `opts` (optional, object)
-  `filter` (`(obj) => boolean`) - 최종 viewport 대상 집합에서 유지할 객체만 남깁니다. `true`를 반환하면 포함됩니다.
+  `filter` (`(obj) => unknown`) - 최종 viewport 대상 집합에서 유지할 객체만 남깁니다. truthy 값을 반환하면 포함되고, falsy 값을 반환하면 제외됩니다.
 - `ids`를 지정하지 않으면 `relations`를 제외한 top-level 관리 대상 element가 기본 focus 대상 집합이 됩니다.
 - `filter`는 `ids`를 명시한 경우에도 항상 마지막에 적용됩니다.
 - 옵션만 전달할 때는 `ids` 자리에 `null` 또는 `undefined`를 넣습니다.
@@ -429,7 +429,7 @@ patchmap.focus(['item-1', 'item-2'], {
 ### `fit(ids, options)`
 - `ids` (optional, string \| string[]) - fit할 객체 ID를 나타내는 문자열 또는 문자열 배열입니다.
 - `options` (optional, object)
-  - `filter` (`(obj) => boolean`) - 최종 viewport 대상 집합에서 유지할 객체만 남깁니다. `true`를 반환하면 포함됩니다.
+  - `filter` (`(obj) => unknown`) - 최종 viewport 대상 집합에서 유지할 객체만 남깁니다. truthy 값을 반환하면 포함되고, falsy 값을 반환하면 제외됩니다.
   - `padding` (optional, number \| { x?: number, y?: number }) - 축 기반 fit 패딩입니다. `fit()`은 기본적으로 각 방향에 `16` 패딩을 사용합니다. 숫자를 전달하면 네 방향 모두 그 값으로 대체되고, 객체를 전달하면 지정한 축만 덮어쓰며 나머지는 `16`을 유지합니다.
   - `fit()`의 `padding`은 숫자 또는 `{ x, y }`만 허용합니다. `{ top, right, bottom, left }` 같은 edge 기반 키는 유효하지 않습니다.
   - `ids`를 지정하지 않으면 `relations`를 제외한 top-level 관리 대상 element가 기본 fit 대상 집합이 됩니다.

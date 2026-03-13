@@ -239,6 +239,54 @@ describe('focus-fit', () => {
     );
   });
 
+  it('accepts truthy filter return values for focus', () => {
+    const keep = markAsElement(
+      createTarget('node-1', { type: 'item', centerX: 11, centerY: 12 }),
+    );
+    const skip = markAsElement(
+      createTarget('node-2', { type: '', centerX: 99, centerY: 98 }),
+    );
+    const viewport = createViewport([keep, skip]);
+
+    focusViewport(viewport, null, {
+      filter: (obj) => obj.type,
+    });
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([keep]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(11, 12);
+  });
+
+  it('accepts truthy filter return values for fit', () => {
+    const keep = markAsElement(
+      createTarget('node-1', {
+        type: 'item',
+        centerX: 9,
+        centerY: 7,
+        width: 100,
+        height: 80,
+      }),
+    );
+    const skip = markAsElement(
+      createTarget('node-2', {
+        type: '',
+        centerX: 90,
+        centerY: 70,
+        width: 500,
+        height: 400,
+      }),
+    );
+    const viewport = createViewport([keep, skip]);
+
+    fitViewport(viewport, null, {
+      filter: (obj) => obj.type,
+      padding: 0,
+    });
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([keep]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(9, 7);
+    expect(viewport.fit).toHaveBeenCalledWith(true, 50, 20);
+  });
+
   it('does not move the viewport before rejecting invalid fit options', () => {
     const viewport = createViewport();
 
