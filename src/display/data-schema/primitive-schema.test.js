@@ -12,6 +12,7 @@ import {
   pxOrPercentSchema,
   RelationsStyle,
   Size,
+  StrictPartialMargin,
   TextureStyle,
 } from './primitive-schema';
 
@@ -319,6 +320,20 @@ describe('Primitive Schema Tests', () => {
       { case: 'object with non-numeric value', input: { top: '10' } },
     ])('should throw an error for invalid input for $case', ({ input }) => {
       expect(() => Margin.parse(input)).toThrow();
+    });
+  });
+
+  describe('StrictPartialMargin Schema', () => {
+    it('accepts axis keys while normalizing them into edges', () => {
+      expect(StrictPartialMargin.parse({ top: 10, x: 5 })).toEqual({
+        top: 10,
+        right: 5,
+        left: 5,
+      });
+    });
+
+    it('rejects unknown keys after normalization', () => {
+      expect(() => StrictPartialMargin.parse({ top: 8, typo: 4 })).toThrow();
     });
   });
 

@@ -36,10 +36,6 @@ const normalizeGap = (value) => {
   return value;
 };
 
-const normalizeMargin = (value) => {
-  return normalizeMarginInput(value);
-};
-
 const normalizePxOrPercent = (value) => {
   if (typeof value === 'number') {
     return { value, unit: 'px' };
@@ -93,7 +89,7 @@ const normalizeComponent = (value, typeHint = value?.type) => {
       next,
       value,
       'margin',
-      normalizeMargin(value.margin),
+      normalizeMarginInput(value.margin),
     );
   }
   if ('size' in value) {
@@ -122,7 +118,7 @@ const normalizeGridItem = (value) => {
       next,
       value,
       'padding',
-      normalizeMargin(value.padding),
+      normalizeMarginInput(value.padding),
     );
   }
   if (Array.isArray(value.components)) {
@@ -150,7 +146,7 @@ const normalizeElement = (value) => {
       next,
       value,
       'padding',
-      normalizeMargin(value.padding),
+      normalizeMarginInput(value.padding),
     );
   }
   if (Array.isArray(value.components)) {

@@ -177,44 +177,23 @@ export const Gap = z.preprocess(
     .default({}),
 );
 
-export const normalizeMarginInput = (val) => {
+const createUniformMargin = (value) => ({
+  top: value,
+  right: value,
+  bottom: value,
+  left: value,
+});
+
+const normalizeMarginInputWithOptions = (
+  val,
+  { preserveUnknownKeys = false } = {},
+) => {
   if (typeof val === 'number') {
-    return { top: val, right: val, bottom: val, left: val };
+    return createUniformMargin(val);
   }
 
   if (val && typeof val === 'object') {
-    const next = {};
-
-    if ('x' in val) {
-      const x = val.x ?? 0;
-      next.right = x;
-      next.left = x;
-    }
-
-    if ('y' in val) {
-      const y = val.y ?? 0;
-      next.top = y;
-      next.bottom = y;
-    }
-
-    if ('top' in val) next.top = val.top ?? 0;
-    if ('right' in val) next.right = val.right ?? 0;
-    if ('bottom' in val) next.bottom = val.bottom ?? 0;
-    if ('left' in val) next.left = val.left ?? 0;
-
-    return next;
-  }
-
-  return val;
-};
-
-const normalizeMarginInputStrict = (val) => {
-  if (typeof val === 'number') {
-    return { top: val, right: val, bottom: val, left: val };
-  }
-
-  if (val && typeof val === 'object') {
-    const next = { ...val };
+    const next = preserveUnknownKeys ? { ...val } : {};
 
     if ('x' in val) {
       const x = val.x ?? 0;
@@ -239,6 +218,13 @@ const normalizeMarginInputStrict = (val) => {
   }
 
   return val;
+};
+
+export const normalizeMarginInput = (val) =>
+  normalizeMarginInputWithOptions(val);
+
+const normalizeMarginInputStrict = (val) => {
+  return normalizeMarginInputWithOptions(val, { preserveUnknownKeys: true });
 };
 
 const marginShape = z.object({
