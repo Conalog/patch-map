@@ -383,7 +383,7 @@ patchmap.focus(['item-1', 'item-2'])
 ### `fit(ids, options)`
 - `ids` (optional, string \| string[]) - The string or string array representing the object ID to fit. If not specified, the entire canvas object is the target.
 - `options` (optional, object)
-  - `padding` (optional, number \| { x?: number, y?: number } \| { top?: number, right?: number, bottom?: number, left?: number }) - Additional spacing applied around the fitted bounds. `fit()` uses a fixed default padding of `32` on all sides, and the provided value overrides only the specified edges.
+  - `padding` (optional, number \| { x?: number, y?: number } \| { top?: number, right?: number, bottom?: number, left?: number }) - Additional spacing applied around the fitted bounds. `fit()` uses a fixed default padding of `16` on all sides, and the provided value overrides only the specified edges.
 ```js
 // Fit to the entire canvas object
 patchmap.fit()
@@ -400,7 +400,7 @@ patchmap.fit(['item-1', 'item-2'])
 // Fit with uniform extra padding
 patchmap.fit('group-id-1', { padding: 24 })
 
-// Fit with per-edge overrides on top of the default 32px padding
+// Fit with custom padding, overriding the default 16px on specified edges
 patchmap.fit('grid-1', { padding: { top: 10, x: 5 } })
 ```
 

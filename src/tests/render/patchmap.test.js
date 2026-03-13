@@ -136,8 +136,8 @@ describe('patchmap test', () => {
 
       expect(fitSpy).toHaveBeenCalledWith(
         true,
-        baselineWidth + 64,
-        baselineHeight + 64,
+        baselineWidth + 32,
+        baselineHeight + 32,
       );
     });
 
@@ -156,7 +156,7 @@ describe('patchmap test', () => {
       expect(fitSpy).toHaveBeenCalledWith(
         true,
         baselineWidth + 10,
-        baselineHeight + 42,
+        baselineHeight + 26,
       );
     });
   });

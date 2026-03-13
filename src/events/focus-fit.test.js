@@ -30,7 +30,7 @@ beforeEach(() => {
 });
 
 describe('focus-fit', () => {
-  it('fits selected objects with merged padding and viewport scale compensation', () => {
+  it('fits selected objects with merged padding using viewport-space padding', () => {
     const viewport = createViewport({
       scale: { x: 2, y: 4 },
       toLocal: vi.fn(() => ({ x: 25, y: 30 })),
@@ -44,7 +44,7 @@ describe('focus-fit', () => {
     );
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([{ id: 'item-1' }]);
     expect(viewport.moveCenter).toHaveBeenCalledWith(25, 30);
-    expect(viewport.fit).toHaveBeenCalledWith(true, 60, 52);
+    expect(viewport.fit).toHaveBeenCalledWith(true, 60, 36);
   });
 
   it('centers selected objects without fitting when using focus', () => {
