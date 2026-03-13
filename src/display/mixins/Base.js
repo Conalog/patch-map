@@ -156,14 +156,16 @@ export const Base = (superClass) => {
         return;
       }
 
+      const normalizedChanges = normalize
+        ? normalizeChanges(changes, this.type)
+        : changes;
+
       const mergedProps =
         mergeStrategy === 'replace'
-          ? { ...this.props, ...changes }
-          : deepMerge(this.props, changes);
+          ? { ...this.props, ...normalizedChanges }
+          : deepMerge(this.props, normalizedChanges);
 
-      const normalizedProps = normalize
-        ? normalizeChanges(mergedProps, this.type)
-        : mergedProps;
+      const normalizedProps = mergedProps;
       const validatedProps = validateSchema
         ? validate(normalizedProps, schema)
         : normalizedProps;
@@ -178,9 +180,7 @@ export const Base = (superClass) => {
         this._applyRaw({ id, label, ...attrs }, mergeStrategy);
       }
 
-      const handlerChanges =
-        options.changes ??
-        (normalize ? normalizeChanges(changes, this.type) : changes);
+      const handlerChanges = options.changes ?? normalizedChanges;
       this._applyHandlers(keysToProcess, {
         mergeStrategy,
         refresh,
@@ -188,7 +188,11 @@ export const Base = (superClass) => {
       });
 
       if (this.parent?._onChildUpdate) {
-        this.parent._onChildUpdate(this.id, actualChanges, mergeStrategy);
+        this.parent._onChildUpdate(
+          this.id,
+          refresh ? this.props : handlerChanges,
+          mergeStrategy,
+        );
       }
     }
 

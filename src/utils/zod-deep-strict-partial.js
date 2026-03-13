@@ -206,7 +206,7 @@ export function deepPartial(schema) {
     return partialSchemaCache.get(schema);
   }
 
-  /* @ts-ignore -- runtime cast only for developer hint */
+  /* @ts-expect-error -- runtime cast only for developer hint */
   const partialSchema = mapOnSchema(schema, (s) =>
     s instanceof z.ZodObject ? s.partial() : s,
   );
@@ -223,7 +223,7 @@ export function deepPartial(schema) {
  * @returns {T}
  */
 export function deepStrict(schema) {
-  /* @ts-ignore -- runtime cast only for developer hint */
+  /* @ts-expect-error -- runtime cast only for developer hint */
   return mapOnSchema(schema, (s) =>
     s instanceof z.ZodObject && s._def.unknownKeys !== 'passthrough'
       ? s.strict()
@@ -240,7 +240,7 @@ export function deepStrict(schema) {
  * @returns {T}
  */
 export function deepStrictAll(schema) {
-  /* @ts-ignore -- runtime cast only for developer hint */
+  /* @ts-expect-error -- runtime cast only for developer hint */
   return mapOnSchema(schema, (s) =>
     s instanceof z.ZodObject ? s.strict() : s,
   );

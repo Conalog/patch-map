@@ -1,7 +1,8 @@
+import { isPlainObject } from 'is-plain-object';
+
 const COMPONENT_TYPES = new Set(['background', 'bar', 'icon', 'text']);
 
-const isPlainObject = (value) =>
-  Boolean(value && typeof value === 'object' && !Array.isArray(value));
+import { normalizeBoxSpacing } from '../utils/spacing';
 
 const normalizeArray = (items, normalizeItem) => {
   let changed = false;
@@ -30,18 +31,6 @@ const normalizeSize = (value) => {
 const normalizeGap = (value) => {
   if (typeof value === 'number') {
     return { x: value, y: value };
-  }
-  return value;
-};
-
-const normalizeMargin = (value) => {
-  if (typeof value === 'number') {
-    return { top: value, right: value, bottom: value, left: value };
-  }
-  if (isPlainObject(value) && ('x' in value || 'y' in value)) {
-    const x = value.x ?? 0;
-    const y = value.y ?? 0;
-    return { top: y, right: x, bottom: y, left: x };
   }
   return value;
 };
@@ -99,7 +88,7 @@ const normalizeComponent = (value, typeHint = value?.type) => {
       next,
       value,
       'margin',
-      normalizeMargin(value.margin),
+      normalizeBoxSpacing(value.margin),
     );
   }
   if ('size' in value) {
@@ -128,7 +117,7 @@ const normalizeGridItem = (value) => {
       next,
       value,
       'padding',
-      normalizeMargin(value.padding),
+      normalizeBoxSpacing(value.padding),
     );
   }
   if (Array.isArray(value.components)) {
@@ -156,7 +145,7 @@ const normalizeElement = (value) => {
       next,
       value,
       'padding',
-      normalizeMargin(value.padding),
+      normalizeBoxSpacing(value.padding),
     );
   }
   if (Array.isArray(value.components)) {

@@ -8,6 +8,7 @@ import {
   Gap,
   LabelTextStyle,
   Margin,
+  normalizeMarginInput,
   Placement,
   PxOrPercentSize,
   pxOrPercentSchema,
@@ -309,6 +310,11 @@ describe('Primitive Schema Tests', () => {
         expected: { top: 40, right: 0, bottom: 40, left: 0 },
       },
       {
+        case: 'object with axis and edge overrides',
+        input: { top: 10, x: 5 },
+        expected: { top: 10, right: 5, bottom: 0, left: 5 },
+      },
+      {
         case: 'empty object',
         input: {},
         expected: { top: 0, right: 0, bottom: 0, left: 0 },
@@ -342,6 +348,16 @@ describe('Primitive Schema Tests', () => {
       { case: 'object with non-numeric value', input: { top: '10' } },
     ])('should throw an error for invalid input for $case', ({ input }) => {
       expect(() => Margin.parse(input)).toThrow();
+    });
+  });
+
+  describe('normalizeMarginInput', () => {
+    it('accepts axis keys while normalizing them into edges', () => {
+      expect(normalizeMarginInput({ top: 10, x: 5 })).toEqual({
+        top: 10,
+        right: 5,
+        left: 5,
+      });
     });
   });
 
