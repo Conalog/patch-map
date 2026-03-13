@@ -227,6 +227,30 @@ patchmap.draw(data);
 The **data structure** required by draw method.  
 For **detailed type definitions**, refer to the [data.d.ts](src/display/data-schema/data.d.ts) file.
 
+#### Spacing shorthand
+
+For box-like spacing fields such as component `margin` and element or item `padding`, PATCH MAP normalizes the following inputs in both `draw(data)` and `update({ changes })`:
+
+- `number` - Applies the same value to all four sides.
+- `{ x, y }` - Applies `x` to `left` and `right`, and `y` to `top` and `bottom`.
+- `{ top, right, bottom, left }` - Applies per-edge values directly.
+- Mixed axis and edge keys - Edge keys override the sides produced by `x` or `y`.
+
+```js
+patchmap.update({
+  path: '$..[?(@.id=="item-1")]',
+  changes: {
+    padding: { bottom: 12, x: 3 },
+    components: [
+      {
+        type: 'text',
+        margin: { top: 10, x: 5 },
+      },
+    ],
+  },
+});
+```
+
 
 <br/>
 
@@ -384,6 +408,7 @@ patchmap.focus(['item-1', 'item-2'])
 - `ids` (optional, string \| string[]) - The string or string array representing the object ID to fit. If not specified, the entire canvas object is the target.
 - `options` (optional, object)
   - `padding` (optional, number \| { x?: number, y?: number }) - Axis-based fit padding. `fit()` starts from a default padding of `16` on every side. Passing a number replaces all four sides, while an object overrides only the specified axes and leaves the rest at `16`.
+  - `padding` only accepts a number or `{ x, y }`. Edge-based keys such as `{ top, right, bottom, left }` are invalid for `fit()`.
 ```js
 // Fit to the entire canvas object
 patchmap.fit()

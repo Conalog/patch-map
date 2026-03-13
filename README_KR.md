@@ -234,6 +234,30 @@ patchmap.draw(data);
 draw method가 요구하는 **데이터 구조**입니다.  
 **자세한 타입 정의**는 [data.d.ts](src/display/data-schema/data.d.ts) 파일을 참조하세요.
 
+#### Spacing shorthand
+
+컴포넌트의 `margin`, element/item의 `padding` 같은 박스형 spacing 필드는 `draw(data)`와 `update({ changes })` 모두에서 아래 입력을 정규화합니다.
+
+- `number` - 네 방향 모두 같은 값을 적용합니다.
+- `{ x, y }` - `x`는 `left/right`, `y`는 `top/bottom`에 적용합니다.
+- `{ top, right, bottom, left }` - 각 방향 값을 그대로 적용합니다.
+- 축 키와 edge 키를 함께 사용한 경우 - `top/right/bottom/left`가 `x` 또는 `y`로부터 만들어진 값을 덮어씁니다.
+
+```js
+patchmap.update({
+  path: '$..[?(@.id=="item-1")]',
+  changes: {
+    padding: { bottom: 12, x: 3 },
+    components: [
+      {
+        type: 'text',
+        margin: { top: 10, x: 5 },
+      },
+    ],
+  },
+});
+```
+
 <br/>
 
 ### `update(options)`
@@ -390,6 +414,7 @@ patchmap.focus(['item-1', 'item-2'])
 - `ids` (optional, string \| string[]) - fit할 객체 ID를 나타내는 문자열 또는 문자열 배열입니다. 지정하지 않으면 캔버스 전체 객체가 대상이 됩니다.
 - `options` (optional, object)
   - `padding` (optional, number \| { x?: number, y?: number }) - 축 기반 fit 패딩입니다. `fit()`은 기본적으로 각 방향에 `16` 패딩을 사용합니다. 숫자를 전달하면 네 방향 모두 그 값으로 대체되고, 객체를 전달하면 지정한 축만 덮어쓰며 나머지는 `16`을 유지합니다.
+  - `fit()`의 `padding`은 숫자 또는 `{ x, y }`만 허용합니다. `{ top, right, bottom, left }` 같은 edge 기반 키는 유효하지 않습니다.
 ```js
 // 전체 캔버스 객체를 기준으로 fit
 patchmap.fit()
