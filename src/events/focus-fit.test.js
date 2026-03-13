@@ -129,7 +129,7 @@ describe('focus-fit', () => {
 
     expect(selector).toHaveBeenCalledWith(
       viewport,
-      '$..children[?(@.type != null && @.constructor && @.constructor.isElement === true)]',
+      '$..children[?(@.type != null)]',
     );
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([target]);
     expect(viewport.moveCenter).toHaveBeenCalledWith(25, 30);
@@ -291,6 +291,67 @@ describe('focus-fit', () => {
 
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([childA]);
     expect(viewport.fit).toHaveBeenCalledWith(true, 5, 5);
+  });
+
+  it('treats grid as a bounds contributor instead of descending into its children', () => {
+    const gridChildA = markAsElement(
+      createTarget('grid-1.0.0', {
+        type: 'item',
+        centerX: 3,
+        centerY: 4,
+        width: 10,
+        height: 20,
+      }),
+    );
+    const gridChildB = markAsElement(
+      createTarget('grid-1.0.1', {
+        type: 'item',
+        centerX: 100,
+        centerY: 200,
+        width: 500,
+        height: 600,
+      }),
+    );
+    const grid = markAsElement(
+      linkChildren(
+        createTarget('grid-1', {
+          type: 'grid',
+          centerX: 50,
+          centerY: 60,
+          width: 200,
+          height: 100,
+        }),
+        [gridChildA, gridChildB],
+      ),
+    );
+    const viewport = createViewport([grid]);
+    vi.mocked(selector).mockReturnValue([grid, gridChildA, gridChildB]);
+
+    fitViewport(viewport, 'grid-1', { padding: 0 });
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([grid]);
+    expect(viewport.fit).toHaveBeenCalledWith(true, 100, 25);
+  });
+
+  it('keeps relations addressable by explicit id lookup', () => {
+    const relations = markAsElement(
+      createTarget('relations-1', {
+        type: 'relations',
+        centerX: 21,
+        centerY: 34,
+        width: 80,
+        height: 60,
+      }),
+    );
+    const viewport = createViewport([], {
+      toLocal: vi.fn(() => ({ x: 21, y: 34 })),
+    });
+    vi.mocked(selector).mockReturnValue([relations]);
+
+    focusViewport(viewport, 'relations-1');
+
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([relations]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(21, 34);
   });
 
   it('dedupes contributors when a container and its child are both explicitly targeted', () => {

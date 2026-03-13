@@ -69,6 +69,16 @@ const sampleData = [
   },
 ];
 
+const snapshotViewportTransform = (viewport) => ({
+  position: viewport.position.clone(),
+  scale: { x: viewport.scale.x, y: viewport.scale.y },
+});
+
+const restoreViewportTransform = (viewport, snapshot) => {
+  viewport.position.copyFrom(snapshot.position);
+  viewport.scale.set(snapshot.scale.x, snapshot.scale.y);
+};
+
 describe('patchmap test', () => {
   const { getPatchmap } = setupPatchmapTests();
 
@@ -165,6 +175,85 @@ describe('patchmap test', () => {
       patchmap.draw(sampleData);
 
       expect(() => patchmap.fit('item-1', { padding: { top: 10 } })).toThrow();
+    });
+
+    it('matches explicit id fit when filtering managed render targets', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(sampleData);
+
+      const fitSpy = vi.spyOn(patchmap.viewport, 'fit');
+      const moveCenterSpy = vi.spyOn(patchmap.viewport, 'moveCenter');
+      const initialTransform = snapshotViewportTransform(patchmap.viewport);
+
+      patchmap.fit('item-1', { padding: 0 });
+      const explicitFitArgs = fitSpy.mock.lastCall;
+      const explicitCenterArgs = moveCenterSpy.mock.lastCall;
+
+      restoreViewportTransform(patchmap.viewport, initialTransform);
+
+      patchmap.fit(null, {
+        filter: (obj) => obj.id === 'item-1',
+        padding: 0,
+      });
+
+      expect(fitSpy.mock.lastCall).toEqual(explicitFitArgs);
+      expect(moveCenterSpy.mock.lastCall).toEqual(explicitCenterArgs);
+    });
+
+    it('matches explicit child fit when filtering group descendants', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(sampleData);
+
+      const fitSpy = vi.spyOn(patchmap.viewport, 'fit');
+      const moveCenterSpy = vi.spyOn(patchmap.viewport, 'moveCenter');
+      const initialTransform = snapshotViewportTransform(patchmap.viewport);
+
+      patchmap.fit('grid-1', { padding: 0 });
+      const explicitFitArgs = fitSpy.mock.lastCall;
+      const explicitCenterArgs = moveCenterSpy.mock.lastCall;
+
+      restoreViewportTransform(patchmap.viewport, initialTransform);
+
+      patchmap.fit('group-1', {
+        filter: (obj) => obj.id === 'grid-1',
+        padding: 0,
+      });
+
+      expect(fitSpy.mock.lastCall).toEqual(explicitFitArgs);
+      expect(moveCenterSpy.mock.lastCall).toEqual(explicitCenterArgs);
+    });
+  });
+
+  describe('focus', () => {
+    it('matches explicit id focus when filtering managed render targets', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(sampleData);
+
+      const moveCenterSpy = vi.spyOn(patchmap.viewport, 'moveCenter');
+      const initialTransform = snapshotViewportTransform(patchmap.viewport);
+
+      patchmap.focus('item-1');
+      const explicitCenterArgs = moveCenterSpy.mock.lastCall;
+
+      restoreViewportTransform(patchmap.viewport, initialTransform);
+
+      patchmap.focus(null, {
+        filter: (obj) => obj.id === 'item-1',
+      });
+
+      expect(moveCenterSpy.mock.lastCall).toEqual(explicitCenterArgs);
+    });
+
+    it('keeps relations addressable by explicit id', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(sampleData);
+
+      const moveCenterSpy = vi.spyOn(patchmap.viewport, 'moveCenter');
+
+      const result = patchmap.focus('relations-1');
+
+      expect(result).toBeUndefined();
+      expect(moveCenterSpy).toHaveBeenCalledTimes(1);
     });
   });
 

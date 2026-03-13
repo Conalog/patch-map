@@ -8,9 +8,6 @@ import {
   parseFitOptions,
 } from './schema';
 
-const FOCUS_FIT_SELECTOR =
-  '$..children[?(@.type != null && @.constructor && @.constructor.isElement === true)]';
-
 export const focus = (viewport, ids, opts) => {
   validateIds(ids);
   validateFocusOptions(opts);
@@ -37,7 +34,7 @@ export const fit = (viewport, ids, opts) => {
  * @returns {void|null} Returns null if no objects found.
  */
 const getBoundsForIds = (viewport, ids, filter) => {
-  const objects = getObjectsById(viewport, ids, filter);
+  const objects = resolveFocusFitTargets(viewport, ids, filter);
   if (!objects.length) return null;
 
   return calcGroupOrientedBounds(objects);
@@ -70,12 +67,14 @@ const validateFocusOptions = (opts) => {
   }
 };
 
-const getObjectsById = (viewport, ids, filter) => {
+const resolveFocusFitTargets = (viewport, ids, filter) => {
   if (!ids) {
     return collectTopLevelViewportTargets(viewport, filter);
   }
 
-  const objects = selector(viewport, FOCUS_FIT_SELECTOR);
+  const objects = selector(viewport, '$..children[?(@.type != null)]').filter(
+    isManagedViewportElement,
+  );
   const idsArr = Array.isArray(ids) ? ids : [ids];
   const objs = objects.reduce((acc, curr) => {
     acc[curr.id] = curr;
@@ -110,7 +109,7 @@ const collectNodeContributors = (node, filter, collected, seen) => {
   const managedChildren = (node.children ?? []).filter(
     isManagedViewportElement,
   );
-  if (managedChildren.length > 0) {
+  if (managedChildren.length > 0 && node?.type !== 'grid') {
     managedChildren.forEach((child) =>
       collectNodeContributors(child, filter, collected, seen),
     );
@@ -126,4 +125,4 @@ const collectNodeContributors = (node, filter, collected, seen) => {
 };
 
 const isManagedViewportElement = (node) =>
-  Boolean(node?.constructor?.isElement);
+  node?.type && Boolean(node?.constructor?.isElement);
