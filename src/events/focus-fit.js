@@ -9,7 +9,7 @@ import {
 } from './schema';
 
 const FOCUS_FIT_SELECTOR =
-  '$..children[?(@.type != null && @.parent.type !== "item" && @.parent.type !== "relations")]';
+  '$..children[?(@.type != null && @.constructor && @.constructor.isElement === true)]';
 
 export const focus = (viewport, ids, opts) => {
   validateIds(ids);
@@ -75,9 +75,7 @@ const getObjectsById = (viewport, ids, filter) => {
     return collectTopLevelViewportTargets(viewport, filter);
   }
 
-  const objects = selector(viewport, FOCUS_FIT_SELECTOR).filter(
-    isManagedViewportElement,
-  );
+  const objects = selector(viewport, FOCUS_FIT_SELECTOR);
   const idsArr = Array.isArray(ids) ? ids : [ids];
   const objs = objects.reduce((acc, curr) => {
     acc[curr.id] = curr;

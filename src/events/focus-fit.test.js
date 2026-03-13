@@ -129,7 +129,7 @@ describe('focus-fit', () => {
 
     expect(selector).toHaveBeenCalledWith(
       viewport,
-      '$..children[?(@.type != null && @.parent.type !== "item" && @.parent.type !== "relations")]',
+      '$..children[?(@.type != null && @.constructor && @.constructor.isElement === true)]',
     );
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([target]);
     expect(viewport.moveCenter).toHaveBeenCalledWith(25, 30);
@@ -325,7 +325,7 @@ describe('focus-fit', () => {
     );
     const viewport = createViewport([item, rawTypedChild]);
     rawTypedChild.parent = viewport;
-    vi.mocked(selector).mockReturnValue([item, rawTypedChild]);
+    vi.mocked(selector).mockReturnValue([item]);
 
     focusViewport(viewport);
     expect(calcGroupOrientedBounds).toHaveBeenLastCalledWith([item]);
