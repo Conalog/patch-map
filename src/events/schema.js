@@ -14,20 +14,14 @@ import { validate } from '../utils/validator';
  * @property {number | FitPaddingAxis} [padding]
  */
 
-export const DEFAULT_FIT_PADDING = Object.freeze({
-  x: 16,
-  y: 16,
-});
+export const DEFAULT_FIT_PADDING = Object.freeze({ x: 16, y: 16 });
 
 export const focusFitIdsSchema = z
   .union([z.string(), z.array(z.string())])
   .nullish();
 
 const fitPaddingAxisSchema = z
-  .object({
-    x: z.number().optional(),
-    y: z.number().optional(),
-  })
+  .object({ x: z.number().optional(), y: z.number().optional() })
   .strict();
 
 export const fitOptionsSchema = z
@@ -50,10 +44,5 @@ export const parseFitOptions = (options) => {
     throw validatedOptions;
   }
 
-  return {
-    padding: {
-      ...DEFAULT_FIT_PADDING,
-      ...validatedOptions?.padding,
-    },
-  };
+  return { padding: { ...DEFAULT_FIT_PADDING, ...validatedOptions?.padding } };
 };

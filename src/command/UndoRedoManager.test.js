@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { UndoRedoManager } from './UndoRedoManager';
 import { Command } from './commands/base';
 import { BundleCommand } from './commands/bundle';
+import { UndoRedoManager } from './UndoRedoManager';
 
 /**
  * A mock command for testing purposes.

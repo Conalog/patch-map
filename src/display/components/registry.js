@@ -1,8 +1,8 @@
 import { Background } from './Background';
 import { Bar } from './Bar';
+import { registerComponent } from './creator';
 import { Icon } from './Icon';
 import { Text } from './Text';
-import { registerComponent } from './creator';
 
 registerComponent('background', Background);
 registerComponent('bar', Bar);
