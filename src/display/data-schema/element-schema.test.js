@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { uid } from '../../utils/uuid';
 import {
+  canvasSchema,
   gridSchema,
   groupSchema,
   imageSchema,
@@ -24,9 +25,25 @@ vi.mock('../../utils/uuid', () => ({
 
 beforeEach(() => {
   vi.mocked(uid).mockClear();
+  vi.mocked(uid).mockReturnValue('mock-id-default');
 });
 
 describe('Element Schemas', () => {
+  describe('Canvas Schema', () => {
+    it('should reject locked on canvas', () => {
+      const canvasData = {
+        type: 'canvas',
+        id: 'canvas-1',
+        children: [],
+        locked: true,
+      };
+
+      const result = canvasSchema.safeParse(canvasData);
+
+      expect(result.success).toBe(false);
+    });
+  });
+
   describe('Group Schema', () => {
     it('should parse a valid group with nested elements', () => {
       const groupData = {
@@ -39,6 +56,27 @@ describe('Element Schemas', () => {
       const parsed = groupSchema.parse(groupData);
       expect(parsed.children).toHaveLength(1);
       expect(parsed.children[0].type).toBe('item');
+    });
+
+    it('should parse locked state on a group and its nested child', () => {
+      const groupData = {
+        type: 'group',
+        id: 'group-1',
+        locked: true,
+        children: [
+          {
+            type: 'item',
+            id: 'item-1',
+            locked: true,
+            size: { width: 100, height: 100 },
+          },
+        ],
+      };
+
+      const parsed = groupSchema.parse(groupData);
+
+      expect(parsed.locked).toBe(true);
+      expect(parsed.children[0].locked).toBe(true);
     });
 
     it('should parse a group with empty children', () => {
@@ -125,6 +163,18 @@ describe('Element Schemas', () => {
       expect(parsed.size.width).toBe(100);
       expect(parsed.size.height).toBe(200);
       expect(parsed.components).toEqual([]); // default value
+    });
+
+    it('should default locked to false when omitted', () => {
+      const itemData = {
+        type: 'item',
+        id: 'item-1',
+        size: { width: 100, height: 200 },
+      };
+
+      const parsed = itemSchema.parse(itemData);
+
+      expect(parsed.locked).toBe(false);
     });
 
     it('should fail if required size properties are missing', () => {
@@ -229,6 +279,18 @@ describe('Element Schemas', () => {
       };
       expect(() => imageSchema.parse(imageData)).toThrow();
     });
+
+    it('should parse locked on image elements', () => {
+      const imageData = {
+        type: 'image',
+        id: 'img-1',
+        source: 'asset-key',
+        locked: true,
+      };
+
+      const parsed = imageSchema.parse(imageData);
+      expect(parsed.locked).toBe(true);
+    });
   });
 
   describe('Text Schema', () => {
@@ -264,6 +326,18 @@ describe('Element Schemas', () => {
       };
       expect(() => textSchema.parse(textData)).toThrow();
     });
+
+    it('should parse locked on text elements', () => {
+      const textData = {
+        type: 'text',
+        id: 'text-1',
+        text: 'hello',
+        locked: true,
+      };
+
+      const parsed = textSchema.parse(textData);
+      expect(parsed.locked).toBe(true);
+    });
   });
 
   describe('Rect Schema', () => {
@@ -293,6 +367,18 @@ describe('Element Schemas', () => {
         unknown: 'property',
       };
       expect(() => rectSchema.parse(rectData)).toThrow();
+    });
+
+    it('should parse locked on rect elements', () => {
+      const rectData = {
+        type: 'rect',
+        id: 'rect-1',
+        size: { width: 120, height: 80 },
+        locked: true,
+      };
+
+      const parsed = rectSchema.parse(rectData);
+      expect(parsed.locked).toBe(true);
     });
   });
 

@@ -4,6 +4,7 @@ import { deepPartial } from '../../utils/zod-deep-strict-partial';
 import {
   Base,
   Color,
+  ElementBase,
   Gap,
   LabelTextStyle,
   Margin,
@@ -84,10 +85,37 @@ describe('Primitive Schema Tests', () => {
       expect(result).toEqual({ show: true, id: 'mock-uid-123' });
       expect(uid).toHaveBeenCalled();
     });
+  });
+
+  describe('ElementBase Schema', () => {
+    it('should parse locked as an element-only property', () => {
+      const data = {
+        show: false,
+        locked: true,
+        id: 'custom-id',
+        label: 'My Base',
+        attrs: { extra: 'value' },
+      };
+
+      const result = ElementBase.parse(data);
+
+      expect(result).toEqual(data);
+    });
+
+    it('should apply locked=false by default', () => {
+      const data = {};
+      const result = ElementBase.parse(data);
+      expect(result).toEqual({
+        show: true,
+        locked: false,
+        id: 'mock-uid-123',
+      });
+      expect(uid).toHaveBeenCalled();
+    });
 
     it('should throw an error for unknown properties due to .strict()', () => {
       const data = { show: true, unknownProperty: 'test' };
-      expect(() => Base.parse(data)).toThrow();
+      expect(() => ElementBase.parse(data)).toThrow();
     });
   });
 

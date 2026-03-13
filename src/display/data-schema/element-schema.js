@@ -4,6 +4,7 @@ import {
   Base,
   Color,
   EachRadius,
+  ElementBase,
   ElementTextStyle,
   Gap,
   Margin,
@@ -27,7 +28,7 @@ export const canvasSchema = Base.extend({
  * Visually represented by a `Container`.
  * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  */
-export const groupSchema = Base.extend({
+export const groupSchema = ElementBase.extend({
   type: z.literal('group'),
   children: z.array(z.lazy(() => elementTypes)),
 }).strict();
@@ -38,7 +39,7 @@ export const groupSchema = Base.extend({
  * Visually represented by a `Container`.
  * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  */
-export const gridSchema = Base.extend({
+export const gridSchema = ElementBase.extend({
   type: z.literal('grid'),
   cells: z.array(z.array(z.union([z.literal(0), z.literal(1), z.string()]))),
   inactiveCellStrategy: z.enum(['destroy', 'hide']).default('destroy'),
@@ -56,7 +57,7 @@ export const gridSchema = Base.extend({
  * Visually represented by a `Container`.
  * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  */
-export const itemSchema = Base.extend({
+export const itemSchema = ElementBase.extend({
   type: z.literal('item'),
   components: componentArraySchema.default([]),
   size: Size,
@@ -69,7 +70,7 @@ export const itemSchema = Base.extend({
  * Visually represented by a `Container`.
  * @see {@link https://pixijs.download/release/docs/scene.Container.html}
  */
-export const relationsSchema = Base.extend({
+export const relationsSchema = ElementBase.extend({
   type: z.literal('relations'),
   links: z.array(z.object({ source: z.string(), target: z.string() })),
   style: RelationsStyle,
@@ -80,7 +81,7 @@ export const relationsSchema = Base.extend({
  * Visually represented by a `Container` containing a `Sprite`.
  * @see {@link https://pixijs.download/release/docs/scene.Sprite.html}
  */
-export const imageSchema = Base.extend({
+export const imageSchema = ElementBase.extend({
   type: z.literal('image'),
   source: z.string(),
   size: Size.optional(),
@@ -91,7 +92,7 @@ export const imageSchema = Base.extend({
  * Visually represented by a `Container` containing a `BitmapText`.
  * @see {@link https://pixijs.download/release/docs/text_bitmap.BitmapText.html}
  */
-export const textSchema = Base.extend({
+export const textSchema = ElementBase.extend({
   type: z.literal('text'),
   text: z.string().default(''),
   style: ElementTextStyle,
@@ -103,7 +104,7 @@ export const textSchema = Base.extend({
  * Visually represented by a `Graphics`.
  * @see {@link https://pixijs.download/release/docs/scene.Graphics.html}
  */
-export const rectSchema = Base.extend({
+export const rectSchema = ElementBase.extend({
   type: z.literal('rect'),
   size: Size,
   fill: Color.optional(),

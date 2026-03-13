@@ -45,6 +45,10 @@ export const Base = z
   })
   .strict();
 
+export const ElementBase = Base.extend({
+  locked: z.boolean().default(false),
+}).strict();
+
 export const Size = z.union([
   z
     .number()

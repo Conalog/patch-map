@@ -30,7 +30,11 @@ export const getViewport = (displayObject) => {
   return getViewport(displayObject.parent);
 };
 
-export const collectCandidates = (parent, filterFn = () => true) => {
+export const collectCandidates = (
+  parent,
+  filterFn = () => true,
+  { shouldDescend = () => true } = {},
+) => {
   const candidates = [];
   const stack = [...parent.children];
 
@@ -41,7 +45,7 @@ export const collectCandidates = (parent, filterFn = () => true) => {
       candidates.push(child);
     }
 
-    if (child.children?.length) {
+    if (child.children?.length && shouldDescend(child)) {
       // A loop is safer than spread syntax for large arrays to avoid stack overflow.
       for (let i = child.children.length - 1; i >= 0; i--) {
         stack.push(child.children[i]);
