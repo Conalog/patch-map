@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This document defines the operating rules for agents working in `/Users/crmin/workspace/conalog/patch-map`.
+This document defines the operating rules for agents working in this repository.
 
 ## Language Rules
 
