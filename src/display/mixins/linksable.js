@@ -14,10 +14,6 @@ export const Linksable = (superClass) => {
         'object_transformed',
         this._boundOnObjectTransformed,
       );
-      this.store?.viewport?.on(
-        'world_transformed',
-        this._boundOnViewportChanged,
-      );
       this.store?.viewport?.on('moved', this._boundOnViewportChanged);
       this.store?.viewport?.on('zoomed', this._boundOnViewportChanged);
     }
@@ -28,10 +24,6 @@ export const Linksable = (superClass) => {
           'object_transformed',
           this._boundOnObjectTransformed,
         );
-        this.store?.viewport?.off(
-          'world_transformed',
-          this._boundOnViewportChanged,
-        );
         this.store?.viewport?.off('moved', this._boundOnViewportChanged);
         this.store?.viewport?.off('zoomed', this._boundOnViewportChanged);
       }
@@ -40,7 +32,6 @@ export const Linksable = (superClass) => {
 
     _refreshLinkedPath() {
       this._renderDirty = true;
-      this._refreshLink?.();
     }
 
     _onObjectTransformed(changedObject) {
