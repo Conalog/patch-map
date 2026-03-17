@@ -55,7 +55,7 @@ describe('placement-frame', () => {
     expect(place(component)).toEqual({ x: 200, y: 430 });
   });
 
-  it('adds parent angle when resolving follow-item placement', () => {
+  it('keeps follow-item placement in the item frame even when parent angle changes', () => {
     const component = createComponent();
     component.props.placement = 'bottom';
     component.props.margin = { left: 0, right: 0, top: 3, bottom: 7 };
@@ -64,30 +64,30 @@ describe('placement-frame', () => {
     component.parent = { angle: 90, parent: null };
     component.store.view = { angle: 0, flipX: false, flipY: false };
 
-    expect(place(component)).toEqual({ x: 240, y: 7 });
+    expect(place(component)).toEqual({ x: 240, y: 484 });
   });
 
   it.each([
     {
-      case: 'upside-down screen orientation swaps bottom to top',
+      case: 'upside-down screen orientation does not remap vertical anchor',
       placement: 'bottom',
       margin: { left: 0, right: 0, top: 3, bottom: 7 },
       size: { width: 100, height: 50 },
       scale: { x: 1, y: 1 },
       view: { angle: 180, flipX: false, flipY: false },
-      expected: { x: 200, y: 7 },
+      expected: { x: 200, y: 443 },
     },
     {
-      case: 'corner placement keeps horizontal edge and only remaps vertical edge',
+      case: 'corner placement stays in the same local corner',
       placement: 'left-bottom',
       margin: { left: 10, right: 70, top: 3, bottom: 7 },
       size: { width: 20, height: 9 },
       scale: { x: 1, y: 1 },
       view: { angle: 180, flipX: false, flipY: false },
-      expected: { x: 10, y: 7 },
+      expected: { x: 10, y: 484 },
     },
     {
-      case: 'local scale.y flip is reflected in vertical anchor choice',
+      case: 'local scale.y still affects local-frame anchor choice',
       placement: 'bottom',
       margin: { left: 0, right: 0, top: 3, bottom: 7 },
       size: { width: 20, height: 9 },

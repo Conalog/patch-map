@@ -25,30 +25,6 @@ const resolvePlacementAngleOffset = (component) => {
   return parentAngle + localBaseAngle;
 };
 
-const parsePercentDimension = (dimension) => {
-  if (typeof dimension === 'string') {
-    const trimmed = dimension.trim();
-    if (!trimmed.endsWith('%')) return null;
-    const parsed = Number(trimmed.slice(0, -1));
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  if (dimension && typeof dimension === 'object' && dimension.unit === '%') {
-    const parsed = Number(dimension.value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-};
-
-const targetsFullWidth = (component) => {
-  const size = component?.props?.size;
-  const widthPercent = parsePercentDimension(size?.width);
-  const heightPercent = parsePercentDimension(size?.height);
-  if (widthPercent == null || heightPercent == null) return false;
-  return Math.abs(widthPercent - 100) < 1e-7;
-};
-
 const resolveScreenStateForPlacement = (component) => {
   const view = component?.store?.view;
   if (!view) return null;
@@ -144,28 +120,6 @@ const swapHorizontalMargin = (margin) => ({
   right: margin.left,
 });
 
-const resolveFollowItemVerticalFrame = (
-  component,
-  directions,
-  margin,
-  viewStateForPlacement,
-) => {
-  if (!targetsFullWidth(component)) {
-    return { directions, margin };
-  }
-
-  const nextVertical = remapVerticalDirection(
-    component,
-    viewStateForPlacement,
-    directions.v,
-  );
-
-  return {
-    directions: { ...directions, v: nextVertical },
-    margin: nextVertical === directions.v ? margin : swapVerticalMargin(margin),
-  };
-};
-
 const resolveUprightCornerDirections = (
   component,
   directions,
@@ -250,17 +204,8 @@ export const resolvePlacementFrame = (component, placement, margin) => {
   const uprightContent = hasUprightContentOrientation(component);
   const viewStateForPlacement = resolveScreenStateForPlacement(component);
 
-  if (!viewStateForPlacement) {
+  if (!viewStateForPlacement || !uprightContent) {
     return { directions, margin: nextMargin };
-  }
-
-  if (!uprightContent && directions.v && directions.v !== 'center') {
-    return resolveFollowItemVerticalFrame(
-      component,
-      directions,
-      nextMargin,
-      viewStateForPlacement,
-    );
   }
 
   const remappedDirections = resolveDirectionsForViewState(

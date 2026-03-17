@@ -98,7 +98,7 @@ export interface Group {
  *       }
  *     ],
  *     size: 60,
- *     contentOrientation: 'follow-item',
+ *     contentOrientation: 'upright',
  *   },
  * };
  */
@@ -115,7 +115,7 @@ export interface Grid {
     components?: Component[];
     size: Size;
     padding?: Margin; // Default: 0
-    contentOrientation?: 'follow-item' | 'upright'; // Default: 'follow-item'
+    contentOrientation?: 'follow-item' | 'upright'; // Default: 'upright'
   };
   attrs?: Record<string, unknown>;
 }
@@ -168,7 +168,7 @@ export interface Item {
   components?: Component[];
   size: Size;
   padding?: Margin; // Default: 0
-  contentOrientation?: 'follow-item' | 'upright'; // Default: 'follow-item'
+  contentOrientation?: 'follow-item' | 'upright'; // Default: 'upright'
   attrs?: Record<string, unknown>;
 }
 

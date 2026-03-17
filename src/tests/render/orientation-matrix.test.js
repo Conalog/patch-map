@@ -18,7 +18,7 @@ const ORIENTATION_MATRIX = [
     rotation: 0,
     flip: 'none',
     gridBar: 'BTTB',
-    gridText: 'TTTT',
+    gridText: 'TBBT',
     cardUprightPairs: ['0=180', '90=270'],
   },
   {
@@ -26,7 +26,7 @@ const ORIENTATION_MATRIX = [
     rotation: 0,
     flip: 'none',
     gridBar: 'BTTB',
-    gridText: 'TTTT',
+    gridText: 'TBBT',
     cardUprightPairs: ['0=180', '90=270'],
   },
   {
@@ -34,7 +34,7 @@ const ORIENTATION_MATRIX = [
     rotation: 0,
     flip: 'x',
     gridBar: 'BBTT',
-    gridText: 'TTTT',
+    gridText: 'TTBB',
     cardUprightPairs: ['0=180', '90=270'],
   },
   {
@@ -42,7 +42,7 @@ const ORIENTATION_MATRIX = [
     rotation: 0,
     flip: 'y',
     gridBar: 'TTBB',
-    gridText: 'TTTT',
+    gridText: 'BBTT',
     cardUprightPairs: ['0=180', '90=270'],
   },
   {
@@ -50,7 +50,7 @@ const ORIENTATION_MATRIX = [
     rotation: 0,
     flip: 'xy',
     gridBar: 'TBBT',
-    gridText: 'TTTT',
+    gridText: 'BTTB',
     cardUprightPairs: ['0=180', '90=270'],
   },
   {
@@ -58,7 +58,7 @@ const ORIENTATION_MATRIX = [
     rotation: -45,
     flip: 'none',
     gridBar: 'BBTT',
-    gridText: 'TTTT',
+    gridText: 'TTBB',
     cardUprightPairs: ['0=180', '90=270'],
   },
   {
@@ -66,7 +66,7 @@ const ORIENTATION_MATRIX = [
     rotation: -45,
     flip: 'x',
     gridBar: 'BTTB',
-    gridText: 'TTTT',
+    gridText: 'TBBT',
     cardUprightPairs: ['0=180', '90=270'],
   },
   {
@@ -74,7 +74,7 @@ const ORIENTATION_MATRIX = [
     rotation: -45,
     flip: 'y',
     gridBar: 'TBBT',
-    gridText: 'TTTT',
+    gridText: 'BTTB',
     cardUprightPairs: ['0=180', '90=270'],
   },
   {
@@ -82,7 +82,7 @@ const ORIENTATION_MATRIX = [
     rotation: -45,
     flip: 'xy',
     gridBar: 'TTBB',
-    gridText: 'TTTT',
+    gridText: 'BBTT',
     cardUprightPairs: ['0=180', '90=270'],
   },
 ];
@@ -413,12 +413,7 @@ const readGridVisualByAngle = (patchmap, angle) => {
   return layout;
 };
 
-const createOrientationGrid = ({
-  angle,
-  x,
-  y,
-  contentOrientation = 'follow-item',
-}) => ({
+const createOrientationGrid = ({ angle, x, y, contentOrientation }) => ({
   type: 'grid',
   id: `ops-orientation-grid-${angle}`,
   label: `Orientation Grid ${angle}deg`,
@@ -430,7 +425,7 @@ const createOrientationGrid = ({
   item: {
     size: { width: 28, height: 56 },
     padding: { x: 4, y: 4 },
-    contentOrientation,
+    ...(contentOrientation ? { contentOrientation } : {}),
     components: [
       {
         type: 'background',
@@ -469,14 +464,14 @@ const createOrientationCard = ({
   angle,
   x,
   y,
-  contentOrientation = 'upright',
+  contentOrientation,
 }) => ({
   type: 'item',
   id: cardId,
   label: 'Orientation Probe',
   size: { width: 244, height: 118 },
   padding: { x: 12, y: 10 },
-  contentOrientation,
+  ...(contentOrientation ? { contentOrientation } : {}),
   components: [
     {
       type: 'background',
@@ -618,6 +613,103 @@ describe('Orientation Matrix Contracts', () => {
   });
 });
 
+describe('Orientation Default Contracts', () => {
+  const { getPatchmap } = setupPatchmapTests();
+
+  it('defaults item contentOrientation to upright', () => {
+    const patchmap = getPatchmap();
+
+    drawOrientationProbe(patchmap);
+    assertCardUprightPairs(patchmap, 'item default upright', [
+      '0=180',
+      '90=270',
+    ]);
+    assertCardUprightReferencePose(patchmap, 'item default upright', 0);
+
+    applyRotationAndFlip(patchmap, { rotation: -45, flip: 'x' });
+    const omitted = readCardVisualSnapshot(patchmap);
+
+    for (const [angle, cardId] of Object.entries(CARD_ID_BY_ANGLE)) {
+      patchmap.update({
+        path: `$..[?(@.id=="${cardId}")]`,
+        changes: { contentOrientation: 'upright' },
+      });
+      const explicit = readCardVisualByAngle(patchmap, Number(angle));
+      for (const component of CARD_VISUAL_COMPONENTS) {
+        expectSameScreenPose(
+          omitted[angle][component.key],
+          explicit[component.key],
+          `item default upright transformed angle:${angle} component:${component.key}`,
+        );
+      }
+    }
+  });
+
+  it('defaults grid.item contentOrientation to upright', () => {
+    const patchmap = getPatchmap();
+
+    drawOrientationProbe(patchmap);
+
+    const omitted = {};
+    for (const angle of ANGLES) {
+      omitted[angle] = readGridVisualByAngle(patchmap, angle);
+    }
+
+    for (const angle of ANGLES) {
+      patchmap.update({
+        path: `$..[?(@.id=="ops-orientation-grid-${angle}")]`,
+        changes: { item: { contentOrientation: 'upright' } },
+      });
+    }
+
+    for (const angle of ANGLES) {
+      const explicit = readGridVisualByAngle(patchmap, angle);
+      for (const component of GRID_VISUAL_COMPONENTS) {
+        expectSameScreenPose(
+          omitted[angle][component.key],
+          explicit[component.key],
+          `grid default upright angle:${angle} component:${component.key}`,
+        );
+      }
+    }
+  });
+
+  it('defaults grid.item contentOrientation to upright under world rotation and flip', () => {
+    const patchmap = getPatchmap();
+
+    patchmap.draw([
+      createOrientationGrid({ angle: 0, x: 120, y: 760 }),
+      createOrientationGrid({ angle: 90, x: 360, y: 760 }),
+      createOrientationGrid({ angle: 180, x: 120, y: 980 }),
+      createOrientationGrid({ angle: 270, x: 360, y: 980 }),
+    ]);
+    applyRotationAndFlip(patchmap, { rotation: -45, flip: 'x' });
+
+    const transformedOmitted = {};
+    for (const angle of ANGLES) {
+      transformedOmitted[angle] = readGridVisualByAngle(patchmap, angle);
+    }
+
+    for (const angle of ANGLES) {
+      patchmap.update({
+        path: `$..[?(@.id=="ops-orientation-grid-${angle}")]`,
+        changes: { item: { contentOrientation: 'upright' } },
+      });
+    }
+
+    for (const angle of ANGLES) {
+      const explicit = readGridVisualByAngle(patchmap, angle);
+      for (const component of GRID_VISUAL_COMPONENTS) {
+        expectSameScreenPose(
+          transformedOmitted[angle][component.key],
+          explicit[component.key],
+          `grid default upright transformed angle:${angle} component:${component.key}`,
+        );
+      }
+    }
+  });
+});
+
 describe('Orientation Card Flip Contracts', () => {
   const { getPatchmap } = setupPatchmapTests();
 
@@ -714,44 +806,19 @@ describe('Orientation Grid Upright Content Updates', () => {
   it('re-applies grid cell pose when contentOrientation changes on grid item template', () => {
     const patchmap = getPatchmap();
 
-    patchmap.draw([
-      createOrientationGrid({
-        angle: 0,
-        x: 120,
-        y: 760,
-        contentOrientation: 'upright',
-      }),
-      createOrientationGrid({
-        angle: 90,
-        x: 360,
-        y: 760,
-        contentOrientation: 'upright',
-      }),
-      createOrientationGrid({
-        angle: 180,
-        x: 120,
-        y: 980,
-        contentOrientation: 'upright',
-      }),
-      createOrientationGrid({
-        angle: 270,
-        x: 360,
-        y: 980,
-        contentOrientation: 'upright',
-      }),
-    ]);
+    drawOrientationProbe(patchmap);
 
     const baseline = {};
     for (const angle of ANGLES) {
       baseline[angle] = readGridVisualByAngle(patchmap, angle);
     }
 
-    patchmap.draw([
-      createOrientationGrid({ angle: 0, x: 120, y: 760 }),
-      createOrientationGrid({ angle: 90, x: 360, y: 760 }),
-      createOrientationGrid({ angle: 180, x: 120, y: 980 }),
-      createOrientationGrid({ angle: 270, x: 360, y: 980 }),
-    ]);
+    for (const angle of ANGLES) {
+      patchmap.update({
+        path: `$..[?(@.id=="ops-orientation-grid-${angle}")]`,
+        changes: { item: { contentOrientation: 'follow-item' } },
+      });
+    }
 
     for (const angle of ANGLES) {
       patchmap.update({
@@ -772,5 +839,179 @@ describe('Orientation Grid Upright Content Updates', () => {
         );
       }
     }
+  });
+});
+
+describe('Orientation Grid Follow-item Contracts', () => {
+  const { getPatchmap } = setupPatchmapTests();
+
+  it('keeps follow-item grids visually distinct from upright grids', () => {
+    const patchmap = getPatchmap();
+
+    patchmap.draw([
+      createOrientationGrid({
+        angle: 90,
+        x: 120,
+        y: 760,
+        contentOrientation: 'follow-item',
+      }),
+      createOrientationGrid({
+        angle: 180,
+        x: 360,
+        y: 760,
+        contentOrientation: 'follow-item',
+      }),
+    ]);
+
+    const follow90 = readGridVisualByAngle(patchmap, 90);
+    const follow180 = readGridVisualByAngle(patchmap, 180);
+
+    patchmap.draw([
+      createOrientationGrid({
+        angle: 90,
+        x: 120,
+        y: 760,
+        contentOrientation: 'upright',
+      }),
+      createOrientationGrid({
+        angle: 180,
+        x: 360,
+        y: 760,
+        contentOrientation: 'upright',
+      }),
+    ]);
+
+    const upright90 = readGridVisualByAngle(patchmap, 90);
+    const upright180 = readGridVisualByAngle(patchmap, 180);
+
+    expect(() =>
+      expectSameScreenPose(
+        follow90.bar,
+        upright90.bar,
+        'follow-item vs upright angle:90 bar',
+      ),
+    ).toThrow();
+    expect(() =>
+      expectSameScreenPose(
+        follow180.text,
+        upright180.text,
+        'follow-item vs upright angle:180 text',
+      ),
+    ).toThrow();
+  });
+
+  it('keeps follow-item grids distinct under world rotation and flip', () => {
+    const patchmap = getPatchmap();
+
+    patchmap.draw([
+      createOrientationGrid({
+        angle: 90,
+        x: 120,
+        y: 760,
+        contentOrientation: 'follow-item',
+      }),
+      createOrientationGrid({
+        angle: 180,
+        x: 360,
+        y: 760,
+        contentOrientation: 'follow-item',
+      }),
+    ]);
+
+    applyRotationAndFlip(patchmap, { rotation: -45, flip: 'x' });
+
+    const follow90 = readGridVisualByAngle(patchmap, 90);
+    const follow180 = readGridVisualByAngle(patchmap, 180);
+
+    patchmap.draw([
+      createOrientationGrid({
+        angle: 90,
+        x: 120,
+        y: 760,
+        contentOrientation: 'upright',
+      }),
+      createOrientationGrid({
+        angle: 180,
+        x: 360,
+        y: 760,
+        contentOrientation: 'upright',
+      }),
+    ]);
+    applyRotationAndFlip(patchmap, { rotation: -45, flip: 'x' });
+    const upright90 = readGridVisualByAngle(patchmap, 90);
+    const upright180 = readGridVisualByAngle(patchmap, 180);
+
+    expect(() =>
+      expectSameScreenPose(
+        follow90.bar,
+        upright90.bar,
+        'follow-item vs upright rotated angle:90 bar',
+      ),
+    ).toThrow();
+    expect(() =>
+      expectSameScreenPose(
+        follow180.text,
+        upright180.text,
+        'follow-item vs upright rotated angle:180 text',
+      ),
+    ).toThrow();
+  });
+
+  it('keeps follow-item grids distinct at 0 and 270 under world rotation and flip', () => {
+    const patchmap = getPatchmap();
+
+    patchmap.draw([
+      createOrientationGrid({
+        angle: 0,
+        x: 120,
+        y: 760,
+        contentOrientation: 'follow-item',
+      }),
+      createOrientationGrid({
+        angle: 270,
+        x: 360,
+        y: 760,
+        contentOrientation: 'follow-item',
+      }),
+    ]);
+
+    applyRotationAndFlip(patchmap, { rotation: -45, flip: 'y' });
+
+    const follow0 = readGridVisualByAngle(patchmap, 0);
+    const follow270 = readGridVisualByAngle(patchmap, 270);
+
+    patchmap.draw([
+      createOrientationGrid({
+        angle: 0,
+        x: 120,
+        y: 760,
+        contentOrientation: 'upright',
+      }),
+      createOrientationGrid({
+        angle: 270,
+        x: 360,
+        y: 760,
+        contentOrientation: 'upright',
+      }),
+    ]);
+    applyRotationAndFlip(patchmap, { rotation: -45, flip: 'y' });
+
+    const upright0 = readGridVisualByAngle(patchmap, 0);
+    const upright270 = readGridVisualByAngle(patchmap, 270);
+
+    expect(() =>
+      expectSameScreenPose(
+        follow0.text,
+        upright0.text,
+        'follow-item vs upright rotated angle:0 text',
+      ),
+    ).toThrow();
+    expect(() =>
+      expectSameScreenPose(
+        follow270.bar,
+        upright270.bar,
+        'follow-item vs upright rotated angle:270 bar',
+      ),
+    ).toThrow();
   });
 });

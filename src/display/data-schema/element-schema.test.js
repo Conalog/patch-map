@@ -124,7 +124,7 @@ describe('Element Schemas', () => {
         size: { width: 50, height: 50 },
         padding: { bottom: 0, left: 0, right: 0, top: 0 },
         components: [],
-        contentOrientation: 'follow-item',
+        contentOrientation: 'upright',
       });
     });
 
@@ -172,7 +172,7 @@ describe('Element Schemas', () => {
       expect(parsed.size.width).toBe(100);
       expect(parsed.size.height).toBe(200);
       expect(parsed.components).toEqual([]); // default value
-      expect(parsed.contentOrientation).toBe('follow-item');
+      expect(parsed.contentOrientation).toBe('upright');
     });
 
     it('should parse contentOrientation on item', () => {

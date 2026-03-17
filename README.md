@@ -493,7 +493,9 @@ patchmap.flip.reset()
 
 `contentOrientation` controls how an `item` or `grid.item` inner `text` /
 `icon` / `bar` react to item angle and world rotation / flip.
-Use `contentOrientation: 'follow-item'` (default) to follow the item angle.
+`item` defaults to `contentOrientation: 'upright'`.
+`grid.item` defaults to `contentOrientation: 'upright'`.
+Use `contentOrientation: 'follow-item'` to follow the item angle.
 Use `contentOrientation: 'upright'` to keep inner contents upright and readable
 on screen under world rotation and flip.
 

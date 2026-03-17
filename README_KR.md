@@ -499,7 +499,9 @@ patchmap.flip.reset()
 
 `contentOrientation`은 `item` 또는 `grid.item` 내부 `text` / `icon` /
 `bar`가 아이템 각도와 월드 회전 / 플립에 어떻게 반응할지 정합니다.
-기본값 `contentOrientation: 'follow-item'`은 아이템 각도를 따라가고,
+`item`의 기본값은 `contentOrientation: 'upright'`입니다.
+`grid.item`의 기본값도 `contentOrientation: 'upright'`입니다.
+`contentOrientation: 'follow-item'`은 아이템 각도를 따라가고,
 `contentOrientation: 'upright'`는 월드 회전과 플립이 걸려도 화면에서
 똑바로 읽히는 방향을 유지합니다.
 
