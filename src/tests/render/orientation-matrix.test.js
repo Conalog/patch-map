@@ -413,6 +413,23 @@ const readGridVisualByAngle = (patchmap, angle) => {
   return layout;
 };
 
+const readGridCellPoseByAngle = (patchmap, angle) => {
+  const cellId = `ops-orientation-grid-${angle}.0.0`;
+  const cell = findCardComponent(patchmap, cellId);
+  expect(cell, `Missing grid cell ${cellId}`).toBeTruthy();
+  const globalTransform = cell.getGlobalTransform();
+  return {
+    xAxis: normalizeAxis(
+      Number(globalTransform?.a ?? 0),
+      Number(globalTransform?.b ?? 0),
+    ),
+    yAxis: normalizeAxis(
+      Number(globalTransform?.c ?? 0),
+      Number(globalTransform?.d ?? 0),
+    ),
+  };
+};
+
 const createOrientationGrid = ({ angle, x, y, contentOrientation }) => ({
   type: 'grid',
   id: `ops-orientation-grid-${angle}`,
@@ -1013,5 +1030,77 @@ describe('Orientation Grid Follow-item Contracts', () => {
         'follow-item vs upright rotated angle:270 bar',
       ),
     ).toThrow();
+  });
+
+  it('keeps follow-item grid children aligned with the grid cell under double flip', () => {
+    const patchmap = getPatchmap();
+
+    patchmap.draw([
+      createOrientationGrid({
+        angle: 0,
+        x: 120,
+        y: 760,
+        contentOrientation: 'follow-item',
+      }),
+      createOrientationGrid({
+        angle: 90,
+        x: 360,
+        y: 760,
+        contentOrientation: 'follow-item',
+      }),
+      createOrientationGrid({
+        angle: 180,
+        x: 120,
+        y: 980,
+        contentOrientation: 'follow-item',
+      }),
+      createOrientationGrid({
+        angle: 270,
+        x: 360,
+        y: 980,
+        contentOrientation: 'follow-item',
+      }),
+    ]);
+
+    applyRotationAndFlip(patchmap, { rotation: -23, flip: 'xy' });
+
+    for (const angle of ANGLES) {
+      const cellPose = readGridCellPoseByAngle(patchmap, angle);
+      const visual = readGridVisualByAngle(patchmap, angle);
+
+      expect(
+        visual.bar.xAxis.x,
+        `follow-item angle:${angle} bar xAxis.x`,
+      ).toBeCloseTo(cellPose.xAxis.x, 3);
+      expect(
+        visual.bar.xAxis.y,
+        `follow-item angle:${angle} bar xAxis.y`,
+      ).toBeCloseTo(cellPose.xAxis.y, 3);
+      expect(
+        visual.bar.yAxis.x,
+        `follow-item angle:${angle} bar yAxis.x`,
+      ).toBeCloseTo(cellPose.yAxis.x, 3);
+      expect(
+        visual.bar.yAxis.y,
+        `follow-item angle:${angle} bar yAxis.y`,
+      ).toBeCloseTo(cellPose.yAxis.y, 3);
+
+      expect(
+        visual.text.xAxis.x,
+        `follow-item angle:${angle} text xAxis.x`,
+      ).toBeCloseTo(cellPose.xAxis.x, 3);
+      expect(
+        visual.text.xAxis.y,
+        `follow-item angle:${angle} text xAxis.y`,
+      ).toBeCloseTo(cellPose.xAxis.y, 3);
+      expect(
+        visual.text.yAxis.x,
+        `follow-item angle:${angle} text yAxis.x`,
+      ).toBeCloseTo(cellPose.yAxis.x, 3);
+      expect(
+        visual.text.yAxis.y,
+        `follow-item angle:${angle} text yAxis.y`,
+      ).toBeCloseTo(cellPose.yAxis.y, 3);
+    }
   });
 });

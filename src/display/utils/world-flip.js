@@ -1,4 +1,5 @@
 import { assertFiniteNumber } from '../mixins/utils';
+import { hasUprightContentOrientation } from './content-orientation';
 import { getAngleWithinWorld } from './world-angle';
 
 const AXIS_RESOLUTION_EPSILON = 1e-7;
@@ -65,30 +66,66 @@ export const resetWorldFlipState = (displayObject) => {
 export const applyWorldFlip = (displayObject, view) => {
   if (!displayObject || !view) return;
 
+  const currentScaleX = ensureFinite(
+    displayObject.scale?.x ?? 1,
+    'scale.x',
+    displayObject,
+  );
+  const currentScaleY = ensureFinite(
+    displayObject.scale?.y ?? 1,
+    'scale.y',
+    displayObject,
+  );
+  const inheritsUprightOrientation =
+    hasUprightContentOrientation(displayObject);
+
   const prevState = displayObject._flipState ?? {
     x: false,
     y: false,
     horizontalAxis: 'x',
+    compensated: false,
+    baseScaleX: currentScaleX,
+    baseScaleY: currentScaleY,
   };
+  const hadCompensation = prevState.compensated === true;
+  const baseScaleX = ensureFinite(
+    hadCompensation ? prevState.baseScaleX : currentScaleX,
+    'scale.baseX',
+    displayObject,
+  );
+  const baseScaleY = ensureFinite(
+    hadCompensation ? prevState.baseScaleY : currentScaleY,
+    'scale.baseY',
+    displayObject,
+  );
+
+  if (!inheritsUprightOrientation) {
+    if (currentScaleX !== baseScaleX || currentScaleY !== baseScaleY) {
+      displayObject.scale.set(baseScaleX, baseScaleY);
+    }
+    displayObject._flipState = {
+      x: false,
+      y: false,
+      horizontalAxis: 'x',
+      compensated: false,
+      baseScaleX,
+      baseScaleY,
+    };
+    return;
+  }
+
   const nextState = resolveLocalFlipState(displayObject, view);
   if (prevState.x === nextState.x && prevState.y === nextState.y) {
     return;
   }
 
-  const absScaleX = Math.abs(
-    ensureFinite(displayObject.scale?.x ?? 1, 'scale.x', displayObject),
-  );
-  const absScaleY = Math.abs(
-    ensureFinite(displayObject.scale?.y ?? 1, 'scale.y', displayObject),
-  );
-
   const nextScaleX = ensureFinite(
-    absScaleX * (nextState.x ? -1 : 1),
+    baseScaleX * (nextState.x ? -1 : 1),
     'scale.nextX',
     displayObject,
   );
   const nextScaleY = ensureFinite(
-    absScaleY * (nextState.y ? -1 : 1),
+    baseScaleY * (nextState.y ? -1 : 1),
     'scale.nextY',
     displayObject,
   );
@@ -99,5 +136,8 @@ export const applyWorldFlip = (displayObject, view) => {
     x: nextState.x,
     y: nextState.y,
     horizontalAxis: nextState.horizontalAxis,
+    compensated: true,
+    baseScaleX,
+    baseScaleY,
   };
 };

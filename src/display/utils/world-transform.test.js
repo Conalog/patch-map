@@ -200,7 +200,10 @@ describe('applyWorldRotation', () => {
 describe('applyWorldFlip', () => {
   const createMockDisplayObject = (scaleX = 1, scaleY = 1, options = {}) => ({
     angle: options.angle ?? 0,
-    parent: options.parent ?? null,
+    parent: options.parent ?? {
+      props: { contentOrientation: 'upright' },
+      parent: null,
+    },
     store: options.store ?? { world: null },
     scale: {
       x: scaleX,
@@ -239,7 +242,11 @@ describe('applyWorldFlip', () => {
 
   it('should map global flip axes into local axes for vertical basis', () => {
     const world = {};
-    const parent = { angle: 90, parent: world };
+    const parent = {
+      angle: 90,
+      props: { contentOrientation: 'upright' },
+      parent: world,
+    };
     const obj = createMockDisplayObject(2, 3, {
       angle: 0,
       parent,
@@ -258,5 +265,36 @@ describe('applyWorldFlip', () => {
     const view = { flipX: true, flipY: false };
 
     expect(() => applyWorldFlip(obj, view)).toThrow(RangeError);
+  });
+
+  it('does not compensate flip for follow-item content', () => {
+    const obj = createMockDisplayObject(1, 1, {
+      parent: {
+        props: { contentOrientation: 'follow-item' },
+        parent: null,
+      },
+    });
+
+    applyWorldFlip(obj, { flipX: true, flipY: true });
+
+    expect(obj.scale.set).not.toHaveBeenCalled();
+    expect(obj.scale.x).toBe(1);
+    expect(obj.scale.y).toBe(1);
+  });
+
+  it('restores base scale when content stops inheriting upright compensation', () => {
+    const parent = {
+      props: { contentOrientation: 'upright' },
+      parent: null,
+    };
+    const obj = createMockDisplayObject(2, 3, { parent });
+
+    applyWorldFlip(obj, { flipX: true, flipY: false });
+    expect(obj.scale.set).toHaveBeenCalledWith(-2, 3);
+
+    parent.props.contentOrientation = 'follow-item';
+    applyWorldFlip(obj, { flipX: true, flipY: false });
+
+    expect(obj.scale.set).toHaveBeenLastCalledWith(2, 3);
   });
 });
