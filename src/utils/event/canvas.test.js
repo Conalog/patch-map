@@ -15,6 +15,7 @@ import {
 } from './canvas';
 
 const createViewport = () => ({ events: {} });
+const createWorld = () => ({ children: [] });
 
 const createListenerObject = () => ({
   addEventListener: vi.fn(),
@@ -73,23 +74,28 @@ describe('canvas event utilities', () => {
 
   it('attaches listeners to elements and selector results', () => {
     const viewport = createViewport();
+    const world = createWorld();
     const elementObject = createListenerObject();
     const selectorObject = createListenerObject();
 
     selector.mockReturnValue([selectorObject]);
 
-    addEvent(viewport, {
-      id: 'evt',
-      path: '$.children[*]',
-      elements: [elementObject],
-      action: 'click hover',
-      fn: vi.fn(),
-      options: { passive: true },
-    });
+    addEvent(
+      viewport,
+      {
+        id: 'evt',
+        path: '$.children[*]',
+        elements: [elementObject],
+        action: 'click hover',
+        fn: vi.fn(),
+        options: { passive: true },
+      },
+      world,
+    );
 
     onEvent(viewport, 'evt');
 
-    expect(selector).toHaveBeenCalledWith(viewport, '$.children[*]');
+    expect(selector).toHaveBeenCalledWith(world, '$.children[*]');
     expect(elementObject.addEventListener).toHaveBeenCalledTimes(2);
     expect(selectorObject.addEventListener).toHaveBeenCalledTimes(2);
     expect(viewport.events.evt.active).toBe(true);

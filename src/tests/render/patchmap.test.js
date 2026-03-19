@@ -181,6 +181,99 @@ describe('patchmap test', () => {
     expect(gridItems.length).toBe(5);
   });
 
+  it('uses world as the root for selector and update paths', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(sampleData);
+
+    expect(patchmap.selector('$')[0]).toBe(patchmap.world);
+    expect(patchmap.selector('$.children').map((child) => child.id)).toEqual([
+      'group-1',
+      'relations-1',
+    ]);
+
+    patchmap.update({
+      path: '$.children[?(@.id=="group-1")]',
+      changes: { attrs: { x: 321 } },
+    });
+    await waitForScene();
+
+    expect(patchmap.selector('$..[?(@.id=="group-1")]')[0].x).toBe(321);
+  });
+
+  it('sorts top-level world children by zIndex after draw and update', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'low',
+        size: 40,
+        attrs: { x: 0, y: 0, zIndex: 0 },
+      },
+      {
+        type: 'item',
+        id: 'high',
+        size: 40,
+        attrs: { x: 60, y: 0, zIndex: 10 },
+      },
+    ]);
+
+    await waitForScene();
+
+    expect(patchmap.world.sortableChildren).toBe(true);
+    expect(patchmap.world.children.map((child) => child.id)).toEqual([
+      'low',
+      'high',
+    ]);
+
+    patchmap.update({
+      path: '$.children[?(@.id=="low")]',
+      changes: { attrs: { zIndex: 20 } },
+    });
+
+    await waitForScene();
+
+    expect(patchmap.world.children.map((child) => child.id)).toEqual([
+      'high',
+      'low',
+    ]);
+  });
+
+  it('binds root-relative event paths against world children', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(sampleData);
+
+    const worldAddEventListenerSpy = vi.spyOn(
+      patchmap.world,
+      'addEventListener',
+    );
+    const group = patchmap.selector('$..[?(@.id=="group-1")]')[0];
+    const groupAddEventListenerSpy = vi.spyOn(group, 'addEventListener');
+
+    patchmap.event.add({
+      id: 'world-root',
+      path: '$',
+      action: 'click',
+      fn: vi.fn(),
+    });
+    patchmap.event.add({
+      id: 'top-level-group',
+      path: '$.children[?(@.id=="group-1")]',
+      action: 'pointerdown',
+      fn: vi.fn(),
+    });
+
+    expect(worldAddEventListenerSpy).toHaveBeenCalledWith(
+      'click',
+      expect.any(Function),
+      undefined,
+    );
+    expect(groupAddEventListenerSpy).toHaveBeenCalledWith(
+      'pointerdown',
+      expect.any(Function),
+      undefined,
+    );
+  });
+
   it('emits draw event even when scheduler API is unavailable', async () => {
     const patchmap = getPatchmap();
     const onDraw = vi.fn();

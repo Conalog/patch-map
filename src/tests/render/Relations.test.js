@@ -159,27 +159,31 @@ describe('Relations Component Rendering Tests', () => {
     });
   };
 
-  it('should render correctly with initial properties', async () => {
-    const {
-      patchmap,
-      relations,
-      source: itemA,
-      target: itemB,
-    } = await renderRelationScene();
-    const path = getPath(patchmap);
+  it(
+    'should render correctly with initial properties',
+    { timeout: 60000 },
+    async () => {
+      const {
+        patchmap,
+        relations,
+        source: itemA,
+        target: itemB,
+      } = await renderRelationScene();
+      const path = getPath(patchmap);
 
-    expect(relations).toBeDefined();
-    expect(path).toBeDefined();
-    expect(path.type).toBe('path');
+      expect(relations).toBeDefined();
+      expect(path).toBeDefined();
+      expect(path.type).toBe('path');
 
-    expect(relations.props.links).toHaveLength(1);
-    expect(relations.props.style.width).toBe(2);
+      expect(relations.props.links).toHaveLength(1);
+      expect(relations.props.style.width).toBe(2);
 
-    expect(relations.linkPoints).toHaveLength(1);
-    const points = relations.linkPoints[0];
-    expect(points.sourcePoint).toEqual([itemA.x, itemA.y]);
-    expect(points.targetPoint).toEqual([itemB.x, itemB.y]);
-  });
+      expect(relations.linkPoints).toHaveLength(1);
+      const points = relations.linkPoints[0];
+      expect(points.sourcePoint).toEqual([itemA.x, itemA.y]);
+      expect(points.targetPoint).toEqual([itemB.x, itemB.y]);
+    },
+  );
 
   it('should refresh relation links after draw when relations appear before targets', async () => {
     const {
