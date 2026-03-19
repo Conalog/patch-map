@@ -90,6 +90,29 @@ const relationEndpointIds = [
 const waitForScene = (ms = 50) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+const ROOT_TEXT_WORLD_SCENARIOS = [
+  ['-90 / none', -90, { x: false, y: false }, -90, -90],
+  ['-75 / none', -75, { x: false, y: false }, -75, -75],
+  ['-60 / none', -60, { x: false, y: false }, -60, -60],
+  ['-45 / none', -45, { x: false, y: false }, -45, -45],
+  ['-30 / none', -30, { x: false, y: false }, -30, -30],
+  ['-15 / none', -15, { x: false, y: false }, -15, -15],
+  ['0 / none', 0, { x: false, y: false }, 0, 0],
+  ['-23 / none', -23, { x: false, y: false }, -23, -23],
+  ['-23 / x', -23, { x: true, y: false }, 157, -23],
+  ['-23 / y', -23, { x: false, y: true }, -23, -23],
+  ['-23 / xy', -23, { x: true, y: true }, 157, -23],
+  ['90 / xy', 90, { x: true, y: true }, -90, -90],
+  ['180 / xy', 180, { x: true, y: true }, 0, 0],
+  ['270 / xy', 270, { x: true, y: true }, 90, -90],
+];
+
+const IMAGE_SOURCE =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="12"><rect width="24" height="12" rx="2" fill="#4a90e2"/></svg>',
+  );
+
 const getStageElement = (patchmap) =>
   patchmap.app.canvas.parentElement.parentElement;
 
@@ -470,6 +493,86 @@ describe('patchmap test', () => {
     const world = getWorldRoot(patchmap);
     expect(world.position.x).toBeCloseTo(center.x, 3);
     expect(world.position.y).toBeCloseTo(center.y, 3);
+  });
+
+  it.each(
+    ROOT_TEXT_WORLD_SCENARIOS,
+  )('keeps standalone text visual upright across %s', async (_label, angle, flip, expectedOuter, expectedVisual) => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'text',
+        id: 'standalone-text',
+        text: 'LABEL',
+        attrs: { x: 80, y: 80 },
+        style: { fontSize: 16 },
+      },
+      {
+        type: 'image',
+        id: 'standalone-image',
+        source: IMAGE_SOURCE,
+        size: { width: 48, height: 24 },
+        attrs: { x: 180, y: 80 },
+      },
+    ]);
+
+    await waitForScene();
+
+    const initialText = patchmap.selector('$..[?(@.id=="standalone-text")]')[0];
+    const initialVisual = initialText.bitmapText;
+    const initialLocalBounds = initialVisual.getLocalBounds();
+    const baselineCenter = {
+      x: initialLocalBounds.x + initialLocalBounds.width / 2,
+      y: initialLocalBounds.y + initialLocalBounds.height / 2,
+    };
+
+    patchmap.rotation.set(angle);
+    patchmap.flip.set(flip);
+
+    await waitForScene();
+
+    const text = patchmap.selector('$..[?(@.id=="standalone-text")]')[0];
+    const image = patchmap.selector('$..[?(@.id=="standalone-image")]')[0];
+    const textVisual = text.bitmapText;
+    const normalizeAngle = (angle) => ((angle % 360) + 360) % 360;
+    const angleDistance = (actual, expected) => {
+      const delta = normalizeAngle(actual) - normalizeAngle(expected);
+      const wrapped = ((delta + 540) % 360) - 180;
+      return Math.abs(wrapped);
+    };
+    const expectAngleClose = (actual, expected, epsilon = 0.5) => {
+      expect(angleDistance(actual, expected)).toBeLessThanOrEqual(epsilon);
+    };
+    const readRotation = (node) => {
+      const transform = node.getGlobalTransform();
+      return Math.atan2(transform.b, transform.a) * (180 / Math.PI);
+    };
+    const readDeterminant = (node) => {
+      const transform = node.getGlobalTransform();
+      return transform.a * transform.d - transform.b * transform.c;
+    };
+    const readBoundsCenter = (node) => {
+      const bounds = node.getBounds();
+      return {
+        x: bounds.x + bounds.width / 2,
+        y: bounds.y + bounds.height / 2,
+      };
+    };
+    const applyMatrixToPoint = (matrix, point) => ({
+      x: matrix.a * point.x + matrix.c * point.y + matrix.tx,
+      y: matrix.b * point.x + matrix.d * point.y + matrix.ty,
+    });
+    expectAngleClose(readRotation(image), expectedOuter);
+    expectAngleClose(readRotation(text), expectedOuter);
+    expectAngleClose(readRotation(textVisual), expectedVisual);
+    expect(readDeterminant(textVisual)).toBeGreaterThan(0);
+    const expectedCenter = applyMatrixToPoint(
+      text.getGlobalTransform(),
+      baselineCenter,
+    );
+    const actualCenter = readBoundsCenter(textVisual);
+    expect(actualCenter.x).toBeCloseTo(expectedCenter.x, 2);
+    expect(actualCenter.y).toBeCloseTo(expectedCenter.y, 2);
   });
 
   it('keeps fit-to-content finite when rotation is set before draw', async () => {

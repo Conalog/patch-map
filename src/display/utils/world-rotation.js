@@ -1,5 +1,6 @@
 import { assertFiniteNumber } from '../mixins/utils';
 import { hasUprightContentOrientation } from './content-orientation';
+import { getReadableRotationCompensation } from './readable-rotation';
 import { getAngleWithinWorld } from './world-angle';
 
 const ROTATION_STATE = Symbol('rotationState');
@@ -18,17 +19,6 @@ const ensureFinite = (value, label, displayObject) => {
       `Non-finite world rotation input (${label}=${value}, ${getDisplayLabel(displayObject)})`,
     );
   }
-};
-
-const getRotationCompensation = (viewAngle) => {
-  const normalized = ((viewAngle % 360) + 360) % 360;
-  const radian = (normalized * Math.PI) / 180;
-  const horizontal = Math.cos(radian);
-  if (horizontal < -1e-7) return 180;
-  if (horizontal > 1e-7) return 0;
-
-  const vertical = Math.sin(radian);
-  return vertical >= 0 ? 180 : 0;
 };
 
 const getBoundsCenter = (displayObject) => {
@@ -130,7 +120,7 @@ export const applyWorldRotation = (displayObject, view) => {
     );
   }
   compensation = ensureFinite(
-    getRotationCompensation(referenceAngle),
+    getReadableRotationCompensation(referenceAngle),
     'rotation.compensation',
     displayObject,
   );
