@@ -13,11 +13,7 @@ import {
   StrokeStyle,
 } from './primitive-schema';
 
-const GridItemContentOrientation = z
-  .enum(['follow-item', 'upright'])
-  .default('upright');
-
-const ItemContentOrientation = z
+const ContentOrientation = z
   .enum(['follow-item', 'upright'])
   .default('upright');
 
@@ -56,7 +52,7 @@ export const gridSchema = ElementBase.extend({
     components: componentArraySchema.default([]),
     size: Size,
     padding: Margin.default(0),
-    contentOrientation: GridItemContentOrientation,
+    contentOrientation: ContentOrientation,
   }),
 }).strict();
 
@@ -71,7 +67,7 @@ export const itemSchema = ElementBase.extend({
   components: componentArraySchema.default([]),
   size: Size,
   padding: Margin.default(0),
-  contentOrientation: ItemContentOrientation,
+  contentOrientation: ContentOrientation,
 }).strict();
 
 /**
