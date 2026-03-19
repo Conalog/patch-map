@@ -320,7 +320,7 @@ patchmap.update({
 
 #### add(options)
 - `id` (optional, string) - 이벤트의 고유 식별자입니다. 나중에 이벤트를 관리하는 데 유용합니다.
-- `path` (required, string) - [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 selector로, 이벤트가 적용될 객체를 선택합니다.
+- `path` (required, string) - [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 selector로, 이벤트가 적용될 객체를 선택합니다. 루트 경로 `$`는 patch-map의 `world`를 가리킵니다.
 - `action` (required, string) - 이벤트 유형을 지정합니다. 예를 들어, 'click', 'pointerdown' 등이 있습니다.
 - `fn` (required, function) - 이벤트가 발생했을 때 실행될 콜백 함수입니다. 이벤트 객체를 매개변수로 받습니다.
 
@@ -509,7 +509,7 @@ patchmap.flip.reset()
 
 ### `selector(path)`
 
-[jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 객체 탐색기입니다.
+[jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 객체 탐색기입니다. 루트 경로 `$`는 patch-map의 `world`를 가리킵니다.
 
 ```js
 const result = patchmap.selector('$..[?(@.label=="group-label-1")]')

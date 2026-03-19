@@ -315,7 +315,7 @@ If you want to learn about multiple event actions such as double-click, refer to
 
 #### add(options)
 - `id` (optional, string) - A unique identifier for the event. Useful for managing the event later.
-- `path` (required, string) - Selector for the object to which the event will be applied, following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax.
+- `path` (required, string) - Selector for the object to which the event will be applied, following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax. The root path `$` points to the patch-map `world`.
 - `action` (required, string) - Specifies the type of event. For example, 'click', 'pointerdown', etc.
 - `fn` (required, function) - The callback function to execute when the event is triggered. Receives the event object as a parameter.
 
@@ -502,7 +502,7 @@ on screen under world rotation and flip.
 <br/>
 
 ### `selector(path)`
-Object explorer following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax.
+Object explorer following [jsonpath](https://github.com/JSONPath-Plus/JSONPath) syntax. The root path `$` points to the patch-map `world`.
 
 ```js
   const result = patchmap.selector('$..[?(@.label=="group-label-1")]')

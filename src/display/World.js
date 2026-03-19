@@ -8,7 +8,7 @@ const ComposedWorld = mixins(Container, Base, Childrenable);
 
 export default class World extends ComposedWorld {
   constructor(options) {
-    super({ type: 'canvas', ...options });
+    super({ type: 'canvas', sortableChildren: true, ...options });
   }
 
   apply(changes, options) {

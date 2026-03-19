@@ -14,7 +14,7 @@ const addEventSchema = z.object({
   options: z.unknown(),
 });
 
-export const addEvent = (viewport, opts) => {
+export const addEvent = (viewport, opts, root = viewport) => {
   const config = validate(opts, addEventSchema);
   if (isValidationError(config)) throw config;
 
@@ -31,6 +31,7 @@ export const addEvent = (viewport, opts) => {
     viewport.events[id] = {
       path,
       elements,
+      root,
       action,
       fn,
       options,
@@ -140,7 +141,7 @@ const logNoEventExists = (eventId) => {
 
 const getEventObjects = (viewport, event) => [
   ...(event.elements ?? []),
-  ...(event.path ? selector(viewport, event.path) : []),
+  ...(event.path ? selector(event.root ?? viewport, event.path) : []),
 ];
 
 const splitByWhitespace = (str) => str.split(/\s+/).filter(Boolean);
