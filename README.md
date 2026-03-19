@@ -27,6 +27,8 @@ Therefore, to use this, an understanding of the following two libraries is essen
   - [asset](#asset)
   - [focus(ids, opts)](#focusids-opts)
   - [fit(ids, options)](#fitids-options)
+  - [rotation](#rotation)
+  - [flip](#flip)
   - [selector(path)](#selectorpath)
   - [stateManager](#statemanager)  
   - [SelectionState](#selectionstate)
@@ -463,6 +465,39 @@ patchmap.fit(['item-1', 'item-2'], {
   padding: { y: 10, x: 5 },
 })
 ```
+
+<br/>
+
+### `rotation`
+Rotation controller for world view. Use degrees.
+
+```js
+patchmap.rotation.value = 90
+patchmap.rotation.rotateBy(90)
+patchmap.rotation.reset()
+```
+
+<br/>
+
+### `flip`
+Flip controller for world view.
+
+```js
+patchmap.flip.x = true
+patchmap.flip.y = false
+patchmap.flip.set({ x: true, y: true })
+patchmap.flip.toggleX()
+patchmap.flip.toggleY()
+patchmap.flip.reset()
+```
+
+`contentOrientation` controls how an `item` or `grid.item` inner `text` /
+`icon` / `bar` react to item angle and world rotation / flip.
+`item` defaults to `contentOrientation: 'upright'`.
+`grid.item` defaults to `contentOrientation: 'upright'`.
+Use `contentOrientation: 'follow-item'` to follow the item angle.
+Use `contentOrientation: 'upright'` to keep inner contents upright and readable
+on screen under world rotation and flip.
 
 <br/>
 

@@ -124,7 +124,16 @@ describe('Element Schemas', () => {
         size: { width: 50, height: 50 },
         padding: { bottom: 0, left: 0, right: 0, top: 0 },
         components: [],
+        contentOrientation: 'upright',
       });
+    });
+
+    it('should parse contentOrientation in grid item template', () => {
+      const parsed = gridSchema.parse({
+        ...baseGrid,
+        item: { ...baseGrid.item, contentOrientation: 'upright' },
+      });
+      expect(parsed.item.contentOrientation).toBe('upright');
     });
 
     it('should fail if cells contains invalid values', () => {
@@ -163,6 +172,17 @@ describe('Element Schemas', () => {
       expect(parsed.size.width).toBe(100);
       expect(parsed.size.height).toBe(200);
       expect(parsed.components).toEqual([]); // default value
+      expect(parsed.contentOrientation).toBe('upright');
+    });
+
+    it('should parse contentOrientation on item', () => {
+      const parsed = itemSchema.parse({
+        type: 'item',
+        id: 'item-1',
+        size: { width: 100, height: 200 },
+        contentOrientation: 'upright',
+      });
+      expect(parsed.contentOrientation).toBe('upright');
     });
 
     it('should default locked to false when omitted', () => {

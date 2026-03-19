@@ -87,14 +87,73 @@ const relationEndpointIds = [
   'grid-1.1.2',
   'item-1',
 ];
+const waitForScene = (ms = 50) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
+const ROOT_TEXT_WORLD_SCENARIOS = [
+  ['-90 / none', -90, { x: false, y: false }, -90, -90],
+  ['-75 / none', -75, { x: false, y: false }, -75, -75],
+  ['-60 / none', -60, { x: false, y: false }, -60, -60],
+  ['-45 / none', -45, { x: false, y: false }, -45, -45],
+  ['-30 / none', -30, { x: false, y: false }, -30, -30],
+  ['-15 / none', -15, { x: false, y: false }, -15, -15],
+  ['0 / none', 0, { x: false, y: false }, 0, 0],
+  ['-23 / none', -23, { x: false, y: false }, -23, -23],
+  ['-23 / x', -23, { x: true, y: false }, 157, -23],
+  ['-23 / y', -23, { x: false, y: true }, -23, -23],
+  ['-23 / xy', -23, { x: true, y: true }, 157, -23],
+  ['90 / xy', 90, { x: true, y: true }, -90, -90],
+  ['180 / xy', 180, { x: true, y: true }, 0, 0],
+  ['270 / xy', 270, { x: true, y: true }, 90, -90],
+];
+
+const IMAGE_SOURCE =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="12"><rect width="24" height="12" rx="2" fill="#4a90e2"/></svg>',
+  );
+
+const getStageElement = (patchmap) =>
+  patchmap.app.canvas.parentElement.parentElement;
+
+const getWorldRoot = (patchmap) => patchmap.viewport.children[0];
+
+const getMaxBoundsOverflow = (outerBounds, innerBounds) =>
+  Math.max(
+    Math.max(0, outerBounds.x - innerBounds.x),
+    Math.max(0, outerBounds.y - innerBounds.y),
+    Math.max(
+      0,
+      innerBounds.x + innerBounds.width - (outerBounds.x + outerBounds.width),
+    ),
+    Math.max(
+      0,
+      innerBounds.y + innerBounds.height - (outerBounds.y + outerBounds.height),
+    ),
+  );
+
+const expectFiniteViewportState = (patchmap) => {
+  expect(Number.isFinite(patchmap.viewport.center?.x)).toBe(true);
+  expect(Number.isFinite(patchmap.viewport.center?.y)).toBe(true);
+  expect(Number.isFinite(patchmap.viewport.scale.x)).toBe(true);
+  expect(Number.isFinite(patchmap.viewport.scale.y)).toBe(true);
+  expect(patchmap.viewport.scale.x).toBeGreaterThan(0);
+  expect(patchmap.viewport.scale.y).toBeGreaterThan(0);
+};
 describe('patchmap test', () => {
   const { getPatchmap } = setupPatchmapTests();
 
   it('draw', () => {
     const patchmap = getPatchmap();
     patchmap.draw(sampleData);
-    expect(patchmap.viewport.children.length).toBe(2);
+    const world = getWorldRoot(patchmap);
+    expect(world).toBeDefined();
+    expect(patchmap.viewport.children).toContain(world);
+    expect(patchmap.viewport.children.length).toBe(1);
+    expect(world.children.length).toBe(2);
+
+    const relations = patchmap.selector('$..[?(@.id=="relations-1")]')[0];
+    expect(relations).toBeDefined();
 
     const group = patchmap.selector('$..[?(@.id=="group-1")]')[0];
     expect(group).toBeDefined();
@@ -336,6 +395,194 @@ describe('patchmap test', () => {
 
       expect(moveCenterSpy.mock.lastCall).toEqual(endpointCenterArgs);
     });
+  });
+
+  it('keeps focus/fit stable under rotation and flip', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(sampleData);
+
+    patchmap.rotation.set(90);
+    patchmap.flip.set({ x: true, y: true });
+
+    expect(() => patchmap.focus(['group-1'])).not.toThrow();
+    expectFiniteViewportState(patchmap);
+
+    expect(() => patchmap.fit(['group-1'])).not.toThrow();
+    expectFiniteViewportState(patchmap);
+  });
+
+  it.each([
+    {
+      case: 'attrs.angle',
+      changes: { attrs: { angle: 30 } },
+    },
+    {
+      case: 'attrs.rotation',
+      changes: { attrs: { rotation: Math.PI / 6 } },
+    },
+  ])('re-applies component world transform when local $case changes', async ({
+    changes,
+  }) => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'probe-item',
+        label: 'Probe',
+        size: { width: 220, height: 120 },
+        padding: { x: 12, y: 10 },
+        attrs: { x: 240, y: 120 },
+        components: [
+          {
+            type: 'background',
+            id: 'bg-probe',
+            source: {
+              type: 'rect',
+              fill: 'white',
+              borderWidth: 2,
+              borderColor: 'primary.default',
+              radius: 12,
+            },
+          },
+          {
+            type: 'bar',
+            id: 'bar-probe',
+            source: { type: 'rect', fill: 'primary.default', radius: 6 },
+            size: { width: '64%', height: 10 },
+            placement: 'bottom',
+            margin: { left: 14, right: 14, bottom: 16 },
+          },
+        ],
+      },
+    ]);
+    patchmap.rotation.set(180);
+    await waitForScene();
+
+    patchmap.update({
+      path: '$..[?(@.id=="bar-probe")]',
+      changes,
+    });
+    await waitForScene();
+
+    const item = patchmap.selector('$..[?(@.id=="probe-item")]')[0];
+    const bar = patchmap.selector('$..[?(@.id=="bar-probe")]')[0];
+
+    expect(bar.angle).toBeCloseTo(210);
+
+    expect(
+      getMaxBoundsOverflow(item.getBounds(), bar.getBounds()),
+    ).toBeLessThanOrEqual(1);
+  });
+
+  it('re-centers world when viewport resizes after rotation and flip', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(sampleData);
+    patchmap.rotation.set(45);
+    patchmap.flip.set({ x: true, y: false });
+
+    const stageElement = getStageElement(patchmap);
+    stageElement.style.width = '1400px';
+    stageElement.style.height = '900px';
+    await waitForScene(150);
+
+    const center = patchmap.viewport.toWorld(
+      patchmap.viewport.screenWidth / 2,
+      patchmap.viewport.screenHeight / 2,
+    );
+
+    const world = getWorldRoot(patchmap);
+    expect(world.position.x).toBeCloseTo(center.x, 3);
+    expect(world.position.y).toBeCloseTo(center.y, 3);
+  });
+
+  it.each(
+    ROOT_TEXT_WORLD_SCENARIOS,
+  )('keeps standalone text visual upright across %s', async (_label, angle, flip, expectedOuter, expectedVisual) => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'text',
+        id: 'standalone-text',
+        text: 'LABEL',
+        attrs: { x: 80, y: 80 },
+        style: { fontSize: 16 },
+      },
+      {
+        type: 'image',
+        id: 'standalone-image',
+        source: IMAGE_SOURCE,
+        size: { width: 48, height: 24 },
+        attrs: { x: 180, y: 80 },
+      },
+    ]);
+
+    await waitForScene();
+
+    const initialText = patchmap.selector('$..[?(@.id=="standalone-text")]')[0];
+    const initialVisual = initialText.bitmapText;
+    const initialLocalBounds = initialVisual.getLocalBounds();
+    const baselineCenter = {
+      x: initialLocalBounds.x + initialLocalBounds.width / 2,
+      y: initialLocalBounds.y + initialLocalBounds.height / 2,
+    };
+
+    patchmap.rotation.set(angle);
+    patchmap.flip.set(flip);
+
+    await waitForScene();
+
+    const text = patchmap.selector('$..[?(@.id=="standalone-text")]')[0];
+    const image = patchmap.selector('$..[?(@.id=="standalone-image")]')[0];
+    const textVisual = text.bitmapText;
+    const normalizeAngle = (angle) => ((angle % 360) + 360) % 360;
+    const angleDistance = (actual, expected) => {
+      const delta = normalizeAngle(actual) - normalizeAngle(expected);
+      const wrapped = ((delta + 540) % 360) - 180;
+      return Math.abs(wrapped);
+    };
+    const expectAngleClose = (actual, expected, epsilon = 0.5) => {
+      expect(angleDistance(actual, expected)).toBeLessThanOrEqual(epsilon);
+    };
+    const readRotation = (node) => {
+      const transform = node.getGlobalTransform();
+      return Math.atan2(transform.b, transform.a) * (180 / Math.PI);
+    };
+    const readDeterminant = (node) => {
+      const transform = node.getGlobalTransform();
+      return transform.a * transform.d - transform.b * transform.c;
+    };
+    const readBoundsCenter = (node) => {
+      const bounds = node.getBounds();
+      return {
+        x: bounds.x + bounds.width / 2,
+        y: bounds.y + bounds.height / 2,
+      };
+    };
+    const applyMatrixToPoint = (matrix, point) => ({
+      x: matrix.a * point.x + matrix.c * point.y + matrix.tx,
+      y: matrix.b * point.x + matrix.d * point.y + matrix.ty,
+    });
+    expectAngleClose(readRotation(image), expectedOuter);
+    expectAngleClose(readRotation(text), expectedOuter);
+    expectAngleClose(readRotation(textVisual), expectedVisual);
+    expect(readDeterminant(textVisual)).toBeGreaterThan(0);
+    const expectedCenter = applyMatrixToPoint(
+      text.getGlobalTransform(),
+      baselineCenter,
+    );
+    const actualCenter = readBoundsCenter(textVisual);
+    expect(actualCenter.x).toBeCloseTo(expectedCenter.x, 2);
+    expect(actualCenter.y).toBeCloseTo(expectedCenter.y, 2);
+  });
+
+  it('keeps fit-to-content finite when rotation is set before draw', async () => {
+    const patchmap = getPatchmap();
+    patchmap.rotation.set(-15);
+    patchmap.draw(sampleData);
+    patchmap.fit();
+    await waitForScene();
+
+    expectFiniteViewportState(patchmap);
   });
 
   describe('update', () => {

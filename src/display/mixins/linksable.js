@@ -26,8 +26,8 @@ export const Linksable = (superClass) => {
     }
 
     _onObjectTransformed(changedObject) {
-      if (this._renderDirty) return;
       if (!this.linkedObjects) return;
+      if (changedObject === this.store?.world) return;
 
       const values = Object.values(this.linkedObjects);
       for (const linkedObj of values) {
@@ -35,7 +35,8 @@ export const Linksable = (superClass) => {
 
         if (
           linkedObj === changedObject ||
-          isAncestor(changedObject, linkedObj)
+          isAncestor(changedObject, linkedObj) ||
+          isAncestor(linkedObj, changedObject)
         ) {
           this._renderDirty = true;
           return;

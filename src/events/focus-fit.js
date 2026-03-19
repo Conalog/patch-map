@@ -103,9 +103,13 @@ const resolveRelationTargets = (relations, objectById) => {
   return [...linkedIds].map((linkedId) => objectById[linkedId]).filter(Boolean);
 };
 
+const getCanvasRoot = (viewport) =>
+  (viewport?.children ?? []).find((child) => child?.type === 'canvas') ??
+  viewport;
+
 const collectTopLevelViewportTargets = (viewport, filter) =>
   collectBoundsContributors(
-    (viewport?.children ?? []).filter(isDefaultFocusFitElement),
+    (getCanvasRoot(viewport)?.children ?? []).filter(isDefaultFocusFitElement),
     filter,
   );
 

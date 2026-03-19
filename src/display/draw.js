@@ -1,9 +1,8 @@
 import Element from './elements/Element';
 
 export const draw = (store, data) => {
-  const { viewport } = store;
-  destroyChildren(viewport);
-  viewport.apply(
+  destroyChildren(store.world);
+  store.world.apply(
     { type: 'canvas', children: data },
     { mergeStrategy: 'replace', validateSchema: false },
   );

@@ -31,6 +31,7 @@ export const Cellsable = (superClass) => {
               y: rowIndex * (itemProps.size.height + gap.y),
             };
             const item = newElement('item', this.store);
+            this.addChild(item);
             item.apply({
               type: 'item',
               id,
@@ -39,7 +40,6 @@ export const Cellsable = (superClass) => {
               attrs,
               show: !isInactive,
             });
-            this.addChild(item);
           } else {
             existingItem.apply({ label, show: !isInactive });
           }
