@@ -51,10 +51,6 @@ export const Childrenable = (superClass) => {
           element.destroy({ children: true });
         });
       }
-
-      if (this.sortableChildren) {
-        this.sortDirty = true;
-      }
     }
 
     _onChildUpdate(childId, changes, mergeStrategy) {
