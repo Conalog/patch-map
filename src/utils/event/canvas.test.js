@@ -14,7 +14,11 @@ import {
   removeEvent,
 } from './canvas';
 
-const createViewport = () => ({ events: {} });
+const createViewport = () => ({
+  events: {},
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+});
 const createWorld = () => ({ children: [] });
 
 const createListenerObject = () => ({
@@ -101,6 +105,28 @@ describe('canvas event utilities', () => {
     expect(viewport.events.evt.active).toBe(true);
   });
 
+  it('treats path "$" as the viewport surface without calling selector', () => {
+    const viewport = createViewport();
+    const world = createWorld();
+
+    addEvent(
+      viewport,
+      {
+        id: 'evt',
+        path: '$',
+        action: 'click hover',
+        fn: vi.fn(),
+        options: null,
+      },
+      world,
+    );
+
+    onEvent(viewport, 'evt');
+
+    expect(selector).not.toHaveBeenCalled();
+    expect(viewport.events.evt.root).toBe(viewport);
+  });
+
   it('skips selector when only elements are provided', () => {
     const viewport = createViewport();
     const elementObject = createListenerObject();
@@ -137,6 +163,32 @@ describe('canvas event utilities', () => {
 
     expect(elementObject.removeEventListener).toHaveBeenCalledTimes(2);
     expect(viewport.events.evt.active).toBe(false);
+  });
+
+  it('re-binds and removes path "$" listeners against the viewport', () => {
+    const viewport = createViewport();
+    const world = createWorld();
+
+    addEvent(
+      viewport,
+      {
+        id: 'evt',
+        path: '$',
+        action: 'click',
+        fn: vi.fn(),
+        options: null,
+      },
+      world,
+    );
+
+    onEvent(viewport, 'evt');
+    offEvent(viewport, 'evt');
+    onEvent(viewport, 'evt');
+    removeEvent(viewport, 'evt');
+
+    expect(viewport.addEventListener).toHaveBeenCalledTimes(2);
+    expect(viewport.removeEventListener).toHaveBeenCalledTimes(2);
+    expect(selector).not.toHaveBeenCalled();
   });
 
   it('removes events and detaches listeners', () => {

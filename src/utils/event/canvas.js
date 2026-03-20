@@ -26,12 +26,13 @@ export const addEvent = (viewport, opts, root = viewport) => {
     ? convertArray(config.elements).filter(Boolean)
     : null;
   const path = hasPath || !hasElements ? config.path : null;
+  const eventRoot = resolveEventRoot(viewport, root, path);
 
   if (!(id in viewport.events)) {
     viewport.events[id] = {
       path,
       elements,
-      root,
+      root: eventRoot,
       action,
       fn,
       options,
@@ -139,9 +140,24 @@ const logNoEventExists = (eventId) => {
   console.warn(`No event exists for the eventId: ${eventId}.`);
 };
 
-const getEventObjects = (viewport, event) => [
-  ...(event.elements ?? []),
-  ...(event.path ? selector(event.root ?? viewport, event.path) : []),
-];
+const getEventObjects = (viewport, event) => {
+  const root = event.root ?? viewport;
+  return [
+    ...(event.elements ?? []),
+    ...(event.path ? resolvePathObjects(viewport, root, event.path) : []),
+  ];
+};
+
+const resolveEventRoot = (viewport, root, path) =>
+  isCanvasSurfacePath(path) ? viewport : root;
+
+const resolvePathObjects = (viewport, root, path) => {
+  if (isCanvasSurfacePath(path)) {
+    return [viewport];
+  }
+  return selector(root, path);
+};
+
+const isCanvasSurfacePath = (path) => path === '$';
 
 const splitByWhitespace = (str) => str.split(/\s+/).filter(Boolean);
