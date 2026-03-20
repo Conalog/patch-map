@@ -8,19 +8,19 @@ import {
   parseFitOptions,
 } from './schema';
 
-export const focus = (viewport, ids, opts) => {
+export const focus = (viewport, world, ids, opts) => {
   validateIds(ids);
   validateFocusOptions(opts);
-  const bounds = getBoundsForIds(viewport, ids, opts?.filter);
+  const bounds = getBoundsForIds(world, ids, opts?.filter);
   if (!bounds) return null;
 
   moveViewportToBounds(viewport, bounds);
 };
 
-export const fit = (viewport, ids, opts) => {
+export const fit = (viewport, world, ids, opts) => {
   validateIds(ids);
   const { filter, padding } = parseFitOptions(opts);
-  const bounds = getBoundsForIds(viewport, ids, filter);
+  const bounds = getBoundsForIds(world, ids, filter);
   if (!bounds) return null;
 
   moveViewportToBounds(viewport, bounds);
@@ -28,13 +28,13 @@ export const fit = (viewport, ids, opts) => {
 };
 
 /**
- * @param {Viewport} viewport
+ * @param {PIXI.Container} world
  * @param {string|string[]|null|undefined} ids
  * @param {(obj: object) => unknown} [filter]
  * @returns {void|null} Returns null if no objects found.
  */
-const getBoundsForIds = (viewport, ids, filter) => {
-  const objects = resolveFocusFitTargets(viewport, ids, filter);
+const getBoundsForIds = (world, ids, filter) => {
+  const objects = resolveFocusFitTargets(world, ids, filter);
   if (!objects.length) return null;
 
   return calcGroupOrientedBounds(objects);
@@ -67,12 +67,12 @@ const validateFocusOptions = (opts) => {
   }
 };
 
-const resolveFocusFitTargets = (viewport, ids, filter) => {
+const resolveFocusFitTargets = (world, ids, filter) => {
   if (!ids) {
-    return collectTopLevelViewportTargets(viewport, filter);
+    return collectTopLevelWorldTargets(world, filter);
   }
 
-  const objects = selector(viewport, '$..children[?(@.type != null)]').filter(
+  const objects = selector(world, '$..children[?(@.type != null)]').filter(
     isAddressableFocusFitElement,
   );
   const idsArr = Array.isArray(ids) ? ids : [ids];
@@ -103,13 +103,9 @@ const resolveRelationTargets = (relations, objectById) => {
   return [...linkedIds].map((linkedId) => objectById[linkedId]).filter(Boolean);
 };
 
-const getCanvasRoot = (viewport) =>
-  (viewport?.children ?? []).find((child) => child?.type === 'canvas') ??
-  viewport;
-
-const collectTopLevelViewportTargets = (viewport, filter) =>
+const collectTopLevelWorldTargets = (world, filter) =>
   collectBoundsContributors(
-    (getCanvasRoot(viewport)?.children ?? []).filter(isDefaultFocusFitElement),
+    (world?.children ?? []).filter(isDefaultFocusFitElement),
     filter,
   );
 

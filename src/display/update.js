@@ -12,7 +12,7 @@ const DEFAULT_UPDATE_CONFIG = Object.freeze({
   refresh: false,
 });
 
-export const update = (viewport, opts = {}) => {
+export const update = (root, opts = {}) => {
   const config = {
     ...opts,
     ...DEFAULT_UPDATE_CONFIG,
@@ -28,8 +28,8 @@ export const update = (viewport, opts = {}) => {
 
   const historyId = createHistoryId(config.history);
   const elements = convertArray(config.elements);
-  if (viewport && config.path) {
-    elements.push(...selector(viewport, config.path));
+  if (root && config.path) {
+    elements.push(...selector(root, config.path));
   }
 
   const baseChanges = config.changes ?? null;

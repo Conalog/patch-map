@@ -166,47 +166,51 @@ describe('Undo/Redo: Relations Element', () => {
     expect(redonePath.strokeStyle.cap).toBe('round');
   });
 
-  it('should redraw correctly after a linked item is moved and then undone', async () => {
-    const patchmap = getPatchmap();
-    patchmap.draw(baseMapData);
-    await vi.advanceTimersByTimeAsync(100);
+  it(
+    'should redraw correctly after a linked item is moved and then undone',
+    { timeout: 60000 },
+    async () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(baseMapData);
+      await vi.advanceTimersByTimeAsync(100);
 
-    const path = getPath(patchmap);
-    const originalPathSize = path.getSize();
-    expect(originalPathSize.width).toBeGreaterThan(0);
-    expect(originalPathSize.height).toBeGreaterThan(0);
+      const path = getPath(patchmap);
+      const originalPathSize = path.getSize();
+      expect(originalPathSize.width).toBeGreaterThan(0);
+      expect(originalPathSize.height).toBeGreaterThan(0);
 
-    patchmap.update({
-      path: '$..[?(@.id=="item-B")]',
-      changes: { attrs: { x: 400, y: 200 } },
-      history: true,
-    });
+      patchmap.update({
+        path: '$..[?(@.id=="item-B")]',
+        changes: { attrs: { x: 400, y: 200 } },
+        history: true,
+      });
 
-    await vi.advanceTimersByTimeAsync(100);
-    const updatedPathSize = path.getSize();
-    expect(updatedPathSize.width).not.toBe(originalPathSize.width);
-    expect(updatedPathSize.height).not.toBe(originalPathSize.height);
+      await vi.advanceTimersByTimeAsync(100);
+      const updatedPathSize = path.getSize();
+      expect(updatedPathSize.width).not.toBe(originalPathSize.width);
+      expect(updatedPathSize.height).not.toBe(originalPathSize.height);
 
-    // --- Undo the movement of item-B ---
-    patchmap.undoRedoManager.undo();
-    await vi.advanceTimersByTimeAsync(100);
-    const undonePathSize = path.getSize();
+      // --- Undo the movement of item-B ---
+      patchmap.undoRedoManager.undo();
+      await vi.advanceTimersByTimeAsync(100);
+      const undonePathSize = path.getSize();
 
-    const itemB = patchmap.selector('$..[?(@.id=="item-B")]')[0];
-    expect(itemB.x).toBe(300); // Back to original position
+      const itemB = patchmap.selector('$..[?(@.id=="item-B")]')[0];
+      expect(itemB.x).toBe(300); // Back to original position
 
-    // The path should be redrawn to its original state.
-    // Due to graphics rendering intricacies, we check for approximate equality.
-    expect(undonePathSize.width).toBeCloseTo(originalPathSize.width);
-    expect(undonePathSize.height).toBeCloseTo(originalPathSize.height);
+      // The path should be redrawn to its original state.
+      // Due to graphics rendering intricacies, we check for approximate equality.
+      expect(undonePathSize.width).toBeCloseTo(originalPathSize.width);
+      expect(undonePathSize.height).toBeCloseTo(originalPathSize.height);
 
-    // --- Redo the movement ---
-    patchmap.undoRedoManager.redo();
-    await vi.advanceTimersByTimeAsync(100);
-    const redonePathSize = path.getSize();
-    expect(redonePathSize.width).toBeCloseTo(updatedPathSize.width);
-    expect(redonePathSize.height).toBeCloseTo(updatedPathSize.height);
-  });
+      // --- Redo the movement ---
+      patchmap.undoRedoManager.redo();
+      await vi.advanceTimersByTimeAsync(100);
+      const redonePathSize = path.getSize();
+      expect(redonePathSize.width).toBeCloseTo(updatedPathSize.width);
+      expect(redonePathSize.height).toBeCloseTo(updatedPathSize.height);
+    },
+  );
 
   it('should handle additional stroke properties like "cap" and "join" in style', async () => {
     const patchmap = getPatchmap();

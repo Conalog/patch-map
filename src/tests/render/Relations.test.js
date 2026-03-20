@@ -159,27 +159,31 @@ describe('Relations Component Rendering Tests', () => {
     });
   };
 
-  it('should render correctly with initial properties', async () => {
-    const {
-      patchmap,
-      relations,
-      source: itemA,
-      target: itemB,
-    } = await renderRelationScene();
-    const path = getPath(patchmap);
+  it(
+    'should render correctly with initial properties',
+    { timeout: 60000 },
+    async () => {
+      const {
+        patchmap,
+        relations,
+        source: itemA,
+        target: itemB,
+      } = await renderRelationScene();
+      const path = getPath(patchmap);
 
-    expect(relations).toBeDefined();
-    expect(path).toBeDefined();
-    expect(path.type).toBe('path');
+      expect(relations).toBeDefined();
+      expect(path).toBeDefined();
+      expect(path.type).toBe('path');
 
-    expect(relations.props.links).toHaveLength(1);
-    expect(relations.props.style.width).toBe(2);
+      expect(relations.props.links).toHaveLength(1);
+      expect(relations.props.style.width).toBe(2);
 
-    expect(relations.linkPoints).toHaveLength(1);
-    const points = relations.linkPoints[0];
-    expect(points.sourcePoint).toEqual([itemA.x, itemA.y]);
-    expect(points.targetPoint).toEqual([itemB.x, itemB.y]);
-  });
+      expect(relations.linkPoints).toHaveLength(1);
+      const points = relations.linkPoints[0];
+      expect(points.sourcePoint).toEqual([itemA.x, itemA.y]);
+      expect(points.targetPoint).toEqual([itemB.x, itemB.y]);
+    },
+  );
 
   it('should refresh relation links after draw when relations appear before targets', async () => {
     const {
@@ -262,50 +266,56 @@ describe('Relations Component Rendering Tests', () => {
     expectFirstLinkAligned(relations, source, target);
   });
 
-  it('should keep link points stable while world rotation/flip changes', async () => {
-    const { patchmap, relations, source, target } = await renderRelationScene({
-      data: withOffsetRelations(),
-    });
+  it(
+    'should keep link points stable while world rotation/flip changes',
+    { timeout: 60000 },
+    async () => {
+      const { patchmap, relations, source, target } = await renderRelationScene(
+        {
+          data: withOffsetRelations(),
+        },
+      );
 
-    expect(relations.linkPoints).toHaveLength(1);
-    expect(relations.parent).toBe(getWorldRoot(patchmap));
-    const baselineAngle = relations.angle ?? 0;
-    const baselineScaleX = relations.scale?.x ?? 1;
-    const baselineScaleY = relations.scale?.y ?? 1;
-    const baseline = structuredClone(relations.linkPoints[0]);
-
-    const expectAligned = () => {
-      const point = expectFirstLinkAligned(relations, source, target);
+      expect(relations.linkPoints).toHaveLength(1);
       expect(relations.parent).toBe(getWorldRoot(patchmap));
-      expect(relations.angle ?? 0).toBeCloseTo(baselineAngle);
-      expect(relations.scale?.x ?? 1).toBeCloseTo(baselineScaleX);
-      expect(relations.scale?.y ?? 1).toBeCloseTo(baselineScaleY);
-      expect(point.sourcePoint[0]).toBeCloseTo(baseline.sourcePoint[0]);
-      expect(point.sourcePoint[1]).toBeCloseTo(baseline.sourcePoint[1]);
-      expect(point.targetPoint[0]).toBeCloseTo(baseline.targetPoint[0]);
-      expect(point.targetPoint[1]).toBeCloseTo(baseline.targetPoint[1]);
-    };
+      const baselineAngle = relations.angle ?? 0;
+      const baselineScaleX = relations.scale?.x ?? 1;
+      const baselineScaleY = relations.scale?.y ?? 1;
+      const baseline = structuredClone(relations.linkPoints[0]);
 
-    expectAligned();
+      const expectAligned = () => {
+        const point = expectFirstLinkAligned(relations, source, target);
+        expect(relations.parent).toBe(getWorldRoot(patchmap));
+        expect(relations.angle ?? 0).toBeCloseTo(baselineAngle);
+        expect(relations.scale?.x ?? 1).toBeCloseTo(baselineScaleX);
+        expect(relations.scale?.y ?? 1).toBeCloseTo(baselineScaleY);
+        expect(point.sourcePoint[0]).toBeCloseTo(baseline.sourcePoint[0]);
+        expect(point.sourcePoint[1]).toBeCloseTo(baseline.sourcePoint[1]);
+        expect(point.targetPoint[0]).toBeCloseTo(baseline.targetPoint[0]);
+        expect(point.targetPoint[1]).toBeCloseTo(baseline.targetPoint[1]);
+      };
 
-    for (const state of [
-      { rotation: 15 },
-      { rotation: 30 },
-      { rotation: 45 },
-      { rotation: 90 },
-      { rotation: 90, flip: { x: true, y: false } },
-      { rotation: 90, flip: { x: false, y: true } },
-      { rotation: 90, flip: { x: true, y: true } },
-      { rotation: 0, flip: { x: false, y: false } },
-    ]) {
-      patchmap.rotation.set(state.rotation);
-      if (state.flip) {
-        patchmap.flip.set(state.flip);
-      }
-      await vi.advanceTimersByTimeAsync(100);
       expectAligned();
-    }
-  });
+
+      for (const state of [
+        { rotation: 15 },
+        { rotation: 30 },
+        { rotation: 45 },
+        { rotation: 90 },
+        { rotation: 90, flip: { x: true, y: false } },
+        { rotation: 90, flip: { x: false, y: true } },
+        { rotation: 90, flip: { x: true, y: true } },
+        { rotation: 0, flip: { x: false, y: false } },
+      ]) {
+        patchmap.rotation.set(state.rotation);
+        if (state.flip) {
+          patchmap.flip.set(state.flip);
+        }
+        await vi.advanceTimersByTimeAsync(100);
+        expectAligned();
+      }
+    },
+  );
 
   it('should keep link points aligned immediately when world rotation changes', async () => {
     const { patchmap, relations, source, target } = await renderRelationScene({

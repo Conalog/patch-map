@@ -1,10 +1,10 @@
 import gsap from 'gsap';
 import { PixiPlugin } from 'gsap/PixiPlugin';
 import * as PIXI from 'pixi.js';
+import { Viewport } from 'pixi-viewport';
 import { firaCode } from './assets/fonts';
 import { icons } from './assets/icons';
 import { FONT_WEIGHT } from './display/mixins/constants';
-import BaseViewport from './display/Viewport';
 import { deepMerge } from './utils/deepmerge/deepmerge';
 import { plugin } from './utils/event/viewport';
 import { uid } from './utils/uuid';
@@ -70,7 +70,7 @@ export const initViewport = (app, opts = {}, store) => {
     },
     opts,
   );
-  const viewport = new BaseViewport({ ...options, store });
+  const viewport = new Viewport(options);
   store.viewport = viewport;
   viewport.app = app;
   viewport.events = {};

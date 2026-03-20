@@ -103,7 +103,7 @@ class Patchmap extends WildcardEventEmitter {
   get event() {
     return {
       add: (opts) => {
-        const id = event.addEvent(this.viewport, opts);
+        const id = event.addEvent(this.viewport, opts, this.world);
         event.onEvent(this.viewport, id);
         return id;
       },
@@ -233,7 +233,7 @@ class Patchmap extends WildcardEventEmitter {
   }
 
   update(opts = {}) {
-    const updatedElements = update(this.viewport, opts);
+    const updatedElements = update(this.world, opts);
     if (opts.emit !== false) {
       this.emit('patchmap:updated', {
         elements: updatedElements,
@@ -249,7 +249,7 @@ class Patchmap extends WildcardEventEmitter {
    * @returns {void|null}
    */
   focus(ids, opts) {
-    return focus(this.viewport, ids, opts);
+    return focus(this.viewport, this.world, ids, opts);
   }
 
   /**
@@ -258,7 +258,7 @@ class Patchmap extends WildcardEventEmitter {
    * @returns {void|null}
    */
   fit(ids, opts) {
-    return fitViewport(this.viewport, ids, opts);
+    return fitViewport(this.viewport, this.world, ids, opts);
   }
 
   get rotation() {
@@ -270,7 +270,7 @@ class Patchmap extends WildcardEventEmitter {
   }
 
   selector(path, opts) {
-    return selector(this.viewport, path, opts);
+    return selector(this.world, path, opts);
   }
 
   _createViewTransform() {

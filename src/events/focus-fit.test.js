@@ -43,7 +43,6 @@ const createTarget = (id, overrides = {}) => ({
 
 const createViewport = (children = [], overrides = {}) => ({
   id: 'viewport',
-  type: 'canvas',
   children,
   scale: { x: 2, y: 4 },
   moveCenter: vi.fn(),
@@ -51,6 +50,30 @@ const createViewport = (children = [], overrides = {}) => ({
   toLocal: vi.fn((point) => point),
   ...overrides,
 });
+
+const createWorld = (children = [], overrides = {}) => {
+  const world = {
+    id: 'world',
+    type: 'canvas',
+    children,
+    ...overrides,
+  };
+  children.forEach((child) => {
+    child.parent = world;
+  });
+  return world;
+};
+
+const createScene = (
+  children = [],
+  viewportOverrides = {},
+  worldOverrides = {},
+) => {
+  const world = createWorld(children, worldOverrides);
+  const viewport = createViewport([world], viewportOverrides);
+  world.parent = viewport;
+  return { viewport, world };
+};
 
 const linkChildren = (parent, children) => {
   parent.children = children;
@@ -75,9 +98,9 @@ describe('focus-fit', () => {
     const node = markAsElement(
       createTarget('node-1', { centerX: 5, centerY: 6 }),
     );
-    const viewport = createViewport([background, node]);
+    const { viewport, world } = createScene([background, node]);
 
-    focusViewport(viewport, null, {
+    focusViewport(viewport, world, null, {
       filter: (obj) => obj.id !== 'background-image',
     });
 
@@ -87,14 +110,14 @@ describe('focus-fit', () => {
   });
 
   it('applies filter after resolving explicit ids', () => {
-    const viewport = createViewport();
+    const { viewport, world } = createScene();
     const keep = markAsElement(
       createTarget('node-1', { centerX: 11, centerY: 12 }),
     );
     const skip = markAsElement(createTarget('node-2'));
     vi.mocked(selector).mockReturnValue([keep, skip]);
 
-    focusViewport(viewport, ['node-1', 'node-2'], {
+    focusViewport(viewport, world, ['node-1', 'node-2'], {
       filter: (obj) => obj.id !== 'node-2',
     });
 
@@ -103,11 +126,11 @@ describe('focus-fit', () => {
   });
 
   it('returns null when the filter removes every managed target', () => {
-    const viewport = createViewport([
+    const { viewport, world } = createScene([
       markAsElement(createTarget('background-image')),
     ]);
 
-    const result = focusViewport(viewport, null, {
+    const result = focusViewport(viewport, world, null, {
       filter: () => false,
     });
 
@@ -127,9 +150,9 @@ describe('focus-fit', () => {
         centerY: 200,
       }),
     );
-    const viewport = createViewport([item, relations]);
+    const { viewport, world } = createScene([item, relations]);
 
-    focusViewport(viewport);
+    focusViewport(viewport, world);
 
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([item]);
     expect(viewport.moveCenter).toHaveBeenCalledWith(5, 6);
@@ -139,15 +162,15 @@ describe('focus-fit', () => {
     const target = markAsElement(
       createTarget('item-1', { width: 100, height: 40 }),
     );
-    const viewport = createViewport([], {
+    const { viewport, world } = createScene([], {
       toLocal: vi.fn(() => ({ x: 25, y: 30 })),
     });
     vi.mocked(selector).mockReturnValue([target]);
 
-    fitViewport(viewport, 'item-1', { padding: { y: 10, x: 5 } });
+    fitViewport(viewport, world, 'item-1', { padding: { y: 10, x: 5 } });
 
     expect(selector).toHaveBeenCalledWith(
-      viewport,
+      world,
       '$..children[?(@.type != null)]',
     );
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([target]);
@@ -159,12 +182,12 @@ describe('focus-fit', () => {
     const target = markAsElement(
       createTarget('item-2', { centerX: 10, centerY: 20 }),
     );
-    const viewport = createViewport([], {
+    const { viewport, world } = createScene([], {
       toLocal: vi.fn(() => ({ x: 10, y: 20 })),
     });
     vi.mocked(selector).mockReturnValue([target]);
 
-    focusViewport(viewport, 'item-2');
+    focusViewport(viewport, world, 'item-2');
 
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([target]);
     expect(viewport.moveCenter).toHaveBeenCalledWith(10, 20);
@@ -174,9 +197,9 @@ describe('focus-fit', () => {
 
   it('returns null without moving when no matching objects are found', () => {
     vi.mocked(selector).mockReturnValue([]);
-    const viewport = createViewport();
+    const { viewport, world } = createScene();
 
-    const result = fitViewport(viewport, 'missing-id');
+    const result = fitViewport(viewport, world, 'missing-id');
 
     expect(result).toBeNull();
     expect(calcGroupOrientedBounds).not.toHaveBeenCalled();
@@ -186,10 +209,10 @@ describe('focus-fit', () => {
 
   it('still validates fit options when no matching objects are found', () => {
     vi.mocked(selector).mockReturnValue([]);
-    const viewport = createViewport();
+    const { viewport, world } = createScene();
 
     expect(() =>
-      fitViewport(viewport, 'missing-id', { padding: { top: 8 } }),
+      fitViewport(viewport, world, 'missing-id', { padding: { top: 8 } }),
     ).toThrow();
 
     expect(parseFitOptions).toHaveBeenCalledWith({ padding: { top: 8 } });
@@ -198,45 +221,48 @@ describe('focus-fit', () => {
   });
 
   it('rejects an options object passed as the first argument', () => {
-    const viewport = createViewport();
+    const { viewport, world } = createScene();
 
-    expect(() => focusViewport(viewport, {})).toThrow(/string|array/i);
+    expect(() => focusViewport(viewport, world, {})).toThrow(/string|array/i);
   });
 
   it('rejects a filter options object passed as the first argument', () => {
-    const viewport = createViewport();
+    const { viewport, world } = createScene();
 
     expect(() =>
-      fitViewport(viewport, {
+      fitViewport(viewport, world, {
         filter: () => true,
       }),
     ).toThrow();
   });
 
   it('throws for unknown fit option keys', () => {
-    const viewport = createViewport();
+    const { viewport, world } = createScene();
 
     expect(() =>
-      fitViewport(viewport, 'item-1', { padding: { top: 8 }, extra: true }),
+      fitViewport(viewport, world, 'item-1', {
+        padding: { top: 8 },
+        extra: true,
+      }),
     ).toThrow();
   });
 
   it('throws for unknown padding keys', () => {
-    const viewport = createViewport();
+    const { viewport, world } = createScene();
 
     expect(() =>
-      fitViewport(viewport, 'item-1', {
+      fitViewport(viewport, world, 'item-1', {
         padding: { top: 8 },
       }),
     ).toThrow();
   });
 
   it('rejects a non-function filter', () => {
-    const viewport = createViewport();
+    const { viewport, world } = createScene();
 
-    expect(() => fitViewport(viewport, ['node-1'], { filter: 'nope' })).toThrow(
-      /function/i,
-    );
+    expect(() =>
+      fitViewport(viewport, world, ['node-1'], { filter: 'nope' }),
+    ).toThrow(/function/i);
   });
 
   it('accepts truthy filter return values for focus', () => {
@@ -246,9 +272,9 @@ describe('focus-fit', () => {
     const skip = markAsElement(
       createTarget('node-2', { type: '', centerX: 99, centerY: 98 }),
     );
-    const viewport = createViewport([keep, skip]);
+    const { viewport, world } = createScene([keep, skip]);
 
-    focusViewport(viewport, null, {
+    focusViewport(viewport, world, null, {
       filter: (obj) => obj.type,
     });
 
@@ -275,9 +301,9 @@ describe('focus-fit', () => {
         height: 400,
       }),
     );
-    const viewport = createViewport([keep, skip]);
+    const { viewport, world } = createScene([keep, skip]);
 
-    fitViewport(viewport, null, {
+    fitViewport(viewport, world, null, {
       filter: (obj) => obj.type,
       padding: 0,
     });
@@ -288,10 +314,10 @@ describe('focus-fit', () => {
   });
 
   it('does not move the viewport before rejecting invalid fit options', () => {
-    const viewport = createViewport();
+    const { viewport, world } = createScene();
 
     expect(() =>
-      fitViewport(viewport, 'item-1', { padding: { top: 8 } }),
+      fitViewport(viewport, world, 'item-1', { padding: { top: 8 } }),
     ).toThrow();
 
     expect(viewport.moveCenter).not.toHaveBeenCalled();
@@ -310,9 +336,9 @@ describe('focus-fit', () => {
         height: 80,
       }),
     );
-    const viewport = createViewport([background, node]);
+    const { viewport, world } = createScene([background, node]);
 
-    fitViewport(viewport, null, {
+    fitViewport(viewport, world, null, {
       filter: (obj) => obj.id === 'node-1',
     });
 
@@ -348,10 +374,10 @@ describe('focus-fit', () => {
         [childA, childB],
       ),
     );
-    const viewport = createViewport([group]);
+    const { viewport, world } = createScene([group]);
     vi.mocked(selector).mockReturnValue([group, childA, childB]);
 
-    fitViewport(viewport, 'group-1', {
+    fitViewport(viewport, world, 'group-1', {
       filter: (obj) => obj.id !== 'child-b',
       padding: 0,
     });
@@ -372,9 +398,9 @@ describe('focus-fit', () => {
     const group = markAsElement(
       linkChildren(createTarget('group-1', { type: 'group' }), [child]),
     );
-    const viewport = createViewport([group]);
+    const { viewport, world } = createScene([group]);
 
-    const result = focusViewport(viewport, null, {
+    const result = focusViewport(viewport, world, null, {
       filter: (obj) => obj.id !== 'group-1',
     });
 
@@ -395,10 +421,10 @@ describe('focus-fit', () => {
     const group = markAsElement(
       linkChildren(createTarget('group-1', { type: 'group' }), [child]),
     );
-    const viewport = createViewport();
+    const { viewport, world } = createScene();
     vi.mocked(selector).mockReturnValue([group, child]);
 
-    const result = fitViewport(viewport, 'group-1', {
+    const result = fitViewport(viewport, world, 'group-1', {
       filter: (obj) => obj.id !== 'group-1',
       padding: 0,
     });
@@ -440,10 +466,10 @@ describe('focus-fit', () => {
         [gridChildA, gridChildB],
       ),
     );
-    const viewport = createViewport([grid]);
+    const { viewport, world } = createScene([grid]);
     vi.mocked(selector).mockReturnValue([grid, gridChildA, gridChildB]);
 
-    fitViewport(viewport, 'grid-1', { padding: 0 });
+    fitViewport(viewport, world, 'grid-1', { padding: 0 });
 
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([grid]);
     expect(viewport.fit).toHaveBeenCalledWith(true, 100, 25);
@@ -471,12 +497,12 @@ describe('focus-fit', () => {
         props: { links: [{ source: 'item-1', target: 'item-2' }] },
       }),
     );
-    const viewport = createViewport([], {
+    const { viewport, world } = createScene([], {
       toLocal: vi.fn(() => ({ x: 42, y: 56 })),
     });
     vi.mocked(selector).mockReturnValue([source, target, relations]);
 
-    focusViewport(viewport, 'relations-1');
+    focusViewport(viewport, world, 'relations-1');
 
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([source, target]);
     expect(viewport.moveCenter).toHaveBeenCalledWith(42, 56);
@@ -492,12 +518,12 @@ describe('focus-fit', () => {
         height: 60,
       }),
     );
-    const viewport = createViewport([], {
+    const { viewport, world } = createScene([], {
       toLocal: vi.fn(() => ({ x: 21, y: 34 })),
     });
     vi.mocked(selector).mockReturnValue([relations]);
 
-    focusViewport(viewport, 'relations-1');
+    focusViewport(viewport, world, 'relations-1');
 
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([relations]);
     expect(viewport.moveCenter).toHaveBeenCalledWith(21, 34);
@@ -510,10 +536,10 @@ describe('focus-fit', () => {
     const group = markAsElement(
       linkChildren(createTarget('group-1', { type: 'group' }), [child]),
     );
-    const viewport = createViewport([group]);
+    const { viewport, world } = createScene([group]);
     vi.mocked(selector).mockReturnValue([group, child]);
 
-    focusViewport(viewport, ['group-1', 'child-1']);
+    focusViewport(viewport, world, ['group-1', 'child-1']);
 
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([child]);
   });
@@ -533,23 +559,23 @@ describe('focus-fit', () => {
       },
       false,
     );
-    const viewport = createViewport([item, rawTypedChild]);
-    rawTypedChild.parent = viewport;
+    const { viewport, world } = createScene([item, rawTypedChild]);
+    rawTypedChild.parent = world;
     vi.mocked(selector).mockReturnValue([item]);
 
-    focusViewport(viewport);
+    focusViewport(viewport, world);
     expect(calcGroupOrientedBounds).toHaveBeenLastCalledWith([item]);
 
-    const byId = focusViewport(viewport, 'custom-1');
+    const byId = focusViewport(viewport, world, 'custom-1');
     expect(byId).toBeNull();
   });
 
   it('parses fit options only for fit calls', () => {
     const target = markAsElement(createTarget('item-1'));
-    const viewport = createViewport();
+    const { viewport, world } = createScene();
     vi.mocked(selector).mockReturnValue([target]);
 
-    fitViewport(viewport, 'item-1', { padding: { x: 5 } });
+    fitViewport(viewport, world, 'item-1', { padding: { x: 5 } });
 
     expect(parseFitOptions).toHaveBeenCalledWith({ padding: { x: 5 } });
   });

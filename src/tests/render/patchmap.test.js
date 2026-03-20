@@ -118,6 +118,12 @@ const getStageElement = (patchmap) =>
 
 const getWorldRoot = (patchmap) => patchmap.viewport.children[0];
 
+const getHitTarget = (patchmap, point) => {
+  const rootBoundary = patchmap.app.renderer.events.rootBoundary;
+  rootBoundary.rootTarget = patchmap.app.renderer.lastObjectRendered;
+  return rootBoundary.hitTest(point.x, point.y);
+};
+
 const getMaxBoundsOverflow = (outerBounds, innerBounds) =>
   Math.max(
     Math.max(0, outerBounds.x - innerBounds.x),
@@ -179,6 +185,157 @@ describe('patchmap test', () => {
 
     const gridItems = grid.children;
     expect(gridItems.length).toBe(5);
+  });
+
+  it('uses world as the root for selector and update paths', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(sampleData);
+
+    expect(patchmap.selector('$')[0]).toBe(patchmap.world);
+    expect(patchmap.selector('$.children').map((child) => child.id)).toEqual([
+      'group-1',
+      'relations-1',
+    ]);
+
+    patchmap.update({
+      path: '$.children[?(@.id=="group-1")]',
+      changes: { attrs: { x: 321 } },
+    });
+    await waitForScene();
+
+    expect(patchmap.selector('$..[?(@.id=="group-1")]')[0].x).toBe(321);
+  });
+
+  it('sorts top-level world children by zIndex after draw and update', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'low',
+        size: 40,
+        attrs: { x: 0, y: 0, zIndex: 0 },
+      },
+      {
+        type: 'item',
+        id: 'high',
+        size: 40,
+        attrs: { x: 60, y: 0, zIndex: 10 },
+      },
+    ]);
+
+    await waitForScene();
+
+    expect(patchmap.world.sortableChildren).toBe(true);
+    expect(patchmap.world.children.map((child) => child.id)).toEqual([
+      'low',
+      'high',
+    ]);
+
+    patchmap.update({
+      path: '$.children[?(@.id=="low")]',
+      changes: { attrs: { zIndex: 20 } },
+    });
+
+    await waitForScene();
+
+    expect(patchmap.world.children.map((child) => child.id)).toEqual([
+      'high',
+      'low',
+    ]);
+  });
+
+  it('binds path "$" against the viewport surface and child paths against world descendants', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(sampleData);
+
+    const viewportAddEventListenerSpy = vi.spyOn(
+      patchmap.viewport,
+      'addEventListener',
+    );
+    const group = patchmap.selector('$..[?(@.id=="group-1")]')[0];
+    const groupAddEventListenerSpy = vi.spyOn(group, 'addEventListener');
+
+    patchmap.event.add({
+      id: 'world-root',
+      path: '$',
+      action: 'click',
+      fn: vi.fn(),
+    });
+    patchmap.event.add({
+      id: 'top-level-group',
+      path: '$.children[?(@.id=="group-1")]',
+      action: 'pointerdown',
+      fn: vi.fn(),
+    });
+
+    expect(viewportAddEventListenerSpy).toHaveBeenCalledWith(
+      'click',
+      expect.any(Function),
+      undefined,
+    );
+    expect(groupAddEventListenerSpy).toHaveBeenCalledWith(
+      'pointerdown',
+      expect.any(Function),
+      undefined,
+    );
+  });
+
+  it('stores path "$" events on the viewport while empty canvas hit-tests also resolve to viewport', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(sampleData);
+    await waitForScene();
+
+    patchmap.event.add({
+      id: 'canvas-pointerdown',
+      path: '$',
+      action: 'pointerdown',
+      fn: vi.fn(),
+    });
+
+    const canvasRootEvent = patchmap.event.get('canvas-pointerdown');
+    const hitTarget = getHitTarget(patchmap, { x: 12, y: 12 });
+
+    expect(canvasRootEvent.root).toBe(patchmap.viewport);
+    expect(hitTarget).toBe(patchmap.viewport);
+  });
+
+  it('fires path "$" handlers for viewport pointer events without affecting world child bindings', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(sampleData);
+    await waitForScene();
+
+    const onCanvasPointerDown = vi.fn();
+    const onGroupPointerDown = vi.fn();
+    const group = patchmap.selector('$..[?(@.id=="group-1")]')[0];
+
+    patchmap.event.add({
+      id: 'canvas-pointerdown',
+      path: '$',
+      action: 'pointerdown',
+      fn: onCanvasPointerDown,
+    });
+    patchmap.event.add({
+      id: 'group-pointerdown',
+      path: '$.children[?(@.id=="group-1")]',
+      action: 'pointerdown',
+      fn: onGroupPointerDown,
+    });
+
+    patchmap.viewport.emit('pointerdown', {
+      target: patchmap.viewport,
+      global: patchmap.viewport.toGlobal({ x: 12, y: 12 }),
+      stopPropagation: () => {},
+    });
+    group.emit('pointerdown', {
+      target: group,
+      global: patchmap.viewport.toGlobal({ x: group.x, y: group.y }),
+      stopPropagation: () => {},
+    });
+
+    expect(onCanvasPointerDown).toHaveBeenCalledTimes(1);
+    expect(onCanvasPointerDown.mock.calls[0][0].target).toBe(patchmap.viewport);
+    expect(onGroupPointerDown).toHaveBeenCalledTimes(1);
+    expect(onGroupPointerDown.mock.calls[0][0].target).toBe(group);
   });
 
   it('emits draw event even when scheduler API is unavailable', async () => {
