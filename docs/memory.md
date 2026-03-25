@@ -1,8 +1,8 @@
-- Current phase: documenting the existing `patch-map` feature set against the current JS/TS implementation.
+- Current phase: drafting a language-agnostic `patch-map` library specification from reference docs and current JS/TS behavior.
 - Canonical reusable documentation belongs under `docs/reference/patchmap/`.
-- Active task workspace: `docs/tasks/2026/03-25/patchmap-feature-guides/`.
-- Documentation should map code-level behavior to user-facing usage with links to the relevant source files.
+- Active task workspace: `docs/tasks/2026/03-25/patchmap-library-spec/`.
+- Reference docs remain the primary evidence base; `specs/` holds spec-kit deliverables derived from them.
 - Feature coverage must include public exports, map data schema, rendering elements/components, interaction APIs, history, and transformer behavior.
-- Agent handoff is only complete when reference docs also state source ownership and validation commands for common change types.
+- The library spec must stay language- and framework-agnostic while preserving observable behavior.
 - Use subagents with narrow read/write scopes and keep their outputs reviewed before merge.
-- Final completion requires a fresh coverage check against current exports, README API sections, and relevant source modules.
+- Final completion requires a fresh coverage check against current exports, README API sections, relevant source modules, and spec-kit checklist results.
