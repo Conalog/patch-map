@@ -84,6 +84,7 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-001**: The library MUST expose a primary `Patchmap` runtime surface with the following public members: `init`, `destroy`, `draw`, `update`, `focus`, `fit`, `selector`, `rotation`, `flip`, `event`, `app`, `viewport`, `world`, `theme`, `isInit`, `undoRedoManager`, `stateManager`, `transformer`, and `animationContext`.
 - **FR-002**: The library MUST expose a command abstraction, a history manager, a base interaction state abstraction with propagation control, a transformer surface, a selector function, and utility exports for hit testing, movement threshold checks, point intersection checks, and unique ID generation.
 - **FR-003**: The public contract MUST preserve the method and property names above even if internal implementation details differ.
+- **FR-003A**: `app`, `viewport`, `world`, `theme`, and `animationContext` MUST be exposed as stable runtime handles so hosts can observe or pass them through, but this specification does not require those handles to preserve any renderer-specific class identity, package-specific helper API, or direct object-level interoperability beyond the behavior explicitly defined elsewhere in this document.
 
 #### B. Initialization and Destruction
 
@@ -93,17 +94,17 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-006**: `init()` MUST create and connect an application surface, a viewport, a world root, a theme store, a history manager, and a state manager, and MUST register a default `selection` state.
 - **FR-007**: `init()` MUST accept configuration for application options, viewport options, theme overrides, asset definitions, and an optional initial transformer.
 - **FR-008**: `init()` MUST merge application, viewport, and theme options with library defaults rather than requiring full replacement.
-- **FR-008A**: The default application options MUST be equivalent to: background `#FAFAFA`, antialias enabled, automatic start enabled, automatic density enabled, context alpha enabled, and resolution `2`.
-- **FR-008B**: The default viewport options MUST be equivalent to: passive wheel disabled, zoom clamped to a minimum scale of `0.5` and maximum scale of `30`, and drag, wheel, pinch, and deceleration behavior enabled by default.
-- **FR-008C**: The default theme palette MUST include `primary.default = #0C73BF`, `primary.dark = #083967`, `primary.accent = #EF4444`, `gray.light = #9EB3C3`, `gray.default = #D9D9D9`, `gray.dark = #71717A`, `white = #FFFFFF`, and `black = #1A1A1A`.
-- **FR-008D**: Application initialization MUST inject host-container resize binding semantics equivalent to `resizeTo: container` even when the caller omits that field.
-- **FR-008E**: Viewport initialization MUST inject current screen width, current screen height, and the host renderer’s event surface even when the caller omits those fields.
+- **FR-008A**: The default application options MUST include an opaque background, antialiasing enabled, automatic start enabled, automatic density enabled, alpha-enabled rendering, and a device-appropriate positive resolution value unless callers override them.
+- **FR-008B**: The default viewport options MUST include finite minimum and maximum zoom bounds, wheel input that is non-passive when the host platform allows it, and enabled drag, wheel, pinch, and deceleration behavior unless callers override them.
+- **FR-008C**: The default theme palette MUST expose stable semantic color roles for `primary.default`, `primary.dark`, `primary.accent`, `gray.light`, `gray.default`, `gray.dark`, `white`, and `black`, while allowing implementations to choose concrete color values that preserve expected contrast and role semantics.
+- **FR-008D**: Application initialization MUST bind rendering size updates to the host container by default even when the caller omits an explicit resize target.
+- **FR-008E**: Viewport initialization MUST derive its initial visible extent and event surface from the host rendering environment even when the caller omits those fields.
 - **FR-008F**: `viewport.plugins` in `init()` options MUST be interpreted as declarative init-time plugin registrations rather than opaque data, and any plugin entry marked disabled MUST be skipped during that initial registration.
 - **FR-009**: `init()` MUST load the library’s default icon assets and default font assets, and MUST merge user-supplied assets by stable identity so duplicate registrations are avoided.
 - **FR-009A**: `opts.assets` MUST accept both bundle definitions of shape `{ name, items }` and single-asset definitions of shape `{ alias, src }`, and a compatible implementation MUST accept both forms in the same input list.
 - **FR-009B**: Bundle definitions MUST be deduplicated by bundle `name`, single-asset definitions MUST be deduplicated by asset `alias`, and initialization MUST complete only after all required bundle and single-asset loads for the merged asset set have completed.
-- **FR-009C**: The built-in icon-asset namespace MUST expose at least the source keys `object`, `inverter`, `combiner`, `device`, `edge`, `loading`, `warning`, and `wifi`.
-- **FR-009D**: The built-in font namespace MUST provide `FiraCode` as the default text-rendering family and MUST additionally provide weight-addressable shipped families compatible with `thin`, `extralight`, `light`, `regular`, `medium`, `semibold`, `bold`, `extrabold`, and `black`.
+- **FR-009C**: The built-in icon-asset namespace MUST expose a stable set of aliases sufficient for standard object, device, edge, loading, warning, and connectivity-oriented visuals, but this specification does not require package-specific alias names.
+- **FR-009D**: The built-in font namespace MUST provide at least one shipped default text-rendering family and a way to resolve the commonly used weight tiers `thin`, `extralight`, `light`, `regular`, `medium`, `semibold`, `bold`, `extrabold`, and `black`, but it does not require a package-specific font family name.
 - **FR-010**: `init()` MUST observe host container resizing and update the application, viewport, and world transform accordingly.
 - **FR-011**: `init()` MUST emit `patchmap:initialized` after the runtime surfaces are ready.
 - **FR-012**: `destroy()` MUST be a no-op when the instance is not initialized.
@@ -172,7 +173,7 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-045**: `update(options)` MUST accept targets from `elements`, `path`, or both. If both are supplied, the resolved target list MUST concatenate both sources in order.
 - **FR-045A**: `update(options)` MUST NOT deduplicate targets resolved more than once; each resolved occurrence MUST be processed in order.
 - **FR-046**: `update(options)` MUST silently skip `null` or missing resolved targets rather than failing the whole update.
-- **FR-047**: `update(options)` MUST support `changes`, `history`, `relativeTransform`, `mergeStrategy`, `refresh`, `validateSchema`, and `normalize` options.
+- **FR-047**: `update(options)` MUST support `changes`, `history`, `relativeTransform`, `mergeStrategy`, `refresh`, `validateSchema`, `normalize`, and `emit` options.
 - **FR-048**: When `history` is `false`, updates MUST apply without recording a history step. When `history` is `true`, the library MUST create a fresh history group ID. When `history` is a string, that exact string MUST be used as the history group ID.
 - **FR-049**: When `relativeTransform` is enabled, numeric `attrs.x`, `attrs.y`, `attrs.rotation`, and `attrs.angle` deltas MUST be added to the target’s current values before apply; no other fields may be treated as relative.
 - **FR-050**: Unless explicitly disabled, updates MUST normalize shorthand input before merge and MUST validate the resulting payload before mutating the rendered target.
@@ -325,7 +326,7 @@ A host application can group updates into undoable history steps, undo and redo 
 ### Measurable Outcomes
 
 - **SC-001**: A fresh implementation that follows this spec can pass a compatibility test suite covering initialization, draw, update, selection, focus/fit, history, and transformer behaviors with no unresolved spec ambiguities.
-- **SC-002**: All public methods and surfaces listed in FR-001 through FR-003 can be exercised without consulting the original source implementation.
+- **SC-002**: All public methods and all behavior explicitly defined for public surfaces in FR-001 through FR-003A can be exercised without consulting the original source implementation, without requiring direct interoperability with any original renderer-specific object API.
 - **SC-003**: A host application can render a representative PATCH-style scene containing groups, grids, items, relations, images, text, and rectangles, then mutate it through `update()` while preserving the expected observable behavior.
 - **SC-004**: Undo/redo bundling, default selection behavior, and transformer resize behavior are reproducible closely enough that existing behavior-oriented tests can be ported to another language or framework without semantic changes.
 
@@ -335,9 +336,11 @@ A host application can group updates into undoable history steps, undo and redo 
 - The host environment provides a container that can receive a rendered surface, pointer events, keyboard events, and resize notifications.
 - Host applications are expected to supply plain data objects and arrays at the public draw/update boundary rather than opaque runtime instances.
 - The spec defines compatibility at the library contract level, not binary compatibility with the original package layout or build artifacts.
+- Unless this specification marks an identifier, enum member, or event name as part of the required public contract, renderer-specific helper names, asset aliases, class identities, default color values, and shipped font family names are intentionally implementation-defined.
 
 ## Out of Scope
 
 - Prescribing the internal scene-graph model, renderer classes, animation engine, validation library, or packaging format.
+- Preserving direct interoperability with package-specific `app`, `viewport`, `world`, `theme`, or `animationContext` object APIs beyond the contract explicitly defined in this specification.
 - Improving current behavior where consumers may already depend on observable quirks documented in this specification.
 - Defining non-behavioral repository concerns such as source file layout, build tooling, or distribution artifact names.
