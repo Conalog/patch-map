@@ -7,3 +7,8 @@
 - `coverage-checklist.md`를 추가하고 `find docs/reference/patchmap -maxdepth 1 -type f | sort`, `python3 /Users/minholim/.agents/skills/project-context/scripts/check_runtime_shape.py`로 최종 검증했다.
 - reference만으로 공개 메서드 사용법을 파악 가능한지 다시 검토한 뒤, `draw()`/`update()`/`init()`/`focus()`/`fit()`/getter 표면을 한 곳에 모은 `public-api.md`를 추가했다.
 - `public-api.md`에는 `update()`의 `emit`, `validateSchema`, `normalize`처럼 README에 없지만 현재 구현상 노출되는 옵션까지 기록했고, `coverage-checklist.md`를 그 구조에 맞게 갱신했다.
+
+**2026-03-25**
+- `docs/memory.md`, 기존 patchmap reference 5종, task snapshot을 읽고 현재 문서가 기능 사용법 중심이라는 점을 확인했다.
+- `package.json`, `src/patch-map.ts`, `src/patchmap.js`, `src/init.js`, `src/display/draw.js`, `src/display/update.js`, `src/utils/index.js`를 대조해 개발 에이전트 관점의 누락이 구현 책임 맵과 검증 루틴이라는 점을 정리했다.
+- `docs/reference/patchmap/developer-context.md`를 추가하고 `overview.md`, `coverage-checklist.md`, `docs/memory.md`, task `BRIEF.md`/`STATUS.md`를 이번 보강 내용에 맞게 다시 썼다.

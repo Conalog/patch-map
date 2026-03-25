@@ -103,3 +103,13 @@
 - `project-context` runtime shape checker를 다시 실행한다.
 - 문서 파일들이 모두 `docs/reference/patchmap/` 아래에 존재하는지 확인한다.
 - `public-api.md`만 읽어도 공개 메서드 옵션 표면이 추적 가능한지 다시 점검한다.
+
+## 8. 개발자 컨텍스트 커버리지
+
+| 영역 | 설명 위치 | 상태 |
+| --- | --- | --- |
+| 배포/소스 진입점(`package.json`, `src/patch-map.ts`) | `developer-context.md` | covered |
+| 런타임 본체와 책임 경계(`src/patchmap.js`, `src/init.js`) | `developer-context.md` | covered |
+| draw/update 구현 진입점(`src/display/draw.js`, `src/display/update.js`) | `developer-context.md`, `public-api.md` | covered |
+| 변경 유형별 우선 읽기 파일 | `developer-context.md` | covered |
+| 빌드/테스트/문서 검증 명령 | `developer-context.md` | covered |

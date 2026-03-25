@@ -9,3 +9,9 @@
 - 선택지: README 서술을 우선, 소스 구현을 우선, 차이점을 모두 병기.
 - 결정: 현재 문서는 README보다 소스 구현을 우선하고, 리뷰 에이전트가 잡은 구현 차이를 직접 반영한다.
 - 영향: `overview.md`, `interactions.md`, `history-and-transformer.md`, `data-model.md`가 현재 런타임 동작에 더 가깝게 유지된다.
+
+**2026-03-25**
+- 배경: 기존 reference 세트가 기능 사용법은 설명했지만, 후속 개발 에이전트가 코드 수정 지점을 문서만으로 찾기에는 구현 책임과 검증 흐름 정보가 부족했다.
+- 선택지: 기능 문서만 유지, 각 문서에 구현 맥락을 흩어 넣기, 개발자용 reference를 별도로 추가.
+- 결정: 구현 책임 맵, 변경 유형별 읽기 시작점, 검증 명령을 모은 `developer-context.md`를 추가하고 overview/checklist/memory/task 스냅샷에 반영한다.
+- 영향: 이후 세션은 code-first 탐색 없이도 reference 문서만 읽고 공개 표면, 수정 파일 후보, 검증 루틴을 빠르게 재구성할 수 있다.
