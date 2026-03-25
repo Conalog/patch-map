@@ -1,0 +1,6 @@
+- Status: feature guides plus dedicated public API guide drafted, and 공개 메서드 옵션 커버리지까지 보강 완료.
+- Next step: no immediate next implementation step; future sessions can extend or translate the guides if needed.
+- Blockers: none.
+- Declared read scope: `README.md`, `package.json`, `src/patch-map.ts`, `src/patchmap.js`, `src/init.js`, `src/display/data-schema/**`, `src/events/**`, `src/command/**`, `src/transformer/**`, `src/utils/**`.
+- Declared write scope: `docs/memory.md`, `docs/plans/2026-03-25-patchmap-feature-guides.md`, `docs/reference/patchmap/**`, `docs/tasks/2026/03-25/patchmap-feature-guides/**`.
+- Latest validation: `find docs/reference/patchmap -maxdepth 1 -type f | sort` confirmed 6 guide files; `python3 /Users/minholim/.agents/skills/project-context/scripts/check_runtime_shape.py` returned `[OK]`.

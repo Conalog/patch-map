@@ -1,0 +1,7 @@
+- Current phase: documenting the existing `patch-map` feature set against the current JS/TS implementation.
+- Canonical reusable documentation belongs under `docs/reference/patchmap/`.
+- Active task workspace: `docs/tasks/2026/03-25/patchmap-feature-guides/`.
+- Documentation should map code-level behavior to user-facing usage with links to the relevant source files.
+- Feature coverage must include public exports, map data schema, rendering elements/components, interaction APIs, history, and transformer behavior.
+- Use subagents with narrow read/write scopes and keep their outputs reviewed before merge.
+- Final completion requires a fresh coverage check against current exports, README API sections, and relevant source modules.
