@@ -2,7 +2,7 @@
 
 **Feature Branch**: `001-patchmap-spec`  
 **Created**: 2026-03-25  
-**Status**: Draft  
+**Status**: Ready for Planning  
 **Input**: User description: "Produce a language-agnostic specification for the patch-map library by synthesizing the existing reference material and the currently observable runtime behavior."
 
 ## Problem Statement
@@ -81,8 +81,9 @@ A host application can group updates into undoable history steps, undo and redo 
 
 #### A. Public Surface
 
-- **FR-001**: The library MUST expose a primary `Patchmap` runtime surface with the following public members: `init`, `destroy`, `draw`, `update`, `focus`, `fit`, `selector`, `rotation`, `flip`, `event`, `app`, `viewport`, `world`, `theme`, `isInit`, `undoRedoManager`, `stateManager`, `transformer`, and `animationContext`.
+- **FR-001**: The library MUST expose a primary `Patchmap` runtime surface with the following public members: `init`, `destroy`, `draw`, `update`, `focus`, `fit`, `selector`, `rotation`, `flip`, `event`, `app`, `viewport`, `world`, `theme`, `isInit`, `undoRedoManager`, `stateManager`, `transformer`, `animationContext`, `on`, `off`, and `emit`.
 - **FR-002**: The library MUST expose a command abstraction, a history manager, a base interaction state abstraction with propagation control, a transformer surface, a selector function, and utility exports for hit testing, movement threshold checks, point intersection checks, and unique ID generation.
+- **FR-002A**: The `Patchmap` runtime, `undoRedoManager`, `stateManager`, and `transformer` surfaces MUST expose emitter-style `on(eventName, listener)` and `off(eventName, listener)` methods for host subscriptions, and the runtime, history manager, and state manager MUST expose `emit(eventName, payload)` for compatibility with the namespaced event semantics defined later in this document.
 - **FR-003**: The public contract MUST preserve the method and property names above even if internal implementation details differ.
 - **FR-003A**: `app`, `viewport`, `world`, `theme`, and `animationContext` MUST be exposed as stable runtime handles so hosts can observe or pass them through, but this specification does not require those handles to preserve any renderer-specific class identity, package-specific helper API, or direct object-level interoperability beyond the behavior explicitly defined elsewhere in this document.
 
@@ -112,10 +113,10 @@ A host application can group updates into undoable history steps, undo and redo 
 
 #### C. Draw and World Replacement
 
-- **FR-014**: `draw(data)` MUST accept normalized public map data only.
-- **FR-015**: `draw(data)` MUST treat the public input boundary as JSON-compatible data and MUST process a deep JSON-equivalent clone of the provided input before validation or mutation.
-- **FR-016**: `draw(data)` MUST NOT perform legacy-input conversion or compatibility heuristics; any input that does not satisfy the public map-data contract MUST fail validation before observable mutation.
-- **FR-017**: `draw(data)` MUST validate the public map data before mutating the rendered world. Invalid input MUST fail without partially drawing.
+- **FR-014**: `draw(data)` MUST accept public map data in any schema-valid public form, including supported shorthand forms that require normalization before rendering.
+- **FR-015**: `draw(data)` MUST treat the public input boundary as JSON-compatible data and MUST process a deep JSON-equivalent clone of the provided input before normalization, validation, or mutation.
+- **FR-016**: Compatibility MUST be guaranteed for public-contract input. An implementation MAY additionally accept legacy or implementation-specific input forms, but any such preprocessing MUST occur before public-schema validation and MUST NOT change observable behavior for public-contract input.
+- **FR-017**: `draw(data)` MUST validate the normalized public map data before mutating the rendered world. Invalid input MUST fail without partially drawing.
 - **FR-018**: Before replacing the world contents, `draw(data)` MUST stop rendering, clear undo/redo history, revert the current animation context, and remove registered canvas events from the viewport surface.
 - **FR-019**: A successful `draw(data)` MUST replace the entire rendered world contents with the validated map contents.
 - **FR-020**: After a successful draw, the library MUST schedule one follow-up refresh pass for all relation elements so that relation geometry resolves after all link targets exist.
@@ -140,6 +141,7 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-031A**: When relation style is omitted, the default path color MUST be `black`.
 - **FR-032**: `image` MUST require `source`, `text` MUST support optional `text` content with default empty string, and `rect` MUST require `size`.
 - **FR-032A**: Standalone root `text` elements MUST follow the world transform at the container level while keeping their rendered text visual upright and readable on screen under the same positive-determinant conditions used for upright item content.
+- **FR-032B**: For point-hit resolution and click-selection behavior, public element kinds `item`, `image`, `text`, and `relations` MUST delegate hit-testing through their managed children rather than treating only their own outer container bounds as the selectable hit target.
 - **FR-033**: Components MUST only be legal inside `item.components` or `grid.item.components`, and the supported component kinds MUST be `background`, `bar`, `icon`, and `text`.
 - **FR-033A**: `background.tint`, `bar.tint`, `icon.tint`, and component-text `tint` MUST default to white; `bar.placement` MUST default to `bottom`; `icon.placement` and component-text placement MUST default to `center`; component margins MUST default to zero box spacing; component text MUST default to empty string with `split = 0`; and `bar.animation` plus `bar.animationDuration` MUST default to `true` and `200`.
 - **FR-033B**: `background.source` MUST accept either a string source key or a texture-style object, `bar.source` MUST accept only a texture-style object, and `icon.source` MUST accept only a string source key.
@@ -193,7 +195,7 @@ A host application can group updates into undoable history steps, undo and redo 
 #### G. Query, Events, Focus, and Fit
 
 - **FR-058**: `selector(path, options)` MUST evaluate queries relative to the world root, and `selector('$')` MUST return the world root itself.
-- **FR-058A**: If `path` is `null` or `undefined`, selector evaluation MUST treat it as the empty query string rather than as a missing call or an error.
+- **FR-058A**: If `path` is `null` or `undefined`, selector evaluation MUST treat it as the empty query string rather than as a missing call or an error, and under the default selector behavior that empty query string MUST return an empty result set.
 - **FR-058B**: Selector evaluation MUST default to traversing only through `children` keys and MUST flatten results by default.
 - **FR-058C**: `selector(path, options)` MUST merge caller-supplied selector options over those defaults, so compatible callers can override default selector behavior such as flattening.
 - **FR-059**: The event facade MUST provide `add`, `remove`, `removeAll`, `on`, `off`, `get`, and `getAll`.
@@ -221,8 +223,9 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-066A**: `fit()` padding MUST behave in viewport space based on the current viewport scale rather than being added directly as world-space dimensions.
 - **FR-067**: `fit()` padding MUST accept only a number or an object with optional `x` and `y` keys; any other padding shape MUST fail validation.
 - **FR-068**: If `focus()` or `fit()` resolves no valid targets after filtering, the method MUST return `null` and MUST not move or scale the viewport.
-- **FR-068A**: The public viewport surface MUST expose plugin-control helpers that can add, remove, pause, and resume named viewport plugins, and plugin addition MUST skip entries marked disabled.
-- **FR-068B**: Adding a named viewport plugin through the plugin-control facade MUST replace any existing plugin with the same key before activating the new one.
+- **FR-068A**: The public viewport surface MUST expose a `plugin` facade with `add`, `remove`, `start`, and `stop` helpers for named viewport plugins.
+- **FR-068B**: `viewport.plugin.add(plugins)` MUST treat `plugins` as a keyed object of init-style plugin definitions, MUST skip entries marked disabled, and MUST remove any existing plugin with the same key before re-attaching it.
+- **FR-068C**: `viewport.plugin.remove(keys)`, `viewport.plugin.start(keys)`, and `viewport.plugin.stop(keys)` MUST each accept one key or multiple keys and MUST process each named runtime plugin in order.
 
 #### H. Rotation and Flip
 
@@ -259,7 +262,7 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-081C**: The default selection implementation MUST clear selection gesture state on pointer leave without synthesizing a drag-end callback.
 - **FR-081D**: Compatibility-oriented implementations MUST provide the selection state with access to the current transformer selection or an equivalent selected-elements source; otherwise ancestor-filtering selection behavior is undefined.
 - **FR-081E**: Point hit-testing and selection MUST prefer selectable candidates by descending `zIndex`, then by display order within common ancestors.
-- **FR-081F**: A selectable object configured to delegate hit-testing to children MUST resolve through its descendants instead of treating its own bounds as the hit target.
+- **FR-081F**: A selectable object whose public element kind is defined as children-delegating by this specification MUST resolve through its descendants instead of treating its own bounds as the hit target.
 - **FR-081G**: A double-click MUST invoke `onDoubleClick` and MUST NOT also invoke `onClick` for the same interaction.
 - **FR-081H**: Tap input MUST be routed through the same click-resolution path as pointer click, including the same viewport-moved and movement-threshold guards.
 
@@ -291,7 +294,7 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-095**: Resize gestures MUST update selected resizable elements in viewport-consistent space, including element positions and sizes, and MUST ignore non-resizable or interaction-locked elements.
 - **FR-095A**: Resize mutations MUST write translated positions into `attrs.x` and `attrs.y` and dimensions into `size.width` and `size.height`; compatibility-oriented implementations MUST NOT write width or height into `attrs`.
 - **FR-095B**: All element updates within one resize gesture MUST be computed from element states captured at gesture start and from one shared group-bounds resize transform for that gesture.
-- **FR-096**: Holding the aspect-ratio modifier during resize MUST preserve the original group aspect ratio for edge and corner handles.
+- **FR-096**: Holding `Shift` during resize MUST preserve the original group aspect ratio for edge and corner handles.
 - **FR-096A**: With aspect-ratio preservation enabled, corner-handle resize MUST anchor the corner opposite the active handle, while edge-handle resize MUST anchor the opposite edge and expand or shrink symmetrically about the perpendicular centerline.
 - **FR-097**: Resize output sizes MUST never fall below one unit and MUST snap fractional sizes to integer unit steps in a stable, directional manner.
 - **FR-097A**: When a resize gesture begins while edge-panning support is available but paused, the resize flow MUST temporarily resume it for the gesture and restore it when the gesture ends.
@@ -306,7 +309,7 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-098D**: `patchmap:rotated` payloads MUST include `{ angle, target }`, and `patchmap:flipped` payloads MUST include `{ x, y, target }`.
 - **FR-099**: The state manager MUST emit at least `state:pushed`, `state:popped`, `state:set`, `state:reset`, `state:destroyed`, `modifier:activated`, and `modifier:deactivated`.
 - **FR-100**: The history manager MUST emit at least `history:executed`, `history:undone`, `history:redone`, `history:cleared`, and `history:destroyed`.
-- **FR-100A**: The patch-map runtime, state manager, and history manager MUST support event subscription and unsubscription, including wildcard namespace listeners for grouped event families.
+- **FR-100A**: The patch-map runtime, state manager, and history manager MUST support emitter-style `on(eventName, listener)` and `off(eventName, listener)` subscription APIs, including wildcard namespace listeners for grouped event families.
 - **FR-100B**: Emitting a namespaced event such as `namespace:event` MUST also emit the corresponding wildcard event `namespace:*` with the original object payload enriched with `namespace` and `type`.
 
 ### Key Entities *(include if feature involves data)*

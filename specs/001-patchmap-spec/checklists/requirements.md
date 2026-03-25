@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning  
 **Created**: 2026-03-25  
-**Feature**: [spec.md](/Users/minholim/.codex/worktrees/3d24/patch-map/specs/001-patchmap-spec/spec.md)
+**Feature**: [spec.md](/Users/minholim/dev/conalog/patch-map/specs/001-patchmap-spec/spec.md)
 
 ## Content Quality
 
@@ -33,3 +33,4 @@
 
 - Initial validation pass: the draft keeps public contract names and behavioral semantics, but intentionally omits renderer-specific class names, package names, and source-module structure.
 - Compatibility-sensitive semantics preserved explicitly include async draw notification, JSONPath-based selector behavior, grid-cell ID generation, strict fit padding validation, history bundling, locked-object filtering, and transformer resize snapping.
+- Review remediation pass: closed the previously open contract gaps by naming the emitter-style event API (`on`/`off`/`emit`), defining `draw()` normalization boundaries, defining children-delegating hit-testing element kinds, fixing selector null-path behavior to an empty result set, pinning resize aspect-ratio preservation to `Shift`, and naming the `viewport.plugin` facade methods as `add`/`remove`/`start`/`stop`.
