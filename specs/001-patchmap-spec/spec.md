@@ -127,11 +127,15 @@ A host application can group updates into undoable history steps, undo and redo 
 #### D. Public Data Model
 
 - **FR-023**: The public root draw data MUST be an ordered array of elements. The allowed public element kinds MUST be `group`, `grid`, `item`, `relations`, `image`, `text`, and `rect`.
+- **FR-023A**: Every public element object MUST include a `type` field whose value is exactly one of the allowed public element kinds.
 - **FR-024**: All public elements MUST support optional `id`, optional `label`, optional `attrs`, optional `show` defaulting to `true`, and optional `locked` defaulting to `false` for element kinds.
+- **FR-024A**: Public element objects MUST be strict at their own top-level boundary. The complete allowed top-level keys are: `group` = `type`, `id`, `label`, `attrs`, `show`, `locked`, `children`; `grid` = `type`, `id`, `label`, `attrs`, `show`, `locked`, `cells`, `item`, `gap`, `inactiveCellStrategy`; `item` = `type`, `id`, `label`, `attrs`, `show`, `locked`, `size`, `components`, `padding`, `contentOrientation`; `relations` = `type`, `id`, `label`, `attrs`, `show`, `locked`, `links`, `style`; `image` = `type`, `id`, `label`, `attrs`, `show`, `locked`, `source`; `text` = `type`, `id`, `label`, `attrs`, `show`, `locked`, `text`; `rect` = `type`, `id`, `label`, `attrs`, `show`, `locked`, `size`.
+- **FR-024B**: The `attrs` object MUST act as the extensibility boundary for implementation-independent layout, transform, and rendering attributes. Unknown keys inside `attrs` MAY be preserved, but unknown top-level keys outside `attrs` MUST fail validation.
 - **FR-025**: The library MUST auto-generate a unique ID when a public element or component omits `id`.
 - **FR-026**: `group` MUST require `children`, and `children` MUST recursively use the same public element contract.
 - **FR-027**: `grid` MUST require a two-dimensional `cells` matrix and an `item` template. Active cells MUST generate concrete item instances, while inactive cells MUST follow the configured inactive-cell strategy.
 - **FR-027A**: `grid.inactiveCellStrategy` MUST default to `destroy`, `grid.gap` MUST default to zero on both axes, and `grid.item` MUST default `components` to an empty list, `padding` to zero box spacing, and `contentOrientation` to `upright`.
+- **FR-027B**: Grid cell slot layout MUST be computed in row-major order. Each logical cell position MUST reserve its slot from the normalized `grid.item.size` and normalized `grid.gap`, including inactive cells, so later active cells do not collapse across inactive positions.
 - **FR-028**: Grid cell values of `1` and non-empty strings MUST be treated as active. A grid cell value of `0` MUST be treated as inactive. Empty strings MAY be schema-valid input but MUST behave as inactive cells at runtime.
 - **FR-029**: Generated grid-cell item IDs MUST follow the format `{grid-id}.{row-index}.{column-index}`.
 - **FR-029A**: Generated grid-cell item labels MUST equal the string form of the source cell value.
@@ -139,6 +143,7 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-030A**: `item.components` MUST default to an empty list, `item.padding` MUST default to zero box spacing, and `item.contentOrientation` MUST default to `upright`.
 - **FR-031**: `relations` MUST require ordered `links`, where each link references a `source` ID and a `target` ID.
 - **FR-031A**: When relation style is omitted, the default path color MUST be `black`.
+- **FR-031B**: After any draw-time or update-time relation refresh, each rendered relation link MUST derive its geometry from the then-current resolved source and target contributor bounds, and the relation element's own contributor bounds MUST equal the union of its rendered link geometries.
 - **FR-032**: `image` MUST require `source`, `text` MUST support optional `text` content with default empty string, and `rect` MUST require `size`.
 - **FR-032A**: Standalone root `text` elements MUST follow the world transform at the container level while keeping their rendered text visual upright and readable on screen under the same positive-determinant conditions used for upright item content.
 - **FR-032B**: For point-hit resolution and click-selection behavior, public element kinds `item`, `image`, `text`, and `relations` MUST delegate hit-testing through their managed children rather than treating only their own outer container bounds as the selectable hit target.
@@ -146,9 +151,11 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-033A**: `background.tint`, `bar.tint`, `icon.tint`, and component-text `tint` MUST default to white; `bar.placement` MUST default to `bottom`; `icon.placement` and component-text placement MUST default to `center`; component margins MUST default to zero box spacing; component text MUST default to empty string with `split = 0`; and `bar.animation` plus `bar.animationDuration` MUST default to `true` and `200`.
 - **FR-033B**: `background.source` MUST accept either a string source key or a texture-style object, `bar.source` MUST accept only a texture-style object, and `icon.source` MUST accept only a string source key.
 - **FR-033C**: Texture-style objects MUST permit partial field sets, and if a `type` field is provided it MUST be `rect`.
+- **FR-033D**: Component objects MUST be strict at their own top-level boundary. The complete allowed top-level keys are: `background` = `type`, `id`, `label`, `attrs`, `source`, `tint`, `size`, `margin`; `bar` = `type`, `id`, `label`, `attrs`, `source`, `tint`, `placement`, `margin`, `animation`, `animationDuration`; `icon` = `type`, `id`, `label`, `attrs`, `source`, `tint`, `placement`, `margin`; component `text` = `type`, `id`, `label`, `attrs`, `text`, `split`, `tint`, `placement`, `margin`.
 - **FR-034**: Background components MUST always normalize to full parent size regardless of any input size value.
 - **FR-035**: `bar`, `icon`, and component `text` MUST support placement and margin semantics, and bars MUST additionally support animation enablement and animation duration.
 - **FR-035A**: The only valid placement values MUST be `left`, `left-top`, `left-bottom`, `top`, `right`, `right-top`, `right-bottom`, `bottom`, and `center`.
+- **FR-035B**: Component placement anchors MUST be resolved against the item's content box after normalized padding is applied. `center` MUST anchor to the box center, edge placements MUST anchor to the corresponding edge midpoint or corner, and normalized component margin MUST then offset the anchored component outward from the touched edge or edges before final layout is committed.
 - **FR-036**: The library MUST support numeric shorthand and structured forms for size, gap, box spacing, and pixel-or-percent sizes. Numeric shorthand MUST normalize to the equivalent fully structured form.
 - **FR-036A**: `Size` object values MUST include both `width` and `height`, and `PxOrPercentSize` object values MUST also include both `width` and `height`.
 - **FR-036B**: `Size`, `Gap`, and pixel-or-percent numeric values MUST reject negative numbers.
@@ -165,6 +172,7 @@ A host application can group updates into undoable history steps, undo and redo 
 
 - **FR-041**: `selector(path, options)` MUST interpret `path` using JSONPath semantics relative to the provided root object.
 - **FR-041A**: Compatibility-oriented selector implementations MUST support at least root `$`, direct child selection, recursive descent `..`, array wildcard `[*]`, and filter predicates `?()` sufficient to evaluate queries equivalent to `$.children[*]`, `$..children`, `$..children[?(@.type != null)]`, and `$..[?(@.id=="item-1")]`.
+- **FR-041B**: Selector syntax outside the guaranteed compatibility subset MAY be implementation-defined, but if a provided expression cannot be interpreted by the compatibility selector it MUST fail deterministically rather than silently widening or narrowing the result set.
 - **FR-042**: Unless caller-supplied options explicitly override traversal behavior, selector traversal MUST descend only through `children` keys and MUST ignore other object keys for recursive discovery.
 - **FR-042A**: Selector evaluation MUST preserve the result ordering produced by JSONPath evaluation over that `children`-only traversal and MUST flatten the result list by default.
 - **FR-043**: `selector('$')` MUST return the root object itself, and `path: '$'` used by the event facade MUST continue to carry its special meaning of binding against the viewport surface rather than the world root.
@@ -180,7 +188,11 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-049**: When `relativeTransform` is enabled, numeric `attrs.x`, `attrs.y`, `attrs.rotation`, and `attrs.angle` deltas MUST be added to the target’s current values before apply; no other fields may be treated as relative.
 - **FR-050**: Unless explicitly disabled, updates MUST normalize shorthand input before merge and MUST validate the resulting payload before mutating the rendered target.
 - **FR-050A**: Normalization MUST only transform plain-object payloads; non-plain payload values MUST pass through unchanged.
+- **FR-050B**: During update merge processing, missing keys and keys explicitly set to `undefined` in the incoming change object MUST be treated as omitted and MUST leave the current target state unchanged.
+- **FR-050C**: During update merge processing, an explicit `null` value MUST be written through only when the receiving public field permits `null`; otherwise validation MUST fail before observable mutation.
 - **FR-051**: `mergeStrategy: 'merge'` MUST merge into existing state. `mergeStrategy: 'replace'` MUST replace at the top level while using special reconciliation rules for managed child and component arrays rather than naïve full-object replacement.
+- **FR-051A**: Except for the special reconciliation rules defined for managed `children`, managed `components`, and relation-link deduplication, incoming array values MUST replace the existing array value as a whole after normalization and validation.
+- **FR-051B**: Under `mergeStrategy: 'replace'`, any top-level key not present on the incoming normalized change object MUST be removed from the replaced public object unless preserved by an explicitly defined compatibility reconciliation rule in this specification.
 - **FR-052**: `refresh: true` MUST force reprocessing of all existing keys on the target, not only newly changed keys.
 - **FR-053**: If the resolved change set is empty for a target, the update MUST be a no-op for that target.
 - **FR-054**: When history is active, the mutation MUST be represented as an undoable command rather than mutating the target immediately.
@@ -208,6 +220,7 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-059G**: `event.remove(id)` MUST detach any currently active listeners for the targeted registrations before removing them from the registry, and `event.removeAll()` MUST do the same for every currently registered event.
 - **FR-059H**: Each whitespace-delimited `action` token supplied to `event.add(...)` MUST be forwarded verbatim as an event name to the target surface with no aliasing, normalization, or remapping.
 - **FR-059I**: Listener `options` supplied to `event.add(...)` MUST be passed through unchanged to both listener attachment and listener removal.
+- **FR-059J**: For one registration, explicit `elements` targets and selector-resolved `path` targets MUST each preserve their own source order, and attachment order MUST remain stable across repeated `event.on(id)` activations for the same registration.
 - **FR-060**: Event registration with `path: '$'` MUST bind against the viewport surface itself. Other selector paths MUST resolve relative to the world surface.
 - **FR-060A**: If `elements` and `path` are both provided to `event.add(...)`, both sources MUST contribute targets without deduplication.
 - **FR-060B**: `event.get(id)` MUST return `null` for unknown IDs, and `event.getAll()` MUST expose the full current event registry.
@@ -311,6 +324,9 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-100**: The history manager MUST emit at least `history:executed`, `history:undone`, `history:redone`, `history:cleared`, and `history:destroyed`.
 - **FR-100A**: The patch-map runtime, state manager, and history manager MUST support emitter-style `on(eventName, listener)` and `off(eventName, listener)` subscription APIs, including wildcard namespace listeners for grouped event families.
 - **FR-100B**: Emitting a namespaced event such as `namespace:event` MUST also emit the corresponding wildcard event `namespace:*` with the original object payload enriched with `namespace` and `type`.
+- **FR-100C**: For one emitter and one event name, listeners MUST fire in stable registration order.
+- **FR-100D**: An emitter dispatch MUST snapshot the listener set at the start of that dispatch. Listener additions or removals performed while one event is being dispatched MUST NOT affect the in-flight dispatch, but MUST affect subsequent dispatches.
+- **FR-100E**: When emitting `namespace:event`, the exact event listeners for `namespace:event` MUST run before wildcard listeners for `namespace:*`.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -323,6 +339,15 @@ A host application can group updates into undoable history steps, undo and redo 
 - **Interaction State**: A stack-managed behavioral unit that handles pointer or keyboard events, with optional propagation and modifier precedence.
 - **History Command**: A reversible mutation unit recorded by the history manager, optionally bundled with adjacent commands under a shared history ID.
 - **Transformer Selection**: The set of currently transformable elements tracked by the transformer and used for wireframes and resize handles.
+
+### Compatibility Terms
+
+- **Closest Group**: The nearest ancestor-or-self of the hit target whose public element kind is `group`.
+- **Highest Group**: The outermost ancestor of the hit target whose public element kind is `group` within the same rendered world subtree.
+- **Resizable Element**: A managed element whose compatibility contract includes writable `size.width` and `size.height`; in this specification that means `item`, `rect`, and any generated grid-cell item.
+- **Text-Input-Like Element**: A host text-entry surface such as an input, textarea, content-editable element, or a platform-equivalent editable control.
+- **Viewport-Movement Cancellation**: Suppression of click or tap resolution because viewport dragging, deceleration, or pointer travel crossed the active movement threshold before the interaction completed.
+- **Positive-Determinant Conditions**: World-transform states whose effective linear transform preserves orientation, equivalently an even number of axis inversions after combining active flips; under these conditions upright text correction MUST preserve readable non-mirrored text without applying an additional reflection.
 
 ## Success Criteria *(mandatory)*
 
