@@ -62,7 +62,7 @@ A host application can group updates into undoable history steps, undo and redo 
 ### Edge Cases
 
 - What happens when `init()` is called more than once on the same instance? The second and later calls must be no-ops.
-- What happens when `draw(data)` receives legacy map input instead of normalized map data? The library must transform it before validation.
+- What happens when `draw(data)` receives input outside the public map-data contract? The library must reject it before observable mutation.
 - What happens when `draw(data)` or `update()` receives schema-invalid data? The library must reject it before observable mutation.
 - What happens when duplicate element IDs appear in the public map tree? Validation must fail.
 - What happens when `update()` targets the same element more than once through `elements` and `path`? Each resolved target must still be processed in order.
@@ -82,7 +82,7 @@ A host application can group updates into undoable history steps, undo and redo 
 #### A. Public Surface
 
 - **FR-001**: The library MUST expose a primary `Patchmap` runtime surface with the following public members: `init`, `destroy`, `draw`, `update`, `focus`, `fit`, `selector`, `rotation`, `flip`, `event`, `app`, `viewport`, `world`, `theme`, `isInit`, `undoRedoManager`, `stateManager`, `transformer`, and `animationContext`.
-- **FR-002**: The library MUST expose a command abstraction, a history manager, a base interaction state abstraction with propagation control, a transformer surface, a legacy data converter, a selector function, and utility exports for hit testing, movement threshold checks, point intersection checks, and unique ID generation.
+- **FR-002**: The library MUST expose a command abstraction, a history manager, a base interaction state abstraction with propagation control, a transformer surface, a selector function, and utility exports for hit testing, movement threshold checks, point intersection checks, and unique ID generation.
 - **FR-003**: The public contract MUST preserve the method and property names above even if internal implementation details differ.
 
 #### B. Initialization and Destruction
@@ -111,10 +111,10 @@ A host application can group updates into undoable history steps, undo and redo 
 
 #### C. Draw and World Replacement
 
-- **FR-014**: `draw(data)` MUST accept either normalized public map data or a supported legacy data format.
+- **FR-014**: `draw(data)` MUST accept normalized public map data only.
 - **FR-015**: `draw(data)` MUST treat the public input boundary as JSON-compatible data and MUST process a deep JSON-equivalent clone of the provided input before validation or mutation.
-- **FR-016**: If the draw input is a legacy object identified by the presence of a top-level `grids` field, the library MUST convert it into normalized map data before validation.
-- **FR-017**: `draw(data)` MUST validate the normalized public map data before mutating the rendered world. Invalid input MUST fail without partially drawing.
+- **FR-016**: `draw(data)` MUST NOT perform legacy-input conversion or compatibility heuristics; any input that does not satisfy the public map-data contract MUST fail validation before observable mutation.
+- **FR-017**: `draw(data)` MUST validate the public map data before mutating the rendered world. Invalid input MUST fail without partially drawing.
 - **FR-018**: Before replacing the world contents, `draw(data)` MUST stop rendering, clear undo/redo history, revert the current animation context, and remove registered canvas events from the viewport surface.
 - **FR-019**: A successful `draw(data)` MUST replace the entire rendered world contents with the validated map contents.
 - **FR-020**: After a successful draw, the library MUST schedule one follow-up refresh pass for all relation elements so that relation geometry resolves after all link targets exist.
@@ -158,15 +158,14 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-040A**: Managed top-level world children MUST remain ordered by `zIndex` and stable display order after both draw and update operations.
 - **FR-040B**: `contentOrientation: 'upright'` MUST keep `item` and `grid.item` inner `text`, `icon`, and `bar` visually upright and readable on screen under world rotation and flip, while `contentOrientation: 'follow-item'` MUST make those inner components follow the item’s own orientation.
 
-#### E. Legacy Conversion
+#### E. Selector Query Language
 
-- **FR-041**: Legacy `grids` collections MUST convert into public `grid` elements, preserving source identity and label, mapping transform values into attributes, and deriving each generated cell from the legacy matrix.
-- **FR-041A**: Legacy grid conversion MUST map cell value `'0'` to inactive and all other legacy cell values to active, MUST set `gap = 4`, MUST set generated item padding to `3`, MUST derive item width and height as legacy `spec.width * 40` and `spec.height * 40`, MUST create a background plus hidden bar component template, and MUST set `attrs.display = panelGroup`.
-- **FR-042**: Legacy `strings` collections MUST convert into `relations` elements whose links connect each child to the next, with single-child strings producing a self-link and zero-child strings producing an empty link list.
-- **FR-042A**: Legacy string conversion MUST set relation style width `4`, cap `round`, join `round`, color equal to the legacy dark color, MUST flatten nested `props.props` metadata when present, MUST set `attrs.display = string`, and MUST set `attrs.zIndex = 20`.
-- **FR-043**: Other supported legacy collections MUST convert into `item` elements with a background, icon, hidden bar, transform-derived coordinates, and metadata stored under attributes.
-- **FR-043A**: Non-grid, non-string legacy conversion MUST set `size = 40`, MUST derive the icon source by singularizing the collection key except mapping `combines` to `combiner`, MUST set `attrs.display` to that same derived name, and MUST set `attrs.zIndex = 10`.
-- **FR-044**: Legacy conversion MUST preserve enough metadata and display classification to support existing PATCH-style datasets.
+- **FR-041**: `selector(path, options)` MUST interpret `path` using JSONPath semantics relative to the provided root object.
+- **FR-041A**: Compatibility-oriented selector implementations MUST support at least root `$`, direct child selection, recursive descent `..`, array wildcard `[*]`, and filter predicates `?()` sufficient to evaluate queries equivalent to `$.children[*]`, `$..children`, `$..children[?(@.type != null)]`, and `$..[?(@.id=="item-1")]`.
+- **FR-042**: Unless caller-supplied options explicitly override traversal behavior, selector traversal MUST descend only through `children` keys and MUST ignore other object keys for recursive discovery.
+- **FR-042A**: Selector evaluation MUST preserve the result ordering produced by JSONPath evaluation over that `children`-only traversal and MUST flatten the result list by default.
+- **FR-043**: `selector('$')` MUST return the root object itself, and `path: '$'` used by the event facade MUST continue to carry its special meaning of binding against the viewport surface rather than the world root.
+- **FR-044**: A nullish selector root MUST be treated as an empty object for evaluation purposes rather than causing selector execution itself to fail.
 
 #### F. Update Resolution and Mutation
 
@@ -183,6 +182,10 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-053**: If the resolved change set is empty for a target, the update MUST be a no-op for that target.
 - **FR-054**: When history is active, the mutation MUST be represented as an undoable command rather than mutating the target immediately.
 - **FR-055**: Managed `children` and managed `components` MUST be reconciled by identity-aware matching, update existing managed instances in place when possible, create missing managed instances when necessary, and under `replace` remove unmatched managed instances while preserving unmanaged raw rendering children.
+- **FR-055A**: Identity-aware matching for managed `children` and `components` MUST search existing still-unmatched managed instances using the first key present on the incoming change object from this priority order: `id`, then `label`, then `type`.
+- **FR-055B**: If an incoming managed child or component change object contains none of `id`, `label`, or `type`, it MUST be treated as a request to create a new managed instance rather than match an existing one.
+- **FR-055C**: Validation and default-filling for managed `children` and `components` MUST be applied only to unmatched incoming definitions that will create new managed instances; matched existing instances MUST be updated in place.
+- **FR-055D**: Under `mergeStrategy: 'replace'`, matched surviving managed `children` and `components` MUST be re-ordered to follow the incoming array order before unmatched managed instances are removed, while unmanaged raw rendering children remain untouched.
 - **FR-056**: For relation elements under `merge`, incoming links that duplicate an existing `{ source, target }` pair MUST be ignored instead of appended again.
 - **FR-057**: `update()` MUST return the resolved target list after processing and MUST emit `patchmap:updated` unless `emit` is explicitly `false`.
 
@@ -200,9 +203,13 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-059E**: Event registrations MUST accept one or more actions in a whitespace-delimited string and MUST attach or detach every named action for every resolved target.
 - **FR-059F**: `event.add(...)` MUST default to viewport-surface targeting when neither `path` nor `elements` is provided, and MUST bypass selector resolution when only explicit `elements` are provided.
 - **FR-059G**: `event.remove(id)` MUST detach any currently active listeners for the targeted registrations before removing them from the registry, and `event.removeAll()` MUST do the same for every currently registered event.
+- **FR-059H**: Each whitespace-delimited `action` token supplied to `event.add(...)` MUST be forwarded verbatim as an event name to the target surface with no aliasing, normalization, or remapping.
+- **FR-059I**: Listener `options` supplied to `event.add(...)` MUST be passed through unchanged to both listener attachment and listener removal.
 - **FR-060**: Event registration with `path: '$'` MUST bind against the viewport surface itself. Other selector paths MUST resolve relative to the world surface.
 - **FR-060A**: If `elements` and `path` are both provided to `event.add(...)`, both sources MUST contribute targets without deduplication.
 - **FR-060B**: `event.get(id)` MUST return `null` for unknown IDs, and `event.getAll()` MUST expose the full current event registry.
+- **FR-060C**: For registrations that include a selector path, target resolution MUST occur at listener activation and deactivation time rather than being frozen to the result set from `event.add(...)`.
+- **FR-060D**: When both explicit `elements` and selector-resolved `path` targets are present for one registration, attachment and detachment order MUST process explicit `elements` first and selector-resolved targets second.
 - **FR-061**: `focus(ids, options)` and `fit(ids, options)` MUST accept a single ID, an array of IDs, or a nullish value for default targeting.
 - **FR-062**: When `ids` is nullish, `focus()` and `fit()` MUST resolve targets from top-level managed world children and MUST exclude top-level relation elements from this default target set.
 - **FR-063**: When an explicitly requested target is a relation element, `focus()` and `fit()` MUST attempt to resolve the linked endpoint elements first and MUST only use the relation element itself if no linked endpoints can be resolved.
@@ -276,11 +283,18 @@ A host application can group updates into undoable history steps, undo and redo 
 - **FR-092**: The transformer MUST emit `update_elements` whenever its selection changes and whenever resize updates need to notify selection observers.
 - **FR-092A**: `update_elements` payloads MUST include `{ target, current, added, removed }`, where `target` is the transformer, `current` is the full current selection snapshot, and resize-only notifications with unchanged membership MUST use empty arrays for both `added` and `removed`.
 - **FR-093**: The transformer MUST support optional resize handles for the group bounds of the current resizable selection and optional resize history recording.
+- **FR-093A**: When resize handles are visible, the transformer MUST expose four visible corner handles named `top-left`, `top-right`, `bottom-right`, and `bottom-left`, and MUST also expose edge resize hit targets named `top`, `right`, `bottom`, and `left` for the same bounds.
+- **FR-093B**: In overlap regions, visible corner handles MUST take hit priority over edge resize targets.
 - **FR-094**: Resize handles MUST only appear when at least one selected element is resizable and not blocked by locking constraints.
+- **FR-094A**: Resize bounds and handle positions MUST be computed from only the resizable subset of the current selection; selected non-resizable elements MUST neither receive resize mutations nor influence the displayed resize geometry.
 - **FR-095**: Resize gestures MUST update selected resizable elements in viewport-consistent space, including element positions and sizes, and MUST ignore non-resizable or interaction-locked elements.
+- **FR-095A**: Resize mutations MUST write translated positions into `attrs.x` and `attrs.y` and dimensions into `size.width` and `size.height`; compatibility-oriented implementations MUST NOT write width or height into `attrs`.
+- **FR-095B**: All element updates within one resize gesture MUST be computed from element states captured at gesture start and from one shared group-bounds resize transform for that gesture.
 - **FR-096**: Holding the aspect-ratio modifier during resize MUST preserve the original group aspect ratio for edge and corner handles.
+- **FR-096A**: With aspect-ratio preservation enabled, corner-handle resize MUST anchor the corner opposite the active handle, while edge-handle resize MUST anchor the opposite edge and expand or shrink symmetrically about the perpendicular centerline.
 - **FR-097**: Resize output sizes MUST never fall below one unit and MUST snap fractional sizes to integer unit steps in a stable, directional manner.
 - **FR-097A**: When a resize gesture begins while edge-panning support is available but paused, the resize flow MUST temporarily resume it for the gesture and restore it when the gesture ends.
+- **FR-097B**: When resize-history recording is enabled, all element mutations produced by a single resize gesture MUST share one generated history ID.
 
 #### L. Emitted Events
 
@@ -301,7 +315,7 @@ A host application can group updates into undoable history steps, undo and redo 
 - **Element**: A top-level or grouped renderable object of type `group`, `grid`, `item`, `relations`, `image`, `text`, or `rect`.
 - **Component**: A visual sub-object attached to an `item` or grid-item template, limited to `background`, `bar`, `icon`, or `text`.
 - **Grid Cell Item**: A runtime-generated `item` created from a `grid` cell and addressable by a deterministic composite ID.
-- **Selector Query**: A string expression evaluated relative to the world root and used for object discovery and update targeting.
+- **Selector Query**: A JSONPath expression evaluated relative to the world root and, by default, traversing only through `children` links for object discovery and update targeting.
 - **Interaction State**: A stack-managed behavioral unit that handles pointer or keyboard events, with optional propagation and modifier precedence.
 - **History Command**: A reversible mutation unit recorded by the history manager, optionally bundled with adjacent commands under a shared history ID.
 - **Transformer Selection**: The set of currently transformable elements tracked by the transformer and used for wireframes and resize handles.
@@ -317,7 +331,7 @@ A host application can group updates into undoable history steps, undo and redo 
 
 ## Assumptions
 
-- A reimplementation may choose any rendering engine, event system, schema validator, or asset loader as long as it preserves the observable behavior defined in this specification.
+- A reimplementation may choose any rendering engine, event system, schema validator, asset loader, or JSONPath-capable selector engine as long as it preserves the observable behavior defined in this specification.
 - The host environment provides a container that can receive a rendered surface, pointer events, keyboard events, and resize notifications.
 - Host applications are expected to supply plain data objects and arrays at the public draw/update boundary rather than opaque runtime instances.
 - The spec defines compatibility at the library contract level, not binary compatibility with the original package layout or build artifacts.

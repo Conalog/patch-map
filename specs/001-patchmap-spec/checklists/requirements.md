@@ -32,4 +32,4 @@
 ## Notes
 
 - Initial validation pass: the draft keeps public contract names and behavioral semantics, but intentionally omits renderer-specific class names, package names, and source-module structure.
-- Compatibility-sensitive semantics preserved explicitly include async draw notification, legacy conversion, grid-cell ID generation, strict fit padding validation, history bundling, locked-object filtering, and transformer resize snapping.
+- Compatibility-sensitive semantics preserved explicitly include async draw notification, JSONPath-based selector behavior, grid-cell ID generation, strict fit padding validation, history bundling, locked-object filtering, and transformer resize snapping.
