@@ -1,6 +1,6 @@
-- Status: language-agnostic patch-map compatibility spec received a final reimplementation-sufficiency review, was revised for the last confirmed contract gaps, and passed the local final checker/read-through.
-- Next step: no immediate write step; future sessions can extend the spec into downstream plan/tasks or revisit only if the runtime gains new externally visible behavior.
+- Status: language-agnostic patch-map compatibility spec received a final reimplementation-sufficiency review, was revised for the last confirmed contract gaps, and remains the only retained deliverable for this task.
+- Next step: no immediate write step; future sessions can compare concrete target stacks against the spec or revisit only if the runtime gains new externally visible behavior.
 - Blockers: none.
 - Declared read scope: `docs/reference/patchmap/**`, `README.md`, `README_KR.md`, `package.json`, `src/patch-map.ts`, `src/patchmap.js`, `src/init.js`, `src/display/**`, `src/events/**`, `src/command/**`, `src/transformer/**`, `src/utils/**`, relevant `src/tests/**`.
 - Declared write scope: `docs/memory.md`, `docs/tasks/2026/03-25/patchmap-library-spec/**`, `specs/001-patchmap-spec/**`.
-- Latest validation: final review subagents identified remaining omissions in selector defaults/overrides, `focus`-`fit` filter pruning, `selection` defaults, `event.add` auto-ID and teardown semantics, async `init()` completion, asset input shapes and built-in namespaces, injected init options, and runtime/state/history/transformer event payloads; these changes were reflected in `spec.md`, and `python3 /Users/minholim/.agents/skills/project-context/scripts/check_runtime_shape.py` returned `[OK]` after the revision.
+- Latest validation: implementation-oriented planning artifacts created after the spec review were removed as out of scope; `python3 /Users/minholim/.agents/skills/project-context/scripts/check_runtime_shape.py` returned `[OK]` after cleanup.

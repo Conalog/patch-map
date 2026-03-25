@@ -7,3 +7,7 @@
 - 최종 재구현 가능성 기준으로 서브에이전트 3개를 다시 돌려 `selector` 기본값과 override 계약, `focus`/`fit`의 filter subtree pruning, 기본 `selection` state defaults, `event.add`의 auto-ID 및 teardown 규칙, async `init()` 완료 시점, `opts.assets` 허용 shape와 built-in asset namespace, injected init 옵션, patchmap/state/history/transformer 이벤트 payload 계약이 아직 열려 있음을 확인했다.
 - 위 누락을 `specs/001-patchmap-spec/spec.md`에 반영해 init/options/assets 표면, selector/event/focus, selection defaults, lifecycle/history/transformer emitted payload를 language-agnostic 계약으로 보강했다.
 - 최종 수정 후 `python3 /Users/minholim/.agents/skills/project-context/scripts/check_runtime_shape.py`를 다시 실행했고 `[OK]`를 확인했다.
+
+**2026-03-25**
+- spec 이후 생성했던 구현 전제 산출물(`specs/001-patchmap-spec/plan.md`, `research.md`, `data-model.md`, `quickstart.md`, `contracts/*.md`, `tasks.md`)과 부수 생성물(`AGENTS.md`)을 out-of-scope로 판단해 제거했다.
+- `docs/memory.md`와 `docs/tasks/2026/03-25/patchmap-library-spec/**`는 “spec만 유지하고 implementation planning artifacts는 제거” 상태로 다시 정리했다.
