@@ -12,6 +12,7 @@ const KEYS = ['size', 'fill', 'stroke', 'radius'];
 const ComposedRect = mixins(Graphics, Base, Showable, Lockedable);
 
 export class Rect extends ComposedRect {
+  static isElement = true;
   static isSelectable = true;
   static isResizable = true;
   static hitScope = 'self';

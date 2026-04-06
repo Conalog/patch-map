@@ -1,3 +1,4 @@
+import { Container } from 'pixi.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Transformer } from '../../patch-map';
 import { setupPatchmapTests } from './patchmap.setup';
@@ -354,6 +355,54 @@ describe('patchmap test', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it('ignores stale draw events when draw is called twice before the scheduled emit runs', async () => {
+    const patchmap = getPatchmap();
+    const onDraw = vi.fn(() => {
+      patchmap.event.add({
+        id: 'tooltip-pointerover',
+        action: 'pointerover',
+        fn: vi.fn(),
+      });
+    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    patchmap.on('patchmap:draw', onDraw);
+
+    vi.stubGlobal('scheduler', undefined);
+    try {
+      patchmap.draw(sampleData);
+      patchmap.draw(sampleData);
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(onDraw).toHaveBeenCalledTimes(1);
+      expect(onDraw.mock.calls[0][0].data).toHaveLength(sampleData.length);
+      expect(onDraw.mock.calls[0][0].data[0].id).toBe(sampleData[0].id);
+      expect(onDraw.mock.calls[0][0].data[1].id).toBe(sampleData[1].id);
+      expect(patchmap.event.get('tooltip-pointerover')).toBeTruthy();
+      expect(
+        warnSpy.mock.calls.some(([message]) =>
+          String(message).includes('tooltip-pointerover already exists'),
+        ),
+      ).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('preserves unmanaged PIXI children on redraw', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(sampleData);
+
+    const unmanagedChild = new Container();
+    patchmap.world.addChild(unmanagedChild);
+
+    patchmap.draw(sampleData);
+
+    expect(unmanagedChild.destroyed).toBe(false);
+    expect(patchmap.world.children.includes(unmanagedChild)).toBe(true);
   });
 
   it('does not emit updated event during the internal relation refresh after draw', async () => {
