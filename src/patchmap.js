@@ -189,12 +189,14 @@ class Patchmap extends WildcardEventEmitter {
   }
 
   draw(data) {
-    const drawToken = ++this._drawToken;
+    if (!this.isInit) return;
+
     const processedData = processData(JSON.parse(JSON.stringify(data)));
     if (!processedData) return;
 
     const validatedData = validateMapData(processedData);
     if (isValidationError(validatedData)) throw validatedData;
+    const drawToken = ++this._drawToken;
 
     const store = this._createStoreContext();
 

@@ -357,6 +357,12 @@ describe('patchmap test', () => {
     }
   });
 
+  it('does not crash when draw is called before init', () => {
+    const patchmap = new (getPatchmap().constructor)();
+
+    expect(() => patchmap.draw(sampleData)).not.toThrow();
+  });
+
   it('ignores stale draw events when draw is called twice before the scheduled emit runs', async () => {
     const patchmap = getPatchmap();
     const onDraw = vi.fn(() => {
@@ -387,6 +393,26 @@ describe('patchmap test', () => {
           String(message).includes('tooltip-pointerover already exists'),
         ),
       ).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('keeps the latest successful draw event when a later draw fails validation', async () => {
+    const patchmap = getPatchmap();
+    const onDraw = vi.fn();
+
+    patchmap.on('patchmap:draw', onDraw);
+
+    vi.stubGlobal('scheduler', undefined);
+    try {
+      patchmap.draw(sampleData);
+      expect(() => patchmap.draw({ invalid: true })).toThrow();
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(onDraw).toHaveBeenCalledTimes(1);
+      expect(onDraw.mock.calls[0][0].data).toHaveLength(sampleData.length);
     } finally {
       vi.unstubAllGlobals();
     }
