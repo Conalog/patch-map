@@ -1,5 +1,3 @@
-import Element from './elements/Element';
-
 export const draw = (store, data) => {
   destroyChildren(store.world);
   store.world.apply(
@@ -11,8 +9,7 @@ export const draw = (store, data) => {
 const destroyChildren = (parent) => {
   const children = [...parent.children];
   for (const child of children) {
-    if (child instanceof Element) {
-      child.destroy({ children: true });
-    }
+    child.destroy({ children: true });
   }
+  parent.props.children = [];
 };

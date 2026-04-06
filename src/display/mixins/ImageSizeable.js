@@ -6,7 +6,9 @@ export const ImageSizeable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyImageSize() {
       const { size } = this.props;
-      if (!size || !this.sprite) return;
+      if (!size || this.destroyed || !this.sprite || this.sprite.destroyed) {
+        return;
+      }
 
       if (size.width !== undefined) this.sprite.width = size.width;
       if (size.height !== undefined) this.sprite.height = size.height;
@@ -14,7 +16,7 @@ export const ImageSizeable = (superClass) => {
       this.store.viewport.emit('object_transformed', this);
     }
 
-    // Hook from Sourceable to ensure size is applied after async texture load
+    // Sourceable calls this after each texture application.
     _onTextureApplied() {
       this._applyImageSize();
     }

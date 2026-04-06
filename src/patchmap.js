@@ -38,6 +38,7 @@ class Patchmap extends WildcardEventEmitter {
   _stateManager = null;
   _world = null;
   _viewTransform = this._createViewTransform();
+  _drawToken = 0;
 
   get app() {
     return this._app;
@@ -182,16 +183,20 @@ class Patchmap extends WildcardEventEmitter {
     this._stateManager = null;
     this._world = null;
     this._viewTransform = this._createViewTransform();
+    this._drawToken = 0;
     this.emit('patchmap:destroyed', { target: this });
     this.removeAllListeners();
   }
 
   draw(data) {
+    if (!this.isInit) return;
+
     const processedData = processData(JSON.parse(JSON.stringify(data)));
     if (!processedData) return;
 
     const validatedData = validateMapData(processedData);
     if (isValidationError(validatedData)) throw validatedData;
+    const drawToken = ++this._drawToken;
 
     const store = this._createStoreContext();
 
@@ -217,6 +222,7 @@ class Patchmap extends WildcardEventEmitter {
     );
     this.app.start();
     scheduleUserVisibleTask(() => {
+      if (!this.isInit || drawToken !== this._drawToken) return;
       this.emit('patchmap:draw', { data: validatedData, target: this });
     });
     return validatedData;
