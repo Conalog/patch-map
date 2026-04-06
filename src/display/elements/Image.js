@@ -16,7 +16,6 @@ export class Image extends ComposedImage {
     super({ type: 'image', store });
     this.sprite = new Sprite(Texture.EMPTY);
     this.addChild(this.sprite);
-    this._loadToken = 0;
   }
 
   apply(changes, options) {

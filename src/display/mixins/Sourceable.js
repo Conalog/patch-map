@@ -6,21 +6,26 @@ const KEYS = ['source'];
 
 export const Sourceable = (superClass) => {
   const MixedClass = class extends superClass {
-    async _applySource(relevantChanges) {
+    constructor(...args) {
+      super(...args);
+      this._loadToken = 0;
+    }
+
+    _applySource(relevantChanges) {
       const { source } = relevantChanges;
       const { viewport, theme } = this.store;
+      const currentToken = ++this._loadToken;
 
       if (!source) {
         this._setTexture(Texture.EMPTY);
         return;
       }
 
-      // 1. Try synchronous retrieval (cached or predefined textures)
       let texture = null;
       try {
         texture = getTexture(viewport.app.renderer, theme, source);
       } catch {
-        // Fallback to async loading
+        // Ignore sync lookup failures and fall back to asset loading.
       }
 
       if (texture) {
@@ -33,32 +38,32 @@ export const Sourceable = (superClass) => {
         return;
       }
 
-      // 2. Asynchronous loading for URLs or unregistered asset keys
-      if (this._loadToken === undefined) this._loadToken = 0;
-      const currentToken = ++this._loadToken;
-
-      try {
-        const loadedTexture = await Assets.load(source);
-        if (currentToken === this._loadToken) {
-          this._setTexture(loadedTexture);
-        }
-      } catch (err) {
-        console.warn('[patchmap:source] failed to load', source, err);
-        if (currentToken === this._loadToken) {
-          this._setTexture(Texture.EMPTY);
-        }
-      }
+      Assets.load(source)
+        .then((loadedTexture) => {
+          if (!this.destroyed && currentToken === this._loadToken) {
+            this._setTexture(loadedTexture);
+          }
+        })
+        .catch((err) => {
+          console.warn('[patchmap:source] failed to load', source, err);
+          if (!this.destroyed && currentToken === this._loadToken) {
+            this._setTexture(Texture.EMPTY);
+          }
+        });
     }
 
     _setTexture(texture) {
+      if (this.destroyed) return;
+
       const metadata = texture?.metadata?.slice ?? {};
       if (this.sprite) {
+        if (this.sprite.destroyed) return;
         this.sprite.texture = texture;
       } else {
         Object.assign(this, { texture, ...metadata });
       }
 
-      // Hook for post-texture-loading actions
+      // Allow mixins to react after a texture is applied.
       if (typeof this._onTextureApplied === 'function') {
         this._onTextureApplied(texture);
       }
