@@ -9,9 +9,7 @@ export const draw = (store, data) => {
 const destroyChildren = (parent) => {
   const children = [...parent.children];
   for (const child of children) {
-    if (child?.constructor?.isElement) {
-      child.destroy({ children: true });
-    }
+    child.destroy({ children: true });
   }
   parent.props.children = [];
 };

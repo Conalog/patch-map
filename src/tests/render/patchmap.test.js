@@ -392,7 +392,7 @@ describe('patchmap test', () => {
     }
   });
 
-  it('preserves unmanaged PIXI children on redraw', () => {
+  it('clears unmanaged PIXI children on redraw', () => {
     const patchmap = getPatchmap();
     patchmap.draw(sampleData);
 
@@ -401,8 +401,8 @@ describe('patchmap test', () => {
 
     patchmap.draw(sampleData);
 
-    expect(unmanagedChild.destroyed).toBe(false);
-    expect(patchmap.world.children.includes(unmanagedChild)).toBe(true);
+    expect(unmanagedChild.destroyed).toBe(true);
+    expect(patchmap.world.children.includes(unmanagedChild)).toBe(false);
   });
 
   it('does not emit updated event during the internal relation refresh after draw', async () => {
