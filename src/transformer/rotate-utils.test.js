@@ -30,6 +30,22 @@ describe('rotate-utils', () => {
     expect(delta).toBeCloseTo(Math.PI / 6);
   });
 
+  it('snaps the final rotation angle instead of only the delta', () => {
+    const delta = computeRotationDelta({
+      center: { x: 0, y: 0 },
+      startPoint: { x: 10, y: 0 },
+      currentPoint: rotatePoint(
+        { x: 10, y: 0 },
+        { x: 0, y: 0 },
+        (60 * Math.PI) / 180,
+      ),
+      snap: true,
+      snapBaseAngle: (4 * Math.PI) / 180,
+    });
+
+    expect((4 * Math.PI) / 180 + delta).toBeCloseTo(Math.PI / 3);
+  });
+
   it('keeps unsnapped rotation delta when snap is false', () => {
     const delta = computeRotationDelta({
       center: { x: 0, y: 0 },

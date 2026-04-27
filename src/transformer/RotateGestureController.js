@@ -52,14 +52,18 @@ export default class RotateGestureController {
     const rotateContext = this._getRotateContext();
     if (!rotateContext) return;
 
+    const elementStates = createRotateElementStates({
+      elements: rotateContext.elements,
+      viewport,
+    });
+
     this._activeRotate = {
       startPoint: viewport.toWorld(event.global),
       currentPoint: viewport.toWorld(event.global),
       frame: rotateContext.frame,
-      elementStates: createRotateElementStates({
-        elements: rotateContext.elements,
-        viewport,
-      }),
+      snapBaseAngle:
+        elementStates[0]?.rotation ?? rotateContext.frame.rotation ?? 0,
+      elementStates,
       historyId: this._getTransformHistory() ? uid() : null,
     };
     this._isShiftPressed = Boolean(event.shiftKey);
@@ -102,6 +106,7 @@ export default class RotateGestureController {
       startPoint: this._activeRotate.startPoint,
       currentPoint,
       snap,
+      snapBaseAngle: this._activeRotate.snapBaseAngle,
     });
     const updates = computeRotateUpdates({
       activeRotate: this._activeRotate,

@@ -20,12 +20,16 @@ export const computeRotationDelta = ({
   startPoint,
   currentPoint,
   snap = false,
+  snapBaseAngle = 0,
   snapStep = ANGLE_SNAP_STEP,
 }) => {
   const delta = normalizeAngleDelta(
     getAngle(center, currentPoint) - getAngle(center, startPoint),
   );
-  return snap ? snapAngle(delta, snapStep) : delta;
+  if (!snap) return delta;
+  return normalizeAngleDelta(
+    snapAngle(snapBaseAngle + delta, snapStep) - snapBaseAngle,
+  );
 };
 
 export const rotatePoint = (point, center, angle) => {

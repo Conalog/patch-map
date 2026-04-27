@@ -1033,6 +1033,62 @@ describe('Transformer', () => {
       expect(rect.rotation).toBeCloseTo(Math.PI / 12);
     });
 
+    it('should snap final rotation to 15 degree increments from a non-snapped start angle', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      rect.apply({ attrs: { angle: 4 } });
+      transformer.elements = [rect];
+
+      rotateWithFirstHandle(
+        patchmap,
+        transformer,
+        { x: 150, y: 140 },
+        (60 * Math.PI) / 180,
+        { shiftKey: true },
+      );
+
+      expect(rect.angle).toBeCloseTo(60);
+    });
+
+    it('should snap multi-selection rotation from the element angle instead of the axis-aligned frame', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw([
+        {
+          type: 'rect',
+          id: 'snap-multi-1',
+          size: { width: 100, height: 80 },
+          attrs: { x: 100, y: 100, angle: 62.27 },
+        },
+        {
+          type: 'rect',
+          id: 'snap-multi-2',
+          size: { width: 100, height: 80 },
+          attrs: { x: 260, y: 120, angle: 62.27 },
+        },
+      ]);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect1 = patchmap.selector('$..[?(@.id=="snap-multi-1")]')[0];
+      const rect2 = patchmap.selector('$..[?(@.id=="snap-multi-2")]')[0];
+      transformer.elements = [rect1, rect2];
+
+      rotateWithFirstHandle(
+        patchmap,
+        transformer,
+        { x: 150, y: 140 },
+        (15 * Math.PI) / 180,
+        { shiftKey: true },
+      );
+
+      expect(rect1.angle).toBeCloseTo(75);
+      expect(rect2.angle).toBeCloseTo(75);
+    });
+
     it('should update rotation snap when shift is pressed during a gesture', () => {
       const patchmap = getPatchmap();
       patchmap.draw(resizeSampleData);
