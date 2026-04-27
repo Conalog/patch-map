@@ -2,7 +2,7 @@ import { isRotatableCandidate } from '../utils/interaction-locks';
 import {
   getBoundsFromPoints,
   getCentroid,
-  getObjectLocalCorners,
+  getObjectFrameLocalCorners,
 } from '../utils/transform';
 import { normalizeBounds } from './resize-context';
 
@@ -31,7 +31,7 @@ export const buildTransformFrame = ({ elements, viewport }) => {
   if (!viewport || !elements || elements.length === 0) return null;
 
   if (elements.length === 1) {
-    const corners = getObjectLocalCorners(elements[0], viewport);
+    const corners = getObjectFrameLocalCorners(elements[0], viewport);
     if (corners.length === 0) return null;
     const bounds = normalizeBounds(getBoundsFromPoints(corners));
     const center = getCentroid(corners);
@@ -45,7 +45,7 @@ export const buildTransformFrame = ({ elements, viewport }) => {
   }
 
   const allCorners = elements.flatMap((element) =>
-    getObjectLocalCorners(element, viewport),
+    getObjectFrameLocalCorners(element, viewport),
   );
   if (allCorners.length === 0) return null;
 

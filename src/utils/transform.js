@@ -1,6 +1,7 @@
 import { Matrix, Point, Rectangle } from 'pixi.js';
 
 const tempMatrix = new Matrix();
+const FRAME_BOUNDS_OPTIONS = { useSizeFallback: true };
 
 // A temporary array of points to be reused across calculations, avoiding frequent object allocation.
 const tempCorners = [new Point(), new Point(), new Point(), new Point()];
@@ -9,11 +10,12 @@ const tempCorners = [new Point(), new Point(), new Point(), new Point()];
  * Calculates the four corners of a DisplayObject in world space.
  *
  * @param {PIXI.DisplayObject} displayObject - The DisplayObject to measure.
+ * @param {{ useSizeFallback?: boolean }} [options]
  * @returns {Array<PIXI.Point>} An array of 4 new Point instances for the world-space corners.
  */
-export const getObjectWorldCorners = (displayObject) => {
+export const getObjectWorldCorners = (displayObject, options = {}) => {
   const corners = tempCorners;
-  const localBounds = getObjectLocalBounds(displayObject);
+  const localBounds = getObjectLocalBounds(displayObject, options);
   if (localBounds.worldCorners) {
     return localBounds.worldCorners;
   }
@@ -38,15 +40,20 @@ export const getObjectWorldCorners = (displayObject) => {
   return corners.map((point) => point.clone());
 };
 
-const getObjectLocalBounds = (displayObject) => {
+export const getObjectFrameWorldCorners = (displayObject) =>
+  getObjectWorldCorners(displayObject, FRAME_BOUNDS_OPTIONS);
+
+const getObjectLocalBounds = (displayObject, options) => {
   const localBounds = displayObject.getLocalBounds();
   if (hasArea(localBounds)) return localBounds;
 
-  const size = normalizeSize(displayObject?.props?.size);
-  if (size) return { x: 0, y: 0, width: size.width, height: size.height };
+  if (options.useSizeFallback) {
+    const size = normalizeSize(displayObject?.props?.size);
+    if (size) return { x: 0, y: 0, width: size.width, height: size.height };
+  }
 
   const childWorldCorners = displayObject.children?.flatMap((child) =>
-    getObjectWorldCorners(child),
+    getObjectWorldCorners(child, options),
   );
   if (childWorldCorners?.length > 0) {
     return {
@@ -85,16 +92,24 @@ const boundsToCorners = (bounds) => [
  *
  * @param {PIXI.DisplayObject} displayObject - The DisplayObject to measure.
  * @param {PIXI.Viewport} viewport - The Viewport to which the coordinates will be relative.
+ * @param {{ useSizeFallback?: boolean }} [options]
  * @returns {Array<PIXI.Point>} An array of 4 new Point instances for the local-space corners relative to the viewport.
  */
-export const getObjectLocalCorners = (displayObject, viewport) => {
+export const getObjectLocalCorners = (
+  displayObject,
+  viewport,
+  options = {},
+) => {
   if (!displayObject || !viewport) {
     return [];
   }
-  return getObjectWorldCorners(displayObject).map((point) =>
+  return getObjectWorldCorners(displayObject, options).map((point) =>
     viewport.toLocal(point),
   );
 };
+
+export const getObjectFrameLocalCorners = (displayObject, viewport) =>
+  getObjectLocalCorners(displayObject, viewport, FRAME_BOUNDS_OPTIONS);
 
 /**
  * Calculates the geometric center (centroid) of an array of points.

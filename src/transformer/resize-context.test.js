@@ -16,7 +16,7 @@ vi.mock('../utils/transform', () => ({
       height: Math.max(...ys) - Math.min(...ys),
     };
   }),
-  getObjectLocalCorners: vi.fn((element) => element.corners ?? []),
+  getObjectFrameLocalCorners: vi.fn((element) => element.corners ?? []),
 }));
 
 import { buildResizeContext } from './resize-context';

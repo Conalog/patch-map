@@ -16,7 +16,7 @@ vi.mock('../utils/transform', () => ({
     x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
     y: points.reduce((sum, point) => sum + point.y, 0) / points.length,
   })),
-  getObjectLocalCorners: vi.fn((element) => element.corners ?? []),
+  getObjectFrameLocalCorners: vi.fn((element) => element.corners ?? []),
 }));
 
 import { buildRotateContext } from './rotate-context';

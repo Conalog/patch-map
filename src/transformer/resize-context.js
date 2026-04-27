@@ -1,5 +1,8 @@
 import { isResizableCandidate } from '../utils/interaction-locks';
-import { getBoundsFromPoints, getObjectLocalCorners } from '../utils/transform';
+import {
+  getBoundsFromPoints,
+  getObjectFrameLocalCorners,
+} from '../utils/transform';
 
 /**
  * @typedef {object} Bounds
@@ -54,7 +57,7 @@ export const normalizeBounds = (bounds) => ({
 export const getGroupBoundsInViewportSpace = ({ elements, viewport }) => {
   if (!viewport || !elements || elements.length === 0) return null;
   const corners = elements.flatMap((element) =>
-    getObjectLocalCorners(element, viewport),
+    getObjectFrameLocalCorners(element, viewport),
   );
   return getBoundsFromPoints(corners);
 };
@@ -63,7 +66,7 @@ const buildResizeFrame = ({ elements, viewport }) => {
   if (!viewport || !elements || elements.length === 0) return null;
 
   if (elements.length === 1) {
-    const corners = getObjectLocalCorners(elements[0], viewport);
+    const corners = getObjectFrameLocalCorners(elements[0], viewport);
     if (corners.length === 0) return null;
     const bounds = normalizeBounds(getBoundsFromPoints(corners));
     return {

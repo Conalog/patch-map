@@ -1,7 +1,7 @@
 import { Container } from 'pixi.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Transformer } from '../../patch-map';
-import { getCentroid, getObjectWorldCorners } from '../../utils/transform';
+import { getCentroid, getObjectFrameWorldCorners } from '../../utils/transform';
 import { setupPatchmapTests } from './patchmap.setup';
 
 const sampleData = [
@@ -954,7 +954,7 @@ describe('patchmap test', () => {
         },
       });
       const rect = patchmap.selector('$..[?(@.id=="center-rotate-rect")]')[0];
-      const centerBefore = getCentroid(getObjectWorldCorners(rect));
+      const centerBefore = getCentroid(getObjectFrameWorldCorners(rect));
 
       patchmap.update({
         elements: rect,
@@ -962,7 +962,7 @@ describe('patchmap test', () => {
         rotateOrigin: 'center',
       });
 
-      const centerAfter = getCentroid(getObjectWorldCorners(rect));
+      const centerAfter = getCentroid(getObjectFrameWorldCorners(rect));
       expect(centerAfter.x).toBeCloseTo(centerBefore.x);
       expect(centerAfter.y).toBeCloseTo(centerBefore.y);
       expect(rect.angle).toBe(90);

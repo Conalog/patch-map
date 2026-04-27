@@ -1,7 +1,7 @@
 import { Point } from 'pixi.js';
 import { convertArray } from '../utils/convert';
 import { selector } from '../utils/selector/selector';
-import { getCentroid, getObjectWorldCorners } from '../utils/transform';
+import { getCentroid, getObjectFrameWorldCorners } from '../utils/transform';
 import { uid } from '../utils/uuid';
 
 const DEFAULT_UPDATE_CONFIG = Object.freeze({
@@ -88,7 +88,7 @@ const applyCenterRotation = (element, attrs) => {
         : null;
   if (!rotationKey) return attrs;
 
-  const corners = getObjectWorldCorners(element);
+  const corners = getObjectFrameWorldCorners(element);
   if (corners.length === 0) return attrs;
 
   const originBefore = element.getGlobalPosition();

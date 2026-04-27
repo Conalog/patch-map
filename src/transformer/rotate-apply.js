@@ -1,5 +1,5 @@
 import { Point } from 'pixi.js';
-import { getCentroid, getObjectLocalCorners } from '../utils/transform';
+import { getCentroid, getObjectFrameLocalCorners } from '../utils/transform';
 import { isRotatableElement } from './rotate-context';
 import {
   DEGREES_PER_RADIAN,
@@ -21,7 +21,7 @@ export const createRotateElementStates = ({ elements, viewport }) =>
   elements.map((element) => {
     const worldPosition = element.getGlobalPosition();
     const origin = viewport.toLocal(worldPosition);
-    const corners = getObjectLocalCorners(element, viewport);
+    const corners = getObjectFrameLocalCorners(element, viewport);
     const center = getCentroid(corners);
     const rotationKey = getRotationKey(element);
 
