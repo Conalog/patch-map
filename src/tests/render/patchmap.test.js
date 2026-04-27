@@ -208,6 +208,44 @@ describe('patchmap test', () => {
     expect(patchmap.selector('$..[?(@.id=="group-1")]')[0].x).toBe(321);
   });
 
+  it('applies component schema defaults when update adds item components', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'dashboard-item',
+        size: { width: 120, height: 80 },
+        components: [],
+      },
+    ]);
+
+    patchmap.update({
+      path: '$..[?(@.id=="dashboard-item")]',
+      changes: {
+        components: [
+          { type: 'text', id: 'dashboard-text', text: 'OK' },
+          { type: 'icon', id: 'dashboard-icon', source: 'device', size: 16 },
+        ],
+      },
+    });
+    await waitForScene();
+
+    const text = patchmap.selector('$..[?(@.id=="dashboard-text")]')[0];
+    const icon = patchmap.selector('$..[?(@.id=="dashboard-icon")]')[0];
+    expect(text.props.placement).toBe('center');
+    expect(text.props.margin).toEqual({
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+    });
+    expect(icon.props.placement).toBe('center');
+    expect(icon.props.size).toEqual({
+      width: { value: 16, unit: 'px' },
+      height: { value: 16, unit: 'px' },
+    });
+  });
+
   it('sorts top-level world children by zIndex after draw and update', async () => {
     const patchmap = getPatchmap();
     patchmap.draw([

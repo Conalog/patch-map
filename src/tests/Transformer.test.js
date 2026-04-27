@@ -893,6 +893,138 @@ describe('Transformer', () => {
       );
     });
 
+    it('should keep aspect ratio without shift when resizeKeepRatio is true', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({
+        resizeHandles: true,
+        resizeKeepRatio: true,
+      });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      const rectApplySpy = vi.spyOn(rect, 'apply');
+      const startOnRightEdge = transformer.toGlobal({
+        x: rect.x + rect.props.size.width,
+        y: rect.y + rect.props.size.height / 2,
+      });
+
+      resizeWithEdge(
+        patchmap,
+        transformer,
+        'right',
+        { x: 40, y: 0 },
+        startOnRightEdge,
+      );
+
+      const [rectChanges] = rectApplySpy.mock.calls.at(-1);
+      expect(rectChanges.size.width / rectChanges.size.height).toBeCloseTo(
+        100 / 80,
+        3,
+      );
+    });
+
+    it('should keep aspect ratio without shift when getResizeKeepRatio returns true', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const getResizeKeepRatio = vi.fn(() => true);
+      const transformer = new Transformer({
+        resizeHandles: true,
+        getResizeKeepRatio,
+      });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      const rectApplySpy = vi.spyOn(rect, 'apply');
+      const startOnRightEdge = transformer.toGlobal({
+        x: rect.x + rect.props.size.width,
+        y: rect.y + rect.props.size.height / 2,
+      });
+
+      resizeWithEdge(
+        patchmap,
+        transformer,
+        'right',
+        { x: 40, y: 0 },
+        startOnRightEdge,
+      );
+
+      const [rectChanges] = rectApplySpy.mock.calls.at(-1);
+      expect(rectChanges.size.width / rectChanges.size.height).toBeCloseTo(
+        100 / 80,
+        3,
+      );
+      expect(getResizeKeepRatio).toHaveBeenCalledWith({
+        event: expect.objectContaining({ shiftKey: false }),
+        handle: 'right',
+        elements: [rect],
+      });
+    });
+
+    it('should freely resize without shift when getResizeKeepRatio returns false', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({
+        resizeHandles: true,
+        getResizeKeepRatio: () => false,
+      });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      const rectApplySpy = vi.spyOn(rect, 'apply');
+      const startOnRightEdge = transformer.toGlobal({
+        x: rect.x + rect.props.size.width,
+        y: rect.y + rect.props.size.height / 2,
+      });
+
+      resizeWithEdge(
+        patchmap,
+        transformer,
+        'right',
+        { x: 40, y: 0 },
+        startOnRightEdge,
+      );
+
+      const [rectChanges] = rectApplySpy.mock.calls.at(-1);
+      expect(rectChanges.size.width).toBeGreaterThan(100);
+      expect(rectChanges.size.height).toBeCloseTo(80);
+    });
+
+    it('should share one historyId when resizeKeepRatio and transformHistory are true', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({
+        resizeHandles: true,
+        transformHistory: true,
+        resizeKeepRatio: true,
+      });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      const image = patchmap.selector('$..[?(@.id=="image-1")]')[0];
+      transformer.elements = [rect, image];
+
+      const rectApplySpy = vi.spyOn(rect, 'apply');
+      const imageApplySpy = vi.spyOn(image, 'apply');
+
+      resizeWithBottomRightHandle(patchmap, transformer, { x: 30, y: 20 });
+
+      const rectOptionsWithHistory = rectApplySpy.mock.calls
+        .map(([, options]) => options)
+        .find((options) => typeof options?.historyId === 'string');
+      const imageOptionsWithHistory = imageApplySpy.mock.calls
+        .map(([, options]) => options)
+        .find((options) => typeof options?.historyId === 'string');
+
+      expect(typeof rectOptionsWithHistory?.historyId).toBe('string');
+      expect(rectOptionsWithHistory?.historyId).toBe(
+        imageOptionsWithHistory?.historyId,
+      );
+    });
+
     it('should render invisible rotate targets for rotatable selections', () => {
       const patchmap = getPatchmap();
       patchmap.draw(resizeSampleData);

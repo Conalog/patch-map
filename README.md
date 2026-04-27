@@ -677,6 +677,8 @@ You can control the behavior by passing the following options when creating a `T
   - `resizeHandles` (optional, boolean): Enables group resize handles and edge hit targets (default: `false`).
   - `rotateHandles` (optional, boolean): Enables invisible outside-corner rotation hit targets for rotatable selections (default: `false`).
   - `transformHistory` (optional, boolean): Determines whether resize and rotation changes are recorded in `undoRedoManager` (default: `false`). When enabled, updates in one drag gesture are grouped into a single undo/redo step.
+  - `resizeKeepRatio` (optional, boolean): Keeps the resize aspect ratio without requiring Shift (default: `false`). Shift-drag always keeps the aspect ratio regardless of this option.
+  - `getResizeKeepRatio` (optional, function): Determines whether the current resize move should keep its aspect ratio. Receives `{ event, handle, elements }` and can return `true` to keep the aspect ratio without Shift.
 
 `resizeHistory` has been removed. Use `transformHistory` for both resize and rotation gestures.
 
@@ -719,6 +721,7 @@ const transformer = new Transformer({
   resizeHandles: true,
   rotateHandles: true,
   transformHistory: true,
+  getResizeKeepRatio: ({ event }) => event.shiftKey || isLayoutSizeLocked(),
 });
 patchmap.transformer = transformer;
 

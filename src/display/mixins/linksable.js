@@ -46,7 +46,7 @@ export const Linksable = (superClass) => {
 
     _applyLinks(relevantChanges) {
       const { links } = relevantChanges;
-      this.linkedObjects = uniqueLinked(this.store.viewport, links);
+      this.linkedObjects = uniqueLinked(this.store, links);
       this._renderDirty = true;
     }
   };
@@ -74,8 +74,32 @@ const isAncestor = (parent, target) => {
   return false;
 };
 
-const uniqueLinked = (viewport, links) => {
+const uniqueLinked = (store, links) => {
   const uniqueIds = new Set(links.flatMap((link) => Object.values(link)));
+  const { elementById, viewport } = store;
+  if (elementById) {
+    const objects = [];
+    const missingIds = new Set();
+    for (const id of uniqueIds) {
+      const object = elementById.get(id);
+      if (object && !object.destroyed) {
+        objects.push(object);
+      } else {
+        missingIds.add(id);
+      }
+    }
+    if (missingIds.size === 0) {
+      return Object.fromEntries(objects.map((obj) => [obj.id, obj]));
+    }
+
+    const missingObjects = collectCandidates(viewport, (child) =>
+      missingIds.has(child.id),
+    );
+    return Object.fromEntries(
+      [...objects, ...missingObjects].map((obj) => [obj.id, obj]),
+    );
+  }
+
   const objects = collectCandidates(viewport, (child) =>
     uniqueIds.has(child.id),
   );

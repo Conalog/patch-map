@@ -40,8 +40,85 @@ const roundToPrecision = (value, precision = 6) => {
   return Math.round((value + Number.EPSILON) * factor) / factor;
 };
 
+const DEFAULT_COMPONENT_SIZE = {
+  width: { value: 100, unit: '%' },
+  height: { value: 100, unit: '%' },
+};
+
+const isPxOrPercentValue = (value) =>
+  value &&
+  typeof value === 'object' &&
+  Object.hasOwn(value, 'value') &&
+  Object.hasOwn(value, 'unit');
+
+const normalizePxOrPercentValue = (value) => {
+  if (typeof value === 'number') {
+    return { value, unit: 'px' };
+  }
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+    if (trimmedValue.endsWith('%')) {
+      return { value: Number.parseFloat(trimmedValue), unit: '%' };
+    }
+    if (trimmedValue.endsWith('px')) {
+      return { value: Number.parseFloat(trimmedValue), unit: 'px' };
+    }
+    if (!trimmedValue.startsWith('calc')) {
+      const numericValue = Number(trimmedValue);
+      if (!Number.isNaN(numericValue) && trimmedValue !== '') {
+        return { value: numericValue, unit: 'px' };
+      }
+    }
+  }
+  return value;
+};
+
+export const DEFAULT_PLACEMENT_BY_TYPE = {
+  bar: 'bottom',
+  background: 'center',
+  icon: 'center',
+  text: 'center',
+};
+
+export const resolveComponentPlacement = (component, placement) =>
+  placement ??
+  component.props?.placement ??
+  DEFAULT_PLACEMENT_BY_TYPE[component.type] ??
+  'center';
+
+const normalizeComponentSize = (size) => {
+  if (
+    typeof size === 'number' ||
+    typeof size === 'string' ||
+    isPxOrPercentValue(size)
+  ) {
+    const normalized = normalizePxOrPercentValue(size);
+    return { width: normalized, height: normalized };
+  }
+  if (!size || typeof size !== 'object') return null;
+
+  if (isPxOrPercentValue(size.width) && isPxOrPercentValue(size.height)) {
+    return size;
+  }
+
+  return {
+    width: normalizePxOrPercentValue(size.width),
+    height: normalizePxOrPercentValue(size.height),
+  };
+};
+
 export const calcSize = (component, { source, size }) => {
   const { contentWidth, contentHeight } = getLayoutContext(component);
+  const currentPropsSize = component.props?.size;
+  const hasNormalizedRequestedSize =
+    isPxOrPercentValue(size?.width) && isPxOrPercentValue(size?.height);
+  const hasNormalizedCurrentSize =
+    isPxOrPercentValue(currentPropsSize?.width) &&
+    isPxOrPercentValue(currentPropsSize?.height);
+  const resolvedSize =
+    hasNormalizedRequestedSize || (size == null && hasNormalizedCurrentSize)
+      ? (size ?? currentPropsSize)
+      : resolveComponentSize(size, currentPropsSize);
 
   const borderWidth =
     typeof source === 'object' ? (source?.borderWidth ?? 0) : 0;
@@ -49,28 +126,53 @@ export const calcSize = (component, { source, size }) => {
   let finalWidth = null;
   let finalHeight = null;
 
-  if (typeof size.width === 'string' && size.width.startsWith('calc')) {
-    finalWidth = parseCalcExpression(size.width, contentWidth);
+  if (
+    typeof resolvedSize.width === 'string' &&
+    resolvedSize.width.startsWith('calc')
+  ) {
+    finalWidth = parseCalcExpression(resolvedSize.width, contentWidth);
   } else {
     finalWidth =
-      size.width.unit === '%'
-        ? contentWidth * (size.width.value / 100)
-        : size.width.value;
+      resolvedSize.width.unit === '%'
+        ? contentWidth * (resolvedSize.width.value / 100)
+        : resolvedSize.width.value;
   }
 
-  if (typeof size.height === 'string' && size.height.startsWith('calc')) {
-    finalHeight = parseCalcExpression(size.height, contentHeight);
+  if (
+    typeof resolvedSize.height === 'string' &&
+    resolvedSize.height.startsWith('calc')
+  ) {
+    finalHeight = parseCalcExpression(resolvedSize.height, contentHeight);
   } else {
     finalHeight =
-      size.height.unit === '%'
-        ? contentHeight * (size.height.value / 100)
-        : size.height.value;
+      resolvedSize.height.unit === '%'
+        ? contentHeight * (resolvedSize.height.value / 100)
+        : resolvedSize.height.value;
   }
 
   return {
     width: roundToPrecision(finalWidth + borderWidth),
     height: roundToPrecision(finalHeight + borderWidth),
     borderWidth: borderWidth,
+  };
+};
+
+const resolveComponentSize = (size, currentPropsSize) => {
+  const requestedSize = size == null ? null : normalizeComponentSize(size);
+  const currentSize =
+    requestedSize?.width && requestedSize?.height
+      ? null
+      : normalizeComponentSize(currentPropsSize);
+
+  return {
+    width:
+      requestedSize?.width ??
+      currentSize?.width ??
+      DEFAULT_COMPONENT_SIZE.width,
+    height:
+      requestedSize?.height ??
+      currentSize?.height ??
+      DEFAULT_COMPONENT_SIZE.height,
   };
 };
 
@@ -86,9 +188,15 @@ export const mixins = (baseClass, ...mixins) => {
  * @param {Array<object>} currentElements - Array of current child elements (components) in the DOM
  * @param {Array<object>} changes - Array of change data to apply
  * @param {import('zod').ZodSchema} schema - Zod schema to use for validation
+ * @param {{ validateSchema?: boolean }} options - Validation controls
  * @returns {Array<object>} The changes array, with validated and default-filled data
  */
-export const validateAndPrepareChanges = (currentElements, changes, schema) => {
+export const validateAndPrepareChanges = (
+  currentElements,
+  changes,
+  schema,
+  options = {},
+) => {
   const preparedChanges = [...changes];
   const used = new Set();
   const newElementDefs = [];
@@ -103,6 +211,10 @@ export const validateAndPrepareChanges = (currentElements, changes, schema) => {
       used.add(foundIndex);
     }
   });
+
+  if (options.validateSchema === false) {
+    return preparedChanges;
+  }
 
   // Perform batch validation only if there are new elements to be added
   if (newElementDefs.length > 0) {

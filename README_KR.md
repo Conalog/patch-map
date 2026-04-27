@@ -685,6 +685,8 @@ patchmap.stateManager.setState('selection', {
   - `resizeHandles` (optional, boolean): 그룹 리사이즈 핸들과 엣지 히트 타깃을 활성화합니다 (기본값: `false`).
   - `rotateHandles` (optional, boolean): 회전 가능한 선택 영역의 모서리 바깥 invisible 회전 히트 타깃을 활성화합니다 (기본값: `false`).
   - `transformHistory` (optional, boolean): 리사이즈와 회전 변경 사항을 `undoRedoManager`에 기록할지 결정합니다 (기본값: `false`). 활성화하면 한 번의 드래그 제스처 내 업데이트가 하나의 실행 취소/재실행 단계로 묶입니다.
+  - `resizeKeepRatio` (optional, boolean): Shift 없이도 리사이즈 비율을 고정합니다 (기본값: `false`). Shift 드래그는 이 옵션과 관계없이 항상 비율을 고정합니다.
+  - `getResizeKeepRatio` (optional, function): 현재 리사이즈 이동에서 비율을 고정할지 결정합니다. `{ event, handle, elements }`를 받아 Shift 없이 비율을 고정하려면 `true`를 반환하면 됩니다.
 
 `resizeHistory`는 제거되었습니다. 리사이즈와 회전 제스처 모두 `transformHistory`를 사용하세요.
 
@@ -725,6 +727,7 @@ const transformer = new Transformer({
   resizeHandles: true,
   rotateHandles: true,
   transformHistory: true,
+  getResizeKeepRatio: ({ event }) => event.shiftKey || isLayoutSizeLocked(),
 });
 patchmap.transformer = transformer;
 

@@ -5,6 +5,14 @@ const KEYS = ['item', 'gap'];
 export const Itemable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyItem(relevantChanges, options) {
+      if (
+        options?.mergeStrategy === 'replace' &&
+        this._cellsApplyCreatedAllGridItems
+      ) {
+        this._cellsApplyCreatedAllGridItems = false;
+        return;
+      }
+
       const { item: itemProps, gap } = relevantChanges;
 
       const gridIdPrefix = `${this.id}.`;

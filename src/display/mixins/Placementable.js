@@ -4,7 +4,7 @@ import {
 } from '../utils/placement-frame';
 import { resolvePlacementOffset } from '../utils/placement-offset';
 import { UPDATE_STAGES } from './constants';
-import { getLayoutContext } from './utils';
+import { getLayoutContext, resolveComponentPlacement } from './utils';
 
 const KEYS = ['placement', 'margin'];
 
@@ -24,7 +24,7 @@ export const Placementable = (superClass) => {
     _applyPlacement(relevantChanges) {
       const { placement, margin } = relevantChanges;
       const { x, y } = this._calcPlacementForSize({
-        placement,
+        placement: resolveComponentPlacement(this, placement),
         margin,
         width: this.width,
         height: this.height,
@@ -34,7 +34,11 @@ export const Placementable = (superClass) => {
 
     _calcPlacementForSize({ placement, margin, width, height }) {
       const layoutContext = getLayoutContext(this);
-      const layoutFrame = resolvePlacementFrame(this, placement, margin);
+      const layoutFrame = resolvePlacementFrame(
+        this,
+        resolveComponentPlacement(this, placement),
+        margin,
+      );
       const effectiveSize = calcEffectiveSize(this, width, height);
       const point = calcPlacementPoint(
         layoutContext,

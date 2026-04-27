@@ -39,6 +39,8 @@ const DEFAULT_HANDLE_STYLE = { fill: '#FFFFFF', stroke: '#1099FF', size: 8 };
  * @property {boolean} [resizeHandles=false] - Enable group resize handles.
  * @property {boolean} [rotateHandles=false] - Enable outside-corner rotate hit targets.
  * @property {boolean} [transformHistory=false] - Record transform changes to undo/redo history.
+ * @property {boolean} [resizeKeepRatio=false] - Keep the resize aspect ratio without requiring Shift.
+ * @property {(context: { event: PIXI.FederatedPointerEvent, handle: string, elements: PIXI.DisplayObject[] }) => boolean} [getResizeKeepRatio] - Determines whether resize should keep its aspect ratio for the current pointer move.
  */
 
 const TransformerSchema = z
@@ -49,6 +51,8 @@ const TransformerSchema = z
     resizeHandles: z.boolean(),
     rotateHandles: z.boolean(),
     transformHistory: z.boolean(),
+    resizeKeepRatio: z.boolean(),
+    getResizeKeepRatio: z.custom((value) => typeof value === 'function'),
   })
   .partial();
 
@@ -111,6 +115,20 @@ export default class Transformer extends Container {
    * @type {boolean}
    */
   _transformHistory = false;
+
+  /**
+   * Flag to keep resize aspect ratio without requiring Shift.
+   * @private
+   * @type {boolean}
+   */
+  _resizeKeepRatio = false;
+
+  /**
+   * Callback to determine whether resize should keep aspect ratio.
+   * @private
+   * @type {TransformerOptions['getResizeKeepRatio'] | null}
+   */
+  _getResizeKeepRatio = null;
 
   /**
    * The container holding transform handle graphics.
@@ -187,6 +205,8 @@ export default class Transformer extends Container {
       canStart: () => this.#shouldShowResizeHandles(),
       getResizeContext: () => this.#buildResizeContext(),
       getTransformHistory: () => this._transformHistory,
+      getResizeKeepRatio: (context) =>
+        this._resizeKeepRatio || Boolean(this._getResizeKeepRatio?.(context)),
       emitUpdateElements: () => this.#emitUpdateElements(),
       requestRender: this.update,
     });
@@ -350,6 +370,30 @@ export default class Transformer extends Container {
 
   set transformHistory(value) {
     this._transformHistory = Boolean(value);
+  }
+
+  /**
+   * Keeps resize aspect ratio without requiring Shift.
+   * @type {boolean}
+   */
+  get resizeKeepRatio() {
+    return this._resizeKeepRatio;
+  }
+
+  set resizeKeepRatio(value) {
+    this._resizeKeepRatio = Boolean(value);
+  }
+
+  /**
+   * Callback that determines whether resize should keep aspect ratio.
+   * @type {TransformerOptions['getResizeKeepRatio'] | null}
+   */
+  get getResizeKeepRatio() {
+    return this._getResizeKeepRatio;
+  }
+
+  set getResizeKeepRatio(value) {
+    this._getResizeKeepRatio = typeof value === 'function' ? value : null;
   }
 
   /**
