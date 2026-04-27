@@ -80,13 +80,23 @@ describe('buildResizeContext', () => {
       viewport: { id: 'viewport' },
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       elements: [unlockedRect],
       bounds: {
         x: 20,
         y: 20,
         width: 20,
         height: 30,
+      },
+      frame: {
+        mode: 'oriented',
+        bounds: {
+          x: 20,
+          y: 20,
+          width: 20,
+          height: 30,
+        },
+        center: { x: 30, y: 35 },
       },
     });
   });

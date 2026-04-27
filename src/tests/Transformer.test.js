@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Transformer } from '../patch-map';
 import { setupPatchmapTests } from '../tests/render/patchmap.setup';
 import TransformHandleLayer from '../transformer/TransformHandleLayer';
+import { getObjectLocalCorners } from '../utils/transform';
 
 const sampleData = [
   {
@@ -650,6 +651,40 @@ describe('Transformer', () => {
       expect(getResizeFrame(transformer)).toBeTruthy();
     });
 
+    it('should align resize handles to a single rotated image frame', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const image = patchmap.selector('$..[?(@.id=="image-1")]')[0];
+      image.rotation = Math.PI / 9;
+      transformer.elements = [image];
+      transformer.draw();
+
+      const visibleHandles = getVisibleHandles(transformer);
+      const corners = getObjectLocalCorners(image, patchmap.viewport);
+
+      expect(visibleHandles).toHaveLength(4);
+      corners.forEach((corner) => {
+        expect(
+          visibleHandles.some(
+            (handle) =>
+              Math.abs(handle.x - corner.x) < 0.001 &&
+              Math.abs(handle.y - corner.y) < 0.001,
+          ),
+        ).toBe(true);
+      });
+
+      const topLeftHandle = visibleHandles.find(
+        (handle) => handle.label === 'resize-handle:top-left',
+      );
+      expect(topLeftHandle?.cursor).toContain('data:image/svg+xml');
+      expect(decodeURIComponent(topLeftHandle?.cursor ?? '')).toContain(
+        'rotate(65',
+      );
+    });
+
     it('should build resize frame bounds from all transformed corners', () => {
       const angle = (105 * Math.PI) / 180;
       const cos = Math.cos(-angle);
@@ -876,12 +911,21 @@ describe('Transformer', () => {
 
     it('should hide rotate targets when selection has no rotatable elements', () => {
       const patchmap = getPatchmap();
-      patchmap.draw(resizeSampleData);
+      patchmap.draw([
+        {
+          type: 'relations',
+          id: 'relations-rotate-targets',
+          links: [],
+          style: { width: 1 },
+        },
+      ]);
       const transformer = new Transformer({ rotateHandles: true });
       patchmap.transformer = transformer;
 
-      const item = patchmap.selector('$..[?(@.id=="item-4")]')[0];
-      transformer.elements = [item];
+      const relations = patchmap.selector(
+        '$..[?(@.id=="relations-rotate-targets")]',
+      )[0];
+      transformer.elements = [relations];
       transformer.draw();
 
       expect(getVisibleRotateHandles(transformer)).toHaveLength(0);
@@ -911,7 +955,7 @@ describe('Transformer', () => {
       expect(rectApplySpy).not.toHaveBeenCalled();
     });
 
-    it('should rotate only rotatable elements in a mixed selection', () => {
+    it('should rotate rect and item elements in a mixed selection', () => {
       const patchmap = getPatchmap();
       patchmap.draw(resizeSampleData);
       const transformer = new Transformer({ rotateHandles: true });
@@ -929,7 +973,7 @@ describe('Transformer', () => {
       );
 
       expect(rect.rotation).toBeCloseTo(Math.PI / 2);
-      expect(item.rotation).toBe(0);
+      expect(item.rotation).toBeCloseTo(Math.PI / 2);
     });
 
     it('should position rotate targets from the full mixed selection frame', () => {

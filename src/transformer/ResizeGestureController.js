@@ -137,6 +137,7 @@ export default class ResizeGestureController {
       handle,
       startPoint,
       bounds: normalizeBounds(resizeContext.bounds),
+      frame: resizeContext.frame,
       elementStates,
       historyId: this._getTransformHistory() ? uid() : null,
     };

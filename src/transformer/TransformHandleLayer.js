@@ -32,6 +32,24 @@ const RESIZE_CURSORS = {
   left: 'ew-resize',
 };
 
+const RESIZE_CURSOR_ANGLES = {
+  right: 0,
+  'bottom-right': 45,
+  bottom: 90,
+  'bottom-left': 135,
+  left: 180,
+  'top-left': 225,
+  top: 270,
+  'top-right': 315,
+};
+
+const createResizeCursor = (degrees) => {
+  const path =
+    'm233-440 75 75q11 12 11.5 28.5T308-308q-12 12-28 12t-28-12L108-452q-6-6-8.5-13T97-480q0-8 2.5-15t8.5-13l144-144q12-12 28-12t28 12q12 12 12 28.5T308-595l-75 75h494l-75-75q-11-12-11.5-28.5T652-652q12-12 28-12t28 12l144 144q6 6 8.5 13t2.5 15q0 8-2.5 15t-8.5 13L708-308q-12 12-28 12t-28-12q-12-12-12-28.5t12-28.5l75-75H233Z';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 -960 960 960"><g transform="rotate(${degrees} 480 -480)"><path d="${path}" fill="black" stroke="white" stroke-width="70" stroke-linejoin="round" paint-order="stroke fill"/></g></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 12 12, ${getResizeCursorFallback(degrees)}`;
+};
+
 const createRotateCursor = (degrees) => {
   const rotation = degrees + 35;
   const path =
@@ -194,13 +212,14 @@ export default class TransformHandleLayer {
   /**
    * Draws resize handles and rotate hit targets.
    *
-   * @param {ResizeBounds | { resizeBounds?: ResizeBounds, rotateFrame?: object } | null | undefined} options
+   * @param {ResizeBounds | { resizeBounds?: ResizeBounds, resizeFrame?: object, rotateFrame?: object } | null | undefined} options
    * @returns {void}
    */
   draw(options) {
-    const { resizeBounds, rotateFrame } = normalizeDrawOptions(options);
+    const { resizeBounds, resizeFrame, rotateFrame } =
+      normalizeDrawOptions(options);
 
-    if (!resizeBounds && !rotateFrame) {
+    if (!resizeFrame && !resizeBounds && !rotateFrame) {
       this.clear();
       return;
     }
@@ -218,10 +237,12 @@ export default class TransformHandleLayer {
     const halfSize = size / 2;
     const hitSize = Math.max(size, CORNER_HIT_SIZE / viewportScale);
     const halfHitSize = hitSize / 2;
-    const positions = resizeBounds ? getHandlePositions(resizeBounds) : {};
+    const positions = getResizeHandlePositions({ resizeBounds, resizeFrame });
+    const resizeCursors = getResizeCursors(resizeFrame);
 
     this.#drawResizeHandles({
       positions,
+      cursors: resizeCursors,
       viewport,
       size,
       halfSize,
@@ -232,12 +253,19 @@ export default class TransformHandleLayer {
     });
     this.#drawResizeFrame({
       bounds: resizeBounds,
+      frame: resizeFrame,
       viewport,
       viewportScale,
       strokeWidth,
       strokeColor: handleStyle.stroke,
     });
-    this.#drawEdgeTargets(resizeBounds, positions, viewportScale);
+    this.#drawEdgeTargets({
+      bounds: resizeBounds,
+      frame: resizeFrame,
+      positions,
+      cursors: resizeCursors,
+      viewportScale,
+    });
     this.#drawRotateTargets({
       frame: rotateFrame,
       viewport,
@@ -248,6 +276,7 @@ export default class TransformHandleLayer {
 
   #drawResizeHandles({
     positions,
+    cursors,
     viewport,
     size,
     halfSize,
@@ -283,6 +312,7 @@ export default class TransformHandleLayer {
           width: strokeWidth,
         });
       handle.position.set(localPosition.x, localPosition.y);
+      handle.cursor = cursors[key] ?? RESIZE_CURSORS[key] ?? 'default';
       handle.visible = true;
     });
   }
@@ -352,35 +382,57 @@ export default class TransformHandleLayer {
 
   #drawResizeFrame({
     bounds,
+    frame,
     viewport,
     viewportScale,
     strokeWidth,
     strokeColor,
   }) {
     if (!this._resizeFrame) return;
-    if (!bounds) {
+    if (!frame && !bounds) {
       this._resizeFrame.clear();
       this._resizeFrame.visible = false;
       return;
     }
 
-    const localRect = this.#toLocalRect(bounds, viewport, viewportScale);
     this._resizeFrame.clear();
-    this._resizeFrame
-      .rect(localRect.x, localRect.y, localRect.width, localRect.height)
-      .stroke({
-        color: strokeColor,
-        width: strokeWidth,
-      });
+    if (frame?.corners) {
+      this._resizeFrame
+        .poly(
+          frame.corners.map((corner) =>
+            this._transformer.toLocal(
+              new Point(corner.x, corner.y),
+              viewport ?? undefined,
+            ),
+          ),
+        )
+        .stroke({
+          color: strokeColor,
+          width: strokeWidth,
+        });
+    } else {
+      const localRect = this.#toLocalRect(bounds, viewport, viewportScale);
+      this._resizeFrame
+        .rect(localRect.x, localRect.y, localRect.width, localRect.height)
+        .stroke({
+          color: strokeColor,
+          width: strokeWidth,
+        });
+    }
     this._resizeFrame.visible = true;
   }
 
-  #drawEdgeTargets(bounds, positions, viewportScale) {
-    if (!bounds) {
+  #drawEdgeTargets({ bounds, frame, positions, cursors, viewportScale }) {
+    if (!frame && !bounds) {
       this._edgeMap.forEach((edge) => {
         edge.clear();
         edge.visible = false;
       });
+      return;
+    }
+
+    if (frame?.corners) {
+      this.#drawFrameEdgeTargets({ frame, positions, cursors, viewportScale });
       return;
     }
 
@@ -430,6 +482,43 @@ export default class TransformHandleLayer {
         color: this._getHandleStyle().fill,
         alpha: 0.001,
       });
+      edge.cursor = cursors[key] ?? RESIZE_CURSORS[key] ?? 'default';
+      edge.visible = Boolean(positions[key]);
+    });
+  }
+
+  #drawFrameEdgeTargets({ frame, positions, cursors, viewportScale }) {
+    const edgeHitWidth = EDGE_HIT_WIDTH / viewportScale;
+    const viewport = this._getViewport();
+    const edgeCorners = {
+      top: [frame.corners[0], frame.corners[1]],
+      right: [frame.corners[1], frame.corners[2]],
+      bottom: [frame.corners[3], frame.corners[2]],
+      left: [frame.corners[0], frame.corners[3]],
+    };
+
+    this._edgeMap.forEach((edge, key) => {
+      const corners = edgeCorners[key];
+      if (!corners) {
+        edge.visible = false;
+        return;
+      }
+      const start = this._transformer.toLocal(
+        new Point(corners[0].x, corners[0].y),
+        viewport ?? undefined,
+      );
+      const end = this._transformer.toLocal(
+        new Point(corners[1].x, corners[1].y),
+        viewport ?? undefined,
+      );
+
+      edge.clear();
+      edge.poly([start, end]).stroke({
+        color: this._getHandleStyle().fill,
+        alpha: 0.001,
+        width: edgeHitWidth,
+      });
+      edge.cursor = cursors[key] ?? RESIZE_CURSORS[key] ?? 'default';
       edge.visible = Boolean(positions[key]);
     });
   }
@@ -525,8 +614,55 @@ export default class TransformHandleLayer {
 
 const normalizeDrawOptions = (options) => {
   if (!options) return {};
-  if ('resizeBounds' in options || 'rotateFrame' in options) return options;
+  if (
+    'resizeBounds' in options ||
+    'resizeFrame' in options ||
+    'rotateFrame' in options
+  )
+    return options;
   return { resizeBounds: options };
+};
+
+const getResizeHandlePositions = ({ resizeBounds, resizeFrame }) => {
+  if (resizeFrame?.corners) {
+    return getFrameHandlePositions(resizeFrame);
+  }
+  return resizeBounds ? getHandlePositions(resizeBounds) : {};
+};
+
+const getFrameHandlePositions = (frame) => {
+  const corners = getCornerMap(frame.corners);
+  return {
+    ...corners,
+    top: midpoint(corners['top-left'], corners['top-right']),
+    right: midpoint(corners['top-right'], corners['bottom-right']),
+    bottom: midpoint(corners['bottom-left'], corners['bottom-right']),
+    left: midpoint(corners['top-left'], corners['bottom-left']),
+  };
+};
+
+const getResizeCursors = (frame) => {
+  const rotationDegrees = frame?.rotation
+    ? (frame.rotation * 180) / Math.PI
+    : 0;
+
+  return Object.fromEntries(
+    Object.entries(RESIZE_CURSOR_ANGLES).map(([handle, angle]) => [
+      handle,
+      getResizeCursorForAngle(angle + rotationDegrees),
+    ]),
+  );
+};
+
+const getResizeCursorForAngle = (angle) => {
+  const normalized = ((angle % 180) + 180) % 180;
+  return createResizeCursor(normalized);
+};
+
+const getResizeCursorFallback = (angle) => {
+  const normalized = ((angle % 180) + 180) % 180;
+  const step = Math.round(normalized / 45) % 4;
+  return ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize'][step];
 };
 
 const getCornerMap = (corners) => ({
@@ -534,6 +670,11 @@ const getCornerMap = (corners) => ({
   'top-right': corners[1],
   'bottom-right': corners[2],
   'bottom-left': corners[3],
+});
+
+const midpoint = (a, b) => ({
+  x: (a.x + b.x) / 2,
+  y: (a.y + b.y) / 2,
 });
 
 const normalizeVector = ({ x, y }) => {

@@ -469,16 +469,23 @@ export default class Transformer extends Container {
     const resizeBounds = this.#shouldShowResizeHandles()
       ? resizeContext?.bounds
       : null;
+    const resizeFrame = this.#shouldShowResizeHandles()
+      ? resizeContext?.frame
+      : null;
     const rotateFrame = this.#shouldShowRotateHandles()
       ? rotateContext?.frame
       : null;
 
-    if (!resizeBounds && !rotateFrame) {
+    if (!resizeFrame && !rotateFrame) {
       this._transformHandleRenderer.clear();
       return;
     }
 
-    this._transformHandleRenderer.draw({ resizeBounds, rotateFrame });
+    this._transformHandleRenderer.draw({
+      resizeBounds,
+      resizeFrame,
+      rotateFrame,
+    });
   }
 
   #shouldShowResizeHandles() {
