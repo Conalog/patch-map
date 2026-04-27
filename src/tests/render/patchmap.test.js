@@ -1,6 +1,7 @@
 import { Container } from 'pixi.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Transformer } from '../../patch-map';
+import { getCentroid, getObjectFrameWorldCorners } from '../../utils/transform';
 import { setupPatchmapTests } from './patchmap.setup';
 
 const sampleData = [
@@ -974,6 +975,37 @@ describe('patchmap test', () => {
       const group = patchmap.selector('$..[?(@.id=="group-1")]')[0];
       expect(group.x).toBe(350);
       expect(group.y).toBe(250);
+    });
+
+    it('should keep the visible center when updating angle with rotateOrigin center', () => {
+      patchmap.update({
+        path: '$',
+        changes: {
+          children: [
+            {
+              type: 'rect',
+              id: 'center-rotate-rect',
+              size: { width: 100, height: 80 },
+              attrs: { x: 100, y: 100, angle: 0 },
+            },
+          ],
+        },
+      });
+      const rect = patchmap.selector('$..[?(@.id=="center-rotate-rect")]')[0];
+      const centerBefore = getCentroid(getObjectFrameWorldCorners(rect));
+
+      patchmap.update({
+        elements: rect,
+        changes: { attrs: { angle: 90 } },
+        rotateOrigin: 'center',
+      });
+
+      const centerAfter = getCentroid(getObjectFrameWorldCorners(rect));
+      expect(centerAfter.x).toBeCloseTo(centerBefore.x);
+      expect(centerAfter.y).toBeCloseTo(centerBefore.y);
+      expect(rect.angle).toBe(90);
+      expect(rect.x).toBeCloseTo(190);
+      expect(rect.y).toBeCloseTo(90);
     });
 
     it('should handle array updates with duplicate ids correctly', () => {

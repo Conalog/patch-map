@@ -265,6 +265,7 @@ Updates the properties of objects rendered on the canvas. By default, only the c
 - `changes` (optional, object) - New properties to apply (e.g., color, text visibility). If the `refresh` option is set to `true`, this can be omitted.
 - `history` (optional, boolean \| string) - Determines whether to record changes made by this `update` method in the `undoRedoManager`. If a string that matches the historyId of a previously saved record is provided, the two records will be merged into a single undo/redo step.
 - `relativeTransform` (optional, boolean) - Determines whether to use relative values for `position`, `rotation`, and `angle`. If `true`, the provided values will be added to the object's values.
+- `rotateOrigin` (optional, `'center'`) - When set to `'center'`, `attrs.angle` or `attrs.rotation` updates keep each object's visible center fixed by applying the required `attrs.x/y` adjustment.
 - `mergeStrategy` (optional, string) - Determines how to apply the `changes` object to the existing properties. The default is `'merge'`.
   - `'merge'` (default): Deep merges the `changes` object into the existing properties. Individual properties within objects are updated.
   - `'replace'`: Replaces the top-level properties specified in `changes` entirely. This is useful for undo operations or for completely resetting a complex property like `style` or `components` to a specific state.
@@ -674,9 +675,32 @@ You can control the behavior by passing the following options when creating a `T
       - `'elementOnly'`: Displays only the outlines of individual elements within the group.
       - `'none'`: Does not display any outline.
   - `resizeHandles` (optional, boolean): Enables group resize handles and edge hit targets (default: `false`).
-  - `resizeHistory` (optional, boolean): Determines whether resize changes are recorded in `undoRedoManager` (default: `false`). When enabled, updates in one drag gesture are grouped into a single undo/redo step.
+  - `rotateHandles` (optional, boolean): Enables invisible outside-corner rotation hit targets for rotatable selections (default: `false`).
+  - `transformHistory` (optional, boolean): Determines whether resize and rotation changes are recorded in `undoRedoManager` (default: `false`). When enabled, updates in one drag gesture are grouped into a single undo/redo step.
   - `resizeKeepRatio` (optional, boolean): Keeps the resize aspect ratio without requiring Shift (default: `false`). Shift-drag always keeps the aspect ratio regardless of this option.
   - `getResizeKeepRatio` (optional, function): Determines whether the current resize move should keep its aspect ratio. Receives `{ event, handle, elements }` and can return `true` to keep the aspect ratio without Shift.
+
+`resizeHistory` has been removed. Use `transformHistory` for both resize and rotation gestures.
+
+Resize handles follow a single selected object's oriented frame when that object is rotated. Multi-object resize selections continue to use an axis-aligned frame.
+
+#### Rotation handles
+
+When `rotateHandles` is enabled, the transformer creates invisible hit targets just outside the selected corners. Dragging one of those targets rotates the selected rotatable elements around the visible selection center.
+
+Rotation is supported for these element types:
+
+  - `Grid`
+  - `Item`
+  - `Rect`
+  - `Image`
+  - `Text`
+
+`Relations` and `Group` are not rotatable through the transformer.
+
+Single-object selection uses an oriented selection frame that follows the selected object's rotation. Multi-object selection always uses an axis-aligned group frame. In mixed selections, rotate hit targets and the rotation center are based on the full selected group frame, while non-rotatable or locked elements remain selected and are not mutated.
+
+Holding Shift while rotating snaps the rotation delta to 15 degree increments. Elements that already use `attrs.rotation` continue to write `rotation`; otherwise, rotation gestures write `angle`.
 
 <!-- end list -->
 
@@ -694,6 +718,9 @@ const transformer = new Transformer({
     color: '#FF00FF',
   },
   boundsDisplayMode: 'groupOnly',
+  resizeHandles: true,
+  rotateHandles: true,
+  transformHistory: true,
   getResizeKeepRatio: ({ event }) => event.shiftKey || isLayoutSizeLocked(),
 });
 patchmap.transformer = transformer;

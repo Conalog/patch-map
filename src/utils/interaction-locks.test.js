@@ -4,6 +4,7 @@ import {
   isInteractionLocked,
   isLocked,
   isResizableCandidate,
+  isRotatableCandidate,
   isSelectableCandidate,
 } from './interaction-locks';
 
@@ -12,6 +13,7 @@ const createNode = ({
   locked = false,
   isSelectable = false,
   isResizable = false,
+  isRotatable = false,
   children = [],
 } = {}) => {
   const node = {
@@ -21,7 +23,7 @@ const createNode = ({
     parent: null,
   };
 
-  node.constructor = { isSelectable, isResizable };
+  node.constructor = { isSelectable, isResizable, isRotatable };
 
   children.forEach((child) => {
     child.parent = node;
@@ -83,5 +85,17 @@ describe('interaction-locks', () => {
 
     expect(isResizableCandidate(resizable)).toBe(false);
     expect(isResizableCandidate(resizable, lockedParent)).toBe(true);
+  });
+
+  it('should only mark unlocked rotatable objects as rotatable candidates', () => {
+    const rotatable = createNode({ id: 'rotatable', isRotatable: true });
+    const lockedParent = createNode({
+      id: 'locked-parent',
+      locked: true,
+      children: [rotatable],
+    });
+
+    expect(isRotatableCandidate(rotatable)).toBe(false);
+    expect(isRotatableCandidate(rotatable, lockedParent)).toBe(true);
   });
 });

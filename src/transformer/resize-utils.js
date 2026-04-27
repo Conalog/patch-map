@@ -205,7 +205,7 @@ const createResizeResult = (geometry, axes, box) => {
 
 const SNAP_SIZE_EPSILON = 1e-6;
 
-const snapSizeToUnit = (rawSize, baseSize, minSize = 1) => {
+export const snapSizeToUnit = (rawSize, baseSize, minSize = 1) => {
   const minUnit = Math.max(1, Math.ceil(minSize));
   const safeRaw = Number.isFinite(rawSize) ? rawSize : minUnit;
   const safeBase = Number.isFinite(baseSize) ? baseSize : minUnit;

@@ -2,7 +2,8 @@ import { Container, Point } from 'pixi.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Transformer } from '../patch-map';
 import { setupPatchmapTests } from '../tests/render/patchmap.setup';
-import ResizeHandleLayer from '../transformer/ResizeHandleLayer';
+import TransformHandleLayer from '../transformer/TransformHandleLayer';
+import { getObjectLocalCorners } from '../utils/transform';
 
 const sampleData = [
   {
@@ -36,7 +37,9 @@ describe('Transformer', () => {
         transformer.children.some((child) => child.type === 'wireframe'),
       ).toBe(true);
       expect(
-        transformer.children.some((child) => child.label === 'resize-handles'),
+        transformer.children.some(
+          (child) => child.label === 'transform-handles',
+        ),
       ).toBe(true);
     });
 
@@ -164,6 +167,28 @@ describe('Transformer', () => {
       transformer.draw();
       expect(drawBoundsSpy).not.toHaveBeenCalled();
     });
+
+    it('should draw an oriented group frame for a single rotated element', () => {
+      patchmap.draw([
+        {
+          type: 'rect',
+          id: 'rotated-single',
+          size: { width: 100, height: 80 },
+          attrs: { x: 100, y: 100, angle: 45 },
+        },
+      ]);
+      const rect = patchmap.selector('$..[?(@.id=="rotated-single")]')[0];
+      const drawBoundsSpy = vi.spyOn(transformer.wireframe, 'drawBounds');
+      rect.angle = 45;
+      patchmap.app.render();
+
+      transformer.boundsDisplayMode = 'groupOnly';
+      transformer.elements = [rect];
+      transformer.draw();
+
+      expect(drawBoundsSpy).toHaveBeenCalledTimes(1);
+      expect(drawBoundsSpy.mock.calls[0][0].rotation).toBeCloseTo(Math.PI / 4);
+    });
   });
 
   describe('Resize Handles', () => {
@@ -200,8 +225,18 @@ describe('Transformer', () => {
       );
     };
 
+    const getBottomRightRotateHandle = (transformer) => {
+      const visibleHandles = getVisibleRotateHandles(transformer);
+      if (visibleHandles.length === 0)
+        throw new Error('visible rotate handle is missing');
+      const handle = visibleHandles.reduce((maxHandle, handle) =>
+        handle.x + handle.y > maxHandle.x + maxHandle.y ? handle : maxHandle,
+      );
+      return { x: handle.x, y: handle.y };
+    };
+
     const getHandleLayer = (transformer) =>
-      transformer.children.find((child) => child.label === 'resize-handles');
+      transformer.children.find((child) => child.label === 'transform-handles');
 
     const getVisibleHandles = (transformer) => {
       const handleLayer = getHandleLayer(transformer);
@@ -218,6 +253,16 @@ describe('Transformer', () => {
       return handleLayer
         ? handleLayer.children.filter(
             (child) => child.visible && child.label?.startsWith('resize-edge:'),
+          )
+        : [];
+    };
+
+    const getVisibleRotateHandles = (transformer) => {
+      const handleLayer = getHandleLayer(transformer);
+      return handleLayer
+        ? handleLayer.children.filter(
+            (child) =>
+              child.visible && child.label?.startsWith('rotate-handle:'),
           )
         : [];
     };
@@ -294,6 +339,56 @@ describe('Transformer', () => {
       };
 
       edgeTarget.emit('pointerdown', {
+        global: startGlobal,
+        stopPropagation: vi.fn(),
+      });
+      patchmap.viewport.emit('pointermove', {
+        global: endGlobal,
+        shiftKey,
+        stopPropagation: vi.fn(),
+      });
+      patchmap.viewport.emit('pointerup', {
+        global: endGlobal,
+        stopPropagation: vi.fn(),
+      });
+    };
+
+    const rotatePoint = (point, center, angle) => {
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const dx = point.x - center.x;
+      const dy = point.y - center.y;
+      return {
+        x: center.x + dx * cos - dy * sin,
+        y: center.y + dx * sin + dy * cos,
+      };
+    };
+
+    const rotateWithFirstHandle = (
+      patchmap,
+      transformer,
+      _center,
+      angle,
+      { shiftKey = false } = {},
+    ) => {
+      transformer.draw();
+      const rotateHandles = getVisibleRotateHandles(transformer);
+      const handle = rotateHandles[0];
+      if (!handle) throw new Error('visible rotate handle is missing');
+
+      const startGlobal = { x: handle.x, y: handle.y };
+      const centerGlobal = rotateHandles
+        .map((rotateHandle) => ({ x: rotateHandle.x, y: rotateHandle.y }))
+        .reduce(
+          (center, point) => ({
+            x: center.x + point.x / rotateHandles.length,
+            y: center.y + point.y / rotateHandles.length,
+          }),
+          { x: 0, y: 0 },
+        );
+      const endGlobal = rotatePoint(startGlobal, centerGlobal, angle);
+
+      handle.emit('pointerdown', {
         global: startGlobal,
         stopPropagation: vi.fn(),
       });
@@ -502,7 +597,7 @@ describe('Transformer', () => {
         wireframeStyle: { color: 0 },
       });
 
-      expect(transformer._resizeHandleStyle.stroke).toBe(0);
+      expect(transformer._transformHandleStyle.stroke).toBe(0);
     });
 
     it('should render only four corner handles', () => {
@@ -556,6 +651,40 @@ describe('Transformer', () => {
       expect(getResizeFrame(transformer)).toBeTruthy();
     });
 
+    it('should align resize handles to a single rotated image frame', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ resizeHandles: true });
+      patchmap.transformer = transformer;
+
+      const image = patchmap.selector('$..[?(@.id=="image-1")]')[0];
+      image.rotation = Math.PI / 9;
+      transformer.elements = [image];
+      transformer.draw();
+
+      const visibleHandles = getVisibleHandles(transformer);
+      const corners = getObjectLocalCorners(image, patchmap.viewport);
+
+      expect(visibleHandles).toHaveLength(4);
+      corners.forEach((corner) => {
+        expect(
+          visibleHandles.some(
+            (handle) =>
+              Math.abs(handle.x - corner.x) < 0.001 &&
+              Math.abs(handle.y - corner.y) < 0.001,
+          ),
+        ).toBe(true);
+      });
+
+      const topLeftHandle = visibleHandles.find(
+        (handle) => handle.label === 'resize-handle:top-left',
+      );
+      expect(topLeftHandle?.cursor).toContain('data:image/svg+xml');
+      expect(decodeURIComponent(topLeftHandle?.cursor ?? '')).toContain(
+        'rotate(65',
+      );
+    });
+
     it('should build resize frame bounds from all transformed corners', () => {
       const angle = (105 * Math.PI) / 180;
       const cos = Math.cos(-angle);
@@ -564,13 +693,13 @@ describe('Transformer', () => {
         new Point(cos * x - sin * y, sin * x + cos * y);
 
       const layer = new Container({ sortableChildren: true });
-      const resizeLayer = new ResizeHandleLayer({
+      const resizeLayer = new TransformHandleLayer({
         transformer: { toLocal },
         layer,
         getViewport: () => null,
         getHandleStyle: () => ({ fill: '#fff', stroke: '#1099ff', size: 8 }),
         getStrokeWidth: () => 0,
-        onHandlePointerDown: () => {},
+        onResizePointerDown: () => {},
       });
 
       const bounds = { x: 100, y: 100, width: 100, height: 80 };
@@ -656,6 +785,26 @@ describe('Transformer', () => {
       });
     });
 
+    it('should prioritize resize corner handles over rotate hit targets', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({
+        resizeHandles: true,
+        rotateHandles: true,
+      });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      transformer.draw();
+
+      getVisibleHandles(transformer).forEach((handle) => {
+        getVisibleRotateHandles(transformer).forEach((rotateHandle) => {
+          expect(handle.zIndex).toBeGreaterThan(rotateHandle.zIndex);
+        });
+      });
+    });
+
     it('should resize width from the right edge without changing height', () => {
       const patchmap = getPatchmap();
       patchmap.draw(resizeSampleData);
@@ -710,6 +859,37 @@ describe('Transformer', () => {
       expect(rectChanges.size.width / rectChanges.size.height).toBeCloseTo(
         100 / 80,
         3,
+      );
+    });
+
+    it('should share one historyId for a single resize gesture when transformHistory is true', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({
+        resizeHandles: true,
+        transformHistory: true,
+      });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      const image = patchmap.selector('$..[?(@.id=="image-1")]')[0];
+      transformer.elements = [rect, image];
+
+      const rectApplySpy = vi.spyOn(rect, 'apply');
+      const imageApplySpy = vi.spyOn(image, 'apply');
+
+      resizeWithBottomRightHandle(patchmap, transformer, { x: 30, y: 20 });
+
+      const rectOptionsWithHistory = rectApplySpy.mock.calls
+        .map(([, options]) => options)
+        .find((options) => typeof options?.historyId === 'string');
+      const imageOptionsWithHistory = imageApplySpy.mock.calls
+        .map(([, options]) => options)
+        .find((options) => typeof options?.historyId === 'string');
+
+      expect(typeof rectOptionsWithHistory?.historyId).toBe('string');
+      expect(rectOptionsWithHistory?.historyId).toBe(
+        imageOptionsWithHistory?.historyId,
       );
     });
 
@@ -813,12 +993,13 @@ describe('Transformer', () => {
       expect(rectChanges.size.height).toBeCloseTo(80);
     });
 
-    it('should share one historyId for a single resize gesture when resizeHistory is true', () => {
+    it('should share one historyId when resizeKeepRatio and transformHistory are true', () => {
       const patchmap = getPatchmap();
       patchmap.draw(resizeSampleData);
       const transformer = new Transformer({
         resizeHandles: true,
-        resizeHistory: true,
+        transformHistory: true,
+        resizeKeepRatio: true,
       });
       patchmap.transformer = transformer;
 
@@ -844,13 +1025,278 @@ describe('Transformer', () => {
       );
     });
 
-    it('should share one historyId when resizeKeepRatio and resizeHistory are true', () => {
+    it('should render invisible rotate targets for rotatable selections', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      transformer.draw();
+
+      const rotateHandles = getVisibleRotateHandles(transformer);
+      expect(rotateHandles).toHaveLength(4);
+      expect(rotateHandles[0].cursor).toContain('data:image/svg+xml');
+      expect(rotateHandles[0].cursor).not.toBe('grab');
+    });
+
+    it('should rotate cursor icons with a single selected rotated frame', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      rect.angle = 20;
+      transformer.elements = [rect];
+      transformer.draw();
+
+      const topLeftHandle = getVisibleRotateHandles(transformer).find(
+        (handle) => handle.label === 'rotate-handle:top-left',
+      );
+      expect(decodeURIComponent(topLeftHandle?.cursor ?? '')).toContain(
+        'rotate(335',
+      );
+    });
+
+    it('should hide rotate targets when selection has no rotatable elements', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw([
+        {
+          type: 'relations',
+          id: 'relations-rotate-targets',
+          links: [],
+          style: { width: 1 },
+        },
+      ]);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const relations = patchmap.selector(
+        '$..[?(@.id=="relations-rotate-targets")]',
+      )[0];
+      transformer.elements = [relations];
+      transformer.draw();
+
+      expect(getVisibleRotateHandles(transformer)).toHaveLength(0);
+    });
+
+    it('should hide rotate targets and skip mutation for locked selections', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      rect.apply({ locked: true });
+      transformer.elements = [rect];
+      transformer.draw();
+
+      const rectApplySpy = vi.spyOn(rect, 'apply');
+      expect(getVisibleRotateHandles(transformer)).toHaveLength(0);
+      expect(() =>
+        rotateWithFirstHandle(
+          patchmap,
+          transformer,
+          { x: 150, y: 140 },
+          Math.PI / 2,
+        ),
+      ).toThrow('visible rotate handle is missing');
+      expect(rectApplySpy).not.toHaveBeenCalled();
+    });
+
+    it('should rotate rect and item elements in a mixed selection', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      const item = patchmap.selector('$..[?(@.id=="item-4")]')[0];
+      transformer.elements = [rect, item];
+
+      rotateWithFirstHandle(
+        patchmap,
+        transformer,
+        { x: 150, y: 140 },
+        Math.PI / 2,
+      );
+
+      expect(rect.rotation).toBeCloseTo(Math.PI / 2);
+      expect(item.rotation).toBeCloseTo(Math.PI / 2);
+    });
+
+    it('should position rotate targets from the full mixed selection frame', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw([
+        {
+          type: 'rect',
+          id: 'rect-rotate-frame',
+          size: { width: 100, height: 80 },
+          attrs: { x: 100, y: 100 },
+        },
+        {
+          type: 'rect',
+          id: 'locked-rect-rotate-frame',
+          size: { width: 70, height: 60 },
+          attrs: { x: 420, y: 260 },
+        },
+      ]);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-rotate-frame")]')[0];
+      const lockedRect = patchmap.selector(
+        '$..[?(@.id=="locked-rect-rotate-frame")]',
+      )[0];
+      lockedRect.apply({ locked: true });
+
+      transformer.elements = [rect];
+      transformer.draw();
+      const soloBottomRight = getBottomRightRotateHandle(transformer);
+
+      transformer.elements = [rect, lockedRect];
+      transformer.draw();
+      const mixedBottomRight = getBottomRightRotateHandle(transformer);
+
+      expect(mixedBottomRight.x).toBeGreaterThan(soloBottomRight.x);
+      expect(mixedBottomRight.y).toBeGreaterThan(soloBottomRight.y);
+    });
+
+    it('should snap rotation to 15 degree increments when shift is pressed', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+
+      rotateWithFirstHandle(
+        patchmap,
+        transformer,
+        { x: 150, y: 140 },
+        (20 * Math.PI) / 180,
+        { shiftKey: true },
+      );
+
+      expect(rect.rotation).toBeCloseTo(Math.PI / 12);
+    });
+
+    it('should snap final rotation to 15 degree increments from a non-snapped start angle', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      rect.apply({ attrs: { angle: 4 } });
+      transformer.elements = [rect];
+
+      rotateWithFirstHandle(
+        patchmap,
+        transformer,
+        { x: 150, y: 140 },
+        (60 * Math.PI) / 180,
+        { shiftKey: true },
+      );
+
+      expect(rect.angle).toBeCloseTo(60);
+    });
+
+    it('should snap multi-selection rotation from the element angle instead of the axis-aligned frame', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw([
+        {
+          type: 'rect',
+          id: 'snap-multi-1',
+          size: { width: 100, height: 80 },
+          attrs: { x: 100, y: 100, angle: 62.27 },
+        },
+        {
+          type: 'rect',
+          id: 'snap-multi-2',
+          size: { width: 100, height: 80 },
+          attrs: { x: 260, y: 120, angle: 62.27 },
+        },
+      ]);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect1 = patchmap.selector('$..[?(@.id=="snap-multi-1")]')[0];
+      const rect2 = patchmap.selector('$..[?(@.id=="snap-multi-2")]')[0];
+      transformer.elements = [rect1, rect2];
+
+      rotateWithFirstHandle(
+        patchmap,
+        transformer,
+        { x: 150, y: 140 },
+        (15 * Math.PI) / 180,
+        { shiftKey: true },
+      );
+
+      expect(rect1.angle).toBeCloseTo(75);
+      expect(rect2.angle).toBeCloseTo(75);
+    });
+
+    it('should update rotation snap when shift is pressed during a gesture', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      transformer.draw();
+
+      const rotateHandles = getVisibleRotateHandles(transformer);
+      const handle = rotateHandles[0];
+      const startGlobal = { x: handle.x, y: handle.y };
+      const centerGlobal = rotateHandles
+        .map((rotateHandle) => ({ x: rotateHandle.x, y: rotateHandle.y }))
+        .reduce(
+          (center, point) => ({
+            x: center.x + point.x / rotateHandles.length,
+            y: center.y + point.y / rotateHandles.length,
+          }),
+          { x: 0, y: 0 },
+        );
+      const endGlobal = rotatePoint(
+        startGlobal,
+        centerGlobal,
+        (20 * Math.PI) / 180,
+      );
+
+      handle.emit('pointerdown', {
+        global: startGlobal,
+        stopPropagation: vi.fn(),
+      });
+      patchmap.viewport.emit('pointermove', {
+        global: endGlobal,
+        shiftKey: false,
+        stopPropagation: vi.fn(),
+      });
+      expect(rect.rotation).toBeCloseTo((20 * Math.PI) / 180);
+
+      globalThis.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' }));
+      expect(rect.rotation).toBeCloseTo(Math.PI / 12);
+
+      globalThis.dispatchEvent(new KeyboardEvent('keyup', { key: 'Shift' }));
+      expect(rect.rotation).toBeCloseTo((20 * Math.PI) / 180);
+
+      patchmap.viewport.emit('pointerup', {
+        global: endGlobal,
+        stopPropagation: vi.fn(),
+      });
+    });
+
+    it('should share one historyId for a multi-element rotate gesture', () => {
       const patchmap = getPatchmap();
       patchmap.draw(resizeSampleData);
       const transformer = new Transformer({
-        resizeHandles: true,
-        resizeHistory: true,
-        resizeKeepRatio: true,
+        rotateHandles: true,
+        transformHistory: true,
       });
       patchmap.transformer = transformer;
 
@@ -861,19 +1307,140 @@ describe('Transformer', () => {
       const rectApplySpy = vi.spyOn(rect, 'apply');
       const imageApplySpy = vi.spyOn(image, 'apply');
 
-      resizeWithBottomRightHandle(patchmap, transformer, { x: 30, y: 0 });
-
-      const rectOptionsWithHistory = rectApplySpy.mock.calls
-        .map(([, options]) => options)
-        .find((options) => typeof options?.historyId === 'string');
-      const imageOptionsWithHistory = imageApplySpy.mock.calls
-        .map(([, options]) => options)
-        .find((options) => typeof options?.historyId === 'string');
-
-      expect(typeof rectOptionsWithHistory?.historyId).toBe('string');
-      expect(rectOptionsWithHistory?.historyId).toBe(
-        imageOptionsWithHistory?.historyId,
+      rotateWithFirstHandle(
+        patchmap,
+        transformer,
+        { x: 200, y: 150 },
+        Math.PI / 4,
       );
+
+      const rectHistoryId = rectApplySpy.mock.calls.find(
+        ([, options]) => typeof options?.historyId === 'string',
+      )?.[1]?.historyId;
+      const imageHistoryId = imageApplySpy.mock.calls.find(
+        ([, options]) => typeof options?.historyId === 'string',
+      )?.[1]?.historyId;
+
+      expect(typeof rectHistoryId).toBe('string');
+      expect(rectHistoryId).toBe(imageHistoryId);
+    });
+
+    it('should start and stop mouse-edges plugin during rotation', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+      patchmap.viewport.plugin.add({ mouseEdges: {} });
+      patchmap.viewport.plugin.stop('mouse-edges');
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+
+      const startSpy = vi.spyOn(patchmap.viewport.plugin, 'start');
+      const stopSpy = vi.spyOn(patchmap.viewport.plugin, 'stop');
+
+      rotateWithFirstHandle(
+        patchmap,
+        transformer,
+        { x: 150, y: 140 },
+        Math.PI / 4,
+      );
+
+      expect(startSpy).toHaveBeenCalledWith('mouse-edges');
+      expect(stopSpy).toHaveBeenCalledWith('mouse-edges');
+    });
+
+    it('should keep positive rotate hit areas when viewport scale.x is negative', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      patchmap.viewport.scale.set(-2, 2);
+      transformer.draw();
+
+      const visibleRotateHandles = getVisibleRotateHandles(transformer);
+      expect(visibleRotateHandles.length).toBeGreaterThan(0);
+      visibleRotateHandles.forEach((handle) => {
+        expect(handle.hitArea?.width).toBeGreaterThan(0);
+        expect(handle.hitArea?.height).toBeGreaterThan(0);
+      });
+    });
+
+    it('should preserve angle attrs for text rotation', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw([
+        {
+          type: 'text',
+          id: 'text-angle',
+          text: 'LABEL',
+          attrs: { x: 100, y: 100, angle: 30 },
+          style: { fontSize: 16 },
+        },
+      ]);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const text = patchmap.selector('$..[?(@.id=="text-angle")]')[0];
+      const bounds = text.getLocalBounds();
+      transformer.elements = [text];
+
+      rotateWithFirstHandle(
+        patchmap,
+        transformer,
+        {
+          x: text.x + bounds.x + bounds.width / 2,
+          y: text.y + bounds.y + bounds.height / 2,
+        },
+        Math.PI / 2,
+      );
+
+      expect(text.props.attrs.angle).toBeCloseTo(120);
+      expect(text.props.attrs.rotation).toBeUndefined();
+    });
+
+    it('should rotate grid with attrs-only changes and keep children stable', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw([
+        {
+          type: 'grid',
+          id: 'grid-rotate',
+          cells: [[1, 1]],
+          gap: 4,
+          item: {
+            size: { width: 40, height: 40 },
+            components: [],
+          },
+          attrs: { x: 100, y: 100 },
+        },
+      ]);
+      const transformer = new Transformer({
+        rotateHandles: true,
+        transformHistory: true,
+      });
+      patchmap.transformer = transformer;
+
+      const grid = patchmap.selector('$..[?(@.id=="grid-rotate")]')[0];
+      const initialChildren = [...grid.children];
+      const gridApplySpy = vi.spyOn(grid, 'apply');
+      transformer.elements = [grid];
+
+      rotateWithFirstHandle(
+        patchmap,
+        transformer,
+        { x: 142, y: 120 },
+        Math.PI / 2,
+      );
+
+      const [changes, options] = gridApplySpy.mock.calls.find(
+        ([callChanges]) => callChanges?.attrs?.angle != null,
+      );
+      expect(Object.keys(changes)).toEqual(['attrs']);
+      expect(changes.attrs.angle).toBeCloseTo(90);
+      expect(typeof options?.historyId).toBe('string');
+      expect(grid.children).toEqual(initialChildren);
     });
   });
 

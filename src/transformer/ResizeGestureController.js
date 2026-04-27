@@ -1,4 +1,5 @@
 import { uid } from '../utils/uuid';
+import GestureSession from './gesture-session';
 import {
   applyResizeUpdates,
   computeResizeUpdates,
@@ -27,7 +28,7 @@ import { normalizeBounds } from './resize-context';
  * @property {() => import('pixi-viewport').Viewport | null} getViewport
  * @property {() => boolean} canStart
  * @property {() => ResizeContext | null} getResizeContext
- * @property {() => boolean} getResizeHistory
+ * @property {() => boolean} getTransformHistory
  * @property {(context: { event: PIXI.FederatedPointerEvent, handle: string, elements: PIXI.DisplayObject[] }) => boolean} getResizeKeepRatio
  * @property {() => void} emitUpdateElements
  * @property {() => void} requestRender
@@ -60,7 +61,7 @@ export default class ResizeGestureController {
    * @private
    * @type {() => boolean}
    */
-  _getResizeHistory;
+  _getTransformHistory;
 
   /**
    * @private
@@ -88,9 +89,9 @@ export default class ResizeGestureController {
 
   /**
    * @private
-   * @type {boolean}
+   * @type {GestureSession}
    */
-  _ownsMouseEdgesSession = false;
+  _session;
 
   /**
    * @param {ResizeGestureControllerOptions} options
@@ -99,7 +100,7 @@ export default class ResizeGestureController {
     getViewport,
     canStart,
     getResizeContext,
-    getResizeHistory,
+    getTransformHistory,
     getResizeKeepRatio,
     emitUpdateElements,
     requestRender,
@@ -107,10 +108,15 @@ export default class ResizeGestureController {
     this._getViewport = getViewport;
     this._canStart = canStart;
     this._getResizeContext = getResizeContext;
-    this._getResizeHistory = getResizeHistory;
+    this._getTransformHistory = getTransformHistory;
     this._getResizeKeepRatio = getResizeKeepRatio;
     this._emitUpdateElements = emitUpdateElements;
     this._requestRender = requestRender;
+    this._session = new GestureSession({
+      getViewport,
+      onMove: this.#onMove,
+      onUp: this.#onUp,
+    });
   }
 
   /**
@@ -140,14 +146,12 @@ export default class ResizeGestureController {
       handle,
       startPoint,
       bounds: normalizeBounds(resizeContext.bounds),
+      frame: resizeContext.frame,
       elementStates,
-      historyId: this._getResizeHistory() ? uid() : null,
+      historyId: this._getTransformHistory() ? uid() : null,
     };
 
-    this.#startMouseEdges();
-    viewport.on('pointermove', this.#onMove);
-    viewport.on('pointerup', this.#onUp);
-    viewport.on('pointerupoutside', this.#onUp);
+    this._session.start();
   };
 
   /**
@@ -156,15 +160,7 @@ export default class ResizeGestureController {
    * @returns {void}
    */
   end() {
-    this.#stopMouseEdges();
-
-    const viewport = this._getViewport();
-    if (viewport) {
-      viewport.off('pointermove', this.#onMove);
-      viewport.off('pointerup', this.#onUp);
-      viewport.off('pointerupoutside', this.#onUp);
-    }
-
+    this._session.stop();
     this._activeResize = null;
   }
 
@@ -220,30 +216,4 @@ export default class ResizeGestureController {
     event.stopPropagation();
     this.end();
   };
-
-  #startMouseEdges() {
-    const viewport = this._getViewport();
-    if (!viewport?.plugin?.start || this._ownsMouseEdgesSession) return;
-
-    const mouseEdgesPlugin = viewport?.plugins?.get?.('mouse-edges');
-    if (!mouseEdgesPlugin) {
-      return;
-    }
-
-    const wasPaused = Boolean(mouseEdgesPlugin.paused);
-    if (!wasPaused) {
-      return;
-    }
-
-    viewport.plugin.start('mouse-edges');
-    this._ownsMouseEdgesSession = true;
-  }
-
-  #stopMouseEdges() {
-    if (!this._ownsMouseEdgesSession) return;
-
-    const viewport = this._getViewport();
-    viewport?.plugin?.stop?.('mouse-edges');
-    this._ownsMouseEdgesSession = false;
-  }
 }

@@ -6,9 +6,11 @@ import { getViewport } from '../utils/get';
 import { validate } from '../utils/validator';
 import { getSafeViewportScale } from '../utils/viewport';
 import ResizeGestureController from './ResizeGestureController';
-import ResizeHandleLayer from './ResizeHandleLayer';
+import RotateGestureController from './RotateGestureController';
 import { buildResizeContext } from './resize-context';
+import { buildRotateContext } from './rotate-context';
 import SelectionModel from './SelectionModel';
+import TransformHandleLayer from './TransformHandleLayer';
 import { Wireframe } from './Wireframe';
 
 const DEFAULT_WIREFRAME_STYLE = { thickness: 1.5, color: '#1099FF' };
@@ -35,7 +37,8 @@ const DEFAULT_HANDLE_STYLE = { fill: '#FFFFFF', stroke: '#1099FF', size: 8 };
  * @property {WireframeStyle} [wireframeStyle] - The style of the wireframe.
  * @property {BoundsDisplayMode} [boundsDisplayMode='all'] - The mode for displaying bounds.
  * @property {boolean} [resizeHandles=false] - Enable group resize handles.
- * @property {boolean} [resizeHistory=false] - Record resize changes to undo/redo history.
+ * @property {boolean} [rotateHandles=false] - Enable outside-corner rotate hit targets.
+ * @property {boolean} [transformHistory=false] - Record transform changes to undo/redo history.
  * @property {boolean} [resizeKeepRatio=false] - Keep the resize aspect ratio without requiring Shift.
  * @property {(context: { event: PIXI.FederatedPointerEvent, handle: string, elements: PIXI.DisplayObject[] }) => boolean} [getResizeKeepRatio] - Determines whether resize should keep its aspect ratio for the current pointer move.
  */
@@ -46,7 +49,8 @@ const TransformerSchema = z
     wireframeStyle: z.record(z.string(), z.unknown()),
     boundsDisplayMode: z.enum(['all', 'groupOnly', 'elementOnly', 'none']),
     resizeHandles: z.boolean(),
-    resizeHistory: z.boolean(),
+    rotateHandles: z.boolean(),
+    transformHistory: z.boolean(),
     resizeKeepRatio: z.boolean(),
     getResizeKeepRatio: z.custom((value) => typeof value === 'function'),
   })
@@ -99,11 +103,18 @@ export default class Transformer extends Container {
   _resizeHandles = false;
 
   /**
-   * Flag to record resize changes to undo/redo history.
+   * Flag to enable rotate handles for group bounds.
    * @private
    * @type {boolean}
    */
-  _resizeHistory = false;
+  _rotateHandles = false;
+
+  /**
+   * Flag to record transform changes to undo/redo history.
+   * @private
+   * @type {boolean}
+   */
+  _transformHistory = false;
 
   /**
    * Flag to keep resize aspect ratio without requiring Shift.
@@ -120,17 +131,17 @@ export default class Transformer extends Container {
   _getResizeKeepRatio = null;
 
   /**
-   * The container holding resize handle graphics.
+   * The container holding transform handle graphics.
    * @private
    * @type {PIXI.Container}
    */
-  _resizeHandleLayer;
+  _transformHandleLayer;
 
   /**
    * @private
    * @type {{ fill: string | number, stroke: string | number, size: number }}
    */
-  _resizeHandleStyle = { ...DEFAULT_HANDLE_STYLE };
+  _transformHandleStyle = { ...DEFAULT_HANDLE_STYLE };
 
   /**
    * Manages the state of the currently selected elements.
@@ -140,11 +151,11 @@ export default class Transformer extends Container {
   _selection;
 
   /**
-   * Handles drawing and hit-target rendering for resize handles.
+   * Handles drawing and hit-target rendering for transform handles.
    * @private
-   * @type {ResizeHandleLayer}
+   * @type {TransformHandleLayer}
    */
-  _resizeHandleRenderer;
+  _transformHandleRenderer;
 
   /**
    * Handles pointer gesture lifecycle for resizing.
@@ -152,6 +163,13 @@ export default class Transformer extends Container {
    * @type {ResizeGestureController}
    */
   _resizeGesture;
+
+  /**
+   * Handles pointer gesture lifecycle for rotating.
+   * @private
+   * @type {RotateGestureController}
+   */
+  _rotateGesture;
 
   /**
    * @param {TransformerOptions} [opts] - The options for the transformer.
@@ -164,18 +182,21 @@ export default class Transformer extends Container {
 
     this._selection = new SelectionModel();
     this.#wireframe = this.addChild(new Wireframe({ type: 'wireframe' }));
-    this._resizeHandleLayer = this.addChild(
-      new Container({ label: 'resize-handles', sortableChildren: true }),
+    this._transformHandleLayer = this.addChild(
+      new Container({ label: 'transform-handles', sortableChildren: true }),
     );
 
-    this._resizeHandleRenderer = new ResizeHandleLayer({
+    this._transformHandleRenderer = new TransformHandleLayer({
       transformer: this,
-      layer: this._resizeHandleLayer,
+      layer: this._transformHandleLayer,
       getViewport: () => this._viewport,
-      getHandleStyle: () => this._resizeHandleStyle,
+      getHandleStyle: () => this._transformHandleStyle,
       getStrokeWidth: () => this.wireframe.strokeStyle.width,
-      onHandlePointerDown: (handle, event) => {
+      onResizePointerDown: (handle, event) => {
         this._resizeGesture.begin(handle, event);
+      },
+      onRotatePointerDown: (handle, event) => {
+        this._rotateGesture.begin(handle, event);
       },
     });
 
@@ -183,9 +204,18 @@ export default class Transformer extends Container {
       getViewport: () => this._viewport,
       canStart: () => this.#shouldShowResizeHandles(),
       getResizeContext: () => this.#buildResizeContext(),
-      getResizeHistory: () => this._resizeHistory,
+      getTransformHistory: () => this._transformHistory,
       getResizeKeepRatio: (context) =>
         this._resizeKeepRatio || Boolean(this._getResizeKeepRatio?.(context)),
+      emitUpdateElements: () => this.#emitUpdateElements(),
+      requestRender: this.update,
+    });
+
+    this._rotateGesture = new RotateGestureController({
+      getViewport: () => this._viewport,
+      canStart: () => this.#shouldShowRotateHandles(),
+      getRotateContext: () => this.#buildRotateContext(),
+      getTransformHistory: () => this._transformHistory,
       emitUpdateElements: () => this.#emitUpdateElements(),
       requestRender: this.update,
     });
@@ -291,7 +321,7 @@ export default class Transformer extends Container {
     this._wireframeStyle = Object.assign(this._wireframeStyle, value);
     this.wireframe.setStrokeStyle(this.wireframeStyle);
     if (this.wireframeStyle?.color != null) {
-      this._resizeHandleStyle.stroke = this.wireframeStyle.color;
+      this._transformHandleStyle.stroke = this.wireframeStyle.color;
     }
     this.update();
   }
@@ -307,22 +337,39 @@ export default class Transformer extends Container {
   set resizeHandles(value) {
     this._resizeHandles = Boolean(value);
     if (!this._resizeHandles) {
-      this._resizeHandleRenderer.clear();
       this._resizeGesture.end();
+      if (!this._rotateHandles) this._transformHandleRenderer.clear();
     }
     this.update();
   }
 
   /**
-   * Enables or disables recording resize changes to undo/redo history.
+   * Enables or disables rotate hit targets for group bounds.
    * @type {boolean}
    */
-  get resizeHistory() {
-    return this._resizeHistory;
+  get rotateHandles() {
+    return this._rotateHandles;
   }
 
-  set resizeHistory(value) {
-    this._resizeHistory = Boolean(value);
+  set rotateHandles(value) {
+    this._rotateHandles = Boolean(value);
+    if (!this._rotateHandles) {
+      this._rotateGesture.end();
+      if (!this._resizeHandles) this._transformHandleRenderer.clear();
+    }
+    this.update();
+  }
+
+  /**
+   * Enables or disables recording transform changes to undo/redo history.
+   * @type {boolean}
+   */
+  get transformHistory() {
+    return this._transformHistory;
+  }
+
+  set transformHistory(value) {
+    this._transformHistory = Boolean(value);
   }
 
   /**
@@ -362,7 +409,8 @@ export default class Transformer extends Container {
     }
 
     this._resizeGesture.destroy();
-    this._resizeHandleRenderer.clear();
+    this._rotateGesture.destroy();
+    this._transformHandleRenderer.clear();
     this.selection.destroy();
     super.destroy(options);
   }
@@ -383,20 +431,19 @@ export default class Transformer extends Container {
    */
   draw() {
     const elements = this.elements;
-    const resizeContext = this.#buildResizeContext(elements);
 
     this.wireframe.clear();
 
     if (this.#isEmptySelection(elements)) {
       this._renderDirty = false;
-      this._resizeHandleRenderer.clear();
+      this._transformHandleRenderer.clear();
       return;
     }
 
     this.#syncWireframeStrokeWidth();
     this.#drawElementBounds(elements);
     this.#drawGroupBounds(elements);
-    this.#drawResizeHandlesFor(resizeContext);
+    this.#drawTransformHandlesFor(elements);
     this._renderDirty = false;
   }
 
@@ -413,7 +460,9 @@ export default class Transformer extends Container {
   }
 
   #syncWireframeStrokeWidth() {
-    if (this.boundsDisplayMode === 'none' && !this._resizeHandles) return;
+    if (this.boundsDisplayMode === 'none' && !this.#shouldShowAnyHandles()) {
+      return;
+    }
 
     const viewportScale = getSafeViewportScale(this._viewport);
 
@@ -435,32 +484,64 @@ export default class Transformer extends Container {
   }
 
   #drawGroupBounds(elements) {
-    const shouldShowResizeHandles = this.#shouldShowResizeHandles();
+    const shouldShowHandles = this.#shouldShowAnyHandles();
     if (
       this.boundsDisplayMode !== 'all' &&
       this.boundsDisplayMode !== 'groupOnly' &&
-      !shouldShowResizeHandles
+      !shouldShowHandles
     ) {
       return;
     }
 
-    const groupBounds = calcGroupOrientedBounds(elements);
+    const groupBounds = this.#getGroupBounds(elements);
     if (groupBounds) {
       this.wireframe.drawBounds(groupBounds);
     }
   }
 
-  #drawResizeHandlesFor(resizeContext) {
-    if (!this.#shouldShowResizeHandles() || !resizeContext) {
-      this._resizeHandleRenderer.clear();
+  #getGroupBounds(elements) {
+    if (elements.length === 1) {
+      return calcOrientedBounds(elements[0]);
+    }
+
+    return calcGroupOrientedBounds(elements);
+  }
+
+  #drawTransformHandlesFor(elements) {
+    const shouldShowResizeHandles = this.#shouldShowResizeHandles();
+    const shouldShowRotateHandles = this.#shouldShowRotateHandles();
+    const resizeContext = shouldShowResizeHandles
+      ? this.#buildResizeContext(elements)
+      : null;
+    const rotateContext = shouldShowRotateHandles
+      ? this.#buildRotateContext(elements)
+      : null;
+    const resizeBounds = shouldShowResizeHandles ? resizeContext?.bounds : null;
+    const resizeFrame = shouldShowResizeHandles ? resizeContext?.frame : null;
+    const rotateFrame = shouldShowRotateHandles ? rotateContext?.frame : null;
+
+    if (!resizeFrame && !rotateFrame) {
+      this._transformHandleRenderer.clear();
       return;
     }
 
-    this._resizeHandleRenderer.draw(resizeContext.bounds);
+    this._transformHandleRenderer.draw({
+      resizeBounds,
+      resizeFrame,
+      rotateFrame,
+    });
   }
 
   #shouldShowResizeHandles() {
     return this._resizeHandles && this.boundsDisplayMode !== 'none';
+  }
+
+  #shouldShowRotateHandles() {
+    return this._rotateHandles && this.boundsDisplayMode !== 'none';
+  }
+
+  #shouldShowAnyHandles() {
+    return this.#shouldShowResizeHandles() || this.#shouldShowRotateHandles();
   }
 
   #emitUpdateElements({
@@ -473,6 +554,13 @@ export default class Transformer extends Container {
 
   #buildResizeContext(elements = this.elements) {
     return buildResizeContext({
+      elements,
+      viewport: this._viewport,
+    });
+  }
+
+  #buildRotateContext(elements = this.elements) {
+    return buildRotateContext({
       elements,
       viewport: this._viewport,
     });

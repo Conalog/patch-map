@@ -8,6 +8,7 @@ const ComposedItem = mixins(Element, Componentsable, ItemSizeable);
 
 export class Item extends ComposedItem {
   static isSelectable = true;
+  static isRotatable = true;
   static hitScope = 'children';
 
   constructor(store) {

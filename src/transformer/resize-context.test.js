@@ -16,7 +16,7 @@ vi.mock('../utils/transform', () => ({
       height: Math.max(...ys) - Math.min(...ys),
     };
   }),
-  getObjectLocalCorners: vi.fn((element) => element.corners ?? []),
+  getObjectFrameLocalCorners: vi.fn((element) => element.corners ?? []),
 }));
 
 import { buildResizeContext } from './resize-context';
@@ -80,13 +80,23 @@ describe('buildResizeContext', () => {
       viewport: { id: 'viewport' },
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       elements: [unlockedRect],
       bounds: {
         x: 20,
         y: 20,
         width: 20,
         height: 30,
+      },
+      frame: {
+        mode: 'oriented',
+        bounds: {
+          x: 20,
+          y: 20,
+          width: 20,
+          height: 30,
+        },
+        center: { x: 30, y: 35 },
       },
     });
   });

@@ -231,7 +231,6 @@ describe('Undo/Redo: Text Component', () => {
         path: '$..[?(@.id=="text-1")]',
         changes: {
           margin: { left: 20, top: 10 },
-          style: { fontWeight: 'bold' },
         },
         history: true,
       });

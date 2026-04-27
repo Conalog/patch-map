@@ -1,6 +1,10 @@
 import { Point } from 'pixi.js';
 import { isResizableElement } from './resize-context';
-import { computeResize, resizeElementState } from './resize-utils';
+import {
+  computeResize,
+  resizeElementState,
+  snapSizeToUnit,
+} from './resize-utils';
 
 /**
  * @typedef {object} ResizeElementState
@@ -64,6 +68,13 @@ export const createResizeDelta = (startPoint, currentPoint) => ({
  * @returns {ResizeUpdate[]}
  */
 export const computeResizeUpdates = ({ activeResize, delta, keepRatio }) => {
+  if (
+    activeResize.frame?.mode === 'oriented' &&
+    activeResize.elementStates.length === 1
+  ) {
+    return computeOrientedResizeUpdates({ activeResize, delta, keepRatio });
+  }
+
   const resizeInfo = computeResize({
     bounds: activeResize.bounds,
     handle: activeResize.handle,
@@ -75,6 +86,81 @@ export const computeResizeUpdates = ({ activeResize, delta, keepRatio }) => {
     element: state.element,
     updatedState: resizeElementState(state, resizeInfo),
   }));
+};
+
+const computeOrientedResizeUpdates = ({ activeResize, delta, keepRatio }) => {
+  const state = activeResize.elementStates[0];
+  const geometry = getOrientedFrameGeometry(activeResize.frame);
+  const localDelta = projectDelta(delta, geometry);
+  const resizeInfo = computeResize({
+    bounds: {
+      x: 0,
+      y: 0,
+      width: geometry.width,
+      height: geometry.height,
+    },
+    handle: activeResize.handle,
+    delta: localDelta,
+    keepRatio,
+  });
+  const origin = frameLocalToViewport(
+    geometry,
+    resizeInfo.bounds.x,
+    resizeInfo.bounds.y,
+  );
+
+  return [
+    {
+      element: state.element,
+      updatedState: {
+        x: origin.x,
+        y: origin.y,
+        width: snapSizeToUnit(resizeInfo.bounds.width, state.width),
+        height: snapSizeToUnit(resizeInfo.bounds.height, state.height),
+      },
+    },
+  ];
+};
+
+const getOrientedFrameGeometry = (frame) => {
+  const [topLeft, topRight, , bottomLeft] = frame.corners;
+  const widthVector = {
+    x: topRight.x - topLeft.x,
+    y: topRight.y - topLeft.y,
+  };
+  const heightVector = {
+    x: bottomLeft.x - topLeft.x,
+    y: bottomLeft.y - topLeft.y,
+  };
+  const width = Math.hypot(widthVector.x, widthVector.y);
+  const height = Math.hypot(heightVector.x, heightVector.y);
+
+  return {
+    origin: topLeft,
+    xAxis: normalizeVector(widthVector),
+    yAxis: normalizeVector(heightVector),
+    width,
+    height,
+  };
+};
+
+const projectDelta = (delta, geometry) => ({
+  x: delta.x * geometry.xAxis.x + delta.y * geometry.xAxis.y,
+  y: delta.x * geometry.yAxis.x + delta.y * geometry.yAxis.y,
+});
+
+const frameLocalToViewport = (geometry, x, y) => ({
+  x: geometry.origin.x + geometry.xAxis.x * x + geometry.yAxis.x * y,
+  y: geometry.origin.y + geometry.xAxis.y * x + geometry.yAxis.y * y,
+});
+
+const normalizeVector = (vector) => {
+  const length = Math.hypot(vector.x, vector.y);
+  if (!length) return { x: 0, y: 0 };
+  return {
+    x: vector.x / length,
+    y: vector.y / length,
+  };
 };
 
 /**
