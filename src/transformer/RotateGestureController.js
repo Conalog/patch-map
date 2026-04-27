@@ -18,6 +18,7 @@ export default class RotateGestureController {
   _emitUpdateElements;
   _requestRender;
   _activeRotate = null;
+  _isShiftPressed = false;
   _session;
 
   constructor({
@@ -53,6 +54,7 @@ export default class RotateGestureController {
 
     this._activeRotate = {
       startPoint: viewport.toWorld(event.global),
+      currentPoint: viewport.toWorld(event.global),
       frame: rotateContext.frame,
       elementStates: createRotateElementStates({
         elements: rotateContext.elements,
@@ -60,13 +62,17 @@ export default class RotateGestureController {
       }),
       historyId: this._getTransformHistory() ? uid() : null,
     };
+    this._isShiftPressed = Boolean(event.shiftKey);
 
     this._session.start();
+    this.#startKeyboardTracking();
   };
 
   end() {
     this._session.stop();
+    this.#stopKeyboardTracking();
     this._activeRotate = null;
+    this._isShiftPressed = false;
   }
 
   destroy() {
@@ -80,11 +86,22 @@ export default class RotateGestureController {
     event.stopPropagation();
 
     const currentPoint = viewport.toWorld(event.global);
+    this._activeRotate.currentPoint = currentPoint;
+    if (Object.hasOwn(event, 'shiftKey')) {
+      this._isShiftPressed = Boolean(event.shiftKey);
+    }
+    this.#applyRotation(currentPoint, this._isShiftPressed);
+  };
+
+  #applyRotation(currentPoint, snap) {
+    const viewport = this._getViewport();
+    if (!this._activeRotate || !viewport || !currentPoint) return;
+
     const deltaAngle = computeRotationDelta({
       center: this._activeRotate.frame.center,
       startPoint: this._activeRotate.startPoint,
       currentPoint,
-      snap: Boolean(event.shiftKey),
+      snap,
     });
     const updates = computeRotateUpdates({
       activeRotate: this._activeRotate,
@@ -99,11 +116,33 @@ export default class RotateGestureController {
 
     this._emitUpdateElements();
     this._requestRender();
-  };
+  }
 
   #onUp = (event) => {
     if (!this._activeRotate) return;
     event.stopPropagation();
     this.end();
   };
+
+  #onKeyDown = (event) => {
+    if (event.key !== 'Shift' || this._isShiftPressed) return;
+    this._isShiftPressed = true;
+    this.#applyRotation(this._activeRotate?.currentPoint, true);
+  };
+
+  #onKeyUp = (event) => {
+    if (event.key !== 'Shift' || !this._isShiftPressed) return;
+    this._isShiftPressed = false;
+    this.#applyRotation(this._activeRotate?.currentPoint, false);
+  };
+
+  #startKeyboardTracking() {
+    globalThis.addEventListener?.('keydown', this.#onKeyDown);
+    globalThis.addEventListener?.('keyup', this.#onKeyUp);
+  }
+
+  #stopKeyboardTracking() {
+    globalThis.removeEventListener?.('keydown', this.#onKeyDown);
+    globalThis.removeEventListener?.('keyup', this.#onKeyUp);
+  }
 }

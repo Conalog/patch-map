@@ -56,11 +56,14 @@ describe('rotate-apply', () => {
     );
   });
 
-  it('preserves existing rotation key and defaults to rotation', () => {
+  it('preserves existing rotation key and falls back to angle', () => {
     expect(getRotationKey(createElement({ attrs: { rotation: 0.5 } }))).toBe(
       'rotation',
     );
-    expect(getRotationKey(createElement())).toBe('rotation');
+    expect(
+      getRotationKey(createElement({ attrs: { rotation: 0.5, angle: 30 } })),
+    ).toBe('rotation');
+    expect(getRotationKey(createElement())).toBe('angle');
   });
 
   it('rotates element origin around a visible center using center offset', () => {

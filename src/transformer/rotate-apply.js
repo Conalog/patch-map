@@ -100,9 +100,9 @@ const applyElementRotate = ({ element, updatedState, viewport, historyId }) => {
 
 export const getRotationKey = (element) => {
   const attrs = element?.props?.attrs;
-  if (attrs && Object.hasOwn(attrs, 'angle')) return 'angle';
   if (attrs && Object.hasOwn(attrs, 'rotation')) return 'rotation';
-  return 'rotation';
+  if (attrs && Object.hasOwn(attrs, 'angle')) return 'angle';
+  return 'angle';
 };
 
 const getRotationInRadians = (element, rotationKey) => {

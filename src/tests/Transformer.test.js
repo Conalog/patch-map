@@ -1033,6 +1033,57 @@ describe('Transformer', () => {
       expect(rect.rotation).toBeCloseTo(Math.PI / 12);
     });
 
+    it('should update rotation snap when shift is pressed during a gesture', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      transformer.elements = [rect];
+      transformer.draw();
+
+      const rotateHandles = getVisibleRotateHandles(transformer);
+      const handle = rotateHandles[0];
+      const startGlobal = { x: handle.x, y: handle.y };
+      const centerGlobal = rotateHandles
+        .map((rotateHandle) => ({ x: rotateHandle.x, y: rotateHandle.y }))
+        .reduce(
+          (center, point) => ({
+            x: center.x + point.x / rotateHandles.length,
+            y: center.y + point.y / rotateHandles.length,
+          }),
+          { x: 0, y: 0 },
+        );
+      const endGlobal = rotatePoint(
+        startGlobal,
+        centerGlobal,
+        (20 * Math.PI) / 180,
+      );
+
+      handle.emit('pointerdown', {
+        global: startGlobal,
+        stopPropagation: vi.fn(),
+      });
+      patchmap.viewport.emit('pointermove', {
+        global: endGlobal,
+        shiftKey: false,
+        stopPropagation: vi.fn(),
+      });
+      expect(rect.rotation).toBeCloseTo((20 * Math.PI) / 180);
+
+      globalThis.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' }));
+      expect(rect.rotation).toBeCloseTo(Math.PI / 12);
+
+      globalThis.dispatchEvent(new KeyboardEvent('keyup', { key: 'Shift' }));
+      expect(rect.rotation).toBeCloseTo((20 * Math.PI) / 180);
+
+      patchmap.viewport.emit('pointerup', {
+        global: endGlobal,
+        stopPropagation: vi.fn(),
+      });
+    });
+
     it('should share one historyId for a multi-element rotate gesture', () => {
       const patchmap = getPatchmap();
       patchmap.draw(resizeSampleData);
@@ -1177,10 +1228,10 @@ describe('Transformer', () => {
       );
 
       const [changes, options] = gridApplySpy.mock.calls.find(
-        ([callChanges]) => callChanges?.attrs?.rotation != null,
+        ([callChanges]) => callChanges?.attrs?.angle != null,
       );
       expect(Object.keys(changes)).toEqual(['attrs']);
-      expect(changes.attrs.rotation).toBeCloseTo(Math.PI / 2);
+      expect(changes.attrs.angle).toBeCloseTo(90);
       expect(typeof options?.historyId).toBe('string');
       expect(grid.children).toEqual(initialChildren);
     });
