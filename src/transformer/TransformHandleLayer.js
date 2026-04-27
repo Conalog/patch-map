@@ -49,6 +49,7 @@ const createResizeCursor = (degrees) => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 -960 960 960"><g transform="rotate(${degrees} 480 -480)"><path d="${path}" fill="black" stroke="white" stroke-width="70" stroke-linejoin="round" paint-order="stroke fill"/></g></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 12 12, ${getResizeCursorFallback(degrees)}`;
 };
+const resizeCursorCache = new Map();
 
 const createRotateCursor = (degrees) => {
   const rotation = degrees + 35;
@@ -226,7 +227,9 @@ export default class TransformHandleLayer {
 
     this.#ensureHandles();
     this.#ensureEdges();
-    this.#ensureRotateTargets();
+    if (rotateFrame) {
+      this.#ensureRotateTargets();
+    }
     this.#ensureResizeFrame();
 
     const viewport = this._getViewport();
@@ -656,7 +659,13 @@ const getResizeCursors = (frame) => {
 
 const getResizeCursorForAngle = (angle) => {
   const normalized = ((angle % 180) + 180) % 180;
-  return createResizeCursor(normalized);
+  const key = Math.round(normalized * 1000) / 1000;
+  let cursor = resizeCursorCache.get(key);
+  if (!cursor) {
+    cursor = createResizeCursor(key);
+    resizeCursorCache.set(key, cursor);
+  }
+  return cursor;
 };
 
 const getResizeCursorFallback = (angle) => {

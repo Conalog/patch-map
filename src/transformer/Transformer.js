@@ -387,8 +387,6 @@ export default class Transformer extends Container {
    */
   draw() {
     const elements = this.elements;
-    const resizeContext = this.#buildResizeContext(elements);
-    const rotateContext = this.#buildRotateContext(elements);
 
     this.wireframe.clear();
 
@@ -401,7 +399,7 @@ export default class Transformer extends Container {
     this.#syncWireframeStrokeWidth();
     this.#drawElementBounds(elements);
     this.#drawGroupBounds(elements);
-    this.#drawTransformHandlesFor({ resizeContext, rotateContext });
+    this.#drawTransformHandlesFor(elements);
     this._renderDirty = false;
   }
 
@@ -465,16 +463,18 @@ export default class Transformer extends Container {
     return calcGroupOrientedBounds(elements);
   }
 
-  #drawTransformHandlesFor({ resizeContext, rotateContext }) {
-    const resizeBounds = this.#shouldShowResizeHandles()
-      ? resizeContext?.bounds
+  #drawTransformHandlesFor(elements) {
+    const shouldShowResizeHandles = this.#shouldShowResizeHandles();
+    const shouldShowRotateHandles = this.#shouldShowRotateHandles();
+    const resizeContext = shouldShowResizeHandles
+      ? this.#buildResizeContext(elements)
       : null;
-    const resizeFrame = this.#shouldShowResizeHandles()
-      ? resizeContext?.frame
+    const rotateContext = shouldShowRotateHandles
+      ? this.#buildRotateContext(elements)
       : null;
-    const rotateFrame = this.#shouldShowRotateHandles()
-      ? rotateContext?.frame
-      : null;
+    const resizeBounds = shouldShowResizeHandles ? resizeContext?.bounds : null;
+    const resizeFrame = shouldShowResizeHandles ? resizeContext?.frame : null;
+    const rotateFrame = shouldShowRotateHandles ? rotateContext?.frame : null;
 
     if (!resizeFrame && !rotateFrame) {
       this._transformHandleRenderer.clear();
