@@ -706,7 +706,7 @@ patchmap.stateManager.setState('selection', {
 
 단일 객체 선택은 선택 객체의 회전을 따라가는 oriented 선택 박스를 사용합니다. 다중 객체 선택은 항상 수평 group 박스를 사용합니다. mixed selection에서는 회전 히트 타깃과 회전 중심이 선택된 전체 group frame을 기준으로 잡히고, 회전 불가 요소나 locked 요소는 선택 상태로 남지만 변경되지 않습니다.
 
-회전 중 Shift를 누르면 회전 delta가 15도 단위로 스냅됩니다. 이미 `attrs.angle`을 사용하는 요소는 계속 `angle`을 쓰고, `attrs.rotation`을 쓰거나 기존 회전 키가 없는 요소는 `rotation`을 씁니다.
+회전 중 Shift를 누르면 회전 delta가 15도 단위로 스냅됩니다. 이미 `attrs.rotation`을 사용하는 요소는 계속 `rotation`을 쓰고, 그 외에는 회전 제스처가 `angle`을 씁니다.
 
 ```js
 import { Patchmap, Transformer } from '@conalog/patch-map';

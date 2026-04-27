@@ -409,6 +409,7 @@ export default class TransformHandleLayer {
               viewport ?? undefined,
             ),
           ),
+          true,
         )
         .stroke({
           color: strokeColor,

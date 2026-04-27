@@ -698,7 +698,7 @@ Rotation is supported for these element types:
 
 Single-object selection uses an oriented selection frame that follows the selected object's rotation. Multi-object selection always uses an axis-aligned group frame. In mixed selections, rotate hit targets and the rotation center are based on the full selected group frame, while non-rotatable or locked elements remain selected and are not mutated.
 
-Holding Shift while rotating snaps the rotation delta to 15 degree increments. Elements that already use `attrs.angle` continue to write `angle`; elements that use `attrs.rotation`, or no existing rotation key, write `rotation`.
+Holding Shift while rotating snaps the rotation delta to 15 degree increments. Elements that already use `attrs.rotation` continue to write `rotation`; otherwise, rotation gestures write `angle`.
 
 <!-- end list -->
 
