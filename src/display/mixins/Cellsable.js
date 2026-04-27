@@ -13,6 +13,8 @@ export const Cellsable = (superClass) => {
       const childrenMap = new Map(
         this.children.map((child) => [child.id, child]),
       );
+      this._cellsApplyCreatedAllGridItems =
+        options.mergeStrategy === 'replace' && childrenMap.size === 0;
 
       cells.forEach((row, rowIndex) => {
         row.forEach((col, colIndex) => {
