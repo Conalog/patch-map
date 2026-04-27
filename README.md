@@ -674,7 +674,8 @@ You can control the behavior by passing the following options when creating a `T
       - `'elementOnly'`: Displays only the outlines of individual elements within the group.
       - `'none'`: Does not display any outline.
   - `resizeHandles` (optional, boolean): Enables group resize handles and edge hit targets (default: `false`).
-  - `resizeHistory` (optional, boolean): Determines whether resize changes are recorded in `undoRedoManager` (default: `false`). When enabled, updates in one drag gesture are grouped into a single undo/redo step.
+  - `rotateHandles` (optional, boolean): Enables invisible outside-corner rotation hit targets for rotatable selections (default: `false`).
+  - `transformHistory` (optional, boolean): Determines whether resize and rotation changes are recorded in `undoRedoManager` (default: `false`). When enabled, updates in one drag gesture are grouped into a single undo/redo step.
 
 <!-- end list -->
 
@@ -692,6 +693,9 @@ const transformer = new Transformer({
     color: '#FF00FF',
   },
   boundsDisplayMode: 'groupOnly',
+  resizeHandles: true,
+  rotateHandles: true,
+  transformHistory: true,
 });
 patchmap.transformer = transformer;
 
