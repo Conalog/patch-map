@@ -858,7 +858,10 @@ describe('Transformer', () => {
       transformer.elements = [rect];
       transformer.draw();
 
-      expect(getVisibleRotateHandles(transformer)).toHaveLength(4);
+      const rotateHandles = getVisibleRotateHandles(transformer);
+      expect(rotateHandles).toHaveLength(4);
+      expect(rotateHandles[0].cursor).toContain('data:image/svg+xml');
+      expect(rotateHandles[0].cursor).not.toBe('grab');
     });
 
     it('should hide rotate targets when selection has no rotatable elements', () => {
