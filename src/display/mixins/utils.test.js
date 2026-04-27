@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { applyComponentDefaults, applyElementDefaults } from '../default-props';
 import {
   calcSize,
   parseCalcExpression,
@@ -229,5 +230,104 @@ describe('validateAndPrepareChanges', () => {
     expect(validateAndPrepareChanges([], changes, schema)).toEqual([
       { type: 'icon', source: 'wifi' },
     ]);
+  });
+
+  it('applies lightweight defaults without schema validation when validateSchema is false', () => {
+    const changes = [{ type: 'text' }];
+    const schema = z.array(
+      z.object({
+        type: z.string(),
+        source: z.string(),
+      }),
+    );
+
+    expect(
+      validateAndPrepareChanges([], changes, schema, {
+        validateSchema: false,
+        defaultMaterializer: applyComponentDefaults,
+      }),
+    ).toEqual([
+      {
+        type: 'text',
+        id: expect.any(String),
+        show: true,
+        tint: 0xffffff,
+        placement: 'center',
+        margin: { top: 0, right: 0, bottom: 0, left: 0 },
+        text: '',
+        style: {
+          fontFamily: 'FiraCode',
+          fontWeight: 400,
+          fill: 'black',
+          fontSize: 16,
+          autoFont: { min: 1, max: 100 },
+          overflow: 'visible',
+        },
+        split: 0,
+      },
+    ]);
+  });
+
+  it('applies draw fast path defaults that schema validation would normally provide', () => {
+    expect(
+      applyElementDefaults({
+        type: 'grid',
+        id: 'grid',
+        cells: [[1]],
+        item: { size: 40 },
+      }),
+    ).toMatchObject({
+      type: 'grid',
+      gap: { x: 0, y: 0 },
+      inactiveCellStrategy: 'destroy',
+      item: {
+        size: { width: 40, height: 40 },
+        components: [],
+        padding: { top: 0, right: 0, bottom: 0, left: 0 },
+        contentOrientation: 'upright',
+      },
+    });
+
+    expect(
+      applyComponentDefaults({
+        type: 'background',
+        source: { type: 'rect' },
+      }),
+    ).toMatchObject({
+      type: 'background',
+      size: {
+        width: { value: 100, unit: '%' },
+        height: { value: 100, unit: '%' },
+      },
+    });
+  });
+
+  it('does not assign component ids to grid item templates', () => {
+    const grid = applyElementDefaults({
+      type: 'grid',
+      id: 'grid',
+      cells: [[1]],
+      gap: 0,
+      item: {
+        size: 40,
+        components: [{ type: 'text' }],
+      },
+    });
+
+    expect(grid.item.components).toEqual([{ type: 'text' }]);
+
+    const template = { size: 40, components: [{ type: 'text' }] };
+    const firstCell = applyElementDefaults({
+      type: 'item',
+      id: 'grid.0.0',
+      ...template,
+    });
+    const secondCell = applyElementDefaults({
+      type: 'item',
+      id: 'grid.0.1',
+      ...template,
+    });
+
+    expect(firstCell.components[0].id).not.toBe(secondCell.components[0].id);
   });
 });

@@ -2,6 +2,7 @@ import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { newComponent } from '../components/creator';
 import { componentArraySchema } from '../data-schema/component-schema';
+import { applyComponentDefaults } from '../default-props';
 import { UPDATE_STAGES } from './constants';
 import { validateAndPrepareChanges } from './utils';
 
@@ -25,7 +26,7 @@ export const Componentsable = (superClass) => {
         components,
         componentsChanges,
         componentArraySchema,
-        childOptions,
+        { ...childOptions, defaultMaterializer: applyComponentDefaults },
       );
 
       for (const componentChange of componentsChanges) {

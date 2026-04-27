@@ -13,7 +13,8 @@ export const Itemable = (superClass) => {
         return;
       }
 
-      const { item: itemProps, gap } = relevantChanges;
+      const { gap } = relevantChanges;
+      const itemProps = resolveGridItemProps(relevantChanges, options);
 
       const gridIdPrefix = `${this.id}.`;
       for (const child of this.children) {
@@ -42,4 +43,16 @@ export const Itemable = (superClass) => {
     UPDATE_STAGES.VISUAL,
   );
   return MixedClass;
+};
+
+const resolveGridItemProps = (relevantChanges, options = {}) => {
+  const rawItemChanges = options.changes?.item;
+  if (!rawItemChanges || typeof rawItemChanges !== 'object') {
+    return relevantChanges.item;
+  }
+
+  return {
+    ...relevantChanges.item,
+    ...rawItemChanges,
+  };
 };
