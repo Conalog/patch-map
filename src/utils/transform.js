@@ -13,7 +13,10 @@ const tempCorners = [new Point(), new Point(), new Point(), new Point()];
  */
 export const getObjectWorldCorners = (displayObject) => {
   const corners = tempCorners;
-  const localBounds = displayObject.getLocalBounds();
+  const localBounds = getObjectLocalBounds(displayObject);
+  if (localBounds.worldCorners) {
+    return localBounds.worldCorners;
+  }
   const worldTransform = displayObject.getGlobalTransform(tempMatrix, false);
 
   // Set the four corners based on the object's original (local) bounds.
@@ -34,6 +37,47 @@ export const getObjectWorldCorners = (displayObject) => {
   // Return clones to prevent mutation of the globally reused `tempCorners` array.
   return corners.map((point) => point.clone());
 };
+
+const getObjectLocalBounds = (displayObject) => {
+  const localBounds = displayObject.getLocalBounds();
+  if (hasArea(localBounds)) return localBounds;
+
+  const size = normalizeSize(displayObject?.props?.size);
+  if (size) return { x: 0, y: 0, width: size.width, height: size.height };
+
+  const childWorldCorners = displayObject.children?.flatMap((child) =>
+    getObjectWorldCorners(child),
+  );
+  if (childWorldCorners?.length > 0) {
+    return {
+      worldCorners: boundsToCorners(getBoundsFromPoints(childWorldCorners)),
+    };
+  }
+
+  return localBounds;
+};
+
+const hasArea = (bounds) =>
+  (bounds?.width ?? 0) > 0 || (bounds?.height ?? 0) > 0;
+
+const normalizeSize = (size) => {
+  if (typeof size === 'number') return { width: size, height: size };
+  if (
+    Number.isFinite(size?.width) &&
+    Number.isFinite(size?.height) &&
+    (size.width > 0 || size.height > 0)
+  ) {
+    return size;
+  }
+  return null;
+};
+
+const boundsToCorners = (bounds) => [
+  new Point(bounds.x, bounds.y),
+  new Point(bounds.x + bounds.width, bounds.y),
+  new Point(bounds.x + bounds.width, bounds.y + bounds.height),
+  new Point(bounds.x, bounds.y + bounds.height),
+];
 
 /**
  * Calculates the four corners of a DisplayObject and transforms them into the local space of the Viewport.

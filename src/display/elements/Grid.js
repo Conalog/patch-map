@@ -7,6 +7,8 @@ import Element from './Element';
 const ComposedGrid = mixins(Element, Cellsable, Itemable);
 
 export class Grid extends ComposedGrid {
+  static isRotatable = true;
+
   constructor(store) {
     super({ type: 'grid', store });
   }

@@ -15,6 +15,7 @@ export class Rect extends ComposedRect {
   static isElement = true;
   static isSelectable = true;
   static isResizable = true;
+  static isRotatable = true;
   static hitScope = 'self';
 
   constructor(store) {

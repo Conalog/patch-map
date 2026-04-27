@@ -24,3 +24,7 @@ export const isSelectableCandidate = (displayObject, stopAt = null) =>
 export const isResizableCandidate = (displayObject, stopAt = null) =>
   Boolean(displayObject?.constructor?.isResizable) &&
   !isInteractionLocked(displayObject, stopAt);
+
+export const isRotatableCandidate = (displayObject, stopAt = null) =>
+  Boolean(displayObject?.constructor?.isRotatable) &&
+  !isInteractionLocked(displayObject, stopAt);

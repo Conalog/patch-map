@@ -29,6 +29,7 @@ const ComposedText = mixins(
  */
 export class Text extends ComposedText {
   static isSelectable = true;
+  static isRotatable = true;
   static hitScope = 'children';
 
   constructor(store) {

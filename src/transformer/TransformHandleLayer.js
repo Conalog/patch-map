@@ -21,7 +21,7 @@ import { getHandlePositions } from './resize-utils';
  * @property {number} size
  */
 
-const HANDLE_CURSORS = {
+const RESIZE_CURSORS = {
   'top-left': 'nwse-resize',
   top: 'ns-resize',
   'top-right': 'nesw-resize',
@@ -31,6 +31,7 @@ const HANDLE_CURSORS = {
   'bottom-left': 'nesw-resize',
   left: 'ew-resize',
 };
+const ROTATE_CURSOR = 'grab';
 
 const CORNER_RESIZE_HANDLES = [
   'top-left',
@@ -41,15 +42,18 @@ const CORNER_RESIZE_HANDLES = [
 const EDGE_RESIZE_HANDLES = ['top', 'right', 'bottom', 'left'];
 const EDGE_HIT_WIDTH = 12;
 const CORNER_HIT_SIZE = 12;
+const ROTATE_HIT_SIZE = 18;
+const ROTATE_HIT_OFFSET = 18;
 const RESIZE_FRAME_Z_INDEX = 0;
 const EDGE_TARGET_Z_INDEX = 1;
+const ROTATE_TARGET_Z_INDEX = 1;
 const CORNER_HANDLE_Z_INDEX = 2;
 
 /**
- * Renders resize corner handles and edge hit targets onto a dedicated layer.
+ * Renders transformer handles and hit targets onto a dedicated layer.
  * This class is UI-only and delegates gesture handling through callback hooks.
  */
-export default class ResizeHandleLayer {
+export default class TransformHandleLayer {
   /**
    * @private
    * @type {PIXI.Container}
@@ -84,7 +88,13 @@ export default class ResizeHandleLayer {
    * @private
    * @type {(handle: ResizeHandleName, event: import('pixi.js').FederatedPointerEvent) => void}
    */
-  _onHandlePointerDown;
+  _onResizePointerDown;
+
+  /**
+   * @private
+   * @type {(handle: ResizeHandleName, event: import('pixi.js').FederatedPointerEvent) => void}
+   */
+  _onRotatePointerDown;
 
   /**
    * @private
@@ -100,6 +110,12 @@ export default class ResizeHandleLayer {
 
   /**
    * @private
+   * @type {Map<ResizeHandleName, PIXI.Graphics>}
+   */
+  _rotateMap = new Map();
+
+  /**
+   * @private
    * @type {PIXI.Graphics | null}
    */
   _resizeFrame = null;
@@ -111,7 +127,8 @@ export default class ResizeHandleLayer {
    * @param {() => import('pixi-viewport').Viewport | null} options.getViewport
    * @param {() => ResizeHandleStyle} options.getHandleStyle
    * @param {() => number} options.getStrokeWidth
-   * @param {(handle: ResizeHandleName, event: import('pixi.js').FederatedPointerEvent) => void} options.onHandlePointerDown
+   * @param {(handle: ResizeHandleName, event: import('pixi.js').FederatedPointerEvent) => void} options.onResizePointerDown
+   * @param {(handle: ResizeHandleName, event: import('pixi.js').FederatedPointerEvent) => void} options.onRotatePointerDown
    */
   constructor({
     transformer,
@@ -119,14 +136,16 @@ export default class ResizeHandleLayer {
     getViewport,
     getHandleStyle,
     getStrokeWidth,
-    onHandlePointerDown,
+    onResizePointerDown,
+    onRotatePointerDown = () => {},
   }) {
     this._transformer = transformer;
     this._layer = layer;
     this._getViewport = getViewport;
     this._getHandleStyle = getHandleStyle;
     this._getStrokeWidth = getStrokeWidth;
-    this._onHandlePointerDown = onHandlePointerDown;
+    this._onResizePointerDown = onResizePointerDown;
+    this._onRotatePointerDown = onRotatePointerDown;
   }
 
   /**
@@ -150,22 +169,31 @@ export default class ResizeHandleLayer {
       edge.clear();
       edge.visible = false;
     });
+
+    this._rotateMap.forEach((rotateTarget) => {
+      rotateTarget.clear();
+      rotateTarget.visible = false;
+      rotateTarget.hitArea = null;
+    });
   }
 
   /**
-   * Draws corner handles and edge hit targets for the given bounds.
+   * Draws resize handles and rotate hit targets.
    *
-   * @param {ResizeBounds | null | undefined} bounds
+   * @param {ResizeBounds | { resizeBounds?: ResizeBounds, rotateFrame?: object } | null | undefined} options
    * @returns {void}
    */
-  draw(bounds) {
-    if (!bounds) {
+  draw(options) {
+    const { resizeBounds, rotateFrame } = normalizeDrawOptions(options);
+
+    if (!resizeBounds && !rotateFrame) {
       this.clear();
       return;
     }
 
     this.#ensureHandles();
     this.#ensureEdges();
+    this.#ensureRotateTargets();
     this.#ensureResizeFrame();
 
     const viewport = this._getViewport();
@@ -176,8 +204,44 @@ export default class ResizeHandleLayer {
     const halfSize = size / 2;
     const hitSize = Math.max(size, CORNER_HIT_SIZE / viewportScale);
     const halfHitSize = hitSize / 2;
-    const positions = getHandlePositions(bounds);
+    const positions = resizeBounds ? getHandlePositions(resizeBounds) : {};
 
+    this.#drawResizeHandles({
+      positions,
+      viewport,
+      size,
+      halfSize,
+      hitSize,
+      halfHitSize,
+      handleStyle,
+      strokeWidth,
+    });
+    this.#drawResizeFrame({
+      bounds: resizeBounds,
+      viewport,
+      viewportScale,
+      strokeWidth,
+      strokeColor: handleStyle.stroke,
+    });
+    this.#drawEdgeTargets(resizeBounds, positions, viewportScale);
+    this.#drawRotateTargets({
+      frame: rotateFrame,
+      viewport,
+      viewportScale,
+      handleStyle,
+    });
+  }
+
+  #drawResizeHandles({
+    positions,
+    viewport,
+    size,
+    halfSize,
+    hitSize,
+    halfHitSize,
+    handleStyle,
+    strokeWidth,
+  }) {
     this._handleMap.forEach((handle, key) => {
       const position = positions[key];
       if (!position) {
@@ -207,15 +271,6 @@ export default class ResizeHandleLayer {
       handle.position.set(localPosition.x, localPosition.y);
       handle.visible = true;
     });
-
-    this.#drawResizeFrame({
-      bounds,
-      viewport,
-      viewportScale,
-      strokeWidth,
-      strokeColor: handleStyle.stroke,
-    });
-    this.#drawEdgeTargets(bounds, positions, viewportScale);
   }
 
   #ensureHandles() {
@@ -226,9 +281,9 @@ export default class ResizeHandleLayer {
       graphic.eventMode = 'static';
       graphic.zIndex = CORNER_HANDLE_Z_INDEX;
       graphic.label = `resize-handle:${handle}`;
-      graphic.cursor = HANDLE_CURSORS[handle] ?? 'default';
+      graphic.cursor = RESIZE_CURSORS[handle] ?? 'default';
       graphic.on('pointerdown', (event) =>
-        this._onHandlePointerDown(handle, event),
+        this._onResizePointerDown(handle, event),
       );
       this._handleMap.set(handle, graphic);
       this._layer.addChild(graphic);
@@ -243,11 +298,28 @@ export default class ResizeHandleLayer {
       graphic.eventMode = 'static';
       graphic.zIndex = EDGE_TARGET_Z_INDEX;
       graphic.label = `resize-edge:${handle}`;
-      graphic.cursor = HANDLE_CURSORS[handle] ?? 'default';
+      graphic.cursor = RESIZE_CURSORS[handle] ?? 'default';
       graphic.on('pointerdown', (event) =>
-        this._onHandlePointerDown(handle, event),
+        this._onResizePointerDown(handle, event),
       );
       this._edgeMap.set(handle, graphic);
+      this._layer.addChild(graphic);
+    });
+  }
+
+  #ensureRotateTargets() {
+    if (this._rotateMap.size > 0) return;
+
+    CORNER_RESIZE_HANDLES.forEach((handle) => {
+      const graphic = new Graphics();
+      graphic.eventMode = 'static';
+      graphic.zIndex = ROTATE_TARGET_Z_INDEX;
+      graphic.label = `rotate-handle:${handle}`;
+      graphic.cursor = ROTATE_CURSOR;
+      graphic.on('pointerdown', (event) =>
+        this._onRotatePointerDown(handle, event),
+      );
+      this._rotateMap.set(handle, graphic);
       this._layer.addChild(graphic);
     });
   }
@@ -272,6 +344,11 @@ export default class ResizeHandleLayer {
     strokeColor,
   }) {
     if (!this._resizeFrame) return;
+    if (!bounds) {
+      this._resizeFrame.clear();
+      this._resizeFrame.visible = false;
+      return;
+    }
 
     const localRect = this.#toLocalRect(bounds, viewport, viewportScale);
     this._resizeFrame.clear();
@@ -285,6 +362,14 @@ export default class ResizeHandleLayer {
   }
 
   #drawEdgeTargets(bounds, positions, viewportScale) {
+    if (!bounds) {
+      this._edgeMap.forEach((edge) => {
+        edge.clear();
+        edge.visible = false;
+      });
+      return;
+    }
+
     const edgeHitWidth = EDGE_HIT_WIDTH / viewportScale;
     const viewport = this._getViewport();
     const { x, y, width, height } = this.#toLocalRect(
@@ -335,6 +420,57 @@ export default class ResizeHandleLayer {
     });
   }
 
+  #drawRotateTargets({ frame, viewport, viewportScale, handleStyle }) {
+    if (!frame?.corners || !frame?.center) {
+      this._rotateMap.forEach((target) => {
+        target.clear();
+        target.visible = false;
+        target.hitArea = null;
+      });
+      return;
+    }
+
+    const hitSize = ROTATE_HIT_SIZE / viewportScale;
+    const halfHitSize = hitSize / 2;
+    const offset = ROTATE_HIT_OFFSET / viewportScale;
+    const positions = getCornerMap(frame.corners);
+
+    this._rotateMap.forEach((target, key) => {
+      const corner = positions[key];
+      if (!corner) {
+        target.visible = false;
+        return;
+      }
+
+      const direction = normalizeVector({
+        x: corner.x - frame.center.x,
+        y: corner.y - frame.center.y,
+      });
+      const targetPosition = {
+        x: corner.x + direction.x * offset,
+        y: corner.y + direction.y * offset,
+      };
+      const localPosition = this._transformer.toLocal(
+        new Point(targetPosition.x, targetPosition.y),
+        viewport ?? undefined,
+      );
+
+      target.hitArea = new Rectangle(
+        -halfHitSize,
+        -halfHitSize,
+        hitSize,
+        hitSize,
+      );
+      target.clear();
+      target.rect(-halfHitSize, -halfHitSize, hitSize, hitSize).fill({
+        color: handleStyle.fill,
+        alpha: 0.001,
+      });
+      target.position.set(localPosition.x, localPosition.y);
+      target.visible = true;
+    });
+  }
+
   #toLocalRect(bounds, viewport, viewportScale) {
     const minEdgeSize = 1 / viewportScale;
     const topLeft = this._transformer.toLocal(
@@ -372,3 +508,22 @@ export default class ResizeHandleLayer {
     };
   }
 }
+
+const normalizeDrawOptions = (options) => {
+  if (!options) return {};
+  if ('resizeBounds' in options || 'rotateFrame' in options) return options;
+  return { resizeBounds: options };
+};
+
+const getCornerMap = (corners) => ({
+  'top-left': corners[0],
+  'top-right': corners[1],
+  'bottom-right': corners[2],
+  'bottom-left': corners[3],
+});
+
+const normalizeVector = ({ x, y }) => {
+  const length = Math.hypot(x, y);
+  if (!length) return { x: 0, y: 0 };
+  return { x: x / length, y: y / length };
+};
