@@ -5,7 +5,7 @@ const KEYS = ['cells', 'inactiveCellStrategy'];
 
 export const Cellsable = (superClass) => {
   const MixedClass = class extends superClass {
-    _applyCells(relevantChanges) {
+    _applyCells(relevantChanges, options = {}) {
       const cells = relevantChanges.cells ?? this.props.cells;
       const { gap, item: itemProps, inactiveCellStrategy } = this.props;
 
@@ -32,16 +32,24 @@ export const Cellsable = (superClass) => {
             };
             const item = newElement('item', this.store);
             this.addChild(item);
-            item.apply({
+            const itemChanges = {
               type: 'item',
               id,
               ...itemProps,
               label,
               attrs,
               show: !isInactive,
+            };
+            item.apply(itemChanges, {
+              ...options,
+              changes: itemChanges,
             });
           } else {
-            existingItem.apply({ label, show: !isInactive });
+            const itemChanges = { label, show: !isInactive };
+            existingItem.apply(itemChanges, {
+              ...options,
+              changes: itemChanges,
+            });
           }
         });
       });

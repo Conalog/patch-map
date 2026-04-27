@@ -25,6 +25,7 @@ export const Childrenable = (superClass) => {
         elements,
         childrenChanges,
         mapDataSchema,
+        childOptions,
       );
 
       for (const childChange of childrenChanges) {

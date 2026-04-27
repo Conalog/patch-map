@@ -184,6 +184,8 @@ export const Base = (superClass) => {
       this._applyHandlers(keysToProcess, {
         mergeStrategy,
         refresh,
+        validateSchema,
+        normalize,
         changes: handlerChanges,
       });
 

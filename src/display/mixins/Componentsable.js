@@ -26,6 +26,7 @@ export const Componentsable = (superClass) => {
         components,
         componentsChanges,
         componentArraySchema,
+        childOptions,
       );
 
       for (const componentChange of componentsChanges) {
