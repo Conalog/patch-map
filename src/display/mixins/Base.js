@@ -201,6 +201,33 @@ export const Base = (superClass) => {
       }
     }
 
+    _applyInitialTrusted(changes = {}, options = {}) {
+      if (this.destroyed) return;
+      const initialProps = changes ?? {};
+      const keysToProcess = Object.keys(initialProps);
+      if (keysToProcess.length === 0) return;
+
+      const previousId = this.id;
+      this.props = initialProps;
+
+      if (RAW_SYNC_KEYS.some((key) => Object.hasOwn(initialProps, key))) {
+        const { id, label, attrs } = initialProps;
+        this._applyRaw(
+          { id, label, ...attrs },
+          options.mergeStrategy ?? 'replace',
+        );
+        this._syncStoreElementIndex(previousId);
+      }
+
+      this._applyHandlers(keysToProcess, {
+        ...options,
+        mergeStrategy: options.mergeStrategy ?? 'replace',
+        validateSchema: false,
+        normalize: false,
+        changes: initialProps,
+      });
+    }
+
     _applyHandlers(keysToProcess, options) {
       if (keysToProcess.length === 0) return;
       const handlerMap = this.constructor._handlerMap;

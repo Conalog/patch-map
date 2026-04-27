@@ -42,10 +42,7 @@ export const Cellsable = (superClass) => {
               attrs,
               show: !isInactive,
             };
-            item.apply(itemChanges, {
-              ...options,
-              changes: itemChanges,
-            });
+            applyInitialCellItem(item, itemChanges, options);
           } else {
             const itemChanges = { label, show: !isInactive };
             existingItem.apply(itemChanges, {
@@ -72,4 +69,22 @@ export const Cellsable = (superClass) => {
     UPDATE_STAGES.CHILD_RENDER,
   );
   return MixedClass;
+};
+
+const canUseInitialFastPath = (options) =>
+  options.mergeStrategy === 'replace' &&
+  options.validateSchema === false &&
+  options.normalize === false;
+
+const applyInitialCellItem = (item, itemChanges, options) => {
+  const applyOptions = {
+    ...options,
+    changes: itemChanges,
+  };
+  if (canUseInitialFastPath(options)) {
+    item._applyInitialTrusted(itemChanges, applyOptions);
+    return;
+  }
+
+  item.apply(itemChanges, applyOptions);
 };

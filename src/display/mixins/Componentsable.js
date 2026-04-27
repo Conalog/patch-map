@@ -31,6 +31,7 @@ export const Componentsable = (superClass) => {
       for (const componentChange of componentsChanges) {
         const idx = findIndexByPriority(components, componentChange);
         let component = null;
+        let isNewComponent = false;
 
         if (idx !== -1) {
           component = components[idx];
@@ -41,12 +42,15 @@ export const Componentsable = (superClass) => {
         } else {
           component = newComponent(componentChange.type, this.store);
           this.addChild(component);
+          isNewComponent = true;
         }
         const applyChanges = { type: componentChange.type, ...componentChange };
-        component.apply(applyChanges, {
-          ...childOptions,
-          changes: applyChanges,
-        });
+        applyInitialComponent(
+          component,
+          applyChanges,
+          childOptions,
+          isNewComponent,
+        );
       }
 
       if (options.mergeStrategy === 'replace') {
@@ -91,4 +95,27 @@ export const Componentsable = (superClass) => {
     UPDATE_STAGES.WORLD_TRANSFORM,
   );
   return MixedClass;
+};
+
+const canUseInitialFastPath = (options) =>
+  options.mergeStrategy === 'replace' &&
+  options.validateSchema === false &&
+  options.normalize === false;
+
+const applyInitialComponent = (
+  component,
+  applyChanges,
+  childOptions,
+  isNewComponent,
+) => {
+  const applyOptions = {
+    ...childOptions,
+    changes: applyChanges,
+  };
+  if (isNewComponent && canUseInitialFastPath(childOptions)) {
+    component._applyInitialTrusted(applyChanges, applyOptions);
+    return;
+  }
+
+  component.apply(applyChanges, applyOptions);
 };
