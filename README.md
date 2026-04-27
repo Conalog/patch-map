@@ -677,6 +677,25 @@ You can control the behavior by passing the following options when creating a `T
   - `rotateHandles` (optional, boolean): Enables invisible outside-corner rotation hit targets for rotatable selections (default: `false`).
   - `transformHistory` (optional, boolean): Determines whether resize and rotation changes are recorded in `undoRedoManager` (default: `false`). When enabled, updates in one drag gesture are grouped into a single undo/redo step.
 
+`resizeHistory` has been removed. Use `transformHistory` for both resize and rotation gestures.
+
+#### Rotation handles
+
+When `rotateHandles` is enabled, the transformer creates invisible hit targets just outside the selected corners. Dragging one of those targets rotates the selected rotatable elements around the visible selection center.
+
+Rotation is supported for these element types:
+
+  - `Grid`
+  - `Rect`
+  - `Image`
+  - `Text`
+
+`Item`, `Relations`, and `Group` are not rotatable through the transformer.
+
+Single-object selection uses an oriented selection frame that follows the selected object's rotation. Multi-object selection always uses an axis-aligned group frame. In mixed selections, non-rotatable or locked elements remain selected but are excluded from the rotation geometry and are not mutated.
+
+Holding Shift while rotating snaps the rotation delta to 15 degree increments. Elements that already use `attrs.angle` continue to write `angle`; elements that use `attrs.rotation`, or no existing rotation key, write `rotation`.
+
 <!-- end list -->
 
 ```js

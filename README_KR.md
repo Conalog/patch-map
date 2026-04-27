@@ -685,6 +685,25 @@ patchmap.stateManager.setState('selection', {
   - `rotateHandles` (optional, boolean): 회전 가능한 선택 영역의 모서리 바깥 invisible 회전 히트 타깃을 활성화합니다 (기본값: `false`).
   - `transformHistory` (optional, boolean): 리사이즈와 회전 변경 사항을 `undoRedoManager`에 기록할지 결정합니다 (기본값: `false`). 활성화하면 한 번의 드래그 제스처 내 업데이트가 하나의 실행 취소/재실행 단계로 묶입니다.
 
+`resizeHistory`는 제거되었습니다. 리사이즈와 회전 제스처 모두 `transformHistory`를 사용하세요.
+
+#### 회전 핸들
+
+`rotateHandles`를 활성화하면 transformer는 선택 영역의 각 모서리 바깥에 보이지 않는 히트 타깃을 만듭니다. 이 타깃을 드래그하면 회전 가능한 선택 요소들이 보이는 선택 영역 중심을 기준으로 회전합니다.
+
+회전은 다음 요소 타입에서 지원됩니다.
+
+  - `Grid`
+  - `Rect`
+  - `Image`
+  - `Text`
+
+`Item`, `Relations`, `Group`은 transformer 회전 대상이 아닙니다.
+
+단일 객체 선택은 선택 객체의 회전을 따라가는 oriented 선택 박스를 사용합니다. 다중 객체 선택은 항상 수평 group 박스를 사용합니다. mixed selection에서는 회전 불가 요소나 locked 요소가 선택 상태로는 남지만, 회전 geometry에서 제외되고 변경되지 않습니다.
+
+회전 중 Shift를 누르면 회전 delta가 15도 단위로 스냅됩니다. 이미 `attrs.angle`을 사용하는 요소는 계속 `angle`을 쓰고, `attrs.rotation`을 쓰거나 기존 회전 키가 없는 요소는 `rotation`을 씁니다.
+
 ```js
 import { Patchmap, Transformer } from '@conalog/patch-map';
 
