@@ -26,27 +26,27 @@ export const Linksable = (superClass) => {
     }
 
     _onObjectTransformed(changedObject) {
-      if (!this.linkedObjects) return;
+      if (!this.linkedObjects || !changedObject || changedObject.destroyed)
+        return;
       if (changedObject === this.store?.world) return;
 
-      const values = Object.values(this.linkedObjects);
-      for (const linkedObj of values) {
-        if (!linkedObj || linkedObj.destroyed) continue;
-
-        if (
-          linkedObj === changedObject ||
-          isAncestor(changedObject, linkedObj) ||
-          isAncestor(linkedObj, changedObject)
-        ) {
-          this._renderDirty = true;
-          return;
-        }
+      if (
+        this.linkedObjectSet?.has(changedObject) ||
+        this.linkedAncestorSet?.has(changedObject) ||
+        hasAncestorInSet(changedObject, this.linkedObjectSet)
+      ) {
+        this._renderDirty = true;
       }
     }
 
     _applyLinks(relevantChanges) {
       const { links } = relevantChanges;
       this.linkedObjects = uniqueLinked(this.store, links);
+      const { linkedObjectSet, linkedAncestorSet } = buildLinkedObjectLookup(
+        this.linkedObjects,
+      );
+      this.linkedObjectSet = linkedObjectSet;
+      this.linkedAncestorSet = linkedAncestorSet;
       this._renderDirty = true;
     }
   };
@@ -58,12 +58,12 @@ export const Linksable = (superClass) => {
   return MixedClass;
 };
 
-const isAncestor = (parent, target) => {
-  if (!target || !parent) return false;
+const hasAncestorInSet = (target, objectSet) => {
+  if (!target || !objectSet) return false;
 
   let current = target.parent;
   while (current) {
-    if (current === parent) {
+    if (objectSet.has(current)) {
       return true;
     }
     if (current.type === 'canvas' || !current.parent) {
@@ -72,6 +72,25 @@ const isAncestor = (parent, target) => {
     current = current.parent;
   }
   return false;
+};
+
+const buildLinkedObjectLookup = (linkedObjects) => {
+  const linkedObjectSet = new Set();
+  const linkedAncestorSet = new Set();
+
+  for (const linkedObj of Object.values(linkedObjects ?? {})) {
+    if (!linkedObj || linkedObj.destroyed) continue;
+
+    linkedObjectSet.add(linkedObj);
+    let current = linkedObj.parent;
+    while (current) {
+      linkedAncestorSet.add(current);
+      if (current.type === 'canvas' || !current.parent) break;
+      current = current.parent;
+    }
+  }
+
+  return { linkedObjectSet, linkedAncestorSet };
 };
 
 const uniqueLinked = (store, links) => {
