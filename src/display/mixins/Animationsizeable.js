@@ -1,19 +1,10 @@
 import { getSizeBatcher } from '../animation/sizeBatchTween';
-import { calcSize } from '../mixins/utils';
+import { calcSize, resolveComponentPlacement } from '../mixins/utils';
 import { hasUprightContentOrientation } from '../utils/content-orientation';
 import { isUpsideDownScreenAngle } from '../utils/screen-direction';
 import { UPDATE_STAGES } from './constants';
 
 const KEYS = ['animation', 'animationDuration', 'source', 'size', 'margin'];
-const DEFAULT_PLACEMENT_BY_TYPE = {
-  bar: 'bottom',
-  background: 'center',
-  icon: 'center',
-  text: 'center',
-};
-
-const resolveComponentPlacement = (target) =>
-  target.props?.placement ?? DEFAULT_PLACEMENT_BY_TYPE[target.type] ?? 'center';
 
 const reapplyLayoutAfterSizeChange = (target) => {
   if (typeof target._onWorldTransformChanged === 'function') {

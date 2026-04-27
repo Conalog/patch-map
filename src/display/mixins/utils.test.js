@@ -176,6 +176,15 @@ describe('calcSize', () => {
       expected: { width: 180, height: 50, borderWidth: 10 },
     },
     {
+      name: 'with numeric string values',
+      props: {
+        source: {},
+        size: { width: '100', height: '50px' },
+      },
+      respectsPadding: true,
+      expected: { width: 100, height: 50, borderWidth: 0 },
+    },
+    {
       name: 'with calc() expressions and borderWidth',
       props: {
         source: { borderWidth: 2 },

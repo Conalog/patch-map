@@ -55,11 +55,36 @@ const normalizePxOrPercentValue = (value) => {
   if (typeof value === 'number') {
     return { value, unit: 'px' };
   }
-  if (typeof value === 'string' && value.endsWith('%')) {
-    return { value: Number.parseFloat(value.slice(0, -1)), unit: '%' };
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+    if (trimmedValue.endsWith('%')) {
+      return { value: Number.parseFloat(trimmedValue), unit: '%' };
+    }
+    if (trimmedValue.endsWith('px')) {
+      return { value: Number.parseFloat(trimmedValue), unit: 'px' };
+    }
+    if (!trimmedValue.startsWith('calc')) {
+      const numericValue = Number(trimmedValue);
+      if (!Number.isNaN(numericValue) && trimmedValue !== '') {
+        return { value: numericValue, unit: 'px' };
+      }
+    }
   }
   return value;
 };
+
+export const DEFAULT_PLACEMENT_BY_TYPE = {
+  bar: 'bottom',
+  background: 'center',
+  icon: 'center',
+  text: 'center',
+};
+
+export const resolveComponentPlacement = (component, placement) =>
+  placement ??
+  component.props?.placement ??
+  DEFAULT_PLACEMENT_BY_TYPE[component.type] ??
+  'center';
 
 const normalizeComponentSize = (size) => {
   if (

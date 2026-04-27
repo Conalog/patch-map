@@ -4,21 +4,9 @@ import {
 } from '../utils/placement-frame';
 import { resolvePlacementOffset } from '../utils/placement-offset';
 import { UPDATE_STAGES } from './constants';
-import { getLayoutContext } from './utils';
+import { getLayoutContext, resolveComponentPlacement } from './utils';
 
 const KEYS = ['placement', 'margin'];
-const DEFAULT_PLACEMENT_BY_TYPE = {
-  bar: 'bottom',
-  background: 'center',
-  icon: 'center',
-  text: 'center',
-};
-
-const resolveComponentPlacement = (component, placement) =>
-  placement ??
-  component.props?.placement ??
-  DEFAULT_PLACEMENT_BY_TYPE[component.type] ??
-  'center';
 
 const calcEffectiveSize = (component, width, height) => {
   const bounds = component.getLocalBounds();
