@@ -36,6 +36,11 @@ export class Text extends ComposedText {
   apply(changes, options) {
     super.apply(changes, textSchema, options);
   }
+
+  _applyPlacement(relevantChanges) {
+    if (this.text === '') return;
+    super._applyPlacement(relevantChanges);
+  }
 }
 
 Text.registerHandler(

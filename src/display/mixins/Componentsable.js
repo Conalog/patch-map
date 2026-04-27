@@ -39,6 +39,8 @@ export const Componentsable = (superClass) => {
           if (options.mergeStrategy === 'replace') {
             this.addChild(component);
           }
+        } else if (componentChange.show === false) {
+          continue;
         } else {
           component = newComponent(componentChange.type, this.store);
           this.addChild(component);

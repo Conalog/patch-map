@@ -40,8 +40,23 @@ const roundToPrecision = (value, precision = 6) => {
   return Math.round((value + Number.EPSILON) * factor) / factor;
 };
 
+const DEFAULT_COMPONENT_SIZE = {
+  width: { value: 100, unit: '%' },
+  height: { value: 100, unit: '%' },
+};
+
 export const calcSize = (component, { source, size }) => {
   const { contentWidth, contentHeight } = getLayoutContext(component);
+  const resolvedSize = {
+    width:
+      size?.width ??
+      component.props?.size?.width ??
+      DEFAULT_COMPONENT_SIZE.width,
+    height:
+      size?.height ??
+      component.props?.size?.height ??
+      DEFAULT_COMPONENT_SIZE.height,
+  };
 
   const borderWidth =
     typeof source === 'object' ? (source?.borderWidth ?? 0) : 0;
@@ -49,22 +64,28 @@ export const calcSize = (component, { source, size }) => {
   let finalWidth = null;
   let finalHeight = null;
 
-  if (typeof size.width === 'string' && size.width.startsWith('calc')) {
-    finalWidth = parseCalcExpression(size.width, contentWidth);
+  if (
+    typeof resolvedSize.width === 'string' &&
+    resolvedSize.width.startsWith('calc')
+  ) {
+    finalWidth = parseCalcExpression(resolvedSize.width, contentWidth);
   } else {
     finalWidth =
-      size.width.unit === '%'
-        ? contentWidth * (size.width.value / 100)
-        : size.width.value;
+      resolvedSize.width.unit === '%'
+        ? contentWidth * (resolvedSize.width.value / 100)
+        : resolvedSize.width.value;
   }
 
-  if (typeof size.height === 'string' && size.height.startsWith('calc')) {
-    finalHeight = parseCalcExpression(size.height, contentHeight);
+  if (
+    typeof resolvedSize.height === 'string' &&
+    resolvedSize.height.startsWith('calc')
+  ) {
+    finalHeight = parseCalcExpression(resolvedSize.height, contentHeight);
   } else {
     finalHeight =
-      size.height.unit === '%'
-        ? contentHeight * (size.height.value / 100)
-        : size.height.value;
+      resolvedSize.height.unit === '%'
+        ? contentHeight * (resolvedSize.height.value / 100)
+        : resolvedSize.height.value;
   }
 
   return {

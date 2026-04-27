@@ -5,6 +5,15 @@ import { isUpsideDownScreenAngle } from '../utils/screen-direction';
 import { UPDATE_STAGES } from './constants';
 
 const KEYS = ['animation', 'animationDuration', 'source', 'size', 'margin'];
+const DEFAULT_PLACEMENT_BY_TYPE = {
+  bar: 'bottom',
+  background: 'center',
+  icon: 'center',
+  text: 'center',
+};
+
+const resolveComponentPlacement = (target) =>
+  target.props?.placement ?? DEFAULT_PLACEMENT_BY_TYPE[target.type] ?? 'center';
 
 const reapplyLayoutAfterSizeChange = (target) => {
   if (typeof target._onWorldTransformChanged === 'function') {
@@ -13,7 +22,7 @@ const reapplyLayoutAfterSizeChange = (target) => {
   }
 
   target._applyPlacement?.({
-    placement: target.props?.placement,
+    placement: resolveComponentPlacement(target),
     margin: target.props?.margin,
   });
 };
@@ -65,13 +74,13 @@ export const AnimationSizeable = (superClass) => {
         }
 
         const fromPosition = this._calcPlacementForSize({
-          placement: this.props.placement,
+          placement: resolveComponentPlacement(this),
           margin: this.props.margin,
           width: this.width,
           height: this.height,
         });
         const toPosition = this._calcPlacementForSize({
-          placement: this.props.placement,
+          placement: resolveComponentPlacement(this),
           margin: this.props.margin,
           width: newSize.width,
           height: newSize.height,
