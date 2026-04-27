@@ -188,7 +188,7 @@ export const mixins = (baseClass, ...mixins) => {
  * @param {Array<object>} currentElements - Array of current child elements (components) in the DOM
  * @param {Array<object>} changes - Array of change data to apply
  * @param {import('zod').ZodSchema} schema - Zod schema to use for validation
- * @param {{ validateSchema?: boolean }} options - Validation controls
+ * @param {{ validateSchema?: boolean, defaultMaterializer?: (value: object) => object }} options - Validation controls
  * @returns {Array<object>} The changes array, with validated and default-filled data
  */
 export const validateAndPrepareChanges = (
@@ -213,6 +213,13 @@ export const validateAndPrepareChanges = (
   });
 
   if (options.validateSchema === false) {
+    if (typeof options.defaultMaterializer === 'function') {
+      newElementIndices.forEach((originalIndex) => {
+        preparedChanges[originalIndex] = options.defaultMaterializer(
+          preparedChanges[originalIndex],
+        );
+      });
+    }
     return preparedChanges;
   }
 

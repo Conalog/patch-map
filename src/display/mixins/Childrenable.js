@@ -1,6 +1,7 @@
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { mapDataSchema } from '../data-schema/element-schema';
+import { applyElementDefaults } from '../default-props';
 import { newElement } from '../elements/creator';
 import { UPDATE_STAGES } from './constants';
 import { validateAndPrepareChanges } from './utils';
@@ -24,7 +25,7 @@ export const Childrenable = (superClass) => {
         elements,
         childrenChanges,
         mapDataSchema,
-        childOptions,
+        { ...childOptions, defaultMaterializer: applyElementDefaults },
       );
 
       for (const childChange of childrenChanges) {

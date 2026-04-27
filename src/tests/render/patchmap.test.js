@@ -208,6 +208,62 @@ describe('patchmap test', () => {
     expect(patchmap.selector('$..[?(@.id=="group-1")]')[0].x).toBe(321);
   });
 
+  it('applies lightweight defaults during draw without schema validation', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'grid',
+        id: 'default-grid',
+        cells: [[1]],
+        gap: 4,
+        item: {
+          size: 40,
+          components: [{ type: 'text' }],
+        },
+      },
+      {
+        type: 'item',
+        id: 'default-item',
+        size: 80,
+        components: [{ type: 'text', id: 'default-text' }],
+      },
+      {
+        type: 'relations',
+        id: 'default-relations',
+        links: [{ source: 'default-grid.0.0', target: 'default-item' }],
+      },
+    ]);
+
+    const item = patchmap.selector('$..[?(@.id=="default-item")]')[0];
+    const text = patchmap.selector('$..[?(@.id=="default-text")]')[0];
+    const grid = patchmap.selector('$..[?(@.id=="default-grid")]')[0];
+    const gridItem = patchmap.selector('$..[?(@.id=="default-grid.0.0")]')[0];
+    const relations = patchmap.selector('$..[?(@.id=="default-relations")]')[0];
+
+    expect(item.props.locked).toBe(false);
+    expect(item.props.contentOrientation).toBe('upright');
+    expect(item.props.padding).toEqual({
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+    });
+    expect(text.props.placement).toBe('center');
+    expect(text.props.margin).toEqual({
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+    });
+    expect(text.props.text).toBe('');
+    expect(text.props.style.overflow).toBe('visible');
+    expect(grid.props.inactiveCellStrategy).toBe('destroy');
+    expect(grid.props.gap).toEqual({ x: 4, y: 4 });
+    expect(grid.props.item.contentOrientation).toBe('upright');
+    expect(gridItem.props.contentOrientation).toBe('upright');
+    expect(relations.props.style.color).toBe('#1A1A1A');
+  });
+
   it('applies component schema defaults when update adds item components', async () => {
     const patchmap = getPatchmap();
     patchmap.draw([

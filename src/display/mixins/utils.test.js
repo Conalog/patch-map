@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { applyComponentDefaults } from '../default-props';
 import {
   calcSize,
   parseCalcExpression,
@@ -228,6 +229,42 @@ describe('validateAndPrepareChanges', () => {
     ).toEqual([{ type: 'icon' }]);
     expect(validateAndPrepareChanges([], changes, schema)).toEqual([
       { type: 'icon', source: 'wifi' },
+    ]);
+  });
+
+  it('applies lightweight defaults without schema validation when validateSchema is false', () => {
+    const changes = [{ type: 'text' }];
+    const schema = z.array(
+      z.object({
+        type: z.string(),
+        source: z.string(),
+      }),
+    );
+
+    expect(
+      validateAndPrepareChanges([], changes, schema, {
+        validateSchema: false,
+        defaultMaterializer: applyComponentDefaults,
+      }),
+    ).toEqual([
+      {
+        type: 'text',
+        id: expect.any(String),
+        show: true,
+        tint: 0xffffff,
+        placement: 'center',
+        margin: { top: 0, right: 0, bottom: 0, left: 0 },
+        text: '',
+        style: {
+          fontFamily: 'FiraCode',
+          fontWeight: 400,
+          fill: 'black',
+          fontSize: 16,
+          autoFont: { min: 1, max: 100 },
+          overflow: 'visible',
+        },
+        split: 0,
+      },
     ]);
   });
 });

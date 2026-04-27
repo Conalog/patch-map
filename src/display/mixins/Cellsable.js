@@ -1,3 +1,4 @@
+import { applyElementDefaults } from '../default-props';
 import { newElement } from '../elements/creator';
 import { UPDATE_STAGES } from './constants';
 
@@ -42,7 +43,11 @@ export const Cellsable = (superClass) => {
               attrs,
               show: !isInactive,
             };
-            applyInitialCellItem(item, itemChanges, options);
+            applyInitialCellItem(
+              item,
+              applyElementDefaults(itemChanges),
+              options,
+            );
           } else {
             const itemChanges = { label, show: !isInactive };
             existingItem.apply(itemChanges, {
