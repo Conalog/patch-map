@@ -28,6 +28,7 @@ import { normalizeBounds } from './resize-context';
  * @property {() => boolean} canStart
  * @property {() => ResizeContext | null} getResizeContext
  * @property {() => boolean} getResizeHistory
+ * @property {(context: { event: PIXI.FederatedPointerEvent, handle: string, elements: PIXI.DisplayObject[] }) => boolean} getResizeKeepRatio
  * @property {() => void} emitUpdateElements
  * @property {() => void} requestRender
  */
@@ -63,6 +64,12 @@ export default class ResizeGestureController {
 
   /**
    * @private
+   * @type {(context: { event: PIXI.FederatedPointerEvent, handle: string, elements: PIXI.DisplayObject[] }) => boolean}
+   */
+  _getResizeKeepRatio;
+
+  /**
+   * @private
    * @type {() => void}
    */
   _emitUpdateElements;
@@ -93,6 +100,7 @@ export default class ResizeGestureController {
     canStart,
     getResizeContext,
     getResizeHistory,
+    getResizeKeepRatio,
     emitUpdateElements,
     requestRender,
   }) {
@@ -100,6 +108,7 @@ export default class ResizeGestureController {
     this._canStart = canStart;
     this._getResizeContext = getResizeContext;
     this._getResizeHistory = getResizeHistory;
+    this._getResizeKeepRatio = getResizeKeepRatio;
     this._emitUpdateElements = emitUpdateElements;
     this._requestRender = requestRender;
   }
@@ -179,10 +188,21 @@ export default class ResizeGestureController {
       this._activeResize.startPoint,
       currentPoint,
     );
+    const keepRatio =
+      Boolean(event.shiftKey) ||
+      Boolean(
+        this._getResizeKeepRatio?.({
+          event,
+          handle: this._activeResize.handle,
+          elements: this._activeResize.elementStates.map(
+            (state) => state.element,
+          ),
+        }),
+      );
     const updates = computeResizeUpdates({
       activeResize: this._activeResize,
       delta,
-      keepRatio: Boolean(event.shiftKey),
+      keepRatio,
     });
 
     applyResizeUpdates({

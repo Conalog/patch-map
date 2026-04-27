@@ -675,6 +675,8 @@ You can control the behavior by passing the following options when creating a `T
       - `'none'`: Does not display any outline.
   - `resizeHandles` (optional, boolean): Enables group resize handles and edge hit targets (default: `false`).
   - `resizeHistory` (optional, boolean): Determines whether resize changes are recorded in `undoRedoManager` (default: `false`). When enabled, updates in one drag gesture are grouped into a single undo/redo step.
+  - `resizeKeepRatio` (optional, boolean): Keeps the resize aspect ratio without requiring Shift (default: `false`). Shift-drag always keeps the aspect ratio regardless of this option.
+  - `getResizeKeepRatio` (optional, function): Determines whether the current resize move should keep its aspect ratio. Receives `{ event, handle, elements }` and can return `true` to keep the aspect ratio without Shift.
 
 <!-- end list -->
 
@@ -692,6 +694,7 @@ const transformer = new Transformer({
     color: '#FF00FF',
   },
   boundsDisplayMode: 'groupOnly',
+  getResizeKeepRatio: ({ event }) => event.shiftKey || isLayoutSizeLocked(),
 });
 patchmap.transformer = transformer;
 
