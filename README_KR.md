@@ -271,6 +271,7 @@ patchmap.update({
 - `changes` (optional, object) - 적용할 새로운 속성 (예: 색상, 텍스트 가시성). `refresh` 옵션을 `true`로 설정할 경우 생략할 수 있습니다.
 - `history` (optional, boolean \| string) - 해당 `update` 메소드에 의한 변경 사항을 `undoRedoManager`에 기록할 것인지 결정합니다. 이전에 저장된 기록의 historyId와 일치하는 문자열이 제공되면, 두 기록이 하나의 실행 취소/재실행 단계로 병합됩니다.
 - `relativeTransform` (optional, boolean) - `position`, `rotation`, `angle` 값에 대해서 상대값을 이용할 지 결정합니다. 만약, `true` 라면 전달된 값을 객체의 값에 더합니다.
+- `rotateOrigin` (optional, `'center'`) - `'center'`로 설정하면 `attrs.angle` 또는 `attrs.rotation` 업데이트 시 필요한 `attrs.x/y` 보정을 함께 적용해 각 객체의 보이는 중심을 유지합니다.
 - `mergeStrategy` (optional, string) - `changes` 객체를 기존 속성에 적용하는 방식을 결정합니다. 기본값은 `'merge'` 입니다.
   - `'merge'` (기본값): `changes` 객체를 기존 속성에 깊게 병합(deep merge)합니다. 객체 내의 개별 속성이 업데이트됩니다.
   - `'replace'`: `changes`에 지정된 최상위 속성을 통째로 교체합니다. `undo`를 실행하거나 `style`, `components`와 같은 복잡한 속성을 특정 상태로 완전히 리셋할 때 유용합니다.
@@ -687,6 +688,8 @@ patchmap.stateManager.setState('selection', {
 
 `resizeHistory`는 제거되었습니다. 리사이즈와 회전 제스처 모두 `transformHistory`를 사용하세요.
 
+단일 선택 객체가 회전된 상태라면 resize 핸들은 해당 객체의 oriented frame을 따라갑니다. 다중 선택 resize는 계속 axis-aligned frame을 사용합니다.
+
 #### 회전 핸들
 
 `rotateHandles`를 활성화하면 transformer는 선택 영역의 각 모서리 바깥에 보이지 않는 히트 타깃을 만듭니다. 이 타깃을 드래그하면 회전 가능한 선택 요소들이 보이는 선택 영역 중심을 기준으로 회전합니다.
@@ -694,11 +697,12 @@ patchmap.stateManager.setState('selection', {
 회전은 다음 요소 타입에서 지원됩니다.
 
   - `Grid`
+  - `Item`
   - `Rect`
   - `Image`
   - `Text`
 
-`Item`, `Relations`, `Group`은 transformer 회전 대상이 아닙니다.
+`Relations`, `Group`은 transformer 회전 대상이 아닙니다.
 
 단일 객체 선택은 선택 객체의 회전을 따라가는 oriented 선택 박스를 사용합니다. 다중 객체 선택은 항상 수평 group 박스를 사용합니다. mixed selection에서는 회전 히트 타깃과 회전 중심이 선택된 전체 group frame을 기준으로 잡히고, 회전 불가 요소나 locked 요소는 선택 상태로 남지만 변경되지 않습니다.
 

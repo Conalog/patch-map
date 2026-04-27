@@ -265,6 +265,7 @@ Updates the properties of objects rendered on the canvas. By default, only the c
 - `changes` (optional, object) - New properties to apply (e.g., color, text visibility). If the `refresh` option is set to `true`, this can be omitted.
 - `history` (optional, boolean \| string) - Determines whether to record changes made by this `update` method in the `undoRedoManager`. If a string that matches the historyId of a previously saved record is provided, the two records will be merged into a single undo/redo step.
 - `relativeTransform` (optional, boolean) - Determines whether to use relative values for `position`, `rotation`, and `angle`. If `true`, the provided values will be added to the object's values.
+- `rotateOrigin` (optional, `'center'`) - When set to `'center'`, `attrs.angle` or `attrs.rotation` updates keep each object's visible center fixed by applying the required `attrs.x/y` adjustment.
 - `mergeStrategy` (optional, string) - Determines how to apply the `changes` object to the existing properties. The default is `'merge'`.
   - `'merge'` (default): Deep merges the `changes` object into the existing properties. Individual properties within objects are updated.
   - `'replace'`: Replaces the top-level properties specified in `changes` entirely. This is useful for undo operations or for completely resetting a complex property like `style` or `components` to a specific state.
@@ -679,6 +680,8 @@ You can control the behavior by passing the following options when creating a `T
 
 `resizeHistory` has been removed. Use `transformHistory` for both resize and rotation gestures.
 
+Resize handles follow a single selected object's oriented frame when that object is rotated. Multi-object resize selections continue to use an axis-aligned frame.
+
 #### Rotation handles
 
 When `rotateHandles` is enabled, the transformer creates invisible hit targets just outside the selected corners. Dragging one of those targets rotates the selected rotatable elements around the visible selection center.
@@ -686,11 +689,12 @@ When `rotateHandles` is enabled, the transformer creates invisible hit targets j
 Rotation is supported for these element types:
 
   - `Grid`
+  - `Item`
   - `Rect`
   - `Image`
   - `Text`
 
-`Item`, `Relations`, and `Group` are not rotatable through the transformer.
+`Relations` and `Group` are not rotatable through the transformer.
 
 Single-object selection uses an oriented selection frame that follows the selected object's rotation. Multi-object selection always uses an axis-aligned group frame. In mixed selections, rotate hit targets and the rotation center are based on the full selected group frame, while non-rotatable or locked elements remain selected and are not mutated.
 
