@@ -78,7 +78,7 @@ export const buildRotateContext = ({ elements, viewport }) => {
   const rotatableElements = getRotatableElements(elements, viewport);
   if (rotatableElements.length === 0) return null;
 
-  const frame = buildTransformFrame({ elements: rotatableElements, viewport });
+  const frame = buildTransformFrame({ elements, viewport });
   if (!frame) return null;
 
   return {

@@ -224,6 +224,16 @@ describe('Transformer', () => {
       );
     };
 
+    const getBottomRightRotateHandle = (transformer) => {
+      const visibleHandles = getVisibleRotateHandles(transformer);
+      if (visibleHandles.length === 0)
+        throw new Error('visible rotate handle is missing');
+      const handle = visibleHandles.reduce((maxHandle, handle) =>
+        handle.x + handle.y > maxHandle.x + maxHandle.y ? handle : maxHandle,
+      );
+      return { x: handle.x, y: handle.y };
+    };
+
     const getHandleLayer = (transformer) =>
       transformer.children.find((child) => child.label === 'transform-handles');
 
@@ -920,6 +930,43 @@ describe('Transformer', () => {
 
       expect(rect.rotation).toBeCloseTo(Math.PI / 2);
       expect(item.rotation).toBe(0);
+    });
+
+    it('should position rotate targets from the full mixed selection frame', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw([
+        {
+          type: 'rect',
+          id: 'rect-rotate-frame',
+          size: { width: 100, height: 80 },
+          attrs: { x: 100, y: 100 },
+        },
+        {
+          type: 'rect',
+          id: 'locked-rect-rotate-frame',
+          size: { width: 70, height: 60 },
+          attrs: { x: 420, y: 260 },
+        },
+      ]);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-rotate-frame")]')[0];
+      const lockedRect = patchmap.selector(
+        '$..[?(@.id=="locked-rect-rotate-frame")]',
+      )[0];
+      lockedRect.apply({ locked: true });
+
+      transformer.elements = [rect];
+      transformer.draw();
+      const soloBottomRight = getBottomRightRotateHandle(transformer);
+
+      transformer.elements = [rect, lockedRect];
+      transformer.draw();
+      const mixedBottomRight = getBottomRightRotateHandle(transformer);
+
+      expect(mixedBottomRight.x).toBeGreaterThan(soloBottomRight.x);
+      expect(mixedBottomRight.y).toBeGreaterThan(soloBottomRight.y);
     });
 
     it('should snap rotation to 15 degree increments when shift is pressed', () => {

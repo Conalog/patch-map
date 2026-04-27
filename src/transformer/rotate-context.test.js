@@ -72,11 +72,17 @@ describe('buildRotateContext', () => {
     expect(result).toBeNull();
   });
 
-  it('excludes rotatable elements under locked ancestors', () => {
+  it('uses the full selection frame while mutating only unlocked rotatable elements', () => {
     const lockedGroup = { props: { locked: true }, parent: null };
     const lockedChild = createElement({
       id: 'locked-child',
       parent: lockedGroup,
+      corners: [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 10, y: 10 },
+        { x: 0, y: 10 },
+      ],
     });
     const unlockedRect = createElement({
       id: 'unlocked-rect',
@@ -95,9 +101,36 @@ describe('buildRotateContext', () => {
 
     expect(result.elements).toEqual([unlockedRect]);
     expect(result.frame).toMatchObject({
-      mode: 'oriented',
-      bounds: { x: 20, y: 20, width: 20, height: 30 },
-      center: { x: 30, y: 35 },
+      mode: 'axis-aligned',
+      bounds: { x: 0, y: 0, width: 40, height: 50 },
+      center: { x: 20, y: 25 },
+      rotation: 0,
+    });
+  });
+
+  it('uses the full mixed selection frame when non-rotatable elements are selected', () => {
+    const rotatable = createElement({ id: 'rotatable' });
+    const nonRotatable = createElement({
+      id: 'item',
+      isRotatable: false,
+      corners: [
+        { x: 100, y: 100 },
+        { x: 130, y: 100 },
+        { x: 130, y: 140 },
+        { x: 100, y: 140 },
+      ],
+    });
+
+    const result = buildRotateContext({
+      elements: [rotatable, nonRotatable],
+      viewport: { id: 'viewport' },
+    });
+
+    expect(result.elements).toEqual([rotatable]);
+    expect(result.frame).toMatchObject({
+      mode: 'axis-aligned',
+      bounds: { x: 0, y: 0, width: 130, height: 140 },
+      center: { x: 65, y: 70 },
       rotation: 0,
     });
   });
