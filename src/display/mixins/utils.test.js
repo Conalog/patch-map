@@ -301,4 +301,33 @@ describe('validateAndPrepareChanges', () => {
       },
     });
   });
+
+  it('does not assign component ids to grid item templates', () => {
+    const grid = applyElementDefaults({
+      type: 'grid',
+      id: 'grid',
+      cells: [[1]],
+      gap: 0,
+      item: {
+        size: 40,
+        components: [{ type: 'text' }],
+      },
+    });
+
+    expect(grid.item.components).toEqual([{ type: 'text' }]);
+
+    const template = { size: 40, components: [{ type: 'text' }] };
+    const firstCell = applyElementDefaults({
+      type: 'item',
+      id: 'grid.0.0',
+      ...template,
+    });
+    const secondCell = applyElementDefaults({
+      type: 'item',
+      id: 'grid.0.1',
+      ...template,
+    });
+
+    expect(firstCell.components[0].id).not.toBe(secondCell.components[0].id);
+  });
 });

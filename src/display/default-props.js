@@ -10,32 +10,44 @@ import { normalizeChanges } from './normalize';
 
 const COMPONENT_TYPES = new Set(['background', 'bar', 'icon', 'text']);
 
-const DEFAULT_COMPONENT_SIZE = Object.freeze({
+const defaultComponentSize = () => ({
   width: { value: 100, unit: '%' },
   height: { value: 100, unit: '%' },
 });
 
-const defaultComponentSize = () => structuredClone(DEFAULT_COMPONENT_SIZE);
-
 const withBaseDefaults = (value) => {
   if (!isPlainObject(value)) return value;
+  if (value.show !== undefined && value.id !== undefined) return value;
 
-  let next = value;
+  const next = { ...value };
   if (next.show === undefined) {
-    next = { ...next, show: true };
+    next.show = true;
   }
   if (next.id === undefined) {
-    next = { ...next, id: uid() };
+    next.id = uid();
   }
   return next;
 };
 
 const withElementBaseDefaults = (value) => {
-  let next = withBaseDefaults(value);
-  if (!isPlainObject(next)) return next;
+  if (!isPlainObject(value)) return value;
+  if (
+    value.show !== undefined &&
+    value.id !== undefined &&
+    value.locked !== undefined
+  ) {
+    return value;
+  }
 
+  const next = { ...value };
+  if (next.show === undefined) {
+    next.show = true;
+  }
+  if (next.id === undefined) {
+    next.id = uid();
+  }
   if (next.locked === undefined) {
-    next = { ...next, locked: false };
+    next.locked = false;
   }
   return next;
 };
@@ -78,7 +90,8 @@ const withStrokeStyleDefaults = (style) => ({
   ...(isPlainObject(style) ? style : {}),
 });
 
-const withItemLikeDefaults = (value) => {
+const withItemLikeDefaults = (value, options = {}) => {
+  const { materializeComponents = true } = options;
   let next = value;
   if (next.components === undefined) {
     next = { ...next, components: [] };
@@ -89,7 +102,7 @@ const withItemLikeDefaults = (value) => {
   if (next.contentOrientation === undefined) {
     next = { ...next, contentOrientation: 'upright' };
   }
-  if (Array.isArray(next.components)) {
+  if (materializeComponents && Array.isArray(next.components)) {
     next = {
       ...next,
       components: next.components.map(applyComponentDefaults),
@@ -100,7 +113,10 @@ const withItemLikeDefaults = (value) => {
 
 const withGridItemDefaults = (item) => {
   if (!isPlainObject(item)) return item;
-  return normalizeChanges(withItemLikeDefaults(item), 'item');
+  return normalizeChanges(
+    withItemLikeDefaults(item, { materializeComponents: false }),
+    'item',
+  );
 };
 
 export const applyElementDefaults = (value) => {

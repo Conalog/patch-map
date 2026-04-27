@@ -214,7 +214,7 @@ describe('patchmap test', () => {
       {
         type: 'grid',
         id: 'default-grid',
-        cells: [[1]],
+        cells: [[1, 1]],
         item: {
           size: 40,
           components: [{ type: 'text' }],
@@ -247,6 +247,9 @@ describe('patchmap test', () => {
     )[0];
     const grid = patchmap.selector('$..[?(@.id=="default-grid")]')[0];
     const gridItem = patchmap.selector('$..[?(@.id=="default-grid.0.0")]')[0];
+    const nextGridItem = patchmap.selector(
+      '$..[?(@.id=="default-grid.0.1")]',
+    )[0];
     const relations = patchmap.selector('$..[?(@.id=="default-relations")]')[0];
 
     expect(item.props.locked).toBe(false);
@@ -273,7 +276,15 @@ describe('patchmap test', () => {
     expect(grid.props.inactiveCellStrategy).toBe('destroy');
     expect(grid.props.gap).toEqual({ x: 0, y: 0 });
     expect(grid.props.item.contentOrientation).toBe('upright');
+    expect(gridItem.id).toBe('default-grid.0.0');
+    expect(nextGridItem.id).toBe('default-grid.0.1');
+    expect(gridItem).not.toBe(nextGridItem);
     expect(gridItem.props.contentOrientation).toBe('upright');
+    expect(gridItem.props.components[0].id).toEqual(expect.any(String));
+    expect(nextGridItem.props.components[0].id).toEqual(expect.any(String));
+    expect(gridItem.props.components[0].id).not.toBe(
+      nextGridItem.props.components[0].id,
+    );
     expect(relations.props.style.color).toBe('#1A1A1A');
   });
 
