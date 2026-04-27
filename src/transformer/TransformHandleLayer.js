@@ -43,6 +43,13 @@ const RESIZE_CURSOR_ANGLES = {
   'top-right': 315,
 };
 
+const ROTATE_CURSOR_ANGLES = {
+  'top-left': -45,
+  'top-right': 45,
+  'bottom-right': 135,
+  'bottom-left': -135,
+};
+
 const createResizeCursor = (degrees) => {
   const path =
     'm233-440 75 75q11 12 11.5 28.5T308-308q-12 12-28 12t-28-12L108-452q-6-6-8.5-13T97-480q0-8 2.5-15t8.5-13l144-144q12-12 28-12t28 12q12 12 12 28.5T308-595l-75 75h494l-75-75q-11-12-11.5-28.5T652-652q12-12 28-12t28 12l144 144q6 6 8.5 13t2.5 15q0 8-2.5 15t-8.5 13L708-308q-12 12-28 12t-28-12q-12-12-12-28.5t12-28.5l75-75H233Z';
@@ -50,20 +57,14 @@ const createResizeCursor = (degrees) => {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 12 12, ${getResizeCursorFallback(degrees)}`;
 };
 const resizeCursorCache = new Map();
+const rotateCursorCache = new Map();
 
 const createRotateCursor = (degrees) => {
-  const rotation = degrees + 35;
+  const rotation = normalizeCursorAngle(degrees);
   const path =
-    'M482-160q-134 0-228-93t-94-227v-7l-36 36q-11 11-28 11t-28-11q-11-11-11-28t11-28l104-104q12-12 28-12t28 12l104 104q11 11 11 28t-11 28q-11 11-28 11t-28-11l-36-36v7q0 100 70.5 170T482-240q16 0 31.5-2t30.5-7q17-5 32 1t23 21q8 16 1.5 31.5T577-175q-23 8-47 11.5t-48 3.5Zm-4-560q-16 0-31.5 2t-30.5 7q-17 5-32.5-1T360-733q-8-15-1.5-30.5T381-784q24-8 48-12t49-4q134 0 228 93t94 227v7l36-36q11-11 28-11t28 11q11 11 11 28t-11 28L788-349q-12 12-28 12t-28-12L628-453q-11-11-11-28t11-28q11-11 28-11t28 11l36 36v-7q0-100-70.5-170T478-720Z';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 -960 960 960"><g transform="rotate(${rotation} 480 -480)"><path d="${path}" fill="black" stroke="white" stroke-width="70" paint-order="stroke fill"/></g></svg>`;
+    'M18.293 0C18.5763 1.23861e-08 18.8142 0.0954427 19.0059 0.287109C19.1975 0.478765 19.293 0.716697 19.293 1V6C19.2929 6.28307 19.1972 6.52035 19.0059 6.71191C18.8142 6.90358 18.5763 7 18.293 7H13.293C13.0096 7 12.7717 6.90358 12.5801 6.71191C12.3887 6.52035 12.293 6.28307 12.293 6C12.293 5.7167 12.3885 5.47877 12.5801 5.28711C12.7717 5.09544 13.0096 5 13.293 5H15.9932C15.1432 4.05006 14.1474 3.3121 13.0059 2.78711C11.9403 2.29712 10.8199 2.03854 9.64551 2.00586C8.4717 2.03871 7.35213 2.29738 6.28711 2.78711C5.14547 3.3121 4.14979 4.05004 3.2998 5H6C6.28303 5.00011 6.52039 5.09567 6.71191 5.28711C6.90358 5.47878 7 5.71667 7 6C6.99997 6.28319 6.90343 6.52031 6.71191 6.71191C6.52036 6.90347 6.28312 6.99989 6 7H1C0.716667 7 0.478776 6.90358 0.287109 6.71191C0.0955925 6.52031 2.75366e-05 6.28319 0 6V1C-1.23849e-08 0.716667 0.0954427 0.478776 0.287109 0.287109C0.478744 0.0955647 0.716757 1.2381e-08 1 0C1.28303 0.000110013 1.52039 0.0956748 1.71191 0.287109C1.90358 0.478776 2 0.716667 2 1V2.91016C2.61573 2.33291 3.30071 1.82863 4.05566 1.39941C5.69712 0.466276 7.4762 6.32214e-05 9.39258 0C9.47703 3.69138e-09 9.56155 0.00399917 9.64551 0.00585938C9.72992 0.0039782 9.81451 7.28876e-07 9.89941 0C11.8161 -8.37802e-08 13.5956 0.466081 15.2373 1.39941C15.9924 1.82868 16.6772 2.33281 17.293 2.91016V1C17.293 0.716697 17.3885 0.478765 17.5801 0.287109C17.7717 0.0954427 18.0096 -1.23849e-08 18.293 0Z';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="-5 -9 30 30"><g transform="translate(10 3.5) rotate(${rotation}) translate(-10 -3.5)"><path d="${path}" fill="black" stroke="white" stroke-width="1.8" stroke-linejoin="round" paint-order="stroke fill"/></g></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 12 12, crosshair`;
-};
-
-const ROTATE_CURSORS = {
-  'top-left': createRotateCursor(-45),
-  'top-right': createRotateCursor(45),
-  'bottom-right': createRotateCursor(135),
-  'bottom-left': createRotateCursor(-135),
 };
 
 const CORNER_RESIZE_HANDLES = [
@@ -362,7 +363,7 @@ export default class TransformHandleLayer {
       graphic.eventMode = 'static';
       graphic.zIndex = ROTATE_TARGET_Z_INDEX;
       graphic.label = `rotate-handle:${handle}`;
-      graphic.cursor = ROTATE_CURSORS[handle] ?? 'crosshair';
+      graphic.cursor = getRotateCursorForAngle(ROTATE_CURSOR_ANGLES[handle]);
       graphic.on('pointerdown', (event) =>
         this._onRotatePointerDown(handle, event),
       );
@@ -540,6 +541,7 @@ export default class TransformHandleLayer {
     const halfHitSize = hitSize / 2;
     const offset = ROTATE_HIT_OFFSET / viewportScale;
     const positions = getCornerMap(frame.corners);
+    const cursors = getRotateCursors(frame);
 
     this._rotateMap.forEach((target, key) => {
       const corner = positions[key];
@@ -573,6 +575,7 @@ export default class TransformHandleLayer {
         alpha: 0.001,
       });
       target.position.set(localPosition.x, localPosition.y);
+      target.cursor = cursors[key] ?? 'crosshair';
       target.visible = true;
     });
   }
@@ -666,6 +669,35 @@ const getResizeCursorForAngle = (angle) => {
     resizeCursorCache.set(key, cursor);
   }
   return cursor;
+};
+
+const getRotateCursors = (frame) => {
+  const rotationDegrees = frame?.rotation
+    ? (frame.rotation * 180) / Math.PI
+    : 0;
+
+  return Object.fromEntries(
+    Object.entries(ROTATE_CURSOR_ANGLES).map(([handle, angle]) => [
+      handle,
+      getRotateCursorForAngle(angle + rotationDegrees),
+    ]),
+  );
+};
+
+const getRotateCursorForAngle = (angle) => {
+  const key = normalizeCursorAngle(angle);
+  let cursor = rotateCursorCache.get(key);
+  if (!cursor) {
+    cursor = createRotateCursor(key);
+    rotateCursorCache.set(key, cursor);
+  }
+  return cursor;
+};
+
+const normalizeCursorAngle = (angle) => {
+  const normalized = ((angle % 360) + 360) % 360;
+  const rounded = Math.round(normalized * 1000) / 1000;
+  return rounded === 360 ? 0 : rounded;
 };
 
 const getResizeCursorFallback = (angle) => {

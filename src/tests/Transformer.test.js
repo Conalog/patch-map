@@ -909,6 +909,25 @@ describe('Transformer', () => {
       expect(rotateHandles[0].cursor).not.toBe('grab');
     });
 
+    it('should rotate cursor icons with a single selected rotated frame', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw(resizeSampleData);
+      const transformer = new Transformer({ rotateHandles: true });
+      patchmap.transformer = transformer;
+
+      const rect = patchmap.selector('$..[?(@.id=="rect-1")]')[0];
+      rect.angle = 20;
+      transformer.elements = [rect];
+      transformer.draw();
+
+      const topLeftHandle = getVisibleRotateHandles(transformer).find(
+        (handle) => handle.label === 'rotate-handle:top-left',
+      );
+      expect(decodeURIComponent(topLeftHandle?.cursor ?? '')).toContain(
+        'rotate(335',
+      );
+    });
+
     it('should hide rotate targets when selection has no rotatable elements', () => {
       const patchmap = getPatchmap();
       patchmap.draw([
