@@ -77,6 +77,7 @@ export const Base = (superClass) => {
 
     destroy(options) {
       this.onRender = null;
+      this._removeFromStoreElementIndex();
       super.destroy(options);
     }
 
@@ -176,8 +177,10 @@ export const Base = (superClass) => {
       this.props = validatedProps;
 
       if (RAW_SYNC_KEYS.some((key) => Object.hasOwn(diffProps, key))) {
+        const previousId = this.id;
         const { id, label, attrs } = diffProps;
         this._applyRaw({ id, label, ...attrs }, mergeStrategy);
+        this._syncStoreElementIndex(previousId);
       }
 
       const handlerChanges = options.changes ?? normalizedChanges;
@@ -261,6 +264,30 @@ export const Base = (superClass) => {
 
     _updateProperty(key, value, mergeStrategy) {
       deepMerge(this, { [key]: value }, { mergeStrategy });
+    }
+
+    _syncStoreElementIndex(previousId) {
+      const elementById = this.store?.elementById;
+      if (!elementById) return;
+
+      if (
+        previousId &&
+        previousId !== this.id &&
+        elementById.get(previousId) === this
+      ) {
+        elementById.delete(previousId);
+      }
+      if (this.id) {
+        elementById.set(this.id, this);
+      }
+    }
+
+    _removeFromStoreElementIndex() {
+      const elementById = this.store?.elementById;
+      if (!elementById || !this.id) return;
+      if (elementById.get(this.id) === this) {
+        elementById.delete(this.id);
+      }
     }
   };
 
