@@ -683,6 +683,8 @@ patchmap.stateManager.setState('selection', {
       - `'none'`: 외곽선을 표시하지 않습니다.
   - `resizeHandles` (optional, boolean): 그룹 리사이즈 핸들과 엣지 히트 타깃을 활성화합니다 (기본값: `false`).
   - `resizeHistory` (optional, boolean): 리사이즈 변경 사항을 `undoRedoManager`에 기록할지 결정합니다 (기본값: `false`). 활성화하면 한 번의 드래그 제스처 내 업데이트가 하나의 실행 취소/재실행 단계로 묶입니다.
+  - `resizeKeepRatio` (optional, boolean): Shift 없이도 리사이즈 비율을 고정합니다 (기본값: `false`). Shift 드래그는 이 옵션과 관계없이 항상 비율을 고정합니다.
+  - `getResizeKeepRatio` (optional, function): 현재 리사이즈 이동에서 비율을 고정할지 결정합니다. `{ event, handle, elements }`를 받아 Shift 없이 비율을 고정하려면 `true`를 반환하면 됩니다.
 
 ```js
 import { Patchmap, Transformer } from '@conalog/patch-map';
@@ -698,6 +700,7 @@ const transformer = new Transformer({
     color: '#FF00FF',
   },
   boundsDisplayMode: 'groupOnly',
+  getResizeKeepRatio: ({ event }) => event.shiftKey || isLayoutSizeLocked(),
 });
 patchmap.transformer = transformer;
 
