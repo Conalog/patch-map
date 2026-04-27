@@ -77,6 +77,7 @@ export const Base = (superClass) => {
 
     destroy(options) {
       this.onRender = null;
+      this._removeFromStoreElementIndex();
       super.destroy(options);
     }
 
@@ -176,14 +177,18 @@ export const Base = (superClass) => {
       this.props = validatedProps;
 
       if (RAW_SYNC_KEYS.some((key) => Object.hasOwn(diffProps, key))) {
+        const previousId = this.id;
         const { id, label, attrs } = diffProps;
         this._applyRaw({ id, label, ...attrs }, mergeStrategy);
+        this._syncStoreElementIndex(previousId);
       }
 
       const handlerChanges = options.changes ?? normalizedChanges;
       this._applyHandlers(keysToProcess, {
         mergeStrategy,
         refresh,
+        validateSchema,
+        normalize,
         changes: handlerChanges,
       });
 
@@ -194,6 +199,33 @@ export const Base = (superClass) => {
           mergeStrategy,
         );
       }
+    }
+
+    _applyInitialTrusted(changes = {}, options = {}) {
+      if (this.destroyed) return;
+      const initialProps = changes ?? {};
+      const keysToProcess = Object.keys(initialProps);
+      if (keysToProcess.length === 0) return;
+
+      const previousId = this.id;
+      this.props = initialProps;
+
+      if (RAW_SYNC_KEYS.some((key) => Object.hasOwn(initialProps, key))) {
+        const { id, label, attrs } = initialProps;
+        this._applyRaw(
+          { id, label, ...attrs },
+          options.mergeStrategy ?? 'replace',
+        );
+        this._syncStoreElementIndex(previousId);
+      }
+
+      this._applyHandlers(keysToProcess, {
+        ...options,
+        mergeStrategy: options.mergeStrategy ?? 'replace',
+        validateSchema: false,
+        normalize: false,
+        changes: initialProps,
+      });
     }
 
     _applyHandlers(keysToProcess, options) {
@@ -259,6 +291,30 @@ export const Base = (superClass) => {
 
     _updateProperty(key, value, mergeStrategy) {
       deepMerge(this, { [key]: value }, { mergeStrategy });
+    }
+
+    _syncStoreElementIndex(previousId) {
+      const elementById = this.store?.elementById;
+      if (!elementById) return;
+
+      if (
+        previousId &&
+        previousId !== this.id &&
+        elementById.get(previousId) === this
+      ) {
+        elementById.delete(previousId);
+      }
+      if (this.id) {
+        elementById.set(this.id, this);
+      }
+    }
+
+    _removeFromStoreElementIndex() {
+      const elementById = this.store?.elementById;
+      if (!elementById || !this.id) return;
+      if (elementById.get(this.id) === this) {
+        elementById.delete(this.id);
+      }
     }
   };
 

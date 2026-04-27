@@ -27,7 +27,11 @@ export const TextLayoutable = (superClass) => {
       // 3. Font Size: Auto
       if (style?.fontSize === 'auto') {
         const range = style.autoFont ?? DEFAULT_AUTO_FONT_RANGE;
-        this._setAutoFontSize(visual, bounds, range);
+        if (visual.text === '') {
+          visual.style.fontSize = range.max;
+        } else {
+          this._setAutoFontSize(visual, bounds, range);
+        }
       }
 
       // 4. Overflow Handling

@@ -1,4 +1,5 @@
 export const draw = (store, data) => {
+  resetElementIndex(store);
   destroyChildren(store.world);
   store.world.apply(
     { type: 'canvas', children: data },
@@ -12,4 +13,9 @@ const destroyChildren = (parent) => {
     child.destroy({ children: true });
   }
   parent.props.children = [];
+};
+
+const resetElementIndex = (store) => {
+  const targetStore = store.world?.store ?? store;
+  targetStore.elementById = new Map();
 };

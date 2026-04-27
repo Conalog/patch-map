@@ -5,7 +5,7 @@ const KEYS = ['cells', 'inactiveCellStrategy'];
 
 export const Cellsable = (superClass) => {
   const MixedClass = class extends superClass {
-    _applyCells(relevantChanges) {
+    _applyCells(relevantChanges, options = {}) {
       const cells = relevantChanges.cells ?? this.props.cells;
       const { gap, item: itemProps, inactiveCellStrategy } = this.props;
 
@@ -13,6 +13,8 @@ export const Cellsable = (superClass) => {
       const childrenMap = new Map(
         this.children.map((child) => [child.id, child]),
       );
+      this._cellsApplyCreatedAllGridItems =
+        options.mergeStrategy === 'replace' && childrenMap.size === 0;
 
       cells.forEach((row, rowIndex) => {
         row.forEach((col, colIndex) => {
@@ -32,16 +34,21 @@ export const Cellsable = (superClass) => {
             };
             const item = newElement('item', this.store);
             this.addChild(item);
-            item.apply({
+            const itemChanges = {
               type: 'item',
               id,
               ...itemProps,
               label,
               attrs,
               show: !isInactive,
-            });
+            };
+            applyInitialCellItem(item, itemChanges, options);
           } else {
-            existingItem.apply({ label, show: !isInactive });
+            const itemChanges = { label, show: !isInactive };
+            existingItem.apply(itemChanges, {
+              ...options,
+              changes: itemChanges,
+            });
           }
         });
       });
@@ -62,4 +69,22 @@ export const Cellsable = (superClass) => {
     UPDATE_STAGES.CHILD_RENDER,
   );
   return MixedClass;
+};
+
+const canUseInitialFastPath = (options) =>
+  options.mergeStrategy === 'replace' &&
+  options.validateSchema === false &&
+  options.normalize === false;
+
+const applyInitialCellItem = (item, itemChanges, options) => {
+  const applyOptions = {
+    ...options,
+    changes: itemChanges,
+  };
+  if (canUseInitialFastPath(options)) {
+    item._applyInitialTrusted(itemChanges, applyOptions);
+    return;
+  }
+
+  item.apply(itemChanges, applyOptions);
 };

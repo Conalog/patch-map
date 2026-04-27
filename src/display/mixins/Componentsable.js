@@ -11,11 +11,10 @@ const ORIENTATION_KEYS = ['contentOrientation'];
 export const Componentsable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyComponents(relevantChanges, options = {}) {
-      const childOptions = {
-        ...options,
-        validateSchema: false,
-        normalize: false,
-      };
+      const childOptions =
+        options.validateSchema === false
+          ? { ...options, validateSchema: false, normalize: false }
+          : options;
       let componentsChanges = options.refresh
         ? relevantChanges?.components
         : (options.changes?.components ?? relevantChanges?.components);
@@ -26,11 +25,13 @@ export const Componentsable = (superClass) => {
         components,
         componentsChanges,
         componentArraySchema,
+        childOptions,
       );
 
       for (const componentChange of componentsChanges) {
         const idx = findIndexByPriority(components, componentChange);
         let component = null;
+        let isNewComponent = false;
 
         if (idx !== -1) {
           component = components[idx];
@@ -38,15 +39,20 @@ export const Componentsable = (superClass) => {
           if (options.mergeStrategy === 'replace') {
             this.addChild(component);
           }
+        } else if (componentChange.show === false) {
+          continue;
         } else {
           component = newComponent(componentChange.type, this.store);
           this.addChild(component);
+          isNewComponent = true;
         }
         const applyChanges = { type: componentChange.type, ...componentChange };
-        component.apply(applyChanges, {
-          ...childOptions,
-          changes: applyChanges,
-        });
+        applyInitialComponent(
+          component,
+          applyChanges,
+          childOptions,
+          isNewComponent,
+        );
       }
 
       if (options.mergeStrategy === 'replace') {
@@ -91,4 +97,27 @@ export const Componentsable = (superClass) => {
     UPDATE_STAGES.WORLD_TRANSFORM,
   );
   return MixedClass;
+};
+
+const canUseInitialFastPath = (options) =>
+  options.mergeStrategy === 'replace' &&
+  options.validateSchema === false &&
+  options.normalize === false;
+
+const applyInitialComponent = (
+  component,
+  applyChanges,
+  childOptions,
+  isNewComponent,
+) => {
+  const applyOptions = {
+    ...childOptions,
+    changes: applyChanges,
+  };
+  if (isNewComponent && canUseInitialFastPath(childOptions)) {
+    component._applyInitialTrusted(applyChanges, applyOptions);
+    return;
+  }
+
+  component.apply(applyChanges, applyOptions);
 };

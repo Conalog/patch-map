@@ -10,11 +10,10 @@ const KEYS = ['children'];
 export const Childrenable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyChildren(relevantChanges, options = {}) {
-      const childOptions = {
-        ...options,
-        validateSchema: false,
-        normalize: false,
-      };
+      const childOptions =
+        options.validateSchema === false
+          ? { ...options, validateSchema: false, normalize: false }
+          : options;
       let childrenChanges = options.refresh
         ? relevantChanges?.children
         : (options.changes?.children ?? relevantChanges?.children);
@@ -25,11 +24,13 @@ export const Childrenable = (superClass) => {
         elements,
         childrenChanges,
         mapDataSchema,
+        childOptions,
       );
 
       for (const childChange of childrenChanges) {
         const idx = findIndexByPriority(elements, childChange);
         let element = null;
+        let isNewElement = false;
 
         if (idx !== -1) {
           element = elements[idx];
@@ -40,8 +41,9 @@ export const Childrenable = (superClass) => {
         } else {
           element = newElement(childChange.type, this.store);
           this.addChild(element);
+          isNewElement = true;
         }
-        element.apply(childChange, { ...childOptions, changes: childChange });
+        applyInitialChild(element, childChange, childOptions, isNewElement);
       }
 
       if (options.mergeStrategy === 'replace') {
@@ -73,4 +75,24 @@ export const Childrenable = (superClass) => {
     UPDATE_STAGES.CHILD_RENDER,
   );
   return MixedClass;
+};
+
+const canUseInitialFastPath = (options) =>
+  options.mergeStrategy === 'replace' &&
+  options.validateSchema === false &&
+  options.normalize === false;
+
+const applyInitialChild = (
+  element,
+  childChange,
+  childOptions,
+  isNewElement,
+) => {
+  const applyOptions = { ...childOptions, changes: childChange };
+  if (isNewElement && canUseInitialFastPath(childOptions)) {
+    element._applyInitialTrusted(childChange, applyOptions);
+    return;
+  }
+
+  element.apply(childChange, applyOptions);
 };

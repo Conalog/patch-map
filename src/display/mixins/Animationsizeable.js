@@ -1,5 +1,5 @@
 import { getSizeBatcher } from '../animation/sizeBatchTween';
-import { calcSize } from '../mixins/utils';
+import { calcSize, resolveComponentPlacement } from '../mixins/utils';
 import { hasUprightContentOrientation } from '../utils/content-orientation';
 import { isUpsideDownScreenAngle } from '../utils/screen-direction';
 import { UPDATE_STAGES } from './constants';
@@ -13,7 +13,7 @@ const reapplyLayoutAfterSizeChange = (target) => {
   }
 
   target._applyPlacement?.({
-    placement: target.props?.placement,
+    placement: resolveComponentPlacement(target),
     margin: target.props?.margin,
   });
 };
@@ -65,13 +65,13 @@ export const AnimationSizeable = (superClass) => {
         }
 
         const fromPosition = this._calcPlacementForSize({
-          placement: this.props.placement,
+          placement: resolveComponentPlacement(this),
           margin: this.props.margin,
           width: this.width,
           height: this.height,
         });
         const toPosition = this._calcPlacementForSize({
-          placement: this.props.placement,
+          placement: resolveComponentPlacement(this),
           margin: this.props.margin,
           width: newSize.width,
           height: newSize.height,

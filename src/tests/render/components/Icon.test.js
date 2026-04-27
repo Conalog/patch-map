@@ -86,6 +86,19 @@ describe('Icon Component Tests', () => {
   });
 
   describe('size', () => {
+    it('should preserve raw numeric size during trusted initial draw', () => {
+      const patchmap = getPatchmap();
+      patchmap.draw([itemWithIcon]);
+
+      const icon = patchmap.selector('$..[?(@.id=="icon-1")]')[0];
+      expect(icon.props.size).toEqual({
+        width: { value: 50, unit: 'px' },
+        height: { value: 50, unit: 'px' },
+      });
+      expect(icon.width).toBe(50);
+      expect(icon.height).toBe(50);
+    });
+
     it('should correctly resize the icon when a single number is provided for size', () => {
       const patchmap = getPatchmap();
       patchmap.draw([itemWithIcon]);
@@ -174,22 +187,22 @@ describe('Icon Component Tests', () => {
       { placement: 'right-top', expected: { x: 50, y: 0 } },
       { placement: 'left-bottom', expected: { x: 0, y: 50 } },
       { placement: 'right-bottom', expected: { x: 50, y: 50 } },
-    ])(
-      'should correctly position the icon for placement: $placement',
-      ({ placement, expected }) => {
-        const patchmap = getPatchmap();
-        patchmap.draw([itemWithIcon]);
+    ])('should correctly position the icon for placement: $placement', ({
+      placement,
+      expected,
+    }) => {
+      const patchmap = getPatchmap();
+      patchmap.draw([itemWithIcon]);
 
-        patchmap.update({
-          path: '$..[?(@.id=="icon-1")]',
-          changes: { placement: placement },
-        });
+      patchmap.update({
+        path: '$..[?(@.id=="icon-1")]',
+        changes: { placement: placement },
+      });
 
-        const icon = patchmap.selector('$..[?(@.id=="icon-1")]')[0];
-        expect(icon.x).toBe(expected.x);
-        expect(icon.y).toBe(expected.y);
-      },
-    );
+      const icon = patchmap.selector('$..[?(@.id=="icon-1")]')[0];
+      expect(icon.x).toBe(expected.x);
+      expect(icon.y).toBe(expected.y);
+    });
   });
 
   describe('margin', () => {
@@ -230,22 +243,23 @@ describe('Icon Component Tests', () => {
         placement: 'right-top',
         expected: { x: 45, y: -10 },
       },
-    ])(
-      'should correctly apply margin with placement: $case',
-      ({ margin, placement, expected }) => {
-        const patchmap = getPatchmap();
-        patchmap.draw([itemWithIcon]);
+    ])('should correctly apply margin with placement: $case', ({
+      margin,
+      placement,
+      expected,
+    }) => {
+      const patchmap = getPatchmap();
+      patchmap.draw([itemWithIcon]);
 
-        patchmap.update({
-          path: '$..[?(@.id=="icon-1")]',
-          changes: { placement, margin },
-        });
+      patchmap.update({
+        path: '$..[?(@.id=="icon-1")]',
+        changes: { placement, margin },
+      });
 
-        const icon = patchmap.selector('$..[?(@.id=="icon-1")]')[0];
-        expect(icon.x).toBe(expected.x);
-        expect(icon.y).toBe(expected.y);
-      },
-    );
+      const icon = patchmap.selector('$..[?(@.id=="icon-1")]')[0];
+      expect(icon.x).toBe(expected.x);
+      expect(icon.y).toBe(expected.y);
+    });
   });
 
   describe('size, placement, margin', () => {
@@ -288,24 +302,24 @@ describe('Icon Component Tests', () => {
         changes: { size: '30%', placement: 'bottom', margin: { y: -5 } },
         expected: { x: 35, y: 75, width: 30, height: 30 },
       },
-    ])(
-      'should correctly calculate position and size with combined properties for: $case',
-      ({ changes, expected }) => {
-        const patchmap = getPatchmap();
-        patchmap.draw([itemWithIcon]);
+    ])('should correctly calculate position and size with combined properties for: $case', ({
+      changes,
+      expected,
+    }) => {
+      const patchmap = getPatchmap();
+      patchmap.draw([itemWithIcon]);
 
-        patchmap.update({
-          path: '$..[?(@.id=="icon-1")]',
-          changes: changes,
-        });
+      patchmap.update({
+        path: '$..[?(@.id=="icon-1")]',
+        changes: changes,
+      });
 
-        const icon = patchmap.selector('$..[?(@.id=="icon-1")]')[0];
-        expect(icon.width).toBeCloseTo(expected.width);
-        expect(icon.height).toBeCloseTo(expected.height);
-        expect(icon.x).toBeCloseTo(expected.x);
-        expect(icon.y).toBeCloseTo(expected.y);
-      },
-    );
+      const icon = patchmap.selector('$..[?(@.id=="icon-1")]')[0];
+      expect(icon.width).toBeCloseTo(expected.width);
+      expect(icon.height).toBeCloseTo(expected.height);
+      expect(icon.x).toBeCloseTo(expected.x);
+      expect(icon.y).toBeCloseTo(expected.y);
+    });
   });
 
   describe('tint', () => {

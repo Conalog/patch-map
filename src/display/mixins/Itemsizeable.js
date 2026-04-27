@@ -4,9 +4,20 @@ const KEYS = ['size', 'padding'];
 
 export const ItemSizeable = (superClass) => {
   const MixedClass = class extends superClass {
-    _applyItemSize() {
+    _applyItemSize(_relevantChanges, options = {}) {
+      if (
+        options.mergeStrategy === 'replace' &&
+        Array.isArray(options.changes?.components)
+      ) {
+        return;
+      }
+
       for (const child of this.children) {
-        child.apply(undefined, { refresh: true });
+        child.apply(undefined, {
+          ...options,
+          changes: undefined,
+          refresh: true,
+        });
       }
     }
   };
