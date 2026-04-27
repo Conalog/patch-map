@@ -11,11 +11,10 @@ const ORIENTATION_KEYS = ['contentOrientation'];
 export const Componentsable = (superClass) => {
   const MixedClass = class extends superClass {
     _applyComponents(relevantChanges, options = {}) {
-      const childOptions = {
-        ...options,
-        validateSchema: false,
-        normalize: false,
-      };
+      const childOptions =
+        options.validateSchema === false
+          ? { ...options, validateSchema: false, normalize: false }
+          : options;
       let componentsChanges = options.refresh
         ? relevantChanges?.components
         : (options.changes?.components ?? relevantChanges?.components);
