@@ -45,18 +45,55 @@ const DEFAULT_COMPONENT_SIZE = {
   height: { value: 100, unit: '%' },
 };
 
+const isPxOrPercentValue = (value) =>
+  value &&
+  typeof value === 'object' &&
+  Object.hasOwn(value, 'value') &&
+  Object.hasOwn(value, 'unit');
+
+const normalizePxOrPercentValue = (value) => {
+  if (typeof value === 'number') {
+    return { value, unit: 'px' };
+  }
+  if (typeof value === 'string' && value.endsWith('%')) {
+    return { value: Number.parseFloat(value.slice(0, -1)), unit: '%' };
+  }
+  return value;
+};
+
+const normalizeComponentSize = (size) => {
+  if (
+    typeof size === 'number' ||
+    typeof size === 'string' ||
+    isPxOrPercentValue(size)
+  ) {
+    const normalized = normalizePxOrPercentValue(size);
+    return { width: normalized, height: normalized };
+  }
+  if (!size || typeof size !== 'object') return null;
+
+  if (isPxOrPercentValue(size.width) && isPxOrPercentValue(size.height)) {
+    return size;
+  }
+
+  return {
+    width: normalizePxOrPercentValue(size.width),
+    height: normalizePxOrPercentValue(size.height),
+  };
+};
+
 export const calcSize = (component, { source, size }) => {
   const { contentWidth, contentHeight } = getLayoutContext(component);
-  const resolvedSize = {
-    width:
-      size?.width ??
-      component.props?.size?.width ??
-      DEFAULT_COMPONENT_SIZE.width,
-    height:
-      size?.height ??
-      component.props?.size?.height ??
-      DEFAULT_COMPONENT_SIZE.height,
-  };
+  const currentPropsSize = component.props?.size;
+  const hasNormalizedRequestedSize =
+    isPxOrPercentValue(size?.width) && isPxOrPercentValue(size?.height);
+  const hasNormalizedCurrentSize =
+    isPxOrPercentValue(currentPropsSize?.width) &&
+    isPxOrPercentValue(currentPropsSize?.height);
+  const resolvedSize =
+    hasNormalizedRequestedSize || (size == null && hasNormalizedCurrentSize)
+      ? (size ?? currentPropsSize)
+      : resolveComponentSize(size, currentPropsSize);
 
   const borderWidth =
     typeof source === 'object' ? (source?.borderWidth ?? 0) : 0;
@@ -92,6 +129,25 @@ export const calcSize = (component, { source, size }) => {
     width: roundToPrecision(finalWidth + borderWidth),
     height: roundToPrecision(finalHeight + borderWidth),
     borderWidth: borderWidth,
+  };
+};
+
+const resolveComponentSize = (size, currentPropsSize) => {
+  const requestedSize = size == null ? null : normalizeComponentSize(size);
+  const currentSize =
+    requestedSize?.width && requestedSize?.height
+      ? null
+      : normalizeComponentSize(currentPropsSize);
+
+  return {
+    width:
+      requestedSize?.width ??
+      currentSize?.width ??
+      DEFAULT_COMPONENT_SIZE.width,
+    height:
+      requestedSize?.height ??
+      currentSize?.height ??
+      DEFAULT_COMPONENT_SIZE.height,
   };
 };
 
