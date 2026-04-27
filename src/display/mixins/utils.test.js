@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { applyComponentDefaults } from '../default-props';
+import { applyComponentDefaults, applyElementDefaults } from '../default-props';
 import {
   calcSize,
   parseCalcExpression,
@@ -266,5 +266,39 @@ describe('validateAndPrepareChanges', () => {
         split: 0,
       },
     ]);
+  });
+
+  it('applies draw fast path defaults that schema validation would normally provide', () => {
+    expect(
+      applyElementDefaults({
+        type: 'grid',
+        id: 'grid',
+        cells: [[1]],
+        item: { size: 40 },
+      }),
+    ).toMatchObject({
+      type: 'grid',
+      gap: { x: 0, y: 0 },
+      inactiveCellStrategy: 'destroy',
+      item: {
+        size: { width: 40, height: 40 },
+        components: [],
+        padding: { top: 0, right: 0, bottom: 0, left: 0 },
+        contentOrientation: 'upright',
+      },
+    });
+
+    expect(
+      applyComponentDefaults({
+        type: 'background',
+        source: { type: 'rect' },
+      }),
+    ).toMatchObject({
+      type: 'background',
+      size: {
+        width: { value: 100, unit: '%' },
+        height: { value: 100, unit: '%' },
+      },
+    });
   });
 });

@@ -215,7 +215,6 @@ describe('patchmap test', () => {
         type: 'grid',
         id: 'default-grid',
         cells: [[1]],
-        gap: 4,
         item: {
           size: 40,
           components: [{ type: 'text' }],
@@ -225,7 +224,14 @@ describe('patchmap test', () => {
         type: 'item',
         id: 'default-item',
         size: 80,
-        components: [{ type: 'text', id: 'default-text' }],
+        components: [
+          {
+            type: 'background',
+            id: 'default-background',
+            source: { type: 'rect' },
+          },
+          { type: 'text', id: 'default-text' },
+        ],
       },
       {
         type: 'relations',
@@ -236,6 +242,9 @@ describe('patchmap test', () => {
 
     const item = patchmap.selector('$..[?(@.id=="default-item")]')[0];
     const text = patchmap.selector('$..[?(@.id=="default-text")]')[0];
+    const background = patchmap.selector(
+      '$..[?(@.id=="default-background")]',
+    )[0];
     const grid = patchmap.selector('$..[?(@.id=="default-grid")]')[0];
     const gridItem = patchmap.selector('$..[?(@.id=="default-grid.0.0")]')[0];
     const relations = patchmap.selector('$..[?(@.id=="default-relations")]')[0];
@@ -257,8 +266,12 @@ describe('patchmap test', () => {
     });
     expect(text.props.text).toBe('');
     expect(text.props.style.overflow).toBe('visible');
+    expect(background.props.size).toEqual({
+      width: { value: 100, unit: '%' },
+      height: { value: 100, unit: '%' },
+    });
     expect(grid.props.inactiveCellStrategy).toBe('destroy');
-    expect(grid.props.gap).toEqual({ x: 4, y: 4 });
+    expect(grid.props.gap).toEqual({ x: 0, y: 0 });
     expect(grid.props.item.contentOrientation).toBe('upright');
     expect(gridItem.props.contentOrientation).toBe('upright');
     expect(relations.props.style.color).toBe('#1A1A1A');

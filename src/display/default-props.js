@@ -15,6 +15,8 @@ const DEFAULT_COMPONENT_SIZE = Object.freeze({
   height: { value: 100, unit: '%' },
 });
 
+const defaultComponentSize = () => structuredClone(DEFAULT_COMPONENT_SIZE);
+
 const withBaseDefaults = (value) => {
   if (!isPlainObject(value)) return value;
 
@@ -119,6 +121,9 @@ export const applyElementDefaults = (value) => {
       if (next.inactiveCellStrategy === undefined) {
         next = { ...next, inactiveCellStrategy: 'destroy' };
       }
+      if (next.gap === undefined) {
+        next = { ...next, gap: { x: 0, y: 0 } };
+      }
       if (isPlainObject(next.item)) {
         next = { ...next, item: withGridItemDefaults(next.item) };
       }
@@ -163,9 +168,7 @@ export const applyComponentDefaults = (value) => {
 
   switch (next.type) {
     case 'background':
-      if (next.size !== undefined) {
-        next = { ...next, size: structuredClone(DEFAULT_COMPONENT_SIZE) };
-      }
+      next = { ...next, size: defaultComponentSize() };
       break;
     case 'bar':
       if (next.placement === undefined) {
