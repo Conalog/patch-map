@@ -621,7 +621,10 @@ const normalizeCssHex = (color) => {
       .map((digit) => `${digit}${digit}`)
       .join('')}`;
   }
-  return `#${value.padStart(6, '0')}`;
+  if (value.length === 6) {
+    return `#${value}`;
+  }
+  return null;
 };
 
 const getPixelLineWidth = (ratio) => 1 / Math.max(ratio || 1, 1);
