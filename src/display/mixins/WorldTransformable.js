@@ -7,6 +7,7 @@ import {
 
 const VIEWPORT_WORLD_LISTENER = new WeakMap();
 const SNAPSHOT_PRECISION = 10000;
+const BOUNDS_SETTLE_FRAMES = 2;
 
 const normalizeSnapshotValue = (value) => {
   const parsed = Number(value);
@@ -129,6 +130,9 @@ const hasRawTransformOverride = (changes) => {
   );
 };
 
+const isViewportDragging = (instance) =>
+  Boolean(instance.store?.viewport?.moving);
+
 export const WorldTransformable = (superClass) => {
   const MixedClass = class extends superClass {
     constructor(...args) {
@@ -136,8 +140,15 @@ export const WorldTransformable = (superClass) => {
       this._worldTransformViewport = null;
       this._worldTransformEntry = null;
       this._worldTransformBoundsSnapshot = null;
+      this._worldTransformNeedsSubscriptionSync = true;
+      this._worldTransformBoundsCheckFrames = BOUNDS_SETTLE_FRAMES;
+      this._boundMarkWorldTransformTreeDirty =
+        this._markWorldTransformTreeDirty.bind(this);
+      this.on?.('added', this._boundMarkWorldTransformTreeDirty);
+      this.on?.('removed', this._boundMarkWorldTransformTreeDirty);
       this._registerWorldTransformSubscriber();
       this._applyWorldTransform();
+      this._markWorldTransformBoundsDirty();
     }
 
     _applyWorldTransform(_relevantChanges, options) {
@@ -149,6 +160,7 @@ export const WorldTransformable = (superClass) => {
 
       applyWorldRotation(this, this.store.view);
       applyWorldFlip(this, this.store.view);
+      this._markWorldTransformBoundsDirty();
     }
 
     _onWorldTransformChanged() {
@@ -159,6 +171,32 @@ export const WorldTransformable = (superClass) => {
           margin: this.props?.margin,
         });
       }
+      this._markWorldTransformBoundsDirty();
+    }
+
+    _markWorldTransformTreeDirty() {
+      this._worldTransformNeedsSubscriptionSync = true;
+      this._markWorldTransformBoundsDirty();
+    }
+
+    _markWorldTransformBoundsDirty() {
+      this._worldTransformBoundsCheckFrames = Math.max(
+        this._worldTransformBoundsCheckFrames ?? 0,
+        BOUNDS_SETTLE_FRAMES,
+      );
+    }
+
+    _onTextureApplied(texture) {
+      super._onTextureApplied?.(texture);
+      this._markWorldTransformBoundsDirty();
+    }
+
+    _applyHandlers(keysToProcess, options) {
+      const result = super._applyHandlers?.(keysToProcess, options);
+      if (keysToProcess?.length > 0) {
+        this._markWorldTransformBoundsDirty();
+      }
+      return result;
     }
 
     _registerWorldTransformSubscriber() {
@@ -193,17 +231,45 @@ export const WorldTransformable = (superClass) => {
       }
 
       if (!this._worldTransformEntry) return;
-      const changed = syncNodeSubscriptions(this._worldTransformEntry, this);
-      const nextBoundsSnapshot = getBoundsSnapshot(this);
-      const boundsChanged =
-        nextBoundsSnapshot !== this._worldTransformBoundsSnapshot;
-      this._worldTransformBoundsSnapshot = nextBoundsSnapshot;
+      if (
+        !this._worldTransformNeedsSubscriptionSync &&
+        this._worldTransformBoundsCheckFrames <= 0
+      ) {
+        return;
+      }
+      if (
+        isViewportDragging(this) &&
+        this._worldTransformBoundsSnapshot !== null &&
+        !this._worldTransformNeedsSubscriptionSync
+      ) {
+        return;
+      }
+
+      const changed = this._worldTransformNeedsSubscriptionSync
+        ? syncNodeSubscriptions(this._worldTransformEntry, this)
+        : false;
+      this._worldTransformNeedsSubscriptionSync = false;
+
+      let boundsChanged = false;
+      if (this._worldTransformBoundsCheckFrames > 0 || changed) {
+        const nextBoundsSnapshot = getBoundsSnapshot(this);
+        boundsChanged =
+          nextBoundsSnapshot !== this._worldTransformBoundsSnapshot;
+        this._worldTransformBoundsSnapshot = nextBoundsSnapshot;
+        this._worldTransformBoundsCheckFrames = Math.max(
+          0,
+          this._worldTransformBoundsCheckFrames - 1,
+        );
+      }
+
       if (changed || boundsChanged) {
         this._onWorldTransformChanged();
       }
     }
 
     destroy(options) {
+      this.off?.('added', this._boundMarkWorldTransformTreeDirty);
+      this.off?.('removed', this._boundMarkWorldTransformTreeDirty);
       this._unregisterWorldTransformSubscriber();
       super.destroy(options);
     }

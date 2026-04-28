@@ -1321,5 +1321,195 @@ describe('patchmap test', () => {
         }
       });
     });
+
+    describe('drag and hover performance guards', () => {
+      const emitPointer = (viewport, type, position, extras = {}) => {
+        viewport.emit(type, {
+          global: viewport.toGlobal(position),
+          button: 0,
+          buttons: type === 'pointerup' ? 0 : 1,
+          pointerId: 1,
+          pointerType: 'mouse',
+          data: { pointerId: 1, pointerType: 'mouse' },
+          stopPropagation: () => {},
+          ...extras,
+        });
+      };
+
+      it('skips drag hit-testing during pointermove when onDrag is not configured', () => {
+        const filter = vi.fn(() => true);
+        const onDragEnd = vi.fn();
+
+        patchmap.stateManager.setState('selection', {
+          enabled: true,
+          draggable: true,
+          selectUnit: 'entity',
+          filter,
+          onDragEnd,
+        });
+
+        const viewport = patchmap.viewport;
+        viewport.plugin.stop('drag');
+        emitPointer(viewport, 'pointerdown', { x: 0, y: 0 });
+        filter.mockClear();
+
+        emitPointer(viewport, 'pointermove', { x: 230, y: 230 });
+
+        expect(filter).not.toHaveBeenCalled();
+        expect(viewport._suspendObjectAfterRender).toBe(true);
+
+        emitPointer(viewport, 'pointerup', { x: 230, y: 230 });
+
+        expect(filter).toHaveBeenCalled();
+        expect(onDragEnd).toHaveBeenCalledTimes(1);
+        expect(viewport._suspendObjectAfterRender).toBe(false);
+      });
+
+      it('finishes shift box selection on pointerup without testing filtered entity children', () => {
+        const filter = vi.fn((target) => target.type === 'item');
+        const onDragEnd = vi.fn();
+
+        patchmap.stateManager.setState('selection', {
+          enabled: true,
+          draggable: true,
+          selectUnit: 'entity',
+          filter,
+          onDragEnd,
+        });
+
+        const viewport = patchmap.viewport;
+        viewport.plugin.stop('drag');
+        emitPointer(viewport, 'pointerdown', { x: 0, y: 0 });
+        emitPointer(viewport, 'pointermove', { x: 230, y: 230 });
+        filter.mockClear();
+
+        emitPointer(viewport, 'pointerup', { x: 230, y: 230 });
+
+        expect(onDragEnd).toHaveBeenCalledTimes(1);
+        expect(
+          onDragEnd.mock.calls[0][0].every((target) => target.type === 'item'),
+        ).toBe(true);
+      });
+
+      it('keeps live drag hit-testing when onDrag is configured', () => {
+        const filter = vi.fn(() => true);
+        const onDrag = vi.fn();
+
+        patchmap.stateManager.setState('selection', {
+          enabled: true,
+          draggable: true,
+          selectUnit: 'entity',
+          filter,
+          onDrag,
+        });
+
+        const viewport = patchmap.viewport;
+        viewport.plugin.stop('drag');
+        emitPointer(viewport, 'pointerdown', { x: 0, y: 0 });
+        filter.mockClear();
+
+        emitPointer(viewport, 'pointermove', { x: 230, y: 230 });
+
+        expect(filter).toHaveBeenCalled();
+        expect(onDrag).toHaveBeenCalledTimes(1);
+        expect(viewport._suspendObjectAfterRender).toBe(false);
+      });
+
+      it('renders deferred selection boxes with short hex colors', async () => {
+        patchmap.stateManager.setState('selection', {
+          enabled: true,
+          draggable: true,
+          selectionBoxStyle: {
+            fill: { color: '#fff', alpha: 0.5 },
+            stroke: { width: 1, color: '#000' },
+          },
+        });
+
+        const viewport = patchmap.viewport;
+        viewport.plugin.stop('drag');
+        emitPointer(viewport, 'pointerdown', { x: 0, y: 0 });
+        emitPointer(viewport, 'pointermove', { x: 100, y: 100 });
+
+        await vi.advanceTimersByTimeAsync(20);
+
+        const overlay = [...document.querySelectorAll('canvas')].find(
+          (canvas) => canvas.style.pointerEvents === 'none',
+        );
+        const ratio = globalThis.devicePixelRatio || 1;
+        const pixel = overlay
+          ?.getContext('2d')
+          ?.getImageData(
+            Math.round(50 * ratio),
+            Math.round(50 * ratio),
+            1,
+            1,
+          ).data;
+
+        expect(pixel?.[0]).toBeGreaterThan(200);
+        expect(pixel?.[1]).toBeGreaterThan(200);
+        expect(pixel?.[2]).toBeGreaterThan(200);
+        expect(pixel?.[3]).toBeGreaterThan(0);
+
+        emitPointer(viewport, 'pointerup', { x: 100, y: 100 });
+      });
+
+      it('skips pointerover hit-testing when onOver is not configured', () => {
+        const filter = vi.fn(() => true);
+
+        patchmap.stateManager.setState('selection', {
+          enabled: true,
+          selectUnit: 'entity',
+          filter,
+        });
+
+        emitPointer(patchmap.viewport, 'pointerover', { x: 105, y: 105 });
+
+        expect(filter).not.toHaveBeenCalled();
+      });
+
+      it('keeps pointerover hit-testing when onOver is configured', () => {
+        const filter = vi.fn(() => true);
+        const onOver = vi.fn();
+
+        patchmap.stateManager.setState('selection', {
+          enabled: true,
+          selectUnit: 'entity',
+          filter,
+          onOver,
+        });
+
+        emitPointer(patchmap.viewport, 'pointerover', { x: 105, y: 105 });
+
+        expect(filter).toHaveBeenCalled();
+        expect(onOver).toHaveBeenCalledTimes(1);
+        expect(onOver.mock.calls[0][0]?.id).toBe('grid-1.0.0');
+      });
+
+      it('dispatches empty-area double-click as onDoubleClick(null)', () => {
+        const filter = vi.fn((target) => target.type === 'item');
+        const onClick = vi.fn();
+        const onDoubleClick = vi.fn();
+
+        patchmap.stateManager.setState('selection', {
+          enabled: true,
+          selectUnit: 'entity',
+          filter,
+          onClick,
+          onDoubleClick,
+        });
+
+        patchmap.viewport.emit('click', {
+          detail: 2,
+          global: patchmap.viewport.toGlobal({ x: 0, y: 0 }),
+          stopPropagation: () => {},
+        });
+
+        expect(onDoubleClick).toHaveBeenCalledWith(
+          null,
+          expect.objectContaining({ detail: 2 }),
+        );
+        expect(onClick).not.toHaveBeenCalled();
+      });
+    });
   });
 });

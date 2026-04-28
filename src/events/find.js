@@ -3,10 +3,19 @@ import {
   isInteractionLocked,
   isSelectableCandidate,
 } from '../utils/interaction-locks';
-import { intersect } from '../utils/intersects/intersect';
+import {
+  boundsContainPoint,
+  boundsIntersect,
+  getFlatBounds,
+  intersectLocalPoints,
+  toFlatPoints,
+} from '../utils/intersects/intersect';
 import { intersectPoint } from '../utils/intersects/intersect-point';
 import { getSegmentEntryT } from '../utils/intersects/segment-polygon-t';
-import { getObjectLocalCorners } from '../utils/transform';
+import {
+  getObjectLocalCorners,
+  getObjectSizeLocalBounds,
+} from '../utils/transform';
 import {
   collectPointHit,
   collectPolygonHits,
@@ -14,16 +23,25 @@ import {
 } from './find-helpers';
 import { getSelectObject } from './utils';
 
-const getSelectableCandidates = (parent) => {
+const getSelectableCandidates = (parent, config = {}) => {
   if (isInteractionLocked(parent)) {
     return [];
   }
 
   return collectCandidates(
     parent,
-    (child) => isSelectableCandidate(child, parent),
+    (child) =>
+      isSelectableCandidate(child, parent) &&
+      canResolveCandidate(child, config),
     { shouldDescend: (child) => !isInteractionLocked(child, parent) },
   );
+};
+
+const canResolveCandidate = (candidate, { filter, selectUnit } = {}) => {
+  if (selectUnit !== 'entity' || !filter) {
+    return true;
+  }
+  return filter(candidate);
 };
 
 const createFindSelectionResolver = (
@@ -68,7 +86,8 @@ export const findIntersectObject = (
   point,
   { filter, selectUnit, filterParent } = {},
 ) => {
-  const candidates = getSelectableCandidates(parent);
+  const candidates = getSelectableCandidates(parent, { filter, selectUnit });
+  const mayContainPoint = createCandidatePointBoundsFilter(parent, selectUnit);
   const resolveSelection = createFindSelectionResolver(parent, {
     filter,
     selectUnit,
@@ -81,6 +100,7 @@ export const findIntersectObject = (
     ),
     point,
     intersectsPoint: intersectPoint,
+    mayContainPoint,
     resolveSelection,
   });
 };
@@ -90,7 +110,16 @@ export const findIntersectObjects = (
   selectionBox,
   { filter, selectUnit, filterParent } = {},
 ) => {
-  const candidates = getSelectableCandidates(parent);
+  const candidates = getSelectableCandidates(parent, { filter, selectUnit });
+  const selectionPolygon = toFlatPoints(
+    getObjectLocalCorners(selectionBox, parent),
+  );
+  const selectionBounds = getFlatBounds(selectionPolygon);
+  const mayIntersectPolygon = createCandidatePolygonBoundsFilter(
+    parent,
+    selectUnit,
+    selectionBounds,
+  );
   const resolveSelection = createFindSelectionResolver(parent, {
     filter,
     selectUnit,
@@ -98,8 +127,10 @@ export const findIntersectObjects = (
   });
   return collectPolygonHits({
     candidates,
-    polygon: selectionBox,
-    intersectsPolygon: intersect,
+    polygon: selectionPolygon,
+    intersectsPolygon: (polygon, target) =>
+      intersectLocalPoints(polygon, target, parent),
+    mayIntersectPolygon,
     resolveSelection,
   });
 };
@@ -110,7 +141,7 @@ export const findIntersectObjectsBySegment = (
   p2,
   { filter, selectUnit, filterParent } = {},
 ) => {
-  const candidates = getSelectableCandidates(parent);
+  const candidates = getSelectableCandidates(parent, { filter, selectUnit });
   const resolveSelection = createFindSelectionResolver(parent, {
     filter,
     selectUnit,
@@ -134,4 +165,29 @@ const getAncestorPath = (obj, stopAt) => {
     current = current.parent;
   }
   return path;
+};
+
+const createCandidatePointBoundsFilter = (viewport, selectUnit) => {
+  if (selectUnit !== 'entity') {
+    return undefined;
+  }
+
+  return (candidate, point) =>
+    boundsContainPoint(getObjectSizeLocalBounds(candidate, viewport), point);
+};
+
+const createCandidatePolygonBoundsFilter = (
+  viewport,
+  selectUnit,
+  selectionBounds,
+) => {
+  if (selectUnit !== 'entity') {
+    return undefined;
+  }
+
+  return (candidate) =>
+    boundsIntersect(
+      selectionBounds,
+      getObjectSizeLocalBounds(candidate, viewport),
+    );
 };
