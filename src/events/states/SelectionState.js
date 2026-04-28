@@ -607,13 +607,21 @@ const normalizeCssHex = (color) => {
   if (typeof color !== 'string') {
     return null;
   }
-  if (color.startsWith('#')) {
-    return color;
+  const value = color.startsWith('#')
+    ? color.slice(1)
+    : color.startsWith('0x')
+      ? color.slice(2)
+      : null;
+  if (!value) {
+    return null;
   }
-  if (color.startsWith('0x')) {
-    return `#${color.slice(2).padStart(6, '0')}`;
+  if (value.length === 3) {
+    return `#${value
+      .split('')
+      .map((digit) => `${digit}${digit}`)
+      .join('')}`;
   }
-  return null;
+  return `#${value.padStart(6, '0')}`;
 };
 
 const getPixelLineWidth = (ratio) => 1 / Math.max(ratio || 1, 1);

@@ -1415,6 +1415,44 @@ describe('patchmap test', () => {
         expect(viewport._suspendObjectAfterRender).toBe(false);
       });
 
+      it('renders deferred selection boxes with short hex colors', async () => {
+        patchmap.stateManager.setState('selection', {
+          enabled: true,
+          draggable: true,
+          selectionBoxStyle: {
+            fill: { color: '#fff', alpha: 0.5 },
+            stroke: { width: 1, color: '#000' },
+          },
+        });
+
+        const viewport = patchmap.viewport;
+        viewport.plugin.stop('drag');
+        emitPointer(viewport, 'pointerdown', { x: 0, y: 0 });
+        emitPointer(viewport, 'pointermove', { x: 100, y: 100 });
+
+        await vi.advanceTimersByTimeAsync(20);
+
+        const overlay = [...document.querySelectorAll('canvas')].find(
+          (canvas) => canvas.style.pointerEvents === 'none',
+        );
+        const ratio = globalThis.devicePixelRatio || 1;
+        const pixel = overlay
+          ?.getContext('2d')
+          ?.getImageData(
+            Math.round(50 * ratio),
+            Math.round(50 * ratio),
+            1,
+            1,
+          ).data;
+
+        expect(pixel?.[0]).toBeGreaterThan(200);
+        expect(pixel?.[1]).toBeGreaterThan(200);
+        expect(pixel?.[2]).toBeGreaterThan(200);
+        expect(pixel?.[3]).toBeGreaterThan(0);
+
+        emitPointer(viewport, 'pointerup', { x: 100, y: 100 });
+      });
+
       it('skips pointerover hit-testing when onOver is not configured', () => {
         const filter = vi.fn(() => true);
 
