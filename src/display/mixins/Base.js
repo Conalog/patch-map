@@ -1,4 +1,3 @@
-import { Matrix } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { UpdateCommand } from '../../command/commands/update';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
@@ -8,8 +7,18 @@ import { validate } from '../../utils/validator';
 import { normalizeChanges } from '../normalize';
 import { Type } from './Type';
 
-const tempMatrix = new Matrix();
 const RAW_SYNC_KEYS = ['id', 'label', 'attrs'];
+const TRANSFORM_SYNC_KEYS = new Set([
+  'x',
+  'y',
+  'width',
+  'height',
+  'angle',
+  'rotation',
+  'scale',
+  'skew',
+  'pivot',
+]);
 
 const getPatchDiff = (currentProps, changes) => {
   if (
@@ -46,10 +55,8 @@ export const Base = (superClass) => {
       super(rest);
       this.#store = store;
       this.props = rest?.type ? { type: rest.type } : {};
-
-      this._lastLocalTransform = tempMatrix.clone();
       this.onRender = () => {
-        this._onObjectUpdate();
+        if (this.#store?.viewport?.moving) return;
         this._afterRender();
       };
     }
@@ -60,19 +67,13 @@ export const Base = (superClass) => {
 
     _afterRender() {}
 
-    _onObjectUpdate() {
-      if (
-        this.parent?.type === 'item' ||
-        !this.localTransform ||
-        !this.visible
-      ) {
+    _emitObjectTransformed() {
+      if (this.parent?.type === 'item' || !this.visible) {
         return;
       }
 
-      if (!this.localTransform.equals(this._lastLocalTransform)) {
-        this.store.viewport?.emit('object_transformed', this);
-        this._lastLocalTransform.copyFrom(this.localTransform);
-      }
+      this.updateLocalTransform?.();
+      this.store.viewport?.emit('object_transformed', this);
     }
 
     destroy(options) {
@@ -269,23 +270,31 @@ export const Base = (superClass) => {
     }
 
     _applyRaw(attrs, mergeStrategy) {
+      let transformChanged = false;
       for (const [key, value] of Object.entries(attrs)) {
         if (value === undefined) {
           if (!['id', 'label'].includes(key)) {
             delete this[key];
+            transformChanged ||= TRANSFORM_SYNC_KEYS.has(key);
           }
         } else if (key === 'x' || key === 'y') {
           const x = key === 'x' ? value : (attrs?.x ?? this.x);
           const y = key === 'y' ? value : (attrs?.y ?? this.y);
           this.position.set(x, y);
+          transformChanged = true;
         } else if (key === 'width' || key === 'height') {
           const width = key === 'width' ? value : (attrs?.width ?? this.width);
           const height =
             key === 'height' ? value : (attrs?.height ?? this.height);
           this.setSize(width, height);
+          transformChanged = true;
         } else {
           this._updateProperty(key, value, mergeStrategy);
+          transformChanged ||= TRANSFORM_SYNC_KEYS.has(key);
         }
+      }
+      if (transformChanged) {
+        this._emitObjectTransformed();
       }
     }
 

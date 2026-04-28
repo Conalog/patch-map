@@ -12,6 +12,47 @@ class TestBase {
 class StaticBaseElement extends Base(TestBase) {}
 
 describe('Base mixin', () => {
+  it('emits object_transformed immediately when raw transform attrs change', () => {
+    const emit = vi.fn();
+    const updateLocalTransform = vi.fn();
+    const instance = new StaticBaseElement({
+      type: 'rect',
+      store: { viewport: { emit } },
+      position: { set: vi.fn() },
+      updateLocalTransform,
+      visible: true,
+    });
+
+    instance.apply(
+      { type: 'rect', attrs: { x: 12, y: 24 } },
+      z.object({
+        type: z.literal('rect'),
+        attrs: z.object({ x: z.number(), y: z.number() }),
+      }),
+    );
+
+    expect(instance.position.set).toHaveBeenCalledWith(12, 24);
+    expect(updateLocalTransform).toHaveBeenCalledOnce();
+    expect(emit).toHaveBeenCalledWith('object_transformed', instance);
+  });
+
+  it('skips after-render work while the viewport is moving', () => {
+    const instance = new StaticBaseElement({
+      type: 'rect',
+      store: { viewport: { moving: true } },
+    });
+    instance._afterRender = vi.fn();
+
+    instance.onRender();
+
+    expect(instance._afterRender).not.toHaveBeenCalled();
+
+    instance.store.viewport.moving = false;
+    instance.onRender();
+
+    expect(instance._afterRender).toHaveBeenCalledOnce();
+  });
+
   it('propagates normalized child changes back to the parent store', () => {
     const onChildUpdate = vi.fn();
     const instance = new StaticBaseElement({
