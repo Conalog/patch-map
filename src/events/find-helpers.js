@@ -9,9 +9,14 @@ export const collectPointHit = ({
   candidates,
   point,
   intersectsPoint,
+  mayContainPoint = () => true,
   resolveSelection = selectCandidate,
 }) => {
   for (const candidate of candidates) {
+    if (!mayContainPoint(candidate, point)) {
+      continue;
+    }
+
     const targets = getTargets(candidate);
 
     for (const target of targets) {
@@ -33,11 +38,16 @@ export const collectPolygonHits = ({
   candidates,
   polygon,
   intersectsPolygon,
+  mayIntersectPolygon = () => true,
   resolveSelection = selectCandidate,
 }) => {
   const found = [];
 
   for (const candidate of candidates) {
+    if (!mayIntersectPolygon(candidate, polygon)) {
+      continue;
+    }
+
     const targets = getTargets(candidate);
 
     for (const target of targets) {

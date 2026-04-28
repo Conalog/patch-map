@@ -53,6 +53,23 @@ describe('Base mixin', () => {
     expect(instance._afterRender).toHaveBeenCalledOnce();
   });
 
+  it('skips after-render work while object after-render is suspended', () => {
+    const instance = new StaticBaseElement({
+      type: 'rect',
+      store: { viewport: { _suspendObjectAfterRender: true } },
+    });
+    instance._afterRender = vi.fn();
+
+    instance.onRender();
+
+    expect(instance._afterRender).not.toHaveBeenCalled();
+
+    instance.store.viewport._suspendObjectAfterRender = false;
+    instance.onRender();
+
+    expect(instance._afterRender).toHaveBeenCalledOnce();
+  });
+
   it('propagates normalized child changes back to the parent store', () => {
     const onChildUpdate = vi.fn();
     const instance = new StaticBaseElement({

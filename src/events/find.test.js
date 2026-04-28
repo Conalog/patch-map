@@ -5,7 +5,35 @@ vi.mock('../utils/intersects/intersect-point', () => ({
 }));
 
 vi.mock('../utils/intersects/intersect', () => ({
+  boundsContainPoint: vi.fn(
+    (bounds, point) =>
+      !bounds ||
+      (point.x >= bounds.minX &&
+        point.x <= bounds.maxX &&
+        point.y >= bounds.minY &&
+        point.y <= bounds.maxY),
+  ),
+  boundsIntersect: vi.fn(
+    (left, right) =>
+      !left ||
+      !right ||
+      (left.minX <= right.maxX &&
+        left.maxX >= right.minX &&
+        left.minY <= right.maxY &&
+        left.maxY >= right.minY),
+  ),
+  getFlatBounds: vi.fn((points) => {
+    if (!points.length) return null;
+    return {
+      minX: Math.min(...points.filter((_, index) => index % 2 === 0)),
+      minY: Math.min(...points.filter((_, index) => index % 2 === 1)),
+      maxX: Math.max(...points.filter((_, index) => index % 2 === 0)),
+      maxY: Math.max(...points.filter((_, index) => index % 2 === 1)),
+    };
+  }),
   intersect: vi.fn((_selectionBox, target) => Boolean(target.hit)),
+  intersectLocalPoints: vi.fn((_selectionBox, target) => Boolean(target.hit)),
+  toFlatPoints: vi.fn(() => []),
 }));
 
 vi.mock('../utils/intersects/segment-polygon-t', () => ({
@@ -16,8 +44,15 @@ vi.mock('../utils/intersects/segment-polygon-t', () => ({
 
 vi.mock('../utils/transform', () => ({
   getObjectLocalCorners: vi.fn(() => []),
+  getObjectSizeLocalBounds: vi.fn(() => null),
 }));
 
+import {
+  intersectLocalPoints,
+  toFlatPoints,
+} from '../utils/intersects/intersect';
+import { intersectPoint } from '../utils/intersects/intersect-point';
+import { getObjectSizeLocalBounds } from '../utils/transform';
 import {
   findIntersectObject,
   findIntersectObjects,
@@ -60,6 +95,8 @@ const createNode = ({
 describe('findIntersectObject', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getObjectSizeLocalBounds).mockReturnValue(null);
+    vi.mocked(toFlatPoints).mockReturnValue([]);
   });
 
   it('should return null when the search root itself is locked', () => {
@@ -154,11 +191,86 @@ describe('findIntersectObject', () => {
 
     expect(result).toBe(group);
   });
+
+  it('should skip filtered entity candidates before point hit-testing', () => {
+    const skippedChild = createNode({
+      id: 'skipped-child',
+      type: 'rect',
+      hit: true,
+    });
+    const target = createNode({
+      id: 'target',
+      type: 'item',
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [skippedChild, target],
+    });
+
+    const result = findIntersectObject(
+      root,
+      { x: 0, y: 0 },
+      {
+        selectUnit: 'entity',
+        filter: (candidate) => candidate.type === 'item',
+      },
+    );
+
+    expect(result).toBe(target);
+    expect(intersectPoint).not.toHaveBeenCalledWith(
+      skippedChild,
+      expect.anything(),
+    );
+  });
+
+  it('should skip out-of-bounds entity candidates before point hit-testing', () => {
+    const farTarget = createNode({
+      id: 'far-target',
+      type: 'item',
+      hit: true,
+    });
+    const target = createNode({
+      id: 'target',
+      type: 'item',
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [target, farTarget],
+    });
+    vi.mocked(getObjectSizeLocalBounds).mockImplementation((candidate) =>
+      candidate === farTarget
+        ? { minX: 0, minY: 0, maxX: 10, maxY: 10 }
+        : { minX: 40, minY: 40, maxX: 60, maxY: 60 },
+    );
+
+    const result = findIntersectObject(
+      root,
+      { x: 50, y: 50 },
+      {
+        selectUnit: 'entity',
+        filter: (candidate) => candidate.type === 'item',
+      },
+    );
+
+    expect(result).toBe(target);
+    expect(intersectPoint).not.toHaveBeenCalledWith(
+      farTarget,
+      expect.anything(),
+    );
+  });
 });
 
 describe('findIntersectObjects', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getObjectSizeLocalBounds).mockReturnValue(null);
+    vi.mocked(toFlatPoints).mockReturnValue([]);
   });
 
   it('should return an empty list when the search root itself is locked', () => {
@@ -200,11 +312,89 @@ describe('findIntersectObjects', () => {
 
     expect(result).toEqual([unlockedRect]);
   });
+
+  it('should skip filtered entity candidates before final box hit-testing', () => {
+    const skippedChild = createNode({
+      id: 'skipped-child',
+      type: 'rect',
+      hit: true,
+    });
+    const target = createNode({
+      id: 'target',
+      type: 'item',
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [skippedChild, target],
+    });
+
+    const result = findIntersectObjects(
+      root,
+      {},
+      {
+        selectUnit: 'entity',
+        filter: (candidate) => candidate.type === 'item',
+      },
+    );
+
+    expect(result).toEqual([target]);
+    expect(intersectLocalPoints).not.toHaveBeenCalledWith(
+      expect.anything(),
+      skippedChild,
+      expect.anything(),
+    );
+  });
+
+  it('should skip out-of-bounds entity candidates before final box hit-testing', () => {
+    const farTarget = createNode({
+      id: 'far-target',
+      type: 'item',
+      hit: true,
+    });
+    const target = createNode({
+      id: 'target',
+      type: 'item',
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [target, farTarget],
+    });
+    vi.mocked(getObjectSizeLocalBounds).mockImplementation((candidate) =>
+      candidate === farTarget
+        ? { minX: 0, minY: 0, maxX: 10, maxY: 10 }
+        : { minX: 40, minY: 40, maxX: 60, maxY: 60 },
+    );
+    vi.mocked(toFlatPoints).mockReturnValue([45, 45, 55, 45, 55, 55, 45, 55]);
+
+    const result = findIntersectObjects(
+      root,
+      {},
+      {
+        selectUnit: 'entity',
+        filter: (candidate) => candidate.type === 'item',
+      },
+    );
+
+    expect(result).toEqual([target]);
+    expect(intersectLocalPoints).not.toHaveBeenCalledWith(
+      expect.anything(),
+      farTarget,
+      expect.anything(),
+    );
+  });
 });
 
 describe('findIntersectObjectsBySegment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getObjectSizeLocalBounds).mockReturnValue(null);
+    vi.mocked(toFlatPoints).mockReturnValue([]);
   });
 
   it('should return an empty list when the search root itself is locked', () => {

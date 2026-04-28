@@ -56,7 +56,12 @@ export const Base = (superClass) => {
       this.#store = store;
       this.props = rest?.type ? { type: rest.type } : {};
       this.onRender = () => {
-        if (this.#store?.viewport?.moving) return;
+        if (
+          this.#store?.viewport?.moving ||
+          this.#store?.viewport?._suspendObjectAfterRender
+        ) {
+          return;
+        }
         this._afterRender();
       };
     }

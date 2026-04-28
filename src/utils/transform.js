@@ -5,6 +5,7 @@ const FRAME_BOUNDS_OPTIONS = { useSizeFallback: true };
 
 // A temporary array of points to be reused across calculations, avoiding frequent object allocation.
 const tempCorners = [new Point(), new Point(), new Point(), new Point()];
+const tempPoint = new Point();
 
 /**
  * Calculates the four corners of a DisplayObject in world space.
@@ -110,6 +111,36 @@ export const getObjectLocalCorners = (
 
 export const getObjectFrameLocalCorners = (displayObject, viewport) =>
   getObjectLocalCorners(displayObject, viewport, FRAME_BOUNDS_OPTIONS);
+
+export const getObjectSizeLocalBounds = (displayObject, viewport) => {
+  const size = normalizeSize(displayObject?.props?.size);
+  if (!size || !viewport) {
+    return null;
+  }
+
+  const worldTransform = displayObject.getGlobalTransform(tempMatrix, false);
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const point of [
+    { x: 0, y: 0 },
+    { x: size.width, y: 0 },
+    { x: size.width, y: size.height },
+    { x: 0, y: size.height },
+  ]) {
+    tempPoint.set(point.x, point.y);
+    worldTransform.apply(tempPoint, tempPoint);
+    const local = viewport.toLocal(tempPoint);
+    minX = Math.min(minX, local.x);
+    minY = Math.min(minY, local.y);
+    maxX = Math.max(maxX, local.x);
+    maxY = Math.max(maxY, local.y);
+  }
+
+  return { minX, minY, maxX, maxY };
+};
 
 /**
  * Calculates the geometric center (centroid) of an array of points.
