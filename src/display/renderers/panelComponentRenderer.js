@@ -316,9 +316,9 @@ const markPanelBarVisualDirty = (component, change, options) => {
   } else {
     component._patchmapPanelBarDirty = true;
     component._patchmapQueuedVisualChange = change;
+    queue.dirtyPanelBars.push(component);
   }
   component._patchmapQueuedVisualOptions = options;
-  queue.scanPanelBars = true;
   scheduleFlush(queue);
 };
 
@@ -331,9 +331,8 @@ const ensureVisualQueue = (store) => {
       jobs: [],
       index: 0,
       scheduled: false,
-      scanPanelBars: false,
-      scanItems: null,
-      scanIndex: 0,
+      dirtyPanelBars: [],
+      dirtyPanelBarIndex: 0,
     };
     QUEUE_BY_STORE.set(store, queue);
   }
@@ -379,16 +378,11 @@ const flushVisualQueue = (queue) => {
 };
 
 const flushDirtyPanelBars = (queue, startedAt) => {
-  if (!queue.scanPanelBars) return;
-  if (!queue.scanItems) {
-    queue.scanItems = [...(queue.store.sceneIndex?.byType?.get('item') ?? [])];
-    queue.scanIndex = 0;
-  }
+  if (queue.dirtyPanelBars.length === 0) return;
 
-  while (queue.scanIndex < queue.scanItems.length) {
-    const item = queue.scanItems[queue.scanIndex];
-    queue.scanIndex += 1;
-    const bar = item?._panelBarComponent;
+  while (queue.dirtyPanelBarIndex < queue.dirtyPanelBars.length) {
+    const bar = queue.dirtyPanelBars[queue.dirtyPanelBarIndex];
+    queue.dirtyPanelBarIndex += 1;
     if (bar?._patchmapPanelBarDirty) {
       const change = bar._patchmapQueuedVisualChange;
       const options = bar._patchmapQueuedVisualOptions;
@@ -410,7 +404,7 @@ const flushDirtyPanelBars = (queue, startedAt) => {
       }
     }
     if (
-      queue.scanIndex < queue.scanItems.length &&
+      queue.dirtyPanelBarIndex < queue.dirtyPanelBars.length &&
       now() - startedAt >= FRAME_BUDGET_MS
     ) {
       scheduleFlush(queue);
@@ -418,9 +412,8 @@ const flushDirtyPanelBars = (queue, startedAt) => {
     }
   }
 
-  queue.scanPanelBars = false;
-  queue.scanItems = null;
-  queue.scanIndex = 0;
+  queue.dirtyPanelBars = [];
+  queue.dirtyPanelBarIndex = 0;
 };
 
 const applyDeferredVisualChange = (component, change, options) => {
