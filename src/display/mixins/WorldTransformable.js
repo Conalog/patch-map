@@ -179,10 +179,10 @@ export const WorldTransformable = (superClass) => {
       this._markWorldTransformBoundsDirty();
     }
 
-    _markWorldTransformBoundsDirty() {
+    _markWorldTransformBoundsDirty(frames = BOUNDS_SETTLE_FRAMES) {
       this._worldTransformBoundsCheckFrames = Math.max(
         this._worldTransformBoundsCheckFrames ?? 0,
-        BOUNDS_SETTLE_FRAMES,
+        frames,
       );
     }
 
@@ -194,7 +194,7 @@ export const WorldTransformable = (superClass) => {
     _applyHandlers(keysToProcess, options) {
       const result = super._applyHandlers?.(keysToProcess, options);
       if (keysToProcess?.length > 0) {
-        this._markWorldTransformBoundsDirty();
+        this._markWorldTransformBoundsDirty(1);
       }
       return result;
     }

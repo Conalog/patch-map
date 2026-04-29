@@ -1,0 +1,663 @@
+import {
+  Particle,
+  ParticleContainer,
+  Point,
+  Rectangle,
+  Texture,
+} from 'pixi.js';
+import { getTexture } from '../../assets/textures/texture';
+import { getColor } from '../../utils/get';
+import { calcSize, resolveComponentPlacement } from '../mixins/utils';
+
+const DEFAULT_BOUNDS = new Rectangle(
+  -1_000_000,
+  -1_000_000,
+  2_000_000,
+  2_000_000,
+);
+const ZERO_POINT = new Point();
+
+export class PanelBarLayer extends ParticleContainer {
+  constructor(store) {
+    super({
+      boundsArea: DEFAULT_BOUNDS,
+      dynamicProperties: {
+        vertex: true,
+        position: true,
+        rotation: true,
+        uvs: true,
+        color: true,
+      },
+    });
+    this._patchmapInternal = true;
+    this.label = 'patchmap-panel-bar-layer';
+    this.store = store;
+    this.zIndex = 0;
+    this._entries = new WeakMap();
+    this._activeAnimations = new Set();
+    this._animationFrame = null;
+  }
+
+  canRender(bar) {
+    return Boolean(getBarTexture(bar));
+  }
+
+  syncBar(bar) {
+    if (!bar?.parent || bar.destroyed) return false;
+
+    const texture = getBarTexture(bar);
+    if (!texture) return false;
+
+    let entry = this._entries.get(bar);
+    if (!entry) {
+      entry = this._createEntry(bar, texture);
+    } else if (entry.texture !== texture) {
+      this._setEntryTexture(entry, texture);
+    }
+
+    const alpha = this._resolveAlpha(bar);
+    const tint = getColor(bar.store.theme, bar.props?.tint ?? 0xffffff);
+    this._applyAppearance(entry, { alpha, tint });
+
+    if (alpha === 0) {
+      this._cancelEntryAnimation(entry);
+      return true;
+    }
+
+    const nextState = this._resolveState(bar);
+    const shouldAnimate = Boolean(bar.props?.animation && entry.state);
+    if (shouldAnimate && this._animateEntry(entry, bar, texture, nextState)) {
+      return true;
+    }
+
+    this._cancelEntryAnimation(entry);
+    this._applyState(entry, texture, nextState);
+    return true;
+  }
+
+  hideBar(bar) {
+    const entry = this._entries.get(bar);
+    if (entry) {
+      this._cancelEntryAnimation(entry);
+      this._applyAppearance(entry, { alpha: 0 });
+    }
+  }
+
+  syncAlphaForSubtree(root) {
+    if (!root || root.destroyed) return;
+
+    const stack = [root];
+    while (stack.length > 0) {
+      const node = stack.pop();
+      if (!node || node.destroyed) continue;
+
+      const bar = node._panelBarComponent;
+      const entry = bar ? this._entries.get(bar) : null;
+      if (entry) {
+        this._applyAppearance(entry, { alpha: this._resolveAlpha(bar) });
+      }
+
+      if (node.children?.length) {
+        stack.push(...node.children);
+      }
+    }
+  }
+
+  _createEntry(bar, texture) {
+    const entry = {
+      texture: null,
+      layout: null,
+      particles: [],
+      particle: null,
+      state: null,
+      job: null,
+    };
+    this._setEntryTexture(entry, texture);
+    this._entries.set(bar, entry);
+    return entry;
+  }
+
+  _setEntryTexture(entry, texture) {
+    const layout = getNineSliceLayout(texture);
+    const particles = layout.pieces.map(
+      (piece) =>
+        new Particle({
+          texture: piece.texture,
+          anchorX: 0,
+          anchorY: 0,
+          alpha: 0,
+        }),
+    );
+
+    this._removeEntryParticles(entry);
+    this.particleChildren.push(...particles);
+    entry.texture = texture;
+    entry.layout = layout;
+    entry.particles = particles;
+    entry.particle = particles[0] ?? null;
+    this.update();
+  }
+
+  _removeEntryParticles(entry) {
+    if (!entry.particles?.length) return;
+
+    const particles = new Set(entry.particles);
+    for (let index = this.particleChildren.length - 1; index >= 0; index -= 1) {
+      if (particles.has(this.particleChildren[index])) {
+        this.particleChildren.splice(index, 1);
+      }
+    }
+  }
+
+  _applyAppearance(entry, { alpha, tint }) {
+    if (alpha !== undefined) entry.alpha = alpha;
+    for (const particle of entry.particles) {
+      if (alpha !== undefined) particle.alpha = alpha;
+      if (tint !== undefined) particle.tint = tint;
+    }
+  }
+
+  _animateEntry(entry, bar, texture, nextState) {
+    this._cancelEntryAnimation(entry);
+    const fromState = entry.state;
+    const durationMs = normalizeDuration(bar.props?.animationDuration);
+    if (durationMs === 0) {
+      this._applyState(entry, texture, nextState);
+      return true;
+    }
+
+    entry.animation = {
+      texture,
+      from: fromState,
+      to: nextState,
+      durationMs,
+      startedAt: now(),
+    };
+    this._activeAnimations.add(entry);
+    this._scheduleAnimationFrame();
+    return true;
+  }
+
+  _cancelEntryAnimation(entry) {
+    if (!entry?.animation) return;
+    entry.animation = null;
+    this._activeAnimations.delete(entry);
+  }
+
+  _applyState(entry, texture, state, rotation = state.rotation) {
+    const normalizedState = normalizeState(state, rotation);
+    const layout = entry.layout ?? getNineSliceLayout(texture);
+    const targetSlices = resolveTargetSlices(layout, normalizedState);
+    const cos = Math.cos(normalizedState.rotation);
+    const sin = Math.sin(normalizedState.rotation);
+
+    for (let index = 0; index < entry.particles.length; index += 1) {
+      const particle = entry.particles[index];
+      const piece = layout.pieces[index];
+      const target = targetSlices[index];
+      if (
+        !particle ||
+        !piece ||
+        !target ||
+        target.width <= 0 ||
+        target.height <= 0
+      ) {
+        if (particle) particle.alpha = 0;
+        continue;
+      }
+
+      particle.x = normalizedState.x + target.x * cos - target.y * sin;
+      particle.y = normalizedState.y + target.x * sin + target.y * cos;
+      particle.scaleX = target.width / piece.width;
+      particle.scaleY = target.height / piece.height;
+      particle.rotation = normalizedState.rotation;
+      if (entry.alpha !== undefined && particle.alpha !== entry.alpha) {
+        particle.alpha = entry.alpha;
+      }
+    }
+    entry.state = normalizedState;
+  }
+
+  _resolveState(bar) {
+    const size = calcSize(bar, {
+      source: bar.props?.source,
+      size: bar.props?.size,
+      margin: bar.props?.margin,
+    });
+    const placement =
+      bar._calcPlacementForSize?.({
+        placement: resolveComponentPlacement(bar),
+        margin: bar.props?.margin,
+        width: size.width,
+        height: size.height,
+      }) ?? ZERO_POINT;
+    const worldPoint = bar.parent.toGlobal(new Point(placement.x, placement.y));
+    const localPoint = this.parent
+      ? this.parent.toLocal(worldPoint)
+      : worldPoint;
+
+    return {
+      x: localPoint.x,
+      y: localPoint.y,
+      width: size.width,
+      height: size.height,
+      rotation: getWorldRotation(bar.parent) - getWorldRotation(this),
+    };
+  }
+
+  _resolveAlpha(bar) {
+    if (bar.props?.show === false) return 0;
+
+    let alpha = 1;
+    let current = bar;
+    while (current && current !== this.parent) {
+      alpha *= current.alpha ?? 1;
+      current = current.parent ?? null;
+    }
+    return alpha;
+  }
+
+  _scheduleAnimationFrame() {
+    if (this._animationFrame !== null) return;
+    this._animationFrame = requestFrame((time) => {
+      this._animationFrame = null;
+      this._tickAnimations(time ?? now());
+    });
+  }
+
+  _tickAnimations(time) {
+    for (const entry of this._activeAnimations) {
+      const animation = entry.animation;
+      if (!animation || entry.particles.length === 0) {
+        this._activeAnimations.delete(entry);
+        continue;
+      }
+
+      const progress = clamp01(
+        (time - animation.startedAt) / animation.durationMs,
+      );
+      this._applyState(
+        entry,
+        animation.texture,
+        interpolateState(
+          animation.from,
+          animation.to,
+          easePower2InOut(progress),
+        ),
+      );
+      if (progress >= 1) {
+        entry.animation = null;
+        this._activeAnimations.delete(entry);
+      }
+    }
+
+    if (this._activeAnimations.size > 0 && !this.destroyed) {
+      this._scheduleAnimationFrame();
+    }
+  }
+}
+
+export const ensurePanelBarLayer = (store) => {
+  if (!store?.world) return null;
+  let layer = store.panelBarLayer;
+  if (layer?.destroyed) {
+    layer = null;
+  }
+  if (!layer) {
+    layer = new PanelBarLayer(store);
+    store.panelBarLayer = layer;
+  }
+  placePanelBarLayer(store.world, layer);
+  return layer;
+};
+
+const placePanelBarLayer = (world, layer) => {
+  const relationIndex = world.children.findIndex(
+    (child) => child !== layer && child.type === 'relations',
+  );
+  const currentIndex = world.children.indexOf(layer);
+
+  if (currentIndex === -1) {
+    const insertIndex =
+      relationIndex === -1 ? world.children.length : relationIndex;
+    world.addChildAt(layer, insertIndex);
+    return;
+  }
+
+  if (relationIndex === -1) return;
+  if (currentIndex < relationIndex) return;
+  world.setChildIndex(layer, relationIndex);
+};
+
+const getBarTexture = (bar) => {
+  const source = bar?.props?.source;
+  if (!source || source.type !== 'rect') return null;
+  if (
+    bar._patchmapAggregateTextureSource === source &&
+    bar._patchmapAggregateTexture
+  ) {
+    return bar._patchmapAggregateTexture;
+  }
+  const texture = getTexture(
+    bar.store.viewport.app.renderer,
+    bar.store.theme,
+    source,
+  );
+  bar._patchmapAggregateTextureSource = source;
+  bar._patchmapAggregateTexture = texture;
+  return texture;
+};
+
+const getNineSliceLayout = (texture) => {
+  if (texture._patchmapNineSliceLayout) {
+    return texture._patchmapNineSliceLayout;
+  }
+
+  const slice = normalizeSlice(texture);
+  if (
+    slice.leftWidth +
+      slice.rightWidth +
+      slice.topHeight +
+      slice.bottomHeight ===
+    0
+  ) {
+    texture._patchmapNineSliceLayout = {
+      texture,
+      slice,
+      pieces: [
+        {
+          x: 0,
+          y: 0,
+          width: texture.width,
+          height: texture.height,
+          texture,
+        },
+      ],
+      single: true,
+    };
+    return texture._patchmapNineSliceLayout;
+  }
+
+  if ((texture.metadata?.borderWidth ?? 0) === 0) {
+    texture._patchmapNineSliceLayout = createBorderlessNineSliceLayout(
+      texture,
+      slice,
+    );
+    return texture._patchmapNineSliceLayout;
+  }
+
+  const sourceColumns = buildSegments(
+    texture.width,
+    slice.leftWidth,
+    slice.rightWidth,
+  );
+  const sourceRows = buildSegments(
+    texture.height,
+    slice.topHeight,
+    slice.bottomHeight,
+  );
+  const pieces = [];
+
+  for (const row of sourceRows) {
+    for (const column of sourceColumns) {
+      pieces.push({
+        x: column.offset,
+        y: row.offset,
+        width: column.size,
+        height: row.size,
+        texture: createSubTexture(
+          texture,
+          column.offset,
+          row.offset,
+          column.size,
+          row.size,
+        ),
+      });
+    }
+  }
+
+  texture._patchmapNineSliceLayout = {
+    texture,
+    slice,
+    pieces,
+  };
+  return texture._patchmapNineSliceLayout;
+};
+
+const createBorderlessNineSliceLayout = (texture, slice) => {
+  const centerWidth = Math.max(
+    1,
+    texture.width - slice.leftWidth - slice.rightWidth,
+  );
+  const centerHeight = Math.max(
+    1,
+    texture.height - slice.topHeight - slice.bottomHeight,
+  );
+  const centerX = slice.leftWidth;
+  const centerY = slice.topHeight;
+  const centerTexture = createSubTexture(
+    texture,
+    centerX,
+    centerY,
+    centerWidth,
+    centerHeight,
+  );
+
+  return {
+    texture,
+    slice,
+    borderless: true,
+    pieces: [
+      {
+        width: slice.leftWidth,
+        height: slice.topHeight,
+        texture: createSubTexture(
+          texture,
+          0,
+          0,
+          slice.leftWidth,
+          slice.topHeight,
+        ),
+      },
+      {
+        width: slice.rightWidth,
+        height: slice.topHeight,
+        texture: createSubTexture(
+          texture,
+          texture.width - slice.rightWidth,
+          0,
+          slice.rightWidth,
+          slice.topHeight,
+        ),
+      },
+      {
+        width: slice.leftWidth,
+        height: slice.bottomHeight,
+        texture: createSubTexture(
+          texture,
+          0,
+          texture.height - slice.bottomHeight,
+          slice.leftWidth,
+          slice.bottomHeight,
+        ),
+      },
+      {
+        width: slice.rightWidth,
+        height: slice.bottomHeight,
+        texture: createSubTexture(
+          texture,
+          texture.width - slice.rightWidth,
+          texture.height - slice.bottomHeight,
+          slice.rightWidth,
+          slice.bottomHeight,
+        ),
+      },
+      {
+        width: centerWidth,
+        height: centerHeight,
+        texture: centerTexture,
+      },
+      {
+        width: centerWidth,
+        height: centerHeight,
+        texture: centerTexture,
+      },
+    ],
+  };
+};
+
+const normalizeSlice = (texture) => {
+  const slice = texture?.metadata?.slice ?? {};
+  return {
+    leftWidth: clampSlice(slice.leftWidth, texture.width),
+    rightWidth: clampSlice(slice.rightWidth, texture.width),
+    topHeight: clampSlice(slice.topHeight, texture.height),
+    bottomHeight: clampSlice(slice.bottomHeight, texture.height),
+  };
+};
+
+const clampSlice = (value, limit) =>
+  Math.max(0, Math.min(Number(value) || 0, limit / 2));
+
+const buildSegments = (size, start, end) => {
+  const center = Math.max(0, size - start - end);
+  return [
+    { offset: 0, size: start },
+    { offset: start, size: center },
+    { offset: start + center, size: end },
+  ];
+};
+
+const createSubTexture = (texture, x, y, width, height) =>
+  new Texture({
+    source: texture.source,
+    frame: new Rectangle(
+      texture.frame.x + x,
+      texture.frame.y + y,
+      width,
+      height,
+    ),
+    orig: new Rectangle(0, 0, width, height),
+  });
+
+const resolveTargetSlices = (layout, state) => {
+  if (layout.single) {
+    return [
+      {
+        x: 0,
+        y: 0,
+        width: state.width,
+        height: state.height,
+      },
+    ];
+  }
+
+  if (layout.borderless) {
+    return resolveBorderlessTargetSlices(layout, state);
+  }
+
+  const borderScale = resolveBorderScale(layout, state);
+  const left = layout.slice.leftWidth * borderScale;
+  const right = layout.slice.rightWidth * borderScale;
+  const top = layout.slice.topHeight * borderScale;
+  const bottom = layout.slice.bottomHeight * borderScale;
+  const targetColumns = buildSegments(state.width, left, right);
+  const targetRows = buildSegments(state.height, top, bottom);
+  const targets = [];
+
+  for (const row of targetRows) {
+    for (const column of targetColumns) {
+      targets.push({
+        x: column.offset,
+        y: row.offset,
+        width: column.size,
+        height: row.size,
+      });
+    }
+  }
+  return targets;
+};
+
+const resolveBorderlessTargetSlices = (layout, state) => {
+  const borderScale = resolveBorderScale(layout, state);
+  const left = layout.slice.leftWidth * borderScale;
+  const right = layout.slice.rightWidth * borderScale;
+  const top = layout.slice.topHeight * borderScale;
+  const bottom = layout.slice.bottomHeight * borderScale;
+  const centerWidth = Math.max(0, state.width - left - right);
+  const centerHeight = Math.max(0, state.height - top - bottom);
+
+  return [
+    { x: 0, y: 0, width: left, height: top },
+    { x: state.width - right, y: 0, width: right, height: top },
+    { x: 0, y: state.height - bottom, width: left, height: bottom },
+    {
+      x: state.width - right,
+      y: state.height - bottom,
+      width: right,
+      height: bottom,
+    },
+    { x: 0, y: top, width: state.width, height: centerHeight },
+    { x: left, y: 0, width: centerWidth, height: state.height },
+  ];
+};
+
+const resolveBorderScale = (layout, state) =>
+  Math.min(
+    1,
+    safeScale(state.width, layout.slice.leftWidth + layout.slice.rightWidth),
+    safeScale(state.height, layout.slice.topHeight + layout.slice.bottomHeight),
+  );
+
+const safeScale = (size, borderSize) => {
+  if (borderSize <= 0) return 1;
+  return Math.max(0, size / borderSize);
+};
+
+const normalizeState = (state, rotation) => ({
+  x: state.x,
+  y: state.y,
+  width: state.width ?? state.w,
+  height: state.height ?? state.h,
+  rotation: rotation ?? 0,
+});
+
+const requestFrame = (callback) => {
+  if (typeof requestAnimationFrame === 'function') {
+    return requestAnimationFrame(callback);
+  }
+  return setTimeout(() => callback(now()), 16);
+};
+
+const now = () =>
+  typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
+
+const normalizeDuration = (durationMs) =>
+  Math.max(0, Number(durationMs ?? 200) || 0);
+
+const clamp01 = (value) => (value < 0 ? 0 : value > 1 ? 1 : value);
+
+const easePower2InOut = (progress) =>
+  progress < 0.5 ? 2 * progress * progress : 1 - (-2 * progress + 2) ** 2 / 2;
+
+const interpolateState = (from, to, progress) => ({
+  x: lerp(from.x, to.x, progress),
+  y: lerp(from.y, to.y, progress),
+  width: lerp(from.width, to.width, progress),
+  height: lerp(from.height, to.height, progress),
+  rotation: to.rotation,
+});
+
+const lerp = (from, to, progress) => from + (to - from) * progress;
+
+const getWorldRotation = (node) => {
+  let current = node;
+  let rotation = 0;
+  while (current) {
+    rotation += current.rotation ?? 0;
+    current = current.parent ?? null;
+  }
+  return rotation;
+};

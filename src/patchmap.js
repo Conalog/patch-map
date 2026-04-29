@@ -8,6 +8,7 @@ import './display/elements/registry';
 import { update } from './display/update';
 import ViewTransform from './display/view-transform/ViewTransform';
 import World from './display/World';
+import { warmFindBoundsCache } from './events/find';
 import { fit as fitViewport, focus } from './events/focus-fit';
 import StateManager from './events/StateManager';
 import SelectionState from './events/states/SelectionState';
@@ -39,6 +40,8 @@ class Patchmap extends WildcardEventEmitter {
   _world = null;
   _viewTransform = this._createViewTransform();
   _drawToken = 0;
+  _drawCacheKey = null;
+  _drawCacheData = null;
 
   get app() {
     return this._app;
@@ -184,6 +187,8 @@ class Patchmap extends WildcardEventEmitter {
     this._world = null;
     this._viewTransform = this._createViewTransform();
     this._drawToken = 0;
+    this._drawCacheKey = null;
+    this._drawCacheData = null;
     this.emit('patchmap:destroyed', { target: this });
     this.removeAllListeners();
   }
@@ -191,10 +196,19 @@ class Patchmap extends WildcardEventEmitter {
   draw(data) {
     if (!this.isInit) return;
 
-    const processedData = processData(JSON.parse(JSON.stringify(data)));
+    const drawCacheKey = createDrawCacheKey(data);
+    const canReuseCurrentScene =
+      this._drawCacheKey === drawCacheKey &&
+      this.world?.children?.length > 0 &&
+      hasOnlyManagedWorldChildren(this.world);
+    const processedData = canReuseCurrentScene
+      ? this._drawCacheData
+      : processData(JSON.parse(JSON.stringify(data)));
     if (!processedData) return;
 
-    const validatedData = validateMapData(processedData);
+    const validatedData = canReuseCurrentScene
+      ? processedData
+      : validateMapData(processedData);
     if (isValidationError(validatedData)) throw validatedData;
     const drawToken = ++this._drawToken;
 
@@ -204,23 +218,30 @@ class Patchmap extends WildcardEventEmitter {
     this.undoRedoManager.clear();
     this.animationContext.revert();
     event.removeAllEvent(this.viewport);
-    draw(store, validatedData);
+    if (!canReuseCurrentScene) {
+      draw(store, validatedData);
+      this._drawCacheKey = drawCacheKey;
+      this._drawCacheData = validatedData;
+    }
 
-    // Force a refresh of all relation elements after the initial draw. This ensures
-    // that all link targets exist in the scene graph before the relations
-    // attempt to draw their links.
-    this.app.ticker.addOnce(
-      () => {
-        this.update({
-          path: '$..[?(@.type=="relations")]',
-          refresh: true,
-          emit: false,
-        });
-      },
-      undefined,
-      UPDATE_PRIORITY.UTILITY,
-    );
+    if (!canReuseCurrentScene) {
+      // Force a refresh of all relation elements after the initial draw. This ensures
+      // that all link targets exist in the scene graph before the relations
+      // attempt to draw their links.
+      this.app.ticker.addOnce(
+        () => {
+          this.update({
+            path: '$..[?(@.type=="relations")]',
+            refresh: true,
+            emit: false,
+          });
+        },
+        undefined,
+        UPDATE_PRIORITY.UTILITY,
+      );
+    }
     this.app.start();
+    warmFindBoundsCache(this.viewport);
     scheduleUserVisibleTask(() => {
       if (!this.isInit || drawToken !== this._drawToken) return;
       this.emit('patchmap:draw', { data: validatedData, target: this });
@@ -299,6 +320,16 @@ class Patchmap extends WildcardEventEmitter {
       animationContext: this.animationContext,
     };
   }
+}
+
+function createDrawCacheKey(data) {
+  return JSON.stringify(data);
+}
+
+function hasOnlyManagedWorldChildren(world) {
+  return (world?.children ?? []).every(
+    (child) => child?.type || child?._patchmapInternal,
+  );
 }
 
 function scheduleUserVisibleTask(task) {

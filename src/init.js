@@ -74,6 +74,7 @@ export const initViewport = (app, opts = {}, store) => {
   store.viewport = viewport;
   viewport.app = app;
   viewport.events = {};
+  viewport.enableRenderGroup?.();
   viewport.plugin = {
     add: (plugins) => plugin.add(viewport, plugins),
     remove: (keys) => plugin.remove(viewport, keys),

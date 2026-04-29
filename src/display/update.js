@@ -3,6 +3,7 @@ import { convertArray } from '../utils/convert';
 import { selector } from '../utils/selector/selector';
 import { getCentroid, getObjectFrameWorldCorners } from '../utils/transform';
 import { uid } from '../utils/uuid';
+import { tryApplyPanelComponentChanges } from './renderers/panelComponentRenderer';
 
 const DEFAULT_UPDATE_CONFIG = Object.freeze({
   path: null,
@@ -18,6 +19,36 @@ const DEFAULT_UPDATE_CONFIG = Object.freeze({
 const RADIANS_PER_DEGREE = Math.PI / 180;
 
 export const update = (root, opts = {}) => {
+  if (canUseDirectElementUpdate(opts)) {
+    const element = opts.elements;
+    if (!element) return [];
+
+    const changes =
+      opts.relativeTransform && opts.changes?.attrs
+        ? {
+            ...opts.changes,
+            attrs: applyRelativeTransform(element, opts.changes?.attrs),
+          }
+        : opts.changes;
+    const applyOptions = {
+      historyId: null,
+      mergeStrategy: opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy,
+      refresh: opts.refresh ?? DEFAULT_UPDATE_CONFIG.refresh,
+      validateSchema: false,
+      normalize: opts.normalize ?? false,
+    };
+    if (
+      changes?.components &&
+      tryApplyPanelComponentChanges(element, changes.components, applyOptions)
+    ) {
+      return [element];
+    }
+    element.apply(changes, {
+      ...applyOptions,
+    });
+    return [element];
+  }
+
   const config = {
     ...opts,
     ...DEFAULT_UPDATE_CONFIG,
@@ -39,6 +70,8 @@ export const update = (root, opts = {}) => {
   }
 
   const baseChanges = config.changes ?? null;
+  const normalize =
+    config.normalize ?? (config.validateSchema === false ? false : undefined);
   for (const element of elements) {
     if (!element) {
       continue;
@@ -58,11 +91,19 @@ export const update = (root, opts = {}) => {
       mergeStrategy: config.mergeStrategy,
       refresh: config.refresh,
       validateSchema: config.validateSchema,
-      normalize: config.normalize,
+      normalize,
     });
   }
   return elements;
 };
+
+const canUseDirectElementUpdate = (opts) =>
+  opts?.validateSchema === false &&
+  !opts.path &&
+  opts.elements &&
+  !Array.isArray(opts.elements) &&
+  !opts.history &&
+  !opts.rotateOrigin;
 
 const applyRelativeTransform = (element, changes) => {
   ['x', 'y', 'rotation', 'angle'].forEach((key) => {

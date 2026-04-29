@@ -1,3 +1,6 @@
+import { SceneIndex } from './model/SceneIndex';
+import { primePanelComponentCache } from './renderers/panelComponentRenderer';
+
 export const draw = (store, data) => {
   resetElementIndex(store);
   destroyChildren(store.world);
@@ -5,6 +8,7 @@ export const draw = (store, data) => {
     { type: 'canvas', children: data },
     { mergeStrategy: 'replace', validateSchema: false },
   );
+  primePanelCaches(store);
 };
 
 const destroyChildren = (parent) => {
@@ -17,5 +21,15 @@ const destroyChildren = (parent) => {
 
 const resetElementIndex = (store) => {
   const targetStore = store.world?.store ?? store;
-  targetStore.elementById = new Map();
+  targetStore.sceneIndex = new SceneIndex();
+  targetStore.elementById = targetStore.sceneIndex.elementById;
+};
+
+const primePanelCaches = (store) => {
+  const targetStore = store.world?.store ?? store;
+  const items = targetStore.sceneIndex?.byType?.get('item');
+  if (!items) return;
+  for (const item of items) {
+    primePanelComponentCache(item, { materializeHiddenBar: true });
+  }
 };
