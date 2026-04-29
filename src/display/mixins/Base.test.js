@@ -10,6 +10,9 @@ class TestBase {
 }
 
 class StaticBaseElement extends Base(TestBase) {}
+class AfterRenderElement extends StaticBaseElement {
+  _afterRender() {}
+}
 
 describe('Base mixin', () => {
   it('emits object_transformed immediately when raw transform attrs change', () => {
@@ -37,7 +40,7 @@ describe('Base mixin', () => {
   });
 
   it('skips after-render work while the viewport is moving', () => {
-    const instance = new StaticBaseElement({
+    const instance = new AfterRenderElement({
       type: 'rect',
       store: { viewport: { moving: true } },
     });
@@ -54,7 +57,7 @@ describe('Base mixin', () => {
   });
 
   it('skips after-render work while object after-render is suspended', () => {
-    const instance = new StaticBaseElement({
+    const instance = new AfterRenderElement({
       type: 'rect',
       store: { viewport: { _suspendObjectAfterRender: true } },
     });
