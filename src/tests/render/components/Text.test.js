@@ -48,6 +48,40 @@ describe('Text Component Tests', () => {
     expect(text.text).toBe('Updated Text');
   });
 
+  it('should preserve placement margin when text changes', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'item-with-header-label',
+        size: { width: 60, height: 70 },
+        padding: { left: 4, right: 4, bottom: 4, top: 20 },
+        components: [
+          {
+            type: 'text',
+            id: 'header-label',
+            text: 'INV 1',
+            placement: 'top',
+            margin: { top: -17 },
+            style: { fontSize: 10 },
+          },
+        ],
+      },
+    ]);
+    gsap.exportRoot().totalProgress(1);
+
+    const label = patchmap.selector('$..[?(@.id=="header-label")]')[0];
+    const initialY = label.y;
+
+    patchmap.update({
+      path: '$..[?(@.id=="header-label")]',
+      changes: { text: 'INV 2' },
+    });
+
+    expect(label.y).toBe(initialY);
+    expect(label.y).toBeLessThan(20);
+  });
+
   it('should update style properties', () => {
     const patchmap = getPatchmap();
     patchmap.draw([itemWithText]);
@@ -109,30 +143,31 @@ describe('Text Component Tests', () => {
       },
     ];
 
-    it.each(layoutTestCases)(
-      'should correctly position to $description',
-      ({ itemSize, textPlacement, validate }) => {
-        const patchmap = getPatchmap();
-        const testItem = {
-          type: 'item',
-          id: 'test-item-layout',
-          size: itemSize,
-          components: [
-            {
-              type: 'text',
-              id: 'text-layout',
-              text: 'Layout', // 텍스트가 있어야 너비가 생김
-              placement: textPlacement,
-            },
-          ],
-        };
-        patchmap.draw([testItem]);
-        gsap.exportRoot().totalProgress(1);
+    it.each(layoutTestCases)('should correctly position to $description', ({
+      itemSize,
+      textPlacement,
+      validate,
+    }) => {
+      const patchmap = getPatchmap();
+      const testItem = {
+        type: 'item',
+        id: 'test-item-layout',
+        size: itemSize,
+        components: [
+          {
+            type: 'text',
+            id: 'text-layout',
+            text: 'Layout', // 텍스트가 있어야 너비가 생김
+            placement: textPlacement,
+          },
+        ],
+      };
+      patchmap.draw([testItem]);
+      gsap.exportRoot().totalProgress(1);
 
-        const text = patchmap.selector('$..[?(@.id=="text-layout")]')[0];
-        validate(text, itemSize);
-      },
-    );
+      const text = patchmap.selector('$..[?(@.id=="text-layout")]')[0];
+      validate(text, itemSize);
+    });
   });
 
   it('should correctly split text based on the "split" property', () => {

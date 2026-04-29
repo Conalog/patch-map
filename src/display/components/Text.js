@@ -12,6 +12,7 @@ import { mixins } from '../mixins/utils';
 import { WorldTransformable } from '../mixins/WorldTransformable';
 
 const HANDLER_KEYS = ['text', 'style', 'split', 'attrs'];
+const PLACEMENT_HANDLER_KEYS = [...HANDLER_KEYS, 'placement', 'margin'];
 
 const ComposedText = mixins(
   BitmapText,
@@ -48,4 +49,4 @@ Text.registerHandler(
   Text.prototype._applyWorldTransform,
   UPDATE_STAGES.WORLD_TRANSFORM,
 );
-Text.registerHandler(HANDLER_KEYS, Text.prototype._applyPlacement);
+Text.registerHandler(PLACEMENT_HANDLER_KEYS, Text.prototype._applyPlacement);

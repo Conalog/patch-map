@@ -14,7 +14,7 @@ export const Componentsable = (superClass) => {
     _applyComponents(relevantChanges, options = {}) {
       const childOptions =
         options.validateSchema === false
-          ? { ...options, validateSchema: false, normalize: false }
+          ? { ...options, validateSchema: false }
           : options;
       let componentsChanges = options.refresh
         ? relevantChanges?.components
@@ -101,9 +101,7 @@ export const Componentsable = (superClass) => {
 };
 
 const canUseInitialFastPath = (options) =>
-  options.mergeStrategy === 'replace' &&
-  options.validateSchema === false &&
-  options.normalize === false;
+  options.mergeStrategy === 'replace' && options.validateSchema === false;
 
 const applyInitialComponent = (
   component,

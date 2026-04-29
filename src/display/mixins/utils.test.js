@@ -232,8 +232,34 @@ describe('validateAndPrepareChanges', () => {
     ]);
   });
 
+  it('normalizes changes without schema validation by default', () => {
+    const changes = [{ type: 'text', margin: { x: 4, top: -17 } }];
+    const schema = z.array(
+      z.object({
+        type: z.string(),
+        margin: z.object({
+          top: z.number(),
+          right: z.number(),
+          bottom: z.number(),
+          left: z.number(),
+        }),
+      }),
+    );
+
+    expect(
+      validateAndPrepareChanges([], changes, schema, {
+        validateSchema: false,
+      }),
+    ).toEqual([
+      {
+        type: 'text',
+        margin: { top: -17, right: 4, left: 4 },
+      },
+    ]);
+  });
+
   it('applies lightweight defaults without schema validation when validateSchema is false', () => {
-    const changes = [{ type: 'text' }];
+    const changes = [{ type: 'text', margin: { top: -17 } }];
     const schema = z.array(
       z.object({
         type: z.string(),
@@ -253,7 +279,7 @@ describe('validateAndPrepareChanges', () => {
         show: true,
         tint: 0xffffff,
         placement: 'center',
-        margin: { top: 0, right: 0, bottom: 0, left: 0 },
+        margin: { top: -17, right: 0, bottom: 0, left: 0 },
         text: '',
         style: {
           fontFamily: 'FiraCode',
