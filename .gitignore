@@ -3,3 +3,4 @@ node_modules
 dist
 *.tgz
 src/tests/**/__screenshots__
+.gstack/
