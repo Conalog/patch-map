@@ -309,8 +309,16 @@ const markPanelBarVisualDirty = (component, change, options) => {
     return;
   }
 
-  const layer = ensurePanelBarLayer(component.store);
-  component._patchmapUseAggregateBar = Boolean(layer?.canRender(component));
+  const sourceChanged = Object.hasOwn(change, 'source');
+  let layer = component.store?.panelBarLayer;
+  if (
+    sourceChanged ||
+    !component._patchmapUseAggregateBar ||
+    layer?.destroyed
+  ) {
+    layer = ensurePanelBarLayer(component.store);
+    component._patchmapUseAggregateBar = Boolean(layer?.canRender(component));
+  }
   if (component._patchmapPanelBarDirty) {
     mergeQueuedChange(component._patchmapQueuedVisualChange, change);
   } else {
