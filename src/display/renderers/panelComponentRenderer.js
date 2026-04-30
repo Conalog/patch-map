@@ -63,8 +63,8 @@ const tryApplyPanelBarStateChange = (item, componentChanges, options) => {
   if (!bar) return false;
 
   applyBarProps(bar, barChange);
-  hidePanelComponent(getPanelComponentByType(item, 'icon'));
-  hidePanelComponent(getPanelComponentByType(item, 'text'));
+  hidePanelComponent(item._panelIconComponent);
+  hidePanelComponent(item._panelTextComponent);
   markPanelBarVisualDirty(bar, barChange, options);
   return true;
 };
