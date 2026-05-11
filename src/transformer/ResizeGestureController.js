@@ -201,11 +201,12 @@ export default class ResizeGestureController {
       keepRatio,
     });
 
-    applyResizeUpdates({
+    const appliedCount = applyResizeUpdates({
       updates,
       viewport,
       historyId: this._activeResize.historyId,
     });
+    if (!appliedCount) return;
 
     this._emitUpdateElements();
     this._requestRender();

@@ -43,6 +43,7 @@ const createElement = ({
 
 const viewport = {
   toLocal: (point) => ({ x: point.x, y: point.y }),
+  toGlobal: (point) => ({ x: point.x, y: point.y }),
 };
 
 describe('rotate-apply', () => {
@@ -165,5 +166,44 @@ describe('rotate-apply', () => {
       },
       undefined,
     );
+  });
+
+  it('rejects rotate updates whose proposed frame leaves canvas bounds', () => {
+    const canvasBounds = {
+      x: 0,
+      y: 0,
+      width: 20,
+      height: 20,
+      right: 20,
+      bottom: 20,
+    };
+    const element = createElement({
+      attrs: { x: 0, y: 0, angle: 0 },
+      corners: [
+        { x: 15, y: 0 },
+        { x: 25, y: 0 },
+        { x: 25, y: 10 },
+        { x: 15, y: 10 },
+      ],
+    });
+    element.store = {
+      canvasBounds,
+      world: { toLocal: (point) => ({ x: point.x, y: point.y }) },
+    };
+    const updates = computeRotateUpdates({
+      activeRotate: {
+        frame: { center: { x: 20, y: 5 } },
+        elementStates: createRotateElementStates({
+          elements: [element],
+          viewport,
+        }),
+      },
+      deltaAngle: 0,
+    });
+
+    const count = applyRotateUpdates({ updates, viewport });
+
+    expect(count).toBe(0);
+    expect(element.apply).not.toHaveBeenCalled();
   });
 });
