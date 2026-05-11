@@ -121,6 +121,9 @@ await patchmap.init(el, {
   viewport: {
     plugins: { decelerate: { disabled: true } }
   },
+  canvas: {
+    bounds: { x: 0, y: 0, width: 5000, height: 3000 }
+  },
   theme: {
     primary: { default: '#c2410c' }
   }
@@ -158,6 +161,30 @@ Customize the rendering behavior using the following options:
       decelerate: {},
     },
   }
+  ```
+
+- `canvas`
+  - `bounds` - Optional finite canvas area in world coordinates. When omitted, PATCH MAP keeps the existing infinite canvas behavior. When provided, viewport pan/zoom and focus/fit are clamped to the finite area. Programmatic `draw()` and `update()` remain permissive for migration-friendly data loading.
+
+  ```js
+  await patchmap.init(el, {
+    canvas: {
+      bounds: { x: 0, y: 0, width: 5000, height: 3000 },
+    },
+  });
+
+  console.log(patchmap.canvas.bounds);
+  ```
+
+  Finite canvas mode also enables minimap creation:
+
+  ```js
+  const minimap = patchmap.createMinimap(document.querySelector('#minimap'), {
+    width: 180,
+    height: 120,
+  });
+
+  minimap.destroy();
   ```
 
 - `theme` - Theme options  

@@ -128,6 +128,9 @@ await patchmap.init(el, {
   viewport: {
     plugins: { decelerate: { disabled: true } }
   },
+  canvas: {
+    bounds: { x: 0, y: 0, width: 5000, height: 3000 }
+  },
   theme: {
     primary: { default: '#c2410c' }
   }
@@ -166,6 +169,30 @@ await patchmap.init(el, {
       decelerate: {},
     },
   }
+  ```
+
+- `canvas`
+  - `bounds` - world 좌표 기준의 유한 캔버스 영역입니다. 생략하면 기존과 동일하게 무한 캔버스로 동작합니다. 값을 지정하면 viewport pan/zoom과 focus/fit이 해당 영역 안으로 제한됩니다. 마이그레이션 친화성을 위해 programmatic `draw()`와 `update()`는 out-of-bounds 데이터를 허용합니다.
+
+  ```js
+  await patchmap.init(el, {
+    canvas: {
+      bounds: { x: 0, y: 0, width: 5000, height: 3000 },
+    },
+  });
+
+  console.log(patchmap.canvas.bounds);
+  ```
+
+  유한 캔버스 모드에서는 미니맵도 생성할 수 있습니다:
+
+  ```js
+  const minimap = patchmap.createMinimap(document.querySelector('#minimap'), {
+    width: 180,
+    height: 120,
+  });
+
+  minimap.destroy();
   ```
 
 - `theme`  

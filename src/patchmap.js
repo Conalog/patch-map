@@ -1,6 +1,8 @@
 import gsap from 'gsap';
 import { Application, UPDATE_PRIORITY } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
+import CanvasBoundsController from './canvas-bounds/controller';
+import { normalizeCanvasBounds } from './canvas-bounds/options';
 import { UndoRedoManager } from './command/UndoRedoManager';
 import './display/components/registry';
 import { draw } from './display/draw';
@@ -18,6 +20,7 @@ import {
   initResizeObserver,
   initViewport,
 } from './init';
+import Minimap from './minimap/Minimap';
 import Transformer from './transformer/Transformer';
 import { convertLegacyData } from './utils/convert';
 import { event } from './utils/event/canvas';
@@ -25,6 +28,29 @@ import { WildcardEventEmitter } from './utils/event/WildcardEventEmitter';
 import { selector } from './utils/selector/selector';
 import { themeStore } from './utils/theme';
 import { validateMapData } from './utils/validator';
+
+/**
+ * @typedef {object} CanvasBoundsInput
+ * @property {number} x
+ * @property {number} y
+ * @property {number} width
+ * @property {number} height
+ */
+
+/**
+ * @typedef {object} CanvasInitOptions
+ * @property {CanvasBoundsInput} [bounds]
+ */
+
+/**
+ * @typedef {object} PatchmapInitOptions
+ * @property {object} [app]
+ * @property {object} [viewport]
+ * @property {object} [theme]
+ * @property {Array<object>} [assets]
+ * @property {CanvasInitOptions} [canvas]
+ * @property {Transformer} [transformer]
+ */
 
 class Patchmap extends WildcardEventEmitter {
   _app = null;
@@ -38,6 +64,11 @@ class Patchmap extends WildcardEventEmitter {
   _stateManager = null;
   _world = null;
   _viewTransform = this._createViewTransform();
+  /** @type {import('./canvas-bounds/options').CanvasBounds | null} */
+  _canvasBounds = null;
+  /** @type {import('./canvas-bounds/controller').default | null} */
+  _canvasBoundsController = null;
+  _minimaps = new Set();
   _drawToken = 0;
 
   get app() {
@@ -58,6 +89,15 @@ class Patchmap extends WildcardEventEmitter {
 
   get isInit() {
     return this._isInit;
+  }
+
+  /**
+   * @returns {{ bounds: import('./canvas-bounds/options').CanvasBounds | null }}
+   */
+  get canvas() {
+    return {
+      bounds: this._canvasBounds,
+    };
   }
 
   set isInit(value) {
@@ -117,6 +157,10 @@ class Patchmap extends WildcardEventEmitter {
     };
   }
 
+  /**
+   * @param {HTMLElement} element
+   * @param {PatchmapInitOptions} [opts]
+   */
   async init(element, opts = {}) {
     if (this.isInit) return;
 
@@ -125,11 +169,14 @@ class Patchmap extends WildcardEventEmitter {
       viewport: viewportOptions = {},
       theme: themeOptions = {},
       assets: assetsOptions = [],
+      canvas: canvasOptions = {},
       transformer,
     } = opts;
+    const canvasBounds = normalizeCanvasBounds(canvasOptions?.bounds);
 
     this.undoRedoManager._setHotkeys();
     this._theme.set(themeOptions);
+    this._canvasBounds = canvasBounds;
     this._app = new Application();
     await initApp(this.app, { resizeTo: element, ...appOptions });
 
@@ -138,6 +185,13 @@ class Patchmap extends WildcardEventEmitter {
     this._world = new World({ store });
     store.world = this._world;
     this.viewport.addChild(this._world);
+    this._canvasBoundsController = canvasBounds
+      ? new CanvasBoundsController({
+          viewport: this.viewport,
+          world: this._world,
+          bounds: canvasBounds,
+        })
+      : null;
     this._viewTransform.attach({ viewport: this.viewport, world: this._world });
 
     await initAsset(assetsOptions);
@@ -147,7 +201,11 @@ class Patchmap extends WildcardEventEmitter {
       element,
       this.app,
       this.viewport,
-      () => this._viewTransform.applyWorldTransform(),
+      () => {
+        this._canvasBoundsController?.resize();
+        this._viewTransform.applyWorldTransform();
+        this._canvasBoundsController?.applyViewportClamp();
+      },
     );
     this._stateManager = new StateManager(this);
     this._stateManager.register('selection', SelectionState, true);
@@ -161,10 +219,15 @@ class Patchmap extends WildcardEventEmitter {
   destroy() {
     if (!this.isInit) return;
 
+    for (const minimap of this._minimaps) {
+      minimap.destroy();
+    }
+    this._minimaps.clear();
     this.undoRedoManager.destroy();
     this.animationContext.revert();
     this.stateManager.resetState();
     this.stateManager.destroy();
+    this._canvasBoundsController?.destroy();
     event.removeAllEvent(this.viewport);
     this.viewport.destroy({ children: true, context: true, style: true });
     const parentElement = this.app.canvas.parentElement;
@@ -183,6 +246,9 @@ class Patchmap extends WildcardEventEmitter {
     this._stateManager = null;
     this._world = null;
     this._viewTransform = this._createViewTransform();
+    this._canvasBounds = null;
+    this._canvasBoundsController = null;
+    this._minimaps = new Set();
     this._drawToken = 0;
     this.emit('patchmap:destroyed', { target: this });
     this.removeAllListeners();
@@ -255,7 +321,10 @@ class Patchmap extends WildcardEventEmitter {
    * @returns {void|null}
    */
   focus(ids, opts) {
-    return focus(this.viewport, this.world, ids, opts);
+    const result = focus(this.viewport, this.world, ids, opts);
+    this._canvasBoundsController?.applyViewportClamp();
+    this._emitViewportMoved('focus');
+    return result;
   }
 
   /**
@@ -264,7 +333,10 @@ class Patchmap extends WildcardEventEmitter {
    * @returns {void|null}
    */
   fit(ids, opts) {
-    return fitViewport(this.viewport, this.world, ids, opts);
+    const result = fitViewport(this.viewport, this.world, ids, opts);
+    this._canvasBoundsController?.applyViewportClamp();
+    this._emitViewportMoved('fit');
+    return result;
   }
 
   get rotation() {
@@ -279,6 +351,22 @@ class Patchmap extends WildcardEventEmitter {
     return selector(this.world, path, opts);
   }
 
+  /**
+   * @param {HTMLElement} container
+   * @param {import('./minimap/Minimap').MinimapOptions} [options]
+   * @returns {Minimap}
+   */
+  createMinimap(container, options = {}) {
+    const minimap = new Minimap({
+      patchmap: this,
+      container,
+      options,
+      onDestroy: (target) => this._minimaps.delete(target),
+    });
+    this._minimaps.add(minimap);
+    return minimap;
+  }
+
   _createViewTransform() {
     return new ViewTransform({
       onRotate: (angle) =>
@@ -289,7 +377,7 @@ class Patchmap extends WildcardEventEmitter {
   }
 
   _createStoreContext() {
-    return {
+    const store = {
       app: this.app,
       viewport: this._viewport,
       world: this._world,
@@ -298,6 +386,17 @@ class Patchmap extends WildcardEventEmitter {
       theme: this.theme,
       animationContext: this.animationContext,
     };
+    if (this._canvasBounds) {
+      store.canvasBounds = this._canvasBounds;
+    }
+    return store;
+  }
+
+  _emitViewportMoved(type) {
+    this.viewport?.emit?.('moved', {
+      viewport: this.viewport,
+      type,
+    });
   }
 }
 
