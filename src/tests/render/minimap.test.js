@@ -86,10 +86,16 @@ describe('minimap', () => {
 
     expect(generatedHost).toBe(minimap.container);
     expect(generatedHost.querySelector('canvas')).toBe(minimap.canvas);
+    expect(element.style.position).toBe('relative');
+    expect(generatedHost.style.position).toBe('absolute');
+    expect(generatedHost.style.right).toBe('16px');
+    expect(generatedHost.style.bottom).toBe('16px');
+    expect(generatedHost.style.zIndex).toBe('1');
 
     minimap.destroy();
 
     expect(element.querySelector('[data-patchmap-minimap]')).toBeNull();
+    expect(element.style.position).toBe('');
   });
 
   it('rejects invalid minimap dimensions', async () => {
@@ -178,6 +184,7 @@ describe('minimap', () => {
     expect(minimapHost.style.position).toBe('fixed');
     expect(minimapHost.style.right).toBe('16px');
     expect(minimapHost.style.bottom).toBe('16px');
+    expect(minimapHost.style.zIndex).toBe('1');
     expect(minimapHost.style.top).toBe('');
     expect(minimapHost.style.left).toBe('');
 
@@ -186,6 +193,7 @@ describe('minimap', () => {
     expect(minimapHost.style.position).toBe('');
     expect(minimapHost.style.right).toBe('');
     expect(minimapHost.style.bottom).toBe('');
+    expect(minimapHost.style.zIndex).toBe('');
   });
 
   it.each([

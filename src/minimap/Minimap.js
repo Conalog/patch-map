@@ -34,6 +34,7 @@ const POSITION_STYLE_KEYS = Object.freeze([
   'right',
   'bottom',
   'left',
+  'zIndex',
 ]);
 const PATCHMAP_EVENTS = Object.freeze([
   ['patchmap:draw', '_requestObjectRender'],
@@ -142,12 +143,17 @@ export default class Minimap {
 
     const [vertical, horizontal] = this.options.position.split('-');
     const offset = `${this.options.positionOffset}px`;
+    const containerPosition =
+      this.container.dataset.patchmapMinimapAuto === 'true'
+        ? 'absolute'
+        : 'fixed';
     Object.assign(this.container.style, {
-      position: 'fixed',
+      position: containerPosition,
       top: vertical === 'top' ? offset : '',
       right: horizontal === 'right' ? offset : '',
       bottom: vertical === 'bottom' ? offset : '',
       left: horizontal === 'left' ? offset : '',
+      zIndex: '1',
     });
   }
 

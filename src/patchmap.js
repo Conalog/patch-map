@@ -361,9 +361,12 @@ class Patchmap extends WildcardEventEmitter {
    */
   createMinimap(containerOrOptions = {}, options = {}) {
     const hasContainer = isHTMLElement(containerOrOptions);
+    const defaultContainer = hasContainer
+      ? null
+      : createDefaultMinimapContainer(this._element);
     const container = hasContainer
       ? containerOrOptions
-      : createDefaultMinimapContainer(this._element);
+      : defaultContainer.container;
     const minimapOptions = hasContainer ? options : containerOrOptions;
     const minimap = new Minimap({
       patchmap: this,
@@ -371,7 +374,10 @@ class Patchmap extends WildcardEventEmitter {
       options: minimapOptions,
       onDestroy: (target) => {
         this._minimaps.delete(target);
-        if (!hasContainer) container.remove();
+        if (!hasContainer) {
+          container.remove();
+          defaultContainer.restore();
+        }
       },
     });
     this._minimaps.add(minimap);
@@ -422,13 +428,52 @@ function scheduleUserVisibleTask(task) {
 
 export { Patchmap };
 
+const DEFAULT_MINIMAP_ROOTS = new WeakMap();
+
 const isHTMLElement = (value) =>
   typeof HTMLElement !== 'undefined' && value instanceof HTMLElement;
 
 const createDefaultMinimapContainer = (root) => {
-  if (!root?.appendChild) return null;
+  if (!root?.appendChild) {
+    return { container: null, restore: () => {} };
+  }
+  const restoreRootPosition = retainPositionedRoot(root);
   const container = document.createElement('div');
   container.dataset.patchmapMinimap = 'true';
+  container.dataset.patchmapMinimapAuto = 'true';
   root.appendChild(container);
-  return container;
+  return {
+    container,
+    restore: restoreRootPosition,
+  };
+};
+
+const retainPositionedRoot = (root) => {
+  const existing = DEFAULT_MINIMAP_ROOTS.get(root);
+  if (existing) {
+    existing.count += 1;
+    return () => releasePositionedRoot(root);
+  }
+
+  const shouldSetPosition = getComputedStyle(root).position === 'static';
+  DEFAULT_MINIMAP_ROOTS.set(root, {
+    count: 1,
+    previousPosition: root.style.position,
+    shouldSetPosition,
+  });
+  if (shouldSetPosition) {
+    root.style.position = 'relative';
+  }
+  return () => releasePositionedRoot(root);
+};
+
+const releasePositionedRoot = (root) => {
+  const entry = DEFAULT_MINIMAP_ROOTS.get(root);
+  if (!entry) return;
+  entry.count -= 1;
+  if (entry.count > 0) return;
+  if (entry.shouldSetPosition) {
+    root.style.position = entry.previousPosition;
+  }
+  DEFAULT_MINIMAP_ROOTS.delete(root);
 };
