@@ -182,10 +182,22 @@ Customize the rendering behavior using the following options:
   const minimap = patchmap.createMinimap(document.querySelector('#minimap'), {
     width: 180,
     height: 120,
+    position: 'bottom-right',
+    style: {
+      canvasFill: '#ffffff',
+      canvasStroke: '#d4d4d8',
+      objectFill: '#94a3b8',
+      viewportFill: 'rgba(12, 115, 191, 0.08)',
+      viewportStroke: '#0c73bf',
+      viewportStrokeWidth: 2,
+    },
   });
 
   minimap.destroy();
   ```
+
+  Minimap `position` accepts `top-left`, `top-right`, `bottom-left`, or
+  `bottom-right`. The default is `bottom-right`.
 
 - `theme` - Theme options  
   Default:
