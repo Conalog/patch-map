@@ -68,6 +68,30 @@ describe('minimap', () => {
     expect(minimapHost.querySelector('canvas')).toBeNull();
   });
 
+  it('creates a default minimap container inside the init host', async () => {
+    element = createHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 1000, height: 500 },
+      },
+    });
+
+    const minimap = patchmap.createMinimap({
+      width: 180,
+      height: 120,
+    });
+    const generatedHost = element.querySelector('[data-patchmap-minimap]');
+
+    expect(generatedHost).toBe(minimap.container);
+    expect(generatedHost.querySelector('canvas')).toBe(minimap.canvas);
+
+    minimap.destroy();
+
+    expect(element.querySelector('[data-patchmap-minimap]')).toBeNull();
+  });
+
   it('rejects invalid minimap dimensions', async () => {
     element = createHost();
     minimapHost = createMinimapHost();

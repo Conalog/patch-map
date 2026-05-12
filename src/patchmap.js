@@ -63,6 +63,7 @@ class Patchmap extends WildcardEventEmitter {
   _transformer = null;
   _stateManager = null;
   _world = null;
+  _element = null;
   _viewTransform = this._createViewTransform();
   /** @type {import('./canvas-bounds/options').CanvasBounds | null} */
   _canvasBounds = null;
@@ -174,6 +175,7 @@ class Patchmap extends WildcardEventEmitter {
     } = opts;
     const canvasBounds = normalizeCanvasBounds(canvasOptions?.bounds);
 
+    this._element = element;
     this.undoRedoManager._setHotkeys();
     this._theme.set(themeOptions);
     this._canvasBounds = canvasBounds;
@@ -245,6 +247,7 @@ class Patchmap extends WildcardEventEmitter {
     this._transformer = null;
     this._stateManager = null;
     this._world = null;
+    this._element = null;
     this._viewTransform = this._createViewTransform();
     this._canvasBounds = null;
     this._canvasBoundsController = null;
@@ -352,16 +355,24 @@ class Patchmap extends WildcardEventEmitter {
   }
 
   /**
-   * @param {HTMLElement} container
+   * @param {HTMLElement | import('./minimap/Minimap').MinimapOptions} [containerOrOptions]
    * @param {import('./minimap/Minimap').MinimapOptions} [options]
    * @returns {Minimap}
    */
-  createMinimap(container, options = {}) {
+  createMinimap(containerOrOptions = {}, options = {}) {
+    const hasContainer = isHTMLElement(containerOrOptions);
+    const container = hasContainer
+      ? containerOrOptions
+      : createDefaultMinimapContainer(this._element);
+    const minimapOptions = hasContainer ? options : containerOrOptions;
     const minimap = new Minimap({
       patchmap: this,
       container,
-      options,
-      onDestroy: (target) => this._minimaps.delete(target),
+      options: minimapOptions,
+      onDestroy: (target) => {
+        this._minimaps.delete(target);
+        if (!hasContainer) container.remove();
+      },
     });
     this._minimaps.add(minimap);
     return minimap;
@@ -410,3 +421,14 @@ function scheduleUserVisibleTask(task) {
 }
 
 export { Patchmap };
+
+const isHTMLElement = (value) =>
+  typeof HTMLElement !== 'undefined' && value instanceof HTMLElement;
+
+const createDefaultMinimapContainer = (root) => {
+  if (!root?.appendChild) return null;
+  const container = document.createElement('div');
+  container.dataset.patchmapMinimap = 'true';
+  root.appendChild(container);
+  return container;
+};

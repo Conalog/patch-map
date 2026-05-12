@@ -179,7 +179,7 @@ Customize the rendering behavior using the following options:
   Finite canvas mode also enables minimap creation:
 
   ```js
-  const minimap = patchmap.createMinimap(document.querySelector('#minimap'), {
+  const minimap = patchmap.createMinimap({
     width: 180,
     height: 120,
     position: 'bottom-right',
@@ -195,6 +195,10 @@ Customize the rendering behavior using the following options:
 
   minimap.destroy();
   ```
+
+  By default, `createMinimap(options)` creates its own minimap container inside
+  the element passed to `init(el)`. You can still provide a custom container with
+  `createMinimap(container, options)`.
 
   Minimap `position` accepts `top-left`, `top-right`, `bottom-left`, or
   `bottom-right`. The default is `bottom-right`.
