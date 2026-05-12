@@ -1,21 +1,16 @@
 import { Rectangle } from 'pixi.js';
-import CanvasBoundsLayer from './CanvasBoundsLayer';
 import { clampViewportToCanvasBounds } from './clamp';
 
 export default class CanvasBoundsController {
-  constructor({ viewport, world, bounds, style } = {}) {
+  constructor({ viewport, world, bounds } = {}) {
     this.viewport = viewport;
     this.world = world;
     this.bounds = bounds;
-    this.layer = new CanvasBoundsLayer({ bounds, style });
-    this._onWorldTransformed = (targetWorld) => {
-      this.syncLayer(targetWorld ?? this.world);
-      this.applyViewportClamp();
-    };
-    this._onViewportChanged = () => {
+    this._applyViewportClamp = () => {
       this.applyViewportClamp();
     };
     this._isApplyingClamp = false;
+    this._baseClampZoomMinScale = null;
 
     this.attach();
   }
@@ -23,23 +18,10 @@ export default class CanvasBoundsController {
   attach() {
     if (!this.viewport || !this.world || !this.bounds) return;
 
-    this.insertLayerBehindWorld();
-    this.syncLayer();
     this.configureViewport();
-    this.viewport.on?.('world_transformed', this._onWorldTransformed);
-    this.viewport.on?.('moved', this._onViewportChanged);
-    this.viewport.on?.('zoomed', this._onViewportChanged);
-  }
-
-  insertLayerBehindWorld() {
-    if (this.layer.parent === this.viewport) return;
-
-    const worldIndex = this.viewport.getChildIndex?.(this.world) ?? -1;
-    if (worldIndex >= 0) {
-      this.viewport.addChildAt(this.layer, worldIndex);
-    } else {
-      this.viewport.addChild(this.layer);
-    }
+    this.viewport.on?.('world_transformed', this._applyViewportClamp);
+    this.viewport.on?.('moved', this._applyViewportClamp);
+    this.viewport.on?.('zoomed', this._applyViewportClamp);
   }
 
   configureViewport() {
@@ -51,6 +33,7 @@ export default class CanvasBoundsController {
       this.bounds.width,
       this.bounds.height,
     );
+    this.configureMinimumScale();
     this.viewport.forceHitArea = new Rectangle(
       this.bounds.x,
       this.bounds.y,
@@ -61,12 +44,32 @@ export default class CanvasBoundsController {
     this.applyViewportClamp();
   }
 
-  resize() {
-    this.configureViewport();
+  configureMinimumScale() {
+    const minScale = getCanvasFitMinScale(this.viewport, this.bounds);
+    if (!Number.isFinite(minScale) || minScale <= 0) return;
+
+    const clampZoom = this.viewport.plugins?.get?.('clamp-zoom');
+    const options = clampZoom?.options ?? {};
+    if (this._baseClampZoomMinScale === null) {
+      this._baseClampZoomMinScale = options.minScale ?? 0;
+    }
+    const nextMinScale = Math.max(this._baseClampZoomMinScale, minScale);
+
+    if (options.minScale !== nextMinScale) {
+      this.viewport.plugin?.add?.({
+        clampZoom: {
+          ...options,
+          minScale: nextMinScale,
+        },
+      });
+    }
+    if (Math.abs(this.viewport.scale?.x ?? 1) < nextMinScale) {
+      this.viewport.setZoom?.(nextMinScale, true);
+    }
   }
 
-  syncLayer(world = this.world) {
-    this.layer.syncWorldTransform(world);
+  resize() {
+    this.configureViewport();
   }
 
   applyViewportClamp() {
@@ -80,16 +83,17 @@ export default class CanvasBoundsController {
   }
 
   destroy() {
-    this.viewport?.off?.('world_transformed', this._onWorldTransformed);
-    this.viewport?.off?.('moved', this._onViewportChanged);
-    this.viewport?.off?.('zoomed', this._onViewportChanged);
-    if (this.layer?.parent) {
-      this.layer.parent.removeChild(this.layer);
-    }
-    this.layer?.destroy?.();
-    this.layer = null;
+    this.viewport?.off?.('world_transformed', this._applyViewportClamp);
+    this.viewport?.off?.('moved', this._applyViewportClamp);
+    this.viewport?.off?.('zoomed', this._applyViewportClamp);
     this.viewport = null;
     this.world = null;
     this.bounds = null;
   }
 }
+
+const getCanvasFitMinScale = (viewport, bounds) =>
+  Math.min(
+    viewport.screenWidth / bounds.width,
+    viewport.screenHeight / bounds.height,
+  );

@@ -31,7 +31,7 @@ describe('canvas bounds', () => {
     expect(patchmap._canvasBoundsController).toBeNull();
   });
 
-  it('installs a viewport-backed finite canvas layer behind world', async () => {
+  it('installs finite canvas bounds without adding a render layer', async () => {
     element = createHost();
     patchmap = new Patchmap();
 
@@ -50,14 +50,6 @@ describe('canvas bounds', () => {
       bottom: 110,
     });
     expect(patchmap._canvasBoundsController).toBeTruthy();
-
-    const layer = patchmap._canvasBoundsController.layer;
-    expect(layer.parent).toBe(patchmap.viewport);
-    expect(layer.canvasBounds).toEqual(patchmap.canvas.bounds);
-    expect(() => layer.getBounds()).not.toThrow();
-    expect(patchmap.viewport.getChildIndex(layer)).toBeLessThan(
-      patchmap.viewport.getChildIndex(patchmap.world),
-    );
     expect(patchmap.viewport.forceHitArea).toMatchObject({
       x: -20,
       y: 30,
@@ -66,27 +58,45 @@ describe('canvas bounds', () => {
     });
   });
 
-  it('keeps the finite canvas layer aligned with world transforms', async () => {
+  it('keeps viewport clamping aligned with world transforms', async () => {
     element = createHost();
     patchmap = new Patchmap();
 
     await patchmap.init(element, {
       canvas: {
-        bounds: { x: 0, y: 0, width: 500, height: 300 },
+        bounds: { x: 0, y: 0, width: 2400, height: 2400 },
       },
     });
 
     patchmap.rotation.set(25);
     patchmap.flip.set({ x: true });
+    patchmap.viewport.moveCenter(100000, 100000);
+    patchmap.viewport.emit('world_transformed');
 
-    const layer = patchmap._canvasBoundsController.layer;
-    expect(layer.position.x).toBe(patchmap.world.position.x);
-    expect(layer.position.y).toBe(patchmap.world.position.y);
-    expect(layer.pivot.x).toBe(patchmap.world.pivot.x);
-    expect(layer.pivot.y).toBe(patchmap.world.pivot.y);
-    expect(layer.scale.x).toBe(patchmap.world.scale.x);
-    expect(layer.scale.y).toBe(patchmap.world.scale.y);
-    expect(layer.angle).toBe(patchmap.world.angle);
+    const frame = getVisibleCanvasFrame(patchmap);
+    expect(frame.x).toBeGreaterThanOrEqual(-0.01);
+    expect(frame.y).toBeGreaterThanOrEqual(-0.01);
+    expect(frame.x + frame.width).toBeLessThanOrEqual(2400.01);
+    expect(frame.y + frame.height).toBeLessThanOrEqual(2400.01);
+  });
+
+  it('raises finite canvas minScale to the scale where the whole canvas fits', async () => {
+    element = createHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 2000, height: 1000 },
+      },
+      viewport: {
+        plugins: {
+          clampZoom: { minScale: 0.1 },
+        },
+      },
+    });
+
+    const clampZoom = patchmap.viewport.plugins.get('clamp-zoom');
+    expect(clampZoom.options.minScale).toBeCloseTo(0.4);
   });
 
   it('clamps viewport movement to finite canvas bounds', async () => {

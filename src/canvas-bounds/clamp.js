@@ -1,5 +1,6 @@
 import { Point } from 'pixi.js';
 import { getBoundsFromPoints } from '../utils/transform';
+import { getFrameCorrection } from './restrict';
 
 const CLAMP_EPSILON = 0.0001;
 
@@ -79,7 +80,6 @@ const clampViewportToTransformedCanvasBounds = (viewport, bounds, world) => {
     }
 
     const center = screenPointToCanvasPoint({
-      viewport,
       world,
       point: new Point(viewport.screenWidth / 2, viewport.screenHeight / 2),
     });
@@ -109,39 +109,4 @@ const getVisibleCanvasFrame = (viewport, world) => {
 
 const screenPointToCanvasPoint = ({ world, point }) => {
   return world.toLocal(point);
-};
-
-const getFrameCorrection = (frame, bounds) => ({
-  x: getAxisCorrection({
-    min: frame.x,
-    max: frame.x + frame.width,
-    size: frame.width,
-    boundMin: bounds.x,
-    boundMax: bounds.right,
-    boundSize: bounds.width,
-  }),
-  y: getAxisCorrection({
-    min: frame.y,
-    max: frame.y + frame.height,
-    size: frame.height,
-    boundMin: bounds.y,
-    boundMax: bounds.bottom,
-    boundSize: bounds.height,
-  }),
-});
-
-const getAxisCorrection = ({
-  min,
-  max,
-  size,
-  boundMin,
-  boundMax,
-  boundSize,
-}) => {
-  if (size >= boundSize) {
-    return boundMin + boundSize / 2 - (min + size / 2);
-  }
-  if (min < boundMin) return boundMin - min;
-  if (max > boundMax) return boundMax - max;
-  return 0;
 };
