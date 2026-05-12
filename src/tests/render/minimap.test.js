@@ -210,4 +210,159 @@ describe('minimap', () => {
 
     expect(minimap._snapshot.objects).toHaveLength(1);
   });
+
+  it('projects rotated objects as minimap polygons', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 1000, height: 500 },
+      },
+    });
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'rotated',
+        size: { width: 80, height: 40 },
+        components: [
+          {
+            type: 'background',
+            source: { type: 'rect', fill: 'white' },
+          },
+        ],
+        attrs: { x: 200, y: 120, angle: 30 },
+      },
+    ]);
+
+    const minimap = patchmap.createMinimap(minimapHost);
+    minimap.render();
+
+    const points = minimap._snapshot.objects[0].points;
+    expect(points).toHaveLength(4);
+    expect(points[1].y).not.toBeCloseTo(points[0].y, 4);
+  });
+
+  it('renders a full grid as one minimap silhouette', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 1000, height: 500 },
+      },
+    });
+    patchmap.draw([
+      {
+        type: 'grid',
+        id: 'full-grid',
+        cells: [
+          [1, 1],
+          [1, 1],
+        ],
+        gap: 10,
+        item: {
+          size: { width: 50, height: 30 },
+          components: [
+            {
+              type: 'background',
+              source: { type: 'rect', fill: 'white' },
+            },
+          ],
+        },
+        attrs: { x: 100, y: 100, angle: 20 },
+      },
+    ]);
+
+    const minimap = patchmap.createMinimap(minimapHost);
+    minimap.render();
+
+    expect(minimap._snapshot.objects).toHaveLength(1);
+    expect(minimap._snapshot.objects[0].paths).toHaveLength(1);
+    expect(minimap._snapshot.objects[0].points).toHaveLength(4);
+  });
+
+  it('reflects inactive grid cells as simplified minimap contours', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 1000, height: 500 },
+      },
+    });
+    patchmap.draw([
+      {
+        type: 'grid',
+        id: 'sparse-grid',
+        cells: [
+          [1, 0],
+          [1, 1],
+        ],
+        gap: 10,
+        item: {
+          size: { width: 50, height: 30 },
+          components: [
+            {
+              type: 'background',
+              source: { type: 'rect', fill: 'white' },
+            },
+          ],
+        },
+        attrs: { x: 100, y: 100, angle: 20 },
+      },
+    ]);
+
+    const grid = patchmap.selector('$..[?(@.id=="sparse-grid")]')[0];
+    const minimap = patchmap.createMinimap(minimapHost);
+    minimap.render();
+
+    expect(grid.children).toHaveLength(3);
+    expect(minimap._snapshot.objects).toHaveLength(1);
+    expect(minimap._snapshot.objects[0].paths).toHaveLength(1);
+    expect(minimap._snapshot.objects[0].points.length).toBeGreaterThan(4);
+  });
+
+  it('reflects inactive interior grid cells as minimap holes', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 1000, height: 500 },
+      },
+    });
+    patchmap.draw([
+      {
+        type: 'grid',
+        id: 'hole-grid',
+        cells: [
+          [1, 1, 1],
+          [1, 0, 1],
+          [1, 1, 1],
+        ],
+        gap: 10,
+        item: {
+          size: { width: 50, height: 30 },
+          components: [
+            {
+              type: 'background',
+              source: { type: 'rect', fill: 'white' },
+            },
+          ],
+        },
+        attrs: { x: 100, y: 100 },
+      },
+    ]);
+
+    const minimap = patchmap.createMinimap(minimapHost);
+    minimap.render();
+
+    expect(minimap._snapshot.objects).toHaveLength(1);
+    expect(minimap._snapshot.objects[0].paths).toHaveLength(2);
+  });
 });

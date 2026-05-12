@@ -180,10 +180,39 @@ export default class Minimap {
     ctx.clip();
     ctx.fillStyle = style.object;
     for (const object of snapshot.objects) {
-      ctx.fillRect(object.x, object.y, object.width, object.height);
+      this.drawSilhouette(ctx, object);
     }
     this.drawViewport(ctx, snapshot.viewport, style);
     ctx.restore();
+  }
+
+  drawPolygon(ctx, points) {
+    if (!points?.length) return;
+
+    ctx.beginPath();
+    this.drawPath(ctx, points);
+    ctx.fill();
+  }
+
+  drawSilhouette(ctx, object) {
+    const paths = object.paths?.length ? object.paths : [object.points];
+    if (!paths.length) return;
+
+    ctx.beginPath();
+    for (const path of paths) {
+      this.drawPath(ctx, path);
+    }
+    ctx.fill('evenodd');
+  }
+
+  drawPath(ctx, points) {
+    if (!points?.length) return;
+
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let index = 1; index < points.length; index += 1) {
+      ctx.lineTo(points[index].x, points[index].y);
+    }
+    ctx.closePath();
   }
 
   drawViewport(ctx, points, style) {
