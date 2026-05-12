@@ -1,5 +1,9 @@
 import { Point } from 'pixi.js';
-import { createMinimapSnapshot, minimapPointToCanvasPoint } from './model';
+import {
+  createMinimapObjectSnapshot,
+  createMinimapViewport,
+  minimapPointToCanvasPoint,
+} from './model';
 
 const DEFAULT_OPTIONS = Object.freeze({
   width: 180,
@@ -57,12 +61,18 @@ export default class Minimap {
     this.onDestroy = typeof onDestroy === 'function' ? onDestroy : null;
     this.canvas = document.createElement('canvas');
     this.context = this.canvas.getContext('2d');
+    this._objectLayer = document.createElement('canvas');
+    this._objectLayerContext = this._objectLayer.getContext('2d');
     this._snapshot = null;
+    this._objectSnapshot = null;
+    this._objectLayerKey = null;
+    this._objectsDirty = true;
     this._frame = null;
     this._destroyed = false;
     this._isPointerActive = false;
 
     this._requestRender = () => this.requestRender();
+    this._requestObjectRender = () => this.invalidateObjects();
     this._onPointerDown = (event) => this.handlePointerDown(event);
     this._onPointerMove = (event) => this.handlePointerMove(event);
     this._onPointerUp = () => this.handlePointerUp();
@@ -89,14 +99,17 @@ export default class Minimap {
   }
 
   attach() {
-    this.patchmap.on('patchmap:draw', this._requestRender);
-    this.patchmap.on('patchmap:updated', this._requestRender);
-    this.patchmap.on('patchmap:rotated', this._requestRender);
-    this.patchmap.on('patchmap:flipped', this._requestRender);
+    this.patchmap.on('patchmap:draw', this._requestObjectRender);
+    this.patchmap.on('patchmap:updated', this._requestObjectRender);
+    this.patchmap.on('patchmap:rotated', this._requestObjectRender);
+    this.patchmap.on('patchmap:flipped', this._requestObjectRender);
     this.patchmap.viewport?.on?.('moved', this._requestRender);
     this.patchmap.viewport?.on?.('zoomed', this._requestRender);
     this.patchmap.viewport?.on?.('world_transformed', this._requestRender);
-    this.patchmap.viewport?.on?.('object_transformed', this._requestRender);
+    this.patchmap.viewport?.on?.(
+      'object_transformed',
+      this._requestObjectRender,
+    );
     this.canvas.addEventListener('pointerdown', this._onPointerDown);
     this.canvas.addEventListener('pointermove', this._onPointerMove);
     this.canvas.addEventListener('pointerup', this._onPointerUp);
@@ -105,19 +118,28 @@ export default class Minimap {
   }
 
   detach() {
-    this.patchmap?.off?.('patchmap:draw', this._requestRender);
-    this.patchmap?.off?.('patchmap:updated', this._requestRender);
-    this.patchmap?.off?.('patchmap:rotated', this._requestRender);
-    this.patchmap?.off?.('patchmap:flipped', this._requestRender);
+    this.patchmap?.off?.('patchmap:draw', this._requestObjectRender);
+    this.patchmap?.off?.('patchmap:updated', this._requestObjectRender);
+    this.patchmap?.off?.('patchmap:rotated', this._requestObjectRender);
+    this.patchmap?.off?.('patchmap:flipped', this._requestObjectRender);
     this.patchmap?.viewport?.off?.('moved', this._requestRender);
     this.patchmap?.viewport?.off?.('zoomed', this._requestRender);
     this.patchmap?.viewport?.off?.('world_transformed', this._requestRender);
-    this.patchmap?.viewport?.off?.('object_transformed', this._requestRender);
+    this.patchmap?.viewport?.off?.(
+      'object_transformed',
+      this._requestObjectRender,
+    );
     this.canvas?.removeEventListener('pointerdown', this._onPointerDown);
     this.canvas?.removeEventListener('pointermove', this._onPointerMove);
     this.canvas?.removeEventListener('pointerup', this._onPointerUp);
     this.canvas?.removeEventListener('pointercancel', this._onPointerUp);
     this.canvas?.removeEventListener('pointerleave', this._onPointerUp);
+  }
+
+  invalidateObjects() {
+    if (this._destroyed) return;
+    this._objectsDirty = true;
+    this.requestRender();
   }
 
   requestRender() {
@@ -132,7 +154,8 @@ export default class Minimap {
   }
 
   render() {
-    if (!this.context) return;
+    if (!this.context || !this._objectLayerContext) return;
+    this.cancelPendingRender();
 
     const ratio = globalThis.devicePixelRatio || 1;
     const width = this.options.width;
@@ -145,26 +168,116 @@ export default class Minimap {
     ) {
       this.canvas.width = pixelWidth;
       this.canvas.height = pixelHeight;
+      this._objectsDirty = true;
     }
 
-    this._snapshot = createMinimapSnapshot({
+    const objectSnapshot = this.getObjectSnapshot({
+      ratio,
+      width,
+      height,
+      pixelWidth,
+      pixelHeight,
+    });
+    if (!objectSnapshot) return;
+
+    this._snapshot = {
+      ...objectSnapshot,
+      viewport: createMinimapViewport({
+        patchmap: this.patchmap,
+        canvasBounds: objectSnapshot.canvasBounds,
+        scale: objectSnapshot.scale,
+        origin: objectSnapshot.origin,
+      }),
+    };
+
+    const ctx = this.context;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, pixelWidth, pixelHeight);
+    ctx.drawImage(this._objectLayer, 0, 0);
+    ctx.restore();
+
+    ctx.save();
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    this.drawViewportLayer(ctx, this._snapshot);
+    ctx.restore();
+  }
+
+  cancelPendingRender() {
+    if (this._frame === null) return;
+    const cancelFrame =
+      globalThis.cancelAnimationFrame ?? globalThis.clearTimeout;
+    cancelFrame?.(this._frame);
+    this._frame = null;
+  }
+
+  getObjectSnapshot({ ratio, width, height, pixelWidth, pixelHeight }) {
+    const layerKey = this.getObjectLayerKey({ ratio, pixelWidth, pixelHeight });
+    if (
+      !this._objectsDirty &&
+      this._objectSnapshot &&
+      this._objectLayerKey === layerKey
+    ) {
+      return this._objectSnapshot;
+    }
+
+    const snapshot = createMinimapObjectSnapshot({
       patchmap: this.patchmap,
       width,
       height,
       padding: this.options.padding,
     });
+    if (!snapshot) {
+      this._objectSnapshot = null;
+      return null;
+    }
 
-    const ctx = this.context;
+    this._objectSnapshot = snapshot;
+    this._objectLayerKey = layerKey;
+    this._objectsDirty = false;
+    this.drawObjectLayer({
+      snapshot,
+      ratio,
+      width,
+      height,
+      pixelWidth,
+      pixelHeight,
+    });
+    return snapshot;
+  }
+
+  getObjectLayerKey({ ratio, pixelWidth, pixelHeight }) {
+    const style = this.options.style;
+    return JSON.stringify({
+      ratio,
+      pixelWidth,
+      pixelHeight,
+      background: style.background,
+      border: style.border,
+      object: style.object,
+    });
+  }
+
+  drawObjectLayer({ snapshot, ratio, width, height, pixelWidth, pixelHeight }) {
+    const ctx = this._objectLayerContext;
+    if (!ctx) return;
+
+    if (
+      this._objectLayer.width !== pixelWidth ||
+      this._objectLayer.height !== pixelHeight
+    ) {
+      this._objectLayer.width = pixelWidth;
+      this._objectLayer.height = pixelHeight;
+    }
+
     ctx.save();
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    if (this._snapshot) {
-      this.drawSnapshot(ctx, this._snapshot);
-    }
+    this.drawStaticSnapshot(ctx, snapshot);
     ctx.restore();
   }
 
-  drawSnapshot(ctx, snapshot) {
+  drawStaticSnapshot(ctx, snapshot) {
     const style = this.options.style;
     const canvas = snapshot.canvas;
 
@@ -182,7 +295,16 @@ export default class Minimap {
     for (const object of snapshot.objects) {
       this.drawSilhouette(ctx, object);
     }
-    this.drawViewport(ctx, snapshot.viewport, style);
+    ctx.restore();
+  }
+
+  drawViewportLayer(ctx, snapshot) {
+    const canvas = snapshot.canvas;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(canvas.x, canvas.y, canvas.width, canvas.height);
+    ctx.clip();
+    this.drawViewport(ctx, snapshot.viewport, this.options.style);
     ctx.restore();
   }
 
@@ -282,10 +404,7 @@ export default class Minimap {
     if (this._destroyed) return;
     this._destroyed = true;
     if (this._frame !== null) {
-      const cancelFrame =
-        globalThis.cancelAnimationFrame ?? globalThis.clearTimeout;
-      cancelFrame?.(this._frame);
-      this._frame = null;
+      this.cancelPendingRender();
     }
     this.detach();
     this.canvas?.remove();
@@ -294,7 +413,10 @@ export default class Minimap {
     this.container = null;
     this.canvas = null;
     this.context = null;
+    this._objectLayer = null;
+    this._objectLayerContext = null;
     this._snapshot = null;
+    this._objectSnapshot = null;
   }
 }
 

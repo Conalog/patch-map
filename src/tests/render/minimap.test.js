@@ -365,4 +365,72 @@ describe('minimap', () => {
     expect(minimap._snapshot.objects).toHaveLength(1);
     expect(minimap._snapshot.objects[0].paths).toHaveLength(2);
   });
+
+  it('reuses minimap object silhouettes for viewport-only renders', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 1000, height: 500 },
+      },
+    });
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'cached',
+        size: 50,
+        components: [
+          {
+            type: 'background',
+            source: { type: 'rect', fill: 'white' },
+          },
+        ],
+        attrs: { x: 100, y: 100 },
+      },
+    ]);
+
+    const minimap = patchmap.createMinimap(minimapHost);
+    const firstObjects = minimap._snapshot.objects;
+
+    patchmap.viewport.emit('moved', { viewport: patchmap.viewport });
+    minimap.render();
+
+    expect(minimap._snapshot.objects).toBe(firstObjects);
+  });
+
+  it('refreshes minimap object silhouettes after object updates', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 1000, height: 500 },
+      },
+    });
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'updated',
+        size: 50,
+        components: [
+          {
+            type: 'background',
+            source: { type: 'rect', fill: 'white' },
+          },
+        ],
+        attrs: { x: 100, y: 100 },
+      },
+    ]);
+
+    const minimap = patchmap.createMinimap(minimapHost);
+    const firstObjects = minimap._snapshot.objects;
+
+    patchmap.emit('patchmap:updated', { patchmap });
+    minimap.render();
+
+    expect(minimap._snapshot.objects).not.toBe(firstObjects);
+  });
 });
