@@ -1,43 +1,23 @@
 import { Point } from 'pixi.js';
 import { getObjectFrameWorldCorners } from '../utils/transform';
 
-const DEFAULT_ELIGIBLE_TYPES = new Set(['item', 'grid']);
-
-export const createMinimapSnapshot = ({ patchmap, width, height, padding }) => {
-  const objectSnapshot = createMinimapObjectSnapshot({
-    patchmap,
-    width,
-    height,
-    padding,
-  });
-  if (!objectSnapshot) return null;
-
-  return {
-    ...objectSnapshot,
-    viewport: createMinimapViewport({
-      patchmap,
-      canvasBounds: objectSnapshot.canvasBounds,
-      scale: objectSnapshot.scale,
-      origin: objectSnapshot.origin,
-    }),
-  };
-};
+const DEFAULT_ELIGIBLE_TYPES = new Set(['item', 'grid', 'rect']);
 
 export const createMinimapObjectSnapshot = ({
   patchmap,
   width,
   height,
-  padding,
+  inset = 0,
 }) => {
   const canvasBounds = patchmap?.canvas?.bounds;
   if (!canvasBounds) {
     return null;
   }
 
-  const scale = getMinimapScale({ canvasBounds, width, height, padding });
+  const scale = getMinimapScale({ canvasBounds, width, height, inset });
   const origin = {
-    x: padding + (width - padding * 2 - canvasBounds.width * scale) / 2,
-    y: padding + (height - padding * 2 - canvasBounds.height * scale) / 2,
+    x: inset + (width - inset * 2 - canvasBounds.width * scale) / 2,
+    y: inset + (height - inset * 2 - canvasBounds.height * scale) / 2,
   };
 
   return {
@@ -71,9 +51,9 @@ export const minimapPointToCanvasPoint = ({
   y: canvasBounds.y + (point.y - origin.y) / scale,
 });
 
-const getMinimapScale = ({ canvasBounds, width, height, padding }) => {
-  const availableWidth = Math.max(width - padding * 2, 1);
-  const availableHeight = Math.max(height - padding * 2, 1);
+const getMinimapScale = ({ canvasBounds, width, height, inset }) => {
+  const availableWidth = Math.max(width - inset * 2, 1);
+  const availableHeight = Math.max(height - inset * 2, 1);
   return Math.min(
     availableWidth / canvasBounds.width,
     availableHeight / canvasBounds.height,
@@ -89,42 +69,43 @@ const collectObjectSilhouettes = ({
   const world = patchmap?.world;
   if (!world) return [];
 
-  return collectManagedElements(world)
-    .filter(isMinimapEligibleElement)
-    .flatMap((element) =>
-      getElementCanvasSilhouettes(element, world)
-        .filter((silhouette) =>
-          silhouetteIntersectsCanvasBounds(silhouette, canvasBounds),
-        )
-        .map((silhouette) => {
-          const paths = silhouette.paths.map((path) =>
-            path.map((point) =>
-              projectPoint(point, canvasBounds, scale, origin),
-            ),
-          );
-          return {
-            points: paths[0] ?? [],
-            paths,
-          };
-        }),
-    );
+  const objects = [];
+  for (const element of collectManagedElements(world)) {
+    if (!isMinimapEligibleElement(element)) continue;
+
+    const silhouette = getElementCanvasSilhouette(element, world);
+    if (
+      !silhouette ||
+      !silhouetteIntersectsCanvasBounds(silhouette, canvasBounds)
+    ) {
+      continue;
+    }
+    objects.push(projectSilhouette(silhouette, canvasBounds, scale, origin));
+  }
+  return objects;
 };
 
-const createSilhouette = (paths) => ({
+const createSilhouette = (element, paths) => ({
+  type: element?.type,
   points: paths[0] ?? [],
   paths,
 });
 
-const getElementCanvasSilhouettes = (element, world) => {
+const projectSilhouette = (silhouette, canvasBounds, scale, origin) => {
+  const paths = silhouette.paths.map((path) =>
+    path.map((point) => projectPoint(point, canvasBounds, scale, origin)),
+  );
+  return createSilhouette(silhouette, paths);
+};
+
+const getElementCanvasSilhouette = (element, world) => {
   if (element?.type === 'grid') {
     const paths = getGridCellCanvasPaths(element, world);
-    return paths.length ? [createSilhouette(paths)] : [];
+    return paths.length ? createSilhouette(element, paths) : null;
   }
-  return [
-    createSilhouette([
-      getObjectFrameWorldCorners(element).map((point) => world.toLocal(point)),
-    ]),
-  ];
+  return createSilhouette(element, [
+    getObjectFrameWorldCorners(element).map((point) => world.toLocal(point)),
+  ]);
 };
 
 const getGridCellCanvasPaths = (grid, world) => {
@@ -135,7 +116,10 @@ const getGridCellCanvasPaths = (grid, world) => {
   if (!size) return [];
 
   const rows = cells.length;
-  const cols = Math.max(0, ...cells.map((row) => row?.length ?? 0));
+  let cols = 0;
+  for (const row of cells) {
+    cols = Math.max(cols, row?.length ?? 0);
+  }
   if (!rows || !cols) return [];
 
   const gap = normalizeGap(grid.props?.gap);
@@ -182,30 +166,32 @@ const createGridAxisEdges = (count, size, gap) => {
 
 const traceActiveCellBoundaryLoops = ({ rows, cols, active }) => {
   const edges = [];
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      if (!active(row, col)) continue;
-      if (!active(row - 1, col)) {
-        edges.push(createBoundaryEdge(col, row, col + 1, row));
-      }
-      if (!active(row, col + 1)) {
-        edges.push(createBoundaryEdge(col + 1, row, col + 1, row + 1));
-      }
-      if (!active(row + 1, col)) {
-        edges.push(createBoundaryEdge(col + 1, row + 1, col, row + 1));
-      }
-      if (!active(row, col - 1)) {
-        edges.push(createBoundaryEdge(col, row + 1, col, row));
-      }
-    }
-  }
-
   const edgesByStart = new Map();
-  for (const edge of edges) {
+  const pushEdge = (startX, startY, endX, endY) => {
+    const edge = createBoundaryEdge(startX, startY, endX, endY);
+    edges.push(edge);
     const key = pointKey(edge.start);
     const list = edgesByStart.get(key) ?? [];
     list.push(edge);
     edgesByStart.set(key, list);
+  };
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      if (!active(row, col)) continue;
+      if (!active(row - 1, col)) {
+        pushEdge(col, row, col + 1, row);
+      }
+      if (!active(row, col + 1)) {
+        pushEdge(col + 1, row, col + 1, row + 1);
+      }
+      if (!active(row + 1, col)) {
+        pushEdge(col + 1, row + 1, col, row + 1);
+      }
+      if (!active(row, col - 1)) {
+        pushEdge(col, row + 1, col, row);
+      }
+    }
   }
 
   const loops = [];
@@ -244,22 +230,26 @@ const getEdgeDirection = (startX, startY, endX, endY) => {
 };
 
 const takeNextBoundaryEdge = (edgesByStart, previousEdge) => {
-  const candidates = edgesByStart
-    .get(pointKey(previousEdge.end))
-    ?.filter((edge) => !edge.used);
+  const candidates = edgesByStart.get(pointKey(previousEdge.end));
   if (!candidates?.length) return null;
 
-  const preferredDirections = [
-    (previousEdge.direction + 1) % 4,
-    previousEdge.direction,
-    (previousEdge.direction + 3) % 4,
-    (previousEdge.direction + 2) % 4,
-  ];
-  return candidates.sort(
-    (a, b) =>
-      preferredDirections.indexOf(a.direction) -
-      preferredDirections.indexOf(b.direction),
-  )[0];
+  const directionPriority = [];
+  directionPriority[(previousEdge.direction + 1) % 4] = 0;
+  directionPriority[previousEdge.direction] = 1;
+  directionPriority[(previousEdge.direction + 3) % 4] = 2;
+  directionPriority[(previousEdge.direction + 2) % 4] = 3;
+
+  let nextEdge = null;
+  let nextPriority = Infinity;
+  for (const edge of candidates) {
+    if (edge.used) continue;
+    const priority = directionPriority[edge.direction] ?? Infinity;
+    if (priority < nextPriority) {
+      nextEdge = edge;
+      nextPriority = priority;
+    }
+  }
+  return nextEdge;
 };
 
 const pointKey = (point) => `${point.x},${point.y}`;
@@ -287,12 +277,24 @@ const collectManagedElements = (root) => {
       result.push(node);
       if (node.type === 'grid') return;
     }
-    for (const child of node.children ?? []) {
+    for (const child of getRenderOrderedChildren(node)) {
       visit(child);
     }
   };
   visit(root);
   return result;
+};
+
+const getRenderOrderedChildren = (node) => {
+  const children = node.children ?? [];
+  if (children.length <= 1) return children;
+  return [...children]
+    .map((child, index) => ({ child, index }))
+    .sort((a, b) => {
+      const zDiff = (a.child.zIndex ?? 0) - (b.child.zIndex ?? 0);
+      return zDiff || a.index - b.index;
+    })
+    .map(({ child }) => child);
 };
 
 const isMinimapEligibleElement = (element) =>

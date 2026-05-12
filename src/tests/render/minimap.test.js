@@ -84,6 +84,131 @@ describe('minimap', () => {
     );
   });
 
+  it('does not expose minimap padding as a public option', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 1000, height: 500 },
+      },
+    });
+
+    const minimap = patchmap.createMinimap(minimapHost, {
+      width: 180,
+      height: 120,
+      padding: 40,
+    });
+    minimap.render();
+
+    expect(minimap.options.padding).toBeUndefined();
+    expect(minimap._snapshot.canvas.x).toBeCloseTo(1, 4);
+  });
+
+  it('uses explicit minimap style fill and stroke option names', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 1000, height: 500 },
+      },
+    });
+
+    const minimap = patchmap.createMinimap(minimapHost, {
+      style: {
+        canvasFill: '#111111',
+        canvasStroke: '#222222',
+        objectFill: '#333333',
+        viewportFill: 'rgba(1, 2, 3, 0.2)',
+        viewportStroke: '#444444',
+        viewportStrokeWidth: 3,
+      },
+    });
+
+    expect(minimap.options.style).toEqual({
+      canvasFill: '#111111',
+      canvasStroke: '#222222',
+      objectFill: '#333333',
+      viewportFill: 'rgba(1, 2, 3, 0.2)',
+      viewportStroke: '#444444',
+      viewportStrokeWidth: 3,
+    });
+  });
+
+  it('anchors the minimap to the bottom-right corner by default', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 1000, height: 500 },
+      },
+    });
+
+    const minimap = patchmap.createMinimap(minimapHost);
+
+    expect(minimapHost.style.position).toBe('fixed');
+    expect(minimapHost.style.right).toBe('16px');
+    expect(minimapHost.style.bottom).toBe('16px');
+    expect(minimapHost.style.top).toBe('');
+    expect(minimapHost.style.left).toBe('');
+
+    minimap.destroy();
+
+    expect(minimapHost.style.position).toBe('');
+    expect(minimapHost.style.right).toBe('');
+    expect(minimapHost.style.bottom).toBe('');
+  });
+
+  it.each([
+    ['top-left', { top: '12px', left: '12px', right: '', bottom: '' }],
+    ['top-right', { top: '12px', right: '12px', left: '', bottom: '' }],
+    ['bottom-left', { bottom: '12px', left: '12px', top: '', right: '' }],
+    ['bottom-right', { bottom: '12px', right: '12px', top: '', left: '' }],
+  ])('anchors the minimap to %s', async (position, expected) => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 1000, height: 500 },
+      },
+    });
+
+    patchmap.createMinimap(minimapHost, {
+      position,
+      positionOffset: 12,
+    });
+
+    expect(minimapHost.style.position).toBe('fixed');
+    for (const [key, value] of Object.entries(expected)) {
+      expect(minimapHost.style[key]).toBe(value);
+    }
+  });
+
+  it('rejects invalid minimap positions', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 1000, height: 500 },
+      },
+    });
+
+    expect(() =>
+      patchmap.createMinimap(minimapHost, { position: 'center' }),
+    ).toThrow(
+      'minimap.position must be one of top-left, top-right, bottom-left, bottom-right.',
+    );
+  });
+
   it('moves the viewport from minimap pointer navigation', async () => {
     element = createHost();
     minimapHost = createMinimapHost();
@@ -209,6 +334,106 @@ describe('minimap', () => {
     minimap.render();
 
     expect(minimap._snapshot.objects).toHaveLength(1);
+  });
+
+  it('includes standalone rect elements but omits image and text', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 1000, height: 500 },
+      },
+    });
+    patchmap.draw([
+      {
+        type: 'rect',
+        id: 'rect-object',
+        size: { width: 80, height: 40 },
+        fill: 'white',
+        attrs: { x: 100, y: 100, angle: 15 },
+      },
+      {
+        type: 'image',
+        id: 'image-object',
+        source: '',
+        size: { width: 90, height: 50 },
+        attrs: { x: 250, y: 100, angle: 20 },
+      },
+      {
+        type: 'text',
+        id: 'text-object',
+        text: 'Label',
+        size: { width: 120, height: 40 },
+        attrs: { x: 420, y: 100, angle: 25 },
+      },
+      {
+        type: 'relations',
+        id: 'relations-object',
+        links: [],
+        style: { width: 2 },
+      },
+    ]);
+
+    const minimap = patchmap.createMinimap(minimapHost);
+    minimap.render();
+
+    expect(minimap._snapshot.objects).toHaveLength(1);
+    expect(minimap._snapshot.objects.map((object) => object.type)).toEqual([
+      'rect',
+    ]);
+    expect(
+      minimap._snapshot.objects.every((object) => object.points.length === 4),
+    ).toBe(true);
+  });
+
+  it('orders minimap objects by render z-index', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 1000, height: 500 },
+      },
+    });
+    patchmap.draw([
+      {
+        type: 'rect',
+        id: 'front-rect',
+        size: { width: 100, height: 100 },
+        fill: 'white',
+        attrs: { x: 300, y: 100, zIndex: 20 },
+      },
+      {
+        type: 'rect',
+        id: 'back-rect',
+        size: { width: 100, height: 100 },
+        fill: 'white',
+        attrs: { x: 100, y: 100, zIndex: 0 },
+      },
+      {
+        type: 'item',
+        id: 'middle-item',
+        size: 100,
+        components: [
+          {
+            type: 'background',
+            source: { type: 'rect', fill: 'white' },
+          },
+        ],
+        attrs: { x: 200, y: 100, zIndex: 10 },
+      },
+    ]);
+
+    const minimap = patchmap.createMinimap(minimapHost);
+    minimap.render();
+
+    const objectXs = minimap._snapshot.objects.map(
+      (object) => object.points[0].x,
+    );
+    expect(objectXs).toEqual([...objectXs].sort((a, b) => a - b));
   });
 
   it('projects rotated objects as minimap polygons', async () => {

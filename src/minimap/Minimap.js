@@ -8,25 +8,60 @@ import {
 const DEFAULT_OPTIONS = Object.freeze({
   width: 180,
   height: 120,
-  padding: 8,
   opacity: 0.92,
+  position: 'bottom-right',
+  positionOffset: 16,
   style: {
-    background: '#ffffff',
-    border: '#d4d4d8',
-    object: '#94a3b8',
-    viewport: '#0c73bf',
+    canvasFill: '#ffffff',
+    canvasStroke: '#d4d4d8',
+    objectFill: '#94a3b8',
     viewportFill: 'rgba(12, 115, 191, 0.08)',
+    viewportStroke: '#0c73bf',
     viewportStrokeWidth: 2,
   },
 });
+const DEFAULT_RECT_FILL = '#cbd5e1';
+const MINIMAP_CANVAS_STROKE_WIDTH = 1;
+const MINIMAP_POSITIONS = new Set([
+  'top-left',
+  'top-right',
+  'bottom-left',
+  'bottom-right',
+]);
+const POSITION_STYLE_KEYS = Object.freeze([
+  'position',
+  'top',
+  'right',
+  'bottom',
+  'left',
+]);
+const PATCHMAP_EVENTS = Object.freeze([
+  ['patchmap:draw', '_requestObjectRender'],
+  ['patchmap:updated', '_requestObjectRender'],
+  ['patchmap:rotated', '_requestObjectRender'],
+  ['patchmap:flipped', '_requestObjectRender'],
+]);
+const VIEWPORT_EVENTS = Object.freeze([
+  ['moved', '_requestRender'],
+  ['zoomed', '_requestRender'],
+  ['world_transformed', '_requestRender'],
+  ['object_transformed', '_requestObjectRender'],
+]);
+const POINTER_EVENTS = Object.freeze([
+  ['pointerdown', '_onPointerDown'],
+  ['pointermove', '_onPointerMove'],
+  ['pointerup', '_onPointerUp'],
+  ['pointercancel', '_onPointerUp'],
+  ['pointerleave', '_onPointerUp'],
+]);
 
 /**
  * @typedef {object} MinimapStyle
- * @property {string | number} [background]
- * @property {string | number} [border]
- * @property {string | number} [object]
- * @property {string | number} [viewport]
+ * @property {string | number} [canvasFill]
+ * @property {string | number} [canvasStroke]
+ * @property {string | number} [objectFill]
  * @property {string} [viewportFill]
+ * @property {string | number} [viewportStroke]
  * @property {number} [viewportStrokeWidth]
  */
 
@@ -34,8 +69,9 @@ const DEFAULT_OPTIONS = Object.freeze({
  * @typedef {object} MinimapOptions
  * @property {number} [width]
  * @property {number} [height]
- * @property {number} [padding]
  * @property {number} [opacity]
+ * @property {'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'} [position]
+ * @property {number} [positionOffset]
  * @property {MinimapStyle} [style]
  */
 
@@ -67,6 +103,7 @@ export default class Minimap {
     this._objectSnapshot = null;
     this._objectLayerKey = null;
     this._objectsDirty = true;
+    this._containerStyleSnapshot = null;
     this._frame = null;
     this._destroyed = false;
     this._isPointerActive = false;
@@ -87,6 +124,7 @@ export default class Minimap {
   }
 
   mount() {
+    this.applyContainerPosition();
     this.canvas.width = this.options.width;
     this.canvas.height = this.options.height;
     this.canvas.style.width = `${this.options.width}px`;
@@ -98,42 +136,43 @@ export default class Minimap {
     this.container.appendChild(this.canvas);
   }
 
+  applyContainerPosition() {
+    if (!this.container?.style) return;
+    this._containerStyleSnapshot ??= snapshotContainerStyle(this.container);
+
+    const [vertical, horizontal] = this.options.position.split('-');
+    const offset = `${this.options.positionOffset}px`;
+    Object.assign(this.container.style, {
+      position: 'fixed',
+      top: vertical === 'top' ? offset : '',
+      right: horizontal === 'right' ? offset : '',
+      bottom: vertical === 'bottom' ? offset : '',
+      left: horizontal === 'left' ? offset : '',
+    });
+  }
+
   attach() {
-    this.patchmap.on('patchmap:draw', this._requestObjectRender);
-    this.patchmap.on('patchmap:updated', this._requestObjectRender);
-    this.patchmap.on('patchmap:rotated', this._requestObjectRender);
-    this.patchmap.on('patchmap:flipped', this._requestObjectRender);
-    this.patchmap.viewport?.on?.('moved', this._requestRender);
-    this.patchmap.viewport?.on?.('zoomed', this._requestRender);
-    this.patchmap.viewport?.on?.('world_transformed', this._requestRender);
-    this.patchmap.viewport?.on?.(
-      'object_transformed',
-      this._requestObjectRender,
-    );
-    this.canvas.addEventListener('pointerdown', this._onPointerDown);
-    this.canvas.addEventListener('pointermove', this._onPointerMove);
-    this.canvas.addEventListener('pointerup', this._onPointerUp);
-    this.canvas.addEventListener('pointercancel', this._onPointerUp);
-    this.canvas.addEventListener('pointerleave', this._onPointerUp);
+    for (const [event, handlerKey] of PATCHMAP_EVENTS) {
+      this.patchmap.on(event, this[handlerKey]);
+    }
+    for (const [event, handlerKey] of VIEWPORT_EVENTS) {
+      this.patchmap.viewport?.on?.(event, this[handlerKey]);
+    }
+    for (const [event, handlerKey] of POINTER_EVENTS) {
+      this.canvas.addEventListener(event, this[handlerKey]);
+    }
   }
 
   detach() {
-    this.patchmap?.off?.('patchmap:draw', this._requestObjectRender);
-    this.patchmap?.off?.('patchmap:updated', this._requestObjectRender);
-    this.patchmap?.off?.('patchmap:rotated', this._requestObjectRender);
-    this.patchmap?.off?.('patchmap:flipped', this._requestObjectRender);
-    this.patchmap?.viewport?.off?.('moved', this._requestRender);
-    this.patchmap?.viewport?.off?.('zoomed', this._requestRender);
-    this.patchmap?.viewport?.off?.('world_transformed', this._requestRender);
-    this.patchmap?.viewport?.off?.(
-      'object_transformed',
-      this._requestObjectRender,
-    );
-    this.canvas?.removeEventListener('pointerdown', this._onPointerDown);
-    this.canvas?.removeEventListener('pointermove', this._onPointerMove);
-    this.canvas?.removeEventListener('pointerup', this._onPointerUp);
-    this.canvas?.removeEventListener('pointercancel', this._onPointerUp);
-    this.canvas?.removeEventListener('pointerleave', this._onPointerUp);
+    for (const [event, handlerKey] of PATCHMAP_EVENTS) {
+      this.patchmap?.off?.(event, this[handlerKey]);
+    }
+    for (const [event, handlerKey] of VIEWPORT_EVENTS) {
+      this.patchmap?.viewport?.off?.(event, this[handlerKey]);
+    }
+    for (const [event, handlerKey] of POINTER_EVENTS) {
+      this.canvas?.removeEventListener(event, this[handlerKey]);
+    }
   }
 
   invalidateObjects() {
@@ -225,7 +264,7 @@ export default class Minimap {
       patchmap: this.patchmap,
       width,
       height,
-      padding: this.options.padding,
+      inset: getMinimapContentInset(this.options.style),
     });
     if (!snapshot) {
       this._objectSnapshot = null;
@@ -238,8 +277,6 @@ export default class Minimap {
     this.drawObjectLayer({
       snapshot,
       ratio,
-      width,
-      height,
       pixelWidth,
       pixelHeight,
     });
@@ -252,15 +289,16 @@ export default class Minimap {
       ratio,
       pixelWidth,
       pixelHeight,
-      background: style.background,
-      border: style.border,
-      object: style.object,
+      canvasFill: style.canvasFill,
+      canvasStroke: style.canvasStroke,
+      objectFill: style.objectFill,
     });
   }
 
-  drawObjectLayer({ snapshot, ratio, width, height, pixelWidth, pixelHeight }) {
+  drawObjectLayer({ snapshot, ratio, pixelWidth, pixelHeight }) {
     const ctx = this._objectLayerContext;
     if (!ctx) return;
+    const { width, height } = this.options;
 
     if (
       this._objectLayer.width !== pixelWidth ||
@@ -281,8 +319,8 @@ export default class Minimap {
     const style = this.options.style;
     const canvas = snapshot.canvas;
 
-    ctx.fillStyle = style.background;
-    ctx.strokeStyle = style.border;
+    ctx.fillStyle = style.canvasFill;
+    ctx.strokeStyle = style.canvasStroke;
     ctx.lineWidth = 1;
     ctx.fillRect(canvas.x, canvas.y, canvas.width, canvas.height);
     ctx.strokeRect(canvas.x, canvas.y, canvas.width, canvas.height);
@@ -291,7 +329,6 @@ export default class Minimap {
     ctx.beginPath();
     ctx.rect(canvas.x, canvas.y, canvas.width, canvas.height);
     ctx.clip();
-    ctx.fillStyle = style.object;
     for (const object of snapshot.objects) {
       this.drawSilhouette(ctx, object);
     }
@@ -308,18 +345,15 @@ export default class Minimap {
     ctx.restore();
   }
 
-  drawPolygon(ctx, points) {
-    if (!points?.length) return;
-
-    ctx.beginPath();
-    this.drawPath(ctx, points);
-    ctx.fill();
-  }
-
   drawSilhouette(ctx, object) {
     const paths = object.paths?.length ? object.paths : [object.points];
     if (!paths.length) return;
 
+    ctx.fillStyle =
+      object.type === 'rect' &&
+      this.options.style.objectFill === DEFAULT_OPTIONS.style.objectFill
+        ? DEFAULT_RECT_FILL
+        : this.options.style.objectFill;
     ctx.beginPath();
     for (const path of paths) {
       this.drawPath(ctx, path);
@@ -341,13 +375,9 @@ export default class Minimap {
     if (!points.length) return;
 
     ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (const point of points.slice(1)) {
-      ctx.lineTo(point.x, point.y);
-    }
-    ctx.closePath();
+    this.drawPath(ctx, points);
     ctx.fillStyle = style.viewportFill;
-    ctx.strokeStyle = style.viewport;
+    ctx.strokeStyle = style.viewportStroke;
     ctx.lineWidth = style.viewportStrokeWidth;
     ctx.fill();
     ctx.stroke();
@@ -408,6 +438,7 @@ export default class Minimap {
     }
     this.detach();
     this.canvas?.remove();
+    restoreContainerStyle(this.container, this._containerStyleSnapshot);
     this.onDestroy?.(this);
     this.patchmap = null;
     this.container = null;
@@ -417,6 +448,7 @@ export default class Minimap {
     this._objectLayerContext = null;
     this._snapshot = null;
     this._objectSnapshot = null;
+    this._containerStyleSnapshot = null;
   }
 }
 
@@ -429,13 +461,37 @@ const mergeOptions = (options) => {
       ...(options.style ?? {}),
     },
   };
+  const style = {
+    canvasFill: merged.style.canvasFill,
+    canvasStroke: merged.style.canvasStroke,
+    objectFill: merged.style.objectFill,
+    viewportFill: merged.style.viewportFill,
+    viewportStroke: merged.style.viewportStroke,
+    viewportStrokeWidth: normalizeNonNegativeNumber(
+      merged.style.viewportStrokeWidth,
+      'minimap.style.viewportStrokeWidth',
+    ),
+  };
   return {
-    ...merged,
     width: normalizePositiveNumber(merged.width, 'minimap.width'),
     height: normalizePositiveNumber(merged.height, 'minimap.height'),
-    padding: normalizeNonNegativeNumber(merged.padding, 'minimap.padding'),
     opacity: normalizeOpacity(merged.opacity),
+    position: normalizePosition(merged.position),
+    positionOffset: normalizeNonNegativeNumber(
+      merged.positionOffset,
+      'minimap.positionOffset',
+    ),
+    style,
   };
+};
+
+const normalizePosition = (value) => {
+  if (!MINIMAP_POSITIONS.has(value)) {
+    throw new TypeError(
+      'minimap.position must be one of top-left, top-right, bottom-left, bottom-right.',
+    );
+  }
+  return value;
 };
 
 const normalizePositiveNumber = (value, name) => {
@@ -463,3 +519,18 @@ const clampCanvasPoint = (point, canvasBounds) => ({
   x: Math.min(Math.max(point.x, canvasBounds.x), canvasBounds.right),
   y: Math.min(Math.max(point.y, canvasBounds.y), canvasBounds.bottom),
 });
+
+const getMinimapContentInset = (style) =>
+  Math.max(MINIMAP_CANVAS_STROKE_WIDTH, style.viewportStrokeWidth / 2);
+
+const snapshotContainerStyle = (container) =>
+  Object.fromEntries(
+    POSITION_STYLE_KEYS.map((key) => [key, container.style[key]]),
+  );
+
+const restoreContainerStyle = (container, snapshot) => {
+  if (!container?.style || !snapshot) return;
+  for (const key of POSITION_STYLE_KEYS) {
+    container.style[key] = snapshot[key] ?? '';
+  }
+};
