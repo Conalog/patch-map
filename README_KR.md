@@ -29,7 +29,7 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js
   - [focus(ids, opts)](#focusids-opts)
   - [fit(ids, options)](#fitids-options)
   - [setCanvasBounds(bounds)](#setcanvasboundsbounds)
-  - [createMinimap(containerOrOptions, options)](#createminimapcontaineroroptions-options)
+  - [createMinimap(container, options)](#createminimapcontainer-options)
   - [rotation](#rotation)
   - [flip](#flip)
   - [selector(path)](#selectorpath)
@@ -131,7 +131,7 @@ await patchmap.init(el, {
     plugins: { decelerate: { disabled: true } }
   },
   canvas: {
-    bounds: { x: 0, y: 0, width: 5000, height: 3000 }
+    bounds: {}
   },
   theme: {
     primary: { default: '#c2410c' }
@@ -190,12 +190,7 @@ await patchmap.init(el, {
 
   ```js
   const minimap = patchmap.createMinimap(document.querySelector('#minimap'), {
-    width: 180,
-    height: 120,
-    position: 'bottom-right',
     style: {
-      canvasFill: '#ffffff',
-      canvasStroke: '#d4d4d8',
       objectFill: '#94a3b8',
       viewportFill: 'rgba(12, 115, 191, 0.08)',
       viewportStroke: '#0c73bf',
@@ -206,12 +201,10 @@ await patchmap.init(el, {
   minimap.destroy();
   ```
 
-  기본적으로 `createMinimap(options)`는 `init(el)`에 전달한 element 내부에
-  미니맵 컨테이너를 직접 생성합니다. 직접 관리하는 컨테이너를 쓰려면
-  `createMinimap(container, options)`를 사용하세요.
-
-  미니맵 `position`은 `top-left`, `top-right`, `bottom-left`, `bottom-right`
-  중 하나입니다. 기본값은 `bottom-right`입니다.
+  PATCH MAP은 미니맵 host의 위치나 장식을 제어하지 않습니다. 크기가 정해진
+  container element를 전달하고, 해당 element의 위치, 배경, border, radius,
+  shadow는 애플리케이션에서 직접 스타일링하세요. 주입되는 canvas는 container를
+  꽉 채우고 배경은 transparent라 host element의 배경이 그대로 보입니다.
 
   미니맵은 `item`, `grid`, `rect` element를 표시합니다. 가독성과 성능을
   위해 `image`, `text`, `relations`, `group`은 표시하지 않습니다. 렌더 순서는
@@ -532,29 +525,36 @@ patchmap.fit(['item-1', 'item-2'], {
 동작으로 돌아가고 활성 bounds가 제거됩니다.
 
 ```js
+// 렌더된 객체를 기준으로 padding이 포함된 유한 캔버스를 자동 산출합니다.
+patchmap.setCanvasBounds({});
+
+// 모든 축을 명시적으로 고정합니다.
 patchmap.setCanvasBounds({ x: -500, y: -300, width: 5000, height: 3000 });
+
+// 다시 무한 캔버스로 되돌립니다.
 patchmap.setCanvasBounds(null);
 ```
+
+`x`, `y`, `width`, `height`는 optional입니다. 빠진 필드는 렌더된 객체 bounds를
+기준으로 산출됩니다. 예를 들어 `{}`는 현재 객체들을 중심으로 내부 padding과
+기본 최소 크기 `5000 x 3000`을 적용한 유한 캔버스를 만들고,
+`{ width: 5000, height: 3000 }`은 크기는 고정하되 현재 객체들을 중심으로
+bounds를 배치합니다. 아직 객체가 없다면 빠진 필드는 `x: 0`, `y: 0`,
+`width: 5000`, `height: 3000`을 fallback으로 사용합니다.
 
 bounds가 변경되면 PATCH MAP은 `patchmap:canvas-bounds-changed` 이벤트를
 발생시킵니다.
 
 <br/>
 
-### `createMinimap(containerOrOptions, options)`
+### `createMinimap(container, options)`
 현재 유한 캔버스를 기준으로 미니맵을 생성합니다. 미니맵을 만들기 전에
-`canvas.bounds`가 설정되어 있어야 합니다.
+`canvas.bounds`가 설정되어 있어야 합니다. 첫 번째 인자는 미니맵 canvas가
+주입될 container element여야 합니다.
 
 ```js
-const minimap = patchmap.createMinimap({
-  width: 240,
-  height: 144,
-  position: 'bottom-right',
-  positionOffset: 16,
-  opacity: 0.92,
+const minimap = patchmap.createMinimap(document.querySelector('#minimap'), {
   style: {
-    canvasFill: '#ffffff',
-    canvasStroke: '#d4d4d8',
     objectFill: '#94a3b8',
     viewportFill: 'rgba(12, 115, 191, 0.08)',
     viewportStroke: '#0c73bf',
@@ -563,20 +563,13 @@ const minimap = patchmap.createMinimap({
 });
 ```
 
-`createMinimap(options)`를 호출하면 `init(el)`에 전달한 element 내부에
-미니맵 컨테이너가 생성됩니다. 해당 root element가 static position이면
-미니맵이 mount되어 있는 동안 PATCH MAP이 임시로 `position: relative`를
-적용합니다. 컨테이너를 직접 관리하려면 `createMinimap(container, options)`를
-사용하세요.
+PATCH MAP은 미니맵 canvas 주입과 렌더링만 담당합니다. 크기, 위치, 배경,
+border, border radius, shadow 같은 시각적 chrome은 container element에서
+제어하세요. 미니맵 canvas는 container를 꽉 채우고 배경은 transparent라
+container 배경이 그대로 보입니다.
 
 지원 옵션:
 
-- `width` / `height`: CSS pixel 기준 미니맵 canvas 크기입니다. 기본값은 `180 x 120`입니다.
-- `opacity`: 미니맵 canvas 투명도입니다. 기본값은 `0.92`입니다.
-- `position`: `top-left`, `top-right`, `bottom-left`, `bottom-right` 중 하나입니다.
-  기본값은 `bottom-right`입니다.
-- `positionOffset`: 선택한 모서리로부터의 거리입니다. 기본값은 `16`입니다.
-- `style.canvasFill`, `style.canvasStroke`: 유한 캔버스 영역의 fill과 stroke입니다.
 - `style.objectFill`: `item`, `grid`, 대부분의 `rect` silhouette에 쓰는 fill입니다.
   standalone `rect`는 이 옵션을 명시적으로 덮어쓰지 않으면 더 밝은 기본 fill을 사용합니다.
 - `style.viewportFill`, `style.viewportStroke`, `style.viewportStrokeWidth`:

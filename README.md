@@ -28,7 +28,7 @@ Therefore, to use this, an understanding of the following two libraries is essen
   - [focus(ids, opts)](#focusids-opts)
   - [fit(ids, options)](#fitids-options)
   - [setCanvasBounds(bounds)](#setcanvasboundsbounds)
-  - [createMinimap(containerOrOptions, options)](#createminimapcontaineroroptions-options)
+  - [createMinimap(container, options)](#createminimapcontainer-options)
   - [rotation](#rotation)
   - [flip](#flip)
   - [selector(path)](#selectorpath)
@@ -124,7 +124,7 @@ await patchmap.init(el, {
     plugins: { decelerate: { disabled: true } }
   },
   canvas: {
-    bounds: { x: 0, y: 0, width: 5000, height: 3000 }
+    bounds: {}
   },
   theme: {
     primary: { default: '#c2410c' }
@@ -181,13 +181,8 @@ Customize the rendering behavior using the following options:
   Finite canvas mode also enables minimap creation:
 
   ```js
-  const minimap = patchmap.createMinimap({
-    width: 180,
-    height: 120,
-    position: 'bottom-right',
+  const minimap = patchmap.createMinimap(document.querySelector('#minimap'), {
     style: {
-      canvasFill: '#ffffff',
-      canvasStroke: '#d4d4d8',
       objectFill: '#94a3b8',
       viewportFill: 'rgba(12, 115, 191, 0.08)',
       viewportStroke: '#0c73bf',
@@ -198,12 +193,11 @@ Customize the rendering behavior using the following options:
   minimap.destroy();
   ```
 
-  By default, `createMinimap(options)` creates its own minimap container inside
-  the element passed to `init(el)`. You can still provide a custom container with
-  `createMinimap(container, options)`.
-
-  Minimap `position` accepts `top-left`, `top-right`, `bottom-left`, or
-  `bottom-right`. The default is `bottom-right`.
+  PATCH MAP does not position or decorate the minimap host. Provide a sized
+  container element where the minimap canvas should be injected and style that
+  element in your application. The injected canvas fills the container and is
+  transparent, so the host element's background, border, radius, and shadow
+  remain visible.
 
   The minimap renders `item`, `grid`, and `rect` elements. `image`, `text`,
   `relations`, and `group` elements are omitted so the minimap stays readable
@@ -526,28 +520,35 @@ Updates the finite canvas bounds at runtime. Pass `null` to return to infinite
 canvas behavior and clear the active bounds.
 
 ```js
+// Auto-size finite canvas from rendered content with built-in padding.
+patchmap.setCanvasBounds({});
+
+// Fix every axis explicitly.
 patchmap.setCanvasBounds({ x: -500, y: -300, width: 5000, height: 3000 });
+
+// Return to infinite canvas behavior.
 patchmap.setCanvasBounds(null);
 ```
+
+`x`, `y`, `width`, and `height` are optional. Missing fields are resolved from
+the rendered content bounds. For example, `{}` creates a finite canvas centered
+around the current objects with internal padding and a built-in minimum size of
+`5000 x 3000`. `{ width: 5000, height: 3000 }` keeps the size fixed while
+centering the bounds on the current objects. When no content exists yet, missing
+fields fall back to `x: 0`, `y: 0`, `width: 5000`, `height: 3000`.
 
 When bounds are changed, PATCH MAP emits `patchmap:canvas-bounds-changed`.
 
 <br/>
 
-### `createMinimap(containerOrOptions, options)`
+### `createMinimap(container, options)`
 Creates a minimap for the current finite canvas. `canvas.bounds` must be set
-before creating a minimap.
+before creating a minimap. The first argument must be the container element that
+will receive the minimap canvas.
 
 ```js
-const minimap = patchmap.createMinimap({
-  width: 240,
-  height: 144,
-  position: 'bottom-right',
-  positionOffset: 16,
-  opacity: 0.92,
+const minimap = patchmap.createMinimap(document.querySelector('#minimap'), {
   style: {
-    canvasFill: '#ffffff',
-    canvasStroke: '#d4d4d8',
     objectFill: '#94a3b8',
     viewportFill: 'rgba(12, 115, 191, 0.08)',
     viewportStroke: '#0c73bf',
@@ -556,20 +557,13 @@ const minimap = patchmap.createMinimap({
 });
 ```
 
-Calling `createMinimap(options)` creates a minimap container inside the element
-passed to `init(el)`. If that root element is statically positioned, PATCH MAP
-temporarily sets it to `position: relative` while the auto-created minimap is
-mounted. Use `createMinimap(container, options)` when you want to own the
-container yourself.
+PATCH MAP only injects and renders the minimap canvas. The container controls
+size, layout, and visual chrome such as position, background, border, border
+radius, and shadow. The minimap canvas fills the container and its background is
+transparent, so the container background shows through.
 
 Supported options:
 
-- `width` / `height`: minimap canvas size in CSS pixels. Defaults to `180 x 120`.
-- `opacity`: minimap canvas opacity. Default is `0.92`.
-- `position`: `top-left`, `top-right`, `bottom-left`, or `bottom-right`.
-  Default is `bottom-right`.
-- `positionOffset`: distance from the selected corner. Default is `16`.
-- `style.canvasFill`, `style.canvasStroke`: finite canvas fill and stroke.
 - `style.objectFill`: fill used for `item`, `grid`, and most `rect`
   silhouettes. Standalone `rect` uses a lighter default fill unless this option
   is explicitly overridden.
