@@ -90,6 +90,11 @@ const withStrokeStyleDefaults = (style) => ({
   ...(isPlainObject(style) ? style : {}),
 });
 
+const withBoxSpacingDefaults = (value) => ({
+  ...normalizeBoxSpacing(0),
+  ...normalizeBoxSpacing(value),
+});
+
 const withItemLikeDefaults = (value, options = {}) => {
   const { materializeComponents = true } = options;
   let next = value;
@@ -98,6 +103,8 @@ const withItemLikeDefaults = (value, options = {}) => {
   }
   if (next.padding === undefined) {
     next = { ...next, padding: normalizeBoxSpacing(0) };
+  } else {
+    next = { ...next, padding: withBoxSpacingDefaults(next.padding) };
   }
   if (next.contentOrientation === undefined) {
     next = { ...next, contentOrientation: 'upright' };
@@ -192,6 +199,8 @@ export const applyComponentDefaults = (value) => {
       }
       if (next.margin === undefined) {
         next = { ...next, margin: normalizeBoxSpacing(0) };
+      } else {
+        next = { ...next, margin: withBoxSpacingDefaults(next.margin) };
       }
       if (next.animation === undefined) {
         next = { ...next, animation: true };
@@ -206,6 +215,8 @@ export const applyComponentDefaults = (value) => {
       }
       if (next.margin === undefined) {
         next = { ...next, margin: normalizeBoxSpacing(0) };
+      } else {
+        next = { ...next, margin: withBoxSpacingDefaults(next.margin) };
       }
       break;
     case 'text':
@@ -214,6 +225,8 @@ export const applyComponentDefaults = (value) => {
       }
       if (next.margin === undefined) {
         next = { ...next, margin: normalizeBoxSpacing(0) };
+      } else {
+        next = { ...next, margin: withBoxSpacingDefaults(next.margin) };
       }
       if (next.text === undefined) {
         next = { ...next, text: '' };

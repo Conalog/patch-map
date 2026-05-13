@@ -2,6 +2,7 @@ import gsap from 'gsap';
 import { isValidationError } from 'zod-validation-error';
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { validate } from '../../utils/validator';
+import { normalizeChanges } from '../normalize';
 import { ZERO_MARGIN } from './constants';
 
 export const tweensOf = (object) => gsap.getTweensOf(object);
@@ -197,7 +198,11 @@ export const validateAndPrepareChanges = (
   schema,
   options = {},
 ) => {
-  const preparedChanges = [...changes];
+  const shouldNormalize =
+    options.validateSchema === false && options.normalize !== false;
+  const preparedChanges = shouldNormalize
+    ? changes.map((change) => normalizeChanges(change, change?.type))
+    : [...changes];
   const used = new Set();
   const newElementDefs = [];
   const newElementIndices = [];

@@ -326,6 +326,36 @@ describe('patchmap test', () => {
     });
   });
 
+  it('normalizes child shorthand updates when schema validation is skipped', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([{ type: 'group', id: 'normalized-children', children: [] }]);
+
+    patchmap.update({
+      path: '$..[?(@.id=="normalized-children")]',
+      validateSchema: false,
+      changes: {
+        children: [
+          {
+            type: 'item',
+            id: 'child-with-partial-padding',
+            size: 80,
+            padding: { top: 12 },
+          },
+        ],
+      },
+    });
+
+    const child = patchmap.selector(
+      '$..[?(@.id=="child-with-partial-padding")]',
+    )[0];
+    expect(child.props.padding).toEqual({
+      top: 12,
+      right: 0,
+      bottom: 0,
+      left: 0,
+    });
+  });
+
   it('sorts top-level world children by zIndex after draw and update', async () => {
     const patchmap = getPatchmap();
     patchmap.draw([

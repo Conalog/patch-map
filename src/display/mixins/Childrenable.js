@@ -13,7 +13,7 @@ export const Childrenable = (superClass) => {
     _applyChildren(relevantChanges, options = {}) {
       const childOptions =
         options.validateSchema === false
-          ? { ...options, validateSchema: false, normalize: false }
+          ? { ...options, validateSchema: false }
           : options;
       let childrenChanges = options.refresh
         ? relevantChanges?.children
@@ -79,9 +79,7 @@ export const Childrenable = (superClass) => {
 };
 
 const canUseInitialFastPath = (options) =>
-  options.mergeStrategy === 'replace' &&
-  options.validateSchema === false &&
-  options.normalize === false;
+  options.mergeStrategy === 'replace' && options.validateSchema === false;
 
 const applyInitialChild = (
   element,
