@@ -66,7 +66,7 @@ class Patchmap extends WildcardEventEmitter {
   _element = null;
   _viewTransform = this._createViewTransform();
   _initPromise = null;
-  _destroyAfterInit = false;
+  _destroyRequestedDuringInit = false;
   /** @type {import('./canvas-bounds/options').CanvasBounds | null} */
   _canvasBounds = null;
   /** @type {import('./canvas-bounds/controller').default | null} */
@@ -165,18 +165,17 @@ class Patchmap extends WildcardEventEmitter {
    * @param {PatchmapInitOptions} [opts]
    */
   async init(element, opts = {}) {
-    if (this.isInit) return this._initPromise;
+    if (this.isInit) return;
     if (this._initPromise) return this._initPromise;
 
-    this._destroyAfterInit = false;
-    this._initPromise = this._init(element, opts).catch((error) => {
+    this._destroyRequestedDuringInit = false;
+    this._initPromise = this._initialize(element, opts).finally(() => {
       this._initPromise = null;
-      throw error;
     });
     return this._initPromise;
   }
 
-  async _init(element, opts = {}) {
+  async _initialize(element, opts = {}) {
     const {
       app: appOptions = {},
       viewport: viewportOptions = {},
@@ -230,9 +229,7 @@ class Patchmap extends WildcardEventEmitter {
       this.transformer = transformer;
     }
     this.isInit = true;
-    this._initPromise = null;
-    if (this._destroyAfterInit) {
-      this._destroyAfterInit = false;
+    if (this._destroyRequestedDuringInit) {
       this.destroy();
       return;
     }
@@ -242,19 +239,13 @@ class Patchmap extends WildcardEventEmitter {
   destroy() {
     if (!this.isInit) {
       if (this._initPromise) {
-        this._destroyAfterInit = true;
-        for (const minimap of this._minimaps) {
-          minimap.destroy();
-        }
-        this._minimaps.clear();
+        this._destroyRequestedDuringInit = true;
+        this._destroyMinimaps();
       }
       return;
     }
 
-    for (const minimap of this._minimaps) {
-      minimap.destroy();
-    }
-    this._minimaps.clear();
+    this._destroyMinimaps();
     this.undoRedoManager.destroy();
     this.animationContext.revert();
     this.stateManager?.resetState();
@@ -280,7 +271,7 @@ class Patchmap extends WildcardEventEmitter {
     this._element = null;
     this._viewTransform = this._createViewTransform();
     this._initPromise = null;
-    this._destroyAfterInit = false;
+    this._destroyRequestedDuringInit = false;
     this._canvasBounds = null;
     this._canvasBoundsController = null;
     this._minimaps = new Set();
@@ -448,6 +439,13 @@ class Patchmap extends WildcardEventEmitter {
     });
     this._minimaps.add(minimap);
     return minimap;
+  }
+
+  _destroyMinimaps() {
+    for (const minimap of this._minimaps) {
+      minimap.destroy();
+    }
+    this._minimaps.clear();
   }
 
   _createViewTransform() {
