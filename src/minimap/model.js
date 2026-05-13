@@ -16,8 +16,8 @@ export const createMinimapObjectSnapshot = ({
 
   const scale = getMinimapScale({ canvasBounds, width, height, inset });
   const origin = {
-    x: inset + (width - inset * 2 - canvasBounds.width * scale) / 2,
-    y: inset + (height - inset * 2 - canvasBounds.height * scale) / 2,
+    x: inset,
+    y: inset,
   };
 
   return {
@@ -47,17 +47,17 @@ export const minimapPointToCanvasPoint = ({
   scale,
   origin,
 }) => ({
-  x: canvasBounds.x + (point.x - origin.x) / scale,
-  y: canvasBounds.y + (point.y - origin.y) / scale,
+  x: canvasBounds.x + (point.x - origin.x) / scale.x,
+  y: canvasBounds.y + (point.y - origin.y) / scale.y,
 });
 
 const getMinimapScale = ({ canvasBounds, width, height, inset }) => {
   const availableWidth = Math.max(width - inset * 2, 1);
   const availableHeight = Math.max(height - inset * 2, 1);
-  return Math.min(
-    availableWidth / canvasBounds.width,
-    availableHeight / canvasBounds.height,
-  );
+  return {
+    x: availableWidth / canvasBounds.width,
+    y: availableHeight / canvasBounds.height,
+  };
 };
 
 const collectObjectSilhouettes = ({
@@ -372,15 +372,15 @@ const screenPointToCanvasPoint = ({ world, point }) => {
 };
 
 const projectRect = (rect, canvasBounds, scale, origin) => ({
-  x: origin.x + (rect.x - canvasBounds.x) * scale,
-  y: origin.y + (rect.y - canvasBounds.y) * scale,
-  width: rect.width * scale,
-  height: rect.height * scale,
+  x: origin.x + (rect.x - canvasBounds.x) * scale.x,
+  y: origin.y + (rect.y - canvasBounds.y) * scale.y,
+  width: rect.width * scale.x,
+  height: rect.height * scale.y,
 });
 
 const projectPoint = (point, canvasBounds, scale, origin) => ({
-  x: origin.x + (point.x - canvasBounds.x) * scale,
-  y: origin.y + (point.y - canvasBounds.y) * scale,
+  x: origin.x + (point.x - canvasBounds.x) * scale.x,
+  y: origin.y + (point.y - canvasBounds.y) * scale.y,
 });
 
 const silhouetteIntersectsCanvasBounds = (silhouette, canvasBounds) =>

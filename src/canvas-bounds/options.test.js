@@ -16,12 +16,44 @@ describe('canvas bounds options', () => {
     });
   });
 
+  it('resolves missing canvas bounds fields from content bounds', () => {
+    expect(
+      normalizeCanvasBounds(
+        {},
+        { contentBounds: { x: -200, y: 100, width: 400, height: 300 } },
+      ),
+    ).toEqual({
+      x: -2500,
+      y: -1250,
+      width: 5000,
+      height: 3000,
+      right: 2500,
+      bottom: 1750,
+    });
+  });
+
+  it('uses explicit canvas bounds fields while resolving the missing fields', () => {
+    expect(
+      normalizeCanvasBounds(
+        { width: 2000 },
+        { contentBounds: { x: -200, y: 100, width: 400, height: 300 } },
+      ),
+    ).toEqual({
+      x: -1000,
+      y: -1250,
+      width: 2000,
+      height: 3000,
+      right: 1000,
+      bottom: 1750,
+    });
+  });
+
   it('returns null when canvas bounds are omitted', () => {
     expect(normalizeCanvasBounds()).toBeNull();
     expect(normalizeCanvasBounds(null)).toBeNull();
   });
 
-  it('rejects non-finite bounds values', () => {
+  it('rejects non-finite explicit bounds values', () => {
     expect(() =>
       normalizeCanvasBounds({
         x: 0,
@@ -31,9 +63,9 @@ describe('canvas bounds options', () => {
       }),
     ).toThrow('canvas.bounds.width must be a finite number.');
 
-    expect(() =>
-      normalizeCanvasBounds({ x: '0', y: 0, width: 1, height: 1 }),
-    ).toThrow('canvas.bounds.x must be a finite number.');
+    expect(() => normalizeCanvasBounds({ x: '0' })).toThrow(
+      'canvas.bounds.x must be a finite number.',
+    );
   });
 
   it('rejects non-positive sizes', () => {

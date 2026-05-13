@@ -6,14 +6,7 @@ import {
 } from './model';
 
 const DEFAULT_OPTIONS = Object.freeze({
-  width: 180,
-  height: 120,
-  opacity: 0.92,
-  position: 'bottom-right',
-  positionOffset: 16,
   style: {
-    canvasFill: '#ffffff',
-    canvasStroke: '#d4d4d8',
     objectFill: '#94a3b8',
     viewportFill: 'rgba(12, 115, 191, 0.08)',
     viewportStroke: '#0c73bf',
@@ -21,21 +14,6 @@ const DEFAULT_OPTIONS = Object.freeze({
   },
 });
 const DEFAULT_RECT_FILL = '#cbd5e1';
-const MINIMAP_CANVAS_STROKE_WIDTH = 1;
-const MINIMAP_POSITIONS = new Set([
-  'top-left',
-  'top-right',
-  'bottom-left',
-  'bottom-right',
-]);
-const POSITION_STYLE_KEYS = Object.freeze([
-  'position',
-  'top',
-  'right',
-  'bottom',
-  'left',
-  'zIndex',
-]);
 const PATCHMAP_EVENTS = Object.freeze([
   ['patchmap:initialized', '_onPatchmapInitialized'],
   ['patchmap:draw', '_requestObjectRender'],
@@ -60,8 +38,6 @@ const POINTER_EVENTS = Object.freeze([
 
 /**
  * @typedef {object} MinimapStyle
- * @property {string | number} [canvasFill]
- * @property {string | number} [canvasStroke]
  * @property {string | number} [objectFill]
  * @property {string} [viewportFill]
  * @property {string | number} [viewportStroke]
@@ -70,11 +46,6 @@ const POINTER_EVENTS = Object.freeze([
 
 /**
  * @typedef {object} MinimapOptions
- * @property {number} [width]
- * @property {number} [height]
- * @property {number} [opacity]
- * @property {'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'} [position]
- * @property {number} [positionOffset]
  * @property {MinimapStyle} [style]
  */
 
@@ -106,9 +77,10 @@ export default class Minimap {
     this._objectSnapshot = null;
     this._objectLayerKey = null;
     this._objectsDirty = true;
-    this._containerStyleSnapshot = null;
     this._attachedViewport = null;
     this._attachedTicker = null;
+    this._resizeObserver = null;
+    this._size = resolveContainerSize(container);
     this._frame = null;
     this._viewportTransformKey = null;
     this._destroyed = false;
@@ -132,36 +104,15 @@ export default class Minimap {
   }
 
   mount() {
-    this.applyContainerPosition();
-    this.canvas.width = this.options.width;
-    this.canvas.height = this.options.height;
-    this.canvas.style.width = `${this.options.width}px`;
-    this.canvas.style.height = `${this.options.height}px`;
-    this.canvas.style.opacity = String(this.options.opacity);
+    this.canvas.width = this._size.width;
+    this.canvas.height = this._size.height;
+    this.canvas.style.width = '100%';
+    this.canvas.style.height = '100%';
     this.canvas.style.display = 'block';
     this.canvas.style.cursor = 'pointer';
     this.canvas.style.touchAction = 'none';
     this.container.appendChild(this.canvas);
-  }
-
-  applyContainerPosition() {
-    if (!this.container?.style) return;
-    this._containerStyleSnapshot ??= snapshotContainerStyle(this.container);
-
-    const [vertical, horizontal] = this.options.position.split('-');
-    const offset = `${this.options.positionOffset}px`;
-    const containerPosition =
-      this.container.dataset.patchmapMinimapAuto === 'true'
-        ? 'absolute'
-        : 'fixed';
-    Object.assign(this.container.style, {
-      position: containerPosition,
-      top: vertical === 'top' ? offset : '',
-      right: horizontal === 'right' ? offset : '',
-      bottom: vertical === 'bottom' ? offset : '',
-      left: horizontal === 'left' ? offset : '',
-      zIndex: '1',
-    });
+    this.observeContainerResize();
   }
 
   attach() {
@@ -182,6 +133,28 @@ export default class Minimap {
     for (const [event, handlerKey] of POINTER_EVENTS) {
       this.canvas?.removeEventListener(event, this[handlerKey]);
     }
+    this._resizeObserver?.disconnect?.();
+    this._resizeObserver = null;
+  }
+
+  observeContainerResize() {
+    if (typeof ResizeObserver === 'undefined') return;
+
+    this._resizeObserver = new ResizeObserver(() => {
+      if (this._destroyed) return;
+      const nextSize = resolveContainerSize(this.container);
+      if (
+        nextSize.width === this._size.width &&
+        nextSize.height === this._size.height
+      ) {
+        return;
+      }
+
+      this._size = nextSize;
+      this._objectsDirty = true;
+      this.requestRender();
+    });
+    this._resizeObserver.observe(this.container);
   }
 
   attachViewport() {
@@ -251,8 +224,8 @@ export default class Minimap {
     this.cancelPendingRender();
 
     const ratio = globalThis.devicePixelRatio || 1;
-    const width = this.options.width;
-    const height = this.options.height;
+    this._size = resolveContainerSize(this.container);
+    const { width, height } = this._size;
     const pixelWidth = Math.max(Math.ceil(width * ratio), 1);
     const pixelHeight = Math.max(Math.ceil(height * ratio), 1);
     if (
@@ -369,8 +342,6 @@ export default class Minimap {
             height: bounds.height,
           }
         : null,
-      canvasFill: style.canvasFill,
-      canvasStroke: style.canvasStroke,
       objectFill: style.objectFill,
     });
   }
@@ -378,7 +349,7 @@ export default class Minimap {
   drawObjectLayer({ snapshot, ratio, pixelWidth, pixelHeight }) {
     const ctx = this._objectLayerContext;
     if (!ctx) return;
-    const { width, height } = this.options;
+    const { width, height } = this._size;
 
     if (
       this._objectLayer.width !== pixelWidth ||
@@ -396,18 +367,10 @@ export default class Minimap {
   }
 
   drawStaticSnapshot(ctx, snapshot) {
-    const style = this.options.style;
     const canvas = snapshot.canvas;
 
-    ctx.fillStyle = style.canvasFill;
-    ctx.strokeStyle = style.canvasStroke;
-    ctx.lineWidth = 1;
-    ctx.fillRect(canvas.x, canvas.y, canvas.width, canvas.height);
-    ctx.strokeRect(canvas.x, canvas.y, canvas.width, canvas.height);
-
     ctx.save();
-    ctx.beginPath();
-    ctx.rect(canvas.x, canvas.y, canvas.width, canvas.height);
+    this.drawCanvasClip(ctx, canvas);
     ctx.clip();
     for (const object of snapshot.objects) {
       this.drawSilhouette(ctx, object);
@@ -418,11 +381,15 @@ export default class Minimap {
   drawViewportLayer(ctx, snapshot) {
     const canvas = snapshot.canvas;
     ctx.save();
-    ctx.beginPath();
-    ctx.rect(canvas.x, canvas.y, canvas.width, canvas.height);
+    this.drawCanvasClip(ctx, canvas);
     ctx.clip();
     this.drawViewport(ctx, snapshot.viewport, this.options.style);
     ctx.restore();
+  }
+
+  drawCanvasClip(ctx, canvas) {
+    ctx.beginPath();
+    ctx.rect(canvas.x, canvas.y, canvas.width, canvas.height);
   }
 
   drawSilhouette(ctx, object) {
@@ -518,7 +485,6 @@ export default class Minimap {
     }
     this.detach();
     this.canvas?.remove();
-    restoreContainerStyle(this.container, this._containerStyleSnapshot);
     this.onDestroy?.(this);
     this.patchmap = null;
     this.container = null;
@@ -528,7 +494,6 @@ export default class Minimap {
     this._objectLayerContext = null;
     this._snapshot = null;
     this._objectSnapshot = null;
-    this._containerStyleSnapshot = null;
   }
 }
 
@@ -542,8 +507,6 @@ const mergeOptions = (options) => {
     },
   };
   const style = {
-    canvasFill: merged.style.canvasFill,
-    canvasStroke: merged.style.canvasStroke,
     objectFill: merged.style.objectFill,
     viewportFill: merged.style.viewportFill,
     viewportStroke: merged.style.viewportStroke,
@@ -553,32 +516,8 @@ const mergeOptions = (options) => {
     ),
   };
   return {
-    width: normalizePositiveNumber(merged.width, 'minimap.width'),
-    height: normalizePositiveNumber(merged.height, 'minimap.height'),
-    opacity: normalizeOpacity(merged.opacity),
-    position: normalizePosition(merged.position),
-    positionOffset: normalizeNonNegativeNumber(
-      merged.positionOffset,
-      'minimap.positionOffset',
-    ),
     style,
   };
-};
-
-const normalizePosition = (value) => {
-  if (!MINIMAP_POSITIONS.has(value)) {
-    throw new TypeError(
-      'minimap.position must be one of top-left, top-right, bottom-left, bottom-right.',
-    );
-  }
-  return value;
-};
-
-const normalizePositiveNumber = (value, name) => {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    throw new TypeError(`${name} must be a positive finite number.`);
-  }
-  return value;
 };
 
 const normalizeNonNegativeNumber = (value, name) => {
@@ -588,12 +527,25 @@ const normalizeNonNegativeNumber = (value, name) => {
   return value;
 };
 
-const normalizeOpacity = (value) => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new TypeError('minimap.opacity must be a finite number.');
-  }
-  return Math.min(Math.max(value, 0), 1);
+const FALLBACK_SIZE = Object.freeze({ width: 180, height: 120 });
+
+const resolveContainerSize = (container) => {
+  const rect = container?.getBoundingClientRect?.();
+  const width =
+    normalizeSizeValue(container?.clientWidth) ??
+    normalizeSizeValue(rect?.width);
+  const height =
+    normalizeSizeValue(container?.clientHeight) ??
+    normalizeSizeValue(rect?.height);
+
+  return {
+    width: width ?? FALLBACK_SIZE.width,
+    height: height ?? FALLBACK_SIZE.height,
+  };
 };
+
+const normalizeSizeValue = (value) =>
+  Number.isFinite(value) && value > 0 ? value : undefined;
 
 const clampCanvasPoint = (point, canvasBounds) => ({
   x: Math.min(Math.max(point.x, canvasBounds.x), canvasBounds.right),
@@ -601,19 +553,7 @@ const clampCanvasPoint = (point, canvasBounds) => ({
 });
 
 const getMinimapContentInset = (style) =>
-  Math.max(MINIMAP_CANVAS_STROKE_WIDTH, style.viewportStrokeWidth / 2);
-
-const snapshotContainerStyle = (container) =>
-  Object.fromEntries(
-    POSITION_STYLE_KEYS.map((key) => [key, container.style[key]]),
-  );
-
-const restoreContainerStyle = (container, snapshot) => {
-  if (!container?.style || !snapshot) return;
-  for (const key of POSITION_STYLE_KEYS) {
-    container.style[key] = snapshot[key] ?? '';
-  }
-};
+  Math.max(0, style.viewportStrokeWidth / 2);
 
 const createViewportTransformKey = (patchmap) => {
   const viewport = patchmap?.viewport;

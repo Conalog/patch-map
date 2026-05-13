@@ -9,8 +9,10 @@ const createHost = () => {
   return element;
 };
 
-const createMinimapHost = () => {
+const createMinimapHost = ({ width = 180, height = 120 } = {}) => {
   const element = document.createElement('div');
+  element.style.width = `${width}px`;
+  element.style.height = `${height}px`;
   document.body.appendChild(element);
   return element;
 };
@@ -74,7 +76,7 @@ describe('minimap', () => {
     expect(minimapHost.querySelector('canvas')).toBeNull();
   });
 
-  it('creates a default minimap container inside the init host', async () => {
+  it('requires an explicit minimap container', async () => {
     element = createHost();
     patchmap = new Patchmap();
 
@@ -84,29 +86,14 @@ describe('minimap', () => {
       },
     });
 
-    const minimap = patchmap.createMinimap({
-      width: 180,
-      height: 120,
-    });
-    const generatedHost = element.querySelector('[data-patchmap-minimap]');
-
-    expect(generatedHost).toBe(minimap.container);
-    expect(generatedHost.querySelector('canvas')).toBe(minimap.canvas);
-    expect(element.style.position).toBe('relative');
-    expect(generatedHost.style.position).toBe('absolute');
-    expect(generatedHost.style.right).toBe('16px');
-    expect(generatedHost.style.bottom).toBe('16px');
-    expect(generatedHost.style.zIndex).toBe('1');
-
-    minimap.destroy();
-
-    expect(element.querySelector('[data-patchmap-minimap]')).toBeNull();
-    expect(element.style.position).toBe('');
+    expect(() => patchmap.createMinimap()).toThrow(
+      'patchmap.createMinimap() requires a DOM container.',
+    );
   });
 
-  it('rejects invalid minimap dimensions', async () => {
+  it('fills the given minimap host area', async () => {
     element = createHost();
-    minimapHost = createMinimapHost();
+    minimapHost = createMinimapHost({ width: 240, height: 144 });
     patchmap = new Patchmap();
 
     await patchmap.init(element, {
@@ -115,9 +102,35 @@ describe('minimap', () => {
       },
     });
 
-    expect(() => patchmap.createMinimap(minimapHost, { width: 0 })).toThrow(
-      'minimap.width must be a positive finite number.',
+    const minimap = patchmap.createMinimap(minimapHost);
+
+    expect(minimap.canvas.style.width).toBe('100%');
+    expect(minimap.canvas.style.height).toBe('100%');
+    expect(minimap.canvas.width).toBeGreaterThanOrEqual(240);
+    expect(minimap.canvas.height).toBeGreaterThanOrEqual(144);
+  });
+
+  it('keeps the viewport indicator flush with minimap edges at canvas bounds', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost({ width: 240, height: 144 });
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 5000, height: 12000 },
+      },
+    });
+
+    const minimap = patchmap.createMinimap(minimapHost);
+    patchmap.viewport.setZoom(1, true);
+    patchmap.viewport.moveCenter(-100000, 6000);
+    patchmap._canvasBoundsController.applyViewportClamp();
+    minimap.render();
+
+    const left = Math.min(
+      ...minimap._snapshot.viewport.map((point) => point.x),
     );
+    expect(left).toBeCloseTo(minimap._snapshot.canvas.x, 4);
   });
 
   it('does not expose minimap padding as a public option', async () => {
@@ -142,7 +155,7 @@ describe('minimap', () => {
     expect(minimap._snapshot.canvas.x).toBeCloseTo(1, 4);
   });
 
-  it('uses explicit minimap style fill and stroke option names', async () => {
+  it('uses explicit minimap render color option names', async () => {
     element = createHost();
     minimapHost = createMinimapHost();
     patchmap = new Patchmap();
@@ -155,8 +168,6 @@ describe('minimap', () => {
 
     const minimap = patchmap.createMinimap(minimapHost, {
       style: {
-        canvasFill: '#111111',
-        canvasStroke: '#222222',
         objectFill: '#333333',
         viewportFill: 'rgba(1, 2, 3, 0.2)',
         viewportStroke: '#444444',
@@ -165,8 +176,6 @@ describe('minimap', () => {
     });
 
     expect(minimap.options.style).toEqual({
-      canvasFill: '#111111',
-      canvasStroke: '#222222',
       objectFill: '#333333',
       viewportFill: 'rgba(1, 2, 3, 0.2)',
       viewportStroke: '#444444',
@@ -174,9 +183,15 @@ describe('minimap', () => {
     });
   });
 
-  it('anchors the minimap to the bottom-right corner by default', async () => {
+  it('leaves minimap host positioning and chrome to the caller', async () => {
     element = createHost();
     minimapHost = createMinimapHost();
+    minimapHost.style.position = 'absolute';
+    minimapHost.style.right = '24px';
+    minimapHost.style.bottom = '24px';
+    minimapHost.style.borderRadius = '8px';
+    minimapHost.style.boxShadow = '0 8px 16px rgba(0, 0, 0, 0.2)';
+    minimapHost.style.background = 'rgb(24, 24, 27)';
     patchmap = new Patchmap();
 
     await patchmap.init(element, {
@@ -187,64 +202,20 @@ describe('minimap', () => {
 
     const minimap = patchmap.createMinimap(minimapHost);
 
-    expect(minimapHost.style.position).toBe('fixed');
-    expect(minimapHost.style.right).toBe('16px');
-    expect(minimapHost.style.bottom).toBe('16px');
-    expect(minimapHost.style.zIndex).toBe('1');
-    expect(minimapHost.style.top).toBe('');
-    expect(minimapHost.style.left).toBe('');
+    expect(minimapHost.style.position).toBe('absolute');
+    expect(minimapHost.style.right).toBe('24px');
+    expect(minimapHost.style.bottom).toBe('24px');
+    expect(minimapHost.style.borderRadius).toBe('8px');
+    expect(minimapHost.style.boxShadow).toContain('rgba');
+    expect(minimapHost.style.background).toBe('rgb(24, 24, 27)');
+    expect(minimap.canvas.style.background).toBe('');
+    expect(minimap.canvas.style.borderRadius).toBe('');
+    expect(minimap.canvas.style.boxShadow).toBe('');
 
     minimap.destroy();
 
-    expect(minimapHost.style.position).toBe('');
-    expect(minimapHost.style.right).toBe('');
-    expect(minimapHost.style.bottom).toBe('');
-    expect(minimapHost.style.zIndex).toBe('');
-  });
-
-  it.each([
-    ['top-left', { top: '12px', left: '12px', right: '', bottom: '' }],
-    ['top-right', { top: '12px', right: '12px', left: '', bottom: '' }],
-    ['bottom-left', { bottom: '12px', left: '12px', top: '', right: '' }],
-    ['bottom-right', { bottom: '12px', right: '12px', top: '', left: '' }],
-  ])('anchors the minimap to %s', async (position, expected) => {
-    element = createHost();
-    minimapHost = createMinimapHost();
-    patchmap = new Patchmap();
-
-    await patchmap.init(element, {
-      canvas: {
-        bounds: { x: 0, y: 0, width: 1000, height: 500 },
-      },
-    });
-
-    patchmap.createMinimap(minimapHost, {
-      position,
-      positionOffset: 12,
-    });
-
-    expect(minimapHost.style.position).toBe('fixed');
-    for (const [key, value] of Object.entries(expected)) {
-      expect(minimapHost.style[key]).toBe(value);
-    }
-  });
-
-  it('rejects invalid minimap positions', async () => {
-    element = createHost();
-    minimapHost = createMinimapHost();
-    patchmap = new Patchmap();
-
-    await patchmap.init(element, {
-      canvas: {
-        bounds: { x: 0, y: 0, width: 1000, height: 500 },
-      },
-    });
-
-    expect(() =>
-      patchmap.createMinimap(minimapHost, { position: 'center' }),
-    ).toThrow(
-      'minimap.position must be one of top-left, top-right, bottom-left, bottom-right.',
-    );
+    expect(minimapHost.style.position).toBe('absolute');
+    expect(minimapHost.style.right).toBe('24px');
   });
 
   it('moves the viewport from minimap pointer navigation', async () => {

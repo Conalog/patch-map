@@ -93,6 +93,105 @@ describe('canvas bounds', () => {
     });
   });
 
+  it('resolves missing finite canvas bounds from rendered content', async () => {
+    element = createHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: {},
+      },
+    });
+
+    expect(patchmap.canvas.bounds).toEqual({
+      x: 0,
+      y: 0,
+      width: 5000,
+      height: 3000,
+      right: 5000,
+      bottom: 3000,
+    });
+
+    patchmap.draw([
+      {
+        type: 'rect',
+        id: 'content',
+        attrs: { x: -200, y: 100 },
+        size: { width: 400, height: 300 },
+      },
+    ]);
+
+    expect(patchmap.canvas.bounds).toEqual({
+      x: -2500,
+      y: -1250,
+      width: 5000,
+      height: 3000,
+      right: 2500,
+      bottom: 1750,
+    });
+    expect(patchmap.viewport.forceHitArea).toMatchObject({
+      x: -2500,
+      y: -1250,
+      width: 5000,
+      height: 3000,
+    });
+  });
+
+  it('refreshes automatic finite canvas bounds when an image texture changes rendered bounds', async () => {
+    element = createHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: {},
+      },
+    });
+
+    patchmap.draw([
+      {
+        type: 'rect',
+        id: 'panel',
+        attrs: { x: 100, y: 100 },
+        size: { width: 100, height: 100 },
+      },
+    ]);
+
+    const image = patchmap.selector('$..[?(@.id=="map-image")]')?.[0];
+    expect(image).toBeUndefined();
+
+    patchmap.draw([
+      {
+        type: 'image',
+        id: 'map-image',
+        source: '',
+        attrs: { x: -9000, y: -1000 },
+      },
+      {
+        type: 'rect',
+        id: 'panel',
+        attrs: { x: 100, y: 100 },
+        size: { width: 100, height: 100 },
+      },
+    ]);
+
+    const renderedImage = patchmap.selector('$..[?(@.id=="map-image")]')[0];
+    renderedImage.sprite.width = 12000;
+    renderedImage.sprite.height = 4000;
+    patchmap.viewport.setZoom(2, true);
+    patchmap.viewport.moveCenter(1500, -700);
+    patchmap.viewport.emit('object_transformed', renderedImage);
+    await waitForFrame();
+
+    expect(patchmap.canvas.bounds).toEqual({
+      x: -9500,
+      y: -1500,
+      width: 13000,
+      height: 5000,
+      right: 3500,
+      bottom: 3500,
+    });
+  });
+
   it('keeps pre-init finite canvas bounds when init omits canvas options', async () => {
     element = createHost();
     patchmap = new Patchmap();

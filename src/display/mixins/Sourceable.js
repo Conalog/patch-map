@@ -67,6 +67,7 @@ export const Sourceable = (superClass) => {
       if (typeof this._onTextureApplied === 'function') {
         this._onTextureApplied(texture);
       }
+      this.store?.viewport?.emit?.('object_transformed', this);
     }
   };
   MixedClass.registerHandler(

@@ -2,7 +2,10 @@ import gsap from 'gsap';
 import { Application, UPDATE_PRIORITY } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import CanvasBoundsController from './canvas-bounds/controller';
-import { normalizeCanvasBounds } from './canvas-bounds/options';
+import {
+  hasAutoCanvasBounds,
+  normalizeCanvasBounds,
+} from './canvas-bounds/options';
 import { UndoRedoManager } from './command/UndoRedoManager';
 import './display/components/registry';
 import { draw } from './display/draw';
@@ -27,14 +30,17 @@ import { event } from './utils/event/canvas';
 import { WildcardEventEmitter } from './utils/event/WildcardEventEmitter';
 import { selector } from './utils/selector/selector';
 import { themeStore } from './utils/theme';
+import { getBoundsFromPoints, getObjectWorldCorners } from './utils/transform';
 import { validateMapData } from './utils/validator';
+
+const AUTO_BOUNDS_PADDING = 500;
 
 /**
  * @typedef {object} CanvasBoundsInput
- * @property {number} x
- * @property {number} y
- * @property {number} width
- * @property {number} height
+ * @property {number} [x]
+ * @property {number} [y]
+ * @property {number} [width]
+ * @property {number} [height]
  */
 
 /**
@@ -67,12 +73,16 @@ class Patchmap extends WildcardEventEmitter {
   _viewTransform = this._createViewTransform();
   _initPromise = null;
   _destroyRequestedDuringInit = false;
+  /** @type {CanvasBoundsInput | null} */
+  _canvasBoundsInput = null;
   /** @type {import('./canvas-bounds/options').CanvasBounds | null} */
   _canvasBounds = null;
   /** @type {import('./canvas-bounds/controller').default | null} */
   _canvasBoundsController = null;
   _minimaps = new Set();
   _drawToken = 0;
+  _autoCanvasBoundsFrame = null;
+  _requestAutoCanvasBoundsRefresh = () => this.requestAutoCanvasBoundsRefresh();
 
   get app() {
     return this._app;
@@ -184,20 +194,26 @@ class Patchmap extends WildcardEventEmitter {
       canvas: canvasOptions,
       transformer,
     } = opts;
-    const canvasBounds =
+    const canvasBoundsInput =
       canvasOptions && Object.hasOwn(canvasOptions, 'bounds')
-        ? normalizeCanvasBounds(canvasOptions.bounds)
-        : this._canvasBounds;
+        ? canvasOptions.bounds
+        : this._canvasBoundsInput;
+    const canvasBounds = normalizeCanvasBounds(canvasBoundsInput);
 
     this._element = element;
     this.undoRedoManager._setHotkeys();
     this._theme.set(themeOptions);
+    this._canvasBoundsInput = canvasBoundsInput ?? null;
     this._canvasBounds = canvasBounds;
     this._app = new Application();
     await initApp(this.app, { resizeTo: element, ...appOptions });
 
     const store = this._createStoreContext();
     this._viewport = initViewport(this.app, viewportOptions, store);
+    this.viewport.on?.(
+      'object_transformed',
+      this._requestAutoCanvasBoundsRefresh,
+    );
     this._world = new World({ store });
     store.world = this._world;
     this.viewport.addChild(this._world);
@@ -251,6 +267,11 @@ class Patchmap extends WildcardEventEmitter {
     this.stateManager?.resetState();
     this.stateManager?.destroy();
     this._canvasBoundsController?.destroy();
+    this.viewport?.off?.(
+      'object_transformed',
+      this._requestAutoCanvasBoundsRefresh,
+    );
+    this.cancelPendingAutoCanvasBoundsRefresh();
     event.removeAllEvent(this.viewport);
     this.viewport.destroy({ children: true, context: true, style: true });
     const parentElement = this.app.canvas.parentElement;
@@ -272,10 +293,12 @@ class Patchmap extends WildcardEventEmitter {
     this._viewTransform = this._createViewTransform();
     this._initPromise = null;
     this._destroyRequestedDuringInit = false;
+    this._canvasBoundsInput = null;
     this._canvasBounds = null;
     this._canvasBoundsController = null;
     this._minimaps = new Set();
     this._drawToken = 0;
+    this._autoCanvasBoundsFrame = null;
     this.emit('patchmap:destroyed', { target: this });
     this.removeAllListeners();
   }
@@ -297,6 +320,7 @@ class Patchmap extends WildcardEventEmitter {
     this.animationContext.revert();
     event.removeAllEvent(this.viewport);
     draw(store, validatedData);
+    this._refreshAutoCanvasBounds(validatedData);
 
     // Force a refresh of all relation elements after the initial draw. This ensures
     // that all link targets exist in the scene graph before the relations
@@ -370,7 +394,12 @@ class Patchmap extends WildcardEventEmitter {
    * @returns {import('./canvas-bounds/options').CanvasBounds | null}
    */
   setCanvasBounds(bounds) {
+    this._canvasBoundsInput = bounds ?? null;
     const canvasBounds = normalizeCanvasBounds(bounds);
+    return this._applyCanvasBounds(canvasBounds);
+  }
+
+  _applyCanvasBounds(canvasBounds) {
     this._canvasBounds = canvasBounds;
     this._syncCanvasBoundsToStore();
 
@@ -399,6 +428,75 @@ class Patchmap extends WildcardEventEmitter {
     return canvasBounds;
   }
 
+  _refreshAutoCanvasBounds(data) {
+    if (!hasAutoCanvasBounds(this._canvasBoundsInput)) return;
+
+    const canvasBounds = normalizeCanvasBounds(this._canvasBoundsInput, {
+      contentBounds: this._getCanvasContentBounds(data),
+    });
+    if (areCanvasBoundsEqual(canvasBounds, this._canvasBounds)) return;
+
+    this._applyCanvasBounds(canvasBounds);
+  }
+
+  requestAutoCanvasBoundsRefresh() {
+    if (!hasAutoCanvasBounds(this._canvasBoundsInput)) return;
+    if (this._autoCanvasBoundsFrame !== null) return;
+
+    const requestFrame =
+      globalThis.requestAnimationFrame ??
+      ((callback) => globalThis.setTimeout(callback, 16));
+    this._autoCanvasBoundsFrame = requestFrame(() => {
+      this._autoCanvasBoundsFrame = null;
+      if (!this.isInit) return;
+      this._refreshAutoCanvasBounds();
+    });
+  }
+
+  cancelPendingAutoCanvasBoundsRefresh() {
+    if (this._autoCanvasBoundsFrame === null) return;
+    const cancelFrame =
+      globalThis.cancelAnimationFrame ?? globalThis.clearTimeout;
+    cancelFrame?.(this._autoCanvasBoundsFrame);
+    this._autoCanvasBoundsFrame = null;
+  }
+
+  _getCanvasContentBounds(data) {
+    const imageBounds = unionBounds(
+      getElementsBounds(data, undefined, isImageElement),
+      this._getRenderedCanvasContentBounds(isImageElement),
+    );
+    const nonImageBounds = unionBounds(
+      getElementsBounds(data, undefined, isNonImageElement),
+      this._getRenderedCanvasContentBounds(isNonImageElement),
+    );
+    return padBounds(
+      unionBounds(imageBounds, nonImageBounds),
+      AUTO_BOUNDS_PADDING,
+    );
+  }
+
+  _getRenderedCanvasContentBounds(predicate = () => true) {
+    const world = this.world;
+    if (!world) return null;
+
+    const elements = collectRenderedElements(world, predicate);
+    if (elements.length === 0) return null;
+
+    const canvasPoints = elements.flatMap((element) =>
+      getObjectWorldCorners(element).map((point) => world.toLocal(point)),
+    );
+    if (canvasPoints.length === 0) return null;
+
+    const bounds = getBoundsFromPoints(canvasPoints);
+    return {
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+    };
+  }
+
   get rotation() {
     return this._viewTransform.rotation;
   }
@@ -412,29 +510,17 @@ class Patchmap extends WildcardEventEmitter {
   }
 
   /**
-   * @param {HTMLElement | import('./minimap/Minimap').MinimapOptions} [containerOrOptions]
+   * @param {HTMLElement} container
    * @param {import('./minimap/Minimap').MinimapOptions} [options]
    * @returns {Minimap}
    */
-  createMinimap(containerOrOptions = {}, options = {}) {
-    const hasContainer = isHTMLElement(containerOrOptions);
-    const defaultContainer = hasContainer
-      ? null
-      : createDefaultMinimapContainer(this._element);
-    const container = hasContainer
-      ? containerOrOptions
-      : defaultContainer.container;
-    const minimapOptions = hasContainer ? options : containerOrOptions;
+  createMinimap(container, options = {}) {
     const minimap = new Minimap({
       patchmap: this,
       container,
-      options: minimapOptions,
+      options,
       onDestroy: (target) => {
         this._minimaps.delete(target);
-        if (!hasContainer) {
-          container.remove();
-          defaultContainer.restore();
-        }
       },
     });
     this._minimaps.add(minimap);
@@ -501,54 +587,140 @@ function scheduleUserVisibleTask(task) {
   setTimeout(task, 0);
 }
 
-export { Patchmap };
+const areCanvasBoundsEqual = (a, b) =>
+  a === b ||
+  (a != null &&
+    b != null &&
+    a.x === b.x &&
+    a.y === b.y &&
+    a.width === b.width &&
+    a.height === b.height);
 
-const DEFAULT_MINIMAP_ROOTS = new WeakMap();
+const getElementsBounds = (
+  elements,
+  origin = { x: 0, y: 0 },
+  predicate = () => true,
+) => {
+  if (!Array.isArray(elements) || elements.length === 0) return null;
 
-const isHTMLElement = (value) =>
-  typeof HTMLElement !== 'undefined' && value instanceof HTMLElement;
+  return elements
+    .map((element) => getElementBounds(element, origin, predicate))
+    .filter(Boolean)
+    .reduce(unionBounds, null);
+};
 
-const createDefaultMinimapContainer = (root) => {
-  if (!root?.appendChild) {
-    return { container: null, restore: () => {} };
-  }
-  const restoreRootPosition = retainPositionedRoot(root);
-  const container = document.createElement('div');
-  container.dataset.patchmapMinimap = 'true';
-  container.dataset.patchmapMinimapAuto = 'true';
-  root.appendChild(container);
+const getElementBounds = (element, origin, predicate) => {
+  if (!element || element.show === false) return null;
+
+  const x =
+    origin.x + (Number.isFinite(element.attrs?.x) ? element.attrs.x : 0);
+  const y =
+    origin.y + (Number.isFinite(element.attrs?.y) ? element.attrs.y : 0);
+  const ownBounds = predicate(element)
+    ? getElementOwnBounds(element, { x, y })
+    : null;
+  const childBounds = getElementsBounds(element.children, { x, y }, predicate);
+
+  return unionBounds(ownBounds, childBounds);
+};
+
+const getElementOwnBounds = (element, origin) => {
+  const size = getElementSize(element);
+  if (!size) return null;
+
   return {
-    container,
-    restore: restoreRootPosition,
+    x: origin.x,
+    y: origin.y,
+    width: size.width,
+    height: size.height,
   };
 };
 
-const retainPositionedRoot = (root) => {
-  const existing = DEFAULT_MINIMAP_ROOTS.get(root);
-  if (existing) {
-    existing.count += 1;
-    return () => releasePositionedRoot(root);
+const getElementSize = (element) => {
+  if (element.type === 'grid') {
+    const rows = element.cells?.length ?? 0;
+    const cols = Math.max(0, ...(element.cells ?? []).map((row) => row.length));
+    const itemSize = normalizeSize(element.item?.size);
+    if (!itemSize || rows === 0 || cols === 0) return null;
+
+    const gap = element.gap ?? {};
+    return {
+      width: cols * itemSize.width + Math.max(cols - 1, 0) * (gap.x ?? 0),
+      height: rows * itemSize.height + Math.max(rows - 1, 0) * (gap.y ?? 0),
+    };
   }
 
-  const shouldSetPosition = getComputedStyle(root).position === 'static';
-  DEFAULT_MINIMAP_ROOTS.set(root, {
-    count: 1,
-    previousPosition: root.style.position,
-    shouldSetPosition,
-  });
-  if (shouldSetPosition) {
-    root.style.position = 'relative';
+  if (['item', 'image', 'rect', 'text'].includes(element.type)) {
+    return normalizeSize(element.size);
   }
-  return () => releasePositionedRoot(root);
+
+  return null;
 };
 
-const releasePositionedRoot = (root) => {
-  const entry = DEFAULT_MINIMAP_ROOTS.get(root);
-  if (!entry) return;
-  entry.count -= 1;
-  if (entry.count > 0) return;
-  if (entry.shouldSetPosition) {
-    root.style.position = entry.previousPosition;
+const normalizeSize = (size) => {
+  if (typeof size === 'number') {
+    return { width: size, height: size };
   }
-  DEFAULT_MINIMAP_ROOTS.delete(root);
+  if (Number.isFinite(size?.width) && Number.isFinite(size?.height)) {
+    return { width: size.width, height: size.height };
+  }
+  return null;
 };
+
+const unionBounds = (a, b) => {
+  if (!a) return b;
+  if (!b) return a;
+
+  const minX = Math.min(a.x, b.x);
+  const minY = Math.min(a.y, b.y);
+  const maxX = Math.max(a.x + a.width, b.x + b.width);
+  const maxY = Math.max(a.y + a.height, b.y + b.height);
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+};
+
+const padBounds = (bounds, padding) => {
+  if (!bounds || padding <= 0) return bounds;
+  return {
+    x: bounds.x - padding,
+    y: bounds.y - padding,
+    width: bounds.width + padding * 2,
+    height: bounds.height + padding * 2,
+  };
+};
+
+const isImageElement = (element) => element?.type === 'image';
+
+const isNonImageElement = (element) => element?.type !== 'image';
+
+const collectRenderedElements = (root, predicate) => {
+  const result = [];
+  const visit = (node) => {
+    if (!node) return;
+
+    if (node !== root && node?.type && node?.constructor?.isElement) {
+      if (
+        predicate(node) &&
+        node.visible !== false &&
+        node.renderable !== false &&
+        node.props?.show !== false
+      ) {
+        result.push(node);
+      }
+      if (node.type === 'grid') return;
+    }
+
+    for (const child of node.children ?? []) {
+      visit(child);
+    }
+  };
+  visit(root);
+  return result;
+};
+
+export { Patchmap };
