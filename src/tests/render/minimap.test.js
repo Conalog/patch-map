@@ -15,6 +15,12 @@ const createMinimapHost = () => {
   return element;
 };
 
+const nextAnimationFrame = () =>
+  new Promise((resolve) => requestAnimationFrame(resolve));
+
+const serializePoints = (points) =>
+  points.map((point) => ({ x: point.x, y: point.y }));
+
 describe('minimap', () => {
   let patchmap;
   let element;
@@ -655,6 +661,158 @@ describe('minimap', () => {
     minimap.render();
 
     expect(minimap._snapshot.objects).toBe(firstObjects);
+  });
+
+  it('refreshes the viewport indicator after silent viewport transform changes', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 5000, height: 3000 },
+      },
+    });
+
+    const minimap = patchmap.createMinimap(minimapHost);
+    const firstViewport = serializePoints(minimap._snapshot.viewport);
+
+    patchmap.viewport.position.set(
+      patchmap.viewport.x - 120,
+      patchmap.viewport.y - 80,
+    );
+    patchmap.viewport.dirty = true;
+    patchmap.app.ticker.update();
+    await nextAnimationFrame();
+
+    expect(serializePoints(minimap._snapshot.viewport)).not.toEqual(
+      firstViewport,
+    );
+
+    const movedViewport = serializePoints(minimap._snapshot.viewport);
+
+    patchmap.viewport.setZoom(2, true);
+    patchmap.app.ticker.update();
+    await nextAnimationFrame();
+
+    expect(serializePoints(minimap._snapshot.viewport)).not.toEqual(
+      movedViewport,
+    );
+  });
+
+  it('refreshes the viewport indicator after silent world matrix changes', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 5000, height: 3000 },
+      },
+    });
+
+    const minimap = patchmap.createMinimap(minimapHost);
+    const firstViewport = serializePoints(minimap._snapshot.viewport);
+
+    patchmap.world.skew.set(0.12, 0);
+    patchmap.app.ticker.update();
+    await nextAnimationFrame();
+
+    expect(serializePoints(minimap._snapshot.viewport)).not.toEqual(
+      firstViewport,
+    );
+  });
+
+  it('does not read the Pixi application screen getter while watching viewport transforms', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 5000, height: 3000 },
+      },
+    });
+    patchmap._resizeObserver?.disconnect();
+    Object.defineProperty(patchmap.app, 'screen', {
+      configurable: true,
+      get() {
+        throw new TypeError('screen getter should not be read');
+      },
+    });
+
+    const minimap = patchmap.createMinimap(minimapHost);
+
+    expect(() => minimap.render()).not.toThrow();
+  });
+
+  it('attaches viewport updates when created while patchmap initialization is still pending', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    const initPromise = patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 5000, height: 3000 },
+      },
+    });
+    const minimap = patchmap.createMinimap(minimapHost);
+
+    expect(minimap._attachedViewport).toBeNull();
+
+    await initPromise;
+
+    expect(minimap._attachedViewport).toBe(patchmap.viewport);
+    const firstViewport = serializePoints(minimap._snapshot.viewport);
+
+    patchmap.viewport.moveCenter({ x: 1600, y: 900 });
+    patchmap.app.ticker.update();
+    await nextAnimationFrame();
+
+    expect(serializePoints(minimap._snapshot.viewport)).not.toEqual(
+      firstViewport,
+    );
+  });
+
+  it('destroys minimaps created while initialization is still pending', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    const initPromise = patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 5000, height: 3000 },
+      },
+    });
+    const minimap = patchmap.createMinimap(minimapHost);
+
+    patchmap.destroy();
+    await initPromise;
+
+    expect(minimap.destroyed).toBe(true);
+    expect(patchmap.isInit).toBe(false);
+    expect(minimapHost.querySelector('canvas')).toBeNull();
+  });
+
+  it('clears minimap snapshots when finite canvas bounds are removed', async () => {
+    element = createHost();
+    minimapHost = createMinimapHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 1000, height: 500 },
+      },
+    });
+
+    const minimap = patchmap.createMinimap(minimapHost);
+    expect(minimap._snapshot).toBeTruthy();
+
+    patchmap.setCanvasBounds(null);
+    minimap.render();
+
+    expect(minimap._snapshot).toBeNull();
+    expect(minimap._objectSnapshot).toBeNull();
   });
 
   it('refreshes minimap object silhouettes after object updates', async () => {

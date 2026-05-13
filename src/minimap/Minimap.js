@@ -37,8 +37,10 @@ const POSITION_STYLE_KEYS = Object.freeze([
   'zIndex',
 ]);
 const PATCHMAP_EVENTS = Object.freeze([
+  ['patchmap:initialized', '_onPatchmapInitialized'],
   ['patchmap:draw', '_requestObjectRender'],
   ['patchmap:updated', '_requestObjectRender'],
+  ['patchmap:canvas-bounds-changed', '_requestObjectRender'],
   ['patchmap:rotated', '_requestObjectRender'],
   ['patchmap:flipped', '_requestObjectRender'],
 ]);
@@ -105,12 +107,17 @@ export default class Minimap {
     this._objectLayerKey = null;
     this._objectsDirty = true;
     this._containerStyleSnapshot = null;
+    this._attachedViewport = null;
+    this._attachedTicker = null;
     this._frame = null;
+    this._viewportTransformKey = null;
     this._destroyed = false;
     this._isPointerActive = false;
 
     this._requestRender = () => this.requestRender();
     this._requestObjectRender = () => this.invalidateObjects();
+    this._onPatchmapInitialized = () => this.handlePatchmapInitialized();
+    this._watchViewportTransform = () => this.watchViewportTransform();
     this._onPointerDown = (event) => this.handlePointerDown(event);
     this._onPointerMove = (event) => this.handlePointerMove(event);
     this._onPointerUp = () => this.handlePointerUp();
@@ -161,9 +168,7 @@ export default class Minimap {
     for (const [event, handlerKey] of PATCHMAP_EVENTS) {
       this.patchmap.on(event, this[handlerKey]);
     }
-    for (const [event, handlerKey] of VIEWPORT_EVENTS) {
-      this.patchmap.viewport?.on?.(event, this[handlerKey]);
-    }
+    this.attachViewport();
     for (const [event, handlerKey] of POINTER_EVENTS) {
       this.canvas.addEventListener(event, this[handlerKey]);
     }
@@ -173,12 +178,55 @@ export default class Minimap {
     for (const [event, handlerKey] of PATCHMAP_EVENTS) {
       this.patchmap?.off?.(event, this[handlerKey]);
     }
-    for (const [event, handlerKey] of VIEWPORT_EVENTS) {
-      this.patchmap?.viewport?.off?.(event, this[handlerKey]);
-    }
+    this.detachViewport();
     for (const [event, handlerKey] of POINTER_EVENTS) {
       this.canvas?.removeEventListener(event, this[handlerKey]);
     }
+  }
+
+  attachViewport() {
+    const viewport = this.patchmap?.viewport ?? null;
+    const ticker = this.patchmap?.app?.ticker ?? null;
+    if (
+      viewport === this._attachedViewport &&
+      ticker === this._attachedTicker
+    ) {
+      return;
+    }
+
+    this.detachViewport();
+    this._attachedViewport = viewport;
+    this._attachedTicker = ticker;
+
+    for (const [event, handlerKey] of VIEWPORT_EVENTS) {
+      viewport?.on?.(event, this[handlerKey]);
+    }
+    ticker?.add?.(this._watchViewportTransform);
+  }
+
+  detachViewport() {
+    for (const [event, handlerKey] of VIEWPORT_EVENTS) {
+      this._attachedViewport?.off?.(event, this[handlerKey]);
+    }
+    this._attachedTicker?.remove?.(this._watchViewportTransform);
+    this._attachedViewport = null;
+    this._attachedTicker = null;
+  }
+
+  handlePatchmapInitialized() {
+    if (this._destroyed) return;
+    this.attachViewport();
+    this.invalidateObjects();
+  }
+
+  watchViewportTransform() {
+    if (this._destroyed) return;
+
+    const transformKey = createViewportTransformKey(this.patchmap);
+    if (transformKey === this._viewportTransformKey) return;
+
+    this._viewportTransformKey = transformKey;
+    this.requestRender();
   }
 
   invalidateObjects() {
@@ -223,7 +271,12 @@ export default class Minimap {
       pixelWidth,
       pixelHeight,
     });
-    if (!objectSnapshot) return;
+    if (!objectSnapshot) {
+      this.clearLayers({ pixelWidth, pixelHeight });
+      this._snapshot = null;
+      this._viewportTransformKey = null;
+      return;
+    }
 
     this._snapshot = {
       ...objectSnapshot,
@@ -246,6 +299,18 @@ export default class Minimap {
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     this.drawViewportLayer(ctx, this._snapshot);
     ctx.restore();
+    this._viewportTransformKey = createViewportTransformKey(this.patchmap);
+  }
+
+  clearLayers({ pixelWidth, pixelHeight }) {
+    const clear = (ctx) => {
+      ctx?.save();
+      ctx?.setTransform(1, 0, 0, 1, 0, 0);
+      ctx?.clearRect(0, 0, pixelWidth, pixelHeight);
+      ctx?.restore();
+    };
+    clear(this.context);
+    clear(this._objectLayerContext);
   }
 
   cancelPendingRender() {
@@ -291,10 +356,19 @@ export default class Minimap {
 
   getObjectLayerKey({ ratio, pixelWidth, pixelHeight }) {
     const style = this.options.style;
+    const bounds = this.patchmap?.canvas?.bounds;
     return JSON.stringify({
       ratio,
       pixelWidth,
       pixelHeight,
+      canvasBounds: bounds
+        ? {
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+          }
+        : null,
       canvasFill: style.canvasFill,
       canvasStroke: style.canvasStroke,
       objectFill: style.objectFill,
@@ -539,4 +613,49 @@ const restoreContainerStyle = (container, snapshot) => {
   for (const key of POSITION_STYLE_KEYS) {
     container.style[key] = snapshot[key] ?? '';
   }
+};
+
+const createViewportTransformKey = (patchmap) => {
+  const viewport = patchmap?.viewport;
+  const world = patchmap?.world;
+  const screen = patchmap?.app?.renderer?.screen;
+  const viewportMatrix = viewport?.worldTransform;
+  const worldMatrix = world?.worldTransform;
+
+  return [
+    viewportMatrix?.a ?? 1,
+    viewportMatrix?.b ?? 0,
+    viewportMatrix?.c ?? 0,
+    viewportMatrix?.d ?? 1,
+    viewportMatrix?.tx ?? 0,
+    viewportMatrix?.ty ?? 0,
+    viewport?.x ?? 0,
+    viewport?.y ?? 0,
+    viewport?.scale?.x ?? 1,
+    viewport?.scale?.y ?? 1,
+    viewport?.pivot?.x ?? 0,
+    viewport?.pivot?.y ?? 0,
+    viewport?.skew?.x ?? 0,
+    viewport?.skew?.y ?? 0,
+    viewport?.rotation ?? 0,
+    viewport?.screenWidth ?? screen?.width ?? 0,
+    viewport?.screenHeight ?? screen?.height ?? 0,
+    worldMatrix?.a ?? 1,
+    worldMatrix?.b ?? 0,
+    worldMatrix?.c ?? 0,
+    worldMatrix?.d ?? 1,
+    worldMatrix?.tx ?? 0,
+    worldMatrix?.ty ?? 0,
+    world?.x ?? 0,
+    world?.y ?? 0,
+    world?.scale?.x ?? 1,
+    world?.scale?.y ?? 1,
+    world?.pivot?.x ?? 0,
+    world?.pivot?.y ?? 0,
+    world?.skew?.x ?? 0,
+    world?.skew?.y ?? 0,
+    world?.rotation ?? 0,
+    screen?.width ?? 0,
+    screen?.height ?? 0,
+  ].join('|');
 };
