@@ -1,13 +1,48 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { Patchmap } from '../../patchmap';
 
-const createHost = () => {
+const createHost = ({ width = 800, height = 600 } = {}) => {
   const element = document.createElement('div');
-  element.style.width = '800px';
-  element.style.height = '600px';
+  element.style.width = `${width}px`;
+  element.style.height = `${height}px`;
   document.body.appendChild(element);
   return element;
 };
+
+const waitForFrame = () =>
+  new Promise((resolve) => requestAnimationFrame(resolve));
+
+const getRendererPoint = (patchmap, clientPoint) => {
+  const point = { x: 0, y: 0 };
+  patchmap.app.renderer.events.mapPositionToPoint(
+    point,
+    clientPoint.x,
+    clientPoint.y,
+  );
+  return point;
+};
+
+const getViewportClientPoint = (patchmap, xRatio, yRatio) => {
+  const rect = patchmap.app.canvas.getBoundingClientRect();
+  return {
+    x: rect.left + rect.width * xRatio,
+    y: rect.top + rect.height * yRatio,
+  };
+};
+
+const dispatchViewportWheel = (patchmap, clientPoint, deltaY) => {
+  patchmap.app.canvas.dispatchEvent(
+    new WheelEvent('wheel', {
+      clientX: clientPoint.x,
+      clientY: clientPoint.y,
+      deltaY,
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+};
+
+const getDistance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
 describe('canvas bounds', () => {
   let patchmap;
@@ -56,6 +91,25 @@ describe('canvas bounds', () => {
       width: 120,
       height: 80,
     });
+  });
+
+  it('keeps pre-init finite canvas bounds when init omits canvas options', async () => {
+    element = createHost();
+    patchmap = new Patchmap();
+
+    patchmap.setCanvasBounds({ x: -500, y: -300, width: 5000, height: 3000 });
+    await patchmap.init(element);
+
+    expect(patchmap.canvas.bounds).toEqual({
+      x: -500,
+      y: -300,
+      width: 5000,
+      height: 3000,
+      right: 4500,
+      bottom: 2700,
+    });
+    expect(patchmap._canvasBoundsController).toBeTruthy();
+    expect(patchmap.world.store.canvasBounds).toBe(patchmap.canvas.bounds);
   });
 
   it('keeps viewport clamping aligned with world transforms', async () => {
@@ -122,6 +176,53 @@ describe('canvas bounds', () => {
     expect(patchmap.viewport.top).toBeGreaterThanOrEqual(30);
   });
 
+  it('updates finite canvas bounds at runtime', async () => {
+    element = createHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 5000, height: 3000 },
+      },
+    });
+
+    const events = [];
+    patchmap.on('patchmap:canvas-bounds-changed', (event) => {
+      events.push(event.bounds);
+    });
+
+    patchmap.setCanvasBounds({
+      x: -4000,
+      y: -3000,
+      width: 8000,
+      height: 8000,
+    });
+
+    expect(patchmap.canvas.bounds).toEqual({
+      x: -4000,
+      y: -3000,
+      width: 8000,
+      height: 8000,
+      right: 4000,
+      bottom: 5000,
+    });
+    expect(patchmap.viewport.forceHitArea).toMatchObject({
+      x: -4000,
+      y: -3000,
+      width: 8000,
+      height: 8000,
+    });
+    expect(patchmap.world.store.canvasBounds).toBe(patchmap.canvas.bounds);
+    expect(events).toEqual([patchmap.canvas.bounds]);
+
+    patchmap.viewport.moveCenter(-100000, -100000);
+    patchmap.viewport.emit('moved');
+
+    const frame = getVisibleCanvasFrame(patchmap);
+    expect(frame.x).toBeGreaterThanOrEqual(-4000.01);
+    expect(frame.y).toBeGreaterThanOrEqual(-3000.01);
+  });
+
   it('clamps viewport movement against rotated canvas bounds', async () => {
     element = createHost();
     patchmap = new Patchmap();
@@ -143,7 +244,84 @@ describe('canvas bounds', () => {
     expect(frame.y + frame.height).toBeLessThanOrEqual(2400.01);
   });
 
-  it('centers non-zero finite canvas bounds when the canvas underflows the viewport', async () => {
+  it('keeps wheel zoom anchored to the pointer while finite canvas bounds are clamped', async () => {
+    element = createHost();
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 5000, height: 3000 },
+      },
+      viewport: {
+        plugins: {
+          clampZoom: { minScale: 0.1 },
+        },
+      },
+    });
+
+    const minScale =
+      patchmap.viewport.plugins.get('clamp-zoom').options.minScale;
+    patchmap.viewport.setZoom(minScale, true);
+    patchmap._canvasBoundsController.applyViewportClamp({
+      centerUnderflow: true,
+    });
+    const clampOptions = [];
+    const applyViewportClamp =
+      patchmap._canvasBoundsController.applyViewportClamp.bind(
+        patchmap._canvasBoundsController,
+      );
+    patchmap._canvasBoundsController.applyViewportClamp = (options) => {
+      clampOptions.push(options ?? {});
+      return applyViewportClamp(options);
+    };
+
+    const clientPoint = getViewportClientPoint(patchmap, 0.5, 0.5);
+    const pointer = getRendererPoint(patchmap, clientPoint);
+    const before = patchmap.viewport.toWorld(pointer.x, pointer.y);
+
+    dispatchViewportWheel(patchmap, clientPoint, -120);
+    await waitForFrame();
+
+    const after = patchmap.viewport.toWorld(pointer.x, pointer.y);
+
+    expect(patchmap.viewport.scale.x).toBeGreaterThan(minScale);
+    expect(getDistance(after, before)).toBeLessThan(0.5);
+  });
+
+  it('keeps wheel zoom anchored when one finite canvas axis underflows the viewport', async () => {
+    element = createHost({ width: 600, height: 900 });
+    patchmap = new Patchmap();
+
+    await patchmap.init(element, {
+      canvas: {
+        bounds: { x: 0, y: 0, width: 5000, height: 3000 },
+      },
+      viewport: {
+        plugins: {
+          clampZoom: { minScale: 0.1 },
+        },
+      },
+    });
+
+    const minScale =
+      patchmap.viewport.plugins.get('clamp-zoom').options.minScale;
+    patchmap.viewport.setZoom(minScale, true);
+    patchmap._canvasBoundsController.applyViewportClamp();
+
+    const clientPoint = getViewportClientPoint(patchmap, 0.65, 0.48);
+    const pointer = getRendererPoint(patchmap, clientPoint);
+    const before = patchmap.viewport.toWorld(pointer.x, pointer.y);
+
+    dispatchViewportWheel(patchmap, clientPoint, -120);
+    await waitForFrame();
+
+    const after = patchmap.viewport.toWorld(pointer.x, pointer.y);
+
+    expect(patchmap.viewport.scale.x).toBeGreaterThan(minScale);
+    expect(getDistance(after, before)).toBeLessThan(0.5);
+  });
+
+  it('keeps underflowing finite canvas bounds visible without forcing center alignment', async () => {
     element = createHost();
     patchmap = new Patchmap();
 
@@ -154,13 +332,15 @@ describe('canvas bounds', () => {
     });
 
     patchmap._canvasBoundsController.applyViewportClamp();
+    patchmap.viewport.top = 50;
+    patchmap._canvasBoundsController.applyViewportClamp();
 
-    const center = patchmap.viewport.toWorld(
-      patchmap.viewport.screenWidth / 2,
-      patchmap.viewport.screenHeight / 2,
-    );
-    expect(center.x).toBeCloseTo(160, 1);
-    expect(center.y).toBeCloseTo(90, 1);
+    const frame = getVisibleCanvasFrame(patchmap);
+    expect(frame.x).toBeLessThanOrEqual(100.01);
+    expect(frame.y).toBeLessThanOrEqual(50.01);
+    expect(frame.x + frame.width).toBeGreaterThanOrEqual(219.99);
+    expect(frame.y + frame.height).toBeGreaterThanOrEqual(129.99);
+    expect(frame.y).toBeCloseTo(50, 1);
   });
 
   it('keeps focus and fit inside finite canvas bounds', async () => {

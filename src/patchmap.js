@@ -65,6 +65,8 @@ class Patchmap extends WildcardEventEmitter {
   _world = null;
   _element = null;
   _viewTransform = this._createViewTransform();
+  _initPromise = null;
+  _destroyAfterInit = false;
   /** @type {import('./canvas-bounds/options').CanvasBounds | null} */
   _canvasBounds = null;
   /** @type {import('./canvas-bounds/controller').default | null} */
@@ -163,17 +165,30 @@ class Patchmap extends WildcardEventEmitter {
    * @param {PatchmapInitOptions} [opts]
    */
   async init(element, opts = {}) {
-    if (this.isInit) return;
+    if (this.isInit) return this._initPromise;
+    if (this._initPromise) return this._initPromise;
 
+    this._destroyAfterInit = false;
+    this._initPromise = this._init(element, opts).catch((error) => {
+      this._initPromise = null;
+      throw error;
+    });
+    return this._initPromise;
+  }
+
+  async _init(element, opts = {}) {
     const {
       app: appOptions = {},
       viewport: viewportOptions = {},
       theme: themeOptions = {},
       assets: assetsOptions = [],
-      canvas: canvasOptions = {},
+      canvas: canvasOptions,
       transformer,
     } = opts;
-    const canvasBounds = normalizeCanvasBounds(canvasOptions?.bounds);
+    const canvasBounds =
+      canvasOptions && Object.hasOwn(canvasOptions, 'bounds')
+        ? normalizeCanvasBounds(canvasOptions.bounds)
+        : this._canvasBounds;
 
     this._element = element;
     this.undoRedoManager._setHotkeys();
@@ -215,11 +230,26 @@ class Patchmap extends WildcardEventEmitter {
       this.transformer = transformer;
     }
     this.isInit = true;
+    this._initPromise = null;
+    if (this._destroyAfterInit) {
+      this._destroyAfterInit = false;
+      this.destroy();
+      return;
+    }
     this.emit('patchmap:initialized', { target: this });
   }
 
   destroy() {
-    if (!this.isInit) return;
+    if (!this.isInit) {
+      if (this._initPromise) {
+        this._destroyAfterInit = true;
+        for (const minimap of this._minimaps) {
+          minimap.destroy();
+        }
+        this._minimaps.clear();
+      }
+      return;
+    }
 
     for (const minimap of this._minimaps) {
       minimap.destroy();
@@ -227,14 +257,14 @@ class Patchmap extends WildcardEventEmitter {
     this._minimaps.clear();
     this.undoRedoManager.destroy();
     this.animationContext.revert();
-    this.stateManager.resetState();
-    this.stateManager.destroy();
+    this.stateManager?.resetState();
+    this.stateManager?.destroy();
     this._canvasBoundsController?.destroy();
     event.removeAllEvent(this.viewport);
     this.viewport.destroy({ children: true, context: true, style: true });
     const parentElement = this.app.canvas.parentElement;
     this.app.destroy(true);
-    parentElement.remove();
+    parentElement?.remove();
     if (this._resizeObserver) this._resizeObserver.disconnect();
 
     this._app = null;
@@ -249,6 +279,8 @@ class Patchmap extends WildcardEventEmitter {
     this._world = null;
     this._element = null;
     this._viewTransform = this._createViewTransform();
+    this._initPromise = null;
+    this._destroyAfterInit = false;
     this._canvasBounds = null;
     this._canvasBoundsController = null;
     this._minimaps = new Set();
@@ -342,6 +374,40 @@ class Patchmap extends WildcardEventEmitter {
     return result;
   }
 
+  /**
+   * @param {CanvasBoundsInput | null | undefined} bounds
+   * @returns {import('./canvas-bounds/options').CanvasBounds | null}
+   */
+  setCanvasBounds(bounds) {
+    const canvasBounds = normalizeCanvasBounds(bounds);
+    this._canvasBounds = canvasBounds;
+    this._syncCanvasBoundsToStore();
+
+    if (!this.isInit) {
+      return canvasBounds;
+    }
+
+    if (!canvasBounds) {
+      this._canvasBoundsController?.destroy();
+      this._canvasBoundsController = null;
+      this.viewport.forceHitArea = null;
+    } else if (this._canvasBoundsController) {
+      this._canvasBoundsController.setBounds(canvasBounds);
+    } else {
+      this._canvasBoundsController = new CanvasBoundsController({
+        viewport: this.viewport,
+        world: this.world,
+        bounds: canvasBounds,
+      });
+    }
+
+    this.emit('patchmap:canvas-bounds-changed', {
+      bounds: canvasBounds,
+      target: this,
+    });
+    return canvasBounds;
+  }
+
   get rotation() {
     return this._viewTransform.rotation;
   }
@@ -407,6 +473,17 @@ class Patchmap extends WildcardEventEmitter {
       store.canvasBounds = this._canvasBounds;
     }
     return store;
+  }
+
+  _syncCanvasBoundsToStore() {
+    const store = this.world?.store;
+    if (!store) return;
+
+    if (this._canvasBounds) {
+      store.canvasBounds = this._canvasBounds;
+    } else {
+      delete store.canvasBounds;
+    }
   }
 
   _emitViewportMoved(type) {

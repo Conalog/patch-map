@@ -92,13 +92,17 @@ describe('canvas bounds options', () => {
     expect(viewport.top).toBe(30);
   });
 
-  it('centers underflowing viewport axes on non-zero canvas bounds', () => {
+  it('keeps underflowing viewport axes within non-zero canvas bounds', () => {
     const viewport = {
       screenWidth: 800,
       screenHeight: 600,
       worldScreenWidth: 800,
       worldScreenHeight: 600,
       scale: { x: 1, y: 1 },
+      left: 150,
+      right: 950,
+      top: 100,
+      bottom: 700,
       x: 0,
       y: 0,
     };
@@ -111,7 +115,65 @@ describe('canvas bounds options', () => {
 
     clampViewportToCanvasBounds(viewport, bounds);
 
+    expect(viewport.left).toBe(100);
+    expect(viewport.top).toBe(50);
+  });
+
+  it('centers underflowing viewport axes when requested', () => {
+    const viewport = {
+      screenWidth: 800,
+      screenHeight: 600,
+      worldScreenWidth: 800,
+      worldScreenHeight: 600,
+      scale: { x: 1, y: 1 },
+      left: 0,
+      right: 800,
+      top: 0,
+      bottom: 600,
+      x: 0,
+      y: 0,
+    };
+    const bounds = normalizeCanvasBounds({
+      x: 100,
+      y: 50,
+      width: 120,
+      height: 80,
+    });
+
+    clampViewportToCanvasBounds(viewport, bounds, null, {
+      centerUnderflow: true,
+    });
+
     expect(viewport.x).toBe(240);
     expect(viewport.y).toBe(210);
+  });
+
+  it('preserves underflowing viewport axes when requested for pointer-anchored zoom', () => {
+    const viewport = {
+      screenWidth: 800,
+      screenHeight: 600,
+      worldScreenWidth: 800,
+      worldScreenHeight: 600,
+      scale: { x: 1, y: 1 },
+      left: 150,
+      right: 950,
+      top: 100,
+      bottom: 700,
+      x: 0,
+      y: 0,
+    };
+    const bounds = normalizeCanvasBounds({
+      x: 100,
+      y: 50,
+      width: 120,
+      height: 80,
+    });
+
+    clampViewportToCanvasBounds(viewport, bounds, null, {
+      preserveUnderflow: true,
+    });
+
+    expect(viewport.left).toBe(150);
+    expect(viewport.top).toBe(100);
   });
 });

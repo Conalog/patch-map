@@ -4,11 +4,19 @@ import { getFrameCorrection } from './restrict';
 
 const CLAMP_EPSILON = 0.0001;
 
-export const clampViewportToCanvasBounds = (viewport, bounds, world) => {
+export const clampViewportToCanvasBounds = (
+  viewport,
+  bounds,
+  world,
+  { centerUnderflow = false, preserveUnderflow = false } = {},
+) => {
   if (!viewport || !bounds) return;
 
   if (world) {
-    clampViewportToTransformedCanvasBounds(viewport, bounds, world);
+    clampViewportToTransformedCanvasBounds(viewport, bounds, world, {
+      centerUnderflow,
+      preserveUnderflow,
+    });
     return;
   }
 
@@ -20,9 +28,11 @@ export const clampViewportToCanvasBounds = (viewport, bounds, world) => {
     screenSize: viewport.screenWidth,
     worldScreenSize: viewport.worldScreenWidth,
     scale: viewport.scale?.x,
-    positionKey: 'x',
     minEdgeKey: 'left',
     maxEdgeKey: 'right',
+    positionKey: 'x',
+    centerUnderflow,
+    preserveUnderflow,
   });
   clampViewportAxis({
     viewport,
@@ -32,9 +42,11 @@ export const clampViewportToCanvasBounds = (viewport, bounds, world) => {
     screenSize: viewport.screenHeight,
     worldScreenSize: viewport.worldScreenHeight,
     scale: viewport.scale?.y,
-    positionKey: 'y',
     minEdgeKey: 'top',
     maxEdgeKey: 'bottom',
+    positionKey: 'y',
+    centerUnderflow,
+    preserveUnderflow,
   });
 };
 
@@ -46,9 +58,11 @@ const clampViewportAxis = ({
   screenSize,
   worldScreenSize,
   scale,
-  positionKey,
   minEdgeKey,
   maxEdgeKey,
+  positionKey,
+  centerUnderflow,
+  preserveUnderflow,
 }) => {
   const safeScale = Math.abs(scale || 1);
   const visibleSize = Number.isFinite(worldScreenSize)
@@ -56,22 +70,35 @@ const clampViewportAxis = ({
     : screenSize / safeScale;
 
   if (visibleSize >= size) {
-    const center = min + size / 2;
-    viewport[positionKey] = -center * safeScale + screenSize / 2;
-    return;
-  }
-
-  if (viewport[minEdgeKey] < min) {
+    if (centerUnderflow) {
+      const center = min + size / 2;
+      viewport[positionKey] = -center * safeScale + screenSize / 2;
+    } else if (preserveUnderflow) {
+      return;
+    } else if (viewport[minEdgeKey] > min) {
+      viewport[minEdgeKey] = min;
+    } else if (viewport[maxEdgeKey] < max) {
+      viewport[maxEdgeKey] = max;
+    }
+  } else if (viewport[minEdgeKey] < min) {
     viewport[minEdgeKey] = min;
   } else if (viewport[maxEdgeKey] > max) {
     viewport[maxEdgeKey] = max;
   }
 };
 
-const clampViewportToTransformedCanvasBounds = (viewport, bounds, world) => {
+const clampViewportToTransformedCanvasBounds = (
+  viewport,
+  bounds,
+  world,
+  { centerUnderflow = false, preserveUnderflow = false } = {},
+) => {
   for (let iteration = 0; iteration < 4; iteration += 1) {
     const frame = getVisibleCanvasFrame(viewport, world);
-    const correction = getFrameCorrection(frame, bounds);
+    const correction = getFrameCorrection(frame, bounds, {
+      centerUnderflow,
+      preserveUnderflow,
+    });
     if (
       Math.abs(correction.x) <= CLAMP_EPSILON &&
       Math.abs(correction.y) <= CLAMP_EPSILON

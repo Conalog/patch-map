@@ -29,11 +29,40 @@ describe('canvas bounds restriction', () => {
     ).toEqual({ x: -30, y: 30 });
   });
 
-  it('centers oversized frames that cannot fully fit inside canvas bounds', () => {
+  it('keeps oversized frames containing canvas bounds without forcing center alignment', () => {
     expect(
       getFrameCorrection(
         { x: 100, y: 100, width: 700, height: 500 },
         canvasBounds,
+      ),
+    ).toEqual({ x: -100, y: -90 });
+  });
+
+  it('does not move oversized frames that already contain canvas bounds', () => {
+    expect(
+      getFrameCorrection(
+        { x: -50, y: -20, width: 700, height: 500 },
+        canvasBounds,
+      ),
+    ).toEqual({ x: 0, y: 0 });
+  });
+
+  it('preserves oversized frames when requested for pointer-anchored zoom', () => {
+    expect(
+      getFrameCorrection(
+        { x: 100, y: 100, width: 700, height: 500 },
+        canvasBounds,
+        { preserveUnderflow: true },
+      ),
+    ).toEqual({ x: 0, y: 0 });
+  });
+
+  it('centers oversized frames when requested', () => {
+    expect(
+      getFrameCorrection(
+        { x: 100, y: 100, width: 700, height: 500 },
+        canvasBounds,
+        { centerUnderflow: true },
       ),
     ).toEqual({ x: -200, y: -190 });
   });

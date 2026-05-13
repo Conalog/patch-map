@@ -38,7 +38,11 @@ export const isViewportFrameInsideCanvasBounds = ({
   });
 };
 
-export const getFrameCorrection = (frame, canvasBounds) => {
+export const getFrameCorrection = (
+  frame,
+  canvasBounds,
+  { centerUnderflow = false, preserveUnderflow = false } = {},
+) => {
   if (!frame || !canvasBounds) return { x: 0, y: 0 };
   return {
     x: getAxisCorrection({
@@ -48,6 +52,8 @@ export const getFrameCorrection = (frame, canvasBounds) => {
       boundMin: canvasBounds.x,
       boundMax: canvasBounds.right,
       boundSize: canvasBounds.width,
+      centerUnderflow,
+      preserveUnderflow,
     }),
     y: getAxisCorrection({
       min: frame.y,
@@ -56,6 +62,8 @@ export const getFrameCorrection = (frame, canvasBounds) => {
       boundMin: canvasBounds.y,
       boundMax: canvasBounds.bottom,
       boundSize: canvasBounds.height,
+      centerUnderflow,
+      preserveUnderflow,
     }),
   };
 };
@@ -93,9 +101,17 @@ const getAxisCorrection = ({
   boundMin,
   boundMax,
   boundSize,
+  centerUnderflow,
+  preserveUnderflow,
 }) => {
   if (size > boundSize) {
-    return boundMin + boundSize / 2 - (min + size / 2);
+    if (centerUnderflow) {
+      return boundMin + boundSize / 2 - (min + size / 2);
+    }
+    if (preserveUnderflow) return 0;
+    if (min > boundMin) return boundMin - min;
+    if (max < boundMax) return boundMax - max;
+    return 0;
   }
   if (min < boundMin) return boundMin - min;
   if (max > boundMax) return boundMax - max;
