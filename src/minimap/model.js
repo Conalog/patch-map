@@ -115,56 +115,65 @@ const getGridCellCanvasPaths = (grid, world) => {
   const size = normalizeSize(grid.props?.item?.size);
   if (!size) return [];
 
-  const rows = cells.length;
-  let cols = 0;
-  for (const row of cells) {
-    cols = Math.max(cols, row?.length ?? 0);
-  }
-  if (!rows || !cols) return [];
-
   const gap = normalizeGap(grid.props?.gap);
-  const xEdges = createGridAxisEdges(cols, size.width, gap.x);
-  const yEdges = createGridAxisEdges(rows, size.height, gap.y);
-  const active = (row, col) => Boolean(cells[row]?.[col]);
+  const { rows, cols, activeCells, activeSet } = analyzeGridCells(cells);
+  if (!rows || !cols || activeCells.length === 0) return [];
+
+  const active = (row, col) => activeSet.has(cellKey(row, col));
   const toCanvasPoint = createGridLocalToCanvasPoint(grid, world);
 
-  if (isFullyActiveGrid({ rows, cols, active })) {
+  if (activeCells.length === rows * cols) {
     return [
       [
-        toCanvasPoint(xEdges[0], yEdges[0]),
-        toCanvasPoint(xEdges[cols], yEdges[0]),
-        toCanvasPoint(xEdges[cols], yEdges[rows]),
-        toCanvasPoint(xEdges[0], yEdges[rows]),
+        toGridCanvasPoint({ x: 0, y: 0 }),
+        toGridCanvasPoint({ x: cols, y: 0 }),
+        toGridCanvasPoint({ x: cols, y: rows }),
+        toGridCanvasPoint({ x: 0, y: rows }),
       ],
     ];
   }
 
-  const loops = traceActiveCellBoundaryLoops({ rows, cols, active });
+  const loops = traceActiveCellBoundaryLoops({ activeCells, active });
   return loops.map((loop) =>
-    simplifyCollinearPoints(
-      loop.map((point) => toCanvasPoint(xEdges[point.x], yEdges[point.y])),
-    ),
+    simplifyCollinearPoints(loop.map((point) => toGridCanvasPoint(point))),
   );
+
+  function toGridCanvasPoint(point) {
+    return toCanvasPoint(
+      getGridAxisEdge(point.x, cols, size.width, gap.x),
+      getGridAxisEdge(point.y, rows, size.height, gap.y),
+    );
+  }
 };
 
-const isFullyActiveGrid = ({ rows, cols, active }) => {
+const analyzeGridCells = (cells) => {
+  const rows = cells.length;
+  let cols = 0;
+  const activeCells = [];
+  const activeSet = new Set();
+
   for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      if (!active(row, col)) return false;
+    const cellRow = Array.isArray(cells[row]) ? cells[row] : [];
+    cols = Math.max(cols, cellRow.length);
+    for (let col = 0; col < cellRow.length; col += 1) {
+      if (!cellRow[col]) continue;
+      activeCells.push({ row, col });
+      activeSet.add(cellKey(row, col));
     }
   }
-  return true;
+
+  return { rows, cols, activeCells, activeSet };
 };
 
-const createGridAxisEdges = (count, size, gap) => {
+const cellKey = (row, col) => `${row},${col}`;
+
+const getGridAxisEdge = (index, count, size, gap) => {
   const step = size + gap;
-  return Array.from({ length: count + 1 }, (_, index) => {
-    if (index === count) return Math.max(count * size + (count - 1) * gap, 0);
-    return index * step;
-  });
+  if (index === count) return Math.max(count * size + (count - 1) * gap, 0);
+  return index * step;
 };
 
-const traceActiveCellBoundaryLoops = ({ rows, cols, active }) => {
+const traceActiveCellBoundaryLoops = ({ activeCells, active }) => {
   const edges = [];
   const edgesByStart = new Map();
   const pushEdge = (startX, startY, endX, endY) => {
@@ -176,21 +185,18 @@ const traceActiveCellBoundaryLoops = ({ rows, cols, active }) => {
     edgesByStart.set(key, list);
   };
 
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      if (!active(row, col)) continue;
-      if (!active(row - 1, col)) {
-        pushEdge(col, row, col + 1, row);
-      }
-      if (!active(row, col + 1)) {
-        pushEdge(col + 1, row, col + 1, row + 1);
-      }
-      if (!active(row + 1, col)) {
-        pushEdge(col + 1, row + 1, col, row + 1);
-      }
-      if (!active(row, col - 1)) {
-        pushEdge(col, row + 1, col, row);
-      }
+  for (const { row, col } of activeCells) {
+    if (!active(row - 1, col)) {
+      pushEdge(col, row, col + 1, row);
+    }
+    if (!active(row, col + 1)) {
+      pushEdge(col + 1, row, col + 1, row + 1);
+    }
+    if (!active(row + 1, col)) {
+      pushEdge(col + 1, row + 1, col, row + 1);
+    }
+    if (!active(row, col - 1)) {
+      pushEdge(col, row + 1, col, row);
     }
   }
 
@@ -339,16 +345,18 @@ const normalizeGap = (gap) => {
 };
 
 const getViewportPolygon = ({ patchmap, canvasBounds, scale, origin }) => {
-  const app = patchmap?.app;
   const viewport = patchmap?.viewport;
   const world = patchmap?.world;
-  if (!app || !viewport || !world) return [];
+  const screen = patchmap?.app?.renderer?.screen;
+  const screenWidth = viewport?.screenWidth ?? screen?.width;
+  const screenHeight = viewport?.screenHeight ?? screen?.height;
+  if (!viewport || !world || !screenWidth || !screenHeight) return [];
 
   return [
     new Point(0, 0),
-    new Point(app.screen.width, 0),
-    new Point(app.screen.width, app.screen.height),
-    new Point(0, app.screen.height),
+    new Point(screenWidth, 0),
+    new Point(screenWidth, screenHeight),
+    new Point(0, screenHeight),
   ].map((point) =>
     projectPoint(
       screenPointToCanvasPoint({ world, point }),
