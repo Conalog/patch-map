@@ -28,6 +28,8 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js
   - [asset](#asset)
   - [focus(ids, opts)](#focusids-opts)
   - [fit(ids, options)](#fitids-options)
+  - [setCanvasBounds(bounds)](#setcanvasboundsbounds)
+  - [createMinimap(containerOrOptions, options)](#createminimapcontaineroroptions-options)
   - [rotation](#rotation)
   - [flip](#flip)
   - [selector(path)](#selectorpath)
@@ -190,10 +192,31 @@ await patchmap.init(el, {
   const minimap = patchmap.createMinimap(document.querySelector('#minimap'), {
     width: 180,
     height: 120,
+    position: 'bottom-right',
+    style: {
+      canvasFill: '#ffffff',
+      canvasStroke: '#d4d4d8',
+      objectFill: '#94a3b8',
+      viewportFill: 'rgba(12, 115, 191, 0.08)',
+      viewportStroke: '#0c73bf',
+      viewportStrokeWidth: 2,
+    },
   });
 
   minimap.destroy();
   ```
+
+  기본적으로 `createMinimap(options)`는 `init(el)`에 전달한 element 내부에
+  미니맵 컨테이너를 직접 생성합니다. 직접 관리하는 컨테이너를 쓰려면
+  `createMinimap(container, options)`를 사용하세요.
+
+  미니맵 `position`은 `top-left`, `top-right`, `bottom-left`, `bottom-right`
+  중 하나입니다. 기본값은 `bottom-right`입니다.
+
+  미니맵은 `item`, `grid`, `rect` element를 표시합니다. 가독성과 성능을
+  위해 `image`, `text`, `relations`, `group`은 표시하지 않습니다. 렌더 순서는
+  캔버스 z-order를 따르므로 객체가 겹칠 때도 메인 캔버스의 쌓임 순서와
+  일치합니다.
 
 - `theme`  
   Default:
@@ -501,6 +524,66 @@ patchmap.fit(['item-1', 'item-2'], {
   padding: { y: 10, x: 5 },
 })
 ```
+
+<br/>
+
+### `setCanvasBounds(bounds)`
+런타임에 유한 캔버스 영역을 갱신합니다. `null`을 전달하면 다시 무한 캔버스
+동작으로 돌아가고 활성 bounds가 제거됩니다.
+
+```js
+patchmap.setCanvasBounds({ x: -500, y: -300, width: 5000, height: 3000 });
+patchmap.setCanvasBounds(null);
+```
+
+bounds가 변경되면 PATCH MAP은 `patchmap:canvas-bounds-changed` 이벤트를
+발생시킵니다.
+
+<br/>
+
+### `createMinimap(containerOrOptions, options)`
+현재 유한 캔버스를 기준으로 미니맵을 생성합니다. 미니맵을 만들기 전에
+`canvas.bounds`가 설정되어 있어야 합니다.
+
+```js
+const minimap = patchmap.createMinimap({
+  width: 240,
+  height: 144,
+  position: 'bottom-right',
+  positionOffset: 16,
+  opacity: 0.92,
+  style: {
+    canvasFill: '#ffffff',
+    canvasStroke: '#d4d4d8',
+    objectFill: '#94a3b8',
+    viewportFill: 'rgba(12, 115, 191, 0.08)',
+    viewportStroke: '#0c73bf',
+    viewportStrokeWidth: 2,
+  },
+});
+```
+
+`createMinimap(options)`를 호출하면 `init(el)`에 전달한 element 내부에
+미니맵 컨테이너가 생성됩니다. 해당 root element가 static position이면
+미니맵이 mount되어 있는 동안 PATCH MAP이 임시로 `position: relative`를
+적용합니다. 컨테이너를 직접 관리하려면 `createMinimap(container, options)`를
+사용하세요.
+
+지원 옵션:
+
+- `width` / `height`: CSS pixel 기준 미니맵 canvas 크기입니다. 기본값은 `180 x 120`입니다.
+- `opacity`: 미니맵 canvas 투명도입니다. 기본값은 `0.92`입니다.
+- `position`: `top-left`, `top-right`, `bottom-left`, `bottom-right` 중 하나입니다.
+  기본값은 `bottom-right`입니다.
+- `positionOffset`: 선택한 모서리로부터의 거리입니다. 기본값은 `16`입니다.
+- `style.canvasFill`, `style.canvasStroke`: 유한 캔버스 영역의 fill과 stroke입니다.
+- `style.objectFill`: `item`, `grid`, 대부분의 `rect` silhouette에 쓰는 fill입니다.
+  standalone `rect`는 이 옵션을 명시적으로 덮어쓰지 않으면 더 밝은 기본 fill을 사용합니다.
+- `style.viewportFill`, `style.viewportStroke`, `style.viewportStrokeWidth`:
+  viewport 표시 영역의 스타일입니다.
+
+반환된 minimap 객체는 `destroy()`를 제공하며, 미니맵을 소유한 UI가 제거될 때
+함께 destroy해야 합니다.
 
 <br/>
 
@@ -827,6 +910,7 @@ undoRedoManager.redo();
   * `patchmap:initialized`: `patchmap.init()`이 성공적으로 완료되었을 때 발생합니다.
   * `patchmap:draw`: `patchmap.draw()`를 통해 새로운 데이터가 렌더링되었을 때 발생합니다.
   * `patchmap:updated`: `patchmap.update()`를 통해 요소가 업데이트되었을 때 발생합니다.
+  * `patchmap:canvas-bounds-changed`: `patchmap.setCanvasBounds()`로 유한 캔버스 bounds가 변경되었을 때 발생합니다.
   * `patchmap:destroyed`: `patchmap.destroy()`가 호출되어 인스턴스가 파괴될 때 발생합니다.
 
 #### `UndoRedoManager`

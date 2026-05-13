@@ -27,6 +27,8 @@ Therefore, to use this, an understanding of the following two libraries is essen
   - [asset](#asset)
   - [focus(ids, opts)](#focusids-opts)
   - [fit(ids, options)](#fitids-options)
+  - [setCanvasBounds(bounds)](#setcanvasboundsbounds)
+  - [createMinimap(containerOrOptions, options)](#createminimapcontaineroroptions-options)
   - [rotation](#rotation)
   - [flip](#flip)
   - [selector(path)](#selectorpath)
@@ -202,6 +204,11 @@ Customize the rendering behavior using the following options:
 
   Minimap `position` accepts `top-left`, `top-right`, `bottom-left`, or
   `bottom-right`. The default is `bottom-right`.
+
+  The minimap renders `item`, `grid`, and `rect` elements. `image`, `text`,
+  `relations`, and `group` elements are omitted so the minimap stays readable
+  and lightweight. Render order follows the canvas z-order, so overlapping
+  minimap silhouettes match the main canvas stacking order.
 
 - `theme` - Theme options  
   Default:
@@ -511,6 +518,66 @@ patchmap.fit(['item-1', 'item-2'], {
   padding: { y: 10, x: 5 },
 })
 ```
+
+<br/>
+
+### `setCanvasBounds(bounds)`
+Updates the finite canvas bounds at runtime. Pass `null` to return to infinite
+canvas behavior and clear the active bounds.
+
+```js
+patchmap.setCanvasBounds({ x: -500, y: -300, width: 5000, height: 3000 });
+patchmap.setCanvasBounds(null);
+```
+
+When bounds are changed, PATCH MAP emits `patchmap:canvas-bounds-changed`.
+
+<br/>
+
+### `createMinimap(containerOrOptions, options)`
+Creates a minimap for the current finite canvas. `canvas.bounds` must be set
+before creating a minimap.
+
+```js
+const minimap = patchmap.createMinimap({
+  width: 240,
+  height: 144,
+  position: 'bottom-right',
+  positionOffset: 16,
+  opacity: 0.92,
+  style: {
+    canvasFill: '#ffffff',
+    canvasStroke: '#d4d4d8',
+    objectFill: '#94a3b8',
+    viewportFill: 'rgba(12, 115, 191, 0.08)',
+    viewportStroke: '#0c73bf',
+    viewportStrokeWidth: 2,
+  },
+});
+```
+
+Calling `createMinimap(options)` creates a minimap container inside the element
+passed to `init(el)`. If that root element is statically positioned, PATCH MAP
+temporarily sets it to `position: relative` while the auto-created minimap is
+mounted. Use `createMinimap(container, options)` when you want to own the
+container yourself.
+
+Supported options:
+
+- `width` / `height`: minimap canvas size in CSS pixels. Defaults to `180 x 120`.
+- `opacity`: minimap canvas opacity. Default is `0.92`.
+- `position`: `top-left`, `top-right`, `bottom-left`, or `bottom-right`.
+  Default is `bottom-right`.
+- `positionOffset`: distance from the selected corner. Default is `16`.
+- `style.canvasFill`, `style.canvasStroke`: finite canvas fill and stroke.
+- `style.objectFill`: fill used for `item`, `grid`, and most `rect`
+  silhouettes. Standalone `rect` uses a lighter default fill unless this option
+  is explicitly overridden.
+- `style.viewportFill`, `style.viewportStroke`, `style.viewportStrokeWidth`:
+  viewport indicator style.
+
+The returned minimap object has `destroy()` and should be destroyed when the UI
+that owns it is removed.
 
 <br/>
 
@@ -834,6 +901,7 @@ This is the list of events that can be subscribed to with this update. You can s
   * `patchmap:initialized`: Fired when `patchmap.init()` completes successfully.
   * `patchmap:draw`: Fired when new data is rendered via `patchmap.draw()`.
   * `patchmap:updated`: Fired when elements are updated via `patchmap.update()`.
+  * `patchmap:canvas-bounds-changed`: Fired when finite canvas bounds are changed via `patchmap.setCanvasBounds()`.
   * `patchmap:destroyed`: Fired when the instance is destroyed by calling `patchmap.destroy()`.
 
 #### `UndoRedoManager`
