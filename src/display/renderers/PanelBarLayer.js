@@ -36,6 +36,7 @@ export class PanelBarLayer extends ParticleContainer {
     this._entries = new WeakMap();
     this._activeAnimations = new Set();
     this._animationFrame = null;
+    this._needsParticleChildrenUpdate = false;
   }
 
   canRender(bar) {
@@ -135,7 +136,7 @@ export class PanelBarLayer extends ParticleContainer {
     entry.layout = layout;
     entry.particles = particles;
     entry.particle = particles[0] ?? null;
-    this.update();
+    this._needsParticleChildrenUpdate = true;
   }
 
   _removeEntryParticles(entry) {
@@ -147,6 +148,13 @@ export class PanelBarLayer extends ParticleContainer {
         this.particleChildren.splice(index, 1);
       }
     }
+    this._needsParticleChildrenUpdate = true;
+  }
+
+  flushParticleChildrenUpdate() {
+    if (!this._needsParticleChildrenUpdate) return;
+    this._needsParticleChildrenUpdate = false;
+    this.update();
   }
 
   _applyAppearance(entry, { alpha, tint }) {
@@ -168,7 +176,7 @@ export class PanelBarLayer extends ParticleContainer {
 
     entry.animation = {
       texture,
-      from: fromState,
+      from: cloneState(fromState),
       to: nextState,
       durationMs,
       startedAt: now(),
@@ -185,11 +193,42 @@ export class PanelBarLayer extends ParticleContainer {
   }
 
   _applyState(entry, texture, state, rotation = state.rotation) {
-    const normalizedState = normalizeState(state, rotation);
+    this._applyStateValues(
+      entry,
+      texture,
+      state.x,
+      state.y,
+      state.width ?? state.w,
+      state.height ?? state.h,
+      rotation ?? 0,
+    );
+  }
+
+  _applyInterpolatedState(entry, animation, progress) {
+    const from = animation.from;
+    const to = animation.to;
+    this._applyStateValues(
+      entry,
+      animation.texture,
+      lerp(from.x, to.x, progress),
+      lerp(from.y, to.y, progress),
+      lerp(from.width, to.width, progress),
+      lerp(from.height, to.height, progress),
+      to.rotation,
+    );
+  }
+
+  _applyStateValues(entry, texture, x, y, width, height, rotation) {
     const layout = entry.layout ?? getNineSliceLayout(texture);
-    const targetSlices = resolveTargetSlices(layout, normalizedState);
-    const cos = Math.cos(normalizedState.rotation);
-    const sin = Math.sin(normalizedState.rotation);
+    if (layout.borderless) {
+      this._applyBorderlessState(entry, layout, x, y, width, height, rotation);
+      return;
+    }
+
+    const state = updateEntryState(entry, x, y, width, height, rotation);
+    const targetSlices = resolveTargetSlices(layout, state);
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
 
     for (let index = 0; index < entry.particles.length; index += 1) {
       const particle = entry.particles[index];
@@ -206,16 +245,116 @@ export class PanelBarLayer extends ParticleContainer {
         continue;
       }
 
-      particle.x = normalizedState.x + target.x * cos - target.y * sin;
-      particle.y = normalizedState.y + target.x * sin + target.y * cos;
+      particle.x = x + target.x * cos - target.y * sin;
+      particle.y = y + target.x * sin + target.y * cos;
       particle.scaleX = target.width / piece.width;
       particle.scaleY = target.height / piece.height;
-      particle.rotation = normalizedState.rotation;
+      particle.rotation = rotation;
       if (entry.alpha !== undefined && particle.alpha !== entry.alpha) {
         particle.alpha = entry.alpha;
       }
     }
-    entry.state = normalizedState;
+  }
+
+  _applyBorderlessState(entry, layout, x, y, width, height, rotation) {
+    updateEntryState(entry, x, y, width, height, rotation);
+    const borderScale = resolveBorderScaleForSize(layout, width, height);
+    const left = layout.slice.leftWidth * borderScale;
+    const right = layout.slice.rightWidth * borderScale;
+    const top = layout.slice.topHeight * borderScale;
+    const bottom = layout.slice.bottomHeight * borderScale;
+    const centerWidth = Math.max(0, width - left - right);
+    const centerHeight = Math.max(0, height - top - bottom);
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
+    const alpha = entry.alpha;
+    const particles = entry.particles;
+    const pieces = layout.pieces;
+
+    applyParticleState(
+      particles[0],
+      pieces[0],
+      0,
+      0,
+      left,
+      top,
+      x,
+      y,
+      cos,
+      sin,
+      rotation,
+      alpha,
+    );
+    applyParticleState(
+      particles[1],
+      pieces[1],
+      width - right,
+      0,
+      right,
+      top,
+      x,
+      y,
+      cos,
+      sin,
+      rotation,
+      alpha,
+    );
+    applyParticleState(
+      particles[2],
+      pieces[2],
+      0,
+      height - bottom,
+      left,
+      bottom,
+      x,
+      y,
+      cos,
+      sin,
+      rotation,
+      alpha,
+    );
+    applyParticleState(
+      particles[3],
+      pieces[3],
+      width - right,
+      height - bottom,
+      right,
+      bottom,
+      x,
+      y,
+      cos,
+      sin,
+      rotation,
+      alpha,
+    );
+    applyParticleState(
+      particles[4],
+      pieces[4],
+      0,
+      top,
+      width,
+      centerHeight,
+      x,
+      y,
+      cos,
+      sin,
+      rotation,
+      alpha,
+    );
+    applyParticleState(
+      particles[5],
+      pieces[5],
+      left,
+      0,
+      centerWidth,
+      height,
+      x,
+      y,
+      cos,
+      sin,
+      rotation,
+      alpha,
+    );
   }
 
   _resolveState(bar) {
@@ -276,15 +415,7 @@ export class PanelBarLayer extends ParticleContainer {
       const progress = clamp01(
         (time - animation.startedAt) / animation.durationMs,
       );
-      this._applyState(
-        entry,
-        animation.texture,
-        interpolateState(
-          animation.from,
-          animation.to,
-          easePower2InOut(progress),
-        ),
-      );
+      this._applyInterpolatedState(entry, animation, easePower2InOut(progress));
       if (progress >= 1) {
         entry.animation = null;
         this._activeAnimations.delete(entry);
@@ -603,10 +734,13 @@ const resolveBorderlessTargetSlices = (layout, state) => {
 };
 
 const resolveBorderScale = (layout, state) =>
+  resolveBorderScaleForSize(layout, state.width, state.height);
+
+const resolveBorderScaleForSize = (layout, width, height) =>
   Math.min(
     1,
-    safeScale(state.width, layout.slice.leftWidth + layout.slice.rightWidth),
-    safeScale(state.height, layout.slice.topHeight + layout.slice.bottomHeight),
+    safeScale(width, layout.slice.leftWidth + layout.slice.rightWidth),
+    safeScale(height, layout.slice.topHeight + layout.slice.bottomHeight),
   );
 
 const safeScale = (size, borderSize) => {
@@ -614,13 +748,53 @@ const safeScale = (size, borderSize) => {
   return Math.max(0, size / borderSize);
 };
 
-const normalizeState = (state, rotation) => ({
+const updateEntryState = (entry, x, y, width, height, rotation) => {
+  const state = entry.state ?? {};
+  state.x = x;
+  state.y = y;
+  state.width = width;
+  state.height = height;
+  state.rotation = rotation;
+  entry.state = state;
+  return state;
+};
+
+const cloneState = (state) => ({
   x: state.x,
   y: state.y,
-  width: state.width ?? state.w,
-  height: state.height ?? state.h,
-  rotation: rotation ?? 0,
+  width: state.width,
+  height: state.height,
+  rotation: state.rotation,
 });
+
+const applyParticleState = (
+  particle,
+  piece,
+  localX,
+  localY,
+  width,
+  height,
+  x,
+  y,
+  cos,
+  sin,
+  rotation,
+  alpha,
+) => {
+  if (!particle || !piece || width <= 0 || height <= 0) {
+    if (particle) particle.alpha = 0;
+    return;
+  }
+
+  particle.x = x + localX * cos - localY * sin;
+  particle.y = y + localX * sin + localY * cos;
+  particle.scaleX = width / piece.width;
+  particle.scaleY = height / piece.height;
+  particle.rotation = rotation;
+  if (alpha !== undefined && particle.alpha !== alpha) {
+    particle.alpha = alpha;
+  }
+};
 
 const requestFrame = (callback) => {
   if (typeof requestAnimationFrame === 'function') {
@@ -641,14 +815,6 @@ const clamp01 = (value) => (value < 0 ? 0 : value > 1 ? 1 : value);
 
 const easePower2InOut = (progress) =>
   progress < 0.5 ? 2 * progress * progress : 1 - (-2 * progress + 2) ** 2 / 2;
-
-const interpolateState = (from, to, progress) => ({
-  x: lerp(from.x, to.x, progress),
-  y: lerp(from.y, to.y, progress),
-  width: lerp(from.width, to.width, progress),
-  height: lerp(from.height, to.height, progress),
-  rotation: to.rotation,
-});
 
 const lerp = (from, to, progress) => from + (to - from) * progress;
 

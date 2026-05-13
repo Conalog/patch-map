@@ -105,6 +105,11 @@ const emitPointer = (viewport, type, position, extras = {}) => {
 const getComponent = (item, type) =>
   item.children.find((child) => child.type === type);
 
+const getAggregateEntry = (item) => {
+  const bar = getComponent(item, 'bar');
+  return bar ? item.store?.panelBarLayer?._entries?.get(bar) : null;
+};
+
 describe('patch-service plant map contract', () => {
   const { getPatchmap } = setupPatchmapTests();
 
@@ -214,9 +219,158 @@ describe('patch-service plant map contract', () => {
         unit: '%',
       });
       expect(bar.props.animation).toBe(true);
+      expect(bar.renderable).toBe(false);
+      expect(getAggregateEntry(item)?.particle.alpha).toBeGreaterThan(0);
       expect(icon?.renderable ?? false).toBe(false);
       expect(text?.renderable ?? false).toBe(false);
     }
+  });
+
+  it('uses aggregate bars when the final panel state only shows a rect bar', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(plantMapData);
+    await waitForScene();
+
+    const [item] = patchmap.selector(PANEL_ITEM_PATH);
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            show: true,
+            size: { height: '64%' },
+            tint: '#2563eb',
+            animation: false,
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    await waitForScene();
+
+    const bar = getComponent(item, 'bar');
+    expect(bar.renderable).toBe(false);
+    expect(bar.props.size.height).toMatchObject({ value: 64, unit: '%' });
+    expect(getAggregateEntry(item)?.particle.alpha).toBeGreaterThan(0);
+  });
+
+  it('batches aggregate particle updates while materializing panel bars', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(plantMapData);
+    await waitForScene();
+
+    const panelItems = patchmap.selector(PANEL_ITEM_PATH);
+    for (const item of panelItems) {
+      patchmap.update({
+        elements: item,
+        changes: {
+          components: [
+            {
+              type: 'bar',
+              show: true,
+              size: { height: '64%' },
+              tint: '#2563eb',
+              animation: false,
+            },
+          ],
+        },
+        validateSchema: false,
+        emit: false,
+      });
+    }
+
+    const layer = panelItems[0]._panelBarComponent.store.panelBarLayer;
+    const originalUpdate = layer.update.bind(layer);
+    let updateCount = 0;
+    layer.update = (...args) => {
+      updateCount += 1;
+      return originalUpdate(...args);
+    };
+
+    await waitForScene();
+
+    expect(updateCount).toBeLessThan(panelItems.length);
+    expect(panelItems.every((item) => getAggregateEntry(item))).toBe(true);
+  });
+
+  it('keeps aggregate bars when background and bar update together in a bar-only state', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(plantMapData);
+    await waitForScene();
+
+    const [item] = patchmap.selector(PANEL_ITEM_PATH);
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'background',
+            size: '100%',
+            source: { type: 'rect', fill: '#f1f5f9', radius: 4 },
+          },
+          {
+            type: 'bar',
+            show: true,
+            size: { height: '72%' },
+            tint: '#0C73BF',
+            animation: false,
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    await waitForScene();
+
+    const background = getComponent(item, 'background');
+    const bar = getComponent(item, 'bar');
+    expect(background.props.source.fill).toBe('#f1f5f9');
+    expect(bar.renderable).toBe(false);
+    expect(getAggregateEntry(item)?.particle.alpha).toBeGreaterThan(0);
+  });
+
+  it('falls back to the normal bar when an icon becomes visible', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(plantMapData);
+    await waitForScene();
+
+    const [item] = patchmap.selector(PANEL_ITEM_PATH);
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          { type: 'bar', show: true, size: '100%', animation: false },
+          { type: 'icon', show: false },
+          { type: 'text', show: false },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    await waitForScene();
+    expect(getComponent(item, 'bar').renderable).toBe(false);
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          { type: 'bar', show: true, size: '100%', animation: false },
+          { type: 'icon', show: true, source: 'warning', tint: 'white' },
+          { type: 'text', show: false },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    await waitForScene();
+
+    const bar = getComponent(item, 'bar');
+    const icon = getComponent(item, 'icon');
+    expect(bar.renderable).toBe(true);
+    expect(icon.renderable).toBe(true);
+    expect(getAggregateEntry(item)?.particle.alpha).toBe(0);
   });
 
   it('supports report-style panel background and relations path updates', async () => {

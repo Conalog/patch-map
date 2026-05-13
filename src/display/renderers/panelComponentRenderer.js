@@ -20,15 +20,22 @@ export const tryApplyPanelComponentChanges = (
 ) => {
   if (!canUsePanelRenderer(item, componentChanges, options)) return false;
   if (tryApplyPanelBarStateChange(item, componentChanges, options)) return true;
-  if (hasDuplicateUnkeyedTypes(componentChanges)) return false;
+  if (hasDuplicateUnkeyedTypes(componentChanges)) {
+    restorePanelBarFallback(item);
+    return false;
+  }
 
   const jobs = [];
   for (const change of componentChanges) {
-    if (!SUPPORTED_TYPES.has(change?.type)) return false;
+    if (!SUPPORTED_TYPES.has(change?.type)) {
+      restorePanelBarFallback(item);
+      return false;
+    }
 
     const component = findPanelComponent(item, change);
     if (!component) {
       if (change.show === false) continue;
+      restorePanelBarFallback(item);
       return false;
     }
 
@@ -37,8 +44,22 @@ export const tryApplyPanelComponentChanges = (
     }
   }
 
+  let barChange = null;
+  let shouldReconcileBar = false;
   for (const { component, change } of jobs) {
-    applyPanelComponentChange(item, component, change, options);
+    const isBar = component.type === 'bar';
+    applyPanelComponentChange(item, component, change, options, {
+      deferBarVisual: isBar,
+    });
+    if (isBar) {
+      barChange = mergeQueuedChange(barChange ?? {}, change);
+    }
+    shouldReconcileBar ||=
+      isBar || component.type === 'icon' || component.type === 'text';
+  }
+
+  if (shouldReconcileBar) {
+    reconcilePanelBarVisual(item, barChange, options);
   }
   return true;
 };
@@ -229,16 +250,32 @@ const findPanelComponent = (item, change) => {
   return getPanelComponentByType(item, change.type);
 };
 
+const getSinglePanelBarComponent = (item) => {
+  let bar = null;
+  for (const child of item.children ?? []) {
+    if (child?.type !== 'bar' || child.destroyed) continue;
+    if (bar) return null;
+    bar = child;
+  }
+  return bar;
+};
+
 const canUsePanelRenderer = (item, componentChanges, options) =>
   item?.type === 'item' &&
   options.validateSchema === false &&
   options.mergeStrategy !== 'replace' &&
   Array.isArray(componentChanges);
 
-const applyPanelComponentChange = (item, component, change, options) => {
+const applyPanelComponentChange = (
+  item,
+  component,
+  change,
+  options,
+  { deferBarVisual = false } = {},
+) => {
   if (isNoopHiddenChange(component, change)) return;
 
-  if (component.type === 'bar') {
+  if (component.type === 'bar' && !deferBarVisual) {
     hideAggregatedBar(component);
   }
 
@@ -250,6 +287,10 @@ const applyPanelComponentChange = (item, component, change, options) => {
   }
   if (Object.hasOwn(change, 'tint')) {
     component.tint = getColor(component.store.theme, component.props.tint);
+  }
+
+  if (component.type === 'bar' && deferBarVisual) {
+    return;
   }
 
   if (needsDeferredVisualWork(component, change)) {
@@ -275,6 +316,47 @@ const applyPanelComponentChange = (item, component, change, options) => {
     });
   }
 };
+
+const reconcilePanelBarVisual = (item, change, options) => {
+  const bar = getSinglePanelBarComponent(item);
+  if (!bar) return;
+
+  if (canUseAggregateBar(item, bar)) {
+    markPanelBarVisualDirty(bar, change ?? {}, options);
+    return;
+  }
+
+  hideAggregatedBar(bar);
+  if (change && Object.keys(change).length > 0) {
+    applyDeferredVisualChange(bar, change, options);
+  } else {
+    bar.renderable = bar.props?.show !== false;
+  }
+};
+
+const canUseAggregateBar = (item, bar) => {
+  if (!bar || bar.props?.show === false) return false;
+  if (isVisiblePanelComponent(item._panelIconComponent)) return false;
+  if (isVisiblePanelComponent(item._panelTextComponent)) return false;
+  if (hasUnsafeAggregateEffects(item) || hasUnsafeAggregateEffects(bar)) {
+    return false;
+  }
+
+  const layer = ensurePanelBarLayer(bar.store);
+  return Boolean(layer?.canRender(bar));
+};
+
+const isVisiblePanelComponent = (component) =>
+  Boolean(component && !component.destroyed && component.props?.show !== false);
+
+const hasUnsafeAggregateEffects = (component) =>
+  Boolean(
+    component?.mask ||
+      component?.filters?.length ||
+      (component?.blendMode &&
+        component.blendMode !== 'normal' &&
+        component.blendMode !== 'inherit'),
+  );
 
 const enqueueVisualChange = (
   component,
@@ -319,15 +401,28 @@ const markPanelBarVisualDirty = (component, change, options) => {
     layer = ensurePanelBarLayer(component.store);
     component._patchmapUseAggregateBar = Boolean(layer?.canRender(component));
   }
-  if (component._patchmapPanelBarDirty) {
-    mergeQueuedChange(component._patchmapQueuedVisualChange, change);
-  } else {
-    component._patchmapPanelBarDirty = true;
-    component._patchmapQueuedVisualChange = change;
-    queue.dirtyPanelBars.push(component);
-  }
+  enqueueDirtyPanelBar(queue, component, change);
   component._patchmapQueuedVisualOptions = options;
   scheduleFlush(queue);
+};
+
+const enqueueDirtyPanelBar = (queue, component, change) => {
+  if (component._patchmapPanelBarDirty) {
+    mergeQueuedChange(component._patchmapQueuedVisualChange, change);
+    return;
+  }
+
+  component._patchmapPanelBarDirty = true;
+  component._patchmapQueuedVisualChange = change;
+  if (queue.flushingDirtyPanelBars) {
+    if (!queue.nextDirtyPanelBarSet.has(component)) {
+      queue.nextDirtyPanelBarSet.add(component);
+      queue.nextDirtyPanelBars.push(component);
+    }
+    return;
+  }
+
+  queue.dirtyPanelBars.push(component);
 };
 
 const ensureVisualQueue = (store) => {
@@ -341,6 +436,9 @@ const ensureVisualQueue = (store) => {
       scheduled: false,
       dirtyPanelBars: [],
       dirtyPanelBarIndex: 0,
+      flushingDirtyPanelBars: false,
+      nextDirtyPanelBars: [],
+      nextDirtyPanelBarSet: new Set(),
     };
     QUEUE_BY_STORE.set(store, queue);
   }
@@ -388,6 +486,8 @@ const flushVisualQueue = (queue) => {
 const flushDirtyPanelBars = (queue, startedAt) => {
   if (queue.dirtyPanelBars.length === 0) return;
 
+  const dirtyParticleLayers = new Set();
+  queue.flushingDirtyPanelBars = true;
   while (queue.dirtyPanelBarIndex < queue.dirtyPanelBars.length) {
     const bar = queue.dirtyPanelBars[queue.dirtyPanelBarIndex];
     queue.dirtyPanelBarIndex += 1;
@@ -404,6 +504,7 @@ const flushDirtyPanelBars = (queue, startedAt) => {
         ? ensurePanelBarLayer(bar.store)
         : null;
       if (layer?.syncBar(bar)) {
+        dirtyParticleLayers.add(layer);
         bar.renderable = false;
         bar._patchmapNeedsInitialSource = false;
       } else {
@@ -415,13 +516,29 @@ const flushDirtyPanelBars = (queue, startedAt) => {
       queue.dirtyPanelBarIndex < queue.dirtyPanelBars.length &&
       now() - startedAt >= FRAME_BUDGET_MS
     ) {
+      flushPanelBarLayerParticleUpdates(dirtyParticleLayers);
       scheduleFlush(queue);
       return;
     }
   }
 
+  flushPanelBarLayerParticleUpdates(dirtyParticleLayers);
+  queue.flushingDirtyPanelBars = false;
   queue.dirtyPanelBars = [];
   queue.dirtyPanelBarIndex = 0;
+
+  if (queue.nextDirtyPanelBars.length > 0) {
+    queue.dirtyPanelBars = queue.nextDirtyPanelBars;
+    queue.nextDirtyPanelBars = [];
+    queue.nextDirtyPanelBarSet.clear();
+    scheduleFlush(queue);
+  }
+};
+
+const flushPanelBarLayerParticleUpdates = (layers) => {
+  for (const layer of layers) {
+    layer.flushParticleChildrenUpdate?.();
+  }
 };
 
 const applyDeferredVisualChange = (component, change, options) => {
@@ -501,6 +618,13 @@ const hideAggregatedBar = (bar) => {
   const layer = bar?.store?.panelBarLayer;
   layer?.hideBar?.(bar);
   if (bar) bar._patchmapUseAggregateBar = false;
+};
+
+const restorePanelBarFallback = (item) => {
+  const bar = getSinglePanelBarComponent(item) ?? item?._panelBarComponent;
+  if (!bar) return;
+  hideAggregatedBar(bar);
+  bar.renderable = bar.props?.show !== false;
 };
 
 const syncParentComponentProps = (item, component, change, mergeStrategy) => {
