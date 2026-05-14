@@ -6,20 +6,21 @@ export const createV2RenderIR = (model, layout) => {
     const frame = layout.getFrame(record.id);
     if (!frame?.visible) continue;
 
-    if (record.kind === 'component') {
-      const node = createComponentNode(record, frame);
-      if (node) nodes.push(node);
-      continue;
-    }
-
-    const node = createElementNode(record, frame);
+    const node = createV2RenderNode(record, frame);
     if (node) nodes.push(node);
   }
 
   return {
     nodes,
-    byFeature: groupByFeature(nodes),
+    byFeature: groupV2NodesByFeature(nodes),
   };
+};
+
+export const createV2RenderNode = (record, frame) => {
+  if (record.kind === 'component') {
+    return createComponentNode(record, frame);
+  }
+  return createElementNode(record, frame);
 };
 
 const createElementNode = (record, frame) => {
@@ -138,7 +139,7 @@ const createComponentNode = (record, frame) => {
   return null;
 };
 
-const groupByFeature = (nodes) => {
+export const groupV2NodesByFeature = (nodes) => {
   const groups = new Map();
   for (const node of nodes) {
     let group = groups.get(node.feature);

@@ -34,6 +34,11 @@ export class V2PixiRenderer {
     this.attach();
     if (!snapshot?.renderIR) return;
 
+    if (snapshot.incremental) {
+      this.#renderIncremental(snapshot);
+      return;
+    }
+
     const plan = snapshot.renderPlan;
     const aggregateNodes = [
       ...(plan?.aggregateBackgrounds ?? []),
@@ -96,6 +101,35 @@ export class V2PixiRenderer {
     }
   }
 
+  #renderIncremental(snapshot) {
+    const plan = snapshot.renderPlan;
+    const aggregateNodes = [
+      ...(plan?.aggregateBackgrounds ?? []),
+      ...(plan?.aggregateBars ?? []),
+    ];
+    const normalNodes = plan
+      ? [...plan.pixiNodes, ...plan.relations]
+      : [
+          ...(snapshot.renderDiff?.added ?? []),
+          ...(snapshot.renderDiff?.updated ?? []),
+        ];
+
+    for (const node of snapshot.renderDiff?.removed ?? []) {
+      this.#removeNode(node.id);
+      this.#removeParticle(node.id);
+    }
+    for (const node of aggregateNodes) {
+      this.#removeNode(node.id);
+      this.#upsertParticle(node);
+    }
+    for (const node of normalNodes) {
+      this.#removeParticle(node.id);
+      this.#upsertNode(node);
+    }
+    this.aggregateLayers.background.update();
+    this.aggregateLayers.bar.update();
+  }
+
   #syncAggregateLayer(kind, nodes) {
     const layer = this.aggregateLayers[kind];
     const wantedIds = new Set(nodes.map((node) => node.id));
@@ -121,6 +155,31 @@ export class V2PixiRenderer {
     layer.particleChildren.length = 0;
     layer.particleChildren.push(...particles);
     layer.update();
+  }
+
+  #upsertParticle(node) {
+    const kind = node.layer === 'background' ? 'background' : 'bar';
+    const layer = this.aggregateLayers[kind];
+    let particle = this.particlesById.get(node.id);
+    if (!particle) {
+      particle = new Particle({ texture: Texture.WHITE });
+      particle._patchmapV2NodeId = node.id;
+      particle._patchmapV2Kind = kind;
+      this.particlesById.set(node.id, particle);
+      layer.particleChildren.push(particle);
+    }
+    applyNodeToParticle(particle, node, this.store);
+  }
+
+  #removeParticle(id) {
+    const particle = this.particlesById.get(id);
+    if (!particle) return;
+    const layer = this.aggregateLayers[particle._patchmapV2Kind];
+    const index = layer.particleChildren.indexOf(particle);
+    if (index !== -1) {
+      layer.particleChildren.splice(index, 1);
+    }
+    this.particlesById.delete(id);
   }
 
   #getParticleKind(id) {

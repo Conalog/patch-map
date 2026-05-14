@@ -25,7 +25,19 @@ export const createV2Layout = (model) => {
   };
 };
 
-const layoutNode = (model, frames, record, parentFrame) => {
+export const layoutV2Node = (model, frames, record) => {
+  const parentFrame = frames.get(record.parentId) ?? frames.get(model.root.id);
+  if (!parentFrame) return;
+  layoutNode(model, frames, record, parentFrame, { recursive: false });
+};
+
+const layoutNode = (
+  model,
+  frames,
+  record,
+  parentFrame,
+  { recursive = true } = {},
+) => {
   const attrs = record.props.attrs ?? {};
   const size = resolveElementSize(record);
   const frame = {
@@ -46,6 +58,8 @@ const layoutNode = (model, frames, record, parentFrame) => {
       frames.set(component.id, layoutComponent(component, frame, record));
     }
   }
+
+  if (!recursive) return;
 
   for (const child of model.getChildren(record.id)) {
     if (child.kind === 'component') continue;
