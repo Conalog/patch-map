@@ -121,6 +121,25 @@ describe('PatchMapV2Engine', () => {
     expect(engine.renderDiff.updated.map((node) => node.id)).toContain(bar.id);
   });
 
+  it('keeps selector compatibility refs stable across direct element updates', () => {
+    const engine = new PatchMapV2Engine();
+    engine.draw(createPanelData());
+    const [item] = engine.selector('$..[?(@.id=="panel-grid.0.0")]');
+
+    const updated = engine.update({
+      elements: item,
+      changes: { attrs: { display: 'selected-panel-item' } },
+      validateSchema: false,
+    });
+
+    expect(updated).toEqual([item]);
+    expect(item.display).toBe('selected-panel-item');
+    expect(item._v2Record.display).toBe('selected-panel-item');
+    expect(engine.selector('$..[?(@.display=="selected-panel-item")]')).toEqual(
+      [item],
+    );
+  });
+
   it('supports patch-service type selector paths for relation refreshes', () => {
     const engine = new PatchMapV2Engine();
     engine.draw([

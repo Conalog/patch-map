@@ -50,6 +50,7 @@ export class V2ModelStore {
       ...record,
       type: props.type ?? record.type,
       props,
+      ref: record.ref,
     });
     this.records.set(id, nextRecord);
     addToBucket(this.byType, nextRecord.type, id);
@@ -155,19 +156,22 @@ export const createRecord = ({
     selectable: isSelectableType(type, kind),
     ref: null,
   };
-  record.ref = ref ?? createCompatibilityRef(record);
+  record.ref = syncCompatibilityRef(ref ?? createCompatibilityRef(), record);
   return record;
 };
 
-const createCompatibilityRef = (record) => ({
-  id: record.id,
-  type: record.type,
-  label: record.label,
-  display: record.display,
-  props: record.props,
-  attrs: record.attrs,
-  _v2Record: record,
-});
+const createCompatibilityRef = () => ({});
+
+const syncCompatibilityRef = (ref, record) => {
+  ref.id = record.id;
+  ref.type = record.type;
+  ref.label = record.label;
+  ref.display = record.display;
+  ref.props = record.props;
+  ref.attrs = record.attrs;
+  ref._v2Record = record;
+  return ref;
+};
 
 const isSelectableType = (type, kind) =>
   kind === 'element' &&
