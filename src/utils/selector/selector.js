@@ -16,21 +16,25 @@ export const selector = (json, path, options = {}) => {
 const selectFromSceneIndex = (json, path, options) => {
   if (options?.resultType || json?.type !== 'canvas') return null;
 
+  const modelIndex = json?.store?.modelIndex;
   const sceneIndex = json?.store?.sceneIndex;
-  if (!sceneIndex || typeof path !== 'string') return null;
+  if ((!modelIndex && !sceneIndex) || typeof path !== 'string') return null;
 
   const id = matchExactIdPath(path);
   if (id) {
-    const element = sceneIndex.getById(id);
+    const element =
+      modelIndex?.getRefById?.(id) ?? sceneIndex?.getById?.(id) ?? null;
     return element ? [element] : [];
   }
 
   const childrenPath = matchExactChildrenPath(path);
   if (childrenPath) {
-    const elements =
-      childrenPath.key === 'display'
-        ? sceneIndex.getByDisplay(childrenPath.value)
-        : sceneIndex.getByType(childrenPath.value);
+    const elements = getIndexedElements(
+      modelIndex,
+      sceneIndex,
+      childrenPath.key,
+      childrenPath.value,
+    );
     if (childrenPath.children) {
       return elements.flatMap((element) => element.children ?? []);
     }
@@ -38,6 +42,19 @@ const selectFromSceneIndex = (json, path, options) => {
   }
 
   return null;
+};
+
+const getIndexedElements = (modelIndex, sceneIndex, key, value) => {
+  if (key === 'display') {
+    return (
+      modelIndex?.getRefsByDisplay?.(value) ??
+      sceneIndex?.getByDisplay?.(value) ??
+      []
+    );
+  }
+  return (
+    modelIndex?.getRefsByType?.(value) ?? sceneIndex?.getByType?.(value) ?? []
+  );
 };
 
 const matchExactIdPath = (path) => {
