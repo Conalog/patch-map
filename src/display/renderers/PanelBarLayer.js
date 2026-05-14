@@ -16,7 +16,6 @@ const DEFAULT_BOUNDS = new Rectangle(
   2_000_000,
 );
 const ZERO_POINT = new Point();
-const CULLING_MARGIN = 512;
 
 export class PanelBarLayer extends ParticleContainer {
   constructor(store) {
@@ -35,25 +34,13 @@ export class PanelBarLayer extends ParticleContainer {
     this.store = store;
     this.zIndex = 0;
     this._entries = new WeakMap();
-    this._entrySet = new Set();
     this._activeAnimations = new Set();
     this._animationFrame = null;
     this._needsParticleChildrenUpdate = false;
-    this._needsParticleChildrenRefresh = false;
-    this._cullingFrame = null;
-    this._boundScheduleCullingRefresh = () => this._scheduleCullingRefresh();
-    this._bindViewportCulling();
   }
 
   canRender(bar) {
     return Boolean(getBarTexture(bar));
-  }
-
-  destroy(options) {
-    const viewport = this.store?.viewport;
-    viewport?.off?.('moved', this._boundScheduleCullingRefresh);
-    viewport?.off?.('zoomed', this._boundScheduleCullingRefresh);
-    super.destroy(options);
   }
 
   syncBar(bar) {
@@ -119,7 +106,6 @@ export class PanelBarLayer extends ParticleContainer {
 
   _createEntry(bar, texture) {
     const entry = {
-      bar,
       texture: null,
       layout: null,
       particles: [],
@@ -129,7 +115,6 @@ export class PanelBarLayer extends ParticleContainer {
     };
     this._setEntryTexture(entry, texture);
     this._entries.set(bar, entry);
-    this._entrySet.add(entry);
     return entry;
   }
 
@@ -146,12 +131,12 @@ export class PanelBarLayer extends ParticleContainer {
     );
 
     this._removeEntryParticles(entry);
+    this.particleChildren.push(...particles);
     entry.texture = texture;
     entry.layout = layout;
     entry.particles = particles;
     entry.particle = particles[0] ?? null;
     this._needsParticleChildrenUpdate = true;
-    this._needsParticleChildrenRefresh = true;
   }
 
   _removeEntryParticles(entry) {
@@ -167,12 +152,9 @@ export class PanelBarLayer extends ParticleContainer {
   }
 
   flushParticleChildrenUpdate() {
-    if (this._needsParticleChildrenRefresh) {
-      this._refreshParticleChildrenForViewport();
-    }
     if (!this._needsParticleChildrenUpdate) return;
-    this.update();
     this._needsParticleChildrenUpdate = false;
+    this.update();
   }
 
   _applyAppearance(entry, { alpha, tint }) {
@@ -243,11 +225,7 @@ export class PanelBarLayer extends ParticleContainer {
       return;
     }
 
-    const previousState = entry.state;
     const state = updateEntryState(entry, x, y, width, height, rotation);
-    if (!previousState) {
-      this._needsParticleChildrenRefresh = true;
-    }
     const targetSlices = resolveTargetSlices(layout, state);
     const cos = Math.cos(rotation);
     const sin = Math.sin(rotation);
@@ -279,11 +257,7 @@ export class PanelBarLayer extends ParticleContainer {
   }
 
   _applyBorderlessState(entry, layout, x, y, width, height, rotation) {
-    const previousState = entry.state;
     updateEntryState(entry, x, y, width, height, rotation);
-    if (!previousState) {
-      this._needsParticleChildrenRefresh = true;
-    }
     const borderScale = resolveBorderScaleForSize(layout, width, height);
     const left = layout.slice.leftWidth * borderScale;
     const right = layout.slice.rightWidth * borderScale;
@@ -451,59 +425,6 @@ export class PanelBarLayer extends ParticleContainer {
     if (this._activeAnimations.size > 0 && !this.destroyed) {
       this._scheduleAnimationFrame();
     }
-  }
-
-  _bindViewportCulling() {
-    const viewport = this.store?.viewport;
-    if (!viewport?.on) return;
-    viewport.on('moved', this._boundScheduleCullingRefresh);
-    viewport.on('zoomed', this._boundScheduleCullingRefresh);
-  }
-
-  _scheduleCullingRefresh() {
-    if (this.destroyed || this._cullingFrame !== null) return;
-    this._cullingFrame = requestFrame(() => {
-      this._cullingFrame = null;
-      this._needsParticleChildrenRefresh = true;
-      this.flushParticleChildrenUpdate();
-    });
-  }
-
-  _refreshParticleChildrenForViewport() {
-    this._needsParticleChildrenRefresh = false;
-    const viewportBounds = this._getViewportBounds();
-    if (!viewportBounds) {
-      this.particleChildren = getAllEntryParticles(this._entrySet);
-      this._needsParticleChildrenUpdate = true;
-      return;
-    }
-
-    const visibleParticles = [];
-    for (const entry of this._entrySet) {
-      if (!entry.state || entry.alpha === 0) continue;
-      if (!intersectsState(viewportBounds, entry.state)) continue;
-      visibleParticles.push(...entry.particles);
-    }
-
-    this.particleChildren = visibleParticles;
-    this._needsParticleChildrenUpdate = true;
-  }
-
-  _getViewportBounds() {
-    const viewport = this.store?.viewport;
-    if (!viewport?.toWorld) return null;
-
-    const width = viewport.screenWidth ?? viewport.screen?.width;
-    const height = viewport.screenHeight ?? viewport.screen?.height;
-    if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
-
-    const topLeft = viewport.toWorld(0, 0);
-    const bottomRight = viewport.toWorld(width, height);
-    const minX = Math.min(topLeft.x, bottomRight.x) - CULLING_MARGIN;
-    const minY = Math.min(topLeft.y, bottomRight.y) - CULLING_MARGIN;
-    const maxX = Math.max(topLeft.x, bottomRight.x) + CULLING_MARGIN;
-    const maxY = Math.max(topLeft.y, bottomRight.y) + CULLING_MARGIN;
-    return { minX, minY, maxX, maxY };
   }
 }
 
@@ -889,25 +810,6 @@ const now = () =>
 
 const normalizeDuration = (durationMs) =>
   Math.max(0, Number(durationMs ?? 200) || 0);
-
-const getAllEntryParticles = (entries) => {
-  const particles = [];
-  for (const entry of entries) {
-    if (entry.alpha !== 0) particles.push(...entry.particles);
-  }
-  return particles;
-};
-
-const intersectsState = (bounds, state) => {
-  const width = Math.abs(state.width ?? state.w ?? 0);
-  const height = Math.abs(state.height ?? state.h ?? 0);
-  return (
-    state.x + width >= bounds.minX &&
-    state.x <= bounds.maxX &&
-    state.y + height >= bounds.minY &&
-    state.y <= bounds.maxY
-  );
-};
 
 const clamp01 = (value) => (value < 0 ? 0 : value > 1 ? 1 : value);
 
