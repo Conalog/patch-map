@@ -435,22 +435,28 @@ const createLayer = (label) => {
 };
 
 const createAggregateLayers = () => ({
-  background: createAggregateLayer('patchmap-aggregate-background-layer'),
-  bar: createAggregateLayer('patchmap-aggregate-bar-layer'),
+  background: createAggregateLayer('patchmap-aggregate-background-layer', {
+    vertex: false,
+    position: false,
+    rotation: false,
+    uvs: false,
+    color: false,
+  }),
+  bar: createAggregateLayer('patchmap-aggregate-bar-layer', {
+    vertex: true,
+    position: true,
+    rotation: false,
+    uvs: true,
+    color: false,
+  }),
 });
 
-const createAggregateLayer = (label) => {
+const createAggregateLayer = (label, dynamicProperties) => {
   const layer = new ParticleContainer({
     label,
     texture: Texture.WHITE,
     boundsArea: new Rectangle(-1_000_000, -1_000_000, 2_000_000, 2_000_000),
-    dynamicProperties: {
-      vertex: true,
-      position: true,
-      rotation: true,
-      uvs: true,
-      color: true,
-    },
+    dynamicProperties,
   });
   layer._patchmapInternal = true;
   layer._patchmapAggregateLayer = true;
@@ -802,15 +808,22 @@ const applyParticleFrame = (particle, frame, options = {}) => {
   particle.scaleY = texture
     ? frame.height / Math.max(1, texture.height)
     : frame.height;
-  particle.rotation = frame.rotation ?? 0;
-  particle.anchorX = 0;
-  particle.anchorY = 0;
-  particle.alpha = frame.alpha ?? 1;
+  const rotation = frame.rotation ?? 0;
+  if (particle.rotation !== rotation) particle.rotation = rotation;
+  if (particle.anchorX !== 0) particle.anchorX = 0;
+  if (particle.anchorY !== 0) particle.anchorY = 0;
+  const alpha = frame.alpha ?? 1;
+  if (particle.alpha !== alpha) particle.alpha = alpha;
   const tint = options.tint;
   if (tint !== undefined) {
-    particle.tint = normalizeColor(tint);
-  } else {
+    const color = normalizeColor(tint);
+    if (particle._patchmapTint !== color) {
+      particle.tint = color;
+      particle._patchmapTint = color;
+    }
+  } else if (particle._patchmapTint !== 0xffffff) {
     particle.tint = 0xffffff;
+    particle._patchmapTint = 0xffffff;
   }
 };
 
