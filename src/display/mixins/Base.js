@@ -207,6 +207,7 @@ export const Base = (superClass) => {
         keysToProcess.some((key) => BOUNDS_SYNC_KEYS.has(key))
       ) {
         this.store?.sceneIndex?.touch();
+        this.store?.modelIndex?.touch();
       }
 
       if (this.parent?._onChildUpdate) {
@@ -344,6 +345,7 @@ export const Base = (superClass) => {
         elementById.set(this.id, this);
       }
       sceneIndex?.update(this, previousIndexKeys);
+      this.store?.modelIndex?.updateFromNode(this);
     }
 
     _removeFromStoreElementIndex() {
@@ -352,6 +354,7 @@ export const Base = (superClass) => {
         elementById.delete(this.id);
       }
       this.store?.sceneIndex?.remove(this);
+      this.store?.modelIndex?.removeFromNode(this);
     }
   };
 

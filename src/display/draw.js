@@ -1,3 +1,4 @@
+import { LogicalSceneIndex } from './model/LogicalSceneIndex';
 import { SceneIndex } from './model/SceneIndex';
 import { primePanelComponentCache } from './renderers/panelComponentRenderer';
 
@@ -22,6 +23,7 @@ const destroyChildren = (parent) => {
 const resetElementIndex = (store) => {
   const targetStore = store.world?.store ?? store;
   targetStore.sceneIndex = new SceneIndex();
+  targetStore.modelIndex = new LogicalSceneIndex();
   targetStore.elementById = targetStore.sceneIndex.elementById;
 };
 
