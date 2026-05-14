@@ -1,4 +1,11 @@
-import { Container, Sprite, Texture } from 'pixi.js';
+import {
+  Container,
+  Particle,
+  ParticleContainer,
+  Rectangle,
+  Sprite,
+  Texture,
+} from 'pixi.js';
 import { getColor } from '../../utils/get';
 
 export class V2PixiRenderer {
@@ -6,12 +13,16 @@ export class V2PixiRenderer {
     this.store = store;
     this.target = target ?? store?.world;
     this.layers = createLayers();
+    this.aggregateLayers = createAggregateLayers();
     this.objectsById = new Map();
+    this.particlesById = new Map();
     this.attached = false;
   }
 
   attach() {
     if (this.attached || !this.target) return;
+    this.layers.background.addChild(this.aggregateLayers.background);
+    this.layers.bar.addChild(this.aggregateLayers.bar);
     this.target.addChild(this.layers.background);
     this.target.addChild(this.layers.bar);
     this.target.addChild(this.layers.fallback);
@@ -23,18 +34,20 @@ export class V2PixiRenderer {
     this.attach();
     if (!snapshot?.renderIR) return;
 
-    const diff = snapshot.renderDiff ?? {
-      added: snapshot.renderIR.nodes,
-      updated: [],
-      removed: [],
-    };
-    for (const node of diff.removed ?? []) {
-      this.#removeNode(node.id);
-    }
-    for (const node of diff.added ?? []) {
-      this.#upsertNode(node);
-    }
-    for (const node of diff.updated ?? []) {
+    const plan = snapshot.renderPlan;
+    const aggregateNodes = [
+      ...(plan?.aggregateBackgrounds ?? []),
+      ...(plan?.aggregateBars ?? []),
+    ];
+    const normalNodes = plan
+      ? [...plan.pixiNodes, ...plan.relations]
+      : snapshot.renderIR.nodes;
+
+    this.#removeStaleNormalNodes(normalNodes, aggregateNodes);
+    this.#syncAggregateLayer('background', plan?.aggregateBackgrounds ?? []);
+    this.#syncAggregateLayer('bar', plan?.aggregateBars ?? []);
+
+    for (const node of normalNodes) {
       this.#upsertNode(node);
     }
   }
@@ -44,6 +57,10 @@ export class V2PixiRenderer {
       object.destroy();
     }
     this.objectsById.clear();
+    this.particlesById.clear();
+    for (const layer of Object.values(this.aggregateLayers)) {
+      layer.destroy();
+    }
     for (const layer of Object.values(this.layers)) {
       layer.destroy({ children: true });
     }
@@ -65,6 +82,49 @@ export class V2PixiRenderer {
     }
 
     applyNodeToObject(object, node, this.store);
+  }
+
+  #removeStaleNormalNodes(normalNodes, aggregateNodes) {
+    const retainedIds = new Set(normalNodes.map((node) => node.id));
+    for (const node of aggregateNodes) {
+      retainedIds.delete(node.id);
+    }
+    for (const id of this.objectsById.keys()) {
+      if (!retainedIds.has(id)) {
+        this.#removeNode(id);
+      }
+    }
+  }
+
+  #syncAggregateLayer(kind, nodes) {
+    const layer = this.aggregateLayers[kind];
+    const wantedIds = new Set(nodes.map((node) => node.id));
+
+    for (const id of this.particlesById.keys()) {
+      if (this.#getParticleKind(id) === kind && !wantedIds.has(id)) {
+        this.particlesById.delete(id);
+      }
+    }
+
+    const particles = nodes.map((node) => {
+      let particle = this.particlesById.get(node.id);
+      if (!particle) {
+        particle = new Particle({ texture: Texture.WHITE });
+        particle._patchmapV2NodeId = node.id;
+        particle._patchmapV2Kind = kind;
+        this.particlesById.set(node.id, particle);
+      }
+      applyNodeToParticle(particle, node, this.store);
+      return particle;
+    });
+
+    layer.particleChildren.length = 0;
+    layer.particleChildren.push(...particles);
+    layer.update();
+  }
+
+  #getParticleKind(id) {
+    return this.particlesById.get(id)?._patchmapV2Kind;
   }
 
   #removeNode(id) {
@@ -106,6 +166,28 @@ const createLayer = (label) => {
   return layer;
 };
 
+const createAggregateLayers = () => ({
+  background: createAggregateLayer('patchmap-v2-aggregate-background-layer'),
+  bar: createAggregateLayer('patchmap-v2-aggregate-bar-layer'),
+});
+
+const createAggregateLayer = (label) => {
+  const layer = new ParticleContainer({
+    label,
+    texture: Texture.WHITE,
+    boundsArea: new Rectangle(-1_000_000, -1_000_000, 2_000_000, 2_000_000),
+    dynamicProperties: {
+      vertex: true,
+      position: true,
+      rotation: true,
+      color: true,
+    },
+  });
+  layer._patchmapInternal = true;
+  layer._patchmapV2AggregateLayer = true;
+  return layer;
+};
+
 const applyNodeToObject = (object, node, store) => {
   const texture = resolveNodeTexture(node, store);
   if (texture && object.texture !== texture) {
@@ -121,10 +203,29 @@ const applyNodeToObject = (object, node, store) => {
   object.height = node.frame.height;
   object.rotation = node.frame.rotation ?? 0;
   object.alpha = node.frame.alpha ?? 1;
-  if (node.material?.tint !== undefined) {
-    object.tint = getColor(store.theme, node.material.tint);
+  const tint = getNodeTint(node, store);
+  if (tint !== undefined) {
+    object.tint = tint;
   }
 };
+
+const applyNodeToParticle = (particle, node, store) => {
+  particle.x = node.frame.x;
+  particle.y = node.frame.y;
+  particle.scaleX = node.frame.width;
+  particle.scaleY = node.frame.height;
+  particle.rotation = node.frame.rotation ?? 0;
+  particle.anchorX = 0;
+  particle.anchorY = 0;
+  particle.alpha = node.frame.alpha ?? 1;
+  const tint = getNodeTint(node, store);
+  if (tint !== undefined) {
+    particle.tint = tint;
+  }
+};
+
+const getNodeTint = (node, store) =>
+  getColor(store.theme, node.material?.tint ?? node.material?.source?.fill);
 
 const resolveNodeTexture = (node, store) => {
   const source = node.material?.source;

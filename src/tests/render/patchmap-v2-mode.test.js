@@ -47,12 +47,10 @@ describe('Patchmap v2 opt-in mode', () => {
     const [item] = patchmap.selector('$..[?(@.id=="panel-1")]');
     expect(item).toMatchObject({ id: 'panel-1', display: 'panelItem' });
 
-    const barLayer = patchmap.world.children.find(
-      (child) => child.label === 'patchmap-v2-bar-layer',
-    );
-    const barObject = barLayer.children[0];
-    expect(barObject.height).toBe(25);
-    expect(barObject.y).toBe(25);
+    const barParticle =
+      patchmap._v2Renderer.aggregateLayers.bar.particleChildren[0];
+    expect(barParticle.scaleY).toBe(25);
+    expect(barParticle.y).toBe(25);
 
     const updated = patchmap.update({
       elements: item,
@@ -63,8 +61,10 @@ describe('Patchmap v2 opt-in mode', () => {
     });
 
     expect(updated).toEqual([item]);
-    expect(barLayer.children[0]).toBe(barObject);
-    expect(barObject.height).toBe(40);
-    expect(barObject.y).toBe(10);
+    expect(patchmap._v2Renderer.aggregateLayers.bar.particleChildren[0]).toBe(
+      barParticle,
+    );
+    expect(barParticle.scaleY).toBe(40);
+    expect(barParticle.y).toBe(10);
   });
 });
