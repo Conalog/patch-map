@@ -127,6 +127,51 @@ describe('PatchMapEngine', () => {
     expect(engine.renderDiff.updated.map((node) => node.id)).toContain(bar.id);
   });
 
+  it('places item components in the rotated owner coordinate space', () => {
+    const engine = new PatchMapEngine();
+    const { renderIR } = engine.draw([
+      {
+        type: 'item',
+        id: 'rotated-panel',
+        size: { width: 120, height: 80 },
+        padding: 10,
+        attrs: { x: 250, y: 160, angle: 90 },
+        components: [
+          {
+            type: 'background',
+            id: 'panel-bg',
+            source: { type: 'rect', fill: '#ffffff' },
+          },
+          {
+            type: 'bar',
+            id: 'panel-bar',
+            source: { type: 'rect', fill: '#0ea5e9' },
+            size: { width: '100%', height: '50%' },
+            placement: 'bottom',
+          },
+        ],
+      },
+    ]);
+
+    const background = renderIR.byFeature.get('background')[0];
+    const bar = renderIR.byFeature.get('bar')[0];
+
+    expect(background.frame).toMatchObject({
+      x: 250,
+      y: 160,
+      width: 120,
+      height: 80,
+    });
+    expect(background.frame.rotation).toBeCloseTo(Math.PI / 2);
+    expect(bar.frame).toMatchObject({
+      x: 210,
+      y: 170,
+      width: 100,
+      height: 30,
+    });
+    expect(bar.frame.rotation).toBeCloseTo(Math.PI / 2);
+  });
+
   it('keeps selector compatibility refs stable across direct element updates', () => {
     const engine = new PatchMapEngine();
     engine.draw(createPanelData());

@@ -42,11 +42,12 @@ const layoutNodeRecursive = (
 ) => {
   const attrs = record.props.attrs ?? {};
   const size = resolveElementSize(record);
+  const origin = transformLocalPoint(parentFrame, attrs.x ?? 0, attrs.y ?? 0);
   const frame = {
     id: record.id,
     parentId: record.parentId,
-    x: parentFrame.x + (attrs.x ?? 0),
-    y: parentFrame.y + (attrs.y ?? 0),
+    x: origin.x,
+    y: origin.y,
     width: size.width,
     height: size.height,
     rotation: parentFrame.rotation + resolveRotation(attrs),
@@ -84,18 +85,19 @@ const resolveElementSize = (record) => {
 const layoutComponent = (component, itemFrame, itemRecord) => {
   const contentFrame =
     component.type === 'background'
-      ? itemFrame
+      ? { x: 0, y: 0, width: itemFrame.width, height: itemFrame.height }
       : getItemContentFrame(itemFrame, itemRecord.props.padding);
   const size = resolveComponentSize(component, contentFrame);
   const placement =
     component.props.placement ?? defaultPlacement(component.type);
   const margin = normalizeBoxSpacing(component.props.margin ?? 0);
   const point = resolvePlacement(placement, contentFrame, size, margin);
+  const origin = transformLocalPoint(itemFrame, point.x, point.y);
   return {
     id: component.id,
     parentId: itemRecord.id,
-    x: point.x,
-    y: point.y,
+    x: origin.x,
+    y: origin.y,
     width: size.width,
     height: size.height,
     rotation: itemFrame.rotation,
@@ -107,10 +109,26 @@ const layoutComponent = (component, itemFrame, itemRecord) => {
 const getItemContentFrame = (itemFrame, padding = 0) => {
   const normalized = normalizeBoxSpacing(padding);
   return {
-    x: itemFrame.x + normalized.left,
-    y: itemFrame.y + normalized.top,
+    x: normalized.left,
+    y: normalized.top,
     width: Math.max(0, itemFrame.width - normalized.left - normalized.right),
     height: Math.max(0, itemFrame.height - normalized.top - normalized.bottom),
+  };
+};
+
+const transformLocalPoint = (parentFrame, localX, localY) => {
+  const rotation = parentFrame.rotation ?? 0;
+  if (rotation === 0) {
+    return {
+      x: parentFrame.x + localX,
+      y: parentFrame.y + localY,
+    };
+  }
+  const cos = Math.cos(rotation);
+  const sin = Math.sin(rotation);
+  return {
+    x: parentFrame.x + localX * cos - localY * sin,
+    y: parentFrame.y + localX * sin + localY * cos,
   };
 };
 
