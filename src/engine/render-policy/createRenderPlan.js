@@ -16,10 +16,7 @@ export const createRenderPlan = (_model, renderIR) => {
       continue;
     }
 
-    if (
-      node.feature === 'background' &&
-      canUseAggregateBackground(node, visibleByOwner)
-    ) {
+    if (node.feature === 'background' && canUseAggregateBackground(node)) {
       aggregateBackgrounds.push(node);
       continue;
     }
@@ -50,7 +47,7 @@ export const createRenderPlan = (_model, renderIR) => {
 };
 
 const canUseAggregateBar = (node, visibleByOwner) => {
-  if (!isRectSource(node.material?.source)) return false;
+  if (!isAggregateRectSource(node.material?.source)) return false;
 
   const visible = visibleByOwner.get(node.ownerId) ?? [];
   return !visible.some(
@@ -60,12 +57,8 @@ const canUseAggregateBar = (node, visibleByOwner) => {
   );
 };
 
-const canUseAggregateBackground = (node, visibleByOwner) => {
-  if (!isRectSource(node.material?.source)) return false;
-
-  const visible = visibleByOwner.get(node.ownerId) ?? [];
-  return visible.some((ownerNode) => ownerNode.feature === 'bar');
-};
+const canUseAggregateBackground = (node) =>
+  isAggregateRectSource(node.material?.source);
 
 const groupVisibleNodesByOwner = (nodes) => {
   const byOwner = new Map();
@@ -80,7 +73,7 @@ const groupVisibleNodesByOwner = (nodes) => {
   return byOwner;
 };
 
-const isRectSource = (source) => source?.type === 'rect';
+const isAggregateRectSource = (source) => source?.type === 'rect';
 
 const countAggregateLayers = ({ aggregateBars, aggregateBackgrounds }) => {
   let count = 0;

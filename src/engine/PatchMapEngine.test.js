@@ -60,7 +60,7 @@ describe('PatchMapEngine', () => {
     ).toEqual(['panel-grid.0.0', 'panel-grid.0.1', 'panel-grid.1.1']);
   });
 
-  it('builds render IR for panel background and aggregateable bars', () => {
+  it('builds render IR for styled panel background and bars', () => {
     const engine = new PatchMapEngine();
     const { renderIR, renderPlan } = engine.draw(createPanelData());
 
@@ -68,6 +68,12 @@ describe('PatchMapEngine', () => {
     const backgrounds = renderIR.byFeature.get('background');
     expect(bars).toHaveLength(3);
     expect(backgrounds).toHaveLength(3);
+    expect(backgrounds[0].frame).toMatchObject({
+      x: 10,
+      y: 20,
+      width: 100,
+      height: 40,
+    });
     expect(bars[0]).toMatchObject({
       feature: 'bar',
       layer: 'bar',
@@ -191,7 +197,7 @@ describe('PatchMapEngine', () => {
     });
   });
 
-  it('moves a panel owner back to Pixi fallback policy when icon becomes visible', () => {
+  it('keeps a styled panel owner in Pixi fallback policy when icon becomes visible', () => {
     const engine = new PatchMapEngine();
     engine.draw(createPanelData());
 
@@ -216,6 +222,9 @@ describe('PatchMapEngine', () => {
       .find((node) => node.ownerId === 'panel-grid.0.0');
 
     expect(engine.renderPlan.aggregateBars).toHaveLength(2);
+    expect(
+      engine.renderPlan.aggregateBars.map((node) => node.id),
+    ).not.toContain(bar.id);
     expect(fallbackNodeIds).toContain(bar.id);
     expect(fallbackNodeIds).toContain(icon.id);
   });

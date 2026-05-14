@@ -82,7 +82,10 @@ const resolveElementSize = (record) => {
 };
 
 const layoutComponent = (component, itemFrame, itemRecord) => {
-  const contentFrame = getItemContentFrame(itemFrame, itemRecord.props.padding);
+  const contentFrame =
+    component.type === 'background'
+      ? itemFrame
+      : getItemContentFrame(itemFrame, itemRecord.props.padding);
   const size = resolveComponentSize(component, contentFrame);
   const placement =
     component.props.placement ?? defaultPlacement(component.type);

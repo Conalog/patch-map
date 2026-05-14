@@ -19,6 +19,7 @@ export class PatchMapEngine {
     this.renderIR = null;
     this.renderDiff = null;
     this.renderPlan = null;
+    this.renderPlanNeedsRefresh = false;
     this.scheduler = new RenderScheduler();
     this.revision = 0;
     this.dirty = false;
@@ -57,6 +58,10 @@ export class PatchMapEngine {
   }
 
   snapshot() {
+    if (this.renderPlanNeedsRefresh && this.renderIR) {
+      this.renderPlan = createRenderPlan(this.model, this.renderIR);
+      this.renderPlanNeedsRefresh = false;
+    }
     return {
       model: this.model,
       layout: this.layout,
@@ -128,14 +133,17 @@ export class PatchMapEngine {
       { nodes: previousNodes },
       { nodes: nextNodes },
     );
-    this.renderPlan = createRenderPlan(this.model, { nodes: nextNodes });
+    const incrementalRenderPlan = createRenderPlan(this.model, {
+      nodes: nextNodes,
+    });
+    this.renderPlanNeedsRefresh = true;
     this.scheduler.enqueue({
       revision: this.revision + 1,
       model: this.model,
       layout: this.layout,
       renderIR: this.renderIR,
       renderDiff: this.renderDiff,
-      renderPlan: this.renderPlan,
+      renderPlan: incrementalRenderPlan,
       incremental: true,
     });
     this.revision += 1;
@@ -152,6 +160,7 @@ export class PatchMapEngine {
     });
     this.renderDiff = diffRenderIR(previousIR, this.renderIR);
     this.renderPlan = createRenderPlan(this.model, this.renderIR);
+    this.renderPlanNeedsRefresh = false;
     this.scheduler.enqueue({
       revision: this.revision + 1,
       model: this.model,
