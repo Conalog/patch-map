@@ -71,6 +71,10 @@ const layoutNodeRecursive = (
 
 const resolveElementSize = (record) => {
   const size = record.props.size ?? record.props.item?.size;
+  if (typeof size === 'number' || typeof size === 'string') {
+    const value = resolveNumber(size);
+    return { width: value, height: value };
+  }
   return {
     width: resolveNumber(size?.width),
     height: resolveNumber(size?.height),
@@ -137,12 +141,16 @@ const resolvePlacement = (placement, contentFrame, size, margin) => {
     case 'right':
       return { x: right, y: centerY };
     case 'top-left':
+    case 'left-top':
       return { x: left, y: top };
     case 'top-right':
+    case 'right-top':
       return { x: right, y: top };
     case 'bottom-left':
+    case 'left-bottom':
       return { x: left, y: bottom };
     case 'bottom-right':
+    case 'right-bottom':
       return { x: right, y: bottom };
     default:
       return { x: centerX, y: centerY };

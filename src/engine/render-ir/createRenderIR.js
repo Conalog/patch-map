@@ -133,6 +133,7 @@ const createComponentNode = (record, frame) => {
         style: record.props.style,
         tint: record.props.tint,
         split: record.props.split ?? 0,
+        margin: record.props.margin,
       },
     };
   }

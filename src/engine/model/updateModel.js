@@ -131,6 +131,9 @@ const mergeComponentProps = (props, change, opts) =>
 
 const mergePatch = (target, source) => {
   if (source === undefined) return target;
+  if (Array.isArray(target) && Array.isArray(source)) {
+    return mergeArrayPatch(target, source);
+  }
   if (!isMergeableObject(target) || !isMergeableObject(source)) {
     return source;
   }
@@ -141,6 +144,29 @@ const mergePatch = (target, source) => {
   }
   return out;
 };
+
+const mergeArrayPatch = (target, source) => {
+  if (!source.every(isRelationLink) && !target.every(isRelationLink)) {
+    return source;
+  }
+  const merged = [...target];
+  for (const item of source) {
+    if (isRelationLink(item)) {
+      const key = `${item.source}|${item.target}`;
+      const exists = merged.some(
+        (current) =>
+          isRelationLink(current) &&
+          `${current.source}|${current.target}` === key,
+      );
+      if (exists) continue;
+    }
+    merged.push(item);
+  }
+  return merged;
+};
+
+const isRelationLink = (value) =>
+  isMergeableObject(value) && 'source' in value && 'target' in value;
 
 const isMergeableObject = (value) =>
   value &&

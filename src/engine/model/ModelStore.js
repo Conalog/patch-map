@@ -82,7 +82,14 @@ export class ModelStore {
   }
 
   get(id) {
-    return this.records.get(id) ?? null;
+    return this.records.get(id) ?? this.findByPublicId(id) ?? null;
+  }
+
+  findByPublicId(id) {
+    for (const record of this.records.values()) {
+      if (record.props?.id === id) return record;
+    }
+    return null;
   }
 
   getByType(type) {
@@ -140,7 +147,9 @@ export class ModelStore {
       ref.parent =
         record.kind === 'root'
           ? (store?.world ?? null)
-          : (this.get(record.parentId)?.ref ?? null);
+          : record.parentId === this.root.id
+            ? (store?.world ?? null)
+            : (this.get(record.parentId)?.ref ?? null);
       ref.children = this.getChildren(record.id)
         .filter((child) => child.kind !== 'component')
         .map((child) => child.ref);

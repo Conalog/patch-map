@@ -15,6 +15,28 @@ export class CompatibilityRef {
   store = null;
   _layout = null;
   _record = null;
+  _renderObject = null;
+  _linkPoints = [];
+
+  get text() {
+    return this._renderObject?.text ?? this.props?.text ?? '';
+  }
+
+  get style() {
+    return this._renderObject?._patchmapTextStyle ?? this.props?.style;
+  }
+
+  get tint() {
+    return this._renderObject?.tint ?? this.props?.tint;
+  }
+
+  get texture() {
+    return this._renderObject?.texture;
+  }
+
+  get linkPoints() {
+    return this._renderObject?.linkPoints ?? this._linkPoints;
+  }
 
   get x() {
     return this.#frame.x;
@@ -72,6 +94,13 @@ export class CompatibilityRef {
 
   getLocalBounds() {
     const frame = this.#frame;
+    if (
+      this.type === 'item' &&
+      (!Array.isArray(this.props?.components) ||
+        this.props.components.length === 0)
+    ) {
+      return new Rectangle(0, 0, 0, 0);
+    }
     return new Rectangle(0, 0, frame.width, frame.height);
   }
 

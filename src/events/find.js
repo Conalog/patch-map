@@ -114,13 +114,19 @@ const compareCandidatesByDisplayOrder = (parent, a, b) => {
     if (pathA[i] !== pathB[i]) {
       const commonParent = pathA[i].parent;
       return (
-        commonParent.getChildIndex(pathB[i]) -
-        commonParent.getChildIndex(pathA[i])
+        getDisplayOrderIndex(commonParent, pathB[i]) -
+        getDisplayOrderIndex(commonParent, pathA[i])
       );
     }
   }
 
   return pathB.length - pathA.length;
+};
+
+const getDisplayOrderIndex = (parent, child) => {
+  const childIndex = parent?.children?.indexOf?.(child);
+  if (childIndex >= 0) return childIndex;
+  return child?._record?.depth ?? 0;
 };
 
 export const findIntersectObject = (
