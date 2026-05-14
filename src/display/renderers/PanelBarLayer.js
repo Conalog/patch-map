@@ -46,9 +46,9 @@ export class PanelBarLayer extends ParticleContainer {
   syncBar(bar) {
     if (!bar?.parent || bar.destroyed) return false;
 
-    if (!getBarTexture(bar)) return false;
+    const texture = getBarTexture(bar);
+    if (!texture) return false;
 
-    const texture = Texture.WHITE;
     let entry = this._entries.get(bar);
     if (!entry) {
       entry = this._createEntry(bar, texture);
@@ -57,7 +57,7 @@ export class PanelBarLayer extends ParticleContainer {
     }
 
     const alpha = this._resolveAlpha(bar);
-    const tint = resolveFlatBarTint(bar);
+    const tint = getColor(bar.store.theme, bar.props?.tint ?? 0xffffff);
     this._applyAppearance(entry, { alpha, tint });
 
     if (alpha === 0) {
@@ -458,13 +458,6 @@ const placePanelBarLayer = (world, layer) => {
   if (relationIndex === -1) return;
   if (currentIndex < relationIndex) return;
   world.setChildIndex(layer, relationIndex);
-};
-
-const resolveFlatBarTint = (bar) => {
-  if (bar.props?.tint !== undefined) {
-    return getColor(bar.store.theme, bar.props.tint);
-  }
-  return getColor(bar.store.theme, bar.props?.source?.fill ?? 0xffffff);
 };
 
 const getBarTexture = (bar) => {
