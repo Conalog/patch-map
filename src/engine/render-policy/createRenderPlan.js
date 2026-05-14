@@ -1,4 +1,4 @@
-export const createV2RenderPlan = (model, renderIR) => {
+export const createRenderPlan = (_model, renderIR) => {
   const visibleByOwner = groupVisibleNodesByOwner(renderIR.nodes);
   const aggregateBars = [];
   const aggregateBackgrounds = [];

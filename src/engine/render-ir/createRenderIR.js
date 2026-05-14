@@ -1,4 +1,4 @@
-export const createV2RenderIR = (model, layout) => {
+export const createRenderIR = (model, layout) => {
   const nodes = [];
 
   for (const record of model.records.values()) {
@@ -6,17 +6,17 @@ export const createV2RenderIR = (model, layout) => {
     const frame = layout.getFrame(record.id);
     if (!frame?.visible) continue;
 
-    const node = createV2RenderNode(record, frame);
+    const node = createRenderNode(record, frame);
     if (node) nodes.push(node);
   }
 
   return {
     nodes,
-    byFeature: groupV2NodesByFeature(nodes),
+    byFeature: groupNodesByFeature(nodes),
   };
 };
 
-export const createV2RenderNode = (record, frame) => {
+export const createRenderNode = (record, frame) => {
   if (record.kind === 'component') {
     return createComponentNode(record, frame);
   }
@@ -139,7 +139,7 @@ const createComponentNode = (record, frame) => {
   return null;
 };
 
-export const groupV2NodesByFeature = (nodes) => {
+export const groupNodesByFeature = (nodes) => {
   const groups = new Map();
   for (const node of nodes) {
     let group = groups.get(node.feature);

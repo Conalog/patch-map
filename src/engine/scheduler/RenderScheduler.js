@@ -1,4 +1,4 @@
-export class V2RenderScheduler {
+export class RenderScheduler {
   constructor({
     schedule = defaultSchedule,
     frameBudgetMs = 4,

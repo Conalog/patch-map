@@ -24,7 +24,7 @@ const createPanelData = () => [
   },
 ];
 
-describe('Patchmap v2 opt-in mode', () => {
+describe('Patchmap engine mode', () => {
   let patchmap;
   let element;
 
@@ -36,7 +36,6 @@ describe('Patchmap v2 opt-in mode', () => {
 
     patchmap = new Patchmap();
     await patchmap.init(element, {
-      engine: 'v2',
       transformer: new Transformer({
         resizeHandles: true,
         rotateHandles: true,
@@ -50,14 +49,14 @@ describe('Patchmap v2 opt-in mode', () => {
     element?.parentElement?.removeChild(element);
   });
 
-  it('keeps draw, selector, update, and renderer object reuse behind the v2 option', () => {
+  it('keeps draw, selector, update, and renderer object reuse on the default engine', () => {
     patchmap.draw(createPanelData());
 
     const [item] = patchmap.selector('$..[?(@.id=="panel-1")]');
     expect(item).toMatchObject({ id: 'panel-1', display: 'panelItem' });
 
     const barParticle =
-      patchmap._v2Renderer.aggregateLayers.bar.particleChildren[0];
+      patchmap._renderer.aggregateLayers.bar.particleChildren[0];
     expect(barParticle.scaleY).toBe(25);
     expect(barParticle.y).toBe(25);
 
@@ -70,7 +69,7 @@ describe('Patchmap v2 opt-in mode', () => {
     });
 
     expect(updated).toEqual([item]);
-    expect(patchmap._v2Renderer.aggregateLayers.bar.particleChildren[0]).toBe(
+    expect(patchmap._renderer.aggregateLayers.bar.particleChildren[0]).toBe(
       barParticle,
     );
     expect(barParticle.scaleY).toBe(40);
@@ -96,7 +95,7 @@ describe('Patchmap v2 opt-in mode', () => {
     expect(patchmap.transformer.children.length).toBeGreaterThan(0);
   });
 
-  it('exposes v2 refs through the scene index for hit testing', () => {
+  it('exposes engine refs through the scene index for hit testing', () => {
     patchmap.draw(createPanelData());
 
     const hit = findIntersectObject(
@@ -111,11 +110,11 @@ describe('Patchmap v2 opt-in mode', () => {
     expect(hit).toMatchObject({ id: 'panel-1', type: 'item' });
   });
 
-  it('batches emit:false v2 updates into the next frame', async () => {
+  it('batches emit:false updates into the next frame', async () => {
     patchmap.draw(createPanelData());
     const [item] = patchmap.selector('$..[?(@.id=="panel-1")]');
     const barParticle =
-      patchmap._v2Renderer.aggregateLayers.bar.particleChildren[0];
+      patchmap._renderer.aggregateLayers.bar.particleChildren[0];
 
     patchmap.update({
       elements: item,
@@ -126,14 +125,14 @@ describe('Patchmap v2 opt-in mode', () => {
       emit: false,
     });
 
-    expect(patchmap._v2UpdateQueue).toHaveLength(1);
+    expect(patchmap._updateQueue).toHaveLength(1);
     expect(barParticle.scaleY).toBe(25);
 
     await new Promise((resolve) => requestAnimationFrame(resolve));
     await new Promise((resolve) => requestAnimationFrame(resolve));
 
-    expect(patchmap._v2UpdateQueue).toHaveLength(0);
-    expect(patchmap._v2Engine.dirty).toBe(false);
+    expect(patchmap._updateQueue).toHaveLength(0);
+    expect(patchmap._engine.dirty).toBe(false);
     expect(barParticle.scaleY).toBe(40);
   });
 });

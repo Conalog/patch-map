@@ -8,7 +8,7 @@ import {
 } from 'pixi.js';
 import { getColor } from '../../utils/get';
 
-export class V2PixiRenderer {
+export class PixiRenderer {
   constructor({ store, target }) {
     this.store = store;
     this.target = target ?? store?.world;
@@ -144,8 +144,8 @@ export class V2PixiRenderer {
       let particle = this.particlesById.get(node.id);
       if (!particle) {
         particle = new Particle({ texture: Texture.WHITE });
-        particle._patchmapV2NodeId = node.id;
-        particle._patchmapV2Kind = kind;
+        particle._patchmapNodeId = node.id;
+        particle._patchmapKind = kind;
         this.particlesById.set(node.id, particle);
       }
       applyNodeToParticle(particle, node, this.store);
@@ -163,8 +163,8 @@ export class V2PixiRenderer {
     let particle = this.particlesById.get(node.id);
     if (!particle) {
       particle = new Particle({ texture: Texture.WHITE });
-      particle._patchmapV2NodeId = node.id;
-      particle._patchmapV2Kind = kind;
+      particle._patchmapNodeId = node.id;
+      particle._patchmapKind = kind;
       this.particlesById.set(node.id, particle);
       layer.particleChildren.push(particle);
     }
@@ -174,7 +174,7 @@ export class V2PixiRenderer {
   #removeParticle(id) {
     const particle = this.particlesById.get(id);
     if (!particle) return;
-    const layer = this.aggregateLayers[particle._patchmapV2Kind];
+    const layer = this.aggregateLayers[particle._patchmapKind];
     const index = layer.particleChildren.indexOf(particle);
     if (index !== -1) {
       layer.particleChildren.splice(index, 1);
@@ -183,7 +183,7 @@ export class V2PixiRenderer {
   }
 
   #getParticleKind(id) {
-    return this.particlesById.get(id)?._patchmapV2Kind;
+    return this.particlesById.get(id)?._patchmapKind;
   }
 
   #removeNode(id) {
@@ -204,30 +204,30 @@ export class V2PixiRenderer {
   #createDisplayObject(node) {
     const texture = resolveNodeTexture(node, this.store) ?? Texture.WHITE;
     const object = new Sprite(texture);
-    object.label = `patchmap-v2-${node.id}`;
-    object._patchmapV2NodeId = node.id;
+    object.label = `patchmap-${node.id}`;
+    object._patchmapNodeId = node.id;
     applySlice(object, texture);
     return object;
   }
 }
 
 const createLayers = () => ({
-  background: createLayer('patchmap-v2-background-layer'),
-  bar: createLayer('patchmap-v2-bar-layer'),
-  fallback: createLayer('patchmap-v2-fallback-layer'),
-  relations: createLayer('patchmap-v2-relations-layer'),
+  background: createLayer('patchmap-background-layer'),
+  bar: createLayer('patchmap-bar-layer'),
+  fallback: createLayer('patchmap-fallback-layer'),
+  relations: createLayer('patchmap-relations-layer'),
 });
 
 const createLayer = (label) => {
   const layer = new Container({ label });
   layer._patchmapInternal = true;
-  layer._patchmapV2Layer = true;
+  layer._patchmapLayer = true;
   return layer;
 };
 
 const createAggregateLayers = () => ({
-  background: createAggregateLayer('patchmap-v2-aggregate-background-layer'),
-  bar: createAggregateLayer('patchmap-v2-aggregate-bar-layer'),
+  background: createAggregateLayer('patchmap-aggregate-background-layer'),
+  bar: createAggregateLayer('patchmap-aggregate-bar-layer'),
 });
 
 const createAggregateLayer = (label) => {
@@ -243,7 +243,7 @@ const createAggregateLayer = (label) => {
     },
   });
   layer._patchmapInternal = true;
-  layer._patchmapV2AggregateLayer = true;
+  layer._patchmapAggregateLayer = true;
   return layer;
 };
 

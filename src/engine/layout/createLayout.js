@@ -1,6 +1,6 @@
 import { normalizeBoxSpacing } from '../../utils/spacing';
 
-export const createV2Layout = (model) => {
+export const createLayout = (model) => {
   const frames = new Map();
   frames.set(model.root.id, {
     id: model.root.id,
@@ -14,7 +14,7 @@ export const createV2Layout = (model) => {
   });
 
   for (const child of model.getChildren(model.root.id)) {
-    layoutNode(model, frames, child, frames.get(model.root.id));
+    layoutNodeRecursive(model, frames, child, frames.get(model.root.id));
   }
 
   return {
@@ -25,13 +25,15 @@ export const createV2Layout = (model) => {
   };
 };
 
-export const layoutV2Node = (model, frames, record) => {
+export const layoutNode = (model, frames, record) => {
   const parentFrame = frames.get(record.parentId) ?? frames.get(model.root.id);
   if (!parentFrame) return;
-  layoutNode(model, frames, record, parentFrame, { recursive: false });
+  layoutNodeRecursive(model, frames, record, parentFrame, {
+    recursive: false,
+  });
 };
 
-const layoutNode = (
+const layoutNodeRecursive = (
   model,
   frames,
   record,
@@ -63,7 +65,7 @@ const layoutNode = (
 
   for (const child of model.getChildren(record.id)) {
     if (child.kind === 'component') continue;
-    layoutNode(model, frames, child, frame);
+    layoutNodeRecursive(model, frames, child, frame);
   }
 };
 

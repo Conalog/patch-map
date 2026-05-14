@@ -1,7 +1,7 @@
 import { Matrix, Point, Rectangle } from 'pixi.js';
 import { getBoundsFromPoints } from '../../utils/transform';
 
-export class V2CompatibilityRef {
+export class CompatibilityRef {
   static isElement = true;
   static isSelectable = true;
   static isResizable = true;
@@ -13,8 +13,8 @@ export class V2CompatibilityRef {
   children = [];
   destroyed = false;
   store = null;
-  _v2Layout = null;
-  _v2Record = null;
+  _layout = null;
+  _record = null;
 
   get x() {
     return this.#frame.x;
@@ -58,7 +58,7 @@ export class V2CompatibilityRef {
 
   get #frame() {
     return (
-      this._v2Layout?.getFrame(this.id) ?? {
+      this._layout?.getFrame(this.id) ?? {
         x: this.attrs?.x ?? 0,
         y: this.attrs?.y ?? 0,
         width: this.props?.size?.width ?? 0,
@@ -80,9 +80,7 @@ export class V2CompatibilityRef {
   }
 
   getGlobalPosition(point = new Point()) {
-    const frame = this.#frame;
-    point.set(frame.x, frame.y);
-    return point;
+    return this.getGlobalTransform(new Matrix()).apply(new Point(0, 0), point);
   }
 
   getGlobalTransform(matrix = new Matrix()) {
@@ -90,12 +88,30 @@ export class V2CompatibilityRef {
     const rotation = frame.rotation ?? 0;
     const cos = Math.cos(rotation);
     const sin = Math.sin(rotation);
-    matrix.a = cos;
-    matrix.b = sin;
-    matrix.c = -sin;
-    matrix.d = cos;
-    matrix.tx = frame.x;
-    matrix.ty = frame.y;
+    const local = {
+      a: cos,
+      b: sin,
+      c: -sin,
+      d: cos,
+      tx: frame.x,
+      ty: frame.y,
+    };
+    const world = this.store?.world?.getGlobalTransform?.(new Matrix(), false);
+    if (!world) {
+      matrix.a = local.a;
+      matrix.b = local.b;
+      matrix.c = local.c;
+      matrix.d = local.d;
+      matrix.tx = local.tx;
+      matrix.ty = local.ty;
+      return matrix;
+    }
+    matrix.a = world.a * local.a + world.c * local.b;
+    matrix.b = world.b * local.a + world.d * local.b;
+    matrix.c = world.a * local.c + world.c * local.d;
+    matrix.d = world.b * local.c + world.d * local.d;
+    matrix.tx = world.a * local.tx + world.c * local.ty + world.tx;
+    matrix.ty = world.b * local.tx + world.d * local.ty + world.ty;
     return matrix;
   }
 

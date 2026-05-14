@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PatchMapV2Engine } from './PatchMapV2Engine';
+import { PatchMapEngine } from './PatchMapEngine';
 
 const createPanelData = () => [
   {
@@ -33,9 +33,9 @@ const createPanelData = () => [
   },
 ];
 
-describe('PatchMapV2Engine', () => {
+describe('PatchMapEngine', () => {
   it('creates a normalized model with generated grid items and indexes', () => {
-    const engine = new PatchMapV2Engine();
+    const engine = new PatchMapEngine();
     const { model } = engine.draw(createPanelData());
 
     expect(model.get('panel-grid')).toMatchObject({
@@ -61,7 +61,7 @@ describe('PatchMapV2Engine', () => {
   });
 
   it('builds render IR for panel background and aggregateable bars', () => {
-    const engine = new PatchMapV2Engine();
+    const engine = new PatchMapEngine();
     const { renderIR, renderPlan } = engine.draw(createPanelData());
 
     const bars = renderIR.byFeature.get('bar');
@@ -89,7 +89,7 @@ describe('PatchMapV2Engine', () => {
   });
 
   it('applies patch-service style component updates to the model and IR', () => {
-    const engine = new PatchMapV2Engine();
+    const engine = new PatchMapEngine();
     engine.draw(createPanelData());
 
     const updated = engine.update({
@@ -122,7 +122,7 @@ describe('PatchMapV2Engine', () => {
   });
 
   it('keeps selector compatibility refs stable across direct element updates', () => {
-    const engine = new PatchMapV2Engine();
+    const engine = new PatchMapEngine();
     engine.draw(createPanelData());
     const [item] = engine.selector('$..[?(@.id=="panel-grid.0.0")]');
 
@@ -134,14 +134,14 @@ describe('PatchMapV2Engine', () => {
 
     expect(updated).toEqual([item]);
     expect(item.display).toBe('selected-panel-item');
-    expect(item._v2Record.display).toBe('selected-panel-item');
+    expect(item._record.display).toBe('selected-panel-item');
     expect(engine.selector('$..[?(@.display=="selected-panel-item")]')).toEqual(
       [item],
     );
   });
 
   it('supports patch-service type selector paths for relation refreshes', () => {
-    const engine = new PatchMapV2Engine();
+    const engine = new PatchMapEngine();
     engine.draw([
       ...createPanelData(),
       {
@@ -157,7 +157,7 @@ describe('PatchMapV2Engine', () => {
   });
 
   it('namespaces duplicated component ids by owner while preserving update matching', () => {
-    const engine = new PatchMapV2Engine();
+    const engine = new PatchMapEngine();
     engine.draw([
       {
         type: 'item',
@@ -192,7 +192,7 @@ describe('PatchMapV2Engine', () => {
   });
 
   it('moves a panel owner back to Pixi fallback policy when icon becomes visible', () => {
-    const engine = new PatchMapV2Engine();
+    const engine = new PatchMapEngine();
     engine.draw(createPanelData());
 
     engine.update({
@@ -222,7 +222,7 @@ describe('PatchMapV2Engine', () => {
 
   it('coalesces repeated render work while keeping the latest revision available', () => {
     const scheduled = [];
-    const engine = new PatchMapV2Engine();
+    const engine = new PatchMapEngine();
     engine.scheduler.schedule = (callback) => scheduled.push(callback);
     engine.draw(createPanelData());
 
@@ -246,8 +246,8 @@ describe('PatchMapV2Engine', () => {
     expect(latestBar.frame.height).toBeCloseTo(28.8);
   });
 
-  it('defers repeated model updates until an explicit v2 flush', () => {
-    const engine = new PatchMapV2Engine();
+  it('defers repeated model updates until an explicit flush', () => {
+    const engine = new PatchMapEngine();
     engine.draw(createPanelData());
     const initialRevision = engine.revision;
     const [firstPanel] = engine.selector('$..[?(@.id=="panel-grid.0.0")]');

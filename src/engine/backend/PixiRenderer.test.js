@@ -1,12 +1,12 @@
 import { Container, Texture } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import { PatchMapV2Engine } from '../PatchMapV2Engine';
-import { V2PixiRenderer } from './V2PixiRenderer';
+import { PatchMapEngine } from '../PatchMapEngine';
+import { PixiRenderer } from './PixiRenderer';
 
-describe('V2PixiRenderer', () => {
-  it('attaches stable v2 layers in render order and reuses display objects across updates', () => {
+describe('PixiRenderer', () => {
+  it('attaches stable layers in render order and reuses display objects across updates', () => {
     const world = new Container();
-    const renderer = new V2PixiRenderer({
+    const renderer = new PixiRenderer({
       store: {
         world,
         theme: {},
@@ -14,7 +14,7 @@ describe('V2PixiRenderer', () => {
       },
       target: world,
     });
-    const engine = new PatchMapV2Engine();
+    const engine = new PatchMapEngine();
     const snapshot = engine.draw([
       {
         type: 'item',
@@ -39,14 +39,14 @@ describe('V2PixiRenderer', () => {
     renderer.render(snapshot);
 
     expect(world.children.map((child) => child.label)).toEqual([
-      'patchmap-v2-background-layer',
-      'patchmap-v2-bar-layer',
-      'patchmap-v2-fallback-layer',
-      'patchmap-v2-relations-layer',
+      'patchmap-background-layer',
+      'patchmap-bar-layer',
+      'patchmap-fallback-layer',
+      'patchmap-relations-layer',
     ]);
     const barNode = snapshot.renderIR.byFeature.get('bar')[0];
     const barObject = renderer.objectsById.get(barNode.id);
-    expect(barObject.parent.label).toBe('patchmap-v2-bar-layer');
+    expect(barObject.parent.label).toBe('patchmap-bar-layer');
     expect(barObject.width).toBe(100);
     expect(barObject.height).toBe(25);
     expect(barObject.y).toBe(25);
@@ -81,7 +81,7 @@ describe('V2PixiRenderer', () => {
 
   it('renders aggregateable backgrounds and bars through particle layers', () => {
     const world = new Container();
-    const renderer = new V2PixiRenderer({
+    const renderer = new PixiRenderer({
       store: {
         world,
         theme: {},
@@ -89,7 +89,7 @@ describe('V2PixiRenderer', () => {
       },
       target: world,
     });
-    const engine = new PatchMapV2Engine();
+    const engine = new PatchMapEngine();
     const snapshot = engine.draw([
       {
         type: 'grid',

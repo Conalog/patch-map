@@ -1,6 +1,6 @@
-import { V2CompatibilityRef } from '../compat/V2CompatibilityRef';
+import { CompatibilityRef } from '../compat/CompatibilityRef';
 
-export class V2ModelStore {
+export class ModelStore {
   constructor() {
     this.root = createRecord({
       id: '$root',
@@ -24,10 +24,10 @@ export class V2ModelStore {
   add(recordInput) {
     const record = createRecord(recordInput);
     if (!record?.id) {
-      throw new Error(`v2 model record requires an id: ${record?.type}`);
+      throw new Error(`PatchMap model record requires an id: ${record?.type}`);
     }
     if (this.records.has(record.id)) {
-      throw new Error(`Duplicate v2 model id: ${record.id}`);
+      throw new Error(`Duplicate PatchMap model id: ${record.id}`);
     }
 
     this.records.set(record.id, record);
@@ -135,7 +135,7 @@ export class V2ModelStore {
   syncCompatibilityRefs(layout, store = null) {
     for (const record of this.records.values()) {
       const ref = record.ref;
-      ref._v2Layout = layout;
+      ref._layout = layout;
       ref.store = store;
       ref.parent =
         record.kind === 'root'
@@ -184,7 +184,7 @@ export const createRecord = ({
   return record;
 };
 
-const createCompatibilityRef = () => new V2CompatibilityRef();
+const createCompatibilityRef = () => new CompatibilityRef();
 
 const syncCompatibilityRef = (ref, record) => {
   ref.id = record.id;
@@ -193,7 +193,7 @@ const syncCompatibilityRef = (ref, record) => {
   ref.display = record.display;
   ref.props = record.props;
   ref.attrs = record.attrs;
-  ref._v2Record = record;
+  ref._record = record;
   return ref;
 };
 
@@ -330,7 +330,7 @@ const querySelectableFrames = (store, predicate) => {
 };
 
 const getRecordBounds = (record) => {
-  const frame = record.ref._v2Layout?.getFrame(record.id);
+  const frame = record.ref._layout?.getFrame(record.id);
   const x = frame?.x ?? record.attrs?.x ?? 0;
   const y = frame?.y ?? record.attrs?.y ?? 0;
   const width = frame?.width ?? record.props?.size?.width ?? 0;

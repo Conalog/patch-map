@@ -1,13 +1,10 @@
 import gsap from 'gsap';
-import { Application, UPDATE_PRIORITY } from 'pixi.js';
+import { Application } from 'pixi.js';
 import { isValidationError } from 'zod-validation-error';
 import { UndoRedoManager } from './command/UndoRedoManager';
-import './display/components/registry';
-import { draw } from './display/draw';
-import './display/elements/registry';
-import { update } from './display/update';
 import ViewTransform from './display/view-transform/ViewTransform';
 import World from './display/World';
+import { PatchMapEngine, PixiRenderer } from './engine';
 import { warmFindBoundsCache } from './events/find';
 import { fit as fitViewport, focus } from './events/focus-fit';
 import StateManager from './events/StateManager';
@@ -23,10 +20,8 @@ import Transformer from './transformer/Transformer';
 import { convertLegacyData } from './utils/convert';
 import { event } from './utils/event/canvas';
 import { WildcardEventEmitter } from './utils/event/WildcardEventEmitter';
-import { selector } from './utils/selector/selector';
 import { themeStore } from './utils/theme';
 import { validateMapData } from './utils/validator';
-import { PatchMapV2Engine, V2PixiRenderer } from './v2';
 
 class Patchmap extends WildcardEventEmitter {
   _app = null;
@@ -41,13 +36,13 @@ class Patchmap extends WildcardEventEmitter {
   _world = null;
   _viewTransform = this._createViewTransform();
   _drawToken = 0;
+  _drawCacheSource = null;
   _drawCacheKey = null;
   _drawCacheData = null;
-  _engineMode = 'legacy';
-  _v2Engine = null;
-  _v2Renderer = null;
-  _v2RenderScheduled = false;
-  _v2UpdateQueue = [];
+  _engine = null;
+  _renderer = null;
+  _renderScheduled = false;
+  _updateQueue = [];
 
   get app() {
     return this._app;
@@ -135,12 +130,10 @@ class Patchmap extends WildcardEventEmitter {
       theme: themeOptions = {},
       assets: assetsOptions = [],
       transformer,
-      engine = 'legacy',
     } = opts;
 
     this.undoRedoManager._setHotkeys();
     this._theme.set(themeOptions);
-    this._engineMode = engine === 'v2' ? 'v2' : 'legacy';
     this._app = new Application();
     await initApp(this.app, { resizeTo: element, ...appOptions });
 
@@ -150,10 +143,8 @@ class Patchmap extends WildcardEventEmitter {
     this._world.enableRenderGroup?.();
     store.world = this._world;
     this.viewport.addChild(this._world);
-    if (this._engineMode === 'v2') {
-      this._v2Engine = new PatchMapV2Engine({ theme: this.theme, store });
-      this._v2Renderer = new V2PixiRenderer({ store, target: this._world });
-    }
+    this._engine = new PatchMapEngine({ theme: this.theme, store });
+    this._renderer = new PixiRenderer({ store, target: this._world });
     this._viewTransform.attach({ viewport: this.viewport, world: this._world });
 
     await initAsset(assetsOptions);
@@ -182,7 +173,7 @@ class Patchmap extends WildcardEventEmitter {
     this.stateManager.resetState();
     this.stateManager.destroy();
     event.removeAllEvent(this.viewport);
-    this._v2Renderer?.destroy();
+    this._renderer?.destroy();
     this.viewport.destroy({ children: true, context: true, style: true });
     const parentElement = this.app.canvas.parentElement;
     this.app.destroy(true);
@@ -201,13 +192,13 @@ class Patchmap extends WildcardEventEmitter {
     this._world = null;
     this._viewTransform = this._createViewTransform();
     this._drawToken = 0;
+    this._drawCacheSource = null;
     this._drawCacheKey = null;
     this._drawCacheData = null;
-    this._engineMode = 'legacy';
-    this._v2Engine = null;
-    this._v2Renderer = null;
-    this._v2RenderScheduled = false;
-    this._v2UpdateQueue = [];
+    this._engine = null;
+    this._renderer = null;
+    this._renderScheduled = false;
+    this._updateQueue = [];
     this.emit('patchmap:destroyed', { target: this });
     this.removeAllListeners();
   }
@@ -215,11 +206,14 @@ class Patchmap extends WildcardEventEmitter {
   draw(data) {
     if (!this.isInit) return;
 
-    const drawCacheKey = createDrawCacheKey(data);
+    const canReuseCurrentSource =
+      this._drawCacheSource === data && this._engine?.model;
+    const drawCacheKey = canReuseCurrentSource
+      ? this._drawCacheKey
+      : createDrawCacheKey(data);
     const canReuseCurrentScene =
-      this._drawCacheKey === drawCacheKey &&
-      this.world?.children?.length > 0 &&
-      hasOnlyManagedWorldChildren(this.world);
+      canReuseCurrentSource ||
+      (this._drawCacheKey === drawCacheKey && this._engine?.model);
     const processedData = canReuseCurrentScene
       ? this._drawCacheData
       : processData(JSON.parse(JSON.stringify(data)));
@@ -231,39 +225,20 @@ class Patchmap extends WildcardEventEmitter {
     if (isValidationError(validatedData)) throw validatedData;
     const drawToken = ++this._drawToken;
 
-    const store = this._createStoreContext();
-
     this.app.stop();
     this.undoRedoManager.clear();
     this.animationContext.revert();
     event.removeAllEvent(this.viewport);
-    if (this._engineMode === 'v2') {
-      const snapshot = this._v2Engine.draw(validatedData);
-      this._v2Renderer.render(snapshot);
-      this._v2Engine.scheduler.flush();
+    this._flushUpdateQueue();
+    if (!canReuseCurrentScene) {
+      const snapshot = this._engine.draw(validatedData);
+      this._renderer.render(snapshot);
+      this._engine.scheduler.flush();
+      this._drawCacheSource = data;
       this._drawCacheKey = drawCacheKey;
       this._drawCacheData = validatedData;
-    } else if (!canReuseCurrentScene) {
-      draw(store, validatedData);
-      this._drawCacheKey = drawCacheKey;
-      this._drawCacheData = validatedData;
-    }
-
-    if (this._engineMode !== 'v2' && !canReuseCurrentScene) {
-      // Force a refresh of all relation elements after the initial draw. This ensures
-      // that all link targets exist in the scene graph before the relations
-      // attempt to draw their links.
-      this.app.ticker.addOnce(
-        () => {
-          this.update({
-            path: '$..[?(@.type=="relations")]',
-            refresh: true,
-            emit: false,
-          });
-        },
-        undefined,
-        UPDATE_PRIORITY.UTILITY,
-      );
+    } else {
+      this._flushRender();
     }
     this.app.start();
     warmFindBoundsCache(this.viewport);
@@ -285,30 +260,20 @@ class Patchmap extends WildcardEventEmitter {
   }
 
   update(opts = {}) {
-    if (this._engineMode === 'v2') {
-      const deferRender = opts.emit === false && opts.flush !== true;
-      if (deferRender) {
-        const targets = this._resolveV2UpdateTargets(opts);
-        this._v2UpdateQueue.push(opts);
-        this._scheduleV2Render();
-        return targets;
-      }
-      this._flushV2UpdateQueue();
-      const updatedElements = this._v2Engine.update({
-        ...opts,
-        deferRender: false,
-      });
-      this._flushV2Render();
-      if (opts.emit !== false) {
-        this.emit('patchmap:updated', {
-          elements: updatedElements,
-          target: this,
-        });
-      }
-      return updatedElements;
+    const deferRender = opts.emit === false && opts.flush !== true;
+    if (deferRender) {
+      const targets = this._resolveUpdateTargets(opts);
+      this._updateQueue.push(opts);
+      this._scheduleRender();
+      return targets;
     }
 
-    const updatedElements = update(this.world, opts);
+    this._flushUpdateQueue();
+    const updatedElements = this._engine.update({
+      ...opts,
+      deferRender: false,
+    });
+    this._flushRender();
     if (opts.emit !== false) {
       this.emit('patchmap:updated', {
         elements: updatedElements,
@@ -324,12 +289,9 @@ class Patchmap extends WildcardEventEmitter {
    * @returns {void|null}
    */
   focus(ids, opts) {
-    if (this._engineMode === 'v2') {
-      this._flushV2UpdateQueue();
-      this._flushV2Render();
-      return focus(this.viewport, this._v2Engine.model?.root?.ref, ids, opts);
-    }
-    return focus(this.viewport, this.world, ids, opts);
+    this._flushUpdateQueue();
+    this._flushRender();
+    return focus(this.viewport, this._engine.model?.root?.ref, ids, opts);
   }
 
   /**
@@ -338,17 +300,9 @@ class Patchmap extends WildcardEventEmitter {
    * @returns {void|null}
    */
   fit(ids, opts) {
-    if (this._engineMode === 'v2') {
-      this._flushV2UpdateQueue();
-      this._flushV2Render();
-      return fitViewport(
-        this.viewport,
-        this._v2Engine.model?.root?.ref,
-        ids,
-        opts,
-      );
-    }
-    return fitViewport(this.viewport, this.world, ids, opts);
+    this._flushUpdateQueue();
+    this._flushRender();
+    return fitViewport(this.viewport, this._engine.model?.root?.ref, ids, opts);
   }
 
   get rotation() {
@@ -360,12 +314,9 @@ class Patchmap extends WildcardEventEmitter {
   }
 
   selector(path, opts) {
-    if (this._engineMode === 'v2') {
-      this._flushV2UpdateQueue();
-      this._flushV2Render();
-      return this._v2Engine.selector(path, opts);
-    }
-    return selector(this.world, path, opts);
+    this._flushUpdateQueue();
+    this._flushRender();
+    return this._engine.selector(path, opts);
   }
 
   _createViewTransform() {
@@ -389,49 +340,49 @@ class Patchmap extends WildcardEventEmitter {
     };
   }
 
-  _scheduleV2Render() {
-    if (this._v2RenderScheduled) return;
-    this._v2RenderScheduled = true;
+  _scheduleRender() {
+    if (this._renderScheduled) return;
+    this._renderScheduled = true;
     const schedule =
       typeof requestAnimationFrame === 'function'
         ? requestAnimationFrame
         : (callback) => setTimeout(callback, 0);
     schedule(() => {
-      this._v2RenderScheduled = false;
-      if (this.isInit && this._engineMode === 'v2') {
-        this._processV2UpdateQueue();
+      this._renderScheduled = false;
+      if (this.isInit) {
+        this._processUpdateQueue();
       }
     });
   }
 
-  _processV2UpdateQueue() {
+  _processUpdateQueue() {
     const frameBudgetMs = 4;
     const startedAt = performance.now();
-    while (this._v2UpdateQueue.length > 0) {
-      const opts = this._v2UpdateQueue.shift();
-      this._v2Engine.update({ ...opts, deferRender: true });
+    while (this._updateQueue.length > 0) {
+      const opts = this._updateQueue.shift();
+      this._engine.update({ ...opts, deferRender: true });
       if (performance.now() - startedAt >= frameBudgetMs) {
-        this._scheduleV2Render();
+        this._scheduleRender();
         return;
       }
     }
-    this._flushV2Render();
+    this._flushRender();
   }
 
-  _flushV2UpdateQueue() {
-    while (this._v2UpdateQueue.length > 0) {
-      const opts = this._v2UpdateQueue.shift();
-      this._v2Engine.update({ ...opts, deferRender: true });
+  _flushUpdateQueue() {
+    while (this._updateQueue.length > 0) {
+      const opts = this._updateQueue.shift();
+      this._engine.update({ ...opts, deferRender: true });
     }
   }
 
-  _flushV2Render() {
-    if (!this._v2Engine || !this._v2Renderer) return;
-    const snapshot = this._v2Engine.flush();
-    this._v2Renderer.render(snapshot);
+  _flushRender() {
+    if (!this._engine || !this._renderer) return;
+    const snapshot = this._engine.flush();
+    this._renderer.render(snapshot);
   }
 
-  _resolveV2UpdateTargets(opts) {
+  _resolveUpdateTargets(opts) {
     const elements = [];
     if (opts.elements) {
       elements.push(
@@ -439,7 +390,7 @@ class Patchmap extends WildcardEventEmitter {
       );
     }
     if (opts.path) {
-      elements.push(...this._v2Engine.selector(opts.path));
+      elements.push(...this._engine.selector(opts.path));
     }
     return [...new Set(elements.filter(Boolean))];
   }
@@ -447,12 +398,6 @@ class Patchmap extends WildcardEventEmitter {
 
 function createDrawCacheKey(data) {
   return JSON.stringify(data);
-}
-
-function hasOnlyManagedWorldChildren(world) {
-  return (world?.children ?? []).every(
-    (child) => child?.type || child?._patchmapInternal,
-  );
 }
 
 function scheduleUserVisibleTask(task) {

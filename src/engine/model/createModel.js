@@ -2,10 +2,10 @@ import {
   applyComponentDefaults,
   applyElementDefaults,
 } from '../../display/default-props';
-import { V2ModelStore } from './V2ModelStore';
+import { ModelStore } from './ModelStore';
 
-export const createV2Model = (data) => {
-  const store = new V2ModelStore();
+export const createModel = (data) => {
+  const store = new ModelStore();
   const elements = Array.isArray(data) ? data : [];
   const normalized = elements.map((element) =>
     applyElementDefaults(seedStableComponentIds(element)),

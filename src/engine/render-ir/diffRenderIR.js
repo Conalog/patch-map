@@ -1,4 +1,4 @@
-export const diffV2RenderIR = (previousIR, nextIR) => {
+export const diffRenderIR = (previousIR, nextIR) => {
   const previous = indexNodes(previousIR?.nodes ?? []);
   const next = indexNodes(nextIR?.nodes ?? []);
   const added = [];

@@ -1,6 +1,6 @@
 import { applyComponentDefaults } from '../../display/default-props';
 
-export const updateV2Model = (model, opts = {}) => {
+export const updateModel = (model, opts = {}) => {
   const targets = resolveTargets(model, opts);
   const changes = opts.changes ?? null;
   if (!changes || targets.length === 0) return [];
@@ -51,7 +51,7 @@ const normalizeElements = (elements) => {
 const resolveElementRecord = (model, element) => {
   if (!element) return null;
   if (typeof element === 'string') return model.get(element);
-  if (element._v2Record) return model.get(element._v2Record.id);
+  if (element._record) return model.get(element._record.id);
   if (element.id) return model.get(element.id);
   return null;
 };
