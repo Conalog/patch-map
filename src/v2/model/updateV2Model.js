@@ -1,5 +1,4 @@
 import { applyComponentDefaults } from '../../display/default-props';
-import { deepMerge } from '../../utils/deepmerge/deepmerge';
 
 export const updateV2Model = (model, opts = {}) => {
   const targets = resolveTargets(model, opts);
@@ -17,9 +16,7 @@ export const updateV2Model = (model, opts = {}) => {
     const nextProps =
       opts.mergeStrategy === 'replace'
         ? { type: target.type, ...changes }
-        : deepMerge(structuredClone(target.props), changes, {
-            mergeStrategy: 'merge',
-          });
+        : mergePatch(target.props, changes);
     const nextRecord = model.replaceRecordProps(target.id, nextProps);
     if (!nextRecord) continue;
     if (Array.isArray(changes.components) && nextRecord.type === 'item') {
@@ -130,7 +127,26 @@ const isComponentIdMatch = (record, id) =>
 const mergeComponentProps = (props, change, opts) =>
   opts.mergeStrategy === 'replace'
     ? applyComponentDefaults({ type: props.type, ...change })
-    : deepMerge(structuredClone(props), change, { mergeStrategy: 'merge' });
+    : mergePatch(props, change);
+
+const mergePatch = (target, source) => {
+  if (source === undefined) return target;
+  if (!isMergeableObject(target) || !isMergeableObject(source)) {
+    return source;
+  }
+
+  const out = { ...target };
+  for (const key of Object.keys(source)) {
+    out[key] = mergePatch(out[key], source[key]);
+  }
+  return out;
+};
+
+const isMergeableObject = (value) =>
+  value &&
+  typeof value === 'object' &&
+  !Array.isArray(value) &&
+  Object.getPrototypeOf(value) === Object.prototype;
 
 const mergeParentComponents = (current = [], next = []) => {
   const byIdOrType = new Map();
