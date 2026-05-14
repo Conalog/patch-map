@@ -98,7 +98,7 @@ const findComponentRecord = (records, change, used) => {
   const match = records.find(
     (record) =>
       !used.has(record.id) &&
-      ((change.id && record.id === change.id) ||
+      ((change.id && isComponentIdMatch(record, change.id)) ||
         (change.label && record.label === change.label)),
   );
   if (match) return match;
@@ -109,6 +109,11 @@ const findComponentRecord = (records, change, used) => {
   }
   return null;
 };
+
+const isComponentIdMatch = (record, id) =>
+  record.id === id ||
+  record.props?.id === id ||
+  record.id === `${record.parentId}.${id}`;
 
 const mergeComponentProps = (props, change, opts) =>
   opts.mergeStrategy === 'replace'

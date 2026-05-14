@@ -156,6 +156,41 @@ describe('PatchMapV2Engine', () => {
     ]);
   });
 
+  it('namespaces duplicated component ids by owner while preserving update matching', () => {
+    const engine = new PatchMapV2Engine();
+    engine.draw([
+      {
+        type: 'item',
+        id: 'panel-a',
+        size: { width: 10, height: 10 },
+        components: [{ type: 'bar', id: 'shared-bar', size: '50%' }],
+      },
+      {
+        type: 'item',
+        id: 'panel-b',
+        size: { width: 10, height: 10 },
+        components: [{ type: 'bar', id: 'shared-bar', size: '50%' }],
+      },
+    ]);
+
+    expect(engine.model.get('panel-a.shared-bar')).toBeTruthy();
+    expect(engine.model.get('panel-b.shared-bar')).toBeTruthy();
+
+    engine.update({
+      elements: engine.selector('$..[?(@.id=="panel-a")]')[0],
+      changes: {
+        components: [{ type: 'bar', id: 'shared-bar', size: '80%' }],
+      },
+      validateSchema: false,
+    });
+
+    expect(engine.model.get('panel-a.shared-bar').props.size).toBe('80%');
+    expect(engine.model.get('panel-b.shared-bar').props.size.height).toEqual({
+      value: 50,
+      unit: '%',
+    });
+  });
+
   it('moves a panel owner back to Pixi fallback policy when icon becomes visible', () => {
     const engine = new PatchMapV2Engine();
     engine.draw(createPanelData());

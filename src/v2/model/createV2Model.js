@@ -108,8 +108,13 @@ const addComponents = (store, itemProps, depth) => {
       ...component,
       id: component.id ?? `${itemProps.id}.${component.type}.${index}`,
     });
+    const componentId = createComponentRecordId(
+      itemProps.id,
+      componentProps,
+      index,
+    );
     store.add({
-      id: componentProps.id,
+      id: componentId,
       type: componentProps.type,
       kind: 'component',
       parentId: itemProps.id,
@@ -118,6 +123,14 @@ const addComponents = (store, itemProps, depth) => {
       generated: false,
     });
   }
+};
+
+const createComponentRecordId = (ownerId, componentProps, index) => {
+  const componentId = componentProps.id ?? `${componentProps.type}.${index}`;
+  if (componentId.startsWith(`${ownerId}.`)) {
+    return componentId;
+  }
+  return `${ownerId}.${componentId}`;
 };
 
 const seedStableComponentIds = (element) => {
