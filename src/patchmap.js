@@ -43,6 +43,7 @@ class Patchmap extends WildcardEventEmitter {
   _renderer = null;
   _renderScheduled = false;
   _updateQueue = [];
+  _coalescedUpdateQueue = new Map();
 
   get app() {
     return this._app;
@@ -199,6 +200,7 @@ class Patchmap extends WildcardEventEmitter {
     this._renderer = null;
     this._renderScheduled = false;
     this._updateQueue = [];
+    this._coalescedUpdateQueue = new Map();
     this.emit('patchmap:destroyed', { target: this });
     this.removeAllListeners();
   }
@@ -264,7 +266,7 @@ class Patchmap extends WildcardEventEmitter {
     const deferRender = opts.emit === false && opts.flush !== true;
     if (deferRender) {
       const targets = this._resolveUpdateTargets(opts);
-      this._updateQueue.push(opts);
+      this._enqueueUpdate({ ...opts, _resolvedTargets: targets });
       this._scheduleRender();
       return targets;
     }
@@ -358,21 +360,31 @@ class Patchmap extends WildcardEventEmitter {
 
   _processUpdateQueue() {
     const frameBudgetMs = 4;
+    const maxUpdatesPerFrame = 750;
     const startedAt = performance.now();
-    while (this._updateQueue.length > 0) {
-      const opts = this._updateQueue.shift();
+    let processed = 0;
+    while (
+      this._updateQueue.length > 0 &&
+      processed < maxUpdatesPerFrame &&
+      performance.now() - startedAt < frameBudgetMs
+    ) {
+      const opts = this._dequeueUpdate();
       this._engine.update({ ...opts, deferRender: true });
-      if (performance.now() - startedAt >= frameBudgetMs) {
-        this._scheduleRender();
-        return;
-      }
+      processed += 1;
     }
-    this._flushRender();
+
+    if (processed > 0) {
+      this._flushRender();
+    }
+
+    if (this._updateQueue.length > 0) {
+      this._scheduleRender();
+    }
   }
 
   _flushUpdateQueue() {
     while (this._updateQueue.length > 0) {
-      const opts = this._updateQueue.shift();
+      const opts = this._dequeueUpdate();
       this._engine.update({ ...opts, deferRender: true });
     }
   }
@@ -395,6 +407,33 @@ class Patchmap extends WildcardEventEmitter {
     }
     return [...new Set(elements.filter(Boolean))];
   }
+
+  _enqueueUpdate(opts) {
+    const key = getCoalescedUpdateKey(opts);
+    if (!key) {
+      this._updateQueue.push({ opts, key: null });
+      return;
+    }
+
+    const existing = this._coalescedUpdateQueue.get(key);
+    if (existing) {
+      existing.opts = mergeQueuedUpdate(existing.opts, opts);
+      return;
+    }
+
+    const entry = { opts, key };
+    this._coalescedUpdateQueue.set(key, entry);
+    this._updateQueue.push(entry);
+  }
+
+  _dequeueUpdate() {
+    const entry = this._updateQueue.shift();
+    if (!entry) return {};
+    if (entry.key && this._coalescedUpdateQueue.get(entry.key) === entry) {
+      this._coalescedUpdateQueue.delete(entry.key);
+    }
+    return entry.opts;
+  }
 }
 
 function createDrawCacheKey(data) {
@@ -408,6 +447,82 @@ function scheduleUserVisibleTask(task) {
     return;
   }
   setTimeout(task, 0);
+}
+
+function getCoalescedUpdateKey(opts) {
+  if (!canCoalesceQueuedUpdate(opts)) return null;
+  const target = opts._resolvedTargets[0];
+  return `item:${target.id}:components`;
+}
+
+function canCoalesceQueuedUpdate(opts) {
+  return (
+    opts.emit === false &&
+    opts.flush !== true &&
+    opts.mergeStrategy !== 'replace' &&
+    !opts.path &&
+    Array.isArray(opts._resolvedTargets) &&
+    opts._resolvedTargets.length === 1 &&
+    opts._resolvedTargets[0]?.type === 'item' &&
+    isPlainObject(opts.changes) &&
+    Array.isArray(opts.changes.components) &&
+    Object.keys(opts.changes).every((key) => key === 'components')
+  );
+}
+
+function mergeQueuedUpdate(previous, next) {
+  return {
+    ...previous,
+    ...next,
+    changes: {
+      components: mergeComponentChanges(
+        previous.changes.components,
+        next.changes.components,
+      ),
+    },
+    _resolvedTargets: next._resolvedTargets ?? previous._resolvedTargets,
+  };
+}
+
+function mergeComponentChanges(previousComponents = [], nextComponents = []) {
+  const merged = previousComponents.map((component) => ({ ...component }));
+  for (const component of nextComponents) {
+    const index = merged.findIndex((current) =>
+      isSameComponentChange(current, component),
+    );
+    if (index === -1) {
+      merged.push({ ...component });
+    } else {
+      merged[index] = mergePatch(merged[index], component);
+    }
+  }
+  return merged;
+}
+
+function isSameComponentChange(a, b) {
+  if (a.id || b.id) return a.id === b.id;
+  if (a.label || b.label) return a.label === b.label;
+  return a.type === b.type;
+}
+
+function mergePatch(target, source) {
+  if (source === undefined) return target;
+  if (!isPlainObject(target) || !isPlainObject(source)) return source;
+
+  const out = { ...target };
+  for (const key of Object.keys(source)) {
+    out[key] = mergePatch(out[key], source[key]);
+  }
+  return out;
+}
+
+function isPlainObject(value) {
+  return (
+    value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Object.getPrototypeOf(value) === Object.prototype
+  );
 }
 
 export { Patchmap };
