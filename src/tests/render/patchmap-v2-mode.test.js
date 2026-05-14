@@ -126,11 +126,13 @@ describe('Patchmap v2 opt-in mode', () => {
       emit: false,
     });
 
-    expect(patchmap._v2Engine.dirty).toBe(true);
+    expect(patchmap._v2UpdateQueue).toHaveLength(1);
     expect(barParticle.scaleY).toBe(25);
 
     await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
 
+    expect(patchmap._v2UpdateQueue).toHaveLength(0);
     expect(patchmap._v2Engine.dirty).toBe(false);
     expect(barParticle.scaleY).toBe(40);
   });
