@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Patchmap } from '../../patchmap';
+import Transformer from '../../transformer/Transformer';
 
 const createPanelData = () => [
   {
@@ -33,7 +34,14 @@ describe('Patchmap v2 opt-in mode', () => {
     document.body.appendChild(element);
 
     patchmap = new Patchmap();
-    await patchmap.init(element, { engine: 'v2' });
+    await patchmap.init(element, {
+      engine: 'v2',
+      transformer: new Transformer({
+        resizeHandles: true,
+        rotateHandles: true,
+        boundsDisplayMode: 'all',
+      }),
+    });
   });
 
   afterEach(() => {
@@ -66,5 +74,24 @@ describe('Patchmap v2 opt-in mode', () => {
     );
     expect(barParticle.scaleY).toBe(40);
     expect(barParticle.y).toBe(10);
+  });
+
+  it('exposes lightweight bounds refs for fit and transformer drawing', () => {
+    patchmap.draw(createPanelData());
+
+    const [item] = patchmap.selector('$..[?(@.id=="panel-1")]');
+    expect(item.getBounds()).toMatchObject({
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 50,
+    });
+
+    patchmap.fit(null, { padding: 0 });
+    patchmap.transformer.elements = [item];
+    patchmap.transformer.draw();
+
+    expect(patchmap.transformer.elements).toEqual([item]);
+    expect(patchmap.transformer.children.length).toBeGreaterThan(0);
   });
 });

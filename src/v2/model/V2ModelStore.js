@@ -1,3 +1,5 @@
+import { V2CompatibilityRef } from '../compat/V2CompatibilityRef';
+
 export class V2ModelStore {
   constructor() {
     this.root = createRecord({
@@ -127,6 +129,18 @@ export class V2ModelStore {
 
     return [];
   }
+
+  syncCompatibilityRefs(layout, store = null) {
+    for (const record of this.records.values()) {
+      const ref = record.ref;
+      ref._v2Layout = layout;
+      ref.store = store;
+      ref.parent = this.get(record.parentId)?.ref ?? null;
+      ref.children = this.getChildren(record.id)
+        .filter((child) => child.kind !== 'component')
+        .map((child) => child.ref);
+    }
+  }
 }
 
 export const createRecord = ({
@@ -160,7 +174,7 @@ export const createRecord = ({
   return record;
 };
 
-const createCompatibilityRef = () => ({});
+const createCompatibilityRef = () => new V2CompatibilityRef();
 
 const syncCompatibilityRef = (ref, record) => {
   ref.id = record.id;

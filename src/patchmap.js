@@ -149,7 +149,7 @@ class Patchmap extends WildcardEventEmitter {
     store.world = this._world;
     this.viewport.addChild(this._world);
     if (this._engineMode === 'v2') {
-      this._v2Engine = new PatchMapV2Engine({ theme: this.theme });
+      this._v2Engine = new PatchMapV2Engine({ theme: this.theme, store });
       this._v2Renderer = new V2PixiRenderer({ store, target: this._world });
     }
     this._viewTransform.attach({ viewport: this.viewport, world: this._world });
@@ -311,6 +311,9 @@ class Patchmap extends WildcardEventEmitter {
    * @returns {void|null}
    */
   focus(ids, opts) {
+    if (this._engineMode === 'v2') {
+      return focus(this.viewport, this._v2Engine.model?.root?.ref, ids, opts);
+    }
     return focus(this.viewport, this.world, ids, opts);
   }
 
@@ -320,6 +323,14 @@ class Patchmap extends WildcardEventEmitter {
    * @returns {void|null}
    */
   fit(ids, opts) {
+    if (this._engineMode === 'v2') {
+      return fitViewport(
+        this.viewport,
+        this._v2Engine.model?.root?.ref,
+        ids,
+        opts,
+      );
+    }
     return fitViewport(this.viewport, this.world, ids, opts);
   }
 

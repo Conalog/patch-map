@@ -7,8 +7,9 @@ import { createV2RenderPlan } from './render-policy/createV2RenderPlan';
 import { V2RenderScheduler } from './scheduler/V2RenderScheduler';
 
 export class PatchMapV2Engine {
-  constructor({ theme = {} } = {}) {
+  constructor({ theme = {}, store = null } = {}) {
     this.theme = theme;
+    this.store = store;
     this.model = null;
     this.layout = null;
     this.renderIR = null;
@@ -52,6 +53,7 @@ export class PatchMapV2Engine {
   #refreshDerivedState() {
     const previousIR = this.renderIR;
     this.layout = createV2Layout(this.model);
+    this.model.syncCompatibilityRefs(this.layout, this.store);
     this.renderIR = createV2RenderIR(this.model, this.layout, {
       theme: this.theme,
     });
