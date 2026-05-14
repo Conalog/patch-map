@@ -16,6 +16,8 @@ export class V2ModelStore {
     this.childrenById = new Map([[this.root.id, []]]);
     this.componentsByParentId = new Map();
     this.selectableIds = new Set();
+    this.sceneIndexAdapter = createSceneIndexAdapter(this);
+    this.modelIndexAdapter = createModelIndexAdapter(this);
     this.revision = 0;
   }
 
@@ -135,10 +137,18 @@ export class V2ModelStore {
       const ref = record.ref;
       ref._v2Layout = layout;
       ref.store = store;
-      ref.parent = this.get(record.parentId)?.ref ?? null;
+      ref.parent =
+        record.kind === 'root'
+          ? (store?.world ?? null)
+          : (this.get(record.parentId)?.ref ?? null);
       ref.children = this.getChildren(record.id)
         .filter((child) => child.kind !== 'component')
         .map((child) => child.ref);
+    }
+    if (store) {
+      store.sceneIndex = this.sceneIndexAdapter;
+      store.modelIndex = this.modelIndexAdapter;
+      store.elementById = this.sceneIndexAdapter.elementById;
     }
   }
 }
@@ -239,6 +249,53 @@ const removeChildId = (childrenById, parentId, childId) => {
 
 const idsToRecords = (store, ids) =>
   [...(ids ?? [])].map((id) => store.get(id)).filter(Boolean);
+
+const recordsToRefs = (records) => records.map((record) => record.ref);
+
+const createSceneIndexAdapter = (store) => ({
+  get version() {
+    return store.revision;
+  },
+  get selectable() {
+    return recordsToRefs(idsToRecords(store, store.selectableIds));
+  },
+  get elementById() {
+    return new Map(
+      [...store.records.values()].map((record) => [record.id, record.ref]),
+    );
+  },
+  getById(id) {
+    return store.get(id)?.ref ?? null;
+  },
+  getByType(type) {
+    return recordsToRefs(store.getByType(type));
+  },
+  getByDisplay(display) {
+    return recordsToRefs(store.getByDisplay(display));
+  },
+  add() {},
+  update() {},
+  remove() {},
+  touch() {},
+});
+
+const createModelIndexAdapter = (store) => ({
+  get version() {
+    return store.revision;
+  },
+  getRefById(id) {
+    return store.get(id)?.ref ?? null;
+  },
+  getRefsByType(type) {
+    return recordsToRefs(store.getByType(type));
+  },
+  getRefsByDisplay(display) {
+    return recordsToRefs(store.getByDisplay(display));
+  },
+  updateFromNode() {},
+  removeFromNode() {},
+  touch() {},
+});
 
 const matchExactIdPath = (path) => {
   const match = path.match(/^\$..\[\?\(@\.id\s*={2,3}\s*(["'])([^"']+)\1\)\]$/);

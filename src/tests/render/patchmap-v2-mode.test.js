@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { findIntersectObject } from '../../events/find';
 import { Patchmap } from '../../patchmap';
 import Transformer from '../../transformer/Transformer';
 
@@ -93,5 +94,20 @@ describe('Patchmap v2 opt-in mode', () => {
 
     expect(patchmap.transformer.elements).toEqual([item]);
     expect(patchmap.transformer.children.length).toBeGreaterThan(0);
+  });
+
+  it('exposes v2 refs through the scene index for hit testing', () => {
+    patchmap.draw(createPanelData());
+
+    const hit = findIntersectObject(
+      patchmap.viewport,
+      { x: 50, y: 25 },
+      {
+        selectUnit: 'entity',
+        filter: (target) => target.type === 'item',
+      },
+    );
+
+    expect(hit).toMatchObject({ id: 'panel-1', type: 'item' });
   });
 });

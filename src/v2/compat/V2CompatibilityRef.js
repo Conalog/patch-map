@@ -108,6 +108,10 @@ export class V2CompatibilityRef {
     return matrix.apply(point, out);
   }
 
+  getChildIndex(child) {
+    return this.children.indexOf(child);
+  }
+
   #worldCorners() {
     const frame = this.#frame;
     const transform = this.getGlobalTransform(new Matrix(), false);
