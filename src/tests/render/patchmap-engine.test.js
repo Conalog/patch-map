@@ -55,25 +55,30 @@ describe('Patchmap engine mode', () => {
     const [item] = patchmap.selector('$..[?(@.id=="panel-1")]');
     expect(item).toMatchObject({ id: 'panel-1', display: 'panelItem' });
 
-    const barParticle =
-      patchmap._renderer.aggregateLayers.bar.particleChildren[0];
-    expect(barParticle.scaleY).toBe(25);
-    expect(barParticle.y).toBe(25);
+    const getBarObject = () => {
+      const barNode = patchmap._engine.renderIR.byFeature
+        .get('bar')
+        .find((node) => node.ownerId === item.id);
+      return patchmap._renderer.objectsById.get(barNode.id);
+    };
+    const barObject = getBarObject();
+    expect(barObject.height).toBe(25);
+    expect(barObject.y).toBe(25);
 
     const updated = patchmap.update({
       elements: item,
       changes: {
-        components: [{ type: 'bar', size: { height: '80%' } }],
+        components: [
+          { type: 'bar', size: { height: '80%' }, animation: false },
+        ],
       },
       validateSchema: false,
     });
 
     expect(updated).toEqual([item]);
-    expect(patchmap._renderer.aggregateLayers.bar.particleChildren[0]).toBe(
-      barParticle,
-    );
-    expect(barParticle.scaleY).toBe(40);
-    expect(barParticle.y).toBe(10);
+    expect(getBarObject()).toBe(barObject);
+    expect(barObject.height).toBe(40);
+    expect(barObject.y).toBe(10);
   });
 
   it('exposes lightweight bounds refs for fit and transformer drawing', () => {
@@ -113,26 +118,43 @@ describe('Patchmap engine mode', () => {
   it('batches emit:false updates into the next frame', async () => {
     patchmap.draw(createPanelData());
     const [item] = patchmap.selector('$..[?(@.id=="panel-1")]');
-    const barParticle =
-      patchmap._renderer.aggregateLayers.bar.particleChildren[0];
+    const getBarObject = () => {
+      const barNode = patchmap._engine.renderIR.byFeature
+        .get('bar')
+        .find((node) => node.ownerId === item.id);
+      return patchmap._renderer.objectsById.get(barNode.id);
+    };
+    const barObject = getBarObject();
 
     patchmap.update({
       elements: item,
       changes: {
-        components: [{ type: 'bar', size: { height: '80%' } }],
+        components: [
+          { type: 'bar', size: { height: '20%' }, animation: false },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          { type: 'bar', size: { height: '80%' }, animation: false },
+        ],
       },
       validateSchema: false,
       emit: false,
     });
 
     expect(patchmap._updateQueue).toHaveLength(1);
-    expect(barParticle.scaleY).toBe(25);
+    expect(barObject.height).toBe(25);
 
     await new Promise((resolve) => requestAnimationFrame(resolve));
     await new Promise((resolve) => requestAnimationFrame(resolve));
 
     expect(patchmap._updateQueue).toHaveLength(0);
     expect(patchmap._engine.dirty).toBe(false);
-    expect(barParticle.scaleY).toBe(40);
+    expect(getBarObject().height).toBe(40);
   });
 });

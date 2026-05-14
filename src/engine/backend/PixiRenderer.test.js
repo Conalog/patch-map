@@ -30,6 +30,7 @@ describe('PixiRenderer', () => {
             source: { type: 'rect', fill: '#0ea5e9', radius: 3 },
             size: { width: '100%', height: '50%' },
             placement: 'bottom',
+            animation: false,
           },
           { type: 'icon', source: 'alert', show: true, size: 10 },
         ],
@@ -66,6 +67,7 @@ describe('PixiRenderer', () => {
             source: { type: 'rect', fill: '#0ea5e9', radius: 3 },
             size: { width: '100%', height: '80%' },
             placement: 'bottom',
+            animation: false,
           },
           { type: 'icon', source: 'alert', show: true, size: 10 },
         ],
@@ -101,11 +103,11 @@ describe('PixiRenderer', () => {
           components: [
             {
               type: 'background',
-              source: { type: 'rect', fill: '#ffffff', radius: 4 },
+              source: { type: 'rect', fill: '#ffffff' },
             },
             {
               type: 'bar',
-              source: { type: 'rect', fill: '#0ea5e9', radius: 3 },
+              source: { type: 'rect', fill: '#0ea5e9' },
               size: { width: '100%', height: '50%' },
               placement: 'bottom',
             },
