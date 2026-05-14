@@ -17,10 +17,12 @@ export class PatchMapV2Engine {
     this.renderPlan = null;
     this.scheduler = new V2RenderScheduler();
     this.revision = 0;
+    this.dirty = false;
   }
 
   draw(data) {
     this.model = createV2Model(data);
+    this.dirty = false;
     this.#refreshDerivedState();
     return this.snapshot();
   }
@@ -29,7 +31,12 @@ export class PatchMapV2Engine {
     if (!this.model) return [];
     const updated = updateV2Model(this.model, opts);
     if (updated.length > 0) {
-      this.#refreshDerivedState();
+      if (opts.deferRender) {
+        this.dirty = true;
+      } else {
+        this.dirty = false;
+        this.#refreshDerivedState();
+      }
     }
     return updated.map((record) => record.ref);
   }
@@ -48,6 +55,14 @@ export class PatchMapV2Engine {
       renderPlan: this.renderPlan,
       revision: this.revision,
     };
+  }
+
+  flush() {
+    if (this.dirty) {
+      this.dirty = false;
+      this.#refreshDerivedState();
+    }
+    return this.scheduler.flush() ?? this.snapshot();
   }
 
   #refreshDerivedState() {

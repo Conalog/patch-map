@@ -110,4 +110,28 @@ describe('Patchmap v2 opt-in mode', () => {
 
     expect(hit).toMatchObject({ id: 'panel-1', type: 'item' });
   });
+
+  it('batches emit:false v2 updates into the next frame', async () => {
+    patchmap.draw(createPanelData());
+    const [item] = patchmap.selector('$..[?(@.id=="panel-1")]');
+    const barParticle =
+      patchmap._v2Renderer.aggregateLayers.bar.particleChildren[0];
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [{ type: 'bar', size: { height: '80%' } }],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+
+    expect(patchmap._v2Engine.dirty).toBe(true);
+    expect(barParticle.scaleY).toBe(25);
+
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    expect(patchmap._v2Engine.dirty).toBe(false);
+    expect(barParticle.scaleY).toBe(40);
+  });
 });

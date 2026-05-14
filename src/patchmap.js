@@ -46,6 +46,7 @@ class Patchmap extends WildcardEventEmitter {
   _engineMode = 'legacy';
   _v2Engine = null;
   _v2Renderer = null;
+  _v2RenderScheduled = false;
 
   get app() {
     return this._app;
@@ -204,6 +205,7 @@ class Patchmap extends WildcardEventEmitter {
     this._engineMode = 'legacy';
     this._v2Engine = null;
     this._v2Renderer = null;
+    this._v2RenderScheduled = false;
     this.emit('patchmap:destroyed', { target: this });
     this.removeAllListeners();
   }
@@ -282,10 +284,16 @@ class Patchmap extends WildcardEventEmitter {
 
   update(opts = {}) {
     if (this._engineMode === 'v2') {
-      const updatedElements = this._v2Engine.update(opts);
-      const snapshot =
-        this._v2Engine.scheduler.flush() ?? this._v2Engine.snapshot();
-      this._v2Renderer.render(snapshot);
+      const deferRender = opts.emit === false && opts.flush !== true;
+      const updatedElements = this._v2Engine.update({
+        ...opts,
+        deferRender,
+      });
+      if (deferRender) {
+        this._scheduleV2Render();
+      } else {
+        this._flushV2Render();
+      }
       if (opts.emit !== false) {
         this.emit('patchmap:updated', {
           elements: updatedElements,
@@ -312,6 +320,7 @@ class Patchmap extends WildcardEventEmitter {
    */
   focus(ids, opts) {
     if (this._engineMode === 'v2') {
+      this._flushV2Render();
       return focus(this.viewport, this._v2Engine.model?.root?.ref, ids, opts);
     }
     return focus(this.viewport, this.world, ids, opts);
@@ -324,6 +333,7 @@ class Patchmap extends WildcardEventEmitter {
    */
   fit(ids, opts) {
     if (this._engineMode === 'v2') {
+      this._flushV2Render();
       return fitViewport(
         this.viewport,
         this._v2Engine.model?.root?.ref,
@@ -344,6 +354,7 @@ class Patchmap extends WildcardEventEmitter {
 
   selector(path, opts) {
     if (this._engineMode === 'v2') {
+      this._flushV2Render();
       return this._v2Engine.selector(path, opts);
     }
     return selector(this.world, path, opts);
@@ -368,6 +379,27 @@ class Patchmap extends WildcardEventEmitter {
       theme: this.theme,
       animationContext: this.animationContext,
     };
+  }
+
+  _scheduleV2Render() {
+    if (this._v2RenderScheduled) return;
+    this._v2RenderScheduled = true;
+    const schedule =
+      typeof requestAnimationFrame === 'function'
+        ? requestAnimationFrame
+        : (callback) => setTimeout(callback, 0);
+    schedule(() => {
+      this._v2RenderScheduled = false;
+      if (this.isInit && this._engineMode === 'v2') {
+        this._flushV2Render();
+      }
+    });
+  }
+
+  _flushV2Render() {
+    if (!this._v2Engine || !this._v2Renderer) return;
+    const snapshot = this._v2Engine.flush();
+    this._v2Renderer.render(snapshot);
   }
 }
 

@@ -245,4 +245,35 @@ describe('PatchMapV2Engine', () => {
     expect(flushed.revision).toBe(engine.revision);
     expect(latestBar.frame.height).toBeCloseTo(28.8);
   });
+
+  it('defers repeated model updates until an explicit v2 flush', () => {
+    const engine = new PatchMapV2Engine();
+    engine.draw(createPanelData());
+    const initialRevision = engine.revision;
+    const [firstPanel] = engine.selector('$..[?(@.id=="panel-grid.0.0")]');
+
+    engine.update({
+      elements: firstPanel,
+      changes: { components: [{ type: 'bar', size: { height: '20%' } }] },
+      validateSchema: false,
+      deferRender: true,
+    });
+    engine.update({
+      elements: firstPanel,
+      changes: { components: [{ type: 'bar', size: { height: '80%' } }] },
+      validateSchema: false,
+      deferRender: true,
+    });
+
+    expect(engine.revision).toBe(initialRevision);
+    expect(engine.dirty).toBe(true);
+
+    const snapshot = engine.flush();
+    const latestBar = snapshot.renderIR.byFeature
+      .get('bar')
+      .find((node) => node.ownerId === 'panel-grid.0.0');
+
+    expect(engine.revision).toBe(initialRevision + 1);
+    expect(latestBar.frame.height).toBeCloseTo(28.8);
+  });
 });
