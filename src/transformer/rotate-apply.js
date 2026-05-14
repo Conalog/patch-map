@@ -1,4 +1,5 @@
 import { Point } from 'pixi.js';
+import { isViewportFrameInsideCanvasBounds } from '../canvas-bounds/restrict';
 import { getCentroid, getObjectFrameLocalCorners } from '../utils/transform';
 import { isRotatableElement } from './rotate-context';
 import {
@@ -28,6 +29,7 @@ export const createRotateElementStates = ({ elements, viewport }) =>
     return {
       element,
       origin,
+      corners,
       center,
       centerOffset: {
         x: center.x - origin.x,
@@ -41,10 +43,15 @@ export const createRotateElementStates = ({ elements, viewport }) =>
 export const computeRotateUpdates = ({ activeRotate, deltaAngle }) =>
   activeRotate.elementStates.map((state) => ({
     element: state.element,
-    updatedState: rotateElementState(state, {
-      center: activeRotate.frame.center,
-      deltaAngle,
-    }),
+    updatedState: {
+      ...rotateElementState(state, {
+        center: activeRotate.frame.center,
+        deltaAngle,
+      }),
+      corners: state.corners.map((corner) =>
+        rotatePoint(corner, activeRotate.frame.center, deltaAngle),
+      ),
+    },
   }));
 
 export const rotateElementState = (state, { center, deltaAngle }) => {
@@ -66,6 +73,8 @@ export const rotateElementState = (state, { center, deltaAngle }) => {
 };
 
 export const applyRotateUpdates = ({ updates, viewport, historyId }) => {
+  if (!areRotateUpdatesInsideCanvasBounds({ updates, viewport })) return 0;
+
   updates.forEach(({ element, updatedState }) => {
     applyElementRotate({
       element,
@@ -74,7 +83,17 @@ export const applyRotateUpdates = ({ updates, viewport, historyId }) => {
       historyId,
     });
   });
+  return updates.length;
 };
+
+const areRotateUpdatesInsideCanvasBounds = ({ updates, viewport }) =>
+  updates.every(({ element, updatedState }) =>
+    isViewportFrameInsideCanvasBounds({
+      corners: updatedState.corners,
+      viewport,
+      element,
+    }),
+  );
 
 const applyElementRotate = ({ element, updatedState, viewport, historyId }) => {
   if (!element || !isRotatableElement(element)) return;

@@ -1,4 +1,6 @@
 import { Point } from 'pixi.js';
+import { isViewportFrameInsideCanvasBounds } from '../canvas-bounds/restrict';
+import { getObjectFrameLocalCorners } from '../utils/transform';
 import { isResizableElement } from './resize-context';
 import {
   computeResize,
@@ -13,6 +15,7 @@ import {
  * @property {number} y
  * @property {number} width
  * @property {number} height
+ * @property {{ x: number, y: number }[]} corners
  */
 
 /**
@@ -42,6 +45,7 @@ export const createResizeElementStates = ({ elements, viewport }) =>
       y: viewportPosition.y,
       width: size.width,
       height: size.height,
+      corners: getObjectFrameLocalCorners(element, viewport),
     };
   });
 
@@ -82,10 +86,20 @@ export const computeResizeUpdates = ({ activeResize, delta, keepRatio }) => {
     keepRatio,
   });
 
-  return activeResize.elementStates.map((state) => ({
-    element: state.element,
-    updatedState: resizeElementState(state, resizeInfo),
-  }));
+  return activeResize.elementStates.map((state) => {
+    const updatedState = resizeElementState(state, resizeInfo);
+    return {
+      element: state.element,
+      updatedState: {
+        ...updatedState,
+        corners: getResizedStateCorners({
+          state,
+          updatedState,
+          resizeInfo,
+        }),
+      },
+    };
+  });
 };
 
 const computeOrientedResizeUpdates = ({ activeResize, delta, keepRatio }) => {
@@ -109,14 +123,24 @@ const computeOrientedResizeUpdates = ({ activeResize, delta, keepRatio }) => {
     resizeInfo.bounds.y,
   );
 
+  const updatedState = {
+    x: origin.x,
+    y: origin.y,
+    width: snapSizeToUnit(resizeInfo.bounds.width, state.width),
+    height: snapSizeToUnit(resizeInfo.bounds.height, state.height),
+  };
+
   return [
     {
       element: state.element,
       updatedState: {
-        x: origin.x,
-        y: origin.y,
-        width: snapSizeToUnit(resizeInfo.bounds.width, state.width),
-        height: snapSizeToUnit(resizeInfo.bounds.height, state.height),
+        ...updatedState,
+        corners: getOrientedStateCorners({
+          geometry,
+          origin,
+          width: updatedState.width,
+          height: updatedState.height,
+        }),
       },
     },
   ];
@@ -172,6 +196,8 @@ const normalizeVector = (vector) => {
  * @param {string | null | undefined} params.historyId
  */
 export const applyResizeUpdates = ({ updates, viewport, historyId }) => {
+  if (!areResizeUpdatesInsideCanvasBounds({ updates, viewport })) return 0;
+
   updates.forEach(({ element, updatedState }) => {
     applyElementResize({
       element,
@@ -180,6 +206,7 @@ export const applyResizeUpdates = ({ updates, viewport, historyId }) => {
       historyId,
     });
   });
+  return updates.length;
 };
 
 /**
@@ -193,6 +220,92 @@ const getElementSize = (element) => {
     return element.props.size;
   }
   return { width: element.width, height: element.height };
+};
+
+const areResizeUpdatesInsideCanvasBounds = ({ updates, viewport }) =>
+  updates.every(({ element, updatedState }) =>
+    isViewportFrameInsideCanvasBounds({
+      corners: updatedState.corners,
+      viewport,
+      element,
+    }),
+  );
+
+const getAxisAlignedStateCorners = ({ x, y, width, height }) => [
+  { x, y },
+  { x: x + width, y },
+  { x: x + width, y: y + height },
+  { x, y: y + height },
+];
+
+const getResizedStateCorners = ({ state, updatedState, resizeInfo }) => {
+  if (!Array.isArray(state.corners) || state.corners.length < 4) {
+    return getAxisAlignedStateCorners(updatedState);
+  }
+
+  const [topLeft, topRight, , bottomLeft] = state.corners;
+  const widthScale = getSafeScale(updatedState.width, state.width);
+  const heightScale = getSafeScale(updatedState.height, state.height);
+  const topLeftOffset = {
+    x: (topLeft.x - state.x) * resizeInfo.scaleX,
+    y: (topLeft.y - state.y) * resizeInfo.scaleY,
+  };
+  const nextTopLeft = {
+    x: updatedState.x + topLeftOffset.x,
+    y: updatedState.y + topLeftOffset.y,
+  };
+  const widthVector = {
+    x: (topRight.x - topLeft.x) * widthScale,
+    y: (topRight.y - topLeft.y) * widthScale,
+  };
+  const heightVector = {
+    x: (bottomLeft.x - topLeft.x) * heightScale,
+    y: (bottomLeft.y - topLeft.y) * heightScale,
+  };
+  const nextTopRight = {
+    x: nextTopLeft.x + widthVector.x,
+    y: nextTopLeft.y + widthVector.y,
+  };
+  const nextBottomLeft = {
+    x: nextTopLeft.x + heightVector.x,
+    y: nextTopLeft.y + heightVector.y,
+  };
+
+  return [
+    nextTopLeft,
+    nextTopRight,
+    {
+      x: nextTopRight.x + heightVector.x,
+      y: nextTopRight.y + heightVector.y,
+    },
+    nextBottomLeft,
+  ];
+};
+
+const getSafeScale = (nextSize, previousSize) => {
+  if (!Number.isFinite(nextSize) || !Number.isFinite(previousSize)) return 1;
+  if (!previousSize) return 1;
+  return nextSize / previousSize;
+};
+
+const getOrientedStateCorners = ({ geometry, origin, width, height }) => {
+  const topRight = {
+    x: origin.x + geometry.xAxis.x * width,
+    y: origin.y + geometry.xAxis.y * width,
+  };
+  const bottomLeft = {
+    x: origin.x + geometry.yAxis.x * height,
+    y: origin.y + geometry.yAxis.y * height,
+  };
+  return [
+    origin,
+    topRight,
+    {
+      x: topRight.x + geometry.yAxis.x * height,
+      y: topRight.y + geometry.yAxis.y * height,
+    },
+    bottomLeft,
+  ];
 };
 
 /**

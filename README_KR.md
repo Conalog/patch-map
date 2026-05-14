@@ -28,6 +28,8 @@ PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js
   - [asset](#asset)
   - [focus(ids, opts)](#focusids-opts)
   - [fit(ids, options)](#fitids-options)
+  - [setCanvasBounds(bounds)](#setcanvasboundsbounds)
+  - [createMinimap(container, options)](#createminimapcontainer-options)
   - [rotation](#rotation)
   - [flip](#flip)
   - [selector(path)](#selectorpath)
@@ -128,6 +130,9 @@ await patchmap.init(el, {
   viewport: {
     plugins: { decelerate: { disabled: true } }
   },
+  canvas: {
+    bounds: {}
+  },
   theme: {
     primary: { default: '#c2410c' }
   }
@@ -167,6 +172,44 @@ await patchmap.init(el, {
     },
   }
   ```
+
+- `canvas`
+  - `bounds` - world 좌표 기준의 유한 캔버스 영역입니다. 생략하면 기존과 동일하게 무한 캔버스로 동작합니다. 값을 지정하면 viewport pan/zoom과 focus/fit이 해당 영역 안으로 제한됩니다. 마이그레이션 친화성을 위해 programmatic `draw()`와 `update()`는 out-of-bounds 데이터를 허용합니다.
+
+  ```js
+  await patchmap.init(el, {
+    canvas: {
+      bounds: { x: 0, y: 0, width: 5000, height: 3000 },
+    },
+  });
+
+  console.log(patchmap.canvas.bounds);
+  ```
+
+  유한 캔버스 모드에서는 미니맵도 생성할 수 있습니다:
+
+  ```js
+  const minimap = patchmap.createMinimap(document.querySelector('#minimap'), {
+    style: {
+      objectFill: '#94a3b8',
+      viewportFill: 'rgba(12, 115, 191, 0.08)',
+      viewportStroke: '#0c73bf',
+      viewportStrokeWidth: 2,
+    },
+  });
+
+  minimap.destroy();
+  ```
+
+  PATCH MAP은 미니맵 host의 위치나 장식을 제어하지 않습니다. 크기가 정해진
+  container element를 전달하고, 해당 element의 위치, 배경, border, radius,
+  shadow는 애플리케이션에서 직접 스타일링하세요. 주입되는 canvas는 container를
+  꽉 채우고 배경은 transparent라 host element의 배경이 그대로 보입니다.
+
+  미니맵은 `item`, `grid`, `rect` element를 표시합니다. 가독성과 성능을
+  위해 `image`, `text`, `relations`, `group`은 표시하지 않습니다. 렌더 순서는
+  캔버스 z-order를 따르므로 객체가 겹칠 때도 메인 캔버스의 쌓임 순서와
+  일치합니다.
 
 - `theme`  
   Default:
@@ -474,6 +517,66 @@ patchmap.fit(['item-1', 'item-2'], {
   padding: { y: 10, x: 5 },
 })
 ```
+
+<br/>
+
+### `setCanvasBounds(bounds)`
+런타임에 유한 캔버스 영역을 갱신합니다. `null`을 전달하면 다시 무한 캔버스
+동작으로 돌아가고 활성 bounds가 제거됩니다.
+
+```js
+// 렌더된 객체를 기준으로 padding이 포함된 유한 캔버스를 자동 산출합니다.
+patchmap.setCanvasBounds({});
+
+// 모든 축을 명시적으로 고정합니다.
+patchmap.setCanvasBounds({ x: -500, y: -300, width: 5000, height: 3000 });
+
+// 다시 무한 캔버스로 되돌립니다.
+patchmap.setCanvasBounds(null);
+```
+
+`x`, `y`, `width`, `height`는 optional입니다. 빠진 필드는 렌더된 객체 bounds를
+기준으로 산출됩니다. 예를 들어 `{}`는 현재 객체들을 중심으로 내부 padding과
+기본 최소 크기 `5000 x 3000`을 적용한 유한 캔버스를 만들고,
+`{ width: 5000, height: 3000 }`은 크기는 고정하되 현재 객체들을 중심으로
+bounds를 배치합니다. 아직 객체가 없다면 빠진 필드는 `x: 0`, `y: 0`,
+`width: 5000`, `height: 3000`을 fallback으로 사용합니다.
+
+bounds가 변경되면 PATCH MAP은 `patchmap:canvas-bounds-changed` 이벤트를
+발생시킵니다.
+
+<br/>
+
+### `createMinimap(container, options)`
+현재 유한 캔버스를 기준으로 미니맵을 생성합니다. 미니맵을 만들기 전에
+`canvas.bounds`가 설정되어 있어야 합니다. 첫 번째 인자는 미니맵 canvas가
+주입될 container element여야 합니다.
+
+```js
+const minimap = patchmap.createMinimap(document.querySelector('#minimap'), {
+  style: {
+    objectFill: '#94a3b8',
+    viewportFill: 'rgba(12, 115, 191, 0.08)',
+    viewportStroke: '#0c73bf',
+    viewportStrokeWidth: 2,
+  },
+});
+```
+
+PATCH MAP은 미니맵 canvas 주입과 렌더링만 담당합니다. 크기, 위치, 배경,
+border, border radius, shadow 같은 시각적 chrome은 container element에서
+제어하세요. 미니맵 canvas는 container를 꽉 채우고 배경은 transparent라
+container 배경이 그대로 보입니다.
+
+지원 옵션:
+
+- `style.objectFill`: `item`, `grid`, 대부분의 `rect` silhouette에 쓰는 fill입니다.
+  standalone `rect`는 이 옵션을 명시적으로 덮어쓰지 않으면 더 밝은 기본 fill을 사용합니다.
+- `style.viewportFill`, `style.viewportStroke`, `style.viewportStrokeWidth`:
+  viewport 표시 영역의 스타일입니다.
+
+반환된 minimap 객체는 `destroy()`를 제공하며, 미니맵을 소유한 UI가 제거될 때
+함께 destroy해야 합니다.
 
 <br/>
 
@@ -800,6 +903,7 @@ undoRedoManager.redo();
   * `patchmap:initialized`: `patchmap.init()`이 성공적으로 완료되었을 때 발생합니다.
   * `patchmap:draw`: `patchmap.draw()`를 통해 새로운 데이터가 렌더링되었을 때 발생합니다.
   * `patchmap:updated`: `patchmap.update()`를 통해 요소가 업데이트되었을 때 발생합니다.
+  * `patchmap:canvas-bounds-changed`: `patchmap.setCanvasBounds()`로 유한 캔버스 bounds가 변경되었을 때 발생합니다.
   * `patchmap:destroyed`: `patchmap.destroy()`가 호출되어 인스턴스가 파괴될 때 발생합니다.
 
 #### `UndoRedoManager`

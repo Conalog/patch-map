@@ -1,4 +1,4 @@
-import { Container } from 'pixi.js';
+import { Container, Point } from 'pixi.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Transformer } from '../../patch-map';
 import { getCentroid, getObjectFrameWorldCorners } from '../../utils/transform';
@@ -91,6 +91,38 @@ const relationEndpointIds = [
 ];
 const waitForScene = (ms = 50) =>
   new Promise((resolve) => setTimeout(resolve, ms));
+
+const getRendererPoint = (patchmap, clientPoint) => {
+  const point = new Point();
+  patchmap.app.renderer.events.mapPositionToPoint(
+    point,
+    clientPoint.x,
+    clientPoint.y,
+  );
+  return point;
+};
+
+const dispatchViewportWheel = (patchmap, clientPoint, deltaY) => {
+  patchmap.app.canvas.dispatchEvent(
+    new WheelEvent('wheel', {
+      clientX: clientPoint.x,
+      clientY: clientPoint.y,
+      deltaY,
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+};
+
+const getViewportClientPoint = (patchmap, xRatio, yRatio) => {
+  const rect = patchmap.app.canvas.getBoundingClientRect();
+  return {
+    x: rect.left + rect.width * xRatio,
+    y: rect.top + rect.height * yRatio,
+  };
+};
+
+const getDistance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
 const ROOT_TEXT_WORLD_SCENARIOS = [
   ['-90 / none', -90, { x: false, y: false }, -90, -90],
@@ -874,6 +906,21 @@ describe('patchmap test', () => {
     const world = getWorldRoot(patchmap);
     expect(world.position.x).toBeCloseTo(center.x, 3);
     expect(world.position.y).toBeCloseTo(center.y, 3);
+  });
+
+  it('zooms around the mouse pointer for wheel zoom', async () => {
+    const patchmap = getPatchmap();
+    const clientPoint = getViewportClientPoint(patchmap, 0.7, 0.4);
+    const pointer = getRendererPoint(patchmap, clientPoint);
+    const before = patchmap.viewport.toWorld(pointer.x, pointer.y);
+
+    dispatchViewportWheel(patchmap, clientPoint, -120);
+    await waitForScene();
+
+    const after = patchmap.viewport.toWorld(pointer.x, pointer.y);
+
+    expect(patchmap.viewport.scale.x).toBeGreaterThan(1);
+    expect(getDistance(after, before)).toBeLessThan(0.5);
   });
 
   it.each(

@@ -27,6 +27,8 @@ Therefore, to use this, an understanding of the following two libraries is essen
   - [asset](#asset)
   - [focus(ids, opts)](#focusids-opts)
   - [fit(ids, options)](#fitids-options)
+  - [setCanvasBounds(bounds)](#setcanvasboundsbounds)
+  - [createMinimap(container, options)](#createminimapcontainer-options)
   - [rotation](#rotation)
   - [flip](#flip)
   - [selector(path)](#selectorpath)
@@ -121,6 +123,9 @@ await patchmap.init(el, {
   viewport: {
     plugins: { decelerate: { disabled: true } }
   },
+  canvas: {
+    bounds: {}
+  },
   theme: {
     primary: { default: '#c2410c' }
   }
@@ -159,6 +164,45 @@ Customize the rendering behavior using the following options:
     },
   }
   ```
+
+- `canvas`
+  - `bounds` - Optional finite canvas area in world coordinates. When omitted, PATCH MAP keeps the existing infinite canvas behavior. When provided, viewport pan/zoom and focus/fit are clamped to the finite area. Programmatic `draw()` and `update()` remain permissive for migration-friendly data loading.
+
+  ```js
+  await patchmap.init(el, {
+    canvas: {
+      bounds: { x: 0, y: 0, width: 5000, height: 3000 },
+    },
+  });
+
+  console.log(patchmap.canvas.bounds);
+  ```
+
+  Finite canvas mode also enables minimap creation:
+
+  ```js
+  const minimap = patchmap.createMinimap(document.querySelector('#minimap'), {
+    style: {
+      objectFill: '#94a3b8',
+      viewportFill: 'rgba(12, 115, 191, 0.08)',
+      viewportStroke: '#0c73bf',
+      viewportStrokeWidth: 2,
+    },
+  });
+
+  minimap.destroy();
+  ```
+
+  PATCH MAP does not position or decorate the minimap host. Provide a sized
+  container element where the minimap canvas should be injected and style that
+  element in your application. The injected canvas fills the container and is
+  transparent, so the host element's background, border, radius, and shadow
+  remain visible.
+
+  The minimap renders `item`, `grid`, and `rect` elements. `image`, `text`,
+  `relations`, and `group` elements are omitted so the minimap stays readable
+  and lightweight. Render order follows the canvas z-order, so overlapping
+  minimap silhouettes match the main canvas stacking order.
 
 - `theme` - Theme options  
   Default:
@@ -468,6 +512,66 @@ patchmap.fit(['item-1', 'item-2'], {
   padding: { y: 10, x: 5 },
 })
 ```
+
+<br/>
+
+### `setCanvasBounds(bounds)`
+Updates the finite canvas bounds at runtime. Pass `null` to return to infinite
+canvas behavior and clear the active bounds.
+
+```js
+// Auto-size finite canvas from rendered content with built-in padding.
+patchmap.setCanvasBounds({});
+
+// Fix every axis explicitly.
+patchmap.setCanvasBounds({ x: -500, y: -300, width: 5000, height: 3000 });
+
+// Return to infinite canvas behavior.
+patchmap.setCanvasBounds(null);
+```
+
+`x`, `y`, `width`, and `height` are optional. Missing fields are resolved from
+the rendered content bounds. For example, `{}` creates a finite canvas centered
+around the current objects with internal padding and a built-in minimum size of
+`5000 x 3000`. `{ width: 5000, height: 3000 }` keeps the size fixed while
+centering the bounds on the current objects. When no content exists yet, missing
+fields fall back to `x: 0`, `y: 0`, `width: 5000`, `height: 3000`.
+
+When bounds are changed, PATCH MAP emits `patchmap:canvas-bounds-changed`.
+
+<br/>
+
+### `createMinimap(container, options)`
+Creates a minimap for the current finite canvas. `canvas.bounds` must be set
+before creating a minimap. The first argument must be the container element that
+will receive the minimap canvas.
+
+```js
+const minimap = patchmap.createMinimap(document.querySelector('#minimap'), {
+  style: {
+    objectFill: '#94a3b8',
+    viewportFill: 'rgba(12, 115, 191, 0.08)',
+    viewportStroke: '#0c73bf',
+    viewportStrokeWidth: 2,
+  },
+});
+```
+
+PATCH MAP only injects and renders the minimap canvas. The container controls
+size, layout, and visual chrome such as position, background, border, border
+radius, and shadow. The minimap canvas fills the container and its background is
+transparent, so the container background shows through.
+
+Supported options:
+
+- `style.objectFill`: fill used for `item`, `grid`, and most `rect`
+  silhouettes. Standalone `rect` uses a lighter default fill unless this option
+  is explicitly overridden.
+- `style.viewportFill`, `style.viewportStroke`, `style.viewportStrokeWidth`:
+  viewport indicator style.
+
+The returned minimap object has `destroy()` and should be destroyed when the UI
+that owns it is removed.
 
 <br/>
 
@@ -791,6 +895,7 @@ This is the list of events that can be subscribed to with this update. You can s
   * `patchmap:initialized`: Fired when `patchmap.init()` completes successfully.
   * `patchmap:draw`: Fired when new data is rendered via `patchmap.draw()`.
   * `patchmap:updated`: Fired when elements are updated via `patchmap.update()`.
+  * `patchmap:canvas-bounds-changed`: Fired when finite canvas bounds are changed via `patchmap.setCanvasBounds()`.
   * `patchmap:destroyed`: Fired when the instance is destroyed by calling `patchmap.destroy()`.
 
 #### `UndoRedoManager`

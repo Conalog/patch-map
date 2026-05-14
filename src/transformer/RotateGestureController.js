@@ -113,11 +113,12 @@ export default class RotateGestureController {
       deltaAngle,
     });
 
-    applyRotateUpdates({
+    const appliedCount = applyRotateUpdates({
       updates,
       viewport,
       historyId: this._activeRotate.historyId,
     });
+    if (!appliedCount) return;
 
     this._emitUpdateElements();
     this._requestRender();
