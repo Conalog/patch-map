@@ -8,6 +8,12 @@ export const updateV2Model = (model, opts = {}) => {
 
   const updated = [];
   for (const target of targets) {
+    if (canUseComponentOnlyUpdate(target, changes, opts)) {
+      updateComponents(model, target, changes.components, opts);
+      updated.push(model.get(target.id) ?? target);
+      continue;
+    }
+
     const nextProps =
       opts.mergeStrategy === 'replace'
         ? { type: target.type, ...changes }
@@ -23,6 +29,12 @@ export const updateV2Model = (model, opts = {}) => {
   }
   return updated;
 };
+
+const canUseComponentOnlyUpdate = (target, changes, opts) =>
+  target.type === 'item' &&
+  Array.isArray(changes.components) &&
+  opts.mergeStrategy !== 'replace' &&
+  Object.keys(changes).every((key) => key === 'components');
 
 const resolveTargets = (model, opts) => {
   const directElements = normalizeElements(opts.elements)
