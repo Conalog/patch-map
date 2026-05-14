@@ -118,6 +118,7 @@ describe('PatchMapV2Engine', () => {
       width: 96,
       height: 27,
     });
+    expect(engine.renderDiff.updated.map((node) => node.id)).toContain(bar.id);
   });
 
   it('supports patch-service type selector paths for relation refreshes', () => {
@@ -163,5 +164,31 @@ describe('PatchMapV2Engine', () => {
     expect(engine.renderPlan.aggregateBars).toHaveLength(2);
     expect(fallbackNodeIds).toContain(bar.id);
     expect(fallbackNodeIds).toContain(icon.id);
+  });
+
+  it('coalesces repeated render work while keeping the latest revision available', () => {
+    const scheduled = [];
+    const engine = new PatchMapV2Engine();
+    engine.scheduler.schedule = (callback) => scheduled.push(callback);
+    engine.draw(createPanelData());
+
+    engine.update({
+      path: '$..[?(@.id=="panel-grid.0.0")]',
+      changes: { components: [{ type: 'bar', size: { height: '20%' } }] },
+      validateSchema: false,
+    });
+    engine.update({
+      path: '$..[?(@.id=="panel-grid.0.0")]',
+      changes: { components: [{ type: 'bar', size: { height: '80%' } }] },
+      validateSchema: false,
+    });
+
+    expect(scheduled).toHaveLength(1);
+    const flushed = engine.scheduler.flush();
+    const latestBar = flushed.renderIR.byFeature
+      .get('bar')
+      .find((node) => node.ownerId === 'panel-grid.0.0');
+    expect(flushed.revision).toBe(engine.revision);
+    expect(latestBar.frame.height).toBeCloseTo(28.8);
   });
 });
