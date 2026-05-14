@@ -7,7 +7,9 @@ import { V2ModelStore } from './V2ModelStore';
 export const createV2Model = (data) => {
   const store = new V2ModelStore();
   const elements = Array.isArray(data) ? data : [];
-  const normalized = elements.map((element) => applyElementDefaults(element));
+  const normalized = elements.map((element) =>
+    applyElementDefaults(seedStableComponentIds(element)),
+  );
 
   store.root.props.children = normalized;
   for (const element of normalized) {
@@ -33,7 +35,7 @@ const addElement = (store, props, context) => {
 
   if (props.type === 'group') {
     for (const child of props.children ?? []) {
-      addElement(store, applyElementDefaults(child), {
+      addElement(store, applyElementDefaults(seedStableComponentIds(child)), {
         parentId: props.id,
         depth: context.depth + 1,
         generated: false,
@@ -69,19 +71,21 @@ const addGridItems = (store, grid, depth) => {
       if (inactive && grid.inactiveCellStrategy !== 'hide') continue;
 
       const id = `${grid.id}.${rowIndex}.${colIndex}`;
-      const itemProps = applyElementDefaults({
-        type: 'item',
-        id,
-        ...cloneGridItemTemplate(itemTemplate),
-        label: String(cellValue),
-        attrs: {
-          ...(itemTemplate.attrs ?? {}),
-          gridIndex: { row: rowIndex, col: colIndex },
-          x: colIndex * (itemWidth + gap.x),
-          y: rowIndex * (itemHeight + gap.y),
-        },
-        show: !inactive,
-      });
+      const itemProps = applyElementDefaults(
+        seedStableComponentIds({
+          type: 'item',
+          id,
+          ...cloneGridItemTemplate(itemTemplate),
+          label: String(cellValue),
+          attrs: {
+            ...(itemTemplate.attrs ?? {}),
+            gridIndex: { row: rowIndex, col: colIndex },
+            x: colIndex * (itemWidth + gap.x),
+            y: rowIndex * (itemHeight + gap.y),
+          },
+          show: !inactive,
+        }),
+      );
       store.add({
         id,
         type: 'item',
@@ -97,8 +101,13 @@ const addGridItems = (store, grid, depth) => {
 };
 
 const addComponents = (store, itemProps, depth) => {
-  for (const component of itemProps.components ?? []) {
-    const componentProps = applyComponentDefaults(component);
+  const components = itemProps.components ?? [];
+  for (let index = 0; index < components.length; index += 1) {
+    const component = components[index];
+    const componentProps = applyComponentDefaults({
+      ...component,
+      id: component.id ?? `${itemProps.id}.${component.type}.${index}`,
+    });
     store.add({
       id: componentProps.id,
       type: componentProps.type,
@@ -109,6 +118,34 @@ const addComponents = (store, itemProps, depth) => {
       generated: false,
     });
   }
+};
+
+const seedStableComponentIds = (element) => {
+  if (!element || typeof element !== 'object') return element;
+
+  if (element.type === 'group' && Array.isArray(element.children)) {
+    return {
+      ...element,
+      children: element.children.map(seedStableComponentIds),
+    };
+  }
+
+  if (element.type !== 'item' || !Array.isArray(element.components)) {
+    return element;
+  }
+
+  return {
+    ...element,
+    components: element.components.map((component, index) => {
+      if (!component || typeof component !== 'object' || component.id) {
+        return component;
+      }
+      return {
+        ...component,
+        id: `${element.id}.${component.type}.${index}`,
+      };
+    }),
+  };
 };
 
 const cloneGridItemTemplate = (itemTemplate) => {
