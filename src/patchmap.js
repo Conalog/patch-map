@@ -26,6 +26,7 @@ import { WildcardEventEmitter } from './utils/event/WildcardEventEmitter';
 import { selector } from './utils/selector/selector';
 import { themeStore } from './utils/theme';
 import { validateMapData } from './utils/validator';
+import { PatchMapV2Engine, V2PixiRenderer } from './v2';
 
 class Patchmap extends WildcardEventEmitter {
   _app = null;
@@ -42,6 +43,9 @@ class Patchmap extends WildcardEventEmitter {
   _drawToken = 0;
   _drawCacheKey = null;
   _drawCacheData = null;
+  _engineMode = 'legacy';
+  _v2Engine = null;
+  _v2Renderer = null;
 
   get app() {
     return this._app;
@@ -129,10 +133,12 @@ class Patchmap extends WildcardEventEmitter {
       theme: themeOptions = {},
       assets: assetsOptions = [],
       transformer,
+      engine = 'legacy',
     } = opts;
 
     this.undoRedoManager._setHotkeys();
     this._theme.set(themeOptions);
+    this._engineMode = engine === 'v2' ? 'v2' : 'legacy';
     this._app = new Application();
     await initApp(this.app, { resizeTo: element, ...appOptions });
 
@@ -142,6 +148,10 @@ class Patchmap extends WildcardEventEmitter {
     this._world.enableRenderGroup?.();
     store.world = this._world;
     this.viewport.addChild(this._world);
+    if (this._engineMode === 'v2') {
+      this._v2Engine = new PatchMapV2Engine({ theme: this.theme });
+      this._v2Renderer = new V2PixiRenderer({ store, target: this._world });
+    }
     this._viewTransform.attach({ viewport: this.viewport, world: this._world });
 
     await initAsset(assetsOptions);
@@ -170,6 +180,7 @@ class Patchmap extends WildcardEventEmitter {
     this.stateManager.resetState();
     this.stateManager.destroy();
     event.removeAllEvent(this.viewport);
+    this._v2Renderer?.destroy();
     this.viewport.destroy({ children: true, context: true, style: true });
     const parentElement = this.app.canvas.parentElement;
     this.app.destroy(true);
@@ -190,6 +201,9 @@ class Patchmap extends WildcardEventEmitter {
     this._drawToken = 0;
     this._drawCacheKey = null;
     this._drawCacheData = null;
+    this._engineMode = 'legacy';
+    this._v2Engine = null;
+    this._v2Renderer = null;
     this.emit('patchmap:destroyed', { target: this });
     this.removeAllListeners();
   }
@@ -219,13 +233,19 @@ class Patchmap extends WildcardEventEmitter {
     this.undoRedoManager.clear();
     this.animationContext.revert();
     event.removeAllEvent(this.viewport);
-    if (!canReuseCurrentScene) {
+    if (this._engineMode === 'v2') {
+      const snapshot = this._v2Engine.draw(validatedData);
+      this._v2Renderer.render(snapshot);
+      this._v2Engine.scheduler.flush();
+      this._drawCacheKey = drawCacheKey;
+      this._drawCacheData = validatedData;
+    } else if (!canReuseCurrentScene) {
       draw(store, validatedData);
       this._drawCacheKey = drawCacheKey;
       this._drawCacheData = validatedData;
     }
 
-    if (!canReuseCurrentScene) {
+    if (this._engineMode !== 'v2' && !canReuseCurrentScene) {
       // Force a refresh of all relation elements after the initial draw. This ensures
       // that all link targets exist in the scene graph before the relations
       // attempt to draw their links.
@@ -261,6 +281,20 @@ class Patchmap extends WildcardEventEmitter {
   }
 
   update(opts = {}) {
+    if (this._engineMode === 'v2') {
+      const updatedElements = this._v2Engine.update(opts);
+      const snapshot =
+        this._v2Engine.scheduler.flush() ?? this._v2Engine.snapshot();
+      this._v2Renderer.render(snapshot);
+      if (opts.emit !== false) {
+        this.emit('patchmap:updated', {
+          elements: updatedElements,
+          target: this,
+        });
+      }
+      return updatedElements;
+    }
+
     const updatedElements = update(this.world, opts);
     if (opts.emit !== false) {
       this.emit('patchmap:updated', {
@@ -298,6 +332,9 @@ class Patchmap extends WildcardEventEmitter {
   }
 
   selector(path, opts) {
+    if (this._engineMode === 'v2') {
+      return this._v2Engine.selector(path, opts);
+    }
     return selector(this.world, path, opts);
   }
 
