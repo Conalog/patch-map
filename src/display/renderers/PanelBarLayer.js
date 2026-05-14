@@ -87,6 +87,13 @@ export class PanelBarLayer extends ParticleContainer {
   syncAlphaForSubtree(root) {
     if (!root || root.destroyed) return;
 
+    const rootBar = root._panelBarComponent;
+    const rootEntry = rootBar ? this._entries.get(rootBar) : null;
+    if (rootEntry && isPanelItemWithCachedBar(root)) {
+      this._applyAppearance(rootEntry, { alpha: this._resolveAlpha(rootBar) });
+      return;
+    }
+
     const stack = [root];
     while (stack.length > 0) {
       const node = stack.pop();
@@ -459,6 +466,11 @@ const placePanelBarLayer = (world, layer) => {
   if (currentIndex < relationIndex) return;
   world.setChildIndex(layer, relationIndex);
 };
+
+const isPanelItemWithCachedBar = (node) =>
+  node?.type === 'item' &&
+  node._panelBarComponent &&
+  !node.children?.some((child) => child?.type === 'item');
 
 const getBarTexture = (bar) => {
   const source = bar?.props?.source;
