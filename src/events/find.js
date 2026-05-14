@@ -242,6 +242,13 @@ const getIndexedPointCandidates = (parent, point, config = {}) => {
     return null;
   }
 
+  if (sceneIndex.queryPoint) {
+    return sceneIndex
+      .queryPoint(point, config, parent)
+      .filter((candidate) => canResolveCandidate(candidate, config))
+      .sort((a, b) => compareCandidatesByDisplayOrder(parent, a, b));
+  }
+
   const entries = getBoundsCandidateEntries(parent, sceneIndex);
   const candidates = [];
   for (const entry of entries) {
@@ -268,6 +275,12 @@ const getIndexedPolygonCandidates = (parent, selectionBounds, config = {}) => {
   const sceneIndex = getSceneIndex(parent);
   if (!sceneIndex) {
     return null;
+  }
+
+  if (sceneIndex.queryBounds) {
+    return sceneIndex
+      .queryBounds(selectionBounds, config, parent)
+      .filter((candidate) => canResolveCandidate(candidate, config));
   }
 
   const entries = getBoundsCandidateEntries(parent, sceneIndex);

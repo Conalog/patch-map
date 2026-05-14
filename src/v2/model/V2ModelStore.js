@@ -273,6 +273,26 @@ const createSceneIndexAdapter = (store) => ({
   getByDisplay(display) {
     return recordsToRefs(store.getByDisplay(display));
   },
+  queryPoint(point, _config, parent) {
+    const localPoint = parent?.toLocal ? parent.toLocal(point) : null;
+    return querySelectableFrames(
+      store,
+      (bounds) =>
+        boundsContainPoint(bounds, point) ||
+        (localPoint && boundsContainPoint(bounds, localPoint)),
+    );
+  },
+  queryBounds(bounds, _config, parent) {
+    const localBounds = parent?.toLocal
+      ? convertBoundsToLocal(bounds, parent)
+      : null;
+    return querySelectableFrames(
+      store,
+      (candidateBounds) =>
+        boundsIntersect(bounds, candidateBounds) ||
+        (localBounds && boundsIntersect(localBounds, candidateBounds)),
+    );
+  },
   add() {},
   update() {},
   remove() {},
@@ -296,6 +316,58 @@ const createModelIndexAdapter = (store) => ({
   removeFromNode() {},
   touch() {},
 });
+
+const querySelectableFrames = (store, predicate) => {
+  const refs = [];
+  for (const id of store.selectableIds) {
+    const record = store.get(id);
+    if (!record || !record.ref.visible || !predicate(getRecordBounds(record))) {
+      continue;
+    }
+    refs.push(record.ref);
+  }
+  return refs;
+};
+
+const getRecordBounds = (record) => {
+  const frame = record.ref._v2Layout?.getFrame(record.id);
+  const x = frame?.x ?? record.attrs?.x ?? 0;
+  const y = frame?.y ?? record.attrs?.y ?? 0;
+  const width = frame?.width ?? record.props?.size?.width ?? 0;
+  const height = frame?.height ?? record.props?.size?.height ?? 0;
+  return {
+    minX: x,
+    minY: y,
+    maxX: x + width,
+    maxY: y + height,
+  };
+};
+
+const boundsContainPoint = (bounds, point) =>
+  point.x >= bounds.minX &&
+  point.x <= bounds.maxX &&
+  point.y >= bounds.minY &&
+  point.y <= bounds.maxY;
+
+const boundsIntersect = (left, right) =>
+  !left ||
+  !right ||
+  (left.minX <= right.maxX &&
+    left.maxX >= right.minX &&
+    left.minY <= right.maxY &&
+    left.maxY >= right.minY);
+
+const convertBoundsToLocal = (bounds, parent) => {
+  if (!bounds) return null;
+  const topLeft = parent.toLocal({ x: bounds.minX, y: bounds.minY });
+  const bottomRight = parent.toLocal({ x: bounds.maxX, y: bounds.maxY });
+  return {
+    minX: Math.min(topLeft.x, bottomRight.x),
+    minY: Math.min(topLeft.y, bottomRight.y),
+    maxX: Math.max(topLeft.x, bottomRight.x),
+    maxY: Math.max(topLeft.y, bottomRight.y),
+  };
+};
 
 const matchExactIdPath = (path) => {
   const match = path.match(/^\$..\[\?\(@\.id\s*={2,3}\s*(["'])([^"']+)\1\)\]$/);
