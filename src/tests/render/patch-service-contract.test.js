@@ -417,6 +417,99 @@ describe('patch-service plant map contract', () => {
     expect(patchmap.selector(RELATIONS_PATH)[0].renderable).toBe(false);
   });
 
+  it('keeps aggregate bar alpha in sync during bulk highlight updates', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(plantMapData);
+    await waitForScene();
+
+    const panelItems = patchmap.selector(PANEL_ITEM_PATH);
+    for (const item of panelItems) {
+      patchmap.update({
+        elements: item,
+        changes: {
+          components: [
+            {
+              type: 'bar',
+              show: true,
+              size: { height: '64%' },
+              tint: '#2563eb',
+              animation: false,
+            },
+            { type: 'icon', show: false },
+            { type: 'text', show: false },
+          ],
+        },
+        validateSchema: false,
+        emit: false,
+      });
+    }
+    await waitForScene();
+
+    const highlighted = panelItems.filter((_, index) => index % 2 === 0);
+    const dimmed = panelItems.filter((_, index) => index % 2 === 1);
+    patchmap.update({
+      elements: highlighted,
+      changes: { attrs: { alpha: 1 } },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.update({
+      elements: dimmed,
+      changes: { attrs: { alpha: 0.5 } },
+      validateSchema: false,
+      emit: false,
+    });
+    await waitForScene();
+
+    for (const item of highlighted) {
+      expect(item.alpha).toBe(1);
+      expect(getAggregateEntry(item)?.particle.alpha).toBe(1);
+    }
+    for (const item of dimmed) {
+      expect(item.alpha).toBe(0.5);
+      expect(getAggregateEntry(item)?.particle.alpha).toBe(0.5);
+    }
+  });
+
+  it('keeps sparse panel chart stream updates addressable and aggregated', async () => {
+    const patchmap = getPatchmap();
+    patchmap.draw(plantMapData);
+    await waitForScene();
+
+    const panelItems = patchmap.selector(PANEL_ITEM_PATH);
+    for (let frame = 0; frame < 8; frame += 1) {
+      for (let index = frame % 2; index < panelItems.length; index += 2) {
+        const percent = 12 + ((frame + index) % 7) * 11;
+        patchmap.update({
+          elements: panelItems[index],
+          changes: {
+            components: [
+              {
+                type: 'bar',
+                show: true,
+                size: { height: `${percent}%` },
+                tint: percent > 50 ? '#0C73BF' : '#1099FF',
+                animation: true,
+              },
+              { type: 'icon', show: false },
+              { type: 'text', show: false },
+            ],
+          },
+          validateSchema: false,
+          emit: false,
+        });
+      }
+    }
+    await waitForScene(260);
+
+    for (const item of panelItems) {
+      const bar = getComponent(item, 'bar');
+      expect(bar.renderable).toBe(false);
+      expect(getAggregateEntry(item)?.particle.alpha).toBeGreaterThan(0);
+      expect(bar.props.size.height.unit).toBe('%');
+    }
+  });
+
   it('keeps transformer selection callbacks compatible with panel items', async () => {
     const patchmap = getPatchmap();
     patchmap.transformer = new Transformer();
