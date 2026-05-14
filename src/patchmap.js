@@ -229,6 +229,7 @@ class Patchmap extends WildcardEventEmitter {
     this.undoRedoManager.clear();
     this.animationContext.revert();
     event.removeAllEvent(this.viewport);
+    const hadQueuedUpdates = this._updateQueue.length > 0 || this._engine.dirty;
     this._flushUpdateQueue();
     if (!canReuseCurrentScene) {
       const snapshot = this._engine.draw(validatedData);
@@ -237,7 +238,7 @@ class Patchmap extends WildcardEventEmitter {
       this._drawCacheSource = data;
       this._drawCacheKey = drawCacheKey;
       this._drawCacheData = validatedData;
-    } else {
+    } else if (hadQueuedUpdates) {
       this._flushRender();
     }
     this.app.start();
