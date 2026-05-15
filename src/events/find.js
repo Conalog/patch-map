@@ -141,10 +141,14 @@ const compareCandidatesByDisplayOrder = (parent, a, b) => {
 export const findIntersectObject = (
   parent,
   point,
-  { filter, selectUnit, filterParent } = {},
+  { filter, selectUnit, filterParent, geometryCache: providedCache } = {},
 ) => {
   const candidates = getSelectableCandidates(parent, { filter, selectUnit });
-  const mayContainPoint = createCandidatePointBoundsFilter(parent, selectUnit);
+  const geometryCache = providedCache ?? createFindGeometryCache(parent);
+  const mayContainPoint = createCandidatePointBoundsFilter(
+    geometryCache,
+    selectUnit,
+  );
   const resolveSelection = createFindSelectionResolver(parent, {
     filter,
     selectUnit,
@@ -165,15 +169,16 @@ export const findIntersectObject = (
 export const findIntersectObjects = (
   parent,
   selectionBox,
-  { filter, selectUnit, filterParent } = {},
+  { filter, selectUnit, filterParent, geometryCache: providedCache } = {},
 ) => {
   const candidates = getSelectableCandidates(parent, { filter, selectUnit });
+  const geometryCache = providedCache ?? createFindGeometryCache(parent);
   const selectionPolygon = toFlatPoints(
     getObjectLocalCorners(selectionBox, parent),
   );
   const selectionBounds = getFlatBounds(selectionPolygon);
   const mayIntersectPolygon = createCandidatePolygonBoundsFilter(
-    parent,
+    geometryCache,
     selectUnit,
     selectionBounds,
   );
@@ -196,9 +201,10 @@ export const findIntersectObjectsBySegment = (
   parent,
   p1,
   p2,
-  { filter, selectUnit, filterParent } = {},
+  { filter, selectUnit, filterParent, geometryCache: providedCache } = {},
 ) => {
   const candidates = getSelectableCandidates(parent, { filter, selectUnit });
+  const geometryCache = providedCache ?? createFindGeometryCache(parent);
   const resolveSelection = createFindSelectionResolver(parent, {
     filter,
     selectUnit,
@@ -209,7 +215,7 @@ export const findIntersectObjectsBySegment = (
     segmentStart: p1,
     segmentEnd: p2,
     getEntryT: getSegmentEntryT,
-    getCorners: (target) => getObjectLocalCorners(target, parent),
+    getCorners: (target) => geometryCache.getLocalCorners(target),
     resolveSelection,
   });
 };
@@ -224,17 +230,37 @@ const getAncestorPath = (obj, stopAt) => {
   return path;
 };
 
-const createCandidatePointBoundsFilter = (viewport, selectUnit) => {
+export const createFindGeometryCache = (viewport) => {
+  const localCorners = new WeakMap();
+  const sizeBounds = new WeakMap();
+
+  return {
+    getLocalCorners(target) {
+      if (!localCorners.has(target)) {
+        localCorners.set(target, getObjectLocalCorners(target, viewport));
+      }
+      return localCorners.get(target);
+    },
+    getSizeBounds(target) {
+      if (!sizeBounds.has(target)) {
+        sizeBounds.set(target, getObjectSizeLocalBounds(target, viewport));
+      }
+      return sizeBounds.get(target);
+    },
+  };
+};
+
+const createCandidatePointBoundsFilter = (geometryCache, selectUnit) => {
   if (selectUnit !== 'entity') {
     return undefined;
   }
 
   return (candidate, point) =>
-    boundsContainPoint(getObjectSizeLocalBounds(candidate, viewport), point);
+    boundsContainPoint(geometryCache.getSizeBounds(candidate), point);
 };
 
 const createCandidatePolygonBoundsFilter = (
-  viewport,
+  geometryCache,
   selectUnit,
   selectionBounds,
 ) => {
@@ -243,8 +269,5 @@ const createCandidatePolygonBoundsFilter = (
   }
 
   return (candidate) =>
-    boundsIntersect(
-      selectionBounds,
-      getObjectSizeLocalBounds(candidate, viewport),
-    );
+    boundsIntersect(selectionBounds, geometryCache.getSizeBounds(candidate));
 };

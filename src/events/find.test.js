@@ -52,8 +52,12 @@ import {
   toFlatPoints,
 } from '../utils/intersects/intersect';
 import { intersectPoint } from '../utils/intersects/intersect-point';
-import { getObjectSizeLocalBounds } from '../utils/transform';
 import {
+  getObjectLocalCorners,
+  getObjectSizeLocalBounds,
+} from '../utils/transform';
+import {
+  createFindGeometryCache,
   findIntersectObject,
   findIntersectObjects,
   findIntersectObjectsBySegment,
@@ -355,6 +359,57 @@ describe('findIntersectObject', () => {
 
     expect(result).toBe(wireframe);
   });
+
+  it('should reuse entity size bounds only within a provided geometry cache', () => {
+    const target = createNode({
+      id: 'target',
+      type: 'item',
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [target],
+    });
+    vi.mocked(getObjectSizeLocalBounds).mockReturnValue({
+      minX: 0,
+      minY: 0,
+      maxX: 10,
+      maxY: 10,
+    });
+
+    const geometryCache = createFindGeometryCache(root);
+    findIntersectObject(
+      root,
+      { x: 5, y: 5 },
+      {
+        selectUnit: 'entity',
+        geometryCache,
+      },
+    );
+    findIntersectObject(
+      root,
+      { x: 5, y: 5 },
+      {
+        selectUnit: 'entity',
+        geometryCache,
+      },
+    );
+
+    expect(getObjectSizeLocalBounds).toHaveBeenCalledTimes(1);
+
+    findIntersectObject(
+      root,
+      { x: 5, y: 5 },
+      {
+        selectUnit: 'entity',
+        geometryCache: createFindGeometryCache(root),
+      },
+    );
+
+    expect(getObjectSizeLocalBounds).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('findIntersectObjects', () => {
@@ -479,6 +534,53 @@ describe('findIntersectObjects', () => {
       expect.anything(),
     );
   });
+
+  it('should not cache mutable selection box geometry across searches', () => {
+    const target = createNode({
+      id: 'target',
+      type: 'item',
+      hit: true,
+    });
+    const selectionBox = createNode({
+      id: 'selection-box',
+      type: 'selection-box',
+      isSelectable: false,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [target],
+    });
+    vi.mocked(getObjectLocalCorners).mockImplementation((node) =>
+      node === selectionBox ? node.corners : [],
+    );
+    vi.mocked(toFlatPoints).mockImplementation((points) =>
+      points.flatMap((point) => [point.x, point.y]),
+    );
+
+    const geometryCache = createFindGeometryCache(root);
+    selectionBox.corners = [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+    ];
+    findIntersectObjects(root, selectionBox, { geometryCache });
+
+    selectionBox.corners = [
+      { x: 20, y: 20 },
+      { x: 30, y: 20 },
+      { x: 30, y: 30 },
+      { x: 20, y: 30 },
+    ];
+    findIntersectObjects(root, selectionBox, { geometryCache });
+
+    const selectionBoxCalls = vi
+      .mocked(getObjectLocalCorners)
+      .mock.calls.filter(([node]) => node === selectionBox);
+    expect(selectionBoxCalls).toHaveLength(2);
+  });
 });
 
 describe('findIntersectObjectsBySegment', () => {
@@ -543,5 +645,51 @@ describe('findIntersectObjectsBySegment', () => {
     );
 
     expect(result).toEqual([unlockedRect]);
+  });
+
+  it('should reuse segment target corners only within a provided geometry cache', () => {
+    const target = createNode({
+      id: 'target',
+      type: 'item',
+      hit: true,
+      entryT: 0.1,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [target],
+    });
+
+    const geometryCache = createFindGeometryCache(root);
+    findIntersectObjectsBySegment(
+      root,
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+      { geometryCache },
+    );
+    findIntersectObjectsBySegment(
+      root,
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+      { geometryCache },
+    );
+
+    const targetCalls = vi
+      .mocked(getObjectLocalCorners)
+      .mock.calls.filter(([node]) => node === target);
+    expect(targetCalls).toHaveLength(1);
+
+    findIntersectObjectsBySegment(
+      root,
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+      { geometryCache: createFindGeometryCache(root) },
+    );
+
+    const nextTargetCalls = vi
+      .mocked(getObjectLocalCorners)
+      .mock.calls.filter(([node]) => node === target);
+    expect(nextTargetCalls).toHaveLength(2);
   });
 });
