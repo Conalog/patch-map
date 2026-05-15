@@ -28,6 +28,11 @@ const getSelectableCandidates = (parent, config = {}) => {
     return [];
   }
 
+  const indexedCandidates = getIndexedSelectableCandidates(parent, config);
+  if (indexedCandidates) {
+    return indexedCandidates;
+  }
+
   return collectCandidates(
     parent,
     (child) =>
@@ -35,6 +40,58 @@ const getSelectableCandidates = (parent, config = {}) => {
       canResolveCandidate(child, config),
     { shouldDescend: (child) => !isInteractionLocked(child, parent) },
   );
+};
+
+const getIndexedSelectableCandidates = (parent, config = {}) => {
+  const indexedRoot = getIndexedSceneRoot(parent);
+  const sceneIndex = indexedRoot?.store?.sceneIndex;
+  if (!sceneIndex?.selectable) {
+    return null;
+  }
+
+  const candidates = [...sceneIndex.selectable].filter(
+    (child) =>
+      isDescendantOf(child, parent) &&
+      isSelectableCandidate(child, parent) &&
+      canResolveCandidate(child, config),
+  );
+
+  const extraRoots =
+    indexedRoot === parent
+      ? []
+      : (parent?.children?.filter((child) => child !== indexedRoot) ?? []);
+  if (extraRoots.length === 0) {
+    return candidates;
+  }
+
+  candidates.push(
+    ...collectCandidates(
+      { children: extraRoots },
+      (child) =>
+        isSelectableCandidate(child, parent) &&
+        canResolveCandidate(child, config),
+      { shouldDescend: (child) => !isInteractionLocked(child, parent) },
+    ),
+  );
+  return candidates;
+};
+
+const getIndexedSceneRoot = (parent) => {
+  if (parent?.store?.sceneIndex) {
+    return parent;
+  }
+  return parent?.children?.find((child) => child?.store?.sceneIndex) ?? null;
+};
+
+const isDescendantOf = (candidate, parent) => {
+  let current = candidate;
+  while (current) {
+    if (current === parent) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
 };
 
 const canResolveCandidate = (candidate, { filter, selectUnit } = {}) => {

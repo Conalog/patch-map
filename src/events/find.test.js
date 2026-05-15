@@ -264,6 +264,97 @@ describe('findIntersectObject', () => {
       expect.anything(),
     );
   });
+
+  it('should use indexed selectable candidates when a scene index is available', () => {
+    const target = createNode({
+      id: 'indexed-target',
+      type: 'item',
+      hit: true,
+    });
+    const skipped = createNode({
+      id: 'skipped',
+      type: 'item',
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [target, skipped],
+    });
+    root.store = {
+      sceneIndex: {
+        selectable: new Set([target]),
+      },
+    };
+
+    const result = findIntersectObject(root, { x: 0, y: 0 });
+
+    expect(result).toBe(target);
+    expect(intersectPoint).not.toHaveBeenCalledWith(skipped, expect.anything());
+  });
+
+  it('should ignore stale indexed candidates that are no longer descendants', () => {
+    const staleTarget = createNode({
+      id: 'stale-target',
+      type: 'item',
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [],
+    });
+    root.store = {
+      sceneIndex: {
+        selectable: new Set([staleTarget]),
+      },
+    };
+
+    const result = findIntersectObject(root, { x: 0, y: 0 });
+
+    expect(result).toBeNull();
+    expect(intersectPoint).not.toHaveBeenCalledWith(
+      staleTarget,
+      expect.anything(),
+    );
+  });
+
+  it('should keep unindexed overlay candidates such as transformer wireframes selectable', () => {
+    const world = createNode({
+      id: 'world',
+      type: 'canvas',
+      isSelectable: false,
+      children: [],
+    });
+    world.store = {
+      sceneIndex: {
+        selectable: new Set(),
+      },
+    };
+    const wireframe = createNode({
+      id: 'wireframe',
+      type: 'wireframe',
+      hit: true,
+    });
+    const transformer = createNode({
+      id: 'transformer',
+      type: 'transformer',
+      isSelectable: false,
+      children: [wireframe],
+    });
+    const viewport = createNode({
+      id: 'viewport',
+      type: 'viewport',
+      isSelectable: false,
+      children: [world, transformer],
+    });
+
+    const result = findIntersectObject(viewport, { x: 0, y: 0 });
+
+    expect(result).toBe(wireframe);
+  });
 });
 
 describe('findIntersectObjects', () => {
