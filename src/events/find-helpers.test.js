@@ -52,6 +52,22 @@ describe('find-helpers', () => {
     expect(result).toBe(candidate);
   });
 
+  it('should return the best matching point-hit selection when a comparator is provided', () => {
+    const lower = createNode({ id: 'lower', pointHit: true });
+    const higher = createNode({ id: 'higher', pointHit: true });
+
+    const result = collectPointHit({
+      candidates: [lower, higher],
+      point: { x: 0, y: 0 },
+      intersectsPoint: (target) => target.pointHit,
+      resolveSelection: (current) => current,
+      compareCandidates: (left, right) =>
+        left.id === 'higher' && right.id === 'lower' ? -1 : 1,
+    });
+
+    expect(result).toBe(higher);
+  });
+
   it('should collect unique polygon-hit selections', () => {
     const duplicateTarget = createNode({
       id: 'duplicate-target',

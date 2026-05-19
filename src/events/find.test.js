@@ -453,6 +453,36 @@ describe('findIntersectObject', () => {
     expect(result).toBe(laterChild);
   });
 
+  it('should avoid display-order sibling index work for non-hit candidates', () => {
+    const missed = createNode({
+      id: 'missed',
+      type: 'item',
+      hit: false,
+    });
+    const target = createNode({
+      id: 'target',
+      type: 'item',
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [missed, target],
+    });
+    root.getChildIndex = vi.fn(root.getChildIndex.bind(root));
+    root.store = {
+      sceneIndex: {
+        selectable: new Set([missed, target]),
+      },
+    };
+
+    const result = findIntersectObject(root, { x: 0, y: 0 });
+
+    expect(result).toBe(target);
+    expect(root.getChildIndex).not.toHaveBeenCalled();
+  });
+
   it('should reuse entity size bounds only within a provided geometry cache', () => {
     const target = createNode({
       id: 'target',

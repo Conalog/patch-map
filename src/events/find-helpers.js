@@ -11,7 +11,11 @@ export const collectPointHit = ({
   intersectsPoint,
   mayContainPoint = () => true,
   resolveSelection = selectCandidate,
+  compareCandidates = null,
 }) => {
+  let bestCandidate = null;
+  let bestSelection = null;
+
   for (const candidate of candidates) {
     if (!mayContainPoint(candidate, point)) {
       continue;
@@ -26,12 +30,19 @@ export const collectPointHit = ({
 
       const selection = resolveSelection(candidate);
       if (selection) {
-        return selection;
+        if (!compareCandidates) {
+          return selection;
+        }
+        if (!bestCandidate || compareCandidates(candidate, bestCandidate) < 0) {
+          bestCandidate = candidate;
+          bestSelection = selection;
+        }
+        break;
       }
     }
   }
 
-  return null;
+  return bestSelection;
 };
 
 export const collectPolygonHits = ({

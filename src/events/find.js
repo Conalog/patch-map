@@ -191,17 +191,16 @@ export const findIntersectObject = (
     selectUnit,
     filterParent,
   });
-  const sortedCandidates =
-    candidates.length > 1
-      ? candidates.sort(createDisplayOrderComparator(parent))
-      : candidates;
+  const compareCandidates =
+    candidates.length > 1 ? createDisplayOrderComparator(parent) : null;
 
   return collectPointHit({
-    candidates: sortedCandidates,
+    candidates,
     point,
     intersectsPoint: intersectPoint,
     mayContainPoint,
     resolveSelection,
+    compareCandidates,
   });
 };
 
