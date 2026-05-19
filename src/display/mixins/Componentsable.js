@@ -3,6 +3,7 @@ import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { newComponent } from '../components/creator';
 import { componentArraySchema } from '../data-schema/component-schema';
 import { applyComponentDefaults } from '../default-props';
+import { tryApplyPanelComponentChanges } from '../renderers/panelComponentRenderer';
 import { UPDATE_STAGES } from './constants';
 import { validateAndPrepareChanges } from './utils';
 
@@ -21,6 +22,12 @@ export const Componentsable = (superClass) => {
         : (options.changes?.components ?? relevantChanges?.components);
       componentsChanges = componentsChanges ?? [];
       const components = [...this.children];
+
+      if (
+        tryApplyPanelComponentChanges(this, componentsChanges, childOptions)
+      ) {
+        return;
+      }
 
       componentsChanges = validateAndPrepareChanges(
         components,

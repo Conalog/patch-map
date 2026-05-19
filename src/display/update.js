@@ -3,6 +3,7 @@ import { convertArray } from '../utils/convert';
 import { selector } from '../utils/selector/selector';
 import { getCentroid, getObjectFrameWorldCorners } from '../utils/transform';
 import { uid } from '../utils/uuid';
+import { tryApplyPanelComponentChanges } from './renderers/panelComponentRenderer';
 
 const DEFAULT_UPDATE_CONFIG = Object.freeze({
   path: null,
@@ -18,6 +19,24 @@ const DEFAULT_UPDATE_CONFIG = Object.freeze({
 const RADIANS_PER_DEGREE = Math.PI / 180;
 
 export const update = (root, opts = {}) => {
+  if (canUseDirectPanelComponentUpdate(opts)) {
+    const element = opts.elements;
+    if (!element) return [];
+
+    const applied = tryApplyPanelComponentChanges(
+      element,
+      opts.changes.components,
+      {
+        mergeStrategy:
+          opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy,
+        refresh: false,
+        validateSchema: false,
+        normalize: opts.normalize,
+      },
+    );
+    if (applied) return [element];
+  }
+
   const config = {
     ...opts,
     ...DEFAULT_UPDATE_CONFIG,
@@ -63,6 +82,22 @@ export const update = (root, opts = {}) => {
   }
   return elements;
 };
+
+const canUseDirectPanelComponentUpdate = (opts) =>
+  opts?.validateSchema === false &&
+  !opts.path &&
+  opts.elements &&
+  !Array.isArray(opts.elements) &&
+  !opts.history &&
+  !opts.relativeTransform &&
+  !opts.rotateOrigin &&
+  !opts.refresh &&
+  isComponentsOnlyChange(opts.changes);
+
+const isComponentsOnlyChange = (changes) =>
+  changes &&
+  Object.keys(changes).length === 1 &&
+  Array.isArray(changes.components);
 
 const applyRelativeTransform = (element, changes) => {
   ['x', 'y', 'rotation', 'angle'].forEach((key) => {
