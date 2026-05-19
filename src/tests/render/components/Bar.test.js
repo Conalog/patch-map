@@ -99,6 +99,8 @@ describe('Bar Component Tests', () => {
       emit: false,
     });
 
+    patchmap.selector('$..[?(@.id=="aggregate-bar")]');
+
     expect(patchmap.world.store.panelBarLayer).toBeDefined();
     expect(patchmap.world.store.panelBarLayer.particleChildren.length).toBe(6);
     expect(bar.renderable).toBe(false);
@@ -150,6 +152,7 @@ describe('Bar Component Tests', () => {
       validateSchema: false,
       emit: false,
     });
+    patchmap.selector('$..[?(@.id=="aggregate-fallback-bar")]');
     expect(bar.renderable).toBe(false);
 
     patchmap.update({
@@ -162,11 +165,63 @@ describe('Bar Component Tests', () => {
       validateSchema: false,
       emit: false,
     });
+    patchmap.selector('$..[?(@.id=="aggregate-fallback-bar")]');
 
     expect(bar.renderable).toBe(true);
     expect(bar._patchmapUseAggregateBar).toBe(false);
     expect(bar.width).toBe(150);
     expect(bar.height).toBe(24);
+  });
+
+  it('flushes queued silent panel updates before selector reads', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'queued-panel-item',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'queued-panel-bar',
+            source: { type: 'rect', fill: 'blue', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: false,
+          },
+          {
+            type: 'text',
+            id: 'queued-panel-text',
+            text: 'visible',
+            show: true,
+          },
+        ],
+      },
+    ]);
+
+    const item = patchmap.selector('$..[?(@.id=="queued-panel-item")]')[0];
+    const bar = patchmap.selector('$..[?(@.id=="queued-panel-bar")]')[0];
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            id: 'queued-panel-bar',
+            size: { width: '80%', height: 28 },
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+
+    expect(bar.props.size.width).toEqual({ value: 50, unit: '%' });
+
+    const flushedBar = patchmap.selector('$..[?(@.id=="queued-panel-bar")]')[0];
+    expect(flushedBar.props.size.width).toEqual({ value: 80, unit: '%' });
+    expect(flushedBar.width).toBe(160);
+    expect(flushedBar.height).toBe(28);
   });
 
   describe('when updating size', () => {

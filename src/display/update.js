@@ -1,5 +1,7 @@
 import { Point } from 'pixi.js';
 import { convertArray } from '../utils/convert';
+import { deepMerge } from '../utils/deepmerge/deepmerge';
+import { findIndexByPriority } from '../utils/findIndexByPriority';
 import { selector } from '../utils/selector/selector';
 import { getCentroid, getObjectFrameWorldCorners } from '../utils/transform';
 import { uid } from '../utils/uuid';
@@ -17,8 +19,20 @@ const DEFAULT_UPDATE_CONFIG = Object.freeze({
 });
 
 const RADIANS_PER_DEGREE = Math.PI / 180;
+const PANEL_COMPONENT_TYPES = new Set(['background', 'bar', 'icon', 'text']);
+const QUEUE_FRAME_BUDGET_MS = 4;
+const QUEUE_MAX_UPDATES_PER_FRAME = 750;
+const queuedPanelUpdates = new Map();
+let queuedPanelUpdateFrame = null;
 
 export const update = (root, opts = {}) => {
+  if (canQueuePanelComponentUpdate(opts)) {
+    enqueuePanelComponentUpdate(opts);
+    return [opts.elements];
+  }
+
+  flushQueuedPanelComponentUpdates();
+
   if (canUseDirectPanelComponentUpdate(opts)) {
     const element = opts.elements;
     if (!element) return [];
@@ -83,6 +97,26 @@ export const update = (root, opts = {}) => {
   return elements;
 };
 
+export const flushQueuedPanelComponentUpdates = () => {
+  if (queuedPanelUpdateFrame !== null) {
+    cancelFrame(queuedPanelUpdateFrame);
+    queuedPanelUpdateFrame = null;
+  }
+  drainQueuedPanelUpdates({
+    frameBudgetMs: Number.POSITIVE_INFINITY,
+    maxUpdates: Number.POSITIVE_INFINITY,
+  });
+};
+
+const canQueuePanelComponentUpdate = (opts) =>
+  opts?.emit === false &&
+  canUseDirectPanelComponentUpdate(opts) &&
+  (opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy) !== 'replace' &&
+  opts.elements?.type === 'item' &&
+  hasOnlyPanelComponentChanges(opts.changes.components) &&
+  hasQueueableTargetComponents(opts.elements, opts.changes.components) &&
+  !hasDuplicateUnkeyedTypes(opts.changes.components);
+
 const canUseDirectPanelComponentUpdate = (opts) =>
   opts?.validateSchema === false &&
   !opts.path &&
@@ -98,6 +132,135 @@ const isComponentsOnlyChange = (changes) =>
   changes &&
   Object.keys(changes).length === 1 &&
   Array.isArray(changes.components);
+
+const hasOnlyPanelComponentChanges = (componentChanges) =>
+  componentChanges.every((change) => PANEL_COMPONENT_TYPES.has(change?.type));
+
+const hasQueueableTargetComponents = (item, componentChanges) =>
+  componentChanges.every((change) => {
+    if (change?.show === false) return true;
+    return Boolean(findPanelComponent(item, change));
+  });
+
+const findPanelComponent = (item, change) => {
+  if (change.id || change.label) {
+    const index = findIndexByPriority(item.children ?? [], change);
+    return index === -1 ? null : item.children[index];
+  }
+  return (item.children ?? []).find(
+    (child) => child?.type === change.type && !child.destroyed,
+  );
+};
+
+const hasDuplicateUnkeyedTypes = (componentChanges) => {
+  const seenTypes = new Set();
+  for (const change of componentChanges) {
+    if (!change || change.id || change.label) continue;
+    if (seenTypes.has(change.type)) return true;
+    seenTypes.add(change.type);
+  }
+  return false;
+};
+
+const enqueuePanelComponentUpdate = (opts) => {
+  const element = opts.elements;
+  const pending = queuedPanelUpdates.get(element);
+  const components = pending
+    ? mergeQueuedComponentChanges(
+        pending.changes.components,
+        opts.changes.components,
+      )
+    : opts.changes.components;
+
+  queuedPanelUpdates.set(element, {
+    element,
+    changes: { components },
+    options: {
+      mergeStrategy: opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy,
+      refresh: false,
+      validateSchema: false,
+      normalize: opts.normalize,
+    },
+  });
+  scheduleQueuedPanelUpdates();
+};
+
+const mergeQueuedComponentChanges = (current, next) =>
+  deepMerge(
+    { components: current },
+    { components: next },
+    { mergeBy: ['id', 'label', 'type'] },
+  ).components;
+
+const scheduleQueuedPanelUpdates = () => {
+  if (queuedPanelUpdateFrame !== null) return;
+  queuedPanelUpdateFrame = requestFrame(() => {
+    queuedPanelUpdateFrame = null;
+    drainQueuedPanelUpdates();
+  });
+};
+
+const drainQueuedPanelUpdates = ({
+  frameBudgetMs = QUEUE_FRAME_BUDGET_MS,
+  maxUpdates = QUEUE_MAX_UPDATES_PER_FRAME,
+} = {}) => {
+  const startedAt = now();
+  let processed = 0;
+
+  for (const [element, pending] of queuedPanelUpdates) {
+    queuedPanelUpdates.delete(element);
+    applyQueuedPanelComponentUpdate(pending);
+    processed += 1;
+
+    if (
+      queuedPanelUpdates.size > 0 &&
+      (processed >= maxUpdates || now() - startedAt >= frameBudgetMs)
+    ) {
+      break;
+    }
+  }
+
+  if (queuedPanelUpdates.size > 0) {
+    scheduleQueuedPanelUpdates();
+  }
+};
+
+const applyQueuedPanelComponentUpdate = ({ element, changes, options }) => {
+  const applied = tryApplyPanelComponentChanges(
+    element,
+    changes.components,
+    options,
+  );
+  if (applied) return;
+
+  element.apply(changes, {
+    historyId: null,
+    mergeStrategy: options.mergeStrategy,
+    refresh: options.refresh,
+    validateSchema: options.validateSchema,
+    normalize: options.normalize,
+  });
+};
+
+const requestFrame = (callback) => {
+  if (typeof requestAnimationFrame === 'function') {
+    return requestAnimationFrame(callback);
+  }
+  return setTimeout(() => callback(now()), 0);
+};
+
+const cancelFrame = (handle) => {
+  if (typeof cancelAnimationFrame === 'function') {
+    cancelAnimationFrame(handle);
+    return;
+  }
+  clearTimeout(handle);
+};
+
+const now = () =>
+  typeof performance !== 'undefined' && performance.now
+    ? performance.now()
+    : Date.now();
 
 const applyRelativeTransform = (element, changes) => {
   ['x', 'y', 'rotation', 'angle'].forEach((key) => {

@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { update } from './update';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { flushQueuedPanelComponentUpdates, update } from './update';
 
 const createBar = () => ({
   type: 'bar',
@@ -30,6 +30,10 @@ const createItem = () => {
 };
 
 describe('display update', () => {
+  afterEach(() => {
+    flushQueuedPanelComponentUpdates();
+  });
+
   it('uses the direct panel component path for trusted single element updates', () => {
     const { item, bar } = createItem();
 
@@ -56,5 +60,56 @@ describe('display update', () => {
 
     expect(result).toEqual([item]);
     expect(item.apply).toHaveBeenCalledOnce();
+  });
+
+  it('coalesces trusted silent panel component updates until flush', () => {
+    const { item, bar } = createItem();
+
+    const first = update(null, {
+      elements: item,
+      changes: { components: [{ type: 'bar', size: { height: '30%' } }] },
+      validateSchema: false,
+      emit: false,
+    });
+    update(null, {
+      elements: item,
+      changes: {
+        components: [{ type: 'bar', size: { height: '70%' }, tint: 0xff0000 }],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+
+    expect(first).toEqual([item]);
+    expect(bar.props.size.height).toBe('20%');
+    expect(bar._applyAnimationSize).not.toHaveBeenCalled();
+
+    flushQueuedPanelComponentUpdates();
+
+    expect(item.apply).not.toHaveBeenCalled();
+    expect(bar.props.size.height).toEqual({ value: 70, unit: '%' });
+    expect(bar.tint).toBe(0xff0000);
+    expect(bar._applyAnimationSize).toHaveBeenCalledOnce();
+  });
+
+  it('flushes queued panel component updates before synchronous updates', () => {
+    const { item, bar } = createItem();
+
+    update(null, {
+      elements: item,
+      changes: { components: [{ type: 'bar', size: { height: '60%' } }] },
+      validateSchema: false,
+      emit: false,
+    });
+
+    update(null, {
+      elements: item,
+      changes: { components: [{ type: 'bar', tint: 0x00ff00 }] },
+      validateSchema: false,
+    });
+
+    expect(bar.props.size.height).toEqual({ value: 60, unit: '%' });
+    expect(bar.tint).toBe(0x00ff00);
+    expect(bar._applyAnimationSize).toHaveBeenCalledOnce();
   });
 });
