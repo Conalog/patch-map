@@ -26,9 +26,15 @@ const queuedPanelUpdates = new Map();
 let queuedPanelUpdateFrame = null;
 
 export const update = (root, opts = {}) => {
-  if (canQueuePanelComponentUpdate(opts)) {
-    enqueuePanelComponentUpdate(opts);
-    return [opts.elements];
+  if (canUseBulkPanelComponentUpdate(opts)) {
+    flushQueuedPanelComponentUpdates();
+    return applyBulkPanelComponentUpdate(opts.elements, opts);
+  }
+
+  const queuedElements = getQueueablePanelComponentUpdateElements(opts);
+  if (queuedElements) {
+    enqueuePanelComponentUpdates(queuedElements, opts);
+    return queuedElements;
   }
 
   flushQueuedPanelComponentUpdates();
@@ -108,14 +114,45 @@ export const flushQueuedPanelComponentUpdates = () => {
   });
 };
 
+const getQueueablePanelComponentUpdateElements = (opts) => {
+  if (!canQueuePanelComponentUpdate(opts)) return null;
+
+  const element = opts.elements;
+  if (
+    element?.type === 'item' &&
+    hasQueueableTargetComponents(element, opts.changes.components)
+  ) {
+    return [element];
+  }
+  return null;
+};
+
 const canQueuePanelComponentUpdate = (opts) =>
   opts?.emit === false &&
-  canUseDirectPanelComponentUpdate(opts) &&
+  canUseTrustedPanelComponentUpdate(opts) &&
   (opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy) !== 'replace' &&
-  opts.elements?.type === 'item' &&
   hasOnlyPanelComponentChanges(opts.changes.components) &&
-  hasQueueableTargetComponents(opts.elements, opts.changes.components) &&
   !hasDuplicateUnkeyedTypes(opts.changes.components);
+
+const canUseTrustedPanelComponentUpdate = (opts) =>
+  opts?.validateSchema === false &&
+  !opts.path &&
+  opts.elements &&
+  !opts.history &&
+  !opts.relativeTransform &&
+  !opts.rotateOrigin &&
+  !opts.refresh &&
+  isComponentsOnlyChange(opts.changes);
+
+const canUseBulkPanelComponentUpdate = (opts) =>
+  opts?.emit === false &&
+  canUseTrustedPanelComponentUpdate(opts) &&
+  Array.isArray(opts.elements) &&
+  opts.elements.length > 0 &&
+  (opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy) !== 'replace' &&
+  hasOnlyPanelComponentChanges(opts.changes.components) &&
+  !hasDuplicateUnkeyedTypes(opts.changes.components) &&
+  opts.elements.every((element) => element?.type === 'item');
 
 const canUseDirectPanelComponentUpdate = (opts) =>
   opts?.validateSchema === false &&
@@ -162,8 +199,14 @@ const hasDuplicateUnkeyedTypes = (componentChanges) => {
   return false;
 };
 
-const enqueuePanelComponentUpdate = (opts) => {
-  const element = opts.elements;
+const enqueuePanelComponentUpdates = (elements, opts) => {
+  for (const element of elements) {
+    enqueuePanelComponentUpdate(element, opts);
+  }
+  scheduleQueuedPanelUpdates();
+};
+
+const enqueuePanelComponentUpdate = (element, opts) => {
   const pending = queuedPanelUpdates.get(element);
   const components = pending
     ? mergeQueuedComponentChanges(
@@ -182,7 +225,38 @@ const enqueuePanelComponentUpdate = (opts) => {
       normalize: opts.normalize,
     },
   });
-  scheduleQueuedPanelUpdates();
+};
+
+const applyBulkPanelComponentUpdate = (elements, opts) => {
+  const aggregateBarLayers = new Set();
+  const options = {
+    mergeStrategy: opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy,
+    refresh: false,
+    validateSchema: false,
+    normalize: opts.normalize,
+    deferAggregateBarFlush: true,
+    aggregateBarLayers,
+  };
+
+  for (const element of elements) {
+    const applied = tryApplyPanelComponentChanges(
+      element,
+      opts.changes.components,
+      options,
+    );
+    if (!applied) {
+      element.apply(opts.changes, {
+        historyId: null,
+        mergeStrategy: options.mergeStrategy,
+        refresh: options.refresh,
+        validateSchema: options.validateSchema,
+        normalize: options.normalize,
+      });
+    }
+  }
+
+  flushAggregateBarLayers(aggregateBarLayers);
+  return elements;
 };
 
 const mergeQueuedComponentChanges = (current, next) =>

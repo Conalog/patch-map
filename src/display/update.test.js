@@ -112,4 +112,43 @@ describe('display update', () => {
     expect(bar.tint).toBe(0x00ff00);
     expect(bar._applyAnimationSize).toHaveBeenCalledOnce();
   });
+
+  it('uses the direct panel component path for trusted silent array updates', () => {
+    const first = createItem();
+    const second = createItem();
+
+    const result = update(null, {
+      elements: [first.item, second.item],
+      changes: {
+        components: [{ type: 'bar', size: { height: '80%' }, tint: 0xff0000 }],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+
+    expect(result).toEqual([first.item, second.item]);
+    expect(first.item.apply).not.toHaveBeenCalled();
+    expect(second.item.apply).not.toHaveBeenCalled();
+    expect(first.bar.props.size.height).toEqual({ value: 80, unit: '%' });
+    expect(second.bar.props.size.height).toEqual({ value: 80, unit: '%' });
+    expect(first.bar.tint).toBe(0xff0000);
+    expect(second.bar.tint).toBe(0xff0000);
+  });
+
+  it('keeps mixed array updates on the synchronous fallback path', () => {
+    const { item, bar } = createItem();
+    const nonPanel = { type: 'group', apply: vi.fn() };
+
+    const result = update(null, {
+      elements: [item, nonPanel],
+      changes: { components: [{ type: 'bar', size: { height: '80%' } }] },
+      validateSchema: false,
+      emit: false,
+    });
+
+    expect(result).toEqual([item, nonPanel]);
+    expect(item.apply).toHaveBeenCalledOnce();
+    expect(nonPanel.apply).toHaveBeenCalledOnce();
+    expect(bar.props.size.height).toBe('20%');
+  });
 });

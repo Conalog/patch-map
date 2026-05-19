@@ -224,6 +224,63 @@ describe('Bar Component Tests', () => {
     expect(flushedBar.height).toBe(28);
   });
 
+  it('applies trusted silent bulk panel updates immediately', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'queued-bulk-item-a',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'queued-bulk-bar-a',
+            source: { type: 'rect', fill: 'blue', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: false,
+          },
+          { type: 'text', id: 'queued-bulk-text-a', text: 'A', show: true },
+        ],
+      },
+      {
+        type: 'item',
+        id: 'queued-bulk-item-b',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'queued-bulk-bar-b',
+            source: { type: 'rect', fill: 'green', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: false,
+          },
+          { type: 'text', id: 'queued-bulk-text-b', text: 'B', show: true },
+        ],
+      },
+    ]);
+
+    const items = [
+      patchmap.selector('$..[?(@.id=="queued-bulk-item-a")]')[0],
+      patchmap.selector('$..[?(@.id=="queued-bulk-item-b")]')[0],
+    ];
+    const firstBar = patchmap.selector('$..[?(@.id=="queued-bulk-bar-a")]')[0];
+    const secondBar = patchmap.selector('$..[?(@.id=="queued-bulk-bar-b")]')[0];
+
+    patchmap.update({
+      elements: items,
+      changes: {
+        components: [{ type: 'bar', size: { width: '80%', height: 28 } }],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+
+    expect(firstBar.props.size.width).toEqual({ value: 80, unit: '%' });
+    expect(secondBar.props.size.width).toEqual({ value: 80, unit: '%' });
+    expect(firstBar.width).toBe(160);
+    expect(secondBar.width).toBe(160);
+  });
+
   describe('when updating size', () => {
     const testCases = [
       {
