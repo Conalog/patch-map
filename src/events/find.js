@@ -117,20 +117,57 @@ const createFindSelectionResolver = (
   };
 };
 
-const compareCandidatesByDisplayOrder = (parent, a, b) => {
+const createDisplayOrderComparator = (parent) => {
+  const ancestorPathCache = new WeakMap();
+  const childIndexCache = new WeakMap();
+
+  const getCachedAncestorPath = (obj) => {
+    if (!ancestorPathCache.has(obj)) {
+      ancestorPathCache.set(obj, getAncestorPath(obj, parent));
+    }
+    return ancestorPathCache.get(obj);
+  };
+
+  const getCachedChildIndex = (childParent, child) => {
+    let childIndexes = childIndexCache.get(childParent);
+    if (!childIndexes) {
+      childIndexes = new WeakMap();
+      childIndexCache.set(childParent, childIndexes);
+    }
+    if (!childIndexes.has(child)) {
+      childIndexes.set(child, childParent.getChildIndex(child));
+    }
+    return childIndexes.get(child);
+  };
+
+  return (a, b) =>
+    compareCandidatesByDisplayOrder(
+      a,
+      b,
+      getCachedAncestorPath,
+      getCachedChildIndex,
+    );
+};
+
+const compareCandidatesByDisplayOrder = (
+  a,
+  b,
+  getCandidatePath,
+  getChildIndex,
+) => {
   const zDiff = (b.zIndex || 0) - (a.zIndex || 0);
   if (zDiff !== 0) return zDiff;
 
-  const pathA = getAncestorPath(a, parent);
-  const pathB = getAncestorPath(b, parent);
+  const pathA = getCandidatePath(a);
+  const pathB = getCandidatePath(b);
   const minLength = Math.min(pathA.length, pathB.length);
 
   for (let i = 0; i < minLength; i++) {
     if (pathA[i] !== pathB[i]) {
       const commonParent = pathA[i].parent;
       return (
-        commonParent.getChildIndex(pathB[i]) -
-        commonParent.getChildIndex(pathA[i])
+        getChildIndex(commonParent, pathB[i]) -
+        getChildIndex(commonParent, pathA[i])
       );
     }
   }
@@ -154,11 +191,13 @@ export const findIntersectObject = (
     selectUnit,
     filterParent,
   });
+  const sortedCandidates =
+    candidates.length > 1
+      ? candidates.sort(createDisplayOrderComparator(parent))
+      : candidates;
 
   return collectPointHit({
-    candidates: candidates.sort((a, b) =>
-      compareCandidatesByDisplayOrder(parent, a, b),
-    ),
+    candidates: sortedCandidates,
     point,
     intersectsPoint: intersectPoint,
     mayContainPoint,

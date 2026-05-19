@@ -360,6 +360,99 @@ describe('findIntersectObject', () => {
     expect(result).toBe(wireframe);
   });
 
+  it('should prefer a higher zIndex candidate during point selection', () => {
+    const lower = createNode({
+      id: 'lower',
+      type: 'item',
+      zIndex: 1,
+      hit: true,
+    });
+    const higher = createNode({
+      id: 'higher',
+      type: 'item',
+      zIndex: 2,
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [higher, lower],
+    });
+
+    const result = findIntersectObject(root, { x: 0, y: 0 });
+
+    expect(result).toBe(higher);
+  });
+
+  it('should prefer the later sibling when point candidates share zIndex', () => {
+    const first = createNode({
+      id: 'first',
+      type: 'item',
+      hit: true,
+    });
+    const second = createNode({
+      id: 'second',
+      type: 'item',
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [first, second],
+    });
+    root.store = {
+      sceneIndex: {
+        selectable: new Set([first, second]),
+      },
+    };
+
+    const result = findIntersectObject(root, { x: 0, y: 0 });
+
+    expect(result).toBe(second);
+  });
+
+  it('should preserve nested sibling display order during point selection', () => {
+    const earlierChild = createNode({
+      id: 'earlier-child',
+      type: 'item',
+      hit: true,
+    });
+    const laterChild = createNode({
+      id: 'later-child',
+      type: 'item',
+      hit: true,
+    });
+    const earlierGroup = createNode({
+      id: 'earlier-group',
+      type: 'group',
+      isSelectable: false,
+      children: [earlierChild],
+    });
+    const laterGroup = createNode({
+      id: 'later-group',
+      type: 'group',
+      isSelectable: false,
+      children: [laterChild],
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [earlierGroup, laterGroup],
+    });
+    root.store = {
+      sceneIndex: {
+        selectable: new Set([earlierChild, laterChild]),
+      },
+    };
+
+    const result = findIntersectObject(root, { x: 0, y: 0 });
+
+    expect(result).toBe(laterChild);
+  });
+
   it('should reuse entity size bounds only within a provided geometry cache', () => {
     const target = createNode({
       id: 'target',
