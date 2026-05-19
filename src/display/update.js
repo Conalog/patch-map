@@ -206,10 +206,11 @@ const drainQueuedPanelUpdates = ({
 } = {}) => {
   const startedAt = now();
   let processed = 0;
+  const aggregateBarLayers = new Set();
 
   for (const [element, pending] of queuedPanelUpdates) {
     queuedPanelUpdates.delete(element);
-    applyQueuedPanelComponentUpdate(pending);
+    applyQueuedPanelComponentUpdate(pending, aggregateBarLayers);
     processed += 1;
 
     if (
@@ -220,17 +221,22 @@ const drainQueuedPanelUpdates = ({
     }
   }
 
+  flushAggregateBarLayers(aggregateBarLayers);
+
   if (queuedPanelUpdates.size > 0) {
     scheduleQueuedPanelUpdates();
   }
 };
 
-const applyQueuedPanelComponentUpdate = ({ element, changes, options }) => {
-  const applied = tryApplyPanelComponentChanges(
-    element,
-    changes.components,
-    options,
-  );
+const applyQueuedPanelComponentUpdate = (
+  { element, changes, options },
+  aggregateBarLayers,
+) => {
+  const applied = tryApplyPanelComponentChanges(element, changes.components, {
+    ...options,
+    deferAggregateBarFlush: true,
+    aggregateBarLayers,
+  });
   if (applied) return;
 
   element.apply(changes, {
@@ -240,6 +246,12 @@ const applyQueuedPanelComponentUpdate = ({ element, changes, options }) => {
     validateSchema: options.validateSchema,
     normalize: options.normalize,
   });
+};
+
+const flushAggregateBarLayers = (layers) => {
+  for (const layer of layers) {
+    layer?.flushParticleChildrenUpdate?.();
+  }
 };
 
 const requestFrame = (callback) => {

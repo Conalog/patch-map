@@ -58,7 +58,7 @@ export const tryApplyPanelComponentChanges = (
   }
 
   if (shouldReconcileBar) {
-    reconcilePanelBarVisual(item, barChange);
+    reconcilePanelBarVisual(item, barChange, options);
   }
   return true;
 };
@@ -174,14 +174,18 @@ const applyPanelComponentChange = (
   }
 };
 
-const reconcilePanelBarVisual = (item, change) => {
+const reconcilePanelBarVisual = (item, change, options) => {
   const bar = getSinglePanelBarComponent(item);
   if (!bar) return;
 
   if (canUseAggregateBar(item, bar)) {
     const layer = ensurePanelBarLayer(bar.store);
     if (layer?.syncBar(bar)) {
-      layer.flushParticleChildrenUpdate?.();
+      if (options.deferAggregateBarFlush) {
+        options.aggregateBarLayers?.add(layer);
+      } else {
+        layer.flushParticleChildrenUpdate?.();
+      }
       bar.renderable = false;
       bar._patchmapUseAggregateBar = true;
       return;
