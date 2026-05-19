@@ -55,6 +55,120 @@ describe('Bar Component Tests', () => {
     expect(bar.props.source.fill).toBe('red');
   });
 
+  it('uses the aggregate bar layer for trusted bar-only panel updates', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'aggregate-bar-item',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-bar',
+            source: { type: 'rect', fill: 'blue', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: false,
+          },
+          {
+            type: 'text',
+            id: 'aggregate-label',
+            text: 'hidden',
+            show: false,
+          },
+        ],
+      },
+    ]);
+
+    const item = patchmap.selector('$..[?(@.id=="aggregate-bar-item")]')[0];
+    const bar = patchmap.selector('$..[?(@.id=="aggregate-bar")]')[0];
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-bar',
+            size: { width: '75%', height: 24 },
+            tint: 0xff0000,
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+
+    expect(patchmap.world.store.panelBarLayer).toBeDefined();
+    expect(patchmap.world.store.panelBarLayer.particleChildren.length).toBe(6);
+    expect(bar.renderable).toBe(false);
+    expect(bar._patchmapUseAggregateBar).toBe(true);
+    expect(bar.props.size.width).toEqual({ value: 75, unit: '%' });
+  });
+
+  it('restores regular bar rendering when visible text makes aggregation unsafe', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'aggregate-fallback-item',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-fallback-bar',
+            source: { type: 'rect', fill: 'green', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: false,
+          },
+          {
+            type: 'text',
+            id: 'aggregate-fallback-label',
+            text: 'visible',
+            show: false,
+          },
+        ],
+      },
+    ]);
+
+    const item = patchmap.selector(
+      '$..[?(@.id=="aggregate-fallback-item")]',
+    )[0];
+    const bar = patchmap.selector('$..[?(@.id=="aggregate-fallback-bar")]')[0];
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-fallback-bar',
+            size: { width: '75%', height: 24 },
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    expect(bar.renderable).toBe(false);
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          { type: 'text', id: 'aggregate-fallback-label', show: true },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+
+    expect(bar.renderable).toBe(true);
+    expect(bar._patchmapUseAggregateBar).toBe(false);
+    expect(bar.width).toBe(150);
+    expect(bar.height).toBe(24);
+  });
+
   describe('when updating size', () => {
     const testCases = [
       {
@@ -94,25 +208,25 @@ describe('Bar Component Tests', () => {
       },
     ];
 
-    it.each(testCases)(
-      'should correctly update to $description',
-      ({ size, expected }) => {
-        const patchmap = getPatchmap();
-        patchmap.draw([itemWithBar]);
-        gsap.exportRoot().totalProgress(1);
+    it.each(testCases)('should correctly update to $description', ({
+      size,
+      expected,
+    }) => {
+      const patchmap = getPatchmap();
+      patchmap.draw([itemWithBar]);
+      gsap.exportRoot().totalProgress(1);
 
-        const bar = patchmap.selector('$..[?(@.id=="bar-1")]')[0];
+      const bar = patchmap.selector('$..[?(@.id=="bar-1")]')[0];
 
-        patchmap.update({
-          path: '$..[?(@.id=="bar-1")]',
-          changes: { size },
-        });
-        gsap.exportRoot().totalProgress(1);
+      patchmap.update({
+        path: '$..[?(@.id=="bar-1")]',
+        changes: { size },
+      });
+      gsap.exportRoot().totalProgress(1);
 
-        expect(bar.width).toBe(expected.width);
-        expect(bar.height).toBe(expected.height);
-      },
-    );
+      expect(bar.width).toBe(expected.width);
+      expect(bar.height).toBe(expected.height);
+    });
   });
 
   describe('when parent item has padding', () => {
@@ -292,43 +406,40 @@ describe('Bar Component Tests', () => {
       },
     ];
 
-    it.each(layoutTestCases)(
-      '$description',
-      ({
-        itemSize,
-        itemPadding,
-        barSize,
-        barPlacement,
-        barMargin,
-        expected,
-      }) => {
-        const patchmap = getPatchmap();
-        const testItem = {
-          type: 'item',
-          id: 'test-item',
-          size: itemSize,
-          padding: itemPadding,
-          components: [
-            {
-              type: 'bar',
-              id: 'test-bar',
-              source: { type: 'rect', fill: 'magenta' },
-              size: barSize,
-              placement: barPlacement,
-              margin: barMargin,
-            },
-          ],
-        };
+    it.each(layoutTestCases)('$description', ({
+      itemSize,
+      itemPadding,
+      barSize,
+      barPlacement,
+      barMargin,
+      expected,
+    }) => {
+      const patchmap = getPatchmap();
+      const testItem = {
+        type: 'item',
+        id: 'test-item',
+        size: itemSize,
+        padding: itemPadding,
+        components: [
+          {
+            type: 'bar',
+            id: 'test-bar',
+            source: { type: 'rect', fill: 'magenta' },
+            size: barSize,
+            placement: barPlacement,
+            margin: barMargin,
+          },
+        ],
+      };
 
-        patchmap.draw([testItem]);
-        gsap.exportRoot().totalProgress(1);
+      patchmap.draw([testItem]);
+      gsap.exportRoot().totalProgress(1);
 
-        const bar = patchmap.selector('$..[?(@.id=="test-bar")]')[0];
-        expect(bar.width).toBeCloseTo(expected.width);
-        expect(bar.height).toBeCloseTo(expected.height);
-        expect(bar.x).toBeCloseTo(expected.x);
-        expect(bar.y).toBeCloseTo(expected.y);
-      },
-    );
+      const bar = patchmap.selector('$..[?(@.id=="test-bar")]')[0];
+      expect(bar.width).toBeCloseTo(expected.width);
+      expect(bar.height).toBeCloseTo(expected.height);
+      expect(bar.x).toBeCloseTo(expected.x);
+      expect(bar.y).toBeCloseTo(expected.y);
+    });
   });
 });
