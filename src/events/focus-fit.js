@@ -72,35 +72,54 @@ const resolveFocusFitTargets = (world, ids, filter) => {
     return collectTopLevelWorldTargets(world, filter);
   }
 
-  const objects = selector(world, '$..children[?(@.type != null)]').filter(
-    isAddressableFocusFitElement,
-  );
+  const resolveById = createFocusFitIdResolver(world);
   const idsArr = Array.isArray(ids) ? ids : [ids];
-  const objs = objects.reduce((acc, curr) => {
-    acc[curr.id] = curr;
-    return acc;
-  }, {});
-  const selected = idsArr.flatMap((i) => resolveExplicitTarget(objs[i], objs));
+  const selected = idsArr.flatMap((i) =>
+    resolveExplicitTarget(resolveById(i), resolveById),
+  );
   return collectBoundsContributors(selected, filter);
 };
 
-const resolveExplicitTarget = (node, objectById) => {
+const createFocusFitIdResolver = (world) => {
+  const sceneIndex = world?.store?.sceneIndex;
+  if (sceneIndex?.getAllById) {
+    return (id) => {
+      const matches = sceneIndex
+        .getAllById(id)
+        .filter(isAddressableFocusFitElement);
+      return matches[matches.length - 1] ?? null;
+    };
+  }
+
+  const objects = selector(world, '$..children[?(@.type != null)]').filter(
+    isAddressableFocusFitElement,
+  );
+  const objectById = objects.reduce((acc, curr) => {
+    acc[curr.id] = curr;
+    return acc;
+  }, {});
+  return (id) => objectById[id] ?? null;
+};
+
+const resolveExplicitTarget = (node, resolveById) => {
   if (!node) return [];
   if (node.type !== 'relations') return [node];
 
   // Relations may not have stable rendered bounds until a later refresh tick,
   // so focus/fit should resolve through the linked endpoints instead.
-  const linkedTargets = resolveRelationTargets(node, objectById);
+  const linkedTargets = resolveRelationTargets(node, resolveById);
   return linkedTargets.length > 0 ? linkedTargets : [node];
 };
 
-const resolveRelationTargets = (relations, objectById) => {
+const resolveRelationTargets = (relations, resolveById) => {
   const links = relations?.props?.links ?? [];
   const linkedIds = new Set(
     links.flatMap(({ source, target }) => [source, target]),
   );
 
-  return [...linkedIds].map((linkedId) => objectById[linkedId]).filter(Boolean);
+  return [...linkedIds]
+    .map((linkedId) => resolveById(linkedId))
+    .filter(Boolean);
 };
 
 const collectTopLevelWorldTargets = (world, filter) =>

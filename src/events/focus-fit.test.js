@@ -125,6 +125,50 @@ describe('focus-fit', () => {
     expect(viewport.moveCenter).toHaveBeenCalledWith(11, 12);
   });
 
+  it('uses the scene index for explicit id lookup without traversing the scene', () => {
+    const indexedTarget = markAsElement(
+      createTarget('node-1', { centerX: 17, centerY: 23 }),
+    );
+    const getAllById = vi.fn((id) => (id === 'node-1' ? [indexedTarget] : []));
+    const { viewport, world } = createScene(
+      [],
+      {},
+      {
+        store: { sceneIndex: { getAllById } },
+      },
+    );
+
+    focusViewport(viewport, world, 'node-1');
+
+    expect(selector).not.toHaveBeenCalled();
+    expect(getAllById).toHaveBeenCalledWith('node-1');
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([indexedTarget]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(17, 23);
+  });
+
+  it('preserves duplicate id focus semantics by using the last indexed match', () => {
+    const first = markAsElement(
+      createTarget('duplicate-id', { centerX: 1, centerY: 2 }),
+    );
+    const second = markAsElement(
+      createTarget('duplicate-id', { centerX: 30, centerY: 40 }),
+    );
+    const getAllById = vi.fn(() => [first, second]);
+    const { viewport, world } = createScene(
+      [],
+      {},
+      {
+        store: { sceneIndex: { getAllById } },
+      },
+    );
+
+    focusViewport(viewport, world, 'duplicate-id');
+
+    expect(selector).not.toHaveBeenCalled();
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([second]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(30, 40);
+  });
+
   it('returns null when the filter removes every managed target', () => {
     const { viewport, world } = createScene([
       markAsElement(createTarget('background-image')),
@@ -504,6 +548,53 @@ describe('focus-fit', () => {
 
     focusViewport(viewport, world, 'relations-1');
 
+    expect(calcGroupOrientedBounds).toHaveBeenCalledWith([source, target]);
+    expect(viewport.moveCenter).toHaveBeenCalledWith(42, 56);
+  });
+
+  it('resolves indexed relation ids through indexed endpoint targets', () => {
+    const source = markAsElement(
+      createTarget('item-1', {
+        type: 'item',
+        centerX: 11,
+        centerY: 12,
+      }),
+    );
+    const target = markAsElement(
+      createTarget('item-2', {
+        type: 'item',
+        centerX: 31,
+        centerY: 44,
+      }),
+    );
+    const relations = markAsElement(
+      createTarget('relations-1', {
+        type: 'relations',
+        props: { links: [{ source: 'item-1', target: 'item-2' }] },
+      }),
+    );
+    const indexed = new Map([
+      ['item-1', [source]],
+      ['item-2', [target]],
+      ['relations-1', [relations]],
+    ]);
+    const getAllById = vi.fn((id) => indexed.get(id) ?? []);
+    const { viewport, world } = createScene(
+      [],
+      {
+        toLocal: vi.fn(() => ({ x: 42, y: 56 })),
+      },
+      {
+        store: { sceneIndex: { getAllById } },
+      },
+    );
+
+    focusViewport(viewport, world, 'relations-1');
+
+    expect(selector).not.toHaveBeenCalled();
+    expect(getAllById).toHaveBeenCalledWith('relations-1');
+    expect(getAllById).toHaveBeenCalledWith('item-1');
+    expect(getAllById).toHaveBeenCalledWith('item-2');
     expect(calcGroupOrientedBounds).toHaveBeenCalledWith([source, target]);
     expect(viewport.moveCenter).toHaveBeenCalledWith(42, 56);
   });
