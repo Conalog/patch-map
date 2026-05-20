@@ -182,6 +182,139 @@ describe('Bar Component Tests', () => {
     );
   });
 
+  it('uses separate aggregate bar layers for different texture sources', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'aggregate-source-item-a',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-source-bar-a',
+            source: { type: 'rect', fill: 'blue', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: false,
+          },
+        ],
+      },
+      {
+        type: 'item',
+        id: 'aggregate-source-item-b',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-source-bar-b',
+            source: { type: 'rect', fill: 'green', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: false,
+          },
+        ],
+      },
+      { type: 'relations', id: 'aggregate-source-relations', links: [] },
+    ]);
+
+    const items = [
+      patchmap.selector('$..[?(@.id=="aggregate-source-item-a")]')[0],
+      patchmap.selector('$..[?(@.id=="aggregate-source-item-b")]')[0],
+    ];
+
+    patchmap.update({
+      elements: items,
+      changes: {
+        components: [{ type: 'bar', size: { width: '75%', height: 24 } }],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="aggregate-source-bar-a")]');
+
+    const layers = [...patchmap.world.store.panelBarLayers.values()];
+    expect(layers).toHaveLength(2);
+    expect(layers.map((layer) => layer.textureSource)).toHaveLength(2);
+    expect(new Set(layers.map((layer) => layer.textureSource)).size).toBe(2);
+    expect(layers.map((layer) => layer.particleChildren.length)).toEqual([
+      6, 6,
+    ]);
+
+    const relations = patchmap.selector(
+      '$..[?(@.id=="aggregate-source-relations")]',
+    )[0];
+    const relationIndex = patchmap.world.children.indexOf(relations);
+    for (const layer of layers) {
+      expect(patchmap.world.children.indexOf(layer)).toBeLessThan(
+        relationIndex,
+      );
+    }
+  });
+
+  it('moves aggregate bar particles when the texture source changes', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'aggregate-source-change-item',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-source-change-bar',
+            source: { type: 'rect', fill: 'blue', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: false,
+          },
+        ],
+      },
+    ]);
+
+    const item = patchmap.selector(
+      '$..[?(@.id=="aggregate-source-change-item")]',
+    )[0];
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-source-change-bar',
+            size: { width: '75%', height: 24 },
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="aggregate-source-change-bar")]');
+
+    const oldLayer = patchmap.world.store.panelBarLayer;
+    expect(oldLayer.particleChildren.length).toBe(6);
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-source-change-bar',
+            source: { type: 'rect', fill: 'red', radius: 4 },
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="aggregate-source-change-bar")]');
+
+    const layers = [...patchmap.world.store.panelBarLayers.values()];
+    const activeLayer = layers.find((layer) => layer !== oldLayer);
+    expect(oldLayer.destroyed).toBe(true);
+    expect(layers).not.toContain(oldLayer);
+    expect(activeLayer.particleChildren.length).toBe(6);
+  });
+
   it('keeps aggregate bar particles aligned when the parent item moves or fades', () => {
     const patchmap = getPatchmap();
     patchmap.draw([
@@ -300,6 +433,7 @@ describe('Bar Component Tests', () => {
 
     expect(bar.renderable).toBe(true);
     expect(bar._patchmapUseAggregateBar).toBe(false);
+    expect(patchmap.world.store.panelBarLayers.size).toBe(0);
     expect(bar.width).toBe(150);
     expect(bar.height).toBe(24);
   });

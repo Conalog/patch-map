@@ -1,7 +1,12 @@
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { getColor } from '../../utils/get';
 import { normalizeBoxSpacing } from '../../utils/spacing';
-import { ensurePanelBarLayer } from './PanelBarLayer';
+import {
+  ensurePanelBarLayerForBar,
+  getCurrentPanelBarLayer,
+  removeAggregatePanelBar,
+  setCurrentPanelBarLayer,
+} from './PanelBarLayer';
 
 const PANEL_COMPONENT_TYPES = new Set(['background', 'bar', 'icon', 'text']);
 const COMPONENT_CACHE_FIELDS = {
@@ -18,7 +23,7 @@ export const tryApplyPanelComponentChanges = (
 ) => {
   if (!canUsePanelRenderer(item, componentChanges, options)) return false;
   if (hasDuplicateUnkeyedTypes(componentChanges)) {
-    restorePanelBarFallback(item);
+    restorePanelBarFallback(item, options);
     return false;
   }
 
@@ -27,14 +32,14 @@ export const tryApplyPanelComponentChanges = (
 
   for (const change of componentChanges) {
     if (!PANEL_COMPONENT_TYPES.has(change?.type)) {
-      restorePanelBarFallback(item);
+      restorePanelBarFallback(item, options);
       return false;
     }
 
     const component = findPanelComponent(item, change);
     if (!component) {
       if (change.show === false) continue;
-      restorePanelBarFallback(item);
+      restorePanelBarFallback(item, options);
       return false;
     }
 
@@ -66,12 +71,19 @@ export const tryApplyPanelComponentChanges = (
 export const syncAggregatePanelBar = (bar, options = {}) => {
   if (!bar?._patchmapUseAggregateBar) return false;
 
-  const layer = ensurePanelBarLayer(bar.store);
+  const previousLayer = getCurrentPanelBarLayer(bar);
+  const layer = ensurePanelBarLayerForBar(bar);
+  if (previousLayer && previousLayer !== layer) {
+    const removedLayer = removeAggregatePanelBar(bar);
+    flushOrDeferAggregateBarLayer(removedLayer, options);
+  }
+
   if (!layer?.syncBar(bar)) {
-    restoreBarFallback(bar);
+    restoreBarFallback(bar, null, options);
     return false;
   }
 
+  setCurrentPanelBarLayer(bar, layer);
   if (options.deferAggregateBarFlush) {
     options.aggregateBarLayers?.add(layer);
   } else {
@@ -209,7 +221,7 @@ const reconcilePanelBarVisual = (item, change, options) => {
     }
   }
 
-  restoreBarFallback(bar, change);
+  restoreBarFallback(bar, change, options);
 };
 
 const canUseAggregateBar = (item, bar) => {
@@ -220,7 +232,7 @@ const canUseAggregateBar = (item, bar) => {
     return false;
   }
 
-  const layer = ensurePanelBarLayer(bar.store);
+  const layer = ensurePanelBarLayerForBar(bar);
   return Boolean(layer?.canRender(bar));
 };
 
@@ -236,14 +248,14 @@ const hasUnsafeAggregateEffects = (component) =>
         component.blendMode !== 'inherit'),
   );
 
-const restorePanelBarFallback = (item) => {
+const restorePanelBarFallback = (item, options = {}) => {
   const bar = getSinglePanelBarComponent(item) ?? item?._panelBarComponent;
-  if (bar) restoreBarFallback(bar);
+  if (bar) restoreBarFallback(bar, null, options);
 };
 
-const restoreBarFallback = (bar, change = null) => {
-  const layer = bar?.store?.panelBarLayer;
-  layer?.hideBar?.(bar);
+const restoreBarFallback = (bar, change = null, options = {}) => {
+  const layer = removeAggregatePanelBar(bar);
+  flushOrDeferAggregateBarLayer(layer, options);
   if (!bar) return;
   bar._patchmapUseAggregateBar = false;
   bar.renderable = bar.props?.show !== false;
@@ -261,6 +273,15 @@ const restoreBarFallback = (bar, change = null) => {
     bar._applySource?.({ source: bar.props.source });
   }
   applyBarChange(bar, fallbackChange);
+};
+
+const flushOrDeferAggregateBarLayer = (layer, options) => {
+  if (!layer) return;
+  if (options.deferAggregateBarFlush) {
+    options.aggregateBarLayers?.add(layer);
+    return;
+  }
+  layer.flushParticleChildrenUpdate?.();
 };
 
 const applyBarChange = (bar, change) => {

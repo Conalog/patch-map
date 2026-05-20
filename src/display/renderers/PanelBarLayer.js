@@ -18,7 +18,7 @@ const DEFAULT_BOUNDS = new Rectangle(
 const ZERO_POINT = new Point();
 
 export class PanelBarLayer extends ParticleContainer {
-  constructor(store) {
+  constructor(store, textureSource = null) {
     super({
       boundsArea: DEFAULT_BOUNDS,
       dynamicProperties: {
@@ -32,6 +32,7 @@ export class PanelBarLayer extends ParticleContainer {
     this._patchmapInternal = true;
     this.label = 'patchmap-panel-bar-layer';
     this.store = store;
+    this.textureSource = textureSource;
     this.zIndex = 0;
     this._entries = new WeakMap();
     this._activeAnimations = new Set();
@@ -48,6 +49,9 @@ export class PanelBarLayer extends ParticleContainer {
 
     const texture = getBarTexture(bar);
     if (!texture) return false;
+    if (this.textureSource && texture.source !== this.textureSource) {
+      return false;
+    }
 
     let entry = this._entries.get(bar);
     if (!entry) {
@@ -82,6 +86,15 @@ export class PanelBarLayer extends ParticleContainer {
       this._cancelEntryAnimation(entry);
       this._applyAppearance(entry, { alpha: 0 });
     }
+  }
+
+  removeBar(bar) {
+    const entry = this._entries.get(bar);
+    if (!entry) return;
+
+    this._cancelEntryAnimation(entry);
+    this._removeEntryParticles(entry);
+    this._entries.delete(bar);
   }
 
   flushParticleChildrenUpdate() {
@@ -409,36 +422,123 @@ export class PanelBarLayer extends ParticleContainer {
   }
 }
 
-export const ensurePanelBarLayer = (store) => {
-  if (!store?.world) return null;
-  let layer = store.panelBarLayer;
+export const ensurePanelBarLayer = (store, texture) => {
+  if (!store?.world || !texture?.source) return null;
+
+  const layers = getPanelBarLayers(store);
+  let layer = layers.get(texture.source);
   if (layer?.destroyed) {
+    layers.delete(texture.source);
     layer = null;
   }
   if (!layer) {
-    layer = new PanelBarLayer(store);
-    store.panelBarLayer = layer;
+    layer = new PanelBarLayer(store, texture.source);
+    layers.set(texture.source, layer);
+    if (!store.panelBarLayer || store.panelBarLayer.destroyed) {
+      store.panelBarLayer = layer;
+    }
   }
-  placePanelBarLayer(store.world, layer);
+
+  placePanelBarLayers(store.world, layers);
   return layer;
 };
 
-const placePanelBarLayer = (world, layer) => {
-  const currentIndex = world.children.indexOf(layer);
-  const relationIndex = world.children.findIndex(
-    (child) => child !== layer && child.type === 'relations',
-  );
+export const ensurePanelBarLayerForBar = (bar) => {
+  const texture = getBarTexture(bar);
+  return ensurePanelBarLayer(bar?.store, texture);
+};
 
-  if (currentIndex === -1) {
-    const insertIndex =
-      relationIndex === -1 ? world.children.length : relationIndex;
-    world.addChildAt(layer, insertIndex);
-    return;
+export const removeAggregatePanelBar = (bar) => {
+  const layer = getCurrentPanelBarLayer(bar);
+  layer?.removeBar?.(bar);
+  clearCurrentPanelBarLayer(bar);
+  releasePanelBarLayerIfEmpty(layer);
+  return layer?.destroyed ? null : (layer ?? null);
+};
+
+const getPanelBarLayers = (store) => {
+  if (!store.panelBarLayers) {
+    store.panelBarLayers = new Map();
+  }
+  return store.panelBarLayers;
+};
+
+export const getCurrentPanelBarLayer = (bar) =>
+  bar?._patchmapPanelBarLayer ??
+  bar?.store?.panelBarLayerByBar?.get(bar) ??
+  null;
+
+export const setCurrentPanelBarLayer = (bar, layer) => {
+  if (!bar) return;
+  if (!bar.store.panelBarLayerByBar) {
+    bar.store.panelBarLayerByBar = new WeakMap();
+  }
+  bar.store.panelBarLayerByBar.set(bar, layer);
+  bar._patchmapPanelBarLayer = layer;
+};
+
+const clearCurrentPanelBarLayer = (bar) => {
+  if (!bar) return;
+  bar.store?.panelBarLayerByBar?.delete(bar);
+  bar._patchmapPanelBarLayer = null;
+};
+
+const releasePanelBarLayerIfEmpty = (layer) => {
+  if (!layer || layer.destroyed || layer.particleChildren.length > 0) return;
+
+  const store = layer.store;
+  if (store?.panelBarLayers?.get(layer.textureSource) === layer) {
+    store.panelBarLayers.delete(layer.textureSource);
+  }
+  if (store?.panelBarLayer === layer) {
+    store.panelBarLayer =
+      [...(store.panelBarLayers?.values() ?? [])].find(
+        (nextLayer) => !nextLayer.destroyed,
+      ) ?? null;
   }
 
-  if (relationIndex === -1) return;
-  if (currentIndex < relationIndex) return;
-  world.setChildIndex(layer, relationIndex);
+  layer.parent?.removeChild(layer);
+  layer.destroy();
+};
+
+const placePanelBarLayers = (world, layers) => {
+  const activeLayers = [...layers.values()].filter((layer) => !layer.destroyed);
+  if (activeLayers.length === 0) {
+    return;
+  }
+  if (isPanelBarLayerBlockPlaced(world, activeLayers)) return;
+
+  for (const layer of activeLayers) {
+    layer.parent?.removeChild(layer);
+  }
+
+  const relationIndex = world.children.findIndex(
+    (child) => child.type === 'relations',
+  );
+  const insertIndex =
+    relationIndex === -1 ? world.children.length : relationIndex;
+  for (let offset = 0; offset < activeLayers.length; offset += 1) {
+    world.addChildAt(activeLayers[offset], insertIndex + offset);
+  }
+};
+
+const isPanelBarLayerBlockPlaced = (world, activeLayers) => {
+  const layerSet = new Set(activeLayers);
+  const firstIndex = world.children.indexOf(activeLayers[0]);
+  if (firstIndex === -1) return false;
+
+  for (let offset = 0; offset < activeLayers.length; offset += 1) {
+    if (world.children[firstIndex + offset] !== activeLayers[offset]) {
+      return false;
+    }
+  }
+
+  const relationIndex = world.children.findIndex(
+    (child) => !layerSet.has(child) && child.type === 'relations',
+  );
+  return (
+    relationIndex === -1 || firstIndex + activeLayers.length <= relationIndex
+  );
 };
 
 const getBarTexture = (bar) => {
