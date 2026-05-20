@@ -17,7 +17,7 @@ const DEFAULT_BOUNDS = new Rectangle(
 );
 const ZERO_POINT = new Point();
 
-export class PanelBarLayer extends ParticleContainer {
+export class AggregateBarLayer extends ParticleContainer {
   constructor(store, textureSource = null) {
     super({
       boundsArea: DEFAULT_BOUNDS,
@@ -30,7 +30,7 @@ export class PanelBarLayer extends ParticleContainer {
       },
     });
     this._patchmapInternal = true;
-    this.label = 'patchmap-panel-bar-layer';
+    this.label = 'patchmap-aggregate-bar-layer';
     this.store = store;
     this.textureSource = textureSource;
     this.zIndex = 0;
@@ -422,77 +422,77 @@ export class PanelBarLayer extends ParticleContainer {
   }
 }
 
-export const ensurePanelBarLayer = (store, texture) => {
+export const ensureAggregateBarLayer = (store, texture) => {
   if (!store?.world || !texture?.source) return null;
 
-  const layers = getPanelBarLayers(store);
+  const layers = getAggregateBarLayers(store);
   let layer = layers.get(texture.source);
   if (layer?.destroyed) {
     layers.delete(texture.source);
     layer = null;
   }
   if (!layer) {
-    layer = new PanelBarLayer(store, texture.source);
+    layer = new AggregateBarLayer(store, texture.source);
     layers.set(texture.source, layer);
-    if (!store.panelBarLayer || store.panelBarLayer.destroyed) {
-      store.panelBarLayer = layer;
+    if (!store.aggregateBarLayer || store.aggregateBarLayer.destroyed) {
+      store.aggregateBarLayer = layer;
     }
   }
 
-  placePanelBarLayers(store.world, layers);
+  placeAggregateBarLayers(store.world, layers);
   return layer;
 };
 
-export const ensurePanelBarLayerForBar = (bar) => {
+export const ensureAggregateBarLayerForBar = (bar) => {
   const texture = getBarTexture(bar);
-  return ensurePanelBarLayer(bar?.store, texture);
+  return ensureAggregateBarLayer(bar?.store, texture);
 };
 
-export const removeAggregatePanelBar = (bar) => {
-  const layer = getCurrentPanelBarLayer(bar);
+export const removeAggregateBar = (bar) => {
+  const layer = getCurrentAggregateBarLayer(bar);
   layer?.removeBar?.(bar);
-  clearCurrentPanelBarLayer(bar);
-  releasePanelBarLayerIfEmpty(layer);
+  clearCurrentAggregateBarLayer(bar);
+  releaseAggregateBarLayerIfEmpty(layer);
   return layer?.destroyed ? null : (layer ?? null);
 };
 
-const getPanelBarLayers = (store) => {
-  if (!store.panelBarLayers) {
-    store.panelBarLayers = new Map();
+const getAggregateBarLayers = (store) => {
+  if (!store.aggregateBarLayers) {
+    store.aggregateBarLayers = new Map();
   }
-  return store.panelBarLayers;
+  return store.aggregateBarLayers;
 };
 
-export const getCurrentPanelBarLayer = (bar) =>
-  bar?._patchmapPanelBarLayer ??
-  bar?.store?.panelBarLayerByBar?.get(bar) ??
+export const getCurrentAggregateBarLayer = (bar) =>
+  bar?._patchmapAggregateBarLayer ??
+  bar?.store?.aggregateBarLayerByBar?.get(bar) ??
   null;
 
-export const setCurrentPanelBarLayer = (bar, layer) => {
+export const setCurrentAggregateBarLayer = (bar, layer) => {
   if (!bar) return;
-  if (!bar.store.panelBarLayerByBar) {
-    bar.store.panelBarLayerByBar = new WeakMap();
+  if (!bar.store.aggregateBarLayerByBar) {
+    bar.store.aggregateBarLayerByBar = new WeakMap();
   }
-  bar.store.panelBarLayerByBar.set(bar, layer);
-  bar._patchmapPanelBarLayer = layer;
+  bar.store.aggregateBarLayerByBar.set(bar, layer);
+  bar._patchmapAggregateBarLayer = layer;
 };
 
-const clearCurrentPanelBarLayer = (bar) => {
+const clearCurrentAggregateBarLayer = (bar) => {
   if (!bar) return;
-  bar.store?.panelBarLayerByBar?.delete(bar);
-  bar._patchmapPanelBarLayer = null;
+  bar.store?.aggregateBarLayerByBar?.delete(bar);
+  bar._patchmapAggregateBarLayer = null;
 };
 
-const releasePanelBarLayerIfEmpty = (layer) => {
+const releaseAggregateBarLayerIfEmpty = (layer) => {
   if (!layer || layer.destroyed || layer.particleChildren.length > 0) return;
 
   const store = layer.store;
-  if (store?.panelBarLayers?.get(layer.textureSource) === layer) {
-    store.panelBarLayers.delete(layer.textureSource);
+  if (store?.aggregateBarLayers?.get(layer.textureSource) === layer) {
+    store.aggregateBarLayers.delete(layer.textureSource);
   }
-  if (store?.panelBarLayer === layer) {
-    store.panelBarLayer =
-      [...(store.panelBarLayers?.values() ?? [])].find(
+  if (store?.aggregateBarLayer === layer) {
+    store.aggregateBarLayer =
+      [...(store.aggregateBarLayers?.values() ?? [])].find(
         (nextLayer) => !nextLayer.destroyed,
       ) ?? null;
   }
@@ -501,12 +501,12 @@ const releasePanelBarLayerIfEmpty = (layer) => {
   layer.destroy();
 };
 
-const placePanelBarLayers = (world, layers) => {
+const placeAggregateBarLayers = (world, layers) => {
   const activeLayers = [...layers.values()].filter((layer) => !layer.destroyed);
   if (activeLayers.length === 0) {
     return;
   }
-  if (isPanelBarLayerBlockPlaced(world, activeLayers)) return;
+  if (isAggregateBarLayerBlockPlaced(world, activeLayers)) return;
 
   for (const layer of activeLayers) {
     layer.parent?.removeChild(layer);
@@ -522,7 +522,7 @@ const placePanelBarLayers = (world, layers) => {
   }
 };
 
-const isPanelBarLayerBlockPlaced = (world, activeLayers) => {
+const isAggregateBarLayerBlockPlaced = (world, activeLayers) => {
   const layerSet = new Set(activeLayers);
   const firstIndex = world.children.indexOf(activeLayers[0]);
   if (firstIndex === -1) return false;

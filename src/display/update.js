@@ -6,9 +6,9 @@ import { selector } from '../utils/selector/selector';
 import { getCentroid, getObjectFrameWorldCorners } from '../utils/transform';
 import { uid } from '../utils/uuid';
 import {
-  syncAggregatePanelBarForItem,
-  tryApplyPanelComponentChanges,
-} from './renderers/panelComponentRenderer';
+  syncAggregateBarForItem,
+  tryApplyItemComponentChanges,
+} from './renderers/itemComponentRenderer';
 
 const DEFAULT_UPDATE_CONFIG = Object.freeze({
   path: null,
@@ -22,31 +22,31 @@ const DEFAULT_UPDATE_CONFIG = Object.freeze({
 });
 
 const RADIANS_PER_DEGREE = Math.PI / 180;
-const PANEL_COMPONENT_TYPES = new Set(['background', 'bar', 'icon', 'text']);
+const ITEM_COMPONENT_TYPES = new Set(['background', 'bar', 'icon', 'text']);
 const QUEUE_FRAME_BUDGET_MS = 4;
 const QUEUE_MAX_UPDATES_PER_FRAME = 750;
-const queuedPanelUpdates = new Map();
-let queuedPanelUpdateFrame = null;
+const queuedItemComponentUpdates = new Map();
+let queuedItemComponentUpdateFrame = null;
 
 export const update = (root, opts = {}) => {
-  if (canUseBulkPanelComponentUpdate(opts)) {
-    flushQueuedPanelComponentUpdates();
-    return applyBulkPanelComponentUpdate(opts.elements, opts);
+  if (canUseBulkItemComponentUpdate(opts)) {
+    flushQueuedItemComponentUpdates();
+    return applyBulkItemComponentUpdate(opts.elements, opts);
   }
 
-  const queuedElements = getQueueablePanelComponentUpdateElements(opts);
+  const queuedElements = getQueueableItemComponentUpdateElements(opts);
   if (queuedElements) {
-    enqueuePanelComponentUpdates(queuedElements, opts);
+    enqueueItemComponentUpdates(queuedElements, opts);
     return queuedElements;
   }
 
-  flushQueuedPanelComponentUpdates();
+  flushQueuedItemComponentUpdates();
 
-  if (canUseDirectPanelComponentUpdate(opts)) {
+  if (canUseDirectItemComponentUpdate(opts)) {
     const element = opts.elements;
     if (!element) return [];
 
-    const applied = tryApplyPanelComponentChanges(
+    const applied = tryApplyItemComponentChanges(
       element,
       opts.changes.components,
       {
@@ -102,24 +102,24 @@ export const update = (root, opts = {}) => {
       validateSchema: config.validateSchema,
       normalize: config.normalize,
     });
-    syncAggregatePanelBarForItem(element);
+    syncAggregateBarForItem(element);
   }
   return elements;
 };
 
-export const flushQueuedPanelComponentUpdates = () => {
-  if (queuedPanelUpdateFrame !== null) {
-    cancelFrame(queuedPanelUpdateFrame);
-    queuedPanelUpdateFrame = null;
+export const flushQueuedItemComponentUpdates = () => {
+  if (queuedItemComponentUpdateFrame !== null) {
+    cancelFrame(queuedItemComponentUpdateFrame);
+    queuedItemComponentUpdateFrame = null;
   }
-  drainQueuedPanelUpdates({
+  drainQueuedItemComponentUpdates({
     frameBudgetMs: Number.POSITIVE_INFINITY,
     maxUpdates: Number.POSITIVE_INFINITY,
   });
 };
 
-const getQueueablePanelComponentUpdateElements = (opts) => {
-  if (!canQueuePanelComponentUpdate(opts)) return null;
+const getQueueableItemComponentUpdateElements = (opts) => {
+  if (!canQueueItemComponentUpdate(opts)) return null;
 
   const element = opts.elements;
   if (
@@ -131,14 +131,14 @@ const getQueueablePanelComponentUpdateElements = (opts) => {
   return null;
 };
 
-const canQueuePanelComponentUpdate = (opts) =>
+const canQueueItemComponentUpdate = (opts) =>
   opts?.emit === false &&
-  canUseTrustedPanelComponentUpdate(opts) &&
+  canUseTrustedItemComponentUpdate(opts) &&
   (opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy) !== 'replace' &&
-  hasOnlyPanelComponentChanges(opts.changes.components) &&
+  hasOnlyItemComponentChanges(opts.changes.components) &&
   !hasDuplicateUnkeyedTypes(opts.changes.components);
 
-const canUseTrustedPanelComponentUpdate = (opts) =>
+const canUseTrustedItemComponentUpdate = (opts) =>
   opts?.validateSchema === false &&
   !opts.path &&
   opts.elements &&
@@ -148,17 +148,17 @@ const canUseTrustedPanelComponentUpdate = (opts) =>
   !opts.refresh &&
   isComponentsOnlyChange(opts.changes);
 
-const canUseBulkPanelComponentUpdate = (opts) =>
+const canUseBulkItemComponentUpdate = (opts) =>
   opts?.emit === false &&
-  canUseTrustedPanelComponentUpdate(opts) &&
+  canUseTrustedItemComponentUpdate(opts) &&
   Array.isArray(opts.elements) &&
   opts.elements.length > 0 &&
   (opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy) !== 'replace' &&
-  hasOnlyPanelComponentChanges(opts.changes.components) &&
+  hasOnlyItemComponentChanges(opts.changes.components) &&
   !hasDuplicateUnkeyedTypes(opts.changes.components) &&
   opts.elements.every((element) => element?.type === 'item');
 
-const canUseDirectPanelComponentUpdate = (opts) =>
+const canUseDirectItemComponentUpdate = (opts) =>
   opts?.validateSchema === false &&
   !opts.path &&
   opts.elements &&
@@ -174,16 +174,16 @@ const isComponentsOnlyChange = (changes) =>
   Object.keys(changes).length === 1 &&
   Array.isArray(changes.components);
 
-const hasOnlyPanelComponentChanges = (componentChanges) =>
-  componentChanges.every((change) => PANEL_COMPONENT_TYPES.has(change?.type));
+const hasOnlyItemComponentChanges = (componentChanges) =>
+  componentChanges.every((change) => ITEM_COMPONENT_TYPES.has(change?.type));
 
 const hasQueueableTargetComponents = (item, componentChanges) =>
   componentChanges.every((change) => {
     if (change?.show === false) return true;
-    return Boolean(findPanelComponent(item, change));
+    return Boolean(findItemComponent(item, change));
   });
 
-const findPanelComponent = (item, change) => {
+const findItemComponent = (item, change) => {
   if (change.id || change.label) {
     const index = findIndexByPriority(item.children ?? [], change);
     return index === -1 ? null : item.children[index];
@@ -203,15 +203,15 @@ const hasDuplicateUnkeyedTypes = (componentChanges) => {
   return false;
 };
 
-const enqueuePanelComponentUpdates = (elements, opts) => {
+const enqueueItemComponentUpdates = (elements, opts) => {
   for (const element of elements) {
-    enqueuePanelComponentUpdate(element, opts);
+    enqueueItemComponentUpdate(element, opts);
   }
-  scheduleQueuedPanelUpdates();
+  scheduleQueuedItemComponentUpdates();
 };
 
-const enqueuePanelComponentUpdate = (element, opts) => {
-  const pending = queuedPanelUpdates.get(element);
+const enqueueItemComponentUpdate = (element, opts) => {
+  const pending = queuedItemComponentUpdates.get(element);
   const components = pending
     ? mergeQueuedComponentChanges(
         pending.changes.components,
@@ -219,7 +219,7 @@ const enqueuePanelComponentUpdate = (element, opts) => {
       )
     : opts.changes.components;
 
-  queuedPanelUpdates.set(element, {
+  queuedItemComponentUpdates.set(element, {
     element,
     changes: { components },
     options: {
@@ -231,7 +231,7 @@ const enqueuePanelComponentUpdate = (element, opts) => {
   });
 };
 
-const applyBulkPanelComponentUpdate = (elements, opts) => {
+const applyBulkItemComponentUpdate = (elements, opts) => {
   const aggregateBarLayers = new Set();
   const options = {
     mergeStrategy: opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy,
@@ -243,7 +243,7 @@ const applyBulkPanelComponentUpdate = (elements, opts) => {
   };
 
   for (const element of elements) {
-    const applied = tryApplyPanelComponentChanges(
+    const applied = tryApplyItemComponentChanges(
       element,
       opts.changes.components,
       options,
@@ -270,15 +270,15 @@ const mergeQueuedComponentChanges = (current, next) =>
     { mergeBy: ['id', 'label', 'type'] },
   ).components;
 
-const scheduleQueuedPanelUpdates = () => {
-  if (queuedPanelUpdateFrame !== null) return;
-  queuedPanelUpdateFrame = requestFrame(() => {
-    queuedPanelUpdateFrame = null;
-    drainQueuedPanelUpdates();
+const scheduleQueuedItemComponentUpdates = () => {
+  if (queuedItemComponentUpdateFrame !== null) return;
+  queuedItemComponentUpdateFrame = requestFrame(() => {
+    queuedItemComponentUpdateFrame = null;
+    drainQueuedItemComponentUpdates();
   });
 };
 
-const drainQueuedPanelUpdates = ({
+const drainQueuedItemComponentUpdates = ({
   frameBudgetMs = QUEUE_FRAME_BUDGET_MS,
   maxUpdates = QUEUE_MAX_UPDATES_PER_FRAME,
 } = {}) => {
@@ -286,13 +286,13 @@ const drainQueuedPanelUpdates = ({
   let processed = 0;
   const aggregateBarLayers = new Set();
 
-  for (const [element, pending] of queuedPanelUpdates) {
-    queuedPanelUpdates.delete(element);
-    applyQueuedPanelComponentUpdate(pending, aggregateBarLayers);
+  for (const [element, pending] of queuedItemComponentUpdates) {
+    queuedItemComponentUpdates.delete(element);
+    applyQueuedItemComponentUpdate(pending, aggregateBarLayers);
     processed += 1;
 
     if (
-      queuedPanelUpdates.size > 0 &&
+      queuedItemComponentUpdates.size > 0 &&
       (processed >= maxUpdates || now() - startedAt >= frameBudgetMs)
     ) {
       break;
@@ -301,16 +301,16 @@ const drainQueuedPanelUpdates = ({
 
   flushAggregateBarLayers(aggregateBarLayers);
 
-  if (queuedPanelUpdates.size > 0) {
-    scheduleQueuedPanelUpdates();
+  if (queuedItemComponentUpdates.size > 0) {
+    scheduleQueuedItemComponentUpdates();
   }
 };
 
-const applyQueuedPanelComponentUpdate = (
+const applyQueuedItemComponentUpdate = (
   { element, changes, options },
   aggregateBarLayers,
 ) => {
-  const applied = tryApplyPanelComponentChanges(element, changes.components, {
+  const applied = tryApplyItemComponentChanges(element, changes.components, {
     ...options,
     deferAggregateBarFlush: true,
     aggregateBarLayers,

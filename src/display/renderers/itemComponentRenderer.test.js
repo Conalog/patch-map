@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { tryApplyPanelComponentChanges } from './panelComponentRenderer';
+import { tryApplyItemComponentChanges } from './itemComponentRenderer';
 
 const createComponent = (type, props = {}) => ({
   type,
@@ -16,7 +16,7 @@ const createComponent = (type, props = {}) => ({
   _applyTextLayout: vi.fn(),
 });
 
-const createPanelItem = () => {
+const createItemWithComponents = () => {
   const background = createComponent('background', {
     source: { fill: 'white' },
     size: '100%',
@@ -51,11 +51,11 @@ const createPanelItem = () => {
   return { item, background, bar, text };
 };
 
-describe('panelComponentRenderer', () => {
-  it('updates cached unkeyed panel components without rewriting the wrong parent props', () => {
-    const { item, background, bar, text } = createPanelItem();
+describe('itemComponentRenderer', () => {
+  it('updates cached unkeyed item components without rewriting the wrong parent props', () => {
+    const { item, background, bar, text } = createItemWithComponents();
 
-    const applied = tryApplyPanelComponentChanges(
+    const applied = tryApplyItemComponentChanges(
       item,
       [
         { type: 'bar', size: { height: '50%' }, tint: 0xff0000 },
@@ -79,9 +79,9 @@ describe('panelComponentRenderer', () => {
   });
 
   it('falls back for duplicate unkeyed component changes to preserve duplicate semantics', () => {
-    const { item, text } = createPanelItem();
+    const { item, text } = createItemWithComponents();
 
-    const applied = tryApplyPanelComponentChanges(
+    const applied = tryApplyItemComponentChanges(
       item,
       [
         { type: 'text', text: 'B' },
@@ -95,10 +95,10 @@ describe('panelComponentRenderer', () => {
   });
 
   it('falls back when a visible component would need to be created', () => {
-    const { item } = createPanelItem();
+    const { item } = createItemWithComponents();
     item.children = item.children.filter((child) => child.type !== 'icon');
 
-    const applied = tryApplyPanelComponentChanges(
+    const applied = tryApplyItemComponentChanges(
       item,
       [{ type: 'icon', show: true, source: 'warning' }],
       { validateSchema: false, mergeStrategy: 'merge' },
@@ -108,10 +108,10 @@ describe('panelComponentRenderer', () => {
   });
 
   it('treats missing hidden components as already hidden', () => {
-    const { item } = createPanelItem();
+    const { item } = createItemWithComponents();
     item.children = item.children.filter((child) => child.type !== 'icon');
 
-    const applied = tryApplyPanelComponentChanges(
+    const applied = tryApplyItemComponentChanges(
       item,
       [{ type: 'icon', show: false }],
       { validateSchema: false, mergeStrategy: 'merge' },

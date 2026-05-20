@@ -2,44 +2,45 @@ import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { getColor } from '../../utils/get';
 import { normalizeBoxSpacing } from '../../utils/spacing';
 import {
-  ensurePanelBarLayerForBar,
-  getCurrentPanelBarLayer,
-  removeAggregatePanelBar,
-  setCurrentPanelBarLayer,
-} from './PanelBarLayer';
+  ensureAggregateBarLayerForBar,
+  getCurrentAggregateBarLayer,
+  removeAggregateBar,
+  setCurrentAggregateBarLayer,
+} from './AggregateBarLayer';
 
-const PANEL_COMPONENT_TYPES = new Set(['background', 'bar', 'icon', 'text']);
+const ITEM_COMPONENT_TYPES = new Set(['background', 'bar', 'icon', 'text']);
 const COMPONENT_CACHE_FIELDS = {
-  background: '_panelBackgroundComponent',
-  bar: '_panelBarComponent',
-  icon: '_panelIconComponent',
-  text: '_panelTextComponent',
+  background: '_itemBackgroundComponent',
+  bar: '_itemBarComponent',
+  icon: '_itemIconComponent',
+  text: '_itemTextComponent',
 };
 
-export const tryApplyPanelComponentChanges = (
+export const tryApplyItemComponentChanges = (
   item,
   componentChanges,
   options = {},
 ) => {
-  if (!canUsePanelRenderer(item, componentChanges, options)) return false;
+  if (!canUseItemComponentRenderer(item, componentChanges, options))
+    return false;
   if (hasDuplicateUnkeyedTypes(componentChanges)) {
-    restorePanelBarFallback(item, options);
+    restoreAggregateBarFallback(item, options);
     return false;
   }
 
   const jobs = [];
-  ensurePanelComponentCache(item);
+  ensureItemComponentCache(item);
 
   for (const change of componentChanges) {
-    if (!PANEL_COMPONENT_TYPES.has(change?.type)) {
-      restorePanelBarFallback(item, options);
+    if (!ITEM_COMPONENT_TYPES.has(change?.type)) {
+      restoreAggregateBarFallback(item, options);
       return false;
     }
 
-    const component = findPanelComponent(item, change);
+    const component = findItemComponent(item, change);
     if (!component) {
       if (change.show === false) continue;
-      restorePanelBarFallback(item, options);
+      restoreAggregateBarFallback(item, options);
       return false;
     }
 
@@ -52,7 +53,7 @@ export const tryApplyPanelComponentChanges = (
   let shouldReconcileBar = false;
   for (const { component, change } of jobs) {
     const isBar = component.type === 'bar';
-    applyPanelComponentChange(item, component, change, options, {
+    applyItemComponentChange(item, component, change, options, {
       deferBarVisual: isBar,
     });
     if (isBar) {
@@ -63,18 +64,18 @@ export const tryApplyPanelComponentChanges = (
   }
 
   if (shouldReconcileBar) {
-    reconcilePanelBarVisual(item, barChange, options);
+    reconcileAggregateBarVisual(item, barChange, options);
   }
   return true;
 };
 
-export const syncAggregatePanelBar = (bar, options = {}) => {
+export const syncAggregateBar = (bar, options = {}) => {
   if (!bar?._patchmapUseAggregateBar) return false;
 
-  const previousLayer = getCurrentPanelBarLayer(bar);
-  const layer = ensurePanelBarLayerForBar(bar);
+  const previousLayer = getCurrentAggregateBarLayer(bar);
+  const layer = ensureAggregateBarLayerForBar(bar);
   if (previousLayer && previousLayer !== layer) {
-    const removedLayer = removeAggregatePanelBar(bar);
+    const removedLayer = removeAggregateBar(bar);
     flushOrDeferAggregateBarLayer(removedLayer, options);
   }
 
@@ -83,7 +84,7 @@ export const syncAggregatePanelBar = (bar, options = {}) => {
     return false;
   }
 
-  setCurrentPanelBarLayer(bar, layer);
+  setCurrentAggregateBarLayer(bar, layer);
   if (options.deferAggregateBarFlush) {
     options.aggregateBarLayers?.add(layer);
   } else {
@@ -92,45 +93,45 @@ export const syncAggregatePanelBar = (bar, options = {}) => {
   return true;
 };
 
-export const syncAggregatePanelBarForItem = (item, options = {}) => {
+export const syncAggregateBarForItem = (item, options = {}) => {
   if (item?.type !== 'item') return false;
-  const bar = getSinglePanelBarComponent(item) ?? item?._panelBarComponent;
-  return syncAggregatePanelBar(bar, options);
+  const bar = getSingleBarComponent(item) ?? item?._itemBarComponent;
+  return syncAggregateBar(bar, options);
 };
 
-const canUsePanelRenderer = (item, componentChanges, options) =>
+const canUseItemComponentRenderer = (item, componentChanges, options) =>
   item?.type === 'item' &&
   options.validateSchema === false &&
   options.mergeStrategy !== 'replace' &&
   Array.isArray(componentChanges);
 
-const ensurePanelComponentCache = (item) => {
+const ensureItemComponentCache = (item) => {
   if (
-    item._panelComponentCacheLength === item.children.length &&
-    !hasDestroyedCachedPanelComponent(item)
+    item._itemComponentCacheLength === item.children.length &&
+    !hasDestroyedCachedItemComponent(item)
   ) {
     return;
   }
 
-  item._panelBackgroundComponent = null;
-  item._panelBarComponent = null;
-  item._panelIconComponent = null;
-  item._panelTextComponent = null;
+  item._itemBackgroundComponent = null;
+  item._itemBarComponent = null;
+  item._itemIconComponent = null;
+  item._itemTextComponent = null;
 
   for (const child of item.children) {
     const field = COMPONENT_CACHE_FIELDS[child?.type];
     if (field && !item[field]) item[field] = child;
   }
-  item._panelComponentCacheLength = item.children.length;
+  item._itemComponentCacheLength = item.children.length;
 };
 
-const hasDestroyedCachedPanelComponent = (item) =>
-  item._panelBackgroundComponent?.destroyed ||
-  item._panelBarComponent?.destroyed ||
-  item._panelIconComponent?.destroyed ||
-  item._panelTextComponent?.destroyed;
+const hasDestroyedCachedItemComponent = (item) =>
+  item._itemBackgroundComponent?.destroyed ||
+  item._itemBarComponent?.destroyed ||
+  item._itemIconComponent?.destroyed ||
+  item._itemTextComponent?.destroyed;
 
-const findPanelComponent = (item, change) => {
+const findItemComponent = (item, change) => {
   if (change.id || change.label) {
     const index = findIndexByPriority(item.children, change);
     return index === -1 ? null : item.children[index];
@@ -140,7 +141,7 @@ const findPanelComponent = (item, change) => {
   return field ? (item[field] ?? null) : null;
 };
 
-const getSinglePanelBarComponent = (item) => {
+const getSingleBarComponent = (item) => {
   let bar = null;
   for (const child of item.children ?? []) {
     if (child?.type !== 'bar' || child.destroyed) continue;
@@ -160,7 +161,7 @@ const hasDuplicateUnkeyedTypes = (componentChanges) => {
   return false;
 };
 
-const applyPanelComponentChange = (
+const applyItemComponentChange = (
   item,
   component,
   change,
@@ -209,13 +210,13 @@ const applyPanelComponentChange = (
   }
 };
 
-const reconcilePanelBarVisual = (item, change, options) => {
-  const bar = getSinglePanelBarComponent(item);
+const reconcileAggregateBarVisual = (item, change, options) => {
+  const bar = getSingleBarComponent(item);
   if (!bar) return;
 
   if (canUseAggregateBar(item, bar)) {
     bar._patchmapUseAggregateBar = true;
-    if (syncAggregatePanelBar(bar, options)) {
+    if (syncAggregateBar(bar, options)) {
       bar.renderable = false;
       return;
     }
@@ -226,17 +227,17 @@ const reconcilePanelBarVisual = (item, change, options) => {
 
 const canUseAggregateBar = (item, bar) => {
   if (!bar || bar.props?.show === false) return false;
-  if (isVisiblePanelComponent(item._panelIconComponent)) return false;
-  if (isVisiblePanelComponent(item._panelTextComponent)) return false;
+  if (isVisibleItemComponent(item._itemIconComponent)) return false;
+  if (isVisibleItemComponent(item._itemTextComponent)) return false;
   if (hasUnsafeAggregateEffects(item) || hasUnsafeAggregateEffects(bar)) {
     return false;
   }
 
-  const layer = ensurePanelBarLayerForBar(bar);
+  const layer = ensureAggregateBarLayerForBar(bar);
   return Boolean(layer?.canRender(bar));
 };
 
-const isVisiblePanelComponent = (component) =>
+const isVisibleItemComponent = (component) =>
   Boolean(component && !component.destroyed && component.props?.show !== false);
 
 const hasUnsafeAggregateEffects = (component) =>
@@ -248,13 +249,13 @@ const hasUnsafeAggregateEffects = (component) =>
         component.blendMode !== 'inherit'),
   );
 
-const restorePanelBarFallback = (item, options = {}) => {
-  const bar = getSinglePanelBarComponent(item) ?? item?._panelBarComponent;
+const restoreAggregateBarFallback = (item, options = {}) => {
+  const bar = getSingleBarComponent(item) ?? item?._itemBarComponent;
   if (bar) restoreBarFallback(bar, null, options);
 };
 
 const restoreBarFallback = (bar, change = null, options = {}) => {
-  const layer = removeAggregatePanelBar(bar);
+  const layer = removeAggregateBar(bar);
   flushOrDeferAggregateBarLayer(layer, options);
   if (!bar) return;
   bar._patchmapUseAggregateBar = false;

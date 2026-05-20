@@ -5,7 +5,7 @@ import { UndoRedoManager } from './command/UndoRedoManager';
 import './display/components/registry';
 import { draw } from './display/draw';
 import './display/elements/registry';
-import { flushQueuedPanelComponentUpdates, update } from './display/update';
+import { flushQueuedItemComponentUpdates, update } from './display/update';
 import ViewTransform from './display/view-transform/ViewTransform';
 import World from './display/World';
 import { fit as fitViewport, focus } from './events/focus-fit';
@@ -162,7 +162,7 @@ class Patchmap extends WildcardEventEmitter {
   destroy() {
     if (!this.isInit) return;
 
-    flushQueuedPanelComponentUpdates();
+    flushQueuedItemComponentUpdates();
     this.undoRedoManager.destroy();
     this.animationContext.revert();
     this.stateManager.resetState();
@@ -193,7 +193,7 @@ class Patchmap extends WildcardEventEmitter {
   draw(data) {
     if (!this.isInit) return;
 
-    flushQueuedPanelComponentUpdates();
+    flushQueuedItemComponentUpdates();
     const processedData = processData(JSON.parse(JSON.stringify(data)));
     if (!processedData) return;
 
@@ -258,7 +258,7 @@ class Patchmap extends WildcardEventEmitter {
    * @returns {void|null}
    */
   focus(ids, opts) {
-    flushQueuedPanelComponentUpdates();
+    flushQueuedItemComponentUpdates();
     return focus(this.viewport, this.world, ids, opts);
   }
 
@@ -268,7 +268,7 @@ class Patchmap extends WildcardEventEmitter {
    * @returns {void|null}
    */
   fit(ids, opts) {
-    flushQueuedPanelComponentUpdates();
+    flushQueuedItemComponentUpdates();
     return fitViewport(this.viewport, this.world, ids, opts);
   }
 
@@ -281,7 +281,7 @@ class Patchmap extends WildcardEventEmitter {
   }
 
   selector(path, opts) {
-    flushQueuedPanelComponentUpdates();
+    flushQueuedItemComponentUpdates();
     return selector(this.world, path, opts);
   }
 

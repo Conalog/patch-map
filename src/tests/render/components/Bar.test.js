@@ -55,7 +55,7 @@ describe('Bar Component Tests', () => {
     expect(bar.props.source.fill).toBe('red');
   });
 
-  it('uses the aggregate bar layer for trusted bar-only panel updates', () => {
+  it('uses the aggregate bar layer for trusted bar-only item component updates', () => {
     const patchmap = getPatchmap();
     patchmap.draw([
       {
@@ -101,8 +101,10 @@ describe('Bar Component Tests', () => {
 
     patchmap.selector('$..[?(@.id=="aggregate-bar")]');
 
-    expect(patchmap.world.store.panelBarLayer).toBeDefined();
-    expect(patchmap.world.store.panelBarLayer.particleChildren.length).toBe(6);
+    expect(patchmap.world.store.aggregateBarLayer).toBeDefined();
+    expect(patchmap.world.store.aggregateBarLayer.particleChildren.length).toBe(
+      6,
+    );
     expect(bar.renderable).toBe(false);
     expect(bar._patchmapUseAggregateBar).toBe(true);
     expect(bar.props.size.width).toEqual({ value: 75, unit: '%' });
@@ -148,7 +150,7 @@ describe('Bar Component Tests', () => {
     });
     patchmap.selector('$..[?(@.id=="aggregate-relations-bar")]');
 
-    const layer = patchmap.world.store.panelBarLayer;
+    const layer = patchmap.world.store.aggregateBarLayer;
     const relations = patchmap.selector(
       '$..[?(@.id=="aggregate-relations")]',
     )[0];
@@ -231,7 +233,7 @@ describe('Bar Component Tests', () => {
     });
     patchmap.selector('$..[?(@.id=="aggregate-source-bar-a")]');
 
-    const layers = [...patchmap.world.store.panelBarLayers.values()];
+    const layers = [...patchmap.world.store.aggregateBarLayers.values()];
     expect(layers).toHaveLength(2);
     expect(layers.map((layer) => layer.textureSource)).toHaveLength(2);
     expect(new Set(layers.map((layer) => layer.textureSource)).size).toBe(2);
@@ -289,7 +291,7 @@ describe('Bar Component Tests', () => {
     });
     patchmap.selector('$..[?(@.id=="aggregate-source-change-bar")]');
 
-    const oldLayer = patchmap.world.store.panelBarLayer;
+    const oldLayer = patchmap.world.store.aggregateBarLayer;
     expect(oldLayer.particleChildren.length).toBe(6);
 
     patchmap.update({
@@ -308,7 +310,7 @@ describe('Bar Component Tests', () => {
     });
     patchmap.selector('$..[?(@.id=="aggregate-source-change-bar")]');
 
-    const layers = [...patchmap.world.store.panelBarLayers.values()];
+    const layers = [...patchmap.world.store.aggregateBarLayers.values()];
     const activeLayer = layers.find((layer) => layer !== oldLayer);
     expect(oldLayer.destroyed).toBe(true);
     expect(layers).not.toContain(oldLayer);
@@ -354,7 +356,7 @@ describe('Bar Component Tests', () => {
     });
     patchmap.selector('$..[?(@.id=="aggregate-moving-bar")]');
 
-    const layer = patchmap.world.store.panelBarLayer;
+    const layer = patchmap.world.store.aggregateBarLayer;
     const initialParticle = layer.particleChildren[0];
     const initialX = initialParticle.x;
     const initialY = initialParticle.y;
@@ -433,29 +435,29 @@ describe('Bar Component Tests', () => {
 
     expect(bar.renderable).toBe(true);
     expect(bar._patchmapUseAggregateBar).toBe(false);
-    expect(patchmap.world.store.panelBarLayers.size).toBe(0);
+    expect(patchmap.world.store.aggregateBarLayers.size).toBe(0);
     expect(bar.width).toBe(150);
     expect(bar.height).toBe(24);
   });
 
-  it('flushes queued silent panel updates before selector reads', () => {
+  it('flushes queued silent item component updates before selector reads', () => {
     const patchmap = getPatchmap();
     patchmap.draw([
       {
         type: 'item',
-        id: 'queued-panel-item',
+        id: 'queued-item-item',
         size: { width: 200, height: 100 },
         components: [
           {
             type: 'bar',
-            id: 'queued-panel-bar',
+            id: 'queued-item-bar',
             source: { type: 'rect', fill: 'blue', radius: 4 },
             size: { width: '50%', height: 20 },
             animation: false,
           },
           {
             type: 'text',
-            id: 'queued-panel-text',
+            id: 'queued-item-text',
             text: 'visible',
             show: true,
           },
@@ -463,8 +465,8 @@ describe('Bar Component Tests', () => {
       },
     ]);
 
-    const item = patchmap.selector('$..[?(@.id=="queued-panel-item")]')[0];
-    const bar = patchmap.selector('$..[?(@.id=="queued-panel-bar")]')[0];
+    const item = patchmap.selector('$..[?(@.id=="queued-item-item")]')[0];
+    const bar = patchmap.selector('$..[?(@.id=="queued-item-bar")]')[0];
 
     patchmap.update({
       elements: item,
@@ -472,7 +474,7 @@ describe('Bar Component Tests', () => {
         components: [
           {
             type: 'bar',
-            id: 'queued-panel-bar',
+            id: 'queued-item-bar',
             size: { width: '80%', height: 28 },
           },
         ],
@@ -483,13 +485,13 @@ describe('Bar Component Tests', () => {
 
     expect(bar.props.size.width).toEqual({ value: 50, unit: '%' });
 
-    const flushedBar = patchmap.selector('$..[?(@.id=="queued-panel-bar")]')[0];
+    const flushedBar = patchmap.selector('$..[?(@.id=="queued-item-bar")]')[0];
     expect(flushedBar.props.size.width).toEqual({ value: 80, unit: '%' });
     expect(flushedBar.width).toBe(160);
     expect(flushedBar.height).toBe(28);
   });
 
-  it('applies trusted silent bulk panel updates immediately', () => {
+  it('applies trusted silent bulk item component updates immediately', () => {
     const patchmap = getPatchmap();
     patchmap.draw([
       {

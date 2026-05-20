@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { flushQueuedPanelComponentUpdates, update } from './update';
+import { flushQueuedItemComponentUpdates, update } from './update';
 
 const createBar = () => ({
   type: 'bar',
@@ -31,10 +31,10 @@ const createItem = () => {
 
 describe('display update', () => {
   afterEach(() => {
-    flushQueuedPanelComponentUpdates();
+    flushQueuedItemComponentUpdates();
   });
 
-  it('uses the direct panel component path for trusted single element updates', () => {
+  it('uses the direct item component path for trusted single element updates', () => {
     const { item, bar } = createItem();
 
     const result = update(null, {
@@ -49,7 +49,7 @@ describe('display update', () => {
     expect(bar._applyAnimationSize).toHaveBeenCalledOnce();
   });
 
-  it('falls back to regular apply when the direct panel path cannot handle the update', () => {
+  it('falls back to regular apply when the direct item component path cannot handle the update', () => {
     const { item } = createItem();
 
     const result = update(null, {
@@ -62,7 +62,7 @@ describe('display update', () => {
     expect(item.apply).toHaveBeenCalledOnce();
   });
 
-  it('coalesces trusted silent panel component updates until flush', () => {
+  it('coalesces trusted silent item component updates until flush', () => {
     const { item, bar } = createItem();
 
     const first = update(null, {
@@ -84,7 +84,7 @@ describe('display update', () => {
     expect(bar.props.size.height).toBe('20%');
     expect(bar._applyAnimationSize).not.toHaveBeenCalled();
 
-    flushQueuedPanelComponentUpdates();
+    flushQueuedItemComponentUpdates();
 
     expect(item.apply).not.toHaveBeenCalled();
     expect(bar.props.size.height).toEqual({ value: 70, unit: '%' });
@@ -92,7 +92,7 @@ describe('display update', () => {
     expect(bar._applyAnimationSize).toHaveBeenCalledOnce();
   });
 
-  it('flushes queued panel component updates before synchronous updates', () => {
+  it('flushes queued item component updates before synchronous updates', () => {
     const { item, bar } = createItem();
 
     update(null, {
@@ -113,7 +113,7 @@ describe('display update', () => {
     expect(bar._applyAnimationSize).toHaveBeenCalledOnce();
   });
 
-  it('uses the direct panel component path for trusted silent array updates', () => {
+  it('uses the direct item component path for trusted silent array updates', () => {
     const first = createItem();
     const second = createItem();
 
@@ -137,18 +137,18 @@ describe('display update', () => {
 
   it('keeps mixed array updates on the synchronous fallback path', () => {
     const { item, bar } = createItem();
-    const nonPanel = { type: 'group', apply: vi.fn() };
+    const nonItem = { type: 'group', apply: vi.fn() };
 
     const result = update(null, {
-      elements: [item, nonPanel],
+      elements: [item, nonItem],
       changes: { components: [{ type: 'bar', size: { height: '80%' } }] },
       validateSchema: false,
       emit: false,
     });
 
-    expect(result).toEqual([item, nonPanel]);
+    expect(result).toEqual([item, nonItem]);
     expect(item.apply).toHaveBeenCalledOnce();
-    expect(nonPanel.apply).toHaveBeenCalledOnce();
+    expect(nonItem.apply).toHaveBeenCalledOnce();
     expect(bar.props.size.height).toBe('20%');
   });
 });
