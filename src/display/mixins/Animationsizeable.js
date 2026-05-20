@@ -50,8 +50,11 @@ export const AnimationSizeable = (superClass) => {
       const { animation, animationDuration, source, size, margin } =
         relevantChanges;
       const newSize = calcSize(this, { source, size, margin });
+      const shouldAnimate =
+        animation && this._patchmapSuppressNextSizeAnimation !== true;
+      this._patchmapSuppressNextSizeAnimation = false;
 
-      if (animation) {
+      if (shouldAnimate) {
         const batcher = getSizeBatcher(this.store);
         if (!batcher || !this._calcPlacementForSize) {
           this.setSize(newSize.width, newSize.height);

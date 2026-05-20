@@ -440,6 +440,160 @@ describe('Bar Component Tests', () => {
     expect(bar.height).toBe(24);
   });
 
+  it('snaps the hidden Pixi bar to the final size when leaving aggregate rendering', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'aggregate-to-fallback-item',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-to-fallback-bar',
+            source: { type: 'rect', fill: 'green', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: true,
+            animationDuration: 800,
+          },
+          {
+            type: 'text',
+            id: 'aggregate-to-fallback-text',
+            text: '1',
+            show: false,
+          },
+        ],
+      },
+    ]);
+
+    const item = patchmap.selector(
+      '$..[?(@.id=="aggregate-to-fallback-item")]',
+    )[0];
+    const bar = patchmap.selector(
+      '$..[?(@.id=="aggregate-to-fallback-bar")]',
+    )[0];
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-to-fallback-bar',
+            size: { width: '80%', height: 32 },
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="aggregate-to-fallback-bar")]');
+    expect(bar._patchmapUseAggregateBar).toBe(true);
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-to-fallback-bar',
+            size: { width: '85%', height: 36 },
+          },
+          {
+            type: 'text',
+            id: 'aggregate-to-fallback-text',
+            show: true,
+            text: '1',
+            style: { fill: 'black' },
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="aggregate-to-fallback-bar")]');
+
+    expect(bar._patchmapUseAggregateBar).toBe(false);
+    expect(bar.renderable).toBe(true);
+    expect(bar.width).toBe(170);
+    expect(bar.height).toBe(36);
+    gsap.exportRoot().totalProgress(1);
+    expect(bar.width).toBe(170);
+    expect(bar.height).toBe(36);
+  });
+
+  it('snaps the Pixi bar before re-entering aggregate rendering', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'fallback-to-aggregate-item',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'fallback-to-aggregate-bar',
+            source: { type: 'rect', fill: 'green', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: true,
+            animationDuration: 800,
+          },
+          {
+            type: 'text',
+            id: 'fallback-to-aggregate-text',
+            text: '1',
+            show: true,
+          },
+        ],
+      },
+    ]);
+
+    const item = patchmap.selector(
+      '$..[?(@.id=="fallback-to-aggregate-item")]',
+    )[0];
+    const bar = patchmap.selector(
+      '$..[?(@.id=="fallback-to-aggregate-bar")]',
+    )[0];
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            id: 'fallback-to-aggregate-bar',
+            size: { width: '80%', height: 32 },
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="fallback-to-aggregate-bar")]');
+    expect(bar._patchmapUseAggregateBar).toBe(false);
+    expect(bar._sizeAnimJob?.done).toBe(false);
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          { type: 'text', id: 'fallback-to-aggregate-text', show: false },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="fallback-to-aggregate-bar")]');
+
+    expect(bar._patchmapUseAggregateBar).toBe(true);
+    expect(bar.renderable).toBe(false);
+    expect(bar.width).toBe(160);
+    expect(bar.height).toBe(32);
+    gsap.exportRoot().totalProgress(1);
+    expect(bar.width).toBe(160);
+    expect(bar.height).toBe(32);
+  });
+
   it('flushes queued silent item component updates before selector reads', () => {
     const patchmap = getPatchmap();
     patchmap.draw([

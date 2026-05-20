@@ -1,6 +1,7 @@
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { getColor } from '../../utils/get';
 import { normalizeBoxSpacing } from '../../utils/spacing';
+import { getSizeBatcher } from '../animation/sizeBatchTween';
 import {
   ensureAggregateBarLayerForBar,
   getCurrentAggregateBarLayer,
@@ -24,7 +25,9 @@ export const tryApplyItemComponentChanges = (
   if (!canUseItemComponentRenderer(item, componentChanges, options))
     return false;
   if (hasDuplicateUnkeyedTypes(componentChanges)) {
-    restoreAggregateBarFallback(item, options);
+    restoreAggregateBarFallback(item, options, {
+      suppressNextBarAnimation: hasBarVisualChange(componentChanges),
+    });
     return false;
   }
 
@@ -33,14 +36,18 @@ export const tryApplyItemComponentChanges = (
 
   for (const change of componentChanges) {
     if (!ITEM_COMPONENT_TYPES.has(change?.type)) {
-      restoreAggregateBarFallback(item, options);
+      restoreAggregateBarFallback(item, options, {
+        suppressNextBarAnimation: hasBarVisualChange(componentChanges),
+      });
       return false;
     }
 
     const component = findItemComponent(item, change);
     if (!component) {
       if (change.show === false) continue;
-      restoreAggregateBarFallback(item, options);
+      restoreAggregateBarFallback(item, options, {
+        suppressNextBarAnimation: hasBarVisualChange(componentChanges),
+      });
       return false;
     }
 
@@ -214,7 +221,11 @@ const reconcileAggregateBarVisual = (item, change, options) => {
   const bar = getSingleBarComponent(item);
   if (!bar) return;
 
+  const wasAggregate = bar._patchmapUseAggregateBar === true;
   if (canUseAggregateBar(item, bar)) {
+    if (!wasAggregate) {
+      applyBarChange(bar, getCurrentBarVisualChange(bar), { instant: true });
+    }
     bar._patchmapUseAggregateBar = true;
     if (syncAggregateBar(bar, options)) {
       bar.renderable = false;
@@ -222,7 +233,7 @@ const reconcileAggregateBarVisual = (item, change, options) => {
     }
   }
 
-  restoreBarFallback(bar, change, options);
+  restoreBarFallback(bar, change, options, { instant: wasAggregate });
 };
 
 const canUseAggregateBar = (item, bar) => {
@@ -249,12 +260,28 @@ const hasUnsafeAggregateEffects = (component) =>
         component.blendMode !== 'inherit'),
   );
 
-const restoreAggregateBarFallback = (item, options = {}) => {
+const restoreAggregateBarFallback = (
+  item,
+  options = {},
+  { suppressNextBarAnimation = false } = {},
+) => {
   const bar = getSingleBarComponent(item) ?? item?._itemBarComponent;
-  if (bar) restoreBarFallback(bar, null, options);
+  if (bar) {
+    restoreBarFallback(bar, null, options, {
+      instant: bar._patchmapUseAggregateBar === true,
+    });
+    if (suppressNextBarAnimation) {
+      bar._patchmapSuppressNextSizeAnimation = true;
+    }
+  }
 };
 
-const restoreBarFallback = (bar, change = null, options = {}) => {
+const restoreBarFallback = (
+  bar,
+  change = null,
+  options = {},
+  { instant = false } = {},
+) => {
   const layer = removeAggregateBar(bar);
   flushOrDeferAggregateBarLayer(layer, options);
   if (!bar) return;
@@ -262,18 +289,13 @@ const restoreBarFallback = (bar, change = null, options = {}) => {
   bar.renderable = bar.props?.show !== false;
   if (!bar.renderable) return;
 
-  const fallbackChange = change ?? {
-    source: bar.props?.source,
-    size: bar.props?.size,
-    margin: bar.props?.margin,
-    animation: bar.props?.animation,
-    animationDuration: bar.props?.animationDuration,
-    placement: bar.props?.placement,
-  };
+  const fallbackChange = instant
+    ? getCurrentBarVisualChange(bar)
+    : (change ?? getCurrentBarVisualChange(bar));
   if (Object.hasOwn(fallbackChange, 'source')) {
     bar._applySource?.({ source: bar.props.source });
   }
-  applyBarChange(bar, fallbackChange);
+  applyBarChange(bar, fallbackChange, { instant });
 };
 
 const flushOrDeferAggregateBarLayer = (layer, options) => {
@@ -285,10 +307,22 @@ const flushOrDeferAggregateBarLayer = (layer, options) => {
   layer.flushParticleChildrenUpdate?.();
 };
 
-const applyBarChange = (bar, change) => {
+const getCurrentBarVisualChange = (bar) => ({
+  source: bar.props?.source,
+  size: bar.props?.size,
+  margin: bar.props?.margin,
+  animation: bar.props?.animation,
+  animationDuration: bar.props?.animationDuration,
+  placement: bar.props?.placement,
+});
+
+const applyBarChange = (bar, change, { instant = false } = {}) => {
   if (needsAnimatedSize(change)) {
+    if (instant) {
+      cancelBarSizeAnimation(bar);
+    }
     bar._applyAnimationSize?.({
-      animation: bar.props.animation,
+      animation: instant ? false : bar.props.animation,
       animationDuration: bar.props.animationDuration,
       source: bar.props.source,
       size: bar.props.size,
@@ -303,6 +337,20 @@ const applyBarChange = (bar, change) => {
       margin: bar.props.margin,
     });
   }
+};
+
+const cancelBarSizeAnimation = (bar) => {
+  const job = bar?._sizeAnimJob;
+  if (!job) return;
+
+  const batcher = getSizeBatcher(bar.store);
+  if (batcher) {
+    batcher.cancel(job);
+  } else {
+    job.cancelled = true;
+    job.done = true;
+  }
+  bar._sizeAnimJob = null;
 };
 
 const applyTextChange = (text, change, options) => {
@@ -447,6 +495,11 @@ const needsAnimatedSize = (change) =>
   Object.hasOwn(change, 'source') ||
   Object.hasOwn(change, 'size') ||
   Object.hasOwn(change, 'margin');
+
+const hasBarVisualChange = (componentChanges) =>
+  componentChanges.some(
+    (change) => change?.type === 'bar' && needsAnimatedSize(change),
+  );
 
 const needsComponentSize = (component, change) =>
   component.type !== 'text' &&
