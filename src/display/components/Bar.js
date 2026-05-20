@@ -10,6 +10,7 @@ import { Sourceable } from '../mixins/Sourceable';
 import { Tintable } from '../mixins/Tintable';
 import { mixins } from '../mixins/utils';
 import { WorldTransformable } from '../mixins/WorldTransformable';
+import { syncAggregatePanelBar } from '../renderers/panelComponentRenderer';
 
 const HANDLER_KEYS = ['source', 'size', 'attrs'];
 
@@ -34,6 +35,11 @@ export class Bar extends ComposedBar {
 
   apply(changes, options) {
     super.apply(changes, barSchema, options);
+  }
+
+  _onWorldTransformChanged() {
+    super._onWorldTransformChanged();
+    syncAggregatePanelBar(this);
   }
 }
 

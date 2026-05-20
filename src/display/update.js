@@ -5,7 +5,10 @@ import { findIndexByPriority } from '../utils/findIndexByPriority';
 import { selector } from '../utils/selector/selector';
 import { getCentroid, getObjectFrameWorldCorners } from '../utils/transform';
 import { uid } from '../utils/uuid';
-import { tryApplyPanelComponentChanges } from './renderers/panelComponentRenderer';
+import {
+  syncAggregatePanelBarForItem,
+  tryApplyPanelComponentChanges,
+} from './renderers/panelComponentRenderer';
 
 const DEFAULT_UPDATE_CONFIG = Object.freeze({
   path: null,
@@ -99,6 +102,7 @@ export const update = (root, opts = {}) => {
       validateSchema: config.validateSchema,
       normalize: config.normalize,
     });
+    syncAggregatePanelBarForItem(element);
   }
   return elements;
 };

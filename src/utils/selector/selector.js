@@ -42,13 +42,15 @@ const selectFromSceneIndex = (json, path, options) => {
 };
 
 const matchExactIdPath = (path) => {
-  const match = path.match(/^\$..\[\?\(@\.id\s*={2,3}\s*(["'])([^"']+)\1\)\]$/);
+  const match = path.match(
+    /^\$\.\.\[\?\(@\.id\s*={2,3}\s*(["'])([^"']+)\1\)\]$/,
+  );
   return match?.[2] ?? null;
 };
 
 const matchExactDirectPath = (path) => {
   const match = path.match(
-    /^\$..\[\?\(@\.type\s*={2,3}\s*(["'])([^"']+)\1\)\]$/,
+    /^\$\.\.\[\?\(@\.type\s*={2,3}\s*(["'])([^"']+)\1\)\]$/,
   );
   if (!match) return null;
   return {

@@ -49,9 +49,10 @@ const getIndexedSelectableCandidates = (parent, config = {}) => {
     return null;
   }
 
+  const isRootSearch = indexedRoot === parent;
   const candidates = [...sceneIndex.selectable].filter(
     (child) =>
-      isDescendantOf(child, parent) &&
+      (isRootSearch ? child.parent : isDescendantOf(child, parent)) &&
       isSelectableCandidate(child, parent) &&
       canResolveCandidate(child, config),
   );

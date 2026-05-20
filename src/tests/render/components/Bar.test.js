@@ -108,6 +108,63 @@ describe('Bar Component Tests', () => {
     expect(bar.props.size.width).toEqual({ value: 75, unit: '%' });
   });
 
+  it('keeps aggregate bar particles aligned when the parent item moves or fades', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'aggregate-moving-item',
+        attrs: { x: 10, y: 20 },
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-moving-bar',
+            source: { type: 'rect', fill: 'blue', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: false,
+          },
+        ],
+      },
+    ]);
+
+    const item = patchmap.selector('$..[?(@.id=="aggregate-moving-item")]')[0];
+    const bar = patchmap.selector('$..[?(@.id=="aggregate-moving-bar")]')[0];
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-moving-bar',
+            size: { width: '75%', height: 24 },
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="aggregate-moving-bar")]');
+
+    const layer = patchmap.world.store.panelBarLayer;
+    const initialParticle = layer.particleChildren[0];
+    const initialX = initialParticle.x;
+    const initialY = initialParticle.y;
+
+    patchmap.update({
+      elements: item,
+      changes: { attrs: { x: 40, y: 55, alpha: 0.5 } },
+      validateSchema: false,
+      emit: false,
+    });
+
+    expect(bar._patchmapUseAggregateBar).toBe(true);
+    expect(initialParticle.x).toBeCloseTo(initialX + 30);
+    expect(initialParticle.y).toBeCloseTo(initialY + 35);
+    expect(initialParticle.alpha).toBe(0.5);
+  });
+
   it('restores regular bar rendering when visible text makes aggregation unsafe', () => {
     const patchmap = getPatchmap();
     patchmap.draw([

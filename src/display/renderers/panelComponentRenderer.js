@@ -63,6 +63,29 @@ export const tryApplyPanelComponentChanges = (
   return true;
 };
 
+export const syncAggregatePanelBar = (bar, options = {}) => {
+  if (!bar?._patchmapUseAggregateBar) return false;
+
+  const layer = ensurePanelBarLayer(bar.store);
+  if (!layer?.syncBar(bar)) {
+    restoreBarFallback(bar);
+    return false;
+  }
+
+  if (options.deferAggregateBarFlush) {
+    options.aggregateBarLayers?.add(layer);
+  } else {
+    layer.flushParticleChildrenUpdate?.();
+  }
+  return true;
+};
+
+export const syncAggregatePanelBarForItem = (item, options = {}) => {
+  if (item?.type !== 'item') return false;
+  const bar = getSinglePanelBarComponent(item) ?? item?._panelBarComponent;
+  return syncAggregatePanelBar(bar, options);
+};
+
 const canUsePanelRenderer = (item, componentChanges, options) =>
   item?.type === 'item' &&
   options.validateSchema === false &&
@@ -179,15 +202,9 @@ const reconcilePanelBarVisual = (item, change, options) => {
   if (!bar) return;
 
   if (canUseAggregateBar(item, bar)) {
-    const layer = ensurePanelBarLayer(bar.store);
-    if (layer?.syncBar(bar)) {
-      if (options.deferAggregateBarFlush) {
-        options.aggregateBarLayers?.add(layer);
-      } else {
-        layer.flushParticleChildrenUpdate?.();
-      }
+    bar._patchmapUseAggregateBar = true;
+    if (syncAggregatePanelBar(bar, options)) {
       bar.renderable = false;
-      bar._patchmapUseAggregateBar = true;
       return;
     }
   }

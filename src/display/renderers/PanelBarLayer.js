@@ -90,6 +90,17 @@ export class PanelBarLayer extends ParticleContainer {
     this.update();
   }
 
+  destroy(options) {
+    if (this._animationFrame !== null) {
+      cancelFrame(this._animationFrame);
+      this._animationFrame = null;
+    }
+    this._activeAnimations.clear();
+    this._entries = new WeakMap();
+    this._needsParticleChildrenUpdate = false;
+    super.destroy(options);
+  }
+
   _createEntry(bar, texture) {
     const entry = {
       texture: null,
@@ -127,11 +138,9 @@ export class PanelBarLayer extends ParticleContainer {
     if (!entry.particles?.length) return;
 
     const particles = new Set(entry.particles);
-    for (let index = this.particleChildren.length - 1; index >= 0; index -= 1) {
-      if (particles.has(this.particleChildren[index])) {
-        this.particleChildren.splice(index, 1);
-      }
-    }
+    this.particleChildren = this.particleChildren.filter(
+      (particle) => !particles.has(particle),
+    );
     this._needsParticleChildrenUpdate = true;
   }
 
@@ -415,6 +424,8 @@ export const ensurePanelBarLayer = (store) => {
 };
 
 const placePanelBarLayer = (world, layer) => {
+  if (layer.parent === world) return;
+
   const relationIndex = world.children.findIndex(
     (child) => child !== layer && child.type === 'relations',
   );
@@ -773,6 +784,14 @@ const requestFrame = (callback) => {
     return requestAnimationFrame(callback);
   }
   return setTimeout(() => callback(now()), 16);
+};
+
+const cancelFrame = (handle) => {
+  if (typeof cancelAnimationFrame === 'function') {
+    cancelAnimationFrame(handle);
+    return;
+  }
+  clearTimeout(handle);
 };
 
 const now = () =>

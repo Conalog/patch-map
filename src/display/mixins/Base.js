@@ -19,6 +19,7 @@ const TRANSFORM_SYNC_KEYS = new Set([
   'scale',
   'skew',
   'pivot',
+  'alpha',
 ]);
 
 const getPatchDiff = (currentProps, changes) => {
