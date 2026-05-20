@@ -136,6 +136,7 @@ class Patchmap extends WildcardEventEmitter {
     const store = this._createStoreContext();
     this._viewport = initViewport(this.app, viewportOptions, store);
     this._world = new World({ store });
+    this._world.enableRenderGroup?.();
     store.world = this._world;
     this.viewport.addChild(this._world);
     this._viewTransform.attach({ viewport: this.viewport, world: this._world });

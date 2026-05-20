@@ -189,6 +189,13 @@ describe('patchmap test', () => {
     expect(gridItems.length).toBe(5);
   });
 
+  it('uses a render group for the world scene subtree', () => {
+    const patchmap = getPatchmap();
+
+    expect(patchmap.world.isRenderGroup).toBe(true);
+    expect(patchmap.world.renderGroup).toBeTruthy();
+  });
+
   it('uses world as the root for selector and update paths', async () => {
     const patchmap = getPatchmap();
     patchmap.draw(sampleData);
