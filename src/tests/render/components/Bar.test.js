@@ -108,6 +108,80 @@ describe('Bar Component Tests', () => {
     expect(bar.props.size.width).toEqual({ value: 75, unit: '%' });
   });
 
+  it('keeps the aggregate bar layer below relations after reordering', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'aggregate-relations-item',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-relations-bar',
+            source: { type: 'rect', fill: 'blue', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: false,
+          },
+        ],
+      },
+      { type: 'relations', id: 'aggregate-relations', links: [] },
+    ]);
+
+    const item = patchmap.selector(
+      '$..[?(@.id=="aggregate-relations-item")]',
+    )[0];
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-relations-bar',
+            size: { width: '75%', height: 24 },
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="aggregate-relations-bar")]');
+
+    const layer = patchmap.world.store.panelBarLayer;
+    const relations = patchmap.selector(
+      '$..[?(@.id=="aggregate-relations")]',
+    )[0];
+    expect(patchmap.world.children.indexOf(layer)).toBeLessThan(
+      patchmap.world.children.indexOf(relations),
+    );
+
+    patchmap.world.setChildIndex(layer, patchmap.world.children.length - 1);
+    expect(patchmap.world.children.indexOf(layer)).toBeGreaterThan(
+      patchmap.world.children.indexOf(relations),
+    );
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-relations-bar',
+            tint: 0xff0000,
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="aggregate-relations-bar")]');
+
+    expect(patchmap.world.children.indexOf(layer)).toBeLessThan(
+      patchmap.world.children.indexOf(relations),
+    );
+  });
+
   it('keeps aggregate bar particles aligned when the parent item moves or fades', () => {
     const patchmap = getPatchmap();
     patchmap.draw([

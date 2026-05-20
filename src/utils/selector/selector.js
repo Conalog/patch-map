@@ -60,7 +60,7 @@ const matchExactDirectPath = (path) => {
 
 const matchExactChildrenPath = (path) => {
   const match = path.match(
-    /^\$..children\[\?\(@\.type\s*={2,3}\s*(["'])([^"']+)\1\)\](\.children)?$/,
+    /^\$\.\.children\[\?\(@\.type\s*={2,3}\s*(["'])([^"']+)\1\)\](\.children)?$/,
   );
   if (!match) return null;
   return {

@@ -424,12 +424,10 @@ export const ensurePanelBarLayer = (store) => {
 };
 
 const placePanelBarLayer = (world, layer) => {
-  if (layer.parent === world) return;
-
+  const currentIndex = world.children.indexOf(layer);
   const relationIndex = world.children.findIndex(
     (child) => child !== layer && child.type === 'relations',
   );
-  const currentIndex = world.children.indexOf(layer);
 
   if (currentIndex === -1) {
     const insertIndex =
