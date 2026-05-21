@@ -1,7 +1,5 @@
 import { Point } from 'pixi.js';
 import { convertArray } from '../utils/convert';
-import { deepMerge } from '../utils/deepmerge/deepmerge';
-import { findIndexByPriority } from '../utils/findIndexByPriority';
 import { selector } from '../utils/selector/selector';
 import { getCentroid, getObjectFrameWorldCorners } from '../utils/transform';
 import { uid } from '../utils/uuid';
@@ -23,24 +21,12 @@ const DEFAULT_UPDATE_CONFIG = Object.freeze({
 
 const RADIANS_PER_DEGREE = Math.PI / 180;
 const ITEM_COMPONENT_TYPES = new Set(['background', 'bar', 'icon', 'text']);
-const QUEUE_FRAME_BUDGET_MS = 4;
-const QUEUE_MAX_UPDATES_PER_FRAME = 750;
-const queuedItemComponentUpdates = new Map();
-let queuedItemComponentUpdateFrame = null;
 
 export const update = (root, opts = {}) => {
   if (canUseBulkItemComponentUpdate(opts)) {
     flushQueuedItemComponentUpdates();
     return applyBulkItemComponentUpdate(opts.elements, opts);
   }
-
-  const queuedElements = getQueueableItemComponentUpdateElements(opts);
-  if (queuedElements) {
-    enqueueItemComponentUpdates(queuedElements, opts);
-    return queuedElements;
-  }
-
-  flushQueuedItemComponentUpdates();
 
   if (canUseDirectItemComponentUpdate(opts)) {
     const element = opts.elements;
@@ -59,6 +45,8 @@ export const update = (root, opts = {}) => {
     );
     if (applied) return [element];
   }
+
+  flushQueuedItemComponentUpdates();
 
   const config = {
     ...opts,
@@ -107,36 +95,7 @@ export const update = (root, opts = {}) => {
   return elements;
 };
 
-export const flushQueuedItemComponentUpdates = () => {
-  if (queuedItemComponentUpdateFrame !== null) {
-    cancelFrame(queuedItemComponentUpdateFrame);
-    queuedItemComponentUpdateFrame = null;
-  }
-  drainQueuedItemComponentUpdates({
-    frameBudgetMs: Number.POSITIVE_INFINITY,
-    maxUpdates: Number.POSITIVE_INFINITY,
-  });
-};
-
-const getQueueableItemComponentUpdateElements = (opts) => {
-  if (!canQueueItemComponentUpdate(opts)) return null;
-
-  const element = opts.elements;
-  if (
-    element?.type === 'item' &&
-    hasQueueableTargetComponents(element, opts.changes.components)
-  ) {
-    return [element];
-  }
-  return null;
-};
-
-const canQueueItemComponentUpdate = (opts) =>
-  opts?.emit === false &&
-  canUseTrustedItemComponentUpdate(opts) &&
-  (opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy) !== 'replace' &&
-  hasOnlyItemComponentChanges(opts.changes.components) &&
-  !hasDuplicateUnkeyedTypes(opts.changes.components);
+export const flushQueuedItemComponentUpdates = () => {};
 
 const canUseTrustedItemComponentUpdate = (opts) =>
   opts?.validateSchema === false &&
@@ -177,22 +136,6 @@ const isComponentsOnlyChange = (changes) =>
 const hasOnlyItemComponentChanges = (componentChanges) =>
   componentChanges.every((change) => ITEM_COMPONENT_TYPES.has(change?.type));
 
-const hasQueueableTargetComponents = (item, componentChanges) =>
-  componentChanges.every((change) => {
-    if (change?.show === false) return true;
-    return Boolean(findItemComponent(item, change));
-  });
-
-const findItemComponent = (item, change) => {
-  if (change.id || change.label) {
-    const index = findIndexByPriority(item.children ?? [], change);
-    return index === -1 ? null : item.children[index];
-  }
-  return (item.children ?? []).find(
-    (child) => child?.type === change.type && !child.destroyed,
-  );
-};
-
 const hasDuplicateUnkeyedTypes = (componentChanges) => {
   const seenTypes = new Set();
   for (const change of componentChanges) {
@@ -201,34 +144,6 @@ const hasDuplicateUnkeyedTypes = (componentChanges) => {
     seenTypes.add(change.type);
   }
   return false;
-};
-
-const enqueueItemComponentUpdates = (elements, opts) => {
-  for (const element of elements) {
-    enqueueItemComponentUpdate(element, opts);
-  }
-  scheduleQueuedItemComponentUpdates();
-};
-
-const enqueueItemComponentUpdate = (element, opts) => {
-  const pending = queuedItemComponentUpdates.get(element);
-  const components = pending
-    ? mergeQueuedComponentChanges(
-        pending.changes.components,
-        opts.changes.components,
-      )
-    : opts.changes.components;
-
-  queuedItemComponentUpdates.set(element, {
-    element,
-    changes: { components },
-    options: {
-      mergeStrategy: opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy,
-      refresh: false,
-      validateSchema: false,
-      normalize: opts.normalize,
-    },
-  });
 };
 
 const applyBulkItemComponentUpdate = (elements, opts) => {
@@ -263,94 +178,11 @@ const applyBulkItemComponentUpdate = (elements, opts) => {
   return elements;
 };
 
-const mergeQueuedComponentChanges = (current, next) =>
-  deepMerge(
-    { components: current },
-    { components: next },
-    { mergeBy: ['id', 'label', 'type'] },
-  ).components;
-
-const scheduleQueuedItemComponentUpdates = () => {
-  if (queuedItemComponentUpdateFrame !== null) return;
-  queuedItemComponentUpdateFrame = requestFrame(() => {
-    queuedItemComponentUpdateFrame = null;
-    drainQueuedItemComponentUpdates();
-  });
-};
-
-const drainQueuedItemComponentUpdates = ({
-  frameBudgetMs = QUEUE_FRAME_BUDGET_MS,
-  maxUpdates = QUEUE_MAX_UPDATES_PER_FRAME,
-} = {}) => {
-  const startedAt = now();
-  let processed = 0;
-  const aggregateBarLayers = new Set();
-
-  for (const [element, pending] of queuedItemComponentUpdates) {
-    queuedItemComponentUpdates.delete(element);
-    applyQueuedItemComponentUpdate(pending, aggregateBarLayers);
-    processed += 1;
-
-    if (
-      queuedItemComponentUpdates.size > 0 &&
-      (processed >= maxUpdates || now() - startedAt >= frameBudgetMs)
-    ) {
-      break;
-    }
-  }
-
-  flushAggregateBarLayers(aggregateBarLayers);
-
-  if (queuedItemComponentUpdates.size > 0) {
-    scheduleQueuedItemComponentUpdates();
-  }
-};
-
-const applyQueuedItemComponentUpdate = (
-  { element, changes, options },
-  aggregateBarLayers,
-) => {
-  const applied = tryApplyItemComponentChanges(element, changes.components, {
-    ...options,
-    deferAggregateBarFlush: true,
-    aggregateBarLayers,
-  });
-  if (applied) return;
-
-  element.apply(changes, {
-    historyId: null,
-    mergeStrategy: options.mergeStrategy,
-    refresh: options.refresh,
-    validateSchema: options.validateSchema,
-    normalize: options.normalize,
-  });
-};
-
 const flushAggregateBarLayers = (layers) => {
   for (const layer of layers) {
     layer?.flushParticleChildrenUpdate?.();
   }
 };
-
-const requestFrame = (callback) => {
-  if (typeof requestAnimationFrame === 'function') {
-    return requestAnimationFrame(callback);
-  }
-  return setTimeout(() => callback(now()), 0);
-};
-
-const cancelFrame = (handle) => {
-  if (typeof cancelAnimationFrame === 'function') {
-    cancelAnimationFrame(handle);
-    return;
-  }
-  clearTimeout(handle);
-};
-
-const now = () =>
-  typeof performance !== 'undefined' && performance.now
-    ? performance.now()
-    : Date.now();
 
 const applyRelativeTransform = (element, changes) => {
   ['x', 'y', 'rotation', 'angle'].forEach((key) => {

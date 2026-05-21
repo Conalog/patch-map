@@ -594,7 +594,7 @@ describe('Bar Component Tests', () => {
     expect(bar.height).toBe(32);
   });
 
-  it('flushes queued silent item component updates before selector reads', () => {
+  it('applies trusted silent single item component updates immediately', () => {
     const patchmap = getPatchmap();
     patchmap.draw([
       {
@@ -637,7 +637,9 @@ describe('Bar Component Tests', () => {
       emit: false,
     });
 
-    expect(bar.props.size.width).toEqual({ value: 50, unit: '%' });
+    expect(bar.props.size.width).toEqual({ value: 80, unit: '%' });
+    expect(bar.width).toBe(160);
+    expect(bar.height).toBe(28);
 
     const flushedBar = patchmap.selector('$..[?(@.id=="queued-item-bar")]')[0];
     expect(flushedBar.props.size.width).toEqual({ value: 80, unit: '%' });

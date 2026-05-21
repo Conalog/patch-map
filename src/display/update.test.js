@@ -62,16 +62,10 @@ describe('display update', () => {
     expect(item.apply).toHaveBeenCalledOnce();
   });
 
-  it('coalesces trusted silent item component updates until flush', () => {
+  it('applies trusted silent single item component updates immediately', () => {
     const { item, bar } = createItem();
 
-    const first = update(null, {
-      elements: item,
-      changes: { components: [{ type: 'bar', size: { height: '30%' } }] },
-      validateSchema: false,
-      emit: false,
-    });
-    update(null, {
+    const result = update(null, {
       elements: item,
       changes: {
         components: [{ type: 'bar', size: { height: '70%' }, tint: 0xff0000 }],
@@ -80,19 +74,14 @@ describe('display update', () => {
       emit: false,
     });
 
-    expect(first).toEqual([item]);
-    expect(bar.props.size.height).toBe('20%');
-    expect(bar._applyAnimationSize).not.toHaveBeenCalled();
-
-    flushQueuedItemComponentUpdates();
-
+    expect(result).toEqual([item]);
     expect(item.apply).not.toHaveBeenCalled();
     expect(bar.props.size.height).toEqual({ value: 70, unit: '%' });
     expect(bar.tint).toBe(0xff0000);
     expect(bar._applyAnimationSize).toHaveBeenCalledOnce();
   });
 
-  it('flushes queued item component updates before synchronous updates', () => {
+  it('keeps consecutive silent and synchronous single updates in order', () => {
     const { item, bar } = createItem();
 
     update(null, {
@@ -110,7 +99,7 @@ describe('display update', () => {
 
     expect(bar.props.size.height).toEqual({ value: 60, unit: '%' });
     expect(bar.tint).toBe(0x00ff00);
-    expect(bar._applyAnimationSize).toHaveBeenCalledOnce();
+    expect(bar._applyAnimationSize).toHaveBeenCalledTimes(1);
   });
 
   it('uses the direct item component path for trusted silent array updates', () => {
