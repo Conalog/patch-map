@@ -3,6 +3,7 @@ import { getColor } from '../../utils/get';
 import { normalizeBoxSpacing } from '../../utils/spacing';
 import { getSizeBatcher } from '../animation/sizeBatchTween';
 import {
+  deactivateAggregateBar,
   ensureAggregateBarLayerForBar,
   getCurrentAggregateBarLayer,
   removeAggregateBar,
@@ -282,7 +283,12 @@ const restoreBarFallback = (
   options = {},
   { instant = false } = {},
 ) => {
-  const layer = removeAggregateBar(bar);
+  const shouldRemoveAggregateEntry = Boolean(
+    change && Object.hasOwn(change, 'source'),
+  );
+  const layer = shouldRemoveAggregateEntry
+    ? removeAggregateBar(bar)
+    : deactivateAggregateBar(bar);
   flushOrDeferAggregateBarLayer(layer, options);
   if (!bar) return;
   bar._patchmapUseAggregateBar = false;

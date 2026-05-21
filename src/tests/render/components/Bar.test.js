@@ -435,9 +435,103 @@ describe('Bar Component Tests', () => {
 
     expect(bar.renderable).toBe(true);
     expect(bar._patchmapUseAggregateBar).toBe(false);
-    expect(patchmap.world.store.aggregateBarLayers.size).toBe(0);
+    expect(patchmap.world.store.aggregateBarLayers.size).toBe(1);
+    expect(
+      patchmap.world.store.aggregateBarLayer.particleChildren.every(
+        (particle) => particle.alpha === 0,
+      ),
+    ).toBe(true);
     expect(bar.width).toBe(150);
     expect(bar.height).toBe(24);
+  });
+
+  it('reuses hidden aggregate bar particles when visible icon toggles fallback', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'aggregate-icon-toggle-item',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-icon-toggle-bar',
+            source: { type: 'rect', fill: 'green', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: false,
+          },
+          {
+            type: 'icon',
+            id: 'aggregate-icon-toggle-icon',
+            source: 'warning',
+            show: false,
+            size: 20,
+          },
+        ],
+      },
+    ]);
+
+    const item = patchmap.selector(
+      '$..[?(@.id=="aggregate-icon-toggle-item")]',
+    )[0];
+    const bar = patchmap.selector(
+      '$..[?(@.id=="aggregate-icon-toggle-bar")]',
+    )[0];
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          { type: 'bar', id: 'aggregate-icon-toggle-bar', size: '80%' },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="aggregate-icon-toggle-bar")]');
+
+    const layer = patchmap.world.store.aggregateBarLayer;
+    const particleCount = layer.particleChildren.length;
+    const firstParticle = layer.particleChildren[0];
+    expect(bar._patchmapUseAggregateBar).toBe(true);
+    expect(bar.renderable).toBe(false);
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          { type: 'icon', id: 'aggregate-icon-toggle-icon', show: true },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="aggregate-icon-toggle-bar")]');
+
+    expect(bar._patchmapUseAggregateBar).toBe(false);
+    expect(bar.renderable).toBe(true);
+    expect(layer.particleChildren.length).toBe(particleCount);
+    expect(layer.particleChildren[0]).toBe(firstParticle);
+    expect(
+      layer.particleChildren.every((particle) => particle.alpha === 0),
+    ).toBe(true);
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          { type: 'icon', id: 'aggregate-icon-toggle-icon', show: false },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="aggregate-icon-toggle-bar")]');
+
+    expect(bar._patchmapUseAggregateBar).toBe(true);
+    expect(bar.renderable).toBe(false);
+    expect(layer.particleChildren.length).toBe(particleCount);
+    expect(layer.particleChildren[0]).toBe(firstParticle);
   });
 
   it('snaps the hidden Pixi bar to the final size when leaving aggregate rendering', () => {

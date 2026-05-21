@@ -88,6 +88,15 @@ export class AggregateBarLayer extends ParticleContainer {
     }
   }
 
+  deactivateBar(bar) {
+    const entry = this._entries.get(bar);
+    if (!entry) return false;
+
+    this._cancelEntryAnimation(entry);
+    this._applyAppearance(entry, { alpha: 0 });
+    return true;
+  }
+
   removeBar(bar) {
     const entry = this._entries.get(bar);
     if (!entry) return;
@@ -453,6 +462,12 @@ export const removeAggregateBar = (bar) => {
   layer?.removeBar?.(bar);
   clearCurrentAggregateBarLayer(bar);
   releaseAggregateBarLayerIfEmpty(layer);
+  return layer?.destroyed ? null : (layer ?? null);
+};
+
+export const deactivateAggregateBar = (bar) => {
+  const layer = getCurrentAggregateBarLayer(bar);
+  layer?.deactivateBar?.(bar);
   return layer?.destroyed ? null : (layer ?? null);
 };
 
