@@ -71,7 +71,11 @@ export class AggregateBarLayer extends ParticleContainer {
 
     const nextState = this._resolveState(bar);
     const shouldAnimate = Boolean(bar.props?.animation && entry.state);
-    if (shouldAnimate && this._animateEntry(entry, bar, texture, nextState)) {
+    if (
+      shouldAnimate &&
+      !hasSameState(entry.state, nextState) &&
+      this._animateEntry(entry, bar, texture, nextState)
+    ) {
       return true;
     }
 
@@ -862,6 +866,15 @@ const cloneState = (state) => ({
   height: state.height,
   rotation: state.rotation,
 });
+
+const hasSameState = (current, next) =>
+  current &&
+  next &&
+  current.x === next.x &&
+  current.y === next.y &&
+  current.width === next.width &&
+  current.height === next.height &&
+  current.rotation === next.rotation;
 
 const applyParticleState = (
   particle,

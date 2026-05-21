@@ -239,6 +239,7 @@ const reconcileAggregateBarVisual = (item, change, options) => {
 
 const canUseAggregateBar = (item, bar) => {
   if (!bar || bar.props?.show === false) return false;
+  if (bar.props?.animation === true) return false;
   if (isVisibleItemComponent(item._itemIconComponent)) return false;
   if (isVisibleItemComponent(item._itemTextComponent)) return false;
   if (hasUnsafeAggregateEffects(item) || hasUnsafeAggregateEffects(bar)) {

@@ -110,6 +110,53 @@ describe('Bar Component Tests', () => {
     expect(bar.props.size.width).toEqual({ value: 75, unit: '%' });
   });
 
+  it('keeps animated bars on the Pixi renderer', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'animated-aggregate-policy-item',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'animated-aggregate-policy-bar',
+            source: { type: 'rect', fill: 'blue', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: true,
+          },
+        ],
+      },
+    ]);
+
+    const item = patchmap.selector(
+      '$..[?(@.id=="animated-aggregate-policy-item")]',
+    )[0];
+    const bar = patchmap.selector(
+      '$..[?(@.id=="animated-aggregate-policy-bar")]',
+    )[0];
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            id: 'animated-aggregate-policy-bar',
+            size: { width: '75%', height: 24 },
+            tint: 0xff0000,
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="animated-aggregate-policy-bar")]');
+
+    expect(bar._patchmapUseAggregateBar).toBe(false);
+    expect(bar.renderable).toBe(true);
+  });
+
   it('keeps the aggregate bar layer below relations after reordering', () => {
     const patchmap = getPatchmap();
     patchmap.draw([
@@ -534,7 +581,7 @@ describe('Bar Component Tests', () => {
     expect(layer.particleChildren[0]).toBe(firstParticle);
   });
 
-  it('snaps the hidden Pixi bar to the final size when leaving aggregate rendering', () => {
+  it('restores the hidden Pixi bar at the final size when leaving aggregate rendering', () => {
     const patchmap = getPatchmap();
     patchmap.draw([
       {
@@ -547,8 +594,7 @@ describe('Bar Component Tests', () => {
             id: 'aggregate-to-fallback-bar',
             source: { type: 'rect', fill: 'green', radius: 4 },
             size: { width: '50%', height: 20 },
-            animation: true,
-            animationDuration: 800,
+            animation: false,
           },
           {
             type: 'text',
@@ -611,12 +657,9 @@ describe('Bar Component Tests', () => {
     expect(bar.renderable).toBe(true);
     expect(bar.width).toBe(170);
     expect(bar.height).toBe(36);
-    gsap.exportRoot().totalProgress(1);
-    expect(bar.width).toBe(170);
-    expect(bar.height).toBe(36);
   });
 
-  it('snaps the Pixi bar before re-entering aggregate rendering', () => {
+  it('syncs the Pixi bar before re-entering aggregate rendering', () => {
     const patchmap = getPatchmap();
     patchmap.draw([
       {
@@ -629,8 +672,7 @@ describe('Bar Component Tests', () => {
             id: 'fallback-to-aggregate-bar',
             source: { type: 'rect', fill: 'green', radius: 4 },
             size: { width: '50%', height: 20 },
-            animation: true,
-            animationDuration: 800,
+            animation: false,
           },
           {
             type: 'text',
@@ -665,7 +707,8 @@ describe('Bar Component Tests', () => {
     });
     patchmap.selector('$..[?(@.id=="fallback-to-aggregate-bar")]');
     expect(bar._patchmapUseAggregateBar).toBe(false);
-    expect(bar._sizeAnimJob?.done).toBe(false);
+    expect(bar.width).toBe(160);
+    expect(bar.height).toBe(32);
 
     patchmap.update({
       elements: item,
@@ -681,9 +724,6 @@ describe('Bar Component Tests', () => {
 
     expect(bar._patchmapUseAggregateBar).toBe(true);
     expect(bar.renderable).toBe(false);
-    expect(bar.width).toBe(160);
-    expect(bar.height).toBe(32);
-    gsap.exportRoot().totalProgress(1);
     expect(bar.width).toBe(160);
     expect(bar.height).toBe(32);
   });
