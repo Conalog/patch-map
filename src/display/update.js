@@ -21,8 +21,6 @@ const DEFAULT_UPDATE_CONFIG = Object.freeze({
 
 const RADIANS_PER_DEGREE = Math.PI / 180;
 const ITEM_COMPONENT_TYPES = new Set(['background', 'bar', 'icon', 'text']);
-const pendingAggregateBarLayers = new Set();
-let pendingAggregateBarFrame = null;
 
 export const update = (root, opts = {}) => {
   if (canUseBulkItemComponentUpdate(opts)) {
@@ -33,7 +31,6 @@ export const update = (root, opts = {}) => {
   if (canUseDirectItemComponentUpdate(opts)) {
     const element = opts.elements;
     if (!element) return [];
-    const deferAggregateBarFlush = opts.emit === false;
 
     const applied = tryApplyItemComponentChanges(
       element,
@@ -44,14 +41,9 @@ export const update = (root, opts = {}) => {
         refresh: false,
         validateSchema: false,
         normalize: opts.normalize,
-        deferAggregateBarFlush,
-        aggregateBarLayers: pendingAggregateBarLayers,
       },
     );
-    if (applied) {
-      if (deferAggregateBarFlush) schedulePendingAggregateBarFlush();
-      return [element];
-    }
+    if (applied) return [element];
   }
 
   flushQueuedItemComponentUpdates();
@@ -103,13 +95,7 @@ export const update = (root, opts = {}) => {
   return elements;
 };
 
-export const flushQueuedItemComponentUpdates = () => {
-  if (pendingAggregateBarFrame !== null) {
-    cancelFrame(pendingAggregateBarFrame);
-    pendingAggregateBarFrame = null;
-  }
-  flushPendingAggregateBarLayers();
-};
+export const flushQueuedItemComponentUpdates = () => {};
 
 const canUseTrustedItemComponentUpdate = (opts) =>
   opts?.validateSchema === false &&
@@ -196,39 +182,6 @@ const flushAggregateBarLayers = (layers) => {
   for (const layer of layers) {
     layer?.flushParticleChildrenUpdate?.();
   }
-};
-
-const schedulePendingAggregateBarFlush = () => {
-  if (
-    pendingAggregateBarLayers.size === 0 ||
-    pendingAggregateBarFrame !== null
-  ) {
-    return;
-  }
-  pendingAggregateBarFrame = requestFrame(() => {
-    pendingAggregateBarFrame = null;
-    flushPendingAggregateBarLayers();
-  });
-};
-
-const flushPendingAggregateBarLayers = () => {
-  flushAggregateBarLayers(pendingAggregateBarLayers);
-  pendingAggregateBarLayers.clear();
-};
-
-const requestFrame = (callback) => {
-  if (typeof requestAnimationFrame === 'function') {
-    return requestAnimationFrame(callback);
-  }
-  return setTimeout(callback, 0);
-};
-
-const cancelFrame = (handle) => {
-  if (typeof cancelAnimationFrame === 'function') {
-    cancelAnimationFrame(handle);
-    return;
-  }
-  clearTimeout(handle);
 };
 
 const applyRelativeTransform = (element, changes) => {
