@@ -100,6 +100,25 @@ describe('itemComponentRenderer', () => {
     expect(item.props.components[2].style).toEqual(text.props.style);
   });
 
+  it('skips component handler work when trusted changes keep the same props', () => {
+    const { item, bar, text } = createItemWithComponents();
+
+    const applied = tryApplyItemComponentChanges(
+      item,
+      [
+        { type: 'bar', tint: 0xffffff, source: { fill: 'blue' } },
+        { type: 'text', show: true, text: 'A', style: { fill: 'black' } },
+      ],
+      { validateSchema: false, mergeStrategy: 'merge' },
+    );
+
+    expect(applied).toBe(true);
+    expect(bar._applyAnimationSize).not.toHaveBeenCalled();
+    expect(bar._applySource).not.toHaveBeenCalled();
+    expect(text._applyText).not.toHaveBeenCalled();
+    expect(text._applyTextstyle).not.toHaveBeenCalled();
+  });
+
   it('falls back for duplicate unkeyed component changes to preserve duplicate semantics', () => {
     const { item, text } = createItemWithComponents();
 

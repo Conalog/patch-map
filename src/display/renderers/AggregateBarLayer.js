@@ -44,7 +44,7 @@ export class AggregateBarLayer extends ParticleContainer {
     return Boolean(getBarTexture(bar));
   }
 
-  syncBar(bar) {
+  syncBar(bar, options = {}) {
     if (!bar?.parent || bar.destroyed) return false;
 
     const texture = getBarTexture(bar);
@@ -70,7 +70,11 @@ export class AggregateBarLayer extends ParticleContainer {
     }
 
     const nextState = this._resolveState(bar);
-    const shouldAnimate = Boolean(bar.props?.animation && entry.state);
+    const shouldAnimate = Boolean(
+      bar.props?.animation &&
+        entry.state &&
+        options.suppressAggregateBarAnimation !== true,
+    );
     if (
       shouldAnimate &&
       !hasSameState(entry.state, nextState) &&

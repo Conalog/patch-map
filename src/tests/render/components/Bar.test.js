@@ -110,7 +110,7 @@ describe('Bar Component Tests', () => {
     expect(bar.props.size.width).toEqual({ value: 75, unit: '%' });
   });
 
-  it('keeps animated bars on the Pixi renderer', () => {
+  it('renders animated bar-only updates through the aggregate layer', () => {
     const patchmap = getPatchmap();
     patchmap.draw([
       {
@@ -124,6 +124,12 @@ describe('Bar Component Tests', () => {
             source: { type: 'rect', fill: 'blue', radius: 4 },
             size: { width: '50%', height: 20 },
             animation: true,
+          },
+          {
+            type: 'text',
+            id: 'animated-aggregate-policy-text',
+            text: '1',
+            show: false,
           },
         ],
       },
@@ -153,8 +159,56 @@ describe('Bar Component Tests', () => {
     });
     patchmap.selector('$..[?(@.id=="animated-aggregate-policy-bar")]');
 
+    expect(bar._patchmapUseAggregateBar).toBe(true);
+    expect(bar.renderable).toBe(false);
+    expect(patchmap.world.store.aggregateBarLayer).toBeDefined();
+    expect(patchmap.world.store.aggregateBarLayer._activeAnimations.size).toBe(
+      0,
+    );
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            id: 'animated-aggregate-policy-bar',
+            size: { width: '80%', height: 28 },
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="animated-aggregate-policy-bar")]');
+
+    expect(patchmap.world.store.aggregateBarLayer._activeAnimations.size).toBe(
+      1,
+    );
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'text',
+            id: 'animated-aggregate-policy-text',
+            show: true,
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="animated-aggregate-policy-bar")]');
+
     expect(bar._patchmapUseAggregateBar).toBe(false);
     expect(bar.renderable).toBe(true);
+    expect(bar.width).toBe(160);
+    expect(bar.height).toBe(28);
+    expect(patchmap.world.store.aggregateBarLayer._activeAnimations.size).toBe(
+      0,
+    );
   });
 
   it('keeps the aggregate bar layer below relations after reordering', () => {
@@ -170,7 +224,8 @@ describe('Bar Component Tests', () => {
             id: 'aggregate-relations-bar',
             source: { type: 'rect', fill: 'blue', radius: 4 },
             size: { width: '50%', height: 20 },
-            animation: false,
+            animation: true,
+            animationDuration: 800,
           },
         ],
       },
@@ -629,6 +684,9 @@ describe('Bar Component Tests', () => {
     });
     patchmap.selector('$..[?(@.id=="aggregate-to-fallback-bar")]');
     expect(bar._patchmapUseAggregateBar).toBe(true);
+    expect(patchmap.world.store.aggregateBarLayer._activeAnimations.size).toBe(
+      0,
+    );
 
     patchmap.update({
       elements: item,
@@ -639,6 +697,16 @@ describe('Bar Component Tests', () => {
             id: 'aggregate-to-fallback-bar',
             size: { width: '85%', height: 36 },
           },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="aggregate-to-fallback-bar")]');
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
           {
             type: 'text',
             id: 'aggregate-to-fallback-text',
@@ -657,6 +725,9 @@ describe('Bar Component Tests', () => {
     expect(bar.renderable).toBe(true);
     expect(bar.width).toBe(170);
     expect(bar.height).toBe(36);
+    expect(patchmap.world.store.aggregateBarLayer._activeAnimations.size).toBe(
+      0,
+    );
   });
 
   it('syncs the Pixi bar before re-entering aggregate rendering', () => {
@@ -672,7 +743,8 @@ describe('Bar Component Tests', () => {
             id: 'fallback-to-aggregate-bar',
             source: { type: 'rect', fill: 'green', radius: 4 },
             size: { width: '50%', height: 20 },
-            animation: false,
+            animation: true,
+            animationDuration: 800,
           },
           {
             type: 'text',
@@ -707,8 +779,7 @@ describe('Bar Component Tests', () => {
     });
     patchmap.selector('$..[?(@.id=="fallback-to-aggregate-bar")]');
     expect(bar._patchmapUseAggregateBar).toBe(false);
-    expect(bar.width).toBe(160);
-    expect(bar.height).toBe(32);
+    expect(bar._sizeAnimJob?.done).toBe(false);
 
     patchmap.update({
       elements: item,
@@ -726,6 +797,9 @@ describe('Bar Component Tests', () => {
     expect(bar.renderable).toBe(false);
     expect(bar.width).toBe(160);
     expect(bar.height).toBe(32);
+    expect(patchmap.world.store.aggregateBarLayer._activeAnimations.size).toBe(
+      0,
+    );
   });
 
   it('applies trusted silent single item component updates immediately', () => {
@@ -836,6 +910,78 @@ describe('Bar Component Tests', () => {
     expect(secondBar.props.size.width).toEqual({ value: 80, unit: '%' });
     expect(firstBar.width).toBe(160);
     expect(secondBar.width).toBe(160);
+  });
+
+  it('batches aggregate layer flushes across repeated trusted single item updates', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'aggregate-flush-batch-item-a',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-flush-batch-bar-a',
+            source: { type: 'rect', fill: 'blue', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: true,
+          },
+        ],
+      },
+      {
+        type: 'item',
+        id: 'aggregate-flush-batch-item-b',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-flush-batch-bar-b',
+            source: { type: 'rect', fill: 'blue', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: true,
+          },
+        ],
+      },
+    ]);
+
+    const items = [
+      patchmap.selector('$..[?(@.id=="aggregate-flush-batch-item-a")]')[0],
+      patchmap.selector('$..[?(@.id=="aggregate-flush-batch-item-b")]')[0],
+    ];
+
+    patchmap.update({
+      elements: items[0],
+      changes: {
+        components: [{ type: 'bar', size: { width: '60%', height: 24 } }],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="aggregate-flush-batch-bar-a")]');
+
+    const layer = patchmap.world.store.aggregateBarLayer;
+    const originalUpdate = layer.update.bind(layer);
+    let updateCount = 0;
+    layer.update = (...args) => {
+      updateCount += 1;
+      return originalUpdate(...args);
+    };
+
+    for (const item of items) {
+      patchmap.update({
+        elements: item,
+        changes: {
+          components: [{ type: 'bar', size: { width: '80%', height: 28 } }],
+        },
+        validateSchema: false,
+        emit: false,
+      });
+    }
+
+    expect(updateCount).toBe(0);
+    patchmap.selector('$..[?(@.id=="aggregate-flush-batch-bar-a")]');
+    expect(updateCount).toBe(1);
   });
 
   describe('when updating size', () => {

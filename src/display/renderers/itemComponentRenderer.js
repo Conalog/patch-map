@@ -3,6 +3,7 @@ import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { getColor } from '../../utils/get';
 import { normalizeBoxSpacing } from '../../utils/spacing';
 import { getSizeBatcher } from '../animation/sizeBatchTween';
+import { newComponent } from '../components/creator';
 import {
   deactivateAggregateBar,
   ensureAggregateBarLayerForBar,
@@ -18,6 +19,10 @@ const COMPONENT_CACHE_FIELDS = {
   icon: '_itemIconComponent',
   text: '_itemTextComponent',
 };
+const SCHEDULED_AGGREGATE_BAR_SYNC_BUDGET_MS = 4;
+const QUEUED_AGGREGATE_BAR_SYNCS = new Set();
+const QUEUED_AGGREGATE_BAR_LAYERS = new Set();
+let aggregateBarFlushScheduled = false;
 
 export const tryApplyItemComponentChanges = (
   item,
@@ -33,8 +38,10 @@ export const tryApplyItemComponentChanges = (
     return false;
   }
 
-  const jobs = [];
   ensureItemComponentCache(item);
+  if (tryApplyItemBarStateChange(item, componentChanges, options)) return true;
+
+  const jobs = [];
 
   for (const change of componentChanges) {
     if (!ITEM_COMPONENT_TYPES.has(change?.type)) {
@@ -47,29 +54,52 @@ export const tryApplyItemComponentChanges = (
     const component = findItemComponent(item, change);
     if (!component) {
       if (change.show === false) continue;
-      restoreAggregateBarFallback(item, options, {
-        suppressNextBarAnimation: hasBarVisualChange(componentChanges),
+      const props = findItemComponentProps(item, change);
+      if (!props) {
+        restoreAggregateBarFallback(item, options, {
+          suppressNextBarAnimation: hasBarVisualChange(componentChanges),
+        });
+        return false;
+      }
+      jobs.push({
+        component: null,
+        change,
+        nextProps: mergeComponentProps(props, change),
       });
-      return false;
+      continue;
     }
 
-    if (!isNoopHiddenChange(component, change)) {
-      jobs.push({ component, change });
+    const nextProps = mergeComponentProps(component.props, change);
+    if (!isEqualValue(component.props, nextProps)) {
+      jobs.push({ component, change, nextProps });
     }
   }
 
   let barChange = null;
   let shouldReconcileBar = false;
-  for (const { component, change } of jobs) {
-    const isBar = component.type === 'bar';
-    applyItemComponentChange(item, component, change, options, {
-      deferBarVisual: isBar,
-    });
+  for (const { component, change, nextProps } of jobs) {
+    const targetComponent =
+      component ?? createItemComponent(item, change, nextProps, options);
+    const isBar = targetComponent.type === 'bar';
+    if (component) {
+      applyItemComponentChange(
+        item,
+        targetComponent,
+        change,
+        nextProps,
+        options,
+        {
+          deferBarVisual: isBar,
+        },
+      );
+    }
     if (isBar) {
       barChange = mergeComponentProps(barChange ?? {}, change);
     }
     shouldReconcileBar ||=
-      isBar || component.type === 'icon' || component.type === 'text';
+      isBar ||
+      targetComponent.type === 'icon' ||
+      targetComponent.type === 'text';
   }
 
   if (shouldReconcileBar) {
@@ -78,7 +108,68 @@ export const tryApplyItemComponentChanges = (
   return true;
 };
 
+const tryApplyItemBarStateChange = (item, componentChanges, options) => {
+  if (!isItemBarStateChange(componentChanges)) return false;
+
+  const barChange = componentChanges[0];
+  let bar = findItemComponent(item, barChange);
+  const baseProps = bar ? bar.props : findItemComponentProps(item, barChange);
+  if (!baseProps) return false;
+
+  const nextProps = mergeComponentProps(baseProps, barChange);
+  if (!bar) {
+    bar = createItemComponent(item, barChange, nextProps, options);
+  } else if (!isEqualValue(bar.props, nextProps)) {
+    bar.props = nextProps;
+    syncParentComponentProps(item, bar, barChange, options.mergeStrategy);
+    if (Object.hasOwn(barChange, 'show')) {
+      bar.renderable = bar.props.show;
+    }
+    if (Object.hasOwn(barChange, 'tint')) {
+      bar.tint = getColor(bar.store.theme, bar.props.tint);
+    }
+  }
+
+  const barChanged = !isEqualValue(baseProps, nextProps);
+  const iconChanged = needsHideItemComponent(item, 'icon');
+  const textChanged = needsHideItemComponent(item, 'text');
+  if (!barChanged && !iconChanged && !textChanged) return true;
+
+  if (iconChanged) {
+    hideItemComponent(item, 'icon', componentChanges[1], options.mergeStrategy);
+  }
+  if (textChanged) {
+    hideItemComponent(item, 'text', componentChanges[2], options.mergeStrategy);
+  }
+  reconcileAggregateBarVisual(item, barChange, options);
+  return true;
+};
+
+const isItemBarStateChange = (componentChanges) => {
+  if (componentChanges.length !== 3) return false;
+  const [barChange, iconChange, textChange] = componentChanges;
+  return (
+    barChange?.type === 'bar' &&
+    !barChange.id &&
+    !barChange.label &&
+    iconChange?.type === 'icon' &&
+    iconChange.show === false &&
+    textChange?.type === 'text' &&
+    textChange.show === false
+  );
+};
+
 export const syncAggregateBar = (bar, options = {}) => {
+  if (
+    options.immediateAggregateBarSync === true ||
+    options.deferAggregateBarFlush
+  ) {
+    return syncAggregateBarNow(bar, options);
+  }
+  return queueAggregateBarSync(bar, options);
+};
+
+const syncAggregateBarNow = (bar, options = {}) => {
   if (!bar?._patchmapUseAggregateBar) return false;
 
   const previousLayer = getCurrentAggregateBarLayer(bar);
@@ -88,7 +179,7 @@ export const syncAggregateBar = (bar, options = {}) => {
     flushOrDeferAggregateBarLayer(removedLayer, options);
   }
 
-  if (!layer?.syncBar(bar)) {
+  if (!layer?.syncBar(bar, options)) {
     restoreBarFallback(bar, null, options);
     return false;
   }
@@ -97,7 +188,7 @@ export const syncAggregateBar = (bar, options = {}) => {
   if (options.deferAggregateBarFlush) {
     options.aggregateBarLayers?.add(layer);
   } else {
-    layer.flushParticleChildrenUpdate?.();
+    queueAggregateBarLayerFlush(layer);
   }
   return true;
 };
@@ -150,6 +241,62 @@ const findItemComponent = (item, change) => {
   return field ? (item[field] ?? null) : null;
 };
 
+const findItemComponentProps = (item, change) => {
+  const components = item?.props?.components;
+  if (!Array.isArray(components)) return null;
+  const index = findIndexByPriority(components, change);
+  return index === -1 ? null : components[index];
+};
+
+const createItemComponent = (item, change, nextProps, options) => {
+  const component = newComponent(nextProps.type ?? change.type, item.store);
+  item.addChild(component);
+  component._applyInitialTrusted(nextProps, {
+    ...options,
+    changes: nextProps,
+    validateSchema: false,
+    normalize: false,
+  });
+  syncParentComponentProps(item, component, nextProps, 'replace');
+  const cacheField = COMPONENT_CACHE_FIELDS[component.type];
+  if (cacheField) {
+    item[cacheField] = component;
+    item._itemComponentCacheLength = item.children.length;
+  }
+  component._parentComponentPropsIndex = getParentComponentPropsIndex(
+    item.props?.components ?? [],
+    component,
+  );
+  return component;
+};
+
+const needsHideItemComponent = (item, type) => {
+  const component = item[COMPONENT_CACHE_FIELDS[type]];
+  if (component && !component.destroyed) {
+    return component.props?.show !== false || component.renderable !== false;
+  }
+
+  const parentComponents = item.props?.components;
+  if (!Array.isArray(parentComponents)) return false;
+  const index = findIndexByPriority(parentComponents, { type });
+  if (index === -1) return false;
+  return parentComponents[index]?.show !== false;
+};
+
+const hideItemComponent = (item, type, change, mergeStrategy) => {
+  const component = item[COMPONENT_CACHE_FIELDS[type]];
+  if (component && !component.destroyed) {
+    if (component.props?.show !== false) {
+      component.props = mergeComponentProps(component.props, change);
+      component.renderable = false;
+    }
+    syncParentComponentProps(item, component, change, mergeStrategy);
+    return;
+  }
+
+  syncParentComponentChange(item, change, mergeStrategy);
+};
+
 const getSingleBarComponent = (item) => {
   let bar = null;
   for (const child of item.children ?? []) {
@@ -174,10 +321,10 @@ const applyItemComponentChange = (
   item,
   component,
   change,
+  nextProps,
   options,
   { deferBarVisual = false } = {},
 ) => {
-  const nextProps = mergeComponentProps(component.props, change);
   component.props = nextProps;
   syncParentComponentProps(item, component, change, options.mergeStrategy);
 
@@ -225,11 +372,13 @@ const reconcileAggregateBarVisual = (item, change, options) => {
 
   const wasAggregate = bar._patchmapUseAggregateBar === true;
   if (canUseAggregateBar(item, bar)) {
+    let syncOptions = options;
     if (!wasAggregate) {
       applyBarChange(bar, getCurrentBarVisualChange(bar), { instant: true });
+      syncOptions = { ...options, suppressAggregateBarAnimation: true };
     }
     bar._patchmapUseAggregateBar = true;
-    if (syncAggregateBar(bar, options)) {
+    if (syncAggregateBar(bar, syncOptions)) {
       bar.renderable = false;
       return;
     }
@@ -240,7 +389,6 @@ const reconcileAggregateBarVisual = (item, change, options) => {
 
 const canUseAggregateBar = (item, bar) => {
   if (!bar || bar.props?.show === false) return false;
-  if (bar.props?.animation === true) return false;
   if (isVisibleItemComponent(item._itemIconComponent)) return false;
   if (isVisibleItemComponent(item._itemTextComponent)) return false;
   if (hasUnsafeAggregateEffects(item) || hasUnsafeAggregateEffects(bar)) {
@@ -312,7 +460,101 @@ const flushOrDeferAggregateBarLayer = (layer, options) => {
     options.aggregateBarLayers?.add(layer);
     return;
   }
-  layer.flushParticleChildrenUpdate?.();
+  queueAggregateBarLayerFlush(layer);
+};
+
+export const flushQueuedAggregateBarLayers = ({
+  frameBudgetMs = Number.POSITIVE_INFINITY,
+} = {}) => {
+  if (
+    QUEUED_AGGREGATE_BAR_SYNCS.size === 0 &&
+    QUEUED_AGGREGATE_BAR_LAYERS.size === 0
+  ) {
+    aggregateBarFlushScheduled = false;
+    return;
+  }
+
+  const startedAt = now();
+  aggregateBarFlushScheduled = false;
+  while (
+    QUEUED_AGGREGATE_BAR_SYNCS.size > 0 ||
+    QUEUED_AGGREGATE_BAR_LAYERS.size > 0
+  ) {
+    while (QUEUED_AGGREGATE_BAR_SYNCS.size > 0) {
+      const bar = QUEUED_AGGREGATE_BAR_SYNCS.values().next().value;
+      QUEUED_AGGREGATE_BAR_SYNCS.delete(bar);
+      const syncOptions = bar?._patchmapQueuedAggregateBarOptions ?? {};
+      if (bar) bar._patchmapQueuedAggregateBarOptions = null;
+      syncAggregateBarNow(bar, {
+        ...syncOptions,
+        immediateAggregateBarSync: true,
+      });
+      if (
+        QUEUED_AGGREGATE_BAR_SYNCS.size + QUEUED_AGGREGATE_BAR_LAYERS.size >
+          0 &&
+        now() - startedAt >= frameBudgetMs
+      ) {
+        scheduleAggregateBarFlush();
+        return;
+      }
+    }
+
+    while (QUEUED_AGGREGATE_BAR_LAYERS.size > 0) {
+      const layer = QUEUED_AGGREGATE_BAR_LAYERS.values().next().value;
+      QUEUED_AGGREGATE_BAR_LAYERS.delete(layer);
+      layer?.flushParticleChildrenUpdate?.();
+      if (
+        QUEUED_AGGREGATE_BAR_SYNCS.size + QUEUED_AGGREGATE_BAR_LAYERS.size >
+          0 &&
+        now() - startedAt >= frameBudgetMs
+      ) {
+        scheduleAggregateBarFlush();
+        return;
+      }
+    }
+  }
+};
+
+const queueAggregateBarSync = (bar, options) => {
+  if (!bar || bar.destroyed) return false;
+  bar._patchmapQueuedAggregateBarOptions = {
+    ...(bar._patchmapQueuedAggregateBarOptions ?? {}),
+    ...options,
+  };
+  QUEUED_AGGREGATE_BAR_SYNCS.add(bar);
+  scheduleAggregateBarFlush();
+  return true;
+};
+
+const queueAggregateBarLayerFlush = (layer) => {
+  if (!layer || layer.destroyed) return;
+  QUEUED_AGGREGATE_BAR_LAYERS.add(layer);
+  scheduleAggregateBarFlush();
+};
+
+const scheduleAggregateBarFlush = () => {
+  if (aggregateBarFlushScheduled) return;
+
+  aggregateBarFlushScheduled = true;
+  requestFrame(() =>
+    flushQueuedAggregateBarLayers({
+      frameBudgetMs: SCHEDULED_AGGREGATE_BAR_SYNC_BUDGET_MS,
+    }),
+  );
+};
+
+const requestFrame = (callback) => {
+  if (typeof requestAnimationFrame === 'function') {
+    return requestAnimationFrame(callback);
+  }
+  return setTimeout(callback, 16);
+};
+
+const now = () => {
+  if (typeof performance !== 'undefined' && performance.now) {
+    return performance.now();
+  }
+  return Date.now();
 };
 
 const getCurrentBarVisualChange = (bar) => ({
@@ -398,6 +640,18 @@ const syncParentComponentProps = (item, component, change, mergeStrategy) => {
       : mergeComponentProps(parentComponents[index], change);
 };
 
+const syncParentComponentChange = (item, change, mergeStrategy) => {
+  const parentComponents = item.props?.components;
+  if (!Array.isArray(parentComponents)) return;
+
+  const index = findIndexByPriority(parentComponents, change);
+  if (index === -1) return;
+  parentComponents[index] =
+    mergeStrategy === 'replace'
+      ? { type: change.type, ...change }
+      : mergeComponentProps(parentComponents[index], change);
+};
+
 const getParentComponentPropsIndex = (parentComponents, component) => {
   const cachedIndex = component._parentComponentPropsIndex;
   if (
@@ -427,6 +681,36 @@ const matchesComponent = (left, right) =>
   (right.id && left.id === right.id) ||
   (right.label && left.label === right.label) ||
   left.type === right.type;
+
+const isEqualValue = (left, right) => {
+  if (Object.is(left, right)) return true;
+  if (
+    !left ||
+    !right ||
+    typeof left !== 'object' ||
+    typeof right !== 'object'
+  ) {
+    return false;
+  }
+
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right)) return false;
+    if (left.length !== right.length) return false;
+    for (let index = 0; index < left.length; index += 1) {
+      if (!isEqualValue(left[index], right[index])) return false;
+    }
+    return true;
+  }
+
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  for (const key of leftKeys) {
+    if (!Object.hasOwn(right, key)) return false;
+    if (!isEqualValue(left[key], right[key])) return false;
+  }
+  return true;
+};
 
 const mergeComponentProps = (props = {}, change = {}) => {
   const next = { ...props, type: props.type ?? change.type };
@@ -524,12 +808,6 @@ const needsTextLayout = (change) =>
   Object.hasOwn(change, 'style') ||
   Object.hasOwn(change, 'margin') ||
   Object.hasOwn(change, 'size');
-
-const isNoopHiddenChange = (component, change) =>
-  change?.show === false &&
-  component.props?.show === false &&
-  component.renderable === false &&
-  Object.keys(change).every((key) => key === 'type' || key === 'show');
 
 const isPlainObject = (value) =>
   value !== null &&

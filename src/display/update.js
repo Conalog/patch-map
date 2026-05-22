@@ -4,6 +4,7 @@ import { selector } from '../utils/selector/selector';
 import { getCentroid, getObjectFrameWorldCorners } from '../utils/transform';
 import { uid } from '../utils/uuid';
 import {
+  flushQueuedAggregateBarLayers,
   syncAggregateBarForItem,
   tryApplyItemComponentChanges,
 } from './renderers/itemComponentRenderer';
@@ -90,12 +91,12 @@ export const update = (root, opts = {}) => {
       validateSchema: config.validateSchema,
       normalize: config.normalize,
     });
-    syncAggregateBarForItem(element);
+    syncAggregateBarForItem(element, { immediateAggregateBarSync: true });
   }
   return elements;
 };
 
-export const flushQueuedItemComponentUpdates = () => {};
+export const flushQueuedItemComponentUpdates = flushQueuedAggregateBarLayers;
 
 const canUseTrustedItemComponentUpdate = (opts) =>
   opts?.validateSchema === false &&
