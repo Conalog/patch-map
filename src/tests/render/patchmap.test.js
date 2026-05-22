@@ -189,11 +189,10 @@ describe('patchmap test', () => {
     expect(gridItems.length).toBe(5);
   });
 
-  it('uses a render group for the world scene subtree', () => {
+  it('keeps the world scene subtree out of a render group for responsive child transforms', () => {
     const patchmap = getPatchmap();
 
-    expect(patchmap.world.isRenderGroup).toBe(true);
-    expect(patchmap.world.renderGroup).toBeTruthy();
+    expect(patchmap.world.isRenderGroup).not.toBe(true);
   });
 
   it('uses world as the root for selector and update paths', async () => {
