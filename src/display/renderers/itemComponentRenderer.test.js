@@ -78,6 +78,28 @@ describe('itemComponentRenderer', () => {
     expect(text.renderable).toBe(false);
   });
 
+  it('deep merges nested component style patches like the regular component path', () => {
+    const { item, text } = createItemWithComponents();
+    text.props.style = {
+      fill: 'black',
+      dropShadow: { color: 'red', blur: 2 },
+    };
+    item.props.components[2].style = { ...text.props.style };
+
+    const applied = tryApplyItemComponentChanges(
+      item,
+      [{ type: 'text', style: { dropShadow: { blur: 4 } } }],
+      { validateSchema: false, mergeStrategy: 'merge' },
+    );
+
+    expect(applied).toBe(true);
+    expect(text.props.style).toEqual({
+      fill: 'black',
+      dropShadow: { color: 'red', blur: 4 },
+    });
+    expect(item.props.components[2].style).toEqual(text.props.style);
+  });
+
   it('falls back for duplicate unkeyed component changes to preserve duplicate semantics', () => {
     const { item, text } = createItemWithComponents();
 

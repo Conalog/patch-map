@@ -1,3 +1,4 @@
+import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { findIndexByPriority } from '../../utils/findIndexByPriority';
 import { getColor } from '../../utils/get';
 import { normalizeBoxSpacing } from '../../utils/spacing';
@@ -436,7 +437,7 @@ const mergeComponentProps = (props = {}, change = {}) => {
     } else if (key === 'size') {
       next.size = mergeSize(props.size, value, next.type);
     } else if (key === 'source' || key === 'style') {
-      next[key] = mergePlainObject(props[key], value);
+      next[key] = mergePlainObjectDeep(props[key], value);
     } else if (key === 'margin') {
       next.margin = normalizeBoxSpacing(value);
     } else {
@@ -491,9 +492,9 @@ const normalizePxOrPercent = (value) => {
   return value;
 };
 
-const mergePlainObject = (current, patch) => {
+const mergePlainObjectDeep = (current, patch) => {
   if (!isPlainObject(current) || !isPlainObject(patch)) return patch;
-  return { ...current, ...patch };
+  return deepMerge(current, patch);
 };
 
 const needsAnimatedSize = (change) =>
