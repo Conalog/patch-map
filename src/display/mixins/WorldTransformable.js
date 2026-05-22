@@ -250,6 +250,14 @@ export const WorldTransformable = (superClass) => {
         : false;
       this._worldTransformNeedsSubscriptionSync = false;
 
+      if (this.constructor.skipWorldTransformBoundsTracking === true) {
+        this._worldTransformBoundsCheckFrames = 0;
+        if (changed) {
+          this._onWorldTransformChanged();
+        }
+        return;
+      }
+
       let boundsChanged = false;
       if (this._worldTransformBoundsCheckFrames > 0 || changed) {
         const nextBoundsSnapshot = getBoundsSnapshot(this);

@@ -28,6 +28,7 @@ const ComposedBar = mixins(
 
 export class Bar extends ComposedBar {
   static keepsBasePivotDuringCompensation = true;
+  static skipWorldTransformBoundsTracking = true;
 
   constructor(store) {
     super({ type: 'bar', store, texture: Texture.WHITE });
