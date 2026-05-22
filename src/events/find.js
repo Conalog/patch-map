@@ -78,10 +78,18 @@ const getIndexedSelectableCandidates = (parent, config = {}) => {
 };
 
 const getIndexedSceneRoot = (parent) => {
-  if (parent?.store?.sceneIndex) {
+  const world = parent?.store?.world;
+  if (world?.store?.sceneIndex) {
+    return world;
+  }
+  if (parent?.type === 'canvas' && parent?.store?.sceneIndex) {
     return parent;
   }
-  return parent?.children?.find((child) => child?.store?.sceneIndex) ?? null;
+  return (
+    parent?.children?.find(
+      (child) => child?.type === 'canvas' && child?.store?.sceneIndex,
+    ) ?? null
+  );
 };
 
 const isDescendantOf = (candidate, parent) => {

@@ -325,6 +325,45 @@ describe('findIntersectObject', () => {
     );
   });
 
+  it('should scope indexed candidates to a non-root search parent', () => {
+    const insideTarget = createNode({
+      id: 'inside-target',
+      type: 'item',
+      hit: true,
+    });
+    const outsideTarget = createNode({
+      id: 'outside-target',
+      type: 'item',
+      hit: true,
+    });
+    const group = createNode({
+      id: 'group',
+      type: 'group',
+      isSelectable: false,
+      children: [insideTarget],
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [group, outsideTarget],
+    });
+    root.store = {
+      sceneIndex: {
+        selectable: new Set([insideTarget, outsideTarget]),
+      },
+    };
+    group.store = root.store;
+
+    const result = findIntersectObject(group, { x: 0, y: 0 });
+
+    expect(result).toBe(insideTarget);
+    expect(intersectPoint).not.toHaveBeenCalledWith(
+      outsideTarget,
+      expect.anything(),
+    );
+  });
+
   it('should keep unindexed overlay candidates such as transformer wireframes selectable', () => {
     const world = createNode({
       id: 'world',
