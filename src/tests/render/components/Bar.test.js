@@ -110,6 +110,72 @@ describe('Bar Component Tests', () => {
     expect(bar.props.size.width).toEqual({ value: 75, unit: '%' });
   });
 
+  it('removes aggregate particles when an aggregate bar component is destroyed', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'aggregate-remove-item',
+        size: { width: 200, height: 100 },
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-remove-bar',
+            source: { type: 'rect', fill: 'blue', radius: 4 },
+            size: { width: '50%', height: 20 },
+            animation: false,
+          },
+          {
+            type: 'text',
+            id: 'aggregate-remove-hidden-text',
+            text: 'hidden',
+            show: false,
+          },
+        ],
+      },
+    ]);
+
+    const item = patchmap.selector('$..[?(@.id=="aggregate-remove-item")]')[0];
+    const bar = patchmap.selector('$..[?(@.id=="aggregate-remove-bar")]')[0];
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            id: 'aggregate-remove-bar',
+            size: { width: '75%', height: 24 },
+          },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="aggregate-remove-bar")]');
+
+    const layer = patchmap.world.store.aggregateBarLayer;
+    expect(bar._patchmapUseAggregateBar).toBe(true);
+    expect(layer.particleChildren.length).toBe(6);
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          { type: 'text', id: 'replacement-text', text: 'replacement' },
+        ],
+      },
+      mergeStrategy: 'replace',
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="aggregate-remove-item")]');
+
+    expect(bar.destroyed).toBe(true);
+    expect(layer.destroyed).toBe(true);
+    expect(patchmap.world.store.aggregateBarLayer).toBeNull();
+  });
+
   it('renders animated bar-only updates through the aggregate layer', () => {
     const patchmap = getPatchmap();
     patchmap.draw([

@@ -10,6 +10,7 @@ import { Sourceable } from '../mixins/Sourceable';
 import { Tintable } from '../mixins/Tintable';
 import { mixins } from '../mixins/utils';
 import { WorldTransformable } from '../mixins/WorldTransformable';
+import { removeAggregateBar } from '../renderers/AggregateBarLayer';
 import { syncAggregateBar } from '../renderers/itemComponentRenderer';
 
 const HANDLER_KEYS = ['source', 'size', 'attrs'];
@@ -36,6 +37,13 @@ export class Bar extends ComposedBar {
 
   apply(changes, options) {
     super.apply(changes, barSchema, options);
+  }
+
+  destroy(options) {
+    removeAggregateBar(this);
+    this._patchmapUseAggregateBar = false;
+    this._patchmapQueuedAggregateBarOptions = null;
+    super.destroy(options);
   }
 
   _onWorldTransformChanged() {
