@@ -1,3 +1,5 @@
+import { SceneIndex } from './model/SceneIndex';
+
 export const draw = (store, data) => {
   resetElementIndex(store);
   destroyChildren(store.world);
@@ -17,5 +19,6 @@ const destroyChildren = (parent) => {
 
 const resetElementIndex = (store) => {
   const targetStore = store.world?.store ?? store;
-  targetStore.elementById = new Map();
+  targetStore.sceneIndex = new SceneIndex();
+  targetStore.elementById = targetStore.sceneIndex.elementById;
 };

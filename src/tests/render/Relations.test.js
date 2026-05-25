@@ -213,6 +213,21 @@ describe('Relations Component Rendering Tests', () => {
     expect(path.strokeStyle.color).toBe(0xef4444);
   });
 
+  it('should update relation visibility without redrawing links', async () => {
+    const { patchmap, relations } = await renderRelationScene();
+    const renderLinkSpy = vi.spyOn(relations, 'renderLink');
+    const originalLinkPoints = structuredClone(relations.linkPoints);
+
+    patchmap.update({
+      path: '$..children[?(@.type==="relations")]',
+      changes: { show: false },
+    });
+
+    expect(relations.renderable).toBe(false);
+    expect(relations.linkPoints).toEqual(originalLinkPoints);
+    expect(renderLinkSpy).not.toHaveBeenCalled();
+  });
+
   it('should recalculate points and redraw when "links" property changes', async () => {
     const { patchmap, relations } = await renderRelationScene();
     const originalPointsLength = relations.linkPoints.length;

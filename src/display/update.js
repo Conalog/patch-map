@@ -3,6 +3,11 @@ import { convertArray } from '../utils/convert';
 import { selector } from '../utils/selector/selector';
 import { getCentroid, getObjectFrameWorldCorners } from '../utils/transform';
 import { uid } from '../utils/uuid';
+import {
+  flushQueuedAggregateBarLayers,
+  syncAggregateBarForItem,
+  tryApplyItemComponentChanges,
+} from './renderers/itemComponentRenderer';
 
 const DEFAULT_UPDATE_CONFIG = Object.freeze({
   path: null,
@@ -16,8 +21,34 @@ const DEFAULT_UPDATE_CONFIG = Object.freeze({
 });
 
 const RADIANS_PER_DEGREE = Math.PI / 180;
+const ITEM_COMPONENT_TYPES = new Set(['background', 'bar', 'icon', 'text']);
 
 export const update = (root, opts = {}) => {
+  if (canUseBulkItemComponentUpdate(opts)) {
+    flushQueuedItemComponentUpdates();
+    return applyBulkItemComponentUpdate(opts.elements, opts);
+  }
+
+  if (canUseDirectItemComponentUpdate(opts)) {
+    const element = opts.elements;
+    if (!element) return [];
+
+    const applied = tryApplyItemComponentChanges(
+      element,
+      opts.changes.components,
+      {
+        mergeStrategy:
+          opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy,
+        refresh: false,
+        validateSchema: false,
+        normalize: opts.normalize,
+      },
+    );
+    if (applied) return [element];
+  }
+
+  flushQueuedItemComponentUpdates();
+
   const config = {
     ...opts,
     ...DEFAULT_UPDATE_CONFIG,
@@ -60,8 +91,98 @@ export const update = (root, opts = {}) => {
       validateSchema: config.validateSchema,
       normalize: config.normalize,
     });
+    syncAggregateBarForItem(element, { immediateAggregateBarSync: true });
   }
   return elements;
+};
+
+export const flushQueuedItemComponentUpdates = flushQueuedAggregateBarLayers;
+
+const canUseTrustedItemComponentUpdate = (opts) =>
+  opts?.validateSchema === false &&
+  !opts.path &&
+  opts.elements &&
+  !opts.history &&
+  !opts.relativeTransform &&
+  !opts.rotateOrigin &&
+  !opts.refresh &&
+  isComponentsOnlyChange(opts.changes);
+
+const canUseBulkItemComponentUpdate = (opts) =>
+  opts?.emit === false &&
+  canUseTrustedItemComponentUpdate(opts) &&
+  Array.isArray(opts.elements) &&
+  opts.elements.length > 0 &&
+  (opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy) !== 'replace' &&
+  hasOnlyItemComponentChanges(opts.changes.components) &&
+  !hasDuplicateUnkeyedTypes(opts.changes.components) &&
+  opts.elements.every((element) => element?.type === 'item');
+
+const canUseDirectItemComponentUpdate = (opts) =>
+  opts?.validateSchema === false &&
+  !opts.path &&
+  opts.elements &&
+  !Array.isArray(opts.elements) &&
+  !opts.history &&
+  !opts.relativeTransform &&
+  !opts.rotateOrigin &&
+  !opts.refresh &&
+  isComponentsOnlyChange(opts.changes);
+
+const isComponentsOnlyChange = (changes) =>
+  changes &&
+  Object.keys(changes).length === 1 &&
+  Array.isArray(changes.components);
+
+const hasOnlyItemComponentChanges = (componentChanges) =>
+  componentChanges.every((change) => ITEM_COMPONENT_TYPES.has(change?.type));
+
+const hasDuplicateUnkeyedTypes = (componentChanges) => {
+  const seenTypes = new Set();
+  for (const change of componentChanges) {
+    if (!change || change.id || change.label) continue;
+    if (seenTypes.has(change.type)) return true;
+    seenTypes.add(change.type);
+  }
+  return false;
+};
+
+const applyBulkItemComponentUpdate = (elements, opts) => {
+  const aggregateBarLayers = new Set();
+  const options = {
+    mergeStrategy: opts.mergeStrategy ?? DEFAULT_UPDATE_CONFIG.mergeStrategy,
+    refresh: false,
+    validateSchema: false,
+    normalize: opts.normalize,
+    deferAggregateBarFlush: true,
+    aggregateBarLayers,
+  };
+
+  for (const element of elements) {
+    const applied = tryApplyItemComponentChanges(
+      element,
+      opts.changes.components,
+      options,
+    );
+    if (!applied) {
+      element.apply(opts.changes, {
+        historyId: null,
+        mergeStrategy: options.mergeStrategy,
+        refresh: options.refresh,
+        validateSchema: options.validateSchema,
+        normalize: options.normalize,
+      });
+    }
+  }
+
+  flushAggregateBarLayers(aggregateBarLayers);
+  return elements;
+};
+
+const flushAggregateBarLayers = (layers) => {
+  for (const layer of layers) {
+    layer?.flushParticleChildrenUpdate?.();
+  }
 };
 
 const applyRelativeTransform = (element, changes) => {

@@ -1,6 +1,7 @@
 import { Graphics } from 'pixi.js';
 import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import {
+  createFindGeometryCache,
   findIntersectObject,
   findIntersectObjects,
   findIntersectObjectsBySegment,
@@ -111,6 +112,7 @@ export default class SelectionState extends State {
 
   _paintedObjects = new Set();
   _lastPaintPoint = null;
+  _findGeometryCache = null;
 
   /**
    * Enters the selection state with a given store and configuration.
@@ -142,6 +144,7 @@ export default class SelectionState extends State {
     this.interactionState = stateSymbol.PRESSING;
     this.dragStartPoint = this.viewport.toWorld(e.global);
     this._lastPaintPoint = this.dragStartPoint;
+    this._findGeometryCache = createFindGeometryCache(this.viewport);
     this.viewportSnapshot = this.#captureViewportState();
 
     const target = this.#searchObject(this.dragStartPoint, e, true);
@@ -193,7 +196,11 @@ export default class SelectionState extends State {
         this.viewport,
         this._lastPaintPoint,
         currentPoint,
-        { ...this.config, filterParent: this.#getSelectionAncestors() },
+        {
+          ...this.config,
+          filterParent: this.#getSelectionAncestors(),
+          geometryCache: this._findGeometryCache,
+        },
       );
 
       const initialSize = this._paintedObjects.size;
@@ -305,7 +312,10 @@ export default class SelectionState extends State {
   }
 
   #findByPoint(point, config = this.config, skipWireframeCheck = false) {
-    const object = findIntersectObject(this.viewport, point, config);
+    const object = findIntersectObject(this.viewport, point, {
+      ...config,
+      geometryCache: this._findGeometryCache,
+    });
     if (skipWireframeCheck || !object || object.type !== 'wireframe') {
       return object;
     }
@@ -313,6 +323,7 @@ export default class SelectionState extends State {
     const underObject = findIntersectObject(this.viewport, point, {
       ...config,
       filter: (obj) => this.config.filter(obj) && obj.type !== 'wireframe',
+      geometryCache: this._findGeometryCache,
     });
     if (!underObject || underObject.type === 'canvas') {
       return object;
@@ -324,6 +335,7 @@ export default class SelectionState extends State {
     return findIntersectObjects(this.viewport, polygon, {
       ...config,
       filter: (obj) => this.config.filter(obj) && obj.type !== 'wireframe',
+      geometryCache: this._findGeometryCache,
     });
   }
 
@@ -392,6 +404,7 @@ export default class SelectionState extends State {
       this._latestSelectionBox = null;
       this._paintedObjects.clear();
       this._lastPaintPoint = null;
+      this._findGeometryCache = null;
     }
   }
 

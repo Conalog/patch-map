@@ -52,8 +52,12 @@ import {
   toFlatPoints,
 } from '../utils/intersects/intersect';
 import { intersectPoint } from '../utils/intersects/intersect-point';
-import { getObjectSizeLocalBounds } from '../utils/transform';
 import {
+  getObjectLocalCorners,
+  getObjectSizeLocalBounds,
+} from '../utils/transform';
+import {
+  createFindGeometryCache,
   findIntersectObject,
   findIntersectObjects,
   findIntersectObjectsBySegment,
@@ -264,6 +268,310 @@ describe('findIntersectObject', () => {
       expect.anything(),
     );
   });
+
+  it('should use indexed selectable candidates when a scene index is available', () => {
+    const target = createNode({
+      id: 'indexed-target',
+      type: 'item',
+      hit: true,
+    });
+    const skipped = createNode({
+      id: 'skipped',
+      type: 'item',
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [target, skipped],
+    });
+    root.store = {
+      sceneIndex: {
+        selectable: new Set([target]),
+      },
+    };
+
+    const result = findIntersectObject(root, { x: 0, y: 0 });
+
+    expect(result).toBe(target);
+    expect(intersectPoint).not.toHaveBeenCalledWith(skipped, expect.anything());
+  });
+
+  it('should ignore stale indexed candidates that are no longer descendants', () => {
+    const staleTarget = createNode({
+      id: 'stale-target',
+      type: 'item',
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [],
+    });
+    root.store = {
+      sceneIndex: {
+        selectable: new Set([staleTarget]),
+      },
+    };
+
+    const result = findIntersectObject(root, { x: 0, y: 0 });
+
+    expect(result).toBeNull();
+    expect(intersectPoint).not.toHaveBeenCalledWith(
+      staleTarget,
+      expect.anything(),
+    );
+  });
+
+  it('should scope indexed candidates to a non-root search parent', () => {
+    const insideTarget = createNode({
+      id: 'inside-target',
+      type: 'item',
+      hit: true,
+    });
+    const outsideTarget = createNode({
+      id: 'outside-target',
+      type: 'item',
+      hit: true,
+    });
+    const group = createNode({
+      id: 'group',
+      type: 'group',
+      isSelectable: false,
+      children: [insideTarget],
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [group, outsideTarget],
+    });
+    root.store = {
+      sceneIndex: {
+        selectable: new Set([insideTarget, outsideTarget]),
+      },
+    };
+    group.store = root.store;
+
+    const result = findIntersectObject(group, { x: 0, y: 0 });
+
+    expect(result).toBe(insideTarget);
+    expect(intersectPoint).not.toHaveBeenCalledWith(
+      outsideTarget,
+      expect.anything(),
+    );
+  });
+
+  it('should keep unindexed overlay candidates such as transformer wireframes selectable', () => {
+    const world = createNode({
+      id: 'world',
+      type: 'canvas',
+      isSelectable: false,
+      children: [],
+    });
+    world.store = {
+      sceneIndex: {
+        selectable: new Set(),
+      },
+    };
+    const wireframe = createNode({
+      id: 'wireframe',
+      type: 'wireframe',
+      hit: true,
+    });
+    const transformer = createNode({
+      id: 'transformer',
+      type: 'transformer',
+      isSelectable: false,
+      children: [wireframe],
+    });
+    const viewport = createNode({
+      id: 'viewport',
+      type: 'viewport',
+      isSelectable: false,
+      children: [world, transformer],
+    });
+
+    const result = findIntersectObject(viewport, { x: 0, y: 0 });
+
+    expect(result).toBe(wireframe);
+  });
+
+  it('should prefer a higher zIndex candidate during point selection', () => {
+    const lower = createNode({
+      id: 'lower',
+      type: 'item',
+      zIndex: 1,
+      hit: true,
+    });
+    const higher = createNode({
+      id: 'higher',
+      type: 'item',
+      zIndex: 2,
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [higher, lower],
+    });
+
+    const result = findIntersectObject(root, { x: 0, y: 0 });
+
+    expect(result).toBe(higher);
+  });
+
+  it('should prefer the later sibling when point candidates share zIndex', () => {
+    const first = createNode({
+      id: 'first',
+      type: 'item',
+      hit: true,
+    });
+    const second = createNode({
+      id: 'second',
+      type: 'item',
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [first, second],
+    });
+    root.store = {
+      sceneIndex: {
+        selectable: new Set([first, second]),
+      },
+    };
+
+    const result = findIntersectObject(root, { x: 0, y: 0 });
+
+    expect(result).toBe(second);
+  });
+
+  it('should preserve nested sibling display order during point selection', () => {
+    const earlierChild = createNode({
+      id: 'earlier-child',
+      type: 'item',
+      hit: true,
+    });
+    const laterChild = createNode({
+      id: 'later-child',
+      type: 'item',
+      hit: true,
+    });
+    const earlierGroup = createNode({
+      id: 'earlier-group',
+      type: 'group',
+      isSelectable: false,
+      children: [earlierChild],
+    });
+    const laterGroup = createNode({
+      id: 'later-group',
+      type: 'group',
+      isSelectable: false,
+      children: [laterChild],
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [earlierGroup, laterGroup],
+    });
+    root.store = {
+      sceneIndex: {
+        selectable: new Set([earlierChild, laterChild]),
+      },
+    };
+
+    const result = findIntersectObject(root, { x: 0, y: 0 });
+
+    expect(result).toBe(laterChild);
+  });
+
+  it('should avoid display-order sibling index work for non-hit candidates', () => {
+    const missed = createNode({
+      id: 'missed',
+      type: 'item',
+      hit: false,
+    });
+    const target = createNode({
+      id: 'target',
+      type: 'item',
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [missed, target],
+    });
+    root.getChildIndex = vi.fn(root.getChildIndex.bind(root));
+    root.store = {
+      sceneIndex: {
+        selectable: new Set([missed, target]),
+      },
+    };
+
+    const result = findIntersectObject(root, { x: 0, y: 0 });
+
+    expect(result).toBe(target);
+    expect(root.getChildIndex).not.toHaveBeenCalled();
+  });
+
+  it('should reuse entity size bounds only within a provided geometry cache', () => {
+    const target = createNode({
+      id: 'target',
+      type: 'item',
+      hit: true,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [target],
+    });
+    vi.mocked(getObjectSizeLocalBounds).mockReturnValue({
+      minX: 0,
+      minY: 0,
+      maxX: 10,
+      maxY: 10,
+    });
+
+    const geometryCache = createFindGeometryCache(root);
+    findIntersectObject(
+      root,
+      { x: 5, y: 5 },
+      {
+        selectUnit: 'entity',
+        geometryCache,
+      },
+    );
+    findIntersectObject(
+      root,
+      { x: 5, y: 5 },
+      {
+        selectUnit: 'entity',
+        geometryCache,
+      },
+    );
+
+    expect(getObjectSizeLocalBounds).toHaveBeenCalledTimes(1);
+
+    findIntersectObject(
+      root,
+      { x: 5, y: 5 },
+      {
+        selectUnit: 'entity',
+        geometryCache: createFindGeometryCache(root),
+      },
+    );
+
+    expect(getObjectSizeLocalBounds).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('findIntersectObjects', () => {
@@ -388,6 +696,53 @@ describe('findIntersectObjects', () => {
       expect.anything(),
     );
   });
+
+  it('should not cache mutable selection box geometry across searches', () => {
+    const target = createNode({
+      id: 'target',
+      type: 'item',
+      hit: true,
+    });
+    const selectionBox = createNode({
+      id: 'selection-box',
+      type: 'selection-box',
+      isSelectable: false,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [target],
+    });
+    vi.mocked(getObjectLocalCorners).mockImplementation((node) =>
+      node === selectionBox ? node.corners : [],
+    );
+    vi.mocked(toFlatPoints).mockImplementation((points) =>
+      points.flatMap((point) => [point.x, point.y]),
+    );
+
+    const geometryCache = createFindGeometryCache(root);
+    selectionBox.corners = [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+    ];
+    findIntersectObjects(root, selectionBox, { geometryCache });
+
+    selectionBox.corners = [
+      { x: 20, y: 20 },
+      { x: 30, y: 20 },
+      { x: 30, y: 30 },
+      { x: 20, y: 30 },
+    ];
+    findIntersectObjects(root, selectionBox, { geometryCache });
+
+    const selectionBoxCalls = vi
+      .mocked(getObjectLocalCorners)
+      .mock.calls.filter(([node]) => node === selectionBox);
+    expect(selectionBoxCalls).toHaveLength(2);
+  });
 });
 
 describe('findIntersectObjectsBySegment', () => {
@@ -452,5 +807,51 @@ describe('findIntersectObjectsBySegment', () => {
     );
 
     expect(result).toEqual([unlockedRect]);
+  });
+
+  it('should reuse segment target corners only within a provided geometry cache', () => {
+    const target = createNode({
+      id: 'target',
+      type: 'item',
+      hit: true,
+      entryT: 0.1,
+    });
+    const root = createNode({
+      id: 'canvas',
+      type: 'canvas',
+      isSelectable: false,
+      children: [target],
+    });
+
+    const geometryCache = createFindGeometryCache(root);
+    findIntersectObjectsBySegment(
+      root,
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+      { geometryCache },
+    );
+    findIntersectObjectsBySegment(
+      root,
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+      { geometryCache },
+    );
+
+    const targetCalls = vi
+      .mocked(getObjectLocalCorners)
+      .mock.calls.filter(([node]) => node === target);
+    expect(targetCalls).toHaveLength(1);
+
+    findIntersectObjectsBySegment(
+      root,
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+      { geometryCache: createFindGeometryCache(root) },
+    );
+
+    const nextTargetCalls = vi
+      .mocked(getObjectLocalCorners)
+      .mock.calls.filter(([node]) => node === target);
+    expect(nextTargetCalls).toHaveLength(2);
   });
 });

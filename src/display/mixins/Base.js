@@ -4,6 +4,7 @@ import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { diffReplace } from '../../utils/diff/diff-replace';
 import { isSame } from '../../utils/diff/is-same';
 import { validate } from '../../utils/validator';
+import { getSceneIndexKeys } from '../model/SceneIndex';
 import { normalizeChanges } from '../normalize';
 import { Type } from './Type';
 
@@ -18,6 +19,7 @@ const TRANSFORM_SYNC_KEYS = new Set([
   'scale',
   'skew',
   'pivot',
+  'alpha',
 ]);
 
 const getPatchDiff = (currentProps, changes) => {
@@ -183,10 +185,10 @@ export const Base = (superClass) => {
       this.props = validatedProps;
 
       if (RAW_SYNC_KEYS.some((key) => Object.hasOwn(diffProps, key))) {
-        const previousId = this.id;
+        const previousIndexKeys = getSceneIndexKeys(this);
         const { id, label, attrs } = diffProps;
         this._applyRaw({ id, label, ...attrs }, mergeStrategy);
-        this._syncStoreElementIndex(previousId);
+        this._syncStoreElementIndex(previousIndexKeys);
       }
 
       const handlerChanges = options.changes ?? normalizedChanges;
@@ -213,7 +215,7 @@ export const Base = (superClass) => {
       const keysToProcess = Object.keys(initialProps);
       if (keysToProcess.length === 0) return;
 
-      const previousId = this.id;
+      const previousIndexKeys = getSceneIndexKeys(this);
       this.props = initialProps;
 
       if (RAW_SYNC_KEYS.some((key) => Object.hasOwn(initialProps, key))) {
@@ -222,7 +224,7 @@ export const Base = (superClass) => {
           { id, label, ...attrs },
           options.mergeStrategy ?? 'replace',
         );
-        this._syncStoreElementIndex(previousId);
+        this._syncStoreElementIndex(previousIndexKeys);
       }
 
       this._applyHandlers(keysToProcess, {
@@ -307,28 +309,36 @@ export const Base = (superClass) => {
       deepMerge(this, { [key]: value }, { mergeStrategy });
     }
 
-    _syncStoreElementIndex(previousId) {
+    _syncStoreElementIndex(previousIndexKeys) {
       const elementById = this.store?.elementById;
-      if (!elementById) return;
+      const sceneIndex = this.store?.sceneIndex;
+      if (!elementById && !sceneIndex) return;
+
+      const previousId =
+        typeof previousIndexKeys === 'string'
+          ? previousIndexKeys
+          : previousIndexKeys?.id;
 
       if (
+        elementById &&
         previousId &&
         previousId !== this.id &&
         elementById.get(previousId) === this
       ) {
         elementById.delete(previousId);
       }
-      if (this.id) {
+      if (elementById && this.id) {
         elementById.set(this.id, this);
       }
+      sceneIndex?.update(this, previousIndexKeys);
     }
 
     _removeFromStoreElementIndex() {
       const elementById = this.store?.elementById;
-      if (!elementById || !this.id) return;
-      if (elementById.get(this.id) === this) {
+      if (elementById && this.id && elementById.get(this.id) === this) {
         elementById.delete(this.id);
       }
+      this.store?.sceneIndex?.remove(this);
     }
   };
 

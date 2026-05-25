@@ -21,12 +21,15 @@ export class Relations extends ComposedRelations {
   }
 
   apply(_changes, options) {
-    const changes = structuredClone(_changes);
+    const changes =
+      options?.mergeStrategy === 'merge' && _changes?.links
+        ? structuredClone(_changes)
+        : _changes;
 
     // Filter out duplicates that already exist in the current props.
-    if (options?.mergeStrategy === 'merge') {
+    if (options?.mergeStrategy === 'merge' && changes?.links) {
       const existingLinks = this.props?.links;
-      if (changes?.links && existingLinks) {
+      if (existingLinks) {
         const existingKeys = new Set(
           existingLinks.map(({ source, target }) => `${source}|${target}`),
         );

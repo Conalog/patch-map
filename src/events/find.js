@@ -28,6 +28,11 @@ const getSelectableCandidates = (parent, config = {}) => {
     return [];
   }
 
+  const indexedCandidates = getIndexedSelectableCandidates(parent, config);
+  if (indexedCandidates) {
+    return indexedCandidates;
+  }
+
   return collectCandidates(
     parent,
     (child) =>
@@ -35,6 +40,67 @@ const getSelectableCandidates = (parent, config = {}) => {
       canResolveCandidate(child, config),
     { shouldDescend: (child) => !isInteractionLocked(child, parent) },
   );
+};
+
+const getIndexedSelectableCandidates = (parent, config = {}) => {
+  const indexedRoot = getIndexedSceneRoot(parent);
+  const sceneIndex = indexedRoot?.store?.sceneIndex;
+  if (!sceneIndex?.selectable) {
+    return null;
+  }
+
+  const isRootSearch = indexedRoot === parent;
+  const candidates = [...sceneIndex.selectable].filter(
+    (child) =>
+      (isRootSearch ? child.parent : isDescendantOf(child, parent)) &&
+      isSelectableCandidate(child, parent) &&
+      canResolveCandidate(child, config),
+  );
+
+  const extraRoots =
+    indexedRoot === parent
+      ? []
+      : (parent?.children?.filter((child) => child !== indexedRoot) ?? []);
+  if (extraRoots.length === 0) {
+    return candidates;
+  }
+
+  candidates.push(
+    ...collectCandidates(
+      { children: extraRoots },
+      (child) =>
+        isSelectableCandidate(child, parent) &&
+        canResolveCandidate(child, config),
+      { shouldDescend: (child) => !isInteractionLocked(child, parent) },
+    ),
+  );
+  return candidates;
+};
+
+const getIndexedSceneRoot = (parent) => {
+  const world = parent?.store?.world;
+  if (world?.store?.sceneIndex) {
+    return world;
+  }
+  if (parent?.type === 'canvas' && parent?.store?.sceneIndex) {
+    return parent;
+  }
+  return (
+    parent?.children?.find(
+      (child) => child?.type === 'canvas' && child?.store?.sceneIndex,
+    ) ?? null
+  );
+};
+
+const isDescendantOf = (candidate, parent) => {
+  let current = candidate;
+  while (current) {
+    if (current === parent) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
 };
 
 const canResolveCandidate = (candidate, { filter, selectUnit } = {}) => {
@@ -60,20 +126,57 @@ const createFindSelectionResolver = (
   };
 };
 
-const compareCandidatesByDisplayOrder = (parent, a, b) => {
+const createDisplayOrderComparator = (parent) => {
+  const ancestorPathCache = new WeakMap();
+  const childIndexCache = new WeakMap();
+
+  const getCachedAncestorPath = (obj) => {
+    if (!ancestorPathCache.has(obj)) {
+      ancestorPathCache.set(obj, getAncestorPath(obj, parent));
+    }
+    return ancestorPathCache.get(obj);
+  };
+
+  const getCachedChildIndex = (childParent, child) => {
+    let childIndexes = childIndexCache.get(childParent);
+    if (!childIndexes) {
+      childIndexes = new WeakMap();
+      childIndexCache.set(childParent, childIndexes);
+    }
+    if (!childIndexes.has(child)) {
+      childIndexes.set(child, childParent.getChildIndex(child));
+    }
+    return childIndexes.get(child);
+  };
+
+  return (a, b) =>
+    compareCandidatesByDisplayOrder(
+      a,
+      b,
+      getCachedAncestorPath,
+      getCachedChildIndex,
+    );
+};
+
+const compareCandidatesByDisplayOrder = (
+  a,
+  b,
+  getCandidatePath,
+  getChildIndex,
+) => {
   const zDiff = (b.zIndex || 0) - (a.zIndex || 0);
   if (zDiff !== 0) return zDiff;
 
-  const pathA = getAncestorPath(a, parent);
-  const pathB = getAncestorPath(b, parent);
+  const pathA = getCandidatePath(a);
+  const pathB = getCandidatePath(b);
   const minLength = Math.min(pathA.length, pathB.length);
 
   for (let i = 0; i < minLength; i++) {
     if (pathA[i] !== pathB[i]) {
       const commonParent = pathA[i].parent;
       return (
-        commonParent.getChildIndex(pathB[i]) -
-        commonParent.getChildIndex(pathA[i])
+        getChildIndex(commonParent, pathB[i]) -
+        getChildIndex(commonParent, pathA[i])
       );
     }
   }
@@ -84,39 +187,45 @@ const compareCandidatesByDisplayOrder = (parent, a, b) => {
 export const findIntersectObject = (
   parent,
   point,
-  { filter, selectUnit, filterParent } = {},
+  { filter, selectUnit, filterParent, geometryCache: providedCache } = {},
 ) => {
   const candidates = getSelectableCandidates(parent, { filter, selectUnit });
-  const mayContainPoint = createCandidatePointBoundsFilter(parent, selectUnit);
+  const geometryCache = providedCache ?? createFindGeometryCache(parent);
+  const mayContainPoint = createCandidatePointBoundsFilter(
+    geometryCache,
+    selectUnit,
+  );
   const resolveSelection = createFindSelectionResolver(parent, {
     filter,
     selectUnit,
     filterParent,
   });
+  const compareCandidates =
+    candidates.length > 1 ? createDisplayOrderComparator(parent) : null;
 
   return collectPointHit({
-    candidates: candidates.sort((a, b) =>
-      compareCandidatesByDisplayOrder(parent, a, b),
-    ),
+    candidates,
     point,
     intersectsPoint: intersectPoint,
     mayContainPoint,
     resolveSelection,
+    compareCandidates,
   });
 };
 
 export const findIntersectObjects = (
   parent,
   selectionBox,
-  { filter, selectUnit, filterParent } = {},
+  { filter, selectUnit, filterParent, geometryCache: providedCache } = {},
 ) => {
   const candidates = getSelectableCandidates(parent, { filter, selectUnit });
+  const geometryCache = providedCache ?? createFindGeometryCache(parent);
   const selectionPolygon = toFlatPoints(
     getObjectLocalCorners(selectionBox, parent),
   );
   const selectionBounds = getFlatBounds(selectionPolygon);
   const mayIntersectPolygon = createCandidatePolygonBoundsFilter(
-    parent,
+    geometryCache,
     selectUnit,
     selectionBounds,
   );
@@ -139,9 +248,10 @@ export const findIntersectObjectsBySegment = (
   parent,
   p1,
   p2,
-  { filter, selectUnit, filterParent } = {},
+  { filter, selectUnit, filterParent, geometryCache: providedCache } = {},
 ) => {
   const candidates = getSelectableCandidates(parent, { filter, selectUnit });
+  const geometryCache = providedCache ?? createFindGeometryCache(parent);
   const resolveSelection = createFindSelectionResolver(parent, {
     filter,
     selectUnit,
@@ -152,7 +262,7 @@ export const findIntersectObjectsBySegment = (
     segmentStart: p1,
     segmentEnd: p2,
     getEntryT: getSegmentEntryT,
-    getCorners: (target) => getObjectLocalCorners(target, parent),
+    getCorners: (target) => geometryCache.getLocalCorners(target),
     resolveSelection,
   });
 };
@@ -167,17 +277,37 @@ const getAncestorPath = (obj, stopAt) => {
   return path;
 };
 
-const createCandidatePointBoundsFilter = (viewport, selectUnit) => {
+export const createFindGeometryCache = (viewport) => {
+  const localCorners = new WeakMap();
+  const sizeBounds = new WeakMap();
+
+  return {
+    getLocalCorners(target) {
+      if (!localCorners.has(target)) {
+        localCorners.set(target, getObjectLocalCorners(target, viewport));
+      }
+      return localCorners.get(target);
+    },
+    getSizeBounds(target) {
+      if (!sizeBounds.has(target)) {
+        sizeBounds.set(target, getObjectSizeLocalBounds(target, viewport));
+      }
+      return sizeBounds.get(target);
+    },
+  };
+};
+
+const createCandidatePointBoundsFilter = (geometryCache, selectUnit) => {
   if (selectUnit !== 'entity') {
     return undefined;
   }
 
   return (candidate, point) =>
-    boundsContainPoint(getObjectSizeLocalBounds(candidate, viewport), point);
+    boundsContainPoint(geometryCache.getSizeBounds(candidate), point);
 };
 
 const createCandidatePolygonBoundsFilter = (
-  viewport,
+  geometryCache,
   selectUnit,
   selectionBounds,
 ) => {
@@ -186,8 +316,5 @@ const createCandidatePolygonBoundsFilter = (
   }
 
   return (candidate) =>
-    boundsIntersect(
-      selectionBounds,
-      getObjectSizeLocalBounds(candidate, viewport),
-    );
+    boundsIntersect(selectionBounds, geometryCache.getSizeBounds(candidate));
 };
