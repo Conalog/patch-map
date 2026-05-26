@@ -14,6 +14,10 @@ const DEFAULT_BOUNDS = new Rectangle(
   2_000_000,
   2_000_000,
 );
+const TEMP_POINT = new Point();
+const TEMP_ORIGIN = new Point();
+const TEMP_X_EDGE = new Point();
+const TEMP_Y_EDGE = new Point();
 
 export class AggregateBarLayer extends ParticleContainer {
   constructor(store, textureSource = null) {
@@ -367,26 +371,22 @@ export class AggregateBarLayer extends ParticleContainer {
   }
 
   _resolveState(bar) {
-    const origin = resolveBarLayerPoint(this, bar, 0, 0);
-    const xEdge = resolveBarLayerPoint(this, bar, bar.width, 0);
-    const yEdge = resolveBarLayerPoint(this, bar, 0, bar.height);
-    const xVector = {
-      x: xEdge.x - origin.x,
-      y: xEdge.y - origin.y,
-    };
-    const yVector = {
-      x: yEdge.x - origin.x,
-      y: yEdge.y - origin.y,
-    };
-    const width = Math.hypot(xVector.x, xVector.y);
-    const height = Math.hypot(yVector.x, yVector.y);
+    const origin = resolveBarLayerPoint(this, bar, 0, 0, TEMP_ORIGIN);
+    const xEdge = resolveBarLayerPoint(this, bar, bar.width, 0, TEMP_X_EDGE);
+    const yEdge = resolveBarLayerPoint(this, bar, 0, bar.height, TEMP_Y_EDGE);
+    const dx = xEdge.x - origin.x;
+    const dy = xEdge.y - origin.y;
+    const yDx = yEdge.x - origin.x;
+    const yDy = yEdge.y - origin.y;
+    const width = Math.hypot(dx, dy);
+    const height = Math.hypot(yDx, yDy);
 
     return {
       x: origin.x,
       y: origin.y,
       width,
       height,
-      rotation: width > 0 ? Math.atan2(xVector.y, xVector.x) : 0,
+      rotation: width > 0 ? Math.atan2(dy, dx) : 0,
     };
   }
 
@@ -934,7 +934,8 @@ const easePower2InOut = (progress) =>
 
 const lerp = (from, to, progress) => from + (to - from) * progress;
 
-const resolveBarLayerPoint = (layer, bar, x, y) => {
-  const point = bar.toGlobal(new Point(x, y));
-  return layer.parent ? layer.toLocal(point) : point;
+const resolveBarLayerPoint = (layer, bar, x, y, out) => {
+  TEMP_POINT.set(x, y);
+  const point = bar.toGlobal(TEMP_POINT, out);
+  return layer.parent ? layer.toLocal(point, undefined, point) : point;
 };
