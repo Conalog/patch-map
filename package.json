@@ -37,6 +37,7 @@
     "test:unit": "vitest --project unit",
     "test:browser": "vitest --browser=chromium",
     "test:headless": "vitest --browser.headless",
+    "demo:upright": "npm run build && python3 -m http.server 4173 -d .",
     "prepare": "husky",
     "release": "standard-version"
   },

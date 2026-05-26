@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Patch Map Upright Demo</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "pixi.js": "../../node_modules/pixi.js/dist/pixi.mjs",
+          "nanoid": "../../node_modules/nanoid/index.browser.js",
+          "vm": "./vm-shim.js"
+        }
+      }
+    </script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: #172033;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        background: #edf1f5;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .panel {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        padding: 24px;
+        border-right: 1px solid #cdd6e2;
+        background: #f8fafc;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 700;
+        line-height: 1.2;
+        letter-spacing: 0;
+      }
+
+      .version {
+        margin-top: 6px;
+        color: #57657a;
+        font-size: 13px;
+      }
+
+      .control-group {
+        display: grid;
+        gap: 10px;
+      }
+
+      .label {
+        color: #334155;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .segmented {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        overflow: hidden;
+        border: 1px solid #c7d0dd;
+        border-radius: 8px;
+        background: #ffffff;
+      }
+
+      .segmented button,
+      .action {
+        border: 0;
+        color: #1f2937;
+        font: inherit;
+        cursor: pointer;
+        background: transparent;
+      }
+
+      .segmented button {
+        min-height: 38px;
+        border-right: 1px solid #d9e0ea;
+        font-size: 13px;
+      }
+
+      .segmented button:last-child {
+        border-right: 0;
+      }
+
+      .segmented button[aria-pressed="true"] {
+        color: #ffffff;
+        background: #2563eb;
+      }
+
+      .toggle-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 38px;
+        padding: 0 12px;
+        border: 1px solid #c7d0dd;
+        border-radius: 8px;
+        background: #ffffff;
+        color: #1f2937;
+        font-size: 13px;
+      }
+
+      select {
+        width: 100%;
+        min-height: 38px;
+        padding: 0 12px;
+        border: 1px solid #c7d0dd;
+        border-radius: 8px;
+        color: #1f2937;
+        background: #ffffff;
+        font: inherit;
+      }
+
+      .action {
+        min-height: 40px;
+        border-radius: 8px;
+        color: #ffffff;
+        background: #0f766e;
+        font-weight: 700;
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .action.secondary {
+        color: #1f2937;
+        border: 1px solid #c7d0dd;
+        background: #ffffff;
+      }
+
+      .status {
+        display: grid;
+        gap: 6px;
+        padding-top: 6px;
+        color: #57657a;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .stage {
+        position: relative;
+        min-height: 100vh;
+      }
+
+      #map {
+        width: 100%;
+        height: 100vh;
+      }
+
+      .legend {
+        position: absolute;
+        right: 18px;
+        bottom: 18px;
+        max-width: min(520px, calc(100% - 36px));
+        padding: 12px 14px;
+        border: 1px solid rgba(86, 101, 122, 0.24);
+        border-radius: 8px;
+        color: #243044;
+        background: rgba(255, 255, 255, 0.92);
+        font-size: 13px;
+        line-height: 1.45;
+        box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12);
+      }
+
+      @media (max-width: 760px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .panel {
+          border-right: 0;
+          border-bottom: 1px solid #cdd6e2;
+        }
+
+        #map {
+          height: 70vh;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <aside class="panel">
+        <div>
+          <h1>Upright Demo</h1>
+          <div class="version">v0.9.3 contentOrientation test</div>
+        </div>
+
+        <section class="control-group">
+          <div class="label">World rotation</div>
+          <div class="segmented" id="rotationControls" role="group"></div>
+        </section>
+
+        <section class="control-group">
+          <div class="label">World flip</div>
+          <div class="toggle-row">
+            <label class="toggle">
+              <input id="flipX" type="checkbox" />
+              Flip X
+            </label>
+            <label class="toggle">
+              <input id="flipY" type="checkbox" />
+              Flip Y
+            </label>
+          </div>
+        </section>
+
+        <section class="control-group">
+          <label class="label" for="itemOrientation">Content orientation</label>
+          <select id="itemOrientation">
+            <option value="upright">upright</option>
+            <option value="follow-item">follow-item</option>
+          </select>
+        </section>
+
+        <div class="actions">
+          <button class="action" id="chartUpdate" type="button">
+            Apply chart update
+          </button>
+          <button class="action secondary" id="redraw" type="button">
+            Reset number view
+          </button>
+        </div>
+
+        <div class="status" id="status"></div>
+      </aside>
+
+      <section class="stage">
+        <div id="map"></div>
+        <div class="legend">
+          초기 draw는 숫자 뷰처럼 text가 보이는 상태입니다. Apply chart
+          update를 누르면 patch-service 차트 뷰처럼 bar만 남기는 update 경로를
+          탑니다.
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./upright.js"></script>
+  </body>
+</html>
