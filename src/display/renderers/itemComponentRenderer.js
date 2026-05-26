@@ -373,8 +373,8 @@ const reconcileAggregateBarVisual = (item, change, options) => {
   const wasAggregate = bar._patchmapUseAggregateBar === true;
   if (canUseAggregateBar(item, bar)) {
     let syncOptions = options;
+    applyBarChange(bar, getCurrentBarVisualChange(bar), { instant: true });
     if (!wasAggregate) {
-      applyBarChange(bar, getCurrentBarVisualChange(bar), { instant: true });
       syncOptions = { ...options, suppressAggregateBarAnimation: true };
     }
     bar._patchmapUseAggregateBar = true;

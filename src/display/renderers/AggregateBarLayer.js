@@ -7,7 +7,6 @@ import {
 } from 'pixi.js';
 import { getTexture } from '../../assets/textures/texture';
 import { getColor } from '../../utils/get';
-import { calcSize, resolveComponentPlacement } from '../mixins/utils';
 
 const DEFAULT_BOUNDS = new Rectangle(
   -1_000_000,
@@ -15,7 +14,10 @@ const DEFAULT_BOUNDS = new Rectangle(
   2_000_000,
   2_000_000,
 );
-const ZERO_POINT = new Point();
+const TEMP_POINT = new Point();
+const TEMP_ORIGIN = new Point();
+const TEMP_X_EDGE = new Point();
+const TEMP_Y_EDGE = new Point();
 
 export class AggregateBarLayer extends ParticleContainer {
   constructor(store, textureSource = null) {
@@ -369,29 +371,22 @@ export class AggregateBarLayer extends ParticleContainer {
   }
 
   _resolveState(bar) {
-    const size = calcSize(bar, {
-      source: bar.props?.source,
-      size: bar.props?.size,
-      margin: bar.props?.margin,
-    });
-    const placement =
-      bar._calcPlacementForSize?.({
-        placement: resolveComponentPlacement(bar),
-        margin: bar.props?.margin,
-        width: size.width,
-        height: size.height,
-      }) ?? ZERO_POINT;
-    const worldPoint = bar.parent.toGlobal(new Point(placement.x, placement.y));
-    const localPoint = this.parent
-      ? this.parent.toLocal(worldPoint)
-      : worldPoint;
+    const origin = resolveBarLayerPoint(this, bar, 0, 0, TEMP_ORIGIN);
+    const xEdge = resolveBarLayerPoint(this, bar, bar.width, 0, TEMP_X_EDGE);
+    const yEdge = resolveBarLayerPoint(this, bar, 0, bar.height, TEMP_Y_EDGE);
+    const dx = xEdge.x - origin.x;
+    const dy = xEdge.y - origin.y;
+    const yDx = yEdge.x - origin.x;
+    const yDy = yEdge.y - origin.y;
+    const width = Math.hypot(dx, dy);
+    const height = Math.hypot(yDx, yDy);
 
     return {
-      x: localPoint.x,
-      y: localPoint.y,
-      width: size.width,
-      height: size.height,
-      rotation: getWorldRotation(bar.parent) - getWorldRotation(this),
+      x: origin.x,
+      y: origin.y,
+      width,
+      height,
+      rotation: width > 0 ? Math.atan2(dy, dx) : 0,
     };
   }
 
@@ -939,12 +934,8 @@ const easePower2InOut = (progress) =>
 
 const lerp = (from, to, progress) => from + (to - from) * progress;
 
-const getWorldRotation = (node) => {
-  let current = node;
-  let rotation = 0;
-  while (current) {
-    rotation += current.rotation ?? 0;
-    current = current.parent ?? null;
-  }
-  return rotation;
+const resolveBarLayerPoint = (layer, bar, x, y, out) => {
+  TEMP_POINT.set(x, y);
+  const point = bar.toGlobal(TEMP_POINT, out);
+  return layer.parent ? layer.toLocal(point, undefined, point) : point;
 };

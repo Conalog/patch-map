@@ -1,4 +1,5 @@
 import gsap from 'gsap';
+import { Point } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { setupPatchmapTests } from '../patchmap.setup';
 
@@ -108,6 +109,92 @@ describe('Bar Component Tests', () => {
     expect(bar.renderable).toBe(false);
     expect(bar._patchmapUseAggregateBar).toBe(true);
     expect(bar.props.size.width).toEqual({ value: 75, unit: '%' });
+  });
+
+  it('keeps aggregate bar particles aligned for rotated upright bar-only item updates', () => {
+    const patchmap = getPatchmap();
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'rotated-upright-bar-item',
+        size: { width: 45.36, height: 98.6 },
+        padding: 3,
+        contentOrientation: 'upright',
+        attrs: { angle: 38 },
+        components: [
+          {
+            type: 'background',
+            source: {
+              type: 'rect',
+              fill: 'white',
+              borderWidth: 2,
+              borderColor: 'primary.dark',
+              radius: 6,
+            },
+          },
+          {
+            type: 'bar',
+            id: 'rotated-upright-chart-bar',
+            source: { type: 'rect', fill: 'white', radius: 3 },
+            size: '100%',
+            tint: 'primary.default',
+            show: false,
+          },
+          {
+            type: 'icon',
+            source: 'device',
+            size: 18,
+            show: true,
+          },
+          {
+            type: 'text',
+            text: '72 W',
+            show: true,
+          },
+        ],
+      },
+    ]);
+
+    const item = patchmap.selector(
+      '$..[?(@.id=="rotated-upright-bar-item")]',
+    )[0];
+
+    patchmap.update({
+      elements: item,
+      changes: {
+        components: [
+          {
+            type: 'bar',
+            show: true,
+            size: { height: '100%' },
+            tint: 'primary.default',
+            animation: true,
+          },
+          { type: 'icon', show: false },
+          { type: 'text', show: false },
+        ],
+      },
+      validateSchema: false,
+      emit: false,
+    });
+    patchmap.selector('$..[?(@.id=="rotated-upright-bar-item")]');
+    const bar = patchmap.selector(
+      '$..[?(@.id=="rotated-upright-chart-bar")]',
+    )[0];
+    const layer = patchmap.world.store.aggregateBarLayer;
+    const particle = layer.particleChildren[0];
+    const origin = layer.toLocal(bar.toGlobal(new Point(0, 0)));
+    const xEdge = layer.toLocal(bar.toGlobal(new Point(bar.width, 0)));
+
+    expect(bar._patchmapUseAggregateBar).toBe(true);
+    expect(bar.renderable).toBe(false);
+    expect(particle.x).toBeCloseTo(origin.x);
+    expect(particle.y).toBeCloseTo(origin.y);
+    expect(particle.rotation).toBeCloseTo(
+      Math.atan2(xEdge.y - origin.y, xEdge.x - origin.x),
+    );
+    expect(bar.props.size.width).toEqual({ value: 100, unit: '%' });
+    expect(bar.props.size.height).toEqual({ value: 100, unit: '%' });
   });
 
   it('removes aggregate particles when an aggregate bar component is destroyed', () => {
