@@ -1,4 +1,5 @@
 import gsap from 'gsap';
+import { Point } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { setupPatchmapTests } from '../patchmap.setup';
 
@@ -110,7 +111,7 @@ describe('Bar Component Tests', () => {
     expect(bar.props.size.width).toEqual({ value: 75, unit: '%' });
   });
 
-  it('keeps rotated upright bar-only item updates on the regular bar renderer', () => {
+  it('keeps aggregate bar particles aligned for rotated upright bar-only item updates', () => {
     const patchmap = getPatchmap();
     patchmap.draw([
       {
@@ -180,9 +181,18 @@ describe('Bar Component Tests', () => {
     const bar = patchmap.selector(
       '$..[?(@.id=="rotated-upright-chart-bar")]',
     )[0];
+    const layer = patchmap.world.store.aggregateBarLayer;
+    const particle = layer.particleChildren[0];
+    const origin = layer.toLocal(bar.toGlobal(new Point(0, 0)));
+    const xEdge = layer.toLocal(bar.toGlobal(new Point(bar.width, 0)));
 
-    expect(bar._patchmapUseAggregateBar).toBe(false);
-    expect(bar.renderable).toBe(true);
+    expect(bar._patchmapUseAggregateBar).toBe(true);
+    expect(bar.renderable).toBe(false);
+    expect(particle.x).toBeCloseTo(origin.x);
+    expect(particle.y).toBeCloseTo(origin.y);
+    expect(particle.rotation).toBeCloseTo(
+      Math.atan2(xEdge.y - origin.y, xEdge.x - origin.x),
+    );
     expect(bar.props.size.width).toEqual({ value: 100, unit: '%' });
     expect(bar.props.size.height).toEqual({ value: 100, unit: '%' });
   });

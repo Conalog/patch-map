@@ -4,8 +4,6 @@ import { getColor } from '../../utils/get';
 import { normalizeBoxSpacing } from '../../utils/spacing';
 import { getSizeBatcher } from '../animation/sizeBatchTween';
 import { newComponent } from '../components/creator';
-import { hasUprightContentOrientation } from '../utils/content-orientation';
-import { getAngleWithinWorld } from '../utils/world-angle';
 import {
   deactivateAggregateBar,
   ensureAggregateBarLayerForBar,
@@ -24,7 +22,6 @@ const COMPONENT_CACHE_FIELDS = {
 const SCHEDULED_AGGREGATE_BAR_SYNC_BUDGET_MS = 4;
 const QUEUED_AGGREGATE_BAR_SYNCS = new Set();
 const QUEUED_AGGREGATE_BAR_LAYERS = new Set();
-const ROTATION_EPSILON = 1e-7;
 let aggregateBarFlushScheduled = false;
 
 export const tryApplyItemComponentChanges = (
@@ -376,8 +373,8 @@ const reconcileAggregateBarVisual = (item, change, options) => {
   const wasAggregate = bar._patchmapUseAggregateBar === true;
   if (canUseAggregateBar(item, bar)) {
     let syncOptions = options;
+    applyBarChange(bar, getCurrentBarVisualChange(bar), { instant: true });
     if (!wasAggregate) {
-      applyBarChange(bar, getCurrentBarVisualChange(bar), { instant: true });
       syncOptions = { ...options, suppressAggregateBarAnimation: true };
     }
     bar._patchmapUseAggregateBar = true;
@@ -394,30 +391,12 @@ const canUseAggregateBar = (item, bar) => {
   if (!bar || bar.props?.show === false) return false;
   if (isVisibleItemComponent(item._itemIconComponent)) return false;
   if (isVisibleItemComponent(item._itemTextComponent)) return false;
-  if (hasCompensatedUprightTransform(bar)) return false;
   if (hasUnsafeAggregateEffects(item) || hasUnsafeAggregateEffects(bar)) {
     return false;
   }
 
   const layer = ensureAggregateBarLayerForBar(bar);
   return Boolean(layer?.canRender(bar));
-};
-
-const hasCompensatedUprightTransform = (bar) => {
-  if (!hasUprightContentOrientation(bar)) return false;
-
-  const ancestorAngle = getAngleWithinWorld(bar);
-  const view = bar.store?.view;
-  return (
-    hasNonZeroRotation(ancestorAngle + Number(view?.angle ?? 0)) ||
-    view?.flipX === true ||
-    view?.flipY === true
-  );
-};
-
-const hasNonZeroRotation = (angle) => {
-  const normalized = ((angle % 360) + 360) % 360;
-  return Math.min(normalized, 360 - normalized) > ROTATION_EPSILON;
 };
 
 const isVisibleItemComponent = (component) =>
