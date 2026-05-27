@@ -67,6 +67,39 @@ describe('Icon Component Tests', () => {
     expect(newTexture).not.toBe(initialTexture);
   });
 
+  it('should update the icon source between string and AssetSource values', async () => {
+    const patchmap = getPatchmap();
+    const svgSource = `data:image/svg+xml,${encodeURIComponent(
+      '<svg width="64" height="32" viewBox="0 0 64 32" xmlns="http://www.w3.org/2000/svg"><rect width="64" height="32" fill="white"/></svg>',
+    )}`;
+    const descriptor = { src: svgSource, data: { resolution: 2 } };
+
+    patchmap.draw([itemWithIcon]);
+
+    patchmap.update({
+      path: '$..[?(@.id=="icon-1")]',
+      changes: { source: descriptor },
+    });
+
+    const icon = patchmap.selector('$..[?(@.id=="icon-1")]')[0];
+
+    await vi.waitFor(() => {
+      expect(icon.texture.source.resource.width).toBe(128);
+    });
+
+    expect(icon.props.source).toEqual(descriptor);
+    expect(icon.width).toBeCloseTo(50);
+    expect(icon.height).toBeCloseTo(50);
+
+    patchmap.update({
+      path: '$..[?(@.id=="icon-1")]',
+      changes: { source: 'wifi' },
+    });
+
+    expect(icon.props.source).toBe('wifi');
+    expect(icon.texture.source.resource.width).not.toBe(128);
+  });
+
   it('should handle an unregistered string source by logging a warning', () => {
     const patchmap = getPatchmap();
     patchmap.draw([itemWithIcon]);
@@ -86,6 +119,80 @@ describe('Icon Component Tests', () => {
   });
 
   describe('size', () => {
+    it('should preserve requested size after an async SVG source loads', async () => {
+      const patchmap = getPatchmap();
+      const svgSource = `data:image/svg+xml,${encodeURIComponent(
+        '<svg width="72" height="36" viewBox="0 0 72 36" xmlns="http://www.w3.org/2000/svg"><rect width="72" height="36" fill="white"/></svg>',
+      )}`;
+
+      patchmap.draw([
+        {
+          type: 'item',
+          id: 'item-with-async-svg-icon',
+          size: 100,
+          components: [
+            {
+              type: 'icon',
+              id: 'async-svg-icon',
+              source: svgSource,
+              size: 24,
+              placement: 'center',
+            },
+          ],
+        },
+      ]);
+
+      const icon = patchmap.selector('$..[?(@.id=="async-svg-icon")]')[0];
+
+      await vi.waitFor(() => {
+        expect(icon.texture.source.resource.width).toBe(72);
+      });
+
+      expect(icon.width).toBeCloseTo(24);
+      expect(icon.height).toBeCloseTo(24);
+      expect(icon.x).toBeCloseTo(38);
+      expect(icon.y).toBeCloseTo(38);
+    });
+
+    it('should preserve requested size after an async AssetSource SVG loads', async () => {
+      const patchmap = getPatchmap();
+      const svgSource = `data:image/svg+xml,${encodeURIComponent(
+        '<svg width="80" height="40" viewBox="0 0 80 40" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="40" fill="white"/></svg>',
+      )}`;
+
+      patchmap.draw([
+        {
+          type: 'item',
+          id: 'item-with-asset-source-icon',
+          size: 100,
+          components: [
+            {
+              type: 'icon',
+              id: 'asset-source-icon',
+              source: { src: svgSource, data: { resolution: 3 } },
+              size: 24,
+              placement: 'center',
+            },
+          ],
+        },
+      ]);
+
+      const icon = patchmap.selector('$..[?(@.id=="asset-source-icon")]')[0];
+
+      await vi.waitFor(() => {
+        expect(icon.texture.source.resource.width).toBe(240);
+      });
+
+      expect(icon.props.source).toEqual({
+        src: svgSource,
+        data: { resolution: 3 },
+      });
+      expect(icon.width).toBeCloseTo(24);
+      expect(icon.height).toBeCloseTo(24);
+      expect(icon.x).toBeCloseTo(38);
+      expect(icon.y).toBeCloseTo(38);
+    });
+
     it('should preserve raw numeric size during trusted initial draw', () => {
       const patchmap = getPatchmap();
       patchmap.draw([itemWithIcon]);

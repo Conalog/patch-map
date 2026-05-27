@@ -40,6 +40,43 @@ describe('Background Component In Item', () => {
     expect(background.tint).toBe(0xd9d9d9);
   });
 
+  it('should render an AssetSource SVG background at the requested size', async () => {
+    const patchmap = getPatchmap();
+    const svgSource = `data:image/svg+xml,${encodeURIComponent(
+      '<svg width="72" height="36" viewBox="0 0 72 36" xmlns="http://www.w3.org/2000/svg"><rect width="72" height="36" fill="white"/></svg>',
+    )}`;
+
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'item-with-asset-source-background',
+        size: { width: 100, height: 100 },
+        components: [
+          {
+            type: 'background',
+            id: 'asset-source-background',
+            source: { src: svgSource, data: { resolution: 3 } },
+          },
+        ],
+      },
+    ]);
+
+    const background = patchmap.selector(
+      '$..[?(@.id=="asset-source-background")]',
+    )[0];
+
+    await vi.waitFor(() => {
+      expect(background.texture.source.resource.width).toBe(216);
+    });
+
+    expect(background.props.source).toEqual({
+      src: svgSource,
+      data: { resolution: 3 },
+    });
+    expect(background.width).toBeCloseTo(100);
+    expect(background.height).toBeCloseTo(100);
+  });
+
   it('should update a single property: tint', () => {
     const patchmap = getPatchmap();
     patchmap.draw([baseItemData]);
