@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { componentArraySchema } from './component-schema';
 import {
+  AssetSource,
   Base,
   Color,
   EachRadius,
@@ -89,7 +90,7 @@ export const relationsSchema = ElementBase.extend({
  */
 export const imageSchema = ElementBase.extend({
   type: z.literal('image'),
-  source: z.string(),
+  source: z.union([z.string(), AssetSource]),
   size: Size.optional(),
 }).strict();
 

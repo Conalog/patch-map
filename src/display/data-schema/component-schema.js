@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  AssetSource,
   Base,
   Color,
   LabelTextStyle,
@@ -9,14 +10,28 @@ import {
   TextureStyle,
 } from './primitive-schema';
 
+const TextureStyleSource = z
+  .unknown()
+  .refine(
+    (source) =>
+      !(
+        source !== null &&
+        typeof source === 'object' &&
+        Object.hasOwn(source, 'src')
+      ),
+    { message: 'Asset source objects must match the AssetSource schema.' },
+  )
+  .pipe(TextureStyle);
+
 /**
- * An Item's background, sourced from a style object or an asset URL.
+ * An Item's background, sourced from a style object, asset key, URL, or
+ * AssetSource descriptor.
  * Visually represented by a `NineSliceSprite`.
  * @see {@link https://pixijs.download/release/docs/scene.NineSliceSprite.html}
  */
 export const backgroundSchema = Base.extend({
   type: z.literal('background'),
-  source: z.union([TextureStyle, z.string()]),
+  source: z.union([z.string(), AssetSource, TextureStyleSource]),
   size: z
     .any()
     .optional()
@@ -44,13 +59,14 @@ export const barSchema = Base.extend({
 }).strict();
 
 /**
- * A component for displaying an icon image.
+ * A component for displaying an icon image from an asset key, URL, or
+ * AssetSource descriptor.
  * Visually represented by a `Sprite`.
  * @see {@link https://pixijs.download/release/docs/scene.Sprite.html}
  */
 export const iconSchema = Base.extend({
   type: z.literal('icon'),
-  source: z.string(),
+  source: z.union([z.string(), AssetSource]),
   size: PxOrPercentSize,
   placement: Placement.default('center'),
   margin: Margin.default(0),

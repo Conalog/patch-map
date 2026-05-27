@@ -1,4 +1,5 @@
 import { Assets, Texture } from 'pixi.js';
+import { isAssetSource, toLoadableAssetSource } from '../../assets/source';
 import { getTexture } from '../../assets/textures/texture';
 import { UPDATE_STAGES } from './constants';
 
@@ -18,6 +19,22 @@ export const Sourceable = (superClass) => {
 
       if (!source) {
         this._setTexture(Texture.EMPTY);
+        return;
+      }
+
+      if (isAssetSource(source)) {
+        Assets.load(toLoadableAssetSource(source))
+          .then((loadedTexture) => {
+            if (!this.destroyed && currentToken === this._loadToken) {
+              this._setTexture(loadedTexture);
+            }
+          })
+          .catch((err) => {
+            console.warn('[patchmap:source] failed to load', source, err);
+            if (!this.destroyed && currentToken === this._loadToken) {
+              this._setTexture(Texture.EMPTY);
+            }
+          });
         return;
       }
 
