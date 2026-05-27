@@ -1,4 +1,4 @@
-import { Sprite } from 'pixi.js';
+import { Sprite, Texture } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 import { Base } from '../../../display/mixins/Base';
 import { Sourceable } from '../../../display/mixins/Sourceable';
@@ -64,6 +64,7 @@ describe('Background Component In Item', () => {
     const background = patchmap.selector(
       '$..[?(@.id=="asset-source-background")]',
     )[0];
+    expect(background.texture).toBe(Texture.EMPTY);
 
     await vi.waitFor(() => {
       expect(background.texture.source.resource.width).toBe(216);

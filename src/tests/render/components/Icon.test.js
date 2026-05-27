@@ -1,3 +1,4 @@
+import { Texture } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 import { setupPatchmapTests } from '../patchmap.setup';
 
@@ -82,6 +83,7 @@ describe('Icon Component Tests', () => {
     });
 
     const icon = patchmap.selector('$..[?(@.id=="icon-1")]')[0];
+    expect(icon.texture).toBe(Texture.EMPTY);
 
     await vi.waitFor(() => {
       expect(icon.texture.source.resource.width).toBe(128);
@@ -143,6 +145,7 @@ describe('Icon Component Tests', () => {
       ]);
 
       const icon = patchmap.selector('$..[?(@.id=="async-svg-icon")]')[0];
+      expect(icon.texture).toBe(Texture.EMPTY);
 
       await vi.waitFor(() => {
         expect(icon.texture.source.resource.width).toBe(72);
@@ -178,6 +181,7 @@ describe('Icon Component Tests', () => {
       ]);
 
       const icon = patchmap.selector('$..[?(@.id=="asset-source-icon")]')[0];
+      expect(icon.texture).toBe(Texture.EMPTY);
 
       await vi.waitFor(() => {
         expect(icon.texture.source.resource.width).toBe(240);

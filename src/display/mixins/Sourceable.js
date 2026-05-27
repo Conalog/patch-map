@@ -23,6 +23,7 @@ export const Sourceable = (superClass) => {
       }
 
       if (isAssetSource(source)) {
+        this._setTexture(Texture.EMPTY);
         Assets.load(toLoadableAssetSource(source))
           .then((loadedTexture) => {
             if (!this.destroyed && currentToken === this._loadToken) {
@@ -55,6 +56,7 @@ export const Sourceable = (superClass) => {
         return;
       }
 
+      this._setTexture(Texture.EMPTY);
       Assets.load(source)
         .then((loadedTexture) => {
           if (!this.destroyed && currentToken === this._loadToken) {
