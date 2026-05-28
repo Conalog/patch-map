@@ -43,7 +43,7 @@ describe('Background Component In Item', () => {
   it('should render an AssetSource SVG background at the requested size', async () => {
     const patchmap = getPatchmap();
     const svgSource = `data:image/svg+xml,${encodeURIComponent(
-      '<svg width="72" height="36" viewBox="0 0 72 36" xmlns="http://www.w3.org/2000/svg"><rect width="72" height="36" fill="white"/></svg>',
+      '<svg width="76" height="38" viewBox="0 0 76 38" xmlns="http://www.w3.org/2000/svg"><rect width="76" height="38" fill="white"/></svg>',
     )}`;
 
     patchmap.draw([
@@ -67,7 +67,7 @@ describe('Background Component In Item', () => {
     expect(background.texture).toBe(Texture.EMPTY);
 
     await vi.waitFor(() => {
-      expect(background.texture.source.resource.width).toBe(216);
+      expect(background.texture.source.resource.width).toBe(228);
     });
 
     expect(background.props.source).toEqual({

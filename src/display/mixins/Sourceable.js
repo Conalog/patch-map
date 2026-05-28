@@ -23,19 +23,11 @@ export const Sourceable = (superClass) => {
       }
 
       if (isAssetSource(source)) {
-        this._setTexture(Texture.EMPTY);
-        Assets.load(toLoadableAssetSource(source))
-          .then((loadedTexture) => {
-            if (!this.destroyed && currentToken === this._loadToken) {
-              this._setTexture(loadedTexture);
-            }
-          })
-          .catch((err) => {
-            console.warn('[patchmap:source] failed to load', source, err);
-            if (!this.destroyed && currentToken === this._loadToken) {
-              this._setTexture(Texture.EMPTY);
-            }
-          });
+        this._loadSourceTexture(
+          source,
+          toLoadableAssetSource(source),
+          currentToken,
+        );
         return;
       }
 
@@ -56,8 +48,12 @@ export const Sourceable = (superClass) => {
         return;
       }
 
+      this._loadSourceTexture(source, source, currentToken);
+    }
+
+    _loadSourceTexture(source, loadableSource, currentToken) {
       this._setTexture(Texture.EMPTY);
-      Assets.load(source)
+      Assets.load(loadableSource)
         .then((loadedTexture) => {
           if (!this.destroyed && currentToken === this._loadToken) {
             this._setTexture(loadedTexture);
