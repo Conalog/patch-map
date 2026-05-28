@@ -229,6 +229,35 @@ patchmap.draw(data);
 The **data structure** required by draw method.  
 For **detailed type definitions**, refer to the [data.d.ts](src/display/data-schema/data.d.ts) file.
 
+#### AssetSource descriptors
+
+`image.source`, `background.source`, and `icon.source` can use either a string
+asset key/URL or an inline `AssetSource` descriptor. Use a descriptor when a
+URL-backed texture needs Pixi loader options such as SVG `resolution`.
+
+```js
+const svgIcon = {
+  type: 'icon',
+  source: {
+    src: 'https://example.com/icon.svg',
+    data: { resolution: 3 },
+  },
+  tint: 'black',
+  size: 16,
+};
+
+const svgBackground = {
+  type: 'background',
+  source: {
+    src: 'https://example.com/background.svg',
+    data: { resolution: 3 },
+  },
+};
+```
+
+`AssetSource` is for direct URLs or data URIs. Continue to use `init({ assets })`
+and string sources for reusable public aliases.
+
 #### Spacing shorthand
 
 For box-like spacing fields such as component `margin` and element or item `padding`, PATCH MAP normalizes the following inputs in both `draw(data)` and `update({ changes })`:

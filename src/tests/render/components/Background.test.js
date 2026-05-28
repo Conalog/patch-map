@@ -1,4 +1,4 @@
-import { Sprite } from 'pixi.js';
+import { Sprite, Texture } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 import { Base } from '../../../display/mixins/Base';
 import { Sourceable } from '../../../display/mixins/Sourceable';
@@ -38,6 +38,44 @@ describe('Background Component In Item', () => {
     expect(background.props.source.fill).toBe('white');
     expect(background.props.tint).toBe('gray.default');
     expect(background.tint).toBe(0xd9d9d9);
+  });
+
+  it('should render an AssetSource SVG background at the requested size', async () => {
+    const patchmap = getPatchmap();
+    const svgSource = `data:image/svg+xml,${encodeURIComponent(
+      '<svg width="76" height="38" viewBox="0 0 76 38" xmlns="http://www.w3.org/2000/svg"><rect width="76" height="38" fill="white"/></svg>',
+    )}`;
+
+    patchmap.draw([
+      {
+        type: 'item',
+        id: 'item-with-asset-source-background',
+        size: { width: 100, height: 100 },
+        components: [
+          {
+            type: 'background',
+            id: 'asset-source-background',
+            source: { src: svgSource, data: { resolution: 3 } },
+          },
+        ],
+      },
+    ]);
+
+    const background = patchmap.selector(
+      '$..[?(@.id=="asset-source-background")]',
+    )[0];
+    expect(background.texture).toBe(Texture.EMPTY);
+
+    await vi.waitFor(() => {
+      expect(background.texture.source.resource.width).toBe(228);
+    });
+
+    expect(background.props.source).toEqual({
+      src: svgSource,
+      data: { resolution: 3 },
+    });
+    expect(background.width).toBeCloseTo(100);
+    expect(background.height).toBeCloseTo(100);
   });
 
   it('should update a single property: tint', () => {

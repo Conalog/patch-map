@@ -218,6 +218,16 @@ export const TextureStyle = z
   })
   .partial();
 
+export const AssetSource = z
+  .object({
+    src: z.string(),
+    data: z.record(z.string(), z.unknown()).optional(),
+    format: z.string().optional(),
+    parser: z.string().optional(),
+    loadParser: z.string().optional(),
+  })
+  .strict();
+
 /**
  * @see {@link https://pixijs.download/release/docs/scene.ConvertedStrokeStyle.html}
  */

@@ -37,6 +37,29 @@ describe('Component Schemas', () => {
       expect(parsed.source).toEqual({ type: 'rect', fill: 'red' });
     });
 
+    it('should parse with an AssetSource object source', () => {
+      const data = {
+        type: 'background',
+        source: {
+          src: 'https://example.com/background.svg',
+          data: { resolution: 3 },
+        },
+      };
+      const parsed = backgroundSchema.parse(data);
+      expect(parsed.source).toEqual(data.source);
+    });
+
+    it('should reject invalid AssetSource objects instead of parsing them as TextureStyle', () => {
+      const data = {
+        type: 'background',
+        source: {
+          src: 'https://example.com/background.svg',
+          alias: 'not-allowed-inline',
+        },
+      };
+      expect(() => backgroundSchema.parse(data)).toThrow();
+    });
+
     it('should fail with an invalid source type', () => {
       const data = { type: 'background', source: 123 };
       expect(() => backgroundSchema.parse(data)).toThrow();
@@ -192,6 +215,31 @@ describe('Component Schemas', () => {
       const dataWithoutSize = { type: 'icon', source: 'icon.svg' };
       expect(() => iconSchema.parse(dataWithoutSource)).toThrow();
       expect(() => iconSchema.parse(dataWithoutSize)).toThrow();
+    });
+
+    it('should parse an AssetSource object source', () => {
+      const data = {
+        type: 'icon',
+        source: {
+          src: 'https://example.com/icon.svg',
+          data: { resolution: 3 },
+        },
+        size: 50,
+      };
+      const parsed = iconSchema.parse(data);
+      expect(parsed.source).toEqual(data.source);
+    });
+
+    it('should reject inline icon asset aliases', () => {
+      const data = {
+        type: 'icon',
+        source: {
+          src: 'https://example.com/icon.svg',
+          alias: 'not-allowed-inline',
+        },
+        size: 50,
+      };
+      expect(() => iconSchema.parse(data)).toThrow();
     });
 
     it('should fail if size is a partial object', () => {

@@ -236,6 +236,35 @@ patchmap.draw(data);
 draw method가 요구하는 **데이터 구조**입니다.  
 **자세한 타입 정의**는 [data.d.ts](src/display/data-schema/data.d.ts) 파일을 참조하세요.
 
+#### AssetSource descriptor
+
+`image.source`, `background.source`, `icon.source`에는 문자열 asset key/URL
+또는 inline `AssetSource` descriptor를 사용할 수 있습니다. SVG `resolution`
+같은 Pixi loader 옵션이 필요한 URL 기반 texture에는 descriptor를 사용하세요.
+
+```js
+const svgIcon = {
+  type: 'icon',
+  source: {
+    src: 'https://example.com/icon.svg',
+    data: { resolution: 3 },
+  },
+  tint: 'black',
+  size: 16,
+};
+
+const svgBackground = {
+  type: 'background',
+  source: {
+    src: 'https://example.com/background.svg',
+    data: { resolution: 3 },
+  },
+};
+```
+
+`AssetSource`는 직접 URL 또는 data URI를 지정할 때 사용합니다. 재사용 가능한
+공개 alias는 계속 `init({ assets })`에 등록하고 문자열 source로 참조하세요.
+
 #### Spacing shorthand
 
 컴포넌트의 `margin`, element/item의 `padding` 같은 박스형 spacing 필드는 `draw(data)`와 `update({ changes })` 모두에서 아래 입력을 정규화합니다.

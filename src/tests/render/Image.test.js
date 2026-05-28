@@ -57,6 +57,73 @@ describe('Image Render', () => {
     expect(sizeSpy).not.toHaveBeenCalled();
   });
 
+  it('loads AssetSource descriptors with an internal alias', async () => {
+    const patchmap = getPatchmap();
+    const deferred = createDeferred();
+    const loadSpy = vi.spyOn(Assets, 'load').mockReturnValue(deferred.promise);
+
+    patchmap.draw([
+      {
+        type: 'image',
+        id: 'descriptor-image',
+        source: {
+          src: 'mock://descriptor-image',
+          data: { resolution: 3 },
+        },
+        size: { width: 48, height: 24 },
+        attrs: { x: 80, y: 80 },
+      },
+    ]);
+
+    expect(loadSpy).toHaveBeenCalledWith({
+      alias: expect.stringContaining('patchmap:asset-source:'),
+      src: 'mock://descriptor-image',
+      data: { resolution: 3 },
+    });
+
+    const image = patchmap.selector('$..[?(@.id=="descriptor-image")]')[0];
+    deferred.resolve(Texture.WHITE);
+    await flushPromises();
+
+    expect(image.props.source).toEqual({
+      src: 'mock://descriptor-image',
+      data: { resolution: 3 },
+    });
+    expect(image.sprite.texture).toBe(Texture.WHITE);
+  });
+
+  it('falls back to Texture.EMPTY when an AssetSource load fails', async () => {
+    const patchmap = getPatchmap();
+    const error = new Error('load failed');
+    vi.spyOn(Assets, 'load').mockRejectedValue(error);
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const source = { src: 'mock://missing-image', data: { resolution: 2 } };
+
+    patchmap.draw([
+      {
+        type: 'image',
+        id: 'missing-descriptor-image',
+        source,
+        size: { width: 48, height: 24 },
+        attrs: { x: 80, y: 80 },
+      },
+    ]);
+
+    const image = patchmap.selector(
+      '$..[?(@.id=="missing-descriptor-image")]',
+    )[0];
+
+    await vi.waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[patchmap:source] failed to load',
+        source,
+        error,
+      );
+    });
+
+    expect(image.sprite.texture).toBe(Texture.EMPTY);
+  });
+
   it('ignores late source loads after the image source is cleared', async () => {
     const patchmap = getPatchmap();
     const deferred = createDeferred();

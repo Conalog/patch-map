@@ -285,6 +285,31 @@ describe('Element Schemas', () => {
       expect(parsed.size).toEqual({ width: 100, height: 200 });
     });
 
+    it('should parse an image with an AssetSource object source', () => {
+      const imageData = {
+        type: 'image',
+        id: 'img-1',
+        source: {
+          src: 'https://example.com/image.svg',
+          data: { resolution: 3 },
+        },
+      };
+      const parsed = imageSchema.parse(imageData);
+      expect(parsed.source).toEqual(imageData.source);
+    });
+
+    it('should reject inline image asset aliases', () => {
+      const imageData = {
+        type: 'image',
+        id: 'img-1',
+        source: {
+          src: 'https://example.com/image.svg',
+          alias: 'not-allowed-inline',
+        },
+      };
+      expect(() => imageSchema.parse(imageData)).toThrow();
+    });
+
     it('should fail if source is missing', () => {
       const imageData = { type: 'image', id: 'img-1' };
       expect(() => imageSchema.parse(imageData)).toThrow();
