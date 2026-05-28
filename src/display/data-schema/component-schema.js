@@ -1,3 +1,4 @@
+import { isPlainObject } from 'is-plain-object';
 import { z } from 'zod';
 import {
   AssetSource,
@@ -13,12 +14,7 @@ import {
 const TextureStyleSource = z
   .unknown()
   .refine(
-    (source) =>
-      !(
-        source !== null &&
-        typeof source === 'object' &&
-        Object.hasOwn(source, 'src')
-      ),
+    (source) => !(isPlainObject(source) && Object.hasOwn(source, 'src')),
     { message: 'Asset source objects must match the AssetSource schema.' },
   )
   .pipe(TextureStyle);

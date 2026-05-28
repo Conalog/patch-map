@@ -1,11 +1,10 @@
+import { isPlainObject } from 'is-plain-object';
+
 const ASSET_SOURCE_KEY_PREFIX = 'patchmap:asset-source:';
 const ASSET_SOURCE_FRAGMENT_PREFIX = 'patchmapAssetSource=';
 
-const isObject = (value) =>
-  value !== null && typeof value === 'object' && !Array.isArray(value);
-
 export const isAssetSource = (source) =>
-  isObject(source) && typeof source.src === 'string';
+  isPlainObject(source) && typeof source.src === 'string';
 
 const stableStringify = (value, seen = new WeakSet()) => {
   if (value === undefined) return '"__undefined__"';
