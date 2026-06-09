@@ -5,6 +5,13 @@ import { setupPatchmapTests } from '../patchmap.setup';
 describe('Icon Component Tests', () => {
   const { getPatchmap } = setupPatchmapTests();
 
+  const expectIconFrame = (icon, expected) => {
+    expect(icon.width).toBeCloseTo(expected.width);
+    expect(icon.height).toBeCloseTo(expected.height);
+    if (expected.x !== undefined) expect(icon.x).toBeCloseTo(expected.x);
+    if (expected.y !== undefined) expect(icon.y).toBeCloseTo(expected.y);
+  };
+
   const itemWithIcon = {
     type: 'item',
     id: 'item-with-icon',
@@ -90,8 +97,7 @@ describe('Icon Component Tests', () => {
     });
 
     expect(icon.props.source).toEqual(descriptor);
-    expect(icon.width).toBeCloseTo(50);
-    expect(icon.height).toBeCloseTo(50);
+    expectIconFrame(icon, { width: 50, height: 50 });
 
     patchmap.update({
       path: '$..[?(@.id=="icon-1")]',
@@ -151,10 +157,7 @@ describe('Icon Component Tests', () => {
         expect(icon.texture.source.resource.width).toBe(72);
       });
 
-      expect(icon.width).toBeCloseTo(24);
-      expect(icon.height).toBeCloseTo(24);
-      expect(icon.x).toBeCloseTo(38);
-      expect(icon.y).toBeCloseTo(38);
+      expectIconFrame(icon, { width: 24, height: 24, x: 38, y: 38 });
     });
 
     it('should preserve requested size after an async AssetSource SVG loads', async () => {
@@ -191,10 +194,7 @@ describe('Icon Component Tests', () => {
         src: svgSource,
         data: { resolution: 3 },
       });
-      expect(icon.width).toBeCloseTo(24);
-      expect(icon.height).toBeCloseTo(24);
-      expect(icon.x).toBeCloseTo(38);
-      expect(icon.y).toBeCloseTo(38);
+      expectIconFrame(icon, { width: 24, height: 24, x: 38, y: 38 });
     });
 
     it('should preserve raw numeric size during trusted initial draw', () => {

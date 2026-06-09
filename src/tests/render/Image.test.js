@@ -26,22 +26,25 @@ describe('Image Render', () => {
     vi.restoreAllMocks();
   });
 
+  const drawImage = (patchmap, overrides = {}) => {
+    const imageData = {
+      type: 'image',
+      id: 'slow-image',
+      source: 'mock://slow-image',
+      size: { width: 48, height: 24 },
+      attrs: { x: 80, y: 80 },
+      ...overrides,
+    };
+    patchmap.draw([imageData]);
+    return patchmap.selector(`$..[?(@.id=="${imageData.id}")]`)[0];
+  };
+
   it('ignores late source loads after the image is destroyed by redraw', async () => {
     const patchmap = getPatchmap();
     const deferred = createDeferred();
     const loadSpy = vi.spyOn(Assets, 'load').mockReturnValue(deferred.promise);
 
-    patchmap.draw([
-      {
-        type: 'image',
-        id: 'slow-image',
-        source: 'mock://slow-image',
-        size: { width: 48, height: 24 },
-        attrs: { x: 80, y: 80 },
-      },
-    ]);
-
-    const image = patchmap.selector('$..[?(@.id=="slow-image")]')[0];
+    const image = drawImage(patchmap);
     const setTextureSpy = vi.spyOn(image, '_setTexture');
     const sizeSpy = vi.spyOn(image, '_applyImageSize');
 
@@ -62,18 +65,13 @@ describe('Image Render', () => {
     const deferred = createDeferred();
     const loadSpy = vi.spyOn(Assets, 'load').mockReturnValue(deferred.promise);
 
-    patchmap.draw([
-      {
-        type: 'image',
-        id: 'descriptor-image',
-        source: {
-          src: 'mock://descriptor-image',
-          data: { resolution: 3 },
-        },
-        size: { width: 48, height: 24 },
-        attrs: { x: 80, y: 80 },
+    const image = drawImage(patchmap, {
+      id: 'descriptor-image',
+      source: {
+        src: 'mock://descriptor-image',
+        data: { resolution: 3 },
       },
-    ]);
+    });
 
     expect(loadSpy).toHaveBeenCalledWith({
       alias: expect.stringContaining('patchmap:asset-source:'),
@@ -81,7 +79,6 @@ describe('Image Render', () => {
       data: { resolution: 3 },
     });
 
-    const image = patchmap.selector('$..[?(@.id=="descriptor-image")]')[0];
     deferred.resolve(Texture.WHITE);
     await flushPromises();
 
@@ -99,19 +96,10 @@ describe('Image Render', () => {
     const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const source = { src: 'mock://missing-image', data: { resolution: 2 } };
 
-    patchmap.draw([
-      {
-        type: 'image',
-        id: 'missing-descriptor-image',
-        source,
-        size: { width: 48, height: 24 },
-        attrs: { x: 80, y: 80 },
-      },
-    ]);
-
-    const image = patchmap.selector(
-      '$..[?(@.id=="missing-descriptor-image")]',
-    )[0];
+    const image = drawImage(patchmap, {
+      id: 'missing-descriptor-image',
+      source,
+    });
 
     await vi.waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -129,17 +117,7 @@ describe('Image Render', () => {
     const deferred = createDeferred();
     const loadSpy = vi.spyOn(Assets, 'load').mockReturnValue(deferred.promise);
 
-    patchmap.draw([
-      {
-        type: 'image',
-        id: 'slow-image',
-        source: 'mock://slow-image',
-        size: { width: 48, height: 24 },
-        attrs: { x: 80, y: 80 },
-      },
-    ]);
-
-    const image = patchmap.selector('$..[?(@.id=="slow-image")]')[0];
+    const image = drawImage(patchmap);
 
     patchmap.update({
       path: '$..[?(@.id=="slow-image")]',

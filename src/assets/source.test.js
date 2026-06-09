@@ -93,4 +93,17 @@ describe('asset source helpers', () => {
     expect(loadable.src.endsWith('#router')).toBe(true);
     expect(loadable.parser).toBe('svg');
   });
+
+  it('preserves existing query strings and fragments together', () => {
+    const loadable = toLoadableAssetSource({
+      src: 'https://example.com/icons.svg?token=abc#router',
+      data: { resolution: 3 },
+    });
+
+    expect(loadable.src).toContain(
+      'https://example.com/icons.svg?token=abc&patchmapAssetSource=',
+    );
+    expect(loadable.src.endsWith('#router')).toBe(true);
+    expect(loadable.parser).toBe('svg');
+  });
 });
