@@ -81,4 +81,16 @@ describe('asset source helpers', () => {
     expect(loadable.src).toContain('patchmapAssetSource=');
     expect(loadable.parser).toBe('svg');
   });
+
+  it('preserves existing URL fragments when scoping image loader URLs', () => {
+    const loadable = toLoadableAssetSource({
+      src: 'https://example.com/icons.svg#router',
+      data: { resolution: 3 },
+    });
+
+    expect(loadable.src).toContain('https://example.com/icons.svg?');
+    expect(loadable.src).toContain('patchmapAssetSource=');
+    expect(loadable.src.endsWith('#router')).toBe(true);
+    expect(loadable.parser).toBe('svg');
+  });
 });

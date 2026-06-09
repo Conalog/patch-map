@@ -56,10 +56,21 @@ const inferParser = (src) => {
 };
 
 const cacheScopedSrc = (src, key) => {
-  const separator = src.includes('#') ? '&' : '#';
-  return `${src}${separator}${ASSET_SOURCE_FRAGMENT_PREFIX}${encodeURIComponent(
-    key,
-  )}`;
+  const cacheScope = `${ASSET_SOURCE_FRAGMENT_PREFIX}${encodeURIComponent(key)}`;
+  if (src.startsWith('data:')) {
+    const separator = src.includes('#') ? '&' : '#';
+    return `${src}${separator}${cacheScope}`;
+  }
+
+  const fragmentIndex = src.indexOf('#');
+  if (fragmentIndex === -1) {
+    return `${src}#${cacheScope}`;
+  }
+
+  const base = src.slice(0, fragmentIndex);
+  const fragment = src.slice(fragmentIndex);
+  const separator = base.includes('?') ? '&' : '?';
+  return `${base}${separator}${cacheScope}${fragment}`;
 };
 
 export const toLoadableAssetSource = (source) => {
