@@ -13,10 +13,9 @@ import {
 
 const TextureStyleSource = z
   .unknown()
-  .refine(
-    (source) => !(isPlainObject(source) && Object.hasOwn(source, 'src')),
-    { message: 'Asset source objects must match the AssetSource schema.' },
-  )
+  .refine((source) => !(isPlainObject(source) && 'src' in source), {
+    message: 'Asset source objects must match the AssetSource schema.',
+  })
   .pipe(TextureStyle);
 
 /**

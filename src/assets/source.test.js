@@ -25,6 +25,23 @@ describe('asset source helpers', () => {
     expect(assetSourceCacheKey(left)).toBe(assetSourceCacheKey(right));
   });
 
+  it('does not treat reused data objects as cycles', () => {
+    const sharedOptions = { scaleMode: 'linear', mipmap: false };
+    const sharedObjectKey = assetSourceCacheKey({
+      src: 'icon.svg',
+      data: { left: sharedOptions, right: sharedOptions },
+    });
+    const duplicatedObjectKey = assetSourceCacheKey({
+      src: 'icon.svg',
+      data: {
+        left: { scaleMode: 'linear', mipmap: false },
+        right: { scaleMode: 'linear', mipmap: false },
+      },
+    });
+
+    expect(sharedObjectKey).toBe(duplicatedObjectKey);
+  });
+
   it('keeps descriptors with different loader options separated', () => {
     const source = { src: 'icon.svg', data: { resolution: 2 } };
     const higherResolution = { src: 'icon.svg', data: { resolution: 3 } };
@@ -41,13 +58,14 @@ describe('asset source helpers', () => {
   });
 
   it('uses an internal alias and never forwards caller-provided alias', () => {
-    const loadable = toLoadableAssetSource({
+    const source = {
       src: 'mock://icon',
       alias: 'public-alias',
       data: { resolution: 3 },
-    });
+    };
+    const loadable = toLoadableAssetSource(source);
 
-    expect(loadable.alias).toBe(assetSourceCacheKey(loadable));
+    expect(loadable.alias).toBe(assetSourceCacheKey(source));
     expect(loadable.alias).not.toBe('public-alias');
     expect(loadable.src).toBe('mock://icon');
     expect(loadable.data).toEqual({ resolution: 3 });

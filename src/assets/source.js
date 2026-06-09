@@ -6,22 +6,31 @@ const ASSET_SOURCE_FRAGMENT_PREFIX = 'patchmapAssetSource=';
 export const isAssetSource = (source) =>
   isPlainObject(source) && typeof source.src === 'string';
 
-const stableStringify = (value, seen = new WeakSet()) => {
+const stableStringify = (value, ancestors = new WeakSet()) => {
   if (value === undefined) return '"__undefined__"';
   if (value === null || typeof value !== 'object') {
     return JSON.stringify(value);
   }
-  if (seen.has(value)) return '"__cycle__"';
-  seen.add(value);
+  if (ancestors.has(value)) return '"__cycle__"';
+  ancestors.add(value);
 
   if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item, seen)).join(',')}]`;
+    const result = `[${value
+      .map((item) => stableStringify(item, ancestors))
+      .join(',')}]`;
+    ancestors.delete(value);
+    return result;
   }
 
   const keys = Object.keys(value).sort();
-  return `{${keys
-    .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key], seen)}`)
+  const result = `{${keys
+    .map(
+      (key) =>
+        `${JSON.stringify(key)}:${stableStringify(value[key], ancestors)}`,
+    )
     .join(',')}}`;
+  ancestors.delete(value);
+  return result;
 };
 
 export const assetSourceCacheKey = (source) =>
