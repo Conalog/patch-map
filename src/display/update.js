@@ -3,6 +3,7 @@ import { convertArray } from '../utils/convert';
 import { selector } from '../utils/selector/selector';
 import { getCentroid, getObjectFrameWorldCorners } from '../utils/transform';
 import { uid } from '../utils/uuid';
+import { refreshAggregateBarLayerOrder } from './renderers/AggregateBarLayer';
 import {
   flushQueuedAggregateBarLayers,
   syncAggregateBarForItem,
@@ -93,6 +94,7 @@ export const update = (root, opts = {}) => {
     });
     syncAggregateBarForItem(element, { immediateAggregateBarSync: true });
   }
+  refreshAggregateBarLayerOrder(root?.store);
   return elements;
 };
 

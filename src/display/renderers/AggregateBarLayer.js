@@ -455,6 +455,11 @@ export const ensureAggregateBarLayer = (store, texture) => {
   return layer;
 };
 
+export const refreshAggregateBarLayerOrder = (store) => {
+  if (!store?.world || !store.aggregateBarLayers) return;
+  placeAggregateBarLayers(store.world, store.aggregateBarLayers);
+};
+
 export const ensureAggregateBarLayerForBar = (bar) => {
   const texture = getBarTexture(bar);
   return ensureAggregateBarLayer(bar?.store, texture);
@@ -524,23 +529,22 @@ const placeAggregateBarLayers = (world, layers) => {
   if (activeLayers.length === 0) {
     return;
   }
-  if (isAggregateBarLayerBlockPlaced(world, activeLayers)) return;
+  const placement = resolveAggregateBarLayerPlacement(world, activeLayers);
+  for (const layer of activeLayers) {
+    layer.zIndex = placement.zIndex;
+  }
+  if (isAggregateBarLayerBlockPlaced(world, activeLayers, placement)) return;
 
   for (const layer of activeLayers) {
     layer.parent?.removeChild(layer);
   }
 
-  const relationIndex = world.children.findIndex(
-    (child) => child.type === 'relations',
-  );
-  const insertIndex =
-    relationIndex === -1 ? world.children.length : relationIndex;
   for (let offset = 0; offset < activeLayers.length; offset += 1) {
-    world.addChildAt(activeLayers[offset], insertIndex + offset);
+    world.addChildAt(activeLayers[offset], placement.insertIndex + offset);
   }
 };
 
-const isAggregateBarLayerBlockPlaced = (world, activeLayers) => {
+const isAggregateBarLayerBlockPlaced = (world, activeLayers, placement) => {
   const layerSet = new Set(activeLayers);
   const firstIndex = world.children.indexOf(activeLayers[0]);
   if (firstIndex === -1) return false;
@@ -551,12 +555,115 @@ const isAggregateBarLayerBlockPlaced = (world, activeLayers) => {
     }
   }
 
-  const relationIndex = world.children.findIndex(
-    (child) => !layerSet.has(child) && child.type === 'relations',
-  );
-  return (
-    relationIndex === -1 || firstIndex + activeLayers.length <= relationIndex
-  );
+  const currentInsertIndex = world.children
+    .slice(0, firstIndex)
+    .filter((child) => !layerSet.has(child)).length;
+  return currentInsertIndex === placement.insertIndex;
+};
+
+const resolveAggregateBarLayerPlacement = (world, activeLayers) => {
+  const layerSet = new Set(activeLayers);
+  const children = world.children.filter((child) => !layerSet.has(child));
+  const gridCache = new WeakMap();
+  const gridDepth = resolveGridDepth(children, gridCache);
+
+  if (!gridDepth) {
+    return {
+      zIndex: 0,
+      insertIndex: findFirstIndex(
+        children,
+        (child) => child.type === 'relations',
+      ),
+    };
+  }
+
+  const zIndex = resolveLayerZIndex(children, gridDepth, gridCache);
+  const insertIndex =
+    zIndex === gridDepth.zIndex
+      ? gridDepth.lastIndex + 1
+      : findFirstIndex(
+          children,
+          (child) =>
+            getZIndex(child) >= zIndex && !containsGrid(child, gridCache),
+        );
+
+  return { zIndex, insertIndex };
+};
+
+const resolveGridDepth = (children, gridCache) => {
+  let zIndex = Number.NEGATIVE_INFINITY;
+  let lastIndex = -1;
+
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index];
+    if (!containsGrid(child, gridCache)) continue;
+
+    const childZIndex = getZIndex(child);
+    if (childZIndex > zIndex) {
+      zIndex = childZIndex;
+      lastIndex = index;
+    } else if (childZIndex === zIndex) {
+      lastIndex = index;
+    }
+  }
+
+  return lastIndex === -1 ? null : { zIndex, lastIndex };
+};
+
+const resolveLayerZIndex = (children, gridDepth, gridCache) => {
+  let nearestHigherZIndex = Number.POSITIVE_INFINITY;
+  let hasSameDepthNonGridAbove = false;
+
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index];
+    if (containsGrid(child, gridCache)) continue;
+
+    const childZIndex = getZIndex(child);
+    if (childZIndex > gridDepth.zIndex) {
+      nearestHigherZIndex = Math.min(nearestHigherZIndex, childZIndex);
+    } else if (
+      childZIndex === gridDepth.zIndex &&
+      index > gridDepth.lastIndex
+    ) {
+      hasSameDepthNonGridAbove = true;
+    }
+  }
+
+  if (hasSameDepthNonGridAbove) return gridDepth.zIndex;
+  if (Number.isFinite(nearestHigherZIndex)) {
+    return (gridDepth.zIndex + nearestHigherZIndex) / 2;
+  }
+  return gridDepth.zIndex + 1;
+};
+
+const findFirstIndex = (children, predicate) => {
+  const index = children.findIndex(predicate);
+  return index === -1 ? children.length : index;
+};
+
+const containsGrid = (node, cache) => {
+  if (!node) return false;
+  if (cache.has(node)) return cache.get(node);
+
+  if (node.type === 'grid') {
+    cache.set(node, true);
+    return true;
+  }
+
+  for (const child of node?.children ?? []) {
+    if (containsGrid(child, cache)) {
+      cache.set(node, true);
+      return true;
+    }
+  }
+
+  cache.set(node, false);
+  return false;
+};
+
+const getZIndex = (node) => {
+  const zIndex = Number(node?.zIndex ?? 0);
+  return Number.isFinite(zIndex) ? zIndex : 0;
 };
 
 const getBarTexture = (bar) => {
