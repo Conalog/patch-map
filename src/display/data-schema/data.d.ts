@@ -556,12 +556,17 @@ export interface TextureStyle {
  * Use `init({ assets })` for reusable public aliases. Inline asset sources are
  * intended for direct URLs and receive an internal cache key derived from `src`
  * and loader options such as `data.resolution`.
+ *
+ * Inline descriptors are strict: public `alias` values are not accepted here.
+ * Objects with a `src` field in `background.source` are treated as AssetSource
+ * descriptors, not TextureStyle objects.
  */
 export interface AssetSource {
   /** URL or data URI passed to Pixi Assets.load. */
   src: string;
   /** Pixi loader data, for example `{ resolution: 3 }` for SVGs. */
   data?: Record<string, unknown>;
+  /** File format hint passed through to Pixi Assets.load. */
   format?: string;
   /** Pixi asset parser id, for example `'svg'` or `'texture'`. */
   parser?: string;

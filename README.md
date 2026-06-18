@@ -235,6 +235,10 @@ For **detailed type definitions**, refer to the [data.d.ts](src/display/data-sch
 asset key/URL or an inline `AssetSource` descriptor. Use a descriptor when a
 URL-backed texture needs Pixi loader options such as SVG `resolution`.
 
+`background.source` also accepts a `TextureStyle` object such as
+`{ type: 'rect', fill: 'white' }`. Objects with a `src` field are treated as
+`AssetSource` descriptors and must match the descriptor schema.
+
 ```js
 const svgIcon = {
   type: 'icon',
@@ -257,6 +261,19 @@ const svgBackground = {
 
 `AssetSource` is for direct URLs or data URIs. Continue to use `init({ assets })`
 and string sources for reusable public aliases.
+
+Allowed `AssetSource` fields:
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `src` | Yes | URL or data URI passed to Pixi `Assets.load`. |
+| `data` | No | Pixi loader data, for example `{ resolution: 3 }` for SVGs. |
+| `format` | No | File format hint passed through to Pixi. |
+| `parser` | No | Pixi asset parser id such as `'svg'` or `'texture'`. |
+| `loadParser` | No | Deprecated Pixi parser field accepted for compatibility. |
+
+Inline descriptors do not accept a public `alias`; PATCH MAP generates an
+internal cache key from `src`, `data`, `format`, and `parser`/`loadParser`.
 
 #### Spacing shorthand
 

@@ -242,6 +242,10 @@ draw method가 요구하는 **데이터 구조**입니다.
 또는 inline `AssetSource` descriptor를 사용할 수 있습니다. SVG `resolution`
 같은 Pixi loader 옵션이 필요한 URL 기반 texture에는 descriptor를 사용하세요.
 
+`background.source`는 `{ type: 'rect', fill: 'white' }` 같은 `TextureStyle`
+객체도 계속 허용합니다. `src` 필드가 있는 객체는 `AssetSource` descriptor로
+취급되며 descriptor schema를 만족해야 합니다.
+
 ```js
 const svgIcon = {
   type: 'icon',
@@ -264,6 +268,19 @@ const svgBackground = {
 
 `AssetSource`는 직접 URL 또는 data URI를 지정할 때 사용합니다. 재사용 가능한
 공개 alias는 계속 `init({ assets })`에 등록하고 문자열 source로 참조하세요.
+
+허용되는 `AssetSource` 필드는 다음과 같습니다.
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `src` | Yes | Pixi `Assets.load`에 전달할 URL 또는 data URI입니다. |
+| `data` | No | SVG의 `{ resolution: 3 }` 같은 Pixi loader data입니다. |
+| `format` | No | Pixi에 전달할 파일 format 힌트입니다. |
+| `parser` | No | `'svg'`, `'texture'` 같은 Pixi asset parser id입니다. |
+| `loadParser` | No | 호환성을 위해 허용하는 deprecated Pixi parser 필드입니다. |
+
+Inline descriptor에는 공개 `alias`를 지정할 수 없습니다. PATCH MAP은 `src`,
+`data`, `format`, `parser`/`loadParser`로 내부 cache key를 생성합니다.
 
 #### Spacing shorthand
 
