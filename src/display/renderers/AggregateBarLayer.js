@@ -564,7 +564,8 @@ const isAggregateBarLayerBlockPlaced = (world, activeLayers, placement) => {
 const resolveAggregateBarLayerPlacement = (world, activeLayers) => {
   const layerSet = new Set(activeLayers);
   const children = world.children.filter((child) => !layerSet.has(child));
-  const gridDepth = resolveGridDepth(children);
+  const gridCache = new WeakMap();
+  const gridDepth = resolveGridDepth(children, gridCache);
 
   if (!gridDepth) {
     return {
@@ -576,25 +577,26 @@ const resolveAggregateBarLayerPlacement = (world, activeLayers) => {
     };
   }
 
-  const zIndex = resolveLayerZIndex(children, gridDepth);
+  const zIndex = resolveLayerZIndex(children, gridDepth, gridCache);
   const insertIndex =
     zIndex === gridDepth.zIndex
       ? gridDepth.lastIndex + 1
       : findFirstIndex(
           children,
-          (child) => getZIndex(child) >= zIndex && !containsGrid(child),
+          (child) =>
+            getZIndex(child) >= zIndex && !containsGrid(child, gridCache),
         );
 
   return { zIndex, insertIndex };
 };
 
-const resolveGridDepth = (children) => {
+const resolveGridDepth = (children, gridCache) => {
   let zIndex = Number.NEGATIVE_INFINITY;
   let lastIndex = -1;
 
   for (let index = 0; index < children.length; index += 1) {
     const child = children[index];
-    if (!containsGrid(child)) continue;
+    if (!containsGrid(child, gridCache)) continue;
 
     const childZIndex = getZIndex(child);
     if (childZIndex > zIndex) {
@@ -608,13 +610,13 @@ const resolveGridDepth = (children) => {
   return lastIndex === -1 ? null : { zIndex, lastIndex };
 };
 
-const resolveLayerZIndex = (children, gridDepth) => {
+const resolveLayerZIndex = (children, gridDepth, gridCache) => {
   let nearestHigherZIndex = Number.POSITIVE_INFINITY;
   let hasSameDepthNonGridAbove = false;
 
   for (let index = 0; index < children.length; index += 1) {
     const child = children[index];
-    if (containsGrid(child)) continue;
+    if (containsGrid(child, gridCache)) continue;
 
     const childZIndex = getZIndex(child);
     if (childZIndex > gridDepth.zIndex) {
@@ -639,11 +641,23 @@ const findFirstIndex = (children, predicate) => {
   return index === -1 ? children.length : index;
 };
 
-const containsGrid = (node) => {
-  if (node?.type === 'grid') return true;
-  for (const child of node?.children ?? []) {
-    if (containsGrid(child)) return true;
+const containsGrid = (node, cache) => {
+  if (!node) return false;
+  if (cache.has(node)) return cache.get(node);
+
+  if (node.type === 'grid') {
+    cache.set(node, true);
+    return true;
   }
+
+  for (const child of node?.children ?? []) {
+    if (containsGrid(child, cache)) {
+      cache.set(node, true);
+      return true;
+    }
+  }
+
+  cache.set(node, false);
   return false;
 };
 
