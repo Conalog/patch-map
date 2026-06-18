@@ -183,9 +183,20 @@ describe('Bar Component Tests', () => {
     patchmap.update({
       elements: grid,
       changes: { attrs: { zIndex: 18 } },
+      history: true,
       emit: false,
     });
 
+    expect(layer.zIndex).toBeGreaterThan(grid.zIndex);
+    expect(layer.zIndex).toBeLessThan(relations.zIndex);
+
+    patchmap.undoRedoManager.undo();
+    expect(grid.zIndex).toBe(10);
+    expect(layer.zIndex).toBeGreaterThan(grid.zIndex);
+    expect(layer.zIndex).toBeLessThan(relations.zIndex);
+
+    patchmap.undoRedoManager.redo();
+    expect(grid.zIndex).toBe(18);
     expect(layer.zIndex).toBeGreaterThan(grid.zIndex);
     expect(layer.zIndex).toBeLessThan(relations.zIndex);
   });
@@ -522,6 +533,16 @@ describe('Bar Component Tests', () => {
     const patchmap = getPatchmap();
     patchmap.draw([
       {
+        type: 'grid',
+        id: 'aggregate-source-grid',
+        cells: [[1]],
+        item: {
+          size: { width: 80, height: 80 },
+          components: [],
+        },
+        attrs: { zIndex: 10 },
+      },
+      {
         type: 'item',
         id: 'aggregate-source-item-a',
         size: { width: 200, height: 100 },
@@ -549,9 +570,15 @@ describe('Bar Component Tests', () => {
           },
         ],
       },
-      { type: 'relations', id: 'aggregate-source-relations', links: [] },
+      {
+        type: 'relations',
+        id: 'aggregate-source-relations',
+        links: [],
+        attrs: { zIndex: 20 },
+      },
     ]);
 
+    const grid = patchmap.selector('$..[?(@.id=="aggregate-source-grid")]')[0];
     const items = [
       patchmap.selector('$..[?(@.id=="aggregate-source-item-a")]')[0],
       patchmap.selector('$..[?(@.id=="aggregate-source-item-b")]')[0],
@@ -580,9 +607,21 @@ describe('Bar Component Tests', () => {
     )[0];
     const relationIndex = patchmap.world.children.indexOf(relations);
     for (const layer of layers) {
+      expect(layer.zIndex).toBeGreaterThan(grid.zIndex);
+      expect(layer.zIndex).toBeLessThan(relations.zIndex);
       expect(patchmap.world.children.indexOf(layer)).toBeLessThan(
         relationIndex,
       );
+    }
+
+    patchmap.update({
+      elements: grid,
+      changes: { attrs: { zIndex: 18 } },
+      emit: false,
+    });
+    for (const layer of layers) {
+      expect(layer.zIndex).toBeGreaterThan(grid.zIndex);
+      expect(layer.zIndex).toBeLessThan(relations.zIndex);
     }
   });
 

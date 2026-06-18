@@ -5,6 +5,7 @@ import { UndoRedoManager } from './command/UndoRedoManager';
 import './display/components/registry';
 import { draw } from './display/draw';
 import './display/elements/registry';
+import { refreshAggregateBarLayerOrder } from './display/renderers/AggregateBarLayer';
 import { flushQueuedItemComponentUpdates, update } from './display/update';
 import ViewTransform from './display/view-transform/ViewTransform';
 import World from './display/World';
@@ -139,6 +140,18 @@ class Patchmap extends WildcardEventEmitter {
     store.world = this._world;
     this.viewport.addChild(this._world);
     this._viewTransform.attach({ viewport: this.viewport, world: this._world });
+    this.undoRedoManager.on(
+      'history:executed',
+      this._refreshAggregateBarLayerOrder,
+    );
+    this.undoRedoManager.on(
+      'history:undone',
+      this._refreshAggregateBarLayerOrder,
+    );
+    this.undoRedoManager.on(
+      'history:redone',
+      this._refreshAggregateBarLayerOrder,
+    );
 
     await initAsset(assetsOptions);
     initCanvas(element, this.app);
@@ -292,6 +305,10 @@ class Patchmap extends WildcardEventEmitter {
         this.emit('patchmap:flipped', { ...flip, target: this }),
     });
   }
+
+  _refreshAggregateBarLayerOrder = () => {
+    refreshAggregateBarLayerOrder(this.world?.store);
+  };
 
   _createStoreContext() {
     return {
