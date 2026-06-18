@@ -200,8 +200,19 @@ export interface Relations {
 }
 
 /**
- * Renders an image from a URL or asset key as a standalone map element.
+ * Renders an image from an asset key, URL, or AssetSource descriptor as a
+ * standalone map element.
  * @see {@link https://pixijs.download/release/docs/scene.Sprite.html}
+ *
+ * @example
+ * const imageElementExample: ImageElement = {
+ *   type: 'image',
+ *   source: {
+ *     src: 'https://example.com/image.svg',
+ *     data: { resolution: 3 }
+ *   },
+ *   size: { width: 48, height: 48 }
+ * };
  */
 export interface ImageElement {
   type: 'image';
@@ -209,7 +220,7 @@ export interface ImageElement {
   label?: string;
   show?: boolean; // Default: true
   locked?: boolean; // Default: false
-  source: string;
+  source: string | AssetSource;
   size?: Size;
   attrs?: Record<string, unknown>;
 }
@@ -258,7 +269,8 @@ export interface RectElement {
 export type Component = Background | Bar | Icon | Text;
 
 /**
- * An Item's background, sourced from a style object or an asset URL.
+ * An Item's background, sourced from a style object, asset key, URL, or
+ * AssetSource descriptor.
  * @see {@link https://pixijs.download/release/docs/scene.NineSliceSprite.html}
  *
  * @example
@@ -276,13 +288,24 @@ export type Component = Background | Bar | Icon | Text;
  *   id: 'bg-image',
  *   source: 'background-image.png'
  * };
+ *
+ * @example
+ * // As an AssetSource descriptor with Pixi loader options
+ * const backgroundAssetSourceExample: Background = {
+ *   type: 'background',
+ *   id: 'bg-svg',
+ *   source: {
+ *     src: 'https://example.com/background.svg',
+ *     data: { resolution: 3 }
+ *   }
+ * };
  */
 export interface Background {
   type: 'background';
   id?: string; // Default: uid
   label?: string;
   show?: boolean; // Default: true
-  source: TextureStyle | string;
+  source: TextureStyle | string | AssetSource;
   tint?: Color;
   attrs?: Record<string, unknown>;
 }
@@ -318,7 +341,8 @@ export interface Bar {
 }
 
 /**
- * A component for displaying an icon image.
+ * A component for displaying an icon image from an asset key, URL, or
+ * AssetSource descriptor.
  * @see {@link https://pixijs.download/release/docs/scene.Sprite.html}
  *
  * @example
@@ -329,13 +353,23 @@ export interface Bar {
  *   size: 24, // 24px x 24px
  *   placement: 'left-top',
  * };
+ *
+ * @example
+ * const iconAssetSourceExample: Icon = {
+ *   type: 'icon',
+ *   source: {
+ *     src: 'https://example.com/warning.svg',
+ *     data: { resolution: 3 }
+ *   },
+ *   size: 24
+ * };
  */
 export interface Icon {
   type: 'icon';
   id?: string; // Default: uid
   label?: string;
   show?: boolean; // Default: true
-  source: string;
+  source: string | AssetSource;
   size: PxOrPercentSize;
   placement?: Placement; // Default: 'center'
   margin?: Margin; // Default: 0
@@ -515,6 +549,29 @@ export interface TextureStyle {
   borderWidth?: number; // Default: 0
   borderColor?: string; // Default: 'black'
   radius?: number | EachRadius; // Default: 0
+}
+
+/**
+ * Defines an inline Pixi asset source descriptor for URL-backed textures.
+ * Use `init({ assets })` for reusable public aliases. Inline asset sources are
+ * intended for direct URLs and receive an internal cache key derived from `src`
+ * and loader options such as `data.resolution`.
+ *
+ * Inline descriptors are strict: public `alias` values are not accepted here.
+ * Objects with a `src` field in `background.source` are treated as AssetSource
+ * descriptors, not TextureStyle objects.
+ */
+export interface AssetSource {
+  /** URL or data URI passed to Pixi Assets.load. */
+  src: string;
+  /** Pixi loader data, for example `{ resolution: 3 }` for SVGs. */
+  data?: Record<string, unknown>;
+  /** File format hint passed through to Pixi Assets.load. */
+  format?: string;
+  /** Pixi asset parser id, for example `'svg'` or `'texture'`. */
+  parser?: string;
+  /** Deprecated Pixi parser field accepted for compatibility. */
+  loadParser?: string;
 }
 
 /**

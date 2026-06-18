@@ -1,4 +1,5 @@
 import { Assets, Texture } from 'pixi.js';
+import { isAssetSource, toLoadableAssetSource } from '../../assets/source';
 import { getTexture } from '../../assets/textures/texture';
 import { UPDATE_STAGES } from './constants';
 
@@ -21,6 +22,15 @@ export const Sourceable = (superClass) => {
         return;
       }
 
+      if (isAssetSource(source)) {
+        this._loadSourceTexture(
+          source,
+          toLoadableAssetSource(source),
+          currentToken,
+        );
+        return;
+      }
+
       let texture = null;
       try {
         texture = getTexture(viewport.app.renderer, theme, source);
@@ -38,7 +48,12 @@ export const Sourceable = (superClass) => {
         return;
       }
 
-      Assets.load(source)
+      this._loadSourceTexture(source, source, currentToken);
+    }
+
+    _loadSourceTexture(source, loadableSource, currentToken) {
+      this._setTexture(Texture.EMPTY);
+      Assets.load(loadableSource)
         .then((loadedTexture) => {
           if (!this.destroyed && currentToken === this._loadToken) {
             this._setTexture(loadedTexture);

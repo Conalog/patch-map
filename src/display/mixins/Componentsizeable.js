@@ -11,6 +11,25 @@ export const ComponentSizeable = (superClass) => {
       this.setSize(newSize.width, newSize.height);
       this.position.set(-newSize.borderWidth / 2);
     }
+
+    _onTextureApplied(texture) {
+      super._onTextureApplied?.(texture);
+
+      if (this.destroyed || this.props?.size === undefined) return;
+
+      this._applyComponentSize({
+        source: this.props.source,
+        size: this.props.size,
+        margin: this.props.margin,
+      });
+
+      if (typeof this._applyPlacement === 'function') {
+        this._applyPlacement({
+          placement: this.props.placement,
+          margin: this.props.margin,
+        });
+      }
+    }
   };
   MixedClass.registerHandler(
     KEYS,

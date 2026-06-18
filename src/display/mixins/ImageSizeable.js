@@ -16,8 +16,8 @@ export const ImageSizeable = (superClass) => {
       this.store.viewport.emit('object_transformed', this);
     }
 
-    // Sourceable calls this after each texture application.
-    _onTextureApplied() {
+    _onTextureApplied(texture) {
+      super._onTextureApplied?.(texture);
       this._applyImageSize();
     }
   };
