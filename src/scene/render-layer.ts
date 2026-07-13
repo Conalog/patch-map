@@ -97,7 +97,10 @@ const TEXT_STYLE_KEYS = [
   'tagStyles',
 ] as const;
 
-const RASTER_ENTRY_THRESHOLD = 1_000;
+// The canonical 100-item grid yields 501 render entries. Crossing to the
+// single-surface backend at that boundary avoids a costly 100 Graphics/Text
+// leaf submission while leaving small editor scenes on precise vector leaves.
+const RASTER_ENTRY_THRESHOLD = 500;
 const MAX_RASTER_EDGE = 8_192;
 const MAX_RASTER_PIXELS = 32_000_000;
 
