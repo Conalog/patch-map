@@ -225,6 +225,60 @@ describe('Transformer wireframes and handles', () => {
 });
 
 describe('Transformer resize gestures', () => {
+  it.each([
+    ['nw', -20, -10, 1.2, 1.2],
+    ['n', 0, -10, 1, 1.2],
+    ['ne', 20, -10, 1.2, 1.2],
+    ['e', 20, 0, 1.2, 1],
+    ['se', 20, 10, 1.2, 1.2],
+    ['s', 0, 10, 1, 1.2],
+    ['sw', -20, 10, 1.2, 1.2],
+    ['w', -20, 0, 1.2, 1],
+  ] as const)(
+    'resizes through the %s handle around its opposite edge',
+    (name, deltaX, deltaY, expectedScaleX, expectedScaleY) => {
+      const element = createElement();
+      const { root, transformer } = setup([element], { resizeHandles: true });
+      const resize = handle(transformer, `transformer:resize:${name}`);
+      const start = emitDown(transformer, resize);
+
+      resize.emit(
+        'globalpointermove',
+        pointerEvent(new Point(start.x + deltaX, start.y + deltaY)),
+      );
+      emitUp(transformer, resize);
+
+      expect(Math.abs(element.scale.x)).toBeCloseTo(expectedScaleX, 8);
+      expect(Math.abs(element.scale.y)).toBeCloseTo(expectedScaleY, 8);
+      root.destroy({ children: true });
+    },
+  );
+
+  it.each(['pointerupoutside', 'pointercancel'] as const)(
+    'ends an active gesture once on %s',
+    (endEvent) => {
+      const element = createElement();
+      const { root, transformer } = setup([element], {
+        resizeHandles: true,
+        transformHistory: true,
+      });
+      const resize = handle(transformer, 'transformer:resize:se');
+      const events: GestureEvent[] = [];
+      transformer.on('transform', (event: GestureEvent) => events.push(event));
+      const start = emitDown(transformer, resize);
+      resize.emit(
+        'globalpointermove',
+        pointerEvent(new Point(start.x + 20, start.y + 10)),
+      );
+      resize.emit(endEvent, pointerEvent(start));
+      resize.emit('pointerup', pointerEvent(start));
+
+      expect(events.map(({ phase }) => phase)).toEqual(['start', 'change', 'end']);
+      expect(new Set(events.map(({ historyId }) => historyId)).size).toBe(1);
+      root.destroy({ children: true });
+    },
+  );
+
   it('resizes around the opposite corner and emits one stable gesture history identity', () => {
     const element = createElement();
     const { root, transformer } = setup([element], {

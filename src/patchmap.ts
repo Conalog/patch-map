@@ -11,10 +11,17 @@ import {
 } from './assets';
 import { CanvasEventManager } from './canvas-events';
 import type {
+  DrawInput,
+  DrawResult,
   FitOptions,
   FocusIds,
   FocusOptions,
+  PublicDisplayHandle,
+  PublicElementHandle,
+  SelectorOptions,
+  SelectorResult,
   UpdateOptions,
+  UpdateResult,
 } from './contracts';
 import { FlipController, RotationController } from './controllers';
 import { UndoRedoManager } from './history';
@@ -171,7 +178,7 @@ export class Patchmap extends EventEmitter {
   public readonly flip = new FlipController(this);
   public readonly event = new CanvasEventManager((path) => {
     if (path === '$') return this.viewport ? [this.viewport] : [];
-    return this.selector(path).filter(
+    return this.selector<unknown>(path).filter(
       (value): value is Container => value instanceof Container,
     );
   });
@@ -340,6 +347,7 @@ export class Patchmap extends EventEmitter {
     this.removeAllListeners();
   }
 
+  public draw(input: DrawInput): DrawResult;
   public draw(input: unknown): MaterializedMapData | undefined {
     const world = this.world;
     const renderLayer = this.#renderLayer;
@@ -377,9 +385,12 @@ export class Patchmap extends EventEmitter {
     return data;
   }
 
-  public selector(path: string, options: Record<string, unknown> = {}): unknown[] {
+  public selector<T = PublicDisplayHandle>(
+    path: string,
+    options: SelectorOptions = {},
+  ): SelectorResult<T> {
     if (!this.world) return [];
-    if (path === '$') return [this.world];
+    if (path === '$') return [this.world] as T[];
     const indexed = /^\$\.\.children\[\?\(@\.(id|type|label)===("(?:\\.|[^"])*")\)\]$/.exec(path);
     if (indexed && this.#managedScene) {
       const field = indexed[1];
@@ -388,17 +399,22 @@ export class Patchmap extends EventEmitter {
         const value = JSON.parse(encoded) as string;
         if (field === 'id') {
           const node = this.#managedScene.byId.get(value);
-          return node ? [node] : [];
+          return (node ? [node] : []) as T[];
         }
         return [...(field === 'type'
           ? this.#managedScene.byType.get(value)
-          : this.#managedScene.byLabel.get(value)) ?? []];
+          : this.#managedScene.byLabel.get(value)) ?? []] as T[];
       }
     }
-    return selectScene(this.world, path, options);
+    return selectScene(this.world, path, options) as T[];
   }
 
-  public update(options: UpdateOptions<ManagedNode> = {}): ManagedNode[] {
+  public update<TElement extends PublicDisplayHandle = PublicDisplayHandle>(
+    options?: UpdateOptions<TElement>,
+  ): UpdateResult<TElement>;
+  public update(
+    options: UpdateOptions<PublicDisplayHandle> = {},
+  ): PublicDisplayHandle[] {
     if (options.changes === undefined && options.refresh !== true) {
       throw new TypeError('Patchmap.update requires changes unless refresh is true.');
     }
@@ -441,26 +457,37 @@ export class Patchmap extends EventEmitter {
     if (options.emit !== false) {
       this.emit('patchmap:updated', { target: this, elements: targets });
     }
-    return targets;
+    return targets as unknown as PublicDisplayHandle[];
   }
 
   public focus(
     ids?: FocusIds,
-    options: FocusOptions<ManagedNode> = {},
+    options: FocusOptions<PublicElementHandle> = {},
   ): void {
     const viewport = this.viewport;
     if (!viewport) return;
-    const targets = resolveViewTargets(this.#managedScene, ids, options.filter);
+    const targets = resolveViewTargets(
+      this.#managedScene,
+      ids,
+      options.filter as ((element: ManagedNode) => unknown) | undefined,
+    );
     const bounds = measureViewTargets(targets, viewport);
     if (!bounds) return;
     viewport.moveCenter(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
   }
 
-  public fit(ids?: FocusIds, options: FitOptions<ManagedNode> = {}): void {
+  public fit(
+    ids?: FocusIds,
+    options: FitOptions<PublicElementHandle> = {},
+  ): void {
     const viewport = this.viewport;
     if (!viewport) return;
     const padding = normalizeFitPadding(options.padding);
-    const targets = resolveViewTargets(this.#managedScene, ids, options.filter);
+    const targets = resolveViewTargets(
+      this.#managedScene,
+      ids,
+      options.filter as ((element: ManagedNode) => unknown) | undefined,
+    );
     const bounds = measureViewTargets(targets, viewport);
     if (!bounds) return;
     const scale = fitScaleFor(
@@ -533,6 +560,7 @@ export class Patchmap extends EventEmitter {
       'pointerup',
       'pointerupoutside',
       'click',
+      'tap',
       'pointerover',
       'rightclick',
     ]) {

@@ -264,6 +264,7 @@ export class SelectionState extends State {
     'pointerup',
     'pointerupoutside',
     'click',
+    'tap',
     'rightclick',
     'pointerover',
   ] as const;
@@ -351,6 +352,10 @@ export class SelectionState extends State {
       return;
     }
     this.#dispatchClick(event);
+  }
+
+  public tap(event: SelectionPointerEvent): void {
+    this.click(event);
   }
 
   public rightclick(event: SelectionPointerEvent): void {

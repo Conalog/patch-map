@@ -9,7 +9,7 @@ import {
 export type TransformableElement = Container & {
   id?: string;
   type?: string;
-  props?: Record<string, unknown>;
+  props?: object;
 };
 
 type ElementInput = TransformableElement | readonly TransformableElement[];
@@ -214,7 +214,7 @@ const writeProps = (
   changes: Record<string, number>,
 ): void => {
   if (!element.props || typeof element.props !== 'object') return;
-  const props = element.props;
+  const props = record(element.props);
   const attrs = record(props.attrs);
   element.props = { ...props, attrs: { ...attrs, ...changes } };
 };

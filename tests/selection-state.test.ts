@@ -93,6 +93,7 @@ describe('SelectionState', () => {
       'pointerup',
       'pointerupoutside',
       'click',
+      'tap',
       'rightclick',
       'pointerover',
     ]);
@@ -155,6 +156,24 @@ describe('SelectionState', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
     expect(onDoubleClick).toHaveBeenCalledWith(item, second);
     expect(onDoubleClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes the documented touch tap alias through one click callback', () => {
+    const world = new Container();
+    const item = createNode('item', 'item', { width: 20, height: 20 });
+    world.addChild(item);
+    const onClick = vi.fn();
+    const { state } = activate(world, { onClick });
+    const event = pointerEvent({
+      target: world,
+      global: { x: 10, y: 10 },
+      detail: 1,
+    });
+
+    state.tap(event);
+
+    expect(onClick).toHaveBeenCalledWith(item, event);
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 
   it('starts box selection once after the movement threshold and reports live ordered results', () => {
