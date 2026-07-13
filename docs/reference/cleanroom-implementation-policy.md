@@ -7,6 +7,16 @@
 - 저사양 Windows와 다수 객체 환경의 성능을 최우선으로 한다.
 - 기존 구조를 복원하거나 추측하지 않고 공개 계약을 만족하는 가장 단순하고 빠른 구조를 설계한다.
 
+## 실행 자율성
+
+- 이 정책은 허용 자료, observable compatibility, 증거와 완료 조건을 규정하며 내부 아키텍처나 구체적인 작업 절차를 고정하지 않는다.
+- 주 에이전트는 안전 경계와 완료 조건을 유지하는 범위에서 아키텍처, 자료구조, 파일 구성, 구현 순서, 실험 방식과 작업 분담을 자율적으로 설계·재설계할 수 있다.
+- 필요하면 성능 spike, prototype, 조기 benchmark, 경쟁 설계 비교를 수행하고 자신이 작성한 코드를 폐기하거나 다시 작성할 수 있다.
+- 안전하고 되돌릴 수 있는 현재 범위의 판단은 사용자 확인을 기다리지 않고 진행할 수 있다.
+- 서브에이전트 수, 역할과 병렬화는 독립성, 파일 충돌과 검증 가능성을 고려해 주 에이전트가 결정한다.
+- 자율성은 금지 자료 접근, expected 변경, 공개 계약 또는 완료 조건 완화를 허용하지 않는다.
+- 정책의 구체적 절차와 자율성이 충돌할 경우 비협상 안전·결과 경계만 강제하고 실행 방법은 주 에이전트 판단을 우선한다.
+
 ## 클린룸 경계
 
 - 현재 작업트리에 승인·반입된 clean-room oracle v3 export만 구현 자료로 사용한다.
@@ -21,30 +31,31 @@
 
 ## 서브에이전트
 
-- 독립적으로 분리 가능한 작업은 서브에이전트로 병렬화할 수 있고 권장한다.
+- 독립적으로 분리 가능한 작업은 서브에이전트로 병렬화할 수 있다.
 - 모든 에이전트와 하위 에이전트에 동일한 클린룸 경계를 적용한다.
 - 금지 자료 조사를 다른 에이전트에게 위임하는 것도 금지한다.
 - 동일 파일 동시 수정을 피하도록 파일 소유와 책임 범위를 먼저 나눈다.
 - 서브에이전트 보고만으로 통과를 인정하지 않고 주 에이전트가 직접 검토·통합·전체 테스트한다.
-- 권장 분담은 public API coverage, lifecycle, draw/scene, update/selector, conformance/determinism, performance, safety/package review다.
+- public API coverage, lifecycle, draw/scene, update/selector, conformance/determinism, performance, safety/package review는 가능한 분담 예시이며 반드시 그 역할로 나눌 필요는 없다.
 
 ## 시작 및 재개 절차
 
-- `pwd`, `git status --short --branch`, 현재 orphan root commit, export manifest와 50개 payload checksum을 확인한다.
-- `AGENTS.md`, 이 정책, `BRIEF.md`를 읽는다.
-- `IMPLEMENTATION_HANDOFF.md`, `docs/reference/**`의 승인 계약 문서, `docs/implementation/**`, `fixtures/**`, `artifacts/expected/**`를 읽는다.
-- 문서화된 전체 public API coverage 표를 만든다.
-- 구현 구조와 성능 전략을 정리한 뒤 확인을 기다리지 않고 구현한다.
-- 컨텍스트 압축 또는 재개 후에는 정책과 `BRIEF.md`를 다시 읽고 가장 가까운 Next Step부터 재개한다.
+- 첫 시작에는 `pwd`, `git status --short --branch`, 현재 orphan root commit, export manifest와 50개 payload checksum을 확인하고 `AGENTS.md`, 이 정책, `BRIEF.md` 및 승인된 전체 계약 자료를 읽는다.
+- 구현 시작 전에는 범위 누락과 주요 위험을 식별할 수 있는 초기 public API coverage inventory를 만든다.
+- 구현 구조와 성능 전략을 정리한 뒤, 안전 경계 안의 판단은 확인을 기다리지 않고 실행한다.
+- 재개 또는 컨텍스트 압축 후에는 `AGENTS.md`, 이 정책, `BRIEF.md`와 현재 단계에 필요한 승인 자료를 읽고 가장 가까운 Next Step부터 재개한다.
 
 ## 공개 계약 분석
 
-- 모든 public export, 생성자, 공개 속성, 메서드, 옵션, 기본값, 반환값, 오류, 이벤트 이름/payload/순서를 목록화한다.
-- 각 API를 oracle fixture 또는 문서 기반 독립 계약 테스트에 연결한다.
-- 기존 14개 fixture가 없는 공개 API도 누락하지 않는다.
-- 14개 fixture 통과만으로 전체 공개 API 완료를 선언하지 않는다.
+- 초기 inventory에서 public export, 생성자, 공개 속성, 메서드, 옵션, 기본값, 반환값, 오류, 이벤트 이름/payload/순서와 주요 위험을 식별한다.
+- coverage는 구현, fixture 실행, 성능 실험 과정에서 반복적으로 보완하고 각 API를 oracle fixture 또는 문서 기반 독립 계약 테스트에 연결한다.
+- 최종 완료 시에는 기존 14개 fixture가 없는 공개 API를 포함한 문서화된 전체 public API를 누락 없이 다루며, 14개 fixture 통과만으로 전체 공개 API 완료를 선언하지 않는다.
 
-## 구현 순서
+## 권장 초기 구현 순서
+
+- 이 순서는 초기 planning aid이며 고정 workflow가 아니다.
+- 정확성, 성능, 검증 가능성 또는 작업 독립성이 좋아진다면 순서를 변경하거나 병렬화할 수 있다.
+- 향후 해석에 영향을 주는 큰 순서·아키텍처 변경만 `DECISIONS.md`에 기록한다.
 
 1. 프로젝트 구조, public entry point, package exports
 2. Patchmap lifecycle과 LIF-001~002
@@ -81,6 +92,7 @@
 ## 테스트와 패키징
 
 - 문서화된 모든 public API에 자동화 계약 테스트를 둔다.
+- 테스트 작성 순서와 내부 runner 구조는 주 에이전트가 결정하되, 테스트 종류와 완료 gate는 유지한다.
 - LIF-001~002, DRW-001~006, UPD-001~006 actual normalized output을 `artifacts/expected/**`와 비교한다.
 - 선언된 volatile field와 승인된 pixel tolerance 외 차이를 허용하지 않는다.
 - expected output을 구현 결과에 맞춰 변경하지 않는다.
@@ -92,6 +104,7 @@
 ## 성능 검증
 
 - 제공된 동일 benchmark 계약을 사용한다.
+- benchmark 계약과 측정 비교 가능성은 유지하되, 추가 profiler, microbenchmark, spike와 실험은 자유롭게 수행할 수 있다.
 - 100, 500, 1,000, 2,000, 5,000 객체를 native와 Chromium 4x proxy에서 측정한다.
 - 각 구간 기본 warmup 2회, measured sample 7회를 사용한다.
 - init, draw, synchronous render, trusted bulk update, update render, teardown, retained heap을 분리한다.
