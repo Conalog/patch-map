@@ -14,16 +14,16 @@ The branch is an orphan-root clean-room workspace containing the approved v3 exp
 
 # Current State
 
-No Goal has been set and no library, conformance runner, test, or performance implementation has started. Only the durable clean-room policy and resume context are fixed. The workspace is ready for the next authorized work phase; implementation choices remain intentionally deferred until the Goal is set.
+The implementation Goal is active. The initial public API inventory covers all package exports, Patchmap surfaces, seven element kinds, four component kinds, 36 conformance areas, and cross-cutting release gates. Fourteen approved fixtures provide normative lifecycle, draw, and update observations, but substantial API areas still require independent contract tests. Observable details absent from the approved handoff are recorded as oracle questions rather than inferred. No library implementation or replacement conformance result exists yet.
 
 # Next Step
 
-After setting the Goal, identify an initial public API coverage inventory and major risks from the approved contracts, then begin implementation and verification using the architecture and execution order selected by the primary agent while refining coverage iteratively.
+Create the package and browser-test scaffold, then implement and verify the lifecycle vertical slice before expanding through draw, update, and the remaining public API while refining coverage iteratively.
 
 # Working Boundary
 
-- `AGENTS.md`
-- `docs/reference/cleanroom-implementation-policy.md`
-- `docs/tasks/2026/07-13/patch-map-v0-10-rewrite/BRIEF.md`
-- `docs/tasks/2026/07-13/patch-map-v0-10-rewrite/logs/DECISIONS.md`
-- `docs/tasks/2026/07-13/patch-map-v0-10-rewrite/logs/WORKLOG.md`
+- `src/`
+- `tests/`
+- `scripts/conformance/`
+- `docs/tasks/2026/07-13/patch-map-v0-10-rewrite/PUBLIC-API-COVERAGE.md`
+- `docs/tasks/2026/07-13/patch-map-v0-10-rewrite/ORACLE-QUESTIONS.md`
