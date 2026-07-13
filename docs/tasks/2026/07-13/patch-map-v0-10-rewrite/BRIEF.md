@@ -14,11 +14,11 @@ The branch is an orphan-root clean-room workspace containing the approved v3 exp
 
 # Current State
 
-The implementation Goal is active. The initial public API inventory covers all package exports, Patchmap surfaces, seven element kinds, four component kinds, 36 conformance areas, and cross-cutting release gates. Fourteen approved fixtures provide normative lifecycle, draw, and update observations, but substantial API areas still require independent contract tests. Observable details absent from the approved handoff are recorded as oracle questions rather than inferred. No library implementation or replacement conformance result exists yet.
+The implementation Goal is active. The initial public API inventory covers all package exports, Patchmap surfaces, seven element kinds, four component kinds, 36 conformance areas, and cross-cutting release gates. The TypeScript/Vite package scaffold now exposes the documented package symbols, and the browser conformance runner compares fresh sessions directly with immutable expected artifacts. The lifecycle vertical slice implements asynchronous idempotent initialization, ready-state publication and event timing, safe pre-init destroy, complete initialized teardown, listener cleanup, history-manager recreation, and same-instance reinitialization. LIF-001 and LIF-002 match exactly across repeated fresh Chromium sessions; build, typecheck, lint, seven independent core unit tests, package dry-run, and audit also pass. Draw, update, rendering, and most independent public contracts remain unimplemented. Observable details absent from the approved handoff remain oracle questions rather than inferred.
 
 # Next Step
 
-Create the package and browser-test scaffold, then implement and verify the lifecycle vertical slice before expanding through draw, update, and the remaining public API while refining coverage iteratively.
+Implement the draw materialization and live scene-handle vertical slice, first fixing replacement, immutability, validation, and asynchronous event semantics, then expanding geometry and all seven element/four component kinds against DRW-001 through DRW-006.
 
 # Working Boundary
 
