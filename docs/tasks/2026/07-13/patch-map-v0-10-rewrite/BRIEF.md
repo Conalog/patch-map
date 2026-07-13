@@ -14,16 +14,16 @@ The branch is an orphan-root clean-room workspace containing the approved v3 exp
 
 # Current State
 
-The implementation Goal is active. The initial public API inventory covers all package exports, Patchmap surfaces, seven element kinds, four component kinds, 36 conformance areas, and cross-cutting release gates. The TypeScript/Vite package scaffold exposes the documented symbols, and the browser runner compares fresh sessions directly with immutable expected artifacts. Lifecycle, draw replacement, deterministic grid materialization, indexed live handles, aggregate rendering, documented selector expression families, and synchronous update targeting are implemented. Update covers merge/replace component reconciliation, refresh, relative and center-origin transforms, missing targets, event suppression and ordering, input immutability, and next-frame scene synchronization. LIF-001~002, DRW-001~006, and UPD-001~006 all match exactly across two repeated fresh Chromium sessions, including strict UPD-005 state and frame-boundary checks with only its policy-approved pixel fields excluded. Build, typecheck, lint, seventeen independent unit contracts, package dry-run, and zero-vulnerability audit pass. Assets, view and canvas-event methods, controller behavior, history grouping, interaction and transformer gestures, helper edge cases, packed-consumer validation, memory safety, and performance gates remain incomplete. Observable details absent from the approved handoff remain oracle questions rather than inferred.
+The implementation Goal is active. The replacement now covers lifecycle, draw and update fixtures, indexed live scene handles, aggregate rendering, selectors, helpers, view/controllers, canvas events, assets, state/selection, transformer gestures, and undo/redo behavior that can be established from approved contracts. Managed scene refreshes coalesce at an explicit render or next-frame boundary while synchronous public state and event bindings remain observable before return. All fourteen fixtures match immutable normalized output in two fresh sessions. Twenty unit files with 131 tests, ten fresh browser-contract sessions, twelve finite memory cycles, exact ESM/CommonJS/UMD/NodeNext packed-consumer checks, package safety, and zero-vulnerability audit pass. Canonical-size S1 and S3/S4 proxy reports pass local gates; developer-native evidence is provisional, implementation rendering uses one backend primitive through 5,000 objects, and headed Windows native remains pending. Legacy conversion, complete validation/default matrices, advanced text, non-empty relations, reference-relative primitive counts, and exact opaque callback/error ABIs remain blocked by observable questions Q1~Q23 or missing approved inputs. During an official dependency search, a dependency source-map result was accidentally emitted; no PATCH MAP, reference, or original implementation material was accessed, and the emitted map content was not used. Clean-room acceptability of that incident requires explicit owner direction.
 
 # Next Step
 
-Implement the next independent public-contract tranche, beginning with helper and history semantics, then connect each completed surface to focused automated tests before proceeding to view, event, interaction, asset, and package gates.
+Present the boundary incident and Q1~Q23 to the owner, request a clean-room acceptability decision plus public observable answers, a safe S2 fixture, reference primitive evidence, and headed Windows results, then resume only within that direction while preserving the completed local gates.
 
 # Working Boundary
 
 - `src/`
 - `tests/`
-- `scripts/conformance/`
+- `scripts/verification/`
 - `docs/tasks/2026/07-13/patch-map-v0-10-rewrite/PUBLIC-API-COVERAGE.md`
 - `docs/tasks/2026/07-13/patch-map-v0-10-rewrite/ORACLE-QUESTIONS.md`

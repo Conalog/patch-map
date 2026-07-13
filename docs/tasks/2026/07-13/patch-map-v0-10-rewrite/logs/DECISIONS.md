@@ -19,3 +19,10 @@
 - Keep the observable managed handle tree under world, but separate it from a sibling aggregate render layer; handles own data, identity, transforms and explicit bounds while the render layer owns draw primitives.
 - This preserves public scene semantics and allows rendering allocations to scale below the public object count without reconstructing or guessing a hidden implementation.
 - Draw and update code must synchronize both layers and tests must cover identity, hierarchy, bounds and pixels independently; the backend may be replaced without changing the public handle model.
+
+**2026-07-13**
+
+- **Background:** Sequential large-scene updates were rebuilding indices, assets, orientation, and aggregate primitives once per target even though public state was already updated synchronously.
+- **Decision:** Coalesce managed-scene reindex and render refresh work until an explicit application render or the next animation frame, while flushing event bindings synchronously when canvas listeners exist.
+- **Why:** One invalidation boundary preserves public return-time state, event readiness, and next-frame visibility while removing target-count-proportional duplicate scene work.
+- **Impact:** Selectors flush pending indices on demand, focus and fit flush complete scene state, draw and destroy cancel pending work, and performance tests must exercise both explicit-render and frame-driven boundaries.
