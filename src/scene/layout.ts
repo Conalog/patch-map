@@ -190,6 +190,30 @@ export const layoutComponent = (
   };
 };
 
+/** Visual-only bar interpolation; public live-handle geometry remains initial. */
+export const layoutAnimatedBar = (
+  component: PublicRecord,
+  item: PublicRecord,
+  progress: number,
+): ComponentLayout => {
+  const start = layoutComponent(component, item);
+  const target = layoutComponent(
+    { ...component, animation: false },
+    item,
+  );
+  const ratio = Math.max(0, Math.min(1, progress));
+  return {
+    x: start.x + (target.x - start.x) * ratio,
+    y: start.y + (target.y - start.y) * ratio,
+    localWidth: start.localWidth +
+      (target.localWidth - start.localWidth) * ratio,
+    localHeight: start.localHeight +
+      (target.localHeight - start.localHeight) * ratio,
+    scaleX: start.scaleX + (target.scaleX - start.scaleX) * ratio,
+    scaleY: start.scaleY + (target.scaleY - start.scaleY) * ratio,
+  };
+};
+
 export const leafBounds = (element: PublicRecord): SceneSize | null => {
   if (element.type === 'rect' || element.type === 'image') {
     return readFixedSize(element.size);

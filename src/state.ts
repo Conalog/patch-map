@@ -37,6 +37,7 @@ export class StateManager extends EventEmitter {
   readonly #registry = new Map<string, StateConstructor>();
   readonly #stack: StateEntry[] = [];
   readonly #store: StateStore;
+  readonly #modifiers = new Set<string>();
   #destroyed = false;
 
   public constructor(store: Omit<StateStore, 'stateManager'> = {}) {
@@ -86,6 +87,23 @@ export class StateManager extends EventEmitter {
     this.#reset(true);
   }
 
+  public activateModifier(name: string, event?: unknown): boolean {
+    if (this.#destroyed || this.#modifiers.has(name)) return false;
+    this.#modifiers.add(name);
+    this.#emitModifier('modifier:activated', { name, event });
+    return true;
+  }
+
+  public deactivateModifier(name: string, event?: unknown): boolean {
+    if (this.#destroyed || !this.#modifiers.delete(name)) return false;
+    this.#emitModifier('modifier:deactivated', { name, event });
+    return true;
+  }
+
+  public isModifierActive(name: string): boolean {
+    return this.#modifiers.has(name);
+  }
+
   public get current(): State | null {
     return this.#stack.at(-1)?.instance ?? null;
   }
@@ -107,6 +125,7 @@ export class StateManager extends EventEmitter {
   public destroy(): void {
     if (this.#destroyed) return;
     this.#reset(false);
+    this.#modifiers.clear();
     this.#registry.clear();
     this.#destroyed = true;
     this.#emitState('state:destroyed', { target: this });
@@ -126,6 +145,9 @@ export class StateManager extends EventEmitter {
     this.emit(event, payload);
     this.emit('state:*', event, payload);
   }
-}
 
-export class SelectionState extends State {}
+  #emitModifier(event: string, payload: unknown): void {
+    this.emit(event, payload);
+    this.emit('modifier:*', event, payload);
+  }
+}

@@ -5,12 +5,16 @@ const ID_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuv
 
 export const uid = (): string => {
   const bytes = new Uint8Array(15);
-  globalThis.crypto?.getRandomValues(bytes);
-  if (!globalThis.crypto) {
+  const crypto = globalThis.crypto;
+
+  if (crypto && typeof crypto.getRandomValues === 'function') {
+    crypto.getRandomValues(bytes);
+  } else {
     for (let index = 0; index < bytes.length; index += 1) {
       bytes[index] = Math.floor(Math.random() * 256);
     }
   }
+
   return [...bytes].map((value) => ID_ALPHABET[value & 63]).join('');
 };
 

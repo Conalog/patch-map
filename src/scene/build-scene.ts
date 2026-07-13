@@ -7,8 +7,14 @@ import {
   type MaterializedMapElement,
 } from '../model/materialize';
 import type { PatchmapTheme } from '../theme';
-import { layoutComponent, leafBounds } from './layout';
 import {
+  layoutComponent,
+  leafBounds,
+  type ComponentLayout,
+} from './layout';
+import {
+  setManagedBatchToken,
+  setManagedTheme,
   ManagedNode,
   type ManagedNodeProps,
 } from './managed-node';
@@ -49,7 +55,7 @@ const indexNode = (scene: ManagedScene, node: ManagedNode): void => {
 const asManagedProps = (value: MaterializedMapElement | MaterializedItemComponent): ManagedNodeProps =>
   value as ManagedNodeProps;
 
-const liveElementProps = (
+export const liveElementProps = (
   element: MaterializedMapElement,
   theme: PatchmapTheme,
 ): MaterializedMapElement => {
@@ -71,8 +77,12 @@ const createComponentNode = (
   component: MaterializedItemComponent,
   item: MaterializedItemElement,
   scene: ManagedScene,
+  theme: PatchmapTheme,
+  batchToken?: object,
 ): ManagedNode => {
   const node = new ManagedNode(asManagedProps(component));
+  setManagedTheme(node, theme);
+  if (batchToken) setManagedBatchToken(node, batchToken);
   layoutManagedComponentNode(node, item);
   indexNode(scene, node);
   return node;
@@ -86,6 +96,13 @@ export const layoutManagedComponentNode = (
     node.props as unknown as Record<string, unknown>,
     item as unknown as Record<string, unknown>,
   );
+  applyManagedComponentLayout(node, layout);
+};
+
+export const applyManagedComponentLayout = (
+  node: ManagedNode,
+  layout: ComponentLayout,
+): void => {
   node.position.set(layout.x, layout.y);
   node.scale.set(layout.scaleX, layout.scaleY);
   if (layout.localWidth > 0 || layout.localHeight > 0) {
@@ -117,9 +134,17 @@ const createItemChildren = (
   node: ManagedNode,
   item: MaterializedItemElement,
   scene: ManagedScene,
+  theme: PatchmapTheme,
+  batchTokens?: readonly object[],
 ): void => {
-  for (const component of item.components) {
-    node.addChild(createComponentNode(component, item, scene));
+  for (const [index, component] of item.components.entries()) {
+    node.addChild(createComponentNode(
+      component,
+      item,
+      scene,
+      theme,
+      batchTokens?.[index],
+    ));
   }
 };
 
@@ -130,6 +155,7 @@ const createElementNode = (
 ): ManagedNode => {
   const publicProps = liveElementProps(element, theme);
   const node = new ManagedNode(asManagedProps(publicProps));
+  setManagedTheme(node, theme);
   const bounds = leafBounds(publicProps as unknown as Record<string, unknown>);
   if (bounds && (bounds.width > 0 || bounds.height > 0)) {
     node.setLocalBounds(bounds);
@@ -141,12 +167,16 @@ const createElementNode = (
       node.addChild(createElementNode(child, theme, scene));
     }
   } else if (element.type === 'item') {
-    createItemChildren(node, element, scene);
+    createItemChildren(node, element, scene, theme);
   } else if (element.type === 'grid') {
+    const batchTokens = element.item.components.map(() => ({}));
+    const itemBatchToken = {};
     for (const item of materializeGridItems(element)) {
       const child = new ManagedNode(asManagedProps(item));
+      setManagedTheme(child, theme);
+      setManagedBatchToken(child, itemBatchToken);
       indexNode(scene, child);
-      createItemChildren(child, item, scene);
+      createItemChildren(child, item, scene, theme, batchTokens);
       node.addChild(child);
     }
   }

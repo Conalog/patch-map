@@ -5,12 +5,11 @@ import {
   Command,
   PROPAGATE_EVENT,
   State,
-  StateManager,
   Transformer,
   UndoRedoManager,
   uid,
 } from '../src';
-import type { StateStore } from '../src/state';
+import { StateManager, type StateStore } from '../src/state';
 
 class CounterCommand extends Command {
   readonly #apply: (delta: number) => void;

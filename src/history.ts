@@ -19,9 +19,35 @@ export interface ExecuteCommandOptions {
 }
 
 interface HistoryEntry {
-  command: Command;
+  commands: Command[];
   historyId: string | null;
 }
+
+type CommandMethod = 'execute' | 'undo';
+
+const isPromiseLike = (value: void | Promise<void>): value is Promise<void> =>
+  value !== undefined && typeof value.then === 'function';
+
+const runCommands = (
+  commands: readonly Command[],
+  method: CommandMethod,
+): void | Promise<void> => {
+  let pending: Promise<void> | undefined;
+
+  for (const command of commands) {
+    if (pending) {
+      pending = pending.then(() => command[method]()).then(() => undefined);
+      continue;
+    }
+
+    const result = command[method]();
+    if (isPromiseLike(result)) {
+      pending = Promise.resolve(result).then(() => undefined);
+    }
+  }
+
+  return pending;
+};
 
 export class UndoRedoManager extends EventEmitter {
   readonly #limit: number;
@@ -35,24 +61,24 @@ export class UndoRedoManager extends EventEmitter {
   }
 
   public get commands(): readonly Command[] {
-    return this.#done.map(({ command }) => command);
+    return this.#done.map(({ commands }) => commands[commands.length - 1] as Command);
   }
 
   public execute(command: Command, options: ExecuteCommandOptions = {}): void | Promise<void> {
     if (this.#destroyed) return undefined;
 
     const result = command.execute();
-    const entry = { command, historyId: options.historyId ?? null };
+    const historyId = options.historyId ?? null;
     const prior = this.#done.at(-1);
 
-    if (entry.historyId !== null && prior?.historyId === entry.historyId) {
-      this.#done[this.#done.length - 1] = entry;
+    if (historyId !== null && prior?.historyId === historyId) {
+      prior.commands.push(command);
     } else {
-      this.#done.push(entry);
+      this.#done.push({ commands: [command], historyId });
       if (this.#done.length > this.#limit) this.#done.shift();
     }
     this.#undone = [];
-    this.#emitHistory('history:executed', { command, historyId: entry.historyId });
+    this.#emitHistory('history:executed', { command, historyId });
     return result;
   }
 
@@ -60,9 +86,9 @@ export class UndoRedoManager extends EventEmitter {
     if (this.#destroyed) return undefined;
     const entry = this.#done.pop();
     if (!entry) return undefined;
-    const result = entry.command.undo();
+    const result = runCommands([...entry.commands].reverse(), 'undo');
     this.#undone.push(entry);
-    this.#emitHistory('history:undone', { command: entry.command });
+    this.#emitHistory('history:undone', { command: entry.commands.at(-1) });
     return result;
   }
 
@@ -70,9 +96,9 @@ export class UndoRedoManager extends EventEmitter {
     if (this.#destroyed) return undefined;
     const entry = this.#undone.pop();
     if (!entry) return undefined;
-    const result = entry.command.execute();
+    const result = runCommands(entry.commands, 'execute');
     this.#done.push(entry);
-    this.#emitHistory('history:redone', { command: entry.command });
+    this.#emitHistory('history:redone', { command: entry.commands.at(-1) });
     return result;
   }
 

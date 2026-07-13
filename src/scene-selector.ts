@@ -60,6 +60,11 @@ const restorePublicValues = (value: unknown): unknown => {
   return value;
 };
 
+const normalizeScenePath = (path: string): string =>
+  path.startsWith('$..[?(')
+    ? `$..children[?(${path.slice('$..[?('.length)}`
+    : path;
+
 export const selectScene = (
   root: Container,
   path: string,
@@ -67,7 +72,7 @@ export const selectScene = (
 ): unknown[] => {
   const projection = projectNode(root as PublicSceneNode, null);
   const selected = JSONPath<unknown[]>({
-    path,
+    path: normalizeScenePath(path),
     json: projection,
     wrap: true,
     ...options,

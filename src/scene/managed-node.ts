@@ -8,6 +8,7 @@ import type {
   MaterializedElementProps,
   PublicNodeData,
 } from '../contracts';
+import type { PatchmapTheme } from '../theme';
 
 export type ManagedNodeProps<T extends PublicNodeData = PublicNodeData> =
   T extends MapElementData
@@ -30,7 +31,26 @@ export interface ManagedNodeOptions {
 export interface ReplaceManagedNodePropsOptions {
   /** Reapply observable fields even when their materialized values are equal. */
   refresh?: boolean;
+  /** Retain an implementation-owned homogeneous grid template marker. */
+  preserveBatch?: boolean;
 }
+
+const managedBatchTokens = new WeakMap<ManagedNode, object>();
+const managedThemes = new WeakMap<ManagedNode, PatchmapTheme>();
+
+export const setManagedBatchToken = (node: ManagedNode, token: object): void => {
+  managedBatchTokens.set(node, token);
+};
+
+export const getManagedBatchToken = (node: ManagedNode): object | undefined =>
+  managedBatchTokens.get(node);
+
+export const setManagedTheme = (node: ManagedNode, theme: PatchmapTheme): void => {
+  managedThemes.set(node, theme);
+};
+
+export const getManagedTheme = (node: ManagedNode): PatchmapTheme | undefined =>
+  managedThemes.get(node);
 
 type ManagedAttributes = ManagedNodeProps['attrs'];
 
@@ -100,6 +120,9 @@ export class ManagedNode<T extends PublicNodeData = PublicNodeData> extends Cont
 
     const previous = this.#props;
     this.#props = next;
+    if (options.preserveBatch !== true) managedBatchTokens.delete(this);
+    this.id = next.id;
+    this.type = next.type;
     const refresh = options.refresh === true;
 
     if (refresh || previous.label !== next.label) this.#applyLabel(next);
@@ -136,7 +159,9 @@ export class ManagedNode<T extends PublicNodeData = PublicNodeData> extends Cont
     const y = finiteNumber(bounds.y);
     const width = finiteNumber(bounds.width);
     const height = finiteNumber(bounds.height);
-    this.boundsArea = new Rectangle(x, y, width, height);
+    const rectangle = new Rectangle(x, y, width, height);
+    this.boundsArea = rectangle;
+    this.hitArea = rectangle;
     this.#managedLocalBounds ??= new Bounds();
     this.#managedLocalBounds.set(x, y, x + width, y + height);
 
@@ -147,6 +172,7 @@ export class ManagedNode<T extends PublicNodeData = PublicNodeData> extends Cont
     if (!this.destroyed) {
       this.#managedLocalBounds = null;
       Reflect.set(this, 'boundsArea', null);
+      this.hitArea = null;
     }
     return this;
   }
@@ -158,8 +184,11 @@ export class ManagedNode<T extends PublicNodeData = PublicNodeData> extends Cont
   public override destroy(options?: DestroyOptions): void {
     if (this.destroyed) return;
     this.onRender = null;
+    managedBatchTokens.delete(this);
+    managedThemes.delete(this);
     this.#managedLocalBounds = null;
     Reflect.set(this, 'boundsArea', null);
+    this.hitArea = null;
     super.destroy(options);
   }
 

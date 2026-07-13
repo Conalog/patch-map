@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ItemElementData } from '../src/contracts';
+import { UndoRedoManager } from '../src/history';
 import {
   materializeElement,
   type MaterializedItemElement,
 } from '../src/model/materialize';
 import { ManagedNode, type ManagedNodeProps } from '../src/scene/managed-node';
 import { applyManagedUpdate } from '../src/update/apply';
+import { ManagedUpdateCommand } from '../src/update/command';
 import {
   deepMerge,
   matchComponentUpdates,
@@ -16,11 +18,10 @@ import {
 const itemNode = (input: ItemElementData): ManagedNode => {
   const item = materializeElement(input) as MaterializedItemElement;
   const node = new ManagedNode(item as ManagedNodeProps);
-  node.addChild(
-    ...item.components.map(
-      (component) => new ManagedNode(component as ManagedNodeProps),
-    ),
+  const children = item.components.map(
+    (component) => new ManagedNode(component as ManagedNodeProps),
   );
+  if (children.length > 0) node.addChild(...children);
   return node;
 };
 
@@ -120,6 +121,76 @@ describe('update merge semantics', () => {
       text: 'replacement',
       style: { fill: 'red' },
     });
+    node.destroy({ children: true });
+  });
+});
+
+describe('ManagedUpdateCommand', () => {
+  it('groups update history while restoring the pre-group and final states', async () => {
+    const node = itemNode({
+      type: 'item',
+      id: 'history-item',
+      size: 64,
+      attrs: { x: 0, y: 0 },
+      components: [],
+    });
+    const manager = new UndoRedoManager();
+    let refreshes = 0;
+    const refresh = (): void => {
+      refreshes += 1;
+    };
+
+    await manager.execute(
+      new ManagedUpdateCommand([node], { changes: { attrs: { x: 10 } } }, refresh),
+      { historyId: 'drag' },
+    );
+    await manager.execute(
+      new ManagedUpdateCommand([node], { changes: { attrs: { x: 25 } } }, refresh),
+      { historyId: 'drag' },
+    );
+    expect(node.x).toBe(25);
+    expect(manager.commands).toHaveLength(1);
+
+    await manager.undo();
+    expect(node.x).toBe(0);
+    await manager.redo();
+    expect(node.x).toBe(25);
+    expect(refreshes).toBe(6);
+    node.destroy({ children: true });
+  });
+
+  it('undoes and redoes component-array replacement with live identity', async () => {
+    const node = itemNode({
+      type: 'item',
+      id: 'history-components',
+      size: 64,
+      components: [
+        { type: 'text', id: 'copy', label: 'copy', text: 'before' },
+        { type: 'icon', id: 'icon', source: 'device', size: 16 },
+      ],
+    });
+    const originalText = node.children[0];
+    const manager = new UndoRedoManager();
+    await manager.execute(new ManagedUpdateCommand(
+      [node],
+      {
+        mergeStrategy: 'replace',
+        changes: {
+          components: [{ type: 'text', id: 'copy', text: 'after' }],
+        },
+      },
+      () => undefined,
+    ));
+
+    expect(node.children).toEqual([originalText]);
+    expect((node.children[0] as ManagedNode).props).toMatchObject({ text: 'after' });
+    await manager.undo();
+    expect(node.children).toHaveLength(2);
+    expect(node.children[0]).toBe(originalText);
+    expect((node.children[0] as ManagedNode).props).toMatchObject({ text: 'before' });
+    await manager.redo();
+    expect(node.children).toEqual([originalText]);
+    expect((node.children[0] as ManagedNode).props).toMatchObject({ text: 'after' });
     node.destroy({ children: true });
   });
 });

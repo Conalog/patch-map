@@ -136,6 +136,9 @@ describe('selectScene documented expression families', () => {
 
   it('filters by id, type, label, display, and parent properties', () => {
     expect(
+      selectScene(scene.world, '$..[?(@.label === "Rack Alpha")]'),
+    ).toEqual([scene.rackAlpha]);
+    expect(
       selectScene(scene.world, '$..children[?(@.id === "node-beta")]'),
     ).toEqual([scene.nodeBeta]);
     expect(ids(selectScene(scene.world, '$..children[?(@.type === "item")]'))).toEqual([

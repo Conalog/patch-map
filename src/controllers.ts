@@ -36,6 +36,11 @@ export class RotationController {
     return this.#value;
   }
 
+  /** Restore the pre-initialized controller state without publishing an event. */
+  public restoreInitialState(): void {
+    this.#value = 0;
+  }
+
   public apply(): void {
     if (this.#host.world) this.#host.world.angle = this.#value;
     this.#host.syncViewTransform();
@@ -91,6 +96,12 @@ export class FlipController {
     this.#y = false;
     this.#applyAndEmit();
     return { x: false, y: false };
+  }
+
+  /** Restore the pre-initialized controller state without publishing an event. */
+  public restoreInitialState(): void {
+    this.#x = false;
+    this.#y = false;
   }
 
   public apply(): void {

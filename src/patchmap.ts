@@ -4,32 +4,69 @@ import type { ApplicationOptions } from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
 import type { IViewportOptions } from 'pixi-viewport';
 
-import type { UpdateOptions } from './contracts';
+import {
+  getCachedSceneTexture,
+  ManagedAssets,
+  ManagedSceneAssets,
+} from './assets';
+import { CanvasEventManager } from './canvas-events';
+import type {
+  FitOptions,
+  FocusIds,
+  FocusOptions,
+  UpdateOptions,
+} from './contracts';
 import { FlipController, RotationController } from './controllers';
 import { UndoRedoManager } from './history';
 import { materializeMapData, type MaterializedMapData } from './model/materialize';
 import { selectScene } from './scene-selector';
+import { SelectionState } from './selection-state';
 import {
   buildManagedScene,
   reindexManagedScene,
   type ManagedScene,
 } from './scene/build-scene';
+import { applyContentOrientation } from './scene/content-orientation';
 import { ManagedNode } from './scene/managed-node';
 import { AggregateRenderLayer } from './scene/render-layer';
-import { SelectionState, StateManager } from './state';
+import { StateManager } from './state';
 import {
   materializeTheme,
   type DeepPartial,
   type PatchmapTheme,
 } from './theme';
-import type { Transformer } from './transformer';
-import { applyManagedUpdate } from './update/apply';
+import type { Transformer, TransformerGesturePayload } from './transformer';
+import {
+  AppliedTransformCommand,
+  captureManagedTransforms,
+  sameManagedTransforms,
+  type ManagedTransformSnapshot,
+} from './transformer-command';
+import { applyManagedUpdates } from './update/apply';
+import { ManagedUpdateCommand } from './update/command';
+import {
+  fitScaleFor,
+  measureViewTargets,
+  normalizeFitPadding,
+  resolveViewTargets,
+} from './view';
 
 type ViewportPluginName = 'clampZoom' | 'drag' | 'wheel' | 'pinch' | 'decelerate';
 type ViewportPluginOptions = Record<
   ViewportPluginName,
   ({ disabled?: boolean } & Record<string, unknown>) | undefined
 >;
+
+export interface PatchmapViewportPluginFacade {
+  add(plugins: Record<string, ({ disabled?: boolean } & Record<string, unknown>) | undefined>): Viewport;
+  stop(name: string): void;
+  start(name: string): void;
+  remove(name: string): void;
+}
+
+export type PatchmapViewport = Viewport & {
+  readonly plugin: PatchmapViewportPluginFacade;
+};
 
 export interface PatchmapInitOptions {
   app?: Partial<ApplicationOptions>;
@@ -61,9 +98,70 @@ const DEFAULT_VIEWPORT_PLUGINS: ViewportPluginOptions = {
 const isManagedNodeValue = (value: unknown): value is ManagedNode =>
   value instanceof ManagedNode;
 
+const pluginInstallerName = (name: string): string =>
+  name.replace(/-([a-z])/gu, (_match, letter: string) => letter.toUpperCase());
+
+const pluginManagerName = (name: string): string =>
+  name.replace(/[A-Z]/gu, (letter) => `-${letter.toLowerCase()}`);
+
+const resolveViewportPlugin = (
+  viewport: Viewport,
+  name: string,
+): { key: string; plugin: NonNullable<ReturnType<Viewport['plugins']['get']>> } | null => {
+  const candidates = new Set([
+    name,
+    pluginManagerName(name),
+    pluginInstallerName(name),
+  ]);
+  for (const candidate of candidates) {
+    const plugin = viewport.plugins.get(candidate);
+    if (plugin) return { key: candidate, plugin };
+  }
+  return null;
+};
+
+const installViewportPluginFacade = (viewport: Viewport): PatchmapViewport => {
+  const facade: PatchmapViewportPluginFacade = {
+    add(plugins) {
+      for (const [name, options] of Object.entries(plugins)) {
+        if (!options || options.disabled) continue;
+        const { disabled: _disabled, ...cleanOptions } = options;
+        const installer: unknown = (
+          viewport as unknown as Record<string, unknown>
+        )[pluginInstallerName(name)];
+        if (typeof installer !== 'function') {
+          throw new TypeError(`Unknown viewport plugin: ${name}`);
+        }
+        const install = installer as (
+          this: Viewport,
+          options: Record<string, unknown>,
+        ) => unknown;
+        Reflect.apply(install, viewport, [cleanOptions]);
+      }
+      return viewport;
+    },
+    stop(name) {
+      resolveViewportPlugin(viewport, name)?.plugin.pause();
+    },
+    start(name) {
+      resolveViewportPlugin(viewport, name)?.plugin.resume();
+    },
+    remove(name) {
+      const registered = resolveViewportPlugin(viewport, name);
+      if (registered) viewport.plugins.remove(registered.key);
+    },
+  };
+  Object.defineProperty(viewport, 'plugin', {
+    configurable: true,
+    enumerable: true,
+    value: facade,
+  });
+  return viewport as PatchmapViewport;
+};
+
 export class Patchmap extends EventEmitter {
   public app: Application | null = null;
-  public viewport: Viewport | null = null;
+  public viewport: PatchmapViewport | null = null;
   public world: Container | null = null;
   public theme: PatchmapTheme = materializeTheme();
   public isInit = false;
@@ -71,6 +169,12 @@ export class Patchmap extends EventEmitter {
   public stateManager: StateManager | null = null;
   public readonly rotation = new RotationController(this);
   public readonly flip = new FlipController(this);
+  public readonly event = new CanvasEventManager((path) => {
+    if (path === '$') return this.viewport ? [this.viewport] : [];
+    return this.selector(path).filter(
+      (value): value is Container => value instanceof Container,
+    );
+  });
   public animationContext: Record<string, unknown> | null = null;
 
   #transformer: Transformer | null = null;
@@ -79,6 +183,12 @@ export class Patchmap extends EventEmitter {
   #renderLayer: AggregateRenderLayer | null = null;
   #managedScene: ManagedScene | null = null;
   #drawVersion = 0;
+  readonly #assets = new ManagedAssets();
+  readonly #sceneAssets = new ManagedSceneAssets();
+  #assetCleanup: Promise<void> = Promise.resolve();
+  #stateUnbind: Array<() => void> = [];
+  #transformerUnbind: (() => void) | null = null;
+  #transformBefore: ManagedTransformSnapshot[] | null = null;
 
   public get transformer(): Transformer | null {
     return this.#transformer;
@@ -87,11 +197,13 @@ export class Patchmap extends EventEmitter {
   public set transformer(value: Transformer | null) {
     if (value === this.#transformer) return;
     const previous = this.#transformer;
+    this.#unbindTransformer();
     this.#transformer = value;
     if (previous && !previous.destroyed) previous.destroy();
     if (value && this.viewport && value.parent !== this.viewport) {
       this.viewport.addChild(value);
     }
+    if (value) this.#bindTransformer(value);
   }
 
   public init(element: HTMLElement, options: PatchmapInitOptions = {}): Promise<void> {
@@ -111,16 +223,29 @@ export class Patchmap extends EventEmitter {
   ): Promise<void> {
     try {
       await app.init({ ...DEFAULT_APP_OPTIONS, ...options.app });
-      if (this.app !== app) return;
+      if (this.app !== app) {
+        this.#destroyApplication(app);
+        return;
+      }
+      await this.#assetCleanup;
+      if (this.app !== app) {
+        this.#destroyApplication(app);
+        return;
+      }
+      if (options.assets !== undefined) await this.#assets.register(options.assets);
+      if (this.app !== app) {
+        this.#destroyApplication(app);
+        return;
+      }
 
       const { plugins: requestedPlugins, ...viewportOptions } = options.viewport ?? {};
-      const viewport = new Viewport({
+      const viewport = installViewportPluginFacade(new Viewport({
         screenWidth: app.screen.width,
         screenHeight: app.screen.height,
         passiveWheel: false,
         ...viewportOptions,
         events: app.renderer.events,
-      });
+      }));
       const world = new Container();
       world.label = 'patch-map-world';
       const renderLayer = new AggregateRenderLayer(() => this.theme);
@@ -135,22 +260,30 @@ export class Patchmap extends EventEmitter {
       this.theme = materializeTheme(options.theme);
       this.stateManager = new StateManager({ patchmap: this });
       this.stateManager.register('selection', SelectionState);
+      this.#bindStateEvents(app, viewport, this.stateManager);
       element.appendChild(app.canvas);
       this.#observeResize(element, app, viewport);
       this.rotation.apply();
       this.flip.apply();
-      if (options.transformer) this.transformer = options.transformer;
+      if (options.transformer && options.transformer !== this.#transformer) {
+        this.transformer = options.transformer;
+      }
+      if (
+        this.#transformer &&
+        !this.#transformer.destroyed &&
+        this.#transformer.parent !== viewport
+      ) {
+        viewport.addChild(this.#transformer);
+      }
       this.isInit = true;
       this.emit('patchmap:initialized', { target: this });
     } catch (error) {
       if (this.app === app) {
-        try {
-          app.destroy({ removeView: true }, { children: true });
-        } catch {
-          // The renderer may be only partially initialized.
-        }
         this.app = null;
       }
+      this.#destroyApplication(app);
+      this.#unbindStateEvents();
+      await this.#clearAssets();
       throw error;
     } finally {
       this.#initPromise = null;
@@ -158,7 +291,19 @@ export class Patchmap extends EventEmitter {
   }
 
   public destroy(): void {
-    if (!this.isInit) return;
+    if (!this.isInit) {
+      // A destroy before init() is a no-op. Once init() has started, however,
+      // invalidate its ownership so a late async completion cannot resurrect
+      // an instance the consumer already discarded.
+      if (this.#initPromise && this.app) {
+        this.app = null;
+        this.#drawVersion += 1;
+        this.#unbindStateEvents();
+        this.event.removeAll();
+        this.#assetCleanup = this.#clearAssets();
+      }
+      return;
+    }
 
     const app = this.app;
     const stateManager = this.stateManager;
@@ -174,9 +319,16 @@ export class Patchmap extends EventEmitter {
     this.#renderLayer = null;
     this.#managedScene = null;
     this.#drawVersion += 1;
+    this.theme = materializeTheme();
     this.animationContext = null;
+    this.rotation.restoreInitialState();
+    this.flip.restoreInitialState();
     this.#resizeObserver?.disconnect();
     this.#resizeObserver = null;
+    this.#unbindStateEvents();
+    this.#unbindTransformer();
+    this.event.removeAll();
+    this.#assetCleanup = this.#clearAssets();
 
     stateManager?.destroy();
     if (transformer && !transformer.destroyed) transformer.destroy();
@@ -195,16 +347,28 @@ export class Patchmap extends EventEmitter {
 
     const data = materializeMapData(input);
     const scene = buildManagedScene(data, this.theme);
+    const version = ++this.#drawVersion;
+    this.event.removeAll();
     const previousChildren = world.removeChildren();
     for (const child of previousChildren) {
       if (!child.destroyed) child.destroy({ children: true });
     }
-    world.addChild(...scene.roots);
-    renderLayer.renderScene(scene.roots);
+    if (scene.roots.length > 0) world.addChild(...scene.roots);
     this.#managedScene = scene;
+    this.#applyLoadedAssetBounds();
+    applyContentOrientation(scene, this.rotation.value, {
+      x: this.flip.x,
+      y: this.flip.y,
+    });
+    renderLayer.renderScene(scene.roots);
     this.undoRedoManager.clear();
 
-    const version = ++this.#drawVersion;
+    void this.#sceneAssets.refresh(data, () => {
+      if (!this.isInit || version !== this.#drawVersion) return;
+      this.#applyLoadedAssetBounds();
+      this.#renderLayer?.renderScene(scene.roots);
+    });
+
     queueMicrotask(() => {
       if (this.isInit && version === this.#drawVersion) {
         this.emit('patchmap:draw', { target: this, data });
@@ -235,6 +399,9 @@ export class Patchmap extends EventEmitter {
   }
 
   public update(options: UpdateOptions<ManagedNode> = {}): ManagedNode[] {
+    if (options.changes === undefined && options.refresh !== true) {
+      throw new TypeError('Patchmap.update requires changes unless refresh is true.');
+    }
     const targets: ManagedNode[] = [];
     const append = (value: unknown): void => {
       if (Array.isArray(value)) {
@@ -247,15 +414,62 @@ export class Patchmap extends EventEmitter {
     if (options.elements !== undefined) append(options.elements);
     if (options.path !== undefined) append(this.selector(options.path));
 
-    for (const target of targets) applyManagedUpdate(target, options);
-    if (this.#managedScene) {
-      reindexManagedScene(this.#managedScene);
-      this.#renderLayer?.renderScene(this.#managedScene.roots);
+    const refreshScene = (): void => this.#refreshManagedScene(
+      true,
+      true,
+      true,
+      null,
+      options.refresh === true,
+    );
+    if (options.history === true || typeof options.history === 'string') {
+      void this.undoRedoManager.execute(
+        new ManagedUpdateCommand(targets, options, refreshScene),
+        typeof options.history === 'string'
+          ? { historyId: options.history }
+          : undefined,
+      );
+    } else {
+      const effects = applyManagedUpdates(targets, options);
+      this.#refreshManagedScene(
+        effects.reindex,
+        effects.assets,
+        effects.orientation,
+        effects.componentTypes,
+        options.refresh === true,
+      );
     }
     if (options.emit !== false) {
       this.emit('patchmap:updated', { target: this, elements: targets });
     }
     return targets;
+  }
+
+  public focus(
+    ids?: FocusIds,
+    options: FocusOptions<ManagedNode> = {},
+  ): void {
+    const viewport = this.viewport;
+    if (!viewport) return;
+    const targets = resolveViewTargets(this.#managedScene, ids, options.filter);
+    const bounds = measureViewTargets(targets, viewport);
+    if (!bounds) return;
+    viewport.moveCenter(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  }
+
+  public fit(ids?: FocusIds, options: FitOptions<ManagedNode> = {}): void {
+    const viewport = this.viewport;
+    if (!viewport) return;
+    const padding = normalizeFitPadding(options.padding);
+    const targets = resolveViewTargets(this.#managedScene, ids, options.filter);
+    const bounds = measureViewTargets(targets, viewport);
+    if (!bounds) return;
+    const scale = fitScaleFor(
+      bounds,
+      { width: viewport.screenWidth, height: viewport.screenHeight },
+      padding,
+    );
+    if (scale !== null) viewport.setZoom(scale, false);
+    viewport.moveCenter(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
   }
 
   public syncViewTransform(): void {
@@ -265,6 +479,10 @@ export class Patchmap extends EventEmitter {
     renderLayer.angle = world.angle;
     renderLayer.scale.copyFrom(world.scale);
     renderLayer.position.copyFrom(world.position);
+    applyContentOrientation(this.#managedScene, this.rotation.value, {
+      x: this.flip.x,
+      y: this.flip.y,
+    });
   }
 
   #configureViewport(
@@ -286,10 +504,181 @@ export class Patchmap extends EventEmitter {
 
   #observeResize(element: HTMLElement, app: Application, viewport: Viewport): void {
     if (typeof ResizeObserver === 'undefined') return;
-    this.#resizeObserver = new ResizeObserver(() => {
+    this.#resizeObserver = new ResizeObserver((entries) => {
       if (this.app !== app || !this.isInit) return;
+      const entry = entries.find(({ target }) => target === element);
+      const width = entry?.contentRect.width ?? element.clientWidth;
+      const height = entry?.contentRect.height ?? element.clientHeight;
+      if (!(width > 0 && height > 0)) return;
+      app.renderer.resize(width, height);
       viewport.resize(app.screen.width, app.screen.height);
     });
     this.#resizeObserver.observe(element);
+  }
+
+  #bindStateEvents(
+    app: Application,
+    viewport: Viewport,
+    stateManager: StateManager,
+  ): void {
+    this.#unbindStateEvents();
+    viewport.eventMode = 'static';
+    const dispatch = (name: string, event: unknown): void => {
+      stateManager.dispatch(name, event);
+      stateManager.dispatch(`on${name}`, event);
+    };
+    for (const name of [
+      'pointerdown',
+      'pointermove',
+      'pointerup',
+      'pointerupoutside',
+      'click',
+      'pointerover',
+      'rightclick',
+    ]) {
+      const listener = (event: unknown): void => dispatch(name, event);
+      viewport.on(name, listener);
+      this.#stateUnbind.push(() => viewport.off(name, listener));
+    }
+
+    const contextMenu = (event: Event): void => event.preventDefault();
+    app.canvas.addEventListener('contextmenu', contextMenu);
+    this.#stateUnbind.push(() => app.canvas.removeEventListener('contextmenu', contextMenu));
+
+    if (typeof window !== 'undefined') {
+      const modifier = (key: string): string | null => {
+        switch (key) {
+          case 'Shift': return 'shift';
+          case 'Control': return 'control';
+          case 'Meta': return 'meta';
+          case 'Alt': return 'alt';
+          default: return null;
+        }
+      };
+      const keydown = (event: KeyboardEvent): void => {
+        const name = modifier(event.key);
+        if (name) stateManager.activateModifier(name, event);
+        dispatch('keydown', event);
+      };
+      const keyup = (event: KeyboardEvent): void => {
+        const name = modifier(event.key);
+        if (name) stateManager.deactivateModifier(name, event);
+        dispatch('keyup', event);
+      };
+      window.addEventListener('keydown', keydown);
+      window.addEventListener('keyup', keyup);
+      this.#stateUnbind.push(() => window.removeEventListener('keydown', keydown));
+      this.#stateUnbind.push(() => window.removeEventListener('keyup', keyup));
+    }
+  }
+
+  #unbindStateEvents(): void {
+    for (const unbind of this.#stateUnbind.splice(0)) unbind();
+  }
+
+  #refreshManagedScene(
+    reindex: boolean,
+    refreshAssets = true,
+    refreshOrientation = true,
+    componentTypes: readonly string[] | null = null,
+    restartAnimations = false,
+  ): void {
+    if (!this.#managedScene) return;
+    if (reindex) {
+      reindexManagedScene(this.#managedScene);
+      this.event.refresh();
+    }
+    if (refreshAssets) this.#applyLoadedAssetBounds();
+    if (refreshOrientation) {
+      applyContentOrientation(this.#managedScene, this.rotation.value, {
+        x: this.flip.x,
+        y: this.flip.y,
+      });
+    }
+    this.#renderLayer?.renderScene(
+      this.#managedScene.roots,
+      componentTypes || restartAnimations
+        ? {
+          ...(componentTypes ? { componentTypes } : {}),
+          ...(restartAnimations ? { restartAnimations: true } : {}),
+        }
+        : undefined,
+    );
+    if (!refreshAssets) return;
+
+    const scene = this.#managedScene;
+    const version = this.#drawVersion;
+    void this.#sceneAssets.refresh(
+      scene.all.map((node) => node.props),
+      () => {
+        if (!this.isInit || version !== this.#drawVersion) return;
+        this.#applyLoadedAssetBounds();
+        this.#renderLayer?.renderScene(scene.roots);
+      },
+    );
+  }
+
+  #applyLoadedAssetBounds(): void {
+    if (!this.#managedScene) return;
+    for (const node of this.#managedScene.all) {
+      if (node.type !== 'image') continue;
+      const props = node.props as unknown as Record<string, unknown>;
+      if (props.size !== undefined) continue;
+      const texture = getCachedSceneTexture(props.source);
+      if (texture && texture.width > 0 && texture.height > 0) {
+        node.setLocalBounds({ width: texture.width, height: texture.height });
+      } else {
+        node.clearLocalBounds();
+      }
+    }
+  }
+
+  #bindTransformer(transformer: Transformer): void {
+    const onTransform = (payload: TransformerGesturePayload): void => {
+      if (payload.phase === 'start') {
+        this.#transformBefore = captureManagedTransforms(payload.elements);
+        return;
+      }
+
+      this.#refreshManagedScene(false, false);
+      if (payload.phase !== 'end') return;
+      const before = this.#transformBefore;
+      this.#transformBefore = null;
+      if (!before || payload.historyId === undefined) return;
+      const after = captureManagedTransforms(payload.elements);
+      if (sameManagedTransforms(before, after)) return;
+      void this.undoRedoManager.execute(
+        new AppliedTransformCommand(
+          payload.historyId,
+          before,
+          after,
+          () => this.#refreshManagedScene(false, false),
+        ),
+        { historyId: payload.historyId },
+      );
+    };
+    transformer.on('transform', onTransform);
+    this.#transformerUnbind = () => transformer.off('transform', onTransform);
+  }
+
+  #unbindTransformer(): void {
+    this.#transformerUnbind?.();
+    this.#transformerUnbind = null;
+    this.#transformBefore = null;
+  }
+
+  #destroyApplication(app: Application): void {
+    try {
+      app.destroy({ removeView: true }, { children: true });
+    } catch {
+      // The renderer may be only partially initialized.
+    }
+  }
+
+  async #clearAssets(): Promise<void> {
+    await Promise.allSettled([
+      this.#assets.clear(),
+      this.#sceneAssets.clear(),
+    ]);
   }
 }
