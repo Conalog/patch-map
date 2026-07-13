@@ -16,20 +16,30 @@
   },
   "files": [
     "dist",
+    "!dist/**/*.map",
     "LICENSE",
     "README.md",
     "README_KR.md"
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "vite build && tsc -p tsconfig.build.json --emitDeclarationOnly",
+    "build": "vite build && tsc -p tsconfig.build.json --emitDeclarationOnly && node scripts/verification/finalize-declarations.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "unit": "vitest run",
     "test": "npm run typecheck && npm run lint && npm run unit",
+    "verify:browser": "node scripts/verification/browser-contracts.mjs",
+    "verify:memory": "node scripts/verification/memory-contracts.mjs",
+    "verify:package": "npm run build && node scripts/verification/package-consumer.mjs",
+    "verify:safety": "node scripts/verification/cleanroom-safety.mjs",
+    "verify:performance-report": "node scripts/verification/perf-report-verify.mjs",
+    "verify:interaction-report": "node scripts/verification/perf-interactions-report-verify.mjs",
+    "verify:render-primitives": "node scripts/verification/render-primitives-verify.mjs",
+    "verify:local": "npm test && npm run conformance -- --repeat 2 && npm run verify:browser && npm run verify:memory && npm run verify:package && npm run verify:safety && npm audit --audit-level=low && npm run perf:check",
     "conformance": "node scripts/conformance/run.mjs",
     "conformance:lifecycle": "node scripts/conformance/run.mjs LIF-001 LIF-002",
     "perf:check": "node scripts/perf/check-bootstrap.mjs",
+    "perf:interactions": "node scripts/verification/perf-interactions.mjs",
     "perf:low-end": "node scripts/perf/low-end-benchmark.mjs"
   },
   "devDependencies": {

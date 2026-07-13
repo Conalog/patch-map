@@ -11,7 +11,7 @@ function isPixiDependency(id: string): boolean {
 export default defineConfig({
   build: {
     target: 'es2022',
-    sourcemap: true,
+    sourcemap: false,
     lib: {
       entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
       name: 'PatchMap',
