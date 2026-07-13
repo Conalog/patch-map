@@ -557,8 +557,8 @@ const interactionGeometry = () => {
       id: candidates[0].id,
     },
     outside: {
-      x: canvas.left + 4,
-      y: canvas.top + 4,
+      x: canvas.left - 16,
+      y: canvas.top - 16,
     },
     paint: {
       expectedIds: candidates.map((item) => item.id),
