@@ -1,5 +1,5 @@
 import { Graphics } from 'pixi.js';
-import type { ColorSource } from 'pixi.js';
+import type { ColorSource, Container } from 'pixi.js';
 
 import type { PatchmapTheme } from '../theme';
 
@@ -9,6 +9,10 @@ interface SizeValue {
   width: number;
   height: number;
 }
+
+type LiveHandle = Container & {
+  props?: PublicRecord;
+};
 
 const record = (value: unknown): PublicRecord =>
   value && typeof value === 'object' ? value as PublicRecord : {};
@@ -96,6 +100,37 @@ export class AggregateRenderLayer extends Graphics {
   public renderMap(data: readonly PublicRecord[]): void {
     this.clear();
     for (const element of data) this.#drawElement(element, 0, 0);
+  }
+
+  public renderScene(roots: readonly Container[]): void {
+    this.clear();
+    for (const root of roots) this.#drawHandle(root as LiveHandle, 0, 0);
+  }
+
+  #drawHandle(node: LiveHandle, parentX: number, parentY: number): void {
+    if (!node.renderable) return;
+    const element = record(node.props);
+    const x = parentX + node.x;
+    const y = parentY + node.y;
+    if (element.type === 'group' || element.type === 'grid') {
+      for (const child of node.children) {
+        this.#drawHandle(child as LiveHandle, x, y);
+      }
+      return;
+    }
+    if (element.type === 'item') {
+      this.#drawItem(element, x, y);
+      return;
+    }
+    if (element.type === 'rect') {
+      this.#drawRectElement(element, x, y);
+      return;
+    }
+    if (element.type === 'image') {
+      const size = fixedSize(element.size);
+      this.rect(x, y, size.width, size.height)
+        .fill({ color: this.#theme().gray.light, alpha: 0.18 });
+    }
   }
 
   #drawElement(element: PublicRecord, parentX: number, parentY: number): void {

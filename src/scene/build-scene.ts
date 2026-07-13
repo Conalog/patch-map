@@ -21,6 +21,18 @@ export interface ManagedScene {
   byLabel: Map<string, ManagedNode[]>;
 }
 
+export const reindexManagedScene = (scene: ManagedScene): void => {
+  scene.all = [];
+  scene.byId.clear();
+  scene.byType.clear();
+  scene.byLabel.clear();
+  const visit = (node: ManagedNode): void => {
+    indexNode(scene, node);
+    for (const child of node.children) visit(child as ManagedNode);
+  };
+  for (const root of scene.roots) visit(root);
+};
+
 const indexNode = (scene: ManagedScene, node: ManagedNode): void => {
   scene.all.push(node);
   scene.byId.set(node.id, node);
@@ -61,8 +73,17 @@ const createComponentNode = (
   scene: ManagedScene,
 ): ManagedNode => {
   const node = new ManagedNode(asManagedProps(component));
+  layoutManagedComponentNode(node, item);
+  indexNode(scene, node);
+  return node;
+};
+
+export const layoutManagedComponentNode = (
+  node: ManagedNode,
+  item: MaterializedItemElement | ManagedNodeProps,
+): void => {
   const layout = layoutComponent(
-    component as unknown as Record<string, unknown>,
+    node.props as unknown as Record<string, unknown>,
     item as unknown as Record<string, unknown>,
   );
   node.position.set(layout.x, layout.y);
@@ -72,9 +93,24 @@ const createComponentNode = (
       width: layout.localWidth,
       height: layout.localHeight,
     });
+  } else {
+    node.clearLocalBounds();
   }
-  indexNode(scene, node);
-  return node;
+};
+
+export const relayoutManagedNode = (node: ManagedNode): void => {
+  if (node.type === 'item') {
+    for (const child of node.children) {
+      layoutManagedComponentNode(child as ManagedNode, node.props);
+    }
+    return;
+  }
+  const bounds = leafBounds(node.props as unknown as Record<string, unknown>);
+  if (bounds && (bounds.width > 0 || bounds.height > 0)) {
+    node.setLocalBounds(bounds);
+  } else if (node.children.length === 0) {
+    node.clearLocalBounds();
+  }
 };
 
 const createItemChildren = (

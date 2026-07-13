@@ -1,4 +1,4 @@
-import { Container, Rectangle } from 'pixi.js';
+import { Bounds, Container, Rectangle } from 'pixi.js';
 import type { DestroyOptions } from 'pixi.js';
 
 import type {
@@ -64,6 +64,7 @@ export class ManagedNode<T extends PublicNodeData = PublicNodeData> extends Cont
   public type: T['type'];
 
   #props: ManagedNodeProps<T>;
+  #managedLocalBounds: Bounds | null = null;
 
   public constructor(props: ManagedNodeProps<T>, options: ManagedNodeOptions = {}) {
     super();
@@ -135,28 +136,29 @@ export class ManagedNode<T extends PublicNodeData = PublicNodeData> extends Cont
     const y = finiteNumber(bounds.y);
     const width = finiteNumber(bounds.width);
     const height = finiteNumber(bounds.height);
-    const current = this.boundsArea;
-
-    if (current instanceof Rectangle) {
-      current.x = x;
-      current.y = y;
-      current.width = width;
-      current.height = height;
-    } else {
-      this.boundsArea = new Rectangle(x, y, width, height);
-    }
+    this.boundsArea = new Rectangle(x, y, width, height);
+    this.#managedLocalBounds ??= new Bounds();
+    this.#managedLocalBounds.set(x, y, x + width, y + height);
 
     return this;
   }
 
   public clearLocalBounds(): this {
-    if (!this.destroyed) Reflect.set(this, 'boundsArea', null);
+    if (!this.destroyed) {
+      this.#managedLocalBounds = null;
+      Reflect.set(this, 'boundsArea', null);
+    }
     return this;
+  }
+
+  public override getLocalBounds(): Bounds {
+    return this.#managedLocalBounds ?? super.getLocalBounds();
   }
 
   public override destroy(options?: DestroyOptions): void {
     if (this.destroyed) return;
     this.onRender = null;
+    this.#managedLocalBounds = null;
     Reflect.set(this, 'boundsArea', null);
     super.destroy(options);
   }

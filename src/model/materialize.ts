@@ -87,7 +87,6 @@ export interface MaterializedTextStyle extends TextStyleInput {
   fontFamily: string;
   fontWeight: string | number;
   fill: NonNullable<TextStyleInput['fill']>;
-  fontSize: number;
   autoFont: { min: number; max: number };
   overflow: string;
 }
@@ -201,7 +200,6 @@ const COMPONENT_TEXT_STYLE_DEFAULTS = {
   fontFamily: 'FiraCode',
   fontWeight: 400,
   fill: 'black',
-  fontSize: 16,
   autoFont: { min: 1, max: 100 },
   overflow: 'visible',
 } as const;

@@ -21,6 +21,10 @@ interface BoxEdges {
   left: number;
 }
 
+const FIRA_CODE_ADVANCE_EM = 0.6153845;
+const STANDALONE_TEXT_DEFAULT_FONT_SIZE = 16;
+const COMPONENT_TEXT_DEFAULT_FONT_SIZE = 26;
+
 const object = (value: unknown): PublicRecord =>
   value && typeof value === 'object' ? value as PublicRecord : {};
 
@@ -70,14 +74,18 @@ const readComponentSize = (value: unknown, extent: SceneSize): SceneSize => {
   return { width: side, height: side };
 };
 
-export const measureText = (text: unknown, styleValue: unknown): SceneSize => {
+export const measureText = (
+  text: unknown,
+  styleValue: unknown,
+  defaultFontSize = STANDALONE_TEXT_DEFAULT_FONT_SIZE,
+): SceneSize => {
   const style = object(styleValue);
-  const fontSize = finite(style.fontSize, 16);
+  const fontSize = finite(style.fontSize, defaultFontSize);
   const letterSpacing = finite(style.letterSpacing);
   const content = typeof text === 'string' ? text : '';
   const lines = content.split('\n');
   const widths = lines.map((line) =>
-    line.length * fontSize * 8 / 13 + Math.max(0, line.length - 1) * letterSpacing,
+    line.length * (fontSize * FIRA_CODE_ADVANCE_EM + letterSpacing),
   );
   return {
     width: widths.length ? Math.max(...widths) : 0,
@@ -148,7 +156,11 @@ export const layoutComponent = (
   let scaleY = 1;
 
   if (component.type === 'text') {
-    displayedSize = measureText(component.text, component.style);
+    displayedSize = measureText(
+      component.text,
+      component.style,
+      COMPONENT_TEXT_DEFAULT_FONT_SIZE,
+    );
     localSize = displayedSize;
   } else {
     displayedSize = readComponentSize(component.size, {

@@ -4,11 +4,17 @@ import type { ApplicationOptions } from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
 import type { IViewportOptions } from 'pixi-viewport';
 
+import type { UpdateOptions } from './contracts';
 import { FlipController, RotationController } from './controllers';
 import { UndoRedoManager } from './history';
 import { materializeMapData, type MaterializedMapData } from './model/materialize';
 import { selectScene } from './scene-selector';
-import { buildManagedScene, type ManagedScene } from './scene/build-scene';
+import {
+  buildManagedScene,
+  reindexManagedScene,
+  type ManagedScene,
+} from './scene/build-scene';
+import { ManagedNode } from './scene/managed-node';
 import { AggregateRenderLayer } from './scene/render-layer';
 import { SelectionState, StateManager } from './state';
 import {
@@ -17,6 +23,7 @@ import {
   type PatchmapTheme,
 } from './theme';
 import type { Transformer } from './transformer';
+import { applyManagedUpdate } from './update/apply';
 
 type ViewportPluginName = 'clampZoom' | 'drag' | 'wheel' | 'pinch' | 'decelerate';
 type ViewportPluginOptions = Record<
@@ -50,6 +57,9 @@ const DEFAULT_VIEWPORT_PLUGINS: ViewportPluginOptions = {
   pinch: {},
   decelerate: {},
 };
+
+const isManagedNodeValue = (value: unknown): value is ManagedNode =>
+  value instanceof ManagedNode;
 
 export class Patchmap extends EventEmitter {
   public app: Application | null = null;
@@ -190,7 +200,7 @@ export class Patchmap extends EventEmitter {
       if (!child.destroyed) child.destroy({ children: true });
     }
     world.addChild(...scene.roots);
-    renderLayer.renderMap(data as unknown as Record<string, unknown>[]);
+    renderLayer.renderScene(scene.roots);
     this.#managedScene = scene;
     this.undoRedoManager.clear();
 
@@ -222,6 +232,30 @@ export class Patchmap extends EventEmitter {
       }
     }
     return selectScene(this.world, path, options);
+  }
+
+  public update(options: UpdateOptions<ManagedNode> = {}): ManagedNode[] {
+    const targets: ManagedNode[] = [];
+    const append = (value: unknown): void => {
+      if (Array.isArray(value)) {
+        for (const entry of value) append(entry);
+      } else if (isManagedNodeValue(value) && !value.destroyed) {
+        targets.push(value);
+      }
+    };
+
+    if (options.elements !== undefined) append(options.elements);
+    if (options.path !== undefined) append(this.selector(options.path));
+
+    for (const target of targets) applyManagedUpdate(target, options);
+    if (this.#managedScene) {
+      reindexManagedScene(this.#managedScene);
+      this.#renderLayer?.renderScene(this.#managedScene.roots);
+    }
+    if (options.emit !== false) {
+      this.emit('patchmap:updated', { target: this, elements: targets });
+    }
+    return targets;
   }
 
   public syncViewTransform(): void {
