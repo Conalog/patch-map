@@ -3,6 +3,7 @@ import type { Container } from 'pixi.js';
 export interface ControllerHost {
   world: Container | null;
   emit(event: string, payload: unknown): boolean;
+  syncViewTransform(): void;
 }
 
 export class RotationController {
@@ -21,6 +22,7 @@ export class RotationController {
     if (!Number.isFinite(value)) return;
     this.#value = value;
     if (this.#host.world) this.#host.world.angle = value;
+    this.#host.syncViewTransform();
     this.#host.emit('patchmap:rotated', { target: this.#host, value });
   }
 
@@ -36,6 +38,7 @@ export class RotationController {
 
   public apply(): void {
     if (this.#host.world) this.#host.world.angle = this.#value;
+    this.#host.syncViewTransform();
   }
 }
 
@@ -103,6 +106,7 @@ export class FlipController {
     if (world) {
       world.scale.set(this.#x ? -1 : 1, this.#y ? -1 : 1);
     }
+    this.#host.syncViewTransform();
     if (emit) {
       this.#host.emit('patchmap:flipped', {
         target: this.#host,
