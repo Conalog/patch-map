@@ -64,6 +64,14 @@ type ViewportPluginOptions = Record<
   ({ disabled?: boolean } & Record<string, unknown>) | undefined
 >;
 
+interface PendingManagedSceneRefresh {
+  reindex: boolean;
+  assets: boolean;
+  orientation: boolean;
+  componentTypes: Set<string> | null;
+  restartAnimations: boolean;
+}
+
 export interface PatchmapViewportPluginFacade {
   add(plugins: Record<string, ({ disabled?: boolean } & Record<string, unknown>) | undefined>): Viewport;
   stop(name: string): void;
@@ -189,6 +197,8 @@ export class Patchmap extends EventEmitter {
   #initPromise: Promise<void> | null = null;
   #renderLayer: AggregateRenderLayer | null = null;
   #managedScene: ManagedScene | null = null;
+  #pendingManagedSceneRefresh: PendingManagedSceneRefresh | null = null;
+  #managedSceneRefreshFrame: number | null = null;
   #drawVersion = 0;
   readonly #assets = new ManagedAssets();
   readonly #sceneAssets = new ManagedSceneAssets();
@@ -256,6 +266,9 @@ export class Patchmap extends EventEmitter {
       const world = new Container();
       world.label = 'patch-map-world';
       const renderLayer = new AggregateRenderLayer(() => this.theme);
+      renderLayer.onRender = () => {
+        if (this.#renderLayer === renderLayer) this.#flushManagedSceneRefresh();
+      };
       viewport.addChild(renderLayer);
       viewport.addChild(world);
       app.stage.addChild(viewport);
@@ -305,6 +318,7 @@ export class Patchmap extends EventEmitter {
       if (this.#initPromise && this.app) {
         this.app = null;
         this.#drawVersion += 1;
+        this.#clearPendingManagedSceneRefresh();
         this.#unbindStateEvents();
         this.event.removeAll();
         this.#assetCleanup = this.#clearAssets();
@@ -316,6 +330,7 @@ export class Patchmap extends EventEmitter {
     const stateManager = this.stateManager;
     const transformer = this.#transformer;
     const history = this.undoRedoManager;
+    const renderLayer = this.#renderLayer;
 
     this.isInit = false;
     this.app = null;
@@ -325,6 +340,8 @@ export class Patchmap extends EventEmitter {
     this.#transformer = null;
     this.#renderLayer = null;
     this.#managedScene = null;
+    this.#clearPendingManagedSceneRefresh();
+    if (renderLayer) renderLayer.onRender = null;
     this.#drawVersion += 1;
     this.theme = materializeTheme();
     this.animationContext = null;
@@ -356,6 +373,7 @@ export class Patchmap extends EventEmitter {
     const data = materializeMapData(input);
     const scene = buildManagedScene(data, this.theme);
     const version = ++this.#drawVersion;
+    this.#clearPendingManagedSceneRefresh();
     this.event.removeAll();
     const previousChildren = world.removeChildren();
     for (const child of previousChildren) {
@@ -374,7 +392,7 @@ export class Patchmap extends EventEmitter {
     void this.#sceneAssets.refresh(data, () => {
       if (!this.isInit || version !== this.#drawVersion) return;
       this.#applyLoadedAssetBounds();
-      this.#renderLayer?.renderScene(scene.roots);
+      this.#queueManagedSceneRefresh(false, false, false);
     });
 
     queueMicrotask(() => {
@@ -389,6 +407,7 @@ export class Patchmap extends EventEmitter {
     path: string,
     options: SelectorOptions = {},
   ): SelectorResult<T> {
+    this.#flushPendingManagedSceneReindex();
     if (!this.world) return [];
     if (path === '$') return [this.world] as T[];
     const indexed = /^\$\.\.children\[\?\(@\.(id|type|label)===("(?:\\.|[^"])*")\)\]$/.exec(path);
@@ -464,6 +483,7 @@ export class Patchmap extends EventEmitter {
     ids?: FocusIds,
     options: FocusOptions<PublicElementHandle> = {},
   ): void {
+    this.#flushManagedSceneRefresh();
     const viewport = this.viewport;
     if (!viewport) return;
     const targets = resolveViewTargets(
@@ -480,6 +500,7 @@ export class Patchmap extends EventEmitter {
     ids?: FocusIds,
     options: FitOptions<PublicElementHandle> = {},
   ): void {
+    this.#flushManagedSceneRefresh();
     const viewport = this.viewport;
     if (!viewport) return;
     const padding = normalizeFitPadding(options.padding);
@@ -611,39 +632,125 @@ export class Patchmap extends EventEmitter {
     componentTypes: readonly string[] | null = null,
     restartAnimations = false,
   ): void {
-    if (!this.#managedScene) return;
-    if (reindex) {
-      reindexManagedScene(this.#managedScene);
+    this.#queueManagedSceneRefresh(
+      reindex,
+      refreshAssets,
+      refreshOrientation,
+      componentTypes,
+      restartAnimations,
+    );
+    // Canvas-event paths are observable immediately after update/undo/redo.
+    // Keep their bindings synchronous without paying a full-scene reindex for
+    // update bursts that have no registered canvas events.
+    if (this.event.getAll().length > 0) {
+      this.#flushPendingManagedSceneReindex();
       this.event.refresh();
     }
-    if (refreshAssets) this.#applyLoadedAssetBounds();
-    if (refreshOrientation) {
-      applyContentOrientation(this.#managedScene, this.rotation.value, {
+  }
+
+  #queueManagedSceneRefresh(
+    reindex: boolean,
+    refreshAssets: boolean,
+    refreshOrientation: boolean,
+    componentTypes: readonly string[] | null = null,
+    restartAnimations = false,
+  ): void {
+    if (!this.#managedScene) return;
+    const pending = this.#pendingManagedSceneRefresh;
+    if (!pending) {
+      this.#pendingManagedSceneRefresh = {
+        reindex,
+        assets: refreshAssets,
+        orientation: refreshOrientation,
+        componentTypes: componentTypes ? new Set(componentTypes) : null,
+        restartAnimations,
+      };
+    } else {
+      pending.reindex ||= reindex;
+      pending.assets ||= refreshAssets;
+      pending.orientation ||= refreshOrientation;
+      pending.restartAnimations ||= restartAnimations;
+      if (pending.componentTypes && componentTypes) {
+        for (const type of componentTypes) pending.componentTypes.add(type);
+      } else {
+        pending.componentTypes = null;
+      }
+    }
+
+    if (
+      this.#managedSceneRefreshFrame === null &&
+      typeof requestAnimationFrame !== 'undefined'
+    ) {
+      this.#managedSceneRefreshFrame = requestAnimationFrame(() => {
+        this.#managedSceneRefreshFrame = null;
+        this.#flushManagedSceneRefresh();
+      });
+    }
+  }
+
+  #flushManagedSceneRefresh(): void {
+    const pending = this.#pendingManagedSceneRefresh;
+    const scene = this.#managedScene;
+    const renderLayer = this.#renderLayer;
+    if (!pending || !scene || !renderLayer) return;
+
+    this.#pendingManagedSceneRefresh = null;
+    this.#cancelManagedSceneRefreshFrame();
+    if (pending.reindex) {
+      reindexManagedScene(scene);
+    }
+    if (pending.assets) this.#applyLoadedAssetBounds();
+    if (pending.orientation) {
+      applyContentOrientation(scene, this.rotation.value, {
         x: this.flip.x,
         y: this.flip.y,
       });
     }
-    this.#renderLayer?.renderScene(
-      this.#managedScene.roots,
-      componentTypes || restartAnimations
+    const componentTypes = pending.componentTypes
+      ? [...pending.componentTypes]
+      : null;
+    renderLayer.renderScene(
+      scene.roots,
+      componentTypes || pending.restartAnimations
         ? {
           ...(componentTypes ? { componentTypes } : {}),
-          ...(restartAnimations ? { restartAnimations: true } : {}),
+          ...(pending.restartAnimations ? { restartAnimations: true } : {}),
         }
         : undefined,
     );
-    if (!refreshAssets) return;
+    if (!pending.assets) return;
 
-    const scene = this.#managedScene;
     const version = this.#drawVersion;
     void this.#sceneAssets.refresh(
       scene.all.map((node) => node.props),
       () => {
         if (!this.isInit || version !== this.#drawVersion) return;
         this.#applyLoadedAssetBounds();
-        this.#renderLayer?.renderScene(scene.roots);
+        this.#queueManagedSceneRefresh(false, false, false);
       },
     );
+  }
+
+  #flushPendingManagedSceneReindex(): void {
+    const pending = this.#pendingManagedSceneRefresh;
+    const scene = this.#managedScene;
+    if (!pending?.reindex || !scene) return;
+
+    pending.reindex = false;
+    reindexManagedScene(scene);
+  }
+
+  #cancelManagedSceneRefreshFrame(): void {
+    if (this.#managedSceneRefreshFrame === null) return;
+    if (typeof cancelAnimationFrame !== 'undefined') {
+      cancelAnimationFrame(this.#managedSceneRefreshFrame);
+    }
+    this.#managedSceneRefreshFrame = null;
+  }
+
+  #clearPendingManagedSceneRefresh(): void {
+    this.#pendingManagedSceneRefresh = null;
+    this.#cancelManagedSceneRefreshFrame();
   }
 
   #applyLoadedAssetBounds(): void {
