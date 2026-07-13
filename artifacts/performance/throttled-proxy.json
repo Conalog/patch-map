@@ -1,0 +1,2187 @@
+{
+  "schemaVersion": 4,
+  "generatedAt": "2026-07-13T07:59:00.398Z",
+  "target": {
+    "label": "@conalog/patch-map@0.10.0",
+    "entry": "/src/reference-entry.mjs",
+    "commit": "0aaaa98b479c86939b049581734a7fb0745ba70e"
+  },
+  "environment": {
+    "platform": "darwin",
+    "osRelease": "23.0.0",
+    "osVersion": "Darwin Kernel Version 23.0.0: Fri Sep 15 14:42:57 PDT 2023; root:xnu-10002.1.13~1/RELEASE_ARM64_T8112",
+    "architecture": "arm64",
+    "cpu": "Apple M2",
+    "logicalCores": 8,
+    "totalMemoryBytes": 17179869184,
+    "node": "v22.21.1",
+    "chromium": "143.0.7499.4",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "cpuThrottle": 4,
+    "deviceProfile": "macos-arm64-chromium-proxy",
+    "powerMode": "developer-default-provisional",
+    "browserPlatform": "MacIntel",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+    "gpuVendor": "Google Inc. (Google)",
+    "gpuRenderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "run": {
+    "warmups": 2,
+    "iterations": 7,
+    "sizes": [
+      100,
+      500,
+      1000,
+      2000,
+      5000
+    ],
+    "renderBoundary": "synchronous-final-state-app-render-after-return",
+    "evidenceStatus": "provisional-non-windows",
+    "windowsNativeGate": "pending",
+    "noisePolicy": "provisional when any p95/median ratio exceeds 1.35"
+  },
+  "scenarios": [
+    {
+      "itemCount": 100,
+      "summary": {
+        "initMs": {
+          "min": 51.5,
+          "median": 56.8,
+          "p95": 65.2,
+          "max": 65.2
+        },
+        "initialSyncMs": {
+          "min": 74.1,
+          "median": 94.3,
+          "p95": 101.9,
+          "max": 101.9
+        },
+        "initialRenderMs": {
+          "min": 38.8,
+          "median": 42.8,
+          "p95": 49,
+          "max": 49
+        },
+        "initialTotalMs": {
+          "min": 119.3,
+          "median": 135.4,
+          "p95": 150.9,
+          "max": 150.9
+        },
+        "updateSyncMs": {
+          "min": 6.2,
+          "median": 7,
+          "p95": 9.3,
+          "max": 9.3
+        },
+        "updateRenderMs": {
+          "min": 3.3,
+          "median": 5,
+          "p95": 5.6,
+          "max": 5.6
+        },
+        "updateTotalMs": {
+          "min": 9.9,
+          "median": 11.3,
+          "p95": 14.7,
+          "max": 14.7
+        },
+        "teardownSyncMs": {
+          "min": 558.7,
+          "median": 640.3,
+          "p95": 1027.9,
+          "max": 1027.9
+        },
+        "retainedHeapAfterDrawBytes": {
+          "min": 2035350,
+          "median": 2156107,
+          "p95": 2360427,
+          "max": 2360427
+        },
+        "retainedHeapAfterUpdateBytes": {
+          "min": 2047783,
+          "median": 2165680,
+          "p95": 2390948,
+          "max": 2390948
+        },
+        "postDestroyRetainedHeapBytes": {
+          "min": 916351,
+          "median": 1030584,
+          "p95": 1303560,
+          "max": 1303560
+        },
+        "initialManagedObjects": {
+          "min": 501,
+          "median": 501,
+          "p95": 501,
+          "max": 501
+        },
+        "initialSceneNodes": {
+          "min": 501,
+          "median": 501,
+          "p95": 501,
+          "max": 501
+        },
+        "updatedManagedObjects": {
+          "min": 501,
+          "median": 501,
+          "p95": 501,
+          "max": 501
+        },
+        "updatedSceneNodes": {
+          "min": 501,
+          "median": 501,
+          "p95": 501,
+          "max": 501
+        }
+      },
+      "noiseAssessment": {
+        "provisional": true,
+        "noisyMetrics": [
+          {
+            "metric": "teardownSyncMs",
+            "p95MedianRatio": 1.61
+          }
+        ]
+      },
+      "samples": [
+        {
+          "itemCount": 100,
+          "initMs": 60.80000019073486,
+          "initial": {
+            "syncMs": 101.89999985694885,
+            "renderMs": 49,
+            "totalMs": 150.89999985694885,
+            "scene": {
+              "managed": 501,
+              "total": 501,
+              "byType": {
+                "grid": 1,
+                "item": 100,
+                "text": 100,
+                "icon": 100,
+                "bar": 100,
+                "background": 100
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 100,
+            "syncMs": 7.3999998569488525,
+            "renderMs": 5.200000047683716,
+            "totalMs": 12.599999904632568,
+            "scene": {
+              "managed": 501,
+              "total": 501,
+              "byType": {
+                "grid": 1,
+                "item": 100,
+                "text": 100,
+                "icon": 100,
+                "bar": 100,
+                "background": 100
+              }
+            }
+          },
+          "heapBeforeBytes": 14714325,
+          "retainedHeapAfterDrawBytes": 2294439,
+          "retainedHeapAfterUpdateBytes": 2306524,
+          "teardownSyncMs": 640.2999999523163,
+          "postDestroyRetainedHeapBytes": 1181028
+        },
+        {
+          "itemCount": 100,
+          "initMs": 53.700000047683716,
+          "initial": {
+            "syncMs": 99.20000004768372,
+            "renderMs": 42.799999952316284,
+            "totalMs": 142,
+            "scene": {
+              "managed": 501,
+              "total": 501,
+              "byType": {
+                "grid": 1,
+                "item": 100,
+                "text": 100,
+                "icon": 100,
+                "bar": 100,
+                "background": 100
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 100,
+            "syncMs": 7,
+            "renderMs": 4.300000190734863,
+            "totalMs": 11.300000190734863,
+            "scene": {
+              "managed": 501,
+              "total": 501,
+              "byType": {
+                "grid": 1,
+                "item": 100,
+                "text": 100,
+                "icon": 100,
+                "bar": 100,
+                "background": 100
+              }
+            }
+          },
+          "heapBeforeBytes": 14991425,
+          "retainedHeapAfterDrawBytes": 2156107,
+          "retainedHeapAfterUpdateBytes": 2165680,
+          "teardownSyncMs": 574.8999998569489,
+          "postDestroyRetainedHeapBytes": 1030584
+        },
+        {
+          "itemCount": 100,
+          "initMs": 51.5,
+          "initial": {
+            "syncMs": 94.29999995231628,
+            "renderMs": 38.80000019073486,
+            "totalMs": 133.10000014305115,
+            "scene": {
+              "managed": 501,
+              "total": 501,
+              "byType": {
+                "grid": 1,
+                "item": 100,
+                "text": 100,
+                "icon": 100,
+                "bar": 100,
+                "background": 100
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 100,
+            "syncMs": 6.599999904632568,
+            "renderMs": 3.3000001907348633,
+            "totalMs": 9.900000095367432,
+            "scene": {
+              "managed": 501,
+              "total": 501,
+              "byType": {
+                "grid": 1,
+                "item": 100,
+                "text": 100,
+                "icon": 100,
+                "bar": 100,
+                "background": 100
+              }
+            }
+          },
+          "heapBeforeBytes": 15121133,
+          "retainedHeapAfterDrawBytes": 2252895,
+          "retainedHeapAfterUpdateBytes": 2260920,
+          "teardownSyncMs": 654.2000000476837,
+          "postDestroyRetainedHeapBytes": 1136152
+        },
+        {
+          "itemCount": 100,
+          "initMs": 56.799999952316284,
+          "initial": {
+            "syncMs": 79.79999995231628,
+            "renderMs": 42.299999952316284,
+            "totalMs": 122.09999990463257,
+            "scene": {
+              "managed": 501,
+              "total": 501,
+              "byType": {
+                "grid": 1,
+                "item": 100,
+                "text": 100,
+                "icon": 100,
+                "bar": 100,
+                "background": 100
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 100,
+            "syncMs": 6.799999952316284,
+            "renderMs": 4.3999998569488525,
+            "totalMs": 11.199999809265137,
+            "scene": {
+              "managed": 501,
+              "total": 501,
+              "byType": {
+                "grid": 1,
+                "item": 100,
+                "text": 100,
+                "icon": 100,
+                "bar": 100,
+                "background": 100
+              }
+            }
+          },
+          "heapBeforeBytes": 15343181,
+          "retainedHeapAfterDrawBytes": 2035350,
+          "retainedHeapAfterUpdateBytes": 2047783,
+          "teardownSyncMs": 586.9000000953674,
+          "postDestroyRetainedHeapBytes": 916351
+        },
+        {
+          "itemCount": 100,
+          "initMs": 53.09999990463257,
+          "initial": {
+            "syncMs": 74.10000014305115,
+            "renderMs": 45.19999980926514,
+            "totalMs": 119.29999995231628,
+            "scene": {
+              "managed": 501,
+              "total": 501,
+              "byType": {
+                "grid": 1,
+                "item": 100,
+                "text": 100,
+                "icon": 100,
+                "bar": 100,
+                "background": 100
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 100,
+            "syncMs": 7,
+            "renderMs": 5.6000001430511475,
+            "totalMs": 12.600000143051147,
+            "scene": {
+              "managed": 501,
+              "total": 501,
+              "byType": {
+                "grid": 1,
+                "item": 100,
+                "text": 100,
+                "icon": 100,
+                "bar": 100,
+                "background": 100
+              }
+            }
+          },
+          "heapBeforeBytes": 15360944,
+          "retainedHeapAfterDrawBytes": 2108263,
+          "retainedHeapAfterUpdateBytes": 2119252,
+          "teardownSyncMs": 1027.8999998569489,
+          "postDestroyRetainedHeapBytes": 991952
+        },
+        {
+          "itemCount": 100,
+          "initMs": 65.20000004768372,
+          "initial": {
+            "syncMs": 101.5,
+            "renderMs": 48.09999990463257,
+            "totalMs": 149.59999990463257,
+            "scene": {
+              "managed": 501,
+              "total": 501,
+              "byType": {
+                "grid": 1,
+                "item": 100,
+                "text": 100,
+                "icon": 100,
+                "bar": 100,
+                "background": 100
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 100,
+            "syncMs": 9.299999952316284,
+            "renderMs": 5.3999998569488525,
+            "totalMs": 14.699999809265137,
+            "scene": {
+              "managed": 501,
+              "total": 501,
+              "byType": {
+                "grid": 1,
+                "item": 100,
+                "text": 100,
+                "icon": 100,
+                "bar": 100,
+                "background": 100
+              }
+            }
+          },
+          "heapBeforeBytes": 15453612,
+          "retainedHeapAfterDrawBytes": 2121707,
+          "retainedHeapAfterUpdateBytes": 2142456,
+          "teardownSyncMs": 866.8000001907349,
+          "postDestroyRetainedHeapBytes": 1014972
+        },
+        {
+          "itemCount": 100,
+          "initMs": 61.39999985694885,
+          "initial": {
+            "syncMs": 93.20000004768372,
+            "renderMs": 42.200000047683716,
+            "totalMs": 135.40000009536743,
+            "scene": {
+              "managed": 501,
+              "total": 501,
+              "byType": {
+                "grid": 1,
+                "item": 100,
+                "text": 100,
+                "icon": 100,
+                "bar": 100,
+                "background": 100
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 100,
+            "syncMs": 6.200000047683716,
+            "renderMs": 5,
+            "totalMs": 11.200000047683716,
+            "scene": {
+              "managed": 501,
+              "total": 501,
+              "byType": {
+                "grid": 1,
+                "item": 100,
+                "text": 100,
+                "icon": 100,
+                "bar": 100,
+                "background": 100
+              }
+            }
+          },
+          "heapBeforeBytes": 15573300,
+          "retainedHeapAfterDrawBytes": 2360427,
+          "retainedHeapAfterUpdateBytes": 2390948,
+          "teardownSyncMs": 558.7000000476837,
+          "postDestroyRetainedHeapBytes": 1303560
+        }
+      ]
+    },
+    {
+      "itemCount": 500,
+      "summary": {
+        "initMs": {
+          "min": 44.7,
+          "median": 52.9,
+          "p95": 79.7,
+          "max": 79.7
+        },
+        "initialSyncMs": {
+          "min": 276,
+          "median": 301.2,
+          "p95": 407.7,
+          "max": 407.7
+        },
+        "initialRenderMs": {
+          "min": 138.3,
+          "median": 152.3,
+          "p95": 217.9,
+          "max": 217.9
+        },
+        "initialTotalMs": {
+          "min": 414.3,
+          "median": 454.3,
+          "p95": 625.6,
+          "max": 625.6
+        },
+        "updateSyncMs": {
+          "min": 21.5,
+          "median": 22.5,
+          "p95": 28.2,
+          "max": 28.2
+        },
+        "updateRenderMs": {
+          "min": 10.8,
+          "median": 12,
+          "p95": 14,
+          "max": 14
+        },
+        "updateTotalMs": {
+          "min": 32.3,
+          "median": 34.6,
+          "p95": 41.1,
+          "max": 41.1
+        },
+        "teardownSyncMs": {
+          "min": 532,
+          "median": 642,
+          "p95": 776,
+          "max": 776
+        },
+        "retainedHeapAfterDrawBytes": {
+          "min": 9434083,
+          "median": 9482707,
+          "p95": 9520151,
+          "max": 9520151
+        },
+        "retainedHeapAfterUpdateBytes": {
+          "min": 9489156,
+          "median": 9520108,
+          "p95": 9548964,
+          "max": 9548964
+        },
+        "postDestroyRetainedHeapBytes": {
+          "min": 4305816,
+          "median": 4330880,
+          "p95": 4353500,
+          "max": 4353500
+        },
+        "initialManagedObjects": {
+          "min": 2501,
+          "median": 2501,
+          "p95": 2501,
+          "max": 2501
+        },
+        "initialSceneNodes": {
+          "min": 2501,
+          "median": 2501,
+          "p95": 2501,
+          "max": 2501
+        },
+        "updatedManagedObjects": {
+          "min": 2501,
+          "median": 2501,
+          "p95": 2501,
+          "max": 2501
+        },
+        "updatedSceneNodes": {
+          "min": 2501,
+          "median": 2501,
+          "p95": 2501,
+          "max": 2501
+        }
+      },
+      "noiseAssessment": {
+        "provisional": true,
+        "noisyMetrics": [
+          {
+            "metric": "initMs",
+            "p95MedianRatio": 1.51
+          },
+          {
+            "metric": "initialSyncMs",
+            "p95MedianRatio": 1.35
+          },
+          {
+            "metric": "initialRenderMs",
+            "p95MedianRatio": 1.43
+          },
+          {
+            "metric": "initialTotalMs",
+            "p95MedianRatio": 1.38
+          }
+        ]
+      },
+      "samples": [
+        {
+          "itemCount": 500,
+          "initMs": 79.70000004768372,
+          "initial": {
+            "syncMs": 407.7000000476837,
+            "renderMs": 217.90000009536743,
+            "totalMs": 625.6000001430511,
+            "scene": {
+              "managed": 2501,
+              "total": 2501,
+              "byType": {
+                "grid": 1,
+                "item": 500,
+                "text": 500,
+                "icon": 500,
+                "bar": 500,
+                "background": 500
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 500,
+            "syncMs": 28.200000047683716,
+            "renderMs": 12.100000143051147,
+            "totalMs": 40.30000019073486,
+            "scene": {
+              "managed": 2501,
+              "total": 2501,
+              "byType": {
+                "grid": 1,
+                "item": 500,
+                "text": 500,
+                "icon": 500,
+                "bar": 500,
+                "background": 500
+              }
+            }
+          },
+          "heapBeforeBytes": 16215260,
+          "retainedHeapAfterDrawBytes": 9434083,
+          "retainedHeapAfterUpdateBytes": 9489156,
+          "teardownSyncMs": 656,
+          "postDestroyRetainedHeapBytes": 4305816
+        },
+        {
+          "itemCount": 500,
+          "initMs": 44.700000047683716,
+          "initial": {
+            "syncMs": 301.2000000476837,
+            "renderMs": 152.29999995231628,
+            "totalMs": 453.5,
+            "scene": {
+              "managed": 2501,
+              "total": 2501,
+              "byType": {
+                "grid": 1,
+                "item": 500,
+                "text": 500,
+                "icon": 500,
+                "bar": 500,
+                "background": 500
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 500,
+            "syncMs": 23.200000047683716,
+            "renderMs": 12,
+            "totalMs": 35.200000047683716,
+            "scene": {
+              "managed": 2501,
+              "total": 2501,
+              "byType": {
+                "grid": 1,
+                "item": 500,
+                "text": 500,
+                "icon": 500,
+                "bar": 500,
+                "background": 500
+              }
+            }
+          },
+          "heapBeforeBytes": 16235680,
+          "retainedHeapAfterDrawBytes": 9484602,
+          "retainedHeapAfterUpdateBytes": 9537092,
+          "teardownSyncMs": 544.3999998569489,
+          "postDestroyRetainedHeapBytes": 4353500
+        },
+        {
+          "itemCount": 500,
+          "initMs": 52.89999985694885,
+          "initial": {
+            "syncMs": 284.60000014305115,
+            "renderMs": 142.70000004768372,
+            "totalMs": 427.30000019073486,
+            "scene": {
+              "managed": 2501,
+              "total": 2501,
+              "byType": {
+                "grid": 1,
+                "item": 500,
+                "text": 500,
+                "icon": 500,
+                "bar": 500,
+                "background": 500
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 500,
+            "syncMs": 21.5,
+            "renderMs": 10.799999952316284,
+            "totalMs": 32.299999952316284,
+            "scene": {
+              "managed": 2501,
+              "total": 2501,
+              "byType": {
+                "grid": 1,
+                "item": 500,
+                "text": 500,
+                "icon": 500,
+                "bar": 500,
+                "background": 500
+              }
+            }
+          },
+          "heapBeforeBytes": 16292260,
+          "retainedHeapAfterDrawBytes": 9469242,
+          "retainedHeapAfterUpdateBytes": 9515676,
+          "teardownSyncMs": 532,
+          "postDestroyRetainedHeapBytes": 4330880
+        },
+        {
+          "itemCount": 500,
+          "initMs": 49.90000009536743,
+          "initial": {
+            "syncMs": 276,
+            "renderMs": 138.29999995231628,
+            "totalMs": 414.2999999523163,
+            "scene": {
+              "managed": 2501,
+              "total": 2501,
+              "byType": {
+                "grid": 1,
+                "item": 500,
+                "text": 500,
+                "icon": 500,
+                "bar": 500,
+                "background": 500
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 500,
+            "syncMs": 22.5,
+            "renderMs": 11.100000143051147,
+            "totalMs": 33.60000014305115,
+            "scene": {
+              "managed": 2501,
+              "total": 2501,
+              "byType": {
+                "grid": 1,
+                "item": 500,
+                "text": 500,
+                "icon": 500,
+                "bar": 500,
+                "background": 500
+              }
+            }
+          },
+          "heapBeforeBytes": 16342464,
+          "retainedHeapAfterDrawBytes": 9451943,
+          "retainedHeapAfterUpdateBytes": 9504692,
+          "teardownSyncMs": 776,
+          "postDestroyRetainedHeapBytes": 4329164
+        },
+        {
+          "itemCount": 500,
+          "initMs": 60.59999990463257,
+          "initial": {
+            "syncMs": 381.40000009536743,
+            "renderMs": 174.09999990463257,
+            "totalMs": 555.5,
+            "scene": {
+              "managed": 2501,
+              "total": 2501,
+              "byType": {
+                "grid": 1,
+                "item": 500,
+                "text": 500,
+                "icon": 500,
+                "bar": 500,
+                "background": 500
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 500,
+            "syncMs": 27.09999990463257,
+            "renderMs": 14,
+            "totalMs": 41.09999990463257,
+            "scene": {
+              "managed": 2501,
+              "total": 2501,
+              "byType": {
+                "grid": 1,
+                "item": 500,
+                "text": 500,
+                "icon": 500,
+                "bar": 500,
+                "background": 500
+              }
+            }
+          },
+          "heapBeforeBytes": 16376624,
+          "retainedHeapAfterDrawBytes": 9495339,
+          "retainedHeapAfterUpdateBytes": 9534604,
+          "teardownSyncMs": 655.5,
+          "postDestroyRetainedHeapBytes": 4338084
+        },
+        {
+          "itemCount": 500,
+          "initMs": 50.30000019073486,
+          "initial": {
+            "syncMs": 299,
+            "renderMs": 155.29999995231628,
+            "totalMs": 454.2999999523163,
+            "scene": {
+              "managed": 2501,
+              "total": 2501,
+              "byType": {
+                "grid": 1,
+                "item": 500,
+                "text": 500,
+                "icon": 500,
+                "bar": 500,
+                "background": 500
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 500,
+            "syncMs": 22,
+            "renderMs": 12.599999904632568,
+            "totalMs": 34.59999990463257,
+            "scene": {
+              "managed": 2501,
+              "total": 2501,
+              "byType": {
+                "grid": 1,
+                "item": 500,
+                "text": 500,
+                "icon": 500,
+                "bar": 500,
+                "background": 500
+              }
+            }
+          },
+          "heapBeforeBytes": 16412752,
+          "retainedHeapAfterDrawBytes": 9482707,
+          "retainedHeapAfterUpdateBytes": 9548964,
+          "teardownSyncMs": 642,
+          "postDestroyRetainedHeapBytes": 4348380
+        },
+        {
+          "itemCount": 500,
+          "initMs": 54.5,
+          "initial": {
+            "syncMs": 313,
+            "renderMs": 147.59999990463257,
+            "totalMs": 460.59999990463257,
+            "scene": {
+              "managed": 2501,
+              "total": 2501,
+              "byType": {
+                "grid": 1,
+                "item": 500,
+                "text": 500,
+                "icon": 500,
+                "bar": 500,
+                "background": 500
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 500,
+            "syncMs": 22.299999952316284,
+            "renderMs": 10.900000095367432,
+            "totalMs": 33.200000047683716,
+            "scene": {
+              "managed": 2501,
+              "total": 2501,
+              "byType": {
+                "grid": 1,
+                "item": 500,
+                "text": 500,
+                "icon": 500,
+                "bar": 500,
+                "background": 500
+              }
+            }
+          },
+          "heapBeforeBytes": 16468912,
+          "retainedHeapAfterDrawBytes": 9520151,
+          "retainedHeapAfterUpdateBytes": 9520108,
+          "teardownSyncMs": 593.0999999046326,
+          "postDestroyRetainedHeapBytes": 4315568
+        }
+      ]
+    },
+    {
+      "itemCount": 1000,
+      "summary": {
+        "initMs": {
+          "min": 45.9,
+          "median": 56.3,
+          "p95": 88.5,
+          "max": 88.5
+        },
+        "initialSyncMs": {
+          "min": 482.7,
+          "median": 562.7,
+          "p95": 1186.3,
+          "max": 1186.3
+        },
+        "initialRenderMs": {
+          "min": 237.6,
+          "median": 290.6,
+          "p95": 479.5,
+          "max": 479.5
+        },
+        "initialTotalMs": {
+          "min": 720.3,
+          "median": 853.3,
+          "p95": 1665.8,
+          "max": 1665.8
+        },
+        "updateSyncMs": {
+          "min": 28.2,
+          "median": 43.4,
+          "p95": 59.2,
+          "max": 59.2
+        },
+        "updateRenderMs": {
+          "min": 10.3,
+          "median": 24,
+          "p95": 33.9,
+          "max": 33.9
+        },
+        "updateTotalMs": {
+          "min": 38.5,
+          "median": 67.4,
+          "p95": 93.1,
+          "max": 93.1
+        },
+        "teardownSyncMs": {
+          "min": 552.8,
+          "median": 752.2,
+          "p95": 1677.2,
+          "max": 1677.2
+        },
+        "retainedHeapAfterDrawBytes": {
+          "min": 18874443,
+          "median": 18921823,
+          "p95": 18966075,
+          "max": 18966075
+        },
+        "retainedHeapAfterUpdateBytes": {
+          "min": 18950464,
+          "median": 18997040,
+          "p95": 19066908,
+          "max": 19066908
+        },
+        "postDestroyRetainedHeapBytes": {
+          "min": 8744132,
+          "median": 8803056,
+          "p95": 8825096,
+          "max": 8825096
+        },
+        "initialManagedObjects": {
+          "min": 5001,
+          "median": 5001,
+          "p95": 5001,
+          "max": 5001
+        },
+        "initialSceneNodes": {
+          "min": 5001,
+          "median": 5001,
+          "p95": 5001,
+          "max": 5001
+        },
+        "updatedManagedObjects": {
+          "min": 5001,
+          "median": 5001,
+          "p95": 5001,
+          "max": 5001
+        },
+        "updatedSceneNodes": {
+          "min": 5001,
+          "median": 5001,
+          "p95": 5001,
+          "max": 5001
+        }
+      },
+      "noiseAssessment": {
+        "provisional": true,
+        "noisyMetrics": [
+          {
+            "metric": "initMs",
+            "p95MedianRatio": 1.57
+          },
+          {
+            "metric": "initialSyncMs",
+            "p95MedianRatio": 2.11
+          },
+          {
+            "metric": "initialRenderMs",
+            "p95MedianRatio": 1.65
+          },
+          {
+            "metric": "initialTotalMs",
+            "p95MedianRatio": 1.95
+          },
+          {
+            "metric": "updateSyncMs",
+            "p95MedianRatio": 1.36
+          },
+          {
+            "metric": "updateRenderMs",
+            "p95MedianRatio": 1.41
+          },
+          {
+            "metric": "updateTotalMs",
+            "p95MedianRatio": 1.38
+          },
+          {
+            "metric": "teardownSyncMs",
+            "p95MedianRatio": 2.23
+          }
+        ]
+      },
+      "samples": [
+        {
+          "itemCount": 1000,
+          "initMs": 56.299999952316284,
+          "initial": {
+            "syncMs": 482.7000000476837,
+            "renderMs": 237.60000014305115,
+            "totalMs": 720.3000001907349,
+            "scene": {
+              "managed": 5001,
+              "total": 5001,
+              "byType": {
+                "grid": 1,
+                "item": 1000,
+                "text": 1000,
+                "icon": 1000,
+                "bar": 1000,
+                "background": 1000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 1000,
+            "syncMs": 35.59999990463257,
+            "renderMs": 19.299999952316284,
+            "totalMs": 54.89999985694885,
+            "scene": {
+              "managed": 5001,
+              "total": 5001,
+              "byType": {
+                "grid": 1,
+                "item": 1000,
+                "text": 1000,
+                "icon": 1000,
+                "bar": 1000,
+                "background": 1000
+              }
+            }
+          },
+          "heapBeforeBytes": 16619267,
+          "retainedHeapAfterDrawBytes": 18937099,
+          "retainedHeapAfterUpdateBytes": 18992516,
+          "teardownSyncMs": 552.7999999523163,
+          "postDestroyRetainedHeapBytes": 8803056
+        },
+        {
+          "itemCount": 1000,
+          "initMs": 45.90000009536743,
+          "initial": {
+            "syncMs": 545.8999998569489,
+            "renderMs": 274.80000019073486,
+            "totalMs": 820.7000000476837,
+            "scene": {
+              "managed": 5001,
+              "total": 5001,
+              "byType": {
+                "grid": 1,
+                "item": 1000,
+                "text": 1000,
+                "icon": 1000,
+                "bar": 1000,
+                "background": 1000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 1000,
+            "syncMs": 37.5,
+            "renderMs": 27.700000047683716,
+            "totalMs": 65.20000004768372,
+            "scene": {
+              "managed": 5001,
+              "total": 5001,
+              "byType": {
+                "grid": 1,
+                "item": 1000,
+                "text": 1000,
+                "icon": 1000,
+                "bar": 1000,
+                "background": 1000
+              }
+            }
+          },
+          "heapBeforeBytes": 16666307,
+          "retainedHeapAfterDrawBytes": 18921823,
+          "retainedHeapAfterUpdateBytes": 19041588,
+          "teardownSyncMs": 597.7999999523163,
+          "postDestroyRetainedHeapBytes": 8811700
+        },
+        {
+          "itemCount": 1000,
+          "initMs": 52.10000014305115,
+          "initial": {
+            "syncMs": 1186.2999999523163,
+            "renderMs": 479.5,
+            "totalMs": 1665.7999999523163,
+            "scene": {
+              "managed": 5001,
+              "total": 5001,
+              "byType": {
+                "grid": 1,
+                "item": 1000,
+                "text": 1000,
+                "icon": 1000,
+                "bar": 1000,
+                "background": 1000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 1000,
+            "syncMs": 59.200000047683716,
+            "renderMs": 33.90000009536743,
+            "totalMs": 93.10000014305115,
+            "scene": {
+              "managed": 5001,
+              "total": 5001,
+              "byType": {
+                "grid": 1,
+                "item": 1000,
+                "text": 1000,
+                "icon": 1000,
+                "bar": 1000,
+                "background": 1000
+              }
+            }
+          },
+          "heapBeforeBytes": 16711051,
+          "retainedHeapAfterDrawBytes": 18874443,
+          "retainedHeapAfterUpdateBytes": 18996500,
+          "teardownSyncMs": 1266.5,
+          "postDestroyRetainedHeapBytes": 8780132
+        },
+        {
+          "itemCount": 1000,
+          "initMs": 88.5,
+          "initial": {
+            "syncMs": 599.7000000476837,
+            "renderMs": 319.09999990463257,
+            "totalMs": 918.7999999523163,
+            "scene": {
+              "managed": 5001,
+              "total": 5001,
+              "byType": {
+                "grid": 1,
+                "item": 1000,
+                "text": 1000,
+                "icon": 1000,
+                "bar": 1000,
+                "background": 1000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 1000,
+            "syncMs": 47.5,
+            "renderMs": 25.5,
+            "totalMs": 73,
+            "scene": {
+              "managed": 5001,
+              "total": 5001,
+              "byType": {
+                "grid": 1,
+                "item": 1000,
+                "text": 1000,
+                "icon": 1000,
+                "bar": 1000,
+                "background": 1000
+              }
+            }
+          },
+          "heapBeforeBytes": 16728891,
+          "retainedHeapAfterDrawBytes": 18966075,
+          "retainedHeapAfterUpdateBytes": 19066908,
+          "teardownSyncMs": 1677.2000000476837,
+          "postDestroyRetainedHeapBytes": 8825096
+        },
+        {
+          "itemCount": 1000,
+          "initMs": 62.700000047683716,
+          "initial": {
+            "syncMs": 634.4000000953674,
+            "renderMs": 301.2999999523163,
+            "totalMs": 935.7000000476837,
+            "scene": {
+              "managed": 5001,
+              "total": 5001,
+              "byType": {
+                "grid": 1,
+                "item": 1000,
+                "text": 1000,
+                "icon": 1000,
+                "bar": 1000,
+                "background": 1000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 1000,
+            "syncMs": 47.59999990463257,
+            "renderMs": 23.90000009536743,
+            "totalMs": 71.5,
+            "scene": {
+              "managed": 5001,
+              "total": 5001,
+              "byType": {
+                "grid": 1,
+                "item": 1000,
+                "text": 1000,
+                "icon": 1000,
+                "bar": 1000,
+                "background": 1000
+              }
+            }
+          },
+          "heapBeforeBytes": 16809511,
+          "retainedHeapAfterDrawBytes": 18949535,
+          "retainedHeapAfterUpdateBytes": 19010724,
+          "teardownSyncMs": 969,
+          "postDestroyRetainedHeapBytes": 8804792
+        },
+        {
+          "itemCount": 1000,
+          "initMs": 67.29999995231628,
+          "initial": {
+            "syncMs": 562.7000000476837,
+            "renderMs": 290.59999990463257,
+            "totalMs": 853.2999999523163,
+            "scene": {
+              "managed": 5001,
+              "total": 5001,
+              "byType": {
+                "grid": 1,
+                "item": 1000,
+                "text": 1000,
+                "icon": 1000,
+                "bar": 1000,
+                "background": 1000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 1000,
+            "syncMs": 43.39999985694885,
+            "renderMs": 24,
+            "totalMs": 67.39999985694885,
+            "scene": {
+              "managed": 5001,
+              "total": 5001,
+              "byType": {
+                "grid": 1,
+                "item": 1000,
+                "text": 1000,
+                "icon": 1000,
+                "bar": 1000,
+                "background": 1000
+              }
+            }
+          },
+          "heapBeforeBytes": 16828251,
+          "retainedHeapAfterDrawBytes": 18878426,
+          "retainedHeapAfterUpdateBytes": 18950464,
+          "teardownSyncMs": 752.2000000476837,
+          "postDestroyRetainedHeapBytes": 8744132
+        },
+        {
+          "itemCount": 1000,
+          "initMs": 56.200000047683716,
+          "initial": {
+            "syncMs": 547.6000001430511,
+            "renderMs": 253.69999980926514,
+            "totalMs": 801.2999999523163,
+            "scene": {
+              "managed": 5001,
+              "total": 5001,
+              "byType": {
+                "grid": 1,
+                "item": 1000,
+                "text": 1000,
+                "icon": 1000,
+                "bar": 1000,
+                "background": 1000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 1000,
+            "syncMs": 28.200000047683716,
+            "renderMs": 10.299999952316284,
+            "totalMs": 38.5,
+            "scene": {
+              "managed": 5001,
+              "total": 5001,
+              "byType": {
+                "grid": 1,
+                "item": 1000,
+                "text": 1000,
+                "icon": 1000,
+                "bar": 1000,
+                "background": 1000
+              }
+            }
+          },
+          "heapBeforeBytes": 16833211,
+          "retainedHeapAfterDrawBytes": 18917131,
+          "retainedHeapAfterUpdateBytes": 18997040,
+          "teardownSyncMs": 604.7999999523163,
+          "postDestroyRetainedHeapBytes": 8798616
+        }
+      ]
+    },
+    {
+      "itemCount": 2000,
+      "summary": {
+        "initMs": {
+          "min": 45.7,
+          "median": 66.8,
+          "p95": 184.6,
+          "max": 184.6
+        },
+        "initialSyncMs": {
+          "min": 883.8,
+          "median": 1218.6,
+          "p95": 1346.6,
+          "max": 1346.6
+        },
+        "initialRenderMs": {
+          "min": 412.9,
+          "median": 490.1,
+          "p95": 598.4,
+          "max": 598.4
+        },
+        "initialTotalMs": {
+          "min": 1296.7,
+          "median": 1701.6,
+          "p95": 1945,
+          "max": 1945
+        },
+        "updateSyncMs": {
+          "min": 58.9,
+          "median": 69.7,
+          "p95": 81.6,
+          "max": 81.6
+        },
+        "updateRenderMs": {
+          "min": 30.5,
+          "median": 36.8,
+          "p95": 52.8,
+          "max": 52.8
+        },
+        "updateTotalMs": {
+          "min": 89.4,
+          "median": 108.2,
+          "p95": 122.5,
+          "max": 122.5
+        },
+        "teardownSyncMs": {
+          "min": 797.3,
+          "median": 1733.2,
+          "p95": 3244.1,
+          "max": 3244.1
+        },
+        "retainedHeapAfterDrawBytes": {
+          "min": 37338171,
+          "median": 37378547,
+          "p95": 37447491,
+          "max": 37447491
+        },
+        "retainedHeapAfterUpdateBytes": {
+          "min": 37439060,
+          "median": 37485324,
+          "p95": 37557656,
+          "max": 37557656
+        },
+        "postDestroyRetainedHeapBytes": {
+          "min": 17457236,
+          "median": 17479212,
+          "p95": 17517460,
+          "max": 17517460
+        },
+        "initialManagedObjects": {
+          "min": 10001,
+          "median": 10001,
+          "p95": 10001,
+          "max": 10001
+        },
+        "initialSceneNodes": {
+          "min": 10001,
+          "median": 10001,
+          "p95": 10001,
+          "max": 10001
+        },
+        "updatedManagedObjects": {
+          "min": 10001,
+          "median": 10001,
+          "p95": 10001,
+          "max": 10001
+        },
+        "updatedSceneNodes": {
+          "min": 10001,
+          "median": 10001,
+          "p95": 10001,
+          "max": 10001
+        }
+      },
+      "noiseAssessment": {
+        "provisional": true,
+        "noisyMetrics": [
+          {
+            "metric": "initMs",
+            "p95MedianRatio": 2.76
+          },
+          {
+            "metric": "updateRenderMs",
+            "p95MedianRatio": 1.43
+          },
+          {
+            "metric": "teardownSyncMs",
+            "p95MedianRatio": 1.87
+          }
+        ]
+      },
+      "samples": [
+        {
+          "itemCount": 2000,
+          "initMs": 66.79999995231628,
+          "initial": {
+            "syncMs": 883.7999999523163,
+            "renderMs": 412.90000009536743,
+            "totalMs": 1296.7000000476837,
+            "scene": {
+              "managed": 10001,
+              "total": 10001,
+              "byType": {
+                "grid": 1,
+                "item": 2000,
+                "text": 2000,
+                "icon": 2000,
+                "bar": 2000,
+                "background": 2000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 2000,
+            "syncMs": 58.89999985694885,
+            "renderMs": 30.5,
+            "totalMs": 89.39999985694885,
+            "scene": {
+              "managed": 10001,
+              "total": 10001,
+              "byType": {
+                "grid": 1,
+                "item": 2000,
+                "text": 2000,
+                "icon": 2000,
+                "bar": 2000,
+                "background": 2000
+              }
+            }
+          },
+          "heapBeforeBytes": 16985587,
+          "retainedHeapAfterDrawBytes": 37398278,
+          "retainedHeapAfterUpdateBytes": 37506128,
+          "teardownSyncMs": 797.3000001907349,
+          "postDestroyRetainedHeapBytes": 17459440
+        },
+        {
+          "itemCount": 2000,
+          "initMs": 45.700000047683716,
+          "initial": {
+            "syncMs": 1022.2000000476837,
+            "renderMs": 482.39999985694885,
+            "totalMs": 1504.5999999046326,
+            "scene": {
+              "managed": 10001,
+              "total": 10001,
+              "byType": {
+                "grid": 1,
+                "item": 2000,
+                "text": 2000,
+                "icon": 2000,
+                "bar": 2000,
+                "background": 2000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 2000,
+            "syncMs": 71.40000009536743,
+            "renderMs": 36.799999952316284,
+            "totalMs": 108.20000004768372,
+            "scene": {
+              "managed": 10001,
+              "total": 10001,
+              "byType": {
+                "grid": 1,
+                "item": 2000,
+                "text": 2000,
+                "icon": 2000,
+                "bar": 2000,
+                "background": 2000
+              }
+            }
+          },
+          "heapBeforeBytes": 16992975,
+          "retainedHeapAfterDrawBytes": 37439483,
+          "retainedHeapAfterUpdateBytes": 37557656,
+          "teardownSyncMs": 3244.0999999046326,
+          "postDestroyRetainedHeapBytes": 17505460
+        },
+        {
+          "itemCount": 2000,
+          "initMs": 85.29999995231628,
+          "initial": {
+            "syncMs": 1346.6000001430511,
+            "renderMs": 598.3999998569489,
+            "totalMs": 1945,
+            "scene": {
+              "managed": 10001,
+              "total": 10001,
+              "byType": {
+                "grid": 1,
+                "item": 2000,
+                "text": 2000,
+                "icon": 2000,
+                "bar": 2000,
+                "background": 2000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 2000,
+            "syncMs": 81.59999990463257,
+            "renderMs": 39.40000009536743,
+            "totalMs": 121,
+            "scene": {
+              "managed": 10001,
+              "total": 10001,
+              "byType": {
+                "grid": 1,
+                "item": 2000,
+                "text": 2000,
+                "icon": 2000,
+                "bar": 2000,
+                "background": 2000
+              }
+            }
+          },
+          "heapBeforeBytes": 17051347,
+          "retainedHeapAfterDrawBytes": 37447491,
+          "retainedHeapAfterUpdateBytes": 37550556,
+          "teardownSyncMs": 1841.4000000953674,
+          "postDestroyRetainedHeapBytes": 17495228
+        },
+        {
+          "itemCount": 2000,
+          "initMs": 61.700000047683716,
+          "initial": {
+            "syncMs": 1218.5999999046326,
+            "renderMs": 483,
+            "totalMs": 1701.5999999046326,
+            "scene": {
+              "managed": 10001,
+              "total": 10001,
+              "byType": {
+                "grid": 1,
+                "item": 2000,
+                "text": 2000,
+                "icon": 2000,
+                "bar": 2000,
+                "background": 2000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 2000,
+            "syncMs": 67,
+            "renderMs": 33.59999990463257,
+            "totalMs": 100.59999990463257,
+            "scene": {
+              "managed": 10001,
+              "total": 10001,
+              "byType": {
+                "grid": 1,
+                "item": 2000,
+                "text": 2000,
+                "icon": 2000,
+                "bar": 2000,
+                "background": 2000
+              }
+            }
+          },
+          "heapBeforeBytes": 17078055,
+          "retainedHeapAfterDrawBytes": 37348223,
+          "retainedHeapAfterUpdateBytes": 37460180,
+          "teardownSyncMs": 951.2999999523163,
+          "postDestroyRetainedHeapBytes": 17477468
+        },
+        {
+          "itemCount": 2000,
+          "initMs": 59.80000019073486,
+          "initial": {
+            "syncMs": 965.7999999523163,
+            "renderMs": 490.09999990463257,
+            "totalMs": 1455.8999998569489,
+            "scene": {
+              "managed": 10001,
+              "total": 10001,
+              "byType": {
+                "grid": 1,
+                "item": 2000,
+                "text": 2000,
+                "icon": 2000,
+                "bar": 2000,
+                "background": 2000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 2000,
+            "syncMs": 66.79999995231628,
+            "renderMs": 34.59999990463257,
+            "totalMs": 101.39999985694885,
+            "scene": {
+              "managed": 10001,
+              "total": 10001,
+              "byType": {
+                "grid": 1,
+                "item": 2000,
+                "text": 2000,
+                "icon": 2000,
+                "bar": 2000,
+                "background": 2000
+              }
+            }
+          },
+          "heapBeforeBytes": 17114347,
+          "retainedHeapAfterDrawBytes": 37344479,
+          "retainedHeapAfterUpdateBytes": 37439060,
+          "teardownSyncMs": 1733.2000000476837,
+          "postDestroyRetainedHeapBytes": 17479212
+        },
+        {
+          "itemCount": 2000,
+          "initMs": 184.59999990463257,
+          "initial": {
+            "syncMs": 1244.5,
+            "renderMs": 569.1000001430511,
+            "totalMs": 1813.6000001430511,
+            "scene": {
+              "managed": 10001,
+              "total": 10001,
+              "byType": {
+                "grid": 1,
+                "item": 2000,
+                "text": 2000,
+                "icon": 2000,
+                "bar": 2000,
+                "background": 2000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 2000,
+            "syncMs": 69.70000004768372,
+            "renderMs": 52.799999952316284,
+            "totalMs": 122.5,
+            "scene": {
+              "managed": 10001,
+              "total": 10001,
+              "byType": {
+                "grid": 1,
+                "item": 2000,
+                "text": 2000,
+                "icon": 2000,
+                "bar": 2000,
+                "background": 2000
+              }
+            }
+          },
+          "heapBeforeBytes": 17137791,
+          "retainedHeapAfterDrawBytes": 37338171,
+          "retainedHeapAfterUpdateBytes": 37445256,
+          "teardownSyncMs": 1894,
+          "postDestroyRetainedHeapBytes": 17457236
+        },
+        {
+          "itemCount": 2000,
+          "initMs": 114.79999995231628,
+          "initial": {
+            "syncMs": 1293,
+            "renderMs": 541.1000001430511,
+            "totalMs": 1834.1000001430511,
+            "scene": {
+              "managed": 10001,
+              "total": 10001,
+              "byType": {
+                "grid": 1,
+                "item": 2000,
+                "text": 2000,
+                "icon": 2000,
+                "bar": 2000,
+                "background": 2000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 2000,
+            "syncMs": 73.29999995231628,
+            "renderMs": 41,
+            "totalMs": 114.29999995231628,
+            "scene": {
+              "managed": 10001,
+              "total": 10001,
+              "byType": {
+                "grid": 1,
+                "item": 2000,
+                "text": 2000,
+                "icon": 2000,
+                "bar": 2000,
+                "background": 2000
+              }
+            }
+          },
+          "heapBeforeBytes": 17157883,
+          "retainedHeapAfterDrawBytes": 37378547,
+          "retainedHeapAfterUpdateBytes": 37485324,
+          "teardownSyncMs": 1417.2000000476837,
+          "postDestroyRetainedHeapBytes": 17517460
+        }
+      ]
+    },
+    {
+      "itemCount": 5000,
+      "summary": {
+        "initMs": {
+          "min": 51.6,
+          "median": 62.9,
+          "p95": 86.7,
+          "max": 86.7
+        },
+        "initialSyncMs": {
+          "min": 1964.5,
+          "median": 2218.1,
+          "p95": 2625.8,
+          "max": 2625.8
+        },
+        "initialRenderMs": {
+          "min": 907.7,
+          "median": 991.7,
+          "p95": 1456.1,
+          "max": 1456.1
+        },
+        "initialTotalMs": {
+          "min": 2956.2,
+          "median": 3161.8,
+          "p95": 4081.9,
+          "max": 4081.9
+        },
+        "updateSyncMs": {
+          "min": 125.3,
+          "median": 138.7,
+          "p95": 232.9,
+          "max": 232.9
+        },
+        "updateRenderMs": {
+          "min": 75.1,
+          "median": 78.3,
+          "p95": 204.7,
+          "max": 204.7
+        },
+        "updateTotalMs": {
+          "min": 200.4,
+          "median": 214.9,
+          "p95": 437.6,
+          "max": 437.6
+        },
+        "teardownSyncMs": {
+          "min": 2098.7,
+          "median": 2271.6,
+          "p95": 3070,
+          "max": 3070
+        },
+        "retainedHeapAfterDrawBytes": {
+          "min": 91756473,
+          "median": 91872129,
+          "p95": 92227399,
+          "max": 92227399
+        },
+        "retainedHeapAfterUpdateBytes": {
+          "min": 92261084,
+          "median": 92445836,
+          "p95": 92625217,
+          "max": 92625217
+        },
+        "postDestroyRetainedHeapBytes": {
+          "min": 43367280,
+          "median": 43478976,
+          "p95": 43539692,
+          "max": 43539692
+        },
+        "initialManagedObjects": {
+          "min": 25001,
+          "median": 25001,
+          "p95": 25001,
+          "max": 25001
+        },
+        "initialSceneNodes": {
+          "min": 25001,
+          "median": 25001,
+          "p95": 25001,
+          "max": 25001
+        },
+        "updatedManagedObjects": {
+          "min": 25001,
+          "median": 25001,
+          "p95": 25001,
+          "max": 25001
+        },
+        "updatedSceneNodes": {
+          "min": 25001,
+          "median": 25001,
+          "p95": 25001,
+          "max": 25001
+        }
+      },
+      "noiseAssessment": {
+        "provisional": true,
+        "noisyMetrics": [
+          {
+            "metric": "initMs",
+            "p95MedianRatio": 1.38
+          },
+          {
+            "metric": "initialRenderMs",
+            "p95MedianRatio": 1.47
+          },
+          {
+            "metric": "updateSyncMs",
+            "p95MedianRatio": 1.68
+          },
+          {
+            "metric": "updateRenderMs",
+            "p95MedianRatio": 2.61
+          },
+          {
+            "metric": "updateTotalMs",
+            "p95MedianRatio": 2.04
+          },
+          {
+            "metric": "teardownSyncMs",
+            "p95MedianRatio": 1.35
+          }
+        ]
+      },
+      "samples": [
+        {
+          "itemCount": 5000,
+          "initMs": 86.70000004768372,
+          "initial": {
+            "syncMs": 2625.7999999523163,
+            "renderMs": 1456.1000001430511,
+            "totalMs": 4081.9000000953674,
+            "scene": {
+              "managed": 25001,
+              "total": 25001,
+              "byType": {
+                "grid": 1,
+                "item": 5000,
+                "text": 5000,
+                "icon": 5000,
+                "bar": 5000,
+                "background": 5000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 5000,
+            "syncMs": 232.90000009536743,
+            "renderMs": 204.69999980926514,
+            "totalMs": 437.59999990463257,
+            "scene": {
+              "managed": 25001,
+              "total": 25001,
+              "byType": {
+                "grid": 1,
+                "item": 5000,
+                "text": 5000,
+                "icon": 5000,
+                "bar": 5000,
+                "background": 5000
+              }
+            }
+          },
+          "heapBeforeBytes": 17328632,
+          "retainedHeapAfterDrawBytes": 92066938,
+          "retainedHeapAfterUpdateBytes": 92625217,
+          "teardownSyncMs": 3070,
+          "postDestroyRetainedHeapBytes": 43470989
+        },
+        {
+          "itemCount": 5000,
+          "initMs": 69.39999985694885,
+          "initial": {
+            "syncMs": 2369.600000143051,
+            "renderMs": 972.7000000476837,
+            "totalMs": 3342.300000190735,
+            "scene": {
+              "managed": 25001,
+              "total": 25001,
+              "byType": {
+                "grid": 1,
+                "item": 5000,
+                "text": 5000,
+                "icon": 5000,
+                "bar": 5000,
+                "background": 5000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 5000,
+            "syncMs": 145.70000004768372,
+            "renderMs": 78.29999995231628,
+            "totalMs": 224,
+            "scene": {
+              "managed": 25001,
+              "total": 25001,
+              "byType": {
+                "grid": 1,
+                "item": 5000,
+                "text": 5000,
+                "icon": 5000,
+                "bar": 5000,
+                "background": 5000
+              }
+            }
+          },
+          "heapBeforeBytes": 17355089,
+          "retainedHeapAfterDrawBytes": 92227399,
+          "retainedHeapAfterUpdateBytes": 92515920,
+          "teardownSyncMs": 2793.5,
+          "postDestroyRetainedHeapBytes": 43539692
+        },
+        {
+          "itemCount": 5000,
+          "initMs": 55.5,
+          "initial": {
+            "syncMs": 2137.7000000476837,
+            "renderMs": 1014.4000000953674,
+            "totalMs": 3152.100000143051,
+            "scene": {
+              "managed": 25001,
+              "total": 25001,
+              "byType": {
+                "grid": 1,
+                "item": 5000,
+                "text": 5000,
+                "icon": 5000,
+                "bar": 5000,
+                "background": 5000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 5000,
+            "syncMs": 138.70000004768372,
+            "renderMs": 76.20000004768372,
+            "totalMs": 214.90000009536743,
+            "scene": {
+              "managed": 25001,
+              "total": 25001,
+              "byType": {
+                "grid": 1,
+                "item": 5000,
+                "text": 5000,
+                "icon": 5000,
+                "bar": 5000,
+                "background": 5000
+              }
+            }
+          },
+          "heapBeforeBytes": 17415289,
+          "retainedHeapAfterDrawBytes": 92209907,
+          "retainedHeapAfterUpdateBytes": 92440124,
+          "teardownSyncMs": 2250,
+          "postDestroyRetainedHeapBytes": 43478976
+        },
+        {
+          "itemCount": 5000,
+          "initMs": 66.79999995231628,
+          "initial": {
+            "syncMs": 2218.0999999046326,
+            "renderMs": 992,
+            "totalMs": 3210.0999999046326,
+            "scene": {
+              "managed": 25001,
+              "total": 25001,
+              "byType": {
+                "grid": 1,
+                "item": 5000,
+                "text": 5000,
+                "icon": 5000,
+                "bar": 5000,
+                "background": 5000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 5000,
+            "syncMs": 129.79999995231628,
+            "renderMs": 77.70000004768372,
+            "totalMs": 207.5,
+            "scene": {
+              "managed": 25001,
+              "total": 25001,
+              "byType": {
+                "grid": 1,
+                "item": 5000,
+                "text": 5000,
+                "icon": 5000,
+                "bar": 5000,
+                "background": 5000
+              }
+            }
+          },
+          "heapBeforeBytes": 17428557,
+          "retainedHeapAfterDrawBytes": 91872129,
+          "retainedHeapAfterUpdateBytes": 92478472,
+          "teardownSyncMs": 2271.5999999046326,
+          "postDestroyRetainedHeapBytes": 43507012
+        },
+        {
+          "itemCount": 5000,
+          "initMs": 62.90000009536743,
+          "initial": {
+            "syncMs": 2254.0999999046326,
+            "renderMs": 907.7000000476837,
+            "totalMs": 3161.7999999523163,
+            "scene": {
+              "managed": 25001,
+              "total": 25001,
+              "byType": {
+                "grid": 1,
+                "item": 5000,
+                "text": 5000,
+                "icon": 5000,
+                "bar": 5000,
+                "background": 5000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 5000,
+            "syncMs": 150.79999995231628,
+            "renderMs": 84.20000004768372,
+            "totalMs": 235,
+            "scene": {
+              "managed": 25001,
+              "total": 25001,
+              "byType": {
+                "grid": 1,
+                "item": 5000,
+                "text": 5000,
+                "icon": 5000,
+                "bar": 5000,
+                "background": 5000
+              }
+            }
+          },
+          "heapBeforeBytes": 17469161,
+          "retainedHeapAfterDrawBytes": 91756473,
+          "retainedHeapAfterUpdateBytes": 92261084,
+          "teardownSyncMs": 2249.2000000476837,
+          "postDestroyRetainedHeapBytes": 43367280
+        },
+        {
+          "itemCount": 5000,
+          "initMs": 54.60000014305115,
+          "initial": {
+            "syncMs": 2108.699999809265,
+            "renderMs": 987.2000000476837,
+            "totalMs": 3095.899999856949,
+            "scene": {
+              "managed": 25001,
+              "total": 25001,
+              "byType": {
+                "grid": 1,
+                "item": 5000,
+                "text": 5000,
+                "icon": 5000,
+                "bar": 5000,
+                "background": 5000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 5000,
+            "syncMs": 125.29999995231628,
+            "renderMs": 75.09999990463257,
+            "totalMs": 200.39999985694885,
+            "scene": {
+              "managed": 25001,
+              "total": 25001,
+              "byType": {
+                "grid": 1,
+                "item": 5000,
+                "text": 5000,
+                "icon": 5000,
+                "bar": 5000,
+                "background": 5000
+              }
+            }
+          },
+          "heapBeforeBytes": 17548821,
+          "retainedHeapAfterDrawBytes": 91853789,
+          "retainedHeapAfterUpdateBytes": 92445836,
+          "teardownSyncMs": 2098.7000000476837,
+          "postDestroyRetainedHeapBytes": 43517244
+        },
+        {
+          "itemCount": 5000,
+          "initMs": 51.60000014305115,
+          "initial": {
+            "syncMs": 1964.5,
+            "renderMs": 991.6999998092651,
+            "totalMs": 2956.199999809265,
+            "scene": {
+              "managed": 25001,
+              "total": 25001,
+              "byType": {
+                "grid": 1,
+                "item": 5000,
+                "text": 5000,
+                "icon": 5000,
+                "bar": 5000,
+                "background": 5000
+              }
+            }
+          },
+          "update": {
+            "targetedItems": 5000,
+            "syncMs": 135.10000014305115,
+            "renderMs": 78.89999985694885,
+            "totalMs": 214,
+            "scene": {
+              "managed": 25001,
+              "total": 25001,
+              "byType": {
+                "grid": 1,
+                "item": 5000,
+                "text": 5000,
+                "icon": 5000,
+                "bar": 5000,
+                "background": 5000
+              }
+            }
+          },
+          "heapBeforeBytes": 17585961,
+          "retainedHeapAfterDrawBytes": 91831457,
+          "retainedHeapAfterUpdateBytes": 92416600,
+          "teardownSyncMs": 2814.399999856949,
+          "postDestroyRetainedHeapBytes": 43453944
+        }
+      ]
+    }
+  ]
+}

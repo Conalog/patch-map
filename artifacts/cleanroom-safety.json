@@ -1,0 +1,670 @@
+{
+  "schemaVersion": 1,
+  "result": "pass",
+  "fixtureStatuses": [
+    {
+      "id": "LIF-001",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "LIF-002",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-001",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-002",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-003",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-004",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-005",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-006",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-001",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-002",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-003",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-004",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-005",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-006",
+      "status": "oracle-generated/review-pending"
+    }
+  ],
+  "separation": {
+    "referenceExecution": [
+      "src/reference-entry.mjs",
+      "scripts/oracle/reference-browser.mjs",
+      "scripts/oracle/oracle-harness.html",
+      "scripts/oracle/capture.mjs"
+    ],
+    "cleanRoomSafeFixtures": [
+      "fixtures/**",
+      "artifacts/expected/**"
+    ]
+  },
+  "excludedRuntimeMaterial": [
+    "node_modules/**",
+    "package-lock.json",
+    "*.tgz",
+    "dist/**",
+    "*.map",
+    "artifacts/raw/**"
+  ],
+  "contaminationDetected": false,
+  "checks": [
+    {
+      "name": "reference entrypoint is exact one-line export",
+      "pass": true,
+      "detail": "src/reference-entry.mjs must contain only the approved export line"
+    },
+    {
+      "name": "fixture set is exact",
+      "pass": true,
+      "detail": "found DRW-001.json, DRW-002.json, DRW-003.json, DRW-004.json, DRW-005.json, DRW-006.json, LIF-001.json, LIF-002.json, UPD-001.json, UPD-002.json, UPD-003.json, UPD-004.json, UPD-005.json, UPD-006.json"
+    },
+    {
+      "name": "LIF-001 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "LIF-001 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "LIF-001 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "LIF-001 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "LIF-001 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "LIF-001 caller inputs unchanged",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "LIF-002 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "LIF-002 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "LIF-002 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "LIF-002 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "LIF-002 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "LIF-002 caller inputs unchanged",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "DRW-001 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "DRW-001 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "DRW-001 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "DRW-001 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "DRW-001 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "DRW-001 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true"
+    },
+    {
+      "name": "DRW-002 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "DRW-002 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "DRW-002 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "DRW-002 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "DRW-002 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "DRW-002 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true"
+    },
+    {
+      "name": "DRW-003 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "DRW-003 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "DRW-003 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "DRW-003 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "DRW-003 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "DRW-003 caller inputs unchanged",
+      "pass": true,
+      "detail": "true"
+    },
+    {
+      "name": "DRW-004 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "DRW-004 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "DRW-004 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "DRW-004 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "DRW-004 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "DRW-004 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true"
+    },
+    {
+      "name": "DRW-005 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "DRW-005 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "DRW-005 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "DRW-005 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "DRW-005 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "DRW-005 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true"
+    },
+    {
+      "name": "DRW-006 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "DRW-006 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "DRW-006 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "DRW-006 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "DRW-006 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "DRW-006 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true"
+    },
+    {
+      "name": "UPD-001 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "UPD-001 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "UPD-001 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "UPD-001 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "UPD-001 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "UPD-001 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true, true"
+    },
+    {
+      "name": "UPD-002 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "UPD-002 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "UPD-002 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "UPD-002 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "UPD-002 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "UPD-002 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true"
+    },
+    {
+      "name": "UPD-003 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "UPD-003 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "UPD-003 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "UPD-003 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "UPD-003 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "UPD-003 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true, true"
+    },
+    {
+      "name": "UPD-004 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "UPD-004 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "UPD-004 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "UPD-004 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "UPD-004 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "UPD-004 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true, true, true"
+    },
+    {
+      "name": "UPD-005 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "UPD-005 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "UPD-005 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "UPD-005 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "UPD-005 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "UPD-005 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true"
+    },
+    {
+      "name": "UPD-006 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "UPD-006 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "UPD-006 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "UPD-006 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "UPD-006 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "UPD-006 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true"
+    },
+    {
+      "name": "DRW-001 default animation probe omits caller value",
+      "pass": true,
+      "detail": "the default probe public input must omit animation"
+    },
+    {
+      "name": "DRW-001 default animation is publicly observed",
+      "pass": true,
+      "detail": "materialized bar props must record the reference default"
+    },
+    {
+      "name": "DRW-001 stable visual scope remains seven element and four component kinds",
+      "pass": true,
+      "detail": "stable visual input must preserve all kinds and explicitly disable bar animation"
+    },
+    {
+      "name": "UPD-002 component matching table coverage",
+      "pass": true,
+      "detail": "explicit-id, label-only, type-only, and ambiguous/order rows need merge/replace public evidence"
+    },
+    {
+      "name": "UPD-002 explicit-id merge uses differential second-text input",
+      "pass": true,
+      "detail": "[{\"type\":\"text\",\"id\":\"upd-component-text-second\",\"text\":\"after-explicit-id-second\",\"style\":{\"fill\":\"#ef4444\"}}]"
+    },
+    {
+      "name": "UPD-002 explicit-id merge selects second text and preserves first",
+      "pass": true,
+      "detail": "first and second text props/live handles must distinguish ID precedence"
+    },
+    {
+      "name": "UPD-002 label-only merge uses differential second-text input",
+      "pass": true,
+      "detail": "[{\"type\":\"text\",\"label\":\"secondary-copy\",\"text\":\"after-label-only-second\",\"style\":{\"fill\":\"#f97316\"}}]"
+    },
+    {
+      "name": "UPD-002 label-only merge selects second text and preserves first",
+      "pass": true,
+      "detail": "first and second text props/live handles must distinguish label precedence"
+    },
+    {
+      "name": "UPD-002 explicit-id replace uses differential second-text input",
+      "pass": true,
+      "detail": "[{\"type\":\"text\",\"id\":\"upd-component-text-second\",\"text\":\"after-explicit-id-second\",\"style\":{\"fill\":\"#ef4444\"}},{\"type\":\"text\",\"id\":\"upd-component-text\",\"label\":\"primary-copy\",\"text\":\"before\",\"style\":{\"fontSize\":12,\"fill\":\"#111827\",\"letterSpacing\":1}}]"
+    },
+    {
+      "name": "UPD-002 explicit-id replace selects second text and preserves first",
+      "pass": true,
+      "detail": "first and second text props/live handles must distinguish ID precedence"
+    },
+    {
+      "name": "UPD-002 label-only replace uses differential second-text input",
+      "pass": true,
+      "detail": "[{\"type\":\"text\",\"label\":\"secondary-copy\",\"text\":\"after-label-only-second\",\"style\":{\"fill\":\"#f97316\"}},{\"type\":\"text\",\"label\":\"primary-copy\",\"text\":\"before\",\"style\":{\"fontSize\":12,\"fill\":\"#111827\",\"letterSpacing\":1}}]"
+    },
+    {
+      "name": "UPD-002 label-only replace selects second text and preserves first",
+      "pass": true,
+      "detail": "first and second text props/live handles must distinguish label precedence"
+    },
+    {
+      "name": "UPD-002 generated-props to retained-live identity is preserved",
+      "pass": true,
+      "detail": "generated strings are volatile but their relationship to retained explicit live IDs is normative"
+    },
+    {
+      "name": "UPD-003 invocation matches renderable mutation",
+      "pass": true,
+      "detail": "draw(show=true rect)\nset public live handle renderable=false while props.show remains true\nupdate same show=true with refresh=false\nset renderable=false again\nupdate same show=true with refresh=true\nrecord live visibility and ordered update events"
+    },
+    {
+      "name": "UPD-005 public state/event/timing remains normative",
+      "pass": true,
+      "detail": "public return-time and next-frame observations must remain normative"
+    },
+    {
+      "name": "UPD-005 pixel evidence is provisional and non-normative",
+      "pass": true,
+      "detail": "current macOS headless SwiftShader pixels must not be a replacement requirement"
+    },
+    {
+      "name": "UPD-005 pixel phases classify the initial anomaly correctly",
+      "pass": true,
+      "detail": "black areas belong to initial/pre-update provenance; after/next-frame is white"
+    },
+    {
+      "name": "implementation package script resolves: perf:check",
+      "pass": true,
+      "detail": "node scripts/perf/check-bootstrap.mjs"
+    },
+    {
+      "name": "implementation package script resolves: perf:low-end",
+      "pass": true,
+      "detail": "node scripts/perf/low-end-benchmark.mjs"
+    },
+    {
+      "name": "implementation-safe bootstrap and commands are documented",
+      "pass": true,
+      "detail": "implementation export needs runnable bootstrap and performance commands"
+    },
+    {
+      "name": "implementation Vite security pin does not alter oracle toolchain",
+      "pass": true,
+      "detail": "implementation=7.3.6, oracle=7.3.1"
+    },
+    {
+      "name": "implementation runbook excludes oracle installation and entrypoints",
+      "pass": true,
+      "detail": "implementation guidance must not contain oracle execution setup"
+    },
+    {
+      "name": "v3 export excludes oracle-only runbooks",
+      "pass": true,
+      "detail": "docs/oracle/fixture-runbook.md, docs/oracle/windows-baseline-runbook.md, docs/reference/oracle-runbook.md"
+    },
+    {
+      "name": "UPD-002 identity ruling is resolved while UPD-005 question remains",
+      "pass": true,
+      "detail": "[{\"fixture\":\"UPD-005\",\"question\":\"Native Windows headed pixels are still required to decide whether any pixel evidence for the next-frame boundary can become normative; the current macOS headless SwiftShader pixels remain non-normative.\"}]"
+    },
+    {
+      "name": "conformance matrix remains unpromoted",
+      "pass": true,
+      "detail": "analysis owner has not reviewed the fixtures yet"
+    },
+    {
+      "name": "fixture source excludes oracle dependency: fixtures/cases/draw.mjs",
+      "pass": true,
+      "detail": "fixture source must stay implementation-agnostic"
+    },
+    {
+      "name": "fixture source excludes oracle dependency: fixtures/cases/lif.mjs",
+      "pass": true,
+      "detail": "fixture source must stay implementation-agnostic"
+    },
+    {
+      "name": "fixture source excludes oracle dependency: fixtures/cases/update.mjs",
+      "pass": true,
+      "detail": "fixture source must stay implementation-agnostic"
+    },
+    {
+      "name": "fixture source excludes oracle dependency: fixtures/index.mjs",
+      "pass": true,
+      "detail": "fixture source must stay implementation-agnostic"
+    },
+    {
+      "name": "fixture source excludes oracle dependency: fixtures/lib/public-observers.mjs",
+      "pass": true,
+      "detail": "fixture source must stay implementation-agnostic"
+    },
+    {
+      "name": "no opaque archive, source map, or build output in tracked candidates",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

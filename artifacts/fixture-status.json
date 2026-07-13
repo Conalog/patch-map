@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "conformanceMatrixMutation": "none",
+  "fixtures": [
+    {
+      "id": "LIF-001",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "LIF-002",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-001",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-002",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-003",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-004",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-005",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-006",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-001",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-002",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-003",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-004",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-005",
+      "level": 2,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-006",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    }
+  ],
+  "observableBehaviorQuestions": [
+    {
+      "fixture": "UPD-005",
+      "question": "Native Windows headed pixels are still required to decide whether any pixel evidence for the next-frame boundary can become normative; the current macOS headless SwiftShader pixels remain non-normative."
+    }
+  ]
+}

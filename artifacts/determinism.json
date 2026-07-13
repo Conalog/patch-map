@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "comparison": "fresh reference capture vs normalized expected output",
+  "result": "pass",
+  "fixtures": [
+    {
+      "id": "DRW-001",
+      "result": "pass"
+    },
+    {
+      "id": "DRW-002",
+      "result": "pass"
+    },
+    {
+      "id": "DRW-003",
+      "result": "pass"
+    },
+    {
+      "id": "DRW-004",
+      "result": "pass"
+    },
+    {
+      "id": "DRW-005",
+      "result": "pass"
+    },
+    {
+      "id": "DRW-006",
+      "result": "pass"
+    },
+    {
+      "id": "LIF-001",
+      "result": "pass"
+    },
+    {
+      "id": "LIF-002",
+      "result": "pass"
+    },
+    {
+      "id": "UPD-001",
+      "result": "pass"
+    },
+    {
+      "id": "UPD-002",
+      "result": "pass"
+    },
+    {
+      "id": "UPD-003",
+      "result": "pass"
+    },
+    {
+      "id": "UPD-004",
+      "result": "pass"
+    },
+    {
+      "id": "UPD-005",
+      "result": "pass"
+    },
+    {
+      "id": "UPD-006",
+      "result": "pass"
+    }
+  ]
+}

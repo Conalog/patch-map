@@ -1,0 +1,416 @@
+{
+  "schemaVersion": 2,
+  "exportType": "PATCH MAP v0.10 clean-room oracle fixture implementation handoff",
+  "reference": "@conalog/patch-map@0.10.0",
+  "referenceCommit": "0aaaa98b479c86939b049581734a7fb0745ba70e",
+  "implementationHandoffAllowed": true,
+  "files": [
+    {
+      "path": "artifacts/cleanroom-safety.json",
+      "sizeBytes": 20383,
+      "sha256": "80919f7e083d92ec341f571aade9997e265c7e515701ee4af2069917122e5803"
+    },
+    {
+      "path": "artifacts/determinism.json",
+      "sizeBytes": 964,
+      "sha256": "49decfec9bbbb09b8d385b3ccd7f9ec59b7cbcf57eb3ceece2fde5b3267dfb2d"
+    },
+    {
+      "path": "artifacts/environment/oracle-host.json",
+      "sizeBytes": 2136,
+      "sha256": "89545981f7210755f465e31d3a77b53cdedeba7a244a4a90db0cf42558721469"
+    },
+    {
+      "path": "artifacts/expected/DRW-001.json",
+      "sizeBytes": 60529,
+      "sha256": "df27296db8516b139d1ea2837fdf4383fe325ca6b9ad757481967022d51d8c9f"
+    },
+    {
+      "path": "artifacts/expected/DRW-002.json",
+      "sizeBytes": 73831,
+      "sha256": "54a857ea562eacd4c392032a05bc72319ceb56d28bf848c7f99f784c7db9ca32"
+    },
+    {
+      "path": "artifacts/expected/DRW-003.json",
+      "sizeBytes": 7513,
+      "sha256": "8eedd0e3e1fe211b61621e6591c61cc2b92699624147acff8f171096853c6d6e"
+    },
+    {
+      "path": "artifacts/expected/DRW-004.json",
+      "sizeBytes": 5761,
+      "sha256": "5fc76cd488fabdddc996d8b12714724cf89a58466257e876cbf1d6e6764ff4dd"
+    },
+    {
+      "path": "artifacts/expected/DRW-005.json",
+      "sizeBytes": 6420,
+      "sha256": "629ff4419abf57f99514b814ba0a5b3038d890fb0b7f06145a52a2093a83ed59"
+    },
+    {
+      "path": "artifacts/expected/DRW-006.json",
+      "sizeBytes": 8206,
+      "sha256": "7ac0f21cba58bba23d93b16a9b8ee17dc2f450370701176e83d66104ee9bece4"
+    },
+    {
+      "path": "artifacts/expected/LIF-001.json",
+      "sizeBytes": 4608,
+      "sha256": "9f945c38af7a8369ca6b8bfddba7d0ff70bdcbec20a787c4e81cd0cad4eb4ace"
+    },
+    {
+      "path": "artifacts/expected/LIF-002.json",
+      "sizeBytes": 7597,
+      "sha256": "95e4baed91d791fc368def59dab4033c3f37f297ce8cdbe4686b340ba28dd38d"
+    },
+    {
+      "path": "artifacts/expected/UPD-001.json",
+      "sizeBytes": 9125,
+      "sha256": "74fbfddb544a57f5dc9758fe3b0d67ce8c38d75a8402a808a13aa92c34b3710b"
+    },
+    {
+      "path": "artifacts/expected/UPD-002.json",
+      "sizeBytes": 296165,
+      "sha256": "eab4af9f3eaac765d420d3c9ecf07d8d13ef818d5da6bf1f397d7995589068ee"
+    },
+    {
+      "path": "artifacts/expected/UPD-003.json",
+      "sizeBytes": 10017,
+      "sha256": "024ef94561168f9e285eeb116a334d81373b96b9da076020bebe74af14e7f4d8"
+    },
+    {
+      "path": "artifacts/expected/UPD-004.json",
+      "sizeBytes": 17715,
+      "sha256": "917db663f73f18b3e093088988a7684d71ec790b538b41e18595d83b1c05f719"
+    },
+    {
+      "path": "artifacts/expected/UPD-005.json",
+      "sizeBytes": 67277,
+      "sha256": "e23aa5764606412d2c65f05bbcf1ef85a1d8ddcef77a4ab0d2a9ba8ecd7674a5"
+    },
+    {
+      "path": "artifacts/expected/UPD-006.json",
+      "sizeBytes": 5054,
+      "sha256": "00a4a2b56c66378b75d092b8fc9b600dcccada8d78b3e27e674e23c05de46dcf"
+    },
+    {
+      "path": "artifacts/fixture-status.json",
+      "sizeBytes": 1843,
+      "sha256": "c44f585bb46efa3b1d342ba75ac0fdd6173c7b0ab41cd7ea600f96afd6f86599"
+    },
+    {
+      "path": "artifacts/performance/developer-native-2000-rerun.json",
+      "sizeBytes": 13246,
+      "sha256": "9f1d33550234c638701e1a44a3524273237417071f45537f7f8ab92225bf8756"
+    },
+    {
+      "path": "artifacts/performance/developer-native.json",
+      "sizeBytes": 60446,
+      "sha256": "ab7abe44a80fc863550786ffca458d0260185f855561b9eea70d9d7a3dd69243"
+    },
+    {
+      "path": "artifacts/performance/summary.json",
+      "sizeBytes": 4398,
+      "sha256": "ab6d75446d367dbdceee9e484adc36c2f1b5165ccfab102090020db936c6a5f3"
+    },
+    {
+      "path": "artifacts/performance/throttled-proxy-2000-rerun.json",
+      "sizeBytes": 13450,
+      "sha256": "a47c02fd585bbd2f61b3bbfeabf3452d16c8ffe365bff3e6ae3e049de2ccf661"
+    },
+    {
+      "path": "artifacts/performance/throttled-proxy.json",
+      "sizeBytes": 60786,
+      "sha256": "c82de63b03b51e1714e6b7b848249b53cd0f31f69553f05020da95158264b92d"
+    },
+    {
+      "path": "artifacts/performance/windows-native-status.json",
+      "sizeBytes": 293,
+      "sha256": "c0928230812d5e334006c42b9c63506d5879046f7ad864988ce77e8c4a4fa0b0"
+    },
+    {
+      "path": "artifacts/screenshots/reference/DRW-001.png",
+      "sizeBytes": 5160,
+      "sha256": "5111adf7ad088cf48b11435c6a0b30b2e293a39be17db363ed756d6e0f66c53b"
+    },
+    {
+      "path": "artifacts/screenshots/reference/DRW-002.png",
+      "sizeBytes": 3055,
+      "sha256": "c3483750ae41287b18d35a0036401734e61a5aef9db54fdd678fd9f01d10bcae"
+    },
+    {
+      "path": "artifacts/screenshots/reference/UPD-005-after.png",
+      "sizeBytes": 2072,
+      "sha256": "77b0bdfb4f6d3fd6f17f53358299340cedf9592141809df6524b9004b21a427a"
+    },
+    {
+      "path": "artifacts/screenshots/reference/UPD-005-before.png",
+      "sizeBytes": 2082,
+      "sha256": "c541a43c0dd9e9e652dbd85edfcc9753bc907c60c5924491a74c96a05a21a95a"
+    },
+    {
+      "path": "docs/implementation/comparison-contract.md",
+      "sizeBytes": 2363,
+      "sha256": "ded0305aded738736c9f5b6c5340dcc9b6eef47a2ee375f9dfdd66a3f8c02c39"
+    },
+    {
+      "path": "docs/implementation/performance-runbook.md",
+      "sizeBytes": 1756,
+      "sha256": "ac493ebdbbe00274f19a6ad4af994a6c847be6249995c707cbe6f31ed85bcf91"
+    },
+    {
+      "path": "docs/reference/cleanroom-compatibility.md",
+      "sizeBytes": 4891,
+      "sha256": "ade8b5be5d73337d8ebf545bfd4d6d9a5c281f9454a8658da4089c57acb1086d"
+    },
+    {
+      "path": "docs/reference/cleanroom-protocol.md",
+      "sizeBytes": 3591,
+      "sha256": "98348f839c0cd366be2b8840d922fb9c6cb6c19c718bbc7019fa4c419e936859"
+    },
+    {
+      "path": "docs/reference/conformance-matrix.md",
+      "sizeBytes": 5216,
+      "sha256": "e4a8ab2938d09618fa312306f3a4bed4f3fafce51ddb79a922d2fd6295e61184"
+    },
+    {
+      "path": "docs/reference/performance-contract.md",
+      "sizeBytes": 5829,
+      "sha256": "8e09703a95cff12c625ba193ce58bad606033b1ade1bf3ce52f3f80380e1ce1f"
+    },
+    {
+      "path": "docs/reference/public-api-contract.md",
+      "sizeBytes": 11422,
+      "sha256": "da2aa2a11db31ce30740a409ccf7c34b350faa70f1b30ce2eb93a753e2232930"
+    },
+    {
+      "path": "fixtures/cases/draw.mjs",
+      "sizeBytes": 13117,
+      "sha256": "ce297b7668f847337fd3fe4690c5d2be85ad9b7f7e0b8b869c43274ba0fea6d3"
+    },
+    {
+      "path": "fixtures/cases/lif.mjs",
+      "sizeBytes": 4936,
+      "sha256": "fc807e3e28bf5943e34e2170cc6a67f9e57aee1058d3f0eded37008678c9c150"
+    },
+    {
+      "path": "fixtures/cases/update.mjs",
+      "sizeBytes": 19238,
+      "sha256": "de279a0ef3beff45a6c57f9e8c4550416d4712a252445d8aba151d224d8ac9bf"
+    },
+    {
+      "path": "fixtures/index.mjs",
+      "sizeBytes": 372,
+      "sha256": "12c5a66a64838011760018656d2ce74d3c7af49b9798229f58195a74974ec41e"
+    },
+    {
+      "path": "fixtures/lib/public-observers.mjs",
+      "sizeBytes": 12286,
+      "sha256": "b30a7b25cbf54daf14a186723679ebe5c724654d540ba5c5b166cd8780e32f7a"
+    },
+    {
+      "path": "IMPLEMENTATION_HANDOFF.md",
+      "sizeBytes": 1707,
+      "sha256": "5a7c74a6272b56384ebf7104ccc37e8f2e9e1f2d685a9bb36f8021ff089379f8"
+    },
+    {
+      "path": "LICENSE",
+      "sizeBytes": 1064,
+      "sha256": "78921cac23012fbcc4aaaca3a597bb58e0243263429415cf59c298716614932c"
+    },
+    {
+      "path": "package.json",
+      "sizeBytes": 337,
+      "sha256": "2e706f1915e66b1b9a581d22fd265cef5e6535d4a3d5e8e45d003d22e59b396b"
+    },
+    {
+      "path": "README_KR.md",
+      "sizeBytes": 36421,
+      "sha256": "b96166f2561e1ced1d2b64589f3e3538de8d739df4535c88801917994672cc41"
+    },
+    {
+      "path": "README.md",
+      "sizeBytes": 32881,
+      "sha256": "741ddb3d91b016aebd3db8a23378b3ea31131d5636f935a1fc82b5e18132a708"
+    },
+    {
+      "path": "scripts/perf/check-bootstrap.mjs",
+      "sizeBytes": 508,
+      "sha256": "95ec57bf076180d5f0f5a28bd9659b2901d17878ac466d430ae2090e4da6c6b3"
+    },
+    {
+      "path": "scripts/perf/low-end-benchmark.mjs",
+      "sizeBytes": 10082,
+      "sha256": "12d7d76bcb3c8095ab5102fcc7479e0728858bf4a79402880bd1897287595bc3"
+    },
+    {
+      "path": "scripts/perf/low-end-harness.html",
+      "sizeBytes": 480,
+      "sha256": "205b322555c9f29b4097a281ca5202dfe5e4f2dfc01f05b23e911fc4f6d0eb58"
+    },
+    {
+      "path": "scripts/perf/low-end-harness.js",
+      "sizeBytes": 4107,
+      "sha256": "076d3627b36a28683d5c6a707736216e4d1eadae31fe22780911101adfce7f04"
+    },
+    {
+      "path": "scripts/perf/synthetic-fixture.js",
+      "sizeBytes": 1539,
+      "sha256": "120268db945ba3f89845d81ca8a12edca39b84802c6a8d94550039859f4c8401"
+    }
+  ],
+  "fixtureStatuses": [
+    {
+      "id": "LIF-001",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "LIF-002",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-001",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-002",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-003",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-004",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-005",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "DRW-006",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-001",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-002",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-003",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-004",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-005",
+      "level": 2,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPD-006",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    }
+  ],
+  "observableBehaviorQuestions": [
+    {
+      "fixture": "UPD-005",
+      "question": "Native Windows headed pixels are still required to decide whether any pixel evidence for the next-frame boundary can become normative; the current macOS headless SwiftShader pixels remain non-normative."
+    }
+  ],
+  "generationEnvironment": {
+    "schemaVersion": 1,
+    "behaviorCapture": {
+      "platform": "darwin",
+      "osRelease": "23.0.0",
+      "osVersion": "Darwin Kernel Version 23.0.0: Fri Sep 15 14:42:57 PDT 2023; root:xnu-10002.1.13~1/RELEASE_ARM64_T8112",
+      "architecture": "arm64",
+      "cpu": "Apple M2",
+      "logicalCores": 8,
+      "totalMemoryBytes": 17179869184,
+      "node": "v22.21.1",
+      "chromium": "143.0.7499.4",
+      "viewport": {
+        "width": 640,
+        "height": 480
+      },
+      "deviceScaleFactor": 1,
+      "cpuThrottle": 1,
+      "deviceProfile": "developer-macos-arm64",
+      "powerMode": "developer-default; not programmatically available on macOS",
+      "fonts": "package defaults; document.fonts awaited when pixel evidence is requested",
+      "assets": "package defaults and fixture-declared public inputs",
+      "browserPlatform": "MacIntel",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+      "gpuVendor": "Google Inc. (Google)",
+      "gpuRenderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "performanceCapture": {
+      "platform": "darwin",
+      "osRelease": "23.0.0",
+      "osVersion": "Darwin Kernel Version 23.0.0: Fri Sep 15 14:42:57 PDT 2023; root:xnu-10002.1.13~1/RELEASE_ARM64_T8112",
+      "architecture": "arm64",
+      "cpu": "Apple M2",
+      "logicalCores": 8,
+      "totalMemoryBytes": 17179869184,
+      "node": "v22.21.1",
+      "chromium": "143.0.7499.4",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "cpuThrottle": 1,
+      "deviceProfile": "macos-arm64-developer",
+      "powerMode": "developer-default-provisional",
+      "browserPlatform": "MacIntel",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+      "gpuVendor": "Google Inc. (Google)",
+      "gpuRenderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+    },
+    "nativeWindowsAvailable": false,
+    "windowsNativeGate": "pending"
+  },
+  "performanceEvidence": {
+    "status": "provisional-non-windows",
+    "noiseStatus": "provisional-noisy",
+    "windowsNativeGate": "pending"
+  },
+  "cleanRoomSafety": {
+    "result": "pass",
+    "contaminationDetected": false
+  },
+  "excluded": [
+    "opaque reference tarball",
+    "node_modules and package-lock.json",
+    "oracle package installation and bundle",
+    "source maps and build output",
+    "src/reference-entry.mjs",
+    "reference browser runner and oracle-only capture code",
+    "oracle-only fixture and Windows reference runbooks",
+    "legacy handoff allowlist superseded by this export manifest",
+    "error stacks and internal/local paths",
+    "browser caches and unanalyzed raw artifacts",
+    "reference source/tests/fixtures"
+  ],
+  "controlFiles": [
+    "EXPORT_MANIFEST.json",
+    "EXPORT_MANIFEST.sha256"
+  ]
+}

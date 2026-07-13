@@ -1,0 +1,14 @@
+{
+  "name": "patch-map-cleanroom-implementation-handoff",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "perf:check": "node scripts/perf/check-bootstrap.mjs",
+    "perf:low-end": "node scripts/perf/low-end-benchmark.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.57.0",
+    "vite": "7.3.6"
+  }
+}

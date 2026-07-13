@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "reference": "@conalog/patch-map@0.10.0",
+  "referenceCommit": "0aaaa98b479c86939b049581734a7fb0745ba70e",
+  "evidenceStatus": "provisional-non-windows",
+  "canonicalWorkload": "S1 object scaling plus trusted bulk update",
+  "statistics": {
+    "warmups": 2,
+    "measuredSamples": 7
+  },
+  "developerNative": {
+    "fullRangeReport": "artifacts/performance/developer-native.json",
+    "critical2000": {
+      "samples": 7,
+      "initialTotalMs": {
+        "min": 338.2,
+        "median": 367.3,
+        "p95": 418.6,
+        "max": 418.6
+      },
+      "updateTotalMs": {
+        "min": 23.8,
+        "median": 25.9,
+        "p95": 28.3,
+        "max": 28.3
+      },
+      "retainedHeapAfterDrawBytes": {
+        "min": 37327184,
+        "median": 37374168,
+        "p95": 37440960,
+        "max": 37440960
+      },
+      "noiseAssessment": {
+        "provisional": true,
+        "noisyMetrics": [
+          {
+            "metric": "teardownSyncMs",
+            "p95MedianRatio": 2
+          }
+        ]
+      }
+    },
+    "rerunReport": "artifacts/performance/developer-native-2000-rerun.json",
+    "critical2000Rerun": {
+      "samples": 7,
+      "initialTotalMs": {
+        "min": 292.9,
+        "median": 307.7,
+        "p95": 330.1,
+        "max": 330.1
+      },
+      "updateTotalMs": {
+        "min": 20.2,
+        "median": 22.1,
+        "p95": 23.8,
+        "max": 23.8
+      },
+      "retainedHeapAfterDrawBytes": {
+        "min": 37258135,
+        "median": 37404496,
+        "p95": 37717205,
+        "max": 37717205
+      },
+      "noiseAssessment": {
+        "provisional": true,
+        "noisyMetrics": [
+          {
+            "metric": "initMs",
+            "p95MedianRatio": 2.91
+          },
+          {
+            "metric": "teardownSyncMs",
+            "p95MedianRatio": 1.77
+          }
+        ]
+      }
+    }
+  },
+  "throttledProxy4x": {
+    "fullRangeReport": "artifacts/performance/throttled-proxy.json",
+    "critical2000": {
+      "samples": 7,
+      "initialTotalMs": {
+        "min": 1296.7,
+        "median": 1701.6,
+        "p95": 1945,
+        "max": 1945
+      },
+      "updateTotalMs": {
+        "min": 89.4,
+        "median": 108.2,
+        "p95": 122.5,
+        "max": 122.5
+      },
+      "retainedHeapAfterDrawBytes": {
+        "min": 37338171,
+        "median": 37378547,
+        "p95": 37447491,
+        "max": 37447491
+      },
+      "noiseAssessment": {
+        "provisional": true,
+        "noisyMetrics": [
+          {
+            "metric": "initMs",
+            "p95MedianRatio": 2.76
+          },
+          {
+            "metric": "updateRenderMs",
+            "p95MedianRatio": 1.43
+          },
+          {
+            "metric": "teardownSyncMs",
+            "p95MedianRatio": 1.87
+          }
+        ]
+      }
+    },
+    "rerunReport": "artifacts/performance/throttled-proxy-2000-rerun.json",
+    "critical2000Rerun": {
+      "samples": 7,
+      "initialTotalMs": {
+        "min": 1687.3,
+        "median": 1852.2,
+        "p95": 2582.3,
+        "max": 2582.3
+      },
+      "updateTotalMs": {
+        "min": 107.1,
+        "median": 116.2,
+        "p95": 155.7,
+        "max": 155.7
+      },
+      "retainedHeapAfterDrawBytes": {
+        "min": 37235354,
+        "median": 37436903,
+        "p95": 37684163,
+        "max": 37684163
+      },
+      "noiseAssessment": {
+        "provisional": true,
+        "noisyMetrics": [
+          {
+            "metric": "initialSyncMs",
+            "p95MedianRatio": 1.48
+          },
+          {
+            "metric": "initialTotalMs",
+            "p95MedianRatio": 1.39
+          },
+          {
+            "metric": "updateRenderMs",
+            "p95MedianRatio": 1.79
+          },
+          {
+            "metric": "teardownSyncMs",
+            "p95MedianRatio": 2.59
+          }
+        ]
+      }
+    }
+  },
+  "noiseConclusion": {
+    "status": "provisional-noisy",
+    "reason": "The shared non-Windows host and headless SwiftShader retained p95/median outliers after a targeted 2,000-item rerun. Raw samples and both runs are preserved."
+  },
+  "windowsNative": {
+    "schemaVersion": 1,
+    "gate": "windows-native-reference",
+    "status": "pending",
+    "reason": "The oracle host is macOS 14.0 arm64; no Windows result was created or inferred.",
+    "runbook": "docs/oracle/windows-baseline-runbook.md",
+    "requiredWarmups": 2,
+    "requiredMeasuredSamples": 7
+  }
+}
