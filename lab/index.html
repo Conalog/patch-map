@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="PATCH MAP browser verification console for headed and automated QA"
+    />
+    <title>PATCH MAP // Verification Console</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app" class="app-shell" data-testid="app-shell">
+      <header class="command-deck">
+        <div class="identity-lockup">
+          <span class="product-mark" aria-hidden="true">PM</span>
+          <div>
+            <p class="eyebrow">CLEANROOM / BROWSER LAB</p>
+            <h1>Verification Console <span>v0.10</span></h1>
+          </div>
+        </div>
+
+        <div class="active-case" aria-live="polite">
+          <span id="active-case-code" class="case-code">DRAW-ALL-KINDS</span>
+          <strong id="active-case-title">Loading case catalog…</strong>
+          <span id="active-case-status" class="status-chip status-not-run">NOT RUN</span>
+        </div>
+
+        <nav class="transport-controls" aria-label="Case transport controls">
+          <button type="button" class="control control-secondary" data-testid="reset-case">
+            <kbd>R</kbd> Reset
+          </button>
+          <button type="button" class="control control-primary" data-testid="draw-case">
+            <kbd>D</kbd> Draw
+          </button>
+          <span class="control-divider" aria-hidden="true"></span>
+          <button type="button" class="control control-icon" data-testid="prev-step" aria-label="Previous step">←</button>
+          <button type="button" class="control control-icon" data-testid="next-step" aria-label="Next step">→</button>
+          <button type="button" class="control control-run" data-testid="run-case">Run case</button>
+          <button type="button" class="control control-secondary" data-testid="run-category">Run category</button>
+        </nav>
+
+        <div class="session-readout">
+          <span><i class="signal signal-ready"></i> ENGINE READY</span>
+          <span id="session-clock">00:00:00.000</span>
+        </div>
+      </header>
+
+      <main class="console-grid">
+        <aside class="catalog-pane panel-frame" aria-label="Verification case catalog">
+          <div class="pane-heading">
+            <div>
+              <p class="eyebrow">CASE INDEX</p>
+              <h2>Verification matrix</h2>
+            </div>
+            <span id="case-count" class="data-badge">0 / 0</span>
+          </div>
+
+          <label class="search-field">
+            <span class="sr-only">Search cases</span>
+            <span aria-hidden="true">⌕</span>
+            <input
+              id="case-search"
+              data-testid="case-search"
+              type="search"
+              autocomplete="off"
+              placeholder="Search ID, behavior, risk…"
+            />
+            <kbd>/</kbd>
+          </label>
+
+          <div class="filter-grid">
+            <label>
+              <span>Category</span>
+              <select id="category-filter" data-testid="category-filter">
+                <option value="all">ALL</option>
+              </select>
+            </label>
+            <label>
+              <span>State</span>
+              <select id="status-filter" data-testid="status-filter">
+                <option value="all">ALL</option>
+                <option value="not-run">NOT RUN</option>
+                <option value="pass">PASS</option>
+                <option value="fail">FAIL</option>
+                <option value="partial">PARTIAL</option>
+                <option value="pending">PENDING</option>
+              </select>
+            </label>
+            <label>
+              <span>Risk</span>
+              <select id="risk-filter" data-testid="risk-filter">
+                <option value="all">ALL</option>
+                <option value="critical">CRITICAL</option>
+                <option value="high">HIGH</option>
+                <option value="medium">MEDIUM</option>
+                <option value="low">LOW</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="case-list" class="case-list" role="list" aria-live="polite"></div>
+
+          <div class="catalog-footer">
+            <div><span class="metric-label">PASSED</span><strong id="passed-count">0</strong></div>
+            <div><span class="metric-label">FAILED</span><strong id="failed-count">0</strong></div>
+            <div><span class="metric-label">PARTIAL</span><strong id="partial-count">0</strong></div>
+          </div>
+        </aside>
+
+        <section class="stage-pane panel-frame" aria-label="Live PATCH MAP canvas">
+          <div class="stage-toolbar">
+            <div class="stage-title">
+              <p class="eyebrow">LIVE RENDER TARGET</p>
+              <h2>PATCH MAP canvas</h2>
+            </div>
+
+            <div class="viewport-presets" role="group" aria-label="Viewport size">
+              <button type="button" data-viewport="1280x720" data-testid="viewport-preset">1280×720</button>
+              <button type="button" data-viewport="960x640" data-testid="viewport-preset" class="is-active">960×640</button>
+              <button type="button" data-viewport="640x480" data-testid="viewport-preset">640×480</button>
+            </div>
+
+            <label class="compact-field">
+              <span>BG</span>
+              <input id="canvas-background" data-testid="canvas-background" type="color" value="#10171d" aria-label="Canvas background" />
+            </label>
+            <label class="switch-control">
+              <input id="grid-overlay" data-testid="grid-overlay" type="checkbox" checked />
+              <span>GRID</span>
+            </label>
+            <button type="button" class="tool-button" data-testid="pause-animation">Pause animation</button>
+            <button type="button" class="tool-button" data-testid="fit-view">Fit</button>
+            <button type="button" class="tool-button" data-testid="focus-view">Focus</button>
+            <button type="button" class="tool-button" data-testid="capture-canvas">Screenshot</button>
+          </div>
+
+          <div id="canvas-stage" class="canvas-stage grid-visible">
+            <div class="stage-rulers" aria-hidden="true">
+              <span class="ruler-x">0&nbsp;&nbsp;&nbsp;&nbsp;160&nbsp;&nbsp;&nbsp;&nbsp;320&nbsp;&nbsp;&nbsp;&nbsp;480&nbsp;&nbsp;&nbsp;&nbsp;640</span>
+              <span class="ruler-y">0<br />160<br />320<br />480</span>
+            </div>
+            <div id="patchmap-host" class="patchmap-host" data-testid="patchmap-host"></div>
+            <div id="manual-prompt" class="manual-prompt" data-testid="manual-prompt" hidden>
+              <span>MANUAL OBSERVATION</span>
+              <strong id="manual-prompt-title">Perform the headed interaction</strong>
+              <p id="manual-prompt-copy"></p>
+              <div>
+                <button type="button" id="manual-observed" data-testid="manual-observed">Record observed</button>
+                <button type="button" id="manual-skip" data-testid="manual-skip">Keep pending</button>
+              </div>
+            </div>
+            <div id="stage-error" class="stage-error" hidden>
+              <span>EXECUTION ERROR</span>
+              <strong id="stage-error-message" data-testid="stage-error-message"></strong>
+              <pre id="stage-error-stack" data-testid="stage-error-stack"></pre>
+            </div>
+            <div class="canvas-crosshair" aria-hidden="true"></div>
+          </div>
+
+          <div class="stage-statusbar">
+            <span>VIEW <strong id="viewport-size">960×640</strong></span>
+            <span>ZOOM <strong id="viewport-zoom">1.000×</strong></span>
+            <span>CENTER <strong id="viewport-center">0.0, 0.0</strong></span>
+            <span>OBJECTS <strong id="object-count">0</strong></span>
+            <span>FRAME <strong id="frame-readout">0</strong></span>
+          </div>
+
+          <div class="step-deck">
+            <div class="step-position">
+              <span id="step-index">STEP 00 / 00</span>
+              <strong id="step-title">Select a case</strong>
+            </div>
+            <div id="step-rail" class="step-rail" aria-label="Case steps"></div>
+            <p id="step-description">Case steps and public invariants appear here.</p>
+          </div>
+        </section>
+
+        <aside class="inspector-pane panel-frame" aria-label="Public observation inspector">
+          <div class="pane-heading inspector-heading">
+            <div>
+              <p class="eyebrow">OBSERVATION BUS</p>
+              <h2>Public evidence</h2>
+            </div>
+            <button type="button" id="copy-report" class="copy-button" data-testid="copy-report">Copy report</button>
+          </div>
+
+          <section class="result-board" data-testid="result-summary" aria-live="polite">
+            <div>
+              <span class="metric-label">CURRENT STEP</span>
+              <strong id="result-label">NOT RUN</strong>
+            </div>
+            <span id="result-status" class="status-chip status-not-run">NOT RUN</span>
+          </section>
+          <div id="assertion-list" class="assertion-list" data-testid="assertion-list">
+            <p>No public invariants evaluated.</p>
+          </div>
+
+          <details class="inspection-block" open>
+            <summary><span>01</span> Input / update JSON <em id="input-size">0 B</em></summary>
+            <pre id="step-input" data-testid="step-input">{}</pre>
+          </details>
+
+          <details class="inspection-block" open>
+            <summary><span>02</span> Public scene snapshot <em id="snapshot-count">0 nodes</em></summary>
+            <pre id="scene-snapshot" data-testid="scene-snapshot">[]</pre>
+          </details>
+
+          <details class="inspection-block" open>
+            <summary><span>03</span> Before / after structural diff <em id="diff-count">0 Δ</em></summary>
+            <pre id="structural-diff" data-testid="structural-diff">No changes recorded.</pre>
+          </details>
+
+          <details class="inspection-block" open>
+            <summary><span>04</span> Selected public handle <em id="handle-id">none</em></summary>
+            <div class="target-probe">
+              <input id="target-id" data-testid="target-id" type="text" placeholder="public handle ID" />
+              <button type="button" id="inspect-target" data-testid="inspect-target">Inspect</button>
+            </div>
+            <pre id="selected-handle" data-testid="selected-handle">null</pre>
+          </details>
+
+          <details class="inspection-block event-block" open>
+            <summary><span>05</span> Event log <em id="event-count">0 events</em></summary>
+            <div id="event-log" class="event-log" data-testid="event-log"></div>
+          </details>
+
+          <div class="telemetry-grid">
+            <section>
+              <span class="metric-label">HISTORY</span>
+              <strong id="history-state" data-testid="history-state">UNDO 0 / REDO 0</strong>
+            </section>
+            <section>
+              <span class="metric-label">RENDER / FRAME</span>
+              <strong id="frame-counter" data-testid="frame-counter">0 / 0</strong>
+            </section>
+          </div>
+
+          <details class="sandbox-panel" open>
+            <summary>Editable sandbox <span>USER INPUT</span></summary>
+            <label>
+              <span>Draw JSON</span>
+              <textarea id="sandbox-json" data-testid="sandbox-json" spellcheck="false"></textarea>
+            </label>
+            <div class="sandbox-actions">
+              <button type="button" data-testid="sandbox-draw">Draw JSON</button>
+              <button type="button" id="sandbox-pretty">Format</button>
+            </div>
+            <div class="sandbox-update-grid">
+              <label>
+                <span>Path</span>
+                <input id="sandbox-path" data-testid="sandbox-path" value="$..children[?(@.id===&quot;lab-rect&quot;)]" />
+              </label>
+              <label>
+                <span>Strategy</span>
+                <select id="sandbox-strategy" data-testid="sandbox-strategy">
+                  <option value="merge">merge</option>
+                  <option value="replace">replace</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              <span>Changes JSON</span>
+              <textarea id="sandbox-changes" data-testid="sandbox-changes" spellcheck="false">{"attrs":{"x":24}}</textarea>
+            </label>
+            <button type="button" class="sandbox-update" data-testid="sandbox-update">Apply update</button>
+          </details>
+
+          <div class="limitation-banner">
+            <span>KNOWN PARTIAL</span>
+            Q4 · Q7 · Q12 · Q18 · Q21 / Windows native &amp; raster pending. Headless pixels are diagnostic, never normative.
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

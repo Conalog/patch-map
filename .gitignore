@@ -1,5 +1,8 @@
 node_modules/
 dist/
+.lab-dist/
 .perf-results/
 artifacts/raw/
+lab/artifacts/
 *.log
+.gstack/

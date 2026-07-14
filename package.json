@@ -24,6 +24,8 @@
   "sideEffects": false,
   "scripts": {
     "build": "vite build && tsc -p tsconfig.build.json --emitDeclarationOnly && node scripts/verification/finalize-declarations.mjs",
+    "build:lab": "vite build --config vite.lab.config.ts",
+    "lab": "vite --host 127.0.0.1 --port 4174 --open /lab/",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "unit": "vitest run",
@@ -35,6 +37,7 @@
     "verify:performance-report": "node scripts/verification/perf-report-verify.mjs",
     "verify:interaction-report": "node scripts/verification/perf-interactions-report-verify.mjs",
     "verify:render-primitives": "node scripts/verification/render-primitives-verify.mjs",
+    "verify:lab": "node scripts/verification/browser-lab.mjs",
     "verify:local": "npm test && npm run conformance -- --repeat 2 && npm run verify:browser && npm run verify:memory && npm run verify:package && npm run verify:safety && npm audit --audit-level=low && npm run perf:check",
     "conformance": "node scripts/conformance/run.mjs",
     "conformance:lifecycle": "node scripts/conformance/run.mjs LIF-001 LIF-002",

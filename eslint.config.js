@@ -8,7 +8,9 @@ const typescriptFiles = [
   'src/**/*.ts',
   'tests/**/*.ts',
   'scripts/**/*.ts',
+  'lab/**/*.ts',
   'vite.config.ts',
+  'vite.lab.config.ts',
 ];
 
 export default defineConfig(
@@ -16,7 +18,10 @@ export default defineConfig(
     ignores: [
       'artifacts/**',
       'dist/**',
+      '.lab-dist/**',
       'fixtures/**',
+      'lab/artifacts/**',
+      'lab/fixtures/**',
       'node_modules/**',
       'scripts/perf/**',
     ],
