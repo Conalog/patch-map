@@ -57,6 +57,7 @@ const STATE_EVENTS = [
 ] as const;
 
 const LAB_CANVAS_BACKGROUND = '#f4f6f2';
+const MAX_SCENE_SNAPSHOT_HANDLES = 2_048;
 
 const LIMITATIONS = Object.freeze({
   Q4: { status: 'partial' },
@@ -91,7 +92,16 @@ export interface LabStepResult {
   readonly assertions: readonly LabAssertionResult[];
   readonly error: LabRuntimeError | null;
   readonly durationMs: number;
+  readonly timing: LabStepTiming;
   readonly observation: JsonRecord;
+}
+
+export interface LabStepTiming {
+  readonly beforeSnapshotMs: number;
+  readonly actionMs: number;
+  readonly observationMs: number;
+  readonly diagnosticsMs: number;
+  readonly totalMs: number;
 }
 
 export interface LabRuntimeError {
@@ -125,6 +135,7 @@ interface SceneCollection {
   readonly displayNodes: JsonRecord[];
   readonly topLevelCount: number;
   readonly truncated: number;
+  readonly byIdTruncated: number;
 }
 
 const now = (): number => performance.now();
@@ -256,7 +267,8 @@ const resolveByIdPath = (root: JsonRecord, path: string): unknown => {
     .sort((left, right) => right.length - left.length)[0];
   if (!matchingId) return remainder.endsWith('.exists') ? false : undefined;
   const suffix = remainder.slice(matchingId.length).replace(/^\./u, '');
-  return suffix ? readPath(byId[matchingId], suffix) : byId[matchingId];
+  const value = suffix ? readPath(byId[matchingId], suffix) : byId[matchingId];
+  return value === undefined && remainder.endsWith('.exists') ? false : value;
 };
 
 export const readPath = (root: unknown, path: string): unknown => {
@@ -307,6 +319,22 @@ const compare = (
     case 'same-reference':
     case 'unchanged':
       return deepEqual(actual, expected);
+    case 'approximately-equals': {
+      const approximatelyEqual = (left: unknown, right: unknown): boolean => {
+        if (typeof left === 'number' && typeof right === 'number') {
+          return Math.abs(left - right) <= 1e-6;
+        }
+        if (Array.isArray(left) && Array.isArray(right)) {
+          return left.length === right.length && left.every((value, index) => approximatelyEqual(value, right[index]));
+        }
+        if (isRecord(left) && isRecord(right)) {
+          const keys = Object.keys(left);
+          return keys.length === Object.keys(right).length && keys.every((key) => approximatelyEqual(left[key], right[key]));
+        }
+        return deepEqual(left, right);
+      };
+      return approximatelyEqual(actual, expected);
+    }
     case 'not-equals':
     case 'different-reference':
       return !deepEqual(actual, expected);
@@ -338,6 +366,7 @@ export class LabRuntime {
   public readonly events: LabEventRecord[] = [];
   public readonly caseResults = new Map<string, LabRunStatus>();
   public onChange: (() => void) | null = null;
+  public onFrame: (() => void) | null = null;
   public onManual: ((request: ManualObservationRequest) => void) | null = null;
   public sandboxDrawProvider: (() => unknown) | null = null;
   public sandboxUpdateProvider: (() => LabUpdateRequest) | null = null;
@@ -352,6 +381,7 @@ export class LabRuntime {
   #productionFixture: MapData | null = null;
   #selectedHandles: PublicDisplayHandle[] = [];
   #before: RuntimeBefore | null = null;
+  #lastObservation: JsonRecord | null = null;
   #lastReturn: unknown = undefined;
   #lastError: LabRuntimeError | null = null;
   #lastInput: unknown = null;
@@ -372,13 +402,14 @@ export class LabRuntime {
   #activePointerAction: string | null = null;
   #animationPaused = false;
   #manualPending = false;
+  #defaultAssetsRegistered = false;
 
   public constructor(host: HTMLElement) {
     this.#host = host;
     const countNativeFrame = (): void => {
       this.#nativeFrames += 1;
       this.#nativeFrameRequest = requestAnimationFrame(countNativeFrame);
-      this.onChange?.();
+      this.onFrame?.();
     };
     this.#nativeFrameRequest = requestAnimationFrame(countNativeFrame);
   }
@@ -423,6 +454,7 @@ export class LabRuntime {
   public async reset(options: PatchmapInitOptions = {}): Promise<void> {
     this.#unbindTicker();
     this.#before = null;
+    this.#lastObservation = null;
     this.#pixiDevtools.clear();
     this.patchmap.destroy();
     this.#host.replaceChildren();
@@ -460,8 +492,11 @@ export class LabRuntime {
       ...options,
       app: appOptions,
     };
-    initOptions.assets = options.assets ?? LAB_ASSET_DEFINITIONS;
+    const registersDefaultAssets = options.assets === undefined && !this.#defaultAssetsRegistered;
+    if (options.assets !== undefined) initOptions.assets = options.assets;
+    else if (registersDefaultAssets) initOptions.assets = LAB_ASSET_DEFINITIONS;
     await this.patchmap.init(this.#host, initOptions);
+    if (registersDefaultAssets) this.#defaultAssetsRegistered = true;
     if (this.patchmap.app) this.#pixiDevtools.publish(this.patchmap.app);
     this.#bindHistoryEvents();
     this.#bindStateEvents();
@@ -473,28 +508,35 @@ export class LabRuntime {
     cancelAnimationFrame(this.#nativeFrameRequest);
     this.#unbindTicker();
     this.#pixiDevtools.clear();
+    this.#lastObservation = null;
     this.patchmap.destroy();
   }
 
   public async executeStep(testCase: LabCase, step: LabStep): Promise<LabStepResult> {
     const started = now();
+    const beforeStarted = now();
+    const beforeObservation = this.#lastObservation ?? this.observation();
     this.#before = {
-      frozen: this.observation(),
+      frozen: beforeObservation,
       handles: [...this.#selectedHandles],
     };
+    const beforeSnapshotMs = now() - beforeStarted;
     this.#lastError = null;
     this.#lastReturn = undefined;
     this.#manualPending = false;
     this.#lastFrameStart = this.#nativeFrames;
     this.#lastEventStart = new Map(this.#eventCounts);
+    const actionStarted = now();
     try {
       await this.#executeAction(step.action, step);
       await Promise.resolve();
     } catch (error) {
       this.#lastError = errorFrom(error);
     }
+    const actionMs = now() - actionStarted;
 
     let observation: JsonRecord;
+    const observationStarted = now();
     try {
       observation = this.observation();
     } catch (error) {
@@ -508,14 +550,35 @@ export class LabRuntime {
         },
       };
     }
-    const result = this.#resultFromObservation(testCase, step, observation, started);
+    const observationMs = now() - observationStarted;
+    const totalMs = now() - started;
+    const timing: LabStepTiming = {
+      beforeSnapshotMs,
+      actionMs,
+      observationMs,
+      diagnosticsMs: beforeSnapshotMs + observationMs,
+      totalMs,
+    };
+    this.#lastObservation = observation;
+    const result = this.#resultFromObservation(testCase, step, observation, timing);
     this.onChange?.();
     return result;
   }
 
   public completeManualStep(testCase: LabCase, step: LabStep): LabStepResult {
     this.#manualPending = false;
-    const result = this.#resultFromObservation(testCase, step, this.observation(), now());
+    const started = now();
+    const observation = this.observation();
+    const observationMs = now() - started;
+    const timing: LabStepTiming = {
+      beforeSnapshotMs: 0,
+      actionMs: 0,
+      observationMs,
+      diagnosticsMs: observationMs,
+      totalMs: observationMs,
+    };
+    this.#lastObservation = observation;
+    const result = this.#resultFromObservation(testCase, step, observation, timing);
     this.onChange?.();
     return result;
   }
@@ -529,7 +592,7 @@ export class LabRuntime {
     testCase: LabCase,
     step: LabStep,
     observation: JsonRecord,
-    started: number,
+    timing: LabStepTiming,
   ): LabStepResult {
     const assertions = step.expectations.map((invariant): LabAssertionResult => {
       const actual = readPath(observation, invariant.path);
@@ -569,7 +632,8 @@ export class LabRuntime {
       status,
       assertions,
       error: this.#lastError,
-      durationMs: now() - started,
+      durationMs: timing.totalMs,
+      timing,
       observation,
     };
     return result;
@@ -629,6 +693,9 @@ export class LabRuntime {
         byId: scene.byId,
         byType: scene.byType,
         componentsByType: scene.componentsByType,
+        displayNodes: scene.displayNodes,
+        truncated: scene.truncated,
+        byIdTruncated: scene.byIdTruncated,
         handlesHaveProps: scene.handles.every((handle) => isRecord(handle.props)),
         allHandlesHaveId: scene.handles.every((handle) => handle.id.length > 0),
         allTopLevelShown: (this.patchmap.world?.children ?? []).every((child) => {
@@ -648,7 +715,7 @@ export class LabRuntime {
         name: error?.name,
         message: error?.message,
         stack: error?.stack,
-        sceneConsistent: this.#sceneConsistentWithBefore(scene),
+        sceneConsistentWithBefore: this.#sceneConsistentWithBefore(scene),
       },
       events,
       history: {
@@ -712,7 +779,25 @@ export class LabRuntime {
     };
   }
 
-  public sceneDisplaySnapshot(): JsonRecord {
+  public sceneDisplaySnapshot(observation?: JsonRecord): JsonRecord {
+    const observedScene = observation && isRecord(observation.scene) ? observation.scene : null;
+    if (observedScene && Array.isArray(observedScene.displayNodes)) {
+      const byType = isRecord(observedScene.byType) ? observedScene.byType : {};
+      return {
+        summary: {
+          topLevel: observedScene.topLevelCount ?? 0,
+          publicHandles: observedScene.handleCount ?? 0,
+          types: Object.fromEntries(
+            Object.entries(byType).map(([type, value]) => [
+              type,
+              isRecord(value) && typeof value.count === 'number' ? value.count : 0,
+            ]),
+          ),
+        },
+        nodes: observedScene.displayNodes,
+        truncated: observedScene.truncated ?? 0,
+      };
+    }
     const scene = this.#collectScene();
     return {
       summary: {
@@ -727,23 +812,28 @@ export class LabRuntime {
     };
   }
 
-  public selectedDisplaySnapshot(): unknown {
+  public selectedDisplaySnapshot(observation?: JsonRecord): unknown {
+    const selected = observation?.selected;
+    if (isRecord(selected)) return selected;
     return this.#snapshotHandle(this.#selectedHandles[0]);
   }
 
   public selectHandle(id: string): boolean {
     const handle = this.#resolveId(id);
     this.#selectedHandles = handle ? [handle] : [];
+    this.#lastObservation = null;
     this.onChange?.();
     return handle !== null;
   }
 
   public fitSelected(): void {
+    this.#lastObservation = null;
     this.patchmap.fit(this.selectedId ?? null, { padding: 24 });
     this.onChange?.();
   }
 
   public focusSelected(): void {
+    this.#lastObservation = null;
     this.patchmap.focus(this.selectedId ?? null);
     this.onChange?.();
   }
@@ -751,6 +841,7 @@ export class LabRuntime {
   public toggleAnimation(): boolean {
     if (!this.patchmap.app) return this.#animationPaused;
     this.#animationPaused = !this.#animationPaused;
+    this.#lastObservation = null;
     if (this.#animationPaused) this.patchmap.app.stop();
     else this.patchmap.app.start();
     this.onChange?.();
@@ -758,6 +849,7 @@ export class LabRuntime {
   }
 
   public async drawSandbox(data: unknown): Promise<void> {
+    this.#lastObservation = null;
     this.#before = { frozen: this.observation(), handles: [...this.#selectedHandles] };
     this.#lastError = null;
     try {
@@ -772,6 +864,7 @@ export class LabRuntime {
   }
 
   public async updateSandbox(request: LabUpdateRequest): Promise<void> {
+    this.#lastObservation = null;
     this.#before = { frozen: this.observation(), handles: [...this.#selectedHandles] };
     this.#lastError = null;
     try {
@@ -802,6 +895,13 @@ export class LabRuntime {
             id: result.stepId,
             status: result.status,
             durationMs: Number(result.durationMs.toFixed(2)),
+            timing: {
+              beforeSnapshotMs: Number(result.timing.beforeSnapshotMs.toFixed(2)),
+              actionMs: Number(result.timing.actionMs.toFixed(2)),
+              observationMs: Number(result.timing.observationMs.toFixed(2)),
+              diagnosticsMs: Number(result.timing.diagnosticsMs.toFixed(2)),
+              totalMs: Number(result.timing.totalMs.toFixed(2)),
+            },
             assertions: result.assertions.map((assertion) => ({
               id: assertion.invariant.id,
               label: assertion.invariant.label,
@@ -1306,8 +1406,11 @@ export class LabRuntime {
           ...(action.options?.app ?? {}),
         },
       };
-      initOptions.assets = action.options?.assets ?? LAB_ASSET_DEFINITIONS;
+      const registersDefaultAssets = action.options?.assets === undefined && !this.#defaultAssetsRegistered;
+      if (action.options?.assets !== undefined) initOptions.assets = action.options.assets;
+      else if (registersDefaultAssets) initOptions.assets = LAB_ASSET_DEFINITIONS;
       await this.patchmap.init(this.#host, initOptions);
+      if (registersDefaultAssets) this.#defaultAssetsRegistered = true;
       if (this.patchmap.app) this.#pixiDevtools.publish(this.patchmap.app);
       this.#bindHistoryEvents();
       this.#bindStateEvents();
@@ -1328,6 +1431,11 @@ export class LabRuntime {
     const byId: Record<string, JsonRecord> = {};
     const typeHandles = new Map<string, PublicDisplayHandle[]>();
     const componentHandles = new Map<string, PublicDisplayHandle[]>();
+    const finiteBoundsByType = new Map<string, boolean>();
+    const finiteBoundsByComponentType = new Map<string, boolean>();
+    const sampledBoundsByType = new Map<string, number>();
+    const sampledBoundsByComponentType = new Map<string, number>();
+    let byIdCount = 0;
     const handles: PublicDisplayHandle[] = [];
     const displayNodes: JsonRecord[] = [];
     const world = this.patchmap.world;
@@ -1340,8 +1448,6 @@ export class LabRuntime {
       if (id && type && isRecord(props)) {
         const handle = container as PublicDisplayHandle;
         handles.push(handle);
-        const snapshot = this.#snapshotHandle(handle);
-        byId[id] = snapshot;
         const current = typeHandles.get(type) ?? [];
         current.push(handle);
         typeHandles.set(type, current);
@@ -1356,30 +1462,58 @@ export class LabRuntime {
           components.push(handle);
           componentHandles.set(type, components);
         }
-        if (displayNodes.length < 160) {
+        const shouldSnapshot = byIdCount < MAX_SCENE_SNAPSHOT_HANDLES ||
+          this.#selectedHandles.includes(handle);
+        if (shouldSnapshot) {
+          const snapshot = this.#snapshotHandle(handle);
+          if (!Object.prototype.hasOwnProperty.call(byId, id)) byIdCount += 1;
+          byId[id] = snapshot;
+          const boundsFinite = snapshot.boundsFinite === true;
+          finiteBoundsByType.set(type, (finiteBoundsByType.get(type) ?? true) && boundsFinite);
+          sampledBoundsByType.set(type, (sampledBoundsByType.get(type) ?? 0) + 1);
+          if (isComponent) {
+            finiteBoundsByComponentType.set(
+              type,
+              (finiteBoundsByComponentType.get(type) ?? true) && boundsFinite,
+            );
+            sampledBoundsByComponentType.set(
+              type,
+              (sampledBoundsByComponentType.get(type) ?? 0) + 1,
+            );
+          }
+        }
+        if (displayNodes.length < 160 && byId[id]) {
+          const snapshot = byId[id];
           displayNodes.push({ depth, ...snapshot });
         }
       }
       for (const child of container.children) visit(child, depth + 1);
     };
     for (const root of roots) visit(root, 0);
-    const summarizeTypes = (source: Map<string, PublicDisplayHandle[]>): Record<string, JsonRecord> =>
+    const summarizeTypes = (
+      source: Map<string, PublicDisplayHandle[]>,
+      finiteBounds: Map<string, boolean>,
+      sampledBounds: Map<string, number>,
+    ): Record<string, JsonRecord> =>
       Object.fromEntries(
         [...source].map(([type, entries]) => [
           type,
           {
             count: entries.length,
-            allFiniteBounds: entries.every((entry) => {
-              const bounds = entry.getBounds();
-              return [bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite);
-            }),
+            allFiniteBounds: finiteBounds.get(type) ?? true,
+            boundsSampled: sampledBounds.get(type) ?? 0,
+            boundsComplete: (sampledBounds.get(type) ?? 0) === entries.length,
           },
         ]),
       );
     return {
       byId,
-      byType: summarizeTypes(typeHandles),
-      componentsByType: summarizeTypes(componentHandles),
+      byType: summarizeTypes(typeHandles, finiteBoundsByType, sampledBoundsByType),
+      componentsByType: summarizeTypes(
+        componentHandles,
+        finiteBoundsByComponentType,
+        sampledBoundsByComponentType,
+      ),
       handles,
       displayNodes,
       topLevelCount: roots.filter((root) => {
@@ -1387,6 +1521,7 @@ export class LabRuntime {
         return typeof record.id === 'string' && typeof record.type === 'string';
       }).length,
       truncated: Math.max(0, handles.length - displayNodes.length),
+      byIdTruncated: Math.max(0, handles.length - byIdCount),
     };
   }
 
@@ -1574,6 +1709,7 @@ export class LabRuntime {
   }
 
   #recordEvent(type: string, payload: unknown): void {
+    this.#lastObservation = null;
     this.#eventCounts.set(type, (this.#eventCounts.get(type) ?? 0) + 1);
     this.events.push({
       timestamp: now(),
@@ -1590,7 +1726,7 @@ export class LabRuntime {
     if (!app) return;
     const callback = (): void => {
       this.#renderFrames += 1;
-      this.onChange?.();
+      this.onFrame?.();
     };
     this.#tickerCallback = callback;
     app.ticker.add(callback);

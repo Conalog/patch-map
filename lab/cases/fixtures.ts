@@ -5,6 +5,9 @@ import type { LabFixture, LabFixtureKey } from './types';
 export const INLINE_LAB_IMAGE =
   'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"%3E%3Crect width="32" height="32" rx="4" fill="%23131a22"/%3E%3Cpath d="M7 22L14 9l4 8 3-5 4 10H7z" fill="%232bd9c4"/%3E%3C/svg%3E';
 
+const INLINE_LAB_URL_IMAGE = INLINE_LAB_IMAGE.replace('%232bd9c4', '%23f2aa4c');
+const INLINE_LAB_DESCRIPTOR_IMAGE = INLINE_LAB_IMAGE.replace('%232bd9c4', '%234f86c6');
+
 /** Public Pixi asset input consumed by the lab-owned init sequence. */
 export const LAB_ASSET_DEFINITIONS: PatchmapAssets = [
   { alias: 'lab-alias', src: INLINE_LAB_IMAGE },
@@ -184,7 +187,7 @@ const assets: MapData = [
     label: 'URL',
     type: 'image',
     attrs: { x: 150, y: 40 },
-    source: INLINE_LAB_IMAGE,
+    source: INLINE_LAB_URL_IMAGE,
     size: 80,
   },
   {
@@ -192,7 +195,7 @@ const assets: MapData = [
     label: 'descriptor',
     type: 'image',
     attrs: { x: 270, y: 40 },
-    source: { src: INLINE_LAB_IMAGE, format: 'svg' },
+    source: { src: INLINE_LAB_DESCRIPTOR_IMAGE, format: 'svg' },
     size: 80,
   },
 ];

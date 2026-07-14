@@ -94,6 +94,9 @@ let standaloneObservation: Record<string, unknown> | null = null;
 let controlError: LabRuntimeError | null = null;
 let busy = false;
 let telemetryTimer = 0;
+let frameTelemetryTimer = 0;
+let pendingTelemetryObservation: Record<string, unknown> | null = null;
+let telemetryNeedsFreshObservation = false;
 let sessionStarted = performance.now();
 
 const elements = {
@@ -386,11 +389,30 @@ const renderPixiDevtoolsStatus = (): void => {
   elements.pixiDevtoolsReconnect.disabled = runtime.patchmap.app === null;
 };
 
-const renderTelemetry = (): void => {
+const sceneDiffActionKinds = new Set([
+  'draw',
+  'draw-inline',
+  'draw-invalid',
+  'update',
+  'history',
+  'lifecycle',
+  'rotation',
+  'flip',
+  'transformer',
+  'sandbox-draw',
+  'sandbox-update',
+]);
+
+const renderFrameTelemetry = (): void => {
+  elements.frameReadout.textContent = String(runtime.frameCount);
+  elements.frameCounter.textContent = `${runtime.renderCount} / ${runtime.frameCount}`;
+};
+
+const renderTelemetry = (providedObservation?: Record<string, unknown>): void => {
   renderPixiDevtoolsStatus();
-  const observation = runtime.observation();
-  const scene = runtime.sceneDisplaySnapshot();
-  const selected = runtime.selectedDisplaySnapshot();
+  const observation = providedObservation ?? runtime.observation();
+  const scene = runtime.sceneDisplaySnapshot(observation);
+  const selected = runtime.selectedDisplaySnapshot(observation);
   const history = readPath(observation, 'history');
   const viewport = readPath(observation, 'viewport');
   const renderer = readPath(observation, 'renderer.screen');
@@ -414,8 +436,7 @@ const renderTelemetry = (): void => {
     typeof renderer.width === 'number' && typeof renderer.height === 'number'
     ? `${Math.round(renderer.width)}×${Math.round(renderer.height)}`
     : '—';
-  elements.frameReadout.textContent = String(runtime.frameCount);
-  elements.frameCounter.textContent = `${runtime.renderCount} / ${runtime.frameCount}`;
+  renderFrameTelemetry();
   const commandCount = isRecord(history) && typeof history.commandCount === 'number'
     ? history.commandCount
     : 0;
@@ -426,7 +447,12 @@ const renderTelemetry = (): void => {
 
   const diffSource = activeResult?.observation ?? standaloneObservation;
   if (diffSource) {
-    const diff = shallowDiff(diffSource);
+    const actionKind = activeCase.steps[activeStepIndex]?.action.kind;
+    const shouldDiff = standaloneObservation === diffSource ||
+      (actionKind !== undefined && sceneDiffActionKinds.has(actionKind));
+    const diff = shouldDiff
+      ? shallowDiff(diffSource)
+      : { text: '= This step does not mutate public scene structure.', count: 0 };
     elements.structuralDiff.textContent = diff.text;
     elements.diffCount.textContent = `${diff.count} Δ`;
   } else {
@@ -435,12 +461,30 @@ const renderTelemetry = (): void => {
   }
 };
 
-const scheduleTelemetry = (): void => {
+const scheduleTelemetry = (observation?: Record<string, unknown>): void => {
+  if (observation) {
+    pendingTelemetryObservation = observation;
+    telemetryNeedsFreshObservation = false;
+  } else {
+    pendingTelemetryObservation = null;
+    telemetryNeedsFreshObservation = true;
+  }
   if (telemetryTimer) return;
   telemetryTimer = window.setTimeout(() => {
     telemetryTimer = 0;
-    renderTelemetry();
+    const pending = telemetryNeedsFreshObservation ? undefined : pendingTelemetryObservation ?? undefined;
+    pendingTelemetryObservation = null;
+    telemetryNeedsFreshObservation = false;
+    renderTelemetry(pending);
   }, 100);
+};
+
+const scheduleFrameTelemetry = (): void => {
+  if (frameTelemetryTimer) return;
+  frameTelemetryTimer = window.setTimeout(() => {
+    frameTelemetryTimer = 0;
+    renderFrameTelemetry();
+  }, 250);
 };
 
 const renderActive = (): void => {
@@ -458,7 +502,7 @@ const renderActive = (): void => {
 
   const resultStatus = activeResult?.status ?? 'not-run';
   elements.resultLabel.textContent = activeResult
-    ? `${activeResult.assertions.filter((assertion) => assertion.pass).length}/${activeResult.assertions.length} invariants · ${activeResult.durationMs.toFixed(1)}ms`
+    ? `${activeResult.assertions.filter((assertion) => assertion.pass).length}/${activeResult.assertions.length} invariants · action ${activeResult.timing.actionMs.toFixed(1)}ms · lab ${activeResult.timing.diagnosticsMs.toFixed(1)}ms`
     : 'NOT RUN';
   setStatusChip(elements.resultStatus, resultStatus);
   if (activeResult?.assertions.length) {
@@ -477,7 +521,8 @@ const renderActive = (): void => {
   }
   renderStepRail();
   renderCatalog();
-  renderTelemetry();
+  renderPixiDevtoolsStatus();
+  scheduleTelemetry(activeResult?.observation ?? standaloneObservation ?? undefined);
 };
 
 const setBusy = (value: boolean): void => {
@@ -682,7 +727,7 @@ const applyViewportPreset = (button: HTMLButtonElement): void => {
   for (const candidate of document.querySelectorAll<HTMLButtonElement>('[data-viewport]')) {
     candidate.classList.toggle('is-active', candidate === button);
   }
-  renderTelemetry();
+  scheduleTelemetry();
 };
 
 const configureControls = (): void => {
@@ -712,7 +757,7 @@ const configureControls = (): void => {
   byId<HTMLButtonElement>('copy-report').addEventListener('click', () => runUiTask(copyReport));
   byId<HTMLButtonElement>('inspect-target').addEventListener('click', () => runUiTask(() => {
     runtime.selectHandle(elements.targetId.value.trim());
-    renderTelemetry();
+    scheduleTelemetry();
   }));
   byId<HTMLButtonElement>('manual-observed').addEventListener('click', () => {
     const step = activeCase.steps[activeStepIndex];
@@ -844,6 +889,7 @@ const initialize = async (): Promise<void> => {
   };
   runtime.onManual = showManualPrompt;
   runtime.onChange = scheduleTelemetry;
+  runtime.onFrame = scheduleFrameTelemetry;
   configureControls();
 
   const restored = restoreSelection();
@@ -862,13 +908,18 @@ const initialize = async (): Promise<void> => {
     elements.sessionClock.textContent = [hours, minutes, seconds]
       .map((part) => String(part).padStart(2, '0'))
       .join(':') + `.${String(milliseconds).padStart(3, '0')}`;
-  }, 47);
+  }, 100);
 };
 
 window.addEventListener('beforeunload', () => {
   runtime.onChange = null;
+  runtime.onFrame = null;
   if (telemetryTimer) window.clearTimeout(telemetryTimer);
+  if (frameTelemetryTimer) window.clearTimeout(frameTelemetryTimer);
   telemetryTimer = 0;
+  frameTelemetryTimer = 0;
+  pendingTelemetryObservation = null;
+  telemetryNeedsFreshObservation = false;
   runtime.destroy();
 });
 

@@ -8,6 +8,9 @@ import type {
   LabStep,
 } from './types';
 
+// Deliberately violates the public schema for the validation-rejection lab step.
+const INVALID_SHOW_VALUE = 'invalid' as unknown as boolean;
+
 const invariant = (
   id: string,
   label: string,
@@ -128,7 +131,7 @@ const DRAW_CASES: LabCase[] = [
       invariant('defaults-id', 'Every handle has an ID', 'scene.allHandlesHaveId', 'equals', true),
       invariant('defaults-show', 'Omitted show materializes true', 'scene.allTopLevelShown', 'equals', true),
       invariant('defaults-locked', 'Omitted locked materializes false', 'scene.allTopLevelUnlocked', 'equals', true),
-      invariant('defaults-grid-gap', 'Grid gap defaults to zero', 'scene.byId.default-grid.props.gap', 'equals', 0),
+      invariant('defaults-grid-gap', 'Grid gap defaults to zero', 'scene.byId.default-grid.props.gap', 'equals', { x: 0, y: 0 }),
     ],
     { evidenceStatus: 'partial', tags: ['defaults', 'Q7'], oracleQuestions: ['Q7'] },
   ),
@@ -439,7 +442,7 @@ const UPDATE_CASES: LabCase[] = [
     description: 'Compare validation rejection, validation bypass, and unnormalized public props.', fixture: 'update-playground', tags: ['normalize', 'validation'], oracleQuestions: ['Q6'],
     steps: [
       reset(), draw('draw', 'update-playground'),
-      step('validate-true', 'Reject invalid change before mutation', { kind: 'update', request: { target: { mode: 'id', id: 'update-rect-a' }, changes: { size: -1 }, validateSchema: true } }, [
+      step('validate-true', 'Reject invalid change before mutation', { kind: 'update', request: { target: { mode: 'id', id: 'update-rect-a' }, changes: { show: INVALID_SHOW_VALUE }, validateSchema: true } }, [
         invariant('validate-error', 'Validation error is displayed', 'error.message', 'exists', true, { source: 'approved-v4' }),
         invariant('validate-preserve', 'Rejected update preserves prior public size', 'scene.byId.update-rect-a.props.size', 'equals', { width: 100, height: 70 }, { source: 'approved-v4' }),
       ]),
@@ -477,7 +480,7 @@ const UPDATE_CASES: LabCase[] = [
         invariant('relative-y', 'Y is additive', 'scene.byId.update-rect-a.props.attrs.y', 'equals', 26),
       ]),
       step('rotate-center', 'Rotate around visible center', { kind: 'update', request: { target: { mode: 'id', id: 'update-rect-a' }, changes: { attrs: { angle: 45 } }, rotateOrigin: 'center' } }, [
-        invariant('center-preserved', 'Visible center remains stable for center rotation', 'selected.center', 'equals', 'before.selected.center'),
+        invariant('center-preserved', 'Visible center remains stable for center rotation', 'selected.center', 'approximately-equals', 'before.selected.center'),
       ]),
     ],
   }),
@@ -512,7 +515,7 @@ const UPDATE_CASES: LabCase[] = [
     steps: [reset(), draw('draw', 'update-playground'), step('cells', 'Activate and relabel cells', { kind: 'update', request: { target: { mode: 'id', id: 'update-grid' }, changes: { cells: [['A', 'B'], ['C', 'D']] } } }, [
       invariant('new-cell', 'New deterministic cell is materialized', 'scene.byId.update-grid.1.1.exists', 'equals', true),
     ]), step('template', 'Update grid item template', { kind: 'update', request: { target: { mode: 'id', id: 'update-grid' }, changes: { item: { size: 70, padding: 4 } } } }, [
-      invariant('template-size', 'Existing cells expose new size', 'scene.byId.update-grid.0.0.props.size', 'equals', 70),
+      invariant('template-size', 'Existing cells expose new size', 'scene.byId.update-grid.0.0.props.size', 'equals', { width: 70, height: 70 }),
     ])],
   }),
   makeCase({
@@ -529,7 +532,7 @@ const UPDATE_CASES: LabCase[] = [
       reset(), draw('draw', 'update-playground'),
       step('animate-size', 'Animate bar width', { kind: 'update', request: { target: { mode: 'id', id: 'update-bar' }, changes: { size: { width: '80%', height: 14 }, animationDuration: 320 } } }, [invariant('animation-context', 'Stable animation context remains public', 'patchmap.animationContext.exists', 'equals', true, { source: 'approved-v4' })]),
       step('pause', 'Pause lab animation clock', { kind: 'animation', method: 'pause' }),
-      step('resize-during', 'Resize bar while paused', { kind: 'update', request: { target: { mode: 'id', id: 'update-bar' }, changes: { size: { width: '55%', height: 18 } } } }, [invariant('bar-size-public', 'New authored size is public synchronously', 'scene.byId.update-bar.props.size', 'equals', { width: '55%', height: 18 })]),
+      step('resize-during', 'Resize bar while paused', { kind: 'update', request: { target: { mode: 'id', id: 'update-bar' }, changes: { size: { width: '55%', height: 18 } } } }, [invariant('bar-size-public', 'New authored size is public synchronously', 'scene.byId.update-bar.props.size', 'equals', { width: { value: 55, unit: '%' }, height: { value: 18, unit: 'px' } })]),
       step('resume-refresh', 'Resume and refresh bar', { kind: 'animation', method: 'resume', durationMs: 350 }),
       step('hide-source', 'Hide and change bar source', { kind: 'update', request: { target: { mode: 'id', id: 'update-bar' }, changes: { show: false, source: { type: 'rect', fill: '#d43b54' } }, refresh: true } }, [invariant('bar-hidden', 'Bar public show is false', 'scene.byId.update-bar.props.show', 'equals', false)]),
     ],

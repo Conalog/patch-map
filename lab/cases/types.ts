@@ -175,6 +175,7 @@ export type LabAction =
 
 export type LabCheckOperator =
   | 'equals'
+  | 'approximately-equals'
   | 'not-equals'
   | 'includes'
   | 'matches'
