@@ -15,3 +15,4 @@
 **2026-07-14**
 - 클린룸 소유자 결정을 반영해 PixiJS dependency source-map 우발 노출을 PATCH MAP 원본 오염이 아닌 것으로 승인하고 현재 작업트리 유지와 재시작 불필요를 기록했다. Evidence: 출력 내용 미사용, PATCH MAP 원본·reference 자료 미접근, 허용 자료 경계 불변. Next state: source map을 명시적으로 제외한 채 승인된 기존 자료에 독립적으로 확정 가능한 작업이 남았는지 재평가하고, 없다면 Q1~Q23 및 Q21 evidence를 기다리는 oracle-blocked 상태를 유지한다.
 - Oracle 조정으로 Q1~Q23의 공개 observable 계약을 블랙박스 fixture와 normalized output으로 담은 v4 승인 export가 이 작업에 직접 전달될 예정이다. 기존 v3에서 추가 동작을 추측하거나 질문을 사용자 의견으로 되돌리지 않는다. Next state: 직접 v4 handoff를 기다리고, 도착 시 manifest와 모든 payload를 독립 검증한 뒤 export가 선언한 새 승인 입력만 사용해 Goal을 재개한다. 구현 또는 evidence 변경 전에는 전체 release/performance gate를 반복하지 않는다.
+- STA/VIE 분석 실패 스택의 pixi-viewport UMD dependency bundle 우발 출력을 클린룸 소유자 승인에 따라 비오염·미사용 사고로 기록했다. Evidence: PATCH MAP 원본/reference 미접근, 노출 내용 미사용, 저장소 수정 없음. Next state: 자료 경계를 넓히지 않고 node_modules, bundle, source map을 명시적으로 제외하며 immutable evidence를 보존한 채 승인된 v4 구현과 검증을 재개한다.
