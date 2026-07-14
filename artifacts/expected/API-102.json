@@ -1,0 +1,1117 @@
+{
+  "schemaVersion": 1,
+  "fixture": {
+    "id": "API-102",
+    "level": 1,
+    "questions": [
+      "Q1"
+    ],
+    "title": "Standalone public exports expose accepted arguments, returns, mutation and errors",
+    "invocation": [
+      "call selector, uid, isMoved, intersectPoint and findIntersectObject with table-driven authored inputs",
+      "include valid-looking, empty and malformed argument orders without enumerating returned private structure",
+      "for geometry helpers also pass public live rect handles created through draw"
+    ],
+    "timingBoundaries": [
+      "synchronous standalone return/error"
+    ],
+    "volatileFields": [
+      {
+        "field": "uid return strings",
+        "replacement": "type/length/uniqueness shape only",
+        "reason": "Exact generated strings are non-normative."
+      }
+    ],
+    "screenshot": false,
+    "status": "oracle-generated/review-pending"
+  },
+  "observed": {
+    "selectorTable": [
+      {
+        "name": "path-then-value",
+        "call": {
+          "outcome": {
+            "threw": {
+              "name": "TypeError",
+              "message": "r.replaceAll is not a function"
+            }
+          },
+          "inputBefore": {
+            "args": [
+              "$..children",
+              {
+                "children": [
+                  {
+                    "id": "standalone-a",
+                    "type": "rect",
+                    "label": "Alpha"
+                  },
+                  {
+                    "id": "standalone-b",
+                    "type": "text",
+                    "label": "Beta"
+                  }
+                ]
+              }
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              "$..children",
+              {
+                "children": [
+                  {
+                    "id": "standalone-a",
+                    "type": "rect",
+                    "label": "Alpha"
+                  },
+                  {
+                    "id": "standalone-b",
+                    "type": "text",
+                    "label": "Beta"
+                  }
+                ]
+              }
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "value-then-path",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "json",
+              "value": [
+                {
+                  "id": "standalone-a",
+                  "type": "rect",
+                  "label": "Alpha"
+                },
+                {
+                  "id": "standalone-b",
+                  "type": "text",
+                  "label": "Beta"
+                }
+              ]
+            }
+          },
+          "inputBefore": {
+            "args": [
+              {
+                "children": [
+                  {
+                    "id": "standalone-a",
+                    "type": "rect",
+                    "label": "Alpha"
+                  },
+                  {
+                    "id": "standalone-b",
+                    "type": "text",
+                    "label": "Beta"
+                  }
+                ]
+              },
+              "$..children"
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              {
+                "children": [
+                  {
+                    "id": "standalone-a",
+                    "type": "rect",
+                    "label": "Alpha"
+                  },
+                  {
+                    "id": "standalone-b",
+                    "type": "text",
+                    "label": "Beta"
+                  }
+                ]
+              },
+              "$..children"
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "path-options-json",
+        "call": {
+          "outcome": {
+            "threw": {
+              "name": "TypeError",
+              "message": "r.replaceAll is not a function"
+            }
+          },
+          "inputBefore": {
+            "args": [
+              "$..children",
+              {
+                "json": {
+                  "children": [
+                    {
+                      "id": "standalone-a",
+                      "type": "rect",
+                      "label": "Alpha"
+                    },
+                    {
+                      "id": "standalone-b",
+                      "type": "text",
+                      "label": "Beta"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              "$..children",
+              {
+                "json": {
+                  "children": [
+                    {
+                      "id": "standalone-a",
+                      "type": "rect",
+                      "label": "Alpha"
+                    },
+                    {
+                      "id": "standalone-b",
+                      "type": "text",
+                      "label": "Beta"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "root-only",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "json",
+              "value": []
+            }
+          },
+          "inputBefore": {
+            "args": [
+              "$"
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              "$"
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "empty-path",
+        "call": {
+          "outcome": {
+            "threw": {
+              "name": "NewError",
+              "message": "JSONPath should not be called with \"new\" (it prevents return of (unwrapped) scalar values)"
+            }
+          },
+          "inputBefore": {
+            "args": [
+              "",
+              {
+                "children": [
+                  {
+                    "id": "standalone-a",
+                    "type": "rect",
+                    "label": "Alpha"
+                  },
+                  {
+                    "id": "standalone-b",
+                    "type": "text",
+                    "label": "Beta"
+                  }
+                ]
+              }
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              "",
+              {
+                "children": [
+                  {
+                    "id": "standalone-a",
+                    "type": "rect",
+                    "label": "Alpha"
+                  },
+                  {
+                    "id": "standalone-b",
+                    "type": "text",
+                    "label": "Beta"
+                  }
+                ]
+              }
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "invalid-path",
+        "call": {
+          "outcome": {
+            "threw": {
+              "name": "TypeError",
+              "message": "r.replaceAll is not a function"
+            }
+          },
+          "inputBefore": {
+            "args": [
+              "$.children[",
+              {
+                "children": [
+                  {
+                    "id": "standalone-a",
+                    "type": "rect",
+                    "label": "Alpha"
+                  },
+                  {
+                    "id": "standalone-b",
+                    "type": "text",
+                    "label": "Beta"
+                  }
+                ]
+              }
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              "$.children[",
+              {
+                "children": [
+                  {
+                    "id": "standalone-a",
+                    "type": "rect",
+                    "label": "Alpha"
+                  },
+                  {
+                    "id": "standalone-b",
+                    "type": "text",
+                    "label": "Beta"
+                  }
+                ]
+              }
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "no-args",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "json",
+              "value": []
+            }
+          },
+          "inputBefore": {
+            "args": []
+          },
+          "inputAfter": {
+            "args": []
+          },
+          "inputUnchanged": true
+        }
+      }
+    ],
+    "uidCalls": [
+      {
+        "name": "default-first",
+        "args": [],
+        "outcome": {
+          "returned": {
+            "kind": "string",
+            "length": 15
+          }
+        }
+      },
+      {
+        "name": "default-second",
+        "args": [],
+        "outcome": {
+          "returned": {
+            "kind": "string",
+            "length": 15
+          }
+        }
+      },
+      {
+        "name": "string-arg",
+        "args": [
+          "fixture"
+        ],
+        "outcome": {
+          "returned": {
+            "kind": "string",
+            "length": 15
+          }
+        }
+      },
+      {
+        "name": "number-arg",
+        "args": [
+          12
+        ],
+        "outcome": {
+          "returned": {
+            "kind": "string",
+            "length": 15
+          }
+        }
+      },
+      {
+        "name": "null-arg",
+        "args": [
+          null
+        ],
+        "outcome": {
+          "returned": {
+            "kind": "string",
+            "length": 15
+          }
+        }
+      }
+    ],
+    "uidRelationship": {
+      "bothStrings": true,
+      "lengths": [
+        15,
+        15
+      ],
+      "unique": true
+    },
+    "isMovedTable": [
+      {
+        "name": "same-points",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "boolean",
+              "value": false
+            }
+          },
+          "inputBefore": {
+            "args": [
+              {
+                "x": 10,
+                "y": 10
+              },
+              {
+                "x": 10,
+                "y": 10
+              }
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              {
+                "x": 10,
+                "y": 10
+              },
+              {
+                "x": 10,
+                "y": 10
+              }
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "different-points",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "boolean",
+              "value": true
+            }
+          },
+          "inputBefore": {
+            "args": [
+              {
+                "x": 10,
+                "y": 10
+              },
+              {
+                "x": 14,
+                "y": 16
+              }
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              {
+                "x": 10,
+                "y": 10
+              },
+              {
+                "x": 14,
+                "y": 16
+              }
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "different-with-threshold",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "boolean",
+              "value": false
+            }
+          },
+          "inputBefore": {
+            "args": [
+              {
+                "x": 10,
+                "y": 10
+              },
+              {
+                "x": 14,
+                "y": 16
+              },
+              10
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              {
+                "x": 10,
+                "y": 10
+              },
+              {
+                "x": 14,
+                "y": 16
+              },
+              10
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "numbers",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "boolean",
+              "value": false
+            }
+          },
+          "inputBefore": {
+            "args": [
+              0,
+              0,
+              1,
+              1
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              0,
+              0,
+              1,
+              1
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "no-args",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "boolean",
+              "value": false
+            }
+          },
+          "inputBefore": {
+            "args": []
+          },
+          "inputAfter": {
+            "args": []
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "nulls",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "boolean",
+              "value": false
+            }
+          },
+          "inputBefore": {
+            "args": [
+              null,
+              null
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              null,
+              null
+            ]
+          },
+          "inputUnchanged": true
+        }
+      }
+    ],
+    "intersectPointTable": [
+      {
+        "name": "point-bounds",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "boolean",
+              "value": false
+            }
+          },
+          "inputBefore": {
+            "args": [
+              {
+                "x": 10,
+                "y": 10
+              },
+              {
+                "x": 0,
+                "y": 0,
+                "width": 20,
+                "height": 20
+              }
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              {
+                "x": 10,
+                "y": 10
+              },
+              {
+                "x": 0,
+                "y": 0,
+                "width": 20,
+                "height": 20
+              }
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "bounds-point",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "boolean",
+              "value": false
+            }
+          },
+          "inputBefore": {
+            "args": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 20,
+                "height": 20
+              },
+              {
+                "x": 10,
+                "y": 10
+              }
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 20,
+                "height": 20
+              },
+              {
+                "x": 10,
+                "y": 10
+              }
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "inside-four-numbers",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "boolean",
+              "value": false
+            }
+          },
+          "inputBefore": {
+            "args": [
+              10,
+              10,
+              {
+                "x": 0,
+                "y": 0,
+                "width": 20,
+                "height": 20
+              }
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              10,
+              10,
+              {
+                "x": 0,
+                "y": 0,
+                "width": 20,
+                "height": 20
+              }
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "outside",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "boolean",
+              "value": false
+            }
+          },
+          "inputBefore": {
+            "args": [
+              {
+                "x": 40,
+                "y": 40
+              },
+              {
+                "x": 0,
+                "y": 0,
+                "width": 20,
+                "height": 20
+              }
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              {
+                "x": 40,
+                "y": 40
+              },
+              {
+                "x": 0,
+                "y": 0,
+                "width": 20,
+                "height": 20
+              }
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "empty",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "boolean",
+              "value": false
+            }
+          },
+          "inputBefore": {
+            "args": []
+          },
+          "inputAfter": {
+            "args": []
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "malformed",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "boolean",
+              "value": false
+            }
+          },
+          "inputBefore": {
+            "args": [
+              "x",
+              {
+                "x": 0,
+                "y": 0,
+                "width": 20,
+                "height": 20
+              }
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              "x",
+              {
+                "x": 0,
+                "y": 0,
+                "width": 20,
+                "height": 20
+              }
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "point-live-element",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "boolean",
+              "value": false
+            }
+          },
+          "inputBefore": {
+            "args": [
+              {
+                "id": null,
+                "type": null,
+                "label": null
+              },
+              {
+                "id": "api-live-a",
+                "type": "rect",
+                "label": "Graphics"
+              }
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              {
+                "id": null,
+                "type": null,
+                "label": null
+              },
+              {
+                "id": "api-live-a",
+                "type": "rect",
+                "label": "Graphics"
+              }
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "live-element-point",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "boolean",
+              "value": true
+            }
+          },
+          "inputBefore": {
+            "args": [
+              {
+                "id": "api-live-a",
+                "type": "rect",
+                "label": "Graphics"
+              },
+              {
+                "id": null,
+                "type": null,
+                "label": null
+              }
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              {
+                "id": "api-live-a",
+                "type": "rect",
+                "label": "Graphics"
+              },
+              {
+                "id": null,
+                "type": null,
+                "label": null
+              }
+            ]
+          },
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "live-elements",
+        "call": {
+          "outcome": {
+            "returned": {
+              "kind": "boolean",
+              "value": false
+            }
+          },
+          "inputBefore": {
+            "args": [
+              {
+                "id": "api-live-a",
+                "type": "rect",
+                "label": "Graphics"
+              },
+              {
+                "id": "api-live-b",
+                "type": "rect",
+                "label": "Graphics"
+              }
+            ]
+          },
+          "inputAfter": {
+            "args": [
+              {
+                "id": "api-live-a",
+                "type": "rect",
+                "label": "Graphics"
+              },
+              {
+                "id": "api-live-b",
+                "type": "rect",
+                "label": "Graphics"
+              }
+            ]
+          },
+          "inputUnchanged": true
+        }
+      }
+    ],
+    "draw": {
+      "outcome": {
+        "returned": {
+          "kind": "map-data",
+          "value": [
+            {
+              "show": true,
+              "id": "api-live-a",
+              "attrs": {
+                "x": 10,
+                "y": 10
+              },
+              "locked": false,
+              "type": "rect",
+              "size": {
+                "width": 24,
+                "height": 24
+              },
+              "fill": "#0c73bf",
+              "radius": 0
+            },
+            {
+              "show": true,
+              "id": "api-live-b",
+              "attrs": {
+                "x": 80,
+                "y": 10
+              },
+              "locked": false,
+              "type": "rect",
+              "size": {
+                "width": 24,
+                "height": 24
+              },
+              "fill": "#ef4444",
+              "radius": 0
+            }
+          ]
+        }
+      },
+      "inputBefore": [
+        {
+          "type": "rect",
+          "id": "api-live-a",
+          "size": 24,
+          "fill": "#0c73bf",
+          "attrs": {
+            "x": 10,
+            "y": 10
+          }
+        },
+        {
+          "type": "rect",
+          "id": "api-live-b",
+          "size": 24,
+          "fill": "#ef4444",
+          "attrs": {
+            "x": 80,
+            "y": 10
+          }
+        }
+      ],
+      "inputAfter": [
+        {
+          "type": "rect",
+          "id": "api-live-a",
+          "size": 24,
+          "fill": "#0c73bf",
+          "attrs": {
+            "x": 10,
+            "y": 10
+          }
+        },
+        {
+          "type": "rect",
+          "id": "api-live-b",
+          "size": 24,
+          "fill": "#ef4444",
+          "attrs": {
+            "x": 80,
+            "y": 10
+          }
+        }
+      ],
+      "inputUnchanged": true
+    },
+    "findIntersectTable": [
+      {
+        "name": "elements-point",
+        "outcome": {
+          "threw": {
+            "name": "TypeError",
+            "message": "r.children is not iterable"
+          }
+        }
+      },
+      {
+        "name": "point-elements",
+        "outcome": {
+          "threw": {
+            "name": "TypeError",
+            "message": "r.children is not iterable"
+          }
+        }
+      },
+      {
+        "name": "element-elements",
+        "outcome": {
+          "returned": {
+            "kind": "null"
+          }
+        }
+      },
+      {
+        "name": "world-point",
+        "outcome": {
+          "returned": {
+            "kind": "public-element",
+            "value": {
+              "id": "api-live-a",
+              "type": "rect",
+              "label": "Graphics"
+            }
+          }
+        }
+      },
+      {
+        "name": "world-live-element",
+        "outcome": {
+          "returned": {
+            "kind": "public-element",
+            "value": {
+              "id": "api-live-a",
+              "type": "rect",
+              "label": "Graphics"
+            }
+          }
+        }
+      },
+      {
+        "name": "world-elements",
+        "outcome": {
+          "returned": {
+            "kind": "null"
+          }
+        }
+      },
+      {
+        "name": "bounds-elements",
+        "outcome": {
+          "threw": {
+            "name": "TypeError",
+            "message": "r.children is not iterable"
+          }
+        }
+      },
+      {
+        "name": "empty-elements",
+        "outcome": {
+          "threw": {
+            "name": "TypeError",
+            "message": "r.children is not iterable"
+          }
+        }
+      },
+      {
+        "name": "no-args",
+        "outcome": {
+          "threw": {
+            "name": "TypeError",
+            "message": "Cannot read properties of undefined (reading 'children')"
+          }
+        }
+      }
+    ],
+    "eventTrace": []
+  },
+  "environment": {
+    "platform": "darwin",
+    "osRelease": "23.0.0",
+    "osVersion": "Darwin Kernel Version 23.0.0: Fri Sep 15 14:42:57 PDT 2023; root:xnu-10002.1.13~1/RELEASE_ARM64_T8112",
+    "architecture": "arm64",
+    "cpu": "Apple M2",
+    "logicalCores": 8,
+    "totalMemoryBytes": 17179869184,
+    "node": "v22.21.1",
+    "chromium": "143.0.7499.4",
+    "viewport": {
+      "width": 640,
+      "height": 480
+    },
+    "deviceScaleFactor": 1,
+    "cpuThrottle": 1,
+    "deviceProfile": "developer-macos-arm64",
+    "powerMode": "developer-default; not programmatically available on macOS",
+    "fonts": "package defaults; document.fonts awaited when pixel evidence is requested",
+    "assets": "package defaults and fixture-declared public inputs",
+    "browserPlatform": "MacIntel",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+    "gpuVendor": "Google Inc. (Google)",
+    "gpuRenderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "browserErrors": []
+}

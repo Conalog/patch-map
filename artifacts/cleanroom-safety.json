@@ -3,11 +3,23 @@
   "result": "pass",
   "fixtureStatuses": [
     {
-      "id": "LIF-001",
+      "id": "ABI-101",
       "status": "oracle-generated/review-pending"
     },
     {
-      "id": "LIF-002",
+      "id": "API-101",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "API-102",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "AST-101",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "CTX-101",
       "status": "oracle-generated/review-pending"
     },
     {
@@ -35,6 +47,54 @@
       "status": "oracle-generated/review-pending"
     },
     {
+      "id": "DRX-101",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "EVT-101",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "HIS-101",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "INT-101",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "LIF-001",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "LIF-002",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "REL-101",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "S2-101",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "SCH-101",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "STA-101",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "TRN-101",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "TXT-101",
+      "status": "oracle-generated/review-pending"
+    },
+    {
       "id": "UPD-001",
       "status": "oracle-generated/review-pending"
     },
@@ -56,6 +116,14 @@
     },
     {
       "id": "UPD-006",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPX-101",
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "VIE-101",
       "status": "oracle-generated/review-pending"
     }
   ],
@@ -82,74 +150,254 @@
   "contaminationDetected": false,
   "checks": [
     {
-      "name": "reference entrypoint is exact one-line export",
+      "name": "reference entrypoint is exact approved public export list",
       "pass": true,
-      "detail": "src/reference-entry.mjs must contain only the approved export line"
+      "detail": "src/reference-entry.mjs must contain only the approved public exports"
     },
     {
       "name": "fixture set is exact",
       "pass": true,
-      "detail": "found DRW-001.json, DRW-002.json, DRW-003.json, DRW-004.json, DRW-005.json, DRW-006.json, LIF-001.json, LIF-002.json, UPD-001.json, UPD-002.json, UPD-003.json, UPD-004.json, UPD-005.json, UPD-006.json"
+      "detail": "found ABI-101.json, API-101.json, API-102.json, AST-101.json, CTX-101.json, DRW-001.json, DRW-002.json, DRW-003.json, DRW-004.json, DRW-005.json, DRW-006.json, DRX-101.json, EVT-101.json, HIS-101.json, INT-101.json, LIF-001.json, LIF-002.json, REL-101.json, S2-101.json, SCH-101.json, STA-101.json, TRN-101.json, TXT-101.json, UPD-001.json, UPD-002.json, UPD-003.json, UPD-004.json, UPD-005.json, UPD-006.json, UPX-101.json, VIE-101.json"
     },
     {
-      "name": "LIF-001 review status",
+      "name": "v3 payload byte-preserved: artifacts/expected/DRW-001.json",
+      "pass": true,
+      "detail": "df27296db8516b139d1ea2837fdf4383fe325ca6b9ad757481967022d51d8c9f"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/expected/DRW-002.json",
+      "pass": true,
+      "detail": "54a857ea562eacd4c392032a05bc72319ceb56d28bf848c7f99f784c7db9ca32"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/expected/DRW-003.json",
+      "pass": true,
+      "detail": "8eedd0e3e1fe211b61621e6591c61cc2b92699624147acff8f171096853c6d6e"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/expected/DRW-004.json",
+      "pass": true,
+      "detail": "5fc76cd488fabdddc996d8b12714724cf89a58466257e876cbf1d6e6764ff4dd"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/expected/DRW-005.json",
+      "pass": true,
+      "detail": "629ff4419abf57f99514b814ba0a5b3038d890fb0b7f06145a52a2093a83ed59"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/expected/DRW-006.json",
+      "pass": true,
+      "detail": "7ac0f21cba58bba23d93b16a9b8ee17dc2f450370701176e83d66104ee9bece4"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/expected/LIF-001.json",
+      "pass": true,
+      "detail": "9f945c38af7a8369ca6b8bfddba7d0ff70bdcbec20a787c4e81cd0cad4eb4ace"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/expected/LIF-002.json",
+      "pass": true,
+      "detail": "95e4baed91d791fc368def59dab4033c3f37f297ce8cdbe4686b340ba28dd38d"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/expected/UPD-001.json",
+      "pass": true,
+      "detail": "74fbfddb544a57f5dc9758fe3b0d67ce8c38d75a8402a808a13aa92c34b3710b"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/expected/UPD-002.json",
+      "pass": true,
+      "detail": "eab4af9f3eaac765d420d3c9ecf07d8d13ef818d5da6bf1f397d7995589068ee"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/expected/UPD-003.json",
+      "pass": true,
+      "detail": "024ef94561168f9e285eeb116a334d81373b96b9da076020bebe74af14e7f4d8"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/expected/UPD-004.json",
+      "pass": true,
+      "detail": "917db663f73f18b3e093088988a7684d71ec790b538b41e18595d83b1c05f719"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/expected/UPD-005.json",
+      "pass": true,
+      "detail": "e23aa5764606412d2c65f05bbcf1ef85a1d8ddcef77a4ab0d2a9ba8ecd7674a5"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/expected/UPD-006.json",
+      "pass": true,
+      "detail": "00a4a2b56c66378b75d092b8fc9b600dcccada8d78b3e27e674e23c05de46dcf"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/screenshots/reference/DRW-001.png",
+      "pass": true,
+      "detail": "5111adf7ad088cf48b11435c6a0b30b2e293a39be17db363ed756d6e0f66c53b"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/screenshots/reference/DRW-002.png",
+      "pass": true,
+      "detail": "c3483750ae41287b18d35a0036401734e61a5aef9db54fdd678fd9f01d10bcae"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/screenshots/reference/UPD-005-after.png",
+      "pass": true,
+      "detail": "77b0bdfb4f6d3fd6f17f53358299340cedf9592141809df6524b9004b21a427a"
+    },
+    {
+      "name": "v3 payload byte-preserved: artifacts/screenshots/reference/UPD-005-before.png",
+      "pass": true,
+      "detail": "c541a43c0dd9e9e652dbd85edfcc9753bc907c60c5924491a74c96a05a21a95a"
+    },
+    {
+      "name": "ABI-101 review status",
       "pass": true,
       "detail": "oracle-generated/review-pending"
     },
     {
-      "name": "LIF-001 browser errors",
+      "name": "ABI-101 browser errors",
       "pass": true,
       "detail": "must be empty"
     },
     {
-      "name": "LIF-001 event trace",
+      "name": "ABI-101 event trace",
       "pass": true,
       "detail": "ordered event/boundary trace is required"
     },
     {
-      "name": "LIF-001 no error stack or local path",
+      "name": "ABI-101 no error stack or local path",
       "pass": true,
       "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
     },
     {
-      "name": "LIF-001 no private-key assertions",
+      "name": "ABI-101 no private-key assertions",
       "pass": true,
       "detail": "private property keys are not allowed"
     },
     {
-      "name": "LIF-001 caller inputs unchanged",
+      "name": "ABI-101 caller inputs unchanged",
       "pass": true,
       "detail": ""
     },
     {
-      "name": "LIF-002 review status",
+      "name": "API-101 review status",
       "pass": true,
       "detail": "oracle-generated/review-pending"
     },
     {
-      "name": "LIF-002 browser errors",
+      "name": "API-101 browser errors",
       "pass": true,
       "detail": "must be empty"
     },
     {
-      "name": "LIF-002 event trace",
+      "name": "API-101 event trace",
       "pass": true,
       "detail": "ordered event/boundary trace is required"
     },
     {
-      "name": "LIF-002 no error stack or local path",
+      "name": "API-101 no error stack or local path",
       "pass": true,
       "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
     },
     {
-      "name": "LIF-002 no private-key assertions",
+      "name": "API-101 no private-key assertions",
       "pass": true,
       "detail": "private property keys are not allowed"
     },
     {
-      "name": "LIF-002 caller inputs unchanged",
+      "name": "API-101 caller inputs unchanged",
       "pass": true,
-      "detail": ""
+      "detail": "true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true"
+    },
+    {
+      "name": "API-102 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "API-102 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "API-102 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "API-102 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "API-102 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "API-102 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true"
+    },
+    {
+      "name": "AST-101 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "AST-101 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "AST-101 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "AST-101 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "AST-101 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "AST-101 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true"
+    },
+    {
+      "name": "CTX-101 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "CTX-101 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "CTX-101 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "CTX-101 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "CTX-101 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "CTX-101 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true"
     },
     {
       "name": "DRW-001 review status",
@@ -332,6 +580,366 @@
       "detail": "true, true"
     },
     {
+      "name": "DRX-101 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "DRX-101 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "DRX-101 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "DRX-101 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "DRX-101 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "DRX-101 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true"
+    },
+    {
+      "name": "EVT-101 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "EVT-101 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "EVT-101 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "EVT-101 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "EVT-101 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "EVT-101 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true, true, true, true, true"
+    },
+    {
+      "name": "HIS-101 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "HIS-101 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "HIS-101 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "HIS-101 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "HIS-101 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "HIS-101 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true, true, true, true, true, true, true, true, true, true"
+    },
+    {
+      "name": "INT-101 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "INT-101 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "INT-101 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "INT-101 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "INT-101 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "INT-101 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true, true, true"
+    },
+    {
+      "name": "LIF-001 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "LIF-001 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "LIF-001 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "LIF-001 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "LIF-001 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "LIF-001 caller inputs unchanged",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "LIF-002 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "LIF-002 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "LIF-002 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "LIF-002 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "LIF-002 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "LIF-002 caller inputs unchanged",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "REL-101 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "REL-101 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "REL-101 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "REL-101 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "REL-101 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "REL-101 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true, true, true, true, true, true, true, true, true, true, true, true"
+    },
+    {
+      "name": "S2-101 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "S2-101 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "S2-101 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "S2-101 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "S2-101 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "S2-101 caller inputs unchanged",
+      "pass": true,
+      "detail": "true"
+    },
+    {
+      "name": "SCH-101 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "SCH-101 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "SCH-101 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "SCH-101 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "SCH-101 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "SCH-101 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true, true, true, true, true, true, true, true, true, true, true, true, true, true"
+    },
+    {
+      "name": "STA-101 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "STA-101 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "STA-101 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "STA-101 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "STA-101 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "STA-101 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true"
+    },
+    {
+      "name": "TRN-101 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "TRN-101 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "TRN-101 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "TRN-101 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "TRN-101 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "TRN-101 caller inputs unchanged",
+      "pass": true,
+      "detail": "true"
+    },
+    {
+      "name": "TXT-101 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "TXT-101 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "TXT-101 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "TXT-101 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "TXT-101 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "TXT-101 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true, true, true, true, true"
+    },
+    {
       "name": "UPD-001 review status",
       "pass": true,
       "detail": "oracle-generated/review-pending"
@@ -512,6 +1120,151 @@
       "detail": "true, true"
     },
     {
+      "name": "UPX-101 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "UPX-101 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "UPX-101 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "UPX-101 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "UPX-101 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "UPX-101 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true, true, true, true, true, true, true, true, true, true, true"
+    },
+    {
+      "name": "VIE-101 review status",
+      "pass": true,
+      "detail": "oracle-generated/review-pending"
+    },
+    {
+      "name": "VIE-101 browser errors",
+      "pass": true,
+      "detail": "must be empty"
+    },
+    {
+      "name": "VIE-101 event trace",
+      "pass": true,
+      "detail": "ordered event/boundary trace is required"
+    },
+    {
+      "name": "VIE-101 no error stack or local path",
+      "pass": true,
+      "detail": "normalized evidence must not expose stacks, local paths, installed code, or source maps"
+    },
+    {
+      "name": "VIE-101 no private-key assertions",
+      "pass": true,
+      "detail": "private property keys are not allowed"
+    },
+    {
+      "name": "VIE-101 caller inputs unchanged",
+      "pass": true,
+      "detail": "true, true, true, true, true, true, true, true, true, true, true, true, true, true"
+    },
+    {
+      "name": "Q1-Q23 fixture coverage is complete",
+      "pass": true,
+      "detail": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23"
+    },
+    {
+      "name": "API-101 valid legacy conversion and draw are captured",
+      "pass": true,
+      "detail": "valid legacy object must convert and draw without caller mutation"
+    },
+    {
+      "name": "API-102 standalone valid signatures are differentiated",
+      "pass": true,
+      "detail": "selector/geometry/uid public results must remain distinguishable"
+    },
+    {
+      "name": "ABI-101 constructor matrix covers all public classes",
+      "pass": true,
+      "detail": "constructor defaults and an exact invalid Transformer case are required"
+    },
+    {
+      "name": "REL-101 source/target and settled geometry are captured",
+      "pass": true,
+      "detail": "endpoint schema and settled public path geometry must not regress"
+    },
+    {
+      "name": "TXT-101 valid text and independent invalid rows are captured",
+      "pass": true,
+      "detail": "valid geometry must not be masked by invalid subcases"
+    },
+    {
+      "name": "CTX-101 getter ownership and lifecycle identity are captured",
+      "pass": true,
+      "detail": "animationContext and animated frame boundary observations are required"
+    },
+    {
+      "name": "VIE-101 syncViewTransform is absent at every phase",
+      "pass": true,
+      "detail": "[{\"phase\":\"before-init\",\"type\":\"undefined\"},{\"phase\":\"after-init\",\"type\":\"undefined\"},{\"phase\":\"after-draw\",\"type\":\"undefined\"},{\"phase\":\"after-view-mutations\",\"type\":\"undefined\"}]"
+    },
+    {
+      "name": "SCH-101 schema kind and error coverage is complete",
+      "pass": true,
+      "detail": "all element/component kinds and representative exact errors are required"
+    },
+    {
+      "name": "UPX-101 target order, identity, validation and grid rows are captured",
+      "pass": true,
+      "detail": "overlap/structural/type observations and normalized volatile IDs are required"
+    },
+    {
+      "name": "DRX-101 destruction is complete at replacement return",
+      "pass": true,
+      "detail": "{\"managed\":{\"parentIsNull\":true,\"destroyed\":true},\"unmanaged\":{\"parentIsNull\":true,\"destroyed\":true},\"scene\":[{\"id\":\"drx-after\",\"type\":\"text\",\"label\":null,\"parent\":{\"kind\":\"world-root\"},\"props\":{\"show\":true,\"id\":\"drx-after\",\"locked\":false,\"type\":\"text\",\"text\":\"after\",\"style\":{\"fontFamily\":\"FiraCode\",\"fontWeight\":400,\"fill\":\"black\",\"fontSize\":16,\"wordWrap\":true,\"letterSpacing\":0}},\"transform\":{\"x\":0,\"y\":0,\"angle\":0,\"rotation\":0,\"scaleX\":1,\"scaleY\":1},\"dimensions\":{\"width\":49.2308,\"height\":18.9538},\"visibility\":{\"visible\":true,\"renderable\":true},\"destroyed\":false,\"bounds\":{\"x\":0,\"y\":0,\"width\":49.2308,\"height\":18.9538,\"centerX\":24.6154,\"centerY\":9.4769},\"managedChildren\":0,\"nearestManagedParentId\":null}],\"worldChildCount\":1}"
+    },
+    {
+      "name": "TRN-101 defaults, handles and ratio callback are captured",
+      "pass": true,
+      "detail": "Transformer public defaults and callback payload must remain available"
+    },
+    {
+      "name": "INT-101 click/double/right callback order is captured",
+      "pass": true,
+      "detail": "selection callbacks must retain target/event argument order"
+    },
+    {
+      "name": "EVT-101 event lifecycle and generated ID normalization are captured",
+      "pass": true,
+      "detail": "public event collection must show add/remove/redraw teardown without raw generated strings"
+    },
+    {
+      "name": "HIS-101 sync/group/async history boundaries are captured",
+      "pass": true,
+      "detail": "history returns, events, grouping and partial async state are required"
+    },
+    {
+      "name": "AST-101 default aliases, fallback and teardown are captured",
+      "pass": true,
+      "detail": "default alias natural size, missing alias state and teardown are required"
+    },
+    {
+      "name": "S2-101 public count and non-normative pixel policy are captured",
+      "pass": true,
+      "detail": "S2 public count must not be promoted to backend or pixel evidence"
+    },
+    {
       "name": "DRW-001 default animation probe omits caller value",
       "pass": true,
       "detail": "the default probe public input must omit animation"
@@ -622,14 +1375,24 @@
       "detail": "implementation guidance must not contain oracle execution setup"
     },
     {
-      "name": "v3 export excludes oracle-only runbooks",
+      "name": "v4 export excludes oracle-only runbooks",
       "pass": true,
       "detail": "docs/oracle/fixture-runbook.md, docs/oracle/windows-baseline-runbook.md, docs/reference/oracle-runbook.md"
     },
     {
+      "name": "oracle capture explicitly disables and rejects source maps",
+      "pass": true,
+      "detail": "in-memory public execution must neither emit nor serve source maps"
+    },
+    {
+      "name": "determinism normalization is limited to explicitly non-normative pixel hashes",
+      "pass": true,
+      "detail": "public behavior/state/event/timing and normative pixels must remain strict comparisons"
+    },
+    {
       "name": "UPD-002 identity ruling is resolved while UPD-005 question remains",
       "pass": true,
-      "detail": "[{\"fixture\":\"UPD-005\",\"question\":\"Native Windows headed pixels are still required to decide whether any pixel evidence for the next-frame boundary can become normative; the current macOS headless SwiftShader pixels remain non-normative.\"}]"
+      "detail": "[{\"fixture\":\"UPD-005\",\"question\":\"Native Windows headed pixels are still required to decide whether any pixel evidence for the next-frame boundary can become normative; the current macOS headless SwiftShader pixels remain non-normative.\"},{\"fixture\":\"INT-101\",\"question\":\"Click, double-click, right-click, filter/select-unit, and deep-select callback args/order are captured. The authored headless drag/paint gesture did not reach onDragStart/onDrag/onDragEnd, so those mode-specific callback observations remain partial.\"},{\"fixture\":\"SCH-101\",\"question\":\"Minimal defaults for every element/component kind and representative exact validation errors are captured. A finite black-box table cannot prove every schema/style combination outside the authored matrix.\"},{\"fixture\":\"S2-101\",\"question\":\"Public scene-node counting is captured. Renderer-backend primitive counting is not exposed by the public API and is forbidden by the clean-room boundary; native/headed Windows S1/S3/S4 evidence remains pending.\"},{\"fixture\":\"INT-101/HIS-101\",\"question\":\"detail=2 drill-down callback behavior and async/grouped history partial-work state are captured; an exact elapsed wall-clock drill time window was not exposed by the authored public event sequence.\"}]"
     },
     {
       "name": "conformance matrix remains unpromoted",
@@ -642,7 +1405,17 @@
       "detail": "fixture source must stay implementation-agnostic"
     },
     {
+      "name": "fixture source excludes oracle dependency: fixtures/cases/extended.mjs",
+      "pass": true,
+      "detail": "fixture source must stay implementation-agnostic"
+    },
+    {
       "name": "fixture source excludes oracle dependency: fixtures/cases/lif.mjs",
+      "pass": true,
+      "detail": "fixture source must stay implementation-agnostic"
+    },
+    {
+      "name": "fixture source excludes oracle dependency: fixtures/cases/priority.mjs",
       "pass": true,
       "detail": "fixture source must stay implementation-agnostic"
     },

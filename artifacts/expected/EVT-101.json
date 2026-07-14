@@ -1,0 +1,412 @@
+{
+  "schemaVersion": 1,
+  "fixture": {
+    "id": "EVT-101",
+    "level": 1,
+    "questions": [
+      "Q5"
+    ],
+    "title": "Canvas event registration methods expose returns, callbacks, enablement and draw teardown",
+    "invocation": [
+      "draw one explicit rect and register element plus canvas events with public event.add",
+      "exercise get/getAll/off/on/remove and dispatch public pointer events",
+      "redraw and observe whether registrations remain"
+    ],
+    "timingBoundaries": [
+      "registration return",
+      "pointer dispatch",
+      "redraw return",
+      "async drain"
+    ],
+    "volatileFields": [
+      {
+        "field": "auto-generated event id",
+        "replacement": "type/length only",
+        "reason": "Exact generated strings are non-normative."
+      },
+      {
+        "field": "synthetic click detail",
+        "replacement": "<browser-consecutive-click-count>",
+        "reason": "The browser-derived consecutive-click counter varies with dispatch timing; callback order and other public event fields remain normative."
+      }
+    ],
+    "screenshot": false,
+    "status": "oracle-generated/review-pending"
+  },
+  "observed": {
+    "draw": {
+      "outcome": {
+        "returned": {
+          "kind": "map-data",
+          "value": [
+            {
+              "show": true,
+              "id": "evt-target",
+              "attrs": {
+                "x": 50,
+                "y": 50
+              },
+              "locked": false,
+              "type": "rect",
+              "size": {
+                "width": 50,
+                "height": 50
+              },
+              "fill": "#0c73bf",
+              "radius": 0
+            }
+          ]
+        }
+      },
+      "inputBefore": [
+        {
+          "type": "rect",
+          "id": "evt-target",
+          "size": 50,
+          "fill": "#0c73bf",
+          "attrs": {
+            "x": 50,
+            "y": 50
+          }
+        }
+      ],
+      "inputAfter": [
+        {
+          "type": "rect",
+          "id": "evt-target",
+          "size": 50,
+          "fill": "#0c73bf",
+          "attrs": {
+            "x": 50,
+            "y": 50
+          }
+        }
+      ],
+      "inputUnchanged": true
+    },
+    "addElement": {
+      "outcome": {
+        "returned": {
+          "kind": "string",
+          "value": "evt-element"
+        }
+      },
+      "inputBefore": {
+        "id": "evt-element",
+        "path": "$..children[?(@.id===\"evt-target\")]",
+        "action": "pointerdown click"
+      },
+      "inputAfter": {
+        "id": "evt-element",
+        "path": "$..children[?(@.id===\"evt-target\")]",
+        "action": "pointerdown click"
+      },
+      "inputUnchanged": true
+    },
+    "autoIdOutcome": {
+      "returned": {
+        "kind": "string",
+        "length": 15
+      }
+    },
+    "afterAdd": {
+      "explicit": {
+        "id": null,
+        "path": "$..children[?(@.id===\"evt-target\")]",
+        "action": "pointerdown click",
+        "enabled": null,
+        "fnType": "function"
+      },
+      "all": {
+        "kind": "object",
+        "size": null,
+        "keys": [
+          "<generated-event-id>",
+          "evt-element"
+        ]
+      }
+    },
+    "off": {
+      "outcome": {
+        "returned": {
+          "kind": "undefined"
+        }
+      },
+      "inputBefore": {
+        "ids": "evt-element"
+      },
+      "inputAfter": {
+        "ids": "evt-element"
+      },
+      "inputUnchanged": true
+    },
+    "on": {
+      "outcome": {
+        "returned": {
+          "kind": "undefined"
+        }
+      },
+      "inputBefore": {
+        "ids": "evt-element"
+      },
+      "inputAfter": {
+        "ids": "evt-element"
+      },
+      "inputUnchanged": true
+    },
+    "remove": {
+      "outcome": {
+        "returned": {
+          "kind": "undefined"
+        }
+      },
+      "inputBefore": {
+        "ids": "evt-element"
+      },
+      "inputAfter": {
+        "ids": "evt-element"
+      },
+      "inputUnchanged": true
+    },
+    "afterRemove": {
+      "explicit": null,
+      "all": {
+        "kind": "object",
+        "size": null,
+        "keys": [
+          "<generated-event-id>"
+        ]
+      }
+    },
+    "redraw": {
+      "outcome": {
+        "returned": {
+          "kind": "map-data",
+          "value": [
+            {
+              "show": true,
+              "id": "evt-after",
+              "locked": false,
+              "type": "text",
+              "text": "after",
+              "style": {
+                "fontFamily": "FiraCode",
+                "fontWeight": 400,
+                "fill": "black",
+                "fontSize": 16,
+                "wordWrap": true,
+                "letterSpacing": 0
+              }
+            }
+          ]
+        }
+      },
+      "inputBefore": [
+        {
+          "type": "text",
+          "id": "evt-after",
+          "text": "after"
+        }
+      ],
+      "inputAfter": [
+        {
+          "type": "text",
+          "id": "evt-after",
+          "text": "after"
+        }
+      ],
+      "inputUnchanged": true
+    },
+    "afterRedraw": {
+      "all": {
+        "kind": "object",
+        "size": null,
+        "keys": []
+      }
+    },
+    "trace": [
+      {
+        "boundary": "enabled-dispatch"
+      },
+      {
+        "callback": "element",
+        "args": [
+          {
+            "kind": "event",
+            "type": "pointerdown",
+            "detail": null,
+            "button": 0,
+            "buttons": 1,
+            "pointerType": "mouse",
+            "ctrlKey": false,
+            "metaKey": false,
+            "shiftKey": false,
+            "target": {
+              "id": "evt-target",
+              "type": "rect",
+              "label": "Graphics"
+            }
+          }
+        ]
+      },
+      {
+        "callback": "canvas",
+        "args": [
+          {
+            "kind": "event",
+            "type": "pointerdown",
+            "detail": null,
+            "button": 0,
+            "buttons": 1,
+            "pointerType": "mouse",
+            "ctrlKey": false,
+            "metaKey": false,
+            "shiftKey": false,
+            "target": {
+              "id": "evt-target",
+              "type": "rect",
+              "label": "Graphics"
+            }
+          }
+        ]
+      },
+      {
+        "callback": "element",
+        "args": [
+          {
+            "kind": "event",
+            "type": "click",
+            "detail": "<browser-consecutive-click-count>",
+            "button": 0,
+            "buttons": 0,
+            "pointerType": "mouse",
+            "ctrlKey": false,
+            "metaKey": false,
+            "shiftKey": false,
+            "target": {
+              "id": "evt-target",
+              "type": "rect",
+              "label": "Graphics"
+            }
+          }
+        ]
+      },
+      {
+        "boundary": "disabled-dispatch"
+      },
+      {
+        "callback": "canvas",
+        "args": [
+          {
+            "kind": "event",
+            "type": "pointerdown",
+            "detail": null,
+            "button": 0,
+            "buttons": 1,
+            "pointerType": "mouse",
+            "ctrlKey": false,
+            "metaKey": false,
+            "shiftKey": false,
+            "target": {
+              "id": "evt-target",
+              "type": "rect",
+              "label": "Graphics"
+            }
+          }
+        ]
+      },
+      {
+        "boundary": "reenabled-dispatch"
+      },
+      {
+        "callback": "element",
+        "args": [
+          {
+            "kind": "event",
+            "type": "pointerdown",
+            "detail": null,
+            "button": 0,
+            "buttons": 1,
+            "pointerType": "mouse",
+            "ctrlKey": false,
+            "metaKey": false,
+            "shiftKey": false,
+            "target": {
+              "id": "evt-target",
+              "type": "rect",
+              "label": "Graphics"
+            }
+          }
+        ]
+      },
+      {
+        "callback": "canvas",
+        "args": [
+          {
+            "kind": "event",
+            "type": "pointerdown",
+            "detail": null,
+            "button": 0,
+            "buttons": 1,
+            "pointerType": "mouse",
+            "ctrlKey": false,
+            "metaKey": false,
+            "shiftKey": false,
+            "target": {
+              "id": "evt-target",
+              "type": "rect",
+              "label": "Graphics"
+            }
+          }
+        ]
+      },
+      {
+        "callback": "element",
+        "args": [
+          {
+            "kind": "event",
+            "type": "click",
+            "detail": "<browser-consecutive-click-count>",
+            "button": 0,
+            "buttons": 0,
+            "pointerType": "mouse",
+            "ctrlKey": false,
+            "metaKey": false,
+            "shiftKey": false,
+            "target": {
+              "id": "evt-target",
+              "type": "rect",
+              "label": "Graphics"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "environment": {
+    "platform": "darwin",
+    "osRelease": "23.0.0",
+    "osVersion": "Darwin Kernel Version 23.0.0: Fri Sep 15 14:42:57 PDT 2023; root:xnu-10002.1.13~1/RELEASE_ARM64_T8112",
+    "architecture": "arm64",
+    "cpu": "Apple M2",
+    "logicalCores": 8,
+    "totalMemoryBytes": 17179869184,
+    "node": "v22.21.1",
+    "chromium": "143.0.7499.4",
+    "viewport": {
+      "width": 640,
+      "height": 480
+    },
+    "deviceScaleFactor": 1,
+    "cpuThrottle": 1,
+    "deviceProfile": "developer-macos-arm64",
+    "powerMode": "developer-default; not programmatically available on macOS",
+    "fonts": "package defaults; document.fonts awaited when pixel evidence is requested",
+    "assets": "package defaults and fixture-declared public inputs",
+    "browserPlatform": "MacIntel",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+    "gpuVendor": "Google Inc. (Google)",
+    "gpuRenderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "browserErrors": []
+}

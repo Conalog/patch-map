@@ -4,6 +4,26 @@
   "result": "pass",
   "fixtures": [
     {
+      "id": "ABI-101",
+      "result": "pass"
+    },
+    {
+      "id": "API-101",
+      "result": "pass"
+    },
+    {
+      "id": "API-102",
+      "result": "pass"
+    },
+    {
+      "id": "AST-101",
+      "result": "pass"
+    },
+    {
+      "id": "CTX-101",
+      "result": "pass"
+    },
+    {
       "id": "DRW-001",
       "result": "pass"
     },
@@ -28,11 +48,51 @@
       "result": "pass"
     },
     {
+      "id": "DRX-101",
+      "result": "pass"
+    },
+    {
+      "id": "EVT-101",
+      "result": "pass"
+    },
+    {
+      "id": "HIS-101",
+      "result": "pass"
+    },
+    {
+      "id": "INT-101",
+      "result": "pass"
+    },
+    {
       "id": "LIF-001",
       "result": "pass"
     },
     {
       "id": "LIF-002",
+      "result": "pass"
+    },
+    {
+      "id": "REL-101",
+      "result": "pass"
+    },
+    {
+      "id": "S2-101",
+      "result": "pass"
+    },
+    {
+      "id": "SCH-101",
+      "result": "pass"
+    },
+    {
+      "id": "STA-101",
+      "result": "pass"
+    },
+    {
+      "id": "TRN-101",
+      "result": "pass"
+    },
+    {
+      "id": "TXT-101",
       "result": "pass"
     },
     {
@@ -57,6 +117,14 @@
     },
     {
       "id": "UPD-006",
+      "result": "pass"
+    },
+    {
+      "id": "UPX-101",
+      "result": "pass"
+    },
+    {
+      "id": "VIE-101",
       "result": "pass"
     }
   ]

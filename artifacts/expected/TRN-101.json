@@ -1,0 +1,1031 @@
+{
+  "schemaVersion": 1,
+  "fixture": {
+    "id": "TRN-101",
+    "level": 1,
+    "questions": [
+      "Q11",
+      "Q12"
+    ],
+    "title": "Transformer defaults, selection, handles and ratio callback are public observations",
+    "invocation": [
+      "assign default and custom Transformer instances to an initialized Patchmap",
+      "set/add/remove public selected elements and record ordered update_elements payloads",
+      "record the public Pixi display tree for wireframe and handle geometry",
+      "dispatch a public pointer gesture at an interactive handle and record getResizeKeepRatio callback arguments if reached"
+    ],
+    "timingBoundaries": [
+      "assignment/selection return",
+      "settled frame",
+      "pointer down/move/up gesture"
+    ],
+    "volatileFields": [],
+    "screenshot": false,
+    "status": "oracle-generated/review-pending"
+  },
+  "observed": {
+    "draw": {
+      "outcome": {
+        "returned": {
+          "kind": "map-data",
+          "value": [
+            {
+              "show": true,
+              "id": "trn-a",
+              "attrs": {
+                "x": 80,
+                "y": 80,
+                "angle": 15
+              },
+              "locked": false,
+              "type": "rect",
+              "size": {
+                "width": 60,
+                "height": 40
+              },
+              "fill": "#0c73bf",
+              "radius": 0
+            },
+            {
+              "show": true,
+              "id": "trn-b",
+              "attrs": {
+                "x": 190,
+                "y": 100
+              },
+              "locked": false,
+              "type": "rect",
+              "size": {
+                "width": 40,
+                "height": 30
+              },
+              "fill": "#ef4444",
+              "radius": 0
+            }
+          ]
+        }
+      },
+      "inputBefore": [
+        {
+          "type": "rect",
+          "id": "trn-a",
+          "size": {
+            "width": 60,
+            "height": 40
+          },
+          "fill": "#0c73bf",
+          "attrs": {
+            "x": 80,
+            "y": 80,
+            "angle": 15
+          }
+        },
+        {
+          "type": "rect",
+          "id": "trn-b",
+          "size": {
+            "width": 40,
+            "height": 30
+          },
+          "fill": "#ef4444",
+          "attrs": {
+            "x": 190,
+            "y": 100
+          }
+        }
+      ],
+      "inputAfter": [
+        {
+          "type": "rect",
+          "id": "trn-a",
+          "size": {
+            "width": 60,
+            "height": 40
+          },
+          "fill": "#0c73bf",
+          "attrs": {
+            "x": 80,
+            "y": 80,
+            "angle": 15
+          }
+        },
+        {
+          "type": "rect",
+          "id": "trn-b",
+          "size": {
+            "width": 40,
+            "height": 30
+          },
+          "fill": "#ef4444",
+          "attrs": {
+            "x": 190,
+            "y": 100
+          }
+        }
+      ],
+      "inputUnchanged": true
+    },
+    "defaultBeforeAssign": {
+      "elements": {
+        "type": "array",
+        "length": 0
+      },
+      "wireframeStyle": {
+        "type": "object"
+      },
+      "boundsDisplayMode": {
+        "type": "string",
+        "value": "all"
+      },
+      "resizeHandles": {
+        "type": "boolean",
+        "value": false
+      },
+      "rotateHandles": {
+        "type": "boolean",
+        "value": false
+      },
+      "transformHistory": {
+        "type": "boolean",
+        "value": false
+      },
+      "resizeKeepRatio": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    "defaultOptions": {
+      "wireframeStyle": {
+        "kind": "json",
+        "value": {
+          "thickness": 1.5,
+          "color": "#1099FF"
+        }
+      },
+      "boundsDisplayMode": "all",
+      "resizeHandles": false,
+      "rotateHandles": false,
+      "transformHistory": false,
+      "resizeKeepRatio": false
+    },
+    "defaultAfterAssign": {
+      "elements": {
+        "type": "array",
+        "length": 0
+      },
+      "wireframeStyle": {
+        "type": "object"
+      },
+      "boundsDisplayMode": {
+        "type": "string",
+        "value": "all"
+      },
+      "resizeHandles": {
+        "type": "boolean",
+        "value": false
+      },
+      "rotateHandles": {
+        "type": "boolean",
+        "value": false
+      },
+      "transformHistory": {
+        "type": "boolean",
+        "value": false
+      },
+      "resizeKeepRatio": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    "priorDefaultAfterReplacement": {
+      "destroyed": true,
+      "parentIsNull": true
+    },
+    "calls": [
+      {
+        "name": "elements-set-one",
+        "outcome": {
+          "returned": {
+            "kind": "undefined"
+          }
+        }
+      },
+      {
+        "name": "selection-add-second",
+        "outcome": {
+          "returned": {
+            "kind": "undefined"
+          }
+        }
+      },
+      {
+        "name": "selection-remove-first",
+        "outcome": {
+          "returned": {
+            "kind": "undefined"
+          }
+        }
+      },
+      {
+        "name": "selection-set-one",
+        "outcome": {
+          "returned": {
+            "kind": "undefined"
+          }
+        }
+      }
+    ],
+    "customSurface": {
+      "elements": {
+        "type": "array",
+        "length": 1
+      },
+      "wireframeStyle": {
+        "type": "object"
+      },
+      "boundsDisplayMode": {
+        "type": "string",
+        "value": "all"
+      },
+      "resizeHandles": {
+        "type": "boolean",
+        "value": true
+      },
+      "rotateHandles": {
+        "type": "boolean",
+        "value": true
+      },
+      "transformHistory": {
+        "type": "boolean",
+        "value": true
+      },
+      "resizeKeepRatio": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    "customOptions": {
+      "wireframeStyle": {
+        "kind": "json",
+        "value": {
+          "thickness": 2,
+          "color": "#ff00ff"
+        }
+      },
+      "boundsDisplayMode": "all",
+      "resizeHandles": true,
+      "rotateHandles": true,
+      "transformHistory": true,
+      "resizeKeepRatio": false
+    },
+    "selectionEvents": [
+      {
+        "event": "update_elements",
+        "args": [
+          {
+            "current": [
+              {
+                "id": "trn-a",
+                "type": "rect",
+                "label": "Graphics"
+              }
+            ],
+            "added": [
+              {
+                "id": "trn-a",
+                "type": "rect",
+                "label": "Graphics"
+              }
+            ],
+            "removed": []
+          }
+        ]
+      },
+      {
+        "event": "update_elements",
+        "args": [
+          {
+            "current": [
+              {
+                "id": "trn-a",
+                "type": "rect",
+                "label": "Graphics"
+              },
+              {
+                "id": "trn-b",
+                "type": "rect",
+                "label": "Graphics"
+              }
+            ],
+            "added": [
+              {
+                "id": "trn-b",
+                "type": "rect",
+                "label": "Graphics"
+              }
+            ],
+            "removed": []
+          }
+        ]
+      },
+      {
+        "event": "update_elements",
+        "args": [
+          {
+            "current": [
+              {
+                "id": "trn-b",
+                "type": "rect",
+                "label": "Graphics"
+              }
+            ],
+            "added": [],
+            "removed": [
+              {
+                "id": "trn-a",
+                "type": "rect",
+                "label": "Graphics"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "event": "update_elements",
+        "args": [
+          {
+            "current": [
+              {
+                "id": "trn-a",
+                "type": "rect",
+                "label": "Graphics"
+              }
+            ],
+            "added": [
+              {
+                "id": "trn-a",
+                "type": "rect",
+                "label": "Graphics"
+              }
+            ],
+            "removed": [
+              {
+                "id": "trn-b",
+                "type": "rect",
+                "label": "Graphics"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "event": "update_elements",
+        "args": [
+          {
+            "current": [
+              {
+                "id": "trn-a",
+                "type": "rect",
+                "label": "Graphics"
+              }
+            ],
+            "added": [],
+            "removed": []
+          }
+        ]
+      }
+    ],
+    "displayTreeBeforeGesture": [
+      {
+        "depth": 0,
+        "id": null,
+        "label": "Graphics",
+        "type": "wireframe",
+        "eventMode": "passive",
+        "visible": true,
+        "renderable": true,
+        "bounds": {
+          "x": 68.6472,
+          "y": 79,
+          "width": 70.3083,
+          "height": 56.1662
+        }
+      },
+      {
+        "depth": 0,
+        "id": null,
+        "label": "transform-handles",
+        "type": null,
+        "eventMode": "passive",
+        "visible": true,
+        "renderable": true,
+        "bounds": {
+          "x": 43.5965,
+          "y": 57.4793,
+          "width": 120.4099,
+          "height": 99.2076
+        }
+      },
+      {
+        "depth": 1,
+        "id": null,
+        "label": "resize-frame",
+        "type": null,
+        "eventMode": "none",
+        "visible": true,
+        "renderable": true,
+        "bounds": {
+          "x": 68.6472,
+          "y": 79,
+          "width": 70.3083,
+          "height": 56.1662
+        }
+      },
+      {
+        "depth": 1,
+        "id": null,
+        "label": "resize-edge:top",
+        "type": null,
+        "eventMode": "static",
+        "visible": true,
+        "renderable": true,
+        "bounds": {
+          "x": 74,
+          "y": 74,
+          "width": 69.9555,
+          "height": 27.5291
+        }
+      },
+      {
+        "depth": 1,
+        "id": null,
+        "label": "resize-edge:right",
+        "type": null,
+        "eventMode": "static",
+        "visible": true,
+        "renderable": true,
+        "bounds": {
+          "x": 121.6028,
+          "y": 89.5291,
+          "width": 22.3528,
+          "height": 50.637
+        }
+      },
+      {
+        "depth": 1,
+        "id": null,
+        "label": "resize-edge:bottom",
+        "type": null,
+        "eventMode": "static",
+        "visible": true,
+        "renderable": true,
+        "bounds": {
+          "x": 63.6472,
+          "y": 112.637,
+          "width": 69.9555,
+          "height": 27.5291
+        }
+      },
+      {
+        "depth": 1,
+        "id": null,
+        "label": "resize-edge:left",
+        "type": null,
+        "eventMode": "static",
+        "visible": true,
+        "renderable": true,
+        "bounds": {
+          "x": 63.6472,
+          "y": 74,
+          "width": 22.3528,
+          "height": 50.637
+        }
+      },
+      {
+        "depth": 1,
+        "id": null,
+        "label": "rotate-handle:top-left",
+        "type": null,
+        "eventMode": "static",
+        "visible": true,
+        "renderable": true,
+        "bounds": {
+          "x": 59.1176,
+          "y": 57.4793,
+          "width": 18,
+          "height": 18
+        }
+      },
+      {
+        "depth": 1,
+        "id": null,
+        "label": "rotate-handle:top-right",
+        "type": null,
+        "eventMode": "static",
+        "visible": true,
+        "renderable": true,
+        "bounds": {
+          "x": 146.0063,
+          "y": 80.7611,
+          "width": 18,
+          "height": 18
+        }
+      },
+      {
+        "depth": 1,
+        "id": null,
+        "label": "rotate-handle:bottom-right",
+        "type": null,
+        "eventMode": "static",
+        "visible": true,
+        "renderable": true,
+        "bounds": {
+          "x": 130.4852,
+          "y": 138.6869,
+          "width": 18,
+          "height": 18
+        }
+      },
+      {
+        "depth": 1,
+        "id": null,
+        "label": "rotate-handle:bottom-left",
+        "type": null,
+        "eventMode": "static",
+        "visible": true,
+        "renderable": true,
+        "bounds": {
+          "x": 43.5965,
+          "y": 115.4051,
+          "width": 18,
+          "height": 18
+        }
+      },
+      {
+        "depth": 1,
+        "id": null,
+        "label": "resize-handle:top-left",
+        "type": null,
+        "eventMode": "static",
+        "visible": true,
+        "renderable": true,
+        "bounds": {
+          "x": 75,
+          "y": 75,
+          "width": 10,
+          "height": 10
+        }
+      },
+      {
+        "depth": 1,
+        "id": null,
+        "label": "resize-handle:top-right",
+        "type": null,
+        "eventMode": "static",
+        "visible": true,
+        "renderable": true,
+        "bounds": {
+          "x": 132.9555,
+          "y": 90.5291,
+          "width": 10,
+          "height": 10
+        }
+      },
+      {
+        "depth": 1,
+        "id": null,
+        "label": "resize-handle:bottom-right",
+        "type": null,
+        "eventMode": "static",
+        "visible": true,
+        "renderable": true,
+        "bounds": {
+          "x": 122.6028,
+          "y": 129.1662,
+          "width": 10,
+          "height": 10
+        }
+      },
+      {
+        "depth": 1,
+        "id": null,
+        "label": "resize-handle:bottom-left",
+        "type": null,
+        "eventMode": "static",
+        "visible": true,
+        "renderable": true,
+        "bounds": {
+          "x": 64.6472,
+          "y": 113.637,
+          "width": 10,
+          "height": 10
+        }
+      }
+    ],
+    "gesture": {
+      "attempted": true,
+      "handle": {
+        "id": null,
+        "label": "resize-handle:top-left",
+        "type": null,
+        "eventMode": "static"
+      },
+      "start": {
+        "x": 80,
+        "y": 80
+      },
+      "end": {
+        "x": 98,
+        "y": 92
+      }
+    },
+    "ratioTrace": [
+      {
+        "argumentOrder": [
+          "single-object"
+        ],
+        "event": {
+          "type": "pointermove",
+          "shiftKey": false,
+          "pointerType": "mouse"
+        },
+        "handle": {
+          "kind": "string",
+          "value": "top-left",
+          "id": null,
+          "label": null,
+          "type": null
+        },
+        "elements": [
+          {
+            "id": "trn-a",
+            "type": "rect",
+            "label": "Graphics"
+          }
+        ]
+      }
+    ],
+    "afterGesture": {
+      "elements": [
+        {
+          "id": "trn-a",
+          "type": "rect",
+          "label": null,
+          "parent": {
+            "kind": "world-root"
+          },
+          "props": {
+            "show": true,
+            "id": "trn-a",
+            "attrs": {
+              "x": 88.25000000000001,
+              "y": 89.38749537379655,
+              "angle": 15
+            },
+            "locked": false,
+            "type": "rect",
+            "size": {
+              "width": 50,
+              "height": 34
+            },
+            "fill": "#0c73bf",
+            "radius": 0
+          },
+          "transform": {
+            "x": 88.25,
+            "y": 89.3875,
+            "angle": 15,
+            "rotation": 0.2618,
+            "scaleX": 1,
+            "scaleY": 1
+          },
+          "dimensions": {
+            "width": 50,
+            "height": 34
+          },
+          "visibility": {
+            "visible": true,
+            "renderable": true
+          },
+          "destroyed": false,
+          "bounds": {
+            "x": 79.4502,
+            "y": 89.3875,
+            "width": 57.0961,
+            "height": 45.7824,
+            "centerX": 107.9982,
+            "centerY": 112.2787
+          },
+          "managedChildren": 0
+        },
+        {
+          "id": "trn-b",
+          "type": "rect",
+          "label": null,
+          "parent": {
+            "kind": "world-root"
+          },
+          "props": {
+            "show": true,
+            "id": "trn-b",
+            "attrs": {
+              "x": 190,
+              "y": 100
+            },
+            "locked": false,
+            "type": "rect",
+            "size": {
+              "width": 40,
+              "height": 30
+            },
+            "fill": "#ef4444",
+            "radius": 0
+          },
+          "transform": {
+            "x": 190,
+            "y": 100,
+            "angle": 0,
+            "rotation": 0,
+            "scaleX": 1,
+            "scaleY": 1
+          },
+          "dimensions": {
+            "width": 40,
+            "height": 30
+          },
+          "visibility": {
+            "visible": true,
+            "renderable": true
+          },
+          "destroyed": false,
+          "bounds": {
+            "x": 190,
+            "y": 100,
+            "width": 40,
+            "height": 30,
+            "centerX": 210,
+            "centerY": 115
+          },
+          "managedChildren": 0
+        }
+      ],
+      "displayTree": [
+        {
+          "depth": 0,
+          "id": null,
+          "label": "Graphics",
+          "type": "wireframe",
+          "eventMode": "passive",
+          "visible": true,
+          "renderable": true,
+          "bounds": {
+            "x": 78.4502,
+            "y": 88.3875,
+            "width": 59.0961,
+            "height": 47.7824
+          }
+        },
+        {
+          "depth": 0,
+          "id": null,
+          "label": "transform-handles",
+          "type": null,
+          "eventMode": "passive",
+          "visible": true,
+          "renderable": true,
+          "bounds": {
+            "x": 53.453,
+            "y": 66.7584,
+            "width": 109.0904,
+            "height": 91.0407
+          }
+        },
+        {
+          "depth": 1,
+          "id": null,
+          "label": "resize-frame",
+          "type": null,
+          "eventMode": "none",
+          "visible": true,
+          "renderable": true,
+          "bounds": {
+            "x": 78.4502,
+            "y": 88.3875,
+            "width": 59.0961,
+            "height": 47.7824
+          }
+        },
+        {
+          "depth": 1,
+          "id": null,
+          "label": "resize-edge:top",
+          "type": null,
+          "eventMode": "static",
+          "visible": true,
+          "renderable": true,
+          "bounds": {
+            "x": 82.25,
+            "y": 83.3875,
+            "width": 60.2963,
+            "height": 24.941
+          }
+        },
+        {
+          "depth": 1,
+          "id": null,
+          "label": "resize-edge:right",
+          "type": null,
+          "eventMode": "static",
+          "visible": true,
+          "renderable": true,
+          "bounds": {
+            "x": 121.7464,
+            "y": 96.3284,
+            "width": 20.7998,
+            "height": 44.8415
+          }
+        },
+        {
+          "depth": 1,
+          "id": null,
+          "label": "resize-edge:bottom",
+          "type": null,
+          "eventMode": "static",
+          "visible": true,
+          "renderable": true,
+          "bounds": {
+            "x": 73.4502,
+            "y": 116.229,
+            "width": 60.2963,
+            "height": 24.941
+          }
+        },
+        {
+          "depth": 1,
+          "id": null,
+          "label": "resize-edge:left",
+          "type": null,
+          "eventMode": "static",
+          "visible": true,
+          "renderable": true,
+          "bounds": {
+            "x": 73.4502,
+            "y": 83.3875,
+            "width": 20.7998,
+            "height": 44.8415
+          }
+        },
+        {
+          "depth": 1,
+          "id": null,
+          "label": "rotate-handle:top-left",
+          "type": null,
+          "eventMode": "static",
+          "visible": true,
+          "renderable": true,
+          "bounds": {
+            "x": 67.4922,
+            "y": 66.7584,
+            "width": 18,
+            "height": 18
+          }
+        },
+        {
+          "depth": 1,
+          "id": null,
+          "label": "rotate-handle:top-right",
+          "type": null,
+          "eventMode": "static",
+          "visible": true,
+          "renderable": true,
+          "bounds": {
+            "x": 144.5434,
+            "y": 87.4042,
+            "width": 18,
+            "height": 18
+          }
+        },
+        {
+          "depth": 1,
+          "id": null,
+          "label": "rotate-handle:bottom-right",
+          "type": null,
+          "eventMode": "static",
+          "visible": true,
+          "renderable": true,
+          "bounds": {
+            "x": 130.5043,
+            "y": 139.7991,
+            "width": 18,
+            "height": 18
+          }
+        },
+        {
+          "depth": 1,
+          "id": null,
+          "label": "rotate-handle:bottom-left",
+          "type": null,
+          "eventMode": "static",
+          "visible": true,
+          "renderable": true,
+          "bounds": {
+            "x": 53.453,
+            "y": 119.1532,
+            "width": 18,
+            "height": 18
+          }
+        },
+        {
+          "depth": 1,
+          "id": null,
+          "label": "resize-handle:top-left",
+          "type": null,
+          "eventMode": "static",
+          "visible": true,
+          "renderable": true,
+          "bounds": {
+            "x": 83.25,
+            "y": 84.3875,
+            "width": 10,
+            "height": 10
+          }
+        },
+        {
+          "depth": 1,
+          "id": null,
+          "label": "resize-handle:top-right",
+          "type": null,
+          "eventMode": "static",
+          "visible": true,
+          "renderable": true,
+          "bounds": {
+            "x": 131.5463,
+            "y": 97.3284,
+            "width": 10,
+            "height": 10
+          }
+        },
+        {
+          "depth": 1,
+          "id": null,
+          "label": "resize-handle:bottom-right",
+          "type": null,
+          "eventMode": "static",
+          "visible": true,
+          "renderable": true,
+          "bounds": {
+            "x": 122.7464,
+            "y": 130.1699,
+            "width": 10,
+            "height": 10
+          }
+        },
+        {
+          "depth": 1,
+          "id": null,
+          "label": "resize-handle:bottom-left",
+          "type": null,
+          "eventMode": "static",
+          "visible": true,
+          "renderable": true,
+          "bounds": {
+            "x": 74.4502,
+            "y": 117.229,
+            "width": 10,
+            "height": 10
+          }
+        }
+      ],
+      "history": {
+        "commandsLength": 1,
+        "canUndo": true
+      }
+    }
+  },
+  "environment": {
+    "platform": "darwin",
+    "osRelease": "23.0.0",
+    "osVersion": "Darwin Kernel Version 23.0.0: Fri Sep 15 14:42:57 PDT 2023; root:xnu-10002.1.13~1/RELEASE_ARM64_T8112",
+    "architecture": "arm64",
+    "cpu": "Apple M2",
+    "logicalCores": 8,
+    "totalMemoryBytes": 17179869184,
+    "node": "v22.21.1",
+    "chromium": "143.0.7499.4",
+    "viewport": {
+      "width": 640,
+      "height": 480
+    },
+    "deviceScaleFactor": 1,
+    "cpuThrottle": 1,
+    "deviceProfile": "developer-macos-arm64",
+    "powerMode": "developer-default; not programmatically available on macOS",
+    "fonts": "package defaults; document.fonts awaited when pixel evidence is requested",
+    "assets": "package defaults and fixture-declared public inputs",
+    "browserPlatform": "MacIntel",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+    "gpuVendor": "Google Inc. (Google)",
+    "gpuRenderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "browserErrors": []
+}

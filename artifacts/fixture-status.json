@@ -3,13 +3,28 @@
   "conformanceMatrixMutation": "none",
   "fixtures": [
     {
-      "id": "LIF-001",
+      "id": "ABI-101",
       "level": 1,
       "status": "oracle-generated/review-pending"
     },
     {
-      "id": "LIF-002",
+      "id": "API-101",
       "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "API-102",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "AST-101",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "CTX-101",
+      "level": 2,
       "status": "oracle-generated/review-pending"
     },
     {
@@ -43,6 +58,66 @@
       "status": "oracle-generated/review-pending"
     },
     {
+      "id": "DRX-101",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "EVT-101",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "HIS-101",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "INT-101",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "LIF-001",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "LIF-002",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "REL-101",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "S2-101",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "SCH-101",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "STA-101",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "TRN-101",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "TXT-101",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
       "id": "UPD-001",
       "level": 1,
       "status": "oracle-generated/review-pending"
@@ -71,12 +146,38 @@
       "id": "UPD-006",
       "level": 1,
       "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "UPX-101",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
+    },
+    {
+      "id": "VIE-101",
+      "level": 1,
+      "status": "oracle-generated/review-pending"
     }
   ],
   "observableBehaviorQuestions": [
     {
       "fixture": "UPD-005",
       "question": "Native Windows headed pixels are still required to decide whether any pixel evidence for the next-frame boundary can become normative; the current macOS headless SwiftShader pixels remain non-normative."
+    },
+    {
+      "fixture": "INT-101",
+      "question": "Click, double-click, right-click, filter/select-unit, and deep-select callback args/order are captured. The authored headless drag/paint gesture did not reach onDragStart/onDrag/onDragEnd, so those mode-specific callback observations remain partial."
+    },
+    {
+      "fixture": "SCH-101",
+      "question": "Minimal defaults for every element/component kind and representative exact validation errors are captured. A finite black-box table cannot prove every schema/style combination outside the authored matrix."
+    },
+    {
+      "fixture": "S2-101",
+      "question": "Public scene-node counting is captured. Renderer-backend primitive counting is not exposed by the public API and is forbidden by the clean-room boundary; native/headed Windows S1/S3/S4 evidence remains pending."
+    },
+    {
+      "fixture": "INT-101/HIS-101",
+      "question": "detail=2 drill-down callback behavior and async/grouped history partial-work state are captured; an exact elapsed wall-clock drill time window was not exposed by the authored public event sequence."
     }
   ]
 }

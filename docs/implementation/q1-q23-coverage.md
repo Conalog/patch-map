@@ -1,0 +1,36 @@
+# PATCH MAP v0.10 Q1–Q23 Oracle Coverage
+
+Status: v4 Oracle observations complete; analysis-owner review pending  
+Evidence owner: clean-room Oracle
+
+`resolved` means the requested public behavior is represented by normalized black-box evidence. `partial` identifies the exact public or environment boundary that remains. No row relies on dependency implementation or inferred internal rules.
+
+Initial v3 comparison classified Q8 and Q9 as `resolved-by-v3`, Q21 as `environment-blocked` except for a locally observable S2/public count, and every other row as `observable-now`. The table below records the post-capture v4 disposition.
+
+| Question | v4 status | Fixture evidence and public observation |
+| --- | --- | --- |
+| Q1 | resolved | `artifacts/expected/API-102.json`: standalone `selector(value, path)` is the successful authored order; `uid` returns unique 15-character strings and ignores representative arguments; `isMoved`, `intersectPoint(liveElement, point)`, and `findIntersectObject(world, point/liveElement)` valid/empty/invalid results are captured. `API-101` covers `convertLegacyData`. |
+| Q2 | resolved | `artifacts/expected/ABI-101.json`: omitted/object/null constructor matrices for `Patchmap`, `Transformer`, `State`, `Command`, and `UndoRedoManager`, including exact Transformer validation errors and named public defaults. |
+| Q3 | resolved | `artifacts/expected/STA-101.json`: register/set/push/pop/reset and modifier returns plus ordered events. Unknown/no-argument state and unknown modifier calls return `undefined` in the captured lifecycle. |
+| Q4 | partial | `artifacts/expected/INT-101.json`: callback order is `(target-or-elements, event)`; entity default, closest-group selection, filter calls, detail-2 double-click suppression of `onClick`, Meta deep selection, and right-click are captured. The authored headless drag/paint sequence did not reach `onDragStart`/`onDrag`/`onDragEnd`, so those callbacks remain open. |
+| Q5 | resolved | `artifacts/expected/VIE-101.json`, `EVT-101.json`, and `HIS-101.json`: focus/fit/rotation/flip, invalid fit padding, canvas event add/get/getAll/on/off/remove/redraw teardown, and undo/redo/group/clear/destroy returns and ordered events. |
+| Q6 | resolved | `artifacts/expected/UPX-101.json`: the same rect supplied by `path` then `elements` is returned twice and a relative `x:+2` is applied twice (`5` to `9`); `validateSchema:true` rejects before mutation, `false` accepts, and `normalize:false` retains authored unnormalized public props. |
+| Q7 | partial | `artifacts/expected/SCH-101.json`, `TXT-101.json`, and `VIE-101.json`: minimal materialized defaults for all seven element and four component kinds plus representative exact validation class/messages and invalid fit padding. A finite black-box table does not claim every possible schema/style combination outside these authored rows. |
+| Q8 | resolved-by-v3 | `artifacts/expected/UPD-002.json`: explicit ID, label-only, unique type, and same-type order under merge/replace, including generated-props ID to retained-live-ID relationship. |
+| Q9 | resolved-by-v3 | `artifacts/expected/DRW-001.json`: animated default bar materialized props carry a generated ID while the fixture-ID live handle retains `drw-default-bar`; exact generated text is non-normative. |
+| Q10 | resolved | `artifacts/expected/DRX-101.json`: prior managed and fixture-owned unmanaged world children are already parentless and destroyed at the synchronous replacement-draw return; the async drain remains the same. |
+| Q11 | resolved | `artifacts/expected/TRN-101.json`: defaults are wireframe `{thickness:1.5,color:'#1099FF'}`, bounds `all`, resize/rotate/history/ratio flags `false`; public wireframe/handle geometry, selection payload order, transform history, and ratio callback `{event, handle:'top-left', elements}` are captured. |
+| Q12 | partial | `artifacts/expected/TXT-101.json`, `REL-101.json`, `TRN-101.json`, and `S2-101.json` add normative public geometry/text observations outside DRW-001/002. Raster evidence remains environment-qualified; S2 and UPD-005 macOS headless pixels are non-normative until approved native/headed Windows review. |
+| Q13 | resolved | `artifacts/expected/API-101.json`: valid legacy `{grids:[], devices:[...]}` conversion and draw output, empty forms, current data, malformed values, exact errors, and caller-input mutation checks. |
+| Q14 | resolved | `artifacts/expected/REL-101.json`: only authored `source`/`target` succeeds; direction, duplicate merge identity, missing endpoints, empty links, settled path geometry, focus, fit, refresh, returns, and events are recorded. |
+| Q15 | resolved | `artifacts/expected/AST-101.json`: omitted assets materialize `device`/`loading` aliases at natural 72×72 image size, icon sizing, replacement/destroy teardown, and an unknown local alias settling to the public 1×1 handle without an external request. |
+| Q16 | resolved | `artifacts/expected/UPX-101.json`: no-ID child handle reuse, duplicate-ID draw rejection, explicit child move creating a second handle while the prior handle remains, and grid template/component public ID relationships before/after update. |
+| Q17 | resolved | `artifacts/expected/UPX-101.json`: element discriminator change is rejected with exact rect literal/text-key error and preserves the handle; icon-to-text component change is rejected for retained icon-only fields and preserves the icon handle. |
+| Q18 | partial | `artifacts/expected/INT-101.json` records detail-2 drill behavior; `HIS-101.json` records same-history-ID grouping and async resolve/reject partial-work state. The exact elapsed wall-clock drill window was not exposed by this public event sequence. |
+| Q19 | resolved | `artifacts/expected/TXT-101.json`: element/component split, default and explicit `autoFont`, overflow location, wrapping/newlines, placement, materialized props, geometry, update/refresh, and exact invalid errors. |
+| Q20 | resolved | `artifacts/expected/CTX-101.json`: `animationContext` is a stable getter-only object before/after init, rejects object/null/string assignment, changes identity on destroy, is retained through re-init, and accompanies animated draw/update return and next-frame observations. |
+| Q21 | partial | `artifacts/expected/S2-101.json`: independently authored maintained-product S2, recursive public `world.children` count `65` (`62` renderable) and managed scene count `64`. Backend primitive/draw-call counting is not public and cannot be obtained without forbidden internals; native/headed Windows S1/S3/S4 remains pending. |
+| Q22 | resolved | `artifacts/expected/STA-101.json`: selection `setState` returns `undefined` after init before draw, after draw/redraw, on the destroyed manager, and after re-init; ordered state lifecycle events are captured. |
+| Q23 | resolved | `artifacts/expected/VIE-101.json`: `syncViewTransform` is `undefined` before init, after init, after draw, and after public view mutations; it is not a public callable surface in the reference. |
+
+All fixtures remain `oracle-generated/review-pending`; this table does not promote the conformance matrix. The only environment gate is native/headed Windows raster/performance evidence. Public-API-inaccessible backend primitive counting is reported as unavailable rather than inferred.

@@ -1,0 +1,1499 @@
+{
+  "schemaVersion": 1,
+  "fixture": {
+    "id": "SCH-101",
+    "level": 1,
+    "questions": [
+      "Q7",
+      "Q12"
+    ],
+    "title": "Minimal public schema defaults and validation errors are table-driven",
+    "invocation": [
+      "draw each element kind and all component kinds with only documented required fields",
+      "record complete materialized public props and live public geometry",
+      "draw representative missing, unknown and malformed fields independently and record exact error name/message"
+    ],
+    "timingBoundaries": [
+      "synchronous draw return/error",
+      "settled frame for accepted inputs"
+    ],
+    "volatileFields": [
+      {
+        "field": "generated ids",
+        "replacement": "<generated-id:n>",
+        "reason": "Exact generated strings are non-normative."
+      }
+    ],
+    "screenshot": false,
+    "status": "oracle-generated/review-pending"
+  },
+  "observed": {
+    "valid": [
+      {
+        "name": "group",
+        "draw": {
+          "outcome": {
+            "returned": {
+              "kind": "map-data",
+              "value": [
+                {
+                  "show": true,
+                  "id": "sch-group",
+                  "locked": false,
+                  "type": "group",
+                  "children": []
+                }
+              ]
+            }
+          },
+          "inputBefore": [
+            {
+              "type": "group",
+              "id": "sch-group",
+              "children": []
+            }
+          ],
+          "inputAfter": [
+            {
+              "type": "group",
+              "id": "sch-group",
+              "children": []
+            }
+          ],
+          "inputUnchanged": true
+        },
+        "scene": [
+          {
+            "id": "sch-group",
+            "type": "group",
+            "label": null,
+            "parent": {
+              "kind": "world-root"
+            },
+            "props": {
+              "show": true,
+              "id": "sch-group",
+              "locked": false,
+              "type": "group",
+              "children": []
+            },
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "angle": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1
+            },
+            "dimensions": {
+              "width": 0,
+              "height": 0
+            },
+            "visibility": {
+              "visible": true,
+              "renderable": true
+            },
+            "destroyed": false,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "centerX": 0,
+              "centerY": 0
+            },
+            "managedChildren": 0,
+            "nearestManagedParentId": null
+          }
+        ]
+      },
+      {
+        "name": "grid",
+        "draw": {
+          "outcome": {
+            "returned": {
+              "kind": "map-data",
+              "value": [
+                {
+                  "show": true,
+                  "id": "sch-grid",
+                  "locked": false,
+                  "type": "grid",
+                  "cells": [],
+                  "inactiveCellStrategy": "destroy",
+                  "gap": {
+                    "x": 0,
+                    "y": 0
+                  },
+                  "item": {
+                    "components": [],
+                    "size": {
+                      "width": 20,
+                      "height": 20
+                    },
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "contentOrientation": "upright"
+                  }
+                }
+              ]
+            }
+          },
+          "inputBefore": [
+            {
+              "type": "grid",
+              "id": "sch-grid",
+              "cells": [],
+              "item": {
+                "size": 20
+              }
+            }
+          ],
+          "inputAfter": [
+            {
+              "type": "grid",
+              "id": "sch-grid",
+              "cells": [],
+              "item": {
+                "size": 20
+              }
+            }
+          ],
+          "inputUnchanged": true
+        },
+        "scene": [
+          {
+            "id": "sch-grid",
+            "type": "grid",
+            "label": null,
+            "parent": {
+              "kind": "world-root"
+            },
+            "props": {
+              "show": true,
+              "id": "sch-grid",
+              "locked": false,
+              "type": "grid",
+              "cells": [],
+              "inactiveCellStrategy": "destroy",
+              "gap": {
+                "x": 0,
+                "y": 0
+              },
+              "item": {
+                "components": [],
+                "size": {
+                  "width": 20,
+                  "height": 20
+                },
+                "padding": {
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "left": 0
+                },
+                "contentOrientation": "upright"
+              }
+            },
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "angle": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1
+            },
+            "dimensions": {
+              "width": 0,
+              "height": 0
+            },
+            "visibility": {
+              "visible": true,
+              "renderable": true
+            },
+            "destroyed": false,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "centerX": 0,
+              "centerY": 0
+            },
+            "managedChildren": 0,
+            "nearestManagedParentId": null
+          }
+        ]
+      },
+      {
+        "name": "item",
+        "draw": {
+          "outcome": {
+            "returned": {
+              "kind": "map-data",
+              "value": [
+                {
+                  "show": true,
+                  "id": "sch-item",
+                  "locked": false,
+                  "type": "item",
+                  "components": [],
+                  "size": {
+                    "width": 20,
+                    "height": 20
+                  },
+                  "padding": {
+                    "top": 0,
+                    "right": 0,
+                    "bottom": 0,
+                    "left": 0
+                  },
+                  "contentOrientation": "upright"
+                }
+              ]
+            }
+          },
+          "inputBefore": [
+            {
+              "type": "item",
+              "id": "sch-item",
+              "size": 20
+            }
+          ],
+          "inputAfter": [
+            {
+              "type": "item",
+              "id": "sch-item",
+              "size": 20
+            }
+          ],
+          "inputUnchanged": true
+        },
+        "scene": [
+          {
+            "id": "sch-item",
+            "type": "item",
+            "label": null,
+            "parent": {
+              "kind": "world-root"
+            },
+            "props": {
+              "show": true,
+              "id": "sch-item",
+              "locked": false,
+              "type": "item",
+              "components": [],
+              "size": {
+                "width": 20,
+                "height": 20
+              },
+              "padding": {
+                "top": 0,
+                "right": 0,
+                "bottom": 0,
+                "left": 0
+              },
+              "contentOrientation": "upright"
+            },
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "angle": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1
+            },
+            "dimensions": {
+              "width": 0,
+              "height": 0
+            },
+            "visibility": {
+              "visible": true,
+              "renderable": true
+            },
+            "destroyed": false,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "centerX": 0,
+              "centerY": 0
+            },
+            "managedChildren": 0,
+            "nearestManagedParentId": null
+          }
+        ]
+      },
+      {
+        "name": "relations",
+        "draw": {
+          "outcome": {
+            "returned": {
+              "kind": "map-data",
+              "value": [
+                {
+                  "show": true,
+                  "id": "sch-relations",
+                  "locked": false,
+                  "type": "relations",
+                  "links": [],
+                  "style": {
+                    "color": "black"
+                  }
+                }
+              ]
+            }
+          },
+          "inputBefore": [
+            {
+              "type": "relations",
+              "id": "sch-relations",
+              "links": []
+            }
+          ],
+          "inputAfter": [
+            {
+              "type": "relations",
+              "id": "sch-relations",
+              "links": []
+            }
+          ],
+          "inputUnchanged": true
+        },
+        "scene": [
+          {
+            "id": "sch-relations",
+            "type": "relations",
+            "label": null,
+            "parent": {
+              "kind": "world-root"
+            },
+            "props": {
+              "show": true,
+              "id": "sch-relations",
+              "locked": false,
+              "type": "relations",
+              "links": [],
+              "style": {
+                "color": "#1A1A1A"
+              }
+            },
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "angle": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1
+            },
+            "dimensions": {
+              "width": 0,
+              "height": 0
+            },
+            "visibility": {
+              "visible": true,
+              "renderable": true
+            },
+            "destroyed": false,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "centerX": 0,
+              "centerY": 0
+            },
+            "managedChildren": 0,
+            "nearestManagedParentId": null
+          }
+        ]
+      },
+      {
+        "name": "image",
+        "draw": {
+          "outcome": {
+            "returned": {
+              "kind": "map-data",
+              "value": [
+                {
+                  "show": true,
+                  "id": "sch-image",
+                  "locked": false,
+                  "type": "image",
+                  "source": "device"
+                }
+              ]
+            }
+          },
+          "inputBefore": [
+            {
+              "type": "image",
+              "id": "sch-image",
+              "source": "device"
+            }
+          ],
+          "inputAfter": [
+            {
+              "type": "image",
+              "id": "sch-image",
+              "source": "device"
+            }
+          ],
+          "inputUnchanged": true
+        },
+        "scene": [
+          {
+            "id": "sch-image",
+            "type": "image",
+            "label": null,
+            "parent": {
+              "kind": "world-root"
+            },
+            "props": {
+              "show": true,
+              "id": "sch-image",
+              "locked": false,
+              "type": "image",
+              "source": "device"
+            },
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "angle": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1
+            },
+            "dimensions": {
+              "width": 72,
+              "height": 72
+            },
+            "visibility": {
+              "visible": true,
+              "renderable": true
+            },
+            "destroyed": false,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 72,
+              "height": 72,
+              "centerX": 36,
+              "centerY": 36
+            },
+            "managedChildren": 0,
+            "nearestManagedParentId": null
+          }
+        ]
+      },
+      {
+        "name": "text",
+        "draw": {
+          "outcome": {
+            "returned": {
+              "kind": "map-data",
+              "value": [
+                {
+                  "show": true,
+                  "id": "sch-text",
+                  "locked": false,
+                  "type": "text",
+                  "text": "",
+                  "style": {
+                    "fontFamily": "FiraCode",
+                    "fontWeight": 400,
+                    "fill": "black",
+                    "fontSize": 16,
+                    "wordWrap": true,
+                    "letterSpacing": 0
+                  }
+                }
+              ]
+            }
+          },
+          "inputBefore": [
+            {
+              "type": "text",
+              "id": "sch-text"
+            }
+          ],
+          "inputAfter": [
+            {
+              "type": "text",
+              "id": "sch-text"
+            }
+          ],
+          "inputUnchanged": true
+        },
+        "scene": [
+          {
+            "id": "sch-text",
+            "type": "text",
+            "label": null,
+            "parent": {
+              "kind": "world-root"
+            },
+            "props": {
+              "show": true,
+              "id": "sch-text",
+              "locked": false,
+              "type": "text",
+              "text": "",
+              "style": {
+                "fontFamily": "FiraCode",
+                "fontWeight": 400,
+                "fill": "black",
+                "fontSize": 16,
+                "wordWrap": true,
+                "letterSpacing": 0
+              }
+            },
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "angle": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1
+            },
+            "dimensions": {
+              "width": 0,
+              "height": 18.9538
+            },
+            "visibility": {
+              "visible": true,
+              "renderable": true
+            },
+            "destroyed": false,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 18.9538,
+              "centerX": 0,
+              "centerY": 9.4769
+            },
+            "managedChildren": 0,
+            "nearestManagedParentId": null
+          }
+        ]
+      },
+      {
+        "name": "rect",
+        "draw": {
+          "outcome": {
+            "returned": {
+              "kind": "map-data",
+              "value": [
+                {
+                  "show": true,
+                  "id": "sch-rect",
+                  "locked": false,
+                  "type": "rect",
+                  "size": {
+                    "width": 20,
+                    "height": 20
+                  },
+                  "radius": 0
+                }
+              ]
+            }
+          },
+          "inputBefore": [
+            {
+              "type": "rect",
+              "id": "sch-rect",
+              "size": 20
+            }
+          ],
+          "inputAfter": [
+            {
+              "type": "rect",
+              "id": "sch-rect",
+              "size": 20
+            }
+          ],
+          "inputUnchanged": true
+        },
+        "scene": [
+          {
+            "id": "sch-rect",
+            "type": "rect",
+            "label": null,
+            "parent": {
+              "kind": "world-root"
+            },
+            "props": {
+              "show": true,
+              "id": "sch-rect",
+              "locked": false,
+              "type": "rect",
+              "size": {
+                "width": 20,
+                "height": 20
+              },
+              "radius": 0
+            },
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "angle": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1
+            },
+            "dimensions": {
+              "width": 0,
+              "height": 0
+            },
+            "visibility": {
+              "visible": true,
+              "renderable": true
+            },
+            "destroyed": false,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "centerX": 0,
+              "centerY": 0
+            },
+            "managedChildren": 0,
+            "nearestManagedParentId": null
+          }
+        ]
+      },
+      {
+        "name": "components",
+        "draw": {
+          "outcome": {
+            "returned": {
+              "kind": "map-data",
+              "value": [
+                {
+                  "show": true,
+                  "id": "sch-components",
+                  "locked": false,
+                  "type": "item",
+                  "components": [
+                    {
+                      "show": true,
+                      "id": "sch-background",
+                      "type": "background",
+                      "source": {
+                        "type": "rect"
+                      },
+                      "size": {
+                        "width": {
+                          "value": 100,
+                          "unit": "%"
+                        },
+                        "height": {
+                          "value": 100,
+                          "unit": "%"
+                        }
+                      },
+                      "tint": 16777215
+                    },
+                    {
+                      "show": true,
+                      "id": "sch-bar",
+                      "type": "bar",
+                      "source": {
+                        "type": "rect"
+                      },
+                      "size": {
+                        "width": {
+                          "value": 50,
+                          "unit": "%"
+                        },
+                        "height": {
+                          "value": 50,
+                          "unit": "%"
+                        }
+                      },
+                      "placement": "bottom",
+                      "margin": {
+                        "top": 0,
+                        "right": 0,
+                        "bottom": 0,
+                        "left": 0
+                      },
+                      "tint": 16777215,
+                      "animation": true,
+                      "animationDuration": 200
+                    },
+                    {
+                      "show": true,
+                      "id": "sch-icon",
+                      "type": "icon",
+                      "source": "device",
+                      "size": {
+                        "width": {
+                          "value": 16,
+                          "unit": "px"
+                        },
+                        "height": {
+                          "value": 16,
+                          "unit": "px"
+                        }
+                      },
+                      "placement": "center",
+                      "margin": {
+                        "top": 0,
+                        "right": 0,
+                        "bottom": 0,
+                        "left": 0
+                      },
+                      "tint": 16777215
+                    },
+                    {
+                      "show": true,
+                      "id": "sch-component-text",
+                      "type": "text",
+                      "placement": "center",
+                      "margin": {
+                        "top": 0,
+                        "right": 0,
+                        "bottom": 0,
+                        "left": 0
+                      },
+                      "tint": 16777215,
+                      "text": "",
+                      "style": {
+                        "fontFamily": "FiraCode",
+                        "fontWeight": 400,
+                        "fill": "black",
+                        "autoFont": {
+                          "min": 1,
+                          "max": 100
+                        },
+                        "overflow": "visible"
+                      },
+                      "split": 0
+                    }
+                  ],
+                  "size": {
+                    "width": 80,
+                    "height": 80
+                  },
+                  "padding": {
+                    "top": 0,
+                    "right": 0,
+                    "bottom": 0,
+                    "left": 0
+                  },
+                  "contentOrientation": "upright"
+                }
+              ]
+            }
+          },
+          "inputBefore": [
+            {
+              "type": "item",
+              "id": "sch-components",
+              "size": 80,
+              "components": [
+                {
+                  "type": "background",
+                  "id": "sch-background",
+                  "source": {
+                    "type": "rect"
+                  }
+                },
+                {
+                  "type": "bar",
+                  "id": "sch-bar",
+                  "source": {
+                    "type": "rect"
+                  },
+                  "size": "50%"
+                },
+                {
+                  "type": "icon",
+                  "id": "sch-icon",
+                  "source": "device",
+                  "size": 16
+                },
+                {
+                  "type": "text",
+                  "id": "sch-component-text"
+                }
+              ]
+            }
+          ],
+          "inputAfter": [
+            {
+              "type": "item",
+              "id": "sch-components",
+              "size": 80,
+              "components": [
+                {
+                  "type": "background",
+                  "id": "sch-background",
+                  "source": {
+                    "type": "rect"
+                  }
+                },
+                {
+                  "type": "bar",
+                  "id": "sch-bar",
+                  "source": {
+                    "type": "rect"
+                  },
+                  "size": "50%"
+                },
+                {
+                  "type": "icon",
+                  "id": "sch-icon",
+                  "source": "device",
+                  "size": 16
+                },
+                {
+                  "type": "text",
+                  "id": "sch-component-text"
+                }
+              ]
+            }
+          ],
+          "inputUnchanged": true
+        },
+        "scene": [
+          {
+            "id": "sch-components",
+            "type": "item",
+            "label": null,
+            "parent": {
+              "kind": "world-root"
+            },
+            "props": {
+              "show": true,
+              "id": "sch-components",
+              "locked": false,
+              "type": "item",
+              "components": [
+                {
+                  "show": true,
+                  "id": "sch-background",
+                  "type": "background",
+                  "source": {
+                    "type": "rect"
+                  },
+                  "size": {
+                    "width": {
+                      "value": 100,
+                      "unit": "%"
+                    },
+                    "height": {
+                      "value": 100,
+                      "unit": "%"
+                    }
+                  },
+                  "tint": 16777215
+                },
+                {
+                  "show": true,
+                  "id": "sch-bar",
+                  "type": "bar",
+                  "source": {
+                    "type": "rect"
+                  },
+                  "size": {
+                    "width": {
+                      "value": 50,
+                      "unit": "%"
+                    },
+                    "height": {
+                      "value": 50,
+                      "unit": "%"
+                    }
+                  },
+                  "placement": "bottom",
+                  "margin": {
+                    "top": 0,
+                    "right": 0,
+                    "bottom": 0,
+                    "left": 0
+                  },
+                  "tint": 16777215,
+                  "animation": true,
+                  "animationDuration": 200
+                },
+                {
+                  "show": true,
+                  "id": "sch-icon",
+                  "type": "icon",
+                  "source": "device",
+                  "size": {
+                    "width": {
+                      "value": 16,
+                      "unit": "px"
+                    },
+                    "height": {
+                      "value": 16,
+                      "unit": "px"
+                    }
+                  },
+                  "placement": "center",
+                  "margin": {
+                    "top": 0,
+                    "right": 0,
+                    "bottom": 0,
+                    "left": 0
+                  },
+                  "tint": 16777215
+                },
+                {
+                  "show": true,
+                  "id": "sch-component-text",
+                  "type": "text",
+                  "placement": "center",
+                  "margin": {
+                    "top": 0,
+                    "right": 0,
+                    "bottom": 0,
+                    "left": 0
+                  },
+                  "tint": 16777215,
+                  "text": "",
+                  "style": {
+                    "fontFamily": "FiraCode",
+                    "fontWeight": 400,
+                    "fill": "black",
+                    "fontSize": 16,
+                    "autoFont": {
+                      "min": 1,
+                      "max": 100
+                    },
+                    "overflow": "visible"
+                  },
+                  "split": 0
+                }
+              ],
+              "size": {
+                "width": 80,
+                "height": 80
+              },
+              "padding": {
+                "top": 0,
+                "right": 0,
+                "bottom": 0,
+                "left": 0
+              },
+              "contentOrientation": "upright"
+            },
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "angle": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1
+            },
+            "dimensions": {
+              "width": 80,
+              "height": 80
+            },
+            "visibility": {
+              "visible": true,
+              "renderable": true
+            },
+            "destroyed": false,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 80,
+              "height": 80,
+              "centerX": 40,
+              "centerY": 40
+            },
+            "managedChildren": 4,
+            "nearestManagedParentId": null
+          },
+          {
+            "id": "sch-background",
+            "type": "background",
+            "label": null,
+            "parent": {
+              "id": "sch-components",
+              "type": "item",
+              "label": null
+            },
+            "props": {
+              "type": "background",
+              "show": true,
+              "id": "sch-background",
+              "source": {
+                "type": "rect"
+              },
+              "size": {
+                "width": {
+                  "value": 100,
+                  "unit": "%"
+                },
+                "height": {
+                  "value": 100,
+                  "unit": "%"
+                }
+              },
+              "tint": 16777215
+            },
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "angle": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1
+            },
+            "dimensions": {
+              "width": 80,
+              "height": 80
+            },
+            "visibility": {
+              "visible": true,
+              "renderable": true
+            },
+            "destroyed": false,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 80,
+              "height": 80,
+              "centerX": 40,
+              "centerY": 40
+            },
+            "managedChildren": 0,
+            "nearestManagedParentId": "sch-components"
+          },
+          {
+            "id": "sch-bar",
+            "type": "bar",
+            "label": null,
+            "parent": {
+              "id": "sch-components",
+              "type": "item",
+              "label": null
+            },
+            "props": {
+              "type": "bar",
+              "show": true,
+              "id": "sch-bar",
+              "source": {
+                "type": "rect"
+              },
+              "size": {
+                "width": {
+                  "value": 50,
+                  "unit": "%"
+                },
+                "height": {
+                  "value": 50,
+                  "unit": "%"
+                }
+              },
+              "placement": "bottom",
+              "margin": {
+                "top": 0,
+                "right": 0,
+                "bottom": 0,
+                "left": 0
+              },
+              "tint": 16777215,
+              "animation": true,
+              "animationDuration": 200
+            },
+            "transform": {
+              "x": 20,
+              "y": 40,
+              "angle": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1
+            },
+            "dimensions": {
+              "width": 40,
+              "height": 40
+            },
+            "visibility": {
+              "visible": true,
+              "renderable": true
+            },
+            "destroyed": false,
+            "bounds": {
+              "x": 20,
+              "y": 40,
+              "width": 40,
+              "height": 40,
+              "centerX": 40,
+              "centerY": 60
+            },
+            "managedChildren": 0,
+            "nearestManagedParentId": "sch-components"
+          },
+          {
+            "id": "sch-icon",
+            "type": "icon",
+            "label": null,
+            "parent": {
+              "id": "sch-components",
+              "type": "item",
+              "label": null
+            },
+            "props": {
+              "type": "icon",
+              "show": true,
+              "id": "sch-icon",
+              "source": "device",
+              "size": {
+                "width": {
+                  "value": 16,
+                  "unit": "px"
+                },
+                "height": {
+                  "value": 16,
+                  "unit": "px"
+                }
+              },
+              "placement": "center",
+              "margin": {
+                "top": 0,
+                "right": 0,
+                "bottom": 0,
+                "left": 0
+              },
+              "tint": 16777215
+            },
+            "transform": {
+              "x": 32,
+              "y": 32,
+              "angle": 0,
+              "rotation": 0,
+              "scaleX": 0.2222,
+              "scaleY": 0.2222
+            },
+            "dimensions": {
+              "width": 16,
+              "height": 16
+            },
+            "visibility": {
+              "visible": true,
+              "renderable": true
+            },
+            "destroyed": false,
+            "bounds": {
+              "x": 32,
+              "y": 32,
+              "width": 16,
+              "height": 16,
+              "centerX": 40,
+              "centerY": 40
+            },
+            "managedChildren": 0,
+            "nearestManagedParentId": "sch-components"
+          },
+          {
+            "id": "sch-component-text",
+            "type": "text",
+            "label": null,
+            "parent": {
+              "id": "sch-components",
+              "type": "item",
+              "label": null
+            },
+            "props": {
+              "type": "text",
+              "show": true,
+              "id": "sch-component-text",
+              "placement": "center",
+              "margin": {
+                "top": 0,
+                "right": 0,
+                "bottom": 0,
+                "left": 0
+              },
+              "tint": 16777215,
+              "text": "",
+              "style": {
+                "fontFamily": "FiraCode",
+                "fontWeight": 400,
+                "fill": "black",
+                "fontSize": 16,
+                "autoFont": {
+                  "min": 1,
+                  "max": 100
+                },
+                "overflow": "visible"
+              },
+              "split": 0
+            },
+            "transform": {
+              "x": 40,
+              "y": 30.5231,
+              "angle": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1
+            },
+            "dimensions": {
+              "width": 0,
+              "height": 18.9538
+            },
+            "visibility": {
+              "visible": true,
+              "renderable": true
+            },
+            "destroyed": false,
+            "bounds": {
+              "x": 40,
+              "y": 30.5231,
+              "width": 0,
+              "height": 18.9538,
+              "centerX": 40,
+              "centerY": 40
+            },
+            "managedChildren": 0,
+            "nearestManagedParentId": "sch-components"
+          }
+        ]
+      }
+    ],
+    "invalid": [
+      {
+        "name": "unknown-element",
+        "draw": {
+          "outcome": {
+            "threw": {
+              "name": "ZodValidationError",
+              "message": "Validation error: Invalid discriminator value. Expected 'group' | 'grid' | 'item' | 'relations' | 'image' | 'text' | 'rect' at \"[0].type\""
+            }
+          },
+          "inputBefore": [
+            {
+              "type": "unknown",
+              "id": "sch-invalid"
+            }
+          ],
+          "inputAfter": [
+            {
+              "type": "unknown",
+              "id": "sch-invalid"
+            }
+          ],
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "rect-missing-size",
+        "draw": {
+          "outcome": {
+            "threw": {
+              "name": "ZodValidationError",
+              "message": "Validation error: Required at \"[0].size\""
+            }
+          },
+          "inputBefore": [
+            {
+              "type": "rect",
+              "id": "sch-invalid-rect"
+            }
+          ],
+          "inputAfter": [
+            {
+              "type": "rect",
+              "id": "sch-invalid-rect"
+            }
+          ],
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "item-missing-size",
+        "draw": {
+          "outcome": {
+            "threw": {
+              "name": "ZodValidationError",
+              "message": "Validation error: Required at \"[0].size\""
+            }
+          },
+          "inputBefore": [
+            {
+              "type": "item",
+              "id": "sch-invalid-item"
+            }
+          ],
+          "inputAfter": [
+            {
+              "type": "item",
+              "id": "sch-invalid-item"
+            }
+          ],
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "image-missing-source",
+        "draw": {
+          "outcome": {
+            "threw": {
+              "name": "ZodValidationError",
+              "message": "Validation error: Required at \"[0].source\""
+            }
+          },
+          "inputBefore": [
+            {
+              "type": "image",
+              "id": "sch-invalid-image"
+            }
+          ],
+          "inputAfter": [
+            {
+              "type": "image",
+              "id": "sch-invalid-image"
+            }
+          ],
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "bar-missing-required",
+        "draw": {
+          "outcome": {
+            "threw": {
+              "name": "ZodValidationError",
+              "message": "Validation error: Required at \"[0].components[0].source\"; Required at \"[0].components[0].size\""
+            }
+          },
+          "inputBefore": [
+            {
+              "type": "item",
+              "id": "sch-invalid-bar-item",
+              "size": 40,
+              "components": [
+                {
+                  "type": "bar"
+                }
+              ]
+            }
+          ],
+          "inputAfter": [
+            {
+              "type": "item",
+              "id": "sch-invalid-bar-item",
+              "size": 40,
+              "components": [
+                {
+                  "type": "bar"
+                }
+              ]
+            }
+          ],
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "icon-invalid-placement",
+        "draw": {
+          "outcome": {
+            "threw": {
+              "name": "ZodValidationError",
+              "message": "Validation error: Invalid enum value. Expected 'left' | 'left-top' | 'left-bottom' | 'top' | 'right' | 'right-top' | 'right-bottom' | 'bottom' | 'center', received 'outside' at \"[0].components[0].placement\""
+            }
+          },
+          "inputBefore": [
+            {
+              "type": "item",
+              "id": "sch-invalid-icon-item",
+              "size": 40,
+              "components": [
+                {
+                  "type": "icon",
+                  "source": "device",
+                  "size": 12,
+                  "placement": "outside"
+                }
+              ]
+            }
+          ],
+          "inputAfter": [
+            {
+              "type": "item",
+              "id": "sch-invalid-icon-item",
+              "size": 40,
+              "components": [
+                {
+                  "type": "icon",
+                  "source": "device",
+                  "size": 12,
+                  "placement": "outside"
+                }
+              ]
+            }
+          ],
+          "inputUnchanged": true
+        }
+      },
+      {
+        "name": "rect-unknown-field",
+        "draw": {
+          "outcome": {
+            "threw": {
+              "name": "ZodValidationError",
+              "message": "Validation error: Unrecognized key(s) in object: 'oracleUnknown' at index 0"
+            }
+          },
+          "inputBefore": [
+            {
+              "type": "rect",
+              "id": "sch-invalid-field",
+              "size": 20,
+              "oracleUnknown": true
+            }
+          ],
+          "inputAfter": [
+            {
+              "type": "rect",
+              "id": "sch-invalid-field",
+              "size": 20,
+              "oracleUnknown": true
+            }
+          ],
+          "inputUnchanged": true
+        }
+      }
+    ],
+    "eventTrace": []
+  },
+  "environment": {
+    "platform": "darwin",
+    "osRelease": "23.0.0",
+    "osVersion": "Darwin Kernel Version 23.0.0: Fri Sep 15 14:42:57 PDT 2023; root:xnu-10002.1.13~1/RELEASE_ARM64_T8112",
+    "architecture": "arm64",
+    "cpu": "Apple M2",
+    "logicalCores": 8,
+    "totalMemoryBytes": 17179869184,
+    "node": "v22.21.1",
+    "chromium": "143.0.7499.4",
+    "viewport": {
+      "width": 640,
+      "height": 480
+    },
+    "deviceScaleFactor": 1,
+    "cpuThrottle": 1,
+    "deviceProfile": "developer-macos-arm64",
+    "powerMode": "developer-default; not programmatically available on macOS",
+    "fonts": "package defaults; document.fonts awaited when pixel evidence is requested",
+    "assets": "package defaults and fixture-declared public inputs",
+    "browserPlatform": "MacIntel",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+    "gpuVendor": "Google Inc. (Google)",
+    "gpuRenderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "browserErrors": []
+}

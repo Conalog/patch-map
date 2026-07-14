@@ -117,6 +117,89 @@ export const normalizeError = (error) => ({
   message: typeof error?.message === 'string' ? error.message : String(error),
 });
 
+export const normalizePublicValue = (value, { patchmap } = {}) => {
+  if (value === undefined) return { kind: 'undefined' };
+  if (value === null) return { kind: 'null' };
+  if (['string', 'number', 'boolean'].includes(typeof value)) {
+    return { kind: typeof value, value };
+  }
+  if (Array.isArray(value) || isPlainObject(value)) {
+    return {
+      kind: 'json',
+      value: normalizeGeneratedIds(cloneJson(value)),
+    };
+  }
+  if (
+    value &&
+    Number.isFinite(value.x) &&
+    Number.isFinite(value.y) &&
+    !isPublicElementReference(value)
+  ) {
+    return {
+      kind: 'public-point',
+      x: round(value.x),
+      y: round(value.y),
+    };
+  }
+  return normalizeReturn(value, { patchmap });
+};
+
+export const capturePublicCall = (
+  input,
+  invoke,
+  { patchmap, normalize = normalizePublicValue } = {},
+) => {
+  const inputBefore = cloneJson(input);
+  try {
+    const returned = invoke();
+    const inputAfter = cloneJson(input);
+    return {
+      outcome: { returned: normalize(returned, { patchmap }) },
+      inputBefore,
+      inputAfter,
+      inputUnchanged: JSON.stringify(inputBefore) === JSON.stringify(inputAfter),
+    };
+  } catch (error) {
+    const inputAfter = cloneJson(input);
+    return {
+      outcome: { threw: normalizeError(error) },
+      inputBefore,
+      inputAfter,
+      inputUnchanged: JSON.stringify(inputBefore) === JSON.stringify(inputAfter),
+    };
+  }
+};
+
+export const capturePublicAsyncCall = async (
+  input,
+  invoke,
+  options = {},
+) => {
+  const inputBefore = cloneJson(input);
+  try {
+    const returned = await invoke();
+    const inputAfter = cloneJson(input);
+    return {
+      outcome: {
+        returned: (options.normalize ?? normalizePublicValue)(returned, {
+          patchmap: options.patchmap,
+        }),
+      },
+      inputBefore,
+      inputAfter,
+      inputUnchanged: JSON.stringify(inputBefore) === JSON.stringify(inputAfter),
+    };
+  } catch (error) {
+    const inputAfter = cloneJson(input);
+    return {
+      outcome: { threw: normalizeError(error) },
+      inputBefore,
+      inputAfter,
+      inputUnchanged: JSON.stringify(inputBefore) === JSON.stringify(inputAfter),
+    };
+  }
+};
+
 export const normalizeEventArgs = (args, patchmap) =>
   args.map((value) => normalizeReturn(value, { patchmap }));
 
@@ -298,6 +381,9 @@ const isPublicMapDataObject = (value) =>
       Object.getPrototypeOf(value) === Object.prototype &&
       typeof value.type === 'string',
   );
+
+const isPlainObject = (value) =>
+  Boolean(value && Object.getPrototypeOf(value) === Object.prototype);
 
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 

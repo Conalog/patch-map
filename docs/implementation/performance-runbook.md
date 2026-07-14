@@ -1,12 +1,12 @@
 # Implementation-safe Performance Runbook
 
-Status: ready for an implementation worktree created from export v3
+Status: ready for an implementation worktree created from export v4
 
 This runbook operates only on the implementation under test and the source-clean `scripts/perf/**` harness. It contains no oracle execution setup. Performance output is provenance metadata interpreted under `docs/implementation/comparison-contract.md`.
 
 ## Bootstrap
 
-From the root of a fresh v3 export, install the exact harness dependencies and Chromium, then verify that every package script resolves to included tooling:
+From the root of a fresh v4 export, install the exact harness dependencies and Chromium, then verify that every package script resolves to included tooling:
 
 ```sh
 npm install --ignore-scripts
