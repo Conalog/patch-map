@@ -26,3 +26,10 @@
 - **Decision:** Coalesce managed-scene reindex and render refresh work until an explicit application render or the next animation frame, while flushing event bindings synchronously when canvas listeners exist.
 - **Why:** One invalidation boundary preserves public return-time state, event readiness, and next-frame visibility while removing target-count-proportional duplicate scene work.
 - **Impact:** Selectors flush pending indices on demand, focus and fit flush complete scene state, draw and destroy cancel pending work, and performance tests must exercise both explicit-render and frame-driven boundaries.
+
+**2026-07-14**
+
+- **Background:** 공식 PixiJS dependency 검색 중 source-map 텍스트가 우발적으로 출력됐으나 PATCH MAP 원본·reference 자료에는 접근하지 않았고 출력 내용도 구현에 사용하지 않았다.
+- **Decision:** 클린룸 소유자는 현재 작업트리와 구현 결과를 유효한 클린룸 결과로 인정하며 incident로 인한 폐기나 재시작을 요구하지 않는다.
+- **Why:** 노출은 PATCH MAP 원본 오염이 아니며 구현 판단에 영향을 주지 않았으므로 결과를 폐기하는 것보다 사실관계와 적용 경계를 명시하는 것이 정확하다.
+- **Impact:** Incident blocker는 해소되지만 자료 경계는 확장되지 않는다. 모든 후속 검색·검증은 source map을 명시적으로 제외하고 Q1~Q23은 승인된 블랙박스 oracle fixture와 normalized output만으로 해소한다.
