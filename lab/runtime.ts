@@ -24,10 +24,7 @@ import type {
   LabStep,
   LabUpdateRequest,
 } from './cases/types';
-import {
-  PixiDevtoolsBridge,
-  type PixiDevtoolsConnectionState,
-} from './pixi-devtools';
+import { PixiDevtoolsBridge } from './pixi-devtools';
 
 const PATCHMAP_EVENTS = [
   'patchmap:initialized',
@@ -432,19 +429,6 @@ export class LabRuntime {
 
   public get hasManualPending(): boolean {
     return this.#manualPending;
-  }
-
-  public get pixiDevtoolsState(): PixiDevtoolsConnectionState {
-    return this.#pixiDevtools.state(this.patchmap.app);
-  }
-
-  public reconnectPixiDevtools(): boolean {
-    const app = this.patchmap.app;
-    if (!app) return false;
-    this.#pixiDevtools.publish(app);
-    app.render();
-    this.onChange?.();
-    return this.#pixiDevtools.state(app) === 'hook-ready';
   }
 
   public async initialize(): Promise<void> {

@@ -58,7 +58,6 @@ const readPixiDevtoolsState = async (page) => page.evaluate(() => {
     stageMatches: app !== undefined && window.__PIXI_STAGE__ === app.stage,
     rendererMatches: app !== undefined && window.__PIXI_RENDERER__ === app.renderer,
     canvasMatches: app !== undefined && app.canvas === canvas,
-    badgeState: document.querySelector('[data-testid="pixi-devtools-status"]')?.getAttribute('data-state'),
   };
 });
 
@@ -66,7 +65,7 @@ const assertPixiDevtoolsReady = async (page, label) => {
   const state = await readPixiDevtoolsState(page);
   assertion(
     state.preferredApp && state.appMatchesLegacy && state.stageMatches &&
-      state.rendererMatches && state.canvasMatches && state.badgeState === 'hook-ready',
+      state.rendererMatches && state.canvasMatches,
     `${label} did not publish the current Pixi Application through every official hook.`,
     state,
   );
@@ -196,25 +195,6 @@ try {
   );
   await preResetApp.dispose();
 
-  const reconnectApp = await page.evaluateHandle(() => window.__PIXI_DEVTOOLS__?.app);
-  await page.evaluate(() => {
-    delete window.__PIXI_DEVTOOLS__;
-    delete window.__PIXI_APP__;
-    delete window.__PIXI_STAGE__;
-    delete window.__PIXI_RENDERER__;
-  });
-  await page.waitForFunction(() =>
-    document.querySelector('[data-testid="pixi-devtools-status"]')?.getAttribute('data-state') === 'reconnect-needed',
-  );
-  await page.getByTestId('pixi-devtools-reconnect').click();
-  await page.waitForFunction(() =>
-    document.querySelector('[data-testid="pixi-devtools-status"]')?.getAttribute('data-state') === 'hook-ready',
-  );
-  assertion(
-    await page.evaluate((currentApp) => window.__PIXI_DEVTOOLS__?.app === currentApp, reconnectApp),
-    'Reconnect did not republish the current Pixi Application.',
-  );
-  await reconnectApp.dispose();
   assertion(!(new URL(page.url())).searchParams.has('step'), 'Reset must clear the reproducible step query.', page.url());
   await page.getByTestId('draw-case').click();
   await waitForStep(page, 1);
@@ -239,11 +219,10 @@ try {
     app: '__PIXI_APP__' in window,
     stage: '__PIXI_STAGE__' in window,
     renderer: '__PIXI_RENDERER__' in window,
-    badgeState: document.querySelector('[data-testid="pixi-devtools-status"]')?.getAttribute('data-state'),
   }));
   assertion(
     !destroyedHooks.preferred && !destroyedHooks.app && !destroyedHooks.stage &&
-      !destroyedHooks.renderer && destroyedHooks.badgeState === 'no-app',
+      !destroyedHooks.renderer,
     'Destroy left stale PixiJS DevTools globals.',
     destroyedHooks,
   );
@@ -461,7 +440,7 @@ try {
       updateFreshPage: 'pass',
       interactionFreshPage: 'pass',
       lifecycleFreshPage: 'pass',
-      pixiDevtoolsInitResetReconnect: 'pass',
+      pixiDevtoolsAutomaticLifecycle: 'pass',
       pixiDevtoolsDestroyReinitUnload: 'pass',
       pixiDevtoolsOwnershipGuard: 'pass',
       sourceRuntimeDevtoolsGlobals: 'absent',

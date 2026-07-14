@@ -22,8 +22,6 @@ interface PublishedPixiApplication {
   readonly renderer: PixiRenderer;
 }
 
-export type PixiDevtoolsConnectionState = 'hook-ready' | 'reconnect-needed' | 'no-app';
-
 const registrationMatches = (
   registration: PixiDevtoolsRegistration | undefined,
   target: PublishedPixiApplication,
@@ -57,13 +55,4 @@ export class PixiDevtoolsBridge {
     this.#published = null;
   }
 
-  public state(app: Application | null): PixiDevtoolsConnectionState {
-    if (!app) return 'no-app';
-    return window.__PIXI_DEVTOOLS__?.app === app &&
-      window.__PIXI_APP__ === app &&
-      window.__PIXI_STAGE__ === app.stage &&
-      window.__PIXI_RENDERER__ === app.renderer
-      ? 'hook-ready'
-      : 'reconnect-needed';
-  }
 }
