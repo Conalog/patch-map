@@ -83,7 +83,7 @@ textarea:focus-visible {
   position: relative;
   z-index: 20;
   display: grid;
-  grid-template-columns: 260px minmax(230px, 1fr) auto 176px;
+  grid-template-columns: 260px minmax(230px, 1fr) auto 260px;
   align-items: center;
   min-width: 0;
   border-bottom: 1px solid var(--line-hot);
@@ -294,14 +294,93 @@ h1 span {
 }
 
 .session-readout {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto auto auto;
   justify-content: center;
-  gap: 7px;
-  padding: 0 14px;
+  gap: 4px;
+  padding: 0 12px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 8px;
   letter-spacing: 0.06em;
+}
+
+.session-line,
+.devtools-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.devtools-badge {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.devtools-badge::before {
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: transparent;
+  content: "";
+}
+
+.devtools-badge.is-hook-ready {
+  color: var(--green);
+}
+
+.devtools-badge.is-hook-ready::before {
+  background: var(--green);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--green) 38%, transparent);
+}
+
+.devtools-badge.is-reconnect-needed {
+  color: var(--amber);
+}
+
+.devtools-badge.is-no-app {
+  color: var(--faint);
+}
+
+.devtools-reconnect {
+  min-height: 19px;
+  padding: 0 6px;
+  border: 1px solid var(--line-hot);
+  background: #f5f7f3;
+  color: var(--cyan);
+  cursor: pointer;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.devtools-reconnect:hover:not(:disabled) {
+  border-color: var(--cyan);
+  background: #e7efeb;
+}
+
+.devtools-reconnect:disabled {
+  color: var(--faint);
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.devtools-help {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 6px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .signal {
@@ -1180,6 +1259,28 @@ h1 span {
   .compact-field,
   .switch-control {
     display: none;
+  }
+
+  .session-readout {
+    padding: 0 8px;
+  }
+
+  .session-line #session-clock,
+  .devtools-help {
+    display: none;
+  }
+
+  .devtools-line {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  .devtools-badge {
+    font-size: 6px;
+    line-height: 1.15;
+    white-space: normal;
   }
 
   .transport-controls {

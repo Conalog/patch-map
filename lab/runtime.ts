@@ -24,6 +24,10 @@ import type {
   LabStep,
   LabUpdateRequest,
 } from './cases/types';
+import {
+  PixiDevtoolsBridge,
+  type PixiDevtoolsConnectionState,
+} from './pixi-devtools';
 
 const PATCHMAP_EVENTS = [
   'patchmap:initialized',
@@ -339,6 +343,7 @@ export class LabRuntime {
   public sandboxUpdateProvider: (() => LabUpdateRequest) | null = null;
 
   readonly #host: HTMLElement;
+  readonly #pixiDevtools = new PixiDevtoolsBridge();
   readonly #references = new WeakMap<object, string>();
   readonly #snapshots = new Map<string, NamedSnapshot>();
   readonly #eventCounts = new Map<string, number>();
@@ -398,6 +403,19 @@ export class LabRuntime {
     return this.#manualPending;
   }
 
+  public get pixiDevtoolsState(): PixiDevtoolsConnectionState {
+    return this.#pixiDevtools.state(this.patchmap.app);
+  }
+
+  public reconnectPixiDevtools(): boolean {
+    const app = this.patchmap.app;
+    if (!app) return false;
+    this.#pixiDevtools.publish(app);
+    app.render();
+    this.onChange?.();
+    return this.#pixiDevtools.state(app) === 'hook-ready';
+  }
+
   public async initialize(): Promise<void> {
     await this.reset();
   }
@@ -405,6 +423,7 @@ export class LabRuntime {
   public async reset(options: PatchmapInitOptions = {}): Promise<void> {
     this.#unbindTicker();
     this.#before = null;
+    this.#pixiDevtools.clear();
     this.patchmap.destroy();
     this.#host.replaceChildren();
     this.#selectedHandles = [];
@@ -443,6 +462,7 @@ export class LabRuntime {
     };
     initOptions.assets = options.assets ?? LAB_ASSET_DEFINITIONS;
     await this.patchmap.init(this.#host, initOptions);
+    if (this.patchmap.app) this.#pixiDevtools.publish(this.patchmap.app);
     this.#bindHistoryEvents();
     this.#bindStateEvents();
     this.#bindTicker();
@@ -452,6 +472,7 @@ export class LabRuntime {
   public destroy(): void {
     cancelAnimationFrame(this.#nativeFrameRequest);
     this.#unbindTicker();
+    this.#pixiDevtools.clear();
     this.patchmap.destroy();
   }
 
@@ -1243,6 +1264,7 @@ export class LabRuntime {
   async #runLifecycleAction(action: Extract<LabAction, { kind: 'lifecycle' }>): Promise<void> {
     if (action.method === 'destroy') {
       this.#unbindTicker();
+      this.#pixiDevtools.clear();
       this.patchmap.destroy();
       this.#selectedHandles = [];
       this.#selectionIds = [];
@@ -1261,13 +1283,17 @@ export class LabRuntime {
     if (action.method === 'init' && !this.patchmap.isInit) {
       this.#bindPatchmapEvents();
       await this.patchmap.init(this.#host, action.options);
+      if (this.patchmap.app) this.#pixiDevtools.publish(this.patchmap.app);
       this.#bindHistoryEvents();
       this.#bindStateEvents();
       this.#bindTicker();
       return;
     }
     if (action.method === 're-init') {
-      if (this.patchmap.isInit) this.patchmap.destroy();
+      if (this.patchmap.isInit) {
+        this.#pixiDevtools.clear();
+        this.patchmap.destroy();
+      }
       this.#selectedHandles = [];
       this.#selectionIds = [];
       this.#bindPatchmapEvents();
@@ -1282,6 +1308,7 @@ export class LabRuntime {
       };
       initOptions.assets = action.options?.assets ?? LAB_ASSET_DEFINITIONS;
       await this.patchmap.init(this.#host, initOptions);
+      if (this.patchmap.app) this.#pixiDevtools.publish(this.patchmap.app);
       this.#bindHistoryEvents();
       this.#bindStateEvents();
       this.#bindTicker();

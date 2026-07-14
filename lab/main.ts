@@ -149,6 +149,8 @@ const elements = {
   gridOverlay: byId<HTMLInputElement>('grid-overlay'),
   pauseAnimation: document.querySelector<HTMLElement>('[data-testid="pause-animation"]'),
   sessionClock: byId<HTMLElement>('session-clock'),
+  pixiDevtoolsStatus: byId<HTMLElement>('pixi-devtools-status'),
+  pixiDevtoolsReconnect: byId<HTMLButtonElement>('pixi-devtools-reconnect'),
 };
 
 const persistStatuses = (): void => {
@@ -371,7 +373,21 @@ const renderEvents = (): void => {
   elements.eventCount.textContent = `${runtime.events.length} events`;
 };
 
+const renderPixiDevtoolsStatus = (): void => {
+  const state = runtime.pixiDevtoolsState;
+  const label = state === 'hook-ready'
+    ? 'HOOK READY'
+    : state === 'reconnect-needed'
+      ? 'RECONNECT NEEDED'
+      : 'NO CURRENT APP';
+  elements.pixiDevtoolsStatus.className = `devtools-badge is-${state}`;
+  elements.pixiDevtoolsStatus.dataset.state = state;
+  elements.pixiDevtoolsStatus.textContent = `PixiJS DevTools · ${label}`;
+  elements.pixiDevtoolsReconnect.disabled = runtime.patchmap.app === null;
+};
+
 const renderTelemetry = (): void => {
+  renderPixiDevtoolsStatus();
   const observation = runtime.observation();
   const scene = runtime.sceneDisplaySnapshot();
   const selected = runtime.selectedDisplaySnapshot();
@@ -683,6 +699,12 @@ const configureControls = (): void => {
   document.querySelector<HTMLButtonElement>('[data-testid="fit-view"]')?.addEventListener('click', () => runUiTask(() => runtime.fitSelected()));
   document.querySelector<HTMLButtonElement>('[data-testid="focus-view"]')?.addEventListener('click', () => runUiTask(() => runtime.focusSelected()));
   document.querySelector<HTMLButtonElement>('[data-testid="capture-canvas"]')?.addEventListener('click', () => runUiTask(captureCanvas));
+  elements.pixiDevtoolsReconnect.addEventListener('click', () => runUiTask(() => {
+    if (!runtime.reconnectPixiDevtools()) {
+      throw new Error('PixiJS DevTools could not reconnect because no initialized Application is available.');
+    }
+    renderPixiDevtoolsStatus();
+  }));
   document.querySelector<HTMLButtonElement>('[data-testid="pause-animation"]')?.addEventListener('click', () => runUiTask(() => {
     const paused = runtime.toggleAnimation();
     if (elements.pauseAnimation) elements.pauseAnimation.textContent = paused ? 'Resume animation' : 'Pause animation';

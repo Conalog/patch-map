@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +11,7 @@ const artifactRoot = path.join(projectRoot, 'lab', 'artifacts');
 const externalBaseUrl = process.env.LAB_BASE_URL;
 const headed = process.env.LAB_HEADED === '1';
 const smokeStartedAt = Date.now();
+const browserTimeoutMs = 30_000;
 
 const assertion = (condition, message, detail = undefined) => {
   if (condition) return;
@@ -48,6 +49,29 @@ const waitForStep = async (page, expected) => {
 
 const numericText = async (locator) => Number((await locator.textContent())?.trim() ?? 'NaN');
 
+const readPixiDevtoolsState = async (page) => page.evaluate(() => {
+  const app = window.__PIXI_DEVTOOLS__?.app;
+  const canvas = document.querySelector('#patchmap-host canvas');
+  return {
+    preferredApp: Boolean(app),
+    appMatchesLegacy: app !== undefined && window.__PIXI_APP__ === app,
+    stageMatches: app !== undefined && window.__PIXI_STAGE__ === app.stage,
+    rendererMatches: app !== undefined && window.__PIXI_RENDERER__ === app.renderer,
+    canvasMatches: app !== undefined && app.canvas === canvas,
+    badgeState: document.querySelector('[data-testid="pixi-devtools-status"]')?.getAttribute('data-state'),
+  };
+});
+
+const assertPixiDevtoolsReady = async (page, label) => {
+  const state = await readPixiDevtoolsState(page);
+  assertion(
+    state.preferredApp && state.appMatchesLegacy && state.stageMatches &&
+      state.rendererMatches && state.canvasMatches && state.badgeState === 'hook-ready',
+    `${label} did not publish the current Pixi Application through every official hook.`,
+    state,
+  );
+};
+
 let vite = null;
 let browser = null;
 
@@ -79,15 +103,15 @@ try {
     deviceScaleFactor: 1,
   });
   const page = await context.newPage();
-  page.setDefaultTimeout(15_000);
-  page.setDefaultNavigationTimeout(15_000);
+  page.setDefaultTimeout(browserTimeoutMs);
+  page.setDefaultNavigationTimeout(browserTimeoutMs);
   const pageErrors = [];
   const consoleErrors = [];
   const networkErrors = [];
 
   const observePage = (targetPage) => {
-    targetPage.setDefaultTimeout(15_000);
-    targetPage.setDefaultNavigationTimeout(15_000);
+    targetPage.setDefaultTimeout(browserTimeoutMs);
+    targetPage.setDefaultNavigationTimeout(browserTimeoutMs);
     targetPage.on('pageerror', (error) => pageErrors.push(error.message));
     targetPage.on('console', (message) => {
       if (message.type() === 'error') consoleErrors.push(message.text());
@@ -143,6 +167,7 @@ try {
   await page.getByTestId('app-shell').waitFor({ state: 'visible' });
   await page.locator('#patchmap-host canvas').waitFor({ state: 'visible' });
   await waitForNotBusy(page);
+  await assertPixiDevtoolsReady(page, 'Initial lab init');
 
   const caseRows = page.getByTestId('case-row');
   assertion(await caseRows.count() === 51, 'Expected 51 browser-lab cases.', await caseRows.count());
@@ -157,12 +182,39 @@ try {
   const drawnCanvas = await page.locator('#patchmap-host canvas').screenshot();
   assertion(!drawnCanvas.equals(initialCanvas), 'Composited canvas pixels did not change after Draw.');
 
+  const preResetApp = await page.evaluateHandle(() => window.__PIXI_DEVTOOLS__?.app);
   await page.getByTestId('reset-case').click();
   await page.waitForFunction(() =>
     !document.body.classList.contains('is-busy') &&
     !new URL(window.location.href).searchParams.has('step') &&
     document.querySelector('[data-testid="result-summary"]')?.textContent?.includes('NOT RUN'),
   );
+  await assertPixiDevtoolsReady(page, 'Reset');
+  assertion(
+    await page.evaluate((previousApp) => window.__PIXI_DEVTOOLS__?.app !== previousApp, preResetApp),
+    'Reset retained the destroyed Pixi Application in the DevTools hook.',
+  );
+  await preResetApp.dispose();
+
+  const reconnectApp = await page.evaluateHandle(() => window.__PIXI_DEVTOOLS__?.app);
+  await page.evaluate(() => {
+    delete window.__PIXI_DEVTOOLS__;
+    delete window.__PIXI_APP__;
+    delete window.__PIXI_STAGE__;
+    delete window.__PIXI_RENDERER__;
+  });
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="pixi-devtools-status"]')?.getAttribute('data-state') === 'reconnect-needed',
+  );
+  await page.getByTestId('pixi-devtools-reconnect').click();
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="pixi-devtools-status"]')?.getAttribute('data-state') === 'hook-ready',
+  );
+  assertion(
+    await page.evaluate((currentApp) => window.__PIXI_DEVTOOLS__?.app === currentApp, reconnectApp),
+    'Reconnect did not republish the current Pixi Application.',
+  );
+  await reconnectApp.dispose();
   assertion(!(new URL(page.url())).searchParams.has('step'), 'Reset must clear the reproducible step query.', page.url());
   await page.getByTestId('draw-case').click();
   await waitForStep(page, 1);
@@ -172,6 +224,118 @@ try {
   await waitForNotBusy(page);
   await page.getByTestId('result-summary').getByText('PASS', { exact: true }).waitFor();
   assertion(new URL(page.url()).searchParams.get('step') === '2', 'URL step restore did not replay the selected step.', page.url());
+  await assertPixiDevtoolsReady(page, 'URL restore');
+
+  const lifecyclePage = await context.newPage();
+  observePage(lifecyclePage);
+  await lifecyclePage.goto(`${baseUrl}/lab/?case=lifecycle-init-destroy-reinit&step=2`, { waitUntil: 'networkidle' });
+  await waitForStep(lifecyclePage, 2);
+  await assertPixiDevtoolsReady(lifecyclePage, 'Lifecycle pre-destroy');
+  const lifecycleApp = await lifecyclePage.evaluateHandle(() => window.__PIXI_DEVTOOLS__?.app);
+  await lifecyclePage.getByTestId('next-step').click();
+  await waitForStep(lifecyclePage, 3);
+  const destroyedHooks = await lifecyclePage.evaluate(() => ({
+    preferred: '__PIXI_DEVTOOLS__' in window,
+    app: '__PIXI_APP__' in window,
+    stage: '__PIXI_STAGE__' in window,
+    renderer: '__PIXI_RENDERER__' in window,
+    badgeState: document.querySelector('[data-testid="pixi-devtools-status"]')?.getAttribute('data-state'),
+  }));
+  assertion(
+    !destroyedHooks.preferred && !destroyedHooks.app && !destroyedHooks.stage &&
+      !destroyedHooks.renderer && destroyedHooks.badgeState === 'no-app',
+    'Destroy left stale PixiJS DevTools globals.',
+    destroyedHooks,
+  );
+  await lifecyclePage.getByTestId('next-step').click();
+  await waitForStep(lifecyclePage, 4);
+  await assertPixiDevtoolsReady(lifecyclePage, 'Lifecycle re-init');
+  assertion(
+    await lifecyclePage.evaluate((previousApp) => window.__PIXI_DEVTOOLS__?.app !== previousApp, lifecycleApp),
+    'Lifecycle re-init reused the destroyed Pixi Application.',
+  );
+  await lifecycleApp.dispose();
+  await lifecyclePage.close();
+
+  const unloadPage = await context.newPage();
+  observePage(unloadPage);
+  await unloadPage.goto(`${baseUrl}/lab/`, { waitUntil: 'networkidle' });
+  await waitForNotBusy(unloadPage);
+  await assertPixiDevtoolsReady(unloadPage, 'Unload precondition');
+  const unloadHooks = await unloadPage.evaluate(() => {
+    window.dispatchEvent(new Event('beforeunload'));
+    return {
+      preferred: '__PIXI_DEVTOOLS__' in window,
+      app: '__PIXI_APP__' in window,
+      stage: '__PIXI_STAGE__' in window,
+      renderer: '__PIXI_RENDERER__' in window,
+    };
+  });
+  assertion(
+    !unloadHooks.preferred && !unloadHooks.app && !unloadHooks.stage && !unloadHooks.renderer,
+    'Page unload left stale PixiJS DevTools globals.',
+    unloadHooks,
+  );
+  await unloadPage.close();
+
+  const ownershipPage = await context.newPage();
+  observePage(ownershipPage);
+  await ownershipPage.goto(`${baseUrl}/lab/`, { waitUntil: 'networkidle' });
+  await waitForNotBusy(ownershipPage);
+  const foreignOwnership = await ownershipPage.evaluate(() => {
+    const foreignApp = { owner: 'foreign-app' };
+    const foreignStage = { owner: 'foreign-stage' };
+    const foreignRenderer = { owner: 'foreign-renderer' };
+    window.__PIXI_DEVTOOLS__ = { app: foreignApp };
+    window.__PIXI_APP__ = foreignApp;
+    window.__PIXI_STAGE__ = foreignStage;
+    window.__PIXI_RENDERER__ = foreignRenderer;
+    window.dispatchEvent(new Event('beforeunload'));
+    return window.__PIXI_DEVTOOLS__?.app === foreignApp &&
+      window.__PIXI_APP__ === foreignApp &&
+      window.__PIXI_STAGE__ === foreignStage &&
+      window.__PIXI_RENDERER__ === foreignRenderer;
+  });
+  assertion(foreignOwnership, 'Cleanup removed DevTools globals owned by another instance.');
+  await ownershipPage.close();
+
+  const sourceOnlyPage = await context.newPage();
+  observePage(sourceOnlyPage);
+  await sourceOnlyPage.route('**/lab-source-only-probe', async (route) => {
+    await route.fulfill({
+      contentType: 'text/html',
+      body: `<!doctype html><body data-ready="false"><script type="module">
+        import('/src/index.ts').then((source) => {
+          document.body.dataset.exportReady = String(typeof source.Patchmap === 'function');
+          document.body.dataset.ready = 'true';
+        });
+      </script></body>`,
+    });
+  });
+  await sourceOnlyPage.goto(`${baseUrl}/lab-source-only-probe`, { waitUntil: 'networkidle' });
+  await sourceOnlyPage.waitForFunction(() => document.body.dataset.ready === 'true');
+  const sourceOnlyState = await sourceOnlyPage.evaluate(() => ({
+    exportReady: document.body.dataset.exportReady,
+    preferred: '__PIXI_DEVTOOLS__' in window,
+    app: '__PIXI_APP__' in window,
+    stage: '__PIXI_STAGE__' in window,
+    renderer: '__PIXI_RENDERER__' in window,
+  }));
+  assertion(
+    sourceOnlyState.exportReady === 'true' && !sourceOnlyState.preferred && !sourceOnlyState.app &&
+      !sourceOnlyState.stage && !sourceOnlyState.renderer,
+    'Source-only runtime import exposed lab DevTools globals.',
+    sourceOnlyState,
+  );
+  await sourceOnlyPage.close();
+
+  const packageManifest = JSON.parse(await readFile(path.join(projectRoot, 'package.json'), 'utf8'));
+  assertion(
+    !JSON.stringify(packageManifest.files ?? []).includes('lab') &&
+      !JSON.stringify(packageManifest.exports ?? {}).includes('lab'),
+    'The production package manifest publishes the browser-lab bridge.',
+    { files: packageManifest.files, exports: packageManifest.exports },
+  );
 
   const search = page.getByTestId('case-search');
   await search.fill('production-like');
@@ -297,6 +461,11 @@ try {
       updateFreshPage: 'pass',
       interactionFreshPage: 'pass',
       lifecycleFreshPage: 'pass',
+      pixiDevtoolsInitResetReconnect: 'pass',
+      pixiDevtoolsDestroyReinitUnload: 'pass',
+      pixiDevtoolsOwnershipGuard: 'pass',
+      sourceRuntimeDevtoolsGlobals: 'absent',
+      packageDevtoolsBridge: 'excluded',
       packageFreshPage: 'pass',
       assetResetFreshPage: 'pass',
       identitySnapshotFreshPage: 'pass',
