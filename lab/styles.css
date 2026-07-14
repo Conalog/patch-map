@@ -83,7 +83,7 @@ textarea:focus-visible {
   position: relative;
   z-index: 20;
   display: grid;
-  grid-template-columns: 260px minmax(230px, 1fr) auto 176px;
+  grid-template-columns: 260px minmax(230px, 1fr) auto;
   align-items: center;
   min-width: 0;
   border-bottom: 1px solid var(--line-hot);
@@ -101,8 +101,7 @@ textarea:focus-visible {
 
 .identity-lockup,
 .active-case,
-.transport-controls,
-.session-readout {
+.transport-controls {
   min-width: 0;
   height: 100%;
   border-right: 1px solid var(--line);
@@ -291,33 +290,6 @@ h1 span {
   height: 24px;
   margin: 0 2px;
   background: var(--line);
-}
-
-.session-readout {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 14px;
-  color: var(--muted);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-}
-
-.session-line {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.signal {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-right: 7px;
-  border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--green) 70%, transparent);
 }
 
 .console-grid {
@@ -1171,7 +1143,7 @@ h1 span {
 
 @media (max-width: 1220px) {
   .command-deck {
-    grid-template-columns: 212px minmax(180px, 1fr) auto 132px;
+    grid-template-columns: 212px minmax(180px, 1fr) auto;
   }
 
   .identity-lockup {
@@ -1185,14 +1157,6 @@ h1 span {
   .viewport-presets,
   .compact-field,
   .switch-control {
-    display: none;
-  }
-
-  .session-readout {
-    padding: 0 8px;
-  }
-
-  .session-line #session-clock {
     display: none;
   }
 

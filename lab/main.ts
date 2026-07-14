@@ -97,7 +97,6 @@ let telemetryTimer = 0;
 let frameTelemetryTimer = 0;
 let pendingTelemetryObservation: Record<string, unknown> | null = null;
 let telemetryNeedsFreshObservation = false;
-let sessionStarted = performance.now();
 
 const elements = {
   caseList: byId<HTMLElement>('case-list'),
@@ -151,7 +150,6 @@ const elements = {
   canvasBackground: byId<HTMLInputElement>('canvas-background'),
   gridOverlay: byId<HTMLInputElement>('grid-overlay'),
   pauseAnimation: document.querySelector<HTMLElement>('[data-testid="pause-animation"]'),
-  sessionClock: byId<HTMLElement>('session-clock'),
 };
 
 const persistStatuses = (): void => {
@@ -875,17 +873,6 @@ const initialize = async (): Promise<void> => {
   renderActive();
   if (restored.step >= 0) await replayToStep(restored.step);
 
-  sessionStarted = performance.now();
-  window.setInterval(() => {
-    const elapsed = performance.now() - sessionStarted;
-    const hours = Math.floor(elapsed / 3_600_000);
-    const minutes = Math.floor((elapsed % 3_600_000) / 60_000);
-    const seconds = Math.floor((elapsed % 60_000) / 1000);
-    const milliseconds = Math.floor(elapsed % 1000);
-    elements.sessionClock.textContent = [hours, minutes, seconds]
-      .map((part) => String(part).padStart(2, '0'))
-      .join(':') + `.${String(milliseconds).padStart(3, '0')}`;
-  }, 100);
 };
 
 window.addEventListener('beforeunload', () => {
