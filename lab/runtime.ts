@@ -52,6 +52,8 @@ const STATE_EVENTS = [
   'modifier:deactivated',
 ] as const;
 
+const LAB_CANVAS_BACKGROUND = '#f4f6f2';
+
 const LIMITATIONS = Object.freeze({
   Q4: { status: 'partial' },
   Q7: { status: 'partial' },
@@ -427,7 +429,7 @@ export class LabRuntime {
     this.#bindPatchmapEvents();
 
     const appOptions = {
-      background: '#10171d',
+      background: LAB_CANVAS_BACKGROUND,
       antialias: true,
       autoDensity: true,
       resolution: Math.min(window.devicePixelRatio || 1, 2),
@@ -1273,7 +1275,7 @@ export class LabRuntime {
         ...(action.options ?? {}),
         app: {
           resizeTo: this.#host,
-          background: '#10171d',
+          background: LAB_CANVAS_BACKGROUND,
           resolution: Math.min(window.devicePixelRatio || 1, 2),
           ...(action.options?.app ?? {}),
         },
