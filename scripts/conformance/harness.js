@@ -1,4 +1,4 @@
-import { Patchmap } from '/src/index.ts';
+import * as patchMapExports from '/src/index.ts';
 import { fixtureIds, getFixture } from '/fixtures/index.mjs';
 
 const isScreenshotEnvelope = (value) =>
@@ -14,7 +14,7 @@ const runFixture = async (id) => {
 
   let result;
   try {
-    result = await fixture.run({ Patchmap });
+    result = await fixture.run(patchMapExports);
     return isScreenshotEnvelope(result) ? result.observed : result;
   } finally {
     if (typeof result?.cleanup === 'function') {

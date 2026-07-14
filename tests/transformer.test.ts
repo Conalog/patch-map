@@ -30,6 +30,14 @@ describe('Transformer options', () => {
       resizeKeepRatio: false,
       getResizeKeepRatio: undefined,
     });
+    expect(transformer).toMatchObject({
+      wireframeStyle: { thickness: 1.5, color: '#1099FF' },
+      boundsDisplayMode: 'all',
+      resizeHandles: false,
+      rotateHandles: false,
+      transformHistory: false,
+      resizeKeepRatio: false,
+    });
 
     transformer.destroy();
   });
@@ -61,6 +69,22 @@ describe('Transformer options', () => {
 
     transformer.destroy();
     element.destroy();
+  });
+
+  it('preserves ABI-101 constructor validation errors', () => {
+    expect(() => new Transformer(null)).toThrow(
+      expect.objectContaining({
+        name: 'ZodValidationError',
+        message: 'Validation error: Expected object, received null',
+      }),
+    );
+    expect(() => new Transformer({ boundsDisplayMode: 'invalid-mode' } as never)).toThrow(
+      expect.objectContaining({
+        name: 'ZodValidationError',
+        message:
+          'Validation error: Invalid enum value. Expected \'all\' | \'groupOnly\' | \'elementOnly\' | \'none\', received \'invalid-mode\' at "boundsDisplayMode"',
+      }),
+    );
   });
 });
 

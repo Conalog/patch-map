@@ -1,17 +1,19 @@
 import EventEmitter from 'eventemitter3';
 
-import { uid } from './utils';
-
 export class Command {
-  public readonly id: string;
+  public readonly id: unknown;
 
-  public constructor(id = uid()) {
+  public constructor(id?: unknown) {
     this.id = id;
   }
 
-  public execute(): void | Promise<void> {}
+  public execute(): unknown {
+    return undefined;
+  }
 
-  public undo(): void | Promise<void> {}
+  public undo(): unknown {
+    return undefined;
+  }
 }
 
 export interface ExecuteCommandOptions {
@@ -25,8 +27,10 @@ interface HistoryEntry {
 
 type CommandMethod = 'execute' | 'undo';
 
-const isPromiseLike = (value: void | Promise<void>): value is Promise<void> =>
-  value !== undefined && typeof value.then === 'function';
+const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
+  typeof value === 'object' &&
+  value !== null &&
+  typeof Reflect.get(value, 'then') === 'function';
 
 const runCommands = (
   commands: readonly Command[],
@@ -49,10 +53,16 @@ const runCommands = (
   return pending;
 };
 
+const observeAsyncResult = (value: unknown): void => {
+  if (isPromiseLike(value)) {
+    void Promise.resolve(value).catch(() => undefined);
+  }
+};
+
 export class UndoRedoManager extends EventEmitter {
   readonly #limit: number;
-  #done: HistoryEntry[] = [];
-  #undone: HistoryEntry[] = [];
+  #entries: HistoryEntry[] = [];
+  #cursor = 0;
   #destroyed = false;
 
   public constructor(limit = 50) {
@@ -61,66 +71,72 @@ export class UndoRedoManager extends EventEmitter {
   }
 
   public get commands(): readonly Command[] {
-    return this.#done.map(({ commands }) => commands[commands.length - 1] as Command);
+    return this.#entries.map(({ commands }) => commands[commands.length - 1] as Command);
   }
 
-  public execute(command: Command, options: ExecuteCommandOptions = {}): void | Promise<void> {
-    if (this.#destroyed) return undefined;
+  public execute(
+    command: Command,
+    options: ExecuteCommandOptions = {},
+  ): void | Promise<void> {
+    if (this.#destroyed) return;
 
     const result = command.execute();
+    observeAsyncResult(result);
+    if (this.#cursor < this.#entries.length) {
+      this.#entries.splice(this.#cursor);
+    }
+
     const historyId = options.historyId ?? null;
-    const prior = this.#done.at(-1);
+    const prior = this.#entries.at(-1);
 
     if (historyId !== null && prior?.historyId === historyId) {
       prior.commands.push(command);
     } else {
-      this.#done.push({ commands: [command], historyId });
-      if (this.#done.length > this.#limit) this.#done.shift();
+      this.#entries.push({ commands: [command], historyId });
+      if (this.#entries.length > this.#limit) this.#entries.shift();
     }
-    this.#undone = [];
+    this.#cursor = this.#entries.length;
     this.#emitHistory('history:executed', { command, historyId });
-    return result;
   }
 
   public undo(): void | Promise<void> {
-    if (this.#destroyed) return undefined;
-    const entry = this.#done.pop();
-    if (!entry) return undefined;
+    if (this.#destroyed || this.#cursor === 0) return;
+    const entry = this.#entries[this.#cursor - 1];
+    if (!entry) return;
     const result = runCommands([...entry.commands].reverse(), 'undo');
-    this.#undone.push(entry);
+    observeAsyncResult(result);
+    this.#cursor -= 1;
     this.#emitHistory('history:undone', { command: entry.commands.at(-1) });
-    return result;
   }
 
   public redo(): void | Promise<void> {
-    if (this.#destroyed) return undefined;
-    const entry = this.#undone.pop();
-    if (!entry) return undefined;
+    if (this.#destroyed || this.#cursor >= this.#entries.length) return;
+    const entry = this.#entries[this.#cursor];
+    if (!entry) return;
     const result = runCommands(entry.commands, 'execute');
-    this.#done.push(entry);
+    observeAsyncResult(result);
+    this.#cursor += 1;
     this.#emitHistory('history:redone', { command: entry.commands.at(-1) });
-    return result;
   }
 
   public canUndo(): boolean {
-    return !this.#destroyed && this.#done.length > 0;
+    return !this.#destroyed && this.#cursor > 0;
   }
 
   public canRedo(): boolean {
-    return !this.#destroyed && this.#undone.length > 0;
+    return !this.#destroyed && this.#cursor < this.#entries.length;
   }
 
   public clear(): void {
     if (this.#destroyed) return;
-    this.#done = [];
-    this.#undone = [];
+    this.#entries = [];
+    this.#cursor = 0;
     this.#emitHistory('history:cleared', { target: this });
   }
 
   public destroy(): void {
     if (this.#destroyed) return;
-    this.#done = [];
-    this.#undone = [];
+    this.clear();
     this.#destroyed = true;
     this.#emitHistory('history:destroyed', { target: this });
     this.removeAllListeners();
@@ -128,6 +144,6 @@ export class UndoRedoManager extends EventEmitter {
 
   #emitHistory(event: string, payload: unknown): void {
     this.emit(event, payload);
-    this.emit('history:*', event, payload);
+    this.emit('history:*', payload);
   }
 }

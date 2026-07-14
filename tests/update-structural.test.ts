@@ -25,6 +25,12 @@ const sceneFor = (data: MapData): ManagedScene =>
 const isManagedNode = (value: unknown): value is ManagedNode =>
   value instanceof ManagedNode;
 
+const managedChildren = (node: ManagedNode): ManagedNode[] =>
+  node.children.filter(isManagedNode);
+
+const managedChildIds = (node: ManagedNode): string[] =>
+  managedChildren(node).map(({ id }) => id);
+
 const child = (node: ManagedNode, id: string): ManagedNode => {
   const match = node.children.find(
     (candidate): candidate is ManagedNode =>
@@ -180,11 +186,13 @@ describe('structural group updates', () => {
       applyManagedUpdate(group, { changes, mergeStrategy });
 
       expect(changes).toEqual(before);
-      expect(group.children.map((node) => (node as ManagedNode).id)).toEqual([
+      expect(managedChildIds(group)).toEqual([
         'added-group',
         'keep',
       ]);
-      expect(group.children[1]).toBe(retained);
+      expect(managedChildren(group)[1]).toBe(retained);
+      expect(group.children).toHaveLength(3);
+      expect(group.children.at(-1)).not.toBeInstanceOf(ManagedNode);
       expect(removed.destroyed).toBe(true);
       const added = child(group, 'added-group');
       const nested = child(added, 'nested-copy');
@@ -234,9 +242,10 @@ describe('structural grid updates', () => {
     expect(scene.roots[0]).toBe(grid);
     expect(grid.id).toBe('after');
     expect(grid.props).toMatchObject({ id: 'after' });
-    expect(oldCell.destroyed).toBe(true);
+    expect(oldCell.destroyed).toBe(false);
     expect(scene.byId.get('after')).toBe(grid);
-    expect(scene.byId.get('after.0.0')).toBe(child(grid, 'after.0.0'));
+    expect(child(grid, 'after.0.0')).toBe(oldCell);
+    expect(scene.byId.get('after.0.0')).toBe(oldCell);
     expect(scene.byId.has('before')).toBe(false);
     expect(scene.byId.has('before.0.0')).toBe(false);
     grid.destroy({ children: true });
@@ -272,8 +281,9 @@ describe('structural grid updates', () => {
     const grid = scene.roots[0]!;
     const cellA = child(grid, 'grid.0.0');
     const cellB = child(grid, 'grid.0.1');
-    const copy = cellA.children[0];
-    const icon = cellA.children[1];
+    const initialComponents = (cellA.props as MaterializedItemElement).components;
+    const copy = child(cellA, initialComponents[0]!.id);
+    const icon = child(cellA, initialComponents[1]!.id);
     const changes = {
       cells: [['AA', 0], ['C', 0]],
       gap: { x: 3 },
@@ -304,16 +314,32 @@ describe('structural grid updates', () => {
       size: { width: 20, height: 12 },
       attrs: { x: 0, y: 0 },
     });
-    expect((cellA.props as MaterializedItemElement).components).toHaveLength(2);
-    expect((cellA.children[0] as ManagedNode).props).toMatchObject({
+    expect((cellA.props as MaterializedItemElement).components).toHaveLength(4);
+    expect(copy.props).toMatchObject({ text: 'before' });
+    const appendedCopy = child(cellA, 'template-copy');
+    const appendedIcon = child(cellA, 'template-icon');
+    expect(appendedCopy).not.toBe(copy);
+    expect(appendedIcon).not.toBe(icon);
+    expect(appendedCopy.props).toMatchObject({
       text: 'after',
       style: { fill: 'red' },
     });
+    expect(managedChildren(cellA)).toEqual([
+      copy,
+      icon,
+      appendedCopy,
+      appendedIcon,
+    ]);
     expect(cellC.props).toMatchObject({
       label: 'C',
       size: { width: 20, height: 12 },
       attrs: { x: 0, y: 14 },
     });
+    expect((cellC.props as MaterializedItemElement).components).toHaveLength(2);
+    expect(managedChildren(cellC).map(({ type }) => type)).toEqual([
+      'text',
+      'icon',
+    ]);
     expect(grid.props).toMatchObject({
       gap: { x: 3, y: 2 },
       item: { size: { width: 20, height: 12 } },
@@ -350,8 +376,9 @@ describe('structural grid updates', () => {
     ]);
     const grid = scene.roots[0]!;
     const cell = child(grid, 'grid.0.0');
-    const copy = cell.children[0]!;
-    const icon = cell.children[1]!;
+    const initialComponents = (cell.props as MaterializedItemElement).components;
+    const copy = child(cell, initialComponents[0]!.id);
+    const icon = child(cell, initialComponents[1]!.id);
 
     applyManagedUpdate(grid, {
       changes: {
@@ -361,8 +388,18 @@ describe('structural grid updates', () => {
       },
     });
     expect(child(grid, 'grid.0.0')).toBe(cell);
-    expect(cell.children).toEqual([copy, icon]);
-    expect((copy as ManagedNode).props).toMatchObject({ text: 'merged' });
+    const mergedCopy = child(cell, 'copy');
+    const appendedIcon = child(cell, 'icon');
+    expect(managedChildren(cell)).toEqual([
+      copy,
+      icon,
+      mergedCopy,
+      appendedIcon,
+    ]);
+    expect(copy.props).toMatchObject({ text: 'before' });
+    expect(mergedCopy.props).toMatchObject({ text: 'merged' });
+    expect(mergedCopy).not.toBe(copy);
+    expect(appendedIcon).not.toBe(icon);
 
     applyManagedUpdate(grid, {
       mergeStrategy: 'replace',
@@ -374,22 +411,37 @@ describe('structural grid updates', () => {
       },
     });
     expect(child(grid, 'grid.0.0')).toBe(cell);
-    expect(cell.children).toEqual([copy]);
-    expect(icon.destroyed).toBe(true);
-    expect((copy as ManagedNode).props).toMatchObject({ text: 'only' });
-    expect((cell.props as MaterializedItemElement).components[0]!.id).toBe(
-      (copy as ManagedNode).id,
+    const afterReplace = managedChildren(cell);
+    expect(afterReplace.slice(0, 4)).toEqual([
+      copy,
+      icon,
+      mergedCopy,
+      appendedIcon,
+    ]);
+    expect(afterReplace).toHaveLength(5);
+    const onlyCopy = afterReplace[4]!;
+    expect(onlyCopy.props).toMatchObject({ text: 'only' });
+    expect(icon.destroyed).toBe(false);
+    expect((cell.props as MaterializedItemElement).components[4]!.id).toBe(
+      onlyCopy.id,
     );
 
     applyManagedUpdate(grid, {
       changes: { cells: [[0]], inactiveCellStrategy: 'hide' },
     });
     expect(child(grid, 'grid.0.0')).toBe(cell);
+    expect(managedChildren(cell)).toEqual([copy]);
+    expect(copy.props).toMatchObject({ text: 'only' });
+    expect(icon.destroyed).toBe(true);
+    expect(mergedCopy.destroyed).toBe(true);
+    expect(appendedIcon.destroyed).toBe(true);
+    expect(onlyCopy.destroyed).toBe(true);
     expect(cell.renderable).toBe(false);
     expect(cell.props).toMatchObject({ label: '0', show: false });
 
     applyManagedUpdate(grid, { changes: { cells: [['active']] } });
     expect(child(grid, 'grid.0.0')).toBe(cell);
+    expect(managedChildren(cell)).toEqual([copy]);
     expect(cell.renderable).toBe(true);
     expect(cell.props).toMatchObject({ label: 'active', show: true });
 
@@ -471,27 +523,27 @@ describe('structural update snapshots', () => {
       },
       refresh,
     ));
-    expect(group.children.map((node) => (node as ManagedNode).id)).toEqual([
+    expect(managedChildIds(group)).toEqual([
       'keep',
       'added',
     ]);
-    expect(group.children[0]).toBe(keep);
+    expect(managedChildren(group)[0]).toBe(keep);
 
     await manager.undo();
-    expect(group.children.map((node) => (node as ManagedNode).id)).toEqual([
+    expect(managedChildIds(group)).toEqual([
       'keep',
       'drop',
     ]);
-    expect(group.children[0]).toBe(keep);
-    expect(scene.byId.get('drop')).toBe(group.children[1]);
+    expect(managedChildren(group)[0]).toBe(keep);
+    expect(scene.byId.get('drop')).toBe(managedChildren(group)[1]);
     expect(scene.byId.has('added')).toBe(false);
 
     await manager.redo();
-    expect(group.children.map((node) => (node as ManagedNode).id)).toEqual([
+    expect(managedChildIds(group)).toEqual([
       'keep',
       'added',
     ]);
-    expect(group.children[0]).toBe(keep);
+    expect(managedChildren(group)[0]).toBe(keep);
     expect(scene.byId.has('drop')).toBe(false);
     group.destroy({ children: true });
   });

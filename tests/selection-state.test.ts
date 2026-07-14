@@ -75,7 +75,8 @@ describe('SelectionState', () => {
       patchmap: { world, viewport: viewport ?? world },
     });
     manager.register('selection', SelectionState);
-    const state = manager.setState('selection', options) as SelectionState;
+    manager.setState('selection', options);
+    const state = manager.current as SelectionState;
     cleanups.push(() => {
       manager.destroy();
       if (!world.destroyed) world.destroy({ children: true });
@@ -132,8 +133,11 @@ describe('SelectionState', () => {
       preventDefault,
       nativeEvent: { preventDefault: preventNativeDefault },
     });
+    state.pointerdown(rightEvent);
     state.rightclick(rightEvent);
 
+    expect(onDown).toHaveBeenCalledTimes(3);
+    expect(onDown).toHaveBeenLastCalledWith(item, rightEvent);
     expect(preventDefault).toHaveBeenCalledOnce();
     expect(preventNativeDefault).toHaveBeenCalledOnce();
     expect(onRightClick).toHaveBeenCalledWith(item, rightEvent);
@@ -252,12 +256,14 @@ describe('SelectionState', () => {
     const onDragStart = vi.fn();
     const onDrag = vi.fn<SelectionDragCallback>();
     const onDragEnd = vi.fn();
+    const onUp = vi.fn();
     const { state } = activate(world, {
       draggable: true,
       paintSelection: true,
       onDragStart,
       onDrag,
       onDragEnd,
+      onUp,
     });
 
     state.pointerdown(pointerEvent({ target: first, global: { x: 12, y: 12 } }));
@@ -271,6 +277,7 @@ describe('SelectionState', () => {
       [first, middle, second],
     ]);
     expect(onDragEnd.mock.calls[0]?.[0]).toEqual([first, middle, second]);
+    expect(onUp.mock.calls[0]?.[0]).toBe(first);
     expect(world.children).toEqual([first, middle, second]);
   });
 
@@ -319,7 +326,7 @@ describe('SelectionState', () => {
     expect(onClick.mock.calls.map((call) => call[0])).toEqual([grid, grid]);
   });
 
-  it('prunes a filtered container together with its descendants for click and box selection', () => {
+  it('applies the filter to the resolved selection unit', () => {
     const world = new Container();
     const blocked = createNode('blocked', 'group');
     const blockedLeaf = createNode('blocked-leaf', 'rect', {
@@ -338,15 +345,22 @@ describe('SelectionState', () => {
     world.addChild(blocked, allowed);
     const onClick = vi.fn();
     const onDragEnd = vi.fn();
+    const filter = vi.fn((node: SelectionNode) => node.id !== 'blocked');
     const { state } = activate(world, {
       draggable: true,
-      filter: (node) => node.id !== 'blocked',
+      selectUnit: 'closestGroup',
+      filter,
       onClick,
       onDragEnd,
     });
 
     click(state, blockedLeaf);
     expect(onClick).toHaveBeenCalledWith(null, expect.anything());
+    expect(filter.mock.calls.map(([node]) => node)).toEqual([
+      blocked,
+      blocked,
+      blocked,
+    ]);
 
     state.pointerdown(pointerEvent({ target: world, global: { x: 0, y: 0 } }));
     state.pointermove(pointerEvent({ target: world, global: { x: 60, y: 30 } }));

@@ -22,6 +22,9 @@ const ELEMENT_DISCRIMINATOR =
   "'group' | 'grid' | 'item' | 'relations' | 'image' | 'text' | 'rect'";
 const COMPONENT_DISCRIMINATOR = "'background' | 'bar' | 'icon' | 'text'";
 
+const PLACEMENT_ENUM =
+  "'left' | 'left-top' | 'left-bottom' | 'top' | 'right' | 'right-top' | 'right-bottom' | 'bottom' | 'center'";
+
 const PLACEMENTS = new Set([
   'left',
   'left-top',
@@ -32,8 +35,91 @@ const PLACEMENTS = new Set([
   'right-bottom',
   'bottom',
   'center',
-  'none',
 ]);
+
+const TEXT_COMPONENT_KEYS = new Set([
+  'type',
+  'id',
+  'label',
+  'show',
+  'tint',
+  'attrs',
+  'text',
+  'style',
+  'placement',
+  'margin',
+  'split',
+]);
+
+const ELEMENT_KEYS: Readonly<Record<(typeof ELEMENT_TYPES)[number], ReadonlySet<string>>> = {
+  group: new Set(['type', 'id', 'label', 'show', 'locked', 'attrs', 'children']),
+  grid: new Set([
+    'type',
+    'id',
+    'label',
+    'show',
+    'locked',
+    'attrs',
+    'cells',
+    'item',
+    'gap',
+    'inactiveCellStrategy',
+  ]),
+  item: new Set([
+    'type',
+    'id',
+    'label',
+    'show',
+    'locked',
+    'attrs',
+    'size',
+    'components',
+    'padding',
+    'contentOrientation',
+  ]),
+  relations: new Set([
+    'type',
+    'id',
+    'label',
+    'show',
+    'locked',
+    'attrs',
+    'links',
+    'style',
+  ]),
+  image: new Set([
+    'type',
+    'id',
+    'label',
+    'show',
+    'locked',
+    'attrs',
+    'source',
+    'size',
+  ]),
+  text: new Set([
+    'type',
+    'id',
+    'label',
+    'show',
+    'locked',
+    'attrs',
+    'text',
+    'style',
+  ]),
+  rect: new Set([
+    'type',
+    'id',
+    'label',
+    'show',
+    'locked',
+    'attrs',
+    'size',
+    'fill',
+    'stroke',
+    'radius',
+  ]),
+};
 
 const INLINE_SOURCE_KEYS = new Set([
   'src',
@@ -53,9 +139,10 @@ export class ZodValidationError extends Error {
 
 export function validateMapData(value: unknown): asserts value is MapData {
   if (!Array.isArray(value)) {
-    fail('Expected an array', '');
+    fail(`Expected array, received ${receivedType(value)}`, '');
   }
 
+  validateSiblingIds(value, []);
   value.forEach((entry, index) => validateElement(entry, `[${index}]`));
 }
 
@@ -84,9 +171,15 @@ function validateElement(
     );
   }
 
+  validateElementKeys(
+    element,
+    type as (typeof ELEMENT_TYPES)[number],
+    path,
+  );
   validateElementBase(element, path);
   switch (type) {
     case 'group':
+      requireFields(element, ['children'], path);
       requireArray(element.children, `${path}.children`).forEach((child, index) =>
         validateElement(child, `${path}.children[${index}]`),
       );
@@ -95,6 +188,7 @@ function validateElement(
       validateGrid(element, path);
       break;
     case 'item':
+      requireFields(element, ['size'], path);
       validateFixedSize(element.size, `${path}.size`);
       validateComponents(element.components, `${path}.components`);
       validateSpacing(element.padding, `${path}.padding`);
@@ -104,10 +198,12 @@ function validateElement(
       );
       break;
     case 'relations':
-      requireArray(element.links, `${path}.links`);
+      requireFields(element, ['links'], path);
+      validateRelationLinks(element.links, `${path}.links`);
       validateOptionalRecord(element.style, `${path}.style`);
       break;
     case 'image':
+      requireFields(element, ['source'], path);
       validateAssetSource(element.source, `${path}.source`);
       if (element.size !== undefined) {
         validateFixedSize(element.size, `${path}.size`);
@@ -118,6 +214,7 @@ function validateElement(
       validateOptionalRecord(element.style, `${path}.style`);
       break;
     case 'rect':
+      requireFields(element, ['size'], path);
       validateFixedSize(element.size, `${path}.size`);
       validateOptionalNumber(element.radius, `${path}.radius`);
       break;
@@ -125,6 +222,7 @@ function validateElement(
 }
 
 const validateGrid = (grid: Record<string, unknown>, path: string): void => {
+  requireFields(grid, ['cells', 'item'], path);
   const cells = requireArray(grid.cells, `${path}.cells`);
   cells.forEach((row, rowIndex) => {
     requireArray(row, `${path}.cells[${rowIndex}]`).forEach((cell, colIndex) => {
@@ -197,9 +295,11 @@ function validateComponent(
 
   switch (type) {
     case 'background':
+      requireFields(component, ['source'], path);
       validateDrawableSource(component.source, `${path}.source`);
       break;
     case 'bar':
+      requireFields(component, ['source', 'size'], path);
       validateDrawableSource(component.source, `${path}.source`);
       validateComponentSize(component.size, `${path}.size`);
       validatePlacement(component.placement, `${path}.placement`);
@@ -211,20 +311,126 @@ function validateComponent(
       );
       break;
     case 'icon':
+      requireFields(component, ['source', 'size'], path);
       validateAssetSource(component.source, `${path}.source`);
       validateComponentSize(component.size, `${path}.size`);
       validatePlacement(component.placement, `${path}.placement`);
       validateSpacing(component.margin, `${path}.margin`);
       break;
     case 'text':
+      validateTextComponentKeys(component, path);
       validateOptionalString(component.text, `${path}.text`);
       validateOptionalRecord(component.style, `${path}.style`);
+      validateAutoFont(component.style, `${path}.style.autoFont`);
       validatePlacement(component.placement, `${path}.placement`);
       validateSpacing(component.margin, `${path}.margin`);
       validateOptionalNumber(component.split, `${path}.split`);
       break;
   }
 }
+
+const validateElementKeys = (
+  element: Record<string, unknown>,
+  type: (typeof ELEMENT_TYPES)[number],
+  path: string,
+): void => {
+  const invalidKeys = Object.keys(element).filter(
+    (key) => !ELEMENT_KEYS[type].has(key),
+  );
+  if (invalidKeys.length === 0) return;
+
+  const index = /^\[(\d+)\]$/.exec(path)?.[1];
+  if (index !== undefined) {
+    throw new ZodValidationError(
+      `Validation error: Unrecognized key(s) in object: ${invalidKeys
+        .map((key) => `'${key}'`)
+        .join(', ')} at index ${index}`,
+    );
+  }
+  fail(
+    `Unrecognized key(s) in object: ${invalidKeys
+      .map((key) => `'${key}'`)
+      .join(', ')}`,
+    path,
+  );
+};
+
+const requireFields = (
+  value: Record<string, unknown>,
+  fields: readonly string[],
+  path: string,
+): void => {
+  const issues = fields
+    .filter((field) => value[field] === undefined)
+    .map((field) => `Required at "${path}.${field}"`);
+  if (issues.length > 0) failIssues(issues);
+};
+
+const validateSiblingIds = (
+  values: readonly unknown[],
+  path: readonly (string | number)[],
+): void => {
+  const seen = new Set<string>();
+  values.forEach((value, index) => {
+    if (!isRecord(value)) return;
+    if (typeof value.id === 'string') {
+      if (seen.has(value.id)) {
+        const duplicatePath = [...path, index].join('.');
+        throw new ZodValidationError(
+          `Validation error: Duplicate id: ${value.id} at ${duplicatePath}`,
+        );
+      }
+      seen.add(value.id);
+    }
+
+    if (Array.isArray(value.children)) {
+      validateSiblingIds(value.children, [...path, index, 'children']);
+    }
+    if (Array.isArray(value.components)) {
+      validateSiblingIds(value.components, [...path, index, 'components']);
+    }
+    if (isRecord(value.item) && Array.isArray(value.item.components)) {
+      validateSiblingIds(
+        value.item.components,
+        [...path, index, 'item', 'components'],
+      );
+    }
+  });
+};
+
+const validateRelationLinks = (value: unknown, path: string): void => {
+  requireArray(value, path).forEach((value, index) => {
+    const linkPath = `${path}[${index}]`;
+    const link = requirePublicRecord(value, linkPath);
+    const issues: string[] = [];
+    if (link.source === undefined) issues.push(`Required at "${linkPath}.source"`);
+    if (link.target === undefined) issues.push(`Required at "${linkPath}.target"`);
+    if (issues.length > 0) failIssues(issues);
+  });
+};
+
+const validateTextComponentKeys = (
+  component: Record<string, unknown>,
+  path: string,
+): void => {
+  const invalidKeys = Object.keys(component).filter(
+    (key) => !TEXT_COMPONENT_KEYS.has(key),
+  );
+  if (invalidKeys.length === 0) return;
+  fail(
+    `Unrecognized key(s) in object: ${invalidKeys
+      .map((key) => `'${key}'`)
+      .join(', ')}`,
+    path,
+  );
+};
+
+const validateAutoFont = (styleValue: unknown, path: string): void => {
+  if (!isRecord(styleValue) || styleValue.autoFont === undefined) return;
+  const autoFont = requirePublicRecord(styleValue.autoFont, path);
+  validateOptionalNumber(autoFont.min, `${path}.min`);
+  validateOptionalNumber(autoFont.max, `${path}.max`);
+};
 
 const validateFixedSize = (value: unknown, path: string): void => {
   if (isFiniteNumber(value)) return;
@@ -288,7 +494,13 @@ const validatePlacement = (value: unknown, path: string): void => {
     value !== undefined &&
     (typeof value !== 'string' || !PLACEMENTS.has(value))
   ) {
-    fail('Expected a public placement', path);
+    const received = typeof value === 'string'
+      ? `'${value}'`
+      : receivedType(value);
+    fail(
+      `Invalid enum value. Expected ${PLACEMENT_ENUM}, received ${received}`,
+      path,
+    );
   }
 };
 
@@ -359,13 +571,33 @@ function requireRecord(
   return value;
 }
 
+function requirePublicRecord(
+  value: unknown,
+  path: string,
+): Record<string, unknown> {
+  if (!isRecord(value)) {
+    fail(`Expected object, received ${receivedType(value)}`, path);
+  }
+  return value;
+}
+
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+const receivedType = (value: unknown): string => {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
+};
+
 function fail(message: string, path: string): never {
   const location = path ? ` at "${path}"` : '';
   throw new ZodValidationError(`Validation error: ${message}${location}`);
+}
+
+function failIssues(issues: readonly string[]): never {
+  throw new ZodValidationError(`Validation error: ${issues.join('; ')}`);
 }

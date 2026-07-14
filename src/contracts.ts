@@ -56,8 +56,7 @@ export type Placement =
   | 'right-top'
   | 'right-bottom'
   | 'bottom'
-  | 'center'
-  | 'none';
+  | 'center';
 
 export type ContentOrientation = 'upright' | 'follow-item';
 export type InactiveCellStrategy = 'destroy' | 'hide';
@@ -81,6 +80,11 @@ export interface TextStyleInput {
   fill?: ColorSource;
   letterSpacing?: number;
   wordWrap?: boolean;
+  wordWrapWidth?: number;
+  autoFont?: {
+    min?: number;
+    max?: number;
+  };
   overflow?: string;
   [styleProperty: string]: unknown;
 }
@@ -151,8 +155,12 @@ export interface ItemElementData extends BaseElementData {
   contentOrientation?: ContentOrientation;
 }
 
-/** The approved handoff does not yet specify the public relation-link shape. */
-export type RelationLink = unknown;
+export type RelationEndpoint = string | { id: string };
+
+export interface RelationLink {
+  source: RelationEndpoint;
+  target: RelationEndpoint;
+}
 
 export interface RelationsElementData extends BaseElementData {
   type: 'relations';

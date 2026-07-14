@@ -67,10 +67,15 @@ class AsyncValueCommand extends Command {
 }
 
 describe('Command', () => {
-  it('keeps an explicit ID and provides overridable no-op methods', () => {
+  it('preserves omitted and explicit IDs and provides overridable no-op methods', () => {
+    const omitted = new Command();
     const command = new Command('documented-command');
+    const objectId = { id: 'documented-object' };
 
+    expect(omitted.id).toBeUndefined();
     expect(command.id).toBe('documented-command');
+    expect(new Command(objectId).id).toBe(objectId);
+    expect(new Command(null).id).toBeNull();
     expect(command.execute()).toBeUndefined();
     expect(command.undo()).toBeUndefined();
   });
@@ -96,10 +101,11 @@ describe('UndoRedoManager history groups', () => {
     expect(manager.commands).toEqual([final]);
 
     trace.length = 0;
-    await manager.undo();
+    void manager.undo();
 
     expect(value).toBe(0);
     expect(trace).toEqual(['undo:2', 'undo:1', 'undo:0']);
+    expect(manager.commands).toEqual([final]);
     expect(manager.canUndo()).toBe(false);
     expect(manager.canRedo()).toBe(true);
   });
@@ -118,7 +124,7 @@ describe('UndoRedoManager history groups', () => {
     await manager.undo();
 
     trace.length = 0;
-    await manager.redo();
+    void manager.redo();
 
     expect(value).toBe(3);
     expect(trace).toEqual(['execute:1', 'execute:2', 'execute:3']);
@@ -141,11 +147,11 @@ describe('UndoRedoManager history groups', () => {
     await manager.execute(third, { historyId: 'gesture' });
 
     expect(manager.commands).toEqual([first, second, third]);
-    await manager.undo();
+    void manager.undo();
     expect(value).toBe(2);
-    await manager.undo();
+    void manager.undo();
     expect(value).toBe(1);
-    await manager.undo();
+    void manager.undo();
     expect(value).toBe(0);
   });
 
@@ -165,7 +171,8 @@ describe('UndoRedoManager history groups', () => {
     });
 
     trace.length = 0;
-    await manager.undo();
+    void manager.undo();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(value).toBe(0);
     expect(trace).toEqual([
       'undo:start:1',
@@ -175,7 +182,8 @@ describe('UndoRedoManager history groups', () => {
     ]);
 
     trace.length = 0;
-    await manager.redo();
+    void manager.redo();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(value).toBe(2);
     expect(trace).toEqual([
       'execute:start:1',
@@ -204,13 +212,68 @@ describe('UndoRedoManager history groups', () => {
     await manager.execute(secondStep);
 
     expect(manager.commands).toEqual([groupedFinal, secondStep]);
-    await manager.undo();
-    await manager.undo();
+    void manager.undo();
+    void manager.undo();
     expect(value).toBe(0);
     expect(undone).toHaveBeenCalledTimes(2);
 
-    await manager.redo();
+    void manager.redo();
     expect(value).toBe(2);
     expect(redone).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns undefined while preserving authored async settlement and rejected history', async () => {
+    const manager = new UndoRedoManager();
+    let settlement: Promise<number> | undefined;
+
+    class AuthoredAsyncCommand extends Command {
+      public override execute(): Promise<number> {
+        settlement = Promise.resolve(7);
+        return settlement;
+      }
+    }
+
+    const command = new AuthoredAsyncCommand('async-public-return');
+    expect(manager.execute(command)).toBeUndefined();
+    expect(manager.commands).toEqual([command]);
+    expect(await settlement).toBe(7);
+
+    class RejectingCommand extends Command {
+      public override execute(): Promise<never> {
+        return Promise.reject(new Error('authored rejection'));
+      }
+    }
+
+    expect(manager.execute(new RejectingCommand('reject'))).toBeUndefined();
+    expect(manager.commands.map(({ id }) => id)).toEqual([
+      'async-public-return',
+      'reject',
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  it('emits one payload to both specific and wildcard listeners and clears on destroy', () => {
+    const manager = new UndoRedoManager();
+    const command = new ValueCommand(0, 1, () => undefined);
+    const executed = vi.fn();
+    const wildcard = vi.fn();
+    const cleared = vi.fn();
+    const destroyed = vi.fn();
+    manager.on('history:executed', executed);
+    manager.on('history:*', wildcard);
+    manager.on('history:cleared', cleared);
+    manager.on('history:destroyed', destroyed);
+
+    expect(manager.execute(command)).toBeUndefined();
+    expect(executed).toHaveBeenCalledTimes(1);
+    expect(wildcard).toHaveBeenLastCalledWith(executed.mock.calls[0]?.[0]);
+
+    expect(manager.destroy()).toBeUndefined();
+    expect(cleared).toHaveBeenCalledTimes(1);
+    expect(destroyed).toHaveBeenCalledTimes(1);
+    expect(wildcard).toHaveBeenCalledTimes(3);
+    expect(manager.commands).toEqual([]);
+    expect(manager.canUndo()).toBe(false);
+    expect(manager.canRedo()).toBe(false);
   });
 });

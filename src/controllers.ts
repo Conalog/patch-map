@@ -1,9 +1,11 @@
 import type { Container } from 'pixi.js';
 
+export const APPLY_VIEW_TRANSFORM = Symbol('PATCH_MAP_APPLY_VIEW_TRANSFORM');
+
 export interface ControllerHost {
   world: Container | null;
   emit(event: string, payload: unknown): boolean;
-  syncViewTransform(): void;
+  [APPLY_VIEW_TRANSFORM](): void;
 }
 
 export class RotationController {
@@ -22,7 +24,7 @@ export class RotationController {
     if (!Number.isFinite(value)) return;
     this.#value = value;
     if (this.#host.world) this.#host.world.angle = value;
-    this.#host.syncViewTransform();
+    this.#host[APPLY_VIEW_TRANSFORM]();
     this.#host.emit('patchmap:rotated', { target: this.#host, value });
   }
 
@@ -43,7 +45,7 @@ export class RotationController {
 
   public apply(): void {
     if (this.#host.world) this.#host.world.angle = this.#value;
-    this.#host.syncViewTransform();
+    this.#host[APPLY_VIEW_TRANSFORM]();
   }
 }
 
@@ -81,14 +83,14 @@ export class FlipController {
     return { x: this.#x, y: this.#y };
   }
 
-  public toggleX(): boolean {
+  public toggleX(): { x: boolean; y: boolean } {
     this.x = !this.#x;
-    return this.#x;
+    return { x: this.#x, y: this.#y };
   }
 
-  public toggleY(): boolean {
+  public toggleY(): { x: boolean; y: boolean } {
     this.y = !this.#y;
-    return this.#y;
+    return { x: this.#x, y: this.#y };
   }
 
   public reset(): { x: boolean; y: boolean } {
@@ -117,7 +119,7 @@ export class FlipController {
     if (world) {
       world.scale.set(this.#x ? -1 : 1, this.#y ? -1 : 1);
     }
-    this.#host.syncViewTransform();
+    this.#host[APPLY_VIEW_TRANSFORM]();
     if (emit) {
       this.#host.emit('patchmap:flipped', {
         target: this.#host,

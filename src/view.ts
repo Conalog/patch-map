@@ -4,6 +4,7 @@ import type { Viewport } from 'pixi-viewport';
 import type { FitPadding, FocusFilter, FocusIds } from './contracts';
 import type { ManagedScene } from './scene/build-scene';
 import { ManagedNode } from './scene/managed-node';
+import { ZodValidationError } from './model/validation';
 
 export interface ViewBounds {
   x: number;
@@ -131,8 +132,12 @@ export const normalizeFitPadding = (padding: FitPadding | undefined): AxisPaddin
     throw new TypeError('Fit padding must be a number or an { x, y } object.');
   }
   const keys = Object.keys(padding);
-  if (keys.some((key) => key !== 'x' && key !== 'y')) {
-    throw new TypeError('Fit padding accepts only x and y keys.');
+  const invalidKeys = keys.filter((key) => key !== 'x' && key !== 'y');
+  if (invalidKeys.length > 0) {
+    const quoted = invalidKeys.map((key) => `'${key}'`).join(', ');
+    throw new ZodValidationError(
+      `Validation error: Unrecognized key(s) in object: ${quoted} at "padding"`,
+    );
   }
   const x = padding.x ?? 16;
   const y = padding.y ?? 16;
@@ -147,11 +152,15 @@ export const fitScaleFor = (
   screen: { width: number; height: number },
   padding: AxisPadding,
 ): number | null => {
-  const availableWidth = Math.max(0, screen.width - padding.x * 2);
-  const availableHeight = Math.max(0, screen.height - padding.y * 2);
   const candidates: number[] = [];
-  if (bounds.width > 0) candidates.push(availableWidth / bounds.width);
-  if (bounds.height > 0) candidates.push(availableHeight / bounds.height);
+  const paddedWidth = bounds.width + padding.x * 2;
+  const paddedHeight = bounds.height + padding.y * 2;
+  if (bounds.width > 0 && paddedWidth > 0) {
+    candidates.push(screen.width / paddedWidth);
+  }
+  if (bounds.height > 0 && paddedHeight > 0) {
+    candidates.push(screen.height / paddedHeight);
+  }
   if (candidates.length === 0) return null;
   const scale = Math.min(...candidates);
   return Number.isFinite(scale) && scale > 0 ? scale : null;

@@ -196,6 +196,12 @@ export type MaterializedMapData = MaterializedMapElement[];
 
 const WHITE_TINT = 0xffffff;
 
+/**
+ * Draw-time component props omit a default fontSize, while the live text
+ * handle resolves that missing value to 16px.
+ */
+export const LIVE_TEXT_COMPONENT_DEFAULT_FONT_SIZE = 16;
+
 const COMPONENT_TEXT_STYLE_DEFAULTS = {
   fontFamily: 'FiraCode',
   fontWeight: 400,
@@ -331,6 +337,38 @@ export const materializeComponent = (
         split: input.split ?? 0,
       } as MaterializedTextComponent;
   }
+};
+
+/**
+ * Resolve live-only text defaults without mutating draw-time materialized data.
+ */
+export const normalizeLiveTextComponent = (
+  component: MaterializedTextComponent,
+): MaterializedTextComponent => {
+  if (component.style.fontSize !== undefined) return component;
+  return {
+    ...component,
+    style: {
+      ...component.style,
+      fontSize: LIVE_TEXT_COMPONENT_DEFAULT_FONT_SIZE,
+    },
+  };
+};
+
+/**
+ * Normalize the text components owned by a live item or grid-item clone.
+ */
+export const normalizeLiveItemTextComponents = <
+  TItem extends MaterializedGridItem | MaterializedItemElement,
+>(item: TItem): TItem => {
+  let changed = false;
+  const components = item.components.map((component) => {
+    if (component.type !== 'text') return component;
+    const normalized = normalizeLiveTextComponent(component);
+    changed ||= normalized !== component;
+    return normalized;
+  });
+  return changed ? { ...item, components } as TItem : item;
 };
 
 /**

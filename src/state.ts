@@ -45,9 +45,9 @@ export class StateManager extends EventEmitter {
     this.#store = { ...store, stateManager: this };
   }
 
-  public register(name: string, StateClass: StateConstructor): this {
+  public register(name: string, StateClass: StateConstructor): void {
+    if (this.#destroyed) return;
     this.#registry.set(name, StateClass);
-    return this;
   }
 
   public unregister(name: string): boolean {
@@ -62,7 +62,7 @@ export class StateManager extends EventEmitter {
     const instance = new StateClass();
     instance.enter(this.#store, ...options);
     this.#stack.push({ name, instance });
-    this.#emitState('state:pushed', { name, state: instance });
+    this.#emitState('state:pushed', instance);
     return instance;
   }
 
@@ -72,32 +72,35 @@ export class StateManager extends EventEmitter {
     entry.instance.exit();
     entry.instance.destroy();
     this.#stack.at(-1)?.instance.resume();
-    this.#emitState('state:popped', { name: entry.name, state: entry.instance });
+    this.#emitState('state:popped', entry.instance);
     return entry.instance;
   }
 
-  public setState(name: string, ...options: unknown[]): State | null {
-    this.#reset(false);
+  public setState(name?: string, ...options: unknown[]): void {
+    if (this.#destroyed) return;
+    this.#reset(true);
+    if (name === undefined) return;
     const state = this.pushState(name, ...options);
-    if (state) this.#emitState('state:set', { name, state });
-    return state;
+    if (state) this.#emitState('state:set', state);
   }
 
   public resetState(): void {
     this.#reset(true);
   }
 
-  public activateModifier(name: string, event?: unknown): boolean {
-    if (this.#destroyed || this.#modifiers.has(name)) return false;
+  public activateModifier(name: string, event?: unknown): void {
+    if (
+      this.#destroyed ||
+      this.#modifiers.has(name) ||
+      !this.#isKnownModifier(name)
+    ) return;
     this.#modifiers.add(name);
-    this.#emitModifier('modifier:activated', { name, event });
-    return true;
+    this.#emitModifier('modifier:activated', event ?? this);
   }
 
-  public deactivateModifier(name: string, event?: unknown): boolean {
-    if (this.#destroyed || !this.#modifiers.delete(name)) return false;
-    this.#emitModifier('modifier:deactivated', { name, event });
-    return true;
+  public deactivateModifier(name: string, event?: unknown): void {
+    if (this.#destroyed || !this.#modifiers.delete(name)) return;
+    this.#emitModifier('modifier:deactivated', event ?? this);
   }
 
   public isModifierActive(name: string): boolean {
@@ -124,11 +127,11 @@ export class StateManager extends EventEmitter {
 
   public destroy(): void {
     if (this.#destroyed) return;
-    this.#reset(false);
+    this.#reset(true);
     this.#modifiers.clear();
     this.#registry.clear();
     this.#destroyed = true;
-    this.#emitState('state:destroyed', { target: this });
+    this.#emitState('state:destroyed', this);
     this.removeAllListeners();
   }
 
@@ -141,13 +144,25 @@ export class StateManager extends EventEmitter {
     if (emit) this.#emitState('state:reset', { target: this });
   }
 
-  #emitState(event: string, payload: unknown): void {
+  #emitState(event: string, target: unknown): void {
+    const payload = { target };
     this.emit(event, payload);
     this.emit('state:*', event, payload);
   }
 
-  #emitModifier(event: string, payload: unknown): void {
+  #emitModifier(event: string, target: unknown): void {
+    const payload = { target };
     this.emit(event, payload);
     this.emit('modifier:*', event, payload);
+  }
+
+  #isKnownModifier(name: string): boolean {
+    return (
+      this.#registry.has(name) ||
+      name === 'shift' ||
+      name === 'control' ||
+      name === 'meta' ||
+      name === 'alt'
+    );
   }
 }

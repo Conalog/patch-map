@@ -27,8 +27,8 @@ describe('StateManager public lifecycle', () => {
     expect(pushed).toHaveBeenCalledTimes(2);
     expect(popped).toHaveBeenCalledTimes(1);
     expect(set).toHaveBeenCalledTimes(1);
-    expect(reset).toHaveBeenCalledTimes(1);
-    expect(wildcard).toHaveBeenCalledTimes(5);
+    expect(reset).toHaveBeenCalledTimes(2);
+    expect(wildcard).toHaveBeenCalledTimes(6);
     manager.destroy();
   });
 
@@ -41,11 +41,11 @@ describe('StateManager public lifecycle', () => {
     manager.on('modifier:deactivated', deactivated);
     manager.on('modifier:*', wildcard);
 
-    expect(manager.activateModifier('shift', { key: 'Shift' })).toBe(true);
-    expect(manager.activateModifier('shift')).toBe(false);
+    expect(manager.activateModifier('shift', { key: 'Shift' })).toBeUndefined();
+    expect(manager.activateModifier('shift')).toBeUndefined();
     expect(manager.isModifierActive('shift')).toBe(true);
-    expect(manager.deactivateModifier('shift', { key: 'Shift' })).toBe(true);
-    expect(manager.deactivateModifier('shift')).toBe(false);
+    expect(manager.deactivateModifier('shift', { key: 'Shift' })).toBeUndefined();
+    expect(manager.deactivateModifier('shift')).toBeUndefined();
     expect(manager.isModifierActive('shift')).toBe(false);
     expect(activated).toHaveBeenCalledTimes(1);
     expect(deactivated).toHaveBeenCalledTimes(1);

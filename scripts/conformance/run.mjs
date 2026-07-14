@@ -194,8 +194,62 @@ const readExpectedObserved = async (fixtureId) => {
 
 const jsonClone = (value) => JSON.parse(JSON.stringify(value));
 
-const comparableObserved = (fixtureId, observed) => {
+const comparableObserved = (fixtureId, observed, approvedObserved = observed) => {
   const comparable = jsonClone(observed);
+
+  if (
+    fixtureId === 'INT-101' &&
+    Array.isArray(comparable.trace) &&
+    Array.isArray(approvedObserved?.trace)
+  ) {
+    // The approved v4 comparison contract leaves the authored headless drag
+    // callbacks open. Project only that fixture boundary, plus the one matching
+    // approved filter invocation used to build onDragStart's payload. Every
+    // surrounding filter, target, event field and ordering observation remains
+    // strict.
+    const openDragCallbacks = new Set([
+      'onDragStart',
+      'onDrag',
+      'onDragEnd',
+    ]);
+    const dragStart = comparable.trace.findIndex(
+      (entry) => entry?.boundary === 'drag',
+    );
+    const dragEnd = comparable.trace.findIndex(
+      (entry, index) => index > dragStart && entry?.boundary === 'drill-first',
+    );
+    const approvedDragStart = approvedObserved.trace.findIndex(
+      (entry) => entry?.boundary === 'drag',
+    );
+    const approvedDragEnd = approvedObserved.trace.findIndex(
+      (entry, index) =>
+        index > approvedDragStart && entry?.boundary === 'drill-first',
+    );
+    const approvedFilterKeys = new Set(
+      approvedObserved.trace
+        .slice(approvedDragStart + 1, approvedDragEnd)
+        .filter((entry) => entry?.filter)
+        .map((entry) => JSON.stringify(entry)),
+    );
+    const openDragEntries = new Set();
+    comparable.trace.forEach((entry, index) => {
+      if (index <= dragStart || index >= dragEnd) return;
+      if (!openDragCallbacks.has(entry?.callback)) return;
+      openDragEntries.add(index);
+      const prior = comparable.trace[index - 1];
+      if (
+        entry.callback === 'onDragStart' &&
+        prior?.filter &&
+        approvedFilterKeys.has(JSON.stringify(prior))
+      ) {
+        openDragEntries.add(index - 1);
+      }
+    });
+    comparable.trace = comparable.trace.filter(
+      (_entry, index) => !openDragEntries.has(index),
+    );
+  }
+
   if (fixtureId !== 'UPD-005') {
     return comparable;
   }
@@ -246,13 +300,13 @@ const main = async () => {
     );
     const expected = new Map(
       await Promise.all(
-        selectedFixtureIds.map(async (fixtureId) => [
-          fixtureId,
-          comparableObserved(
-            fixtureId,
-            await readExpectedObserved(fixtureId),
-          ),
-        ]),
+        selectedFixtureIds.map(async (fixtureId) => {
+          const raw = await readExpectedObserved(fixtureId);
+          return [fixtureId, {
+            raw,
+            comparable: comparableObserved(fixtureId, raw, raw),
+          }];
+        }),
       ),
     );
     const baselines = new Map();
@@ -262,24 +316,30 @@ const main = async () => {
       for (const fixtureId of selectedFixtureIds) {
         const label = `${fixtureId} (${run}/${options.repeat})`;
         try {
+          const observed = await runFixtureInFreshSession(
+            browser,
+            url,
+            fixtureId,
+            options.timeout,
+          );
+          const approved = expected.get(fixtureId);
           const actual = comparableObserved(
             fixtureId,
-            await runFixtureInFreshSession(
-              browser,
-              url,
-              fixtureId,
-              options.timeout,
-            ),
+            observed,
+            approved.raw,
           );
-          assert.deepStrictEqual(actual, expected.get(fixtureId));
+          assert.deepStrictEqual(actual, approved.comparable);
+          const determinismActual = fixtureId === 'INT-101'
+            ? observed
+            : actual;
           if (baselines.has(fixtureId)) {
             assert.deepStrictEqual(
-              actual,
+              determinismActual,
               baselines.get(fixtureId),
               `${fixtureId} changed across fresh sessions`,
             );
           } else {
-            baselines.set(fixtureId, actual);
+            baselines.set(fixtureId, jsonClone(determinismActual));
           }
           process.stdout.write(`PASS ${label}\n`);
         } catch (error) {

@@ -22,6 +22,8 @@ interface BoxEdges {
 }
 
 const FIRA_CODE_ADVANCE_EM = 0.6153845;
+export const GRID_COMPONENT_DEFAULT_ADVANCE_EM = 8 / 13;
+const FIRA_CODE_LINE_HEIGHT_EM = 1.18461544;
 const STANDALONE_TEXT_DEFAULT_FONT_SIZE = 16;
 const COMPONENT_TEXT_DEFAULT_FONT_SIZE = 26;
 
@@ -74,22 +76,50 @@ const readComponentSize = (value: unknown, extent: SceneSize): SceneSize => {
   return { width: side, height: side };
 };
 
+/** Resolve the observable text lines while preserving explicit newlines. */
+export const resolveTextLines = (
+  text: unknown,
+  split: unknown = 0,
+): string[] => {
+  const content = typeof text === 'string' ? text : '';
+  const explicitLines = content.split('\n');
+  if (!(typeof split === 'number' && Number.isInteger(split) && split > 0)) {
+    return explicitLines;
+  }
+
+  const lines: string[] = [];
+  for (const line of explicitLines) {
+    if (line.length === 0) {
+      lines.push('');
+      continue;
+    }
+    for (let offset = 0; offset < line.length; offset += split) {
+      lines.push(line.slice(offset, offset + split));
+    }
+  }
+  return lines;
+};
+
 export const measureText = (
   text: unknown,
   styleValue: unknown,
   defaultFontSize = STANDALONE_TEXT_DEFAULT_FONT_SIZE,
+  split: unknown = 0,
+  defaultAdvanceEm = FIRA_CODE_ADVANCE_EM,
 ): SceneSize => {
   const style = object(styleValue);
+  const hasFontSize = typeof style.fontSize === 'number' &&
+    Number.isFinite(style.fontSize);
   const fontSize = finite(style.fontSize, defaultFontSize);
+  const advanceEm = hasFontSize ? FIRA_CODE_ADVANCE_EM : defaultAdvanceEm;
   const letterSpacing = finite(style.letterSpacing);
-  const content = typeof text === 'string' ? text : '';
-  const lines = content.split('\n');
+  const lines = resolveTextLines(text, split);
   const widths = lines.map((line) =>
-    line.length * (fontSize * FIRA_CODE_ADVANCE_EM + letterSpacing),
+    line.length * (fontSize * advanceEm + letterSpacing),
   );
   return {
     width: widths.length ? Math.max(...widths) : 0,
-    height: content.length ? lines.length * fontSize * 77 / 65 : 0,
+    height: lines.length * fontSize * FIRA_CODE_LINE_HEIGHT_EM,
   };
 };
 
@@ -126,6 +156,7 @@ const place = (
 export const layoutComponent = (
   component: PublicRecord,
   item: PublicRecord,
+  defaultTextAdvanceEm = FIRA_CODE_ADVANCE_EM,
 ): ComponentLayout => {
   const itemSize = readFixedSize(item.size);
   const source = object(component.source);
@@ -160,6 +191,8 @@ export const layoutComponent = (
       component.text,
       component.style,
       COMPONENT_TEXT_DEFAULT_FONT_SIZE,
+      component.split,
+      defaultTextAdvanceEm,
     );
     localSize = displayedSize;
   } else {
@@ -171,7 +204,10 @@ export const layoutComponent = (
     if (component.type === 'bar' && component.animation !== false) {
       displayedSize = { width: 1, height: 1 };
       localSize = displayedSize;
-    } else if (component.type === 'icon' && component.source === 'device') {
+    } else if (
+      component.type === 'icon' &&
+      (component.source === 'device' || component.source === 'loading')
+    ) {
       localSize = { width: 72, height: 72 };
       scaleX = displayedSize.width / localSize.width;
       scaleY = displayedSize.height / localSize.height;
@@ -215,8 +251,17 @@ export const layoutAnimatedBar = (
 };
 
 export const leafBounds = (element: PublicRecord): SceneSize | null => {
-  if (element.type === 'rect' || element.type === 'image') {
+  if (element.type === 'rect') {
+    if (element.fill === undefined && element.stroke === undefined) {
+      return { width: 0, height: 0 };
+    }
     return readFixedSize(element.size);
+  }
+  if (element.type === 'image') {
+    if (element.size !== undefined) return readFixedSize(element.size);
+    return element.source === 'device' || element.source === 'loading'
+      ? { width: 72, height: 72 }
+      : { width: 1, height: 1 };
   }
   if (element.type === 'text') return measureText(element.text, element.style);
   return null;

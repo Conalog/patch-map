@@ -176,31 +176,37 @@ describe('AggregateRenderLayer', () => {
     expect(renderLayer.children[0]).toBe(first);
   });
 
-  it('keeps explicitly hidden bars invisible while rendering trusted-update bars', () => {
+  it('omits hidden bars while rendering trusted-update bars', () => {
     const scene = buildManagedScene(materializeMapData([{
       type: 'item',
       id: 'bar-owner',
       size: 40,
-      components: [{
-        type: 'bar',
-        id: 'bar',
-        show: false,
-        source: { type: 'rect', fill: '#fff' },
-        size: 20,
-        animation: false,
-      }],
+      components: [
+        {
+          type: 'bar',
+          id: 'hidden-bar',
+          show: false,
+          source: { type: 'rect', fill: '#fff' },
+          size: 20,
+          animation: false,
+        },
+        {
+          type: 'bar',
+          id: 'trusted-bar',
+          source: { type: 'rect', fill: '#fff' },
+          size: 20,
+          animation: false,
+        },
+      ],
     }]), materializeTheme());
     const world = new Container();
     worlds.push(world);
     world.addChild(...scene.roots);
     const renderLayer = layer();
 
-    renderLayer.renderScene(scene.roots);
-    expect(renderLayer.children).toHaveLength(0);
-
-    const bar = scene.byId.get('bar');
-    if (!bar) throw new Error('Expected managed bar');
-    bar.props = { ...bar.props, show: true };
+    expect(scene.byId.has('hidden-bar')).toBe(false);
+    const bar = scene.byId.get('trusted-bar');
+    if (!bar) throw new Error('Expected trusted-update bar');
     bar.renderable = false;
     renderLayer.renderScene(scene.roots);
     expect(renderLayer.children).toHaveLength(1);

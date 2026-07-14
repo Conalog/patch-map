@@ -276,6 +276,8 @@ export class SelectionState extends State {
   #dragging = false;
   #suppressNextClick = false;
   #dragStart: PointData | null = null;
+  #lastDragPoint: PointData | null = null;
+  #pressedTarget: SelectionNode | null = null;
   #dragSelection: SelectionNode[] = [];
   #paintSelection = new Set<SelectionNode>();
   #lastPaintPoint: PointData | null = null;
@@ -309,13 +311,19 @@ export class SelectionState extends State {
   }
 
   public pointerdown(event: SelectionPointerEvent): void {
-    if (event.button !== undefined && event.button !== 0) return;
+    if (event.button !== undefined && event.button !== 0) {
+      if (event.button === 2) {
+        this.#options.onDown?.(this.#resolveEventTarget(event), event);
+      }
+      return;
+    }
 
     this.#resetInteraction();
     this.#pointerIsActive = true;
     this.#pointerId = event.pointerId ?? null;
     this.#dragStart = finitePoint(event.global);
     const target = this.#resolveEventTarget(event);
+    this.#pressedTarget = target;
     this.#options.onDown?.(target, event);
   }
 
@@ -365,7 +373,7 @@ export class SelectionState extends State {
   }
 
   public pointerover(event: SelectionPointerEvent): void {
-    if (this.#dragging || !this.#options.onOver) return;
+    if (this.#pointerIsActive || this.#dragging || !this.#options.onOver) return;
     const target = this.#resolveEventTarget(event);
     if (target === this.#lastOver) return;
     this.#lastOver = target;
@@ -377,7 +385,16 @@ export class SelectionState extends State {
 
     if (this.#dragging) {
       const point = finitePoint(event.global);
-      if (point) this.#updateDragSelection(event, point);
+      if (
+        point &&
+        (point.x !== this.#lastDragPoint?.x || point.y !== this.#lastDragPoint?.y)
+      ) {
+        this.#updateDragSelection(event, point);
+      }
+      const releaseTarget = this.#resolveEventTarget(event) ?? this.#pressedTarget;
+      if (completedInside && this.#pressedTarget) {
+        this.#options.onUp?.(releaseTarget, event);
+      }
       this.#options.onDragEnd?.([...this.#dragSelection], event);
       this.#resetInteraction();
       this.#suppressNextClick = completedInside;
@@ -415,6 +432,7 @@ export class SelectionState extends State {
   #updateDragSelection(event: SelectionPointerEvent, point: PointData): void {
     const start = this.#dragStart;
     if (!start) return;
+    this.#lastDragPoint = { x: point.x, y: point.y };
 
     if (this.#options.paintSelection) {
       const previous = this.#lastPaintPoint ?? start;
@@ -423,7 +441,9 @@ export class SelectionState extends State {
           continue;
         }
         const resolved = this.#resolveUnit(candidate, event);
-        if (resolved) this.#paintSelection.add(resolved);
+        if (resolved && this.#passesFilter(resolved)) {
+          this.#paintSelection.add(resolved);
+        }
       }
       this.#lastPaintPoint = { x: point.x, y: point.y };
       this.#dragSelection = [...this.#paintSelection];
@@ -437,7 +457,7 @@ export class SelectionState extends State {
     for (const candidate of this.#selectionLeaves()) {
       if (!intersectsRectangle(selectionRectangle, candidate.getBounds())) continue;
       const resolved = this.#resolveUnit(candidate, event);
-      if (resolved && !seen.has(resolved)) {
+      if (resolved && this.#passesFilter(resolved) && !seen.has(resolved)) {
         seen.add(resolved);
         selected.push(resolved);
       }
@@ -451,7 +471,7 @@ export class SelectionState extends State {
     if (!raw) return null;
     const resolved = this.#resolveUnit(raw, event);
     if (!resolved || !this.#options.drillDown || this.#deepSelectActive(event)) {
-      return resolved;
+      return resolved && this.#passesFilter(resolved) ? resolved : null;
     }
 
     const path = this.#selectionPath(raw);
@@ -460,21 +480,20 @@ export class SelectionState extends State {
     const detail = typeof event.detail === 'number' && Number.isFinite(event.detail)
       ? Math.max(1, Math.floor(event.detail))
       : 1;
-    return path[Math.min(path.length - 1, startIndex + detail - 1)] ?? resolved;
+    const drilled = path[Math.min(path.length - 1, startIndex + detail - 1)] ?? resolved;
+    return this.#passesFilter(drilled) ? drilled : null;
   }
 
   #resolveEventTarget(event: SelectionPointerEvent): SelectionNode | null {
     const raw = this.#rawEventTarget(event);
-    return raw ? this.#resolveUnit(raw, event) : null;
+    if (!raw) return null;
+    const resolved = this.#resolveUnit(raw, event);
+    return resolved && this.#passesFilter(resolved) ? resolved : null;
   }
 
   #rawEventTarget(event: SelectionPointerEvent): SelectionNode | null {
     const direct = this.#nearestSelectionNode(event.target);
-    if (
-      direct &&
-      this.#nodeIsVisible(direct) &&
-      this.#pathPassesFilter(direct)
-    ) {
+    if (direct && this.#nodeIsVisible(direct)) {
       return direct;
     }
     const point = finitePoint(event.global);
@@ -501,7 +520,7 @@ export class SelectionState extends State {
           visit(child);
           continue;
         }
-        if (!this.#nodeIsVisible(child) || !this.#passesFilter(child)) continue;
+        if (!this.#nodeIsVisible(child)) continue;
         if (CONTAINER_TYPES.has(child.type)) {
           const selectableChildren = child.children.some(isSelectionNode);
           if (selectableChildren) {
@@ -573,11 +592,6 @@ export class SelectionState extends State {
     return this.#options.filter ? Boolean(this.#options.filter(node)) : true;
   }
 
-  #pathPassesFilter(node: SelectionNode): boolean {
-    const path = this.#selectionPath(node);
-    return path.length > 0 && path.every((candidate) => this.#passesFilter(candidate));
-  }
-
   #nodeIsVisible(node: SelectionNode): boolean {
     const root = this.#host?.world;
     let current: Container | null = node;
@@ -627,6 +641,8 @@ export class SelectionState extends State {
     this.#dragging = false;
     this.#suppressNextClick = false;
     this.#dragStart = null;
+    this.#lastDragPoint = null;
+    this.#pressedTarget = null;
     this.#dragSelection = [];
     this.#paintSelection.clear();
     this.#lastPaintPoint = null;

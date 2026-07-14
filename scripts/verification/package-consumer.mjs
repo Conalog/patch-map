@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { createServer } from 'node:http';
 import {
   lstat,
   mkdir,
@@ -17,6 +16,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 import { chromium } from 'playwright';
+import { createServer as createViteServer } from 'vite';
 
 const execute = promisify(execFile);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -153,67 +153,41 @@ const packageExportTargets = (value, conditions = [], output = []) => {
   return output;
 };
 
-const closeHttpServer = async (server) => {
-  if (!server.listening) return;
-  await new Promise((resolveClose, reject) => {
-    server.close((error) => (error ? reject(error) : resolveClose()));
-  });
-};
-
 const serveConsumer = async () => {
-  const pixi = await readFile(
-    join(consumerDirectory, 'node_modules/pixi.js/dist/pixi.min.js'),
-    'utf8',
-  );
-  const patchMap = await readFile(
-    join(
-      consumerDirectory,
-      'node_modules/@conalog/patch-map/dist/index.umd.js',
-    ),
-    'utf8',
-  );
   const html = `<!doctype html>
     <meta charset="utf-8">
     <div id="host"></div>
-    <script src="/pixi.js"></script>
-    <script src="/patch-map.js"></script>`;
-  const responses = new Map([
-    ['/', ['text/html; charset=utf-8', html]],
-    ['/pixi.js', ['text/javascript; charset=utf-8', pixi]],
-    ['/patch-map.js', ['text/javascript; charset=utf-8', patchMap]],
+    <script type="module" src="/umd-consumer.mjs"></script>`;
+  const module = `import * as PIXI from 'pixi.js';
+globalThis.PIXI = PIXI;
+await new Promise((resolve, reject) => {
+  const script = document.createElement('script');
+  script.src = '/node_modules/@conalog/patch-map/dist/index.umd.js';
+  script.addEventListener('load', resolve, { once: true });
+  script.addEventListener('error', reject, { once: true });
+  document.head.append(script);
+});
+`;
+  await Promise.all([
+    writeFile(join(consumerDirectory, 'umd-consumer.html'), html),
+    writeFile(join(consumerDirectory, 'umd-consumer.mjs'), module),
   ]);
-  const server = createServer((request, response) => {
-    const [type, body] = responses.get(request.url ?? '/') ?? [
-      'text/plain; charset=utf-8',
-      'not found',
-    ];
-    response.writeHead(responses.has(request.url ?? '/') ? 200 : 404, {
-      'content-type': type,
-    });
-    response.end(body);
+  const server = await createViteServer({
+    root: consumerDirectory,
+    configFile: false,
+    logLevel: 'error',
+    server: { host: '127.0.0.1', port: 0, strictPort: false },
   });
   try {
-    await new Promise((accept, reject) => {
-      const onError = (error) => {
-        server.off('listening', onListening);
-        reject(error);
-      };
-      const onListening = () => {
-        server.off('error', onError);
-        accept();
-      };
-      server.once('error', onError);
-      server.once('listening', onListening);
-      server.listen(0, '127.0.0.1');
-    });
-    const address = server.address();
-    assert(address && typeof address !== 'string');
+    await server.listen();
+    const baseUrl = server.resolvedUrls?.local[0];
+    assert(baseUrl, 'Vite did not expose a packed-consumer URL');
     return {
       server,
-      url: `http://127.0.0.1:${address.port}/`,
+      url: new URL('/umd-consumer.html', baseUrl).href,
     };
   } catch (error) {
-    await closeHttpServer(server).catch(() => undefined);
+    await server.close().catch(() => undefined);
     throw error;
   }
 };
@@ -396,7 +370,7 @@ for (const helper of [
   intersectPoint,
   isMoved,
 ]) assert.equal(typeof helper, 'function');
-assert.deepEqual(selector('$.value', { value: 7 }), [7]);
+assert.deepEqual(selector({ value: 7 }, '$.value'), [7]);
 assert.match(uid(), /^[0-9A-Z_a-z-]{15}$/);
 `,
   );
@@ -451,7 +425,7 @@ const transformer = new Transformer();
 const history = new UndoRedoManager();
 const state = new ConsumerState();
 const command = new ConsumerCommand();
-const selected = selector('$.value', { value: 7 });
+const selected = selector({ value: 7 }, '$.value');
 const generatedId: string = uid();
 const propagated = PROPAGATE_EVENT;
 const publicHelpers = [
@@ -514,9 +488,13 @@ async function minimalFlow(host: HTMLElement): Promise<number> {
   patchmap.stateManager?.setState('selection', {
     onClick: (target: unknown) => target,
   });
-  patchmap.animationContext = { consumer: true };
+  const animationContext = patchmap.animationContext;
   patchmap.destroy();
-  return drawn.length + matches.length + updated.length + observations.length;
+  return drawn.length
+    + matches.length
+    + updated.length
+    + observations.length
+    + Number(animationContext !== undefined);
 }
 
 void [
@@ -577,6 +555,7 @@ void [
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 320, height: 240 } });
     await page.goto(url, { waitUntil: 'load' });
+    await page.waitForFunction(() => typeof window.PatchMap?.Patchmap === 'function');
     const observed = await page.evaluate(async () => {
       const api = window.PatchMap;
       const host = document.querySelector('#host');
@@ -639,7 +618,7 @@ void [
   } finally {
     const cleanupResults = await Promise.allSettled([
       browser?.close() ?? Promise.resolve(),
-      closeHttpServer(server),
+      server.close(),
     ]);
     const cleanupErrors = cleanupResults
       .filter(({ status }) => status === 'rejected')

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 const REQUIRED_MANIFEST_SHA256 =
-  'd72131daefb8142293c68f79bfce8386e3b5e93a77f2ec37702b04153cafde4e';
+  '91315bb3449f6650ec89033386fb2c167bceca3a02a31591b23119dcc0a04a5f';
 const IMPLEMENTATION_MUTABLE_PAYLOADS = new Set(['package.json']);
 const PUBLIC_ROOT_FILES = new Set([
   'LICENSE',
@@ -146,7 +146,7 @@ const manifest = JSON.parse(manifestBytes.toString('utf8'));
 assert.equal(manifest.schemaVersion, 2);
 assert.equal(manifest.implementationHandoffAllowed, true);
 assert(Array.isArray(manifest.files));
-assert.equal(manifest.files.length, 50);
+assert.equal(manifest.files.length, 72);
 
 const verified = [];
 const implementationMutable = [];

@@ -14,16 +14,23 @@ import {
   type MaterializedItemElement,
   type MaterializedMapElement,
 } from '../model/materialize';
+import { validateMapData, ZodValidationError } from '../model/validation';
 import {
   applyManagedComponentLayout,
+  createGroupPublicVisual,
   layoutManagedComponentNode,
   liveElementProps,
   relayoutManagedNode,
 } from '../scene/build-scene';
-import { layoutComponent, type ComponentLayout } from '../scene/layout';
+import {
+  GRID_COMPONENT_DEFAULT_ADVANCE_EM,
+  layoutComponent,
+  type ComponentLayout,
+} from '../scene/layout';
 import {
   getManagedBatchToken,
   getManagedTheme,
+  markManagedGridComponent,
   ManagedNode,
   setManagedTheme,
   type ManagedNodeProps,
@@ -46,6 +53,8 @@ export interface ManagedUpdateOptions {
   refresh?: boolean;
   relativeTransform?: boolean;
   rotateOrigin?: 'center';
+  validateSchema?: boolean;
+  normalize?: boolean;
   /** Internal marker: the caller already owns a detached changes object. */
   ownedChanges?: boolean;
 }
@@ -85,18 +94,19 @@ const createManagedElementNode = (
     const children = element.children.map((child) =>
       createManagedElementNode(child, theme));
     if (children.length > 0) node.addChild(...children);
+    node.addChild(createGroupPublicVisual());
   } else if (element.type === 'grid') {
     const children = materializeGridItems(element).map((child) =>
       createManagedElementNode(child, theme));
     if (children.length > 0) node.addChild(...children);
   } else if (element.type === 'item') {
-    const children = element.components.map(
-      (component) => {
+    const children = element.components
+      .filter((component) => component.show !== false)
+      .map((component) => {
         const child = new ManagedNode(component as ManagedNodeProps);
         if (theme) setManagedTheme(child, theme);
         return child;
-      },
-    );
+      });
     if (children.length > 0) node.addChild(...children);
   }
   relayoutManagedNode(node);
@@ -107,14 +117,16 @@ const alignGridItemComponentIds = (
   node: ManagedNode,
   snapshot: MaterializedItemElement,
 ): MaterializedItemElement => {
-  const existingNodes = node.children.map((child) => child as ManagedNode);
+  const existingComponents = (
+    node.props as unknown as MaterializedItemElement
+  ).components;
   const patches = snapshot.components.map((component) => {
     const patch = { ...record(component) };
     delete patch.id;
     return patch as UpdateRecord;
   });
   const matches = matchComponentUpdates(
-    existingNodes.map((child) => record(child.props) as UpdateRecord),
+    existingComponents.map((component) => record(component) as UpdateRecord),
     patches,
   );
   return {
@@ -123,35 +135,87 @@ const alignGridItemComponentIds = (
       const existingIndex = matches[index]?.existingIndex;
       return existingIndex === null || existingIndex === undefined
         ? component
-        : { ...component, id: existingNodes[existingIndex]!.id };
+        : { ...component, id: existingComponents[existingIndex]!.id };
     }),
   };
+};
+
+const appendGridTemplateComponents = (
+  node: ManagedNode,
+  snapshot: MaterializedItemElement,
+  templateComponents: readonly MaterializedItemComponent[],
+): MaterializedItemElement => {
+  const components = [
+    ...(node.props as unknown as MaterializedItemElement).components,
+  ];
+  for (const component of templateComponents) {
+    const existingIndex = components.findIndex(
+      (candidate) => candidate.id === component.id,
+    );
+    if (existingIndex < 0) components.push(component);
+    else components[existingIndex] = component;
+  }
+  return { ...snapshot, components };
 };
 
 const reconcileManagedElementChildren = (
   parent: ManagedNode,
   snapshots: readonly MaterializedMapElement[],
   alignGridComponents = false,
+  appendedGridComponents?: readonly MaterializedItemComponent[],
 ): void => {
-  const existing = parent.children.map((child) => child as ManagedNode);
+  const existing = parent.children.filter(
+    (child): child is ManagedNode => child instanceof ManagedNode,
+  );
+  const publicVisuals = parent.children.filter(
+    (child) => !(child instanceof ManagedNode),
+  );
   const theme = getManagedTheme(parent);
   const used = new Set<number>();
   const next = snapshots.map((snapshot) => {
-    const existingIndex = existing.findIndex(
+    let existingIndex = existing.findIndex(
       (candidate, index) =>
         !used.has(index) &&
         candidate.id === snapshot.id &&
         candidate.type === snapshot.type,
     );
+    if (existingIndex < 0 && typeof snapshot.label === 'string') {
+      existingIndex = existing.findIndex(
+        (candidate, index) =>
+          !used.has(index) &&
+          candidate.type === snapshot.type &&
+          record(candidate.props).label === snapshot.label,
+      );
+    }
     if (existingIndex < 0) return createManagedElementNode(snapshot, theme);
 
     used.add(existingIndex);
     const candidate = existing[existingIndex]!;
-    const compatibleSnapshot =
-      alignGridComponents && snapshot.type === 'item'
-        ? alignGridItemComponentIds(candidate, snapshot)
-        : snapshot;
-    replaceManagedSnapshot(candidate, compatibleSnapshot as ManagedNodeProps);
+    const retainedDimensions = candidate.id === snapshot.id
+      ? null
+      : { width: candidate.width, height: candidate.height };
+    const compatibleSnapshot = alignGridComponents && snapshot.type === 'item'
+      ? appendedGridComponents
+        ? appendGridTemplateComponents(
+          candidate,
+          snapshot,
+          appendedGridComponents,
+        )
+        : alignGridItemComponentIds(candidate, snapshot)
+      : candidate.id === snapshot.id
+        ? snapshot
+        : { ...snapshot, id: candidate.id };
+    replaceManagedSnapshot(
+      candidate,
+      compatibleSnapshot as ManagedNodeProps,
+      { normalizeLiveText: appendedGridComponents === undefined },
+    );
+    if (retainedDimensions) {
+      candidate.reportDimensions(
+        retainedDimensions.width,
+        retainedDimensions.height,
+      );
+    }
     return candidate;
   });
 
@@ -160,6 +224,7 @@ const reconcileManagedElementChildren = (
     if (!used.has(index) && !child.destroyed) child.destroy({ children: true });
   });
   if (next.length > 0) parent.addChild(...next);
+  if (publicVisuals.length > 0) parent.addChild(...publicVisuals);
 };
 
 const reconcileGroupChildren = (
@@ -172,8 +237,14 @@ const reconcileGroupChildren = (
 const reconcileGridItems = (
   node: ManagedNode,
   grid: MaterializedGridElement,
+  appendTemplate = false,
 ): void => {
-  reconcileManagedElementChildren(node, materializeGridItems(grid), true);
+  reconcileManagedElementChildren(
+    node,
+    materializeGridItems(grid),
+    true,
+    appendTemplate ? grid.item.components : undefined,
+  );
 };
 
 const relativeChanges = (
@@ -198,6 +269,154 @@ const changesWithoutComponents = (
 ): Record<string, unknown> => Object.fromEntries(
   Object.entries(changes).filter(([key]) => key !== 'components'),
 );
+
+/**
+ * Associate visible live handles with their parent component entries.
+ * Parent props also retain hidden components, while replace updates may give a
+ * retained live handle a different ID from the newly materialized parent entry.
+ */
+const componentParentIndices = (
+  parent: ManagedNode,
+): Map<ManagedNode, number> => {
+  const components = (
+    parent.props as unknown as MaterializedItemElement
+  ).components;
+  const children = parent.children.map((child) => child as ManagedNode);
+  const assignedChildren = new Set<ManagedNode>();
+  const assignedComponents = new Set<number>();
+  const indices = new Map<ManagedNode, number>();
+
+  const assign = (
+    predicate: (
+      component: MaterializedItemComponent,
+      child: ManagedNode,
+    ) => boolean,
+  ): void => {
+    for (const child of children) {
+      if (assignedChildren.has(child)) continue;
+      const index = components.findIndex(
+        (component, componentIndex) =>
+          !assignedComponents.has(componentIndex) && predicate(component, child),
+      );
+      if (index < 0) continue;
+      assignedChildren.add(child);
+      assignedComponents.add(index);
+      indices.set(child, index);
+    }
+  };
+
+  assign((component, child) =>
+    component.type === child.type && component.id === child.id);
+  assign((component, child) => {
+    const label = record(child.props).label;
+    return typeof label === 'string' &&
+      component.type === child.type &&
+      component.label === label;
+  });
+  assign((component, child) => component.type === child.type);
+  return indices;
+};
+
+const componentReconciliationValues = (
+  parent: ManagedNode,
+): UpdateRecord[] => {
+  const values = (
+    parent.props as unknown as MaterializedItemElement
+  ).components.map((component) => record(component) as UpdateRecord);
+  for (const [child, index] of componentParentIndices(parent)) {
+    values[index] = record(child.props) as UpdateRecord;
+  }
+  return values;
+};
+
+const validationSeed = (
+  node: ManagedNode,
+  options: ManagedUpdateOptions,
+): MapElementData => {
+  const strategy = options.mergeStrategy ?? 'merge';
+  const rawChanges = record(options.changes);
+  const changes = options.relativeTransform
+    ? relativeChanges(node.props, rawChanges)
+    : cloneUpdateValue(rawChanges);
+
+  if (isComponentNode(node)) {
+    const parent = node.parent as ManagedNode;
+    const components = componentReconciliationValues(parent);
+    const index = componentParentIndices(parent).get(node) ?? -1;
+    if (index >= 0) {
+      components[index] = applyMergeStrategy(
+        record(node.props) as UpdateRecord,
+        changes,
+        strategy,
+      );
+    }
+    return {
+      ...record(parent.props),
+      components,
+    } as unknown as MapElementData;
+  }
+
+  if (node.type === 'item' && Array.isArray(changes.components)) {
+    const reconciliation = reconcileComponentArray(
+      componentReconciliationValues(node),
+      changes.components.map((component) => record(component) as UpdateRecord),
+      strategy,
+    );
+    return {
+      ...applyMergeStrategy(
+        record(node.props),
+        changesWithoutComponents(changes),
+        strategy,
+      ),
+      components: reconciliation.entries.map((entry) => entry.merged),
+    } as unknown as MapElementData;
+  }
+
+  return applyMergeStrategy(
+    record(node.props),
+    changes,
+    strategy,
+  ) as unknown as MapElementData;
+};
+
+const validateManagedUpdate = (
+  node: ManagedNode,
+  options: ManagedUpdateOptions,
+): void => {
+  if (options.validateSchema === false) return;
+  const changes = record(options.changes);
+  if (
+    typeof changes.show !== 'undefined' &&
+    typeof changes.show !== 'boolean'
+  ) {
+    throw new ZodValidationError(
+      `Validation error: Expected boolean, received ${typeof changes.show} at "show"`,
+    );
+  }
+  if (
+    !isComponentNode(node) &&
+    typeof changes.type === 'string' &&
+    changes.type !== node.type
+  ) {
+    const unknown = Object.keys(changes).filter(
+      (key) => key !== 'type' && !(key in record(node.props)),
+    );
+    const suffix = unknown.length > 0
+      ? `; Unrecognized key(s) in object: ${unknown.map((key) => `'${key}'`).join(', ')}`
+      : '';
+    throw new ZodValidationError(
+      `Validation error: Invalid literal value, expected "${node.type}" at "type"${suffix}`,
+    );
+  }
+  try {
+    validateMapData([validationSeed(node, options)]);
+  } catch (error) {
+    if (!(error instanceof ZodValidationError)) throw error;
+    throw new ZodValidationError(
+      error.message.replaceAll('"[0].', '"').replaceAll(' at index 0', ''),
+    );
+  }
+};
 
 const materializeReconciledComponent = (
   entry: ReconciledComponentEntry,
@@ -249,16 +468,16 @@ const reconcileItemComponents = (
   refresh: boolean,
 ): MaterializedItemComponent[] => {
   const existingNodes = node.children.map((child) => child as ManagedNode);
-  const existingValues = existingNodes.map(
-    (child) => record(child.props) as UpdateRecord,
-  );
+  const existingValues = componentReconciliationValues(node);
   const reconciliation = reconcileComponentArray(existingValues, incoming, strategy);
   const nextNodes: ManagedNode[] = [];
   const nextValues = reconciliation.entries.map((entry) => {
     const liveProps = materializeReconciledComponent(entry);
-    const existingNode = entry.existingIndex === null
-      ? undefined
-      : existingNodes[entry.existingIndex];
+    const existingNode = existingNodes.find(
+      (candidate) =>
+        candidate.id === liveProps.id && candidate.type === liveProps.type,
+    );
+    if (liveProps.show === false) return parentComponentValue(entry, strategy);
     const liveNode = existingNode ?? new ManagedNode(liveProps as ManagedNodeProps);
     if (existingNode) existingNode.replaceProps(liveProps as ManagedNodeProps, { refresh });
 
@@ -268,7 +487,9 @@ const reconcileItemComponents = (
     if (
       entry.patch &&
       entry.patch.type === 'bar' &&
-      !Object.prototype.hasOwnProperty.call(entry.patch, 'source')
+      !Object.prototype.hasOwnProperty.call(entry.patch, 'source') &&
+      liveProps.type === 'bar' &&
+      liveProps.animation === false
     ) {
       liveNode.renderable = false;
     }
@@ -326,19 +547,22 @@ const updateComponentNode = (
 ): void => {
   const parent = node.parent;
   if (!(parent instanceof ManagedNode) || parent.type !== 'item') return;
+  const managedParent = parent as ManagedNode;
   const seed = applyMergeStrategy(node.props, changes, strategy);
   const next = materializeComponent(asComponent(seed as unknown as UpdateRecord));
   if (next.type !== node.type) {
     throw new TypeError('Component update changed its public type.');
   }
   node.replaceProps(next as ManagedNodeProps, { refresh });
-  const index = parent.children.indexOf(node);
-  const components = [...(record(parent.props).components as MaterializedItemComponent[] ?? [])];
+  const index = componentParentIndices(managedParent).get(node) ?? -1;
+  const components = [...(record(managedParent.props).components as MaterializedItemComponent[] ?? [])];
   if (index >= 0) components[index] = next;
   const parentSeed = { ...record(parent.props), components };
-  const materializedParent = materializeElement(parentSeed as unknown as MapElementData);
+  const materializedParent = materializeElement(
+    parentSeed as unknown as MapElementData,
+  );
   if (materializedParent.type === 'item') {
-    parent.replaceProps(materializedParent as ManagedNodeProps, { refresh });
+    managedParent.replaceProps(materializedParent as ManagedNodeProps, { refresh });
     layoutManagedComponentNode(node, materializedParent);
   }
 };
@@ -414,7 +638,11 @@ const updateElementNode = (
       )
     )
   ) {
-    reconcileGridItems(node, next);
+    reconcileGridItems(
+      node,
+      next,
+      hasOwn(record(changes.item), 'components'),
+    );
   }
   relayoutManagedNode(node);
 };
@@ -449,6 +677,7 @@ export const applyManagedUpdate = (
   node: ManagedNode,
   options: ManagedUpdateOptions,
 ): void => {
+  node.clearReportedDimensions();
   const strategy = options.mergeStrategy ?? 'merge';
   const refresh = options.refresh === true;
   const rawChanges = record(options.changes);
@@ -458,6 +687,14 @@ export const applyManagedUpdate = (
       ? rawChanges
       : cloneUpdateValue(rawChanges);
   const beforeCenter = options.rotateOrigin === 'center' ? centerOf(node) : null;
+
+  if (options.normalize === false) {
+    const next = applyMergeStrategy(node.props, changes, strategy);
+    node.replaceProps(next as ManagedNodeProps, { refresh });
+    node.suppressPublicBounds();
+    return;
+  }
+  node.suppressPublicBounds(false);
 
   if (isComponentNode(node)) {
     updateComponentNode(node, changes, strategy, refresh);
@@ -507,13 +744,15 @@ const prepareFastComponentTargets = (
   for (const item of targets) {
     if (item.type !== 'item' || item.destroyed) return null;
     const matching = item.children
-      .map((child, index) => ({ child: child as ManagedNode, index }))
-      .filter(({ child }) => child.type === type);
+      .map((child) => child as ManagedNode)
+      .filter((child) => child.type === type);
     if (matching.length !== 1) return null;
+    const index = componentParentIndices(item).get(matching[0]!);
+    if (index === undefined) return null;
     prepared.push({
       item,
-      component: matching[0]!.child,
-      index: matching[0]!.index,
+      component: matching[0]!,
+      index,
     });
   }
   return { patch, targets: prepared };
@@ -552,6 +791,7 @@ const applyFastComponentTargets = (
         layout = layoutComponent(
           next as unknown as Record<string, unknown>,
           item.props as unknown as Record<string, unknown>,
+          GRID_COMPONENT_DEFAULT_ADVANCE_EM,
         );
         layouts.set(itemBatchToken, layout);
       }
@@ -561,7 +801,8 @@ const applyFastComponentTargets = (
     }
     if (
       next.type === 'bar' &&
-      !Object.prototype.hasOwnProperty.call(prepared.patch, 'source')
+      !Object.prototype.hasOwnProperty.call(prepared.patch, 'source') &&
+      next.animation === false
     ) {
       component.renderable = false;
     }
@@ -587,6 +828,9 @@ export const applyManagedUpdates = (
   options: ManagedUpdateOptions,
 ): ManagedUpdateEffects => {
   const changes = cloneUpdateValue(record(options.changes));
+  for (const target of targets) {
+    validateManagedUpdate(target, { ...options, changes, ownedChanges: true });
+  }
   const prepared = prepareFastComponentTargets(targets, changes, options);
   if (prepared) {
     applyFastComponentTargets(prepared);
@@ -615,6 +859,8 @@ const replaceItemComponentsFromSnapshot = (
   node: ManagedNode,
   snapshot: MaterializedItemElement,
 ): void => {
+  const gridItem = getManagedBatchToken(node) !== undefined ||
+    (node.parent instanceof ManagedNode && node.parent.type === 'grid');
   const existingNodes = node.children.map((child) => child as ManagedNode);
   const matches = matchComponentUpdates(
     existingNodes.map((child) => record(child.props) as UpdateRecord),
@@ -626,7 +872,13 @@ const replaceItemComponentsFromSnapshot = (
       ? undefined
       : existingNodes[match.existingIndex];
     const child = existing ?? new ManagedNode(props as ManagedNodeProps);
-    if (existing) existing.replaceProps(props as ManagedNodeProps, { refresh: true });
+    if (existing) {
+      existing.replaceProps(props as ManagedNodeProps, {
+        preserveBatch: gridItem,
+        refresh: true,
+      });
+    }
+    if (gridItem) markManagedGridComponent(child);
     return child;
   });
 
@@ -644,11 +896,17 @@ const replaceItemComponentsFromSnapshot = (
 };
 
 /** Restore an owned materialized snapshot while preserving compatible live handles. */
+export interface ReplaceManagedSnapshotOptions {
+  normalizeLiveText?: boolean;
+}
+
 export const replaceManagedSnapshot = (
   node: ManagedNode,
   snapshot: ManagedNodeProps,
+  options: ReplaceManagedSnapshotOptions = {},
 ): void => {
   if (node.destroyed) return;
+  node.clearReportedDimensions();
 
   if (isComponentNode(node)) {
     const parent = node.parent as ManagedNode;
@@ -657,7 +915,7 @@ export const replaceManagedSnapshot = (
       throw new TypeError('Component snapshot changed its public type.');
     }
     node.replaceProps(next as ManagedNodeProps, { refresh: true });
-    const index = parent.children.indexOf(node);
+    const index = componentParentIndices(parent).get(node) ?? -1;
     const components = [
       ...((record(parent.props).components as MaterializedItemComponent[] | undefined) ?? []),
     ];
@@ -675,7 +933,9 @@ export const replaceManagedSnapshot = (
 
   let next = materializeElement(snapshot as unknown as MapElementData);
   const theme = getManagedTheme(node);
-  if (theme) next = liveElementProps(next, theme);
+  if (theme && options.normalizeLiveText !== false) {
+    next = liveElementProps(next, theme);
+  }
   if (next.type === 'item') {
     replaceItemComponentsFromSnapshot(node, next);
     return;

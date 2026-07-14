@@ -8,6 +8,9 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 
 import { Transformer, type TransformerOptions } from '../src';
+import type { RectElementData } from '../src/contracts';
+import { materializeElement } from '../src/model/materialize';
+import { ManagedNode, type ManagedNodeProps } from '../src/scene/managed-node';
 
 type TestElement = Container & {
   type: string;
@@ -85,26 +88,61 @@ const handle = (transformer: Transformer, label: string): Container => {
   return found as Container;
 };
 
+const resizeHandleLabels = {
+  nw: 'resize-handle:top-left',
+  n: 'resize-edge:top',
+  ne: 'resize-handle:top-right',
+  e: 'resize-edge:right',
+  se: 'resize-handle:bottom-right',
+  s: 'resize-edge:bottom',
+  sw: 'resize-handle:bottom-left',
+  w: 'resize-edge:left',
+} as const;
+
+const rotateHandleLabels = {
+  nw: 'rotate-handle:top-left',
+  ne: 'rotate-handle:top-right',
+  se: 'rotate-handle:bottom-right',
+  sw: 'rotate-handle:bottom-left',
+} as const;
+
 const emitDown = (
   transformer: Transformer,
   target: Container,
   shiftKey = false,
 ): Point => {
   const global = transformer.toGlobal(target.position);
-  target.emit('pointerdown', pointerEvent(global, shiftKey));
+  transformer.emit(
+    'pointerdown',
+    pointerEvent(global, shiftKey, target, 'pointerdown'),
+  );
   return global;
 };
 
 const pointerEvent = (
   global: Point,
   shiftKey = false,
+  target?: Container,
+  type = 'pointermove',
 ): FederatedPointerEvent =>
-  ({ global, shiftKey }) as unknown as FederatedPointerEvent;
+  ({ global, shiftKey, target, type, pointerType: 'mouse' }) as unknown as FederatedPointerEvent;
+
+const emitMove = (
+  transformer: Transformer,
+  target: Container,
+  global: Point,
+  shiftKey = false,
+): void => {
+  transformer.emit(
+    'globalpointermove',
+    pointerEvent(global, shiftKey, target),
+  );
+};
 
 const emitUp = (transformer: Transformer, target: Container): void => {
-  target.emit(
+  transformer.emit(
     'pointerup',
-    pointerEvent(transformer.toGlobal(target.position)),
+    pointerEvent(transformer.toGlobal(target.position), false, target, 'pointerup'),
   );
 };
 
@@ -131,44 +169,28 @@ describe('Transformer wireframes and handles', () => {
       rotateHandles: true,
     });
 
-    expect(
-      handle(transformer, 'transformer:element-wireframes').visible,
-    ).toBe(false);
-    expect(handle(transformer, 'transformer:group-wireframe').visible).toBe(
-      false,
-    );
-    expect(handle(transformer, 'transformer:resize:se').visible).toBe(false);
-    expect(handle(transformer, 'transformer:rotate:se').visible).toBe(false);
+    expect(handle(transformer, 'Graphics').visible).toBe(false);
+    expect(handle(transformer, 'resize-frame').visible).toBe(false);
+    expect(handle(transformer, resizeHandleLabels.se).visible).toBe(false);
+    expect(handle(transformer, rotateHandleLabels.se).visible).toBe(false);
 
     transformer.destroy();
   });
 
   it('applies every documented bounds display mode', () => {
     const expected = {
-      all: [true, true],
-      groupOnly: [false, true],
-      elementOnly: [true, false],
-      none: [false, false],
+      all: true,
+      groupOnly: true,
+      elementOnly: true,
+      none: false,
     } as const;
 
-    for (const [boundsDisplayMode, visibility] of Object.entries(expected)) {
+    for (const [boundsDisplayMode, visible] of Object.entries(expected)) {
       const element = createElement();
       const { root, transformer } = setup([element], {
         boundsDisplayMode: boundsDisplayMode as keyof typeof expected,
       });
-      const elementWireframes = handle(
-        transformer,
-        'transformer:element-wireframes',
-      );
-      const groupWireframe = handle(
-        transformer,
-        'transformer:group-wireframe',
-      );
-
-      expect([
-        elementWireframes.visible,
-        groupWireframe.visible,
-      ]).toEqual(visibility);
+      expect(handle(transformer, 'Graphics').visible).toBe(visible);
 
       root.destroy({ children: true });
     }
@@ -177,8 +199,8 @@ describe('Transformer wireframes and handles', () => {
   it('uses an oriented frame for one rotated element and an axis-aligned group frame for multiple elements', () => {
     const rotated = createElement('rect', { angle: 30 });
     const { root, transformer } = setup([rotated], { resizeHandles: true });
-    const northwest = handle(transformer, 'transformer:resize:nw');
-    const northeast = handle(transformer, 'transformer:resize:ne');
+    const northwest = handle(transformer, resizeHandleLabels.nw);
+    const northeast = handle(transformer, resizeHandleLabels.ne);
 
     expect(
       Math.atan2(
@@ -197,24 +219,25 @@ describe('Transformer wireframes and handles', () => {
     root.destroy({ children: true });
   });
 
-  it('creates visible resize handles and invisible outside-corner rotation hit targets', () => {
+  it('creates visible resize and outside-corner rotation handles', () => {
     const element = createElement();
     const { root, transformer } = setup([element], {
       resizeHandles: true,
       rotateHandles: true,
     });
-    const resize = handle(transformer, 'transformer:resize:ne');
-    const rotate = handle(transformer, 'transformer:rotate:ne');
+    const resize = handle(transformer, resizeHandleLabels.ne);
+    const rotate = handle(transformer, rotateHandleLabels.ne);
     const center = new Point(
-      (handle(transformer, 'transformer:resize:nw').x
-        + handle(transformer, 'transformer:resize:se').x) / 2,
-      (handle(transformer, 'transformer:resize:nw').y
-        + handle(transformer, 'transformer:resize:se').y) / 2,
+      (handle(transformer, resizeHandleLabels.nw).x
+        + handle(transformer, resizeHandleLabels.se).x) / 2,
+      (handle(transformer, resizeHandleLabels.nw).y
+        + handle(transformer, resizeHandleLabels.se).y) / 2,
     );
 
     expect(resize).toBeInstanceOf(Graphics);
     expect(resize.visible).toBe(true);
-    expect(rotate.children).toHaveLength(0);
+    expect(rotate).toBeInstanceOf(Graphics);
+    expect(rotate.visible).toBe(true);
     expect(rotate.hitArea).toBeInstanceOf(Rectangle);
     expect(Math.hypot(rotate.x - center.x, rotate.y - center.y)).toBeGreaterThan(
       Math.hypot(resize.x - center.x, resize.y - center.y),
@@ -239,12 +262,13 @@ describe('Transformer resize gestures', () => {
     (name, deltaX, deltaY, expectedScaleX, expectedScaleY) => {
       const element = createElement();
       const { root, transformer } = setup([element], { resizeHandles: true });
-      const resize = handle(transformer, `transformer:resize:${name}`);
+      const resize = handle(transformer, resizeHandleLabels[name]);
       const start = emitDown(transformer, resize);
 
-      resize.emit(
-        'globalpointermove',
-        pointerEvent(new Point(start.x + deltaX, start.y + deltaY)),
+      emitMove(
+        transformer,
+        resize,
+        new Point(start.x + deltaX, start.y + deltaY),
       );
       emitUp(transformer, resize);
 
@@ -262,16 +286,20 @@ describe('Transformer resize gestures', () => {
         resizeHandles: true,
         transformHistory: true,
       });
-      const resize = handle(transformer, 'transformer:resize:se');
+      const resize = handle(transformer, resizeHandleLabels.se);
       const events: GestureEvent[] = [];
       transformer.on('transform', (event: GestureEvent) => events.push(event));
       const start = emitDown(transformer, resize);
-      resize.emit(
-        'globalpointermove',
-        pointerEvent(new Point(start.x + 20, start.y + 10)),
+      emitMove(
+        transformer,
+        resize,
+        new Point(start.x + 20, start.y + 10),
       );
-      resize.emit(endEvent, pointerEvent(start));
-      resize.emit('pointerup', pointerEvent(start));
+      transformer.emit(endEvent, pointerEvent(start, false, resize, endEvent));
+      transformer.emit(
+        'pointerup',
+        pointerEvent(start, false, resize, 'pointerup'),
+      );
 
       expect(events.map(({ phase }) => phase)).toEqual(['start', 'change', 'end']);
       expect(new Set(events.map(({ historyId }) => historyId)).size).toBe(1);
@@ -285,14 +313,15 @@ describe('Transformer resize gestures', () => {
       resizeHandles: true,
       transformHistory: true,
     });
-    const southeast = handle(transformer, 'transformer:resize:se');
+    const southeast = handle(transformer, resizeHandleLabels.se);
     const events: GestureEvent[] = [];
     transformer.on('transform', (event: GestureEvent) => events.push(event));
     const start = emitDown(transformer, southeast);
 
-    southeast.emit(
-      'globalpointermove',
-      pointerEvent(new Point(start.x + 100, start.y + 50)),
+    emitMove(
+      transformer,
+      southeast,
+      new Point(start.x + 100, start.y + 50),
     );
     emitUp(transformer, southeast);
 
@@ -310,18 +339,64 @@ describe('Transformer resize gestures', () => {
   it('locks the ratio while Shift is held', () => {
     const element = createElement();
     const { root, transformer } = setup([element], { resizeHandles: true });
-    const southeast = handle(transformer, 'transformer:resize:se');
+    const southeast = handle(transformer, resizeHandleLabels.se);
     const start = emitDown(transformer, southeast);
 
-    southeast.emit(
-      'globalpointermove',
-      pointerEvent(new Point(start.x + 100, start.y + 10), true),
+    emitMove(
+      transformer,
+      southeast,
+      new Point(start.x + 100, start.y + 10),
+      true,
     );
 
-    expect(element.scale.x).toBeCloseTo(2, 8);
-    expect(element.scale.y).toBeCloseTo(2, 8);
+    expect(element.scale.x).toBeCloseTo(1.2, 8);
+    expect(element.scale.y).toBeCloseTo(1.2, 8);
 
     emitUp(transformer, southeast);
+    root.destroy({ children: true });
+  });
+
+  it('materializes semantic size while preserving the TRN-101 rotated anchor', () => {
+    const callback = vi.fn<(context: ResizeRatioContext) => boolean>(() => true);
+    const managed = new ManagedNode(
+      materializeElement({
+        type: 'rect',
+        id: 'trn-a',
+        size: { width: 60, height: 40 },
+        attrs: { x: 80, y: 80, angle: 15 },
+      } satisfies RectElementData) as ManagedNodeProps,
+    );
+    managed.setLocalBounds({ width: 60, height: 40 });
+    const element = managed as unknown as TestElement;
+    const { root, transformer } = setup([element], {
+      resizeHandles: true,
+      getResizeKeepRatio: callback,
+    });
+    const northwest = handle(transformer, resizeHandleLabels.nw);
+    const start = emitDown(transformer, northwest);
+
+    emitMove(
+      transformer,
+      northwest,
+      new Point(start.x + 18, start.y + 12),
+    );
+    emitUp(transformer, northwest);
+
+    expect(element.props.size).toEqual({ width: 50, height: 34 });
+    expect(element.scale).toMatchObject({ x: 1, y: 1 });
+    expect(recordAttrs(element).x).toBeCloseTo(88.25, 12);
+    expect(recordAttrs(element).y).toBeCloseTo(89.38749537379655, 12);
+    expect(element.getLocalBounds()).toMatchObject({ width: 50, height: 34 });
+    const bounds = element.getBounds();
+    expect(bounds.x).toBeCloseTo(79.4502, 4);
+    expect(bounds.y).toBeCloseTo(89.3875, 4);
+    expect(bounds.width).toBeCloseTo(57.0961, 4);
+    expect(bounds.height).toBeCloseTo(45.7824, 4);
+    expect(callback).toHaveBeenCalledWith(expect.objectContaining({
+      handle: 'top-left',
+      elements: [element],
+    }));
+
     root.destroy({ children: true });
   });
 
@@ -332,20 +407,21 @@ describe('Transformer resize gestures', () => {
       resizeHandles: true,
       getResizeKeepRatio: callback,
     });
-    const southeast = handle(transformer, 'transformer:resize:se');
+    const southeast = handle(transformer, resizeHandleLabels.se);
     const start = emitDown(transformer, southeast);
 
-    southeast.emit(
-      'globalpointermove',
-      pointerEvent(new Point(start.x + 100, start.y + 10)),
+    emitMove(
+      transformer,
+      southeast,
+      new Point(start.x + 100, start.y + 10),
     );
 
-    expect(element.scale.x).toBeCloseTo(2, 8);
-    expect(element.scale.y).toBeCloseTo(2, 8);
+    expect(element.scale.x).toBeCloseTo(1.2, 8);
+    expect(element.scale.y).toBeCloseTo(1.2, 8);
     expect(callback).toHaveBeenCalledTimes(1);
     const context = callback.mock.calls[0]?.[0];
     expect(context?.event.shiftKey).toBe(false);
-    expect(context?.handle).toBe(southeast);
+    expect(context?.handle).toBe('bottom-right');
     expect(context?.elements).toEqual([element]);
 
     emitUp(transformer, southeast);
@@ -359,12 +435,13 @@ describe('Transformer resize gestures', () => {
     const { root, transformer } = setup([eligible, locked, unsupported], {
       resizeHandles: true,
     });
-    const southeast = handle(transformer, 'transformer:resize:se');
+    const southeast = handle(transformer, resizeHandleLabels.se);
     const start = emitDown(transformer, southeast);
 
-    southeast.emit(
-      'globalpointermove',
-      pointerEvent(new Point(start.x + 100, start.y + 50)),
+    emitMove(
+      transformer,
+      southeast,
+      new Point(start.x + 100, start.y + 50),
     );
 
     expect(transformer.elements).toEqual([eligible, locked, unsupported]);
@@ -383,9 +460,9 @@ describe('Transformer rotation gestures', () => {
   it('rotates around the visible center and snaps Shift rotation to 15 degrees', () => {
     const element = createElement();
     const { root, transformer } = setup([element], { rotateHandles: true });
-    const rotate = handle(transformer, 'transformer:rotate:ne');
-    const northwest = handle(transformer, 'transformer:resize:nw');
-    const southeast = handle(transformer, 'transformer:resize:se');
+    const rotate = handle(transformer, rotateHandleLabels.ne);
+    const northwest = handle(transformer, resizeHandleLabels.nw);
+    const southeast = handle(transformer, resizeHandleLabels.se);
     const center = transformer.toGlobal(new Point(
       (northwest.x + southeast.x) / 2,
       (northwest.y + southeast.y) / 2,
@@ -393,7 +470,7 @@ describe('Transformer rotation gestures', () => {
     const start = emitDown(transformer, rotate);
     const moved = rotatePoint(start, center, 22 * Math.PI / 180);
 
-    rotate.emit('globalpointermove', pointerEvent(moved, true));
+    emitMove(transformer, rotate, moved, true);
 
     expect(element.angle).toBeCloseTo(15, 8);
     expect(recordAttrs(element).angle).toBeCloseTo(15, 8);
@@ -410,9 +487,9 @@ describe('Transformer rotation gestures', () => {
       rotateHandles: true,
       transformHistory: true,
     });
-    const rotate = handle(transformer, 'transformer:rotate:se');
-    const northwest = handle(transformer, 'transformer:resize:nw');
-    const southeast = handle(transformer, 'transformer:resize:se');
+    const rotate = handle(transformer, rotateHandleLabels.se);
+    const northwest = handle(transformer, resizeHandleLabels.nw);
+    const southeast = handle(transformer, resizeHandleLabels.se);
     const center = transformer.toGlobal(new Point(
       (northwest.x + southeast.x) / 2,
       (northwest.y + southeast.y) / 2,
@@ -421,9 +498,10 @@ describe('Transformer rotation gestures', () => {
     transformer.on('transform', (event: GestureEvent) => events.push(event));
     const start = emitDown(transformer, rotate);
 
-    rotate.emit(
-      'globalpointermove',
-      pointerEvent(rotatePoint(start, center, Math.PI / 2)),
+    emitMove(
+      transformer,
+      rotate,
+      rotatePoint(start, center, Math.PI / 2),
     );
     emitUp(transformer, rotate);
 

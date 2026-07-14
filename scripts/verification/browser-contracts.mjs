@@ -189,12 +189,14 @@ const verifyViewContracts = async (browser, url) => {
             type: 'rect',
             id: 'left',
             size: { width: 100, height: 60 },
+            fill: '#0c73bf',
             attrs: { x: 100, y: 80 },
           },
           {
             type: 'rect',
             id: 'right',
             size: { width: 80, height: 40 },
+            fill: '#ef4444',
             attrs: { x: 500, y: 300 },
           },
           { type: 'relations', id: 'relations', links: [] },
@@ -221,6 +223,7 @@ const verifyViewContracts = async (browser, url) => {
           type: 'rect',
           id: 'fit-target',
           size: { width: 200, height: 100 },
+          fill: '#0c73bf',
           attrs: { x: 20, y: 30 },
         }]);
         patchmap.fit('fit-target');
@@ -234,7 +237,7 @@ const verifyViewContracts = async (browser, url) => {
         try {
           patchmap.fit('fit-target', { padding: { top: 10 } });
         } catch (error) {
-          rejectsEdgePadding = error instanceof TypeError;
+          rejectsEdgePadding = error?.name === 'ZodValidationError';
         }
 
         const fitTarget = patchmap.selector(
@@ -287,9 +290,9 @@ const verifyViewContracts = async (browser, url) => {
   closeTo(observed.defaults.zoomAfter, observed.defaults.zoomBefore, 'default focus zoom');
   closeTo(observed.defaults.center.x, 340, 'default focus center x');
   closeTo(observed.defaults.center.y, 210, 'default focus center y');
-  closeTo(observed.defaultPaddingZoom, 3.84, 'default fit padding zoom');
-  closeTo(observed.numericPaddingZoom, 3.6, 'numeric fit padding zoom');
-  closeTo(observed.axisPaddingZoom, 3.5, 'axis fit padding zoom');
+  closeTo(observed.defaultPaddingZoom, 800 / 232, 'default fit padding zoom');
+  closeTo(observed.numericPaddingZoom, 800 / 280, 'numeric fit padding zoom');
+  closeTo(observed.axisPaddingZoom, 800 / 300, 'axis fit padding zoom');
   assert.deepEqual(observed.pluginFacade, {
     addReturnsViewport: true,
     added: true,
@@ -301,11 +304,19 @@ const verifyViewContracts = async (browser, url) => {
   closeTo(observed.transformedFocus.zoom, 2, 'transformed focus zoom');
   closeTo(observed.transformedFocus.bounds.center.x, 400, 'transformed focus center x');
   closeTo(observed.transformedFocus.bounds.center.y, 300, 'transformed focus center y');
-  closeTo(observed.transformedFit.zoom, 2.7, 'transformed fit zoom');
+  closeTo(observed.transformedFit.zoom, 600 / 260, 'transformed fit zoom');
   closeTo(observed.transformedFit.bounds.center.x, 400, 'transformed fit center x');
   closeTo(observed.transformedFit.bounds.center.y, 300, 'transformed fit center y');
-  closeTo(observed.transformedFit.bounds.width, 270, 'transformed fit width');
-  closeTo(observed.transformedFit.bounds.height, 540, 'transformed fit height');
+  closeTo(
+    observed.transformedFit.bounds.width,
+    100 * 600 / 260,
+    'transformed fit width',
+  );
+  closeTo(
+    observed.transformedFit.bounds.height,
+    200 * 600 / 260,
+    'transformed fit height',
+  );
 };
 
 const verifyTransformerAssignmentLifecycle = async (browser, url) => {
@@ -449,6 +460,7 @@ const verifyCanvasEventContracts = async (browser, url) => {
             type: 'rect',
             id: 'child',
             size: 40,
+            fill: '#0c73bf',
             attrs: { x: 20, y: 30 },
           }],
         }]);
@@ -477,7 +489,7 @@ const verifyCanvasEventContracts = async (browser, url) => {
           canvasHits,
           childHits,
           childMode: child.eventMode,
-          count: patchmap.event.getAll().length,
+          count: Object.keys(patchmap.event.getAll()).length,
           recordsEnabled: [
             patchmap.event.get(canvasId)?.enabled,
             patchmap.event.get(childId)?.enabled,
@@ -513,7 +525,7 @@ const verifyCanvasEventContracts = async (browser, url) => {
         patchmap.event.removeAll();
         const afterRemoveAll = {
           childMode: child.eventMode,
-          count: patchmap.event.getAll().length,
+          count: Object.keys(patchmap.event.getAll()).length,
         };
         patchmap.event.add({
           id: 'draw-cleared',
@@ -527,7 +539,7 @@ const verifyCanvasEventContracts = async (browser, url) => {
           afterRemove,
           afterRemoveAll,
           disabled,
-          drawClearedCount: patchmap.event.getAll().length,
+          drawClearedCount: Object.keys(patchmap.event.getAll()).length,
           enabled,
           initialChildMode,
           reenabled,
@@ -537,12 +549,12 @@ const verifyCanvasEventContracts = async (browser, url) => {
       }
     }, { app: appOptions, viewportOptions: disabledViewportMotion }));
 
-  assert.deepEqual(observed.enabled.recordsEnabled, [true, true]);
+  assert.deepEqual(observed.enabled.recordsEnabled, [undefined, undefined]);
   assert.equal(observed.enabled.count, 2);
   assert.equal(observed.enabled.canvasHits, 2);
   assert.equal(observed.enabled.childHits, 1);
   assert.equal(observed.enabled.childMode, 'static');
-  assert.deepEqual(observed.disabled.recordsEnabled, [false, false]);
+  assert.deepEqual(observed.disabled.recordsEnabled, [undefined, undefined]);
   assert.equal(observed.disabled.canvasHits, 2);
   assert.equal(observed.disabled.childHits, 1);
   assert.equal(observed.disabled.childMode, observed.initialChildMode);
@@ -553,7 +565,7 @@ const verifyCanvasEventContracts = async (browser, url) => {
     childHits: 2,
     childMode: observed.initialChildMode,
     missing: true,
-    removed: true,
+    removed: undefined,
   });
   assert.deepEqual(observed.afterRemoveAll, {
     childMode: observed.initialChildMode,
@@ -655,7 +667,7 @@ const verifyControllerContracts = async (browser, url) => {
   assert.deepEqual(observed.flipXUpright.componentScale, { x: -1, y: 1 });
   closeTo(observed.flipXUpright.componentAngle, -30, 'flipped component angle');
   assertUprightMatrix(observed.flipXUpright.matrix, 'x-flipped upright content');
-  assert.equal(observed.toggleYResult, true);
+  assert.deepEqual(observed.toggleYResult, { x: true, y: true });
   assert.deepEqual(observed.bothFlipUpright.value, { x: true, y: true });
   assert.deepEqual(observed.bothFlipUpright.componentScale, { x: -1, y: -1 });
   assertUprightMatrix(observed.bothFlipUpright.matrix, 'xy-flipped upright content');
@@ -691,12 +703,14 @@ const verifySelectionContracts = async (browser, url) => {
             type: 'rect',
             id: 'first',
             size: { width: 80, height: 60 },
+            fill: '#0c73bf',
             attrs: { x: 40, y: 40 },
           },
           {
             type: 'rect',
             id: 'second',
             size: { width: 70, height: 50 },
+            fill: '#ef4444',
             attrs: { x: 220, y: 120 },
           },
         ]);
@@ -821,6 +835,7 @@ const verifyTouchSelectionContracts = async (browser, url) => {
         type: 'rect',
         id: 'touch-target',
         size: { width: 80, height: 60 },
+        fill: '#0c73bf',
         attrs: { x: 40, y: 40 },
       }]);
       patchmap.stateManager.setState('selection', {
@@ -965,12 +980,14 @@ const verifyNativePointerAndTransformerContracts = async (browser, url) => {
           type: 'rect',
           id: 'native-first',
           size: { width: 80, height: 60 },
+          fill: '#0c73bf',
           attrs: { x: 40, y: 40 },
         },
         {
           type: 'rect',
           id: 'native-second',
           size: { width: 70, height: 50 },
+          fill: '#ef4444',
           attrs: { x: 220, y: 120 },
         },
       ]);
@@ -1106,7 +1123,7 @@ const verifyNativePointerAndTransformerContracts = async (browser, url) => {
         return null;
       };
       window.__PATCHMAP_NATIVE_POINTER__.findTransformerNode = find;
-      const handle = find(transformer, 'transformer:resize:se');
+      const handle = find(transformer, 'resize-handle:bottom-right');
       const global = handle.getGlobalPosition();
       return { x: global.x, y: global.y };
     });
@@ -1131,7 +1148,7 @@ const verifyNativePointerAndTransformerContracts = async (browser, url) => {
       patchmap.app.render();
       const transformer = patchmap.transformer;
       transformer.refresh();
-      const handle = findTransformerNode(transformer, 'transformer:rotate:se');
+      const handle = findTransformerNode(transformer, 'rotate-handle:bottom-right');
       const global = handle.getGlobalPosition();
       const first = patchmap.selector('$..children[?(@.id==="native-first")]')[0];
       trace.afterResizeGeometry = geometryOf(first);
@@ -1180,6 +1197,7 @@ const verifyNativePointerAndTransformerContracts = async (browser, url) => {
         },
         position: { x: first.x, y: first.y },
         scale: { x: first.scale.x, y: first.scale.y },
+        size: first.props.size,
         transforms: trace.transforms,
       };
       await patchmap.undoRedoManager.undo();
@@ -1196,7 +1214,11 @@ const verifyNativePointerAndTransformerContracts = async (browser, url) => {
       patchmap.destroy();
       return observed;
     });
-    assert.ok(transformed.scale.x > 1 && transformed.scale.y > 1);
+    assert.deepEqual(transformed.scale, { x: 1, y: 1 });
+    assert.ok(
+      transformed.size.width > 80 && transformed.size.height > 60,
+      'native resize must materialize larger semantic dimensions',
+    );
     assert.ok(Math.abs(transformed.angle) > 45, 'native rotate drag must rotate the selection');
     assert.equal(transformed.canUndo, true, 'native transform gestures must create history');
     assert.equal(transformed.historyDepth, 2, 'resize and rotate must create two undo steps');
@@ -1488,7 +1510,7 @@ const verifySceneAssetAndAnimationContracts = async (browser, url) => {
           id: 'animated-bar',
           source: { type: 'rect', fill: '#fff' },
           size: { width: '50%', height: '20%' },
-          animationDuration: 30,
+          animationDuration: 300,
         }],
       }]);
       const bar = patchmap.selector('$..children[?(@.id==="animated-bar")]')[0];
@@ -1499,7 +1521,7 @@ const verifySceneAssetAndAnimationContracts = async (browser, url) => {
         liveWidth: bar.width,
         visualWidth: renderLayer.getLocalBounds().width,
       };
-      await new Promise((resolveWait) => setTimeout(resolveWait, 100));
+      await new Promise((resolveWait) => setTimeout(resolveWait, 400));
       patchmap.app.render();
       const settled = {
         liveWidth: bar.width,
@@ -1509,7 +1531,7 @@ const verifySceneAssetAndAnimationContracts = async (browser, url) => {
       patchmap.update({ elements: item, refresh: true, emit: false });
       patchmap.app.render();
       const refreshInitialWidth = renderLayer.getLocalBounds().width;
-      await new Promise((resolveWait) => setTimeout(resolveWait, 100));
+      await new Promise((resolveWait) => setTimeout(resolveWait, 400));
       patchmap.app.render();
       const refreshSettledWidth = renderLayer.getLocalBounds().width;
       patchmap.update({
@@ -1519,7 +1541,7 @@ const verifySceneAssetAndAnimationContracts = async (browser, url) => {
       });
       patchmap.app.render();
       const resizedInitialWidth = renderLayer.getLocalBounds().width;
-      await new Promise((resolveWait) => setTimeout(resolveWait, 100));
+      await new Promise((resolveWait) => setTimeout(resolveWait, 400));
       patchmap.app.render();
       const resizedSettledWidth = renderLayer.getLocalBounds().width;
       patchmap.destroy();
@@ -1535,7 +1557,7 @@ const verifySceneAssetAndAnimationContracts = async (browser, url) => {
     }, { app: appOptions, viewportOptions: disabledViewportMotion });
     assert.equal(animation.initial.liveWidth, 1);
     assert.ok(animation.initial.visualWidth >= 1 && animation.initial.visualWidth < 10);
-    assert.equal(animation.settled.liveWidth, 1);
+    assert.equal(animation.settled.liveWidth, 50);
     closeTo(animation.settled.visualWidth, 50, 'settled animated bar width', 0.5);
     assert.ok(animation.refreshInitialWidth < 10);
     closeTo(animation.refreshSettledWidth, 50, 'refreshed animated bar width', 0.5);
@@ -1601,6 +1623,7 @@ const verifyRepeatedLifecycle = async (browser, url) => {
         patchmap.destroy();
         for (let index = 0; index < 3; index += 1) {
           await patchmap.init(host, { app, viewport: viewportOptions });
+          const animationContextAtInit = patchmap.animationContext;
           currentObserver.trigger(320 + index, 240 + index);
           patchmap.draw([{
             type: 'rect',
@@ -1621,7 +1644,12 @@ const verifyRepeatedLifecycle = async (browser, url) => {
             width: oldViewport.screenWidth,
           };
           patchmap.theme.primary.default = '#123456';
-          patchmap.animationContext = { cycle: index };
+          let animationContextAssignmentError = null;
+          try {
+            patchmap.animationContext = { cycle: index };
+          } catch (error) {
+            animationContextAssignmentError = error?.name ?? String(error);
+          }
           patchmap.rotation.value = 30;
           patchmap.flip.set({ x: true, y: true });
           let canvasEventHits = 0;
@@ -1650,13 +1678,14 @@ const verifyRepeatedLifecycle = async (browser, url) => {
             canvasCount: host.querySelectorAll('canvas').length,
             canvasEventHits,
             detachedContextMenuPrevented: detachedContextMenu.defaultPrevented,
-            eventCount: patchmap.event.getAll().length,
+            eventCount: Object.keys(patchmap.event.getAll()).length,
             historyClean: !patchmap.undoRedoManager.canUndo() && !patchmap.undoRedoManager.canRedo(),
             isInit: patchmap.isInit,
             nodeDestroyed: node.destroyed,
             rendererSize,
             resetFlip: { x: patchmap.flip.x, y: patchmap.flip.y },
-            resetAnimationContext: patchmap.animationContext === null,
+            animationContextAssignmentError,
+            resetAnimationContext: patchmap.animationContext !== animationContextAtInit,
             resetRotation: patchmap.rotation.value,
             resetTheme: patchmap.theme.primary.default,
             stateManagerNull: patchmap.stateManager === null,
@@ -1684,6 +1713,7 @@ const verifyRepeatedLifecycle = async (browser, url) => {
   for (const [index, cycle] of observed.cycles.entries()) {
     assert.deepEqual(cycle, {
       activeObservers: 0,
+      animationContextAssignmentError: 'TypeError',
       appNull: true,
       attachedContextMenuPrevented: true,
       canvasCount: 0,

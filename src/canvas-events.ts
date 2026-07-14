@@ -3,14 +3,16 @@ import type { Container } from 'pixi.js';
 import type { CanvasEventAddOptions } from './contracts';
 import { uid } from './utils';
 
-export interface CanvasEventRegistration<TEvent = unknown>
-  extends CanvasEventAddOptions<TEvent> {
-  id: string;
-  enabled: boolean;
-}
+export type CanvasEventRegistration<TEvent = unknown> = Omit<
+  CanvasEventAddOptions<TEvent>,
+  'id'
+>;
+
+export type CanvasEventCollection = Record<string, CanvasEventRegistration>;
 
 interface StoredCanvasEvent<TEvent = unknown> {
   public: CanvasEventRegistration<TEvent>;
+  enabled: boolean;
   actions: string[];
   targets: Container[];
 }
@@ -47,16 +49,13 @@ export class CanvasEventManager {
       throw new TypeError('Canvas event action must name at least one event.');
     }
 
-    const id = options.id ?? uid();
+    const { id: requestedId, ...publicOptions } = options;
+    const id = requestedId ?? uid();
     this.remove(id);
     const targets = [...new Set(this.#resolveTargets(options.path))];
-    const registration: CanvasEventRegistration<TEvent> = {
-      ...options,
-      id,
-      enabled: true,
-    };
     const stored: StoredCanvasEvent<TEvent> = {
-      public: registration,
+      public: publicOptions,
+      enabled: true,
       actions,
       targets,
     };
@@ -65,21 +64,18 @@ export class CanvasEventManager {
     return id;
   }
 
-  public remove(ids: string): boolean {
-    let removed = false;
+  public remove(ids: string): void {
     for (const id of words(ids)) {
       const stored = this.#events.get(id);
       if (!stored) continue;
-      if (stored.public.enabled) this.#detach(stored);
+      if (stored.enabled) this.#detach(stored);
       this.#events.delete(id);
-      removed = true;
     }
-    return removed;
   }
 
   public removeAll(): void {
     for (const stored of this.#events.values()) {
-      if (stored.public.enabled) this.#detach(stored);
+      if (stored.enabled) this.#detach(stored);
     }
     this.#events.clear();
   }
@@ -87,8 +83,8 @@ export class CanvasEventManager {
   public on(ids: string): void {
     for (const id of words(ids)) {
       const stored = this.#events.get(id);
-      if (!stored || stored.public.enabled) continue;
-      stored.public.enabled = true;
+      if (!stored || stored.enabled) continue;
+      stored.enabled = true;
       this.#attach(stored);
     }
   }
@@ -96,9 +92,9 @@ export class CanvasEventManager {
   public off(ids: string): void {
     for (const id of words(ids)) {
       const stored = this.#events.get(id);
-      if (!stored?.public.enabled) continue;
+      if (!stored?.enabled) continue;
       this.#detach(stored);
-      stored.public.enabled = false;
+      stored.enabled = false;
     }
   }
 
@@ -106,14 +102,18 @@ export class CanvasEventManager {
     return this.#events.get(id)?.public;
   }
 
-  public getAll(): CanvasEventRegistration[] {
-    return [...this.#events.values()].map((stored) => stored.public);
+  public getAll(): CanvasEventCollection {
+    const collection = Object.create(null) as CanvasEventCollection;
+    for (const [id, stored] of this.#events) {
+      collection[id] = stored.public;
+    }
+    return collection;
   }
 
   /** Re-resolve live paths after an in-place structural scene update. */
   public refresh(): void {
     for (const stored of this.#events.values()) {
-      const enabled = stored.public.enabled;
+      const enabled = stored.enabled;
       if (enabled) this.#detach(stored);
       stored.targets = [...new Set(this.#resolveTargets(stored.public.path))];
       if (enabled) this.#attach(stored);
@@ -132,7 +132,13 @@ export class CanvasEventManager {
           bindings: 0,
           eventMode: target.eventMode,
         };
-        if (state.bindings === 0) target.eventMode = 'static';
+        if (
+          state.bindings === 0 &&
+          target.eventMode !== 'static' &&
+          target.eventMode !== 'dynamic'
+        ) {
+          target.eventMode = 'static';
+        }
         target.on(action, stored.public.fn);
         state.bindings += 1;
         this.#targetStates.set(target, state);

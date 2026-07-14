@@ -1,12 +1,16 @@
 import { Container } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
-import { FlipController, RotationController } from '../src/controllers';
+import {
+  APPLY_VIEW_TRANSFORM,
+  FlipController,
+  RotationController,
+} from '../src/controllers';
 
 const host = () => ({
   world: new Container(),
   emit: vi.fn<(event: string, payload: unknown) => boolean>(() => true),
-  syncViewTransform: vi.fn<() => void>(),
+  [APPLY_VIEW_TRANSFORM]: vi.fn<() => void>(),
 });
 
 describe('view controllers', () => {
@@ -21,7 +25,7 @@ describe('view controllers', () => {
 
     expect(rotation.value).toBe(0);
     expect(target.world.angle).toBe(0);
-    expect(target.syncViewTransform).toHaveBeenCalledTimes(3);
+    expect(target[APPLY_VIEW_TRANSFORM]).toHaveBeenCalledTimes(3);
     expect(target.emit).toHaveBeenLastCalledWith('patchmap:rotated', {
       target,
       value: 0,
@@ -36,7 +40,7 @@ describe('view controllers', () => {
     rotation.value = 30;
 
     expect(flip.set({ x: true })).toEqual({ x: true, y: false });
-    expect(flip.toggleY()).toBe(true);
+    expect(flip.toggleY()).toEqual({ x: true, y: true });
     expect(target.world.angle).toBeCloseTo(30);
     expect(target.world.scale.x).toBe(-1);
     expect(target.world.scale.y).toBe(-1);
@@ -56,7 +60,7 @@ describe('view controllers', () => {
     rotation.value = 45;
     flip.x = true;
     target.emit.mockClear();
-    target.syncViewTransform.mockClear();
+    target[APPLY_VIEW_TRANSFORM].mockClear();
 
     rotation.apply();
     flip.apply();
@@ -64,7 +68,7 @@ describe('view controllers', () => {
     expect(target.world.angle).toBe(45);
     expect(target.world.scale.x).toBe(-1);
     expect(target.emit).not.toHaveBeenCalled();
-    expect(target.syncViewTransform).toHaveBeenCalledTimes(2);
+    expect(target[APPLY_VIEW_TRANSFORM]).toHaveBeenCalledTimes(2);
     target.world.destroy();
   });
 
@@ -75,7 +79,7 @@ describe('view controllers', () => {
     rotation.value = 45;
     flip.set({ x: true, y: true });
     target.emit.mockClear();
-    target.syncViewTransform.mockClear();
+    target[APPLY_VIEW_TRANSFORM].mockClear();
 
     rotation.restoreInitialState();
     flip.restoreInitialState();
@@ -83,7 +87,7 @@ describe('view controllers', () => {
     expect(rotation.value).toBe(0);
     expect({ x: flip.x, y: flip.y }).toEqual({ x: false, y: false });
     expect(target.emit).not.toHaveBeenCalled();
-    expect(target.syncViewTransform).not.toHaveBeenCalled();
+    expect(target[APPLY_VIEW_TRANSFORM]).not.toHaveBeenCalled();
     target.world.destroy();
   });
 });

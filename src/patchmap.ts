@@ -23,7 +23,11 @@ import type {
   UpdateOptions,
   UpdateResult,
 } from './contracts';
-import { FlipController, RotationController } from './controllers';
+import {
+  APPLY_VIEW_TRANSFORM,
+  FlipController,
+  RotationController,
+} from './controllers';
 import { UndoRedoManager } from './history';
 import { materializeMapData, type MaterializedMapData } from './model/materialize';
 import { selectScene } from './scene-selector';
@@ -31,6 +35,7 @@ import { SelectionState } from './selection-state';
 import {
   buildManagedScene,
   reindexManagedScene,
+  syncRelationPathGeometry,
   type ManagedScene,
 } from './scene/build-scene';
 import { applyContentOrientation } from './scene/content-orientation';
@@ -57,6 +62,7 @@ import {
   normalizeFitPadding,
   resolveViewTargets,
 } from './view';
+import { convertLegacyData } from './utils';
 
 type ViewportPluginName = 'clampZoom' | 'drag' | 'wheel' | 'pinch' | 'decelerate';
 type ViewportPluginOptions = Record<
@@ -190,7 +196,7 @@ export class Patchmap extends EventEmitter {
       (value): value is Container => value instanceof Container,
     );
   });
-  public animationContext: Record<string, unknown> | null = null;
+  #animationContext: Record<string, unknown> = {};
 
   #transformer: Transformer | null = null;
   #resizeObserver: ResizeObserver | null = null;
@@ -206,6 +212,16 @@ export class Patchmap extends EventEmitter {
   #stateUnbind: Array<() => void> = [];
   #transformerUnbind: (() => void) | null = null;
   #transformBefore: ManagedTransformSnapshot[] | null = null;
+
+  public get animationContext(): Record<string, unknown> {
+    return this.#animationContext;
+  }
+
+  public set animationContext(_value: never) {
+    throw new TypeError(
+      'Cannot set property animationContext of #<az> which has only a getter',
+    );
+  }
 
   public get transformer(): Transformer | null {
     return this.#transformer;
@@ -267,7 +283,9 @@ export class Patchmap extends EventEmitter {
       world.label = 'patch-map-world';
       const renderLayer = new AggregateRenderLayer(() => this.theme);
       renderLayer.onRender = () => {
-        if (this.#renderLayer === renderLayer) this.#flushManagedSceneRefresh();
+        if (this.#renderLayer !== renderLayer) return;
+        this.#flushManagedSceneRefresh();
+        syncRelationPathGeometry(this.#managedScene);
       };
       viewport.addChild(renderLayer);
       viewport.addChild(world);
@@ -344,7 +362,7 @@ export class Patchmap extends EventEmitter {
     if (renderLayer) renderLayer.onRender = null;
     this.#drawVersion += 1;
     this.theme = materializeTheme();
-    this.animationContext = null;
+    this.#animationContext = {};
     this.rotation.restoreInitialState();
     this.flip.restoreInitialState();
     this.#resizeObserver?.disconnect();
@@ -370,7 +388,13 @@ export class Patchmap extends EventEmitter {
     const renderLayer = this.#renderLayer;
     if (!this.isInit || !world || !renderLayer) return undefined;
 
-    const data = materializeMapData(input);
+    const legacyCandidate = input as Record<string, unknown>;
+    const data = materializeMapData(
+      typeof input === 'object' &&
+      ('grids' in legacyCandidate || 'devices' in legacyCandidate)
+        ? convertLegacyData(input)
+        : input,
+    );
     const scene = buildManagedScene(data, this.theme);
     const version = ++this.#drawVersion;
     this.#clearPendingManagedSceneRefresh();
@@ -520,13 +544,19 @@ export class Patchmap extends EventEmitter {
     viewport.moveCenter(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
   }
 
-  public syncViewTransform(): void {
+  public [APPLY_VIEW_TRANSFORM](): void {
     const world = this.world;
     const renderLayer = this.#renderLayer;
     if (!world || !renderLayer) return;
+    const center = this.viewport?.center;
+    if (center) {
+      world.position.copyFrom(center);
+      world.pivot.copyFrom(center);
+    }
     renderLayer.angle = world.angle;
     renderLayer.scale.copyFrom(world.scale);
     renderLayer.position.copyFrom(world.position);
+    renderLayer.pivot.copyFrom(world.pivot);
     applyContentOrientation(this.#managedScene, this.rotation.value, {
       x: this.flip.x,
       y: this.flip.y,
@@ -571,6 +601,27 @@ export class Patchmap extends EventEmitter {
   ): void {
     this.#unbindStateEvents();
     viewport.eventMode = 'static';
+    const handledNativeEvents = new WeakSet<Event>();
+    const replayedNativeEvents = new WeakSet<Event>();
+    const capturedFederatedEvents = new WeakMap<Event, {
+      propagationImmediatelyStopped?: boolean;
+      propagationStopped?: boolean;
+    }>();
+    const nativeEventOf = (event: unknown): Event | null => {
+      const nativeEvent = (
+        event as { nativeEvent?: unknown } | null | undefined
+      )?.nativeEvent;
+      return nativeEvent instanceof Event ? nativeEvent : null;
+    };
+    const markHandled = (event: unknown): void => {
+      const nativeEvent = nativeEventOf(event);
+      if (nativeEvent) handledNativeEvents.add(nativeEvent);
+    };
+    const markCaptured = (event: unknown): void => {
+      const nativeEvent = nativeEventOf(event);
+      if (!nativeEvent || !event || typeof event !== 'object') return;
+      capturedFederatedEvents.set(nativeEvent, event);
+    };
     const dispatch = (name: string, event: unknown): void => {
       stateManager.dispatch(name, event);
       stateManager.dispatch(`on${name}`, event);
@@ -585,9 +636,38 @@ export class Patchmap extends EventEmitter {
       'pointerover',
       'rightclick',
     ]) {
-      const listener = (event: unknown): void => dispatch(name, event);
+      const listener = (event: unknown): void => {
+        markHandled(event);
+        dispatch(name, event);
+      };
+      const captureListener = (event: unknown): void => markCaptured(event);
       viewport.on(name, listener);
       this.#stateUnbind.push(() => viewport.off(name, listener));
+      if (typeof viewport.addEventListener === 'function') {
+        viewport.addEventListener(name, captureListener, { capture: true });
+        this.#stateUnbind.push(() => {
+          viewport.removeEventListener(name, captureListener, { capture: true });
+        });
+      }
+    }
+
+    const replayMissed = (event: PointerEvent): void => {
+      if (handledNativeEvents.has(event) || replayedNativeEvents.has(event)) return;
+      const captured = capturedFederatedEvents.get(event);
+      if (
+        captured?.propagationStopped === true ||
+        captured?.propagationImmediatelyStopped === true
+      ) return;
+      replayedNativeEvents.add(event);
+      setTimeout(() => {
+        if (this.app === app && this.isInit) app.canvas.dispatchEvent(event);
+      }, 0);
+    };
+    for (const name of ['pointerdown', 'pointermove', 'pointerup'] as const) {
+      app.canvas.addEventListener(name, replayMissed);
+      this.#stateUnbind.push(() => {
+        app.canvas.removeEventListener(name, replayMissed);
+      });
     }
 
     const contextMenu = (event: Event): void => event.preventDefault();
@@ -642,7 +722,7 @@ export class Patchmap extends EventEmitter {
     // Canvas-event paths are observable immediately after update/undo/redo.
     // Keep their bindings synchronous without paying a full-scene reindex for
     // update bursts that have no registered canvas events.
-    if (this.event.getAll().length > 0) {
+    if (Object.keys(this.event.getAll()).length > 0) {
       this.#flushPendingManagedSceneReindex();
       this.event.refresh();
     }
@@ -763,7 +843,11 @@ export class Patchmap extends EventEmitter {
       if (texture && texture.width > 0 && texture.height > 0) {
         node.setLocalBounds({ width: texture.width, height: texture.height });
       } else {
-        node.clearLocalBounds();
+        const builtIn = props.source === 'device' || props.source === 'loading';
+        node.setLocalBounds({
+          width: builtIn ? 72 : 1,
+          height: builtIn ? 72 : 1,
+        });
       }
     }
   }

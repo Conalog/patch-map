@@ -123,9 +123,9 @@ describe('Command and UndoRedoManager', () => {
     expect(eventListeners.executed).toHaveBeenCalledTimes(1);
     expect(eventListeners.undone).toHaveBeenCalledTimes(1);
     expect(eventListeners.redone).toHaveBeenCalledTimes(1);
-    expect(eventListeners.cleared).toHaveBeenCalledTimes(1);
+    expect(eventListeners.cleared).toHaveBeenCalledTimes(2);
     expect(eventListeners.destroyed).toHaveBeenCalledTimes(1);
-    expect(eventListeners.wildcard).toHaveBeenCalledTimes(5);
+    expect(eventListeners.wildcard).toHaveBeenCalledTimes(6);
   });
 });
 

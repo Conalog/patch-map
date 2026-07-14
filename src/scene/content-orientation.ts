@@ -1,6 +1,9 @@
 import type { ManagedScene } from './build-scene';
-import { layoutComponent } from './layout';
-import { ManagedNode } from './managed-node';
+import {
+  GRID_COMPONENT_DEFAULT_ADVANCE_EM,
+  layoutComponent,
+} from './layout';
+import { isManagedGridComponent, ManagedNode } from './managed-node';
 
 const UPRIGHT_COMPONENT_TYPES = new Set(['bar', 'icon', 'text']);
 
@@ -43,6 +46,7 @@ export const applyContentOrientation = (
     const layout = layoutComponent(
       node.props as unknown as Record<string, unknown>,
       parent.props as unknown as Record<string, unknown>,
+      isManagedGridComponent(node) ? GRID_COMPONENT_DEFAULT_ADVANCE_EM : undefined,
     );
     const upright = record(parent.props).contentOrientation !== 'follow-item';
     if (!upright) {

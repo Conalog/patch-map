@@ -36,6 +36,7 @@ export interface ReplaceManagedNodePropsOptions {
 }
 
 const managedBatchTokens = new WeakMap<ManagedNode, object>();
+const managedGridComponents = new WeakSet<ManagedNode>();
 const managedThemes = new WeakMap<ManagedNode, PatchmapTheme>();
 
 export const setManagedBatchToken = (node: ManagedNode, token: object): void => {
@@ -44,6 +45,17 @@ export const setManagedBatchToken = (node: ManagedNode, token: object): void => 
 
 export const getManagedBatchToken = (node: ManagedNode): object | undefined =>
   managedBatchTokens.get(node);
+
+export const markManagedGridComponent = (
+  node: ManagedNode,
+  marked = true,
+): void => {
+  if (marked) managedGridComponents.add(node);
+  else managedGridComponents.delete(node);
+};
+
+export const isManagedGridComponent = (node: ManagedNode): boolean =>
+  managedGridComponents.has(node);
 
 export const setManagedTheme = (node: ManagedNode, theme: PatchmapTheme): void => {
   managedThemes.set(node, theme);
@@ -71,6 +83,14 @@ const sameAttribute = (
   key: 'x' | 'y' | 'angle' | 'rotation',
 ): boolean => readAttribute(previous, key) === readAttribute(next, key);
 
+const defaultLiveLabel = (type: string): string | null => {
+  if (type === 'icon') return 'Sprite';
+  if (type === 'rect' || type === 'background' || type === 'bar') {
+    return 'Graphics';
+  }
+  return null;
+};
+
 /**
  * Public scene-tree handle separated from private render primitives.
  *
@@ -85,6 +105,9 @@ export class ManagedNode<T extends PublicNodeData = PublicNodeData> extends Cont
 
   #props: ManagedNodeProps<T>;
   #managedLocalBounds: Bounds | null = null;
+  #publicBoundsSuppressed = false;
+  #reportedWidth: number | null = null;
+  #reportedHeight: number | null = null;
 
   public constructor(props: ManagedNodeProps<T>, options: ManagedNodeOptions = {}) {
     super();
@@ -92,6 +115,7 @@ export class ManagedNode<T extends PublicNodeData = PublicNodeData> extends Cont
     this.type = props.type;
     this.#props = props;
     this.visible = true;
+    this.eventMode = 'static';
     this.#applyLabel(props);
     this.#applyVisibility(props);
     this.#applyPosition(props);
@@ -105,6 +129,24 @@ export class ManagedNode<T extends PublicNodeData = PublicNodeData> extends Cont
 
   public set props(next: ManagedNodeProps<T>) {
     this.replaceProps(next);
+  }
+
+  public override get width(): number {
+    return this.#reportedWidth ?? super.width;
+  }
+
+  public override set width(value: number) {
+    this.#reportedWidth = null;
+    super.width = value;
+  }
+
+  public override get height(): number {
+    return this.#reportedHeight ?? super.height;
+  }
+
+  public override set height(value: number) {
+    this.#reportedHeight = null;
+    super.height = value;
   }
 
   /**
@@ -181,19 +223,56 @@ export class ManagedNode<T extends PublicNodeData = PublicNodeData> extends Cont
     return this.#managedLocalBounds ?? super.getLocalBounds();
   }
 
+  public override getBounds(skipUpdate?: boolean, bounds?: Bounds): Bounds {
+    if (!this.#publicBoundsSuppressed) {
+      return super.getBounds(skipUpdate, bounds);
+    }
+    const target = bounds ?? new Bounds();
+    target.set(0, 0, 0, 0);
+    return target;
+  }
+
+  /** Preserve local dimensions while exposing the raw-update zero bounds ABI. */
+  public suppressPublicBounds(suppressed = true): this {
+    this.#publicBoundsSuppressed = suppressed;
+    return this;
+  }
+
+  public reportDimensions(width: number, height: number): this {
+    this.#reportedWidth = width;
+    this.#reportedHeight = height;
+    return this;
+  }
+
+  public clearReportedDimensions(): this {
+    this.#reportedWidth = null;
+    this.#reportedHeight = null;
+    return this;
+  }
+
   public override destroy(options?: DestroyOptions): void {
     if (this.destroyed) return;
     this.onRender = null;
     managedBatchTokens.delete(this);
+    managedGridComponents.delete(this);
     managedThemes.delete(this);
     this.#managedLocalBounds = null;
+    this.#publicBoundsSuppressed = false;
+    this.#reportedWidth = null;
+    this.#reportedHeight = null;
     Reflect.set(this, 'boundsArea', null);
     this.hitArea = null;
     super.destroy(options);
   }
 
   #applyLabel(props: ManagedNodeProps<T>): void {
-    Reflect.set(this, 'label', typeof props.label === 'string' ? props.label : null);
+    Reflect.set(
+      this,
+      'label',
+      typeof props.label === 'string'
+        ? props.label
+        : defaultLiveLabel(props.type),
+    );
   }
 
   #applyVisibility(props: ManagedNodeProps<T>): void {

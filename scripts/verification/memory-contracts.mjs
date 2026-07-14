@@ -310,7 +310,7 @@ try {
         appNull: patchmap.app === null,
         canvasConnected: canvas.isConnected,
         canvasCount: host.querySelectorAll('canvas').length,
-        canvasEventCount: patchmap.event.getAll().length,
+        canvasEventCount: Object.keys(patchmap.event.getAll()).length,
         canvasEventHits,
         contextMenuPrevented: detachedContextMenu.defaultPrevented,
         destroyedEvents,

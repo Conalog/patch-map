@@ -6,22 +6,37 @@ import {
   type PointData,
 } from 'pixi.js';
 
+import { ZodValidationError } from './model/validation';
+
 export type TransformableElement = Container & {
   id?: string;
   type?: string;
   props?: object;
+  setLocalBounds?: (bounds: {
+    readonly x?: number;
+    readonly y?: number;
+    readonly width: number;
+    readonly height: number;
+  }) => unknown;
 };
 
 type ElementInput = TransformableElement | readonly TransformableElement[];
 type BoundsDisplayMode = 'all' | 'groupOnly' | 'elementOnly' | 'none';
 type ResizeHandleName = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 type RotateHandleName = 'nw' | 'ne' | 'se' | 'sw';
+type PublicCornerName =
+  | 'top-left'
+  | 'top-right'
+  | 'bottom-right'
+  | 'bottom-left';
+type PublicEdgeName = 'top' | 'right' | 'bottom' | 'left';
 type GestureKind = 'resize' | 'rotate';
 type GesturePhase = 'start' | 'change' | 'end';
 
 export interface TransformerPointerEvent {
   readonly global: PointData;
   readonly shiftKey?: boolean;
+  readonly target?: unknown;
   stopPropagation?: () => void;
 }
 
@@ -44,6 +59,7 @@ interface ElementGestureSnapshot {
   readonly angle: number;
   readonly rotation: number;
   readonly writesRotation: boolean;
+  readonly semanticSize: { readonly width: number; readonly height: number } | null;
 }
 
 interface ActiveGesture {
@@ -69,22 +85,31 @@ export interface TransformerGesturePayload {
   readonly keepRatio?: boolean;
 }
 
-const RESIZE_HANDLES: readonly ResizeHandleName[] = [
-  'nw',
-  'n',
-  'ne',
-  'e',
-  'se',
-  's',
-  'sw',
-  'w',
-];
 const ROTATE_HANDLES: readonly RotateHandleName[] = ['nw', 'ne', 'se', 'sw'];
+const CORNER_NAMES: Readonly<Record<RotateHandleName, PublicCornerName>> = {
+  nw: 'top-left',
+  ne: 'top-right',
+  se: 'bottom-right',
+  sw: 'bottom-left',
+};
+const EDGE_NAMES: Readonly<Record<'n' | 'e' | 's' | 'w', PublicEdgeName>> = {
+  n: 'top',
+  e: 'right',
+  s: 'bottom',
+  w: 'left',
+};
+const publicResizeHandleName = (
+  name: ResizeHandleName,
+): PublicCornerName | PublicEdgeName =>
+  name === 'nw' || name === 'ne' || name === 'se' || name === 'sw'
+    ? CORNER_NAMES[name]
+    : EDGE_NAMES[name];
 const TRANSFORMABLE_TYPES = new Set(['grid', 'item', 'rect', 'image', 'text']);
 const MIN_FRAME_SIZE = 1;
-const ROTATE_HANDLE_OFFSET = 16;
-const HANDLE_SIZE = 8;
-const HANDLE_HIT_SIZE = 16;
+const ROTATE_HANDLE_OFFSET = 18;
+const ROTATE_HANDLE_SIZE = 18;
+const RESIZE_HANDLE_SIZE = 10;
+const RESIZE_EDGE_HALF_SIZE = 6;
 const RAD_TO_DEG = 180 / Math.PI;
 const ROTATION_SNAP = Math.PI / 12;
 
@@ -153,6 +178,29 @@ const axisAlignedFrame = (frames: readonly Frame[]): Frame | null => {
   ]);
 };
 
+const paddedPointsBounds = (
+  points: readonly PointData[],
+  padding: number,
+): Rectangle => {
+  if (points.length === 0) return new Rectangle(0, 0, 0, 0);
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const point of points) {
+    minX = Math.min(minX, point.x);
+    minY = Math.min(minY, point.y);
+    maxX = Math.max(maxX, point.x);
+    maxY = Math.max(maxY, point.y);
+  }
+  return new Rectangle(
+    minX - padding,
+    minY - padding,
+    maxX - minX + padding * 2,
+    maxY - minY + padding * 2,
+  );
+};
+
 const handleDirection = (
   name: ResizeHandleName,
 ): { readonly x: -1 | 0 | 1; readonly y: -1 | 0 | 1 } => ({
@@ -217,6 +265,48 @@ const writeProps = (
   const props = record(element.props);
   const attrs = record(props.attrs);
   element.props = { ...props, attrs: { ...attrs, ...changes } };
+};
+
+const semanticSize = (
+  element: TransformableElement,
+): { readonly width: number; readonly height: number } | null => {
+  const size = record(element.props).size;
+  if (typeof size === 'number' && Number.isFinite(size)) {
+    return { width: size, height: size };
+  }
+  if (!size || typeof size !== 'object') return null;
+  const width = record(size).width;
+  const height = record(size).height;
+  return typeof width === 'number' && Number.isFinite(width) &&
+      typeof height === 'number' && Number.isFinite(height)
+    ? { width, height }
+    : null;
+};
+
+const writeSemanticSize = (
+  element: TransformableElement,
+  size: { readonly width: number; readonly height: number },
+): void => {
+  if (!element.props || typeof element.props !== 'object') return;
+  const localBounds = element.getLocalBounds();
+  element.props = { ...record(element.props), size: { ...size } };
+  if (
+    typeof element.setLocalBounds === 'function' &&
+    typeof record(element).replaceProps === 'function'
+  ) {
+    element.setLocalBounds({
+      x: localBounds.x,
+      y: localBounds.y,
+      ...size,
+    });
+  } else {
+    element.boundsArea = new Rectangle(
+      localBounds.x,
+      localBounds.y,
+      size.width,
+      size.height,
+    );
+  }
 };
 
 export interface TransformerOptions {
@@ -318,10 +408,10 @@ export class SelectionModel {
   public destroy(): void {
     if (this.#destroyed) return;
 
-    const removed = this.#elements;
+    const current = [...this.#elements];
+    if (current.length) this.#onChange(current, [], []);
     this.#elements = [];
     this.#destroyed = true;
-    if (removed.length) this.#onChange([], [], removed);
   }
 }
 
@@ -331,26 +421,42 @@ export class Transformer extends Container {
   #activeGesture: ActiveGesture | null = null;
   #lastVisualKey = '';
 
-  readonly #elementWireframes = new Graphics({
-    label: 'transformer:element-wireframes',
-    eventMode: 'none',
-  });
-  readonly #groupWireframe = new Graphics({
-    label: 'transformer:group-wireframe',
-    eventMode: 'none',
-  });
-  readonly #handleLayer = new Container({
-    label: 'transformer:handles',
+  readonly #wireframe = new Graphics({
+    label: 'Graphics',
     eventMode: 'passive',
   });
+  readonly #handleLayer = new Container({
+    label: 'transform-handles',
+    eventMode: 'passive',
+  });
+  readonly #resizeFrame = new Graphics({
+    label: 'resize-frame',
+    eventMode: 'none',
+  });
+  readonly #resizeEdgeNodes = new Map<'n' | 'e' | 's' | 'w', Container>();
   readonly #resizeHandleNodes = new Map<ResizeHandleName, Graphics>();
-  readonly #rotateHandleNodes = new Map<RotateHandleName, Container>();
+  readonly #rotateHandleNodes = new Map<RotateHandleName, Graphics>();
 
   public readonly selection: SelectionModel;
   public readonly options: Readonly<NormalizedTransformerOptions>;
 
-  public constructor(options: TransformerOptions = {}) {
+  public constructor(options: TransformerOptions | null = {}) {
+    if (options === null || typeof options !== 'object' || Array.isArray(options)) {
+      throw new ZodValidationError(
+        `Validation error: Expected object, received ${options === null ? 'null' : typeof options}`,
+      );
+    }
+    if (
+      options.boundsDisplayMode !== undefined &&
+      !['all', 'groupOnly', 'elementOnly', 'none'].includes(options.boundsDisplayMode)
+    ) {
+      throw new ZodValidationError(
+        `Validation error: Invalid enum value. Expected 'all' | 'groupOnly' | 'elementOnly' | 'none', received '${String(options.boundsDisplayMode)}' at "boundsDisplayMode"`,
+      );
+    }
     super({ label: 'transformer' });
+    this.eventMode = 'static';
+    Reflect.set(this.#wireframe, 'type', 'wireframe');
     this.options = {
       wireframeStyle: {
         thickness: 1.5,
@@ -365,12 +471,13 @@ export class Transformer extends Container {
       getResizeKeepRatio: options.getResizeKeepRatio,
     };
 
-    this.addChild(
-      this.#elementWireframes,
-      this.#groupWireframe,
-      this.#handleLayer,
-    );
+    this.addChild(this.#wireframe, this.#handleLayer);
+    this.#handleLayer.addChild(this.#resizeFrame);
     this.#createHandles();
+    this.hitArea = {
+      contains: (x: number, y: number) => this.#containsGesturePoint(x, y),
+    };
+    this.#bindGestureEvents();
     this.selection = new SelectionModel((current, added, removed) => {
       this.#activeGesture = null;
       this.#lastVisualKey = '';
@@ -388,6 +495,30 @@ export class Transformer extends Container {
 
   public set elements(value: ElementInput) {
     this.selection.set(value);
+  }
+
+  public get wireframeStyle(): Readonly<NormalizedTransformerOptions['wireframeStyle']> {
+    return this.options.wireframeStyle;
+  }
+
+  public get boundsDisplayMode(): BoundsDisplayMode {
+    return this.options.boundsDisplayMode;
+  }
+
+  public get resizeHandles(): boolean {
+    return this.options.resizeHandles;
+  }
+
+  public get rotateHandles(): boolean {
+    return this.options.rotateHandles;
+  }
+
+  public get transformHistory(): boolean {
+    return this.options.transformHistory;
+  }
+
+  public get resizeKeepRatio(): boolean {
+    return this.options.resizeKeepRatio;
   }
 
   /** Recomputes visible bounds after external scene or view transforms. */
@@ -431,66 +562,137 @@ export class Transformer extends Container {
   }
 
   #createHandles(): void {
-    for (const name of RESIZE_HANDLES) {
-      const handle = new Graphics({ label: `transformer:resize:${name}` })
-        .rect(-HANDLE_SIZE / 2, -HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE)
-        .fill('#FFFFFF')
-        .stroke({
-          width: this.options.wireframeStyle.thickness,
-          color: this.options.wireframeStyle.color,
-        });
-      handle.eventMode = 'static';
-      handle.hitArea = new Rectangle(
-        -HANDLE_HIT_SIZE / 2,
-        -HANDLE_HIT_SIZE / 2,
-        HANDLE_HIT_SIZE,
-        HANDLE_HIT_SIZE,
-      );
-      handle.cursor = name.length === 1
-        ? name === 'n' || name === 's'
-          ? 'ns-resize'
-          : 'ew-resize'
-        : name === 'nw' || name === 'se'
-          ? 'nwse-resize'
-          : 'nesw-resize';
-      this.#bindHandle(handle, 'resize', name);
-      this.#resizeHandleNodes.set(name, handle);
+    for (const name of ['n', 'e', 's', 'w'] as const) {
+      const handle = new Container({
+        label: `resize-edge:${EDGE_NAMES[name]}`,
+        eventMode: 'static',
+        cursor: name === 'n' || name === 's' ? 'ns-resize' : 'ew-resize',
+      });
+      this.#resizeEdgeNodes.set(name, handle);
       this.#handleLayer.addChild(handle);
     }
 
     for (const name of ROTATE_HANDLES) {
-      const handle = new Container({
-        label: `transformer:rotate:${name}`,
+      const handle = new Graphics({
+        label: `rotate-handle:${CORNER_NAMES[name]}`,
         eventMode: 'static',
         cursor: 'crosshair',
-        hitArea: new Rectangle(
-          -HANDLE_HIT_SIZE / 2,
-          -HANDLE_HIT_SIZE / 2,
-          HANDLE_HIT_SIZE,
-          HANDLE_HIT_SIZE,
-        ),
-      });
-      this.#bindHandle(handle, 'rotate', name);
+      })
+        .rect(
+          -ROTATE_HANDLE_SIZE / 2,
+          -ROTATE_HANDLE_SIZE / 2,
+          ROTATE_HANDLE_SIZE,
+          ROTATE_HANDLE_SIZE,
+        )
+        .fill(this.options.wireframeStyle.color);
+      handle.hitArea = new Rectangle(
+        -ROTATE_HANDLE_SIZE / 2,
+        -ROTATE_HANDLE_SIZE / 2,
+        ROTATE_HANDLE_SIZE,
+        ROTATE_HANDLE_SIZE,
+      );
       this.#rotateHandleNodes.set(name, handle);
+      this.#handleLayer.addChild(handle);
+    }
+
+    for (const name of ROTATE_HANDLES) {
+      const handle = new Graphics({
+        label: `resize-handle:${CORNER_NAMES[name]}`,
+        eventMode: 'static',
+        cursor: name === 'nw' || name === 'se' ? 'nwse-resize' : 'nesw-resize',
+      })
+        .rect(
+          -RESIZE_HANDLE_SIZE / 2,
+          -RESIZE_HANDLE_SIZE / 2,
+          RESIZE_HANDLE_SIZE,
+          RESIZE_HANDLE_SIZE,
+        )
+        .fill('#FFFFFF');
+      handle.hitArea = new Rectangle(
+        -RESIZE_HANDLE_SIZE / 2,
+        -RESIZE_HANDLE_SIZE / 2,
+        RESIZE_HANDLE_SIZE,
+        RESIZE_HANDLE_SIZE,
+      );
+      this.#resizeHandleNodes.set(name, handle);
       this.#handleLayer.addChild(handle);
     }
   }
 
-  #bindHandle(
-    handle: Container,
-    kind: GestureKind,
-    name: ResizeHandleName | RotateHandleName,
-  ): void {
-    handle.on('pointerdown', (event: TransformerPointerEvent) => {
-      this.#startGesture(kind, name, handle, event);
+  #bindGestureEvents(): void {
+    this.on('pointerdown', (event: TransformerPointerEvent) => {
+      if (this.#activeGesture) return;
+      const target = this.#gestureTarget(event);
+      if (!target) return;
+      this.#startGesture(target.kind, target.name, target.handle, event);
     });
-    handle.on('globalpointermove', (event: TransformerPointerEvent) => {
-      this.#moveGesture(handle, event);
+    this.on('globalpointermove', (event: TransformerPointerEvent) => {
+      const gesture = this.#activeGesture;
+      if (gesture) this.#moveGesture(gesture.handle, event);
     });
-    const end = () => this.#endGesture(handle);
-    handle.on('pointerup', end);
-    handle.on('pointerupoutside', end);
-    handle.on('pointercancel', end);
+    const end = () => {
+      const gesture = this.#activeGesture;
+      if (gesture) this.#endGesture(gesture.handle);
+    };
+    this.on('pointerup', end);
+    this.on('pointerupoutside', end);
+    this.on('pointercancel', end);
+  }
+
+  #gestureTarget(event: TransformerPointerEvent): {
+    readonly kind: GestureKind;
+    readonly name: ResizeHandleName | RotateHandleName;
+    readonly handle: Container;
+  } | null {
+    for (const [name, handle] of this.#resizeHandleNodes) {
+      if (event.target === handle) return { kind: 'resize', name, handle };
+    }
+    for (const [name, handle] of this.#resizeEdgeNodes) {
+      if (event.target === handle) return { kind: 'resize', name, handle };
+    }
+    const point = this.#handleLayer.toLocal(event.global);
+    for (const [name, handle] of [...this.#resizeHandleNodes].reverse()) {
+      if (handle.visible && handle.hitArea?.contains(
+        point.x - handle.x,
+        point.y - handle.y,
+      )) {
+        return { kind: 'resize', name, handle };
+      }
+    }
+    for (const [name, handle] of [...this.#resizeEdgeNodes].reverse()) {
+      if (handle.visible && handle.hitArea?.contains(point.x, point.y)) {
+        return { kind: 'resize', name, handle };
+      }
+    }
+    for (const [name, handle] of this.#rotateHandleNodes) {
+      if (event.target === handle) return { kind: 'rotate', name, handle };
+    }
+    for (const [name, handle] of [...this.#rotateHandleNodes].reverse()) {
+      if (handle.visible && handle.hitArea?.contains(
+        point.x - handle.x,
+        point.y - handle.y,
+      )) {
+        return { kind: 'rotate', name, handle };
+      }
+    }
+    return null;
+  }
+
+  #containsGesturePoint(x: number, y: number): boolean {
+    for (const handle of this.#resizeHandleNodes.values()) {
+      if (handle.visible && handle.hitArea?.contains(x - handle.x, y - handle.y)) {
+        return true;
+      }
+    }
+    for (const handle of this.#resizeEdgeNodes.values()) {
+      if (handle.visible && handle.hitArea?.contains(x, y)) return true;
+    }
+    for (const handle of this.#rotateHandleNodes.values()) {
+      if (handle.visible && handle.hitArea?.contains(x - handle.x, y - handle.y)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   #elementFrame(element: TransformableElement): Frame {
@@ -528,11 +730,12 @@ export class Transformer extends Container {
     const showGroup =
       boundsDisplayMode === 'all' || boundsDisplayMode === 'groupOnly';
 
-    this.#elementWireframes.clear();
-    this.#elementWireframes.visible = showElements && frames.length > 0;
+    this.#wireframe.clear();
+    const displayedPoints: Point[] = [];
     if (showElements) {
       for (const frame of frames) {
-        this.#elementWireframes
+        displayedPoints.push(...frame.points);
+        this.#wireframe
           .poly(frame.points.flatMap((point) => [point.x, point.y]), true)
           .stroke({
             width: wireframeStyle.thickness,
@@ -540,23 +743,61 @@ export class Transformer extends Container {
           });
       }
     }
-
-    this.#groupWireframe.clear();
-    this.#groupWireframe.visible = showGroup && groupFrame !== null;
     if (showGroup && groupFrame) {
-      this.#groupWireframe
+      displayedPoints.push(...groupFrame.points);
+      this.#wireframe
         .poly(groupFrame.points.flatMap((point) => [point.x, point.y]), true)
         .stroke({
           width: wireframeStyle.thickness,
           color: wireframeStyle.color,
         });
     }
+    this.#wireframe.visible = displayedPoints.length > 0;
+    this.#wireframe.boundsArea = paddedPointsBounds(
+      displayedPoints,
+      wireframeStyle.thickness / 2,
+    );
   }
 
   #positionHandles(frame: Frame | null): void {
     const eligible = this.selection.elements.some(supportsTransform);
     const showResize = this.options.resizeHandles && frame !== null && eligible;
     const showRotate = this.options.rotateHandles && frame !== null && eligible;
+
+    this.#resizeFrame.clear();
+    this.#resizeFrame.visible = (showResize || showRotate) && frame !== null;
+    if (frame) {
+      this.#resizeFrame
+        .poly(frame.points.flatMap((point) => [point.x, point.y]), true)
+        .stroke({
+          width: this.options.wireframeStyle.thickness,
+          color: this.options.wireframeStyle.color,
+        });
+      this.#resizeFrame.boundsArea = paddedPointsBounds(
+        frame.points,
+        this.options.wireframeStyle.thickness / 2,
+      );
+    } else {
+      this.#resizeFrame.boundsArea = new Rectangle(0, 0, 0, 0);
+    }
+
+    const edgePoints = frame
+      ? {
+          n: [frame.points[0], frame.points[1]],
+          e: [frame.points[1], frame.points[2]],
+          s: [frame.points[3], frame.points[2]],
+          w: [frame.points[0], frame.points[3]],
+        } as const
+      : null;
+    for (const [name, handle] of this.#resizeEdgeNodes) {
+      handle.visible = showResize;
+      const points = edgePoints?.[name];
+      const bounds = points
+        ? paddedPointsBounds(points, RESIZE_EDGE_HALF_SIZE)
+        : new Rectangle(0, 0, 0, 0);
+      handle.boundsArea = bounds;
+      handle.hitArea = bounds.clone();
+    }
 
     for (const [name, handle] of this.#resizeHandleNodes) {
       handle.visible = showResize;
@@ -648,6 +889,7 @@ export class Transformer extends Container {
       angle: element.angle,
       rotation: element.rotation,
       writesRotation: Object.hasOwn(attrs, 'rotation'),
+      semanticSize: semanticSize(element),
     };
   }
 
@@ -689,7 +931,9 @@ export class Transformer extends Container {
     const shiftKey = event.shiftKey === true;
     const callbackRatio = this.options.getResizeKeepRatio?.({
       event,
-      handle: gesture.handle,
+      handle: publicResizeHandleName(
+        gesture.handleName as ResizeHandleName,
+      ),
       elements: this.elements,
     }) === true;
     gesture.keepRatio = shiftKey || this.options.resizeKeepRatio || callbackRatio;
@@ -699,7 +943,7 @@ export class Transformer extends Container {
         ? scaleY
         : direction.y === 0
           ? scaleX
-          : Math.abs(scaleX - 1) >= Math.abs(scaleY - 1)
+          : Math.abs(scaleX - 1) <= Math.abs(scaleY - 1)
             ? scaleX
             : scaleY;
       scaleX = uniformScale;
@@ -725,6 +969,13 @@ export class Transformer extends Container {
         snapshot.scaleY * scaleY,
       );
       this.#placeElementCenter(snapshot, desiredCenter);
+      if (snapshot.semanticSize) {
+        writeSemanticSize(snapshot.element, {
+          width: Math.max(1, Math.ceil(snapshot.semanticSize.width * scaleX)),
+          height: Math.max(1, Math.ceil(snapshot.semanticSize.height * scaleY)),
+        });
+        snapshot.element.scale.set(snapshot.scaleX, snapshot.scaleY);
+      }
       writeProps(snapshot.element, {
         x: snapshot.element.position.x,
         y: snapshot.element.position.y,
@@ -781,8 +1032,8 @@ export class Transformer extends Container {
       const desiredParent = element.parent.toLocal(desiredGlobal);
       const currentParent = element.parent.toLocal(currentGlobal);
       element.position.set(
-        element.position.x + desiredParent.x - currentParent.x,
-        element.position.y + desiredParent.y - currentParent.y,
+        element.position.x + (desiredParent.x - currentParent.x),
+        element.position.y + (desiredParent.y - currentParent.y),
       );
       return;
     }

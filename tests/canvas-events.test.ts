@@ -12,20 +12,19 @@ const emit = (target: Container, action: string, event: unknown): void => {
 };
 
 describe('CanvasEventManager', () => {
-  it('registers whitespace-separated actions enabled and returns the public record', () => {
+  it('registers whitespace-separated actions and exposes the public option record', () => {
     const target = new Container();
     const fn = vi.fn();
     const manager = new CanvasEventManager((path) => path === '$' ? [target] : []);
     const id = manager.add({ path: '$', action: 'click  tap click', fn });
 
     expect(id).toMatch(/^[0-9A-Z_a-z-]{15}$/);
-    expect(manager.get(id)).toMatchObject({
-      id,
+    expect(manager.get(id)).toEqual({
       path: '$',
       action: 'click  tap click',
       fn,
-      enabled: true,
     });
+    expect(Object.keys(manager.getAll())).toEqual([id]);
     emit(target, 'click', { kind: 'click' });
     emit(target, 'tap', { kind: 'tap' });
     expect(fn).toHaveBeenCalledTimes(2);
@@ -45,8 +44,6 @@ describe('CanvasEventManager', () => {
 
     expect(target.eventMode).toBe('static');
     manager.off('first second');
-    expect(manager.get('first')?.enabled).toBe(false);
-    expect(manager.get('second')?.enabled).toBe(false);
     expect(target.eventMode).toBe('passive');
     emit(target, 'click', {});
     expect(first).not.toHaveBeenCalled();
@@ -57,7 +54,7 @@ describe('CanvasEventManager', () => {
     expect(first).toHaveBeenCalledTimes(1);
     expect(second).toHaveBeenCalledTimes(1);
     manager.removeAll();
-    expect(manager.getAll()).toEqual([]);
+    expect(Object.keys(manager.getAll())).toEqual([]);
     expect(target.eventMode).toBe('passive');
     target.destroy();
   });
@@ -73,9 +70,21 @@ describe('CanvasEventManager', () => {
     emit(target, 'click', {});
     expect(previous).not.toHaveBeenCalled();
     expect(next).toHaveBeenCalledTimes(1);
-    expect(manager.getAll()).toHaveLength(1);
-    expect(manager.remove('missing same')).toBe(true);
-    expect(manager.remove('same')).toBe(false);
+    expect(Object.keys(manager.getAll())).toEqual(['same']);
+    expect(manager.remove('missing same')).toBeUndefined();
+    expect(manager.remove('same')).toBeUndefined();
+    target.destroy();
+  });
+
+  it('preserves length as an ordinary explicit event ID', () => {
+    const target = new Container();
+    const fn = vi.fn();
+    const manager = new CanvasEventManager(() => [target]);
+
+    manager.add({ id: 'length', path: '$', action: 'click', fn });
+
+    expect(manager.getAll().length).toEqual({ path: '$', action: 'click', fn });
+    manager.destroy();
     target.destroy();
   });
 

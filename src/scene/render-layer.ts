@@ -14,14 +14,21 @@ import type {
 } from 'pixi.js';
 
 import { getCachedSceneTexture } from '../assets';
+import { LIVE_TEXT_COMPONENT_DEFAULT_FONT_SIZE } from '../model/materialize';
 import type { PatchmapTheme } from '../theme';
 import {
+  applyManagedComponentLayout,
+} from './build-scene';
+import {
+  GRID_COMPONENT_DEFAULT_ADVANCE_EM,
   layoutAnimatedBar,
   layoutComponent,
   measureText,
   readFixedSize,
+  resolveTextLines,
   type SceneSize,
 } from './layout';
+import { isManagedGridComponent, ManagedNode } from './managed-node';
 
 type PublicRecord = Record<string, unknown>;
 
@@ -283,7 +290,17 @@ const baseEntryRect = (entry: RenderEntry, texture?: Texture | null): LocalRect 
       return { x: 0, y: 0, ...size };
     }
     case 'text': {
-      const size = measureText(props.text, props.style, entry.component ? 26 : 16);
+      const batchedGridComponent = entry.node instanceof ManagedNode &&
+        isManagedGridComponent(entry.node as ManagedNode);
+      const size = measureText(
+        props.text,
+        props.style,
+        entry.component
+          ? batchedGridComponent ? 26 : LIVE_TEXT_COMPONENT_DEFAULT_FONT_SIZE
+          : 16,
+        props.split,
+        batchedGridComponent ? GRID_COMPONENT_DEFAULT_ADVANCE_EM : undefined,
+      );
       return { x: 0, y: 0, ...size };
     }
     case 'background': {
@@ -576,6 +593,23 @@ export class AggregateRenderLayer extends Container {
       else active = true;
 
       const layout = layoutAnimatedBar(entry.props, entry.parentProps, progress);
+      if (
+        progress >= 1 &&
+        entry.node instanceof ManagedNode
+      ) {
+        const node = entry.node as ManagedNode;
+        applyManagedComponentLayout(node, layout);
+        node.renderable = entry.props.show !== false;
+        node.updateLocalTransform();
+        entry.matrix = appendMatrix(entry.parentMatrix, node.localTransform);
+        entry.localRect = {
+          x: 0,
+          y: 0,
+          width: layout.localWidth,
+          height: layout.localHeight,
+        };
+        continue;
+      }
       const start = layoutAnimatedBar(entry.props, entry.parentProps, 0);
       const local = entry.node
         ? cloneMatrix(entry.node.localTransform)
@@ -1225,10 +1259,16 @@ export class AggregateRenderLayer extends Container {
   }
 
   #drawRasterText(context: CanvasRenderingContext2D, entry: RenderEntry): void {
-    const content = typeof entry.props.text === 'string' ? entry.props.text : '';
+    const content = resolveTextLines(
+      entry.props.text,
+      entry.props.split,
+    ).join('\n');
     if (!content) return;
     const style = record(entry.props.style);
-    const fontSize = finite(style.fontSize, entry.component ? 26 : 16);
+    const fontSize = finite(
+      style.fontSize,
+      entry.component ? LIVE_TEXT_COMPONENT_DEFAULT_FONT_SIZE : 16,
+    );
     const family = typeof style.fontFamily === 'string' ? style.fontFamily : 'sans-serif';
     const weight = typeof style.fontWeight === 'string' || typeof style.fontWeight === 'number'
       ? String(style.fontWeight)
@@ -1248,7 +1288,7 @@ export class AggregateRenderLayer extends Container {
       this.#theme().black,
     ));
     const lineHeight = finite(style.lineHeight, fontSize * 77 / 65);
-    content.split('\n').forEach((line, index) => {
+    resolveTextLines(entry.props.text, entry.props.split).forEach((line, index) => {
       context.fillText(line, 0, index * lineHeight);
     });
   }
@@ -1460,7 +1500,10 @@ export class AggregateRenderLayer extends Container {
     }
     this.#textUsed += 1;
 
-    const content = typeof entry.props.text === 'string' ? entry.props.text : '';
+    const content = resolveTextLines(
+      entry.props.text,
+      entry.props.split,
+    ).join('\n');
     if (text.text !== content) text.text = content;
     const style = this.#textStyle(entry);
     const signature = safeStyleSignature(style);
@@ -1483,7 +1526,9 @@ export class AggregateRenderLayer extends Container {
     for (const key of TEXT_STYLE_KEYS) {
       if (input[key] !== undefined) output[key] = input[key];
     }
-    output.fontSize ??= entry.component ? 26 : 16;
+    output.fontSize ??= entry.component
+      ? LIVE_TEXT_COMPONENT_DEFAULT_FONT_SIZE
+      : 16;
     output.fill = resolveColor(input.fill, this.#theme(), this.#theme().black);
 
     const stroke = record(input.stroke);
