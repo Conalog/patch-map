@@ -40,3 +40,10 @@
 - **Decision:** 클린룸 소유자는 이 사고를 비오염 우발 노출로 인정하며 현재 작업트리와 구현 결과를 유지하고 폐기나 재시작 없이 계속 진행한다.
 - **Why:** 노출 대상은 PATCH MAP 원본이 아닌 공개 의존성 산출물이고 그 내용이 구현·fixture 설계·검증 판단에 영향을 주지 않았으므로 결과 오염으로 볼 근거가 없다.
 - **Impact:** 허용 자료 경계는 확장되지 않는다. 이후 검색·검증에서 node_modules, bundle, source map을 명시적으로 제외하고 immutable expected/reference evidence를 유지한 채 승인된 v4 계약 구현을 계속한다.
+
+**2026-07-14**
+
+- **Background:** 클린룸 Oracle이 v3 payload를 byte-preserve한 72-payload v4 export와 Q1~Q23 공개 observable fixture를 직접 전달했고 소유자가 구현 입력으로 승인했다.
+- **Decision:** v4 manifest와 그 public fixture/normalized output을 cumulative 활성 계약으로 사용하되 모든 fixture review state는 analysis-owner 검토 전까지 `oracle-generated/review-pending`으로 유지한다.
+- **Why:** v4는 기존 경계를 넓히지 않고 v3에서 추측할 수 없던 공개 동작을 안전한 블랙박스 증거로 해소한다.
+- **Impact:** 구현과 검증은 v3/v4 승인 자료에만 연결하고 Q4/Q7/Q12/Q18/Q21의 명시적 partial 및 headed Windows pending을 추측하거나 완료로 승격하지 않는다.

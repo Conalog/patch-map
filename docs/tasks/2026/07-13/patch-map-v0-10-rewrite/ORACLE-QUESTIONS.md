@@ -2,6 +2,8 @@
 
 These questions request public inputs and observable outputs only. They must not be answered with reference source, private symbols, algorithms, bundles, source maps, or original tests.
 
+The approved v4 handoff resolved Q1~Q3, Q5~Q6, Q8~Q11, Q13~Q17, Q19~Q20, and Q22~Q23. Q4, Q7, Q12, Q18, and Q21 remain explicitly partial at the boundaries recorded in `docs/implementation/q1-q23-coverage.md`. All fixture review states remain analysis-owner pending; this question list is retained as the provenance of the Oracle request and is not an invitation to infer missing behavior.
+
 1. For each standalone export (`selector`, `convertLegacyData`, `findIntersectObject`, `isMoved`, `intersectPoint`, `uid`), what are the accepted arguments, defaults, return value, mutation behavior, and thrown errors for representative valid, empty, and invalid inputs?
 2. What are the documented constructor arguments and return/error behavior for `Patchmap`, `Transformer`, `State`, `Command`, and `UndoRedoManager` when omitted or invalid options are supplied?
 3. Which public methods, arguments, defaults, return values, event payloads, and no-op/error cases belong to `stateManager`, including modifier activation and deactivation?

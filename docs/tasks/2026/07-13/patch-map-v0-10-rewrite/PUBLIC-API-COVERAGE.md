@@ -1,70 +1,75 @@
 # PATCH MAP v0.10 Public API Coverage
 
-Status values are `verified`, `oracle-blocked`, and `incomplete`. A row is `verified` only when the full approved contract represented by that row has an automated public-boundary test. `oracle-blocked` means the known public contract is implemented and locally tested but approved evidence does not define every required observable. `incomplete` means known implementation or release evidence is still missing. Oracle fixture IDs identify approved evidence; independent evidence is implementation-authored from the public contract.
+Status values are `verified`, `oracle-partial`, and `external-pending`. `verified` means the documented public contract is implemented and connected to approved fixture evidence or an independent public-boundary test. `oracle-partial` preserves an explicit limitation in the v4 Oracle observation without inferring the missing behavior. `external-pending` requires an unavailable environment or reference-side public measurement. All v4 fixture rows remain `oracle-generated/review-pending`; local conformance success does not promote their review state.
 
 ## Package exports
 
-| Public export | Observable contract | Current evidence and remaining gap | Status |
+| Public export | Automated public contract | Evidence | Status |
 | --- | --- | --- | --- |
-| `Patchmap` | Subclassable lifecycle, map, view, event, state, history, and Level 2 properties | Exact runtime/type export and packed subclass flow pass; constructor and several nested exact ABIs remain in Q2~Q7, Q14, and Q20 | oracle-blocked |
-| `Transformer` | Selection, bounds, resize, rotation, locking, snapping, and history | Selection plus all resize directions, rotation, cancellation, native gestures, and history pass; exact options/callback ABI remains Q2/Q11 | oracle-blocked |
-| `State` | Subclassable state with handled events and lifecycle | Independent lifecycle and propagation tests pass; exact constructor/state payload ABI remains Q2/Q3 | oracle-blocked |
-| `PROPAGATE_EVENT` | Passes an input event to the next stacked state | Independent stack propagation contract | verified |
-| `Command` | Subclassable command with ID, `execute`, and `undo` | Override, grouping, and async sequencing pass; invalid input and rejection state remain Q2/Q18 | oracle-blocked |
-| `UndoRedoManager` | Limit, execute/undo/redo/clear/destroy, events, and grouping | Capacity, events, grouping, and async ordering pass; exact returns/payloads/rejection state remain Q2/Q5/Q18 | oracle-blocked |
-| `selector` | Standalone public JSONPath resolver | Documented successful query families pass; complete default/invalid/error ABI remains Q1 | oracle-blocked |
-| `convertLegacyData` | Public legacy-map conversion helper | Current implementation only clones independent input; field-level legacy conversion remains Q1/Q13 | incomplete |
-| `findIntersectObject` | Public intersection lookup helper | Topmost/empty public cases pass; complete accepted input and boundary/error ABI remains Q1 | oracle-blocked |
-| `isMoved` | Public pointer-movement helper | Euclidean threshold cases pass; exact defaults/boundaries/errors remain Q1 | oracle-blocked |
-| `intersectPoint` | Public point intersection helper | Rectangle inside/outside cases pass; exact edge/input/error ABI remains Q1 | oracle-blocked |
-| `uid` | Public generated-ID helper | Unique 15-character safe-alphabet IDs pass; exact oracle contract remains Q1 | oracle-blocked |
+| `Patchmap` | Subclassable lifecycle plus draw, update, selector, view, event, state, history, assets, transformer, and Level 2 properties | LIF/DRW/UPD, API-101, CTX-101, DRX-101, EVT-101, STA-101, VIE-101, packed consumer | verified |
+| `Transformer` | Constructor/default ABI, selection, bounds, handles, ratio callback, native resize/rotate, cancellation, events, and grouped history | ABI-101, TRN-101, browser and unit gesture contracts | verified |
+| `State` / `PROPAGATE_EVENT` | Constructor, stack propagation, handled events, modifiers, lifecycle, and selection registration timing | ABI-101, STA-101, state/selection unit contracts | verified |
+| `Command` / `UndoRedoManager` | Constructor ABI, execute/undo/redo, limit, grouping, async resolve/reject state, events, clear, and destroy | ABI-101, HIS-101, history unit contracts | verified |
+| `selector` | `selector(value, path)`, omitted/reversed calls, collection flattening, and exact representative errors | API-102 and utility contracts | verified |
+| `convertLegacyData` | Grouped legacy schema, current/empty/malformed inputs, exact errors, and input immutability | API-101 and utility contracts | verified |
+| `findIntersectObject` / `intersectPoint` / `isMoved` | Live-handle intersection, point boundaries, movement threshold, empty/invalid inputs | API-102 and utility contracts | verified |
+| `uid` | Safe 15-character IDs, uniqueness, fallback, and representative ignored arguments | API-102 and utility contracts | verified |
 
-The exact set of twelve documented runtime exports is independently verified in ESM, CommonJS, UMD, and strict NodeNext TypeScript consumers.
+The exact set of twelve runtime exports is verified from a real packed tarball through ESM, CommonJS, UMD, strict NodeNext TypeScript, subclassing, declaration edges, and a minimal browser lifecycle. The UMD consumer obtains Pixi through its official ESM public API and does not open a dependency bundle.
 
 ## Patchmap surface
 
-| Surface | Required observations | Current evidence and remaining gap | Status |
+| Surface | Covered public observations | Evidence | Status |
 | --- | --- | --- | --- |
-| Construction/properties | Pre/post-init state, materialized theme, transformer replacement, history recreation, Level 2 property state | Known properties and assignment lifecycle pass; `animationContext` remains Q20 | oracle-blocked |
-| `init` / `destroy` | Async idempotence, readiness, DOM/resource cleanup, re-init, pending-init cancellation | LIF-001~002, ten fresh browser sessions, and twelve lifecycle/heap cycles | verified |
-| `draw` | Current and legacy input, validation transaction, immutability, defaults, replacement, async coalescing | DRW-001~006 pass for current `MapData`; legacy conversion remains Q13 | incomplete |
-| `update` | Direct/path targets, merge/replace/refresh, transforms, history, silence, validation/normalization | UPD-001~006 and independent structural/history tests pass; `validateSchema`/`normalize` behavior remains Q6 | incomplete |
-| `selector` | Root/direct/recursive traversal, filters, boolean/string expressions, projections, live refs | Documented Patchmap expression families and indexed live refs | verified |
-| `focus` / `fit` | Default/explicit/relation targets, pruning, center/zoom, axis padding | Ordinary bounds, pruning, padding, rotation, and flip pass; relation schema and exact return/error ABI remain Q5/Q14 | oracle-blocked |
-| `event` | Canvas/world paths, action lifecycle, enabled state, callback payload, draw/destroy cleanup | Registration/toggle/rebind/cleanup and real pointer dispatch pass; opaque payload ABI remains Q5 | oracle-blocked |
-| `rotation` / `flip` | Controller state, returns, events, geometry, focus/fit, upright content | Geometry, reset, event count, and upright behavior pass; exact returns/payloads remain Q5 | oracle-blocked |
-| `stateManager` / selection | Stack/modifiers, mouse/touch, drag modes, units, filters, callbacks | Real mouse/touch, box/paint, unit/filter, hover, and cleanup pass; defaults/callback ABI and registration timing remain Q3/Q4/Q18/Q22 | oracle-blocked |
-| `transformer` | Assignment cleanup, selection payload, resize/rotate gestures, cancellation, history | Unit and real-pointer gestures pass, including eight resize directions; exact option/payload ABI remains Q2/Q11 | oracle-blocked |
-| `undoRedoManager` | Command limit, grouped state transitions, returns, events, failure state | Known synchronous/async grouping and events pass; exact error/rejection semantics remain Q5/Q18 | oracle-blocked |
-| `syncViewTransform()` | Public classification and observable effect | Used by public controllers internally; its public status is not established | oracle-blocked |
+| Construction and properties | Pre/post-init fields, theme, animation context getter-only identity, transformer replacement, history recreation | ABI-101, CTX-101, LIF-001~002 | verified |
+| `init` / `destroy` | Idempotence, pending-init cancellation, readiness, DOM/listener/resource cleanup, re-init | LIF-001~002, browser lifecycle, twelve memory cycles | verified |
+| `draw` | Current and legacy input, transactional validation, defaults, identity, replacement, destroy timing, event coalescing | DRW-001~006, API-101, DRX-101, SCH-101 | verified |
+| `update` | Direct/path targets, duplicate ordering, merge/replace/refresh, normalization, validation, transforms, history, silence, identity | UPD-001~006, UPX-101, structural contracts | verified |
+| `selector` | Root/direct/recursive traversal, filters, projections, indexed live references, pending-index flush | fixture and independent selector contracts | verified |
+| `focus` / `fit` | Defaults, relation targets, filtering, center/zoom, axis padding, invalid padding, return behavior | VIE-101, REL-101 | verified |
+| Canvas `event` | add/get/getAll/on/off/remove, enabled state, redraw teardown, callback payload/order, native pointer dispatch | EVT-101, browser contracts | verified |
+| `rotation` / `flip` | State, returns, events, render geometry, focus/fit interaction, upright content | VIE-101 and browser contracts | verified |
+| `stateManager` / selection | Stack/modifiers, entity/group/deep selection, filters, click/double/right, hover, box/paint, drag, touch, cleanup | STA-101, INT-101, browser and unit contracts | oracle-partial |
+| `transformer` | Assignment cleanup, payloads, public geometry, eight resize directions, rotation, ratio callback, history | TRN-101, browser and unit contracts | verified |
+| `undoRedoManager` | Returns, events, capacity, grouping, asynchronous partial-work state, destroy/recreation | HIS-101 and history contracts | verified |
+| `syncViewTransform()` | Absent from the public surface before/after init, draw, and view mutations | VIE-101 | verified |
 
 ## Data and rendering
 
-| Contract family | Required coverage | Current evidence and remaining gap | Status |
+| Contract family | Covered public observations | Evidence | Status |
 | --- | --- | --- | --- |
-| Seven element kinds | `group`, `grid`, `item`, `relations`, `image`, `text`, `rect`; defaults and handles | Known kinds materialize and render; relation schema and fixture-external defaults/errors remain Q7/Q14 | oracle-blocked |
-| Four component kinds | `background`, `bar`, `icon`, `text`; defaults, placement, sizing, matching | Fixture behavior and matching pass; advanced text split/auto-font/overflow/wrapping remains Q19 | incomplete |
-| Grid materialization | Cell IDs/labels/geometry and destroy/hide inactive strategies | DRW-002 plus structural update and identity contracts | verified |
-| Primitive normalization | Size, gap, margin, padding, placement, source, color, invalid inputs | Approved rows and selected independent cases pass; complete matrix/default/error coverage remains Q7 | incomplete |
-| Assets | Alias, URL, inline descriptors, rectangle textures, stale async protection, defaults | Explicit source forms, caching, failure, stale completion, and teardown pass; default built-in assets remain Q15 | incomplete |
-| Observable scene facade | Parent/children, identity/type/props/transforms/dimensions/visibility/bounds/destroyed | Packed type/ABI and live-handle tests pass; cross-surface and structural identity remain Q8~Q10/Q16/Q17 | oracle-blocked |
-| Rendering invariants | Geometry, text, relations, stacking, visibility, animation, pixels/tolerance | DRW raster, aggregate layers, assets, stacking, and animation pass; relation/text and additional normative tolerances remain Q12/Q14/Q19 | incomplete |
+| Seven element kinds | `group`, `grid`, `item`, `relations`, `image`, `text`, `rect`; minimal defaults, errors, hierarchy, identity, and updates | SCH-101, REL-101, TXT-101, UPX-101 | verified |
+| Four component kinds | `background`, `bar`, `icon`, `text`; IDs, matching, placement, sizing, split, auto-font, overflow, wrapping, update | SCH-101, TXT-101, UPD-002, UPX-101 | verified |
+| Grid materialization | Cell/template IDs, labels, geometry, handle reuse, append/move semantics, inactive destruction | DRW-002, UPX-101, structural contracts | verified |
+| Primitive normalization | Size/gap/margin/padding/placement/source/color defaults and representative exact failures | SCH-101, TXT-101, validation contracts | verified |
+| Relations | source/target schema, direction, duplicates, missing endpoints, geometry, focus/fit, refresh/merge, returns/events | REL-101 | verified |
+| Assets | Defaults, aliases, URL/descriptor/rect sources, natural size, cache/failure/stale completion, teardown | AST-101 and browser contracts | verified |
+| Observable scene facade | Live identity, parent/children, props, transforms, dimensions, bounds, visibility, destruction, type-change rejection | DRW/UPD, DRX-101, UPX-101 | verified |
+| Geometry/text/raster | Public geometry and text are normative; approved macOS headless pixel fields remain explicitly non-normative | DRW raster, TXT-101, REL-101, S2-101, TRN-101 | oracle-partial |
 
 ## Cross-cutting gates
 
-| Gate | Current evidence and remaining gap | Status |
+| Gate | Current evidence | Status |
 | --- | --- | --- |
-| Fourteen approved oracle fixtures | LIF-001~002, DRW-001~006, and UPD-001~006 match immutable expected output | verified |
-| Fresh-run determinism | 28/28 repeated normalized comparisons in fresh browser sessions | verified |
-| Known independent contracts | 20 unit files / 131 tests plus ten fresh browser-contract sessions | verified |
-| Fixture-external input/reference/event/error cases | Known cases pass; exact oracle ABIs listed above remain unresolved | oracle-blocked |
-| Build/typecheck/lint/unit | Pinned package scripts and independent tests | verified |
-| ESM/CommonJS/UMD and packed consumer | Actual tarball installed in an isolated consumer; exact twelve exports and declarations checked | verified |
-| Dependency audit and clean-room package safety | Zero known vulnerabilities, approved payload checks, and release-file allowlist | verified |
-| Memory lifecycle | Twelve init/draw/update/destroy cycles and forced-GC retained-heap trend | verified |
-| S1 object scaling | Canonical 100/500/1,000/2,000/5,000 × seven-sample 4× proxy and provisional developer-native reports pass the approved local thresholds; headed Windows native remains separately pending | verified |
-| S2 maintained-product fixture | No implementation-safe maintained-product fixture has been approved | oracle-blocked |
-| S3/S4 throughput and interaction | Canonical 1,000/2,000 × seven-sample reports cover bulk/sequential updates, highlight, relation refresh, view, hit, hover, box/paint selection, resize, and rotation with 364/364 compatibility assertions passing in both 4× proxy and provisional developer-native runs | verified |
-| Primitive and Windows comparison | The implementation submits one aggregate backend primitive at 100/500/1,000/2,000/5,000 before and after update; a reference counting definition/count and headed Windows native S1/S3/S4 evidence remain Q21/pending | oracle-blocked |
+| Approved conformance | 31 fixtures, 62/62 comparisons in two fresh sessions; INT callback-open fields use a fixture-scoped projection while raw actual traces remain deterministic | verified |
+| Fresh-run event determinism | EVT-101, TRN-101, and INT-101 pass 30/30 additional fresh sessions | verified |
+| Independent contracts | 21 unit files / 162 tests plus ten fresh browser-contract sessions | verified |
+| Build, typecheck, lint | Pinned scripts pass against the committed implementation | verified |
+| Package consumer | 12 exports, 7 entry targets, 37 declaration edges, ESM/CommonJS/NodeNext/UMD, subclass lifecycle | verified |
+| Clean-room safety and audit | v4 manifest digest exact; 71 immutable payloads exact with implementation-mutable `package.json`; source maps/evidence packaged: 0; vulnerabilities: 0 | verified |
+| Memory lifecycle | Twelve cycles, nine measured post-warmup samples, finite retained heap, growth within gate | verified |
+| S1 scaling | Native and 4× reports cover 100/500/1,000/2,000/5,000 with two warmups and seven samples | verified |
+| S2 maintained fixture | Public descendants 65, renderable 62, managed 64; macOS pixels non-normative | S2-101 | oracle-partial |
+| S3/S4 interaction | Native and 4× reports cover 1,000/2,000; 364/364 compatibility assertions pass in each report | verified |
+| Render primitives | One aggregate backend primitive before/after update through 5,000 objects; no reference backend count is publicly available | oracle-partial |
+| Headed Windows | Native raster and S1/S3/S4 performance approval | external-pending |
 
-The fourteen approved fixtures are necessary but do not prove full public API coverage. Completion cannot be declared while any row is `incomplete` or `oracle-blocked`; unresolved behavior must stay visible to the oracle owner rather than being inferred.
+## Explicitly open Oracle boundaries
+
+- Q4: the authored headless drag sequence did not expose drag callbacks; functional drag/paint behavior is independently tested, but no missing reference callback ABI is inferred.
+- Q7: representative defaults/errors cover every documented kind, but the finite Oracle matrix does not claim every possible schema/style combination.
+- Q12: environment-qualified pixels remain non-normative outside approved headed Windows evidence.
+- Q18: detail-2 drill behavior and async history are captured; an exact elapsed drill wall-clock window was not observed.
+- Q21: public S2 counts are captured; a reference backend primitive count is unavailable through public API, and headed Windows remains pending.
+
+These limitations and the analysis-owner review state remain visible even though the implementation and all currently executable completion gates pass.

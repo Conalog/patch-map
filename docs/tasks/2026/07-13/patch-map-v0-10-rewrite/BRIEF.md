@@ -1,29 +1,29 @@
 # Goal
 
-Create a clean-room replacement for PATCH MAP v0.10 that preserves the documented public API and observable behavior for ordinary consumers while prioritizing predictable performance on low-end Windows hardware and large scenes. The replacement must be newly designed: compatibility is measured at the public boundary, not by recreating hidden source structure. Completion requires complete API coverage, fixture and independent contract coverage, reproducible package use, safety checks, and performance evidence rather than a narrow demonstration that a subset of examples runs.
+Deliver a newly designed clean-room replacement for PATCH MAP v0.10 that preserves the documented public API and observable behavior for ordinary consumers while prioritizing predictable large-scene performance on low-end Windows hardware. Compatibility is judged at the public boundary, not by reconstructing hidden implementation structure. Completion includes public API coverage, deterministic conformance, package-consumer usability, lifecycle safety, dependency audit, and reproducible native and 4× proxy performance evidence.
 
 # Scope
 
-- Work only from the approved v3 handoff, its normalized evidence, and public dependency documentation.
-- Preserve the clean-room separation while implementing and verifying a replacement library in this isolated branch.
-- Treat observable compatibility, package-consumer usability, and large-scene performance as one product contract.
+- Work only in this orphan implementation branch from the cumulative approved v3/v4 handoff, normalized public evidence, and official public dependency APIs.
+- Keep approved expected output and reference evidence immutable while testing every documented public surface, including behavior outside the fixture set.
+- Preserve the non-negotiable clean-room boundary while adapting internal architecture, sequencing, experiments, and delegation as needed.
 
 # Current Facts
 
-The branch is an orphan-root clean-room workspace containing the approved v3 export. Its manifest has already been validated against its required SHA-256 and all 50 payload entries have matching sizes and hashes. The handoff supplies public contracts, fixtures, expected normalized outputs, safety evidence, and performance context; those inputs are immutable reference material. The policy fixes non-negotiable source boundaries, observable compatibility, evidence, and completion results while allowing the primary agent to choose and adapt internal architecture, sequencing, experiments, and delegation. It distinguishes normative state and behavior requirements from the UPD-005 macOS/SwiftShader black-pixel evidence, which remains non-normative until headed Windows evidence exists. Official public APIs and official documentation are the only permitted source for dependency behavior.
+The active v4 manifest SHA-256 is `91315bb3449f6650ec89033386fb2c167bceca3a02a31591b23119dcc0a04a5f` and declares 72 safe payloads; the prior v3 evidence remains byte-preserved. `package.json` is the only manifest payload intentionally mutable for the implementation environment. All 31 fixture outputs remain Oracle-generated and review-pending even when local comparisons pass. UPD-005, TXT-101, and S2-101 headless macOS pixels are non-normative, and headed Windows native raster/performance approval is pending. The approved source-map and pixi-viewport UMD stack incidents were non-contaminating because no PATCH MAP/reference material was exposed and the dependency text was unused. This approval does not widen allowed inputs. Content searches exclude `node_modules`, `dist`, dependency bundles, and source maps; dependency verification uses only public package imports.
 
 # Current State
 
-The implementation Goal is oracle-blocked pending the direct approved v4 handoff. The replacement now covers lifecycle, draw and update fixtures, indexed live scene handles, aggregate rendering, selectors, helpers, view/controllers, canvas events, assets, state/selection, transformer gestures, and undo/redo behavior that can be established from approved contracts. Managed scene refreshes coalesce at an explicit render or next-frame boundary while synchronous public state and event bindings remain observable before return. All fourteen fixtures match immutable normalized output in two fresh sessions. Twenty unit files with 131 tests, ten fresh browser-contract sessions, twelve finite memory cycles, exact ESM/CommonJS/UMD/NodeNext packed-consumer checks, package safety, and zero-vulnerability audit pass. Canonical-size S1 and S3/S4 proxy reports pass local gates; developer-native evidence is provisional, implementation rendering uses one backend primitive through 5,000 objects, and headed Windows native remains pending. Legacy conversion, complete validation/default matrices, advanced text, non-empty relations, reference-relative primitive counts, and exact opaque callback/error ABIs remain blocked by Q1~Q23; a dedicated oracle is preparing clean-room-safe v4 fixtures and normalized outputs for direct delivery. Owner review found the accidental PixiJS dependency source-map emission non-contaminating: no PATCH MAP/reference material was accessed, its text was unused, and this worktree needs no restart. The approval does not widen allowed inputs; future searches and verification must explicitly exclude source maps.
+The replacement implements all twelve documented exports and the approved lifecycle, schema, legacy conversion, scene identity, relation, text, update, state, selection, view, event, transformer, history, asset, and animation-context contracts. Public live handles are separated from an aggregate render layer so identity and scene traversal remain observable while one backend primitive serves scenes through 5,000 objects. The implementation commit is `d2a67e01c5c7b207b47c13d052c90373c1c983f0`. Unit, type, lint, browser, memory, packed ESM/CommonJS/NodeNext/UMD consumer, safety, audit, and 31-fixture fresh-session checks pass. Canonical 4× and provisional macOS-native S1/S3/S4 reports are preserved under `.perf-results/`; compatibility assertions pass and Windows native remains pending. Q4, Q7, Q12, Q18, and Q21 retain their explicitly limited Oracle status; the implementation does not infer the unavailable observations.
 
 # Next Step
 
-Wait for the direct approved v4 oracle handoff, then independently verify its manifest and every payload before using only its declared public fixtures and normalized outputs to resume.
+Hand off the committed implementation, coverage record, and preserved reports for analysis-owner review; resume only at the nearest affected contract if that review or future headed Windows evidence requires a change.
 
 # Working Boundary
 
 - `src/`
 - `tests/`
-- `scripts/verification/`
-- `docs/tasks/2026/07-13/patch-map-v0-10-rewrite/PUBLIC-API-COVERAGE.md`
-- `docs/tasks/2026/07-13/patch-map-v0-10-rewrite/ORACLE-QUESTIONS.md`
+- `scripts/`
+- `docs/implementation/`
+- `docs/tasks/2026/07-13/patch-map-v0-10-rewrite/`

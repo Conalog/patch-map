@@ -19,9 +19,10 @@
 
 ## 클린룸 경계
 
-- 현재 작업트리에 승인·반입된 clean-room oracle v3 export만 구현 자료로 사용한다.
+- 현재 작업트리에 승인·반입된 cumulative clean-room oracle v3/v4 export만 구현 자료로 사용한다. 활성 v4 manifest는 승인된 v3 payload를 byte-preserve한 상태로 확장하며 허용 자료 경계를 넓히지 않는다.
 - 다른 작업트리, 브랜치, Git ref, 기존 Git 이력, 원본 저장소 코드와 기존 구현 파일의 열람·검색을 금지한다.
 - reference package, tarball, bundle, source map, 원본 test/fixture를 열거나 분석하지 않는다.
+- 모든 파일 내용 검색은 `node_modules/**`, `dist/**`, `*.map`, `*.umd.*`, `*.bundle.*`을 명시적으로 제외한다. 공개 의존성 검증은 package import를 통한 공식 공개 API 사용만 허용한다. 현재 구현이 생성한 release 파일은 source map·금지 evidence가 포함되지 않았음을 확인하는 package safety 검사에 한해 검토할 수 있다.
 - `git show`, `git log -p`, 다른 브랜치 checkout, 원본 브랜치 diff를 금지한다.
 - `cleanroom/oracle-v0.10`의 merge/cherry-pick을 금지한다.
 - Git은 현재 구현 브랜치의 status/add/commit과 구현 이후 자체 변경 검토에만 사용한다.
@@ -40,7 +41,7 @@
 
 ## 시작 및 재개 절차
 
-- 첫 시작에는 `pwd`, `git status --short --branch`, 현재 orphan root commit, export manifest와 50개 payload checksum을 확인하고 `AGENTS.md`, 이 정책, `BRIEF.md` 및 승인된 전체 계약 자료를 읽는다.
+- 첫 시작에는 `pwd`, `git status --short --branch`, 현재 orphan root commit, 활성 export manifest와 72개 payload checksum을 확인하고 `AGENTS.md`, 이 정책, `BRIEF.md` 및 승인된 전체 계약 자료를 읽는다.
 - 구현 시작 전에는 범위 누락과 주요 위험을 식별할 수 있는 초기 public API coverage inventory를 만든다.
 - 구현 구조와 성능 전략을 정리한 뒤, 안전 경계 안의 판단은 확인을 기다리지 않고 실행한다.
 - 재개 또는 컨텍스트 압축 후에는 `AGENTS.md`, 이 정책, `BRIEF.md`와 현재 단계에 필요한 승인 자료를 읽고 가장 가까운 Next Step부터 재개한다.
@@ -93,7 +94,7 @@
 
 - 문서화된 모든 public API에 자동화 계약 테스트를 둔다.
 - 테스트 작성 순서와 내부 runner 구조는 주 에이전트가 결정하되, 테스트 종류와 완료 gate는 유지한다.
-- LIF-001~002, DRW-001~006, UPD-001~006 actual normalized output을 `artifacts/expected/**`와 비교한다.
+- 승인된 v3/v4 conformance fixture의 actual normalized output을 `artifacts/expected/**`와 비교한다.
 - 선언된 volatile field와 승인된 pixel tolerance 외 차이를 허용하지 않는다.
 - expected output을 구현 결과에 맞춰 변경하지 않는다.
 - fresh browser/session determinism, 입력 불변성, 반환 reference, event payload/order, destroy/re-init, 오류 후 상태, missing target을 검증한다.
@@ -116,7 +117,7 @@
 ## 완료 조건
 
 - `docs/reference/**`에 문서화된 모든 public API가 구현되고 자동화 계약 테스트와 연결돼야 한다.
-- 14개 oracle fixture만 통과한 상태로 완료를 선언하지 않는다.
+- 승인된 oracle fixture만 통과한 상태로 완료를 선언하지 않으며, fixture 밖의 문서화된 public API도 독립 계약 테스트로 검증한다.
 - build, typecheck, lint, unit, conformance, fresh determinism이 통과해야 한다.
 - expected/reference evidence가 변경되지 않아야 한다.
 - 실제 package와 별도 consumer import가 검증돼야 한다.
