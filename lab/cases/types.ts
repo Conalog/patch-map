@@ -95,7 +95,7 @@ export type LabAction =
   | { kind: 'draw'; fixture: LabFixtureKey; expectError?: string }
   | { kind: 'draw-inline'; data: DrawInput; expectError?: string }
   | { kind: 'draw-invalid'; inputKey: string; expectErrorIncludes?: string }
-  | { kind: 'update'; request: LabUpdateRequest }
+  | { kind: 'update'; request: LabUpdateRequest; fitFirstResult?: boolean }
   | { kind: 'wait-frame'; frames?: number }
   | { kind: 'inspect'; target?: LabSelector; snapshot?: string }
   | {

@@ -321,11 +321,22 @@ try {
   assertion(await caseRows.count() === 1, 'Case catalog search did not narrow to one production fixture case.', await caseRows.count());
   const productionPage = await context.newPage();
   observePage(productionPage);
-  await productionPage.goto(`${baseUrl}/lab/?case=draw-production-like-458`, { waitUntil: 'networkidle' });
+  await productionPage.goto(`${baseUrl}/lab/?case=draw-production-like-458&step=1`, { waitUntil: 'networkidle' });
   await productionPage.getByTestId('app-shell').waitFor({ state: 'visible' });
   await waitForNotBusy(productionPage);
+  await productionPage.getByTestId('next-step').click();
+  await waitForStep(productionPage, 2);
+  await productionPage.getByTestId('result-summary').getByText('PASS', { exact: true }).waitFor();
+  assertion(
+    (await productionPage.getByTestId('selected-handle').textContent())?.includes('"animationDuration": 8000'),
+    'Production bar update did not expose the headed-inspection animation duration.',
+  );
+  await productionPage.getByTestId('pause-animation').click();
+  await productionPage.getByTestId('pause-animation').getByText('Resume animation', { exact: true }).waitFor();
+  await productionPage.getByTestId('pause-animation').click();
+  await productionPage.getByTestId('pause-animation').getByText('Pause animation', { exact: true }).waitFor();
   await productionPage.getByTestId('run-case').click();
-  await productionPage.waitForURL(/case=draw-production-like-458&step=4/u);
+  await productionPage.waitForURL(/case=draw-production-like-458&step=11/u, { timeout: 90_000 });
   await waitForNotBusy(productionPage);
   await productionPage.getByTestId('result-summary').getByText('PASS', { exact: true }).waitFor();
   const productionObjectCount = await numericText(productionPage.locator('#object-count'));

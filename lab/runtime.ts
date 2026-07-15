@@ -920,9 +920,15 @@ export class LabRuntime {
         this.#lastReturn = this.#drawData(input);
         return;
       }
-      case 'update':
-        this.#lastReturn = this.#applyUpdate(action.request);
+      case 'update': {
+        const result = this.#applyUpdate(action.request);
+        this.#lastReturn = result;
+        const firstId = result[0]?.id;
+        if (action.fitFirstResult === true && typeof firstId === 'string') {
+          this.patchmap.fit(firstId, { padding: 80 });
+        }
         return;
+      }
       case 'wait-frame':
         await this.#waitFrames(action.frames ?? 1);
         return;

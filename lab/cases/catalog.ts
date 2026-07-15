@@ -10,6 +10,25 @@ import type {
 
 // Deliberately violates the public schema for the validation-rejection lab step.
 const INVALID_SHOW_VALUE = 'invalid' as unknown as boolean;
+const PRODUCTION_GRID_ITEM_PATH = '$..children[?(@.type == "item" && @.parent.type == "grid")]';
+const PRODUCTION_BAR_DURATION_MS = 8000;
+
+const productionBarUpdate = (height: number, show = false): LabAction => ({
+  kind: 'update',
+  fitFirstResult: true,
+  request: {
+    target: { mode: 'path', path: PRODUCTION_GRID_ITEM_PATH },
+    changes: {
+      components: [{
+        type: 'bar',
+        ...(show ? { show: true } : {}),
+        animation: true,
+        animationDuration: PRODUCTION_BAR_DURATION_MS,
+        size: { width: '100%', height: `${height}%` },
+      }],
+    },
+  },
+});
 
 const invariant = (
   id: string,
@@ -302,12 +321,46 @@ const DRAW_CASES: LabCase[] = [
     category: 'draw',
     risk: 'critical',
     evidenceStatus: 'verified',
-    description: 'Draw the byte-preserved user fixture, fit the scene, and inspect an authored target.',
+    description: 'Draw the byte-preserved user fixture, animate every panel bar, fit the scene, and inspect authored targets.',
     fixture: 'production-like',
-    tags: ['production-like', 'large-scene', 'user-input'],
+    tags: ['production-like', 'large-scene', 'user-input', 'bar', 'animation'],
     steps: [
       reset(),
       draw('draw-production', 'production-like'),
+      step('reveal-production-bars', 'Reveal all 9,336 panel bars at 12%', productionBarUpdate(12, true), [
+        invariant('production-bar-targets', 'Every grid-cell item is updated', 'return.ids.length', 'equals', 9336),
+        invariant('production-bars-visible', 'Every grid-cell bar is public', 'scene.componentsByType.bar.count', 'equals', 9336),
+        invariant('production-animation-context', 'Animation context remains public', 'patchmap.animationContext.exists', 'equals', true),
+      ], undefined, 'All panel bars update together while the viewport focuses one representative panel. Press Pause animation to freeze an intermediate frame.'),
+      step('observe-production-bar-reveal', 'Observe 12% reveal animation frames', {
+        kind: 'animation', method: 'resume', durationMs: PRODUCTION_BAR_DURATION_MS + 200,
+      }, [
+        invariant('production-reveal-frames', 'Multiple native frames render during reveal', 'frames.delta', 'at-least', 2),
+      ]),
+      step('grow-production-bars', 'Animate all panel bars to 88%', productionBarUpdate(88), [
+        invariant('production-grow-targets', 'Growth update keeps every panel target', 'return.ids.length', 'equals', 9336),
+      ], undefined, 'The 8 second transition leaves enough time to pause and inspect headed intermediate frames after the large-scene update completes.'),
+      step('observe-production-bar-growth', 'Observe 88% growth animation frames', {
+        kind: 'animation', method: 'resume', durationMs: PRODUCTION_BAR_DURATION_MS + 200,
+      }, [
+        invariant('production-growth-frames', 'Multiple native frames render during growth', 'frames.delta', 'at-least', 2),
+      ]),
+      step('shrink-production-bars', 'Animate all panel bars to 36%', productionBarUpdate(36), [
+        invariant('production-shrink-targets', 'Shrink update keeps every panel target', 'return.ids.length', 'equals', 9336),
+      ], undefined, 'Use Pause animation to inspect any intermediate bar-height frame.'),
+      step('observe-production-bar-shrink', 'Observe 36% shrink animation frames', {
+        kind: 'animation', method: 'resume', durationMs: PRODUCTION_BAR_DURATION_MS + 200,
+      }, [
+        invariant('production-shrink-frames', 'Multiple native frames render during shrink', 'frames.delta', 'at-least', 2),
+      ]),
+      step('inspect-production-bar', 'Inspect final panel bar height', {
+        kind: 'inspect',
+        target: { mode: 'path', path: '$..children[?(@.type == "bar")]' },
+      }, [
+        invariant('production-bar-selected', 'A public bar handle is selected', 'selected.type', 'equals', 'bar'),
+        invariant('production-bar-height', 'Final authored bar height is 36%', 'selected.props.size.height', 'equals', { value: 36, unit: '%' }),
+        invariant('production-bar-bounds', 'Final bar has finite public bounds', 'selected.boundsFinite', 'equals', true),
+      ]),
       step('fit-production', 'Fit all managed non-relation roots', { kind: 'view', method: 'fit', ids: null }, [
         invariant('fit-production-scale', 'Viewport scale is finite', 'viewport.scaleFinite', 'equals', true),
       ]),
