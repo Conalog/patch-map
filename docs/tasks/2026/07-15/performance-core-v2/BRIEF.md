@@ -10,18 +10,20 @@ Deliver Core v2 as a PixiJS v8 GPU-backed, performance-first PATCH MAP engine. I
 
 # Current Facts
 
-- Core v1 provides an allowed self-authored dense store, atomic transaction, spatial index, explicit animation, and reproducible Canvas2D benchmark baseline in this worktree.
-- PixiJS v8 requires asynchronous `Application.init()`. Manual rendering uses `autoStart: false`; a few render groups can isolate viewport transforms without entity-level scene nodes.
-- Stable Graphics geometry is efficient, but clearing/redrawing dynamic Graphics rebuilds tessellation. ParticleContainer restricts particles to one texture source and needs explicit bounds. Dynamic BitmapText is cheap, while CJK/advanced text needs guarded Text fallback.
-- The current package declares PixiJS v8 as a peer and has no Core v2 subpath or Core v2 verification surface yet.
+- Core v1 supplies the frozen dense-store, transaction, spatial-index, animation, and Canvas2D comparison baseline.
+- Core v2 uses async Pixi initialization, manual invalidation, a few aggregate layers, root events, and one central scheduler.
+- Short ASCII text uses `BitmapText`; non-ASCII or long text uses guarded `Text`. Advanced styling/wrapping and atlas-frame mapping remain unsupported.
+- PixiJS stays a peer dependency; packed ESM/CJS consumers pass. The measured browser exposed WebGL2/SwiftShader but no WebGPU adapter.
 
 # Current State
 
-Core v2 policy and task context are separated from the completed Core v1 task. Official PixiJS API research, exact production-schema inventory, and Core v1 reuse/benchmark seam analysis are in progress; no Core v2 runtime code has been written.
+- The immutable v0.10 parser expands production deterministically to 37,071 entities, preserves component identity, and rejects duplicate identities atomically. Chunked Mesh is selected with separate rect/bar/relation lanes, structural fallback, shared asset leases, transformed CPU hit testing, text fallback, Prepare/Extract, resize, destroy, and re-init.
+- The final Chromium 4× 2+7 matrix retains 162 raw trials. Because all 9,365 production bars are source-hidden, it isolates a 135.1 ms visibility transaction before measuring visible animation. Mesh records 40.2 ms first frame, 42.8 ms full-animation p95, and 10.6 ms partial p95. It decisively beats the rounded-bar GraphicsContext path but misses the 33.3 ms target by 9.5 ms; production performance approval is withheld.
+- Headed browser proof passes 31 checks with no console/page/network errors; 40 files/269 tests, packed consumers, and repeated lifecycle proof pass. Mesh square-corners radii and omits rect strokes with structured diagnostics. WebGPU is unavailable and native Windows remains pending.
 
 # Next Step
 
-Complete the official PixiJS lifecycle/rendering/resource research and schema inventory, then record the architecture, spike protocol, risks, and selection thresholds before implementing either renderer.
+Run the preserved protocol on native low-end Windows before making a production claim. If it confirms the bottleneck, compare a custom batcher/RenderPipe on the same store; measure WebGPU separately only when an adapter is available.
 
 # Working Boundary
 
