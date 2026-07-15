@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-15T12:16:21.615Z",
+  "generatedAt": "2026-07-15T12:53:46.948Z",
   "headed": true,
   "checks": [
     {
@@ -228,7 +228,9 @@
           "barCount": 500,
           "activeAnimations": 0,
           "rendererFrame": 19,
-          "schedulerFrame": 7
+          "schedulerFrame": 7,
+          "uploadedChunks": 0,
+          "uploadedBytes": 0
         },
         "during": {
           "activeAnimations": 50,
@@ -237,31 +239,33 @@
             {
               "id": "item-00005::bar:bar",
               "before": 51.8,
-              "during": 51.72960506892518
+              "during": 51.73801832251796
             },
             {
               "id": "item-00017::bar:bar",
               "before": 48.3,
-              "during": 48.31913566125406
+              "during": 48.316848661773584
             },
             {
               "id": "item-00019::bar:bar",
               "before": 21,
-              "during": 20.926123252811237
+              "during": 20.934952635825304
             },
             {
               "id": "item-00042::bar:bar",
               "before": 4.2,
-              "during": 4.191370194972985
+              "during": 4.192401586538257
             },
             {
               "id": "item-00054::bar:bar",
               "before": 32.9,
-              "during": 32.855861441692234
+              "during": 32.8611366636236
             }
           ],
           "rendererFrame": 21,
-          "schedulerFrame": 9
+          "schedulerFrame": 9,
+          "uploadedChunks": 4,
+          "uploadedBytes": 45808
         }
       }
     },
@@ -304,37 +308,41 @@
             {
               "id": "item-00005::bar:bar",
               "before": 51.8,
-              "during": 51.72960506892518
+              "during": 51.73801832251796
             },
             {
               "id": "item-00017::bar:bar",
               "before": 48.3,
-              "during": 48.31913566125406
+              "during": 48.316848661773584
             },
             {
               "id": "item-00019::bar:bar",
               "before": 21,
-              "during": 20.926123252811237
+              "during": 20.934952635825304
             },
             {
               "id": "item-00042::bar:bar",
               "before": 4.2,
-              "during": 4.191370194972985
+              "during": 4.192401586538257
             },
             {
               "id": "item-00054::bar:bar",
               "before": 32.9,
-              "during": 32.855861441692234
+              "during": 32.8611366636236
             }
           ],
           "rendererFrame": 21,
-          "schedulerFrame": 9
+          "schedulerFrame": 9,
+          "uploadedChunks": 4,
+          "uploadedBytes": 45808
         },
         "after": {
           "barCount": 500,
           "activeAnimations": 0,
           "rendererFrame": 46,
-          "schedulerFrame": 34
+          "schedulerFrame": 34,
+          "uploadedChunks": 4,
+          "uploadedBytes": 31808
         }
       }
     },
@@ -349,6 +357,178 @@
     {
       "label": "production input remains immutable",
       "passed": true
+    },
+    {
+      "label": "production direct-load first frame preserves all 9,365 source-hidden bars",
+      "passed": true,
+      "details": {
+        "totalBarCount": 9365,
+        "visibleBarCount": 0,
+        "rendererFrame": 47,
+        "strategy": "mesh",
+        "uploadedChunks": 73,
+        "uploadedBytes": 1611456
+      }
+    },
+    {
+      "label": "separate production visibility transaction presents 9,365 bars with a Mesh upload",
+      "passed": true,
+      "details": {
+        "before": {
+          "totalBarCount": 9365,
+          "visibleBarCount": 0,
+          "rendererFrame": 47,
+          "strategy": "mesh",
+          "uploadedChunks": 73,
+          "uploadedBytes": 1611456
+        },
+        "after": {
+          "operationCount": 9365,
+          "changedCount": 9365,
+          "totalBarCount": 9365,
+          "visibleBarCount": 9365,
+          "rendererFrame": 48,
+          "strategy": "mesh",
+          "uploadedChunks": 73,
+          "uploadedBytes": 1648240,
+          "lastInvalidation": "commit"
+        }
+      }
+    },
+    {
+      "label": "production 1% bar animation presents intermediate heights with non-zero Mesh uploads",
+      "passed": true,
+      "details": {
+        "start": {
+          "requestedFraction": 0.01,
+          "scheduledAnimations": 78,
+          "activeAnimations": 78,
+          "rendererFrame": 48,
+          "schedulerFrame": 34
+        },
+        "before": {
+          "barCount": 9365,
+          "activeAnimations": 0,
+          "rendererFrame": 48,
+          "schedulerFrame": 34,
+          "uploadedChunks": 73,
+          "uploadedBytes": 1648240
+        },
+        "during": {
+          "activeAnimations": 78,
+          "changedCount": 78,
+          "changedSamples": [
+            {
+              "id": "caseOIin7QU7U9g.1.0::bar:Fx8vZTbchk9JsRR",
+              "before": 74,
+              "during": 72.51558583626915
+            },
+            {
+              "id": "dIQ3fKnIwryC8Ed.1.51::bar:imblgsDT1tnSz3m",
+              "before": 74,
+              "during": 71.7011830107213
+            },
+            {
+              "id": "U1hDt5R93SGYZOb.1.8::bar:imblgsDT1tnSz3m",
+              "before": 74,
+              "during": 72.44601539760582
+            },
+            {
+              "id": "XA6L5EsYrAdcJfH.0.17::bar:imblgsDT1tnSz3m",
+              "before": 74,
+              "during": 72.64097438285455
+            },
+            {
+              "id": "XA6L5EsYrAdcJfH.0.47::bar:imblgsDT1tnSz3m",
+              "before": 74,
+              "during": 72.44670309173641
+            }
+          ],
+          "rendererFrame": 54,
+          "schedulerFrame": 40,
+          "uploadedChunks": 44,
+          "uploadedBytes": 480576
+        }
+      }
+    },
+    {
+      "label": "production partial bar animation completes with actual final height changes",
+      "passed": true,
+      "details": {
+        "requestedFraction": 0.01,
+        "scheduledAnimations": 78,
+        "changedCount": 78,
+        "changedSamples": [
+          {
+            "id": "caseOIin7QU7U9g.1.0::bar:Fx8vZTbchk9JsRR",
+            "before": 74,
+            "after": 45.450758557906376
+          },
+          {
+            "id": "dIQ3fKnIwryC8Ed.1.51::bar:imblgsDT1tnSz3m",
+            "before": 74,
+            "after": 29.78762123021297
+          },
+          {
+            "id": "U1hDt5R93SGYZOb.1.8::bar:imblgsDT1tnSz3m",
+            "before": 74,
+            "after": 44.11273356517777
+          },
+          {
+            "id": "XA6L5EsYrAdcJfH.0.17::bar:imblgsDT1tnSz3m",
+            "before": 74,
+            "after": 47.86231456296519
+          },
+          {
+            "id": "XA6L5EsYrAdcJfH.0.47::bar:imblgsDT1tnSz3m",
+            "before": 74,
+            "after": 44.12595975652803
+          }
+        ],
+        "during": {
+          "activeAnimations": 78,
+          "changedCount": 78,
+          "changedSamples": [
+            {
+              "id": "caseOIin7QU7U9g.1.0::bar:Fx8vZTbchk9JsRR",
+              "before": 74,
+              "during": 72.51558583626915
+            },
+            {
+              "id": "dIQ3fKnIwryC8Ed.1.51::bar:imblgsDT1tnSz3m",
+              "before": 74,
+              "during": 71.7011830107213
+            },
+            {
+              "id": "U1hDt5R93SGYZOb.1.8::bar:imblgsDT1tnSz3m",
+              "before": 74,
+              "during": 72.44601539760582
+            },
+            {
+              "id": "XA6L5EsYrAdcJfH.0.17::bar:imblgsDT1tnSz3m",
+              "before": 74,
+              "during": 72.64097438285455
+            },
+            {
+              "id": "XA6L5EsYrAdcJfH.0.47::bar:imblgsDT1tnSz3m",
+              "before": 74,
+              "during": 72.44670309173641
+            }
+          ],
+          "rendererFrame": 54,
+          "schedulerFrame": 40,
+          "uploadedChunks": 44,
+          "uploadedBytes": 480576
+        },
+        "after": {
+          "barCount": 9365,
+          "activeAnimations": 0,
+          "rendererFrame": 83,
+          "schedulerFrame": 69,
+          "uploadedChunks": 44,
+          "uploadedBytes": 480576
+        }
+      }
     },
     {
       "label": "responsive resize updates Pixi renderer",
