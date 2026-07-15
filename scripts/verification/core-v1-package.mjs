@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -26,6 +26,60 @@ const packDirectory = join(temporaryRoot, 'pack');
 const consumerDirectory = join(temporaryRoot, 'consumer');
 const keepTemporary = process.env.CORE_V1_KEEP_TEMP === '1';
 
+const assertFile = async (path, label) => {
+  const details = await stat(path);
+  assert.equal(details.isFile(), true, `${label} is not a file: ${path}`);
+};
+
+const packageTargets = (manifest) => {
+  const rootExport = manifest.exports?.['.'];
+  const coreExport = manifest.exports?.['./core-v1'];
+  assert(rootExport && typeof rootExport === 'object', 'Package is missing exports["."]');
+  assert(coreExport && typeof coreExport === 'object', 'Package is missing exports["./core-v1"]');
+
+  for (const [label, value] of [
+    ['main', manifest.main],
+    ['module', manifest.module],
+    ['types', manifest.types],
+    ['unpkg', manifest.unpkg],
+    ['exports["."].types', rootExport.types],
+    ['exports["."].import', rootExport.import],
+    ['exports["."].require', rootExport.require],
+    ['exports["./core-v1"].types', coreExport.types],
+    ['exports["./core-v1"].import', coreExport.import],
+    ['exports["./core-v1"].require', coreExport.require],
+  ]) {
+    assert.equal(typeof value, 'string', `${label} must be a package-relative file target`);
+  }
+
+  return [...new Map([
+    ['main', manifest.main],
+    ['module', manifest.module],
+    ['types', manifest.types],
+    ['unpkg', manifest.unpkg],
+    ['root types', rootExport.types],
+    ['root import', rootExport.import],
+    ['root require', rootExport.require],
+    ['Core v1 types', coreExport.types],
+    ['Core v1 import', coreExport.import],
+    ['Core v1 require', coreExport.require],
+  ].map(([label, target]) => [target, { label, target }])).values()];
+};
+
+const assertPackageTargets = async (packageRoot, manifest) => {
+  const targets = packageTargets(manifest);
+  for (const { label, target } of targets) {
+    assert.match(target, /^\.\//u, `${label} must stay inside the package: ${target}`);
+    const path = resolve(packageRoot, target);
+    assert(
+      path.startsWith(`${resolve(packageRoot)}${sep}`),
+      `${label} escapes the package root: ${target}`,
+    );
+    await assertFile(path, label);
+  }
+  return targets.map(({ target }) => target).sort();
+};
+
 const run = async (command, args, cwd, extraEnvironment = {}) => {
   const result = await execute(command, args, {
     cwd,
@@ -47,15 +101,15 @@ const resolveTarball = async () => {
   if (requested !== undefined) {
     const path = isAbsolute(requested) ? requested : resolve(process.cwd(), requested);
     assert.match(path, /\.tgz$/u, 'CORE_V1_TARBALL must point to an npm .tgz package');
-    assert.equal((await stat(path)).isFile(), true, `Packed package is not a file: ${path}`);
-    return { generated: false, path };
+    await assertFile(path, 'Packed package');
+    return { buildScript: null, generated: false, path, sourceTargets: null };
   }
 
+  const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+  let buildScript = null;
   if (process.env.CORE_V1_SKIP_BUILD !== '1') {
-    const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
     const scripts = manifest.scripts ?? {};
-    const buildScript = process.env.CORE_V1_BUILD_SCRIPT
-      ?? (typeof scripts['build:core-v1'] === 'string' ? 'build:core-v1' : 'build');
+    buildScript = process.env.CORE_V1_BUILD_SCRIPT ?? 'build';
     assert.equal(
       typeof scripts[buildScript],
       'string',
@@ -63,6 +117,7 @@ const resolveTarball = async () => {
     );
     await run(npmCommand, ['run', buildScript], root);
   }
+  const sourceTargets = await assertPackageTargets(root, manifest);
 
   await mkdir(packDirectory, { recursive: true });
   const output = await run(
@@ -73,8 +128,8 @@ const resolveTarball = async () => {
   const records = JSON.parse(output);
   assert.equal(records.length, 1, 'npm pack must produce exactly one archive');
   const path = join(packDirectory, records[0].filename);
-  assert.equal((await stat(path)).isFile(), true, 'npm pack did not create its reported archive');
-  return { generated: true, path };
+  await assertFile(path, 'npm pack output');
+  return { buildScript, generated: true, path, sourceTargets };
 };
 
 let report;
@@ -114,10 +169,10 @@ try {
     'package.json',
   );
   const installedManifest = JSON.parse(await readFile(installedManifestPath, 'utf8'));
+  const installedPackageRoot = dirname(installedManifestPath);
+  const installedTargets = await assertPackageTargets(installedPackageRoot, installedManifest);
   const coreExport = installedManifest.exports?.['./core-v1'];
-  assert(coreExport && typeof coreExport === 'object', 'Packed package is missing exports["./core-v1"]');
-  assert.equal(typeof coreExport.import, 'string', 'Core v1 needs an ESM runtime target');
-  assert.equal(typeof coreExport.types, 'string', 'Core v1 needs a declaration target');
+  assert.equal(typeof coreExport.require, 'string', 'Core v1 needs a CJS runtime target');
 
   const esmConsumer = `import assert from 'node:assert/strict';
 import * as api from ${JSON.stringify(packageSpecifier)};
@@ -226,12 +281,15 @@ scene.destroy();
 
   report = {
     cjs: 'passed',
+    buildScript: tarball.buildScript,
     esm: 'passed',
     exports: expectedExports,
+    installedTargets,
     nodeNext: 'passed',
     package: `${installedManifest.name}@${installedManifest.version}`,
     packageSpecifier,
     packedInput: tarball.generated ? 'generated-after-build' : 'provided-tarball',
+    sourceTargets: tarball.sourceTargets,
     scripts: 'ignored',
     network: 'offline',
   };

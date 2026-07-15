@@ -11,7 +11,8 @@ const requestedUrl = process.env.CORE_V1_LAB_URL ?? process.env.LAB_BASE_URL;
 assert(requestedUrl, 'Set CORE_V1_LAB_URL to the running Core v1 performance lab URL');
 const labUrl = new URL(requestedUrl);
 if (labUrl.pathname === '/') labUrl.pathname = '/lab/performance-v1/';
-labUrl.searchParams.set('dataset', process.env.CORE_V1_MEMORY_DATASET ?? '500');
+const measuredDataset = process.env.CORE_V1_MEMORY_DATASET ?? 'production';
+labUrl.searchParams.set('dataset', 'production');
 
 const quick = process.env.CORE_V1_MEMORY_QUICK === '1';
 const warmupCycles = integerEnvironment('CORE_V1_MEMORY_WARMUPS', quick ? 1 : 2);
@@ -31,8 +32,10 @@ let context;
 let page;
 let report = {
   environment: {
+    directReinitializeDataset: 'production',
     labUrl: labUrl.href,
     measuredCycles,
+    measuredDataset,
     platform: process.platform,
     runtime: process.version,
     warmupCycles,
@@ -86,6 +89,73 @@ try {
 
   let expectedLifecycle = numericText(await page.getByTestId('lifecycle-generation').textContent());
   assert.equal(expectedLifecycle, 1, 'A fresh lab page must start at lifecycle L01');
+
+  await clickAndSettle(page, 'load', 'READY');
+  assert.equal(
+    numericText(await page.getByTestId('metric-entities').textContent()),
+    37_071,
+    'Direct re-init proof must load the fully expanded production fixture',
+  );
+  await clickAndSettle(page, 'flush', 'READY');
+  const beforeDirectReinitialize = await page.evaluate((canvas) => ({
+    canvasConnected: canvas?.isConnected === true,
+    canvasCount: document.querySelectorAll('canvas').length,
+    coreAlive: canvas?.dataset.coreAlive,
+    coreDocument: canvas?.dataset.coreDocument,
+    coreInstance: canvas?.dataset.coreInstance,
+    entityCount: Number(document.querySelector('[data-testid="metric-entities"]')?.textContent?.replaceAll(',', '') ?? 'NaN'),
+    sameCanvas: canvas === document.querySelector('[data-testid="core-canvas"]'),
+  }), initialCanvas);
+  assert.deepEqual(beforeDirectReinitialize, {
+    canvasConnected: true,
+    canvasCount: 1,
+    coreAlive: 'true',
+    coreDocument: 'attached',
+    coreInstance: 'L01',
+    entityCount: 37_071,
+    sameCanvas: true,
+  }, 'Production load did not expose the expected live lifecycle proof markers');
+
+  await clickAndSettle(page, 'reinit', 'READY');
+  expectedLifecycle += 1;
+  const afterDirectReinitialize = await page.evaluate((canvas) => ({
+    canvasConnected: canvas?.isConnected === true,
+    canvasCount: document.querySelectorAll('canvas').length,
+    coreAlive: canvas?.dataset.coreAlive,
+    coreDocument: canvas?.dataset.coreDocument,
+    coreInstance: canvas?.dataset.coreInstance,
+    entityCount: Number(document.querySelector('[data-testid="metric-entities"]')?.textContent ?? 'NaN'),
+    frame: Number(document.querySelector('[data-testid="metric-frame"]')?.textContent ?? 'NaN'),
+    priorCoreDestroyed: canvas?.dataset.priorCoreDestroyed,
+    revision: Number(document.querySelector('[data-testid="metric-revision"]')?.textContent ?? 'NaN'),
+    sameCanvas: canvas === document.querySelector('[data-testid="core-canvas"]'),
+  }), initialCanvas);
+  assert.deepEqual(afterDirectReinitialize, {
+    canvasConnected: true,
+    canvasCount: 1,
+    coreAlive: 'true',
+    coreDocument: 'none',
+    coreInstance: 'L02',
+    entityCount: 0,
+    frame: 0,
+    priorCoreDestroyed: 'true',
+    revision: 0,
+    sameCanvas: true,
+  }, 'Direct re-init retained the production document, prior Core, or a replacement canvas');
+  assert.notEqual(
+    afterDirectReinitialize.coreInstance,
+    beforeDirectReinitialize.coreInstance,
+    'Direct re-init must publish a new Core lifecycle identity',
+  );
+  report.raw.directReinitialize = {
+    after: afterDirectReinitialize,
+    before: beforeDirectReinitialize,
+    result: 'prior Core destroyed; production document released; aggregate canvas retained',
+  };
+
+  if (measuredDataset !== 'production') {
+    await page.getByTestId('dataset-select').selectOption(measuredDataset);
+  }
 
   for (let index = 0; index < totalCycles; index += 1) {
     await clickAndSettle(page, 'load', 'READY');
@@ -200,6 +270,7 @@ try {
       heapGrowthBytes: heapGrowth,
       lateMedianHeapBytes: lateMedian,
       lifecycleCycles: totalCycles,
+      directReinitialize: 'passed',
       staleActiveCore: false,
     },
     status: 'passed',

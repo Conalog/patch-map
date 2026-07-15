@@ -92,13 +92,20 @@ export class CoreV1LabRuntime {
   public setDataset(dataset: DatasetKey): void {
     this.#dataset = dataset;
     this.#document = null;
+    this.#canvas.dataset.coreDocument = 'none';
     this.#fixtureStatus = dataset === 'production' ? 'NOT VERIFIED' : 'N/A';
     this.#workloadNote = `Selected ${datasetLabel(dataset)}. Load to replace authoritative state.`;
   }
 
   public reinitialize(): void {
     this.#replayToken += 1;
-    if (this.#scene !== null) this.#scene.destroy();
+    const priorScene = this.#scene;
+    const hadPriorScene = priorScene !== null;
+    this.#scene = null;
+    this.#document = null;
+    this.#canvas.dataset.coreAlive = 'false';
+    this.#canvas.dataset.coreDocument = 'none';
+    const priorDestroyed = priorScene?.destroy() ?? true;
     const size = measureSurface(this.#canvas);
     const renderer = new Canvas2DRenderer(this.#canvas, {
       width: size.width,
@@ -117,7 +124,18 @@ export class CoreV1LabRuntime {
     this.#lastFlushMs = null;
     this.#events = [];
     this.#invariants = [];
-    this.#recordInvariant('lifecycle', 'Fresh lifecycle', true, `Core L${pad(this.#lifecycle, 2)} is active`);
+    this.#canvas.dataset.coreAlive = 'true';
+    this.#canvas.dataset.coreDocument = 'none';
+    this.#canvas.dataset.coreInstance = `L${pad(this.#lifecycle, 2)}`;
+    this.#canvas.dataset.priorCoreDestroyed = String(priorDestroyed);
+    this.#recordInvariant(
+      'lifecycle',
+      'Fresh lifecycle',
+      priorDestroyed,
+      hadPriorScene
+        ? `Prior Core destroyed and document released before Core L${pad(this.#lifecycle, 2)}`
+        : `Core L${pad(this.#lifecycle, 2)} is active`,
+    );
   }
 
   public resize(): boolean {
@@ -144,6 +162,7 @@ export class CoreV1LabRuntime {
     const elapsed = performance.now() - started;
     const after = inputSignature(prepared.document);
     this.#document = prepared.document;
+    this.#canvas.dataset.coreDocument = 'attached';
     this.#clockMs = 0;
     this.#frameRevision = null;
     this.#frame = 0;
@@ -329,14 +348,25 @@ export class CoreV1LabRuntime {
     const elapsed = performance.now() - started;
     this.#lastAction = 'hit + select';
     this.#lastActionMs = elapsed;
-    const passed = hit !== null && pointer.target !== null && pointer.selection.refs.length === 1;
+    const hitEntity = hit === null ? null : scene.get(hit);
+    const pointerEntity = pointer.target === null ? null : scene.get(pointer.target);
+    const selectedRef = pointer.selection.refs[0];
+    const selectionEntity = pointer.selection.refs.length === 1 && selectedRef !== undefined
+      ? scene.get(selectedRef)
+      : null;
+    const hitRefDetail = hit === null
+      ? 'miss'
+      : `slot ${String(hit.slot)} / generation ${String(hit.generation)}`;
+    const passed = hitEntity?.id === target.id
+      && pointerEntity?.id === target.id
+      && selectionEntity?.id === target.id;
     this.#recordInvariant(
       'hit-selection',
-      'Hit test publishes lightweight ref',
+      'Hit test selects the expected entity',
       passed,
       passed
-        ? `slot ${String(hit.slot)} / generation ${String(hit.generation)}`
-        : 'Expected one selected generation ref',
+        ? `${target.id} / ${hitRefDetail}`
+        : `Expected ${target.id}; received hit=${hitEntity?.id ?? 'miss'}, pointer=${pointerEntity?.id ?? 'miss'}, selection=${selectionEntity?.id ?? 'none'}`,
     );
     this.#drainEvents();
   }
@@ -344,9 +374,14 @@ export class CoreV1LabRuntime {
   public teardown(): void {
     this.#replayToken += 1;
     const started = performance.now();
-    const destroyed = this.#scene?.destroy() ?? false;
+    const priorScene = this.#scene;
     this.#scene = null;
     this.#document = null;
+    this.#canvas.dataset.coreAlive = 'false';
+    this.#canvas.dataset.coreDocument = 'none';
+    this.#canvas.dataset.coreInstance = 'none';
+    const destroyed = priorScene?.destroy() ?? false;
+    this.#canvas.dataset.priorCoreDestroyed = String(destroyed);
     const elapsed = performance.now() - started;
     this.#lastAction = 'teardown';
     this.#lastActionMs = elapsed;

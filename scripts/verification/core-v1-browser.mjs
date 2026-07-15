@@ -13,6 +13,20 @@ const baseUrl = suppliedUrl ?? `http://127.0.0.1:${port}`;
 const server = suppliedUrl === undefined ? await startServer(port) : null;
 const browser = await chromium.launch({ headless: process.env.HEADED !== '1' });
 const results = [];
+let failed = false;
+const syntheticExpectation = Object.freeze({
+  commandCount: 190,
+  entityCount: 100,
+  firstEntityCenterCss: { x: 28, y: 24 },
+  firstEntityFill: [37, 99, 235, 255],
+  hitTarget: 'synthetic:entity:00000',
+});
+const productionExpectation = Object.freeze({
+  commandCount: 72,
+  entityCount: 37_071,
+  fixtureIdentityPrefix: '1,317,998 B / 9afd9e179c',
+  workloadNote: '458 source records · 9336 cells · 18759 components · 8947 links · 37071 Core v1 entities',
+});
 
 try {
   await mkdir(fileURLToPath(new URL('../../artifacts/core-v1', import.meta.url)), { recursive: true });
@@ -28,11 +42,12 @@ try {
     failures,
   };
   console.log(JSON.stringify(summary, null, 2));
-  if (failures.length > 0) process.exitCode = 1;
+  failed = failures.length > 0;
 } finally {
   await browser.close();
   if (server !== null) server.kill('SIGTERM');
 }
+if (failed) process.exitCode = 1;
 
 async function runSynthetic(browser) {
   const started = performance.now();
@@ -50,13 +65,32 @@ async function runSynthetic(browser) {
     const blankPixels = await canvasFingerprint(page);
     await page.getByTestId('load').click();
     await waitReady(page);
-    assertEqual(await text(page, 'metric-entities'), '100', 'synthetic entity count');
+    assertEqual(
+      numberText(await text(page, 'metric-entities')),
+      syntheticExpectation.entityCount,
+      'synthetic entity count',
+    );
     assertEqual(await text(page, 'metric-frame-revision'), '—', 'load does not publish a frame');
 
     await page.getByTestId('flush').click();
     await waitReady(page);
     const firstFramePixels = await canvasFingerprint(page);
     if (firstFramePixels === blankPixels) throw new Error('first flush did not change canvas pixels');
+    assertEqual(
+      numberText(await text(page, 'metric-commands')),
+      syntheticExpectation.commandCount,
+      'synthetic structural command count',
+    );
+    const entityPixel = await canvasPixel(
+      page,
+      syntheticExpectation.firstEntityCenterCss.x,
+      syntheticExpectation.firstEntityCenterCss.y,
+    );
+    assertEqual(
+      entityPixel.join(','),
+      syntheticExpectation.firstEntityFill.join(','),
+      `known entity ${syntheticExpectation.hitTarget} center pixel`,
+    );
 
     const publishedRevision = await text(page, 'metric-frame-revision');
     await page.getByTestId('trusted-commit').click();
@@ -83,6 +117,16 @@ async function runSynthetic(browser) {
     await page.getByTestId('hit-select').click();
     await waitReady(page);
     assertEqual(await text(page, 'metric-selection'), '1', 'hit test selection');
+    const hitInvariant = page
+      .locator('[data-testid="invariant-row"][data-status="pass"]')
+      .filter({ hasText: 'Hit test selects the expected entity' });
+    assertEqual(await hitInvariant.count(), 1, 'expected-target hit invariant count');
+    const hitDetail = (await hitInvariant.textContent()) ?? '';
+    if (!hitDetail.includes(syntheticExpectation.hitTarget)) {
+      throw new Error(
+        `hit selected an unexpected target: expected ${syntheticExpectation.hitTarget}, received ${hitDetail}`,
+      );
+    }
     if ((await page.locator('[data-testid="invariant-row"][data-status="fail"]').count()) !== 0) {
       throw new Error('synthetic flow contains failing invariants');
     }
@@ -134,14 +178,24 @@ async function runProduction(browser) {
     await page.getByTestId('load').click();
     await waitReady(page, 45_000);
     const count = numberText(await text(page, 'metric-entities'));
-    if (count <= 458) throw new Error(`production conversion only yielded ${String(count)} entities`);
+    assertEqual(count, productionExpectation.entityCount, 'production expanded entity identity');
     const fixture = await text(page, 'metric-fixture');
-    if (!fixture.includes('VERIFIED')) throw new Error(`production fixture is not verified: ${fixture}`);
+    if (!fixture.includes(productionExpectation.fixtureIdentityPrefix) || !fixture.includes('VERIFIED')) {
+      throw new Error(`production fixture identity is not verified: ${fixture}`);
+    }
+    const workloadNote = (await text(page, 'workload-note')).replaceAll(',', '');
+    assertEqual(
+      workloadNote,
+      productionExpectation.workloadNote,
+      'production conversion structure',
+    );
     await page.getByTestId('flush').click();
     await waitReady(page, 45_000);
-    if (numberText(await text(page, 'metric-commands')) <= 0) {
-      throw new Error('production frame reported no Canvas2D commands');
-    }
+    assertEqual(
+      numberText(await text(page, 'metric-commands')),
+      productionExpectation.commandCount,
+      'production structural command count',
+    );
     if ((await page.locator('[data-testid="invariant-row"][data-status="fail"]').count()) !== 0) {
       throw new Error('production flow contains failing invariants');
     }
@@ -230,6 +284,24 @@ async function canvasFingerprint(page) {
       .map(([x, y]) => [...context.getImageData(x, y, 1, 1).data].join(','))
       .join('|');
   });
+}
+
+async function canvasPixel(page, cssX, cssY) {
+  return page.getByTestId('core-canvas').evaluate((canvas, point) => {
+    const surface = /** @type {HTMLCanvasElement} */ (canvas);
+    const context = surface.getContext('2d');
+    if (context === null || surface.width === 0 || surface.height === 0) return [];
+    const cssWidth = Number.parseFloat(surface.style.width) || surface.clientWidth;
+    const cssHeight = Number.parseFloat(surface.style.height) || surface.clientHeight;
+    const scaleX = cssWidth > 0 ? surface.width / cssWidth : 1;
+    const scaleY = cssHeight > 0 ? surface.height / cssHeight : 1;
+    return [...context.getImageData(
+      Math.round(point.x * scaleX),
+      Math.round(point.y * scaleY),
+      1,
+      1,
+    ).data];
+  }, { x: cssX, y: cssY });
 }
 
 function assertEqual(actual, expected, label) {
