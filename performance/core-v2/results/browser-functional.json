@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-15T12:53:46.948Z",
+  "generatedAt": "2026-07-15T13:55:23.204Z",
   "headed": true,
   "checks": [
     {
@@ -209,6 +209,20 @@
       "passed": true
     },
     {
+      "label": "non-interactive non-target hit clears selection without becoming a target",
+      "passed": true,
+      "details": {
+        "id": "__core_v2_browser_non_target__",
+        "screen": {
+          "x": 957,
+          "y": 566
+        },
+        "anyHitId": "__core_v2_browser_non_target__",
+        "interactiveHitId": null,
+        "selectionCount": 0
+      }
+    },
+    {
       "label": "real pointer drag pans an empty transformed viewport",
       "passed": true
     },
@@ -227,8 +241,8 @@
         "before": {
           "barCount": 500,
           "activeAnimations": 0,
-          "rendererFrame": 19,
-          "schedulerFrame": 7,
+          "rendererFrame": 22,
+          "schedulerFrame": 8,
           "uploadedChunks": 0,
           "uploadedBytes": 0
         },
@@ -239,31 +253,31 @@
             {
               "id": "item-00005::bar:bar",
               "before": 51.8,
-              "during": 51.73801832251796
+              "during": 51.73652732854982
             },
             {
               "id": "item-00017::bar:bar",
               "before": 48.3,
-              "during": 48.316848661773584
+              "during": 48.31725396305126
             },
             {
               "id": "item-00019::bar:bar",
               "before": 21,
-              "during": 20.934952635825304
+              "during": 20.933387895541276
             },
             {
               "id": "item-00042::bar:bar",
               "before": 4.2,
-              "during": 4.192401586538257
+              "during": 4.192218803672431
             },
             {
               "id": "item-00054::bar:bar",
               "before": 32.9,
-              "during": 32.8611366636236
+              "during": 32.86020179056961
             }
           ],
-          "rendererFrame": 21,
-          "schedulerFrame": 9,
+          "rendererFrame": 24,
+          "schedulerFrame": 10,
           "uploadedChunks": 4,
           "uploadedBytes": 45808
         }
@@ -308,39 +322,39 @@
             {
               "id": "item-00005::bar:bar",
               "before": 51.8,
-              "during": 51.73801832251796
+              "during": 51.73652732854982
             },
             {
               "id": "item-00017::bar:bar",
               "before": 48.3,
-              "during": 48.316848661773584
+              "during": 48.31725396305126
             },
             {
               "id": "item-00019::bar:bar",
               "before": 21,
-              "during": 20.934952635825304
+              "during": 20.933387895541276
             },
             {
               "id": "item-00042::bar:bar",
               "before": 4.2,
-              "during": 4.192401586538257
+              "during": 4.192218803672431
             },
             {
               "id": "item-00054::bar:bar",
               "before": 32.9,
-              "during": 32.8611366636236
+              "during": 32.86020179056961
             }
           ],
-          "rendererFrame": 21,
-          "schedulerFrame": 9,
+          "rendererFrame": 24,
+          "schedulerFrame": 10,
           "uploadedChunks": 4,
           "uploadedBytes": 45808
         },
         "after": {
           "barCount": 500,
           "activeAnimations": 0,
-          "rendererFrame": 46,
-          "schedulerFrame": 34,
+          "rendererFrame": 49,
+          "schedulerFrame": 35,
           "uploadedChunks": 4,
           "uploadedBytes": 31808
         }
@@ -364,7 +378,7 @@
       "details": {
         "totalBarCount": 9365,
         "visibleBarCount": 0,
-        "rendererFrame": 47,
+        "rendererFrame": 50,
         "strategy": "mesh",
         "uploadedChunks": 73,
         "uploadedBytes": 1611456
@@ -377,7 +391,7 @@
         "before": {
           "totalBarCount": 9365,
           "visibleBarCount": 0,
-          "rendererFrame": 47,
+          "rendererFrame": 50,
           "strategy": "mesh",
           "uploadedChunks": 73,
           "uploadedBytes": 1611456
@@ -387,7 +401,7 @@
           "changedCount": 9365,
           "totalBarCount": 9365,
           "visibleBarCount": 9365,
-          "rendererFrame": 48,
+          "rendererFrame": 51,
           "strategy": "mesh",
           "uploadedChunks": 73,
           "uploadedBytes": 1648240,
@@ -403,14 +417,14 @@
           "requestedFraction": 0.01,
           "scheduledAnimations": 78,
           "activeAnimations": 78,
-          "rendererFrame": 48,
-          "schedulerFrame": 34
+          "rendererFrame": 51,
+          "schedulerFrame": 35
         },
         "before": {
           "barCount": 9365,
           "activeAnimations": 0,
-          "rendererFrame": 48,
-          "schedulerFrame": 34,
+          "rendererFrame": 51,
+          "schedulerFrame": 35,
           "uploadedChunks": 73,
           "uploadedBytes": 1648240
         },
@@ -421,31 +435,31 @@
             {
               "id": "caseOIin7QU7U9g.1.0::bar:Fx8vZTbchk9JsRR",
               "before": 74,
-              "during": 72.51558583626915
+              "during": 72.50196011548638
             },
             {
               "id": "dIQ3fKnIwryC8Ed.1.51::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 71.7011830107213
+              "during": 71.68008173104346
             },
             {
               "id": "U1hDt5R93SGYZOb.1.8::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.44601539760582
+              "during": 72.43175107649496
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.17::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.64097438285455
+              "during": 72.62849962746058
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.47::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.44670309173641
+              "during": 72.43244508310116
             }
           ],
-          "rendererFrame": 54,
-          "schedulerFrame": 40,
+          "rendererFrame": 57,
+          "schedulerFrame": 41,
           "uploadedChunks": 44,
           "uploadedBytes": 480576
         }
@@ -492,39 +506,39 @@
             {
               "id": "caseOIin7QU7U9g.1.0::bar:Fx8vZTbchk9JsRR",
               "before": 74,
-              "during": 72.51558583626915
+              "during": 72.50196011548638
             },
             {
               "id": "dIQ3fKnIwryC8Ed.1.51::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 71.7011830107213
+              "during": 71.68008173104346
             },
             {
               "id": "U1hDt5R93SGYZOb.1.8::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.44601539760582
+              "during": 72.43175107649496
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.17::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.64097438285455
+              "during": 72.62849962746058
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.47::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.44670309173641
+              "during": 72.43244508310116
             }
           ],
-          "rendererFrame": 54,
-          "schedulerFrame": 40,
+          "rendererFrame": 57,
+          "schedulerFrame": 41,
           "uploadedChunks": 44,
           "uploadedBytes": 480576
         },
         "after": {
           "barCount": 9365,
           "activeAnimations": 0,
-          "rendererFrame": 83,
-          "schedulerFrame": 69,
+          "rendererFrame": 86,
+          "schedulerFrame": 70,
           "uploadedChunks": 44,
           "uploadedBytes": 480576
         }

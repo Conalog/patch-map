@@ -1,6 +1,6 @@
 # PATCH MAP Core v2 quick performance checkpoint
 
-- Result JSON: performance/core-v2/results/quick-4x-2026-07-15T13-08-25-259Z.json
+- Result JSON: performance/core-v2/results/quick-4x-2026-07-15T13-56-42-392Z.json
 - Protocol: 2 warmups, 7 measured trials, Chromium 4x CPU throttle
 - Scales: 100, 1000
 - Selected strategy: mesh
@@ -11,12 +11,12 @@
 
 | role | strategy | scale | expanded entities | normalize median ms | store load median ms | renderer build median ms | GPU prepare median ms | first frame median ms | pan/zoom trial-p95 p95 ms | hidden-bar visibility setup median ms | full bar schedule median ms | full bar trial-p95 p95 ms | partial bar schedule median ms | partial bar trial-p95 p95 ms | text change median ms | hit/op median ms | select median ms | destroy median ms | re-init median ms | retained JS heap median bytes |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| spike | mesh | 100 | 509 | 8.40 | 10.00 | 6.80 | 5.20 | 19.20 | 1.00 | 0.00 | 1.70 | 4.00 | 0.40 | 2.30 | 4.70 | 0.0053 | 2.10 | 10.60 | 23.00 | 141,740 |
-| spike | particle | 100 | 509 | 8.60 | 10.40 | 11.30 | 5.60 | 29.20 | 1.00 | 0.00 | 1.90 | 14.00 | 0.20 | 7.10 | 4.60 | 0.0056 | 1.90 | 27.70 | 21.40 | 39,216 |
-| spike | mesh | 1000 | 5,099 | 75.70 | 85.70 | 42.80 | 7.70 | 82.70 | 1.20 | 0.00 | 10.40 | 20.30 | 2.50 | 10.90 | 23.20 | 0.0083 | 8.90 | 32.50 | 37.00 | 36,640 |
-| spike | particle | 1000 | 5,099 | 71.10 | 84.30 | 72.80 | 10.50 | 190.50 | 1.20 | 0.00 | 10.50 | 117.50 | 2.70 | 78.50 | 28.50 | 0.0083 | 15.10 | 74.40 | 24.30 | 24,472 |
-| selected | mesh | 100 | 509 | 7.70 | 10.20 | 6.60 | 5.00 | 18.40 | 1.10 | 0.00 | 1.80 | 1.70 | 0.60 | 1.00 | 4.50 | 0.0056 | 2.20 | 10.40 | 21.10 | 25,328 |
-| selected | mesh | 1000 | 5,099 | 72.90 | 88.10 | 45.30 | 7.90 | 84.20 | 1.50 | 0.00 | 10.10 | 20.90 | 2.60 | 1.70 | 25.40 | 0.0084 | 10.30 | 33.30 | 37.60 | 24,988 |
+| spike | mesh | 100 | 509 | 8.40 | 10.10 | 6.30 | 5.10 | 18.20 | 1.10 | 0.00 | 1.90 | 2.70 | 0.20 | 2.30 | 5.30 | 0.0055 | 1.90 | 10.50 | 22.90 | 142,996 |
+| spike | particle | 100 | 509 | 8.20 | 10.40 | 11.30 | 5.40 | 28.40 | 1.10 | 0.00 | 1.60 | 16.10 | 0.20 | 7.90 | 4.60 | 0.0062 | 1.50 | 27.10 | 21.50 | 39,080 |
+| spike | mesh | 1000 | 5,099 | 76.70 | 85.10 | 44.30 | 7.50 | 81.50 | 1.20 | 0.00 | 11.00 | 20.30 | 3.00 | 10.00 | 24.00 | 0.0084 | 8.90 | 32.10 | 36.80 | 34,604 |
+| spike | particle | 1000 | 5,099 | 72.90 | 84.70 | 73.50 | 10.50 | 190.90 | 1.20 | 0.00 | 10.80 | 116.20 | 2.70 | 59.20 | 28.50 | 0.0084 | 15.40 | 76.20 | 23.30 | 24,464 |
+| selected | mesh | 100 | 509 | 8.10 | 10.40 | 6.50 | 5.70 | 19.30 | 1.00 | 0.00 | 1.80 | 2.00 | 0.20 | 1.10 | 5.00 | 0.0059 | 2.30 | 11.60 | 21.40 | 26,740 |
+| selected | mesh | 1000 | 5,099 | 73.30 | 84.70 | 45.10 | 7.90 | 84.90 | 1.30 | 0.00 | 10.60 | 21.40 | 2.30 | 1.40 | 24.20 | 0.0081 | 10.20 | 35.00 | 38.90 | 25,248 |
 
 ## Measurement limits
 
