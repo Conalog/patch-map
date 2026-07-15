@@ -1,0 +1,240 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+import { describe, expect, it } from 'vitest';
+
+import { PatchMapParseError } from '../../src/core-v2/contracts';
+import { parsePatchMapV010 } from '../../src/core-v2/parser';
+
+const fixturePath = fileURLToPath(
+  new URL('../../lab/fixtures/production-like.json', import.meta.url),
+);
+
+describe('Core v2 PATCH MAP v0.10 parser', () => {
+  it('loads the production JSON directly with stable expansion counts', () => {
+    const input = JSON.parse(readFileSync(fixturePath, 'utf8')) as unknown;
+    const before = JSON.stringify(input);
+
+    const result = parsePatchMapV010(input);
+
+    expect(JSON.stringify(input)).toBe(before);
+    expect(result.identity.counts).toEqual({
+      sourceElements: 458,
+      sourceComponents: 167,
+      expandedItems: 9_365,
+      gridCells: 9_336,
+      relationLinks: 8_947,
+      entities: 37_071,
+      kinds: {
+        rect: 18_730,
+        text: 0,
+        image: 29,
+        bar: 9_365,
+        relation: 8_947,
+      },
+    });
+    expect(new Set(result.identity.entityIds).size).toBe(37_071);
+  });
+
+  it('preserves template/component identity while expanding deterministic grid cells', () => {
+    const input = [
+      {
+        type: 'grid',
+        id: 'rack',
+        attrs: { x: 10, y: 20, metadata: { owner: 'ops' } },
+        cells: [[1, 1]],
+        gap: { x: 5, y: 0 },
+        item: {
+          size: { width: 40, height: 80 },
+          padding: 2,
+          components: [
+            {
+              type: 'background',
+              id: 'panel',
+              attrs: { metadata: { role: 'track' } },
+              size: { width: '100%', height: { value: 100, unit: '%' } },
+              source: { type: 'rect', fill: 'white', radius: 4 },
+            },
+            {
+              type: 'bar',
+              id: 'level',
+              size: { width: { value: 100, unit: '%' }, height: '50%' },
+              placement: 'bottom',
+              source: { type: 'rect', fill: '#ffffff' },
+              tint: 'primary.default',
+            },
+          ],
+        },
+      },
+      {
+        type: 'relations',
+        id: 'links',
+        attrs: { metadata: { parent: 'rack' } },
+        links: [{ source: 'rack.0.0', target: { id: 'rack.0.1' } }],
+        style: { color: 'hsl(210, 100%, 50%)', width: 2 },
+      },
+    ];
+
+    const result = parsePatchMapV010(input);
+
+    expect(result.identity.entityIds).toEqual([
+      'rack.0.0',
+      'rack.0.0::background:panel',
+      'rack.0.0::bar:level',
+      'rack.0.1',
+      'rack.0.1::background:panel',
+      'rack.0.1::bar:level',
+      'links::link:000000',
+    ]);
+    expect(result.identity.entityIdsByComponentId.panel).toEqual([
+      'rack.0.0::background:panel',
+      'rack.0.1::background:panel',
+    ]);
+    expect(result.identity.components).toHaveLength(2);
+    expect(result.identity.components[0]).toMatchObject({
+      componentId: 'panel',
+      sourceElementId: 'rack',
+      rawMetadata: { role: 'track' },
+    });
+    expect(result.identity.elements[0]).toMatchObject({
+      sourceId: 'rack',
+      rawMetadata: { owner: 'ops' },
+    });
+    expect(result.document.entities.at(-1)).toMatchObject({
+      kind: 'relation',
+      from: 'rack.0.0',
+      to: 'rack.0.1',
+      color: 0x0080ffff,
+    });
+    expect(result.document.entities[4]).toMatchObject({ x: 55, y: 20 });
+  });
+
+  it('is deterministic, never retains caller aliases, and freezes its result', () => {
+    const attrs = { x: 3, metadata: { note: 'caller-owned' } };
+    const input = [
+      {
+        type: 'item',
+        attrs,
+        size: 20,
+        components: [
+          {
+            type: 'icon',
+            source: { src: '/icon.png' },
+            size: { value: 50, unit: '%' },
+          },
+        ],
+      },
+    ];
+    const before = structuredClone(input);
+
+    const first = parsePatchMapV010(input);
+    const second = parsePatchMapV010(input);
+
+    expect(input).toEqual(before);
+    expect(first).toEqual(second);
+    expect(first.identity.entityIds).toEqual([
+      '@element:0',
+      '@element:0::icon:@component:0.components.0',
+    ]);
+    expect(first.diagnostics.filter((entry) => entry.code === 'generated-id')).toHaveLength(2);
+    expect(first.identity.elements[0]?.rawAttrs).not.toBe(attrs);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first.document.entities)).toBe(true);
+    expect(Object.isFrozen(first.identity.elements[0]?.rawMetadata)).toBe(true);
+  });
+
+  it('supports nested groups and direct rect/image/text records', () => {
+    const result = parsePatchMapV010([
+      {
+        type: 'group',
+        id: 'group-a',
+        attrs: { x: 10, y: 20, angle: 90 },
+        children: [
+          {
+            type: 'rect',
+            id: 'rect-a',
+            attrs: { x: 5, y: 0 },
+            size: { width: 8, height: 9 },
+            fill: 'rgb(255, 0, 0)',
+          },
+          {
+            type: 'image',
+            id: 'image-a',
+            source: { src: '/asset.png' },
+            size: 12,
+          },
+          {
+            type: 'text',
+            id: 'text-a',
+            text: '온도 42',
+            style: { fill: '#0f08', fontSize: 16 },
+          },
+        ],
+      },
+    ]);
+
+    expect(result.document.entities).toHaveLength(3);
+    expect(result.document.entities[0]).toMatchObject({
+      id: 'rect-a',
+      x: 10,
+      y: 25,
+      rotation: 90,
+      fill: 0xff0000ff,
+    });
+    expect(result.document.entities[1]).toMatchObject({
+      id: 'image-a',
+      source: '/asset.png',
+    });
+    expect(result.document.entities[2]).toMatchObject({
+      id: 'text-a',
+      text: '온도 42',
+      color: 0x00ff0088,
+    });
+    expect(result.identity.entityIdsBySourceId['group-a']).toEqual([
+      'rect-a',
+      'image-a',
+      'text-a',
+    ]);
+  });
+
+  it('warns and deterministically hashes unknown color aliases', () => {
+    const input = [{ type: 'rect', id: 'x', size: 10, fill: 'brand.unknown' }];
+    const first = parsePatchMapV010(input);
+    const second = parsePatchMapV010(input);
+
+    expect(first.document.entities[0]).toEqual(second.document.entities[0]);
+    expect(first.diagnostics).toContainEqual(
+      expect.objectContaining({ code: 'color-fallback', path: '$[0].fill' }),
+    );
+  });
+
+  it('fails atomically for duplicate visible IDs and dangling endpoints', () => {
+    expect(() =>
+      parsePatchMapV010([
+        { type: 'rect', id: 'duplicate', size: 10 },
+        { type: 'text', id: 'duplicate', text: 'x' },
+      ]),
+    ).toThrow(PatchMapParseError);
+
+    try {
+      parsePatchMapV010([
+        { type: 'rect', id: 'known', size: 10 },
+        {
+          type: 'relations',
+          id: 'relations',
+          links: [{ source: 'known', target: { id: 'missing' } }],
+        },
+      ]);
+      throw new Error('expected parser failure');
+    } catch (error) {
+      expect(error).toBeInstanceOf(PatchMapParseError);
+      expect((error as PatchMapParseError).diagnostics).toContainEqual(
+        expect.objectContaining({
+          level: 'error',
+          code: 'dangling-relation-endpoint',
+          path: '$[1].links[0].target',
+        }),
+      );
+    }
+  });
+});
