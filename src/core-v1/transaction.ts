@@ -50,11 +50,15 @@ export function prepareTransaction(
   const invalidatedRefIds = new Set<string>();
   const selection = new Set(selectedIds);
   const animations = new Map<string, PreparedAnimation>();
+  const originals = new Map<string, CanonicalEntity | null>();
   let view = store.view;
 
   const original = (id: string): CanonicalEntity | null => {
+    if (originals.has(id)) return originals.get(id) ?? null;
     const slot = store.slotOf(id);
-    return slot === undefined ? null : normalizeEntity(store.toInput(slot), '$.existing');
+    const entity = slot === undefined ? null : store.canonicalAt(slot);
+    originals.set(id, entity);
+    return entity;
   };
 
   const remember = (id: string): void => {
@@ -101,7 +105,7 @@ export function prepareTransaction(
         if (!entity) throw new CoreTargetError(id);
         validatePatch(operation.changes, entity.kind, `${path}.changes`);
         remember(id);
-        overlay.set(id, normalizeEntity(mergeCanonical(entity, operation.changes), `${path}.changes`));
+        overlay.set(id, mergeCanonical(entity, operation.changes, `${path}.changes`));
         break;
       }
       case 'remove': {
@@ -125,10 +129,7 @@ export function prepareTransaction(
           throw new CoreValidationError(`${path}.visible`, 'expected a boolean');
         }
         remember(id);
-        overlay.set(
-          id,
-          normalizeEntity(mergeCanonical(entity, { visible: operation.visible }), `${path}.visible`),
-        );
+        overlay.set(id, mergeCanonical(entity, { visible: operation.visible }, `${path}.visible`));
         break;
       }
       case 'animate': {
@@ -199,8 +200,21 @@ export function prepareTransaction(
   };
 }
 
-function mergeCanonical(entity: CanonicalEntity, patch: object): EntityInput {
-  return { ...entity, ...patch } as unknown as EntityInput;
+function mergeCanonical(
+  entity: CanonicalEntity,
+  patch: object,
+  path: string,
+): CanonicalEntity {
+  const changes = patch as Partial<EntityInput>;
+  const merged = {
+    ...entity,
+    ...changes,
+    tags: changes.tags === undefined ? entity.tags : Object.freeze([...changes.tags]),
+  } as CanonicalEntity;
+  if (merged.kind === 'bar' && merged.max <= merged.min) {
+    throw new CoreValidationError(`${path}.max`, 'expected max to be greater than min');
+  }
+  return Object.freeze(merged);
 }
 
 function validateView(view: CoreView, path: string): CoreView {
@@ -230,11 +244,32 @@ function validateAnimation(
   if (operation.easing !== undefined && !['linear', 'easeInOut'].includes(operation.easing)) {
     throw new CoreValidationError(`${path}.easing`, 'expected linear or easeInOut');
   }
+  validateAnimationTarget(operation.property, operation.to, entity, path);
+}
+
+function validateAnimationTarget(
+  property: AnimatableProperty,
+  to: number,
+  entity: CanonicalEntity,
+  path: string,
+): void {
+  if (!['x', 'y', 'width', 'height', 'rotation', 'opacity', 'value'].includes(property)) {
+    throw new CoreValidationError(
+      `${path}.property`,
+      'expected x, y, width, height, rotation, opacity, or value',
+    );
+  }
   if (entity.kind === 'relation') {
     throw new CoreValidationError(`${path}.property`, 'relations do not expose animatable geometry');
   }
-  if (operation.property === 'value' && entity.kind !== 'bar') {
+  if (property === 'value' && entity.kind !== 'bar') {
     throw new CoreValidationError(`${path}.property`, 'value animation requires a bar entity');
+  }
+  if ((property === 'width' || property === 'height') && to < 0) {
+    throw new CoreValidationError(`${path}.to`, 'expected a non-negative number');
+  }
+  if (property === 'opacity' && (to < 0 || to > 1)) {
+    throw new CoreValidationError(`${path}.to`, 'expected a number between 0 and 1');
   }
 }
 

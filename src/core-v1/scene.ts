@@ -1,6 +1,7 @@
 import { AnimationTable } from './animations';
 import type {
   AdvanceResult,
+  AnimatableProperty,
   CommitResult,
   CoreEvent,
   CorePoint,
@@ -30,6 +31,7 @@ import {
 import { type CanonicalEntity, KindCode, normalizeDocument } from './validation';
 
 const DEFAULT_EVENT_LIMIT = 256;
+const EMPTY_IDS: ReadonlySet<string> = new Set();
 
 export interface CoreSceneCreateOptions extends CoreSceneOptions {
   readonly renderer?: CoreRenderer;
@@ -43,11 +45,12 @@ interface HistoryEntry {
   readonly selectionAfter: ReadonlySet<string>;
   readonly viewBefore: DenseStore['view'];
   readonly viewAfter: DenseStore['view'];
+  readonly nonHistoricalAnimationProperties: ReadonlyMap<string, ReadonlySet<AnimatableProperty>>;
 }
 
 export class CoreScene {
   private store: DenseStore;
-  private readonly renderer: CoreRenderer;
+  private renderer: CoreRenderer | null;
   private readonly animations = new AnimationTable();
   private readonly eventLimit: number;
   private readonly historyLimit: number;
@@ -71,14 +74,17 @@ export class CoreScene {
   }
 
   public get revision(): number {
+    this.assertAlive();
     return this.revisionCounter;
   }
 
   public get entityCount(): number {
+    this.assertAlive();
     return this.store.liveCount;
   }
 
   public get activeAnimations(): number {
+    this.assertAlive();
     return this.animations.count;
   }
 
@@ -119,9 +125,15 @@ export class CoreScene {
   public commit(batch: TransactionBatch): CommitResult {
     this.assertAlive();
     const prepared = prepareTransaction(this.store, batch, this.selectedIds);
-    const result = this.applyPrepared(prepared);
-    if (this.historyLimit > 0 && batch.recordHistory !== false && batch.operations.length > 0) {
-      this.recordHistory(prepared);
+    const selection = this.selectionForPrepared(prepared);
+    const result = this.applyPrepared(prepared, selection.after, selection.reboundIds);
+    this.excludeAnimationsFromExistingHistory(prepared.animations);
+    if (
+      this.historyLimit > 0 &&
+      batch.recordHistory !== false &&
+      batch.operations.some((operation) => operation.type !== 'animate')
+    ) {
+      this.recordHistory(prepared, selection.after);
     }
     this.pushEvent(Object.freeze({ type: 'commit', revision: result.revision, result }));
     return result;
@@ -135,9 +147,9 @@ export class CoreScene {
     this.clockMs = timeMs;
     const advanced = this.animations.advance(this.store, timeMs);
     if (advanced.changed > 0) {
+      this.refreshRelationsForEndpointSlots(advanced.geometrySlots);
       this.revisionCounter += 1;
       this.store.revision = this.revisionCounter;
-      this.store.finalizeMutations();
     }
     const result: AdvanceResult = Object.freeze({
       revision: this.revisionCounter,
@@ -154,8 +166,9 @@ export class CoreScene {
     this.assertAlive();
     const changedRanges = this.store.dirtyRanges();
     const started = clockNow();
-    this.renderer.setView(this.store.view);
-    const rendered = this.renderer.flush(this.store);
+    const renderer = this.rendererInstance();
+    renderer.setView(this.store.view);
+    const rendered = renderer.flush(this.store);
     const cpuMs = clockNow() - started;
     this.frameCounter += 1;
     this.store.clearDirty();
@@ -173,7 +186,7 @@ export class CoreScene {
 
   public resize(width: number, height: number, pixelRatio = 1): boolean {
     this.assertAlive();
-    const changed = this.renderer.resize(width, height, pixelRatio);
+    const changed = this.rendererInstance().resize(width, height, pixelRatio);
     if (changed) this.store.markAllDirty();
     return changed;
   }
@@ -254,10 +267,12 @@ export class CoreScene {
   }
 
   public canUndo(): boolean {
+    this.assertAlive();
     return this.undoStack.length > 0;
   }
 
   public canRedo(): boolean {
+    this.assertAlive();
     return this.redoStack.length > 0;
   }
 
@@ -265,7 +280,12 @@ export class CoreScene {
     this.assertAlive();
     const entry = this.undoStack.pop();
     if (!entry) return false;
-    this.restoreHistory(entry.before, entry.selectionBefore, entry.viewBefore);
+    this.restoreHistory(
+      entry.before,
+      entry.selectionBefore,
+      entry.viewBefore,
+      entry.nonHistoricalAnimationProperties,
+    );
     this.redoStack.push(entry);
     return true;
   }
@@ -274,7 +294,12 @@ export class CoreScene {
     this.assertAlive();
     const entry = this.redoStack.pop();
     if (!entry) return false;
-    this.restoreHistory(entry.after, entry.selectionAfter, entry.viewAfter);
+    this.restoreHistory(
+      entry.after,
+      entry.selectionAfter,
+      entry.viewAfter,
+      entry.nonHistoricalAnimationProperties,
+    );
     this.undoStack.push(entry);
     return true;
   }
@@ -290,28 +315,40 @@ export class CoreScene {
     this.destroyed = true;
     this.animations.destroy();
     this.store.destroy();
-    this.renderer.destroy();
     this.events.length = 0;
     this.undoStack.length = 0;
     this.redoStack.length = 0;
     this.selectedIds.clear();
+    const renderer = this.renderer;
+    this.renderer = null;
+    renderer?.destroy();
     return true;
   }
 
-  private applyPrepared(prepared: PreparedTransaction): CommitResult {
+  private applyPrepared(
+    prepared: PreparedTransaction,
+    selectionAfter: ReadonlySet<string>,
+    reboundSelectionIds: ReadonlySet<string>,
+  ): CommitResult {
     let added = 0;
     let removed = 0;
     let changed = 0;
-    let structural = false;
-    let relationEndpointsChanged = false;
+    const reconnectRelationIds = new Set<string>();
+    const replacedEndpointIds = new Set<string>();
+    const changedEndpointIds = new Set<string>();
 
     for (const [id, after] of prepared.after) {
       const before = prepared.before.get(id) ?? null;
       if (before && (after === null || prepared.replacements.has(id))) {
+        if (prepared.replacements.has(id) && before.kind !== 'relation') {
+          replacedEndpointIds.add(id);
+        }
         const slot = this.store.slotOf(id);
-        if (slot !== undefined) this.store.remove(slot);
+        if (slot !== undefined) {
+          this.animations.cancelSlot(slot);
+          this.store.remove(slot);
+        }
         removed += 1;
-        structural = true;
       }
     }
 
@@ -322,10 +359,12 @@ export class CoreScene {
       if (slot === undefined) {
         this.store.addCanonical(after);
         added += 1;
-        structural = true;
+        if (after.kind === 'relation') reconnectRelationIds.add(id);
+        else if (prepared.replacements.has(id)) changedEndpointIds.add(id);
       } else {
+        const spatialChanged = before ? spatiallyChanged(before, after) : true;
         this.store.replaceCanonical(slot, after, {
-          spatial: before ? spatiallyChanged(before, after) : true,
+          spatial: spatialChanged,
           order: before ? before.zIndex !== after.zIndex : true,
         });
         if (before) changed += 1;
@@ -334,19 +373,20 @@ export class CoreScene {
           before?.kind === 'relation' &&
           (after.from !== before.from || after.to !== before.to)
         ) {
-          relationEndpointsChanged = true;
+          reconnectRelationIds.add(id);
+        } else if (after.kind !== 'relation' && spatialChanged) {
+          changedEndpointIds.add(id);
         }
       }
     }
 
-    if (structural || relationEndpointsChanged) this.reconnectRelations();
-    this.applySelection(prepared.selectionAfter);
+    this.refreshChangedRelations(reconnectRelationIds, replacedEndpointIds, changedEndpointIds);
+    this.applySelection(selectionAfter, reboundSelectionIds);
     if (!sameView(this.store.view, prepared.viewAfter)) this.store.setView(prepared.viewAfter);
     this.animationsForPrepared(prepared);
 
     this.revisionCounter += 1;
     this.store.revision = this.revisionCounter;
-    this.store.finalizeMutations();
     const result: CommitResult = Object.freeze({
       revision: this.revisionCounter,
       operationCount: prepared.batch.operations.length,
@@ -360,45 +400,156 @@ export class CoreScene {
 
   private animationsForPrepared(prepared: PreparedTransaction): void {
     let immediateChange = false;
+    const changedEndpointIds = new Set<string>();
     for (const animation of prepared.animations) {
-      if (this.animations.schedule(this.store, animation, this.clockMs)) immediateChange = true;
+      if (!this.animations.schedule(this.store, animation, this.clockMs)) continue;
+      immediateChange = true;
+      if (
+        animation.property === 'x' ||
+        animation.property === 'y' ||
+        animation.property === 'width' ||
+        animation.property === 'height' ||
+        animation.property === 'rotation'
+      ) {
+        changedEndpointIds.add(animation.id);
+      }
     }
-    if (immediateChange) this.store.finalizeMutations();
+    if (immediateChange) {
+      this.refreshChangedRelations(EMPTY_IDS, EMPTY_IDS, changedEndpointIds);
+    }
+  }
+
+  private refreshRelationsForEndpointSlots(slots: readonly number[]): void {
+    if (slots.length === 0) return;
+    const endpointIds = new Set<string>();
+    for (const slot of slots) {
+      const id = this.store.ids[slot];
+      if (id) endpointIds.add(id);
+    }
+    this.refreshChangedRelations(EMPTY_IDS, EMPTY_IDS, endpointIds);
+  }
+
+  private refreshChangedRelations(
+    reconnectRelationIds: ReadonlySet<string>,
+    replacedEndpointIds: ReadonlySet<string>,
+    changedEndpointIds: ReadonlySet<string>,
+  ): void {
+    const reconnectSlots = new Set<number>();
+    for (const id of reconnectRelationIds) {
+      const slot = this.store.slotOf(id);
+      if (slot !== undefined) reconnectSlots.add(slot);
+    }
+    for (const slot of this.store.relationSlotsForEndpointIds(replacedEndpointIds)) {
+      reconnectSlots.add(slot);
+    }
+    const dirtySlots = this.store.relationSlotsForEndpointIds(changedEndpointIds);
+    for (const slot of reconnectSlots) this.reconnectRelation(slot);
+    for (const slot of dirtySlots) {
+      if (!reconnectSlots.has(slot)) this.store.markDirty(slot, true, false);
+    }
+  }
+
+  private reconnectRelation(slot: number): void {
+    const from = this.store.slotOf(this.store.relationFromId[slot] ?? '');
+    const to = this.store.slotOf(this.store.relationToId[slot] ?? '');
+    if (from === undefined || to === undefined) throw new Error('validated relation endpoint disappeared');
+    this.store.connectRelation(slot, from, to);
   }
 
   private reconnectRelations(): void {
     for (const slot of this.store.renderOrder()) {
       if (this.store.kind[slot] !== KindCode.Relation) continue;
-      const from = this.store.slotOf(this.store.relationFromId[slot] ?? '');
-      const to = this.store.slotOf(this.store.relationToId[slot] ?? '');
-      if (from === undefined || to === undefined) throw new Error('validated relation endpoint disappeared');
-      this.store.connectRelation(slot, from, to);
+      this.reconnectRelation(slot);
     }
   }
 
-  private applySelection(next: ReadonlySet<string>): void {
+  private applySelection(next: ReadonlySet<string>, reboundIds: ReadonlySet<string> = EMPTY_IDS): void {
     for (const id of this.selectedIds) {
       if (next.has(id)) continue;
       const slot = this.store.slotOf(id);
       if (slot !== undefined) this.store.setSelected(slot, false);
     }
     for (const id of next) {
-      if (this.selectedIds.has(id)) continue;
+      if (this.selectedIds.has(id) && !reboundIds.has(id)) continue;
       const slot = this.store.slotOf(id);
       if (slot !== undefined) this.store.setSelected(slot, true);
     }
     this.selectedIds = new Set(next);
   }
 
-  private recordHistory(prepared: PreparedTransaction): void {
+  private selectionForPrepared(prepared: PreparedTransaction): {
+    readonly after: ReadonlySet<string>;
+    readonly reboundIds: ReadonlySet<string>;
+  } {
+    const stableReplacements = new Set<string>();
+    for (const id of prepared.replacements) {
+      if (prepared.after.get(id)) stableReplacements.add(id);
+    }
+    if (stableReplacements.size === 0) {
+      return { after: prepared.selectionAfter, reboundIds: EMPTY_IDS };
+    }
+
+    const selection = new Set(prepared.selectionBefore);
+    for (const operation of prepared.batch.operations) {
+      if (operation.type === 'remove') {
+        const id = this.idForPreparedTarget(operation.target);
+        if (!stableReplacements.has(id)) selection.delete(id);
+        continue;
+      }
+      if (operation.type !== 'selection') continue;
+      const ids = operation.targets.map((target) => this.idForPreparedTarget(target));
+      const mode = operation.mode ?? 'replace';
+      if (mode === 'replace') {
+        selection.clear();
+        for (const id of ids) selection.add(id);
+      } else if (mode === 'add') {
+        for (const id of ids) selection.add(id);
+      } else if (mode === 'remove') {
+        for (const id of ids) selection.delete(id);
+      } else {
+        for (const id of ids) {
+          if (selection.has(id)) selection.delete(id);
+          else selection.add(id);
+        }
+      }
+    }
+
+    const reboundIds = new Set<string>();
+    for (const id of stableReplacements) {
+      if (selection.has(id)) reboundIds.add(id);
+    }
+    return { after: selection, reboundIds };
+  }
+
+  private idForPreparedTarget(target: CoreTarget): string {
+    if (typeof target === 'string') return target;
+    const slot = this.store.resolve(target);
+    if (slot === undefined) throw new Error('validated transaction target disappeared before commit');
+    return this.store.ids[slot] ?? '';
+  }
+
+  private recordHistory(prepared: PreparedTransaction, selectionAfter: ReadonlySet<string>): void {
+    const nonHistoricalAnimationProperties = new Map<string, Set<AnimatableProperty>>();
+    for (const animation of prepared.animations) {
+      addAnimationProperty(nonHistoricalAnimationProperties, animation.id, animation.property);
+    }
+    const stateIds = new Set([...prepared.before.keys(), ...prepared.after.keys()]);
+    for (const id of stateIds) {
+      const slot = this.store.slotOf(id);
+      if (slot === undefined) continue;
+      for (const property of this.animations.activeProperties(slot)) {
+        addAnimationProperty(nonHistoricalAnimationProperties, id, property);
+      }
+    }
     const entry: HistoryEntry = {
       ...(prepared.batch.id === undefined ? {} : { id: prepared.batch.id }),
       before: prepared.before,
       after: prepared.after,
       selectionBefore: prepared.selectionBefore,
-      selectionAfter: prepared.selectionAfter,
+      selectionAfter,
       viewBefore: prepared.viewBefore,
       viewAfter: prepared.viewAfter,
+      nonHistoricalAnimationProperties,
     };
     const previous = this.undoStack.at(-1);
     if (entry.id && previous?.id === entry.id) {
@@ -410,33 +561,61 @@ export class CoreScene {
     this.redoStack.length = 0;
   }
 
+  private excludeAnimationsFromExistingHistory(
+    animations: PreparedTransaction['animations'],
+  ): void {
+    if (animations.length === 0) return;
+    const update = (entry: HistoryEntry): HistoryEntry => {
+      let properties: Map<string, Set<AnimatableProperty>> | undefined;
+      for (const animation of animations) {
+        if (!entry.before.has(animation.id) && !entry.after.has(animation.id)) continue;
+        if (entry.nonHistoricalAnimationProperties.get(animation.id)?.has(animation.property)) continue;
+        properties ??= cloneAnimationProperties(entry.nonHistoricalAnimationProperties);
+        addAnimationProperty(properties, animation.id, animation.property);
+      }
+      return properties ? { ...entry, nonHistoricalAnimationProperties: properties } : entry;
+    };
+    for (let index = 0; index < this.undoStack.length; index += 1) {
+      this.undoStack[index] = update(this.undoStack[index]!);
+    }
+    for (let index = 0; index < this.redoStack.length; index += 1) {
+      this.redoStack[index] = update(this.redoStack[index]!);
+    }
+  }
+
   private restoreHistory(
     state: ReadonlyMap<string, CanonicalEntity | null>,
     selection: ReadonlySet<string>,
     view: DenseStore['view'],
+    nonHistoricalAnimationProperties: ReadonlyMap<string, ReadonlySet<AnimatableProperty>>,
   ): void {
-    this.animations.clear();
     let structural = false;
+    const changedEndpointIds = new Set<string>();
     for (const [id, entity] of state) {
       const slot = this.store.slotOf(id);
       if (!entity && slot !== undefined) {
+        this.animations.cancelSlot(slot);
         this.store.remove(slot);
         structural = true;
       } else if (entity && slot === undefined) {
         this.store.addCanonical(entity);
         structural = true;
       } else if (entity && slot !== undefined) {
-        this.store.replaceCanonical(slot, entity);
+        const properties = new Set(nonHistoricalAnimationProperties.get(id));
+        for (const property of this.animations.activeProperties(slot)) properties.add(property);
+        this.store.replaceCanonical(slot, preserveProperties(entity, this.store, slot, properties));
+        if (entity.kind !== 'relation') changedEndpointIds.add(id);
       }
     }
     if (structural || [...state.values()].some((entity) => entity?.kind === 'relation')) {
       this.reconnectRelations();
+    } else {
+      this.refreshChangedRelations(EMPTY_IDS, EMPTY_IDS, changedEndpointIds);
     }
     this.applySelection(selection);
-    this.store.setView(view);
+    if (!sameView(this.store.view, view)) this.store.setView(view);
     this.revisionCounter += 1;
     this.store.revision = this.revisionCounter;
-    this.store.finalizeMutations();
   }
 
   private pushEvent(event: CoreEvent): void {
@@ -447,6 +626,13 @@ export class CoreScene {
 
   private assertAlive(): void {
     if (this.destroyed) throw new CoreDestroyedError('CoreScene is destroyed');
+  }
+
+  private rendererInstance(): CoreRenderer {
+    this.assertAlive();
+    const renderer = this.renderer;
+    if (renderer === null) throw new CoreDestroyedError('CoreScene renderer is released');
+    return renderer;
   }
 }
 
@@ -537,7 +723,76 @@ function mergeHistory(previous: HistoryEntry, next: HistoryEntry): HistoryEntry 
     selectionAfter: next.selectionAfter,
     viewBefore: previous.viewBefore,
     viewAfter: next.viewAfter,
+    nonHistoricalAnimationProperties: mergeAnimationProperties(
+      previous.nonHistoricalAnimationProperties,
+      next.nonHistoricalAnimationProperties,
+    ),
   };
+}
+
+function addAnimationProperty(
+  properties: Map<string, Set<AnimatableProperty>>,
+  id: string,
+  property: AnimatableProperty,
+): void {
+  const existing = properties.get(id);
+  if (existing) {
+    existing.add(property);
+  } else {
+    properties.set(id, new Set([property]));
+  }
+}
+
+function mergeAnimationProperties(
+  left: ReadonlyMap<string, ReadonlySet<AnimatableProperty>>,
+  right: ReadonlyMap<string, ReadonlySet<AnimatableProperty>>,
+): ReadonlyMap<string, ReadonlySet<AnimatableProperty>> {
+  const result = cloneAnimationProperties(left);
+  for (const [id, properties] of right) {
+    for (const property of properties) addAnimationProperty(result, id, property);
+  }
+  return result;
+}
+
+function cloneAnimationProperties(
+  source: ReadonlyMap<string, ReadonlySet<AnimatableProperty>>,
+): Map<string, Set<AnimatableProperty>> {
+  const result = new Map<string, Set<AnimatableProperty>>();
+  for (const [id, properties] of source) result.set(id, new Set(properties));
+  return result;
+}
+
+function preserveProperties(
+  entity: CanonicalEntity,
+  store: DenseStore,
+  slot: number,
+  properties: ReadonlySet<AnimatableProperty>,
+): CanonicalEntity {
+  if (properties.size === 0) return entity;
+  const result = { ...entity };
+  for (const property of properties) {
+    result[property] = storedProperty(store, slot, property);
+  }
+  return result;
+}
+
+function storedProperty(store: DenseStore, slot: number, property: AnimatableProperty): number {
+  switch (property) {
+    case 'x':
+      return store.x[slot] ?? 0;
+    case 'y':
+      return store.y[slot] ?? 0;
+    case 'width':
+      return store.width[slot] ?? 0;
+    case 'height':
+      return store.height[slot] ?? 0;
+    case 'rotation':
+      return store.rotation[slot] ?? 0;
+    case 'opacity':
+      return store.opacity[slot] ?? 1;
+    case 'value':
+      return store.value[slot] ?? 0;
+  }
 }
 
 function clockNow(): number {

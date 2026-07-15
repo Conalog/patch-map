@@ -33,9 +33,11 @@ export class AnimationTable {
     if (slot === undefined) return false;
     const property = propertyCode(animation.property);
     if (animation.durationMs === 0) {
-      writeValue(store, slot, property, animation.to);
-      store.markDirty(slot, isGeometry(property), false);
       this.removeKey(key(slot, property));
+      const value = storedValue(property, animation.to);
+      if (Object.is(value, readValue(store, slot, property))) return false;
+      writeValue(store, slot, property, value);
+      store.markDirty(slot, isGeometry(property), false);
       return true;
     }
     const animationKey = key(slot, property);
@@ -53,9 +55,13 @@ export class AnimationTable {
     return false;
   }
 
-  public advance(store: DenseStore, timeMs: number): { changed: number; active: number } {
+  public advance(
+    store: DenseStore,
+    timeMs: number,
+  ): { changed: number; active: number; geometrySlots: readonly number[] } {
     let index = 0;
     let changed = 0;
+    const geometrySlots = new Set<number>();
     while (index < this.count) {
       const slot = this.slot[index] ?? 0;
       const generation = this.generation[index] ?? 0;
@@ -67,16 +73,42 @@ export class AnimationTable {
       const duration = this.duration[index] ?? 0;
       const progress = Math.max(0, Math.min(1, (timeMs - (this.start[index] ?? 0)) / duration));
       const eased = this.easing[index] === 1 ? progress * progress * (3 - 2 * progress) : progress;
-      const value = (this.from[index] ?? 0) + ((this.to[index] ?? 0) - (this.from[index] ?? 0)) * eased;
-      if (value !== readValue(store, slot, property)) {
+      const value = storedValue(
+        property,
+        (this.from[index] ?? 0) + ((this.to[index] ?? 0) - (this.from[index] ?? 0)) * eased,
+      );
+      if (!Object.is(value, readValue(store, slot, property))) {
         writeValue(store, slot, property, value);
         store.markDirty(slot, isGeometry(property), false);
+        if (isGeometry(property)) geometrySlots.add(slot);
         changed += 1;
       }
       if (progress >= 1) this.removeAt(index);
       else index += 1;
     }
-    return { changed, active: this.count };
+    return { changed, active: this.count, geometrySlots: Object.freeze([...geometrySlots]) };
+  }
+
+  public cancelSlot(slot: number): number {
+    let index = 0;
+    let removed = 0;
+    while (index < this.count) {
+      if (this.slot[index] !== slot) {
+        index += 1;
+        continue;
+      }
+      this.removeAt(index);
+      removed += 1;
+    }
+    return removed;
+  }
+
+  public activeProperties(slot: number): readonly AnimatableProperty[] {
+    const result: AnimatableProperty[] = [];
+    for (let index = 0; index < this.count; index += 1) {
+      if (this.slot[index] === slot) result.push(propertyName(this.property[index] as PropertyCode));
+    }
+    return Object.freeze(result);
   }
 
   public clear(): void {
@@ -161,6 +193,25 @@ function propertyCode(property: AnimatableProperty): PropertyCode {
   }
 }
 
+function propertyName(property: PropertyCode): AnimatableProperty {
+  switch (property) {
+    case PropertyCode.X:
+      return 'x';
+    case PropertyCode.Y:
+      return 'y';
+    case PropertyCode.Width:
+      return 'width';
+    case PropertyCode.Height:
+      return 'height';
+    case PropertyCode.Rotation:
+      return 'rotation';
+    case PropertyCode.Opacity:
+      return 'opacity';
+    case PropertyCode.Value:
+      return 'value';
+  }
+}
+
 function readValue(store: DenseStore, slot: number, property: PropertyCode): number {
   switch (property) {
     case PropertyCode.X:
@@ -204,6 +255,12 @@ function writeValue(store: DenseStore, slot: number, property: PropertyCode, val
       store.value[slot] = value;
       break;
   }
+}
+
+function storedValue(property: PropertyCode, value: number): number {
+  return property === PropertyCode.Rotation || property === PropertyCode.Opacity
+    ? Math.fround(value)
+    : value;
 }
 
 function isGeometry(property: PropertyCode): boolean {

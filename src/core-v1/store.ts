@@ -164,9 +164,15 @@ export class DenseStore {
   private dirty: Uint8Array;
   private orderDirty = true;
   private spatialDirty = true;
+  private spatialRebuildAll = true;
+  private readonly spatialDirtySlots = new Set<number>();
   private orderedSlots: number[] = [];
   private spatialBuckets = new Map<string, number[]>();
   private spatialOverflow: number[] = [];
+  private spatialMembership: (readonly string[] | null | undefined)[];
+  private readonly relationSlotsByEndpoint = new Map<string, Set<number>>();
+  private relationAdjacencyFrom: string[];
+  private relationAdjacencyTo: string[];
   private readonly cellSize: number;
   private destroyed = false;
 
@@ -212,6 +218,9 @@ export class DenseStore {
     this.relationFromId = new Array<string>(this.capacity).fill('');
     this.relationToId = new Array<string>(this.capacity).fill('');
     this.dirty = new Uint8Array(this.capacity);
+    this.spatialMembership = new Array<readonly string[] | null | undefined>(this.capacity);
+    this.relationAdjacencyFrom = new Array<string>(this.capacity).fill('');
+    this.relationAdjacencyTo = new Array<string>(this.capacity).fill('');
   }
 
   public static fromCanonical(
@@ -286,9 +295,28 @@ export class DenseStore {
   }
 
   public connectRelation(slot: number, from: number, to: number): void {
+    this.detachRelation(slot);
     this.relationFrom[slot] = from;
     this.relationTo[slot] = to;
+    const fromId = this.relationFromId[slot] ?? '';
+    const toId = this.relationToId[slot] ?? '';
+    this.attachRelation(fromId, slot);
+    if (toId !== fromId) this.attachRelation(toId, slot);
+    this.relationAdjacencyFrom[slot] = fromId;
+    this.relationAdjacencyTo[slot] = toId;
     this.markDirty(slot, true, false);
+  }
+
+  public relationSlotsForEndpointIds(ids: ReadonlySet<string>): ReadonlySet<number> {
+    const slots = new Set<number>();
+    for (const id of ids) {
+      const adjacent = this.relationSlotsByEndpoint.get(id);
+      if (!adjacent) continue;
+      for (const slot of adjacent) {
+        if (this.alive[slot] === 1 && this.kind[slot] === KindCode.Relation) slots.add(slot);
+      }
+    }
+    return slots;
   }
 
   public replaceCanonical(
@@ -308,6 +336,7 @@ export class DenseStore {
   public remove(slot: number): EntityInput {
     this.assertAlive();
     const previous = this.toInput(slot);
+    if (this.kind[slot] === KindCode.Relation) this.detachRelation(slot);
     this.idToSlot.delete(this.ids[slot] ?? '');
     this.alive[slot] = 0;
     this.flags[slot] = 0;
@@ -320,6 +349,8 @@ export class DenseStore {
     this.relationToId[slot] = '';
     this.relationFrom[slot] = -1;
     this.relationTo[slot] = -1;
+    this.relationAdjacencyFrom[slot] = '';
+    this.relationAdjacencyTo[slot] = '';
     const nextGeneration = ((this.generation[slot] ?? 0) + 1) >>> 0;
     this.generation[slot] = nextGeneration === 0 ? 1 : nextGeneration;
     this.liveCount -= 1;
@@ -386,14 +417,15 @@ export class DenseStore {
 
   public markDirty(slot: number, spatial = false, order = false): void {
     if (slot >= 0 && slot < this.capacity) this.dirty[slot] = 1;
-    if (spatial) this.spatialDirty = true;
+    if (spatial) {
+      this.spatialDirty = true;
+      if (!this.spatialRebuildAll) this.spatialDirtySlots.add(slot);
+    }
     if (order) this.orderDirty = true;
   }
 
   public markAllDirty(): void {
     for (let slot = 0; slot < this.highWater; slot += 1) this.dirty[slot] = 1;
-    this.orderDirty = true;
-    this.spatialDirty = true;
   }
 
   public dirtyRanges(): readonly SlotRange[] {
@@ -429,7 +461,9 @@ export class DenseStore {
 
   public finalizeMutations(): void {
     this.renderOrder();
-    if (this.spatialDirty) this.rebuildSpatialIndex();
+    if (!this.spatialDirty) return;
+    if (this.spatialRebuildAll) this.rebuildSpatialIndex();
+    else this.updateSpatialIndex();
   }
 
   public getSnapshot(target: CoreTarget): EntitySnapshot | null {
@@ -443,10 +477,15 @@ export class DenseStore {
     const ids = filter.ids ? new Set(filter.ids) : undefined;
     const tags = filter.tags;
     const result: EntityRef[] = [];
-    for (const slot of this.renderOrder()) {
+    const candidates = ids === undefined
+      ? this.renderOrder()
+      : [...ids]
+          .map((id) => this.idToSlot.get(id))
+          .filter((slot): slot is number => slot !== undefined)
+          .sort((left, right) => (this.zIndex[left] ?? 0) - (this.zIndex[right] ?? 0) || left - right);
+    for (const slot of candidates) {
       const kind = kindFromCode(this.kind[slot] as KindCode);
       if (kinds && !kinds.has(kind)) continue;
-      if (ids && !ids.has(this.ids[slot] ?? '')) continue;
       if (filter.visible !== undefined && this.hasFlag(slot, EntityFlag.Visible) !== filter.visible) continue;
       if (
         filter.interactive !== undefined &&
@@ -463,31 +502,35 @@ export class DenseStore {
 
   public hitTest(point: CorePoint, options: HitTestOptions = {}): EntityRef | null {
     this.assertAlive();
-    if (this.spatialDirty) this.rebuildSpatialIndex();
+    if (this.spatialDirty) {
+      if (this.spatialRebuildAll) this.rebuildSpatialIndex();
+      else this.updateSpatialIndex();
+    }
     const kinds = options.kinds ? new Set(options.kinds) : undefined;
     const bucket = this.spatialBuckets.get(
       cellKey(Math.floor(point.x / this.cellSize), Math.floor(point.y / this.cellSize)),
     );
     const local = bucket ?? [];
-    for (let index = local.length - 1; index >= 0; index -= 1) {
-      const slot = local[index];
-      if (slot === undefined || this.alive[slot] !== 1 || !this.hasFlag(slot, EntityFlag.Visible)) continue;
-      if (options.interactiveOnly !== false && !this.hasFlag(slot, EntityFlag.Interactive)) continue;
-      const kind = kindFromCode(this.kind[slot] as KindCode);
-      if (kinds && !kinds.has(kind)) continue;
-      if (!this.contains(slot, point)) continue;
-      return Object.freeze({ slot, generation: this.generation[slot] ?? 0 });
-    }
-    for (let index = this.spatialOverflow.length - 1; index >= 0; index -= 1) {
-      const slot = this.spatialOverflow[index];
-      if (slot === undefined || this.alive[slot] !== 1 || !this.hasFlag(slot, EntityFlag.Visible)) continue;
-      if (options.interactiveOnly !== false && !this.hasFlag(slot, EntityFlag.Interactive)) continue;
-      const kind = kindFromCode(this.kind[slot] as KindCode);
-      if (kinds && !kinds.has(kind)) continue;
-      if (!this.contains(slot, point)) continue;
-      return Object.freeze({ slot, generation: this.generation[slot] ?? 0 });
-    }
-    return null;
+    const findTopmost = (candidates: readonly number[]): number | undefined => {
+      let top: number | undefined;
+      for (let index = 0; index < candidates.length; index += 1) {
+        const slot = candidates[index];
+        if (slot === undefined || this.alive[slot] !== 1 || !this.hasFlag(slot, EntityFlag.Visible)) {
+          continue;
+        }
+        if (options.interactiveOnly !== false && !this.hasFlag(slot, EntityFlag.Interactive)) continue;
+        const kind = kindFromCode(this.kind[slot] as KindCode);
+        if (kinds && !kinds.has(kind)) continue;
+        if (this.contains(slot, point)) top = topmostSlot(this, top, slot);
+      }
+      return top;
+    };
+    const localHit = findTopmost(local);
+    const overflowHit = findTopmost(this.spatialOverflow);
+    const slot = topmostSlot(this, localHit, overflowHit);
+    return slot === undefined
+      ? null
+      : Object.freeze({ slot, generation: this.generation[slot] ?? 0 });
   }
 
   public toInput(slot: number): EntityInput {
@@ -564,6 +607,51 @@ export class DenseStore {
     }
   }
 
+  /** Internal immutable copy used by atomic transaction planning without re-validating trusted store state. */
+  public canonicalAt(slot: number): CanonicalEntity {
+    this.assertAlive();
+    if (slot < 0 || slot >= this.highWater || this.alive[slot] !== 1) {
+      throw new RangeError(`slot ${slot} is not a live entity`);
+    }
+    const kindCode = this.kind[slot] as KindCode;
+    return Object.freeze({
+      id: this.ids[slot] ?? '',
+      kind: kindFromCode(kindCode),
+      kindCode,
+      x: this.x[slot] ?? 0,
+      y: this.y[slot] ?? 0,
+      width: this.width[slot] ?? 0,
+      height: this.height[slot] ?? 0,
+      rotation: this.rotation[slot] ?? 0,
+      opacity: this.opacity[slot] ?? 1,
+      visible: this.hasFlag(slot, EntityFlag.Visible),
+      interactive: this.hasFlag(slot, EntityFlag.Interactive),
+      zIndex: this.zIndex[slot] ?? 0,
+      tags: this.tags[slot] ?? Object.freeze([]),
+      fill: this.fill[slot] ?? 0,
+      stroke: this.stroke[slot] ?? 0,
+      strokeWidth: this.strokeWidth[slot] ?? 0,
+      radius: this.radius[slot] ?? 0,
+      text: this.text[slot] ?? '',
+      color: this.color[slot] ?? 0,
+      fontSize: this.fontSize[slot] ?? 0,
+      fontFamily: this.fontFamily[slot] ?? 'sans-serif',
+      fontWeight: this.fontWeight[slot] ?? 400,
+      align: alignName(this.align[slot] ?? 0),
+      maxLines: this.maxLines[slot] ?? 0,
+      source: this.source[slot] ?? '',
+      tint: this.tint[slot] ?? 0xffffffff,
+      fit: fitName(this.fit[slot] ?? 0),
+      value: this.value[slot] ?? 0,
+      min: this.min[slot] ?? 0,
+      max: this.max[slot] ?? 1,
+      trackFill: this.trackFill[slot] ?? 0,
+      from: this.relationFromId[slot] ?? '',
+      to: this.relationToId[slot] ?? '',
+      lineWidth: this.lineWidth[slot] ?? 0,
+    });
+  }
+
   public destroy(): boolean {
     if (this.destroyed) return false;
     this.destroyed = true;
@@ -571,6 +659,9 @@ export class DenseStore {
     this.freeSlots.length = 0;
     this.spatialBuckets.clear();
     this.spatialOverflow.length = 0;
+    this.spatialDirtySlots.clear();
+    this.spatialMembership.length = 0;
+    this.relationSlotsByEndpoint.clear();
     this.orderedSlots.length = 0;
     this.liveCount = 0;
     this.highWater = 0;
@@ -611,7 +702,11 @@ export class DenseStore {
     this.source = [];
     this.relationFromId = [];
     this.relationToId = [];
+    this.relationAdjacencyFrom = [];
+    this.relationAdjacencyTo = [];
     this.dirty = new Uint8Array(0);
+    this.spatialRebuildAll = false;
+    this.spatialDirty = false;
     return true;
   }
 
@@ -663,7 +758,10 @@ export class DenseStore {
     this.source = growStrings(this.source, capacity);
     this.relationFromId = growStrings(this.relationFromId, capacity);
     this.relationToId = growStrings(this.relationToId, capacity);
+    this.relationAdjacencyFrom = growStrings(this.relationAdjacencyFrom, capacity);
+    this.relationAdjacencyTo = growStrings(this.relationAdjacencyTo, capacity);
     this.dirty = growUint8(this.dirty, capacity);
+    this.spatialMembership.length = capacity;
     this.capacity = capacity;
   }
 
@@ -722,6 +820,30 @@ export class DenseStore {
   private setFlag(slot: number, flag: EntityFlag, enabled: boolean): void {
     const current = this.flags[slot] ?? 0;
     this.flags[slot] = enabled ? current | flag : current & ~flag;
+  }
+
+  private attachRelation(endpointId: string, slot: number): void {
+    if (endpointId.length === 0) return;
+    const existing = this.relationSlotsByEndpoint.get(endpointId);
+    if (existing) existing.add(slot);
+    else this.relationSlotsByEndpoint.set(endpointId, new Set([slot]));
+  }
+
+  private detachRelation(slot: number): void {
+    const fromId = this.relationAdjacencyFrom[slot] ?? '';
+    const toId = this.relationAdjacencyTo[slot] ?? '';
+    this.detachRelationEndpoint(fromId, slot);
+    if (toId !== fromId) this.detachRelationEndpoint(toId, slot);
+    this.relationAdjacencyFrom[slot] = '';
+    this.relationAdjacencyTo[slot] = '';
+  }
+
+  private detachRelationEndpoint(endpointId: string, slot: number): void {
+    if (endpointId.length === 0) return;
+    const existing = this.relationSlotsByEndpoint.get(endpointId);
+    if (!existing) return;
+    existing.delete(slot);
+    if (existing.size === 0) this.relationSlotsByEndpoint.delete(endpointId);
   }
 
   private hasFlag(slot: number, flag: EntityFlag): boolean {
@@ -853,36 +975,82 @@ export class DenseStore {
   }
 
   private rebuildSpatialIndex(): void {
-    const buckets = new Map<string, number[]>();
-    const overflow: number[] = [];
+    this.spatialBuckets = new Map<string, number[]>();
+    this.spatialOverflow = [];
+    this.spatialMembership = new Array<readonly string[] | null | undefined>(this.capacity);
     for (const slot of this.renderOrder()) {
-      if (!this.hasFlag(slot, EntityFlag.Visible)) continue;
-      const bounds =
-        (this.kind[slot] as KindCode) === KindCode.Relation
-          ? this.relationBounds(slot)
-          : this.entityBounds(slot);
-      const minX = Math.floor(bounds.x / this.cellSize);
-      const maxX = Math.floor((bounds.x + bounds.width) / this.cellSize);
-      const minY = Math.floor(bounds.y / this.cellSize);
-      const maxY = Math.floor((bounds.y + bounds.height) / this.cellSize);
-      const coverage = (maxX - minX + 1) * (maxY - minY + 1);
-      if (coverage > 256) {
-        overflow.push(slot);
-        continue;
-      }
-      for (let cellY = minY; cellY <= maxY; cellY += 1) {
-        for (let cellX = minX; cellX <= maxX; cellX += 1) {
-          const key = cellKey(cellX, cellY);
-          const existing = buckets.get(key);
-          if (existing) existing.push(slot);
-          else buckets.set(key, [slot]);
-        }
-      }
+      this.indexSpatialSlot(slot);
     }
-    this.spatialBuckets = buckets;
-    this.spatialOverflow = overflow;
+    this.spatialDirty = false;
+    this.spatialRebuildAll = false;
+    this.spatialDirtySlots.clear();
+  }
+
+  private updateSpatialIndex(): void {
+    for (const slot of this.spatialDirtySlots) {
+      this.removeSpatialSlot(slot);
+      this.indexSpatialSlot(slot);
+    }
+    this.spatialDirtySlots.clear();
     this.spatialDirty = false;
   }
+
+  private removeSpatialSlot(slot: number): void {
+    const membership = this.spatialMembership[slot];
+    if (membership === null) {
+      const index = this.spatialOverflow.indexOf(slot);
+      if (index >= 0) this.spatialOverflow.splice(index, 1);
+    } else if (membership !== undefined) {
+      for (const key of membership) {
+        const bucket = this.spatialBuckets.get(key);
+        if (!bucket) continue;
+        const index = bucket.indexOf(slot);
+        if (index >= 0) bucket.splice(index, 1);
+        if (bucket.length === 0) this.spatialBuckets.delete(key);
+      }
+    }
+    this.spatialMembership[slot] = undefined;
+  }
+
+  private indexSpatialSlot(slot: number): void {
+    if (this.alive[slot] !== 1 || !this.hasFlag(slot, EntityFlag.Visible)) return;
+    const bounds =
+      (this.kind[slot] as KindCode) === KindCode.Relation
+        ? this.relationBounds(slot)
+        : this.entityBounds(slot);
+    const minX = Math.floor(bounds.x / this.cellSize);
+    const maxX = Math.floor((bounds.x + bounds.width) / this.cellSize);
+    const minY = Math.floor(bounds.y / this.cellSize);
+    const maxY = Math.floor((bounds.y + bounds.height) / this.cellSize);
+    const coverage = (maxX - minX + 1) * (maxY - minY + 1);
+    if (coverage > 256) {
+      this.spatialOverflow.push(slot);
+      this.spatialMembership[slot] = null;
+      return;
+    }
+    const membership: string[] = [];
+    for (let cellY = minY; cellY <= maxY; cellY += 1) {
+      for (let cellX = minX; cellX <= maxX; cellX += 1) {
+        const key = cellKey(cellX, cellY);
+        membership.push(key);
+        const existing = this.spatialBuckets.get(key);
+        if (existing) existing.push(slot);
+        else this.spatialBuckets.set(key, [slot]);
+      }
+    }
+    this.spatialMembership[slot] = membership;
+  }
+}
+
+function topmostSlot(
+  store: Pick<DenseStore, 'zIndex'>,
+  left: number | undefined,
+  right: number | undefined,
+): number | undefined {
+  if (left === undefined) return right;
+  if (right === undefined) return left;
+  const zDifference = (store.zIndex[left] ?? 0) - (store.zIndex[right] ?? 0);
+  return zDifference > 0 || (zDifference === 0 && left > right) ? left : right;
 }
 
 function rectanglesIntersect(left: CoreBounds, right: CoreBounds): boolean {
