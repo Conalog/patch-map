@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .lab-dist/
+.core-v1-lab-dist/
 .perf-results/
 artifacts/raw/
 lab/artifacts/
