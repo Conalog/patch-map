@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { Mesh } from 'pixi.js';
+import type { MeshGeometry } from 'pixi.js';
 
 import type { RenderStoreView } from '../../src/core-v1/renderer/types';
 import { RenderFlags, RenderKind } from '../../src/core-v1/renderer/types';
@@ -119,6 +121,120 @@ describe('AggregateMeshLayer', () => {
     expect(layer.destroy()).toBe(true);
     expect(layer.destroy()).toBe(false);
     expect(() => layer.sync(store)).toThrow('AggregateMeshLayer is destroyed');
+  });
+
+  it('uploads only bar groups for a bar-only dirty chunk', () => {
+    const store = createStore();
+    const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'mesh fast path' });
+    const initial = layer.sync(store, { fullRebuildEpoch: 1 });
+    const rectCandidate = layer.quadContainer.children.find((child) =>
+      child.label.includes(': rect chunk 0'),
+    );
+    const barsBefore = layer.quadContainer.children.filter(
+      (child): child is Mesh<MeshGeometry> =>
+        child instanceof Mesh && child.label.includes(': bar chunk 0'),
+    );
+    const relationCandidate = layer.relationContainer.children.find((child) =>
+      child.label.includes(': relation chunk 0'),
+    );
+    if (!(rectCandidate instanceof Mesh) || !(relationCandidate instanceof Mesh)) {
+      throw new Error('expected rect and relation mesh records');
+    }
+    const rectBefore = rectCandidate as Mesh<MeshGeometry>;
+    const relationBefore = relationCandidate as Mesh<MeshGeometry>;
+    const rectPositionsBefore = [...rectBefore.geometry.positions];
+    const barPositionsBefore = barsBefore.map((mesh) => [...mesh.geometry.positions]);
+
+    (store.value as Float32Array)[1] = 75;
+    (store as { revision: number }).revision = 2;
+    const updated = layer.sync(store, { changedRanges: [{ start: 1, end: 2 }] });
+
+    const rectAfter = layer.quadContainer.children.find((child) =>
+      child.label.includes(': rect chunk 0'),
+    );
+    const barsAfter = layer.quadContainer.children.filter(
+      (child): child is Mesh<MeshGeometry> =>
+        child instanceof Mesh && child.label.includes(': bar chunk 0'),
+    );
+    const relationAfter = layer.relationContainer.children.find((child) =>
+      child.label.includes(': relation chunk 0'),
+    );
+
+    expect(updated.uploadedChunks).toBe(1);
+    expect(updated.uploadedBytes).toBeGreaterThan(0);
+    expect(updated.meshCount).toBe(initial.meshCount);
+    expect(updated.visibleQuads).toBe(initial.visibleQuads);
+    expect(updated.visibleRelations).toBe(initial.visibleRelations);
+    expect(rectAfter).toBe(rectBefore);
+    expect(relationAfter).toBe(relationBefore);
+    expect([...rectBefore.geometry.positions]).toEqual(rectPositionsBefore);
+    expect(barsAfter).toHaveLength(barsBefore.length);
+    expect(barsAfter.every((mesh) => barsBefore.includes(mesh))).toBe(true);
+    expect(
+      barsAfter.some((mesh, meshIndex) =>
+        [...mesh.geometry.positions].some(
+          (value, positionIndex) =>
+            value !== barPositionsBefore[meshIndex]?.[positionIndex],
+        ),
+      ),
+    ).toBe(true);
+
+    (store.value as Float32Array)[1] = 25;
+    (store as { revision: number }).revision = 3;
+    const forcedFull = layer.sync(store, {
+      changedRanges: [{ start: 1, end: 2 }],
+      force: true,
+    });
+    expect(updated.uploadedBytes).toBe(64);
+    expect(forcedFull.uploadedBytes).toBe(128);
+    expect(updated.uploadedBytes).toBeLessThan(forcedFull.uploadedBytes);
+
+    layer.destroy();
+  });
+
+  it('takes the structural path when a non-bar slot is replaced by a bar', () => {
+    const store = createStore();
+    const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'mesh replacement' });
+    layer.sync(store, { fullRebuildEpoch: 1 });
+    const rectBefore = layer.quadContainer.children.find((child) =>
+      child.label.includes(': rect chunk 0'),
+    );
+    const relationBefore = layer.relationContainer.children.find((child) =>
+      child.label.includes(': relation chunk 0'),
+    );
+    if (!(rectBefore instanceof Mesh) || !(relationBefore instanceof Mesh)) {
+      throw new Error('expected initial rect and relation mesh records');
+    }
+
+    // Model Core's same-ID remove -> add replacement: the stable slot is
+    // immediately reused, so the renderer observes only the final Bar kind.
+    (store.kind as Uint8Array)[0] = RenderKind.Bar;
+    (store.trackFill as Uint32Array)[0] = 0x223344ff;
+    (store.fill as Uint32Array)[0] = 0x556677ff;
+    (store.value as Float32Array)[0] = 50;
+    (store.min as Float64Array)[0] = 0;
+    (store.max as Float32Array)[0] = 100;
+    (store as { revision: number }).revision = 2;
+
+    const updated = layer.sync(store, { changedRanges: [{ start: 0, end: 1 }] });
+    const rectAfter = layer.quadContainer.children.find((child) =>
+      child.label.includes(': rect chunk 0'),
+    );
+    const relationAfter = layer.relationContainer.children.find((child) =>
+      child.label.includes(': relation chunk 0'),
+    );
+    const barsAfter = layer.quadContainer.children.filter((child) =>
+      child.label.includes(': bar chunk 0'),
+    );
+
+    expect(rectAfter).toBeUndefined();
+    expect(rectBefore.destroyed).toBe(true);
+    expect(relationAfter).toBe(relationBefore);
+    expect(barsAfter).toHaveLength(4);
+    expect(updated.visibleQuads).toBe(4);
+    expect(updated.visibleRelations).toBe(1);
+
+    layer.destroy();
   });
 });
 

@@ -112,10 +112,21 @@ interface MeshRecord {
 }
 
 interface ChunkRecord {
-  readonly quadMeshes: Map<string, MeshRecord>;
+  readonly rectMeshes: Map<string, MeshRecord>;
+  readonly barMeshes: Map<string, MeshRecord>;
   readonly relationMeshes: Map<string, MeshRecord>;
-  visibleQuads: number;
+  visibleRects: number;
+  visibleBars: number;
   visibleRelations: number;
+}
+
+interface AggregateChunkLaneGeometry {
+  readonly rectGroups: readonly AggregateGeometryGroup[];
+  readonly barGroups: readonly AggregateGeometryGroup[];
+  readonly relationGroups: readonly AggregateGeometryGroup[];
+  readonly visibleRects: number;
+  readonly visibleBars: number;
+  readonly visibleRelations: number;
 }
 
 interface UploadDelta {
@@ -305,6 +316,51 @@ export function dirtyChunkIndices(
   return [...chunks].sort((left, right) => left - right);
 }
 
+function barOnlyDirtyChunkIndices(
+  store: RenderStoreView,
+  chunkSize: number,
+  changedRanges: readonly SlotRange[],
+  previousAlive: Uint8Array,
+  previousKind: Uint8Array,
+): ReadonlySet<number> {
+  const classifications = new Map<
+    number,
+    { hasLiveBar: boolean; barOnly: boolean }
+  >();
+
+  for (const range of changedRanges) {
+    const start = Math.max(0, Math.min(store.capacity, Math.floor(range.start)));
+    const end = Math.max(start, Math.min(store.capacity, Math.ceil(range.end)));
+    for (let slot = start; slot < end; slot += 1) {
+      const chunkIndex = Math.floor(slot / chunkSize);
+      let classification = classifications.get(chunkIndex);
+      if (classification === undefined) {
+        classification = { hasLiveBar: false, barOnly: true };
+        classifications.set(chunkIndex, classification);
+      }
+      if (
+        (store.alive[slot] as number) !== 0 &&
+        (store.kind[slot] as number) === RenderKind.Bar &&
+        (previousAlive[slot] ?? 0) !== 0 &&
+        (previousKind[slot] ?? -1) === RenderKind.Bar
+      ) {
+        classification.hasLiveBar = true;
+      } else {
+        // A dead slot can represent a removal, and a newly live Bar can reuse
+        // a slot that previously held another kind. Both must take the full
+        // structural path so obsolete lane meshes are pruned.
+        classification.barOnly = false;
+      }
+    }
+  }
+
+  return new Set(
+    [...classifications.entries()]
+      .filter(([, value]) => value.hasLiveBar && value.barOnly)
+      .map(([chunkIndex]) => chunkIndex),
+  );
+}
+
 function isDrawable(store: RenderStoreView, slot: number): boolean {
   return (
     slot >= 0 &&
@@ -381,28 +437,25 @@ function geometryGroup(
   };
 }
 
-/**
- * Normalize one fixed slot chunk into aggregate style meshes.
- *
- * Default Mesh material has one tint/alpha per mesh, so groups are keyed by
- * tint, alpha, z-index, and the rect/bar pass. This preserves colors without a
- * custom shader while keeping scene nodes proportional to styles per chunk.
- */
-export function buildAggregateChunkGeometry(
+function buildAggregateChunkLaneGeometry(
   store: RenderStoreView,
   start: number,
   end: number,
-): AggregateChunkGeometry {
-  const quadGroups = new Map<string, MutableQuadGroup>();
+  barOnly = false,
+): AggregateChunkLaneGeometry {
+  const rectGroups = new Map<string, MutableQuadGroup>();
+  const barGroups = new Map<string, MutableQuadGroup>();
   const relationGroups = new Map<string, MutableLineGroup>();
   const resolvedStart = Math.max(0, Math.min(store.capacity, Math.floor(start)));
   const resolvedEnd = Math.max(resolvedStart, Math.min(store.capacity, Math.ceil(end)));
-  let visibleQuads = 0;
+  let visibleRects = 0;
+  let visibleBars = 0;
   let visibleRelations = 0;
 
   for (let slot = resolvedStart; slot < resolvedEnd; slot += 1) {
     if (!isDrawable(store, slot)) continue;
     const kind = store.kind[slot] as number;
+    if (barOnly && kind !== RenderKind.Bar) continue;
     const opacity = store.opacity[slot] as number;
     const zIndex = store.zIndex[slot] as number;
 
@@ -410,7 +463,7 @@ export function buildAggregateChunkGeometry(
       const width = store.width[slot] as number;
       const height = store.height[slot] as number;
       const group = width > 0 && height > 0
-        ? getQuadGroup(quadGroups, store.fill[slot] as number, opacity, zIndex, RECT_PASS)
+        ? getQuadGroup(rectGroups, store.fill[slot] as number, opacity, zIndex, RECT_PASS)
         : null;
       if (group !== null) {
         group.primitives.push({
@@ -420,7 +473,7 @@ export function buildAggregateChunkGeometry(
           height,
           rotation: store.rotation[slot] as number,
         });
-        visibleQuads += 1;
+        visibleRects += 1;
       }
       continue;
     }
@@ -435,7 +488,7 @@ export function buildAggregateChunkGeometry(
       const pivotX = x + width / 2;
       const pivotY = y + height / 2;
       const track = getQuadGroup(
-        quadGroups,
+        barGroups,
         store.trackFill[slot] as number,
         opacity,
         zIndex,
@@ -443,7 +496,7 @@ export function buildAggregateChunkGeometry(
       );
       if (track !== null) {
         track.primitives.push({ x, y, width, height, rotation, pivotX, pivotY });
-        visibleQuads += 1;
+        visibleBars += 1;
       }
 
       const min = store.min[slot] as number;
@@ -453,11 +506,11 @@ export function buildAggregateChunkGeometry(
         : 0;
       const fillWidth = width * progress;
       const fill = fillWidth > 0
-        ? getQuadGroup(quadGroups, store.fill[slot] as number, opacity, zIndex, BAR_FILL_PASS)
+        ? getQuadGroup(barGroups, store.fill[slot] as number, opacity, zIndex, BAR_FILL_PASS)
         : null;
       if (fill !== null) {
         fill.primitives.push({ x, y, width: fillWidth, height, rotation, pivotX, pivotY });
-        visibleQuads += 1;
+        visibleBars += 1;
       }
       continue;
     }
@@ -487,20 +540,56 @@ export function buildAggregateChunkGeometry(
   }
 
   return {
-    quadGroups: [...quadGroups.values()].map((group) =>
+    rectGroups: [...rectGroups.values()].map((group) =>
+      geometryGroup(group, buildQuadGeometry(group.primitives)),
+    ),
+    barGroups: [...barGroups.values()].map((group) =>
       geometryGroup(group, buildQuadGeometry(group.primitives)),
     ),
     relationGroups: [...relationGroups.values()].map((group) =>
       geometryGroup(group, buildLineGeometry(group.primitives)),
     ),
-    visibleQuads,
+    visibleRects,
+    visibleBars,
     visibleRelations,
+  };
+}
+
+/**
+ * Normalize one fixed slot chunk into aggregate style meshes.
+ *
+ * Default Mesh material has one tint/alpha per mesh, so groups are keyed by
+ * tint, alpha, z-index, and the rect/bar pass. This preserves colors without a
+ * custom shader while keeping scene nodes proportional to styles per chunk.
+ */
+export function buildAggregateChunkGeometry(
+  store: RenderStoreView,
+  start: number,
+  end: number,
+): AggregateChunkGeometry {
+  const built = buildAggregateChunkLaneGeometry(store, start, end);
+  return {
+    quadGroups: [...built.rectGroups, ...built.barGroups],
+    relationGroups: built.relationGroups,
+    visibleQuads: built.visibleRects + built.visibleBars,
+    visibleRelations: built.visibleRelations,
   };
 }
 
 function destroyMeshRecord(record: MeshRecord): void {
   record.mesh.destroy();
   record.geometry.destroy(true);
+}
+
+function createChunkRecord(): ChunkRecord {
+  return {
+    rectMeshes: new Map(),
+    barMeshes: new Map(),
+    relationMeshes: new Map(),
+    visibleRects: 0,
+    visibleBars: 0,
+    visibleRelations: 0,
+  };
 }
 
 /**
@@ -525,6 +614,8 @@ export class AggregateMeshLayer {
   #lastCapacity = 0;
   #lastRevision = -1;
   #fullRebuildEpoch: number | undefined;
+  #previousAlive = new Uint8Array(0);
+  #previousKind = new Uint8Array(0);
   #destroyed = false;
   #debug: AggregateMeshLayerDebug;
   #view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
@@ -603,6 +694,15 @@ export class AggregateMeshLayer {
     const dirtyChunks = fullRebuild
       ? Array.from({ length: maximumChunk }, (_, chunk) => chunk)
       : [...dirtyChunkIndices(store.capacity, this.chunkSize, options.changedRanges ?? [])];
+    const barOnlyChunks = fullRebuild
+      ? new Set<number>()
+      : barOnlyDirtyChunkIndices(
+        store,
+        this.chunkSize,
+        options.changedRanges ?? [],
+        this.#previousAlive,
+        this.#previousKind,
+      );
 
     if (fullRebuild) {
       for (const chunk of this.#chunks.keys()) {
@@ -613,10 +713,13 @@ export class AggregateMeshLayer {
     let uploadedChunks = 0;
     let uploadedBytes = 0;
     for (const chunk of dirtyChunks) {
-      const delta = this.#syncChunk(store, chunk);
+      const delta = barOnlyChunks.has(chunk)
+        ? this.#syncBarChunk(store, chunk)
+        : this.#syncChunk(store, chunk);
       if (delta.changed) uploadedChunks += 1;
       uploadedBytes += delta.bytes;
     }
+    this.#recordTopology(store, fullRebuild, options.changedRanges ?? []);
 
     if (options.fullRebuildEpoch !== undefined) {
       this.#fullRebuildEpoch = options.fullRebuildEpoch;
@@ -630,8 +733,9 @@ export class AggregateMeshLayer {
     let visibleQuads = 0;
     let visibleRelations = 0;
     for (const chunk of this.#chunks.values()) {
-      meshCount += chunk.quadMeshes.size + chunk.relationMeshes.size;
-      visibleQuads += chunk.visibleQuads;
+      meshCount +=
+        chunk.rectMeshes.size + chunk.barMeshes.size + chunk.relationMeshes.size;
+      visibleQuads += chunk.visibleRects + chunk.visibleBars;
       visibleRelations += chunk.visibleRelations;
     }
     this.#debug = Object.freeze({
@@ -660,6 +764,8 @@ export class AggregateMeshLayer {
     this.#lastStore = null;
     this.#lastCapacity = 0;
     this.#lastRevision = -1;
+    this.#previousAlive = new Uint8Array(0);
+    this.#previousKind = new Uint8Array(0);
     this.#debug = Object.freeze({
       ...this.#debug,
       chunkCount: 0,
@@ -687,32 +793,72 @@ export class AggregateMeshLayer {
     if (this.#destroyed) throw new Error('AggregateMeshLayer is destroyed');
   }
 
+  #recordTopology(
+    store: RenderStoreView,
+    fullRebuild: boolean,
+    changedRanges: readonly SlotRange[],
+  ): void {
+    if (this.#previousAlive.length !== store.capacity) {
+      const nextAlive = new Uint8Array(store.capacity);
+      const nextKind = new Uint8Array(store.capacity);
+      const retainedLength = Math.min(this.#previousAlive.length, store.capacity);
+      nextAlive.set(this.#previousAlive.subarray(0, retainedLength));
+      nextKind.set(this.#previousKind.subarray(0, retainedLength));
+      this.#previousAlive = nextAlive;
+      this.#previousKind = nextKind;
+    }
+
+    if (fullRebuild) {
+      for (let slot = 0; slot < store.capacity; slot += 1) {
+        this.#previousAlive[slot] = store.alive[slot] ?? 0;
+        this.#previousKind[slot] = store.kind[slot] ?? 0;
+      }
+      return;
+    }
+
+    for (const range of changedRanges) {
+      const start = Math.max(0, Math.min(store.capacity, Math.floor(range.start)));
+      const end = Math.max(start, Math.min(store.capacity, Math.ceil(range.end)));
+      if (start === end) continue;
+      for (let slot = start; slot < end; slot += 1) {
+        this.#previousAlive[slot] = store.alive[slot] ?? 0;
+        this.#previousKind[slot] = store.kind[slot] ?? 0;
+      }
+    }
+  }
+
   #syncChunk(store: RenderStoreView, chunkIndex: number): UploadDelta {
     const start = chunkIndex * this.chunkSize;
     const end = Math.min(store.capacity, start + this.chunkSize);
-    const built = buildAggregateChunkGeometry(store, start, end);
+    const built = buildAggregateChunkLaneGeometry(store, start, end);
     let chunk = this.#chunks.get(chunkIndex);
-    if (built.quadGroups.length === 0 && built.relationGroups.length === 0) {
+    if (
+      built.rectGroups.length === 0 &&
+      built.barGroups.length === 0 &&
+      built.relationGroups.length === 0
+    ) {
       const changed = chunk !== undefined;
       if (changed) this.#destroyChunk(chunkIndex);
       return { bytes: 0, changed };
     }
     if (chunk === undefined) {
-      chunk = {
-        quadMeshes: new Map(),
-        relationMeshes: new Map(),
-        visibleQuads: 0,
-        visibleRelations: 0,
-      };
+      chunk = createChunkRecord();
       this.#chunks.set(chunkIndex, chunk);
     }
 
-    const quadDelta = this.#syncGroups(
+    const rectDelta = this.#syncGroups(
       this.quadContainer,
-      chunk.quadMeshes,
-      built.quadGroups,
+      chunk.rectMeshes,
+      built.rectGroups,
       chunkIndex,
-      'rect/bar',
+      'rect',
+    );
+    const barDelta = this.#syncGroups(
+      this.quadContainer,
+      chunk.barMeshes,
+      built.barGroups,
+      chunkIndex,
+      'bar',
     );
     const relationDelta = this.#syncGroups(
       this.relationContainer,
@@ -721,12 +867,45 @@ export class AggregateMeshLayer {
       chunkIndex,
       'relation',
     );
-    chunk.visibleQuads = built.visibleQuads;
+    chunk.visibleRects = built.visibleRects;
+    chunk.visibleBars = built.visibleBars;
     chunk.visibleRelations = built.visibleRelations;
     return {
-      bytes: quadDelta.bytes + relationDelta.bytes,
-      changed: quadDelta.changed || relationDelta.changed,
+      bytes: rectDelta.bytes + barDelta.bytes + relationDelta.bytes,
+      changed: rectDelta.changed || barDelta.changed || relationDelta.changed,
     };
+  }
+
+  #syncBarChunk(store: RenderStoreView, chunkIndex: number): UploadDelta {
+    const start = chunkIndex * this.chunkSize;
+    const end = Math.min(store.capacity, start + this.chunkSize);
+    const built = buildAggregateChunkLaneGeometry(store, start, end, true);
+    let chunk = this.#chunks.get(chunkIndex);
+    if (chunk === undefined && built.barGroups.length === 0) {
+      return { bytes: 0, changed: false };
+    }
+    if (chunk === undefined) {
+      chunk = createChunkRecord();
+      this.#chunks.set(chunkIndex, chunk);
+    }
+
+    const barDelta = this.#syncGroups(
+      this.quadContainer,
+      chunk.barMeshes,
+      built.barGroups,
+      chunkIndex,
+      'bar',
+    );
+    chunk.visibleBars = built.visibleBars;
+
+    if (
+      chunk.rectMeshes.size === 0 &&
+      chunk.barMeshes.size === 0 &&
+      chunk.relationMeshes.size === 0
+    ) {
+      this.#chunks.delete(chunkIndex);
+    }
+    return barDelta;
   }
 
   #syncGroups(
@@ -791,7 +970,8 @@ export class AggregateMeshLayer {
   #destroyChunk(chunkIndex: number): void {
     const chunk = this.#chunks.get(chunkIndex);
     if (chunk === undefined) return;
-    for (const record of chunk.quadMeshes.values()) destroyMeshRecord(record);
+    for (const record of chunk.rectMeshes.values()) destroyMeshRecord(record);
+    for (const record of chunk.barMeshes.values()) destroyMeshRecord(record);
     for (const record of chunk.relationMeshes.values()) destroyMeshRecord(record);
     this.#chunks.delete(chunkIndex);
   }
