@@ -30,7 +30,8 @@
     "vite.config.ts",
     "vite.lab.config.ts",
     "vite.core-v1.config.ts",
-    "vite.core-v1-lab.config.ts"
+    "vite.core-v1-lab.config.ts",
+    "vite.core-v2.config.ts"
   ],
   "exclude": ["artifacts", "dist", "node_modules"]
 }

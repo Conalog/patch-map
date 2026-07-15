@@ -1,7 +1,7 @@
 {
   "name": "@conalog/patch-map",
   "version": "0.10.0",
-  "description": "PATCH MAP v0.10 compatibility library with a performance-first Core v1 subpath",
+  "description": "PATCH MAP v0.10 compatibility library with performance-first Core v1 and PixiJS Core v2 subpaths",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -17,6 +17,11 @@
       "types": "./dist/core-v1/index.d.ts",
       "import": "./dist/core-v1.js",
       "require": "./dist/core-v1.cjs"
+    },
+    "./core-v2": {
+      "types": "./dist/core-v2/index.d.ts",
+      "import": "./dist/core-v2.js",
+      "require": "./dist/core-v2.cjs"
     }
   },
   "files": [
@@ -28,8 +33,9 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "vite build && vite build --config vite.core-v1.config.ts && tsc -p tsconfig.build.json --emitDeclarationOnly && node scripts/verification/finalize-declarations.mjs",
+    "build": "vite build && vite build --config vite.core-v1.config.ts && vite build --config vite.core-v2.config.ts && tsc -p tsconfig.build.json --emitDeclarationOnly && node scripts/verification/finalize-declarations.mjs",
     "build:core-v1": "vite build --config vite.core-v1.config.ts && tsc -p tsconfig.build.json --emitDeclarationOnly && node scripts/verification/finalize-declarations.mjs",
+    "build:core-v2": "vite build --config vite.core-v2.config.ts && tsc -p tsconfig.build.json --emitDeclarationOnly && node scripts/verification/finalize-declarations.mjs",
     "build:lab": "vite build --config vite.lab.config.ts",
     "build:lab:core-v1": "vite build --config vite.core-v1-lab.config.ts",
     "lab": "vite --host 127.0.0.1 --port 4174 --open /lab/",
@@ -62,6 +68,7 @@
     "@eslint/js": "9.39.2",
     "@types/node": "24.10.9",
     "eslint": "9.39.2",
+    "pixi.js": "8.19.0",
     "playwright": "1.57.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.52.0",
