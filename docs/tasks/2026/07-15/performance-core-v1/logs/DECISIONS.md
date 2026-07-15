@@ -13,3 +13,10 @@
 - **Decision:** Define Core v1 as a flat scene database with immutable caller input, atomic ordered batches, generation-checked references, explicit deterministic animation time, and a separate `flush()` frame boundary.
 - **Why:** This contract exposes expensive work, prevents partially applied changes, and lets competing aggregate renderers share the same public state semantics.
 - **Impact:** PixiJS nodes and backend handles are private, nested production input is flattened outside the core, and integrations must schedule animation and rendering explicitly.
+
+**2026-07-15**
+
+- **Background:** Quick 4× evidence showed the typed Canvas spike at roughly 1.7 ms production first render and 0.1 ms teardown p95, while the chunked Pixi Graphics spike retained materially higher frame and teardown cost with large run-to-run variance.
+- **Decision:** Select a dense typed entity store, spatial index, explicit dirty state, and one aggregate Canvas2D renderer as the Core v1 production path; retain the Pixi aggregate spike only as rejected/provisional comparison evidence.
+- **Why:** The selected path best isolates data mutation from frame publication, eliminates per-entity display objects, and measured substantially lower first-render, animation, and lifecycle cost.
+- **Impact:** Production work now targets the fully expanded 37,071-entity acceptance document and must still prove retained heap, browser usability, full 100–5,000 measurements, and Windows-native pending status without treating quick spike numbers as final approval.
