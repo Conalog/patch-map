@@ -8,7 +8,8 @@ PixiJS display objects or emulate the PATCH MAP v0.10 facade.
 
 `SceneDocument` is immutable caller input with a version, optional viewport, and
 an array of flat entities. Each entity has a stable string `id`, a render `kind`,
-geometry, visibility, z-order, and kind-specific paint data. Core v1 supports
+geometry, visibility, z-order, and kind-specific paint data. Positions and
+dimensions use world units; all public rotation values use degrees. Core v1 supports
 rectangles, text, images, progress bars, and relations. Relations reference
 entity IDs; nested production data is flattened by an adapter outside the core.
 
