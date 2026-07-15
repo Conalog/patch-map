@@ -23,6 +23,7 @@ import type {
   ParsePatchMapResult,
 } from './contracts';
 import { parsePatchMapV010 } from './parser';
+import { withRendererDegradationDiagnostics } from './renderers/degradation';
 import { InvalidationScheduler, type FrameSchedulerDebug } from './scheduler';
 import {
   PixiCoreV2Renderer,
@@ -159,7 +160,10 @@ export class CoreV2 {
   public load(input: unknown, options: ParsePatchMapOptions = this.parseOptions): CoreV2LoadResult {
     this.assertAlive();
     const normalizeStarted = now();
-    const parse = parsePatchMapV010(input, options);
+    const parse = withRendererDegradationDiagnostics(
+      parsePatchMapV010(input, options),
+      this.renderer.strategy,
+    );
     const normalizeMs = now() - normalizeStarted;
     const storeStarted = now();
     const store = this.scene.load(parse.document);
@@ -276,13 +280,15 @@ export class CoreV2 {
     const maxScale = options.maxScale ?? 1.1;
     if (!(minScale > 0) || !(maxScale >= minScale)) throw new RangeError('invalid bar scale range');
     const random = seededRandom(options.seed ?? 0x5eedc0de);
-    const bars = this.scene.snapshot().entities.filter((entity) => entity.kind === 'bar');
+    const bars = this.scene.query({ kinds: ['bar'] });
     const operations: TransactionBatch['operations'][number][] = [];
-    for (const bar of bars) {
+    for (const ref of bars) {
       if (random() > fraction) continue;
+      const bar = this.scene.get(ref);
+      if (!bar) continue;
       operations.push({
         type: 'animate',
-        target: bar.id,
+        target: ref,
         property: 'height',
         to: Math.max(1, bar.bounds.height * (minScale + random() * (maxScale - minScale))),
         durationMs: options.durationMs ?? 240,
@@ -305,8 +311,10 @@ export class CoreV2 {
     const resolvedFraction = clampFraction(fraction);
     const random = seededRandom(seed);
     const updates: Record<string, string> = {};
-    for (const entity of this.scene.snapshot().entities) {
-      if (entity.kind !== 'text' || random() > resolvedFraction) continue;
+    for (const ref of this.scene.query({ kinds: ['text'] })) {
+      if (random() > resolvedFraction) continue;
+      const entity = this.scene.get(ref);
+      if (!entity) continue;
       updates[entity.id] = String(Math.floor(random() * 100_000));
     }
     return this.updateTexts(updates);

@@ -51,7 +51,9 @@ export interface PixiCoreV2RendererDebug {
   readonly uploadedChunks: number;
   readonly uploadedBytes: number;
   readonly dynamicFullUploadCount: number;
-  readonly uploadObservation: 'dirty-chunk-bytes' | 'dynamic-particle-count';
+  readonly staticInvalidatedUploadCount: number;
+  readonly particleFullUploadCount: number;
+  readonly uploadObservation: 'dirty-chunk-bytes' | 'particle-full-upload-count';
   readonly bitmapTextCount: number;
   readonly fallbackTextCount: number;
   readonly imageCount: number;

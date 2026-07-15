@@ -14,7 +14,7 @@ function fakeDriver(): FrameDriver & { fire(time: number): void; pending(): numb
     },
     cancel: (handle) => callbacks.delete(handle),
     fire: (time) => {
-      const entry = callbacks.entries().next().value as [number, FrameRequestCallback] | undefined;
+      const entry = callbacks.entries().next().value;
       if (!entry) throw new Error('no pending frame');
       callbacks.delete(entry[0]);
       entry[1](time);

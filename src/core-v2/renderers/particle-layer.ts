@@ -96,6 +96,10 @@ export interface ParticleGraphicsDebugCounters {
   readonly selectedCount: number;
   /** Every render uploads all enabled dynamic attributes for this many particles. */
   readonly dynamicFullUploadCount: number;
+  /** Static particles explicitly invalidated by this synchronization. */
+  readonly staticInvalidatedUploadCount: number;
+  /** Observable particle population uploaded/invalidated for the next render. */
+  readonly particleFullUploadCount: number;
   readonly aggregateDisplayObjectCount: number;
 }
 
@@ -328,6 +332,8 @@ export class ParticleGraphicsLayer {
       unsupportedCount: 0,
       selectedCount: 0,
       dynamicFullUploadCount: 0,
+      staticInvalidatedUploadCount: 0,
+      particleFullUploadCount: 0,
       aggregateDisplayObjectCount: 4,
     });
   }
@@ -360,6 +366,8 @@ export class ParticleGraphicsLayer {
       requestedEpoch !== this.#lastEpoch ||
       !sameKeys(this.#staticKeys, descriptors.staticParticles) ||
       !sameKeys(this.#dynamicKeys, descriptors.dynamicParticles);
+    const staticInvalidated =
+      fullRebuild || changedRangesTouchRect(store, options.changedRanges);
 
     if (fullRebuild) {
       this.#replaceParticles(
@@ -374,11 +382,13 @@ export class ParticleGraphicsLayer {
       );
       this.#fullRebuilds += 1;
     } else {
-      this.#updateParticles(this.staticParticles, descriptors.staticParticles);
+      if (staticInvalidated) {
+        this.#updateParticles(this.staticParticles, descriptors.staticParticles);
+        // Static attributes upload only when a changed range touches a Rect.
+        this.staticParticles.update();
+      }
       this.#updateParticles(this.dynamicParticles, descriptors.dynamicParticles);
-      // Static attributes only upload when explicitly invalidated. Dynamic
-      // lanes are consumed by Pixi's ParticlePipe during the next render.
-      this.staticParticles.update();
+      // Dynamic lanes are consumed by Pixi's ParticlePipe during every render.
       this.#inPlaceSyncs += 1;
     }
 
@@ -403,6 +413,10 @@ export class ParticleGraphicsLayer {
       unsupportedCount: descriptors.unsupportedCount,
       selectedCount: descriptors.selectedCount,
       dynamicFullUploadCount: descriptors.dynamicParticles.length,
+      staticInvalidatedUploadCount: staticInvalidated ? descriptors.staticParticles.length : 0,
+      particleFullUploadCount:
+        descriptors.dynamicParticles.length +
+        (staticInvalidated ? descriptors.staticParticles.length : 0),
       aggregateDisplayObjectCount: 4,
     });
 
@@ -506,6 +520,26 @@ export class ParticleGraphicsLayer {
   #assertAlive(): void {
     if (this.#destroyed) throw new Error('ParticleGraphicsLayer is destroyed');
   }
+}
+
+function changedRangesTouchRect(
+  store: RenderStoreView,
+  ranges: readonly SlotRange[] | undefined,
+): boolean {
+  if (ranges === undefined) return true;
+  for (const range of ranges) {
+    const start = Math.max(0, Math.min(store.capacity, Math.floor(range.start)));
+    const end = Math.max(start, Math.min(store.capacity, Math.ceil(range.end)));
+    for (let slot = start; slot < end; slot += 1) {
+      if (
+        (store.alive[slot] as number) !== 0 &&
+        (store.kind[slot] as number) === RenderKind.Rect
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 function createQuad(

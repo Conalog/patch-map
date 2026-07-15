@@ -141,6 +141,8 @@ describe('ParticleGraphicsLayer', () => {
       relationSegmentCount: 1,
       unsupportedCount: 2,
       dynamicFullUploadCount: 2,
+      staticInvalidatedUploadCount: 1,
+      particleFullUploadCount: 3,
       aggregateDisplayObjectCount: 4,
     });
     expect(layer.staticParticles.particleChildren).toHaveLength(1);
@@ -154,8 +156,17 @@ describe('ParticleGraphicsLayer', () => {
     };
     mutable.revision = 2;
     mutable.value[1] = 50;
-    const updated = layer.sync(store, { fullRebuildEpoch: 1 });
-    expect(updated).toMatchObject({ fullRebuild: false, inPlaceSyncs: 1 });
+    const updated = layer.sync(store, {
+      fullRebuildEpoch: 1,
+      changedRanges: [{ start: 1, end: 2 }],
+    });
+    expect(updated).toMatchObject({
+      fullRebuild: false,
+      inPlaceSyncs: 1,
+      dynamicFullUploadCount: 2,
+      staticInvalidatedUploadCount: 0,
+      particleFullUploadCount: 2,
+    });
 
     mutable.revision = 1;
     mutable.alive[0] = 0;

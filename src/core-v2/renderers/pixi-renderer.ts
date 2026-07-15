@@ -54,6 +54,8 @@ interface AggregateResult {
   readonly uploadedChunks: number;
   readonly uploadedBytes: number;
   readonly dynamicFullUploadCount: number;
+  readonly staticInvalidatedUploadCount: number;
+  readonly particleFullUploadCount: number;
   readonly uploadObservation: PixiCoreV2RendererDebug['uploadObservation'];
 }
 
@@ -93,6 +95,8 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     uploadedChunks: 0,
     uploadedBytes: 0,
     dynamicFullUploadCount: 0,
+    staticInvalidatedUploadCount: 0,
+    particleFullUploadCount: 0,
     uploadObservation: 'dirty-chunk-bytes',
   };
 
@@ -293,6 +297,8 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       uploadedChunks: aggregate.uploadedChunks,
       uploadedBytes: aggregate.uploadedBytes,
       dynamicFullUploadCount: aggregate.dynamicFullUploadCount,
+      staticInvalidatedUploadCount: aggregate.staticInvalidatedUploadCount,
+      particleFullUploadCount: aggregate.particleFullUploadCount,
       uploadObservation: aggregate.uploadObservation,
       bitmapTextCount: leaves.bitmapTextCount,
       fallbackTextCount: leaves.fallbackTextCount,
@@ -425,6 +431,8 @@ export class PixiCoreV2Renderer implements CoreRenderer {
         uploadedChunks: debug.uploadedChunks,
         uploadedBytes: debug.uploadedBytes,
         dynamicFullUploadCount: 0,
+        staticInvalidatedUploadCount: 0,
+        particleFullUploadCount: 0,
         uploadObservation: 'dirty-chunk-bytes',
       };
     }
@@ -439,12 +447,14 @@ export class PixiCoreV2Renderer implements CoreRenderer {
         debug.dynamicParticleCount +
         debug.fallbackShapeCount +
         debug.relationSegmentCount,
-      uploadedChunks: debug.dynamicFullUploadCount > 0 ? 1 : 0,
+      uploadedChunks: debug.particleFullUploadCount > 0 ? 1 : 0,
       // ParticlePipe does not expose public uploaded byte counts. Preserve zero
       // and report the observable whole-container particle count separately.
       uploadedBytes: 0,
       dynamicFullUploadCount: debug.dynamicFullUploadCount,
-      uploadObservation: 'dynamic-particle-count',
+      staticInvalidatedUploadCount: debug.staticInvalidatedUploadCount,
+      particleFullUploadCount: debug.particleFullUploadCount,
+      uploadObservation: 'particle-full-upload-count',
     };
   }
 
@@ -490,7 +500,9 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       uploadedChunks: 0,
       uploadedBytes: 0,
       dynamicFullUploadCount: 0,
-      uploadObservation: this.strategy === 'mesh' ? 'dirty-chunk-bytes' : 'dynamic-particle-count',
+      staticInvalidatedUploadCount: 0,
+      particleFullUploadCount: 0,
+      uploadObservation: this.strategy === 'mesh' ? 'dirty-chunk-bytes' : 'particle-full-upload-count',
       bitmapTextCount: 0,
       fallbackTextCount: 0,
       imageCount: 0,
@@ -595,12 +607,21 @@ function now(): number {
 }
 
 function idleAggregateResult(previous: AggregateResult): AggregateResult {
-  if (previous.uploadObservation === 'dynamic-particle-count') {
+  if (previous.uploadObservation === 'particle-full-upload-count') {
     return {
       ...previous,
       uploadedChunks: previous.dynamicFullUploadCount > 0 ? 1 : 0,
       uploadedBytes: 0,
+      staticInvalidatedUploadCount: 0,
+      particleFullUploadCount: previous.dynamicFullUploadCount,
     };
   }
-  return { ...previous, uploadedChunks: 0, uploadedBytes: 0, dynamicFullUploadCount: 0 };
+  return {
+    ...previous,
+    uploadedChunks: 0,
+    uploadedBytes: 0,
+    dynamicFullUploadCount: 0,
+    staticInvalidatedUploadCount: 0,
+    particleFullUploadCount: 0,
+  };
 }
