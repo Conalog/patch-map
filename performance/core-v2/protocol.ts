@@ -37,6 +37,7 @@ export interface CoreV2TrialPhases {
   readonly gpuPrepareMs: number;
   readonly firstVisibleFrameMs: number;
   readonly panZoom: FramePhaseSample;
+  readonly barVisibilitySetup: SplitPhaseSample;
   readonly fullBarAnimation: AnimationPhaseSample;
   readonly partialBarAnimation: AnimationPhaseSample;
   readonly cjkFallbackFirstRender: SplitPhaseSample;
@@ -61,6 +62,13 @@ export interface CoreV2TrialDiagnostics {
   readonly dynamicFullUploadCount: number;
   readonly staticInvalidatedUploadCount: number;
   readonly particleFullUploadCount: number;
+  readonly sourceVisibleBarCount: number;
+  readonly barVisibilitySetupCount: number;
+  readonly animatedVisibleBarCount: number;
+  readonly fullBarAnimationUploadedChunks: number;
+  readonly fullBarAnimationUploadedBytes: number;
+  readonly partialBarAnimationUploadedChunks: number;
+  readonly partialBarAnimationUploadedBytes: number;
   readonly backend: string;
   readonly strategy: 'mesh' | 'particle';
   readonly checksum: string;

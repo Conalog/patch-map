@@ -130,6 +130,9 @@ async function runTrial(
     let uploadBytes = core.renderer.debugSnapshot().uploadedBytes;
 
     const panZoom = measurePanZoom(core);
+    const barVisibility = ensureBarsVisible(core);
+    uploadChunks += barVisibility.uploadedChunks;
+    uploadBytes += barVisibility.uploadedBytes;
     const fullAnimation = measureBarAnimation(core, seed ^ 0xba11, 1, 0);
     uploadChunks += fullAnimation.uploadedChunks;
     uploadBytes += fullAnimation.uploadedBytes;
@@ -182,6 +185,7 @@ async function runTrial(
         gpuPrepareMs: prepared.gpuPrepareMs,
         firstVisibleFrameMs,
         panZoom: framePhase(panZoom),
+        barVisibilitySetup: barVisibility.phase,
         fullBarAnimation: animationPhase(fullAnimation),
         partialBarAnimation: animationPhase(partialAnimation),
         cjkFallbackFirstRender: firstText.phase,
@@ -205,6 +209,13 @@ async function runTrial(
         dynamicFullUploadCount: finalDebug.renderer.dynamicFullUploadCount,
         staticInvalidatedUploadCount: finalDebug.renderer.staticInvalidatedUploadCount,
         particleFullUploadCount: finalDebug.renderer.particleFullUploadCount,
+        sourceVisibleBarCount: barVisibility.sourceVisibleCount,
+        barVisibilitySetupCount: barVisibility.revealedCount,
+        animatedVisibleBarCount: barVisibility.animatedVisibleCount,
+        fullBarAnimationUploadedChunks: fullAnimation.uploadedChunks,
+        fullBarAnimationUploadedBytes: fullAnimation.uploadedBytes,
+        partialBarAnimationUploadedChunks: partialAnimation.uploadedChunks,
+        partialBarAnimationUploadedBytes: partialAnimation.uploadedBytes,
         uploadObservation: finalDebug.renderer.uploadObservation,
         backend: finalDebug.renderer.backend,
         strategy: spec.strategy,
@@ -240,6 +251,55 @@ function measurePanZoom(core: CoreV2): readonly number[] {
     frames.push(performance.now() - started);
   }
   return Object.freeze(frames);
+}
+
+function ensureBarsVisible(core: CoreV2): {
+  readonly sourceVisibleCount: number;
+  readonly revealedCount: number;
+  readonly animatedVisibleCount: number;
+  readonly uploadedChunks: number;
+  readonly uploadedBytes: number;
+  readonly phase: SplitPhase;
+} {
+  const operations: Array<{
+    readonly type: 'visibility';
+    readonly target: EntitySnapshot['ref'];
+    readonly visible: true;
+  }> = [];
+  let sourceVisibleCount = 0;
+  for (const ref of core.query({ kinds: ['bar'] })) {
+    const entity = core.get(ref);
+    if (!entity) continue;
+    if (entity.visible) sourceVisibleCount += 1;
+    else operations.push({ type: 'visibility', target: ref, visible: true });
+  }
+  if (operations.length === 0) {
+    return Object.freeze({
+      sourceVisibleCount,
+      revealedCount: 0,
+      animatedVisibleCount: sourceVisibleCount,
+      uploadedChunks: 0,
+      uploadedBytes: 0,
+      phase: Object.freeze({ commitMs: 0, renderMs: 0, totalMs: 0 }),
+    });
+  }
+
+  const started = performance.now();
+  const commitStarted = performance.now();
+  const committed = core.commit({ operations });
+  const commitMs = performance.now() - commitStarted;
+  const renderStarted = performance.now();
+  core.flush('bar-visibility-setup');
+  const renderMs = performance.now() - renderStarted;
+  const renderer = core.renderer.debugSnapshot();
+  return Object.freeze({
+    sourceVisibleCount,
+    revealedCount: committed.changed,
+    animatedVisibleCount: sourceVisibleCount + committed.changed,
+    uploadedChunks: renderer.uploadedChunks,
+    uploadedBytes: renderer.uploadedBytes,
+    phase: splitPhase(commitMs, renderMs, started),
+  });
 }
 
 function measureBarAnimation(

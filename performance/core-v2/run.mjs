@@ -25,6 +25,9 @@ const SCALAR_METRICS = Object.freeze({
   gpuPrepareMs: (trial) => trial.phases.gpuPrepareMs,
   firstVisibleFrameMs: (trial) => trial.phases.firstVisibleFrameMs,
   panZoomP95Ms: (trial) => trial.phases.panZoom.p95Ms,
+  barVisibilitySetupCommitMs: (trial) => trial.phases.barVisibilitySetup.commitMs,
+  barVisibilitySetupRenderMs: (trial) => trial.phases.barVisibilitySetup.renderMs,
+  barVisibilitySetupTotalMs: (trial) => trial.phases.barVisibilitySetup.totalMs,
   fullBarAnimationScheduleMs: (trial) => trial.phases.fullBarAnimation.scheduleMs,
   fullBarAnimationP95Ms: (trial) => trial.phases.fullBarAnimation.p95Ms,
   partialBarAnimationScheduleMs: (trial) => trial.phases.partialBarAnimation.scheduleMs,
@@ -100,7 +103,7 @@ function heap(value) {
 function markdownReport(output, resultPath) {
   const rows = output.runs.map((run) => {
     const summary = run.summary;
-    return `| ${run.role} | ${run.strategy} | ${run.scale} | ${run.measuredRaw[0]?.diagnostics.expandedEntityCount?.toLocaleString('en-US') ?? 'n/a'} | ${fixed(summary.normalizeMs.median)} | ${fixed(summary.storeLoadMs.median)} | ${fixed(summary.rendererBuildMs.median)} | ${fixed(summary.gpuPrepareMs.median)} | ${fixed(summary.firstVisibleFrameMs.median)} | ${fixed(summary.panZoomP95Ms.p95)} | ${fixed(summary.fullBarAnimationScheduleMs.median)} | ${fixed(summary.fullBarAnimationP95Ms.p95)} | ${fixed(summary.partialBarAnimationScheduleMs.median)} | ${fixed(summary.partialBarAnimationP95Ms.p95)} | ${fixed(summary.randomTextChangeTotalMs.median)} | ${fixed(summary.hitTestPerOperationMs.median, 4)} | ${fixed(summary.selectionTotalMs.median)} | ${fixed(summary.destroyMs.median)} | ${fixed(summary.reinitializeMs.median)} | ${heap(summary.retainedJsHeapBytes.median)} |`;
+    return `| ${run.role} | ${run.strategy} | ${run.scale} | ${run.measuredRaw[0]?.diagnostics.expandedEntityCount?.toLocaleString('en-US') ?? 'n/a'} | ${fixed(summary.normalizeMs.median)} | ${fixed(summary.storeLoadMs.median)} | ${fixed(summary.rendererBuildMs.median)} | ${fixed(summary.gpuPrepareMs.median)} | ${fixed(summary.firstVisibleFrameMs.median)} | ${fixed(summary.panZoomP95Ms.p95)} | ${fixed(summary.barVisibilitySetupTotalMs.median)} | ${fixed(summary.fullBarAnimationScheduleMs.median)} | ${fixed(summary.fullBarAnimationP95Ms.p95)} | ${fixed(summary.partialBarAnimationScheduleMs.median)} | ${fixed(summary.partialBarAnimationP95Ms.p95)} | ${fixed(summary.randomTextChangeTotalMs.median)} | ${fixed(summary.hitTestPerOperationMs.median, 4)} | ${fixed(summary.selectionTotalMs.median)} | ${fixed(summary.destroyMs.median)} | ${fixed(summary.reinitializeMs.median)} | ${heap(summary.retainedJsHeapBytes.median)} |`;
   });
 
   const gpu = output.environment.gpu;
@@ -115,8 +118,8 @@ function markdownReport(output, resultPath) {
 - WebGPU adapter: ${gpu.webgpu.available ? gpu.webgpu.description ?? gpu.webgpu.device ?? 'available' : 'unavailable'}
 - Windows native: ${output.environment.windowsNative}
 
-| role | strategy | scale | expanded entities | normalize median ms | store load median ms | renderer build median ms | GPU prepare median ms | first frame median ms | pan/zoom trial-p95 p95 ms | full bar schedule median ms | full bar trial-p95 p95 ms | partial bar schedule median ms | partial bar trial-p95 p95 ms | text change median ms | hit/op median ms | select median ms | destroy median ms | re-init median ms | retained JS heap median bytes |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| role | strategy | scale | expanded entities | normalize median ms | store load median ms | renderer build median ms | GPU prepare median ms | first frame median ms | pan/zoom trial-p95 p95 ms | hidden-bar visibility setup median ms | full bar schedule median ms | full bar trial-p95 p95 ms | partial bar schedule median ms | partial bar trial-p95 p95 ms | text change median ms | hit/op median ms | select median ms | destroy median ms | re-init median ms | retained JS heap median bytes |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 ${rows.join('\n')}
 
 ## Measurement limits

@@ -284,6 +284,77 @@ try {
   check(production.entityCount === 37_071, 'production JSON direct load expands to 37,071 entities', checks, failures);
   check(await page.getByTestId('input-immutability').textContent() === 'PASS', 'production input remains immutable', checks, failures);
 
+  const productionOriginalBars = await productionBarVisibilityState(page);
+  check(
+    productionOriginalBars.totalBarCount === 9_365 &&
+      productionOriginalBars.visibleBarCount === 0 &&
+      productionOriginalBars.rendererFrame > 0,
+    'production direct-load first frame preserves all 9,365 source-hidden bars',
+    checks,
+    failures,
+    productionOriginalBars,
+  );
+  const productionVisibleBars = await showAllProductionBars(page);
+  check(
+    productionVisibleBars.operationCount === 9_365 &&
+      productionVisibleBars.changedCount === 9_365 &&
+      productionVisibleBars.totalBarCount === 9_365 &&
+      productionVisibleBars.visibleBarCount === 9_365 &&
+      productionVisibleBars.strategy === 'mesh' &&
+      productionVisibleBars.uploadedChunks > 0 &&
+      productionVisibleBars.uploadedBytes > 0 &&
+      productionVisibleBars.rendererFrame > productionOriginalBars.rendererFrame,
+    'separate production visibility transaction presents 9,365 bars with a Mesh upload',
+    checks,
+    failures,
+    { before: productionOriginalBars, after: productionVisibleBars },
+  );
+
+  const productionBarsBeforeAnimation = await barState(page);
+  const productionAnimationStart = await startProductionPartialAnimation(page);
+  const productionBarsDuringAnimation = await waitForBarAnimationEvidence(page, productionBarsBeforeAnimation);
+  check(
+    productionAnimationStart.requestedFraction === 0.01 &&
+      productionAnimationStart.scheduledAnimations > 0 &&
+      productionAnimationStart.scheduledAnimations <= Math.ceil(productionBarsBeforeAnimation.values.length * 0.1) &&
+      productionBarsDuringAnimation.activeAnimations > 0 &&
+      productionBarsDuringAnimation.changedCount > 0 &&
+      productionBarsDuringAnimation.rendererFrame > productionBarsBeforeAnimation.rendererFrame &&
+      productionBarsDuringAnimation.uploadedChunks > 0 &&
+      productionBarsDuringAnimation.uploadedBytes > 0,
+    'production 1% bar animation presents intermediate heights with non-zero Mesh uploads',
+    checks,
+    failures,
+    {
+      start: productionAnimationStart,
+      before: barStateSummary(productionBarsBeforeAnimation),
+      during: productionBarsDuringAnimation,
+    },
+  );
+  await page.waitForFunction(() => (window.__PATCH_MAP_CORE_V2_LAB__.getRuntime()?.activeAnimations ?? 0) === 0, undefined, { timeout: 10_000 });
+  const productionBarsAfterAnimation = await barState(page);
+  const productionCompletedBarChanges = changedValues(
+    productionBarsBeforeAnimation.values,
+    productionBarsAfterAnimation.values,
+  );
+  check(
+    productionBarsAfterAnimation.activeAnimations === 0 &&
+      productionCompletedBarChanges.count > 0 &&
+      productionBarsAfterAnimation.rendererFrame > productionBarsDuringAnimation.rendererFrame &&
+      productionBarsAfterAnimation.schedulerFrame > productionBarsDuringAnimation.schedulerFrame,
+    'production partial bar animation completes with actual final height changes',
+    checks,
+    failures,
+    {
+      requestedFraction: productionAnimationStart.requestedFraction,
+      scheduledAnimations: productionAnimationStart.scheduledAnimations,
+      changedCount: productionCompletedBarChanges.count,
+      changedSamples: productionCompletedBarChanges.samples,
+      during: productionBarsDuringAnimation,
+      after: barStateSummary(productionBarsAfterAnimation),
+    },
+  );
+
   const previousWidth = await page.evaluate(() => window.__PATCH_MAP_CORE_V2_LAB__.getRuntime()?.renderer.width);
   await page.setViewportSize({ width: 1_180, height: 840 });
   await page.waitForFunction((width) => window.__PATCH_MAP_CORE_V2_LAB__.getRuntime()?.renderer.width !== width, previousWidth);
@@ -426,6 +497,69 @@ function fittedViewState(page) {
   });
 }
 
+function productionBarVisibilityState(page) {
+  return page.evaluate(() => {
+    const runtime = window.__PATCH_MAP_CORE_V2_LAB__.getRuntime();
+    if (!runtime) throw new Error('missing Core v2 runtime for production bar visibility state');
+    const bars = runtime.snapshot().entities.filter((entity) => entity.kind === 'bar');
+    const debug = runtime.debugSnapshot().renderer;
+    return {
+      totalBarCount: bars.length,
+      visibleBarCount: bars.filter((entity) => entity.visible).length,
+      rendererFrame: debug.frame,
+      strategy: debug.strategy,
+      uploadedChunks: debug.uploadedChunks,
+      uploadedBytes: debug.uploadedBytes,
+    };
+  });
+}
+
+function showAllProductionBars(page) {
+  return page.evaluate(() => {
+    const runtime = window.__PATCH_MAP_CORE_V2_LAB__.getRuntime();
+    if (!runtime) throw new Error('missing Core v2 runtime for production visibility transaction');
+    const bars = runtime.snapshot().entities.filter((entity) => entity.kind === 'bar');
+    const result = runtime.commit({
+      operations: bars.map((entity) => ({ type: 'visibility', target: entity.id, visible: true })),
+    });
+    runtime.flush('browser-production-show-bars');
+    const visibleBars = runtime.snapshot().entities.filter((entity) => entity.kind === 'bar' && entity.visible);
+    const debug = runtime.debugSnapshot().renderer;
+    return {
+      operationCount: result.operationCount,
+      changedCount: result.changed,
+      totalBarCount: bars.length,
+      visibleBarCount: visibleBars.length,
+      rendererFrame: debug.frame,
+      strategy: debug.strategy,
+      uploadedChunks: debug.uploadedChunks,
+      uploadedBytes: debug.uploadedBytes,
+      lastInvalidation: debug.lastInvalidation,
+    };
+  });
+}
+
+function startProductionPartialAnimation(page) {
+  return page.evaluate(() => {
+    const runtime = window.__PATCH_MAP_CORE_V2_LAB__.getRuntime();
+    if (!runtime) throw new Error('missing Core v2 runtime for production partial animation');
+    const requestedFraction = 0.01;
+    const result = runtime.animateBarHeights({
+      fraction: requestedFraction,
+      durationMs: 600,
+      seed: 0xc0def17e,
+    });
+    const debug = runtime.debugSnapshot();
+    return {
+      requestedFraction,
+      scheduledAnimations: result.operationCount,
+      activeAnimations: runtime.activeAnimations,
+      rendererFrame: debug.renderer.frame,
+      schedulerFrame: debug.scheduler.frameCount,
+    };
+  });
+}
+
 function barState(page) {
   return page.evaluate(() => {
     const runtime = window.__PATCH_MAP_CORE_V2_LAB__.getRuntime();
@@ -438,6 +572,8 @@ function barState(page) {
       activeAnimations: runtime.activeAnimations,
       rendererFrame: debug.renderer.frame,
       schedulerFrame: debug.scheduler.frameCount,
+      uploadedChunks: debug.renderer.uploadedChunks,
+      uploadedBytes: debug.renderer.uploadedBytes,
     };
   });
 }
@@ -473,6 +609,8 @@ function waitForBarAnimationEvidence(page, before) {
           changedSamples: changed.slice(0, 5),
           rendererFrame: debug.renderer.frame,
           schedulerFrame: debug.scheduler.frameCount,
+          uploadedChunks: debug.renderer.uploadedChunks,
+          uploadedBytes: debug.renderer.uploadedBytes,
         });
         return;
       }
@@ -513,6 +651,8 @@ function barStateSummary(state) {
     activeAnimations: state.activeAnimations,
     rendererFrame: state.rendererFrame,
     schedulerFrame: state.schedulerFrame,
+    uploadedChunks: state.uploadedChunks,
+    uploadedBytes: state.uploadedBytes,
   };
 }
 

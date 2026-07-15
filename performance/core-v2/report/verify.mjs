@@ -19,6 +19,9 @@ const METRICS = Object.freeze({
   gpuPrepareMs: (trial) => trial.phases.gpuPrepareMs,
   firstVisibleFrameMs: (trial) => trial.phases.firstVisibleFrameMs,
   panZoomP95Ms: (trial) => trial.phases.panZoom.p95Ms,
+  barVisibilitySetupCommitMs: (trial) => trial.phases.barVisibilitySetup.commitMs,
+  barVisibilitySetupRenderMs: (trial) => trial.phases.barVisibilitySetup.renderMs,
+  barVisibilitySetupTotalMs: (trial) => trial.phases.barVisibilitySetup.totalMs,
   fullBarAnimationScheduleMs: (trial) => trial.phases.fullBarAnimation.scheduleMs,
   fullBarAnimationP95Ms: (trial) => trial.phases.fullBarAnimation.p95Ms,
   partialBarAnimationScheduleMs: (trial) => trial.phases.partialBarAnimation.scheduleMs,
@@ -145,7 +148,7 @@ function validateTrial(trial, run, label) {
     for (const field of ['fullBarAnimation', 'partialBarAnimation']) {
       validateAnimationPhase(trial.phases[field], `${label}/phases/${field}`);
     }
-    for (const field of ['cjkFallbackFirstRender', 'randomTextChange', 'selection']) {
+    for (const field of ['barVisibilitySetup', 'cjkFallbackFirstRender', 'randomTextChange', 'selection']) {
       validateSplitPhase(trial.phases[field], `${label}/phases/${field}`);
     }
   }
@@ -164,6 +167,13 @@ function validateTrial(trial, run, label) {
       'dynamicFullUploadCount',
       'staticInvalidatedUploadCount',
       'particleFullUploadCount',
+      'sourceVisibleBarCount',
+      'barVisibilitySetupCount',
+      'animatedVisibleBarCount',
+      'fullBarAnimationUploadedChunks',
+      'fullBarAnimationUploadedBytes',
+      'partialBarAnimationUploadedChunks',
+      'partialBarAnimationUploadedBytes',
       'hitCount',
       'selectedCount',
       'cjkFallbackFirstRenderCount',
@@ -184,7 +194,23 @@ function validateTrial(trial, run, label) {
     check(diagnostics.randomTextChangeCount > 0, `${label}/diagnostics/randomTextChangeCount: must prove a non-noop text update`);
     if (run.scale !== 'production') {
       check(diagnostics.initialBitmapTextCount > 0, `${label}/diagnostics/initialBitmapTextCount: synthetic input must prove initial BitmapText materialization`);
+      check(diagnostics.sourceVisibleBarCount > 0, `${label}/diagnostics/sourceVisibleBarCount: synthetic bars must start visible`);
+      check(diagnostics.barVisibilitySetupCount === 0, `${label}/diagnostics/barVisibilitySetupCount: synthetic bars must not need visibility setup`);
+    } else {
+      check(diagnostics.sourceVisibleBarCount === 0, `${label}/diagnostics/sourceVisibleBarCount: frozen production bars are expected to start hidden`);
+      check(diagnostics.barVisibilitySetupCount > 0, `${label}/diagnostics/barVisibilitySetupCount: production animation must explicitly reveal hidden bars`);
     }
+    check(diagnostics.animatedVisibleBarCount > 0, `${label}/diagnostics/animatedVisibleBarCount: animation workload must contain visible bars`);
+    if (run.strategy === 'mesh') {
+      check(diagnostics.fullBarAnimationUploadedChunks > 0, `${label}/diagnostics/fullBarAnimationUploadedChunks: Mesh full animation must publish dirty chunks`);
+      check(diagnostics.partialBarAnimationUploadedChunks > 0, `${label}/diagnostics/partialBarAnimationUploadedChunks: Mesh partial animation must publish dirty chunks`);
+      check(diagnostics.fullBarAnimationUploadedBytes > 0, `${label}/diagnostics/fullBarAnimationUploadedBytes: Mesh full animation must upload dirty bar bytes`);
+      check(diagnostics.partialBarAnimationUploadedBytes > 0, `${label}/diagnostics/partialBarAnimationUploadedBytes: Mesh partial animation must upload dirty bar bytes`);
+    }
+    check(
+      trial.phases.fullBarAnimation.scheduledCount === diagnostics.animatedVisibleBarCount,
+      `${label}: full animation scheduled count must cover every visible benchmark bar`,
+    );
     check(
       typeof diagnostics.backend === 'string' && diagnostics.backend.length > 0,
       `${label}/diagnostics/backend: must be present`,
