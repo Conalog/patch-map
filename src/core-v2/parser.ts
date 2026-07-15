@@ -96,6 +96,19 @@ const DEFAULT_COLORS: Readonly<Record<string, Rgba>> = Object.freeze({
   'primary.default': 0x4f46e5ff,
   'primary.dark': 0x312e81ff,
 });
+const TRANSFORM_ATTRIBUTE_KEYS = new Set(['x', 'y', 'angle', 'rotation']);
+const TRANSFORM_ATTRIBUTE_TYPES = new Set([
+  'group',
+  'grid',
+  'item',
+  'rect',
+  'image',
+  'text',
+  'background',
+  'bar',
+  'icon',
+]);
+const Z_INDEX_ATTRIBUTE_TYPES = new Set(['rect', 'image', 'relations']);
 
 const ROOT_CONTEXT: ElementContext = {
   transform: { x: 0, y: 0, rotation: 0 },
@@ -276,6 +289,16 @@ function parseGrid(
   const itemSize = fixedSize(item.size, `${path}.item.size`, state);
   const gap = axisSpacing(value.gap, `${path}.gap`, state);
   const hideInactive = value.inactiveCellStrategy === 'hide';
+  if (value.inactiveCellStrategy !== undefined && !hideInactive) {
+    warnOnce(
+      state,
+      'inactive-cell-strategy',
+      `${path}.inactiveCellStrategy`,
+      'inactive-cell-strategy-unsupported',
+      'Unsupported inactiveCellStrategy fell back to skipping inactive cells',
+      sourceId,
+    );
+  }
 
   const cells = value.cells as unknown[];
   cells.forEach((rowValue, row) => {
@@ -361,6 +384,16 @@ function parseItemInstance(
   grid: ExpandedItemIdentity['grid'] | undefined,
   state: ParseState,
 ): void {
+  if (item.contentOrientation !== undefined) {
+    warnOnce(
+      state,
+      'item-content-orientation',
+      `${itemPath}.contentOrientation`,
+      'content-orientation-unsupported',
+      'contentOrientation is not projected or retained; components use rectangular placement',
+      sourceElementId,
+    );
+  }
   const instance: MutableExpandedItemIdentity = {
     instanceId,
     sourceElementId,
@@ -434,6 +467,16 @@ function parseComponent(
     return;
   }
   const type = typeof value.type === 'string' ? value.type : 'unknown';
+  if (value.animation !== undefined || value.animationDuration !== undefined) {
+    warnOnce(
+      state,
+      `component-animation:${type}`,
+      path,
+      'component-animation-unsupported',
+      'Input animation/animationDuration are not applied or retained; the Core v2 runtime animation API supplies duration',
+      sourceElementId,
+    );
+  }
   const componentId = sourceIdentifier(value.id, `@component:${pathToken(path)}`, path, state);
   const component = componentIdentity(value, componentId, path, type, sourceElementId, state);
   const entityId = `${instanceId}::${type}:${componentId}`;
@@ -707,7 +750,7 @@ function parseRelations(
   }
   const style = isRecord(value.style) ? value.style : {};
   if (style.cap !== undefined || style.join !== undefined) {
-    warnOnce(state, 'relation-cap-join', `${path}.style`, 'relation-style-degraded', 'Relation cap/join are preserved but not projected into the dense store', sourceId);
+    warnOnce(state, 'relation-cap-join', `${path}.style`, 'relation-style-degraded', 'Relation cap/join are not retained or projected; basic line geometry is used', sourceId);
   }
   value.links.forEach((linkValue, index) => {
     const linkPath = `${path}.links[${index}]`;
@@ -1217,10 +1260,10 @@ function fnv1a(value: string): number {
 
 function inspectAttributes(attrs: JsonRecord | undefined, path: string, type: string, state: ParseState): void {
   if (!attrs) return;
-  const projected = new Set(['x', 'y', 'angle', 'rotation', 'opacity', 'alpha', 'zIndex', 'tags']);
-  const preserved = new Set(['display', 'metadata']);
   for (const key of Object.keys(attrs)) {
-    if (projected.has(key) || preserved.has(key)) continue;
+    const projected = (TRANSFORM_ATTRIBUTE_KEYS.has(key) && TRANSFORM_ATTRIBUTE_TYPES.has(type)) ||
+      (key === 'zIndex' && Z_INDEX_ATTRIBUTE_TYPES.has(type));
+    if (projected || key === 'metadata') continue;
     warnOnce(
       state,
       `attr:${type}:${key}`,

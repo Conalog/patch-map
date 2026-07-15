@@ -208,6 +208,53 @@ describe('Core v2 PATCH MAP v0.10 parser', () => {
     );
   });
 
+  it('diagnoses known v0.10 fields that are retained-only or unsupported', () => {
+    const result = parsePatchMapV010([
+      {
+        type: 'item',
+        id: 'item-a',
+        attrs: { display: 'block', opacity: 0.5, alpha: 0.5, tags: ['source'], zIndex: 3 },
+        size: 20,
+        contentOrientation: 'upright',
+        components: [{
+          type: 'bar',
+          id: 'bar-a',
+          animation: true,
+          animationDuration: 500,
+          size: { width: '100%', height: '50%' },
+          source: { type: 'rect', fill: '#fff' },
+        }],
+      },
+      {
+        type: 'relations',
+        id: 'links',
+        attrs: { x: 10 },
+        links: [{ source: 'item-a', target: 'item-a' }],
+        style: { cap: 'round', join: 'round' },
+      },
+      {
+        type: 'grid',
+        id: 'grid-a',
+        inactiveCellStrategy: 'collapse',
+        cells: [[0]],
+        item: { size: 10 },
+      },
+    ]);
+
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'content-orientation-unsupported' }),
+      expect.objectContaining({ code: 'component-animation-unsupported' }),
+      expect.objectContaining({ code: 'relation-style-degraded' }),
+      expect.objectContaining({ code: 'inactive-cell-strategy-unsupported' }),
+      expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.display' }),
+      expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.opacity' }),
+      expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.alpha' }),
+      expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.tags' }),
+      expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.zIndex' }),
+      expect.objectContaining({ code: 'attribute-preserved-only', path: '$[1].attrs.x' }),
+    ]));
+  });
+
   it('fails atomically for duplicate visible IDs and dangling endpoints', () => {
     expect(() =>
       parsePatchMapV010([
