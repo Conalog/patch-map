@@ -69,6 +69,45 @@ describe('bar animation layout', () => {
       localHeight: 10,
     });
   });
+
+  it('keeps an established width while interpolating only a changed height', () => {
+    const item = {
+      type: 'item',
+      size: { width: 100, height: 100 },
+      padding: { top: 0, right: 0, bottom: 0, left: 0 },
+    };
+    const established = layoutAnimatedBar({
+      type: 'bar',
+      size: { width: '100%', height: '50%' },
+      placement: 'bottom',
+      animation: false,
+    }, item, 1);
+    const next = {
+      type: 'bar',
+      size: { width: '100%', height: '70%' },
+      placement: 'bottom',
+      animation: true,
+    };
+
+    expect(layoutAnimatedBar(next, item, 0, established)).toMatchObject({
+      x: 0,
+      y: 50,
+      localWidth: 100,
+      localHeight: 50,
+    });
+    expect(layoutAnimatedBar(next, item, 0.5, established)).toMatchObject({
+      x: 0,
+      y: 40,
+      localWidth: 100,
+      localHeight: 60,
+    });
+    expect(layoutAnimatedBar(next, item, 1, established)).toMatchObject({
+      x: 0,
+      y: 30,
+      localWidth: 100,
+      localHeight: 70,
+    });
+  });
 });
 
 describe('text layout', () => {

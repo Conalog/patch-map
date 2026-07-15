@@ -845,13 +845,27 @@ export const applyManagedUpdates = (
     };
   }
 
+  const directComponentType = targets.length > 0 &&
+    (options.mergeStrategy ?? 'merge') === 'merge' &&
+    options.refresh !== true &&
+    options.relativeTransform !== true &&
+    options.rotateOrigin === undefined &&
+    options.normalize !== false &&
+    targets.every((target) =>
+      isComponentNode(target) && target.type === targets[0]?.type) &&
+    Object.keys(changes).every((key) =>
+      key === 'animation' ||
+      key === 'animationDuration' ||
+      key === 'size')
+    ? targets[0]?.type ?? null
+    : null;
   const ownedOptions = { ...options, changes, ownedChanges: true };
   for (const target of targets) applyManagedUpdate(target, ownedOptions);
   return {
-    reindex: true,
-    orientation: true,
-    assets: true,
-    componentTypes: null,
+    reindex: directComponentType === null,
+    orientation: directComponentType === null,
+    assets: directComponentType === null,
+    componentTypes: directComponentType === null ? null : [directComponentType],
   };
 };
 

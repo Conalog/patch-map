@@ -231,8 +231,9 @@ export const layoutAnimatedBar = (
   component: PublicRecord,
   item: PublicRecord,
   progress: number,
+  from?: ComponentLayout,
 ): ComponentLayout => {
-  const start = layoutComponent(component, item);
+  const start = from ?? layoutComponent(component, item);
   const target = layoutComponent(
     { ...component, animation: false },
     item,

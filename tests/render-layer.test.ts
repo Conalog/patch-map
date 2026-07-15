@@ -7,12 +7,13 @@ import {
   Text,
   Texture,
 } from 'pixi.js';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { materializeMapData } from '../src/model/materialize';
 import { buildManagedScene } from '../src/scene/build-scene';
 import { AggregateRenderLayer } from '../src/scene/render-layer';
 import { materializeTheme } from '../src/theme';
+import { applyManagedUpdates } from '../src/update/apply';
 
 const TEXTURE_KEY = 'patch-map-render-layer-test-texture';
 
@@ -36,6 +37,8 @@ describe('AggregateRenderLayer', () => {
   };
 
   afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     if (Cache.has(TEXTURE_KEY)) Cache.remove(TEXTURE_KEY);
     for (const world of worlds.splice(0)) {
       if (!world.destroyed) world.destroy({ children: true });
@@ -256,5 +259,60 @@ describe('AggregateRenderLayer', () => {
     expectedRendered.c /= Texture.WHITE.height;
     expectedRendered.d /= Texture.WHITE.height;
     closeMatrix(rendered.localTransform, expectedRendered);
+  });
+
+  it('animates an updated bar from its established size without collapsing width', () => {
+    let now = 0;
+    const scheduledFrame: { current: FrameRequestCallback | null } = {
+      current: null,
+    };
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      scheduledFrame.current = callback;
+      return 1;
+    });
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    const scene = buildManagedScene(materializeMapData([{
+      type: 'item',
+      id: 'bar-owner',
+      size: { width: 100, height: 100 },
+      components: [{
+        type: 'bar',
+        id: 'animated-bar',
+        source: { type: 'rect', fill: '#fff' },
+        size: { width: '100%', height: '50%' },
+        placement: 'bottom',
+        animation: false,
+        animationDuration: 200,
+      }],
+    }]), materializeTheme());
+    const world = new Container();
+    worlds.push(world);
+    world.addChild(...scene.roots);
+    const bar = scene.byId.get('animated-bar');
+    if (!bar) throw new Error('Expected animated bar');
+    const renderLayer = layer();
+    renderLayer.renderScene(scene.roots);
+
+    applyManagedUpdates([bar], {
+      changes: {
+        animation: true,
+        size: { width: '100%', height: '70%' },
+      },
+    });
+    renderLayer.renderScene(scene.roots);
+    const rendered = renderLayer.children[0];
+    if (!rendered) throw new Error('Expected rendered bar');
+    rendered.updateLocalTransform();
+    expect(rendered.getBounds().width).toBeCloseTo(100, 4);
+    expect(rendered.getBounds().height).toBeCloseTo(50, 4);
+
+    now = 100;
+    const nextFrame = scheduledFrame.current;
+    if (!nextFrame) throw new Error('Expected a scheduled animation frame');
+    nextFrame(now);
+    rendered.updateLocalTransform();
+    expect(rendered.getBounds().width).toBeCloseTo(100, 4);
+    expect(rendered.getBounds().height).toBeCloseTo(60, 4);
   });
 });

@@ -26,6 +26,7 @@ import {
   measureText,
   readFixedSize,
   resolveTextLines,
+  type ComponentLayout,
   type SceneSize,
 } from './layout';
 import { isManagedGridComponent, ManagedNode } from './managed-node';
@@ -45,6 +46,8 @@ interface RenderEntry {
   component: boolean;
   node?: LiveHandle | undefined;
   parentMatrix?: Matrix | undefined;
+  leaf?: Graphics | Sprite | undefined;
+  leafBaseRect?: LocalRect | undefined;
 }
 
 interface RelationEndpoints {
@@ -68,6 +71,8 @@ interface BarAnimationState {
   signature: string;
   startedAt: number;
   complete: boolean;
+  from: ComponentLayout;
+  current: ComponentLayout;
 }
 
 export interface RenderSceneHints {
@@ -108,6 +113,7 @@ const TEXT_STYLE_KEYS = [
 // single-surface backend at that boundary avoids a costly 100 Graphics/Text
 // leaf submission while leaving small editor scenes on precise vector leaves.
 const RASTER_ENTRY_THRESHOLD = 500;
+const PREPARED_GRID_BAR_THRESHOLD = 64;
 const MAX_RASTER_EDGE = 8_192;
 const MAX_RASTER_PIXELS = 32_000_000;
 
@@ -348,6 +354,7 @@ export class AggregateRenderLayer extends Container {
   #gridRasterHeight = 0;
   #gridRasterActive = false;
   readonly #barAnimations = new Map<string, BarAnimationState>();
+  #vectorBarEntries: RenderEntry[] = [];
   #barAnimationFrame: number | null = null;
   #lastRoots: readonly Container[] | null = null;
   #graphicsUsed = 0;
@@ -381,8 +388,18 @@ export class AggregateRenderLayer extends Container {
       this.#barAnimations.clear();
       this.#lastRoots = roots;
     }
-    if (hints?.componentTypes && this.#renderGridRasterChanges(hints.componentTypes)) {
-      return;
+    if (hints?.componentTypes) {
+      const animateBars = hints.componentTypes.includes('bar');
+      if (this.#renderGridRasterChanges(hints.componentTypes, animateBars)) {
+        return;
+      }
+      if (
+        hints.componentTypes.length === 1 &&
+        animateBars &&
+        this.#renderVectorBarAnimationChanges()
+      ) {
+        return;
+      }
     }
     const entries: RenderEntry[] = [];
     for (const root of roots) {
@@ -406,6 +423,7 @@ export class AggregateRenderLayer extends Container {
     this.#gridRasterTypeSlots.clear();
     this.#cancelBarAnimationFrame();
     this.#barAnimations.clear();
+    this.#vectorBarEntries = [];
     this.#lastRoots = null;
     const leaves = [
       ...this.#graphicsPool,
@@ -555,12 +573,22 @@ export class AggregateRenderLayer extends Container {
     this.#prepareBarAnimations(entries);
     this.#beginFrame();
     const centers = this.#indexCenters(entries);
-    if (this.#renderGridRaster(entries, centers)) return;
+    if (this.#renderPreparedGridBars(entries)) return;
+    if (this.#renderGridRaster(entries, centers)) {
+      this.#vectorBarEntries = [];
+      return;
+    }
     this.#gridRasterActive = false;
-    if (this.#renderRaster(entries, centers)) return;
+    if (this.#renderRaster(entries, centers)) {
+      this.#vectorBarEntries = [];
+      return;
+    }
     for (const entry of entries) {
       this.#drawEntry(entry, centers);
     }
+    this.#vectorBarEntries = entries.filter(
+      (entry) => entry.props.type === 'bar' && entry.leaf !== undefined,
+    );
   }
 
   #prepareBarAnimations(entries: readonly RenderEntry[]): void {
@@ -570,7 +598,6 @@ export class AggregateRenderLayer extends Container {
     for (const entry of entries) {
       if (
         entry.props.type !== 'bar' ||
-        entry.props.animation !== true ||
         !entry.parentProps ||
         !entry.parentMatrix
       ) {
@@ -581,8 +608,33 @@ export class AggregateRenderLayer extends Container {
       observed.add(id);
       const signature = this.#barAnimationSignature(entry.props, entry.parentProps);
       let state = this.#barAnimations.get(id);
+      if (entry.props.animation !== true) {
+        const layout = layoutComponent(
+          { ...entry.props, animation: false },
+          entry.parentProps,
+        );
+        this.#barAnimations.set(id, {
+          signature,
+          startedAt: now,
+          complete: true,
+          from: layout,
+          current: layout,
+        });
+        continue;
+      }
       if (!state || state.signature !== signature) {
-        state = { signature, startedAt: now, complete: false };
+        const from = state?.current ?? layoutAnimatedBar(
+          entry.props,
+          entry.parentProps,
+          0,
+        );
+        state = {
+          signature,
+          startedAt: now,
+          complete: false,
+          from,
+          current: from,
+        };
         this.#barAnimations.set(id, state);
       }
       const duration = Math.max(0, finite(entry.props.animationDuration, 200));
@@ -592,7 +644,13 @@ export class AggregateRenderLayer extends Container {
       if (progress >= 1) state.complete = true;
       else active = true;
 
-      const layout = layoutAnimatedBar(entry.props, entry.parentProps, progress);
+      const layout = layoutAnimatedBar(
+        entry.props,
+        entry.parentProps,
+        progress,
+        state.from,
+      );
+      state.current = layout;
       if (
         progress >= 1 &&
         entry.node instanceof ManagedNode
@@ -672,7 +730,10 @@ export class AggregateRenderLayer extends Container {
     this.#barAnimationFrame = requestAnimationFrame(() => {
       this.#barAnimationFrame = null;
       const roots = this.#lastRoots;
-      if (!this.destroyed && roots) this.renderScene(roots);
+      if (this.destroyed || !roots) return;
+      if (!this.#renderGridRasterChanges(['bar'], true)) {
+        if (!this.#renderVectorBarAnimationChanges()) this.renderScene(roots);
+      }
     });
   }
 
@@ -708,6 +769,46 @@ export class AggregateRenderLayer extends Container {
       }));
     }
     return centers;
+  }
+
+  #renderPreparedGridBars(entries: readonly RenderEntry[]): boolean {
+    const backgrounds: RenderEntry[] = [];
+    const bars: RenderEntry[] = [];
+    for (const entry of entries) {
+      if (!this.#isVisualType(entry.props.type)) continue;
+      if (
+        (entry.props.type !== 'background' && entry.props.type !== 'bar') ||
+        record(entry.props.source).type !== 'rect' ||
+        !this.#isGridComponentEntry(entry)
+      ) {
+        return false;
+      }
+      if (entry.props.type === 'background') {
+        backgrounds.push(entry);
+        continue;
+      }
+      if (entry.props.animation === true) return false;
+      bars.push(entry);
+    }
+    if (bars.length < PREPARED_GRID_BAR_THRESHOLD) return false;
+
+    this.#currentGraphics = null;
+    const backgroundGraphics = this.#graphics();
+    for (const entry of backgrounds) {
+      this.#paintBackgroundGraphics(backgroundGraphics, entry);
+    }
+    this.#currentGraphics = null;
+    for (const entry of bars) {
+      const bounds = baseEntryRect(entry);
+      const graphics = this.#graphics();
+      this.#paintBarGraphics(graphics, entry, bounds);
+      entry.leaf = graphics;
+      entry.leafBaseRect = { ...bounds };
+      this.#currentGraphics = null;
+    }
+    this.#vectorBarEntries = bars;
+    this.#gridRasterActive = false;
+    return true;
   }
 
   #renderGridRaster(
@@ -782,7 +883,10 @@ export class AggregateRenderLayer extends Container {
     return this.#compositeGridRaster();
   }
 
-  #renderGridRasterChanges(componentTypes: readonly string[]): boolean {
+  #renderGridRasterChanges(
+    componentTypes: readonly string[],
+    animateBars = false,
+  ): boolean {
     if (!this.#gridRasterActive || this.#gridRasterSlots.length === 0) {
       return false;
     }
@@ -794,8 +898,18 @@ export class AggregateRenderLayer extends Container {
     }
     if (affected.size === 0) return false;
 
-    this.#beginFrame();
     const centers = new Map<string, { x: number; y: number }>();
+    const refreshedEntries = new Set<RenderEntry>();
+    for (const slot of affected) {
+      const entries = this.#gridRasterSlots[slot];
+      if (!entries) return false;
+      for (const entry of entries) {
+        if (this.#refreshCachedEntry(entry)) refreshedEntries.add(entry);
+      }
+    }
+    if (animateBars) this.#prepareBarAnimations([...refreshedEntries]);
+
+    this.#beginFrame();
     for (const slot of affected) {
       const surface = this.#gridRasterSurfaces[slot];
       const entries = this.#gridRasterSlots[slot];
@@ -806,7 +920,7 @@ export class AggregateRenderLayer extends Container {
         this.#gridRasterHeight,
       );
       for (const entry of entries) {
-        if (!this.#refreshCachedEntry(entry)) continue;
+        if (!refreshedEntries.has(entry)) continue;
         this.#drawRasterEntry(
           surface.context,
           entry,
@@ -817,6 +931,47 @@ export class AggregateRenderLayer extends Container {
       }
     }
     return this.#compositeGridRaster();
+  }
+
+  #renderVectorBarAnimationChanges(): boolean {
+    if (this.#vectorBarEntries.length === 0) return false;
+    const entries: RenderEntry[] = [];
+    for (const entry of this.#vectorBarEntries) {
+      if (!entry.leaf || !this.#refreshCachedEntry(entry)) return false;
+      entries.push(entry);
+    }
+    this.#prepareBarAnimations(entries);
+    for (const entry of entries) {
+      const leaf = entry.leaf;
+      const source = record(entry.props.source);
+      const texture = source.type === 'rect'
+        ? null
+        : getCachedSceneTexture(entry.props.source);
+      if (leaf instanceof Graphics && !texture) {
+        const base = entry.leafBaseRect;
+        const current = baseEntryRect(entry);
+        if (!base || base.width <= 0 || base.height <= 0) return false;
+        const scaleX = current.width / base.width;
+        const scaleY = current.height / base.height;
+        const adjustment = new Matrix(
+          scaleX,
+          0,
+          0,
+          scaleY,
+          current.x - base.x * scaleX,
+          current.y - base.y * scaleY,
+        );
+        this.#resetLeafTransform(
+          leaf,
+          appendMatrix(entry.matrix, adjustment),
+        );
+      } else if (leaf instanceof Sprite && texture) {
+        this.#configureSprite(leaf, entry, texture, baseEntryRect(entry, texture));
+      } else {
+        return false;
+      }
+    }
+    return true;
   }
 
   #isGridComponentEntry(entry: RenderEntry): boolean {
@@ -1393,9 +1548,13 @@ export class AggregateRenderLayer extends Container {
       return;
     }
 
+    this.#paintBackgroundGraphics(this.#graphics(), entry);
+  }
+
+  #paintBackgroundGraphics(graphics: Graphics, entry: RenderEntry): void {
+    const source = record(entry.props.source);
     const itemSize = readFixedSize(entry.parentProps?.size);
     const borderWidth = finite(source.borderWidth);
-    const graphics = this.#graphics();
     graphics.setTransform(entry.matrix);
     graphics
       .roundRect(
@@ -1426,11 +1585,20 @@ export class AggregateRenderLayer extends Container {
       ? null
       : getCachedSceneTexture(entry.props.source);
     if (texture) {
-      this.#drawSprite(entry, texture, bounds);
+      entry.leaf = this.#drawSprite(entry, texture, bounds);
       return;
     }
 
     const graphics = this.#graphics();
+    this.#paintBarGraphics(graphics, entry, bounds);
+  }
+
+  #paintBarGraphics(
+    graphics: Graphics,
+    entry: RenderEntry,
+    bounds = baseEntryRect(entry),
+  ): void {
+    const source = record(entry.props.source);
     graphics.setTransform(entry.matrix);
     graphics
       .roundRect(bounds.x, bounds.y, bounds.width, bounds.height, finite(source.radius))
@@ -1465,7 +1633,7 @@ export class AggregateRenderLayer extends Container {
     });
   }
 
-  #drawSprite(entry: RenderEntry, texture: Texture, bounds: LocalRect): void {
+  #drawSprite(entry: RenderEntry, texture: Texture, bounds: LocalRect): Sprite {
     this.#currentGraphics = null;
     const sprite = this.#spritePool[this.#spriteUsed] ?? new Sprite();
     if (!this.#spritePool[this.#spriteUsed]) {
@@ -1473,6 +1641,17 @@ export class AggregateRenderLayer extends Container {
       this.#spritePool.push(sprite);
     }
     this.#spriteUsed += 1;
+    this.#configureSprite(sprite, entry, texture, bounds);
+    this.addChild(sprite);
+    return sprite;
+  }
+
+  #configureSprite(
+    sprite: Sprite,
+    entry: RenderEntry,
+    texture: Texture,
+    bounds: LocalRect,
+  ): void {
     this.#resetLeafTransform(sprite, entry.matrix);
     sprite.texture = texture;
     sprite.anchor.set(0);
@@ -1486,7 +1665,6 @@ export class AggregateRenderLayer extends Container {
     sprite.alpha = 1;
     sprite.visible = true;
     sprite.renderable = true;
-    this.addChild(sprite);
   }
 
   #drawText(entry: RenderEntry): void {

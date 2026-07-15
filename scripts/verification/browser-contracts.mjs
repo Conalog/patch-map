@@ -1561,7 +1561,7 @@ const verifySceneAssetAndAnimationContracts = async (browser, url) => {
     closeTo(animation.settled.visualWidth, 50, 'settled animated bar width', 0.5);
     assert.ok(animation.refreshInitialWidth < 10);
     closeTo(animation.refreshSettledWidth, 50, 'refreshed animated bar width', 0.5);
-    assert.ok(animation.resizedInitialWidth < 10);
+    closeTo(animation.resizedInitialWidth, 50, 'resized animated bar starting width', 0.5);
     closeTo(animation.resizedSettledWidth, 100, 'resized animated bar width', 0.5);
     assert.equal(animation.finalCanvasCount, 0);
     throwPageErrors(pageErrors, 'scene asset and animation contracts');
