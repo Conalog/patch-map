@@ -59,6 +59,7 @@ interface ParseState {
   readonly entities: EntityInput[];
   readonly diagnostics: ParseDiagnostic[];
   readonly elementIdentities: MutableElementIdentity[];
+  readonly sourceElementPathById: Map<string, string>;
   readonly componentIdentities: MutableComponentIdentity[];
   readonly componentIdentityByPath: Map<string, MutableComponentIdentity>;
   readonly expandedItems: MutableExpandedItemIdentity[];
@@ -112,6 +113,7 @@ export function parsePatchMapV010(
     entities: [],
     diagnostics: [],
     elementIdentities: [],
+    sourceElementPathById: new Map(),
     componentIdentities: [],
     componentIdentityByPath: new Map(),
     expandedItems: [],
@@ -196,6 +198,7 @@ function parseElement(
 
   const type = typeof value.type === 'string' ? value.type : 'unknown';
   const sourceId = sourceIdentifier(value.id, `@element:${pathToken(path)}`, path, state);
+  registerSourceElementId(sourceId, path, state);
   const identity = createElementIdentity(value, sourceId, path, type);
   state.elementIdentities.push(identity);
 
@@ -1237,6 +1240,20 @@ function sourceIdentifier(
   if (typeof value === 'string' && value.length > 0) return value;
   warn(state, `${path}.id`, 'generated-id', `Missing/invalid ID was replaced with deterministic ${JSON.stringify(fallback)}`);
   return fallback;
+}
+
+function registerSourceElementId(sourceId: string, sourcePath: string, state: ParseState): void {
+  const existingPath = state.sourceElementPathById.get(sourceId);
+  if (existingPath !== undefined) {
+    fatal(
+      state,
+      `${sourcePath}.id`,
+      'duplicate-source-element-id',
+      `Duplicate source element ID ${JSON.stringify(sourceId)}; first declared at ${existingPath}`,
+      sourceId,
+    );
+  }
+  state.sourceElementPathById.set(sourceId, sourcePath);
 }
 
 function pathToken(path: string): string {

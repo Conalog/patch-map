@@ -237,4 +237,67 @@ describe('Core v2 PATCH MAP v0.10 parser', () => {
       );
     }
   });
+
+  it.each([
+    {
+      label: 'empty groups',
+      elements: [
+        { type: 'group', id: 'duplicate-source', children: [] },
+        { type: 'group', id: 'duplicate-source', children: [] },
+      ],
+    },
+    {
+      label: 'unsupported elements',
+      elements: [
+        { type: 'future-widget', id: 'duplicate-source' },
+        { type: 'future-widget', id: 'duplicate-source' },
+      ],
+    },
+    {
+      label: 'empty relation elements',
+      elements: [
+        { type: 'relations', id: 'duplicate-source', links: [] },
+        { type: 'relations', id: 'duplicate-source', links: [] },
+      ],
+    },
+  ])('fails atomically for duplicate source IDs on $label', ({ elements }) => {
+    const before = structuredClone(elements);
+
+    try {
+      parsePatchMapV010(elements);
+      throw new Error('expected parser failure');
+    } catch (error) {
+      expect(error).toBeInstanceOf(PatchMapParseError);
+      expect((error as PatchMapParseError).diagnostics).toContainEqual({
+        level: 'error',
+        code: 'duplicate-source-element-id',
+        path: '$[1].id',
+        message: 'Duplicate source element ID "duplicate-source"; first declared at $[0]',
+        sourceId: 'duplicate-source',
+      });
+    }
+
+    expect(elements).toEqual(before);
+  });
+
+  it('keeps repeated component IDs distinct across source-element owners', () => {
+    const component = {
+      type: 'background',
+      id: 'shared-component',
+      source: { type: 'rect', fill: 'white' },
+    };
+    const result = parsePatchMapV010([
+      { type: 'item', id: 'item-a', size: 10, components: [component] },
+      { type: 'item', id: 'item-b', size: 10, components: [component] },
+    ]);
+
+    expect(result.identity.components).toMatchObject([
+      { componentId: 'shared-component', sourceElementId: 'item-a' },
+      { componentId: 'shared-component', sourceElementId: 'item-b' },
+    ]);
+    expect(result.identity.entityIdsByComponentId['shared-component']).toEqual([
+      'item-a::background:shared-component',
+      'item-b::background:shared-component',
+    ]);
+  });
 });
