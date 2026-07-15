@@ -20,3 +20,10 @@
 - **Decision:** Select a dense typed entity store, spatial index, explicit dirty state, and one aggregate Canvas2D renderer as the Core v1 production path; retain the Pixi aggregate spike only as rejected/provisional comparison evidence.
 - **Why:** The selected path best isolates data mutation from frame publication, eliminates per-entity display objects, and measured substantially lower first-render, animation, and lifecycle cost.
 - **Impact:** Production work now targets the fully expanded 37,071-entity acceptance document and must still prove retained heap, browser usability, full 100–5,000 measurements, and Windows-native pending status without treating quick spike numbers as final approval.
+
+**2026-07-15**
+
+- **Background:** The first selected-path full checkpoint still paid repeated canonical normalization and broad spatial reconstruction during large geometry batches, while animation/history and same-ID replacement edge cases needed explicit product semantics.
+- **Decision:** Keep validated state commits synchronous, make spatial membership a dirty-slot cache refreshed synchronously by the next hit test, maintain endpoint adjacency, preserve selected IDs across atomic replacement, and treat animation scheduling as deterministic but non-historical.
+- **Why:** This keeps state, render, and spatial-query costs separately observable, removes whole-scene update work, and closes lifecycle and identity invariants without reintroducing legacy facade objects.
+- **Impact:** Production trusted/random 10% commit-plus-flush medians fell from 175.3/185.9 ms to 62.3/52.7 ms at 4×; the deferred post-update spatial refresh is reported separately at 15.5 ms rather than hidden, and undo/redo never pretends to replay animation schedules.

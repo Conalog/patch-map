@@ -21,7 +21,7 @@ load without changing the current scene.
 ## Construction and lifecycle
 
 ```ts
-const renderer = createCanvasRenderer(canvas, renderOptions);
+const renderer = new Canvas2DRenderer(canvas, renderOptions);
 const scene = createCoreScene({ renderer, initialCapacity });
 
 scene.load(document);        // synchronous authoritative state
@@ -32,9 +32,10 @@ scene.destroy();
 ```
 
 Construction does not start a ticker or attach an object-level listener. The
-host owns scheduling and calls `advance()` and `flush()` explicitly. `destroy()`
-is idempotent, releases renderer/store/index references, and makes every other
-operation fail with `CoreDestroyedError`.
+host owns scheduling and calls `advance()` and `flush()` explicitly. A scene
+owns the renderer passed to it. `destroy()` is idempotent, destroys and releases
+that renderer plus store/index references, and makes every other operation fail
+with `CoreDestroyedError`.
 
 ## Atomic batch updates
 
@@ -48,7 +49,9 @@ The successful result contains a monotonically increasing revision, affected
 entity counts, changed slot ranges, and one immutable batch event. Repeated
 targets are applied in input order. An optional batch ID groups undo history;
 `undo()` and `redo()` are themselves atomic commits. History is bounded and may
-be disabled at construction.
+be disabled at construction. Animation scheduling is intentionally non-history:
+mixed batches record their state operations, while animated properties continue
+on their explicit timeline and are not replayed by undo or redo.
 
 `commit()` never renders. `flush()` consumes the accumulated dirty state,
 publishes exactly one frame, and returns its revision, frame sequence, command
@@ -62,7 +65,9 @@ valid and reports a no-op frame without rebuilding scene data.
 - `query(filter)` supports explicit kind, visibility, tag, bounds, and ID-set
   filters and returns refs in deterministic z-order/slot order.
 - `hitTest(point, options)` returns the topmost matching ref using the current
-  authoritative geometry and index.
+  authoritative geometry and index. Geometry commits mark spatial membership
+  dirty; the next hit test refreshes only affected slots and adjacent relations
+  synchronously before resolving the target.
 - `selection()` returns an immutable selection snapshot; selection changes are
   batch operations.
 - `snapshot(options)` returns a revisioned, deterministic scene snapshot for
@@ -93,3 +98,10 @@ reuse paint/geometry/text resources, and upload only changed ranges, but it must
 not change authoritative state or public ordering. The production backend is
 selected by measured spike results. Backend-specific handles are private and
 are absent from package exports.
+
+`Canvas2DRenderer.registerImage(source, image)` and `unregisterImage(source)`
+manage caller-decoded `CanvasImageSource` values without putting network or
+decode work in the render path. Registered image pixels are drawn unchanged;
+the entity `tint` is the diagnostic placeholder color used only while no image
+is registered. A fully transparent placeholder tint falls back to the renderer's
+visible missing-image color so absent assets remain observable in QA.
