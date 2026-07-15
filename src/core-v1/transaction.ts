@@ -181,7 +181,7 @@ export function prepareTransaction(
     }
   }
 
-  validateFinalRelations(store, overlay, current);
+  validateFinalRelations(store, overlay, current, removed);
   for (const animation of animations.values()) {
     if (!current(animation.id)) animations.delete(`${animation.id}\0${animation.property}`);
   }
@@ -242,24 +242,30 @@ function validateFinalRelations(
   store: DenseStore,
   overlay: ReadonlyMap<string, CanonicalEntity | null>,
   current: (id: string) => CanonicalEntity | null,
+  removed: ReadonlySet<string>,
 ): void {
   const validate = (entity: CanonicalEntity): void => {
     if (entity.kind !== 'relation') return;
     if (!current(entity.from)) throw new CoreValidationError(`relation.${entity.id}.from`, `unknown ID ${entity.from}`);
     if (!current(entity.to)) throw new CoreValidationError(`relation.${entity.id}.to`, `unknown ID ${entity.to}`);
   };
-  for (const slot of store.renderOrder()) {
-    if (store.kind[slot] !== KindCode.Relation) continue;
-    const id = store.ids[slot] ?? '';
-    if (overlay.has(id)) {
-      const entity = overlay.get(id);
-      if (entity) validate(entity);
-    } else {
-      validate(normalizeEntity(store.toInput(slot), '$.existing'));
+  if (removed.size > 0) {
+    for (const slot of store.renderOrder()) {
+      if (store.kind[slot] !== KindCode.Relation) continue;
+      const id = store.ids[slot] ?? '';
+      if (overlay.has(id)) continue;
+      const from = store.relationFromId[slot] ?? '';
+      const to = store.relationToId[slot] ?? '';
+      if (removed.has(from) && !current(from)) {
+        throw new CoreValidationError(`relation.${id}.from`, `unknown ID ${from}`);
+      }
+      if (removed.has(to) && !current(to)) {
+        throw new CoreValidationError(`relation.${id}.to`, `unknown ID ${to}`);
+      }
     }
   }
-  for (const [id, entity] of overlay) {
-    if (store.has(id) || !entity) continue;
+  for (const entity of overlay.values()) {
+    if (!entity) continue;
     validate(entity);
   }
 }

@@ -291,12 +291,18 @@ export class DenseStore {
     this.markDirty(slot, true, false);
   }
 
-  public replaceCanonical(slot: number, entity: CanonicalEntity): void {
+  public replaceCanonical(
+    slot: number,
+    entity: CanonicalEntity,
+    dirty: { spatial?: boolean; order?: boolean } = { spatial: true, order: true },
+  ): void {
     this.assertAlive();
     const currentId = this.ids[slot];
     if (currentId !== entity.id) throw new Error('replaceCanonical cannot change an entity ID');
+    const selected = this.hasFlag(slot, EntityFlag.Selected);
     this.writeCanonical(slot, entity);
-    this.markDirty(slot, true, true);
+    if (selected) this.setFlag(slot, EntityFlag.Selected, true);
+    this.markDirty(slot, dirty.spatial ?? false, dirty.order ?? false);
   }
 
   public remove(slot: number): EntityInput {
@@ -793,15 +799,7 @@ export class DenseStore {
       const relationBounds = this.relationBounds(slot);
       return rectanglesIntersect(relationBounds, bounds);
     }
-    return rectanglesIntersect(
-      {
-        x: this.x[slot] ?? 0,
-        y: this.y[slot] ?? 0,
-        width: this.width[slot] ?? 0,
-        height: this.height[slot] ?? 0,
-      },
-      bounds,
-    );
+    return rectanglesIntersect(this.entityBounds(slot), bounds);
   }
 
   private contains(slot: number, point: CorePoint): boolean {
@@ -836,6 +834,24 @@ export class DenseStore {
     };
   }
 
+  private entityBounds(slot: number): CoreBounds {
+    const x = this.x[slot] ?? 0;
+    const y = this.y[slot] ?? 0;
+    const width = this.width[slot] ?? 0;
+    const height = this.height[slot] ?? 0;
+    const rotation = this.rotation[slot] ?? 0;
+    if (rotation === 0) return { x, y, width, height };
+    const radians = (rotation * Math.PI) / 180;
+    const rotatedWidth = Math.abs(Math.cos(radians)) * width + Math.abs(Math.sin(radians)) * height;
+    const rotatedHeight = Math.abs(Math.sin(radians)) * width + Math.abs(Math.cos(radians)) * height;
+    return {
+      x: x + (width - rotatedWidth) / 2,
+      y: y + (height - rotatedHeight) / 2,
+      width: rotatedWidth,
+      height: rotatedHeight,
+    };
+  }
+
   private rebuildSpatialIndex(): void {
     const buckets = new Map<string, number[]>();
     const overflow: number[] = [];
@@ -844,12 +860,7 @@ export class DenseStore {
       const bounds =
         (this.kind[slot] as KindCode) === KindCode.Relation
           ? this.relationBounds(slot)
-          : {
-              x: this.x[slot] ?? 0,
-              y: this.y[slot] ?? 0,
-              width: this.width[slot] ?? 0,
-              height: this.height[slot] ?? 0,
-            };
+          : this.entityBounds(slot);
       const minX = Math.floor(bounds.x / this.cellSize);
       const maxX = Math.floor((bounds.x + bounds.width) / this.cellSize);
       const minY = Math.floor(bounds.y / this.cellSize);

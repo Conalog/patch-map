@@ -324,7 +324,10 @@ export class CoreScene {
         added += 1;
         structural = true;
       } else {
-        this.store.replaceCanonical(slot, after);
+        this.store.replaceCanonical(slot, after, {
+          spatial: before ? spatiallyChanged(before, after) : true,
+          order: before ? before.zIndex !== after.zIndex : true,
+        });
         if (before) changed += 1;
         if (
           after.kind === 'relation' &&
@@ -502,6 +505,20 @@ function sameView(left: DenseStore['view'], right: DenseStore['view']): boolean 
     left.y === right.y &&
     left.scale === right.scale &&
     (left.rotation ?? 0) === (right.rotation ?? 0)
+  );
+}
+
+function spatiallyChanged(left: CanonicalEntity, right: CanonicalEntity): boolean {
+  return (
+    left.x !== right.x ||
+    left.y !== right.y ||
+    left.width !== right.width ||
+    left.height !== right.height ||
+    left.rotation !== right.rotation ||
+    left.visible !== right.visible ||
+    left.from !== right.from ||
+    left.to !== right.to ||
+    left.lineWidth !== right.lineWidth
   );
 }
 
