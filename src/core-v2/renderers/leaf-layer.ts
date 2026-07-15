@@ -153,6 +153,7 @@ export class AggregateLeafLayer {
         for (let slot = start; slot < end; slot += 1) this.syncSlot(store, slot);
       }
     }
+    this.refreshUnresolved();
     this.assetsDirty = false;
     return this.debugSnapshot();
   }
@@ -256,10 +257,17 @@ export class AggregateLeafLayer {
 
   private removeImage(slot: number): void {
     const sprite = this.images.get(slot);
+    this.imageSources.delete(slot);
     if (!sprite) return;
     this.images.delete(slot);
-    this.imageSources.delete(slot);
     sprite.destroy();
+  }
+
+  private refreshUnresolved(): void {
+    this.unresolved.clear();
+    for (const source of this.imageSources.values()) {
+      if (source && !this.assets.has(source)) this.unresolved.add(source);
+    }
   }
 
   private discardTextureReferences(alias: string, texture: Texture): void {
@@ -277,6 +285,7 @@ export class AggregateLeafLayer {
     this.texts.clear();
     this.images.clear();
     this.imageSources.clear();
+    this.unresolved.clear();
     this.textContainer.removeChildren();
     this.imageContainer.removeChildren();
   }
