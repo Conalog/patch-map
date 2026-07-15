@@ -28,7 +28,9 @@
     "scripts",
     "lab",
     "vite.config.ts",
-    "vite.lab.config.ts"
+    "vite.lab.config.ts",
+    "vite.core-v1.config.ts",
+    "vite.core-v1-lab.config.ts"
   ],
   "exclude": ["artifacts", "dist", "node_modules"]
 }
