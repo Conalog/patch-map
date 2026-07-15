@@ -11,23 +11,24 @@ import type {
 // Deliberately violates the public schema for the validation-rejection lab step.
 const INVALID_SHOW_VALUE = 'invalid' as unknown as boolean;
 const PRODUCTION_GRID_ITEM_PATH = '$..children[?(@.type == "item" && @.parent.type == "grid")]';
-const PRODUCTION_BAR_DURATION_MS = 8000;
+const PRODUCTION_BAR_PATH = '$..children[?(@.type == "bar")]';
 
-const productionBarUpdate = (height: number, show = false): LabAction => ({
-  kind: 'update',
-  fitFirstResult: true,
-  request: {
-    target: { mode: 'path', path: PRODUCTION_GRID_ITEM_PATH },
-    changes: {
-      components: [{
-        type: 'bar',
-        ...(show ? { show: true } : {}),
-        animation: true,
-        animationDuration: PRODUCTION_BAR_DURATION_MS,
-        size: { width: '100%', height: `${height}%` },
-      }],
-    },
-  },
+const productionBarBaseline = (): LabAction => ({
+  kind: 'bar-height-update',
+  target: { mode: 'path', path: PRODUCTION_GRID_ITEM_PATH },
+  mode: 'uniform',
+  height: 45,
+  show: true,
+});
+
+const productionBarRandomize = (seed: number): LabAction => ({
+  kind: 'bar-height-update',
+  target: { mode: 'path', path: PRODUCTION_BAR_PATH },
+  mode: 'random',
+  seed,
+  minHeight: 10,
+  maxHeight: 90,
+  heightStep: 5,
 });
 
 const invariant = (
@@ -321,46 +322,12 @@ const DRAW_CASES: LabCase[] = [
     category: 'draw',
     risk: 'critical',
     evidenceStatus: 'verified',
-    description: 'Draw the byte-preserved user fixture, animate every panel bar, fit the scene, and inspect authored targets.',
+    description: 'Draw the byte-preserved user fixture, fit the full scene, and inspect authored targets. Use the adjacent production-panel case for headed bar animation frames.',
     fixture: 'production-like',
     tags: ['production-like', 'large-scene', 'user-input', 'bar', 'animation'],
     steps: [
       reset(),
       draw('draw-production', 'production-like'),
-      step('reveal-production-bars', 'Reveal all 9,336 panel bars at 12%', productionBarUpdate(12, true), [
-        invariant('production-bar-targets', 'Every grid-cell item is updated', 'return.ids.length', 'equals', 9336),
-        invariant('production-bars-visible', 'Every grid-cell bar is public', 'scene.componentsByType.bar.count', 'equals', 9336),
-        invariant('production-animation-context', 'Animation context remains public', 'patchmap.animationContext.exists', 'equals', true),
-      ], undefined, 'All panel bars update together while the viewport focuses one representative panel. Press Pause animation to freeze an intermediate frame.'),
-      step('observe-production-bar-reveal', 'Observe 12% reveal animation frames', {
-        kind: 'animation', method: 'resume', durationMs: PRODUCTION_BAR_DURATION_MS + 200,
-      }, [
-        invariant('production-reveal-frames', 'Multiple native frames render during reveal', 'frames.delta', 'at-least', 2),
-      ]),
-      step('grow-production-bars', 'Animate all panel bars to 88%', productionBarUpdate(88), [
-        invariant('production-grow-targets', 'Growth update keeps every panel target', 'return.ids.length', 'equals', 9336),
-      ], undefined, 'The 8 second transition leaves enough time to pause and inspect headed intermediate frames after the large-scene update completes.'),
-      step('observe-production-bar-growth', 'Observe 88% growth animation frames', {
-        kind: 'animation', method: 'resume', durationMs: PRODUCTION_BAR_DURATION_MS + 200,
-      }, [
-        invariant('production-growth-frames', 'Multiple native frames render during growth', 'frames.delta', 'at-least', 2),
-      ]),
-      step('shrink-production-bars', 'Animate all panel bars to 36%', productionBarUpdate(36), [
-        invariant('production-shrink-targets', 'Shrink update keeps every panel target', 'return.ids.length', 'equals', 9336),
-      ], undefined, 'Use Pause animation to inspect any intermediate bar-height frame.'),
-      step('observe-production-bar-shrink', 'Observe 36% shrink animation frames', {
-        kind: 'animation', method: 'resume', durationMs: PRODUCTION_BAR_DURATION_MS + 200,
-      }, [
-        invariant('production-shrink-frames', 'Multiple native frames render during shrink', 'frames.delta', 'at-least', 2),
-      ]),
-      step('inspect-production-bar', 'Inspect final panel bar height', {
-        kind: 'inspect',
-        target: { mode: 'path', path: '$..children[?(@.type == "bar")]' },
-      }, [
-        invariant('production-bar-selected', 'A public bar handle is selected', 'selected.type', 'equals', 'bar'),
-        invariant('production-bar-height', 'Final authored bar height is 36%', 'selected.props.size.height', 'equals', { value: 36, unit: '%' }),
-        invariant('production-bar-bounds', 'Final bar has finite public bounds', 'selected.boundsFinite', 'equals', true),
-      ]),
       step('fit-production', 'Fit all managed non-relation roots', { kind: 'view', method: 'fit', ids: null }, [
         invariant('fit-production-scale', 'Viewport scale is finite', 'viewport.scaleFinite', 'equals', true),
       ]),
@@ -379,6 +346,53 @@ const DRAW_CASES: LabCase[] = [
         invariant('production-target-props', 'Selected handle exposes public props', 'selected.props.exists', 'equals', true),
         invariant('production-target-bounds', 'Selected handle has finite public bounds', 'selected.boundsFinite', 'equals', true),
         invariant('production-target-transform', 'Selected handle exposes a public transform snapshot', 'selected.transform.exists', 'equals', true),
+      ]),
+    ],
+  }),
+  makeCase({
+    id: 'draw-production-panel-bar-animation',
+    title: 'Production panel · random bar animation',
+    category: 'draw',
+    risk: 'high',
+    evidenceStatus: 'verified',
+    description: 'Extract a 96-bar authored grid panel, establish real bar heights, and animate every bar to reproducible random heights with the public default duration.',
+    fixture: 'production-panel',
+    tags: ['production-like', 'panel', 'bar', 'animation', 'performance'],
+    steps: [
+      reset(),
+      draw('draw-production-panel', 'production-panel'),
+      step('establish-panel-bars', 'Establish all 96 panel bars at 45%', productionBarBaseline(), [
+        invariant('panel-baseline-targets', 'Every panel cell is updated', 'return.ids.length', 'equals', 96),
+        invariant('panel-baseline-bars', 'Every panel bar is public', 'scene.componentsByType.bar.count', 'equals', 96),
+        invariant('panel-baseline-height', 'All bars begin from an established 45% height', 'performance.barAnimation.distinctHeightCount', 'equals', 1),
+      ]),
+      step('fit-production-panel', 'Fit the authored panel', { kind: 'view', method: 'fit', ids: null }, [
+        invariant('panel-fit-scale', 'Panel viewport scale is finite', 'viewport.scaleFinite', 'equals', true),
+      ]),
+      step('randomize-panel-bars-a', 'Animate every bar to random heights · seed 2718', productionBarRandomize(2718), [
+        invariant('panel-random-targets', 'Every panel bar receives a random-height update', 'return.ids.length', 'equals', 96),
+        invariant('panel-random-heights', 'All 17 random height buckets are visible', 'performance.barAnimation.distinctHeightCount', 'equals', 17),
+        invariant('panel-random-default-duration', 'The update retains the public default 200ms duration', 'performance.barAnimation.defaultDurationMs', 'equals', 200),
+        invariant('panel-random-no-override', 'No animation duration override is supplied', 'performance.barAnimation.explicitDurationProvided', 'equals', false),
+        invariant('panel-random-sync-time', 'Public synchronous update time is measured', 'performance.barAnimation.syncUpdateMs', 'exists', true),
+        invariant('panel-random-batch-time', 'Longest height batch is measured', 'performance.barAnimation.maxBatchMs', 'exists', true),
+        invariant('panel-random-first-frame', 'First headed-frame delay is captured', 'performance.barAnimation.firstFrameDelayMs', 'exists', true),
+        invariant('panel-random-frame-gap', 'Maximum animation frame gap is captured', 'performance.barAnimation.maxAnimationFrameGapMs', 'exists', true),
+        invariant('panel-random-frames', 'Multiple animation frames are observed', 'performance.barAnimation.observedFrames', 'at-least', 4),
+      ], undefined, 'The UI reports public sync time, longest batch, first-frame delay, and animation frame gap. Heights are deterministic for reproducible screenshots.'),
+      step('randomize-panel-bars-b', 'Animate every bar again · seed 3141', productionBarRandomize(3141), [
+        invariant('panel-random-b-targets', 'Every bar is updated again', 'return.ids.length', 'equals', 96),
+        invariant('panel-random-b-changed', 'The second seed changes the per-bar assignment', 'performance.barAnimation.changedFromPrevious', 'equals', true),
+        invariant('panel-random-b-duration', 'Default duration remains unchanged', 'performance.barAnimation.defaultDurationMs', 'equals', 200),
+        invariant('panel-random-b-frame-gap', 'Second animation frame gap is captured', 'performance.barAnimation.maxAnimationFrameGapMs', 'exists', true),
+      ]),
+      step('inspect-production-panel-bar', 'Inspect a final random-height bar', {
+        kind: 'inspect',
+        target: { mode: 'path', path: PRODUCTION_BAR_PATH },
+      }, [
+        invariant('panel-final-bar-selected', 'A public bar handle is selected', 'selected.type', 'equals', 'bar'),
+        invariant('panel-final-bar-duration', 'The selected bar retains 200ms duration', 'selected.props.animationDuration', 'equals', 200),
+        invariant('panel-final-bar-bounds', 'The selected bar has finite bounds', 'selected.boundsFinite', 'equals', true),
       ]),
     ],
   }),

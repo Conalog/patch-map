@@ -45,6 +45,7 @@ export type LabFixtureKey =
   | 'update-playground'
   | 'transform-playground'
   | 'production-like'
+  | 'production-panel'
   | 'sandbox';
 
 export type LabSelector =
@@ -96,6 +97,22 @@ export type LabAction =
   | { kind: 'draw-inline'; data: DrawInput; expectError?: string }
   | { kind: 'draw-invalid'; inputKey: string; expectErrorIncludes?: string }
   | { kind: 'update'; request: LabUpdateRequest; fitFirstResult?: boolean }
+  | {
+      kind: 'bar-height-update';
+      target: LabSelector;
+      mode: 'uniform';
+      height: number;
+      show?: boolean;
+    }
+  | {
+      kind: 'bar-height-update';
+      target: LabSelector;
+      mode: 'random';
+      seed: number;
+      minHeight: number;
+      maxHeight: number;
+      heightStep: number;
+    }
   | { kind: 'wait-frame'; frames?: number }
   | { kind: 'inspect'; target?: LabSelector; snapshot?: string }
   | {

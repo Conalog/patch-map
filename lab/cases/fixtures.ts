@@ -429,7 +429,7 @@ export const LAB_FIXTURES = {
     title: 'Interaction and transformer targets',
     data: transformPlayground,
   },
-} satisfies Record<Exclude<LabFixtureKey, 'production-like' | 'sandbox'>, LabFixture>;
+} satisfies Record<Exclude<LabFixtureKey, 'production-like' | 'production-panel' | 'sandbox'>, LabFixture>;
 
 /** Inputs are deliberately unknown so the runner can pass them to draw verbatim. */
 export const LAB_INVALID_INPUTS: Readonly<Record<string, unknown>> = {

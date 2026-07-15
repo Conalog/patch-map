@@ -55,6 +55,7 @@ const STATE_EVENTS = [
 
 const LAB_CANVAS_BACKGROUND = '#f4f6f2';
 const MAX_SCENE_SNAPSHOT_HANDLES = 2_048;
+const BAR_UPDATE_BATCH_COUNT = 17;
 
 const LIMITATIONS = Object.freeze({
   Q4: { status: 'partial' },
@@ -136,6 +137,15 @@ interface SceneCollection {
 }
 
 const now = (): number => performance.now();
+
+const stableHash = (value: string): number => {
+  let hash = 2_166_136_261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  return hash >>> 0;
+};
 
 const isRecord = (value: unknown): value is JsonRecord =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -395,6 +405,8 @@ export class LabRuntime {
   #sandboxOutcome: unknown = null;
   #visualObservation: JsonRecord = { pixelMatch: 'non-normative' };
   #interactionObservation: JsonRecord = { elapsedMs: 'unasserted' };
+  #performanceObservation: JsonRecord = {};
+  #lastBarHeightFingerprint: string | null = null;
   #interactionCallbacks: string[] = [];
   #activePointerAction: string | null = null;
   #animationPaused = false;
@@ -455,6 +467,8 @@ export class LabRuntime {
     this.#manualPending = false;
     this.#animationPaused = false;
     this.#interactionObservation = { elapsedMs: 'unasserted' };
+    this.#performanceObservation = {};
+    this.#lastBarHeightFingerprint = null;
     this.#interactionCallbacks = [];
     this.#activePointerAction = null;
     this.events.splice(0);
@@ -757,6 +771,7 @@ export class LabRuntime {
       package: this.#packageObservation,
       limitations: LIMITATIONS,
       visual: this.#visualObservation,
+      performance: this.#performanceObservation,
       interactions: this.#interactionObservation,
       sandbox: { outcome: this.#sandboxOutcome },
       snapshots,
@@ -929,6 +944,9 @@ export class LabRuntime {
         }
         return;
       }
+      case 'bar-height-update':
+        await this.#runBarHeightUpdate(action);
+        return;
       case 'wait-frame':
         await this.#waitFrames(action.frames ?? 1);
         return;
@@ -1044,6 +1062,29 @@ export class LabRuntime {
   }
 
   async #fixture(key: LabFixtureKey): Promise<unknown> {
+    if (key === 'production-panel') {
+      const production = await this.#fixture('production-like');
+      if (!Array.isArray(production)) return [];
+      const grids: JsonRecord[] = [];
+      for (const entry of production as unknown[]) {
+        if (isRecord(entry) && entry.type === 'grid') grids.push(entry);
+      }
+      const countActiveCells = (entry: JsonRecord): number => {
+        if (!Array.isArray(entry.cells)) return 0;
+        let total = 0;
+        for (const row of entry.cells as unknown[]) {
+          if (!Array.isArray(row)) continue;
+          for (const cell of row as unknown[]) {
+            if (cell) total += 1;
+          }
+        }
+        return total;
+      };
+      const panel = grids
+        .filter((entry) => countActiveCells(entry) <= 96)
+        .sort((left, right) => countActiveCells(right) - countActiveCells(left))[0];
+      return panel ? [cloneValue(panel)] : [];
+    }
     if (key === 'production-like') {
       if (this.#productionFixture) return cloneValue(this.#productionFixture);
       const url = new URL('./fixtures/production-like.json', import.meta.url);
@@ -1096,6 +1137,151 @@ export class LabRuntime {
     const result = this.patchmap.update(options);
     this.#selectedHandles = [...result];
     return result;
+  }
+
+  async #runBarHeightUpdate(
+    action: Extract<LabAction, { kind: 'bar-height-update' }>,
+  ): Promise<void> {
+    const targets = this.#resolveSelector(action.target);
+    const buckets = new Map<number, PublicDisplayHandle[]>();
+    const randomHeights = action.mode === 'random'
+      ? Array.from(
+          {
+            length: Math.floor((action.maxHeight - action.minHeight) / action.heightStep) + 1,
+          },
+          (_, index) => action.minHeight + index * action.heightStep,
+        )
+      : [action.height];
+
+    for (const target of targets) {
+      const bucketIndex = action.mode === 'random'
+        ? stableHash(`${action.seed}:${target.id}`) % BAR_UPDATE_BATCH_COUNT
+        : 0;
+      const height = action.mode === 'random'
+        ? randomHeights[bucketIndex % randomHeights.length] ?? action.minHeight
+        : action.height;
+      const bucketKey = action.mode === 'random' ? height : 0;
+      const bucket = buckets.get(bucketKey) ?? [];
+      bucket.push(target);
+      buckets.set(bucketKey, bucket);
+    }
+
+    const results: PublicDisplayHandle[] = [];
+    const batchDurations: number[] = [];
+    const frameGaps: number[] = [];
+    const updateStarted = now();
+    let lastFrameAt = updateStarted;
+    for (const [heightOrBucket, elements] of buckets) {
+      const height = action.mode === 'random' ? heightOrBucket : action.height;
+      const batchStarted = now();
+      const updatesBarsDirectly = elements[0]?.type === 'bar';
+      const componentChanges = {
+        type: 'bar' as const,
+        ...(action.mode === 'uniform' && action.show !== undefined
+          ? { show: action.show }
+          : {}),
+        animation: action.mode === 'random',
+        size: { width: '100%' as const, height: `${height}%` as const },
+      };
+      results.push(...this.patchmap.update({
+        elements,
+        changes: updatesBarsDirectly
+          ? componentChanges
+          : {
+              components: [{
+                ...componentChanges,
+              }],
+            },
+        emit: false,
+      }));
+      batchDurations.push(now() - batchStarted);
+    }
+    const updateWallMs = now() - updateStarted;
+
+    const barForTarget = (target: PublicDisplayHandle): PublicDisplayHandle | undefined =>
+      target.type === 'bar'
+        ? target
+        : target.children.find((child) => {
+            const record = child as unknown as JsonRecord;
+            return record.type === 'bar' && isRecord(record.props);
+          }) as PublicDisplayHandle | undefined;
+    const firstBar = targets[0] ? barForTarget(targets[0]) : undefined;
+    const firstBarProps = firstBar?.props as unknown as JsonRecord | undefined;
+    const observedDefaultDuration = firstBarProps && typeof firstBarProps.animationDuration === 'number'
+      ? firstBarProps.animationDuration
+      : 200;
+    const observationWindowMs = action.mode === 'random'
+      ? Math.min(500, Math.max(100, observedDefaultDuration + 50))
+      : 0;
+    const waitForFrame = async (): Promise<void> => {
+      const frameAt = await new Promise<number>((resolve) => {
+        requestAnimationFrame(() => resolve(now()));
+      });
+      frameGaps.push(frameAt - lastFrameAt);
+      lastFrameAt = frameAt;
+    };
+    await waitForFrame();
+    const animationObservationStarted = now();
+    while (
+      now() - animationObservationStarted < observationWindowMs &&
+      frameGaps.length < 40
+    ) {
+      await waitForFrame();
+    }
+
+    const publicHeights: number[] = [];
+    const publicDurations: number[] = [];
+    const fingerprintParts: string[] = [];
+    for (const target of targets) {
+      const bar = barForTarget(target);
+      if (!bar) continue;
+      const props = bar.props as unknown as JsonRecord;
+      const size = isRecord(props.size) ? props.size : {};
+      const height = isRecord(size.height) && typeof size.height.value === 'number'
+        ? size.height.value
+        : typeof size.height === 'number'
+          ? size.height
+          : null;
+      if (height !== null) {
+        publicHeights.push(height);
+        fingerprintParts.push(`${target.id}:${height}`);
+      }
+      if (typeof props.animationDuration === 'number') {
+        publicDurations.push(props.animationDuration);
+      }
+    }
+
+    const durationValues = [...new Set(publicDurations)].sort((left, right) => left - right);
+    const defaultDurationMs = durationValues.length === 1 ? durationValues[0] ?? null : null;
+
+    const fingerprint = String(stableHash(fingerprintParts.join('|')));
+    const previousFingerprint = this.#lastBarHeightFingerprint;
+    this.#lastBarHeightFingerprint = fingerprint;
+    this.#performanceObservation = {
+      barAnimation: {
+        mode: action.mode,
+        seed: action.mode === 'random' ? action.seed : null,
+        targetCount: targets.length,
+        updatedCount: results.length,
+        barCount: publicHeights.length,
+        distinctHeightCount: new Set(publicHeights).size,
+        minHeight: publicHeights.length > 0 ? Math.min(...publicHeights) : null,
+        maxHeight: publicHeights.length > 0 ? Math.max(...publicHeights) : null,
+        defaultDurationMs,
+        explicitDurationProvided: false,
+        updateCalls: buckets.size,
+        syncUpdateMs: Number(batchDurations.reduce((sum, value) => sum + value, 0).toFixed(2)),
+        maxBatchMs: Number(Math.max(0, ...batchDurations).toFixed(2)),
+        updateWallMs: Number(updateWallMs.toFixed(2)),
+        observedFrames: frameGaps.length,
+        maxFrameGapMs: Number(Math.max(0, ...frameGaps).toFixed(2)),
+        firstFrameDelayMs: Number((frameGaps[0] ?? 0).toFixed(2)),
+        maxAnimationFrameGapMs: Number(Math.max(0, ...frameGaps.slice(1)).toFixed(2)),
+        changedFromPrevious: previousFingerprint === null || previousFingerprint !== fingerprint,
+      },
+    };
+    this.#selectedHandles = results[0] ? [results[0]] : [];
+    this.#lastReturn = results;
   }
 
   #resolveSelector(selector: LabSelector): PublicDisplayHandle[] {

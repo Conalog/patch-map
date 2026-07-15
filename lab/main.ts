@@ -377,6 +377,7 @@ const sceneDiffActionKinds = new Set([
   'draw-inline',
   'draw-invalid',
   'update',
+  'bar-height-update',
   'history',
   'lifecycle',
   'rotation',

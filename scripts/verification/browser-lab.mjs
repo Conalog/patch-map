@@ -169,7 +169,7 @@ try {
   await assertPixiDevtoolsReady(page, 'Initial lab init');
 
   const caseRows = page.getByTestId('case-row');
-  assertion(await caseRows.count() === 51, 'Expected 51 browser-lab cases.', await caseRows.count());
+  assertion(await caseRows.count() === 52, 'Expected 52 browser-lab cases.', await caseRows.count());
   const initialCanvas = await page.locator('#patchmap-host canvas').screenshot();
 
   await page.getByTestId('run-case').click();
@@ -317,26 +317,12 @@ try {
   );
 
   const search = page.getByTestId('case-search');
-  await search.fill('production-like');
+  await search.fill('458-element');
   assertion(await caseRows.count() === 1, 'Case catalog search did not narrow to one production fixture case.', await caseRows.count());
   const productionPage = await context.newPage();
   observePage(productionPage);
   await productionPage.goto(`${baseUrl}/lab/?case=draw-production-like-458&step=1`, { waitUntil: 'networkidle' });
   await productionPage.getByTestId('app-shell').waitFor({ state: 'visible' });
-  await waitForNotBusy(productionPage);
-  await productionPage.getByTestId('next-step').click();
-  await waitForStep(productionPage, 2);
-  await productionPage.getByTestId('result-summary').getByText('PASS', { exact: true }).waitFor();
-  assertion(
-    (await productionPage.getByTestId('selected-handle').textContent())?.includes('"animationDuration": 8000'),
-    'Production bar update did not expose the headed-inspection animation duration.',
-  );
-  await productionPage.getByTestId('pause-animation').click();
-  await productionPage.getByTestId('pause-animation').getByText('Resume animation', { exact: true }).waitFor();
-  await productionPage.getByTestId('pause-animation').click();
-  await productionPage.getByTestId('pause-animation').getByText('Pause animation', { exact: true }).waitFor();
-  await productionPage.getByTestId('run-case').click();
-  await productionPage.waitForURL(/case=draw-production-like-458&step=11/u, { timeout: 90_000 });
   await waitForNotBusy(productionPage);
   await productionPage.getByTestId('result-summary').getByText('PASS', { exact: true }).waitFor();
   const productionObjectCount = await numericText(productionPage.locator('#object-count'));
@@ -345,6 +331,60 @@ try {
     path: path.join(artifactRoot, 'verification-console-desktop.png'),
     fullPage: false,
   });
+  await productionPage.setViewportSize({ width: 1024, height: 768 });
+  await productionPage.waitForTimeout(150);
+  const layout = await productionPage.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    viewportWidth: window.innerWidth,
+    stageWidth: document.querySelector('#canvas-stage')?.getBoundingClientRect().width ?? 0,
+    inspectorWidth: document.querySelector('.inspector-pane')?.getBoundingClientRect().width ?? 0,
+  }));
+  assertion(layout.scrollWidth <= layout.viewportWidth, 'Compact lab layout overflows horizontally.', layout);
+  assertion(layout.stageWidth > 300 && layout.inspectorWidth >= 300, 'Compact lab panels collapsed below usable width.', layout);
+  await productionPage.screenshot({
+    path: path.join(artifactRoot, 'verification-console-compact.png'),
+    fullPage: false,
+  });
+  await productionPage.close();
+
+  const productionBarPage = await context.newPage();
+  observePage(productionBarPage);
+  await productionBarPage.goto(`${baseUrl}/lab/`, { waitUntil: 'networkidle' });
+  await productionBarPage.locator('[data-case-id="draw-production-panel-bar-animation"]').click();
+  await productionBarPage.waitForURL(/case=draw-production-panel-bar-animation/u);
+  await productionBarPage.locator('[data-testid="step-button"][data-step-index="4"]').click();
+  await waitForStep(productionBarPage, 4);
+  await productionBarPage.waitForFunction(() =>
+    document.querySelector('#result-status')?.textContent?.trim() !== 'NOT RUN');
+  const productionBarStatus = (await productionBarPage.locator('#result-status').textContent())?.trim();
+  assertion(
+    productionBarStatus === 'PASS',
+    'Production panel bar animation did not pass.',
+    {
+      status: productionBarStatus,
+      summary: await productionBarPage.getByTestId('result-summary').textContent(),
+      assertions: await productionBarPage.getByTestId('assertion-list').textContent(),
+    },
+  );
+  assertion(
+    !(await productionBarPage.getByTestId('step-input').textContent())?.includes('animationDuration'),
+    'Production panel bar update overrides the public default animation duration.',
+  );
+  assertion(
+    (await productionBarPage.getByTestId('assertion-list').textContent())?.includes('200'),
+    'Production panel bar update did not preserve the public default animation duration.',
+  );
+  await productionBarPage.getByTestId('run-case').click();
+  await productionBarPage.waitForURL(/case=draw-production-panel-bar-animation&step=6/u, { timeout: 60_000 });
+  await waitForNotBusy(productionBarPage);
+  await productionBarPage.getByTestId('result-summary').getByText('PASS', { exact: true }).waitFor();
+  await productionBarPage.waitForTimeout(750);
+  await productionBarPage.screenshot({
+    path: path.join(artifactRoot, 'production-random-bars.png'),
+    fullPage: false,
+    animations: 'disabled',
+  });
+  await productionBarPage.close();
 
   const sandboxPage = await context.newPage();
   observePage(sandboxPage);
@@ -412,21 +452,6 @@ try {
   await manualPage.locator('#manual-prompt').waitFor({ state: 'hidden' });
   await manualPage.close();
 
-  await productionPage.setViewportSize({ width: 1024, height: 768 });
-  await productionPage.waitForTimeout(150);
-  const layout = await productionPage.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    viewportWidth: window.innerWidth,
-    stageWidth: document.querySelector('#canvas-stage')?.getBoundingClientRect().width ?? 0,
-    inspectorWidth: document.querySelector('.inspector-pane')?.getBoundingClientRect().width ?? 0,
-  }));
-  assertion(layout.scrollWidth <= layout.viewportWidth, 'Compact lab layout overflows horizontally.', layout);
-  assertion(layout.stageWidth > 300 && layout.inspectorWidth >= 300, 'Compact lab panels collapsed below usable width.', layout);
-  await productionPage.screenshot({
-    path: path.join(artifactRoot, 'verification-console-compact.png'),
-    fullPage: false,
-  });
-
   assertion(pageErrors.length === 0, 'Browser lab emitted page errors.', pageErrors);
   assertion(consoleErrors.length === 0, 'Browser lab emitted console errors.', consoleErrors);
   assertion(networkErrors.length === 0, 'Browser lab emitted failed same-origin requests.', networkErrors);
@@ -436,7 +461,7 @@ try {
     durationMs: Date.now() - smokeStartedAt,
     baseUrl,
     headed,
-    cases: 51,
+    cases: 52,
     defaultObjectCount,
     productionObjectCount,
     freshPages: freshCaseResults,
@@ -445,6 +470,7 @@ try {
       resetDrawStepReplay: 'pass',
       urlRestore: 'pass',
       productionFixture: 'pass',
+      productionBarAnimation: 'pass',
       sandboxDraw: 'pass',
       sandboxUpdate: 'pass',
       sandboxErrorSanitization: 'pass',
@@ -473,6 +499,7 @@ try {
     screenshots: [
       path.join(artifactRoot, 'verification-console-desktop.png'),
       path.join(artifactRoot, 'verification-console-compact.png'),
+      path.join(artifactRoot, 'production-random-bars.png'),
     ],
   }, null, 2)}\n`);
 } finally {
