@@ -123,7 +123,7 @@ describe('AggregateMeshLayer', () => {
     expect(() => layer.sync(store)).toThrow('AggregateMeshLayer is destroyed');
   });
 
-  it('uploads only bar groups for a bar-only dirty chunk', () => {
+  it('visits and updates only bar slots in a non-bar-heavy dirty chunk', () => {
     const store = createStore();
     const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'mesh fast path' });
     const initial = layer.sync(store, { fullRebuildEpoch: 1 });
@@ -144,6 +144,8 @@ describe('AggregateMeshLayer', () => {
     const relationBefore = relationCandidate as Mesh<MeshGeometry>;
     const rectPositionsBefore = [...rectBefore.geometry.positions];
     const barPositionsBefore = barsBefore.map((mesh) => [...mesh.geometry.positions]);
+    const barUvsBefore = barsBefore.map((mesh) => mesh.geometry.uvs);
+    const barIndicesBefore = barsBefore.map((mesh) => mesh.geometry.indices);
 
     (store.value as Float32Array)[1] = 75;
     (store as { revision: number }).revision = 2;
@@ -162,6 +164,8 @@ describe('AggregateMeshLayer', () => {
 
     expect(updated.uploadedChunks).toBe(1);
     expect(updated.uploadedBytes).toBeGreaterThan(0);
+    expect(updated.geometrySlotsVisited).toBe(1);
+    expect(updated.geometrySlotsVisited).toBeLessThan(layer.chunkSize);
     expect(updated.meshCount).toBe(initial.meshCount);
     expect(updated.visibleQuads).toBe(initial.visibleQuads);
     expect(updated.visibleRelations).toBe(initial.visibleRelations);
@@ -170,6 +174,8 @@ describe('AggregateMeshLayer', () => {
     expect([...rectBefore.geometry.positions]).toEqual(rectPositionsBefore);
     expect(barsAfter).toHaveLength(barsBefore.length);
     expect(barsAfter.every((mesh) => barsBefore.includes(mesh))).toBe(true);
+    expect(barsAfter.map((mesh) => mesh.geometry.uvs)).toEqual(barUvsBefore);
+    expect(barsAfter.map((mesh) => mesh.geometry.indices)).toEqual(barIndicesBefore);
     expect(
       barsAfter.some((mesh, meshIndex) =>
         [...mesh.geometry.positions].some(
@@ -179,13 +185,35 @@ describe('AggregateMeshLayer', () => {
       ),
     ).toBe(true);
 
-    (store.value as Float32Array)[1] = 25;
+    const fillBefore = barsAfter.find((mesh) => mesh.zIndex === 6);
+    if (fillBefore === undefined) throw new Error('expected initial bar fill mesh');
+    (store.fill as Uint32Array)[1] = 0x8844ccff;
     (store as { revision: number }).revision = 3;
+    const styleUpdated = layer.sync(store, { changedRanges: [{ start: 1, end: 2 }] });
+    const fillAfter = layer.quadContainer.children.find(
+      (child) => child instanceof Mesh && child.zIndex === 6,
+    );
+    expect(styleUpdated.geometrySlotsVisited).toBe(1);
+    expect(fillAfter).not.toBe(fillBefore);
+    expect(fillBefore.destroyed).toBe(true);
+    expect(
+      layer.quadContainer.children.find((child) =>
+        child.label.includes(': rect chunk 0'),
+      ),
+    ).toBe(rectBefore);
+    expect(
+      layer.relationContainer.children.find((child) =>
+        child.label.includes(': relation chunk 0'),
+      ),
+    ).toBe(relationBefore);
+
+    (store.value as Float32Array)[1] = 25;
+    (store as { revision: number }).revision = 4;
     const forcedFull = layer.sync(store, {
       changedRanges: [{ start: 1, end: 2 }],
       force: true,
     });
-    expect(updated.uploadedBytes).toBe(64);
+    expect(updated.uploadedBytes).toBe(32);
     expect(forcedFull.uploadedBytes).toBe(128);
     expect(updated.uploadedBytes).toBeLessThan(forcedFull.uploadedBytes);
 

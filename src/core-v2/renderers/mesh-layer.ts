@@ -7,7 +7,7 @@ import {
   type RenderStoreView,
 } from '../../core-v1/renderer/types';
 
-export const DEFAULT_AGGREGATE_MESH_CHUNK_SIZE = 256;
+export const DEFAULT_AGGREGATE_MESH_CHUNK_SIZE = 512;
 
 const RECT_PASS = 0;
 const BAR_TRACK_PASS = 1;
@@ -82,6 +82,8 @@ export interface AggregateMeshLayerDebug {
   readonly uploadedChunks: number;
   /** Bytes scheduled for upload in the most recent sync. */
   readonly uploadedBytes: number;
+  /** Store slots visited by geometry update code in the most recent sync. */
+  readonly geometrySlotsVisited: number;
   readonly totalUploadedChunks: number;
   readonly totalUploadedBytes: number;
   readonly revision: number;
@@ -111,10 +113,31 @@ interface MeshRecord {
   primitiveCount: number;
 }
 
+interface BarPrimitiveBinding {
+  readonly key: string;
+  readonly primitiveIndex: number;
+  readonly packed: number;
+  readonly opacity: number;
+  readonly zIndex: number;
+}
+
+interface BarSlotBinding {
+  readonly track: BarPrimitiveBinding | null;
+  readonly fill: BarPrimitiveBinding | null;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  progress: number;
+}
+
 interface ChunkRecord {
   readonly rectMeshes: Map<string, MeshRecord>;
   readonly barMeshes: Map<string, MeshRecord>;
   readonly relationMeshes: Map<string, MeshRecord>;
+  readonly barSlots: number[];
+  readonly barBindings: Map<number, BarSlotBinding>;
   visibleRects: number;
   visibleBars: number;
   visibleRelations: number;
@@ -124,12 +147,26 @@ interface AggregateChunkLaneGeometry {
   readonly rectGroups: readonly AggregateGeometryGroup[];
   readonly barGroups: readonly AggregateGeometryGroup[];
   readonly relationGroups: readonly AggregateGeometryGroup[];
+  readonly barSlots: readonly number[];
+  readonly barBindings: ReadonlyMap<number, BarSlotBinding>;
   readonly visibleRects: number;
   readonly visibleBars: number;
   readonly visibleRelations: number;
 }
 
+interface AggregateBarLaneGeometry {
+  readonly groups: readonly AggregateGeometryGroup[];
+  readonly bindings: ReadonlyMap<number, BarSlotBinding>;
+  readonly visibleBars: number;
+}
+
 interface UploadDelta {
+  bytes: number;
+  changed: boolean;
+  visitedSlots: number;
+}
+
+interface GroupUploadDelta {
   bytes: number;
   changed: boolean;
 }
@@ -142,6 +179,7 @@ const EMPTY_DEBUG: AggregateMeshLayerDebug = Object.freeze({
   visibleRelations: 0,
   uploadedChunks: 0,
   uploadedBytes: 0,
+  geometrySlotsVisited: 0,
   totalUploadedChunks: 0,
   totalUploadedBytes: 0,
   revision: -1,
@@ -216,6 +254,61 @@ function finishGeometry(
   };
 }
 
+function writeRotatedCorner(
+  positions: Float32Array,
+  offset: number,
+  targetOffset: number,
+  sourceX: number,
+  sourceY: number,
+  pivotX: number,
+  pivotY: number,
+  cos: number,
+  sin: number,
+): boolean {
+  const deltaX = sourceX - pivotX;
+  const deltaY = sourceY - pivotY;
+  const nextX = Math.fround(pivotX + deltaX * cos - deltaY * sin);
+  const nextY = Math.fround(pivotY + deltaX * sin + deltaY * cos);
+  const changed =
+    positions[offset + targetOffset] !== nextX ||
+    positions[offset + targetOffset + 1] !== nextY;
+  positions[offset + targetOffset] = nextX;
+  positions[offset + targetOffset + 1] = nextY;
+  return changed;
+}
+
+function writeQuadPositionValues(
+  positions: Float32Array,
+  primitiveIndex: number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  rotation: number,
+  pivotX: number,
+  pivotY: number,
+): boolean {
+  const right = x + width;
+  const bottom = y + height;
+  const radians = (rotation * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const offset = primitiveIndex * 8;
+  const corner0 = writeRotatedCorner(
+    positions, offset, 0, x, y, pivotX, pivotY, cos, sin,
+  );
+  const corner1 = writeRotatedCorner(
+    positions, offset, 2, right, y, pivotX, pivotY, cos, sin,
+  );
+  const corner2 = writeRotatedCorner(
+    positions, offset, 4, right, bottom, pivotX, pivotY, cos, sin,
+  );
+  const corner3 = writeRotatedCorner(
+    positions, offset, 6, x, bottom, pivotX, pivotY, cos, sin,
+  );
+  return corner0 || corner1 || corner2 || corner3;
+}
+
 /** Convert Core's packed 0xRRGGBBAA color into Pixi's tint plus alpha. */
 export function packedRgbaToMeshStyle(packed: number, opacity = 1): PackedMeshStyle {
   const normalized = packed >>> 0;
@@ -234,27 +327,19 @@ export function buildQuadGeometry(quads: readonly AggregateQuad[]): AggregateGeo
 
   for (let primitiveIndex = 0; primitiveIndex < drawable.length; primitiveIndex += 1) {
     const quad = drawable[primitiveIndex] as AggregateQuad;
-    const left = quad.x;
-    const top = quad.y;
-    const right = left + quad.width;
-    const bottom = top + quad.height;
-    const pivotX = quad.pivotX ?? left + quad.width / 2;
-    const pivotY = quad.pivotY ?? top + quad.height / 2;
-    const radians = ((quad.rotation ?? 0) * Math.PI) / 180;
-    const cos = Math.cos(radians);
-    const sin = Math.sin(radians);
-    const corners = [left, top, right, top, right, bottom, left, bottom] as const;
-    const offset = primitiveIndex * 8;
-
-    for (let corner = 0; corner < 4; corner += 1) {
-      const sourceOffset = corner * 2;
-      const x = corners[sourceOffset] as number;
-      const y = corners[sourceOffset + 1] as number;
-      const deltaX = x - pivotX;
-      const deltaY = y - pivotY;
-      positions[offset + sourceOffset] = pivotX + deltaX * cos - deltaY * sin;
-      positions[offset + sourceOffset + 1] = pivotY + deltaX * sin + deltaY * cos;
-    }
+    const pivotX = quad.pivotX ?? quad.x + quad.width / 2;
+    const pivotY = quad.pivotY ?? quad.y + quad.height / 2;
+    writeQuadPositionValues(
+      positions,
+      primitiveIndex,
+      quad.x,
+      quad.y,
+      quad.width,
+      quad.height,
+      quad.rotation ?? 0,
+      pivotX,
+      pivotY,
+    );
     writeUvsAndIndices(uvs, indices, primitiveIndex);
   }
 
@@ -316,16 +401,16 @@ export function dirtyChunkIndices(
   return [...chunks].sort((left, right) => left - right);
 }
 
-function barOnlyDirtyChunkIndices(
+function barOnlyDirtyChunkSlots(
   store: RenderStoreView,
   chunkSize: number,
   changedRanges: readonly SlotRange[],
   previousAlive: Uint8Array,
   previousKind: Uint8Array,
-): ReadonlySet<number> {
+): ReadonlyMap<number, readonly number[]> {
   const classifications = new Map<
     number,
-    { hasLiveBar: boolean; barOnly: boolean }
+    { readonly slots: Set<number>; barOnly: boolean }
   >();
 
   for (const range of changedRanges) {
@@ -335,7 +420,7 @@ function barOnlyDirtyChunkIndices(
       const chunkIndex = Math.floor(slot / chunkSize);
       let classification = classifications.get(chunkIndex);
       if (classification === undefined) {
-        classification = { hasLiveBar: false, barOnly: true };
+        classification = { slots: new Set(), barOnly: true };
         classifications.set(chunkIndex, classification);
       }
       if (
@@ -344,7 +429,7 @@ function barOnlyDirtyChunkIndices(
         (previousAlive[slot] ?? 0) !== 0 &&
         (previousKind[slot] ?? -1) === RenderKind.Bar
       ) {
-        classification.hasLiveBar = true;
+        classification.slots.add(slot);
       } else {
         // A dead slot can represent a removal, and a newly live Bar can reuse
         // a slot that previously held another kind. Both must take the full
@@ -354,11 +439,13 @@ function barOnlyDirtyChunkIndices(
     }
   }
 
-  return new Set(
-    [...classifications.entries()]
-      .filter(([, value]) => value.hasLiveBar && value.barOnly)
-      .map(([chunkIndex]) => chunkIndex),
-  );
+  const result = new Map<number, readonly number[]>();
+  for (const [chunkIndex, classification] of classifications) {
+    if (classification.barOnly && classification.slots.size > 0) {
+      result.set(chunkIndex, [...classification.slots]);
+    }
+  }
+  return result;
 }
 
 function isDrawable(store: RenderStoreView, slot: number): boolean {
@@ -437,15 +524,286 @@ function geometryGroup(
   };
 }
 
+function appendBarPrimitive(
+  groups: Map<string, MutableQuadGroup>,
+  packed: number,
+  opacity: number,
+  zIndex: number,
+  pass: number,
+  quad: AggregateQuad,
+): BarPrimitiveBinding | null {
+  if (!isFiniteQuad(quad)) return null;
+  const group = getQuadGroup(groups, packed, opacity, zIndex, pass);
+  if (group === null) return null;
+  const primitiveIndex = group.primitives.length;
+  group.primitives.push(quad);
+  return {
+    key: group.key,
+    primitiveIndex,
+    packed: packed >>> 0,
+    opacity,
+    zIndex,
+  };
+}
+
+function resolveBarProgress(store: RenderStoreView, slot: number): number {
+  const min = store.min[slot] as number;
+  const max = store.max[slot] as number;
+  return max > min
+    ? clamp01(((store.value[slot] as number) - min) / (max - min))
+    : 0;
+}
+
+function appendBarSlot(
+  store: RenderStoreView,
+  slot: number,
+  groups: Map<string, MutableQuadGroup>,
+  bindings: Map<number, BarSlotBinding>,
+): number {
+  let track: BarPrimitiveBinding | null = null;
+  let fill: BarPrimitiveBinding | null = null;
+  const x = store.x[slot] as number;
+  const y = store.y[slot] as number;
+  const width = store.width[slot] as number;
+  const height = store.height[slot] as number;
+  const rotation = store.rotation[slot] as number;
+  const progress = resolveBarProgress(store, slot);
+  if (isDrawable(store, slot)) {
+    if (width > 0 && height > 0) {
+      const opacity = store.opacity[slot] as number;
+      const zIndex = store.zIndex[slot] as number;
+      const pivotX = x + width / 2;
+      const pivotY = y + height / 2;
+      track = appendBarPrimitive(
+        groups,
+        store.trackFill[slot] as number,
+        opacity,
+        zIndex,
+        BAR_TRACK_PASS,
+        { x, y, width, height, rotation, pivotX, pivotY },
+      );
+
+      const fillWidth = width * progress;
+      if (fillWidth > 0) {
+        fill = appendBarPrimitive(
+          groups,
+          store.fill[slot] as number,
+          opacity,
+          zIndex,
+          BAR_FILL_PASS,
+          { x, y, width: fillWidth, height, rotation, pivotX, pivotY },
+        );
+      }
+    }
+  }
+  bindings.set(slot, { track, fill, x, y, width, height, rotation, progress });
+  return (track === null ? 0 : 1) + (fill === null ? 0 : 1);
+}
+
+function buildAggregateBarLaneGeometry(
+  store: RenderStoreView,
+  barSlots: readonly number[],
+): AggregateBarLaneGeometry {
+  const groups = new Map<string, MutableQuadGroup>();
+  const bindings = new Map<number, BarSlotBinding>();
+  let visibleBars = 0;
+  for (const slot of barSlots) {
+    if (
+      slot < 0 ||
+      slot >= store.capacity ||
+      (store.alive[slot] as number) === 0 ||
+      (store.kind[slot] as number) !== RenderKind.Bar
+    ) {
+      continue;
+    }
+    visibleBars += appendBarSlot(store, slot, groups, bindings);
+  }
+  return {
+    groups: [...groups.values()].map((group) =>
+      geometryGroup(group, buildQuadGeometry(group.primitives)),
+    ),
+    bindings,
+    visibleBars,
+  };
+}
+
+function hasVisiblePackedAlpha(packed: number, opacity: number): boolean {
+  return ((packed >>> 0) & 0xff) !== 0 && clamp01(opacity) > 0;
+}
+
+function isFiniteBarQuad(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  rotation: number,
+): boolean {
+  return (
+    Number.isFinite(x) &&
+    Number.isFinite(y) &&
+    Number.isFinite(width) &&
+    Number.isFinite(height) &&
+    width > 0 &&
+    height > 0 &&
+    Number.isFinite(rotation) &&
+    Number.isFinite(x + width / 2) &&
+    Number.isFinite(y + height / 2)
+  );
+}
+
+function primitiveBindingMatches(
+  binding: BarPrimitiveBinding | null,
+  expected: boolean,
+  packed: number,
+  opacity: number,
+  zIndex: number,
+  records: ReadonlyMap<string, MeshRecord>,
+): boolean {
+  if (!expected) return binding === null;
+  if (
+    binding === null ||
+    binding.packed !== (packed >>> 0) ||
+    binding.opacity !== opacity ||
+    binding.zIndex !== zIndex
+  ) {
+    return false;
+  }
+  const record = records.get(binding.key);
+  return (
+    record !== undefined &&
+    binding.primitiveIndex * 8 + 8 <= record.geometry.positions.length
+  );
+}
+
+function barSlotBindingMatches(
+  store: RenderStoreView,
+  slot: number,
+  binding: BarSlotBinding | undefined,
+  records: ReadonlyMap<string, MeshRecord>,
+): boolean {
+  if (
+    binding === undefined ||
+    (store.alive[slot] as number) === 0 ||
+    (store.kind[slot] as number) !== RenderKind.Bar
+  ) {
+    return false;
+  }
+  const opacity = store.opacity[slot] as number;
+  const zIndex = store.zIndex[slot] as number;
+  const x = store.x[slot] as number;
+  const y = store.y[slot] as number;
+  const width = store.width[slot] as number;
+  const height = store.height[slot] as number;
+  const rotation = store.rotation[slot] as number;
+  const drawable = isDrawable(store, slot) &&
+    isFiniteBarQuad(x, y, width, height, rotation);
+  const trackPacked = store.trackFill[slot] as number;
+  const trackExpected = drawable && hasVisiblePackedAlpha(trackPacked, opacity);
+
+  const progress = resolveBarProgress(store, slot);
+  const fillWidth = width * progress;
+  const fillPacked = store.fill[slot] as number;
+  const fillExpected =
+    drawable &&
+    Number.isFinite(fillWidth) &&
+    fillWidth > 0 &&
+    hasVisiblePackedAlpha(fillPacked, opacity);
+
+  return (
+    primitiveBindingMatches(
+      binding.track,
+      trackExpected,
+      trackPacked,
+      opacity,
+      zIndex,
+      records,
+    ) &&
+    primitiveBindingMatches(
+      binding.fill,
+      fillExpected,
+      fillPacked,
+      opacity,
+      zIndex,
+      records,
+    )
+  );
+}
+
+function updateBoundBarSlotPositions(
+  store: RenderStoreView,
+  slot: number,
+  binding: BarSlotBinding,
+  records: ReadonlyMap<string, MeshRecord>,
+  dirtyRecords: Set<MeshRecord>,
+): void {
+  const x = store.x[slot] as number;
+  const y = store.y[slot] as number;
+  const width = store.width[slot] as number;
+  const height = store.height[slot] as number;
+  const rotation = store.rotation[slot] as number;
+  const progress = resolveBarProgress(store, slot);
+  const pivotX = x + width / 2;
+  const pivotY = y + height / 2;
+  const transformChanged =
+    binding.x !== x ||
+    binding.y !== y ||
+    binding.width !== width ||
+    binding.height !== height ||
+    binding.rotation !== rotation;
+  if (binding.track !== null && transformChanged) {
+    const record = records.get(binding.track.key) as MeshRecord;
+    if (
+      writeQuadPositionValues(
+        record.geometry.positions,
+        binding.track.primitiveIndex,
+        x,
+        y,
+        width,
+        height,
+        rotation,
+        pivotX,
+        pivotY,
+      )
+    ) {
+      dirtyRecords.add(record);
+    }
+  }
+  if (binding.fill !== null && (transformChanged || binding.progress !== progress)) {
+    const record = records.get(binding.fill.key) as MeshRecord;
+    if (
+      writeQuadPositionValues(
+        record.geometry.positions,
+        binding.fill.primitiveIndex,
+        x,
+        y,
+        width * progress,
+        height,
+        rotation,
+        pivotX,
+        pivotY,
+      )
+    ) {
+      dirtyRecords.add(record);
+    }
+  }
+  binding.x = x;
+  binding.y = y;
+  binding.width = width;
+  binding.height = height;
+  binding.rotation = rotation;
+  binding.progress = progress;
+}
+
 function buildAggregateChunkLaneGeometry(
   store: RenderStoreView,
   start: number,
   end: number,
-  barOnly = false,
 ): AggregateChunkLaneGeometry {
   const rectGroups = new Map<string, MutableQuadGroup>();
   const barGroups = new Map<string, MutableQuadGroup>();
   const relationGroups = new Map<string, MutableLineGroup>();
+  const barSlots: number[] = [];
+  const barBindings = new Map<number, BarSlotBinding>();
   const resolvedStart = Math.max(0, Math.min(store.capacity, Math.floor(start)));
   const resolvedEnd = Math.max(resolvedStart, Math.min(store.capacity, Math.ceil(end)));
   let visibleRects = 0;
@@ -453,9 +811,14 @@ function buildAggregateChunkLaneGeometry(
   let visibleRelations = 0;
 
   for (let slot = resolvedStart; slot < resolvedEnd; slot += 1) {
-    if (!isDrawable(store, slot)) continue;
+    if ((store.alive[slot] as number) === 0) continue;
     const kind = store.kind[slot] as number;
-    if (barOnly && kind !== RenderKind.Bar) continue;
+    if (kind === RenderKind.Bar) {
+      barSlots.push(slot);
+      visibleBars += appendBarSlot(store, slot, barGroups, barBindings);
+      continue;
+    }
+    if (!isDrawable(store, slot)) continue;
     const opacity = store.opacity[slot] as number;
     const zIndex = store.zIndex[slot] as number;
 
@@ -474,43 +837,6 @@ function buildAggregateChunkLaneGeometry(
           rotation: store.rotation[slot] as number,
         });
         visibleRects += 1;
-      }
-      continue;
-    }
-
-    if (kind === RenderKind.Bar) {
-      const x = store.x[slot] as number;
-      const y = store.y[slot] as number;
-      const width = store.width[slot] as number;
-      const height = store.height[slot] as number;
-      if (width <= 0 || height <= 0) continue;
-      const rotation = store.rotation[slot] as number;
-      const pivotX = x + width / 2;
-      const pivotY = y + height / 2;
-      const track = getQuadGroup(
-        barGroups,
-        store.trackFill[slot] as number,
-        opacity,
-        zIndex,
-        BAR_TRACK_PASS,
-      );
-      if (track !== null) {
-        track.primitives.push({ x, y, width, height, rotation, pivotX, pivotY });
-        visibleBars += 1;
-      }
-
-      const min = store.min[slot] as number;
-      const max = store.max[slot] as number;
-      const progress = max > min
-        ? clamp01(((store.value[slot] as number) - min) / (max - min))
-        : 0;
-      const fillWidth = width * progress;
-      const fill = fillWidth > 0
-        ? getQuadGroup(barGroups, store.fill[slot] as number, opacity, zIndex, BAR_FILL_PASS)
-        : null;
-      if (fill !== null) {
-        fill.primitives.push({ x, y, width: fillWidth, height, rotation, pivotX, pivotY });
-        visibleBars += 1;
       }
       continue;
     }
@@ -549,6 +875,8 @@ function buildAggregateChunkLaneGeometry(
     relationGroups: [...relationGroups.values()].map((group) =>
       geometryGroup(group, buildLineGeometry(group.primitives)),
     ),
+    barSlots,
+    barBindings,
     visibleRects,
     visibleBars,
     visibleRelations,
@@ -586,6 +914,8 @@ function createChunkRecord(): ChunkRecord {
     rectMeshes: new Map(),
     barMeshes: new Map(),
     relationMeshes: new Map(),
+    barSlots: [],
+    barBindings: new Map(),
     visibleRects: 0,
     visibleBars: 0,
     visibleRelations: 0,
@@ -695,8 +1025,8 @@ export class AggregateMeshLayer {
       ? Array.from({ length: maximumChunk }, (_, chunk) => chunk)
       : [...dirtyChunkIndices(store.capacity, this.chunkSize, options.changedRanges ?? [])];
     const barOnlyChunks = fullRebuild
-      ? new Set<number>()
-      : barOnlyDirtyChunkIndices(
+      ? new Map<number, readonly number[]>()
+      : barOnlyDirtyChunkSlots(
         store,
         this.chunkSize,
         options.changedRanges ?? [],
@@ -712,12 +1042,15 @@ export class AggregateMeshLayer {
 
     let uploadedChunks = 0;
     let uploadedBytes = 0;
+    let geometrySlotsVisited = 0;
     for (const chunk of dirtyChunks) {
-      const delta = barOnlyChunks.has(chunk)
-        ? this.#syncBarChunk(store, chunk)
+      const changedBarSlots = barOnlyChunks.get(chunk);
+      const delta = changedBarSlots !== undefined
+        ? this.#syncBarChunk(store, chunk, changedBarSlots)
         : this.#syncChunk(store, chunk);
       if (delta.changed) uploadedChunks += 1;
       uploadedBytes += delta.bytes;
+      geometrySlotsVisited += delta.visitedSlots;
     }
     this.#recordTopology(store, fullRebuild, options.changedRanges ?? []);
 
@@ -746,6 +1079,7 @@ export class AggregateMeshLayer {
       visibleRelations,
       uploadedChunks,
       uploadedBytes,
+      geometrySlotsVisited,
       totalUploadedChunks: this.#debug.totalUploadedChunks + uploadedChunks,
       totalUploadedBytes: this.#debug.totalUploadedBytes + uploadedBytes,
       revision: store.revision,
@@ -774,6 +1108,7 @@ export class AggregateMeshLayer {
       visibleRelations: 0,
       uploadedChunks: 0,
       uploadedBytes: 0,
+      geometrySlotsVisited: 0,
       revision: -1,
     });
     return changed;
@@ -835,11 +1170,12 @@ export class AggregateMeshLayer {
     if (
       built.rectGroups.length === 0 &&
       built.barGroups.length === 0 &&
-      built.relationGroups.length === 0
+      built.relationGroups.length === 0 &&
+      built.barSlots.length === 0
     ) {
       const changed = chunk !== undefined;
       if (changed) this.#destroyChunk(chunkIndex);
-      return { bytes: 0, changed };
+      return { bytes: 0, changed, visitedSlots: end - start };
     }
     if (chunk === undefined) {
       chunk = createChunkRecord();
@@ -870,42 +1206,81 @@ export class AggregateMeshLayer {
     chunk.visibleRects = built.visibleRects;
     chunk.visibleBars = built.visibleBars;
     chunk.visibleRelations = built.visibleRelations;
+    chunk.barSlots.length = 0;
+    chunk.barSlots.push(...built.barSlots);
+    chunk.barBindings.clear();
+    for (const [slot, binding] of built.barBindings) {
+      chunk.barBindings.set(slot, binding);
+    }
     return {
       bytes: rectDelta.bytes + barDelta.bytes + relationDelta.bytes,
       changed: rectDelta.changed || barDelta.changed || relationDelta.changed,
+      visitedSlots: end - start,
     };
   }
 
-  #syncBarChunk(store: RenderStoreView, chunkIndex: number): UploadDelta {
-    const start = chunkIndex * this.chunkSize;
-    const end = Math.min(store.capacity, start + this.chunkSize);
-    const built = buildAggregateChunkLaneGeometry(store, start, end, true);
-    let chunk = this.#chunks.get(chunkIndex);
-    if (chunk === undefined && built.barGroups.length === 0) {
-      return { bytes: 0, changed: false };
-    }
-    if (chunk === undefined) {
-      chunk = createChunkRecord();
-      this.#chunks.set(chunkIndex, chunk);
+  #syncBarChunk(
+    store: RenderStoreView,
+    chunkIndex: number,
+    changedSlots: readonly number[],
+  ): UploadDelta {
+    const chunk = this.#chunks.get(chunkIndex);
+    if (chunk === undefined) return this.#syncChunk(store, chunkIndex);
+
+    for (const slot of changedSlots) {
+      if (
+        !barSlotBindingMatches(
+          store,
+          slot,
+          chunk.barBindings.get(slot),
+          chunk.barMeshes,
+        )
+      ) {
+        return this.#rebuildBarChunk(store, chunkIndex, chunk);
+      }
     }
 
-    const barDelta = this.#syncGroups(
+    const dirtyRecords = new Set<MeshRecord>();
+    for (const slot of changedSlots) {
+      updateBoundBarSlotPositions(
+        store,
+        slot,
+        chunk.barBindings.get(slot) as BarSlotBinding,
+        chunk.barMeshes,
+        dirtyRecords,
+      );
+    }
+    let bytes = 0;
+    for (const record of dirtyRecords) {
+      record.geometry.getBuffer('aPosition').update(record.geometry.positions.byteLength);
+      bytes += record.geometry.positions.byteLength;
+    }
+    return {
+      bytes,
+      changed: dirtyRecords.size > 0,
+      visitedSlots: changedSlots.length,
+    };
+  }
+
+  #rebuildBarChunk(
+    store: RenderStoreView,
+    chunkIndex: number,
+    chunk: ChunkRecord,
+  ): UploadDelta {
+    const built = buildAggregateBarLaneGeometry(store, chunk.barSlots);
+    const delta = this.#syncGroups(
       this.quadContainer,
       chunk.barMeshes,
-      built.barGroups,
+      built.groups,
       chunkIndex,
       'bar',
     );
     chunk.visibleBars = built.visibleBars;
-
-    if (
-      chunk.rectMeshes.size === 0 &&
-      chunk.barMeshes.size === 0 &&
-      chunk.relationMeshes.size === 0
-    ) {
-      this.#chunks.delete(chunkIndex);
+    chunk.barBindings.clear();
+    for (const [slot, binding] of built.bindings) {
+      chunk.barBindings.set(slot, binding);
     }
-    return barDelta;
+    return { ...delta, visitedSlots: chunk.barSlots.length };
   }
 
   #syncGroups(
@@ -914,7 +1289,7 @@ export class AggregateMeshLayer {
     groups: readonly AggregateGeometryGroup[],
     chunkIndex: number,
     lane: string,
-  ): UploadDelta {
+  ): GroupUploadDelta {
     const desired = new Set(groups.map((group) => group.key));
     let changed = false;
     let bytes = 0;
