@@ -1,0 +1,1143 @@
+{
+  "schemaVersion": 1,
+  "spike": "flat-pixi",
+  "design": "typed-array dense store + id-slot index + spatial buckets + chunked aggregate Pixi Graphics",
+  "compatibility": "intentionally none",
+  "generatedAt": "2026-07-15T05:24:03.269Z",
+  "mode": "quick",
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v22.21.1",
+    "browser": "Chromium 143.0.7499.4",
+    "renderer": "PixiJS WebGL (headless Chromium/SwiftShader)",
+    "cpuThrottleRate": 4,
+    "windowsNative": "pending"
+  },
+  "sampling": {
+    "warmups": 1,
+    "samples": 3,
+    "animationFrames": 6,
+    "hitTests": 128
+  },
+  "contract": {
+    "synchronous": [
+      "load",
+      "batchUpdate",
+      "animateStep",
+      "snapshot",
+      "query",
+      "hitTest"
+    ],
+    "renderBoundary": "renderer.flush()",
+    "errorAtomicity": "every patch validates before any store mutation",
+    "lifecycle": "destroy invalidates refs and releases renderer globals",
+    "renderObjects": "one Graphics per 256 entities; no per-entity DisplayObject/listener/ticker/closure"
+  },
+  "contractChecks": {
+    "inputImmutable": true,
+    "atomicBatchRejection": true,
+    "staleRefAfterDestroy": true,
+    "staleRefAfterReload": true,
+    "explicitFlushBoundary": true
+  },
+  "workloads": {
+    "generated-100": {
+      "entityCount": 100,
+      "warmupCount": 1,
+      "sampleCount": 3,
+      "warmupRaw": [
+        {
+          "load": 0.6000001430511475,
+          "rendererInit": 179.10000014305115,
+          "firstRender": 50.09999990463257,
+          "firstPaintTotal": 229.20000004768372,
+          "bulkUpdateSync": 0.7000000476837158,
+          "bulkUpdateRender": 8.200000047683716,
+          "bulkUpdate": 8.900000095367432,
+          "animationFrame": 4.699999809265137,
+          "animationFrameRaw": [
+            4.699999809265137,
+            2.5,
+            2.4000000953674316,
+            1.9000000953674316,
+            1,
+            2.8999998569488525
+          ],
+          "hitTestSelection": 0.9000000953674316,
+          "teardown": 355,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 838683515,
+            "selected": 60,
+            "surfaces": 1,
+            "firstRedrawnChunks": 1,
+            "bulkRedrawnChunks": 1,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        }
+      ],
+      "raw": [
+        {
+          "load": 0.9000000953674316,
+          "rendererInit": 31.299999952316284,
+          "firstRender": 23.300000190734863,
+          "firstPaintTotal": 54.60000014305115,
+          "bulkUpdateSync": 0.09999990463256836,
+          "bulkUpdateRender": 5.099999904632568,
+          "bulkUpdate": 5.199999809265137,
+          "animationFrame": 4.199999809265137,
+          "animationFrameRaw": [
+            4.199999809265137,
+            3.200000047683716,
+            4.1000001430511475,
+            3.799999952316284,
+            2.799999952316284,
+            2
+          ],
+          "hitTestSelection": 0.5,
+          "teardown": 530.3000001907349,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 794931852,
+            "selected": 60,
+            "surfaces": 1,
+            "firstRedrawnChunks": 1,
+            "bulkRedrawnChunks": 1,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        },
+        {
+          "load": 0.40000009536743164,
+          "rendererInit": 28.40000009536743,
+          "firstRender": 32.799999952316284,
+          "firstPaintTotal": 61.200000047683716,
+          "bulkUpdateSync": 0.10000014305114746,
+          "bulkUpdateRender": 5.199999809265137,
+          "bulkUpdate": 5.299999952316284,
+          "animationFrame": 10,
+          "animationFrameRaw": [
+            5.200000047683716,
+            6.299999952316284,
+            10,
+            7.200000047683716,
+            2.6999998092651367,
+            2.1000001430511475
+          ],
+          "hitTestSelection": 0.7000000476837158,
+          "teardown": 469.2999999523163,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 802087603,
+            "selected": 60,
+            "surfaces": 1,
+            "firstRedrawnChunks": 1,
+            "bulkRedrawnChunks": 1,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        },
+        {
+          "load": 0.6000001430511475,
+          "rendererInit": 24.5,
+          "firstRender": 16.200000047683716,
+          "firstPaintTotal": 40.700000047683716,
+          "bulkUpdateSync": 0,
+          "bulkUpdateRender": 3.5,
+          "bulkUpdate": 3.5,
+          "animationFrame": 3.1000001430511475,
+          "animationFrameRaw": [
+            3.1000001430511475,
+            2.5,
+            2.299999952316284,
+            1.5,
+            3,
+            2.299999952316284
+          ],
+          "hitTestSelection": 0.10000014305114746,
+          "teardown": 306.59999990463257,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 777793618,
+            "selected": 63,
+            "surfaces": 1,
+            "firstRedrawnChunks": 1,
+            "bulkRedrawnChunks": 1,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        }
+      ],
+      "summary": {
+        "load": {
+          "unit": "ms",
+          "raw": [
+            0.9000000953674316,
+            0.40000009536743164,
+            0.6000001430511475
+          ],
+          "min": 0.40000009536743164,
+          "median": 0.6000001430511475,
+          "p95": 0.9000000953674316,
+          "max": 0.9000000953674316,
+          "noiseRatio": 1.4999998013178981
+        },
+        "rendererInit": {
+          "unit": "ms",
+          "raw": [
+            31.299999952316284,
+            28.40000009536743,
+            24.5
+          ],
+          "min": 24.5,
+          "median": 28.40000009536743,
+          "p95": 31.299999952316284,
+          "max": 31.299999952316284,
+          "noiseRatio": 1.1021126706764306
+        },
+        "firstRender": {
+          "unit": "ms",
+          "raw": [
+            23.300000190734863,
+            32.799999952316284,
+            16.200000047683716
+          ],
+          "min": 16.200000047683716,
+          "median": 23.300000190734863,
+          "p95": 32.799999952316284,
+          "max": 32.799999952316284,
+          "noiseRatio": 1.407725308318197
+        },
+        "firstPaintTotal": {
+          "unit": "ms",
+          "raw": [
+            54.60000014305115,
+            61.200000047683716,
+            40.700000047683716
+          ],
+          "min": 40.700000047683716,
+          "median": 54.60000014305115,
+          "p95": 61.200000047683716,
+          "max": 61.200000047683716,
+          "noiseRatio": 1.1208791188157632
+        },
+        "bulkUpdateSync": {
+          "unit": "ms",
+          "raw": [
+            0.09999990463256836,
+            0.10000014305114746,
+            0
+          ],
+          "min": 0,
+          "median": 0.09999990463256836,
+          "p95": 0.10000014305114746,
+          "max": 0.10000014305114746,
+          "noiseRatio": 1.0000023841880648
+        },
+        "bulkUpdateRender": {
+          "unit": "ms",
+          "raw": [
+            5.099999904632568,
+            5.199999809265137,
+            3.5
+          ],
+          "min": 3.5,
+          "median": 5.099999904632568,
+          "p95": 5.199999809265137,
+          "max": 5.199999809265137,
+          "noiseRatio": 1.019607824804415
+        },
+        "bulkUpdate": {
+          "unit": "ms",
+          "raw": [
+            5.199999809265137,
+            5.299999952316284,
+            3.5
+          ],
+          "min": 3.5,
+          "median": 5.199999809265137,
+          "p95": 5.299999952316284,
+          "max": 5.299999952316284,
+          "noiseRatio": 1.0192307974459867
+        },
+        "animationFrame": {
+          "unit": "ms",
+          "raw": [
+            4.199999809265137,
+            10,
+            3.1000001430511475
+          ],
+          "min": 3.1000001430511475,
+          "median": 4.199999809265137,
+          "p95": 10,
+          "max": 10,
+          "noiseRatio": 2.3809524890787257
+        },
+        "hitTestSelection": {
+          "unit": "ms",
+          "raw": [
+            0.5,
+            0.7000000476837158,
+            0.10000014305114746
+          ],
+          "min": 0.10000014305114746,
+          "median": 0.5,
+          "p95": 0.7000000476837158,
+          "max": 0.7000000476837158,
+          "noiseRatio": 1.4000000953674316
+        },
+        "teardown": {
+          "unit": "ms",
+          "raw": [
+            530.3000001907349,
+            469.2999999523163,
+            306.59999990463257
+          ],
+          "min": 306.59999990463257,
+          "median": 469.2999999523163,
+          "p95": 530.3000001907349,
+          "max": 530.3000001907349,
+          "noiseRatio": 1.1299808230228352
+        },
+        "retainedHeapDelta": {
+          "unit": "bytes",
+          "raw": [
+            0,
+            0,
+            0
+          ],
+          "min": 0,
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "noiseRatio": null
+        }
+      }
+    },
+    "generated-500": {
+      "entityCount": 500,
+      "warmupCount": 1,
+      "sampleCount": 3,
+      "warmupRaw": [
+        {
+          "load": 2.1000001430511475,
+          "rendererInit": 22.59999990463257,
+          "firstRender": 27.5,
+          "firstPaintTotal": 50.09999990463257,
+          "bulkUpdateSync": 0.5,
+          "bulkUpdateRender": 14.600000143051147,
+          "bulkUpdate": 15.100000143051147,
+          "animationFrame": 11.5,
+          "animationFrameRaw": [
+            11.5,
+            9.299999952316284,
+            7.800000190734863,
+            8,
+            9.299999952316284,
+            6.8999998569488525
+          ],
+          "hitTestSelection": 0.20000004768371582,
+          "teardown": 314.09999990463257,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 3870333738,
+            "selected": 100,
+            "surfaces": 2,
+            "firstRedrawnChunks": 2,
+            "bulkRedrawnChunks": 2,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        }
+      ],
+      "raw": [
+        {
+          "load": 1.2999999523162842,
+          "rendererInit": 27.5,
+          "firstRender": 34.90000009536743,
+          "firstPaintTotal": 62.40000009536743,
+          "bulkUpdateSync": 1,
+          "bulkUpdateRender": 15.900000095367432,
+          "bulkUpdate": 16.90000009536743,
+          "animationFrame": 11.600000143051147,
+          "animationFrameRaw": [
+            11.600000143051147,
+            3.8999998569488525,
+            4.1000001430511475,
+            4.299999952316284,
+            6,
+            3.200000047683716
+          ],
+          "hitTestSelection": 0.20000004768371582,
+          "teardown": 269,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 3847460028,
+            "selected": 98,
+            "surfaces": 2,
+            "firstRedrawnChunks": 2,
+            "bulkRedrawnChunks": 2,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        },
+        {
+          "load": 1.7999999523162842,
+          "rendererInit": 23.899999856948853,
+          "firstRender": 24.300000190734863,
+          "firstPaintTotal": 48.200000047683716,
+          "bulkUpdateSync": 0.09999990463256836,
+          "bulkUpdateRender": 10.5,
+          "bulkUpdate": 10.599999904632568,
+          "animationFrame": 7.700000047683716,
+          "animationFrameRaw": [
+            7.700000047683716,
+            5.5,
+            4.900000095367432,
+            5.700000047683716,
+            6.799999952316284,
+            5.3999998569488525
+          ],
+          "hitTestSelection": 0.40000009536743164,
+          "teardown": 268.5,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 3892670306,
+            "selected": 102,
+            "surfaces": 2,
+            "firstRedrawnChunks": 2,
+            "bulkRedrawnChunks": 2,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        },
+        {
+          "load": 1.7999999523162842,
+          "rendererInit": 25,
+          "firstRender": 26.200000047683716,
+          "firstPaintTotal": 51.200000047683716,
+          "bulkUpdateSync": 0.6000001430511475,
+          "bulkUpdateRender": 11.199999809265137,
+          "bulkUpdate": 11.799999952316284,
+          "animationFrame": 9.100000143051147,
+          "animationFrameRaw": [
+            9.100000143051147,
+            4.5,
+            3.299999952316284,
+            3.0999999046325684,
+            5.400000095367432,
+            3.0999999046325684
+          ],
+          "hitTestSelection": 0.7000000476837158,
+          "teardown": 325.2999999523163,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 3964214896,
+            "selected": 101,
+            "surfaces": 2,
+            "firstRedrawnChunks": 2,
+            "bulkRedrawnChunks": 2,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        }
+      ],
+      "summary": {
+        "load": {
+          "unit": "ms",
+          "raw": [
+            1.2999999523162842,
+            1.7999999523162842,
+            1.7999999523162842
+          ],
+          "min": 1.2999999523162842,
+          "median": 1.7999999523162842,
+          "p95": 1.7999999523162842,
+          "max": 1.7999999523162842,
+          "noiseRatio": 1
+        },
+        "rendererInit": {
+          "unit": "ms",
+          "raw": [
+            27.5,
+            23.899999856948853,
+            25
+          ],
+          "min": 23.899999856948853,
+          "median": 25,
+          "p95": 27.5,
+          "max": 27.5,
+          "noiseRatio": 1.1
+        },
+        "firstRender": {
+          "unit": "ms",
+          "raw": [
+            34.90000009536743,
+            24.300000190734863,
+            26.200000047683716
+          ],
+          "min": 24.300000190734863,
+          "median": 26.200000047683716,
+          "p95": 34.90000009536743,
+          "max": 34.90000009536743,
+          "noiseRatio": 1.3320610699179316
+        },
+        "firstPaintTotal": {
+          "unit": "ms",
+          "raw": [
+            62.40000009536743,
+            48.200000047683716,
+            51.200000047683716
+          ],
+          "min": 48.200000047683716,
+          "median": 51.200000047683716,
+          "p95": 62.40000009536743,
+          "max": 62.40000009536743,
+          "noiseRatio": 1.2187500007275958
+        },
+        "bulkUpdateSync": {
+          "unit": "ms",
+          "raw": [
+            1,
+            0.09999990463256836,
+            0.6000001430511475
+          ],
+          "min": 0.09999990463256836,
+          "median": 0.6000001430511475,
+          "p95": 1,
+          "max": 1,
+          "noiseRatio": 1.666666269302463
+        },
+        "bulkUpdateRender": {
+          "unit": "ms",
+          "raw": [
+            15.900000095367432,
+            10.5,
+            11.199999809265137
+          ],
+          "min": 10.5,
+          "median": 11.199999809265137,
+          "p95": 15.900000095367432,
+          "max": 15.900000095367432,
+          "noiseRatio": 1.4196428898341806
+        },
+        "bulkUpdate": {
+          "unit": "ms",
+          "raw": [
+            16.90000009536743,
+            10.599999904632568,
+            11.799999952316284
+          ],
+          "min": 10.599999904632568,
+          "median": 11.799999952316284,
+          "p95": 16.90000009536743,
+          "max": 16.90000009536743,
+          "noiseRatio": 1.432203403700018
+        },
+        "animationFrame": {
+          "unit": "ms",
+          "raw": [
+            11.600000143051147,
+            7.700000047683716,
+            9.100000143051147
+          ],
+          "min": 7.700000047683716,
+          "median": 9.100000143051147,
+          "p95": 11.600000143051147,
+          "max": 11.600000143051147,
+          "noiseRatio": 1.2747252704066192
+        },
+        "hitTestSelection": {
+          "unit": "ms",
+          "raw": [
+            0.20000004768371582,
+            0.40000009536743164,
+            0.7000000476837158
+          ],
+          "min": 0.20000004768371582,
+          "median": 0.40000009536743164,
+          "p95": 0.7000000476837158,
+          "max": 0.7000000476837158,
+          "noiseRatio": 1.7499997019768472
+        },
+        "teardown": {
+          "unit": "ms",
+          "raw": [
+            269,
+            268.5,
+            325.2999999523163
+          ],
+          "min": 268.5,
+          "median": 269,
+          "p95": 325.2999999523163,
+          "max": 325.2999999523163,
+          "noiseRatio": 1.2092936801201348
+        },
+        "retainedHeapDelta": {
+          "unit": "bytes",
+          "raw": [
+            0,
+            0,
+            0
+          ],
+          "min": 0,
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "noiseRatio": null
+        }
+      }
+    },
+    "generated-1000": {
+      "entityCount": 1000,
+      "warmupCount": 1,
+      "sampleCount": 3,
+      "warmupRaw": [
+        {
+          "load": 3.5,
+          "rendererInit": 22.299999952316284,
+          "firstRender": 33.09999990463257,
+          "firstPaintTotal": 55.39999985694885,
+          "bulkUpdateSync": 0.7999999523162842,
+          "bulkUpdateRender": 20.09999990463257,
+          "bulkUpdate": 20.899999856948853,
+          "animationFrame": 14.5,
+          "animationFrameRaw": [
+            14.5,
+            13.599999904632568,
+            13.5,
+            7.6000001430511475,
+            8.200000047683716,
+            9.5
+          ],
+          "hitTestSelection": 0.7000000476837158,
+          "teardown": 420,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 3595857789,
+            "selected": 108,
+            "surfaces": 4,
+            "firstRedrawnChunks": 4,
+            "bulkRedrawnChunks": 4,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        }
+      ],
+      "raw": [
+        {
+          "load": 2.5999999046325684,
+          "rendererInit": 20.40000009536743,
+          "firstRender": 33.39999985694885,
+          "firstPaintTotal": 53.799999952316284,
+          "bulkUpdateSync": 0.7000000476837158,
+          "bulkUpdateRender": 19.700000047683716,
+          "bulkUpdate": 20.40000009536743,
+          "animationFrame": 14.799999952316284,
+          "animationFrameRaw": [
+            14.799999952316284,
+            14.400000095367432,
+            12.899999856948853,
+            10.200000047683716,
+            9.400000095367432,
+            6.099999904632568
+          ],
+          "hitTestSelection": 0.7999999523162842,
+          "teardown": 285.7000000476837,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 3528613030,
+            "selected": 106,
+            "surfaces": 4,
+            "firstRedrawnChunks": 4,
+            "bulkRedrawnChunks": 4,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        },
+        {
+          "load": 2.3999998569488525,
+          "rendererInit": 21.899999856948853,
+          "firstRender": 28.799999952316284,
+          "firstPaintTotal": 50.69999980926514,
+          "bulkUpdateSync": 0.7000000476837158,
+          "bulkUpdateRender": 15.699999809265137,
+          "bulkUpdate": 16.399999856948853,
+          "animationFrame": 12.5,
+          "animationFrameRaw": [
+            11.600000143051147,
+            12.5,
+            10.5,
+            8.799999952316284,
+            9.5,
+            7
+          ],
+          "hitTestSelection": 0.9000000953674316,
+          "teardown": 339,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 3612740087,
+            "selected": 98,
+            "surfaces": 4,
+            "firstRedrawnChunks": 4,
+            "bulkRedrawnChunks": 4,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        },
+        {
+          "load": 2,
+          "rendererInit": 21.299999952316284,
+          "firstRender": 34.200000047683716,
+          "firstPaintTotal": 55.5,
+          "bulkUpdateSync": 0.5999999046325684,
+          "bulkUpdateRender": 21.700000047683716,
+          "bulkUpdate": 22.299999952316284,
+          "animationFrame": 15.900000095367432,
+          "animationFrameRaw": [
+            15.900000095367432,
+            12.099999904632568,
+            10.599999904632568,
+            9.100000143051147,
+            10.599999904632568,
+            6.700000047683716
+          ],
+          "hitTestSelection": 0.20000004768371582,
+          "teardown": 372.39999985694885,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 3546843880,
+            "selected": 101,
+            "surfaces": 4,
+            "firstRedrawnChunks": 4,
+            "bulkRedrawnChunks": 4,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        }
+      ],
+      "summary": {
+        "load": {
+          "unit": "ms",
+          "raw": [
+            2.5999999046325684,
+            2.3999998569488525,
+            2
+          ],
+          "min": 2,
+          "median": 2.3999998569488525,
+          "p95": 2.5999999046325684,
+          "max": 2.5999999046325684,
+          "noiseRatio": 1.0833333581686035
+        },
+        "rendererInit": {
+          "unit": "ms",
+          "raw": [
+            20.40000009536743,
+            21.899999856948853,
+            21.299999952316284
+          ],
+          "min": 20.40000009536743,
+          "median": 21.299999952316284,
+          "p95": 21.899999856948853,
+          "max": 21.899999856948853,
+          "noiseRatio": 1.028169009670224
+        },
+        "firstRender": {
+          "unit": "ms",
+          "raw": [
+            33.39999985694885,
+            28.799999952316284,
+            34.200000047683716
+          ],
+          "min": 28.799999952316284,
+          "median": 33.39999985694885,
+          "p95": 34.200000047683716,
+          "max": 34.200000047683716,
+          "noiseRatio": 1.023952101621594
+        },
+        "firstPaintTotal": {
+          "unit": "ms",
+          "raw": [
+            53.799999952316284,
+            50.69999980926514,
+            55.5
+          ],
+          "min": 50.69999980926514,
+          "median": 53.799999952316284,
+          "p95": 55.5,
+          "max": 55.5,
+          "noiseRatio": 1.031598513925473
+        },
+        "bulkUpdateSync": {
+          "unit": "ms",
+          "raw": [
+            0.7000000476837158,
+            0.7000000476837158,
+            0.5999999046325684
+          ],
+          "min": 0.5999999046325684,
+          "median": 0.7000000476837158,
+          "p95": 0.7000000476837158,
+          "max": 0.7000000476837158,
+          "noiseRatio": 1
+        },
+        "bulkUpdateRender": {
+          "unit": "ms",
+          "raw": [
+            19.700000047683716,
+            15.699999809265137,
+            21.700000047683716
+          ],
+          "min": 15.699999809265137,
+          "median": 19.700000047683716,
+          "p95": 21.700000047683716,
+          "max": 21.700000047683716,
+          "noiseRatio": 1.1015228423938586
+        },
+        "bulkUpdate": {
+          "unit": "ms",
+          "raw": [
+            20.40000009536743,
+            16.399999856948853,
+            22.299999952316284
+          ],
+          "min": 16.399999856948853,
+          "median": 20.40000009536743,
+          "p95": 22.299999952316284,
+          "max": 22.299999952316284,
+          "noiseRatio": 1.0931372474542447
+        },
+        "animationFrame": {
+          "unit": "ms",
+          "raw": [
+            14.799999952316284,
+            12.5,
+            15.900000095367432
+          ],
+          "min": 12.5,
+          "median": 14.799999952316284,
+          "p95": 15.900000095367432,
+          "max": 15.900000095367432,
+          "noiseRatio": 1.074324334229406
+        },
+        "hitTestSelection": {
+          "unit": "ms",
+          "raw": [
+            0.7999999523162842,
+            0.9000000953674316,
+            0.20000004768371582
+          ],
+          "min": 0.20000004768371582,
+          "median": 0.7999999523162842,
+          "p95": 0.9000000953674316,
+          "max": 0.9000000953674316,
+          "noiseRatio": 1.125000186264526
+        },
+        "teardown": {
+          "unit": "ms",
+          "raw": [
+            285.7000000476837,
+            339,
+            372.39999985694885
+          ],
+          "min": 285.7000000476837,
+          "median": 339,
+          "p95": 372.39999985694885,
+          "max": 372.39999985694885,
+          "noiseRatio": 1.0985250733243328
+        },
+        "retainedHeapDelta": {
+          "unit": "bytes",
+          "raw": [
+            0,
+            0,
+            0
+          ],
+          "min": 0,
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "noiseRatio": null
+        }
+      }
+    },
+    "production-458": {
+      "entityCount": 458,
+      "warmupCount": 1,
+      "sampleCount": 3,
+      "warmupRaw": [
+        {
+          "load": 7.1000001430511475,
+          "rendererInit": 21.700000047683716,
+          "firstRender": 23.399999856948853,
+          "firstPaintTotal": 45.09999990463257,
+          "bulkUpdateSync": 0.9000000953674316,
+          "bulkUpdateRender": 11.099999904632568,
+          "bulkUpdate": 12,
+          "animationFrame": 7.599999904632568,
+          "animationFrameRaw": [
+            7.299999952316284,
+            5.900000095367432,
+            6.099999904632568,
+            5.700000047683716,
+            7.599999904632568,
+            5.300000190734863
+          ],
+          "hitTestSelection": 0.6999998092651367,
+          "teardown": 275.80000019073486,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 574374191,
+            "selected": 27,
+            "surfaces": 2,
+            "firstRedrawnChunks": 2,
+            "bulkRedrawnChunks": 2,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        }
+      ],
+      "raw": [
+        {
+          "load": 5.5,
+          "rendererInit": 22.700000047683716,
+          "firstRender": 26.199999809265137,
+          "firstPaintTotal": 48.89999985694885,
+          "bulkUpdateSync": 0.10000014305114746,
+          "bulkUpdateRender": 11.5,
+          "bulkUpdate": 11.600000143051147,
+          "animationFrame": 6.8999998569488525,
+          "animationFrameRaw": [
+            6.8999998569488525,
+            6.200000047683716,
+            5.299999952316284,
+            4.400000095367432,
+            3.4000000953674316,
+            6.200000047683716
+          ],
+          "hitTestSelection": 0.7999999523162842,
+          "teardown": 273.5,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 457093683,
+            "selected": 30,
+            "surfaces": 2,
+            "firstRedrawnChunks": 2,
+            "bulkRedrawnChunks": 2,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        },
+        {
+          "load": 4.099999904632568,
+          "rendererInit": 24.799999952316284,
+          "firstRender": 24,
+          "firstPaintTotal": 48.799999952316284,
+          "bulkUpdateSync": 0.7000000476837158,
+          "bulkUpdateRender": 10.400000095367432,
+          "bulkUpdate": 11.100000143051147,
+          "animationFrame": 7,
+          "animationFrameRaw": [
+            7,
+            6.099999904632568,
+            6.200000047683716,
+            6.400000095367432,
+            5.699999809265137,
+            7
+          ],
+          "hitTestSelection": 0.8000001907348633,
+          "teardown": 398.59999990463257,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 459495245,
+            "selected": 32,
+            "surfaces": 2,
+            "firstRedrawnChunks": 2,
+            "bulkRedrawnChunks": 2,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        },
+        {
+          "load": 5.099999904632568,
+          "rendererInit": 32.09999990463257,
+          "firstRender": 25.5,
+          "firstPaintTotal": 57.59999990463257,
+          "bulkUpdateSync": 1.2999999523162842,
+          "bulkUpdateRender": 11.200000047683716,
+          "bulkUpdate": 12.5,
+          "animationFrame": 8.600000143051147,
+          "animationFrameRaw": [
+            8.600000143051147,
+            6.5,
+            6.3999998569488525,
+            5.400000095367432,
+            4.200000047683716,
+            3.3999998569488525
+          ],
+          "hitTestSelection": 0.7000000476837158,
+          "teardown": 320.2000000476837,
+          "retainedHeapDelta": 0,
+          "diagnostics": {
+            "checksum": 384184506,
+            "selected": 30,
+            "surfaces": 2,
+            "firstRedrawnChunks": 2,
+            "bulkRedrawnChunks": 2,
+            "heapBeforeDestroy": 16100000,
+            "heapAfterDestroy": 16100000
+          }
+        }
+      ],
+      "summary": {
+        "load": {
+          "unit": "ms",
+          "raw": [
+            5.5,
+            4.099999904632568,
+            5.099999904632568
+          ],
+          "min": 4.099999904632568,
+          "median": 5.099999904632568,
+          "p95": 5.5,
+          "max": 5.5,
+          "noiseRatio": 1.0784313927151437
+        },
+        "rendererInit": {
+          "unit": "ms",
+          "raw": [
+            22.700000047683716,
+            24.799999952316284,
+            32.09999990463257
+          ],
+          "min": 22.700000047683716,
+          "median": 24.799999952316284,
+          "p95": 32.09999990463257,
+          "max": 32.09999990463257,
+          "noiseRatio": 1.294354837352912
+        },
+        "firstRender": {
+          "unit": "ms",
+          "raw": [
+            26.199999809265137,
+            24,
+            25.5
+          ],
+          "min": 24,
+          "median": 25.5,
+          "p95": 26.199999809265137,
+          "max": 26.199999809265137,
+          "noiseRatio": 1.0274509729123582
+        },
+        "firstPaintTotal": {
+          "unit": "ms",
+          "raw": [
+            48.89999985694885,
+            48.799999952316284,
+            57.59999990463257
+          ],
+          "min": 48.799999952316284,
+          "median": 48.89999985694885,
+          "p95": 57.59999990463257,
+          "max": 57.59999990463257,
+          "noiseRatio": 1.1779141119250416
+        },
+        "bulkUpdateSync": {
+          "unit": "ms",
+          "raw": [
+            0.10000014305114746,
+            0.7000000476837158,
+            1.2999999523162842
+          ],
+          "min": 0.10000014305114746,
+          "median": 0.7000000476837158,
+          "p95": 1.2999999523162842,
+          "max": 1.2999999523162842,
+          "noiseRatio": 1.8571426625154588
+        },
+        "bulkUpdateRender": {
+          "unit": "ms",
+          "raw": [
+            11.5,
+            10.400000095367432,
+            11.200000047683716
+          ],
+          "min": 10.400000095367432,
+          "median": 11.200000047683716,
+          "p95": 11.5,
+          "max": 11.5,
+          "noiseRatio": 1.0267857099142002
+        },
+        "bulkUpdate": {
+          "unit": "ms",
+          "raw": [
+            11.600000143051147,
+            11.100000143051147,
+            12.5
+          ],
+          "min": 11.100000143051147,
+          "median": 11.600000143051147,
+          "p95": 12.5,
+          "max": 12.5,
+          "noiseRatio": 1.0775861936077638
+        },
+        "animationFrame": {
+          "unit": "ms",
+          "raw": [
+            6.8999998569488525,
+            7,
+            8.600000143051147
+          ],
+          "min": 6.8999998569488525,
+          "median": 7,
+          "p95": 8.600000143051147,
+          "max": 8.600000143051147,
+          "noiseRatio": 1.2285714490073067
+        },
+        "hitTestSelection": {
+          "unit": "ms",
+          "raw": [
+            0.7999999523162842,
+            0.8000001907348633,
+            0.7000000476837158
+          ],
+          "min": 0.7000000476837158,
+          "median": 0.7999999523162842,
+          "p95": 0.8000001907348633,
+          "max": 0.8000001907348633,
+          "noiseRatio": 1.0000002980232416
+        },
+        "teardown": {
+          "unit": "ms",
+          "raw": [
+            273.5,
+            398.59999990463257,
+            320.2000000476837
+          ],
+          "min": 273.5,
+          "median": 320.2000000476837,
+          "p95": 398.59999990463257,
+          "max": 398.59999990463257,
+          "noiseRatio": 1.2448469701601301
+        },
+        "retainedHeapDelta": {
+          "unit": "bytes",
+          "raw": [
+            0,
+            0,
+            0
+          ],
+          "min": 0,
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "noiseRatio": null
+        }
+      }
+    }
+  },
+  "browserErrors": []
+}
