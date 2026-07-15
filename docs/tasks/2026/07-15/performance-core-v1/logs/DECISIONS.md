@@ -6,3 +6,10 @@
 - **Decision:** Build Core v1 on a dedicated branch as an intentionally incompatible product, measure two competing data/renderer spikes, and keep any future compatibility adapter outside the core hot path.
 - **Why:** Removing live scene-node identity and legacy ABI constraints permits dense storage, batch transactions, explicit frames, aggregate rendering, and lower allocation pressure.
 - **Impact:** Core v1 completion is judged by its own deterministic contract, safety, package usability, browser behavior, and performance evidence; Oracle outputs and v0.10 compatibility are not gates.
+
+**2026-07-15**
+
+- **Background:** Implicit scene-node mutation and renderer-owned state make update cost, failure atomicity, and frame publication difficult to reason about or measure independently.
+- **Decision:** Define Core v1 as a flat scene database with immutable caller input, atomic ordered batches, generation-checked references, explicit deterministic animation time, and a separate `flush()` frame boundary.
+- **Why:** This contract exposes expensive work, prevents partially applied changes, and lets competing aggregate renderers share the same public state semantics.
+- **Impact:** PixiJS nodes and backend handles are private, nested production input is flattened outside the core, and integrations must schedule animation and rendering explicitly.
