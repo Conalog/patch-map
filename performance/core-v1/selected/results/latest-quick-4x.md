@@ -1,20 +1,17 @@
-# Core v1 selected-path full performance checkpoint
+# Core v1 selected-path quick performance checkpoint
 
-- Mode: full; Chromium CDP CPU throttle 4×
-- Warmups: 2; measured samples: 7
-- Result JSON: performance/core-v1/selected/results/full-4x-2026-07-15T06-35-44-621Z.json
+- Mode: quick; Chromium CDP CPU throttle 4×
+- Warmups: 1; measured samples: 3
+- Result JSON: performance/core-v1/selected/results/quick-4x-2026-07-15T06-33-11-422Z.json
 - Browser errors: 0; network failures: 0
 - Core invariant smoke: {"entityCount":100,"firstFrameRendered":true,"firstFrameCommands":190,"atomicFailure":true,"destroyed":true,"idempotent":true}
 - Production fixture: 1,317,998 bytes / 9afd9e179c613b3833acd99cbe0a747fe2068475dc14ab9dada5d512fdbd1a86; expanded 37,071 entities
 
 | workload | entities | normalize median ms | load median ms | first flush median ms | trusted 10% commit+flush median ms | random 10% commit+flush median ms | animation frame p95 ms | post-update hit-test median ms | select+flush median ms | destroy median ms | retained JS heap median bytes |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| synthetic-100 | 100 | 0.40 | 3.30 | 3.00 | 1.10 | 1.20 | 1.60 | 1.60 | 1.50 | 0.00 | 13,924 |
-| synthetic-500 | 500 | 1.00 | 12.20 | 4.60 | 3.20 | 2.90 | 3.10 | 2.90 | 3.60 | 0.10 | 108 |
-| synthetic-1000 | 1,000 | 1.70 | 21.70 | 6.20 | 4.40 | 4.40 | 3.70 | 2.60 | 4.00 | 0.00 | 0 |
-| synthetic-2000 | 2,000 | 3.60 | 41.90 | 7.20 | 6.80 | 6.00 | 5.40 | 4.40 | 5.00 | 0.10 | 556 |
-| synthetic-5000 | 5,000 | 10.10 | 98.00 | 11.70 | 12.70 | 12.80 | 8.30 | 9.80 | 8.80 | 0.10 | 288 |
-| production-37071 | 37,071 | 177.10 | 600.40 | 27.40 | 62.30 | 52.70 | 25.50 | 15.50 | 24.60 | 0.00 | 2,312 |
+| synthetic-100 | 100 | 0.10 | 2.60 | 2.10 | 0.90 | 0.80 | 1.30 | 1.90 | 0.90 | 0.00 | 24,016 |
+| synthetic-1000 | 1,000 | 2.10 | 23.20 | 7.00 | 4.90 | 5.20 | 4.90 | 3.50 | 4.50 | 0.10 | 23,580 |
+| production-37071 | 37,071 | 153.30 | 644.90 | 28.50 | 54.00 | 46.50 | 35.60 | 16.30 | 23.90 | 0.30 | 7,636 |
 
 ## Measurement limits
 
