@@ -177,6 +177,66 @@ try {
   await page.waitForFunction(() => (window.__PATCH_MAP_CORE_V2_LAB__.getRuntime()?.selection().refs.length ?? 0) === 1);
   check(true, 'transformed root-event hit and selection', checks, failures);
 
+  const nonTarget = await page.evaluate(() => {
+    const runtime = window.__PATCH_MAP_CORE_V2_LAB__.getRuntime();
+    if (!runtime) throw new Error('missing Core v2 runtime');
+    const id = '__core_v2_browser_non_target__';
+    const screen = { x: runtime.renderer.width - 12, y: runtime.renderer.height - 12 };
+    const world = runtime.screenToWorld(screen);
+    const size = 12 / runtime.view.scale;
+    runtime.commit({
+      operations: [{
+        type: 'add',
+        entity: {
+          kind: 'rect',
+          id,
+          x: world.x - size / 2,
+          y: world.y - size / 2,
+          width: size,
+          height: size,
+          fill: 0xff00ffff,
+          visible: true,
+          interactive: false,
+          zIndex: 1_000_000,
+          tags: ['browser-proof', 'non-target'],
+        },
+      }],
+    });
+    runtime.flush('browser-non-target-add');
+    const anyRef = runtime.hitTestScreen(screen, { interactiveOnly: false });
+    const interactiveRef = runtime.hitTestScreen(screen, { interactiveOnly: true });
+    return {
+      id,
+      screen,
+      anyHitId: anyRef ? runtime.get(anyRef)?.id ?? null : null,
+      interactiveHitId: interactiveRef ? runtime.get(interactiveRef)?.id ?? null : null,
+    };
+  });
+  await page.mouse.click(box.x + nonTarget.screen.x, box.y + nonTarget.screen.y);
+  await page.waitForTimeout(50);
+  const nonTargetSelectionCount = await page.evaluate(
+    () => window.__PATCH_MAP_CORE_V2_LAB__.getRuntime()?.selection().refs.length ?? -1,
+  );
+  check(
+    nonTarget.anyHitId === nonTarget.id &&
+      nonTarget.interactiveHitId === null &&
+      nonTargetSelectionCount === 0,
+    'non-interactive non-target hit clears selection without becoming a target',
+    checks,
+    failures,
+    { ...nonTarget, selectionCount: nonTargetSelectionCount },
+  );
+  await page.evaluate((id) => {
+    const runtime = window.__PATCH_MAP_CORE_V2_LAB__.getRuntime();
+    if (!runtime) throw new Error('missing Core v2 runtime');
+    runtime.commit({ operations: [{ type: 'remove', target: id }] });
+    runtime.flush('browser-non-target-remove');
+  }, nonTarget.id);
+  await page.mouse.click(box.x + target.x, box.y + target.y);
+  await page.waitForFunction(
+    () => (window.__PATCH_MAP_CORE_V2_LAB__.getRuntime()?.selection().refs.length ?? 0) === 1,
+  );
+
   const beforePan = await page.evaluate(() => window.__PATCH_MAP_CORE_V2_LAB__.getRuntime()?.view);
   await page.mouse.move(box.x + box.width - 12, box.y + box.height - 12);
   await page.mouse.down();
