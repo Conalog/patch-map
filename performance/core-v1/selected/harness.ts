@@ -50,6 +50,8 @@ export interface TrialMetrics {
   readonly hitTestCount: number;
   readonly hitTestHits: number;
   readonly hitTestMs: number;
+  readonly postUpdateHitTestHits: number;
+  readonly postUpdateHitTestMs: number;
   readonly selectionCount: number;
   readonly selectionCommitFlushMs: number;
   readonly destroyMs: number;
@@ -263,6 +265,13 @@ function runTrial(spec: TrialSpec): TrialMetrics {
   assert(randomFrame.revision === randomResult.revision, 'random state/frame revision boundary is explicit');
   invariantCount += 2;
 
+  const postUpdateHitStarted = now();
+  const postUpdateHits = points.map((point) => scene.hitTest(point));
+  const postUpdateHitTestMs = now() - postUpdateHitStarted;
+  const postUpdateHitRefs = postUpdateHits.filter((ref) => ref !== null);
+  assert(postUpdateHitRefs.length > 0, 'post-update hit testing refreshes authoritative spatial state');
+  invariantCount += 1;
+
   const animations = animationOperations(document);
   const animationScheduleStarted = now();
   if (animations.length > 0) scene.commit({ operations: animations, recordHistory: false });
@@ -320,6 +329,8 @@ function runTrial(spec: TrialSpec): TrialMetrics {
     hitTestCount: points.length,
     hitTestHits: hitRefs.length,
     hitTestMs,
+    postUpdateHitTestHits: postUpdateHitRefs.length,
+    postUpdateHitTestMs,
     selectionCount: selectionTargets.length,
     selectionCommitFlushMs,
     destroyMs,

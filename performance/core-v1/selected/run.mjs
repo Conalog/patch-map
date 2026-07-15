@@ -65,6 +65,7 @@ const scalarMetrics = [
   'randomCommitFlushMs',
   'animationScheduleMs',
   'hitTestMs',
+  'postUpdateHitTestMs',
   'selectionCommitFlushMs',
   'destroyMs',
   'retainedJsHeapBytes',
@@ -101,7 +102,7 @@ function number(value) {
 
 function markdownReport(result, resultPath) {
   const rows = result.workloads.map(({ id, entityCount, summary }) =>
-    `| ${id} | ${entityCount.toLocaleString('en-US')} | ${number(summary.normalizeMs.median)} | ${number(summary.loadMs.median)} | ${number(summary.firstFlushMs.median)} | ${number(summary.trustedCommitFlushMs.median)} | ${number(summary.randomCommitFlushMs.median)} | ${number(summary.animationFrameMs.p95)} | ${number(summary.hitTestMs.median)} | ${number(summary.selectionCommitFlushMs.median)} | ${number(summary.destroyMs.median)} | ${Math.round(summary.retainedJsHeapBytes.median).toLocaleString('en-US')} |`,
+    `| ${id} | ${entityCount.toLocaleString('en-US')} | ${number(summary.normalizeMs.median)} | ${number(summary.loadMs.median)} | ${number(summary.firstFlushMs.median)} | ${number(summary.trustedCommitFlushMs.median)} | ${number(summary.randomCommitFlushMs.median)} | ${number(summary.animationFrameMs.p95)} | ${number(summary.postUpdateHitTestMs.median)} | ${number(summary.selectionCommitFlushMs.median)} | ${number(summary.destroyMs.median)} | ${Math.round(summary.retainedJsHeapBytes.median).toLocaleString('en-US')} |`,
   );
   return `# Core v1 selected-path ${result.mode} performance checkpoint
 
@@ -112,7 +113,7 @@ function markdownReport(result, resultPath) {
 - Core invariant smoke: ${JSON.stringify(result.invariantSmoke)}
 - Production fixture: ${result.fixture.bytes.toLocaleString('en-US')} bytes / ${result.fixture.sha256}; expanded ${result.fixture.expectedEntities.toLocaleString('en-US')} entities
 
-| workload | entities | normalize median ms | load median ms | first flush median ms | trusted 10% commit+flush median ms | random 10% commit+flush median ms | animation frame p95 ms | hit-test median ms | select+flush median ms | destroy median ms | retained JS heap median bytes |
+| workload | entities | normalize median ms | load median ms | first flush median ms | trusted 10% commit+flush median ms | random 10% commit+flush median ms | animation frame p95 ms | post-update hit-test median ms | select+flush median ms | destroy median ms | retained JS heap median bytes |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 ${rows.join('\n')}
 
@@ -122,6 +123,7 @@ ${rows.join('\n')}
 - Forced CDP GC and JSHeapUsedSize cover retained JavaScript heap only. DOM, Canvas2D backing stores, browser native allocations, and GPU memory are excluded, and signed deltas can be noisy.
 - Canvas renderer commandCount records aggregate Canvas2D submissions, not GPU draw calls. A command may cover multiple logical rectangles, while text, bars, relations, and selection can submit multiple commands.
 - CPU timings include browser main-thread and GC interruption but do not partition CPU from GC. GPU upload is not directly observable for this Canvas2D backend.
+- Spatial membership is updated lazily at the first post-geometry hit-test; the post-update hit metric includes that refresh boundary.
 `;
 }
 
@@ -201,7 +203,7 @@ async function main() {
     const userAgent = await page.evaluate(() => navigator.userAgent);
     const hardwareConcurrency = await page.evaluate(() => navigator.hardwareConcurrency);
     output = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       generatedAt: new Date().toISOString(),
       mode: quick ? 'quick' : 'full',
       warmupCount,
@@ -226,6 +228,7 @@ async function main() {
         gc: 'Forced CDP GC and JSHeapUsedSize exclude DOM, Canvas2D/native, and GPU allocations; signed deltas can be noisy.',
         drawCommands: 'Canvas commandCount is aggregate Canvas2D submissions, not GPU draw calls or logical entity count.',
         gpuUpload: 'Canvas2D GPU upload is not directly observable through the public browser surface.',
+        spatialIndex: 'Spatial membership refresh is lazy and included in postUpdateHitTestMs after geometry commits.',
         windowsNative: 'Pending actual low-end Windows hardware.',
       },
       workloads: measured,
