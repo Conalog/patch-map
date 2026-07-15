@@ -22,6 +22,32 @@ interface TextEntry {
   styleSignature: string;
 }
 
+interface SharedAssetState {
+  readonly url: string;
+  readonly ownership: 'core-v2' | 'external';
+  readonly texture: Promise<Texture>;
+  references: number;
+  releasing?: Promise<void>;
+}
+
+interface SharedAssetLease {
+  readonly state: SharedAssetState;
+  readonly texture: Texture;
+  released: boolean;
+}
+
+interface LeafAsset {
+  readonly url: string;
+  readonly texture: Texture;
+  readonly lease: SharedAssetLease;
+}
+
+// Pixi Assets is a process-wide singleton and does not expose consumer
+// reference counts. Keep Core v2's leases process-wide too: an asset already
+// present in the public cache is borrowed, while one first loaded here is
+// released only after the final Core v2 lease reaches its detach barrier.
+const sharedAssetStates = new Map<string, SharedAssetState>();
+
 export interface LeafLayerDebug {
   readonly bitmapTextCount: number;
   readonly fallbackTextCount: number;
@@ -38,8 +64,8 @@ export class AggregateLeafLayer {
   private readonly texts = new Map<number, TextEntry>();
   private readonly images = new Map<number, Sprite>();
   private readonly imageSources = new Map<number, string>();
-  private readonly assets = new Map<string, { readonly url: string; readonly texture: Texture }>();
-  private readonly pendingUnloadUrls = new Set<string>();
+  private readonly assets = new Map<string, LeafAsset>();
+  private readonly pendingAssetReleases: SharedAssetLease[] = [];
   private readonly unresolved = new Set<string>();
   private storeEpoch = -1;
   private assetsDirty = false;
@@ -62,40 +88,48 @@ export class AggregateLeafLayer {
     if (!cleanAlias || !cleanUrl) throw new TypeError('asset alias and URL must be non-empty');
     const previous = this.assets.get(cleanAlias);
     if (previous?.url === cleanUrl) return;
-    const loaded = await Assets.load<Texture>(cleanUrl);
-    if (!(loaded instanceof Texture)) {
-      throw new TypeError(`asset ${JSON.stringify(cleanAlias)} did not resolve to a Pixi Texture`);
+    const lease = await acquireSharedAsset(cleanUrl);
+    if (this.destroyed) {
+      await releaseSharedAsset(lease);
+      throw new Error('AggregateLeafLayer is destroyed');
     }
-    this.assets.set(cleanAlias, { url: cleanUrl, texture: loaded });
-    this.pendingUnloadUrls.delete(cleanUrl);
+
+    // A concurrent call for the same alias may have completed while this load
+    // was pending. Do not retain a duplicate lease for an identical binding.
+    const current = this.assets.get(cleanAlias);
+    if (current?.url === cleanUrl) {
+      await releaseSharedAsset(lease);
+      return;
+    }
+
+    this.assets.set(cleanAlias, { url: cleanUrl, texture: lease.texture, lease });
     this.unresolved.delete(cleanAlias);
     this.assetsDirty = true;
-    if (previous) {
-      this.discardTextureReferences(cleanAlias, previous.texture);
-      this.queueUnusedUrl(previous.url);
+    if (current) {
+      this.discardTextureReferences(cleanAlias, current.texture);
+      this.pendingAssetReleases.push(current.lease);
     }
   }
 
-  public async unloadAsset(alias: string): Promise<boolean> {
+  public unloadAsset(alias: string): Promise<boolean> {
     this.assertAlive();
     const previous = this.assets.get(alias);
-    if (!previous) return false;
+    if (!previous) return Promise.resolve(false);
     this.assets.delete(alias);
     this.assetsDirty = true;
     // Recreate the affected Sprite rather than only swapping its texture. The
     // structural change invalidates Pixi's cached batch instruction before the
     // old texture source is physically released.
     this.discardTextureReferences(alias, previous.texture);
-    this.queueUnusedUrl(previous.url);
-    return true;
+    this.pendingAssetReleases.push(previous.lease);
+    return Promise.resolve(true);
   }
 
   /** Finalize only after a rendered frame has replaced every live texture reference. */
   public async finalizeAssetUnloads(): Promise<void> {
     this.assertAlive();
-    const urls = [...this.pendingUnloadUrls];
-    this.pendingUnloadUrls.clear();
-    await Promise.all(urls.map(async (url) => Assets.unload(url)));
+    const leases = this.pendingAssetReleases.splice(0);
+    await Promise.all(leases.map(async (lease) => releaseSharedAsset(lease)));
   }
 
   public sync(
@@ -139,15 +173,15 @@ export class AggregateLeafLayer {
     if (this.destroyed) return;
     this.destroyed = true;
     this.clearDisplayObjects();
-    const urls = new Set([
-      ...[...this.assets.values()].map(({ url }) => url),
-      ...this.pendingUnloadUrls,
-    ]);
+    const leases = [
+      ...[...this.assets.values()].map(({ lease }) => lease),
+      ...this.pendingAssetReleases,
+    ];
     this.assets.clear();
-    this.pendingUnloadUrls.clear();
+    this.pendingAssetReleases.length = 0;
     this.unresolved.clear();
     this.container.destroy({ children: true });
-    await Promise.all([...urls].map(async (url) => Assets.unload(url)));
+    await Promise.all(leases.map(async (lease) => releaseSharedAsset(lease)));
   }
 
   private syncSlot(store: RenderStoreView, slot: number): void {
@@ -237,11 +271,6 @@ export class AggregateLeafLayer {
     }
   }
 
-  private queueUnusedUrl(url: string): void {
-    if ([...this.assets.values()].some((asset) => asset.url === url)) return;
-    this.pendingUnloadUrls.add(url);
-  }
-
   private clearDisplayObjects(): void {
     for (const entry of this.texts.values()) entry.object.destroy();
     for (const sprite of this.images.values()) sprite.destroy();
@@ -255,6 +284,80 @@ export class AggregateLeafLayer {
   private assertAlive(): void {
     if (this.destroyed) throw new Error('AggregateLeafLayer is destroyed');
   }
+}
+
+async function acquireSharedAsset(url: string): Promise<SharedAssetLease> {
+  while (true) {
+    const existing = sharedAssetStates.get(url);
+    if (existing?.releasing) {
+      // Never hand out a texture while Pixi is destroying its source. A fresh
+      // acquisition starts only after that global unload has settled.
+      await existing.releasing.catch(() => undefined);
+      continue;
+    }
+
+    const state = existing ?? createSharedAssetState(url);
+    if (existing) state.references += 1;
+    try {
+      const texture = await state.texture;
+      return { state, texture, released: false };
+    } catch (error) {
+      rollbackSharedAssetAcquire(state);
+      throw error;
+    }
+  }
+}
+
+function createSharedAssetState(url: string): SharedAssetState {
+  const cached = Assets.get<unknown>(url);
+  const ownership = cached === undefined ? 'core-v2' : 'external';
+  const texture = cached === undefined
+    ? Assets.load<Texture>(url).then((loaded) => requireTexture(url, loaded))
+    : Promise.resolve(requireTexture(url, cached));
+  const state: SharedAssetState = {
+    url,
+    ownership,
+    texture,
+    references: 1,
+  };
+  sharedAssetStates.set(url, state);
+  return state;
+}
+
+function rollbackSharedAssetAcquire(state: SharedAssetState): void {
+  state.references -= 1;
+  if (state.references === 0 && sharedAssetStates.get(state.url) === state) {
+    sharedAssetStates.delete(state.url);
+  }
+}
+
+async function releaseSharedAsset(lease: SharedAssetLease): Promise<void> {
+  if (lease.released) return;
+  lease.released = true;
+  const state = lease.state;
+  state.references -= 1;
+  if (state.references > 0) return;
+  if (state.references < 0) throw new Error(`asset lease underflow for ${JSON.stringify(state.url)}`);
+
+  if (state.ownership === 'external') {
+    if (sharedAssetStates.get(state.url) === state) sharedAssetStates.delete(state.url);
+    return;
+  }
+
+  // Install the releasing promise before invoking Assets.unload so a racing
+  // acquire waits instead of borrowing a texture whose GPU source is dying.
+  const releasing = Promise.resolve().then(async () => Assets.unload(state.url));
+  state.releasing = releasing;
+  try {
+    await releasing;
+  } finally {
+    if (sharedAssetStates.get(state.url) === state) sharedAssetStates.delete(state.url);
+  }
+}
+
+function requireTexture(url: string, value: unknown): Texture {
+  if (value instanceof Texture) return value as Texture;
+  throw new TypeError(`asset ${JSON.stringify(url)} did not resolve to a Pixi Texture`);
 }
 
 export function isBitmapTextSafe(value: string): boolean {
