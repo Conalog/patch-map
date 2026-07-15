@@ -54,7 +54,9 @@
     "conformance:lifecycle": "node scripts/conformance/run.mjs LIF-001 LIF-002",
     "perf:check": "node scripts/perf/check-bootstrap.mjs",
     "perf:interactions": "node scripts/verification/perf-interactions.mjs",
-    "perf:low-end": "node scripts/perf/low-end-benchmark.mjs"
+    "perf:low-end": "node scripts/perf/low-end-benchmark.mjs",
+    "perf:core-v1": "node performance/core-v1/selected/run.mjs",
+    "perf:core-v1:quick": "node performance/core-v1/selected/run.mjs --quick"
   },
   "devDependencies": {
     "@eslint/js": "9.39.2",
