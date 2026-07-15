@@ -335,6 +335,17 @@ body[data-busy='true'] .status-light {
   z-index: 1;
   display: block;
   max-width: none;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.canvas-wrap canvas[data-gesture='panning'] {
+  cursor: grabbing;
+}
+
+.canvas-wrap canvas[data-busy='true'] {
+  cursor: progress;
 }
 
 .canvas-grid {
@@ -376,6 +387,16 @@ body[data-busy='true'] .status-light {
   line-height: 1.4;
 }
 
+.canvas-help {
+  margin: 0;
+  padding: 9px 18px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-muted);
+  font-size: 0.63rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
 .metrics-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -396,6 +417,15 @@ body[data-busy='true'] .status-light {
 
 .metrics-grid div:nth-last-child(-n + 2) {
   border-bottom: 0;
+}
+
+.metrics-grid .metrics-grid__wide {
+  grid-column: 1 / -1;
+  border-right: 0;
+}
+
+.metrics-grid .metrics-grid__wide dd {
+  font-size: 0.68rem;
 }
 
 .metrics-grid dt {

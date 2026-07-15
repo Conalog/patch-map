@@ -43,6 +43,7 @@
           <button class="action" type="button" data-action="advance" data-testid="advance">Advance / animate</button>
           <button class="action action--flush" type="button" data-action="flush" data-testid="flush">Flush frame</button>
           <button class="action" type="button" data-action="hit" data-testid="hit-select">Hit + select</button>
+          <button class="action" type="button" data-action="reset-view" data-testid="reset-view">Reset view</button>
         </div>
         <div class="action-group action-group--system">
           <button class="action" type="button" data-action="auto" data-testid="auto-replay">Auto replay</button>
@@ -64,13 +65,14 @@
             </div>
           </div>
           <div class="canvas-wrap" data-testid="canvas-wrap">
-            <canvas data-testid="core-canvas" aria-label="Core v1 aggregate render surface"></canvas>
+            <canvas data-testid="core-canvas" data-gesture="idle" aria-label="Core v1 aggregate render surface"></canvas>
             <div class="canvas-grid" aria-hidden="true"></div>
             <div class="surface-stamp" aria-hidden="true">
               <span>EXPLICIT FRAME BOUNDARY</span>
               <span>NO ENTITY DISPLAY OBJECTS</span>
             </div>
           </div>
+          <p class="canvas-help" data-testid="canvas-help">Click bar to update · Drag to pan · Wheel to zoom</p>
           <div class="workload-note" data-testid="workload-note">
             Select a workload, then load authoritative state. Rendering only changes after Flush.
           </div>
@@ -97,6 +99,9 @@
             <div><dt>Flush CPU</dt><dd data-testid="metric-flush-ms">—</dd></div>
             <div><dt>Canvas</dt><dd data-testid="metric-canvas">—</dd></div>
             <div><dt>Fixture</dt><dd data-testid="metric-fixture">N/A</dd></div>
+            <div><dt>Viewport</dt><dd data-testid="metric-viewport">1.00× · 0.0, 0.0</dd></div>
+            <div><dt>Selected</dt><dd data-testid="metric-selected-entity">none</dd></div>
+            <div class="metrics-grid__wide"><dt>Interaction</dt><dd data-testid="metric-interaction">Load a workload to enable canvas interaction.</dd></div>
           </dl>
 
           <section class="subpanel" aria-labelledby="invariant-title">

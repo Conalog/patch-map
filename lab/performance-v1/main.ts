@@ -9,6 +9,16 @@ const canvas = required<HTMLCanvasElement>('[data-testid="core-canvas"]');
 const datasetSelect = required<HTMLSelectElement>('[data-testid="dataset-select"]');
 const statusBadge = required<HTMLElement>('[data-testid="status-badge"]');
 const runtime = new CoreV1LabRuntime(canvas, datasetFromUrl());
+const DRAG_THRESHOLD_PX = 6;
+
+interface PointerGesture {
+  readonly pointerId: number;
+  readonly origin: { x: number; y: number };
+  last: { x: number; y: number };
+  moved: boolean;
+}
+
+let gesture: PointerGesture | null = null;
 
 datasetSelect.value = runtime.dataset;
 runtime.reinitialize();
@@ -19,6 +29,7 @@ document.body.dataset.labReady = 'true';
 datasetSelect.addEventListener('change', () => {
   const dataset = datasetSelect.value;
   if (!isDatasetKey(dataset)) return;
+  resetGesture();
   runtime.setDataset(dataset);
   persistDataset(dataset);
   render(runtime.readout());
@@ -35,6 +46,7 @@ const resizeObserver = new ResizeObserver(() => {
   cancelAnimationFrame(resizeFrame);
   resizeFrame = requestAnimationFrame(() => {
     try {
+      resetGesture();
       runtime.resize();
       render(runtime.readout());
     } catch {
@@ -45,15 +57,62 @@ const resizeObserver = new ResizeObserver(() => {
 resizeObserver.observe(required('[data-testid="canvas-wrap"]'));
 
 window.addEventListener('beforeunload', () => {
+  resetGesture();
   resizeObserver.disconnect();
   runtime.teardown();
 });
+
+canvas.addEventListener('pointerdown', (event) => {
+  if (document.body.dataset.busy === 'true' || event.button !== 0 || !event.isPrimary) return;
+  const point = canvasPoint(event);
+  gesture = { pointerId: event.pointerId, origin: point, last: point, moved: false };
+  canvas.dataset.gesture = 'pending';
+  canvas.setPointerCapture(event.pointerId);
+  event.preventDefault();
+});
+
+canvas.addEventListener('pointermove', (event) => {
+  if (gesture?.pointerId !== event.pointerId) return;
+  const point = canvasPoint(event);
+  const distance = Math.hypot(point.x - gesture.origin.x, point.y - gesture.origin.y);
+  if (distance < DRAG_THRESHOLD_PX && !gesture.moved) return;
+  const delta = { x: point.x - gesture.last.x, y: point.y - gesture.last.y };
+  gesture.moved = true;
+  gesture.last = point;
+  canvas.dataset.gesture = 'panning';
+  runtime.panBy(delta);
+  render(runtime.readout());
+  event.preventDefault();
+});
+
+canvas.addEventListener('pointerup', (event) => {
+  if (gesture?.pointerId !== event.pointerId) return;
+  const wasClick = !gesture.moved;
+  const point = canvasPoint(event);
+  if (!wasClick) {
+    runtime.panBy({ x: point.x - gesture.last.x, y: point.y - gesture.last.y });
+  }
+  resetGesture();
+  if (wasClick) runtime.clickAt(runtime.screenToWorld(point));
+  render(runtime.readout());
+  event.preventDefault();
+});
+
+canvas.addEventListener('pointercancel', resetGesture);
+canvas.addEventListener('lostpointercapture', resetGesture);
+canvas.addEventListener('wheel', (event) => {
+  if (document.body.dataset.busy === 'true') return;
+  runtime.zoomAt(canvasPoint(event), event.deltaY);
+  render(runtime.readout());
+  event.preventDefault();
+}, { passive: false });
 
 window.setInterval(() => {
   required('[data-testid="clock"]').textContent = new Date().toISOString().slice(11, 23);
 }, 47);
 
 async function runAction(action: string): Promise<void> {
+  resetGesture();
   setBusy(true);
   setStatus(action === 'auto' ? 'REPLAYING' : 'RUNNING');
   try {
@@ -75,6 +134,9 @@ async function runAction(action: string): Promise<void> {
         break;
       case 'hit':
         runtime.hitAndSelect();
+        break;
+      case 'reset-view':
+        runtime.resetView();
         break;
       case 'teardown':
         runtime.teardown();
@@ -115,6 +177,9 @@ function render(readout: LabReadout): void {
   text('metric-flush-ms', formatMs(readout.lastFlushMs));
   text('metric-canvas', `${readout.canvasWidth}×${readout.canvasHeight}`);
   text('metric-fixture', readout.fixtureStatus);
+  text('metric-viewport', formatView(readout.view));
+  text('metric-selected-entity', readout.selectedEntity);
+  text('metric-interaction', readout.interaction);
   text('lifecycle-generation', `L${String(readout.lifecycle).padStart(2, '0')}`);
   text('workload-note', readout.workloadNote);
   text('event-count', `${readout.events.length.toLocaleString()} records`);
@@ -161,6 +226,7 @@ function render(readout: LabReadout): void {
 
 function setBusy(busy: boolean): void {
   document.body.dataset.busy = String(busy);
+  canvas.dataset.busy = String(busy);
   for (const button of document.querySelectorAll<HTMLButtonElement>('[data-action]')) {
     button.disabled = busy;
   }
@@ -194,6 +260,24 @@ function nullableNumber(value: number | null): string {
 
 function formatMs(value: number | null): string {
   return value === null ? '—' : `${value.toFixed(value < 10 ? 2 : 1)} ms`;
+}
+
+function formatView(view: { x: number; y: number; scale: number }): string {
+  return `${view.scale.toFixed(2)}× · ${view.x.toFixed(1)}, ${view.y.toFixed(1)}`;
+}
+
+function canvasPoint(event: Pick<PointerEvent | WheelEvent, 'clientX' | 'clientY'>): { x: number; y: number } {
+  const bounds = canvas.getBoundingClientRect();
+  return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+}
+
+function resetGesture(): void {
+  const active = gesture;
+  gesture = null;
+  canvas.dataset.gesture = 'idle';
+  if (active !== null && canvas.hasPointerCapture(active.pointerId)) {
+    canvas.releasePointerCapture(active.pointerId);
+  }
 }
 
 function required<T extends Element = HTMLElement>(selector: string): T {

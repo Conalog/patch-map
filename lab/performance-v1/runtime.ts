@@ -1,6 +1,8 @@
 import type {
   CoreEvent,
   CoreOperation,
+  CorePoint,
+  CoreView,
   EntitySnapshot,
   FrameReport,
   SceneDocument,
@@ -50,6 +52,9 @@ export interface LabReadout {
   readonly canvasHeight: number;
   readonly fixtureStatus: string;
   readonly workloadNote: string;
+  readonly view: CoreView;
+  readonly selectedEntity: string;
+  readonly interaction: string;
   readonly invariants: readonly LabInvariant[];
   readonly events: readonly LabEventRecord[];
 }
@@ -59,6 +64,9 @@ export type ReplayProgress = (label: string, readout: LabReadout) => void;
 const PRODUCTION_FIXTURE_URL = new URL('../fixtures/production-like.json', import.meta.url);
 const MAX_LOG_RECORDS = 80;
 const MAX_INVARIANTS = 12;
+const DEFAULT_VIEW: CoreView = Object.freeze({ x: 0, y: 0, scale: 1 });
+export const MIN_VIEW_SCALE = 0.25;
+export const MAX_VIEW_SCALE = 4;
 
 export class CoreV1LabRuntime {
   readonly #canvas: HTMLCanvasElement;
@@ -75,6 +83,9 @@ export class CoreV1LabRuntime {
   #lastFlushMs: number | null = null;
   #fixtureStatus = 'N/A';
   #workloadNote = 'No workload loaded.';
+  #initialView: CoreView = DEFAULT_VIEW;
+  #selectedEntity = 'none';
+  #interaction = 'Load a workload to enable canvas interaction.';
   #events: LabEventRecord[] = [];
   #invariants: LabInvariant[] = [];
   #eventSequence = 0;
@@ -95,6 +106,8 @@ export class CoreV1LabRuntime {
     this.#canvas.dataset.coreDocument = 'none';
     this.#fixtureStatus = dataset === 'production' ? 'NOT VERIFIED' : 'N/A';
     this.#workloadNote = `Selected ${datasetLabel(dataset)}. Load to replace authoritative state.`;
+    this.#selectedEntity = 'none';
+    this.#interaction = 'Dataset changed. Load before interacting with the surface.';
   }
 
   public reinitialize(): void {
@@ -122,6 +135,9 @@ export class CoreV1LabRuntime {
     this.#lastAction = 're-init';
     this.#lastActionMs = 0;
     this.#lastFlushMs = null;
+    this.#initialView = DEFAULT_VIEW;
+    this.#selectedEntity = 'none';
+    this.#interaction = 'Fresh lifecycle. Load a workload to enable canvas interaction.';
     this.#events = [];
     this.#invariants = [];
     this.#canvas.dataset.coreAlive = 'true';
@@ -162,6 +178,7 @@ export class CoreV1LabRuntime {
     const elapsed = performance.now() - started;
     const after = inputSignature(prepared.document);
     this.#document = prepared.document;
+    this.#initialView = scene.snapshot().view;
     this.#canvas.dataset.coreDocument = 'attached';
     this.#clockMs = 0;
     this.#frameRevision = null;
@@ -170,6 +187,8 @@ export class CoreV1LabRuntime {
     this.#lastAction = 'load';
     this.#lastActionMs = elapsed;
     this.#workloadNote = prepared.note;
+    this.#selectedEntity = 'none';
+    this.#interaction = 'Loaded. Click a visible bar to update it, drag to pan, or wheel to zoom.';
     this.#recordInvariant(
       'load-count',
       'Load count matches input',
@@ -298,15 +317,8 @@ export class CoreV1LabRuntime {
 
   public flush(): FrameReport {
     const scene = this.#requireLoadedScene();
-    const started = performance.now();
-    const report = scene.flush();
-    const elapsed = performance.now() - started;
-    this.#frameRevision = report.revision;
-    this.#frame = report.frame;
-    this.#commandCount = report.commandCount;
+    const report = this.#publish(scene);
     this.#lastAction = 'flush';
-    this.#lastActionMs = elapsed;
-    this.#lastFlushMs = report.cpuMs;
     this.#recordInvariant(
       'frame-current',
       'Flush publishes current state',
@@ -323,6 +335,134 @@ export class CoreV1LabRuntime {
     );
     this.#drainEvents();
     return report;
+  }
+
+  public screenToWorld(point: CorePoint): CorePoint {
+    return screenToWorld(point, this.#scene?.snapshot().view ?? DEFAULT_VIEW);
+  }
+
+  public clickAt(point: CorePoint): void {
+    const scene = this.#loadedSceneOrNull();
+    if (scene === null) {
+      this.#interaction = 'Surface unavailable. Click ignored until a dataset is loaded.';
+      this.#selectedEntity = 'none';
+      return;
+    }
+
+    const visualHit = scene.hitTest(point, { interactiveOnly: false });
+    const pointer = scene.dispatchPointer({
+      type: 'down',
+      pointerId: 1,
+      button: 0,
+      buttons: 1,
+      timeMs: this.#clockMs,
+      ...point,
+    });
+    const target = pointer.target === null ? null : scene.get(pointer.target);
+    const visualTarget = visualHit === null ? null : scene.get(visualHit);
+    this.#selectedEntity = describeSelection(scene);
+
+    if (target?.kind === 'bar') {
+      const before = numericBarValue(target);
+      const after = nextBarValue(target, before);
+      const started = performance.now();
+      const committed = scene.commit({
+        id: `lab:bar-click:${target.id}`,
+        recordHistory: false,
+        operations: [{ type: 'patch', target: target.ref, changes: { value: after } }],
+      });
+      const elapsed = performance.now() - started;
+      const report = this.#publish(scene);
+      const detail = `${describeEntity(target)} value ${formatValue(before)} → ${formatValue(after)}; F${pad(report.frame, 3)}`;
+      this.#lastAction = 'bar click update';
+      this.#lastActionMs = elapsed;
+      this.#interaction = `Bar updated: ${detail}`;
+      this.#recordInvariant(
+        'bar-click',
+        'Bar click commits and flushes immediately',
+        committed.changed === 1 && report.revision === scene.revision,
+        detail,
+      );
+      this.#drainEvents();
+      this.#recordEvent('bar update', scene.revision, detail);
+      return;
+    }
+
+    const report = this.#publish(scene);
+    const detail = describeIgnoredClick(visualTarget, target);
+    this.#lastAction = 'canvas click';
+    this.#lastActionMs = 0;
+    this.#interaction = `${detail}; F${pad(report.frame, 3)}.`;
+    this.#recordInvariant('bar-click', 'Non-bar clicks leave bar values unchanged', true, detail);
+    this.#drainEvents();
+    this.#recordEvent('canvas click', scene.revision, this.#interaction);
+  }
+
+  public panBy(delta: CorePoint): void {
+    const scene = this.#loadedSceneOrNull();
+    if (scene === null) {
+      this.#interaction = 'Surface unavailable. Pan ignored until a dataset is loaded.';
+      return;
+    }
+    if (delta.x === 0 && delta.y === 0) return;
+    const view = scene.snapshot().view;
+    const next = Object.freeze({ ...view, x: view.x + delta.x, y: view.y + delta.y });
+    const started = performance.now();
+    scene.commit({ id: 'lab:canvas-pan', recordHistory: false, operations: [{ type: 'view', view: next }] });
+    const elapsed = performance.now() - started;
+    const report = this.#publish(scene);
+    const detail = `pan ${formatView(next)}; F${pad(report.frame, 3)}`;
+    this.#lastAction = 'canvas pan';
+    this.#lastActionMs = elapsed;
+    this.#interaction = detail;
+    this.#recordInvariant('viewport', 'Viewport pan publishes the current view', report.revision === scene.revision, detail);
+    this.#drainEvents();
+    this.#recordEvent('viewport pan', scene.revision, detail);
+  }
+
+  public zoomAt(point: CorePoint, deltaY: number): void {
+    const scene = this.#loadedSceneOrNull();
+    if (scene === null) {
+      this.#interaction = 'Surface unavailable. Zoom ignored until a dataset is loaded.';
+      return;
+    }
+    const view = scene.snapshot().view;
+    const next = zoomViewAt(point, view, deltaY);
+    if (next.scale === view.scale) return;
+    const started = performance.now();
+    scene.commit({ id: 'lab:canvas-zoom', recordHistory: false, operations: [{ type: 'view', view: next }] });
+    const elapsed = performance.now() - started;
+    const report = this.#publish(scene);
+    const detail = `zoom ${formatView(next)} at ${formatPoint(point)}; F${pad(report.frame, 3)}`;
+    this.#lastAction = 'canvas zoom';
+    this.#lastActionMs = elapsed;
+    this.#interaction = detail;
+    this.#recordInvariant('viewport', 'Cursor-centered zoom publishes the current view', report.revision === scene.revision, detail);
+    this.#drainEvents();
+    this.#recordEvent('viewport zoom', scene.revision, detail);
+  }
+
+  public resetView(): void {
+    const scene = this.#loadedSceneOrNull();
+    if (scene === null) {
+      this.#interaction = 'Surface unavailable. View reset ignored until a dataset is loaded.';
+      return;
+    }
+    const started = performance.now();
+    scene.commit({
+      id: 'lab:canvas-reset',
+      recordHistory: false,
+      operations: [{ type: 'view', view: this.#initialView }],
+    });
+    const elapsed = performance.now() - started;
+    const report = this.#publish(scene);
+    const detail = `reset to ${formatView(this.#initialView)}; F${pad(report.frame, 3)}`;
+    this.#lastAction = 'view reset';
+    this.#lastActionMs = elapsed;
+    this.#interaction = detail;
+    this.#recordInvariant('viewport', 'View reset restores the loaded viewport', report.revision === scene.revision, detail);
+    this.#drainEvents();
+    this.#recordEvent('viewport reset', scene.revision, detail);
   }
 
   public hitAndSelect(): void {
@@ -389,6 +529,8 @@ export class CoreV1LabRuntime {
     this.#frame = 0;
     this.#commandCount = 0;
     this.#events = [];
+    this.#selectedEntity = 'none';
+    this.#interaction = 'Surface offline. Re-init and load before interacting.';
     this.#recordInvariant(
       'teardown',
       'Lifecycle releases runtime state',
@@ -454,6 +596,9 @@ export class CoreV1LabRuntime {
       canvasHeight: size.height,
       fixtureStatus: this.#fixtureStatus,
       workloadNote: this.#workloadNote,
+      view: scene?.snapshot().view ?? DEFAULT_VIEW,
+      selectedEntity: this.#selectedEntity,
+      interaction: this.#interaction,
       invariants: this.#invariants,
       events: this.#events,
     };
@@ -497,6 +642,35 @@ export class CoreV1LabRuntime {
     if (this.#events.length > MAX_LOG_RECORDS) this.#events.length = MAX_LOG_RECORDS;
   }
 
+  #publish(scene: CoreScene): FrameReport {
+    const started = performance.now();
+    const report = scene.flush();
+    this.#lastActionMs = performance.now() - started;
+    this.#lastFlushMs = report.cpuMs;
+    this.#frameRevision = report.revision;
+    this.#frame = report.frame;
+    this.#commandCount = report.commandCount;
+    return report;
+  }
+
+  #loadedSceneOrNull(): CoreScene | null {
+    return this.#scene !== null && this.#document !== null && this.#scene.entityCount > 0
+      ? this.#scene
+      : null;
+  }
+
+  #recordEvent(type: string, revision: number, detail: string): void {
+    this.#eventSequence += 1;
+    this.#events.unshift({
+      sequence: this.#eventSequence,
+      time: new Date().toISOString().slice(11, 23),
+      type,
+      revision,
+      detail,
+    });
+    if (this.#events.length > MAX_LOG_RECORDS) this.#events.length = MAX_LOG_RECORDS;
+  }
+
   #recordInvariant(id: string, label: string, passed: boolean, detail: string): void {
     const next: LabInvariant = {
       id,
@@ -526,6 +700,24 @@ export class CoreV1LabRuntime {
 
 export function isDatasetKey(value: string | null): value is DatasetKey {
   return value !== null && (DATASET_KEYS as readonly string[]).includes(value);
+}
+
+export function screenToWorld(point: CorePoint, view: CoreView): CorePoint {
+  return Object.freeze({
+    x: (point.x - view.x) / view.scale,
+    y: (point.y - view.y) / view.scale,
+  });
+}
+
+export function zoomViewAt(point: CorePoint, view: CoreView, deltaY: number): CoreView {
+  const scale = clamp(view.scale * Math.exp(-deltaY * 0.0015), MIN_VIEW_SCALE, MAX_VIEW_SCALE);
+  const world = screenToWorld(point, view);
+  return Object.freeze({
+    ...view,
+    x: point.x - world.x * scale,
+    y: point.y - world.y * scale,
+    scale,
+  });
 }
 
 function mutableEntities(entities: readonly EntitySnapshot[]): readonly EntitySnapshot[] {
@@ -588,4 +780,55 @@ function pad(value: number, width: number): string {
 
 function nextPaint(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+function numericBarValue(entity: EntitySnapshot): number {
+  const value = entity.data.value;
+  if (typeof value !== 'number') throw new Error(`Bar ${entity.id} has no numeric value`);
+  return value;
+}
+
+function nextBarValue(entity: EntitySnapshot, value: number): number {
+  const min = entity.data.min;
+  const max = entity.data.max;
+  if (typeof min !== 'number' || typeof max !== 'number' || max <= min) {
+    throw new Error(`Bar ${entity.id} has invalid range`);
+  }
+  return value <= min + (max - min) / 2 ? max : min;
+}
+
+function describeSelection(scene: CoreScene): string {
+  const ref = scene.selection().refs[0];
+  if (ref === undefined) return 'none';
+  const entity = scene.get(ref);
+  return entity === null ? 'none' : describeEntity(entity);
+}
+
+function describeEntity(entity: EntitySnapshot): string {
+  return `${entity.id} [${entity.kind} s${entity.ref.slot} g${entity.ref.generation}]`;
+}
+
+function describeIgnoredClick(visualTarget: EntitySnapshot | null, target: EntitySnapshot | null): string {
+  if (target !== null) return `Selected ${describeEntity(target)}; bar update skipped`;
+  if (visualTarget?.kind === 'relation') {
+    return `Relation ${describeEntity(visualTarget)} is non-interactive; selection cleared`;
+  }
+  if (visualTarget !== null) return `Non-interactive ${describeEntity(visualTarget)}; selection cleared`;
+  return 'Empty space; no entity hit and selection cleared';
+}
+
+function formatValue(value: number): string {
+  return value.toFixed(3);
+}
+
+function formatView(view: CoreView): string {
+  return `scale ${view.scale.toFixed(2)} · pan ${view.x.toFixed(1)}, ${view.y.toFixed(1)}`;
+}
+
+function formatPoint(point: CorePoint): string {
+  return `${point.x.toFixed(1)}, ${point.y.toFixed(1)}`;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
