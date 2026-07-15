@@ -374,8 +374,10 @@ try {
     (await productionBarPage.getByTestId('assertion-list').textContent())?.includes('200'),
     'Production panel bar update did not preserve the public default animation duration.',
   );
-  await productionBarPage.getByTestId('run-case').click();
-  await productionBarPage.waitForURL(/case=draw-production-panel-bar-animation&step=6/u, { timeout: 60_000 });
+  await productionBarPage.locator('[data-testid="step-button"][data-step-index="5"]').click();
+  await waitForStep(productionBarPage, 5);
+  await productionBarPage.locator('[data-testid="step-button"][data-step-index="6"]').click();
+  await waitForStep(productionBarPage, 6);
   await waitForNotBusy(productionBarPage);
   await productionBarPage.getByTestId('result-summary').getByText('PASS', { exact: true }).waitFor();
   await productionBarPage.waitForTimeout(750);
