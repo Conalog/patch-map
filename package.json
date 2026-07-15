@@ -48,6 +48,7 @@
     "verify:lab": "node scripts/verification/browser-lab.mjs",
     "verify:lab:core-v1": "node scripts/verification/core-v1-browser.mjs",
     "verify:package:core-v1": "node scripts/verification/core-v1-package.mjs",
+    "verify:memory:core-v1": "node scripts/verification/core-v1-memory.mjs",
     "verify:local": "npm test && npm run conformance -- --repeat 2 && npm run verify:browser && npm run verify:memory && npm run verify:package && npm run verify:safety && npm audit --audit-level=low && npm run perf:check",
     "conformance": "node scripts/conformance/run.mjs",
     "conformance:lifecycle": "node scripts/conformance/run.mjs LIF-001 LIF-002",

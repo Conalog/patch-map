@@ -1,0 +1,231 @@
+{
+  "environment": {
+    "labUrl": "http://127.0.0.1:4181/lab/performance-v1/?dataset=500",
+    "measuredCycles": 7,
+    "platform": "darwin",
+    "runtime": "v22.21.1",
+    "warmupCycles": 2
+  },
+  "raw": {
+    "consoleErrors": [],
+    "cycles": [
+      {
+        "afterDestroy": {
+          "canvasConnected": true,
+          "canvasCount": 1,
+          "entityCount": 0,
+          "eventCount": "0 records",
+          "frame": 0,
+          "revision": 0,
+          "status": "OFFLINE",
+          "teardownInvariant": true
+        },
+        "cycle": 1,
+        "dom": {
+          "documents": 1,
+          "nodes": 448,
+          "jsEventListeners": 40
+        },
+        "frameBeforeDestroy": 1,
+        "heapBytes": 2714180,
+        "loadedEntities": 500,
+        "phase": "warmup"
+      },
+      {
+        "afterDestroy": {
+          "canvasConnected": true,
+          "canvasCount": 1,
+          "entityCount": 0,
+          "eventCount": "0 records",
+          "frame": 0,
+          "revision": 0,
+          "status": "OFFLINE",
+          "teardownInvariant": true
+        },
+        "cycle": 2,
+        "dom": {
+          "documents": 1,
+          "nodes": 453,
+          "jsEventListeners": 40
+        },
+        "frameBeforeDestroy": 1,
+        "heapBytes": 2777660,
+        "loadedEntities": 500,
+        "phase": "warmup"
+      },
+      {
+        "afterDestroy": {
+          "canvasConnected": true,
+          "canvasCount": 1,
+          "entityCount": 0,
+          "eventCount": "0 records",
+          "frame": 0,
+          "revision": 0,
+          "status": "OFFLINE",
+          "teardownInvariant": true
+        },
+        "cycle": 3,
+        "dom": {
+          "documents": 1,
+          "nodes": 453,
+          "jsEventListeners": 40
+        },
+        "frameBeforeDestroy": 1,
+        "heapBytes": 2802464,
+        "loadedEntities": 500,
+        "phase": "measured"
+      },
+      {
+        "afterDestroy": {
+          "canvasConnected": true,
+          "canvasCount": 1,
+          "entityCount": 0,
+          "eventCount": "0 records",
+          "frame": 0,
+          "revision": 0,
+          "status": "OFFLINE",
+          "teardownInvariant": true
+        },
+        "cycle": 4,
+        "dom": {
+          "documents": 1,
+          "nodes": 453,
+          "jsEventListeners": 40
+        },
+        "frameBeforeDestroy": 1,
+        "heapBytes": 2813344,
+        "loadedEntities": 500,
+        "phase": "measured"
+      },
+      {
+        "afterDestroy": {
+          "canvasConnected": true,
+          "canvasCount": 1,
+          "entityCount": 0,
+          "eventCount": "0 records",
+          "frame": 0,
+          "revision": 0,
+          "status": "OFFLINE",
+          "teardownInvariant": true
+        },
+        "cycle": 5,
+        "dom": {
+          "documents": 1,
+          "nodes": 453,
+          "jsEventListeners": 40
+        },
+        "frameBeforeDestroy": 1,
+        "heapBytes": 2859636,
+        "loadedEntities": 500,
+        "phase": "measured"
+      },
+      {
+        "afterDestroy": {
+          "canvasConnected": true,
+          "canvasCount": 1,
+          "entityCount": 0,
+          "eventCount": "0 records",
+          "frame": 0,
+          "revision": 0,
+          "status": "OFFLINE",
+          "teardownInvariant": true
+        },
+        "cycle": 6,
+        "dom": {
+          "documents": 1,
+          "nodes": 453,
+          "jsEventListeners": 40
+        },
+        "frameBeforeDestroy": 1,
+        "heapBytes": 2861360,
+        "loadedEntities": 500,
+        "phase": "measured"
+      },
+      {
+        "afterDestroy": {
+          "canvasConnected": true,
+          "canvasCount": 1,
+          "entityCount": 0,
+          "eventCount": "0 records",
+          "frame": 0,
+          "revision": 0,
+          "status": "OFFLINE",
+          "teardownInvariant": true
+        },
+        "cycle": 7,
+        "dom": {
+          "documents": 1,
+          "nodes": 453,
+          "jsEventListeners": 40
+        },
+        "frameBeforeDestroy": 1,
+        "heapBytes": 2870668,
+        "loadedEntities": 500,
+        "phase": "measured"
+      },
+      {
+        "afterDestroy": {
+          "canvasConnected": true,
+          "canvasCount": 1,
+          "entityCount": 0,
+          "eventCount": "0 records",
+          "frame": 0,
+          "revision": 0,
+          "status": "OFFLINE",
+          "teardownInvariant": true
+        },
+        "cycle": 8,
+        "dom": {
+          "documents": 1,
+          "nodes": 453,
+          "jsEventListeners": 40
+        },
+        "frameBeforeDestroy": 1,
+        "heapBytes": 2880008,
+        "loadedEntities": 500,
+        "phase": "measured"
+      },
+      {
+        "afterDestroy": {
+          "canvasConnected": true,
+          "canvasCount": 1,
+          "entityCount": 0,
+          "eventCount": "0 records",
+          "frame": 0,
+          "revision": 0,
+          "status": "OFFLINE",
+          "teardownInvariant": true
+        },
+        "cycle": 9,
+        "dom": {
+          "documents": 1,
+          "nodes": 453,
+          "jsEventListeners": 40
+        },
+        "frameBeforeDestroy": 1,
+        "heapBytes": 2942128,
+        "loadedEntities": 500,
+        "phase": "measured"
+      }
+    ],
+    "networkErrors": [],
+    "pageErrors": []
+  },
+  "startedAt": "2026-07-15T06:02:52.703Z",
+  "status": "passed",
+  "finishedAt": "2026-07-15T06:02:56.269Z",
+  "result": {
+    "aggregateCanvasCount": 1,
+    "allowedHeapGrowthBytes": 2097152,
+    "domGrowth": {
+      "documents": 0,
+      "jsEventListeners": 0,
+      "nodes": 0
+    },
+    "earlyMedianHeapBytes": 2813344,
+    "heapGrowthBytes": 66664,
+    "lateMedianHeapBytes": 2880008,
+    "lifecycleCycles": 9,
+    "staleActiveCore": false
+  }
+}
