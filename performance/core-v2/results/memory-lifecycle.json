@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-15T12:15:47.020Z",
+  "workload": {
+    "sourceItems": 1000,
+    "expandedEntities": 5099
+  },
+  "protocol": {
+    "warmups": 2,
+    "measured": 7
+  },
+  "jsHeap": {
+    "before": 4184872,
+    "after": 8542760,
+    "processDelta": 4357888,
+    "samples": [
+      145572,
+      81712,
+      359280,
+      92916,
+      44572,
+      43548,
+      172520
+    ],
+    "median": 92916,
+    "p95": 359280,
+    "maximum": 359280,
+    "trend": 26948
+  },
+  "dom": {
+    "canvasCount": 0,
+    "surfaceChildren": 0
+  },
+  "lifecycleFailures": [],
+  "errors": {
+    "console": [],
+    "page": [],
+    "network": []
+  },
+  "limits": {
+    "retainedHeap": "Post-GC JS heap after each trial has returned and runtime/input clone references have left lexical scope; DOM, browser-native, texture, and GPU allocations are not included",
+    "gpu": "No portable browser GPU retained-memory counter is exposed"
+  },
+  "status": "pass",
+  "failures": []
+}

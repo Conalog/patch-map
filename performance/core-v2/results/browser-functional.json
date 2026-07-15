@@ -1,0 +1,386 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-15T12:16:21.615Z",
+  "headed": true,
+  "checks": [
+    {
+      "label": "initial direct synthetic load",
+      "passed": true
+    },
+    {
+      "label": "Mesh WebGL production baseline",
+      "passed": true
+    },
+    {
+      "label": "caller input immutability readout",
+      "passed": true
+    },
+    {
+      "label": "asset load binds the texture and publishes its debug transition",
+      "passed": true,
+      "details": {
+        "before": {
+          "loadedAssetCount": 0,
+          "unresolvedAssetCount": 1,
+          "imageCount": 50,
+          "frame": 3,
+          "lastInvalidation": "synchronize"
+        },
+        "after": {
+          "loadedAssetCount": 1,
+          "unresolvedAssetCount": 0,
+          "imageCount": 50,
+          "frame": 5,
+          "lastInvalidation": "asset:core-v2-synthetic-dot:load"
+        }
+      }
+    },
+    {
+      "label": "seeded random text changes actual values while preserving text identity/count",
+      "passed": true,
+      "details": {
+        "beforeCount": 500,
+        "afterCount": 500,
+        "changedCount": 132,
+        "changedSamples": [
+          {
+            "id": "item-00007::text:value",
+            "before": "7",
+            "after": "44077"
+          },
+          {
+            "id": "item-00008::text:value",
+            "before": "79",
+            "after": "80865"
+          },
+          {
+            "id": "item-00015::text:value",
+            "before": "9",
+            "after": "81916"
+          },
+          {
+            "id": "item-00017::text:value",
+            "before": "69",
+            "after": "11607"
+          },
+          {
+            "id": "item-00023::text:value",
+            "before": "86",
+            "after": "11999"
+          }
+        ]
+      }
+    },
+    {
+      "label": "random text change is represented by aggregate text leaves in a new frame",
+      "passed": true,
+      "details": {
+        "before": {
+          "entityCount": 500,
+          "renderedTextCount": 500,
+          "bitmapTextCount": 500,
+          "fallbackTextCount": 0,
+          "frame": 5
+        },
+        "after": {
+          "entityCount": 500,
+          "renderedTextCount": 500,
+          "bitmapTextCount": 500,
+          "fallbackTextCount": 0,
+          "frame": 6
+        }
+      }
+    },
+    {
+      "label": "Pixi Extract PNG capture",
+      "passed": true
+    },
+    {
+      "label": "asset unload restores the unresolved fallback and records its debug transition",
+      "passed": true,
+      "details": {
+        "before": {
+          "loadedAssetCount": 1,
+          "unresolvedAssetCount": 0,
+          "imageCount": 50,
+          "frame": 7,
+          "lastInvalidation": "commit"
+        },
+        "after": {
+          "loadedAssetCount": 0,
+          "unresolvedAssetCount": 1,
+          "imageCount": 50,
+          "frame": 9,
+          "lastInvalidation": "asset:core-v2-synthetic-dot:unload"
+        }
+      }
+    },
+    {
+      "label": "the frame after asset unload renders without a stale texture binding",
+      "passed": true,
+      "details": {
+        "afterUnload": {
+          "loadedAssetCount": 0,
+          "unresolvedAssetCount": 1,
+          "imageCount": 50,
+          "frame": 9,
+          "lastInvalidation": "asset:core-v2-synthetic-dot:unload"
+        },
+        "nextFrame": {
+          "loadedAssetCount": 0,
+          "unresolvedAssetCount": 1,
+          "frame": 10,
+          "lastInvalidation": "asset:core-v2-synthetic-dot:unload"
+        }
+      }
+    },
+    {
+      "label": "reset publishes the identity viewport in a new frame",
+      "passed": true,
+      "details": {
+        "before": {
+          "view": {
+            "x": 314.98805815160955,
+            "y": 24,
+            "scale": 0.2751817237798546,
+            "rotation": 0
+          },
+          "frame": 10,
+          "viewport": {
+            "width": 969,
+            "height": 578
+          }
+        },
+        "after": {
+          "view": {
+            "x": 0,
+            "y": 0,
+            "scale": 1,
+            "rotation": 0
+          },
+          "frame": 11,
+          "viewport": {
+            "width": 969,
+            "height": 578
+          }
+        }
+      }
+    },
+    {
+      "label": "fit publishes a distinct viewport with visible scene bounds inside padding",
+      "passed": true,
+      "details": {
+        "reset": {
+          "view": {
+            "x": 0,
+            "y": 0,
+            "scale": 1,
+            "rotation": 0
+          },
+          "frame": 11,
+          "viewport": {
+            "width": 969,
+            "height": 578
+          }
+        },
+        "fit": {
+          "view": {
+            "x": 314.98805815160955,
+            "y": 24,
+            "scale": 0.2751817237798546,
+            "rotation": 0
+          },
+          "frame": 12,
+          "viewport": {
+            "width": 969,
+            "height": 578
+          },
+          "presentedBounds": {
+            "left": 314.98805815160955,
+            "top": 24,
+            "right": 654.0119418483905,
+            "bottom": 554
+          }
+        }
+      }
+    },
+    {
+      "label": "transformed root-event hit and selection",
+      "passed": true
+    },
+    {
+      "label": "real pointer drag pans an empty transformed viewport",
+      "passed": true
+    },
+    {
+      "label": "empty hit clears selection",
+      "passed": true
+    },
+    {
+      "label": "real wheel zoom remains cursor-centered ({\"beforeZoom\":{\"world\":{\"x\":657.7905660377359,\"y\":1002.9735849056603},\"scale\":0.2751817237798546},\"afterZoom\":{\"world\":{\"x\":657.7905660377359,\"y\":1001.6468424383269},\"scale\":0.4722137263540888},\"zoomScreenError\":0.626506004411758})",
+      "passed": true
+    },
+    {
+      "label": "bar animation presents an intermediate height through the central scheduler",
+      "passed": true,
+      "details": {
+        "before": {
+          "barCount": 500,
+          "activeAnimations": 0,
+          "rendererFrame": 19,
+          "schedulerFrame": 7
+        },
+        "during": {
+          "activeAnimations": 50,
+          "changedCount": 50,
+          "changedSamples": [
+            {
+              "id": "item-00005::bar:bar",
+              "before": 51.8,
+              "during": 51.72960506892518
+            },
+            {
+              "id": "item-00017::bar:bar",
+              "before": 48.3,
+              "during": 48.31913566125406
+            },
+            {
+              "id": "item-00019::bar:bar",
+              "before": 21,
+              "during": 20.926123252811237
+            },
+            {
+              "id": "item-00042::bar:bar",
+              "before": 4.2,
+              "during": 4.191370194972985
+            },
+            {
+              "id": "item-00054::bar:bar",
+              "before": 32.9,
+              "during": 32.855861441692234
+            }
+          ],
+          "rendererFrame": 21,
+          "schedulerFrame": 9
+        }
+      }
+    },
+    {
+      "label": "visible central-scheduler bar animation completes at changed heights",
+      "passed": true,
+      "details": {
+        "changedCount": 50,
+        "changedSamples": [
+          {
+            "id": "item-00005::bar:bar",
+            "before": 51.8,
+            "after": 38.05329079102725
+          },
+          {
+            "id": "item-00017::bar:bar",
+            "before": 48.3,
+            "after": 52.0368084145349
+          },
+          {
+            "id": "item-00019::bar:bar",
+            "before": 21,
+            "after": 6.573362379893661
+          },
+          {
+            "id": "item-00042::bar:bar",
+            "before": 4.2,
+            "after": 2.5147732595913115
+          },
+          {
+            "id": "item-00054::bar:bar",
+            "before": 32.9,
+            "after": 24.280630441767862
+          }
+        ],
+        "during": {
+          "activeAnimations": 50,
+          "changedCount": 50,
+          "changedSamples": [
+            {
+              "id": "item-00005::bar:bar",
+              "before": 51.8,
+              "during": 51.72960506892518
+            },
+            {
+              "id": "item-00017::bar:bar",
+              "before": 48.3,
+              "during": 48.31913566125406
+            },
+            {
+              "id": "item-00019::bar:bar",
+              "before": 21,
+              "during": 20.926123252811237
+            },
+            {
+              "id": "item-00042::bar:bar",
+              "before": 4.2,
+              "during": 4.191370194972985
+            },
+            {
+              "id": "item-00054::bar:bar",
+              "before": 32.9,
+              "during": 32.855861441692234
+            }
+          ],
+          "rendererFrame": 21,
+          "schedulerFrame": 9
+        },
+        "after": {
+          "barCount": 500,
+          "activeAnimations": 0,
+          "rendererFrame": 46,
+          "schedulerFrame": 34
+        }
+      }
+    },
+    {
+      "label": "Pixi DevTools exposes Application stage and aggregate world labels",
+      "passed": true
+    },
+    {
+      "label": "production JSON direct load expands to 37,071 entities",
+      "passed": true
+    },
+    {
+      "label": "production input remains immutable",
+      "passed": true
+    },
+    {
+      "label": "responsive resize updates Pixi renderer",
+      "passed": true
+    },
+    {
+      "label": "destroy removes canvas and releases application lifecycle",
+      "passed": true
+    },
+    {
+      "label": "rejected Particle spike remains functionally testable",
+      "passed": true
+    },
+    {
+      "label": "console error count is zero",
+      "passed": true
+    },
+    {
+      "label": "page error count is zero",
+      "passed": true
+    },
+    {
+      "label": "network error count is zero",
+      "passed": true
+    }
+  ],
+  "errors": {
+    "console": [],
+    "page": [],
+    "network": []
+  },
+  "status": "pass",
+  "failures": [],
+  "windowsNative": "pending"
+}

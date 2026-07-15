@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-15T12:15:35.285Z",
+  "package": "@conalog/patch-map/core-v2",
+  "pixi": "8.19.0",
+  "esm": {
+    "immutable": true,
+    "parsedEntities": 4,
+    "loadedEntities": 4,
+    "capturePrefix": "data:image/png;base64,",
+    "captureLength": 8338,
+    "backend": "webgl",
+    "strategy": "mesh",
+    "renderObjects": 4,
+    "canvasCountAfterDestroy": 0,
+    "destroyed": true
+  },
+  "cjs": {
+    "entities": 1,
+    "id": "cjs-rect"
+  },
+  "errors": {
+    "console": [],
+    "page": [],
+    "network": []
+  },
+  "status": "pass",
+  "failures": []
+}
