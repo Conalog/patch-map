@@ -1,0 +1,1576 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-15T05:21:49.409Z",
+  "target": {
+    "label": "@conalog/patch-map compatibility implementation (frozen baseline)",
+    "entry": "/src/patchmap.ts"
+  },
+  "environment": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "cpu": "Apple M2",
+    "logicalCores": 8,
+    "totalMemoryBytes": 17179869184,
+    "node": "v22.21.1",
+    "chromium": "143.0.7499.4",
+    "cpuThrottle": 4,
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+    "browserPlatform": "MacIntel",
+    "gpuVendor": "Google Inc. (Google)",
+    "gpuRenderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "preciseHeapAvailable": true
+  },
+  "run": {
+    "mode": "quick",
+    "warmups": 1,
+    "iterations": 3,
+    "scenarios": [
+      "100",
+      "500",
+      "1000",
+      "production"
+    ],
+    "rawSamplesPreserved": true,
+    "windowsNativeGate": "pending",
+    "evidenceStatus": "headless-chromium-4x-development-proxy"
+  },
+  "measurementBoundaries": {
+    "normalize": "direct self-authored materializeMapData probe",
+    "managedSceneBuild": "direct self-authored buildManagedScene probe",
+    "load": "public Patchmap.draw; overlaps normalize and ManagedNode/render preparation",
+    "firstRender": "explicit synchronous Patchmap.app.render after draw",
+    "trustedBulkUpdate": "single public update over all item handles with validation disabled, then explicit render",
+    "validatedRandomBulkUpdate": "single public update over deterministic 10% item subset with validation enabled, then explicit render",
+    "barAnimationFrame": "wrapped compatibility-owned rAF callback plus explicit render; first refresh frame is included",
+    "hitTestSelection": "Pixi rootBoundary hitTest plus SelectionState dispatch; known-handle fallback is counted",
+    "retainedHeap": "performance.memory delta after exposed GC; negative deltas clamp to zero"
+  },
+  "limitations": [
+    "Responsibility probes are standalone and overlap the public draw load metric; they are not additive.",
+    "The production fixture has 458 top-level elements but compatibility grid expansion is reported separately.",
+    "Headless Chromium GPU submission is proxy evidence and does not prove visible-pixel presentation cost.",
+    "rAF capture includes the first managed-scene refresh callback because the private render layer has no public animation-frame hook.",
+    "Native hit-test misses fall back to the known public item handle and are reported per sample.",
+    "performance.memory and exposed GC are Chromium diagnostics, not exact retained-object accounting.",
+    "Windows-native measurements are pending."
+  ],
+  "browserErrors": [],
+  "scenarios": [
+    {
+      "name": "100",
+      "workload": {
+        "topLevelElements": 1,
+        "gridCells": 100
+      },
+      "samples": [
+        {
+          "initMs": 41.5,
+          "normalizeMs": 2.5999999046325684,
+          "managedSceneBuildMs": 24.299999952316284,
+          "managedSceneDestroyMs": 1.7000000476837158,
+          "loadMs": 45.59999990463257,
+          "firstRenderMs": 12.200000047683716,
+          "itemLookupMs": 0.09999990463256836,
+          "trustedBulkUpdate": {
+            "syncMs": 3.4000000953674316,
+            "renderMs": 14.399999856948853,
+            "totalMs": 17.799999952316284
+          },
+          "validatedRandomBulkUpdate": {
+            "syncMs": 3.6000001430511475,
+            "renderMs": 23.5,
+            "totalMs": 27.100000143051147,
+            "targetedItems": 10
+          },
+          "barAnimation": {
+            "updateSyncMs": 1.3999998569488525,
+            "frameMs": [
+              11.900000095367432,
+              0.09999990463256836,
+              0,
+              15.100000143051147,
+              0.40000009536743164,
+              0,
+              12.099999904632568,
+              0.7000000476837158,
+              0.2999999523162842,
+              1.9000000953674316,
+              0.39999985694885254,
+              0.39999985694885254,
+              0.8000001907348633,
+              0.7000000476837158,
+              0,
+              0.09999990463256836,
+              0,
+              0.10000014305114746,
+              0,
+              0.8999998569488525,
+              0
+            ]
+          },
+          "hitTestSelection": {
+            "setupMs": 0,
+            "operations": 16,
+            "batchMs": 6,
+            "perOperationMs": 0.375,
+            "callbacks": 16,
+            "nativeHitCount": 16,
+            "nativeHitErrors": 0,
+            "fallbackCount": 0
+          },
+          "responsibilityCounts": {
+            "managedNodes": 501,
+            "roots": 1
+          },
+          "publicScene": {
+            "managedNodes": 501,
+            "totalNodes": 501
+          },
+          "retainedHeapAfterLoadBytes": 842467,
+          "retainedHeapAfterWorkloadBytes": 974651,
+          "teardownMs": 8.200000047683716,
+          "postDestroyRetainedHeapBytes": 144403
+        },
+        {
+          "initMs": 38.40000009536743,
+          "normalizeMs": 0.7999999523162842,
+          "managedSceneBuildMs": 20.40000009536743,
+          "managedSceneDestroyMs": 1.8999998569488525,
+          "loadMs": 55.700000047683716,
+          "firstRenderMs": 13.900000095367432,
+          "itemLookupMs": 0.09999990463256836,
+          "trustedBulkUpdate": {
+            "syncMs": 4.6000001430511475,
+            "renderMs": 17.799999952316284,
+            "totalMs": 22.40000009536743
+          },
+          "validatedRandomBulkUpdate": {
+            "syncMs": 3.299999952316284,
+            "renderMs": 23.299999952316284,
+            "totalMs": 26.59999990463257,
+            "targetedItems": 10
+          },
+          "barAnimation": {
+            "updateSyncMs": 2.1000001430511475,
+            "frameMs": [
+              14.799999952316284,
+              0.10000014305114746,
+              0,
+              15.299999952316284,
+              0,
+              0.7000000476837158,
+              11,
+              0.5999999046325684,
+              0.7000000476837158,
+              0.10000014305114746,
+              0,
+              1.0999999046325684,
+              0,
+              1.0999999046325684,
+              0.10000014305114746,
+              0.20000004768371582,
+              0,
+              0.09999990463256836,
+              0.10000014305114746,
+              0.7000000476837158,
+              0
+            ]
+          },
+          "hitTestSelection": {
+            "setupMs": 0,
+            "operations": 16,
+            "batchMs": 7,
+            "perOperationMs": 0.4375,
+            "callbacks": 16,
+            "nativeHitCount": 16,
+            "nativeHitErrors": 0,
+            "fallbackCount": 0
+          },
+          "responsibilityCounts": {
+            "managedNodes": 501,
+            "roots": 1
+          },
+          "publicScene": {
+            "managedNodes": 501,
+            "totalNodes": 501
+          },
+          "retainedHeapAfterLoadBytes": 843816,
+          "retainedHeapAfterWorkloadBytes": 925904,
+          "teardownMs": 8.600000143051147,
+          "postDestroyRetainedHeapBytes": 109736
+        },
+        {
+          "initMs": 34.09999990463257,
+          "normalizeMs": 0.09999990463256836,
+          "managedSceneBuildMs": 22.700000047683716,
+          "managedSceneDestroyMs": 2.700000047683716,
+          "loadMs": 48.80000019073486,
+          "firstRenderMs": 11.399999856948853,
+          "itemLookupMs": 0.6000001430511475,
+          "trustedBulkUpdate": {
+            "syncMs": 1.7999999523162842,
+            "renderMs": 12.599999904632568,
+            "totalMs": 14.399999856948853
+          },
+          "validatedRandomBulkUpdate": {
+            "syncMs": 2.8000001907348633,
+            "renderMs": 21.799999952316284,
+            "totalMs": 24.600000143051147,
+            "targetedItems": 10
+          },
+          "barAnimation": {
+            "updateSyncMs": 1.7000000476837158,
+            "frameMs": [
+              12.199999809265137,
+              0.20000004768371582,
+              0,
+              11.600000143051147,
+              0.7999999523162842,
+              0.20000004768371582,
+              11.5,
+              0,
+              0.09999990463256836,
+              0.7000000476837158,
+              0.7000000476837158,
+              0.9000000953674316,
+              0.2999999523162842,
+              0.9000000953674316,
+              0.20000004768371582,
+              0.7999999523162842,
+              0.5,
+              0.5999999046325684,
+              0.10000014305114746,
+              0.7000000476837158,
+              0.20000004768371582
+            ]
+          },
+          "hitTestSelection": {
+            "setupMs": 0.10000014305114746,
+            "operations": 16,
+            "batchMs": 11,
+            "perOperationMs": 0.6875,
+            "callbacks": 16,
+            "nativeHitCount": 16,
+            "nativeHitErrors": 0,
+            "fallbackCount": 0
+          },
+          "responsibilityCounts": {
+            "managedNodes": 501,
+            "roots": 1
+          },
+          "publicScene": {
+            "managedNodes": 501,
+            "totalNodes": 501
+          },
+          "retainedHeapAfterLoadBytes": 806580,
+          "retainedHeapAfterWorkloadBytes": 907560,
+          "teardownMs": 9,
+          "postDestroyRetainedHeapBytes": 65604
+        }
+      ],
+      "summary": {
+        "initMs": {
+          "rawCount": 3,
+          "min": 34.1,
+          "median": 38.4,
+          "p95": 41.5,
+          "max": 41.5
+        },
+        "normalizeMs": {
+          "rawCount": 3,
+          "min": 0.1,
+          "median": 0.8,
+          "p95": 2.6,
+          "max": 2.6
+        },
+        "managedSceneBuildMs": {
+          "rawCount": 3,
+          "min": 20.4,
+          "median": 22.7,
+          "p95": 24.3,
+          "max": 24.3
+        },
+        "managedSceneDestroyMs": {
+          "rawCount": 3,
+          "min": 1.7,
+          "median": 1.9,
+          "p95": 2.7,
+          "max": 2.7
+        },
+        "loadMs": {
+          "rawCount": 3,
+          "min": 45.6,
+          "median": 48.8,
+          "p95": 55.7,
+          "max": 55.7
+        },
+        "firstRenderMs": {
+          "rawCount": 3,
+          "min": 11.4,
+          "median": 12.2,
+          "p95": 13.9,
+          "max": 13.9
+        },
+        "itemLookupMs": {
+          "rawCount": 3,
+          "min": 0.1,
+          "median": 0.1,
+          "p95": 0.6,
+          "max": 0.6
+        },
+        "trustedBulkUpdateSyncMs": {
+          "rawCount": 3,
+          "min": 1.8,
+          "median": 3.4,
+          "p95": 4.6,
+          "max": 4.6
+        },
+        "trustedBulkUpdateRenderMs": {
+          "rawCount": 3,
+          "min": 12.6,
+          "median": 14.4,
+          "p95": 17.8,
+          "max": 17.8
+        },
+        "trustedBulkUpdateTotalMs": {
+          "rawCount": 3,
+          "min": 14.4,
+          "median": 17.8,
+          "p95": 22.4,
+          "max": 22.4
+        },
+        "validatedRandomBulkUpdateSyncMs": {
+          "rawCount": 3,
+          "min": 2.8,
+          "median": 3.3,
+          "p95": 3.6,
+          "max": 3.6
+        },
+        "validatedRandomBulkUpdateRenderMs": {
+          "rawCount": 3,
+          "min": 21.8,
+          "median": 23.3,
+          "p95": 23.5,
+          "max": 23.5
+        },
+        "validatedRandomBulkUpdateTotalMs": {
+          "rawCount": 3,
+          "min": 24.6,
+          "median": 26.6,
+          "p95": 27.1,
+          "max": 27.1
+        },
+        "barAnimationUpdateSyncMs": {
+          "rawCount": 3,
+          "min": 1.4,
+          "median": 1.7,
+          "p95": 2.1,
+          "max": 2.1
+        },
+        "barAnimationFrameMs": {
+          "rawCount": 63,
+          "min": 0,
+          "median": 0.4,
+          "p95": 12.2,
+          "max": 15.3
+        },
+        "hitTestSelectionSetupMs": {
+          "rawCount": 3,
+          "min": 0,
+          "median": 0,
+          "p95": 0.1,
+          "max": 0.1
+        },
+        "hitTestSelectionBatchMs": {
+          "rawCount": 3,
+          "min": 6,
+          "median": 7,
+          "p95": 11,
+          "max": 11
+        },
+        "hitTestSelectionPerOperationMs": {
+          "rawCount": 3,
+          "min": 0.375,
+          "median": 0.438,
+          "p95": 0.688,
+          "max": 0.688
+        },
+        "teardownMs": {
+          "rawCount": 3,
+          "min": 8.2,
+          "median": 8.6,
+          "p95": 9,
+          "max": 9
+        },
+        "retainedHeapAfterLoadBytes": {
+          "rawCount": 3,
+          "min": 806580,
+          "median": 842467,
+          "p95": 843816,
+          "max": 843816
+        },
+        "retainedHeapAfterWorkloadBytes": {
+          "rawCount": 3,
+          "min": 907560,
+          "median": 925904,
+          "p95": 974651,
+          "max": 974651
+        },
+        "postDestroyRetainedHeapBytes": {
+          "rawCount": 3,
+          "min": 65604,
+          "median": 109736,
+          "p95": 144403,
+          "max": 144403
+        },
+        "managedNodes": {
+          "rawCount": 3,
+          "min": 501,
+          "median": 501,
+          "p95": 501,
+          "max": 501
+        },
+        "totalSceneNodes": {
+          "rawCount": 3,
+          "min": 501,
+          "median": 501,
+          "p95": 501,
+          "max": 501
+        }
+      }
+    },
+    {
+      "name": "500",
+      "workload": {
+        "topLevelElements": 1,
+        "gridCells": 506
+      },
+      "samples": [
+        {
+          "initMs": 36.30000019073486,
+          "normalizeMs": 0.39999985694885254,
+          "managedSceneBuildMs": 98.20000004768372,
+          "managedSceneDestroyMs": 6.700000047683716,
+          "loadMs": 145.70000004768372,
+          "firstRenderMs": 12.699999809265137,
+          "itemLookupMs": 0.7000000476837158,
+          "trustedBulkUpdate": {
+            "syncMs": 10.700000047683716,
+            "renderMs": 15.199999809265137,
+            "totalMs": 25.899999856948853
+          },
+          "validatedRandomBulkUpdate": {
+            "syncMs": 12.5,
+            "renderMs": 83.80000019073486,
+            "totalMs": 96.30000019073486,
+            "targetedItems": 50
+          },
+          "barAnimation": {
+            "updateSyncMs": 5.6000001430511475,
+            "frameMs": [
+              16.899999856948853,
+              0.7999999523162842,
+              0,
+              0.8000001907348633,
+              0.19999980926513672,
+              0.5,
+              0,
+              0.6999998092651367,
+              0,
+              0.5,
+              0.09999990463256836,
+              2,
+              0.09999990463256836,
+              0.6999998092651367,
+              0,
+              0.6999998092651367,
+              0,
+              0.20000004768371582,
+              0
+            ]
+          },
+          "hitTestSelection": {
+            "setupMs": 0.09999990463256836,
+            "operations": 16,
+            "batchMs": 30.200000047683716,
+            "perOperationMs": 1.8875000029802322,
+            "callbacks": 16,
+            "nativeHitCount": 16,
+            "nativeHitErrors": 0,
+            "fallbackCount": 0
+          },
+          "responsibilityCounts": {
+            "managedNodes": 2501,
+            "roots": 1
+          },
+          "publicScene": {
+            "managedNodes": 2501,
+            "totalNodes": 2501
+          },
+          "retainedHeapAfterLoadBytes": 3777264,
+          "retainedHeapAfterWorkloadBytes": 4111912,
+          "teardownMs": 19.799999952316284,
+          "postDestroyRetainedHeapBytes": 59836
+        },
+        {
+          "initMs": 41.40000009536743,
+          "normalizeMs": 0.5999999046325684,
+          "managedSceneBuildMs": 91.90000009536743,
+          "managedSceneDestroyMs": 7.3999998569488525,
+          "loadMs": 159.29999995231628,
+          "firstRenderMs": 13.5,
+          "itemLookupMs": 0,
+          "trustedBulkUpdate": {
+            "syncMs": 6.799999952316284,
+            "renderMs": 18.59999990463257,
+            "totalMs": 25.399999856948853
+          },
+          "validatedRandomBulkUpdate": {
+            "syncMs": 9.399999856948853,
+            "renderMs": 77.40000009536743,
+            "totalMs": 86.79999995231628,
+            "targetedItems": 50
+          },
+          "barAnimation": {
+            "updateSyncMs": 5.400000095367432,
+            "frameMs": [
+              13.100000143051147,
+              0.10000014305114746,
+              0.09999990463256836,
+              12.900000095367432,
+              0.6000001430511475,
+              0,
+              0,
+              0.10000014305114746,
+              0.09999990463256836,
+              0,
+              0.10000014305114746,
+              0.09999990463256836,
+              0,
+              0.09999990463256836,
+              0.20000004768371582,
+              0,
+              0.10000014305114746,
+              0,
+              0.09999990463256836,
+              0
+            ]
+          },
+          "hitTestSelection": {
+            "setupMs": 0.40000009536743164,
+            "operations": 16,
+            "batchMs": 24.299999952316284,
+            "perOperationMs": 1.5187499970197678,
+            "callbacks": 16,
+            "nativeHitCount": 16,
+            "nativeHitErrors": 0,
+            "fallbackCount": 0
+          },
+          "responsibilityCounts": {
+            "managedNodes": 2501,
+            "roots": 1
+          },
+          "publicScene": {
+            "managedNodes": 2501,
+            "totalNodes": 2501
+          },
+          "retainedHeapAfterLoadBytes": 3774752,
+          "retainedHeapAfterWorkloadBytes": 4085856,
+          "teardownMs": 20.700000047683716,
+          "postDestroyRetainedHeapBytes": 76652
+        },
+        {
+          "initMs": 28,
+          "normalizeMs": 0.9000000953674316,
+          "managedSceneBuildMs": 95.19999980926514,
+          "managedSceneDestroyMs": 7.6000001430511475,
+          "loadMs": 154.59999990463257,
+          "firstRenderMs": 12.799999952316284,
+          "itemLookupMs": 1.5999999046325684,
+          "trustedBulkUpdate": {
+            "syncMs": 8.5,
+            "renderMs": 15.400000095367432,
+            "totalMs": 23.90000009536743
+          },
+          "validatedRandomBulkUpdate": {
+            "syncMs": 11.200000047683716,
+            "renderMs": 105.89999985694885,
+            "totalMs": 117.09999990463257,
+            "targetedItems": 50
+          },
+          "barAnimation": {
+            "updateSyncMs": 7.799999952316284,
+            "frameMs": [
+              21.299999952316284,
+              0.5999999046325684,
+              0,
+              0.09999990463256836,
+              0,
+              0.6000001430511475,
+              0,
+              0.5999999046325684,
+              0.09999990463256836,
+              0.7999999523162842,
+              0.2999999523162842,
+              0.20000004768371582,
+              0,
+              0.7999999523162842,
+              0.40000009536743164,
+              2,
+              0,
+              1.2999999523162842,
+              0.09999990463256836
+            ]
+          },
+          "hitTestSelection": {
+            "setupMs": 0,
+            "operations": 16,
+            "batchMs": 26.200000047683716,
+            "perOperationMs": 1.6375000029802322,
+            "callbacks": 16,
+            "nativeHitCount": 16,
+            "nativeHitErrors": 0,
+            "fallbackCount": 0
+          },
+          "responsibilityCounts": {
+            "managedNodes": 2501,
+            "roots": 1
+          },
+          "publicScene": {
+            "managedNodes": 2501,
+            "totalNodes": 2501
+          },
+          "retainedHeapAfterLoadBytes": 3720524,
+          "retainedHeapAfterWorkloadBytes": 4020840,
+          "teardownMs": 21,
+          "postDestroyRetainedHeapBytes": 49424
+        }
+      ],
+      "summary": {
+        "initMs": {
+          "rawCount": 3,
+          "min": 28,
+          "median": 36.3,
+          "p95": 41.4,
+          "max": 41.4
+        },
+        "normalizeMs": {
+          "rawCount": 3,
+          "min": 0.4,
+          "median": 0.6,
+          "p95": 0.9,
+          "max": 0.9
+        },
+        "managedSceneBuildMs": {
+          "rawCount": 3,
+          "min": 91.9,
+          "median": 95.2,
+          "p95": 98.2,
+          "max": 98.2
+        },
+        "managedSceneDestroyMs": {
+          "rawCount": 3,
+          "min": 6.7,
+          "median": 7.4,
+          "p95": 7.6,
+          "max": 7.6
+        },
+        "loadMs": {
+          "rawCount": 3,
+          "min": 145.7,
+          "median": 154.6,
+          "p95": 159.3,
+          "max": 159.3
+        },
+        "firstRenderMs": {
+          "rawCount": 3,
+          "min": 12.7,
+          "median": 12.8,
+          "p95": 13.5,
+          "max": 13.5
+        },
+        "itemLookupMs": {
+          "rawCount": 3,
+          "min": 0,
+          "median": 0.7,
+          "p95": 1.6,
+          "max": 1.6
+        },
+        "trustedBulkUpdateSyncMs": {
+          "rawCount": 3,
+          "min": 6.8,
+          "median": 8.5,
+          "p95": 10.7,
+          "max": 10.7
+        },
+        "trustedBulkUpdateRenderMs": {
+          "rawCount": 3,
+          "min": 15.2,
+          "median": 15.4,
+          "p95": 18.6,
+          "max": 18.6
+        },
+        "trustedBulkUpdateTotalMs": {
+          "rawCount": 3,
+          "min": 23.9,
+          "median": 25.4,
+          "p95": 25.9,
+          "max": 25.9
+        },
+        "validatedRandomBulkUpdateSyncMs": {
+          "rawCount": 3,
+          "min": 9.4,
+          "median": 11.2,
+          "p95": 12.5,
+          "max": 12.5
+        },
+        "validatedRandomBulkUpdateRenderMs": {
+          "rawCount": 3,
+          "min": 77.4,
+          "median": 83.8,
+          "p95": 105.9,
+          "max": 105.9
+        },
+        "validatedRandomBulkUpdateTotalMs": {
+          "rawCount": 3,
+          "min": 86.8,
+          "median": 96.3,
+          "p95": 117.1,
+          "max": 117.1
+        },
+        "barAnimationUpdateSyncMs": {
+          "rawCount": 3,
+          "min": 5.4,
+          "median": 5.6,
+          "p95": 7.8,
+          "max": 7.8
+        },
+        "barAnimationFrameMs": {
+          "rawCount": 58,
+          "min": 0,
+          "median": 0.1,
+          "p95": 13.1,
+          "max": 21.3
+        },
+        "hitTestSelectionSetupMs": {
+          "rawCount": 3,
+          "min": 0,
+          "median": 0.1,
+          "p95": 0.4,
+          "max": 0.4
+        },
+        "hitTestSelectionBatchMs": {
+          "rawCount": 3,
+          "min": 24.3,
+          "median": 26.2,
+          "p95": 30.2,
+          "max": 30.2
+        },
+        "hitTestSelectionPerOperationMs": {
+          "rawCount": 3,
+          "min": 1.519,
+          "median": 1.638,
+          "p95": 1.888,
+          "max": 1.888
+        },
+        "teardownMs": {
+          "rawCount": 3,
+          "min": 19.8,
+          "median": 20.7,
+          "p95": 21,
+          "max": 21
+        },
+        "retainedHeapAfterLoadBytes": {
+          "rawCount": 3,
+          "min": 3720524,
+          "median": 3774752,
+          "p95": 3777264,
+          "max": 3777264
+        },
+        "retainedHeapAfterWorkloadBytes": {
+          "rawCount": 3,
+          "min": 4020840,
+          "median": 4085856,
+          "p95": 4111912,
+          "max": 4111912
+        },
+        "postDestroyRetainedHeapBytes": {
+          "rawCount": 3,
+          "min": 49424,
+          "median": 59836,
+          "p95": 76652,
+          "max": 76652
+        },
+        "managedNodes": {
+          "rawCount": 3,
+          "min": 2501,
+          "median": 2501,
+          "p95": 2501,
+          "max": 2501
+        },
+        "totalSceneNodes": {
+          "rawCount": 3,
+          "min": 2501,
+          "median": 2501,
+          "p95": 2501,
+          "max": 2501
+        }
+      }
+    },
+    {
+      "name": "1000",
+      "workload": {
+        "topLevelElements": 1,
+        "gridCells": 1024
+      },
+      "samples": [
+        {
+          "initMs": 39.19999980926514,
+          "normalizeMs": 1.6000001430511475,
+          "managedSceneBuildMs": 199.5,
+          "managedSceneDestroyMs": 16.59999990463257,
+          "loadMs": 396,
+          "firstRenderMs": 33.60000014305115,
+          "itemLookupMs": 0.40000009536743164,
+          "trustedBulkUpdate": {
+            "syncMs": 14.299999952316284,
+            "renderMs": 32.200000047683716,
+            "totalMs": 46.5
+          },
+          "validatedRandomBulkUpdate": {
+            "syncMs": 30.700000047683716,
+            "renderMs": 240.60000014305115,
+            "totalMs": 271.30000019073486,
+            "targetedItems": 100
+          },
+          "barAnimation": {
+            "updateSyncMs": 20,
+            "frameMs": [
+              53.200000047683716,
+              0.7000000476837158,
+              0.10000014305114746,
+              0.10000014305114746,
+              0.7999999523162842,
+              0.5999999046325684,
+              0.20000004768371582,
+              0.7999999523162842,
+              0,
+              12.099999904632568,
+              0.5,
+              0.10000014305114746,
+              0.10000014305114746,
+              0.39999985694885254,
+              0,
+              0.10000014305114746,
+              0,
+              0.7999999523162842,
+              0
+            ]
+          },
+          "hitTestSelection": {
+            "setupMs": 0.10000014305114746,
+            "operations": 16,
+            "batchMs": 67.70000004768372,
+            "perOperationMs": 4.231250002980232,
+            "callbacks": 16,
+            "nativeHitCount": 16,
+            "nativeHitErrors": 0,
+            "fallbackCount": 0
+          },
+          "responsibilityCounts": {
+            "managedNodes": 5001,
+            "roots": 1
+          },
+          "publicScene": {
+            "managedNodes": 5001,
+            "totalNodes": 5001
+          },
+          "retainedHeapAfterLoadBytes": 7325238,
+          "retainedHeapAfterWorkloadBytes": 7827424,
+          "teardownMs": 23.200000047683716,
+          "postDestroyRetainedHeapBytes": 67700
+        },
+        {
+          "initMs": 35.89999985694885,
+          "normalizeMs": 1,
+          "managedSceneBuildMs": 173.79999995231628,
+          "managedSceneDestroyMs": 22.200000047683716,
+          "loadMs": 356.2000000476837,
+          "firstRenderMs": 23,
+          "itemLookupMs": 0.09999990463256836,
+          "trustedBulkUpdate": {
+            "syncMs": 13.100000143051147,
+            "renderMs": 34.19999980926514,
+            "totalMs": 47.299999952316284
+          },
+          "validatedRandomBulkUpdate": {
+            "syncMs": 19.399999856948853,
+            "renderMs": 197.20000004768372,
+            "totalMs": 216.59999990463257,
+            "targetedItems": 100
+          },
+          "barAnimation": {
+            "updateSyncMs": 22.100000143051147,
+            "frameMs": [
+              41.5,
+              0.7000000476837158,
+              0.7999999523162842,
+              0.09999990463256836,
+              0,
+              0.6000001430511475,
+              0,
+              0.5,
+              0,
+              1,
+              0.09999990463256836,
+              0.10000014305114746,
+              0,
+              0.20000004768371582,
+              0,
+              0.09999990463256836,
+              0.7000000476837158,
+              0.20000004768371582,
+              0.2999999523162842
+            ]
+          },
+          "hitTestSelection": {
+            "setupMs": 0,
+            "operations": 16,
+            "batchMs": 58.700000047683716,
+            "perOperationMs": 3.6687500029802322,
+            "callbacks": 16,
+            "nativeHitCount": 16,
+            "nativeHitErrors": 0,
+            "fallbackCount": 0
+          },
+          "responsibilityCounts": {
+            "managedNodes": 5001,
+            "roots": 1
+          },
+          "publicScene": {
+            "managedNodes": 5001,
+            "totalNodes": 5001
+          },
+          "retainedHeapAfterLoadBytes": 7317970,
+          "retainedHeapAfterWorkloadBytes": 7845864,
+          "teardownMs": 35.5,
+          "postDestroyRetainedHeapBytes": 83084
+        },
+        {
+          "initMs": 29.899999856948853,
+          "normalizeMs": 0.7999999523162842,
+          "managedSceneBuildMs": 182.80000019073486,
+          "managedSceneDestroyMs": 17,
+          "loadMs": 370,
+          "firstRenderMs": 27.699999809265137,
+          "itemLookupMs": 0.2999999523162842,
+          "trustedBulkUpdate": {
+            "syncMs": 15.700000047683716,
+            "renderMs": 36.5,
+            "totalMs": 52.200000047683716
+          },
+          "validatedRandomBulkUpdate": {
+            "syncMs": 28.600000143051147,
+            "renderMs": 214.5,
+            "totalMs": 243.10000014305115,
+            "targetedItems": 100
+          },
+          "barAnimation": {
+            "updateSyncMs": 18.5,
+            "frameMs": [
+              48.700000047683716,
+              0.5999999046325684,
+              0.10000014305114746,
+              0.7000000476837158,
+              0.7999999523162842,
+              1.7000000476837158,
+              0,
+              0.09999990463256836,
+              0.7999999523162842,
+              1.5,
+              0,
+              0.7999999523162842,
+              0.10000014305114746,
+              0.10000014305114746,
+              0,
+              0.9000000953674316,
+              0.09999990463256836,
+              1,
+              0.39999985694885254
+            ]
+          },
+          "hitTestSelection": {
+            "setupMs": 0,
+            "operations": 16,
+            "batchMs": 52.59999990463257,
+            "perOperationMs": 3.2874999940395355,
+            "callbacks": 16,
+            "nativeHitCount": 16,
+            "nativeHitErrors": 0,
+            "fallbackCount": 0
+          },
+          "responsibilityCounts": {
+            "managedNodes": 5001,
+            "roots": 1
+          },
+          "publicScene": {
+            "managedNodes": 5001,
+            "totalNodes": 5001
+          },
+          "retainedHeapAfterLoadBytes": 7289702,
+          "retainedHeapAfterWorkloadBytes": 7824680,
+          "teardownMs": 50.700000047683716,
+          "postDestroyRetainedHeapBytes": 52848
+        }
+      ],
+      "summary": {
+        "initMs": {
+          "rawCount": 3,
+          "min": 29.9,
+          "median": 35.9,
+          "p95": 39.2,
+          "max": 39.2
+        },
+        "normalizeMs": {
+          "rawCount": 3,
+          "min": 0.8,
+          "median": 1,
+          "p95": 1.6,
+          "max": 1.6
+        },
+        "managedSceneBuildMs": {
+          "rawCount": 3,
+          "min": 173.8,
+          "median": 182.8,
+          "p95": 199.5,
+          "max": 199.5
+        },
+        "managedSceneDestroyMs": {
+          "rawCount": 3,
+          "min": 16.6,
+          "median": 17,
+          "p95": 22.2,
+          "max": 22.2
+        },
+        "loadMs": {
+          "rawCount": 3,
+          "min": 356.2,
+          "median": 370,
+          "p95": 396,
+          "max": 396
+        },
+        "firstRenderMs": {
+          "rawCount": 3,
+          "min": 23,
+          "median": 27.7,
+          "p95": 33.6,
+          "max": 33.6
+        },
+        "itemLookupMs": {
+          "rawCount": 3,
+          "min": 0.1,
+          "median": 0.3,
+          "p95": 0.4,
+          "max": 0.4
+        },
+        "trustedBulkUpdateSyncMs": {
+          "rawCount": 3,
+          "min": 13.1,
+          "median": 14.3,
+          "p95": 15.7,
+          "max": 15.7
+        },
+        "trustedBulkUpdateRenderMs": {
+          "rawCount": 3,
+          "min": 32.2,
+          "median": 34.2,
+          "p95": 36.5,
+          "max": 36.5
+        },
+        "trustedBulkUpdateTotalMs": {
+          "rawCount": 3,
+          "min": 46.5,
+          "median": 47.3,
+          "p95": 52.2,
+          "max": 52.2
+        },
+        "validatedRandomBulkUpdateSyncMs": {
+          "rawCount": 3,
+          "min": 19.4,
+          "median": 28.6,
+          "p95": 30.7,
+          "max": 30.7
+        },
+        "validatedRandomBulkUpdateRenderMs": {
+          "rawCount": 3,
+          "min": 197.2,
+          "median": 214.5,
+          "p95": 240.6,
+          "max": 240.6
+        },
+        "validatedRandomBulkUpdateTotalMs": {
+          "rawCount": 3,
+          "min": 216.6,
+          "median": 243.1,
+          "p95": 271.3,
+          "max": 271.3
+        },
+        "barAnimationUpdateSyncMs": {
+          "rawCount": 3,
+          "min": 18.5,
+          "median": 20,
+          "p95": 22.1,
+          "max": 22.1
+        },
+        "barAnimationFrameMs": {
+          "rawCount": 57,
+          "min": 0,
+          "median": 0.2,
+          "p95": 41.5,
+          "max": 53.2
+        },
+        "hitTestSelectionSetupMs": {
+          "rawCount": 3,
+          "min": 0,
+          "median": 0,
+          "p95": 0.1,
+          "max": 0.1
+        },
+        "hitTestSelectionBatchMs": {
+          "rawCount": 3,
+          "min": 52.6,
+          "median": 58.7,
+          "p95": 67.7,
+          "max": 67.7
+        },
+        "hitTestSelectionPerOperationMs": {
+          "rawCount": 3,
+          "min": 3.287,
+          "median": 3.669,
+          "p95": 4.231,
+          "max": 4.231
+        },
+        "teardownMs": {
+          "rawCount": 3,
+          "min": 23.2,
+          "median": 35.5,
+          "p95": 50.7,
+          "max": 50.7
+        },
+        "retainedHeapAfterLoadBytes": {
+          "rawCount": 3,
+          "min": 7289702,
+          "median": 7317970,
+          "p95": 7325238,
+          "max": 7325238
+        },
+        "retainedHeapAfterWorkloadBytes": {
+          "rawCount": 3,
+          "min": 7824680,
+          "median": 7827424,
+          "p95": 7845864,
+          "max": 7845864
+        },
+        "postDestroyRetainedHeapBytes": {
+          "rawCount": 3,
+          "min": 52848,
+          "median": 67700,
+          "p95": 83084,
+          "max": 83084
+        },
+        "managedNodes": {
+          "rawCount": 3,
+          "min": 5001,
+          "median": 5001,
+          "p95": 5001,
+          "max": 5001
+        },
+        "totalSceneNodes": {
+          "rawCount": 3,
+          "min": 5001,
+          "median": 5001,
+          "p95": 5001,
+          "max": 5001
+        }
+      }
+    },
+    {
+      "name": "production",
+      "workload": {
+        "topLevelElements": 458,
+        "gridCells": 9336
+      },
+      "samples": [
+        {
+          "initMs": 459.19999980926514,
+          "normalizeMs": 83.70000004768372,
+          "managedSceneBuildMs": 2527.2999999523163,
+          "managedSceneDestroyMs": 448.2000000476837,
+          "loadMs": 3022.600000143051,
+          "firstRenderMs": 9799.400000095367,
+          "itemLookupMs": 2.5,
+          "trustedBulkUpdate": {
+            "syncMs": 4306.100000143051,
+            "renderMs": 9181.599999904633,
+            "totalMs": 13487.700000047684
+          },
+          "validatedRandomBulkUpdate": {
+            "syncMs": 576.0999999046326,
+            "renderMs": 10240,
+            "totalMs": 10816.099999904633,
+            "targetedItems": 936
+          },
+          "barAnimation": {
+            "updateSyncMs": 3080.7000000476837,
+            "frameMs": [
+              4654.099999904633,
+              309.89999985694885,
+              890.5,
+              1141.8999998569489,
+              309.10000014305115,
+              220.40000009536743,
+              975.6000001430511,
+              99.40000009536743,
+              182.19999980926514,
+              51,
+              69.5,
+              46.299999952316284,
+              76.70000004768372,
+              89.5,
+              117.5,
+              82.59999990463257,
+              70.40000009536743,
+              60.799999952316284
+            ]
+          },
+          "hitTestSelection": {
+            "setupMs": 1,
+            "operations": 16,
+            "batchMs": 331.09999990463257,
+            "perOperationMs": 20.693749994039536,
+            "callbacks": 16,
+            "nativeHitCount": 14,
+            "nativeHitErrors": 0,
+            "fallbackCount": 2
+          },
+          "responsibilityCounts": {
+            "managedNodes": 19188,
+            "roots": 458
+          },
+          "publicScene": {
+            "managedNodes": 19577,
+            "totalNodes": 19577
+          },
+          "retainedHeapAfterLoadBytes": 90560519,
+          "retainedHeapAfterWorkloadBytes": 93041890,
+          "teardownMs": 131,
+          "postDestroyRetainedHeapBytes": 30890
+        },
+        {
+          "initMs": 79.5,
+          "normalizeMs": 50.5,
+          "managedSceneBuildMs": 1265.1000001430511,
+          "managedSceneDestroyMs": 133.89999985694885,
+          "loadMs": 2076.5,
+          "firstRenderMs": 2039.7999999523163,
+          "itemLookupMs": 0.7000000476837158,
+          "trustedBulkUpdate": {
+            "syncMs": 1857,
+            "renderMs": 1842.5999999046326,
+            "totalMs": 3699.5999999046326
+          },
+          "validatedRandomBulkUpdate": {
+            "syncMs": 170.60000014305115,
+            "renderMs": 2348.0999999046326,
+            "totalMs": 2518.7000000476837,
+            "targetedItems": 936
+          },
+          "barAnimation": {
+            "updateSyncMs": 1815.0999999046326,
+            "frameMs": [
+              74.10000014305115,
+              65.29999995231628,
+              83.20000004768372,
+              72.70000004768372,
+              79.5,
+              90.5,
+              162.20000004768372,
+              65.79999995231628,
+              81.10000014305115,
+              77.89999985694885,
+              112.39999985694885,
+              78,
+              120.90000009536743,
+              66.69999980926514,
+              72.5,
+              60.799999952316284,
+              163.5,
+              74.5
+            ]
+          },
+          "hitTestSelection": {
+            "setupMs": 0.8999998569488525,
+            "operations": 16,
+            "batchMs": 300.10000014305115,
+            "perOperationMs": 18.756250008940697,
+            "callbacks": 16,
+            "nativeHitCount": 14,
+            "nativeHitErrors": 0,
+            "fallbackCount": 2
+          },
+          "responsibilityCounts": {
+            "managedNodes": 19188,
+            "roots": 458
+          },
+          "publicScene": {
+            "managedNodes": 19577,
+            "totalNodes": 19577
+          },
+          "retainedHeapAfterLoadBytes": 90666125,
+          "retainedHeapAfterWorkloadBytes": 93107260,
+          "teardownMs": 144,
+          "postDestroyRetainedHeapBytes": 60360
+        },
+        {
+          "initMs": 45.299999952316284,
+          "normalizeMs": 60.90000009536743,
+          "managedSceneBuildMs": 1128.1999998092651,
+          "managedSceneDestroyMs": 126.30000019073486,
+          "loadMs": 1823.0999999046326,
+          "firstRenderMs": 1210.5,
+          "itemLookupMs": 1.5999999046325684,
+          "trustedBulkUpdate": {
+            "syncMs": 1886.7999999523163,
+            "renderMs": 2020.6000001430511,
+            "totalMs": 3907.4000000953674
+          },
+          "validatedRandomBulkUpdate": {
+            "syncMs": 292.60000014305115,
+            "renderMs": 2571.399999856949,
+            "totalMs": 2864,
+            "targetedItems": 936
+          },
+          "barAnimation": {
+            "updateSyncMs": 1719.5999999046326,
+            "frameMs": [
+              130.5,
+              82.70000004768372,
+              150.79999995231628,
+              114.90000009536743,
+              186.39999985694885,
+              120.59999990463257,
+              407.5,
+              111.10000014305115,
+              136.40000009536743,
+              82.79999995231628,
+              117.79999995231628,
+              66,
+              99.79999995231628,
+              168.59999990463257,
+              119.29999995231628,
+              76.69999980926514,
+              177.79999995231628,
+              77.40000009536743
+            ]
+          },
+          "hitTestSelection": {
+            "setupMs": 0.10000014305114746,
+            "operations": 16,
+            "batchMs": 400.89999985694885,
+            "perOperationMs": 25.056249991059303,
+            "callbacks": 16,
+            "nativeHitCount": 14,
+            "nativeHitErrors": 0,
+            "fallbackCount": 2
+          },
+          "responsibilityCounts": {
+            "managedNodes": 19188,
+            "roots": 458
+          },
+          "publicScene": {
+            "managedNodes": 19577,
+            "totalNodes": 19577
+          },
+          "retainedHeapAfterLoadBytes": 90683285,
+          "retainedHeapAfterWorkloadBytes": 93150460,
+          "teardownMs": 147,
+          "postDestroyRetainedHeapBytes": 83068
+        }
+      ],
+      "summary": {
+        "initMs": {
+          "rawCount": 3,
+          "min": 45.3,
+          "median": 79.5,
+          "p95": 459.2,
+          "max": 459.2
+        },
+        "normalizeMs": {
+          "rawCount": 3,
+          "min": 50.5,
+          "median": 60.9,
+          "p95": 83.7,
+          "max": 83.7
+        },
+        "managedSceneBuildMs": {
+          "rawCount": 3,
+          "min": 1128.2,
+          "median": 1265.1,
+          "p95": 2527.3,
+          "max": 2527.3
+        },
+        "managedSceneDestroyMs": {
+          "rawCount": 3,
+          "min": 126.3,
+          "median": 133.9,
+          "p95": 448.2,
+          "max": 448.2
+        },
+        "loadMs": {
+          "rawCount": 3,
+          "min": 1823.1,
+          "median": 2076.5,
+          "p95": 3022.6,
+          "max": 3022.6
+        },
+        "firstRenderMs": {
+          "rawCount": 3,
+          "min": 1210.5,
+          "median": 2039.8,
+          "p95": 9799.4,
+          "max": 9799.4
+        },
+        "itemLookupMs": {
+          "rawCount": 3,
+          "min": 0.7,
+          "median": 1.6,
+          "p95": 2.5,
+          "max": 2.5
+        },
+        "trustedBulkUpdateSyncMs": {
+          "rawCount": 3,
+          "min": 1857,
+          "median": 1886.8,
+          "p95": 4306.1,
+          "max": 4306.1
+        },
+        "trustedBulkUpdateRenderMs": {
+          "rawCount": 3,
+          "min": 1842.6,
+          "median": 2020.6,
+          "p95": 9181.6,
+          "max": 9181.6
+        },
+        "trustedBulkUpdateTotalMs": {
+          "rawCount": 3,
+          "min": 3699.6,
+          "median": 3907.4,
+          "p95": 13487.7,
+          "max": 13487.7
+        },
+        "validatedRandomBulkUpdateSyncMs": {
+          "rawCount": 3,
+          "min": 170.6,
+          "median": 292.6,
+          "p95": 576.1,
+          "max": 576.1
+        },
+        "validatedRandomBulkUpdateRenderMs": {
+          "rawCount": 3,
+          "min": 2348.1,
+          "median": 2571.4,
+          "p95": 10240,
+          "max": 10240
+        },
+        "validatedRandomBulkUpdateTotalMs": {
+          "rawCount": 3,
+          "min": 2518.7,
+          "median": 2864,
+          "p95": 10816.1,
+          "max": 10816.1
+        },
+        "barAnimationUpdateSyncMs": {
+          "rawCount": 3,
+          "min": 1719.6,
+          "median": 1815.1,
+          "p95": 3080.7,
+          "max": 3080.7
+        },
+        "barAnimationFrameMs": {
+          "rawCount": 54,
+          "min": 46.3,
+          "median": 90.5,
+          "p95": 975.6,
+          "max": 4654.1
+        },
+        "hitTestSelectionSetupMs": {
+          "rawCount": 3,
+          "min": 0.1,
+          "median": 0.9,
+          "p95": 1,
+          "max": 1
+        },
+        "hitTestSelectionBatchMs": {
+          "rawCount": 3,
+          "min": 300.1,
+          "median": 331.1,
+          "p95": 400.9,
+          "max": 400.9
+        },
+        "hitTestSelectionPerOperationMs": {
+          "rawCount": 3,
+          "min": 18.756,
+          "median": 20.694,
+          "p95": 25.056,
+          "max": 25.056
+        },
+        "teardownMs": {
+          "rawCount": 3,
+          "min": 131,
+          "median": 144,
+          "p95": 147,
+          "max": 147
+        },
+        "retainedHeapAfterLoadBytes": {
+          "rawCount": 3,
+          "min": 90560519,
+          "median": 90666125,
+          "p95": 90683285,
+          "max": 90683285
+        },
+        "retainedHeapAfterWorkloadBytes": {
+          "rawCount": 3,
+          "min": 93041890,
+          "median": 93107260,
+          "p95": 93150460,
+          "max": 93150460
+        },
+        "postDestroyRetainedHeapBytes": {
+          "rawCount": 3,
+          "min": 30890,
+          "median": 60360,
+          "p95": 83068,
+          "max": 83068
+        },
+        "managedNodes": {
+          "rawCount": 3,
+          "min": 19577,
+          "median": 19577,
+          "p95": 19577,
+          "max": 19577
+        },
+        "totalSceneNodes": {
+          "rawCount": 3,
+          "min": 19577,
+          "median": 19577,
+          "p95": 19577,
+          "max": 19577
+        }
+      }
+    }
+  ]
+}
