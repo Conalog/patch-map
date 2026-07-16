@@ -451,6 +451,47 @@ describe('foundation capability execution', () => {
     expect(JSON.stringify(caseRecord.fixture.setup.params)).toBe(fixtureBefore);
   });
 
+  it('retains detached input observations for every LIF-002 pending submission', async () => {
+    const datasets = createDatasets();
+    const execution = await executeContractCase(
+      executionOptions(selectedCase('LIF-002'), createEngineHarness(), new ManualClock(), { datasets }),
+    );
+    const observationPath = 'actionResults.2.delta.actual.submittedInputs';
+    const drawA = valueAt(execution, `${observationPath}.0`);
+    const drawB = valueAt(execution, `${observationPath}.1`);
+
+    expect(valueAt(execution, observationPath)).toMatchObject([
+      {
+        requestId: 'draw-a',
+        datasetRef: 'all-kinds-scene',
+        unchanged: true,
+        postUseGraph: datasets.get('all-kinds-scene'),
+        deeplyFrozen: false,
+      },
+      {
+        requestId: 'draw-b',
+        datasetRef: 'interactive-scene-revision-2',
+        unchanged: true,
+        postUseGraph: datasets.get('interactive-scene-revision-2'),
+        deeplyFrozen: false,
+      },
+    ]);
+
+    for (const [observation, source] of [
+      [drawA, datasets.get('all-kinds-scene')],
+      [drawB, datasets.get('interactive-scene-revision-2')],
+    ]) {
+      const postUseGraph = valueAt(observation, 'postUseGraph');
+      expect(valueAt(observation, 'postUseFingerprint')).toBe(valueAt(observation, 'beforeFingerprint'));
+      expect(postUseGraph).toEqual(source);
+      expect(postUseGraph).not.toBe(source);
+      expect(valueAt(postUseGraph, '0')).not.toBe(valueAt(source, '0'));
+      expect(Object.isFrozen(postUseGraph)).toBe(true);
+    }
+
+    expect(valueAt(execution, 'actionResults.2.delta.actual.authoritativeSubmittedInput')).toBe(drawB);
+  });
+
   it('uses a canonical browser-safe fingerprint independent of object key insertion order', async () => {
     const ordered = createDatasets();
     const reordered = new Map(createDatasets());

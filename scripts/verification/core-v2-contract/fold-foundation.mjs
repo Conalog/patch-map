@@ -774,7 +774,13 @@ function projectLifecycleRaceOutcome(domain, execution) {
       domain.failedLater.code = domain.failedLater.diagnostic.code;
     }
   }
-  const submitted = race.authoritativeSubmittedInput;
+  const snapshotted = actionActual(execution, 'snapshot-resolved-dataset');
+  const snapshotDatasetRef = typeof snapshotted?.datasetRef === 'string'
+    ? snapshotted.datasetRef
+    : null;
+  const submitted = Array.isArray(race.submittedInputs) && snapshotDatasetRef !== null
+    ? race.submittedInputs.find((entry) => entry?.datasetRef === snapshotDatasetRef)
+    : race.authoritativeSubmittedInput;
   if (isPlainObject(submitted)) {
     const input = {
       requestId: submitted.requestId,
@@ -786,6 +792,12 @@ function projectLifecycleRaceOutcome(domain, execution) {
     };
     if (submitted.unchanged === true && Object.hasOwn(submitted, 'postUseGraph')) {
       input.dataset = clone(submitted.postUseGraph);
+    }
+    if (
+      isPlainObject(race.authoritativeSubmittedInput)
+      && race.authoritativeSubmittedInput.requestId !== submitted.requestId
+    ) {
+      input.authoritativeSubmitted = clone(race.authoritativeSubmittedInput);
     }
     domain.input = input;
   }

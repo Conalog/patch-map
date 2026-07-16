@@ -247,8 +247,11 @@ describe('Core v2 actual-only foundation observation fold', () => {
     const lifecycle = fold('LIF-002');
     const defaults = fold('DAT-002');
 
-    expect(valueAt(lifecycle.actual, 'outcome.pending.completionOrder')).toEqual(['draw-a', 'draw-b']);
+    expect(valueAt(lifecycle.actual, 'outcome.pending.completionOrder')).toEqual(['draw-b', 'draw-a']);
     expect(valueAt(lifecycle.actual, 'outcome.input.dataset')).toEqual([{ type: 'item', id: 'item-a' }]);
+    expect(valueAt(lifecycle.actual, 'outcome.input.authoritativeSubmitted.postUseGraph')).toEqual([
+      { type: 'item', id: 'item-b' },
+    ]);
     expect(valueAt(defaults.actual, 'outcome.input.minimal')).toEqual([{ type: 'item' }]);
     expect(valueAt(defaults.actual, 'outcome.session1.item')).toMatchObject({
       show: true,
@@ -465,8 +468,28 @@ function actionActual(
         { requestId: 'draw-b', result: { status: 'committed' } },
       ],
       completionOrder: [
-        { requestId: 'draw-a', completedAtMs: 8 },
-        { requestId: 'draw-b', completedAtMs: 12 },
+        { requestId: 'draw-b', completedAtMs: 8 },
+        { requestId: 'draw-a', completedAtMs: 12 },
+      ],
+      submittedInputs: [
+        {
+          requestId: 'draw-a',
+          datasetRef: 'all-kinds-scene',
+          beforeFingerprint: 'fnv1a64:2222222222222222',
+          postUseFingerprint: 'fnv1a64:2222222222222222',
+          unchanged: true,
+          postUseGraph: [{ type: 'item', id: 'item-a' }],
+          deeplyFrozen: false,
+        },
+        {
+          requestId: 'draw-b',
+          datasetRef: 'interactive-scene-revision-2',
+          beforeFingerprint: 'fnv1a64:3333333333333333',
+          postUseFingerprint: 'fnv1a64:3333333333333333',
+          unchanged: true,
+          postUseGraph: [{ type: 'item', id: 'item-b' }],
+          deeplyFrozen: false,
+        },
       ],
       failedLater: { status: 'rejected', diagnostic: { code: 'INVALID_VALUE', datasetPath: '$' } },
       authoritative: { sceneSemanticHash: 'fnv1a64:1111111111111111' },
@@ -476,10 +499,13 @@ function actionActual(
         beforeFingerprint: 'fnv1a64:1111111111111111',
         postUseFingerprint: 'fnv1a64:1111111111111111',
         unchanged: true,
-        postUseGraph: [{ type: 'item', id: 'item-a' }],
+        postUseGraph: [{ type: 'item', id: 'item-b' }],
         deeplyFrozen: false,
       },
     };
+  }
+  if (caseId === 'LIF-002' && type === 'snapshot-resolved-dataset') {
+    return { datasetRef: 'all-kinds-scene' };
   }
   if (caseId === 'DAT-001' && type === 'attemptStrictLoadVariant') {
     return {

@@ -109,13 +109,15 @@ async function exerciseAuthoritativeDrawRacesAction(context, action) {
     sceneRevision: sceneRevision(snapshot),
     datasetRef: snapshot.datasetRef,
   };
+  const pendingActual = clone(pendingRun);
 
   return {
     actual: {
       preReady: clone(preReadyActual),
-      pending: clone(pendingRun.submissions),
-      completionOrder: clone(pendingRun.completionOrder),
-      authoritativeSubmittedInput: clone(pendingRun.authoritativeSubmittedInput),
+      pending: pendingActual.submissions,
+      completionOrder: pendingActual.completionOrder,
+      submittedInputs: pendingActual.submittedInputs,
+      authoritativeSubmittedInput: pendingActual.authoritativeSubmittedInput,
       failedLater: { submitAtMs: failedLater.submitAtMs, ...clone(failedResult) },
       drawCompleteEvents: clone(drawCompleteEvents),
       drawCompleteSubscription: {
@@ -480,29 +482,54 @@ async function runPendingSubmissions(context, engine, pending) {
     throw error;
   }
 
-  const submissions = pending.map((entry) => ({
-    requestId: entry.requestId,
-    datasetRef: entry.datasetRef,
-    submitAtMs: entry.submitAtMs,
-    completeAtMs: entry.completeAtMs,
-    result: clone(records.get(entry.requestId)?.result),
-  }));
-  const authoritative = [...records.values()].filter((record) => record.result?.status === 'committed');
+  const submissions = pending.map((entry) => {
+    const record = records.get(entry.requestId);
+    assert(record !== undefined, `pending request ${entry.requestId} was not retained`);
+    return {
+      requestId: entry.requestId,
+      datasetRef: entry.datasetRef,
+      submitAtMs: entry.submitAtMs,
+      completeAtMs: entry.completeAtMs,
+      result: clone(record.result),
+    };
+  });
+  const submittedInputs = pending.map((entry) => {
+    const record = records.get(entry.requestId);
+    assert(record !== undefined, `pending request ${entry.requestId} input was not retained`);
+    return submittedInputObservation(record);
+  });
+  const authoritative = submissions.filter((submission) => submission.result?.status === 'committed');
   assert(authoritative.length === 1, `pending submissions committed ${authoritative.length} authoritative inputs`);
-  const authoritativeRecord = authoritative[0];
-  assert(authoritativeRecord.submittedInput !== null, 'authoritative submitted input was not retained');
+  const authoritativeSubmittedInput = submittedInputs.find(
+    (observation) => observation.requestId === authoritative[0].requestId,
+  );
+  assert(authoritativeSubmittedInput !== undefined, 'authoritative submitted input was not observed');
   return {
     submissions,
     completionOrder,
-    authoritativeSubmittedInput: {
-      requestId: authoritativeRecord.entry.requestId,
-      datasetRef: authoritativeRecord.entry.datasetRef,
-      beforeFingerprint: authoritativeRecord.inputBeforeFingerprint,
-      postUseFingerprint: authoritativeRecord.inputAfterFingerprint,
-      unchanged: authoritativeRecord.inputBeforeFingerprint === authoritativeRecord.inputAfterFingerprint,
-      postUseGraph: clone(authoritativeRecord.submittedInput),
-      deeplyFrozen: isDeeplyFrozen(authoritativeRecord.submittedInput),
-    },
+    submittedInputs,
+    authoritativeSubmittedInput,
+  };
+}
+
+function submittedInputObservation(record) {
+  assert(record.submittedInput !== null, `pending request ${record.entry.requestId} submitted input was not retained`);
+  assert(
+    typeof record.inputBeforeFingerprint === 'string',
+    `pending request ${record.entry.requestId} before fingerprint was not retained`,
+  );
+  assert(
+    typeof record.inputAfterFingerprint === 'string',
+    `pending request ${record.entry.requestId} post-use fingerprint was not retained`,
+  );
+  return {
+    requestId: record.entry.requestId,
+    datasetRef: record.entry.datasetRef,
+    beforeFingerprint: record.inputBeforeFingerprint,
+    postUseFingerprint: record.inputAfterFingerprint,
+    unchanged: record.inputBeforeFingerprint === record.inputAfterFingerprint,
+    postUseGraph: clone(record.submittedInput),
+    deeplyFrozen: isDeeplyFrozen(record.submittedInput),
   };
 }
 
