@@ -16,9 +16,18 @@ export type CoreV2Lifecycle =
 
 export type CoreV2DiagnosticCategory =
   | 'INVALID_INPUT'
+  | 'MISSING_TARGET'
+  | 'STALE_TARGET'
   | 'NOT_READY'
   | 'DESTROYED'
+  | 'CANCELLED'
   | 'SUPERSEDED'
+  | 'CONFLICT'
+  | 'ASSET_FAILURE'
+  | 'EXTRACTION_FAILURE'
+  | 'UNSUPPORTED_RUNTIME'
+  | 'RENDERER_LOST'
+  | 'HOST_CALLBACK_FAILURE'
   | 'INTERNAL_FAILURE';
 
 export interface CoreV2EngineDiagnostic {
@@ -27,6 +36,7 @@ export interface CoreV2EngineDiagnostic {
   readonly operation: string;
   readonly lifecycleGeneration: number;
   readonly sceneRevision: number;
+  readonly revisionStamp: CoreV2RevisionStamp;
   readonly recoverable: boolean;
   readonly retryable: boolean;
   readonly appliedCount: number;
@@ -589,6 +599,7 @@ export class CoreV2Engine {
       operation,
       lifecycleGeneration: this.lifecycleGeneration,
       sceneRevision: this.sceneRevision,
+      revisionStamp: this.revisionStamp(),
       recoverable,
       retryable: recoverable,
       appliedCount: 0,
