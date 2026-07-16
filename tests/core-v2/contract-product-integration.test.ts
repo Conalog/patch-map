@@ -1,4 +1,5 @@
 import catalogProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -54,6 +55,22 @@ interface ContractExecution {
   readonly cleanup: unknown;
 }
 
+interface FoldResult {
+  readonly actual: Readonly<Record<string, unknown>>;
+  readonly fixtures: Readonly<Record<string, unknown>>;
+  readonly captures: Readonly<Record<string, unknown>>;
+}
+
+interface ContractComparison {
+  readonly passed: number;
+  readonly failed: number;
+  readonly assertions: readonly Readonly<{
+    readonly path: string;
+    readonly passed: boolean;
+    readonly failure: Readonly<{ readonly code: string }> | null;
+  }>[];
+}
+
 interface CatalogRuntime {
   loadExecutorCatalog(this: void): Promise<ExecutorCatalog>;
   selectCatalogCases(
@@ -75,15 +92,33 @@ interface WorkerRuntime {
   executeContractCase(this: void, options: Readonly<Record<string, unknown>>): Promise<ContractExecution>;
 }
 
-const [catalogRuntime, materializeRuntime, workerRuntime] = await Promise.all([
+interface FoldRuntime {
+  foldFoundationExecution(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): FoldResult;
+}
+
+interface CompareRuntime {
+  compareObservation(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): ContractComparison;
+}
+
+const [catalogRuntime, materializeRuntime, workerRuntime, foldRuntime, compareRuntime] = await Promise.all([
   loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
   loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
   loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+  loadRuntime<FoldRuntime>('../../scripts/verification/core-v2-contract/fold-foundation.mjs'),
+  loadRuntime<CompareRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
 const { materializeCase } = materializeRuntime;
 const { executeContractCase } = workerRuntime;
+const { foldFoundationExecution } = foldRuntime;
+const { compareObservation } = compareRuntime;
 
 let catalog: ExecutorCatalog;
 
@@ -94,9 +129,11 @@ beforeAll(async () => {
 describe('Core v2 approved foundation executor against the product engine', () => {
   it('runs the six-case foundation slice through CoreV2Engine without a contract-aware fake', async () => {
     const executions = new Map<string, ContractExecution>();
+    const comparisons = new Map<string, ContractComparison>();
     for (const caseId of ['LIF-001', 'LIF-002', 'DAT-001', 'DAT-002', 'CSM-001', 'CSM-003']) {
+      const casePlan = selectedCase(caseId);
       const execution = await executeContractCase({
-        caseRecord: selectedCase(caseId),
+        caseRecord: casePlan,
         actionDefinitions: catalog.actionDefinitions,
         engineFactory: () => new CoreV2Engine({ surfaceFactory: createSurfaceFactory() }),
         datasets: {
@@ -107,6 +144,24 @@ describe('Core v2 approved foundation executor against the product engine', () =
         clock: new ManualClock(),
       });
       executions.set(caseId, execution);
+      const folded = foldFoundationExecution({
+        casePlan,
+        execution,
+        provenance: {
+          codeCommit: 'working-tree',
+          packedPackageSha256: 'not-packed-unit-product-source',
+          runnerRevision: 'core-v2-foundation-fold/1',
+        },
+        environment: { browser: 'vitest', browserVersion: 'unit', os: 'unit', backend: 'webgl2' },
+      });
+      const expectedCase = normalizedExpectedCatalog.cases.find((candidate) => candidate.id === caseId);
+      if (!expectedCase) throw new Error(`missing approved expected case ${caseId}`);
+      comparisons.set(caseId, compareObservation({
+        expectedCase,
+        actual: folded.actual,
+        fixtures: folded.fixtures,
+        captures: folded.captures,
+      }));
       expect(execution.status, caseId).toBe('completed');
       expect(execution.actionResults.every((action) => action.status === 'completed'), caseId).toBe(true);
       expect(JSON.stringify(execution), caseId).not.toContain('"status":"pass"');
@@ -164,8 +219,77 @@ describe('Core v2 approved foundation executor against the product engine', () =
     expect(valueAt(executions.get('CSM-001'), 'terminalSnapshot.datasetRef')).toBe('interactive-scene');
     expect(valueAt(executions.get('CSM-003'), 'terminalSnapshot.lifecycle')).toBe('ready-empty');
     expect(valueAt(executions.get('CSM-003'), 'actionResults.3.delta.actual.result')).toBeNull();
+
+    expect(comparisonSummary(comparisons)).toEqual({
+      'LIF-001': { passed: 11, failed: [] },
+      'LIF-002': {
+        passed: 18,
+        failed: [
+          '/paint/render/hiddenComponent/objectCount:UNRESOLVED_PATH',
+          '/outcome/failedLater/code:VALUE_MISMATCH',
+        ],
+      },
+      'DAT-001': {
+        passed: 7,
+        failed: [
+          '/scene/visibleBoundsFinite:UNRESOLVED_PATH',
+          '/scene/orderHash:UNRESOLVED_PATH',
+          '/outcome/validation/unsupportedType/code:VALUE_MISMATCH',
+        ],
+      },
+      'DAT-002': { passed: 13, failed: [] },
+      'CSM-001': {
+        passed: 8,
+        failed: [
+          '/outcome/hostEngineSeam/engineReturns/lifecycle:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/engineReturns/sceneRevision:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/engineReturns/publishedTuple/scene:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/engineReturns/publishedTuple/view:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/engineReturns/publishedTuple/interaction:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/engineReturns/rootIds:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/failureRollback/retainedSceneRevision:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/failureRollback/partialPublicationCount:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/failureRollback/hostRetryRequired:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/finalState/lifecycle:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/finalState/sceneRevision:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/finalState/selectedIds:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/finalState/mode:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/finalState/datasetRef:UNRESOLVED_PATH',
+          '/interaction/staleGestureCount:UNRESOLVED_PATH',
+          '/history/corruptEntryCount:UNRESOLVED_PATH',
+        ],
+      },
+      'CSM-003': {
+        passed: 9,
+        failed: [
+          '/outcome/hostEngineSeam/engineReturns/loadingCanvasCount:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/engineReturns/noBlueprintCanvasCount:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/engineReturns/emptySceneNodeCount:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/engineReturns/missingQuery:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/failureRollback/priorSceneRevision:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/failureRollback/historyDepth:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/failureRollback/hostOwnsEmptyUi:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/finalState/lifecycle:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/finalState/sceneRevision:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/finalState/selectedIds:UNRESOLVED_PATH',
+          '/outcome/hostEngineSeam/finalState/mode:UNRESOLVED_PATH',
+          '/interaction/staleGestureCount:UNRESOLVED_PATH',
+        ],
+      },
+    });
   });
 });
+
+function comparisonSummary(
+  comparisons: ReadonlyMap<string, ContractComparison>,
+): Readonly<Record<string, Readonly<{ passed: number; failed: readonly string[] }>>> {
+  return Object.fromEntries([...comparisons].map(([caseId, comparison]) => [caseId, {
+    passed: comparison.passed,
+    failed: comparison.assertions
+      .filter((assertion) => !assertion.passed)
+      .map((assertion) => `${assertion.path}:${assertion.failure?.code ?? 'UNKNOWN'}`),
+  }]));
+}
 
 async function loadRuntime<T>(relativePath: string): Promise<T> {
   const moduleNamespace: unknown = await import(
