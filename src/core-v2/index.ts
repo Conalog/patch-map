@@ -27,6 +27,12 @@ export {
 } from './semantic/layout';
 export type * from './semantic/layout';
 export {
+  CoreV2ColorResolutionError,
+  CoreV2ColorResolver,
+  createCoreV2ColorResolver,
+} from './semantic/color';
+export type * from './semantic/color';
+export {
   CORE_V2_SEMANTIC_PROBE_REVISION,
   createCoreV2SemanticProbe,
 } from './semantic/probe';
