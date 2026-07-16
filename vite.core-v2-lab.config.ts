@@ -17,7 +17,10 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: false,
     rollupOptions: {
-      input: fileURLToPath(new URL('./lab/performance-v2/index.html', import.meta.url)),
+      input: {
+        performance: fileURLToPath(new URL('./lab/performance-v2/index.html', import.meta.url)),
+        contract: fileURLToPath(new URL('./lab/core-v2.html', import.meta.url)),
+      },
     },
   },
 });

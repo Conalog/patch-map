@@ -42,6 +42,7 @@
     "lab": "vite --host 127.0.0.1 --port 4174 --open /lab/",
     "lab:core-v1": "vite --config vite.core-v1-lab.config.ts --host 127.0.0.1 --port 4175 --open /lab/performance-v1/",
     "lab:core-v2": "vite --config vite.core-v2-lab.config.ts --host 127.0.0.1 --port 4176 --open /lab/performance-v2/",
+    "lab:core-v2:contract": "vite --config vite.core-v2-lab.config.ts --host 127.0.0.1 --port 4176 --open '/lab/core-v2?scenario=LIF-001&size=100&seed=319'",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "unit": "vitest run",
