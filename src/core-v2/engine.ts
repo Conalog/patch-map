@@ -5,6 +5,10 @@ import {
   type MaterializedCoreV2Dataset,
   type NormalizedCoreV2Element,
 } from './semantic/dataset';
+import {
+  createCoreV2SemanticProbe,
+  type CoreV2SemanticProductProbe,
+} from './semantic/probe';
 
 export type CoreV2Lifecycle =
   | 'new'
@@ -493,6 +497,22 @@ export class CoreV2Engine {
         renderer: this.rendererConfiguration,
         subscriptions: Object.freeze({ active: this.subscriptionCount(), duplicates: 0 }),
       }),
+    });
+  }
+
+  public semanticProbe(): CoreV2SemanticProductProbe {
+    const surfaceDebug = this.surface?.debugSnapshot() ?? emptySurfaceDebug(
+      this.viewportWidth,
+      this.viewportHeight,
+      this.viewportPixelRatio,
+    );
+    return createCoreV2SemanticProbe(this.materialized, {
+      lifecycle: this.lifecycle,
+      datasetRef: this.datasetRef,
+      interactionMode: 'select',
+      selectionIds: surfaceDebug.selectionIds,
+      activeAnimationCount: surfaceDebug.activeAnimationCount,
+      historyDepth: 0,
     });
   }
 

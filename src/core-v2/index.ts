@@ -26,6 +26,11 @@ export {
   setCoreV2GridCell,
 } from './semantic/layout';
 export type * from './semantic/layout';
+export {
+  CORE_V2_SEMANTIC_PROBE_REVISION,
+  createCoreV2SemanticProbe,
+} from './semantic/probe';
+export type * from './semantic/probe';
 export { PixiCoreV2Renderer } from './renderers/pixi-renderer';
 export type {
   PixiCoreV2InitializationMetrics,
