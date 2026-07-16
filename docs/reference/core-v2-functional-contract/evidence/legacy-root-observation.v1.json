@@ -1,0 +1,72 @@
+{
+  "$schema": "core-v2-legacy-root-observation/1",
+  "contractRevision": "core-v2-functional-contract/2026-07-16.2",
+  "fixture": {
+    "metadata": { "ignored": true },
+    "grids": [{ "id": "legacy-grid", "name": "Panel Grid", "children": [["0", "slot-A"], ["slot-B", "0"]], "properties": { "transform": { "x": 12, "y": 34, "rotation": 90 }, "spec": { "width": 2, "height": 3 }, "mode": "rack" } }],
+    "devices": [{ "id": "legacy-device", "name": "Device A", "properties": { "transform": { "x": 50, "y": 60, "rotation": 15 }, "status": "ready", "nested": { "value": 1 } } }],
+    "combines": [{ "id": "legacy-combine", "name": "Combine A", "properties": { "transform": { "x": 70, "y": 80, "rotation": 30 }, "role": "merge" } }],
+    "strings": [
+      { "id": "legacy-string-empty", "name": "Empty", "children": [], "properties": { "color": { "dark": "#111111" }, "props": { "owner": "A" }, "mode": "empty" } },
+      { "id": "legacy-string-self", "name": "Self", "children": [["legacy-grid", "0", "1"]], "properties": { "color": { "dark": "#222222" }, "props": { "owner": "B" }, "mode": "self" } },
+      { "id": "legacy-string-chain", "name": "Chain", "children": [["legacy-grid", "0", "1"], ["legacy-device"], ["legacy-combine"]], "properties": { "color": { "dark": "#333333" }, "props": { "owner": "C", "mode": "nested" }, "mode": "outer" } }
+    ]
+  },
+  "expected": {
+    "inputPreserved": true,
+    "canonicalDataset": [
+      {
+        "type": "grid",
+        "id": "legacy-grid",
+        "label": "Panel Grid",
+        "cells": [[0, 1], [1, 0]],
+        "gap": 4,
+        "item": {
+          "padding": 3,
+          "size": { "width": 80, "height": 120 },
+          "components": [
+            { "type": "background", "source": { "type": "rect", "fill": "white", "borderWidth": 2, "borderColor": "primary.dark", "radius": 6 } },
+            { "type": "bar", "show": false, "size": "100%", "source": { "type": "rect", "radius": 3, "fill": "white" }, "tint": "primary.default" }
+          ]
+        },
+        "attrs": { "x": 12, "y": 34, "angle": 90, "display": "panelGroup" }
+      },
+      {
+        "type": "item",
+        "id": "legacy-device",
+        "label": "Device A",
+        "size": 40,
+        "components": [
+          { "type": "background", "source": { "type": "rect", "fill": "white", "borderWidth": 2, "borderColor": "primary.default", "radius": 6 } },
+          { "type": "icon", "source": "device", "size": 24, "tint": "primary.default", "placement": "center" },
+          { "type": "bar", "show": false, "size": "100%", "source": { "type": "rect", "radius": 3, "fill": "white" }, "tint": "primary.default" }
+        ],
+        "attrs": { "x": 50, "y": 60, "metadata": { "status": "ready", "nested": { "value": 1 } }, "display": "device", "zIndex": 10 }
+      },
+      {
+        "type": "item",
+        "id": "legacy-combine",
+        "label": "Combine A",
+        "size": 40,
+        "components": [
+          { "type": "background", "source": { "type": "rect", "fill": "white", "borderWidth": 2, "borderColor": "primary.default", "radius": 6 } },
+          { "type": "icon", "source": "combiner", "size": 24, "tint": "primary.default", "placement": "center" },
+          { "type": "bar", "show": false, "size": "100%", "source": { "type": "rect", "radius": 3, "fill": "white" }, "tint": "primary.default" }
+        ],
+        "attrs": { "x": 70, "y": 80, "metadata": { "role": "merge" }, "display": "combiner", "zIndex": 10 }
+      },
+      { "type": "relations", "id": "legacy-string-empty", "label": "Empty", "links": [], "style": { "width": 4, "color": "#111111", "cap": "round", "join": "round" }, "attrs": { "metadata": { "owner": "A", "color": { "dark": "#111111" }, "mode": "empty" }, "display": "string", "zIndex": 20 } },
+      { "type": "relations", "id": "legacy-string-self", "label": "Self", "links": [{ "source": "legacy-grid.0.1", "target": "legacy-grid.0.1" }], "style": { "width": 4, "color": "#222222", "cap": "round", "join": "round" }, "attrs": { "metadata": { "owner": "B", "color": { "dark": "#222222" }, "mode": "self" }, "display": "string", "zIndex": 20 } },
+      { "type": "relations", "id": "legacy-string-chain", "label": "Chain", "links": [{ "source": "legacy-grid.0.1", "target": "legacy-device" }, { "source": "legacy-device", "target": "legacy-combine" }], "style": { "width": 4, "color": "#333333", "cap": "round", "join": "round" }, "attrs": { "metadata": { "owner": "C", "mode": "outer", "color": { "dark": "#333333" } }, "display": "string", "zIndex": 20 } }
+    ],
+    "canonicalExportRoot": "array"
+  },
+  "invalidFixtures": [
+    { "id": "legacy-root-without-grid-discriminator", "input": { "devices": [] }, "diagnostic": { "code": "INVALID_VALUE", "category": "INVALID_INPUT", "datasetPath": "$" } },
+    { "id": "legacy-grids-not-array", "input": { "grids": {} }, "diagnostic": { "code": "INVALID_VALUE", "category": "INVALID_INPUT", "datasetPath": "$.grids" } },
+    { "id": "legacy-grid-missing-spec", "input": { "grids": [{ "id": "grid", "name": "Grid", "children": [], "properties": { "transform": { "x": 0, "y": 0, "rotation": 0 } } }] }, "diagnostic": { "code": "INVALID_VALUE", "category": "INVALID_INPUT", "datasetPath": "$.grids[0].properties.spec" } },
+    { "id": "legacy-string-child-not-path-array", "input": { "grids": [], "strings": [{ "id": "line", "name": "Line", "children": ["not-a-path"], "properties": { "color": { "dark": "#000000" } } }] }, "diagnostic": { "code": "INVALID_VALUE", "category": "INVALID_INPUT", "datasetPath": "$.strings[0].children[0]" } }
+  ],
+  "volatileFields": [],
+  "nonNormativeFields": ["rawPixels", "rendererObjectIdentity"]
+}
