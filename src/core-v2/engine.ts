@@ -194,6 +194,12 @@ export interface CoreV2EngineSnapshot {
 type CoreV2EngineEventMap = {
   readonly ready: CoreV2InitializeResult;
   readonly sceneCommitted: CoreV2EngineLoadResult;
+  readonly drawComplete: Readonly<{
+    requestId: string;
+    sceneRevision: number;
+    semanticHash: string;
+    datasetRef: string | null;
+  }>;
   readonly frame: Readonly<{
     frameRevision: number;
     publishedTuple: CoreV2PublishedTuple;
@@ -358,6 +364,12 @@ export class CoreV2Engine {
         const result = this.loadDataset(input, {
           ...(submission.datasetRef ? { datasetRef: submission.datasetRef } : {}),
         });
+        this.emit('drawComplete', Object.freeze({
+          requestId: submission.requestId,
+          sceneRevision: result.sceneRevision,
+          semanticHash: result.semanticHash,
+          datasetRef: submission.datasetRef ?? null,
+        }));
         return Object.freeze({
           status: 'committed',
           requestId: submission.requestId,

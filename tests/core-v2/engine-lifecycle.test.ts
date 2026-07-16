@@ -157,6 +157,8 @@ describe('CoreV2Engine lifecycle authority', () => {
   it('publishes only the newest authoritative async dataset and retains it after a failed later load', async () => {
     const { factory, surfaces } = createSurfaceFactory();
     const engine = new CoreV2Engine({ surfaceFactory: factory });
+    const drawComplete: unknown[] = [];
+    engine.on('drawComplete', (event) => drawComplete.push(event));
     await engine.initialize({ instanceId: 'map-1', width: 800, height: 600 });
     const first = deferred<unknown>();
     const second = deferred<unknown>();
@@ -182,6 +184,12 @@ describe('CoreV2Engine lifecycle authority', () => {
     expect(engine.snapshot().semanticHash).toBe(beforeFailure.semanticHash);
     expect(engine.snapshot().datasetRef).toBe('interactive-scene-revision-2');
     expect(surfaces[0]?.loadCount).toBe(1);
+    expect(drawComplete).toEqual([{
+      requestId: 'draw-b',
+      sceneRevision: 1,
+      semanticHash: engine.snapshot().semanticHash,
+      datasetRef: 'interactive-scene-revision-2',
+    }]);
 
     engine.publishFrame(16.666667);
     expect(engine.snapshot().publishedTuple).toEqual({ scene: 1, view: 0, interaction: 0 });
