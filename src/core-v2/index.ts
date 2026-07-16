@@ -18,6 +18,14 @@ export {
   materializeCoreV2Dataset,
 } from './semantic/dataset';
 export type * from './semantic/dataset';
+export {
+  materializeCoreV2Grid,
+  resolveCoreV2ComponentSize,
+  resolveCoreV2ContentBox,
+  resolveCoreV2Dimension,
+  setCoreV2GridCell,
+} from './semantic/layout';
+export type * from './semantic/layout';
 export { PixiCoreV2Renderer } from './renderers/pixi-renderer';
 export type {
   PixiCoreV2InitializationMetrics,
