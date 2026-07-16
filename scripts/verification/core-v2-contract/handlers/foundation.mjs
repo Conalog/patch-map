@@ -87,11 +87,11 @@ async function exerciseAuthoritativeDrawRacesAction(context, action) {
   const subscriptionsDuring = activeSubscriptions(snapshotEngine(engine));
 
   let preReadyActual;
-  let pendingActual;
+  let pendingRun;
   let failedResult;
   try {
     preReadyActual = await runPreReadySubmission(context, preReady);
-    pendingActual = await runPendingSubmissions(context, engine, pending);
+    pendingRun = await runPendingSubmissions(context, engine, pending);
     await advanceTo(context, failedLater.submitAtMs);
     failedResult = await engine.submitDataset({
       requestId: 'failed-later',
@@ -113,7 +113,9 @@ async function exerciseAuthoritativeDrawRacesAction(context, action) {
   return {
     actual: {
       preReady: clone(preReadyActual),
-      pending: clone(pendingActual),
+      pending: clone(pendingRun.submissions),
+      completionOrder: clone(pendingRun.completionOrder),
+      authoritativeSubmittedInput: clone(pendingRun.authoritativeSubmittedInput),
       failedLater: { submitAtMs: failedLater.submitAtMs, ...clone(failedResult) },
       drawCompleteEvents: clone(drawCompleteEvents),
       drawCompleteSubscription: {
@@ -143,13 +145,16 @@ async function publishFrameAction(context, action) {
 async function loadDatasetAction(context, action) {
   const operands = loadDatasetOperands(action);
   if (operands.timeMs !== undefined) await advanceTo(context, operands.timeMs);
-  const engine = await context.ensureMainEngine();
+  const engine = operands.session === undefined
+    ? await context.ensureMainEngine()
+    : await context.ensureSessionEngine(operands.session);
   await ensureInitialized(context, engine);
   const dataset = await context.resolveDataset(operands.reference);
   const beforeFingerprint = context.fingerprint(dataset);
   const result = await call(engine, 'loadDataset', dataset, { datasetRef: operands.reference });
   const afterFingerprint = context.fingerprint(dataset);
   const snapshot = snapshotEngine(engine);
+  const exported = await exportDatasetActual(engine);
   return {
     actual: {
       datasetRef: operands.reference,
@@ -161,9 +166,21 @@ async function loadDatasetAction(context, action) {
         unchanged: beforeFingerprint === afterFingerprint,
         deeplyFrozen: isDeeplyFrozen(dataset),
       },
+      ...exported,
       snapshot,
     },
     captureSource: snapshot,
+  };
+}
+
+async function exportDatasetActual(engine) {
+  if (typeof engine.exportDataset !== 'function') {
+    return { exportedDataset: null, exportedDatasetDeeplyFrozen: null };
+  }
+  const exportedDataset = await engine.exportDataset();
+  return {
+    exportedDataset: clone(exportedDataset),
+    exportedDatasetDeeplyFrozen: isDeeplyFrozen(exportedDataset),
   };
 }
 
@@ -235,7 +252,9 @@ async function freezeInputAction(context, action) {
 
 async function snapshotAction(context, action) {
   const operands = snapshotOperands(action);
-  const engine = await context.ensureMainEngine();
+  const engine = operands.session === undefined
+    ? await context.ensureMainEngine()
+    : context.currentSessionEngine(operands.session);
   const snapshot = snapshotEngine(engine);
   const selected = operands.paths
     ? Object.fromEntries(operands.paths.map((path) => [path, clone(readPath(snapshot, path, 'snapshot'))]))
@@ -326,7 +345,7 @@ async function probeDeclaredFailureAction(context, action) {
   );
   const record = await context.createEngine(`declared-failure:${operands.journeyId}`);
   const engine = record.engine;
-  const authoritativeBeforeFailure = context.snapshotMainEngine();
+  const authoritativeBeforeFailure = context.snapshotAuthoritativeEngine();
   let actual;
   let releaseActual = null;
   try {
@@ -399,11 +418,16 @@ async function runPreReadySubmission(context, operands) {
 }
 
 async function runPendingSubmissions(context, engine, pending) {
+  const completionOrder = [];
   const records = new Map(pending.map((entry) => [entry.requestId, {
     entry,
     deferred: deferred(),
     resultPromise: null,
+    settlementPromise: null,
     result: null,
+    submittedInput: null,
+    inputBeforeFingerprint: null,
+    inputAfterFingerprint: null,
   }]));
   const timeline = pending.flatMap((entry) => [
     { atMs: entry.submitAtMs, kind: 'submit', requestId: entry.requestId },
@@ -422,26 +446,64 @@ async function runPendingSubmissions(context, engine, pending) {
           datasetRef: record.entry.datasetRef,
           input: record.deferred.promise,
         });
+        record.settlementPromise = record.resultPromise.then(
+          (result) => {
+            completionOrder.push({
+              requestId: record.entry.requestId,
+              settlement: 'fulfilled',
+              result: clone(result),
+            });
+            return result;
+          },
+          (error) => {
+            completionOrder.push({
+              requestId: record.entry.requestId,
+              settlement: 'rejected',
+              error: actualError(error),
+            });
+            throw error;
+          },
+        );
       } else {
-        assert(record.resultPromise !== null, `pending request ${event.requestId} completed before submission`);
-        record.deferred.resolve(await context.cloneDataset(record.entry.datasetRef));
-        record.result = await record.resultPromise;
+        assert(record.settlementPromise !== null, `pending request ${event.requestId} completed before submission`);
+        record.submittedInput = await context.cloneDataset(record.entry.datasetRef);
+        record.inputBeforeFingerprint = context.fingerprint(record.submittedInput);
+        record.deferred.resolve(record.submittedInput);
+        record.result = await record.settlementPromise;
+        record.inputAfterFingerprint = context.fingerprint(record.submittedInput);
       }
     }
   } catch (error) {
-    const started = [...records.values()].filter((record) => record.resultPromise !== null);
+    const started = [...records.values()].filter((record) => record.settlementPromise !== null);
     for (const record of started) record.deferred.reject(error);
-    await Promise.allSettled(started.map((record) => record.resultPromise));
+    await Promise.allSettled(started.map((record) => record.settlementPromise));
     throw error;
   }
 
-  return pending.map((entry) => ({
+  const submissions = pending.map((entry) => ({
     requestId: entry.requestId,
     datasetRef: entry.datasetRef,
     submitAtMs: entry.submitAtMs,
     completeAtMs: entry.completeAtMs,
     result: clone(records.get(entry.requestId)?.result),
   }));
+  const authoritative = [...records.values()].filter((record) => record.result?.status === 'committed');
+  assert(authoritative.length === 1, `pending submissions committed ${authoritative.length} authoritative inputs`);
+  const authoritativeRecord = authoritative[0];
+  assert(authoritativeRecord.submittedInput !== null, 'authoritative submitted input was not retained');
+  return {
+    submissions,
+    completionOrder,
+    authoritativeSubmittedInput: {
+      requestId: authoritativeRecord.entry.requestId,
+      datasetRef: authoritativeRecord.entry.datasetRef,
+      beforeFingerprint: authoritativeRecord.inputBeforeFingerprint,
+      postUseFingerprint: authoritativeRecord.inputAfterFingerprint,
+      unchanged: authoritativeRecord.inputBeforeFingerprint === authoritativeRecord.inputAfterFingerprint,
+      postUseGraph: clone(authoritativeRecord.submittedInput),
+      deeplyFrozen: isDeeplyFrozen(authoritativeRecord.submittedInput),
+    },
+  };
 }
 
 async function ensureInitialized(context, engine) {

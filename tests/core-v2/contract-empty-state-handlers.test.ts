@@ -55,8 +55,10 @@ interface CaseExecution {
   readonly caseType: string;
   readonly status: string;
   readonly actionResults: readonly ActionExecution[];
+  readonly eventJournal: unknown;
   readonly hostSeamDelta: unknown;
   readonly terminalSnapshot: unknown;
+  readonly terminalSemanticProbe: unknown;
   readonly cleanup: unknown;
 }
 
@@ -252,6 +254,26 @@ describe('CSM-003 empty-state consumer journey', () => {
       mode: 'select',
       resources: { canvasCount: 1 },
     });
+    expect(execution.eventJournal).toEqual([
+      expect.objectContaining({ sequence: 1, generation: 1, role: 'main', event: 'ready' }),
+      expect.objectContaining({ sequence: 2, generation: 1, role: 'main', event: 'sceneCommitted' }),
+      expect.objectContaining({
+        sequence: 3,
+        generation: 2,
+        role: 'declared-failure:CSM-003',
+        event: 'ready',
+      }),
+      expect.objectContaining({
+        sequence: 4,
+        generation: 2,
+        role: 'declared-failure:CSM-003',
+        event: 'destroyed',
+      }),
+      expect.objectContaining({ sequence: 5, generation: 1, role: 'main', event: 'destroyed' }),
+    ]);
+    expect(execution.actionResults.map((result) => valueAt(result.delta, 'semanticProbe')))
+      .toEqual([null, null, null, null, null]);
+    expect(execution.terminalSemanticProbe).toBeNull();
 
     expect(valueAt(execution.cleanup, 'status')).toBe('completed');
     expect(valueAt(execution.cleanup, 'releases')).toHaveLength(2);
@@ -310,6 +332,14 @@ function createHarness(): EngineHarness {
 }
 
 type Lifecycle = 'new' | 'ready-empty' | 'scene-ready' | 'destroyed';
+const PUBLIC_ENGINE_EVENTS = new Set([
+  'ready',
+  'sceneCommitted',
+  'drawComplete',
+  'frame',
+  'diagnostic',
+  'destroyed',
+]);
 
 class FakeEmptyStateEngine {
   public readonly queryTargets: Readonly<Record<string, unknown>>[] = [];
@@ -323,19 +353,23 @@ class FakeEmptyStateEngine {
   private semanticHash: string | null = null;
   private dataset: readonly Readonly<Record<string, unknown>>[] = [];
   private canvasCount = 0;
+  private readonly eventListeners = new Map<string, Set<(event: unknown) => void>>();
 
   public initialize(): Promise<Readonly<Record<string, unknown>>> {
     if (this.lifecycle === 'destroyed') throw new Error('destroyed');
+    const firstReady = this.lifecycle === 'new';
     if (this.lifecycle === 'new') {
       this.lifecycle = 'ready-empty';
       this.lifecycleGeneration += 1;
       this.canvasCount = 1;
     }
-    return Promise.resolve({
+    const result = {
       lifecycle: this.lifecycle,
       revisions: this.revisions(),
       facilities: ['renderer', 'state'],
-    });
+    };
+    if (firstReady) this.emit('ready', result);
+    return Promise.resolve(result);
   }
 
   public loadDataset(
@@ -350,12 +384,14 @@ class FakeEmptyStateEngine {
     this.semanticHash = `fake:${JSON.stringify(this.dataset)}`;
     this.sceneRevision += 1;
     this.lifecycle = this.dataset.length === 0 ? 'ready-empty' : 'scene-ready';
-    return {
+    const result = {
       lifecycle: this.lifecycle,
       sceneRevision: this.sceneRevision,
       semanticHash: this.semanticHash,
       rootIds: this.rootIds(),
     };
+    this.emit('sceneCommitted', result);
+    return result;
   }
 
   public query(target: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> | null {
@@ -368,6 +404,18 @@ class FakeEmptyStateEngine {
 
   public publishFrame(): void {
     this.frameRevision += 1;
+    this.emit('frame', {
+      frameRevision: this.frameRevision,
+      publishedTuple: { scene: this.sceneRevision, view: 0, interaction: 0 },
+    });
+  }
+
+  public on(event: string, listener: (event: unknown) => void): () => void {
+    if (!PUBLIC_ENGINE_EVENTS.has(event)) throw new Error(`unknown event ${event}`);
+    const listeners = this.eventListeners.get(event) ?? new Set<(value: unknown) => void>();
+    listeners.add(listener);
+    this.eventListeners.set(event, listeners);
+    return () => listeners.delete(listener);
   }
 
   public snapshot(): Readonly<Record<string, unknown>> {
@@ -384,7 +432,7 @@ class FakeEmptyStateEngine {
       mode: 'select',
       resources: {
         canvasCount: this.canvasCount,
-        subscriptions: { active: 0, duplicates: 0 },
+        subscriptions: { active: this.subscriptionCount(), duplicates: 0 },
       },
     };
   }
@@ -397,7 +445,23 @@ class FakeEmptyStateEngine {
     this.dataset = [];
     this.datasetRef = null;
     this.semanticHash = null;
+    this.emit('destroyed', { lifecycleGeneration: this.lifecycleGeneration });
+    this.eventListeners.clear();
     return Promise.resolve(true);
+  }
+
+  private emit(event: string, value: unknown): void {
+    for (const listener of [...(this.eventListeners.get(event) ?? [])]) {
+      try {
+        listener(value);
+      } catch {
+        // Product event delivery isolates listener failures from engine operations.
+      }
+    }
+  }
+
+  private subscriptionCount(): number {
+    return [...this.eventListeners.values()].reduce((total, listeners) => total + listeners.size, 0);
   }
 
   private revisions(): Readonly<Record<string, number>> {

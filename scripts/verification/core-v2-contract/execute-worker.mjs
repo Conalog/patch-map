@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import { createActionRegistry } from './action-registry.mjs';
 import { createEmptyStateHandlerEntries } from './handlers/empty-state.mjs';
 import { createFoundationHandlerEntries } from './handlers/foundation.mjs';
@@ -7,6 +5,14 @@ import { createFoundationHandlerEntries } from './handlers/foundation.mjs';
 const ACTUAL_DELTA_SCHEMA = 'core-v2-semantic-observation-delta/1';
 const EXECUTION_SCHEMA = 'core-v2-contract-case-execution/1';
 const HOST_DELTA_SCHEMA = 'core-v2-host-seam-delta/1';
+const ENGINE_EVENTS = Object.freeze([
+  'ready',
+  'sceneCommitted',
+  'drawComplete',
+  'frame',
+  'diagnostic',
+  'destroyed',
+]);
 
 export class CoreV2ContractExecutionError extends Error {
   constructor(code, message, partialExecution, cause) {
@@ -31,7 +37,14 @@ export async function executeContractCase(options) {
     actionFailure = error;
   } finally {
     state.closing = true;
-    state.terminalSnapshot = state.snapshotMainEngine();
+    state.terminalSnapshot = state.snapshotAuthoritativeEngine();
+    try {
+      assertNoJournalFailures(state);
+      state.terminalSemanticProbe = await captureSemanticProbe(state.authoritativeEngineRecord);
+      assertNoJournalFailures(state);
+    } catch (error) {
+      actionFailure ??= error;
+    }
     state.terminalHostSnapshot = state.snapshotHostSeam();
     state.cleanup = await cleanupExecution(state);
   }
@@ -95,6 +108,8 @@ function createExecutionState(input, actions) {
   const datasetCache = new Map();
   const bindings = new Map();
   const engineRecords = [];
+  const sessionEngineRecords = new Map();
+  const datasetBaselines = new Map();
   const state = {
     ...input,
     fixture,
@@ -103,12 +118,20 @@ function createExecutionState(input, actions) {
     datasetCache,
     bindings,
     engineRecords,
+    sessionEngineRecords,
+    datasetBaselines,
     mainEngineRecord: null,
+    authoritativeEngineRecord: null,
     hostState: null,
+    eventJournal: [],
+    eventSequence: 0,
+    eventJournalFailures: [],
+    eventJournalFailureCursor: 0,
     actionResults: [],
     captures: [],
     hostFragments: [],
     terminalSnapshot: null,
+    terminalSemanticProbe: null,
     terminalHostSnapshot: null,
     cleanup: null,
     closing: false,
@@ -117,9 +140,13 @@ function createExecutionState(input, actions) {
   state.createEngine = async (role) => createEngine(state, role);
   state.ensureMainEngine = async () => {
     state.mainEngineRecord ??= await state.createEngine('main');
+    assert(!state.mainEngineRecord.released, 'main engine has already been released');
+    state.authoritativeEngineRecord = state.mainEngineRecord;
     return state.mainEngineRecord.engine;
   };
   state.currentMainEngine = () => state.mainEngineRecord?.engine ?? null;
+  state.ensureSessionEngine = async (session) => ensureSessionEngine(state, session);
+  state.currentSessionEngine = (session) => currentSessionEngine(state, session);
   state.releaseEngine = async (engine, reason) => releaseEngine(state, engine, reason);
   state.resolveDataset = async (reference) => resolveDataset(state, reference);
   state.freezeDataset = async (reference) => {
@@ -129,7 +156,7 @@ function createExecutionState(input, actions) {
   };
   state.cloneDataset = async (reference) => structuredClone(await state.resolveDataset(reference));
   state.fingerprint = fingerprint;
-  state.snapshotMainEngine = () => safeSnapshot(state.mainEngineRecord?.engine ?? null);
+  state.snapshotAuthoritativeEngine = () => safeSnapshot(state.authoritativeEngineRecord?.engine ?? null);
   state.snapshotHostSeam = () => snapshotHostSeam(state);
   return state;
 }
@@ -156,11 +183,20 @@ async function executeAction(state, registry, action) {
       state.actionTimeoutMs,
       `${state.caseRecord.id}:${action.index}:${action.type}`,
     );
+    assertNoJournalFailures(state);
     const completedAtMs = readClock(state.clock);
     const stagedBindings = stageBindings(state, definition, action, output);
     const stagedCaptures = stageCaptures(state, action, output);
     const stagedHostState = stageHostState(state, action, output);
-    const result = successfulActionResult(state, action, output, startedAtMs, completedAtMs);
+    const semanticProbe = await captureSemanticProbe(state.authoritativeEngineRecord);
+    const result = successfulActionResult(
+      state,
+      action,
+      output,
+      semanticProbe,
+      startedAtMs,
+      completedAtMs,
+    );
     const hostFragment = output.host === undefined
       ? null
       : deepFreeze({
@@ -194,13 +230,15 @@ function handlerContext(state, action, signal) {
     signal,
     ensureMainEngine: state.ensureMainEngine,
     currentMainEngine: state.currentMainEngine,
+    ensureSessionEngine: state.ensureSessionEngine,
+    currentSessionEngine: state.currentSessionEngine,
     createEngine: state.createEngine,
     releaseEngine: state.releaseEngine,
     resolveDataset: state.resolveDataset,
     freezeDataset: state.freezeDataset,
     cloneDataset: state.cloneDataset,
     fingerprint: state.fingerprint,
-    snapshotMainEngine: state.snapshotMainEngine,
+    snapshotAuthoritativeEngine: state.snapshotAuthoritativeEngine,
     snapshotHostSeam: state.snapshotHostSeam,
     getBinding(name) {
       return state.bindings.get(name);
@@ -263,7 +301,7 @@ function stageCaptures(state, action, output) {
   const matching = checkpoints.filter((checkpoint) => checkpoint.afterActionIndex === action.index);
   if (matching.length === 0) return [];
 
-  const source = output.captureSource ?? state.snapshotMainEngine();
+  const source = output.captureSource ?? state.snapshotAuthoritativeEngine();
   assert(source !== null, `${action.type} capture source`);
   return matching.map((checkpoint) => {
     assert(checkpoint.phase === 'after-action', `${checkpoint.id} capture phase`);
@@ -281,7 +319,7 @@ function stageCaptures(state, action, output) {
   });
 }
 
-function successfulActionResult(state, action, output, startedAtMs, completedAtMs) {
+function successfulActionResult(state, action, output, semanticProbe, startedAtMs, completedAtMs) {
   return deepFreeze({
     index: action.index,
     type: action.type,
@@ -295,6 +333,7 @@ function successfulActionResult(state, action, output, startedAtMs, completedAtM
       actionIndex: action.index,
       actionType: action.type,
       actual: structuredClone(output.actual),
+      semanticProbe: structuredClone(semanticProbe),
     },
   });
 }
@@ -326,13 +365,98 @@ async function createEngine(state, role) {
     generation,
   }));
   assertEngine(engine, role);
-  const record = { engine, role, generation, released: false, releaseActual: null };
+  const record = {
+    engine,
+    role,
+    generation,
+    released: false,
+    releaseActual: null,
+    journalUnsubscribers: [],
+  };
   state.engineRecords.push(record);
+  attachEventJournal(state, record);
   if (state.closing) {
-    await releaseEngineRecord(record, 'late-after-execution');
+    await releaseEngineRecord(state, record, 'late-after-execution');
     throw new Error(`Core v2 execution invalid: ${role} engine created after execution closed`);
   }
   return record;
+}
+
+async function ensureSessionEngine(state, session) {
+  assert(Number.isInteger(session) && session > 0, `session ${String(session)} must be a positive integer`);
+  const existing = state.sessionEngineRecords.get(session);
+  if (existing) {
+    assert(!existing.released, `session ${session} engine has already been released`);
+    state.authoritativeEngineRecord = existing;
+    return existing.engine;
+  }
+
+  for (const [priorSession, record] of state.sessionEngineRecords) {
+    assert(priorSession < session, `session ${session} must follow session ${priorSession}`);
+    if (!record.released) await releaseEngineRecord(state, record, `session-replaced-by:${session}`);
+  }
+
+  const record = await state.createEngine(`session:${session}`);
+  state.sessionEngineRecords.set(session, record);
+  state.authoritativeEngineRecord = record;
+  return record.engine;
+}
+
+function currentSessionEngine(state, session) {
+  assert(Number.isInteger(session) && session > 0, `session ${String(session)} must be a positive integer`);
+  const record = state.sessionEngineRecords.get(session);
+  assert(record !== undefined, `session ${session} engine has not been created`);
+  assert(!record.released, `session ${session} engine has already been released`);
+  assert(record === state.authoritativeEngineRecord, `session ${session} is not authoritative`);
+  return record.engine;
+}
+
+function attachEventJournal(state, record) {
+  for (const event of ENGINE_EVENTS) {
+    const unsubscribe = record.engine.on(event, (actual) => recordEngineEvent(state, record, event, actual));
+    assert(typeof unsubscribe === 'function', `${record.role} ${event} subscription must return unsubscribe()`);
+    record.journalUnsubscribers.push(unsubscribe);
+  }
+}
+
+function recordEngineEvent(state, record, event, payload) {
+  let actual;
+  try {
+    assertJsonEvidenceSafe(payload, `${record.role} ${event}`);
+    actual = structuredClone(payload);
+  } catch (error) {
+    const failure = new CoreV2EventJournalError(
+      'UNSERIALIZABLE_ENGINE_EVENT',
+      `${record.role} generation ${record.generation} emitted non-JSON-safe ${event}`,
+      error,
+    );
+    state.eventJournalFailures.push(deepFreeze({
+      generation: record.generation,
+      role: record.role,
+      event,
+      error: serializeError(failure),
+    }));
+    return;
+  }
+  state.eventSequence += 1;
+  state.eventJournal.push(deepFreeze({
+    sequence: state.eventSequence,
+    generation: record.generation,
+    role: record.role,
+    event,
+    actual,
+  }));
+}
+
+function assertNoJournalFailures(state) {
+  if (state.eventJournalFailureCursor >= state.eventJournalFailures.length) return;
+  const failures = state.eventJournalFailures.slice(state.eventJournalFailureCursor);
+  state.eventJournalFailureCursor = state.eventJournalFailures.length;
+  const first = failures[0];
+  throw new CoreV2EventJournalError(
+    first.error.code,
+    `engine event journal rejected ${failures.length} event payload(s): ${first.role} ${first.event}`,
+  );
 }
 
 async function resolveDataset(state, reference) {
@@ -349,6 +473,10 @@ async function resolveDataset(state, reference) {
   assert(source !== undefined, `dataset ${reference} is not available`);
   const owned = structuredClone(source);
   state.datasetCache.set(reference, owned);
+  state.datasetBaselines.set(reference, deepFreeze({
+    beforeFingerprint: fingerprint(owned),
+    beforeGraph: structuredClone(owned),
+  }));
   return owned;
 }
 
@@ -376,7 +504,7 @@ async function cleanupExecution(state) {
   const releases = [];
   for (const record of [...state.engineRecords].reverse()) {
     try {
-      releases.push(await releaseEngineRecord(record, 'case-finally'));
+      releases.push(await releaseEngineRecord(state, record, 'case-finally'));
     } catch (error) {
       errors.push(serializeError(error));
     }
@@ -394,14 +522,21 @@ async function cleanupExecution(state) {
 async function releaseEngine(state, engine, reason) {
   const record = state.engineRecords.find((candidate) => candidate.engine === engine);
   assert(record !== undefined, 'cannot release an unowned engine');
-  return releaseEngineRecord(record, reason);
+  return releaseEngineRecord(state, record, reason);
 }
 
-async function releaseEngineRecord(record, reason) {
+async function releaseEngineRecord(state, record, reason) {
   if (record.released) return record.releaseActual;
   record.released = true;
   const before = safeSnapshot(record.engine);
-  const destroyed = await record.engine.destroy();
+  let destroyed;
+  let journalSubscriptions;
+  try {
+    destroyed = await record.engine.destroy();
+    assertNoJournalFailures(state);
+  } finally {
+    journalSubscriptions = releaseJournalSubscriptions(record);
+  }
   const after = safeSnapshot(record.engine);
   record.releaseActual = deepFreeze({
     role: record.role,
@@ -410,9 +545,31 @@ async function releaseEngineRecord(record, reason) {
     destroyReturned: destroyed,
     before,
     after,
+    journalSubscriptions,
     remainingResources: resourceCounts(after),
   });
   return record.releaseActual;
+}
+
+function releaseJournalSubscriptions(record) {
+  const errors = [];
+  let releasedCount = 0;
+  for (const unsubscribe of [...record.journalUnsubscribers].reverse()) {
+    try {
+      unsubscribe();
+      releasedCount += 1;
+    } catch (error) {
+      errors.push(serializeError(error));
+    }
+  }
+  record.journalUnsubscribers.length = 0;
+  if (errors.length > 0) {
+    throw new CoreV2EventJournalError(
+      'EVENT_JOURNAL_UNSUBSCRIBE_FAILED',
+      `${record.role} event journal unsubscribe failed: ${errors.map((error) => error.code).join(', ')}`,
+    );
+  }
+  return deepFreeze({ registeredCount: ENGINE_EVENTS.length, releasedCount });
 }
 
 function finalizeExecution(state, failure) {
@@ -436,8 +593,12 @@ function finalizeExecution(state, failure) {
     actionResults: structuredClone(state.actionResults),
     captures: structuredClone(state.captures),
     bindings: Object.fromEntries([...state.bindings].map(([name, value]) => [name, structuredClone(value)])),
+    eventJournal: structuredClone(state.eventJournal),
+    eventJournalFailures: structuredClone(state.eventJournalFailures),
+    datasetObservations: finalizeDatasetObservations(state),
     hostSeamDelta,
     terminalSnapshot: structuredClone(state.terminalSnapshot),
+    terminalSemanticProbe: structuredClone(state.terminalSemanticProbe),
     cleanup: structuredClone(state.cleanup),
     error: failure ? serializeError(failure) : null,
   });
@@ -445,8 +606,132 @@ function finalizeExecution(state, failure) {
 
 function assertEngine(engine, role) {
   assert(isRecord(engine), `${role} engineFactory result must be an object`);
-  for (const method of ['initialize', 'loadDataset', 'publishFrame', 'snapshot', 'destroy']) {
+  for (const method of ['on', 'initialize', 'loadDataset', 'publishFrame', 'snapshot', 'destroy']) {
     assert(typeof engine[method] === 'function', `${role} engine must expose ${method}()`);
+  }
+}
+
+async function captureSemanticProbe(record) {
+  if (!record || typeof record.engine.semanticProbe !== 'function') return null;
+  let payload;
+  try {
+    payload = await record.engine.semanticProbe();
+  } catch (error) {
+    throw new CoreV2SemanticProbeError(
+      'SEMANTIC_PROBE_FAILED',
+      `${record.role} generation ${record.generation} semanticProbe() failed`,
+      error,
+    );
+  }
+  if (payload === undefined) {
+    throw new CoreV2SemanticProbeError(
+      'SEMANTIC_PROBE_UNDEFINED',
+      `${record.role} generation ${record.generation} semanticProbe() returned undefined`,
+    );
+  }
+  try {
+    assertJsonEvidenceSafe(payload, `${record.role} semanticProbe()`);
+    return deepFreeze(structuredClone(payload));
+  } catch (error) {
+    throw new CoreV2SemanticProbeError(
+      'UNSERIALIZABLE_SEMANTIC_PROBE',
+      `${record.role} generation ${record.generation} semanticProbe() returned non-JSON-safe data`,
+      error,
+    );
+  }
+}
+
+function assertJsonEvidenceSafe(value, label) {
+  validateJsonEvidenceValue(value, label, new WeakSet());
+}
+
+function validateJsonEvidenceValue(value, path, ancestors) {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) rejectJsonEvidence(path, 'number must be finite');
+    if (Object.is(value, -0)) rejectJsonEvidence(path, 'negative zero does not round-trip through JSON');
+    return;
+  }
+  if (typeof value !== 'object') {
+    rejectJsonEvidence(path, `${typeof value} values are not supported`);
+  }
+  if (ancestors.has(value)) rejectJsonEvidence(path, 'cycles are not supported');
+  if (Array.isArray(value)) {
+    validateJsonEvidenceArray(value, path, ancestors);
+    return;
+  }
+  validateJsonEvidenceRecord(value, path, ancestors);
+}
+
+function validateJsonEvidenceArray(value, path, ancestors) {
+  if (Object.getPrototypeOf(value) !== Array.prototype) {
+    rejectJsonEvidence(path, 'array must use Array.prototype');
+  }
+
+  let elementCount = 0;
+  ancestors.add(value);
+  try {
+    for (const key of Reflect.ownKeys(value)) {
+      if (key === 'length') continue;
+      if (typeof key !== 'string' || !isArrayIndexKey(key, value.length)) {
+        rejectJsonEvidence(path, 'array contains a symbol or non-index property');
+      }
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (!descriptor || !Object.hasOwn(descriptor, 'value') || descriptor.enumerable !== true) {
+        rejectJsonEvidence(`${path}[${key}]`, 'array elements must be enumerable data properties');
+      }
+      elementCount += 1;
+      validateJsonEvidenceValue(descriptor.value, `${path}[${key}]`, ancestors);
+    }
+    if (elementCount !== value.length) rejectJsonEvidence(path, 'sparse arrays are not supported');
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+function validateJsonEvidenceRecord(value, path, ancestors) {
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    rejectJsonEvidence(path, 'object must be a plain record');
+  }
+
+  ancestors.add(value);
+  try {
+    for (const key of Reflect.ownKeys(value)) {
+      if (typeof key !== 'string') rejectJsonEvidence(path, 'symbol properties are not supported');
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (!descriptor || !Object.hasOwn(descriptor, 'value') || descriptor.enumerable !== true) {
+        rejectJsonEvidence(`${path}[${JSON.stringify(key)}]`, 'properties must be enumerable data properties');
+      }
+      validateJsonEvidenceValue(descriptor.value, `${path}[${JSON.stringify(key)}]`, ancestors);
+    }
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+function isArrayIndexKey(key, length) {
+  const index = Number(key);
+  return Number.isInteger(index) && index >= 0 && index < length && String(index) === key;
+}
+
+function rejectJsonEvidence(path, reason) {
+  throw new TypeError(`${path} is not JSON-evidence-safe: ${reason}`);
+}
+
+class CoreV2EventJournalError extends Error {
+  constructor(code, message, cause) {
+    super(`${code}: ${message}`, { cause });
+    this.name = 'CoreV2EventJournalError';
+    this.code = code;
+  }
+}
+
+class CoreV2SemanticProbeError extends Error {
+  constructor(code, message, cause) {
+    super(`${code}: ${message}`, { cause });
+    this.name = 'CoreV2SemanticProbeError';
+    this.code = code;
   }
 }
 
@@ -511,13 +796,44 @@ function numberOrNull(value) {
 }
 
 function fingerprint(value) {
-  return createHash('sha256').update(JSON.stringify(sortKeys(value))).digest('hex');
+  const canonical = JSON.stringify(sortKeys(value));
+  assert(typeof canonical === 'string', 'fingerprint input must be JSON serializable');
+  let hash = 0xcbf29ce484222325n;
+  for (const byte of new TextEncoder().encode(canonical)) {
+    hash ^= BigInt(byte);
+    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
+  }
+  return `fnv1a64:${hash.toString(16).padStart(16, '0')}`;
+}
+
+function finalizeDatasetObservations(state) {
+  return Object.fromEntries([...state.datasetCache].map(([reference, current]) => {
+    const baseline = state.datasetBaselines.get(reference);
+    assert(baseline !== undefined, `dataset ${reference} baseline is missing`);
+    const currentFingerprint = fingerprint(current);
+    return [reference, deepFreeze({
+      reference,
+      beforeFingerprint: baseline.beforeFingerprint,
+      currentFingerprint,
+      unchanged: baseline.beforeFingerprint === currentFingerprint,
+      beforeGraph: structuredClone(baseline.beforeGraph),
+      currentGraph: structuredClone(current),
+      currentDeeplyFrozen: isDeeplyFrozen(current),
+    })];
+  }));
 }
 
 function sortKeys(value) {
   if (Array.isArray(value)) return value.map(sortKeys);
   if (!isRecord(value)) return value;
   return Object.fromEntries(Object.keys(value).sort().map((key) => [key, sortKeys(value[key])]));
+}
+
+function isDeeplyFrozen(value, seen = new WeakSet()) {
+  if (value === null || typeof value !== 'object' || seen.has(value)) return true;
+  if (!Object.isFrozen(value)) return false;
+  seen.add(value);
+  return Object.values(value).every((nested) => isDeeplyFrozen(nested, seen));
 }
 
 function readPath(value, path, label) {

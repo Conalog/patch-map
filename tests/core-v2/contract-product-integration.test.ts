@@ -41,7 +41,16 @@ interface ContractExecution {
   readonly caseId: string;
   readonly status: string;
   readonly actionResults: readonly Readonly<Record<string, unknown>>[];
+  readonly eventJournal: readonly Readonly<{
+    readonly generation: number;
+    readonly role: string;
+    readonly event: string;
+    readonly actual: unknown;
+  }>[];
+  readonly eventJournalFailures: readonly unknown[];
+  readonly datasetObservations: Readonly<Record<string, unknown>>;
   readonly terminalSnapshot: unknown;
+  readonly terminalSemanticProbe: unknown;
   readonly cleanup: unknown;
 }
 
@@ -101,8 +110,16 @@ describe('Core v2 approved foundation executor against the product engine', () =
       expect(execution.status, caseId).toBe('completed');
       expect(execution.actionResults.every((action) => action.status === 'completed'), caseId).toBe(true);
       expect(JSON.stringify(execution), caseId).not.toContain('"status":"pass"');
+      expect(execution.eventJournalFailures, caseId).toEqual([]);
+      expect(execution.terminalSemanticProbe, caseId).not.toBeNull();
       expect(valueAt(execution.cleanup, 'status'), caseId).toBe('completed');
       expect(valueAt(execution.cleanup, 'errors'), caseId).toEqual([]);
+      for (const release of valueAt(execution.cleanup, 'releases') as readonly unknown[]) {
+        expect(valueAt(release, 'journalSubscriptions'), caseId).toEqual({
+          registeredCount: 6,
+          releasedCount: 6,
+        });
+      }
     }
 
     expect(valueAt(executions.get('LIF-002'), 'actionResults.2.delta.actual.drawCompleteEvents')).toEqual([
@@ -111,10 +128,39 @@ describe('Core v2 approved foundation executor against the product engine', () =
     expect(valueAt(executions.get('LIF-002'), 'actionResults.2.delta.actual.failedLater.diagnostic.code')).toBe(
       'INVALID_VALUE',
     );
+    const drawCompleteJournal = executions.get('LIF-002')?.eventJournal.filter(
+      ({ event }) => event === 'drawComplete',
+    ) ?? [];
+    expect(drawCompleteJournal).toHaveLength(1);
+    expect(drawCompleteJournal[0]).toMatchObject({ generation: 1, role: 'main' });
+    expect(drawCompleteJournal[0]?.actual).toMatchObject({ requestId: 'draw-b', sceneRevision: 1 });
+    expect(valueAt(
+      executions.get('LIF-002'),
+      'actionResults.2.delta.actual.authoritativeSubmittedInput.unchanged',
+    )).toBe(true);
     expect(valueAt(executions.get('DAT-001'), 'actionResults.2.delta.actual.diagnostic.code')).toBe(
       'INVALID_RECORD_KIND',
     );
     expect(valueAt(executions.get('DAT-001'), 'actionResults.2.delta.actual.atomicRetained')).toBe(true);
+    expect(valueAt(executions.get('DAT-001'), 'datasetObservations.all-kinds-scene.unchanged')).toBe(true);
+    expect(valueAt(executions.get('DAT-002'), 'actionResults.0.delta.semanticProbe')).toBeNull();
+    expect(valueAt(executions.get('DAT-002'), 'actionResults.1.delta.semanticProbe')).not.toBeNull();
+    expect(valueAt(executions.get('DAT-002'), 'actionResults.3.delta.semanticProbe')).not.toBeNull();
+    expect(valueAt(executions.get('DAT-002'), 'actionResults.1.delta.actual.exportedDataset')).toEqual(
+      valueAt(executions.get('DAT-002'), 'actionResults.3.delta.actual.exportedDataset'),
+    );
+    expect(executions.get('DAT-002')?.eventJournal.filter(({ event }) => event === 'ready').map(
+      ({ generation, role }) => ({ generation, role }),
+    )).toEqual([
+      { generation: 1, role: 'session:1' },
+      { generation: 2, role: 'session:2' },
+    ]);
+    expect(executions.get('DAT-002')?.eventJournal.filter(({ event }) => event === 'destroyed').map(
+      ({ generation, role }) => ({ generation, role }),
+    )).toEqual([
+      { generation: 1, role: 'session:1' },
+      { generation: 2, role: 'session:2' },
+    ]);
     expect(valueAt(executions.get('CSM-001'), 'terminalSnapshot.datasetRef')).toBe('interactive-scene');
     expect(valueAt(executions.get('CSM-003'), 'terminalSnapshot.lifecycle')).toBe('ready-empty');
     expect(valueAt(executions.get('CSM-003'), 'actionResults.3.delta.actual.result')).toBeNull();

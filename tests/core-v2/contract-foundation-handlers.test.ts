@@ -50,6 +50,14 @@ interface ActionExecution {
   readonly delta: unknown;
 }
 
+interface EventJournalEntry {
+  readonly sequence: number;
+  readonly generation: number;
+  readonly role: string;
+  readonly event: string;
+  readonly actual: unknown;
+}
+
 interface CaseExecution {
   readonly caseId: string;
   readonly caseType: string;
@@ -57,8 +65,12 @@ interface CaseExecution {
   readonly actionResults: readonly ActionExecution[];
   readonly captures: readonly unknown[];
   readonly bindings: Readonly<Record<string, unknown>>;
+  readonly eventJournal: readonly EventJournalEntry[];
+  readonly eventJournalFailures: readonly unknown[];
+  readonly datasetObservations: Readonly<Record<string, unknown>>;
   readonly hostSeamDelta: unknown;
   readonly terminalSnapshot: unknown;
+  readonly terminalSemanticProbe: unknown;
   readonly cleanup: unknown;
   readonly error: unknown;
 }
@@ -148,6 +160,24 @@ const EXPECTED_FOUNDATION_TYPES = [
 ];
 
 const SUPPORTED_TYPES = new Set(['group', 'grid', 'item', 'relations', 'image', 'text', 'rect']);
+const PUBLIC_ENGINE_EVENTS = new Set([
+  'ready',
+  'sceneCommitted',
+  'drawComplete',
+  'frame',
+  'diagnostic',
+  'destroyed',
+]);
+const UNSAFE_EVENT_PAYLOADS = [
+  { label: 'undefined', create: () => undefined },
+  { label: 'non-finite number', create: () => ({ value: Number.POSITIVE_INFINITY }) },
+  { label: 'bigint', create: () => ({ value: 1n }) },
+  { label: 'symbol property', create: createSymbolPropertyPayload },
+  { label: 'sparse array', create: createSparseArrayPayload },
+  { label: 'cyclic record', create: createCyclicPayload },
+  { label: 'Map', create: () => new Map([['value', 1]]) },
+  { label: 'accessor property', create: createAccessorPayload },
+] satisfies readonly Readonly<{ label: string; create: () => unknown }>[];
 
 let catalog: ExecutorCatalog;
 
@@ -170,6 +200,7 @@ describe('foundation actual-only handler registry', () => {
     for (const source of sources) {
       expect(source).not.toContain(forbiddenFile);
       expect(source).not.toMatch(/from\s+['"][^'"]*compare\.mjs['"]/);
+      expect(source).not.toContain('node:crypto');
     }
   });
 });
@@ -194,7 +225,28 @@ describe('foundation capability execution', () => {
     expect(harness.engines).toHaveLength(1);
     expect(harness.engines[0]?.initializeCalls).toBe(2);
     expect(harness.engines[0]?.destroyCalls).toBe(1);
+    expect(execution.eventJournal.map(({ sequence, generation, role, event }) => ({
+      sequence,
+      generation,
+      role,
+      event,
+    }))).toEqual([
+      { sequence: 1, generation: 1, role: 'main', event: 'ready' },
+      { sequence: 2, generation: 1, role: 'main', event: 'destroyed' },
+    ]);
+    expect(execution.eventJournal.filter(({ event }) => event === 'ready')).toHaveLength(1);
+    expect(execution.eventJournal[0]?.actual).toMatchObject({
+      lifecycle: 'ready-empty',
+      instanceId: 'map-1',
+      revisions: { lifecycleGeneration: 1 },
+    });
+    expect(execution.actionResults.map((result) => valueAt(result.delta, 'semanticProbe'))).toEqual([null, null]);
+    expect(execution.terminalSemanticProbe).toBeNull();
     expect(valueAt(execution.cleanup, 'status')).toBe('completed');
+    expect(valueAt(execution.cleanup, 'releases.0.journalSubscriptions')).toEqual({
+      registeredCount: 6,
+      releasedCount: 6,
+    });
     expect(valueAt(execution.cleanup, 'releases.0.remainingResources.canvasCount')).toBe(0);
     expect(valueAt(execution.cleanup, 'releases.0.remainingResources.pendingWork')).toBe(0);
     expect(JSON.stringify(caseRecord.actionTrace)).toBe(actionBefore);
@@ -222,6 +274,24 @@ describe('foundation capability execution', () => {
     expect(valueAt(execution, 'actionResults.2.delta.actual.preReady.diagnostic.code')).toBe('NOT_READY');
     expect(valueAt(execution, 'actionResults.2.delta.actual.pending.0.result.status')).toBe('superseded');
     expect(valueAt(execution, 'actionResults.2.delta.actual.pending.1.result.status')).toBe('committed');
+    expect(valueAt(execution, 'actionResults.2.delta.actual.completionOrder')).toMatchObject([
+      { requestId: 'draw-b', settlement: 'fulfilled', result: { status: 'committed' } },
+      { requestId: 'draw-a', settlement: 'fulfilled', result: { status: 'superseded' } },
+    ]);
+    expect(valueAt(execution, 'actionResults.2.delta.actual.authoritativeSubmittedInput')).toMatchObject({
+      requestId: 'draw-b',
+      datasetRef: 'interactive-scene-revision-2',
+      unchanged: true,
+      postUseGraph: [{ type: 'item', id: 'item-b' }],
+      deeplyFrozen: false,
+    });
+    expect(valueAt(
+      execution,
+      'actionResults.2.delta.actual.authoritativeSubmittedInput.postUseFingerprint',
+    )).toBe(valueAt(
+      execution,
+      'actionResults.2.delta.actual.authoritativeSubmittedInput.beforeFingerprint',
+    ));
     expect(valueAt(execution, 'actionResults.2.delta.actual.failedLater.status')).toBe('rejected');
     expect(valueAt(execution, 'actionResults.2.delta.actual.failedLater.diagnostic.code')).toBe('INVALID_RECORD_KIND');
     expect(valueAt(execution, 'actionResults.2.delta.actual.failedLater.diagnostic.code')).not.toBe('INVALID_DATASET');
@@ -232,10 +302,40 @@ describe('foundation capability execution', () => {
       datasetRef: 'interactive-scene-revision-2',
     }]);
     expect(valueAt(execution, 'actionResults.2.delta.actual.drawCompleteSubscription')).toEqual({
-      activeBefore: 0,
-      activeDuring: 1,
-      activeAfter: 0,
+      activeBefore: 6,
+      activeDuring: 7,
+      activeAfter: 6,
     });
+    expect(execution.eventJournal.map(({ sequence, generation, role, event }) => ({
+      sequence,
+      generation,
+      role,
+      event,
+    }))).toEqual([
+      { sequence: 1, generation: 1, role: 'main', event: 'ready' },
+      { sequence: 2, generation: 2, role: 'pre-ready-submission', event: 'destroyed' },
+      { sequence: 3, generation: 1, role: 'main', event: 'sceneCommitted' },
+      { sequence: 4, generation: 1, role: 'main', event: 'drawComplete' },
+      { sequence: 5, generation: 1, role: 'main', event: 'diagnostic' },
+      { sequence: 6, generation: 1, role: 'main', event: 'frame' },
+      { sequence: 7, generation: 1, role: 'main', event: 'destroyed' },
+    ]);
+    const drawCompleteJournal = execution.eventJournal.filter(({ event }) => event === 'drawComplete');
+    expect(drawCompleteJournal).toHaveLength(1);
+    expect(drawCompleteJournal[0]).toMatchObject({ generation: 1, role: 'main' });
+    expect(drawCompleteJournal[0]?.actual).toMatchObject({ requestId: 'draw-b' });
+    expect(execution.eventJournal.filter(({ event }) => event === 'destroyed').map(({ generation }) => generation))
+      .toEqual([2, 1]);
+    expect(execution.actionResults.map((result) => valueAt(result.delta, 'semanticProbe')))
+      .toEqual([null, null, null, null]);
+    expect(valueAt(execution, 'datasetObservations.all-kinds-scene.unchanged')).toBe(true);
+    expect(valueAt(execution, 'datasetObservations.interactive-scene-revision-2.unchanged')).toBe(true);
+    expect(valueAt(execution, 'datasetObservations.malformed.unchanged')).toBe(true);
+    expect(valueAt(execution, 'datasetObservations.all-kinds-scene.beforeFingerprint'))
+      .toMatch(/^fnv1a64:[0-9a-f]{16}$/);
+    expect(valueAt(execution, 'datasetObservations.all-kinds-scene.currentGraph')).toEqual(
+      valueAt(execution, 'datasetObservations.all-kinds-scene.beforeGraph'),
+    );
     expect(valueAt(execution.bindings, 'afterLatestSuccess.datasetRef')).toBe('interactive-scene-revision-2');
     expect(JSON.stringify(datasets.get('all-kinds-scene'))).toBe(allKindsBefore);
     expect(harness.engines.every((engine) => engine.destroyCalls === 1)).toBe(true);
@@ -289,12 +389,94 @@ describe('foundation capability execution', () => {
     expect(valueAt(execution, 'actionResults.0.delta.actual.deeplyFrozen')).toBe(true);
     expect(valueAt(execution, 'actionResults.1.delta.actual.input.unchanged')).toBe(true);
     expect(valueAt(execution, 'actionResults.1.delta.actual.input.deeplyFrozen')).toBe(true);
+    expect(valueAt(execution, 'actionResults.3.delta.actual.input.unchanged')).toBe(true);
+    expect(valueAt(execution, 'actionResults.3.delta.actual.input.deeplyFrozen')).toBe(true);
+    expect(valueAt(execution, 'actionResults.1.delta.actual.exportedDataset')).toEqual(
+      valueAt(execution, 'datasetObservations.minimal.currentGraph'),
+    );
+    expect(valueAt(execution, 'actionResults.3.delta.actual.exportedDataset')).toEqual(
+      valueAt(execution, 'datasetObservations.minimal.currentGraph'),
+    );
+    expect(valueAt(execution, 'actionResults.1.delta.actual.exportedDatasetDeeplyFrozen')).toBe(false);
+    expect(valueAt(execution, 'actionResults.3.delta.actual.exportedDatasetDeeplyFrozen')).toBe(false);
+    expect(valueAt(execution, 'actionResults.1.delta.actual.input.beforeFingerprint')).toBe(
+      valueAt(execution, 'actionResults.3.delta.actual.input.beforeFingerprint'),
+    );
+    expect(harness.metadata.map(({ role, generation }) => ({ role, generation }))).toEqual([
+      { role: 'session:1', generation: 1 },
+      { role: 'session:2', generation: 2 },
+    ]);
+    expect(harness.engines).toHaveLength(2);
+    expect(harness.engines.every((engine) => engine.initializeCalls === 1 && engine.destroyCalls === 1)).toBe(true);
+    expect(execution.eventJournal.map(({ sequence, generation, role, event }) => ({
+      sequence,
+      generation,
+      role,
+      event,
+    }))).toEqual([
+      { sequence: 1, generation: 1, role: 'session:1', event: 'ready' },
+      { sequence: 2, generation: 1, role: 'session:1', event: 'sceneCommitted' },
+      { sequence: 3, generation: 1, role: 'session:1', event: 'destroyed' },
+      { sequence: 4, generation: 2, role: 'session:2', event: 'ready' },
+      { sequence: 5, generation: 2, role: 'session:2', event: 'sceneCommitted' },
+      { sequence: 6, generation: 2, role: 'session:2', event: 'destroyed' },
+    ]);
     expect(valueAt(execution, 'captures.0.id')).toBe('session2');
     expect(valueAt(execution, 'captures.0.afterActionIndex')).toBe(4);
     expect(valueAt(execution, 'captures.0.values.semanticHash')).toBe(
       valueAt(execution, 'actionResults.4.delta.actual.snapshot.semanticHash'),
     );
+    expect(valueAt(execution, 'terminalSnapshot.semanticHash')).toBe(
+      valueAt(execution, 'actionResults.4.delta.actual.snapshot.semanticHash'),
+    );
+    expect(valueAt(execution, 'terminalSnapshot.revisions.sceneRevision')).toBe(1);
+    expect(execution.actionResults.map((result) => valueAt(result.delta, 'semanticProbe')))
+      .toEqual([null, null, null, null, null]);
+    expect(execution.terminalSemanticProbe).toBeNull();
+    expect(valueAt(execution, 'datasetObservations.minimal')).toMatchObject({
+      reference: 'minimal',
+      unchanged: true,
+      currentDeeplyFrozen: true,
+    });
+    expect(valueAt(execution, 'datasetObservations.minimal.beforeFingerprint')).toBe(
+      valueAt(execution, 'datasetObservations.minimal.currentFingerprint'),
+    );
+    expect(valueAt(execution, 'datasetObservations.minimal.beforeFingerprint'))
+      .toMatch(/^fnv1a64:[0-9a-f]{16}$/);
+    expect(valueAt(execution, 'datasetObservations.minimal.beforeGraph')).toEqual(
+      valueAt(execution, 'datasetObservations.minimal.currentGraph'),
+    );
+    expect(valueAt(execution.cleanup, 'releases.0.remainingResources.canvasCount')).toBe(0);
+    expect(valueAt(execution.cleanup, 'releases.1.remainingResources.canvasCount')).toBe(0);
     expect(JSON.stringify(caseRecord.fixture.setup.params)).toBe(fixtureBefore);
+  });
+
+  it('uses a canonical browser-safe fingerprint independent of object key insertion order', async () => {
+    const ordered = createDatasets();
+    const reordered = new Map(createDatasets());
+    reordered.set('all-kinds-scene', [
+      { id: 'group-a', type: 'group' },
+      { id: 'grid-a', type: 'grid' },
+      { id: 'item-a', type: 'item' },
+      { id: 'links', type: 'relations' },
+      { id: 'image-a', type: 'image' },
+      { id: 'text-a', type: 'text' },
+      { id: 'rect-a', type: 'rect' },
+    ]);
+    const orderedExecution = await executeContractCase(
+      executionOptions(selectedCase('LIF-002'), createEngineHarness(), new ManualClock(), { datasets: ordered }),
+    );
+    const reorderedExecution = await executeContractCase(
+      executionOptions(selectedCase('LIF-002'), createEngineHarness(), new ManualClock(), { datasets: reordered }),
+    );
+
+    const orderedFingerprint = valueAt(
+      orderedExecution,
+      'datasetObservations.all-kinds-scene.beforeFingerprint',
+    );
+    expect(orderedFingerprint).toMatch(/^fnv1a64:[0-9a-f]{16}$/);
+    expect(valueAt(reorderedExecution, 'datasetObservations.all-kinds-scene.beforeFingerprint'))
+      .toBe(orderedFingerprint);
   });
 });
 
@@ -389,6 +571,86 @@ describe('foundation executor failure authority', () => {
     expect(harness.engines[0]?.destroyCalls).toBe(1);
   });
 
+  it.each(UNSAFE_EVENT_PAYLOADS)(
+    'rejects a $label public event payload while retaining cleanup events',
+    async ({ create }) => {
+      const harness = createEngineHarness({ readyEventPayload: create });
+      const error = await captureFailure(executeContractCase(
+        executionOptions(selectedCase('LIF-001'), harness, new ManualClock()),
+      ));
+
+      expect(valueAt(error, 'code')).toBe('UNSERIALIZABLE_ENGINE_EVENT');
+      expect(valueAt(error, 'partialExecution.status')).toBe('failed');
+      expect(valueAt(error, 'partialExecution.actionResults.0.status')).toBe('failed');
+      expect(valueAt(error, 'partialExecution.eventJournal')).toEqual([{
+        sequence: 1,
+        generation: 1,
+        role: 'main',
+        event: 'destroyed',
+        actual: { lifecycleGeneration: 1 },
+      }]);
+      expect(valueAt(error, 'partialExecution.eventJournalFailures')).toHaveLength(1);
+      expect(valueAt(error, 'partialExecution.eventJournalFailures.0')).toMatchObject({
+        generation: 1,
+        role: 'main',
+        event: 'ready',
+      });
+      expect(valueAt(error, 'partialExecution.eventJournalFailures.0.error.code'))
+        .toBe('UNSERIALIZABLE_ENGINE_EVENT');
+      expect(valueAt(error, 'partialExecution.terminalSnapshot.lifecycle')).toBe('ready-empty');
+      expect(valueAt(error, 'partialExecution.cleanup.status')).toBe('completed');
+      expect(valueAt(error, 'partialExecution.cleanup.releases.0.journalSubscriptions')).toEqual({
+        registeredCount: 6,
+        releasedCount: 6,
+      });
+      expect(harness.engines[0]?.destroyCalls).toBe(1);
+    },
+  );
+
+  it('rejects non-JSON-safe semantic probe evidence and still cleans up', async () => {
+    const harness = createEngineHarness({
+      semanticProbePayload: () => new Map([['value', 1]]),
+    });
+    const error = await captureFailure(executeContractCase(
+      executionOptions(selectedCase('LIF-001'), harness, new ManualClock()),
+    ));
+
+    expect(valueAt(error, 'code')).toBe('UNSERIALIZABLE_SEMANTIC_PROBE');
+    expect(valueAt(error, 'partialExecution.status')).toBe('failed');
+    expect(valueAt(error, 'partialExecution.actionResults.0.status')).toBe('failed');
+    expect(valueAt(error, 'partialExecution.actionResults.0.delta.actual.error.code'))
+      .toBe('UNSERIALIZABLE_SEMANTIC_PROBE');
+    expect(valueAt(error, 'partialExecution.eventJournal')).toMatchObject([
+      { sequence: 1, event: 'ready' },
+      { sequence: 2, event: 'destroyed' },
+    ]);
+    expect(valueAt(error, 'partialExecution.eventJournalFailures')).toEqual([]);
+    expect(valueAt(error, 'partialExecution.terminalSemanticProbe')).toBeNull();
+    expect(valueAt(error, 'partialExecution.cleanup.status')).toBe('completed');
+    expect(harness.engines[0]?.destroyCalls).toBe(1);
+  });
+
+  it('turns a swallowed unserializable destroyed event into a cleanup failure', async () => {
+    const harness = createEngineHarness({ unserializableDestroyedEvent: true });
+    const error = await captureFailure(executeContractCase(
+      executionOptions(selectedCase('LIF-001'), harness, new ManualClock()),
+    ));
+
+    expect(valueAt(error, 'code')).toBe('CLEANUP_FAILED');
+    expect(valueAt(error, 'partialExecution.actionResults.0.status')).toBe('completed');
+    expect(valueAt(error, 'partialExecution.actionResults.1.status')).toBe('completed');
+    expect(valueAt(error, 'partialExecution.cleanup.status')).toBe('failed');
+    expect(valueAt(error, 'partialExecution.cleanup.errors.0.code')).toBe('UNSERIALIZABLE_ENGINE_EVENT');
+    expect(valueAt(error, 'partialExecution.eventJournalFailures.0')).toMatchObject({
+      generation: 1,
+      role: 'main',
+      event: 'destroyed',
+    });
+    expect(valueAt(error, 'partialExecution.eventJournalFailures.0.error.code'))
+      .toBe('UNSERIALIZABLE_ENGINE_EVENT');
+    expect(harness.engines[0]?.destroyCalls).toBe(1);
+  });
+
   it('keeps timeout and engine failure non-passing while cleanup runs in finally', async () => {
     const timeoutHarness = createEngineHarness({ hangInitialize: true });
     const timeoutError = await captureFailure(executeContractCase(
@@ -465,6 +727,9 @@ function createDatasets(): ReadonlyMap<string, unknown> {
 interface FakeEngineOptions {
   readonly failInitialize?: boolean;
   readonly hangInitialize?: boolean;
+  readonly readyEventPayload?: () => unknown;
+  readonly semanticProbePayload?: () => unknown;
+  readonly unserializableDestroyedEvent?: boolean;
 }
 
 interface EngineHarness {
@@ -518,6 +783,7 @@ class FakeProductError extends Error {
 
 class FakeEngine {
   public readonly role: string;
+  public readonly semanticProbe: (() => unknown) | undefined;
   public initializeCalls = 0;
   public destroyCalls = 0;
 
@@ -539,6 +805,7 @@ class FakeEngine {
   public constructor(metadata: EngineFactoryMetadata, options: FakeEngineOptions) {
     this.role = metadata.role;
     this.options = options;
+    this.semanticProbe = options.semanticProbePayload;
   }
 
   public async initialize(options: Readonly<Record<string, unknown>>): Promise<Readonly<Record<string, unknown>>> {
@@ -549,18 +816,25 @@ class FakeEngine {
       return new Promise(() => undefined);
     }
     if (this.lifecycle === 'destroyed') throw new FakeProductError('DESTROYED', 'initialize');
-    if (this.lifecycle === 'new' || this.lifecycle === 'initializing') {
+    const firstReady = this.lifecycle === 'new' || this.lifecycle === 'initializing';
+    if (firstReady) {
       this.lifecycleGeneration += 1;
       this.lifecycle = this.dataset.length > 0 ? 'scene-ready' : 'ready-empty';
       this.canvasCount = 1;
       this.instanceId = typeof options.instanceId === 'string' ? options.instanceId : null;
     }
-    return {
+    const result = {
       lifecycle: this.lifecycle,
       instanceId: this.instanceId,
       revisions: this.revisions(),
       facilities: ['renderer', 'state'],
     };
+    if (firstReady) {
+      this.emit('ready', this.options.readyEventPayload === undefined
+        ? result
+        : this.options.readyEventPayload());
+    }
+    return result;
   }
 
   public loadDataset(
@@ -577,12 +851,14 @@ class FakeEngine {
     this.semanticHash = `fake:${JSON.stringify(dataset)}`;
     this.sceneRevision += 1;
     this.lifecycle = dataset.length > 0 ? 'scene-ready' : 'ready-empty';
-    return {
+    const result = {
       lifecycle: this.lifecycle,
       sceneRevision: this.sceneRevision,
       semanticHash: this.semanticHash,
       rootIds: this.rootIds(),
     };
+    this.emit('sceneCommitted', result);
+    return result;
   }
 
   public async submitDataset(submission: Readonly<{
@@ -625,10 +901,12 @@ class FakeEngine {
           semanticHash: result.semanticHash,
         };
       } catch (error) {
+        const actualDiagnostic = diagnosticFromError(error, 'loadDataset');
+        this.emit('diagnostic', actualDiagnostic);
         return {
           status: 'rejected',
           requestId: submission.requestId,
-          diagnostic: diagnosticFromError(error, 'loadDataset'),
+          diagnostic: actualDiagnostic,
         };
       }
     } finally {
@@ -648,7 +926,7 @@ class FakeEngine {
   }
 
   public on(event: string, listener: (event: unknown) => void): () => void {
-    if (event !== 'frame' && event !== 'drawComplete') throw new FakeProductError('UNKNOWN_EVENT', event);
+    if (!PUBLIC_ENGINE_EVENTS.has(event)) throw new FakeProductError('UNKNOWN_EVENT', event);
     const listeners = this.eventListeners.get(event) ?? new Set<(value: unknown) => void>();
     listeners.add(listener);
     this.eventListeners.set(event, listeners);
@@ -688,12 +966,21 @@ class FakeEngine {
     this.dataset = [];
     this.datasetRef = null;
     this.semanticHash = null;
+    this.emit('destroyed', this.options.unserializableDestroyedEvent
+      ? { callback: () => undefined }
+      : { lifecycleGeneration: this.lifecycleGeneration });
     this.eventListeners.clear();
     return Promise.resolve(true);
   }
 
   private emit(event: string, value: unknown): void {
-    for (const listener of [...(this.eventListeners.get(event) ?? [])]) listener(value);
+    for (const listener of [...(this.eventListeners.get(event) ?? [])]) {
+      try {
+        listener(value);
+      } catch {
+        // Product event delivery isolates listener failures from engine operations.
+      }
+    }
   }
 
   private subscriptionCount(): number {
@@ -750,6 +1037,26 @@ class ManualClock implements ManualClockContract {
     for (let turn = 0; turn < 8; turn += 1) await Promise.resolve();
     throw new ManualTimeoutError(label);
   }
+}
+
+function createSymbolPropertyPayload(): unknown {
+  return Object.defineProperty({}, Symbol('hidden'), { enumerable: true, value: 1 });
+}
+
+function createSparseArrayPayload(): unknown {
+  const payload: unknown[] = [];
+  payload.length = 2;
+  return payload;
+}
+
+function createCyclicPayload(): unknown {
+  const payload: Record<string, unknown> = {};
+  payload.self = payload;
+  return payload;
+}
+
+function createAccessorPayload(): unknown {
+  return Object.defineProperty({}, 'value', { enumerable: true, get: () => 1 });
 }
 
 function normalizeFakeDataset(input: unknown): readonly Readonly<Record<string, unknown>>[] {
