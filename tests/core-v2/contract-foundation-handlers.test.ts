@@ -225,6 +225,17 @@ describe('foundation capability execution', () => {
     expect(valueAt(execution, 'actionResults.2.delta.actual.failedLater.status')).toBe('rejected');
     expect(valueAt(execution, 'actionResults.2.delta.actual.failedLater.diagnostic.code')).toBe('INVALID_RECORD_KIND');
     expect(valueAt(execution, 'actionResults.2.delta.actual.failedLater.diagnostic.code')).not.toBe('INVALID_DATASET');
+    expect(valueAt(execution, 'actionResults.2.delta.actual.drawCompleteEvents')).toEqual([{
+      requestId: 'draw-b',
+      sceneRevision: 1,
+      semanticHash: valueAt(execution, 'actionResults.2.delta.actual.authoritative.sceneSemanticHash'),
+      datasetRef: 'interactive-scene-revision-2',
+    }]);
+    expect(valueAt(execution, 'actionResults.2.delta.actual.drawCompleteSubscription')).toEqual({
+      activeBefore: 0,
+      activeDuring: 1,
+      activeAfter: 0,
+    });
     expect(valueAt(execution.bindings, 'afterLatestSuccess.datasetRef')).toBe('interactive-scene-revision-2');
     expect(JSON.stringify(datasets.get('all-kinds-scene'))).toBe(allKindsBefore);
     expect(harness.engines.every((engine) => engine.destroyCalls === 1)).toBe(true);
@@ -244,6 +255,16 @@ describe('foundation capability execution', () => {
     expect(valueAt(execution, 'actionResults.1.delta.actual.count')).toBe(7);
     expect(valueAt(execution, 'actionResults.2.delta.actual.accepted')).toBe(false);
     expect(valueAt(execution, 'actionResults.2.delta.actual.diagnostic.code')).toBe('INVALID_RECORD_KIND');
+    expect(valueAt(execution, 'actionResults.2.delta.actual.diagnostic')).toMatchObject({
+      category: 'INVALID_INPUT',
+      datasetPath: '$[7].type',
+      recoverable: false,
+      retryable: false,
+      appliedCount: 0,
+      missingCount: 0,
+      unchangedCount: 0,
+    });
+    expect(valueAt(execution, 'actionResults.2.delta.actual.diagnostic.diagnostic')).not.toHaveProperty('datasetPath');
     expect(valueAt(execution, 'actionResults.2.delta.actual.atomicRetained')).toBe(true);
     expect(valueAt(execution, 'actionResults.2.delta.actual.before.semanticHash')).toBe(
       valueAt(execution, 'actionResults.2.delta.actual.after.semanticHash'),
@@ -476,12 +497,21 @@ interface FrameEvent {
 
 class FakeProductError extends Error {
   public readonly code: string;
+  public readonly category: string;
+  public readonly datasetPath?: string;
+  public readonly recoverable = false;
+  public readonly retryable = false;
+  public readonly appliedCount = 0;
+  public readonly missingCount = 0;
+  public readonly unchangedCount = 0;
   public readonly diagnostic: Readonly<Record<string, unknown>>;
 
-  public constructor(code: string, operation: string) {
+  public constructor(code: string, operation: string, datasetPath?: string) {
     super(`${code}: ${operation}`);
     this.name = 'FakeProductError';
     this.code = code;
+    this.category = code === 'NOT_READY' || code === 'SUPERSEDED' ? code : 'INVALID_INPUT';
+    if (datasetPath !== undefined) this.datasetPath = datasetPath;
     this.diagnostic = diagnostic(code, operation);
   }
 }
@@ -504,7 +534,7 @@ class FakeEngine {
   private submissionSequence = 0;
   private pendingWork = 0;
   private canvasCount = 0;
-  private readonly frameListeners = new Set<(event: FrameEvent) => void>();
+  private readonly eventListeners = new Map<string, Set<(event: unknown) => void>>();
 
   public constructor(metadata: EngineFactoryMetadata, options: FakeEngineOptions) {
     this.role = metadata.role;
@@ -582,6 +612,12 @@ class FakeEngine {
         const result = this.loadDataset(input, {
           ...(submission.datasetRef ? { datasetRef: submission.datasetRef } : {}),
         });
+        this.emit('drawComplete', {
+          requestId: submission.requestId,
+          sceneRevision: this.sceneRevision,
+          semanticHash: this.semanticHash,
+          datasetRef: submission.datasetRef ?? null,
+        });
         return {
           status: 'committed',
           requestId: submission.requestId,
@@ -608,13 +644,15 @@ class FakeEngine {
       frameRevision: this.frameRevision,
       publishedTuple: { scene: this.sceneRevision, view: 0, interaction: 0 },
     };
-    for (const listener of [...this.frameListeners]) listener(event);
+    this.emit('frame', event);
   }
 
-  public on(event: string, listener: (event: FrameEvent) => void): () => void {
-    if (event !== 'frame') throw new FakeProductError('UNKNOWN_EVENT', event);
-    this.frameListeners.add(listener);
-    return () => this.frameListeners.delete(listener);
+  public on(event: string, listener: (event: unknown) => void): () => void {
+    if (event !== 'frame' && event !== 'drawComplete') throw new FakeProductError('UNKNOWN_EVENT', event);
+    const listeners = this.eventListeners.get(event) ?? new Set<(value: unknown) => void>();
+    listeners.add(listener);
+    this.eventListeners.set(event, listeners);
+    return () => listeners.delete(listener);
   }
 
   public exportDataset(): readonly Readonly<Record<string, unknown>>[] {
@@ -632,10 +670,11 @@ class FakeEngine {
       datasetRef: this.datasetRef,
       semanticHash: this.semanticHash,
       rootIds: this.rootIds(),
+      historyDepth: 0,
       pendingWork: this.pendingWork,
       resources: {
         canvasCount: this.canvasCount,
-        subscriptions: { active: this.frameListeners.size, duplicates: 0 },
+        subscriptions: { active: this.subscriptionCount(), duplicates: 0 },
       },
     };
   }
@@ -649,8 +688,16 @@ class FakeEngine {
     this.dataset = [];
     this.datasetRef = null;
     this.semanticHash = null;
-    this.frameListeners.clear();
+    this.eventListeners.clear();
     return Promise.resolve(true);
+  }
+
+  private emit(event: string, value: unknown): void {
+    for (const listener of [...(this.eventListeners.get(event) ?? [])]) listener(value);
+  }
+
+  private subscriptionCount(): number {
+    return [...this.eventListeners.values()].reduce((total, listeners) => total + listeners.size, 0);
   }
 
   private revisions(): Readonly<Record<string, number>> {
@@ -707,9 +754,9 @@ class ManualClock implements ManualClockContract {
 
 function normalizeFakeDataset(input: unknown): readonly Readonly<Record<string, unknown>>[] {
   if (!Array.isArray(input)) throw new FakeProductError('INVALID_VALUE', 'loadDataset');
-  for (const record of input) {
+  for (const [index, record] of input.entries()) {
     if (!isRecord(record) || typeof record.type !== 'string' || !SUPPORTED_TYPES.has(record.type)) {
-      throw new FakeProductError('INVALID_RECORD_KIND', 'loadDataset');
+      throw new FakeProductError('INVALID_RECORD_KIND', 'loadDataset', `$[${index}].type`);
     }
   }
   return structuredClone(input) as readonly Readonly<Record<string, unknown>>[];

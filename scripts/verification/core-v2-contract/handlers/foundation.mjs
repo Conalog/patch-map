@@ -78,16 +78,32 @@ async function exerciseAuthoritativeDrawRacesAction(context, action) {
   const engine = await context.ensureMainEngine();
   await ensureInitialized(context, engine);
   requireMethod(engine, 'submitDataset');
+  requireMethod(engine, 'on');
 
-  const preReadyActual = await runPreReadySubmission(context, preReady);
-  const pendingActual = await runPendingSubmissions(context, engine, pending);
-  await advanceTo(context, failedLater.submitAtMs);
-  const failedResult = await engine.submitDataset({
-    requestId: 'failed-later',
-    datasetRef: failedLater.datasetId,
-    input: Promise.resolve(await context.cloneDataset(failedLater.datasetId)),
-  });
+  const drawCompleteEvents = [];
+  const subscriptionsBefore = activeSubscriptions(snapshotEngine(engine));
+  const unsubscribe = engine.on('drawComplete', (event) => drawCompleteEvents.push(clone(event)));
+  assert(typeof unsubscribe === 'function', 'drawComplete subscription must return an unsubscribe function');
+  const subscriptionsDuring = activeSubscriptions(snapshotEngine(engine));
+
+  let preReadyActual;
+  let pendingActual;
+  let failedResult;
+  try {
+    preReadyActual = await runPreReadySubmission(context, preReady);
+    pendingActual = await runPendingSubmissions(context, engine, pending);
+    await advanceTo(context, failedLater.submitAtMs);
+    failedResult = await engine.submitDataset({
+      requestId: 'failed-later',
+      datasetRef: failedLater.datasetId,
+      input: Promise.resolve(await context.cloneDataset(failedLater.datasetId)),
+    });
+  } finally {
+    unsubscribe();
+  }
+
   const snapshot = snapshotEngine(engine);
+  const subscriptionsAfter = activeSubscriptions(snapshot);
   const binding = {
     sceneSemanticHash: snapshot.semanticHash,
     sceneRevision: sceneRevision(snapshot),
@@ -99,6 +115,12 @@ async function exerciseAuthoritativeDrawRacesAction(context, action) {
       preReady: clone(preReadyActual),
       pending: clone(pendingActual),
       failedLater: { submitAtMs: failedLater.submitAtMs, ...clone(failedResult) },
+      drawCompleteEvents: clone(drawCompleteEvents),
+      drawCompleteSubscription: {
+        activeBefore: subscriptionsBefore,
+        activeDuring: subscriptionsDuring,
+        activeAfter: subscriptionsAfter,
+      },
       authoritative: clone(binding),
     },
     bindings: { [bindingName]: binding },
@@ -304,6 +326,7 @@ async function probeDeclaredFailureAction(context, action) {
   );
   const record = await context.createEngine(`declared-failure:${operands.journeyId}`);
   const engine = record.engine;
+  const authoritativeBeforeFailure = context.snapshotMainEngine();
   let actual;
   let releaseActual = null;
   try {
@@ -319,11 +342,16 @@ async function probeDeclaredFailureAction(context, action) {
       source: 'declared-host-injection',
     };
     const after = snapshotEngine(engine);
+    const hostState = context.snapshotHostSeam();
     const rollback = {
       retainedSceneRevision: sceneRevision(after),
       sceneRevisionUnchanged: sceneRevision(before) === sceneRevision(after),
       partialPublicationCount: frameRevision(after) - frameRevision(before),
       hostRetryRequired: true,
+      priorSceneRevision: sceneRevision(before),
+      historyDepth: snapshotHistoryDepth(after),
+      hostOwnsEmptyUi: hostState.ownsUi === true
+        && authoritativeBeforeFailure?.lifecycle === 'ready-empty',
     };
     actual = {
       isolated: true,
@@ -332,6 +360,8 @@ async function probeDeclaredFailureAction(context, action) {
       before,
       after,
       rollback,
+      authoritativeBeforeFailure,
+      hostState,
     };
   } finally {
     releaseActual = await context.releaseEngine(engine, 'declared-failure-isolation');
@@ -591,6 +621,17 @@ function frameRevision(snapshot) {
   return typeof snapshot.frameRevision === 'number' ? snapshot.frameRevision : 0;
 }
 
+function activeSubscriptions(snapshot) {
+  const active = snapshot.resources?.subscriptions?.active;
+  return typeof active === 'number' && Number.isInteger(active) && active >= 0 ? active : null;
+}
+
+function snapshotHistoryDepth(snapshot) {
+  return typeof snapshot.historyDepth === 'number' && Number.isInteger(snapshot.historyDepth)
+    ? snapshot.historyDepth
+    : null;
+}
+
 function backendPreference(value) {
   const backend = stringValue(value, 'backend');
   if (backend === 'webgl' || backend === 'webgl2') return 'webgl';
@@ -605,8 +646,26 @@ function actualError(error) {
     name: error instanceof Error ? error.name : typeof error,
     code,
     message: error instanceof Error ? error.message : String(error),
+    ...directErrorMetadata(error),
     ...(diagnostic && typeof diagnostic === 'object' ? { diagnostic: clone(diagnostic) } : {}),
   };
+}
+
+function directErrorMetadata(error) {
+  if (error === null || (typeof error !== 'object' && typeof error !== 'function')) return {};
+  const metadata = {};
+  for (const key of [
+    'category',
+    'datasetPath',
+    'recoverable',
+    'retryable',
+    'appliedCount',
+    'missingCount',
+    'unchangedCount',
+  ]) {
+    if (key in error && error[key] !== undefined) metadata[key] = clone(error[key]);
+  }
+  return metadata;
 }
 
 function deferred() {

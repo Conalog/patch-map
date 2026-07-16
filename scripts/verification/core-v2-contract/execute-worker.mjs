@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { createActionRegistry } from './action-registry.mjs';
+import { createEmptyStateHandlerEntries } from './handlers/empty-state.mjs';
 import { createFoundationHandlerEntries } from './handlers/foundation.mjs';
 
 const ACTUAL_DELTA_SCHEMA = 'core-v2-semantic-observation-delta/1';
@@ -31,6 +32,7 @@ export async function executeContractCase(options) {
   } finally {
     state.closing = true;
     state.terminalSnapshot = state.snapshotMainEngine();
+    state.terminalHostSnapshot = state.snapshotHostSeam();
     state.cleanup = await cleanupExecution(state);
   }
 
@@ -63,8 +65,15 @@ function validateExecutionOptions(options) {
     datasets: options.datasets,
     clock: options.clock,
     actionTimeoutMs,
-    handlerEntries: options.handlerEntries ?? createFoundationHandlerEntries(),
+    handlerEntries: options.handlerEntries ?? createDefaultHandlerEntries(),
   };
+}
+
+function createDefaultHandlerEntries() {
+  return Object.freeze([
+    ...createFoundationHandlerEntries(),
+    ...createEmptyStateHandlerEntries(),
+  ]);
 }
 
 function cloneAndValidateActions(caseRecord) {
@@ -95,10 +104,12 @@ function createExecutionState(input, actions) {
     bindings,
     engineRecords,
     mainEngineRecord: null,
+    hostState: null,
     actionResults: [],
     captures: [],
     hostFragments: [],
     terminalSnapshot: null,
+    terminalHostSnapshot: null,
     cleanup: null,
     closing: false,
   };
@@ -108,6 +119,7 @@ function createExecutionState(input, actions) {
     state.mainEngineRecord ??= await state.createEngine('main');
     return state.mainEngineRecord.engine;
   };
+  state.currentMainEngine = () => state.mainEngineRecord?.engine ?? null;
   state.releaseEngine = async (engine, reason) => releaseEngine(state, engine, reason);
   state.resolveDataset = async (reference) => resolveDataset(state, reference);
   state.freezeDataset = async (reference) => {
@@ -118,6 +130,7 @@ function createExecutionState(input, actions) {
   state.cloneDataset = async (reference) => structuredClone(await state.resolveDataset(reference));
   state.fingerprint = fingerprint;
   state.snapshotMainEngine = () => safeSnapshot(state.mainEngineRecord?.engine ?? null);
+  state.snapshotHostSeam = () => snapshotHostSeam(state);
   return state;
 }
 
@@ -146,6 +159,7 @@ async function executeAction(state, registry, action) {
     const completedAtMs = readClock(state.clock);
     const stagedBindings = stageBindings(state, definition, action, output);
     const stagedCaptures = stageCaptures(state, action, output);
+    const stagedHostState = stageHostState(state, action, output);
     const result = successfulActionResult(state, action, output, startedAtMs, completedAtMs);
     const hostFragment = output.host === undefined
       ? null
@@ -156,6 +170,7 @@ async function executeAction(state, registry, action) {
         });
 
     for (const [name, value] of stagedBindings) state.bindings.set(name, value);
+    if (stagedHostState) state.hostState = stagedHostState;
     state.captures.push(...stagedCaptures);
     state.actionResults.push(result);
     if (hostFragment) state.hostFragments.push(hostFragment);
@@ -178,6 +193,7 @@ function handlerContext(state, action, signal) {
     clock: state.clock,
     signal,
     ensureMainEngine: state.ensureMainEngine,
+    currentMainEngine: state.currentMainEngine,
     createEngine: state.createEngine,
     releaseEngine: state.releaseEngine,
     resolveDataset: state.resolveDataset,
@@ -185,10 +201,27 @@ function handlerContext(state, action, signal) {
     cloneDataset: state.cloneDataset,
     fingerprint: state.fingerprint,
     snapshotMainEngine: state.snapshotMainEngine,
+    snapshotHostSeam: state.snapshotHostSeam,
     getBinding(name) {
       return state.bindings.get(name);
     },
   });
+}
+
+function stageHostState(state, action, output) {
+  if (output.hostState === undefined) return null;
+  assert(isRecord(output.hostState), `${action.type} hostState must be an object`);
+  assertExactKeys(
+    output.hostState,
+    ['actionIndex', 'owner', 'revision', 'state'],
+    `${action.type} hostState`,
+  );
+  assert(output.hostState.owner === 'host', `${action.type} hostState owner`);
+  assert(typeof output.hostState.state === 'string' && output.hostState.state.length > 0, `${action.type} hostState state`);
+  assert(output.hostState.actionIndex === action.index, `${action.type} hostState actionIndex`);
+  const currentRevision = state.hostState?.revision ?? 0;
+  assert(output.hostState.revision === currentRevision + 1, `${action.type} hostState revision`);
+  return deepFreeze(structuredClone(output.hostState));
 }
 
 function stageBindings(state, definition, action, output) {
@@ -392,6 +425,7 @@ function finalizeExecution(state, failure) {
         capabilityPassInherited: false,
         actions: structuredClone(state.hostFragments),
         terminalEngine: structuredClone(state.terminalSnapshot),
+        terminalHost: structuredClone(state.terminalHostSnapshot),
       })
     : null;
   return deepFreeze({
@@ -445,6 +479,30 @@ function resourceCounts(snapshot) {
     canvasCount: numberOrNull(snapshot.resources?.canvasCount),
     subscriptions: numberOrNull(snapshot.resources?.subscriptions?.active),
     pendingWork: numberOrNull(snapshot.pendingWork),
+  });
+}
+
+function snapshotHostSeam(state) {
+  const resources = hostResourceCounts(state);
+  return deepFreeze({
+    state: state.hostState?.state ?? null,
+    owner: state.hostState?.owner ?? null,
+    revision: state.hostState?.revision ?? 0,
+    actionIndex: state.hostState?.actionIndex ?? null,
+    ownsUi: state.hostState?.owner === 'host',
+    resources,
+  });
+}
+
+function hostResourceCounts(state) {
+  const active = state.engineRecords.filter((record) => !record.released);
+  const canvasCounts = active.map((record) => numberOrNull(safeSnapshot(record.engine)?.resources?.canvasCount));
+  return deepFreeze({
+    engineAllocationCount: state.engineRecords.length,
+    activeEngineCount: active.length,
+    canvasCount: canvasCounts.every((count) => count !== null)
+      ? canvasCounts.reduce((total, count) => total + count, 0)
+      : null,
   });
 }
 
