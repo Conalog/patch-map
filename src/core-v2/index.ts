@@ -6,9 +6,18 @@ export type {
   CoreV2PrepareResult,
   CoreV2RuntimeDebug,
 } from './core';
+export { CoreV2Engine, CoreV2EngineError } from './engine';
+export type * from './engine';
 export { PatchMapParseError } from './contracts';
 export type * from './contracts';
 export { parsePatchMapV010 } from './parser';
+export {
+  CORE_V2_COMPONENT_TYPES,
+  CORE_V2_ELEMENT_TYPES,
+  CoreV2DatasetError,
+  materializeCoreV2Dataset,
+} from './semantic/dataset';
+export type * from './semantic/dataset';
 export { PixiCoreV2Renderer } from './renderers/pixi-renderer';
 export type {
   PixiCoreV2InitializationMetrics,
