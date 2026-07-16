@@ -1,0 +1,1404 @@
+export const CORE_V2_ELEMENT_TYPES = [
+  'group',
+  'grid',
+  'item',
+  'relations',
+  'image',
+  'text',
+  'rect',
+] as const;
+
+export const CORE_V2_COMPONENT_TYPES = ['background', 'bar', 'icon', 'text'] as const;
+
+export type CoreV2ElementType = (typeof CORE_V2_ELEMENT_TYPES)[number];
+export type CoreV2ComponentType = (typeof CORE_V2_COMPONENT_TYPES)[number];
+export type CoreV2DatasetDiagnosticCode =
+  | 'INVALID_RECORD_KIND'
+  | 'UNKNOWN_FIELD'
+  | 'INVALID_VALUE';
+
+export interface CoreV2FixedSize {
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface CoreV2AxisSpacing {
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface CoreV2Edges {
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+  readonly left: number;
+}
+
+export interface CoreV2UnitDimension {
+  readonly value: number;
+  readonly unit: 'px' | '%';
+}
+
+export type CoreV2Dimension = number | string | CoreV2UnitDimension;
+export type CoreV2ComponentSize =
+  | CoreV2Dimension
+  | Readonly<{ width: CoreV2Dimension; height: CoreV2Dimension }>;
+export type CoreV2Placement =
+  | 'left'
+  | 'left-top'
+  | 'left-bottom'
+  | 'top'
+  | 'right'
+  | 'right-top'
+  | 'right-bottom'
+  | 'bottom'
+  | 'center'
+  | 'none';
+
+export interface CoreV2AssetDescriptor {
+  readonly src: string;
+  readonly data?: Readonly<Record<string, unknown>>;
+  readonly format?: string;
+  readonly parser?: string;
+  readonly loadParser?: string;
+}
+
+export interface CoreV2RectTexture {
+  readonly type: 'rect';
+  readonly fill: unknown;
+  readonly borderWidth: number;
+  readonly borderColor: unknown;
+  readonly radius: CoreV2Radius;
+}
+
+export type CoreV2AssetSource = string | CoreV2AssetDescriptor;
+export type CoreV2BackgroundSource = CoreV2AssetSource | CoreV2RectTexture;
+export type CoreV2Radius =
+  | number
+  | Readonly<{
+      topLeft: number;
+      topRight: number;
+      bottomRight: number;
+      bottomLeft: number;
+    }>;
+
+export type CoreV2Attrs = Readonly<Record<string, unknown>>;
+export type CoreV2StrokeStyle = Readonly<Record<string, unknown>>;
+export type CoreV2TextStyle = Readonly<Record<string, unknown>>;
+
+interface CoreV2ElementBase {
+  readonly [key: string]: unknown;
+  readonly id: string;
+  readonly label?: string;
+  readonly show: boolean;
+  readonly locked: boolean;
+  readonly attrs?: CoreV2Attrs;
+}
+
+interface CoreV2ComponentBase {
+  readonly id: string;
+  readonly label?: string;
+  readonly show: boolean;
+  readonly attrs?: CoreV2Attrs;
+}
+
+export interface CoreV2GroupElement extends CoreV2ElementBase {
+  readonly type: 'group';
+  readonly children: readonly CoreV2Element[];
+}
+
+export interface CoreV2GridItemTemplate {
+  readonly size: CoreV2FixedSize;
+  readonly components: readonly CoreV2Component[];
+  readonly padding: CoreV2Edges;
+  readonly contentOrientation: 'follow-item' | 'upright';
+}
+
+export interface CoreV2GridElement extends CoreV2ElementBase {
+  readonly type: 'grid';
+  readonly cells: readonly (readonly (0 | 1 | string)[])[];
+  readonly item: CoreV2GridItemTemplate;
+  readonly inactiveCellStrategy: 'destroy' | 'hide';
+  readonly gap: CoreV2AxisSpacing;
+}
+
+export interface CoreV2ItemElement extends CoreV2ElementBase {
+  readonly type: 'item';
+  readonly size: CoreV2FixedSize;
+  readonly components: readonly CoreV2Component[];
+  readonly padding: CoreV2Edges;
+  readonly contentOrientation: 'follow-item' | 'upright';
+}
+
+export interface CoreV2RelationLink {
+  readonly source: string;
+  readonly target: string;
+}
+
+export interface CoreV2RelationsElement extends CoreV2ElementBase {
+  readonly type: 'relations';
+  readonly links: readonly CoreV2RelationLink[];
+  readonly style: CoreV2StrokeStyle;
+}
+
+export interface CoreV2ImageElement extends CoreV2ElementBase {
+  readonly type: 'image';
+  readonly source: CoreV2AssetSource;
+  readonly size?: CoreV2FixedSize;
+}
+
+export interface CoreV2TextElement extends CoreV2ElementBase {
+  readonly type: 'text';
+  readonly text: string;
+  readonly style: CoreV2TextStyle;
+  readonly size?: CoreV2FixedSize;
+}
+
+export interface CoreV2RectElement extends CoreV2ElementBase {
+  readonly type: 'rect';
+  readonly size: CoreV2FixedSize;
+  readonly fill?: unknown;
+  readonly stroke?: CoreV2StrokeStyle;
+  readonly radius: CoreV2Radius;
+}
+
+export type CoreV2Element =
+  | CoreV2GroupElement
+  | CoreV2GridElement
+  | CoreV2ItemElement
+  | CoreV2RelationsElement
+  | CoreV2ImageElement
+  | CoreV2TextElement
+  | CoreV2RectElement;
+
+export interface CoreV2BackgroundComponent extends CoreV2ComponentBase {
+  readonly type: 'background';
+  readonly source: CoreV2BackgroundSource;
+  readonly tint: unknown;
+  readonly size?: CoreV2ComponentSize;
+}
+
+export interface CoreV2BarComponent extends CoreV2ComponentBase {
+  readonly type: 'bar';
+  readonly source: CoreV2RectTexture;
+  readonly size: CoreV2ComponentSize;
+  readonly placement: CoreV2Placement;
+  readonly margin: CoreV2Edges;
+  readonly tint: unknown;
+  readonly animation: boolean;
+  readonly animationDuration: number;
+}
+
+export interface CoreV2IconComponent extends CoreV2ComponentBase {
+  readonly type: 'icon';
+  readonly source: CoreV2AssetSource;
+  readonly size: CoreV2ComponentSize;
+  readonly placement: CoreV2Placement;
+  readonly margin: CoreV2Edges;
+  readonly tint: unknown;
+}
+
+export interface CoreV2TextComponent extends CoreV2ComponentBase {
+  readonly type: 'text';
+  readonly text: string;
+  readonly placement: CoreV2Placement;
+  readonly margin: CoreV2Edges;
+  readonly tint: unknown;
+  readonly style: CoreV2TextStyle;
+  readonly split: number;
+}
+
+export type CoreV2Component =
+  | CoreV2BackgroundComponent
+  | CoreV2BarComponent
+  | CoreV2IconComponent
+  | CoreV2TextComponent;
+
+export interface CoreV2DatasetMaterialization {
+  readonly dataset: readonly CoreV2Element[];
+  readonly rootIds: readonly string[];
+  readonly elementTypes: readonly CoreV2ElementType[];
+  readonly componentTypes: readonly CoreV2ComponentType[];
+  readonly semanticHash: string;
+  readonly visibleBoundsFinite: boolean;
+}
+
+/** Engine-facing names retained for the initial lifecycle tranche. */
+export type MaterializedCoreV2Dataset = CoreV2DatasetMaterialization;
+export type NormalizedCoreV2Element = CoreV2Element;
+
+export class CoreV2DatasetError extends Error {
+  public readonly category = 'INVALID_INPUT' as const;
+  public readonly code: CoreV2DatasetDiagnosticCode;
+  public readonly datasetPath: string;
+  public readonly recoverable = false;
+  public readonly retryable = false;
+  public readonly appliedCount = 0;
+  public readonly missingCount = 0;
+  public readonly unchangedCount = 0;
+
+  public constructor(code: CoreV2DatasetDiagnosticCode, datasetPath: string, detail: string) {
+    super(`${code} at ${datasetPath}: ${detail}`);
+    this.name = 'CoreV2DatasetError';
+    this.code = code;
+    this.datasetPath = datasetPath;
+  }
+}
+
+interface NormalizationState {
+  readonly elementIds: Set<string>;
+  readonly componentIdsByOwner: Map<string, Set<string>>;
+  readonly elementTypes: Set<CoreV2ElementType>;
+  readonly componentTypes: Set<CoreV2ComponentType>;
+}
+
+interface ElementBaseFields {
+  readonly id: string;
+  readonly label?: string;
+  readonly show: boolean;
+  readonly locked: boolean;
+  readonly attrs?: CoreV2Attrs;
+}
+
+interface ComponentBaseFields {
+  readonly id: string;
+  readonly label?: string;
+  readonly show: boolean;
+  readonly attrs?: CoreV2Attrs;
+}
+
+const ELEMENT_BASE_FIELDS = ['type', 'id', 'label', 'show', 'locked', 'attrs'] as const;
+const COMPONENT_BASE_FIELDS = ['type', 'id', 'label', 'show', 'attrs'] as const;
+const ELEMENT_FIELDS: Readonly<Record<CoreV2ElementType, ReadonlySet<string>>> = {
+  group: new Set([...ELEMENT_BASE_FIELDS, 'children']),
+  grid: new Set([...ELEMENT_BASE_FIELDS, 'cells', 'item', 'inactiveCellStrategy', 'gap']),
+  item: new Set([...ELEMENT_BASE_FIELDS, 'size', 'components', 'padding', 'contentOrientation']),
+  relations: new Set([...ELEMENT_BASE_FIELDS, 'links', 'style']),
+  image: new Set([...ELEMENT_BASE_FIELDS, 'source', 'size']),
+  text: new Set([...ELEMENT_BASE_FIELDS, 'text', 'style', 'size']),
+  rect: new Set([...ELEMENT_BASE_FIELDS, 'size', 'fill', 'stroke', 'radius']),
+};
+const COMPONENT_FIELDS: Readonly<Record<CoreV2ComponentType, ReadonlySet<string>>> = {
+  background: new Set([...COMPONENT_BASE_FIELDS, 'source', 'tint', 'size']),
+  bar: new Set([
+    ...COMPONENT_BASE_FIELDS,
+    'source',
+    'size',
+    'placement',
+    'margin',
+    'tint',
+    'animation',
+    'animationDuration',
+  ]),
+  icon: new Set([...COMPONENT_BASE_FIELDS, 'source', 'size', 'placement', 'margin', 'tint']),
+  text: new Set([
+    ...COMPONENT_BASE_FIELDS,
+    'text',
+    'placement',
+    'margin',
+    'tint',
+    'style',
+    'split',
+  ]),
+};
+const GRID_ITEM_FIELDS = new Set(['components', 'size', 'padding', 'contentOrientation']);
+const LINK_FIELDS = new Set(['source', 'target']);
+const ASSET_DESCRIPTOR_FIELDS = new Set(['src', 'data', 'format', 'parser', 'loadParser']);
+const RECT_TEXTURE_FIELDS = new Set(['type', 'fill', 'borderWidth', 'borderColor', 'radius']);
+const STROKE_FIELDS = new Set([
+  'color',
+  'alpha',
+  'width',
+  'cap',
+  'join',
+  'miterLimit',
+  'alignment',
+  'pixelLine',
+  'textureSpace',
+  'fill',
+  'texture',
+  'matrix',
+]);
+const TEXT_STYLE_FIELDS = new Set([
+  'fontFamily',
+  'fontSize',
+  'fontWeight',
+  'fontStyle',
+  'fontVariant',
+  'fill',
+  'stroke',
+  'dropShadow',
+  'align',
+  'textBaseline',
+  'wordWrap',
+  'breakWords',
+  'trim',
+  'wordWrapWidth',
+  'whiteSpace',
+  'lineHeight',
+  'leading',
+  'letterSpacing',
+  'padding',
+  'tagStyles',
+  'filters',
+]);
+const ITEM_TEXT_STYLE_FIELDS = new Set([...TEXT_STYLE_FIELDS, 'autoFont', 'overflow']);
+const DROP_SHADOW_FIELDS = new Set(['color', 'alpha', 'angle', 'blur', 'distance']);
+const AUTO_FONT_FIELDS = new Set(['min', 'max']);
+const VECTOR_FIELDS = new Set(['x', 'y']);
+const SPACING_FIELDS = new Set(['x', 'y', 'top', 'right', 'bottom', 'left']);
+const RADIUS_FIELDS = new Set(['topLeft', 'topRight', 'bottomRight', 'bottomLeft']);
+const ELEMENT_TYPE_SET = new Set<string>(CORE_V2_ELEMENT_TYPES);
+const COMPONENT_TYPE_SET = new Set<string>(CORE_V2_COMPONENT_TYPES);
+const PLACEMENTS = new Set<string>([
+  'left',
+  'left-top',
+  'left-bottom',
+  'top',
+  'right',
+  'right-top',
+  'right-bottom',
+  'bottom',
+  'center',
+  'none',
+]);
+const CONTENT_ORIENTATIONS = new Set<string>(['follow-item', 'upright']);
+const BLACK = '#1a1a1aff';
+const WHITE = '#ffffffff';
+const TRANSPARENT = '#00000000';
+
+/**
+ * Validate and detach a canonical PATCH MAP array before it becomes authoritative.
+ * The returned graph has no mutable aliases into caller-owned JSON.
+ */
+export function materializeCoreV2Dataset(input: unknown): CoreV2DatasetMaterialization {
+  if (!Array.isArray(input)) {
+    invalidValue('$', 'dataset root must be an ordered element array');
+  }
+
+  const state: NormalizationState = {
+    elementIds: new Set(),
+    componentIdsByOwner: new Map(),
+    elementTypes: new Set(),
+    componentTypes: new Set(),
+  };
+  const dataset = Object.freeze(
+    input.map((element, index) => normalizeElement(element, `$[${index}]`, state)),
+  );
+  const rootIds = Object.freeze(dataset.map((element) => element.id));
+  const elementTypes = Object.freeze(
+    CORE_V2_ELEMENT_TYPES.filter((type) => state.elementTypes.has(type)),
+  );
+  const componentTypes = Object.freeze(
+    CORE_V2_COMPONENT_TYPES.filter((type) => state.componentTypes.has(type)),
+  );
+
+  return Object.freeze({
+    dataset,
+    rootIds,
+    elementTypes,
+    componentTypes,
+    semanticHash: semanticHash(dataset),
+    visibleBoundsFinite: true,
+  });
+}
+
+function normalizeElement(
+  value: unknown,
+  path: string,
+  state: NormalizationState,
+): CoreV2Element {
+  const record = recordValue(value, path, 'element must be an object');
+  const type = recordKind(record.type, `${path}.type`, ELEMENT_TYPE_SET) as CoreV2ElementType;
+  assertKnownFields(record, ELEMENT_FIELDS[type], path);
+  state.elementTypes.add(type);
+  const base = normalizeElementBase(record, path, state);
+
+  switch (type) {
+    case 'group':
+      return Object.freeze({
+        type,
+        ...base,
+        children: normalizeElements(requiredArray(record, 'children', path), `${path}.children`, state),
+      });
+    case 'grid': {
+      const cells = normalizeCells(requiredArray(record, 'cells', path), `${path}.cells`);
+      const inactiveCellStrategy = optionalEnum(
+        record,
+        'inactiveCellStrategy',
+        path,
+        new Set(['destroy', 'hide']),
+        'destroy',
+      ) as 'destroy' | 'hide';
+      registerGridCellIds(base.id, cells, inactiveCellStrategy, path, state);
+      return Object.freeze({
+        type,
+        ...base,
+        cells,
+        item: normalizeGridItem(requiredField(record, 'item', path), `${path}.item`, base.id, state),
+        inactiveCellStrategy,
+        gap: normalizeGap(optionalField(record, 'gap'), `${path}.gap`),
+      });
+    }
+    case 'item':
+      return Object.freeze({
+        type,
+        ...base,
+        size: normalizeFixedSize(requiredField(record, 'size', path), `${path}.size`),
+        components: normalizeComponents(
+          optionalArray(record, 'components', path),
+          `${path}.components`,
+          base.id,
+          state,
+        ),
+        padding: normalizeEdges(optionalField(record, 'padding'), `${path}.padding`),
+        contentOrientation: normalizeContentOrientation(record, path),
+      });
+    case 'relations':
+      return Object.freeze({
+        type,
+        ...base,
+        links: normalizeLinks(requiredArray(record, 'links', path), `${path}.links`),
+        style: normalizeStrokeStyle(optionalField(record, 'style'), `${path}.style`),
+      });
+    case 'image':
+      return Object.freeze({
+        type,
+        ...base,
+        source: normalizeAssetSource(requiredField(record, 'source', path), `${path}.source`),
+        ...(hasOwn(record, 'size')
+          ? { size: normalizeFixedSize(record.size, `${path}.size`) }
+          : {}),
+      });
+    case 'text':
+      return Object.freeze({
+        type,
+        ...base,
+        text: optionalString(record, 'text', path, ''),
+        style: normalizeTextStyle(optionalField(record, 'style'), `${path}.style`, false, true),
+        ...(hasOwn(record, 'size')
+          ? { size: normalizeFixedSize(record.size, `${path}.size`) }
+          : {}),
+      });
+    case 'rect':
+      return Object.freeze({
+        type,
+        ...base,
+        size: normalizeFixedSize(requiredField(record, 'size', path), `${path}.size`),
+        ...(hasOwn(record, 'fill')
+          ? { fill: normalizeColorLike(record.fill, `${path}.fill`) }
+          : {}),
+        ...(hasOwn(record, 'stroke')
+          ? { stroke: normalizeStrokeStyle(record.stroke, `${path}.stroke`) }
+          : {}),
+        radius: normalizeRadius(optionalField(record, 'radius'), `${path}.radius`),
+      });
+  }
+}
+
+function normalizeElementBase(
+  record: Readonly<Record<string, unknown>>,
+  path: string,
+  state: NormalizationState,
+): ElementBaseFields {
+  const id = hasOwn(record, 'id')
+    ? stringValue(record.id, `${path}.id`)
+    : generatedElementId(path);
+  registerElementId(id, `${path}.id`, state);
+
+  return Object.freeze({
+    id,
+    ...(hasOwn(record, 'label') ? { label: stringValue(record.label, `${path}.label`) } : {}),
+    show: optionalBoolean(record, 'show', path, true),
+    locked: optionalBoolean(record, 'locked', path, false),
+    ...(hasOwn(record, 'attrs') ? { attrs: normalizeAttrs(record.attrs, `${path}.attrs`) } : {}),
+  });
+}
+
+function normalizeElements(
+  values: readonly unknown[],
+  path: string,
+  state: NormalizationState,
+): readonly CoreV2Element[] {
+  return Object.freeze(values.map((value, index) => normalizeElement(value, `${path}[${index}]`, state)));
+}
+
+function normalizeGridItem(
+  value: unknown,
+  path: string,
+  gridId: string,
+  state: NormalizationState,
+): CoreV2GridItemTemplate {
+  const record = recordValue(value, path, 'grid item template must be an object');
+  assertKnownFields(record, GRID_ITEM_FIELDS, path);
+  return Object.freeze({
+    size: normalizeFixedSize(requiredField(record, 'size', path), `${path}.size`),
+    components: normalizeComponents(
+      optionalArray(record, 'components', path),
+      `${path}.components`,
+      `${gridId}#template`,
+      state,
+    ),
+    padding: normalizeEdges(optionalField(record, 'padding'), `${path}.padding`),
+    contentOrientation: normalizeContentOrientation(record, path),
+  });
+}
+
+function normalizeComponents(
+  values: readonly unknown[],
+  path: string,
+  ownerId: string,
+  state: NormalizationState,
+): readonly CoreV2Component[] {
+  return Object.freeze(
+    values.map((value, index) => normalizeComponent(value, `${path}[${index}]`, ownerId, index, state)),
+  );
+}
+
+function normalizeComponent(
+  value: unknown,
+  path: string,
+  ownerId: string,
+  index: number,
+  state: NormalizationState,
+): CoreV2Component {
+  const record = recordValue(value, path, 'component must be an object');
+  const type = recordKind(record.type, `${path}.type`, COMPONENT_TYPE_SET) as CoreV2ComponentType;
+  assertKnownFields(record, COMPONENT_FIELDS[type], path);
+  state.componentTypes.add(type);
+  const base = normalizeComponentBase(record, path, ownerId, index, state);
+
+  switch (type) {
+    case 'background':
+      return Object.freeze({
+        type,
+        ...base,
+        source: normalizeBackgroundSource(requiredField(record, 'source', path), `${path}.source`),
+        tint: hasOwn(record, 'tint') ? normalizeColorLike(record.tint, `${path}.tint`) : WHITE,
+        ...(hasOwn(record, 'size')
+          ? { size: normalizeComponentSize(record.size, `${path}.size`) }
+          : {}),
+      });
+    case 'bar':
+      return Object.freeze({
+        type,
+        ...base,
+        source: normalizeRectTexture(requiredField(record, 'source', path), `${path}.source`),
+        size: normalizeComponentSize(requiredField(record, 'size', path), `${path}.size`),
+        placement: normalizePlacement(record, path, 'bottom'),
+        margin: normalizeEdges(optionalField(record, 'margin'), `${path}.margin`),
+        tint: hasOwn(record, 'tint') ? normalizeColorLike(record.tint, `${path}.tint`) : WHITE,
+        animation: optionalBoolean(record, 'animation', path, true),
+        animationDuration: optionalNonnegativeFiniteNumber(
+          record,
+          'animationDuration',
+          path,
+          200,
+        ),
+      });
+    case 'icon':
+      return Object.freeze({
+        type,
+        ...base,
+        source: normalizeAssetSource(requiredField(record, 'source', path), `${path}.source`),
+        size: normalizeComponentSize(requiredField(record, 'size', path), `${path}.size`),
+        placement: normalizePlacement(record, path, 'center'),
+        margin: normalizeEdges(optionalField(record, 'margin'), `${path}.margin`),
+        tint: hasOwn(record, 'tint') ? normalizeColorLike(record.tint, `${path}.tint`) : WHITE,
+      });
+    case 'text':
+      return Object.freeze({
+        type,
+        ...base,
+        text: optionalString(record, 'text', path, ''),
+        placement: normalizePlacement(record, path, 'center'),
+        margin: normalizeEdges(optionalField(record, 'margin'), `${path}.margin`),
+        tint: hasOwn(record, 'tint') ? normalizeColorLike(record.tint, `${path}.tint`) : WHITE,
+        style: normalizeTextStyle(optionalField(record, 'style'), `${path}.style`, true, true),
+        split: optionalInteger(record, 'split', path, 0),
+      });
+  }
+}
+
+function normalizeComponentBase(
+  record: Readonly<Record<string, unknown>>,
+  path: string,
+  ownerId: string,
+  index: number,
+  state: NormalizationState,
+): ComponentBaseFields {
+  const id = hasOwn(record, 'id')
+    ? stringValue(record.id, `${path}.id`)
+    : `@component:${index}`;
+  registerComponentId(ownerId, id, `${path}.id`, state);
+
+  return Object.freeze({
+    id,
+    ...(hasOwn(record, 'label') ? { label: stringValue(record.label, `${path}.label`) } : {}),
+    show: optionalBoolean(record, 'show', path, true),
+    ...(hasOwn(record, 'attrs') ? { attrs: normalizeAttrs(record.attrs, `${path}.attrs`) } : {}),
+  });
+}
+
+function normalizeCells(values: readonly unknown[], path: string): readonly (readonly (0 | 1 | string)[])[] {
+  return Object.freeze(
+    values.map((row, rowIndex) => {
+      if (!Array.isArray(row)) invalidValue(`${path}[${rowIndex}]`, 'grid row must be an array');
+      const rowValues = row as readonly unknown[];
+      return Object.freeze(
+        rowValues.map((cell, columnIndex): 0 | 1 | string => {
+          if (cell !== 0 && cell !== 1 && typeof cell !== 'string') {
+            invalidValue(
+              `${path}[${rowIndex}][${columnIndex}]`,
+              'grid cell must be 0, 1, or a string',
+            );
+          }
+          return cell;
+        }),
+      );
+    }),
+  );
+}
+
+function registerGridCellIds(
+  gridId: string,
+  cells: readonly (readonly (0 | 1 | string)[])[],
+  strategy: 'destroy' | 'hide',
+  path: string,
+  state: NormalizationState,
+): void {
+  cells.forEach((row, rowIndex) => {
+    row.forEach((cell, columnIndex) => {
+      if (cell === 0 && strategy === 'destroy') return;
+      registerElementId(
+        `${gridId}.${rowIndex}.${columnIndex}`,
+        `${path}.cells[${rowIndex}][${columnIndex}]`,
+        state,
+      );
+    });
+  });
+}
+
+function normalizeLinks(values: readonly unknown[], path: string): readonly CoreV2RelationLink[] {
+  const seen = new Set<string>();
+  const links: CoreV2RelationLink[] = [];
+  values.forEach((value, index) => {
+    const linkPath = `${path}[${index}]`;
+    const record = recordValue(value, linkPath, 'relation link must be an object');
+    assertKnownFields(record, LINK_FIELDS, linkPath);
+    const source = stringValue(requiredField(record, 'source', linkPath), `${linkPath}.source`);
+    const target = stringValue(requiredField(record, 'target', linkPath), `${linkPath}.target`);
+    const key = `${source.length}:${source}${target.length}:${target}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    links.push(Object.freeze({ source, target }));
+  });
+  return Object.freeze(links);
+}
+
+function normalizeAttrs(value: unknown, path: string): CoreV2Attrs {
+  const record = recordValue(value, path, 'attrs must be a string-keyed object');
+  if (hasOwn(record, 'angle') && hasOwn(record, 'rotation')) {
+    invalidValue(path, 'angle and rotation are mutually exclusive');
+  }
+
+  for (const key of ['x', 'y', 'angle', 'rotation', 'zIndex'] as const) {
+    if (hasOwn(record, key)) finiteNumber(record[key], `${path}.${key}`);
+  }
+  if (hasOwn(record, 'alpha')) rangedNumber(record.alpha, `${path}.alpha`, 0, 1);
+  for (const key of ['scale', 'skew', 'pivot'] as const) {
+    if (hasOwn(record, key)) validateVector(record[key], `${path}.${key}`);
+  }
+
+  return cloneJsonRecord(record, path);
+}
+
+function normalizeFixedSize(value: unknown, path: string): CoreV2FixedSize {
+  if (typeof value === 'number') {
+    const size = nonnegativeFiniteNumber(value, path);
+    return Object.freeze({ width: size, height: size });
+  }
+  const record = recordValue(value, path, 'size must be a nonnegative number or {width,height}');
+  assertKnownFields(record, new Set(['width', 'height']), path);
+  return Object.freeze({
+    width: nonnegativeFiniteNumber(requiredField(record, 'width', path), `${path}.width`),
+    height: nonnegativeFiniteNumber(requiredField(record, 'height', path), `${path}.height`),
+  });
+}
+
+function normalizeComponentSize(value: unknown, path: string): CoreV2ComponentSize {
+  if (!isRecord(value)) return normalizeDimension(value, path);
+  const keys = Object.keys(value);
+  if (keys.includes('value') || keys.includes('unit')) return normalizeUnitDimension(value, path);
+  assertKnownFields(value, new Set(['width', 'height']), path);
+  return Object.freeze({
+    width: normalizeDimension(requiredField(value, 'width', path), `${path}.width`),
+    height: normalizeDimension(requiredField(value, 'height', path), `${path}.height`),
+  });
+}
+
+function normalizeDimension(value: unknown, path: string): CoreV2Dimension {
+  if (typeof value === 'number') return nonnegativeFiniteNumber(value, path);
+  if (typeof value === 'string') {
+    if (isPercentage(value) || isCalcDimension(value)) return value;
+    invalidValue(path, 'dimension string must be a nonnegative percentage or strict calc()');
+  }
+  if (isRecord(value)) return normalizeUnitDimension(value, path);
+  invalidValue(path, 'dimension must be a number, percentage, calc(), or {value,unit}');
+}
+
+function normalizeUnitDimension(
+  record: Readonly<Record<string, unknown>>,
+  path: string,
+): CoreV2UnitDimension {
+  assertKnownFields(record, new Set(['value', 'unit']), path);
+  const value = nonnegativeFiniteNumber(requiredField(record, 'value', path), `${path}.value`);
+  const unit = stringValue(requiredField(record, 'unit', path), `${path}.unit`);
+  if (unit !== 'px' && unit !== '%') invalidValue(`${path}.unit`, "unit must be 'px' or '%'");
+  return Object.freeze({ value, unit });
+}
+
+function normalizeGap(value: unknown, path: string): CoreV2AxisSpacing {
+  if (value === undefined) return Object.freeze({ x: 0, y: 0 });
+  if (typeof value === 'number') {
+    const gap = nonnegativeFiniteNumber(value, path);
+    return Object.freeze({ x: gap, y: gap });
+  }
+  const record = recordValue(value, path, 'gap must be a nonnegative number or {x,y}');
+  assertKnownFields(record, VECTOR_FIELDS, path);
+  return Object.freeze({
+    x: hasOwn(record, 'x') ? nonnegativeFiniteNumber(record.x, `${path}.x`) : 0,
+    y: hasOwn(record, 'y') ? nonnegativeFiniteNumber(record.y, `${path}.y`) : 0,
+  });
+}
+
+function normalizeEdges(value: unknown, path: string): CoreV2Edges {
+  if (value === undefined) return Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 });
+  if (typeof value === 'number') {
+    const edge = finiteNumber(value, path);
+    return Object.freeze({ top: edge, right: edge, bottom: edge, left: edge });
+  }
+  const record = recordValue(value, path, 'spacing must be a finite number or axis/edge object');
+  assertKnownFields(record, SPACING_FIELDS, path);
+  const x = hasOwn(record, 'x') ? finiteNumber(record.x, `${path}.x`) : 0;
+  const y = hasOwn(record, 'y') ? finiteNumber(record.y, `${path}.y`) : 0;
+  return Object.freeze({
+    top: hasOwn(record, 'top') ? finiteNumber(record.top, `${path}.top`) : y,
+    right: hasOwn(record, 'right') ? finiteNumber(record.right, `${path}.right`) : x,
+    bottom: hasOwn(record, 'bottom') ? finiteNumber(record.bottom, `${path}.bottom`) : y,
+    left: hasOwn(record, 'left') ? finiteNumber(record.left, `${path}.left`) : x,
+  });
+}
+
+function normalizeRadius(value: unknown, path: string): CoreV2Radius {
+  if (value === undefined) return 0;
+  if (typeof value === 'number') return nonnegativeFiniteNumber(value, path);
+  const record = recordValue(value, path, 'radius must be a nonnegative number or corner object');
+  assertKnownFields(record, RADIUS_FIELDS, path);
+  return Object.freeze({
+    topLeft: hasOwn(record, 'topLeft')
+      ? nonnegativeFiniteNumber(record.topLeft, `${path}.topLeft`)
+      : 0,
+    topRight: hasOwn(record, 'topRight')
+      ? nonnegativeFiniteNumber(record.topRight, `${path}.topRight`)
+      : 0,
+    bottomRight: hasOwn(record, 'bottomRight')
+      ? nonnegativeFiniteNumber(record.bottomRight, `${path}.bottomRight`)
+      : 0,
+    bottomLeft: hasOwn(record, 'bottomLeft')
+      ? nonnegativeFiniteNumber(record.bottomLeft, `${path}.bottomLeft`)
+      : 0,
+  });
+}
+
+function normalizeAssetSource(value: unknown, path: string): CoreV2AssetSource {
+  if (typeof value === 'string') return value;
+  return normalizeAssetDescriptor(value, path);
+}
+
+function normalizeBackgroundSource(value: unknown, path: string): CoreV2BackgroundSource {
+  if (typeof value === 'string') return value;
+  const record = recordValue(value, path, 'background source must be a string or source object');
+  return hasOwn(record, 'src')
+    ? normalizeAssetDescriptor(record, path)
+    : normalizeRectTexture(record, path);
+}
+
+function normalizeAssetDescriptor(value: unknown, path: string): CoreV2AssetDescriptor {
+  const record = recordValue(value, path, 'asset descriptor must be an object');
+  assertKnownFields(record, ASSET_DESCRIPTOR_FIELDS, path);
+  return Object.freeze({
+    src: stringValue(requiredField(record, 'src', path), `${path}.src`),
+    ...(hasOwn(record, 'data')
+      ? { data: cloneJsonRecord(recordValue(record.data, `${path}.data`, 'data must be an object'), `${path}.data`) }
+      : {}),
+    ...(hasOwn(record, 'format')
+      ? { format: stringValue(record.format, `${path}.format`) }
+      : {}),
+    ...(hasOwn(record, 'parser')
+      ? { parser: stringValue(record.parser, `${path}.parser`) }
+      : {}),
+    ...(hasOwn(record, 'loadParser')
+      ? { loadParser: stringValue(record.loadParser, `${path}.loadParser`) }
+      : {}),
+  });
+}
+
+function normalizeRectTexture(value: unknown, path: string): CoreV2RectTexture {
+  const record = recordValue(value, path, 'rectangular texture source must be an object');
+  assertKnownFields(record, RECT_TEXTURE_FIELDS, path);
+  if (hasOwn(record, 'type') && record.type !== 'rect') {
+    throw new CoreV2DatasetError(
+      'INVALID_RECORD_KIND',
+      `${path}.type`,
+      "rectangular texture discriminator must be 'rect'",
+    );
+  }
+  return Object.freeze({
+    type: 'rect',
+    fill: hasOwn(record, 'fill') ? normalizeColorLike(record.fill, `${path}.fill`) : TRANSPARENT,
+    borderWidth: hasOwn(record, 'borderWidth')
+      ? nonnegativeFiniteNumber(record.borderWidth, `${path}.borderWidth`)
+      : 0,
+    borderColor: hasOwn(record, 'borderColor')
+      ? normalizeColorLike(record.borderColor, `${path}.borderColor`)
+      : BLACK,
+    radius: normalizeRadius(optionalField(record, 'radius'), `${path}.radius`),
+  });
+}
+
+function normalizeStrokeStyle(value: unknown, path: string): CoreV2StrokeStyle {
+  if (value === undefined) return defaultStrokeStyle();
+  const record = recordValue(value, path, 'stroke style must be an object');
+  assertKnownFields(record, STROKE_FIELDS, path);
+  return Object.freeze({
+    color: hasOwn(record, 'color') ? normalizeColorLike(record.color, `${path}.color`) : BLACK,
+    alpha: hasOwn(record, 'alpha') ? rangedNumber(record.alpha, `${path}.alpha`, 0, 1) : 1,
+    width: hasOwn(record, 'width')
+      ? nonnegativeFiniteNumber(record.width, `${path}.width`)
+      : 1,
+    cap: hasOwn(record, 'cap')
+      ? enumValue(record.cap, `${path}.cap`, new Set(['butt', 'round', 'square']))
+      : 'butt',
+    join: hasOwn(record, 'join')
+      ? enumValue(record.join, `${path}.join`, new Set(['miter', 'round', 'bevel']))
+      : 'miter',
+    miterLimit: hasOwn(record, 'miterLimit')
+      ? nonnegativeFiniteNumber(record.miterLimit, `${path}.miterLimit`)
+      : 10,
+    alignment: hasOwn(record, 'alignment')
+      ? rangedNumber(record.alignment, `${path}.alignment`, 0, 1)
+      : 0.5,
+    pixelLine: hasOwn(record, 'pixelLine')
+      ? booleanValue(record.pixelLine, `${path}.pixelLine`)
+      : false,
+    ...(hasOwn(record, 'textureSpace')
+      ? {
+          textureSpace: enumValue(
+            record.textureSpace,
+            `${path}.textureSpace`,
+            new Set(['local', 'global']),
+          ),
+        }
+      : {}),
+    ...(hasOwn(record, 'fill') ? { fill: cloneJsonValue(record.fill, `${path}.fill`) } : {}),
+    ...(hasOwn(record, 'texture')
+      ? { texture: cloneJsonValue(record.texture, `${path}.texture`) }
+      : {}),
+    ...(hasOwn(record, 'matrix')
+      ? { matrix: cloneJsonValue(record.matrix, `${path}.matrix`) }
+      : {}),
+  });
+}
+
+function defaultStrokeStyle(): CoreV2StrokeStyle {
+  return Object.freeze({
+    color: BLACK,
+    alpha: 1,
+    width: 1,
+    cap: 'butt',
+    join: 'miter',
+    miterLimit: 10,
+    alignment: 0.5,
+    pixelLine: false,
+  });
+}
+
+function normalizeTextStyle(
+  value: unknown,
+  path: string,
+  itemStyle: boolean,
+  applyDefaults: boolean,
+): CoreV2TextStyle {
+  const record = value === undefined
+    ? ({} as Readonly<Record<string, unknown>>)
+    : recordValue(value, path, 'text style must be an object');
+  assertKnownFields(record, itemStyle ? ITEM_TEXT_STYLE_FIELDS : TEXT_STYLE_FIELDS, path);
+  const style: Record<string, unknown> = applyDefaults
+    ? { fontFamily: 'Fira Code', fontSize: 16, fontWeight: 400, fill: BLACK }
+    : {};
+
+  for (const [key, fieldValue] of Object.entries(record)) {
+    const fieldPath = `${path}.${key}`;
+    switch (key) {
+      case 'fontFamily':
+        style[key] = normalizeFontFamily(fieldValue, fieldPath);
+        break;
+      case 'fontSize':
+        style[key] = normalizeFontSize(fieldValue, fieldPath, itemStyle);
+        break;
+      case 'fontWeight':
+        style[key] = normalizeFontWeight(fieldValue, fieldPath);
+        break;
+      case 'fontStyle':
+        style[key] = enumValue(fieldValue, fieldPath, new Set(['normal', 'italic', 'oblique']));
+        break;
+      case 'fontVariant':
+        style[key] = enumValue(fieldValue, fieldPath, new Set(['normal', 'small-caps']));
+        break;
+      case 'fill':
+        style[key] = normalizeColorLike(fieldValue, fieldPath);
+        break;
+      case 'stroke':
+        style[key] = isRecord(fieldValue)
+          ? normalizeStrokeStyle(fieldValue, fieldPath)
+          : normalizeColorLike(fieldValue, fieldPath);
+        break;
+      case 'dropShadow':
+        style[key] = normalizeDropShadow(fieldValue, fieldPath);
+        break;
+      case 'align':
+        style[key] = enumValue(fieldValue, fieldPath, new Set(['left', 'center', 'right', 'justify']));
+        break;
+      case 'textBaseline':
+        style[key] = enumValue(
+          fieldValue,
+          fieldPath,
+          new Set(['alphabetic', 'top', 'hanging', 'middle', 'ideographic', 'bottom']),
+        );
+        break;
+      case 'wordWrap':
+      case 'breakWords':
+      case 'trim':
+        style[key] = booleanValue(fieldValue, fieldPath);
+        break;
+      case 'wordWrapWidth':
+        style[key] = itemStyle && fieldValue === 'auto'
+          ? 'auto'
+          : nonnegativeFiniteNumber(fieldValue, fieldPath);
+        break;
+      case 'whiteSpace':
+        style[key] = enumValue(fieldValue, fieldPath, new Set(['normal', 'pre', 'pre-line']));
+        break;
+      case 'lineHeight':
+      case 'leading':
+      case 'letterSpacing':
+        style[key] = finiteNumber(fieldValue, fieldPath);
+        break;
+      case 'padding':
+        style[key] = nonnegativeFiniteNumber(fieldValue, fieldPath);
+        break;
+      case 'tagStyles':
+        style[key] = normalizeTagStyles(fieldValue, fieldPath, itemStyle);
+        break;
+      case 'filters':
+        style[key] = cloneJsonArray(fieldValue, fieldPath);
+        break;
+      case 'autoFont':
+        style[key] = normalizeAutoFont(fieldValue, fieldPath);
+        break;
+      case 'overflow':
+        style[key] = enumValue(fieldValue, fieldPath, new Set(['visible', 'hidden', 'ellipsis']));
+        break;
+    }
+  }
+
+  return Object.freeze(style);
+}
+
+function normalizeFontFamily(value: unknown, path: string): string | readonly string[] {
+  if (typeof value === 'string') return value;
+  if (!Array.isArray(value)) invalidValue(path, 'fontFamily must be a string or string array');
+  return Object.freeze(value.map((entry, index) => stringValue(entry, `${path}[${index}]`)));
+}
+
+function normalizeFontSize(value: unknown, path: string, itemStyle: boolean): number | string {
+  if (typeof value === 'number') return nonnegativeFiniteNumber(value, path);
+  if (!itemStyle || typeof value !== 'string' || value.length === 0 || /^[-+]?\d+(?:\.\d+)?$/.test(value)) {
+    invalidValue(path, 'fontSize must use an accepted numeric or item CSS-size branch');
+  }
+  return value;
+}
+
+function normalizeFontWeight(value: unknown, path: string): string | number {
+  if (typeof value === 'number') {
+    if (Number.isInteger(value) && value >= 100 && value <= 900) return value;
+    invalidValue(path, 'numeric fontWeight must be an integer from 100 through 900');
+  }
+  if (typeof value !== 'string') invalidValue(path, 'fontWeight must be a supported string or number');
+  if (new Set(['normal', 'bold', 'bolder', 'lighter']).has(value)) return value;
+  const numeric = Number(value);
+  if (Number.isInteger(numeric) && numeric >= 100 && numeric <= 900) return value;
+  invalidValue(path, 'fontWeight must be normal/bold/bolder/lighter or 100 through 900');
+}
+
+function normalizeDropShadow(value: unknown, path: string): boolean | Readonly<Record<string, unknown>> {
+  if (typeof value === 'boolean') return value;
+  const record = recordValue(value, path, 'dropShadow must be a boolean or object');
+  assertKnownFields(record, DROP_SHADOW_FIELDS, path);
+  return Object.freeze({
+    ...(hasOwn(record, 'color') ? { color: normalizeColorLike(record.color, `${path}.color`) } : {}),
+    ...(hasOwn(record, 'alpha')
+      ? { alpha: rangedNumber(record.alpha, `${path}.alpha`, 0, 1) }
+      : {}),
+    ...(hasOwn(record, 'angle') ? { angle: finiteNumber(record.angle, `${path}.angle`) } : {}),
+    ...(hasOwn(record, 'blur') ? { blur: finiteNumber(record.blur, `${path}.blur`) } : {}),
+    ...(hasOwn(record, 'distance')
+      ? { distance: finiteNumber(record.distance, `${path}.distance`) }
+      : {}),
+  });
+}
+
+function normalizeTagStyles(value: unknown, path: string, itemStyle: boolean): Readonly<Record<string, unknown>> {
+  const record = recordValue(value, path, 'tagStyles must be a string-keyed object');
+  const result: Record<string, CoreV2TextStyle> = {};
+  for (const key of Object.keys(record).sort()) {
+    defineDataProperty(result, key, normalizeTextStyle(record[key], `${path}.${key}`, itemStyle, false));
+  }
+  return Object.freeze(result);
+}
+
+function normalizeAutoFont(value: unknown, path: string): Readonly<Record<string, number>> {
+  const record = recordValue(value, path, 'autoFont must be an object');
+  assertKnownFields(record, AUTO_FONT_FIELDS, path);
+  const min = hasOwn(record, 'min') ? positiveFiniteNumber(record.min, `${path}.min`) : undefined;
+  const max = hasOwn(record, 'max') ? positiveFiniteNumber(record.max, `${path}.max`) : undefined;
+  if (min !== undefined && max !== undefined && min > max) {
+    invalidValue(path, 'autoFont min must be less than or equal to max');
+  }
+  return Object.freeze({ ...(min === undefined ? {} : { min }), ...(max === undefined ? {} : { max }) });
+}
+
+function normalizeColorLike(value: unknown, path: string): unknown {
+  if (typeof value === 'string') {
+    if (value.length === 0) invalidValue(path, 'color string must not be empty');
+    return value;
+  }
+  if (typeof value === 'number') return finiteNumber(value, path);
+  if (Array.isArray(value) || isRecord(value)) return cloneJsonValue(value, path);
+  invalidValue(path, 'color/fill value must use a supported JSON color source');
+}
+
+function normalizeContentOrientation(
+  record: Readonly<Record<string, unknown>>,
+  path: string,
+): 'follow-item' | 'upright' {
+  return optionalEnum(
+    record,
+    'contentOrientation',
+    path,
+    CONTENT_ORIENTATIONS,
+    'upright',
+  ) as 'follow-item' | 'upright';
+}
+
+function normalizePlacement(
+  record: Readonly<Record<string, unknown>>,
+  path: string,
+  fallback: CoreV2Placement,
+): CoreV2Placement {
+  return optionalEnum(record, 'placement', path, PLACEMENTS, fallback) as CoreV2Placement;
+}
+
+function validateVector(value: unknown, path: string): void {
+  if (typeof value === 'number') {
+    finiteNumber(value, path);
+    return;
+  }
+  const record = recordValue(value, path, 'transform vector must be a finite scalar or {x,y}');
+  assertKnownFields(record, VECTOR_FIELDS, path);
+  finiteNumber(requiredField(record, 'x', path), `${path}.x`);
+  finiteNumber(requiredField(record, 'y', path), `${path}.y`);
+}
+
+function registerElementId(id: string, path: string, state: NormalizationState): void {
+  if (state.elementIds.has(id)) invalidValue(path, `duplicate scene-global element identity ${JSON.stringify(id)}`);
+  state.elementIds.add(id);
+}
+
+function registerComponentId(
+  ownerId: string,
+  id: string,
+  path: string,
+  state: NormalizationState,
+): void {
+  let ids = state.componentIdsByOwner.get(ownerId);
+  if (!ids) {
+    ids = new Set();
+    state.componentIdsByOwner.set(ownerId, ids);
+  }
+  if (ids.has(id)) invalidValue(path, `duplicate owner-local component identity ${JSON.stringify(id)}`);
+  ids.add(id);
+}
+
+function generatedElementId(path: string): string {
+  return `@element:${path}`;
+}
+
+function requiredField(
+  record: Readonly<Record<string, unknown>>,
+  key: string,
+  path: string,
+): unknown {
+  if (!hasOwn(record, key) || record[key] === undefined) {
+    invalidValue(`${path}.${key}`, 'required field is missing');
+  }
+  return record[key];
+}
+
+function optionalField(record: Readonly<Record<string, unknown>>, key: string): unknown {
+  return hasOwn(record, key) ? record[key] : undefined;
+}
+
+function requiredArray(
+  record: Readonly<Record<string, unknown>>,
+  key: string,
+  path: string,
+): readonly unknown[] {
+  const value = requiredField(record, key, path);
+  if (!Array.isArray(value)) invalidValue(`${path}.${key}`, 'field must be an array');
+  return value;
+}
+
+function optionalArray(
+  record: Readonly<Record<string, unknown>>,
+  key: string,
+  path: string,
+): readonly unknown[] {
+  if (!hasOwn(record, key)) return [];
+  const value = record[key];
+  if (!Array.isArray(value)) invalidValue(`${path}.${key}`, 'field must be an array');
+  return value;
+}
+
+function optionalString(
+  record: Readonly<Record<string, unknown>>,
+  key: string,
+  path: string,
+  fallback: string,
+): string {
+  return hasOwn(record, key) ? stringValue(record[key], `${path}.${key}`) : fallback;
+}
+
+function optionalBoolean(
+  record: Readonly<Record<string, unknown>>,
+  key: string,
+  path: string,
+  fallback: boolean,
+): boolean {
+  return hasOwn(record, key) ? booleanValue(record[key], `${path}.${key}`) : fallback;
+}
+
+function optionalInteger(
+  record: Readonly<Record<string, unknown>>,
+  key: string,
+  path: string,
+  fallback: number,
+): number {
+  if (!hasOwn(record, key)) return fallback;
+  const value = record[key];
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    invalidValue(`${path}.${key}`, 'field must be an integer');
+  }
+  return value;
+}
+
+function optionalNonnegativeFiniteNumber(
+  record: Readonly<Record<string, unknown>>,
+  key: string,
+  path: string,
+  fallback: number,
+): number {
+  return hasOwn(record, key)
+    ? nonnegativeFiniteNumber(record[key], `${path}.${key}`)
+    : fallback;
+}
+
+function optionalEnum(
+  record: Readonly<Record<string, unknown>>,
+  key: string,
+  path: string,
+  accepted: ReadonlySet<string>,
+  fallback: string,
+): string {
+  return hasOwn(record, key)
+    ? enumValue(record[key], `${path}.${key}`, accepted)
+    : fallback;
+}
+
+function recordKind(value: unknown, path: string, accepted: ReadonlySet<string>): string {
+  if (typeof value !== 'string' || !accepted.has(value)) {
+    throw new CoreV2DatasetError(
+      'INVALID_RECORD_KIND',
+      path,
+      `unsupported or missing discriminator ${JSON.stringify(value)}`,
+    );
+  }
+  return value;
+}
+
+function assertKnownFields(
+  record: Readonly<Record<string, unknown>>,
+  accepted: ReadonlySet<string>,
+  path: string,
+): void {
+  const unknown = Object.keys(record).filter((key) => !accepted.has(key)).sort()[0];
+  if (unknown !== undefined) {
+    throw new CoreV2DatasetError('UNKNOWN_FIELD', `${path}.${unknown}`, 'field is not in the closed schema');
+  }
+}
+
+function enumValue(value: unknown, path: string, accepted: ReadonlySet<string>): string {
+  if (typeof value !== 'string' || !accepted.has(value)) {
+    invalidValue(path, `value must be one of ${[...accepted].join(', ')}`);
+  }
+  return value;
+}
+
+function stringValue(value: unknown, path: string): string {
+  if (typeof value !== 'string') invalidValue(path, 'value must be a string');
+  return value;
+}
+
+function booleanValue(value: unknown, path: string): boolean {
+  if (typeof value !== 'boolean') invalidValue(path, 'value must be a boolean');
+  return value;
+}
+
+function finiteNumber(value: unknown, path: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    invalidValue(path, 'value must be a finite number');
+  }
+  return value;
+}
+
+function nonnegativeFiniteNumber(value: unknown, path: string): number {
+  const number = finiteNumber(value, path);
+  if (number < 0) invalidValue(path, 'value must be nonnegative');
+  return number;
+}
+
+function positiveFiniteNumber(value: unknown, path: string): number {
+  const number = finiteNumber(value, path);
+  if (number <= 0) invalidValue(path, 'value must be positive');
+  return number;
+}
+
+function rangedNumber(value: unknown, path: string, minimum: number, maximum: number): number {
+  const number = finiteNumber(value, path);
+  if (number < minimum || number > maximum) {
+    invalidValue(path, `value must be from ${minimum} through ${maximum}`);
+  }
+  return number;
+}
+
+function recordValue(
+  value: unknown,
+  path: string,
+  detail: string,
+): Readonly<Record<string, unknown>> {
+  if (!isRecord(value)) invalidValue(path, detail);
+  return value;
+}
+
+function cloneJsonRecord(
+  value: Readonly<Record<string, unknown>>,
+  path: string,
+): Readonly<Record<string, unknown>> {
+  return cloneJsonValue(value, path) as Readonly<Record<string, unknown>>;
+}
+
+function cloneJsonArray(value: unknown, path: string): readonly unknown[] {
+  if (!Array.isArray(value)) invalidValue(path, 'value must be an array');
+  return cloneJsonValue(value, path) as readonly unknown[];
+}
+
+function cloneJsonValue(value: unknown, path: string, ancestors = new Set<object>()): unknown {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number') return finiteNumber(value, path);
+  if (typeof value !== 'object') invalidValue(path, 'value must be JSON-cloneable');
+  if (ancestors.has(value)) invalidValue(path, 'cyclic values are not accepted by the JSON dataset boundary');
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) {
+      return Object.freeze(
+        value.map((entry, index) => cloneJsonValue(entry, `${path}[${index}]`, ancestors)),
+      );
+    }
+    if (!isRecord(value)) invalidValue(path, 'value must be a JSON object or array');
+    const clone: Record<string, unknown> = {};
+    for (const key of Object.keys(value)) {
+      defineDataProperty(clone, key, cloneJsonValue(value[key], `${path}.${key}`, ancestors));
+    }
+    return Object.freeze(clone);
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+function semanticHash(value: unknown): string {
+  const canonical = stableSerialize(value);
+  let hash = 0xcbf29ce484222325n;
+  for (let index = 0; index < canonical.length; index += 1) {
+    hash ^= BigInt(canonical.charCodeAt(index));
+    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
+  }
+  return `fnv1a64:${hash.toString(16).padStart(16, '0')}`;
+}
+
+function stableSerialize(value: unknown): string {
+  if (value === null) return 'null';
+  if (typeof value === 'string' || typeof value === 'boolean' || typeof value === 'number') {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+  if (isRecord(value)) {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`)
+      .join(',')}}`;
+  }
+  invalidValue('$', 'normalized dataset contains a non-canonical value');
+}
+
+function isPercentage(value: string): boolean {
+  return /^(?:\d+(?:\.\d+)?|\.\d+)%$/.test(value);
+}
+
+function isCalcDimension(value: string): boolean {
+  const term = '[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:px|%)';
+  return new RegExp(`^calc\\(${term}(?: \\+ ${term}| - ${term})*\\)$`).test(value);
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype: unknown = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function hasOwn(record: Readonly<Record<string, unknown>>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+
+function defineDataProperty(target: Record<string, unknown>, key: string, value: unknown): void {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  });
+}
+
+function invalidValue(path: string, detail: string): never {
+  throw new CoreV2DatasetError('INVALID_VALUE', path, detail);
+}
