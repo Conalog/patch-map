@@ -89,6 +89,24 @@ p {
   white-space: nowrap;
 }
 
+.contract-lab-shell[data-contract-status="observed"] .contract-status {
+  border-color: #37815a;
+  color: #215f40;
+  background: #ecf9f1;
+}
+
+.contract-lab-shell[data-contract-status="failed"] .contract-status {
+  border-color: #bf4d4d;
+  color: #8f2727;
+  background: #fff0f0;
+}
+
+.contract-lab-shell[data-contract-status="running"] .contract-status {
+  border-color: #2869d4;
+  color: #174fa8;
+  background: #eef5ff;
+}
+
 .contract-lab-layout {
   display: grid;
   grid-template-columns: minmax(230px, 320px) minmax(0, 1fr);
@@ -203,6 +221,8 @@ p {
 .contract-canvas {
   display: grid;
   min-height: 360px;
+  padding: 12px;
+  overflow: auto;
   place-items: center;
   border: 1px solid #aebccc;
   color: #718097;
@@ -214,6 +234,30 @@ p {
   text-align: center;
 }
 
+[data-contract-surface] {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 334px;
+  place-items: center;
+}
+
+[data-contract-surface] canvas {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid #8fa3bc;
+  box-shadow: 0 10px 28px rgb(31 54 84 / 14%);
+}
+
+[data-canvas-lifetime] {
+  max-width: 560px;
+  margin: 0;
+  padding: 8px 10px;
+  color: #5c6d84;
+  background: rgb(255 255 255 / 88%);
+  font-size: 0.72rem;
+}
+
 .contract-actions {
   display: grid;
   gap: 6px;
@@ -222,15 +266,29 @@ p {
 
 .contract-case-action {
   display: grid;
-  grid-template-columns: 2rem minmax(150px, auto) 1fr;
+  grid-template-columns: 2rem minmax(150px, auto) minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
 }
 
 .contract-case-action > span,
-.contract-case-action code {
+.contract-case-action code,
+.contract-case-action output {
   color: #64758d;
   font-size: 0.68rem;
+}
+
+.contract-case-action output {
+  min-width: 7.5rem;
+  text-align: right;
+}
+
+.contract-case-action[data-action-status="completed"] output {
+  color: #23704b;
+}
+
+.contract-case-action[data-action-status="failed"] output {
+  color: #a12d2d;
 }
 
 .contract-result-strip {
@@ -263,6 +321,19 @@ p {
 .contract-result-strip p {
   margin: 10px 0 0;
   color: #8c5c18;
+}
+
+.contract-result-strip pre {
+  max-height: 440px;
+  margin: 12px 0 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid #d0d8e3;
+  color: #23344d;
+  background: #f6f8fb;
+  font: 0.7rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  text-align: left;
+  white-space: pre-wrap;
 }
 
 .contract-route-error {

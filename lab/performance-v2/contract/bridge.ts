@@ -6,6 +6,7 @@ export type CoreV2ContractLabStatus =
   | 'ready'
   | 'armed'
   | 'running'
+  | 'observed'
   | 'not-implemented'
   | 'failed'
   | 'destroyed';
@@ -36,18 +37,32 @@ export interface CoreV2ContractGesturePlan {
   readonly publishedTuple: CoreV2ContractPublishedTuple;
 }
 
+export interface CoreV2ContractLabRunResult {
+  readonly status: 'observed';
+  readonly execution: Readonly<Record<string, unknown>>;
+  readonly actualObservation: Readonly<Record<string, unknown>>;
+  readonly fixtures: Readonly<Record<string, unknown>>;
+  readonly captures: Readonly<Record<string, unknown>>;
+  readonly cleanup: Readonly<Record<string, unknown>>;
+}
+
 export interface CoreV2ContractLabBridgeV1 {
   readonly revision: typeof CORE_V2_CONTRACT_LAB_BRIDGE_REVISION;
   state(): Readonly<CoreV2ContractLabState>;
+  execution(): Readonly<Record<string, unknown>> | null;
+  cleanup(): Readonly<Record<string, unknown>> | null;
+  runCase(): Promise<Readonly<CoreV2ContractLabRunResult>>;
+  resetCase(): Promise<Readonly<Record<string, unknown>>>;
+  repeatCase(): Promise<Readonly<CoreV2ContractLabRunResult>>;
   armGesture(actionIndex: number): Promise<Readonly<CoreV2ContractGesturePlan>>;
   awaitMilestone(actionIndex: number, milestone: CoreV2ContractLabMilestone): Promise<void>;
-  actualObservation(): Promise<Readonly<unknown>>;
-  destroyCase(): Promise<Readonly<Record<string, number>>>;
+  actualObservation(): Promise<Readonly<Record<string, unknown>>>;
+  destroyCase(): Promise<Readonly<Record<string, unknown>>>;
 }
 
 export class CoreV2ContractExecutionNotImplementedError extends Error {
   constructor(caseId: string, operation: string) {
-    super(`Core v2 contract ${caseId} ${operation} is not implemented in the T0 Lab shell`);
+    super(`Core v2 contract ${caseId} ${operation} is not implemented in the focused Lab`);
     this.name = 'CoreV2ContractExecutionNotImplementedError';
   }
 }
@@ -87,6 +102,26 @@ export function createNotImplementedCoreV2ContractLabBridge(
   return Object.freeze({
     revision: CORE_V2_CONTRACT_LAB_BRIDGE_REVISION,
     state,
+    execution(): null {
+      return null;
+    },
+    cleanup(): null {
+      return null;
+    },
+    runCase(): Promise<Readonly<CoreV2ContractLabRunResult>> {
+      return Promise.reject(
+        new CoreV2ContractExecutionNotImplementedError(options.caseId, 'case execution'),
+      );
+    },
+    resetCase(): Promise<Readonly<Record<string, unknown>>> {
+      if (status !== 'destroyed') status = 'not-implemented';
+      return Promise.resolve(Object.freeze({ notImplemented: 1 }));
+    },
+    repeatCase(): Promise<Readonly<CoreV2ContractLabRunResult>> {
+      return Promise.reject(
+        new CoreV2ContractExecutionNotImplementedError(options.caseId, 'repeat execution'),
+      );
+    },
     armGesture(actionIndex: number): Promise<Readonly<CoreV2ContractGesturePlan>> {
       return Promise.resolve().then(() => {
         assertActionIndex(actionIndex);
@@ -102,7 +137,7 @@ export function createNotImplementedCoreV2ContractLabBridge(
         throw new CoreV2ContractExecutionNotImplementedError(options.caseId, 'milestone observation');
       });
     },
-    actualObservation(): Promise<Readonly<unknown>> {
+    actualObservation(): Promise<Readonly<Record<string, unknown>>> {
       return Promise.resolve(Object.freeze({
         $schema: 'core-v2-contract-lab-actual-stub/1',
         case: Object.freeze({ id: options.caseId, rootTestId: options.rootTestId }),

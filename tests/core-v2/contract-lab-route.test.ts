@@ -12,6 +12,13 @@ import {
   selectCoreV2ContractPresenter,
 } from '../../lab/performance-v2/contract/presenters';
 import {
+  CORE_V2_CONTRACT_STUB_COUNT,
+  CORE_V2_FOUNDATION_ACTION_DEFINITIONS,
+  CORE_V2_FOUNDATION_CASE_IDS,
+  CORE_V2_FOUNDATION_EXECUTABLE_COUNT,
+  materializeCoreV2FoundationCase,
+} from '../../lab/performance-v2/contract/foundation-cases';
+import {
   buildCoreV2ContractRoute,
   CORE_V2_CONTRACT_DATASET_SIZES,
   CoreV2ContractRouteError,
@@ -34,7 +41,11 @@ describe('Core v2 focused contract Lab presenters', () => {
       expect(presenter.routeTemplate).toBe(
         `/lab/core-v2?scenario=${presenter.caseId}&size=<SIZE>&seed=<SEED>`,
       );
-      expect(presenter.executionStatus).toBe('not-implemented');
+      expect(presenter.executionStatus).toBe(
+        CORE_V2_FOUNDATION_CASE_IDS.some((caseId) => caseId === presenter.caseId)
+          ? 'foundation-observable'
+          : 'not-implemented',
+      );
       expect(presenter.actions.length).toBeGreaterThan(0);
       expect(new Set(presenter.actions.map((action) => action.actionTestId)).size).toBe(
         presenter.actions.length,
@@ -47,6 +58,15 @@ describe('Core v2 focused contract Lab presenters', () => {
         );
       });
     }
+    expect(CORE_V2_CONTRACT_PRESENTERS.filter(
+      (presenter) => presenter.executionStatus === 'foundation-observable',
+    )).toHaveLength(CORE_V2_FOUNDATION_EXECUTABLE_COUNT);
+    expect(CORE_V2_CONTRACT_PRESENTERS.filter(
+      (presenter) => presenter.executionStatus === 'not-implemented',
+    )).toHaveLength(CORE_V2_CONTRACT_STUB_COUNT);
+    expect(CORE_V2_CONTRACT_PRESENTERS.filter(
+      (presenter) => presenter.executionStatus === 'foundation-observable',
+    ).map((presenter) => presenter.caseId)).toEqual(CORE_V2_FOUNDATION_CASE_IDS);
   });
 
   it('uses exact selection and never substitutes a nearby presenter', () => {
@@ -54,6 +74,25 @@ describe('Core v2 focused contract Lab presenters', () => {
     expect(selectCoreV2ContractPresenter('LIF-002').caseId).toBe('LIF-002');
     expect(() => selectCoreV2ContractPresenter('LIF-000')).toThrow(/Unknown/);
     expect(() => selectCoreV2ContractPresenter('lif-001')).toThrow(/Unknown/);
+  });
+
+  it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
+    expect(CORE_V2_FOUNDATION_ACTION_DEFINITIONS).toHaveLength(15);
+    for (const caseId of CORE_V2_FOUNDATION_CASE_IDS) {
+      const first = materializeCoreV2FoundationCase(caseId, 'production', 4_294_967_295);
+      const second = materializeCoreV2FoundationCase(caseId, 'production', 4_294_967_295);
+      expect(first.id).toBe(caseId);
+      expect(first.rootTestId).toBe(`scenario-${caseId.toLowerCase()}`);
+      expect(first.route).toBe(
+        `/lab/core-v2?scenario=${caseId}&size=production&seed=4294967295`,
+      );
+      expect(first.routeParams).toEqual({ size: 'production', seed: 4_294_967_295 });
+      expect(first.actionTrace).toEqual(first.fixture.actionTrace);
+      expect(first).not.toHaveProperty('expected');
+      expect(Object.isFrozen(first)).toBe(true);
+      expect(Object.isFrozen(first.fixture.actionTrace)).toBe(true);
+      expect(first).not.toBe(second);
+    }
   });
 });
 
@@ -99,7 +138,7 @@ describe('Core v2 focused contract Lab routes', () => {
 });
 
 describe('Core v2 focused contract Lab shell', () => {
-  it('renders only the selected presenter root, action controls, and non-passing result', () => {
+  it('renders an actual-only armed shell for a selected foundation case', () => {
     const route = parseCoreV2ContractRoute(
       '/lab/core-v2?scenario=LIF-001&size=500&seed=319',
     );
@@ -111,8 +150,23 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).toContain(`data-testid="${route.presenter.actions[0]?.actionTestId}"`);
     expect(markup).toContain(`data-testid="${route.presenter.rootTestId}-primary"`);
     expect(markup).toContain(`data-testid="${route.presenter.resultTestId}"`);
+    expect(markup).toContain('data-contract-status="armed"');
+    expect(markup).toContain('Run exact case');
+    expect(markup).toContain('Actual-only foundation execution is available');
+    expect(markup).toContain('data-action-status="queued"');
+    expect(markup).not.toContain('data-contract-status="pass"');
+  });
+
+  it('keeps every non-foundation route disabled and explicitly not implemented', () => {
+    const route = parseCoreV2ContractRoute(
+      '/lab/core-v2?scenario=LIF-003&size=500&seed=319',
+    );
+    const markup = renderCoreV2ContractLab(route);
+
     expect(markup).toContain('data-contract-status="not-implemented"');
-    expect(markup).toContain('cannot report pass');
+    expect(markup).toContain('data-testid="load-dataset" disabled');
+    expect(markup).toContain('data-action-status="not-implemented"');
+    expect(markup).toContain('No engine action, semantic observation, or promotion result');
     expect(markup).not.toContain('data-contract-status="pass"');
   });
 
@@ -139,8 +193,13 @@ describe('Core v2 actual-only Lab bridge', () => {
       'actualObservation',
       'armGesture',
       'awaitMilestone',
+      'cleanup',
       'destroyCase',
+      'execution',
+      'repeatCase',
+      'resetCase',
       'revision',
+      'runCase',
       'state',
     ]);
     expect(bridge.state()).toMatchObject({
@@ -156,6 +215,14 @@ describe('Core v2 actual-only Lab bridge', () => {
     await expect(bridge.awaitMilestone(0, 'published')).rejects.toBeInstanceOf(
       CoreV2ContractExecutionNotImplementedError,
     );
+    await expect(bridge.runCase()).rejects.toBeInstanceOf(
+      CoreV2ContractExecutionNotImplementedError,
+    );
+    await expect(bridge.repeatCase()).rejects.toBeInstanceOf(
+      CoreV2ContractExecutionNotImplementedError,
+    );
+    expect(bridge.execution()).toBeNull();
+    expect(bridge.cleanup()).toBeNull();
 
     const observation = await bridge.actualObservation();
     expect(observation).toMatchObject({
@@ -172,11 +239,15 @@ describe('Core v2 actual-only Lab bridge', () => {
       'presenters.ts',
       'route.ts',
       'bridge.ts',
+      'foundation-cases.ts',
+      'foundation-bridge.ts',
       'main.ts',
     ].map((file) => readFile(new URL(`../../lab/performance-v2/contract/${file}`, import.meta.url), 'utf8')));
     const joined = sources.join('\n');
     expect(joined).not.toContain('catalog-normalized-expected');
     expect(joined).not.toMatch(/from ['"].*compare/);
+    expect(joined).not.toMatch(/from ['"].*observe/);
+    expect(joined).not.toMatch(/node:/);
     expect(joined).not.toMatch(/(?:execute|mutate|select|transform)(?:Scene|Entity|Selection|Viewport)/);
   });
 });
