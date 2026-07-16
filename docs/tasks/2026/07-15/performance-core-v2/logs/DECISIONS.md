@@ -33,3 +33,33 @@
 - Close those gaps in code and regenerate headed, package, memory, quick, and full 2+7 evidence before finalizing Core v2.
 - The final 13:52:05Z matrix passes 18-run/162-trial/522-summary verification; Mesh remains the measured winner, while production rounded bars exercise the rejected GraphicsContext fallback rather than a pure ParticleContainer path.
 - Selected Mesh records 40.2 ms first frame, 135.1 ms visibility setup, 42.8 ms full p95, and 10.6 ms partial p95; the 33.3 ms target still fails by 9.5 ms, WebGPU is unavailable, and Windows native remains pending.
+
+**2026-07-16**
+- The complete 173-case approved corpus is now available inside the isolated Core v2 worktree, while the existing aggregate Pixi runtime proves only the earlier prototype surface.
+- Treat canonical fixtures/expected/reviews as immutable inputs and promote implementation status only from independent package-bound actual evidence plus the same case's focused Lab route.
+- This preserves analysis-owner semantics, prevents self-approving generated output, and makes progress restartable across the contract dependency graph.
+- Begin with runner/Lab infrastructure and the LIF-001/LIF-002/DAT-001/DAT-002/CSM-001/CSM-003 slice, then expand through remaining P0 lifecycle/data before rendering/layout/assets.
+
+**2026-07-16**
+- The immutable DAT-001 and LIF-002 expected records require INVALID_DISCRIMINATOR and INVALID_DATASET, but the same approved semantic contract closes public input diagnostics around INVALID_RECORD_KIND and excludes both values.
+- Keep the product diagnostic registry closed, emit the approved closed code, preserve the two mismatches in actual evidence, and require a versioned contract-owner resolution before either case is promoted.
+- Adding aliases would violate the closed registry, while editing expected evidence would break the user-approved immutable corpus and erase a real specification inconsistency.
+- Implementation and all unaffected automation continue; DAT-001 and LIF-002 remain honest non-passing rows until the corpus is versioned, and the overall Goal is not marked blocked while meaningful work remains.
+
+**2026-07-16**
+- A full immutable-expected audit expands the closed-diagnostic inconsistency from the first two rows to 12 assertions across 10 cases: QRY-001, LIF-002, DAT-001, DAT-004, DAT-006, AST-001, AST-002, UPD-003, UPD-009, and ANI-002.
+- Apply one contract-wide rule: Core v2 emits only the version-1 registry codes; automation preserves every out-of-registry expected mismatch and cannot promote those rows without a versioned contract-owner resolution.
+- The excluded values are AMBIGUOUS_TARGET, ASSET_ALIAS_CONFLICT, HIERARCHY_CYCLE, INVALID_ASSET_DESCRIPTOR, INVALID_COLOR, INVALID_DATASET, INVALID_DISCRIMINATOR, INVALID_LEGACY_ROOT, INVALID_REPLACEMENT, and NON_MONOTONIC_TIME; treating them as aliases would invent public diagnostics.
+- All other implementation/evidence work continues and the immutable corpus remains untouched, but truthful 173/173 exact promotion has a ten-case contract blocker.
+
+**2026-07-16**
+- Background: `structuredClone` accepts cycles, maps, sets, and non-finite values that lose meaning in JSON artifacts.
+- Decision: Actual evidence accepts only JSON-round-trip-safe primitives, dense arrays, and plain enumerable data records; unsafe event or semantic-probe payloads fail execution while cleanup still runs.
+- Why: Evidence must preserve the exact observed value instead of silently omitting or coercing it during artifact serialization.
+- Impact: The runner journals all six public events from engine creation through destroy and releases all six subscriptions; listener isolation cannot hide evidence callback failure.
+
+**2026-07-16**
+- Background: Source host simulations and the approved `DAT-001` order-hash literal lack independent promotion authority or a versioned computation rule.
+- Decision: Only a digest-bound packed-host probe may populate promotable journey host facts, and `DAT-001 /scene/orderHash` remains unresolved.
+- Why: A self-authored mock cannot prove consumer integration, while dataset references, seeds, and product semantic hashes are not interchangeable with an undefined hash algorithm.
+- Impact: Source host actuals remain in a non-promotion extension, and comparison preserves the unresolved order-hash failure until approved evidence is versioned.
