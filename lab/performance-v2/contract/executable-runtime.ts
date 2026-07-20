@@ -23,6 +23,8 @@ import * as dataClosureHandlersModule from '../../../scripts/verification/core-v
 import * as lifecycleResizeHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/lifecycle-resize.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as lifecycleDestroyHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/lifecycle-destroy.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as renderFoundationHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/render-foundation.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as foundationFoldModule from '../../../scripts/verification/core-v2-contract/fold-foundation.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
@@ -33,6 +35,8 @@ import * as dataClosureFoldModule from '../../../scripts/verification/core-v2-co
 import * as lifecycleResizeFoldModule from '../../../scripts/verification/core-v2-contract/fold-lifecycle-resize.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as lifecycleDestroyFoldModule from '../../../scripts/verification/core-v2-contract/fold-lifecycle-destroy.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as renderFoundationFoldModule from '../../../scripts/verification/core-v2-contract/fold-render-foundation.mjs';
 
 import type {
   CoreV2ExecutableCaseId,
@@ -44,7 +48,8 @@ export type CoreV2ExecutableRuntimeKey =
   | 'data-foundation'
   | 'data-closure'
   | 'lifecycle-resize'
-  | 'lifecycle-destroy';
+  | 'lifecycle-destroy'
+  | 'render-foundation';
 
 type Handler = (
   context: Readonly<Record<string, unknown>>,
@@ -68,6 +73,7 @@ interface HandlerFactoryRuntime {
     this: void,
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
+  createRenderFoundationHandlerEntries?(this: void): readonly HandlerEntry[];
 }
 
 interface FoldRuntime {
@@ -88,6 +94,10 @@ interface FoldRuntime {
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
   foldLifecycleDestroyExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
+  foldRenderFoundationExecution?(
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
@@ -119,11 +129,13 @@ const dataFoundationHandlers = dataFoundationHandlersModule as unknown as Handle
 const dataClosureHandlers = dataClosureHandlersModule as unknown as HandlerFactoryRuntime;
 const lifecycleResizeHandlers = lifecycleResizeHandlersModule as unknown as HandlerFactoryRuntime;
 const lifecycleDestroyHandlers = lifecycleDestroyHandlersModule as unknown as HandlerFactoryRuntime;
+const renderFoundationHandlers = renderFoundationHandlersModule as unknown as HandlerFactoryRuntime;
 const foundationFold = foundationFoldModule as unknown as FoldRuntime;
 const dataFoundationFold = dataFoundationFoldModule as unknown as FoldRuntime;
 const dataClosureFold = dataClosureFoldModule as unknown as FoldRuntime;
 const lifecycleResizeFold = lifecycleResizeFoldModule as unknown as FoldRuntime;
 const lifecycleDestroyFold = lifecycleDestroyFoldModule as unknown as FoldRuntime;
+const renderFoundationFold = renderFoundationFoldModule as unknown as FoldRuntime;
 
 const FOUNDATION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
   'LIF-001',
@@ -142,6 +154,13 @@ const DATA_CLOSURE_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
   'DAT-006',
   'DAT-007',
   'DAT-008',
+]);
+const RENDER_FOUNDATION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
+  'LAY-001',
+  'REN-001',
+  'REN-004',
+  'REN-003',
+  'REN-002',
 ]);
 
 const DATA_FOUNDATION_PRODUCT = Object.freeze({
@@ -230,6 +249,19 @@ const LIFECYCLE_DESTROY_DESCRIPTOR = createDescriptor({
   fold: requireFold(lifecycleDestroyFold.foldLifecycleDestroyExecution, 'lifecycle-destroy fold'),
 });
 
+const RENDER_FOUNDATION_DESCRIPTOR = createDescriptor({
+  key: 'render-foundation',
+  needsSupplementalWebGLLease: false,
+  createEntries: () => requireFactory(
+    renderFoundationHandlers.createRenderFoundationHandlerEntries,
+    'render-foundation handlers',
+  )(),
+  fold: requireFold(
+    renderFoundationFold.foldRenderFoundationExecution,
+    'render-foundation fold',
+  ),
+});
+
 export function resolveCoreV2ExecutableRuntime(
   caseId: CoreV2ExecutableCaseId,
 ): CoreV2ExecutableRuntimeDescriptor {
@@ -238,6 +270,7 @@ export function resolveCoreV2ExecutableRuntime(
   if (DATA_CLOSURE_CASE_IDS.has(caseId)) return DATA_CLOSURE_DESCRIPTOR;
   if (caseId === 'LIF-004') return LIFECYCLE_RESIZE_DESCRIPTOR;
   if (caseId === 'LIF-005') return LIFECYCLE_DESTROY_DESCRIPTOR;
+  if (RENDER_FOUNDATION_CASE_IDS.has(caseId)) return RENDER_FOUNDATION_DESCRIPTOR;
   throw new Error(`Unsupported Core v2 executable runtime: ${String(caseId)}`);
 }
 

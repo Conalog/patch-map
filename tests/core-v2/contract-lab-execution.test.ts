@@ -11,6 +11,7 @@ import type {
   CoreV2EngineSurface,
   CoreV2EngineSurfaceFactory,
   CoreV2Point,
+  CoreV2SurfaceReconcileResult,
   CoreV2SurfaceDebug,
   CoreV2SurfaceOptions,
 } from '../../src/core-v2/engine';
@@ -295,6 +296,11 @@ describe('Core v2 executable Lab product bridge', () => {
       'DAT-008': 'data-closure',
       'CSM-001': 'foundation',
       'CSM-003': 'foundation',
+      'LAY-001': 'render-foundation',
+      'REN-001': 'render-foundation',
+      'REN-004': 'render-foundation',
+      'REN-003': 'render-foundation',
+      'REN-002': 'render-foundation',
     });
 
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
@@ -352,6 +358,15 @@ class FakeSurface implements CoreV2EngineSurface {
 
   public load(_input: unknown): void {
     this.selectionIds = Object.freeze([]);
+  }
+
+  public reconcile(_input: unknown): CoreV2SurfaceReconcileResult {
+    return Object.freeze({
+      status: 'committed',
+      operationCount: 1,
+      denseChanged: true,
+      diagnostics: Object.freeze([]),
+    });
   }
 
   public publishFrame(_timeMs: number): void {}
