@@ -11,6 +11,13 @@ now exist for all six; `LIF-001` and `DAT-002` match every immutable assertion,
 `LIF-002` and `DAT-001` retain the documented gaps/mismatches, and both journeys await
 packed-host evidence. The next data tranche has exact handlers for DAT-003/004/005.
 
+Implementation update (2026-07-20): the executable P0 slice is now 14 routes:
+`LIF-001/002/004/005`, `DAT-001..008`, and `CSM-001/003`. Thirteen routes produce
+actual observations; `DAT-008` produces an honest terminal-failure observation because
+the immutable `retainTarget` action omits the action schema's required `as` operand.
+The remaining 159 routes are explicit stubs. This document's original five-case counts
+remain a historical dependency calculation rather than the current completion count.
+
 ## Scope and source of truth
 
 - Baseline supplied in the task brief: HEAD `c491c74`.

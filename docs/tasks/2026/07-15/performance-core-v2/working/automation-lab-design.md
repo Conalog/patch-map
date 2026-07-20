@@ -4,12 +4,14 @@ Status: implementation design. This document does not revise the functional cont
 canonical fixtures, normalized expected observations, review registry, or catalog
 manifest.
 
-Implementation update (2026-07-16): catalog/action preflight, expected-blind execution,
-semantic comparison, append-only evidence, the 173-route shell, six-case event and
-semantic probes, and foundation folds are committed. JSON evidence safety and exact
-cleanup are enforced. The first six browser routes and DAT-003/004/005 folds are the
-active implementation checkpoint; packed-host, outer two-browser fresh sessions, and
-headed promotion evidence have not run and remain non-passing.
+Implementation update (2026-07-20): catalog/action preflight, expected-blind execution,
+semantic comparison, append-only evidence, and the 173-route shell are committed.
+Exactly 14 P0 routes are executable and 159 remain explicit stubs. Thirteen produce
+actual observations; `DAT-008` preserves the immutable missing binding operand as a
+failed actual with completed cleanup. Independent Lab review and 40 tests cover case
+selection, handler collision freedom, supplemental WebGL ownership, failure truth,
+and action-row state. Packed-host, outer two-browser fresh sessions, and headed
+promotion evidence have not run and remain non-passing.
 
 ## Decision summary
 

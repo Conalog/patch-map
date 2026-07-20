@@ -63,3 +63,21 @@
 - Decision: Only a digest-bound packed-host probe may populate promotable journey host facts, and `DAT-001 /scene/orderHash` remains unresolved.
 - Why: A self-authored mock cannot prove consumer integration, while dataset references, seeds, and product semantic hashes are not interchangeable with an undefined hash algorithm.
 - Impact: Source host actuals remain in a non-promotion extension, and comparison preserves the unresolved order-hash failure until approved evidence is versioned.
+
+**2026-07-20**
+- Background: Partial semantic mutation must preserve stable targets without returning to object-per-entity scene reconstruction or using full dataset load as a hidden update path.
+- Decision: `CoreV2Engine` remains the sole externally visible writer. Its candidate authority is parsed and planned into `CoreV2.reconcile`, which applies exactly one dense transaction only when the current operation vocabulary can reproduce the observable change.
+- Why: This keeps product authority, revision, history, renderer invalidation, and stable ID/component identity on one auditable path while retaining the aggregate Pixi renderer.
+- Impact: Same-ID updates preserve ref/slot/selection and dirty ranges. Unsupported authored reorder/background changes are explicit refusals; structural replacement is remove/add and never mislabeled as identity preservation.
+
+**2026-07-20**
+- Background: The focused Lab must grow incrementally without importing expected values or implying that an unexecuted action/case passed.
+- Decision: One case-selected executable runtime connects exactly 14 P0 routes; every other approved route remains an explicit `not-implemented` stub. `DAT-008` executes the immutable action trace literally and fails on its missing required binding operand.
+- Why: Actual-only execution and independent comparison preserve the evidence firewall and expose contract inconsistencies instead of normalizing them away.
+- Impact: Supplemental WebGL cleanup failures remain failures, release counts include every owned engine, and actions after a terminal failure display `not-run`.
+
+**2026-07-20**
+- Background: Strict dataset acceptance and renderer projection are different claims; accepting an authored field does not prove its observable semantics.
+- Decision: Widen the closed materializer only for fields actually present in approved canonical arrays or production-like input, and maintain a separate projection-gap inventory.
+- Why: This preserves unknown-field rejection and input identity while preventing silent claims for scale, stacking, text, asset, or layout behavior the dense renderer does not yet implement.
+- Impact: Opacity, overflow, event mode, and radius tuples are supported; every remaining loss/degradation is either implemented in the next tranche or retained as an explicit unsupported result.
