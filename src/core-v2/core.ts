@@ -37,11 +37,11 @@ import {
   type PixiCoreV2RendererOptions,
 } from './renderers/pixi-renderer';
 import type { PixiCoreV2RendererDebug } from './renderers/types';
+import type { CoreV2WorldOrientation } from './renderers/types';
 import {
   boundsFor,
   fitView,
   panView,
-  screenToWorld,
   zoomViewAt,
 } from './view';
 
@@ -62,6 +62,12 @@ export interface CoreV2PrepareResult {
   readonly storeSyncMs: number;
   readonly gpuPrepareMs: number;
   readonly frame: FrameReport;
+}
+
+export interface CoreV2WorldTransform extends CoreV2WorldOrientation {
+  readonly x: number;
+  readonly y: number;
+  readonly scale: number;
 }
 
 export interface CoreV2ReconcileOptions extends CoreV2DenseReconcileOptions {
@@ -146,6 +152,8 @@ export class CoreV2 {
   private readonly unbindInteractions: () => void;
   private parseResultValue: ParsePatchMapResult | null = null;
   private currentView: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
+  private worldFlipX = false;
+  private worldFlipY = false;
   private animationClockMs = 0;
   private lastAnimationFrameTime: number | null = null;
   private lastFrameReport: FrameReport | null = null;
@@ -230,6 +238,7 @@ export class CoreV2 {
     this.currentView = parse.document.view ?? { x: 0, y: 0, scale: 1, rotation: 0 };
     this.animationClockMs = 0;
     this.lastAnimationFrameTime = null;
+    this.renderer.setProjection(parse.projection);
     this.renderer.markChanges(store.changedRanges, 'load', { fullRebuild: true });
     this.invalidate('load');
     return Object.freeze({ parse, store, normalizeMs, storeLoadMs });
@@ -288,6 +297,7 @@ export class CoreV2 {
     const commitStarted = now();
     const commit = this.commit(plan.batch);
     const commitMs = now() - commitStarted;
+    this.renderer.setProjection(parse.projection);
     this.parseResultValue = parse;
     const after = this.scene.snapshot();
     return freezeReconcileResult({
@@ -357,6 +367,24 @@ export class CoreV2 {
     return this.commit({ operations: [{ type: 'view', view }] });
   }
 
+  public setWorldTransform(view: CoreV2WorldTransform): CommitResult {
+    this.assertAlive();
+    validateWorldTransform(view);
+    this.worldFlipX = view.flipX;
+    this.worldFlipY = view.flipY;
+    this.renderer.setWorldOrientation({
+      rotationDegrees: view.rotationDegrees,
+      flipX: view.flipX,
+      flipY: view.flipY,
+    });
+    return this.setView({
+      x: view.x,
+      y: view.y,
+      scale: view.scale,
+      rotation: view.rotationDegrees,
+    });
+  }
+
   public panBy(delta: CorePoint): CommitResult {
     return this.setView(panView(this.currentView, delta));
   }
@@ -380,12 +408,15 @@ export class CoreV2 {
 
   public screenToWorld(point: CorePoint): CorePoint {
     this.assertAlive();
-    return screenToWorld(point, this.currentView);
+    return screenToWorldWithFlips(point, this.currentView, this.worldFlipX, this.worldFlipY);
   }
 
   public hitTestScreen(point: CorePoint, options: HitTestOptions = {}): EntityRef | null {
     this.assertAlive();
-    return this.scene.hitTest(screenToWorld(point, this.currentView), options);
+    return this.scene.hitTest(
+      screenToWorldWithFlips(point, this.currentView, this.worldFlipX, this.worldFlipY),
+      options,
+    );
   }
 
   public selectAtScreen(point: CorePoint): EntityRef | null {
@@ -603,6 +634,50 @@ function clampFraction(value: number): number {
 
 function now(): number {
   return globalThis.performance?.now() ?? Date.now();
+}
+
+function screenToWorldWithFlips(
+  point: CorePoint,
+  view: CoreView,
+  flipX: boolean,
+  flipY: boolean,
+): CorePoint {
+  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+    throw new RangeError('screen point must contain finite coordinates');
+  }
+  const scale = view.scale;
+  if (!(scale > 0) || !Number.isFinite(scale)) {
+    throw new RangeError('view scale must be positive and finite');
+  }
+  const dx = point.x - view.x;
+  const dy = point.y - view.y;
+  const unflippedX = dx * (flipX ? -1 : 1);
+  const unflippedY = dy * (flipY ? -1 : 1);
+  const radians = -(view.rotation ?? 0) * Math.PI / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  const rotatedX = unflippedX * cosine - unflippedY * sine;
+  const rotatedY = unflippedX * sine + unflippedY * cosine;
+  return Object.freeze({
+    x: rotatedX / scale,
+    y: rotatedY / scale,
+  });
+}
+
+function validateWorldTransform(view: CoreV2WorldTransform): void {
+  if (
+    !Number.isFinite(view.x) ||
+    !Number.isFinite(view.y) ||
+    !Number.isFinite(view.rotationDegrees)
+  ) {
+    throw new RangeError('world transform position and rotation must be finite');
+  }
+  if (!(view.scale > 0) || !Number.isFinite(view.scale)) {
+    throw new RangeError('world transform scale must be positive and finite');
+  }
+  if (typeof view.flipX !== 'boolean' || typeof view.flipY !== 'boolean') {
+    throw new TypeError('world transform flips must be booleans');
+  }
 }
 
 function denseReconcileOptions(

@@ -10,6 +10,17 @@ import {
   RenderKind,
   type RenderStoreView,
 } from '../../src/core-v1/renderer/types';
+import type {
+  CoreV2EntityProjection,
+  CoreV2ProjectionIndex,
+} from '../../src/core-v2/contracts';
+import {
+  coreV2AffineBasis,
+  coreV2AffineCenter,
+  createCoreV2Affine,
+  type CoreV2AffineMatrix,
+} from '../../src/core-v2/semantic/geometry';
+import type { CoreV2ProjectionRenderContext } from '../../src/core-v2/renderers/types';
 
 describe('buildParticleGraphicsDescriptors', () => {
   it('builds deterministic particles with packed color alpha and center rotation', () => {
@@ -18,20 +29,23 @@ describe('buildParticleGraphicsDescriptors', () => {
     const second = buildParticleGraphicsDescriptors(store);
 
     expect(second).toEqual(first);
-    expect(first.staticParticles).toEqual([
-      {
-        key: 'rect:0',
-        slot: 0,
-        role: 'rect',
-        centerX: 20,
-        centerY: 25,
-        width: 20,
-        height: 10,
-        rotation: Math.PI / 2,
-        tint: 0x123456,
-        alpha: (128 / 255) * 0.5,
-      },
-    ]);
+    expect(first.staticParticles).toHaveLength(1);
+    expect(first.staticParticles[0]).toMatchObject({
+      key: 'rect:0',
+      slot: 0,
+      role: 'rect',
+      centerX: 20,
+      centerY: 25,
+      width: 20,
+      height: 10,
+      rotation: Math.PI / 2,
+      tint: 0x123456,
+      alpha: (128 / 255) * 0.5,
+    });
+    expect(first.staticParticles[0]?.basis[0]).toBeCloseTo(0, 12);
+    expect(first.staticParticles[0]?.basis[1]).toBeCloseTo(1, 12);
+    expect(first.staticParticles[0]?.basis[2]).toBeCloseTo(-1, 12);
+    expect(first.staticParticles[0]?.basis[3]).toBeCloseTo(0, 12);
     expect(first.staticBounds.x).toBeCloseTo(15);
     expect(first.staticBounds.y).toBeCloseTo(15);
     expect(first.staticBounds.width).toBeCloseTo(10);
@@ -179,6 +193,44 @@ describe('ParticleGraphicsLayer', () => {
     expect(layer.destroyed).toBe(true);
     expect(() => layer.sync(store)).toThrow('ParticleGraphicsLayer is destroyed');
   });
+
+  it('breaks the early return for projection-only upright rotation and preserves reflection', () => {
+    const layer = new ParticleGraphicsLayer();
+    const store = createStore();
+    const index = projectionIndex('upright', createCoreV2Affine(10, 20));
+    const initialContext = projectionContext(index, 1, 0, false, false);
+
+    layer.sync(store, {
+      fullRebuildEpoch: 1,
+      changedRanges: [{ start: 0, end: 6 }],
+      projectionContext: initialContext,
+    });
+    const particle = layer.staticParticles.particleChildren[0];
+    expect(particle).toMatchObject({ x: 20, y: 25, rotation: 0 });
+    expect(particle?.scaleY).toBeGreaterThan(0);
+
+    const transformed = layer.sync(store, {
+      fullRebuildEpoch: 1,
+      changedRanges: [{ start: 0, end: 1 }],
+      projectionContext: projectionContext(index, 2, 90, true, false),
+    });
+
+    expect(transformed).toMatchObject({
+      changed: true,
+      fullRebuild: false,
+      inPlaceSyncs: 1,
+      staticInvalidatedUploadCount: 1,
+    });
+    expect(particle).toMatchObject({ x: 20, y: 25 });
+    expect(particle?.rotation).toBeCloseTo(Math.PI / 2, 12);
+    expect(particle?.scaleY).toBeLessThan(0);
+    expect(layer.sync(store, {
+      fullRebuildEpoch: 1,
+      projectionContext: projectionContext(index, 2, 90, true, false),
+    }).changed).toBe(false);
+
+    layer.destroy();
+  });
 });
 
 interface StoreOptions {
@@ -253,4 +305,39 @@ function createStore(options: StoreOptions = {}): RenderStoreView {
     background: 0,
     renderOrder: () => Uint32Array.from([0, 1, 2, 3, 4, 5]),
   };
+}
+
+function projectionIndex(
+  contentOrientation: CoreV2EntityProjection['contentOrientation'],
+  affine: CoreV2AffineMatrix,
+): CoreV2ProjectionIndex {
+  const localBounds = Object.freeze([0, 0, 20, 10] as const);
+  const projection: CoreV2EntityProjection = Object.freeze({
+    entityId: 'rect',
+    localBounds,
+    affine,
+    worldBasis: coreV2AffineBasis(affine),
+    visibleCenter: coreV2AffineCenter(affine, localBounds),
+    rotationDegrees: 0,
+    scaleX: 1,
+    scaleY: 1,
+    contentOrientation,
+  });
+  return Object.freeze({
+    byEntityId: Object.freeze({ rect: projection }),
+  });
+}
+
+function projectionContext(
+  index: CoreV2ProjectionIndex,
+  revision: number,
+  rotationDegrees: number,
+  flipX: boolean,
+  flipY: boolean,
+): CoreV2ProjectionRenderContext {
+  return Object.freeze({
+    index,
+    revision,
+    world: Object.freeze({ rotationDegrees, flipX, flipY }),
+  });
 }

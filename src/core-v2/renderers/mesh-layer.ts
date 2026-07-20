@@ -6,6 +6,14 @@ import {
   RenderKind,
   type RenderStoreView,
 } from '../../core-v1/renderer/types';
+import {
+  createCoreV2ResolvedRenderQuadScratch,
+  resolveCoreV2SlotQuad,
+  writeCoreV2SlotQuad,
+  type CoreV2ProjectionRenderContext,
+  type CoreV2QuadVertices,
+  type CoreV2ResolvedRenderQuadScratch,
+} from './types';
 
 export const DEFAULT_AGGREGATE_MESH_CHUNK_SIZE = 512;
 
@@ -25,6 +33,8 @@ export interface AggregateQuad {
   /** Optional entity pivot; bar fill geometry rotates around the complete bar. */
   readonly pivotX?: number;
   readonly pivotY?: number;
+  /** Exact scene-space corners from the shared affine projection sidecar. */
+  readonly vertices?: CoreV2QuadVertices;
 }
 
 export interface AggregateLine {
@@ -70,6 +80,7 @@ export interface AggregateMeshSyncOptions {
   /** Increment this whenever a load replaces the logical store contents. */
   readonly fullRebuildEpoch?: number;
   readonly force?: boolean;
+  readonly projectionContext?: CoreV2ProjectionRenderContext;
 }
 
 export interface AggregateMeshLayerDebug {
@@ -130,6 +141,7 @@ interface BarSlotBinding {
   height: number;
   rotation: number;
   progress: number;
+  projectionRevision: number;
 }
 
 interface ChunkRecord {
@@ -193,6 +205,8 @@ function clamp01(value: number): number {
 }
 
 function isFiniteQuad(quad: AggregateQuad): boolean {
+  const verticesFinite = quad.vertices === undefined ||
+    (quad.vertices.length === 8 && quad.vertices.every(Number.isFinite));
   return (
     Number.isFinite(quad.x) &&
     Number.isFinite(quad.y) &&
@@ -202,7 +216,8 @@ function isFiniteQuad(quad: AggregateQuad): boolean {
     quad.height > 0 &&
     Number.isFinite(quad.rotation ?? 0) &&
     Number.isFinite(quad.pivotX ?? quad.x + quad.width / 2) &&
-    Number.isFinite(quad.pivotY ?? quad.y + quad.height / 2)
+    Number.isFinite(quad.pivotY ?? quad.y + quad.height / 2) &&
+    verticesFinite
   );
 }
 
@@ -309,6 +324,21 @@ function writeQuadPositionValues(
   return corner0 || corner1 || corner2 || corner3;
 }
 
+function writeExactQuadPositionValues(
+  positions: Float32Array,
+  primitiveIndex: number,
+  vertices: CoreV2QuadVertices,
+): boolean {
+  const offset = primitiveIndex * 8;
+  let changed = false;
+  for (let index = 0; index < 8; index += 1) {
+    const next = Math.fround(vertices[index]!);
+    if (positions[offset + index] !== next) changed = true;
+    positions[offset + index] = next;
+  }
+  return changed;
+}
+
 /** Convert Core's packed 0xRRGGBBAA color into Pixi's tint plus alpha. */
 export function packedRgbaToMeshStyle(packed: number, opacity = 1): PackedMeshStyle {
   const normalized = packed >>> 0;
@@ -329,17 +359,21 @@ export function buildQuadGeometry(quads: readonly AggregateQuad[]): AggregateGeo
     const quad = drawable[primitiveIndex] as AggregateQuad;
     const pivotX = quad.pivotX ?? quad.x + quad.width / 2;
     const pivotY = quad.pivotY ?? quad.y + quad.height / 2;
-    writeQuadPositionValues(
-      positions,
-      primitiveIndex,
-      quad.x,
-      quad.y,
-      quad.width,
-      quad.height,
-      quad.rotation ?? 0,
-      pivotX,
-      pivotY,
-    );
+    if (quad.vertices) {
+      writeExactQuadPositionValues(positions, primitiveIndex, quad.vertices);
+    } else {
+      writeQuadPositionValues(
+        positions,
+        primitiveIndex,
+        quad.x,
+        quad.y,
+        quad.width,
+        quad.height,
+        quad.rotation ?? 0,
+        pivotX,
+        pivotY,
+      );
+    }
     writeUvsAndIndices(uvs, indices, primitiveIndex);
   }
 
@@ -559,6 +593,7 @@ function appendBarSlot(
   slot: number,
   groups: Map<string, MutableQuadGroup>,
   bindings: Map<number, BarSlotBinding>,
+  projectionContext?: CoreV2ProjectionRenderContext,
 ): number {
   let track: BarPrimitiveBinding | null = null;
   let fill: BarPrimitiveBinding | null = null;
@@ -568,6 +603,8 @@ function appendBarSlot(
   const height = store.height[slot] as number;
   const rotation = store.rotation[slot] as number;
   const progress = resolveBarProgress(store, slot);
+  const trackQuad = resolveCoreV2SlotQuad(store, slot, projectionContext);
+  const fillQuad = resolveCoreV2SlotQuad(store, slot, projectionContext, progress);
   if (isDrawable(store, slot)) {
     if (width > 0 && height > 0) {
       const opacity = store.opacity[slot] as number;
@@ -580,7 +617,7 @@ function appendBarSlot(
         opacity,
         zIndex,
         BAR_TRACK_PASS,
-        { x, y, width, height, rotation, pivotX, pivotY },
+        { x, y, width, height, rotation, pivotX, pivotY, vertices: trackQuad.vertices },
       );
 
       const fillWidth = width * progress;
@@ -591,18 +628,38 @@ function appendBarSlot(
           opacity,
           zIndex,
           BAR_FILL_PASS,
-          { x, y, width: fillWidth, height, rotation, pivotX, pivotY },
+          {
+            x,
+            y,
+            width: fillWidth,
+            height,
+            rotation,
+            pivotX,
+            pivotY,
+            vertices: fillQuad.vertices,
+          },
         );
       }
     }
   }
-  bindings.set(slot, { track, fill, x, y, width, height, rotation, progress });
+  bindings.set(slot, {
+    track,
+    fill,
+    x,
+    y,
+    width,
+    height,
+    rotation,
+    progress,
+    projectionRevision: projectionContext?.revision ?? -1,
+  });
   return (track === null ? 0 : 1) + (fill === null ? 0 : 1);
 }
 
 function buildAggregateBarLaneGeometry(
   store: RenderStoreView,
   barSlots: readonly number[],
+  projectionContext?: CoreV2ProjectionRenderContext,
 ): AggregateBarLaneGeometry {
   const groups = new Map<string, MutableQuadGroup>();
   const bindings = new Map<number, BarSlotBinding>();
@@ -616,7 +673,7 @@ function buildAggregateBarLaneGeometry(
     ) {
       continue;
     }
-    visibleBars += appendBarSlot(store, slot, groups, bindings);
+    visibleBars += appendBarSlot(store, slot, groups, bindings, projectionContext);
   }
   return {
     groups: [...groups.values()].map((group) =>
@@ -735,6 +792,9 @@ function updateBoundBarSlotPositions(
   binding: BarSlotBinding,
   records: ReadonlyMap<string, MeshRecord>,
   dirtyRecords: Set<MeshRecord>,
+  trackQuad: CoreV2ResolvedRenderQuadScratch,
+  fillQuad: CoreV2ResolvedRenderQuadScratch,
+  projectionContext?: CoreV2ProjectionRenderContext,
 ): void {
   const x = store.x[slot] as number;
   const y = store.y[slot] as number;
@@ -742,27 +802,22 @@ function updateBoundBarSlotPositions(
   const height = store.height[slot] as number;
   const rotation = store.rotation[slot] as number;
   const progress = resolveBarProgress(store, slot);
-  const pivotX = x + width / 2;
-  const pivotY = y + height / 2;
+  writeCoreV2SlotQuad(trackQuad, store, slot, projectionContext);
+  writeCoreV2SlotQuad(fillQuad, store, slot, projectionContext, progress);
   const transformChanged =
     binding.x !== x ||
     binding.y !== y ||
     binding.width !== width ||
     binding.height !== height ||
-    binding.rotation !== rotation;
+    binding.rotation !== rotation ||
+    binding.projectionRevision !== (projectionContext?.revision ?? -1);
   if (binding.track !== null && transformChanged) {
     const record = records.get(binding.track.key) as MeshRecord;
     if (
-      writeQuadPositionValues(
+      writeExactQuadPositionValues(
         record.geometry.positions,
         binding.track.primitiveIndex,
-        x,
-        y,
-        width,
-        height,
-        rotation,
-        pivotX,
-        pivotY,
+        trackQuad.vertices,
       )
     ) {
       dirtyRecords.add(record);
@@ -771,16 +826,10 @@ function updateBoundBarSlotPositions(
   if (binding.fill !== null && (transformChanged || binding.progress !== progress)) {
     const record = records.get(binding.fill.key) as MeshRecord;
     if (
-      writeQuadPositionValues(
+      writeExactQuadPositionValues(
         record.geometry.positions,
         binding.fill.primitiveIndex,
-        x,
-        y,
-        width * progress,
-        height,
-        rotation,
-        pivotX,
-        pivotY,
+        fillQuad.vertices,
       )
     ) {
       dirtyRecords.add(record);
@@ -792,12 +841,14 @@ function updateBoundBarSlotPositions(
   binding.height = height;
   binding.rotation = rotation;
   binding.progress = progress;
+  binding.projectionRevision = projectionContext?.revision ?? -1;
 }
 
 function buildAggregateChunkLaneGeometry(
   store: RenderStoreView,
   start: number,
   end: number,
+  projectionContext?: CoreV2ProjectionRenderContext,
 ): AggregateChunkLaneGeometry {
   const rectGroups = new Map<string, MutableQuadGroup>();
   const barGroups = new Map<string, MutableQuadGroup>();
@@ -815,7 +866,7 @@ function buildAggregateChunkLaneGeometry(
     const kind = store.kind[slot] as number;
     if (kind === RenderKind.Bar) {
       barSlots.push(slot);
-      visibleBars += appendBarSlot(store, slot, barGroups, barBindings);
+      visibleBars += appendBarSlot(store, slot, barGroups, barBindings, projectionContext);
       continue;
     }
     if (!isDrawable(store, slot)) continue;
@@ -829,12 +880,14 @@ function buildAggregateChunkLaneGeometry(
         ? getQuadGroup(rectGroups, store.fill[slot] as number, opacity, zIndex, RECT_PASS)
         : null;
       if (group !== null) {
+        const quad = resolveCoreV2SlotQuad(store, slot, projectionContext);
         group.primitives.push({
           x: store.x[slot] as number,
           y: store.y[slot] as number,
           width,
           height,
           rotation: store.rotation[slot] as number,
+          vertices: quad.vertices,
         });
         visibleRects += 1;
       }
@@ -853,11 +906,13 @@ function buildAggregateChunkLaneGeometry(
       zIndex,
     );
     if (group === null) continue;
+    const fromQuad = resolveCoreV2SlotQuad(store, from, projectionContext);
+    const toQuad = resolveCoreV2SlotQuad(store, to, projectionContext);
     const line = {
-      fromX: (store.x[from] as number) + (store.width[from] as number) / 2,
-      fromY: (store.y[from] as number) + (store.height[from] as number) / 2,
-      toX: (store.x[to] as number) + (store.width[to] as number) / 2,
-      toY: (store.y[to] as number) + (store.height[to] as number) / 2,
+      fromX: fromQuad.center[0],
+      fromY: fromQuad.center[1],
+      toX: toQuad.center[0],
+      toY: toQuad.center[1],
       width,
     };
     if (!isFiniteLine(line)) continue;
@@ -894,8 +949,9 @@ export function buildAggregateChunkGeometry(
   store: RenderStoreView,
   start: number,
   end: number,
+  projectionContext?: CoreV2ProjectionRenderContext,
 ): AggregateChunkGeometry {
-  const built = buildAggregateChunkLaneGeometry(store, start, end);
+  const built = buildAggregateChunkLaneGeometry(store, start, end, projectionContext);
   return {
     quadGroups: [...built.rectGroups, ...built.barGroups],
     relationGroups: built.relationGroups,
@@ -949,6 +1005,9 @@ export class AggregateMeshLayer {
   #destroyed = false;
   #debug: AggregateMeshLayerDebug;
   #view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
+  #projectionContext: CoreV2ProjectionRenderContext | undefined;
+  readonly #trackQuadScratch = createCoreV2ResolvedRenderQuadScratch();
+  readonly #fillQuadScratch = createCoreV2ResolvedRenderQuadScratch();
 
   public constructor(options: AggregateMeshLayerOptions = {}) {
     const chunkSize = options.chunkSize ?? DEFAULT_AGGREGATE_MESH_CHUNK_SIZE;
@@ -1010,6 +1069,7 @@ export class AggregateMeshLayer {
     options: AggregateMeshSyncOptions = {},
   ): AggregateMeshLayerDebug {
     this.#assertAlive();
+    this.#projectionContext = options.projectionContext;
     const epochChanged =
       options.fullRebuildEpoch !== undefined &&
       options.fullRebuildEpoch !== this.#fullRebuildEpoch;
@@ -1165,7 +1225,12 @@ export class AggregateMeshLayer {
   #syncChunk(store: RenderStoreView, chunkIndex: number): UploadDelta {
     const start = chunkIndex * this.chunkSize;
     const end = Math.min(store.capacity, start + this.chunkSize);
-    const built = buildAggregateChunkLaneGeometry(store, start, end);
+    const built = buildAggregateChunkLaneGeometry(
+      store,
+      start,
+      end,
+      this.#projectionContext,
+    );
     let chunk = this.#chunks.get(chunkIndex);
     if (
       built.rectGroups.length === 0 &&
@@ -1248,6 +1313,9 @@ export class AggregateMeshLayer {
         chunk.barBindings.get(slot) as BarSlotBinding,
         chunk.barMeshes,
         dirtyRecords,
+        this.#trackQuadScratch,
+        this.#fillQuadScratch,
+        this.#projectionContext,
       );
     }
     let bytes = 0;
@@ -1267,7 +1335,11 @@ export class AggregateMeshLayer {
     chunkIndex: number,
     chunk: ChunkRecord,
   ): UploadDelta {
-    const built = buildAggregateBarLaneGeometry(store, chunk.barSlots);
+    const built = buildAggregateBarLaneGeometry(
+      store,
+      chunk.barSlots,
+      this.#projectionContext,
+    );
     const delta = this.#syncGroups(
       this.quadContainer,
       chunk.barMeshes,

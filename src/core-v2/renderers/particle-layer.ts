@@ -14,9 +14,13 @@ import {
   RenderKind,
   type RenderStoreView,
 } from '../../core-v1/renderer/types';
+import type { CoreV2AffineBasis } from '../semantic/geometry';
+import {
+  resolveCoreV2SlotQuad,
+  type CoreV2ProjectionRenderContext,
+} from './types';
 
 const EMPTY_BOUNDS = Object.freeze({ x: 0, y: 0, width: 1, height: 1 });
-const DEG_TO_RAD = Math.PI / 180;
 
 export interface ParticleQuadDescriptor {
   readonly key: string;
@@ -26,6 +30,8 @@ export interface ParticleQuadDescriptor {
   readonly centerY: number;
   readonly width: number;
   readonly height: number;
+  /** Normalized signed axes shared with Mesh, leaves, and geometry probes. */
+  readonly basis: CoreV2AffineBasis;
   readonly rotation: number;
   readonly tint: number;
   readonly alpha: number;
@@ -80,6 +86,7 @@ export interface ParticleGraphicsSyncOptions {
   readonly changedRanges?: readonly SlotRange[];
   /** Change this on document reload even if the dense store reuses its revision number. */
   readonly fullRebuildEpoch?: number | string;
+  readonly projectionContext?: CoreV2ProjectionRenderContext;
 }
 
 export interface ParticleGraphicsDebugCounters {
@@ -128,6 +135,7 @@ export const PARTICLE_GRAPHICS_LIMITATIONS = Object.freeze([
  */
 export function buildParticleGraphicsDescriptors(
   store: RenderStoreView,
+  projectionContext?: CoreV2ProjectionRenderContext,
 ): ParticleGraphicsDescriptors {
   const staticParticles: ParticleQuadDescriptor[] = [];
   const dynamicParticles: ParticleQuadDescriptor[] = [];
@@ -151,11 +159,22 @@ export function buildParticleGraphicsDescriptors(
     if (kind === RenderKind.Rect) {
       const fill = unpackColor(store.fill[slot] as number, visibleOpacity);
       const stroke = unpackColor(store.stroke[slot] as number, visibleOpacity);
-      const quad = createQuad(store, slot, 'rect', fill.tint, fill.alpha);
+      const quad = createQuad(
+        store,
+        slot,
+        'rect',
+        fill.tint,
+        fill.alpha,
+        projectionContext,
+      );
       const radius = clampRadius(store.radius[slot] as number, quad.width, quad.height);
       const strokeWidth = Math.max(0, finiteOrZero(store.strokeWidth[slot] as number));
 
-      if (radius === 0 && (stroke.alpha === 0 || strokeWidth === 0)) {
+      if (
+        radius === 0 &&
+        (stroke.alpha === 0 || strokeWidth === 0) &&
+        isParticleCompatible(quad)
+      ) {
         staticParticles.push(quad);
       } else {
         fallbackGraphics.push({
@@ -170,26 +189,40 @@ export function buildParticleGraphicsDescriptors(
     }
 
     if (kind === RenderKind.Bar) {
-      const width = positiveOrZero(store.width[slot] as number);
-      const height = positiveOrZero(store.height[slot] as number);
       const min = finiteOrZero(store.min[slot] as number);
       const max = finiteOrZero(store.max[slot] as number);
       const value = finiteOrZero(store.value[slot] as number);
       const progress = max > min ? clamp01((value - min) / (max - min)) : 0;
       const track = unpackColor(store.trackFill[slot] as number, visibleOpacity);
       const fill = unpackColor(store.fill[slot] as number, visibleOpacity);
-      const trackQuad = createQuad(store, slot, 'bar-track', track.tint, track.alpha);
+      const trackQuad = createQuad(
+        store,
+        slot,
+        'bar-track',
+        track.tint,
+        track.alpha,
+        projectionContext,
+      );
       const fillQuad = createQuad(
         store,
         slot,
         'bar-fill',
         fill.tint,
         fill.alpha,
-        width * progress,
+        projectionContext,
+        progress,
       );
-      const radius = clampRadius(store.radius[slot] as number, width, height);
+      const radius = clampRadius(
+        store.radius[slot] as number,
+        trackQuad.width,
+        trackQuad.height,
+      );
 
-      if (radius === 0) {
+      if (
+        radius === 0 &&
+        isParticleCompatible(trackQuad) &&
+        isParticleCompatible(fillQuad)
+      ) {
         // Keep the zero-width fill particle so a 0 -> positive animation does
         // not churn Particle instances or change the aggregate topology.
         dynamicParticles.push(trackQuad, fillQuad);
@@ -215,7 +248,7 @@ export function buildParticleGraphicsDescriptors(
     }
 
     if (kind === RenderKind.Relation) {
-      relations.push(createRelation(store, slot, visibleOpacity));
+      relations.push(createRelation(store, slot, visibleOpacity, projectionContext));
       continue;
     }
 
@@ -255,6 +288,7 @@ export class ParticleGraphicsLayer {
   #dynamicKeys: string[] = [];
   #lastStore: RenderStoreView | null = null;
   #lastRevision = -1;
+  #lastProjectionRevision = -1;
   #lastEpoch: number | string | null = null;
   #lastFallbackSignature = '';
   #lastRelationSignature = '';
@@ -352,22 +386,27 @@ export class ParticleGraphicsLayer {
   ): ParticleGraphicsSyncResult {
     this.#assertAlive();
     const requestedEpoch = options.fullRebuildEpoch ?? null;
+    const requestedProjectionRevision = options.projectionContext?.revision ?? -1;
     if (
       store === this.#lastStore &&
       store.revision === this.#lastRevision &&
+      requestedProjectionRevision === this.#lastProjectionRevision &&
       requestedEpoch === this.#lastEpoch
     ) {
       return Object.freeze({ ...this.#lastCounters, changed: false, fullRebuild: false });
     }
 
-    const descriptors = buildParticleGraphicsDescriptors(store);
+    const descriptors = buildParticleGraphicsDescriptors(store, options.projectionContext);
     const fullRebuild =
       store !== this.#lastStore ||
       requestedEpoch !== this.#lastEpoch ||
       !sameKeys(this.#staticKeys, descriptors.staticParticles) ||
       !sameKeys(this.#dynamicKeys, descriptors.dynamicParticles);
+    const projectionChanged = requestedProjectionRevision !== this.#lastProjectionRevision;
     const staticInvalidated =
-      fullRebuild || changedRangesTouchRect(store, options.changedRanges);
+      fullRebuild ||
+      changedRangesTouchRect(store, options.changedRanges) ||
+      (projectionChanged && options.changedRanges === undefined);
 
     if (fullRebuild) {
       this.#replaceParticles(
@@ -399,6 +438,7 @@ export class ParticleGraphicsLayer {
 
     this.#lastStore = store;
     this.#lastRevision = store.revision;
+    this.#lastProjectionRevision = requestedProjectionRevision;
     this.#lastEpoch = requestedEpoch;
     this.#lastCounters = freezeCounters({
       storeRevision: store.revision,
@@ -446,6 +486,7 @@ export class ParticleGraphicsLayer {
     this.#dynamicKeys.length = 0;
     this.#lastStore = null;
     this.#lastRevision = -1;
+    this.#lastProjectionRevision = -1;
     this.#lastFallbackSignature = '';
     this.#lastRelationSignature = '';
     this.#destroyed = true;
@@ -548,25 +589,20 @@ function createQuad(
   role: ParticleQuadDescriptor['role'],
   tint: number,
   alpha: number,
-  widthOverride?: number,
+  projectionContext?: CoreV2ProjectionRenderContext,
+  widthFraction = 1,
 ): ParticleQuadDescriptor {
-  const width = positiveOrZero(widthOverride ?? (store.width[slot] as number));
-  const height = positiveOrZero(store.height[slot] as number);
-  const x = finiteOrZero(store.x[slot] as number);
-  const y = finiteOrZero(store.y[slot] as number);
-  const rotation = finiteOrZero(store.rotation[slot] as number) * DEG_TO_RAD;
-  const sourceWidth = positiveOrZero(store.width[slot] as number);
-  const sourceCenterX = x + sourceWidth / 2;
-  const sourceCenterY = y + height / 2;
-  const localOffsetX = widthOverride === undefined ? 0 : (width - sourceWidth) / 2;
+  const resolved = resolveCoreV2SlotQuad(store, slot, projectionContext, widthFraction);
+  const rotation = Math.atan2(resolved.basis[1], resolved.basis[0]);
   return Object.freeze({
     key: `${role}:${slot}`,
     slot,
     role,
-    centerX: sourceCenterX + localOffsetX * Math.cos(rotation),
-    centerY: sourceCenterY + localOffsetX * Math.sin(rotation),
-    width,
-    height,
+    centerX: resolved.center[0],
+    centerY: resolved.center[1],
+    width: resolved.width,
+    height: resolved.height,
+    basis: resolved.basis,
     rotation,
     tint,
     alpha,
@@ -577,26 +613,25 @@ function createRelation(
   store: RenderStoreView,
   slot: number,
   visibleOpacity: number,
+  projectionContext?: CoreV2ProjectionRenderContext,
 ): RelationSegmentDescriptor {
   const from = store.relationFrom[slot] as number;
   const to = store.relationTo[slot] as number;
   const resolved = isAlive(store, from) && isAlive(store, to);
   const color = unpackColor(store.color[slot] as number, visibleOpacity);
+  const fromCenter = resolved
+    ? resolveCoreV2SlotQuad(store, from, projectionContext).center
+    : null;
+  const toCenter = resolved
+    ? resolveCoreV2SlotQuad(store, to, projectionContext).center
+    : null;
   return Object.freeze({
     key: `relation:${slot}`,
     slot,
-    fromX: resolved
-      ? finiteOrZero(store.x[from] as number) + positiveOrZero(store.width[from] as number) / 2
-      : 0,
-    fromY: resolved
-      ? finiteOrZero(store.y[from] as number) + positiveOrZero(store.height[from] as number) / 2
-      : 0,
-    toX: resolved
-      ? finiteOrZero(store.x[to] as number) + positiveOrZero(store.width[to] as number) / 2
-      : 0,
-    toY: resolved
-      ? finiteOrZero(store.y[to] as number) + positiveOrZero(store.height[to] as number) / 2
-      : 0,
+    fromX: fromCenter?.[0] ?? 0,
+    fromY: fromCenter?.[1] ?? 0,
+    toX: toCenter?.[0] ?? 0,
+    toY: toCenter?.[1] ?? 0,
     tint: color.tint,
     alpha: color.alpha,
     lineWidth: positiveOrZero(store.lineWidth[slot] as number),
@@ -637,11 +672,9 @@ function appendRotatedRoundedRect(
   const halfHeight = descriptor.height / 2;
   const radius = Math.min(descriptor.radius, halfWidth, halfHeight);
   const point = (x: number, y: number): readonly [number, number] => {
-    const cos = Math.cos(descriptor.rotation);
-    const sin = Math.sin(descriptor.rotation);
     return [
-      descriptor.centerX + x * cos - y * sin,
-      descriptor.centerY + x * sin + y * cos,
+      descriptor.centerX + x * descriptor.basis[0] + y * descriptor.basis[2],
+      descriptor.centerY + x * descriptor.basis[1] + y * descriptor.basis[3],
     ];
   };
 
@@ -707,7 +740,7 @@ function applyParticle(
   particle.anchorX = 0.5;
   particle.anchorY = 0.5;
   particle.scaleX = descriptor.width / textureWidth;
-  particle.scaleY = descriptor.height / textureHeight;
+  particle.scaleY = descriptor.height / textureHeight * basisHandedness(descriptor.basis);
   particle.rotation = descriptor.rotation;
   particle.tint = descriptor.tint;
   particle.alpha = descriptor.alpha;
@@ -765,10 +798,14 @@ function computeQuadBounds(descriptors: readonly ParticleQuadDescriptor[]): Laye
   let maxX = Number.NEGATIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
   for (const descriptor of descriptors) {
-    const cos = Math.abs(Math.cos(descriptor.rotation));
-    const sin = Math.abs(Math.sin(descriptor.rotation));
-    const halfWidth = (descriptor.width * cos + descriptor.height * sin) / 2;
-    const halfHeight = (descriptor.width * sin + descriptor.height * cos) / 2;
+    const halfWidth = (
+      descriptor.width * Math.abs(descriptor.basis[0]) +
+      descriptor.height * Math.abs(descriptor.basis[2])
+    ) / 2;
+    const halfHeight = (
+      descriptor.width * Math.abs(descriptor.basis[1]) +
+      descriptor.height * Math.abs(descriptor.basis[3])
+    ) / 2;
     minX = Math.min(minX, descriptor.centerX - halfWidth);
     minY = Math.min(minY, descriptor.centerY - halfHeight);
     maxX = Math.max(maxX, descriptor.centerX + halfWidth);
@@ -797,6 +834,7 @@ function graphicsSignature(descriptors: readonly GraphicsQuadDescriptor[]): stri
     descriptor.centerY,
     descriptor.width,
     descriptor.height,
+    ...descriptor.basis,
     descriptor.rotation,
     descriptor.tint,
     descriptor.alpha,
@@ -823,4 +861,21 @@ function relationSignature(descriptors: readonly RelationSegmentDescriptor[]): s
 
 function freezeCounters(counters: ParticleGraphicsDebugCounters): ParticleGraphicsDebugCounters {
   return Object.freeze({ ...counters });
+}
+
+function isParticleCompatible(descriptor: ParticleQuadDescriptor): boolean {
+  if (descriptor.width === 0 || descriptor.height === 0) return true;
+  const [a, b, c, d] = descriptor.basis;
+  const xLength = Math.hypot(a, b);
+  const yLength = Math.hypot(c, d);
+  const dot = a * c + b * d;
+  const determinant = a * d - b * c;
+  return Math.abs(xLength - 1) <= 1e-6 &&
+    Math.abs(yLength - 1) <= 1e-6 &&
+    Math.abs(dot) <= 1e-6 &&
+    Math.abs(Math.abs(determinant) - 1) <= 1e-6;
+}
+
+function basisHandedness(basis: CoreV2AffineBasis): 1 | -1 {
+  return basis[0] * basis[3] - basis[1] * basis[2] < 0 ? -1 : 1;
 }

@@ -2,13 +2,70 @@ import type { Container } from 'pixi.js';
 
 import type { CoreView, SlotRange } from '../../core-v1/contracts';
 import type { RenderStoreView } from '../../core-v1/renderer/types';
+import type { CoreV2EntityProjection, CoreV2ProjectionIndex } from '../contracts';
+import {
+  freezeCoreV2Affine,
+  type CoreV2AffineBasis,
+  type CoreV2AffineMatrix,
+  type CoreV2PointTuple,
+} from '../semantic/geometry';
 
 export type CoreV2RendererStrategy = 'mesh' | 'particle';
 export type CoreV2BackendPreference = 'webgl' | 'webgpu';
 
+export interface CoreV2WorldOrientation {
+  readonly rotationDegrees: number;
+  readonly flipX: boolean;
+  readonly flipY: boolean;
+}
+
+export interface CoreV2ProjectionRenderContext {
+  readonly index: CoreV2ProjectionIndex;
+  readonly revision: number;
+  readonly world: CoreV2WorldOrientation;
+}
+
+export type CoreV2QuadVertices = readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+];
+
+export interface CoreV2ResolvedRenderQuad {
+  readonly entityId: string;
+  readonly projection: CoreV2EntityProjection | null;
+  /** Scene-space center remains stable when upright counter-transforming. */
+  readonly center: CoreV2PointTuple;
+  /** Scene-space basis consumed by Pixi objects before the world container. */
+  readonly basis: CoreV2AffineBasis;
+  /** Final normalized basis after the Pixi world rotation/reflection. */
+  readonly screenBasis: CoreV2AffineBasis;
+  readonly width: number;
+  readonly height: number;
+  readonly vertices: CoreV2QuadVertices;
+}
+
+/** Reusable numeric target for allocation-free aggregate hot paths. */
+export interface CoreV2ResolvedRenderQuadScratch {
+  entityId: string;
+  projection: CoreV2EntityProjection | null;
+  center: [number, number];
+  basis: [number, number, number, number];
+  screenBasis: [number, number, number, number];
+  width: number;
+  height: number;
+  vertices: [number, number, number, number, number, number, number, number];
+}
+
 export interface AggregateLayerSyncOptions {
   readonly changedRanges?: readonly SlotRange[];
   readonly fullRebuildEpoch?: number;
+  readonly projectionContext?: CoreV2ProjectionRenderContext;
 }
 
 export interface AggregateLayerDebug {
@@ -62,4 +119,276 @@ export interface PixiCoreV2RendererDebug {
   readonly view: CoreView;
   readonly lastInvalidation: string;
   readonly destroyed: boolean;
+}
+
+export function createCoreV2WorldAffine(world: CoreV2WorldOrientation): CoreV2AffineMatrix {
+  const radians = world.rotationDegrees * Math.PI / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  const flipX = world.flipX ? -1 : 1;
+  const flipY = world.flipY ? -1 : 1;
+  // PATCH MAP flips are screen-axis operations: F * R, not Pixi's default R * S.
+  return freezeCoreV2Affine(
+    cosine * flipX,
+    sine * flipY,
+    -sine * flipX,
+    cosine * flipY,
+    0,
+    0,
+  );
+}
+
+/**
+ * Resolve a dense slot through the parser's exact affine sidecar. Mesh,
+ * Particle, Sprite/Text, relations, and selection all call this function.
+ */
+export function resolveCoreV2SlotQuad(
+  store: RenderStoreView,
+  slot: number,
+  context?: CoreV2ProjectionRenderContext,
+  widthFraction = 1,
+): CoreV2ResolvedRenderQuad {
+  const scratch = writeCoreV2SlotQuad(
+    createCoreV2ResolvedRenderQuadScratch(),
+    store,
+    slot,
+    context,
+    widthFraction,
+  );
+  return Object.freeze({
+    entityId: scratch.entityId,
+    projection: scratch.projection,
+    center: Object.freeze([...scratch.center] as [number, number]),
+    basis: Object.freeze([...scratch.basis] as [number, number, number, number]),
+    screenBasis: Object.freeze([...scratch.screenBasis] as [number, number, number, number]),
+    width: scratch.width,
+    height: scratch.height,
+    vertices: Object.freeze([...scratch.vertices] as [
+      number, number, number, number, number, number, number, number,
+    ]),
+  });
+}
+
+export function createCoreV2ResolvedRenderQuadScratch(): CoreV2ResolvedRenderQuadScratch {
+  return {
+    entityId: '',
+    projection: null,
+    center: [0, 0],
+    basis: [1, 0, 0, 1],
+    screenBasis: [1, 0, 0, 1],
+    width: 0,
+    height: 0,
+    vertices: [0, 0, 0, 0, 0, 0, 0, 0],
+  };
+}
+
+/** Write one exact quad without allocating matrices, points, corners, or result objects. */
+export function writeCoreV2SlotQuad(
+  output: CoreV2ResolvedRenderQuadScratch,
+  store: RenderStoreView,
+  slot: number,
+  context?: CoreV2ProjectionRenderContext,
+  widthFraction = 1,
+): CoreV2ResolvedRenderQuadScratch {
+  const fraction = Number.isFinite(widthFraction)
+    ? Math.max(0, Math.min(1, widthFraction))
+    : 0;
+  const entityId = store.ids[slot] ?? `@slot:${slot}`;
+  const projection = context?.index.byEntityId[entityId] ?? null;
+  const radians = (context?.world.rotationDegrees ?? 0) * Math.PI / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  const flipX = context?.world.flipX === true ? -1 : 1;
+  const flipY = context?.world.flipY === true ? -1 : 1;
+  const worldA = cosine * flipX;
+  const worldB = sine * flipY;
+  const worldC = -sine * flipX;
+  const worldD = cosine * flipY;
+
+  output.entityId = entityId;
+  output.projection = projection;
+  if (projection) {
+    writeProjectedQuad(
+      output,
+      projection,
+      fraction,
+      worldA,
+      worldB,
+      worldC,
+      worldD,
+    );
+    return output;
+  }
+
+  const x = store.x[slot] ?? 0;
+  const y = store.y[slot] ?? 0;
+  const fullWidth = Math.max(0, store.width[slot] ?? 0);
+  const width = fullWidth * fraction;
+  const height = Math.max(0, store.height[slot] ?? 0);
+  const rotation = store.rotation[slot] ?? 0;
+  const localRadians = rotation * Math.PI / 180;
+  const localCosine = Math.cos(localRadians);
+  const localSine = Math.sin(localRadians);
+  const fullCenterX = x + fullWidth / 2;
+  const fullCenterY = y + height / 2;
+  const centerOffset = (width - fullWidth) / 2;
+  const centerX = fullCenterX + centerOffset * localCosine;
+  const centerY = fullCenterY + centerOffset * localSine;
+  writeQuadValues(
+    output,
+    centerX,
+    centerY,
+    localCosine,
+    localSine,
+    -localSine,
+    localCosine,
+    width,
+    height,
+    worldA,
+    worldB,
+    worldC,
+    worldD,
+  );
+  return output;
+}
+
+function writeProjectedQuad(
+  output: CoreV2ResolvedRenderQuadScratch,
+  projection: CoreV2EntityProjection,
+  fraction: number,
+  worldA: number,
+  worldB: number,
+  worldC: number,
+  worldD: number,
+): void {
+  const [localX, localY, localWidth, localHeight] = projection.localBounds;
+  const [a, b, c, d, tx, ty] = projection.affine;
+  const xScale = Math.hypot(a, b);
+  const yScale = Math.hypot(c, d);
+  const width = localWidth * fraction * xScale;
+  const height = localHeight * yScale;
+  if (projection.contentOrientation === 'upright') {
+    const determinant = worldA * worldD - worldB * worldC;
+    const basisA = worldD / determinant;
+    const basisB = -worldB / determinant;
+    const basisC = -worldC / determinant;
+    const basisD = worldA / determinant;
+    const centerOffset = (localWidth * fraction - localWidth) * xScale / 2;
+    writeQuadValues(
+      output,
+      projection.visibleCenter[0] + basisA * centerOffset,
+      projection.visibleCenter[1] + basisB * centerOffset,
+      basisA,
+      basisB,
+      basisC,
+      basisD,
+      width,
+      height,
+      worldA,
+      worldB,
+      worldC,
+      worldD,
+    );
+    return;
+  }
+
+  const partialWidth = localWidth * fraction;
+  const topLeftX = a * localX + c * localY + tx;
+  const topLeftY = b * localX + d * localY + ty;
+  const topRightX = topLeftX + a * partialWidth;
+  const topRightY = topLeftY + b * partialWidth;
+  const bottomLeftX = topLeftX + c * localHeight;
+  const bottomLeftY = topLeftY + d * localHeight;
+  const bottomRightX = topRightX + c * localHeight;
+  const bottomRightY = topRightY + d * localHeight;
+  output.center[0] = (topLeftX + bottomRightX) / 2;
+  output.center[1] = (topLeftY + bottomRightY) / 2;
+  output.basis[0] = normalizeSignedZero(xScale === 0 ? 0 : a / xScale);
+  output.basis[1] = normalizeSignedZero(xScale === 0 ? 0 : b / xScale);
+  output.basis[2] = normalizeSignedZero(yScale === 0 ? 0 : c / yScale);
+  output.basis[3] = normalizeSignedZero(yScale === 0 ? 0 : d / yScale);
+  writeNormalizedScreenBasis(
+    output.screenBasis,
+    worldA * a + worldC * b,
+    worldB * a + worldD * b,
+    worldA * c + worldC * d,
+    worldB * c + worldD * d,
+  );
+  output.width = width;
+  output.height = height;
+  const vertices = output.vertices;
+  vertices[0] = topLeftX;
+  vertices[1] = topLeftY;
+  vertices[2] = topRightX;
+  vertices[3] = topRightY;
+  vertices[4] = bottomRightX;
+  vertices[5] = bottomRightY;
+  vertices[6] = bottomLeftX;
+  vertices[7] = bottomLeftY;
+}
+
+function writeQuadValues(
+  output: CoreV2ResolvedRenderQuadScratch,
+  centerX: number,
+  centerY: number,
+  basisA: number,
+  basisB: number,
+  basisC: number,
+  basisD: number,
+  width: number,
+  height: number,
+  worldA: number,
+  worldB: number,
+  worldC: number,
+  worldD: number,
+): void {
+  output.center[0] = centerX;
+  output.center[1] = centerY;
+  output.basis[0] = normalizeSignedZero(basisA);
+  output.basis[1] = normalizeSignedZero(basisB);
+  output.basis[2] = normalizeSignedZero(basisC);
+  output.basis[3] = normalizeSignedZero(basisD);
+  writeNormalizedScreenBasis(
+    output.screenBasis,
+    worldA * basisA + worldC * basisB,
+    worldB * basisA + worldD * basisB,
+    worldA * basisC + worldC * basisD,
+    worldB * basisC + worldD * basisD,
+  );
+  output.width = width;
+  output.height = height;
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+  const xWidth = basisA * halfWidth;
+  const yWidth = basisB * halfWidth;
+  const xHeight = basisC * halfHeight;
+  const yHeight = basisD * halfHeight;
+  const vertices = output.vertices;
+  vertices[0] = centerX - xWidth - xHeight;
+  vertices[1] = centerY - yWidth - yHeight;
+  vertices[2] = centerX + xWidth - xHeight;
+  vertices[3] = centerY + yWidth - yHeight;
+  vertices[4] = centerX + xWidth + xHeight;
+  vertices[5] = centerY + yWidth + yHeight;
+  vertices[6] = centerX - xWidth + xHeight;
+  vertices[7] = centerY - yWidth + yHeight;
+}
+
+function writeNormalizedScreenBasis(
+  output: [number, number, number, number],
+  a: number,
+  b: number,
+  c: number,
+  d: number,
+): void {
+  const xLength = Math.hypot(a, b);
+  const yLength = Math.hypot(c, d);
+  output[0] = normalizeSignedZero(xLength === 0 ? 0 : a / xLength);
+  output[1] = normalizeSignedZero(xLength === 0 ? 0 : b / xLength);
+  output[2] = normalizeSignedZero(yLength === 0 ? 0 : c / yLength);
+  output[3] = normalizeSignedZero(yLength === 0 ? 0 : d / yLength);
+}
+
+function normalizeSignedZero(value: number): number {
+  return Object.is(value, -0) ? 0 : value;
 }

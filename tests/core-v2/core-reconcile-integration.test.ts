@@ -253,6 +253,23 @@ describe('Core v2 runtime dense reconcile', () => {
     expect(core.identity).toBe(identityBefore);
     expect(renderer.markCalls).toEqual([]);
   });
+
+  it('inverts screen-axis flips after rotation for transformed pointer coordinates', () => {
+    const { core } = createTestCore(allocated);
+    core.load([directRect('endpoint', { x: 110, width: 20, height: 20 })]);
+    core.setWorldTransform({
+      x: 10,
+      y: 20,
+      scale: 2,
+      rotationDegrees: 90,
+      flipX: true,
+      flipY: false,
+    });
+
+    const world = core.screenToWorld({ x: 170, y: 260 });
+    expect(world.x).toBeCloseTo(120, 10);
+    expect(world.y).toBeCloseTo(80, 10);
+  });
 });
 
 interface RendererMarkCall {
@@ -288,6 +305,14 @@ class RendererTestDouble {
   }
 
   public markOverlayChanges(): void {}
+
+  public setProjection(): boolean {
+    return true;
+  }
+
+  public setWorldOrientation(): boolean {
+    return true;
+  }
 
   public resize(): boolean {
     return false;

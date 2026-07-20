@@ -4,6 +4,7 @@ import {
   Application,
   Container,
   Graphics,
+  Matrix,
   Rectangle,
   type ApplicationOptions,
   type FederatedPointerEvent,
@@ -21,11 +22,18 @@ import {
 import { AggregateLeafLayer } from './leaf-layer';
 import { AggregateMeshLayer } from './mesh-layer';
 import { ParticleGraphicsLayer } from './particle-layer';
+import type { CoreV2ProjectionIndex } from '../contracts';
 import type {
   CoreV2BackendPreference,
   CoreV2RendererStrategy,
   PixiCoreV2RendererDebug,
   RootInteractionHandlers,
+} from './types';
+import {
+  createCoreV2WorldAffine,
+  resolveCoreV2SlotQuad,
+  type CoreV2ProjectionRenderContext,
+  type CoreV2WorldOrientation,
 } from './types';
 
 export interface PixiCoreV2RendererOptions {
@@ -60,6 +68,14 @@ interface AggregateResult {
 }
 
 const DEFAULT_VIEW: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
+const DEFAULT_WORLD_ORIENTATION: CoreV2WorldOrientation = Object.freeze({
+  rotationDegrees: 0,
+  flipX: false,
+  flipY: false,
+});
+const EMPTY_PROJECTION_INDEX: CoreV2ProjectionIndex = Object.freeze({
+  byEntityId: Object.freeze({}),
+});
 
 export class PixiCoreV2Renderer implements CoreRenderer {
   public readonly application: Application;
@@ -85,6 +101,10 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private heightValue: number;
   private pixelRatioValue: number;
   private view: CoreView = DEFAULT_VIEW;
+  private projectionIndex: CoreV2ProjectionIndex = EMPTY_PROJECTION_INDEX;
+  private projectionRevision = 0;
+  private worldOrientation: CoreV2WorldOrientation = DEFAULT_WORLD_ORIENTATION;
+  private readonly worldMatrix = new Matrix();
   private lastInvalidation = 'init';
   private destroyedValue = false;
   private synchronizeOnly = false;
@@ -216,6 +236,36 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], ranges);
   }
 
+  public setProjection(index: CoreV2ProjectionIndex): boolean {
+    this.assertAlive();
+    if (this.projectionIndex === index) return false;
+    const previous = this.projectionIndex;
+    this.projectionIndex = index;
+    this.projectionRevision += 1;
+    const ranges = this.lastStore
+      ? projectionChangedRanges(this.lastStore, previous, index)
+      : [];
+    this.pendingRanges = mergeRanges(this.pendingRanges ?? [], ranges);
+    this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], ranges);
+    this.lastInvalidation = 'projection';
+    return true;
+  }
+
+  public setWorldOrientation(world: CoreV2WorldOrientation): boolean {
+    this.assertAlive();
+    if (sameWorldOrientation(this.worldOrientation, world)) return false;
+    this.worldOrientation = Object.freeze({ ...world });
+    this.projectionRevision += 1;
+    this.applyWorldTransform();
+    if (this.lastStore) {
+      const upright = projectionOrientationRanges(this.lastStore, this.projectionIndex, 'upright');
+      this.pendingRanges = mergeRanges(this.pendingRanges ?? [], upright);
+      this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], upright);
+    }
+    this.lastInvalidation = 'world-orientation';
+    return true;
+  }
+
   public resize(width: number, height: number, pixelRatio = this.pixelRatioValue): boolean {
     this.assertAlive();
     positive(width, 'width');
@@ -243,15 +293,26 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   public setView(view: CoreView): boolean {
     this.assertAlive();
     if (sameView(this.view, view)) return false;
+    const rotationChanged = (this.view.rotation ?? 0) !== (view.rotation ?? 0);
     this.view = Object.freeze({
       x: view.x,
       y: view.y,
       scale: view.scale,
       rotation: view.rotation ?? 0,
     });
-    this.world.position.set(this.view.x, this.view.y);
-    this.world.scale.set(this.view.scale);
-    this.world.angle = this.view.rotation ?? 0;
+    if (rotationChanged && this.worldOrientation.rotationDegrees !== (this.view.rotation ?? 0)) {
+      this.worldOrientation = Object.freeze({
+        ...this.worldOrientation,
+        rotationDegrees: this.view.rotation ?? 0,
+      });
+      this.projectionRevision += 1;
+      if (this.lastStore) {
+        const upright = projectionOrientationRanges(this.lastStore, this.projectionIndex, 'upright');
+        this.pendingRanges = mergeRanges(this.pendingRanges ?? [], upright);
+        this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], upright);
+      }
+    }
+    this.applyWorldTransform();
     this.lastInvalidation = 'view';
     return true;
   }
@@ -265,6 +326,9 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       this.pendingOverlayRanges = undefined;
       this.selectedSlots.clear();
     }
+    // View rotation can change upright projection geometry. Resolve it before
+    // consuming pending ranges so the first published frame cannot lag.
+    this.setView(store.view);
     const ranges = this.pendingRanges;
     const aggregate = !storeReplaced && ranges?.length === 0
       ? idleAggregateResult(this.lastAggregateResult)
@@ -272,10 +336,10 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.lastAggregateResult = aggregate;
     const leaves = this.leaves.sync(store, {
       fullRebuildEpoch: this.storeEpoch,
+      projectionContext: this.projectionContext(),
       ...(ranges === undefined ? {} : { changedRanges: ranges }),
     });
     this.syncSelectionOverlay(store, storeReplaced, this.pendingOverlayRanges ?? ranges);
-    this.setView(store.view);
     const rendered = !this.synchronizeOnly;
     this.synchronizeOnly = false;
     if (rendered) {
@@ -423,6 +487,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     if (this.aggregate instanceof AggregateMeshLayer) {
       const debug = this.aggregate.sync(store, {
         fullRebuildEpoch: this.storeEpoch,
+        projectionContext: this.projectionContext(),
         ...(ranges === undefined ? {} : { changedRanges: ranges }),
       });
       return {
@@ -438,6 +503,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     }
     const debug = this.aggregate.sync(store, {
       fullRebuildEpoch: this.storeEpoch,
+      projectionContext: this.projectionContext(),
       ...(ranges === undefined ? {} : { changedRanges: ranges }),
     });
     return {
@@ -480,7 +546,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     if (!changed) return;
     this.selectionOverlay.clear();
     for (const slot of [...this.selectedSlots].sort((left, right) => left - right)) {
-      appendRotatedOutline(this.selectionOverlay, store, slot);
+      appendRotatedOutline(this.selectionOverlay, store, slot, this.projectionContext());
     }
     if (this.selectedSlots.size > 0) {
       this.selectionOverlay.stroke({ color: 0x2f80ed, width: 2 / Math.max(this.view.scale, 0.001), alpha: 1 });
@@ -514,35 +580,43 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     });
   }
 
+  private projectionContext(): CoreV2ProjectionRenderContext {
+    return Object.freeze({
+      index: this.projectionIndex,
+      revision: this.projectionRevision,
+      world: this.worldOrientation,
+    });
+  }
+
+  private applyWorldTransform(): void {
+    const [a, b, c, d] = createCoreV2WorldAffine(this.worldOrientation);
+    const scale = this.view.scale;
+    this.world.setFromMatrix(this.worldMatrix.set(
+      a * scale,
+      b * scale,
+      c * scale,
+      d * scale,
+      this.view.x,
+      this.view.y,
+    ));
+  }
+
   private assertAlive(): void {
     if (this.destroyedValue) throw new Error('PixiCoreV2Renderer is destroyed');
   }
 }
 
-function appendRotatedOutline(graphics: Graphics, store: RenderStoreView, slot: number): void {
-  const x = store.x[slot] ?? 0;
-  const y = store.y[slot] ?? 0;
-  const width = store.width[slot] ?? 0;
-  const height = store.height[slot] ?? 0;
-  if (!(width > 0) || !(height > 0)) return;
-  const centerX = x + width / 2;
-  const centerY = y + height / 2;
-  const radians = (store.rotation[slot] ?? 0) * (Math.PI / 180);
-  const cosine = Math.cos(radians);
-  const sine = Math.sin(radians);
-  const corners = [
-    [-width / 2, -height / 2],
-    [width / 2, -height / 2],
-    [width / 2, height / 2],
-    [-width / 2, height / 2],
-  ] as const;
-  const points = corners.map(([localX, localY]) => ({
-    x: centerX + localX * cosine - localY * sine,
-    y: centerY + localX * sine + localY * cosine,
-  }));
-  graphics.moveTo(points[0]!.x, points[0]!.y);
-  for (let index = 1; index < points.length; index += 1) {
-    graphics.lineTo(points[index]!.x, points[index]!.y);
+function appendRotatedOutline(
+  graphics: Graphics,
+  store: RenderStoreView,
+  slot: number,
+  projectionContext: CoreV2ProjectionRenderContext,
+): void {
+  const quad = resolveCoreV2SlotQuad(store, slot, projectionContext);
+  if (!(quad.width > 0) || !(quad.height > 0)) return;
+  graphics.moveTo(quad.vertices[0], quad.vertices[1]);
+  for (let index = 2; index < quad.vertices.length; index += 2) {
+    graphics.lineTo(quad.vertices[index]!, quad.vertices[index + 1]!);
   }
   graphics.closePath();
 }
@@ -580,6 +654,52 @@ function sameView(left: CoreView, right: CoreView): boolean {
     left.scale === right.scale &&
     (left.rotation ?? 0) === (right.rotation ?? 0)
   );
+}
+
+function sameWorldOrientation(left: CoreV2WorldOrientation, right: CoreV2WorldOrientation): boolean {
+  return left.rotationDegrees === right.rotationDegrees &&
+    left.flipX === right.flipX &&
+    left.flipY === right.flipY;
+}
+
+function projectionChangedRanges(
+  store: RenderStoreView,
+  before: CoreV2ProjectionIndex,
+  after: CoreV2ProjectionIndex,
+): SlotRange[] {
+  const slots: number[] = [];
+  for (let slot = 0; slot < store.capacity; slot += 1) {
+    const id = store.ids[slot];
+    if (!id || before.byEntityId[id] === after.byEntityId[id]) continue;
+    if (JSON.stringify(before.byEntityId[id]) !== JSON.stringify(after.byEntityId[id])) slots.push(slot);
+  }
+  return contiguousRanges(slots);
+}
+
+function projectionOrientationRanges(
+  store: RenderStoreView,
+  index: CoreV2ProjectionIndex,
+  orientation: 'follow-item' | 'upright',
+): SlotRange[] {
+  const slots: number[] = [];
+  for (let slot = 0; slot < store.capacity; slot += 1) {
+    const id = store.ids[slot];
+    if (id && index.byEntityId[id]?.contentOrientation === orientation) slots.push(slot);
+  }
+  return contiguousRanges(slots);
+}
+
+function contiguousRanges(slots: readonly number[]): SlotRange[] {
+  const ranges: SlotRange[] = [];
+  for (const slot of slots) {
+    const previous = ranges.at(-1);
+    if (previous?.end === slot) {
+      ranges[ranges.length - 1] = { start: previous.start, end: slot + 1 };
+    } else {
+      ranges.push({ start: slot, end: slot + 1 });
+    }
+  }
+  return ranges;
 }
 
 function backendName(application: Application): string {

@@ -124,7 +124,7 @@ describe('Core v2 approved render projection closure', () => {
     ]));
   });
 
-  it('projects standalone text zIndex but exposes unsupported item transform semantics', () => {
+  it('projects standalone text zIndex and accepts item affine orientation semantics', () => {
     const textResult = parsePatchMapV010(materializeCoreV2Dataset([
       { type: 'text', id: 'text', text: 'label', attrs: { zIndex: 7 } },
     ]).dataset);
@@ -143,18 +143,16 @@ describe('Core v2 approved render projection closure', () => {
       path: '$[0].attrs.zIndex',
     }));
     expect(itemResult.document.entities[0]).toMatchObject({ id: 'item', zIndex: 0 });
+    expect(itemResult.diagnostics).not.toContainEqual(expect.objectContaining({
+      path: '$[0].attrs.scaleX',
+    }));
+    expect(itemResult.diagnostics).not.toContainEqual(expect.objectContaining({
+      path: '$[0].contentOrientation',
+    }));
     expect(itemResult.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'attribute-preserved-only',
-        path: '$[0].attrs.scaleX',
-      }),
-      expect.objectContaining({
-        code: 'attribute-preserved-only',
         path: '$[0].attrs.zIndex',
-      }),
-      expect.objectContaining({
-        code: 'content-orientation-unsupported',
-        path: '$[0].contentOrientation',
       }),
     ]));
   });

@@ -1,5 +1,12 @@
 import type { EntityKind, SceneDocument } from '../core-v1/contracts';
-import type { CoreV2BoundsTuple } from './semantic/geometry';
+import type {
+  CoreV2AffineBasis,
+  CoreV2AffineMatrix,
+  CoreV2BoundsTuple,
+  CoreV2PointTuple,
+} from './semantic/geometry';
+
+export type CoreV2ContentOrientation = 'follow-item' | 'upright';
 
 export type ParseDiagnosticLevel = 'warning' | 'error';
 
@@ -79,8 +86,18 @@ export interface ParseIdentityIndex {
 export interface CoreV2EntityProjection {
   readonly entityId: string;
   readonly localBounds: CoreV2BoundsTuple;
+  /** Exact authored local-to-world transform used by every Pixi render lane. */
+  readonly affine: CoreV2AffineMatrix;
+  readonly worldBasis: CoreV2AffineBasis;
+  readonly visibleCenter: CoreV2PointTuple;
+  /** Authored rotation channel, kept separate from ambiguous reflected-matrix decomposition. */
+  readonly rotationDegrees: number;
   readonly scaleX: number;
   readonly scaleY: number;
+  readonly contentOrientation: CoreV2ContentOrientation;
+  readonly ownerItemId?: string;
+  readonly componentId?: string;
+  readonly componentType?: string;
 }
 
 /** Immutable numeric metadata that the Core v1-compatible dense rows omit. */

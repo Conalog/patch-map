@@ -9,6 +9,7 @@ import type {
 import {
   PatchMapParseError,
   type ComponentIdentity,
+  type CoreV2ContentOrientation,
   type CoreV2EntityProjection,
   type ElementIdentity,
   type EntitySourceIdentity,
@@ -18,7 +19,13 @@ import {
   type ParsePatchMapResult,
 } from './contracts';
 import {
+  CORE_V2_IDENTITY_AFFINE,
+  coreV2AffineBasis,
+  coreV2AffineCenter,
+  createCoreV2Affine,
+  multiplyCoreV2Affine,
   projectCoreV2SignedRect,
+  type CoreV2AffineMatrix,
   type CoreV2DenseRectProjection,
 } from './semantic/geometry';
 
@@ -30,6 +37,13 @@ interface Transform {
   readonly rotation: number;
   readonly scaleX: number;
   readonly scaleY: number;
+  readonly affine: CoreV2AffineMatrix;
+}
+
+interface EntityProjectionDraft extends CoreV2DenseRectProjection {
+  readonly affine: CoreV2AffineMatrix;
+  readonly rotationDegrees: number;
+  readonly contentOrientation: CoreV2ContentOrientation;
 }
 
 interface Size {
@@ -106,7 +120,17 @@ const DEFAULT_COLORS: Readonly<Record<string, Rgba>> = Object.freeze({
 });
 const TRANSFORM_ATTRIBUTE_KEYS = new Set(['x', 'y', 'angle', 'rotation']);
 const SIGNED_SCALE_ATTRIBUTE_KEYS = new Set(['scaleX', 'scaleY']);
-const SIGNED_SCALE_ATTRIBUTE_TYPES = new Set(['rect']);
+const SIGNED_SCALE_ATTRIBUTE_TYPES = new Set([
+  'group',
+  'grid',
+  'item',
+  'rect',
+  'image',
+  'text',
+  'background',
+  'bar',
+  'icon',
+]);
 const TRANSFORM_ATTRIBUTE_TYPES = new Set([
   'group',
   'grid',
@@ -121,7 +145,14 @@ const TRANSFORM_ATTRIBUTE_TYPES = new Set([
 const Z_INDEX_ATTRIBUTE_TYPES = new Set(['rect', 'image', 'text', 'relations']);
 
 const ROOT_CONTEXT: ElementContext = {
-  transform: { x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1 },
+  transform: {
+    x: 0,
+    y: 0,
+    rotation: 0,
+    scaleX: 1,
+    scaleY: 1,
+    affine: CORE_V2_IDENTITY_AFFINE,
+  },
   visible: true,
   interactive: true,
   ancestorIdentities: [],
@@ -341,13 +372,22 @@ function parseGrid(
         row * (itemSize.height + gap.y),
         0,
       );
+      const itemAttrs = isRecord(item.attrs) ? item.attrs : undefined;
+      inspectAttributes(itemAttrs, `${path}.item.attrs`, 'item', state);
+      const itemTransform = elementTransform(
+        itemAttrs,
+        `${path}.item`,
+        cellTransform,
+        'item',
+        state,
+      );
       state.gridCells += 1;
       parseItemInstance(
         item,
         `${path}.item`,
         instanceId,
         sourceId,
-        cellTransform,
+        itemTransform,
         visible && cellValue !== 0,
         interactive && cellValue !== 0,
         itemSize,
@@ -398,16 +438,12 @@ function parseItemInstance(
   grid: ExpandedItemIdentity['grid'] | undefined,
   state: ParseState,
 ): void {
-  if (item.contentOrientation !== undefined) {
-    warnOnce(
-      state,
-      `item-content-orientation:${itemPath}`,
-      `${itemPath}.contentOrientation`,
-      'content-orientation-unsupported',
-      'contentOrientation is retained semantically but the flat dense contract cannot reproduce upright content across world rotation and flips',
-      sourceElementId,
-    );
-  }
+  const contentOrientation = parseContentOrientation(
+    item.contentOrientation,
+    `${itemPath}.contentOrientation`,
+    sourceElementId,
+    state,
+  );
   const instance: MutableExpandedItemIdentity = {
     instanceId,
     sourceElementId,
@@ -417,7 +453,7 @@ function parseItemInstance(
   };
   state.expandedItems.push(instance);
 
-  const denseTransform = centerPivotTopLeft(transform, size);
+  const denseTransform = centerPivotTopLeft(transform, size, 'follow-item');
   addEntity(
     {
       kind: 'rect',
@@ -459,6 +495,7 @@ function parseItemInstance(
       transform,
       size,
       content,
+      contentOrientation,
       visible,
       { ...owner, instance },
       state,
@@ -474,6 +511,7 @@ function parseComponent(
   itemTransform: Transform,
   itemSize: Size,
   content: Box,
+  contentOrientation: CoreV2ContentOrientation,
   visible: boolean,
   owner: EntityOwner,
   state: ParseState,
@@ -518,7 +556,7 @@ function parseComponent(
       const fill = value.tint === undefined
         ? sourceFill
         : multiplyColor(sourceFill, resolveColor(value.tint, 0xffffffff, `${path}.tint`, state));
-      const denseTransform = centerPivotTopLeft(transform, local);
+      const denseTransform = centerPivotTopLeft(transform, local, 'follow-item');
       addEntity(
         {
           kind: 'rect',
@@ -554,7 +592,7 @@ function parseComponent(
       imageEntity(entityId, transform, local, asset, value.tint, componentVisible, -10, path, state),
       { ...owner, component },
       state,
-      centerPivotTopLeft(transform, local),
+      centerPivotTopLeft(transform, local, 'follow-item'),
     );
     return;
   }
@@ -563,7 +601,7 @@ function parseComponent(
     const componentSize = resolveComponentSize(value.size, content, `${path}.size`, state);
     const local = placeBox(content, componentSize, value.placement ?? 'bottom', value.margin, path, state);
     const transform = componentTransform(itemTransform, local, attrs, path, state);
-    const denseTransform = centerPivotTopLeft(transform, local);
+    const denseTransform = centerPivotTopLeft(transform, local, contentOrientation);
     const source = isRecord(value.source) ? value.source : undefined;
     if (value.source !== undefined && source?.type !== 'rect') {
       warn(state, `${path}.source`, 'bar-source-degraded', 'Non-rect bar source is rendered as a tinted aggregate bar', sourceElementId);
@@ -619,7 +657,7 @@ function parseComponent(
       ),
       { ...owner, component },
       state,
-      centerPivotTopLeft(transform, local),
+      centerPivotTopLeft(transform, local, contentOrientation),
     );
     return;
   }
@@ -648,7 +686,7 @@ function parseComponent(
       textEntity(entityId, transform, local, value.text, style, value.tint, componentVisible, false, 30, path, state),
       { ...owner, component },
       state,
-      centerPivotTopLeft(transform, local),
+      centerPivotTopLeft(transform, local, contentOrientation),
     );
     return;
   }
@@ -900,7 +938,7 @@ function addEntity(
   entity: EntityInput,
   owner: EntityOwner,
   state: ParseState,
-  projection?: CoreV2DenseRectProjection,
+  projection?: EntityProjectionDraft,
 ): void {
   if (state.entityIds.has(entity.id)) {
     fatal(
@@ -920,6 +958,11 @@ function addEntity(
   if (entity.kind !== 'relation') state.targetIds.add(entity.id);
   state.entities.push(storedEntity);
   if (entity.kind !== 'relation') {
+    const affine = projection?.affine ?? createCoreV2Affine(
+      entity.x,
+      entity.y,
+      entity.rotation ?? 0,
+    );
     state.projectionByEntityId[entity.id] = Object.freeze({
       entityId: entity.id,
       localBounds: projection?.localBounds ?? Object.freeze([
@@ -928,8 +971,22 @@ function addEntity(
         entity.width,
         entity.height,
       ] as const),
+      affine,
+      worldBasis: coreV2AffineBasis(affine),
+      visibleCenter: projection?.affine
+        ? coreV2AffineCenter(projection.affine, projection.localBounds)
+        : Object.freeze([entity.x + entity.width / 2, entity.y + entity.height / 2] as const),
+      rotationDegrees: projection?.rotationDegrees ?? entity.rotation ?? 0,
       scaleX: projection?.scaleX ?? 1,
       scaleY: projection?.scaleY ?? 1,
+      contentOrientation: projection?.contentOrientation ?? 'follow-item',
+      ...(owner.instance ? { ownerItemId: owner.instance.instanceId } : {}),
+      ...(owner.component
+        ? {
+            componentId: owner.component.componentId,
+            componentType: owner.component.type,
+          }
+        : {}),
     });
   }
   owner.element.entityIds.push(entity.id);
@@ -1160,6 +1217,8 @@ function componentTransform(
     box.x + numericAttribute(attrs?.x, `${path}.attrs.x`, state),
     box.y + numericAttribute(attrs?.y, `${path}.attrs.y`, state),
     rotationDegrees(attrs, `${path}.attrs`, state),
+    scaleAttribute(attrs?.scaleX, `${path}.attrs.scaleX`, state),
+    scaleAttribute(attrs?.scaleY, `${path}.attrs.scaleY`, state),
   );
 }
 
@@ -1183,6 +1242,10 @@ function composeTransform(
     rotation: parent.rotation + rotation * handedness,
     scaleX: parent.scaleX * scaleX,
     scaleY: parent.scaleY * scaleY,
+    affine: multiplyCoreV2Affine(
+      parent.affine,
+      createCoreV2Affine(x, y, rotation, scaleX, scaleY),
+    ),
   };
 }
 
@@ -1191,8 +1254,35 @@ function composeTransform(
  * dense renderer rotates quads around their center. Shift the stored top-left
  * so both representations produce the same transformed corners and AABB.
  */
-function centerPivotTopLeft(transform: Transform, size: Size): CoreV2DenseRectProjection {
-  return projectCoreV2SignedRect(transform, size.width, size.height);
+function centerPivotTopLeft(
+  transform: Transform,
+  size: Size,
+  contentOrientation: CoreV2ContentOrientation = 'follow-item',
+): EntityProjectionDraft {
+  return Object.freeze({
+    ...projectCoreV2SignedRect(transform, size.width, size.height),
+    affine: transform.affine,
+    rotationDegrees: transform.rotation,
+    contentOrientation,
+  });
+}
+
+function parseContentOrientation(
+  value: unknown,
+  path: string,
+  sourceId: string,
+  state: ParseState,
+): CoreV2ContentOrientation {
+  if (value === undefined || value === 'upright') return 'upright';
+  if (value === 'follow-item') return value;
+  warn(
+    state,
+    path,
+    'invalid-content-orientation',
+    'Invalid contentOrientation fell back to upright',
+    sourceId,
+  );
+  return 'upright';
 }
 
 function rotationDegrees(attrs: JsonRecord | undefined, path: string, state: ParseState): number {
@@ -1465,6 +1555,26 @@ function fnv1a(value: string): number {
 function inspectAttributes(attrs: JsonRecord | undefined, path: string, type: string, state: ParseState): void {
   if (!attrs) return;
   for (const key of Object.keys(attrs)) {
+    if (key === 'skew' || key === 'skewX' || key === 'skewY') {
+      warnOnce(
+        state,
+        `affine-skew:${type}:${key}`,
+        `${path}.${key}`,
+        'affine-skew-unsupported',
+        'Authored skew is preserved in identity but is outside the orthogonal Core v2 projection contract',
+      );
+      continue;
+    }
+    if (key === 'pivot' || key === 'pivotX' || key === 'pivotY') {
+      warnOnce(
+        state,
+        `affine-pivot:${type}:${key}`,
+        `${path}.${key}`,
+        'affine-pivot-unsupported',
+        'Authored pivot is preserved in identity but Core v2 uses the PATCH MAP top-left origin',
+      );
+      continue;
+    }
     const projected = (TRANSFORM_ATTRIBUTE_KEYS.has(key) && TRANSFORM_ATTRIBUTE_TYPES.has(type)) ||
       (SIGNED_SCALE_ATTRIBUTE_KEYS.has(key) && SIGNED_SCALE_ATTRIBUTE_TYPES.has(type)) ||
       (key === 'zIndex' && Z_INDEX_ATTRIBUTE_TYPES.has(type));

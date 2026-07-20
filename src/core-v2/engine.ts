@@ -2,6 +2,14 @@ import { createCoreV2, type CoreV2, type CoreV2Options } from './core';
 import type { SceneSnapshot } from '../core-v1/contracts';
 import type { CoreV2ProjectionIndex } from './contracts';
 import {
+  coreV2AffineBasis,
+  coreV2AffineCorners,
+  createCoreV2Affine,
+  invertCoreV2Affine,
+  multiplyCoreV2Affine,
+  type CoreV2AffineBasis,
+} from './semantic/geometry';
+import {
   CoreV2DatasetError,
   materializeCoreV2Dataset,
   type MaterializedCoreV2Dataset,
@@ -18,7 +26,6 @@ import {
   type CoreV2SemanticMutationDiagnostic,
 } from './semantic/mutation';
 import type { CoreV2ReconcileDiagnostic } from './semantic/reconcile';
-import { worldToScreen } from './view';
 
 export type CoreV2Lifecycle =
   | 'new'
@@ -96,6 +103,23 @@ export interface CoreV2ViewportState {
   readonly screenBounds: readonly [number, number, number, number];
 }
 
+export interface CoreV2WorldTransformInput {
+  readonly rotationDegrees: number;
+  readonly flipX: boolean;
+  readonly flipY: boolean;
+}
+
+export type CoreV2WorldTransformState = CoreV2WorldTransformInput;
+
+export interface CoreV2SurfaceView {
+  readonly x: number;
+  readonly y: number;
+  readonly scale: number;
+  readonly rotation: number;
+  readonly flipX?: boolean;
+  readonly flipY?: boolean;
+}
+
 export interface CoreV2SurfaceDebug {
   readonly cssSize: readonly [number, number];
   readonly backingSize: readonly [number, number];
@@ -118,6 +142,13 @@ export interface CoreV2SurfaceEntityGeometry {
   readonly interactive: boolean;
   readonly scaleX?: number;
   readonly scaleY?: number;
+  readonly ownerItemId?: string;
+  readonly componentId?: string;
+  readonly componentType?: string;
+  readonly contentOrientation?: 'follow-item' | 'upright';
+  readonly screenBasis?: CoreV2AffineBasis;
+  readonly visibleCenter?: readonly [number, number];
+  readonly screenAngle?: number;
 }
 
 export interface CoreV2SurfaceRelationGeometry {
@@ -172,7 +203,7 @@ export interface CoreV2EngineSurface {
   reconcile?(input: unknown): CoreV2SurfaceReconcileResult;
   publishFrame(timeMs: number): void;
   resize(width: number, height: number, pixelRatio: number): boolean;
-  setView(view: Readonly<{ x: number; y: number; scale: number; rotation: number }>): void;
+  setView(view: CoreV2SurfaceView): void;
   select(ids: readonly string[]): void;
   hitTestScreen(point: CoreV2Point): string | null;
   screenToWorld(point: CoreV2Point): CoreV2Point;
@@ -414,6 +445,9 @@ export class CoreV2Engine {
   private viewportPixelRatio = 1;
   private viewportCenterWorld: readonly [number, number] = Object.freeze([0, 0]);
   private viewportScale = 1;
+  private worldRotationDegrees = 0;
+  private worldFlipX = false;
+  private worldFlipY = false;
 
   public constructor(options: CoreV2EngineOptions = {}) {
     this.surfaceFactory = options.surfaceFactory ?? createPixiSurface;
@@ -459,6 +493,9 @@ export class CoreV2Engine {
     this.viewportPixelRatio = surfaceOptions.pixelRatio;
     this.viewportCenterWorld = Object.freeze([surfaceOptions.width / 2, surfaceOptions.height / 2]);
     this.viewportScale = 1;
+    this.worldRotationDegrees = 0;
+    this.worldFlipX = false;
+    this.worldFlipY = false;
     this.initializePromise = this.surfaceFactory(surfaceOptions)
       .then((surface) => {
         if (this.lifecycle === 'destroying' || this.lifecycle === 'destroyed') {
@@ -821,6 +858,35 @@ export class CoreV2Engine {
     return this.viewportState();
   }
 
+  public setWorldTransform(input: CoreV2WorldTransformInput): CoreV2WorldTransformState {
+    if (!Number.isFinite(input.rotationDegrees)) {
+      throw new RangeError('rotationDegrees must be finite');
+    }
+    if (typeof input.flipX !== 'boolean' || typeof input.flipY !== 'boolean') {
+      throw new TypeError('flipX and flipY must be booleans');
+    }
+    const surface = this.requireSurface('setWorldTransform');
+    const normalizedRotation = normalizeDegrees(input.rotationDegrees);
+    if (
+      normalizedRotation === this.worldRotationDegrees &&
+      input.flipX === this.worldFlipX &&
+      input.flipY === this.worldFlipY
+    ) {
+      return this.worldTransformState();
+    }
+    const next = Object.freeze({
+      rotationDegrees: normalizedRotation,
+      flipX: input.flipX,
+      flipY: input.flipY,
+    });
+    surface.setView(this.resolvedSurfaceView(next));
+    this.worldRotationDegrees = next.rotationDegrees;
+    this.worldFlipX = next.flipX;
+    this.worldFlipY = next.flipY;
+    this.viewRevision += 1;
+    return this.worldTransformState();
+  }
+
   public select(ids: readonly string[]): readonly string[] {
     const unique = Object.freeze([...new Set(ids.map((id) => {
       if (typeof id !== 'string' || id.length === 0) throw new TypeError('selection IDs must be non-empty strings');
@@ -1080,12 +1146,31 @@ export class CoreV2Engine {
     return count;
   }
 
-  private resolvedSurfaceView(): Readonly<{ x: number; y: number; scale: number; rotation: number }> {
+  private resolvedSurfaceView(
+    world: CoreV2WorldTransformInput = this.worldTransformState(),
+  ): CoreV2SurfaceView {
+    const radians = world.rotationDegrees * Math.PI / 180;
+    const cosine = Math.cos(radians);
+    const sine = Math.sin(radians);
+    const scaledX = this.viewportCenterWorld[0] * this.viewportScale;
+    const scaledY = this.viewportCenterWorld[1] * this.viewportScale;
+    const transformedCenterX = (scaledX * cosine - scaledY * sine) * (world.flipX ? -1 : 1);
+    const transformedCenterY = (scaledX * sine + scaledY * cosine) * (world.flipY ? -1 : 1);
     return Object.freeze({
-      x: this.viewportWidth / 2 - this.viewportCenterWorld[0] * this.viewportScale,
-      y: this.viewportHeight / 2 - this.viewportCenterWorld[1] * this.viewportScale,
+      x: this.viewportWidth / 2 - transformedCenterX,
+      y: this.viewportHeight / 2 - transformedCenterY,
       scale: this.viewportScale,
-      rotation: 0,
+      rotation: world.rotationDegrees,
+      ...(world.flipX ? { flipX: true } : {}),
+      ...(world.flipY ? { flipY: true } : {}),
+    });
+  }
+
+  private worldTransformState(): CoreV2WorldTransformState {
+    return Object.freeze({
+      rotationDegrees: this.worldRotationDegrees,
+      flipX: this.worldFlipX,
+      flipY: this.worldFlipY,
     });
   }
 
@@ -1160,6 +1245,14 @@ class PixiEngineSurface implements CoreV2EngineSurface {
   private readonly core: CoreV2;
   private canvasPresent = true;
   private geometryRevision = 0;
+  private surfaceView: CoreV2SurfaceView = Object.freeze({
+    x: 0,
+    y: 0,
+    scale: 1,
+    rotation: 0,
+    flipX: false,
+    flipY: false,
+  });
 
   public constructor(core: CoreV2) {
     this.core = core;
@@ -1197,8 +1290,21 @@ class PixiEngineSurface implements CoreV2EngineSurface {
     return this.core.resize(width, height, pixelRatio);
   }
 
-  public setView(view: Readonly<{ x: number; y: number; scale: number; rotation: number }>): void {
-    this.core.setView(view);
+  public setView(view: CoreV2SurfaceView): void {
+    const nextView = Object.freeze({
+      ...view,
+      flipX: view.flipX ?? false,
+      flipY: view.flipY ?? false,
+    });
+    this.core.setWorldTransform({
+      x: nextView.x,
+      y: nextView.y,
+      scale: nextView.scale,
+      rotationDegrees: nextView.rotation,
+      flipX: nextView.flipX,
+      flipY: nextView.flipY,
+    });
+    this.surfaceView = nextView;
   }
 
   public select(ids: readonly string[]): void {
@@ -1239,7 +1345,11 @@ class PixiEngineSurface implements CoreV2EngineSurface {
 
   public geometrySnapshot(): CoreV2SurfaceGeometrySnapshot {
     return Object.freeze({
-      ...createCoreV2SurfaceGeometrySnapshot(this.core.snapshot(), this.core.projection),
+      ...createCoreV2SurfaceGeometrySnapshot(
+        this.core.snapshot(),
+        this.core.projection,
+        this.surfaceView,
+      ),
       revision: this.geometryRevision,
     });
   }
@@ -1286,6 +1396,11 @@ function validatePoint(point: CoreV2Point, operation: string): void {
   if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
     throw new RangeError(`${operation} point must contain finite coordinates`);
   }
+}
+
+function normalizeDegrees(value: number): number {
+  const normalized = ((value % 360) + 360) % 360;
+  return Object.is(normalized, -0) ? 0 : normalized;
 }
 
 function emptySurfaceDebug(width: number, height: number, pixelRatio: number): CoreV2SurfaceDebug {
@@ -1373,12 +1488,18 @@ function mutationDiagnosticMapping(
 export function createCoreV2SurfaceGeometrySnapshot(
   snapshot: SceneSnapshot,
   projection: CoreV2ProjectionIndex | null = null,
+  surfaceView: CoreV2SurfaceView = Object.freeze({
+    ...snapshot.view,
+    rotation: snapshot.view.rotation ?? 0,
+  }),
 ): CoreV2SurfaceGeometrySnapshot {
   const entityGeometries = snapshot.entities
     .filter((entity) => entity.kind !== 'relation')
     .map((entity) => {
-      const worldBounds = worldBoundsFor(entity.bounds, entity.rotation);
       const entityProjection = projection?.byEntityId[entity.id];
+      const geometry = entityProjection
+        ? resolveProjectedEntityGeometry(entityProjection, surfaceView)
+        : resolveDenseEntityGeometry(entity.bounds, entity.rotation, surfaceView);
       return Object.freeze<CoreV2SurfaceEntityGeometry>({
         id: entity.id,
         kind: entity.kind,
@@ -1388,13 +1509,26 @@ export function createCoreV2SurfaceGeometrySnapshot(
           entity.bounds.width,
           entity.bounds.height,
         ),
-        worldBounds,
-        screenBounds: screenBoundsFor(entity.bounds, entity.rotation, snapshot.view),
-        visibleBounds: entity.visible ? worldBounds : null,
+        worldBounds: geometry.worldBounds,
+        screenBounds: geometry.screenBounds,
+        visibleBounds: entity.visible ? geometry.worldBounds : null,
         visible: entity.visible,
         interactive: entity.interactive,
         scaleX: entityProjection?.scaleX ?? 1,
         scaleY: entityProjection?.scaleY ?? 1,
+        ...(entityProjection?.ownerItemId ? { ownerItemId: entityProjection.ownerItemId } : {}),
+        ...(entityProjection?.componentId ? { componentId: entityProjection.componentId } : {}),
+        ...(entityProjection?.componentType ? { componentType: entityProjection.componentType } : {}),
+        ...(entityProjection
+          ? {
+              contentOrientation: entityProjection.contentOrientation,
+              screenBasis: geometry.screenBasis,
+              visibleCenter: entityProjection.visibleCenter,
+              screenAngle: entityProjection.contentOrientation === 'upright'
+                ? 0
+                : normalizeDegrees(entityProjection.rotationDegrees + surfaceView.rotation),
+            }
+          : {}),
       });
     });
   const geometryById = new Map(entityGeometries.map((entity) => [entity.id, entity]));
@@ -1406,25 +1540,26 @@ export function createCoreV2SurfaceGeometrySnapshot(
     const source = geometryById.get(sourceId);
     const target = geometryById.get(targetId);
     if (!source || !target) return [];
-    const sourceWorld = boundsCenter(source.worldBounds);
-    const targetWorld = boundsCenter(target.worldBounds);
-    const sourceScreen = worldToScreen({ x: sourceWorld[0], y: sourceWorld[1] }, snapshot.view);
-    const targetScreen = worldToScreen({ x: targetWorld[0], y: targetWorld[1] }, snapshot.view);
+    const sourceWorld = source.visibleCenter ?? boundsCenter(source.worldBounds);
+    const targetWorld = target.visibleCenter ?? boundsCenter(target.worldBounds);
+    const sourceScreen = surfacePointToScreen(sourceWorld, surfaceView);
+    const targetScreen = surfacePointToScreen(targetWorld, surfaceView);
     return [Object.freeze<CoreV2SurfaceRelationGeometry>({
       id: entity.id,
       sourceId,
       targetId,
       worldEndpoints: Object.freeze([sourceWorld, targetWorld] as const),
       screenEndpoints: Object.freeze([
-        freezePoint(sourceScreen.x, sourceScreen.y),
-        freezePoint(targetScreen.x, targetScreen.y),
+        sourceScreen,
+        targetScreen,
       ] as const),
     })];
   });
   const selectedRefs = new Set(snapshot.selection.refs.map((ref) => `${ref.slot}:${ref.generation}`));
   const selectedBounds = snapshot.entities.flatMap((entity) => {
     if (entity.kind === 'relation' || !selectedRefs.has(`${entity.ref.slot}:${entity.ref.generation}`)) return [];
-    return [screenBoundsFor(entity.bounds, entity.rotation, snapshot.view)];
+    const geometry = geometryById.get(entity.id);
+    return geometry ? [geometry.screenBounds] : [];
   });
   const selectionOverlay = unionBounds(selectedBounds);
 
@@ -1438,20 +1573,95 @@ export function createCoreV2SurfaceGeometrySnapshot(
   });
 }
 
-function screenBoundsFor(
-  bounds: Readonly<{ x: number; y: number; width: number; height: number }>,
-  rotation: number,
-  view: Readonly<{ x: number; y: number; scale: number; rotation?: number }>,
-): readonly [number, number, number, number] {
-  const screen = rotatedWorldCorners(bounds, rotation).map((point) => worldToScreen(point, view));
-  return boundsForPoints(screen);
+interface ResolvedEntityGeometry {
+  readonly worldBounds: readonly [number, number, number, number];
+  readonly screenBounds: readonly [number, number, number, number];
+  readonly screenBasis: CoreV2AffineBasis;
 }
 
-function worldBoundsFor(
+function resolveProjectedEntityGeometry(
+  projection: NonNullable<CoreV2ProjectionIndex['byEntityId'][string]>,
+  view: CoreV2SurfaceView,
+): ResolvedEntityGeometry {
+  const orientedWorldAffine = multiplyCoreV2Affine(
+    createCoreV2Affine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
+    createCoreV2Affine(0, 0, view.rotation),
+  );
+  let worldCorners: readonly (readonly [number, number])[];
+  let screenBasis: CoreV2AffineBasis;
+  if (projection.contentOrientation === 'upright') {
+    const inverseWorld = invertCoreV2Affine(orientedWorldAffine);
+    const width = projection.localBounds[2] * Math.hypot(
+      projection.affine[0],
+      projection.affine[1],
+    );
+    const height = projection.localBounds[3] * Math.hypot(
+      projection.affine[2],
+      projection.affine[3],
+    );
+    const xAxis = Object.freeze([inverseWorld[0], inverseWorld[1]] as const);
+    const yAxis = Object.freeze([inverseWorld[2], inverseWorld[3]] as const);
+    const [centerX, centerY] = projection.visibleCenter;
+    worldCorners = Object.freeze([
+      Object.freeze([centerX - xAxis[0] * width / 2 - yAxis[0] * height / 2, centerY - xAxis[1] * width / 2 - yAxis[1] * height / 2] as const),
+      Object.freeze([centerX + xAxis[0] * width / 2 - yAxis[0] * height / 2, centerY + xAxis[1] * width / 2 - yAxis[1] * height / 2] as const),
+      Object.freeze([centerX + xAxis[0] * width / 2 + yAxis[0] * height / 2, centerY + xAxis[1] * width / 2 + yAxis[1] * height / 2] as const),
+      Object.freeze([centerX - xAxis[0] * width / 2 + yAxis[0] * height / 2, centerY - xAxis[1] * width / 2 + yAxis[1] * height / 2] as const),
+    ]);
+    screenBasis = Object.freeze([1, 0, 0, 1] as const);
+  } else {
+    worldCorners = coreV2AffineCorners(projection.affine, projection.localBounds);
+    screenBasis = coreV2AffineBasis(multiplyCoreV2Affine(orientedWorldAffine, projection.affine));
+  }
+  const screenCorners = worldCorners.map((point) => surfacePointToScreen(point, view));
+  return Object.freeze({
+    worldBounds: boundsForTuplePoints(worldCorners),
+    screenBounds: boundsForTuplePoints(screenCorners),
+    screenBasis,
+  });
+}
+
+function resolveDenseEntityGeometry(
   bounds: Readonly<{ x: number; y: number; width: number; height: number }>,
   rotation: number,
+  view: CoreV2SurfaceView,
+): ResolvedEntityGeometry {
+  const worldCorners = rotatedWorldCorners(bounds, rotation).map((point) => freezePoint(point.x, point.y));
+  const screenCorners = worldCorners.map((point) => surfacePointToScreen(point, view));
+  const worldAffine = multiplyCoreV2Affine(
+    createCoreV2Affine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
+    createCoreV2Affine(0, 0, view.rotation + rotation),
+  );
+  return Object.freeze({
+    worldBounds: boundsForTuplePoints(worldCorners),
+    screenBounds: boundsForTuplePoints(screenCorners),
+    screenBasis: coreV2AffineBasis(worldAffine),
+  });
+}
+
+function surfacePointToScreen(
+  point: readonly [number, number],
+  view: CoreV2SurfaceView,
+): readonly [number, number] {
+  const scaledX = point[0] * view.scale;
+  const scaledY = point[1] * view.scale;
+  const radians = view.rotation * Math.PI / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  return freezePoint(
+    view.x + (scaledX * cosine - scaledY * sine) * (view.flipX ? -1 : 1),
+    view.y + (scaledX * sine + scaledY * cosine) * (view.flipY ? -1 : 1),
+  );
+}
+
+function boundsForTuplePoints(
+  points: readonly (readonly [number, number])[],
 ): readonly [number, number, number, number] {
-  return boundsForPoints(rotatedWorldCorners(bounds, rotation));
+  const xs = points.map((point) => point[0]);
+  const ys = points.map((point) => point[1]);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  return freezeBounds(minX, minY, Math.max(...xs) - minX, Math.max(...ys) - minY);
 }
 
 function rotatedWorldCorners(
@@ -1473,16 +1683,6 @@ function rotatedWorldCorners(
     x: centerX + localX * cosine - localY * sine,
     y: centerY + localX * sine + localY * cosine,
   }));
-}
-
-function boundsForPoints(
-  points: readonly CoreV2Point[],
-): readonly [number, number, number, number] {
-  const xs = points.map((point) => point.x);
-  const ys = points.map((point) => point.y);
-  const minX = Math.min(...xs);
-  const minY = Math.min(...ys);
-  return freezeBounds(minX, minY, Math.max(...xs) - minX, Math.max(...ys) - minY);
 }
 
 function unionBounds(

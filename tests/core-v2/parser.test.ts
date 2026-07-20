@@ -244,8 +244,10 @@ describe('Core v2 PATCH MAP v0.10 parser', () => {
       },
     ]);
 
+    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: 'content-orientation-unsupported',
+    }));
     expect(result.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: 'content-orientation-unsupported' }),
       expect.objectContaining({ code: 'component-animation-unsupported' }),
       expect.objectContaining({ code: 'relation-style-degraded' }),
       expect.objectContaining({ code: 'inactive-cell-strategy-unsupported' }),

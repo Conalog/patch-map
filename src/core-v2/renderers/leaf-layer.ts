@@ -2,6 +2,7 @@ import {
   Assets,
   BitmapText,
   Container,
+  Matrix,
   Sprite,
   Text,
   Texture,
@@ -15,6 +16,11 @@ import {
   RenderKind,
   type RenderStoreView,
 } from '../../core-v1/renderer/types';
+import {
+  resolveCoreV2SlotQuad,
+  type CoreV2ProjectionRenderContext,
+  type CoreV2ResolvedRenderQuad,
+} from './types';
 
 interface TextEntry {
   readonly object: BitmapText | Text;
@@ -67,6 +73,7 @@ export class AggregateLeafLayer {
   private readonly assets = new Map<string, LeafAsset>();
   private readonly pendingAssetReleases: SharedAssetLease[] = [];
   private readonly unresolved = new Set<string>();
+  private readonly transformMatrix = new Matrix();
   private storeEpoch = -1;
   private assetsDirty = false;
   private destroyed = false;
@@ -134,7 +141,11 @@ export class AggregateLeafLayer {
 
   public sync(
     store: RenderStoreView,
-    options: { readonly changedRanges?: readonly SlotRange[]; readonly fullRebuildEpoch?: number } = {},
+    options: {
+      readonly changedRanges?: readonly SlotRange[];
+      readonly fullRebuildEpoch?: number;
+      readonly projectionContext?: CoreV2ProjectionRenderContext;
+    } = {},
   ): LeafLayerDebug {
     this.assertAlive();
     const epoch = options.fullRebuildEpoch ?? this.storeEpoch;
@@ -145,12 +156,16 @@ export class AggregateLeafLayer {
     }
 
     if (fullRebuild || this.assetsDirty || !options.changedRanges) {
-      for (let slot = 0; slot < store.capacity; slot += 1) this.syncSlot(store, slot);
+      for (let slot = 0; slot < store.capacity; slot += 1) {
+        this.syncSlot(store, slot, options.projectionContext);
+      }
     } else {
       for (const range of options.changedRanges) {
         const start = Math.max(0, range.start);
         const end = Math.min(store.capacity, range.end);
-        for (let slot = start; slot < end; slot += 1) this.syncSlot(store, slot);
+        for (let slot = start; slot < end; slot += 1) {
+          this.syncSlot(store, slot, options.projectionContext);
+        }
       }
     }
     this.refreshUnresolved();
@@ -185,18 +200,26 @@ export class AggregateLeafLayer {
     await Promise.all(leases.map(async (lease) => releaseSharedAsset(lease)));
   }
 
-  private syncSlot(store: RenderStoreView, slot: number): void {
+  private syncSlot(
+    store: RenderStoreView,
+    slot: number,
+    projectionContext?: CoreV2ProjectionRenderContext,
+  ): void {
     const alive = store.alive[slot] === 1;
     const visible = alive && ((store.flags[slot] ?? 0) & RenderFlags.Visible) !== 0;
     const kind = store.kind[slot];
     if (!visible || kind !== RenderKind.Text) this.removeText(slot);
     if (!visible || kind !== RenderKind.Image) this.removeImage(slot);
     if (!visible) return;
-    if (kind === RenderKind.Text) this.syncText(store, slot);
-    if (kind === RenderKind.Image) this.syncImage(store, slot);
+    if (kind === RenderKind.Text) this.syncText(store, slot, projectionContext);
+    if (kind === RenderKind.Image) this.syncImage(store, slot, projectionContext);
   }
 
-  private syncText(store: RenderStoreView, slot: number): void {
+  private syncText(
+    store: RenderStoreView,
+    slot: number,
+    projectionContext?: CoreV2ProjectionRenderContext,
+  ): void {
     const value = store.text[slot] ?? '';
     const bitmap = isBitmapTextSafe(value);
     const signature = textStyleSignature(store, slot);
@@ -217,14 +240,21 @@ export class AggregateLeafLayer {
     }
 
     const object = entry.object;
-    object.position.set(store.x[slot] ?? 0, store.y[slot] ?? 0);
-    object.rotation = degreesToRadians(store.rotation[slot] ?? 0);
+    applyLeafProjection(
+      object,
+      resolveCoreV2SlotQuad(store, slot, projectionContext),
+      this.transformMatrix,
+    );
     object.alpha = combinedAlpha(store.color[slot] ?? 0xffffffff, store.opacity[slot] ?? 1);
     object.tint = packedRgb(store.color[slot] ?? 0xffffffff);
     object.visible = true;
   }
 
-  private syncImage(store: RenderStoreView, slot: number): void {
+  private syncImage(
+    store: RenderStoreView,
+    slot: number,
+    projectionContext?: CoreV2ProjectionRenderContext,
+  ): void {
     const source = store.source[slot] ?? '';
     this.imageSources.set(slot, source);
     const texture = this.assets.get(source)?.texture ?? Texture.WHITE;
@@ -239,10 +269,13 @@ export class AggregateLeafLayer {
     } else if (sprite.texture !== texture) {
       sprite.texture = texture;
     }
-    sprite.position.set(store.x[slot] ?? 0, store.y[slot] ?? 0);
-    sprite.rotation = degreesToRadians(store.rotation[slot] ?? 0);
-    sprite.width = Math.max(0, store.width[slot] ?? 0);
-    sprite.height = Math.max(0, store.height[slot] ?? 0);
+    applyLeafProjection(
+      sprite,
+      resolveCoreV2SlotQuad(store, slot, projectionContext),
+      this.transformMatrix,
+      texture.width,
+      texture.height,
+    );
     sprite.tint = packedRgb(store.tint[slot] ?? 0xffffffff);
     sprite.alpha = combinedAlpha(store.tint[slot] ?? 0xffffffff, store.opacity[slot] ?? 1);
     sprite.visible = true;
@@ -407,6 +440,30 @@ function combinedAlpha(value: number, opacity: number): number {
   return Math.max(0, Math.min(1, opacity * ((value & 0xff) / 255)));
 }
 
-function degreesToRadians(value: number): number {
-  return value * (Math.PI / 180);
+function applyLeafProjection(
+  object: Sprite | BitmapText | Text,
+  quad: CoreV2ResolvedRenderQuad,
+  matrix: Matrix,
+  naturalWidth?: number,
+  naturalHeight?: number,
+): void {
+  object.anchor.set(0.5);
+
+  // Never assign DisplayObject.width/height: those accessors include current
+  // scale, erase reflection signs, and force text raster measurement. Feed the
+  // exact signed/sheared affine through Pixi's public Matrix API instead.
+  const localWidth = naturalWidth ?? quad.projection?.localBounds[2] ?? quad.width;
+  const localHeight = naturalHeight ?? quad.projection?.localBounds[3] ?? quad.height;
+  const resolvedWidth = Math.max(Number.EPSILON, Math.abs(localWidth));
+  const resolvedHeight = Math.max(Number.EPSILON, Math.abs(localHeight));
+  const xScale = quad.width / resolvedWidth;
+  const yScale = quad.height / resolvedHeight;
+  object.setFromMatrix(matrix.set(
+    quad.basis[0] * xScale,
+    quad.basis[1] * xScale,
+    quad.basis[2] * yScale,
+    quad.basis[3] * yScale,
+    quad.center[0],
+    quad.center[1],
+  ));
 }
