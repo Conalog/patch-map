@@ -1,3 +1,5 @@
+import { Color } from 'pixi.js';
+
 export const CORE_V2_ELEMENT_TYPES = [
   'group',
   'grid',
@@ -363,6 +365,7 @@ const PLACEMENTS = new Set<string>([
   'none',
 ]);
 const CONTENT_ORIENTATIONS = new Set<string>(['follow-item', 'upright']);
+const THEME_COLOR_PATH = /^[A-Za-z_][\w-]*(?:\.[A-Za-z_][\w-]*)+$/u;
 const BLACK = '#1a1a1aff';
 const WHITE = '#ffffffff';
 const TRANSPARENT = '#00000000';
@@ -1081,7 +1084,16 @@ function normalizeAutoFont(value: unknown, path: string): Readonly<Record<string
 
 function normalizeColorLike(value: unknown, path: string): unknown {
   if (typeof value === 'string') {
-    if (value.length === 0) invalidValue(path, 'color string must not be empty');
+    if (value.trim().length === 0) invalidValue(path, 'color string must not be empty');
+    if (!THEME_COLOR_PATH.test(value)) {
+      try {
+        // PixiJS Color is the public production conversion boundary. Construct
+        // an instance instead of touching its mutable shared singleton.
+        new Color(value);
+      } catch {
+        invalidValue(path, 'color string must be a PixiJS color or a dotted theme path');
+      }
+    }
     return value;
   }
   if (typeof value === 'number') return finiteNumber(value, path);

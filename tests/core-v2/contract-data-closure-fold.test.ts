@@ -242,7 +242,7 @@ describe('Core v2 data-closure actual-only fold', () => {
 
   it.each([
     ['DAT-006', 5, 4],
-    ['DAT-007', 5, 5],
+    ['DAT-007', 10, 0],
     ['DAT-008', 11, 5],
   ] as const)(
     'folds %s actual observations with %i passing and %i failing assertions',
@@ -292,7 +292,7 @@ describe('Core v2 data-closure actual-only fold', () => {
     ]);
   });
 
-  it('projects DAT-007 accepted-invalid publication and final authority loss', async () => {
+  it('projects DAT-007 atomic rejection with preserved authority', async () => {
     const { folded } = await executeAndFold('DAT-007');
     const comparison = compareObservation({
       expectedCase: normalizedCase('DAT-007'),
@@ -301,22 +301,16 @@ describe('Core v2 data-closure actual-only fold', () => {
       captures: folded.captures,
     });
 
-    expect(valueAt(folded.actual, 'scene.revision')).toBe(2);
-    expect(valueAt(folded.actual, 'scene.query.rect-b')).toBeNull();
-    expect(valueAt(folded.actual, 'interaction.selection.ids')).toEqual([]);
+    expect(valueAt(folded.actual, 'scene.revision')).toBe(1);
+    expect(valueAt(folded.actual, 'scene.query.rect-b.id')).toBe('rect-b');
+    expect(valueAt(folded.actual, 'interaction.selection.ids')).toEqual(['rect-b']);
     expect(valueAt(folded.actual, 'outcome.invalidCases.count')).toBe(10);
-    expect(valueAt(folded.actual, 'outcome.invalidCases.pathAwareCount')).toBe(9);
-    expect(valueAt(folded.actual, 'outcome.invalidCases.acceptedCount')).toBe(1);
-    expect(valueAt(folded.actual, 'revisions.publication.partialCount')).toBe(1);
+    expect(valueAt(folded.actual, 'outcome.invalidCases.pathAwareCount')).toBe(10);
+    expect(valueAt(folded.actual, 'outcome.invalidCases.acceptedCount')).toBe(0);
+    expect(valueAt(folded.actual, 'revisions.publication.partialCount')).toBe(0);
     expect(valueAt(folded.actual, 'events.drawComplete.count')).toBe(1);
     expect(valueAt(folded.actual, 'scene.view')).toEqual(valueAt(folded.captures, 'before.view'));
-    expect(failedPaths(comparison)).toEqual([
-      '/scene/revision',
-      '/scene/query/rect-b/id',
-      '/interaction/selection/ids',
-      '/outcome/invalidCases/pathAwareCount',
-      '/revisions/publication/partialCount',
-    ]);
+    expect(failedPaths(comparison)).toEqual([]);
   });
 
   it('projects DAT-008 literal/hash and mutation gaps while retaining exact duplicate facts', async () => {

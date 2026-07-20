@@ -109,4 +109,20 @@ describe('Core v2 approved dataset foundation', () => {
     ]);
     expect(result.dataset[0]?.attrs).toEqual({ display: 'fixture', nested: { ok: true } });
   });
+
+  it('rejects invalid direct colors while preserving unresolved dotted theme paths', () => {
+    expect(() => materializeCoreV2Dataset([
+      { type: 'rect', id: 'bad-color', size: 10, fill: 'not-a-color' },
+    ])).toThrowError(
+      expect.objectContaining<Partial<CoreV2DatasetError>>({
+        code: 'INVALID_VALUE',
+        datasetPath: '$[0].fill',
+      }),
+    );
+
+    const result = materializeCoreV2Dataset([
+      { type: 'rect', id: 'themed', size: 10, fill: 'primary.default' },
+    ]);
+    expect(result.dataset[0]?.fill).toBe('primary.default');
+  });
 });

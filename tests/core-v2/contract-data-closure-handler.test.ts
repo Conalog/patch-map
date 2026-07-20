@@ -195,22 +195,24 @@ describe('Core v2 data-closure actual-only handlers', () => {
     expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
   });
 
-  it('retains the real DAT-007 partial publication caused by an accepted color string', async () => {
+  it('rejects the complete DAT-007 invalid matrix without partial publication', async () => {
     const { execution } = await runCase('DAT-007');
 
     expectCompleted(execution, ['loadDataset', 'select', 'applyInvalidCases', 'query']);
     expect(execution.eventJournal.filter(({ event }) => event === 'drawComplete')).toHaveLength(1);
     expect(actualAt(execution, 2, 'count')).toBe(10);
-    expect(actualAt(execution, 2, 'pathAwareCount')).toBe(9);
-    expect(actualAt(execution, 2, 'acceptedCount')).toBe(1);
-    expect(actualAt(execution, 2, 'partialPublicationCount')).toBe(1);
+    expect(actualAt(execution, 2, 'pathAwareCount')).toBe(10);
+    expect(actualAt(execution, 2, 'acceptedCount')).toBe(0);
+    expect(actualAt(execution, 2, 'partialPublicationCount')).toBe(0);
     expect(actualAt(execution, 2, 'results.5.id')).toBe('bad-color');
-    expect(actualAt(execution, 2, 'results.5.applied')).toBe(true);
+    expect(actualAt(execution, 2, 'results.5.applied')).toBe(false);
+    expect(actualAt(execution, 2, 'results.5.diagnostic.code')).toBe('INVALID_VALUE');
+    expect(actualAt(execution, 2, 'results.5.diagnostic.datasetPath')).toBe('$[0].fill');
     expect(actualAt(execution, 2, 'results.9.diagnostic.code')).toBe('INVALID_VALUE');
     expect(actualAt(execution, 2, 'results.9.diagnostic.datasetPath')).toBe('$[0].attrs');
-    expect(actualAt(execution, 3, 'value')).toBeNull();
-    expect(actualAt(execution, 3, 'snapshot.revisions.sceneRevision')).toBe(2);
-    expect(actualAt(execution, 3, 'snapshot.selectionIds')).toEqual([]);
+    expect(actualAt(execution, 3, 'value.id')).toBe('rect-b');
+    expect(actualAt(execution, 3, 'snapshot.revisions.sceneRevision')).toBe(1);
+    expect(actualAt(execution, 3, 'snapshot.selectionIds')).toEqual(['rect-b']);
   });
 
   it('records deterministic product identity while exposing unsupported mutation semantics', async () => {
