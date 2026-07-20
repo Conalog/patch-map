@@ -103,6 +103,10 @@ export interface CoreV2SceneImageProductProbe {
   readonly normalizedResourceIdentity: string | null;
   readonly naturalSize: readonly [number, number] | null;
   readonly reusedResolvedResource: boolean;
+  readonly publication: Readonly<{
+    /** Physical Sprite facts are current only for the matching binding generation. */
+    readonly rendererFacts: 'current' | 'pending';
+  }>;
   readonly renderObjectCount: 0 | 1;
   readonly placeholderCount: 0 | 1;
   /** Current binding-wide semantic consumers; zero for inactive targets. */
@@ -370,12 +374,15 @@ export class CoreV2SceneImageController {
     return finalization;
   }
 
-  public imageProbe(entityId: string): CoreV2SceneImageProductProbe | null {
+  public imageProbe(
+    entityId: string,
+    rendererFactsPublished = true,
+  ): CoreV2SceneImageProductProbe | null {
     const target = this.targets.get(entityId);
-    return target ? this.projectTarget(target) : null;
+    return target ? this.projectTarget(target, rendererFactsPublished) : null;
   }
 
-  public probe(): CoreV2SceneImagesProbe {
+  public probe(rendererFactsPublished = true): CoreV2SceneImagesProbe {
     const images: Record<string, CoreV2SceneImageProductProbe> = Object.create(null) as Record<
       string,
       CoreV2SceneImageProductProbe
@@ -386,7 +393,7 @@ export class CoreV2SceneImageController {
     for (const entityId of [...this.targets.keys()].sort()) {
       const target = this.targets.get(entityId)!;
       if (target.active) activeTargetCount += 1;
-      const probe = this.projectTarget(target);
+      const probe = this.projectTarget(target, rendererFactsPublished);
       images[entityId] = probe;
       staleAttachCount += probe.staleAttachCount;
       staleCompletionCount += probe.staleCompletionCount;
@@ -654,12 +661,24 @@ export class CoreV2SceneImageController {
     }));
   }
 
-  private projectTarget(target: ImageTarget): CoreV2SceneImageProductProbe {
+  private projectTarget(
+    target: ImageTarget,
+    rendererFactsPublished: boolean,
+  ): CoreV2SceneImageProductProbe {
     const current = target.current;
     const bindingProbe = target.active
       ? this.renderer.sceneAssetBindingProbe(current.bindingKey)
       : null;
     const imageProbe = this.renderer.sceneImageProbe(target.entityId);
+    const rendererGeneration = current.rendererGeneration ?? bindingProbe?.generation ?? null;
+    const rendererFactsCurrent = rendererFactsPublished && (
+      !target.active || (
+        imageProbe !== null &&
+        imageProbe.bindingKey === current.bindingKey &&
+        rendererGeneration !== null &&
+        imageProbe.bindingGeneration === rendererGeneration
+      )
+    );
     const attempts = Object.freeze(target.attempts.map(freezeAttemptProbe));
     const staleAttachCount = Math.max(
       target.staleAttachCount,
@@ -683,13 +702,16 @@ export class CoreV2SceneImageController {
       naturalSize: current.naturalSize ?? normalizeNaturalSize(bindingProbe?.naturalSize ?? null),
       reusedResolvedResource: current.reusedResolvedResource ||
         (bindingProbe?.reusedResolvedResource ?? false),
-      renderObjectCount: imageProbe?.renderObjectCount ?? 0,
-      placeholderCount: imageProbe?.role === 'asset-placeholder'
+      publication: Object.freeze({
+        rendererFacts: rendererFactsCurrent ? 'current' : 'pending',
+      }),
+      renderObjectCount: rendererFactsCurrent ? imageProbe?.renderObjectCount ?? 0 : 0,
+      placeholderCount: rendererFactsCurrent && imageProbe?.role === 'asset-placeholder'
         ? imageProbe.renderObjectCount
         : 0,
       bindingConsumerCount: bindingProbe?.consumerCount ?? 0,
-      role: imageProbe?.role ?? 'none',
-      rendererGeneration: current.rendererGeneration ?? bindingProbe?.generation ?? null,
+      role: rendererFactsCurrent ? imageProbe?.role ?? 'none' : 'none',
+      rendererGeneration,
       staleAttachCount,
       staleCompletionCount: target.staleCompletionCount,
       diagnosticCount: target.diagnosticCount,

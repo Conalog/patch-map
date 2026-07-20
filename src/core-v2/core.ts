@@ -178,9 +178,13 @@ export interface CoreV2ComponentVisualProductProbe {
   readonly renderRole: CoreV2ComponentRenderRole;
   readonly entityKind: string;
   readonly geometry: CoreV2ComponentVisualGeometryProbe;
+  readonly publication: Readonly<{
+    /** Renderer/image facts are withheld until one successful aggregate flush. */
+    readonly rendererFacts: 'current' | 'pending';
+  }>;
   readonly image: CoreV2SceneImageProductProbe | null;
   readonly rendererPaint: CoreV2EntityPaintProbe | null;
-  readonly renderLanes: CoreV2RenderLaneSnapshot;
+  readonly renderLanes: CoreV2RenderLaneSnapshot | null;
 }
 
 interface IndexedComponentTarget {
@@ -230,6 +234,7 @@ export class CoreV2 {
   private readonly spatialHitAnimationEnds = new Map<string, number>();
   private readonly pendingIntrinsicImageSizes = new Map<string, CoreV2SceneImageIntrinsicSize>();
   private componentTargets = new Map<string, IndexedComponentTarget | null>();
+  private componentRendererFactsPublished = false;
 
   private constructor(renderer: PixiCoreV2Renderer, options: CoreV2Options) {
     this.renderer = renderer;
@@ -420,7 +425,7 @@ export class CoreV2 {
     this.renderer.synchronizeNextFlush();
     this.scheduler.cancelPending();
     const syncStarted = now();
-    this.lastFrameReport = this.scene.flush();
+    this.lastFrameReport = this.flushScene();
     const storeSyncMs = now() - syncStarted;
     const frame = this.requireFrameReport();
     const prepareStarted = now();
@@ -433,7 +438,7 @@ export class CoreV2 {
     this.assertAlive();
     this.applyPendingIntrinsicImageSizes();
     this.scheduler.cancelPending();
-    this.lastFrameReport = this.scene.flush();
+    this.lastFrameReport = this.flushScene();
     if (this.lastFrameReport.rendered) void this.sceneImages.finalizeAfterRenderedFrame();
     if (this.autoRender && this.scene.activeAnimations > 0) this.scheduler.invalidate(reason);
     return this.requireFrameReport();
@@ -488,6 +493,7 @@ export class CoreV2 {
     this.assertAlive();
     const result = this.scene.advance(timeMs);
     this.animationClockMs = timeMs;
+    if (result.changed > 0) this.componentRendererFactsPublished = false;
     if (result.changed > 0 && this.spatialHitAnimationEnds.size > 0) {
       this.invalidateEntityHitIndex();
     }
@@ -575,7 +581,7 @@ export class CoreV2 {
 
   public sceneImageProbe(): CoreV2SceneImagesProbe {
     this.assertAlive();
-    return this.sceneImages.probe();
+    return this.sceneImages.probe(this.componentRendererFactsPublished);
   }
 
   public componentVisualProbe(
@@ -600,6 +606,7 @@ export class CoreV2 {
     }
     const worldBounds = coreV2EntityWorldAabb(entity, projection);
     if (worldBounds === null) return null;
+    const rendererFactsPublished = this.componentRendererFactsPublished;
     return Object.freeze({
       target: normalizedTarget,
       semanticOwnerId: indexed.semanticOwnerId,
@@ -615,9 +622,16 @@ export class CoreV2 {
         visible: entity.visible,
         interactive: entity.interactive,
       }),
-      image: this.sceneImages.imageProbe(indexed.entityId),
-      rendererPaint: this.renderer.entityPaintProbe(indexed.entityId),
-      renderLanes: this.renderer.renderLaneProbe(),
+      publication: Object.freeze({
+        rendererFacts: rendererFactsPublished ? 'current' : 'pending',
+      }),
+      image: rendererFactsPublished
+        ? this.sceneImages.imageProbe(indexed.entityId, true)
+        : null,
+      rendererPaint: rendererFactsPublished
+        ? this.renderer.entityPaintProbe(indexed.entityId)
+        : null,
+      renderLanes: rendererFactsPublished ? this.renderer.renderLaneProbe() : null,
     });
   }
 
@@ -778,6 +792,7 @@ export class CoreV2 {
     }
     this.projectionValue = null;
     this.componentTargets.clear();
+    this.componentRendererFactsPublished = false;
     this.pendingIntrinsicImageSizes.clear();
     try {
       this.scene.destroy();
@@ -813,7 +828,7 @@ export class CoreV2 {
       this.pruneCompletedSpatialHitAnimations(this.animationClockMs);
       this.renderer.markChanges(advanced.changedRanges, 'animation');
     }
-    this.lastFrameReport = this.scene.flush();
+    this.lastFrameReport = this.flushScene();
     if (this.lastFrameReport.rendered) void this.sceneImages.finalizeAfterRenderedFrame();
     const active = this.scene.activeAnimations > 0;
     if (!active) this.lastAnimationFrameTime = null;
@@ -821,7 +836,14 @@ export class CoreV2 {
   }
 
   private invalidate(reason: string): void {
+    this.componentRendererFactsPublished = false;
     if (this.autoRender) this.scheduler.invalidate(reason);
+  }
+
+  private flushScene(): FrameReport {
+    const report = this.scene.flush();
+    this.componentRendererFactsPublished = true;
+    return report;
   }
 
   private entityHitIndex(): CoreV2EntityHitIndex {

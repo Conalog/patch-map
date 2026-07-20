@@ -324,6 +324,7 @@ export interface CoreV2SurfaceComponentVisualProbe {
   readonly renderRole: CoreV2ComponentVisualProductProbe['renderRole'];
   readonly entityKind: string;
   readonly geometry: CoreV2ComponentVisualGeometryProbe;
+  readonly publication: CoreV2ComponentVisualProductProbe['publication'];
   readonly sceneImage: CoreV2EngineSceneImageRecord | null;
   readonly rendererPaint: CoreV2EntityPaintProbe | null;
   readonly renderLanes: CoreV2RenderLaneSnapshot | null;
@@ -353,6 +354,7 @@ export interface CoreV2EngineComponentVisualProbe {
   readonly renderRole: CoreV2ComponentVisualProductProbe['renderRole'] | null;
   readonly entityKind: string | null;
   readonly geometry: CoreV2ComponentVisualGeometryProbe | null;
+  readonly publication: CoreV2ComponentVisualProductProbe['publication'] | null;
   readonly sceneImage: CoreV2EngineSceneImageRecord | null;
   readonly rendererPaint: CoreV2EntityPaintProbe | null;
   readonly renderLanes: CoreV2RenderLaneSnapshot | null;
@@ -1277,6 +1279,7 @@ export class CoreV2Engine {
       renderRole: visual?.renderRole ?? null,
       entityKind: visual?.entityKind ?? null,
       geometry: visual?.geometry ?? null,
+      publication: visual?.publication ?? null,
       sceneImage: visual?.sceneImage ?? null,
       rendererPaint: visual?.rendererPaint ?? null,
       renderLanes: visual?.renderLanes ?? null,
@@ -1935,6 +1938,7 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
       renderRole: visual.renderRole,
       entityKind: visual.entityKind,
       geometry: visual.geometry,
+      publication: visual.publication,
       sceneImage: visual.image
         ? projectEngineSceneImageRecord(visual.image, entity, visual.geometry.worldBounds)
         : null,

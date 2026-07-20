@@ -433,6 +433,41 @@ describe('CoreV2SceneImageController', () => {
     });
   });
 
+  it('does not attribute a previous Sprite to a replacement binding generation', async () => {
+    const renderer = new MockImageRenderer();
+    const controller = new CoreV2SceneImageController(renderer);
+    const oldKey = 'alias:old-image';
+    const replacementKey = 'alias:replacement-image';
+    controller.reconcile(imageIndex([image('image', 'old-image', 'alias')]));
+    renderer.resolve(oldKey);
+    await controller.settle();
+    renderer.setImageStaleCounts('image', oldKey, { attach: 4 });
+    expect(controller.imageProbe('image')).toMatchObject({
+      publication: { rendererFacts: 'current' },
+      renderObjectCount: 1,
+      role: 'image',
+    });
+
+    controller.reconcile(imageIndex([image('image', 'replacement-image', 'alias')]));
+    expect(controller.imageProbe('image')).toMatchObject({
+      authoredSource: 'replacement-image',
+      bindingKey: replacementKey,
+      publication: { rendererFacts: 'pending' },
+      renderObjectCount: 0,
+      placeholderCount: 0,
+      role: 'none',
+    });
+
+    renderer.resolve(replacementKey);
+    await controller.settle();
+    renderer.setImageStaleCounts('image', replacementKey, { attach: 0 });
+    expect(controller.imageProbe('image')).toMatchObject({
+      publication: { rendererFacts: 'current' },
+      renderObjectCount: 1,
+      role: 'image',
+    });
+  });
+
   it('does not duplicate one binding stale event across shared consumers', async () => {
     const renderer = new MockImageRenderer();
     const controller = new CoreV2SceneImageController(renderer);

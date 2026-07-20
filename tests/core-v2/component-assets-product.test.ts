@@ -350,6 +350,20 @@ describe('Core v2 component asset product/controller', () => {
     const before = structuredClone(input);
 
     engine.loadDataset(input);
+    expect(engine.componentVisualProbe({ ownerId: 'item', componentId: 'bg' })).toMatchObject({
+      semantic: { source: { type: 'rect' } },
+      renderRole: 'background-geometry',
+      publication: { rendererFacts: 'pending' },
+      sceneImage: null,
+      rendererPaint: null,
+      renderLanes: null,
+      availability: {
+        semantic: true,
+        surface: true,
+        rendererPaint: false,
+        renderLanes: false,
+      },
+    });
     engine.publishFrame(0);
     expect(input).toEqual(before);
     const initial = engine.componentVisualProbe({ ownerId: 'item', componentId: 'bg' });
@@ -368,6 +382,7 @@ describe('Core v2 component asset product/controller', () => {
         worldBounds: [0, 0, 100, 80],
         visibleBounds: [0, 0, 100, 80],
       },
+      publication: { rendererFacts: 'current' },
       sceneImage: null,
       rendererPaint: { lane: 'background-geometry', primitiveCount: 1 },
     });
@@ -378,6 +393,14 @@ describe('Core v2 component asset product/controller', () => {
       { kind: 'component', ownerId: 'item', id: 'bg' },
       { source: 'fixture-image' },
     )).toMatchObject({ status: 'committed', denseChanged: true });
+    expect(engine.componentVisualProbe({ ownerId: 'item', componentId: 'bg' })).toMatchObject({
+      semantic: { source: 'fixture-image' },
+      renderRole: 'background-asset',
+      publication: { rendererFacts: 'pending' },
+      sceneImage: null,
+      rendererPaint: null,
+      renderLanes: null,
+    });
     renderer.resolve('alias:fixture-image');
     await engine.settleSceneImageBindings(['alias:fixture-image']);
     engine.publishFrame(20);
@@ -387,6 +410,7 @@ describe('Core v2 component asset product/controller', () => {
       logicalIdentity: initial?.logicalIdentity,
       renderRole: 'background-asset',
       semantic: { source: 'fixture-image', show: true },
+      publication: { rendererFacts: 'current' },
       geometry: { visibleBounds: [0, 0, 100, 80] },
       sceneImage: {
         active: true,
@@ -541,6 +565,7 @@ describe('Core v2 component asset product/controller', () => {
       sceneImage: null,
       rendererPaint: null,
       renderLanes: null,
+      publication: null,
       availability: {
         semantic: true,
         surface: false,
@@ -607,6 +632,13 @@ async function runIconTrace(
     { kind: 'component', ownerId: 'item-a', id: 'icon' },
     { source: 'fixture-icon-2' },
   )).toMatchObject({ status: 'committed' });
+  expect(engine.sceneImageProbe()?.images['item-a::icon:icon']).toMatchObject({
+    authoredSource: 'fixture-icon-2',
+    publication: { rendererFacts: 'pending' },
+    renderObjectCount: 0,
+    placeholderCount: 0,
+    role: 'none',
+  });
   renderer.resolve('alias:fixture-icon-2');
   await engine.settleSceneImageBindings(['alias:fixture-icon-2']);
   engine.publishFrame(20);
