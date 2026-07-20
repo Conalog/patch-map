@@ -21,6 +21,7 @@ import type {
   ParseIdentityIndex,
   ParsePatchMapOptions,
   ParsePatchMapResult,
+  CoreV2ProjectionIndex,
 } from './contracts';
 import { parsePatchMapV010 } from './parser';
 import { withRendererDegradationDiagnostics } from './renderers/degradation';
@@ -207,6 +208,10 @@ export class CoreV2 {
 
   public get identity(): ParseIdentityIndex | null {
     return this.parseResultValue?.identity ?? null;
+  }
+
+  public get projection(): CoreV2ProjectionIndex | null {
+    return this.parseResultValue?.projection ?? null;
   }
 
   public load(input: unknown, options: ParsePatchMapOptions = this.parseOptions): CoreV2LoadResult {

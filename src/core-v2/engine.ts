@@ -1,5 +1,6 @@
 import { createCoreV2, type CoreV2, type CoreV2Options } from './core';
 import type { SceneSnapshot } from '../core-v1/contracts';
+import type { CoreV2ProjectionIndex } from './contracts';
 import {
   CoreV2DatasetError,
   materializeCoreV2Dataset,
@@ -13,6 +14,7 @@ import {
 } from './semantic/probe';
 import {
   applyCoreV2SemanticPatch,
+  removeCoreV2SemanticTarget,
   type CoreV2SemanticMutationDiagnostic,
 } from './semantic/mutation';
 import type { CoreV2ReconcileDiagnostic } from './semantic/reconcile';
@@ -108,10 +110,14 @@ export interface CoreV2SurfaceDebug {
 export interface CoreV2SurfaceEntityGeometry {
   readonly id: string;
   readonly kind: string;
+  readonly localBounds?: readonly [number, number, number, number];
   readonly worldBounds: readonly [number, number, number, number];
   readonly screenBounds: readonly [number, number, number, number];
+  readonly visibleBounds?: readonly [number, number, number, number] | null;
   readonly visible: boolean;
   readonly interactive: boolean;
+  readonly scaleX?: number;
+  readonly scaleY?: number;
 }
 
 export interface CoreV2SurfaceRelationGeometry {
@@ -129,12 +135,23 @@ export interface CoreV2SurfaceRelationGeometry {
 }
 
 export interface CoreV2SurfaceGeometrySnapshot {
+  /** Dense scene revision used to derive the snapshot, when the surface can expose it. */
+  readonly revision?: number;
   readonly entities: readonly CoreV2SurfaceEntityGeometry[];
   readonly relations: readonly CoreV2SurfaceRelationGeometry[];
   readonly selectionOverlay: Readonly<{
     screenBounds: readonly [number, number, number, number];
   }> | null;
 }
+
+export type CoreV2EngineGeometryProbe = Readonly<
+  Omit<CoreV2SurfaceGeometrySnapshot, 'revision'> & {
+    /** Null means the injected surface does not publish a geometry revision. */
+    readonly revision: number | null;
+    /** Null means freshness cannot be established without a surface revision. */
+    readonly revisionLag: number | null;
+  }
+>;
 
 export interface CoreV2SurfaceReconcileResult {
   readonly status: 'committed' | 'refused';
@@ -245,6 +262,41 @@ export type CoreV2EnginePatchResult =
       readonly reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[];
     }>;
 
+interface CoreV2EngineDestroyTargetResultBase {
+  readonly changed: boolean;
+  readonly target: CoreV2SemanticTarget | null;
+  readonly previousRevisions: CoreV2RevisionStamp;
+  readonly revisions: CoreV2RevisionStamp;
+  readonly semanticHash: string | null;
+  readonly applied: readonly CoreV2SemanticTarget[];
+  readonly missing: readonly CoreV2SemanticTarget[];
+  readonly unchanged: readonly CoreV2SemanticTarget[];
+}
+
+export type CoreV2EngineDestroyTargetResult =
+  | Readonly<CoreV2EngineDestroyTargetResultBase & {
+      readonly status: 'committed';
+      readonly changed: true;
+      readonly target: Extract<CoreV2SemanticTarget, { readonly kind: 'element' }>;
+      readonly publication: 'pending';
+      readonly denseOperationCount: number;
+      readonly denseChanged: boolean;
+      readonly reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[];
+    }>
+  | Readonly<CoreV2EngineDestroyTargetResultBase & {
+      readonly status: 'rejected';
+      readonly changed: false;
+      readonly diagnostic: CoreV2EngineDiagnostic;
+      readonly mutationDiagnostic: CoreV2SemanticMutationDiagnostic;
+    }>
+  | Readonly<CoreV2EngineDestroyTargetResultBase & {
+      readonly status: 'refused';
+      readonly changed: false;
+      readonly target: Extract<CoreV2SemanticTarget, { readonly kind: 'element' }>;
+      readonly diagnostic: CoreV2EngineDiagnostic;
+      readonly reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[];
+    }>;
+
 export interface CoreV2DatasetSubmission {
   readonly requestId: string;
   readonly datasetRef?: string;
@@ -310,6 +362,10 @@ type CoreV2EngineEventMap = {
     publishedTuple: CoreV2PublishedTuple;
   }>;
   readonly change: Extract<CoreV2EnginePatchResult, { readonly status: 'committed' }>;
+  readonly targetDestroyed: Extract<
+    CoreV2EngineDestroyTargetResult,
+    { readonly status: 'committed' }
+  >;
   readonly diagnostic: CoreV2EngineDiagnostic;
   readonly destroyed: Readonly<{ lifecycleGeneration: number }>;
 };
@@ -564,6 +620,115 @@ export class CoreV2Engine {
     return result;
   }
 
+  /**
+   * Remove one stable logical element through the same incremental reconcile
+   * authority as patch(). A missing reconcile seam or refused dense plan leaves
+   * semantic authority, revisions, selection, and the current surface unchanged.
+   */
+  public destroyTarget(target: CoreV2SemanticTarget): CoreV2EngineDestroyTargetResult {
+    const surface = this.requireSurface('destroyTarget');
+    const previousRevisions = this.revisionStamp();
+    const mutation = removeCoreV2SemanticTarget(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      target,
+    );
+
+    if (mutation.status === 'rejected') {
+      const diagnostic = this.semanticMutationDiagnostic(
+        mutation.diagnostic,
+        mutation.target,
+        'destroyTarget',
+      );
+      const result = Object.freeze({
+        status: 'rejected',
+        changed: false,
+        target: mutation.target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: mutation.diagnostic.reason === 'missing-target' && mutation.target
+          ? freezeTargets([mutation.target])
+          : EMPTY_TARGETS,
+        unchanged: EMPTY_TARGETS,
+        diagnostic,
+        mutationDiagnostic: mutation.diagnostic,
+      } satisfies CoreV2EngineDestroyTargetResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    if (!surface.reconcile) {
+      return this.refusedDestroyTargetResult(
+        mutation.target,
+        previousRevisions,
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        false,
+        EMPTY_RECONCILE_DIAGNOSTICS,
+      );
+    }
+
+    const selectionBefore = surface.debugSnapshot().selectionIds;
+    let reconcile: CoreV2SurfaceReconcileResult;
+    try {
+      reconcile = surface.reconcile(mutation.candidate.dataset);
+    } catch (error) {
+      const diagnostic = this.diagnosticFrom(error, 'destroyTarget');
+      const result = Object.freeze({
+        status: 'refused',
+        changed: false,
+        target: mutation.target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: EMPTY_TARGETS,
+        unchanged: EMPTY_TARGETS,
+        diagnostic,
+        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+      } satisfies CoreV2EngineDestroyTargetResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
+    if (reconcile.status === 'refused') {
+      return this.refusedDestroyTargetResult(
+        mutation.target,
+        previousRevisions,
+        'CONFLICT',
+        'CONFLICT',
+        true,
+        reconcileDiagnostics,
+      );
+    }
+
+    this.materialized = mutation.candidate;
+    this.sceneRevision += 1;
+    this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
+    if (!sameStringArray(selectionBefore, surface.debugSnapshot().selectionIds)) {
+      this.interactionRevision += 1;
+    }
+    const result = Object.freeze({
+      status: 'committed',
+      changed: true,
+      target: mutation.target,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: mutation.candidate.semanticHash,
+      applied: freezeTargets([mutation.target]),
+      missing: EMPTY_TARGETS,
+      unchanged: EMPTY_TARGETS,
+      publication: 'pending',
+      denseOperationCount: reconcile.operationCount,
+      denseChanged: reconcile.denseChanged,
+      reconcileDiagnostics,
+    } satisfies CoreV2EngineDestroyTargetResult);
+    this.emit('targetDestroyed', result);
+    return result;
+  }
+
   public async submitDataset(submission: CoreV2DatasetSubmission): Promise<CoreV2DatasetSubmissionResult> {
     if (!this.surface) {
       return Object.freeze({
@@ -747,9 +912,16 @@ export class CoreV2Engine {
    * aggregate renderer remains free to use a handful of display objects while
    * callers can still verify entity, relation, and selection alignment.
    */
-  public geometryProbe(): CoreV2SurfaceGeometrySnapshot | null {
+  public geometryProbe(): CoreV2EngineGeometryProbe | null {
     const surface = this.requireSurface('geometryProbe');
-    return surface.geometrySnapshot?.() ?? null;
+    const geometry = surface.geometrySnapshot?.() ?? null;
+    if (geometry === null) return null;
+    const sourceRevision = geometry.revision ?? null;
+    return Object.freeze({
+      ...geometry,
+      revision: sourceRevision,
+      revisionLag: sourceRevision === null ? null : this.sceneRevision - sourceRevision,
+    });
   }
 
   public exportDataset(): readonly NormalizedCoreV2Element[] {
@@ -820,12 +992,13 @@ export class CoreV2Engine {
   private semanticMutationDiagnostic(
     diagnostic: CoreV2SemanticMutationDiagnostic,
     target: CoreV2SemanticTarget | null,
+    operation = 'patch',
   ): CoreV2EngineDiagnostic {
     const mapping = mutationDiagnosticMapping(diagnostic);
     const base = this.operationDiagnostic(
       mapping.code,
       mapping.category,
-      'patch',
+      operation,
       mapping.recoverable,
       diagnostic.path,
     );
@@ -864,6 +1037,39 @@ export class CoreV2Engine {
       diagnostic,
       reconcileDiagnostics,
     } satisfies CoreV2EnginePatchResult);
+    this.emit('diagnostic', diagnostic);
+    return result;
+  }
+
+  private refusedDestroyTargetResult(
+    target: Extract<CoreV2SemanticTarget, { readonly kind: 'element' }>,
+    previousRevisions: CoreV2RevisionStamp,
+    code: string,
+    category: CoreV2DiagnosticCategory,
+    recoverable: boolean,
+    reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[],
+  ): Extract<CoreV2EngineDestroyTargetResult, { readonly status: 'refused' }> {
+    const datasetPath = reconcileDiagnostics.find((entry) => entry.severity === 'error')?.path;
+    const diagnostic = this.operationDiagnostic(
+      code,
+      category,
+      'destroyTarget',
+      recoverable,
+      datasetPath,
+    );
+    const result = Object.freeze({
+      status: 'refused',
+      changed: false,
+      target,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: this.materialized?.semanticHash ?? null,
+      applied: EMPTY_TARGETS,
+      missing: EMPTY_TARGETS,
+      unchanged: EMPTY_TARGETS,
+      diagnostic,
+      reconcileDiagnostics,
+    } satisfies CoreV2EngineDestroyTargetResult);
     this.emit('diagnostic', diagnostic);
     return result;
   }
@@ -953,6 +1159,7 @@ export class CoreV2EngineError extends Error {
 class PixiEngineSurface implements CoreV2EngineSurface {
   private readonly core: CoreV2;
   private canvasPresent = true;
+  private geometryRevision = 0;
 
   public constructor(core: CoreV2) {
     this.core = core;
@@ -968,10 +1175,12 @@ class PixiEngineSurface implements CoreV2EngineSurface {
 
   public load(input: unknown): void {
     this.core.load(input);
+    this.geometryRevision += 1;
   }
 
   public reconcile(input: unknown): CoreV2SurfaceReconcileResult {
     const result = this.core.reconcile(input);
+    if (result.status === 'committed') this.geometryRevision += 1;
     return Object.freeze({
       status: result.status,
       operationCount: result.plan.summary.operationCount,
@@ -1029,7 +1238,10 @@ class PixiEngineSurface implements CoreV2EngineSurface {
   }
 
   public geometrySnapshot(): CoreV2SurfaceGeometrySnapshot {
-    return createCoreV2SurfaceGeometrySnapshot(this.core.snapshot());
+    return Object.freeze({
+      ...createCoreV2SurfaceGeometrySnapshot(this.core.snapshot(), this.core.projection),
+      revision: this.geometryRevision,
+    });
   }
 
   public async destroy(): Promise<boolean> {
@@ -1121,6 +1333,10 @@ function freezeTargets(values: readonly CoreV2SemanticTarget[]): readonly CoreV2
   return Object.freeze([...values]);
 }
 
+function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 function freezeReconcileDiagnostics(
   values: readonly CoreV2ReconcileDiagnostic[],
 ): readonly CoreV2ReconcileDiagnostic[] {
@@ -1156,17 +1372,31 @@ function mutationDiagnosticMapping(
 
 export function createCoreV2SurfaceGeometrySnapshot(
   snapshot: SceneSnapshot,
+  projection: CoreV2ProjectionIndex | null = null,
 ): CoreV2SurfaceGeometrySnapshot {
   const entityGeometries = snapshot.entities
     .filter((entity) => entity.kind !== 'relation')
-    .map((entity) => Object.freeze<CoreV2SurfaceEntityGeometry>({
-      id: entity.id,
-      kind: entity.kind,
-      worldBounds: worldBoundsFor(entity.bounds, entity.rotation),
-      screenBounds: screenBoundsFor(entity.bounds, entity.rotation, snapshot.view),
-      visible: entity.visible,
-      interactive: entity.interactive,
-    }));
+    .map((entity) => {
+      const worldBounds = worldBoundsFor(entity.bounds, entity.rotation);
+      const entityProjection = projection?.byEntityId[entity.id];
+      return Object.freeze<CoreV2SurfaceEntityGeometry>({
+        id: entity.id,
+        kind: entity.kind,
+        localBounds: entityProjection?.localBounds ?? freezeBounds(
+          0,
+          0,
+          entity.bounds.width,
+          entity.bounds.height,
+        ),
+        worldBounds,
+        screenBounds: screenBoundsFor(entity.bounds, entity.rotation, snapshot.view),
+        visibleBounds: entity.visible ? worldBounds : null,
+        visible: entity.visible,
+        interactive: entity.interactive,
+        scaleX: entityProjection?.scaleX ?? 1,
+        scaleY: entityProjection?.scaleY ?? 1,
+      });
+    });
   const geometryById = new Map(entityGeometries.map((entity) => [entity.id, entity]));
   const relations = snapshot.entities.flatMap((entity) => {
     if (entity.kind !== 'relation') return [];
@@ -1199,6 +1429,7 @@ export function createCoreV2SurfaceGeometrySnapshot(
   const selectionOverlay = unionBounds(selectedBounds);
 
   return Object.freeze({
+    revision: snapshot.revision,
     entities: Object.freeze(entityGeometries),
     relations: Object.freeze(relations),
     selectionOverlay: selectionOverlay === null

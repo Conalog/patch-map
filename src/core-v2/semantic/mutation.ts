@@ -43,6 +43,21 @@ export type CoreV2SemanticMutationResult =
       diagnostic: CoreV2SemanticMutationDiagnostic;
     }>;
 
+export type CoreV2SemanticRemovalResult =
+  | Readonly<{
+      status: 'changed';
+      changed: true;
+      target: Extract<CoreV2SemanticTarget, { readonly kind: 'element' }>;
+      candidate: MaterializedCoreV2Dataset;
+    }>
+  | Readonly<{
+      status: 'rejected';
+      changed: false;
+      target: CoreV2SemanticTarget | null;
+      candidate: null;
+      diagnostic: CoreV2SemanticMutationDiagnostic;
+    }>;
+
 interface LocatedTarget {
   readonly path: string;
 }
@@ -136,6 +151,69 @@ export function applyCoreV2SemanticPatch(
     target,
     candidate,
   }) as CoreV2SemanticMutationResult;
+}
+
+/** Build an immutable candidate with one stable logical element removed. */
+export function removeCoreV2SemanticTarget(
+  current: MaterializedCoreV2Dataset,
+  targetInput: CoreV2SemanticTarget,
+): CoreV2SemanticRemovalResult {
+  let target: CoreV2SemanticTarget;
+  try {
+    target = normalizeTarget(targetInput);
+  } catch (error) {
+    if (!(error instanceof MutationValidationFailure)) throw error;
+    return removalRejected(null, error.diagnostic);
+  }
+
+  if (target.kind !== 'element') {
+    return removalRejected(
+      target,
+      diagnostic(
+        'unsupported-structure',
+        '$.target.kind',
+        'remove currently accepts stable element targets only',
+      ),
+    );
+  }
+
+  const located = locateTargets(current.dataset, target);
+  if (located.length === 0) {
+    return removalRejected(
+      target,
+      diagnostic('missing-target', '$.target', `No current record matches ${targetLabel(target)}`),
+    );
+  }
+  if (located.length > 1) {
+    return removalRejected(
+      target,
+      diagnostic(
+        'ambiguous-target',
+        '$.target',
+        `${targetLabel(target)} resolves to ${located.length} current records`,
+      ),
+    );
+  }
+
+  const location = requireAt(located, 0);
+  const staged = removeDatasetElement(current.dataset, location.path);
+  let candidate: MaterializedCoreV2Dataset;
+  try {
+    candidate = materializeCoreV2Dataset(staged);
+  } catch (error) {
+    if (!(error instanceof CoreV2DatasetError)) throw error;
+    return removalRejected(
+      target,
+      diagnostic('invalid-candidate', error.datasetPath, error.message, error.code),
+    );
+  }
+
+  return Object.freeze({
+    status: 'changed',
+    changed: true,
+    target,
+    candidate,
+  });
 }
 
 function normalizeTarget(value: unknown): CoreV2SemanticTarget {
@@ -275,6 +353,32 @@ function rewriteDataset(
   return elements.map((element, index) => rewriteElement(element, `$[${index}]`, targetPath, patch));
 }
 
+function removeDatasetElement(
+  elements: readonly CoreV2Element[],
+  targetPath: string,
+): readonly unknown[] {
+  return elements.flatMap((element, index) => {
+    const next = removeElement(element, `$[${index}]`, targetPath);
+    return next === null ? [] : [next];
+  });
+}
+
+function removeElement(
+  element: CoreV2Element,
+  path: string,
+  targetPath: string,
+): CoreV2Element | null {
+  if (path === targetPath) return null;
+  if (element.type !== 'group') return element;
+  return {
+    ...element,
+    children: element.children.flatMap((child, index) => {
+      const next = removeElement(child, `${path}.children[${index}]`, targetPath);
+      return next === null ? [] : [next];
+    }),
+  };
+}
+
 function rewriteElement(
   element: CoreV2Element,
   path: string,
@@ -354,6 +458,19 @@ function rejected(
   target: CoreV2SemanticTarget | null,
   mutationDiagnostic: CoreV2SemanticMutationDiagnostic,
 ): CoreV2SemanticMutationResult {
+  return Object.freeze({
+    status: 'rejected',
+    changed: false,
+    target,
+    candidate: null,
+    diagnostic: mutationDiagnostic,
+  });
+}
+
+function removalRejected(
+  target: CoreV2SemanticTarget | null,
+  mutationDiagnostic: CoreV2SemanticMutationDiagnostic,
+): Extract<CoreV2SemanticRemovalResult, { readonly status: 'rejected' }> {
   return Object.freeze({
     status: 'rejected',
     changed: false,

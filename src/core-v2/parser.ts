@@ -9,6 +9,7 @@ import type {
 import {
   PatchMapParseError,
   type ComponentIdentity,
+  type CoreV2EntityProjection,
   type ElementIdentity,
   type EntitySourceIdentity,
   type ExpandedItemIdentity,
@@ -16,6 +17,10 @@ import {
   type ParsePatchMapOptions,
   type ParsePatchMapResult,
 } from './contracts';
+import {
+  projectCoreV2SignedRect,
+  type CoreV2DenseRectProjection,
+} from './semantic/geometry';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -23,6 +28,8 @@ interface Transform {
   readonly x: number;
   readonly y: number;
   readonly rotation: number;
+  readonly scaleX: number;
+  readonly scaleY: number;
 }
 
 interface Size {
@@ -68,6 +75,7 @@ interface ParseState {
   readonly entityIdsBySourceId: Record<string, string[]>;
   readonly entityIdsByComponentId: Record<string, string[]>;
   readonly entitySourceById: Record<string, EntitySourceIdentity>;
+  readonly projectionByEntityId: Record<string, CoreV2EntityProjection>;
   readonly pendingRelations: PendingRelation[];
   readonly warned: Set<string>;
   sourceElements: number;
@@ -97,6 +105,8 @@ const DEFAULT_COLORS: Readonly<Record<string, Rgba>> = Object.freeze({
   'primary.dark': 0x312e81ff,
 });
 const TRANSFORM_ATTRIBUTE_KEYS = new Set(['x', 'y', 'angle', 'rotation']);
+const SIGNED_SCALE_ATTRIBUTE_KEYS = new Set(['scaleX', 'scaleY']);
+const SIGNED_SCALE_ATTRIBUTE_TYPES = new Set(['rect']);
 const TRANSFORM_ATTRIBUTE_TYPES = new Set([
   'group',
   'grid',
@@ -111,7 +121,7 @@ const TRANSFORM_ATTRIBUTE_TYPES = new Set([
 const Z_INDEX_ATTRIBUTE_TYPES = new Set(['rect', 'image', 'text', 'relations']);
 
 const ROOT_CONTEXT: ElementContext = {
-  transform: { x: 0, y: 0, rotation: 0 },
+  transform: { x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1 },
   visible: true,
   interactive: true,
   ancestorIdentities: [],
@@ -135,6 +145,7 @@ export function parsePatchMapV010(
     entityIdsBySourceId: Object.create(null) as Record<string, string[]>,
     entityIdsByComponentId: Object.create(null) as Record<string, string[]>,
     entitySourceById: Object.create(null) as Record<string, EntitySourceIdentity>,
+    projectionByEntityId: Object.create(null) as Record<string, CoreV2EntityProjection>,
     pendingRelations: [],
     warned: new Set(),
     sourceElements: 0,
@@ -183,6 +194,9 @@ export function parsePatchMapV010(
       components: state.componentIdentities,
       expandedItems: state.expandedItems,
     },
+    projection: {
+      byEntityId: state.projectionByEntityId,
+    },
   };
 
   return deepFreeze(result);
@@ -217,7 +231,7 @@ function parseElement(
 
   const attrs = isRecord(value.attrs) ? value.attrs : undefined;
   inspectAttributes(attrs, `${path}.attrs`, type, state);
-  const localTransform = elementTransform(attrs, path, context.transform, state);
+  const localTransform = elementTransform(attrs, path, context.transform, type, state);
   const visible = context.visible && value.show !== false;
   const interactive = context.interactive && value.locked !== true;
   const owner: EntityOwner = {
@@ -410,8 +424,8 @@ function parseItemInstance(
       id: instanceId,
       x: denseTransform.x,
       y: denseTransform.y,
-      width: size.width,
-      height: size.height,
+      width: denseTransform.width,
+      height: denseTransform.height,
       rotation: transform.rotation,
       fill: 0x00000000,
       visible,
@@ -421,6 +435,7 @@ function parseItemInstance(
     },
     { ...owner, instance },
     state,
+    denseTransform,
   );
 
   if (item.components === undefined) return;
@@ -510,8 +525,8 @@ function parseComponent(
           id: entityId,
           x: denseTransform.x,
           y: denseTransform.y,
-          width: local.width,
-          height: local.height,
+          width: denseTransform.width,
+          height: denseTransform.height,
           rotation: transform.rotation,
           fill,
           ...(sourceRecord.borderColor !== undefined || (borderWidth !== undefined && borderWidth > 0)
@@ -530,6 +545,7 @@ function parseComponent(
         },
         { ...owner, component },
         state,
+        denseTransform,
       );
       return;
     }
@@ -538,6 +554,7 @@ function parseComponent(
       imageEntity(entityId, transform, local, asset, value.tint, componentVisible, -10, path, state),
       { ...owner, component },
       state,
+      centerPivotTopLeft(transform, local),
     );
     return;
   }
@@ -561,8 +578,8 @@ function parseComponent(
         id: entityId,
         x: denseTransform.x,
         y: denseTransform.y,
-        width: local.width,
-        height: local.height,
+        width: denseTransform.width,
+        height: denseTransform.height,
         rotation: transform.rotation,
         value: 1,
         min: 0,
@@ -579,6 +596,7 @@ function parseComponent(
       },
       { ...owner, component },
       state,
+      denseTransform,
     );
     return;
   }
@@ -601,6 +619,7 @@ function parseComponent(
       ),
       { ...owner, component },
       state,
+      centerPivotTopLeft(transform, local),
     );
     return;
   }
@@ -629,6 +648,7 @@ function parseComponent(
       textEntity(entityId, transform, local, value.text, style, value.tint, componentVisible, false, 30, path, state),
       { ...owner, component },
       state,
+      centerPivotTopLeft(transform, local),
     );
     return;
   }
@@ -662,8 +682,8 @@ function parseDirectRect(
       id: sourceId,
       x: denseTransform.x,
       y: denseTransform.y,
-      width: size.width,
-      height: size.height,
+      width: denseTransform.width,
+      height: denseTransform.height,
       rotation: transform.rotation,
       fill: resolveColor(value.fill, 0xffffffff, `${path}.fill`, state),
       ...(value.stroke !== undefined
@@ -680,6 +700,7 @@ function parseDirectRect(
     },
     owner,
     state,
+    denseTransform,
   );
 }
 
@@ -716,6 +737,7 @@ function parseDirectImage(
     },
     owner,
     state,
+    centerPivotTopLeft(transform, size),
   );
 }
 
@@ -749,6 +771,7 @@ function parseDirectText(
     ),
     owner,
     state,
+    centerPivotTopLeft(transform, projection.box),
   );
 }
 
@@ -873,7 +896,12 @@ function parseRelations(
   });
 }
 
-function addEntity(entity: EntityInput, owner: EntityOwner, state: ParseState): void {
+function addEntity(
+  entity: EntityInput,
+  owner: EntityOwner,
+  state: ParseState,
+  projection?: CoreV2DenseRectProjection,
+): void {
   if (state.entityIds.has(entity.id)) {
     fatal(
       state,
@@ -884,9 +912,26 @@ function addEntity(entity: EntityInput, owner: EntityOwner, state: ParseState): 
       entity.id,
     );
   }
+  const storedEntity = entity.kind !== 'relation' && entity.kind !== 'text' &&
+    (entity.width === 0 || entity.height === 0) && entity.interactive
+    ? Object.freeze({ ...entity, interactive: false }) as EntityInput
+    : entity;
   state.entityIds.add(entity.id);
   if (entity.kind !== 'relation') state.targetIds.add(entity.id);
-  state.entities.push(entity);
+  state.entities.push(storedEntity);
+  if (entity.kind !== 'relation') {
+    state.projectionByEntityId[entity.id] = Object.freeze({
+      entityId: entity.id,
+      localBounds: projection?.localBounds ?? Object.freeze([
+        0,
+        0,
+        entity.width,
+        entity.height,
+      ] as const),
+      scaleX: projection?.scaleX ?? 1,
+      scaleY: projection?.scaleY ?? 1,
+    });
+  }
   owner.element.entityIds.push(entity.id);
   appendRecord(state.entityIdsBySourceId, owner.element.sourceId, entity.id);
   for (const ancestor of owner.ancestors) {
@@ -1005,8 +1050,8 @@ function imageEntity(
     id,
     x: denseTransform.x,
     y: denseTransform.y,
-    width: box.width,
-    height: box.height,
+    width: denseTransform.width,
+    height: denseTransform.height,
     rotation: transform.rotation,
     source,
     ...(tint !== undefined ? { tint: resolveColor(tint, 0xffffffff, `${path}.tint`, state) } : {}),
@@ -1041,8 +1086,8 @@ function textEntity(
     id,
     x: denseTransform.x,
     y: denseTransform.y,
-    width: box.width,
-    height: box.height,
+    width: denseTransform.width,
+    height: denseTransform.height,
     rotation: transform.rotation,
     text: typeof textValue === 'string' ? textValue : '',
     color: resolveColor(tint ?? style.fill, 0x000000ff, `${path}.style.fill`, state),
@@ -1089,13 +1134,17 @@ function elementTransform(
   attrs: JsonRecord | undefined,
   path: string,
   parent: Transform,
+  type: string,
   state: ParseState,
 ): Transform {
+  const projectsSignedScale = SIGNED_SCALE_ATTRIBUTE_TYPES.has(type);
   return composeTransform(
     parent,
     numericAttribute(attrs?.x, `${path}.attrs.x`, state),
     numericAttribute(attrs?.y, `${path}.attrs.y`, state),
     rotationDegrees(attrs, `${path}.attrs`, state),
+    projectsSignedScale ? scaleAttribute(attrs?.scaleX, `${path}.attrs.scaleX`, state) : 1,
+    projectsSignedScale ? scaleAttribute(attrs?.scaleY, `${path}.attrs.scaleY`, state) : 1,
   );
 }
 
@@ -1114,14 +1163,26 @@ function componentTransform(
   );
 }
 
-function composeTransform(parent: Transform, x: number, y: number, rotation: number): Transform {
+function composeTransform(
+  parent: Transform,
+  x: number,
+  y: number,
+  rotation: number,
+  scaleX = 1,
+  scaleY = 1,
+): Transform {
   const radians = parent.rotation * Math.PI / 180;
   const cos = Math.cos(radians);
   const sin = Math.sin(radians);
+  const localX = x * parent.scaleX;
+  const localY = y * parent.scaleY;
+  const handedness = Math.sign(parent.scaleX * parent.scaleY) || 1;
   return {
-    x: parent.x + x * cos - y * sin,
-    y: parent.y + x * sin + y * cos,
-    rotation: parent.rotation + rotation,
+    x: parent.x + localX * cos - localY * sin,
+    y: parent.y + localX * sin + localY * cos,
+    rotation: parent.rotation + rotation * handedness,
+    scaleX: parent.scaleX * scaleX,
+    scaleY: parent.scaleY * scaleY,
   };
 }
 
@@ -1130,18 +1191,8 @@ function composeTransform(parent: Transform, x: number, y: number, rotation: num
  * dense renderer rotates quads around their center. Shift the stored top-left
  * so both representations produce the same transformed corners and AABB.
  */
-function centerPivotTopLeft(transform: Transform, size: Size): Transform {
-  if (transform.rotation === 0 || (size.width === 0 && size.height === 0)) return transform;
-  const centerX = size.width / 2;
-  const centerY = size.height / 2;
-  const radians = transform.rotation * Math.PI / 180;
-  const cos = Math.cos(radians);
-  const sin = Math.sin(radians);
-  return {
-    x: transform.x - centerX + centerX * cos - centerY * sin,
-    y: transform.y - centerY + centerX * sin + centerY * cos,
-    rotation: transform.rotation,
-  };
+function centerPivotTopLeft(transform: Transform, size: Size): CoreV2DenseRectProjection {
+  return projectCoreV2SignedRect(transform, size.width, size.height);
 }
 
 function rotationDegrees(attrs: JsonRecord | undefined, path: string, state: ParseState): number {
@@ -1415,6 +1466,7 @@ function inspectAttributes(attrs: JsonRecord | undefined, path: string, type: st
   if (!attrs) return;
   for (const key of Object.keys(attrs)) {
     const projected = (TRANSFORM_ATTRIBUTE_KEYS.has(key) && TRANSFORM_ATTRIBUTE_TYPES.has(type)) ||
+      (SIGNED_SCALE_ATTRIBUTE_KEYS.has(key) && SIGNED_SCALE_ATTRIBUTE_TYPES.has(type)) ||
       (key === 'zIndex' && Z_INDEX_ATTRIBUTE_TYPES.has(type));
     if (projected || key === 'metadata') continue;
     warnOnce(
@@ -1461,6 +1513,14 @@ function numericAttribute(value: unknown, path: string, state: ParseState): numb
   if (parsed !== undefined) return parsed;
   if (value !== undefined) warn(state, path, 'invalid-number', 'Invalid numeric attribute fell back to zero');
   return 0;
+}
+
+function scaleAttribute(value: unknown, path: string, state: ParseState): number {
+  if (value === undefined) return 1;
+  const parsed = finiteNumber(value);
+  if (parsed !== undefined) return parsed;
+  warn(state, path, 'invalid-scale', 'Invalid signed scale fell back to one');
+  return 1;
 }
 
 function zIndex(attrs: unknown): number {

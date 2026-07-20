@@ -31,6 +31,11 @@ export {
 } from './semantic/layout';
 export type * from './semantic/layout';
 export {
+  freezeCoreV2Bounds,
+  projectCoreV2SignedRect,
+} from './semantic/geometry';
+export type * from './semantic/geometry';
+export {
   CoreV2ColorResolutionError,
   CoreV2ColorResolver,
   createCoreV2ColorResolver,

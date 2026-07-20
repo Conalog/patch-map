@@ -481,7 +481,17 @@ function collectAttrsGeometry(
   accumulator: ProbeAccumulator,
 ): void {
   if (!attrs) return;
-  for (const field of ['x', 'y', 'angle', 'rotation', 'scale', 'skew', 'pivot'] as const) {
+  for (const field of [
+    'x',
+    'y',
+    'angle',
+    'rotation',
+    'scale',
+    'scaleX',
+    'scaleY',
+    'skew',
+    'pivot',
+  ] as const) {
     if (field in attrs) collectGeometryValue(attrs[field], accumulator);
   }
 }

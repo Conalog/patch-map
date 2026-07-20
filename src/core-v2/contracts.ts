@@ -1,4 +1,5 @@
 import type { EntityKind, SceneDocument } from '../core-v1/contracts';
+import type { CoreV2BoundsTuple } from './semantic/geometry';
 
 export type ParseDiagnosticLevel = 'warning' | 'error';
 
@@ -75,6 +76,18 @@ export interface ParseIdentityIndex {
   readonly expandedItems: readonly ExpandedItemIdentity[];
 }
 
+export interface CoreV2EntityProjection {
+  readonly entityId: string;
+  readonly localBounds: CoreV2BoundsTuple;
+  readonly scaleX: number;
+  readonly scaleY: number;
+}
+
+/** Immutable numeric metadata that the Core v1-compatible dense rows omit. */
+export interface CoreV2ProjectionIndex {
+  readonly byEntityId: Readonly<Record<string, CoreV2EntityProjection>>;
+}
+
 export interface ParsePatchMapOptions {
   /** Theme aliases are Pixi-style RGB/RGBA numbers or CSS color strings. */
   readonly colors?: Readonly<Record<string, unknown>>;
@@ -84,6 +97,7 @@ export interface ParsePatchMapResult {
   readonly document: SceneDocument;
   readonly diagnostics: readonly ParseDiagnostic[];
   readonly identity: ParseIdentityIndex;
+  readonly projection: CoreV2ProjectionIndex;
 }
 
 export class PatchMapParseError extends Error {

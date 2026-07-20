@@ -734,7 +734,7 @@ function normalizeAttrs(value: unknown, path: string): CoreV2Attrs {
     invalidValue(path, 'angle and rotation are mutually exclusive');
   }
 
-  for (const key of ['x', 'y', 'angle', 'rotation', 'zIndex'] as const) {
+  for (const key of ['x', 'y', 'angle', 'rotation', 'zIndex', 'scaleX', 'scaleY'] as const) {
     if (hasOwn(record, key)) finiteNumber(record[key], `${path}.${key}`);
   }
   if (hasOwn(record, 'alpha')) rangedNumber(record.alpha, `${path}.alpha`, 0, 1);
