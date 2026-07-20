@@ -13,11 +13,11 @@ import {
 } from '../../lab/performance-v2/contract/presenters';
 import {
   CORE_V2_CONTRACT_STUB_COUNT,
-  CORE_V2_FOUNDATION_ACTION_DEFINITIONS,
-  CORE_V2_FOUNDATION_CASE_IDS,
-  CORE_V2_FOUNDATION_EXECUTABLE_COUNT,
-  materializeCoreV2FoundationCase,
-} from '../../lab/performance-v2/contract/foundation-cases';
+  CORE_V2_EXECUTABLE_ACTION_DEFINITIONS,
+  CORE_V2_EXECUTABLE_CASE_IDS,
+  CORE_V2_EXECUTABLE_COUNT,
+  materializeCoreV2ExecutableCase,
+} from '../../lab/performance-v2/contract/executable-cases';
 import {
   buildCoreV2ContractRoute,
   CORE_V2_CONTRACT_DATASET_SIZES,
@@ -42,8 +42,8 @@ describe('Core v2 focused contract Lab presenters', () => {
         `/lab/core-v2?scenario=${presenter.caseId}&size=<SIZE>&seed=<SEED>`,
       );
       expect(presenter.executionStatus).toBe(
-        CORE_V2_FOUNDATION_CASE_IDS.some((caseId) => caseId === presenter.caseId)
-          ? 'foundation-observable'
+        CORE_V2_EXECUTABLE_CASE_IDS.some((caseId) => caseId === presenter.caseId)
+          ? 'actual-observable'
           : 'not-implemented',
       );
       expect(presenter.actions.length).toBeGreaterThan(0);
@@ -59,14 +59,14 @@ describe('Core v2 focused contract Lab presenters', () => {
       });
     }
     expect(CORE_V2_CONTRACT_PRESENTERS.filter(
-      (presenter) => presenter.executionStatus === 'foundation-observable',
-    )).toHaveLength(CORE_V2_FOUNDATION_EXECUTABLE_COUNT);
+      (presenter) => presenter.executionStatus === 'actual-observable',
+    )).toHaveLength(CORE_V2_EXECUTABLE_COUNT);
     expect(CORE_V2_CONTRACT_PRESENTERS.filter(
       (presenter) => presenter.executionStatus === 'not-implemented',
     )).toHaveLength(CORE_V2_CONTRACT_STUB_COUNT);
     expect(CORE_V2_CONTRACT_PRESENTERS.filter(
-      (presenter) => presenter.executionStatus === 'foundation-observable',
-    ).map((presenter) => presenter.caseId)).toEqual(CORE_V2_FOUNDATION_CASE_IDS);
+      (presenter) => presenter.executionStatus === 'actual-observable',
+    ).map((presenter) => presenter.caseId)).toEqual(CORE_V2_EXECUTABLE_CASE_IDS);
   });
 
   it('uses exact selection and never substitutes a nearby presenter', () => {
@@ -77,10 +77,10 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_FOUNDATION_ACTION_DEFINITIONS).toHaveLength(15);
-    for (const caseId of CORE_V2_FOUNDATION_CASE_IDS) {
-      const first = materializeCoreV2FoundationCase(caseId, 'production', 4_294_967_295);
-      const second = materializeCoreV2FoundationCase(caseId, 'production', 4_294_967_295);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(41);
+    for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
+      const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
+      const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       expect(first.id).toBe(caseId);
       expect(first.rootTestId).toBe(`scenario-${caseId.toLowerCase()}`);
       expect(first.route).toBe(
@@ -152,12 +152,12 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).toContain(`data-testid="${route.presenter.resultTestId}"`);
     expect(markup).toContain('data-contract-status="armed"');
     expect(markup).toContain('Run exact case');
-    expect(markup).toContain('Actual-only foundation execution is available');
+    expect(markup).toContain('Actual-only case execution is available');
     expect(markup).toContain('data-action-status="queued"');
     expect(markup).not.toContain('data-contract-status="pass"');
   });
 
-  it('keeps every non-foundation route disabled and explicitly not implemented', () => {
+  it('keeps every non-executable route disabled and explicitly not implemented', () => {
     const route = parseCoreV2ContractRoute(
       '/lab/core-v2?scenario=LIF-003&size=500&seed=319',
     );
@@ -181,7 +181,7 @@ describe('Core v2 focused contract Lab shell', () => {
 
 describe('Core v2 actual-only Lab bridge', () => {
   it('exposes only state, gesture, milestone, observation, and destroy operations', async () => {
-    const presenter = selectCoreV2ContractPresenter('LIF-001');
+    const presenter = selectCoreV2ContractPresenter('LIF-003');
     const bridge = createNotImplementedCoreV2ContractLabBridge({
       caseId: presenter.caseId,
       rootTestId: presenter.rootTestId,
@@ -203,8 +203,8 @@ describe('Core v2 actual-only Lab bridge', () => {
       'state',
     ]);
     expect(bridge.state()).toMatchObject({
-      caseId: 'LIF-001',
-      rootTestId: 'scenario-lif-001',
+      caseId: 'LIF-003',
+      rootTestId: 'scenario-lif-003',
       status: 'not-implemented',
       actionIndex: -1,
       repeatIndex: 0,
@@ -239,8 +239,9 @@ describe('Core v2 actual-only Lab bridge', () => {
       'presenters.ts',
       'route.ts',
       'bridge.ts',
-      'foundation-cases.ts',
-      'foundation-bridge.ts',
+      'executable-bridge.ts',
+      'executable-cases.ts',
+      'executable-runtime.ts',
       'main.ts',
     ].map((file) => readFile(new URL(`../../lab/performance-v2/contract/${file}`, import.meta.url), 'utf8')));
     const joined = sources.join('\n');
@@ -249,5 +250,6 @@ describe('Core v2 actual-only Lab bridge', () => {
     expect(joined).not.toMatch(/from ['"].*observe/);
     expect(joined).not.toMatch(/node:/);
     expect(joined).not.toMatch(/(?:execute|mutate|select|transform)(?:Scene|Entity|Selection|Viewport)/);
+    expect(joined).toContain("state.status === 'failed'\n          ? 'not-run'");
   });
 });

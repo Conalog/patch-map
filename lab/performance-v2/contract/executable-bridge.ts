@@ -7,8 +7,6 @@ import {
 
 // @ts-expect-error -- the committed browser-safe executor is authored as an ESM JavaScript module.
 import * as workerModule from '../../../scripts/verification/core-v2-contract/execute-worker.mjs';
-// @ts-expect-error -- the committed browser-safe fold is authored as an ESM JavaScript module.
-import * as foldModule from '../../../scripts/verification/core-v2-contract/fold-foundation.mjs';
 
 import {
   CORE_V2_CONTRACT_LAB_BRIDGE_REVISION,
@@ -22,18 +20,19 @@ import {
   type CoreV2ContractPublishedTuple,
 } from './bridge';
 import {
-  CORE_V2_FOUNDATION_ACTION_DEFINITIONS,
-  CORE_V2_FOUNDATION_CLOCK_PROFILE,
-  CORE_V2_FOUNDATION_PROFILE_ENVIRONMENT,
-  isCoreV2FoundationCaseId,
-  materializeCoreV2FoundationCase,
-  resolveCoreV2FoundationDataset,
-  type CoreV2FoundationCaseId,
-  type CoreV2FoundationCasePlan,
-} from './foundation-cases';
+  CORE_V2_EXECUTABLE_CLOCK_PROFILE,
+  CORE_V2_EXECUTABLE_PROFILE_ENVIRONMENT,
+  isCoreV2ExecutableCaseId,
+  materializeCoreV2ExecutableCase,
+  resolveCoreV2ExecutableDataset,
+  selectCoreV2ExecutableActionDefinitions,
+  type CoreV2ExecutableCaseId,
+  type CoreV2ExecutableCasePlan,
+} from './executable-cases';
+import { resolveCoreV2ExecutableRuntime } from './executable-runtime';
 
-const FOUNDATION_RUNNER_REVISION = 'core-v2-foundation-lab-runner/1';
-const FOUNDATION_FAILURE_SCHEMA = 'core-v2-contract-lab-failure/1';
+const EXECUTABLE_RUNNER_REVISION = 'core-v2-executable-lab-runner/1';
+const EXECUTABLE_FAILURE_SCHEMA = 'core-v2-contract-lab-failure/1';
 
 interface WorkerRuntime {
   executeContractCase(
@@ -42,22 +41,10 @@ interface WorkerRuntime {
   ): Promise<Readonly<Record<string, unknown>>>;
 }
 
-interface FoldRuntime {
-  foldFoundationExecution(
-    this: void,
-    options: Readonly<Record<string, unknown>>,
-  ): Readonly<{
-    readonly actual: Readonly<Record<string, unknown>>;
-    readonly fixtures: Readonly<Record<string, unknown>>;
-    readonly captures: Readonly<Record<string, unknown>>;
-  }>;
-}
-
 const { executeContractCase } = workerModule as unknown as WorkerRuntime;
-const { foldFoundationExecution } = foldModule as unknown as FoldRuntime;
 
-export interface CoreV2FoundationLabBridgeOptions {
-  readonly caseId: CoreV2FoundationCaseId;
+export interface CoreV2ExecutableLabBridgeOptions {
+  readonly caseId: CoreV2ExecutableCaseId;
   readonly rootTestId: string;
   readonly size: string;
   readonly seed: number;
@@ -87,13 +74,14 @@ class TargetedWebGLCoreV2Engine extends CoreV2Engine {
   }
 }
 
-export function createCoreV2FoundationLabBridge(
-  options: CoreV2FoundationLabBridgeOptions,
+export function createCoreV2ExecutableLabBridge(
+  options: CoreV2ExecutableLabBridgeOptions,
 ): CoreV2ContractLabBridgeV1 {
-  invariant(isCoreV2FoundationCaseId(options.caseId), `unsupported case ${options.caseId}`);
+  invariant(isCoreV2ExecutableCaseId(options.caseId), `unsupported case ${options.caseId}`);
   invariant(options.rootTestId === `scenario-${options.caseId.toLowerCase()}`, 'root test identity');
 
-  const casePlan = materializeCoreV2FoundationCase(options.caseId, options.size, options.seed);
+  const casePlan = materializeCoreV2ExecutableCase(options.caseId, options.size, options.seed);
+  const runtime = resolveCoreV2ExecutableRuntime(options.caseId);
   invariant(casePlan.rootTestId === options.rootTestId, 'fixture root test identity');
 
   let status: CoreV2ContractLabStatus = 'armed';
@@ -138,24 +126,61 @@ export function createCoreV2FoundationLabBridge(
     lastObservation = null;
     lastRun = null;
 
+    let execution: Readonly<Record<string, unknown>> | null = null;
+    let supplementalEngine: TargetedWebGLCoreV2Engine | null = null;
+    let supplementalCleanup: Readonly<Record<string, unknown>> | null = null;
+    let supplementalReleaseError: unknown = null;
+
     try {
-      const execution = await executeContractCase({
+      if (runtime.needsSupplementalWebGLLease) {
+        supplementalEngine = new TargetedWebGLCoreV2Engine(
+          options.surfaceHost,
+          options.surfaceFactory,
+        );
+        await supplementalEngine.initialize({
+          instanceId: `${options.caseId.toLowerCase()}-lab-surface-${runCount}`,
+          width: 800,
+          height: 600,
+          pixelRatio: 1,
+          strategy: 'mesh',
+          preference: 'webgl',
+        });
+        invariant(
+          supplementalEngine.snapshot().resources.renderer?.backend === 'webgl',
+          `${options.caseId} supplemental surface backend`,
+        );
+      }
+
+      execution = await executeContractCase({
         caseRecord: freshCasePlan(casePlan),
-        actionDefinitions: CORE_V2_FOUNDATION_ACTION_DEFINITIONS,
+        actionDefinitions: selectCoreV2ExecutableActionDefinitions(casePlan),
         engineFactory: () => new TargetedWebGLCoreV2Engine(
           options.surfaceHost,
           options.surfaceFactory,
         ),
-        datasets: { resolve: resolveCoreV2FoundationDataset },
-        clock: new FoundationLabClock(),
+        datasets: { resolve: resolveCoreV2ExecutableDataset },
+        clock: new ExecutableLabClock(),
+        handlerEntries: runtime.handlerEntries(casePlan),
       });
-      const folded = foldFoundationExecution({
+      const folded = runtime.fold({
         casePlan: freshCasePlan(casePlan),
         execution,
         provenance: options.provenance ?? defaultProvenance(casePlan),
         environment: options.environment ?? defaultEnvironment(casePlan),
       });
-      const cleanup = requireRecord(execution.cleanup, 'execution cleanup');
+      if (supplementalEngine) {
+        try {
+          supplementalCleanup = await releaseSupplementalWebGLLease(supplementalEngine);
+        } catch (error) {
+          supplementalReleaseError = error;
+          throw error;
+        }
+        supplementalEngine = null;
+      }
+      const cleanup = requireRecord(
+        mergeCleanup(requireRecord(execution.cleanup, 'execution cleanup'), supplementalCleanup),
+        'merged cleanup',
+      );
       lastExecution = execution;
       lastCleanup = cleanup;
       lastObservation = folded.actual;
@@ -163,26 +188,44 @@ export function createCoreV2FoundationLabBridge(
       publishedTuple = executionPublishedTuple(execution);
       status = 'observed';
       completedRunCount += 1;
-      lastRun = deepFreeze({
+      const run = deepFreeze({
         status: 'observed',
         execution,
         actualObservation: folded.actual,
         fixtures: folded.fixtures,
         captures: folded.captures,
         cleanup,
-      });
+      } satisfies CoreV2ContractLabRunResult);
+      lastRun = run;
       assertSurfaceIsReleased(options.surfaceHost);
-      return lastRun;
+      return run;
     } catch (error) {
-      const partialExecution = partialExecutionFrom(error);
+      if (supplementalEngine) {
+        const retryCleanup = await releaseSupplementalWebGLLease(supplementalEngine)
+          .catch((releaseError: unknown) => deepFreeze({
+            status: 'failed',
+            error: serializeError(releaseError),
+          }));
+        supplementalCleanup = supplementalReleaseError === null
+          ? retryCleanup
+          : deepFreeze({
+              status: 'failed',
+              error: serializeError(supplementalReleaseError),
+              retryCleanup,
+            });
+        supplementalEngine = null;
+      }
+      const partialExecution = execution ?? partialExecutionFrom(error);
       lastExecution = partialExecution;
-      lastCleanup = partialExecution && isRecord(partialExecution.cleanup)
+      const executionCleanup = partialExecution && isRecord(partialExecution.cleanup)
         ? partialExecution.cleanup
         : null;
+      lastCleanup = mergeCleanup(executionCleanup, supplementalCleanup);
       actionIndex = partialExecution ? executionActionIndex(partialExecution) : -1;
       publishedTuple = partialExecution ? executionPublishedTuple(partialExecution) : emptyPublishedTuple();
       status = 'failed';
       lastObservation = failureObservation(casePlan, partialExecution, error);
+      assertSurfaceIsReleased(options.surfaceHost);
       throw error;
     }
   }
@@ -242,7 +285,7 @@ export function createCoreV2FoundationLabBridge(
       assertActionIndex(value);
       return Promise.reject(new CoreV2ContractExecutionNotImplementedError(
         options.caseId,
-        'gesture execution for the non-gesture foundation slice',
+        'gesture execution for the current non-gesture executable slice',
       ));
     },
     async awaitMilestone(value: number, milestone: CoreV2ContractLabMilestone): Promise<void> {
@@ -276,8 +319,8 @@ export function createCoreV2FoundationLabBridge(
   });
 }
 
-class FoundationLabClock {
-  private current = CORE_V2_FOUNDATION_CLOCK_PROFILE.startMs;
+class ExecutableLabClock {
+  private current = CORE_V2_EXECUTABLE_CLOCK_PROFILE.startMs;
 
   public now(): number {
     return this.current;
@@ -292,7 +335,7 @@ class FoundationLabClock {
   public withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const timeout = globalThis.setTimeout(() => {
-        reject(new Error(`Core v2 foundation Lab timed out: ${label}`));
+        reject(new Error(`Core v2 executable Lab timed out: ${label}`));
       }, timeoutMs);
       promise.then(
         (value) => {
@@ -308,23 +351,23 @@ class FoundationLabClock {
   }
 }
 
-function freshCasePlan(plan: CoreV2FoundationCasePlan): CoreV2FoundationCasePlan {
+function freshCasePlan(plan: CoreV2ExecutableCasePlan): CoreV2ExecutableCasePlan {
   return deepFreeze(structuredClone(plan));
 }
 
-function defaultProvenance(plan: CoreV2FoundationCasePlan): Readonly<Record<string, unknown>> {
+function defaultProvenance(plan: CoreV2ExecutableCasePlan): Readonly<Record<string, unknown>> {
   return Object.freeze({
     source: 'focused-lab-product-source',
     fixtureSha256: plan.fixtureSha256,
-    runnerRevision: FOUNDATION_RUNNER_REVISION,
+    runnerRevision: EXECUTABLE_RUNNER_REVISION,
     promotionEligible: false,
   });
 }
 
-function defaultEnvironment(plan: CoreV2FoundationCasePlan): Readonly<Record<string, unknown>> {
+function defaultEnvironment(plan: CoreV2ExecutableCasePlan): Readonly<Record<string, unknown>> {
   const userAgent = typeof navigator === 'undefined' ? 'unit-or-non-browser' : navigator.userAgent;
   return deepFreeze({
-    ...structuredClone(CORE_V2_FOUNDATION_PROFILE_ENVIRONMENT),
+    ...structuredClone(CORE_V2_EXECUTABLE_PROFILE_ENVIRONMENT),
     backend: 'webgl2',
     browser: userAgent,
     route: plan.route,
@@ -334,13 +377,61 @@ function defaultEnvironment(plan: CoreV2FoundationCasePlan): Readonly<Record<str
   });
 }
 
+async function releaseSupplementalWebGLLease(
+  engine: TargetedWebGLCoreV2Engine,
+): Promise<Readonly<Record<string, unknown>>> {
+  const before = engine.snapshot();
+  const returned = await engine.destroy();
+  const after = engine.snapshot();
+  const semanticAfter = engine.semanticProbe();
+  return deepFreeze({
+    status: 'completed',
+    role: 'product-only-case-webgl-lease',
+    targetedBackend: before.resources.renderer?.backend ?? null,
+    returned,
+    before: {
+      lifecycle: before.lifecycle,
+      canvasCount: before.resources.canvasCount,
+    },
+    after: {
+      lifecycle: after.lifecycle,
+      logicalDatasetRootCount: semanticAfter.dataset.rootIds.length,
+      activeAnimationCount: semanticAfter.interaction.activeAnimationCount ?? 0,
+    },
+    remainingResources: {
+      canvasCount: after.resources.canvasCount,
+      subscriptions: after.resources.subscriptions.active,
+      pendingWork: after.pendingWork,
+    },
+  });
+}
+
+function mergeCleanup(
+  executionCleanup: Readonly<Record<string, unknown>> | null,
+  supplementalCleanup: Readonly<Record<string, unknown>> | null,
+): Readonly<Record<string, unknown>> | null {
+  if (!executionCleanup && !supplementalCleanup) return null;
+  const executionStatus = executionCleanup?.status;
+  const supplementalStatus = supplementalCleanup?.status;
+  const status = [executionStatus, supplementalStatus]
+    .filter((value): value is string => typeof value === 'string')
+    .every((value) => value === 'completed')
+    ? 'completed'
+    : 'failed';
+  return deepFreeze({
+    ...(executionCleanup ?? {}),
+    status,
+    ...(supplementalCleanup ? { supplementalWebGLLease: supplementalCleanup } : {}),
+  });
+}
+
 function failureObservation(
-  plan: CoreV2FoundationCasePlan,
+  plan: CoreV2ExecutableCasePlan,
   partialExecution: Readonly<Record<string, unknown>> | null,
   error: unknown,
 ): Readonly<Record<string, unknown>> {
   return deepFreeze({
-    $schema: FOUNDATION_FAILURE_SCHEMA,
+    $schema: EXECUTABLE_FAILURE_SCHEMA,
     case: {
       id: plan.id,
       caseType: plan.caseType,
@@ -357,10 +448,10 @@ function failureObservation(
 }
 
 function destroyedWithoutRunObservation(
-  plan: CoreV2FoundationCasePlan,
+  plan: CoreV2ExecutableCasePlan,
 ): Readonly<Record<string, unknown>> {
   return deepFreeze({
-    $schema: FOUNDATION_FAILURE_SCHEMA,
+    $schema: EXECUTABLE_FAILURE_SCHEMA,
     case: { id: plan.id, rootTestId: plan.rootTestId, params: structuredClone(plan.routeParams) },
     execution: null,
     outcome: {
@@ -406,11 +497,16 @@ function cleanupSummary(
       ? release.remainingResources
       : null)
     .filter((value): value is Readonly<Record<string, unknown>> => value !== null);
+  const supplemental = cleanup && isRecord(cleanup.supplementalWebGLLease)
+    && isRecord(cleanup.supplementalWebGLLease.remainingResources)
+    ? cleanup.supplementalWebGLLease.remainingResources
+    : null;
+  if (supplemental) remaining.push(supplemental);
   return deepFreeze({
     status: cleanup?.status ?? 'not-run',
     runCount,
     completedRunCount,
-    releasedEngineCount: releases.length,
+    releasedEngineCount: releases.length + Number(supplemental !== null),
     retainedCanvasCount: sumFinite(remaining, 'canvasCount'),
     retainedSubscriptionCount: sumFinite(remaining, 'subscriptions'),
     retainedPendingWork: sumFinite(remaining, 'pendingWork'),
@@ -472,7 +568,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 function invariant(condition: boolean, message: string): asserts condition {
-  if (!condition) throw new Error(`Invalid Core v2 foundation Lab bridge: ${message}`);
+  if (!condition) throw new Error(`Invalid Core v2 executable Lab bridge: ${message}`);
 }
 
 function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {

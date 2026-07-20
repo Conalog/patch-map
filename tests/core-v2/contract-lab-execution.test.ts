@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { CoreV2ContractExecutionNotImplementedError } from '../../lab/performance-v2/contract/bridge';
-import { createCoreV2FoundationLabBridge } from '../../lab/performance-v2/contract/foundation-bridge';
-import { CORE_V2_FOUNDATION_CASE_IDS } from '../../lab/performance-v2/contract/foundation-cases';
+import { createCoreV2ExecutableLabBridge } from '../../lab/performance-v2/contract/executable-bridge';
+import {
+  CORE_V2_EXECUTABLE_CASE_IDS,
+  materializeCoreV2ExecutableCase,
+} from '../../lab/performance-v2/contract/executable-cases';
+import { resolveCoreV2ExecutableRuntime } from '../../lab/performance-v2/contract/executable-runtime';
 import type {
   CoreV2EngineSurface,
   CoreV2EngineSurfaceFactory,
@@ -11,15 +15,15 @@ import type {
   CoreV2SurfaceOptions,
 } from '../../src/core-v2/engine';
 
-describe('Core v2 foundation Lab product bridge', () => {
-  it.each(CORE_V2_FOUNDATION_CASE_IDS)(
+describe('Core v2 executable Lab product bridge', () => {
+  it.each(CORE_V2_EXECUTABLE_CASE_IDS.filter((caseId) => caseId !== 'DAT-008'))(
     'executes %s through a targeted CoreV2Engine and retains actual-only cleanup facts',
     async (caseId) => {
       const surfaceHost = createSurfaceHost();
       const surfaces: FakeSurface[] = [];
       const receivedTargets: Array<HTMLElement | undefined> = [];
       const surfaceFactory = createFakeSurfaceFactory(surfaces, receivedTargets);
-      const bridge = createCoreV2FoundationLabBridge({
+      const bridge = createCoreV2ExecutableLabBridge({
         caseId,
         rootTestId: `scenario-${caseId.toLowerCase()}`,
         size: '5000',
@@ -50,10 +54,7 @@ describe('Core v2 foundation Lab product bridge', () => {
       });
       expect(run.actualObservation).toMatchObject({
         $schema: 'core-v2-semantic-observation/1',
-        case: {
-          id: caseId,
-          params: { size: '5000', seed: 4_294_967_295 },
-        },
+        case: { id: caseId },
         environment: { backend: 'webgl2', routeSize: '5000' },
       });
       expect(bridge.execution()).toBe(run.execution);
@@ -61,6 +62,7 @@ describe('Core v2 foundation Lab product bridge', () => {
       expect(surfaces.length).toBeGreaterThan(0);
       expect(surfaces.every((surface) => surface.destroyed)).toBe(true);
       expect(receivedTargets.every((target) => target === surfaceHost)).toBe(true);
+      expect(surfaces.every((surface) => surface.preference === 'webgl')).toBe(true);
       expect(JSON.stringify(run)).not.toContain('"status":"pass"');
       await expect(
         bridge.armGesture(0),
@@ -72,10 +74,16 @@ describe('Core v2 foundation Lab product bridge', () => {
       ).resolves.toBeUndefined();
 
       const destroyed = await bridge.destroyCase();
+      const executionCleanup = isRecord(run.execution.cleanup) ? run.execution.cleanup : null;
+      const executorReleaseCount = executionCleanup && Array.isArray(executionCleanup.releases)
+        ? executionCleanup.releases.length
+        : 0;
       expect(destroyed).toMatchObject({
         status: 'completed',
         runCount: 1,
         completedRunCount: 1,
+        releasedEngineCount: executorReleaseCount
+          + Number(resolveCoreV2ExecutableRuntime(caseId).needsSupplementalWebGLLease),
         retainedCanvasCount: 0,
         retainedSubscriptionCount: 0,
         retainedPendingWork: 0,
@@ -89,7 +97,7 @@ describe('Core v2 foundation Lab product bridge', () => {
     const surfaceHost = createSurfaceHost();
     const surfaces: FakeSurface[] = [];
     const receivedTargets: Array<HTMLElement | undefined> = [];
-    const bridge = createCoreV2FoundationLabBridge({
+    const bridge = createCoreV2ExecutableLabBridge({
       caseId: 'DAT-002',
       rootTestId: 'scenario-dat-002',
       size: '100',
@@ -147,7 +155,7 @@ describe('Core v2 foundation Lab product bridge', () => {
   });
 
   it('retains a failed actual record and cleanup when the WebGL surface cannot initialize', async () => {
-    const bridge = createCoreV2FoundationLabBridge({
+    const bridge = createCoreV2ExecutableLabBridge({
       caseId: 'LIF-001',
       rootTestId: 'scenario-lif-001',
       size: '100',
@@ -169,6 +177,137 @@ describe('Core v2 foundation Lab product bridge', () => {
     });
     expect(JSON.stringify(actual)).not.toContain('"status":"pass"');
     expect(await bridge.destroyCase()).toMatchObject({ retainedCanvasCount: 0 });
+  });
+
+  it('does not report completed cleanup when a supplemental WebGL teardown fails', async () => {
+    const surface = new FailingDestroySurface({
+      width: 800,
+      height: 600,
+      pixelRatio: 1,
+      antialias: true,
+      background: 0xffffffff,
+      strategy: 'mesh',
+      preference: 'webgl',
+      powerPreference: 'high-performance',
+    });
+    const bridge = createCoreV2ExecutableLabBridge({
+      caseId: 'DAT-003',
+      rootTestId: 'scenario-dat-003',
+      size: '100',
+      seed: 319,
+      surfaceHost: createSurfaceHost(),
+      surfaceFactory: () => Promise.resolve(surface),
+      environment: { browser: 'vitest', backend: 'webgl2' },
+    });
+
+    await expect(bridge.runCase()).rejects.toThrow(/synthetic supplemental teardown failure/u);
+    expect(bridge.state().status).toBe('failed');
+    expect(bridge.cleanup()).toMatchObject({
+      status: 'failed',
+      supplementalWebGLLease: {
+        status: 'failed',
+        error: { message: 'synthetic supplemental teardown failure' },
+      },
+    });
+    expect(await bridge.destroyCase()).toMatchObject({
+      status: 'failed',
+      releasedEngineCount: 0,
+    });
+  });
+
+  it('executes DAT-008 without fabricating the immutable missing binding operand', async () => {
+    const surfaceHost = createSurfaceHost();
+    const surfaces: FakeSurface[] = [];
+    const receivedTargets: Array<HTMLElement | undefined> = [];
+    const plan = materializeCoreV2ExecutableCase('DAT-008', '100', 319);
+    expect(plan.actionTrace[2]).toMatchObject({
+      type: 'retainTarget',
+      operands: { id: 'explicit-a' },
+    });
+    expect(plan.actionTrace[2]?.operands).not.toHaveProperty('as');
+
+    const bridge = createCoreV2ExecutableLabBridge({
+      caseId: 'DAT-008',
+      rootTestId: 'scenario-dat-008',
+      size: '100',
+      seed: 319,
+      surfaceHost,
+      surfaceFactory: createFakeSurfaceFactory(surfaces, receivedTargets),
+      environment: { browser: 'vitest', backend: 'webgl2' },
+    });
+
+    await expect(bridge.runCase()).rejects.toThrow(/retainTarget binding operand as/u);
+    expect(bridge.state()).toMatchObject({ status: 'failed', actionIndex: 2 });
+    expect(bridge.execution()).toMatchObject({
+      caseId: 'DAT-008',
+      status: 'failed',
+      cleanup: { status: 'completed', errors: [] },
+    });
+    expect(bridge.cleanup()).toMatchObject({ status: 'completed', errors: [] });
+    const actual = await bridge.actualObservation();
+    expect(actual).toMatchObject({
+      $schema: 'core-v2-contract-lab-failure/1',
+      case: { id: 'DAT-008' },
+      outcome: {
+        status: 'failed',
+        promotionEligible: false,
+      },
+    });
+    const outcome = actual.outcome;
+    if (!isRecord(outcome) || !isRecord(outcome.error)) {
+      throw new Error('DAT-008 failure observation is missing its execution error');
+    }
+    expect(outcome.error.message).toMatch(/retainTarget binding operand as/u);
+    expect(surfaces.length).toBeGreaterThan(0);
+    expect(surfaces.every((surface) => surface.destroyed)).toBe(true);
+    expect(surfaces.every((surface) => surface.preference === 'webgl')).toBe(true);
+    expect(receivedTargets.every((target) => target === surfaceHost)).toBe(true);
+    expect(await bridge.destroyCase()).toMatchObject({
+      status: 'completed',
+      runCount: 1,
+      completedRunCount: 0,
+      retainedCanvasCount: 0,
+      retainedSubscriptionCount: 0,
+      retainedPendingWork: 0,
+    });
+  });
+
+  it('selects one collision-free handler/fold runtime descriptor for every executable case', () => {
+    const runtimeByCase = Object.fromEntries(
+      CORE_V2_EXECUTABLE_CASE_IDS.map((caseId) => [
+        caseId,
+        resolveCoreV2ExecutableRuntime(caseId).key,
+      ]),
+    );
+
+    expect(runtimeByCase).toEqual({
+      'LIF-001': 'foundation',
+      'LIF-002': 'foundation',
+      'LIF-004': 'lifecycle-resize',
+      'LIF-005': 'lifecycle-destroy',
+      'DAT-001': 'foundation',
+      'DAT-002': 'foundation',
+      'DAT-003': 'data-foundation',
+      'DAT-004': 'data-foundation',
+      'DAT-005': 'data-foundation',
+      'DAT-006': 'data-closure',
+      'DAT-007': 'data-closure',
+      'DAT-008': 'data-closure',
+      'CSM-001': 'foundation',
+      'CSM-003': 'foundation',
+    });
+
+    for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
+      const plan = materializeCoreV2ExecutableCase(caseId, '100', 319);
+      const handlerIds = resolveCoreV2ExecutableRuntime(caseId)
+        .handlerEntries(plan)
+        .map(([handlerId]) => handlerId);
+      const expectedHandlerIds = [...new Set(
+        plan.actionTrace.map((action) => `contract/${action.type}`),
+      )];
+      expect(handlerIds).toHaveLength(new Set(handlerIds).size);
+      expect([...handlerIds].sort()).toEqual([...expectedHandlerIds].sort());
+    }
   });
 });
 
@@ -195,6 +334,7 @@ function createFakeSurfaceFactory(
 class FakeSurface implements CoreV2EngineSurface {
   public canvasCount = 1;
   public destroyed = false;
+  public readonly preference: CoreV2SurfaceOptions['preference'];
 
   private width: number;
   private height: number;
@@ -204,6 +344,7 @@ class FakeSurface implements CoreV2EngineSurface {
     Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
 
   public constructor(options: CoreV2SurfaceOptions) {
+    this.preference = options.preference;
     this.width = options.width;
     this.height = options.height;
     this.pixelRatio = options.pixelRatio;
@@ -260,6 +401,12 @@ class FakeSurface implements CoreV2EngineSurface {
     this.canvasCount = 0;
     this.selectionIds = Object.freeze([]);
     return Promise.resolve(true);
+  }
+}
+
+class FailingDestroySurface extends FakeSurface {
+  public override destroy(): Promise<boolean> {
+    return Promise.reject(new Error('synthetic supplemental teardown failure'));
   }
 }
 

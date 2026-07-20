@@ -1,7 +1,7 @@
 import fixtureCatalogJson from '../../../docs/reference/core-v2-functional-contract/evidence/catalog-fixtures.v1.json';
 import manifestJson from '../../../docs/reference/core-v2-functional-contract/evidence/catalog-evidence-manifest.v1.json';
 
-import { isCoreV2FoundationCaseId } from './foundation-cases';
+import { isCoreV2ExecutableCaseId } from './executable-cases';
 
 export type CoreV2ContractCaseType = 'capability' | 'consumer-journey';
 export type CoreV2ContractPriority = 'P0' | 'P1';
@@ -61,7 +61,7 @@ export interface CoreV2ContractPresenterDescriptor {
   readonly traceTestId: string;
   readonly gestureSurfaceTestId: string;
   readonly actions: readonly CoreV2ContractActionPresenter[];
-  readonly executionStatus: 'foundation-observable' | 'not-implemented';
+  readonly executionStatus: 'actual-observable' | 'not-implemented';
 }
 
 const APPROVED_CASE_COUNT = 173;
@@ -136,8 +136,8 @@ function createPresenter(
     traceTestId: `${expectedRootTestId}-trace`,
     gestureSurfaceTestId: `${expectedRootTestId}-gesture-surface`,
     actions,
-    executionStatus: isCoreV2FoundationCaseId(fixture.id)
-      ? 'foundation-observable'
+    executionStatus: isCoreV2ExecutableCaseId(fixture.id)
+      ? 'actual-observable'
       : 'not-implemented',
   });
 }

@@ -3,28 +3,36 @@ import manifestJson from '../../../docs/reference/core-v2-functional-contract/ev
 import profileJson from '../../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
 import fixtureCatalogJson from '../../../docs/reference/core-v2-functional-contract/evidence/catalog-fixtures.v1.json';
 
-export const CORE_V2_FOUNDATION_CASE_IDS = Object.freeze([
+export const CORE_V2_EXECUTABLE_CASE_IDS = Object.freeze([
   'LIF-001',
   'LIF-002',
+  'LIF-004',
+  'LIF-005',
   'DAT-001',
   'DAT-002',
+  'DAT-003',
+  'DAT-004',
+  'DAT-005',
+  'DAT-006',
+  'DAT-007',
+  'DAT-008',
   'CSM-001',
   'CSM-003',
 ] as const);
 
-export type CoreV2FoundationCaseId = (typeof CORE_V2_FOUNDATION_CASE_IDS)[number];
+export type CoreV2ExecutableCaseId = (typeof CORE_V2_EXECUTABLE_CASE_IDS)[number];
 
-export const CORE_V2_FOUNDATION_EXECUTABLE_COUNT = 6;
-export const CORE_V2_CONTRACT_STUB_COUNT = 167;
+export const CORE_V2_EXECUTABLE_COUNT = 14;
+export const CORE_V2_CONTRACT_STUB_COUNT = 159;
 
 const CONTRACT_REVISION = 'core-v2-functional-contract/2026-07-16.2';
 const ACTION_LANGUAGE_REVISION = 'core-v2-catalog-actions/1';
 const APPROVED_CASE_COUNT = 173;
 const APPROVED_ACTION_DEFINITION_COUNT = 381;
-const FOUNDATION_ACTION_COUNT = 23;
-const FOUNDATION_ACTION_TYPE_COUNT = 15;
+const EXECUTABLE_ACTION_COUNT = 63;
+const EXECUTABLE_ACTION_TYPE_COUNT = 41;
 const CANONICAL_SIZES = new Set(['100', '500', '1000', '2000', '5000', 'production']);
-const FOUNDATION_ID_SET = new Set<string>(CORE_V2_FOUNDATION_CASE_IDS);
+const EXECUTABLE_ID_SET = new Set<string>(CORE_V2_EXECUTABLE_CASE_IDS);
 
 interface ContractAction {
   readonly index: number;
@@ -85,8 +93,8 @@ interface FixtureProfiles {
   readonly datasets: Readonly<Record<string, unknown>>;
 }
 
-export interface CoreV2FoundationCasePlan extends Readonly<Record<string, unknown>> {
-  readonly id: CoreV2FoundationCaseId;
+export interface CoreV2ExecutableCasePlan extends Readonly<Record<string, unknown>> {
+  readonly id: CoreV2ExecutableCaseId;
   readonly caseType: 'capability' | 'consumer-journey';
   readonly title: string;
   readonly priority: 'P0' | 'P1';
@@ -123,22 +131,22 @@ invariant(
 );
 invariant(profiles.seed === 319, 'canonical profile seed drift');
 invariant(profiles.clock.kind === 'manual', 'canonical profile clock drift');
-invariant(profiles.environment.backend === 'webgl2', 'foundation production baseline must be WebGL2');
+invariant(profiles.environment.backend === 'webgl2', 'production baseline must be WebGL2');
 
 const manifestById = new Map(manifest.cases.map((record) => [record.id, record]));
-const selectedFixtures = fixtureCatalog.cases.filter((record) => FOUNDATION_ID_SET.has(record.id));
-invariant(selectedFixtures.length === CORE_V2_FOUNDATION_EXECUTABLE_COUNT, 'foundation fixture count');
+const selectedFixtures = fixtureCatalog.cases.filter((record) => EXECUTABLE_ID_SET.has(record.id));
+invariant(selectedFixtures.length === CORE_V2_EXECUTABLE_COUNT, 'executable fixture count');
 invariant(
-  selectedFixtures.every((record, index) => record.id === CORE_V2_FOUNDATION_CASE_IDS[index]),
-  'foundation fixture identity or canonical order drift',
+  selectedFixtures.every((record, index) => record.id === CORE_V2_EXECUTABLE_CASE_IDS[index]),
+  'executable fixture identity or canonical order drift',
 );
 
-const fixtureById = new Map<CoreV2FoundationCaseId, FixtureRecord>();
+const fixtureById = new Map<CoreV2ExecutableCaseId, FixtureRecord>();
 const selectedActionTypes = new Set<string>();
 let selectedActionCount = 0;
 
 for (const fixture of selectedFixtures) {
-  invariant(isCoreV2FoundationCaseId(fixture.id), `unexpected foundation fixture ${fixture.id}`);
+  invariant(isCoreV2ExecutableCaseId(fixture.id), `unexpected executable fixture ${fixture.id}`);
   const manifestRecord = manifestById.get(fixture.id);
   invariant(manifestRecord !== undefined, `${fixture.id} manifest record`);
   invariant(manifestRecord.caseType === fixture.caseType, `${fixture.id} case type drift`);
@@ -160,10 +168,10 @@ for (const fixture of selectedFixtures) {
   fixtureById.set(fixture.id, fixture);
 }
 
-invariant(selectedActionCount === FOUNDATION_ACTION_COUNT, 'foundation action count must remain 23');
+invariant(selectedActionCount === EXECUTABLE_ACTION_COUNT, 'executable action count must remain 63');
 invariant(
-  selectedActionTypes.size === FOUNDATION_ACTION_TYPE_COUNT,
-  'foundation action type count must remain 15',
+  selectedActionTypes.size === EXECUTABLE_ACTION_TYPE_COUNT,
+  'executable action type count must remain 41',
 );
 
 const actionDefinitionByType = new Map(actionSchema.definitions.map((definition) => [definition.type, definition]));
@@ -174,26 +182,26 @@ const selectedActionDefinitions = [...selectedActionTypes].map((type) => {
   return definition;
 });
 
-export const CORE_V2_FOUNDATION_ACTION_DEFINITIONS: readonly Readonly<Record<string, unknown>>[] =
+export const CORE_V2_EXECUTABLE_ACTION_DEFINITIONS: readonly Readonly<Record<string, unknown>>[] =
   deepFreeze(structuredClone(selectedActionDefinitions));
 
-export const CORE_V2_FOUNDATION_PROFILE_ENVIRONMENT: Readonly<Record<string, unknown>> =
+export const CORE_V2_EXECUTABLE_PROFILE_ENVIRONMENT: Readonly<Record<string, unknown>> =
   deepFreeze(structuredClone(profiles.environment));
 
-export const CORE_V2_FOUNDATION_CLOCK_PROFILE = deepFreeze(structuredClone(profiles.clock));
+export const CORE_V2_EXECUTABLE_CLOCK_PROFILE = deepFreeze(structuredClone(profiles.clock));
 
-const foundationDatasets: Readonly<Record<string, unknown>> =
+const executableDatasets: Readonly<Record<string, unknown>> =
   deepFreeze(structuredClone(profiles.datasets));
 
-export function isCoreV2FoundationCaseId(value: string): value is CoreV2FoundationCaseId {
-  return FOUNDATION_ID_SET.has(value);
+export function isCoreV2ExecutableCaseId(value: string): value is CoreV2ExecutableCaseId {
+  return EXECUTABLE_ID_SET.has(value);
 }
 
-export function materializeCoreV2FoundationCase(
-  caseId: CoreV2FoundationCaseId,
+export function materializeCoreV2ExecutableCase(
+  caseId: CoreV2ExecutableCaseId,
   size: string,
   seed: number,
-): CoreV2FoundationCasePlan {
+): CoreV2ExecutableCasePlan {
   invariant(CANONICAL_SIZES.has(size), `${caseId} canonical size`);
   invariant(Number.isInteger(seed) && seed >= 0 && seed <= 0xffff_ffff, `${caseId} canonical uint32 seed`);
   const source = fixtureById.get(caseId);
@@ -208,7 +216,7 @@ export function materializeCoreV2FoundationCase(
     cleanupTrace: structuredClone(source.cleanupTrace),
     requiredObservationDomains: structuredClone(source.requiredObservationDomains),
   };
-  const plan: CoreV2FoundationCasePlan = {
+  const plan: CoreV2ExecutableCasePlan = {
     id: caseId,
     caseType: source.caseType,
     title: source.title,
@@ -226,13 +234,23 @@ export function materializeCoreV2FoundationCase(
   return deepFreeze(plan);
 }
 
-export function resolveCoreV2FoundationDataset(reference: string): unknown {
+export function selectCoreV2ExecutableActionDefinitions(
+  plan: CoreV2ExecutableCasePlan,
+): readonly Readonly<Record<string, unknown>>[] {
+  const requiredTypes = new Set(plan.actionTrace.map((action) => action.type));
+  const definitions = CORE_V2_EXECUTABLE_ACTION_DEFINITIONS.filter((definition) =>
+    typeof definition.type === 'string' && requiredTypes.has(definition.type));
+  invariant(definitions.length === requiredTypes.size, `${plan.id} exact action definitions`);
+  return definitions;
+}
+
+export function resolveCoreV2ExecutableDataset(reference: string): unknown {
   invariant(reference.length > 0, 'dataset reference');
-  return foundationDatasets[reference];
+  return executableDatasets[reference];
 }
 
 function invariant(condition: boolean, message: string): asserts condition {
-  if (!condition) throw new Error(`Invalid Core v2 foundation Lab catalog: ${message}`);
+  if (!condition) throw new Error(`Invalid Core v2 executable Lab catalog: ${message}`);
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

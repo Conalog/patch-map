@@ -2,8 +2,8 @@ import {
   createNotImplementedCoreV2ContractLabBridge,
   type CoreV2ContractLabBridgeV1,
 } from './bridge';
-import { createCoreV2FoundationLabBridge } from './foundation-bridge';
-import { isCoreV2FoundationCaseId } from './foundation-cases';
+import { createCoreV2ExecutableLabBridge } from './executable-bridge';
+import { isCoreV2ExecutableCaseId } from './executable-cases';
 import { CORE_V2_CONTRACT_PRESENTERS } from './presenters';
 import {
   buildCoreV2ContractRoute,
@@ -57,7 +57,7 @@ function actionControls(route: CoreV2ContractRoute, executable: boolean): string
 
 export function renderCoreV2ContractLab(route: CoreV2ContractRoute): string {
   const presenter = route.presenter;
-  const executable = presenter.executionStatus === 'foundation-observable';
+  const executable = presenter.executionStatus === 'actual-observable';
   const initialStatus = executable ? 'armed' : 'not-implemented';
   const statusLabel = executable ? 'Ready to observe' : 'Not implemented';
   const sizeOptions = CORE_V2_CONTRACT_DATASET_SIZES.map((size) =>
@@ -85,7 +85,7 @@ export function renderCoreV2ContractLab(route: CoreV2ContractRoute): string {
         <button type="button" data-testid="copy-url">Copy URL</button>
       </div>
       <p class="contract-stub-notice">${executable
-        ? 'Actual-only foundation execution is available on the PixiJS WebGL baseline. The canvas is transient and is removed by executor cleanup; this Lab reports observed or failed facts without an expected comparison.'
+        ? 'Actual-only case execution is available on the PixiJS WebGL baseline. The canvas is transient and is removed by executor cleanup; this Lab reports observed or failed facts without an expected comparison.'
         : 'This approved route remains explicitly not implemented. No engine action, semantic observation, or promotion result is produced.'}</p>
       <section class="contract-case-card" aria-labelledby="contract-case-title">
         <span class="contract-kicker">Focused case</span>
@@ -239,10 +239,12 @@ async function refreshBridgeUi(
     const resultStatus = isRecord(result) && typeof result.status === 'string'
       ? result.status
       : state.status === 'running'
-        ? 'executing-in-order'
-        : state.status === 'armed'
-          ? 'queued'
-          : state.status;
+      ? 'executing-in-order'
+      : state.status === 'armed'
+        ? 'queued'
+        : state.status === 'failed'
+          ? 'not-run'
+        : state.status;
     row.dataset.actionStatus = resultStatus;
     setText(row.querySelector('[data-action-result]'), actionResultLabel(result, resultStatus));
   }
@@ -362,12 +364,12 @@ export function mountCoreV2ContractLab(
   if (!surfaceHost) throw new Error(`Core v2 contract Lab surface is missing: ${route.scenario}`);
   let executable = false;
   let bridge: CoreV2ContractLabBridgeV1;
-  if (isCoreV2FoundationCaseId(route.scenario)) {
-    if (route.presenter.executionStatus !== 'foundation-observable') {
+  if (isCoreV2ExecutableCaseId(route.scenario)) {
+    if (route.presenter.executionStatus !== 'actual-observable') {
       throw new Error(`Core v2 contract Lab execution-status drift: ${route.scenario}`);
     }
     executable = true;
-    bridge = createCoreV2FoundationLabBridge({
+    bridge = createCoreV2ExecutableLabBridge({
         caseId: route.scenario,
         rootTestId: route.presenter.rootTestId,
         size: route.size,
