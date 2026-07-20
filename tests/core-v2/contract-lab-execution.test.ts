@@ -56,6 +56,11 @@ describe('Core v2 executable Lab product bridge', () => {
       expect(run.actualObservation).toMatchObject({
         $schema: 'core-v2-semantic-observation/1',
         case: { id: caseId },
+        provenance: {
+          codeCommit: 'unbound-worktree-source',
+          packedPackageSha256: 'not-packed-source-lab',
+          promotionEligible: false,
+        },
         environment: { backend: 'webgl2', routeSize: '5000' },
       });
       expect(bridge.execution()).toBe(run.execution);

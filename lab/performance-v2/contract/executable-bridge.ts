@@ -358,6 +358,8 @@ function freshCasePlan(plan: CoreV2ExecutableCasePlan): CoreV2ExecutableCasePlan
 function defaultProvenance(plan: CoreV2ExecutableCasePlan): Readonly<Record<string, unknown>> {
   return Object.freeze({
     source: 'focused-lab-product-source',
+    codeCommit: 'unbound-worktree-source',
+    packedPackageSha256: 'not-packed-source-lab',
     fixtureSha256: plan.fixtureSha256,
     runnerRevision: EXECUTABLE_RUNNER_REVISION,
     promotionEligible: false,
@@ -370,6 +372,7 @@ function defaultEnvironment(plan: CoreV2ExecutableCasePlan): Readonly<Record<str
     ...structuredClone(CORE_V2_EXECUTABLE_PROFILE_ENVIRONMENT),
     backend: 'webgl2',
     browser: userAgent,
+    browserVersion: userAgent,
     route: plan.route,
     datasetSize: plan.routeParams.size,
     seed: plan.routeParams.seed,
