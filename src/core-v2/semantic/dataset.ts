@@ -45,6 +45,8 @@ export type CoreV2Dimension = number | string | CoreV2UnitDimension;
 export type CoreV2ComponentSize =
   | CoreV2Dimension
   | Readonly<{ width: CoreV2Dimension; height: CoreV2Dimension }>;
+export type CoreV2EventMode = 'none' | 'passive' | 'auto' | 'static' | 'dynamic';
+export type CoreV2TextOverflow = 'visible' | 'hidden' | 'ellipsis';
 export type CoreV2Placement =
   | 'left'
   | 'left-top'
@@ -77,6 +79,7 @@ export type CoreV2AssetSource = string | CoreV2AssetDescriptor;
 export type CoreV2BackgroundSource = CoreV2AssetSource | CoreV2RectTexture;
 export type CoreV2Radius =
   | number
+  | readonly [number, number, number, number]
   | Readonly<{
       topLeft: number;
       topRight: number;
@@ -147,6 +150,7 @@ export interface CoreV2ImageElement extends CoreV2ElementBase {
   readonly type: 'image';
   readonly source: CoreV2AssetSource;
   readonly size?: CoreV2FixedSize;
+  readonly opacity?: number;
 }
 
 export interface CoreV2TextElement extends CoreV2ElementBase {
@@ -154,6 +158,7 @@ export interface CoreV2TextElement extends CoreV2ElementBase {
   readonly text: string;
   readonly style: CoreV2TextStyle;
   readonly size?: CoreV2FixedSize;
+  readonly overflow?: CoreV2TextOverflow;
 }
 
 export interface CoreV2RectElement extends CoreV2ElementBase {
@@ -162,6 +167,7 @@ export interface CoreV2RectElement extends CoreV2ElementBase {
   readonly fill?: unknown;
   readonly stroke?: CoreV2StrokeStyle;
   readonly radius: CoreV2Radius;
+  readonly eventMode?: CoreV2EventMode;
 }
 
 export type CoreV2Element =
@@ -276,9 +282,9 @@ const ELEMENT_FIELDS: Readonly<Record<CoreV2ElementType, ReadonlySet<string>>> =
   grid: new Set([...ELEMENT_BASE_FIELDS, 'cells', 'item', 'inactiveCellStrategy', 'gap']),
   item: new Set([...ELEMENT_BASE_FIELDS, 'size', 'components', 'padding', 'contentOrientation']),
   relations: new Set([...ELEMENT_BASE_FIELDS, 'links', 'style']),
-  image: new Set([...ELEMENT_BASE_FIELDS, 'source', 'size']),
-  text: new Set([...ELEMENT_BASE_FIELDS, 'text', 'style', 'size']),
-  rect: new Set([...ELEMENT_BASE_FIELDS, 'size', 'fill', 'stroke', 'radius']),
+  image: new Set([...ELEMENT_BASE_FIELDS, 'source', 'size', 'opacity']),
+  text: new Set([...ELEMENT_BASE_FIELDS, 'text', 'style', 'size', 'overflow']),
+  rect: new Set([...ELEMENT_BASE_FIELDS, 'size', 'fill', 'stroke', 'radius', 'eventMode']),
 };
 const COMPONENT_FIELDS: Readonly<Record<CoreV2ComponentType, ReadonlySet<string>>> = {
   background: new Set([...COMPONENT_BASE_FIELDS, 'source', 'tint', 'size']),
@@ -365,6 +371,8 @@ const PLACEMENTS = new Set<string>([
   'none',
 ]);
 const CONTENT_ORIENTATIONS = new Set<string>(['follow-item', 'upright']);
+const EVENT_MODES = new Set<string>(['none', 'passive', 'auto', 'static', 'dynamic']);
+const TEXT_OVERFLOWS = new Set<string>(['visible', 'hidden', 'ellipsis']);
 const THEME_COLOR_PATH = /^[A-Za-z_][\w-]*(?:\.[A-Za-z_][\w-]*)+$/u;
 const BLACK = '#1a1a1aff';
 const WHITE = '#ffffffff';
@@ -472,6 +480,9 @@ function normalizeElement(
         ...(hasOwn(record, 'size')
           ? { size: normalizeFixedSize(record.size, `${path}.size`) }
           : {}),
+        ...(hasOwn(record, 'opacity')
+          ? { opacity: rangedNumber(record.opacity, `${path}.opacity`, 0, 1) }
+          : {}),
       });
     case 'text':
       return Object.freeze({
@@ -481,6 +492,15 @@ function normalizeElement(
         style: normalizeTextStyle(optionalField(record, 'style'), `${path}.style`, false, true),
         ...(hasOwn(record, 'size')
           ? { size: normalizeFixedSize(record.size, `${path}.size`) }
+          : {}),
+        ...(hasOwn(record, 'overflow')
+          ? {
+              overflow: enumValue(
+                record.overflow,
+                `${path}.overflow`,
+                TEXT_OVERFLOWS,
+              ) as CoreV2TextOverflow,
+            }
           : {}),
       });
     case 'rect':
@@ -495,6 +515,15 @@ function normalizeElement(
           ? { stroke: normalizeStrokeStyle(record.stroke, `${path}.stroke`) }
           : {}),
         radius: normalizeRadius(optionalField(record, 'radius'), `${path}.radius`),
+        ...(hasOwn(record, 'eventMode')
+          ? {
+              eventMode: enumValue(
+                record.eventMode,
+                `${path}.eventMode`,
+                EVENT_MODES,
+              ) as CoreV2EventMode,
+            }
+          : {}),
       });
   }
 }
@@ -796,6 +825,15 @@ function normalizeEdges(value: unknown, path: string): CoreV2Edges {
 function normalizeRadius(value: unknown, path: string): CoreV2Radius {
   if (value === undefined) return 0;
   if (typeof value === 'number') return nonnegativeFiniteNumber(value, path);
+  if (Array.isArray(value)) {
+    if (value.length !== 4) invalidValue(path, 'corner radius array must contain four entries');
+    return Object.freeze([
+      nonnegativeFiniteNumber(value[0], `${path}[0]`),
+      nonnegativeFiniteNumber(value[1], `${path}[1]`),
+      nonnegativeFiniteNumber(value[2], `${path}[2]`),
+      nonnegativeFiniteNumber(value[3], `${path}[3]`),
+    ] as const);
+  }
   const record = recordValue(value, path, 'radius must be a nonnegative number or corner object');
   assertKnownFields(record, RADIUS_FIELDS, path);
   return Object.freeze({

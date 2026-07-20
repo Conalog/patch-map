@@ -502,6 +502,7 @@ function parseComponent(
     const transform = componentTransform(itemTransform, local, attrs, path, state);
     if (sourceRecord?.type === 'rect') {
       const sourceFill = resolveColor(sourceRecord.fill, 0xffffffff, `${path}.source.fill`, state);
+      const borderWidth = finiteNumber(sourceRecord.borderWidth);
       const fill = value.tint === undefined
         ? sourceFill
         : multiplyColor(sourceFill, resolveColor(value.tint, 0xffffffff, `${path}.tint`, state));
@@ -515,11 +516,11 @@ function parseComponent(
           height: local.height,
           rotation: transform.rotation,
           fill,
-          ...(sourceRecord.borderColor !== undefined
+          ...(sourceRecord.borderColor !== undefined || (borderWidth !== undefined && borderWidth > 0)
             ? { stroke: resolveColor(sourceRecord.borderColor, 0x000000ff, `${path}.source.borderColor`, state) }
             : {}),
-          ...(finiteNumber(sourceRecord.borderWidth) !== undefined
-            ? { strokeWidth: Math.max(0, finiteNumber(sourceRecord.borderWidth) as number) }
+          ...(borderWidth !== undefined
+            ? { strokeWidth: Math.max(0, borderWidth) }
             : {}),
           ...(finiteNumber(sourceRecord.radius) !== undefined
             ? { radius: Math.max(0, finiteNumber(sourceRecord.radius) as number) }
@@ -653,6 +654,7 @@ function parseDirectRect(
 ): void {
   const size = fixedSize(value.size, `${path}.size`, state);
   const stroke = isRecord(value.stroke) ? value.stroke : undefined;
+  const radius = projectedRadius(value.radius, `${path}.radius`, state);
   addEntity(
     {
       kind: 'rect',
@@ -669,11 +671,9 @@ function parseDirectRect(
       ...(finiteNumber(stroke?.width) !== undefined
         ? { strokeWidth: Math.max(0, finiteNumber(stroke?.width) as number) }
         : {}),
-      ...(finiteNumber(value.radius) !== undefined
-        ? { radius: Math.max(0, finiteNumber(value.radius) as number) }
-        : {}),
+      ...(radius === undefined ? {} : { radius }),
       visible,
-      interactive,
+      interactive: eventInteractivity(value.eventMode, interactive, `${path}.eventMode`, state),
       zIndex: zIndex(value.attrs),
       tags: ['rect', `source:${sourceId}`],
     },
@@ -708,6 +708,9 @@ function parseDirectImage(
         path,
         state,
       ),
+      ...(value.opacity === undefined
+        ? {}
+        : { opacity: projectedOpacity(value.opacity, `${path}.opacity`, state) }),
       interactive,
     },
     owner,
@@ -728,13 +731,86 @@ function parseDirectText(
   const style = isRecord(value.style) ? value.style : {};
   const fontSize = Math.max(1, finiteNumber(style.fontSize) ?? 14);
   const text = typeof value.text === 'string' ? value.text : '';
-  const width = Math.max(1, finiteNumber(style.wordWrapWidth) ?? text.length * fontSize * 0.6);
-  const local: Box = { x: 0, y: 0, width, height: fontSize * 1.2 };
+  const projection = standaloneTextProjection(value, style, text, fontSize, path, state);
   addEntity(
-    textEntity(sourceId, transform, local, text, style, undefined, visible, interactive, path, state),
+    textEntity(
+      sourceId,
+      transform,
+      projection.box,
+      projection.text,
+      style,
+      undefined,
+      visible,
+      interactive,
+      path,
+      state,
+    ),
     owner,
     state,
   );
+}
+
+function standaloneTextProjection(
+  value: JsonRecord,
+  style: JsonRecord,
+  text: string,
+  fontSize: number,
+  path: string,
+  state: ParseState,
+): { readonly box: Box; readonly text: string } {
+  const lineHeight = Math.max(0, finiteNumber(style.lineHeight) ?? fontSize * 1.2);
+  const letterSpacing = finiteNumber(style.letterSpacing) ?? 0;
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const lineWidths = lines.map((line) => {
+    const count = Array.from(line).length;
+    return Math.max(0, count * fontSize * 0.5 + Math.max(0, count - 1) * letterSpacing);
+  });
+  const naturalWidth = Math.max(0, ...lineWidths);
+  const naturalHeight = Math.max(lineHeight, lines.length * lineHeight);
+  const authoredSize = value.size === undefined
+    ? undefined
+    : fixedSize(value.size, `${path}.size`, state);
+  const wrapWidth = finiteNumber(style.wordWrapWidth);
+  if (style.wordWrap === true && wrapWidth !== undefined) {
+    const wrappedLineCount = Math.max(1, Math.ceil(naturalWidth / Math.max(1, wrapWidth)));
+    return {
+      box: { x: 0, y: 0, width: wrapWidth, height: wrappedLineCount * lineHeight },
+      text,
+    };
+  }
+
+  const overflow = value.overflow === undefined ? 'visible' : value.overflow;
+  if (overflow !== 'visible' && overflow !== 'hidden' && overflow !== 'ellipsis') {
+    warn(state, `${path}.overflow`, 'invalid-text-overflow', 'Invalid overflow fell back to visible');
+    return {
+      box: { x: 0, y: 0, width: naturalWidth, height: authoredSize?.height ?? naturalHeight },
+      text,
+    };
+  }
+  if (authoredSize === undefined || overflow === 'visible') {
+    return {
+      box: {
+        x: 0,
+        y: 0,
+        width: naturalWidth,
+        height: authoredSize?.height ?? naturalHeight,
+      },
+      text,
+    };
+  }
+  if (overflow === 'hidden' || naturalWidth <= authoredSize.width) {
+    return {
+      box: { x: 0, y: 0, width: Math.min(naturalWidth, authoredSize.width), height: authoredSize.height },
+      text,
+    };
+  }
+
+  const glyphAdvance = Math.max(1, fontSize * 0.5 + letterSpacing);
+  const visibleGlyphCount = Math.max(0, Math.floor(authoredSize.width / glyphAdvance) - 1);
+  return {
+    box: { x: 0, y: 0, width: authoredSize.width, height: authoredSize.height },
+    text: `${Array.from(text).slice(0, visibleGlyphCount).join('')}…`,
+  };
 }
 
 function parseRelations(
@@ -1312,6 +1388,59 @@ function numericAttribute(value: unknown, path: string, state: ParseState): numb
 
 function zIndex(attrs: unknown): number {
   return isRecord(attrs) ? finiteNumber(attrs.zIndex) ?? 0 : 0;
+}
+
+function eventInteractivity(
+  value: unknown,
+  fallback: boolean,
+  path: string,
+  state: ParseState,
+): boolean {
+  if (value === undefined) return fallback;
+  if (value === 'none' || value === 'passive') return false;
+  if (value === 'auto' || value === 'static' || value === 'dynamic') return fallback;
+  warn(state, path, 'invalid-event-mode', 'Invalid eventMode fell back to the inherited hit-test policy');
+  return fallback;
+}
+
+function projectedOpacity(value: unknown, path: string, state: ParseState): number {
+  const opacity = finiteNumber(value);
+  if (opacity === undefined) {
+    warn(state, path, 'invalid-opacity', 'Invalid opacity fell back to fully opaque');
+    return 1;
+  }
+  if (opacity < 0 || opacity > 1) {
+    warn(state, path, 'opacity-clamped', 'Opacity outside 0..1 was clamped');
+  }
+  return clamp01(opacity);
+}
+
+function projectedRadius(value: unknown, path: string, state: ParseState): number | undefined {
+  const scalar = finiteNumber(value);
+  if (scalar !== undefined) return Math.max(0, scalar);
+  const corners = Array.isArray(value)
+    ? value.map((entry) => finiteNumber(entry))
+    : isRecord(value)
+      ? [
+          finiteNumber(value.topLeft) ?? 0,
+          finiteNumber(value.topRight) ?? 0,
+          finiteNumber(value.bottomRight) ?? 0,
+          finiteNumber(value.bottomLeft) ?? 0,
+        ]
+      : undefined;
+  if (corners !== undefined && corners.length === 4 && corners.every((entry) => entry !== undefined)) {
+    warn(
+      state,
+      path,
+      'corner-radius-degraded',
+      'Per-corner radius is preserved by the semantic dataset and uses the maximum corner in the scalar dense renderer',
+    );
+    return Math.max(0, ...corners);
+  }
+  if (value !== undefined) {
+    warn(state, path, 'invalid-radius', 'Invalid radius was omitted from dense rendering');
+  }
+  return undefined;
 }
 
 function fontWeight(value: unknown): number | undefined {
