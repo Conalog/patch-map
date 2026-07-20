@@ -272,6 +272,10 @@ function stageBindings(state, definition, action, output) {
   assert(Array.isArray(consumesFields), `${action.type} consumesFields`);
 
   for (const field of consumesFields) {
+    // A definition can expose one handler for bound and direct forms of an
+    // action. Only operands actually present in this action consume a prior
+    // binding; omitted optional reference fields are not unresolved names.
+    if (!Object.hasOwn(action.operands, field)) continue;
     const name = action.operands[field];
     assert(typeof name === 'string' && state.bindings.has(name), `${action.type} unresolved binding ${String(name)}`);
   }
@@ -839,7 +843,10 @@ function isDeeplyFrozen(value, seen = new WeakSet()) {
 function readPath(value, path, label) {
   assert(typeof path === 'string' && path.length > 0, `${label} path`);
   let cursor = value;
-  for (const segment of path.split('.')) {
+  const separator = path.includes('/') ? '/' : '.';
+  const segments = path.split(separator);
+  assert(segments.every((segment) => segment.length > 0), `${label} path`);
+  for (const segment of segments) {
     assert(isRecord(cursor) || Array.isArray(cursor), `${label} unresolved path ${path}`);
     assert(Object.hasOwn(cursor, segment), `${label} unresolved path ${path}`);
     cursor = cursor[segment];
