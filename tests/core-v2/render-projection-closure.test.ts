@@ -4,6 +4,11 @@ import { describe, expect, it } from 'vitest';
 import { parsePatchMapV010 } from '../../src/core-v2/parser';
 import { buildQuadGeometry } from '../../src/core-v2/renderers/mesh-layer';
 import { materializeCoreV2Dataset } from '../../src/core-v2/semantic/dataset';
+import {
+  coreV2AffineHasSkew,
+  createCoreV2Affine,
+  multiplyCoreV2Affine,
+} from '../../src/core-v2/semantic/geometry';
 
 describe('Core v2 approved render projection closure', () => {
   it('keeps authored background size inert while painting the complete item frame', () => {
@@ -77,7 +82,7 @@ describe('Core v2 approved render projection closure', () => {
     ]));
   });
 
-  it('diagnoses every approved field still lost by the flat text and asset contracts', () => {
+  it('keeps descriptor options lossless while diagnosing remaining flat text losses', () => {
     const result = parsePatchMapV010(materializeCoreV2Dataset([
       {
         type: 'image',
@@ -104,11 +109,22 @@ describe('Core v2 approved render projection closure', () => {
       },
     ]).dataset);
 
+    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: 'asset-resolution-degraded',
+    }));
+    expect(result.projection.imagesByEntityId?.image).toMatchObject({
+      entityId: 'image',
+      authoredSource: { src: 'fixture-image', data: { resolution: 2 } },
+      cacheIdentity: 'descriptor:fixture-image?resolution=2',
+      sourceKind: 'descriptor',
+      authoredSize: true,
+      dimensionMode: 'authored',
+    });
+    expect(result.document.entities[0]).toMatchObject({
+      kind: 'image',
+      source: 'fixture-image',
+    });
     expect(result.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        code: 'asset-resolution-degraded',
-        path: '$[0].source.data.resolution',
-      }),
       expect.objectContaining({
         code: 'standalone-text-break-words-degraded',
         path: '$[1].style.breakWords',
@@ -200,4 +216,55 @@ describe('Core v2 approved render projection closure', () => {
     expect(renderedBounds.width).toBeCloseTo(20, 10);
     expect(renderedBounds.height).toBeCloseTo(60, 10);
   });
+
+  it('keeps exact ancestor and local affine authority for an unsized image pivot', () => {
+    const parsed = parsePatchMapV010([{
+      type: 'group',
+      id: 'parent',
+      attrs: { x: 30, y: 20, angle: 25, scaleX: 2, scaleY: 0.5 },
+      children: [{
+        type: 'image',
+        id: 'intrinsic-child',
+        source: 'fixture-image',
+        attrs: { x: 12, y: 8, angle: 40, scaleX: -1.5, scaleY: 0.75 },
+      }],
+    }]);
+    const projection = parsed.projection.byEntityId['intrinsic-child'];
+    const intrinsic = parsed.projection.imagesByEntityId?.['intrinsic-child']?.intrinsicTransform;
+    const expected = nestedIntrinsicImageAffine(32, 32);
+
+    expect(projection?.localBounds).toEqual([0, 0, 32, 32]);
+    expectAffineClose(projection?.affine, expected);
+    expect(coreV2AffineHasSkew(projection?.affine ?? expected)).toBe(true);
+    expect(intrinsic).toEqual({
+      parentAffine: createCoreV2Affine(30, 20, 25, 2, 0.5),
+      localTranslationAffine: createCoreV2Affine(12, 8),
+      localRotationScaleAffine: createCoreV2Affine(0, 0, 40, -1.5, 0.75),
+      localPivotScaleAffine: createCoreV2Affine(0, 0, 0, -1.5, 0.75),
+    });
+  });
 });
+
+function nestedIntrinsicImageAffine(width: number, height: number) {
+  return multiplyCoreV2Affine(
+    createCoreV2Affine(30, 20, 25, 2, 0.5),
+    multiplyCoreV2Affine(
+      createCoreV2Affine(12, 8),
+      multiplyCoreV2Affine(
+        createCoreV2Affine(-1.5 * width / 2, 0.75 * height / 2),
+        multiplyCoreV2Affine(
+          createCoreV2Affine(0, 0, 40, -1.5, 0.75),
+          createCoreV2Affine(-width / 2, -height / 2),
+        ),
+      ),
+    ),
+  );
+}
+
+function expectAffineClose(
+  actual: readonly number[] | undefined,
+  expected: readonly number[],
+): void {
+  expect(actual).toHaveLength(expected.length);
+  expected.forEach((value, index) => expect(actual?.[index]).toBeCloseTo(value, 12));
+}

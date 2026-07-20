@@ -178,7 +178,7 @@ export function coreV2EntityContainsWorldPoint(
   return containsRotatedDenseEntity(entity, point);
 }
 
-function coreV2EntityWorldAabb(
+export function coreV2EntityWorldAabb(
   entity: EntitySnapshot,
   projection?: CoreV2EntityProjection,
 ): readonly [number, number, number, number] | null {

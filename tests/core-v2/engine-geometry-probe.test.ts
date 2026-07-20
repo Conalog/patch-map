@@ -228,4 +228,196 @@ describe('CoreV2Engine renderer-aligned geometry probe', () => {
     expect(surface.resize(640, 480, 2)).toBe(true);
     expect(surface.geometrySnapshot()).not.toBe(afterSelection);
   });
+
+  it('rebuilds cached geometry when decoded image projection changes without a scene revision', () => {
+    const image = {
+      ref: { slot: 0, generation: 1 },
+      id: 'intrinsic',
+      kind: 'image' as const,
+      bounds: { x: 10, y: 20, width: 32, height: 32 },
+      rotation: 0,
+      opacity: 1,
+      visible: true,
+      interactive: true,
+      zIndex: 0,
+      tags: [],
+      data: { source: 'fixture-image' },
+    };
+    let projection = imageProjection(32, 32);
+    const core = {
+      destroyed: false,
+      get projection() { return projection; },
+      snapshot: (): SceneSnapshot => ({
+        revision: 1,
+        view: { x: 0, y: 0, scale: 1, rotation: 0 },
+        entityCount: 1,
+        entities: [image],
+        selection: { revision: 0, refs: [] },
+      }),
+    };
+    const surface = new PixiEngineSurface(core as never);
+
+    const provisional = surface.geometrySnapshot();
+    expect(provisional.entities[0]?.worldBounds).toEqual([10, 20, 32, 32]);
+
+    projection = imageProjection(80, 40);
+    const resolved = surface.geometrySnapshot();
+    expect(resolved).not.toBe(provisional);
+    expect(provisional.revision).toBe(1);
+    expect(resolved.revision).toBe(2);
+    expect(resolved.entities[0]?.worldBounds).toEqual([10, 20, 80, 40]);
+  });
+
+  it('enriches scene image probes without retaining a data URI in public evidence', () => {
+    const entities: SceneSnapshot['entities'] = [
+      imageSnapshot('alias', 0, 0, 1, 2),
+      imageSnapshot('data-uri', 20, 0, 0.5, 3),
+    ];
+    const core = {
+      destroyed: false,
+      projection: null,
+      snapshot: (): SceneSnapshot => ({
+        revision: 2,
+        view: { x: 0, y: 0, scale: 1, rotation: 0 },
+        entityCount: entities.length,
+        entities,
+        selection: { revision: 0, refs: [] },
+      }),
+      hitBounds: (id: string) => id === 'alias'
+        ? [0, 0, 10, 10]
+        : [20, 0, 10, 10],
+      sceneImageProbe: () => ({
+        destroyed: false,
+        targetCount: 2,
+        activeTargetCount: 2,
+        bindingCount: 2,
+        pendingBindingCount: 0,
+        pendingSettlementCount: 0,
+        pendingReleaseCount: 0,
+        diagnosticCount: 0,
+        staleAttachCount: 0,
+        staleCompletionCount: 0,
+        diagnostics: [],
+        abandonedRequests: {
+          pendingSettlementCount: 0,
+          pendingReleaseCount: 0,
+          staleAttachmentCount: 0,
+        },
+        images: {
+          alias: rawImageProbe('alias', 'fixture-image', 'alias'),
+          'data-uri': rawImageProbe(
+            'data-uri',
+            'data:image/svg+xml,%3Csvg%2F%3E',
+            'data-uri',
+          ),
+        },
+      }),
+    };
+    const surface = new PixiEngineSurface(core as never);
+
+    const probe = surface.sceneImageProbe();
+
+    expect(probe.images.alias).toMatchObject({
+      authoredSource: 'fixture-image',
+      opacity: 1,
+      zIndex: 2,
+      hitBounds: [0, 0, 10, 10],
+      initial: { authoredSource: 'fixture-image', state: 'resolved' },
+    });
+    expect(probe.images['data-uri']).toMatchObject({
+      authoredSourceKind: 'data-uri',
+      opacity: 0.5,
+      zIndex: 3,
+      hitBounds: [20, 0, 10, 10],
+      initial: { authoredSourceKind: 'data-uri', state: 'resolved' },
+    });
+    expect(Object.hasOwn(probe.images['data-uri']!, 'authoredSource')).toBe(false);
+    expect(JSON.stringify(probe)).not.toContain('data:image/svg+xml');
+  });
 });
+
+function imageProjection(width: number, height: number) {
+  return {
+    byEntityId: {
+      intrinsic: {
+        entityId: 'intrinsic',
+        localBounds: [0, 0, width, height] as const,
+        affine: [1, 0, 0, 1, 10, 20] as const,
+        worldBasis: [1, 0, 0, 1] as const,
+        visibleCenter: [10 + width / 2, 20 + height / 2] as const,
+        rotationDegrees: 0,
+        scaleX: 1,
+        scaleY: 1,
+        contentOrientation: 'follow-item' as const,
+      },
+    },
+  };
+}
+
+function imageSnapshot(
+  id: string,
+  x: number,
+  y: number,
+  opacity: number,
+  zIndex: number,
+): SceneSnapshot['entities'][number] {
+  return {
+    ref: { slot: zIndex, generation: 1 },
+    id,
+    kind: 'image',
+    bounds: { x, y, width: 10, height: 10 },
+    rotation: 0,
+    opacity,
+    visible: true,
+    interactive: true,
+    zIndex,
+    tags: [],
+    data: { source: id },
+  };
+}
+
+function rawImageProbe(
+  entityId: string,
+  authoredSource: string,
+  sourceKind: 'alias' | 'data-uri',
+) {
+  const attempt = {
+    generation: 1,
+    bindingKey: `${sourceKind}:${entityId}`,
+    authoredSource,
+    sourceKind,
+    dimensionMode: 'authored' as const,
+    sourceCacheIdentity: `${sourceKind}:${entityId}`,
+    resourceState: 'resolved' as const,
+    attachmentState: 'current' as const,
+    rendererGeneration: 1,
+    cacheIdentity: `${sourceKind}:${entityId}`,
+    normalizedResourceIdentity: `${entityId}@1`,
+    naturalSize: [10, 10] as const,
+    reusedResolvedResource: false,
+    diagnosticCount: 0,
+  };
+  return {
+    entityId,
+    active: true,
+    generation: 1,
+    authoredSource,
+    sourceKind,
+    dimensionMode: 'authored' as const,
+    bindingKey: `${sourceKind}:${entityId}`,
+    sourceCacheIdentity: `${sourceKind}:${entityId}`,
+    state: 'resolved' as const,
+    attachmentState: 'current' as const,
+    cacheIdentity: `${sourceKind}:${entityId}`,
+    normalizedResourceIdentity: `${entityId}@1`,
+    naturalSize: [10, 10] as const,
+    reusedResolvedResource: false,
+    renderObjectCount: 1 as const,
+    role: 'image' as const,
+    rendererGeneration: 1,
+    staleAttachCount: 0,
+    staleCompletionCount: 0,
+    diagnosticCount: 0,
+    attempts: [attempt],
+  };
+}

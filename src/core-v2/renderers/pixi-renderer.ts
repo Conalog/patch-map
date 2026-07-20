@@ -19,7 +19,13 @@ import {
   type RendererFlushResult,
   type RenderStoreView,
 } from '../../core-v1/renderer/types';
-import { AggregateLeafLayer } from './leaf-layer';
+import {
+  AggregateLeafLayer,
+  type LeafAssetBindingObservation,
+  type LeafAssetBindingProbe,
+  type LeafAssetBindingRequest,
+  type LeafSceneImageProbe,
+} from './leaf-layer';
 import { AggregateMeshLayer } from './mesh-layer';
 import { ParticleGraphicsLayer } from './particle-layer';
 import type { CoreV2ProjectionIndex } from '../contracts';
@@ -155,7 +161,20 @@ export class PixiCoreV2Renderer implements CoreRenderer {
         })
       : new ParticleGraphicsLayer({ label: 'PATCH MAP Core v2 / particle graphics' });
     const leafSession = options.assetSession ?? createCoreV2LeafAssetSession(options.assetPolicy);
-    this.leaves = new AggregateLeafLayer(leafSession, options.assetSession === undefined);
+    this.leaves = new AggregateLeafLayer(
+      leafSession,
+      options.assetSession === undefined,
+      {
+        onBindingTransition: ({ key, state, dirtySlots }) => {
+          if (this.destroyedValue) return;
+          this.lastInvalidation = `scene-asset:${key}:${state}`;
+          this.pendingRanges = mergeRanges(
+            this.pendingRanges ?? [],
+            contiguousRanges(dirtySlots),
+          );
+        },
+      },
+    );
     this.selectionOverlay = new Graphics({ label: 'PATCH MAP Core v2 / interaction overlay' });
     this.selectionOverlay.eventMode = 'none';
     this.world.addChild(this.aggregate.container, this.leaves.container, this.selectionOverlay);
@@ -385,6 +404,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.synchronizeOnly = false;
     if (rendered) {
       this.application.render();
+      this.leaves.confirmRenderedFrame();
       this.frame += 1;
     }
     this.lastStore = store;
@@ -449,6 +469,35 @@ export class PixiCoreV2Renderer implements CoreRenderer {
 
   public async finalizeAssetUnloads(): Promise<void> {
     await this.leaves.finalizeAssetUnloads();
+  }
+
+  public bindSceneAsset(
+    key: string,
+    request: LeafAssetBindingRequest,
+  ): Promise<LeafAssetBindingObservation> {
+    this.assertAlive();
+    const completion = this.leaves.bindSceneAsset(key, request);
+    this.lastInvalidation = `scene-asset:${key}:bind`;
+    this.pendingRanges ??= [];
+    return completion;
+  }
+
+  public async unbindSceneAsset(key: string): Promise<boolean> {
+    this.assertAlive();
+    const unbound = await this.leaves.unbindSceneAsset(key);
+    if (unbound) {
+      this.lastInvalidation = `scene-asset:${key}:unbind`;
+      this.pendingRanges ??= [];
+    }
+    return unbound;
+  }
+
+  public sceneAssetBindingProbe(key: string): LeafAssetBindingProbe | null {
+    return this.leaves.sceneAssetBindingProbe(key);
+  }
+
+  public sceneImageProbe(entityId: string): LeafSceneImageProbe | null {
+    return this.leaves.sceneImageProbe(entityId);
   }
 
   public async captureBase64(): Promise<string> {
@@ -706,7 +755,7 @@ function sameWorldOrientation(left: CoreV2WorldOrientation, right: CoreV2WorldOr
     left.flipY === right.flipY;
 }
 
-function projectionChangedRanges(
+export function projectionChangedRanges(
   store: RenderStoreView,
   before: CoreV2ProjectionIndex,
   after: CoreV2ProjectionIndex,
@@ -721,8 +770,11 @@ function projectionChangedRanges(
     const relationChanged = before.relationsByEntityId?.[id] !== after.relationsByEntityId?.[id] &&
       JSON.stringify(before.relationsByEntityId?.[id]) !==
         JSON.stringify(after.relationsByEntityId?.[id]);
+    const imageChanged = before.imagesByEntityId?.[id] !== after.imagesByEntityId?.[id] &&
+      JSON.stringify(before.imagesByEntityId?.[id]) !==
+        JSON.stringify(after.imagesByEntityId?.[id]);
     if (entityChanged) changedEndpointIds.add(id);
-    if (entityChanged || relationChanged) slots.push(slot);
+    if (entityChanged || relationChanged || imageChanged) slots.push(slot);
   }
   if (changedEndpointIds.size > 0) {
     for (let slot = 0; slot < store.capacity; slot += 1) {

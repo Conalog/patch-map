@@ -22,9 +22,10 @@ import type {
   ParseIdentityIndex,
   ParsePatchMapOptions,
   ParsePatchMapResult,
+  CoreV2EntityProjection,
   CoreV2ProjectionIndex,
 } from './contracts';
-import { parsePatchMapV010 } from './parser';
+import { parsePatchMapV010, projectCoreV2IntrinsicImageAffine } from './parser';
 import { withRendererDegradationDiagnostics } from './renderers/degradation';
 import { InvalidationScheduler, type FrameSchedulerDebug } from './scheduler';
 import {
@@ -41,8 +42,20 @@ import type { PixiCoreV2RendererDebug } from './renderers/types';
 import type { CoreV2WorldOrientation } from './renderers/types';
 import {
   CoreV2EntityHitIndex,
+  coreV2EntityWorldAabb,
   hitTestCoreV2EntityIndex,
 } from './semantic/entity-hit-index';
+import {
+  CoreV2SceneImageController,
+  type CoreV2SceneImageIntrinsicSize,
+  type CoreV2SceneImagesProbe,
+} from './scene-images';
+import {
+  coreV2AffineCenter,
+  coreV2AffineBasis,
+  freezeCoreV2Bounds,
+  type CoreV2BoundsTuple,
+} from './semantic/geometry';
 import {
   boundsFor,
   fitView,
@@ -152,10 +165,13 @@ export class CoreV2 {
 
   private readonly scene: CoreScene;
   private readonly scheduler: InvalidationScheduler;
+  private readonly sceneImages: CoreV2SceneImageController;
   private readonly parseOptions: ParsePatchMapOptions;
   private readonly autoRender: boolean;
   private readonly unbindInteractions: () => void;
   private parseResultValue: ParsePatchMapResult | null = null;
+  private projectionValue: CoreV2ProjectionIndex | null = null;
+  private sceneImageReconcileSuspended = false;
   private currentView: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
   private worldFlipX = false;
   private worldFlipY = false;
@@ -169,6 +185,7 @@ export class CoreV2 {
   private entityHitIndexValue: CoreV2EntityHitIndex | null = null;
   private readonly staleHitProjectionIds = new Set<string>();
   private readonly spatialHitAnimationEnds = new Map<string, number>();
+  private readonly pendingIntrinsicImageSizes = new Map<string, CoreV2SceneImageIntrinsicSize>();
 
   private constructor(renderer: PixiCoreV2Renderer, options: CoreV2Options) {
     this.renderer = renderer;
@@ -182,6 +199,10 @@ export class CoreV2 {
       ...(options.eventLimit === undefined ? {} : { eventLimit: options.eventLimit }),
     });
     this.scheduler = new InvalidationScheduler((timeMs) => this.renderScheduledFrame(timeMs));
+    this.sceneImages = new CoreV2SceneImageController(renderer, {
+      onInvalidate: (reason) => this.invalidate(reason),
+      onIntrinsicSize: (resolution) => this.queueIntrinsicImageSize(resolution),
+    });
     this.unbindInteractions = renderer.bindRootInteractions({
       pointerDown: (x, y, pointerId, button) => this.onPointerDown(x, y, pointerId, button),
       pointerMove: (x, y, pointerId) => this.onPointerMove(x, y, pointerId),
@@ -227,11 +248,12 @@ export class CoreV2 {
   }
 
   public get projection(): CoreV2ProjectionIndex | null {
-    return this.parseResultValue?.projection ?? null;
+    return this.projectionValue;
   }
 
   public load(input: unknown, options: ParsePatchMapOptions = this.parseOptions): CoreV2LoadResult {
     this.assertAlive();
+    this.pendingIntrinsicImageSizes.clear();
     const normalizeStarted = now();
     const parse = withRendererDegradationDiagnostics(
       parsePatchMapV010(input, options),
@@ -242,11 +264,16 @@ export class CoreV2 {
     const store = this.scene.load(parse.document);
     const storeLoadMs = now() - storeStarted;
     this.parseResultValue = parse;
+    this.projectionValue = parse.projection;
     this.entityCountValue = store.entityCount;
     this.currentView = parse.document.view ?? { x: 0, y: 0, scale: 1, rotation: 0 };
     this.animationClockMs = 0;
     this.lastAnimationFrameTime = null;
-    this.renderer.setProjection(parse.projection);
+    this.renderer.setProjection(this.projectionValue);
+    this.sceneImages.reconcile(parse.projection, {
+      activeEntityIds: this.activeSceneImageIds(),
+    });
+    this.reapplyResolvedIntrinsicSizes();
     this.staleHitProjectionIds.clear();
     this.spatialHitAnimationEnds.clear();
     this.invalidateEntityHitIndex();
@@ -306,10 +333,21 @@ export class CoreV2 {
     }
 
     const commitStarted = now();
-    const commit = this.commit(plan.batch);
+    this.sceneImageReconcileSuspended = true;
+    let commit: CommitResult;
+    try {
+      commit = this.commit(plan.batch);
+    } finally {
+      this.sceneImageReconcileSuspended = false;
+    }
     const commitMs = now() - commitStarted;
-    this.renderer.setProjection(parse.projection);
     this.parseResultValue = parse;
+    this.projectionValue = parse.projection;
+    this.renderer.setProjection(this.projectionValue);
+    this.sceneImages.reconcile(parse.projection, {
+      activeEntityIds: this.activeSceneImageIds(),
+    });
+    this.reapplyResolvedIntrinsicSizes();
     this.staleHitProjectionIds.clear();
     this.spatialHitAnimationEnds.clear();
     this.invalidateEntityHitIndex();
@@ -332,6 +370,7 @@ export class CoreV2 {
   /** Build aggregate CPU/GPU resources without presenting a visible frame. */
   public async prepare(): Promise<CoreV2PrepareResult> {
     this.assertAlive();
+    this.applyPendingIntrinsicImageSizes();
     this.renderer.synchronizeNextFlush();
     this.scheduler.cancelPending();
     const syncStarted = now();
@@ -346,16 +385,25 @@ export class CoreV2 {
 
   public flush(reason = 'manual'): FrameReport {
     this.assertAlive();
+    this.applyPendingIntrinsicImageSizes();
     this.scheduler.cancelPending();
     this.lastFrameReport = this.scene.flush();
+    if (this.lastFrameReport.rendered) void this.sceneImages.finalizeAfterRenderedFrame();
     if (this.autoRender && this.scene.activeAnimations > 0) this.scheduler.invalidate(reason);
     return this.requireFrameReport();
   }
 
   public commit(batch: TransactionBatch): CommitResult {
     this.assertAlive();
+    if (!this.sceneImageReconcileSuspended) this.assertDirectImageProjectionMutationSafe(batch);
+    const directImageVisibilityIds = this.sceneImageReconcileSuspended
+      ? new Set<string>()
+      : this.directImageVisibilityIds(batch);
     const hitImpact = this.entityHitCommitImpact(batch);
     const result = this.scene.commit(batch);
+    if (directImageVisibilityIds.size > 0) {
+      this.synchronizeParsedImageVisibility(directImageVisibilityIds);
+    }
     const hasGeometryChange = batch.operations.some(
       (operation) => operation.type !== 'view' && operation.type !== 'selection',
     );
@@ -375,6 +423,15 @@ export class CoreV2 {
     }
     for (const animation of hitImpact.spatialAnimations) {
       this.spatialHitAnimationEnds.set(animation.key, animation.endTimeMs);
+    }
+    if (directImageVisibilityIds.size > 0) {
+      const projection = this.parseResultValue?.projection;
+      if (projection) {
+        this.sceneImages.reconcile(projection, {
+          activeEntityIds: this.activeSceneImageIds(),
+        });
+        this.reapplyResolvedIntrinsicSizes();
+      }
     }
     this.invalidate(this.scene.activeAnimations > 0 ? 'animation' : 'commit');
     this.entityCountValue += result.added - result.removed;
@@ -454,9 +511,37 @@ export class CoreV2 {
       worldPoint,
       options,
       (ref) => this.scene.get(ref),
-      this.parseResultValue?.projection ?? null,
+      this.projectionValue,
       this.staleHitProjectionIds,
     );
+  }
+
+  /** World AABB used by the same narrow-phase projection authority as hit testing. */
+  public hitBounds(target: string | EntityRef): CoreV2BoundsTuple | null {
+    this.assertAlive();
+    const entity = this.scene.get(target);
+    if (!entity || entity.kind === 'relation') return null;
+    const projection = this.staleHitProjectionIds.has(entity.id)
+      ? undefined
+      : this.projectionValue?.byEntityId[entity.id];
+    return coreV2EntityWorldAabb(entity, projection);
+  }
+
+  public sceneImageProbe(): CoreV2SceneImagesProbe {
+    this.assertAlive();
+    return this.sceneImages.probe();
+  }
+
+  public async settleSceneImages(): Promise<void> {
+    this.assertAlive();
+    await this.sceneImages.settle();
+    this.applyPendingIntrinsicImageSizes();
+  }
+
+  public async settleSceneImageBindings(bindingKeys: readonly string[]): Promise<void> {
+    this.assertAlive();
+    await this.sceneImages.settleBindings(bindingKeys);
+    this.applyPendingIntrinsicImageSizes();
   }
 
   public selectAtScreen(point: CorePoint): EntityRef | null {
@@ -596,13 +681,37 @@ export class CoreV2 {
     this.entityHitIndexValue = null;
     this.staleHitProjectionIds.clear();
     this.spatialHitAnimationEnds.clear();
-    this.scene.destroy();
-    await this.renderer.whenDestroyed();
+    const cleanupFailures: Error[] = [];
+    try {
+      await this.sceneImages.destroy();
+    } catch (error) {
+      cleanupFailures.push(normalizeCleanupFailure(error));
+    }
+    this.projectionValue = null;
+    this.pendingIntrinsicImageSizes.clear();
+    try {
+      this.scene.destroy();
+    } catch (error) {
+      cleanupFailures.push(normalizeCleanupFailure(error));
+    }
+    try {
+      await this.renderer.whenDestroyed();
+    } catch (error) {
+      cleanupFailures.push(normalizeCleanupFailure(error));
+    }
+    if (cleanupFailures.length === 1) {
+      const [failure] = cleanupFailures;
+      if (failure) throw failure;
+    }
+    if (cleanupFailures.length > 1) {
+      throw new AggregateError(cleanupFailures, 'Core v2 cleanup failed');
+    }
     return true;
   }
 
   private renderScheduledFrame(timeMs: number): boolean {
     if (this.destroyedValue) return false;
+    this.applyPendingIntrinsicImageSizes();
     if (this.scene.activeAnimations > 0) {
       if (this.lastAnimationFrameTime === null) this.lastAnimationFrameTime = timeMs;
       const delta = Math.max(0, timeMs - this.lastAnimationFrameTime);
@@ -615,6 +724,7 @@ export class CoreV2 {
       this.renderer.markChanges(advanced.changedRanges, 'animation');
     }
     this.lastFrameReport = this.scene.flush();
+    if (this.lastFrameReport.rendered) void this.sceneImages.finalizeAfterRenderedFrame();
     const active = this.scene.activeAnimations > 0;
     if (!active) this.lastAnimationFrameTime = null;
     return active;
@@ -627,7 +737,7 @@ export class CoreV2 {
   private entityHitIndex(): CoreV2EntityHitIndex {
     this.entityHitIndexValue ??= CoreV2EntityHitIndex.build(
       this.scene.snapshot(),
-      this.parseResultValue?.projection ?? null,
+      this.projectionValue,
       this.staleHitProjectionIds,
     );
     return this.entityHitIndexValue;
@@ -635,6 +745,172 @@ export class CoreV2 {
 
   private invalidateEntityHitIndex(): void {
     this.entityHitIndexValue = null;
+  }
+
+  private activeSceneImageIds(): ReadonlySet<string> {
+    const active = new Set<string>();
+    const images = this.parseResultValue?.projection.imagesByEntityId ?? {};
+    for (const entityId of Object.keys(images)) {
+      const entity = this.scene.get(entityId);
+      if (entity?.kind === 'image' && entity.visible) active.add(entityId);
+    }
+    return active;
+  }
+
+  private queueIntrinsicImageSize(resolution: CoreV2SceneImageIntrinsicSize): void {
+    if (!this.destroyedValue) this.pendingIntrinsicImageSizes.set(resolution.entityId, resolution);
+  }
+
+  /** Publish every decoded size in one immutable projection replacement per frame/settlement. */
+  private applyPendingIntrinsicImageSizes(): void {
+    if (this.destroyedValue || this.pendingIntrinsicImageSizes.size === 0) return;
+    const resolutions = [...this.pendingIntrinsicImageSizes.values()]
+      .sort((left, right) => left.entityId.localeCompare(right.entityId));
+    this.pendingIntrinsicImageSizes.clear();
+    this.applyIntrinsicImageSizes(resolutions);
+  }
+
+  private applyIntrinsicImageSizes(
+    resolutions: readonly CoreV2SceneImageIntrinsicSize[],
+  ): void {
+    if (this.destroyedValue || resolutions.length === 0) return;
+    const base = this.parseResultValue?.projection;
+    const currentIndex = this.projectionValue ?? base;
+    if (!base || !currentIndex) return;
+    const replacements: Record<string, CoreV2EntityProjection> = Object.create(null) as Record<
+      string,
+      CoreV2EntityProjection
+    >;
+
+    for (const resolution of resolutions) {
+      const image = base.imagesByEntityId?.[resolution.entityId];
+      const current = this.sceneImages.imageProbe(resolution.entityId);
+      if (
+        !image ||
+        image.dimensionMode !== 'intrinsic' ||
+        image.intrinsicTransform === undefined ||
+        image.bindingKey !== resolution.bindingKey ||
+        current?.generation !== resolution.generation ||
+        current.bindingKey !== resolution.bindingKey ||
+        current.attachmentState !== 'current'
+      ) {
+        continue;
+      }
+      const sourceProjection = base.byEntityId[resolution.entityId];
+      if (!sourceProjection) continue;
+      const [width, height] = resolution.naturalSize;
+      if (!(width > 0) || !(height > 0) || !Number.isFinite(width) || !Number.isFinite(height)) {
+        continue;
+      }
+      const affine = projectCoreV2IntrinsicImageAffine(image.intrinsicTransform, width, height);
+      const localBounds = freezeCoreV2Bounds(0, 0, width, height);
+      const projection = Object.freeze({
+        ...sourceProjection,
+        affine,
+        localBounds,
+        worldBasis: coreV2AffineBasis(affine),
+        visibleCenter: coreV2AffineCenter(affine, localBounds),
+      } satisfies CoreV2EntityProjection);
+      if (jsonEquivalent(currentIndex.byEntityId[resolution.entityId], projection)) continue;
+      replacements[resolution.entityId] = projection;
+    }
+
+    const changedIds = Object.keys(replacements).sort();
+    if (changedIds.length === 0) return;
+    const next = freezeProjectionReplacements(currentIndex, replacements);
+    this.projectionValue = next;
+    this.renderer.setProjection(next);
+    for (const entityId of changedIds) this.staleHitProjectionIds.delete(entityId);
+    this.invalidateEntityHitIndex();
+  }
+
+  private reapplyResolvedIntrinsicSizes(): void {
+    const images = this.parseResultValue?.projection.imagesByEntityId ?? {};
+    const resolutions: CoreV2SceneImageIntrinsicSize[] = [];
+    for (const entityId of Object.keys(images).sort()) {
+      const image = images[entityId];
+      if (image?.dimensionMode !== 'intrinsic') continue;
+      const probe = this.sceneImages.imageProbe(entityId);
+      if (!probe?.naturalSize || probe.attachmentState !== 'current') continue;
+      resolutions.push({
+        entityId,
+        bindingKey: probe.bindingKey,
+        generation: probe.generation,
+        naturalSize: probe.naturalSize,
+      });
+    }
+    this.pendingIntrinsicImageSizes.clear();
+    this.applyIntrinsicImageSizes(resolutions);
+  }
+
+  /**
+   * Parser projections are authoritative for image source and affine geometry.
+   * Direct dense mutations cannot update that sidecar atomically, so fail before
+   * the scene transaction and direct callers to the JSON reconciliation path.
+   */
+  private assertDirectImageProjectionMutationSafe(batch: TransactionBatch): void {
+    for (const [index, operation] of batch.operations.entries()) {
+      if (operation.type === 'add' && operation.entity.kind === 'image') {
+        throw unsupportedDirectImageMutation(index, 'add');
+      }
+      if (operation.type === 'remove' && this.scene.get(operation.target)?.kind === 'image') {
+        throw unsupportedDirectImageMutation(index, 'remove');
+      }
+      if (
+        operation.type === 'patch' &&
+        this.scene.get(operation.target)?.kind === 'image' &&
+        IMAGE_PROJECTION_PATCH_FIELDS.some((field) => operation.changes[field] !== undefined)
+      ) {
+        throw unsupportedDirectImageMutation(index, 'projection patch');
+      }
+      if (
+        operation.type === 'animate' &&
+        this.scene.get(operation.target)?.kind === 'image' &&
+        IMAGE_PROJECTION_ANIMATION_FIELDS.has(operation.property)
+      ) {
+        throw unsupportedDirectImageMutation(index, 'projection animation');
+      }
+    }
+  }
+
+  private directImageVisibilityIds(batch: TransactionBatch): Set<string> {
+    const ids = new Set<string>();
+    for (const operation of batch.operations) {
+      if (operation.type === 'visibility') {
+        const entity = this.scene.get(operation.target);
+        if (entity?.kind === 'image') ids.add(entity.id);
+        continue;
+      }
+      if (
+        operation.type === 'patch' &&
+        operation.changes.visible !== undefined &&
+        this.scene.get(operation.target)?.kind === 'image'
+      ) {
+        const entity = this.scene.get(operation.target);
+        if (entity) ids.add(entity.id);
+      }
+    }
+    return ids;
+  }
+
+  /** Keep direct visibility commits in the immutable normalized reconcile authority. */
+  private synchronizeParsedImageVisibility(entityIds: ReadonlySet<string>): void {
+    const parse = this.parseResultValue;
+    if (!parse || entityIds.size === 0) return;
+    let changed = false;
+    const entities = parse.document.entities.map((entity) => {
+      if (entity.kind !== 'image' || !entityIds.has(entity.id)) return entity;
+      const current = this.scene.get(entity.id);
+      if (!current || current.visible === (entity.visible ?? true)) return entity;
+      changed = true;
+      return Object.freeze({ ...entity, visible: current.visible });
+    });
+    if (!changed) return;
+    const document = Object.freeze({
+      ...parse.document,
+      entities: Object.freeze(entities),
+    });
+    this.parseResultValue = Object.freeze({ ...parse, document });
   }
 
   private entityHitCommitImpact(batch: TransactionBatch): Readonly<{
@@ -878,6 +1154,48 @@ function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown
   if (value === null || typeof value !== 'object') return false;
   const prototype: unknown = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
+}
+
+const IMAGE_PROJECTION_PATCH_FIELDS = Object.freeze([
+  'x',
+  'y',
+  'width',
+  'height',
+  'rotation',
+  'source',
+] as const satisfies readonly (keyof EntityPatch)[]);
+
+const IMAGE_PROJECTION_ANIMATION_FIELDS: ReadonlySet<string> = new Set([
+  'x',
+  'y',
+  'width',
+  'height',
+  'rotation',
+]);
+
+function unsupportedDirectImageMutation(index: number, operation: string): TypeError {
+  return new TypeError(
+    `CoreV2.commit operation ${index} (${operation}) cannot update the image projection sidecar; ` +
+    'submit PATCH MAP JSON through CoreV2.reconcile instead',
+  );
+}
+
+function normalizeCleanupFailure(value: unknown): Error {
+  return value instanceof Error ? value : new Error(String(value));
+}
+
+function freezeProjectionReplacements(
+  source: CoreV2ProjectionIndex,
+  replacements: Readonly<Record<string, CoreV2EntityProjection>>,
+): CoreV2ProjectionIndex {
+  const byEntityId = Object.freeze({
+    ...source.byEntityId,
+    ...replacements,
+  });
+  return Object.freeze({
+    ...source,
+    byEntityId,
+  });
 }
 
 export type { EntityPatch };

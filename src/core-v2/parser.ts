@@ -11,6 +11,10 @@ import {
   type ComponentIdentity,
   type CoreV2ContentOrientation,
   type CoreV2EntityProjection,
+  type CoreV2ImageDimensionMode,
+  type CoreV2ImageIntrinsicTransform,
+  type CoreV2ImageProjection,
+  type CoreV2ImageSourceKind,
   type CoreV2OmittedRelationProjection,
   type CoreV2RelationProjection,
   type ElementIdentity,
@@ -22,6 +26,7 @@ import {
 } from './contracts';
 import {
   CORE_V2_IDENTITY_AFFINE,
+  applyCoreV2Affine,
   coreV2AffineBasis,
   coreV2AffineCenter,
   createCoreV2Affine,
@@ -40,6 +45,7 @@ interface Transform {
   readonly scaleX: number;
   readonly scaleY: number;
   readonly affine: CoreV2AffineMatrix;
+  readonly imageIntrinsicTransform: CoreV2ImageIntrinsicTransform;
 }
 
 interface EntityProjectionDraft extends CoreV2DenseRectProjection {
@@ -97,6 +103,7 @@ interface ParseState {
   readonly entityIdsByComponentId: Record<string, string[]>;
   readonly entitySourceById: Record<string, EntitySourceIdentity>;
   readonly projectionByEntityId: Record<string, CoreV2EntityProjection>;
+  readonly imageProjectionByEntityId: Record<string, CoreV2ImageProjection>;
   readonly relationProjectionByEntityId: Record<string, CoreV2RelationProjection>;
   readonly omittedRelations: CoreV2OmittedRelationProjection[];
   readonly pendingRelations: PendingRelation[];
@@ -164,6 +171,12 @@ const ROOT_CONTEXT: ElementContext = {
     scaleX: 1,
     scaleY: 1,
     affine: CORE_V2_IDENTITY_AFFINE,
+    imageIntrinsicTransform: Object.freeze({
+      parentAffine: CORE_V2_IDENTITY_AFFINE,
+      localTranslationAffine: CORE_V2_IDENTITY_AFFINE,
+      localRotationScaleAffine: CORE_V2_IDENTITY_AFFINE,
+      localPivotScaleAffine: CORE_V2_IDENTITY_AFFINE,
+    }),
   },
   visible: true,
   interactive: true,
@@ -189,6 +202,7 @@ export function parsePatchMapV010(
     entityIdsByComponentId: Object.create(null) as Record<string, string[]>,
     entitySourceById: Object.create(null) as Record<string, EntitySourceIdentity>,
     projectionByEntityId: Object.create(null) as Record<string, CoreV2EntityProjection>,
+    imageProjectionByEntityId: Object.create(null) as Record<string, CoreV2ImageProjection>,
     relationProjectionByEntityId: Object.create(null) as Record<string, CoreV2RelationProjection>,
     omittedRelations: [],
     pendingRelations: [],
@@ -242,6 +256,7 @@ export function parsePatchMapV010(
     },
     projection: {
       byEntityId: state.projectionByEntityId,
+      imagesByEntityId: state.imageProjectionByEntityId,
       relationsByEntityId: state.relationProjectionByEntityId,
       omittedRelations: state.omittedRelations,
     },
@@ -604,7 +619,14 @@ function parseComponent(
       );
       return;
     }
-    const asset = assetSource(source, `${path}.source`, state);
+    const asset = imageSourceProjection(
+      entityId,
+      source,
+      `${path}.source`,
+      'layout',
+      value.size !== undefined,
+      state,
+    );
     addEntity(
       imageEntity(entityId, transform, local, asset, value.tint, componentVisible, -10, path, state),
       { ...owner, component },
@@ -665,7 +687,14 @@ function parseComponent(
         entityId,
         transform,
         local,
-        assetSource(value.source, `${path}.source`, state),
+        imageSourceProjection(
+          entityId,
+          value.source,
+          `${path}.source`,
+          'layout',
+          value.size !== undefined,
+          state,
+        ),
         value.tint,
         componentVisible,
         20,
@@ -769,22 +798,37 @@ function parseDirectImage(
   owner: EntityOwner,
   state: ParseState,
 ): void {
-  const size = value.size === undefined
-    ? { width: 1, height: 1 }
+  const authoredSize = value.size !== undefined;
+  const size = !authoredSize
+    ? { width: 32, height: 32 }
     : fixedSize(value.size, `${path}.size`, state);
+  const denseTransform = centerPivotImage(transform, size);
+  const projected = imageEntity(
+    sourceId,
+    transform,
+    { x: 0, y: 0, ...size },
+    imageSourceProjection(
+      sourceId,
+      value.source,
+      `${path}.source`,
+      authoredSize ? 'authored' : 'intrinsic',
+      authoredSize,
+      state,
+      !authoredSize ? transform.imageIntrinsicTransform : undefined,
+    ),
+    undefined,
+    visible,
+    zIndex(value.attrs),
+    path,
+    state,
+  );
   addEntity(
     {
-      ...imageEntity(
-        sourceId,
-        transform,
-        { x: 0, y: 0, ...size },
-        assetSource(value.source, `${path}.source`, state),
-        undefined,
-        visible,
-        zIndex(value.attrs),
-        path,
-        state,
-      ),
+      ...projected,
+      x: denseTransform.x,
+      y: denseTransform.y,
+      width: denseTransform.width,
+      height: denseTransform.height,
       ...(value.opacity === undefined
         ? {}
         : { opacity: projectedOpacity(value.opacity, `${path}.opacity`, state) }),
@@ -792,7 +836,7 @@ function parseDirectImage(
     },
     owner,
     state,
-    centerPivotTopLeft(transform, size),
+    denseTransform,
   );
 }
 
@@ -1163,7 +1207,7 @@ function imageEntity(
   id: string,
   transform: Transform,
   box: Box,
-  source: string,
+  source: CoreV2ImageProjection,
   tint: unknown,
   visible: boolean,
   layer: number,
@@ -1179,7 +1223,11 @@ function imageEntity(
     width: denseTransform.width,
     height: denseTransform.height,
     rotation: transform.rotation,
-    source,
+    // Preserve the inherited dense transport column for existing consumers.
+    // Reconciliation/resource identity comes from the lossless sidecar key.
+    source: typeof source.authoredSource === 'string'
+      ? source.authoredSource
+      : source.authoredSource.src,
     ...(tint !== undefined ? { tint: resolveColor(tint, 0xffffffff, `${path}.tint`, state) } : {}),
     visible,
     interactive: false,
@@ -1305,6 +1353,9 @@ function composeTransform(
   const localX = x * parent.scaleX;
   const localY = y * parent.scaleY;
   const handedness = Math.sign(parent.scaleX * parent.scaleY) || 1;
+  const localTranslationAffine = createCoreV2Affine(x, y);
+  const localRotationScaleAffine = createCoreV2Affine(0, 0, rotation, scaleX, scaleY);
+  const localPivotScaleAffine = createCoreV2Affine(0, 0, 0, scaleX, scaleY);
   return {
     x: parent.x + localX * cos - localY * sin,
     y: parent.y + localX * sin + localY * cos,
@@ -1313,8 +1364,14 @@ function composeTransform(
     scaleY: parent.scaleY * scaleY,
     affine: multiplyCoreV2Affine(
       parent.affine,
-      createCoreV2Affine(x, y, rotation, scaleX, scaleY),
+      multiplyCoreV2Affine(localTranslationAffine, localRotationScaleAffine),
     ),
+    imageIntrinsicTransform: Object.freeze({
+      parentAffine: parent.affine,
+      localTranslationAffine,
+      localRotationScaleAffine,
+      localPivotScaleAffine,
+    }),
   };
 }
 
@@ -1333,6 +1390,35 @@ function centerPivotTopLeft(
     affine: transform.affine,
     rotationDegrees: transform.rotation,
     contentOrientation,
+  });
+}
+
+/** Standalone image `attrs` use the inherited Sprite center-pivot contract. */
+function centerPivotImage(
+  transform: Transform,
+  size: Size,
+): EntityProjectionDraft {
+  const width = size.width * Math.abs(transform.scaleX);
+  const height = size.height * Math.abs(transform.scaleY);
+  const x = transform.x + (transform.scaleX < 0 ? -width : 0);
+  const y = transform.y + (transform.scaleY < 0 ? -height : 0);
+  const affine = projectCoreV2IntrinsicImageAffine(
+    transform.imageIntrinsicTransform,
+    size.width,
+    size.height,
+  );
+  return Object.freeze({
+    x,
+    y,
+    width,
+    height,
+    rotation: transform.rotation,
+    localBounds: Object.freeze([0, 0, size.width, size.height] as const),
+    scaleX: transform.scaleX,
+    scaleY: transform.scaleY,
+    affine,
+    rotationDegrees: transform.rotation,
+    contentOrientation: 'follow-item',
   });
 }
 
@@ -1483,23 +1569,186 @@ function axisSpacing(value: unknown, path: string, state: ParseState): { x: numb
   return { x: 0, y: 0 };
 }
 
-function assetSource(value: unknown, path: string, state: ParseState): string {
-  if (typeof value === 'string' && value.length > 0) return value;
-  if (isRecord(value) && typeof value.src === 'string' && value.src.length > 0) {
-    const data = isRecord(value.data) ? value.data : undefined;
-    if (data?.resolution !== undefined) {
-      warnOnce(
-        state,
-        `asset-resolution:${path}`,
-        `${path}.data.resolution`,
-        'asset-resolution-degraded',
-        'Asset descriptor resolution is retained semantically but the flat dense image contract keeps only src',
-      );
+function imageSourceProjection(
+  entityId: string,
+  value: unknown,
+  path: string,
+  dimensionMode: CoreV2ImageDimensionMode,
+  authoredSize: boolean,
+  state: ParseState,
+  intrinsicTransform?: CoreV2ImageIntrinsicTransform,
+): CoreV2ImageProjection {
+  const normalized = normalizeImageSource(value, path, state);
+  const projection = Object.freeze({
+    entityId,
+    authoredSource: normalized.authoredSource,
+    bindingKey: normalized.bindingKey,
+    cacheIdentity: normalized.cacheIdentity,
+    sourceKind: normalized.sourceKind,
+    authoredSize,
+    dimensionMode,
+    ...(intrinsicTransform === undefined
+      ? {}
+      : {
+          intrinsicTransform: Object.freeze({
+            parentAffine: intrinsicTransform.parentAffine,
+            localTranslationAffine: intrinsicTransform.localTranslationAffine,
+            localRotationScaleAffine: intrinsicTransform.localRotationScaleAffine,
+            localPivotScaleAffine: intrinsicTransform.localPivotScaleAffine,
+          }),
+        }),
+  } satisfies CoreV2ImageProjection);
+  state.imageProjectionByEntityId[entityId] = projection;
+  return projection;
+}
+
+/**
+ * Preserve exact nested affine authority while applying the standalone Sprite
+ * center pivot whose placement changes with decoded intrinsic dimensions.
+ */
+export function projectCoreV2IntrinsicImageAffine(
+  transform: CoreV2ImageIntrinsicTransform,
+  width: number,
+  height: number,
+): CoreV2AffineMatrix {
+  if (!(width >= 0) || !Number.isFinite(width) || !(height >= 0) || !Number.isFinite(height)) {
+    throw new TypeError('intrinsic image dimensions must be finite and non-negative');
+  }
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+  const pivotCenter = applyCoreV2Affine(
+    transform.localPivotScaleAffine,
+    Object.freeze([halfWidth, halfHeight] as const),
+  );
+  const local = multiplyCoreV2Affine(
+    transform.localTranslationAffine,
+    multiplyCoreV2Affine(
+      createCoreV2Affine(pivotCenter[0], pivotCenter[1]),
+      multiplyCoreV2Affine(
+        transform.localRotationScaleAffine,
+        createCoreV2Affine(-halfWidth, -halfHeight),
+      ),
+    ),
+  );
+  return multiplyCoreV2Affine(transform.parentAffine, local);
+}
+
+function normalizeImageSource(
+  value: unknown,
+  path: string,
+  state: ParseState,
+): Readonly<{
+  authoredSource: CoreV2ImageProjection['authoredSource'];
+  bindingKey: string;
+  cacheIdentity: string;
+  sourceKind: CoreV2ImageSourceKind;
+}> {
+  if (typeof value === 'string' && value.length > 0) {
+    const sourceKind = classifyImageSourceString(value);
+    if (sourceKind === 'data-uri') {
+      const identity = `data-uri:${value.length}:${stableHash(value)}`;
+      return Object.freeze({
+        authoredSource: value,
+        bindingKey: identity,
+        cacheIdentity: identity,
+        sourceKind,
+      });
     }
-    return value.src;
+    const identity = `${sourceKind}:${value}`;
+    return Object.freeze({
+      authoredSource: value,
+      bindingKey: identity,
+      cacheIdentity: identity,
+      sourceKind,
+    });
+  }
+  if (isRecord(value) && typeof value.src === 'string' && value.src.length > 0) {
+    const authoredSource = deepFreeze(cloneJson(value)) as unknown as CoreV2ImageProjection['authoredSource'];
+    const canonical = stableSerializeJson(authoredSource);
+    return Object.freeze({
+      authoredSource,
+      bindingKey: `descriptor:${canonical}`,
+      cacheIdentity: descriptorCacheIdentity(authoredSource),
+      sourceKind: 'descriptor',
+    });
   }
   warn(state, path, 'invalid-asset-source', 'Invalid asset source uses a deterministic missing-asset alias');
-  return `@missing-asset:${pathToken(path)}`;
+  const authoredSource = `@missing-asset:${pathToken(path)}`;
+  const identity = `alias:${authoredSource}`;
+  return Object.freeze({
+    authoredSource,
+    bindingKey: identity,
+    cacheIdentity: identity,
+    sourceKind: 'alias',
+  });
+}
+
+function classifyImageSourceString(source: string): Exclude<CoreV2ImageSourceKind, 'descriptor'> {
+  if (/^data:/iu.test(source)) return 'data-uri';
+  if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/iu.test(source)) return 'url';
+  return 'alias';
+}
+
+function descriptorCacheIdentity(
+  source: CoreV2ImageProjection['authoredSource'],
+): string {
+  if (typeof source === 'string') return `descriptor:${source}`;
+  if (descriptorNeedsFramedIdentity(source)) {
+    const canonical = stableSerializeJson(source);
+    return `descriptor-safe:${source.src.length}:${source.src}:${stableHash(canonical)}`;
+  }
+  const query: Array<readonly [string, unknown]> = [];
+  if (source.data !== undefined) {
+    const keys = Object.keys(source.data).sort();
+    if (keys.length === 0) query.push(['data', source.data]);
+    for (const key of keys) query.push([key, source.data[key]]);
+  }
+  if (source.format !== undefined) query.push(['format', source.format]);
+  if (source.parser !== undefined) query.push(['parser', source.parser]);
+  if (source.loadParser !== undefined) query.push(['loadParser', source.loadParser]);
+  query.sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
+  const suffix = query.length === 0
+    ? ''
+    : `?${query.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(
+        scalarIdentityValue(value),
+      )}`).join('&')}`;
+  return `descriptor:${source.src}${suffix}`;
+}
+
+function descriptorNeedsFramedIdentity(
+  source: Exclude<CoreV2ImageProjection['authoredSource'], string>,
+): boolean {
+  if (/[?#]/u.test(source.src)) return true;
+  const topLevelOptionNames = new Set(['data', 'format', 'parser', 'loadParser']);
+  return Object.keys(source.data ?? {}).some((key) => topLevelOptionNames.has(key));
+}
+
+function scalarIdentityValue(value: unknown): string {
+  return typeof value === 'string' ? value : stableSerializeJson(value);
+}
+
+function stableSerializeJson(value: unknown): string {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') {
+    return JSON.stringify(value);
+  }
+  if (typeof value === 'number') return Number.isFinite(value) ? JSON.stringify(value) : 'null';
+  if (Array.isArray(value)) return `[${value.map(stableSerializeJson).join(',')}]`;
+  if (isRecord(value)) {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableSerializeJson(value[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(`@unsupported:${typeof value}`);
+}
+
+function stableHash(value: string): string {
+  let hash = 0xcbf29ce484222325n;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= BigInt(value.charCodeAt(index));
+    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
+  }
+  return hash.toString(16).padStart(16, '0');
 }
 
 function relationEndpoint(value: unknown, path: string, state: ParseState, sourceId: string): string {

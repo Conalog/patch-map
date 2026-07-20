@@ -5,6 +5,7 @@ import type {
   CoreV2BoundsTuple,
   CoreV2PointTuple,
 } from './semantic/geometry';
+import type { CoreV2AssetSource } from './semantic/dataset';
 
 export type CoreV2ContentOrientation = 'follow-item' | 'upright';
 
@@ -123,9 +124,43 @@ export interface CoreV2OmittedRelationProjection extends CoreV2RelationProjectio
   readonly reason: CoreV2OmittedRelationReason;
 }
 
+export type CoreV2ImageSourceKind = 'alias' | 'url' | 'data-uri' | 'descriptor';
+export type CoreV2ImageDimensionMode = 'authored' | 'intrinsic' | 'layout';
+
+export interface CoreV2ImageIntrinsicTransform {
+  /** Exact ancestor-to-world authority before the standalone image's attrs. */
+  readonly parentAffine: CoreV2AffineMatrix;
+  /** Exact authored local translation, kept separate for size-dependent pivot placement. */
+  readonly localTranslationAffine: CoreV2AffineMatrix;
+  /** Exact authored local rotation and signed scale. */
+  readonly localRotationScaleAffine: CoreV2AffineMatrix;
+  /** Signed scale before local rotation, which positions the Sprite center pivot. */
+  readonly localPivotScaleAffine: CoreV2AffineMatrix;
+}
+
+/**
+ * Lossless, immutable image-source data kept outside the hot dense arrays.
+ * `bindingKey` is the canonical equality key used by reconciliation, while
+ * `cacheIdentity` is the stable source-form identity exposed to resource probes.
+ */
+export interface CoreV2ImageProjection {
+  readonly entityId: string;
+  readonly authoredSource: CoreV2AssetSource;
+  readonly bindingKey: string;
+  readonly cacheIdentity: string;
+  readonly sourceKind: CoreV2ImageSourceKind;
+  readonly authoredSize: boolean;
+  /** Standalone unsized images adopt decoded logical size after resolution. */
+  readonly dimensionMode: CoreV2ImageDimensionMode;
+  /** Required parser authority for recomputing an intrinsic image's center pivot. */
+  readonly intrinsicTransform?: CoreV2ImageIntrinsicTransform;
+}
+
 /** Immutable numeric metadata that the Core v1-compatible dense rows omit. */
 export interface CoreV2ProjectionIndex {
   readonly byEntityId: Readonly<Record<string, CoreV2EntityProjection>>;
+  /** Present on parser-produced indexes; optional for older injected test surfaces. */
+  readonly imagesByEntityId?: Readonly<Record<string, CoreV2ImageProjection>>;
   /** Present on parser-produced indexes; optional for older injected test surfaces. */
   readonly relationsByEntityId?: Readonly<Record<string, CoreV2RelationProjection>>;
   /** Syntactically valid links with unresolved endpoints are explicit, not fatal. */

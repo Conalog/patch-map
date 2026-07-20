@@ -5,9 +5,42 @@ import { RenderKind } from '../../src/core-v1/renderer/types';
 import {
   buildCoreV2RelationAdjacency,
   expandCoreV2RelationDependencyRanges,
+  projectionChangedRanges,
 } from '../../src/core-v2/renderers/pixi-renderer';
+import { parsePatchMapV010 } from '../../src/core-v2/parser';
 
 describe('Core v2 Pixi relation adjacency', () => {
+  it('dirties an image slot when only descriptor options change', () => {
+    const before = parsePatchMapV010([{
+      type: 'image',
+      id: 'image',
+      source: { src: 'fixture.svg', data: { resolution: 1 } },
+      size: 16,
+    }]);
+    const after = parsePatchMapV010([{
+      type: 'image',
+      id: 'image',
+      source: { src: 'fixture.svg', data: { resolution: 2 } },
+      size: 16,
+    }]);
+    const baseStore = createRelationStore(1, []);
+    const store: RenderStoreView = {
+      ...baseStore,
+      ids: ['image'],
+      kind: Uint8Array.of(RenderKind.Image),
+    };
+    const beforeEntity = before.document.entities[0];
+    const afterEntity = after.document.entities[0];
+    if (beforeEntity?.kind !== 'image' || afterEntity?.kind !== 'image') {
+      throw new Error('expected descriptor image rows');
+    }
+
+    expect(beforeEntity.source).toBe(afterEntity.source);
+    expect(projectionChangedRanges(store, before.projection, after.projection)).toEqual([
+      { start: 0, end: 1 },
+    ]);
+  });
+
   it('registers a self-link once while preserving deterministic relation order', () => {
     const store = createRelationStore(2, [
       [0, 0],

@@ -66,6 +66,15 @@ export interface CoreV2AssetBackend {
   readonly keyNamespace?: string;
   get(request: CoreV2AssetBackendRequest): unknown;
   load(request: CoreV2AssetBackendRequest): Promise<unknown>;
+  describe?(
+    request: CoreV2AssetBackendRequest,
+    resource: unknown,
+  ): Readonly<{
+    /** Stable decoded-resource identity, independent from physical Pixi keys. */
+    readonly normalizedResourceIdentity: string;
+    /** Optional sanitized semantic identity reported by the decoder/fixture. */
+    readonly cacheIdentity?: string;
+  }>;
   unload(key: string): Promise<void>;
 }
 
@@ -76,7 +85,11 @@ export interface CoreV2PixiAssetBackendOptions {
 }
 
 export interface CoreV2AssetAcquisition {
+  /** Internal coordinator identity used for sharing and ownership. */
   readonly cacheIdentity: string;
+  readonly normalizedResourceIdentity: string;
+  /** Optional backend-described semantic identity; never used as a coordinator key. */
+  readonly describedCacheIdentity?: string;
   readonly resource: unknown;
   release(): Promise<void>;
 }
@@ -128,6 +141,7 @@ interface SharedResource {
   readonly canonical: string;
   readonly cacheIdentity: string;
   readonly backendKey: string;
+  readonly request: CoreV2AssetBackendRequest;
   readonly descriptor: CoreV2AssetDescriptor;
   readonly ownership: 'core-v2' | 'external';
   readonly resource: Promise<unknown>;
@@ -135,6 +149,8 @@ interface SharedResource {
   readonly leases: Set<SessionUse>;
   state: 'pending' | 'resolved' | 'releasing' | 'cleanup-failed';
   failed: boolean;
+  description?: CoreV2AssetResourceDescription;
+  settlementCollection?: Promise<void>;
   releasing?: Promise<void>;
 }
 
@@ -146,7 +162,13 @@ interface SessionUse {
   readonly promise: Promise<unknown>;
   status: 'validating' | 'pending' | 'leased' | 'released';
   handleCount: number;
+  description?: CoreV2AssetResourceDescription;
   entry?: SharedResource;
+}
+
+interface CoreV2AssetResourceDescription {
+  readonly normalizedResourceIdentity: string;
+  readonly describedCacheIdentity?: string;
 }
 
 const BUILTIN_IMAGE_ALIASES = Object.freeze([
@@ -369,16 +391,28 @@ export class CoreV2AssetRuntime {
         const value = await resource.resource;
         resource.pendingUsers.delete(use);
         if ((use.status as SessionUse['status']) === 'released') {
-          await this.collect(resource);
           throw new CoreV2AssetError('CANCELLED', 'CANCELLED', false);
         }
+        resource.description ??= this.describeResource(resource, value);
+        use.description = resource.description;
         resource.leases.add(use);
         use.status = 'leased';
         return value;
       } catch (error) {
         resource.pendingUsers.delete(use);
-        if ((use.status as SessionUse['status']) !== 'released') use.status = 'released';
-        await this.collect(resource);
+        const abandoned = (use.status as SessionUse['status']) === 'released';
+        if (abandoned) {
+          // release() already detached this consumer. Keep the public acquire
+          // cancellation deterministic and let one settlement observer own
+          // eventual backend cleanup without extending session destruction.
+          this.collectAfterSettlement(resource);
+        } else {
+          use.status = 'released';
+          await this.collect(resource);
+        }
+        if (abandoned) {
+          throw new CoreV2AssetError('CANCELLED', 'CANCELLED', false);
+        }
         if (error instanceof CoreV2AssetError) throw error;
         throw new CoreV2AssetError('ASSET_LOAD_FAILED', 'ASSET_FAILURE', true);
       }
@@ -440,6 +474,7 @@ export class CoreV2AssetRuntime {
       canonical: use.canonical,
       cacheIdentity: use.cacheIdentity,
       backendKey,
+      request,
       descriptor: use.descriptor,
       ownership,
       resource,
@@ -463,12 +498,12 @@ export class CoreV2AssetRuntime {
   private async collect(entry: SharedResource): Promise<void> {
     if (entry.pendingUsers.size > 0 || entry.leases.size > 0) return;
     if (this.resources.get(entry.canonical) !== entry) return;
-    if (entry.state === 'pending') {
-      await entry.resource.catch(() => undefined);
-      if (entry.pendingUsers.size > 0 || entry.leases.size > 0) return;
-    }
     if (entry.failed) {
       this.resources.delete(entry.canonical);
+      return;
+    }
+    if (entry.state === 'pending') {
+      this.collectAfterSettlement(entry);
       return;
     }
     if (entry.ownership === 'external') {
@@ -492,6 +527,38 @@ export class CoreV2AssetRuntime {
       throw assetInternalFailure();
     }
   }
+
+  private collectAfterSettlement(entry: SharedResource): void {
+    if (entry.settlementCollection) return;
+    entry.settlementCollection = entry.resource.then(
+      async () => this.collect(entry),
+      async () => this.collect(entry),
+    ).catch(() => undefined);
+  }
+
+  private describeResource(
+    entry: SharedResource,
+    resource: unknown,
+  ): CoreV2AssetResourceDescription {
+    const description = this.backend.describe?.(entry.request, resource);
+    if (description === undefined) {
+      return Object.freeze({ normalizedResourceIdentity: entry.cacheIdentity });
+    }
+    return Object.freeze({
+      normalizedResourceIdentity: nonempty(
+        description.normalizedResourceIdentity,
+        'normalizedResourceIdentity',
+      ),
+      ...(description.cacheIdentity === undefined
+        ? {}
+        : {
+            describedCacheIdentity: nonempty(
+              description.cacheIdentity,
+              'described cacheIdentity',
+            ),
+          }),
+    });
+  }
 }
 
 export class CoreV2AssetSession {
@@ -514,12 +581,12 @@ export class CoreV2AssetSession {
 
   public acquire(alias: string): Promise<CoreV2AssetAcquisition> {
     this.assertAlive();
-    return this.acquireEntry(this.runtime.resolve(alias));
+    return observeRejection(this.acquireEntry(this.runtime.resolve(alias)));
   }
 
   public acquireSource(source: CoreV2AssetSource): Promise<CoreV2AssetAcquisition> {
     this.assertAlive();
-    return this.acquireEntry(this.runtime.sourceEntry(source));
+    return observeRejection(this.acquireEntry(this.runtime.sourceEntry(source)));
   }
 
   public probe(): CoreV2AssetSessionProbe {
@@ -555,7 +622,6 @@ export class CoreV2AssetSession {
         this.cleanupCandidates.add(use.canonical);
         throw error;
       }
-      await use.promise.catch(() => undefined);
     }));
     this.uses.clear();
     await this.retryCleanup();
@@ -594,11 +660,17 @@ export class CoreV2AssetSession {
     if (this.destroyedValue || use.status !== 'leased') {
       throw new CoreV2AssetError('CANCELLED', 'CANCELLED', false);
     }
+    const description = use.description;
+    if (description === undefined) throw assetInternalFailure();
     this.cleanupCandidates.delete(use.canonical);
     const acquiredUse = use;
     let released = false;
     return Object.freeze({
       cacheIdentity: acquiredUse.cacheIdentity,
+      normalizedResourceIdentity: description.normalizedResourceIdentity,
+      ...(description.describedCacheIdentity === undefined
+        ? {}
+        : { describedCacheIdentity: description.describedCacheIdentity }),
       resource,
       release: async (): Promise<void> => {
         if (released) return;
@@ -996,6 +1068,15 @@ function sum(
   let result = 0;
   for (const resource of resources.values()) result += select(resource);
   return result;
+}
+
+function observeRejection<T>(promise: Promise<T>): Promise<T> {
+  // Asset work is intentionally abandonable during source replacement and
+  // engine teardown. Observing the original promise prevents a routine late
+  // cancellation/failure from becoming a process-level unhandled rejection;
+  // returning that same promise preserves its exact rejection for consumers.
+  void promise.catch(() => undefined);
+  return promise;
 }
 
 function deepFreeze<T>(value: T): T {

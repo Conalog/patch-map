@@ -1,6 +1,11 @@
 import { createCoreV2, type CoreV2, type CoreV2Options } from './core';
 import type { SceneSnapshot } from '../core-v1/contracts';
-import type { CoreV2ProjectionIndex } from './contracts';
+import type { CoreV2ImageSourceKind, CoreV2ProjectionIndex } from './contracts';
+import type {
+  CoreV2SceneImageAttemptProbe,
+  CoreV2SceneImageProductProbe,
+  CoreV2SceneImagesProbe,
+} from './scene-images';
 import {
   CORE_V2_ASSET_RUNTIME,
   CORE_V2_BUILTIN_ASSETS,
@@ -30,6 +35,7 @@ import {
   CoreV2DatasetError,
   materializeCoreV2Dataset,
   type MaterializedCoreV2Dataset,
+  type CoreV2AssetSource,
   type NormalizedCoreV2Element,
 } from './semantic/dataset';
 import {
@@ -266,6 +272,34 @@ export interface CoreV2SurfaceReconcileResult {
   readonly diagnostics: readonly CoreV2ReconcileDiagnostic[];
 }
 
+export interface CoreV2EngineSceneImageAttemptProbe extends Omit<
+  CoreV2SceneImageAttemptProbe,
+  'authoredSource' | 'sourceKind' | 'resourceState'
+> {
+  readonly authoredSource?: CoreV2AssetSource;
+  readonly authoredSourceKind?: CoreV2ImageSourceKind;
+  readonly state: CoreV2SceneImageAttemptProbe['resourceState'];
+}
+
+export interface CoreV2EngineSceneImageRecord extends Omit<
+  CoreV2SceneImageProductProbe,
+  'authoredSource' | 'attempts'
+> {
+  readonly authoredSource?: CoreV2AssetSource;
+  readonly authoredSourceKind?: CoreV2ImageSourceKind;
+  readonly opacity: number;
+  readonly zIndex: number;
+  readonly hitBounds: readonly [number, number, number, number] | null;
+  readonly initial: CoreV2EngineSceneImageAttemptProbe | null;
+  readonly attempts: readonly CoreV2EngineSceneImageAttemptProbe[];
+}
+
+export type CoreV2EngineSceneImagesProbe = Readonly<
+  Omit<CoreV2SceneImagesProbe, 'images'> & {
+    readonly images: Readonly<Record<string, CoreV2EngineSceneImageRecord>>;
+  }
+>;
+
 export interface CoreV2EngineSurface {
   readonly canvasCount: number;
   readonly destroyed: boolean;
@@ -284,6 +318,9 @@ export interface CoreV2EngineSurface {
   screenToWorld(point: CoreV2Point): CoreV2Point;
   debugSnapshot(): CoreV2SurfaceDebug;
   geometrySnapshot?(): CoreV2SurfaceGeometrySnapshot;
+  sceneImageProbe?(): CoreV2EngineSceneImagesProbe;
+  settleSceneImages?(): Promise<void>;
+  settleSceneImageBindings?(bindingKeys: readonly string[]): Promise<void>;
   relationHitTestScreen?(
     point: CoreV2Point,
     options?: CoreV2RelationHitOptions,
@@ -1135,6 +1172,22 @@ export class CoreV2Engine {
     });
   }
 
+  public sceneImageProbe(): CoreV2EngineSceneImagesProbe | null {
+    return this.requireSurface('sceneImageProbe').sceneImageProbe?.() ?? null;
+  }
+
+  public settleSceneImages(): Promise<void> {
+    const surface = this.requireSurface('settleSceneImages');
+    return surface.settleSceneImages ? surface.settleSceneImages() : Promise.resolve();
+  }
+
+  public settleSceneImageBindings(bindingKeys: readonly string[]): Promise<void> {
+    const surface = this.requireSurface('settleSceneImageBindings');
+    return surface.settleSceneImageBindings
+      ? surface.settleSceneImageBindings(bindingKeys)
+      : Promise.resolve();
+  }
+
   /**
    * Read renderer-aligned geometry without exposing the Pixi scene graph. The
    * aggregate renderer remains free to use a handful of display objects while
@@ -1591,6 +1644,8 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
   private canvasPresent = true;
   private geometryRevision = 0;
   private geometryCache: CoreV2SurfaceGeometrySnapshot | null = null;
+  private geometryProjection: CoreV2ProjectionIndex | null = null;
+  private geometryRevisionProjection: CoreV2ProjectionIndex | null = null;
   private relationHitIndex = emptyCoreV2RelationHitIndex();
   private surfaceView: CoreV2SurfaceView = Object.freeze({
     x: 0,
@@ -1616,6 +1671,7 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
   public load(input: unknown): void {
     this.core.load(input);
     this.geometryRevision += 1;
+    this.geometryRevisionProjection = this.core.projection;
     this.invalidateGeometryCache();
   }
 
@@ -1623,6 +1679,7 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     const result = this.core.reconcile(input);
     if (result.status === 'committed') {
       this.geometryRevision += 1;
+      this.geometryRevisionProjection = this.core.projection;
       this.invalidateGeometryCache();
     }
     return Object.freeze({
@@ -1699,18 +1756,61 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
   }
 
   public geometrySnapshot(): CoreV2SurfaceGeometrySnapshot {
-    if (this.geometryCache) return this.geometryCache;
+    const projection = this.core.projection;
+    if (this.geometryCache && this.geometryProjection === projection) return this.geometryCache;
+    if (this.geometryRevisionProjection !== projection) {
+      this.geometryRevision += 1;
+      this.geometryRevisionProjection = projection;
+    }
     const geometry = Object.freeze({
       ...createCoreV2SurfaceGeometrySnapshot(
         this.core.snapshot(),
-        this.core.projection,
+        projection,
         this.surfaceView,
       ),
       revision: this.geometryRevision,
     });
     this.geometryCache = geometry;
+    this.geometryProjection = projection;
     this.relationHitIndex = buildCoreV2RelationHitIndex(geometry.relations);
     return geometry;
+  }
+
+  public sceneImageProbe(): CoreV2EngineSceneImagesProbe {
+    const controller = this.core.sceneImageProbe();
+    const entities = new Map(
+      this.core.snapshot().entities.map((entity) => [entity.id, entity] as const),
+    );
+    const images: Record<string, CoreV2EngineSceneImageRecord> = Object.create(null) as Record<
+      string,
+      CoreV2EngineSceneImageRecord
+    >;
+    for (const entityId of Object.keys(controller.images).sort()) {
+      const image = controller.images[entityId]!;
+      const entity = entities.get(entityId);
+      const attempts = Object.freeze(image.attempts.map(projectEngineImageAttempt));
+      images[entityId] = Object.freeze({
+        ...withoutImageAuthoredSource(image),
+        ...safeEngineImageSource(image.authoredSource, image.sourceKind),
+        opacity: entity?.opacity ?? 0,
+        zIndex: entity?.zIndex ?? 0,
+        hitBounds: this.core.hitBounds(entityId),
+        initial: attempts[0] ?? null,
+        attempts,
+      });
+    }
+    return Object.freeze({
+      ...controller,
+      images: Object.freeze(images),
+    });
+  }
+
+  public settleSceneImages(): Promise<void> {
+    return this.core.settleSceneImages();
+  }
+
+  public settleSceneImageBindings(bindingKeys: readonly string[]): Promise<void> {
+    return this.core.settleSceneImageBindings(bindingKeys);
   }
 
   public relationHitTestScreen(
@@ -1734,14 +1834,51 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
       return await this.core.destroy();
     } finally {
       this.canvasPresent = false;
+      this.geometryRevisionProjection = null;
       this.invalidateGeometryCache();
     }
   }
 
   private invalidateGeometryCache(): void {
     this.geometryCache = null;
+    this.geometryProjection = null;
     this.relationHitIndex = emptyCoreV2RelationHitIndex();
   }
+}
+
+function withoutImageAuthoredSource(
+  image: CoreV2SceneImageProductProbe,
+): Omit<CoreV2SceneImageProductProbe, 'authoredSource' | 'attempts'> {
+  const { authoredSource: _authoredSource, attempts: _attempts, ...rest } = image;
+  return rest;
+}
+
+function safeEngineImageSource(
+  authoredSource: CoreV2AssetSource,
+  sourceKind: CoreV2ImageSourceKind,
+): Readonly<{
+  authoredSource?: CoreV2AssetSource;
+  authoredSourceKind?: CoreV2ImageSourceKind;
+}> {
+  return sourceKind === 'data-uri'
+    ? Object.freeze({ authoredSourceKind: sourceKind })
+    : Object.freeze({ authoredSource });
+}
+
+function projectEngineImageAttempt(
+  attempt: CoreV2SceneImageAttemptProbe,
+): CoreV2EngineSceneImageAttemptProbe {
+  const {
+    authoredSource,
+    sourceKind,
+    resourceState,
+    ...rest
+  } = attempt;
+  return Object.freeze({
+    ...rest,
+    ...safeEngineImageSource(authoredSource, sourceKind),
+    state: resourceState,
+  });
 }
 
 async function createPixiSurface(options: CoreV2SurfaceOptions): Promise<CoreV2EngineSurface> {
