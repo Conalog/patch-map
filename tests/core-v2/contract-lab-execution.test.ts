@@ -7,6 +7,8 @@ import {
   materializeCoreV2ExecutableCase,
 } from '../../lab/performance-v2/contract/executable-cases';
 import { resolveCoreV2ExecutableRuntime } from '../../lab/performance-v2/contract/executable-runtime';
+import { parsePatchMapV010 } from '../../src/core-v2';
+import { createCoreV2SurfaceGeometrySnapshot } from '../../src/core-v2/engine';
 import type {
   CoreV2EngineSurface,
   CoreV2EngineSurfaceFactory,
@@ -15,6 +17,7 @@ import type {
   CoreV2SurfaceDebug,
   CoreV2SurfaceGeometrySnapshot,
   CoreV2SurfaceOptions,
+  CoreV2SurfaceView,
 } from '../../src/core-v2/engine';
 
 describe('Core v2 executable Lab product bridge', () => {
@@ -24,7 +27,11 @@ describe('Core v2 executable Lab product bridge', () => {
       const surfaceHost = createSurfaceHost();
       const surfaces: FakeSurface[] = [];
       const receivedTargets: Array<HTMLElement | undefined> = [];
-      const surfaceFactory = createFakeSurfaceFactory(surfaces, receivedTargets);
+      const surfaceFactory = createFakeSurfaceFactory(
+        surfaces,
+        receivedTargets,
+        caseId === 'LAY-004' ? 'projection' : 'flat',
+      );
       const bridge = createCoreV2ExecutableLabBridge({
         caseId,
         rootTestId: `scenario-${caseId.toLowerCase()}`,
@@ -303,6 +310,7 @@ describe('Core v2 executable Lab product bridge', () => {
       'CSM-001': 'foundation',
       'CSM-003': 'foundation',
       'LAY-001': 'render-foundation',
+      'LAY-004': 'render-orientation',
       'LAY-005': 'render-bounds',
       'REN-001': 'render-foundation',
       'REN-004': 'render-foundation',
@@ -335,10 +343,11 @@ function createSurfaceHost(): HTMLElement {
 function createFakeSurfaceFactory(
   surfaces: FakeSurface[],
   receivedTargets: Array<HTMLElement | undefined>,
+  geometryMode: 'flat' | 'projection' = 'flat',
 ): CoreV2EngineSurfaceFactory {
   return (options) => {
     receivedTargets.push(options.target);
-    const surface = new FakeSurface(options);
+    const surface = new FakeSurface(options, geometryMode);
     surfaces.push(surface);
     return Promise.resolve(surface);
   };
@@ -355,10 +364,19 @@ class FakeSurface implements CoreV2EngineSurface {
   private selectionIds: readonly string[] = Object.freeze([]);
   private dataset: readonly Readonly<Record<string, unknown>>[] = Object.freeze([]);
   private geometryRevision = 0;
-  private view: Readonly<{ x: number; y: number; scale: number; rotation: number }> =
-    Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
+  private view: CoreV2SurfaceView = Object.freeze({
+    x: 0,
+    y: 0,
+    scale: 1,
+    rotation: 0,
+    flipX: false,
+    flipY: false,
+  });
 
-  public constructor(options: CoreV2SurfaceOptions) {
+  public constructor(
+    options: CoreV2SurfaceOptions,
+    private readonly geometryMode: 'flat' | 'projection' = 'flat',
+  ) {
     this.preference = options.preference;
     this.width = options.width;
     this.height = options.height;
@@ -390,7 +408,7 @@ class FakeSurface implements CoreV2EngineSurface {
     return changed;
   }
 
-  public setView(view: Readonly<{ x: number; y: number; scale: number; rotation: number }>): void {
+  public setView(view: CoreV2SurfaceView): void {
     this.view = Object.freeze({ ...view });
   }
 
@@ -427,6 +445,15 @@ class FakeSurface implements CoreV2EngineSurface {
   }
 
   public geometrySnapshot(): CoreV2SurfaceGeometrySnapshot {
+    if (this.geometryMode === 'projection') {
+      const parsed = parsePatchMapV010(this.dataset);
+      const projected = createCoreV2SurfaceGeometrySnapshot(
+        fakeSceneSnapshot(parsed.document, this.geometryRevision),
+        parsed.projection,
+        this.view,
+      );
+      return Object.freeze({ ...projected, revision: this.geometryRevision });
+    }
     return Object.freeze({
       revision: this.geometryRevision,
       entities: Object.freeze(this.geometryEntities()),
@@ -453,6 +480,41 @@ class FakeSurface implements CoreV2EngineSurface {
   private geometryEntities(): CoreV2SurfaceGeometrySnapshot['entities'][number][] {
     return this.dataset.flatMap((element) => fakeGeometryEntity(element, this.view));
   }
+}
+
+function fakeSceneSnapshot(
+  document: ReturnType<typeof parsePatchMapV010>['document'],
+  revision: number,
+): Parameters<typeof createCoreV2SurfaceGeometrySnapshot>[0] {
+  const entities = document.entities.map((entity, slot) => Object.freeze({
+    ref: Object.freeze({ slot, generation: 1 }),
+    id: entity.id,
+    kind: entity.kind,
+    bounds: entity.kind === 'relation'
+      ? Object.freeze({ x: 0, y: 0, width: 0, height: 0 })
+      : Object.freeze({
+          x: entity.x,
+          y: entity.y,
+          width: entity.width,
+          height: entity.height,
+        }),
+    rotation: entity.kind === 'relation' ? 0 : entity.rotation ?? 0,
+    opacity: entity.opacity ?? 1,
+    visible: entity.visible ?? true,
+    interactive: entity.interactive ?? false,
+    zIndex: entity.zIndex ?? 0,
+    tags: entity.tags ?? Object.freeze([]),
+    data: entity.kind === 'relation'
+      ? Object.freeze({ from: entity.from, to: entity.to })
+      : Object.freeze({}),
+  }));
+  return Object.freeze({
+    revision,
+    view: Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 }),
+    entityCount: entities.length,
+    entities: Object.freeze(entities),
+    selection: Object.freeze({ revision, refs: Object.freeze([]) }),
+  });
 }
 
 class FailingDestroySurface extends FakeSurface {

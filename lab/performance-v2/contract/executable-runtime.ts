@@ -27,6 +27,8 @@ import * as lifecycleDestroyHandlersModule from '../../../scripts/verification/c
 import * as renderFoundationHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/render-foundation.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as renderBoundsHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/render-bounds.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as renderOrientationHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/render-orientation.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as foundationFoldModule from '../../../scripts/verification/core-v2-contract/fold-foundation.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
@@ -41,6 +43,8 @@ import * as lifecycleDestroyFoldModule from '../../../scripts/verification/core-
 import * as renderFoundationFoldModule from '../../../scripts/verification/core-v2-contract/fold-render-foundation.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as renderBoundsFoldModule from '../../../scripts/verification/core-v2-contract/fold-render-bounds.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as renderOrientationFoldModule from '../../../scripts/verification/core-v2-contract/fold-render-orientation.mjs';
 
 import type {
   CoreV2ExecutableCaseId,
@@ -54,7 +58,8 @@ export type CoreV2ExecutableRuntimeKey =
   | 'lifecycle-resize'
   | 'lifecycle-destroy'
   | 'render-foundation'
-  | 'render-bounds';
+  | 'render-bounds'
+  | 'render-orientation';
 
 type Handler = (
   context: Readonly<Record<string, unknown>>,
@@ -80,6 +85,7 @@ interface HandlerFactoryRuntime {
   ): readonly HandlerEntry[];
   createRenderFoundationHandlerEntries?(this: void): readonly HandlerEntry[];
   createRenderBoundsHandlerEntries?(this: void): readonly HandlerEntry[];
+  createRenderOrientationHandlerEntries?(this: void): readonly HandlerEntry[];
 }
 
 interface FoldRuntime {
@@ -108,6 +114,10 @@ interface FoldRuntime {
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
   foldRenderBoundsExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
+  foldRenderOrientationExecution?(
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
@@ -141,6 +151,7 @@ const lifecycleResizeHandlers = lifecycleResizeHandlersModule as unknown as Hand
 const lifecycleDestroyHandlers = lifecycleDestroyHandlersModule as unknown as HandlerFactoryRuntime;
 const renderFoundationHandlers = renderFoundationHandlersModule as unknown as HandlerFactoryRuntime;
 const renderBoundsHandlers = renderBoundsHandlersModule as unknown as HandlerFactoryRuntime;
+const renderOrientationHandlers = renderOrientationHandlersModule as unknown as HandlerFactoryRuntime;
 const foundationFold = foundationFoldModule as unknown as FoldRuntime;
 const dataFoundationFold = dataFoundationFoldModule as unknown as FoldRuntime;
 const dataClosureFold = dataClosureFoldModule as unknown as FoldRuntime;
@@ -148,6 +159,7 @@ const lifecycleResizeFold = lifecycleResizeFoldModule as unknown as FoldRuntime;
 const lifecycleDestroyFold = lifecycleDestroyFoldModule as unknown as FoldRuntime;
 const renderFoundationFold = renderFoundationFoldModule as unknown as FoldRuntime;
 const renderBoundsFold = renderBoundsFoldModule as unknown as FoldRuntime;
+const renderOrientationFold = renderOrientationFoldModule as unknown as FoldRuntime;
 
 const FOUNDATION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
   'LIF-001',
@@ -287,6 +299,19 @@ const RENDER_BOUNDS_DESCRIPTOR = createDescriptor({
   ),
 });
 
+const RENDER_ORIENTATION_DESCRIPTOR = createDescriptor({
+  key: 'render-orientation',
+  needsSupplementalWebGLLease: false,
+  createEntries: () => requireFactory(
+    renderOrientationHandlers.createRenderOrientationHandlerEntries,
+    'render-orientation handlers',
+  )(),
+  fold: requireFold(
+    renderOrientationFold.foldRenderOrientationExecution,
+    'render-orientation fold',
+  ),
+});
+
 export function resolveCoreV2ExecutableRuntime(
   caseId: CoreV2ExecutableCaseId,
 ): CoreV2ExecutableRuntimeDescriptor {
@@ -296,6 +321,7 @@ export function resolveCoreV2ExecutableRuntime(
   if (caseId === 'LIF-004') return LIFECYCLE_RESIZE_DESCRIPTOR;
   if (caseId === 'LIF-005') return LIFECYCLE_DESTROY_DESCRIPTOR;
   if (RENDER_FOUNDATION_CASE_IDS.has(caseId)) return RENDER_FOUNDATION_DESCRIPTOR;
+  if (caseId === 'LAY-004') return RENDER_ORIENTATION_DESCRIPTOR;
   if (caseId === 'LAY-005') return RENDER_BOUNDS_DESCRIPTOR;
   throw new Error(`Unsupported Core v2 executable runtime: ${String(caseId)}`);
 }
