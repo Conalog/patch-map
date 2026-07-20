@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the nine selected render routes and their 128 canonical assertions', () => {
+  it('pins exactly the eleven selected render routes and their 149 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -47,19 +47,21 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'LAY-005', expectedAssertions: 14 },
       { id: 'LAY-004', expectedAssertions: 11 },
       { id: 'REN-007', expectedAssertions: 26 },
+      { id: 'REN-008', expectedAssertions: 10 },
+      { id: 'REN-010', expectedAssertions: 11 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(128);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 128;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 125;');
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(149);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 149;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 146;');
     expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 3;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 125 pass and 3 immutable conflicts'",
+      "'canonical comparison must be exactly 146 pass and 3 immutable conflicts'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 125 pass and 3 immutable conflicts'",
+      "'repeat comparison must be exactly 146 pass and 3 immutable conflicts'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 125 pass and 3 immutable conflicts'",
+      "'fresh comparison must be exactly 146 pass and 3 immutable conflicts'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -134,8 +136,8 @@ describe('Core v2 render browser checkpoint script', () => {
   });
 
   it('drives REN-005 through the real Run and Repeat controls and returns focused DOM evidence', () => {
-    expect(source).toContain("await executeBrowserUiRun(page, 'runCase', 'load-dataset')");
-    expect(source).toContain("await executeBrowserUiRun(page, 'repeatCase', 'repeat-action')");
+    expect(source).toContain("await executeBrowserUiRun(page, caseSpec.id, 'runCase', 'load-dataset')");
+    expect(source).toContain("await executeBrowserUiRun(page, caseSpec.id, 'repeatCase', 'repeat-action')");
     expect(source).toContain('button.click()');
     expect(source).toContain('waitForUiRunCompletion(bridge.state().rootTestId, operationName)');
     expect(source).toContain("root.addEventListener('core-v2-contract-run-complete', onComplete)");
@@ -161,7 +163,29 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("ui.counters.requests === '5'");
     expect(source).toContain("ui.requestJournal.events.includes('load-rejected')");
     expect(source).toContain('Number.isFinite(Number(value)) && Number(value) >= 0');
-    expect(source).toContain('focusedUi: caseSpec.id === \'REN-005\'');
+    expect(source).toContain('focusedUi: FOCUSED_UI_CASES.has(caseSpec.id)');
+  });
+
+  it('drives REN-008 and REN-010 through actual controls and verifies every actual phase inspector', () => {
+    expect(source).toContain("const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-008', 'REN-010']);");
+    expect(source).toContain('function collectFocusedUi(options)');
+    expect(source).toContain('async function collectComponentAssetFocusedUi');
+    expect(source).toContain("inspectorTestId: 'ren-008-background-inspector'");
+    expect(source).toContain("inspectorTestId: 'ren-010-icon-inspector'");
+    expect(source).toContain("phases: ['initial', 'image', 'hidden', 'shown']");
+    expect(source).toContain("phases: ['initial', 'replacement', 'tint']");
+    expect(source).toContain('Number(inspector.dataset.observedPhaseCount) === config.phases.length');
+    expect(source).toContain('readComponentAssetFocusedUi(root, config, triggerTestId)');
+    expect(source).toContain('${config.prefix}-resource-journal-row');
+    expect(source).toContain('assertComponentAssetFocusedUi(caseSpec.id, run.ui, runLabel)');
+    expect(source).toContain("facts['entity-id'] === 'item::background:bg'");
+    expect(source).toContain("facts['authored-size'] === '{\"width\":20,\"height\":10}'");
+    expect(source).toContain("ui.phases.hidden['render-object-count'] === '0'");
+    expect(source).toContain("facts['entity-id'] === 'item-a::icon:icon'");
+    expect(source).toContain("facts['icon-bounds'] === '[47,12,40,15]'");
+    expect(source).toContain("ui.phases.tint['semantic-tint'] === '#00ff00ff'");
+    expect(source).toContain("ui.phases.tint['renderer-tint'] === 'packed 0x00ff00ff · rgb 0x00ff00 · alpha 1.000'");
+    expect(source).toContain("ui.resourceJournal.events.includes('backend-texture-resolved')");
   });
 
   it('requires one transient canvas, repeat and fresh determinism, and zero browser errors', () => {
@@ -175,9 +199,11 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("errors.console.length === 0");
     expect(source).toContain("errors.page.length === 0");
     expect(source).toContain("errors.network.length === 0");
+    expect(source).toContain("errors.externalFixture.length === 0");
     expect(source).toContain("page.on('console'");
     expect(source).toContain("page.on('pageerror'");
     expect(source).toContain("page.on('requestfailed'");
+    expect(source).toContain("page.on('request'");
     expect(source).toContain("page.on('response'");
   });
 });

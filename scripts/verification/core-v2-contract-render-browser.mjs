@@ -18,8 +18,8 @@ const VITE_CONFIG_PATH = path.join(ROOT, 'vite.core-v2-lab.config.ts');
 const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 128;
-const EXPECTED_ASSERTION_PASS_TOTAL = 125;
+const EXPECTED_ASSERTION_TOTAL = 149;
+const EXPECTED_ASSERTION_PASS_TOTAL = 146;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 3;
 const REN_005_IMMUTABLE_FAILURES = Object.freeze([
   Object.freeze({
@@ -52,10 +52,13 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'LAY-005', expectedAssertions: 14 }),
   Object.freeze({ id: 'LAY-004', expectedAssertions: 11 }),
   Object.freeze({ id: 'REN-007', expectedAssertions: 26 }),
+  Object.freeze({ id: 'REN-008', expectedAssertions: 10 }),
+  Object.freeze({ id: 'REN-010', expectedAssertions: 11 }),
 ]);
+const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-008', 'REN-010']);
 
 const headed = parseArguments(process.argv.slice(2));
-const errors = { console: [], page: [], network: [] };
+const errors = { console: [], page: [], network: [], externalFixture: [] };
 const report = {
   $schema: 'core-v2-contract-render-browser-checkpoint/1',
   status: 'failed',
@@ -78,6 +81,7 @@ const report = {
 
 let server = null;
 let browser = null;
+let lastFocusedUi = null;
 
 try {
   const expectedCases = await loadExpectedCases();
@@ -132,27 +136,31 @@ try {
     freshFailed,
   };
 
-  invariant(report.cases.length === RENDER_CASES.length, 'all nine render routes completed');
+  invariant(report.cases.length === RENDER_CASES.length, 'all eleven render routes completed');
   invariant(
     passed === EXPECTED_ASSERTION_PASS_TOTAL && failed === EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'canonical comparison must be exactly 125 pass and 3 immutable conflicts',
+    'canonical comparison must be exactly 146 pass and 3 immutable conflicts',
   );
   invariant(
     repeatPassed === EXPECTED_ASSERTION_PASS_TOTAL &&
       repeatFailed === EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'repeat comparison must be exactly 125 pass and 3 immutable conflicts',
+    'repeat comparison must be exactly 146 pass and 3 immutable conflicts',
   );
   invariant(
     freshPassed === EXPECTED_ASSERTION_PASS_TOTAL &&
       freshFailed === EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'fresh comparison must be exactly 125 pass and 3 immutable conflicts',
+    'fresh comparison must be exactly 146 pass and 3 immutable conflicts',
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
   invariant(errors.page.length === 0, 'page error count must be zero');
   invariant(errors.network.length === 0, 'network error count must be zero');
+  invariant(errors.externalFixture.length === 0, 'external fixture request count must be zero');
   report.status = 'pass';
 } catch (error) {
-  report.failure = serializeError(error);
+  report.failure = {
+    ...serializeError(error),
+    focusedUi: lastFocusedUi,
+  };
   process.exitCode = 1;
 } finally {
   if (browser) await browser.close().catch(() => undefined);
@@ -173,15 +181,17 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
   try {
     await openFocusedCase(page, routeUrl, route, caseSpec.id);
 
-    const first = caseSpec.id === 'REN-005'
-      ? await executeBrowserUiRun(page, 'runCase', 'load-dataset')
+    const first = FOCUSED_UI_CASES.has(caseSpec.id)
+      ? await executeBrowserUiRun(page, caseSpec.id, 'runCase', 'load-dataset')
       : await executeBrowserRun(page, 'runCase');
+    lastFocusedUi = first.ui;
     const comparison = compareCaseRun(expectedCase, first);
     assertCaseRun(caseSpec, first, comparison, 'first');
 
-    const repeat = caseSpec.id === 'REN-005'
-      ? await executeBrowserUiRun(page, 'repeatCase', 'repeat-action')
+    const repeat = FOCUSED_UI_CASES.has(caseSpec.id)
+      ? await executeBrowserUiRun(page, caseSpec.id, 'repeatCase', 'repeat-action')
       : await executeBrowserRun(page, 'repeatCase');
+    lastFocusedUi = repeat.ui;
     const repeatComparison = compareCaseRun(expectedCase, repeat);
     assertCaseRun(caseSpec, repeat, repeatComparison, 'repeat');
     invariant(
@@ -233,7 +243,7 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
         destroy: cleanupStatus(destroyed.cleanup),
         freshDestroy: cleanupStatus(fresh.destroyed.cleanup),
       },
-      focusedUi: caseSpec.id === 'REN-005'
+      focusedUi: FOCUSED_UI_CASES.has(caseSpec.id)
         ? { first: first.ui, repeat: repeat.ui, fresh: fresh.run.ui }
         : null,
     };
@@ -260,9 +270,10 @@ async function executeFreshSession({
 
   try {
     await openFocusedCase(page, routeUrl, route, caseSpec.id);
-    const run = caseSpec.id === 'REN-005'
-      ? await executeBrowserUiRun(page, 'runCase', 'load-dataset')
+    const run = FOCUSED_UI_CASES.has(caseSpec.id)
+      ? await executeBrowserUiRun(page, caseSpec.id, 'runCase', 'load-dataset')
       : await executeBrowserRun(page, 'runCase');
+    lastFocusedUi = run.ui;
     const comparison = compareCaseRun(expectedCase, run);
     assertCaseRun(caseSpec, run, comparison, 'fresh');
     const destroyed = await destroyBrowserCase(page);
@@ -307,12 +318,12 @@ async function destroyBrowserCase(page) {
   }, BRIDGE_NAME);
 }
 
-function executeBrowserUiRun(page, operation, buttonTestId) {
-  return executeBrowserRun(page, operation, buttonTestId);
+function executeBrowserUiRun(page, caseId, operation, buttonTestId) {
+  return executeBrowserRun(page, operation, buttonTestId, caseId);
 }
 
-async function executeBrowserRun(page, operation, buttonTestId = null) {
-  return page.evaluate(async ({ bridgeName, operationName, triggerTestId }) => {
+async function executeBrowserRun(page, operation, buttonTestId = null, focusedCaseId = null) {
+  return page.evaluate(async ({ bridgeName, operationName, triggerTestId, uiCaseId }) => {
     const bridge = window[bridgeName];
     if (!bridge) throw new Error(`Missing public Lab bridge ${bridgeName}`);
     const surface = document.querySelector('[data-contract-surface]');
@@ -358,7 +369,12 @@ async function executeBrowserRun(page, operation, buttonTestId = null) {
         runningStatus = bridge.state().status;
         sample();
         run = await completion;
-        ui = await collectRen005FocusedUi({ bridge, triggerTestId, operationName });
+        ui = await collectFocusedUi({
+          bridge,
+          caseId: uiCaseId,
+          triggerTestId,
+          operationName,
+        });
       } else {
         const invoke = bridge[operationName];
         if (typeof invoke !== 'function') throw new Error(`Missing bridge operation ${operationName}`);
@@ -419,13 +435,20 @@ async function executeBrowserRun(page, operation, buttonTestId = null) {
       });
     }
 
+    function collectFocusedUi(options) {
+      return options.caseId === 'REN-005'
+        ? collectRen005FocusedUi(options)
+        : collectComponentAssetFocusedUi(options);
+    }
+
     async function collectRen005FocusedUi({ bridge: activeBridge, triggerTestId, operationName }) {
       const expectedPerformanceRows = operationName === 'repeatCase' ? 2 : 1;
       const timeoutAt = performance.now() + 30_000;
       for (;;) {
         const root = document.querySelector(`[data-testid="${activeBridge.state().rootTestId}"]`);
         const statuses = root
-          ? [...root.querySelectorAll('[data-action-status]')].map((row) => row.dataset.actionStatus)
+          ? [...root.querySelectorAll('.contract-case-action[data-action-status]')]
+            .map((row) => row.dataset.actionStatus)
           : [];
         const inspector = root?.querySelector('[data-testid="ren-005-image-inspector"]');
         const performanceRows = root?.querySelectorAll(
@@ -445,6 +468,175 @@ async function executeBrowserRun(page, operation, buttonTestId = null) {
         }
         await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
       }
+    }
+
+    async function collectComponentAssetFocusedUi({
+      bridge: activeBridge,
+      caseId,
+      triggerTestId,
+      operationName,
+    }) {
+      const config = caseId === 'REN-008'
+        ? {
+            prefix: 'ren-008',
+            inspectorTestId: 'ren-008-background-inspector',
+            phases: ['initial', 'image', 'hidden', 'shown'],
+            fieldNames: [
+              'phase',
+              'owner-id',
+              'component-id',
+              'entity-id',
+              'logical-identity',
+              'authored-size',
+              'full-bounds',
+              'visible-bounds',
+              'source',
+              'resource-state',
+              'render-role',
+              'binding-key',
+              'generation',
+              'render-object-count',
+              'stale-count',
+            ],
+          }
+        : caseId === 'REN-010'
+          ? {
+              prefix: 'ren-010',
+              inspectorTestId: 'ren-010-icon-inspector',
+              phases: ['initial', 'replacement', 'tint'],
+              fieldNames: [
+                'phase',
+                'owner-id',
+                'component-id',
+                'entity-id',
+                'logical-identity',
+                'content-box',
+                'icon-bounds',
+                'authored-size',
+                'placement',
+                'margins',
+                'source',
+                'resource-state',
+                'render-role',
+                'binding-key',
+                'generation',
+                'semantic-tint',
+                'renderer-tint',
+                'render-object-count',
+                'stale-count',
+              ],
+            }
+          : null;
+      if (!config) throw new Error(`Unsupported focused UI case ${String(caseId)}`);
+      const expectedPerformanceRows = operationName === 'repeatCase' ? 2 : 1;
+      const timeoutAt = performance.now() + 30_000;
+      let lastState = null;
+      for (;;) {
+        const root = document.querySelector(`[data-testid="${activeBridge.state().rootTestId}"]`);
+        const statuses = root
+          ? [...root.querySelectorAll('.contract-case-action[data-action-status]')]
+            .map((row) => row.dataset.actionStatus)
+          : [];
+        const inspector = root?.querySelector(`[data-testid="${config.inspectorTestId}"]`);
+        const performanceRows = root?.querySelectorAll(
+          `[data-testid="${config.prefix}-performance-journal-row"]`,
+        ).length ?? 0;
+        lastState = {
+          contractStatus: root?.dataset.contractStatus ?? null,
+          statuses,
+          inspectorStatus: inspector?.dataset.observationStatus ?? null,
+          observedPhaseCount: inspector?.dataset.observedPhaseCount ?? null,
+          performanceRows,
+        };
+        if (
+          root?.dataset.contractStatus === 'observed'
+          && statuses.length === config.phases.length
+          && statuses.every((status) => status === 'completed')
+          && inspector?.dataset.observationStatus === 'observed'
+          && Number(inspector.dataset.observedPhaseCount) === config.phases.length
+          && performanceRows === expectedPerformanceRows
+        ) {
+          return readComponentAssetFocusedUi(root, config, triggerTestId);
+        }
+        if (performance.now() >= timeoutAt) {
+          throw new Error(
+            `Focused ${caseId} DOM did not settle after ${triggerTestId}: ${JSON.stringify(lastState)}`,
+          );
+        }
+        await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+      }
+    }
+
+    function readComponentAssetFocusedUi(root, config, triggerTestId) {
+      const chooser = root.querySelector(`[data-testid="${config.prefix}-phase-select"]`);
+      if (!(chooser instanceof HTMLSelectElement)) {
+        throw new Error(`Missing ${config.prefix} phase chooser`);
+      }
+      const selectedFacts = (phase) => {
+        chooser.value = phase;
+        chooser.dispatchEvent(new Event('change', { bubbles: true }));
+        return Object.fromEntries(config.fieldNames.map((field) => [
+          field,
+          textAt(root, `${config.prefix}-${field}`),
+        ]));
+      };
+      const phases = Object.fromEntries(config.phases.map((phase) => [phase, selectedFacts(phase)]));
+      const performanceRows = [...root.querySelectorAll(
+        `[data-testid="${config.prefix}-performance-journal-row"]`,
+      )];
+      const latestPerformance = performanceRows.at(-1)?.dataset ?? {};
+      const resourceRows = [...root.querySelectorAll(
+        `[data-testid="${config.prefix}-resource-journal-row"]`,
+      )];
+      return {
+        trigger: `click:${triggerTestId}`,
+        actionStatuses: [...root.querySelectorAll('.contract-case-action[data-action-status]')]
+          .map((row) => row.dataset.actionStatus ?? null),
+        chooser: {
+          disabled: chooser.disabled,
+          options: [...chooser.options].map((option) => ({
+            value: option.value,
+            disabled: option.disabled,
+            observationStatus: option.dataset.observationStatus ?? null,
+          })),
+        },
+        phases,
+        observedPhaseCount: textAt(root, `${config.prefix}-observed-phase-count`),
+        captureId: config.prefix === 'ren-008'
+          ? textAt(root, 'ren-008-capture-id')
+          : null,
+        resources: Object.fromEntries([
+          'canvas-count',
+          'subscription-count',
+          'pending-work-count',
+          'binding-count',
+          'resource-count',
+          'lease-count',
+          'pending-settlement-count',
+          'pending-release-count',
+          'stale-attachment-resource-count',
+          'renderer-object-resource-count',
+          'cleanup-failure-count',
+        ].map((field) => [field, textAt(root, `${config.prefix}-${field}`)])),
+        resourceJournal: {
+          count: resourceRows.length,
+          events: resourceRows.map((row) => row.dataset.resourceEvent ?? null),
+          phases: resourceRows.map((row) => row.dataset.resourcePhase ?? null),
+        },
+        performance: {
+          count: performanceRows.length,
+          latest: {
+            runIndex: latestPerformance.runIndex ?? null,
+            runKind: latestPerformance.runKind ?? null,
+            framesPerSecond: latestPerformance.fps ?? null,
+            frameCount: latestPerformance.frameCount ?? null,
+            longTaskCount: latestPerformance.longTaskCount ?? null,
+            longTaskTotalMs: latestPerformance.longTaskTotalMs ?? null,
+            maxFrameGapMs: latestPerformance.maxFrameGapMs ?? null,
+            durationMs: latestPerformance.durationMs ?? null,
+          },
+        },
+      };
     }
 
     function readFocusedUi(root, triggerTestId) {
@@ -475,7 +667,7 @@ async function executeBrowserRun(page, operation, buttonTestId = null) {
       const latestPerformance = performanceRows.at(-1)?.dataset ?? {};
       return {
         trigger: `click:${triggerTestId}`,
-        actionStatuses: [...root.querySelectorAll('[data-action-status]')]
+        actionStatuses: [...root.querySelectorAll('.contract-case-action[data-action-status]')]
           .map((row) => row.dataset.actionStatus ?? null),
         chooserOptions: [...chooser.options].map(({ value }) => value),
         descriptor,
@@ -513,11 +705,16 @@ async function executeBrowserRun(page, operation, buttonTestId = null) {
       const element = root.querySelector(`[data-testid="${testId}"]`);
       const value = element?.textContent?.trim();
       if (typeof value !== 'string' || value.length === 0) {
-        throw new Error(`Missing REN-005 DOM fact ${testId}: ${element?.outerHTML ?? 'absent'}`);
+        throw new Error(`Missing focused DOM fact ${testId}: ${element?.outerHTML ?? 'absent'}`);
       }
       return value;
     }
-  }, { bridgeName: BRIDGE_NAME, operationName: operation, triggerTestId: buttonTestId });
+  }, {
+    bridgeName: BRIDGE_NAME,
+    operationName: operation,
+    triggerTestId: buttonTestId,
+    uiCaseId: focusedCaseId,
+  });
 }
 
 function compareCaseRun(expectedCase, browserRun) {
@@ -554,6 +751,9 @@ function assertCaseRun(caseSpec, run, comparison, runLabel) {
     `${prefix} only declared immutable assertion conflicts`,
   );
   if (caseSpec.id === 'REN-005') assertRen005FocusedUi(run.ui, runLabel);
+  if (caseSpec.id === 'REN-008' || caseSpec.id === 'REN-010') {
+    assertComponentAssetFocusedUi(caseSpec.id, run.ui, runLabel);
+  }
 }
 
 function assertRen005FocusedUi(ui, runLabel) {
@@ -637,6 +837,196 @@ function assertRen005FocusedUi(ui, runLabel) {
   }
 }
 
+function assertComponentAssetFocusedUi(caseId, ui, runLabel) {
+  invariant(ui && typeof ui === 'object', `${caseId} ${runLabel} focused UI evidence`);
+  const expectedTrigger = runLabel === 'repeat'
+    ? 'click:repeat-action'
+    : 'click:load-dataset';
+  invariant(ui.trigger === expectedTrigger, `${caseId} ${runLabel} actual UI control`);
+  const phases = caseId === 'REN-008'
+    ? ['initial', 'image', 'hidden', 'shown']
+    : ['initial', 'replacement', 'tint'];
+  invariant(
+    sameJson(ui.actionStatuses, phases.map(() => 'completed')),
+    `${caseId} ${runLabel} completed DOM action rows`,
+  );
+  invariant(ui.chooser.disabled === false, `${caseId} ${runLabel} observed phase chooser enabled`);
+  invariant(
+    sameJson(ui.chooser.options, phases.map((value) => ({
+      value,
+      disabled: false,
+      observationStatus: 'observed',
+    }))),
+    `${caseId} ${runLabel} exact observed phase inventory`,
+  );
+  invariant(
+    ui.observedPhaseCount === `${phases.length} / ${phases.length} observed`,
+    `${caseId} ${runLabel} phase observation count`,
+  );
+
+  const phaseFacts = phases.map((phase) => ui.phases[phase]);
+  invariant(
+    phaseFacts.every((facts) => facts && typeof facts === 'object'),
+    `${caseId} ${runLabel} phase facts exist`,
+  );
+  if (caseId === 'REN-008') {
+    for (const facts of phaseFacts) {
+      invariant(facts['owner-id'] === 'item', `REN-008 ${runLabel} stable owner identity`);
+      invariant(facts['component-id'] === 'bg', `REN-008 ${runLabel} stable component identity`);
+      invariant(
+        facts['entity-id'] === 'item::background:bg',
+        `REN-008 ${runLabel} stable dense entity identity`,
+      );
+      invariant(
+        facts['authored-size'] === '{"width":20,"height":10}',
+        `REN-008 ${runLabel} inert authored size`,
+      );
+      invariant(
+        facts['full-bounds'] === '[0,0,100,80]',
+        `REN-008 ${runLabel} full item bounds`,
+      );
+    }
+    invariant(ui.phases.initial.phase === 'A0 Rect', `REN-008 ${runLabel} initial phase label`);
+    invariant(ui.phases.initial['render-role'] === 'background-geometry', `REN-008 ${runLabel} rect phase`);
+    invariant(
+      ui.phases.initial['render-object-count'] === '0',
+      `REN-008 ${runLabel} aggregate rect has no per-component render object`,
+    );
+    invariant(ui.phases.initial['stale-count'] === 'not applicable', `REN-008 ${runLabel} rect has no texture`);
+    invariant(ui.phases.image.phase === 'A1 Image', `REN-008 ${runLabel} image phase label`);
+    invariant(ui.phases.image.source === 'fixture-image', `REN-008 ${runLabel} image source`);
+    invariant(ui.phases.image['resource-state'] === 'resolved', `REN-008 ${runLabel} image resolved`);
+    invariant(ui.phases.image['render-role'] === 'background-asset', `REN-008 ${runLabel} image lane`);
+    invariant(ui.phases.image['binding-key'] === 'alias:fixture-image', `REN-008 ${runLabel} image binding`);
+    invariant(ui.phases.image.generation === '1', `REN-008 ${runLabel} image generation`);
+    invariant(ui.phases.image['render-object-count'] === '1', `REN-008 ${runLabel} image object`);
+    invariant(ui.phases.image['stale-count'] === '0', `REN-008 ${runLabel} image zero stale attachment`);
+    invariant(ui.phases.hidden.phase === 'A2 Hidden', `REN-008 ${runLabel} hidden phase label`);
+    invariant(ui.phases.hidden['visible-bounds'] === 'null', `REN-008 ${runLabel} hidden bounds`);
+    invariant(ui.phases.hidden['render-object-count'] === '0', `REN-008 ${runLabel} hidden renderer object`);
+    invariant(ui.phases.hidden.generation === '2', `REN-008 ${runLabel} hidden generation`);
+    invariant(ui.phases.hidden['stale-count'] === '0', `REN-008 ${runLabel} hidden zero stale attachment`);
+    invariant(ui.phases.shown.phase === 'A3 Shown', `REN-008 ${runLabel} shown phase label`);
+    invariant(ui.phases.shown.source === 'fixture-image', `REN-008 ${runLabel} shown source`);
+    invariant(ui.phases.shown['visible-bounds'] === '[0,0,100,80]', `REN-008 ${runLabel} shown bounds`);
+    invariant(ui.phases.shown['render-object-count'] === '1', `REN-008 ${runLabel} shown renderer object`);
+    invariant(ui.phases.shown.generation === '3', `REN-008 ${runLabel} shown generation`);
+    invariant(ui.phases.shown['stale-count'] === '0', `REN-008 ${runLabel} shown zero stale attachment`);
+    invariant(
+      phaseFacts.every((facts) => facts['logical-identity'] === phaseFacts[0]['logical-identity']),
+      `REN-008 ${runLabel} stable logical identity`,
+    );
+    invariant(ui.captureId === 'bg', `REN-008 ${runLabel} declared capture identity`);
+  } else {
+    for (const facts of phaseFacts) {
+      invariant(facts['owner-id'] === 'item-a', `REN-010 ${runLabel} stable owner identity`);
+      invariant(facts['component-id'] === 'icon', `REN-010 ${runLabel} stable component identity`);
+      invariant(
+        facts['entity-id'] === 'item-a::icon:icon',
+        `REN-010 ${runLabel} stable dense entity identity`,
+      );
+      invariant(facts['content-box'] === '[10,10,80,60]', `REN-010 ${runLabel} content box`);
+      invariant(facts['icon-bounds'] === '[47,12,40,15]', `REN-010 ${runLabel} icon bounds`);
+      invariant(
+        facts['authored-size'] === '{"width":"50%","height":"25%"}',
+        `REN-010 ${runLabel} authored percentage size`,
+      );
+      invariant(facts.placement === 'right-top', `REN-010 ${runLabel} placement`);
+      invariant(
+        facts.margins === '{"top":2,"right":3,"bottom":0,"left":0}',
+        `REN-010 ${runLabel} margins`,
+      );
+      invariant(facts['render-role'] === 'content-asset', `REN-010 ${runLabel} content asset lane`);
+      invariant(facts['render-object-count'] === '1', `REN-010 ${runLabel} one icon object`);
+      invariant(facts['stale-count'] === '0', `REN-010 ${runLabel} zero stale attachment`);
+    }
+    invariant(ui.phases.initial.source === 'fixture-icon', `REN-010 ${runLabel} initial source`);
+    invariant(ui.phases.initial['binding-key'] === 'alias:fixture-icon', `REN-010 ${runLabel} initial binding`);
+    invariant(ui.phases.initial.generation === '1', `REN-010 ${runLabel} initial generation`);
+    invariant(ui.phases.initial.phase === 'A0 Initial alias', `REN-010 ${runLabel} initial phase label`);
+    invariant(ui.phases.replacement.source === 'fixture-icon-2', `REN-010 ${runLabel} replacement source`);
+    invariant(ui.phases.replacement['binding-key'] === 'alias:fixture-icon-2', `REN-010 ${runLabel} replacement binding`);
+    invariant(ui.phases.replacement.generation === '2', `REN-010 ${runLabel} replacement generation`);
+    invariant(ui.phases.replacement.phase === 'A1 Replacement alias', `REN-010 ${runLabel} replacement phase label`);
+    invariant(ui.phases.tint.source === 'fixture-icon-2', `REN-010 ${runLabel} tint retains source`);
+    invariant(ui.phases.tint.generation === '2', `REN-010 ${runLabel} tint retains generation`);
+    invariant(ui.phases.tint.phase === 'A2 Tint patch', `REN-010 ${runLabel} tint phase label`);
+    invariant(ui.phases.tint['semantic-tint'] === '#00ff00ff', `REN-010 ${runLabel} semantic tint`);
+    invariant(
+      ui.phases.tint['renderer-tint'] === 'packed 0x00ff00ff · rgb 0x00ff00 · alpha 1.000',
+      `REN-010 ${runLabel} renderer tint`,
+    );
+    invariant(
+      phaseFacts.every((facts) => facts['logical-identity'] === phaseFacts[0]['logical-identity']),
+      `REN-010 ${runLabel} stable logical identity`,
+    );
+  }
+
+  invariant(ui.resources['canvas-count'] === '1', `${caseId} ${runLabel} live action canvas`);
+  invariant(ui.resources['subscription-count'] === '6', `${caseId} ${runLabel} central subscriptions`);
+  invariant(ui.resources['pending-work-count'] === '0', `${caseId} ${runLabel} no pending work`);
+  invariant(ui.resources['binding-count'] === '1', `${caseId} ${runLabel} one current binding`);
+  invariant(ui.resources['resource-count'] === '1', `${caseId} ${runLabel} one current resource`);
+  invariant(ui.resources['lease-count'] === '1', `${caseId} ${runLabel} one current lease`);
+  invariant(ui.resources['pending-settlement-count'] === '0', `${caseId} ${runLabel} no pending settlement`);
+  invariant(ui.resources['pending-release-count'] === '0', `${caseId} ${runLabel} no pending release`);
+  invariant(ui.resources['stale-attachment-resource-count'] === '0', `${caseId} ${runLabel} no stale resource`);
+  invariant(ui.resources['renderer-object-resource-count'] === '1', `${caseId} ${runLabel} one renderer object`);
+  invariant(ui.resources['cleanup-failure-count'] === '0', `${caseId} ${runLabel} no cleanup failure`);
+  invariant(ui.resourceJournal.count > 0, `${caseId} ${runLabel} resource journal`);
+  const expectedResourceEvents = caseId === 'REN-008'
+    ? [
+        'fixture-assets-registered',
+        'component-asset-settled',
+        'backend-texture-resolved',
+        'component-asset-settled',
+        'backend-texture-release-start',
+        'backend-texture-released',
+        'backend-texture-resolved',
+        'component-asset-settled',
+      ]
+    : [
+        'fixture-assets-registered',
+        'backend-texture-resolved',
+        'component-asset-settled',
+        'backend-texture-resolved',
+        'component-asset-settled',
+        'backend-texture-release-start',
+        'backend-texture-released',
+      ];
+  invariant(
+    sameJson(ui.resourceJournal.events, expectedResourceEvents),
+    `${caseId} ${runLabel} deterministic resource journal`,
+  );
+  invariant(
+    ui.resourceJournal.events.includes('backend-texture-resolved'),
+    `${caseId} ${runLabel} resolved texture journal`,
+  );
+  const expectedPerformanceRows = runLabel === 'repeat' ? 2 : 1;
+  invariant(
+    ui.performance.count === expectedPerformanceRows,
+    `${caseId} ${runLabel} per-run performance journal`,
+  );
+  invariant(
+    Number(ui.performance.latest.runIndex) === expectedPerformanceRows,
+    `${caseId} ${runLabel} performance run index`,
+  );
+  invariant(
+    ui.performance.latest.runKind === (runLabel === 'repeat' ? 'repeat' : 'run'),
+    `${caseId} ${runLabel} performance run kind`,
+  );
+  for (const [label, value] of [
+    ['FPS', ui.performance.latest.framesPerSecond],
+    ['frame count', ui.performance.latest.frameCount],
+    ['long-task count', ui.performance.latest.longTaskCount],
+    ['long-task duration', ui.performance.latest.longTaskTotalMs],
+    ['max frame gap', ui.performance.latest.maxFrameGapMs],
+    ['run duration', ui.performance.latest.durationMs],
+  ]) {
+    invariant(Number.isFinite(Number(value)) && Number(value) >= 0, `${caseId} ${runLabel} ${label}`);
+  }
+}
+
 async function loadExpectedCases() {
   const document = JSON.parse(await readFile(EXPECTED_PATH, 'utf8'));
   invariant(Array.isArray(document.cases), 'normalized expected cases array');
@@ -652,7 +1042,7 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 128',
+    'render checkpoint assertion inventory must remain 149',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===
@@ -675,6 +1065,12 @@ function attachErrorCapture(page, caseId, capturedErrors) {
       url: request.url(),
       error: request.failure()?.errorText ?? 'unknown request failure',
     });
+  });
+  page.on('request', (request) => {
+    const url = request.url();
+    if (/^(?:fixture:|https?:\/\/assets\.example\.test(?:\/|$))/u.test(url)) {
+      capturedErrors.externalFixture.push({ caseId, url });
+    }
   });
   page.on('response', (response) => {
     if (response.status() >= 400) {
