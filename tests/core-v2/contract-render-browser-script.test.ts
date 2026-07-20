@@ -25,13 +25,13 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the eight selected render routes and their 100 canonical assertions', () => {
+  it('pins exactly the nine selected render routes and their 128 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
     expect(caseBlock).toBeDefined();
     const records = [...(caseBlock ?? '').matchAll(
-      /id: '(?<id>[A-Z]{3}-\d{3})', expectedAssertions: (?<count>\d+)/gu,
+      /id: '(?<id>[A-Z]{3}-\d{3})',\s*expectedAssertions: (?<count>\d+)/gu,
     )].map((match) => ({
       id: match.groups?.id,
       expectedAssertions: Number(match.groups?.count),
@@ -41,20 +41,65 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'LAY-001', expectedAssertions: 9 },
       { id: 'REN-001', expectedAssertions: 9 },
       { id: 'REN-004', expectedAssertions: 10 },
+      { id: 'REN-005', expectedAssertions: 28 },
       { id: 'REN-003', expectedAssertions: 12 },
       { id: 'REN-002', expectedAssertions: 9 },
       { id: 'LAY-005', expectedAssertions: 14 },
       { id: 'LAY-004', expectedAssertions: 11 },
       { id: 'REN-007', expectedAssertions: 26 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(100);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 100;');
-    expect(source).toContain("'canonical comparison must be 100/100'");
-    expect(source).toContain("'repeat comparison must be 100/100'");
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(128);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 128;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 125;');
+    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 3;');
+    expect(source).toContain(
+      "'canonical comparison must be exactly 125 pass and 3 immutable conflicts'",
+    );
+    expect(source).toContain(
+      "'repeat comparison must be exactly 125 pass and 3 immutable conflicts'",
+    );
+    expect(source).toContain(
+      "'fresh comparison must be exactly 125 pass and 3 immutable conflicts'",
+    );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
     expect(source).toContain('/lab/core-v2?scenario=${caseSpec.id}&size=${DATASET_SIZE}&seed=${SEED}');
     expect(source).toContain("new URL(page.url()).pathname + new URL(page.url()).search === route");
+  });
+
+  it('allows only the three immutable REN-005 overlapping parent conflicts', () => {
+    const conflictBlock = source.match(
+      /const REN_005_IMMUTABLE_FAILURES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
+    )?.groups?.body ?? '';
+    const failures = [...conflictBlock.matchAll(
+      /path: '(?<path>\/[^']+)',\s*code: '(?<code>[^']+)',\s*failurePath: '(?<failurePath>\/[^']+)'/gu,
+    )].map((match) => ({
+      path: match.groups?.path,
+      code: match.groups?.code,
+      failurePath: match.groups?.failurePath,
+    }));
+
+    expect(failures).toEqual([
+      {
+        path: '/resources/images/alias',
+        code: 'VALUE_MISMATCH',
+        failurePath: '/resources/images/alias',
+      },
+      {
+        path: '/resources/images/data-uri',
+        code: 'VALUE_MISMATCH',
+        failurePath: '/resources/images/data-uri',
+      },
+      {
+        path: '/resources/images/url',
+        code: 'VALUE_MISMATCH',
+        failurePath: '/resources/images/url',
+      },
+    ]);
+    expect(source).toContain('comparison.passed === caseSpec.expectedAssertions - expectedFailures.length');
+    expect(source).toContain('comparison.failed === expectedFailures.length');
+    expect(source).toContain('sameJson(comparisonFailures(comparison), expectedFailures)');
+    expect(source).toContain("'render checkpoint immutable conflict inventory must remain 3'");
   });
 
   it('keeps canonical expected data outside the public Lab bridge executor', () => {
@@ -88,10 +133,45 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).not.toMatch(/writeFile|mkdir|results\//u);
   });
 
-  it('requires one transient canvas, deterministic repeats, and zero browser errors', () => {
+  it('drives REN-005 through the real Run and Repeat controls and returns focused DOM evidence', () => {
+    expect(source).toContain("await executeBrowserUiRun(page, 'runCase', 'load-dataset')");
+    expect(source).toContain("await executeBrowserUiRun(page, 'repeatCase', 'repeat-action')");
+    expect(source).toContain('button.click()');
+    expect(source).toContain('waitForUiRunCompletion(bridge.state().rootTestId, operationName)');
+    expect(source).toContain("root.addEventListener('core-v2-contract-run-complete', onComplete)");
+    const uiInvocationBranch = source.match(
+      /if \(triggerTestId !== null\) \{(?<body>[\s\S]*?)\n\s*\} else \{/u,
+    )?.groups?.body ?? '';
+    expect(uiInvocationBranch).toContain('button.click()');
+    expect(uiInvocationBranch).toContain('run = await completion');
+    expect(uiInvocationBranch).not.toContain('invoke.call');
+    expect(uiInvocationBranch).not.toContain('bridge.runCase');
+    expect(uiInvocationBranch).not.toContain('bridge.repeatCase');
+    expect(source).toContain('async function collectRen005FocusedUi');
+    expect(source).toContain("statuses.length === 4");
+    expect(source).toContain("statuses.every((status) => status === 'completed')");
+    expect(source).toContain("'[data-testid=\"ren-005-specimen-select\"]'");
+    expect(source).toContain("selectedFacts('descriptor')");
+    expect(source).toContain("selectedFacts('failed-image')");
+    expect(source).toContain("'[data-testid=\"ren-005-request-journal-row\"]'");
+    expect(source).toContain("'[data-testid=\"ren-005-performance-journal-row\"]'");
+    expect(source).toContain('assertRen005FocusedUi(run.ui, runLabel)');
+    expect(source).toContain("ui.descriptor.staleCompletionCount === '1'");
+    expect(source).toContain("ui.failed.role === 'asset-placeholder'");
+    expect(source).toContain("ui.counters.requests === '5'");
+    expect(source).toContain("ui.requestJournal.events.includes('load-rejected')");
+    expect(source).toContain('Number.isFinite(Number(value)) && Number(value) >= 0');
+    expect(source).toContain('focusedUi: caseSpec.id === \'REN-005\'');
+  });
+
+  it('requires one transient canvas, repeat and fresh determinism, and zero browser errors', () => {
     expect(source).toContain("run.canvas.maximumDuringRun === 1");
     expect(source).toContain("run.canvas.afterCleanup === 0");
     expect(source).toContain("comparison.stableActualSha256 === repeatComparison.stableActualSha256");
+    expect(source).toContain("comparison.stableActualSha256 === fresh.comparison.stableActualSha256");
+    expect(source).toContain('async function executeFreshSession');
+    expect(source).toContain("assertCaseRun(caseSpec, run, comparison, 'fresh')");
+    expect(source).toContain('freshDestroy: cleanupStatus(fresh.destroyed.cleanup)');
     expect(source).toContain("errors.console.length === 0");
     expect(source).toContain("errors.page.length === 0");
     expect(source).toContain("errors.network.length === 0");

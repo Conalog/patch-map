@@ -18,6 +18,7 @@ import {
   CORE_V2_EXECUTABLE_COUNT,
   materializeCoreV2ExecutableCase,
 } from '../../lab/performance-v2/contract/executable-cases';
+import { resolveCoreV2ExecutableRuntime } from '../../lab/performance-v2/contract/executable-runtime';
 import {
   buildCoreV2ContractRoute,
   CORE_V2_CONTRACT_DATASET_SIZES,
@@ -77,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(59);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(23);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(150);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(62);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(24);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(149);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(98);
+    ), 0)).toBe(102);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -183,6 +184,83 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).toContain('data-testid="scenario-ren-007"');
     expect(markup).toContain('data-contract-status="armed"');
     expect(markup).toContain('Actual-only case execution is available');
+    expect(markup).not.toContain('data-contract-status="pass"');
+  });
+
+  it('renders REN-005 in canonical order with its exact expected-blind image action trace', () => {
+    const route = parseCoreV2ContractRoute(
+      '/lab/core-v2?scenario=REN-005&size=100&seed=319',
+    );
+    const plan = materializeCoreV2ExecutableCase('REN-005', '100', 319);
+    const markup = renderCoreV2ContractLab(route);
+    const imageIndex = CORE_V2_EXECUTABLE_CASE_IDS.indexOf('REN-005');
+
+    expect(CORE_V2_EXECUTABLE_CASE_IDS[imageIndex - 1]).toBe('REN-004');
+    expect(CORE_V2_EXECUTABLE_CASE_IDS[imageIndex + 1]).toBe('REN-007');
+    expect(resolveCoreV2ExecutableRuntime('REN-005').key).toBe('render-images');
+    expect(route.presenter.executionStatus).toBe('actual-observable');
+    expect(route.presenter.rootTestId).toBe('scenario-ren-005');
+    expect(plan.route).toBe('/lab/core-v2?scenario=REN-005&size=100&seed=319');
+    expect(plan.actionTrace).toEqual([
+      {
+        index: 0,
+        type: 'loadDataset',
+        operands: { datasetId: 'image-specimens' },
+      },
+      {
+        index: 1,
+        type: 'resolveAsset',
+        operands: {
+          targetId: 'descriptor',
+          requestId: 'old',
+          completeAtMs: 100,
+        },
+      },
+      {
+        index: 2,
+        type: 'replaceSource',
+        operands: {
+          targetId: 'descriptor',
+          source: 'fixture-image',
+          timeMs: 20,
+        },
+      },
+      {
+        index: 3,
+        type: 'completeAsset',
+        operands: { requestId: 'old', timeMs: 100 },
+      },
+    ]);
+    expect(plan).not.toHaveProperty('expected');
+    expect(JSON.stringify(plan)).not.toContain('catalog-normalized-expected');
+    expect(markup).toContain('data-testid="scenario-ren-005"');
+    expect(markup).toContain('data-contract-status="armed"');
+    expect(markup).toContain('Actual-only case execution is available');
+    expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(4);
+    expect(markup).toContain('data-testid="ren-005-image-inspector"');
+    expect(markup).toContain('data-testid="ren-005-specimen-select"');
+    expect(markup).toContain('<option value="alias">Alias</option>');
+    expect(markup).toContain('<option value="url">Direct URL</option>');
+    expect(markup).toContain('<option value="descriptor" selected>Descriptor replacement</option>');
+    expect(markup).toContain('<option value="data-uri">Data URI</option>');
+    expect(markup).toContain('<option value="transformed">Transformed shared source</option>');
+    expect(markup).toContain('<option value="hidden-image">Hidden image</option>');
+    expect(markup).toContain('<option value="failed-image">Failed placeholder</option>');
+    expect(markup).toContain('data-testid="ren-005-selected-source"');
+    expect(markup).toContain('data-testid="ren-005-selected-state"');
+    expect(markup).toContain('data-testid="ren-005-selected-role"');
+    expect(markup).toContain('data-testid="ren-005-selected-bounds"');
+    expect(markup).toContain('data-testid="ren-005-selected-stale-completion"');
+    expect(markup).toContain('data-testid="ren-005-request-count"');
+    expect(markup).toContain('data-testid="ren-005-backend-counts"');
+    expect(markup).toContain('data-testid="ren-005-resource-count"');
+    expect(markup).toContain('data-testid="ren-005-lease-count"');
+    expect(markup).toContain('data-testid="ren-005-stale-count"');
+    expect(markup).toContain('data-testid="ren-005-request-journal"');
+    expect(markup).toContain('data-testid="ren-005-run-fps"');
+    expect(markup).toContain('data-testid="ren-005-run-long-task-count"');
+    expect(markup).toContain('data-testid="ren-005-run-max-frame-gap"');
+    expect(markup).toContain('This chooser changes only the displayed actual facts');
     expect(markup).not.toContain('data-contract-status="pass"');
   });
 
