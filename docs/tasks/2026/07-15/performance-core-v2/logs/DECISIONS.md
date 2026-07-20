@@ -123,3 +123,9 @@
 - Sort image entries by `(zIndex, stable slot, entityId)`, compare once with the public `children` order, and, only when different, use one public `removeChildren()` followed by bounded public `addChild()` batches while keeping `sortableChildren=false`.
 - This retains aggregate Sprite semantics and public Pixi APIs while bounding reorder application to linear work after the required sort. Deterministic 5,000-image reverse and seeded-random/tie tests cover the former worst case without a flaky timing threshold.
 - A local 2-warmup/7-sample development probe observed 5,000-image median/p95 incremental sync of 6.932/8.313 ms reversed and 7.390/8.429 ms random on Darwin; it is diagnostic, not canonical performance evidence or a Windows claim.
+
+**2026-07-20**
+- Item backgrounds and icons can change representation while their public component identity remains stable: a background moves between aggregate rect geometry and a Sprite, while an icon keeps geometry across source and tint changes.
+- Keep one immutable owner-qualified component projection and one public component probe, but publish renderer facts only when the semantic target, binding key, binding generation, and rendered frame correlate. Drain scene-image releases after each published action before taking actual observations.
+- This prevents stale texture facts and pre-frame cleanup races without adding per-component Containers, listeners, tickers, or closures. Background geometry remains an aggregate Mesh/Graphics primitive with zero per-component render objects; asset-backed phases use the shared scoped Sprite lanes and leases.
+- `REN-008` and `REN-010` therefore close exactly 10/10 and 11/11, while the browser checkpoint preserves the unrelated three immutable REN-005 conflicts and keeps Windows-native performance pending.
