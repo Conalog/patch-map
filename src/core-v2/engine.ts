@@ -1,4 +1,5 @@
 import { createCoreV2, type CoreV2, type CoreV2Options } from './core';
+import type { SceneSnapshot } from '../core-v1/contracts';
 import {
   CoreV2DatasetError,
   materializeCoreV2Dataset,
@@ -9,6 +10,7 @@ import {
   createCoreV2SemanticProbe,
   type CoreV2SemanticProductProbe,
 } from './semantic/probe';
+import { worldToScreen } from './view';
 
 export type CoreV2Lifecycle =
   | 'new'
@@ -93,6 +95,37 @@ export interface CoreV2SurfaceDebug {
   readonly activeAnimationCount: number;
 }
 
+export interface CoreV2SurfaceEntityGeometry {
+  readonly id: string;
+  readonly kind: string;
+  readonly worldBounds: readonly [number, number, number, number];
+  readonly screenBounds: readonly [number, number, number, number];
+  readonly visible: boolean;
+  readonly interactive: boolean;
+}
+
+export interface CoreV2SurfaceRelationGeometry {
+  readonly id: string;
+  readonly sourceId: string;
+  readonly targetId: string;
+  readonly worldEndpoints: readonly [
+    readonly [number, number],
+    readonly [number, number],
+  ];
+  readonly screenEndpoints: readonly [
+    readonly [number, number],
+    readonly [number, number],
+  ];
+}
+
+export interface CoreV2SurfaceGeometrySnapshot {
+  readonly entities: readonly CoreV2SurfaceEntityGeometry[];
+  readonly relations: readonly CoreV2SurfaceRelationGeometry[];
+  readonly selectionOverlay: Readonly<{
+    screenBounds: readonly [number, number, number, number];
+  }> | null;
+}
+
 export interface CoreV2EngineSurface {
   readonly canvasCount: number;
   readonly destroyed: boolean;
@@ -104,6 +137,7 @@ export interface CoreV2EngineSurface {
   hitTestScreen(point: CoreV2Point): string | null;
   screenToWorld(point: CoreV2Point): CoreV2Point;
   debugSnapshot(): CoreV2SurfaceDebug;
+  geometrySnapshot?(): CoreV2SurfaceGeometrySnapshot;
   destroy(): Promise<boolean>;
 }
 
@@ -516,6 +550,16 @@ export class CoreV2Engine {
     });
   }
 
+  /**
+   * Read renderer-aligned geometry without exposing the Pixi scene graph. The
+   * aggregate renderer remains free to use a handful of display objects while
+   * callers can still verify entity, relation, and selection alignment.
+   */
+  public geometryProbe(): CoreV2SurfaceGeometrySnapshot | null {
+    const surface = this.requireSurface('geometryProbe');
+    return surface.geometrySnapshot?.() ?? null;
+  }
+
   public exportDataset(): readonly NormalizedCoreV2Element[] {
     this.requireSurface('exportDataset');
     return this.materialized?.dataset ?? [];
@@ -727,6 +771,10 @@ class PixiEngineSurface implements CoreV2EngineSurface {
     });
   }
 
+  public geometrySnapshot(): CoreV2SurfaceGeometrySnapshot {
+    return createCoreV2SurfaceGeometrySnapshot(this.core.snapshot());
+  }
+
   public async destroy(): Promise<boolean> {
     const destroyed = await this.core.destroy();
     this.canvasPresent = false;
@@ -804,6 +852,116 @@ function normalizeBackground(value: number | string): number {
 
 function packedColorToHex(value: number): string {
   return `#${(value >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+export function createCoreV2SurfaceGeometrySnapshot(
+  snapshot: SceneSnapshot,
+): CoreV2SurfaceGeometrySnapshot {
+  const entityGeometries = snapshot.entities
+    .filter((entity) => entity.kind !== 'relation')
+    .map((entity) => Object.freeze<CoreV2SurfaceEntityGeometry>({
+      id: entity.id,
+      kind: entity.kind,
+      worldBounds: freezeBounds(entity.bounds.x, entity.bounds.y, entity.bounds.width, entity.bounds.height),
+      screenBounds: screenBoundsFor(entity.bounds, entity.rotation, snapshot.view),
+      visible: entity.visible,
+      interactive: entity.interactive,
+    }));
+  const geometryById = new Map(entityGeometries.map((entity) => [entity.id, entity]));
+  const relations = snapshot.entities.flatMap((entity) => {
+    if (entity.kind !== 'relation') return [];
+    const sourceId = entity.data.from;
+    const targetId = entity.data.to;
+    if (typeof sourceId !== 'string' || typeof targetId !== 'string') return [];
+    const source = geometryById.get(sourceId);
+    const target = geometryById.get(targetId);
+    if (!source || !target) return [];
+    const sourceWorld = boundsCenter(source.worldBounds);
+    const targetWorld = boundsCenter(target.worldBounds);
+    const sourceScreen = worldToScreen({ x: sourceWorld[0], y: sourceWorld[1] }, snapshot.view);
+    const targetScreen = worldToScreen({ x: targetWorld[0], y: targetWorld[1] }, snapshot.view);
+    return [Object.freeze<CoreV2SurfaceRelationGeometry>({
+      id: entity.id,
+      sourceId,
+      targetId,
+      worldEndpoints: Object.freeze([sourceWorld, targetWorld] as const),
+      screenEndpoints: Object.freeze([
+        freezePoint(sourceScreen.x, sourceScreen.y),
+        freezePoint(targetScreen.x, targetScreen.y),
+      ] as const),
+    })];
+  });
+  const selectedRefs = new Set(snapshot.selection.refs.map((ref) => `${ref.slot}:${ref.generation}`));
+  const selectedBounds = snapshot.entities.flatMap((entity) => {
+    if (entity.kind === 'relation' || !selectedRefs.has(`${entity.ref.slot}:${entity.ref.generation}`)) return [];
+    return [screenBoundsFor(entity.bounds, entity.rotation, snapshot.view)];
+  });
+  const selectionOverlay = unionBounds(selectedBounds);
+
+  return Object.freeze({
+    entities: Object.freeze(entityGeometries),
+    relations: Object.freeze(relations),
+    selectionOverlay: selectionOverlay === null
+      ? null
+      : Object.freeze({ screenBounds: selectionOverlay }),
+  });
+}
+
+function screenBoundsFor(
+  bounds: Readonly<{ x: number; y: number; width: number; height: number }>,
+  rotation: number,
+  view: Readonly<{ x: number; y: number; scale: number; rotation?: number }>,
+): readonly [number, number, number, number] {
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
+  const radians = rotation * (Math.PI / 180);
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  const corners = [
+    [-bounds.width / 2, -bounds.height / 2],
+    [bounds.width / 2, -bounds.height / 2],
+    [bounds.width / 2, bounds.height / 2],
+    [-bounds.width / 2, bounds.height / 2],
+  ] as const;
+  const screen = corners.map(([localX, localY]) => worldToScreen({
+    x: centerX + localX * cosine - localY * sine,
+    y: centerY + localX * sine + localY * cosine,
+  }, view));
+  const xs = screen.map((point) => point.x);
+  const ys = screen.map((point) => point.y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  return freezeBounds(minX, minY, Math.max(...xs) - minX, Math.max(...ys) - minY);
+}
+
+function unionBounds(
+  bounds: readonly (readonly [number, number, number, number])[],
+): readonly [number, number, number, number] | null {
+  if (bounds.length === 0) return null;
+  const minX = Math.min(...bounds.map((entry) => entry[0]));
+  const minY = Math.min(...bounds.map((entry) => entry[1]));
+  const maxX = Math.max(...bounds.map((entry) => entry[0] + entry[2]));
+  const maxY = Math.max(...bounds.map((entry) => entry[1] + entry[3]));
+  return freezeBounds(minX, minY, maxX - minX, maxY - minY);
+}
+
+function boundsCenter(
+  bounds: readonly [number, number, number, number],
+): readonly [number, number] {
+  return freezePoint(bounds[0] + bounds[2] / 2, bounds[1] + bounds[3] / 2);
+}
+
+function freezeBounds(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): readonly [number, number, number, number] {
+  return Object.freeze([x, y, width, height] as const);
+}
+
+function freezePoint(x: number, y: number): readonly [number, number] {
+  return Object.freeze([x, y] as const);
 }
 
 function findElement(
