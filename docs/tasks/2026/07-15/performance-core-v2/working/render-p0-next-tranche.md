@@ -2,11 +2,16 @@
 
 ## Scope and immutable sources
 
-This inventory covers the eleven P0 records remaining after `LAY-001` and
-`REN-001..004`: `REN-005..011`, `LAY-003..005`, and `AST-001`. It is derived
+This inventory now tracks the ten P0 records remaining after `LAY-005` closed:
+`REN-005..011`, `LAY-003/004`, and `AST-001`. It is derived
 only from the current-worktree immutable contract corpus and current Core v2
 public product source. Canonical fixtures, expected observations, reviews, and
 decisions are not implementation inputs to be rewritten.
+
+`LAY-005` is the completed geometry checkpoint: exact bounds/removal automation
+matches 14/14, the same focused Lab route is executable, and first/repeat headed
+comparison closes the six-route rendering checkpoint at 63/63 with canvas cleanup
+and zero console, page, or network errors.
 
 The exact canonical record pointers are:
 
@@ -24,15 +29,15 @@ The exact canonical record pointers are:
 | LAY-005 | 84 |
 | AST-001 | 85 |
 
-Corpus totals are **11 cases, 51 ordered actions, 28 unique action types, 190
+Remaining corpus totals are **10 cases, 47 ordered actions, 24 unique action types, 176
 typed assertions, four capture checkpoints/four captured paths, and ten
 observation domains**. The unique action types are:
 
-`acquireAsset`, `completeAsset`, `destroy`, `destroyTarget`, `hitTest`,
-`initializeWithRequiredAssetFailure`, `loadBoundsMatrix`, `loadDataset`,
+`acquireAsset`, `completeAsset`, `destroy`,
+`initializeWithRequiredAssetFailure`, `loadDataset`,
 `loadOrientationMatrix`, `observeItemTextMatrix`, `observeOrientationMatrix`,
 `observeRelationContractMatrix`, `observeRelationPath`, `patch`,
-`publishFrame`, `queryBounds`, `redo`, `registerAlias`, `registerAssets`,
+`publishFrame`, `redo`, `registerAlias`, `registerAssets`,
 `replaceComponentSource`, `replaceSource`, `resolveAsset`,
 `setComponentVisibility`, `setContentOrientation`, `setVisibility`,
 `setWorldTransform`, `snapshot-observation`, and `undo`.
@@ -41,7 +46,7 @@ observation domains**. The unique action types are:
 
 | Wave | Cases | Actions / assertions | Dependency reason |
 | --- | --- | ---: | --- |
-| Geometry foundation (next) | `LAY-005 -> LAY-004 -> REN-007` | 14 / 51 | One signed-affine/bounds truth source feeds visible bounds, upright/flip basis, relation endpoints, relation-local conversion, and hit geometry. |
+| Geometry foundation (next) | `LAY-004 -> REN-007` | 10 / 37 | The completed signed-affine bounds source feeds upright/flip basis, relation endpoints, relation-local conversion, and hit geometry. |
 | Asset ownership | `AST-001 -> REN-005 -> REN-008 + REN-010` | 19 / 67 | Global alias/cache leases and required/optional failure semantics must exist before image source replacement can make truthful stale-completion and no-leak claims. |
 | Deterministic animation | `REN-009` | 4 / 13 | Requires semantic/presentation separation, contract time, `easeOutCubic`, settled delivery, and range upload; it should not be hidden inside ordinary patch. |
 | International text | `REN-006 -> REN-011` | 10 / 50 | Standalone deterministic layout and font fallback precede split/auto-font/overflow item text; `REN-011` also consumes upright orientation. |
@@ -49,24 +54,21 @@ observation domains**. The unique action types are:
 
 ### Recommendation
 
-Implement **`LAY-005`, then `LAY-004`, then `REN-007`** as the next
-dependency-coherent slice. It has 14 actions, 13 unique action types, 51
-assertions, one checkpoint, and the domains `scene`, `geometry`, `paint`,
-`interaction`, and `revisions`.
+Implement **`LAY-004`, then `REN-007`** as the next dependency-coherent slice.
+It has 10 actions, 9 unique action types, 37 assertions, one checkpoint, and the
+domains `scene`, `geometry`, `paint`, and `interaction`.
 
 Selection rationale:
 
-1. `LAY-005` closes the current `scaleX`/local-bounds/removal gaps and makes one
-   revision-aligned local/world/screen geometry service authoritative.
-2. `LAY-004` extends that same service with signed bases and upright
+1. `LAY-004` extends the completed bounds service with signed bases and upright
    counter-transforms instead of introducing a second transform model.
-3. `REN-007` then consumes exact visible world bounds and affine conversions;
+2. `REN-007` then consumes exact visible world bounds and affine conversions;
    implementing relations first would bake the current axis-aligned/straight
    endpoint approximation into another layer.
-4. This slice has no dependency on global `Assets`, deterministic text shaping,
+3. This slice has no dependency on global `Assets`, deterministic text shaping,
    bar time semantics, or history, so those high-risk domains remain separately
    reviewable.
-5. No journey becomes complete from these three cases alone. `REN-007` removes
+4. No journey becomes complete from these two cases alone. `REN-007` removes
    the rendering blocker from `CSM-011`; that journey then remains blocked only
    by its `SEL-001/003/004/005/009` and `QRY-001` dependencies. The geometry
    kernel also becomes a prerequisite for later viewport, selection,
@@ -392,7 +394,7 @@ Assertions:
 /outcome/orientationMatrix/allRowsExact eq true
 ```
 
-### LAY-005 — 4 actions, 14 assertions
+### LAY-005 — completed checkpoint, 4 actions, 14 assertions
 
 Domains: `scene, geometry, interaction, revisions`. No checkpoint.
 
@@ -473,7 +475,7 @@ Assertions:
 | REN-011 | Semantic materialization preserves split, text style, auto-font/overflow fields, placement, margin, and tint. | Parser explicitly degrades nonzero split and advanced style; deterministic grapheme split, auto-font, wrap/overflow, international layout, upright orientation, and text probes are missing. |
 | LAY-003 | Dense z-index sorting and stable authored order within equal z are present; overlay containers are separate. | Engine history is always depth zero and exposes no `undo`/`redo`; exact overlay order is not published as a product render-order probe. |
 | LAY-004 | Rotation composition exists for the current flat projection. | Parser emits `content-orientation-unsupported`; signed scale/flips and world flips are not represented, and no screen basis/upright counter-transform or mode-change geometry publication exists. |
-| LAY-005 | Engine geometry probes now compute rotated world/screen AABBs and selection overlay bounds; transparent static rect hit behavior is supported. | `scaleX` is retained only semantically, local bounds are not exposed, all-kind visible bounds lack one affine source, and Engine has no atomic `destroyTarget`/remove operation. |
+| LAY-005 | Exact local/world/screen/visible bounds, signed direct-rect projection, transformed hit rules, revision truth, and atomic `destroyTarget` now use the committed projection/reconcile authority. | Complete for the approved fixture; item/grid upright bases remain `LAY-004`, and clipped visible bounds remain outside this case's approved matrix. |
 | AST-001 | The leaf layer reference-counts one Pixi `Assets` URL across instances, borrows externally owned cache entries, waits through release races, and unloads the last Core-owned lease. | There is no global descriptor-aware alias registry, built-ins/font catalog, per-instance security revalidation, required-init asset phase/failure rollback, conflict diagnostic, pending-user count, or public cache/lease observation. |
 
 PixiJS routing implications: keep aggregate geometry in Mesh/Graphics lanes; keep

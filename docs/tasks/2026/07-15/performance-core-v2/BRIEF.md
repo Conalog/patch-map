@@ -18,15 +18,15 @@ Connect every approved Core v2 decision and case to the PixiJS implementation, i
 # Current State
 
 - `verify:core-v2-contract` passes 38 decisions, canonical plus 32 negative probes, and 173 approved records. No canonical expected or review artifact has changed.
-- Nineteen P0 routes are connected: `LIF-001/002/004/005`, `DAT-001..008`, `REN-001..004`, `LAY-001`, and `CSM-001/003`. Eighteen produce actual observations; `DAT-008` truthfully fails at immutable `retainTarget` missing `as`. The other 154 routes remain explicit stubs. Source journeys are not packed-host proof.
+- Twenty P0 routes are connected: `LIF-001/002/004/005`, `DAT-001..008`, `REN-001..004`, `LAY-001/005`, and `CSM-001/003`. Nineteen produce actual observations; `DAT-008` truthfully fails at immutable `retainTarget` missing `as`. The other 153 routes remain explicit stubs. Source journeys are not packed-host proof.
 - Exact results include `LIF-001` 11/11, `DAT-002` 13/13, `LIF-004` 12/12, and `DAT-007` 10/10. Known mismatches remain in `LIF-002`, `DAT-001`, `DAT-006`, `DAT-008`, and source journey host leaves; twelve out-of-registry expected diagnostic assertions remain immutable contract conflicts.
-- `CoreV2Engine.patch` is the semantic writer over one safe `CoreV2.reconcile` transaction. Same-ID ref/slot/selection survives; unsupported reorder/background changes are atomic refusals and never fall back to full load.
-- The first rendering slice closes content-box, nested visibility/lock, grid hide/destroy, ordered components, background coverage, and rotated rect semantics. Node-only public facts match 45/49 leaves; the real Pixi surface exposes gesture/render metrics that close 49/49. The headed performance Lab passes 31 checks with zero console/page/network errors; focused-route headed comparison is the current checkpoint.
-- Remaining gaps include signed scale, stacking, upright content, advanced text, relation paths, and descriptor-aware assets. Remaining P0 rendering totals 11 cases, 51 actions, and 190 assertions.
+- `CoreV2Engine.patch` and `destroyTarget` publish semantic authority only after one safe incremental reconcile. Same-ID ref/slot/selection survives; refused or legacy surfaces never fall back to full load.
+- The affine bounds slice now publishes exact local/world/screen/visible bounds, signed rect scale, zero-size/hidden hit rules, revision lag, and atomic removal. Six focused real-Pixi routes pass first/repeat 63/63 in headed Chromium with deterministic digests, canvas cleanup, and zero console/page/network errors.
+- Remaining gaps include stacking, upright content, advanced text, relation paths, and descriptor-aware assets. Remaining P0 rendering totals 10 cases, 47 actions, and 176 assertions.
 
 # Next Step
 
-Finish the focused headed proof for the five-case rendering slice, then implement `LAY-005 -> LAY-004 -> REN-007`: one signed-affine bounds source, upright/flip projection, and relation geometry/hit paths. Pair each case with expected-blind automation and its focused Lab route before the next package/browser checkpoint. Keep unavailable facts explicit and do not promote source-only journeys or contract-conflicted rows.
+Implement `LAY-004 -> REN-007` on the completed signed-affine bounds source: first renderer-connected upright/flip bases and stable centers, then aggregate relation paths and transformed screen-space hit testing. Pair each case with expected-blind automation and its focused Lab route before the next package checkpoint.
 
 # Working Boundary
 
