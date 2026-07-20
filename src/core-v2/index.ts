@@ -4,6 +4,10 @@ export type {
   CoreV2LoadResult,
   CoreV2Options,
   CoreV2PrepareResult,
+  CoreV2ReconcileFacts,
+  CoreV2ReconcileOptions,
+  CoreV2ReconcileResult,
+  CoreV2ReconcileTimings,
   CoreV2RuntimeDebug,
 } from './core';
 export { CoreV2Engine, CoreV2EngineError } from './engine';

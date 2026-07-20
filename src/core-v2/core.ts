@@ -26,6 +26,11 @@ import { parsePatchMapV010 } from './parser';
 import { withRendererDegradationDiagnostics } from './renderers/degradation';
 import { InvalidationScheduler, type FrameSchedulerDebug } from './scheduler';
 import {
+  planCoreV2SceneReconcile,
+  type CoreV2DenseReconcilePlan,
+  type CoreV2ReconcileOptions as CoreV2DenseReconcileOptions,
+} from './semantic/reconcile';
+import {
   PixiCoreV2Renderer,
   type PixiCoreV2InitializationMetrics,
   type PixiCoreV2RendererOptions,
@@ -57,6 +62,52 @@ export interface CoreV2PrepareResult {
   readonly gpuPrepareMs: number;
   readonly frame: FrameReport;
 }
+
+export interface CoreV2ReconcileOptions extends CoreV2DenseReconcileOptions {
+  /** Parser/color options for the candidate input. Defaults to the Core options. */
+  readonly parse?: ParsePatchMapOptions;
+}
+
+export interface CoreV2ReconcileTimings {
+  readonly parseMs: number;
+  readonly planMs: number;
+  readonly commitMs: number;
+  readonly totalMs: number;
+}
+
+export interface CoreV2ReconcileFacts {
+  /** The parser-visible PATCH MAP authority changed, including retained-only identity data. */
+  readonly semanticChanged: boolean;
+  /** At least one dense entity, visibility, or view operation was planned. */
+  readonly denseChanged: boolean;
+  readonly structuralChanged: boolean;
+  readonly structuralReplacement: boolean;
+  /** The current aggregate renderer consumes structural changed ranges without a full rebuild. */
+  readonly fullRebuild: false;
+  readonly revisionBefore: number;
+  readonly revisionAfter: number;
+  readonly entityCountBefore: number;
+  readonly entityCountAfter: number;
+  readonly selectionCountBefore: number;
+  readonly selectionCountAfter: number;
+}
+
+interface CoreV2ReconcileResultBase {
+  readonly parse: ParsePatchMapResult;
+  readonly plan: CoreV2DenseReconcilePlan;
+  readonly timings: CoreV2ReconcileTimings;
+  readonly facts: CoreV2ReconcileFacts;
+}
+
+export type CoreV2ReconcileResult =
+  | Readonly<CoreV2ReconcileResultBase & {
+      readonly status: 'committed';
+      readonly commit: CommitResult;
+    }>
+  | Readonly<CoreV2ReconcileResultBase & {
+      readonly status: 'refused';
+      readonly commit: null;
+    }>;
 
 export interface CoreV2RuntimeDebug {
   readonly destroyed: boolean;
@@ -176,6 +227,76 @@ export class CoreV2 {
     this.renderer.markChanges(store.changedRanges, 'load', { fullRebuild: true });
     this.invalidate('load');
     return Object.freeze({ parse, store, normalizeMs, storeLoadMs });
+  }
+
+  /**
+   * Incrementally reconcile a direct PATCH MAP v0.10 input into the current
+   * dense store. Safe candidates commit exactly one batch; this method never
+   * substitutes a scene load for a partial update.
+   */
+  public reconcile(
+    input: unknown,
+    options: CoreV2ReconcileOptions = {},
+  ): CoreV2ReconcileResult {
+    this.assertAlive();
+    const currentParse = this.parseResultValue;
+    if (currentParse === null) {
+      throw new Error('CoreV2.reconcile requires a loaded PATCH MAP dataset');
+    }
+
+    const totalStarted = now();
+    const before = this.scene.snapshot();
+    const parseStarted = now();
+    const parse = withRendererDegradationDiagnostics(
+      parsePatchMapV010(input, options.parse ?? this.parseOptions),
+      this.renderer.strategy,
+    );
+    const parseMs = now() - parseStarted;
+
+    const planStarted = now();
+    const plan = planCoreV2SceneReconcile(
+      currentParse.document,
+      parse.document,
+      denseReconcileOptions(options),
+    );
+    const semanticChanged = !jsonEquivalent(currentParse, parse);
+    const planMs = now() - planStarted;
+
+    if (!plan.safeToCommit) {
+      const after = this.scene.snapshot();
+      return freezeReconcileResult({
+        status: 'refused',
+        parse,
+        plan,
+        commit: null,
+        timings: {
+          parseMs,
+          planMs,
+          commitMs: 0,
+          totalMs: now() - totalStarted,
+        },
+        facts: reconcileFacts(plan, semanticChanged, before, after),
+      });
+    }
+
+    const commitStarted = now();
+    const commit = this.commit(plan.batch);
+    const commitMs = now() - commitStarted;
+    this.parseResultValue = parse;
+    const after = this.scene.snapshot();
+    return freezeReconcileResult({
+      status: 'committed',
+      parse,
+      plan,
+      commit,
+      timings: {
+        parseMs,
+        planMs,
+        commitMs,
+        totalMs: now() - totalStarted,
+      },
+      facts: reconcileFacts(plan, semanticChanged, before, after),
+    });
   }
 
   /** Build aggregate CPU/GPU resources without presenting a visible frame. */
@@ -475,6 +596,67 @@ function clampFraction(value: number): number {
 
 function now(): number {
   return globalThis.performance?.now() ?? Date.now();
+}
+
+function denseReconcileOptions(
+  options: CoreV2ReconcileOptions,
+): CoreV2DenseReconcileOptions {
+  return Object.freeze({
+    ...(options.id === undefined ? {} : { id: options.id }),
+    ...(options.recordHistory === undefined ? {} : { recordHistory: options.recordHistory }),
+  });
+}
+
+function reconcileFacts(
+  plan: CoreV2DenseReconcilePlan,
+  semanticChanged: boolean,
+  before: SceneSnapshot,
+  after: SceneSnapshot,
+): CoreV2ReconcileFacts {
+  return Object.freeze({
+    semanticChanged,
+    denseChanged: plan.batch.operations.length > 0,
+    structuralChanged: plan.summary.added > 0 || plan.summary.removed > 0,
+    structuralReplacement: plan.summary.replaced > 0,
+    fullRebuild: false,
+    revisionBefore: before.revision,
+    revisionAfter: after.revision,
+    entityCountBefore: before.entityCount,
+    entityCountAfter: after.entityCount,
+    selectionCountBefore: before.selection.refs.length,
+    selectionCountAfter: after.selection.refs.length,
+  });
+}
+
+function freezeReconcileResult<T extends CoreV2ReconcileResult>(result: T): T {
+  return Object.freeze({
+    ...result,
+    timings: Object.freeze(result.timings),
+    facts: Object.freeze(result.facts),
+  }) as T;
+}
+
+function jsonEquivalent(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => jsonEquivalent(value, right[index]));
+  }
+  if (!isPlainRecord(left) || !isPlainRecord(right)) return false;
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every(
+    (key) => Object.prototype.hasOwnProperty.call(right, key) && jsonEquivalent(left[key], right[key]),
+  );
+}
+
+function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  if (value === null || typeof value !== 'object') return false;
+  const prototype: unknown = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 export type { EntityPatch };
