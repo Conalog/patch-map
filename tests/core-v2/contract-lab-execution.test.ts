@@ -8,11 +8,16 @@ import {
 } from '../../lab/performance-v2/contract/executable-cases';
 import { resolveCoreV2ExecutableRuntime } from '../../lab/performance-v2/contract/executable-runtime';
 import { parsePatchMapV010 } from '../../src/core-v2';
-import { createCoreV2SurfaceGeometrySnapshot } from '../../src/core-v2/engine';
+import {
+  createCoreV2SurfaceGeometrySnapshot,
+  hitTestCoreV2SurfaceRelations,
+} from '../../src/core-v2/engine';
 import type {
   CoreV2EngineSurface,
   CoreV2EngineSurfaceFactory,
   CoreV2Point,
+  CoreV2RelationHit,
+  CoreV2RelationHitOptions,
   CoreV2SurfaceReconcileResult,
   CoreV2SurfaceDebug,
   CoreV2SurfaceGeometrySnapshot,
@@ -30,7 +35,7 @@ describe('Core v2 executable Lab product bridge', () => {
       const surfaceFactory = createFakeSurfaceFactory(
         surfaces,
         receivedTargets,
-        caseId === 'LAY-004' ? 'projection' : 'flat',
+        caseId === 'LAY-004' || caseId === 'REN-007' ? 'projection' : 'flat',
       );
       const bridge = createCoreV2ExecutableLabBridge({
         caseId,
@@ -165,6 +170,47 @@ describe('Core v2 executable Lab product bridge', () => {
       runCount: 3,
       completedRunCount: 3,
       retainedCanvasCount: 0,
+    });
+  });
+
+  it('executes and repeats the exact REN-007 relation handler/fold with deterministic cleanup', async () => {
+    const surfaces: FakeSurface[] = [];
+    const bridge = createCoreV2ExecutableLabBridge({
+      caseId: 'REN-007',
+      rootTestId: 'scenario-ren-007',
+      size: '100',
+      seed: 319,
+      surfaceHost: createSurfaceHost(),
+      surfaceFactory: createFakeSurfaceFactory(surfaces, [], 'projection'),
+      environment: { browser: 'vitest', backend: 'webgl2', routeSize: '100' },
+    });
+
+    const first = await bridge.runCase();
+    const second = await bridge.repeatCase();
+
+    expect(first.execution).toMatchObject({
+      caseId: 'REN-007',
+      status: 'completed',
+      cleanup: { status: 'completed', errors: [] },
+    });
+    expect(first.execution.actionResults).toHaveLength(6);
+    expect(first.actualObservation).toMatchObject({
+      case: { id: 'REN-007', params: { size: '100', seed: 319 } },
+      geometry: { relations: { selfLink: { kind: 'polyline' } } },
+      outcome: { deterministic: true, inputUnchanged: true },
+      resources: { cleanup: { status: 'completed', errors: [] } },
+    });
+    expect(JSON.stringify(second.actualObservation)).toBe(JSON.stringify(first.actualObservation));
+    expect(surfaces).toHaveLength(4);
+    expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
+    expect(await bridge.destroyCase()).toMatchObject({
+      status: 'completed',
+      runCount: 2,
+      completedRunCount: 2,
+      releasedEngineCount: 2,
+      retainedCanvasCount: 0,
+      retainedSubscriptionCount: 0,
+      retainedPendingWork: 0,
     });
   });
 
@@ -316,6 +362,7 @@ describe('Core v2 executable Lab product bridge', () => {
       'REN-004': 'render-foundation',
       'REN-003': 'render-foundation',
       'REN-002': 'render-foundation',
+      'REN-007': 'render-relations',
     });
 
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
@@ -424,6 +471,13 @@ class FakeSurface implements CoreV2EngineSurface {
     )).at(-1)?.id ?? null;
   }
 
+  public relationHitTestScreen(
+    point: CoreV2Point,
+    options?: CoreV2RelationHitOptions,
+  ): CoreV2RelationHit | null {
+    return hitTestCoreV2SurfaceRelations(this.geometrySnapshot().relations, point, options);
+  }
+
   public screenToWorld(point: CoreV2Point): CoreV2Point {
     return Object.freeze({
       x: (point.x - this.view.x) / this.view.scale,
@@ -432,6 +486,8 @@ class FakeSurface implements CoreV2EngineSurface {
   }
 
   public debugSnapshot(): CoreV2SurfaceDebug {
+    const geometry = this.geometrySnapshot();
+    const visibleRelationCount = geometry.relations.filter(({ visible }) => visible).length;
     return Object.freeze({
       cssSize: Object.freeze([this.width, this.height] as const),
       backingSize: Object.freeze([
@@ -441,6 +497,8 @@ class FakeSurface implements CoreV2EngineSurface {
       selectionIds: this.selectionIds,
       activeAnimationCount: 0,
       activeGestureCount: 0,
+      renderCommandCount: geometry.entities.length + visibleRelationCount,
+      visiblePrimitiveCount: geometry.entities.length + visibleRelationCount,
     });
   }
 
@@ -505,7 +563,12 @@ function fakeSceneSnapshot(
     zIndex: entity.zIndex ?? 0,
     tags: entity.tags ?? Object.freeze([]),
     data: entity.kind === 'relation'
-      ? Object.freeze({ from: entity.from, to: entity.to })
+      ? Object.freeze({
+          from: entity.from,
+          to: entity.to,
+          color: entity.color,
+          lineWidth: entity.lineWidth ?? 1,
+        })
       : Object.freeze({}),
   }));
   return Object.freeze({

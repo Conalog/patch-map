@@ -77,12 +77,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(52);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(21);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(152);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(55);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(22);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(151);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(84);
+    ), 0)).toBe(90);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -159,6 +159,30 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).toContain('Run exact case');
     expect(markup).toContain('Actual-only case execution is available');
     expect(markup).toContain('data-action-status="queued"');
+    expect(markup).not.toContain('data-contract-status="pass"');
+  });
+
+  it('renders the exact REN-007 relation route as an actual-observable focused case', () => {
+    const route = parseCoreV2ContractRoute(
+      '/lab/core-v2?scenario=REN-007&size=100&seed=319',
+    );
+    const plan = materializeCoreV2ExecutableCase('REN-007', '100', 319);
+    const markup = renderCoreV2ContractLab(route);
+
+    expect(route.presenter.executionStatus).toBe('actual-observable');
+    expect(route.presenter.rootTestId).toBe('scenario-ren-007');
+    expect(plan.route).toBe('/lab/core-v2?scenario=REN-007&size=100&seed=319');
+    expect(plan.actionTrace.map(({ type }) => type)).toEqual([
+      'loadDataset',
+      'observeRelationPath',
+      'patch',
+      'setVisibility',
+      'setVisibility',
+      'observeRelationContractMatrix',
+    ]);
+    expect(markup).toContain('data-testid="scenario-ren-007"');
+    expect(markup).toContain('data-contract-status="armed"');
+    expect(markup).toContain('Actual-only case execution is available');
     expect(markup).not.toContain('data-contract-status="pass"');
   });
 
