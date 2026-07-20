@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the six selected render routes and their 63 canonical assertions', () => {
+  it('pins exactly the seven selected render routes and their 74 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -44,8 +44,9 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'REN-003', expectedAssertions: 12 },
       { id: 'REN-002', expectedAssertions: 9 },
       { id: 'LAY-005', expectedAssertions: 14 },
+      { id: 'LAY-004', expectedAssertions: 11 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(63);
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(74);
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
     expect(source).toContain('/lab/core-v2?scenario=${caseSpec.id}&size=${DATASET_SIZE}&seed=${SEED}');

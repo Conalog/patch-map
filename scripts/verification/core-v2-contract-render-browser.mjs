@@ -18,7 +18,7 @@ const VITE_CONFIG_PATH = path.join(ROOT, 'vite.core-v2-lab.config.ts');
 const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 63;
+const EXPECTED_ASSERTION_TOTAL = 74;
 const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'LAY-001', expectedAssertions: 9 }),
   Object.freeze({ id: 'REN-001', expectedAssertions: 9 }),
@@ -26,6 +26,7 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'REN-003', expectedAssertions: 12 }),
   Object.freeze({ id: 'REN-002', expectedAssertions: 9 }),
   Object.freeze({ id: 'LAY-005', expectedAssertions: 14 }),
+  Object.freeze({ id: 'LAY-004', expectedAssertions: 11 }),
 ]);
 
 const headed = parseArguments(process.argv.slice(2));
@@ -100,11 +101,11 @@ try {
     repeatFailed,
   };
 
-  invariant(report.cases.length === RENDER_CASES.length, 'all six render routes completed');
-  invariant(passed === EXPECTED_ASSERTION_TOTAL && failed === 0, 'canonical comparison must be 63/63');
+  invariant(report.cases.length === RENDER_CASES.length, 'all seven render routes completed');
+  invariant(passed === EXPECTED_ASSERTION_TOTAL && failed === 0, 'canonical comparison must be 74/74');
   invariant(
     repeatPassed === EXPECTED_ASSERTION_TOTAL && repeatFailed === 0,
-    'repeat comparison must be 63/63',
+    'repeat comparison must be 74/74',
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
   invariant(errors.page.length === 0, 'page error count must be zero');
@@ -313,7 +314,7 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 63',
+    'render checkpoint assertion inventory must remain 74',
   );
   return selected;
 }
