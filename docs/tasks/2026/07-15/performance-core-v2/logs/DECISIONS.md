@@ -81,3 +81,15 @@
 - Decision: Widen the closed materializer only for fields actually present in approved canonical arrays or production-like input, and maintain a separate projection-gap inventory.
 - Why: This preserves unknown-field rejection and input identity while preventing silent claims for scale, stacking, text, asset, or layout behavior the dense renderer does not yet implement.
 - Impact: Opacity, overflow, event mode, and radius tuples are supported; every remaining loss/degradation is either implemented in the next tranche or retained as an explicit unsupported result.
+
+**2026-07-20**
+- Background: Rendering assertions need independent facts from the aggregate renderer without exposing Pixi objects or mistaking a test surface for browser evidence.
+- Decision: Publish active gesture count through the semantic probe and aggregate render-command/visible-primitive counts through `snapshot.resources.rendering`; legacy injected surfaces omit them and are recorded as unavailable.
+- Why: The same expected-blind fold can remain honest in Node and consume real WebGL facts in the focused Lab, while keeping product execution independent from normalized expected evidence.
+- Impact: `LAY-001` and `REN-001..004` close 49/49 on a real Pixi surface; Node comparison stays 45/49 with exactly four named unavailable leaves instead of synthesized values.
+
+**2026-07-20**
+- Background: The remaining rendering work mixes affine bounds, upright content, relation paths, assets, text, animation, and history, which have different lifecycle and verification risks.
+- Decision: Implement `LAY-005`, then `LAY-004`, then `REN-007` around one signed-affine geometry truth source before starting asset ownership, deterministic animation, international text, or stacking/history waves.
+- Why: Bounds, inverse hit testing, visible centers, upright counter-transforms, and relation endpoints must share one revision-aligned transform model; separate approximations would make later viewport/selection behavior diverge.
+- Impact: Preserve aggregate Mesh/Particle layers and numeric sidecars, add no per-entity Containers/listeners, and require product tests plus expected-blind automation and focused routes before the next browser/package checkpoint.
