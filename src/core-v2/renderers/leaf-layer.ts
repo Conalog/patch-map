@@ -143,6 +143,7 @@ export interface LeafLayerDebug {
 }
 
 const PLACEHOLDER_TINT = 0xc7ceda;
+const IMAGE_CHILD_APPEND_BATCH_SIZE = 1_024;
 
 export class AggregateLeafLayer {
   public readonly container = new Container({ label: 'core-v2:text-and-assets' });
@@ -794,11 +795,21 @@ export class AggregateLeafLayer {
       leftSlot - rightSlot ||
       left.entityId.localeCompare(right.entityId)
     ));
-    ordered.forEach(([, entry], index) => {
-      if (this.imageContainer.children[index] !== entry.object) {
-        this.imageContainer.setChildIndex(entry.object, index);
+    const orderedChildren = ordered.map(([, entry]) => entry.object);
+    const orderChanged = orderedChildren.length !== this.imageContainer.children.length ||
+      orderedChildren.some((child, index) => this.imageContainer.children[index] !== child);
+    if (orderChanged) {
+      // Repeated setChildIndex calls splice Pixi's child array and can turn a
+      // reverse permutation into quadratic work. Detach once, then append the
+      // complete public child order in bounded batches so arbitrarily large
+      // scenes do not depend on the engine's variadic argument limit.
+      this.imageContainer.removeChildren();
+      for (let start = 0; start < orderedChildren.length; start += IMAGE_CHILD_APPEND_BATCH_SIZE) {
+        this.imageContainer.addChild(
+          ...orderedChildren.slice(start, start + IMAGE_CHILD_APPEND_BATCH_SIZE),
+        );
       }
-    });
+    }
     // Assigning a child zIndex lets Pixi opt the parent back into z-only
     // sorting. Disable it after applying the stronger deterministic order.
     this.imageContainer.sortableChildren = false;

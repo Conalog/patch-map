@@ -631,6 +631,125 @@ describe('Core v2 aggregate leaf policy', () => {
     await layer.destroy();
   });
 
+  it('reorders 5,000 reverse-z images in one detach/append pass without changing semantic counts', async () => {
+    const backend = new ImmediateTextureBackend();
+    const runtime = new CoreV2AssetRuntime(backend);
+    const session = runtime.createSession({ instanceId: 'reverse-z-order', policy: () => undefined });
+    const layer = new AggregateLeafLayer(session, true);
+    const imageCount = 5_000;
+    const bindingKey = 'reverse-z';
+    await layer.bindSceneAsset(bindingKey, {
+      kind: 'source',
+      source: 'https://assets.example.test/reverse-z.png',
+    });
+    const initialStore = createZOrderedImageStore(bindingKey, new Int32Array(imageCount));
+    layer.sync(initialStore, { fullRebuildEpoch: 1 });
+    expectImageSlotOrder(
+      layer,
+      Array.from({ length: imageCount }, (_value, slot) => slot),
+    );
+
+    const zIndices = Int32Array.from(
+      { length: imageCount },
+      (_value, slot) => imageCount - slot,
+    );
+    const store = createZOrderedImageStore(bindingKey, zIndices);
+    const removeChildren = vi.spyOn(layer.imageContainer, 'removeChildren');
+    const setChildIndex = vi.spyOn(layer.imageContainer, 'setChildIndex');
+
+    layer.sync(store, {
+      fullRebuildEpoch: 1,
+      changedRanges: [{ start: 0, end: imageCount }],
+    });
+
+    expect(removeChildren).toHaveBeenCalledTimes(1);
+    expect(setChildIndex).not.toHaveBeenCalled();
+    expectImageSlotOrder(
+      layer,
+      Array.from({ length: imageCount }, (_value, index) => imageCount - index - 1),
+    );
+    expect(layer.imageContainer.sortableChildren).toBe(false);
+    expect(layer.sceneAssetBindingProbe(bindingKey)).toMatchObject({
+      consumerCount: imageCount,
+      renderObjectCount: imageCount,
+      placeholderCount: 0,
+      renderRole: 'image',
+      reusedResolvedResource: true,
+    });
+    expectImageProbeInvariant(layer, bindingKey, 0);
+    expectImageProbeInvariant(layer, bindingKey, Math.floor(imageCount / 2));
+    expectImageProbeInvariant(layer, bindingKey, imageCount - 1);
+    expect(layer.debugSnapshot()).toMatchObject({
+      imageCount,
+      loadedAssetCount: 1,
+      placeholderCount: 0,
+      staleAttachCount: 0,
+    });
+
+    await layer.destroy();
+  }, 15_000);
+
+  it('reorders 5,000 existing images by seeded random z while preserving stable-slot ties', async () => {
+    const backend = new ImmediateTextureBackend();
+    const runtime = new CoreV2AssetRuntime(backend);
+    const session = runtime.createSession({ instanceId: 'seeded-random-z-order', policy: () => undefined });
+    const layer = new AggregateLeafLayer(session, true);
+    const imageCount = 5_000;
+    const bindingKey = 'seeded-random-z';
+    await layer.bindSceneAsset(bindingKey, {
+      kind: 'source',
+      source: 'https://assets.example.test/seeded-random-z.png',
+    });
+    const initialStore = createZOrderedImageStore(bindingKey, new Int32Array(imageCount));
+    layer.sync(initialStore, { fullRebuildEpoch: 1 });
+    expectImageSlotOrder(
+      layer,
+      Array.from({ length: imageCount }, (_value, slot) => slot),
+    );
+
+    const zIndices = createSeededZIndices(imageCount, 0x5eed_005);
+    const expectedSlots = Array.from({ length: imageCount }, (_value, slot) => slot)
+      .sort((leftSlot, rightSlot) => (
+        (zIndices[leftSlot] ?? 0) - (zIndices[rightSlot] ?? 0) ||
+        leftSlot - rightSlot ||
+        `image-${leftSlot}`.localeCompare(`image-${rightSlot}`)
+      ));
+    expect(expectedSlots).not.toEqual(
+      Array.from({ length: imageCount }, (_value, slot) => slot),
+    );
+    const randomStore = createZOrderedImageStore(bindingKey, zIndices);
+    const removeChildren = vi.spyOn(layer.imageContainer, 'removeChildren');
+    const setChildIndex = vi.spyOn(layer.imageContainer, 'setChildIndex');
+
+    layer.sync(randomStore, {
+      fullRebuildEpoch: 1,
+      changedRanges: [{ start: 0, end: imageCount }],
+    });
+
+    expect(removeChildren).toHaveBeenCalledTimes(1);
+    expect(setChildIndex).not.toHaveBeenCalled();
+    expectImageSlotOrder(layer, expectedSlots);
+    expect(layer.imageContainer.sortableChildren).toBe(false);
+    expect(layer.sceneAssetBindingProbe(bindingKey)).toMatchObject({
+      consumerCount: imageCount,
+      renderObjectCount: imageCount,
+      placeholderCount: 0,
+      renderRole: 'image',
+      reusedResolvedResource: true,
+    });
+    expectImageProbeInvariant(layer, bindingKey, 0);
+    expectImageProbeInvariant(layer, bindingKey, Math.floor(imageCount / 2));
+    expectImageProbeInvariant(layer, bindingKey, imageCount - 1);
+    expect(layer.debugSnapshot()).toMatchObject({
+      imageCount,
+      loadedAssetCount: 1,
+      placeholderCount: 0,
+      staleAttachCount: 0,
+    });
+
+    await layer.destroy();
+  }, 15_000);
+
   it('probes 5,000 shared image consumers from O(1) binding counters', async () => {
     const backend = new DeferredTextureBackend();
     const runtime = new CoreV2AssetRuntime(backend);
@@ -933,6 +1052,60 @@ function createPositionedEqualZImageStore(sources: readonly string[]): RenderSto
     zIndex: new Int32Array(sources.length).fill(7),
     x: Float64Array.from(sources.map((_source, index) => index * 100)),
   };
+}
+
+function createZOrderedImageStore(bindingKey: string, zIndices: Int32Array): RenderStoreView {
+  const store = createImageStoreForSources(
+    Array.from({ length: zIndices.length }, () => bindingKey),
+  );
+  return {
+    ...store,
+    zIndex: zIndices,
+    x: Float64Array.from({ length: zIndices.length }, (_value, slot) => slot),
+  };
+}
+
+function createSeededZIndices(count: number, seed: number): Int32Array {
+  let state = seed >>> 0;
+  return Int32Array.from({ length: count }, () => {
+    state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
+    // A deliberately small range creates many equal-z ties, exercising the
+    // stable-slot ordering rule instead of relying on unique random values.
+    return (state % 97) - 48;
+  });
+}
+
+function expectImageSlotOrder(
+  layer: AggregateLeafLayer,
+  expectedSlots: readonly number[],
+): void {
+  expect(layer.imageContainer.children).toHaveLength(expectedSlots.length);
+  for (let index = 0; index < expectedSlots.length; index += 1) {
+    const expectedSlot = expectedSlots[index];
+    if (expectedSlot === undefined) throw new Error(`missing expected slot at ${index}`);
+    const child = layer.imageContainer.children[index];
+    if (child?.x !== expectedSlot + 5) {
+      throw new Error(
+        `image order mismatch at ${index}: expected slot ${expectedSlot}, got center ${child?.x}`,
+      );
+    }
+  }
+}
+
+function expectImageProbeInvariant(
+  layer: AggregateLeafLayer,
+  bindingKey: string,
+  slot: number,
+): void {
+  expect(layer.sceneImageProbe(`image-${slot}`)).toEqual({
+    entityId: `image-${slot}`,
+    renderObjectCount: 1,
+    role: 'image',
+    bindingKey,
+    bindingGeneration: 1,
+    staleAttachCount: 0,
+    staleCompletionCount: 0,
+  });
 }
 
 function expectImageChildOrder(layer: AggregateLeafLayer, expectedCenters: readonly number[]): void {
