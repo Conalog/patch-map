@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the seven selected render routes and their 74 canonical assertions', () => {
+  it('pins exactly the eight selected render routes and their 100 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -45,11 +45,16 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'REN-002', expectedAssertions: 9 },
       { id: 'LAY-005', expectedAssertions: 14 },
       { id: 'LAY-004', expectedAssertions: 11 },
+      { id: 'REN-007', expectedAssertions: 26 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(74);
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(100);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 100;');
+    expect(source).toContain("'canonical comparison must be 100/100'");
+    expect(source).toContain("'repeat comparison must be 100/100'");
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
     expect(source).toContain('/lab/core-v2?scenario=${caseSpec.id}&size=${DATASET_SIZE}&seed=${SEED}');
+    expect(source).toContain("new URL(page.url()).pathname + new URL(page.url()).search === route");
   });
 
   it('keeps canonical expected data outside the public Lab bridge executor', () => {
