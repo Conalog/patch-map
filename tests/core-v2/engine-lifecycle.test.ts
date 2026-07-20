@@ -38,6 +38,9 @@ class FakeSurface implements CoreV2EngineSurface {
   public loadCount = 0;
   public frameCount = 0;
   public lastInput: unknown = null;
+  public activeGestureCount = 0;
+  public renderCommandCount = 0;
+  public visiblePrimitiveCount = 0;
   public selectionIds: readonly string[] = Object.freeze([]);
   public view: Readonly<{ x: number; y: number; scale: number; rotation: number }> =
     Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
@@ -101,6 +104,9 @@ class FakeSurface implements CoreV2EngineSurface {
       ] as [number, number]),
       selectionIds: this.selectionIds,
       activeAnimationCount: 0,
+      activeGestureCount: this.activeGestureCount,
+      renderCommandCount: this.renderCommandCount,
+      visiblePrimitiveCount: this.visiblePrimitiveCount,
     });
   }
 
@@ -149,9 +155,11 @@ describe('CoreV2Engine lifecycle authority', () => {
       resources: {
         canvasCount: 1,
         renderer: { resolution: 2, antialias: true, background: '#fafafaff', backend: 'webgl' },
+        rendering: { commandCount: 0, visiblePrimitiveCount: 0 },
         subscriptions: { active: 1, duplicates: 0 },
       },
     });
+    expect(engine.semanticProbe().interaction.activeGestureCount).toBe(0);
   });
 
   it('publishes only the newest authoritative async dataset and retains it after a failed later load', async () => {

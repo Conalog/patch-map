@@ -113,6 +113,7 @@ export interface CoreV2RuntimeDebug {
   readonly destroyed: boolean;
   readonly entityCount: number;
   readonly activeAnimations: number;
+  readonly activeGestureCount: number;
   readonly selectionCount: number;
   readonly diagnostics: number;
   readonly renderer: PixiCoreV2RendererDebug;
@@ -502,6 +503,7 @@ export class CoreV2 {
       destroyed: this.destroyedValue,
       entityCount: this.entityCountValue,
       activeAnimations: this.destroyedValue ? 0 : this.scene.activeAnimations,
+      activeGestureCount: this.destroyedValue || this.pan === null ? 0 : 1,
       selectionCount,
       diagnostics: this.diagnostics.length,
       renderer: this.renderer.debugSnapshot(),

@@ -99,6 +99,10 @@ export interface CoreV2SurfaceDebug {
   readonly backingSize: readonly [number, number];
   readonly selectionIds: readonly string[];
   readonly activeAnimationCount: number;
+  /** Public aggregate renderer facts. Injected legacy surfaces may omit them. */
+  readonly activeGestureCount?: number;
+  readonly renderCommandCount?: number;
+  readonly visiblePrimitiveCount?: number;
 }
 
 export interface CoreV2SurfaceEntityGeometry {
@@ -284,6 +288,10 @@ export interface CoreV2EngineSnapshot {
       background: string;
       backend: 'webgl' | 'webgpu';
     }> | null;
+    rendering: Readonly<{
+      commandCount: number | null;
+      visiblePrimitiveCount: number | null;
+    }>;
     subscriptions: Readonly<{ active: number; duplicates: 0 }>;
   }>;
 }
@@ -706,6 +714,10 @@ export class CoreV2Engine {
           backingSize: surfaceDebug.backingSize,
         }),
         renderer: this.rendererConfiguration,
+        rendering: Object.freeze({
+          commandCount: surfaceDebug.renderCommandCount ?? null,
+          visiblePrimitiveCount: surfaceDebug.visiblePrimitiveCount ?? null,
+        }),
         subscriptions: Object.freeze({ active: this.subscriptionCount(), duplicates: 0 }),
       }),
     });
@@ -723,6 +735,9 @@ export class CoreV2Engine {
       interactionMode: 'select',
       selectionIds: surfaceDebug.selectionIds,
       activeAnimationCount: surfaceDebug.activeAnimationCount,
+      ...(surfaceDebug.activeGestureCount === undefined
+        ? {}
+        : { activeGestureCount: surfaceDebug.activeGestureCount }),
       historyDepth: 0,
     });
   }
@@ -992,6 +1007,7 @@ class PixiEngineSurface implements CoreV2EngineSurface {
 
   public debugSnapshot(): CoreV2SurfaceDebug {
     const renderer = this.core.renderer;
+    const runtime = this.core.debugSnapshot();
     const selectionIds = Object.freeze(
       this.core.selection().refs.flatMap((ref) => {
         const entity = this.core.get(ref);
@@ -1006,6 +1022,9 @@ class PixiEngineSurface implements CoreV2EngineSurface {
       ] as [number, number]),
       selectionIds,
       activeAnimationCount: this.core.activeAnimations,
+      activeGestureCount: runtime.activeGestureCount,
+      renderCommandCount: runtime.renderer.aggregateRenderObjects,
+      visiblePrimitiveCount: runtime.renderer.visiblePrimitives,
     });
   }
 
@@ -1066,6 +1085,9 @@ function emptySurfaceDebug(width: number, height: number, pixelRatio: number): C
     ] as [number, number]),
     selectionIds: Object.freeze([] as string[]),
     activeAnimationCount: 0,
+    activeGestureCount: 0,
+    renderCommandCount: 0,
+    visiblePrimitiveCount: 0,
   });
 }
 
