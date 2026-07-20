@@ -111,3 +111,15 @@
 - Separate stable logical descriptor identity from a unique physical backend generation. Fetch every Core-owned source into a Blob URL, borrow only exact simple external cache entries, quarantine failed unloads, and retry cleanup only from the session that released that resource identity.
 - This prevents Pixi URL-cache option collapse, external resource destruction, stale or partly destroyed resource reuse, handleless leases, and unrelated engine cleanup failure while retaining aggregate Sprite and public Assets APIs.
 - AST-001 becomes the renderer-independent asset substrate for REN-005. Default policy permits only the exact package catalog; host transport needs explicit policy, packed FontFace proof and byte/MIME/SVG guards remain later gates, and long reload soak tracks resolver metadata.
+
+**2026-07-20**
+- Standalone image inputs require lossless alias, URL, data-URI, and descriptor identity while Pixi texture completion can race semantic source replacement and destroy.
+- Keep authored source and exact affine geometry in the immutable projection sidecar, bind only visible targets through the scoped AST session, and gate Sprite attachment by target binding plus generation. Pending/failed pixels use an explicit placeholder role; hidden targets allocate no Sprite and root hit testing remains semantic.
+- This preserves stable IDs/component identity, descriptor options, transformed render/hit parity, shared semantic resource reuse, and late-completion cleanup without per-entity listeners, tickers, or authoritative Pixi objects.
+- `REN-005` produces all 28 approved leaves. Three parent-object strict-equality assertions conflict structurally with separately required child leaves, so first/repeat/fresh remain an explicit 25/28 rather than changing expected evidence.
+
+**2026-07-20**
+- Repeated `Container.setChildIndex` calls make adversarial image z-order permutations quadratic even though the semantic comparator is deterministic.
+- Sort image entries by `(zIndex, stable slot, entityId)`, compare once with the public `children` order, and, only when different, use one public `removeChildren()` followed by bounded public `addChild()` batches while keeping `sortableChildren=false`.
+- This retains aggregate Sprite semantics and public Pixi APIs while bounding reorder application to linear work after the required sort. Deterministic 5,000-image reverse and seeded-random/tie tests cover the former worst case without a flaky timing threshold.
+- A local 2-warmup/7-sample development probe observed 5,000-image median/p95 incremental sync of 6.932/8.313 ms reversed and 7.390/8.429 ms random on Darwin; it is diagnostic, not canonical performance evidence or a Windows claim.
