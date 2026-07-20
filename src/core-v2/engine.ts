@@ -9,7 +9,13 @@ import {
 import {
   createCoreV2SemanticProbe,
   type CoreV2SemanticProductProbe,
+  type CoreV2SemanticTarget,
 } from './semantic/probe';
+import {
+  applyCoreV2SemanticPatch,
+  type CoreV2SemanticMutationDiagnostic,
+} from './semantic/mutation';
+import type { CoreV2ReconcileDiagnostic } from './semantic/reconcile';
 import { worldToScreen } from './view';
 
 export type CoreV2Lifecycle =
@@ -126,10 +132,23 @@ export interface CoreV2SurfaceGeometrySnapshot {
   }> | null;
 }
 
+export interface CoreV2SurfaceReconcileResult {
+  readonly status: 'committed' | 'refused';
+  readonly operationCount: number;
+  readonly denseChanged: boolean;
+  readonly diagnostics: readonly CoreV2ReconcileDiagnostic[];
+}
+
 export interface CoreV2EngineSurface {
   readonly canvasCount: number;
   readonly destroyed: boolean;
   load(input: unknown): void;
+  /**
+   * Atomically reconcile a detached PATCH MAP candidate without replacing the
+   * whole dense scene. Older injected surfaces may omit this capability; the
+   * Engine then refuses partial mutation instead of falling back to `load`.
+   */
+  reconcile?(input: unknown): CoreV2SurfaceReconcileResult;
   publishFrame(timeMs: number): void;
   resize(width: number, height: number, pixelRatio: number): boolean;
   setView(view: Readonly<{ x: number; y: number; scale: number; rotation: number }>): void;
@@ -181,6 +200,46 @@ export interface CoreV2EngineLoadResult {
   readonly semanticHash: string;
   readonly rootIds: readonly string[];
 }
+
+interface CoreV2EnginePatchResultBase {
+  readonly changed: boolean;
+  readonly target: CoreV2SemanticTarget | null;
+  readonly previousRevisions: CoreV2RevisionStamp;
+  readonly revisions: CoreV2RevisionStamp;
+  readonly semanticHash: string | null;
+  readonly applied: readonly CoreV2SemanticTarget[];
+  readonly missing: readonly CoreV2SemanticTarget[];
+  readonly unchanged: readonly CoreV2SemanticTarget[];
+}
+
+export type CoreV2EnginePatchResult =
+  | Readonly<CoreV2EnginePatchResultBase & {
+      readonly status: 'committed';
+      readonly changed: true;
+      readonly target: CoreV2SemanticTarget;
+      readonly publication: 'pending';
+      readonly denseOperationCount: number;
+      readonly denseChanged: boolean;
+      readonly reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[];
+    }>
+  | Readonly<CoreV2EnginePatchResultBase & {
+      readonly status: 'unchanged';
+      readonly changed: false;
+      readonly target: CoreV2SemanticTarget;
+    }>
+  | Readonly<CoreV2EnginePatchResultBase & {
+      readonly status: 'rejected';
+      readonly changed: false;
+      readonly diagnostic: CoreV2EngineDiagnostic;
+      readonly mutationDiagnostic: CoreV2SemanticMutationDiagnostic;
+    }>
+  | Readonly<CoreV2EnginePatchResultBase & {
+      readonly status: 'refused';
+      readonly changed: false;
+      readonly target: CoreV2SemanticTarget;
+      readonly diagnostic: CoreV2EngineDiagnostic;
+      readonly reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[];
+    }>;
 
 export interface CoreV2DatasetSubmission {
   readonly requestId: string;
@@ -242,6 +301,7 @@ type CoreV2EngineEventMap = {
     frameRevision: number;
     publishedTuple: CoreV2PublishedTuple;
   }>;
+  readonly change: Extract<CoreV2EnginePatchResult, { readonly status: 'committed' }>;
   readonly diagnostic: CoreV2EngineDiagnostic;
   readonly destroyed: Readonly<{ lifecycleGeneration: number }>;
 };
@@ -250,6 +310,7 @@ type CoreV2EngineEvent = keyof CoreV2EngineEventMap;
 type CoreV2EngineListener<K extends CoreV2EngineEvent> = (event: CoreV2EngineEventMap[K]) => void;
 
 const DEFAULT_ZOOM_LIMITS = Object.freeze([0.5, 30] as const);
+const EMPTY_MATERIALIZED_DATASET = materializeCoreV2Dataset([]);
 const FACILITIES = Object.freeze([
   'renderer',
   'viewport',
@@ -376,6 +437,122 @@ export class CoreV2Engine {
       rootIds: materialized.rootIds,
     });
     this.emit('sceneCommitted', result);
+    return result;
+  }
+
+  /**
+   * Apply one strict partial merge against the current stable logical target.
+   * Semantic authority advances only after the dense surface reports one
+   * successful incremental reconcile; no failure path substitutes a full load.
+   */
+  public patch(target: CoreV2SemanticTarget, patch: unknown): CoreV2EnginePatchResult {
+    const surface = this.requireSurface('patch');
+    const previousRevisions = this.revisionStamp();
+    const mutation = applyCoreV2SemanticPatch(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      target,
+      patch,
+    );
+
+    if (mutation.status === 'rejected') {
+      const diagnostic = this.semanticMutationDiagnostic(mutation.diagnostic, mutation.target);
+      const result = Object.freeze({
+        status: 'rejected',
+        changed: false,
+        target: mutation.target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: mutation.diagnostic.reason === 'missing-target' && mutation.target
+          ? freezeTargets([mutation.target])
+          : EMPTY_TARGETS,
+        unchanged: EMPTY_TARGETS,
+        diagnostic,
+        mutationDiagnostic: mutation.diagnostic,
+      } satisfies CoreV2EnginePatchResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    if (mutation.status === 'unchanged') {
+      return Object.freeze({
+        status: 'unchanged',
+        changed: false,
+        target: mutation.target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: EMPTY_TARGETS,
+        unchanged: freezeTargets([mutation.target]),
+      } satisfies CoreV2EnginePatchResult);
+    }
+
+    if (!surface.reconcile) {
+      return this.refusedPatchResult(
+        mutation.target,
+        previousRevisions,
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        false,
+        EMPTY_RECONCILE_DIAGNOSTICS,
+      );
+    }
+
+    let reconcile: CoreV2SurfaceReconcileResult;
+    try {
+      reconcile = surface.reconcile(mutation.candidate.dataset);
+    } catch (error) {
+      const diagnostic = this.diagnosticFrom(error, 'patch');
+      const result = Object.freeze({
+        status: 'refused',
+        changed: false,
+        target: mutation.target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: EMPTY_TARGETS,
+        unchanged: EMPTY_TARGETS,
+        diagnostic,
+        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+      } satisfies CoreV2EnginePatchResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
+    if (reconcile.status === 'refused') {
+      return this.refusedPatchResult(
+        mutation.target,
+        previousRevisions,
+        'CONFLICT',
+        'CONFLICT',
+        true,
+        reconcileDiagnostics,
+      );
+    }
+
+    this.materialized = mutation.candidate;
+    this.sceneRevision += 1;
+    this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
+    const result = Object.freeze({
+      status: 'committed',
+      changed: true,
+      target: mutation.target,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: mutation.candidate.semanticHash,
+      applied: freezeTargets([mutation.target]),
+      missing: EMPTY_TARGETS,
+      unchanged: EMPTY_TARGETS,
+      publication: 'pending',
+      denseOperationCount: reconcile.operationCount,
+      denseChanged: reconcile.denseChanged,
+      reconcileDiagnostics,
+    } satisfies CoreV2EnginePatchResult);
+    this.emit('change', result);
     return result;
   }
 
@@ -625,6 +802,57 @@ export class CoreV2Engine {
     return this.operationDiagnostic('INTERNAL_FAILURE', 'INTERNAL_FAILURE', operation, false);
   }
 
+  private semanticMutationDiagnostic(
+    diagnostic: CoreV2SemanticMutationDiagnostic,
+    target: CoreV2SemanticTarget | null,
+  ): CoreV2EngineDiagnostic {
+    const mapping = mutationDiagnosticMapping(diagnostic);
+    const base = this.operationDiagnostic(
+      mapping.code,
+      mapping.category,
+      'patch',
+      mapping.recoverable,
+      diagnostic.path,
+    );
+    return Object.freeze({
+      ...base,
+      missingCount: diagnostic.reason === 'missing-target' && target ? 1 : 0,
+    });
+  }
+
+  private refusedPatchResult(
+    target: CoreV2SemanticTarget,
+    previousRevisions: CoreV2RevisionStamp,
+    code: string,
+    category: CoreV2DiagnosticCategory,
+    recoverable: boolean,
+    reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[],
+  ): Extract<CoreV2EnginePatchResult, { readonly status: 'refused' }> {
+    const datasetPath = reconcileDiagnostics.find((entry) => entry.severity === 'error')?.path;
+    const diagnostic = this.operationDiagnostic(
+      code,
+      category,
+      'patch',
+      recoverable,
+      datasetPath,
+    );
+    const result = Object.freeze({
+      status: 'refused',
+      changed: false,
+      target,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: this.materialized?.semanticHash ?? null,
+      applied: EMPTY_TARGETS,
+      missing: EMPTY_TARGETS,
+      unchanged: EMPTY_TARGETS,
+      diagnostic,
+      reconcileDiagnostics,
+    } satisfies CoreV2EnginePatchResult);
+    this.emit('diagnostic', diagnostic);
+    return result;
+  }
+
   private subscriptionCount(): number {
     let count = 0;
     for (const listeners of this.listeners.values()) count += listeners.size;
@@ -725,6 +953,16 @@ class PixiEngineSurface implements CoreV2EngineSurface {
 
   public load(input: unknown): void {
     this.core.load(input);
+  }
+
+  public reconcile(input: unknown): CoreV2SurfaceReconcileResult {
+    const result = this.core.reconcile(input);
+    return Object.freeze({
+      status: result.status,
+      operationCount: result.plan.summary.operationCount,
+      denseChanged: result.facts.denseChanged,
+      diagnostics: freezeReconcileDiagnostics(result.plan.diagnostics),
+    });
   }
 
   public publishFrame(_timeMs: number): void {
@@ -854,6 +1092,46 @@ function packedColorToHex(value: number): string {
   return `#${(value >>> 0).toString(16).padStart(8, '0')}`;
 }
 
+const EMPTY_TARGETS = Object.freeze([] as CoreV2SemanticTarget[]);
+const EMPTY_RECONCILE_DIAGNOSTICS = Object.freeze([] as CoreV2ReconcileDiagnostic[]);
+
+function freezeTargets(values: readonly CoreV2SemanticTarget[]): readonly CoreV2SemanticTarget[] {
+  return Object.freeze([...values]);
+}
+
+function freezeReconcileDiagnostics(
+  values: readonly CoreV2ReconcileDiagnostic[],
+): readonly CoreV2ReconcileDiagnostic[] {
+  return Object.freeze(values.map((diagnostic) => Object.freeze({ ...diagnostic })));
+}
+
+function mutationDiagnosticMapping(
+  diagnostic: CoreV2SemanticMutationDiagnostic,
+): Readonly<{
+  code: string;
+  category: CoreV2DiagnosticCategory;
+  recoverable: boolean;
+}> {
+  switch (diagnostic.reason) {
+    case 'missing-target':
+      return { code: 'MISSING_TARGET', category: 'MISSING_TARGET', recoverable: true };
+    case 'ambiguous-target':
+      return { code: 'INVALID_MUTATION', category: 'INVALID_INPUT', recoverable: true };
+    case 'unsupported-structure':
+      return { code: 'INVALID_MUTATION', category: 'INVALID_INPUT', recoverable: true };
+    case 'invalid-candidate':
+      return {
+        code: diagnostic.datasetCode ?? 'INVALID_MUTATION',
+        category: 'INVALID_INPUT',
+        recoverable: true,
+      };
+    case 'invalid-target':
+      return { code: 'INVALID_MUTATION', category: 'INVALID_INPUT', recoverable: true };
+    case 'invalid-value':
+      return { code: 'INVALID_VALUE', category: 'INVALID_INPUT', recoverable: true };
+  }
+}
+
 export function createCoreV2SurfaceGeometrySnapshot(
   snapshot: SceneSnapshot,
 ): CoreV2SurfaceGeometrySnapshot {
@@ -862,7 +1140,7 @@ export function createCoreV2SurfaceGeometrySnapshot(
     .map((entity) => Object.freeze<CoreV2SurfaceEntityGeometry>({
       id: entity.id,
       kind: entity.kind,
-      worldBounds: freezeBounds(entity.bounds.x, entity.bounds.y, entity.bounds.width, entity.bounds.height),
+      worldBounds: worldBoundsFor(entity.bounds, entity.rotation),
       screenBounds: screenBoundsFor(entity.bounds, entity.rotation, snapshot.view),
       visible: entity.visible,
       interactive: entity.interactive,
@@ -912,6 +1190,21 @@ function screenBoundsFor(
   rotation: number,
   view: Readonly<{ x: number; y: number; scale: number; rotation?: number }>,
 ): readonly [number, number, number, number] {
+  const screen = rotatedWorldCorners(bounds, rotation).map((point) => worldToScreen(point, view));
+  return boundsForPoints(screen);
+}
+
+function worldBoundsFor(
+  bounds: Readonly<{ x: number; y: number; width: number; height: number }>,
+  rotation: number,
+): readonly [number, number, number, number] {
+  return boundsForPoints(rotatedWorldCorners(bounds, rotation));
+}
+
+function rotatedWorldCorners(
+  bounds: Readonly<{ x: number; y: number; width: number; height: number }>,
+  rotation: number,
+): readonly CoreV2Point[] {
   const centerX = bounds.x + bounds.width / 2;
   const centerY = bounds.y + bounds.height / 2;
   const radians = rotation * (Math.PI / 180);
@@ -923,12 +1216,17 @@ function screenBoundsFor(
     [bounds.width / 2, bounds.height / 2],
     [-bounds.width / 2, bounds.height / 2],
   ] as const;
-  const screen = corners.map(([localX, localY]) => worldToScreen({
+  return corners.map(([localX, localY]) => Object.freeze({
     x: centerX + localX * cosine - localY * sine,
     y: centerY + localX * sine + localY * cosine,
-  }, view));
-  const xs = screen.map((point) => point.x);
-  const ys = screen.map((point) => point.y);
+  }));
+}
+
+function boundsForPoints(
+  points: readonly CoreV2Point[],
+): readonly [number, number, number, number] {
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
   const minX = Math.min(...xs);
   const minY = Math.min(...ys);
   return freezeBounds(minX, minY, Math.max(...xs) - minX, Math.max(...ys) - minY);
