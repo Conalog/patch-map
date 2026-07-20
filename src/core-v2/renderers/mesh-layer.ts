@@ -1,4 +1,11 @@
-import { Container, Mesh, MeshGeometry, Texture } from 'pixi.js';
+import {
+  Container,
+  Graphics,
+  GraphicsContext,
+  Mesh,
+  MeshGeometry,
+  Texture,
+} from 'pixi.js';
 
 import type { CoreView, SlotRange } from '../../core-v1/contracts';
 import {
@@ -10,10 +17,13 @@ import {
   createCoreV2ResolvedRenderQuadScratch,
   resolveCoreV2SlotQuad,
   writeCoreV2SlotQuad,
+  type CoreV2EntityPaintProbe,
   type CoreV2ProjectionRenderContext,
   type CoreV2QuadVertices,
+  type CoreV2RenderLaneProbe,
   type CoreV2ResolvedRenderQuadScratch,
 } from './types';
+import type { CoreV2BackgroundPaintProjection } from '../contracts';
 import {
   resolveCoreV2RelationPath,
   type CoreV2RelationEndpointGeometry,
@@ -91,6 +101,13 @@ export interface AggregateMeshLayerDebug {
   readonly chunkSize: number;
   readonly chunkCount: number;
   readonly meshCount: number;
+  readonly backgroundMeshCount: number;
+  readonly backgroundGraphicsObjectCount: number;
+  readonly ordinaryMeshCount: number;
+  readonly relationMeshCount: number;
+  readonly visibleBackgroundPrimitives: number;
+  readonly visibleOrdinaryPrimitives: number;
+  readonly visibleRelationsDynamicPrimitives: number;
   readonly visibleQuads: number;
   readonly visibleRelations: number;
   /** Dirty chunks whose GPU-facing geometry changed in the most recent sync. */
@@ -149,22 +166,31 @@ interface BarSlotBinding {
 }
 
 interface ChunkRecord {
+  readonly backgroundMeshes: Map<string, MeshRecord>;
+  backgroundGraphics: Graphics | null;
+  backgroundGraphicsContext: GraphicsContext | null;
   readonly rectMeshes: Map<string, MeshRecord>;
   readonly barMeshes: Map<string, MeshRecord>;
   readonly relationMeshes: Map<string, MeshRecord>;
   readonly barSlots: number[];
   readonly barBindings: Map<number, BarSlotBinding>;
+  readonly paintEntityIds: Set<string>;
+  visibleBackgrounds: number;
   visibleRects: number;
   visibleBars: number;
   visibleRelations: number;
 }
 
 interface AggregateChunkLaneGeometry {
+  readonly backgroundGroups: readonly AggregateGeometryGroup[];
+  readonly styledBackgrounds: readonly StyledBackgroundPrimitive[];
   readonly rectGroups: readonly AggregateGeometryGroup[];
   readonly barGroups: readonly AggregateGeometryGroup[];
   readonly relationGroups: readonly AggregateGeometryGroup[];
   readonly barSlots: readonly number[];
   readonly barBindings: ReadonlyMap<number, BarSlotBinding>;
+  readonly paintProbes: ReadonlyMap<string, CoreV2EntityPaintProbe>;
+  readonly visibleBackgrounds: number;
   readonly visibleRects: number;
   readonly visibleBars: number;
   readonly visibleRelations: number;
@@ -187,10 +213,26 @@ interface GroupUploadDelta {
   changed: boolean;
 }
 
+interface StyledBackgroundPrimitive {
+  readonly entityId: string;
+  readonly quad: ReturnType<typeof resolveCoreV2SlotQuad>;
+  readonly paint: CoreV2BackgroundPaintProjection;
+  readonly fill: number;
+  readonly borderColor: number;
+  readonly opacity: number;
+}
+
 const EMPTY_DEBUG: AggregateMeshLayerDebug = Object.freeze({
   chunkSize: DEFAULT_AGGREGATE_MESH_CHUNK_SIZE,
   chunkCount: 0,
   meshCount: 0,
+  backgroundMeshCount: 0,
+  backgroundGraphicsObjectCount: 0,
+  ordinaryMeshCount: 0,
+  relationMeshCount: 0,
+  visibleBackgroundPrimitives: 0,
+  visibleOrdinaryPrimitives: 0,
+  visibleRelationsDynamicPrimitives: 0,
   visibleQuads: 0,
   visibleRelations: 0,
   uploadedChunks: 0,
@@ -350,6 +392,90 @@ export function packedRgbaToMeshStyle(packed: number, opacity = 1): PackedMeshSt
     tint: normalized >>> 8,
     alpha: ((normalized & 0xff) / 0xff) * clamp01(opacity),
   };
+}
+
+/** Component tint multiplication in the canonical packed 0xRRGGBBAA space. */
+export function multiplyPackedRgba(left: number, right: number): number {
+  const first = left >>> 0;
+  const second = right >>> 0;
+  const channel = (shift: number): number => Math.round(
+    ((first >>> shift) & 0xff) * ((second >>> shift) & 0xff) / 255,
+  );
+  return (
+    channel(24) * 0x1000000 +
+    (channel(16) << 16) +
+    (channel(8) << 8) +
+    channel(0)
+  ) >>> 0;
+}
+
+export interface CoreV2RoundedRectPathSink {
+  moveTo(x: number, y: number): unknown;
+  lineTo(x: number, y: number): unknown;
+  arcTo(x1: number, y1: number, x2: number, y2: number, radius: number): unknown;
+  closePath(): unknown;
+}
+
+/** Append one public Pixi path while retaining every authored corner independently. */
+export function appendCoreV2RoundedRectPath(
+  sink: CoreV2RoundedRectPathSink,
+  width: number,
+  height: number,
+  radius: readonly [number, number, number, number],
+): void {
+  const [topLeft, topRight, bottomRight, bottomLeft] = fitCoreV2CornerRadii(
+    width,
+    height,
+    radius,
+  );
+  sink.moveTo(topLeft, 0);
+  sink.lineTo(width - topRight, 0);
+  appendRoundedCorner(sink, width, 0, width, topRight, topRight);
+  sink.lineTo(width, height - bottomRight);
+  appendRoundedCorner(sink, width, height, width - bottomRight, height, bottomRight);
+  sink.lineTo(bottomLeft, height);
+  appendRoundedCorner(sink, 0, height, 0, height - bottomLeft, bottomLeft);
+  sink.lineTo(0, topLeft);
+  appendRoundedCorner(sink, 0, 0, topLeft, 0, topLeft);
+  sink.closePath();
+}
+
+/** CSS-compatible proportional fit: all four authored corners retain their ratio. */
+export function fitCoreV2CornerRadii(
+  width: number,
+  height: number,
+  radius: readonly [number, number, number, number],
+): readonly [number, number, number, number] {
+  const [topLeft, topRight, bottomRight, bottomLeft] = radius;
+  const scale = Math.min(
+    1,
+    ratioOrOne(width, topLeft + topRight),
+    ratioOrOne(width, bottomLeft + bottomRight),
+    ratioOrOne(height, topLeft + bottomLeft),
+    ratioOrOne(height, topRight + bottomRight),
+  );
+  return Object.freeze([
+    topLeft * scale,
+    topRight * scale,
+    bottomRight * scale,
+    bottomLeft * scale,
+  ] as const);
+}
+
+function ratioOrOne(available: number, requested: number): number {
+  return requested > 0 ? Math.max(0, available) / requested : 1;
+}
+
+function appendRoundedCorner(
+  sink: CoreV2RoundedRectPathSink,
+  cornerX: number,
+  cornerY: number,
+  nextX: number,
+  nextY: number,
+  radius: number,
+): void {
+  if (radius > 0) sink.arcTo(cornerX, cornerY, nextX, nextY, radius);
+  else sink.lineTo(cornerX, cornerY);
 }
 
 /** Build top-left-addressed quads, rotating around each supplied entity pivot. */
@@ -854,23 +980,113 @@ function buildAggregateChunkLaneGeometry(
   end: number,
   projectionContext?: CoreV2ProjectionRenderContext,
 ): AggregateChunkLaneGeometry {
+  const backgroundGroups = new Map<string, MutableQuadGroup>();
+  const styledBackgrounds: StyledBackgroundPrimitive[] = [];
   const rectGroups = new Map<string, MutableQuadGroup>();
   const barGroups = new Map<string, MutableQuadGroup>();
   const relationGroups = new Map<string, MutableLineGroup>();
   const barSlots: number[] = [];
   const barBindings = new Map<number, BarSlotBinding>();
+  const paintProbes = new Map<string, CoreV2EntityPaintProbe>();
   const resolvedStart = Math.max(0, Math.min(store.capacity, Math.floor(start)));
   const resolvedEnd = Math.max(resolvedStart, Math.min(store.capacity, Math.ceil(end)));
+  let visibleBackgrounds = 0;
   let visibleRects = 0;
   let visibleBars = 0;
   let visibleRelations = 0;
 
   for (let slot = resolvedStart; slot < resolvedEnd; slot += 1) {
     if ((store.alive[slot] as number) === 0) continue;
+    const entityId = store.ids[slot] ?? `@slot:${slot}`;
     const kind = store.kind[slot] as number;
     if (kind === RenderKind.Bar) {
       barSlots.push(slot);
-      visibleBars += appendBarSlot(store, slot, barGroups, barBindings, projectionContext);
+      const primitives = appendBarSlot(store, slot, barGroups, barBindings, projectionContext);
+      visibleBars += primitives;
+      paintProbes.set(entityId, freezeEntityPaintProbe({
+        entityId,
+        lane: 'relations-dynamic',
+        rendererKind: primitives > 0 ? 'mesh' : 'none',
+        primitiveCount: primitives,
+        renderObjectCount: 0,
+        packedTint: null,
+        rgbTint: null,
+        alpha: null,
+      }));
+      continue;
+    }
+    if (
+      kind === RenderKind.Rect &&
+      projectionContext?.index.componentsByEntityId?.[entityId]?.renderRole ===
+        'background-geometry'
+    ) {
+      const paint = projectionContext.index.backgroundsByEntityId?.[entityId];
+      const opacity = store.opacity[slot] as number;
+      const packedFill = paint?.sourceKind === 'rect'
+        ? multiplyPackedRgba(paint.fill, paint.tint)
+        : (store.fill[slot] as number) >>> 0;
+      const fillStyle = packedRgbaToMeshStyle(packedFill, opacity);
+      const packedBorder = paint?.sourceKind === 'rect'
+        ? multiplyPackedRgba(paint.borderColor, paint.tint)
+        : (store.stroke[slot] as number) >>> 0;
+      const borderStyle = packedRgbaToMeshStyle(
+        packedBorder,
+        opacity,
+      );
+      const drawable = isDrawable(store, slot);
+      const styled = paint?.sourceKind === 'rect' && (
+        paint.borderWidth > 0 || paint.radius.some((value) => value > 0)
+      );
+      const visiblePaint = drawable && (
+        fillStyle.alpha > 0 ||
+        (styled === true && paint.borderWidth > 0 && borderStyle.alpha > 0)
+      );
+      let rendererKind: CoreV2EntityPaintProbe['rendererKind'] = 'none';
+      if (visiblePaint) {
+        const quad = resolveCoreV2SlotQuad(store, slot, projectionContext);
+        if (styled && paint) {
+          styledBackgrounds.push({
+            entityId,
+            quad,
+            paint,
+            fill: packedFill,
+            borderColor: packedBorder,
+            opacity,
+          });
+          rendererKind = 'graphics';
+          visibleBackgrounds += 1;
+        } else {
+          const group = getQuadGroup(
+            backgroundGroups,
+            packedFill,
+            opacity,
+            store.zIndex[slot] as number,
+            RECT_PASS,
+          );
+          if (group !== null) {
+            group.primitives.push({
+              x: store.x[slot] as number,
+              y: store.y[slot] as number,
+              width: store.width[slot] as number,
+              height: store.height[slot] as number,
+              rotation: store.rotation[slot] as number,
+              vertices: quad.vertices,
+            });
+            rendererKind = 'mesh';
+            visibleBackgrounds += 1;
+          }
+        }
+      }
+      paintProbes.set(entityId, freezeEntityPaintProbe({
+        entityId,
+        lane: 'background-geometry',
+        rendererKind,
+        primitiveCount: rendererKind === 'none' ? 0 : 1,
+        renderObjectCount: 0,
+        packedTint: packedFill,
+        rgbTint: rendererKind === 'none' ? null : fillStyle.tint,
+        alpha: rendererKind === 'none' ? null : fillStyle.alpha,
+      }));
       continue;
     }
     if (!isDrawable(store, slot)) continue;
@@ -894,6 +1110,17 @@ function buildAggregateChunkLaneGeometry(
           vertices: quad.vertices,
         });
         visibleRects += 1;
+        const style = packedRgbaToMeshStyle(store.fill[slot] as number, opacity);
+        paintProbes.set(entityId, freezeEntityPaintProbe({
+          entityId,
+          lane: 'ordinary-geometry',
+          rendererKind: 'mesh',
+          primitiveCount: 1,
+          renderObjectCount: 0,
+          packedTint: (store.fill[slot] as number) >>> 0,
+          rgbTint: style.tint,
+          alpha: style.alpha,
+        }));
       }
       continue;
     }
@@ -956,9 +1183,24 @@ function buildAggregateChunkLaneGeometry(
     if (group === null) continue;
     group.primitives.push(...lines);
     visibleRelations += 1;
+    const style = packedRgbaToMeshStyle(store.color[slot] as number, opacity);
+    paintProbes.set(entityId, freezeEntityPaintProbe({
+      entityId,
+      lane: 'relations-dynamic',
+      rendererKind: 'mesh',
+      primitiveCount: lines.length,
+      renderObjectCount: 0,
+      packedTint: (store.color[slot] as number) >>> 0,
+      rgbTint: style.tint,
+      alpha: style.alpha,
+    }));
   }
 
   return {
+    backgroundGroups: [...backgroundGroups.values()].map((group) =>
+      geometryGroup(group, buildQuadGeometry(group.primitives)),
+    ),
+    styledBackgrounds,
     rectGroups: [...rectGroups.values()].map((group) =>
       geometryGroup(group, buildQuadGeometry(group.primitives)),
     ),
@@ -970,6 +1212,8 @@ function buildAggregateChunkLaneGeometry(
     ),
     barSlots,
     barBindings,
+    paintProbes,
+    visibleBackgrounds,
     visibleRects,
     visibleBars,
     visibleRelations,
@@ -1017,9 +1261,9 @@ export function buildAggregateChunkGeometry(
 ): AggregateChunkGeometry {
   const built = buildAggregateChunkLaneGeometry(store, start, end, projectionContext);
   return {
-    quadGroups: [...built.rectGroups, ...built.barGroups],
+    quadGroups: [...built.backgroundGroups, ...built.rectGroups, ...built.barGroups],
     relationGroups: built.relationGroups,
-    visibleQuads: built.visibleRects + built.visibleBars,
+    visibleQuads: built.visibleBackgrounds + built.visibleRects + built.visibleBars,
     visibleRelations: built.visibleRelations,
   };
 }
@@ -1031,15 +1275,64 @@ function destroyMeshRecord(record: MeshRecord): void {
 
 function createChunkRecord(): ChunkRecord {
   return {
+    backgroundMeshes: new Map(),
+    backgroundGraphics: null,
+    backgroundGraphicsContext: null,
     rectMeshes: new Map(),
     barMeshes: new Map(),
     relationMeshes: new Map(),
     barSlots: [],
     barBindings: new Map(),
+    paintEntityIds: new Set(),
+    visibleBackgrounds: 0,
     visibleRects: 0,
     visibleBars: 0,
     visibleRelations: 0,
   };
+}
+
+function freezeEntityPaintProbe(
+  probe: CoreV2EntityPaintProbe,
+): CoreV2EntityPaintProbe {
+  return Object.freeze({ ...probe });
+}
+
+function appendStyledBackground(
+  context: GraphicsContext,
+  primitive: StyledBackgroundPrimitive,
+): void {
+  const projection = primitive.quad.projection;
+  const localWidth = projection?.localBounds[2] ?? primitive.quad.width;
+  const localHeight = projection?.localBounds[3] ?? primitive.quad.height;
+  if (!(localWidth > 0) || !(localHeight > 0)) return;
+  const scaleX = primitive.quad.width / localWidth;
+  const scaleY = primitive.quad.height / localHeight;
+  const [basisA, basisB, basisC, basisD] = primitive.quad.basis;
+  const [topLeftX, topLeftY] = primitive.quad.vertices;
+  const fill = packedRgbaToMeshStyle(primitive.fill, primitive.opacity);
+  const stroke = packedRgbaToMeshStyle(primitive.borderColor, primitive.opacity);
+
+  context.save();
+  context.setTransform(
+    basisA * scaleX,
+    basisB * scaleX,
+    basisC * scaleY,
+    basisD * scaleY,
+    topLeftX,
+    topLeftY,
+  );
+  context.beginPath();
+  appendCoreV2RoundedRectPath(context, localWidth, localHeight, primitive.paint.radius);
+  if (fill.alpha > 0) context.fill({ color: fill.tint, alpha: fill.alpha });
+  if (primitive.paint.borderWidth > 0 && stroke.alpha > 0) {
+    context.stroke({
+      width: primitive.paint.borderWidth,
+      color: stroke.tint,
+      alpha: stroke.alpha,
+      alignment: 0.5,
+    });
+  }
+  context.restore();
 }
 
 /**
@@ -1053,6 +1346,10 @@ function createChunkRecord(): ChunkRecord {
  */
 export class AggregateMeshLayer {
   public readonly container: Container;
+  public readonly backgroundGeometryContainer: Container;
+  public readonly ordinaryGeometryContainer: Container;
+  public readonly relationsDynamicContainer: Container;
+  /** Compatibility aliases retained for existing renderer tests and consumers. */
   public readonly quadContainer: Container;
   public readonly relationContainer: Container;
   public readonly chunkSize: number;
@@ -1060,6 +1357,7 @@ export class AggregateMeshLayer {
   readonly #baseLabel: string;
   readonly #applyStoreView: boolean;
   readonly #chunks = new Map<number, ChunkRecord>();
+  readonly #paintProbesByEntityId = new Map<string, CoreV2EntityPaintProbe>();
   #lastStore: RenderStoreView | null = null;
   #lastCapacity = 0;
   #lastRevision = -1;
@@ -1082,14 +1380,22 @@ export class AggregateMeshLayer {
     this.#baseLabel = options.label ?? 'PATCH MAP Core v2 aggregate mesh';
     this.#applyStoreView = options.applyStoreView ?? true;
     this.container = new Container({ label: this.#baseLabel });
-    this.quadContainer = new Container({ label: `${this.#baseLabel}: rect/bar` });
-    this.relationContainer = new Container({ label: `${this.#baseLabel}: relations` });
+    this.backgroundGeometryContainer = new Container({
+      label: 'PATCH MAP Core v2 / background geometry (0)',
+    });
+    this.ordinaryGeometryContainer = new Container({ label: `${this.#baseLabel}: rect/bar` });
+    this.relationsDynamicContainer = new Container({ label: `${this.#baseLabel}: relations` });
+    this.quadContainer = this.ordinaryGeometryContainer;
+    this.relationContainer = this.relationsDynamicContainer;
     this.container.eventMode = 'none';
+    this.backgroundGeometryContainer.eventMode = 'none';
     this.quadContainer.eventMode = 'none';
     this.relationContainer.eventMode = 'none';
+    this.backgroundGeometryContainer.interactiveChildren = false;
     this.quadContainer.sortableChildren = true;
     this.relationContainer.sortableChildren = true;
-    this.container.addChild(this.relationContainer, this.quadContainer);
+    this.backgroundGeometryContainer.sortableChildren = true;
+    this.container.addChild(this.quadContainer, this.relationContainer);
     this.#debug = Object.freeze({ ...EMPTY_DEBUG, chunkSize });
   }
 
@@ -1103,6 +1409,38 @@ export class AggregateMeshLayer {
 
   public getDebugStats(): AggregateMeshLayerDebug {
     return this.#debug;
+  }
+
+  public entityPaintProbe(entityId: string): CoreV2EntityPaintProbe | null {
+    return this.#paintProbesByEntityId.get(entityId) ?? null;
+  }
+
+  public renderLaneProbe(): Readonly<{
+    readonly backgroundGeometry: CoreV2RenderLaneProbe;
+    readonly ordinaryGeometry: CoreV2RenderLaneProbe;
+    readonly relationsDynamic: CoreV2RenderLaneProbe;
+  }> {
+    return Object.freeze({
+      backgroundGeometry: Object.freeze({
+        role: 'background-geometry',
+        label: this.backgroundGeometryContainer.label,
+        renderObjectCount:
+          this.#debug.backgroundMeshCount + this.#debug.backgroundGraphicsObjectCount,
+        visiblePrimitiveCount: this.#debug.visibleBackgroundPrimitives,
+      }),
+      ordinaryGeometry: Object.freeze({
+        role: 'ordinary-geometry',
+        label: this.ordinaryGeometryContainer.label,
+        renderObjectCount: this.#debug.ordinaryMeshCount,
+        visiblePrimitiveCount: this.#debug.visibleOrdinaryPrimitives,
+      }),
+      relationsDynamic: Object.freeze({
+        role: 'relations-dynamic',
+        label: this.relationsDynamicContainer.label,
+        renderObjectCount: this.#debug.relationMeshCount,
+        visiblePrimitiveCount: this.#debug.visibleRelationsDynamicPrimitives,
+      }),
+    });
   }
 
   public setView(view: CoreView): boolean {
@@ -1122,6 +1460,9 @@ export class AggregateMeshLayer {
       return false;
     }
     this.#view = Object.freeze(next);
+    this.backgroundGeometryContainer.position.set(next.x, next.y);
+    this.backgroundGeometryContainer.scale.set(next.scale);
+    this.backgroundGeometryContainer.angle = next.rotation;
     this.container.position.set(next.x, next.y);
     this.container.scale.set(next.scale);
     this.container.angle = next.rotation;
@@ -1187,18 +1528,42 @@ export class AggregateMeshLayer {
     if (this.#applyStoreView) this.setView(store.view);
 
     let meshCount = 0;
+    let backgroundMeshCount = 0;
+    let backgroundGraphicsObjectCount = 0;
+    let ordinaryMeshCount = 0;
+    let relationMeshCount = 0;
+    let visibleBackgroundPrimitives = 0;
+    let visibleOrdinaryPrimitives = 0;
+    let visibleRelationsDynamicPrimitives = 0;
     let visibleQuads = 0;
     let visibleRelations = 0;
     for (const chunk of this.#chunks.values()) {
-      meshCount +=
-        chunk.rectMeshes.size + chunk.barMeshes.size + chunk.relationMeshes.size;
-      visibleQuads += chunk.visibleRects + chunk.visibleBars;
+      backgroundMeshCount += chunk.backgroundMeshes.size;
+      backgroundGraphicsObjectCount += chunk.backgroundGraphics === null ? 0 : 1;
+      ordinaryMeshCount += chunk.rectMeshes.size;
+      relationMeshCount += chunk.barMeshes.size + chunk.relationMeshes.size;
+      visibleBackgroundPrimitives += chunk.visibleBackgrounds;
+      visibleOrdinaryPrimitives += chunk.visibleRects;
+      visibleRelationsDynamicPrimitives += chunk.visibleBars + chunk.visibleRelations;
+      visibleQuads += chunk.visibleBackgrounds + chunk.visibleRects + chunk.visibleBars;
       visibleRelations += chunk.visibleRelations;
     }
+    meshCount =
+      backgroundMeshCount +
+      backgroundGraphicsObjectCount +
+      ordinaryMeshCount +
+      relationMeshCount;
     this.#debug = Object.freeze({
       chunkSize: this.chunkSize,
       chunkCount: this.#chunks.size,
       meshCount,
+      backgroundMeshCount,
+      backgroundGraphicsObjectCount,
+      ordinaryMeshCount,
+      relationMeshCount,
+      visibleBackgroundPrimitives,
+      visibleOrdinaryPrimitives,
+      visibleRelationsDynamicPrimitives,
       visibleQuads,
       visibleRelations,
       uploadedChunks,
@@ -1209,9 +1574,14 @@ export class AggregateMeshLayer {
       revision: store.revision,
       fullRebuildEpoch: this.#fullRebuildEpoch ?? -1,
     });
-    this.container.label = `${this.#baseLabel} (${meshCount} meshes)`;
-    this.quadContainer.label = `${this.#baseLabel}: rect/bar (${visibleQuads})`;
-    this.relationContainer.label = `${this.#baseLabel}: relations (${visibleRelations})`;
+    this.container.label =
+      `${this.#baseLabel} (${ordinaryMeshCount + relationMeshCount} meshes)`;
+    this.backgroundGeometryContainer.label =
+      `PATCH MAP Core v2 / background geometry (${visibleBackgroundPrimitives})`;
+    this.quadContainer.label =
+      `${this.#baseLabel}: rect/bar (${visibleOrdinaryPrimitives})`;
+    this.relationContainer.label =
+      `${this.#baseLabel}: relations/dynamic (${visibleRelationsDynamicPrimitives})`;
     return this.#debug;
   }
 
@@ -1224,10 +1594,18 @@ export class AggregateMeshLayer {
     this.#lastRevision = -1;
     this.#previousAlive = new Uint8Array(0);
     this.#previousKind = new Uint8Array(0);
+    this.#paintProbesByEntityId.clear();
     this.#debug = Object.freeze({
       ...this.#debug,
       chunkCount: 0,
       meshCount: 0,
+      backgroundMeshCount: 0,
+      backgroundGraphicsObjectCount: 0,
+      ordinaryMeshCount: 0,
+      relationMeshCount: 0,
+      visibleBackgroundPrimitives: 0,
+      visibleOrdinaryPrimitives: 0,
+      visibleRelationsDynamicPrimitives: 0,
       visibleQuads: 0,
       visibleRelations: 0,
       uploadedChunks: 0,
@@ -1241,6 +1619,7 @@ export class AggregateMeshLayer {
   public destroy(): boolean {
     if (this.#destroyed) return false;
     this.clear();
+    this.backgroundGeometryContainer.destroy();
     this.quadContainer.destroy();
     this.relationContainer.destroy();
     this.container.destroy();
@@ -1297,10 +1676,13 @@ export class AggregateMeshLayer {
     );
     let chunk = this.#chunks.get(chunkIndex);
     if (
+      built.backgroundGroups.length === 0 &&
+      built.styledBackgrounds.length === 0 &&
       built.rectGroups.length === 0 &&
       built.barGroups.length === 0 &&
       built.relationGroups.length === 0 &&
-      built.barSlots.length === 0
+      built.barSlots.length === 0 &&
+      built.paintProbes.size === 0
     ) {
       const changed = chunk !== undefined;
       if (changed) this.#destroyChunk(chunkIndex);
@@ -1311,6 +1693,22 @@ export class AggregateMeshLayer {
       this.#chunks.set(chunkIndex, chunk);
     }
 
+    for (const entityId of chunk.paintEntityIds) this.#paintProbesByEntityId.delete(entityId);
+    chunk.paintEntityIds.clear();
+
+    const backgroundDelta = this.#syncGroups(
+      this.backgroundGeometryContainer,
+      chunk.backgroundMeshes,
+      built.backgroundGroups,
+      chunkIndex,
+      'background',
+    );
+    const backgroundGraphicsChanged = this.#syncBackgroundGraphics(
+      chunk,
+      built.styledBackgrounds,
+      chunkIndex,
+    );
+
     const rectDelta = this.#syncGroups(
       this.quadContainer,
       chunk.rectMeshes,
@@ -1319,7 +1717,7 @@ export class AggregateMeshLayer {
       'rect',
     );
     const barDelta = this.#syncGroups(
-      this.quadContainer,
+      this.relationContainer,
       chunk.barMeshes,
       built.barGroups,
       chunkIndex,
@@ -1333,6 +1731,7 @@ export class AggregateMeshLayer {
       'relation',
     );
     chunk.visibleRects = built.visibleRects;
+    chunk.visibleBackgrounds = built.visibleBackgrounds;
     chunk.visibleBars = built.visibleBars;
     chunk.visibleRelations = built.visibleRelations;
     chunk.barSlots.length = 0;
@@ -1341,9 +1740,19 @@ export class AggregateMeshLayer {
     for (const [slot, binding] of built.barBindings) {
       chunk.barBindings.set(slot, binding);
     }
+    for (const [entityId, probe] of built.paintProbes) {
+      chunk.paintEntityIds.add(entityId);
+      this.#paintProbesByEntityId.set(entityId, probe);
+    }
     return {
-      bytes: rectDelta.bytes + barDelta.bytes + relationDelta.bytes,
-      changed: rectDelta.changed || barDelta.changed || relationDelta.changed,
+      bytes:
+        backgroundDelta.bytes + rectDelta.bytes + barDelta.bytes + relationDelta.bytes,
+      changed:
+        backgroundDelta.changed ||
+        backgroundGraphicsChanged ||
+        rectDelta.changed ||
+        barDelta.changed ||
+        relationDelta.changed,
       visitedSlots: end - start,
     };
   }
@@ -1405,7 +1814,7 @@ export class AggregateMeshLayer {
       this.#projectionContext,
     );
     const delta = this.#syncGroups(
-      this.quadContainer,
+      this.relationContainer,
       chunk.barMeshes,
       built.groups,
       chunkIndex,
@@ -1417,6 +1826,39 @@ export class AggregateMeshLayer {
       chunk.barBindings.set(slot, binding);
     }
     return { ...delta, visitedSlots: chunk.barSlots.length };
+  }
+
+  #syncBackgroundGraphics(
+    chunk: ChunkRecord,
+    primitives: readonly StyledBackgroundPrimitive[],
+    chunkIndex: number,
+  ): boolean {
+    if (primitives.length === 0) {
+      if (chunk.backgroundGraphics === null) return false;
+      chunk.backgroundGraphics.destroy({ context: false });
+      chunk.backgroundGraphicsContext?.destroy();
+      chunk.backgroundGraphics = null;
+      chunk.backgroundGraphicsContext = null;
+      return true;
+    }
+
+    const context = new GraphicsContext();
+    context.batchMode = 'auto';
+    for (const primitive of primitives) appendStyledBackground(context, primitive);
+
+    if (chunk.backgroundGraphics === null) {
+      const graphics = new Graphics({ context });
+      graphics.label = `${this.#baseLabel}: styled background chunk ${chunkIndex}`;
+      graphics.eventMode = 'none';
+      graphics.zIndex = chunkIndex;
+      this.backgroundGeometryContainer.addChild(graphics);
+      chunk.backgroundGraphics = graphics;
+    } else {
+      chunk.backgroundGraphics.context = context;
+    }
+    chunk.backgroundGraphicsContext?.destroy();
+    chunk.backgroundGraphicsContext = context;
+    return true;
   }
 
   #syncGroups(
@@ -1481,6 +1923,10 @@ export class AggregateMeshLayer {
   #destroyChunk(chunkIndex: number): void {
     const chunk = this.#chunks.get(chunkIndex);
     if (chunk === undefined) return;
+    for (const entityId of chunk.paintEntityIds) this.#paintProbesByEntityId.delete(entityId);
+    for (const record of chunk.backgroundMeshes.values()) destroyMeshRecord(record);
+    chunk.backgroundGraphics?.destroy({ context: false });
+    chunk.backgroundGraphicsContext?.destroy();
     for (const record of chunk.rectMeshes.values()) destroyMeshRecord(record);
     for (const record of chunk.barMeshes.values()) destroyMeshRecord(record);
     for (const record of chunk.relationMeshes.values()) destroyMeshRecord(record);

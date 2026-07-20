@@ -36,6 +36,10 @@ import {
 } from '../assets';
 import type {
   CoreV2BackendPreference,
+  CoreV2EntityPaintProbe,
+  CoreV2RenderLaneProbe,
+  CoreV2RenderLaneRole,
+  CoreV2RenderLaneSnapshot,
   CoreV2RendererStrategy,
   PixiCoreV2RendererDebug,
   RootInteractionHandlers,
@@ -100,6 +104,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
 
   private readonly aggregate: AggregateLayer;
   private readonly leaves: AggregateLeafLayer;
+  private readonly backgroundGeometryLane: Container;
   private readonly selectionOverlay: Graphics;
   private readonly selectedSlots = new Set<number>();
   private readonly target: HTMLElement | undefined;
@@ -125,6 +130,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private destroyedValue = false;
   private synchronizeOnly = false;
   private lastDebug: PixiCoreV2RendererDebug;
+  private lastLaneProbe: CoreV2RenderLaneSnapshot;
   private lastAggregateResult: AggregateResult = {
     renderObjects: 0,
     visiblePrimitives: 0,
@@ -160,6 +166,11 @@ export class PixiCoreV2Renderer implements CoreRenderer {
           applyStoreView: false,
         })
       : new ParticleGraphicsLayer({ label: 'PATCH MAP Core v2 / particle graphics' });
+    this.backgroundGeometryLane = this.aggregate instanceof AggregateMeshLayer
+      ? this.aggregate.backgroundGeometryContainer
+      : new Container({ label: 'PATCH MAP Core v2 / background geometry unsupported (0)' });
+    this.backgroundGeometryLane.eventMode = 'none';
+    this.backgroundGeometryLane.interactiveChildren = false;
     const leafSession = options.assetSession ?? createCoreV2LeafAssetSession(options.assetPolicy);
     this.leaves = new AggregateLeafLayer(
       leafSession,
@@ -177,7 +188,14 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     );
     this.selectionOverlay = new Graphics({ label: 'PATCH MAP Core v2 / interaction overlay' });
     this.selectionOverlay.eventMode = 'none';
-    this.world.addChild(this.aggregate.container, this.leaves.container, this.selectionOverlay);
+    this.world.addChild(
+      this.backgroundGeometryLane,
+      this.leaves.backgroundAssetContainer,
+      this.aggregate.container,
+      this.leaves.contentAssetContainer,
+      this.leaves.textContainer,
+      this.selectionOverlay,
+    );
     this.application.stage.label = 'PATCH MAP Core v2';
     this.application.stage.eventMode = 'static';
     this.application.stage.interactiveChildren = false;
@@ -194,6 +212,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       rendererBuildMs,
     });
     this.lastDebug = this.emptyDebug();
+    this.lastLaneProbe = this.emptyLaneProbe();
   }
 
   public static async create(options: PixiCoreV2RendererOptions = {}): Promise<PixiCoreV2Renderer> {
@@ -411,6 +430,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.pendingRanges = [];
     this.pendingOverlayRanges = [];
     const overlayCount = this.selectedSlots.size > 0 ? 1 : 0;
+    this.lastLaneProbe = this.buildLaneProbe(overlayCount);
     this.lastDebug = Object.freeze({
       strategy: this.strategy,
       backend: backendName(this.application),
@@ -500,6 +520,18 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     return this.leaves.sceneImageProbe(entityId);
   }
 
+  public renderLaneProbe(): CoreV2RenderLaneSnapshot {
+    return this.lastLaneProbe;
+  }
+
+  public entityPaintProbe(entityId: string): CoreV2EntityPaintProbe | null {
+    const leaf = this.leaves.entityPaintProbe(entityId);
+    if (leaf !== null) return leaf;
+    return this.aggregate instanceof AggregateMeshLayer
+      ? this.aggregate.entityPaintProbe(entityId)
+      : null;
+  }
+
   public async captureBase64(): Promise<string> {
     this.assertAlive();
     return this.application.renderer.extract.base64({ target: this.application.stage, format: 'png' });
@@ -551,11 +583,23 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   public destroy(): boolean {
     if (this.destroyedValue) return false;
     this.destroyedValue = true;
+    this.lastLaneProbe = freezeLaneSnapshot([
+      ['background-geometry', this.backgroundGeometryLane.label],
+      ['background-assets', this.leaves.backgroundAssetContainer.label],
+      ['ordinary-geometry', this.aggregate.container.label],
+      ['relations-dynamic', this.aggregate.container.label],
+      ['content-assets', this.leaves.contentAssetContainer.label],
+      ['text', this.leaves.textContainer.label],
+      ['interaction-overlay', this.selectionOverlay.label],
+    ]);
     this.interactionUnbind?.();
     this.interactionUnbind = null;
     this.application.stage.removeChild(this.world);
     this.world.removeChildren();
     this.aggregate.destroy();
+    if (!(this.aggregate instanceof AggregateMeshLayer)) {
+      this.backgroundGeometryLane.destroy();
+    }
     this.selectionOverlay.destroy();
     this.cleanupPromise = this.leaves.destroy();
     this.world.destroy();
@@ -673,6 +717,65 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     });
   }
 
+  private emptyLaneProbe(): CoreV2RenderLaneSnapshot {
+    return freezeLaneSnapshot([
+      ['background-geometry', this.backgroundGeometryLane.label],
+      ['background-assets', this.leaves.backgroundAssetContainer.label],
+      ['ordinary-geometry', this.aggregate.container.label],
+      ['relations-dynamic', this.aggregate.container.label],
+      ['content-assets', this.leaves.contentAssetContainer.label],
+      ['text', this.leaves.textContainer.label],
+      ['interaction-overlay', this.selectionOverlay.label],
+    ]);
+  }
+
+  private buildLaneProbe(overlayCount: number): CoreV2RenderLaneSnapshot {
+    const leaves = this.leaves.renderLaneProbe();
+    let backgroundGeometry: CoreV2RenderLaneProbe;
+    let ordinaryGeometry: CoreV2RenderLaneProbe;
+    let relationsDynamic: CoreV2RenderLaneProbe;
+    if (this.aggregate instanceof AggregateMeshLayer) {
+      const aggregate = this.aggregate.renderLaneProbe();
+      backgroundGeometry = aggregate.backgroundGeometry;
+      ordinaryGeometry = aggregate.ordinaryGeometry;
+      relationsDynamic = aggregate.relationsDynamic;
+    } else {
+      const debug = this.aggregate.debugCounters;
+      backgroundGeometry = freezeLane(
+        'background-geometry',
+        this.backgroundGeometryLane.label,
+        0,
+        0,
+      );
+      ordinaryGeometry = freezeLane(
+        'ordinary-geometry',
+        `${this.aggregate.container.label} / static+fallback`,
+        2,
+        debug.staticParticleCount + debug.fallbackShapeCount,
+      );
+      relationsDynamic = freezeLane(
+        'relations-dynamic',
+        `${this.aggregate.container.label} / relations+dynamic`,
+        2,
+        debug.dynamicParticleCount + debug.relationSegmentCount,
+      );
+    }
+    return Object.freeze({
+      'background-geometry': backgroundGeometry,
+      'background-assets': leaves.backgroundAssets,
+      'ordinary-geometry': ordinaryGeometry,
+      'relations-dynamic': relationsDynamic,
+      'content-assets': leaves.contentAssets,
+      text: leaves.text,
+      'interaction-overlay': freezeLane(
+        'interaction-overlay',
+        this.selectionOverlay.label,
+        overlayCount,
+        this.selectedSlots.size,
+      ),
+    });
+  }
+
   private projectionContext(): CoreV2ProjectionRenderContext {
     return Object.freeze({
       index: this.projectionIndex,
@@ -773,8 +876,24 @@ export function projectionChangedRanges(
     const imageChanged = before.imagesByEntityId?.[id] !== after.imagesByEntityId?.[id] &&
       JSON.stringify(before.imagesByEntityId?.[id]) !==
         JSON.stringify(after.imagesByEntityId?.[id]);
+    const componentChanged =
+      before.componentsByEntityId?.[id] !== after.componentsByEntityId?.[id] &&
+      JSON.stringify(before.componentsByEntityId?.[id]) !==
+        JSON.stringify(after.componentsByEntityId?.[id]);
+    const backgroundChanged =
+      before.backgroundsByEntityId?.[id] !== after.backgroundsByEntityId?.[id] &&
+      JSON.stringify(before.backgroundsByEntityId?.[id]) !==
+        JSON.stringify(after.backgroundsByEntityId?.[id]);
     if (entityChanged) changedEndpointIds.add(id);
-    if (entityChanged || relationChanged || imageChanged) slots.push(slot);
+    if (
+      entityChanged ||
+      relationChanged ||
+      imageChanged ||
+      componentChanged ||
+      backgroundChanged
+    ) {
+      slots.push(slot);
+    }
   }
   if (changedEndpointIds.size > 0) {
     for (let slot = 0; slot < store.capacity; slot += 1) {
@@ -948,6 +1067,23 @@ function packedRgb(value: number): number {
 
 function packedAlpha(value: number): number {
   return (value & 0xff) / 255;
+}
+
+function freezeLane(
+  role: CoreV2RenderLaneRole,
+  label: string,
+  renderObjectCount: number,
+  visiblePrimitiveCount: number,
+): CoreV2RenderLaneProbe {
+  return Object.freeze({ role, label, renderObjectCount, visiblePrimitiveCount });
+}
+
+function freezeLaneSnapshot(
+  lanes: readonly (readonly [CoreV2RenderLaneRole, string])[],
+): CoreV2RenderLaneSnapshot {
+  const result = Object.create(null) as Record<CoreV2RenderLaneRole, CoreV2RenderLaneProbe>;
+  for (const [role, label] of lanes) result[role] = freezeLane(role, label, 0, 0);
+  return Object.freeze(result);
 }
 
 function positive(value: number, name: string): number {

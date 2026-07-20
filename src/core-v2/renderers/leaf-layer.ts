@@ -24,15 +24,20 @@ import {
 import type { CoreV2AssetSource } from '../semantic/dataset';
 import {
   resolveCoreV2SlotQuad,
+  type CoreV2EntityPaintProbe,
   type CoreV2ProjectionRenderContext,
+  type CoreV2RenderLaneProbe,
   type CoreV2ResolvedRenderQuad,
 } from './types';
 
 interface TextEntry {
   readonly object: BitmapText | Text;
   readonly bitmap: boolean;
+  readonly entityId: string;
   styleSignature: string;
 }
+
+type LeafImageLane = 'background-assets' | 'content-assets';
 
 interface ImageEntry {
   readonly object: Sprite;
@@ -40,6 +45,7 @@ interface ImageEntry {
   readonly bindingKey: string;
   readonly bindingGeneration: number;
   readonly role: Exclude<LeafAssetRenderRole, 'none'>;
+  readonly lane: LeafImageLane;
 }
 
 export type LeafAssetSourceKind = 'alias' | 'url' | 'data-uri' | 'descriptor';
@@ -147,14 +153,20 @@ const IMAGE_CHILD_APPEND_BATCH_SIZE = 1_024;
 
 export class AggregateLeafLayer {
   public readonly container = new Container({ label: 'core-v2:text-and-assets' });
-  public readonly textContainer = new Container({ label: 'core-v2:text' });
-  public readonly imageContainer = new Container({
-    label: 'core-v2:assets',
+  public readonly backgroundAssetContainer = new Container({
+    label: 'PATCH MAP Core v2 / background assets (0)',
+    sortableChildren: false,
+  });
+  public readonly contentAssetContainer = new Container({
+    label: 'PATCH MAP Core v2 / content assets (0)',
     // Child order is maintained explicitly by semantic zIndex and stable slot.
     // Pixi's z-only sorting cannot provide the entity tie-breaker needed when
     // a pending Sprite is replaced after its equal-z siblings were inserted.
     sortableChildren: false,
   });
+  /** Compatibility alias: pre-component images are content assets. */
+  public readonly imageContainer = this.contentAssetContainer;
+  public readonly textContainer = new Container({ label: 'PATCH MAP Core v2 / text (0)' });
 
   private readonly texts = new Map<number, TextEntry>();
   private readonly images = new Map<number, ImageEntry>();
@@ -162,6 +174,7 @@ export class AggregateLeafLayer {
   private readonly imageSlotsByBinding = new Map<string, Set<number>>();
   private readonly imageEntityIdBySlot = new Map<number, string>();
   private readonly imageProbesByEntityId = new Map<string, LeafSceneImageProbe>();
+  private readonly paintProbesByEntityId = new Map<string, CoreV2EntityPaintProbe>();
   private readonly bindings = new Map<string, LeafAssetBinding>();
   private readonly framePendingAssetReleases: CoreV2AssetAcquisition[] = [];
   private readonly readyAssetReleases: CoreV2AssetAcquisition[] = [];
@@ -170,7 +183,7 @@ export class AggregateLeafLayer {
   private nextBindingGeneration = 0;
   private staleCompletionCount = 0;
   private storeEpoch = -1;
-  private imageOrderDirty = false;
+  private readonly dirtyImageLanes = new Set<LeafImageLane>();
   private destroyed = false;
 
   public constructor(
@@ -182,10 +195,17 @@ export class AggregateLeafLayer {
     this.container.interactiveChildren = false;
     this.textContainer.eventMode = 'none';
     this.textContainer.interactiveChildren = false;
-    this.imageContainer.eventMode = 'none';
-    this.imageContainer.interactiveChildren = false;
-    this.imageContainer.sortableChildren = false;
-    this.container.addChild(this.imageContainer, this.textContainer);
+    this.backgroundAssetContainer.eventMode = 'none';
+    this.backgroundAssetContainer.interactiveChildren = false;
+    this.backgroundAssetContainer.sortableChildren = false;
+    this.contentAssetContainer.eventMode = 'none';
+    this.contentAssetContainer.interactiveChildren = false;
+    this.contentAssetContainer.sortableChildren = false;
+    this.container.addChild(
+      this.backgroundAssetContainer,
+      this.contentAssetContainer,
+      this.textContainer,
+    );
   }
 
   /**
@@ -272,6 +292,34 @@ export class AggregateLeafLayer {
     return this.imageProbesByEntityId.get(entityId) ?? null;
   }
 
+  public entityPaintProbe(entityId: string): CoreV2EntityPaintProbe | null {
+    return this.paintProbesByEntityId.get(entityId) ?? null;
+  }
+
+  public renderLaneProbe(): Readonly<{
+    readonly backgroundAssets: CoreV2RenderLaneProbe;
+    readonly contentAssets: CoreV2RenderLaneProbe;
+    readonly text: CoreV2RenderLaneProbe;
+  }> {
+    return Object.freeze({
+      backgroundAssets: freezeLaneProbe(
+        'background-assets',
+        this.backgroundAssetContainer.label,
+        this.backgroundAssetContainer.children.length,
+      ),
+      contentAssets: freezeLaneProbe(
+        'content-assets',
+        this.contentAssetContainer.label,
+        this.contentAssetContainer.children.length,
+      ),
+      text: freezeLaneProbe(
+        'text',
+        this.textContainer.label,
+        this.textContainer.children.length,
+      ),
+    });
+  }
+
   /** Compatibility seam for host-driven alias-to-URL preloads. */
   public async loadAsset(alias: string, url: string): Promise<void> {
     const cleanAlias = nonempty(alias, 'asset alias');
@@ -345,6 +393,11 @@ export class AggregateLeafLayer {
     }
     this.sortImageChildren();
     this.dirtyAssetSlots.clear();
+    this.backgroundAssetContainer.label =
+      `PATCH MAP Core v2 / background assets (${this.backgroundAssetContainer.children.length})`;
+    this.contentAssetContainer.label =
+      `PATCH MAP Core v2 / content assets (${this.contentAssetContainer.children.length})`;
+    this.textContainer.label = `PATCH MAP Core v2 / text (${this.textContainer.children.length})`;
     return this.debugSnapshot();
   }
 
@@ -403,8 +456,11 @@ export class AggregateLeafLayer {
     this.nextBindingGeneration = 0;
     this.staleCompletionCount = 0;
     this.storeEpoch = -1;
-    this.imageOrderDirty = false;
-    this.container.destroy({ children: true });
+    this.dirtyImageLanes.clear();
+    this.backgroundAssetContainer.destroy();
+    this.contentAssetContainer.destroy();
+    this.textContainer.destroy();
+    this.container.destroy();
     const settlements = await Promise.allSettled(
       [...acquisitions].map(async (acquisition) => acquisition.release()),
     );
@@ -538,9 +594,13 @@ export class AggregateLeafLayer {
       const bindingKey = projectionContext?.index.imagesByEntityId?.[entityId]?.bindingKey ??
         store.source[slot] ??
         '';
-      this.observeImageSlot(slot, entityId, bindingKey);
-      if (visible) this.syncImage(store, slot, entityId, bindingKey, projectionContext);
-      else this.removeVisibleImage(slot, entityId, bindingKey);
+      const lane = imageLane(entityId, projectionContext);
+      this.observeImageSlot(store, slot, entityId, bindingKey, lane);
+      if (visible && lane !== null) {
+        this.syncImage(store, slot, entityId, bindingKey, lane, projectionContext);
+      } else {
+        this.removeVisibleImage(store, slot, entityId, bindingKey, lane);
+      }
     }
     if (!visible) return;
     if (kind === RenderKind.Text) this.syncText(store, slot, projectionContext);
@@ -551,11 +611,17 @@ export class AggregateLeafLayer {
     slot: number,
     projectionContext?: CoreV2ProjectionRenderContext,
   ): void {
+    const entityId = store.ids[slot] ?? `@slot:${slot}`;
     const value = store.text[slot] ?? '';
     const bitmap = isBitmapTextSafe(value);
     const signature = textStyleSignature(store, slot);
     let entry = this.texts.get(slot);
-    if (!entry || entry.bitmap !== bitmap || entry.styleSignature !== signature) {
+    if (
+      !entry ||
+      entry.entityId !== entityId ||
+      entry.bitmap !== bitmap ||
+      entry.styleSignature !== signature
+    ) {
       this.removeText(slot);
       const style = textStyle(store, slot);
       const object = bitmap
@@ -563,7 +629,7 @@ export class AggregateLeafLayer {
         : new Text({ text: value, style });
       object.eventMode = 'none';
       object.label = bitmap ? 'core-v2:bitmap-text' : 'core-v2:fallback-text';
-      entry = { object, bitmap, styleSignature: signature };
+      entry = { object, bitmap, entityId, styleSignature: signature };
       this.texts.set(slot, entry);
       this.textContainer.addChild(object);
     } else if (entry.object.text !== value) {
@@ -579,6 +645,16 @@ export class AggregateLeafLayer {
     object.alpha = combinedAlpha(store.color[slot] ?? 0xffffffff, store.opacity[slot] ?? 1);
     object.tint = packedRgb(store.color[slot] ?? 0xffffffff);
     object.visible = true;
+    this.paintProbesByEntityId.set(entityId, freezeEntityPaintProbe({
+      entityId,
+      lane: 'text',
+      rendererKind: 'text',
+      primitiveCount: 1,
+      renderObjectCount: 1,
+      packedTint: (store.color[slot] ?? 0xffffffff) >>> 0,
+      rgbTint: packedRgb(store.color[slot] ?? 0xffffffff),
+      alpha: object.alpha,
+    }));
   }
 
   private syncImage(
@@ -586,6 +662,7 @@ export class AggregateLeafLayer {
     slot: number,
     entityId: string,
     bindingKey: string,
+    lane: LeafImageLane,
     projectionContext?: CoreV2ProjectionRenderContext,
   ): void {
     this.indexVisibleImageBinding(slot, bindingKey);
@@ -617,13 +694,14 @@ export class AggregateLeafLayer {
       entry.bindingKey !== bindingKey ||
       entry.bindingGeneration !== bindingGeneration ||
       entry.role !== role ||
+      entry.lane !== lane ||
       entry.object.texture !== texture
     ) {
       if (entry) this.removeImageEntry(slot);
       const object = new Sprite({ texture });
       object.eventMode = 'none';
-      object.label = role === 'image' ? 'core-v2:image' : 'core-v2:image-placeholder';
-      entry = { object, entityId, bindingKey, bindingGeneration, role };
+      object.label = `${lane}:${role === 'image' ? 'image' : 'placeholder'}`;
+      entry = { object, entityId, bindingKey, bindingGeneration, role, lane };
       this.addImageEntry(slot, entry);
     }
     const sprite = entry.object;
@@ -643,34 +721,86 @@ export class AggregateLeafLayer {
     const zIndex = store.zIndex[slot] ?? 0;
     if (sprite.zIndex !== zIndex) {
       sprite.zIndex = zIndex;
-      this.imageOrderDirty = true;
+      this.dirtyImageLanes.add(lane);
     }
     sprite.visible = true;
     this.setImageProbe(slot, entityId, bindingKey, bindingGeneration, 1, role);
+    this.paintProbesByEntityId.set(entityId, freezeEntityPaintProbe({
+      entityId,
+      lane,
+      rendererKind: 'sprite',
+      primitiveCount: 1,
+      renderObjectCount: 1,
+      packedTint: (store.tint[slot] ?? 0xffffffff) >>> 0,
+      rgbTint: Number(sprite.tint) >>> 0,
+      alpha: sprite.alpha,
+    }));
   }
 
   private removeText(slot: number): void {
     const entry = this.texts.get(slot);
     if (!entry) return;
     this.texts.delete(slot);
+    this.paintProbesByEntityId.delete(entry.entityId);
     entry.object.destroy();
   }
 
-  private observeImageSlot(slot: number, entityId: string, bindingKey: string): void {
+  private observeImageSlot(
+    store: RenderStoreView,
+    slot: number,
+    entityId: string,
+    bindingKey: string,
+    lane: LeafImageLane | null,
+  ): void {
     const previousEntityId = this.imageEntityIdBySlot.get(slot);
     if (previousEntityId && previousEntityId !== entityId) {
       this.imageProbesByEntityId.delete(previousEntityId);
+      this.paintProbesByEntityId.delete(previousEntityId);
     }
     this.imageEntityIdBySlot.set(slot, entityId);
     const bindingGeneration = this.bindings.get(bindingKey)?.generation ?? 0;
     this.setImageProbe(slot, entityId, bindingKey, bindingGeneration, 0, 'none');
+    if (lane === null) {
+      this.paintProbesByEntityId.delete(entityId);
+      return;
+    }
+    this.paintProbesByEntityId.set(entityId, freezeEntityPaintProbe({
+      entityId,
+      lane,
+      rendererKind: 'none',
+      primitiveCount: 0,
+      renderObjectCount: 0,
+      packedTint: (store.tint[slot] ?? 0xffffffff) >>> 0,
+      rgbTint: null,
+      alpha: null,
+    }));
   }
 
-  private removeVisibleImage(slot: number, entityId: string, bindingKey: string): void {
+  private removeVisibleImage(
+    store: RenderStoreView,
+    slot: number,
+    entityId: string,
+    bindingKey: string,
+    lane: LeafImageLane | null,
+  ): void {
     this.removeImageEntry(slot);
     this.unindexVisibleImageBinding(slot);
     const bindingGeneration = this.bindings.get(bindingKey)?.generation ?? 0;
     this.setImageProbe(slot, entityId, bindingKey, bindingGeneration, 0, 'none');
+    if (lane === null) {
+      this.paintProbesByEntityId.delete(entityId);
+      return;
+    }
+    this.paintProbesByEntityId.set(entityId, freezeEntityPaintProbe({
+      entityId,
+      lane,
+      rendererKind: 'none',
+      primitiveCount: 0,
+      renderObjectCount: 0,
+      packedTint: (store.tint[slot] ?? 0xffffffff) >>> 0,
+      rgbTint: null,
+      alpha: null,
+    }));
   }
 
   private clearImageSlot(slot: number): void {
@@ -678,7 +808,10 @@ export class AggregateLeafLayer {
     this.unindexVisibleImageBinding(slot);
     const entityId = this.imageEntityIdBySlot.get(slot);
     this.imageEntityIdBySlot.delete(slot);
-    if (entityId) this.imageProbesByEntityId.delete(entityId);
+    if (entityId) {
+      this.imageProbesByEntityId.delete(entityId);
+      this.paintProbesByEntityId.delete(entityId);
+    }
   }
 
   private setImageProbe(
@@ -741,8 +874,8 @@ export class AggregateLeafLayer {
   private addImageEntry(slot: number, entry: ImageEntry): void {
     this.images.set(slot, entry);
     this.adjustBindingRenderCounts(entry, 1);
-    this.imageContainer.addChild(entry.object);
-    this.imageOrderDirty = true;
+    imageLaneContainer(this, entry.lane).addChild(entry.object);
+    this.dirtyImageLanes.add(entry.lane);
   }
 
   private removeImageEntry(slot: number): void {
@@ -751,7 +884,7 @@ export class AggregateLeafLayer {
     this.images.delete(slot);
     this.adjustBindingRenderCounts(entry, -1);
     entry.object.destroy();
-    this.imageOrderDirty = true;
+    this.dirtyImageLanes.add(entry.lane);
   }
 
   private adjustBindingRenderCounts(entry: ImageEntry, delta: 1 | -1): void {
@@ -789,31 +922,38 @@ export class AggregateLeafLayer {
   }
 
   private sortImageChildren(): void {
-    if (!this.imageOrderDirty) return;
-    const ordered = [...this.images.entries()].sort(([leftSlot, left], [rightSlot, right]) => (
-      left.object.zIndex - right.object.zIndex ||
-      leftSlot - rightSlot ||
-      left.entityId.localeCompare(right.entityId)
-    ));
+    if (this.dirtyImageLanes.size === 0) return;
+    for (const lane of this.dirtyImageLanes) this.sortImageLaneChildren(lane);
+    this.dirtyImageLanes.clear();
+  }
+
+  private sortImageLaneChildren(lane: LeafImageLane): void {
+    const container = imageLaneContainer(this, lane);
+    const ordered = [...this.images.entries()]
+      .filter(([, entry]) => entry.lane === lane)
+      .sort(([leftSlot, left], [rightSlot, right]) => (
+        left.object.zIndex - right.object.zIndex ||
+        leftSlot - rightSlot ||
+        left.entityId.localeCompare(right.entityId)
+      ));
     const orderedChildren = ordered.map(([, entry]) => entry.object);
-    const orderChanged = orderedChildren.length !== this.imageContainer.children.length ||
-      orderedChildren.some((child, index) => this.imageContainer.children[index] !== child);
+    const orderChanged = orderedChildren.length !== container.children.length ||
+      orderedChildren.some((child, index) => container.children[index] !== child);
     if (orderChanged) {
       // Repeated setChildIndex calls splice Pixi's child array and can turn a
       // reverse permutation into quadratic work. Detach once, then append the
       // complete public child order in bounded batches so arbitrarily large
       // scenes do not depend on the engine's variadic argument limit.
-      this.imageContainer.removeChildren();
+      container.removeChildren();
       for (let start = 0; start < orderedChildren.length; start += IMAGE_CHILD_APPEND_BATCH_SIZE) {
-        this.imageContainer.addChild(
+        container.addChild(
           ...orderedChildren.slice(start, start + IMAGE_CHILD_APPEND_BATCH_SIZE),
         );
       }
     }
     // Assigning a child zIndex lets Pixi opt the parent back into z-only
     // sorting. Disable it after applying the stronger deterministic order.
-    this.imageContainer.sortableChildren = false;
-    this.imageOrderDirty = false;
+    container.sortableChildren = false;
   }
 
   private clearDisplayObjects(): void {
@@ -825,20 +965,61 @@ export class AggregateLeafLayer {
     this.imageSlotsByBinding.clear();
     this.imageEntityIdBySlot.clear();
     this.imageProbesByEntityId.clear();
+    this.paintProbesByEntityId.clear();
     this.dirtyAssetSlots.clear();
     for (const binding of this.bindings.values()) {
       binding.consumerCount = 0;
       binding.renderObjectCount = 0;
       binding.placeholderCount = 0;
     }
-    this.imageOrderDirty = false;
+    this.dirtyImageLanes.clear();
     this.textContainer.removeChildren();
-    this.imageContainer.removeChildren();
+    this.backgroundAssetContainer.removeChildren();
+    this.contentAssetContainer.removeChildren();
   }
 
   private assertAlive(): void {
     if (this.destroyed) throw new Error('AggregateLeafLayer is destroyed');
   }
+}
+
+function imageLane(
+  entityId: string,
+  projectionContext?: CoreV2ProjectionRenderContext,
+): LeafImageLane | null {
+  const component = projectionContext?.index.componentsByEntityId?.[entityId];
+  if (component === undefined) return 'content-assets';
+  if (component.renderRole === 'background-asset') return 'background-assets';
+  if (component.renderRole === 'content-asset') return 'content-assets';
+  return null;
+}
+
+function imageLaneContainer(
+  layer: AggregateLeafLayer,
+  lane: LeafImageLane,
+): Container {
+  return lane === 'background-assets'
+    ? layer.backgroundAssetContainer
+    : layer.contentAssetContainer;
+}
+
+function freezeLaneProbe(
+  role: CoreV2RenderLaneProbe['role'],
+  label: string,
+  visiblePrimitiveCount: number,
+): CoreV2RenderLaneProbe {
+  return Object.freeze({
+    role,
+    label,
+    renderObjectCount: visiblePrimitiveCount,
+    visiblePrimitiveCount,
+  });
+}
+
+function freezeEntityPaintProbe(
+  probe: CoreV2EntityPaintProbe,
+): CoreV2EntityPaintProbe {
+  return Object.freeze({ ...probe });
 }
 
 function normalizeLeafAssetBindingRequest(

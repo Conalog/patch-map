@@ -195,7 +195,11 @@ describe('AggregateMeshLayer', () => {
     const hidden = layer.sync(store, { changedRanges: expanded, projectionContext: context });
     expect(hidden.visibleRelations).toBe(0);
     expect(hidden.uploadedChunks).toBe(2);
-    expect(layer.relationContainer.children).toHaveLength(0);
+    expect(
+      layer.relationContainer.children.filter((child) =>
+        child.label.includes(': relation chunk')
+      ),
+    ).toHaveLength(0);
     layer.destroy();
   });
 
@@ -238,7 +242,7 @@ describe('AggregateMeshLayer', () => {
     const rectCandidate = layer.quadContainer.children.find((child) =>
       child.label.includes(': rect chunk 0'),
     );
-    const barsBefore = layer.quadContainer.children.filter(
+    const barsBefore = layer.relationContainer.children.filter(
       (child): child is Mesh<MeshGeometry> =>
         child instanceof Mesh && child.label.includes(': bar chunk 0'),
     );
@@ -262,7 +266,7 @@ describe('AggregateMeshLayer', () => {
     const rectAfter = layer.quadContainer.children.find((child) =>
       child.label.includes(': rect chunk 0'),
     );
-    const barsAfter = layer.quadContainer.children.filter(
+    const barsAfter = layer.relationContainer.children.filter(
       (child): child is Mesh<MeshGeometry> =>
         child instanceof Mesh && child.label.includes(': bar chunk 0'),
     );
@@ -298,7 +302,7 @@ describe('AggregateMeshLayer', () => {
     (store.fill as Uint32Array)[1] = 0x8844ccff;
     (store as { revision: number }).revision = 3;
     const styleUpdated = layer.sync(store, { changedRanges: [{ start: 1, end: 2 }] });
-    const fillAfter = layer.quadContainer.children.find(
+    const fillAfter = layer.relationContainer.children.find(
       (child) => child instanceof Mesh && child.zIndex === 6,
     );
     expect(styleUpdated.geometrySlotsVisited).toBe(1);
@@ -359,7 +363,7 @@ describe('AggregateMeshLayer', () => {
     const relationAfter = layer.relationContainer.children.find((child) =>
       child.label.includes(': relation chunk 0'),
     );
-    const barsAfter = layer.quadContainer.children.filter((child) =>
+    const barsAfter = layer.relationContainer.children.filter((child) =>
       child.label.includes(': bar chunk 0'),
     );
 

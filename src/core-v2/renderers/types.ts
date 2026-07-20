@@ -13,6 +13,46 @@ import {
 export type CoreV2RendererStrategy = 'mesh' | 'particle';
 export type CoreV2BackendPreference = 'webgl' | 'webgpu';
 
+/** Fixed, entity-count-independent paint order exposed to tooling and probes. */
+export type CoreV2RenderLaneRole =
+  | 'background-geometry'
+  | 'background-assets'
+  | 'ordinary-geometry'
+  | 'relations-dynamic'
+  | 'content-assets'
+  | 'text'
+  | 'interaction-overlay';
+
+export interface CoreV2RenderLaneProbe {
+  readonly role: CoreV2RenderLaneRole;
+  readonly label: string;
+  readonly renderObjectCount: number;
+  readonly visiblePrimitiveCount: number;
+}
+
+export type CoreV2RenderLaneSnapshot = Readonly<
+  Record<CoreV2RenderLaneRole, CoreV2RenderLaneProbe>
+>;
+
+export type CoreV2EntityRendererKind =
+  | 'mesh'
+  | 'graphics'
+  | 'sprite'
+  | 'text'
+  | 'none';
+
+/** Detached O(1) paint observation. Null paint values mean no paint is applied. */
+export interface CoreV2EntityPaintProbe {
+  readonly entityId: string;
+  readonly lane: CoreV2RenderLaneRole;
+  readonly rendererKind: CoreV2EntityRendererKind;
+  readonly primitiveCount: number;
+  readonly renderObjectCount: number;
+  readonly packedTint: number | null;
+  readonly rgbTint: number | null;
+  readonly alpha: number | null;
+}
+
 export interface CoreV2WorldOrientation {
   readonly rotationDegrees: number;
   readonly flipX: boolean;
