@@ -2,16 +2,17 @@
 
 ## Scope and immutable sources
 
-This inventory now tracks the ten P0 records remaining after `LAY-005` closed:
-`REN-005..011`, `LAY-003/004`, and `AST-001`. It is derived
+This inventory now tracks the nine P0 records remaining after `LAY-004` closed:
+`REN-005..011`, `LAY-003`, and `AST-001`. It is derived
 only from the current-worktree immutable contract corpus and current Core v2
 public product source. Canonical fixtures, expected observations, reviews, and
 decisions are not implementation inputs to be rewritten.
 
-`LAY-005` is the completed geometry checkpoint: exact bounds/removal automation
-matches 14/14, the same focused Lab route is executable, and first/repeat headed
-comparison closes the six-route rendering checkpoint at 63/63 with canvas cleanup
-and zero console, page, or network errors.
+`LAY-005` and `LAY-004` are the completed affine geometry checkpoints: exact
+bounds/removal matches 14/14 and signed orientation matches 11/11. Their focused
+Lab routes are executable, and actual headed Chromium closes the seven-route
+rendering checkpoint first/repeat at 74/74 with canvas cleanup and zero console,
+page, or network errors.
 
 The exact canonical record pointers are:
 
@@ -25,28 +26,25 @@ The exact canonical record pointers are:
 | REN-010 | 78 |
 | REN-011 | 79 |
 | LAY-003 | 82 |
-| LAY-004 | 83 |
-| LAY-005 | 84 |
 | AST-001 | 85 |
 
-Remaining corpus totals are **10 cases, 47 ordered actions, 24 unique action types, 176
-typed assertions, four capture checkpoints/four captured paths, and ten
+Remaining corpus totals are **9 cases, 43 ordered actions, 20 unique action types, 165
+typed assertions, three capture checkpoints/three captured paths, and ten
 observation domains**. The unique action types are:
 
 `acquireAsset`, `completeAsset`, `destroy`,
 `initializeWithRequiredAssetFailure`, `loadDataset`,
-`loadOrientationMatrix`, `observeItemTextMatrix`, `observeOrientationMatrix`,
+`observeItemTextMatrix`,
 `observeRelationContractMatrix`, `observeRelationPath`, `patch`,
 `publishFrame`, `redo`, `registerAlias`, `registerAssets`,
 `replaceComponentSource`, `replaceSource`, `resolveAsset`,
-`setComponentVisibility`, `setContentOrientation`, `setVisibility`,
-`setWorldTransform`, `snapshot-observation`, and `undo`.
+`setComponentVisibility`, `setVisibility`, `snapshot-observation`, and `undo`.
 
 ## Dependency waves and selected next slice
 
 | Wave | Cases | Actions / assertions | Dependency reason |
 | --- | --- | ---: | --- |
-| Geometry foundation (next) | `LAY-004 -> REN-007` | 10 / 37 | The completed signed-affine bounds source feeds upright/flip basis, relation endpoints, relation-local conversion, and hit geometry. |
+| Geometry foundation (next) | `REN-007` | 6 / 26 | The completed signed-affine bounds/orientation source feeds relation endpoints, relation-local conversion, and hit geometry. |
 | Asset ownership | `AST-001 -> REN-005 -> REN-008 + REN-010` | 19 / 67 | Global alias/cache leases and required/optional failure semantics must exist before image source replacement can make truthful stale-completion and no-leak claims. |
 | Deterministic animation | `REN-009` | 4 / 13 | Requires semantic/presentation separation, contract time, `easeOutCubic`, settled delivery, and range upload; it should not be hidden inside ordinary patch. |
 | International text | `REN-006 -> REN-011` | 10 / 50 | Standalone deterministic layout and font fallback precede split/auto-font/overflow item text; `REN-011` also consumes upright orientation. |
@@ -54,21 +52,20 @@ observation domains**. The unique action types are:
 
 ### Recommendation
 
-Implement **`LAY-004`, then `REN-007`** as the next dependency-coherent slice.
-It has 10 actions, 9 unique action types, 37 assertions, one checkpoint, and the
-domains `scene`, `geometry`, `paint`, and `interaction`.
+Implement **`REN-007`** as the next dependency-coherent slice. It has 6 actions,
+5 unique action types, 26 assertions, no checkpoint, and the domains `scene`,
+`geometry`, `paint`, and `interaction`.
 
 Selection rationale:
 
-1. `LAY-004` extends the completed bounds service with signed bases and upright
-   counter-transforms instead of introducing a second transform model.
-2. `REN-007` then consumes exact visible world bounds and affine conversions;
-   implementing relations first would bake the current axis-aligned/straight
-   endpoint approximation into another layer.
-3. This slice has no dependency on global `Assets`, deterministic text shaping,
+1. `LAY-004` has already extended the bounds service with signed bases, F×R world
+   flips, and upright counter-transforms rather than a second transform model.
+2. `REN-007` now consumes exact visible world bounds and affine conversions;
+   it must remove the current axis-aligned/straight endpoint approximation.
+3. This case has no dependency on global `Assets`, deterministic text shaping,
    bar time semantics, or history, so those high-risk domains remain separately
    reviewable.
-4. No journey becomes complete from these two cases alone. `REN-007` removes
+4. No journey becomes complete from this case alone. `REN-007` removes
    the rendering blocker from `CSM-011`; that journey then remains blocked only
    by its `SEL-001/003/004/005/009` and `QRY-001` dependencies. The geometry
    kernel also becomes a prerequisite for later viewport, selection,
@@ -365,7 +362,7 @@ Assertions:
 /history/depth gte 0
 ```
 
-### LAY-004 — 4 actions, 11 assertions
+### LAY-004 — completed checkpoint, 4 actions, 11 assertions
 
 Domains: `scene, geometry, interaction`.
 
@@ -474,8 +471,8 @@ Assertions:
 | REN-010 | Percentage sizing, content-box placement, margin, tint, source, visibility, and source/tint reconcile are present. | Asset source changes still bind unresolved white textures without request-generation, stale-texture, alias/cache, or no-leak evidence at the public Engine seam. |
 | REN-011 | Semantic materialization preserves split, text style, auto-font/overflow fields, placement, margin, and tint. | Parser explicitly degrades nonzero split and advanced style; deterministic grapheme split, auto-font, wrap/overflow, international layout, upright orientation, and text probes are missing. |
 | LAY-003 | Dense z-index sorting and stable authored order within equal z are present; overlay containers are separate. | Engine history is always depth zero and exposes no `undo`/`redo`; exact overlay order is not published as a product render-order probe. |
-| LAY-004 | Rotation composition exists for the current flat projection. | Parser emits `content-orientation-unsupported`; signed scale/flips and world flips are not represented, and no screen basis/upright counter-transform or mode-change geometry publication exists. |
-| LAY-005 | Exact local/world/screen/visible bounds, signed direct-rect projection, transformed hit rules, revision truth, and atomic `destroyTarget` now use the committed projection/reconcile authority. | Complete for the approved fixture; item/grid upright bases remain `LAY-004`, and clipped visible bounds remain outside this case's approved matrix. |
+| LAY-004 | Exact F×R signed bases, stable visible centers, upright counter-transforms, semantic-only projection revision, Pixi Matrix leaf transforms, and Mesh/Particle parity use the committed projection authority. | Complete for the approved 11-row fixture; platform raster appearance remains non-normative. |
+| LAY-005 | Exact local/world/screen/visible bounds, signed direct-rect projection, transformed hit rules, revision truth, and atomic `destroyTarget` now use the committed projection/reconcile authority. | Complete for the approved fixture; clipped visible bounds remain outside this case's approved matrix. |
 | AST-001 | The leaf layer reference-counts one Pixi `Assets` URL across instances, borrows externally owned cache entries, waits through release races, and unloads the last Core-owned lease. | There is no global descriptor-aware alias registry, built-ins/font catalog, per-instance security revalidation, required-init asset phase/failure rollback, conflict diagnostic, pending-user count, or public cache/lease observation. |
 
 PixiJS routing implications: keep aggregate geometry in Mesh/Graphics lanes; keep
@@ -500,34 +497,24 @@ The immutable manifest has these direct edges:
 
 ### Product
 
-1. Add `src/core-v2/semantic/geometry.ts` as the single allocation-conscious
-   affine kernel: compose 2x3 transforms, signed scale/flip, invert, apply,
-   local/world/screen bounds, basis normalization, relation-local conversion,
-   segment/polyline distance, and six-decimal observation rounding only at the
-   probe boundary.
-2. Extend `src/core-v2/contracts.ts` and `src/core-v2/parser.ts` with an immutable
-   render-projection sidecar keyed by stable dense entity ID. Preserve signed
-   scale and `contentOrientation`; do not put per-entity Pixi objects in it.
-3. Update `src/core-v2/core.ts` reconciliation so semantic-only projection
-   changes invalidate the affected dense slots even when the Core v1-compatible
-   dense patch is empty. The parser projection and dense transaction must publish
-   as one revision.
-4. Update `src/core-v2/renderers/types.ts`, `pixi-renderer.ts`, `mesh-layer.ts`,
-   `particle-layer.ts`, and `leaf-layer.ts` to consume projection matrices. Mesh
-   remains the WebGL production lane; the Particle/Graphics competitor must use
-   the same matrices. Upright text/icon/bar gets a counter-transform around the
-   stable visible center without creating item Containers.
-5. Extend `src/core-v2/engine.ts` geometry records with `localBounds`,
-   `worldBounds`, `screenBounds`, `screenBasis`, and relation paths derived from
-   that same sidecar. Add an atomic semantic `remove`/`destroyTarget` path through
-   incremental reconcile; never call full `loadDataset` as a removal fallback.
-6. Add world rotation and signed flips to the Engine/surface viewport contract,
-   then make root hit testing and relation hit testing consume the inverse affine
-   matrix. Hidden endpoints retain identity/geometry but suppress segments.
-7. Represent non-self relations as aggregate segments and self-relations as the
-   deterministic five-point polyline from the fixture. Deduplicate ordered pairs
-   before dense materialization, preserve reverse pairs, and publish omitted
-   dangling counts rather than creating placeholder segments.
+The shared affine kernel, projection sidecar, semantic-only reconcile,
+Mesh/Particle/leaf projection, Engine geometry records, atomic removal, and F×R
+world/view transform are complete through `LAY-004`.
+
+1. Add one expected-independent relation resolver consuming the committed
+   projection sidecar. It owns exact endpoint centers, relation-local inverse
+   points, screen points/bounds, endpoint visibility, path style, and polyline
+   distance.
+2. Represent ordinary relations as aggregate segments and self-relations as a
+   deterministic five-point polyline. Deduplicate ordered pairs before dense
+   materialization, preserve reverse pairs, and publish syntactically valid
+   missing endpoints in an omission sidecar instead of failing the whole load.
+3. Extend Mesh and Particle/Graphics lanes from the same logical paths. One self
+   relation may expand to four GPU segments but remains one logical relation in
+   debug/probe counts; no entity DisplayObject or listener is introduced.
+4. Expose `CoreV2Engine.relationProbe()` and screen-space relation hit testing.
+   Structural link changes must use one atomic incremental reconcile, and hidden
+   endpoints must suppress only their incident segments while retaining identity.
 
 Product tests:
 
@@ -546,27 +533,24 @@ Product tests:
 
 ### Expected-blind automation
 
-- Add `scripts/verification/core-v2-contract/handlers/render-geometry.mjs` owning
-  exactly the 13 selected action types and three exact traces. It may read fixture
-  params but must not import normalized expected evidence.
-- Add `scripts/verification/core-v2-contract/fold-render-geometry.mjs` projecting
-  only public Engine snapshots, geometry/relation probes, event journal, captures,
-  and cleanup into all fourteen domains.
-- Add `tests/core-v2/contract-render-geometry-handlers.test.ts` for exact trace,
-  operands, immutable input, product-call sequencing, capture, and refusal paths.
-- Add `tests/core-v2/contract-render-geometry-fold.test.ts` for exact source
-  provenance, unavailable-domain honesty, reference resolution, and all 51
-  assertion comparisons without reading expected values inside handlers/fold.
+- Add `handlers/render-relations.mjs` for REN-007's exact five action types and
+  six-action trace. It may read immutable fixture params but must not import or
+  inspect normalized expected observations.
+- Add `fold-render-relations.mjs` projecting only public Engine snapshots,
+  relation probes/hits, event journal, terminal input fingerprints, and cleanup
+  into all fourteen domains.
+- Add independent handler/fold tests for exact trace, immutable input, two fresh
+  sessions, determinism, cleanup, and all 26 immutable assertion comparisons.
 - Register the handler/fold only in the execution composition; do not loosen the
   canonical action registry or default unknown-action failure.
 
 ### Focused Lab
 
-- Extend `lab/performance-v2/contract/executable-cases.ts` from the then-current
-  catalog count by exactly three cases, 14 actions, and the selected unique action
-  types; preserve canonical routes and digests.
+- Extend `lab/performance-v2/contract/executable-cases.ts` from 21 to 22
+  executable cases and from 152 to 151 explicit stubs. Add exactly six actions;
+  preserve canonical routes and digests.
 - Extend `lab/performance-v2/contract/executable-runtime.ts` with a
-  `render-geometry` descriptor importing the same handler/fold modules used by
+  `render-relations` descriptor importing the same handler/fold modules used by
   automation.
 - Keep the generic route/presenter shell in
   `lab/performance-v2/contract/route.ts` and `presenters.ts`; add scenario controls
@@ -575,22 +559,21 @@ Product tests:
 - Extend `tests/core-v2/contract-lab-route.test.ts`,
   `contract-lab-execution.test.ts`, and `contract-product-integration.test.ts` to
   prove exact route identity, same runtime, cleanup, and product-owned geometry.
-- Headed checkpoint: run all three routes and require zero console/network errors;
-  visually verify bounds overlays, upright center stability, self-link shape,
-  hidden endpoint suppression, and transformed hit probes.
+- Headed checkpoint: add the REN-007 route to the completed seven-route set and
+  require first/repeat 100/100, deterministic digests, canvas cleanup, and zero
+  console/page/network errors.
 
 ### Targeted validation checkpoints
 
-1. Geometry kernel and `LAY-005`: targeted unit/handler/fold tests, lint, and
-   typecheck; require 14/14 exact assertions before adding orientation.
-2. `LAY-004`: run the full 11-row basis matrix on both renderer strategies;
-   require identical semantic geometry and stable visible centers.
-3. `REN-007`: run relation renderer parity, hidden/show, self/reverse/duplicate,
-   resize, dangling, and transformed hit tests; then run the three-route Lab build
-   and headed checkpoint.
-4. Only after those product/evidence changes are committed run the full contract
-   verifier. The expensive performance matrix remains deferred until a renderer
-   or final-candidate milestone.
+1. Completed: `LAY-005` 14/14 and `LAY-004` 11/11 with seven actual headed routes
+   first/repeat 74/74.
+2. `REN-007`: run relation renderer parity, hidden/show, self/reverse/duplicate,
+   resize, dangling omission, transformed endpoint, and screen-hit tests.
+3. Connect the same six-action runtime to the focused Lab, then run the eight-route
+   build/headed checkpoint and full contract verifier.
+4. The expensive performance matrix remains deferred until a renderer or
+   final-candidate milestone; relation hot-path allocation/upload tests remain
+   targeted in this tranche.
 
 ## Risks and non-negotiable selection gates
 
@@ -618,7 +601,7 @@ The inventory was checked with a read-only Node snippet equivalent to:
 ```js
 const ids = new Set([
   'REN-005', 'REN-006', 'REN-007', 'REN-008', 'REN-009', 'REN-010',
-  'REN-011', 'LAY-003', 'LAY-004', 'LAY-005', 'AST-001',
+  'REN-011', 'LAY-003', 'AST-001',
 ]);
 const fixtures = require('./docs/reference/core-v2-functional-contract/evidence/catalog-fixtures.v1.json');
 const expected = require('./docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json');
@@ -631,5 +614,5 @@ console.log({
   assertions: assertions.reduce((sum, entry) => sum + entry.expected.assertions.length, 0),
   checkpoints: selected.reduce((sum, entry) => sum + entry.captureCheckpoints.length, 0),
 });
-// { cases: 11, actions: 51, types: 28, assertions: 190, checkpoints: 4 }
+// { cases: 9, actions: 43, types: 20, assertions: 165, checkpoints: 3 }
 ```

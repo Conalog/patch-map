@@ -93,3 +93,9 @@
 - Decision: Implement `LAY-005`, then `LAY-004`, then `REN-007` around one signed-affine geometry truth source before starting asset ownership, deterministic animation, international text, or stacking/history waves.
 - Why: Bounds, inverse hit testing, visible centers, upright counter-transforms, and relation endpoints must share one revision-aligned transform model; separate approximations would make later viewport/selection behavior diverge.
 - Impact: Preserve aggregate Mesh/Particle layers and numeric sidecars, add no per-entity Containers/listeners, and require product tests plus expected-blind automation and focused routes before the next browser/package checkpoint.
+
+**2026-07-20**
+- Background: PATCH MAP world flips are defined in screen axes after authored rotation, while Pixi's default rotation-plus-scale composition would apply the reflection in local axes and relation contract endpoints require `(120,80) -> (170,260)` under rotation 90, flip X, scale 2, and pan `(10,20)`.
+- Decision: Use `F × R` for semantic world orientation and `T × S × F × R` for viewport publication. Realize the same order with Pixi public `Matrix`/`setFromMatrix`; upright content applies the inverse world basis around its stable visible center.
+- Why: One explicit affine order keeps parser projection, Mesh vertices, Particle/Graphics fallback, leaf transforms, geometry probes, hit inversion, and later relation endpoints in agreement without restoring item-level display objects.
+- Impact: `LAY-004` closes 11/11 across four world flip modes and eleven authored rows. Public observation boundaries canonicalize IEEE signed zero; `REN-007` must consume this same affine resolver rather than introduce endpoint-specific transform math.
