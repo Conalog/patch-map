@@ -170,6 +170,12 @@ export function createCoreV2ExecutableLabBridge(
         clock: new ExecutableLabClock(),
         handlerEntries: runRuntime.handlerEntries,
       });
+      if (runRuntime.postDestroyProductProbe) {
+        execution = attachPostDestroyProductProbe(
+          execution,
+          runRuntime.postDestroyProductProbe(),
+        );
+      }
       const folded = runtime.fold({
         casePlan: freshCasePlan(casePlan),
         execution,
@@ -433,6 +439,22 @@ function mergeCleanup(
     ...(executionCleanup ?? {}),
     status,
     ...(supplementalCleanup ? { supplementalWebGLLease: supplementalCleanup } : {}),
+  });
+}
+
+function attachPostDestroyProductProbe(
+  execution: Readonly<Record<string, unknown>>,
+  productResources: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const cleanup = requireRecord(execution.cleanup, 'execution cleanup');
+  invariant(cleanup.status === 'completed', 'post-destroy probe requires completed cleanup');
+  invariant(cleanup.productResources === undefined, 'execution cleanup productResources is unique');
+  return deepFreeze({
+    ...execution,
+    cleanup: {
+      ...cleanup,
+      productResources,
+    },
   });
 }
 
