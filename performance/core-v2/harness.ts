@@ -112,6 +112,11 @@ async function runTrial(
     preference: 'webgl',
     autoRender: false,
     antialias: false,
+    assetPolicy: ({ descriptor }) => {
+      if (descriptor.src !== CORE_V2_SYNTHETIC_ASSET_DATA_URL) {
+        throw new Error('Core v2 benchmark asset policy rejected a non-fixture source');
+      }
+    },
   });
   let destroyed = false;
   try {
