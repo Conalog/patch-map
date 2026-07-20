@@ -37,6 +37,7 @@ describe('Core v2 signed affine orientation projection', () => {
   ])('keeps authored signs for $angle° [$scaleX,$scaleY]', ({ angle, scaleX, scaleY, basis }) => {
     const actual = coreV2AffineBasis(createCoreV2Affine(0, 0, angle, scaleX, scaleY));
     basis.forEach((value, index) => expect(actual[index]).toBeCloseTo(value, 6));
+    expect(actual.every((value) => !Object.is(value, -0))).toBe(true);
   });
 
   it('publishes follow and upright facts from the parser sidecar under world rotation and flip', () => {

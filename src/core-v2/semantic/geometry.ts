@@ -161,10 +161,10 @@ export function coreV2AffineBasis(matrix: CoreV2AffineMatrix): CoreV2AffineBasis
   const xLength = Math.hypot(matrix[0], matrix[1]);
   const yLength = Math.hypot(matrix[2], matrix[3]);
   return Object.freeze([
-    xLength === 0 ? 0 : matrix[0] / xLength,
-    xLength === 0 ? 0 : matrix[1] / xLength,
-    yLength === 0 ? 0 : matrix[2] / yLength,
-    yLength === 0 ? 0 : matrix[3] / yLength,
+    normalizeSignedZero(xLength === 0 ? 0 : matrix[0] / xLength),
+    normalizeSignedZero(xLength === 0 ? 0 : matrix[1] / xLength),
+    normalizeSignedZero(yLength === 0 ? 0 : matrix[2] / yLength),
+    normalizeSignedZero(yLength === 0 ? 0 : matrix[3] / yLength),
   ] as const);
 }
 
@@ -240,4 +240,8 @@ function assertFiniteAffine(matrix: CoreV2AffineMatrix): void {
   if (matrix.length !== 6 || !matrix.every(Number.isFinite)) {
     throw new TypeError('affine matrix must contain six finite coefficients');
   }
+}
+
+function normalizeSignedZero(value: number): number {
+  return Object.is(value, -0) ? 0 : value;
 }
