@@ -188,9 +188,8 @@ async function observeRelationContractMatrixAction(context, actionRecord) {
   const contractMatrix = await executeContractMatrix(main, context, matrixFixture, mainDataset, 'main');
   const mainAfter = context.fingerprint(mainDataset);
 
-  const repeatRecord = await context.createEngine('relation-contract-repeat');
-  const repeat = recordValue(repeatRecord, 'repeat engine record').engine;
-  assert(isRecord(repeat), 'repeat engine');
+  await context.releaseEngine(main, 'relation-repeat-handoff');
+  const repeat = await context.ensureSessionEngine(1);
   await initializeEngine(repeat, 'ren-007-relation-repeat');
   const repeatDataset = cloneArray(matrixFixture.dataset, 'repeat relation contract matrix dataset');
   const repeatBefore = context.fingerprint(repeatDataset);
@@ -233,7 +232,7 @@ async function observeRelationContractMatrixAction(context, actionRecord) {
       complete: contractMatrix.complete && repeatContractMatrix.complete,
       deterministic: sameJson(contractMatrix.observation, repeatContractMatrix.observation),
       input,
-      product: observeProduct(main),
+      product: observeProduct(repeat),
     },
   };
 }
@@ -625,7 +624,13 @@ function currentEngine(context, operation) {
 
 function validateContext(context) {
   assert(isRecord(context), 'context');
-  for (const method of ['ensureMainEngine', 'currentMainEngine', 'createEngine', 'fingerprint']) {
+  for (const method of [
+    'ensureMainEngine',
+    'currentMainEngine',
+    'ensureSessionEngine',
+    'releaseEngine',
+    'fingerprint',
+  ]) {
     assert(typeof context[method] === 'function', `context.${method}`);
   }
   assert(isRecord(context.clock) && typeof context.clock.now === 'function', 'context.clock');

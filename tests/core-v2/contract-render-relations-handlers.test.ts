@@ -201,7 +201,8 @@ describe('Core v2 REN-007 render-relations actual-only handlers', () => {
       clock: new ManualClock(),
       ensureMainEngine: () => Promise.reject(new Error('must not initialize')),
       currentMainEngine: () => null,
-      createEngine: () => Promise.reject(new Error('must not create')),
+      ensureSessionEngine: () => Promise.reject(new Error('must not create session')),
+      releaseEngine: () => Promise.reject(new Error('must not release')),
       fingerprint: () => 'unused',
     };
 
