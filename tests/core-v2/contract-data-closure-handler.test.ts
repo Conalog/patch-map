@@ -393,7 +393,7 @@ function fingerprint(value: unknown): string {
 }
 
 class TestSurface implements CoreV2EngineSurface {
-  public readonly canvasCount = 1;
+  public canvasCount = 1;
   public destroyed = false;
   readonly #width: number;
   readonly #height: number;
@@ -450,6 +450,7 @@ class TestSurface implements CoreV2EngineSurface {
   public destroy(): Promise<boolean> {
     if (this.destroyed) return Promise.resolve(false);
     this.destroyed = true;
+    this.canvasCount = 0;
     return Promise.resolve(true);
   }
 }

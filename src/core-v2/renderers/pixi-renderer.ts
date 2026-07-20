@@ -23,6 +23,11 @@ import { AggregateLeafLayer } from './leaf-layer';
 import { AggregateMeshLayer } from './mesh-layer';
 import { ParticleGraphicsLayer } from './particle-layer';
 import type { CoreV2ProjectionIndex } from '../contracts';
+import {
+  createCoreV2LeafAssetSession,
+  type CoreV2AssetPolicy,
+  type CoreV2AssetSession,
+} from '../assets';
 import type {
   CoreV2BackendPreference,
   CoreV2RendererStrategy,
@@ -47,6 +52,8 @@ export interface PixiCoreV2RendererOptions {
   readonly antialias?: boolean;
   readonly background?: number;
   readonly powerPreference?: 'high-performance' | 'low-power';
+  readonly assetSession?: CoreV2AssetSession;
+  readonly assetPolicy?: CoreV2AssetPolicy;
 }
 
 export interface PixiCoreV2InitializationMetrics {
@@ -126,7 +133,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private constructor(
     application: Application,
     options: Required<Pick<PixiCoreV2RendererOptions, 'width' | 'height' | 'pixelRatio' | 'strategy' | 'preference'>> &
-      Pick<PixiCoreV2RendererOptions, 'target'>,
+      Pick<PixiCoreV2RendererOptions, 'target' | 'assetSession' | 'assetPolicy'>,
     metrics: PixiCoreV2InitializationMetrics,
   ) {
     const buildStarted = now();
@@ -147,7 +154,8 @@ export class PixiCoreV2Renderer implements CoreRenderer {
           applyStoreView: false,
         })
       : new ParticleGraphicsLayer({ label: 'PATCH MAP Core v2 / particle graphics' });
-    this.leaves = new AggregateLeafLayer();
+    const leafSession = options.assetSession ?? createCoreV2LeafAssetSession(options.assetPolicy);
+    this.leaves = new AggregateLeafLayer(leafSession, options.assetSession === undefined);
     this.selectionOverlay = new Graphics({ label: 'PATCH MAP Core v2 / interaction overlay' });
     this.selectionOverlay.eventMode = 'none';
     this.world.addChild(this.aggregate.container, this.leaves.container, this.selectionOverlay);
@@ -197,7 +205,16 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     const applicationInitMs = now() - applicationStarted;
     return new PixiCoreV2Renderer(
       application,
-      { width, height, pixelRatio, strategy, preference, ...(options.target ? { target: options.target } : {}) },
+      {
+        width,
+        height,
+        pixelRatio,
+        strategy,
+        preference,
+        ...(options.target ? { target: options.target } : {}),
+        ...(options.assetSession ? { assetSession: options.assetSession } : {}),
+        ...(options.assetPolicy ? { assetPolicy: options.assetPolicy } : {}),
+      },
       { applicationInitMs, rendererBuildMs: 0 },
     );
   }

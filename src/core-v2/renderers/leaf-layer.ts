@@ -1,5 +1,4 @@
 import {
-  Assets,
   BitmapText,
   Container,
   Matrix,
@@ -17,6 +16,11 @@ import {
   type RenderStoreView,
 } from '../../core-v1/renderer/types';
 import {
+  createCoreV2LeafAssetSession,
+  type CoreV2AssetAcquisition,
+  type CoreV2AssetSession,
+} from '../assets';
+import {
   resolveCoreV2SlotQuad,
   type CoreV2ProjectionRenderContext,
   type CoreV2ResolvedRenderQuad,
@@ -28,31 +32,11 @@ interface TextEntry {
   styleSignature: string;
 }
 
-interface SharedAssetState {
-  readonly url: string;
-  readonly ownership: 'core-v2' | 'external';
-  readonly texture: Promise<Texture>;
-  references: number;
-  releasing?: Promise<void>;
-}
-
-interface SharedAssetLease {
-  readonly state: SharedAssetState;
-  readonly texture: Texture;
-  released: boolean;
-}
-
 interface LeafAsset {
   readonly url: string;
   readonly texture: Texture;
-  readonly lease: SharedAssetLease;
+  readonly acquisition: CoreV2AssetAcquisition;
 }
-
-// Pixi Assets is a process-wide singleton and does not expose consumer
-// reference counts. Keep Core v2's leases process-wide too: an asset already
-// present in the public cache is borrowed, while one first loaded here is
-// released only after the final Core v2 lease reaches its detach barrier.
-const sharedAssetStates = new Map<string, SharedAssetState>();
 
 export interface LeafLayerDebug {
   readonly bitmapTextCount: number;
@@ -70,15 +54,21 @@ export class AggregateLeafLayer {
   private readonly texts = new Map<number, TextEntry>();
   private readonly images = new Map<number, Sprite>();
   private readonly imageSources = new Map<number, string>();
+  private readonly imageSlotsBySource = new Map<string, Set<number>>();
   private readonly assets = new Map<string, LeafAsset>();
-  private readonly pendingAssetReleases: SharedAssetLease[] = [];
+  private readonly pendingAssetReleases: CoreV2AssetAcquisition[] = [];
+  private readonly aliasGenerations = new Map<string, number>();
+  private readonly pendingAliasGenerations = new Map<string, number>();
+  private readonly dirtyAssetSlots = new Set<number>();
   private readonly unresolved = new Set<string>();
   private readonly transformMatrix = new Matrix();
   private storeEpoch = -1;
-  private assetsDirty = false;
   private destroyed = false;
 
-  public constructor() {
+  public constructor(
+    private readonly assetSession: CoreV2AssetSession = createCoreV2LeafAssetSession(),
+    private readonly ownsAssetSession = true,
+  ) {
     this.container.eventMode = 'none';
     this.container.interactiveChildren = false;
     this.textContainer.eventMode = 'none';
@@ -94,41 +84,73 @@ export class AggregateLeafLayer {
     const cleanUrl = url.trim();
     if (!cleanAlias || !cleanUrl) throw new TypeError('asset alias and URL must be non-empty');
     const previous = this.assets.get(cleanAlias);
-    if (previous?.url === cleanUrl) return;
-    const lease = await acquireSharedAsset(cleanUrl);
-    if (this.destroyed) {
-      await releaseSharedAsset(lease);
-      throw new Error('AggregateLeafLayer is destroyed');
-    }
-
-    // A concurrent call for the same alias may have completed while this load
-    // was pending. Do not retain a duplicate lease for an identical binding.
-    const current = this.assets.get(cleanAlias);
-    if (current?.url === cleanUrl) {
-      await releaseSharedAsset(lease);
+    if (previous?.url === cleanUrl) {
+      if (this.pendingAliasGenerations.has(cleanAlias)) {
+        this.aliasGenerations.set(cleanAlias, (this.aliasGenerations.get(cleanAlias) ?? 0) + 1);
+        this.pendingAliasGenerations.delete(cleanAlias);
+      }
       return;
     }
+    const generation = (this.aliasGenerations.get(cleanAlias) ?? 0) + 1;
+    this.aliasGenerations.set(cleanAlias, generation);
+    this.pendingAliasGenerations.set(cleanAlias, generation);
+    try {
+      const acquisition = await this.assetSession.acquireSource(cleanUrl);
+      if (this.destroyed) {
+        await acquisition.release();
+        throw new Error('AggregateLeafLayer is destroyed');
+      }
+      if (this.aliasGenerations.get(cleanAlias) !== generation) {
+        await acquisition.release();
+        return;
+      }
+      let texture: Texture;
+      try {
+        texture = requireTexture(acquisition.resource);
+      } catch (error) {
+        await acquisition.release();
+        throw error;
+      }
 
-    this.assets.set(cleanAlias, { url: cleanUrl, texture: lease.texture, lease });
-    this.unresolved.delete(cleanAlias);
-    this.assetsDirty = true;
-    if (current) {
-      this.discardTextureReferences(cleanAlias, current.texture);
-      this.pendingAssetReleases.push(current.lease);
+      // A concurrent call for the same alias may have completed while this load
+      // was pending. Do not retain a duplicate lease for an identical binding.
+      const current = this.assets.get(cleanAlias);
+      if (current?.url === cleanUrl) {
+        await acquisition.release();
+        return;
+      }
+
+      this.assets.set(cleanAlias, { url: cleanUrl, texture, acquisition });
+      this.unresolved.delete(cleanAlias);
+      this.markSourceDirty(cleanAlias);
+      if (current) {
+        this.discardTextureReferences(cleanAlias, current.texture);
+        this.pendingAssetReleases.push(current.acquisition);
+      }
+    } finally {
+      if (this.pendingAliasGenerations.get(cleanAlias) === generation) {
+        this.pendingAliasGenerations.delete(cleanAlias);
+      }
     }
   }
 
   public unloadAsset(alias: string): Promise<boolean> {
     this.assertAlive();
-    const previous = this.assets.get(alias);
-    if (!previous) return Promise.resolve(false);
-    this.assets.delete(alias);
-    this.assetsDirty = true;
+    const cleanAlias = alias.trim();
+    const previous = this.assets.get(cleanAlias);
+    const pending = this.pendingAliasGenerations.has(cleanAlias);
+    if (!previous && !pending) return Promise.resolve(false);
+    this.aliasGenerations.set(cleanAlias, (this.aliasGenerations.get(cleanAlias) ?? 0) + 1);
+    this.pendingAliasGenerations.delete(cleanAlias);
+    if (!previous) return Promise.resolve(true);
+    this.assets.delete(cleanAlias);
+    this.markSourceDirty(cleanAlias);
+    if ((this.imageSlotsBySource.get(cleanAlias)?.size ?? 0) > 0) this.unresolved.add(cleanAlias);
     // Recreate the affected Sprite rather than only swapping its texture. The
     // structural change invalidates Pixi's cached batch instruction before the
     // old texture source is physically released.
-    this.discardTextureReferences(alias, previous.texture);
-    this.pendingAssetReleases.push(previous.lease);
+    this.discardTextureReferences(cleanAlias, previous.texture);
+    this.pendingAssetReleases.push(previous.acquisition);
     return Promise.resolve(true);
   }
 
@@ -136,7 +158,7 @@ export class AggregateLeafLayer {
   public async finalizeAssetUnloads(): Promise<void> {
     this.assertAlive();
     const leases = this.pendingAssetReleases.splice(0);
-    await Promise.all(leases.map(async (lease) => releaseSharedAsset(lease)));
+    await Promise.all(leases.map(async (acquisition) => acquisition.release()));
   }
 
   public sync(
@@ -155,7 +177,7 @@ export class AggregateLeafLayer {
       this.storeEpoch = epoch;
     }
 
-    if (fullRebuild || this.assetsDirty || !options.changedRanges) {
+    if (fullRebuild || !options.changedRanges) {
       for (let slot = 0; slot < store.capacity; slot += 1) {
         this.syncSlot(store, slot, options.projectionContext);
       }
@@ -167,9 +189,17 @@ export class AggregateLeafLayer {
           this.syncSlot(store, slot, options.projectionContext);
         }
       }
+      for (const slot of this.dirtyAssetSlots) {
+        if (
+          slot >= 0 &&
+          slot < store.capacity &&
+          !rangesContainSlot(options.changedRanges, slot)
+        ) {
+          this.syncSlot(store, slot, options.projectionContext);
+        }
+      }
     }
-    this.refreshUnresolved();
-    this.assetsDirty = false;
+    this.dirtyAssetSlots.clear();
     return this.debugSnapshot();
   }
 
@@ -190,14 +220,26 @@ export class AggregateLeafLayer {
     this.destroyed = true;
     this.clearDisplayObjects();
     const leases = [
-      ...[...this.assets.values()].map(({ lease }) => lease),
+      ...[...this.assets.values()].map(({ acquisition }) => acquisition),
       ...this.pendingAssetReleases,
     ];
     this.assets.clear();
     this.pendingAssetReleases.length = 0;
+    this.aliasGenerations.clear();
+    this.pendingAliasGenerations.clear();
     this.unresolved.clear();
     this.container.destroy({ children: true });
-    await Promise.all(leases.map(async (lease) => releaseSharedAsset(lease)));
+    const settlements = await Promise.allSettled(
+      leases.map(async (acquisition) => acquisition.release()),
+    );
+    const releaseFailure = settlements.find(
+      (settlement): settlement is PromiseRejectedResult => settlement.status === 'rejected',
+    );
+    if (this.ownsAssetSession) {
+      await this.assetSession.destroy();
+      return;
+    }
+    if (releaseFailure) throw new Error('Core v2 asset release failed');
   }
 
   private syncSlot(
@@ -256,9 +298,8 @@ export class AggregateLeafLayer {
     projectionContext?: CoreV2ProjectionRenderContext,
   ): void {
     const source = store.source[slot] ?? '';
-    this.imageSources.set(slot, source);
+    this.indexImageSource(slot, source);
     const texture = this.assets.get(source)?.texture ?? Texture.WHITE;
-    if (!this.assets.has(source) && source) this.unresolved.add(source);
     let sprite = this.images.get(slot);
     if (!sprite) {
       sprite = new Sprite({ texture });
@@ -290,24 +331,48 @@ export class AggregateLeafLayer {
 
   private removeImage(slot: number): void {
     const sprite = this.images.get(slot);
-    this.imageSources.delete(slot);
+    this.unindexImageSource(slot);
     if (!sprite) return;
     this.images.delete(slot);
     sprite.destroy();
   }
 
-  private refreshUnresolved(): void {
-    this.unresolved.clear();
-    for (const source of this.imageSources.values()) {
-      if (source && !this.assets.has(source)) this.unresolved.add(source);
+  private indexImageSource(slot: number, source: string): void {
+    const previous = this.imageSources.get(slot);
+    if (previous === source) return;
+    this.unindexImageSource(slot);
+    this.imageSources.set(slot, source);
+    if (!source) return;
+    const slots = this.imageSlotsBySource.get(source) ?? new Set<number>();
+    slots.add(slot);
+    this.imageSlotsBySource.set(source, slots);
+    if (!this.assets.has(source)) this.unresolved.add(source);
+  }
+
+  private unindexImageSource(slot: number): void {
+    const source = this.imageSources.get(slot);
+    this.imageSources.delete(slot);
+    this.dirtyAssetSlots.delete(slot);
+    if (!source) return;
+    const slots = this.imageSlotsBySource.get(source);
+    slots?.delete(slot);
+    if (slots?.size === 0) {
+      this.imageSlotsBySource.delete(source);
+      this.unresolved.delete(source);
+    }
+  }
+
+  private markSourceDirty(source: string): void {
+    for (const slot of this.imageSlotsBySource.get(source) ?? []) {
+      this.dirtyAssetSlots.add(slot);
     }
   }
 
   private discardTextureReferences(alias: string, texture: Texture): void {
-    for (const [slot, sprite] of [...this.images]) {
-      if (this.imageSources.get(slot) !== alias || sprite.texture !== texture) continue;
+    for (const slot of this.imageSlotsBySource.get(alias) ?? []) {
+      const sprite = this.images.get(slot);
+      if (!sprite || sprite.texture !== texture) continue;
       this.images.delete(slot);
-      this.imageSources.delete(slot);
       sprite.destroy();
     }
   }
@@ -318,6 +383,8 @@ export class AggregateLeafLayer {
     this.texts.clear();
     this.images.clear();
     this.imageSources.clear();
+    this.imageSlotsBySource.clear();
+    this.dirtyAssetSlots.clear();
     this.unresolved.clear();
     this.textContainer.removeChildren();
     this.imageContainer.removeChildren();
@@ -328,78 +395,13 @@ export class AggregateLeafLayer {
   }
 }
 
-async function acquireSharedAsset(url: string): Promise<SharedAssetLease> {
-  while (true) {
-    const existing = sharedAssetStates.get(url);
-    if (existing?.releasing) {
-      // Never hand out a texture while Pixi is destroying its source. A fresh
-      // acquisition starts only after that global unload has settled.
-      await existing.releasing.catch(() => undefined);
-      continue;
-    }
-
-    const state = existing ?? createSharedAssetState(url);
-    if (existing) state.references += 1;
-    try {
-      const texture = await state.texture;
-      return { state, texture, released: false };
-    } catch (error) {
-      rollbackSharedAssetAcquire(state);
-      throw error;
-    }
-  }
-}
-
-function createSharedAssetState(url: string): SharedAssetState {
-  const cached = Assets.get<unknown>(url);
-  const ownership = cached === undefined ? 'core-v2' : 'external';
-  const texture = cached === undefined
-    ? Assets.load<Texture>(url).then((loaded) => requireTexture(url, loaded))
-    : Promise.resolve(requireTexture(url, cached));
-  const state: SharedAssetState = {
-    url,
-    ownership,
-    texture,
-    references: 1,
-  };
-  sharedAssetStates.set(url, state);
-  return state;
-}
-
-function rollbackSharedAssetAcquire(state: SharedAssetState): void {
-  state.references -= 1;
-  if (state.references === 0 && sharedAssetStates.get(state.url) === state) {
-    sharedAssetStates.delete(state.url);
-  }
-}
-
-async function releaseSharedAsset(lease: SharedAssetLease): Promise<void> {
-  if (lease.released) return;
-  lease.released = true;
-  const state = lease.state;
-  state.references -= 1;
-  if (state.references > 0) return;
-  if (state.references < 0) throw new Error(`asset lease underflow for ${JSON.stringify(state.url)}`);
-
-  if (state.ownership === 'external') {
-    if (sharedAssetStates.get(state.url) === state) sharedAssetStates.delete(state.url);
-    return;
-  }
-
-  // Install the releasing promise before invoking Assets.unload so a racing
-  // acquire waits instead of borrowing a texture whose GPU source is dying.
-  const releasing = Promise.resolve().then(async () => Assets.unload(state.url));
-  state.releasing = releasing;
-  try {
-    await releasing;
-  } finally {
-    if (sharedAssetStates.get(state.url) === state) sharedAssetStates.delete(state.url);
-  }
-}
-
-function requireTexture(url: string, value: unknown): Texture {
+function requireTexture(value: unknown): Texture {
   if (value instanceof Texture) return value as Texture;
-  throw new TypeError(`asset ${JSON.stringify(url)} did not resolve to a Pixi Texture`);
+  throw new TypeError('asset did not resolve to a Pixi Texture');
+}
+
+function rangesContainSlot(ranges: readonly SlotRange[], slot: number): boolean {
+  return ranges.some((range) => slot >= range.start && slot < range.end);
 }
 
 export function isBitmapTextSafe(value: string): boolean {

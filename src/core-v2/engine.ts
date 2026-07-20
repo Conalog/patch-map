@@ -2,6 +2,19 @@ import { createCoreV2, type CoreV2, type CoreV2Options } from './core';
 import type { SceneSnapshot } from '../core-v1/contracts';
 import type { CoreV2ProjectionIndex } from './contracts';
 import {
+  CORE_V2_ASSET_RUNTIME,
+  CORE_V2_BUILTIN_ASSETS,
+  CoreV2AssetError,
+  type CoreV2AssetAcquisition,
+  type CoreV2AssetPolicy,
+  type CoreV2AssetRegistration,
+  type CoreV2AssetRegistrationResult,
+  type CoreV2AssetRuntime,
+  type CoreV2AssetRuntimeProbe,
+  type CoreV2AssetSession,
+  type CoreV2AssetSessionProbe,
+} from './assets';
+import {
   coreV2AffineBasis,
   coreV2AffineCorners,
   createCoreV2Affine,
@@ -94,6 +107,7 @@ export interface CoreV2SurfaceOptions {
   readonly strategy: 'mesh' | 'particle';
   readonly preference: 'webgl' | 'webgpu';
   readonly powerPreference: 'high-performance' | 'low-power';
+  readonly assetSession?: CoreV2AssetSession;
 }
 
 export interface CoreV2Point {
@@ -283,6 +297,8 @@ export type CoreV2EngineSurfaceFactory = (
 
 export interface CoreV2EngineOptions {
   readonly surfaceFactory?: CoreV2EngineSurfaceFactory;
+  readonly assetRuntime?: CoreV2AssetRuntime;
+  readonly assetPolicy?: CoreV2AssetPolicy;
 }
 
 export interface CoreV2InitializeOptions {
@@ -298,6 +314,7 @@ export interface CoreV2InitializeOptions {
   readonly strategy?: 'mesh' | 'particle';
   readonly preference?: 'webgl' | 'webgpu';
   readonly powerPreference?: 'high-performance' | 'low-power';
+  readonly requiredAssets?: readonly CoreV2AssetRegistration[];
 }
 
 export interface CoreV2InitializeResult {
@@ -440,6 +457,7 @@ export interface CoreV2EngineSnapshot {
       commandCount: number | null;
       visiblePrimitiveCount: number | null;
     }>;
+    assets: CoreV2AssetSessionProbe | null;
     subscriptions: Readonly<{ active: number; duplicates: 0 }>;
   }>;
 }
@@ -483,9 +501,12 @@ const FACILITIES = Object.freeze([
 
 export class CoreV2Engine {
   private readonly surfaceFactory: CoreV2EngineSurfaceFactory;
+  private readonly assetRuntime: CoreV2AssetRuntime;
+  private readonly assetPolicy: CoreV2AssetPolicy | undefined;
   private readonly listeners = new Map<CoreV2EngineEvent, Set<(event: unknown) => void>>();
   private lifecycle: CoreV2Lifecycle = 'new';
   private surface: CoreV2EngineSurface | null = null;
+  private retainedCleanupSurface: CoreV2EngineSurface | null = null;
   private initializePromise: Promise<CoreV2InitializeResult> | null = null;
   private instanceId: string | null = null;
   private materialized: MaterializedCoreV2Dataset | null = null;
@@ -513,9 +534,13 @@ export class CoreV2Engine {
   private worldRotationDegrees = 0;
   private worldFlipX = false;
   private worldFlipY = false;
+  private assetSession: CoreV2AssetSession | null = null;
+  private requiredAssetAcquisitions: CoreV2AssetAcquisition[] = [];
 
   public constructor(options: CoreV2EngineOptions = {}) {
     this.surfaceFactory = options.surfaceFactory ?? createPixiSurface;
+    this.assetRuntime = options.assetRuntime ?? CORE_V2_ASSET_RUNTIME;
+    this.assetPolicy = options.assetPolicy;
   }
 
   public on<K extends CoreV2EngineEvent>(event: K, listener: CoreV2EngineListener<K>): () => void {
@@ -525,13 +550,55 @@ export class CoreV2Engine {
     return () => listeners.delete(listener as (event: unknown) => void);
   }
 
+  public registerAssets(
+    instanceId: string,
+    registrations: readonly CoreV2AssetRegistration[] = CORE_V2_BUILTIN_ASSETS,
+  ): CoreV2AssetRegistrationResult {
+    this.assertAssetLifecycle('registerAssets');
+    return this.ensureAssetSession(instanceId).registerAssets(registrations);
+  }
+
+  public acquireAsset(alias: string): Promise<CoreV2AssetAcquisition> {
+    this.assertAssetLifecycle('acquireAsset');
+    if (!this.assetSession) {
+      return Promise.reject(this.operationError('NOT_READY', 'NOT_READY', 'acquireAsset', true));
+    }
+    return this.assetSession.acquire(alias);
+  }
+
+  public assetProbe(alias?: string): Readonly<{
+    session: CoreV2AssetSessionProbe | null;
+    runtime: CoreV2AssetRuntimeProbe;
+  }> {
+    return Object.freeze({
+      session: this.assetSession?.probe() ?? null,
+      runtime: this.assetRuntime.probe(alias),
+    });
+  }
+
   public initialize(options: CoreV2InitializeOptions): Promise<CoreV2InitializeResult> {
     if (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
       return Promise.reject(this.operationError('DESTROYED', 'DESTROYED', 'initialize', false));
     }
+    if (this.retainedCleanupSurface) {
+      return Promise.reject(
+        this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'initialize', false),
+      );
+    }
+    validateInitializeOptions(options);
+    let assetSession: CoreV2AssetSession;
+    try {
+      assetSession = this.ensureAssetSession(options.instanceId);
+    } catch (error) {
+      return Promise.reject(this.assetInitializationError(error));
+    }
     if (this.initializePromise) return this.initializePromise;
     if (this.surface) return Promise.resolve(this.initializeResult());
-    validateInitializeOptions(options);
+    try {
+      if (options.requiredAssets) assetSession.registerAssets(options.requiredAssets);
+    } catch (error) {
+      return Promise.reject(this.assetInitializationError(error));
+    }
     this.lifecycle = 'initializing';
     this.instanceId = options.instanceId;
     this.zoomLimits = normalizeZoomLimits(options.zoomLimits ?? DEFAULT_ZOOM_LIMITS);
@@ -544,15 +611,10 @@ export class CoreV2Engine {
       strategy: options.strategy ?? 'mesh',
       preference: options.preference ?? 'webgl',
       powerPreference: options.powerPreference ?? 'high-performance',
+      assetSession,
       ...(options.target ? { target: options.target } : {}),
       ...(options.canvas ? { canvas: options.canvas } : {}),
     };
-    this.rendererConfiguration = Object.freeze({
-      resolution: surfaceOptions.pixelRatio,
-      antialias: surfaceOptions.antialias,
-      background: packedColorToHex(surfaceOptions.background),
-      backend: surfaceOptions.preference,
-    });
     this.viewportWidth = surfaceOptions.width;
     this.viewportHeight = surfaceOptions.height;
     this.viewportPixelRatio = surfaceOptions.pixelRatio;
@@ -561,26 +623,59 @@ export class CoreV2Engine {
     this.worldRotationDegrees = 0;
     this.worldFlipX = false;
     this.worldFlipY = false;
-    this.initializePromise = this.surfaceFactory(surfaceOptions)
-      .then((surface) => {
-        if (this.lifecycle === 'destroying' || this.lifecycle === 'destroyed') {
-          return surface.destroy().then(() => {
-            throw this.operationError('DESTROYED', 'DESTROYED', 'initialize', false);
-          });
+    const requiredAliases = options.requiredAssets?.map(({ alias }) => alias) ?? [];
+    this.initializePromise = (async (): Promise<CoreV2InitializeResult> => {
+      const attemptAcquisitions: CoreV2AssetAcquisition[] = [];
+      let pendingSurface: CoreV2EngineSurface | null = null;
+      try {
+        for (const alias of requiredAliases) {
+          attemptAcquisitions.push(await assetSession.acquire(alias));
         }
-        this.surface = surface;
+        if (this.isDestroyingOrDestroyed()) {
+          throw this.operationError('DESTROYED', 'DESTROYED', 'initialize', false);
+        }
+        this.rendererConfiguration = Object.freeze({
+          resolution: surfaceOptions.pixelRatio,
+          antialias: surfaceOptions.antialias,
+          background: packedColorToHex(surfaceOptions.background),
+          backend: surfaceOptions.preference,
+        });
+        pendingSurface = await this.surfaceFactory(surfaceOptions);
+        if (this.isDestroyingOrDestroyed()) {
+          this.retainedCleanupSurface = pendingSurface;
+          pendingSurface = null;
+          throw this.operationError('DESTROYED', 'DESTROYED', 'initialize', false);
+        }
+        this.surface = pendingSurface;
+        pendingSurface = null;
+        this.requiredAssetAcquisitions.push(...attemptAcquisitions);
         this.lifecycleGeneration += 1;
         this.lifecycle = this.materialized?.rootIds.length ? 'scene-ready' : 'ready-empty';
         const result = this.initializeResult();
         this.emit('ready', result);
         return result;
-      })
-      .catch((error: unknown) => {
+      } catch (error) {
+        const cleanupFailures: unknown[] = [];
+        if (pendingSurface) {
+          const cleanup = await this.cleanupSurface(pendingSurface);
+          if (cleanup.error) cleanupFailures.push(cleanup.error);
+        }
+        const acquisitionSettlements = await Promise.allSettled(
+          attemptAcquisitions.map(async (acquisition) => acquisition.release()),
+        );
+        cleanupFailures.push(...rejectedReasons(acquisitionSettlements));
         this.surface = null;
         this.initializePromise = null;
-        if (this.lifecycle !== 'destroyed') this.lifecycle = 'new';
-        throw error;
-      });
+        this.rendererConfiguration = null;
+        if (this.lifecycle !== 'destroyed' && this.lifecycle !== 'destroying') {
+          this.lifecycle = 'new';
+        }
+        if (cleanupFailures.length > 0) {
+          throw this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'initialize', false);
+        }
+        throw this.assetInitializationError(error);
+      }
+    })();
     return this.initializePromise;
   }
 
@@ -1004,7 +1099,8 @@ export class CoreV2Engine {
       selectionIds: surfaceDebug.selectionIds,
       facilities: FACILITIES,
       resources: Object.freeze({
-        canvasCount: this.surface?.canvasCount ?? 0,
+        canvasCount:
+          (this.surface?.canvasCount ?? 0) + (this.retainedCleanupSurface?.canvasCount ?? 0),
         canvas: Object.freeze({
           cssSize: surfaceDebug.cssSize,
           backingSize: surfaceDebug.backingSize,
@@ -1014,6 +1110,7 @@ export class CoreV2Engine {
           commandCount: surfaceDebug.renderCommandCount ?? null,
           visiblePrimitiveCount: surfaceDebug.visiblePrimitiveCount ?? null,
         }),
+        assets: this.assetSession?.probe() ?? null,
         subscriptions: Object.freeze({ active: this.subscriptionCount(), duplicates: 0 }),
       }),
     });
@@ -1091,28 +1188,124 @@ export class CoreV2Engine {
   }
 
   public async destroy(): Promise<boolean> {
-    if (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') return false;
+    if (this.lifecycle === 'destroying') return false;
+    if (this.lifecycle === 'destroyed') return this.retryDestroyedCleanup();
     this.lifecycle = 'destroying';
     this.submissionSequence += 1;
     const surface = this.surface;
     const pendingInitialization = this.initializePromise;
+    const assetSession = this.assetSession;
+    const cleanupFailures: unknown[] = [];
+    const requiredAcquisitions = this.requiredAssetAcquisitions.splice(0);
+    let assetCleanup: Promise<void> | null = null;
     if (surface) {
-      await surface.destroy();
-    } else if (pendingInitialization) {
+      const cleanup = await this.cleanupSurface(surface);
+      if (cleanup.error) cleanupFailures.push(cleanup.error);
+      assetCleanup = this.destroyAssetSession(assetSession, requiredAcquisitions);
+    } else {
+      // Starting asset teardown cancels a required acquisition that may be
+      // holding initialization open. The late surface, if any, is retained by
+      // the initialization continuation until this destroy owns it below.
+      assetCleanup = this.destroyAssetSession(assetSession, requiredAcquisitions);
+    }
+    if (pendingInitialization) {
       // Initialization owns a renderer allocation that may not exist yet. Its
-      // continuation observes `destroying`, disposes the late surface, and rejects;
-      // waiting here makes the public destroy milestone a real resource boundary.
+      // continuation observes `destroying`, transfers the late surface to the
+      // cleanup-only owner, and rejects. Waiting here makes destroy the physical
+      // resource boundary instead of losing the renderer reference.
       await pendingInitialization.catch(() => undefined);
+    }
+    const retainedSurface = this.retainedCleanupSurface;
+    if (retainedSurface && retainedSurface !== surface) {
+      const cleanup = await this.cleanupSurface(retainedSurface);
+      if (cleanup.error) cleanupFailures.push(cleanup.error);
+    }
+    let assetCleanupSucceeded = assetSession === null;
+    try {
+      await assetCleanup;
+      assetCleanupSucceeded = true;
+    } catch (error) {
+      cleanupFailures.push(error);
     }
     this.surface = null;
     this.materialized = null;
     this.datasetRef = null;
     this.rendererConfiguration = null;
     this.initializePromise = null;
+    this.assetSession = assetCleanupSucceeded ? null : assetSession;
     this.lifecycle = 'destroyed';
     this.emit('destroyed', Object.freeze({ lifecycleGeneration: this.lifecycleGeneration }));
     this.listeners.clear();
+    if (cleanupFailures.length > 0) {
+      throw this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'destroy', false);
+    }
     return true;
+  }
+
+  private async retryDestroyedCleanup(): Promise<boolean> {
+    const cleanupFailures: unknown[] = [];
+    if (this.retainedCleanupSurface) {
+      const cleanup = await this.cleanupSurface(this.retainedCleanupSurface);
+      if (cleanup.error) cleanupFailures.push(cleanup.error);
+    }
+    if (this.assetSession && !this.assetSession.probe().destroyed) {
+      try {
+        await this.assetSession.destroy();
+        this.assetSession = null;
+      } catch (error) {
+        cleanupFailures.push(error);
+      }
+    } else if (this.assetSession?.probe().destroyed) {
+      try {
+        await this.assetSession.retryCleanup();
+        this.assetSession = null;
+      } catch (error) {
+        cleanupFailures.push(error);
+      }
+    }
+    if (cleanupFailures.length > 0) {
+      throw this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'destroy', false);
+    }
+    return false;
+  }
+
+  private async cleanupSurface(
+    surface: CoreV2EngineSurface,
+  ): Promise<Readonly<{ released: boolean; error: Error | null }>> {
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      let attemptFailed = false;
+      try {
+        await surface.destroy();
+      } catch {
+        lastError = new Error('Core v2 surface cleanup failed');
+        attemptFailed = true;
+      }
+      if (surface.canvasCount === 0) {
+        if (this.surface === surface) this.surface = null;
+        if (this.retainedCleanupSurface === surface) this.retainedCleanupSurface = null;
+        return Object.freeze({
+          released: true,
+          error: attemptFailed ? lastError : null,
+        });
+      }
+      if (!attemptFailed) lastError = new Error('Core v2 surface retained a canvas after destroy');
+    }
+    this.surface = this.surface === surface ? null : this.surface;
+    this.retainedCleanupSurface = surface;
+    return Object.freeze({ released: false, error: lastError });
+  }
+
+  private destroyAssetSession(
+    assetSession: CoreV2AssetSession | null,
+    requiredAcquisitions: readonly CoreV2AssetAcquisition[],
+  ): Promise<void> {
+    if (assetSession) return assetSession.destroy();
+    return Promise.allSettled(
+      requiredAcquisitions.map(async (acquisition) => acquisition.release()),
+    ).then((settlements) => {
+      if (rejectedReasons(settlements).length > 0) throw assetInternalEngineCleanupFailure();
+    });
   }
 
   private initializeResult(): CoreV2InitializeResult {
@@ -1142,11 +1335,54 @@ export class CoreV2Engine {
     return this.surface;
   }
 
+  private assertAssetLifecycle(operation: string): void {
+    if (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
+      throw this.operationError('DESTROYED', 'DESTROYED', operation, false);
+    }
+  }
+
+  private isDestroyingOrDestroyed(): boolean {
+    return this.lifecycle === 'destroying' || this.lifecycle === 'destroyed';
+  }
+
+  private ensureAssetSession(instanceId: string): CoreV2AssetSession {
+    if (this.assetSession) {
+      if (this.assetSession.instanceId !== instanceId) {
+        throw new CoreV2AssetError('CONFLICT', 'CONFLICT', false);
+      }
+      return this.assetSession;
+    }
+    if (this.instanceId !== null && this.instanceId !== instanceId) {
+      throw new CoreV2AssetError('CONFLICT', 'CONFLICT', false);
+    }
+    this.assetSession = this.assetRuntime.createSession({
+      instanceId,
+      ...(this.assetPolicy ? { policy: this.assetPolicy } : {}),
+    });
+    return this.assetSession;
+  }
+
+  private assetInitializationError(error: unknown): CoreV2EngineError {
+    if (error instanceof CoreV2EngineError) return error;
+    if (error instanceof CoreV2AssetError) {
+      return this.operationError(
+        error.code,
+        error.category,
+        'initialize',
+        error.retryable,
+      );
+    }
+    return this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'initialize', false);
+  }
+
   private diagnosticFrom(error: unknown, operation: string): CoreV2EngineDiagnostic {
     if (error instanceof CoreV2DatasetError) {
       return this.operationDiagnostic(error.code, error.category, operation, true, error.datasetPath);
     }
     if (error instanceof CoreV2EngineError) return error.diagnostic;
+    if (error instanceof CoreV2AssetError) {
+      return this.operationDiagnostic(error.code, error.category, operation, error.retryable);
+    }
     return this.operationDiagnostic('INTERNAL_FAILURE', 'INTERNAL_FAILURE', operation, false);
   }
 
@@ -1326,6 +1562,20 @@ export class CoreV2Engine {
   }
 }
 
+function rejectedReasons(
+  settlements: readonly PromiseSettledResult<unknown>[],
+): unknown[] {
+  const reasons: unknown[] = [];
+  for (const settlement of settlements) {
+    if (settlement.status === 'rejected') reasons.push(settlement.reason as unknown);
+  }
+  return reasons;
+}
+
+function assetInternalEngineCleanupFailure(): Error {
+  return new Error('Core v2 required asset cleanup failed');
+}
+
 export class CoreV2EngineError extends Error {
   public readonly diagnostic: CoreV2EngineDiagnostic;
 
@@ -1480,10 +1730,12 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
   }
 
   public async destroy(): Promise<boolean> {
-    const destroyed = await this.core.destroy();
-    this.canvasPresent = false;
-    this.invalidateGeometryCache();
-    return destroyed;
+    try {
+      return await this.core.destroy();
+    } finally {
+      this.canvasPresent = false;
+      this.invalidateGeometryCache();
+    }
   }
 
   private invalidateGeometryCache(): void {
@@ -1503,6 +1755,7 @@ async function createPixiSurface(options: CoreV2SurfaceOptions): Promise<CoreV2E
     preference: options.preference,
     powerPreference: options.powerPreference,
     autoRender: false,
+    ...(options.assetSession ? { assetSession: options.assetSession } : {}),
     ...(options.target ? { target: options.target } : {}),
     ...(options.canvas ? { canvas: options.canvas } : {}),
   };

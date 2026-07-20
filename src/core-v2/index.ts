@@ -12,6 +12,16 @@ export type {
 } from './core';
 export { CoreV2Engine, CoreV2EngineError } from './engine';
 export type * from './engine';
+export {
+  CORE_V2_ASSET_RUNTIME,
+  CORE_V2_BUILTIN_ASSETS,
+  CoreV2AssetError,
+  CoreV2AssetRuntime,
+  CoreV2AssetSession,
+  createCoreV2PixiAssetBackend,
+  normalizeCoreV2AssetDescriptor,
+} from './assets';
+export type * from './assets';
 export { PatchMapParseError } from './contracts';
 export type * from './contracts';
 export { parsePatchMapV010 } from './parser';
