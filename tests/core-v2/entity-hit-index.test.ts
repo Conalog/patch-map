@@ -140,6 +140,7 @@ describe('Core v2 bounded entity hit index', () => {
       scene: {
         snapshot(): SceneSnapshot;
         query(): readonly EntityRef[];
+        ref(id: string): EntityRef | null;
       };
       entityHitIndexValue: CoreV2EntityHitIndex | null;
       staleHitProjectionIds: Set<string>;
@@ -213,6 +214,9 @@ describe('Core v2 bounded entity hit index', () => {
     expect(core.hitTestScreen({ x: 133, y: 5 })?.slot).toBe(0);
     expect(core.hitTestScreen({ x: 5, y: 5 })).toBeNull();
     expect(snapshotSpy).toHaveBeenCalledTimes(3);
+    const refSpy = vi.spyOn(internals.scene, 'ref');
+    core.commit({ operations: [{ type: 'selection', targets: ['target'], mode: 'replace' }] });
+    expect(refSpy).not.toHaveBeenCalled();
 
     core.commit({
       operations: [{

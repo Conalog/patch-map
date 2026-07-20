@@ -370,11 +370,12 @@ export class CoreV2 {
       this.staleHitProjectionIds.delete(id);
       this.deleteSpatialHitAnimations(id);
     }
-    for (const id of hitImpact.staleProjectionIds) this.staleHitProjectionIds.add(id);
+    for (const id of hitImpact.staleProjectionIds) {
+      if (this.scene.ref(id) !== null) this.staleHitProjectionIds.add(id);
+    }
     for (const animation of hitImpact.spatialAnimations) {
       this.spatialHitAnimationEnds.set(animation.key, animation.endTimeMs);
     }
-    this.pruneRemovedHitState();
     this.invalidate(this.scene.activeAnimations > 0 ? 'animation' : 'commit');
     this.entityCountValue += result.added - result.removed;
     return result;
@@ -707,12 +708,6 @@ export class CoreV2 {
     const prefix = `${id.length}:${id}:`;
     for (const key of this.spatialHitAnimationEnds.keys()) {
       if (key.startsWith(prefix)) this.spatialHitAnimationEnds.delete(key);
-    }
-  }
-
-  private pruneRemovedHitState(): void {
-    for (const id of this.staleHitProjectionIds) {
-      if (this.scene.ref(id) === null) this.staleHitProjectionIds.delete(id);
     }
   }
 
