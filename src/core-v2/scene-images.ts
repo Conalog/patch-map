@@ -104,6 +104,9 @@ export interface CoreV2SceneImageProductProbe {
   readonly naturalSize: readonly [number, number] | null;
   readonly reusedResolvedResource: boolean;
   readonly renderObjectCount: 0 | 1;
+  readonly placeholderCount: 0 | 1;
+  /** Current binding-wide semantic consumers; zero for inactive targets. */
+  readonly bindingConsumerCount: number;
   readonly role: LeafAssetRenderRole;
   readonly rendererGeneration: number | null;
   readonly staleAttachCount: number;
@@ -681,6 +684,10 @@ export class CoreV2SceneImageController {
       reusedResolvedResource: current.reusedResolvedResource ||
         (bindingProbe?.reusedResolvedResource ?? false),
       renderObjectCount: imageProbe?.renderObjectCount ?? 0,
+      placeholderCount: imageProbe?.role === 'asset-placeholder'
+        ? imageProbe.renderObjectCount
+        : 0,
+      bindingConsumerCount: bindingProbe?.consumerCount ?? 0,
       role: imageProbe?.role ?? 'none',
       rendererGeneration: current.rendererGeneration ?? bindingProbe?.generation ?? null,
       staleAttachCount,

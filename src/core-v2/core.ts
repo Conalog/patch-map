@@ -22,6 +22,7 @@ import type {
   ParseIdentityIndex,
   ParsePatchMapOptions,
   ParsePatchMapResult,
+  CoreV2ComponentRenderRole,
   CoreV2EntityProjection,
   CoreV2ProjectionIndex,
 } from './contracts';
@@ -38,8 +39,12 @@ import {
   type PixiCoreV2InitializationMetrics,
   type PixiCoreV2RendererOptions,
 } from './renderers/pixi-renderer';
-import type { PixiCoreV2RendererDebug } from './renderers/types';
-import type { CoreV2WorldOrientation } from './renderers/types';
+import type {
+  CoreV2EntityPaintProbe,
+  CoreV2RenderLaneSnapshot,
+  CoreV2WorldOrientation,
+  PixiCoreV2RendererDebug,
+} from './renderers/types';
 import {
   CoreV2EntityHitIndex,
   coreV2EntityWorldAabb,
@@ -48,6 +53,7 @@ import {
 import {
   CoreV2SceneImageController,
   type CoreV2SceneImageIntrinsicSize,
+  type CoreV2SceneImageProductProbe,
   type CoreV2SceneImagesProbe,
 } from './scene-images';
 import {
@@ -145,6 +151,43 @@ export interface CoreV2RuntimeDebug {
   readonly scheduler: FrameSchedulerDebug;
 }
 
+export interface CoreV2ComponentVisualTarget {
+  readonly ownerId: string;
+  readonly componentId: string;
+}
+
+export interface CoreV2ComponentVisualGeometryProbe {
+  readonly localBounds: CoreV2BoundsTuple;
+  readonly worldBounds: CoreV2BoundsTuple;
+  readonly visibleBounds: CoreV2BoundsTuple | null;
+  readonly visible: boolean;
+  readonly interactive: boolean;
+}
+
+/**
+ * O(1), Pixi-object-free component observation assembled from the parser,
+ * dense store, scene-image controller, and fixed renderer probe indexes.
+ */
+export interface CoreV2ComponentVisualProductProbe {
+  readonly target: CoreV2ComponentVisualTarget;
+  /** Semantic owner in the detached PATCH MAP graph (differs for expanded grids). */
+  readonly semanticOwnerId: string;
+  readonly entityId: string;
+  readonly logicalIdentity: string;
+  readonly componentType: string;
+  readonly renderRole: CoreV2ComponentRenderRole;
+  readonly entityKind: string;
+  readonly geometry: CoreV2ComponentVisualGeometryProbe;
+  readonly image: CoreV2SceneImageProductProbe | null;
+  readonly rendererPaint: CoreV2EntityPaintProbe | null;
+  readonly renderLanes: CoreV2RenderLaneSnapshot;
+}
+
+interface IndexedComponentTarget {
+  readonly entityId: string;
+  readonly semanticOwnerId: string;
+}
+
 export interface AnimateBarsOptions {
   readonly seed?: number;
   readonly fraction?: number;
@@ -186,6 +229,7 @@ export class CoreV2 {
   private readonly staleHitProjectionIds = new Set<string>();
   private readonly spatialHitAnimationEnds = new Map<string, number>();
   private readonly pendingIntrinsicImageSizes = new Map<string, CoreV2SceneImageIntrinsicSize>();
+  private componentTargets = new Map<string, IndexedComponentTarget | null>();
 
   private constructor(renderer: PixiCoreV2Renderer, options: CoreV2Options) {
     this.renderer = renderer;
@@ -274,6 +318,7 @@ export class CoreV2 {
       activeEntityIds: this.activeSceneImageIds(),
     });
     this.reapplyResolvedIntrinsicSizes();
+    this.componentTargets = indexComponentTargets(parse);
     this.staleHitProjectionIds.clear();
     this.spatialHitAnimationEnds.clear();
     this.invalidateEntityHitIndex();
@@ -348,6 +393,7 @@ export class CoreV2 {
       activeEntityIds: this.activeSceneImageIds(),
     });
     this.reapplyResolvedIntrinsicSizes();
+    this.componentTargets = indexComponentTargets(parse);
     this.staleHitProjectionIds.clear();
     this.spatialHitAnimationEnds.clear();
     this.invalidateEntityHitIndex();
@@ -532,6 +578,49 @@ export class CoreV2 {
     return this.sceneImages.probe();
   }
 
+  public componentVisualProbe(
+    target: CoreV2ComponentVisualTarget,
+  ): CoreV2ComponentVisualProductProbe | null {
+    this.assertAlive();
+    const normalizedTarget = normalizeComponentVisualTarget(target);
+    const indexed = this.componentTargets.get(componentTargetKey(normalizedTarget));
+    if (!indexed) return null;
+    const component = this.projectionValue?.componentsByEntityId?.[indexed.entityId];
+    const projection = this.projectionValue?.byEntityId[indexed.entityId];
+    const entity = this.scene.get(indexed.entityId);
+    if (
+      !component ||
+      !projection ||
+      !entity ||
+      (component.ownerId !== normalizedTarget.ownerId &&
+        indexed.semanticOwnerId !== normalizedTarget.ownerId) ||
+      component.componentId !== normalizedTarget.componentId
+    ) {
+      return null;
+    }
+    const worldBounds = coreV2EntityWorldAabb(entity, projection);
+    if (worldBounds === null) return null;
+    return Object.freeze({
+      target: normalizedTarget,
+      semanticOwnerId: indexed.semanticOwnerId,
+      entityId: component.entityId,
+      logicalIdentity: component.logicalIdentity,
+      componentType: component.componentType,
+      renderRole: component.renderRole,
+      entityKind: entity.kind,
+      geometry: Object.freeze({
+        localBounds: projection.localBounds,
+        worldBounds,
+        visibleBounds: entity.visible ? worldBounds : null,
+        visible: entity.visible,
+        interactive: entity.interactive,
+      }),
+      image: this.sceneImages.imageProbe(indexed.entityId),
+      rendererPaint: this.renderer.entityPaintProbe(indexed.entityId),
+      renderLanes: this.renderer.renderLaneProbe(),
+    });
+  }
+
   public async settleSceneImages(): Promise<void> {
     this.assertAlive();
     await this.sceneImages.settle();
@@ -688,6 +777,7 @@ export class CoreV2 {
       cleanupFailures.push(normalizeCleanupFailure(error));
     }
     this.projectionValue = null;
+    this.componentTargets.clear();
     this.pendingIntrinsicImageSizes.clear();
     try {
       this.scene.destroy();
@@ -1196,6 +1286,62 @@ function freezeProjectionReplacements(
     ...source,
     byEntityId,
   });
+}
+
+function indexComponentTargets(
+  parse: ParsePatchMapResult,
+): Map<string, IndexedComponentTarget | null> {
+  const targets = new Map<string, IndexedComponentTarget | null>();
+  const components = parse.projection.componentsByEntityId ?? {};
+  for (const entityId of Object.keys(components).sort()) {
+    const component = components[entityId];
+    if (!component) continue;
+    const semanticOwnerId = parse.identity.entitySourceById[entityId]?.sourceElementId ??
+      component.ownerId;
+    const indexed = Object.freeze({ entityId, semanticOwnerId });
+    indexComponentTarget(targets, component.ownerId, component.componentId, indexed);
+    if (semanticOwnerId !== component.ownerId) {
+      indexComponentTarget(targets, semanticOwnerId, component.componentId, indexed);
+    }
+  }
+  return targets;
+}
+
+function indexComponentTarget(
+  targets: Map<string, IndexedComponentTarget | null>,
+  ownerId: string,
+  componentId: string,
+  indexed: IndexedComponentTarget,
+): void {
+  const key = componentTargetKey({ ownerId, componentId });
+  const previous = targets.get(key);
+  if (previous === undefined || previous?.entityId === indexed.entityId) {
+    targets.set(key, indexed);
+    return;
+  }
+  // A semantic grid template may expand to many component entities. The
+  // source-owner target is deliberately unavailable instead of selecting an
+  // arbitrary instance; callers can query an instance-qualified owner.
+  targets.set(key, null);
+}
+
+function normalizeComponentVisualTarget(
+  target: CoreV2ComponentVisualTarget,
+): CoreV2ComponentVisualTarget {
+  if (target === null || typeof target !== 'object') {
+    throw new TypeError('component visual target must be an object');
+  }
+  if (typeof target.ownerId !== 'string' || target.ownerId.length === 0) {
+    throw new TypeError('component visual target ownerId must be a non-empty string');
+  }
+  if (typeof target.componentId !== 'string' || target.componentId.length === 0) {
+    throw new TypeError('component visual target componentId must be a non-empty string');
+  }
+  return Object.freeze({ ownerId: target.ownerId, componentId: target.componentId });
+}
+
+function componentTargetKey(target: CoreV2ComponentVisualTarget): string {
+  return `${target.ownerId.length}:${target.ownerId}:${target.componentId}`;
 }
 
 export type { EntityPatch };

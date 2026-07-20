@@ -1,6 +1,17 @@
-import { createCoreV2, type CoreV2, type CoreV2Options } from './core';
+import {
+  createCoreV2,
+  type CoreV2,
+  type CoreV2ComponentVisualGeometryProbe,
+  type CoreV2ComponentVisualProductProbe,
+  type CoreV2ComponentVisualTarget,
+  type CoreV2Options,
+} from './core';
 import type { SceneSnapshot } from '../core-v1/contracts';
 import type { CoreV2ImageSourceKind, CoreV2ProjectionIndex } from './contracts';
+import type {
+  CoreV2EntityPaintProbe,
+  CoreV2RenderLaneSnapshot,
+} from './renderers/types';
 import type {
   CoreV2SceneImageAttemptProbe,
   CoreV2SceneImageProductProbe,
@@ -36,6 +47,10 @@ import {
   materializeCoreV2Dataset,
   type MaterializedCoreV2Dataset,
   type CoreV2AssetSource,
+  type CoreV2BackgroundSource,
+  type CoreV2Component,
+  type CoreV2ComponentSize,
+  type CoreV2ComponentType,
   type NormalizedCoreV2Element,
 } from './semantic/dataset';
 import {
@@ -300,6 +315,56 @@ export type CoreV2EngineSceneImagesProbe = Readonly<
   }
 >;
 
+export interface CoreV2SurfaceComponentVisualProbe {
+  readonly target: CoreV2ComponentVisualTarget;
+  readonly semanticOwnerId: string;
+  readonly entityId: string;
+  readonly logicalIdentity: string;
+  readonly componentType: string;
+  readonly renderRole: CoreV2ComponentVisualProductProbe['renderRole'];
+  readonly entityKind: string;
+  readonly geometry: CoreV2ComponentVisualGeometryProbe;
+  readonly sceneImage: CoreV2EngineSceneImageRecord | null;
+  readonly rendererPaint: CoreV2EntityPaintProbe | null;
+  readonly renderLanes: CoreV2RenderLaneSnapshot | null;
+}
+
+export interface CoreV2EngineComponentSemanticProbe {
+  readonly target: Readonly<{
+    readonly kind: 'component';
+    readonly ownerId: string;
+    readonly id: string;
+  }>;
+  readonly ownerId: string;
+  readonly componentId: string;
+  readonly componentType: CoreV2ComponentType;
+  readonly authoredSize: CoreV2ComponentSize | null;
+  readonly source: CoreV2BackgroundSource | null;
+  readonly tint: unknown;
+  readonly show: boolean;
+}
+
+export interface CoreV2EngineComponentVisualProbe {
+  readonly target: CoreV2ComponentVisualTarget;
+  readonly semantic: CoreV2EngineComponentSemanticProbe | null;
+  readonly entityId: string | null;
+  readonly logicalIdentity: string | null;
+  readonly componentType: string | null;
+  readonly renderRole: CoreV2ComponentVisualProductProbe['renderRole'] | null;
+  readonly entityKind: string | null;
+  readonly geometry: CoreV2ComponentVisualGeometryProbe | null;
+  readonly sceneImage: CoreV2EngineSceneImageRecord | null;
+  readonly rendererPaint: CoreV2EntityPaintProbe | null;
+  readonly renderLanes: CoreV2RenderLaneSnapshot | null;
+  readonly revisions: CoreV2RevisionStamp;
+  readonly availability: Readonly<{
+    readonly semantic: boolean;
+    readonly surface: boolean;
+    readonly rendererPaint: boolean;
+    readonly renderLanes: boolean;
+  }>;
+}
+
 export interface CoreV2EngineSurface {
   readonly canvasCount: number;
   readonly destroyed: boolean;
@@ -319,6 +384,9 @@ export interface CoreV2EngineSurface {
   debugSnapshot(): CoreV2SurfaceDebug;
   geometrySnapshot?(): CoreV2SurfaceGeometrySnapshot;
   sceneImageProbe?(): CoreV2EngineSceneImagesProbe;
+  componentVisualProbe?(
+    target: CoreV2ComponentVisualTarget,
+  ): CoreV2SurfaceComponentVisualProbe | null;
   settleSceneImages?(): Promise<void>;
   settleSceneImageBindings?(bindingKeys: readonly string[]): Promise<void>;
   relationHitTestScreen?(
@@ -547,6 +615,7 @@ export class CoreV2Engine {
   private initializePromise: Promise<CoreV2InitializeResult> | null = null;
   private instanceId: string | null = null;
   private materialized: MaterializedCoreV2Dataset | null = null;
+  private componentSemantics = new Map<string, CoreV2EngineComponentSemanticProbe>();
   private datasetRef: string | null = null;
   private lifecycleGeneration = 0;
   private sceneRevision = 0;
@@ -719,12 +788,14 @@ export class CoreV2Engine {
   public loadDataset(input: unknown, options: CoreV2LoadOptions = {}): CoreV2EngineLoadResult {
     const surface = this.requireSurface('loadDataset');
     const materialized = materializeCoreV2Dataset(input);
+    const componentSemantics = indexComponentSemantics(materialized.dataset);
     const selectionBefore = surface.debugSnapshot().selectionIds;
     surface.load(materialized.dataset);
     if (selectionBefore.length > 0 && surface.debugSnapshot().selectionIds.length === 0) {
       this.interactionRevision += 1;
     }
     this.materialized = materialized;
+    this.componentSemantics = componentSemantics;
     this.datasetRef = options.datasetRef ?? null;
     this.sceneRevision += 1;
     this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
@@ -798,6 +869,7 @@ export class CoreV2Engine {
       );
     }
 
+    const componentSemantics = indexComponentSemantics(mutation.candidate.dataset);
     let reconcile: CoreV2SurfaceReconcileResult;
     try {
       reconcile = surface.reconcile(mutation.candidate.dataset);
@@ -833,6 +905,7 @@ export class CoreV2Engine {
     }
 
     this.materialized = mutation.candidate;
+    this.componentSemantics = componentSemantics;
     this.sceneRevision += 1;
     this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
     const result = Object.freeze({
@@ -903,6 +976,7 @@ export class CoreV2Engine {
       );
     }
 
+    const componentSemantics = indexComponentSemantics(mutation.candidate.dataset);
     const selectionBefore = surface.debugSnapshot().selectionIds;
     let reconcile: CoreV2SurfaceReconcileResult;
     try {
@@ -939,6 +1013,7 @@ export class CoreV2Engine {
     }
 
     this.materialized = mutation.candidate;
+    this.componentSemantics = componentSemantics;
     this.sceneRevision += 1;
     this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
     if (!sameStringArray(selectionBefore, surface.debugSnapshot().selectionIds)) {
@@ -1176,6 +1251,45 @@ export class CoreV2Engine {
     return this.requireSurface('sceneImageProbe').sceneImageProbe?.() ?? null;
   }
 
+  /**
+   * Join the detached semantic component index with an optional renderer
+   * surface probe. Legacy/injected surfaces stay observable as unavailable;
+   * no fixture values or scene-wide scans are used as fallbacks.
+   */
+  public componentVisualProbe(
+    target: CoreV2ComponentVisualTarget,
+  ): CoreV2EngineComponentVisualProbe | null {
+    const normalizedTarget = normalizeEngineComponentVisualTarget(target);
+    const surface = this.requireSurface('componentVisualProbe');
+    const visual = surface.componentVisualProbe?.(normalizedTarget) ?? null;
+    const semanticOwnerId = visual?.semanticOwnerId ?? normalizedTarget.ownerId;
+    const semantic = this.componentSemantics.get(componentSemanticKey(
+      semanticOwnerId,
+      normalizedTarget.componentId,
+    )) ?? null;
+    if (semantic === null && visual === null) return null;
+    return Object.freeze({
+      target: normalizedTarget,
+      semantic,
+      entityId: visual?.entityId ?? null,
+      logicalIdentity: visual?.logicalIdentity ?? null,
+      componentType: visual?.componentType ?? semantic?.componentType ?? null,
+      renderRole: visual?.renderRole ?? null,
+      entityKind: visual?.entityKind ?? null,
+      geometry: visual?.geometry ?? null,
+      sceneImage: visual?.sceneImage ?? null,
+      rendererPaint: visual?.rendererPaint ?? null,
+      renderLanes: visual?.renderLanes ?? null,
+      revisions: this.revisionStamp(),
+      availability: Object.freeze({
+        semantic: semantic !== null,
+        surface: visual !== null,
+        rendererPaint: visual?.rendererPaint !== null && visual?.rendererPaint !== undefined,
+        renderLanes: visual?.renderLanes !== null && visual?.renderLanes !== undefined,
+      }),
+    });
+  }
+
   public settleSceneImages(): Promise<void> {
     const surface = this.requireSurface('settleSceneImages');
     return surface.settleSceneImages ? surface.settleSceneImages() : Promise.resolve();
@@ -1282,6 +1396,7 @@ export class CoreV2Engine {
     }
     this.surface = null;
     this.materialized = null;
+    this.componentSemantics.clear();
     this.datasetRef = null;
     this.rendererConfiguration = null;
     this.initializePromise = null;
@@ -1805,6 +1920,29 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     });
   }
 
+  public componentVisualProbe(
+    target: CoreV2ComponentVisualTarget,
+  ): CoreV2SurfaceComponentVisualProbe | null {
+    const visual = this.core.componentVisualProbe(target);
+    if (!visual) return null;
+    const entity = this.core.get(visual.entityId);
+    return Object.freeze({
+      target: visual.target,
+      semanticOwnerId: visual.semanticOwnerId,
+      entityId: visual.entityId,
+      logicalIdentity: visual.logicalIdentity,
+      componentType: visual.componentType,
+      renderRole: visual.renderRole,
+      entityKind: visual.entityKind,
+      geometry: visual.geometry,
+      sceneImage: visual.image
+        ? projectEngineSceneImageRecord(visual.image, entity, visual.geometry.worldBounds)
+        : null,
+      rendererPaint: visual.rendererPaint,
+      renderLanes: visual.renderLanes,
+    });
+  }
+
   public settleSceneImages(): Promise<void> {
     return this.core.settleSceneImages();
   }
@@ -1879,6 +2017,104 @@ function projectEngineImageAttempt(
     ...safeEngineImageSource(authoredSource, sourceKind),
     state: resourceState,
   });
+}
+
+function projectEngineSceneImageRecord(
+  image: CoreV2SceneImageProductProbe,
+  entity: SceneSnapshot['entities'][number] | null,
+  hitBounds: readonly [number, number, number, number] | null,
+): CoreV2EngineSceneImageRecord {
+  const attempts = Object.freeze(image.attempts.map(projectEngineImageAttempt));
+  return Object.freeze({
+    ...withoutImageAuthoredSource(image),
+    ...safeEngineImageSource(image.authoredSource, image.sourceKind),
+    opacity: entity?.opacity ?? 0,
+    zIndex: entity?.zIndex ?? 0,
+    hitBounds,
+    initial: attempts[0] ?? null,
+    attempts,
+  });
+}
+
+function indexComponentSemantics(
+  dataset: readonly NormalizedCoreV2Element[],
+): Map<string, CoreV2EngineComponentSemanticProbe> {
+  const index = new Map<string, CoreV2EngineComponentSemanticProbe>();
+  const visit = (elements: readonly NormalizedCoreV2Element[]): void => {
+    for (const element of elements) {
+      if (element.type === 'item') {
+        for (const component of element.components) {
+          addComponentSemantic(index, element.id, component);
+        }
+      } else if (element.type === 'grid') {
+        for (const component of element.item.components) {
+          addComponentSemantic(index, element.id, component);
+        }
+      } else if (element.type === 'group') {
+        visit(element.children);
+      }
+    }
+  };
+  visit(dataset);
+  return index;
+}
+
+function addComponentSemantic(
+  index: Map<string, CoreV2EngineComponentSemanticProbe>,
+  ownerId: string,
+  component: CoreV2Component,
+): void {
+  const target = Object.freeze({ kind: 'component' as const, ownerId, id: component.id });
+  index.set(componentSemanticKey(ownerId, component.id), Object.freeze({
+    target,
+    ownerId,
+    componentId: component.id,
+    componentType: component.type,
+    authoredSize: 'size' in component
+      ? cloneDetachedComponentValue(component.size) as CoreV2ComponentSize
+      : null,
+    source: component.type === 'text'
+      ? null
+      : cloneDetachedComponentValue(component.source) as CoreV2BackgroundSource,
+    tint: cloneDetachedComponentValue(component.tint),
+    show: component.show,
+  }));
+}
+
+function cloneDetachedComponentValue(value: unknown): unknown {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map((entry) => cloneDetachedComponentValue(entry)));
+  }
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(value)) {
+    Object.defineProperty(result, key, {
+      value: cloneDetachedComponentValue(Reflect.get(value, key)),
+      enumerable: true,
+      configurable: false,
+      writable: false,
+    });
+  }
+  return Object.freeze(result);
+}
+
+function normalizeEngineComponentVisualTarget(
+  target: CoreV2ComponentVisualTarget,
+): CoreV2ComponentVisualTarget {
+  if (target === null || typeof target !== 'object') {
+    throw new TypeError('component visual target must be an object');
+  }
+  if (typeof target.ownerId !== 'string' || target.ownerId.length === 0) {
+    throw new TypeError('component visual target ownerId must be a non-empty string');
+  }
+  if (typeof target.componentId !== 'string' || target.componentId.length === 0) {
+    throw new TypeError('component visual target componentId must be a non-empty string');
+  }
+  return Object.freeze({ ownerId: target.ownerId, componentId: target.componentId });
+}
+
+function componentSemanticKey(ownerId: string, componentId: string): string {
+  return `${ownerId.length}:${ownerId}:${componentId}`;
 }
 
 async function createPixiSurface(options: CoreV2SurfaceOptions): Promise<CoreV2EngineSurface> {
@@ -2536,6 +2772,8 @@ function boundsCenter(
 ): readonly [number, number] {
   return freezePoint(bounds[0] + bounds[2] / 2, bounds[1] + bounds[3] / 2);
 }
+
+export type { CoreV2ComponentVisualTarget } from './core';
 
 function freezeBounds(
   x: number,
