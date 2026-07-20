@@ -1,5 +1,6 @@
 import {
   CoreV2Engine,
+  type CoreV2EngineOptions,
   type CoreV2EngineSurfaceFactory,
   type CoreV2InitializeOptions,
   type CoreV2InitializeResult,
@@ -60,8 +61,12 @@ class TargetedWebGLCoreV2Engine extends CoreV2Engine {
   public constructor(
     surfaceHost: HTMLElement | undefined,
     surfaceFactory: CoreV2EngineSurfaceFactory | undefined,
+    engineOptions: Readonly<CoreV2EngineOptions> = {},
   ) {
-    super(surfaceFactory ? { surfaceFactory } : {});
+    super({
+      ...engineOptions,
+      ...(surfaceFactory ? { surfaceFactory } : {}),
+    });
     this.surfaceHost = surfaceHost;
   }
 
@@ -132,10 +137,12 @@ export function createCoreV2ExecutableLabBridge(
     let supplementalReleaseError: unknown = null;
 
     try {
+      const runRuntime = runtime.createRun(casePlan);
       if (runtime.needsSupplementalWebGLLease) {
         supplementalEngine = new TargetedWebGLCoreV2Engine(
           options.surfaceHost,
           options.surfaceFactory,
+          runRuntime.engineOptions,
         );
         await supplementalEngine.initialize({
           instanceId: `${options.caseId.toLowerCase()}-lab-surface-${runCount}`,
@@ -157,10 +164,11 @@ export function createCoreV2ExecutableLabBridge(
         engineFactory: () => new TargetedWebGLCoreV2Engine(
           options.surfaceHost,
           options.surfaceFactory,
+          runRuntime.engineOptions,
         ),
         datasets: { resolve: resolveCoreV2ExecutableDataset },
         clock: new ExecutableLabClock(),
-        handlerEntries: runtime.handlerEntries(casePlan),
+        handlerEntries: runRuntime.handlerEntries,
       });
       const folded = runtime.fold({
         casePlan: freshCasePlan(casePlan),

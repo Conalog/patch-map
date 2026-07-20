@@ -77,12 +77,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(55);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(22);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(151);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(59);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(23);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(150);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(90);
+    ), 0)).toBe(98);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -181,6 +181,35 @@ describe('Core v2 focused contract Lab shell', () => {
       'observeRelationContractMatrix',
     ]);
     expect(markup).toContain('data-testid="scenario-ren-007"');
+    expect(markup).toContain('data-contract-status="armed"');
+    expect(markup).toContain('Actual-only case execution is available');
+    expect(markup).not.toContain('data-contract-status="pass"');
+  });
+
+  it('renders AST-001 in canonical order with its exact asset action trace', () => {
+    const route = parseCoreV2ContractRoute(
+      '/lab/core-v2?scenario=AST-001&size=100&seed=319',
+    );
+    const plan = materializeCoreV2ExecutableCase('AST-001', '100', 319);
+    const markup = renderCoreV2ContractLab(route);
+    const assetIndex = CORE_V2_EXECUTABLE_CASE_IDS.indexOf('AST-001');
+
+    expect(CORE_V2_EXECUTABLE_CASE_IDS[assetIndex - 1]).toBe('LAY-005');
+    expect(CORE_V2_EXECUTABLE_CASE_IDS[assetIndex + 1]).toBe('CSM-001');
+    expect(route.presenter.executionStatus).toBe('actual-observable');
+    expect(route.presenter.rootTestId).toBe('scenario-ast-001');
+    expect(plan.route).toBe('/lab/core-v2?scenario=AST-001&size=100&seed=319');
+    expect(plan.actionTrace.map(({ type }) => type)).toEqual([
+      'registerAssets',
+      'registerAssets',
+      'initializeWithRequiredAssetFailure',
+      'acquireAsset',
+      'acquireAsset',
+      'destroy',
+      'destroy',
+      'registerAlias',
+    ]);
+    expect(markup).toContain('data-testid="scenario-ast-001"');
     expect(markup).toContain('data-contract-status="armed"');
     expect(markup).toContain('Actual-only case execution is available');
     expect(markup).not.toContain('data-contract-status="pass"');

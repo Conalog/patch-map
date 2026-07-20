@@ -26,7 +26,9 @@ import type {
 } from '../../src/core-v2/engine';
 
 describe('Core v2 executable Lab product bridge', () => {
-  it.each(CORE_V2_EXECUTABLE_CASE_IDS.filter((caseId) => caseId !== 'DAT-008'))(
+  it.each(CORE_V2_EXECUTABLE_CASE_IDS.filter(
+    (caseId) => caseId !== 'DAT-008' && caseId !== 'AST-001',
+  ))(
     'executes %s through a targeted CoreV2Engine and retains actual-only cleanup facts',
     async (caseId) => {
       const surfaceHost = createSurfaceHost();
@@ -214,6 +216,94 @@ describe('Core v2 executable Lab product bridge', () => {
     });
   });
 
+  it('executes and repeats AST-001 with one shared asset runtime and deterministic cleanup', async () => {
+    const surfaces: FakeSurface[] = [];
+    const receivedTargets: Array<HTMLElement | undefined> = [];
+    const surfaceHost = createSurfaceHost();
+    const bridge = createCoreV2ExecutableLabBridge({
+      caseId: 'AST-001',
+      rootTestId: 'scenario-ast-001',
+      size: '100',
+      seed: 319,
+      surfaceHost,
+      surfaceFactory: createFakeSurfaceFactory(surfaces, receivedTargets),
+      environment: { browser: 'vitest', backend: 'webgl2', routeSize: '100' },
+    });
+
+    const first = await bridge.runCase();
+    const second = await bridge.repeatCase();
+
+    for (const run of [first, second]) {
+      expect(run.execution).toMatchObject({
+        caseId: 'AST-001',
+        status: 'completed',
+        cleanup: { status: 'completed', errors: [] },
+      });
+      expect(run.execution.actionResults).toHaveLength(8);
+      expect(actionStatuses(run.execution.actionResults)).toEqual(
+        Array.from({ length: 8 }, () => 'completed'),
+      );
+      expect(run.actualObservation).toMatchObject({
+        case: { id: 'AST-001', params: { size: '100', seed: 319 } },
+        text: { fonts: { weights: [300, 400, 500, 600, 700] } },
+        paint: {
+          builtins: {
+            aliases: [
+              'object',
+              'inverter',
+              'combiner',
+              'device',
+              'edge',
+              'loading',
+              'warning',
+              'wifi',
+            ],
+          },
+        },
+        events: { requiredFailure: { readyCount: 0 } },
+        outcome: {
+          recorded: true,
+          aliasConflict: { code: 'CONFLICT' },
+          requiredFailure: { code: 'ASSET_LOAD_FAILED', initState: 'rejected' },
+        },
+        resources: {
+          cache: {
+            device: {
+              resourceCount: 1,
+              leaseCount: { afterA: 1, afterB: 0 },
+            },
+          },
+          afterDestroy: { resourceCount: 0, leaseCount: 0, pendingCount: 0 },
+          assets: { pendingCount: 0 },
+          requiredFailure: { canvasCount: 0, pendingCount: 0, leaseCount: 0 },
+          cleanup: { status: 'completed', errors: [] },
+        },
+      });
+      expect(JSON.stringify(run.actualObservation)).not.toContain('ASSET_ALIAS_CONFLICT');
+    }
+
+    expect(JSON.stringify(second.actualObservation)).toBe(JSON.stringify(first.actualObservation));
+    const cleanup = isRecord(first.execution.cleanup) ? first.execution.cleanup : null;
+    expect(cleanup).toMatchObject({ status: 'completed', errors: [] });
+    expect(cleanup && Array.isArray(cleanup.releases) ? cleanup.releases : []).toHaveLength(3);
+    expect(surfaces).toHaveLength(2);
+    expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
+    expect(receivedTargets).toEqual([surfaceHost, surfaceHost]);
+    expect(resolveCoreV2ExecutableRuntime('AST-001')).toMatchObject({
+      key: 'assets',
+      needsSupplementalWebGLLease: true,
+    });
+    expect(await bridge.destroyCase()).toMatchObject({
+      status: 'completed',
+      runCount: 2,
+      completedRunCount: 2,
+      releasedEngineCount: 4,
+      retainedCanvasCount: 0,
+      retainedSubscriptionCount: 0,
+      retainedPendingWork: 0,
+    });
+  });
+
   it('retains a failed actual record and cleanup when the WebGL surface cannot initialize', async () => {
     const bridge = createCoreV2ExecutableLabBridge({
       caseId: 'LIF-001',
@@ -225,7 +315,7 @@ describe('Core v2 executable Lab product bridge', () => {
       environment: { browser: 'vitest', backend: 'webgl2' },
     });
 
-    await expect(bridge.runCase()).rejects.toThrow(/synthetic WebGL initialization failure/);
+    await expect(bridge.runCase()).rejects.toThrow(/INTERNAL_FAILURE.*initialize/u);
     expect(bridge.state().status).toBe('failed');
     expect(bridge.execution()).toMatchObject({ status: 'failed' });
     expect(bridge.cleanup()).toMatchObject({ status: 'completed', errors: [] });
@@ -260,13 +350,13 @@ describe('Core v2 executable Lab product bridge', () => {
       environment: { browser: 'vitest', backend: 'webgl2' },
     });
 
-    await expect(bridge.runCase()).rejects.toThrow(/synthetic supplemental teardown failure/u);
+    await expect(bridge.runCase()).rejects.toThrow(/INTERNAL_FAILURE.*destroy/u);
     expect(bridge.state().status).toBe('failed');
     expect(bridge.cleanup()).toMatchObject({
       status: 'failed',
       supplementalWebGLLease: {
         status: 'failed',
-        error: { message: 'synthetic supplemental teardown failure' },
+        error: { message: 'INTERNAL_FAILURE: destroy' },
       },
     });
     expect(await bridge.destroyCase()).toMatchObject({
@@ -353,6 +443,7 @@ describe('Core v2 executable Lab product bridge', () => {
       'DAT-006': 'data-closure',
       'DAT-007': 'data-closure',
       'DAT-008': 'data-closure',
+      'AST-001': 'assets',
       'CSM-001': 'foundation',
       'CSM-003': 'foundation',
       'LAY-001': 'render-foundation',
@@ -591,6 +682,16 @@ function eventGenerations(execution: Readonly<Record<string, unknown>>): readonl
   return (execution.eventJournal as unknown as readonly unknown[]).map((entry) => {
     if (!isRecord(entry)) throw new Error('invalid event journal entry');
     return `${String(entry.generation)}:${String(entry.role)}:${String(entry.event)}`;
+  });
+}
+
+function actionStatuses(value: unknown): readonly string[] {
+  if (!Array.isArray(value)) throw new Error('missing action results');
+  return value.map((result) => {
+    if (!isRecord(result) || typeof result.status !== 'string') {
+      throw new Error('invalid action result status');
+    }
+    return result.status;
   });
 }
 
