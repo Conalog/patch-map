@@ -13,6 +13,7 @@ import type {
   CoreV2Point,
   CoreV2SurfaceReconcileResult,
   CoreV2SurfaceDebug,
+  CoreV2SurfaceGeometrySnapshot,
   CoreV2SurfaceOptions,
 } from '../../src/core-v2/engine';
 
@@ -302,6 +303,7 @@ describe('Core v2 executable Lab product bridge', () => {
       'CSM-001': 'foundation',
       'CSM-003': 'foundation',
       'LAY-001': 'render-foundation',
+      'LAY-005': 'render-bounds',
       'REN-001': 'render-foundation',
       'REN-004': 'render-foundation',
       'REN-003': 'render-foundation',
@@ -351,6 +353,8 @@ class FakeSurface implements CoreV2EngineSurface {
   private height: number;
   private pixelRatio: number;
   private selectionIds: readonly string[] = Object.freeze([]);
+  private dataset: readonly Readonly<Record<string, unknown>>[] = Object.freeze([]);
+  private geometryRevision = 0;
   private view: Readonly<{ x: number; y: number; scale: number; rotation: number }> =
     Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
 
@@ -361,11 +365,13 @@ class FakeSurface implements CoreV2EngineSurface {
     this.pixelRatio = options.pixelRatio;
   }
 
-  public load(_input: unknown): void {
+  public load(input: unknown): void {
+    this.replaceDataset(input);
     this.selectionIds = Object.freeze([]);
   }
 
-  public reconcile(_input: unknown): CoreV2SurfaceReconcileResult {
+  public reconcile(input: unknown): CoreV2SurfaceReconcileResult {
+    this.replaceDataset(input);
     return Object.freeze({
       status: 'committed',
       operationCount: 1,
@@ -392,8 +398,12 @@ class FakeSurface implements CoreV2EngineSurface {
     this.selectionIds = Object.freeze([...ids]);
   }
 
-  public hitTestScreen(_point: CoreV2Point): string | null {
-    return null;
+  public hitTestScreen(point: CoreV2Point): string | null {
+    return this.geometryEntities().filter((entity) => (
+      entity.visible
+      && entity.interactive
+      && fakeBoundsContain(entity.screenBounds, point)
+    )).at(-1)?.id ?? null;
   }
 
   public screenToWorld(point: CoreV2Point): CoreV2Point {
@@ -412,6 +422,16 @@ class FakeSurface implements CoreV2EngineSurface {
       ] as const),
       selectionIds: this.selectionIds,
       activeAnimationCount: 0,
+      activeGestureCount: 0,
+    });
+  }
+
+  public geometrySnapshot(): CoreV2SurfaceGeometrySnapshot {
+    return Object.freeze({
+      revision: this.geometryRevision,
+      entities: Object.freeze(this.geometryEntities()),
+      relations: Object.freeze([]),
+      selectionOverlay: null,
     });
   }
 
@@ -420,7 +440,18 @@ class FakeSurface implements CoreV2EngineSurface {
     this.destroyed = true;
     this.canvasCount = 0;
     this.selectionIds = Object.freeze([]);
+    this.dataset = Object.freeze([]);
     return Promise.resolve(true);
+  }
+
+  private replaceDataset(input: unknown): void {
+    if (!Array.isArray(input)) throw new Error('FakeSurface requires an array dataset');
+    this.dataset = input.filter(isRecord);
+    this.geometryRevision += 1;
+  }
+
+  private geometryEntities(): CoreV2SurfaceGeometrySnapshot['entities'][number][] {
+    return this.dataset.flatMap((element) => fakeGeometryEntity(element, this.view));
   }
 }
 
@@ -436,6 +467,135 @@ function eventGenerations(execution: Readonly<Record<string, unknown>>): readonl
     if (!isRecord(entry)) throw new Error('invalid event journal entry');
     return `${String(entry.generation)}:${String(entry.role)}:${String(entry.event)}`;
   });
+}
+
+function fakeGeometryEntity(
+  element: Readonly<Record<string, unknown>>,
+  view: Readonly<{ x: number; y: number; scale: number; rotation: number }>,
+): CoreV2SurfaceGeometrySnapshot['entities'] {
+  if (element.type === 'relations' || element.type === 'group' || element.type === 'grid') return [];
+  const attrs = isRecord(element.attrs) ? element.attrs : {};
+  const x = fakeNumber(attrs.x, 0);
+  const y = fakeNumber(attrs.y, 0);
+  const scaleX = fakeNumber(attrs.scaleX, 1);
+  const scaleY = fakeNumber(attrs.scaleY, 1);
+  const angle = fakeNumber(attrs.angle ?? attrs.rotation, 0);
+  const size = fakeRenderedSize(element);
+  const localBounds = fakeBounds(0, 0, size.width, size.height);
+  const worldBounds = fakeTransformedBounds(
+    x,
+    y,
+    size.width,
+    size.height,
+    scaleX,
+    scaleY,
+    angle,
+  );
+  const screenBounds = fakeBounds(
+    worldBounds[0] * view.scale + view.x,
+    worldBounds[1] * view.scale + view.y,
+    worldBounds[2] * view.scale,
+    worldBounds[3] * view.scale,
+  );
+  const visible = element.show !== false;
+  return [Object.freeze({
+    id: String(element.id),
+    kind: String(element.type),
+    localBounds,
+    worldBounds,
+    screenBounds,
+    visibleBounds: visible ? worldBounds : null,
+    visible,
+    interactive: element.eventMode === 'static',
+    scaleX,
+    scaleY,
+  })];
+}
+
+function fakeRenderedSize(
+  element: Readonly<Record<string, unknown>>,
+): Readonly<{ width: number; height: number }> {
+  const authored = fakeFixedSize(element.size);
+  if (element.type !== 'text' || element.overflow !== 'visible') return authored;
+  const style = isRecord(element.style) ? element.style : {};
+  const text = typeof element.text === 'string' ? element.text : '';
+  return {
+    width: text.length * fakeNumber(style.fontSize, 16) / 2,
+    height: authored.height,
+  };
+}
+
+function fakeTransformedBounds(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  scaleX: number,
+  scaleY: number,
+  angle: number,
+): readonly [number, number, number, number] {
+  const radians = angle * Math.PI / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  const corners = ([
+    [0, 0],
+    [width, 0],
+    [0, height],
+    [width, height],
+  ] as const).map(([localX, localY]) => {
+    const scaledX = localX * scaleX;
+    const scaledY = localY * scaleY;
+    return [
+      x + scaledX * cosine - scaledY * sine,
+      y + scaledX * sine + scaledY * cosine,
+    ] as const;
+  });
+  const xs = corners.map(([cornerX]) => cornerX);
+  const ys = corners.map(([, cornerY]) => cornerY);
+  const left = Math.min(...xs);
+  const top = Math.min(...ys);
+  return fakeBounds(left, top, Math.max(...xs) - left, Math.max(...ys) - top);
+}
+
+function fakeFixedSize(value: unknown): Readonly<{ width: number; height: number }> {
+  if (typeof value === 'number') return { width: value, height: value };
+  if (!isRecord(value)) return { width: 0, height: 0 };
+  return { width: fakeNumber(value.width, 0), height: fakeNumber(value.height, 0) };
+}
+
+function fakeBounds(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): readonly [number, number, number, number] {
+  return Object.freeze([
+    fakeCleanNumber(x),
+    fakeCleanNumber(y),
+    fakeCleanNumber(width),
+    fakeCleanNumber(height),
+  ]);
+}
+
+function fakeBoundsContain(
+  bounds: readonly [number, number, number, number],
+  point: CoreV2Point,
+): boolean {
+  return bounds[2] > 0
+    && bounds[3] > 0
+    && point.x >= bounds[0]
+    && point.y >= bounds[1]
+    && point.x <= bounds[0] + bounds[2]
+    && point.y <= bounds[1] + bounds[3];
+}
+
+function fakeNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function fakeCleanNumber(value: number): number {
+  const rounded = Math.round(value * 1_000_000_000) / 1_000_000_000;
+  return Object.is(rounded, -0) ? 0 : rounded;
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

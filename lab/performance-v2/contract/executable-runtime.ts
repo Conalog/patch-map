@@ -25,6 +25,8 @@ import * as lifecycleResizeHandlersModule from '../../../scripts/verification/co
 import * as lifecycleDestroyHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/lifecycle-destroy.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as renderFoundationHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/render-foundation.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as renderBoundsHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/render-bounds.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as foundationFoldModule from '../../../scripts/verification/core-v2-contract/fold-foundation.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
@@ -37,6 +39,8 @@ import * as lifecycleResizeFoldModule from '../../../scripts/verification/core-v
 import * as lifecycleDestroyFoldModule from '../../../scripts/verification/core-v2-contract/fold-lifecycle-destroy.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as renderFoundationFoldModule from '../../../scripts/verification/core-v2-contract/fold-render-foundation.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as renderBoundsFoldModule from '../../../scripts/verification/core-v2-contract/fold-render-bounds.mjs';
 
 import type {
   CoreV2ExecutableCaseId,
@@ -49,7 +53,8 @@ export type CoreV2ExecutableRuntimeKey =
   | 'data-closure'
   | 'lifecycle-resize'
   | 'lifecycle-destroy'
-  | 'render-foundation';
+  | 'render-foundation'
+  | 'render-bounds';
 
 type Handler = (
   context: Readonly<Record<string, unknown>>,
@@ -74,6 +79,7 @@ interface HandlerFactoryRuntime {
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
   createRenderFoundationHandlerEntries?(this: void): readonly HandlerEntry[];
+  createRenderBoundsHandlerEntries?(this: void): readonly HandlerEntry[];
 }
 
 interface FoldRuntime {
@@ -98,6 +104,10 @@ interface FoldRuntime {
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
   foldRenderFoundationExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
+  foldRenderBoundsExecution?(
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
@@ -130,12 +140,14 @@ const dataClosureHandlers = dataClosureHandlersModule as unknown as HandlerFacto
 const lifecycleResizeHandlers = lifecycleResizeHandlersModule as unknown as HandlerFactoryRuntime;
 const lifecycleDestroyHandlers = lifecycleDestroyHandlersModule as unknown as HandlerFactoryRuntime;
 const renderFoundationHandlers = renderFoundationHandlersModule as unknown as HandlerFactoryRuntime;
+const renderBoundsHandlers = renderBoundsHandlersModule as unknown as HandlerFactoryRuntime;
 const foundationFold = foundationFoldModule as unknown as FoldRuntime;
 const dataFoundationFold = dataFoundationFoldModule as unknown as FoldRuntime;
 const dataClosureFold = dataClosureFoldModule as unknown as FoldRuntime;
 const lifecycleResizeFold = lifecycleResizeFoldModule as unknown as FoldRuntime;
 const lifecycleDestroyFold = lifecycleDestroyFoldModule as unknown as FoldRuntime;
 const renderFoundationFold = renderFoundationFoldModule as unknown as FoldRuntime;
+const renderBoundsFold = renderBoundsFoldModule as unknown as FoldRuntime;
 
 const FOUNDATION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
   'LIF-001',
@@ -262,6 +274,19 @@ const RENDER_FOUNDATION_DESCRIPTOR = createDescriptor({
   ),
 });
 
+const RENDER_BOUNDS_DESCRIPTOR = createDescriptor({
+  key: 'render-bounds',
+  needsSupplementalWebGLLease: false,
+  createEntries: () => requireFactory(
+    renderBoundsHandlers.createRenderBoundsHandlerEntries,
+    'render-bounds handlers',
+  )(),
+  fold: requireFold(
+    renderBoundsFold.foldRenderBoundsExecution,
+    'render-bounds fold',
+  ),
+});
+
 export function resolveCoreV2ExecutableRuntime(
   caseId: CoreV2ExecutableCaseId,
 ): CoreV2ExecutableRuntimeDescriptor {
@@ -271,6 +296,7 @@ export function resolveCoreV2ExecutableRuntime(
   if (caseId === 'LIF-004') return LIFECYCLE_RESIZE_DESCRIPTOR;
   if (caseId === 'LIF-005') return LIFECYCLE_DESTROY_DESCRIPTOR;
   if (RENDER_FOUNDATION_CASE_IDS.has(caseId)) return RENDER_FOUNDATION_DESCRIPTOR;
+  if (caseId === 'LAY-005') return RENDER_BOUNDS_DESCRIPTOR;
   throw new Error(`Unsupported Core v2 executable runtime: ${String(caseId)}`);
 }
 
