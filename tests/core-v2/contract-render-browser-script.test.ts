@@ -15,7 +15,7 @@ beforeAll(async () => {
   source = await readFile(scriptPath, 'utf8');
 });
 
-describe('Core v2 render foundation browser checkpoint script', () => {
+describe('Core v2 render browser checkpoint script', () => {
   it('is valid Node syntax', () => {
     const checked = spawnSync(process.execPath, ['--check', scriptPath], {
       encoding: 'utf8',
@@ -25,7 +25,7 @@ describe('Core v2 render foundation browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the five render foundation routes and their 49 canonical assertions', () => {
+  it('pins exactly the six selected render routes and their 63 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -43,8 +43,9 @@ describe('Core v2 render foundation browser checkpoint script', () => {
       { id: 'REN-004', expectedAssertions: 10 },
       { id: 'REN-003', expectedAssertions: 12 },
       { id: 'REN-002', expectedAssertions: 9 },
+      { id: 'LAY-005', expectedAssertions: 14 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(49);
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(63);
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
     expect(source).toContain('/lab/core-v2?scenario=${caseSpec.id}&size=${DATASET_SIZE}&seed=${SEED}');
