@@ -133,7 +133,7 @@ describe('Core v2 REN-008 / REN-010 component-asset actual-only handlers', () =>
     const forbiddenEvidenceName = ['catalog', 'normalized', 'expected', 'v1', 'json'].join('-');
 
     expect(RENDER_COMPONENT_ASSETS_HANDLER_REVISION)
-      .toBe('core-v2-render-component-assets-handlers/1');
+      .toBe('core-v2-render-component-assets-handlers/2');
     expect(RENDER_COMPONENT_ASSETS_CASE_IDS).toEqual(['REN-008', 'REN-010']);
     expect(RENDER_COMPONENT_ASSETS_ACTION_TYPES).toEqual([
       'loadDataset',
@@ -274,6 +274,7 @@ describe('Core v2 REN-008 / REN-010 component-asset actual-only handlers', () =>
       },
     ]);
     expect(harness.adapterCalls.settle).toHaveLength(3);
+    expect(harness.engines[0]?.sceneImageSettlementFrames).toEqual([1, 2, 3, 4]);
     expect(clock.milestones).toEqual([20]);
     expect(harness.engines[0]?.destroyed).toBe(true);
     expect(execution.cleanup).toMatchObject({ status: 'completed', errors: [] });
@@ -336,6 +337,7 @@ describe('Core v2 REN-008 / REN-010 component-asset actual-only handlers', () =>
       },
     ]);
     expect(harness.adapterCalls.settle).toHaveLength(2);
+    expect(harness.engines[0]?.sceneImageSettlementFrames).toEqual([1, 2, 3]);
     expect(clock.milestones).toEqual([20]);
     expect(JSON.stringify(harness.dataset)).toBe(beforeInput);
   });
@@ -489,6 +491,7 @@ function createHarness(
 
 class FakeComponentAssetEngine {
   public destroyed = false;
+  public readonly sceneImageSettlementFrames: number[] = [];
 
   private readonly listeners = new Map<string, Set<(actual: unknown) => void>>();
   private readonly caseId: 'REN-008' | 'REN-010';
@@ -565,6 +568,11 @@ class FakeComponentAssetEngine {
   public publishFrame(_timeMs: number): void {
     this.frameRevision += 1;
     this.emit('frame', { frameRevision: this.frameRevision });
+  }
+
+  public settleSceneImages(): Promise<void> {
+    this.sceneImageSettlementFrames.push(this.frameRevision);
+    return Promise.resolve();
   }
 
   public snapshot(): JsonRecord {

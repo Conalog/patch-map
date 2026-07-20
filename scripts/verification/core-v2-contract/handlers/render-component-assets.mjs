@@ -1,5 +1,5 @@
 export const RENDER_COMPONENT_ASSETS_HANDLER_REVISION =
-  'core-v2-render-component-assets-handlers/1';
+  'core-v2-render-component-assets-handlers/2';
 
 export const RENDER_COMPONENT_ASSETS_CASE_IDS = Object.freeze(['REN-008', 'REN-010']);
 
@@ -370,6 +370,7 @@ async function publish(engine, context) {
   assert(!context.signal.aborted, 'action is aborted');
   const timeMs = finiteNumber(context.clock.now(), 'clock.now()');
   await call(engine, 'publishFrame', timeMs);
+  await call(engine, 'settleSceneImages');
   assert(!context.signal.aborted, 'action is aborted');
 }
 
