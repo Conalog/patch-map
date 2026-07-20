@@ -108,7 +108,7 @@ const TRANSFORM_ATTRIBUTE_TYPES = new Set([
   'bar',
   'icon',
 ]);
-const Z_INDEX_ATTRIBUTE_TYPES = new Set(['rect', 'image', 'relations']);
+const Z_INDEX_ATTRIBUTE_TYPES = new Set(['rect', 'image', 'text', 'relations']);
 
 const ROOT_CONTEXT: ElementContext = {
   transform: { x: 0, y: 0, rotation: 0 },
@@ -387,10 +387,10 @@ function parseItemInstance(
   if (item.contentOrientation !== undefined) {
     warnOnce(
       state,
-      'item-content-orientation',
+      `item-content-orientation:${itemPath}`,
       `${itemPath}.contentOrientation`,
       'content-orientation-unsupported',
-      'contentOrientation is not projected or retained; components use rectangular placement',
+      'contentOrientation is retained semantically but the flat dense contract cannot reproduce upright content across world rotation and flips',
       sourceElementId,
     );
   }
@@ -403,12 +403,13 @@ function parseItemInstance(
   };
   state.expandedItems.push(instance);
 
+  const denseTransform = centerPivotTopLeft(transform, size);
   addEntity(
     {
       kind: 'rect',
       id: instanceId,
-      x: transform.x,
-      y: transform.y,
+      x: denseTransform.x,
+      y: denseTransform.y,
       width: size.width,
       height: size.height,
       rotation: transform.rotation,
@@ -467,7 +468,12 @@ function parseComponent(
     return;
   }
   const type = typeof value.type === 'string' ? value.type : 'unknown';
-  if (value.animation !== undefined || value.animationDuration !== undefined) {
+  // Default animation fields are inert at initial load. Non-default values stay
+  // explicit because the parser does not claim to implement mutation animation.
+  if (
+    (value.animation !== undefined && value.animation !== true) ||
+    (value.animationDuration !== undefined && value.animationDuration !== 200)
+  ) {
     warnOnce(
       state,
       `component-animation:${type}`,
@@ -487,18 +493,9 @@ function parseComponent(
   if (type === 'background') {
     const source = value.source;
     const sourceRecord = isRecord(source) ? source : undefined;
-    const rawSize = value.size;
-    const componentSize = rawSize === undefined
-      ? itemSize
-      : resolveComponentSize(rawSize, itemSize, `${path}.size`, state);
-    const local = placeBox(
-      { x: 0, y: 0, width: itemSize.width, height: itemSize.height },
-      componentSize,
-      value.placement,
-      value.margin,
-      path,
-      state,
-    );
+    // Approved v0.10 compatibility semantics preserve authored background size
+    // in the semantic dataset, but always paint the complete item frame.
+    const local: Box = { x: 0, y: 0, width: itemSize.width, height: itemSize.height };
     const transform = componentTransform(itemTransform, local, attrs, path, state);
     if (sourceRecord?.type === 'rect') {
       const sourceFill = resolveColor(sourceRecord.fill, 0xffffffff, `${path}.source.fill`, state);
@@ -506,12 +503,13 @@ function parseComponent(
       const fill = value.tint === undefined
         ? sourceFill
         : multiplyColor(sourceFill, resolveColor(value.tint, 0xffffffff, `${path}.tint`, state));
+      const denseTransform = centerPivotTopLeft(transform, local);
       addEntity(
         {
           kind: 'rect',
           id: entityId,
-          x: transform.x,
-          y: transform.y,
+          x: denseTransform.x,
+          y: denseTransform.y,
           width: local.width,
           height: local.height,
           rotation: transform.rotation,
@@ -548,6 +546,7 @@ function parseComponent(
     const componentSize = resolveComponentSize(value.size, content, `${path}.size`, state);
     const local = placeBox(content, componentSize, value.placement ?? 'bottom', value.margin, path, state);
     const transform = componentTransform(itemTransform, local, attrs, path, state);
+    const denseTransform = centerPivotTopLeft(transform, local);
     const source = isRecord(value.source) ? value.source : undefined;
     if (value.source !== undefined && source?.type !== 'rect') {
       warn(state, `${path}.source`, 'bar-source-degraded', 'Non-rect bar source is rendered as a tinted aggregate bar', sourceElementId);
@@ -560,8 +559,8 @@ function parseComponent(
       {
         kind: 'bar',
         id: entityId,
-        x: transform.x,
-        y: transform.y,
+        x: denseTransform.x,
+        y: denseTransform.y,
         width: local.width,
         height: local.height,
         rotation: transform.rotation,
@@ -608,6 +607,7 @@ function parseComponent(
 
   if (type === 'text') {
     const style = isRecord(value.style) ? value.style : {};
+    diagnoseComponentTextProjection(style, path, sourceElementId, state);
     const fontSize = Math.max(1, finiteNumber(style.fontSize) ?? 14);
     const margins = boxSpacing(value.margin, `${path}.margin`, state);
     const available: Box = {
@@ -622,11 +622,11 @@ function parseComponent(
     };
     const local = placeBox(available, textSize, value.placement ?? 'center', 0, path, state);
     const transform = componentTransform(itemTransform, local, attrs, path, state);
-    if (value.split !== undefined) {
+    if (value.split !== undefined && value.split !== 0) {
       warnOnce(state, 'text-split', `${path}.split`, 'text-split-degraded', 'Text split is preserved in identity but rendered as one text run', sourceElementId);
     }
     addEntity(
-      textEntity(entityId, transform, local, value.text, style, value.tint, componentVisible, false, path, state),
+      textEntity(entityId, transform, local, value.text, style, value.tint, componentVisible, false, 30, path, state),
       { ...owner, component },
       state,
     );
@@ -655,12 +655,13 @@ function parseDirectRect(
   const size = fixedSize(value.size, `${path}.size`, state);
   const stroke = isRecord(value.stroke) ? value.stroke : undefined;
   const radius = projectedRadius(value.radius, `${path}.radius`, state);
+  const denseTransform = centerPivotTopLeft(transform, size);
   addEntity(
     {
       kind: 'rect',
       id: sourceId,
-      x: transform.x,
-      y: transform.y,
+      x: denseTransform.x,
+      y: denseTransform.y,
       width: size.width,
       height: size.height,
       rotation: transform.rotation,
@@ -742,6 +743,7 @@ function parseDirectText(
       undefined,
       visible,
       interactive,
+      zIndex(value.attrs),
       path,
       state,
     ),
@@ -758,6 +760,14 @@ function standaloneTextProjection(
   path: string,
   state: ParseState,
 ): { readonly box: Box; readonly text: string } {
+  if (style.breakWords !== undefined) {
+    warn(
+      state,
+      `${path}.style.breakWords`,
+      'standalone-text-break-words-degraded',
+      'breakWords is retained semantically but is not represented by the flat dense text contract',
+    );
+  }
   const lineHeight = Math.max(0, finiteNumber(style.lineHeight) ?? fontSize * 1.2);
   const letterSpacing = finiteNumber(style.letterSpacing) ?? 0;
   const lines = text.replace(/\r\n?/g, '\n').split('\n');
@@ -825,7 +835,12 @@ function parseRelations(
     fatal(state, `${path}.links`, 'invalid-relations', 'Relations links must be an array', sourceId);
   }
   const style = isRecord(value.style) ? value.style : {};
-  if (style.cap !== undefined || style.join !== undefined) {
+  // Aggregate relation geometry is a sequence of independent butt-capped
+  // segments, so the materializer defaults are exact and need no warning.
+  if (
+    (style.cap !== undefined && style.cap !== 'butt') ||
+    (style.join !== undefined && style.join !== 'miter')
+  ) {
     warnOnce(state, 'relation-cap-join', `${path}.style`, 'relation-style-degraded', 'Relation cap/join are not retained or projected; basic line geometry is used', sourceId);
   }
   value.links.forEach((linkValue, index) => {
@@ -984,11 +999,12 @@ function imageEntity(
   path: string,
   state: ParseState,
 ): ImageEntityInput {
+  const denseTransform = centerPivotTopLeft(transform, box);
   return {
     kind: 'image',
     id,
-    x: transform.x,
-    y: transform.y,
+    x: denseTransform.x,
+    y: denseTransform.y,
     width: box.width,
     height: box.height,
     rotation: transform.rotation,
@@ -1010,6 +1026,7 @@ function textEntity(
   tint: unknown,
   visible: boolean,
   interactive: boolean,
+  layer: number,
   path: string,
   state: ParseState,
 ): EntityInput {
@@ -1018,11 +1035,12 @@ function textEntity(
   if (alignValue !== undefined && alignValue !== 'left' && alignValue !== 'center' && alignValue !== 'right') {
     warn(state, `${path}.style.align`, 'text-align-degraded', 'Unsupported text alignment fell back to left');
   }
+  const denseTransform = centerPivotTopLeft(transform, box);
   return {
     kind: 'text',
     id,
-    x: transform.x,
-    y: transform.y,
+    x: denseTransform.x,
+    y: denseTransform.y,
     width: box.width,
     height: box.height,
     rotation: transform.rotation,
@@ -1034,9 +1052,37 @@ function textEntity(
     align,
     visible,
     interactive,
-    zIndex: 30,
+    zIndex: layer,
     tags: ['text'],
   };
+}
+
+function diagnoseComponentTextProjection(
+  style: JsonRecord,
+  path: string,
+  sourceId: string,
+  state: ParseState,
+): void {
+  if (style.lineHeight !== undefined) {
+    warnOnce(
+      state,
+      `component-text-line-height:${path}`,
+      `${path}.style.lineHeight`,
+      'component-text-line-height-degraded',
+      'Component text lineHeight is retained semantically but is not represented by the flat dense text contract',
+      sourceId,
+    );
+  }
+  if (style.letterSpacing !== undefined) {
+    warnOnce(
+      state,
+      `component-text-letter-spacing:${path}`,
+      `${path}.style.letterSpacing`,
+      'component-text-letter-spacing-degraded',
+      'Component text letterSpacing is retained semantically but is not represented by the flat dense text contract',
+      sourceId,
+    );
+  }
 }
 
 function elementTransform(
@@ -1076,6 +1122,25 @@ function composeTransform(parent: Transform, x: number, y: number, rotation: num
     x: parent.x + x * cos - y * sin,
     y: parent.y + x * sin + y * cos,
     rotation: parent.rotation + rotation,
+  };
+}
+
+/**
+ * The PATCH MAP origin is the authored local top-left, while the inherited
+ * dense renderer rotates quads around their center. Shift the stored top-left
+ * so both representations produce the same transformed corners and AABB.
+ */
+function centerPivotTopLeft(transform: Transform, size: Size): Transform {
+  if (transform.rotation === 0 || (size.width === 0 && size.height === 0)) return transform;
+  const centerX = size.width / 2;
+  const centerY = size.height / 2;
+  const radians = transform.rotation * Math.PI / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  return {
+    x: transform.x - centerX + centerX * cos - centerY * sin,
+    y: transform.y - centerY + centerX * sin + centerY * cos,
+    rotation: transform.rotation,
   };
 }
 
@@ -1210,7 +1275,19 @@ function axisSpacing(value: unknown, path: string, state: ParseState): { x: numb
 
 function assetSource(value: unknown, path: string, state: ParseState): string {
   if (typeof value === 'string' && value.length > 0) return value;
-  if (isRecord(value) && typeof value.src === 'string' && value.src.length > 0) return value.src;
+  if (isRecord(value) && typeof value.src === 'string' && value.src.length > 0) {
+    const data = isRecord(value.data) ? value.data : undefined;
+    if (data?.resolution !== undefined) {
+      warnOnce(
+        state,
+        `asset-resolution:${path}`,
+        `${path}.data.resolution`,
+        'asset-resolution-degraded',
+        'Asset descriptor resolution is retained semantically but the flat dense image contract keeps only src',
+      );
+    }
+    return value.src;
+  }
   warn(state, path, 'invalid-asset-source', 'Invalid asset source uses a deterministic missing-asset alias');
   return `@missing-asset:${pathToken(path)}`;
 }

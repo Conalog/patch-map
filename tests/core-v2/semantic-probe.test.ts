@@ -122,7 +122,10 @@ describe('Core v2 actual-only semantic product probe', () => {
                 id: 'label',
                 show: false,
                 text: `broken\ud800`,
-                tint: 'definitely-not-a-color',
+                // Dotted semantic paths remain valid paint intent even when a
+                // theme cannot resolve them; arbitrary color-like strings are
+                // rejected earlier by the strict dataset boundary.
+                tint: 'brand.missing',
                 style: { fill: '#336699' },
               },
               {

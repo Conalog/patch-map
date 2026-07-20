@@ -176,8 +176,11 @@ describe('Core v2 PATCH MAP v0.10 parser', () => {
     expect(result.document.entities).toHaveLength(3);
     expect(result.document.entities[0]).toMatchObject({
       id: 'rect-a',
-      x: 10,
-      y: 25,
+      // PATCH MAP rotates around the authored top-left. The dense renderer
+      // rotates around the quad center, so the parser stores the equivalent
+      // compensated top-left while retaining the authored 90° rotation.
+      x: 1.5,
+      y: 24.5,
       rotation: 90,
       fill: 0xff0000ff,
     });
