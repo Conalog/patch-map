@@ -78,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(62);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(24);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(149);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(63);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(26);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(147);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(102);
+    ), 0)).toBe(109);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -261,6 +261,168 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).toContain('data-testid="ren-005-run-long-task-count"');
     expect(markup).toContain('data-testid="ren-005-run-max-frame-gap"');
     expect(markup).toContain('This chooser changes only the displayed actual facts');
+    expect(markup).not.toContain('data-contract-status="pass"');
+  });
+
+  it('renders REN-008 with four actual background phases and one immutable capture row', () => {
+    const route = parseCoreV2ContractRoute(
+      '/lab/core-v2?scenario=REN-008&size=100&seed=319',
+    );
+    const plan = materializeCoreV2ExecutableCase('REN-008', '100', 319);
+    const markup = renderCoreV2ContractLab(route);
+    const backgroundIndex = CORE_V2_EXECUTABLE_CASE_IDS.indexOf('REN-008');
+
+    expect(CORE_V2_EXECUTABLE_CASE_IDS[backgroundIndex - 1]).toBe('REN-007');
+    expect(CORE_V2_EXECUTABLE_CASE_IDS[backgroundIndex + 1]).toBe('REN-010');
+    expect(resolveCoreV2ExecutableRuntime('REN-008').key).toBe('render-component-assets');
+    expect(route.presenter.executionStatus).toBe('actual-observable');
+    expect(route.presenter.rootTestId).toBe('scenario-ren-008');
+    expect(plan.route).toBe('/lab/core-v2?scenario=REN-008&size=100&seed=319');
+    expect(plan.actionTrace).toEqual([
+      {
+        index: 0,
+        type: 'loadDataset',
+        operands: { datasetId: 'background' },
+      },
+      {
+        index: 1,
+        type: 'replaceComponentSource',
+        operands: {
+          ownerId: 'item',
+          componentId: 'bg',
+          source: 'fixture-image',
+          timeMs: 20,
+        },
+      },
+      {
+        index: 2,
+        type: 'setComponentVisibility',
+        operands: { ownerId: 'item', componentId: 'bg', show: false },
+      },
+      {
+        index: 3,
+        type: 'setComponentVisibility',
+        operands: { ownerId: 'item', componentId: 'bg', show: true },
+      },
+    ]);
+    expect(plan).not.toHaveProperty('expected');
+    expect(JSON.stringify(plan)).not.toContain('catalog-normalized-expected');
+    expect(markup).toContain('data-testid="scenario-ren-008"');
+    expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(4);
+    expect(markup).toContain('data-testid="ren-008-background-inspector"');
+    expect(markup).toContain('data-testid="ren-008-phase-select" disabled');
+    expect(markup).toContain('value="initial" data-action-index="0"');
+    expect(markup).toContain('value="image" data-action-index="1"');
+    expect(markup).toContain('value="hidden" data-action-index="2"');
+    expect(markup).toContain('value="shown" data-action-index="3"');
+    expect(markup).toContain('A0 Rect');
+    expect(markup).toContain('A1 Image');
+    expect(markup).toContain('A2 Hidden');
+    expect(markup).toContain('A3 Shown');
+    expect(markup).toContain('data-testid="ren-008-component-id"');
+    expect(markup).toContain('data-testid="ren-008-entity-id"');
+    expect(markup).toContain('data-testid="ren-008-authored-size"');
+    expect(markup).toContain('data-testid="ren-008-full-bounds"');
+    expect(markup).toContain('data-testid="ren-008-visible-bounds"');
+    expect(markup).toContain('data-testid="ren-008-source"');
+    expect(markup).toContain('data-testid="ren-008-resource-state"');
+    expect(markup).toContain('data-testid="ren-008-render-role"');
+    expect(markup).toContain('data-testid="ren-008-binding-key"');
+    expect(markup).toContain('data-testid="ren-008-generation"');
+    expect(markup).toContain('data-testid="ren-008-render-object-count"');
+    expect(markup).toContain('data-testid="ren-008-stale-count"');
+    expect(markup).toContain('data-testid="ren-008-capture-row"');
+    expect(markup).toContain('data-testid="ren-008-capture-id"');
+    expect(markup).toContain('data-testid="ren-008-resource-count"');
+    expect(markup).toContain('data-testid="ren-008-lease-count"');
+    expect(markup).toContain('data-testid="ren-008-pending-release-count"');
+    expect(markup).toContain('data-testid="ren-008-resource-journal"');
+    expect(markup).toContain('data-testid="ren-008-run-fps"');
+    expect(markup).toContain('data-testid="ren-008-run-max-frame-gap"');
+    expect(markup).toContain('data-testid="ren-008-run-long-task-count"');
+    expect(markup).toContain('displays only completed action products');
+    expect(markup).not.toContain('data-testid="ren-005-image-inspector"');
+    expect(markup).not.toContain('data-testid="ren-010-icon-inspector"');
+    expect(markup).not.toContain('data-contract-status="pass"');
+  });
+
+  it('renders REN-010 with three actual icon phases and renderer-owned tint facts', () => {
+    const route = parseCoreV2ContractRoute(
+      '/lab/core-v2?scenario=REN-010&size=100&seed=319',
+    );
+    const plan = materializeCoreV2ExecutableCase('REN-010', '100', 319);
+    const markup = renderCoreV2ContractLab(route);
+    const iconIndex = CORE_V2_EXECUTABLE_CASE_IDS.indexOf('REN-010');
+
+    expect(CORE_V2_EXECUTABLE_CASE_IDS[iconIndex - 1]).toBe('REN-008');
+    expect(CORE_V2_EXECUTABLE_CASE_IDS[iconIndex + 1]).toBe('LAY-001');
+    expect(resolveCoreV2ExecutableRuntime('REN-010').key).toBe('render-component-assets');
+    expect(route.presenter.executionStatus).toBe('actual-observable');
+    expect(route.presenter.rootTestId).toBe('scenario-ren-010');
+    expect(plan.route).toBe('/lab/core-v2?scenario=REN-010&size=100&seed=319');
+    expect(plan.actionTrace).toEqual([
+      {
+        index: 0,
+        type: 'loadDataset',
+        operands: { datasetId: 'icon' },
+      },
+      {
+        index: 1,
+        type: 'replaceSource',
+        operands: {
+          target: { ownerId: 'item-a', id: 'icon' },
+          source: 'fixture-icon-2',
+          timeMs: 20,
+        },
+      },
+      {
+        index: 2,
+        type: 'patch',
+        operands: {
+          target: { ownerId: 'item-a', id: 'icon' },
+          changes: { tint: '#00ff00ff' },
+        },
+      },
+    ]);
+    expect(plan).not.toHaveProperty('expected');
+    expect(JSON.stringify(plan)).not.toContain('catalog-normalized-expected');
+    expect(markup).toContain('data-testid="scenario-ren-010"');
+    expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(3);
+    expect(markup).toContain('data-testid="ren-010-icon-inspector"');
+    expect(markup).toContain('data-testid="ren-010-phase-select" disabled');
+    expect(markup).toContain('value="initial" data-action-index="0"');
+    expect(markup).toContain('value="replacement" data-action-index="1"');
+    expect(markup).toContain('value="tint" data-action-index="2"');
+    expect(markup).toContain('A0 Initial alias');
+    expect(markup).toContain('A1 Replacement alias');
+    expect(markup).toContain('A2 Tint patch');
+    expect(markup).toContain('data-testid="ren-010-component-id"');
+    expect(markup).toContain('data-testid="ren-010-entity-id"');
+    expect(markup).toContain('data-testid="ren-010-content-box"');
+    expect(markup).toContain('data-testid="ren-010-icon-bounds"');
+    expect(markup).toContain('data-testid="ren-010-authored-size"');
+    expect(markup).toContain('data-testid="ren-010-placement"');
+    expect(markup).toContain('data-testid="ren-010-margins"');
+    expect(markup).toContain('data-testid="ren-010-source"');
+    expect(markup).toContain('data-testid="ren-010-resource-state"');
+    expect(markup).toContain('data-testid="ren-010-render-role"');
+    expect(markup).toContain('data-testid="ren-010-binding-key"');
+    expect(markup).toContain('data-testid="ren-010-generation"');
+    expect(markup).toContain('data-testid="ren-010-semantic-tint"');
+    expect(markup).toContain('data-testid="ren-010-renderer-tint"');
+    expect(markup).toContain('data-testid="ren-010-render-object-count"');
+    expect(markup).toContain('data-testid="ren-010-stale-count"');
+    expect(markup).toContain('data-testid="ren-010-resource-count"');
+    expect(markup).toContain('data-testid="ren-010-lease-count"');
+    expect(markup).toContain('data-testid="ren-010-pending-release-count"');
+    expect(markup).toContain('data-testid="ren-010-resource-journal"');
+    expect(markup).toContain('data-testid="ren-010-run-fps"');
+    expect(markup).toContain('data-testid="ren-010-run-max-frame-gap"');
+    expect(markup).toContain('data-testid="ren-010-run-long-task-count"');
+    expect(markup).toContain('displays only completed action products');
+    expect(markup).not.toContain('data-testid="ren-005-image-inspector"');
+    expect(markup).not.toContain('data-testid="ren-008-background-inspector"');
+    expect(markup).not.toContain('ren-010-capture-row');
     expect(markup).not.toContain('data-contract-status="pass"');
   });
 

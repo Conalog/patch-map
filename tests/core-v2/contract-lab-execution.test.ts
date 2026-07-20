@@ -27,7 +27,11 @@ import type {
 
 describe('Core v2 executable Lab product bridge', () => {
   it.each(CORE_V2_EXECUTABLE_CASE_IDS.filter(
-    (caseId) => caseId !== 'DAT-008' && caseId !== 'AST-001' && caseId !== 'REN-005',
+    (caseId) => caseId !== 'DAT-008'
+      && caseId !== 'AST-001'
+      && caseId !== 'REN-005'
+      && caseId !== 'REN-008'
+      && caseId !== 'REN-010',
   ))(
     'executes %s through a targeted CoreV2Engine and retains actual-only cleanup facts',
     async (caseId) => {
@@ -452,6 +456,8 @@ describe('Core v2 executable Lab product bridge', () => {
       'REN-001': 'render-foundation',
       'REN-004': 'render-foundation',
       'REN-005': 'render-images',
+      'REN-008': 'render-component-assets',
+      'REN-010': 'render-component-assets',
       'REN-003': 'render-foundation',
       'REN-002': 'render-foundation',
       'REN-007': 'render-relations',

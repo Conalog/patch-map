@@ -328,6 +328,16 @@ p {
   background: #fff;
 }
 
+.contract-phase-observation-count {
+  color: #56708f;
+  font: 700 0.66rem/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.contract-component-inspector[data-observation-status="observed"] {
+  border-color: #7ba88d;
+  background: #f7fcf9;
+}
+
 .contract-image-observer-note {
   margin: 12px 0;
   padding: 9px 11px;
@@ -339,6 +349,7 @@ p {
 
 .contract-image-facts dl,
 .contract-image-ledger > dl,
+.contract-component-capture dl,
 .contract-run-observer dl {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -348,6 +359,7 @@ p {
 
 .contract-image-facts dl > div,
 .contract-image-ledger > dl > div,
+.contract-component-capture dl > div,
 .contract-run-observer dl > div {
   min-width: 0;
   padding: 9px;
@@ -357,6 +369,7 @@ p {
 
 .contract-image-facts dd,
 .contract-image-ledger dd,
+.contract-component-capture dd,
 .contract-run-observer dd {
   margin: 4px 0 0;
   overflow-wrap: anywhere;
@@ -365,10 +378,54 @@ p {
 }
 
 .contract-image-ledger,
+.contract-component-capture,
 .contract-run-observer {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid #cfdae7;
+}
+
+.contract-component-capture h4,
+.contract-component-resource-journal h4 {
+  margin: 0 0 7px;
+  color: #435673;
+  font-size: 0.75rem;
+}
+
+.contract-component-resource-journal h4 {
+  margin-top: 12px;
+}
+
+.contract-component-resource-journal ol {
+  display: grid;
+  gap: 4px;
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.contract-component-resource-journal li {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(150px, auto) minmax(0, 1fr);
+  gap: 7px;
+  align-items: center;
+  padding: 6px 8px;
+  border: 1px solid #dae3ed;
+  color: #4e6078;
+  background: #fff;
+  font-size: 0.68rem;
+}
+
+.contract-component-resource-journal li strong {
+  color: #275eaa;
+}
+
+.contract-component-resource-journal li code {
+  overflow-wrap: anywhere;
+  color: #53647c;
+  font-size: 0.64rem;
 }
 
 .contract-request-journal h4 {
@@ -511,6 +568,14 @@ p {
 
   .contract-request-journal li {
     grid-template-columns: 2rem minmax(0, 1fr) auto;
+  }
+
+  .contract-component-resource-journal li {
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+  }
+
+  .contract-component-resource-journal li code {
+    grid-column: 1 / -1;
   }
 
   .contract-request-journal li span:nth-of-type(2),

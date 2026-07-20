@@ -46,6 +46,40 @@ const REN_005_SPECIMENS = Object.freeze([
   Object.freeze({ id: 'failed-image', label: 'Failed placeholder' }),
 ]);
 
+interface CoreV2ComponentAssetPhase {
+  readonly id: string;
+  readonly label: string;
+  readonly actionIndex: number;
+  readonly productKey: 'product' | 'after';
+}
+
+const REN_008_PHASES: readonly CoreV2ComponentAssetPhase[] = Object.freeze([
+  Object.freeze({ id: 'initial', label: 'A0 Rect', actionIndex: 0, productKey: 'product' }),
+  Object.freeze({ id: 'image', label: 'A1 Image', actionIndex: 1, productKey: 'after' }),
+  Object.freeze({ id: 'hidden', label: 'A2 Hidden', actionIndex: 2, productKey: 'after' }),
+  Object.freeze({ id: 'shown', label: 'A3 Shown', actionIndex: 3, productKey: 'after' }),
+]);
+
+const REN_010_PHASES: readonly CoreV2ComponentAssetPhase[] = Object.freeze([
+  Object.freeze({ id: 'initial', label: 'A0 Initial alias', actionIndex: 0, productKey: 'product' }),
+  Object.freeze({ id: 'replacement', label: 'A1 Replacement alias', actionIndex: 1, productKey: 'after' }),
+  Object.freeze({ id: 'tint', label: 'A2 Tint patch', actionIndex: 2, productKey: 'after' }),
+]);
+
+const COMPONENT_ASSET_RESOURCE_FIELDS = Object.freeze([
+  Object.freeze({ suffix: 'canvas-count', key: 'canvasCount', label: 'Canvases' }),
+  Object.freeze({ suffix: 'subscription-count', key: 'subscriptionCount', label: 'Subscriptions' }),
+  Object.freeze({ suffix: 'pending-work-count', key: 'pendingWorkCount', label: 'Pending work' }),
+  Object.freeze({ suffix: 'binding-count', key: 'bindingCount', label: 'Bindings' }),
+  Object.freeze({ suffix: 'resource-count', key: 'resourceCount', label: 'Resources' }),
+  Object.freeze({ suffix: 'lease-count', key: 'leaseCount', label: 'Leases' }),
+  Object.freeze({ suffix: 'pending-settlement-count', key: 'pendingSettlementCount', label: 'Pending settlement' }),
+  Object.freeze({ suffix: 'pending-release-count', key: 'pendingReleaseCount', label: 'Pending release' }),
+  Object.freeze({ suffix: 'stale-attachment-resource-count', key: 'staleAttachmentCount', label: 'Stale attachments' }),
+  Object.freeze({ suffix: 'renderer-object-resource-count', key: 'rendererObjectCount', label: 'Renderer objects' }),
+  Object.freeze({ suffix: 'cleanup-failure-count', key: 'cleanupFailureCount', label: 'Cleanup failures' }),
+]);
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -128,6 +162,121 @@ function renderRen005Inspector(route: CoreV2ContractRoute): string {
   </section>`;
 }
 
+function renderComponentAssetPhaseOptions(
+  phases: readonly CoreV2ComponentAssetPhase[],
+  initiallySelectedId: string,
+): string {
+  return phases.map(({ id, label, actionIndex }) => (
+    `<option value="${id}" data-action-index="${actionIndex}" data-observation-status="queued"${id === initiallySelectedId ? ' selected' : ''} disabled>${label}</option>`
+  )).join('');
+}
+
+function renderComponentAssetResourceLedger(prefix: 'ren-008' | 'ren-010'): string {
+  const counters = COMPONENT_ASSET_RESOURCE_FIELDS.map(({ suffix, label }) => (
+    `<div><dt>${label}</dt><dd data-testid="${prefix}-${suffix}" data-component-asset-field>not observed</dd></div>`
+  )).join('');
+  return `<div class="contract-image-ledger" aria-label="Observed component resource counters">
+    <dl>${counters}</dl>
+    <div class="contract-component-resource-journal">
+      <h4>Observed resource journal</h4>
+      <ol data-testid="${prefix}-resource-journal"><li data-testid="${prefix}-resource-journal-empty">Run the exact case to inspect observed resources.</li></ol>
+    </div>
+  </div>`;
+}
+
+function renderRunObserver(prefix: 'ren-008' | 'ren-010'): string {
+  return `<div class="contract-run-observer" data-testid="${prefix}-run-observation">
+    <div><span class="contract-kicker">Per-run main-thread observation</span><p>FPS and frame gaps use requestAnimationFrame; long tasks use the browser Long Tasks API when available.</p></div>
+    <dl>
+      <div><dt>Run</dt><dd data-testid="${prefix}-run-index">not observed</dd></div>
+      <div><dt>FPS</dt><dd data-testid="${prefix}-run-fps">not observed</dd></div>
+      <div><dt>Frames</dt><dd data-testid="${prefix}-run-frame-count">not observed</dd></div>
+      <div><dt>Max frame gap</dt><dd data-testid="${prefix}-run-max-frame-gap">not observed</dd></div>
+      <div><dt>Long tasks</dt><dd data-testid="${prefix}-run-long-task-count">not observed</dd></div>
+      <div><dt>Duration</dt><dd data-testid="${prefix}-run-duration">not observed</dd></div>
+    </dl>
+    <ol class="contract-performance-journal" data-testid="${prefix}-performance-journal"></ol>
+  </div>`;
+}
+
+function renderRen008Inspector(route: CoreV2ContractRoute): string {
+  if (route.scenario !== 'REN-008') return '';
+  const options = renderComponentAssetPhaseOptions(REN_008_PHASES, 'shown');
+  return `<section class="contract-image-inspector contract-component-inspector" data-testid="ren-008-background-inspector" data-observation-status="queued" data-observed-phase-count="0" aria-labelledby="ren-008-inspector-title">
+    <div class="contract-image-inspector-heading">
+      <div><span class="contract-kicker">REN-008 actual observer</span><h3 id="ren-008-inspector-title">Background component phases</h3></div>
+      <label>Observed phase<select data-testid="ren-008-phase-select" disabled>${options}</select><output class="contract-phase-observation-count" data-testid="ren-008-observed-phase-count">0 / 4 observed</output></label>
+    </div>
+    <p class="contract-image-observer-note">This chooser displays only completed action products. It cannot add, remove, reorder, repeat, or mutate the canonical four-action trace.</p>
+    <div class="contract-image-facts" data-testid="ren-008-selected-facts">
+      <dl>
+        <div><dt>Phase</dt><dd data-testid="ren-008-phase" data-component-asset-field>not observed</dd></div>
+        <div><dt>Owner ID</dt><dd data-testid="ren-008-owner-id" data-component-asset-field>not observed</dd></div>
+        <div><dt>Component ID</dt><dd data-testid="ren-008-component-id" data-component-asset-field>not observed</dd></div>
+        <div><dt>Dense entity ID</dt><dd data-testid="ren-008-entity-id" data-component-asset-field>not observed</dd></div>
+        <div><dt>Logical identity</dt><dd data-testid="ren-008-logical-identity" data-component-asset-field>not observed</dd></div>
+        <div><dt>Authored inert size</dt><dd data-testid="ren-008-authored-size" data-component-asset-field>not observed</dd></div>
+        <div><dt>Full item bounds</dt><dd data-testid="ren-008-full-bounds" data-component-asset-field>not observed</dd></div>
+        <div><dt>Visible bounds</dt><dd data-testid="ren-008-visible-bounds" data-component-asset-field>not observed</dd></div>
+        <div><dt>Source</dt><dd data-testid="ren-008-source" data-component-asset-field>not observed</dd></div>
+        <div><dt>Resource state</dt><dd data-testid="ren-008-resource-state" data-component-asset-field>not observed</dd></div>
+        <div><dt>Render role</dt><dd data-testid="ren-008-render-role" data-component-asset-field>not observed</dd></div>
+        <div><dt>Binding</dt><dd data-testid="ren-008-binding-key" data-component-asset-field>not observed</dd></div>
+        <div><dt>Generation</dt><dd data-testid="ren-008-generation" data-component-asset-field>not observed</dd></div>
+        <div><dt>Render objects</dt><dd data-testid="ren-008-render-object-count" data-component-asset-field>not observed</dd></div>
+        <div><dt>Stale attachments</dt><dd data-testid="ren-008-stale-count" data-component-asset-field>not observed</dd></div>
+      </dl>
+    </div>
+    <div class="contract-component-capture" aria-label="Declared observed capture">
+      <h4>Declared capture</h4>
+      <dl><div data-testid="ren-008-capture-row"><dt>initial/id</dt><dd data-testid="ren-008-capture-id" data-component-asset-field>not observed</dd></div></dl>
+    </div>
+    ${renderComponentAssetResourceLedger('ren-008')}
+    ${renderRunObserver('ren-008')}
+  </section>`;
+}
+
+function renderRen010Inspector(route: CoreV2ContractRoute): string {
+  if (route.scenario !== 'REN-010') return '';
+  const options = renderComponentAssetPhaseOptions(REN_010_PHASES, 'tint');
+  return `<section class="contract-image-inspector contract-component-inspector" data-testid="ren-010-icon-inspector" data-observation-status="queued" data-observed-phase-count="0" aria-labelledby="ren-010-inspector-title">
+    <div class="contract-image-inspector-heading">
+      <div><span class="contract-kicker">REN-010 actual observer</span><h3 id="ren-010-inspector-title">Icon source and tint phases</h3></div>
+      <label>Observed phase<select data-testid="ren-010-phase-select" disabled>${options}</select><output class="contract-phase-observation-count" data-testid="ren-010-observed-phase-count">0 / 3 observed</output></label>
+    </div>
+    <p class="contract-image-observer-note">This chooser displays only completed action products. It cannot add, remove, reorder, repeat, or mutate the canonical three-action trace.</p>
+    <div class="contract-image-facts" data-testid="ren-010-selected-facts">
+      <dl>
+        <div><dt>Phase</dt><dd data-testid="ren-010-phase" data-component-asset-field>not observed</dd></div>
+        <div><dt>Owner ID</dt><dd data-testid="ren-010-owner-id" data-component-asset-field>not observed</dd></div>
+        <div><dt>Component ID</dt><dd data-testid="ren-010-component-id" data-component-asset-field>not observed</dd></div>
+        <div><dt>Dense entity ID</dt><dd data-testid="ren-010-entity-id" data-component-asset-field>not observed</dd></div>
+        <div><dt>Logical identity</dt><dd data-testid="ren-010-logical-identity" data-component-asset-field>not observed</dd></div>
+        <div><dt>Content box from observed export</dt><dd data-testid="ren-010-content-box" data-component-asset-field>not observed</dd></div>
+        <div><dt>Actual icon bounds</dt><dd data-testid="ren-010-icon-bounds" data-component-asset-field>not observed</dd></div>
+        <div><dt>Authored percentage size</dt><dd data-testid="ren-010-authored-size" data-component-asset-field>not observed</dd></div>
+        <div><dt>Placement</dt><dd data-testid="ren-010-placement" data-component-asset-field>not observed</dd></div>
+        <div><dt>Margins</dt><dd data-testid="ren-010-margins" data-component-asset-field>not observed</dd></div>
+        <div><dt>Source</dt><dd data-testid="ren-010-source" data-component-asset-field>not observed</dd></div>
+        <div><dt>Resource state</dt><dd data-testid="ren-010-resource-state" data-component-asset-field>not observed</dd></div>
+        <div><dt>Render role</dt><dd data-testid="ren-010-render-role" data-component-asset-field>not observed</dd></div>
+        <div><dt>Binding</dt><dd data-testid="ren-010-binding-key" data-component-asset-field>not observed</dd></div>
+        <div><dt>Generation</dt><dd data-testid="ren-010-generation" data-component-asset-field>not observed</dd></div>
+        <div><dt>Semantic tint</dt><dd data-testid="ren-010-semantic-tint" data-component-asset-field>not observed</dd></div>
+        <div><dt>Renderer tint</dt><dd data-testid="ren-010-renderer-tint" data-component-asset-field>not observed</dd></div>
+        <div><dt>Render objects</dt><dd data-testid="ren-010-render-object-count" data-component-asset-field>not observed</dd></div>
+        <div><dt>Stale attachments</dt><dd data-testid="ren-010-stale-count" data-component-asset-field>not observed</dd></div>
+      </dl>
+    </div>
+    ${renderComponentAssetResourceLedger('ren-010')}
+    ${renderRunObserver('ren-010')}
+  </section>`;
+}
+
+function renderComponentAssetInspector(route: CoreV2ContractRoute): string {
+  return `${renderRen008Inspector(route)}${renderRen010Inspector(route)}`;
+}
+
 export function renderCoreV2ContractLab(route: CoreV2ContractRoute): string {
   const presenter = route.presenter;
   const executable = presenter.executionStatus === 'actual-observable';
@@ -173,6 +322,7 @@ export function renderCoreV2ContractLab(route: CoreV2ContractRoute): string {
         </div>
         <div class="contract-actions" aria-label="Selected case action ownership">${actionControls(route, executable)}</div>
         ${renderRen005Inspector(route)}
+        ${renderComponentAssetInspector(route)}
       </section>
       <section class="contract-result-strip" data-testid="${presenter.resultTestId}" aria-live="polite">
         <dl><div><dt>Actions</dt><dd data-result-actions>${executable ? 'queued' : 'not run'}</dd></div><div><dt>Events</dt><dd data-result-events>not observed</dd></div><div><dt>Cleanup</dt><dd data-result-cleanup>not run</dd></div><div><dt>Observation</dt><dd data-result-observation>${initialStatus}</dd></div></dl>
@@ -270,11 +420,19 @@ function bindShell(
     refreshRen005Inspector(target, bridge.execution());
   }, { signal });
 
+  const componentAssetChooser = target.querySelector<HTMLSelectElement>(
+    '[data-testid="ren-008-phase-select"], [data-testid="ren-010-phase-select"]',
+  );
+  componentAssetChooser?.addEventListener('change', () => {
+    refreshComponentAssetInspector(target, route.scenario, bridge.execution());
+  }, { signal });
+
   async function perform(
     operationKind: 'run' | 'reset' | 'repeat',
     operation: () => Promise<unknown>,
   ): Promise<void> {
-    const performanceObservation = operationKind === 'reset' || route.scenario !== 'REN-005'
+    const performancePrefix = runObserverPrefix(route.scenario);
+    const performanceObservation = operationKind === 'reset' || performancePrefix === null
       ? null
       : startUiRunObservation();
     const pending = operation();
@@ -286,7 +444,7 @@ function bindShell(
     if (runMetrics) uiRunSequence += 1;
     if (operationKind === 'reset') {
       uiRunSequence = 0;
-      resetRen005Performance(target);
+      if (performancePrefix) resetRunPerformance(target, performancePrefix);
     }
     await refreshBridgeUi(target, route, bridge, runMetrics
       ? {
@@ -390,8 +548,10 @@ async function refreshBridgeUi(
   }
 
   refreshRen005Inspector(root, execution);
-  if (runObservation) {
-    appendRen005Performance(root, runObservation);
+  refreshComponentAssetInspector(root, route.scenario, execution);
+  const performancePrefix = runObserverPrefix(route.scenario);
+  if (runObservation && performancePrefix) {
+    appendRunPerformance(root, performancePrefix, runObservation);
     dispatchCoreV2ContractRunComplete(root, runObservation.runKind, runObservation.runResult);
   }
 }
@@ -495,6 +655,419 @@ function refreshRen005Inspector(
   );
 }
 
+function refreshComponentAssetInspector(
+  root: HTMLElement,
+  scenario: string,
+  execution: Readonly<Record<string, unknown>> | null,
+): void {
+  const configuration = scenario === 'REN-008'
+    ? {
+        prefix: 'ren-008' as const,
+        selector: '[data-testid="ren-008-background-inspector"]',
+        phases: REN_008_PHASES,
+      }
+    : scenario === 'REN-010'
+      ? {
+          prefix: 'ren-010' as const,
+          selector: '[data-testid="ren-010-icon-inspector"]',
+          phases: REN_010_PHASES,
+        }
+      : null;
+  if (!configuration) return;
+  const inspector = root.querySelector<HTMLElement>(configuration.selector);
+  if (!inspector) return;
+
+  const products = configuration.phases.map((phase) => (
+    componentAssetProductAt(execution, phase)
+  ));
+  const observedCount = products.filter((product) => product !== null).length;
+  inspector.dataset.observedPhaseCount = String(observedCount);
+  setText(
+    inspector.querySelector(`[data-testid="${configuration.prefix}-observed-phase-count"]`),
+    `${observedCount} / ${configuration.phases.length} observed`,
+  );
+
+  const chooser = inspector.querySelector<HTMLSelectElement>(
+    `[data-testid="${configuration.prefix}-phase-select"]`,
+  );
+  if (chooser) {
+    chooser.disabled = observedCount === 0;
+    for (const option of chooser.options) {
+      const phaseIndex = configuration.phases.findIndex(({ id }) => id === option.value);
+      const observed = phaseIndex >= 0 && products[phaseIndex] !== null;
+      option.disabled = !observed;
+      option.dataset.observationStatus = observed ? 'observed' : 'queued';
+    }
+  }
+
+  let selectedIndex = configuration.phases.findIndex(({ id }) => id === chooser?.value);
+  if (selectedIndex < 0 || products[selectedIndex] === null) {
+    selectedIndex = -1;
+    for (let index = products.length - 1; index >= 0; index -= 1) {
+      if (products[index] !== null) {
+        selectedIndex = index;
+        break;
+      }
+    }
+    if (chooser && selectedIndex >= 0) chooser.value = configuration.phases[selectedIndex]!.id;
+  }
+  const selectedPhase = selectedIndex >= 0 ? configuration.phases[selectedIndex] : null;
+  const product = selectedIndex >= 0 ? products[selectedIndex] : null;
+  if (!selectedPhase || !product) {
+    inspector.dataset.observationStatus = 'queued';
+    delete inspector.dataset.selectedPhase;
+    resetComponentAssetFields(inspector);
+    renderComponentAssetResourceJournal(inspector, configuration.prefix, []);
+    return;
+  }
+
+  inspector.dataset.observationStatus = 'observed';
+  inspector.dataset.selectedPhase = selectedPhase.id;
+  const component = recordAt(product, 'component');
+  const semantic = component ? recordAt(component, 'semantic') : null;
+  const geometry = component ? recordAt(component, 'geometry') : null;
+  const sceneImage = component ? recordAt(component, 'sceneImage') : null;
+  const rendererPaint = component ? recordAt(component, 'rendererPaint') : null;
+  const resources = recordAt(product, 'resources');
+  const counts = resources ? recordAt(resources, 'counts') : null;
+
+  setComponentAssetField(inspector, configuration.prefix, 'phase', selectedPhase.label);
+  setComponentAssetField(
+    inspector,
+    configuration.prefix,
+    'owner-id',
+    stringField(semantic, 'ownerId'),
+  );
+  setComponentAssetField(
+    inspector,
+    configuration.prefix,
+    'component-id',
+    stringField(semantic, 'componentId'),
+  );
+  setComponentAssetField(
+    inspector,
+    configuration.prefix,
+    'entity-id',
+    stringField(component, 'entityId'),
+  );
+  setComponentAssetField(
+    inspector,
+    configuration.prefix,
+    'logical-identity',
+    stringField(component, 'logicalIdentity'),
+  );
+  setComponentAssetField(
+    inspector,
+    configuration.prefix,
+    'authored-size',
+    observedValue(semantic?.authoredSize),
+  );
+  setComponentAssetField(
+    inspector,
+    configuration.prefix,
+    'source',
+    observedValue(semantic?.source),
+  );
+  setComponentAssetField(
+    inspector,
+    configuration.prefix,
+    'resource-state',
+    sceneImage ? stringField(sceneImage, 'state') : 'not applicable · aggregate geometry',
+  );
+  setComponentAssetField(
+    inspector,
+    configuration.prefix,
+    'render-role',
+    stringField(component, 'renderRole'),
+  );
+  setComponentAssetField(
+    inspector,
+    configuration.prefix,
+    'binding-key',
+    sceneImage ? stringField(sceneImage, 'bindingKey') : 'not applicable',
+  );
+  setComponentAssetField(
+    inspector,
+    configuration.prefix,
+    'generation',
+    sceneImage ? numberField(sceneImage, 'generation') : 'not applicable',
+  );
+  setComponentAssetField(
+    inspector,
+    configuration.prefix,
+    'render-object-count',
+    numberField(rendererPaint, 'renderObjectCount'),
+  );
+  setComponentAssetField(
+    inspector,
+    configuration.prefix,
+    'stale-count',
+    sceneImage ? numberField(sceneImage, 'staleAttachCount') : 'not applicable',
+  );
+
+  for (const { suffix, key } of COMPONENT_ASSET_RESOURCE_FIELDS) {
+    setComponentAssetField(
+      inspector,
+      configuration.prefix,
+      suffix,
+      numberField(counts, key),
+    );
+  }
+  const journal = resources && Array.isArray(resources.journal) ? resources.journal : [];
+  renderComponentAssetResourceJournal(inspector, configuration.prefix, journal);
+
+  if (configuration.prefix === 'ren-008') {
+    setComponentAssetField(
+      inspector,
+      'ren-008',
+      'full-bounds',
+      observedValue(geometry?.worldBounds),
+    );
+    setComponentAssetField(
+      inspector,
+      'ren-008',
+      'visible-bounds',
+      observedValue(geometry?.visibleBounds),
+    );
+    setComponentAssetField(
+      inspector,
+      'ren-008',
+      'capture-id',
+      ren008CaptureId(execution),
+    );
+    return;
+  }
+
+  const ownerId = semantic && typeof semantic.ownerId === 'string' ? semantic.ownerId : null;
+  const componentId = semantic && typeof semantic.componentId === 'string'
+    ? semantic.componentId
+    : null;
+  const exportedOwner = ownerId ? observedDatasetOwner(product, ownerId) : null;
+  const exportedComponent = exportedOwner && componentId
+    ? observedDatasetComponent(exportedOwner, componentId)
+    : null;
+  setComponentAssetField(
+    inspector,
+    'ren-010',
+    'content-box',
+    observedValue(observedContentBox(exportedOwner)),
+  );
+  setComponentAssetField(
+    inspector,
+    'ren-010',
+    'icon-bounds',
+    observedValue(geometry?.worldBounds),
+  );
+  setComponentAssetField(
+    inspector,
+    'ren-010',
+    'placement',
+    observedValue(exportedComponent?.placement),
+  );
+  setComponentAssetField(
+    inspector,
+    'ren-010',
+    'margins',
+    observedValue(exportedComponent?.margin),
+  );
+  setComponentAssetField(
+    inspector,
+    'ren-010',
+    'semantic-tint',
+    observedValue(semantic?.tint),
+  );
+  setComponentAssetField(
+    inspector,
+    'ren-010',
+    'renderer-tint',
+    rendererTintLabel(rendererPaint),
+  );
+}
+
+function componentAssetProductAt(
+  execution: Readonly<Record<string, unknown>> | null,
+  phase: CoreV2ComponentAssetPhase,
+): Readonly<Record<string, unknown>> | null {
+  if (!execution || !Array.isArray(execution.actionResults)) return null;
+  const result: unknown = execution.actionResults[phase.actionIndex];
+  if (!isRecord(result) || result.status !== 'completed') return null;
+  const delta = recordAt(result, 'delta');
+  const actual = delta ? recordAt(delta, 'actual') : null;
+  return actual ? recordAt(actual, phase.productKey) : null;
+}
+
+function resetComponentAssetFields(inspector: HTMLElement): void {
+  for (const field of inspector.querySelectorAll<HTMLElement>('[data-component-asset-field]')) {
+    field.textContent = 'not observed';
+  }
+}
+
+function setComponentAssetField(
+  inspector: HTMLElement,
+  prefix: 'ren-008' | 'ren-010',
+  suffix: string,
+  value: string,
+): void {
+  setText(inspector.querySelector(`[data-testid="${prefix}-${suffix}"]`), value);
+}
+
+function ren008CaptureId(
+  execution: Readonly<Record<string, unknown>> | null,
+): string {
+  if (!execution || !Array.isArray(execution.captures)) return 'not observed';
+  const capture: unknown = execution.captures.find((candidate: unknown) => (
+    isRecord(candidate)
+    && candidate.id === 'initial'
+    && candidate.afterActionIndex === 0
+  ));
+  const values = isRecord(capture) ? recordAt(capture, 'values') : null;
+  return stringField(values, 'id');
+}
+
+function observedDatasetOwner(
+  product: Readonly<Record<string, unknown>>,
+  ownerId: string,
+): Readonly<Record<string, unknown>> | null {
+  if (!Array.isArray(product.dataset)) return null;
+  return findObservedElement(product.dataset, ownerId);
+}
+
+function findObservedElement(
+  elements: readonly unknown[],
+  id: string,
+): Readonly<Record<string, unknown>> | null {
+  for (const elementValue of elements) {
+    if (!isRecord(elementValue)) continue;
+    if (elementValue.id === id) return elementValue;
+    if (Array.isArray(elementValue.children)) {
+      const nested = findObservedElement(elementValue.children, id);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+function observedDatasetComponent(
+  owner: Readonly<Record<string, unknown>>,
+  componentId: string,
+): Readonly<Record<string, unknown>> | null {
+  if (!Array.isArray(owner.components)) return null;
+  const component: unknown = owner.components.find((candidate: unknown) => (
+    isRecord(candidate) && candidate.id === componentId
+  ));
+  return isRecord(component) ? component : null;
+}
+
+function observedContentBox(
+  owner: Readonly<Record<string, unknown>> | null,
+): readonly number[] | null {
+  if (!owner) return null;
+  const size = observedSize(owner.size);
+  const padding = observedEdges(owner.padding);
+  if (!size || !padding) return null;
+  return [
+    padding.left,
+    padding.top,
+    Math.max(0, size.width - padding.left - padding.right),
+    Math.max(0, size.height - padding.top - padding.bottom),
+  ];
+}
+
+function observedSize(
+  value: unknown,
+): Readonly<{ width: number; height: number }> | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return { width: value, height: value };
+  }
+  if (Array.isArray(value) && value.length === 2) {
+    const width: unknown = value[0];
+    const height: unknown = value[1];
+    return typeof width === 'number' && Number.isFinite(width)
+      && typeof height === 'number' && Number.isFinite(height)
+      ? { width, height }
+      : null;
+  }
+  if (!isRecord(value)) return null;
+  return typeof value.width === 'number' && Number.isFinite(value.width)
+    && typeof value.height === 'number' && Number.isFinite(value.height)
+    ? { width: value.width, height: value.height }
+    : null;
+}
+
+function observedEdges(
+  value: unknown,
+): Readonly<{ top: number; right: number; bottom: number; left: number }> | null {
+  if (value === undefined || value === null) {
+    return { top: 0, right: 0, bottom: 0, left: 0 };
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return { top: value, right: value, bottom: value, left: value };
+  }
+  if (!isRecord(value)) return null;
+  const top = finiteNumberOrZero(value.top);
+  const right = finiteNumberOrZero(value.right);
+  const bottom = finiteNumberOrZero(value.bottom);
+  const left = finiteNumberOrZero(value.left);
+  return top === null || right === null || bottom === null || left === null
+    ? null
+    : { top, right, bottom, left };
+}
+
+function finiteNumberOrZero(value: unknown): number | null {
+  if (value === undefined) return 0;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function observedValue(value: unknown): string {
+  if (value === undefined) return 'unavailable';
+  if (value === null) return 'null';
+  if (typeof value === 'string' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'unavailable';
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return 'unavailable';
+  }
+}
+
+function rendererTintLabel(value: Readonly<Record<string, unknown>> | null): string {
+  if (!value) return 'unavailable';
+  const packed = finiteUnsignedInteger(value.packedTint);
+  const rgb = finiteUnsignedInteger(value.rgbTint);
+  const alpha = typeof value.alpha === 'number' && Number.isFinite(value.alpha)
+    ? value.alpha
+    : null;
+  if (packed === null || rgb === null || alpha === null) return 'unavailable';
+  return `packed 0x${packed.toString(16).padStart(8, '0')} · rgb 0x${rgb.toString(16).padStart(6, '0')} · alpha ${alpha.toFixed(3)}`;
+}
+
+function finiteUnsignedInteger(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0
+    ? value >>> 0
+    : null;
+}
+
+function renderComponentAssetResourceJournal(
+  inspector: HTMLElement,
+  prefix: 'ren-008' | 'ren-010',
+  journal: readonly unknown[],
+): void {
+  const list = inspector.querySelector<HTMLOListElement>(
+    `[data-testid="${prefix}-resource-journal"]`,
+  );
+  if (!list) return;
+  if (journal.length === 0) {
+    list.innerHTML = `<li data-testid="${prefix}-resource-journal-empty">No observed resource events for this phase.</li>`;
+    return;
+  }
+  list.innerHTML = journal.map((entry) => {
+    const record = isRecord(entry) ? entry : null;
+    const sequence = numberField(record, 'sequence');
+    const event = stringField(record, 'event');
+    return `<li data-testid="${prefix}-resource-journal-row" data-resource-sequence="${escapeHtml(sequence)}" data-resource-event="${escapeHtml(event)}"><span>${escapeHtml(sequence)}</span><strong>${escapeHtml(event)}</strong><code>${escapeHtml(observedValue(record))}</code></li>`;
+  }).join('');
+}
+
 function terminalRen005Product(
   execution: Readonly<Record<string, unknown>> | null,
 ): Readonly<Record<string, unknown>> | null {
@@ -572,8 +1145,18 @@ function renderRen005RequestJournal(
   }).join('');
 }
 
-function appendRen005Performance(
+type CoreV2RunObserverPrefix = 'ren-005' | 'ren-008' | 'ren-010';
+
+function runObserverPrefix(scenario: string): CoreV2RunObserverPrefix | null {
+  if (scenario === 'REN-005') return 'ren-005';
+  if (scenario === 'REN-008') return 'ren-008';
+  if (scenario === 'REN-010') return 'ren-010';
+  return null;
+}
+
+function appendRunPerformance(
   root: HTMLElement,
+  prefix: CoreV2RunObserverPrefix,
   observation: Readonly<{
     readonly runIndex: number;
     readonly runKind: 'run' | 'repeat';
@@ -581,30 +1164,30 @@ function appendRen005Performance(
     readonly runResult: unknown;
   }>,
 ): void {
-  const observer = root.querySelector<HTMLElement>('[data-testid="ren-005-run-observation"]');
+  const observer = root.querySelector<HTMLElement>(`[data-testid="${prefix}-run-observation"]`);
   if (!observer) return;
   const { metrics } = observation;
-  setText(observer.querySelector('[data-testid="ren-005-run-index"]'), String(observation.runIndex));
-  setText(observer.querySelector('[data-testid="ren-005-run-fps"]'), metrics.framesPerSecond.toFixed(1));
-  setText(observer.querySelector('[data-testid="ren-005-run-frame-count"]'), String(metrics.frameCount));
+  setText(observer.querySelector(`[data-testid="${prefix}-run-index"]`), String(observation.runIndex));
+  setText(observer.querySelector(`[data-testid="${prefix}-run-fps"]`), metrics.framesPerSecond.toFixed(1));
+  setText(observer.querySelector(`[data-testid="${prefix}-run-frame-count"]`), String(metrics.frameCount));
   setText(
-    observer.querySelector('[data-testid="ren-005-run-max-frame-gap"]'),
+    observer.querySelector(`[data-testid="${prefix}-run-max-frame-gap"]`),
     `${metrics.maxFrameGapMs.toFixed(1)} ms`,
   );
   setText(
-    observer.querySelector('[data-testid="ren-005-run-long-task-count"]'),
+    observer.querySelector(`[data-testid="${prefix}-run-long-task-count"]`),
     `${metrics.longTaskCount} / ${metrics.longTaskTotalMs.toFixed(1)} ms`,
   );
   setText(
-    observer.querySelector('[data-testid="ren-005-run-duration"]'),
+    observer.querySelector(`[data-testid="${prefix}-run-duration"]`),
     `${metrics.durationMs.toFixed(1)} ms`,
   );
   const journal = observer.querySelector<HTMLOListElement>(
-    '[data-testid="ren-005-performance-journal"]',
+    `[data-testid="${prefix}-performance-journal"]`,
   );
   if (!journal) return;
   const row = document.createElement('li');
-  row.dataset.testid = 'ren-005-performance-journal-row';
+  row.dataset.testid = `${prefix}-performance-journal-row`;
   row.dataset.runIndex = String(observation.runIndex);
   row.dataset.runKind = observation.runKind;
   row.dataset.fps = metrics.framesPerSecond.toFixed(3);
@@ -617,20 +1200,20 @@ function appendRen005Performance(
   journal.append(row);
 }
 
-function resetRen005Performance(root: HTMLElement): void {
-  const observer = root.querySelector<HTMLElement>('[data-testid="ren-005-run-observation"]');
+function resetRunPerformance(root: HTMLElement, prefix: CoreV2RunObserverPrefix): void {
+  const observer = root.querySelector<HTMLElement>(`[data-testid="${prefix}-run-observation"]`);
   if (!observer) return;
-  for (const testId of [
-    'ren-005-run-index',
-    'ren-005-run-fps',
-    'ren-005-run-frame-count',
-    'ren-005-run-max-frame-gap',
-    'ren-005-run-long-task-count',
-    'ren-005-run-duration',
+  for (const suffix of [
+    'run-index',
+    'run-fps',
+    'run-frame-count',
+    'run-max-frame-gap',
+    'run-long-task-count',
+    'run-duration',
   ]) {
-    setText(observer.querySelector(`[data-testid="${testId}"]`), 'not observed');
+    setText(observer.querySelector(`[data-testid="${prefix}-${suffix}"]`), 'not observed');
   }
-  observer.querySelector('[data-testid="ren-005-performance-journal"]')?.replaceChildren();
+  observer.querySelector(`[data-testid="${prefix}-performance-journal"]`)?.replaceChildren();
 }
 
 function dispatchCoreV2ContractRunComplete(
