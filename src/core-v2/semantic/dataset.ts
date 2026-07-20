@@ -316,6 +316,7 @@ const RECT_TEXTURE_FIELDS = new Set(['type', 'fill', 'borderWidth', 'borderColor
 const STROKE_FIELDS = new Set([
   'color',
   'alpha',
+  'opacity',
   'width',
   'cap',
   'join',
@@ -470,7 +471,7 @@ function normalizeElement(
         type,
         ...base,
         links: normalizeLinks(requiredArray(record, 'links', path), `${path}.links`),
-        style: normalizeStrokeStyle(optionalField(record, 'style'), `${path}.style`),
+        style: normalizeStrokeStyle(optionalField(record, 'style'), `${path}.style`, true),
       });
     case 'image':
       return Object.freeze({
@@ -908,13 +909,27 @@ function normalizeRectTexture(value: unknown, path: string): CoreV2RectTexture {
   });
 }
 
-function normalizeStrokeStyle(value: unknown, path: string): CoreV2StrokeStyle {
+function normalizeStrokeStyle(
+  value: unknown,
+  path: string,
+  allowCompatibilityOpacity = false,
+): CoreV2StrokeStyle {
   if (value === undefined) return defaultStrokeStyle();
   const record = recordValue(value, path, 'stroke style must be an object');
   assertKnownFields(record, STROKE_FIELDS, path);
+  if (hasOwn(record, 'opacity') && !allowCompatibilityOpacity) {
+    throw new CoreV2DatasetError('UNKNOWN_FIELD', `${path}.opacity`, 'unknown field opacity');
+  }
+  if (hasOwn(record, 'alpha') && hasOwn(record, 'opacity')) {
+    invalidValue(path, 'alpha and compatibility opacity are mutually exclusive');
+  }
   return Object.freeze({
     color: hasOwn(record, 'color') ? normalizeColorLike(record.color, `${path}.color`) : BLACK,
-    alpha: hasOwn(record, 'alpha') ? rangedNumber(record.alpha, `${path}.alpha`, 0, 1) : 1,
+    alpha: hasOwn(record, 'alpha')
+      ? rangedNumber(record.alpha, `${path}.alpha`, 0, 1)
+      : hasOwn(record, 'opacity')
+        ? rangedNumber(record.opacity, `${path}.opacity`, 0, 1)
+        : 1,
     width: hasOwn(record, 'width')
       ? nonnegativeFiniteNumber(record.width, `${path}.width`)
       : 1,

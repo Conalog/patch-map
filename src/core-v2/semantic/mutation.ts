@@ -60,6 +60,7 @@ export type CoreV2SemanticRemovalResult =
 
 interface LocatedTarget {
   readonly path: string;
+  readonly elementType?: CoreV2Element['type'];
 }
 
 const ELEMENT_TARGET_FIELDS = new Set(['kind', 'id']);
@@ -119,7 +120,15 @@ export function applyCoreV2SemanticPatch(
     );
   }
 
-  const forbiddenField = Object.keys(patch).find((key) => STRUCTURAL_PATCH_FIELDS.has(key));
+  const location = requireAt(located, 0);
+  const forbiddenField = Object.keys(patch).find((key) => {
+    if (!STRUCTURAL_PATCH_FIELDS.has(key)) return false;
+    return !(
+      key === 'links' &&
+      target.kind === 'element' &&
+      location.elementType === 'relations'
+    );
+  });
   if (forbiddenField !== undefined) {
     return rejected(
       target,
@@ -131,7 +140,6 @@ export function applyCoreV2SemanticPatch(
     );
   }
 
-  const location = requireAt(located, 0);
   const staged = rewriteDataset(current.dataset, location.path, patch);
   let candidate: MaterializedCoreV2Dataset;
   try {
@@ -315,7 +323,7 @@ function locateInElement(
   located: LocatedTarget[],
 ): void {
   if (target.kind === 'element' && element.id === target.id) {
-    located.push({ path });
+    located.push({ path, elementType: element.type });
   }
 
   if (target.kind === 'component' && element.id === target.ownerId) {

@@ -4,6 +4,10 @@ import type { MeshGeometry } from 'pixi.js';
 
 import type { RenderStoreView } from '../../src/core-v1/renderer/types';
 import { RenderFlags, RenderKind } from '../../src/core-v1/renderer/types';
+import type { CoreV2ProjectionIndex } from '../../src/core-v2/contracts';
+import { createCoreV2Affine } from '../../src/core-v2/semantic/geometry';
+import type { CoreV2ProjectionRenderContext } from '../../src/core-v2/renderers/types';
+import { expandCoreV2RelationDependencyRanges } from '../../src/core-v2/renderers/pixi-renderer';
 import {
   AggregateMeshLayer,
   buildAggregateChunkGeometry,
@@ -88,9 +92,113 @@ describe('aggregate mesh geometry builders', () => {
       5, 6, 105, 6, 105, 4, 5, 4,
     ]);
   });
+
+  it('expands one logical self relation into four aggregate Mesh segments', () => {
+    const store = createStore();
+    (store.relationTo as Int32Array)[3] = 0;
+    const projection: CoreV2ProjectionIndex = Object.freeze({
+      byEntityId: Object.freeze({}),
+      relationsByEntityId: Object.freeze({
+        relation: Object.freeze({
+          entityId: 'relation',
+          relationId: 'links',
+          sourceId: 'rect',
+          targetId: 'rect',
+          key: 'rect>rect',
+          identityKey: '4:rect4:rect',
+          authoredIndex: 0,
+          affine: createCoreV2Affine(),
+        }),
+      }),
+      omittedRelations: Object.freeze([]),
+    });
+    const context: CoreV2ProjectionRenderContext = Object.freeze({
+      index: projection,
+      revision: 1,
+      world: Object.freeze({ rotationDegrees: 0, flipX: false, flipY: false }),
+    });
+    const built = buildAggregateChunkGeometry(store, 0, store.capacity, context);
+
+    expect(built.visibleRelations).toBe(1);
+    expect(built.relationGroups).toHaveLength(1);
+    expect(built.relationGroups[0]?.primitiveCount).toBe(4);
+    expect(built.relationGroups[0]?.positions).toHaveLength(32);
+
+    (store.flags as Uint8Array)[0] = 0;
+    const hidden = buildAggregateChunkGeometry(store, 0, store.capacity, context);
+    expect(hidden.visibleRelations).toBe(0);
+    expect(hidden.relationGroups).toHaveLength(0);
+  });
+
+  it('uses relation-affine normal scale for aggregate Mesh stroke width', () => {
+    const store = createStore();
+    (store.flags as Uint8Array)[2] = RenderFlags.Visible;
+    const projection: CoreV2ProjectionIndex = Object.freeze({
+      byEntityId: Object.freeze({}),
+      relationsByEntityId: Object.freeze({
+        relation: Object.freeze({
+          entityId: 'relation',
+          relationId: 'links',
+          sourceId: 'rect',
+          targetId: 'hidden-endpoint',
+          key: 'rect>hidden-endpoint',
+          identityKey: '4:rect15:hidden-endpoint',
+          authoredIndex: 0,
+          affine: createCoreV2Affine(0, 0, 0, 2, 3),
+        }),
+      }),
+    });
+    const context: CoreV2ProjectionRenderContext = Object.freeze({
+      index: projection,
+      revision: 1,
+      world: Object.freeze({ rotationDegrees: 0, flipX: false, flipY: false }),
+    });
+    const built = buildAggregateChunkGeometry(store, 0, store.capacity, context);
+    expect([...(built.relationGroups[0]?.positions ?? [])]).toEqual([
+      5, 8, 105, 8, 105, 2, 5, 2,
+    ]);
+  });
 });
 
 describe('AggregateMeshLayer', () => {
+  it('expands endpoint-only dirtiness to a relation in another Mesh chunk', () => {
+    const store = createStore();
+    (store.flags as Uint8Array)[2] = RenderFlags.Visible;
+    const projection: CoreV2ProjectionIndex = Object.freeze({
+      byEntityId: Object.freeze({}),
+      relationsByEntityId: Object.freeze({
+        relation: Object.freeze({
+          entityId: 'relation',
+          relationId: 'links',
+          sourceId: 'rect',
+          targetId: 'hidden-endpoint',
+          key: 'rect>hidden-endpoint',
+          identityKey: '4:rect15:hidden-endpoint',
+          authoredIndex: 0,
+          affine: createCoreV2Affine(),
+        }),
+      }),
+      omittedRelations: Object.freeze([]),
+    });
+    const context: CoreV2ProjectionRenderContext = Object.freeze({
+      index: projection,
+      revision: 1,
+      world: Object.freeze({ rotationDegrees: 0, flipX: false, flipY: false }),
+    });
+    const layer = new AggregateMeshLayer({ chunkSize: 2, label: 'cross chunk relations' });
+    expect(layer.sync(store, { fullRebuildEpoch: 1, projectionContext: context }).visibleRelations).toBe(1);
+
+    (store.flags as Uint8Array)[0] = 0;
+    (store as { revision: number }).revision = 2;
+    const expanded = expandCoreV2RelationDependencyRanges(store, [{ start: 0, end: 1 }]);
+    expect(expanded).toEqual([{ start: 0, end: 1 }, { start: 3, end: 4 }]);
+    const hidden = layer.sync(store, { changedRanges: expanded, projectionContext: context });
+    expect(hidden.visibleRelations).toBe(0);
+    expect(hidden.uploadedChunks).toBe(2);
+    expect(layer.relationContainer.children).toHaveLength(0);
+    layer.destroy();
+  });
+
   it('updates only dirty chunks, exposes world transforms, and prunes empty chunks', () => {
     const store = createStore();
     const layer = new AggregateMeshLayer({ chunkSize: 2, label: 'mesh spike' });

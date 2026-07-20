@@ -14,6 +14,10 @@ import {
   type CoreV2QuadVertices,
   type CoreV2ResolvedRenderQuadScratch,
 } from './types';
+import {
+  resolveCoreV2RelationPath,
+  type CoreV2RelationEndpointGeometry,
+} from '../semantic/relations';
 
 export const DEFAULT_AGGREGATE_MESH_CHUNK_SIZE = 512;
 
@@ -899,6 +903,50 @@ function buildAggregateChunkLaneGeometry(
     const to = store.relationTo[slot] as number;
     const width = store.lineWidth[slot] as number;
     if (!isEndpoint(store, from) || !isEndpoint(store, to) || width <= 0) continue;
+    const relationId = store.ids[slot] ?? '';
+    const relationProjection = projectionContext?.index.relationsByEntityId?.[relationId];
+    const fromQuad = resolveCoreV2SlotQuad(store, from, projectionContext);
+    const toQuad = resolveCoreV2SlotQuad(store, to, projectionContext);
+    const lines: AggregateLine[] = [];
+    if (relationProjection) {
+      const path = resolveCoreV2RelationPath(
+        relationProjection,
+        endpointGeometry(store, from, fromQuad.vertices, fromQuad.center),
+        endpointGeometry(store, to, toQuad.vertices, toQuad.center),
+        {
+          color: store.color[slot] as number,
+          width,
+          opacity,
+          zIndex,
+          visible: isDrawable(store, slot),
+        },
+      );
+      if (!path.visible) continue;
+      for (let pointIndex = 1; pointIndex < path.worldPoints.length; pointIndex += 1) {
+        const startPoint = path.worldPoints[pointIndex - 1];
+        const endPoint = path.worldPoints[pointIndex];
+        if (!startPoint || !endPoint) continue;
+        const line = {
+          fromX: startPoint[0],
+          fromY: startPoint[1],
+          toX: endPoint[0],
+          toY: endPoint[1],
+          width: path.worldStrokeWidths[pointIndex - 1] ?? width,
+        };
+        if (isFiniteLine(line)) lines.push(line);
+      }
+    } else {
+      const line = {
+        fromX: fromQuad.center[0],
+        fromY: fromQuad.center[1],
+        toX: toQuad.center[0],
+        toY: toQuad.center[1],
+        width,
+      };
+      if (!isFiniteLine(line)) continue;
+      lines.push(line);
+    }
+    if (lines.length === 0) continue;
     const group = getLineGroup(
       relationGroups,
       store.color[slot] as number,
@@ -906,17 +954,7 @@ function buildAggregateChunkLaneGeometry(
       zIndex,
     );
     if (group === null) continue;
-    const fromQuad = resolveCoreV2SlotQuad(store, from, projectionContext);
-    const toQuad = resolveCoreV2SlotQuad(store, to, projectionContext);
-    const line = {
-      fromX: fromQuad.center[0],
-      fromY: fromQuad.center[1],
-      toX: toQuad.center[0],
-      toY: toQuad.center[1],
-      width,
-    };
-    if (!isFiniteLine(line)) continue;
-    group.primitives.push(line);
+    group.primitives.push(...lines);
     visibleRelations += 1;
   }
 
@@ -936,6 +974,32 @@ function buildAggregateChunkLaneGeometry(
     visibleBars,
     visibleRelations,
   };
+}
+
+function endpointGeometry(
+  store: RenderStoreView,
+  slot: number,
+  vertices: CoreV2QuadVertices,
+  center: readonly [number, number],
+): CoreV2RelationEndpointGeometry {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (let index = 0; index < vertices.length; index += 2) {
+    const x = vertices[index] as number;
+    const y = vertices[index + 1] as number;
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+  return Object.freeze({
+    id: store.ids[slot] ?? `@slot:${slot}`,
+    center: Object.freeze([center[0], center[1]] as const),
+    worldBounds: Object.freeze([minX, minY, maxX - minX, maxY - minY] as const),
+    visible: ((store.flags[slot] as number) & RenderFlags.Visible) !== 0,
+  });
 }
 
 /**

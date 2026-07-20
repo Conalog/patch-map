@@ -84,7 +84,7 @@ describe('Core v2 PATCH MAP v0.10 parser', () => {
       'rack.0.1',
       'rack.0.1::background:panel',
       'rack.0.1::bar:level',
-      'links::link:000000',
+      '@relation:5:links8:rack.0.08:rack.0.1',
     ]);
     expect(result.identity.entityIdsByComponentId.panel).toEqual([
       'rack.0.0::background:panel',
@@ -256,11 +256,13 @@ describe('Core v2 PATCH MAP v0.10 parser', () => {
       expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.alpha' }),
       expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.tags' }),
       expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.zIndex' }),
-      expect.objectContaining({ code: 'attribute-preserved-only', path: '$[1].attrs.x' }),
     ]));
+    expect(result.projection.relationsByEntityId?.['@relation:5:links6:item-a6:item-a']?.affine).toEqual([
+      1, 0, 0, 1, 10, 0,
+    ]);
   });
 
-  it('fails atomically for duplicate visible IDs and dangling endpoints', () => {
+  it('fails atomically for duplicate visible IDs and explicitly omits dangling endpoints', () => {
     expect(() =>
       parsePatchMapV010([
         { type: 'rect', id: 'duplicate', size: 10 },
@@ -268,26 +270,28 @@ describe('Core v2 PATCH MAP v0.10 parser', () => {
       ]),
     ).toThrow(PatchMapParseError);
 
-    try {
-      parsePatchMapV010([
-        { type: 'rect', id: 'known', size: 10 },
-        {
-          type: 'relations',
-          id: 'relations',
-          links: [{ source: 'known', target: { id: 'missing' } }],
-        },
-      ]);
-      throw new Error('expected parser failure');
-    } catch (error) {
-      expect(error).toBeInstanceOf(PatchMapParseError);
-      expect((error as PatchMapParseError).diagnostics).toContainEqual(
-        expect.objectContaining({
-          level: 'error',
-          code: 'dangling-relation-endpoint',
-          path: '$[1].links[0].target',
-        }),
-      );
-    }
+    const result = parsePatchMapV010([
+      { type: 'rect', id: 'known', size: 10 },
+      {
+        type: 'relations',
+        id: 'relations',
+        links: [{ source: 'known', target: { id: 'missing' } }],
+      },
+    ]);
+    expect(result.document.entities.map((entity) => entity.id)).toEqual(['known']);
+    expect(result.projection.omittedRelations).toEqual([
+      expect.objectContaining({
+        relationId: 'relations',
+        sourceId: 'known',
+        targetId: 'missing',
+        reason: 'missing-target',
+      }),
+    ]);
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      level: 'warning',
+      code: 'omitted-relation-endpoint',
+      path: '$[1].links[0]',
+    }));
   });
 
   it.each([

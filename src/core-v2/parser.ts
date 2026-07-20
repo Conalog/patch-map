@@ -11,6 +11,8 @@ import {
   type ComponentIdentity,
   type CoreV2ContentOrientation,
   type CoreV2EntityProjection,
+  type CoreV2OmittedRelationProjection,
+  type CoreV2RelationProjection,
   type ElementIdentity,
   type EntitySourceIdentity,
   type ExpandedItemIdentity,
@@ -71,8 +73,13 @@ interface MutableExpandedItemIdentity extends Omit<ExpandedItemIdentity, 'entity
 interface PendingRelation {
   readonly path: string;
   readonly entityId: string;
+  readonly relationId: string;
+  readonly authoredIndex: number;
   readonly from: string;
   readonly to: string;
+  readonly transform: Transform;
+  readonly owner: EntityOwner;
+  readonly entity: Extract<EntityInput, { readonly kind: 'relation' }>;
 }
 
 interface ParseState {
@@ -90,7 +97,10 @@ interface ParseState {
   readonly entityIdsByComponentId: Record<string, string[]>;
   readonly entitySourceById: Record<string, EntitySourceIdentity>;
   readonly projectionByEntityId: Record<string, CoreV2EntityProjection>;
+  readonly relationProjectionByEntityId: Record<string, CoreV2RelationProjection>;
+  readonly omittedRelations: CoreV2OmittedRelationProjection[];
   readonly pendingRelations: PendingRelation[];
+  readonly relationPairsBySourceId: Map<string, Set<string>>;
   readonly warned: Set<string>;
   sourceElements: number;
   relationLinks: number;
@@ -130,6 +140,7 @@ const SIGNED_SCALE_ATTRIBUTE_TYPES = new Set([
   'background',
   'bar',
   'icon',
+  'relations',
 ]);
 const TRANSFORM_ATTRIBUTE_TYPES = new Set([
   'group',
@@ -141,6 +152,7 @@ const TRANSFORM_ATTRIBUTE_TYPES = new Set([
   'background',
   'bar',
   'icon',
+  'relations',
 ]);
 const Z_INDEX_ATTRIBUTE_TYPES = new Set(['rect', 'image', 'text', 'relations']);
 
@@ -177,7 +189,10 @@ export function parsePatchMapV010(
     entityIdsByComponentId: Object.create(null) as Record<string, string[]>,
     entitySourceById: Object.create(null) as Record<string, EntitySourceIdentity>,
     projectionByEntityId: Object.create(null) as Record<string, CoreV2EntityProjection>,
+    relationProjectionByEntityId: Object.create(null) as Record<string, CoreV2RelationProjection>,
+    omittedRelations: [],
     pendingRelations: [],
+    relationPairsBySourceId: new Map(),
     warned: new Set(),
     sourceElements: 0,
     relationLinks: 0,
@@ -227,6 +242,8 @@ export function parsePatchMapV010(
     },
     projection: {
       byEntityId: state.projectionByEntityId,
+      relationsByEntityId: state.relationProjectionByEntityId,
+      omittedRelations: state.omittedRelations,
     },
   };
 
@@ -295,7 +312,7 @@ function parseElement(
       parseItem(value, path, sourceId, localTransform, visible, interactive, owner, state);
       return;
     case 'relations':
-      parseRelations(value, path, sourceId, visible, owner, state);
+      parseRelations(value, path, sourceId, localTransform, visible, owner, state);
       return;
     case 'rect':
       parseDirectRect(value, path, sourceId, localTransform, visible, interactive, owner, state);
@@ -888,6 +905,7 @@ function parseRelations(
   value: JsonRecord,
   path: string,
   sourceId: string,
+  transform: Transform,
   visible: boolean,
   owner: EntityOwner,
   state: ParseState,
@@ -896,6 +914,26 @@ function parseRelations(
     fatal(state, `${path}.links`, 'invalid-relations', 'Relations links must be an array', sourceId);
   }
   const style = isRecord(value.style) ? value.style : {};
+  if (style.alpha !== undefined && style.opacity !== undefined) {
+    fatal(
+      state,
+      `${path}.style`,
+      'relation-opacity-conflict',
+      'Relation style alpha and opacity cannot both be authored',
+      sourceId,
+    );
+  }
+  const determinant = transform.affine[0] * transform.affine[3] -
+    transform.affine[1] * transform.affine[2];
+  if (!Number.isFinite(determinant) || Math.abs(determinant) <= Number.EPSILON) {
+    fatal(
+      state,
+      `${path}.attrs`,
+      'non-invertible-relation-transform',
+      'Relations transform must remain invertible for relation-local projection',
+      sourceId,
+    );
+  }
   // Aggregate relation geometry is a sequence of independent butt-capped
   // segments, so the materializer defaults are exact and need no warning.
   if (
@@ -911,26 +949,37 @@ function parseRelations(
     }
     const from = relationEndpoint(linkValue.source, `${linkPath}.source`, state, sourceId);
     const to = relationEndpoint(linkValue.target, `${linkPath}.target`, state, sourceId);
-    const entityId = `${sourceId}::link:${String(index).padStart(6, '0')}`;
+    const pairKey = relationPairKey(from, to);
+    const relationPairs = state.relationPairsBySourceId.get(sourceId) ?? new Set<string>();
+    if (relationPairs.has(pairKey)) return;
+    relationPairs.add(pairKey);
+    state.relationPairsBySourceId.set(sourceId, relationPairs);
+    const entityId = relationEntityId(sourceId, pairKey);
     state.relationLinks += 1;
-    addEntity(
-      {
+    const entity = {
         kind: 'relation',
         id: entityId,
         from,
         to,
         color: resolveColor(style.color, 0x000000ff, `${path}.style.color`, state),
         lineWidth: Math.max(0, finiteNumber(style.width) ?? 1),
-        opacity: clamp01(finiteNumber(style.alpha) ?? 1),
+        opacity: clamp01(finiteNumber(style.alpha) ?? finiteNumber(style.opacity) ?? 1),
         visible,
         interactive: false,
         zIndex: zIndex(value.attrs),
         tags: ['relation', `source:${sourceId}`],
-      },
+      } as const;
+    state.pendingRelations.push({
+      path: linkPath,
+      entityId,
+      relationId: sourceId,
+      authoredIndex: index,
+      from,
+      to,
+      transform,
       owner,
-      state,
-    );
-    state.pendingRelations.push({ path: linkPath, entityId, from, to });
+      entity,
+    });
   });
 }
 
@@ -1016,24 +1065,36 @@ function addEntity(
 
 function validateRelationEndpoints(state: ParseState): void {
   for (const relation of state.pendingRelations) {
-    if (!state.targetIds.has(relation.from)) {
-      state.diagnostics.push({
-        level: 'error',
-        code: 'dangling-relation-endpoint',
-        path: `${relation.path}.source`,
-        message: `Unknown relation source ID ${JSON.stringify(relation.from)}`,
-        entityId: relation.entityId,
-      });
+    const sourceExists = state.targetIds.has(relation.from);
+    const targetExists = state.targetIds.has(relation.to);
+    const projection = Object.freeze({
+      entityId: relation.entityId,
+      relationId: relation.relationId,
+      sourceId: relation.from,
+      targetId: relation.to,
+      key: `${relation.from}>${relation.to}`,
+      identityKey: relationPairKey(relation.from, relation.to),
+      authoredIndex: relation.authoredIndex,
+      affine: relation.transform.affine,
+    } satisfies CoreV2RelationProjection);
+    if (sourceExists && targetExists) {
+      state.relationProjectionByEntityId[relation.entityId] = projection;
+      addEntity(relation.entity, relation.owner, state);
+      continue;
     }
-    if (!state.targetIds.has(relation.to)) {
-      state.diagnostics.push({
-        level: 'error',
-        code: 'dangling-relation-endpoint',
-        path: `${relation.path}.target`,
-        message: `Unknown relation target ID ${JSON.stringify(relation.to)}`,
-        entityId: relation.entityId,
-      });
-    }
+    const reason = !sourceExists && !targetExists
+      ? 'missing-source-and-target'
+      : !sourceExists
+        ? 'missing-source'
+        : 'missing-target';
+    state.omittedRelations.push(Object.freeze({ ...projection, reason }));
+    state.diagnostics.push({
+      level: 'warning',
+      code: 'omitted-relation-endpoint',
+      path: relation.path,
+      message: `Relation segment was omitted because ${reason.replaceAll('-', ' ')}`,
+      entityId: relation.entityId,
+    });
   }
   const failures = state.diagnostics.filter((entry) => entry.level === 'error');
   if (failures.length > 0) {
@@ -1042,6 +1103,14 @@ function validateRelationEndpoints(state: ParseState): void {
       deepFreeze([...state.diagnostics]),
     );
   }
+}
+
+function relationPairKey(source: string, target: string): string {
+  return `${source.length}:${source}${target.length}:${target}`;
+}
+
+function relationEntityId(relationId: string, identityKey: string): string {
+  return `@relation:${relationId.length}:${relationId}${identityKey}`;
 }
 
 function createElementIdentity(

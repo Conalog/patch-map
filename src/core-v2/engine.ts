@@ -10,6 +10,10 @@ import {
   type CoreV2AffineBasis,
 } from './semantic/geometry';
 import {
+  relationPathHitScreen,
+  resolveCoreV2RelationPath,
+} from './semantic/relations';
+import {
   CoreV2DatasetError,
   materializeCoreV2Dataset,
   type MaterializedCoreV2Dataset,
@@ -153,8 +157,26 @@ export interface CoreV2SurfaceEntityGeometry {
 
 export interface CoreV2SurfaceRelationGeometry {
   readonly id: string;
+  readonly relationId?: string;
+  readonly key?: string;
+  readonly identityKey?: string;
   readonly sourceId: string;
   readonly targetId: string;
+  readonly kind?: 'segment' | 'polyline';
+  readonly localPoints?: readonly (readonly [number, number])[];
+  readonly worldPoints?: readonly (readonly [number, number])[];
+  readonly screenPoints?: readonly (readonly [number, number])[];
+  readonly worldBounds?: readonly [number, number, number, number];
+  readonly screenBounds?: readonly [number, number, number, number];
+  readonly visible?: boolean;
+  readonly style?: Readonly<{
+    readonly color: number;
+    readonly colorHex: string;
+    readonly width: number;
+    readonly opacity: number;
+    readonly zIndex: number;
+  }>;
+  readonly visibleStrokeWidthsCssPx?: readonly number[];
   readonly worldEndpoints: readonly [
     readonly [number, number],
     readonly [number, number],
@@ -165,11 +187,23 @@ export interface CoreV2SurfaceRelationGeometry {
   ];
 }
 
+export interface CoreV2SurfaceOmittedRelationGeometry {
+  readonly id: string;
+  readonly relationId: string;
+  readonly key: string;
+  readonly identityKey: string;
+  readonly sourceId: string;
+  readonly targetId: string;
+  readonly authoredIndex: number;
+  readonly reason: 'missing-source' | 'missing-target' | 'missing-source-and-target';
+}
+
 export interface CoreV2SurfaceGeometrySnapshot {
   /** Dense scene revision used to derive the snapshot, when the surface can expose it. */
   readonly revision?: number;
   readonly entities: readonly CoreV2SurfaceEntityGeometry[];
   readonly relations: readonly CoreV2SurfaceRelationGeometry[];
+  readonly omittedRelations?: readonly CoreV2SurfaceOmittedRelationGeometry[];
   readonly selectionOverlay: Readonly<{
     screenBounds: readonly [number, number, number, number];
   }> | null;
@@ -183,6 +217,33 @@ export type CoreV2EngineGeometryProbe = Readonly<
     readonly revisionLag: number | null;
   }
 >;
+
+export interface CoreV2EngineRelationProbe {
+  readonly revision: number | null;
+  readonly revisionLag: number | null;
+  readonly relations: readonly CoreV2SurfaceRelationGeometry[];
+  readonly omittedRelations: readonly CoreV2SurfaceOmittedRelationGeometry[];
+}
+
+export interface CoreV2RelationHitOptions {
+  readonly toleranceCssPx?: number;
+}
+
+export interface CoreV2RelationHit {
+  readonly id: string;
+  readonly relationId: string;
+  readonly key: string;
+  readonly identityKey: string;
+  readonly sourceId: string;
+  readonly targetId: string;
+}
+
+export interface CoreV2RelationHitIndex {
+  /** Screen-grid candidates in ascending scene order. */
+  readonly cells: ReadonlyMap<string, readonly number[]>;
+  /** Oversized paths tested for every query, also in ascending scene order. */
+  readonly overflow: readonly number[];
+}
 
 export interface CoreV2SurfaceReconcileResult {
   readonly status: 'committed' | 'refused';
@@ -209,6 +270,10 @@ export interface CoreV2EngineSurface {
   screenToWorld(point: CoreV2Point): CoreV2Point;
   debugSnapshot(): CoreV2SurfaceDebug;
   geometrySnapshot?(): CoreV2SurfaceGeometrySnapshot;
+  relationHitTestScreen?(
+    point: CoreV2Point,
+    options?: CoreV2RelationHitOptions,
+  ): CoreV2RelationHit | null;
   destroy(): Promise<boolean>;
 }
 
@@ -990,6 +1055,36 @@ export class CoreV2Engine {
     });
   }
 
+  public relationProbe(): CoreV2EngineRelationProbe | null {
+    const surface = this.requireSurface('relationProbe');
+    const geometry = surface.geometrySnapshot?.() ?? null;
+    if (geometry === null) return null;
+    const sourceRevision = geometry.revision ?? null;
+    return Object.freeze({
+      revision: sourceRevision,
+      revisionLag: sourceRevision === null ? null : this.sceneRevision - sourceRevision,
+      relations: geometry.relations,
+      omittedRelations: geometry.omittedRelations ?? Object.freeze([]),
+    });
+  }
+
+  public relationHitTestScreen(
+    point: CoreV2Point,
+    options: CoreV2RelationHitOptions = {},
+  ): CoreV2RelationHit | null {
+    if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+      throw new RangeError('relation hit point must contain finite coordinates');
+    }
+    if (
+      options.toleranceCssPx !== undefined &&
+      (!Number.isFinite(options.toleranceCssPx) || options.toleranceCssPx < 0)
+    ) {
+      throw new RangeError('toleranceCssPx must be finite and non-negative');
+    }
+    const surface = this.requireSurface('relationHitTestScreen');
+    return surface.relationHitTestScreen?.(point, options) ?? null;
+  }
+
   public exportDataset(): readonly NormalizedCoreV2Element[] {
     this.requireSurface('exportDataset');
     return this.materialized?.dataset ?? [];
@@ -1241,10 +1336,12 @@ export class CoreV2EngineError extends Error {
   }
 }
 
-class PixiEngineSurface implements CoreV2EngineSurface {
+export class PixiEngineSurface implements CoreV2EngineSurface {
   private readonly core: CoreV2;
   private canvasPresent = true;
   private geometryRevision = 0;
+  private geometryCache: CoreV2SurfaceGeometrySnapshot | null = null;
+  private relationHitIndex = emptyCoreV2RelationHitIndex();
   private surfaceView: CoreV2SurfaceView = Object.freeze({
     x: 0,
     y: 0,
@@ -1269,11 +1366,15 @@ class PixiEngineSurface implements CoreV2EngineSurface {
   public load(input: unknown): void {
     this.core.load(input);
     this.geometryRevision += 1;
+    this.invalidateGeometryCache();
   }
 
   public reconcile(input: unknown): CoreV2SurfaceReconcileResult {
     const result = this.core.reconcile(input);
-    if (result.status === 'committed') this.geometryRevision += 1;
+    if (result.status === 'committed') {
+      this.geometryRevision += 1;
+      this.invalidateGeometryCache();
+    }
     return Object.freeze({
       status: result.status,
       operationCount: result.plan.summary.operationCount,
@@ -1287,7 +1388,9 @@ class PixiEngineSurface implements CoreV2EngineSurface {
   }
 
   public resize(width: number, height: number, pixelRatio: number): boolean {
-    return this.core.resize(width, height, pixelRatio);
+    const changed = this.core.resize(width, height, pixelRatio);
+    if (changed) this.invalidateGeometryCache();
+    return changed;
   }
 
   public setView(view: CoreV2SurfaceView): void {
@@ -1305,10 +1408,12 @@ class PixiEngineSurface implements CoreV2EngineSurface {
       flipY: nextView.flipY,
     });
     this.surfaceView = nextView;
+    this.invalidateGeometryCache();
   }
 
   public select(ids: readonly string[]): void {
     this.core.commit({ operations: [{ type: 'selection', targets: ids, mode: 'replace' }] });
+    this.invalidateGeometryCache();
   }
 
   public hitTestScreen(point: CoreV2Point): string | null {
@@ -1344,7 +1449,8 @@ class PixiEngineSurface implements CoreV2EngineSurface {
   }
 
   public geometrySnapshot(): CoreV2SurfaceGeometrySnapshot {
-    return Object.freeze({
+    if (this.geometryCache) return this.geometryCache;
+    const geometry = Object.freeze({
       ...createCoreV2SurfaceGeometrySnapshot(
         this.core.snapshot(),
         this.core.projection,
@@ -1352,12 +1458,37 @@ class PixiEngineSurface implements CoreV2EngineSurface {
       ),
       revision: this.geometryRevision,
     });
+    this.geometryCache = geometry;
+    this.relationHitIndex = buildCoreV2RelationHitIndex(geometry.relations);
+    return geometry;
+  }
+
+  public relationHitTestScreen(
+    point: CoreV2Point,
+    options: CoreV2RelationHitOptions = {},
+  ): CoreV2RelationHit | null {
+    const geometry = this.geometrySnapshot();
+    const tolerance = options.toleranceCssPx ?? 4;
+    const candidateIndices = tolerance <= 4
+      ? queryCoreV2RelationHitIndex(this.relationHitIndex, point)
+      : geometry.relations.map((_relation, index) => index);
+    const candidates = candidateIndices.flatMap((index) => {
+      const relation = geometry.relations[index];
+      return relation ? [relation] : [];
+    });
+    return hitTestCoreV2SurfaceRelations(candidates, point, options);
   }
 
   public async destroy(): Promise<boolean> {
     const destroyed = await this.core.destroy();
     this.canvasPresent = false;
+    this.invalidateGeometryCache();
     return destroyed;
+  }
+
+  private invalidateGeometryCache(): void {
+    this.geometryCache = null;
+    this.relationHitIndex = emptyCoreV2RelationHitIndex();
   }
 }
 
@@ -1540,14 +1671,70 @@ export function createCoreV2SurfaceGeometrySnapshot(
     const source = geometryById.get(sourceId);
     const target = geometryById.get(targetId);
     if (!source || !target) return [];
-    const sourceWorld = source.visibleCenter ?? boundsCenter(source.worldBounds);
-    const targetWorld = target.visibleCenter ?? boundsCenter(target.worldBounds);
-    const sourceScreen = surfacePointToScreen(sourceWorld, surfaceView);
-    const targetScreen = surfacePointToScreen(targetWorld, surfaceView);
-    return [Object.freeze<CoreV2SurfaceRelationGeometry>({
-      id: entity.id,
+    const relationProjection = projection?.relationsByEntityId?.[entity.id];
+    const fallbackProjection = Object.freeze({
+      entityId: entity.id,
+      relationId: relationSourceId(entity),
       sourceId,
       targetId,
+      key: `${sourceId}>${targetId}`,
+      identityKey: `${sourceId.length}:${sourceId}${targetId.length}:${targetId}`,
+      authoredIndex: 0,
+      affine: createCoreV2Affine(),
+    });
+    const resolved = resolveCoreV2RelationPath(
+      relationProjection ?? fallbackProjection,
+      {
+        id: sourceId,
+        center: source.visibleCenter ?? boundsCenter(source.worldBounds),
+        worldBounds: source.worldBounds,
+        visible: source.visible,
+      },
+      {
+        id: targetId,
+        center: target.visibleCenter ?? boundsCenter(target.worldBounds),
+        worldBounds: target.worldBounds,
+        visible: target.visible,
+      },
+      {
+        color: typeof entity.data.color === 'number' ? entity.data.color : 0x000000ff,
+        width: typeof entity.data.lineWidth === 'number' ? entity.data.lineWidth : 1,
+        opacity: entity.opacity,
+        zIndex: entity.zIndex,
+        visible: entity.visible,
+      },
+    );
+    const screenPoints = Object.freeze(
+      resolved.worldPoints.map((point) => surfacePointToScreen(point, surfaceView)),
+    );
+    const sourceWorld = resolved.worldPoints[0] ?? source.visibleCenter ?? boundsCenter(source.worldBounds);
+    const targetWorld = resolved.worldPoints[resolved.worldPoints.length - 1] ?? target.visibleCenter ?? boundsCenter(target.worldBounds);
+    const sourceScreen = screenPoints[0] ?? surfacePointToScreen(sourceWorld, surfaceView);
+    const targetScreen = screenPoints[screenPoints.length - 1] ?? surfacePointToScreen(targetWorld, surfaceView);
+    return [Object.freeze<CoreV2SurfaceRelationGeometry>({
+      id: entity.id,
+      relationId: resolved.relationId,
+      key: resolved.key,
+      identityKey: (relationProjection ?? fallbackProjection).identityKey,
+      sourceId,
+      targetId,
+      kind: resolved.kind,
+      localPoints: resolved.localPoints,
+      worldPoints: resolved.worldPoints,
+      screenPoints,
+      worldBounds: resolved.worldBounds,
+      screenBounds: boundsForTuplePoints(screenPoints),
+      visible: resolved.visible,
+      style: Object.freeze({
+        color: resolved.style.color,
+        colorHex: packedColorToHex(resolved.style.color),
+        width: resolved.style.width,
+        opacity: resolved.style.opacity,
+        zIndex: resolved.style.zIndex,
+      }),
+      visibleStrokeWidthsCssPx: Object.freeze(
+        resolved.worldStrokeWidths.map((width) => width * surfaceView.scale),
+      ),
       worldEndpoints: Object.freeze([sourceWorld, targetWorld] as const),
       screenEndpoints: Object.freeze([
         sourceScreen,
@@ -1567,10 +1754,268 @@ export function createCoreV2SurfaceGeometrySnapshot(
     revision: snapshot.revision,
     entities: Object.freeze(entityGeometries),
     relations: Object.freeze(relations),
+    omittedRelations: Object.freeze((projection?.omittedRelations ?? []).map((relation) =>
+      Object.freeze({
+        id: relation.entityId,
+        relationId: relation.relationId,
+        key: relation.key,
+        identityKey: relation.identityKey,
+        sourceId: relation.sourceId,
+        targetId: relation.targetId,
+        authoredIndex: relation.authoredIndex,
+        reason: relation.reason,
+      }))),
     selectionOverlay: selectionOverlay === null
       ? null
       : Object.freeze({ screenBounds: selectionOverlay }),
   });
+}
+
+export function hitTestCoreV2SurfaceRelations(
+  relations: readonly CoreV2SurfaceRelationGeometry[],
+  point: CoreV2Point,
+  options: CoreV2RelationHitOptions = {},
+): CoreV2RelationHit | null {
+  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+    throw new RangeError('relation hit point must contain finite coordinates');
+  }
+  const tolerance = options.toleranceCssPx ?? 4;
+  if (!Number.isFinite(tolerance) || tolerance < 0) {
+    throw new RangeError('toleranceCssPx must be finite and non-negative');
+  }
+  const screenPoint = Object.freeze([point.x, point.y] as const);
+  for (let relationIndex = relations.length - 1; relationIndex >= 0; relationIndex -= 1) {
+    const relation = relations[relationIndex];
+    if (!relation?.visible || !relation.screenPoints || !relation.style) continue;
+    for (let segmentIndex = relation.screenPoints.length - 1; segmentIndex >= 1; segmentIndex -= 1) {
+      const from = relation.screenPoints[segmentIndex - 1];
+      const to = relation.screenPoints[segmentIndex];
+      if (!from || !to) continue;
+      if (relationPathHitScreen(
+        Object.freeze([from, to]),
+        screenPoint,
+        relation.visibleStrokeWidthsCssPx?.[segmentIndex - 1] ?? relation.style.width,
+        tolerance,
+      )) {
+        return Object.freeze({
+          id: relation.id,
+          relationId: relation.relationId ?? relation.id,
+          key: relation.key ?? `${relation.sourceId}>${relation.targetId}`,
+          identityKey: relation.identityKey ??
+            `${relation.sourceId.length}:${relation.sourceId}${relation.targetId.length}:${relation.targetId}`,
+          sourceId: relation.sourceId,
+          targetId: relation.targetId,
+        });
+      }
+    }
+  }
+  return null;
+}
+
+const CORE_V2_RELATION_HIT_CELL_SIZE = 64;
+const CORE_V2_RELATION_HIT_MAX_CELLS_PER_PATH = 1_024;
+
+export function buildCoreV2RelationHitIndex(
+  relations: readonly CoreV2SurfaceRelationGeometry[],
+): CoreV2RelationHitIndex {
+  const mutable = new Map<string, number[]>();
+  const overflow: number[] = [];
+  relations.forEach((relation, index) => {
+    if (
+      !relation.visible || !relation.style ||
+      !relation.screenPoints || relation.screenPoints.length < 2
+    ) return;
+    const strokeRadius = Math.max(
+      4,
+      ...(relation.visibleStrokeWidthsCssPx ?? [relation.style?.width ?? 0]).map(
+        (width) => width / 2,
+      ),
+    );
+    const cellKeys = relationHitPathCellKeys(relation.screenPoints, strokeRadius);
+    if (cellKeys === null) {
+      overflow.push(index);
+      return;
+    }
+    for (const key of cellKeys) {
+      const indices = mutable.get(key) ?? [];
+      indices.push(index);
+      mutable.set(key, indices);
+    }
+  });
+  return Object.freeze({
+    cells: new Map(
+      [...mutable].map(([key, indices]) => [key, Object.freeze(indices)] as const),
+    ),
+    overflow: Object.freeze(overflow),
+  });
+}
+
+export function queryCoreV2RelationHitIndex(
+  index: CoreV2RelationHitIndex,
+  point: CoreV2Point,
+): readonly number[] {
+  const local = index.cells.get(relationHitCellKey(point.x, point.y)) ?? [];
+  return mergeOrderedRelationIndices(local, index.overflow);
+}
+
+function relationHitCellKey(x: number, y: number): string {
+  return `${Math.floor(x / CORE_V2_RELATION_HIT_CELL_SIZE)}:${Math.floor(y / CORE_V2_RELATION_HIT_CELL_SIZE)}`;
+}
+
+function relationHitPathCellKeys(
+  points: readonly (readonly [number, number])[],
+  radius: number,
+): ReadonlySet<string> | null {
+  if (!Number.isFinite(radius) || radius < 0) return null;
+  const halo = Math.ceil(radius / CORE_V2_RELATION_HIT_CELL_SIZE);
+  const haloWidth = halo * 2 + 1;
+  const cellsPerStep = haloWidth * haloWidth;
+  if (
+    !Number.isSafeInteger(halo) ||
+    !Number.isSafeInteger(cellsPerStep) ||
+    cellsPerStep > CORE_V2_RELATION_HIT_MAX_CELLS_PER_PATH
+  ) {
+    return null;
+  }
+
+  const keys = new Set<string>();
+  for (let index = 1; index < points.length; index += 1) {
+    const from = points[index - 1];
+    const to = points[index];
+    if (!from || !to) continue;
+    const startColumn = relationHitCellCoordinate(from[0]);
+    const startRow = relationHitCellCoordinate(from[1]);
+    const endColumn = relationHitCellCoordinate(to[0]);
+    const endRow = relationHitCellCoordinate(to[1]);
+    if (
+      startColumn === null || startRow === null ||
+      endColumn === null || endRow === null
+    ) {
+      return null;
+    }
+    const stepBudget = Math.abs(endColumn - startColumn) +
+      Math.abs(endRow - startRow) + 1;
+    if (
+      !Number.isSafeInteger(stepBudget) ||
+      stepBudget > CORE_V2_RELATION_HIT_MAX_CELLS_PER_PATH
+    ) {
+      return null;
+    }
+    if (!addRelationSegmentCells(
+      keys,
+      from,
+      to,
+      startColumn,
+      startRow,
+      endColumn,
+      endRow,
+      halo,
+    )) {
+      return null;
+    }
+  }
+  return keys;
+}
+
+function addRelationSegmentCells(
+  keys: Set<string>,
+  from: readonly [number, number],
+  to: readonly [number, number],
+  startColumn: number,
+  startRow: number,
+  endColumn: number,
+  endRow: number,
+  halo: number,
+): boolean {
+  let column = startColumn;
+  let row = startRow;
+  const deltaX = to[0] - from[0];
+  const deltaY = to[1] - from[1];
+  const stepX = Math.sign(deltaX);
+  const stepY = Math.sign(deltaY);
+  const tDeltaX = stepX === 0
+    ? Number.POSITIVE_INFINITY
+    : CORE_V2_RELATION_HIT_CELL_SIZE / Math.abs(deltaX);
+  const tDeltaY = stepY === 0
+    ? Number.POSITIVE_INFINITY
+    : CORE_V2_RELATION_HIT_CELL_SIZE / Math.abs(deltaY);
+  let tMaxX = stepX === 0
+    ? Number.POSITIVE_INFINITY
+    : ((stepX > 0 ? column + 1 : column) * CORE_V2_RELATION_HIT_CELL_SIZE - from[0]) /
+      deltaX;
+  let tMaxY = stepY === 0
+    ? Number.POSITIVE_INFINITY
+    : ((stepY > 0 ? row + 1 : row) * CORE_V2_RELATION_HIT_CELL_SIZE - from[1]) /
+      deltaY;
+
+  while (true) {
+    for (let rowOffset = -halo; rowOffset <= halo; rowOffset += 1) {
+      for (let columnOffset = -halo; columnOffset <= halo; columnOffset += 1) {
+        const candidateColumn = column + columnOffset;
+        const candidateRow = row + rowOffset;
+        if (!Number.isSafeInteger(candidateColumn) || !Number.isSafeInteger(candidateRow)) {
+          return false;
+        }
+        keys.add(`${candidateColumn}:${candidateRow}`);
+        if (keys.size > CORE_V2_RELATION_HIT_MAX_CELLS_PER_PATH) return false;
+      }
+    }
+    if (column === endColumn && row === endRow) return true;
+    if (tMaxX < tMaxY) {
+      column += stepX;
+      tMaxX += tDeltaX;
+    } else if (tMaxY < tMaxX) {
+      row += stepY;
+      tMaxY += tDeltaY;
+    } else {
+      column += stepX;
+      row += stepY;
+      tMaxX += tDeltaX;
+      tMaxY += tDeltaY;
+    }
+  }
+}
+
+function relationHitCellCoordinate(value: number): number | null {
+  if (!Number.isFinite(value)) return null;
+  const coordinate = Math.floor(value / CORE_V2_RELATION_HIT_CELL_SIZE);
+  return Number.isSafeInteger(coordinate) ? coordinate : null;
+}
+
+function mergeOrderedRelationIndices(
+  local: readonly number[],
+  overflow: readonly number[],
+): readonly number[] {
+  if (local.length === 0) return overflow;
+  if (overflow.length === 0) return local;
+  const merged: number[] = [];
+  let localIndex = 0;
+  let overflowIndex = 0;
+  while (localIndex < local.length || overflowIndex < overflow.length) {
+    const localValue = local[localIndex];
+    const overflowValue = overflow[overflowIndex];
+    if (overflowValue === undefined || (localValue !== undefined && localValue < overflowValue)) {
+      merged.push(localValue as number);
+      localIndex += 1;
+    } else if (localValue === undefined || overflowValue < localValue) {
+      merged.push(overflowValue);
+      overflowIndex += 1;
+    } else {
+      merged.push(localValue);
+      localIndex += 1;
+      overflowIndex += 1;
+    }
+  }
+  return Object.freeze(merged);
+}
+
+function emptyCoreV2RelationHitIndex(): CoreV2RelationHitIndex {
+  return Object.freeze({ cells: new Map(), overflow: Object.freeze([]) });
+}
+
+function relationSourceId(entity: SceneSnapshot['entities'][number]): string {
+  const tag = entity.tags.find((entry) => entry.startsWith('source:'));
+  return tag?.slice('source:'.length) || entity.id;
 }
 
 interface ResolvedEntityGeometry {
@@ -1708,11 +2153,21 @@ function freezeBounds(
   width: number,
   height: number,
 ): readonly [number, number, number, number] {
-  return Object.freeze([x, y, width, height] as const);
+  return Object.freeze([
+    snapGeometryScalar(x),
+    snapGeometryScalar(y),
+    snapGeometryScalar(width),
+    snapGeometryScalar(height),
+  ] as const);
 }
 
 function freezePoint(x: number, y: number): readonly [number, number] {
-  return Object.freeze([x, y] as const);
+  return Object.freeze([snapGeometryScalar(x), snapGeometryScalar(y)] as const);
+}
+
+function snapGeometryScalar(value: number): number {
+  const integer = Math.round(value);
+  return Math.abs(value - integer) <= 1e-12 ? integer : value;
 }
 
 function findElement(

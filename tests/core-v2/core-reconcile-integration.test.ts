@@ -120,7 +120,7 @@ describe('Core v2 runtime dense reconcile', () => {
 
     expect(result.status).toBe('committed');
     expect(result.plan.batch.operations).toEqual([
-      { type: 'remove', target: 'links::link:000000' },
+      { type: 'remove', target: '@relation:5:links1:a1:b' },
       { type: 'remove', target: 'b' },
     ]);
     expect(result.commit).toMatchObject({ operationCount: 2, removed: 2 });
@@ -145,9 +145,96 @@ describe('Core v2 runtime dense reconcile', () => {
       operation.type === 'add' ? `${operation.type}:${operation.entity.id}` : operation.type,
     )).toEqual([
       'add:c',
-      'add:links::link:000000',
+      'add:@relation:5:links1:a1:c',
     ]);
-    expect(core.get('links::link:000000')?.data).toMatchObject({ from: 'a', to: 'c' });
+    expect(core.get('@relation:5:links1:a1:c')?.data).toMatchObject({ from: 'a', to: 'c' });
+  });
+
+  it('keeps relation identity while endpoints resize/hide/show and omits one new missing link', () => {
+    const { core, renderer } = createTestCore(allocated);
+    const initial = relationMatrixScene();
+    core.load(initial);
+    core.flush('settle-relations');
+    const forwardId = '@relation:12:nested-links11:nested-item8:grid.0.0';
+    const reverseId = '@relation:12:nested-links8:grid.0.011:nested-item';
+    const forwardRef = core.ref(forwardId);
+    const endpointRef = core.ref('nested-item');
+    renderer.markCalls.length = 0;
+
+    const resizedScene = structuredClone(initial);
+    const group = resizedScene[0];
+    if (!group || group.type !== 'group') throw new Error('expected relation group');
+    group.children[0]!.size = { width: 40, height: 20 };
+    const resized = core.reconcile(resizedScene);
+    expect(resized.status).toBe('committed');
+    expect(core.ref('nested-item')).toEqual(endpointRef);
+    expect(core.projection?.byEntityId['nested-item']?.visibleCenter).toEqual([130, 80]);
+    expect(core.ref(forwardId)).toEqual(forwardRef);
+
+    const hiddenScene = structuredClone(resizedScene);
+    hiddenScene[1]!.show = false;
+    expect(core.reconcile(hiddenScene).status).toBe('committed');
+    expect(core.get('grid.0.0')?.visible).toBe(false);
+    expect(core.get(forwardId)).not.toBeNull();
+
+    const shownScene = structuredClone(hiddenScene);
+    shownScene[1]!.show = true;
+    expect(core.reconcile(shownScene).status).toBe('committed');
+    expect(core.get('grid.0.0')?.visible).toBe(true);
+    expect(core.ref(forwardId)).toEqual(forwardRef);
+
+    const changedLinks = structuredClone(shownScene);
+    const relationElement = changedLinks[2];
+    if (!relationElement || relationElement.type !== 'relations') {
+      throw new Error('expected relations element');
+    }
+    relationElement.links = [
+      { source: 'nested-item', target: 'grid.0.0' },
+      { source: 'nested-item', target: 'missing-endpoint' },
+    ];
+    const changed = core.reconcile(changedLinks);
+    expect(changed.status).toBe('committed');
+    expect(core.ref(forwardId)).toEqual(forwardRef);
+    expect(core.ref(reverseId)).toBeNull();
+    expect(core.projection?.omittedRelations).toEqual([
+      expect.objectContaining({
+        key: 'nested-item>missing-endpoint',
+        reason: 'missing-target',
+      }),
+    ]);
+    expect(renderer.markCalls.every((call) => call.fullRebuild === false)).toBe(true);
+  });
+
+  it('preserves a surviving ordered-pair ref when an earlier authored link is removed', () => {
+    const { core } = createTestCore(allocated);
+    core.load([
+      directRect('a'),
+      directRect('b', { x: 30 }),
+      {
+        type: 'relations',
+        id: 'links',
+        links: [
+          { source: 'a', target: 'b' },
+          { source: 'b', target: 'a' },
+        ],
+      },
+    ]);
+    core.flush('settle-pair-identity');
+    const survivingId = '@relation:5:links1:b1:a';
+    const survivingRef = core.ref(survivingId);
+
+    const result = core.reconcile([
+      directRect('a'),
+      directRect('b', { x: 30 }),
+      {
+        type: 'relations',
+        id: 'links',
+        links: [{ source: 'b', target: 'a' }],
+      },
+    ]);
+    expect(result.status).toBe('committed');
+    expect(core.ref(survivingId)).toEqual(survivingRef);
+    expect(core.ref('@relation:5:links1:a1:b')).toBeNull();
   });
 
   it('uses an incremental changed range for an explicit same-ID kind replacement', () => {
@@ -271,6 +358,71 @@ describe('Core v2 runtime dense reconcile', () => {
     expect(world.y).toBeCloseTo(80, 10);
   });
 });
+
+type RelationMatrixElement =
+  | {
+      type: 'group';
+      id: string;
+      attrs: { x: number; y: number };
+      children: Array<{
+        type: 'rect';
+        id: string;
+        size: { width: number; height: number };
+        fill: string;
+        attrs: { x: number; y: number };
+      }>;
+      show?: boolean;
+    }
+  | {
+      type: 'grid';
+      id: string;
+      cells: number[][];
+      item: { size: number; components: unknown[] };
+      attrs: { x: number; y: number };
+      show?: boolean;
+    }
+  | {
+      type: 'relations';
+      id: string;
+      links: Array<{ source: string; target: string }>;
+      style: { color: string; width: number; opacity: number };
+      attrs: { x: number; y: number; angle: number; zIndex: number };
+      show?: boolean;
+    };
+
+function relationMatrixScene(): RelationMatrixElement[] {
+  return [
+    {
+      type: 'group',
+      id: 'nested-group',
+      attrs: { x: 100, y: 50 },
+      children: [{
+        type: 'rect',
+        id: 'nested-item',
+        size: { width: 20, height: 20 },
+        fill: '#336699',
+        attrs: { x: 10, y: 20 },
+      }],
+    },
+    {
+      type: 'grid',
+      id: 'grid',
+      cells: [[1]],
+      item: { size: 20, components: [] },
+      attrs: { x: 200, y: 100 },
+    },
+    {
+      type: 'relations',
+      id: 'nested-links',
+      links: [
+        { source: 'nested-item', target: 'grid.0.0' },
+        { source: 'grid.0.0', target: 'nested-item' },
+      ],
+      style: { color: '#123456', width: 3, opacity: 0.75 },
+      attrs: { x: 30, y: -10, angle: 90, zIndex: -4 },
+    },
+  ];
+}
 
 interface RendererMarkCall {
   readonly ranges: readonly SlotRange[];

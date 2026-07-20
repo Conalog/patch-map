@@ -109,6 +109,70 @@ class MutationSurface extends SurfaceBase {
 class LegacySurface extends SurfaceBase {}
 
 describe('CoreV2Engine authoritative semantic mutation', () => {
+  it('validates relation hit operands before delegating to an injected surface', async () => {
+    const surface = new MutationSurface({ width: 320, height: 240, pixelRatio: 1 });
+    const engine = new CoreV2Engine({ surfaceFactory: () => Promise.resolve(surface) });
+    await engine.initialize({ instanceId: 'relation-hit-validation', width: 320, height: 240 });
+    expect(() => engine.relationHitTestScreen({ x: Number.NaN, y: 0 })).toThrow(
+      'relation hit point must contain finite coordinates',
+    );
+    expect(() => engine.relationHitTestScreen(
+      { x: 0, y: 0 },
+      { toleranceCssPx: -1 },
+    )).toThrow('toleranceCssPx must be finite and non-negative');
+    expect(engine.relationHitTestScreen({ x: 0, y: 0 })).toBeNull();
+    await engine.destroy();
+  });
+
+  it('reconciles endpoint geometry, visibility, and structural links through Engine.patch only', async () => {
+    const surface = new MutationSurface({ width: 800, height: 600, pixelRatio: 1 });
+    const engine = new CoreV2Engine({ surfaceFactory: () => Promise.resolve(surface) });
+    await engine.initialize({ instanceId: 'relations', width: 800, height: 600 });
+    engine.loadDataset(relationScene());
+
+    const resized = engine.patch(
+      { kind: 'element', id: 'nested-item' },
+      { size: { width: 40, height: 20 } },
+    );
+    const hidden = engine.patch({ kind: 'element', id: 'grid' }, { show: false });
+    const shown = engine.patch({ kind: 'element', id: 'grid' }, { show: true });
+    const links = engine.patch(
+      { kind: 'element', id: 'nested-links' },
+      {
+        links: [
+          { source: 'nested-item', target: 'grid.0.0' },
+          { source: 'nested-item', target: 'missing-endpoint' },
+        ],
+      },
+    );
+
+    expect([resized.status, hidden.status, shown.status, links.status]).toEqual([
+      'committed',
+      'committed',
+      'committed',
+      'committed',
+    ]);
+    expect(surface).toMatchObject({ loadCount: 1, reconcileCount: 4 });
+    expect(engine.snapshot().revisions.sceneRevision).toBe(5);
+    const exported = engine.exportDataset();
+    const group = exported[0];
+    const grid = exported[1];
+    const relations = exported[2];
+    expect(group?.type).toBe('group');
+    if (group?.type !== 'group') throw new Error('expected relation group');
+    expect(group.children[0]).toMatchObject({ id: 'nested-item', size: { width: 40, height: 20 } });
+    expect(grid).toMatchObject({ id: 'grid', show: true });
+    expect(relations).toMatchObject({
+      id: 'nested-links',
+      links: [
+        { source: 'nested-item', target: 'grid.0.0' },
+        { source: 'nested-item', target: 'missing-endpoint' },
+      ],
+    });
+    expect(surface.lastReconcileInput).toBe(exported);
+    await engine.destroy();
+  });
+
   it('publishes one incremental component patch only after the surface commit', async () => {
     const surface = new MutationSurface({ width: 800, height: 600, pixelRatio: 1 });
     const engine = new CoreV2Engine({ surfaceFactory: () => Promise.resolve(surface) });
@@ -349,6 +413,40 @@ function scene(text: string): readonly unknown[] {
       style: { fontFamily: 'Inter', fontSize: 14, fill: '#f9fafbff' },
     }],
   }];
+}
+
+function relationScene(): readonly unknown[] {
+  return [
+    {
+      type: 'group',
+      id: 'nested-group',
+      attrs: { x: 100, y: 50 },
+      children: [{
+        type: 'rect',
+        id: 'nested-item',
+        size: { width: 20, height: 20 },
+        fill: '#336699',
+        attrs: { x: 10, y: 20 },
+      }],
+    },
+    {
+      type: 'grid',
+      id: 'grid',
+      cells: [[1]],
+      item: { size: 20, components: [] },
+      attrs: { x: 200, y: 100 },
+    },
+    {
+      type: 'relations',
+      id: 'nested-links',
+      links: [
+        { source: 'nested-item', target: 'grid.0.0' },
+        { source: 'grid.0.0', target: 'nested-item' },
+      ],
+      style: { color: '#123456', width: 3, opacity: 0.75 },
+      attrs: { x: 30, y: -10, angle: 90, zIndex: -4 },
+    },
+  ];
 }
 
 function readCaption(engine: CoreV2Engine) {

@@ -102,6 +102,9 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private pixelRatioValue: number;
   private view: CoreView = DEFAULT_VIEW;
   private projectionIndex: CoreV2ProjectionIndex = EMPTY_PROJECTION_INDEX;
+  private relationSlotsByEndpoint: ReadonlyMap<number, readonly number[]> = new Map();
+  private relationSlots = new Set<number>();
+  private relationEndpointsBySlot: ReadonlyMap<number, readonly [number, number]> = new Map();
   private projectionRevision = 0;
   private worldOrientation: CoreV2WorldOrientation = DEFAULT_WORLD_ORIENTATION;
   private readonly worldMatrix = new Matrix();
@@ -329,7 +332,28 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     // View rotation can change upright projection geometry. Resolve it before
     // consuming pending ranges so the first published frame cannot lag.
     this.setView(store.view);
-    const ranges = this.pendingRanges;
+    if (
+      storeReplaced ||
+      this.pendingRanges === undefined ||
+      rangesTouchCoreV2RelationTopology(
+        store,
+        this.pendingRanges,
+        this.relationSlots,
+        this.relationEndpointsBySlot,
+      )
+    ) {
+      const adjacency = buildCoreV2RelationAdjacency(store);
+      this.relationSlotsByEndpoint = adjacency.byEndpoint;
+      this.relationSlots = adjacency.relationSlots;
+      this.relationEndpointsBySlot = adjacency.endpointsByRelation;
+    }
+    const ranges = this.pendingRanges === undefined || this.relationSlotsByEndpoint.size === 0
+      ? this.pendingRanges
+      : expandCoreV2RelationDependencyRanges(
+          store,
+          this.pendingRanges,
+          this.relationSlotsByEndpoint,
+        );
     const aggregate = !storeReplaced && ranges?.length === 0
       ? idleAggregateResult(this.lastAggregateResult)
       : this.syncAggregate(store, ranges);
@@ -475,6 +499,9 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.pendingRanges = [];
     this.pendingOverlayRanges = [];
     this.selectedSlots.clear();
+    this.relationSlotsByEndpoint = new Map();
+    this.relationSlots.clear();
+    this.relationEndpointsBySlot = new Map();
     this.lastDebug = Object.freeze({ ...this.lastDebug, destroyed: true });
     return true;
   }
@@ -668,12 +695,31 @@ function projectionChangedRanges(
   after: CoreV2ProjectionIndex,
 ): SlotRange[] {
   const slots: number[] = [];
+  const changedEndpointIds = new Set<string>();
   for (let slot = 0; slot < store.capacity; slot += 1) {
     const id = store.ids[slot];
-    if (!id || before.byEntityId[id] === after.byEntityId[id]) continue;
-    if (JSON.stringify(before.byEntityId[id]) !== JSON.stringify(after.byEntityId[id])) slots.push(slot);
+    if (!id) continue;
+    const entityChanged = before.byEntityId[id] !== after.byEntityId[id] &&
+      JSON.stringify(before.byEntityId[id]) !== JSON.stringify(after.byEntityId[id]);
+    const relationChanged = before.relationsByEntityId?.[id] !== after.relationsByEntityId?.[id] &&
+      JSON.stringify(before.relationsByEntityId?.[id]) !==
+        JSON.stringify(after.relationsByEntityId?.[id]);
+    if (entityChanged) changedEndpointIds.add(id);
+    if (entityChanged || relationChanged) slots.push(slot);
   }
-  return contiguousRanges(slots);
+  if (changedEndpointIds.size > 0) {
+    for (let slot = 0; slot < store.capacity; slot += 1) {
+      const id = store.ids[slot];
+      const relation = id ? after.relationsByEntityId?.[id] : undefined;
+      if (
+        relation &&
+        (changedEndpointIds.has(relation.sourceId) || changedEndpointIds.has(relation.targetId))
+      ) {
+        slots.push(slot);
+      }
+    }
+  }
+  return contiguousRanges([...new Set(slots)].sort((left, right) => left - right));
 }
 
 function projectionOrientationRanges(
@@ -700,6 +746,124 @@ function contiguousRanges(slots: readonly number[]): SlotRange[] {
     }
   }
   return ranges;
+}
+
+/**
+ * A relation can live in a different fixed Mesh chunk from either endpoint.
+ * Expand endpoint dirtiness before layer synchronization so visibility and
+ * geometry cannot leave a stale relation buffer even on injected stores that
+ * report endpoint-only ranges.
+ */
+export function expandCoreV2RelationDependencyRanges(
+  store: RenderStoreView,
+  ranges: readonly SlotRange[],
+  adjacency?: ReadonlyMap<number, readonly number[]>,
+): SlotRange[] {
+  if (ranges.length === 0) return [];
+  const dirtySlots = new Set<number>();
+  const dirtyEndpoints = new Set<number>();
+  for (const range of ranges) {
+    const start = Math.max(0, Math.min(store.capacity, Math.floor(range.start)));
+    const end = Math.max(start, Math.min(store.capacity, Math.ceil(range.end)));
+    for (let slot = start; slot < end; slot += 1) {
+      dirtySlots.add(slot);
+      if ((store.kind[slot] as number) !== RenderKind.Relation) dirtyEndpoints.add(slot);
+    }
+  }
+  if (dirtyEndpoints.size > 0 && adjacency) {
+    for (const endpoint of dirtyEndpoints) {
+      for (const relationSlot of adjacency.get(endpoint) ?? []) dirtySlots.add(relationSlot);
+    }
+  } else if (dirtyEndpoints.size > 0) {
+    for (let slot = 0; slot < store.capacity; slot += 1) {
+      if (
+        (store.alive[slot] as number) === 1 &&
+        (store.kind[slot] as number) === RenderKind.Relation &&
+        (
+          dirtyEndpoints.has(store.relationFrom[slot] as number) ||
+          dirtyEndpoints.has(store.relationTo[slot] as number)
+        )
+      ) {
+        dirtySlots.add(slot);
+      }
+    }
+  }
+  return contiguousRanges([...dirtySlots].sort((left, right) => left - right));
+}
+
+export function buildCoreV2RelationAdjacency(store: RenderStoreView): Readonly<{
+  byEndpoint: ReadonlyMap<number, readonly number[]>;
+  relationSlots: Set<number>;
+  endpointsByRelation: ReadonlyMap<number, readonly [number, number]>;
+}> {
+  const mutable = new Map<number, number[]>();
+  const relationSlots = new Set<number>();
+  const endpointsByRelation = new Map<number, readonly [number, number]>();
+  for (let slot = 0; slot < store.capacity; slot += 1) {
+    if (
+      (store.alive[slot] as number) !== 1 ||
+      (store.kind[slot] as number) !== RenderKind.Relation
+    ) {
+      continue;
+    }
+    relationSlots.add(slot);
+    endpointsByRelation.set(slot, Object.freeze([
+      store.relationFrom[slot] as number,
+      store.relationTo[slot] as number,
+    ]));
+    const source = store.relationFrom[slot] as number;
+    const target = store.relationTo[slot] as number;
+    appendRelationAdjacency(mutable, source, slot);
+    if (target !== source) appendRelationAdjacency(mutable, target, slot);
+  }
+  return Object.freeze({
+    byEndpoint: new Map(
+      [...mutable].map(([endpoint, slots]) => [endpoint, Object.freeze(slots)] as const),
+    ),
+    relationSlots,
+    endpointsByRelation,
+  });
+}
+
+function appendRelationAdjacency(
+  adjacency: Map<number, number[]>,
+  endpoint: number,
+  relationSlot: number,
+): void {
+  if (endpoint < 0) return;
+  const slots = adjacency.get(endpoint);
+  if (slots === undefined) adjacency.set(endpoint, [relationSlot]);
+  else slots.push(relationSlot);
+}
+
+function rangesTouchCoreV2RelationTopology(
+  store: RenderStoreView,
+  ranges: readonly SlotRange[],
+  knownRelationSlots: ReadonlySet<number>,
+  endpointsByRelation: ReadonlyMap<number, readonly [number, number]>,
+): boolean {
+  for (const range of ranges) {
+    const start = Math.max(0, Math.min(store.capacity, Math.floor(range.start)));
+    const end = Math.max(start, Math.min(store.capacity, Math.ceil(range.end)));
+    for (let slot = start; slot < end; slot += 1) {
+      const currentlyRelation = (store.alive[slot] as number) === 1 &&
+        (store.kind[slot] as number) === RenderKind.Relation;
+      if (!knownRelationSlots.has(slot)) {
+        if (currentlyRelation) return true;
+        continue;
+      }
+      if (!currentlyRelation) return true;
+      const previous = endpointsByRelation.get(slot);
+      if (
+        !previous ||
+        previous[0] !== (store.relationFrom[slot] as number) ||
+        previous[1] !== (store.relationTo[slot] as number)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 function backendName(application: Application): string {

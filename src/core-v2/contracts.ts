@@ -100,9 +100,36 @@ export interface CoreV2EntityProjection {
   readonly componentType?: string;
 }
 
+export interface CoreV2RelationProjection {
+  /** Stable dense relation entity ID derived from the first authored ordered pair. */
+  readonly entityId: string;
+  /** Stable owning PATCH MAP relations element ID. */
+  readonly relationId: string;
+  readonly sourceId: string;
+  readonly targetId: string;
+  readonly key: string;
+  readonly identityKey: string;
+  readonly authoredIndex: number;
+  /** Exact relations-local to world transform. */
+  readonly affine: CoreV2AffineMatrix;
+}
+
+export type CoreV2OmittedRelationReason =
+  | 'missing-source'
+  | 'missing-target'
+  | 'missing-source-and-target';
+
+export interface CoreV2OmittedRelationProjection extends CoreV2RelationProjection {
+  readonly reason: CoreV2OmittedRelationReason;
+}
+
 /** Immutable numeric metadata that the Core v1-compatible dense rows omit. */
 export interface CoreV2ProjectionIndex {
   readonly byEntityId: Readonly<Record<string, CoreV2EntityProjection>>;
+  /** Present on parser-produced indexes; optional for older injected test surfaces. */
+  readonly relationsByEntityId?: Readonly<Record<string, CoreV2RelationProjection>>;
+  /** Syntactically valid links with unresolved endpoints are explicit, not fatal. */
+  readonly omittedRelations?: readonly CoreV2OmittedRelationProjection[];
 }
 
 export interface ParsePatchMapOptions {

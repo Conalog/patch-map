@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SceneSnapshot } from '../../src/core-v1/contracts';
-import { createCoreV2SurfaceGeometrySnapshot } from '../../src/core-v2/engine';
+import {
+  createCoreV2SurfaceGeometrySnapshot,
+  PixiEngineSurface,
+} from '../../src/core-v2/engine';
 
 describe('CoreV2Engine renderer-aligned geometry probe', () => {
   it('projects entity, relation, and selected bounds through the active view', () => {
@@ -78,13 +81,13 @@ describe('CoreV2Engine renderer-aligned geometry probe', () => {
       screenBounds: [432, 164, 80, 60],
     });
     expect(geometry.relations).toEqual([
-      {
+      expect.objectContaining({
         id: 'links:0',
         sourceId: 'item-a',
         targetId: 'rect-b',
         worldEndpoints: [[60, 60], [180, 55]],
         screenEndpoints: [[232, 204], [472, 194]],
-      },
+      }),
     ]);
     expect(geometry.selectionOverlay).toEqual({
       screenBounds: [432, 164, 80, 60],
@@ -139,5 +142,90 @@ describe('CoreV2Engine renderer-aligned geometry probe', () => {
     expect(geometry.selectionOverlay).toBeNull();
     expect(geometry.entities[0]?.screenBounds[2]).toBeCloseTo(Math.sqrt(200), 9);
     expect(geometry.entities[0]?.screenBounds[3]).toBeCloseTo(Math.sqrt(200), 9);
+  });
+
+  it('invalidates cached geometry after selection and resize surface mutations', () => {
+    let selected = false;
+    let snapshotCalls = 0;
+    const entity = {
+      ref: { slot: 0, generation: 1 },
+      id: 'selected',
+      kind: 'rect' as const,
+      bounds: { x: 10, y: 20, width: 30, height: 40 },
+      rotation: 0,
+      opacity: 1,
+      visible: true,
+      interactive: true,
+      zIndex: 0,
+      tags: [],
+      data: {},
+    };
+    const relation = {
+      ref: { slot: 1, generation: 1 },
+      id: 'self-link',
+      kind: 'relation' as const,
+      bounds: { x: 0, y: 0, width: 0, height: 0 },
+      rotation: 0,
+      opacity: 1,
+      visible: true,
+      interactive: false,
+      zIndex: 1,
+      tags: [],
+      data: { from: 'selected', to: 'selected', lineWidth: 2 },
+    };
+    const core = {
+      destroyed: false,
+      projection: null,
+      snapshot: (): SceneSnapshot => {
+        snapshotCalls += 1;
+        return {
+          revision: 1,
+          view: { x: 0, y: 0, scale: 1, rotation: 0 },
+          entityCount: 2,
+          entities: [entity, relation],
+          selection: {
+            revision: selected ? 1 : 0,
+            refs: selected ? [entity.ref] : [],
+          },
+        };
+      },
+      load: () => {},
+      reconcile: () => ({
+        status: 'committed',
+        plan: { summary: { operationCount: 1 }, diagnostics: [] },
+        facts: { denseChanged: true },
+      }),
+      commit: () => {
+        selected = true;
+      },
+      resize: () => true,
+      setWorldTransform: () => {},
+    };
+    const surface = new PixiEngineSurface(core as never);
+
+    const beforeSelection = surface.geometrySnapshot();
+    expect(beforeSelection.selectionOverlay).toBeNull();
+    expect(surface.geometrySnapshot()).toBe(beforeSelection);
+    expect(surface.relationHitTestScreen({ x: 42.5, y: 10 })).toMatchObject({
+      id: 'self-link',
+    });
+    expect(surface.relationHitTestScreen({ x: 42.5, y: 10 })).not.toBeNull();
+    expect(snapshotCalls).toBe(1);
+
+    expect(surface.reconcile([])).toMatchObject({ status: 'committed' });
+    const afterMutation = surface.geometrySnapshot();
+    expect(afterMutation).not.toBe(beforeSelection);
+
+    surface.setView({ x: 0, y: 0, scale: 1, rotation: 0 });
+    const afterView = surface.geometrySnapshot();
+    expect(afterView).not.toBe(afterMutation);
+
+    surface.select(['selected']);
+    const afterSelection = surface.geometrySnapshot();
+    expect(afterSelection).not.toBe(afterView);
+    expect(afterSelection.selectionOverlay?.screenBounds).toEqual([10, 20, 30, 40]);
+
+    expect(surface.resize(640, 480, 2)).toBe(true);
+    expect(surface.geometrySnapshot()).not.toBe(afterSelection);
   });
 });

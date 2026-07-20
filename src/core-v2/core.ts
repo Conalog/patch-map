@@ -4,6 +4,7 @@ import type {
   CommitResult,
   CorePoint,
   CoreSceneOptions,
+  CoreTarget,
   CoreView,
   EntityPatch,
   EntityRef,
@@ -38,6 +39,10 @@ import {
 } from './renderers/pixi-renderer';
 import type { PixiCoreV2RendererDebug } from './renderers/types';
 import type { CoreV2WorldOrientation } from './renderers/types';
+import {
+  CoreV2EntityHitIndex,
+  hitTestCoreV2EntityIndex,
+} from './semantic/entity-hit-index';
 import {
   boundsFor,
   fitView,
@@ -161,6 +166,9 @@ export class CoreV2 {
   private pointerSequence = 0;
   private entityCountValue = 0;
   private destroyedValue = false;
+  private entityHitIndexValue: CoreV2EntityHitIndex | null = null;
+  private readonly staleHitProjectionIds = new Set<string>();
+  private readonly spatialHitAnimationEnds = new Map<string, number>();
 
   private constructor(renderer: PixiCoreV2Renderer, options: CoreV2Options) {
     this.renderer = renderer;
@@ -239,6 +247,9 @@ export class CoreV2 {
     this.animationClockMs = 0;
     this.lastAnimationFrameTime = null;
     this.renderer.setProjection(parse.projection);
+    this.staleHitProjectionIds.clear();
+    this.spatialHitAnimationEnds.clear();
+    this.invalidateEntityHitIndex();
     this.renderer.markChanges(store.changedRanges, 'load', { fullRebuild: true });
     this.invalidate('load');
     return Object.freeze({ parse, store, normalizeMs, storeLoadMs });
@@ -299,6 +310,9 @@ export class CoreV2 {
     const commitMs = now() - commitStarted;
     this.renderer.setProjection(parse.projection);
     this.parseResultValue = parse;
+    this.staleHitProjectionIds.clear();
+    this.spatialHitAnimationEnds.clear();
+    this.invalidateEntityHitIndex();
     const after = this.scene.snapshot();
     return freezeReconcileResult({
       status: 'committed',
@@ -340,6 +354,7 @@ export class CoreV2 {
 
   public commit(batch: TransactionBatch): CommitResult {
     this.assertAlive();
+    const hitImpact = this.entityHitCommitImpact(batch);
     const result = this.scene.commit(batch);
     const hasGeometryChange = batch.operations.some(
       (operation) => operation.type !== 'view' && operation.type !== 'selection',
@@ -350,6 +365,16 @@ export class CoreV2 {
     this.renderer.markChanges(hasGeometryChange ? result.changedRanges : [], 'commit');
     if (hasSelection) this.renderer.markOverlayChanges(result.changedRanges, 'selection');
     if (this.scene.activeAnimations > 0) this.lastAnimationFrameTime = null;
+    if (hitImpact.invalidate) this.invalidateEntityHitIndex();
+    for (const id of hitImpact.removedIds) {
+      this.staleHitProjectionIds.delete(id);
+      this.deleteSpatialHitAnimations(id);
+    }
+    for (const id of hitImpact.staleProjectionIds) this.staleHitProjectionIds.add(id);
+    for (const animation of hitImpact.spatialAnimations) {
+      this.spatialHitAnimationEnds.set(animation.key, animation.endTimeMs);
+    }
+    this.pruneRemovedHitState();
     this.invalidate(this.scene.activeAnimations > 0 ? 'animation' : 'commit');
     this.entityCountValue += result.added - result.removed;
     return result;
@@ -359,6 +384,10 @@ export class CoreV2 {
     this.assertAlive();
     const result = this.scene.advance(timeMs);
     this.animationClockMs = timeMs;
+    if (result.changed > 0 && this.spatialHitAnimationEnds.size > 0) {
+      this.invalidateEntityHitIndex();
+    }
+    this.pruneCompletedSpatialHitAnimations(timeMs);
     this.renderer.markChanges(result.changedRanges, 'animation');
     return result;
   }
@@ -413,9 +442,19 @@ export class CoreV2 {
 
   public hitTestScreen(point: CorePoint, options: HitTestOptions = {}): EntityRef | null {
     this.assertAlive();
-    return this.scene.hitTest(
-      screenToWorldWithFlips(point, this.currentView, this.worldFlipX, this.worldFlipY),
+    const worldPoint = screenToWorldWithFlips(
+      point,
+      this.currentView,
+      this.worldFlipX,
+      this.worldFlipY,
+    );
+    return hitTestCoreV2EntityIndex(
+      this.entityHitIndex(),
+      worldPoint,
       options,
+      (ref) => this.scene.get(ref),
+      this.parseResultValue?.projection ?? null,
+      this.staleHitProjectionIds,
     );
   }
 
@@ -553,6 +592,9 @@ export class CoreV2 {
     this.pan = null;
     this.scheduler.destroy();
     this.unbindInteractions();
+    this.entityHitIndexValue = null;
+    this.staleHitProjectionIds.clear();
+    this.spatialHitAnimationEnds.clear();
     this.scene.destroy();
     await this.renderer.whenDestroyed();
     return true;
@@ -565,7 +607,10 @@ export class CoreV2 {
       const delta = Math.max(0, timeMs - this.lastAnimationFrameTime);
       this.lastAnimationFrameTime = timeMs;
       this.animationClockMs += delta;
+      const spatialAnimationActive = this.spatialHitAnimationEnds.size > 0;
       const advanced = this.scene.advance(this.animationClockMs);
+      if (advanced.changed > 0 && spatialAnimationActive) this.invalidateEntityHitIndex();
+      this.pruneCompletedSpatialHitAnimations(this.animationClockMs);
       this.renderer.markChanges(advanced.changedRanges, 'animation');
     }
     this.lastFrameReport = this.scene.flush();
@@ -576,6 +621,105 @@ export class CoreV2 {
 
   private invalidate(reason: string): void {
     if (this.autoRender) this.scheduler.invalidate(reason);
+  }
+
+  private entityHitIndex(): CoreV2EntityHitIndex {
+    this.entityHitIndexValue ??= CoreV2EntityHitIndex.build(
+      this.scene.snapshot(),
+      this.parseResultValue?.projection ?? null,
+      this.staleHitProjectionIds,
+    );
+    return this.entityHitIndexValue;
+  }
+
+  private invalidateEntityHitIndex(): void {
+    this.entityHitIndexValue = null;
+  }
+
+  private entityHitCommitImpact(batch: TransactionBatch): Readonly<{
+    invalidate: boolean;
+    staleProjectionIds: ReadonlySet<string>;
+    removedIds: ReadonlySet<string>;
+    spatialAnimations: readonly Readonly<{ key: string; endTimeMs: number }>[];
+  }> {
+    let invalidate = false;
+    const staleProjectionIds = new Set<string>();
+    const removedIds = new Set<string>();
+    const spatialAnimations: Readonly<{ key: string; endTimeMs: number }>[] = [];
+    const targetId = (target: CoreTarget): string | null => {
+      const id = typeof target === 'string' ? target : this.scene.get(target)?.id;
+      return id || null;
+    };
+    const markTargetStale = (target: CoreTarget): string | null => {
+      const id = targetId(target);
+      if (id) staleProjectionIds.add(id);
+      return id;
+    };
+    for (const operation of batch.operations) {
+      if (operation.type === 'add') {
+        invalidate = true;
+        staleProjectionIds.add(operation.entity.id);
+        continue;
+      }
+      if (operation.type === 'remove') {
+        invalidate = true;
+        const id = targetId(operation.target);
+        if (id) removedIds.add(id);
+        continue;
+      }
+      if (operation.type === 'patch') {
+        const geometryChanged = operation.changes.x !== undefined ||
+          operation.changes.y !== undefined ||
+          operation.changes.width !== undefined ||
+          operation.changes.height !== undefined ||
+          operation.changes.rotation !== undefined;
+        if (geometryChanged || operation.changes.zIndex !== undefined) invalidate = true;
+        if (geometryChanged) markTargetStale(operation.target);
+        continue;
+      }
+      if (
+        operation.type === 'animate' &&
+        (operation.property === 'x' ||
+          operation.property === 'y' ||
+          operation.property === 'width' ||
+          operation.property === 'height' ||
+          operation.property === 'rotation')
+      ) {
+        invalidate = true;
+        const id = markTargetStale(operation.target);
+        if (id) {
+          spatialAnimations.push(Object.freeze({
+            key: `${id.length}:${id}:${operation.property}`,
+            endTimeMs: this.animationClockMs + operation.durationMs,
+          }));
+        }
+      }
+    }
+    return Object.freeze({
+      invalidate,
+      staleProjectionIds,
+      removedIds,
+      spatialAnimations: Object.freeze(spatialAnimations),
+    });
+  }
+
+  private deleteSpatialHitAnimations(id: string): void {
+    const prefix = `${id.length}:${id}:`;
+    for (const key of this.spatialHitAnimationEnds.keys()) {
+      if (key.startsWith(prefix)) this.spatialHitAnimationEnds.delete(key);
+    }
+  }
+
+  private pruneRemovedHitState(): void {
+    for (const id of this.staleHitProjectionIds) {
+      if (this.scene.ref(id) === null) this.staleHitProjectionIds.delete(id);
+    }
+  }
+
+  private pruneCompletedSpatialHitAnimations(timeMs: number): void {
+    for (const [key, endTimeMs] of this.spatialHitAnimationEnds) {
+      if (endTimeMs <= timeMs) this.spatialHitAnimationEnds.delete(key);
+    }
   }
 
   private onPointerDown(x: number, y: number, pointerId: number, button: number): void {

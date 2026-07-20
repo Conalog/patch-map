@@ -16,6 +16,10 @@ import {
 } from '../../core-v1/renderer/types';
 import type { CoreV2AffineBasis } from '../semantic/geometry';
 import {
+  resolveCoreV2RelationPath,
+  type CoreV2RelationEndpointGeometry,
+} from '../semantic/relations';
+import {
   resolveCoreV2SlotQuad,
   type CoreV2ProjectionRenderContext,
 } from './types';
@@ -46,6 +50,8 @@ export interface GraphicsQuadDescriptor extends ParticleQuadDescriptor {
 
 export interface RelationSegmentDescriptor {
   readonly key: string;
+  readonly relationId: string;
+  readonly segmentIndex: number;
   readonly slot: number;
   readonly fromX: number;
   readonly fromY: number;
@@ -248,7 +254,7 @@ export function buildParticleGraphicsDescriptors(
     }
 
     if (kind === RenderKind.Relation) {
-      relations.push(createRelation(store, slot, visibleOpacity, projectionContext));
+      relations.push(...createRelations(store, slot, visibleOpacity, projectionContext));
       continue;
     }
 
@@ -348,10 +354,10 @@ export class ParticleGraphicsLayer {
     this.relationGraphics.eventMode = 'none';
 
     this.container.addChild(
+      this.relationGraphics,
       this.staticParticles,
       this.fallbackGraphics,
       this.dynamicParticles,
-      this.relationGraphics,
     );
     this.#lastCounters = freezeCounters({
       storeRevision: -1,
@@ -449,7 +455,9 @@ export class ParticleGraphicsLayer {
       staticParticleCount: descriptors.staticParticles.length,
       dynamicParticleCount: descriptors.dynamicParticles.length,
       fallbackShapeCount: descriptors.fallbackGraphics.length,
-      relationSegmentCount: descriptors.relations.filter((relation) => relation.resolved).length,
+      relationSegmentCount: new Set(
+        descriptors.relations.filter((relation) => relation.resolved).map((relation) => relation.slot),
+      ).size,
       unsupportedCount: descriptors.unsupportedCount,
       selectedCount: descriptors.selectedCount,
       dynamicFullUploadCount: descriptors.dynamicParticles.length,
@@ -609,33 +617,100 @@ function createQuad(
   });
 }
 
-function createRelation(
+function createRelations(
   store: RenderStoreView,
   slot: number,
   visibleOpacity: number,
   projectionContext?: CoreV2ProjectionRenderContext,
-): RelationSegmentDescriptor {
+): readonly RelationSegmentDescriptor[] {
   const from = store.relationFrom[slot] as number;
   const to = store.relationTo[slot] as number;
   const resolved = isAlive(store, from) && isAlive(store, to);
   const color = unpackColor(store.color[slot] as number, visibleOpacity);
-  const fromCenter = resolved
-    ? resolveCoreV2SlotQuad(store, from, projectionContext).center
+  const entityId = store.ids[slot] ?? `@slot:${slot}`;
+  const relationProjection = projectionContext?.index.relationsByEntityId?.[entityId];
+  if (!resolved) {
+    return Object.freeze([Object.freeze({
+      key: `relation:${slot}:0`,
+      relationId: relationProjection?.relationId ?? entityId,
+      segmentIndex: 0,
+      slot,
+      fromX: 0,
+      fromY: 0,
+      toX: 0,
+      toY: 0,
+      tint: color.tint,
+      alpha: color.alpha,
+      lineWidth: positiveOrZero(store.lineWidth[slot] as number),
+      resolved: false,
+    })]);
+  }
+  const fromQuad = resolveCoreV2SlotQuad(store, from, projectionContext);
+  const toQuad = resolveCoreV2SlotQuad(store, to, projectionContext);
+  const points = relationProjection
+    ? resolveCoreV2RelationPath(
+        relationProjection,
+        particleEndpointGeometry(store, from, fromQuad.vertices, fromQuad.center),
+        particleEndpointGeometry(store, to, toQuad.vertices, toQuad.center),
+        {
+          color: store.color[slot] as number,
+          width: positiveOrZero(store.lineWidth[slot] as number),
+          opacity: visibleOpacity,
+          zIndex: store.zIndex[slot] as number,
+          visible: visibleOpacity > 0,
+        },
+      )
     : null;
-  const toCenter = resolved
-    ? resolveCoreV2SlotQuad(store, to, projectionContext).center
-    : null;
+  const worldPoints = points?.visible === false
+    ? []
+    : points?.worldPoints ?? [fromQuad.center, toQuad.center];
+  const descriptors: RelationSegmentDescriptor[] = [];
+  for (let index = 1; index < worldPoints.length; index += 1) {
+    const start = worldPoints[index - 1];
+    const end = worldPoints[index];
+    if (!start || !end) continue;
+    descriptors.push(Object.freeze({
+      key: `relation:${slot}:${index - 1}`,
+      relationId: relationProjection?.relationId ?? entityId,
+      segmentIndex: index - 1,
+      slot,
+      fromX: start[0],
+      fromY: start[1],
+      toX: end[0],
+      toY: end[1],
+      tint: color.tint,
+      alpha: color.alpha,
+      lineWidth: points?.worldStrokeWidths[index - 1] ??
+        positiveOrZero(store.lineWidth[slot] as number),
+      resolved: true,
+    }));
+  }
+  return Object.freeze(descriptors);
+}
+
+function particleEndpointGeometry(
+  store: RenderStoreView,
+  slot: number,
+  vertices: readonly number[],
+  center: readonly [number, number],
+): CoreV2RelationEndpointGeometry {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (let index = 0; index < vertices.length; index += 2) {
+    const x = vertices[index] as number;
+    const y = vertices[index + 1] as number;
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
   return Object.freeze({
-    key: `relation:${slot}`,
-    slot,
-    fromX: fromCenter?.[0] ?? 0,
-    fromY: fromCenter?.[1] ?? 0,
-    toX: toCenter?.[0] ?? 0,
-    toY: toCenter?.[1] ?? 0,
-    tint: color.tint,
-    alpha: color.alpha,
-    lineWidth: positiveOrZero(store.lineWidth[slot] as number),
-    resolved,
+    id: store.ids[slot] ?? `@slot:${slot}`,
+    center: Object.freeze([center[0], center[1]] as const),
+    worldBounds: Object.freeze([minX, minY, maxX - minX, maxY - minY] as const),
+    visible: ((store.flags[slot] as number) & RenderFlags.Visible) !== 0,
   });
 }
 

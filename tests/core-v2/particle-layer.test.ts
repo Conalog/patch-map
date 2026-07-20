@@ -102,7 +102,9 @@ describe('buildParticleGraphicsDescriptors', () => {
     const visible = buildParticleGraphicsDescriptors(createStore());
     expect(visible.relations).toEqual([
       {
-        key: 'relation:3',
+        key: 'relation:3:0',
+        relationId: 'relation',
+        segmentIndex: 0,
         slot: 3,
         fromX: 20,
         fromY: 25,
@@ -119,6 +121,72 @@ describe('buildParticleGraphicsDescriptors', () => {
     expect(invisible.staticParticles).toHaveLength(1);
     expect(invisible.staticParticles[0]?.alpha).toBe(0);
     expect(invisible.staticParticles[0]?.key).toBe('rect:0');
+  });
+
+  it('keeps self-link segments aggregate while reporting one logical relation', () => {
+    const store = createStore();
+    (store.relationTo as Int32Array)[3] = 0;
+    const index: CoreV2ProjectionIndex = Object.freeze({
+      byEntityId: Object.freeze({}),
+      relationsByEntityId: Object.freeze({
+        relation: Object.freeze({
+          entityId: 'relation',
+          relationId: 'links',
+          sourceId: 'rect',
+          targetId: 'rect',
+          key: 'rect>rect',
+          identityKey: '4:rect4:rect',
+          authoredIndex: 0,
+          affine: createCoreV2Affine(),
+        }),
+      }),
+      omittedRelations: Object.freeze([]),
+    });
+    const descriptors = buildParticleGraphicsDescriptors(
+      store,
+      projectionContext(index, 1, 0, false, false),
+    );
+    expect(descriptors.relations).toHaveLength(4);
+    expect(new Set(descriptors.relations.map((relation) => relation.slot))).toEqual(new Set([3]));
+
+    const layer = new ParticleGraphicsLayer({ label: 'self relation' });
+    const debug = layer.sync(store, {
+      fullRebuildEpoch: 1,
+      projectionContext: projectionContext(index, 1, 0, false, false),
+    });
+    expect(debug.relationSegmentCount).toBe(1);
+    layer.destroy();
+  });
+
+  it('uses relation-affine normal scale in aggregate Graphics stroke descriptors', () => {
+    const store = createStore();
+    (store.flags as Uint8Array)[2] = RenderFlags.Visible;
+    (store.y as Float64Array)[2] = 15;
+    (store.relationTo as Int32Array)[3] = 2;
+    const index: CoreV2ProjectionIndex = Object.freeze({
+      byEntityId: Object.freeze({}),
+      relationsByEntityId: Object.freeze({
+        relation: Object.freeze({
+          entityId: 'relation',
+          relationId: 'links',
+          sourceId: 'rect',
+          targetId: 'rounded',
+          key: 'rect>rounded',
+          identityKey: '4:rect7:rounded',
+          authoredIndex: 0,
+          affine: createCoreV2Affine(0, 0, 0, 2, 3),
+        }),
+      }),
+    });
+    const descriptors = buildParticleGraphicsDescriptors(
+      store,
+      projectionContext(index, 1, 0, false, false),
+    );
+    expect(descriptors.relations).toHaveLength(1);
+    expect(descriptors.relations[0]?.lineWidth).toBe(6);
+    const layer = new ParticleGraphicsLayer({ label: 'relation parity' });
+    expect(layer.container.children[0]).toBe(layer.relationGraphics);
+    layer.destroy();
   });
 
   it('surfaces delegated entities, selections, and unresolved relations', () => {
