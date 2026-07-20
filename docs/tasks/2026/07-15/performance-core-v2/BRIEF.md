@@ -18,15 +18,16 @@ Connect every approved Core v2 decision and case to the PixiJS implementation, i
 # Current State
 
 - `verify:core-v2-contract` passes 38 decisions, canonical plus 32 negative probes, and 173 approved records. No canonical expected or review artifact has changed.
-- Twenty-one P0 routes are connected: `LIF-001/002/004/005`, `DAT-001..008`, `REN-001..004`, `LAY-001/004/005`, and `CSM-001/003`. Twenty produce actual observations; `DAT-008` truthfully fails at immutable `retainTarget` missing `as`. The other 152 routes remain explicit stubs. Source journeys are not packed-host proof.
+- Twenty-two P0 routes are connected: `LIF-001/002/004/005`, `DAT-001..008`, `REN-001..004/007`, `LAY-001/004/005`, and `CSM-001/003`. Twenty-one produce actual observations; `DAT-008` truthfully fails at immutable `retainTarget` missing `as`. The other 151 routes remain explicit stubs. Source journeys are not packed-host proof.
 - Exact results include `LIF-001` 11/11, `DAT-002` 13/13, `LIF-004` 12/12, and `DAT-007` 10/10. Known mismatches remain in `LIF-002`, `DAT-001`, `DAT-006`, `DAT-008`, and source journey host leaves; twelve out-of-registry expected diagnostic assertions remain immutable contract conflicts.
 - `CoreV2Engine.patch` and `destroyTarget` publish semantic authority only after one safe incremental reconcile. Same-ID ref/slot/selection survives; refused or legacy surfaces never fall back to full load.
-- The affine geometry slice now publishes exact local/world/screen/visible bounds, signed rect scale, upright/follow screen bases, F×R world flips, zero-size/hidden hit rules, revision lag, and atomic removal. `LAY-004` matches 11/11; seven focused real-Pixi routes pass first/repeat 74/74 in actual headed Chromium with deterministic digests, canvas cleanup, and zero console/page/network errors.
-- Remaining gaps include stacking, advanced text, relation paths, and descriptor-aware assets. Remaining P0 rendering totals 9 cases, 43 actions, and 165 assertions.
+- The affine geometry slice now publishes exact local/world/screen/visible bounds, signed rect scale, upright/follow screen bases, F×R world flips, zero-size/hidden hit rules, revision lag, and atomic removal. Aggregate relation Mesh geometry, deterministic self-links/deduplication, adjacency dirty propagation, and transformed screen-space relation hit testing consume the same resolver; `REN-007` matches 26/26.
+- Eight focused real-Pixi routes pass first/repeat 100/100 in actual headed Chromium with deterministic digests, a maximum of one canvas returning to zero, and zero console/page/network errors. The initial relation run exposed two simultaneously owned canvases during fresh-repeat; sequential engine handoff closed that lifecycle defect before the passing rerun.
+- Remaining gaps include descriptor-aware assets, international/advanced text, deterministic bar animation, backgrounds/icons, and cross-lane stacking/history. Remaining P0 rendering/layout/assets totals 8 cases, 37 actions, 17 distinct action types, and 139 assertions.
 
 # Next Step
 
-Implement `REN-007` on the completed signed-affine orientation source: aggregate relation paths, deterministic self-links, endpoint visibility/omission, and transformed screen-space hit testing must share one projection resolver. Pair product behavior with expected-blind automation and its focused Lab route before the next package checkpoint.
+Implement `AST-001` as the asset-lifecycle substrate: descriptor-preserving identity, global cache reuse, per-engine leases, pending-load protection, required-initialization failure, deterministic alias-conflict handling, retry/generation seams, and observable cleanup. Pair product behavior with expected-blind automation and the same focused Lab route; `REN-005` will then close scene placeholder, raster, hit, and stale-completion behavior.
 
 # Working Boundary
 
