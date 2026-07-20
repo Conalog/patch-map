@@ -8,7 +8,10 @@ import type {
 } from '../core-v1/contracts';
 import {
   PatchMapParseError,
+  type CoreV2BackgroundPaintProjection,
   type ComponentIdentity,
+  type CoreV2ComponentRenderRole,
+  type CoreV2ComponentVisualProjection,
   type CoreV2ContentOrientation,
   type CoreV2EntityProjection,
   type CoreV2ImageDimensionMode,
@@ -24,6 +27,10 @@ import {
   type ParsePatchMapOptions,
   type ParsePatchMapResult,
 } from './contracts';
+import type {
+  CoreV2ComponentSize,
+  CoreV2ComponentType,
+} from './semantic/dataset';
 import {
   CORE_V2_IDENTITY_AFFINE,
   applyCoreV2Affine,
@@ -103,6 +110,8 @@ interface ParseState {
   readonly entityIdsByComponentId: Record<string, string[]>;
   readonly entitySourceById: Record<string, EntitySourceIdentity>;
   readonly projectionByEntityId: Record<string, CoreV2EntityProjection>;
+  readonly componentVisualProjectionByEntityId: Record<string, CoreV2ComponentVisualProjection>;
+  readonly backgroundPaintProjectionByEntityId: Record<string, CoreV2BackgroundPaintProjection>;
   readonly imageProjectionByEntityId: Record<string, CoreV2ImageProjection>;
   readonly relationProjectionByEntityId: Record<string, CoreV2RelationProjection>;
   readonly omittedRelations: CoreV2OmittedRelationProjection[];
@@ -128,12 +137,12 @@ interface EntityOwner {
   readonly component?: MutableComponentIdentity;
 }
 
-const DEFAULT_COLORS: Readonly<Record<string, Rgba>> = Object.freeze({
-  white: 0xffffffff,
-  black: 0x000000ff,
-  transparent: 0x00000000,
-  'primary.default': 0x4f46e5ff,
-  'primary.dark': 0x312e81ff,
+const DEFAULT_COLORS: Readonly<Record<string, string>> = Object.freeze({
+  white: '#ffffffff',
+  black: '#000000ff',
+  transparent: '#00000000',
+  'primary.default': '#4f46e5ff',
+  'primary.dark': '#312e81ff',
 });
 const TRANSFORM_ATTRIBUTE_KEYS = new Set(['x', 'y', 'angle', 'rotation']);
 const SIGNED_SCALE_ATTRIBUTE_KEYS = new Set(['scaleX', 'scaleY']);
@@ -202,6 +211,14 @@ export function parsePatchMapV010(
     entityIdsByComponentId: Object.create(null) as Record<string, string[]>,
     entitySourceById: Object.create(null) as Record<string, EntitySourceIdentity>,
     projectionByEntityId: Object.create(null) as Record<string, CoreV2EntityProjection>,
+    componentVisualProjectionByEntityId: Object.create(null) as Record<
+      string,
+      CoreV2ComponentVisualProjection
+    >,
+    backgroundPaintProjectionByEntityId: Object.create(null) as Record<
+      string,
+      CoreV2BackgroundPaintProjection
+    >,
     imageProjectionByEntityId: Object.create(null) as Record<string, CoreV2ImageProjection>,
     relationProjectionByEntityId: Object.create(null) as Record<string, CoreV2RelationProjection>,
     omittedRelations: [],
@@ -256,6 +273,8 @@ export function parsePatchMapV010(
     },
     projection: {
       byEntityId: state.projectionByEntityId,
+      componentsByEntityId: state.componentVisualProjectionByEntityId,
+      backgroundsByEntityId: state.backgroundPaintProjectionByEntityId,
       imagesByEntityId: state.imageProjectionByEntityId,
       relationsByEntityId: state.relationProjectionByEntityId,
       omittedRelations: state.omittedRelations,
@@ -584,10 +603,38 @@ function parseComponent(
     const transform = componentTransform(itemTransform, local, attrs, path, state);
     if (sourceRecord?.type === 'rect') {
       const sourceFill = resolveColor(sourceRecord.fill, 0xffffffff, `${path}.source.fill`, state);
-      const borderWidth = finiteNumber(sourceRecord.borderWidth);
-      const fill = value.tint === undefined
-        ? sourceFill
-        : multiplyColor(sourceFill, resolveColor(value.tint, 0xffffffff, `${path}.tint`, state));
+      const borderWidth = projectedBackgroundBorderWidth(
+        sourceRecord.borderWidth,
+        `${path}.source.borderWidth`,
+        state,
+      );
+      const borderColor = resolveColor(
+        sourceRecord.borderColor,
+        0x000000ff,
+        `${path}.source.borderColor`,
+        state,
+      );
+      const radius = projectedBackgroundRadius(sourceRecord.radius, `${path}.source.radius`, state);
+      const tint = resolveColor(value.tint, 0xffffffff, `${path}.tint`, state);
+      const fill = multiplyColor(sourceFill, tint);
+      addComponentVisualProjection(
+        entityId,
+        instanceId,
+        componentId,
+        type,
+        'background-geometry',
+        value.size,
+        state,
+      );
+      state.backgroundPaintProjectionByEntityId[entityId] = Object.freeze({
+        entityId,
+        sourceKind: 'rect',
+        fill: sourceFill,
+        borderWidth,
+        borderColor,
+        radius,
+        tint,
+      });
       const denseTransform = centerPivotTopLeft(transform, local, 'follow-item');
       addEntity(
         {
@@ -599,11 +646,11 @@ function parseComponent(
           height: denseTransform.height,
           rotation: transform.rotation,
           fill,
-          ...(sourceRecord.borderColor !== undefined || (borderWidth !== undefined && borderWidth > 0)
-            ? { stroke: resolveColor(sourceRecord.borderColor, 0x000000ff, `${path}.source.borderColor`, state) }
+          ...(sourceRecord.borderColor !== undefined || borderWidth > 0
+            ? { stroke: borderColor }
             : {}),
-          ...(borderWidth !== undefined
-            ? { strokeWidth: Math.max(0, borderWidth) }
+          ...(sourceRecord.borderWidth !== undefined
+            ? { strokeWidth: borderWidth }
             : {}),
           ...(finiteNumber(sourceRecord.radius) !== undefined
             ? { radius: Math.max(0, finiteNumber(sourceRecord.radius) as number) }
@@ -619,6 +666,25 @@ function parseComponent(
       );
       return;
     }
+    const tint = resolveColor(value.tint, 0xffffffff, `${path}.tint`, state);
+    addComponentVisualProjection(
+      entityId,
+      instanceId,
+      componentId,
+      type,
+      'background-asset',
+      value.size,
+      state,
+    );
+    state.backgroundPaintProjectionByEntityId[entityId] = Object.freeze({
+      entityId,
+      sourceKind: 'asset',
+      fill: 0x00000000,
+      borderWidth: 0,
+      borderColor: 0x000000ff,
+      radius: Object.freeze([0, 0, 0, 0] as const),
+      tint,
+    });
     const asset = imageSourceProjection(
       entityId,
       source,
@@ -628,7 +694,17 @@ function parseComponent(
       state,
     );
     addEntity(
-      imageEntity(entityId, transform, local, asset, value.tint, componentVisible, -10, path, state),
+      imageEntity(
+        entityId,
+        transform,
+        local,
+        asset,
+        value.tint === undefined ? undefined : tint,
+        componentVisible,
+        -10,
+        path,
+        state,
+      ),
       { ...owner, component },
       state,
       centerPivotTopLeft(transform, local, 'follow-item'),
@@ -682,6 +758,15 @@ function parseComponent(
     const componentSize = resolveComponentSize(value.size, content, `${path}.size`, state);
     const local = placeBox(content, componentSize, value.placement ?? 'center', value.margin, path, state);
     const transform = componentTransform(itemTransform, local, attrs, path, state);
+    addComponentVisualProjection(
+      entityId,
+      instanceId,
+      componentId,
+      type,
+      'content-asset',
+      value.size,
+      state,
+    );
     addEntity(
       imageEntity(
         entityId,
@@ -1201,6 +1286,91 @@ function componentIdentity(
   state.componentIdentityByPath.set(componentPath, identity);
   state.componentIdentities.push(identity);
   return identity;
+}
+
+function addComponentVisualProjection(
+  entityId: string,
+  ownerId: string,
+  componentId: string,
+  componentType: CoreV2ComponentType,
+  renderRole: CoreV2ComponentRenderRole,
+  authoredSize: unknown,
+  state: ParseState,
+): void {
+  state.componentVisualProjectionByEntityId[entityId] = Object.freeze({
+    entityId,
+    ownerId,
+    componentId,
+    componentType,
+    // The stable dense entity ID is the product identity token. Physical Pixi
+    // objects may be replaced without changing this semantic identity.
+    logicalIdentity: entityId,
+    renderRole,
+    ...(authoredSize === undefined
+      ? {}
+      : {
+          authoredSize: deepFreeze(cloneJson(authoredSize)) as CoreV2ComponentSize,
+        }),
+  });
+}
+
+function projectedBackgroundBorderWidth(
+  value: unknown,
+  path: string,
+  state: ParseState,
+): number {
+  if (value === undefined) return 0;
+  const width = finiteNumber(value);
+  if (width !== undefined) return nonNegative(width, path, state);
+  warn(state, path, 'invalid-border-width', 'Invalid background border width fell back to zero');
+  return 0;
+}
+
+function projectedBackgroundRadius(
+  value: unknown,
+  path: string,
+  state: ParseState,
+): readonly [number, number, number, number] {
+  const scalar = finiteNumber(value);
+  if (scalar !== undefined) {
+    const radius = nonNegative(scalar, path, state);
+    return Object.freeze([radius, radius, radius, radius] as const);
+  }
+  if (value === undefined) return Object.freeze([0, 0, 0, 0] as const);
+  if (Array.isArray(value)) {
+    if (value.length !== 4) {
+      warn(state, path, 'invalid-radius', 'Background corner radius array must contain four entries');
+      return Object.freeze([0, 0, 0, 0] as const);
+    }
+    return Object.freeze([
+      projectedBackgroundRadiusCorner(value[0], `${path}[0]`, state),
+      projectedBackgroundRadiusCorner(value[1], `${path}[1]`, state),
+      projectedBackgroundRadiusCorner(value[2], `${path}[2]`, state),
+      projectedBackgroundRadiusCorner(value[3], `${path}[3]`, state),
+    ] as const);
+  }
+  if (isRecord(value)) {
+    return Object.freeze([
+      projectedBackgroundRadiusCorner(value.topLeft, `${path}.topLeft`, state),
+      projectedBackgroundRadiusCorner(value.topRight, `${path}.topRight`, state),
+      projectedBackgroundRadiusCorner(value.bottomRight, `${path}.bottomRight`, state),
+      projectedBackgroundRadiusCorner(value.bottomLeft, `${path}.bottomLeft`, state),
+    ] as const);
+  }
+  warn(state, path, 'invalid-radius', 'Invalid background radius fell back to zero');
+  return Object.freeze([0, 0, 0, 0] as const);
+}
+
+function projectedBackgroundRadiusCorner(
+  value: unknown,
+  path: string,
+  state: ParseState,
+): number {
+  if (value === undefined) return 0;
+  const radius = finiteNumber(value);
+  if (radius !== undefined) return nonNegative(radius, path, state);
+  warn(state, path, 'invalid-radius', 'Invalid background corner radius fell back to zero');
+  return 0;
 }
 
 function imageEntity(

@@ -5,7 +5,11 @@ import type {
   CoreV2BoundsTuple,
   CoreV2PointTuple,
 } from './semantic/geometry';
-import type { CoreV2AssetSource } from './semantic/dataset';
+import type {
+  CoreV2AssetSource,
+  CoreV2ComponentSize,
+  CoreV2ComponentType,
+} from './semantic/dataset';
 
 export type CoreV2ContentOrientation = 'follow-item' | 'upright';
 
@@ -156,9 +160,47 @@ export interface CoreV2ImageProjection {
   readonly intrinsicTransform?: CoreV2ImageIntrinsicTransform;
 }
 
+export type CoreV2ComponentRenderRole =
+  | 'background-geometry'
+  | 'background-asset'
+  | 'content-asset';
+
+/**
+ * Stable semantic ownership and render classification for a projected item
+ * component. The record deliberately excludes asset source data, whose sole
+ * lossless authority remains `imagesByEntityId`.
+ */
+export interface CoreV2ComponentVisualProjection {
+  readonly entityId: string;
+  readonly ownerId: string;
+  readonly componentId: string;
+  readonly componentType: CoreV2ComponentType;
+  readonly logicalIdentity: string;
+  readonly renderRole: CoreV2ComponentRenderRole;
+  readonly authoredSize?: CoreV2ComponentSize;
+}
+
+export type CoreV2BackgroundSourceKind = 'rect' | 'asset';
+
+/** Packed RGBA paint intent retained outside the scalar dense row. */
+export interface CoreV2BackgroundPaintProjection {
+  readonly entityId: string;
+  readonly sourceKind: CoreV2BackgroundSourceKind;
+  readonly fill: number;
+  readonly borderWidth: number;
+  readonly borderColor: number;
+  /** Top-left, top-right, bottom-right, bottom-left. */
+  readonly radius: readonly [number, number, number, number];
+  readonly tint: number;
+}
+
 /** Immutable numeric metadata that the Core v1-compatible dense rows omit. */
 export interface CoreV2ProjectionIndex {
   readonly byEntityId: Readonly<Record<string, CoreV2EntityProjection>>;
+  /** Stable component ownership and fixed render-role classification. */
+  readonly componentsByEntityId?: Readonly<Record<string, CoreV2ComponentVisualProjection>>;
+  /** Lossless item-background paint intent, including all four radii. */
+  readonly backgroundsByEntityId?: Readonly<Record<string, CoreV2BackgroundPaintProjection>>;
   /** Present on parser-produced indexes; optional for older injected test surfaces. */
   readonly imagesByEntityId?: Readonly<Record<string, CoreV2ImageProjection>>;
   /** Present on parser-produced indexes; optional for older injected test surfaces. */
