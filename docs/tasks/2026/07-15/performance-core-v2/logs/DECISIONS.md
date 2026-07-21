@@ -129,3 +129,15 @@
 - Keep one immutable owner-qualified component projection and one public component probe, but publish renderer facts only when the semantic target, binding key, binding generation, and rendered frame correlate. Drain scene-image releases after each published action before taking actual observations.
 - This prevents stale texture facts and pre-frame cleanup races without adding per-component Containers, listeners, tickers, or closures. Background geometry remains an aggregate Mesh/Graphics primitive with zero per-component render objects; asset-backed phases use the shared scoped Sprite lanes and leases.
 - `REN-008` and `REN-010` therefore close exactly 10/10 and 11/11, while the browser checkpoint preserves the unrelated three immutable REN-005 conflicts and keeps Windows-native performance pending.
+
+**2026-07-20**
+- Semantic state and visible presentation are separate authorities: a transaction commits the destination atomically, while a single deterministic controller owns transient bar height, retarget continuity, and frame cadence.
+- Animate only bars whose logical height was changed directly. Ancestor layout, history restore, dataset replacement, and destroy reconciliation snap dependent geometry so a batch cannot create hidden secondary animations.
+- Commit a manual presentation clock only after monotonic validation, and correlate renderer publication generation with the Engine `{scene, view, interaction}` tuple rather than the dense store's internal revision.
+- This closes `LAY-002/003`, `REN-009`, `ANI-001/002`, and `UPD-005` without entity tickers, callbacks, or DisplayObjects and keeps semantic, visible-frame, and surface-domain observations independently auditable.
+
+**2026-07-20**
+- The post-presentation full Chromium 4x checkpoint keeps aggregate Mesh as the production choice because full/partial animation p95 and selection cost beat Particle at every measured scale.
+- Preserve the unfavorable intervals as first-class evidence: Particle wins several small-scene first-frame/text/heap intervals and production GPU prepare, first frame, pan, and destroy. Do not turn the renderer choice into a claim that Mesh wins every phase.
+- The selected production Mesh result is 390.2 ms first frame, 5.7 ms pan p95, 95.8 ms full-bar p95, 13.6 ms partial-bar p95, and 39,613 retained bytes under the development proxy.
+- This remains Chromium 4x on WebGL2/SwiftShader. WebGPU is unavailable and Windows-native performance remains pending.
