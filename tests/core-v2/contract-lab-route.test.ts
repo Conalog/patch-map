@@ -78,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(63);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(26);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(147);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(65);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(28);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(145);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(109);
+    ), 0)).toBe(119);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -196,7 +196,7 @@ describe('Core v2 focused contract Lab shell', () => {
     const imageIndex = CORE_V2_EXECUTABLE_CASE_IDS.indexOf('REN-005');
 
     expect(CORE_V2_EXECUTABLE_CASE_IDS[imageIndex - 1]).toBe('REN-004');
-    expect(CORE_V2_EXECUTABLE_CASE_IDS[imageIndex + 1]).toBe('REN-007');
+    expect(CORE_V2_EXECUTABLE_CASE_IDS[imageIndex + 1]).toBe('REN-006');
     expect(resolveCoreV2ExecutableRuntime('REN-005').key).toBe('render-images');
     expect(route.presenter.executionStatus).toBe('actual-observable');
     expect(route.presenter.rootTestId).toBe('scenario-ren-005');
@@ -355,7 +355,7 @@ describe('Core v2 focused contract Lab shell', () => {
     const iconIndex = CORE_V2_EXECUTABLE_CASE_IDS.indexOf('REN-010');
 
     expect(CORE_V2_EXECUTABLE_CASE_IDS[iconIndex - 1]).toBe('REN-008');
-    expect(CORE_V2_EXECUTABLE_CASE_IDS[iconIndex + 1]).toBe('LAY-001');
+    expect(CORE_V2_EXECUTABLE_CASE_IDS[iconIndex + 1]).toBe('REN-011');
     expect(resolveCoreV2ExecutableRuntime('REN-010').key).toBe('render-component-assets');
     expect(route.presenter.executionStatus).toBe('actual-observable');
     expect(route.presenter.rootTestId).toBe('scenario-ren-010');

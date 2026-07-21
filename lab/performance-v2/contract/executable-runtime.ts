@@ -47,6 +47,8 @@ import * as renderImagesHandlersModule from '../../../scripts/verification/core-
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as renderComponentAssetsHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/render-component-assets.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as renderTextHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/render-text.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as assetHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/assets.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as foundationFoldModule from '../../../scripts/verification/core-v2-contract/fold-foundation.mjs';
@@ -71,6 +73,8 @@ import * as renderImagesFoldModule from '../../../scripts/verification/core-v2-c
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as renderComponentAssetsFoldModule from '../../../scripts/verification/core-v2-contract/fold-render-component-assets.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as renderTextFoldModule from '../../../scripts/verification/core-v2-contract/fold-render-text.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as assetFoldModule from '../../../scripts/verification/core-v2-contract/fold-assets.mjs';
 
 import type {
@@ -79,6 +83,7 @@ import type {
 } from './executable-cases';
 import { createCoreV2RenderComponentAssetsRuntime } from './render-component-assets-runtime';
 import { createCoreV2RenderImagesRuntime } from './render-images-runtime';
+import { createCoreV2RenderTextRuntime } from './render-text-runtime';
 
 export type CoreV2ExecutableRuntimeKey =
   | 'foundation'
@@ -92,6 +97,7 @@ export type CoreV2ExecutableRuntimeKey =
   | 'render-relations'
   | 'render-images'
   | 'render-component-assets'
+  | 'render-text'
   | 'assets';
 
 type Handler = (
@@ -125,6 +131,10 @@ interface HandlerFactoryRuntime {
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
   createRenderComponentAssetHandlerEntries?(
+    this: void,
+    product: Readonly<Record<string, unknown>>,
+  ): readonly HandlerEntry[];
+  createRenderTextHandlerEntries?(
     this: void,
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
@@ -179,6 +189,10 @@ interface FoldRuntime {
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
+  foldRenderTextExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
   foldAssetExecution?(
     this: void,
     options: Readonly<Record<string, unknown>>,
@@ -222,6 +236,7 @@ const renderOrientationHandlers = renderOrientationHandlersModule as unknown as 
 const renderRelationsHandlers = renderRelationsHandlersModule as unknown as HandlerFactoryRuntime;
 const renderImagesHandlers = renderImagesHandlersModule as unknown as HandlerFactoryRuntime;
 const renderComponentAssetsHandlers = renderComponentAssetsHandlersModule as unknown as HandlerFactoryRuntime;
+const renderTextHandlers = renderTextHandlersModule as unknown as HandlerFactoryRuntime;
 const assetHandlers = assetHandlersModule as unknown as HandlerFactoryRuntime;
 const foundationFold = foundationFoldModule as unknown as FoldRuntime;
 const dataFoundationFold = dataFoundationFoldModule as unknown as FoldRuntime;
@@ -234,6 +249,7 @@ const renderOrientationFold = renderOrientationFoldModule as unknown as FoldRunt
 const renderRelationsFold = renderRelationsFoldModule as unknown as FoldRuntime;
 const renderImagesFold = renderImagesFoldModule as unknown as FoldRuntime;
 const renderComponentAssetsFold = renderComponentAssetsFoldModule as unknown as FoldRuntime;
+const renderTextFold = renderTextFoldModule as unknown as FoldRuntime;
 const assetFold = assetFoldModule as unknown as FoldRuntime;
 
 const FOUNDATION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
@@ -403,6 +419,7 @@ const RENDER_RELATIONS_DESCRIPTOR = createDescriptor({
 const ASSET_DESCRIPTOR = createAssetDescriptor();
 const RENDER_IMAGES_DESCRIPTOR = createRenderImagesDescriptor();
 const RENDER_COMPONENT_ASSETS_DESCRIPTOR = createRenderComponentAssetsDescriptor();
+const RENDER_TEXT_DESCRIPTOR = createRenderTextDescriptor();
 
 export function resolveCoreV2ExecutableRuntime(
   caseId: CoreV2ExecutableCaseId,
@@ -417,9 +434,49 @@ export function resolveCoreV2ExecutableRuntime(
   if (caseId === 'LAY-005') return RENDER_BOUNDS_DESCRIPTOR;
   if (caseId === 'REN-007') return RENDER_RELATIONS_DESCRIPTOR;
   if (caseId === 'REN-005') return RENDER_IMAGES_DESCRIPTOR;
+  if (caseId === 'REN-006' || caseId === 'REN-011') return RENDER_TEXT_DESCRIPTOR;
   if (caseId === 'REN-008' || caseId === 'REN-010') return RENDER_COMPONENT_ASSETS_DESCRIPTOR;
   if (caseId === 'AST-001') return ASSET_DESCRIPTOR;
   throw new Error(`Unsupported Core v2 executable runtime: ${String(caseId)}`);
+}
+
+function createRenderTextDescriptor(): CoreV2ExecutableRuntimeDescriptor {
+  const fold = requireFold(
+    renderTextFold.foldRenderTextExecution,
+    'render-text fold',
+  );
+  const createEntries = requireFactory(
+    renderTextHandlers.createRenderTextHandlerEntries,
+    'render-text handlers',
+  );
+  const createRun = (plan: CoreV2ExecutableCasePlan) => {
+    invariant(plan.id === 'REN-006' || plan.id === 'REN-011', 'render-text case identity');
+    const runtime = createCoreV2RenderTextRuntime(plan.id);
+    return Object.freeze({
+      handlerEntries: selectHandlerEntries(
+        plan,
+        createEntries(runtime.product as unknown as Readonly<Record<string, unknown>>),
+      ),
+      engineOptions: Object.freeze({}),
+      postDestroyProductProbe: () => runtime.postDestroyProductProbe(),
+    });
+  };
+  return Object.freeze({
+    key: 'render-text',
+    needsSupplementalWebGLLease: false,
+    createRun,
+    handlerEntries(plan: CoreV2ExecutableCasePlan): readonly HandlerEntry[] {
+      return createRun(plan).handlerEntries;
+    },
+    fold(input: CoreV2RuntimeFoldInput): CoreV2FoldedExecution {
+      return fold({
+        casePlan: input.casePlan,
+        execution: input.execution,
+        provenance: input.provenance,
+        environment: input.environment,
+      });
+    },
+  });
 }
 
 function createRenderComponentAssetsDescriptor(): CoreV2ExecutableRuntimeDescriptor {

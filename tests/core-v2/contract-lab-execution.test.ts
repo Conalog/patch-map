@@ -30,8 +30,10 @@ describe('Core v2 executable Lab product bridge', () => {
     (caseId) => caseId !== 'DAT-008'
       && caseId !== 'AST-001'
       && caseId !== 'REN-005'
+      && caseId !== 'REN-006'
       && caseId !== 'REN-008'
-      && caseId !== 'REN-010',
+      && caseId !== 'REN-010'
+      && caseId !== 'REN-011',
   ))(
     'executes %s through a targeted CoreV2Engine and retains actual-only cleanup facts',
     async (caseId) => {
@@ -456,8 +458,10 @@ describe('Core v2 executable Lab product bridge', () => {
       'REN-001': 'render-foundation',
       'REN-004': 'render-foundation',
       'REN-005': 'render-images',
+      'REN-006': 'render-text',
       'REN-008': 'render-component-assets',
       'REN-010': 'render-component-assets',
+      'REN-011': 'render-text',
       'REN-003': 'render-foundation',
       'REN-002': 'render-foundation',
       'REN-007': 'render-relations',
