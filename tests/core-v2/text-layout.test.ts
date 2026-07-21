@@ -1,0 +1,438 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  CORE_V2_TEXT_PROFILE,
+  CoreV2TextLayoutError,
+  layoutCoreV2Text,
+  measureCoreV2GraphemeAdvance,
+  segmentCoreV2Graphemes,
+  type CoreV2TextLayoutOptions,
+} from '../../src/core-v2/semantic/text-layout';
+
+describe('Core v2 deterministic Unicode semantic layout', () => {
+  it('pins the approved Unicode profile and ASCII semantic advance frame', () => {
+    const result = layoutCoreV2Text({ source: 'ASCII' });
+
+    expect(result.profile).toEqual({
+      id: 'core-v2-unicode-cell-fonts/1',
+      unicodeVersion: '16.0.0',
+      grapheme: 'UAX-29-revision-45',
+      lineBreak: 'UAX-14-revision-53-default-with-CJ-as-NS',
+      bidi: 'UAX-9-revision-50',
+      locale: 'und',
+      baseDirection: 'auto',
+      sourceNormalization: 'none',
+      layoutLineEndingNormalization: 'CRLF-and-CR-to-LF',
+      semanticCoverage: 'core-v2-contract-declared-subset/1',
+      scalarFallback: 'valid-scalars-default-to-atomic-other',
+      lineBreakCoverage: 'hard-break-preserved-space-ideographic-and-explicit-breakWords',
+      supplementaryAdvanceUnit: 'per-nonzero-scalar-inside-grapheme',
+      baseFont: 'unifont-base-16.0.04',
+      upperFont: 'unifont-upper-16.0.04',
+      missingGlyph: 'core-v2-missing-glyph-box/1',
+      ellipsisMarker: 'core-v2-ellipsis-marker/1',
+    });
+    expect(result.graphemes).toEqual(['A', 'S', 'C', 'I', 'I']);
+    expect(result.lines).toEqual(['ASCII']);
+    expect(result.visibleText).toBe('ASCII');
+    expect(result.fontRuns).toEqual([{ text: 'ASCII', font: 'unifont-base-16.0.04' }]);
+    expect(result.layoutBounds).toEqual({ x: 0, y: 0, width: 40, height: 20 });
+    expect(result.rendererRoute).toBe('bitmap-text');
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it('preserves exact source while normalizing CRLF and CR only for layout', () => {
+    const crlf = layoutCoreV2Text({ source: 'A\r\nB' });
+    const cr = layoutCoreV2Text({ source: 'A\rB' });
+    const mixed = layoutCoreV2Text({ source: 'A\rB\nC' });
+
+    expect(crlf.source).toBe('A\r\nB');
+    expect(crlf.layoutSource).toBe('A\nB');
+    expect(crlf.graphemes).toEqual(['A', '\r\n', 'B']);
+    expect(crlf.lines).toEqual(['A', 'B']);
+    expect(crlf.visibleText).toBe('A\nB');
+    expect(crlf.fontRuns).toEqual([
+      { text: 'A', font: 'unifont-base-16.0.04' },
+      { text: 'B', font: 'unifont-base-16.0.04' },
+    ]);
+    expect(crlf.sourceFontRuns).toBe(crlf.fontRuns);
+    expect(crlf.visibleFontRuns).toEqual([
+      { text: 'A\nB', font: 'unifont-base-16.0.04' },
+    ]);
+    expect(crlf.layoutBounds).toEqual({ x: 0, y: 0, width: 8, height: 40 });
+    expect(cr.layoutSource).toBe('A\nB');
+    expect(cr.source).toBe('A\rB');
+    expect(mixed.sourceFontRuns).toEqual([
+      { text: 'A', font: 'unifont-base-16.0.04' },
+      { text: 'B\nC', font: 'unifont-base-16.0.04' },
+    ]);
+    expect(mixed.visibleFontRuns).toEqual([
+      { text: 'A\nB\nC', font: 'unifont-base-16.0.04' },
+    ]);
+  });
+
+  it('segments family emoji, skin tone, combining marks, flags, and Hangul without native Intl', () => {
+    expect(segmentCoreV2Graphemes('👨‍👩‍👧‍👦👍🏽')).toEqual(['👨‍👩‍👧‍👦', '👍🏽']);
+    expect(segmentCoreV2Graphemes('é')).toEqual(['é']);
+    expect(segmentCoreV2Graphemes('🇰🇷🇺🇸')).toEqual(['🇰🇷', '🇺🇸']);
+    expect(segmentCoreV2Graphemes('각')).toEqual(['각']);
+
+    const emoji = layoutCoreV2Text({ source: '👨‍👩‍👧‍👦👍🏽' });
+    expect(emoji.graphemes).toEqual(['👨‍👩‍👧‍👦', '👍🏽']);
+    expect(emoji.fontRuns).toEqual([
+      { text: '👨‍👩‍👧‍👦👍🏽', font: 'unifont-upper-16.0.04' },
+    ]);
+    expect(emoji.layoutBounds).toEqual({ x: 0, y: 0, width: 96, height: 20 });
+    expect(layoutCoreV2Text({ source: 'é' }).layoutBounds).toEqual({
+      x: 0,
+      y: 0,
+      width: 8,
+      height: 20,
+    });
+  });
+
+  it('wraps CJK at pinned opportunities and long Latin only when breakWords is enabled', () => {
+    const cjk = layoutCoreV2Text({ source: '漢字かな交じり文', wordWrapWidthPx: 64 });
+    const long = layoutCoreV2Text({
+      source: 'ABCDEFGHIJ',
+      wordWrapWidthPx: 32,
+      breakWords: true,
+    });
+    const unbroken = layoutCoreV2Text({
+      source: 'ABCDEFGHIJ',
+      wordWrapWidthPx: 32,
+      breakWords: false,
+    });
+
+    expect(cjk.lines).toEqual(['漢字かな', '交じり文']);
+    expect(cjk.visibleText).toBe('漢字かな\n交じり文');
+    expect(cjk.layoutBounds).toEqual({ x: 0, y: 0, width: 64, height: 40 });
+    expect(long.lines).toEqual(['ABCD', 'EFGH', 'IJ']);
+    expect(long.layoutBounds).toEqual({ x: 0, y: 0, width: 32, height: 60 });
+    expect(unbroken.lines).toEqual(['ABCDEFGHIJ']);
+    expect(unbroken.layoutBounds.width).toBe(80);
+  });
+
+  it('preserves multiline and repeated spaces and gives empty text one line box', () => {
+    const multiline = layoutCoreV2Text({ source: 'A\nB\nC' });
+    const spaces = layoutCoreV2Text({ source: 'A  B', whiteSpace: 'preserve' });
+    const empty = layoutCoreV2Text({ source: '' });
+
+    expect(multiline.lines).toEqual(['A', 'B', 'C']);
+    expect(multiline.fontRuns).toEqual([
+      { text: 'A\nB\nC', font: 'unifont-base-16.0.04' },
+    ]);
+    expect(multiline.layoutBounds).toEqual({ x: 0, y: 0, width: 8, height: 60 });
+    expect(spaces.graphemes).toEqual(['A', ' ', ' ', 'B']);
+    expect(spaces.layoutBounds.width).toBe(32);
+    expect(empty.lines).toEqual(['']);
+    expect(empty.visibleText).toBe('');
+    expect(empty.layoutBounds).toEqual({ x: 0, y: 0, width: 0, height: 20 });
+  });
+
+  it('derives automatic RTL base direction, logical/visual runs, and exact mapping', () => {
+    const result = layoutCoreV2Text({ source: 'مرحبا world' });
+
+    expect(result.baseDirection).toBe('rtl');
+    expect(result.bidiRunsLogical).toEqual([
+      { text: 'مرحبا ', level: 1, direction: 'rtl', logicalStart: 0, logicalEnd: 6 },
+      { text: 'world', level: 2, direction: 'ltr', logicalStart: 6, logicalEnd: 11 },
+    ]);
+    expect(result.bidiRunsVisualOrder).toEqual([
+      { text: 'world', level: 2, direction: 'ltr', logicalStart: 6, logicalEnd: 11 },
+      { text: 'مرحبا ', level: 1, direction: 'rtl', logicalStart: 0, logicalEnd: 6 },
+    ]);
+    expect(result.logicalToVisual).toEqual([10, 9, 8, 7, 6, 5, 0, 1, 2, 3, 4]);
+    expect(result.layoutBounds).toEqual({ x: 0, y: 0, width: 88, height: 20 });
+    expect(result.rendererRoute).toBe('fallback-text');
+  });
+
+  it('uses deterministic font fallback independently of system fonts', () => {
+    const unavailable = layoutCoreV2Text({
+      source: 'fallback',
+      requestedFont: 'CoreV2MissingRequestedFont',
+    });
+    const available = layoutCoreV2Text({
+      source: 'ASCII',
+      requestedFont: 'FixtureFont',
+      availableRequestedFonts: ['FixtureFont'],
+    });
+
+    expect(unavailable.fontRuns).toEqual([
+      {
+        text: 'fallback',
+        font: 'unifont-base-16.0.04',
+        fallbackReason: 'requested-font-unavailable',
+      },
+    ]);
+    expect(unavailable.layoutBounds.width).toBe(64);
+    expect(unavailable.rendererRoute).toBe('fallback-text');
+    expect(available.fontRuns).toEqual([
+      { text: 'ASCII', font: 'FixtureFont' },
+    ]);
+    expect(available.visibleFontRuns).toEqual([{ text: 'ASCII', font: 'FixtureFont' }]);
+    expect(available.rendererRoute).toBe('fallback-text');
+  });
+
+  it('applies visible, hidden, and ellipsis overflow without splitting a grapheme', () => {
+    const shared = { source: 'ABCDEFGHIJ', contentFrame: { width: 32, height: 20 } } as const;
+    const visible = layoutCoreV2Text({ ...shared, overflow: 'visible' });
+    const hidden = layoutCoreV2Text({ ...shared, overflow: 'hidden' });
+    const ellipsis = layoutCoreV2Text({ ...shared, overflow: 'ellipsis' });
+    const emojiHidden = layoutCoreV2Text({
+      source: 'A👨‍👩‍👧‍👦B',
+      contentFrame: { width: 8, height: 20 },
+      overflow: 'hidden',
+    });
+
+    expect(visible.visibleText).toBe('ABCDEFGHIJ');
+    expect(visible.layoutBounds).toEqual({ x: 0, y: 0, width: 80, height: 20 });
+    expect(hidden.visibleText).toBe('ABCD');
+    expect(hidden.layoutBounds).toEqual({ x: 0, y: 0, width: 32, height: 20 });
+    expect(hidden.naturalLayoutBounds.width).toBe(80);
+    expect(hidden.fontRuns).toEqual([
+      { text: 'ABCDEFGHIJ', font: 'unifont-base-16.0.04' },
+    ]);
+    expect(hidden.visibleFontRuns).toEqual([
+      { text: 'ABCD', font: 'unifont-base-16.0.04' },
+    ]);
+    expect(ellipsis.visibleText).toBe('ABC…');
+    expect(ellipsis.fontRuns).toEqual([
+      { text: 'ABC', font: 'unifont-base-16.0.04' },
+      { text: '…', font: 'core-v2-ellipsis-marker/1' },
+    ]);
+    expect(ellipsis.layoutBounds).toEqual({ x: 0, y: 0, width: 32, height: 20 });
+    expect(emojiHidden.visibleText).toBe('A');
+    expect(
+      layoutCoreV2Text({
+        source: 'AB',
+        contentFrame: { width: 4, height: 20 },
+        overflow: 'ellipsis',
+      }).layoutBounds,
+    ).toEqual({ x: 0, y: 0, width: 0, height: 20 });
+  });
+
+  it('selects the largest inclusive automatic font candidate and makes ties deterministic', () => {
+    const boundary = layoutCoreV2Text({
+      source: 'ABCD',
+      contentFrame: { width: 32, height: 20 },
+      autoFont: { minPx: 8, maxPx: 18 },
+    });
+    const tie = layoutCoreV2Text({
+      source: 'AB',
+      contentFrame: { width: 16, height: 20 },
+      autoFont: { minPx: 12, maxPx: 16 },
+    });
+    const noneFits = layoutCoreV2Text({
+      source: 'ABCDEFGHIJ',
+      contentFrame: { width: 1, height: 20 },
+      autoFont: { minPx: 8, maxPx: 16 },
+      overflow: 'visible',
+    });
+
+    expect(boundary.fontSizePx).toBe(16);
+    expect(boundary.fontRuns).toEqual([
+      { text: 'ABCD', font: 'unifont-base-16.0.04', fontSizePx: 16 },
+    ]);
+    expect(boundary.layoutBounds).toEqual({ x: 0, y: 0, width: 32, height: 20 });
+    expect(tie.fontSizePx).toBe(16);
+    expect(noneFits.fontSizePx).toBe(8);
+    expect(noneFits.layoutBounds.width).toBe(40);
+  });
+
+  it('replaces declared missing glyphs while preserving exact source and run identity', () => {
+    const source = 'missing:\u{10ffff}';
+    const result = layoutCoreV2Text({ source });
+
+    expect(result.source).toBe(source);
+    expect(result.lines).toEqual([source]);
+    expect(result.visibleText).toBe('missing:□');
+    expect(result.fontRuns).toEqual([
+      { text: 'missing:', font: 'unifont-base-16.0.04' },
+      { text: '\u{10ffff}', font: 'core-v2-missing-glyph-box/1' },
+    ]);
+    expect(result.missingGlyphs).toEqual([
+      { codePoint: 'U+10FFFF', identity: 'core-v2-missing-glyph-box/1', count: 1 },
+    ]);
+    expect(result.layoutBounds).toEqual({ x: 0, y: 0, width: 80, height: 20 });
+  });
+
+  it('implements positive split by grapheme and makes zero and negative split finite no-ops', () => {
+    const zero = layoutCoreV2Text({ source: 'AB😀CD', split: 0 });
+    const positive = layoutCoreV2Text({ source: 'AB😀CD', split: 2 });
+    const negative = layoutCoreV2Text({ source: 'AB😀CD', split: -1 });
+
+    expect(zero.lines).toEqual(['AB😀CD']);
+    expect(zero.layoutBounds).toEqual({ x: 0, y: 0, width: 48, height: 20 });
+    expect(positive.lines).toEqual(['AB', '😀C', 'D']);
+    expect(positive.layoutBounds).toEqual({ x: 0, y: 0, width: 24, height: 60 });
+    expect(negative.lines).toEqual(['AB😀CD']);
+    expect(negative.lineCount).toBe(1);
+  });
+
+  it('matches standalone and patched international product specimens', () => {
+    const initial = layoutCoreV2Text({
+      source: 'A\r\n中😀é',
+      requestedFont: 'Unifont',
+      fontSizePx: 16,
+      lineHeightPx: 20,
+      letterSpacingPx: 0,
+      contentFrame: { width: 100, height: 60 },
+    });
+    const patched = layoutCoreV2Text({
+      source: 'مرحبا world',
+      requestedFont: 'Unifont',
+      fontSizePx: 16,
+      lineHeightPx: 20,
+      letterSpacingPx: 0,
+      contentFrame: { width: 100, height: 60 },
+    });
+    const rapid = layoutCoreV2Text({ source: 'final中' });
+
+    expect(initial.source).toBe('A\r\n中😀é');
+    expect(initial.lines).toEqual(['A', '中😀é']);
+    expect(initial.layoutBounds).toEqual({ x: 0, y: 0, width: 40, height: 40 });
+    expect(patched.lines).toEqual(['مرحبا world']);
+    expect(patched.layoutBounds).toEqual({ x: 0, y: 0, width: 88, height: 20 });
+    expect(patched.naturalLayoutBounds).toEqual(patched.layoutBounds);
+    expect(rapid.visibleText).toBe('final中');
+    expect(rapid.layoutBounds).toEqual({ x: 0, y: 0, width: 56, height: 20 });
+  });
+
+  it('applies cluster letter spacing, caller-owned origin, and semantic route rules', () => {
+    const result = layoutCoreV2Text({
+      source: 'AB',
+      letterSpacingPx: 2,
+      origin: { x: 219, y: 135 },
+    });
+    const international = layoutCoreV2Text({ source: '中😀é\nمرحبا' });
+
+    expect(result.layoutBounds.width).toBe(18);
+    expect(result.ownerLocalBounds).toEqual({ x: 219, y: 135, width: 18, height: 20 });
+    expect(international.lines).toEqual(['中😀é', 'مرحبا']);
+    expect(international.layoutBounds).toEqual({ x: 0, y: 0, width: 40, height: 40 });
+    expect(international.rendererRoute).toBe('fallback-text');
+  });
+
+  it('keeps every advance and bounds field finite and nonnegative with negative spacing', () => {
+    const overlapping = layoutCoreV2Text({
+      source: 'ABCD',
+      letterSpacingPx: -100,
+      wordWrapWidthPx: 4,
+      breakWords: true,
+    });
+
+    expect(overlapping.lineAdvancesPx.every((advance) => Number.isFinite(advance))).toBe(true);
+    expect(overlapping.lineAdvancesPx.every((advance) => advance >= 0)).toBe(true);
+    expect(overlapping.layoutBounds.width).toBeGreaterThanOrEqual(0);
+    expect(overlapping.naturalLayoutBounds.width).toBeGreaterThanOrEqual(0);
+    expect(overlapping.ownerLocalBounds.width).toBeGreaterThanOrEqual(0);
+  });
+
+  it('reports authoritative bidi facts per normalized, wrapped semantic line', () => {
+    const result = layoutCoreV2Text({ source: 'ABC\nمرحبا world' });
+
+    expect(result.bidiLines).toHaveLength(2);
+    expect(result.bidiLines[0]).toMatchObject({
+      lineIndex: 0,
+      source: 'ABC',
+      baseDirection: 'ltr',
+      logicalToVisual: [0, 1, 2],
+    });
+    expect(result.bidiLines[1]).toMatchObject({
+      lineIndex: 1,
+      source: 'مرحبا world',
+      baseDirection: 'rtl',
+      logicalToVisual: [10, 9, 8, 7, 6, 5, 0, 1, 2, 3, 4],
+    });
+    expect(result.baseDirection).toBe('ltr');
+    expect(result.logicalToVisual).toEqual([0, 1, 2]);
+  });
+
+  it('declares deterministic fallback coverage and diagnoses unimplemented line-break classes', () => {
+    const supportedDefaultOther = layoutCoreV2Text({ source: 'ЖΩ' });
+    const unsupportedLineBreak = layoutCoreV2Text({
+      source: 'alpha-beta',
+      wordWrapWidthPx: 32,
+      breakWords: false,
+    });
+
+    expect(supportedDefaultOther.profile.semanticCoverage).toBe(
+      'core-v2-contract-declared-subset/1',
+    );
+    expect(supportedDefaultOther.diagnostics).toEqual([]);
+    expect(unsupportedLineBreak.diagnostics).toContainEqual({
+      code: 'UNSUPPORTED_LINE_BREAK_CLASS',
+      severity: 'unsupported',
+      sourceIndex: 5,
+      detail: 'U+002D uses a line-break class outside the pinned Core v2 subset',
+    });
+  });
+
+  it('deep-freezes detached deterministic output and does not mutate options', () => {
+    const options: CoreV2TextLayoutOptions = {
+      source: 'ABCD',
+      contentFrame: { width: 32, height: 20 },
+      autoFont: { minPx: 8, maxPx: 18 },
+      availableRequestedFonts: ['Unifont'],
+    };
+    const before = structuredClone(options);
+    const first = layoutCoreV2Text(options);
+    const second = layoutCoreV2Text(options);
+
+    expect(options).toEqual(before);
+    expect(first).toEqual(second);
+    expect(first.layoutSignature).toBe(second.layoutSignature);
+    expect(first.contentSignature).toBe(second.contentSignature);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first.lines)).toBe(true);
+    expect(Object.isFrozen(first.layoutBounds)).toBe(true);
+    expect(Object.isFrozen(first.fontRuns[0])).toBe(true);
+    expect(CORE_V2_TEXT_PROFILE).toBe(first.profile);
+  });
+
+  it('emits explicit unsupported diagnostics for unpaired surrogates', () => {
+    const high = layoutCoreV2Text({ source: `A${String.fromCharCode(0xd800)}B` });
+    const low = layoutCoreV2Text({ source: String.fromCharCode(0xdc00) });
+
+    expect(high.diagnostics).toEqual([
+      {
+        code: 'UNPAIRED_SURROGATE',
+        severity: 'unsupported',
+        sourceIndex: 1,
+        detail: 'unpaired high surrogate has no Unicode scalar semantic mapping',
+      },
+    ]);
+    expect(low.diagnostics[0]?.code).toBe('UNPAIRED_SURROGATE');
+  });
+
+  it('rejects unsupported option branches instead of invoking native behavior', () => {
+    let rejection: unknown;
+    try {
+      layoutCoreV2Text({ source: 'A', whiteSpace: 'collapse' as 'preserve' });
+    } catch (error) {
+      rejection = error;
+    }
+    expect(rejection).toBeInstanceOf(CoreV2TextLayoutError);
+    expect(rejection).toMatchObject({
+      code: 'UNSUPPORTED_TEXT_OPTION',
+      inputPath: '$.whiteSpace',
+      detail: 'only preserve whitespace is supported',
+    });
+    expect(() =>
+      layoutCoreV2Text({ source: 'A', autoFont: { minPx: 8, maxPx: 18 } }),
+    ).toThrow('automatic font sizing requires a content frame');
+    expect(() => layoutCoreV2Text({ source: 'A', split: 0.5 })).toThrow(
+      'UNSUPPORTED_TEXT_OPTION at $.split',
+    );
+  });
+
+  it('keeps semantic advances independent from normalization and browser raster metrics', () => {
+    expect(measureCoreV2GraphemeAdvance('A')).toBe(8);
+    expect(measureCoreV2GraphemeAdvance('中')).toBe(16);
+    expect(measureCoreV2GraphemeAdvance('😀')).toBe(16);
+    expect(measureCoreV2GraphemeAdvance('é')).toBe(8);
+    expect(measureCoreV2GraphemeAdvance('👍🏽')).toBe(32);
+    expect(measureCoreV2GraphemeAdvance('AB', 8)).toBe(8);
+  });
+});
