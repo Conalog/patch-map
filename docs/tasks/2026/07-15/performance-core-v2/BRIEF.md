@@ -4,30 +4,28 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 
 # Scope
 
-- Implement all 173 approved records without regenerating, weakening, or editing canonical fixtures, normalized expected evidence, review records, or decision outcomes.
+- Implement all approved records without regenerating, weakening, or editing canonical fixtures, normalized expected evidence, review records, or decision outcomes.
 - Work only on `performance/core-v2`; keep Core v1, clean-room/comparison paths, prior evidence, dependency internals, and other refs/worktrees frozen.
-- Advance in dependency order with independent automation and one light-theme Lab route per case; run aggregate release gates only at meaningful milestones.
+- Advance in 5–10 case dependency tranches with shared product/automation substrate and risk-based gates. Prefer headless browser automation; reserve headed runs for behavior that headless cannot establish and final explicit checkpoints.
 
 # Current Facts
 
-- Contract revision `core-v2-functional-contract/2026-07-16.2` contains 173 records, 646 actions, and 1,388 assertions; all 38 journeys are migration-blocking P0.
+- Contract revision `core-v2-functional-contract/2026-07-16.2` contains 173 records, 646 actions, and 1,388 assertions; all journeys are migration-blocking P0.
 - Promotion requires expected-blind product execution, independent comparison, the exact focused route, declared packed-host evidence, cleanup, determinism, and review.
-- Core v2 accepts PATCH MAP arrays directly, preserves input and stable identity in a dense store, and renders aggregate Mesh/WebGL layers rather than per-entity Pixi objects.
+- Core v2 accepts PATCH MAP arrays directly, preserves immutable input and stable identity in a dense store, and renders aggregate Mesh/WebGL layers rather than per-entity Pixi objects.
 - WebGL2 is mandatory. Chromium 4× is a proxy; WebGPU and native Windows remain pending.
 
 # Current State
 
-- Canonical verification passes 38 decisions, 32 negative probes, and 173 records with approved artifacts unchanged. Twenty-six routes are connected, 25 produce actuals, `DAT-008` truthfully stops at its missing `as`, and 147 routes remain explicit stubs. Twelve out-of-registry expected diagnostic assertions remain immutable conflicts.
-- Dense reconcile, stable mutation identity, F×R affine geometry, aggregate relations, bounded entity/relation hit indexes, and atomic removal are implemented; `REN-007` matches 26/26 without per-entity display objects or listeners.
-- `AST-001` provides descriptor identity, exact builtins, explicit policy, backend-wide dedupe, session-scoped leases/retry, required preflight, external borrowing, Blob isolation, failed-unload quarantine, retained late-surface cleanup, and unique physical reload aliases. It matches 17/18; only expected `ASSET_ALIAS_CONFLICT` versus closed-registry actual `CONFLICT` remains and is labeled `observed-contract-conflict`.
-- `REN-005` provides lossless alias/URL/data-URI/descriptor identity, exact intrinsic affine projection, scoped Sprite/placeholder ownership, source-generation race suppression, transformed hit parity, hidden-image exclusion, and post-destroy request/backend cleanup. It produces all 28 observations; strict comparison is exactly 25/28 because three approved parent-object `eq` assertions omit child fields required by separate approved assertions. Those conflicts remain visible and expected evidence is unchanged.
-- `REN-008` and `REN-010` preserve owner-qualified component identity while switching a full-frame background from aggregate rect geometry to a Sprite, hiding/showing it through frame-safe release generations, replacing an icon source without moving its content-box bounds, and applying tint through the actual Sprite paint probe. Expected-blind execution matches exactly 10/10 and 11/11 in repeated fresh sessions with no supplemental WebGL lease or retained asset/controller state.
-- Eleven focused real-Pixi routes pass headed first/repeat/fresh at 146/149 with only the three declared REN-005 conflicts, one canvas returning to zero, and console/page/network/external-fixture errors zero. Unit passes 106 files/794 tests; typecheck, lint, contract verification, Core v2/Lab builds, packed ESM/CJS consumer, and 2+7 memory pass. The current observational memory rerun expands 1,000 items to 5,099 entities, retains median 106,351 bytes, and releases DOM/canvas/scheduler/renderer; frozen result artifacts remain unchanged.
-- Remaining rendering/layout/assets scope is 4 cases, 18 actions, and 72 assertions. International text, deterministic bars, and stacking/history remain. Packed Unicode fonts, transport byte/MIME/SVG guards, reload soak, accessibility/security/migration, WebGPU, and Windows-native evidence stay pending.
+- Canonical verification passes 38 decisions, 32 negative probes, and 173 records unchanged. Twenty-eight routes are connected, 27 produce actuals, `DAT-008` truthfully fails at its missing `as`, and 145 remain stubs. Twelve out-of-registry diagnostic assertions remain immutable conflicts.
+- Dense reconcile, affine geometry, aggregate relations, bounded hit indexes, atomic removal, scoped assets, background/icon Sprite lanes, and deterministic text semantics are implemented. `REN-006` preserves exact grapheme/bidi/fallback state and matches 30/30; `REN-011` pins placement, auto-font, wrap, overflow, and upright rules and matches 20/20.
+- Text semantics use a bounded Unicode profile independent of browser raster metrics, while Pixi `BitmapText`/guarded `Text` remains the raster sink. Publication is signature- and frame-correlated; the seven matrix specimens reuse one Engine, restore canonical state before patching, and release all runtime ownership on success or failure.
+- Automation derives its matrix oracle from detached pre-load authored facts and separately checks product export fidelity. The focused Lab exposes actual-only phases without expected data. Independent review is clean.
+- Full milestone gates pass 118 files/932 unit tests, lint, typecheck, Core v2/Lab builds, and canonical verification; the final fold-only correction passes 8 targeted files/119 tests. Chromium 143 headed first/repeat/fresh passes 13 routes at 196/199 with only the three declared `REN-005` conflicts, deterministic digests, canvas maximum one/cleanup zero, and zero console/page/network/external-fixture errors. Package, memory, and performance were not rerun because their owned paths and hot paths did not change.
 
 # Next Step
 
-Implement `REN-006` and `REN-011` on one deterministic Unicode semantic-layout sidecar. Preserve exact source while pinning grapheme, line-break, bidi, fallback, split, wrap, overflow, auto-font, and upright layout independently of browser raster metrics; feed the resulting visible text and styles to the existing Pixi text lane. Expose O(1) element/component text probes and renderer publication facts, then connect all 50 expected-blind assertions and the same focused Lab routes without echoing the seven REN-011 fixture-matrix outcomes.
+Implement the six-case presentation tranche `LAY-002`, `UPD-005`, `REN-009`, `ANI-001`, `ANI-002`, and `LAY-003`: one pure placement resolver, one deterministic presentation clock/controller, semantic-versus-frame publication, retarget/cadence/destroy safety, transient presentation geometry, stable paint-order planning, and engine-level undo/redo. Connect shared expected-blind dynamics/layout descriptors and six focused routes, then run tranche-level full gates; add browser, memory, and performance checkpoints only for the renderer scheduler, lifecycle ownership, and animation hot path actually changed.
 
 # Working Boundary
 
