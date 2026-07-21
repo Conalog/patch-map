@@ -297,6 +297,27 @@ describe('Core v2 runtime dense reconcile', () => {
     expect(renderer.markCalls).toEqual([]);
   });
 
+  it('accepts an explicitly owner-scoped component order without replacing dense refs', () => {
+    const { core } = createTestCore(allocated);
+    core.load([itemWithOrderedTextComponents(['first', 'second', 'third'])]);
+    const refs = new Map(
+      ['first', 'second', 'third'].map((id) => [id, core.ref(`item-a::text:${id}`)]),
+    );
+
+    const result = core.reconcile(
+      [itemWithOrderedTextComponents(['third', 'second', 'first'])],
+      { allowedComponentOrderOwners: ['item-a'] },
+    );
+    expect(result.status).toBe('committed');
+    expect(result.plan.batch.operations).toEqual([]);
+    expect(core.identity?.components.map((component) => component.componentId)).toEqual([
+      'third',
+      'second',
+      'first',
+    ]);
+    for (const [id, ref] of refs) expect(core.ref(`item-a::text:${id}`)).toEqual(ref);
+  });
+
   it('commits empty plans once and distinguishes exact no-op from semantic-only authority', () => {
     const { core } = createTestCore(allocated);
     const current = [directRect('box', { label: 'Before' })];
@@ -620,5 +641,20 @@ function itemWithText(text: string, width: number): Record<string, unknown> {
       placement: 'left',
       style: { fontSize: 16, wordWrapWidth: width },
     }],
+  };
+}
+
+function itemWithOrderedTextComponents(componentIds: readonly string[]): Record<string, unknown> {
+  return {
+    type: 'item',
+    id: 'item-a',
+    size: { width: 200, height: 80 },
+    components: componentIds.map((id) => ({
+      type: 'text',
+      id,
+      text: id,
+      placement: 'center',
+      style: { fontSize: 16 },
+    })),
   };
 }

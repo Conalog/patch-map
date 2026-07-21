@@ -77,11 +77,26 @@ import {
   removeCoreV2SemanticTarget,
   type CoreV2SemanticMutationDiagnostic,
 } from './semantic/mutation';
+import {
+  CORE_V2_MUTATION_TRANSACTION_REVISION,
+  planCoreV2MutationTransaction,
+  type CoreV2MutationOperation,
+  type CoreV2MutationTarget,
+  type CoreV2MutationTransactionDiagnostic,
+  type CoreV2MutationTransactionRequest,
+} from './semantic/transaction';
+import {
+  applyCoreV2RelativeGeometryUpdate,
+  resizeCoreV2GeometryAroundOrigin,
+  type CoreV2RelativeGeometryChanges,
+  type CoreV2VisibleCenterResize,
+} from './semantic/geometry-update';
 import type { CoreV2ReconcileDiagnostic } from './semantic/reconcile';
 import { CoreV2PresentationError } from './presentation';
 import {
   CoreV2SemanticHistory,
   type CoreV2HistoryDirection,
+  type CoreV2HistoryPreparedRecord,
   type CoreV2HistoryState,
   type CoreV2SemanticHistorySnapshotInput,
 } from './history';
@@ -189,6 +204,11 @@ export interface CoreV2SurfaceDebug {
   readonly activeGestureCount?: number;
   readonly renderCommandCount?: number;
   readonly visiblePrimitiveCount?: number;
+}
+
+export interface CoreV2InteractionOwnershipProbe {
+  readonly rootBindingCount: number;
+  readonly entityCallbackCount: number;
 }
 
 export interface CoreV2SurfaceEntityGeometry {
@@ -328,6 +348,13 @@ export interface CoreV2SurfaceReconcileResult {
 export interface CoreV2SurfaceReconcileOptions {
   /** Animate direct component bar changes; snap ancestor/layout reconciliation. */
   readonly animateBarChanges?: boolean;
+  /** Owner-qualified direct bar destinations permitted to animate. */
+  readonly animatedBarTargets?: readonly Readonly<{
+    readonly ownerId: string;
+    readonly componentId: string;
+  }>[];
+  /** Semantic item owners whose supplied component order is authoritative. */
+  readonly allowedComponentOrderOwners?: readonly string[];
 }
 
 export interface CoreV2EngineSceneImageAttemptProbe extends Omit<
@@ -515,6 +542,7 @@ export interface CoreV2EngineSurface {
     point: CoreV2Point,
     options?: CoreV2RelationHitOptions,
   ): CoreV2RelationHit | null;
+  interactionOwnershipProbe?(): CoreV2InteractionOwnershipProbe;
   destroy(): Promise<boolean>;
 }
 
@@ -563,6 +591,62 @@ export interface CoreV2EngineLoadResult {
   readonly rootIds: readonly string[];
 }
 
+/**
+ * Detached immutable query result. The private Engine registry, not these
+ * public fields, authorizes later mutation use.
+ */
+export interface CoreV2ResolvedTargetSnapshot {
+  readonly target: CoreV2MutationTarget;
+  readonly lifecycleGeneration: number;
+  readonly sceneRevision: number;
+  readonly value: Readonly<Record<string, unknown>>;
+}
+
+export interface CoreV2EngineTransactionHistory {
+  readonly recorded: boolean;
+  readonly commandId: string | null;
+  readonly depthDelta: number;
+  readonly state: CoreV2HistoryState;
+}
+
+interface CoreV2EngineTransactionResultBase {
+  readonly changed: boolean;
+  readonly actionId: string | null;
+  readonly previousRevisions: CoreV2RevisionStamp;
+  readonly revisions: CoreV2RevisionStamp;
+  readonly semanticHash: string | null;
+  readonly applied: readonly CoreV2MutationTarget[];
+  readonly missing: readonly CoreV2MutationTarget[];
+  readonly unchanged: readonly CoreV2MutationTarget[];
+  readonly history: CoreV2EngineTransactionHistory;
+}
+
+export type CoreV2EngineTransactionResult =
+  | Readonly<CoreV2EngineTransactionResultBase & {
+      readonly status: 'committed';
+      readonly changed: true;
+      readonly publication: 'pending';
+      readonly denseOperationCount: number;
+      readonly denseChanged: boolean;
+      readonly reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[];
+    }>
+  | Readonly<CoreV2EngineTransactionResultBase & {
+      readonly status: 'unchanged';
+      readonly changed: false;
+    }>
+  | Readonly<CoreV2EngineTransactionResultBase & {
+      readonly status: 'rejected';
+      readonly changed: false;
+      readonly diagnostic: CoreV2EngineDiagnostic;
+      readonly transactionDiagnostic?: CoreV2MutationTransactionDiagnostic;
+    }>
+  | Readonly<CoreV2EngineTransactionResultBase & {
+      readonly status: 'refused';
+      readonly changed: false;
+      readonly diagnostic: CoreV2EngineDiagnostic;
+      readonly reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[];
+    }>;
+
 interface CoreV2EnginePatchResultBase {
   readonly changed: boolean;
   readonly target: CoreV2SemanticTarget | null;
@@ -593,7 +677,7 @@ export type CoreV2EnginePatchResult =
       readonly status: 'rejected';
       readonly changed: false;
       readonly diagnostic: CoreV2EngineDiagnostic;
-      readonly mutationDiagnostic: CoreV2SemanticMutationDiagnostic;
+      readonly mutationDiagnostic?: CoreV2SemanticMutationDiagnostic;
     }>
   | Readonly<CoreV2EnginePatchResultBase & {
       readonly status: 'refused';
@@ -738,7 +822,9 @@ type CoreV2EngineEventMap = {
     frameRevision: number;
     publishedTuple: CoreV2PublishedTuple;
   }>;
-  readonly change: Extract<CoreV2EnginePatchResult, { readonly status: 'committed' }>;
+  readonly change:
+    | Extract<CoreV2EnginePatchResult, { readonly status: 'committed' }>
+    | Extract<CoreV2EngineTransactionResult, { readonly status: 'committed' }>;
   readonly targetDestroyed: Extract<
     CoreV2EngineDestroyTargetResult,
     { readonly status: 'committed' }
@@ -769,6 +855,12 @@ interface IndexedEngineTextSemantic {
   readonly gridTemplate: boolean;
 }
 
+interface CoreV2ResolvedTargetAuthority {
+  readonly target: CoreV2MutationTarget;
+  readonly lifecycleGeneration: number;
+  readonly sceneRevision: number;
+}
+
 interface CoreV2EngineHistoryCompanion {
   readonly selectionIds: readonly string[];
 }
@@ -788,10 +880,15 @@ export class CoreV2Engine {
   private initializePromise: Promise<CoreV2InitializeResult> | null = null;
   private instanceId: string | null = null;
   private materialized: MaterializedCoreV2Dataset | null = null;
+  private readonly resolvedTargetAuthorities = new WeakMap<
+    CoreV2ResolvedTargetSnapshot,
+    CoreV2ResolvedTargetAuthority
+  >();
   private componentSemantics = new Map<string, CoreV2EngineComponentSemanticProbe>();
   private textSemantics = new Map<string, IndexedEngineTextSemantic>();
   private datasetRef: string | null = null;
   private lifecycleGeneration = 0;
+  private targetLifecycleGeneration = 0;
   private sceneRevision = 0;
   private viewRevision = 0;
   private interactionRevision = 0;
@@ -978,6 +1075,7 @@ export class CoreV2Engine {
       this.interactionRevision += 1;
     }
     this.materialized = materialized;
+    this.targetLifecycleGeneration += 1;
     this.history.clear();
     this.componentSemantics = componentSemantics;
     this.textSemantics = textSemantics;
@@ -992,6 +1090,270 @@ export class CoreV2Engine {
     });
     this.emit('sceneCommitted', result);
     return result;
+  }
+
+  /**
+   * Apply one versioned, ordered semantic transaction. Candidate validation,
+   * index construction, and history detachment finish before the aggregate
+   * surface is allowed to publish the candidate.
+   */
+  public transact(
+    request: CoreV2MutationTransactionRequest,
+    schemaRevision = CORE_V2_MUTATION_TRANSACTION_REVISION,
+  ): CoreV2EngineTransactionResult {
+    const surface = this.requireSurface('transact');
+    const previousRevisions = this.revisionStamp();
+    const previousHistory = this.history.state();
+    const plan = planCoreV2MutationTransaction(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      request,
+      schemaRevision,
+    );
+
+    if (plan.status === 'rejected') {
+      const diagnostic = this.engineTransactionDiagnostic(plan.diagnostic, 'transact');
+      const result = this.rejectedTransactionResult(
+        plan.actionId ?? null,
+        previousRevisions,
+        diagnostic,
+        plan.diagnostic,
+        previousHistory,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    const actionId = plan.actionId ?? null;
+    if (plan.conflictPolicy !== 'reject') {
+      const diagnostic = this.operationDiagnostic(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'transact',
+        true,
+      );
+      const result = this.rejectedTransactionResult(
+        actionId,
+        previousRevisions,
+        diagnostic,
+        undefined,
+        previousHistory,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+    if (plan.history !== undefined) {
+      const diagnostic = this.operationDiagnostic(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'transact',
+        true,
+      );
+      const result = this.rejectedTransactionResult(
+        actionId,
+        previousRevisions,
+        diagnostic,
+        undefined,
+        previousHistory,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    if (!plan.changed) {
+      return Object.freeze({
+        status: 'unchanged',
+        changed: false,
+        actionId,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: freezeMutationTargets(plan.applied),
+        missing: freezeMutationTargets(plan.missing),
+        unchanged: freezeMutationTargets(plan.unchanged),
+        history: freezeTransactionHistory(false, null, previousHistory, previousHistory),
+      } satisfies CoreV2EngineTransactionResult);
+    }
+
+    if (!surface.reconcile) {
+      const diagnostic = this.operationDiagnostic(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'transact',
+        false,
+      );
+      const result = this.refusedTransactionResult(
+        actionId,
+        previousRevisions,
+        diagnostic,
+        plan,
+        previousHistory,
+        EMPTY_RECONCILE_DIAGNOSTICS,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    const componentSemantics = indexComponentSemantics(plan.candidate.dataset);
+    const textSemantics = indexTextSemantics(plan.candidate.dataset);
+    const selectionBefore = surface.debugSnapshot().selectionIds;
+    const selectionAfter = transactionSelectionAfter(selectionBefore, plan.operations);
+    const commandId = actionId ?? `transaction:${this.sceneRevision + 1}`;
+    let preparedHistory: CoreV2HistoryPreparedRecord | null = null;
+    try {
+      if (plan.recordHistory !== false) {
+        preparedHistory = this.history.prepareRecord({
+          id: commandId,
+          before: this.historySnapshot(surface),
+          after: historySnapshotForDataset(plan.candidate.dataset, selectionAfter),
+        });
+      }
+    } catch (error) {
+      const diagnostic = this.diagnosticFrom(error, 'transact');
+      const result = this.rejectedTransactionResult(
+        actionId,
+        previousRevisions,
+        diagnostic,
+        undefined,
+        previousHistory,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    const animatedBarTargets = directAnimatedBarTargets(plan.operations, plan.candidate.dataset);
+    const allowedComponentOrderOwners = componentOrderOwners(plan.operations);
+    let reconcile: CoreV2SurfaceReconcileResult;
+    try {
+      reconcile = surface.reconcile(plan.candidate.dataset, {
+        animateBarChanges: animatedBarTargets.length > 0,
+        animatedBarTargets,
+        allowedComponentOrderOwners,
+      });
+    } catch (error) {
+      if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
+      const diagnostic = this.diagnosticFrom(error, 'transact');
+      const result = this.refusedTransactionResult(
+        actionId,
+        previousRevisions,
+        diagnostic,
+        plan,
+        previousHistory,
+        EMPTY_RECONCILE_DIAGNOSTICS,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
+    if (reconcile.status === 'refused') {
+      if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
+      const datasetPath = reconcileDiagnostics.find((entry) => entry.severity === 'error')?.path;
+      const diagnostic = this.operationDiagnostic(
+        'CONFLICT',
+        'CONFLICT',
+        'transact',
+        true,
+        datasetPath,
+      );
+      const result = this.refusedTransactionResult(
+        actionId,
+        previousRevisions,
+        diagnostic,
+        plan,
+        previousHistory,
+        reconcileDiagnostics,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    this.materialized = plan.candidate;
+    this.componentSemantics = componentSemantics;
+    this.textSemantics = textSemantics;
+    this.sceneRevision += 1;
+    this.lifecycle = plan.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
+    if (!sameStringArray(selectionBefore, surface.debugSnapshot().selectionIds)) {
+      this.interactionRevision += 1;
+    }
+    let historyRecorded = false;
+    if (preparedHistory !== null) {
+      const historyStatus = this.history.commitPrepared(preparedHistory);
+      if (historyStatus === 'stale' || historyStatus === 'invalid' || historyStatus === 'cancelled') {
+        throw new Error(`history preflight became ${historyStatus} after surface commit`);
+      }
+      historyRecorded = historyStatus === 'recorded';
+    }
+    const currentHistory = this.history.state();
+    const result = Object.freeze({
+      status: 'committed',
+      changed: true,
+      actionId,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: plan.candidate.semanticHash,
+      applied: freezeMutationTargets(plan.applied),
+      missing: freezeMutationTargets(plan.missing),
+      unchanged: freezeMutationTargets(plan.unchanged),
+      history: freezeTransactionHistory(
+        historyRecorded,
+        historyRecorded ? commandId : null,
+        previousHistory,
+        currentHistory,
+      ),
+      publication: 'pending',
+      denseOperationCount: reconcile.operationCount,
+      denseChanged: reconcile.denseChanged,
+      reconcileDiagnostics,
+    } satisfies CoreV2EngineTransactionResult);
+    this.emit('change', result);
+    return result;
+  }
+
+  public relativePatch(
+    targetInput: Extract<CoreV2MutationTarget, { readonly kind: 'element' }>,
+    changes: CoreV2RelativeGeometryChanges,
+  ): CoreV2EnginePatchResult {
+    this.requireSurface('relativePatch');
+    const target = normalizeEngineMutationTarget(targetInput);
+    if (target.kind !== 'element') throw new TypeError('relativePatch requires an element target');
+    const current = this.materialized === null
+      ? null
+      : findEngineSemanticTarget(this.materialized.dataset, target);
+    if (current === null) return this.patch(target, {});
+    const geometry = applyCoreV2RelativeGeometryUpdate(
+      current as unknown as NormalizedCoreV2Element,
+      changes,
+    );
+    if (geometry.candidate === null) {
+      return this.rejectedGeometryPatchResult(target, geometry, 'relativePatch');
+    }
+    if (geometry.status === 'unchanged') return this.patch(target, {});
+    return this.patch(target, { attrs: geometry.candidate.attrs });
+  }
+
+  public resizeAroundOrigin(
+    targetInput: Extract<CoreV2MutationTarget, { readonly kind: 'element' }>,
+    resize: Omit<CoreV2VisibleCenterResize, 'parentAffine'>,
+  ): CoreV2EnginePatchResult {
+    this.requireSurface('resizeAroundOrigin');
+    const target = normalizeEngineMutationTarget(targetInput);
+    if (target.kind !== 'element') throw new TypeError('resizeAroundOrigin requires an element target');
+    const current = this.materialized === null
+      ? null
+      : findEngineSemanticTarget(this.materialized.dataset, target);
+    if (current === null) return this.patch(target, {});
+    const geometry = resizeCoreV2GeometryAroundOrigin(
+      current as unknown as NormalizedCoreV2Element,
+      resize,
+    );
+    if (geometry.candidate === null) {
+      return this.rejectedGeometryPatchResult(target, geometry, 'resizeAroundOrigin');
+    }
+    if (geometry.status === 'unchanged') return this.patch(target, {});
+    return this.patch(target, {
+      attrs: geometry.candidate.attrs,
+      size: geometry.candidate.size,
+    });
   }
 
   /**
@@ -1054,15 +1416,41 @@ export class CoreV2Engine {
       );
     }
 
-    const historyBefore = this.historySnapshot(surface);
     const componentSemantics = indexComponentSemantics(mutation.candidate.dataset);
     const textSemantics = indexTextSemantics(mutation.candidate.dataset);
+    const selectionBefore = surface.debugSnapshot().selectionIds;
+    let preparedHistory: CoreV2HistoryPreparedRecord;
+    try {
+      preparedHistory = this.history.prepareRecord({
+        id: `patch:${this.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
+        before: this.historySnapshot(surface),
+        after: historySnapshotForDataset(mutation.candidate.dataset, selectionBefore),
+      });
+    } catch (error) {
+      const diagnostic = this.diagnosticFrom(error, 'patch');
+      const result = Object.freeze({
+        status: 'refused',
+        changed: false,
+        target: mutation.target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: EMPTY_TARGETS,
+        unchanged: EMPTY_TARGETS,
+        diagnostic,
+        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+      } satisfies CoreV2EnginePatchResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
     let reconcile: CoreV2SurfaceReconcileResult;
     try {
       reconcile = surface.reconcile(mutation.candidate.dataset, {
         animateBarChanges: mutation.target.kind === 'component',
       });
     } catch (error) {
+      this.history.cancelPrepared(preparedHistory);
       const diagnostic = this.diagnosticFrom(error, 'patch');
       const result = Object.freeze({
         status: 'refused',
@@ -1083,6 +1471,7 @@ export class CoreV2Engine {
 
     const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
     if (reconcile.status === 'refused') {
+      this.history.cancelPrepared(preparedHistory);
       return this.refusedPatchResult(
         mutation.target,
         previousRevisions,
@@ -1098,11 +1487,10 @@ export class CoreV2Engine {
     this.textSemantics = textSemantics;
     this.sceneRevision += 1;
     this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
-    this.history.record({
-      id: `patch:${this.sceneRevision}:${semanticTargetIdentity(mutation.target)}`,
-      before: historyBefore,
-      after: this.historySnapshot(surface),
-    });
+    const historyStatus = this.history.commitPrepared(preparedHistory);
+    if (historyStatus === 'stale' || historyStatus === 'invalid' || historyStatus === 'cancelled') {
+      throw new Error(`patch history preflight became ${historyStatus} after surface commit`);
+    }
     const result = Object.freeze({
       status: 'committed',
       changed: true,
@@ -1171,16 +1559,44 @@ export class CoreV2Engine {
       );
     }
 
-    const historyBefore = this.historySnapshot(surface);
     const componentSemantics = indexComponentSemantics(mutation.candidate.dataset);
     const textSemantics = indexTextSemantics(mutation.candidate.dataset);
     const selectionBefore = surface.debugSnapshot().selectionIds;
+    const selectionAfter = Object.freeze(
+      selectionBefore.filter((id) => id !== mutation.target.id),
+    );
+    let preparedHistory: CoreV2HistoryPreparedRecord;
+    try {
+      preparedHistory = this.history.prepareRecord({
+        id: `destroy:${this.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
+        before: this.historySnapshot(surface),
+        after: historySnapshotForDataset(mutation.candidate.dataset, selectionAfter),
+      });
+    } catch (error) {
+      const diagnostic = this.diagnosticFrom(error, 'destroyTarget');
+      const result = Object.freeze({
+        status: 'refused',
+        changed: false,
+        target: mutation.target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: EMPTY_TARGETS,
+        unchanged: EMPTY_TARGETS,
+        diagnostic,
+        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+      } satisfies CoreV2EngineDestroyTargetResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
     let reconcile: CoreV2SurfaceReconcileResult;
     try {
       reconcile = surface.reconcile(mutation.candidate.dataset, {
         animateBarChanges: false,
       });
     } catch (error) {
+      this.history.cancelPrepared(preparedHistory);
       const diagnostic = this.diagnosticFrom(error, 'destroyTarget');
       const result = Object.freeze({
         status: 'refused',
@@ -1201,6 +1617,7 @@ export class CoreV2Engine {
 
     const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
     if (reconcile.status === 'refused') {
+      this.history.cancelPrepared(preparedHistory);
       return this.refusedDestroyTargetResult(
         mutation.target,
         previousRevisions,
@@ -1219,11 +1636,10 @@ export class CoreV2Engine {
     if (!sameStringArray(selectionBefore, surface.debugSnapshot().selectionIds)) {
       this.interactionRevision += 1;
     }
-    this.history.record({
-      id: `destroy:${this.sceneRevision}:${semanticTargetIdentity(mutation.target)}`,
-      before: historyBefore,
-      after: this.historySnapshot(surface),
-    });
+    const historyStatus = this.history.commitPrepared(preparedHistory);
+    if (historyStatus === 'stale' || historyStatus === 'invalid' || historyStatus === 'cancelled') {
+      throw new Error(`destroy history preflight became ${historyStatus} after surface commit`);
+    }
     const result = Object.freeze({
       status: 'committed',
       changed: true,
@@ -1389,6 +1805,64 @@ export class CoreV2Engine {
   public screenToWorld(point: CoreV2Point): CoreV2Point {
     validatePoint(point, 'screenToWorld');
     return this.requireSurface('screenToWorld').screenToWorld(point);
+  }
+
+  public resolveTarget(targetInput: CoreV2MutationTarget): CoreV2ResolvedTargetSnapshot | null {
+    this.requireSurface('resolveTarget');
+    const target = normalizeEngineMutationTarget(targetInput);
+    const value = this.materialized === null
+      ? null
+      : findEngineSemanticTarget(this.materialized.dataset, target);
+    if (value === null) return null;
+    const snapshot = Object.freeze({
+      target,
+      lifecycleGeneration: this.targetLifecycleGeneration,
+      sceneRevision: this.sceneRevision,
+      value: cloneDetachedEngineRecord(value),
+    });
+    this.resolvedTargetAuthorities.set(snapshot, Object.freeze({
+      target,
+      lifecycleGeneration: this.targetLifecycleGeneration,
+      sceneRevision: this.sceneRevision,
+    }));
+    return snapshot;
+  }
+
+  public patchResolved(
+    snapshot: CoreV2ResolvedTargetSnapshot,
+    patch: unknown,
+  ): CoreV2EnginePatchResult {
+    this.requireSurface('patch');
+    const authority = this.resolvedTargetAuthorities.get(snapshot);
+    if (
+      authority === undefined ||
+      authority.lifecycleGeneration !== this.targetLifecycleGeneration ||
+      authority.sceneRevision !== this.sceneRevision
+    ) {
+      const previousRevisions = this.revisionStamp();
+      const target = authority?.target ?? normalizeSnapshotTarget(snapshot);
+      const diagnostic = this.operationDiagnostic(
+        'STALE_TARGET',
+        'STALE_TARGET',
+        'patch',
+        true,
+      );
+      const result = Object.freeze({
+        status: 'rejected',
+        changed: false,
+        target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: EMPTY_TARGETS,
+        unchanged: EMPTY_TARGETS,
+        diagnostic,
+      } satisfies CoreV2EnginePatchResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+    return this.patch(authority.target, patch);
   }
 
   public query(target: { readonly id: string }): Readonly<Record<string, unknown>> | null {
@@ -1654,6 +2128,10 @@ export class CoreV2Engine {
     }
     const surface = this.requireSurface('relationHitTestScreen');
     return surface.relationHitTestScreen?.(point, options) ?? null;
+  }
+
+  public interactionOwnershipProbe(): CoreV2InteractionOwnershipProbe | null {
+    return this.requireSurface('interactionOwnershipProbe').interactionOwnershipProbe?.() ?? null;
   }
 
   public exportDataset(): readonly NormalizedCoreV2Element[] {
@@ -2068,6 +2546,110 @@ export class CoreV2Engine {
     });
   }
 
+  private engineTransactionDiagnostic(
+    diagnostic: CoreV2MutationTransactionDiagnostic,
+    operation: string,
+  ): CoreV2EngineDiagnostic {
+    const category: CoreV2DiagnosticCategory = diagnostic.category === 'MISSING_TARGET'
+      ? 'MISSING_TARGET'
+      : diagnostic.category === 'UNSUPPORTED_RUNTIME'
+        ? 'UNSUPPORTED_RUNTIME'
+        : 'INVALID_INPUT';
+    const base = this.operationDiagnostic(
+      diagnostic.code,
+      category,
+      operation,
+      true,
+      diagnostic.path,
+    );
+    return Object.freeze({
+      ...base,
+      missingCount: diagnostic.category === 'MISSING_TARGET' ? 1 : 0,
+    });
+  }
+
+  private rejectedTransactionResult(
+    actionId: string | null,
+    previousRevisions: CoreV2RevisionStamp,
+    diagnostic: CoreV2EngineDiagnostic,
+    transactionDiagnostic: CoreV2MutationTransactionDiagnostic | undefined,
+    history: CoreV2HistoryState,
+  ): Extract<CoreV2EngineTransactionResult, { readonly status: 'rejected' }> {
+    return Object.freeze({
+      status: 'rejected',
+      changed: false,
+      actionId,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: this.materialized?.semanticHash ?? null,
+      applied: freezeMutationTargets([]),
+      missing: freezeMutationTargets([]),
+      unchanged: freezeMutationTargets([]),
+      history: freezeTransactionHistory(false, null, history, history),
+      diagnostic,
+      ...(transactionDiagnostic === undefined ? {} : { transactionDiagnostic }),
+    });
+  }
+
+  private refusedTransactionResult(
+    actionId: string | null,
+    previousRevisions: CoreV2RevisionStamp,
+    diagnostic: CoreV2EngineDiagnostic,
+    _plan: Extract<
+      ReturnType<typeof planCoreV2MutationTransaction>,
+      { readonly status: 'planned' }
+    >,
+    history: CoreV2HistoryState,
+    reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[],
+  ): Extract<CoreV2EngineTransactionResult, { readonly status: 'refused' }> {
+    return Object.freeze({
+      status: 'refused',
+      changed: false,
+      actionId,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: this.materialized?.semanticHash ?? null,
+      applied: freezeMutationTargets([]),
+      missing: freezeMutationTargets([]),
+      unchanged: freezeMutationTargets([]),
+      history: freezeTransactionHistory(false, null, history, history),
+      diagnostic,
+      reconcileDiagnostics,
+    });
+  }
+
+  private rejectedGeometryPatchResult(
+    target: Extract<CoreV2MutationTarget, { readonly kind: 'element' }>,
+    failure: Readonly<{
+      readonly status: 'rejected' | 'unsupported';
+      readonly diagnostic: Readonly<{ readonly path: string }>;
+    }>,
+    operation: string,
+  ): Extract<CoreV2EnginePatchResult, { readonly status: 'rejected' }> {
+    const previousRevisions = this.revisionStamp();
+    const diagnostic = this.operationDiagnostic(
+      failure.status === 'unsupported' ? 'UNSUPPORTED_RUNTIME' : 'INVALID_VALUE',
+      failure.status === 'unsupported' ? 'UNSUPPORTED_RUNTIME' : 'INVALID_INPUT',
+      operation,
+      true,
+      failure.diagnostic.path,
+    );
+    const result = Object.freeze({
+      status: 'rejected',
+      changed: false,
+      target,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: this.materialized?.semanticHash ?? null,
+      applied: EMPTY_TARGETS,
+      missing: EMPTY_TARGETS,
+      unchanged: EMPTY_TARGETS,
+      diagnostic,
+    } satisfies CoreV2EnginePatchResult);
+    this.emit('diagnostic', diagnostic);
+    return result;
+  }
+
   private refusedPatchResult(
     target: CoreV2SemanticTarget,
     previousRevisions: CoreV2RevisionStamp,
@@ -2289,9 +2871,17 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     input: unknown,
     options: CoreV2SurfaceReconcileOptions = {},
   ): CoreV2SurfaceReconcileResult {
-    const result = this.core.reconcile(input, options.animateBarChanges === undefined
-      ? {}
-      : { animateBarChanges: options.animateBarChanges });
+    const result = this.core.reconcile(input, {
+      ...(options.animateBarChanges === undefined
+        ? {}
+        : { animateBarChanges: options.animateBarChanges }),
+      ...(options.animatedBarTargets === undefined
+        ? {}
+        : { animatedBarTargets: options.animatedBarTargets }),
+      ...(options.allowedComponentOrderOwners === undefined
+        ? {}
+        : { allowedComponentOrderOwners: options.allowedComponentOrderOwners }),
+    });
     if (result.status === 'committed') {
       this.geometryRevision += 1;
       this.geometryRevisionProjection = this.core.visibleProjection;
@@ -2488,6 +3078,10 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
       return relation ? [relation] : [];
     });
     return hitTestCoreV2SurfaceRelations(candidates, point, options);
+  }
+
+  public interactionOwnershipProbe(): CoreV2InteractionOwnershipProbe {
+    return this.core.interactionOwnershipProbe();
   }
 
   public async destroy(): Promise<boolean> {
@@ -2918,6 +3512,153 @@ function packedColorToHex(value: number): string {
 
 const EMPTY_TARGETS = Object.freeze([] as CoreV2SemanticTarget[]);
 const EMPTY_RECONCILE_DIAGNOSTICS = Object.freeze([] as CoreV2ReconcileDiagnostic[]);
+
+function freezeMutationTargets(
+  values: readonly CoreV2MutationTarget[],
+): readonly CoreV2MutationTarget[] {
+  return Object.freeze(values.map((target) => Object.freeze({ ...target })));
+}
+
+function freezeTransactionHistory(
+  recorded: boolean,
+  commandId: string | null,
+  previous: CoreV2HistoryState,
+  current: CoreV2HistoryState,
+): CoreV2EngineTransactionHistory {
+  return Object.freeze({
+    recorded,
+    commandId,
+    depthDelta: current.undoDepth - previous.undoDepth,
+    state: current,
+  });
+}
+
+function historySnapshotForDataset(
+  dataset: readonly NormalizedCoreV2Element[],
+  selectionIds: readonly string[],
+): CoreV2SemanticHistorySnapshotInput<
+  readonly NormalizedCoreV2Element[],
+  CoreV2EngineHistoryCompanion
+> {
+  return Object.freeze({
+    dataset,
+    companion: Object.freeze({ selectionIds: Object.freeze([...selectionIds]) }),
+  });
+}
+
+function transactionSelectionAfter(
+  selectionIds: readonly string[],
+  operations: readonly CoreV2MutationOperation[],
+): readonly string[] {
+  const removed = new Set(
+    operations
+      .filter((operation) => operation.op === 'remove' && operation.target.kind === 'element')
+      .map((operation) => operation.target.id),
+  );
+  return Object.freeze(selectionIds.filter((id) => !removed.has(id)));
+}
+
+function directAnimatedBarTargets(
+  operations: readonly CoreV2MutationOperation[],
+  dataset: readonly NormalizedCoreV2Element[],
+): readonly Readonly<{ readonly ownerId: string; readonly componentId: string }>[] {
+  const targets = new Map<string, Readonly<{ ownerId: string; componentId: string }>>();
+  for (const operation of operations) {
+    if (operation.op !== 'merge' || operation.target.kind !== 'component') continue;
+    if (!operation.changes.some((change) => change.path[0] === 'size')) continue;
+    const record = findEngineSemanticTarget(dataset, operation.target);
+    if (record?.type !== 'bar') continue;
+    const target = Object.freeze({
+      ownerId: operation.target.ownerId,
+      componentId: operation.target.id,
+    });
+    targets.set(componentSemanticKey(target.ownerId, target.componentId), target);
+  }
+  return Object.freeze([...targets.values()]);
+}
+
+function componentOrderOwners(
+  operations: readonly CoreV2MutationOperation[],
+): readonly string[] {
+  return Object.freeze([...new Set(
+    operations
+      .filter((operation) => operation.op === 'reconcile-components')
+      .map((operation) => operation.target.id),
+  )]);
+}
+
+function normalizeEngineMutationTarget(value: unknown): CoreV2MutationTarget {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('target must be an object');
+  }
+  const record = value as Readonly<Record<string, unknown>>;
+  if (record.kind === 'element' && typeof record.id === 'string' && record.id.length > 0) {
+    if (Object.keys(record).some((key) => key !== 'kind' && key !== 'id')) {
+      throw new TypeError('element target contains an unknown field');
+    }
+    return Object.freeze({ kind: 'element', id: record.id });
+  }
+  if (
+    record.kind === 'component' &&
+    typeof record.ownerId === 'string' &&
+    record.ownerId.length > 0 &&
+    typeof record.id === 'string' &&
+    record.id.length > 0
+  ) {
+    if (Object.keys(record).some((key) => !['kind', 'ownerId', 'id'].includes(key))) {
+      throw new TypeError('component target contains an unknown field');
+    }
+    return Object.freeze({ kind: 'component', ownerId: record.ownerId, id: record.id });
+  }
+  throw new TypeError('target must be an element or owner-qualified component');
+}
+
+function normalizeSnapshotTarget(value: unknown): CoreV2MutationTarget | null {
+  if (value === null || typeof value !== 'object') return null;
+  try {
+    return normalizeEngineMutationTarget(Reflect.get(value, 'target'));
+  } catch {
+    return null;
+  }
+}
+
+function findEngineSemanticTarget(
+  dataset: readonly NormalizedCoreV2Element[],
+  target: CoreV2MutationTarget,
+): Readonly<Record<string, unknown>> | null {
+  let result: Readonly<Record<string, unknown>> | null = null;
+  const visit = (elements: readonly NormalizedCoreV2Element[]): void => {
+    for (const element of elements) {
+      if (target.kind === 'element' && element.id === target.id) {
+        result = element as Readonly<Record<string, unknown>>;
+      }
+      if (target.kind === 'component' && element.id === target.ownerId) {
+        const components = element.type === 'item'
+          ? element.components
+          : element.type === 'grid'
+            ? element.item.components
+            : Object.freeze([] as CoreV2Component[]);
+        const component = components.find((entry) => entry.id === target.id);
+        if (component !== undefined) {
+          result = component as unknown as Readonly<Record<string, unknown>>;
+        }
+      }
+      if (element.type === 'group') visit(element.children);
+    }
+  };
+  visit(dataset);
+  return result;
+}
+
+function cloneDetachedEngineRecord(
+  value: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const clone = cloneDetachedComponentValue(value);
+  if (clone === null || typeof clone !== 'object' || Array.isArray(clone)) {
+    throw new Error('target snapshot clone lost record shape');
+  }
+  return clone as Readonly<Record<string, unknown>>;
+}
 
 function semanticTargetIdentity(target: CoreV2SemanticTarget): string {
   return target.kind === 'element'

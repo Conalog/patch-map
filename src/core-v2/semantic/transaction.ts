@@ -106,6 +106,7 @@ export type CoreV2MutationTransactionPlan =
       readonly schemaRevision: typeof CORE_V2_MUTATION_TRANSACTION_REVISION;
       readonly strict: boolean;
       readonly conflictPolicy: CoreV2MutationConflictPolicy;
+      readonly operations: readonly CoreV2MutationOperation[];
       readonly actionId?: string;
       readonly recordHistory?: boolean;
       readonly history?: CoreV2MutationJsonValue;
@@ -119,6 +120,7 @@ export type CoreV2MutationTransactionPlan =
       readonly status: 'rejected';
       readonly changed: false;
       readonly schemaRevision: typeof CORE_V2_MUTATION_TRANSACTION_REVISION;
+      readonly actionId?: string;
       readonly candidate: null;
       readonly applied: readonly [];
       readonly missing: readonly [];
@@ -226,6 +228,7 @@ export function planCoreV2MutationTransaction(
   if (!Array.isArray(stagedValue)) {
     return rejected(
       diagnostic('INVALID_VALUE', 'INVALID_INPUT', '$.current', 'Current dataset must be an array'),
+      request.actionId,
     );
   }
   const staged = stagedValue;
@@ -283,7 +286,7 @@ export function planCoreV2MutationTransaction(
     });
   } catch (error) {
     if (!(error instanceof TransactionValidationFailure)) throw error;
-    return rejected(error.diagnostic);
+    return rejected(error.diagnostic, request.actionId);
   }
 
   let candidate: MaterializedCoreV2Dataset;
@@ -302,6 +305,7 @@ export function planCoreV2MutationTransaction(
         undefined,
         error.code,
       ),
+      request.actionId,
     );
   }
 
@@ -317,6 +321,7 @@ export function planCoreV2MutationTransaction(
     schemaRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
     strict: request.strict,
     conflictPolicy: request.conflictPolicy,
+    operations: request.operations,
     ...(request.actionId === undefined ? {} : { actionId: request.actionId }),
     ...(request.recordHistory === undefined ? {} : { recordHistory: request.recordHistory }),
     ...(request.history === undefined ? {} : { history: request.history }),
@@ -1195,11 +1200,13 @@ function freezeSummary(
 
 function rejected(
   mutationDiagnostic: CoreV2MutationTransactionDiagnostic,
+  actionId?: string,
 ): Extract<CoreV2MutationTransactionPlan, { readonly status: 'rejected' }> {
   return Object.freeze({
     status: 'rejected',
     changed: false,
     schemaRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+    ...(actionId === undefined ? {} : { actionId }),
     candidate: null,
     applied: EMPTY_TARGETS,
     missing: EMPTY_TARGETS,

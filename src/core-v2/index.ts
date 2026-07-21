@@ -67,6 +67,16 @@ export {
   createCoreV2SemanticProbe,
 } from './semantic/probe';
 export type * from './semantic/probe';
+export {
+  CORE_V2_MUTATION_TRANSACTION_REVISION,
+  planCoreV2MutationTransaction,
+} from './semantic/transaction';
+export type * from './semantic/transaction';
+export {
+  applyCoreV2RelativeGeometryUpdate,
+  resizeCoreV2GeometryAroundOrigin,
+} from './semantic/geometry-update';
+export type * from './semantic/geometry-update';
 export { PixiCoreV2Renderer } from './renderers/pixi-renderer';
 export type {
   PixiCoreV2InitializationMetrics,

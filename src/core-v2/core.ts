@@ -119,6 +119,10 @@ export interface CoreV2ReconcileOptions extends CoreV2DenseReconcileOptions {
    * Direct Core callers retain the animated default.
    */
   readonly animateBarChanges?: boolean;
+  /** Limit animation to direct owner-qualified bar mutations. */
+  readonly animatedBarTargets?: readonly CoreV2ComponentVisualTarget[];
+  /** Permit authoritative component order changes for these semantic item owners. */
+  readonly allowedComponentOrderOwners?: readonly string[];
 }
 
 export interface CoreV2ReconcileTimings {
@@ -498,7 +502,7 @@ export class CoreV2 {
     const plan = planCoreV2SceneReconcile(
       currentParse.document,
       parse.document,
-      denseReconcileOptions(options),
+      denseReconcileOptions(options, currentParse, parse),
     );
     const semanticChanged = !jsonEquivalent(currentParse, parse);
     const planMs = now() - planStarted;
@@ -532,6 +536,7 @@ export class CoreV2 {
     const presentation = this.reconcileBarPresentation(
       parse.projection,
       options.animateBarChanges !== false,
+      options.animatedBarTargets,
     );
     this.parseResultValue = parse;
     this.projectionValue = parse.projection;
@@ -1110,6 +1115,14 @@ export class CoreV2 {
     });
   }
 
+  public interactionOwnershipProbe(): Readonly<{
+    readonly rootBindingCount: number;
+    readonly entityCallbackCount: number;
+  }> {
+    this.assertAlive();
+    return this.renderer.interactionOwnershipProbe();
+  }
+
   public async destroy(): Promise<boolean> {
     if (this.destroyedValue) return false;
     this.destroyedValue = true;
@@ -1224,11 +1237,15 @@ export class CoreV2 {
   private reconcileBarPresentation(
     next: CoreV2ProjectionIndex,
     animateBarChanges: boolean,
+    animatedBarTargets?: readonly CoreV2ComponentVisualTarget[],
   ): CoreV2ProjectionIndex {
     const previousBars = this.projectionValue?.barsByEntityId ?? {};
     const nextBars = next.barsByEntityId ?? {};
     const visibleHeights = new Map<string, number>();
     const timeMs = this.animationClockMs;
+    const animatedTargetKeys = animatedBarTargets === undefined
+      ? null
+      : new Set(animatedBarTargets.map(componentTargetKey));
 
     for (const entityId of Object.keys(previousBars).sort()) {
       if (nextBars[entityId] !== undefined) continue;
@@ -1254,6 +1271,10 @@ export class CoreV2 {
         previous?.destinationHeight ??
         bar.destinationHeight;
       const canAnimate = animateBarChanges &&
+        (animatedTargetKeys === null || animatedTargetKeys.has(componentTargetKey({
+          ownerId: bar.ownerId,
+          componentId: bar.componentId,
+        }))) &&
         previous !== undefined &&
         entity?.kind === 'bar' &&
         entity.visible &&
@@ -1727,11 +1748,47 @@ function validateWorldTransform(view: CoreV2WorldTransform): void {
 
 function denseReconcileOptions(
   options: CoreV2ReconcileOptions,
+  current: ParsePatchMapResult,
+  candidate: ParsePatchMapResult,
 ): CoreV2DenseReconcileOptions {
+  const allowedRetainedOrderIds = Object.freeze([
+    ...(options.allowedRetainedOrderIds ?? []),
+    ...componentOrderDenseIds(current, options.allowedComponentOrderOwners),
+    ...componentOrderDenseIds(candidate, options.allowedComponentOrderOwners),
+  ]);
   return Object.freeze({
     ...(options.id === undefined ? {} : { id: options.id }),
     ...(options.recordHistory === undefined ? {} : { recordHistory: options.recordHistory }),
+    ...(allowedRetainedOrderIds.length === 0 ? {} : { allowedRetainedOrderIds }),
   });
+}
+
+function componentOrderDenseIds(
+  parse: ParsePatchMapResult,
+  owners: readonly string[] | undefined,
+): readonly string[] {
+  if (owners === undefined || owners.length === 0) return Object.freeze([]);
+  const ownerSet = new Set(owners.map((owner, index) => {
+    if (typeof owner !== 'string' || owner.length === 0) {
+      throw new TypeError(`allowedComponentOrderOwners[${index}] must be a non-empty string`);
+    }
+    return owner;
+  }));
+  const ids = new Set<string>();
+  for (const component of parse.identity.components) {
+    if (!ownerSet.has(component.sourceElementId)) continue;
+    for (const entityId of component.entityIds) ids.add(entityId);
+  }
+  const components = parse.projection.componentsByEntityId ?? {};
+  for (const entityId of Object.keys(components).sort()) {
+    const component = components[entityId];
+    if (component === undefined) continue;
+    const semanticOwner = parse.identity.entitySourceById[entityId]?.sourceElementId;
+    if (ownerSet.has(component.ownerId) || (semanticOwner !== undefined && ownerSet.has(semanticOwner))) {
+      ids.add(entityId);
+    }
+  }
+  return Object.freeze([...ids].sort());
 }
 
 function reconcileFacts(

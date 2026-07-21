@@ -705,6 +705,16 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     return unbind;
   }
 
+  public interactionOwnershipProbe(): Readonly<{
+    readonly rootBindingCount: number;
+    readonly entityCallbackCount: number;
+  }> {
+    return Object.freeze({
+      rootBindingCount: this.interactionUnbind === null ? 0 : 6,
+      entityCallbackCount: 0,
+    });
+  }
+
   public debugSnapshot(): PixiCoreV2RendererDebug {
     return this.destroyedValue ? Object.freeze({ ...this.lastDebug, destroyed: true }) : this.lastDebug;
   }

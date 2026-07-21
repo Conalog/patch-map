@@ -148,6 +148,22 @@ describe('Core v2 bar presentation integration', () => {
       });
   });
 
+  it('animates only explicitly targeted bars in a mixed semantic transaction', () => {
+    const { core } = createTestCore(allocated);
+    core.load(twoBarScene(10, 10));
+    core.publishFrame(0);
+
+    const result = core.reconcile(twoBarScene(40, 50), {
+      animatedBarTargets: [{ ownerId: 'item-a', componentId: 'first' }],
+    });
+
+    expect(result.status).toBe('committed');
+    expect(core.barPresentationProbe({ ownerId: 'item-a', componentId: 'first' }))
+      .toMatchObject({ semanticHeight: 40, presentationHeight: 10, active: true });
+    expect(core.barPresentationProbe({ ownerId: 'item-a', componentId: 'second' }))
+      .toMatchObject({ semanticHeight: 50, presentationHeight: 50, active: false });
+  });
+
   it('lands immediately when animation is disabled and releases controller ownership on load', () => {
     const { core } = createTestCore(allocated);
     core.load(scene(10));
@@ -372,6 +388,34 @@ function percentScene(itemHeight: number): readonly unknown[] {
       animation: true,
       animationDuration: 200,
     }],
+  }];
+}
+
+function twoBarScene(firstHeight: number, secondHeight: number): readonly unknown[] {
+  return [{
+    type: 'item',
+    id: 'item-a',
+    size: { width: 100, height: 80 },
+    components: [
+      {
+        type: 'bar',
+        id: 'first',
+        source: { type: 'rect', fill: '#336699' },
+        size: { width: 60, height: firstHeight },
+        placement: 'bottom',
+        animation: true,
+        animationDuration: 200,
+      },
+      {
+        type: 'bar',
+        id: 'second',
+        source: { type: 'rect', fill: '#663399' },
+        size: { width: 60, height: secondHeight },
+        placement: 'top',
+        animation: true,
+        animationDuration: 200,
+      },
+    ],
   }];
 }
 
