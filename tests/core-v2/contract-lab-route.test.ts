@@ -95,10 +95,27 @@ describe('Core v2 focused contract Lab presenters', () => {
       expect(first.routeParams).toEqual({ size: 'production', seed: 4_294_967_295 });
       expect(first.actionTrace).toEqual(first.fixture.actionTrace);
       expect(first).not.toHaveProperty('expected');
+      expect(Object.keys(first.fixtureProfiles).length).toBeGreaterThan(0);
       expect(Object.isFrozen(first)).toBe(true);
       expect(Object.isFrozen(first.fixture.actionTrace)).toBe(true);
+      expect(Object.isFrozen(first.fixtureProfiles)).toBe(true);
       expect(first).not.toBe(second);
+      expect(first.fixtureProfiles).not.toBe(second.fixtureProfiles);
     }
+
+    const mutationPlan = materializeCoreV2ExecutableCase('UPD-005', '100', 319);
+    expect(mutationPlan.fixtureProfiles).toEqual({
+      'mutation-transaction-matrix': {
+        datasetRef: 'all-kinds-scene',
+        replacementDatasetRef: 'replacement-scene-b',
+        relationDatasetRef: 'relation-variants-scene',
+        strict: true,
+        atomic: true,
+      },
+    });
+    expect(Object.isFrozen(mutationPlan.fixtureProfiles['mutation-transaction-matrix'])).toBe(true);
+    expect(mutationPlan.fixtureProfiles['mutation-transaction-matrix']).not.toHaveProperty('sha256');
+    expect(mutationPlan.fixtureProfiles['mutation-transaction-matrix']).not.toHaveProperty('sourceRefs');
   });
 });
 

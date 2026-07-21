@@ -104,6 +104,7 @@ function cloneAndValidateActions(caseRecord) {
 
 function createExecutionState(input, actions) {
   const fixture = input.caseRecord.fixture ?? input.caseRecord;
+  const fixtureProfiles = cloneFixtureProfiles(input.caseRecord.fixtureProfiles);
   const definitions = new Map(input.actionDefinitions.map((definition) => [definition.type, definition]));
   const datasetCache = new Map();
   const bindings = new Map();
@@ -113,6 +114,7 @@ function createExecutionState(input, actions) {
   const state = {
     ...input,
     fixture,
+    fixtureProfiles,
     actions,
     definitions,
     datasetCache,
@@ -129,6 +131,8 @@ function createExecutionState(input, actions) {
     eventJournalFailureCursor: 0,
     actionResults: [],
     captures: [],
+    capturePlan: null,
+    beforeActionsCaptureCommitted: false,
     hostFragments: [],
     terminalSnapshot: null,
     terminalSemanticProbe: null,
@@ -162,9 +166,14 @@ function createExecutionState(input, actions) {
 }
 
 async function executeActions(state, registry) {
+  state.capturePlan = stageCapturePlan(state);
   for (const action of state.actions) {
     await executeAction(state, registry, action);
   }
+  assert(
+    state.capturePlan.beforeActions.length === 0 || state.beforeActionsCaptureCommitted,
+    `${state.caseRecord.id} before-actions capture was not committed`,
+  );
 }
 
 async function executeAction(state, registry, action) {
@@ -186,7 +195,11 @@ async function executeAction(state, registry, action) {
     assertNoJournalFailures(state);
     const completedAtMs = readClock(state.clock);
     const stagedBindings = stageBindings(state, definition, action, output);
-    const stagedCaptures = stageCaptures(state, action, output);
+    const stagedBeforeActionCaptures = stageBeforeActionCaptures(state, action, output);
+    const stagedCaptures = [
+      ...stagedBeforeActionCaptures,
+      ...stageCaptures(state, action, output),
+    ];
     const stagedHostState = stageHostState(state, action, output);
     const semanticProbe = await captureSemanticProbe(state.authoritativeEngineRecord);
     const result = successfulActionResult(
@@ -208,6 +221,7 @@ async function executeAction(state, registry, action) {
     for (const [name, value] of stagedBindings) state.bindings.set(name, value);
     if (stagedHostState) state.hostState = stagedHostState;
     state.captures.push(...stagedCaptures);
+    if (stagedBeforeActionCaptures.length > 0) state.beforeActionsCaptureCommitted = true;
     state.actionResults.push(result);
     if (hostFragment) state.hostFragments.push(hostFragment);
   } catch (error) {
@@ -225,6 +239,7 @@ function handlerContext(state, action, signal) {
     caseType: state.caseRecord.caseType,
     actionIndex: action.index,
     fixtureParams: state.fixture.setup?.params ?? {},
+    fixtureProfiles: state.fixtureProfiles,
     routeParams: state.caseRecord.routeParams ?? {},
     clock: state.clock,
     signal,
@@ -290,7 +305,7 @@ function stageBindings(state, definition, action, output) {
   assert(isRecord(produced), `${action.type} bindings must be an object`);
   assertExactKeys(produced, expectedNames, `${action.type} produced bindings`);
 
-  const capturePaths = bindingContract.capturePaths ?? [];
+  const capturePaths = resolveBindingCapturePaths(bindingContract.capturePaths ?? [], action);
   const staged = expectedNames.map((name) => {
     const value = structuredClone(produced[name]);
     for (const path of capturePaths) readPath(value, path, `${action.type} binding ${name}`);
@@ -299,27 +314,105 @@ function stageBindings(state, definition, action, output) {
   return staged;
 }
 
+function resolveBindingCapturePaths(declaredPaths, action) {
+  assertDenseStringPaths(declaredPaths, `${action.type} binding capturePaths`, { allowEmpty: true });
+  const resolved = [];
+  const seen = new Set();
+  for (const declaredPath of declaredPaths) {
+    if (declaredPath.startsWith('$operands.')) {
+      assert(
+        declaredPath === '$operands.paths',
+        `${action.type} unknown dynamic binding capture path ${declaredPath}`,
+      );
+      const operandPaths = action.operands.paths;
+      assertDenseStringPaths(operandPaths, `${action.type} operands.paths`, { allowEmpty: false });
+      for (const path of operandPaths) {
+        assert(!seen.has(path), `${action.type} duplicate binding capture path ${path}`);
+        seen.add(path);
+        resolved.push(path);
+      }
+      continue;
+    }
+    assert(!seen.has(declaredPath), `${action.type} duplicate binding capture path ${declaredPath}`);
+    seen.add(declaredPath);
+    resolved.push(declaredPath);
+  }
+  return Object.freeze(resolved);
+}
+
+function stageCapturePlan(state) {
+  const declared = state.fixture.captureCheckpoints ?? [];
+  assert(Array.isArray(declared), `${state.caseRecord.id} capture checkpoints`);
+  assertDenseArray(declared, `${state.caseRecord.id} capture checkpoints`);
+  const ids = new Set();
+  const beforeActions = [];
+  const afterActions = new Map();
+
+  for (const rawCheckpoint of declared) {
+    assert(isRecord(rawCheckpoint), `${state.caseRecord.id} capture checkpoint`);
+    const checkpoint = deepFreeze(structuredClone(rawCheckpoint));
+    assert(typeof checkpoint.id === 'string' && checkpoint.id.length > 0, 'capture checkpoint ID');
+    assert(!ids.has(checkpoint.id), `${state.caseRecord.id} duplicate capture checkpoint ${checkpoint.id}`);
+    ids.add(checkpoint.id);
+    assertDenseStringPaths(checkpoint.paths, `${checkpoint.id} capture paths`, { allowEmpty: false });
+
+    if (checkpoint.phase === 'before-actions') {
+      assert(checkpoint.afterActionIndex === -1, `${checkpoint.id} before-actions index`);
+      beforeActions.push(checkpoint);
+      continue;
+    }
+    assert(checkpoint.phase === 'after-action', `${checkpoint.id} capture phase`);
+    assert(
+      Number.isInteger(checkpoint.afterActionIndex)
+        && checkpoint.afterActionIndex >= 0
+        && checkpoint.afterActionIndex < state.actions.length,
+      `${checkpoint.id} after-action index`,
+    );
+    const matches = afterActions.get(checkpoint.afterActionIndex) ?? [];
+    matches.push(checkpoint);
+    afterActions.set(checkpoint.afterActionIndex, matches);
+  }
+
+  return deepFreeze({ beforeActions, afterActions });
+}
+
+function stageBeforeActionCaptures(state, action, output) {
+  const checkpoints = state.capturePlan?.beforeActions ?? [];
+  if (checkpoints.length === 0) return [];
+  if (state.beforeActionsCaptureCommitted) {
+    assert(
+      !Object.hasOwn(output, 'beforeCaptureSource'),
+      `${action.type} duplicate beforeCaptureSource`,
+    );
+    return [];
+  }
+  assert(action.index === 0, `${state.caseRecord.id} before-actions capture must commit with action 0`);
+  assert(
+    Object.hasOwn(output, 'beforeCaptureSource') && output.beforeCaptureSource !== null,
+    `${action.type} beforeCaptureSource`,
+  );
+  return checkpoints.map((checkpoint) => materializeCapture(checkpoint, output.beforeCaptureSource));
+}
+
 function stageCaptures(state, action, output) {
-  const checkpoints = state.fixture.captureCheckpoints ?? [];
-  assert(Array.isArray(checkpoints), `${state.caseRecord.id} capture checkpoints`);
-  const matching = checkpoints.filter((checkpoint) => checkpoint.afterActionIndex === action.index);
+  const matching = state.capturePlan?.afterActions.get(action.index) ?? [];
   if (matching.length === 0) return [];
 
   const source = output.captureSource ?? state.snapshotAuthoritativeEngine();
   assert(source !== null, `${action.type} capture source`);
-  return matching.map((checkpoint) => {
-    assert(checkpoint.phase === 'after-action', `${checkpoint.id} capture phase`);
-    assert(Array.isArray(checkpoint.paths), `${checkpoint.id} capture paths`);
-    const values = {};
-    for (const path of checkpoint.paths) {
-      values[path] = structuredClone(readPath(source, path, `${checkpoint.id} capture`));
-    }
-    return deepFreeze({
-      id: checkpoint.id,
-      phase: checkpoint.phase,
-      afterActionIndex: action.index,
-      values,
-    });
+  return matching.map((checkpoint) => materializeCapture(checkpoint, source));
+}
+
+function materializeCapture(checkpoint, source) {
+  const values = {};
+  for (const path of checkpoint.paths) {
+    values[path] = structuredClone(readPath(source, path, `${checkpoint.id} capture`));
+  }
+  return deepFreeze({
+    id: checkpoint.id,
+    phase: checkpoint.phase,
+    afterActionIndex: checkpoint.afterActionIndex,
+    values,
   });
 }
 
@@ -852,6 +945,45 @@ function readPath(value, path, label) {
     cursor = cursor[segment];
   }
   return cursor;
+}
+
+function cloneFixtureProfiles(value) {
+  if (value === undefined) return deepFreeze({});
+  assert(isRecord(value), 'fixtureProfiles must be an object');
+  const clone = structuredClone(value);
+  for (const [id, profile] of Object.entries(clone)) {
+    assert(id.length > 0, 'fixture profile ID');
+    assert(isRecord(profile), `fixture profile ${id}`);
+  }
+  return deepFreeze(clone);
+}
+
+function assertDenseStringPaths(value, label, options) {
+  assert(Array.isArray(value), `${label} must be an array`);
+  assertDenseArray(value, label);
+  assert(options.allowEmpty || value.length > 0, `${label} must be non-empty`);
+  const seen = new Set();
+  for (const path of value) {
+    assert(typeof path === 'string' && path.length > 0, `${label} entry`);
+    assert(!seen.has(path), `${label} duplicate ${path}`);
+    seen.add(path);
+  }
+}
+
+function assertDenseArray(value, label) {
+  const keys = Reflect.ownKeys(value);
+  assert(
+    Object.getPrototypeOf(value) === Array.prototype
+      && keys.length === value.length + 1
+      && keys.every((key) => key === 'length' || (
+        typeof key === 'string'
+        && Number.isInteger(Number(key))
+        && Number(key) >= 0
+        && Number(key) < value.length
+        && String(Number(key)) === key
+      )),
+    `${label} must be dense`,
+  );
 }
 
 function assertExactKeys(record, expected, label) {

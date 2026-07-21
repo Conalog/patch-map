@@ -67,6 +67,10 @@ interface FixtureRecord {
   readonly priority: 'P0' | 'P1';
   readonly rootTestId: string;
   readonly lab: Readonly<{ route: string }>;
+  readonly fixtureProfiles: readonly Readonly<{
+    readonly id: string;
+    readonly sha256: string;
+  }>[];
   readonly setup: Readonly<{ params: Readonly<Record<string, unknown>> }>;
   readonly actionTrace: readonly ContractAction[];
   readonly captureCheckpoints: readonly Readonly<Record<string, unknown>>[];
@@ -76,6 +80,7 @@ interface FixtureRecord {
 
 interface FixtureCatalog {
   readonly contractRevision: string;
+  readonly sharedProfiles: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   readonly cases: readonly FixtureRecord[];
 }
 
@@ -111,6 +116,7 @@ interface FixtureProfiles {
   }>;
   readonly environment: Readonly<Record<string, unknown>>;
   readonly datasets: Readonly<Record<string, unknown>>;
+  readonly profiles: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
 }
 
 export interface CoreV2ExecutableCasePlan extends Readonly<Record<string, unknown>> {
@@ -122,6 +128,7 @@ export interface CoreV2ExecutableCasePlan extends Readonly<Record<string, unknow
   readonly route: string;
   readonly routeParams: Readonly<{ size: string; seed: number }>;
   readonly fixtureSha256: string;
+  readonly fixtureProfiles: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   readonly fixture: Readonly<{
     readonly setup: Readonly<{ readonly params: Readonly<Record<string, unknown>> }>;
     readonly actionTrace: readonly ContractAction[];
@@ -162,6 +169,10 @@ invariant(
 );
 
 const fixtureById = new Map<CoreV2ExecutableCaseId, FixtureRecord>();
+const fixtureProfileValuesById = new Map<
+  CoreV2ExecutableCaseId,
+  Readonly<Record<string, Readonly<Record<string, unknown>>>>
+>();
 const selectedActionTypes = new Set<string>();
 let selectedActionCount = 0;
 
@@ -177,6 +188,7 @@ for (const fixture of selectedFixtures) {
     fixture.lab.route === `/lab/core-v2?scenario=${fixture.id}&size=<SIZE>&seed=<SEED>`,
     `${fixture.id} canonical route`,
   );
+  fixtureProfileValuesById.set(fixture.id, resolveDigestBoundProfileValues(fixture));
   invariant(fixture.actionTrace.length > 0, `${fixture.id} action trace`);
   fixture.actionTrace.forEach((action, index) => {
     invariant(action.index === index, `${fixture.id} action index ${index}`);
@@ -228,6 +240,8 @@ export function materializeCoreV2ExecutableCase(
   invariant(source !== undefined, `${caseId} approved fixture`);
   const manifestRecord = manifestById.get(caseId);
   invariant(manifestRecord !== undefined, `${caseId} approved manifest`);
+  const fixtureProfiles = fixtureProfileValuesById.get(caseId);
+  invariant(fixtureProfiles !== undefined, `${caseId} digest-bound fixture profiles`);
 
   const fixture = {
     setup: structuredClone(source.setup),
@@ -245,6 +259,7 @@ export function materializeCoreV2ExecutableCase(
     route: source.lab.route.replace('<SIZE>', size).replace('<SEED>', String(seed)),
     routeParams: { size, seed },
     fixtureSha256: manifestRecord.fixtureSha256,
+    fixtureProfiles: structuredClone(fixtureProfiles),
     fixture,
     actionTrace: structuredClone(fixture.actionTrace),
     captureCheckpoints: structuredClone(fixture.captureCheckpoints),
@@ -267,6 +282,54 @@ export function selectCoreV2ExecutableActionDefinitions(
 export function resolveCoreV2ExecutableDataset(reference: string): unknown {
   invariant(reference.length > 0, 'dataset reference');
   return executableDatasets[reference];
+}
+
+function resolveDigestBoundProfileValues(
+  fixture: FixtureRecord,
+): Readonly<Record<string, Readonly<Record<string, unknown>>>> {
+  invariant(
+    Array.isArray(fixture.fixtureProfiles) && fixture.fixtureProfiles.length > 0,
+    `${fixture.id} fixture profile bindings`,
+  );
+  const selected: Record<string, Readonly<Record<string, unknown>>> = {};
+  for (const binding of fixture.fixtureProfiles) {
+    invariant(isRecord(binding), `${fixture.id} fixture profile binding`);
+    invariant(
+      typeof binding.id === 'string' && binding.id.length > 0,
+      `${fixture.id} fixture profile ID`,
+    );
+    invariant(
+      typeof binding.sha256 === 'string' && /^[a-f0-9]{64}$/u.test(binding.sha256),
+      `${fixture.id} fixture profile digest`,
+    );
+    invariant(!Object.hasOwn(selected, binding.id), `${fixture.id} duplicate fixture profile ${binding.id}`);
+
+    const shared = fixtureCatalog.sharedProfiles[binding.id];
+    const value = profiles.profiles[binding.id];
+    invariant(shared !== undefined, `${fixture.id} shared fixture profile ${binding.id}`);
+    invariant(value !== undefined, `${fixture.id} fixture profile value ${binding.id}`);
+    invariant(shared.sha256 === binding.sha256, `${fixture.id} fixture profile ${binding.id} digest binding`);
+
+    const sharedValueKeys = Object.keys(shared)
+      .filter((key) => !['actionIndexStartsAt', 'sha256', 'sourceRefs'].includes(key))
+      .sort();
+    const profileValueKeys = Object.keys(value).sort();
+    invariant(
+      sharedValueKeys.length === profileValueKeys.length
+        && sharedValueKeys.every((key, index) => key === profileValueKeys[index]),
+      `${fixture.id} fixture profile ${binding.id} value keys`,
+    );
+    invariant(
+      profileValueKeys.every((key) => sameJson(shared[key], value[key])),
+      `${fixture.id} fixture profile ${binding.id} value binding`,
+    );
+    selected[binding.id] = structuredClone(value);
+  }
+  return deepFreeze(selected);
+}
+
+function sameJson(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function invariant(condition: boolean, message: string): asserts condition {
