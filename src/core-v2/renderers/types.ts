@@ -57,6 +57,15 @@ export interface CoreV2EntityPaintProbe {
   readonly alpha: number | null;
 }
 
+/** Detached facts for the two aggregate interaction objects at the scene tail. */
+export interface CoreV2OverlayPaintProbe {
+  readonly order: readonly ['selection', 'transformer'];
+  readonly selection: boolean;
+  readonly transformer: boolean;
+  readonly selectedEntityCount: number;
+  readonly renderObjectCount: 0 | 2;
+}
+
 export type CoreV2TextRendererKind = CoreV2TextRenderRoute | 'none';
 export type CoreV2TextRendererRouteReason = CoreV2TextRenderRouteReason | 'not-attached';
 export type CoreV2TextPublicationStatus = 'pending' | 'current';

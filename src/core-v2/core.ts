@@ -34,6 +34,10 @@ import {
   type CoreV2PresentationSnapshot,
 } from './presentation';
 import { CoreV2PresentationProjectionStore } from './presentation-projection';
+import {
+  createCoreV2PaintOrderProductProbe,
+  type CoreV2PaintOrderProductProbe,
+} from './paint-order-product';
 import { parsePatchMapV010, projectCoreV2IntrinsicImageAffine } from './parser';
 import { withRendererDegradationDiagnostics } from './renderers/degradation';
 import { InvalidationScheduler, type FrameSchedulerDebug } from './scheduler';
@@ -826,6 +830,21 @@ export class CoreV2 {
       startTimeMs: active?.startTimeMs ?? null,
       controller,
       ghostPublicationCount: this.presentationGhostPublicationCount,
+    });
+  }
+
+  /** Exact dense semantic order joined to current aggregate renderer facts. */
+  public paintOrderProbe(): CoreV2PaintOrderProductProbe {
+    this.assertAlive();
+    const snapshot = this.scene.snapshot();
+    const renderer = this.renderer.debugSnapshot();
+    return createCoreV2PaintOrderProductProbe({
+      snapshot,
+      projection: this.presentationProjection.presentation,
+      overlays: this.renderer.overlayPaintProbe(),
+      renderer,
+      renderedSceneRevision: this.renderedSceneRevision,
+      paintForEntity: (entityId) => this.renderer.entityPaintProbe(entityId),
     });
   }
 

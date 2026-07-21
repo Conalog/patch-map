@@ -14,6 +14,7 @@ import {
   type CoreV2TextTransformProbe,
   normalizeCoreV2TextTarget,
 } from './core';
+import type { CoreV2PaintOrderProductProbe } from './paint-order-product';
 import type { SceneSnapshot } from '../core-v1/contracts';
 import type {
   CoreV2ImageSourceKind,
@@ -447,6 +448,15 @@ export interface CoreV2EngineTextProbe {
   }>;
 }
 
+export type CoreV2EnginePaintOrderProbe = Readonly<
+  CoreV2PaintOrderProductProbe & {
+    readonly revisions: CoreV2RevisionStamp;
+    readonly publishedTuple: CoreV2PublishedTuple;
+    readonly frameRevision: number;
+    readonly history: CoreV2HistoryState;
+  }
+>;
+
 export interface CoreV2EngineSurface {
   readonly canvasCount: number;
   readonly destroyed: boolean;
@@ -472,6 +482,7 @@ export interface CoreV2EngineSurface {
   barPresentationProbe?(
     target: CoreV2ComponentVisualTarget,
   ): CoreV2BarPresentationProductProbe | null;
+  paintOrderProbe?(): CoreV2PaintOrderProductProbe;
   textProbe?(target: CoreV2TextTarget): CoreV2TextProductProbe | null;
   settleSceneImages?(): Promise<void>;
   settleSceneImageBindings?(bindingKeys: readonly string[]): Promise<void>;
@@ -1472,6 +1483,18 @@ export class CoreV2Engine {
     });
   }
 
+  public paintOrderProbe(): CoreV2EnginePaintOrderProbe | null {
+    const probe = this.requireSurface('paintOrderProbe').paintOrderProbe?.() ?? null;
+    if (probe === null) return null;
+    return Object.freeze({
+      ...probe,
+      revisions: this.revisionStamp(),
+      publishedTuple: this.publishedTuple,
+      frameRevision: this.frameRevision,
+      history: this.history.state(),
+    });
+  }
+
   /**
    * Resolve text through prebuilt semantic and surface indexes. No probe-time
    * traversal of materialized datasets, dense snapshots, or Pixi children is
@@ -1755,7 +1778,7 @@ export class CoreV2Engine {
 
       const selectionBefore = surface.debugSnapshot().selectionIds;
       const selection = transition.snapshot.companion?.selectionIds ?? Object.freeze([]);
-      surface.select(selection);
+      if (!sameStringArray(selectionBefore, selection)) surface.select(selection);
       this.materialized = materialized;
       this.componentSemantics = indexComponentSemantics(materialized.dataset);
       this.textSemantics = indexTextSemantics(materialized.dataset);
@@ -2347,6 +2370,10 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     target: CoreV2ComponentVisualTarget,
   ): CoreV2BarPresentationProductProbe | null {
     return this.core.barPresentationProbe(target);
+  }
+
+  public paintOrderProbe(): CoreV2PaintOrderProductProbe {
+    return this.core.paintOrderProbe();
   }
 
   public textProbe(target: CoreV2TextTarget): CoreV2TextProductProbe | null {

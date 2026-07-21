@@ -39,6 +39,7 @@ import {
 import type {
   CoreV2BackendPreference,
   CoreV2EntityPaintProbe,
+  CoreV2OverlayPaintProbe,
   CoreV2RenderLaneProbe,
   CoreV2RenderLaneRole,
   CoreV2RenderLaneSnapshot,
@@ -114,6 +115,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private readonly leaves: AggregateLeafLayer;
   private readonly backgroundGeometryLane: Container;
   private readonly selectionOverlay: Graphics;
+  private readonly transformerOverlay: Graphics;
   private readonly selectedSlots = new Set<number>();
   private readonly target: HTMLElement | undefined;
   private cleanupPromise: Promise<void> = Promise.resolve();
@@ -205,8 +207,10 @@ export class PixiCoreV2Renderer implements CoreRenderer {
           : { resolveBitmapTextCapability: options.resolveBitmapTextCapability }),
       },
     );
-    this.selectionOverlay = new Graphics({ label: 'PATCH MAP Core v2 / interaction overlay' });
+    this.selectionOverlay = new Graphics({ label: 'PATCH MAP Core v2 / selection overlay (0)' });
     this.selectionOverlay.eventMode = 'none';
+    this.transformerOverlay = new Graphics({ label: 'PATCH MAP Core v2 / transformer overlay (0)' });
+    this.transformerOverlay.eventMode = 'none';
     this.world.addChild(
       this.backgroundGeometryLane,
       this.leaves.backgroundAssetContainer,
@@ -214,6 +218,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       this.leaves.contentAssetContainer,
       this.leaves.textContainer,
       this.selectionOverlay,
+      this.transformerOverlay,
     );
     this.application.stage.label = 'PATCH MAP Core v2';
     this.application.stage.eventMode = 'static';
@@ -468,7 +473,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.lastStore = store;
     this.pendingRanges = [];
     this.pendingOverlayRanges = [];
-    const overlayCount = this.selectedSlots.size > 0 ? 1 : 0;
+    const overlayCount = this.selectedSlots.size > 0 ? 2 : 0;
     this.lastLaneProbe = this.buildLaneProbe(overlayCount);
     this.lastDebug = Object.freeze({
       strategy: this.strategy,
@@ -643,6 +648,19 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       : null;
   }
 
+  /** Exact scene-tail order and current visibility of aggregate editor overlays. */
+  public overlayPaintProbe(): CoreV2OverlayPaintProbe {
+    this.assertAlive();
+    const visible = this.selectedSlots.size > 0;
+    return Object.freeze({
+      order: Object.freeze(['selection', 'transformer'] as const),
+      selection: visible,
+      transformer: visible,
+      selectedEntityCount: this.selectedSlots.size,
+      renderObjectCount: visible ? 2 : 0,
+    });
+  }
+
   public async captureBase64(): Promise<string> {
     this.assertAlive();
     return this.application.renderer.extract.base64({ target: this.application.stage, format: 'png' });
@@ -701,7 +719,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       ['relations-dynamic', this.aggregate.container.label],
       ['content-assets', this.leaves.contentAssetContainer.label],
       ['text', this.leaves.textContainer.label],
-      ['interaction-overlay', this.selectionOverlay.label],
+      ['interaction-overlay', interactionOverlayLabel(this.selectionOverlay, this.transformerOverlay)],
     ]);
     this.interactionUnbind?.();
     this.interactionUnbind = null;
@@ -712,6 +730,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       this.backgroundGeometryLane.destroy();
     }
     this.selectionOverlay.destroy();
+    this.transformerOverlay.destroy();
     this.cleanupPromise = this.leaves.destroy();
     this.world.destroy();
     this.application.destroy({ removeView: false }, { children: true });
@@ -826,13 +845,18 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     }
     if (!changed) return;
     this.selectionOverlay.clear();
+    this.transformerOverlay.clear();
     for (const slot of [...this.selectedSlots].sort((left, right) => left - right)) {
       appendRotatedOutline(this.selectionOverlay, store, slot, this.projectionContext());
+      appendTransformerHandles(this.transformerOverlay, store, slot, this.projectionContext(), this.view.scale);
     }
     if (this.selectedSlots.size > 0) {
       this.selectionOverlay.stroke({ color: 0x2f80ed, width: 2 / Math.max(this.view.scale, 0.001), alpha: 1 });
+      this.transformerOverlay.fill({ color: 0xffffff, alpha: 1 });
+      this.transformerOverlay.stroke({ color: 0x2f80ed, width: 1 / Math.max(this.view.scale, 0.001), alpha: 1 });
     }
-    this.selectionOverlay.label = `PATCH MAP Core v2 / interaction overlay (${this.selectedSlots.size})`;
+    this.selectionOverlay.label = `PATCH MAP Core v2 / selection overlay (${this.selectedSlots.size})`;
+    this.transformerOverlay.label = `PATCH MAP Core v2 / transformer overlay (${this.selectedSlots.size})`;
   }
 
   private emptyDebug(): PixiCoreV2RendererDebug {
@@ -869,7 +893,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       ['relations-dynamic', this.aggregate.container.label],
       ['content-assets', this.leaves.contentAssetContainer.label],
       ['text', this.leaves.textContainer.label],
-      ['interaction-overlay', this.selectionOverlay.label],
+      ['interaction-overlay', interactionOverlayLabel(this.selectionOverlay, this.transformerOverlay)],
     ]);
   }
 
@@ -913,9 +937,9 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       text: leaves.text,
       'interaction-overlay': freezeLane(
         'interaction-overlay',
-        this.selectionOverlay.label,
+        interactionOverlayLabel(this.selectionOverlay, this.transformerOverlay),
         overlayCount,
-        this.selectedSlots.size,
+        this.selectedSlots.size * 2,
       ),
     });
   }
@@ -959,6 +983,29 @@ function appendRotatedOutline(
     graphics.lineTo(quad.vertices[index]!, quad.vertices[index + 1]!);
   }
   graphics.closePath();
+}
+
+function appendTransformerHandles(
+  graphics: Graphics,
+  store: RenderStoreView,
+  slot: number,
+  projectionContext: CoreV2ProjectionRenderContext,
+  viewScale: number,
+): void {
+  const quad = resolveCoreV2SlotQuad(store, slot, projectionContext);
+  if (!(quad.width > 0) || !(quad.height > 0)) return;
+  const size = 6 / Math.max(viewScale, 0.001);
+  const half = size / 2;
+  for (let index = 0; index < quad.vertices.length; index += 2) {
+    const x = quad.vertices[index];
+    const y = quad.vertices[index + 1];
+    if (x === undefined || y === undefined) continue;
+    graphics.rect(x - half, y - half, size, size);
+  }
+}
+
+function interactionOverlayLabel(selection: Graphics, transformer: Graphics): string {
+  return `${selection.label} + ${transformer.label}`;
 }
 
 function slotsForRanges(capacity: number, ranges: readonly SlotRange[]): readonly number[] {

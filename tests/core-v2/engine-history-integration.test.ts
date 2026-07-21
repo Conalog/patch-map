@@ -135,7 +135,7 @@ describe('CoreV2Engine semantic history integration', () => {
       changed: false,
       direction: 'undo',
       diagnostic: { code: 'CONFLICT', category: 'CONFLICT', operation: 'undo' },
-      reconcileDiagnostics: [{ code: 'TEST_REFUSAL', path: '$' }],
+      reconcileDiagnostics: [{ code: 'UNPROJECTED_SEMANTIC_DELTA', path: '$' }],
       history: { undoDepth: 1, redoDepth: 0 },
     });
     expect(engine.snapshot()).toEqual(before);
