@@ -3,6 +3,10 @@ import type { Container } from 'pixi.js';
 import type { CoreView, SlotRange } from '../../core-v1/contracts';
 import type { RenderStoreView } from '../../core-v1/renderer/types';
 import type { CoreV2EntityProjection, CoreV2ProjectionIndex } from '../contracts';
+import type {
+  CoreV2TextRenderRoute,
+  CoreV2TextRenderRouteReason,
+} from '../semantic/text-render-route';
 import {
   freezeCoreV2Affine,
   type CoreV2AffineBasis,
@@ -51,6 +55,46 @@ export interface CoreV2EntityPaintProbe {
   readonly packedTint: number | null;
   readonly rgbTint: number | null;
   readonly alpha: number | null;
+}
+
+export type CoreV2TextRendererKind = CoreV2TextRenderRoute | 'none';
+export type CoreV2TextRendererRouteReason = CoreV2TextRenderRouteReason | 'not-attached';
+export type CoreV2TextPublicationStatus = 'pending' | 'current';
+
+/** Semantic identities attached to one logical Pixi text leaf. */
+export interface CoreV2TextSemanticSignatures {
+  readonly content: string;
+  readonly style: string;
+  readonly layout: string;
+}
+
+/**
+ * Semantic identities plus the exact route/content/style/paint signature
+ * installed on a Pixi text leaf. The renderer signature deliberately excludes
+ * native glyph metrics: Pixi is only the raster sink for semantic layout.
+ */
+export interface CoreV2TextAttachedSignatures extends CoreV2TextSemanticSignatures {
+  readonly renderer: string;
+}
+
+/**
+ * Detached constant-time text publication observation. `current` means the
+ * semantic, attached, and last-rendered signatures correlate at a confirmed
+ * render frame and the expected logical object count is attached.
+ */
+export interface CoreV2TextRendererProbe {
+  readonly entityId: string;
+  readonly route: CoreV2TextRendererKind;
+  readonly rendererKind: CoreV2TextRendererKind;
+  readonly routeReason: CoreV2TextRendererRouteReason;
+  readonly objectCount: 0 | 1;
+  readonly semanticSignatures: CoreV2TextSemanticSignatures;
+  readonly attachedSignatures: CoreV2TextAttachedSignatures | null;
+  readonly lastRenderedSignatures: CoreV2TextAttachedSignatures | null;
+  readonly publicationStatus: CoreV2TextPublicationStatus;
+  readonly lastRenderedFrame: number | null;
+  /** Count of graphemes from a mismatched prior rendered signature, if any. */
+  readonly staleGlyphCount: number;
 }
 
 export interface CoreV2WorldOrientation {

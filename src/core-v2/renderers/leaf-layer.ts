@@ -21,20 +21,38 @@ import {
   type CoreV2AssetAcquisition,
   type CoreV2AssetSession,
 } from '../assets';
+import type { CoreV2TextProjection } from '../contracts';
 import type { CoreV2AssetSource } from '../semantic/dataset';
+import { segmentCoreV2Graphemes } from '../semantic/text-layout';
+import {
+  selectCoreV2TextRenderRoute,
+  type CoreV2BitmapTextCapabilityProof,
+  type CoreV2TextRenderRoute,
+  type CoreV2TextRenderRouteReason,
+  type CoreV2TextRenderStyle,
+} from '../semantic/text-render-route';
 import {
   resolveCoreV2SlotQuad,
   type CoreV2EntityPaintProbe,
   type CoreV2ProjectionRenderContext,
   type CoreV2RenderLaneProbe,
   type CoreV2ResolvedRenderQuad,
+  type CoreV2TextAttachedSignatures,
+  type CoreV2TextRendererProbe,
+  type CoreV2TextSemanticSignatures,
 } from './types';
 
 interface TextEntry {
   readonly object: BitmapText | Text;
-  readonly bitmap: boolean;
+  readonly route: CoreV2TextRenderRoute;
   readonly entityId: string;
-  styleSignature: string;
+  readonly objectStyleSignature: string;
+  routeReason: CoreV2TextRenderRouteReason;
+  attachedSignatures: CoreV2TextAttachedSignatures;
+  attachedVisibleGraphemeCount: number;
+  lastRenderedSignatures: CoreV2TextAttachedSignatures | null;
+  lastRenderedFrame: number | null;
+  lastRenderedVisibleGraphemeCount: number;
 }
 
 type LeafImageLane = 'background-assets' | 'content-assets';
@@ -104,6 +122,20 @@ export interface LeafAssetBindingTransition {
 
 export interface AggregateLeafLayerOptions {
   readonly onBindingTransition?: (transition: LeafAssetBindingTransition) => void;
+  /**
+   * Explicit finite installed-atlas proof seam. The resolver owns font setup;
+   * missing, stale, or unclear proof deliberately fails to guarded Text.
+   */
+  readonly resolveBitmapTextCapability?: (
+    request: CoreV2BitmapTextCapabilityRequest,
+  ) => CoreV2BitmapTextCapabilityProof | null;
+}
+
+export interface CoreV2BitmapTextCapabilityRequest {
+  readonly entityId: string;
+  readonly text: string;
+  readonly style: CoreV2TextRenderStyle;
+  readonly projection: CoreV2TextProjection | null;
 }
 
 interface NormalizedLeafAssetBindingRequest {
@@ -169,6 +201,9 @@ export class AggregateLeafLayer {
   public readonly textContainer = new Container({ label: 'PATCH MAP Core v2 / text (0)' });
 
   private readonly texts = new Map<number, TextEntry>();
+  private readonly textProbesByEntityId = new Map<string, CoreV2TextRendererProbe>();
+  private readonly textLastRenderedGraphemeCountByEntityId = new Map<string, number>();
+  private readonly pendingTextEntries = new Set<TextEntry>();
   private readonly images = new Map<number, ImageEntry>();
   private readonly imageBindingBySlot = new Map<number, string>();
   private readonly imageSlotsByBinding = new Map<string, Set<number>>();
@@ -181,6 +216,7 @@ export class AggregateLeafLayer {
   private readonly dirtyAssetSlots = new Set<number>();
   private readonly transformMatrix = new Matrix();
   private nextBindingGeneration = 0;
+  private confirmedTextFrame = 0;
   private staleCompletionCount = 0;
   private storeEpoch = -1;
   private readonly dirtyImageLanes = new Set<LeafImageLane>();
@@ -292,6 +328,15 @@ export class AggregateLeafLayer {
     return this.imageProbesByEntityId.get(entityId) ?? null;
   }
 
+  public textRendererProbe(entityId: string): CoreV2TextRendererProbe | null {
+    return this.textProbesByEntityId.get(entityId) ?? null;
+  }
+
+  /** Internal O(1) join fact used by the renderer when semantic state advances first. */
+  public lastRenderedTextGraphemeCount(entityId: string): number {
+    return this.textLastRenderedGraphemeCountByEntityId.get(entityId) ?? 0;
+  }
+
   public entityPaintProbe(entityId: string): CoreV2EntityPaintProbe | null {
     return this.paintProbesByEntityId.get(entityId) ?? null;
   }
@@ -340,10 +385,24 @@ export class AggregateLeafLayer {
     return this.unbindSceneAsset(alias);
   }
 
-  /** Called by the renderer only after Pixi has rendered replacement Sprites. */
-  public confirmRenderedFrame(): void {
-    if (this.destroyed || this.framePendingAssetReleases.length === 0) return;
-    this.readyAssetReleases.push(...this.framePendingAssetReleases.splice(0));
+  /** Called only after Pixi has successfully rendered the attached leaves. */
+  public confirmRenderedFrame(renderedFrame?: number): void {
+    if (this.destroyed) return;
+    const frame = renderedFrame ?? this.confirmedTextFrame + 1;
+    if (!Number.isSafeInteger(frame) || frame <= 0 || frame < this.confirmedTextFrame) {
+      throw new TypeError('rendered text frame must be a positive monotonic safe integer');
+    }
+    this.confirmedTextFrame = frame;
+    for (const entry of this.pendingTextEntries) {
+      entry.lastRenderedSignatures = entry.attachedSignatures;
+      entry.lastRenderedFrame = frame;
+      entry.lastRenderedVisibleGraphemeCount = entry.attachedVisibleGraphemeCount;
+      this.publishTextProbe(entry);
+    }
+    this.pendingTextEntries.clear();
+    if (this.framePendingAssetReleases.length > 0) {
+      this.readyAssetReleases.push(...this.framePendingAssetReleases.splice(0));
+    }
   }
 
   /** Finalize only acquisitions made safe by replacement or a rendered frame. */
@@ -407,7 +466,9 @@ export class AggregateLeafLayer {
     let pendingAssetCount = 0;
     let failedAssetCount = 0;
     let staleAttachCount = 0;
-    for (const entry of this.texts.values()) if (entry.bitmap) bitmapTextCount += 1;
+    for (const entry of this.texts.values()) {
+      if (entry.route === 'bitmap-text') bitmapTextCount += 1;
+    }
     for (const binding of this.bindings.values()) {
       if (binding.state === 'resolved') loadedAssetCount += 1;
       else if (binding.state === 'pending') pendingAssetCount += 1;
@@ -454,6 +515,7 @@ export class AggregateLeafLayer {
     this.readyAssetReleases.length = 0;
     this.dirtyAssetSlots.clear();
     this.nextBindingGeneration = 0;
+    this.confirmedTextFrame = 0;
     this.staleCompletionCount = 0;
     this.storeEpoch = -1;
     this.dirtyImageLanes.clear();
@@ -612,28 +674,95 @@ export class AggregateLeafLayer {
     projectionContext?: CoreV2ProjectionRenderContext,
   ): void {
     const entityId = store.ids[slot] ?? `@slot:${slot}`;
-    const value = store.text[slot] ?? '';
-    const bitmap = isBitmapTextSafe(value);
-    const signature = textStyleSignature(store, slot);
+    const projection = projectionContext?.index.textsByEntityId?.[entityId] ?? null;
+    const value = projection?.visibleText ?? store.text[slot] ?? '';
+    const routeStyle = textRenderStyle(store, slot, projection);
+    const capability = this.options.resolveBitmapTextCapability?.(Object.freeze({
+      entityId,
+      text: value,
+      style: routeStyle,
+      projection,
+    })) ?? null;
+    const routeDecision = selectCoreV2TextRenderRoute({
+      text: value,
+      style: routeStyle,
+      glyphResolution: textGlyphResolution(projection),
+      bitmapCapability: capability,
+    });
+    const route = routeDecision.route;
+    const style = textStyle(store, slot, routeStyle);
+    const objectStyleSignature = stableSerialize({
+      style,
+      atlasId: routeDecision.atlas.atlasId,
+    });
+    const packedColor = (projection?.color ?? store.color[slot] ?? 0xffffffff) >>> 0;
+    const alpha = combinedAlpha(packedColor, store.opacity[slot] ?? 1);
+    const semanticSignatures = textSemanticSignatures(store, slot, projection);
+    const rendererSignature = textRendererSignature(
+      route,
+      routeDecision.atlas.atlasId,
+      value,
+      routeStyle,
+      alignName(store.align[slot] ?? RenderAlign.Left),
+      projection?.authoredStyle ?? null,
+      packedColor,
+      alpha,
+    );
+    const attachedSignatures = freezeTextAttachedSignatures(
+      semanticSignatures,
+      rendererSignature,
+    );
+    const visibleGraphemeCount = countVisibleGraphemes(value);
     let entry = this.texts.get(slot);
     if (
       !entry ||
       entry.entityId !== entityId ||
-      entry.bitmap !== bitmap ||
-      entry.styleSignature !== signature
+      entry.route !== route ||
+      entry.objectStyleSignature !== objectStyleSignature
     ) {
+      const previousPublication = entry?.entityId === entityId
+        ? Object.freeze({
+            signatures: entry.lastRenderedSignatures,
+            frame: entry.lastRenderedFrame,
+            visibleGraphemeCount: entry.lastRenderedVisibleGraphemeCount,
+          })
+        : null;
       this.removeText(slot);
-      const style = textStyle(store, slot);
-      const object = bitmap
+      const object = route === 'bitmap-text'
         ? new BitmapText({ text: value, style })
         : new Text({ text: value, style });
       object.eventMode = 'none';
-      object.label = bitmap ? 'core-v2:bitmap-text' : 'core-v2:fallback-text';
-      entry = { object, bitmap, entityId, styleSignature: signature };
+      object.label = `core-v2:${route}`;
+      entry = {
+        object,
+        route,
+        entityId,
+        objectStyleSignature,
+        routeReason: routeDecision.reason,
+        attachedSignatures,
+        attachedVisibleGraphemeCount: visibleGraphemeCount,
+        lastRenderedSignatures: previousPublication?.signatures ?? null,
+        lastRenderedFrame: previousPublication?.frame ?? null,
+        lastRenderedVisibleGraphemeCount: previousPublication?.visibleGraphemeCount ?? 0,
+      };
       this.texts.set(slot, entry);
       this.textContainer.addChild(object);
     } else if (entry.object.text !== value) {
       entry.object.text = value;
+    }
+
+    if (!sameTextAttachedSignatures(entry.attachedSignatures, attachedSignatures)) {
+      entry.attachedSignatures = attachedSignatures;
+      entry.attachedVisibleGraphemeCount = visibleGraphemeCount;
+    }
+    entry.routeReason = routeDecision.reason;
+    if (
+      entry.lastRenderedFrame === null ||
+      !sameTextAttachedSignatures(entry.lastRenderedSignatures, entry.attachedSignatures)
+    ) {
+      this.pendingTextEntries.add(entry);
+    } else {
+      this.pendingTextEntries.delete(entry);
     }
 
     const object = entry.object;
@@ -642,19 +771,44 @@ export class AggregateLeafLayer {
       resolveCoreV2SlotQuad(store, slot, projectionContext),
       this.transformMatrix,
     );
-    object.alpha = combinedAlpha(store.color[slot] ?? 0xffffffff, store.opacity[slot] ?? 1);
-    object.tint = packedRgb(store.color[slot] ?? 0xffffffff);
+    object.alpha = alpha;
+    object.tint = packedRgb(packedColor);
     object.visible = true;
+    this.publishTextProbe(entry);
     this.paintProbesByEntityId.set(entityId, freezeEntityPaintProbe({
       entityId,
       lane: 'text',
       rendererKind: 'text',
       primitiveCount: 1,
       renderObjectCount: 1,
-      packedTint: (store.color[slot] ?? 0xffffffff) >>> 0,
-      rgbTint: packedRgb(store.color[slot] ?? 0xffffffff),
+      packedTint: packedColor,
+      rgbTint: packedRgb(packedColor),
       alpha: object.alpha,
     }));
+  }
+
+  private publishTextProbe(entry: TextEntry): void {
+    const current = entry.lastRenderedFrame !== null &&
+      sameTextAttachedSignatures(entry.attachedSignatures, entry.lastRenderedSignatures);
+    this.textProbesByEntityId.set(entry.entityId, freezeTextRendererProbe({
+      entityId: entry.entityId,
+      route: entry.route,
+      rendererKind: entry.route,
+      routeReason: entry.routeReason,
+      objectCount: 1,
+      semanticSignatures: freezeTextSemanticSignatures(entry.attachedSignatures),
+      attachedSignatures: entry.attachedSignatures,
+      lastRenderedSignatures: entry.lastRenderedSignatures,
+      publicationStatus: current ? 'current' : 'pending',
+      lastRenderedFrame: entry.lastRenderedFrame,
+      staleGlyphCount: !current && entry.lastRenderedSignatures !== null
+        ? entry.lastRenderedVisibleGraphemeCount
+        : 0,
+    }));
+    this.textLastRenderedGraphemeCountByEntityId.set(
+      entry.entityId,
+      entry.lastRenderedVisibleGraphemeCount,
+    );
   }
 
   private syncImage(
@@ -741,6 +895,9 @@ export class AggregateLeafLayer {
     const entry = this.texts.get(slot);
     if (!entry) return;
     this.texts.delete(slot);
+    this.pendingTextEntries.delete(entry);
+    this.textProbesByEntityId.delete(entry.entityId);
+    this.textLastRenderedGraphemeCountByEntityId.delete(entry.entityId);
     this.paintProbesByEntityId.delete(entry.entityId);
     entry.object.destroy();
   }
@@ -960,6 +1117,9 @@ export class AggregateLeafLayer {
     for (const entry of this.texts.values()) entry.object.destroy();
     for (const entry of this.images.values()) entry.object.destroy();
     this.texts.clear();
+    this.textProbesByEntityId.clear();
+    this.textLastRenderedGraphemeCountByEntityId.clear();
+    this.pendingTextEntries.clear();
     this.images.clear();
     this.imageBindingBySlot.clear();
     this.imageSlotsByBinding.clear();
@@ -1103,24 +1263,251 @@ export function isBitmapTextSafe(value: string): boolean {
   return value.length <= 128 && /^[\x20-\x7e\n\r\t]*$/.test(value);
 }
 
-function textStyle(store: RenderStoreView, slot: number): TextStyleOptions {
+function textStyle(
+  store: RenderStoreView,
+  slot: number,
+  routeStyle: CoreV2TextRenderStyle,
+): TextStyleOptions {
   return {
-    fontFamily: store.fontFamily[slot] || 'Arial',
-    fontSize: Math.max(1, store.fontSize[slot] ?? 16),
-    fontWeight: (store.fontWeight[slot] ?? 400) >= 600 ? 'bold' : 'normal',
-    fill: packedRgb(store.color[slot] ?? 0xffffffff),
+    fontFamily: routeStyle.fontFamily,
+    fontSize: routeStyle.fontSize,
+    fontWeight: pixiTextFontWeight(routeStyle.fontWeight),
+    fontStyle: routeStyle.fontStyle,
+    lineHeight: routeStyle.lineHeight,
+    letterSpacing: routeStyle.letterSpacing,
+    // Semantic layout already supplied explicit line breaks and clipping text.
+    wordWrap: false,
+    // Keep the raster white and apply exact packed paint through leaf tint.
+    fill: 0xffffff,
     align: alignName(store.align[slot] ?? RenderAlign.Left),
   };
 }
 
-function textStyleSignature(store: RenderStoreView, slot: number): string {
-  return [
+function textRenderStyle(
+  store: RenderStoreView,
+  slot: number,
+  projection: CoreV2TextProjection | null,
+): CoreV2TextRenderStyle {
+  const authored = projection?.authoredStyle;
+  const fontFamily = textFontFamily(authored?.fontFamily, store.fontFamily[slot]);
+  const fontWeight = textFontWeight(authored?.fontWeight, store.fontWeight[slot]);
+  const fontStyle = textFontStyle(authored?.fontStyle);
+  const align = alignName(store.align[slot] ?? RenderAlign.Left);
+  return Object.freeze({
+    fontFamily,
+    fontSize: projection?.fontSizePx ?? Math.max(1, store.fontSize[slot] ?? 16),
+    fontWeight,
+    fontStyle,
+    lineHeight: projection?.lineHeightPx ?? Math.max(1, store.fontSize[slot] ?? 16) * 1.2,
+    letterSpacing: projection?.letterSpacingPx ?? 0,
+    advancedFeatures: textAdvancedFeatures(authored, align),
+  });
+}
+
+function textGlyphResolution(
+  projection: CoreV2TextProjection | null,
+): Readonly<{ missingGlyphCount: number; fallbackGlyphCount: number }> {
+  if (projection === null) {
+    return Object.freeze({ missingGlyphCount: 0, fallbackGlyphCount: 0 });
+  }
+  const missingGlyphCount = projection.missingGlyphs.reduce(
+    (count, missing) => count + missing.count,
+    0,
+  );
+  const fallbackGlyphCount = projection.visibleFontRuns.reduce(
+    (count, run) => count + (
+      run.fallbackReason === undefined ? 0 : countVisibleGraphemes(run.text)
+    ),
+    0,
+  );
+  return Object.freeze({ missingGlyphCount, fallbackGlyphCount });
+}
+
+function textSemanticSignatures(
+  store: RenderStoreView,
+  slot: number,
+  projection: CoreV2TextProjection | null,
+): CoreV2TextSemanticSignatures {
+  if (projection !== null) {
+    return freezeTextSemanticSignatures({
+      content: projection.contentSignature,
+      style: projection.styleSignature,
+      layout: projection.layoutSignature,
+    });
+  }
+  const text = store.text[slot] ?? '';
+  const style = [
     store.fontFamily[slot] || 'Arial',
     store.fontSize[slot] ?? 16,
     store.fontWeight[slot] ?? 400,
-    store.color[slot] ?? 0xffffffff,
     store.align[slot] ?? RenderAlign.Left,
-  ].join('|');
+  ];
+  return freezeTextSemanticSignatures({
+    content: stableSerialize(['dense-text-content/v1', text]),
+    style: stableSerialize(['dense-text-style/v1', ...style]),
+    layout: stableSerialize([
+      'dense-text-layout/v1',
+      text,
+      ...style,
+      store.width[slot] ?? 0,
+      store.height[slot] ?? 0,
+    ]),
+  });
+}
+
+function textRendererSignature(
+  route: CoreV2TextRenderRoute,
+  atlasId: string | null,
+  text: string,
+  style: CoreV2TextRenderStyle,
+  align: 'left' | 'center' | 'right',
+  authoredStyle: CoreV2TextProjection['authoredStyle'] | null,
+  packedColor: number,
+  alpha: number,
+): string {
+  return stableSerialize({
+    revision: 'core-v2-text-renderer/1',
+    route,
+    atlasId,
+    text,
+    style,
+    align,
+    authoredStyle,
+    paint: { packedColor, alpha },
+  });
+}
+
+function freezeTextSemanticSignatures(
+  signatures: CoreV2TextSemanticSignatures,
+): CoreV2TextSemanticSignatures {
+  return Object.freeze({
+    content: signatures.content,
+    style: signatures.style,
+    layout: signatures.layout,
+  });
+}
+
+function freezeTextAttachedSignatures(
+  semantic: CoreV2TextSemanticSignatures,
+  renderer: string,
+): CoreV2TextAttachedSignatures {
+  return Object.freeze({
+    content: semantic.content,
+    style: semantic.style,
+    layout: semantic.layout,
+    renderer,
+  });
+}
+
+function sameTextAttachedSignatures(
+  left: CoreV2TextAttachedSignatures | null,
+  right: CoreV2TextAttachedSignatures | null,
+): boolean {
+  return left === right || (
+    left !== null &&
+    right !== null &&
+    left.content === right.content &&
+    left.style === right.style &&
+    left.layout === right.layout &&
+    left.renderer === right.renderer
+  );
+}
+
+function freezeTextRendererProbe(probe: CoreV2TextRendererProbe): CoreV2TextRendererProbe {
+  return Object.freeze({
+    ...probe,
+    semanticSignatures: freezeTextSemanticSignatures(probe.semanticSignatures),
+    attachedSignatures: probe.attachedSignatures === null
+      ? null
+      : freezeTextAttachedSignatures(probe.attachedSignatures, probe.attachedSignatures.renderer),
+    lastRenderedSignatures: probe.lastRenderedSignatures === null
+      ? null
+      : freezeTextAttachedSignatures(
+          probe.lastRenderedSignatures,
+          probe.lastRenderedSignatures.renderer,
+        ),
+  });
+}
+
+function countVisibleGraphemes(text: string): number {
+  let count = 0;
+  for (const grapheme of segmentCoreV2Graphemes(text)) {
+    if (grapheme !== '\n' && grapheme !== '\r' && grapheme !== '\r\n') count += 1;
+  }
+  return count;
+}
+
+function textFontFamily(authored: unknown, dense: string | undefined): string {
+  if (typeof authored === 'string' && authored.length > 0) return authored;
+  if (Array.isArray(authored)) {
+    const family = authored.find((value): value is string => (
+      typeof value === 'string' && value.length > 0
+    ));
+    if (family !== undefined) return family;
+  }
+  return dense && dense.length > 0 ? dense : 'Arial';
+}
+
+function textFontWeight(authored: unknown, dense: number | undefined): number {
+  const resolvedAuthored = authoredTextFontWeight(authored);
+  if (resolvedAuthored !== null) return resolvedAuthored;
+  if (validTextFontWeight(dense)) return dense;
+  return 400;
+}
+
+function authoredTextFontWeight(value: unknown): number | null {
+  if (value === 'bold' || value === 'bolder') return 700;
+  if (value === 'normal') return 400;
+  if (value === 'lighter') return 300;
+  if (validTextFontWeight(value)) return value;
+  if (typeof value === 'string' && /^(?:[1-9]00)$/.test(value)) return Number(value);
+  return null;
+}
+
+function pixiTextFontWeight(value: number): NonNullable<TextStyleOptions['fontWeight']> {
+  if (value === 400) return 'normal';
+  if (value === 700) return 'bold';
+  return String(value) as NonNullable<TextStyleOptions['fontWeight']>;
+}
+
+function textFontStyle(value: unknown): CoreV2TextRenderStyle['fontStyle'] {
+  return value === 'italic' || value === 'oblique' ? value : 'normal';
+}
+
+const TEXT_SEMANTIC_STYLE_KEYS = new Set([
+  'fontFamily',
+  'fontSize',
+  'fontWeight',
+  'fill',
+  'align',
+  'wordWrap',
+  'wordWrapWidth',
+  'breakWords',
+  'lineHeight',
+  'letterSpacing',
+  'autoFont',
+  'overflow',
+]);
+
+function textAdvancedFeatures(
+  authored: CoreV2TextProjection['authoredStyle'] | undefined,
+  align: 'left' | 'center' | 'right',
+): readonly string[] {
+  const features = authored === undefined
+    ? []
+    : Object.keys(authored).filter((key) => !TEXT_SEMANTIC_STYLE_KEYS.has(key));
+  if (align !== 'left') features.push(`align:${align}`);
+  if (authored?.fontWeight !== undefined && authoredTextFontWeight(authored.fontWeight) === null) {
+    features.push('fontWeight:invalid');
+  }
+  return Object.freeze([...new Set(features)].sort());
+}
+
+function validTextFontWeight(value: unknown): value is number {
+  return typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 100 &&
+    value <= 900;
 }
 
 function alignName(value: number): 'left' | 'center' | 'right' {

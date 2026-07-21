@@ -36,7 +36,7 @@ function mockOwnedAssetTransport(): void {
 }
 
 describe('Core v2 aggregate leaf policy', () => {
-  it('routes short ASCII labels to BitmapText and guards CJK/emoji/rich content', () => {
+  it('retains the legacy bounded-ASCII classifier without treating it as atlas proof', () => {
     expect(isBitmapTextSafe('CPU 42%')).toBe(true);
     expect(isBitmapTextSafe('line one\nline two')).toBe(true);
     expect(isBitmapTextSafe('인버터 42')).toBe(false);

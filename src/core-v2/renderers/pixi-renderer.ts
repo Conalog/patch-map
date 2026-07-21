@@ -25,10 +25,12 @@ import {
   type LeafAssetBindingProbe,
   type LeafAssetBindingRequest,
   type LeafSceneImageProbe,
+  type CoreV2BitmapTextCapabilityRequest,
 } from './leaf-layer';
 import { AggregateMeshLayer } from './mesh-layer';
 import { ParticleGraphicsLayer } from './particle-layer';
-import type { CoreV2ProjectionIndex } from '../contracts';
+import type { CoreV2ProjectionIndex, CoreV2TextProjection } from '../contracts';
+import type { CoreV2BitmapTextCapabilityProof } from '../semantic/text-render-route';
 import {
   createCoreV2LeafAssetSession,
   type CoreV2AssetPolicy,
@@ -41,6 +43,9 @@ import type {
   CoreV2RenderLaneRole,
   CoreV2RenderLaneSnapshot,
   CoreV2RendererStrategy,
+  CoreV2TextAttachedSignatures,
+  CoreV2TextSemanticSignatures,
+  CoreV2TextRendererProbe,
   PixiCoreV2RendererDebug,
   RootInteractionHandlers,
 } from './types';
@@ -64,6 +69,9 @@ export interface PixiCoreV2RendererOptions {
   readonly powerPreference?: 'high-performance' | 'low-power';
   readonly assetSession?: CoreV2AssetSession;
   readonly assetPolicy?: CoreV2AssetPolicy;
+  readonly resolveBitmapTextCapability?: (
+    request: CoreV2BitmapTextCapabilityRequest,
+  ) => CoreV2BitmapTextCapabilityProof | null;
 }
 
 export interface PixiCoreV2InitializationMetrics {
@@ -124,6 +132,11 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private relationSlots = new Set<number>();
   private relationEndpointsBySlot: ReadonlyMap<number, readonly [number, number]> = new Map();
   private projectionRevision = 0;
+  private textProjectionSynchronizedRevision = -1;
+  private lastRenderedTextProjectionRevision: number | null = null;
+  private lastRenderedTextStoreRevision: number | null = null;
+  private readonly textEntityIdBySlot = new Map<number, string>();
+  private readonly textVisibilityByEntityId = new Map<string, boolean>();
   private worldOrientation: CoreV2WorldOrientation = DEFAULT_WORLD_ORIENTATION;
   private readonly worldMatrix = new Matrix();
   private lastInvalidation = 'init';
@@ -145,7 +158,10 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private constructor(
     application: Application,
     options: Required<Pick<PixiCoreV2RendererOptions, 'width' | 'height' | 'pixelRatio' | 'strategy' | 'preference'>> &
-      Pick<PixiCoreV2RendererOptions, 'target' | 'assetSession' | 'assetPolicy'>,
+      Pick<
+        PixiCoreV2RendererOptions,
+        'target' | 'assetSession' | 'assetPolicy' | 'resolveBitmapTextCapability'
+      >,
     metrics: PixiCoreV2InitializationMetrics,
   ) {
     const buildStarted = now();
@@ -184,6 +200,9 @@ export class PixiCoreV2Renderer implements CoreRenderer {
             contiguousRanges(dirtySlots),
           );
         },
+        ...(options.resolveBitmapTextCapability === undefined
+          ? {}
+          : { resolveBitmapTextCapability: options.resolveBitmapTextCapability }),
       },
     );
     this.selectionOverlay = new Graphics({ label: 'PATCH MAP Core v2 / interaction overlay' });
@@ -252,6 +271,9 @@ export class PixiCoreV2Renderer implements CoreRenderer {
         ...(options.target ? { target: options.target } : {}),
         ...(options.assetSession ? { assetSession: options.assetSession } : {}),
         ...(options.assetPolicy ? { assetPolicy: options.assetPolicy } : {}),
+        ...(options.resolveBitmapTextCapability
+          ? { resolveBitmapTextCapability: options.resolveBitmapTextCapability }
+          : {}),
       },
       { applicationInitMs, rendererBuildMs: 0 },
     );
@@ -409,6 +431,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
           this.pendingRanges,
           this.relationSlotsByEndpoint,
         );
+    this.syncTextVisibility(store, storeReplaced || ranges === undefined ? undefined : ranges);
     const aggregate = !storeReplaced && ranges?.length === 0
       ? idleAggregateResult(this.lastAggregateResult)
       : this.syncAggregate(store, ranges);
@@ -418,13 +441,17 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       projectionContext: this.projectionContext(),
       ...(ranges === undefined ? {} : { changedRanges: ranges }),
     });
+    this.textProjectionSynchronizedRevision = this.projectionRevision;
     this.syncSelectionOverlay(store, storeReplaced, this.pendingOverlayRanges ?? ranges);
     const rendered = !this.synchronizeOnly;
     this.synchronizeOnly = false;
     if (rendered) {
       this.application.render();
-      this.leaves.confirmRenderedFrame();
-      this.frame += 1;
+      const renderedFrame = this.frame + 1;
+      this.leaves.confirmRenderedFrame(renderedFrame);
+      this.frame = renderedFrame;
+      this.lastRenderedTextProjectionRevision = this.projectionRevision;
+      this.lastRenderedTextStoreRevision = store.revision;
     }
     this.lastStore = store;
     this.pendingRanges = [];
@@ -520,6 +547,78 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     return this.leaves.sceneImageProbe(entityId);
   }
 
+  public textRendererProbe(entityId: string): CoreV2TextRendererProbe | null {
+    if (this.destroyedValue) return null;
+    const leaf = this.leaves.textRendererProbe(entityId);
+    const textIndex = this.projectionIndex.textsByEntityId;
+    if (textIndex === undefined) return leaf;
+    const semantic = textIndex[entityId];
+    if (semantic === undefined) return null;
+    const semanticSignatures = freezeRendererTextSemanticSignatures({
+      content: semantic.contentSignature,
+      style: semantic.styleSignature,
+      layout: semantic.layoutSignature,
+    });
+    const expectedObjectCount = this.textVisibilityByEntityId.get(entityId) === true ? 1 : 0;
+    if (expectedObjectCount === 0) {
+      const current = this.textProjectionSynchronizedRevision === this.projectionRevision &&
+        this.lastRenderedTextProjectionRevision === this.projectionRevision &&
+        this.lastRenderedTextStoreRevision === this.lastStore?.revision;
+      return freezeRendererTextProbe({
+        entityId,
+        route: 'none',
+        rendererKind: 'none',
+        routeReason: 'not-attached',
+        objectCount: 0,
+        semanticSignatures,
+        attachedSignatures: null,
+        lastRenderedSignatures: null,
+        publicationStatus: current ? 'current' : 'pending',
+        lastRenderedFrame: current ? this.frame : null,
+        staleGlyphCount: 0,
+      });
+    }
+    if (leaf === null) {
+      return freezeRendererTextProbe({
+        entityId,
+        route: 'none',
+        rendererKind: 'none',
+        routeReason: 'not-attached',
+        objectCount: 0,
+        semanticSignatures,
+        attachedSignatures: null,
+        lastRenderedSignatures: null,
+        publicationStatus: 'pending',
+        lastRenderedFrame: null,
+        staleGlyphCount: 0,
+      });
+    }
+    const attachedMatchesSemantic = sameRendererTextSemanticSignatures(
+      semanticSignatures,
+      leaf.attachedSignatures,
+    );
+    const renderedMatchesAttached = sameRendererTextAttachedSignatures(
+      leaf.attachedSignatures,
+      leaf.lastRenderedSignatures,
+    );
+    const current = this.textProjectionSynchronizedRevision === this.projectionRevision &&
+      this.lastRenderedTextProjectionRevision === this.projectionRevision &&
+      this.lastRenderedTextStoreRevision === this.lastStore?.revision &&
+      leaf.objectCount === expectedObjectCount &&
+      attachedMatchesSemantic &&
+      renderedMatchesAttached &&
+      leaf.lastRenderedFrame !== null;
+    return freezeRendererTextProbe({
+      ...leaf,
+      semanticSignatures,
+      publicationStatus: current ? 'current' : 'pending',
+      staleGlyphCount: leaf.lastRenderedSignatures !== null &&
+        (!attachedMatchesSemantic || !renderedMatchesAttached)
+        ? this.leaves.lastRenderedTextGraphemeCount(entityId)
+        : 0,
+    });
+  }
+
   public renderLaneProbe(): CoreV2RenderLaneSnapshot {
     return this.lastLaneProbe;
   }
@@ -612,6 +711,11 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.relationSlotsByEndpoint = new Map();
     this.relationSlots.clear();
     this.relationEndpointsBySlot = new Map();
+    this.textEntityIdBySlot.clear();
+    this.textVisibilityByEntityId.clear();
+    this.textProjectionSynchronizedRevision = -1;
+    this.lastRenderedTextProjectionRevision = null;
+    this.lastRenderedTextStoreRevision = null;
     this.lastDebug = Object.freeze({ ...this.lastDebug, destroyed: true });
     return true;
   }
@@ -659,6 +763,34 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       particleFullUploadCount: debug.particleFullUploadCount,
       uploadObservation: 'particle-full-upload-count',
     };
+  }
+
+  private syncTextVisibility(
+    store: RenderStoreView,
+    ranges: readonly SlotRange[] | undefined,
+  ): void {
+    const slots = ranges === undefined
+      ? Array.from({ length: store.capacity }, (_value, slot) => slot)
+      : slotsForRanges(store.capacity, ranges);
+    if (ranges === undefined) {
+      this.textEntityIdBySlot.clear();
+      this.textVisibilityByEntityId.clear();
+    }
+    for (const slot of slots) {
+      const previousEntityId = this.textEntityIdBySlot.get(slot);
+      if (previousEntityId !== undefined) {
+        this.textEntityIdBySlot.delete(slot);
+        this.textVisibilityByEntityId.delete(previousEntityId);
+      }
+      if (store.alive[slot] !== 1 || store.kind[slot] !== RenderKind.Text) continue;
+      const entityId = store.ids[slot];
+      if (!entityId) continue;
+      this.textEntityIdBySlot.set(slot, entityId);
+      this.textVisibilityByEntityId.set(
+        entityId,
+        ((store.flags[slot] ?? 0) & RenderFlags.Visible) !== 0,
+      );
+    }
   }
 
   private syncSelectionOverlay(
@@ -843,6 +975,64 @@ function mergeRanges(left: readonly SlotRange[], right: readonly SlotRange[]): S
   return result;
 }
 
+function freezeRendererTextSemanticSignatures(
+  signatures: CoreV2TextSemanticSignatures,
+): CoreV2TextSemanticSignatures {
+  return Object.freeze({
+    content: signatures.content,
+    style: signatures.style,
+    layout: signatures.layout,
+  });
+}
+
+function freezeRendererTextAttachedSignatures(
+  signatures: CoreV2TextAttachedSignatures,
+): CoreV2TextAttachedSignatures {
+  return Object.freeze({
+    content: signatures.content,
+    style: signatures.style,
+    layout: signatures.layout,
+    renderer: signatures.renderer,
+  });
+}
+
+function freezeRendererTextProbe(probe: CoreV2TextRendererProbe): CoreV2TextRendererProbe {
+  return Object.freeze({
+    ...probe,
+    semanticSignatures: freezeRendererTextSemanticSignatures(probe.semanticSignatures),
+    attachedSignatures: probe.attachedSignatures === null
+      ? null
+      : freezeRendererTextAttachedSignatures(probe.attachedSignatures),
+    lastRenderedSignatures: probe.lastRenderedSignatures === null
+      ? null
+      : freezeRendererTextAttachedSignatures(probe.lastRenderedSignatures),
+  });
+}
+
+function sameRendererTextSemanticSignatures(
+  semantic: CoreV2TextSemanticSignatures,
+  attached: CoreV2TextAttachedSignatures | null,
+): boolean {
+  return attached !== null &&
+    semantic.content === attached.content &&
+    semantic.style === attached.style &&
+    semantic.layout === attached.layout;
+}
+
+function sameRendererTextAttachedSignatures(
+  left: CoreV2TextAttachedSignatures | null,
+  right: CoreV2TextAttachedSignatures | null,
+): boolean {
+  return left === right || (
+    left !== null &&
+    right !== null &&
+    left.content === right.content &&
+    left.style === right.style &&
+    left.layout === right.layout &&
+    left.renderer === right.renderer
+  );
+}
+
 function sameView(left: CoreView, right: CoreView): boolean {
   return (
     left.x === right.x &&
@@ -884,13 +1074,18 @@ export function projectionChangedRanges(
       before.backgroundsByEntityId?.[id] !== after.backgroundsByEntityId?.[id] &&
       JSON.stringify(before.backgroundsByEntityId?.[id]) !==
         JSON.stringify(after.backgroundsByEntityId?.[id]);
+    const textChanged = textProjectionChanged(
+      before.textsByEntityId?.[id],
+      after.textsByEntityId?.[id],
+    );
     if (entityChanged) changedEndpointIds.add(id);
     if (
       entityChanged ||
       relationChanged ||
       imageChanged ||
       componentChanged ||
-      backgroundChanged
+      backgroundChanged ||
+      textChanged
     ) {
       slots.push(slot);
     }
@@ -908,6 +1103,29 @@ export function projectionChangedRanges(
     }
   }
   return contiguousRanges([...new Set(slots)].sort((left, right) => left - right));
+}
+
+function textProjectionChanged(
+  before: CoreV2TextProjection | undefined,
+  after: CoreV2TextProjection | undefined,
+): boolean {
+  if (before === after) return false;
+  if (before === undefined || after === undefined) return true;
+  return before.entityId !== after.entityId ||
+    before.targetKind !== after.targetKind ||
+    before.ownerId !== after.ownerId ||
+    before.componentId !== after.componentId ||
+    before.contentSignature !== after.contentSignature ||
+    before.styleSignature !== after.styleSignature ||
+    before.layoutSignature !== after.layoutSignature ||
+    before.color !== after.color ||
+    before.contentOrientation !== after.contentOrientation ||
+    before.placement !== after.placement ||
+    before.margin.top !== after.margin.top ||
+    before.margin.right !== after.margin.right ||
+    before.margin.bottom !== after.margin.bottom ||
+    before.margin.left !== after.margin.left ||
+    JSON.stringify(before.authoredStyle) !== JSON.stringify(after.authoredStyle);
 }
 
 function projectionOrientationRanges(
