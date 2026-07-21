@@ -252,7 +252,7 @@ describe('Core v2 scene image integration', () => {
     expect(core.projection?.byEntityId.intrinsic?.localBounds).toEqual([0, 0, 80, 40]);
     expect(core.hitBounds('intrinsic')).toEqual([10, 20, 80, 40]);
     expect(core.hitTestScreen({ x: 89, y: 59 })?.slot).toBe(core.ref('intrinsic')?.slot);
-    expect(renderer.projections.at(-1)).toBe(core.projection);
+    expect(renderer.projections.at(-1)).toBe(core.visibleProjection);
 
     core.load(dataset);
     expect(core.projection?.byEntityId.intrinsic?.localBounds).toEqual([0, 0, 80, 40]);

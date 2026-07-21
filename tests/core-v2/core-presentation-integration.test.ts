@@ -70,8 +70,8 @@ describe('Core v2 bar presentation integration', () => {
       });
   });
 
-  it('retargets from the current visible value and rejects backward publication atomically', () => {
-    const { core } = createTestCore(allocated);
+  it('rejects backward publication without poisoning a later atomic reconcile', () => {
+    const { core, renderer } = createTestCore(allocated);
     core.load(scene(10));
     core.publishFrame(0);
     core.reconcile(scene(40));
@@ -89,16 +89,62 @@ describe('Core v2 bar presentation integration', () => {
     core.publishFrame(200);
     expect(core.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' }))
       .toMatchObject({ presentationHeight: 22.03125, active: true });
-    const before = core.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' });
+    const beforeSnapshot = core.snapshot();
+    const beforeProjection = core.projection;
+    const beforeVisibleProjection = core.visibleProjection;
+    const beforeProbe = core.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' });
+    const beforeProjectionPublicationCount = renderer.projectionCalls.length;
     expect(() => core.publishFrame(199)).toThrow(CoreV2PresentationError);
-    expect(core.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' })).toEqual(before);
-    core.publishFrame(300);
+    expect(core.snapshot()).toEqual(beforeSnapshot);
+    expect(core.projection).toBe(beforeProjection);
+    expect(core.visibleProjection).toBe(beforeVisibleProjection);
+    expect(core.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' }))
+      .toEqual(beforeProbe);
+    expect(renderer.projectionCalls).toHaveLength(beforeProjectionPublicationCount);
+
+    const reconciled = core.reconcile(scene(30));
+    expect(reconciled).toMatchObject({
+      status: 'committed',
+      facts: {
+        revisionBefore: beforeSnapshot.revision,
+        revisionAfter: beforeSnapshot.revision + 1,
+      },
+    });
     expect(core.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' }))
       .toMatchObject({
-        presentationHeight: 20,
+        semanticHeight: 30,
+        presentationHeight: 22.03125,
+        startHeight: 22.03125,
+        destinationHeight: 30,
+        startTimeMs: 200,
+        active: true,
+      });
+    core.publishFrame(300);
+    expect(core.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' }))
+      .toMatchObject({ presentationHeight: 29.00390625, active: true });
+    core.publishFrame(400);
+    expect(core.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' }))
+      .toMatchObject({
+        semanticHeight: 30,
+        presentationHeight: 30,
         active: false,
         controller: { totalSettlementCount: 1, activeCount: 0 },
         ghostPublicationCount: 0,
+      });
+  });
+
+  it('snaps bar presentation when reconciliation is an ancestor layout transaction', () => {
+    const { core } = createTestCore(allocated);
+    core.load(scene(10));
+    core.publishFrame(0);
+
+    expect(core.reconcile(scene(40), { animateBarChanges: false }).status).toBe('committed');
+    expect(core.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' }))
+      .toMatchObject({
+        semanticHeight: 40,
+        presentationHeight: 40,
+        active: false,
+        controller: { activeCount: 0 },
       });
   });
 
@@ -165,6 +211,39 @@ describe('Core v2 bar presentation integration', () => {
     expect(engine.snapshot()).toEqual(before);
     expect(engine.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' }))
       .toMatchObject({ presentationHeight: 36.25, ghostPublicationCount: 0 });
+    await engine.destroy();
+  });
+
+  it('keeps Engine ancestor layout patches atomic while direct bar patches animate', async () => {
+    const { core } = createTestCore(allocated);
+    const engine = new CoreV2Engine({
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+    });
+    await engine.initialize({ instanceId: 'presentation-layout-engine', width: 800, height: 600 });
+    engine.loadDataset(percentScene(80));
+    engine.publishFrame(0);
+
+    expect(engine.patch(
+      { kind: 'element', id: 'item-a' },
+      { size: { width: 100, height: 100 } },
+    )).toMatchObject({ status: 'committed' });
+    expect(engine.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' }))
+      .toMatchObject({
+        semanticHeight: 25,
+        presentationHeight: 25,
+        active: false,
+      });
+
+    expect(engine.patch(
+      { kind: 'component', ownerId: 'item-a', id: 'level' },
+      { size: { width: 60, height: 40 } },
+    )).toMatchObject({ status: 'committed' });
+    expect(engine.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' }))
+      .toMatchObject({
+        semanticHeight: 40,
+        presentationHeight: 25,
+        active: true,
+      });
     await engine.destroy();
   });
 });
@@ -274,6 +353,23 @@ function scene(height: number, animation = true): readonly unknown[] {
       size: { width: 60, height },
       placement: 'bottom',
       animation,
+      animationDuration: 200,
+    }],
+  }];
+}
+
+function percentScene(itemHeight: number): readonly unknown[] {
+  return [{
+    type: 'item',
+    id: 'item-a',
+    size: { width: 100, height: itemHeight },
+    components: [{
+      type: 'bar',
+      id: 'level',
+      source: { type: 'rect', fill: '#336699' },
+      size: { width: 60, height: '25%' },
+      placement: 'bottom',
+      animation: true,
       animationDuration: 200,
     }],
   }];

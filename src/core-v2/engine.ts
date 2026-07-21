@@ -255,8 +255,10 @@ export interface CoreV2SurfaceOmittedRelationGeometry {
 }
 
 export interface CoreV2SurfaceGeometrySnapshot {
-  /** Dense scene revision used to derive the snapshot, when the surface can expose it. */
+  /** Surface geometry generation; legacy injected surfaces may use the dense scene revision. */
   readonly revision?: number;
+  /** Dense scene revision used to derive the snapshot, when independently available. */
+  readonly sceneRevision?: number;
   readonly entities: readonly CoreV2SurfaceEntityGeometry[];
   readonly relations: readonly CoreV2SurfaceRelationGeometry[];
   readonly omittedRelations?: readonly CoreV2SurfaceOmittedRelationGeometry[];
@@ -265,17 +267,32 @@ export interface CoreV2SurfaceGeometrySnapshot {
   }> | null;
 }
 
+export interface CoreV2GeometryRevisionTuple {
+  readonly scene: number;
+  readonly view: number;
+  readonly interaction: number;
+}
+
 export type CoreV2EngineGeometryProbe = Readonly<
-  Omit<CoreV2SurfaceGeometrySnapshot, 'revision'> & {
-    /** Null means the injected surface does not publish a geometry revision. */
+  Omit<CoreV2SurfaceGeometrySnapshot, 'revision' | 'sceneRevision'> & {
+    /** Engine scene revision represented by the correlated surface generation. */
     readonly revision: number | null;
-    /** Null means freshness cannot be established without a surface revision. */
+    /** Independent surface geometry generation, when published. */
+    readonly surfaceRevision: number | null;
+    /** Engine revision tuple represented by the correlated surface generation. */
+    readonly representedRevisions: CoreV2GeometryRevisionTuple | null;
+    /** Per-domain lag from the current Engine tuple. */
+    readonly revisionLags: CoreV2GeometryRevisionTuple | null;
+    /** Scene-domain compatibility projection of `revisionLags.scene`. */
     readonly revisionLag: number | null;
   }
 >;
 
 export interface CoreV2EngineRelationProbe {
   readonly revision: number | null;
+  readonly surfaceRevision: number | null;
+  readonly representedRevisions: CoreV2GeometryRevisionTuple | null;
+  readonly revisionLags: CoreV2GeometryRevisionTuple | null;
   readonly revisionLag: number | null;
   readonly relations: readonly CoreV2SurfaceRelationGeometry[];
   readonly omittedRelations: readonly CoreV2SurfaceOmittedRelationGeometry[];
@@ -306,6 +323,11 @@ export interface CoreV2SurfaceReconcileResult {
   readonly operationCount: number;
   readonly denseChanged: boolean;
   readonly diagnostics: readonly CoreV2ReconcileDiagnostic[];
+}
+
+export interface CoreV2SurfaceReconcileOptions {
+  /** Animate direct component bar changes; snap ancestor/layout reconciliation. */
+  readonly animateBarChanges?: boolean;
 }
 
 export interface CoreV2EngineSceneImageAttemptProbe extends Omit<
@@ -466,7 +488,10 @@ export interface CoreV2EngineSurface {
    * whole dense scene. Older injected surfaces may omit this capability; the
    * Engine then refuses partial mutation instead of falling back to `load`.
    */
-  reconcile?(input: unknown): CoreV2SurfaceReconcileResult;
+  reconcile?(
+    input: unknown,
+    options?: CoreV2SurfaceReconcileOptions,
+  ): CoreV2SurfaceReconcileResult;
   publishFrame(timeMs: number): void;
   resize(width: number, height: number, pixelRatio: number): boolean;
   setView(view: CoreV2SurfaceView): void;
@@ -772,6 +797,10 @@ export class CoreV2Engine {
   private interactionRevision = 0;
   private frameRevision = 0;
   private publishedTuple: CoreV2PublishedTuple = Object.freeze({ scene: 0, view: 0, interaction: 0 });
+  private geometryRevisionCorrelation: Readonly<{
+    readonly surfaceRevision: number;
+    readonly representedRevisions: CoreV2GeometryRevisionTuple;
+  }> | null = null;
   private zoomLimits: readonly [number, number] = DEFAULT_ZOOM_LIMITS;
   private rendererConfiguration: Readonly<{
     resolution: number;
@@ -905,6 +934,7 @@ export class CoreV2Engine {
           throw this.operationError('DESTROYED', 'DESTROYED', 'initialize', false);
         }
         this.surface = pendingSurface;
+        this.geometryRevisionCorrelation = null;
         pendingSurface = null;
         this.requiredAssetAcquisitions.push(...attemptAcquisitions);
         this.lifecycleGeneration += 1;
@@ -1029,7 +1059,9 @@ export class CoreV2Engine {
     const textSemantics = indexTextSemantics(mutation.candidate.dataset);
     let reconcile: CoreV2SurfaceReconcileResult;
     try {
-      reconcile = surface.reconcile(mutation.candidate.dataset);
+      reconcile = surface.reconcile(mutation.candidate.dataset, {
+        animateBarChanges: mutation.target.kind === 'component',
+      });
     } catch (error) {
       const diagnostic = this.diagnosticFrom(error, 'patch');
       const result = Object.freeze({
@@ -1145,7 +1177,9 @@ export class CoreV2Engine {
     const selectionBefore = surface.debugSnapshot().selectionIds;
     let reconcile: CoreV2SurfaceReconcileResult;
     try {
-      reconcile = surface.reconcile(mutation.candidate.dataset);
+      reconcile = surface.reconcile(mutation.candidate.dataset, {
+        animateBarChanges: false,
+      });
     } catch (error) {
       const diagnostic = this.diagnosticFrom(error, 'destroyTarget');
       const result = Object.freeze({
@@ -1585,11 +1619,11 @@ export class CoreV2Engine {
     const surface = this.requireSurface('geometryProbe');
     const geometry = surface.geometrySnapshot?.() ?? null;
     if (geometry === null) return null;
-    const sourceRevision = geometry.revision ?? null;
+    const { revision: _surfaceRevision, sceneRevision: _denseRevision, ...facts } = geometry;
+    const correlation = this.correlateGeometryRevision(geometry.revision ?? null);
     return Object.freeze({
-      ...geometry,
-      revision: sourceRevision,
-      revisionLag: sourceRevision === null ? null : this.sceneRevision - sourceRevision,
+      ...facts,
+      ...correlation,
     });
   }
 
@@ -1597,10 +1631,9 @@ export class CoreV2Engine {
     const surface = this.requireSurface('relationProbe');
     const geometry = surface.geometrySnapshot?.() ?? null;
     if (geometry === null) return null;
-    const sourceRevision = geometry.revision ?? null;
+    const correlation = this.correlateGeometryRevision(geometry.revision ?? null);
     return Object.freeze({
-      revision: sourceRevision,
-      revisionLag: sourceRevision === null ? null : this.sceneRevision - sourceRevision,
+      ...correlation,
       relations: geometry.relations,
       omittedRelations: geometry.omittedRelations ?? Object.freeze([]),
     });
@@ -1763,7 +1796,9 @@ export class CoreV2Engine {
       let materialized: MaterializedCoreV2Dataset;
       try {
         materialized = materializeCoreV2Dataset(transition.snapshot.dataset);
-        const reconcile = surface.reconcile?.(materialized.dataset);
+        const reconcile = surface.reconcile?.(materialized.dataset, {
+          animateBarChanges: false,
+        });
         if (reconcile === undefined) return false;
         reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
         if (reconcile.status === 'refused') {
@@ -1908,6 +1943,47 @@ export class CoreV2Engine {
       sceneRevision: this.sceneRevision,
       viewRevision: this.viewRevision,
       interactionRevision: this.interactionRevision,
+    });
+  }
+
+  private correlateGeometryRevision(surfaceRevision: number | null): Readonly<{
+    readonly revision: number | null;
+    readonly surfaceRevision: number | null;
+    readonly representedRevisions: CoreV2GeometryRevisionTuple | null;
+    readonly revisionLags: CoreV2GeometryRevisionTuple | null;
+    readonly revisionLag: number | null;
+  }> {
+    if (surfaceRevision === null || !Number.isFinite(surfaceRevision)) {
+      return Object.freeze({
+        revision: null,
+        surfaceRevision: null,
+        representedRevisions: null,
+        revisionLags: null,
+        revisionLag: null,
+      });
+    }
+    if (this.geometryRevisionCorrelation?.surfaceRevision !== surfaceRevision) {
+      this.geometryRevisionCorrelation = Object.freeze({
+        surfaceRevision,
+        representedRevisions: Object.freeze({
+          scene: this.sceneRevision,
+          view: this.viewRevision,
+          interaction: this.interactionRevision,
+        }),
+      });
+    }
+    const representedRevisions = this.geometryRevisionCorrelation.representedRevisions;
+    const revisionLags = Object.freeze({
+      scene: this.sceneRevision - representedRevisions.scene,
+      view: this.viewRevision - representedRevisions.view,
+      interaction: this.interactionRevision - representedRevisions.interaction,
+    });
+    return Object.freeze({
+      revision: representedRevisions.scene,
+      surfaceRevision,
+      representedRevisions,
+      revisionLags,
+      revisionLag: revisionLags.scene,
     });
   }
 
@@ -2209,8 +2285,13 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     this.invalidateGeometryCache();
   }
 
-  public reconcile(input: unknown): CoreV2SurfaceReconcileResult {
-    const result = this.core.reconcile(input);
+  public reconcile(
+    input: unknown,
+    options: CoreV2SurfaceReconcileOptions = {},
+  ): CoreV2SurfaceReconcileResult {
+    const result = this.core.reconcile(input, options.animateBarChanges === undefined
+      ? {}
+      : { animateBarChanges: options.animateBarChanges });
     if (result.status === 'committed') {
       this.geometryRevision += 1;
       this.geometryRevisionProjection = this.core.visibleProjection;
@@ -2233,7 +2314,10 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
 
   public resize(width: number, height: number, pixelRatio: number): boolean {
     const changed = this.core.resize(width, height, pixelRatio);
-    if (changed) this.invalidateGeometryCache();
+    if (changed) {
+      this.geometryRevision += 1;
+      this.invalidateGeometryCache();
+    }
     return changed;
   }
 
@@ -2252,11 +2336,13 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
       flipY: nextView.flipY,
     });
     this.surfaceView = nextView;
+    this.geometryRevision += 1;
     this.invalidateGeometryCache();
   }
 
   public select(ids: readonly string[]): void {
     this.core.commit({ operations: [{ type: 'selection', targets: ids, mode: 'replace' }] });
+    this.geometryRevision += 1;
     this.invalidateGeometryCache();
   }
 
@@ -3016,6 +3102,7 @@ export function createCoreV2SurfaceGeometrySnapshot(
 
   return Object.freeze({
     revision: snapshot.revision,
+    sceneRevision: snapshot.revision,
     entities: Object.freeze(entityGeometries),
     relations: Object.freeze(relations),
     omittedRelations: Object.freeze((projection?.omittedRelations ?? []).map((relation) =>

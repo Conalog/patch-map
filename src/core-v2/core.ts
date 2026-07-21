@@ -113,6 +113,12 @@ export interface CoreV2WorldTransform extends CoreV2WorldOrientation {
 export interface CoreV2ReconcileOptions extends CoreV2DenseReconcileOptions {
   /** Parser/color options for the candidate input. Defaults to the Core options. */
   readonly parse?: ParsePatchMapOptions;
+  /**
+   * Animate changed bar destinations. Engine callers disable this for
+   * ancestor/layout transactions so dependent geometry publishes atomically.
+   * Direct Core callers retain the animated default.
+   */
+  readonly animateBarChanges?: boolean;
 }
 
 export interface CoreV2ReconcileTimings {
@@ -523,7 +529,10 @@ export class CoreV2 {
       this.sceneImageReconcileSuspended = false;
     }
     const commitMs = now() - commitStarted;
-    const presentation = this.reconcileBarPresentation(parse.projection);
+    const presentation = this.reconcileBarPresentation(
+      parse.projection,
+      options.animateBarChanges !== false,
+    );
     this.parseResultValue = parse;
     this.projectionValue = parse.projection;
     this.renderer.setProjection(presentation);
@@ -585,9 +594,9 @@ export class CoreV2 {
     if (!Number.isFinite(timeMs)) throw new TypeError('timeMs must be finite');
     this.applyPendingIntrinsicImageSizes();
     this.scheduler.cancelPending();
+    this.advancePresentation(timeMs);
     this.animationClockMs = timeMs;
     this.lastAnimationFrameTime = null;
-    this.advancePresentation(timeMs);
     this.lastFrameReport = this.flushScene();
     if (this.lastFrameReport.rendered) void this.sceneImages.finalizeAfterRenderedFrame();
     if (this.autoRender && this.activeAnimations > 0) this.scheduler.invalidate('presentation');
@@ -1212,7 +1221,10 @@ export class CoreV2 {
    * Commit semantic bar destinations immediately while retaining only active
    * renderer-visible heights in the transient projection sidecar.
    */
-  private reconcileBarPresentation(next: CoreV2ProjectionIndex): CoreV2ProjectionIndex {
+  private reconcileBarPresentation(
+    next: CoreV2ProjectionIndex,
+    animateBarChanges: boolean,
+  ): CoreV2ProjectionIndex {
     const previousBars = this.projectionValue?.barsByEntityId ?? {};
     const nextBars = next.barsByEntityId ?? {};
     const visibleHeights = new Map<string, number>();
@@ -1241,7 +1253,8 @@ export class CoreV2 {
       const currentHeight = this.presentationProjection.visibleHeight(entityId) ??
         previous?.destinationHeight ??
         bar.destinationHeight;
-      const canAnimate = previous !== undefined &&
+      const canAnimate = animateBarChanges &&
+        previous !== undefined &&
         entity?.kind === 'bar' &&
         entity.visible &&
         ref !== null &&

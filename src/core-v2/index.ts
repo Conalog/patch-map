@@ -3,6 +3,7 @@ export type {
   AnimateBarsOptions,
   CoreV2LoadResult,
   CoreV2Options,
+  CoreV2BarPresentationProductProbe,
   CoreV2PrepareResult,
   CoreV2ReconcileFacts,
   CoreV2ReconcileOptions,
@@ -17,6 +18,9 @@ export type {
   CoreV2TextTarget,
   CoreV2TextTransformProbe,
 } from './core';
+export type * from './paint-order-product';
+export type * from './history';
+export type * from './semantic/paint-order';
 export { CoreV2Engine, CoreV2EngineError } from './engine';
 export type * from './engine';
 export {

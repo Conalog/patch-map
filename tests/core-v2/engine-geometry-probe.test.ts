@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { SceneSnapshot } from '../../src/core-v1/contracts';
 import {
+  CoreV2Engine,
   createCoreV2SurfaceGeometrySnapshot,
   PixiEngineSurface,
 } from '../../src/core-v2/engine';
@@ -74,6 +75,7 @@ describe('CoreV2Engine renderer-aligned geometry probe', () => {
 
     const geometry = createCoreV2SurfaceGeometrySnapshot(snapshot);
 
+    expect(geometry).toMatchObject({ revision: 7, sceneRevision: 7 });
     expect(geometry.entities).toHaveLength(3);
     expect(geometry.entities[1]).toMatchObject({
       id: 'rect-b',
@@ -215,18 +217,107 @@ describe('CoreV2Engine renderer-aligned geometry probe', () => {
     expect(surface.reconcile([])).toMatchObject({ status: 'committed' });
     const afterMutation = surface.geometrySnapshot();
     expect(afterMutation).not.toBe(beforeSelection);
+    expect(afterMutation.revision).toBeGreaterThan(beforeSelection.revision ?? -1);
 
     surface.setView({ x: 0, y: 0, scale: 1, rotation: 0 });
     const afterView = surface.geometrySnapshot();
     expect(afterView).not.toBe(afterMutation);
+    expect(afterView.revision).toBeGreaterThan(afterMutation.revision ?? -1);
 
     surface.select(['selected']);
     const afterSelection = surface.geometrySnapshot();
     expect(afterSelection).not.toBe(afterView);
+    expect(afterSelection.revision).toBeGreaterThan(afterView.revision ?? -1);
     expect(afterSelection.selectionOverlay?.screenBounds).toEqual([10, 20, 30, 40]);
 
     expect(surface.resize(640, 480, 2)).toBe(true);
-    expect(surface.geometrySnapshot()).not.toBe(afterSelection);
+    const afterResize = surface.geometrySnapshot();
+    expect(afterResize).not.toBe(afterSelection);
+    expect(afterResize.revision).toBeGreaterThan(afterSelection.revision ?? -1);
+  });
+
+  it('correlates surface generations with Engine scene, view, and interaction revisions', async () => {
+    let surfaceRevision = 0;
+    let denseRevision = 0;
+    let selectionIds: readonly string[] = [];
+    const surface = {
+      canvasCount: 0,
+      destroyed: false,
+      load() {
+        surfaceRevision += 1;
+        denseRevision += 1;
+      },
+      publishFrame() {},
+      resize() { return false; },
+      setView() { surfaceRevision += 1; },
+      select(ids: readonly string[]) {
+        selectionIds = ids;
+        surfaceRevision += 1;
+        denseRevision += 1;
+      },
+      debugSnapshot: () => ({
+        cssSize: [800, 600],
+        backingSize: [800, 600],
+        selectionIds,
+        activeAnimationCount: 0,
+        activeGestureCount: 0,
+        renderCommandCount: 0,
+        visiblePrimitiveCount: 0,
+      }),
+      geometrySnapshot: () => ({
+        revision: surfaceRevision,
+        // Deliberately use a different dense revision domain. Engine probes
+        // must correlate the surface generation instead of subtracting this.
+        sceneRevision: denseRevision,
+        entities: [],
+        relations: [],
+        selectionOverlay: null,
+      }),
+      destroy() { return Promise.resolve(true); },
+    };
+    const engine = new CoreV2Engine({
+      surfaceFactory: () => Promise.resolve(surface as never),
+    });
+    await engine.initialize({ instanceId: 'geometry-revision-domains', width: 800, height: 600 });
+    engine.loadDataset([{
+      type: 'rect',
+      id: 'rect-a',
+      size: { width: 20, height: 10 },
+      attrs: { x: 0, y: 0 },
+    }]);
+
+    const loaded = engine.geometryProbe();
+    expect(loaded).toMatchObject({
+      revision: 1,
+      surfaceRevision: 1,
+      representedRevisions: { scene: 1, view: 0, interaction: 0 },
+      revisionLags: { scene: 0, view: 0, interaction: 0 },
+      revisionLag: 0,
+    });
+    expect(loaded).not.toHaveProperty('sceneRevision');
+
+    engine.setViewport({ centerWorld: [20, 10], scale: 2 });
+    const viewed = engine.geometryProbe();
+    expect(viewed).toMatchObject({
+      revision: 1,
+      surfaceRevision: 2,
+      representedRevisions: { scene: 1, view: 1, interaction: 0 },
+      revisionLags: { scene: 0, view: 0, interaction: 0 },
+      revisionLag: 0,
+    });
+
+    engine.select(['rect-a']);
+    const selected = engine.geometryProbe();
+    expect(selected).toMatchObject({
+      revision: 1,
+      surfaceRevision: 3,
+      representedRevisions: { scene: 1, view: 1, interaction: 1 },
+      revisionLags: { scene: 0, view: 0, interaction: 0 },
+      revisionLag: 0,
+    });
+    expect(selected?.surfaceRevision).toBeGreaterThan(viewed?.surfaceRevision ?? -1);
+    expect(selected?.revisionLag).toBeGreaterThanOrEqual(0);
+    await engine.destroy();
   });
 
   it('rebuilds cached geometry when decoded image projection changes without a scene revision', () => {
@@ -246,7 +337,7 @@ describe('CoreV2Engine renderer-aligned geometry probe', () => {
     let projection = imageProjection(32, 32);
     const core = {
       destroyed: false,
-      get projection() { return projection; },
+      get visibleProjection() { return projection; },
       snapshot: (): SceneSnapshot => ({
         revision: 1,
         view: { x: 0, y: 0, scale: 1, rotation: 0 },
@@ -264,7 +355,9 @@ describe('CoreV2Engine renderer-aligned geometry probe', () => {
     const resolved = surface.geometrySnapshot();
     expect(resolved).not.toBe(provisional);
     expect(provisional.revision).toBe(1);
+    expect(provisional.sceneRevision).toBe(1);
     expect(resolved.revision).toBe(2);
+    expect(resolved.sceneRevision).toBe(1);
     expect(resolved.entities[0]?.worldBounds).toEqual([10, 20, 80, 40]);
   });
 
