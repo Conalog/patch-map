@@ -500,7 +500,9 @@ async function refreshBridgeUi(
   const results = execution && Array.isArray(execution.actionResults)
     ? execution.actionResults as unknown as readonly unknown[]
     : [];
-  for (const row of root.querySelectorAll<HTMLElement>('[data-action-index]')) {
+  for (const row of root.querySelectorAll<HTMLElement>(
+    '.contract-case-action[data-action-index]',
+  )) {
     const index = Number(row.dataset.actionIndex);
     const result = Number.isInteger(index) ? results[index] : undefined;
     const resultStatus = isRecord(result) && typeof result.status === 'string'

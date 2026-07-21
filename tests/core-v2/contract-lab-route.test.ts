@@ -549,5 +549,7 @@ describe('Core v2 actual-only Lab bridge', () => {
     expect(joined).not.toMatch(/node:/);
     expect(joined).not.toMatch(/(?:execute|mutate|select|transform)(?:Scene|Entity|Selection|Viewport)/);
     expect(joined).toContain("state.status === 'failed'\n          ? 'not-run'");
+    expect(joined).toContain("'.contract-case-action[data-action-index]'");
+    expect(joined).not.toContain("querySelectorAll<HTMLElement>('[data-action-index]')");
   });
 });
