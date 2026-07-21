@@ -16,11 +16,12 @@ const EXPECTED_PATH = fileURLToPath(new URL(
 ));
 const VITE_CONFIG_PATH = path.join(ROOT, 'vite.core-v2-lab.config.ts');
 const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
+const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 199;
-const EXPECTED_ASSERTION_PASS_TOTAL = 196;
-const EXPECTED_ASSERTION_FAILURE_TOTAL = 3;
+const EXPECTED_ASSERTION_TOTAL = 284;
+const EXPECTED_ASSERTION_PASS_TOTAL = 280;
+const EXPECTED_ASSERTION_FAILURE_TOTAL = 4;
 const REN_005_IMMUTABLE_FAILURES = Object.freeze([
   Object.freeze({
     path: '/resources/images/alias',
@@ -38,8 +39,17 @@ const REN_005_IMMUTABLE_FAILURES = Object.freeze([
     failurePath: '/resources/images/url',
   }),
 ]);
+const ANI_002_IMMUTABLE_FAILURES = Object.freeze([
+  Object.freeze({
+    path: '/outcome/backwardTime/code',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/backwardTime/code',
+  }),
+]);
 const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'LAY-001', expectedAssertions: 9 }),
+  Object.freeze({ id: 'LAY-002', expectedAssertions: 28 }),
+  Object.freeze({ id: 'LAY-003', expectedAssertions: 9 }),
   Object.freeze({ id: 'REN-001', expectedAssertions: 9 }),
   Object.freeze({ id: 'REN-004', expectedAssertions: 10 }),
   Object.freeze({
@@ -54,10 +64,28 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'LAY-004', expectedAssertions: 11 }),
   Object.freeze({ id: 'REN-007', expectedAssertions: 26 }),
   Object.freeze({ id: 'REN-008', expectedAssertions: 10 }),
+  Object.freeze({ id: 'REN-009', expectedAssertions: 13 }),
   Object.freeze({ id: 'REN-010', expectedAssertions: 11 }),
   Object.freeze({ id: 'REN-011', expectedAssertions: 20 }),
+  Object.freeze({ id: 'UPD-005', expectedAssertions: 10 }),
+  Object.freeze({ id: 'ANI-001', expectedAssertions: 14 }),
+  Object.freeze({
+    id: 'ANI-002',
+    expectedAssertions: 11,
+    expectedFailures: ANI_002_IMMUTABLE_FAILURES,
+  }),
 ]);
 const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-006', 'REN-008', 'REN-010', 'REN-011']);
+const PRESENTATION_TRANCHE_CASES = new Set([
+  'LAY-002',
+  'LAY-003',
+  'UPD-005',
+  'REN-009',
+  'ANI-001',
+  'ANI-002',
+]);
+const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...PRESENTATION_TRANCHE_CASES]);
+const GPU_EVIDENCE_CASES = new Set(['LAY-003', 'REN-009', 'ANI-001', 'ANI-002']);
 
 const headed = parseArguments(process.argv.slice(2));
 const errors = { console: [], page: [], network: [], externalFixture: [] };
@@ -138,20 +166,20 @@ try {
     freshFailed,
   };
 
-  invariant(report.cases.length === RENDER_CASES.length, 'all thirteen render routes completed');
+  invariant(report.cases.length === RENDER_CASES.length, 'all nineteen render routes completed');
   invariant(
     passed === EXPECTED_ASSERTION_PASS_TOTAL && failed === EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'canonical comparison must be exactly 196 pass and 3 immutable conflicts',
+    'canonical comparison must be exactly 280 pass and 4 immutable conflicts',
   );
   invariant(
     repeatPassed === EXPECTED_ASSERTION_PASS_TOTAL &&
       repeatFailed === EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'repeat comparison must be exactly 196 pass and 3 immutable conflicts',
+    'repeat comparison must be exactly 280 pass and 4 immutable conflicts',
   );
   invariant(
     freshPassed === EXPECTED_ASSERTION_PASS_TOTAL &&
       freshFailed === EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'fresh comparison must be exactly 196 pass and 3 immutable conflicts',
+    'fresh comparison must be exactly 280 pass and 4 immutable conflicts',
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
   invariant(errors.page.length === 0, 'page error count must be zero');
@@ -170,6 +198,243 @@ try {
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 }
 
+async function installWebGlCanvasProbe(page, caseId) {
+  if (!GPU_EVIDENCE_CASES.has(caseId)) return;
+  await page.addInitScript(({ probeName, caseIdentity }) => {
+    const originalGetContext = HTMLCanvasElement.prototype.getContext;
+    const contextMetadata = new WeakMap();
+    const instrumentedContexts = new WeakSet();
+    const state = {
+      session: 0,
+      caseId: caseIdentity,
+      operation: null,
+      contexts: [],
+      frames: [],
+      currentFrames: new Map(),
+      errors: [],
+    };
+
+    const probe = Object.freeze({
+      revision: 'core-v2-webgl-browser-probe/1',
+      begin(input) {
+        if (!input || input.caseId !== caseIdentity || typeof input.operation !== 'string') {
+          throw new Error('Invalid Core v2 WebGL probe run identity');
+        }
+        state.session += 1;
+        state.operation = input.operation;
+        state.contexts = [];
+        state.frames = [];
+        state.currentFrames = new Map();
+        state.errors = [];
+      },
+      snapshot() {
+        return JSON.parse(JSON.stringify({
+          revision: 'core-v2-webgl-browser-probe/1',
+          caseId: state.caseId,
+          operation: state.operation,
+          contexts: state.contexts,
+          frames: state.frames,
+          errors: state.errors,
+        }));
+      },
+    });
+
+    Object.defineProperty(window, probeName, {
+      configurable: false,
+      enumerable: false,
+      writable: false,
+      value: probe,
+    });
+
+    Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+      configurable: true,
+      writable: true,
+      value(type, ...options) {
+        const context = Reflect.apply(originalGetContext, this, [type, ...options]);
+        if (
+          context
+          && (type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl')
+        ) {
+          let metadata = contextMetadata.get(context);
+          if (!metadata) {
+            metadata = {
+              canvas: this,
+              requestedContext: type,
+              actualContext: typeof WebGL2RenderingContext !== 'undefined'
+                && context instanceof WebGL2RenderingContext
+                ? 'webgl2'
+                : 'webgl',
+              session: -1,
+              contextIndex: -1,
+              frameIndex: 0,
+            };
+            contextMetadata.set(context, metadata);
+          }
+          instrumentContext(context, metadata);
+        }
+        return context;
+      },
+    });
+
+    function instrumentContext(context, metadata) {
+      if (instrumentedContexts.has(context)) return;
+      instrumentedContexts.add(context);
+      wrapContextMethod(context, metadata, 'clear', (args) => {
+        const mask = args[0];
+        if (
+          typeof mask === 'number'
+          && (mask & context.COLOR_BUFFER_BIT) !== 0
+          && isDefaultFramebuffer(context)
+        ) {
+          startFrame(context, metadata, 'clear');
+        }
+      });
+      for (const method of [
+        'drawArrays',
+        'drawElements',
+        'drawArraysInstanced',
+        'drawElementsInstanced',
+        'drawRangeElements',
+      ]) {
+        wrapContextMethod(context, metadata, method, () => {
+          if (isDefaultFramebuffer(context)) recordDraw(context, metadata, method);
+        });
+      }
+    }
+
+    function wrapContextMethod(context, metadata, method, after) {
+      const original = context[method];
+      if (typeof original !== 'function') return;
+      try {
+        Object.defineProperty(context, method, {
+          configurable: true,
+          writable: true,
+          value(...args) {
+            const result = Reflect.apply(original, this, args);
+            try {
+              after(args);
+            } catch (error) {
+              recordProbeError(metadata, method, error);
+            }
+            return result;
+          },
+        });
+      } catch (error) {
+        recordProbeError(metadata, `instrument:${method}`, error);
+      }
+    }
+
+    function ensureSessionContext(metadata) {
+      if (metadata.session === state.session) return metadata.contextIndex;
+      metadata.session = state.session;
+      metadata.contextIndex = state.contexts.length;
+      metadata.frameIndex = 0;
+      state.contexts.push({
+        index: metadata.contextIndex,
+        requestedContext: metadata.requestedContext,
+        actualContext: metadata.actualContext,
+        width: metadata.canvas.width,
+        height: metadata.canvas.height,
+        trackedCanvas: metadata.canvas.dataset.patchMapCore === 'v2',
+      });
+      return metadata.contextIndex;
+    }
+
+    function startFrame(context, metadata, source) {
+      if (state.operation === null) return;
+      const contextIndex = ensureSessionContext(metadata);
+      const frame = {
+        contextIndex,
+        frameIndex: metadata.frameIndex,
+        source,
+        width: metadata.canvas.width,
+        height: metadata.canvas.height,
+        trackedCanvas: metadata.canvas.dataset.patchMapCore === 'v2',
+        draws: [],
+      };
+      metadata.frameIndex += 1;
+      state.frames.push(frame);
+      state.currentFrames.set(contextIndex, frame);
+    }
+
+    function recordDraw(context, metadata, method) {
+      if (state.operation === null) return;
+      const contextIndex = ensureSessionContext(metadata);
+      let frame = state.currentFrames.get(contextIndex);
+      if (!frame) {
+        startFrame(context, metadata, 'implicit-draw');
+        frame = state.currentFrames.get(contextIndex);
+      }
+      if (!frame || frame.draws.length >= 96) return;
+      frame.draws.push({
+        index: frame.draws.length,
+        method,
+        centerRgba: readPixelAtCssPoint(context, metadata.canvas, 10, 10),
+        barColumn: readBarColumn(context, metadata.canvas),
+      });
+    }
+
+    function readPixelAtCssPoint(context, canvas, cssX, cssY) {
+      const x = Math.max(0, Math.min(canvas.width - 1, Math.floor(cssX * canvas.width / 800)));
+      const topY = Math.max(0, Math.min(canvas.height - 1, Math.floor(cssY * canvas.height / 600)));
+      const y = canvas.height - topY - 1;
+      const pixel = new Uint8Array(4);
+      context.readPixels(x, y, 1, 1, context.RGBA, context.UNSIGNED_BYTE, pixel);
+      return rgbaHex(pixel);
+    }
+
+    function readBarColumn(context, canvas) {
+      const x = Math.max(0, Math.min(canvas.width - 1, Math.floor(50 * canvas.width / 800)));
+      const pixels = new Uint8Array(canvas.height * 4);
+      context.readPixels(x, 0, 1, canvas.height, context.RGBA, context.UNSIGNED_BYTE, pixels);
+      let bestStart = -1;
+      let bestEnd = -1;
+      let runStart = -1;
+      for (let y = 0; y < canvas.height; y += 1) {
+        const offset = y * 4;
+        const matches = Math.abs(pixels[offset] - 0) <= 4
+          && Math.abs(pixels[offset + 1] - 170) <= 4
+          && Math.abs(pixels[offset + 2] - 102) <= 4
+          && pixels[offset + 3] >= 250;
+        if (matches && runStart < 0) runStart = y;
+        if ((!matches || y === canvas.height - 1) && runStart >= 0) {
+          const runEnd = matches && y === canvas.height - 1 ? y : y - 1;
+          if (bestStart < 0 || runEnd - runStart > bestEnd - bestStart) {
+            bestStart = runStart;
+            bestEnd = runEnd;
+          }
+          runStart = -1;
+        }
+      }
+      if (bestStart < 0) return null;
+      return {
+        sampleX: x,
+        top: canvas.height - bestEnd - 1,
+        bottomExclusive: canvas.height - bestStart,
+        height: bestEnd - bestStart + 1,
+        rgba: '#00aa66ff',
+      };
+    }
+
+    function rgbaHex(pixel) {
+      return `#${[...pixel].map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+    }
+
+    function isDefaultFramebuffer(context) {
+      return context.getParameter(context.FRAMEBUFFER_BINDING) === null;
+    }
+
+    function recordProbeError(metadata, operation, error) {
+      if (state.operation === null) return;
+      state.errors.push({
+        contextIndex: metadata.contextIndex,
+        operation,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, { probeName: GPU_PROBE_NAME, caseIdentity: caseId });
+}
+
 async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expectedCase, errors: capturedErrors }) {
   const context = await activeBrowser.newContext({
     viewport: { width: 1_280, height: 900 },
@@ -177,20 +442,21 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
   });
   const page = await context.newPage();
   attachErrorCapture(page, caseSpec.id, capturedErrors);
+  await installWebGlCanvasProbe(page, caseSpec.id);
   const route = `/lab/core-v2?scenario=${caseSpec.id}&size=${DATASET_SIZE}&seed=${SEED}`;
   const routeUrl = new URL(route, baseUrl).href;
 
   try {
     await openFocusedCase(page, routeUrl, route, caseSpec.id);
 
-    const first = FOCUSED_UI_CASES.has(caseSpec.id)
+    const first = DOM_CONTROL_CASES.has(caseSpec.id)
       ? await executeBrowserUiRun(page, caseSpec.id, 'runCase', 'load-dataset')
       : await executeBrowserRun(page, 'runCase');
     lastFocusedUi = first.ui;
     const comparison = compareCaseRun(expectedCase, first);
     assertCaseRun(caseSpec, first, comparison, 'first');
 
-    const repeat = FOCUSED_UI_CASES.has(caseSpec.id)
+    const repeat = DOM_CONTROL_CASES.has(caseSpec.id)
       ? await executeBrowserUiRun(page, caseSpec.id, 'repeatCase', 'repeat-action')
       : await executeBrowserRun(page, 'repeatCase');
     lastFocusedUi = repeat.ui;
@@ -201,9 +467,10 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
       `${caseSpec.id} repeat stable actual digest`,
     );
 
-    const destroyed = await destroyBrowserCase(page);
+    const destroyed = await destroyBrowserCase(page, caseSpec.id);
     invariant(destroyed.status === 'destroyed', `${caseSpec.id} bridge destroy terminal status`);
     invariant(destroyed.canvasCount === 0, `${caseSpec.id} destroy releases every canvas`);
+    assertPresentationTrancheDestroyControl(caseSpec.id, destroyed, 'first/repeat');
 
     const fresh = await executeFreshSession({
       browser: activeBrowser,
@@ -238,6 +505,9 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
         fresh: fresh.run.canvas,
         afterDestroy: destroyed.canvasCount,
       },
+      gpu: GPU_EVIDENCE_CASES.has(caseSpec.id)
+        ? { first: first.gpu, repeat: repeat.gpu, fresh: fresh.run.gpu }
+        : null,
       cleanup: {
         first: first.cleanupStatus,
         repeat: repeat.cleanupStatus,
@@ -245,8 +515,17 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
         destroy: cleanupStatus(destroyed.cleanup),
         freshDestroy: cleanupStatus(fresh.destroyed.cleanup),
       },
-      focusedUi: FOCUSED_UI_CASES.has(caseSpec.id)
+      focusedUi: DOM_CONTROL_CASES.has(caseSpec.id)
         ? { first: first.ui, repeat: repeat.ui, fresh: fresh.run.ui }
+        : null,
+      controls: PRESENTATION_TRANCHE_CASES.has(caseSpec.id)
+        ? {
+            first: first.ui?.trigger ?? null,
+            repeat: repeat.ui?.trigger ?? null,
+            destroy: destroyed.trigger,
+            fresh: fresh.run.ui?.trigger ?? null,
+            freshDestroy: fresh.destroyed.trigger,
+          }
         : null,
     };
   } finally {
@@ -269,18 +548,20 @@ async function executeFreshSession({
   });
   const page = await context.newPage();
   attachErrorCapture(page, caseSpec.id, capturedErrors);
+  await installWebGlCanvasProbe(page, caseSpec.id);
 
   try {
     await openFocusedCase(page, routeUrl, route, caseSpec.id);
-    const run = FOCUSED_UI_CASES.has(caseSpec.id)
+    const run = DOM_CONTROL_CASES.has(caseSpec.id)
       ? await executeBrowserUiRun(page, caseSpec.id, 'runCase', 'load-dataset')
       : await executeBrowserRun(page, 'runCase');
     lastFocusedUi = run.ui;
     const comparison = compareCaseRun(expectedCase, run);
     assertCaseRun(caseSpec, run, comparison, 'fresh');
-    const destroyed = await destroyBrowserCase(page);
+    const destroyed = await destroyBrowserCase(page, caseSpec.id);
     invariant(destroyed.status === 'destroyed', `${caseSpec.id} fresh bridge destroy terminal status`);
     invariant(destroyed.canvasCount === 0, `${caseSpec.id} fresh destroy releases every canvas`);
+    assertPresentationTrancheDestroyControl(caseSpec.id, destroyed, 'fresh');
     return { run, comparison, destroyed };
   } finally {
     await page.close().catch(() => undefined);
@@ -305,31 +586,88 @@ async function openFocusedCase(page, routeUrl, route, caseId) {
   );
 }
 
-async function destroyBrowserCase(page) {
-  return page.evaluate(async (bridgeName) => {
+async function destroyBrowserCase(page, caseId) {
+  return page.evaluate(async ({ bridgeName, useDomControl }) => {
     const bridge = window[bridgeName];
     if (!bridge) throw new Error(`Missing public Lab bridge ${bridgeName}`);
-    const cleanup = await bridge.destroyCase();
     const surface = document.querySelector('[data-contract-surface]');
     if (!surface) throw new Error('Missing focused contract surface');
+    const root = document.querySelector(`[data-testid="${bridge.state().rootTestId}"]`);
+    if (!(root instanceof HTMLElement)) throw new Error('Missing focused contract root');
+    let cleanup;
+    let trigger;
+    if (useDomControl) {
+      const button = document.querySelector('[data-testid="destroy-case"]');
+      if (!(button instanceof HTMLButtonElement)) {
+        throw new Error('Missing focused Lab control destroy-case');
+      }
+      if (button.disabled) throw new Error('Focused Lab control destroy-case is disabled');
+      const completion = new Promise((resolve, reject) => {
+        const timeout = window.setTimeout(() => {
+          root.removeEventListener('core-v2-contract-destroy-complete', onComplete);
+          reject(new Error(`Focused ${bridge.state().rootTestId} destroy completion event timed out`));
+        }, 30_000);
+        const onComplete = (event) => {
+          if (!(event instanceof CustomEvent) || event.detail?.operation !== 'destroyCase') return;
+          window.clearTimeout(timeout);
+          root.removeEventListener('core-v2-contract-destroy-complete', onComplete);
+          resolve(event.detail.cleanup);
+        };
+        root.addEventListener('core-v2-contract-destroy-complete', onComplete);
+      });
+      button.click();
+      cleanup = await completion;
+      trigger = 'click:destroy-case';
+    } else {
+      cleanup = await bridge.destroyCase();
+      trigger = 'bridge:destroyCase';
+    }
     return {
       cleanup,
+      trigger,
       status: bridge.state().status,
+      rootStatus: root.dataset.contractStatus ?? null,
       canvasCount: surface.querySelectorAll('canvas').length,
     };
-  }, BRIDGE_NAME);
+  }, {
+    bridgeName: BRIDGE_NAME,
+    useDomControl: PRESENTATION_TRANCHE_CASES.has(caseId),
+  });
 }
 
 function executeBrowserUiRun(page, caseId, operation, buttonTestId) {
-  return executeBrowserRun(page, operation, buttonTestId, caseId);
+  return executeBrowserRun(
+    page,
+    operation,
+    buttonTestId,
+    caseId,
+    PRESENTATION_TRANCHE_CASES.has(caseId),
+  );
 }
 
-async function executeBrowserRun(page, operation, buttonTestId = null, focusedCaseId = null) {
-  return page.evaluate(async ({ bridgeName, operationName, triggerTestId, uiCaseId }) => {
+async function executeBrowserRun(
+  page,
+  operation,
+  buttonTestId = null,
+  focusedCaseId = null,
+  genericControlCase = false,
+) {
+  return page.evaluate(async ({
+    bridgeName,
+    gpuProbeName,
+    operationName,
+    triggerTestId,
+    uiCaseId,
+    collectGenericControlUi,
+  }) => {
     const bridge = window[bridgeName];
     if (!bridge) throw new Error(`Missing public Lab bridge ${bridgeName}`);
     const surface = document.querySelector('[data-contract-surface]');
     if (!surface) throw new Error('Missing focused contract surface');
+    const gpuProbe = window[gpuProbeName];
+    if (gpuProbe && typeof gpuProbe.begin === 'function') {
+      gpuProbe.begin({ caseId: bridge.state().caseId, operation: operationName });
+    }
     const canvasCount = () => surface.querySelectorAll('canvas').length;
     const initialCanvasCount = canvasCount();
     let maximumCanvasCount = initialCanvasCount;
@@ -376,6 +714,7 @@ async function executeBrowserRun(page, operation, buttonTestId = null, focusedCa
           caseId: uiCaseId,
           triggerTestId,
           operationName,
+          generic: collectGenericControlUi,
         });
       } else {
         const invoke = bridge[operationName];
@@ -405,6 +744,9 @@ async function executeBrowserRun(page, operation, buttonTestId = null, focusedCa
         actualMatchesRun: JSON.stringify(actualObservation) === JSON.stringify(run.actualObservation),
         cleanupStatus: run.cleanup?.status ?? null,
         ui,
+        gpu: gpuProbe && typeof gpuProbe.snapshot === 'function'
+          ? gpuProbe.snapshot()
+          : null,
         canvas: {
           initial: initialCanvasCount,
           maximumDuringRun: maximumCanvasCount,
@@ -438,11 +780,74 @@ async function executeBrowserRun(page, operation, buttonTestId = null, focusedCa
     }
 
     function collectFocusedUi(options) {
+      if (options.generic) return collectGenericFocusedUi(options);
       if (options.caseId === 'REN-005') return collectRen005FocusedUi(options);
       if (options.caseId === 'REN-006' || options.caseId === 'REN-011') {
         return collectTextFocusedUi(options);
       }
       return collectComponentAssetFocusedUi(options);
+    }
+
+    async function collectGenericFocusedUi({
+      bridge: activeBridge,
+      caseId,
+      triggerTestId,
+    }) {
+      const timeoutAt = performance.now() + 30_000;
+      let lastState = null;
+      for (;;) {
+        const root = document.querySelector(`[data-testid="${activeBridge.state().rootTestId}"]`);
+        const execution = activeBridge.execution();
+        const expectedActionCount = Array.isArray(execution?.actionResults)
+          ? execution.actionResults.length
+          : 0;
+        const statuses = root
+          ? [...root.querySelectorAll('.contract-case-action[data-action-status]')]
+            .map((row) => row.dataset.actionStatus)
+          : [];
+        const run = root?.querySelector('[data-testid="load-dataset"]');
+        const repeat = root?.querySelector('[data-testid="repeat-action"]');
+        const destroy = root?.querySelector('[data-testid="destroy-case"]');
+        lastState = {
+          contractStatus: root?.dataset.contractStatus ?? null,
+          expectedActionCount,
+          statuses,
+          runDisabled: run instanceof HTMLButtonElement ? run.disabled : null,
+          repeatDisabled: repeat instanceof HTMLButtonElement ? repeat.disabled : null,
+          destroyDisabled: destroy instanceof HTMLButtonElement ? destroy.disabled : null,
+        };
+        if (
+          root?.dataset.contractStatus === 'observed'
+          && expectedActionCount > 0
+          && statuses.length === expectedActionCount
+          && statuses.every((status) => status === 'completed')
+          && run instanceof HTMLButtonElement
+          && repeat instanceof HTMLButtonElement
+          && destroy instanceof HTMLButtonElement
+          && run.disabled
+          && !repeat.disabled
+          && !destroy.disabled
+        ) {
+          return {
+            trigger: `click:${triggerTestId}`,
+            caseId,
+            contractStatus: root.dataset.contractStatus,
+            actionStatuses: statuses,
+            controls: {
+              runDisabled: run.disabled,
+              repeatDisabled: repeat.disabled,
+              destroyDisabled: destroy.disabled,
+            },
+          };
+        }
+        if (performance.now() >= timeoutAt) {
+          throw new Error(
+            `Focused ${caseId} generic DOM did not settle after ${triggerTestId}: `
+              + JSON.stringify(lastState),
+          );
+        }
+        await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+      }
     }
 
     async function collectRen005FocusedUi({ bridge: activeBridge, triggerTestId, operationName }) {
@@ -885,9 +1290,11 @@ async function executeBrowserRun(page, operation, buttonTestId = null, focusedCa
     }
   }, {
     bridgeName: BRIDGE_NAME,
+    gpuProbeName: GPU_PROBE_NAME,
     operationName: operation,
     triggerTestId: buttonTestId,
     uiCaseId: focusedCaseId,
+    collectGenericControlUi: genericControlCase,
   });
 }
 
@@ -917,9 +1324,13 @@ function assertCaseRun(caseSpec, run, comparison, runLabel) {
   invariant(comparison.assertions.length === caseSpec.expectedAssertions, `${prefix} assertion inventory`);
   invariant(
     comparison.passed === caseSpec.expectedAssertions - expectedFailures.length,
-    `${prefix} exact assertion pass count`,
+    `${prefix} exact assertion pass count (${comparison.passed}/${caseSpec.expectedAssertions}; `
+      + `failures=${JSON.stringify(comparisonFailures(comparison))})`,
   );
-  invariant(comparison.failed === expectedFailures.length, `${prefix} exact assertion failure count`);
+  invariant(
+    comparison.failed === expectedFailures.length,
+    `${prefix} exact assertion failure count (${comparison.failed}/${expectedFailures.length})`,
+  );
   invariant(
     sameJson(comparisonFailures(comparison), expectedFailures),
     `${prefix} only declared immutable assertion conflicts`,
@@ -931,6 +1342,173 @@ function assertCaseRun(caseSpec, run, comparison, runLabel) {
   if (caseSpec.id === 'REN-008' || caseSpec.id === 'REN-010') {
     assertComponentAssetFocusedUi(caseSpec.id, run.ui, runLabel);
   }
+  if (PRESENTATION_TRANCHE_CASES.has(caseSpec.id)) {
+    assertPresentationTrancheControlUi(caseSpec.id, run.ui, runLabel);
+  }
+  if (GPU_EVIDENCE_CASES.has(caseSpec.id)) {
+    assertGpuEvidence(caseSpec.id, run.gpu, runLabel);
+  }
+}
+
+function assertPresentationTrancheControlUi(caseId, ui, runLabel) {
+  invariant(ui && typeof ui === 'object', `${caseId} ${runLabel} generic focused UI evidence`);
+  const expectedTrigger = runLabel === 'repeat'
+    ? 'click:repeat-action'
+    : 'click:load-dataset';
+  invariant(ui.trigger === expectedTrigger, `${caseId} ${runLabel} actual Run/Repeat control`);
+  invariant(ui.caseId === caseId, `${caseId} ${runLabel} focused UI case identity`);
+  invariant(ui.contractStatus === 'observed', `${caseId} ${runLabel} focused DOM terminal state`);
+  invariant(
+    Array.isArray(ui.actionStatuses)
+      && ui.actionStatuses.length > 0
+      && ui.actionStatuses.every((status) => status === 'completed'),
+    `${caseId} ${runLabel} focused DOM action rows complete`,
+  );
+  invariant(ui.controls?.runDisabled === true, `${caseId} ${runLabel} Run control is consumed`);
+  invariant(ui.controls?.repeatDisabled === false, `${caseId} ${runLabel} Repeat control is enabled`);
+  invariant(ui.controls?.destroyDisabled === false, `${caseId} ${runLabel} Destroy control is enabled`);
+}
+
+function assertPresentationTrancheDestroyControl(caseId, destroyed, runLabel) {
+  if (!PRESENTATION_TRANCHE_CASES.has(caseId)) return;
+  invariant(
+    destroyed.trigger === 'click:destroy-case',
+    `${caseId} ${runLabel} actual Destroy control`,
+  );
+  invariant(destroyed.rootStatus === 'destroyed', `${caseId} ${runLabel} destroyed DOM state`);
+  invariant(
+    cleanupStatus(destroyed.cleanup) === 'completed',
+    `${caseId} ${runLabel} Destroy control cleanup completion`,
+  );
+}
+
+function assertGpuEvidence(caseId, gpu, runLabel) {
+  const prefix = `${caseId} ${runLabel} WebGL evidence`;
+  invariant(gpu && typeof gpu === 'object', `${prefix} exists`);
+  invariant(gpu.revision === 'core-v2-webgl-browser-probe/1', `${prefix} revision`);
+  invariant(gpu.caseId === caseId, `${prefix} case identity`);
+  invariant(
+    gpu.operation === (runLabel === 'repeat' ? 'repeatCase' : 'runCase'),
+    `${prefix} operation identity`,
+  );
+  invariant(Array.isArray(gpu.errors) && gpu.errors.length === 0, `${prefix} capture errors`);
+  invariant(Array.isArray(gpu.contexts) && gpu.contexts.length > 0, `${prefix} context inventory`);
+  invariant(
+    gpu.contexts.every((context) => context.actualContext === 'webgl2'),
+    `${prefix} uses actual WebGL2 contexts (${JSON.stringify(gpu.contexts)})`,
+  );
+  invariant(
+    gpu.contexts.every((context) => context.trackedCanvas === true),
+    `${prefix} observes only product-owned canvases (${JSON.stringify(gpu.contexts)})`,
+  );
+  invariant(Array.isArray(gpu.frames) && gpu.frames.length > 0, `${prefix} visible frame inventory`);
+  invariant(
+    gpu.frames.every((frame) => frame.trackedCanvas === true && frame.draws.length > 0),
+    `${prefix} tracked canvas draw frames (${gpuFrameDiagnostic(gpu)})`,
+  );
+
+  if (caseId === 'LAY-003') {
+    assertLay003GpuPaintOrder(gpu, prefix);
+    return;
+  }
+  assertAnimatedBarGpuProjection(caseId, gpu, prefix);
+}
+
+function assertLay003GpuPaintOrder(gpu, prefix) {
+  const initial = ['#111111ff', '#222222ff', '#333333ff', '#444444ff'];
+  const patched = ['#222222ff', '#333333ff', '#111111ff', '#444444ff'];
+  const frameOrders = gpu.frames
+    .map((frame) => compressConsecutive(frame.draws
+      .map((draw) => draw.centerRgba)
+      .filter((rgba) => initial.includes(rgba))))
+    .filter((order) => order.length > 0);
+  invariant(
+    containsOrderedRecords(frameOrders, [initial, patched, initial, patched]),
+    `${prefix} initial/patch/undo/redo GPU draw order (${JSON.stringify(frameOrders)})`,
+  );
+}
+
+function assertAnimatedBarGpuProjection(caseId, gpu, prefix) {
+  const byContext = new Map();
+  for (const frame of gpu.frames) {
+    const height = frameBarHeight(frame);
+    if (height === null) continue;
+    const sequence = byContext.get(frame.contextIndex) ?? [];
+    sequence.push(height);
+    byContext.set(frame.contextIndex, sequence);
+  }
+  const sequences = [...byContext.values()];
+  const diagnostic = JSON.stringify(sequences);
+  if (caseId === 'REN-009') {
+    invariant(
+      sequences.some((sequence) => containsHeightBands(sequence, [[9, 11], [35, 38], [39, 41]])),
+      `${prefix} visible 10 -> 36.25 -> 40 bar projection (${diagnostic})`,
+    );
+    return;
+  }
+  if (caseId === 'ANI-001') {
+    invariant(
+      sequences.some((sequence) => containsHeightBands(
+        sequence,
+        [[9, 11], [35, 38], [21, 24], [19, 21]],
+      )),
+      `${prefix} visible retargeted 10 -> 36.25 -> 22.03125 -> 20 projection (${diagnostic})`,
+    );
+    return;
+  }
+  invariant(caseId === 'ANI-002', `${prefix} supported animation case`);
+  const matchingSchedules = sequences.filter((sequence) => containsHeightBands(
+    sequence,
+    [[9, 11], [35, 38], [39, 41]],
+  ));
+  invariant(
+    matchingSchedules.length >= 2,
+    `${prefix} both frame-cadence schedules reach the same visible projection (${diagnostic})`,
+  );
+}
+
+function frameBarHeight(frame) {
+  const heights = frame.draws
+    .map((draw) => draw.barColumn?.height)
+    .filter((height) => Number.isFinite(height) && height > 0);
+  return heights.length === 0 ? null : Math.max(...heights);
+}
+
+function containsHeightBands(sequence, bands) {
+  let cursor = 0;
+  for (const value of sequence) {
+    const [minimum, maximum] = bands[cursor] ?? [];
+    if (minimum === undefined) break;
+    if (value >= minimum && value <= maximum) cursor += 1;
+  }
+  return cursor === bands.length;
+}
+
+function containsOrderedRecords(records, expected) {
+  let cursor = 0;
+  for (const record of records) {
+    if (sameJson(record, expected[cursor])) cursor += 1;
+    if (cursor === expected.length) return true;
+  }
+  return false;
+}
+
+function compressConsecutive(values) {
+  const compressed = [];
+  for (const value of values) {
+    if (compressed.at(-1) !== value) compressed.push(value);
+  }
+  return compressed;
+}
+
+function gpuFrameDiagnostic(gpu) {
+  return JSON.stringify(gpu.frames.map((frame) => ({
+    contextIndex: frame.contextIndex,
+    frameIndex: frame.frameIndex,
+    drawCount: frame.draws.length,
+    center: compressConsecutive(frame.draws.map((draw) => draw.centerRgba)),
+    barHeight: frameBarHeight(frame),
+  })));
 }
 
 function assertRen005FocusedUi(ui, runLabel) {
@@ -1414,12 +1992,12 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 199',
+    'render checkpoint assertion inventory must remain 284',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===
       EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'render checkpoint immutable conflict inventory must remain 3',
+    'render checkpoint immutable conflict inventory must remain 4',
   );
   return selected;
 }

@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the thirteen selected render routes and their 199 canonical assertions', () => {
+  it('pins exactly the nineteen selected render routes and their 284 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -39,6 +39,8 @@ describe('Core v2 render browser checkpoint script', () => {
 
     expect(records).toEqual([
       { id: 'LAY-001', expectedAssertions: 9 },
+      { id: 'LAY-002', expectedAssertions: 28 },
+      { id: 'LAY-003', expectedAssertions: 9 },
       { id: 'REN-001', expectedAssertions: 9 },
       { id: 'REN-004', expectedAssertions: 10 },
       { id: 'REN-005', expectedAssertions: 28 },
@@ -49,21 +51,25 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'LAY-004', expectedAssertions: 11 },
       { id: 'REN-007', expectedAssertions: 26 },
       { id: 'REN-008', expectedAssertions: 10 },
+      { id: 'REN-009', expectedAssertions: 13 },
       { id: 'REN-010', expectedAssertions: 11 },
       { id: 'REN-011', expectedAssertions: 20 },
+      { id: 'UPD-005', expectedAssertions: 10 },
+      { id: 'ANI-001', expectedAssertions: 14 },
+      { id: 'ANI-002', expectedAssertions: 11 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(199);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 199;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 196;');
-    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 3;');
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(284);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 284;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 280;');
+    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 4;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 196 pass and 3 immutable conflicts'",
+      "'canonical comparison must be exactly 280 pass and 4 immutable conflicts'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 196 pass and 3 immutable conflicts'",
+      "'repeat comparison must be exactly 280 pass and 4 immutable conflicts'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 196 pass and 3 immutable conflicts'",
+      "'fresh comparison must be exactly 280 pass and 4 immutable conflicts'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -71,7 +77,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("new URL(page.url()).pathname + new URL(page.url()).search === route");
   });
 
-  it('allows only the three immutable REN-005 overlapping parent conflicts', () => {
+  it('allows only the three REN-005 conflicts and the one ANI-002 clock-code conflict', () => {
     const conflictBlock = source.match(
       /const REN_005_IMMUTABLE_FAILURES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body ?? '';
@@ -100,10 +106,25 @@ describe('Core v2 render browser checkpoint script', () => {
         failurePath: '/resources/images/url',
       },
     ]);
+    const animationConflictBlock = source.match(
+      /const ANI_002_IMMUTABLE_FAILURES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
+    )?.groups?.body ?? '';
+    const animationFailures = [...animationConflictBlock.matchAll(
+      /path: '(?<path>\/[^']+)',\s*code: '(?<code>[^']+)',\s*failurePath: '(?<failurePath>\/[^']+)'/gu,
+    )].map((match) => ({
+      path: match.groups?.path,
+      code: match.groups?.code,
+      failurePath: match.groups?.failurePath,
+    }));
+    expect(animationFailures).toEqual([{
+      path: '/outcome/backwardTime/code',
+      code: 'VALUE_MISMATCH',
+      failurePath: '/outcome/backwardTime/code',
+    }]);
     expect(source).toContain('comparison.passed === caseSpec.expectedAssertions - expectedFailures.length');
     expect(source).toContain('comparison.failed === expectedFailures.length');
     expect(source).toContain('sameJson(comparisonFailures(comparison), expectedFailures)');
-    expect(source).toContain("'render checkpoint immutable conflict inventory must remain 3'");
+    expect(source).toContain("'render checkpoint immutable conflict inventory must remain 4'");
   });
 
   it('keeps canonical expected data outside the public Lab bridge executor', () => {
@@ -165,7 +186,54 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("ui.counters.requests === '5'");
     expect(source).toContain("ui.requestJournal.events.includes('load-rejected')");
     expect(source).toContain('Number.isFinite(Number(value)) && Number(value) >= 0');
-    expect(source).toContain('focusedUi: FOCUSED_UI_CASES.has(caseSpec.id)');
+    expect(source).toContain('focusedUi: DOM_CONTROL_CASES.has(caseSpec.id)');
+  });
+
+  it('drives all six presentation-tranche routes through actual Run, Repeat, and Destroy controls', () => {
+    expect(source).toContain("const PRESENTATION_TRANCHE_CASES = new Set([");
+    for (const caseId of ['LAY-002', 'LAY-003', 'UPD-005', 'REN-009', 'ANI-001', 'ANI-002']) {
+      expect(source).toContain(`'${caseId}',`);
+    }
+    expect(source).toContain(
+      'const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...PRESENTATION_TRANCHE_CASES]);',
+    );
+    expect(source).toContain('const first = DOM_CONTROL_CASES.has(caseSpec.id)');
+    expect(source).toContain('const repeat = DOM_CONTROL_CASES.has(caseSpec.id)');
+    expect(source).toContain('const run = DOM_CONTROL_CASES.has(caseSpec.id)');
+    expect(source).toContain('if (options.generic) return collectGenericFocusedUi(options);');
+    expect(source).toContain('async function collectGenericFocusedUi');
+    expect(source).toContain("root.addEventListener('core-v2-contract-run-complete', onComplete)");
+    expect(source).toContain("const button = document.querySelector('[data-testid=\"destroy-case\"]')");
+    expect(source).toContain("root.addEventListener('core-v2-contract-destroy-complete', onComplete)");
+    expect(source).toContain("trigger = 'click:destroy-case'");
+    expect(source).toContain("destroyed.trigger === 'click:destroy-case'");
+    expect(source).toContain("ui.trigger === expectedTrigger");
+    expect(source).toContain("ui.controls?.repeatDisabled === false");
+    expect(source).toContain("ui.controls?.destroyDisabled === false");
+  });
+
+  it('captures WebGL2 draw and readPixels facts for paint order and visible bar projection', () => {
+    expect(source).toContain(
+      "const GPU_EVIDENCE_CASES = new Set(['LAY-003', 'REN-009', 'ANI-001', 'ANI-002']);",
+    );
+    expect(source).toContain('await installWebGlCanvasProbe(page, caseSpec.id)');
+    expect(source).toContain('await page.addInitScript(({ probeName, caseIdentity }) => {');
+    expect(source).toContain('const originalGetContext = HTMLCanvasElement.prototype.getContext;');
+    expect(source).toContain("actualContext: typeof WebGL2RenderingContext !== 'undefined'");
+    expect(source).toContain("'drawElementsInstanced'");
+    expect(source).toContain('context.readPixels(x, y, 1, 1');
+    expect(source).toContain('context.readPixels(x, 0, 1, canvas.height');
+    expect(source).toContain('assertLay003GpuPaintOrder(gpu, prefix)');
+    expect(source).toContain('initial/patch/undo/redo GPU draw order');
+    expect(source).toContain('visible 10 -> 36.25 -> 40 bar projection');
+    expect(source).toContain('visible retargeted 10 -> 36.25 -> 22.03125 -> 20 projection');
+    expect(source).toContain('both frame-cadence schedules reach the same visible projection');
+
+    const probeSource = source.slice(
+      source.indexOf('async function installWebGlCanvasProbe'),
+      source.indexOf('async function executeCase'),
+    );
+    expect(probeSource).not.toMatch(/normalized|expectedCase|compareObservation|readFile/u);
   });
 
   it('drives REN-008 and REN-010 through actual controls and verifies every actual phase inspector', () => {
