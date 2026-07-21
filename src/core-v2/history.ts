@@ -4,6 +4,11 @@ export type CoreV2SemanticDataset = readonly CoreV2Element[];
 export type CoreV2HistoryDirection = 'undo' | 'redo';
 export type CoreV2HistoryCommitOutcome = 'accepted' | 'no-op' | 'refused';
 export type CoreV2HistoryRecordStatus = 'recorded' | 'no-op' | 'refused' | 'disabled';
+export type CoreV2HistoryPreparedCommitStatus =
+  | CoreV2HistoryRecordStatus
+  | 'cancelled'
+  | 'stale'
+  | 'invalid';
 
 export interface CoreV2SemanticHistorySnapshotInput<
   TDataset extends readonly unknown[] = CoreV2SemanticDataset,
@@ -79,6 +84,16 @@ export interface CoreV2SemanticHistoryOptions {
   readonly capacity?: number;
 }
 
+/**
+ * Opaque record preflight token. The public fields are diagnostic only;
+ * commitPrepared validates instance ownership and the private prepared plan.
+ */
+export interface CoreV2HistoryPreparedRecord {
+  readonly plannedStatus: CoreV2HistoryRecordStatus;
+  readonly baseEpoch: number;
+  readonly baseCursor: number;
+}
+
 export type CoreV2HistoryApply<
   TDataset extends readonly unknown[] = CoreV2SemanticDataset,
   TCompanion = never,
@@ -97,8 +112,14 @@ export class CoreV2SemanticHistory<
   TCompanion = never,
 > {
   private readonly capacityValue: number;
-  private readonly entries: CoreV2SemanticHistoryCommand<TDataset, TCompanion>[] = [];
+  private entriesValue: readonly CoreV2SemanticHistoryCommand<TDataset, TCompanion>[] =
+    Object.freeze([]);
+  private readonly preparedRecords = new WeakMap<
+    CoreV2HistoryPreparedRecord,
+    CoreV2PreparedRecordPlan<TDataset, TCompanion>
+  >();
   private cursorValue = 0;
+  private epochValue = 0;
   private transitioning = false;
   private destroyedValue = false;
 
@@ -123,33 +144,113 @@ export class CoreV2SemanticHistory<
   }
 
   public get canRedo(): boolean {
-    return !this.destroyedValue && this.cursorValue < this.entries.length;
+    return !this.destroyedValue && this.cursorValue < this.entriesValue.length;
   }
 
   /**
-   * Record one accepted semantic action. Refused and declared no-op attempts do
-   * not inspect or retain the command, and a semantically equal accepted command
-   * is also treated as a no-op. Only a recorded commit discards a redo branch.
+   * Complete every fallible record step before a caller publishes the staged
+   * semantic dataset to its render surface. The returned token owns a fully
+   * detached command and a precomputed next stack; no caller-owned value is read
+   * by commitPrepared.
+   */
+  public prepareRecord(
+    command: CoreV2SemanticHistoryCommandInput<TDataset, TCompanion>,
+    outcome: CoreV2HistoryCommitOutcome = 'accepted',
+  ): CoreV2HistoryPreparedRecord {
+    this.assertMutable('prepare record');
+    assertCommitOutcome(outcome);
+    const baseEntries = this.entriesValue;
+    let plannedStatus: CoreV2HistoryRecordStatus;
+    let nextEntries = baseEntries;
+    let nextCursor = this.cursorValue;
+
+    if (outcome !== 'accepted') {
+      plannedStatus = outcome;
+    } else {
+      const detached = detachCommand(command);
+      if (semanticEqual(detached.before, detached.after)) {
+        plannedStatus = 'no-op';
+      } else if (this.capacityValue === 0) {
+        plannedStatus = 'disabled';
+      } else {
+        plannedStatus = 'recorded';
+        const branch = [...baseEntries.slice(0, this.cursorValue), detached];
+        const overflow = Math.max(0, branch.length - this.capacityValue);
+        nextEntries = Object.freeze(overflow === 0 ? branch : branch.slice(overflow));
+        nextCursor = nextEntries.length;
+      }
+    }
+
+    const token = Object.freeze({
+      plannedStatus,
+      baseEpoch: this.epochValue,
+      baseCursor: this.cursorValue,
+    });
+    this.preparedRecords.set(token, {
+      phase: 'pending',
+      baseEntries,
+      nextEntries,
+      nextCursor,
+    });
+    return token;
+  }
+
+  /**
+   * Apply a prepared stack transition without cloning, callbacks, equality work,
+   * collection mutation, or any other fallible user-code boundary. Unknown,
+   * consumed, cancelled, and state-stale tokens fail closed as status values.
+   */
+  public commitPrepared(
+    token: CoreV2HistoryPreparedRecord,
+  ): CoreV2HistoryPreparedCommitStatus {
+    const plan = this.preparedRecords.get(token);
+    if (plan === undefined) return 'invalid';
+    if (plan.phase === 'cancelled') return 'cancelled';
+    if (plan.phase !== 'pending') return 'stale';
+    if (
+      this.destroyedValue ||
+      this.transitioning ||
+      token.baseEpoch !== this.epochValue ||
+      token.baseCursor !== this.cursorValue ||
+      plan.baseEntries !== this.entriesValue
+    ) {
+      plan.phase = 'stale';
+      return 'stale';
+    }
+
+    plan.phase = 'committed';
+    this.entriesValue = plan.nextEntries;
+    this.cursorValue = plan.nextCursor;
+    this.epochValue += 1;
+    return token.plannedStatus;
+  }
+
+  /** Discard a refused surface publication without touching history authority. */
+  public cancelPrepared(token: CoreV2HistoryPreparedRecord): boolean {
+    const plan = this.preparedRecords.get(token);
+    if (plan === undefined || plan.phase !== 'pending') return false;
+    plan.phase = 'cancelled';
+    return true;
+  }
+
+  /**
+   * Compatibility wrapper for callers that have no separate surface commit.
+   * Refused and declared no-op attempts still do not inspect their command.
    */
   public record(
     command: CoreV2SemanticHistoryCommandInput<TDataset, TCompanion>,
     outcome: CoreV2HistoryCommitOutcome = 'accepted',
   ): CoreV2HistoryRecordStatus {
-    this.assertMutable('record');
-    assertCommitOutcome(outcome);
-    if (outcome !== 'accepted') return outcome;
-
-    const detached = detachCommand(command);
-    if (semanticEqual(detached.before, detached.after)) return 'no-op';
-    if (this.capacityValue === 0) return 'disabled';
-
-    if (this.cursorValue < this.entries.length) {
-      this.entries.splice(this.cursorValue);
+    const prepared = this.prepareRecord(command, outcome);
+    const status = this.commitPrepared(prepared);
+    if (
+      status === 'cancelled' ||
+      status === 'stale' ||
+      status === 'invalid'
+    ) {
+      throw new Error(`history record preflight unexpectedly became ${status}`);
     }
-    this.entries.push(detached);
-    if (this.entries.length > this.capacityValue) this.entries.shift();
-    this.cursorValue = this.entries.length;
-    return 'recorded';
+    return status;
   }
 
   /**
@@ -171,14 +272,15 @@ export class CoreV2SemanticHistory<
 
   public clear(): boolean {
     this.assertMutable('clear');
-    if (this.entries.length === 0) return false;
-    this.entries.length = 0;
+    if (this.entriesValue.length === 0) return false;
+    this.entriesValue = Object.freeze([]);
     this.cursorValue = 0;
+    this.epochValue += 1;
     return true;
   }
 
   public state(): CoreV2HistoryState {
-    const depth = this.entries.length;
+    const depth = this.entriesValue.length;
     const cursor = this.cursorValue;
     return Object.freeze({
       capacity: this.capacityValue,
@@ -196,7 +298,7 @@ export class CoreV2SemanticHistory<
   public inspect(): CoreV2HistoryInspection<TDataset, TCompanion> {
     return Object.freeze({
       state: this.state(),
-      commands: Object.freeze([...this.entries]),
+      commands: Object.freeze([...this.entriesValue]),
     });
   }
 
@@ -206,8 +308,9 @@ export class CoreV2SemanticHistory<
     if (this.transitioning) {
       throw new Error('cannot destroy CoreV2SemanticHistory during a transition');
     }
-    this.entries.length = 0;
+    this.entriesValue = Object.freeze([]);
     this.cursorValue = 0;
+    this.epochValue += 1;
     this.destroyedValue = true;
     return true;
   }
@@ -220,8 +323,8 @@ export class CoreV2SemanticHistory<
     if (typeof apply !== 'function') throw new TypeError(`${direction} apply must be a function`);
 
     const commandIndex = direction === 'undo' ? this.cursorValue - 1 : this.cursorValue;
-    if (commandIndex < 0 || commandIndex >= this.entries.length) return null;
-    const command = this.entries[commandIndex];
+    if (commandIndex < 0 || commandIndex >= this.entriesValue.length) return null;
+    const command = this.entriesValue[commandIndex];
     if (command === undefined) throw new Error(`${direction} command is missing`);
     const cursorAfter = direction === 'undo' ? this.cursorValue - 1 : this.cursorValue + 1;
     const transition = Object.freeze({
@@ -241,6 +344,7 @@ export class CoreV2SemanticHistory<
     }
     if (accepted !== true) return null;
     this.cursorValue = cursorAfter;
+    this.epochValue += 1;
     return transition;
   }
 
@@ -252,6 +356,16 @@ export class CoreV2SemanticHistory<
       throw new Error(`cannot ${operation}: a history transition is active`);
     }
   }
+}
+
+interface CoreV2PreparedRecordPlan<
+  TDataset extends readonly unknown[],
+  TCompanion,
+> {
+  phase: 'pending' | 'committed' | 'cancelled' | 'stale';
+  readonly baseEntries: readonly CoreV2SemanticHistoryCommand<TDataset, TCompanion>[];
+  readonly nextEntries: readonly CoreV2SemanticHistoryCommand<TDataset, TCompanion>[];
+  readonly nextCursor: number;
 }
 
 function detachCommand<

@@ -144,6 +144,107 @@ describe('Core v2 semantic history', () => {
     expect(history.inspect().commands.map((entry) => entry.id)).toEqual(['one', 'branch']);
   });
 
+  it('preflights detached history state before surface publication and commits without rereading input', () => {
+    const history = new CoreV2SemanticHistory<StackDataset, CompanionState>({ capacity: 2 });
+    const before = singleDataset('box', 0) as StackNode[];
+    const after = singleDataset('box', 1) as StackNode[];
+    const beforeCompanion = { selection: ['box'], mode: 'select' };
+    const afterCompanion = { selection: ['box'], mode: 'transform' };
+    const prepared = history.prepareRecord(command(
+      'prepared',
+      before,
+      after,
+      beforeCompanion,
+      afterCompanion,
+    ));
+
+    before[0]!.zIndex = 100;
+    after[0]!.zIndex = 200;
+    beforeCompanion.selection.push('late');
+    afterCompanion.mode = 'late';
+
+    expect(prepared).toMatchObject({ plannedStatus: 'recorded', baseEpoch: 0, baseCursor: 0 });
+    expect(history.state()).toMatchObject({ depth: 0, cursor: 0 });
+    expect(history.commitPrepared(prepared)).toBe('recorded');
+    expect(history.inspect().commands[0]).toMatchObject({
+      before: {
+        dataset: [{ id: 'box', zIndex: 0 }],
+        companion: { selection: ['box'], mode: 'select' },
+      },
+      after: {
+        dataset: [{ id: 'box', zIndex: 1 }],
+        companion: { selection: ['box'], mode: 'transform' },
+      },
+    });
+    expect(history.commitPrepared(prepared)).toBe('stale');
+  });
+
+  it('fails stale and foreign prepared tokens closed without replacing a newer branch', () => {
+    const history = new CoreV2SemanticHistory<StackDataset>({ capacity: 2 });
+    const foreign = new CoreV2SemanticHistory<StackDataset>({ capacity: 2 });
+    const zero = singleDataset('box', 0);
+    const one = singleDataset('box', 1);
+    const two = singleDataset('box', 2);
+    const branch = singleDataset('box', 20);
+    history.record(simpleCommand('one', zero, one));
+    history.record(simpleCommand('two', one, two));
+    history.undo(() => true);
+
+    const preparedBranch = history.prepareRecord(simpleCommand('branch', one, branch));
+    const preparedSibling = history.prepareRecord(simpleCommand('sibling', one, zero));
+    expect(preparedBranch).toMatchObject({ plannedStatus: 'recorded', baseCursor: 1 });
+    expect(foreign.commitPrepared(preparedBranch)).toBe('invalid');
+    expect(history.commitPrepared(preparedSibling)).toBe('recorded');
+    expect(history.commitPrepared(preparedBranch)).toBe('stale');
+    expect(history.inspect().commands.map((entry) => entry.id)).toEqual(['one', 'sibling']);
+    expect(history.state()).toMatchObject({ depth: 2, cursor: 2, redoDepth: 0 });
+  });
+
+  it('cancels refused surface commits and validates every fallible record value during preflight', () => {
+    const history = new CoreV2SemanticHistory<StackDataset>();
+    const zero = singleDataset('box', 0);
+    const one = singleDataset('box', 1);
+    const cancelled = history.prepareRecord(simpleCommand('cancelled', zero, one));
+
+    expect(history.cancelPrepared(cancelled)).toBe(true);
+    expect(history.cancelPrepared(cancelled)).toBe(false);
+    expect(history.commitPrepared(cancelled)).toBe('cancelled');
+    expect(history.state()).toMatchObject({ depth: 0, cursor: 0 });
+
+    const cyclic: StackNode & { self?: unknown } = { id: 'cycle', zIndex: 2 };
+    cyclic.self = cyclic;
+    expect(() => history.prepareRecord({
+      id: 'invalid',
+      before: { dataset: zero },
+      after: { dataset: [cyclic] },
+    })).toThrow('must not contain cycles');
+    expect(history.state()).toMatchObject({ depth: 0, cursor: 0 });
+
+    const invalidCommand = null as unknown as CoreV2SemanticHistoryCommandInput<StackDataset>;
+    const refused = history.prepareRecord(invalidCommand, 'refused');
+    expect(history.commitPrepared(refused)).toBe('refused');
+    expect(history.record(invalidCommand, 'no-op')).toBe('no-op');
+  });
+
+  it('precomputes redo truncation and capacity eviction before commit', () => {
+    const history = new CoreV2SemanticHistory<StackDataset>({ capacity: 2 });
+    const zero = singleDataset('box', 0);
+    const one = singleDataset('box', 1);
+    const two = singleDataset('box', 2);
+    const three = singleDataset('box', 3);
+    history.record(simpleCommand('one', zero, one));
+    history.record(simpleCommand('two', one, two));
+    const atCapacity = history.prepareRecord(simpleCommand('three', two, three));
+
+    expect(history.inspect().commands.map((entry) => entry.id)).toEqual(['one', 'two']);
+    expect(history.commitPrepared(atCapacity)).toBe('recorded');
+    expect(history.inspect().commands.map((entry) => entry.id)).toEqual(['two', 'three']);
+
+    const afterDestroy = history.prepareRecord(simpleCommand('late', three, zero));
+    history.destroy();
+    expect(history.commitPrepared(afterDestroy)).toBe('stale');
+  });
+
   it('evicts oldest commands at capacity and supports disabled recording', () => {
     const history = new CoreV2SemanticHistory<StackDataset>({ capacity: 2 });
     const zero = singleDataset('box', 0);
