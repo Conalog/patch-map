@@ -67,6 +67,7 @@ export interface CoreV2TextLayoutOptions {
 export interface CoreV2TextDiagnostic {
   readonly code:
     | 'UNPAIRED_SURROGATE'
+    | 'SEMANTIC_PRECISION_SATURATED'
     | 'UNSUPPORTED_CODE_POINT_CLASS'
     | 'UNSUPPORTED_LINE_BREAK_CLASS'
     | 'UNSUPPORTED_TEXT_OPTION';
@@ -192,12 +193,22 @@ interface FontPolicy {
   readonly requestedFontUnavailable: boolean;
 }
 
+interface LineMetrics {
+  readonly graphemeCount: number;
+  readonly letterSpacingPx: number;
+  readonly prefixPositions: readonly number[];
+  readonly monotonic: boolean;
+  readonly minimumTree: readonly number[] | null;
+  readonly minimumTreeLeafCount: number;
+}
+
 const DEFAULT_FONT_SIZE = 16;
 const DEFAULT_LINE_HEIGHT = 20;
 const DEFAULT_BASELINE = 16;
 const ELLIPSIS = '…';
 const MISSING_GLYPH_BOX = '□';
 const EXPLICIT_MISSING_CODE_POINTS = new Set([0x10ffff]);
+const MAX_SEMANTIC_ADVANCE = Number.MAX_SAFE_INTEGER;
 
 /**
  * Produce the browser-independent semantic layout used by parser, hit testing,
@@ -213,14 +224,24 @@ export function layoutCoreV2Text(options: CoreV2TextLayoutOptions): CoreV2TextLa
   const fontPolicy = resolveFontPolicy(options);
   const split = options.split ?? 0;
   const wordWrapWidthPx = options.wordWrapWidthPx ?? null;
-  const breakWords = options.breakWords ?? false;
-  const overflow = options.overflow ?? 'visible';
   const contentFrame = options.contentFrame
     ? freeze({ width: options.contentFrame.width, height: options.contentFrame.height })
     : null;
+  const effectiveWordWrapWidthPx =
+    options.autoFont !== undefined && contentFrame !== null && wordWrapWidthPx !== null
+      ? Math.min(wordWrapWidthPx, contentFrame.width)
+      : wordWrapWidthPx;
+  const breakWords = options.breakWords ?? false;
+  const overflow = options.overflow ?? 'visible';
   const letterSpacingPx = options.letterSpacingPx ?? 0;
   const lineHeightPx = options.lineHeightPx ?? DEFAULT_LINE_HEIGHT;
-  const fontSizePx = chooseFontSize(options, layoutSource, lineHeightPx, letterSpacingPx);
+  const fontSizePx = chooseFontSize(
+    options,
+    layoutSource,
+    lineHeightPx,
+    letterSpacingPx,
+    effectiveWordWrapWidthPx,
+  );
   const alphabeticBaselinePx =
     options.alphabeticBaselinePx ?? (fontSizePx / DEFAULT_FONT_SIZE) * DEFAULT_BASELINE;
 
@@ -228,7 +249,7 @@ export function layoutCoreV2Text(options: CoreV2TextLayoutOptions): CoreV2TextLa
     source: options.source,
     layoutSource,
     split,
-    wordWrapWidthPx,
+    wordWrapWidthPx: effectiveWordWrapWidthPx,
     breakWords,
     overflow,
     contentFrame,
@@ -237,9 +258,32 @@ export function layoutCoreV2Text(options: CoreV2TextLayoutOptions): CoreV2TextLa
     letterSpacingPx,
   });
   const naturalWidth = maximum(core.naturalLineAdvancesPx);
-  const naturalHeight = core.lines.length * lineHeightPx;
+  const naturalHeight = saturatingMultiply(core.lines.length, lineHeightPx);
   const width = maximum(core.lineAdvancesPx);
-  const height = core.visibleLines.length * lineHeightPx;
+  const height = saturatingMultiply(core.visibleLines.length, lineHeightPx);
+  if (
+    naturalWidth === MAX_SEMANTIC_ADVANCE ||
+    naturalHeight === MAX_SEMANTIC_ADVANCE ||
+    width === MAX_SEMANTIC_ADVANCE ||
+    height === MAX_SEMANTIC_ADVANCE ||
+    core.naturalLineAdvancesPx.includes(MAX_SEMANTIC_ADVANCE) ||
+    core.lineAdvancesPx.includes(MAX_SEMANTIC_ADVANCE) ||
+    semanticPrecisionExceeded(
+      core.layoutGraphemes,
+      fontSizePx,
+      letterSpacingPx,
+      lineHeightPx,
+      core.lines.length,
+    )
+  ) {
+    diagnostics.push(
+      freeze({
+        code: 'SEMANTIC_PRECISION_SATURATED',
+        severity: 'unsupported',
+        detail: `semantic advance exceeded exact precision and saturated at ${String(MAX_SEMANTIC_ADVANCE)}`,
+      }),
+    );
+  }
   const origin = options.origin ?? { x: 0, y: 0 };
   const naturalLayoutBounds = bounds(0, 0, naturalWidth, naturalHeight);
   const layoutBounds = bounds(0, 0, width, height);
@@ -277,6 +321,7 @@ export function layoutCoreV2Text(options: CoreV2TextLayoutOptions): CoreV2TextLa
     requestedFontUnavailable: fontPolicy.requestedFontUnavailable,
     split,
     wordWrapWidthPx,
+    ...(effectiveWordWrapWidthPx !== wordWrapWidthPx ? { effectiveWordWrapWidthPx } : {}),
     breakWords,
     overflow,
     contentFrame,
@@ -353,17 +398,33 @@ export function segmentCoreV2Graphemes(source: string): readonly string[] {
   if (tokens.length === 0) return Object.freeze([]);
   const result: string[] = [];
   let cluster = tokens[0]?.text ?? '';
+  let regionalIndicatorRunLength =
+    tokens[0]?.graphemeClass === 'RegionalIndicator' ? 1 : 0;
 
   for (let index = 1; index < tokens.length; index += 1) {
     const current = tokens[index];
     const previous = tokens[index - 1];
     if (!current || !previous) continue;
-    if (hasGraphemeBreak(tokens, index, previous, current)) {
+    if (
+      hasGraphemeBreak(
+        tokens,
+        index,
+        previous,
+        current,
+        regionalIndicatorRunLength,
+      )
+    ) {
       result.push(cluster);
       cluster = current.text;
     } else {
       cluster += current.text;
     }
+    regionalIndicatorRunLength =
+      current.graphemeClass === 'RegionalIndicator'
+        ? previous.graphemeClass === 'RegionalIndicator'
+          ? regionalIndicatorRunLength + 1
+          : 1
+        : 0;
   }
   result.push(cluster);
   return Object.freeze(result);
@@ -386,7 +447,7 @@ export function measureCoreV2GraphemeAdvance(grapheme: string, fontSizePx = 16):
       units += coreV2IsFullWidth(codePoint) ? 16 : 8;
     }
   }
-  return (units * fontSizePx) / DEFAULT_FONT_SIZE;
+  return saturatingMultiply(units, fontSizePx / DEFAULT_FONT_SIZE);
 }
 
 function produceLayoutCore(input: Readonly<{
@@ -449,33 +510,71 @@ function chooseFontSize(
   layoutSource: string,
   lineHeightPx: number,
   letterSpacingPx: number,
+  effectiveWordWrapWidthPx: number | null,
 ): number {
   if (!options.autoFont) return options.fontSizePx ?? DEFAULT_FONT_SIZE;
   const { minPx, maxPx } = options.autoFont;
-  for (let candidate = maxPx; candidate >= minPx; candidate -= 1) {
-    const core = produceLayoutCore({
-      source: options.source,
+  if (
+    !autoFontCandidateFits(
+      options,
       layoutSource,
-      split: options.split ?? 0,
-      wordWrapWidthPx: options.wordWrapWidthPx ?? null,
-      breakWords: options.breakWords ?? false,
-      overflow: 'visible',
-      contentFrame: null,
-      fontSizePx: candidate,
       lineHeightPx,
       letterSpacingPx,
-    });
-    const boundsWidth = maximum(core.naturalLineAdvancesPx);
-    const boundsHeight = core.lines.length * lineHeightPx;
+      effectiveWordWrapWidthPx,
+      minPx,
+    )
+  ) {
+    return minPx;
+  }
+  let lower = minPx;
+  let upper = maxPx;
+  while (lower < upper) {
+    const candidate = lower + Math.floor((upper - lower + 1) / 2);
     if (
-      options.contentFrame &&
-      boundsWidth <= options.contentFrame.width &&
-      boundsHeight <= options.contentFrame.height
+      autoFontCandidateFits(
+        options,
+        layoutSource,
+        lineHeightPx,
+        letterSpacingPx,
+        effectiveWordWrapWidthPx,
+        candidate,
+      )
     ) {
-      return candidate;
+      lower = candidate;
+    } else {
+      upper = candidate - 1;
     }
   }
-  return minPx;
+  return lower;
+}
+
+function autoFontCandidateFits(
+  options: CoreV2TextLayoutOptions,
+  layoutSource: string,
+  lineHeightPx: number,
+  letterSpacingPx: number,
+  effectiveWordWrapWidthPx: number | null,
+  candidate: number,
+): boolean {
+  const core = produceLayoutCore({
+    source: options.source,
+    layoutSource,
+    split: options.split ?? 0,
+    wordWrapWidthPx: effectiveWordWrapWidthPx,
+    breakWords: options.breakWords ?? false,
+    overflow: 'visible',
+    contentFrame: null,
+    fontSizePx: candidate,
+    lineHeightPx,
+    letterSpacingPx,
+  });
+  const boundsWidth = maximum(core.naturalLineAdvancesPx);
+  const boundsHeight = saturatingMultiply(core.lines.length, lineHeightPx);
+  return (
+    options.contentFrame !== undefined &&
+    boundsWidth <= options.contentFrame.width &&
+    boundsHeight <= options.contentFrame.height
+  );
 }
 
 function hasGraphemeBreak(
@@ -483,6 +582,7 @@ function hasGraphemeBreak(
   index: number,
   previous: ScalarToken,
   current: ScalarToken,
+  regionalIndicatorRunLength: number,
 ): boolean {
   const a = previous.graphemeClass;
   const b = current.graphemeClass;
@@ -496,12 +596,7 @@ function hasGraphemeBreak(
   if (a === 'Prepend') return false;
   if (current.extendedPictographic && followsExtendedPictographicZwj(tokens, index)) return false;
   if (a === 'RegionalIndicator' && b === 'RegionalIndicator') {
-    let precedingRegionalIndicators = 0;
-    for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
-      if (tokens[cursor]?.graphemeClass !== 'RegionalIndicator') break;
-      precedingRegionalIndicators += 1;
-    }
-    return precedingRegionalIndicators % 2 === 0;
+    return regionalIndicatorRunLength % 2 === 0;
   }
   return true;
 }
@@ -570,42 +665,47 @@ function wrapLine(
   letterSpacingPx: number,
 ): readonly (readonly string[])[] {
   if (line.length === 0) return Object.freeze([Object.freeze([])]);
+  const metrics = createLineMetrics(line, fontSizePx, letterSpacingPx);
+  const lastBreakAtOrBefore = buildLastBreakIndex(line);
   const result: (readonly string[])[] = [];
-  let remaining = [...line];
+  let start = 0;
 
-  while (remaining.length > 0) {
-    let accepted = 1;
-    for (let count = 1; count <= remaining.length; count += 1) {
-      const candidate = remaining.slice(0, count);
-      if (measureLine(candidate, fontSizePx, letterSpacingPx) <= width || count === 1) {
-        accepted = count;
-      }
-    }
-    if (accepted >= remaining.length) {
-      result.push(Object.freeze(remaining));
+  while (start < line.length) {
+    const acceptedEnd = largestFittingEnd(metrics, start, width, true);
+    if (acceptedEnd >= line.length) {
+      result.push(Object.freeze(line.slice(start)));
       break;
     }
 
-    const next = remaining[accepted];
-    let boundary = findLastLineBreak(remaining, accepted);
-    if (boundary === 0 && (breakWords || canBreakBetween(remaining[accepted - 1], next))) {
-      boundary = accepted;
+    const next = line[acceptedEnd];
+    let boundary = lastBreakAtOrBefore[acceptedEnd] ?? 0;
+    if (
+      boundary <= start &&
+      (breakWords || canBreakBetween(line[acceptedEnd - 1], next))
+    ) {
+      boundary = acceptedEnd;
     }
-    if (boundary === 0) {
-      result.push(Object.freeze(remaining));
+    if (boundary <= start) {
+      result.push(Object.freeze(line.slice(start)));
       break;
     }
-    result.push(Object.freeze(remaining.slice(0, boundary)));
-    remaining = remaining.slice(boundary);
+    result.push(Object.freeze(line.slice(start, boundary)));
+    start = boundary;
   }
   return Object.freeze(result);
 }
 
-function findLastLineBreak(graphemes: readonly string[], before: number): number {
-  for (let index = before; index > 0; index -= 1) {
-    if (canBreakBetween(graphemes[index - 1], graphemes[index])) return index;
+function buildLastBreakIndex(graphemes: readonly string[]): readonly number[] {
+  const result = new Array<number>(graphemes.length + 1).fill(0);
+  let lastBreak = 0;
+  for (let boundary = 1; boundary < graphemes.length; boundary += 1) {
+    if (canBreakBetween(graphemes[boundary - 1], graphemes[boundary])) {
+      lastBreak = boundary;
+    }
+    result[boundary] = lastBreak;
   }
-  return 0;
+  result[graphemes.length] = lastBreak;
+  return Object.freeze(result);
 }
 
 function canBreakBetween(previous: string | undefined, current: string | undefined): boolean {
@@ -646,18 +746,19 @@ function applyOverflow(
     const last = selected[lastIndex] ?? [];
     const markerWidth = measureCoreV2GraphemeAdvance(ELLIPSIS, fontSizePx);
     if (markerWidth <= frame.width) {
-      let prefix = largestFittingPrefix(
+      const prefixBudget = Math.max(
+        0,
+        saturatingSubtract(
+          saturatingSubtract(frame.width, markerWidth),
+          letterSpacingPx,
+        ),
+      );
+      const prefix = largestFittingPrefix(
         last,
-        Math.max(0, frame.width - markerWidth),
+        prefixBudget,
         fontSizePx,
         letterSpacingPx,
       );
-      while (
-        prefix.length > 0 &&
-        measureLine([...prefix, ELLIPSIS], fontSizePx, letterSpacingPx) > frame.width
-      ) {
-        prefix = prefix.slice(0, -1);
-      }
       selected[lastIndex] = [...prefix, ELLIPSIS];
     } else {
       selected[lastIndex] = [];
@@ -672,13 +773,8 @@ function largestFittingPrefix(
   fontSizePx: number,
   letterSpacingPx: number,
 ): string[] {
-  let count = 0;
-  for (let candidate = 1; candidate <= line.length; candidate += 1) {
-    if (measureLine(line.slice(0, candidate), fontSizePx, letterSpacingPx) <= width) {
-      count = candidate;
-    }
-  }
-  return line.slice(0, count);
+  const metrics = createLineMetrics(line, fontSizePx, letterSpacingPx);
+  return line.slice(0, largestFittingEnd(metrics, 0, width, false));
 }
 
 function measureLine(
@@ -686,11 +782,179 @@ function measureLine(
   fontSizePx: number,
   letterSpacingPx: number,
 ): number {
-  const advances = graphemes.reduce(
-    (total, grapheme) => total + measureCoreV2GraphemeAdvance(grapheme, fontSizePx),
+  let advances = 0;
+  for (const grapheme of graphemes) {
+    advances = saturatingAdd(
+      advances,
+      measureCoreV2GraphemeAdvance(grapheme, fontSizePx),
+    );
+  }
+  return Math.max(
     0,
+    saturatingAdd(
+      advances,
+      saturatingMultiply(Math.max(0, graphemes.length - 1), letterSpacingPx),
+    ),
   );
-  return Math.max(0, advances + Math.max(0, graphemes.length - 1) * letterSpacingPx);
+}
+
+function createLineMetrics(
+  graphemes: readonly string[],
+  fontSizePx: number,
+  letterSpacingPx: number,
+): LineMetrics {
+  const prefixPositions = new Array<number>(graphemes.length + 1).fill(0);
+  let advanceSum = 0;
+  let monotonic = true;
+  for (let index = 0; index < graphemes.length; index += 1) {
+    advanceSum = saturatingAdd(
+      advanceSum,
+      measureCoreV2GraphemeAdvance(graphemes[index] ?? '', fontSizePx),
+    );
+    const position = saturatingAdd(
+      advanceSum,
+      saturatingMultiply(index + 1, letterSpacingPx),
+    );
+    prefixPositions[index + 1] = position;
+    if (position < (prefixPositions[index] ?? 0)) monotonic = false;
+  }
+  const minimumTreeResult = monotonic
+    ? { tree: null, leafCount: 0 }
+    : buildRangeMinimumTree(prefixPositions);
+  return freeze({
+    graphemeCount: graphemes.length,
+    letterSpacingPx,
+    prefixPositions: Object.freeze(prefixPositions),
+    monotonic,
+    minimumTree: minimumTreeResult.tree,
+    minimumTreeLeafCount: minimumTreeResult.leafCount,
+  });
+}
+
+function largestFittingEnd(
+  metrics: LineMetrics,
+  start: number,
+  width: number,
+  forceOneGrapheme: boolean,
+): number {
+  const first = start + 1;
+  if (first > metrics.graphemeCount) return start;
+  if (metrics.monotonic) {
+    if (measureLineRange(metrics, start, first) > width) {
+      return forceOneGrapheme ? first : start;
+    }
+    let lower = first;
+    let upper = metrics.graphemeCount;
+    while (lower < upper) {
+      const candidate = lower + Math.floor((upper - lower + 1) / 2);
+      if (measureLineRange(metrics, start, candidate) <= width) {
+        lower = candidate;
+      } else {
+        upper = candidate - 1;
+      }
+    }
+    return lower;
+  }
+
+  const threshold = saturatingAdd(
+    saturatingAdd(width, metrics.prefixPositions[start] ?? 0),
+    metrics.letterSpacingPx,
+  );
+  const candidate = findRightmostPositionAtMost(metrics, first, threshold);
+  if (candidate < first) return forceOneGrapheme ? first : start;
+  return candidate;
+}
+
+function measureLineRange(metrics: LineMetrics, start: number, end: number): number {
+  if (end <= start) return 0;
+  return Math.max(
+    0,
+    saturatingAdd(
+      saturatingSubtract(
+        metrics.prefixPositions[end] ?? 0,
+        metrics.prefixPositions[start] ?? 0,
+      ),
+      -metrics.letterSpacingPx,
+    ),
+  );
+}
+
+function buildRangeMinimumTree(
+  values: readonly number[],
+): Readonly<{ tree: readonly number[]; leafCount: number }> {
+  let leafCount = 1;
+  while (leafCount < values.length) leafCount *= 2;
+  const tree = new Array<number>(leafCount * 2).fill(Number.POSITIVE_INFINITY);
+  for (let index = 0; index < values.length; index += 1) {
+    tree[leafCount + index] = values[index] ?? Number.POSITIVE_INFINITY;
+  }
+  for (let index = leafCount - 1; index > 0; index -= 1) {
+    tree[index] = Math.min(
+      tree[index * 2] ?? Number.POSITIVE_INFINITY,
+      tree[index * 2 + 1] ?? Number.POSITIVE_INFINITY,
+    );
+  }
+  return freeze({ tree: Object.freeze(tree), leafCount });
+}
+
+function findRightmostPositionAtMost(
+  metrics: LineMetrics,
+  queryStart: number,
+  threshold: number,
+): number {
+  if (metrics.minimumTree === null) return -1;
+  return findRightmostTreeValue(
+    metrics.minimumTree,
+    metrics.minimumTreeLeafCount,
+    1,
+    0,
+    metrics.minimumTreeLeafCount,
+    queryStart,
+    metrics.graphemeCount + 1,
+    threshold,
+  );
+}
+
+function findRightmostTreeValue(
+  tree: readonly number[],
+  leafCount: number,
+  node: number,
+  nodeStart: number,
+  nodeEnd: number,
+  queryStart: number,
+  queryEnd: number,
+  threshold: number,
+): number {
+  if (
+    nodeEnd <= queryStart ||
+    nodeStart >= queryEnd ||
+    (tree[node] ?? Number.POSITIVE_INFINITY) > threshold
+  ) {
+    return -1;
+  }
+  if (node >= leafCount) return nodeStart;
+  const middle = nodeStart + Math.floor((nodeEnd - nodeStart) / 2);
+  const right = findRightmostTreeValue(
+    tree,
+    leafCount,
+    node * 2 + 1,
+    middle,
+    nodeEnd,
+    queryStart,
+    queryEnd,
+    threshold,
+  );
+  if (right >= 0) return right;
+  return findRightmostTreeValue(
+    tree,
+    leafCount,
+    node * 2,
+    nodeStart,
+    middle,
+    queryStart,
+    queryEnd,
+    threshold,
+  );
 }
 
 function resolveBidiLines(
@@ -732,8 +996,8 @@ function resolveBidi(graphemes: readonly string[]): Readonly<{
   const baseDirection = automaticBaseDirection(content);
   const baseLevel = baseDirection === 'rtl' ? 1 : 0;
   const strongDirections = content.map(clusterStrongDirection);
-  const levels = strongDirections.map((direction, index) => {
-    const resolved = direction ?? nearestStrongDirection(strongDirections, index, baseDirection);
+  const resolvedDirections = resolveNeutralDirections(strongDirections, baseDirection);
+  const levels = resolvedDirections.map((resolved) => {
     if (baseLevel === 0) return resolved === 'rtl' ? 1 : 0;
     return resolved === 'ltr' ? 2 : 1;
   });
@@ -801,20 +1065,18 @@ function clusterStrongDirection(grapheme: string): CoreV2TextDirection | null {
   return null;
 }
 
-function nearestStrongDirection(
+function resolveNeutralDirections(
   directions: readonly (CoreV2TextDirection | null)[],
-  index: number,
   fallback: CoreV2TextDirection,
-): CoreV2TextDirection {
-  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
-    const direction = directions[cursor];
-    if (direction) return direction;
+): readonly CoreV2TextDirection[] {
+  const firstStrong = directions.find((direction) => direction !== null) ?? fallback;
+  const result: CoreV2TextDirection[] = [];
+  let previousStrong: CoreV2TextDirection | null = null;
+  for (const direction of directions) {
+    if (direction !== null) previousStrong = direction;
+    result.push(direction ?? previousStrong ?? firstStrong);
   }
-  for (let cursor = index + 1; cursor < directions.length; cursor += 1) {
-    const direction = directions[cursor];
-    if (direction) return direction;
-  }
-  return fallback;
+  return Object.freeze(result);
 }
 
 function minimumVisualIndex(run: CoreV2BidiRun, logicalToVisual: readonly number[]): number {
@@ -1101,7 +1363,52 @@ function joinRawClusters(clusters: readonly string[]): string {
 }
 
 function maximum(values: readonly number[]): number {
-  return values.length === 0 ? 0 : Math.max(...values);
+  let result = 0;
+  for (const value of values) result = Math.max(result, value);
+  return result;
+}
+
+function semanticPrecisionExceeded(
+  graphemes: readonly string[],
+  fontSizePx: number,
+  letterSpacingPx: number,
+  lineHeightPx: number,
+  lineCount: number,
+): boolean {
+  if (
+    saturatingMultiply(Math.max(0, graphemes.length - 1), Math.abs(letterSpacingPx)) ===
+      MAX_SEMANTIC_ADVANCE ||
+    saturatingMultiply(lineCount, lineHeightPx) === MAX_SEMANTIC_ADVANCE
+  ) {
+    return true;
+  }
+  return graphemes.some(
+    (grapheme) =>
+      measureCoreV2GraphemeAdvance(grapheme, fontSizePx) === MAX_SEMANTIC_ADVANCE,
+  );
+}
+
+function saturatingAdd(left: number, right: number): number {
+  const result = left + right;
+  if (!Number.isFinite(result)) {
+    return result < 0 ? -MAX_SEMANTIC_ADVANCE : MAX_SEMANTIC_ADVANCE;
+  }
+  return Math.max(-MAX_SEMANTIC_ADVANCE, Math.min(MAX_SEMANTIC_ADVANCE, result));
+}
+
+function saturatingSubtract(left: number, right: number): number {
+  return saturatingAdd(left, -right);
+}
+
+function saturatingMultiply(left: number, right: number): number {
+  if (left === 0 || right === 0) return 0;
+  const result = left * right;
+  if (!Number.isFinite(result) || Math.abs(result) > MAX_SEMANTIC_ADVANCE) {
+    return Math.sign(left) === Math.sign(right)
+      ? MAX_SEMANTIC_ADVANCE
+      : -MAX_SEMANTIC_ADVANCE;
+  }
+  return result;
 }
 
 function signature(prefix: string, value: unknown): string {

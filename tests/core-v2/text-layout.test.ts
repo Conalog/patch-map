@@ -435,4 +435,104 @@ describe('Core v2 deterministic Unicode semantic layout', () => {
     expect(measureCoreV2GraphemeAdvance('👍🏽')).toBe(32);
     expect(measureCoreV2GraphemeAdvance('AB', 8)).toBe(8);
   });
+
+  it('searches a safe-integer automatic-font range logarithmically and returns the exact boundary', () => {
+    const startedAt = performance.now();
+    const result = layoutCoreV2Text({
+      source: 'ABCD',
+      contentFrame: { width: 32, height: 20 },
+      autoFont: { minPx: 1, maxPx: Number.MAX_SAFE_INTEGER },
+    });
+
+    expect(result.fontSizePx).toBe(16);
+    expect(performance.now() - startedAt).toBeLessThan(10_000);
+  });
+
+  it('keeps automatic-font selection exact with wrapping and negative spacing', () => {
+    const source = 'ABCDEFGHIJ';
+    const frame = { width: 32, height: 60 } as const;
+    const fitting = Array.from({ length: 121 }, (_, index) => index + 8).filter((fontSizePx) => {
+      const candidate = layoutCoreV2Text({
+        source,
+        fontSizePx,
+        letterSpacingPx: -1,
+        wordWrapWidthPx: 32,
+        breakWords: true,
+      });
+      return (
+        candidate.naturalLayoutBounds.width <= frame.width &&
+        candidate.naturalLayoutBounds.height <= frame.height
+      );
+    });
+    const expected = fitting.at(-1) ?? 8;
+    const result = layoutCoreV2Text({
+      source,
+      letterSpacingPx: -1,
+      wordWrapWidthPx: 32,
+      breakWords: true,
+      contentFrame: frame,
+      autoFont: { minPx: 8, maxPx: 128 },
+    });
+
+    expect(result.fontSizePx).toBe(expected);
+  });
+
+  it('pins auto-font wrapping to the frame so a larger rewrap cannot create a fit island', () => {
+    const result = layoutCoreV2Text({
+      source: 'AA AA',
+      wordWrapWidthPx: 25,
+      breakWords: false,
+      contentFrame: { width: 18, height: 100 },
+      autoFont: { minPx: 8, maxPx: 64 },
+    });
+
+    expect(result.wordWrapWidthPx).toBe(25);
+    expect(result.fontSizePx).toBe(12);
+    expect(result.naturalLayoutBounds.width).toBeLessThanOrEqual(18);
+    expect(result.naturalLayoutBounds.height).toBeLessThanOrEqual(100);
+  });
+
+  it('handles adversarial long wrap, neutral bidi, and RI segmentation inputs linearly', () => {
+    const startedAt = performance.now();
+    const wrapped = layoutCoreV2Text({
+      source: 'A'.repeat(20_000),
+      wordWrapWidthPx: 32,
+      breakWords: true,
+    });
+    const neutrals = layoutCoreV2Text({ source: ' '.repeat(20_000) });
+    const regionalIndicators = segmentCoreV2Graphemes('🇦'.repeat(20_000));
+
+    expect(wrapped.lineCount).toBe(5_000);
+    expect(wrapped.layoutBounds).toEqual({ x: 0, y: 0, width: 32, height: 100_000 });
+    expect(neutrals.logicalToVisual).toHaveLength(20_000);
+    expect(neutrals.logicalToVisual[0]).toBe(0);
+    expect(neutrals.logicalToVisual.at(-1)).toBe(19_999);
+    expect(regionalIndicators).toHaveLength(10_000);
+    expect(regionalIndicators[0]).toBe('🇦🇦');
+    expect(performance.now() - startedAt).toBeLessThan(20_000);
+  });
+
+  it('saturates extreme finite arithmetic with an explicit precision diagnostic', () => {
+    const result = layoutCoreV2Text({
+      source: 'AB\nCD',
+      fontSizePx: Number.MAX_VALUE,
+      lineHeightPx: Number.MAX_VALUE,
+      letterSpacingPx: -Number.MAX_VALUE,
+      wordWrapWidthPx: Number.MAX_VALUE,
+      breakWords: true,
+    });
+
+    expect(result.lineAdvancesPx.every(Number.isFinite)).toBe(true);
+    expect(result.lineAdvancesPx.every((advance) => advance >= 0)).toBe(true);
+    expect(Object.values(result.layoutBounds).every(Number.isFinite)).toBe(true);
+    expect(Object.values(result.naturalLayoutBounds).every(Number.isFinite)).toBe(true);
+    expect(Object.values(result.ownerLocalBounds).every(Number.isFinite)).toBe(true);
+    expect(result.layoutBounds.width).toBeLessThanOrEqual(Number.MAX_SAFE_INTEGER);
+    expect(result.layoutBounds.height).toBe(Number.MAX_SAFE_INTEGER);
+    expect(result.diagnostics).toContainEqual({
+      code: 'SEMANTIC_PRECISION_SATURATED',
+      severity: 'unsupported',
+      detail: `semantic advance exceeded exact precision and saturated at ${String(Number.MAX_SAFE_INTEGER)}`,
+    });
+  });
 });
