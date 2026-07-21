@@ -247,6 +247,87 @@ describe('Core v2 dense reconcile planner', () => {
     expect(zOrderedPlan.safeToCommit).toBe(true);
   });
 
+  it('allows an exact declared set of stable component dense IDs to reorder without row churn', () => {
+    const current = materializeCoreV2Dataset([
+      itemWithOrderedTextComponents(['first', 'second', 'third']),
+    ]);
+    const candidate = materializeCoreV2Dataset([
+      itemWithOrderedTextComponents(['third', 'second', 'first']),
+    ]);
+    const allowedRetainedOrderIds = Object.freeze([
+      'item-a::text:first',
+      'item-a::text:second',
+      'item-a::text:third',
+    ]);
+
+    const plan = planCoreV2DatasetReconcile(
+      current,
+      candidate,
+      {},
+      { allowedRetainedOrderIds },
+    );
+
+    expect(plan.safeToCommit).toBe(true);
+    expect(plan.batch.operations).toEqual([]);
+    expect(plan.summary).toMatchObject({
+      added: 0,
+      removed: 0,
+      replaced: 0,
+      operationCount: 0,
+      unsupported: 0,
+    });
+    expect(plan.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: 'ENTITY_ORDER_CHANGE_UNSUPPORTED',
+    }));
+    expect(allowedRetainedOrderIds).toEqual([
+      'item-a::text:first',
+      'item-a::text:second',
+      'item-a::text:third',
+    ]);
+  });
+
+  it('refuses a component reorder when the declared retained-order set is partial', () => {
+    const current = materializeCoreV2Dataset([
+      itemWithOrderedTextComponents(['first', 'second', 'third']),
+    ]);
+    const candidate = materializeCoreV2Dataset([
+      itemWithOrderedTextComponents(['third', 'second', 'first']),
+    ]);
+
+    const plan = planCoreV2DatasetReconcile(
+      current,
+      candidate,
+      {},
+      {
+        allowedRetainedOrderIds: [
+          'item-a::text:first',
+          'item-a::text:third',
+        ],
+      },
+    );
+
+    expect(plan.safeToCommit).toBe(false);
+    expect(plan.batch.operations).toEqual([]);
+    expect(plan.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'ENTITY_ORDER_CHANGE_UNSUPPORTED',
+      severity: 'error',
+    }));
+  });
+
+  it('still refuses a relative-order change involving a disallowed element ID', () => {
+    const plan = planCoreV2SceneReconcile(
+      document(rect('allowed'), rect('outside')),
+      document(rect('outside'), rect('allowed')),
+      { allowedRetainedOrderIds: ['allowed'] },
+    );
+
+    expect(plan.safeToCommit).toBe(false);
+    expect(plan.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'ENTITY_ORDER_CHANGE_UNSUPPORTED',
+      severity: 'error',
+    }));
+  });
+
   it('reports a normalized semantic-only delta that has no dense projection', () => {
     const current = materializeCoreV2Dataset([
       { type: 'rect', id: 'box', label: 'Before', size: 10 },
@@ -310,5 +391,22 @@ function itemWithText(text: string, width: number): Readonly<Record<string, unkn
         style: { fontSize: 16, wordWrapWidth: width },
       },
     ],
+  };
+}
+
+function itemWithOrderedTextComponents(
+  componentIds: readonly string[],
+): Readonly<Record<string, unknown>> {
+  return {
+    type: 'item',
+    id: 'item-a',
+    size: { width: 200, height: 80 },
+    components: componentIds.map((id) => ({
+      type: 'text',
+      id,
+      text: id,
+      placement: 'center',
+      style: { fontSize: 16 },
+    })),
   };
 }

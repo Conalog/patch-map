@@ -56,6 +56,11 @@ export interface CoreV2DenseReconcilePlan {
 export interface CoreV2ReconcileOptions {
   readonly id?: string;
   readonly recordHistory?: boolean;
+  /**
+   * Stable dense IDs whose same-z authored order may change without rebuilding
+   * their rows. Every ID participating in an order inversion must be present.
+   */
+  readonly allowedRetainedOrderIds?: readonly string[];
 }
 
 /**
@@ -85,6 +90,9 @@ export function planCoreV2SceneReconcile(
   let removed = 0;
   let replaced = 0;
   let unchanged = 0;
+  const allowedRetainedOrderIds = normalizedAllowedRetainedOrderIds(
+    options.allowedRetainedOrderIds,
+  );
 
   for (const entity of currentEntities) {
     const next = candidateById.get(entity.id);
@@ -119,7 +127,7 @@ export function planCoreV2SceneReconcile(
     }
   }
 
-  if (authoredOrderChanged(currentEntities, candidateEntities)) {
+  if (authoredOrderChanged(currentEntities, candidateEntities, allowedRetainedOrderIds)) {
     diagnostics.push(freezeDiagnostic({
       severity: 'error',
       code: 'ENTITY_ORDER_CHANGE_UNSUPPORTED',
@@ -382,6 +390,7 @@ function canonicalToInput(entity: CanonicalEntity): EntityInput {
 function authoredOrderChanged(
   current: readonly CanonicalEntity[],
   candidate: readonly CanonicalEntity[],
+  allowedRetainedOrderIds: ReadonlySet<string>,
 ): boolean {
   const candidateById = indexEntities(candidate);
   const retainedSameZ = new Set<string>();
@@ -392,9 +401,62 @@ function authoredOrderChanged(
   const currentOrder = orderByZIndex(current, retainedSameZ);
   const candidateOrder = orderByZIndex(candidate, retainedSameZ);
   for (const [zIndex, currentIds] of currentOrder) {
-    if (!fieldEqual(currentIds, candidateOrder.get(zIndex) ?? [])) return true;
+    const candidateIds = candidateOrder.get(zIndex) ?? [];
+    if (
+      !fieldEqual(currentIds, candidateIds) &&
+      !orderChangeIsScoped(currentIds, candidateIds, allowedRetainedOrderIds)
+    ) {
+      return true;
+    }
   }
   return false;
+}
+
+function orderChangeIsScoped(
+  currentIds: readonly string[],
+  candidateIds: readonly string[],
+  allowedRetainedOrderIds: ReadonlySet<string>,
+): boolean {
+  if (currentIds.length !== candidateIds.length) return false;
+  const candidatePosition = new Map(candidateIds.map((id, index) => [id, index]));
+  if (candidatePosition.size !== candidateIds.length) return false;
+  if (currentIds.some((id) => !candidatePosition.has(id))) return false;
+
+  const positions = currentIds.map((id) => candidatePosition.get(id));
+  let prefixMaximum = -1;
+  for (let index = 0; index < currentIds.length; index += 1) {
+    const id = currentIds[index];
+    const position = positions[index];
+    if (id === undefined || position === undefined) return false;
+    if (!allowedRetainedOrderIds.has(id) && prefixMaximum > position) return false;
+    prefixMaximum = Math.max(prefixMaximum, position);
+  }
+
+  let suffixMinimum = Number.POSITIVE_INFINITY;
+  for (let index = currentIds.length - 1; index >= 0; index -= 1) {
+    const id = currentIds[index];
+    const position = positions[index];
+    if (id === undefined || position === undefined) return false;
+    if (!allowedRetainedOrderIds.has(id) && suffixMinimum < position) return false;
+    suffixMinimum = Math.min(suffixMinimum, position);
+  }
+  return true;
+}
+
+function normalizedAllowedRetainedOrderIds(
+  values: readonly string[] | undefined,
+): ReadonlySet<string> {
+  if (values === undefined) return new Set();
+  const detached = [...values];
+  detached.forEach((value, index) => {
+    if (typeof value !== 'string' || value.length === 0) {
+      throw new CoreValidationError(
+        `$.options.allowedRetainedOrderIds[${index}]`,
+        'expected a non-empty stable dense entity ID',
+      );
+    }
+  });
+  return new Set(detached);
 }
 
 function orderByZIndex(
