@@ -333,7 +333,8 @@ p {
   font: 700 0.66rem/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-.contract-component-inspector[data-observation-status="observed"] {
+.contract-component-inspector[data-observation-status="observed"],
+.contract-text-inspector[data-observation-status="observed"] {
   border-color: #7ba88d;
   background: #f7fcf9;
 }
@@ -375,6 +376,11 @@ p {
   overflow-wrap: anywhere;
   color: #263c5d;
   font: 750 0.72rem/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.contract-text-facts dd {
+  min-height: 1.35em;
+  white-space: pre-wrap;
 }
 
 .contract-image-ledger,

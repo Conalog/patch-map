@@ -46,6 +46,70 @@ const REN_005_SPECIMENS = Object.freeze([
   Object.freeze({ id: 'failed-image', label: 'Failed placeholder' }),
 ]);
 
+interface CoreV2TextInspectorChoice {
+  readonly id: string;
+  readonly label: string;
+}
+
+const REN_006_TEXT_CHOICES: readonly CoreV2TextInspectorChoice[] = Object.freeze([
+  Object.freeze({ id: 'initial', label: 'Initial Unicode' }),
+  Object.freeze({ id: 'empty', label: 'Empty text' }),
+  Object.freeze({ id: 'long', label: 'Long wrapped text' }),
+  Object.freeze({ id: 'missing-font', label: 'Missing-font fallback' }),
+  Object.freeze({ id: 'rapid', label: 'Rapid final publication' }),
+  Object.freeze({ id: 'terminal', label: 'Terminal Arabic text' }),
+]);
+
+const REN_011_TEXT_CHOICES: readonly CoreV2TextInspectorChoice[] = Object.freeze([
+  Object.freeze({ id: 'placed', label: 'Placed + tinted' }),
+  Object.freeze({ id: 'auto', label: 'Auto font' }),
+  Object.freeze({ id: 'wrap', label: 'Wrapped' }),
+  Object.freeze({ id: 'overflow-visible', label: 'Overflow visible' }),
+  Object.freeze({ id: 'overflow-hidden', label: 'Overflow hidden' }),
+  Object.freeze({ id: 'overflow-ellipsis', label: 'Overflow ellipsis' }),
+  Object.freeze({ id: 'upright', label: 'Upright in rotated item' }),
+]);
+
+const REN_006_TEXT_FIELDS = Object.freeze([
+  Object.freeze({ suffix: 'phase', label: 'Phase' }),
+  Object.freeze({ suffix: 'source', label: 'Source' }),
+  Object.freeze({ suffix: 'visible-text', label: 'Visible text' }),
+  Object.freeze({ suffix: 'lines', label: 'Lines' }),
+  Object.freeze({ suffix: 'font-runs', label: 'Font runs' }),
+  Object.freeze({ suffix: 'layout-bounds', label: 'Layout bounds' }),
+  Object.freeze({ suffix: 'world-bounds', label: 'World bounds' }),
+  Object.freeze({ suffix: 'hit-bounds', label: 'Hit bounds' }),
+  Object.freeze({ suffix: 'publication', label: 'Publication' }),
+  Object.freeze({ suffix: 'intermediate-publication-count', label: 'Intermediate publications' }),
+  Object.freeze({ suffix: 'stale-glyph-count', label: 'Stale glyphs' }),
+  Object.freeze({ suffix: 'renderer-route', label: 'Renderer route' }),
+  Object.freeze({ suffix: 'style', label: 'Paint style' }),
+  Object.freeze({ suffix: 'geometry', label: 'World transform' }),
+]);
+
+const REN_011_TEXT_FIELDS = Object.freeze([
+  Object.freeze({ suffix: 'specimen', label: 'Specimen' }),
+  Object.freeze({ suffix: 'source', label: 'Source' }),
+  Object.freeze({ suffix: 'placement', label: 'Placement' }),
+  Object.freeze({ suffix: 'margin', label: 'Margin' }),
+  Object.freeze({ suffix: 'tint', label: 'Authored tint' }),
+  Object.freeze({ suffix: 'rgba', label: 'Projected RGBA' }),
+  Object.freeze({ suffix: 'frame', label: 'Frame' }),
+  Object.freeze({ suffix: 'auto-font', label: 'Auto font' }),
+  Object.freeze({ suffix: 'wrap-width', label: 'Wrap width' }),
+  Object.freeze({ suffix: 'overflow', label: 'Overflow' }),
+  Object.freeze({ suffix: 'visible-text', label: 'Visible text' }),
+  Object.freeze({ suffix: 'lines', label: 'Lines' }),
+  Object.freeze({ suffix: 'layout-bounds', label: 'Layout bounds' }),
+  Object.freeze({ suffix: 'item-angle', label: 'Item angle' }),
+  Object.freeze({ suffix: 'orientation', label: 'Orientation' }),
+  Object.freeze({ suffix: 'screen-angle', label: 'Screen angle' }),
+  Object.freeze({ suffix: 'local-bounds', label: 'Placed local bounds' }),
+  Object.freeze({ suffix: 'paint-tint', label: 'Renderer paint tint' }),
+  Object.freeze({ suffix: 'publication', label: 'Publication' }),
+  Object.freeze({ suffix: 'all-rows-exact', label: 'All rows semantically exact' }),
+]);
+
 interface CoreV2ComponentAssetPhase {
   readonly id: string;
   readonly label: string;
@@ -162,6 +226,64 @@ function renderRen005Inspector(route: CoreV2ContractRoute): string {
   </section>`;
 }
 
+function renderTextInspectorOptions(
+  choices: readonly CoreV2TextInspectorChoice[],
+  initiallySelectedId: string,
+): string {
+  return choices.map(({ id, label }) => (
+    `<option value="${id}" data-observation-status="queued"${id === initiallySelectedId ? ' selected' : ''} disabled>${label}</option>`
+  )).join('');
+}
+
+function renderTextInspectorFacts(
+  prefix: 'ren-006' | 'ren-011',
+  fields: readonly Readonly<{ suffix: string; label: string }>[],
+): string {
+  const rows = fields.map(({ suffix, label }) => (
+    `<div><dt>${label}</dt><dd data-testid="${prefix}-${suffix}" data-text-observation-field>not observed</dd></div>`
+  )).join('');
+  return `<div class="contract-image-facts contract-text-facts" data-testid="${prefix}-selected-facts"><dl>${rows}</dl></div>`;
+}
+
+function seededTextChoiceId(
+  choices: readonly CoreV2TextInspectorChoice[],
+  seed: number,
+): string {
+  return choices[seed % choices.length]?.id ?? choices[0]?.id ?? '';
+}
+
+function renderTextInspector(route: CoreV2ContractRoute): string {
+  const configuration = route.scenario === 'REN-006'
+    ? {
+        prefix: 'ren-006' as const,
+        title: 'Unicode text phases and publication',
+        selectorLabel: 'Observed phase',
+        choices: REN_006_TEXT_CHOICES,
+        fields: REN_006_TEXT_FIELDS,
+      }
+    : route.scenario === 'REN-011'
+      ? {
+          prefix: 'ren-011' as const,
+          title: 'Item text contract matrix',
+          selectorLabel: 'Observed specimen',
+          choices: REN_011_TEXT_CHOICES,
+          fields: REN_011_TEXT_FIELDS,
+        }
+      : null;
+  if (!configuration) return '';
+  const seededChoice = seededTextChoiceId(configuration.choices, route.seed);
+  const options = renderTextInspectorOptions(configuration.choices, seededChoice);
+  return `<section class="contract-image-inspector contract-text-inspector" data-testid="${configuration.prefix}-text-inspector" data-observation-status="queued" data-observed-choice-count="0" data-seeded-choice="${seededChoice}" aria-labelledby="${configuration.prefix}-inspector-title">
+    <div class="contract-image-inspector-heading">
+      <div><span class="contract-kicker">${configuration.prefix.toUpperCase()} folded actual observer</span><h3 id="${configuration.prefix}-inspector-title">${configuration.title}</h3></div>
+      <label>${configuration.selectorLabel}<select data-testid="${configuration.prefix}-text-choice-select" disabled>${options}</select><output class="contract-phase-observation-count" data-testid="${configuration.prefix}-observed-choice-count">0 / ${configuration.choices.length} observed</output></label>
+    </div>
+    <p class="contract-image-observer-note" data-testid="${configuration.prefix}-display-only-note">Display-only exploration. This chooser reads completed folded actualObservation only; it never adds, removes, reorders, repeats, or mutates the canonical action trace. The route seed chooses the initial display deterministically.</p>
+    ${renderTextInspectorFacts(configuration.prefix, configuration.fields)}
+    ${renderRunObserver(configuration.prefix)}
+  </section>`;
+}
+
 function renderComponentAssetPhaseOptions(
   phases: readonly CoreV2ComponentAssetPhase[],
   initiallySelectedId: string,
@@ -184,7 +306,7 @@ function renderComponentAssetResourceLedger(prefix: 'ren-008' | 'ren-010'): stri
   </div>`;
 }
 
-function renderRunObserver(prefix: 'ren-008' | 'ren-010'): string {
+function renderRunObserver(prefix: CoreV2RunObserverPrefix): string {
   return `<div class="contract-run-observer" data-testid="${prefix}-run-observation">
     <div><span class="contract-kicker">Per-run main-thread observation</span><p>FPS and frame gaps use requestAnimationFrame; long tasks use the browser Long Tasks API when available.</p></div>
     <dl>
@@ -322,6 +444,7 @@ export function renderCoreV2ContractLab(route: CoreV2ContractRoute): string {
         </div>
         <div class="contract-actions" aria-label="Selected case action ownership">${actionControls(route, executable)}</div>
         ${renderRen005Inspector(route)}
+        ${renderTextInspector(route)}
         ${renderComponentAssetInspector(route)}
       </section>
       <section class="contract-result-strip" data-testid="${presenter.resultTestId}" aria-live="polite">
@@ -418,6 +541,19 @@ function bindShell(
   );
   imageChooser?.addEventListener('change', () => {
     refreshRen005Inspector(target, bridge.execution());
+  }, { signal });
+
+  const textChooser = target.querySelector<HTMLSelectElement>(
+    '[data-testid="ren-006-text-choice-select"], [data-testid="ren-011-text-choice-select"]',
+  );
+  textChooser?.addEventListener('change', () => {
+    const status = bridge.state().status;
+    if (status !== 'observed' && status !== 'failed' && status !== 'destroyed') return;
+    void bridge.actualObservation().then((observation) => {
+      if (!signal.aborted) {
+        refreshTextInspector(target, route.scenario, observation, route.seed, false);
+      }
+    }).catch(() => undefined);
   }, { signal });
 
   const componentAssetChooser = target.querySelector<HTMLSelectElement>(
@@ -550,6 +686,7 @@ async function refreshBridgeUi(
   }
 
   refreshRen005Inspector(root, execution);
+  refreshTextInspector(root, route.scenario, observation, route.seed, runObservation !== null);
   refreshComponentAssetInspector(root, route.scenario, execution);
   const performancePrefix = runObserverPrefix(route.scenario);
   if (runObservation && performancePrefix) {
@@ -655,6 +792,237 @@ function refreshRen005Inspector(
     inspector,
     backend && Array.isArray(backend.journal) ? backend.journal : [],
   );
+}
+
+function refreshTextInspector(
+  root: HTMLElement,
+  scenario: string,
+  observation: Readonly<Record<string, unknown>> | null,
+  routeSeed: number,
+  resetSelection: boolean,
+): void {
+  const configuration = scenario === 'REN-006'
+    ? {
+        prefix: 'ren-006' as const,
+        inspectorTestId: 'ren-006-text-inspector',
+        choices: REN_006_TEXT_CHOICES,
+        fields: REN_006_TEXT_FIELDS,
+      }
+    : scenario === 'REN-011'
+      ? {
+          prefix: 'ren-011' as const,
+          inspectorTestId: 'ren-011-text-inspector',
+          choices: REN_011_TEXT_CHOICES,
+          fields: REN_011_TEXT_FIELDS,
+        }
+      : null;
+  if (!configuration) return;
+  const inspector = root.querySelector<HTMLElement>(
+    `[data-testid="${configuration.inspectorTestId}"]`,
+  );
+  if (!inspector) return;
+
+  const observationCase = observation ? recordAt(observation, 'case') : null;
+  const validObservation = observationCase?.id === scenario ? observation : null;
+  const factsByChoice = new Map<string, Readonly<Record<string, string>> | null>(
+    configuration.choices.map(({ id }) => [
+      id,
+      validObservation
+        ? textChoiceFacts(scenario, validObservation, id)
+        : null,
+    ]),
+  );
+  const observedCount = [...factsByChoice.values()].filter((facts) => facts !== null).length;
+  inspector.dataset.observedChoiceCount = String(observedCount);
+  setText(
+    inspector.querySelector(`[data-testid="${configuration.prefix}-observed-choice-count"]`),
+    `${observedCount} / ${configuration.choices.length} observed`,
+  );
+
+  const chooser = inspector.querySelector<HTMLSelectElement>(
+    `[data-testid="${configuration.prefix}-text-choice-select"]`,
+  );
+  if (chooser) {
+    chooser.disabled = observedCount === 0;
+    for (const option of chooser.options) {
+      const observed = (factsByChoice.get(option.value) ?? null) !== null;
+      option.disabled = !observed;
+      option.dataset.observationStatus = observed ? 'observed' : 'queued';
+    }
+  }
+
+  const seededChoice = seededTextChoiceId(configuration.choices, routeSeed);
+  let selectedChoice = chooser?.value ?? seededChoice;
+  if (resetSelection || !factsByChoice.get(selectedChoice)) {
+    selectedChoice = factsByChoice.get(seededChoice)
+      ? seededChoice
+      : configuration.choices.find(({ id }) => factsByChoice.get(id) !== null)?.id ?? '';
+    if (chooser && selectedChoice) chooser.value = selectedChoice;
+  }
+  const selectedFacts = factsByChoice.get(selectedChoice) ?? null;
+  resetTextInspectorFields(inspector);
+  if (!selectedFacts) {
+    inspector.dataset.observationStatus = 'queued';
+    delete inspector.dataset.selectedChoice;
+    return;
+  }
+
+  inspector.dataset.observationStatus = 'observed';
+  inspector.dataset.selectedChoice = selectedChoice;
+  for (const [suffix, value] of Object.entries(selectedFacts)) {
+    setText(
+      inspector.querySelector(`[data-testid="${configuration.prefix}-${suffix}"]`),
+      value,
+    );
+  }
+}
+
+function textChoiceFacts(
+  scenario: string,
+  observation: Readonly<Record<string, unknown>>,
+  choiceId: string,
+): Readonly<Record<string, string>> | null {
+  if (scenario === 'REN-006') return ren006TextChoiceFacts(observation, choiceId);
+  if (scenario === 'REN-011') return ren011TextChoiceFacts(observation, choiceId);
+  return null;
+}
+
+function ren006TextChoiceFacts(
+  observation: Readonly<Record<string, unknown>>,
+  choiceId: string,
+): Readonly<Record<string, string>> | null {
+  const text = recordAt(observation, 'text');
+  if (!text) return null;
+  const scene = recordAt(observation, 'scene');
+  const textScene = scene ? recordAt(scene, 'text') : null;
+  const geometry = recordAt(observation, 'geometry');
+  const textGeometry = geometry ? recordAt(geometry, 'text') : null;
+  const paint = recordAt(observation, 'paint');
+  const textPaint = paint ? recordAt(paint, 'text') : null;
+  const publication = observedValue(textScene?.publication);
+  const facts = unavailableTextFacts(REN_006_TEXT_FIELDS);
+  facts.phase = choiceId;
+  facts.publication = publication;
+
+  if (choiceId === 'initial') {
+    const phases = recordAt(text, 'phases');
+    const initial = phases ? recordAt(phases, 'initial-text') : null;
+    if (!initial) return null;
+    facts.source = observedTextLiteral(initial.source);
+    facts.lines = observedValue(initial.lines);
+    facts['layout-bounds'] = observedValue(initial.layoutBounds);
+    return facts;
+  }
+  if (choiceId === 'empty') {
+    const empty = recordAt(text, 'empty');
+    if (!empty) return null;
+    facts['visible-text'] = observedTextLiteral(empty.visibleText);
+    facts['layout-bounds'] = observedValue(empty.layoutBounds);
+    return facts;
+  }
+  if (choiceId === 'long') {
+    const long = recordAt(text, 'long');
+    if (!long) return null;
+    facts.lines = observedValue(long.lines);
+    facts['layout-bounds'] = observedValue(long.layoutBounds);
+    return facts;
+  }
+  if (choiceId === 'missing-font') {
+    const missingFont = recordAt(text, 'missingFont');
+    if (!missingFont) return null;
+    facts['font-runs'] = observedValue(missingFont.fontRuns);
+    facts['layout-bounds'] = observedValue(missingFont.layoutBounds);
+    return facts;
+  }
+  if (choiceId === 'rapid') {
+    const rapid = recordAt(text, 'rapid');
+    if (!rapid) return null;
+    facts['visible-text'] = observedTextLiteral(rapid.visibleText);
+    facts['layout-bounds'] = observedValue(rapid.layoutBounds);
+    facts['intermediate-publication-count'] = observedValue(rapid.intermediatePublicationCount);
+    facts['stale-glyph-count'] = observedValue(rapid.staleGlyphCount);
+    return facts;
+  }
+  if (choiceId !== 'terminal' || typeof text.content !== 'string') return null;
+  facts.source = observedTextLiteral(text.content);
+  facts.lines = observedValue(text.lines);
+  facts['font-runs'] = observedValue(text.fontRuns);
+  facts['layout-bounds'] = observedValue(text.layoutBounds);
+  facts['world-bounds'] = observedValue(text.worldBounds);
+  facts['hit-bounds'] = observedValue(text.hitBounds);
+  facts['stale-glyph-count'] = observedValue(text.staleGlyphCount);
+  facts['renderer-route'] = observedValue(textScene?.route);
+  facts.style = observedValue(textPaint?.style);
+  facts.geometry = observedValue(textGeometry);
+  return facts;
+}
+
+function ren011TextChoiceFacts(
+  observation: Readonly<Record<string, unknown>>,
+  choiceId: string,
+): Readonly<Record<string, string>> | null {
+  const text = recordAt(observation, 'text');
+  if (!text || !Array.isArray(text.contractMatrix)) return null;
+  const rowValue: unknown = text.contractMatrix.find((entry: unknown) => (
+    isRecord(entry) && entry.id === choiceId
+  ));
+  if (!isRecord(rowValue)) return null;
+  const scene = recordAt(observation, 'scene');
+  const itemTextScene = scene ? recordAt(scene, 'itemText') : null;
+  const geometry = recordAt(observation, 'geometry');
+  const geometryTexts = geometry ? recordAt(geometry, 'texts') : null;
+  const paint = recordAt(observation, 'paint');
+  const paintTexts = paint ? recordAt(paint, 'texts') : null;
+  const outcome = recordAt(observation, 'outcome');
+  const matrixOutcome = outcome ? recordAt(outcome, 'textContractMatrix') : null;
+  const placedGeometry = geometryTexts ? recordAt(geometryTexts, 'placed') : null;
+  const uprightGeometry = geometryTexts ? recordAt(geometryTexts, 'upright') : null;
+  const placedPaint = paintTexts ? recordAt(paintTexts, 'placed') : null;
+  const facts = unavailableTextFacts(REN_011_TEXT_FIELDS);
+
+  facts.specimen = observedValue(rowValue.id);
+  facts.source = observedTextLiteral(rowValue.source);
+  facts.placement = observedValue(rowValue.placement);
+  facts.margin = observedValue(rowValue.margin);
+  facts.tint = observedValue(rowValue.tint);
+  facts.rgba = observedValue(rowValue.rgba);
+  facts.frame = observedValue(rowValue.frame);
+  facts['auto-font'] = observedValue(rowValue.autoFont);
+  facts['wrap-width'] = observedValue(rowValue.wrapWidth);
+  facts.overflow = observedValue(rowValue.overflow);
+  facts['visible-text'] = observedTextLiteral(rowValue.visibleText);
+  facts.lines = observedValue(rowValue.lines);
+  facts['layout-bounds'] = observedValue(rowValue.layoutBounds);
+  facts['item-angle'] = observedValue(rowValue.itemAngle);
+  facts.orientation = observedValue(rowValue.orientation);
+  facts['screen-angle'] = choiceId === 'upright'
+    ? observedValue(uprightGeometry?.screenAngle)
+    : observedValue(rowValue.screenAngle);
+  facts['local-bounds'] = choiceId === 'placed'
+    ? observedValue(placedGeometry?.localBounds)
+    : observedValue(rowValue.localBounds);
+  facts['paint-tint'] = choiceId === 'placed'
+    ? observedValue(placedPaint?.tint)
+    : 'unavailable';
+  facts.publication = observedValue(itemTextScene?.publication);
+  facts['all-rows-exact'] = observedValue(matrixOutcome?.allRowsExact);
+  return facts;
+}
+
+function unavailableTextFacts(
+  fields: readonly Readonly<{ suffix: string }>[],
+): Record<string, string> {
+  return Object.fromEntries(fields.map(({ suffix }) => [suffix, 'unavailable']));
+}
+
+function observedTextLiteral(value: unknown): string {
+  return typeof value === 'string' ? JSON.stringify(value) : observedValue(value);
+}
+
+function resetTextInspectorFields(inspector: HTMLElement): void {
+  for (const field of inspector.querySelectorAll<HTMLElement>('[data-text-observation-field]')) {
+    field.textContent = 'not observed';
+  }
 }
 
 function refreshComponentAssetInspector(
@@ -1147,12 +1515,19 @@ function renderRen005RequestJournal(
   }).join('');
 }
 
-type CoreV2RunObserverPrefix = 'ren-005' | 'ren-008' | 'ren-010';
+type CoreV2RunObserverPrefix =
+  | 'ren-005'
+  | 'ren-006'
+  | 'ren-008'
+  | 'ren-010'
+  | 'ren-011';
 
 function runObserverPrefix(scenario: string): CoreV2RunObserverPrefix | null {
   if (scenario === 'REN-005') return 'ren-005';
+  if (scenario === 'REN-006') return 'ren-006';
   if (scenario === 'REN-008') return 'ren-008';
   if (scenario === 'REN-010') return 'ren-010';
+  if (scenario === 'REN-011') return 'ren-011';
   return null;
 }
 

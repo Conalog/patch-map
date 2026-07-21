@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the eleven selected render routes and their 149 canonical assertions', () => {
+  it('pins exactly the thirteen selected render routes and their 199 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -42,6 +42,7 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'REN-001', expectedAssertions: 9 },
       { id: 'REN-004', expectedAssertions: 10 },
       { id: 'REN-005', expectedAssertions: 28 },
+      { id: 'REN-006', expectedAssertions: 30 },
       { id: 'REN-003', expectedAssertions: 12 },
       { id: 'REN-002', expectedAssertions: 9 },
       { id: 'LAY-005', expectedAssertions: 14 },
@@ -49,19 +50,20 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'REN-007', expectedAssertions: 26 },
       { id: 'REN-008', expectedAssertions: 10 },
       { id: 'REN-010', expectedAssertions: 11 },
+      { id: 'REN-011', expectedAssertions: 20 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(149);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 149;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 146;');
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(199);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 199;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 196;');
     expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 3;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 146 pass and 3 immutable conflicts'",
+      "'canonical comparison must be exactly 196 pass and 3 immutable conflicts'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 146 pass and 3 immutable conflicts'",
+      "'repeat comparison must be exactly 196 pass and 3 immutable conflicts'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 146 pass and 3 immutable conflicts'",
+      "'fresh comparison must be exactly 196 pass and 3 immutable conflicts'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -167,7 +169,9 @@ describe('Core v2 render browser checkpoint script', () => {
   });
 
   it('drives REN-008 and REN-010 through actual controls and verifies every actual phase inspector', () => {
-    expect(source).toContain("const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-008', 'REN-010']);");
+    expect(source).toContain(
+      "const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-006', 'REN-008', 'REN-010', 'REN-011']);",
+    );
     expect(source).toContain('function collectFocusedUi(options)');
     expect(source).toContain('async function collectComponentAssetFocusedUi');
     expect(source).toContain("inspectorTestId: 'ren-008-background-inspector'");

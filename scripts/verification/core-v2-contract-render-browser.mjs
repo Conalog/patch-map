@@ -18,8 +18,8 @@ const VITE_CONFIG_PATH = path.join(ROOT, 'vite.core-v2-lab.config.ts');
 const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 149;
-const EXPECTED_ASSERTION_PASS_TOTAL = 146;
+const EXPECTED_ASSERTION_TOTAL = 199;
+const EXPECTED_ASSERTION_PASS_TOTAL = 196;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 3;
 const REN_005_IMMUTABLE_FAILURES = Object.freeze([
   Object.freeze({
@@ -47,6 +47,7 @@ const RENDER_CASES = Object.freeze([
     expectedAssertions: 28,
     expectedFailures: REN_005_IMMUTABLE_FAILURES,
   }),
+  Object.freeze({ id: 'REN-006', expectedAssertions: 30 }),
   Object.freeze({ id: 'REN-003', expectedAssertions: 12 }),
   Object.freeze({ id: 'REN-002', expectedAssertions: 9 }),
   Object.freeze({ id: 'LAY-005', expectedAssertions: 14 }),
@@ -54,8 +55,9 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'REN-007', expectedAssertions: 26 }),
   Object.freeze({ id: 'REN-008', expectedAssertions: 10 }),
   Object.freeze({ id: 'REN-010', expectedAssertions: 11 }),
+  Object.freeze({ id: 'REN-011', expectedAssertions: 20 }),
 ]);
-const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-008', 'REN-010']);
+const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-006', 'REN-008', 'REN-010', 'REN-011']);
 
 const headed = parseArguments(process.argv.slice(2));
 const errors = { console: [], page: [], network: [], externalFixture: [] };
@@ -136,20 +138,20 @@ try {
     freshFailed,
   };
 
-  invariant(report.cases.length === RENDER_CASES.length, 'all eleven render routes completed');
+  invariant(report.cases.length === RENDER_CASES.length, 'all thirteen render routes completed');
   invariant(
     passed === EXPECTED_ASSERTION_PASS_TOTAL && failed === EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'canonical comparison must be exactly 146 pass and 3 immutable conflicts',
+    'canonical comparison must be exactly 196 pass and 3 immutable conflicts',
   );
   invariant(
     repeatPassed === EXPECTED_ASSERTION_PASS_TOTAL &&
       repeatFailed === EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'repeat comparison must be exactly 146 pass and 3 immutable conflicts',
+    'repeat comparison must be exactly 196 pass and 3 immutable conflicts',
   );
   invariant(
     freshPassed === EXPECTED_ASSERTION_PASS_TOTAL &&
       freshFailed === EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'fresh comparison must be exactly 146 pass and 3 immutable conflicts',
+    'fresh comparison must be exactly 196 pass and 3 immutable conflicts',
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
   invariant(errors.page.length === 0, 'page error count must be zero');
@@ -436,9 +438,11 @@ async function executeBrowserRun(page, operation, buttonTestId = null, focusedCa
     }
 
     function collectFocusedUi(options) {
-      return options.caseId === 'REN-005'
-        ? collectRen005FocusedUi(options)
-        : collectComponentAssetFocusedUi(options);
+      if (options.caseId === 'REN-005') return collectRen005FocusedUi(options);
+      if (options.caseId === 'REN-006' || options.caseId === 'REN-011') {
+        return collectTextFocusedUi(options);
+      }
+      return collectComponentAssetFocusedUi(options);
     }
 
     async function collectRen005FocusedUi({ bridge: activeBridge, triggerTestId, operationName }) {
@@ -468,6 +472,176 @@ async function executeBrowserRun(page, operation, buttonTestId = null, focusedCa
         }
         await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
       }
+    }
+
+    async function collectTextFocusedUi({
+      bridge: activeBridge,
+      caseId,
+      triggerTestId,
+      operationName,
+    }) {
+      const config = caseId === 'REN-006'
+        ? {
+            prefix: 'ren-006',
+            inspectorTestId: 'ren-006-text-inspector',
+            actionCount: 6,
+            choices: ['initial', 'empty', 'long', 'missing-font', 'rapid', 'terminal'],
+            fieldNames: [
+              'phase',
+              'source',
+              'visible-text',
+              'lines',
+              'font-runs',
+              'layout-bounds',
+              'world-bounds',
+              'hit-bounds',
+              'publication',
+              'intermediate-publication-count',
+              'stale-glyph-count',
+              'renderer-route',
+              'style',
+              'geometry',
+            ],
+          }
+        : caseId === 'REN-011'
+          ? {
+              prefix: 'ren-011',
+              inspectorTestId: 'ren-011-text-inspector',
+              actionCount: 4,
+              choices: [
+                'placed',
+                'auto',
+                'wrap',
+                'overflow-visible',
+                'overflow-hidden',
+                'overflow-ellipsis',
+                'upright',
+              ],
+              fieldNames: [
+                'specimen',
+                'source',
+                'placement',
+                'margin',
+                'tint',
+                'rgba',
+                'frame',
+                'auto-font',
+                'wrap-width',
+                'overflow',
+                'visible-text',
+                'lines',
+                'layout-bounds',
+                'item-angle',
+                'orientation',
+                'screen-angle',
+                'local-bounds',
+                'paint-tint',
+                'publication',
+                'all-rows-exact',
+              ],
+            }
+          : null;
+      if (!config) throw new Error(`Unsupported focused text UI case ${String(caseId)}`);
+      const expectedPerformanceRows = operationName === 'repeatCase' ? 2 : 1;
+      const timeoutAt = performance.now() + 30_000;
+      let lastState = null;
+      for (;;) {
+        const root = document.querySelector(`[data-testid="${activeBridge.state().rootTestId}"]`);
+        const statuses = root
+          ? [...root.querySelectorAll('.contract-case-action[data-action-status]')]
+            .map((row) => row.dataset.actionStatus)
+          : [];
+        const inspector = root?.querySelector(`[data-testid="${config.inspectorTestId}"]`);
+        const performanceRows = root?.querySelectorAll(
+          `[data-testid="${config.prefix}-performance-journal-row"]`,
+        ).length ?? 0;
+        lastState = {
+          contractStatus: root?.dataset.contractStatus ?? null,
+          statuses,
+          inspectorStatus: inspector?.dataset.observationStatus ?? null,
+          observedChoiceCount: inspector?.dataset.observedChoiceCount ?? null,
+          selectedChoice: inspector?.dataset.selectedChoice ?? null,
+          performanceRows,
+        };
+        if (
+          root?.dataset.contractStatus === 'observed'
+          && statuses.length === config.actionCount
+          && statuses.every((status) => status === 'completed')
+          && inspector?.dataset.observationStatus === 'observed'
+          && Number(inspector.dataset.observedChoiceCount) === config.choices.length
+          && typeof inspector.dataset.selectedChoice === 'string'
+          && performanceRows === expectedPerformanceRows
+        ) {
+          return readTextFocusedUi(root, inspector, config, triggerTestId);
+        }
+        if (performance.now() >= timeoutAt) {
+          throw new Error(
+            `Focused ${caseId} text DOM did not settle after ${triggerTestId}: ${JSON.stringify(lastState)}`,
+          );
+        }
+        await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+      }
+    }
+
+    async function readTextFocusedUi(root, inspector, config, triggerTestId) {
+      const chooser = root.querySelector(`[data-testid="${config.prefix}-text-choice-select"]`);
+      if (!(chooser instanceof HTMLSelectElement)) {
+        throw new Error(`Missing ${config.prefix} text chooser`);
+      }
+      const initialChoice = chooser.value;
+      const selectedFacts = async (choice) => {
+        chooser.value = choice;
+        chooser.dispatchEvent(new Event('change', { bubbles: true }));
+        const timeoutAt = performance.now() + 5_000;
+        while (inspector.dataset.selectedChoice !== choice) {
+          if (performance.now() >= timeoutAt) {
+            throw new Error(`Focused ${config.prefix} choice ${choice} did not settle`);
+          }
+          await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+        }
+        return Object.fromEntries(config.fieldNames.map((field) => [
+          field,
+          textAt(root, `${config.prefix}-${field}`),
+        ]));
+      };
+      const choices = {};
+      for (const choice of config.choices) choices[choice] = await selectedFacts(choice);
+      if (chooser.value !== initialChoice) await selectedFacts(initialChoice);
+      const performanceRows = [...root.querySelectorAll(
+        `[data-testid="${config.prefix}-performance-journal-row"]`,
+      )];
+      const latestPerformance = performanceRows.at(-1)?.dataset ?? {};
+      return {
+        trigger: `click:${triggerTestId}`,
+        actionStatuses: [...root.querySelectorAll('.contract-case-action[data-action-status]')]
+          .map((row) => row.dataset.actionStatus ?? null),
+        chooser: {
+          disabled: chooser.disabled,
+          initialChoice,
+          seededChoice: inspector.dataset.seededChoice ?? null,
+          options: [...chooser.options].map((option) => ({
+            value: option.value,
+            disabled: option.disabled,
+            observationStatus: option.dataset.observationStatus ?? null,
+          })),
+        },
+        choices,
+        observedChoiceCount: textAt(root, `${config.prefix}-observed-choice-count`),
+        displayOnlyNote: textAt(root, `${config.prefix}-display-only-note`),
+        performance: {
+          count: performanceRows.length,
+          latest: {
+            runIndex: latestPerformance.runIndex ?? null,
+            runKind: latestPerformance.runKind ?? null,
+            framesPerSecond: latestPerformance.fps ?? null,
+            frameCount: latestPerformance.frameCount ?? null,
+            longTaskCount: latestPerformance.longTaskCount ?? null,
+            longTaskTotalMs: latestPerformance.longTaskTotalMs ?? null,
+            maxFrameGapMs: latestPerformance.maxFrameGapMs ?? null,
+            durationMs: latestPerformance.durationMs ?? null,
+          },
+        },
+      };
     }
 
     async function collectComponentAssetFocusedUi({
@@ -751,6 +925,9 @@ function assertCaseRun(caseSpec, run, comparison, runLabel) {
     `${prefix} only declared immutable assertion conflicts`,
   );
   if (caseSpec.id === 'REN-005') assertRen005FocusedUi(run.ui, runLabel);
+  if (caseSpec.id === 'REN-006' || caseSpec.id === 'REN-011') {
+    assertTextFocusedUi(caseSpec.id, run.ui, runLabel);
+  }
   if (caseSpec.id === 'REN-008' || caseSpec.id === 'REN-010') {
     assertComponentAssetFocusedUi(caseSpec.id, run.ui, runLabel);
   }
@@ -835,6 +1012,201 @@ function assertRen005FocusedUi(ui, runLabel) {
   ]) {
     invariant(Number.isFinite(Number(value)) && Number(value) >= 0, `REN-005 ${runLabel} ${label}`);
   }
+}
+
+function assertTextFocusedUi(caseId, ui, runLabel) {
+  invariant(ui && typeof ui === 'object', `${caseId} ${runLabel} focused text UI evidence`);
+  const expectedTrigger = runLabel === 'repeat'
+    ? 'click:repeat-action'
+    : 'click:load-dataset';
+  invariant(ui.trigger === expectedTrigger, `${caseId} ${runLabel} actual UI control`);
+  const choices = caseId === 'REN-006'
+    ? ['initial', 'empty', 'long', 'missing-font', 'rapid', 'terminal']
+    : [
+        'placed',
+        'auto',
+        'wrap',
+        'overflow-visible',
+        'overflow-hidden',
+        'overflow-ellipsis',
+        'upright',
+      ];
+  const actionCount = caseId === 'REN-006' ? 6 : 4;
+  const seededChoice = caseId === 'REN-006' ? 'empty' : 'overflow-hidden';
+  invariant(
+    sameJson(ui.actionStatuses, Array.from({ length: actionCount }, () => 'completed')),
+    `${caseId} ${runLabel} completed canonical DOM action rows`,
+  );
+  invariant(ui.chooser.disabled === false, `${caseId} ${runLabel} actual chooser enabled`);
+  invariant(ui.chooser.initialChoice === seededChoice, `${caseId} ${runLabel} seeded initial choice`);
+  invariant(ui.chooser.seededChoice === seededChoice, `${caseId} ${runLabel} declared seeded choice`);
+  invariant(
+    sameJson(ui.chooser.options, choices.map((value) => ({
+      value,
+      disabled: false,
+      observationStatus: 'observed',
+    }))),
+    `${caseId} ${runLabel} exact observed choice inventory`,
+  );
+  invariant(
+    ui.observedChoiceCount === `${choices.length} / ${choices.length} observed`,
+    `${caseId} ${runLabel} actual choice count`,
+  );
+  invariant(
+    ui.displayOnlyNote.includes('folded actualObservation only')
+      && ui.displayOnlyNote.includes('canonical action trace'),
+    `${caseId} ${runLabel} display-only canonical-trace disclosure`,
+  );
+  invariant(
+    choices.every((choice) => ui.choices[choice] && typeof ui.choices[choice] === 'object'),
+    `${caseId} ${runLabel} every actual choice is readable`,
+  );
+
+  if (caseId === 'REN-006') assertRen006TextChoices(ui.choices, runLabel);
+  else assertRen011TextChoices(ui.choices, runLabel);
+
+  const expectedPerformanceRows = runLabel === 'repeat' ? 2 : 1;
+  invariant(
+    ui.performance.count === expectedPerformanceRows,
+    `${caseId} ${runLabel} per-run performance journal`,
+  );
+  invariant(
+    Number(ui.performance.latest.runIndex) === expectedPerformanceRows,
+    `${caseId} ${runLabel} performance run index`,
+  );
+  invariant(
+    ui.performance.latest.runKind === (runLabel === 'repeat' ? 'repeat' : 'run'),
+    `${caseId} ${runLabel} performance run kind`,
+  );
+  for (const [label, value] of [
+    ['FPS', ui.performance.latest.framesPerSecond],
+    ['frame count', ui.performance.latest.frameCount],
+    ['long-task count', ui.performance.latest.longTaskCount],
+    ['long-task duration', ui.performance.latest.longTaskTotalMs],
+    ['max frame gap', ui.performance.latest.maxFrameGapMs],
+    ['run duration', ui.performance.latest.durationMs],
+  ]) {
+    invariant(Number.isFinite(Number(value)) && Number(value) >= 0, `${caseId} ${runLabel} ${label}`);
+  }
+}
+
+function assertRen006TextChoices(choices, runLabel) {
+  invariant(choices.initial.phase === 'initial', `REN-006 ${runLabel} initial phase`);
+  invariant(
+    choices.initial.source === JSON.stringify('A\r\n中😀é'),
+    `REN-006 ${runLabel} exact initial Unicode source`,
+  );
+  invariant(choices.initial.lines === '["A","中😀é"]', `REN-006 ${runLabel} initial lines`);
+  invariant(choices.initial['layout-bounds'] === '[0,0,40,40]', `REN-006 ${runLabel} initial layout`);
+  invariant(choices.empty['visible-text'] === '""', `REN-006 ${runLabel} empty visible text`);
+  invariant(choices.empty['layout-bounds'] === '[0,0,0,20]', `REN-006 ${runLabel} empty layout`);
+  invariant(choices.long.lines === '["ABCD","EFGH","IJ"]', `REN-006 ${runLabel} long lines`);
+  invariant(choices.long['layout-bounds'] === '[0,0,32,60]', `REN-006 ${runLabel} long layout`);
+  invariant(
+    choices['missing-font']['font-runs'] === '[{"text":"fallback","font":"unifont-base-16.0.04","fallbackReason":"requested-font-unavailable"}]',
+    `REN-006 ${runLabel} missing-font fallback run`,
+  );
+  invariant(
+    choices['missing-font']['layout-bounds'] === '[0,0,64,20]',
+    `REN-006 ${runLabel} missing-font layout`,
+  );
+  invariant(choices.rapid['visible-text'] === '"final中"', `REN-006 ${runLabel} rapid final text`);
+  invariant(choices.rapid['layout-bounds'] === '[0,0,56,20]', `REN-006 ${runLabel} rapid layout`);
+  invariant(
+    choices.rapid['intermediate-publication-count'] === '0',
+    `REN-006 ${runLabel} no intermediate publication`,
+  );
+  invariant(choices.rapid['stale-glyph-count'] === '0', `REN-006 ${runLabel} rapid stale glyphs`);
+  invariant(
+    choices.terminal.source === JSON.stringify('مرحبا world'),
+    `REN-006 ${runLabel} terminal source`,
+  );
+  invariant(choices.terminal.lines === '["مرحبا world"]', `REN-006 ${runLabel} terminal lines`);
+  invariant(
+    choices.terminal['font-runs'] === '[{"text":"مرحبا world","font":"unifont-base-16.0.04"}]',
+    `REN-006 ${runLabel} terminal fallback run`,
+  );
+  invariant(
+    choices.terminal['layout-bounds'] === '{"x":0,"y":0,"width":88,"height":20}',
+    `REN-006 ${runLabel} terminal layout`,
+  );
+  invariant(
+    choices.terminal['world-bounds'] === '{"x":4.823619,"y":20,"width":90.177854,"height":42.094592}',
+    `REN-006 ${runLabel} terminal world bounds`,
+  );
+  invariant(
+    choices.terminal['hit-bounds'] === choices.terminal['world-bounds'],
+    `REN-006 ${runLabel} terminal hit parity`,
+  );
+  invariant(choices.terminal.publication === 'current', `REN-006 ${runLabel} terminal publication`);
+  invariant(choices.terminal['stale-glyph-count'] === '0', `REN-006 ${runLabel} terminal stale glyphs`);
+  invariant(choices.terminal['renderer-route'] === 'fallback-text', `REN-006 ${runLabel} text route`);
+  invariant(
+    choices.terminal.style === '{"fontFamily":"Unifont","fontSize":16,"lineHeight":20,"letterSpacing":0,"fill":"#222222ff"}',
+    `REN-006 ${runLabel} terminal style`,
+  );
+  invariant(
+    choices.terminal.geometry === '{"positionWorld":[10,20],"rotationDegrees":15}',
+    `REN-006 ${runLabel} terminal transform`,
+  );
+  invariant(
+    ['initial', 'empty', 'long', 'missing-font', 'rapid', 'terminal']
+      .every((choice) => choices[choice].publication === 'current'),
+    `REN-006 ${runLabel} displayed phases share terminal publication fact`,
+  );
+}
+
+function assertRen011TextChoices(choices, runLabel) {
+  invariant(choices.placed.source === '"AB"', `REN-011 ${runLabel} placed source`);
+  invariant(choices.placed.placement === 'right-bottom', `REN-011 ${runLabel} placed placement`);
+  invariant(choices.placed.margin === '5', `REN-011 ${runLabel} placed margin`);
+  invariant(choices.placed.tint === '#ff0000', `REN-011 ${runLabel} placed authored tint`);
+  invariant(choices.placed.rgba === '#ff0000ff', `REN-011 ${runLabel} placed projected tint`);
+  invariant(choices.placed['local-bounds'] === '[219,135,16,20]', `REN-011 ${runLabel} placed geometry`);
+  invariant(choices.placed['paint-tint'] === '#ff0000ff', `REN-011 ${runLabel} placed paint`);
+  invariant(choices.auto.source === '"ABCD"', `REN-011 ${runLabel} auto source`);
+  invariant(choices.auto.frame === '[32,20]', `REN-011 ${runLabel} auto frame`);
+  invariant(
+    choices.auto['auto-font'] === '{"min":8,"max":18,"chosen":16}',
+    `REN-011 ${runLabel} auto font`,
+  );
+  invariant(choices.auto['visible-text'] === '"ABCD"', `REN-011 ${runLabel} auto visible text`);
+  invariant(choices.auto['layout-bounds'] === '[0,0,32,20]', `REN-011 ${runLabel} auto layout`);
+  invariant(choices.wrap.source === '"ABCDEFGHIJ"', `REN-011 ${runLabel} wrap source`);
+  invariant(choices.wrap['wrap-width'] === '32', `REN-011 ${runLabel} wrap width`);
+  invariant(choices.wrap.lines === '["ABCD","EFGH","IJ"]', `REN-011 ${runLabel} wrap lines`);
+  invariant(choices.wrap['layout-bounds'] === '[0,0,32,60]', `REN-011 ${runLabel} wrap layout`);
+  for (const [choice, overflow, visibleText, layoutBounds] of [
+    ['overflow-visible', 'visible', 'ABCDEFGHIJ', '[0,0,80,20]'],
+    ['overflow-hidden', 'hidden', 'ABCD', '[0,0,32,20]'],
+    ['overflow-ellipsis', 'ellipsis', 'ABC…', '[0,0,32,20]'],
+  ]) {
+    invariant(choices[choice].source === '"ABCDEFGHIJ"', `REN-011 ${runLabel} ${choice} source`);
+    invariant(choices[choice].frame === '[32,20]', `REN-011 ${runLabel} ${choice} frame`);
+    invariant(choices[choice].overflow === overflow, `REN-011 ${runLabel} ${choice} mode`);
+    invariant(
+      choices[choice]['visible-text'] === JSON.stringify(visibleText),
+      `REN-011 ${runLabel} ${choice} visible text`,
+    );
+    invariant(
+      choices[choice]['layout-bounds'] === layoutBounds,
+      `REN-011 ${runLabel} ${choice} layout`,
+    );
+  }
+  invariant(choices.upright.source === '"AB"', `REN-011 ${runLabel} upright source`);
+  invariant(choices.upright.placement === 'center', `REN-011 ${runLabel} upright placement`);
+  invariant(choices.upright['item-angle'] === '37', `REN-011 ${runLabel} upright item angle`);
+  invariant(choices.upright.orientation === 'upright', `REN-011 ${runLabel} upright orientation`);
+  invariant(choices.upright['screen-angle'] === '0', `REN-011 ${runLabel} upright screen angle`);
+  invariant(choices.upright['layout-bounds'] === '[0,0,16,20]', `REN-011 ${runLabel} upright layout`);
+  invariant(
+    Object.values(choices).every((facts) => facts.publication === 'current'),
+    `REN-011 ${runLabel} current publication`,
+  );
+  invariant(
+    Object.values(choices).every((facts) => facts['all-rows-exact'] === 'true'),
+    `REN-011 ${runLabel} semantically exact matrix`,
+  );
 }
 
 function assertComponentAssetFocusedUi(caseId, ui, runLabel) {
@@ -1042,7 +1414,7 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 149',
+    'render checkpoint assertion inventory must remain 199',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===
