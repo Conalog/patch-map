@@ -51,6 +51,7 @@ import {
   type CoreV2TextLayout,
   type CoreV2TextLayoutOptions,
 } from './semantic/text-layout';
+import { resolveCoreV2PlacementBounds } from './semantic/placement';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -857,13 +858,13 @@ function parseComponent(
       state,
     );
     const local = placeBox(
-      available,
+      content,
       {
         width: initialLayout.layoutBounds.width,
         height: initialLayout.layoutBounds.height,
       },
       placement,
-      0,
+      margins,
       path,
       state,
     );
@@ -1883,30 +1884,16 @@ function placeBox(
   state: ParseState,
 ): Box {
   const margin = boxSpacing(marginValue, `${path}.margin`, state);
-  const placement = typeof placementValue === 'string' ? placementValue : 'center';
-  const left = reference.x + margin.left;
-  const top = reference.y + margin.top;
-  const right = reference.x + reference.width - margin.right;
-  const bottom = reference.y + reference.height - margin.bottom;
-  const centerX = left + (Math.max(0, right - left) - size.width) / 2;
-  const centerY = top + (Math.max(0, bottom - top) - size.height) / 2;
-  let x = centerX;
-  let y = centerY;
-  switch (placement) {
-    case 'left': x = left; break;
-    case 'left-top': x = left; y = top; break;
-    case 'left-bottom': x = left; y = bottom - size.height; break;
-    case 'top': y = top; break;
-    case 'right': x = right - size.width; break;
-    case 'right-top': x = right - size.width; y = top; break;
-    case 'right-bottom': x = right - size.width; y = bottom - size.height; break;
-    case 'bottom': y = bottom - size.height; break;
-    case 'center': break;
-    case 'none': x = reference.x; y = reference.y; break;
-    default:
-      warn(state, `${path}.placement`, 'invalid-placement', 'Invalid placement fell back to center');
+  let placement: CoreV2Placement = 'center';
+  if (
+    typeof placementValue === 'string' &&
+    TEXT_PLACEMENTS.has(placementValue as CoreV2Placement)
+  ) {
+    placement = placementValue as CoreV2Placement;
+  } else if (typeof placementValue === 'string') {
+    warn(state, `${path}.placement`, 'invalid-placement', 'Invalid placement fell back to center');
   }
-  return { x, y, width: size.width, height: size.height };
+  return resolveCoreV2PlacementBounds(reference, size, placement, margin, path);
 }
 
 function boxSpacing(value: unknown, path: string, state: ParseState): {
