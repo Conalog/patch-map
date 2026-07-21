@@ -746,13 +746,9 @@ export class CoreV2 {
     }
     const worldBounds = coreV2EntityWorldAabb(entity, projection);
     if (worldBounds === null) return null;
-    const rendererProbe = entity.visible
-      ? this.renderer.textRendererProbe(indexed.entityId)
-      : null;
-    const rendererPaint = entity.visible
-      ? this.renderer.entityPaintProbe(indexed.entityId)
-      : null;
-    const renderLanes = entity.visible ? this.renderer.renderLaneProbe() : null;
+    const rendererProbe = this.renderer.textRendererProbe(indexed.entityId);
+    const rendererPaint = this.renderer.entityPaintProbe(indexed.entityId);
+    const renderLanes = this.renderer.renderLaneProbe();
     const semanticSignatures = freezeTextSemanticSignatures(semantic);
     const rendererCorrelated = rendererTextProbeCorrelates(
       rendererProbe,
@@ -770,15 +766,35 @@ export class CoreV2 {
       ) &&
       rendererTextLaneCorrelates(renderLanes) &&
       this.renderedSceneRevision === this.scene.revision;
-    const status: CoreV2TextProductPublicationStatus = !entity.visible
+    const absent = !entity.visible &&
+      this.textRendererFactsPublished &&
+      rendererTextAbsenceCorrelates(
+        rendererProbe,
+        indexed.entityId,
+        semanticSignatures,
+      ) &&
+      this.renderedSceneRevision === this.scene.revision;
+    const status: CoreV2TextProductPublicationStatus = absent
       ? 'absent'
       : current
         ? 'current'
         : 'pending';
+    const retainedHiddenRenderer = !entity.visible &&
+      !absent &&
+      rendererProbe !== null &&
+      rendererProbe.route !== 'none' &&
+      rendererProbe.rendererKind !== 'none' &&
+      rendererProbe.lastRenderedSignatures !== null &&
+      rendererProbe.lastRenderedFrame !== null;
+    const productRendererProbe = absent
+      ? null
+      : entity.visible || retainedHiddenRenderer
+        ? rendererProbe
+        : null;
     const renderer = freezeTextRendererProductProbe(
       semantic,
       semanticSignatures,
-      entity.visible ? rendererProbe : null,
+      productRendererProbe,
     );
     return Object.freeze({
       target: normalizedTarget,
@@ -813,8 +829,8 @@ export class CoreV2 {
         contentOrientation: projection.contentOrientation,
       }),
       renderer,
-      rendererPaint: current ? rendererPaint : null,
-      renderLanes: current ? renderLanes : null,
+      rendererPaint: current || retainedHiddenRenderer ? rendererPaint : null,
+      renderLanes: current || retainedHiddenRenderer ? renderLanes : null,
       publication: Object.freeze({
         status,
         sceneRevision: this.scene.revision,
@@ -1699,6 +1715,25 @@ function rendererTextProbeCorrelates(
     sameTextAttachedSemantic(renderer.attachedSignatures, semantic) &&
     sameTextAttachedSemantic(renderer.lastRenderedSignatures, semantic) &&
     renderer.attachedSignatures?.renderer === renderer.lastRenderedSignatures?.renderer &&
+    renderer.lastRenderedFrame !== null;
+}
+
+function rendererTextAbsenceCorrelates(
+  renderer: CoreV2TextRendererProbe | null,
+  entityId: string,
+  semantic: CoreV2TextSemanticSignatures,
+): renderer is CoreV2TextRendererProbe {
+  return renderer !== null &&
+    renderer.entityId === entityId &&
+    renderer.publicationStatus === 'current' &&
+    renderer.route === 'none' &&
+    renderer.rendererKind === 'none' &&
+    renderer.routeReason === 'not-attached' &&
+    renderer.objectCount === 0 &&
+    renderer.staleGlyphCount === 0 &&
+    sameTextSemanticSignatures(renderer.semanticSignatures, semantic) &&
+    renderer.attachedSignatures === null &&
+    renderer.lastRenderedSignatures === null &&
     renderer.lastRenderedFrame !== null;
 }
 

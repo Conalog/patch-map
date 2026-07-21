@@ -5,6 +5,7 @@ import {
   CoreV2TextLayoutError,
   layoutCoreV2Text,
   measureCoreV2GraphemeAdvance,
+  relocateCoreV2TextLayout,
   segmentCoreV2Graphemes,
   type CoreV2TextLayoutOptions,
 } from '../../src/core-v2/semantic/text-layout';
@@ -145,6 +146,28 @@ describe('Core v2 deterministic Unicode semantic layout', () => {
     expect(result.logicalToVisual).toEqual([10, 9, 8, 7, 6, 5, 0, 1, 2, 3, 4]);
     expect(result.layoutBounds).toEqual({ x: 0, y: 0, width: 88, height: 20 });
     expect(result.rendererRoute).toBe('fallback-text');
+  });
+
+  it('keeps European and Arabic-Indic digit graphemes in logical order inside RTL text', () => {
+    for (const digits of ['123', '١٢٣', '۱۲۳']) {
+      const result = layoutCoreV2Text({ source: `مرحبا ${digits}` });
+
+      expect(result.baseDirection).toBe('rtl');
+      expect(result.bidiRunsLogical).toEqual([
+        { text: 'مرحبا ', level: 1, direction: 'rtl', logicalStart: 0, logicalEnd: 6 },
+        { text: digits, level: 2, direction: 'ltr', logicalStart: 6, logicalEnd: 9 },
+      ]);
+      expect(result.logicalToVisual).toEqual([8, 7, 6, 5, 4, 3, 0, 1, 2]);
+      expect(result.diagnostics).toEqual([]);
+    }
+
+    const ltr = layoutCoreV2Text({ source: 'CPU 123' });
+    expect(ltr.baseDirection).toBe('ltr');
+    expect(ltr.bidiRunsLogical).toEqual([
+      { text: 'CPU ', level: 0, direction: 'ltr', logicalStart: 0, logicalEnd: 4 },
+      { text: '123', level: 2, direction: 'ltr', logicalStart: 4, logicalEnd: 7 },
+    ]);
+    expect(ltr.logicalToVisual).toEqual([0, 1, 2, 3, 4, 5, 6]);
   });
 
   it('uses deterministic font fallback independently of system fonts', () => {
@@ -312,6 +335,34 @@ describe('Core v2 deterministic Unicode semantic layout', () => {
     expect(international.lines).toEqual(['中😀é', 'مرحبا']);
     expect(international.layoutBounds).toEqual({ x: 0, y: 0, width: 40, height: 40 });
     expect(international.rendererRoute).toBe('fallback-text');
+  });
+
+  it('relocates a completed layout with the exact direct-origin signature', () => {
+    const options = {
+      source: 'مرحبا 123\nAB😀',
+      fontSizePx: 16,
+      lineHeightPx: 20,
+      letterSpacingPx: 1,
+      wordWrapWidthPx: 96,
+      breakWords: true,
+    } as const;
+    const base = layoutCoreV2Text(options);
+    const relocated = relocateCoreV2TextLayout(base, { x: 219, y: 135 });
+    const direct = layoutCoreV2Text({ ...options, origin: { x: 219, y: 135 } });
+
+    expect(relocated).toEqual(direct);
+    expect(relocated.layoutSignature).toBe(direct.layoutSignature);
+    expect(relocated.lines).toBe(base.lines);
+    expect(relocated.bidiLines).toBe(base.bidiLines);
+    expect(relocated.fontRuns).toBe(base.fontRuns);
+    expect(base.ownerLocalBounds).toEqual({
+      x: 0,
+      y: 0,
+      width: base.layoutBounds.width,
+      height: base.layoutBounds.height,
+    });
+    expect(Object.isFrozen(relocated)).toBe(true);
+    expect(relocateCoreV2TextLayout(relocated, { x: 219, y: 135 })).toBe(relocated);
   });
 
   it('keeps every advance and bounds field finite and nonnegative with negative spacing', () => {

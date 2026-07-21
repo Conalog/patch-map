@@ -241,11 +241,11 @@ describe('Core v2 O(1) text product probe', () => {
     });
   });
 
-  it('uses explicit absent state for hidden text and clears removed/destroyed targets', async () => {
+  it('publishes hidden absence only after its frame and retains the prior visible renderer meanwhile', async () => {
     const { core } = createTextCore(allocated);
     core.load(directText('hidden', { show: false }));
-    const hidden = core.textProbe(elementTarget());
-    expect(hidden).toMatchObject({
+    const initialPending = core.textProbe(elementTarget());
+    expect(initialPending).toMatchObject({
       state: { visible: false },
       geometry: { visibleBounds: null },
       renderer: {
@@ -258,10 +258,68 @@ describe('Core v2 O(1) text product probe', () => {
       },
       rendererPaint: null,
       renderLanes: null,
-      publication: { status: 'absent' },
+      publication: { status: 'pending' },
     });
     core.flush('hidden');
-    expect(core.textProbe(elementTarget())?.publication.status).toBe('absent');
+    expect(core.textProbe(elementTarget())).toMatchObject({
+      renderer: {
+        route: null,
+        rendererKind: 'none',
+        objectCount: 0,
+        attachedSignatures: null,
+        lastRenderedSignatures: null,
+        lastRenderedFrame: null,
+      },
+      rendererPaint: null,
+      renderLanes: null,
+      publication: { status: 'absent' },
+    });
+
+    expect(core.reconcile(directText('visible', { show: true })).status).toBe('committed');
+    core.flush('visible');
+    const visible = core.textProbe(elementTarget());
+    expect(visible).toMatchObject({
+      state: { visible: true },
+      renderer: { route: 'fallback-text', rendererKind: 'fallback-text', objectCount: 1 },
+      publication: { status: 'current' },
+    });
+
+    expect(core.reconcile(directText('visible', { show: false })).status).toBe('committed');
+    const hidePending = core.textProbe(elementTarget());
+    expect(hidePending).toMatchObject({
+      state: { visible: false },
+      geometry: { visibleBounds: null },
+      renderer: {
+        route: 'fallback-text',
+        rendererKind: 'fallback-text',
+        objectCount: 1,
+      },
+      rendererPaint: { entityId: 'text', lane: 'text' },
+      renderLanes: { text: { visiblePrimitiveCount: 1 } },
+      publication: { status: 'pending' },
+    });
+    expect(hidePending?.renderer.attachedSignatures).toEqual(
+      visible?.renderer.attachedSignatures,
+    );
+    expect(hidePending?.renderer.lastRenderedSignatures).toEqual(
+      visible?.renderer.lastRenderedSignatures,
+    );
+
+    core.flush('hide-visible');
+    expect(core.textProbe(elementTarget())).toMatchObject({
+      state: { visible: false },
+      renderer: {
+        route: null,
+        rendererKind: 'none',
+        objectCount: 0,
+        attachedSignatures: null,
+        lastRenderedSignatures: null,
+        lastRenderedFrame: null,
+      },
+      rendererPaint: null,
+      renderLanes: null,
+      publication: { status: 'absent' },
+    });
 
     expect(core.reconcile([]).status).toBe('committed');
     expect(core.textProbe(elementTarget())).toBeNull();
@@ -320,7 +378,6 @@ class TextRendererDouble {
     let textCount = 0;
     for (let slot = 0; slot < store.capacity; slot += 1) {
       if ((store.alive[slot] ?? 0) !== 1 || store.kind[slot] !== RenderKind.Text) continue;
-      if (((store.flags[slot] ?? 0) & RenderFlags.Visible) === 0) continue;
       const entityId = store.ids[slot];
       if (!entityId) continue;
       const semantic = this.projection?.textsByEntityId?.[entityId];
@@ -330,6 +387,22 @@ class TextRendererDouble {
         style: semantic.styleSignature,
         layout: semantic.layoutSignature,
       });
+      if (((store.flags[slot] ?? 0) & RenderFlags.Visible) === 0) {
+        nextProbes.set(entityId, Object.freeze({
+          entityId,
+          route: 'none',
+          rendererKind: 'none',
+          routeReason: 'not-attached',
+          objectCount: 0,
+          semanticSignatures: signatures,
+          attachedSignatures: null,
+          lastRenderedSignatures: null,
+          publicationStatus: 'current',
+          lastRenderedFrame: this.frame,
+          staleGlyphCount: 0,
+        }));
+        continue;
+      }
       const attached: CoreV2TextAttachedSignatures = Object.freeze({
         ...signatures,
         renderer: `test-renderer:${semantic.layoutSignature}:${semantic.color}:${JSON.stringify(semantic.authoredStyle)}`,

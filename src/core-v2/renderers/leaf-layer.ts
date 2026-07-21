@@ -1478,6 +1478,7 @@ const TEXT_SEMANTIC_STYLE_KEYS = new Set([
   'fontFamily',
   'fontSize',
   'fontWeight',
+  'fontStyle',
   'fill',
   'align',
   'wordWrap',

@@ -167,6 +167,24 @@ export interface CoreV2TextLayout {
   readonly diagnostics: readonly CoreV2TextDiagnostic[];
 }
 
+interface CoreV2TextLayoutSignatureInput {
+  readonly contentSignature: string;
+  readonly styleSignature: string;
+  readonly graphemes: readonly string[];
+  readonly lines: readonly string[];
+  readonly visibleLines: readonly string[];
+  readonly layoutBounds: CoreV2TextBounds;
+  readonly ownerLocalBounds: CoreV2TextBounds;
+  readonly bidiLines: readonly CoreV2BidiLine[];
+  readonly fontRuns: readonly CoreV2TextFontRun[];
+  readonly sourceFontRuns: readonly CoreV2TextFontRun[];
+  readonly visibleFontRuns: readonly CoreV2TextFontRun[];
+  readonly diagnostics: readonly CoreV2TextDiagnostic[];
+}
+
+type CoreV2BidiClusterType = CoreV2TextDirection | 'number' | null;
+type CoreV2ResolvedBidiClusterType = Exclude<CoreV2BidiClusterType, null>;
+
 interface ScalarToken {
   readonly text: string;
   readonly codePoint: number;
@@ -333,7 +351,7 @@ export function layoutCoreV2Text(options: CoreV2TextLayoutOptions): CoreV2TextLa
     visibleText: core.visibleText,
   });
   const styleSignature = signature('text-style/v1', semanticStyle);
-  const layoutSignature = signature('text-layout/v1', {
+  const layoutSignature = textLayoutSignature({
     contentSignature,
     styleSignature,
     graphemes: core.sourceGraphemes,
@@ -389,6 +407,51 @@ export function layoutCoreV2Text(options: CoreV2TextLayoutOptions): CoreV2TextLa
     styleSignature,
     layoutSignature,
     diagnostics,
+  });
+}
+
+/**
+ * Relocate an already-computed semantic layout without repeating Unicode,
+ * wrapping, bidi, font-run, or overflow work. The signature payload is shared
+ * with layoutCoreV2Text so this is exactly equivalent to supplying origin on
+ * the original call.
+ */
+export function relocateCoreV2TextLayout(
+  layout: CoreV2TextLayout,
+  origin: Readonly<{ x: number; y: number }>,
+): CoreV2TextLayout {
+  assertFinite(origin.x, '$.origin.x');
+  assertFinite(origin.y, '$.origin.y');
+  if (
+    layout.ownerLocalBounds.x === origin.x &&
+    layout.ownerLocalBounds.y === origin.y
+  ) {
+    return layout;
+  }
+  const ownerLocalBounds = bounds(
+    origin.x,
+    origin.y,
+    layout.layoutBounds.width,
+    layout.layoutBounds.height,
+  );
+  const layoutSignature = textLayoutSignature({
+    contentSignature: layout.contentSignature,
+    styleSignature: layout.styleSignature,
+    graphemes: layout.graphemes,
+    lines: layout.lines,
+    visibleLines: layout.visibleLines,
+    layoutBounds: layout.layoutBounds,
+    ownerLocalBounds,
+    bidiLines: layout.bidiLines,
+    fontRuns: layout.fontRuns,
+    sourceFontRuns: layout.sourceFontRuns,
+    visibleFontRuns: layout.visibleFontRuns,
+    diagnostics: layout.diagnostics,
+  });
+  return deepFreeze({
+    ...layout,
+    ownerLocalBounds,
+    layoutSignature,
   });
 }
 
@@ -995,11 +1058,14 @@ function resolveBidi(graphemes: readonly string[]): Readonly<{
   const content = graphemes.filter((grapheme) => !coreV2IsHardBreak(grapheme));
   const baseDirection = automaticBaseDirection(content);
   const baseLevel = baseDirection === 'rtl' ? 1 : 0;
-  const strongDirections = content.map(clusterStrongDirection);
+  const strongDirections = content.map(clusterBidiType);
   const resolvedDirections = resolveNeutralDirections(strongDirections, baseDirection);
   const levels = resolvedDirections.map((resolved) => {
-    if (baseLevel === 0) return resolved === 'rtl' ? 1 : 0;
-    return resolved === 'ltr' ? 2 : 1;
+    if (baseLevel === 0) {
+      if (resolved === 'rtl') return 1;
+      return resolved === 'number' ? 2 : 0;
+    }
+    return resolved === 'rtl' ? 1 : 2;
   });
   const logicalRuns: CoreV2BidiRun[] = [];
   let start = 0;
@@ -1049,34 +1115,49 @@ function resolveBidi(graphemes: readonly string[]): Readonly<{
 
 function automaticBaseDirection(graphemes: readonly string[]): CoreV2TextDirection {
   for (const grapheme of graphemes) {
-    const direction = clusterStrongDirection(grapheme);
-    if (direction) return direction;
+    const direction = clusterBidiType(grapheme);
+    if (direction === 'ltr' || direction === 'rtl') return direction;
   }
   return 'ltr';
 }
 
-function clusterStrongDirection(grapheme: string): CoreV2TextDirection | null {
+function clusterBidiType(grapheme: string): CoreV2BidiClusterType {
+  let containsNumber = false;
   for (const symbol of grapheme) {
     const codePoint = symbol.codePointAt(0);
     if (codePoint === undefined) continue;
+    if (coreV2IsBidiNumber(codePoint)) {
+      containsNumber = true;
+      continue;
+    }
     if (coreV2IsRtlStrong(codePoint)) return 'rtl';
     if (coreV2IsLtrStrong(codePoint)) return 'ltr';
   }
-  return null;
+  return containsNumber ? 'number' : null;
 }
 
 function resolveNeutralDirections(
-  directions: readonly (CoreV2TextDirection | null)[],
+  directions: readonly CoreV2BidiClusterType[],
   fallback: CoreV2TextDirection,
-): readonly CoreV2TextDirection[] {
-  const firstStrong = directions.find((direction) => direction !== null) ?? fallback;
-  const result: CoreV2TextDirection[] = [];
-  let previousStrong: CoreV2TextDirection | null = null;
+): readonly CoreV2ResolvedBidiClusterType[] {
+  const firstStrong = directions.find(
+    (direction): direction is CoreV2TextDirection => direction === 'ltr' || direction === 'rtl',
+  ) ?? fallback;
+  const result: CoreV2ResolvedBidiClusterType[] = [];
+  let previousResolved: CoreV2ResolvedBidiClusterType | null = null;
   for (const direction of directions) {
-    if (direction !== null) previousStrong = direction;
-    result.push(direction ?? previousStrong ?? firstStrong);
+    if (direction !== null) previousResolved = direction;
+    result.push(direction ?? previousResolved ?? firstStrong);
   }
   return Object.freeze(result);
+}
+
+function coreV2IsBidiNumber(codePoint: number): boolean {
+  return (
+    (codePoint >= 0x0030 && codePoint <= 0x0039) ||
+    (codePoint >= 0x0660 && codePoint <= 0x0669) ||
+    (codePoint >= 0x06f0 && codePoint <= 0x06f9)
+  );
 }
 
 function minimumVisualIndex(run: CoreV2BidiRun, logicalToVisual: readonly number[]): number {
@@ -1409,6 +1490,10 @@ function saturatingMultiply(left: number, right: number): number {
       : -MAX_SEMANTIC_ADVANCE;
   }
   return result;
+}
+
+function textLayoutSignature(input: CoreV2TextLayoutSignatureInput): string {
+  return signature('text-layout/v1', input);
 }
 
 function signature(prefix: string, value: unknown): string {

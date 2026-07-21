@@ -173,7 +173,7 @@ describe('CoreV2Engine O(1) text product seam', () => {
     });
   });
 
-  it('reports hidden text as absent and clears removal and destroy state', async () => {
+  it('reports hidden text pending until a successful frame then absent', async () => {
     const surface = new IndexedTextSurface();
     const engine = await createEngine(engines, surface, 'text-absence');
     engine.loadDataset(directTextDataset('hidden', false));
@@ -191,7 +191,7 @@ describe('CoreV2Engine O(1) text product seam', () => {
       },
       rendererPaint: null,
       renderLanes: null,
-      publication: { status: 'absent' },
+      publication: { status: 'pending' },
     });
     engine.publishFrame(1);
     expect(engine.textProbe(elementTarget())?.publication.status).toBe('absent');
@@ -424,7 +424,9 @@ function createSurfaceProbe(input: Readonly<{
   frame: number;
 }>): CoreV2TextProductProbe {
   const visible = input.entity.visible ?? true;
-  const current = visible && input.renderedSceneRevision === input.surfaceSceneRevision;
+  const synchronized = input.renderedSceneRevision === input.surfaceSceneRevision;
+  const current = visible && synchronized;
+  const absent = !visible && synchronized;
   const signatures = Object.freeze({
     content: input.semantic.contentSignature,
     style: input.semantic.styleSignature,
@@ -442,8 +444,8 @@ function createSurfaceProbe(input: Readonly<{
     semanticSignatures: signatures,
     attachedSignatures: attached,
     lastRenderedSignatures: attached,
-    publicationStatus: current ? 'current' : 'pending',
-    lastRenderedFrame: current ? input.frame : null,
+    publicationStatus: current || absent ? 'current' : 'pending',
+    lastRenderedFrame: current || absent ? input.frame : null,
     staleGlyphCount: 0,
   });
   const x = input.projection.affine[4];
@@ -509,7 +511,7 @@ function createSurfaceProbe(input: Readonly<{
     rendererPaint: visible ? paint : null,
     renderLanes: current ? laneSnapshot(1) : null,
     publication: Object.freeze({
-      status: !visible ? 'absent' : current ? 'current' : 'pending',
+      status: absent ? 'absent' : current ? 'current' : 'pending',
       sceneRevision: input.surfaceSceneRevision,
       renderedSceneRevision: input.renderedSceneRevision,
       rendererFrame: current ? input.frame : null,

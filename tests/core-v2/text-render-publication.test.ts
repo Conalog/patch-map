@@ -129,6 +129,43 @@ describe('Core v2 text render publication', () => {
     await layer.destroy();
   });
 
+  it('treats italic and oblique as exact bitmap style fields while unproven atlases stay guarded', async () => {
+    for (const fontStyle of ['italic', 'oblique'] as const) {
+      const parsed = parsePatchMapV010([standaloneText('CPU 42', { fontStyle })]);
+      const proven = new AggregateLeafLayer(undefined, true, {
+        resolveBitmapTextCapability: (request) => bitmapProof(
+          request.text,
+          request.style.fontWeight,
+          request.style.fontStyle,
+        ),
+      });
+
+      proven.sync(createRenderStore(parsed.document.entities), {
+        fullRebuildEpoch: 1,
+        projectionContext: projectionContext(parsed.projection, 1),
+      });
+      expect(proven.textContainer.children[0]).toBeInstanceOf(BitmapText);
+      expect(proven.textRendererProbe('text')).toMatchObject({
+        route: 'bitmap-text',
+        routeReason: 'bitmap-capability-proven',
+      });
+      await proven.destroy();
+    }
+
+    const unproven = parsePatchMapV010([standaloneText('CPU 42', { fontStyle: 'oblique' })]);
+    const guarded = new AggregateLeafLayer();
+    guarded.sync(createRenderStore(unproven.document.entities), {
+      fullRebuildEpoch: 1,
+      projectionContext: projectionContext(unproven.projection, 1),
+    });
+    expect(guarded.textContainer.children[0]).toBeInstanceOf(Text);
+    expect(guarded.textRendererProbe('text')).toMatchObject({
+      route: 'fallback-text',
+      routeReason: 'atlas-coverage-unproven',
+    });
+    await guarded.destroy();
+  });
+
   it('publishes only the final rapid replacement after a confirmed render frame', async () => {
     const initial = parsePatchMapV010([standaloneText('old')]);
     const intermediate = parsePatchMapV010([standaloneText('intermediate')]);
@@ -385,7 +422,11 @@ function standaloneText(
   };
 }
 
-function bitmapProof(text: string, fontWeight = 400): CoreV2BitmapTextCapabilityProof {
+function bitmapProof(
+  text: string,
+  fontWeight = 400,
+  fontStyle: 'normal' | 'italic' | 'oblique' = 'normal',
+): CoreV2BitmapTextCapabilityProof {
   return Object.freeze({
     coverage: 'proven',
     atlasId: 'test-unifont-ascii',
@@ -394,7 +435,7 @@ function bitmapProof(text: string, fontWeight = 400): CoreV2BitmapTextCapability
       fontFamily: 'Unifont',
       fontSize: 16,
       fontWeight,
-      fontStyle: 'normal',
+      fontStyle,
       lineHeight: 20,
       letterSpacing: 0,
     }),

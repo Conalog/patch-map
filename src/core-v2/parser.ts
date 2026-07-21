@@ -47,6 +47,7 @@ import {
 } from './semantic/geometry';
 import {
   layoutCoreV2Text,
+  relocateCoreV2TextLayout,
   type CoreV2TextLayout,
   type CoreV2TextLayoutOptions,
 } from './semantic/text-layout';
@@ -171,6 +172,7 @@ const BASIC_TEXT_STYLE_KEYS = new Set([
   'fontFamily',
   'fontSize',
   'fontWeight',
+  'fontStyle',
   'fill',
   'align',
   'wordWrap',
@@ -865,16 +867,7 @@ function parseComponent(
       path,
       state,
     );
-    const layout = semanticTextLayout(
-      source,
-      style,
-      { width: available.width, height: available.height },
-      style.overflow,
-      split,
-      { x: local.x, y: local.y },
-      path,
-      state,
-    );
+    const layout = relocateCoreV2TextLayout(initialLayout, { x: local.x, y: local.y });
     const transform = componentTransform(itemTransform, local, attrs, path, state);
     const color = resolveColor(value.tint ?? style.fill, 0x000000ff, `${path}.style.fill`, state);
     addTextProjection({

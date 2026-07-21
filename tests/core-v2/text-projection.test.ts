@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import catalogProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
 import { describe, expect, it } from 'vitest';
 
@@ -6,6 +8,21 @@ import { parsePatchMapV010 } from '../../src/core-v2/parser';
 import { materializeCoreV2Dataset } from '../../src/core-v2/semantic/dataset';
 
 describe('Core v2 deterministic text projection', () => {
+  it('keeps component text on one semantic-layout pass followed by signature-safe relocation', () => {
+    const parserSource = readFileSync(
+      new URL('../../src/core-v2/parser.ts', import.meta.url),
+      'utf8',
+    );
+    const branchStart = parserSource.indexOf("  if (type === 'text') {");
+    const branchEnd = parserSource.indexOf('\nfunction parseDirectRect', branchStart);
+    const componentTextBranch = parserSource.slice(branchStart, branchEnd);
+
+    expect(branchStart).toBeGreaterThanOrEqual(0);
+    expect(branchEnd).toBeGreaterThan(branchStart);
+    expect(componentTextBranch.match(/\bsemanticTextLayout\(/gu)).toHaveLength(1);
+    expect(componentTextBranch.match(/\brelocateCoreV2TextLayout\(/gu)).toHaveLength(1);
+  });
+
   it('keeps the standalone authored frame separate from natural geometry and affine inputs', () => {
     const input = catalogProfiles.datasets['standalone-text'];
     const before = structuredClone(input);
