@@ -1,0 +1,374 @@
+import type { CoreV2Element } from './semantic/dataset';
+
+export type CoreV2SemanticDataset = readonly CoreV2Element[];
+export type CoreV2HistoryDirection = 'undo' | 'redo';
+export type CoreV2HistoryCommitOutcome = 'accepted' | 'no-op' | 'refused';
+export type CoreV2HistoryRecordStatus = 'recorded' | 'no-op' | 'refused' | 'disabled';
+
+export interface CoreV2SemanticHistorySnapshotInput<
+  TDataset extends readonly unknown[] = CoreV2SemanticDataset,
+  TCompanion = never,
+> {
+  readonly dataset: TDataset;
+  /** Host-owned editor state committed atomically with the semantic dataset. */
+  readonly companion?: TCompanion;
+}
+
+export interface CoreV2SemanticHistorySnapshot<
+  TDataset extends readonly unknown[] = CoreV2SemanticDataset,
+  TCompanion = never,
+> {
+  readonly dataset: TDataset;
+  /** Null means that this command has no host companion state. */
+  readonly companion: TCompanion | null;
+}
+
+export interface CoreV2SemanticHistoryCommandInput<
+  TDataset extends readonly unknown[] = CoreV2SemanticDataset,
+  TCompanion = never,
+> {
+  /** Stable non-empty identity for one accepted human action. */
+  readonly id: string;
+  readonly before: CoreV2SemanticHistorySnapshotInput<TDataset, TCompanion>;
+  readonly after: CoreV2SemanticHistorySnapshotInput<TDataset, TCompanion>;
+}
+
+export interface CoreV2SemanticHistoryCommand<
+  TDataset extends readonly unknown[] = CoreV2SemanticDataset,
+  TCompanion = never,
+> {
+  readonly id: string;
+  readonly before: CoreV2SemanticHistorySnapshot<TDataset, TCompanion>;
+  readonly after: CoreV2SemanticHistorySnapshot<TDataset, TCompanion>;
+}
+
+export interface CoreV2HistoryState {
+  readonly capacity: number;
+  readonly depth: number;
+  /** Boundary between applied commands and the redo branch. */
+  readonly cursor: number;
+  readonly undoDepth: number;
+  readonly redoDepth: number;
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  readonly destroyed: boolean;
+}
+
+export interface CoreV2HistoryInspection<
+  TDataset extends readonly unknown[] = CoreV2SemanticDataset,
+  TCompanion = never,
+> {
+  readonly state: CoreV2HistoryState;
+  readonly commands: readonly CoreV2SemanticHistoryCommand<TDataset, TCompanion>[];
+}
+
+export interface CoreV2HistoryTransition<
+  TDataset extends readonly unknown[] = CoreV2SemanticDataset,
+  TCompanion = never,
+> {
+  readonly direction: CoreV2HistoryDirection;
+  readonly command: CoreV2SemanticHistoryCommand<TDataset, TCompanion>;
+  /** Detached target snapshot that the caller must reconcile atomically. */
+  readonly snapshot: CoreV2SemanticHistorySnapshot<TDataset, TCompanion>;
+  readonly cursorBefore: number;
+  readonly cursorAfter: number;
+}
+
+export interface CoreV2SemanticHistoryOptions {
+  /** Default 50 accepted user actions; zero disables recording. */
+  readonly capacity?: number;
+}
+
+export type CoreV2HistoryApply<
+  TDataset extends readonly unknown[] = CoreV2SemanticDataset,
+  TCompanion = never,
+> = (transition: CoreV2HistoryTransition<TDataset, TCompanion>) => boolean;
+
+const DEFAULT_HISTORY_CAPACITY = 50;
+
+/**
+ * Pure semantic history. It owns detached, deeply frozen full snapshots but
+ * deliberately does not own dense slots, Pixi objects, selection reconciliation,
+ * or scene revisions. The caller applies a transition through its stable-ID
+ * reconcile seam; the cursor moves only after that synchronous apply accepts.
+ */
+export class CoreV2SemanticHistory<
+  TDataset extends readonly unknown[] = CoreV2SemanticDataset,
+  TCompanion = never,
+> {
+  private readonly capacityValue: number;
+  private readonly entries: CoreV2SemanticHistoryCommand<TDataset, TCompanion>[] = [];
+  private cursorValue = 0;
+  private transitioning = false;
+  private destroyedValue = false;
+
+  public constructor(options: CoreV2SemanticHistoryOptions = {}) {
+    const capacity = options.capacity ?? DEFAULT_HISTORY_CAPACITY;
+    if (!Number.isSafeInteger(capacity) || capacity < 0) {
+      throw new RangeError('capacity must be a non-negative safe integer');
+    }
+    this.capacityValue = capacity;
+  }
+
+  public get capacity(): number {
+    return this.capacityValue;
+  }
+
+  public get destroyed(): boolean {
+    return this.destroyedValue;
+  }
+
+  public get canUndo(): boolean {
+    return !this.destroyedValue && this.cursorValue > 0;
+  }
+
+  public get canRedo(): boolean {
+    return !this.destroyedValue && this.cursorValue < this.entries.length;
+  }
+
+  /**
+   * Record one accepted semantic action. Refused and declared no-op attempts do
+   * not inspect or retain the command, and a semantically equal accepted command
+   * is also treated as a no-op. Only a recorded commit discards a redo branch.
+   */
+  public record(
+    command: CoreV2SemanticHistoryCommandInput<TDataset, TCompanion>,
+    outcome: CoreV2HistoryCommitOutcome = 'accepted',
+  ): CoreV2HistoryRecordStatus {
+    this.assertMutable('record');
+    assertCommitOutcome(outcome);
+    if (outcome !== 'accepted') return outcome;
+
+    const detached = detachCommand(command);
+    if (semanticEqual(detached.before, detached.after)) return 'no-op';
+    if (this.capacityValue === 0) return 'disabled';
+
+    if (this.cursorValue < this.entries.length) {
+      this.entries.splice(this.cursorValue);
+    }
+    this.entries.push(detached);
+    if (this.entries.length > this.capacityValue) this.entries.shift();
+    this.cursorValue = this.entries.length;
+    return 'recorded';
+  }
+
+  /**
+   * Reconcile the prior semantic snapshot. A false result or thrown error leaves
+   * the history cursor unchanged; thrown errors propagate with their provenance.
+   */
+  public undo(
+    apply: CoreV2HistoryApply<TDataset, TCompanion>,
+  ): CoreV2HistoryTransition<TDataset, TCompanion> | null {
+    return this.transition('undo', apply);
+  }
+
+  /** Apply the next semantic snapshot under the same atomic cursor rule as undo. */
+  public redo(
+    apply: CoreV2HistoryApply<TDataset, TCompanion>,
+  ): CoreV2HistoryTransition<TDataset, TCompanion> | null {
+    return this.transition('redo', apply);
+  }
+
+  public clear(): boolean {
+    this.assertMutable('clear');
+    if (this.entries.length === 0) return false;
+    this.entries.length = 0;
+    this.cursorValue = 0;
+    return true;
+  }
+
+  public state(): CoreV2HistoryState {
+    const depth = this.entries.length;
+    const cursor = this.cursorValue;
+    return Object.freeze({
+      capacity: this.capacityValue,
+      depth,
+      cursor,
+      undoDepth: cursor,
+      redoDepth: depth - cursor,
+      canUndo: !this.destroyedValue && cursor > 0,
+      canRedo: !this.destroyedValue && cursor < depth,
+      destroyed: this.destroyedValue,
+    });
+  }
+
+  /** Detached array shell containing already-detached immutable commands. */
+  public inspect(): CoreV2HistoryInspection<TDataset, TCompanion> {
+    return Object.freeze({
+      state: this.state(),
+      commands: Object.freeze([...this.entries]),
+    });
+  }
+
+  /** Clear all semantic and companion snapshots. Destruction is idempotent. */
+  public destroy(): boolean {
+    if (this.destroyedValue) return false;
+    if (this.transitioning) {
+      throw new Error('cannot destroy CoreV2SemanticHistory during a transition');
+    }
+    this.entries.length = 0;
+    this.cursorValue = 0;
+    this.destroyedValue = true;
+    return true;
+  }
+
+  private transition(
+    direction: CoreV2HistoryDirection,
+    apply: CoreV2HistoryApply<TDataset, TCompanion>,
+  ): CoreV2HistoryTransition<TDataset, TCompanion> | null {
+    this.assertMutable(direction);
+    if (typeof apply !== 'function') throw new TypeError(`${direction} apply must be a function`);
+
+    const commandIndex = direction === 'undo' ? this.cursorValue - 1 : this.cursorValue;
+    if (commandIndex < 0 || commandIndex >= this.entries.length) return null;
+    const command = this.entries[commandIndex];
+    if (command === undefined) throw new Error(`${direction} command is missing`);
+    const cursorAfter = direction === 'undo' ? this.cursorValue - 1 : this.cursorValue + 1;
+    const transition = Object.freeze({
+      direction,
+      command,
+      snapshot: direction === 'undo' ? command.before : command.after,
+      cursorBefore: this.cursorValue,
+      cursorAfter,
+    });
+
+    this.transitioning = true;
+    let accepted: boolean;
+    try {
+      accepted = apply(transition);
+    } finally {
+      this.transitioning = false;
+    }
+    if (accepted !== true) return null;
+    this.cursorValue = cursorAfter;
+    return transition;
+  }
+
+  private assertMutable(operation: string): void {
+    if (this.destroyedValue) {
+      throw new Error(`cannot ${operation}: CoreV2SemanticHistory is destroyed`);
+    }
+    if (this.transitioning) {
+      throw new Error(`cannot ${operation}: a history transition is active`);
+    }
+  }
+}
+
+function detachCommand<
+  TDataset extends readonly unknown[],
+  TCompanion,
+>(
+  input: CoreV2SemanticHistoryCommandInput<TDataset, TCompanion>,
+): CoreV2SemanticHistoryCommand<TDataset, TCompanion> {
+  if (input === null || typeof input !== 'object') {
+    throw new TypeError('history command must be an object');
+  }
+  if (typeof input.id !== 'string' || input.id.length === 0) {
+    throw new TypeError('history command id must be a non-empty string');
+  }
+  return Object.freeze({
+    id: input.id,
+    before: detachSnapshot(input.before, '$.before'),
+    after: detachSnapshot(input.after, '$.after'),
+  });
+}
+
+function detachSnapshot<
+  TDataset extends readonly unknown[],
+  TCompanion,
+>(
+  input: CoreV2SemanticHistorySnapshotInput<TDataset, TCompanion>,
+  path: string,
+): CoreV2SemanticHistorySnapshot<TDataset, TCompanion> {
+  if (input === null || typeof input !== 'object') {
+    throw new TypeError(`${path} must be an object`);
+  }
+  if (!Array.isArray(input.dataset)) {
+    throw new TypeError(`${path}.dataset must be an array`);
+  }
+  const dataset = cloneSemanticValue(input.dataset, `${path}.dataset`) as TDataset;
+  const companion = input.companion === undefined
+    ? null
+    : cloneSemanticValue(input.companion, `${path}.companion`) as TCompanion;
+  return Object.freeze({ dataset, companion });
+}
+
+function cloneSemanticValue(
+  value: unknown,
+  path: string,
+  ancestors = new Set<object>(),
+): unknown {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new TypeError(`${path} must contain finite numbers`);
+    return value;
+  }
+  if (typeof value !== 'object') {
+    throw new TypeError(`${path} must contain only JSON semantic values`);
+  }
+  if (ancestors.has(value)) throw new TypeError(`${path} must not contain cycles`);
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) {
+      const clone: unknown[] = [];
+      for (let index = 0; index < value.length; index += 1) {
+        if (!Object.prototype.hasOwnProperty.call(value, index)) {
+          throw new TypeError(`${path}[${index}] must not be sparse`);
+        }
+        clone.push(cloneSemanticValue(value[index], `${path}[${index}]`, ancestors));
+      }
+      return Object.freeze(clone);
+    }
+
+    const prototype = Object.getPrototypeOf(value) as object | null;
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new TypeError(`${path} must contain only plain semantic records`);
+    }
+    const clone: Record<string, unknown> = {};
+    for (const key of Reflect.ownKeys(value)) {
+      if (typeof key !== 'string') {
+        throw new TypeError(`${path} must not contain symbol keys`);
+      }
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (descriptor === undefined || !descriptor.enumerable || !('value' in descriptor)) {
+        throw new TypeError(`${path}.${key} must be an enumerable data property`);
+      }
+      Object.defineProperty(clone, key, {
+        configurable: true,
+        enumerable: true,
+        writable: true,
+        value: cloneSemanticValue(descriptor.value, `${path}.${key}`, ancestors),
+      });
+    }
+    return Object.freeze(clone);
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+function semanticEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((entry, index) => semanticEqual(entry, right[index]));
+  }
+  if (!isRecord(left) || !isRecord(right)) return false;
+  const leftKeys = Object.keys(left).sort();
+  const rightKeys = Object.keys(right).sort();
+  return leftKeys.length === rightKeys.length &&
+    leftKeys.every((key, index) => (
+      key === rightKeys[index] && semanticEqual(left[key], right[key])
+    ));
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function assertCommitOutcome(value: string): asserts value is CoreV2HistoryCommitOutcome {
+  if (value !== 'accepted' && value !== 'no-op' && value !== 'refused') {
+    throw new TypeError('history outcome must be accepted, no-op, or refused');
+  }
+}
