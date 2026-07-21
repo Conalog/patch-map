@@ -6,10 +6,6 @@ import * as compareModule from '../../scripts/verification/core-v2-contract/comp
 
 import { createCoreV2ExecutableLabBridge } from '../../lab/performance-v2/contract/executable-bridge';
 import {
-  CORE_V2_CONTRACT_STUB_COUNT,
-  CORE_V2_EXECUTABLE_ACTION_DEFINITIONS,
-  CORE_V2_EXECUTABLE_CASE_IDS,
-  CORE_V2_EXECUTABLE_COUNT,
   materializeCoreV2ExecutableCase,
 } from '../../lab/performance-v2/contract/executable-cases';
 import { resolveCoreV2ExecutableRuntime } from '../../lab/performance-v2/contract/executable-runtime';
@@ -135,15 +131,7 @@ describe('Core v2 REN-006 / REN-011 expected-blind runtime', () => {
     expect(() => runtime.product.createSupplementalSpecimens()).toThrow(/active runtime/u);
   });
 
-  it('promotes exact cases, actions, and handler types without a supplemental WebGL lease', () => {
-    expect(CORE_V2_EXECUTABLE_COUNT).toBe(28);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(145);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(28);
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(65);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
-      count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(119);
-
+  it('promotes its exact cases and handler types without a supplemental WebGL lease', () => {
     for (const caseId of ['REN-006', 'REN-011'] as const) {
       const plan = materializeCoreV2ExecutableCase(caseId, '100', 319);
       const descriptor = resolveCoreV2ExecutableRuntime(caseId);

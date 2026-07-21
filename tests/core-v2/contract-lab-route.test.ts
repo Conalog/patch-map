@@ -78,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(65);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(28);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(145);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(74);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(34);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(139);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(119);
+    ), 0)).toBe(145);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -158,9 +158,72 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).toContain(`data-testid="${route.presenter.resultTestId}"`);
     expect(markup).toContain('data-contract-status="armed"');
     expect(markup).toContain('Run exact case');
+    expect(markup).toContain('data-testid="destroy-case" disabled');
+    expect(markup).toContain('Destroy runtime');
     expect(markup).toContain('Actual-only case execution is available');
     expect(markup).toContain('data-action-status="queued"');
     expect(markup).not.toContain('data-contract-status="pass"');
+  });
+
+  it('connects all six presentation-tranche cases to their exact shared runtime and focused route', () => {
+    const cases = [
+      {
+        caseId: 'REN-009',
+        runtimeKey: 'presentation-dynamics',
+        actions: ['loadDataset', 'patch', 'publishFrame', 'publishFrame'],
+      },
+      {
+        caseId: 'LAY-002',
+        runtimeKey: 'layout-order',
+        actions: ['loadPlacementMatrix', 'observeBounds', 'observePlacementMatrix'],
+      },
+      {
+        caseId: 'LAY-003',
+        runtimeKey: 'layout-order',
+        actions: ['loadDataset', 'patch', 'undo', 'redo'],
+      },
+      {
+        caseId: 'UPD-005',
+        runtimeKey: 'presentation-dynamics',
+        actions: ['patch', 'readCurrentState', 'publishFrame'],
+      },
+      {
+        caseId: 'ANI-001',
+        runtimeKey: 'presentation-dynamics',
+        actions: ['patch', 'advanceClock', 'patch', 'advanceClock', 'advanceClock'],
+      },
+      {
+        caseId: 'ANI-002',
+        runtimeKey: 'presentation-dynamics',
+        actions: [
+          'runAnimationSchedule',
+          'snapshotAt',
+          'runAnimationSchedule',
+          'snapshotAt',
+          'advanceClock',
+          'destroy',
+          'advanceClock',
+        ],
+      },
+    ] as const;
+
+    for (const { caseId, runtimeKey, actions } of cases) {
+      const route = parseCoreV2ContractRoute(
+        `/lab/core-v2?scenario=${caseId}&size=100&seed=319`,
+      );
+      const plan = materializeCoreV2ExecutableCase(caseId, '100', 319);
+      const markup = renderCoreV2ContractLab(route);
+
+      expect(route.presenter.executionStatus).toBe('actual-observable');
+      expect(route.presenter.rootTestId).toBe(`scenario-${caseId.toLowerCase()}`);
+      expect(plan.actionTrace.map(({ type }) => type)).toEqual(actions);
+      expect(resolveCoreV2ExecutableRuntime(caseId).key).toBe(runtimeKey);
+      expect(markup).toContain(`data-testid="scenario-${caseId.toLowerCase()}"`);
+      expect(markup).toContain('data-contract-status="armed"');
+      expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(actions.length);
+      expect(markup).toContain('Actual-only case execution is available');
+      expect(markup).not.toContain('data-contract-status="pass"');
+    }
   });
 
   it('renders the exact REN-007 relation route as an actual-observable focused case', () => {
@@ -273,7 +336,7 @@ describe('Core v2 focused contract Lab shell', () => {
     const backgroundIndex = CORE_V2_EXECUTABLE_CASE_IDS.indexOf('REN-008');
 
     expect(CORE_V2_EXECUTABLE_CASE_IDS[backgroundIndex - 1]).toBe('REN-007');
-    expect(CORE_V2_EXECUTABLE_CASE_IDS[backgroundIndex + 1]).toBe('REN-010');
+    expect(CORE_V2_EXECUTABLE_CASE_IDS[backgroundIndex + 1]).toBe('REN-009');
     expect(resolveCoreV2ExecutableRuntime('REN-008').key).toBe('render-component-assets');
     expect(route.presenter.executionStatus).toBe('actual-observable');
     expect(route.presenter.rootTestId).toBe('scenario-ren-008');
@@ -354,7 +417,7 @@ describe('Core v2 focused contract Lab shell', () => {
     const markup = renderCoreV2ContractLab(route);
     const iconIndex = CORE_V2_EXECUTABLE_CASE_IDS.indexOf('REN-010');
 
-    expect(CORE_V2_EXECUTABLE_CASE_IDS[iconIndex - 1]).toBe('REN-008');
+    expect(CORE_V2_EXECUTABLE_CASE_IDS[iconIndex - 1]).toBe('REN-009');
     expect(CORE_V2_EXECUTABLE_CASE_IDS[iconIndex + 1]).toBe('REN-011');
     expect(resolveCoreV2ExecutableRuntime('REN-010').key).toBe('render-component-assets');
     expect(route.presenter.executionStatus).toBe('actual-observable');
@@ -435,7 +498,7 @@ describe('Core v2 focused contract Lab shell', () => {
     const assetIndex = CORE_V2_EXECUTABLE_CASE_IDS.indexOf('AST-001');
 
     expect(CORE_V2_EXECUTABLE_CASE_IDS[assetIndex - 1]).toBe('LAY-005');
-    expect(CORE_V2_EXECUTABLE_CASE_IDS[assetIndex + 1]).toBe('CSM-001');
+    expect(CORE_V2_EXECUTABLE_CASE_IDS[assetIndex + 1]).toBe('UPD-005');
     expect(route.presenter.executionStatus).toBe('actual-observable');
     expect(route.presenter.rootTestId).toBe('scenario-ast-001');
     expect(plan.route).toBe('/lab/core-v2?scenario=AST-001&size=100&seed=319');
@@ -463,6 +526,7 @@ describe('Core v2 focused contract Lab shell', () => {
 
     expect(markup).toContain('data-contract-status="not-implemented"');
     expect(markup).toContain('data-testid="load-dataset" disabled');
+    expect(markup).toContain('data-testid="destroy-case" disabled');
     expect(markup).toContain('data-action-status="not-implemented"');
     expect(markup).toContain('No engine action, semantic observation, or promotion result');
     expect(markup).not.toContain('data-contract-status="pass"');

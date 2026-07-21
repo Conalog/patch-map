@@ -426,6 +426,7 @@ export function renderCoreV2ContractLab(route: CoreV2ContractRoute): string {
         <button type="button" data-testid="load-dataset"${executable ? '' : ' disabled'}>Run exact case</button>
         <button type="button" data-testid="reset-case" disabled>Reset case</button>
         <button type="button" data-testid="repeat-action" disabled>Repeat action</button>
+        <button type="button" data-testid="destroy-case" disabled>Destroy runtime</button>
         <button type="button" data-testid="copy-url">Copy URL</button>
       </div>
       <p class="contract-stub-notice">${executable
@@ -535,6 +536,7 @@ function bindShell(
   const run = target.querySelector<HTMLButtonElement>('[data-testid="load-dataset"]');
   const reset = target.querySelector<HTMLButtonElement>('[data-testid="reset-case"]');
   const repeat = target.querySelector<HTMLButtonElement>('[data-testid="repeat-action"]');
+  const destroy = target.querySelector<HTMLButtonElement>('[data-testid="destroy-case"]');
 
   const imageChooser = target.querySelector<HTMLSelectElement>(
     '[data-testid="ren-005-specimen-select"]',
@@ -564,11 +566,14 @@ function bindShell(
   }, { signal });
 
   async function perform(
-    operationKind: 'run' | 'reset' | 'repeat',
+    operationKind: 'run' | 'reset' | 'repeat' | 'destroy',
     operation: () => Promise<unknown>,
   ): Promise<void> {
     const performancePrefix = runObserverPrefix(route.scenario);
-    const performanceObservation = operationKind === 'reset' || performancePrefix === null
+    const performanceObservation = (
+      (operationKind !== 'run' && operationKind !== 'repeat')
+      || performancePrefix === null
+    )
       ? null
       : startUiRunObservation();
     const pending = operation();
@@ -590,6 +595,15 @@ function bindShell(
           runResult: operationResult,
         }
       : null);
+    const root = target.querySelector<HTMLElement>(
+      `[data-testid="${route.presenter.rootTestId}"]`,
+    );
+    if (root && (operationKind === 'run' || operationKind === 'repeat')) {
+      dispatchCoreV2ContractRunComplete(root, operationKind, operationResult);
+    }
+    if (root && operationKind === 'destroy') {
+      dispatchCoreV2ContractDestroyComplete(root, operationResult);
+    }
   }
 
   run?.addEventListener('click', () => {
@@ -600,6 +614,9 @@ function bindShell(
   }, { signal });
   repeat?.addEventListener('click', () => {
     void perform('repeat', () => bridge.repeatCase());
+  }, { signal });
+  destroy?.addEventListener('click', () => {
+    void perform('destroy', () => bridge.destroyCase());
   }, { signal });
   void refreshBridgeUi(target, route, bridge);
 }
@@ -624,10 +641,16 @@ async function refreshBridgeUi(
   const run = root.querySelector<HTMLButtonElement>('[data-testid="load-dataset"]');
   const reset = root.querySelector<HTMLButtonElement>('[data-testid="reset-case"]');
   const repeat = root.querySelector<HTMLButtonElement>('[data-testid="repeat-action"]');
+  const destroy = root.querySelector<HTMLButtonElement>('[data-testid="destroy-case"]');
   if (run) run.disabled = state.status === 'running' || state.status === 'observed' || state.status === 'destroyed';
   if (reset) reset.disabled = state.status === 'armed' || state.status === 'running' || state.status === 'destroyed';
   if (repeat) {
     repeat.disabled = state.status === 'armed'
+      || state.status === 'running'
+      || state.status === 'destroyed';
+  }
+  if (destroy) {
+    destroy.disabled = state.status === 'armed'
       || state.status === 'running'
       || state.status === 'destroyed';
   }
@@ -691,7 +714,6 @@ async function refreshBridgeUi(
   const performancePrefix = runObserverPrefix(route.scenario);
   if (runObservation && performancePrefix) {
     appendRunPerformance(root, performancePrefix, runObservation);
-    dispatchCoreV2ContractRunComplete(root, runObservation.runKind, runObservation.runResult);
   }
 }
 
@@ -1603,6 +1625,19 @@ function dispatchCoreV2ContractRunComplete(
     detail: Object.freeze({
       operation: runKind === 'repeat' ? 'repeatCase' : 'runCase',
       run: runResult,
+    }),
+  }));
+}
+
+function dispatchCoreV2ContractDestroyComplete(
+  root: HTMLElement,
+  cleanup: unknown,
+): void {
+  root.dispatchEvent(new CustomEvent('core-v2-contract-destroy-complete', {
+    bubbles: true,
+    detail: Object.freeze({
+      operation: 'destroyCase',
+      cleanup,
     }),
   }));
 }

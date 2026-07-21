@@ -33,7 +33,13 @@ describe('Core v2 executable Lab product bridge', () => {
       && caseId !== 'REN-006'
       && caseId !== 'REN-008'
       && caseId !== 'REN-010'
-      && caseId !== 'REN-011',
+      && caseId !== 'REN-011'
+      && caseId !== 'REN-009'
+      && caseId !== 'LAY-002'
+      && caseId !== 'LAY-003'
+      && caseId !== 'UPD-005'
+      && caseId !== 'ANI-001'
+      && caseId !== 'ANI-002',
   ))(
     'executes %s through a targeted CoreV2Engine and retains actual-only cleanup facts',
     async (caseId) => {
@@ -450,9 +456,14 @@ describe('Core v2 executable Lab product bridge', () => {
       'DAT-007': 'data-closure',
       'DAT-008': 'data-closure',
       'AST-001': 'assets',
+      'UPD-005': 'presentation-dynamics',
+      'ANI-001': 'presentation-dynamics',
+      'ANI-002': 'presentation-dynamics',
       'CSM-001': 'foundation',
       'CSM-003': 'foundation',
       'LAY-001': 'render-foundation',
+      'LAY-002': 'layout-order',
+      'LAY-003': 'layout-order',
       'LAY-004': 'render-orientation',
       'LAY-005': 'render-bounds',
       'REN-001': 'render-foundation',
@@ -460,6 +471,7 @@ describe('Core v2 executable Lab product bridge', () => {
       'REN-005': 'render-images',
       'REN-006': 'render-text',
       'REN-008': 'render-component-assets',
+      'REN-009': 'presentation-dynamics',
       'REN-010': 'render-component-assets',
       'REN-011': 'render-text',
       'REN-003': 'render-foundation',

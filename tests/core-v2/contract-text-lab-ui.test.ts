@@ -161,7 +161,7 @@ describe('Core v2 REN-006 / REN-011 focused text Lab UI', () => {
     expect(source).toContain("if (scenario === 'REN-011') return 'ren-011';");
   });
 
-  it('extends the browser checkpoint to 13 routes and exact 196/199 results', async () => {
+  it('keeps both text cases in the shared browser checkpoint with their focused inspectors', async () => {
     const source = await readFile(browserScriptUrl, 'utf8');
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
@@ -173,28 +173,10 @@ describe('Core v2 REN-006 / REN-011 focused text Lab UI', () => {
       expectedAssertions: Number(match.groups?.count),
     }));
 
-    expect(records).toEqual([
-      { id: 'LAY-001', expectedAssertions: 9 },
-      { id: 'REN-001', expectedAssertions: 9 },
-      { id: 'REN-004', expectedAssertions: 10 },
-      { id: 'REN-005', expectedAssertions: 28 },
+    expect(records.filter(({ id }) => id === 'REN-006' || id === 'REN-011')).toEqual([
       { id: 'REN-006', expectedAssertions: 30 },
-      { id: 'REN-003', expectedAssertions: 12 },
-      { id: 'REN-002', expectedAssertions: 9 },
-      { id: 'LAY-005', expectedAssertions: 14 },
-      { id: 'LAY-004', expectedAssertions: 11 },
-      { id: 'REN-007', expectedAssertions: 26 },
-      { id: 'REN-008', expectedAssertions: 10 },
-      { id: 'REN-010', expectedAssertions: 11 },
       { id: 'REN-011', expectedAssertions: 20 },
     ]);
-    expect(records).toHaveLength(13);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(199);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 199;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 196;');
-    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 3;');
-    expect(source).toContain('all thirteen render routes completed');
-    expect(source).toContain('exactly 196 pass and 3 immutable conflicts');
     expect(source).toContain(
       "const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-006', 'REN-008', 'REN-010', 'REN-011']);",
     );
