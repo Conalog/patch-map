@@ -49,7 +49,7 @@ describe('Core v2 approved render projection closure', () => {
     }));
   });
 
-  it('keeps non-default animation, split, and relation style degradation explicit', () => {
+  it('projects split while keeping unrelated animation and relation degradation explicit', () => {
     const result = parsePatchMapV010(materializeCoreV2Dataset([
       {
         type: 'item',
@@ -77,12 +77,15 @@ describe('Core v2 approved render projection closure', () => {
 
     expect(result.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: 'component-animation-unsupported' }),
-      expect.objectContaining({ code: 'text-split-degraded' }),
       expect.objectContaining({ code: 'relation-style-degraded' }),
     ]));
+    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: 'text-split-degraded',
+    }));
+    expect(result.projection.textsByEntityId?.['item::text:text']?.splitLines).toEqual(['A', 'B']);
   });
 
-  it('keeps descriptor options lossless while diagnosing remaining flat text losses', () => {
+  it('keeps descriptor options lossless and represents deterministic text layout fields', () => {
     const result = parsePatchMapV010(materializeCoreV2Dataset([
       {
         type: 'image',
@@ -124,20 +127,39 @@ describe('Core v2 approved render projection closure', () => {
       kind: 'image',
       source: 'fixture-image',
     });
-    expect(result.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        code: 'standalone-text-break-words-degraded',
-        path: '$[1].style.breakWords',
-      }),
-      expect.objectContaining({
-        code: 'component-text-line-height-degraded',
-        path: '$[2].components[0].style.lineHeight',
-      }),
-      expect.objectContaining({
-        code: 'component-text-letter-spacing-degraded',
-        path: '$[2].components[0].style.letterSpacing',
-      }),
-    ]));
+    for (const code of [
+      'standalone-text-break-words-degraded',
+      'component-text-line-height-degraded',
+      'component-text-letter-spacing-degraded',
+    ]) {
+      expect(result.diagnostics).not.toContainEqual(expect.objectContaining({ code }));
+    }
+    expect(result.projection.textsByEntityId?.standalone).toMatchObject({
+      lines: ['ABCD', 'EFGH', 'IJ'],
+      wordWrapWidthPx: 32,
+      breakWords: true,
+    });
+    expect(result.projection.textsByEntityId?.['item::text:component']).toMatchObject({
+      lineHeightPx: 22,
+      letterSpacingPx: 1,
+    });
+  });
+
+  it('retains honest text diagnostics for semantics that the dense compatibility row still degrades', () => {
+    const result = parsePatchMapV010(materializeCoreV2Dataset([{
+      type: 'text',
+      id: 'justify',
+      text: 'AB',
+      style: { align: 'justify' },
+    }]).dataset);
+
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'text-align-degraded',
+      path: '$[0].style.align',
+    }));
+    expect(result.projection.textsByEntityId?.justify?.authoredStyle).toMatchObject({
+      align: 'justify',
+    });
   });
 
   it('projects standalone text zIndex and accepts item affine orientation semantics', () => {

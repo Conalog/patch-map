@@ -20,6 +20,7 @@ import {
   type CoreV2ImageSourceKind,
   type CoreV2OmittedRelationProjection,
   type CoreV2RelationProjection,
+  type CoreV2TextProjection,
   type ElementIdentity,
   type EntitySourceIdentity,
   type ExpandedItemIdentity,
@@ -30,6 +31,8 @@ import {
 import type {
   CoreV2ComponentSize,
   CoreV2ComponentType,
+  CoreV2Edges,
+  CoreV2Placement,
 } from './semantic/dataset';
 import {
   CORE_V2_IDENTITY_AFFINE,
@@ -42,6 +45,11 @@ import {
   type CoreV2AffineMatrix,
   type CoreV2DenseRectProjection,
 } from './semantic/geometry';
+import {
+  layoutCoreV2Text,
+  type CoreV2TextLayout,
+  type CoreV2TextLayoutOptions,
+} from './semantic/text-layout';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -113,6 +121,7 @@ interface ParseState {
   readonly componentVisualProjectionByEntityId: Record<string, CoreV2ComponentVisualProjection>;
   readonly backgroundPaintProjectionByEntityId: Record<string, CoreV2BackgroundPaintProjection>;
   readonly imageProjectionByEntityId: Record<string, CoreV2ImageProjection>;
+  readonly textProjectionByEntityId: Record<string, CoreV2TextProjection>;
   readonly relationProjectionByEntityId: Record<string, CoreV2RelationProjection>;
   readonly omittedRelations: CoreV2OmittedRelationProjection[];
   readonly pendingRelations: PendingRelation[];
@@ -144,6 +153,34 @@ const DEFAULT_COLORS: Readonly<Record<string, string>> = Object.freeze({
   'primary.default': '#4f46e5ff',
   'primary.dark': '#312e81ff',
 });
+const ZERO_EDGES: CoreV2Edges = Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 });
+const TEXT_PLACEMENTS = new Set<CoreV2Placement>([
+  'left',
+  'left-top',
+  'left-bottom',
+  'top',
+  'right',
+  'right-top',
+  'right-bottom',
+  'bottom',
+  'center',
+  'none',
+]);
+const AVAILABLE_TEXT_FONTS = Object.freeze(['Fira Code', 'Unifont']);
+const BASIC_TEXT_STYLE_KEYS = new Set([
+  'fontFamily',
+  'fontSize',
+  'fontWeight',
+  'fill',
+  'align',
+  'wordWrap',
+  'wordWrapWidth',
+  'breakWords',
+  'lineHeight',
+  'letterSpacing',
+  'autoFont',
+  'overflow',
+]);
 const TRANSFORM_ATTRIBUTE_KEYS = new Set(['x', 'y', 'angle', 'rotation']);
 const SIGNED_SCALE_ATTRIBUTE_KEYS = new Set(['scaleX', 'scaleY']);
 const SIGNED_SCALE_ATTRIBUTE_TYPES = new Set([
@@ -220,6 +257,7 @@ export function parsePatchMapV010(
       CoreV2BackgroundPaintProjection
     >,
     imageProjectionByEntityId: Object.create(null) as Record<string, CoreV2ImageProjection>,
+    textProjectionByEntityId: Object.create(null) as Record<string, CoreV2TextProjection>,
     relationProjectionByEntityId: Object.create(null) as Record<string, CoreV2RelationProjection>,
     omittedRelations: [],
     pendingRelations: [],
@@ -276,6 +314,7 @@ export function parsePatchMapV010(
       componentsByEntityId: state.componentVisualProjectionByEntityId,
       backgroundsByEntityId: state.backgroundPaintProjectionByEntityId,
       imagesByEntityId: state.imageProjectionByEntityId,
+      textsByEntityId: state.textProjectionByEntityId,
       relationsByEntityId: state.relationProjectionByEntityId,
       omittedRelations: state.omittedRelations,
     },
@@ -795,8 +834,6 @@ function parseComponent(
 
   if (type === 'text') {
     const style = isRecord(value.style) ? value.style : {};
-    diagnoseComponentTextProjection(style, path, sourceElementId, state);
-    const fontSize = Math.max(1, finiteNumber(style.fontSize) ?? 14);
     const margins = boxSpacing(value.margin, `${path}.margin`, state);
     const available: Box = {
       x: content.x + margins.left,
@@ -804,17 +841,68 @@ function parseComponent(
       width: Math.max(0, content.width - margins.left - margins.right),
       height: Math.max(0, content.height - margins.top - margins.bottom),
     };
-    const textSize: Size = {
-      width: finiteNumber(style.wordWrapWidth) ?? available.width,
-      height: Math.min(available.height || fontSize * 1.2, fontSize * 1.2),
-    };
-    const local = placeBox(available, textSize, value.placement ?? 'center', 0, path, state);
+    const source = typeof value.text === 'string' ? value.text : '';
+    const split = textSplit(value.split, `${path}.split`, state);
+    const placement = textPlacement(value.placement, `${path}.placement`, state);
+    const initialLayout = semanticTextLayout(
+      source,
+      style,
+      { width: available.width, height: available.height },
+      style.overflow,
+      split,
+      undefined,
+      path,
+      state,
+    );
+    const local = placeBox(
+      available,
+      {
+        width: initialLayout.layoutBounds.width,
+        height: initialLayout.layoutBounds.height,
+      },
+      placement,
+      0,
+      path,
+      state,
+    );
+    const layout = semanticTextLayout(
+      source,
+      style,
+      { width: available.width, height: available.height },
+      style.overflow,
+      split,
+      { x: local.x, y: local.y },
+      path,
+      state,
+    );
     const transform = componentTransform(itemTransform, local, attrs, path, state);
-    if (value.split !== undefined && value.split !== 0) {
-      warnOnce(state, 'text-split', `${path}.split`, 'text-split-degraded', 'Text split is preserved in identity but rendered as one text run', sourceElementId);
-    }
+    const color = resolveColor(value.tint ?? style.fill, 0x000000ff, `${path}.style.fill`, state);
+    addTextProjection({
+      entityId,
+      targetKind: 'component',
+      ownerId: instanceId,
+      componentId,
+      authoredStyle: style,
+      color,
+      placement,
+      margin: margins,
+      contentOrientation,
+      layout,
+    }, state);
     addEntity(
-      textEntity(entityId, transform, local, value.text, style, value.tint, componentVisible, false, 30, path, state),
+      textEntity(
+        entityId,
+        transform,
+        local,
+        layout,
+        style,
+        color,
+        componentVisible,
+        false,
+        30,
+        path,
+        state,
+      ),
       { ...owner, component },
       state,
       centerPivotTopLeft(transform, local, contentOrientation),
@@ -936,17 +1024,45 @@ function parseDirectText(
   state: ParseState,
 ): void {
   const style = isRecord(value.style) ? value.style : {};
-  const fontSize = Math.max(1, finiteNumber(style.fontSize) ?? 14);
-  const text = typeof value.text === 'string' ? value.text : '';
-  const projection = standaloneTextProjection(value, style, text, fontSize, path, state);
+  const source = typeof value.text === 'string' ? value.text : '';
+  const authoredFrame = value.size === undefined
+    ? undefined
+    : fixedSize(value.size, `${path}.size`, state);
+  const layout = semanticTextLayout(
+    source,
+    style,
+    authoredFrame,
+    value.overflow,
+    0,
+    { x: 0, y: 0 },
+    path,
+    state,
+  );
+  const box: Box = {
+    x: 0,
+    y: 0,
+    width: layout.layoutBounds.width,
+    height: layout.layoutBounds.height,
+  };
+  const color = resolveColor(style.fill, 0x000000ff, `${path}.style.fill`, state);
+  addTextProjection({
+    entityId: sourceId,
+    targetKind: 'element',
+    authoredStyle: style,
+    color,
+    placement: null,
+    margin: ZERO_EDGES,
+    contentOrientation: 'follow-item',
+    layout,
+  }, state);
   addEntity(
     textEntity(
       sourceId,
       transform,
-      projection.box,
-      projection.text,
+      box,
+      layout,
       style,
-      undefined,
+      color,
       visible,
       interactive,
       zIndex(value.attrs),
@@ -955,79 +1071,8 @@ function parseDirectText(
     ),
     owner,
     state,
-    centerPivotTopLeft(transform, projection.box),
+    centerPivotTopLeft(transform, box),
   );
-}
-
-function standaloneTextProjection(
-  value: JsonRecord,
-  style: JsonRecord,
-  text: string,
-  fontSize: number,
-  path: string,
-  state: ParseState,
-): { readonly box: Box; readonly text: string } {
-  if (style.breakWords !== undefined) {
-    warn(
-      state,
-      `${path}.style.breakWords`,
-      'standalone-text-break-words-degraded',
-      'breakWords is retained semantically but is not represented by the flat dense text contract',
-    );
-  }
-  const lineHeight = Math.max(0, finiteNumber(style.lineHeight) ?? fontSize * 1.2);
-  const letterSpacing = finiteNumber(style.letterSpacing) ?? 0;
-  const lines = text.replace(/\r\n?/g, '\n').split('\n');
-  const lineWidths = lines.map((line) => {
-    const count = Array.from(line).length;
-    return Math.max(0, count * fontSize * 0.5 + Math.max(0, count - 1) * letterSpacing);
-  });
-  const naturalWidth = Math.max(0, ...lineWidths);
-  const naturalHeight = Math.max(lineHeight, lines.length * lineHeight);
-  const authoredSize = value.size === undefined
-    ? undefined
-    : fixedSize(value.size, `${path}.size`, state);
-  const wrapWidth = finiteNumber(style.wordWrapWidth);
-  if (style.wordWrap === true && wrapWidth !== undefined) {
-    const wrappedLineCount = Math.max(1, Math.ceil(naturalWidth / Math.max(1, wrapWidth)));
-    return {
-      box: { x: 0, y: 0, width: wrapWidth, height: wrappedLineCount * lineHeight },
-      text,
-    };
-  }
-
-  const overflow = value.overflow === undefined ? 'visible' : value.overflow;
-  if (overflow !== 'visible' && overflow !== 'hidden' && overflow !== 'ellipsis') {
-    warn(state, `${path}.overflow`, 'invalid-text-overflow', 'Invalid overflow fell back to visible');
-    return {
-      box: { x: 0, y: 0, width: naturalWidth, height: authoredSize?.height ?? naturalHeight },
-      text,
-    };
-  }
-  if (authoredSize === undefined || overflow === 'visible') {
-    return {
-      box: {
-        x: 0,
-        y: 0,
-        width: naturalWidth,
-        height: authoredSize?.height ?? naturalHeight,
-      },
-      text,
-    };
-  }
-  if (overflow === 'hidden' || naturalWidth <= authoredSize.width) {
-    return {
-      box: { x: 0, y: 0, width: Math.min(naturalWidth, authoredSize.width), height: authoredSize.height },
-      text,
-    };
-  }
-
-  const glyphAdvance = Math.max(1, fontSize * 0.5 + letterSpacing);
-  const visibleGlyphCount = Math.max(0, Math.floor(authoredSize.width / glyphAdvance) - 1);
-  return {
-    box: { x: 0, y: 0, width: authoredSize.width, height: authoredSize.height },
-    text: `${Array.from(text).slice(0, visibleGlyphCount).join('')}…`,
-  };
 }
 
 function parseRelations(
@@ -1410,9 +1455,9 @@ function textEntity(
   id: string,
   transform: Transform,
   box: Box,
-  textValue: unknown,
+  layout: CoreV2TextLayout,
   style: JsonRecord,
-  tint: unknown,
+  color: Rgba,
   visible: boolean,
   interactive: boolean,
   layer: number,
@@ -1433,9 +1478,9 @@ function textEntity(
     width: denseTransform.width,
     height: denseTransform.height,
     rotation: transform.rotation,
-    text: typeof textValue === 'string' ? textValue : '',
-    color: resolveColor(tint ?? style.fill, 0x000000ff, `${path}.style.fill`, state),
-    fontSize: Math.max(1, finiteNumber(style.fontSize) ?? 14),
+    text: layout.visibleText,
+    color,
+    fontSize: layout.fontSizePx,
     ...(typeof style.fontFamily === 'string' ? { fontFamily: style.fontFamily } : {}),
     ...(fontWeight(style.fontWeight) !== undefined ? { fontWeight: fontWeight(style.fontWeight) as number } : {}),
     align,
@@ -1446,32 +1491,199 @@ function textEntity(
   };
 }
 
-function diagnoseComponentTextProjection(
+function semanticTextLayout(
+  source: string,
   style: JsonRecord,
+  contentFrame: Size | undefined,
+  overflowValue: unknown,
+  split: number,
+  origin: Readonly<{ x: number; y: number }> | undefined,
   path: string,
-  sourceId: string,
+  state: ParseState,
+): CoreV2TextLayout {
+  const fontSizePx = positiveTextMetric(style.fontSize, `${path}.style.fontSize`, state);
+  const lineHeightPx = positiveTextMetric(style.lineHeight, `${path}.style.lineHeight`, state);
+  const letterSpacingPx = textLetterSpacing(
+    style.letterSpacing,
+    `${path}.style.letterSpacing`,
+    state,
+  );
+  const overflow = textOverflow(overflowValue, `${path}.overflow`, state);
+  const wordWrapWidth = textWrapWidth(style, contentFrame, path, state);
+  // Match the PATCH MAP v0.10 text-style default even when callers use the
+  // lower-level parser directly instead of passing through the materializer.
+  const requestedFontValue = requestedFont(style.fontFamily) ?? 'Fira Code';
+  const autoFont = textAutoFont(style.autoFont, `${path}.style.autoFont`, state);
+  const options: CoreV2TextLayoutOptions = {
+    source,
+    ...(fontSizePx === undefined ? {} : { fontSizePx }),
+    ...(lineHeightPx === undefined ? {} : { lineHeightPx }),
+    ...(letterSpacingPx === undefined ? {} : { letterSpacingPx }),
+    requestedFont: requestedFontValue,
+    availableRequestedFonts: AVAILABLE_TEXT_FONTS,
+    split,
+    wordWrapWidthPx: wordWrapWidth,
+    breakWords: style.breakWords === true,
+    ...(contentFrame === undefined
+      ? {}
+      : { contentFrame: { width: contentFrame.width, height: contentFrame.height } }),
+    overflow,
+    ...(autoFont === undefined ? {} : { autoFont }),
+    ...(origin === undefined ? {} : { origin }),
+    advancedStyle: hasAdvancedTextStyle(style),
+  };
+  const layout = layoutCoreV2Text(options);
+  for (const diagnostic of layout.diagnostics) {
+    warnOnce(
+      state,
+      `text-layout:${path}:${diagnostic.code}:${diagnostic.sourceIndex ?? -1}`,
+      diagnostic.sourceIndex === undefined
+        ? `${path}.text`
+        : `${path}.text[${diagnostic.sourceIndex}]`,
+      'text-layout-unsupported',
+      `${diagnostic.code}: ${diagnostic.detail}`,
+    );
+  }
+  return layout;
+}
+
+function addTextProjection(
+  input: Readonly<{
+    entityId: string;
+    targetKind: 'element' | 'component';
+    ownerId?: string;
+    componentId?: string;
+    authoredStyle: JsonRecord;
+    color: number;
+    placement: CoreV2Placement | null;
+    margin: CoreV2Edges;
+    contentOrientation: CoreV2ContentOrientation;
+    layout: CoreV2TextLayout;
+  }>,
   state: ParseState,
 ): void {
-  if (style.lineHeight !== undefined) {
-    warnOnce(
-      state,
-      `component-text-line-height:${path}`,
-      `${path}.style.lineHeight`,
-      'component-text-line-height-degraded',
-      'Component text lineHeight is retained semantically but is not represented by the flat dense text contract',
-      sourceId,
-    );
+  state.textProjectionByEntityId[input.entityId] = Object.freeze({
+    ...input.layout,
+    entityId: input.entityId,
+    targetKind: input.targetKind,
+    ...(input.ownerId === undefined ? {} : { ownerId: input.ownerId }),
+    ...(input.componentId === undefined ? {} : { componentId: input.componentId }),
+    authoredStyle: deepFreeze(cloneJson(input.authoredStyle)),
+    color: input.color >>> 0,
+    placement: input.placement,
+    margin: Object.freeze({ ...input.margin }),
+    contentOrientation: input.contentOrientation,
+  });
+}
+
+function positiveTextMetric(
+  value: unknown,
+  path: string,
+  state: ParseState,
+): number | undefined {
+  if (value === undefined) return undefined;
+  const metric = finiteNumber(value);
+  if (metric !== undefined && metric > 0) return metric;
+  warn(state, path, 'invalid-text-metric', 'Invalid text metric used the deterministic profile default');
+  return undefined;
+}
+
+function textLetterSpacing(
+  value: unknown,
+  path: string,
+  state: ParseState,
+): number | undefined {
+  if (value === undefined) return undefined;
+  const spacing = finiteNumber(value);
+  if (spacing !== undefined) return spacing;
+  warn(state, path, 'invalid-text-metric', 'Invalid letterSpacing used the deterministic profile default');
+  return undefined;
+}
+
+function textSplit(value: unknown, path: string, state: ParseState): number {
+  if (value === undefined) return 0;
+  if (typeof value === 'number' && Number.isSafeInteger(value)) return value;
+  warn(state, path, 'invalid-text-split', 'Invalid split fell back to zero');
+  return 0;
+}
+
+function textPlacement(
+  value: unknown,
+  path: string,
+  state: ParseState,
+): CoreV2Placement {
+  if (value === undefined) return 'center';
+  if (typeof value === 'string' && TEXT_PLACEMENTS.has(value as CoreV2Placement)) {
+    return value as CoreV2Placement;
   }
-  if (style.letterSpacing !== undefined) {
-    warnOnce(
-      state,
-      `component-text-letter-spacing:${path}`,
-      `${path}.style.letterSpacing`,
-      'component-text-letter-spacing-degraded',
-      'Component text letterSpacing is retained semantically but is not represented by the flat dense text contract',
-      sourceId,
-    );
+  warn(state, path, 'invalid-placement', 'Invalid placement fell back to center');
+  return 'center';
+}
+
+function textOverflow(
+  value: unknown,
+  path: string,
+  state: ParseState,
+): 'visible' | 'hidden' | 'ellipsis' {
+  if (value === undefined || value === 'visible') return 'visible';
+  if (value === 'hidden' || value === 'ellipsis') return value;
+  warn(state, path, 'invalid-text-overflow', 'Invalid overflow fell back to visible');
+  return 'visible';
+}
+
+function textWrapWidth(
+  style: JsonRecord,
+  contentFrame: Size | undefined,
+  path: string,
+  state: ParseState,
+): number | null {
+  if (style.wordWrap !== true) return null;
+  if (style.wordWrapWidth === undefined) return contentFrame?.width ?? null;
+  const width = finiteNumber(style.wordWrapWidth);
+  if (width !== undefined && width >= 0) return width;
+  warn(
+    state,
+    `${path}.style.wordWrapWidth`,
+    'invalid-text-wrap-width',
+    'Invalid wordWrapWidth fell back to the available frame width',
+  );
+  return contentFrame?.width ?? null;
+}
+
+function textAutoFont(
+  value: unknown,
+  path: string,
+  state: ParseState,
+): Readonly<{ minPx: number; maxPx: number }> | undefined {
+  if (value === undefined) return undefined;
+  if (isRecord(value)) {
+    const min = finiteNumber(value.min);
+    const max = finiteNumber(value.max);
+    if (
+      min !== undefined &&
+      max !== undefined &&
+      Number.isSafeInteger(min) &&
+      Number.isSafeInteger(max) &&
+      min > 0 &&
+      max >= min
+    ) {
+      return Object.freeze({ minPx: min, maxPx: max });
+    }
   }
+  warn(state, path, 'invalid-text-auto-font', 'Invalid autoFont bounds were ignored');
+  return undefined;
+}
+
+function requestedFont(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.length > 0) return value;
+  if (Array.isArray(value)) {
+    return value.find((entry): entry is string => typeof entry === 'string' && entry.length > 0);
+  }
+  return undefined;
+}
+
+function hasAdvancedTextStyle(style: JsonRecord): boolean {
+  return Object.keys(style).some((key) => !BASIC_TEXT_STYLE_KEYS.has(key));
 }
 
 function elementTransform(
@@ -1697,6 +1909,7 @@ function placeBox(
     case 'right-bottom': x = right - size.width; y = bottom - size.height; break;
     case 'bottom': y = bottom - size.height; break;
     case 'center': break;
+    case 'none': x = reference.x; y = reference.y; break;
     default:
       warn(state, `${path}.placement`, 'invalid-placement', 'Invalid placement fell back to center');
   }

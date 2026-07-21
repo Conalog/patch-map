@@ -9,7 +9,11 @@ import type {
   CoreV2AssetSource,
   CoreV2ComponentSize,
   CoreV2ComponentType,
+  CoreV2Edges,
+  CoreV2Placement,
+  CoreV2TextStyle,
 } from './semantic/dataset';
+import type { CoreV2TextLayout } from './semantic/text-layout';
 
 export type CoreV2ContentOrientation = 'follow-item' | 'upright';
 
@@ -194,6 +198,22 @@ export interface CoreV2BackgroundPaintProjection {
   readonly tint: number;
 }
 
+/**
+ * Browser-independent text semantics joined to stable PATCH MAP identity.
+ * Pixi consumes this record as raster input; it does not measure or reflow it.
+ */
+export interface CoreV2TextProjection extends CoreV2TextLayout {
+  readonly entityId: string;
+  readonly targetKind: 'element' | 'component';
+  readonly ownerId?: string;
+  readonly componentId?: string;
+  readonly authoredStyle: CoreV2TextStyle;
+  readonly color: number;
+  readonly placement: CoreV2Placement | null;
+  readonly margin: CoreV2Edges;
+  readonly contentOrientation: CoreV2ContentOrientation;
+}
+
 /** Immutable numeric metadata that the Core v1-compatible dense rows omit. */
 export interface CoreV2ProjectionIndex {
   readonly byEntityId: Readonly<Record<string, CoreV2EntityProjection>>;
@@ -203,6 +223,8 @@ export interface CoreV2ProjectionIndex {
   readonly backgroundsByEntityId?: Readonly<Record<string, CoreV2BackgroundPaintProjection>>;
   /** Present on parser-produced indexes; optional for older injected test surfaces. */
   readonly imagesByEntityId?: Readonly<Record<string, CoreV2ImageProjection>>;
+  /** Deterministic semantic layout and stable target identity for every text entity. */
+  readonly textsByEntityId?: Readonly<Record<string, CoreV2TextProjection>>;
   /** Present on parser-produced indexes; optional for older injected test surfaces. */
   readonly relationsByEntityId?: Readonly<Record<string, CoreV2RelationProjection>>;
   /** Syntactically valid links with unresolved endpoints are explicit, not fatal. */

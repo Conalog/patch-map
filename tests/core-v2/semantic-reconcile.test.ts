@@ -82,10 +82,11 @@ describe('Core v2 dense reconcile planner', () => {
     expect(operation?.type).toBe('patch');
     if (operation?.type !== 'patch') throw new Error('expected a component patch');
     expect(operation.target).toBe(entityId);
-    expect(operation.changes).toMatchObject({ text: 'Ready', width: 160 });
+    expect(operation.changes).toMatchObject({ text: 'Ready', width: 40 });
     expect(plan.summary).toMatchObject({ added: 0, removed: 0, patched: 1 });
     expect(scene.ref(entityId)).toEqual(refBefore);
     expect(scene.get(entityId)?.data.text).toBe('Ready');
+    expect(scene.get(entityId)?.bounds.width).toBe(40);
     scene.destroy();
   });
 

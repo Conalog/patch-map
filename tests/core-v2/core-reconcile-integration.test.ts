@@ -99,10 +99,16 @@ describe('Core v2 runtime dense reconcile', () => {
     expect(result.plan.batch.operations[0]).toMatchObject({
       type: 'patch',
       target: entityId,
-      changes: { text: 'Ready', width: 160 },
+      changes: { text: 'Ready', width: 40 },
     });
     expect(core.ref(entityId)).toEqual(refBefore);
     expect(core.get(entityId)?.data.text).toBe('Ready');
+    expect(core.get(entityId)?.bounds.width).toBe(40);
+    expect(core.projection?.textsByEntityId?.[entityId]).toMatchObject({
+      authoredStyle: { wordWrapWidth: 160 },
+      wordWrapWidthPx: null,
+      layoutBounds: { x: 0, y: 0, width: 40, height: 20 },
+    });
   });
 
   it('commits structural relation removals in dependency order without a scene reload', () => {
