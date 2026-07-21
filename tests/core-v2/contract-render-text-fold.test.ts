@@ -1566,6 +1566,9 @@ function rebuildSupplementalProductFromExport(execution: JsonRecord, id: string)
     arrayValue(priorProduct.exportedDataset, `${id} exported dataset`),
   ) as JsonRecord[];
   const parsed = parsePatchMapV010(exportedDataset);
+  if (target.kind !== 'component') {
+    throw new Error(`Expected rebuilt ${id} target to be a component`);
+  }
   const entityId = `${target.ownerId}::text:${target.id}`;
   const projection = parsed.projection.textsByEntityId?.[entityId];
   const entityProjection = parsed.projection.byEntityId[entityId];

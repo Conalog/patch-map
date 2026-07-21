@@ -1,6 +1,7 @@
 import {
   createCoreV2,
   type CoreV2,
+  type CoreV2BarPresentationProductProbe,
   type CoreV2ComponentVisualGeometryProbe,
   type CoreV2ComponentVisualProductProbe,
   type CoreV2ComponentVisualTarget,
@@ -76,6 +77,13 @@ import {
   type CoreV2SemanticMutationDiagnostic,
 } from './semantic/mutation';
 import type { CoreV2ReconcileDiagnostic } from './semantic/reconcile';
+import { CoreV2PresentationError } from './presentation';
+import {
+  CoreV2SemanticHistory,
+  type CoreV2HistoryDirection,
+  type CoreV2HistoryState,
+  type CoreV2SemanticHistorySnapshotInput,
+} from './history';
 
 export type CoreV2Lifecycle =
   | 'new'
@@ -379,6 +387,12 @@ export interface CoreV2EngineComponentVisualProbe {
   }>;
 }
 
+export interface CoreV2EngineBarPresentationProbe extends CoreV2BarPresentationProductProbe {
+  readonly revisions: CoreV2RevisionStamp;
+  readonly publishedTuple: CoreV2PublishedTuple;
+  readonly frameRevision: number;
+}
+
 export interface CoreV2EngineTextSemanticProbe {
   readonly target: CoreV2TextTarget;
   readonly semanticOwnerId: string;
@@ -455,6 +469,9 @@ export interface CoreV2EngineSurface {
   componentVisualProbe?(
     target: CoreV2ComponentVisualTarget,
   ): CoreV2SurfaceComponentVisualProbe | null;
+  barPresentationProbe?(
+    target: CoreV2ComponentVisualTarget,
+  ): CoreV2BarPresentationProductProbe | null;
   textProbe?(target: CoreV2TextTarget): CoreV2TextProductProbe | null;
   settleSceneImages?(): Promise<void>;
   settleSceneImageBindings?(bindingKeys: readonly string[]): Promise<void>;
@@ -473,6 +490,7 @@ export interface CoreV2EngineOptions {
   readonly surfaceFactory?: CoreV2EngineSurfaceFactory;
   readonly assetRuntime?: CoreV2AssetRuntime;
   readonly assetPolicy?: CoreV2AssetPolicy;
+  readonly historyLimit?: number;
 }
 
 export interface CoreV2InitializeOptions {
@@ -636,6 +654,41 @@ export interface CoreV2EngineSnapshot {
   }>;
 }
 
+export type CoreV2EngineHistoryResult =
+  | Readonly<{
+      readonly status: 'committed';
+      readonly changed: true;
+      readonly direction: CoreV2HistoryDirection;
+      readonly previousRevisions: CoreV2RevisionStamp;
+      readonly revisions: CoreV2RevisionStamp;
+      readonly sceneRevision: number;
+      readonly semanticHash: string;
+      readonly publication: 'pending';
+      readonly history: CoreV2HistoryState;
+    }>
+  | Readonly<{
+      readonly status: 'unavailable';
+      readonly changed: false;
+      readonly direction: CoreV2HistoryDirection;
+      readonly previousRevisions: CoreV2RevisionStamp;
+      readonly revisions: CoreV2RevisionStamp;
+      readonly sceneRevision: number;
+      readonly semanticHash: string | null;
+      readonly history: CoreV2HistoryState;
+    }>
+  | Readonly<{
+      readonly status: 'refused';
+      readonly changed: false;
+      readonly direction: CoreV2HistoryDirection;
+      readonly previousRevisions: CoreV2RevisionStamp;
+      readonly revisions: CoreV2RevisionStamp;
+      readonly sceneRevision: number;
+      readonly semanticHash: string | null;
+      readonly diagnostic: CoreV2EngineDiagnostic;
+      readonly reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[];
+      readonly history: CoreV2HistoryState;
+    }>;
+
 type CoreV2EngineEventMap = {
   readonly ready: CoreV2InitializeResult;
   readonly sceneCommitted: CoreV2EngineLoadResult;
@@ -654,6 +707,8 @@ type CoreV2EngineEventMap = {
     CoreV2EngineDestroyTargetResult,
     { readonly status: 'committed' }
   >;
+  readonly historyUndone: Extract<CoreV2EngineHistoryResult, { readonly status: 'committed' }>;
+  readonly historyRedone: Extract<CoreV2EngineHistoryResult, { readonly status: 'committed' }>;
   readonly diagnostic: CoreV2EngineDiagnostic;
   readonly destroyed: Readonly<{ lifecycleGeneration: number }>;
 };
@@ -678,10 +733,18 @@ interface IndexedEngineTextSemantic {
   readonly gridTemplate: boolean;
 }
 
+interface CoreV2EngineHistoryCompanion {
+  readonly selectionIds: readonly string[];
+}
+
 export class CoreV2Engine {
   private readonly surfaceFactory: CoreV2EngineSurfaceFactory;
   private readonly assetRuntime: CoreV2AssetRuntime;
   private readonly assetPolicy: CoreV2AssetPolicy | undefined;
+  private readonly history: CoreV2SemanticHistory<
+    readonly NormalizedCoreV2Element[],
+    CoreV2EngineHistoryCompanion
+  >;
   private readonly listeners = new Map<CoreV2EngineEvent, Set<(event: unknown) => void>>();
   private lifecycle: CoreV2Lifecycle = 'new';
   private surface: CoreV2EngineSurface | null = null;
@@ -722,6 +785,9 @@ export class CoreV2Engine {
     this.surfaceFactory = options.surfaceFactory ?? createPixiSurface;
     this.assetRuntime = options.assetRuntime ?? CORE_V2_ASSET_RUNTIME;
     this.assetPolicy = options.assetPolicy;
+    this.history = new CoreV2SemanticHistory({
+      ...(options.historyLimit === undefined ? {} : { capacity: options.historyLimit }),
+    });
   }
 
   public on<K extends CoreV2EngineEvent>(event: K, listener: CoreV2EngineListener<K>): () => void {
@@ -871,6 +937,7 @@ export class CoreV2Engine {
       this.interactionRevision += 1;
     }
     this.materialized = materialized;
+    this.history.clear();
     this.componentSemantics = componentSemantics;
     this.textSemantics = textSemantics;
     this.datasetRef = options.datasetRef ?? null;
@@ -946,6 +1013,7 @@ export class CoreV2Engine {
       );
     }
 
+    const historyBefore = this.historySnapshot(surface);
     const componentSemantics = indexComponentSemantics(mutation.candidate.dataset);
     const textSemantics = indexTextSemantics(mutation.candidate.dataset);
     let reconcile: CoreV2SurfaceReconcileResult;
@@ -987,6 +1055,11 @@ export class CoreV2Engine {
     this.textSemantics = textSemantics;
     this.sceneRevision += 1;
     this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
+    this.history.record({
+      id: `patch:${this.sceneRevision}:${semanticTargetIdentity(mutation.target)}`,
+      before: historyBefore,
+      after: this.historySnapshot(surface),
+    });
     const result = Object.freeze({
       status: 'committed',
       changed: true,
@@ -1055,6 +1128,7 @@ export class CoreV2Engine {
       );
     }
 
+    const historyBefore = this.historySnapshot(surface);
     const componentSemantics = indexComponentSemantics(mutation.candidate.dataset);
     const textSemantics = indexTextSemantics(mutation.candidate.dataset);
     const selectionBefore = surface.debugSnapshot().selectionIds;
@@ -1100,6 +1174,11 @@ export class CoreV2Engine {
     if (!sameStringArray(selectionBefore, surface.debugSnapshot().selectionIds)) {
       this.interactionRevision += 1;
     }
+    this.history.record({
+      id: `destroy:${this.sceneRevision}:${semanticTargetIdentity(mutation.target)}`,
+      before: historyBefore,
+      after: this.historySnapshot(surface),
+    });
     const result = Object.freeze({
       status: 'committed',
       changed: true,
@@ -1167,7 +1246,13 @@ export class CoreV2Engine {
   public publishFrame(timeMs = globalThis.performance?.now() ?? Date.now()): void {
     if (!Number.isFinite(timeMs)) throw new TypeError('timeMs must be finite');
     const surface = this.requireSurface('publishFrame');
-    surface.publishFrame(timeMs);
+    try {
+      surface.publishFrame(timeMs);
+    } catch (error) {
+      const diagnostic = this.diagnosticFrom(error, 'publishFrame');
+      this.emit('diagnostic', diagnostic);
+      throw new CoreV2EngineError(diagnostic);
+    }
     this.frameRevision += 1;
     this.publishedTuple = Object.freeze({
       scene: this.sceneRevision,
@@ -1285,7 +1370,7 @@ export class CoreV2Engine {
       datasetRef: this.datasetRef,
       semanticHash: this.materialized?.semanticHash ?? null,
       rootIds: this.materialized?.rootIds ?? Object.freeze([]),
-      historyDepth: 0,
+      historyDepth: this.history.state().undoDepth,
       pendingWork: this.pendingWork,
       zoomLimits: this.zoomLimits,
       viewport: this.viewportState(),
@@ -1324,7 +1409,7 @@ export class CoreV2Engine {
       ...(surfaceDebug.activeGestureCount === undefined
         ? {}
         : { activeGestureCount: surfaceDebug.activeGestureCount }),
-      historyDepth: 0,
+      historyDepth: this.history.state().undoDepth,
     });
   }
 
@@ -1369,6 +1454,21 @@ export class CoreV2Engine {
         rendererPaint: visual?.rendererPaint !== null && visual?.rendererPaint !== undefined,
         renderLanes: visual?.renderLanes !== null && visual?.renderLanes !== undefined,
       }),
+    });
+  }
+
+  public barPresentationProbe(
+    target: CoreV2ComponentVisualTarget,
+  ): CoreV2EngineBarPresentationProbe | null {
+    const normalizedTarget = normalizeEngineComponentVisualTarget(target);
+    const probe = this.requireSurface('barPresentationProbe')
+      .barPresentationProbe?.(normalizedTarget) ?? null;
+    if (probe === null) return null;
+    return Object.freeze({
+      ...probe,
+      revisions: this.revisionStamp(),
+      publishedTuple: this.publishedTuple,
+      frameRevision: this.frameRevision,
     });
   }
 
@@ -1505,6 +1605,19 @@ export class CoreV2Engine {
     return this.materialized?.dataset ?? [];
   }
 
+  public historyState(): CoreV2HistoryState {
+    this.requireSurface('historyState');
+    return this.history.state();
+  }
+
+  public undo(): CoreV2EngineHistoryResult {
+    return this.applyHistory('undo');
+  }
+
+  public redo(): CoreV2EngineHistoryResult {
+    return this.applyHistory('redo');
+  }
+
   public async destroy(): Promise<boolean> {
     if (this.lifecycle === 'destroying') return false;
     if (this.lifecycle === 'destroyed') return this.retryDestroyedCleanup();
@@ -1547,6 +1660,7 @@ export class CoreV2Engine {
     }
     this.surface = null;
     this.materialized = null;
+    this.history.destroy();
     this.componentSemantics.clear();
     this.textSemantics.clear();
     this.datasetRef = null;
@@ -1587,6 +1701,133 @@ export class CoreV2Engine {
       throw this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'destroy', false);
     }
     return false;
+  }
+
+  private applyHistory(direction: CoreV2HistoryDirection): CoreV2EngineHistoryResult {
+    const surface = this.requireSurface(direction);
+    const previousRevisions = this.revisionStamp();
+    if (!surface.reconcile) {
+      const diagnostic = this.operationDiagnostic(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        direction,
+        false,
+      );
+      const result = Object.freeze({
+        status: 'refused',
+        changed: false,
+        direction,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        sceneRevision: this.sceneRevision,
+        semanticHash: this.materialized?.semanticHash ?? null,
+        diagnostic,
+        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+        history: this.history.state(),
+      } satisfies CoreV2EngineHistoryResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    let failure: CoreV2EngineDiagnostic | null = null;
+    let reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[] = EMPTY_RECONCILE_DIAGNOSTICS;
+    const apply = (transition: Readonly<{
+      readonly snapshot: Readonly<{
+        readonly dataset: readonly NormalizedCoreV2Element[];
+        readonly companion: CoreV2EngineHistoryCompanion | null;
+      }>;
+    }>): boolean => {
+      let materialized: MaterializedCoreV2Dataset;
+      try {
+        materialized = materializeCoreV2Dataset(transition.snapshot.dataset);
+        const reconcile = surface.reconcile?.(materialized.dataset);
+        if (reconcile === undefined) return false;
+        reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
+        if (reconcile.status === 'refused') {
+          const datasetPath = reconcileDiagnostics.find((entry) => entry.severity === 'error')?.path;
+          failure = this.operationDiagnostic('CONFLICT', 'CONFLICT', direction, true, datasetPath);
+          return false;
+        }
+      } catch (error) {
+        failure = this.diagnosticFrom(error, direction);
+        return false;
+      }
+
+      const selectionBefore = surface.debugSnapshot().selectionIds;
+      const selection = transition.snapshot.companion?.selectionIds ?? Object.freeze([]);
+      surface.select(selection);
+      this.materialized = materialized;
+      this.componentSemantics = indexComponentSemantics(materialized.dataset);
+      this.textSemantics = indexTextSemantics(materialized.dataset);
+      this.sceneRevision += 1;
+      this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
+      if (!sameStringArray(selectionBefore, surface.debugSnapshot().selectionIds)) {
+        this.interactionRevision += 1;
+      }
+      return true;
+    };
+
+    const transition = direction === 'undo'
+      ? this.history.undo(apply)
+      : this.history.redo(apply);
+    if (transition === null && failure !== null) {
+      const result = Object.freeze({
+        status: 'refused',
+        changed: false,
+        direction,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        sceneRevision: this.sceneRevision,
+        semanticHash: this.materialized?.semanticHash ?? null,
+        diagnostic: failure,
+        reconcileDiagnostics,
+        history: this.history.state(),
+      } satisfies CoreV2EngineHistoryResult);
+      this.emit('diagnostic', failure);
+      return result;
+    }
+    if (transition === null) {
+      return Object.freeze({
+        status: 'unavailable',
+        changed: false,
+        direction,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        sceneRevision: this.sceneRevision,
+        semanticHash: this.materialized?.semanticHash ?? null,
+        history: this.history.state(),
+      } satisfies CoreV2EngineHistoryResult);
+    }
+
+    const materialized = this.materialized;
+    if (materialized === null) throw new Error('history transition lost semantic authority');
+    const result = Object.freeze({
+      status: 'committed',
+      changed: true,
+      direction,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      sceneRevision: this.sceneRevision,
+      semanticHash: materialized.semanticHash,
+      publication: 'pending',
+      history: this.history.state(),
+    } satisfies CoreV2EngineHistoryResult);
+    this.emit(direction === 'undo' ? 'historyUndone' : 'historyRedone', result);
+    return result;
+  }
+
+  private historySnapshot(
+    surface: CoreV2EngineSurface,
+  ): CoreV2SemanticHistorySnapshotInput<
+    readonly NormalizedCoreV2Element[],
+    CoreV2EngineHistoryCompanion
+  > {
+    return Object.freeze({
+      dataset: this.materialized?.dataset ?? Object.freeze([]),
+      companion: Object.freeze({
+        selectionIds: Object.freeze([...surface.debugSnapshot().selectionIds]),
+      }),
+    });
   }
 
   private async cleanupSurface(
@@ -1700,6 +1941,9 @@ export class CoreV2Engine {
       return this.operationDiagnostic(error.code, error.category, operation, true, error.datasetPath);
     }
     if (error instanceof CoreV2EngineError) return error.diagnostic;
+    if (error instanceof CoreV2PresentationError) {
+      return this.operationDiagnostic('CONFLICT', 'CONFLICT', operation, true);
+    }
     if (error instanceof CoreV2AssetError) {
       return this.operationDiagnostic(error.code, error.category, operation, error.retryable);
     }
@@ -1938,7 +2182,7 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
   public load(input: unknown): void {
     this.core.load(input);
     this.geometryRevision += 1;
-    this.geometryRevisionProjection = this.core.projection;
+    this.geometryRevisionProjection = this.core.visibleProjection;
     this.invalidateGeometryCache();
   }
 
@@ -1946,7 +2190,7 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     const result = this.core.reconcile(input);
     if (result.status === 'committed') {
       this.geometryRevision += 1;
-      this.geometryRevisionProjection = this.core.projection;
+      this.geometryRevisionProjection = this.core.visibleProjection;
       this.invalidateGeometryCache();
     }
     return Object.freeze({
@@ -1957,8 +2201,11 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     });
   }
 
-  public publishFrame(_timeMs: number): void {
-    this.core.flush('engine-publication');
+  public publishFrame(timeMs: number): void {
+    this.core.publishFrame(timeMs);
+    this.geometryRevision += 1;
+    this.geometryRevisionProjection = this.core.visibleProjection;
+    this.invalidateGeometryCache();
   }
 
   public resize(width: number, height: number, pixelRatio: number): boolean {
@@ -2023,7 +2270,7 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
   }
 
   public geometrySnapshot(): CoreV2SurfaceGeometrySnapshot {
-    const projection = this.core.projection;
+    const projection = this.core.visibleProjection;
     if (this.geometryCache && this.geometryProjection === projection) return this.geometryCache;
     if (this.geometryRevisionProjection !== projection) {
       this.geometryRevision += 1;
@@ -2094,6 +2341,12 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
       rendererPaint: visual.rendererPaint,
       renderLanes: visual.renderLanes,
     });
+  }
+
+  public barPresentationProbe(
+    target: CoreV2ComponentVisualTarget,
+  ): CoreV2BarPresentationProductProbe | null {
+    return this.core.barPresentationProbe(target);
   }
 
   public textProbe(target: CoreV2TextTarget): CoreV2TextProductProbe | null {
@@ -2552,6 +2805,12 @@ function packedColorToHex(value: number): string {
 
 const EMPTY_TARGETS = Object.freeze([] as CoreV2SemanticTarget[]);
 const EMPTY_RECONCILE_DIAGNOSTICS = Object.freeze([] as CoreV2ReconcileDiagnostic[]);
+
+function semanticTargetIdentity(target: CoreV2SemanticTarget): string {
+  return target.kind === 'element'
+    ? `element:${target.id.length}:${target.id}`
+    : `component:${target.ownerId.length}:${target.ownerId}:${target.id.length}:${target.id}`;
+}
 
 function freezeTargets(values: readonly CoreV2SemanticTarget[]): readonly CoreV2SemanticTarget[] {
   return Object.freeze([...values]);

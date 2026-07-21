@@ -215,7 +215,7 @@ describe('CoreV2Engine authoritative semantic mutation', () => {
     expect(surface.lastReconcileInput).not.toBe(surface.lastLoadedInput);
     expect(engine.snapshot()).toMatchObject({
       datasetRef: 'semantic-scene',
-      historyDepth: 0,
+      historyDepth: 1,
       selectionIds: ['item-a'],
       revisions: { sceneRevision: 2, interactionRevision: 1 },
       publishedTuple: { scene: 1, view: 0, interaction: 1 },

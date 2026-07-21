@@ -15,6 +15,7 @@ import type {
   QueryFilter,
   SceneSnapshot,
   SelectionSnapshot,
+  SlotRange,
   TransactionBatch,
 } from '../core-v1/contracts';
 import type {
@@ -27,6 +28,12 @@ import type {
   CoreV2ProjectionIndex,
   CoreV2TextProjection,
 } from './contracts';
+import {
+  CoreV2PresentationController,
+  type CoreV2PresentationFrame,
+  type CoreV2PresentationSnapshot,
+} from './presentation';
+import { CoreV2PresentationProjectionStore } from './presentation-projection';
 import { parsePatchMapV010, projectCoreV2IntrinsicImageAffine } from './parser';
 import { withRendererDegradationDiagnostics } from './renderers/degradation';
 import { InvalidationScheduler, type FrameSchedulerDebug } from './scheduler';
@@ -192,6 +199,23 @@ export interface CoreV2ComponentVisualProductProbe {
   readonly renderLanes: CoreV2RenderLaneSnapshot | null;
 }
 
+export interface CoreV2BarPresentationProductProbe {
+  readonly target: CoreV2ComponentVisualTarget;
+  readonly entityId: string;
+  readonly policy: Readonly<{
+    readonly enabled: boolean;
+    readonly durationMs: number;
+  }>;
+  readonly semanticHeight: number;
+  readonly presentationHeight: number;
+  readonly active: boolean;
+  readonly startHeight: number;
+  readonly destinationHeight: number;
+  readonly startTimeMs: number | null;
+  readonly controller: CoreV2PresentationSnapshot;
+  readonly ghostPublicationCount: number;
+}
+
 export type CoreV2TextTarget =
   | Readonly<{ readonly kind: 'element'; readonly id: string }>
   | Readonly<{
@@ -297,11 +321,14 @@ export class CoreV2 {
   private readonly scene: CoreScene;
   private readonly scheduler: InvalidationScheduler;
   private readonly sceneImages: CoreV2SceneImageController;
+  private readonly presentationProjection = new CoreV2PresentationProjectionStore();
   private readonly parseOptions: ParsePatchMapOptions;
   private readonly autoRender: boolean;
   private readonly unbindInteractions: () => void;
   private parseResultValue: ParsePatchMapResult | null = null;
   private projectionValue: CoreV2ProjectionIndex | null = null;
+  private presentationController: CoreV2PresentationController;
+  private presentationGeneration = 1;
   private sceneImageReconcileSuspended = false;
   private currentView: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
   private worldFlipX = false;
@@ -322,12 +349,16 @@ export class CoreV2 {
   private textTargets = new Map<string, IndexedTextTarget | null>();
   private textRendererFactsPublished = false;
   private renderedSceneRevision: number | null = null;
+  private presentationGhostPublicationCount = 0;
 
   private constructor(renderer: PixiCoreV2Renderer, options: CoreV2Options) {
     this.renderer = renderer;
     this.initializationMetrics = renderer.initializationMetrics;
     this.parseOptions = options.parse ?? {};
     this.autoRender = options.autoRender ?? true;
+    this.presentationController = new CoreV2PresentationController({
+      lifecycleGeneration: this.presentationGeneration,
+    });
     this.scene = new CoreScene({
       renderer,
       ...(options.initialCapacity === undefined ? {} : { initialCapacity: options.initialCapacity }),
@@ -368,7 +399,9 @@ export class CoreV2 {
   }
 
   public get activeAnimations(): number {
-    return this.destroyedValue ? 0 : this.scene.activeAnimations;
+    return this.destroyedValue
+      ? 0
+      : this.scene.activeAnimations + this.presentationController.activeCount;
   }
 
   public get view(): CoreView {
@@ -387,6 +420,11 @@ export class CoreV2 {
     return this.projectionValue;
   }
 
+  /** Renderer-visible projection. Semantic consumers should use `projection`. */
+  public get visibleProjection(): CoreV2ProjectionIndex | null {
+    return this.presentationProjection.presentation;
+  }
+
   public load(input: unknown, options: ParsePatchMapOptions = this.parseOptions): CoreV2LoadResult {
     this.assertAlive();
     this.pendingIntrinsicImageSizes.clear();
@@ -401,11 +439,13 @@ export class CoreV2 {
     const storeLoadMs = now() - storeStarted;
     this.parseResultValue = parse;
     this.projectionValue = parse.projection;
+    this.resetPresentationController();
+    const presentation = this.presentationProjection.replace(parse.projection);
     this.entityCountValue = store.entityCount;
     this.currentView = parse.document.view ?? { x: 0, y: 0, scale: 1, rotation: 0 };
     this.animationClockMs = 0;
     this.lastAnimationFrameTime = null;
-    this.renderer.setProjection(this.projectionValue);
+    this.renderer.setProjection(presentation);
     this.sceneImages.reconcile(parse.projection, {
       activeEntityIds: this.activeSceneImageIds(),
     });
@@ -479,9 +519,10 @@ export class CoreV2 {
       this.sceneImageReconcileSuspended = false;
     }
     const commitMs = now() - commitStarted;
+    const presentation = this.reconcileBarPresentation(parse.projection);
     this.parseResultValue = parse;
     this.projectionValue = parse.projection;
-    this.renderer.setProjection(this.projectionValue);
+    this.renderer.setProjection(presentation);
     this.sceneImages.reconcile(parse.projection, {
       activeEntityIds: this.activeSceneImageIds(),
     });
@@ -491,6 +532,7 @@ export class CoreV2 {
     this.staleHitProjectionIds.clear();
     this.spatialHitAnimationEnds.clear();
     this.invalidateEntityHitIndex();
+    if (this.presentationController.activeCount > 0) this.invalidate('presentation');
     const after = this.scene.snapshot();
     return freezeReconcileResult({
       status: 'committed',
@@ -529,7 +571,22 @@ export class CoreV2 {
     this.scheduler.cancelPending();
     this.lastFrameReport = this.flushScene();
     if (this.lastFrameReport.rendered) void this.sceneImages.finalizeAfterRenderedFrame();
-    if (this.autoRender && this.scene.activeAnimations > 0) this.scheduler.invalidate(reason);
+    if (this.autoRender && this.activeAnimations > 0) this.scheduler.invalidate(reason);
+    return this.requireFrameReport();
+  }
+
+  /** Advance the deterministic presentation clock and publish one manual frame. */
+  public publishFrame(timeMs: number): FrameReport {
+    this.assertAlive();
+    if (!Number.isFinite(timeMs)) throw new TypeError('timeMs must be finite');
+    this.applyPendingIntrinsicImageSizes();
+    this.scheduler.cancelPending();
+    this.animationClockMs = timeMs;
+    this.lastAnimationFrameTime = null;
+    this.advancePresentation(timeMs);
+    this.lastFrameReport = this.flushScene();
+    if (this.lastFrameReport.rendered) void this.sceneImages.finalizeAfterRenderedFrame();
+    if (this.autoRender && this.activeAnimations > 0) this.scheduler.invalidate('presentation');
     return this.requireFrameReport();
   }
 
@@ -591,7 +648,14 @@ export class CoreV2 {
     }
     this.pruneCompletedSpatialHitAnimations(timeMs);
     this.renderer.markChanges(result.changedRanges, 'animation');
-    return result;
+    const presentation = this.advancePresentation(timeMs);
+    if (presentation.changedCount === 0 && presentation.activeCount === 0) return result;
+    return Object.freeze({
+      ...result,
+      activeAnimations: result.activeAnimations + presentation.activeCount,
+      changed: result.changed + presentation.changedCount,
+      changedRanges: mergeSlotRanges(result.changedRanges, presentation.dirtyRanges),
+    });
   }
 
   public setView(view: CoreView): CommitResult {
@@ -655,7 +719,7 @@ export class CoreV2 {
       worldPoint,
       options,
       (ref) => this.scene.get(ref),
-      this.projectionValue,
+      this.presentationProjection.presentation,
       this.staleHitProjectionIds,
     );
   }
@@ -667,7 +731,7 @@ export class CoreV2 {
     if (!entity || entity.kind === 'relation') return null;
     const projection = this.staleHitProjectionIds.has(entity.id)
       ? undefined
-      : this.projectionValue?.byEntityId[entity.id];
+      : this.presentationProjection.presentation?.byEntityId[entity.id];
     return coreV2EntityWorldAabb(entity, projection);
   }
 
@@ -684,7 +748,7 @@ export class CoreV2 {
     const indexed = this.componentTargets.get(componentTargetKey(normalizedTarget));
     if (!indexed) return null;
     const component = this.projectionValue?.componentsByEntityId?.[indexed.entityId];
-    const projection = this.projectionValue?.byEntityId[indexed.entityId];
+    const projection = this.presentationProjection.presentation?.byEntityId[indexed.entityId];
     const entity = this.scene.get(indexed.entityId);
     if (
       !component ||
@@ -727,13 +791,51 @@ export class CoreV2 {
     });
   }
 
+  public barPresentationProbe(
+    target: CoreV2ComponentVisualTarget,
+  ): CoreV2BarPresentationProductProbe | null {
+    this.assertAlive();
+    const normalizedTarget = normalizeComponentVisualTarget(target);
+    const indexed = this.componentTargets.get(componentTargetKey(normalizedTarget));
+    if (!indexed) return null;
+    const bar = this.projectionValue?.barsByEntityId?.[indexed.entityId];
+    if (
+      bar === undefined ||
+      (bar.ownerId !== normalizedTarget.ownerId &&
+        indexed.semanticOwnerId !== normalizedTarget.ownerId) ||
+      bar.componentId !== normalizedTarget.componentId
+    ) {
+      return null;
+    }
+    const controller = this.presentationController.snapshot();
+    const active = this.presentationController.probe(indexed.entityId);
+    const presentationHeight = this.presentationProjection.visibleHeight(indexed.entityId) ??
+      bar.destinationHeight;
+    return Object.freeze({
+      target: normalizedTarget,
+      entityId: indexed.entityId,
+      policy: Object.freeze({
+        enabled: bar.animation,
+        durationMs: bar.animationDuration,
+      }),
+      semanticHeight: bar.destinationHeight,
+      presentationHeight,
+      active: active !== null,
+      startHeight: active?.startValue ?? presentationHeight,
+      destinationHeight: active?.destinationValue ?? bar.destinationHeight,
+      startTimeMs: active?.startTimeMs ?? null,
+      controller,
+      ghostPublicationCount: this.presentationGhostPublicationCount,
+    });
+  }
+
   public textProbe(target: CoreV2TextTarget): CoreV2TextProductProbe | null {
     if (this.destroyedValue) return null;
     const normalizedTarget = normalizeCoreV2TextTarget(target);
     const indexed = this.textTargets.get(coreV2TextTargetKey(normalizedTarget));
     if (!indexed) return null;
     const semantic = this.projectionValue?.textsByEntityId?.[indexed.entityId];
-    const projection = this.projectionValue?.byEntityId[indexed.entityId];
+    const projection = this.presentationProjection.presentation?.byEntityId[indexed.entityId];
     const entity = this.scene.get(indexed.entityId);
     if (
       !semantic ||
@@ -989,6 +1091,8 @@ export class CoreV2 {
     this.entityHitIndexValue = null;
     this.staleHitProjectionIds.clear();
     this.spatialHitAnimationEnds.clear();
+    this.presentationController.destroy();
+    this.presentationProjection.clear();
     const cleanupFailures: Error[] = [];
     try {
       await this.sceneImages.destroy();
@@ -1025,20 +1129,23 @@ export class CoreV2 {
   private renderScheduledFrame(timeMs: number): boolean {
     if (this.destroyedValue) return false;
     this.applyPendingIntrinsicImageSizes();
-    if (this.scene.activeAnimations > 0) {
+    if (this.activeAnimations > 0) {
       if (this.lastAnimationFrameTime === null) this.lastAnimationFrameTime = timeMs;
       const delta = Math.max(0, timeMs - this.lastAnimationFrameTime);
       this.lastAnimationFrameTime = timeMs;
       this.animationClockMs += delta;
-      const spatialAnimationActive = this.spatialHitAnimationEnds.size > 0;
-      const advanced = this.scene.advance(this.animationClockMs);
-      if (advanced.changed > 0 && spatialAnimationActive) this.invalidateEntityHitIndex();
+      if (this.scene.activeAnimations > 0) {
+        const spatialAnimationActive = this.spatialHitAnimationEnds.size > 0;
+        const advanced = this.scene.advance(this.animationClockMs);
+        if (advanced.changed > 0 && spatialAnimationActive) this.invalidateEntityHitIndex();
+        this.renderer.markChanges(advanced.changedRanges, 'animation');
+      }
+      this.advancePresentation(this.animationClockMs);
       this.pruneCompletedSpatialHitAnimations(this.animationClockMs);
-      this.renderer.markChanges(advanced.changedRanges, 'animation');
     }
     this.lastFrameReport = this.flushScene();
     if (this.lastFrameReport.rendered) void this.sceneImages.finalizeAfterRenderedFrame();
-    const active = this.scene.activeAnimations > 0;
+    const active = this.activeAnimations > 0;
     if (!active) this.lastAnimationFrameTime = null;
     return active;
   }
@@ -1062,7 +1169,7 @@ export class CoreV2 {
   private entityHitIndex(): CoreV2EntityHitIndex {
     this.entityHitIndexValue ??= CoreV2EntityHitIndex.build(
       this.scene.snapshot(),
-      this.projectionValue,
+      this.presentationProjection.presentation,
       this.staleHitProjectionIds,
     );
     return this.entityHitIndexValue;
@@ -1070,6 +1177,146 @@ export class CoreV2 {
 
   private invalidateEntityHitIndex(): void {
     this.entityHitIndexValue = null;
+  }
+
+  private resetPresentationController(): void {
+    this.presentationController.destroy();
+    this.presentationGeneration += 1;
+    this.presentationController = new CoreV2PresentationController({
+      lifecycleGeneration: this.presentationGeneration,
+    });
+    this.presentationProjection.clear();
+    this.presentationGhostPublicationCount = 0;
+  }
+
+  /**
+   * Commit semantic bar destinations immediately while retaining only active
+   * renderer-visible heights in the transient projection sidecar.
+   */
+  private reconcileBarPresentation(next: CoreV2ProjectionIndex): CoreV2ProjectionIndex {
+    const previousBars = this.projectionValue?.barsByEntityId ?? {};
+    const nextBars = next.barsByEntityId ?? {};
+    const visibleHeights = new Map<string, number>();
+    const timeMs = this.animationClockMs;
+
+    for (const entityId of Object.keys(previousBars).sort()) {
+      if (nextBars[entityId] !== undefined) continue;
+      const active = this.presentationController.probe(entityId);
+      if (active !== null) {
+        this.presentationController.cancel({
+          entityId,
+          generation: active.generation,
+          timeMs,
+          reason: 'remove',
+        });
+      }
+    }
+
+    for (const entityId of Object.keys(nextBars).sort()) {
+      const bar = nextBars[entityId];
+      if (bar === undefined) continue;
+      const previous = previousBars[entityId];
+      const entity = this.scene.get(entityId);
+      const ref = entity?.ref ?? null;
+      const active = this.presentationController.probe(entityId);
+      const currentHeight = this.presentationProjection.visibleHeight(entityId) ??
+        previous?.destinationHeight ??
+        bar.destinationHeight;
+      const canAnimate = previous !== undefined &&
+        entity?.kind === 'bar' &&
+        entity.visible &&
+        ref !== null &&
+        bar.animation;
+      const destinationChanged = previous?.destinationHeight !== bar.destinationHeight;
+
+      if (!canAnimate) {
+        if (active !== null) {
+          this.presentationController.cancel({
+            entityId,
+            generation: active.generation,
+            timeMs,
+            reason: entity === null ? 'remove' : entity.visible ? 'replacement' : 'hide',
+          });
+        }
+        continue;
+      }
+
+      if (destinationChanged) {
+        const retargeted = this.presentationController.retarget({
+          entityId,
+          slot: ref.slot,
+          generation: ref.generation,
+          currentVisibleValue: currentHeight,
+          destinationValue: bar.destinationHeight,
+          timeMs,
+          durationMs: bar.animationDuration,
+          enabled: bar.animation,
+        });
+        if (retargeted.scheduled) visibleHeights.set(entityId, retargeted.startValue);
+        continue;
+      }
+
+      if (
+        active !== null &&
+        active.slot === ref.slot &&
+        active.generation === ref.generation
+      ) {
+        visibleHeights.set(entityId, active.currentValue);
+      } else if (active !== null) {
+        this.presentationController.cancel({
+          entityId,
+          generation: active.generation,
+          timeMs,
+          reason: 'replacement',
+        });
+      }
+    }
+
+    return this.presentationProjection.replace(next, visibleHeights);
+  }
+
+  private advancePresentation(timeMs: number): CoreV2PresentationFrame {
+    const frame = this.presentationController.advance(timeMs);
+    if (frame.updates.length === 0) return frame;
+    const changedSlots: number[] = [];
+    for (const update of frame.updates) {
+      const ref = this.scene.ref(update.entityId);
+      const entity = ref === null ? null : this.scene.get(ref);
+      const bar = this.projectionValue?.barsByEntityId?.[update.entityId];
+      if (
+        ref === null ||
+        ref.slot !== update.slot ||
+        ref.generation !== update.generation ||
+        entity?.kind !== 'bar' ||
+        !entity.visible ||
+        bar === undefined
+      ) {
+        this.presentationGhostPublicationCount += 1;
+        continue;
+      }
+      if (this.presentationProjection.applyBarHeight(update.entityId, update.value)) {
+        changedSlots.push(update.slot);
+      }
+    }
+    if (changedSlots.length === 0) return frame;
+    const projection = this.presentationProjection.presentation;
+    if (projection === null) return frame;
+    const ranges = contiguousSlotRanges(changedSlots);
+    this.renderer.setProjection(projection, ranges);
+    this.componentRendererFactsPublished = false;
+    this.invalidateEntityHitIndex();
+    return frame;
+  }
+
+  private visibleBarHeights(): ReadonlyMap<string, number> {
+    const heights = new Map<string, number>();
+    const bars = this.projectionValue?.barsByEntityId ?? {};
+    for (const entityId of Object.keys(bars).sort()) {
+      if (this.presentationController.probe(entityId) === null) continue;
+      const height = this.presentationProjection.visibleHeight(entityId);
+      if (height !== null) heights.set(entityId, height);
+    }
+    return heights;
   }
 
   private activeSceneImageIds(): ReadonlySet<string> {
@@ -1144,7 +1391,8 @@ export class CoreV2 {
     if (changedIds.length === 0) return;
     const next = freezeProjectionReplacements(currentIndex, replacements);
     this.projectionValue = next;
-    this.renderer.setProjection(next);
+    const presentation = this.presentationProjection.replace(next, this.visibleBarHeights());
+    this.renderer.setProjection(presentation);
     for (const entityId of changedIds) this.staleHitProjectionIds.delete(entityId);
     this.invalidateEntityHitIndex();
   }
@@ -1372,6 +1620,31 @@ function clampFraction(value: number): number {
   return value;
 }
 
+function mergeSlotRanges(
+  left: readonly SlotRange[],
+  right: readonly SlotRange[],
+): readonly SlotRange[] {
+  const slots: number[] = [];
+  for (const range of [...left, ...right]) {
+    for (let slot = range.start; slot < range.end; slot += 1) slots.push(slot);
+  }
+  return contiguousSlotRanges(slots);
+}
+
+function contiguousSlotRanges(slots: readonly number[]): readonly SlotRange[] {
+  const ordered = [...new Set(slots)].sort((left, right) => left - right);
+  const ranges: SlotRange[] = [];
+  for (const slot of ordered) {
+    const previous = ranges.at(-1);
+    if (previous?.end === slot) {
+      ranges[ranges.length - 1] = Object.freeze({ start: previous.start, end: slot + 1 });
+    } else {
+      ranges.push(Object.freeze({ start: slot, end: slot + 1 }));
+    }
+  }
+  return Object.freeze(ranges);
+}
+
 function now(): number {
   return globalThis.performance?.now() ?? Date.now();
 }
@@ -1537,6 +1810,18 @@ function indexComponentTargets(
     indexComponentTarget(targets, component.ownerId, component.componentId, indexed);
     if (semanticOwnerId !== component.ownerId) {
       indexComponentTarget(targets, semanticOwnerId, component.componentId, indexed);
+    }
+  }
+  const bars = parse.projection.barsByEntityId ?? {};
+  for (const entityId of Object.keys(bars).sort()) {
+    const bar = bars[entityId];
+    if (!bar) continue;
+    const semanticOwnerId = parse.identity.entitySourceById[entityId]?.sourceElementId ??
+      bar.ownerId;
+    const indexed = Object.freeze({ entityId, semanticOwnerId });
+    indexComponentTarget(targets, bar.ownerId, bar.componentId, indexed);
+    if (semanticOwnerId !== bar.ownerId) {
+      indexComponentTarget(targets, semanticOwnerId, bar.componentId, indexed);
     }
   }
   return targets;

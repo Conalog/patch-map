@@ -316,18 +316,30 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], ranges);
   }
 
-  public setProjection(index: CoreV2ProjectionIndex): boolean {
+  /**
+   * Replace the semantic projection index, or publish in-place transient
+   * presentation edits with caller-owned dirty ranges. The explicit-range
+   * path avoids an O(scene) projection diff on every animation frame.
+   */
+  public setProjection(
+    index: CoreV2ProjectionIndex,
+    changedRanges?: readonly SlotRange[],
+  ): boolean {
     this.assertAlive();
-    if (this.projectionIndex === index) return false;
+    if (this.projectionIndex === index && changedRanges === undefined) return false;
     const previous = this.projectionIndex;
     this.projectionIndex = index;
     this.projectionRevision += 1;
-    const ranges = this.lastStore
-      ? projectionChangedRanges(this.lastStore, previous, index)
-      : [];
+    const ranges = changedRanges === undefined
+      ? this.lastStore
+        ? projectionChangedRanges(this.lastStore, previous, index)
+        : []
+      : mergeRanges([], changedRanges);
     this.pendingRanges = mergeRanges(this.pendingRanges ?? [], ranges);
     this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], ranges);
-    this.lastInvalidation = 'projection';
+    this.lastInvalidation = changedRanges === undefined
+      ? 'projection'
+      : 'presentation-projection';
     return true;
   }
 
