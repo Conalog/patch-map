@@ -1,0 +1,1257 @@
+import {
+  CORE_V2_COMPONENT_TYPES,
+  CORE_V2_ELEMENT_TYPES,
+  CoreV2DatasetError,
+  materializeCoreV2Dataset,
+  type MaterializedCoreV2Dataset,
+} from './dataset';
+
+export const CORE_V2_MUTATION_TRANSACTION_REVISION =
+  'core-v2-mutation-transaction/1' as const;
+
+export type CoreV2MutationConflictPolicy = 'reject' | 'cancel-active' | 'queue-after';
+export type CoreV2MutationPathSegment = string | number;
+export type CoreV2MutationTarget =
+  | Readonly<{ readonly kind: 'element'; readonly id: string }>
+  | Readonly<{
+      readonly kind: 'component';
+      readonly ownerId: string;
+      readonly id: string;
+    }>;
+
+export type CoreV2MutationJsonValue =
+  | null
+  | string
+  | number
+  | boolean
+  | readonly CoreV2MutationJsonValue[]
+  | Readonly<{ readonly [key: string]: CoreV2MutationJsonValue }>;
+
+export interface CoreV2MutationPathChange {
+  readonly path: readonly CoreV2MutationPathSegment[];
+  readonly value: CoreV2MutationJsonValue;
+}
+
+export type CoreV2MutationOperation =
+  | Readonly<{
+      readonly op: 'merge';
+      readonly target: CoreV2MutationTarget;
+      readonly changes: readonly CoreV2MutationPathChange[];
+    }>
+  | Readonly<{
+      readonly op: 'replace';
+      readonly target: CoreV2MutationTarget;
+      readonly value: Readonly<Record<string, CoreV2MutationJsonValue>>;
+    }>
+  | Readonly<{
+      readonly op: 'reconcile-components';
+      readonly target: Extract<CoreV2MutationTarget, { readonly kind: 'element' }>;
+      readonly components: readonly Readonly<Record<string, CoreV2MutationJsonValue>>[];
+      readonly matchMode?: 'replace';
+    }>
+  | Readonly<{
+      readonly op: 'remove';
+      readonly target: CoreV2MutationTarget;
+      readonly cascade: 'reject' | 'subtree';
+    }>;
+
+export interface CoreV2MutationTransactionRequest {
+  readonly operations: readonly CoreV2MutationOperation[];
+  readonly strict: boolean;
+  readonly actionId?: string;
+  readonly conflictPolicy?: CoreV2MutationConflictPolicy;
+  readonly recordHistory?: boolean;
+  readonly history?: CoreV2MutationJsonValue;
+}
+
+export type CoreV2MutationDiagnosticCategory =
+  | 'INVALID_INPUT'
+  | 'MISSING_TARGET'
+  | 'UNSUPPORTED_RUNTIME';
+
+export type CoreV2MutationDiagnosticCode =
+  | 'INVALID_SCHEMA_VERSION'
+  | 'INVALID_RECORD_KIND'
+  | 'UNKNOWN_FIELD'
+  | 'INVALID_VALUE'
+  | 'INVALID_PATH'
+  | 'INVALID_MUTATION'
+  | 'OVERLAPPING_PATH'
+  | 'CONFLICTING_FIELDS'
+  | 'DUPLICATE_ID'
+  | 'NON_SERIALIZABLE_VALUE'
+  | 'MISSING_TARGET'
+  | 'UNSUPPORTED_RUNTIME';
+
+export interface CoreV2MutationTransactionDiagnostic {
+  readonly code: CoreV2MutationDiagnosticCode;
+  readonly category: CoreV2MutationDiagnosticCategory;
+  readonly path: string;
+  readonly message: string;
+  readonly operationIndex?: number;
+  readonly target?: CoreV2MutationTarget;
+  readonly datasetCode?: CoreV2DatasetError['code'];
+}
+
+export interface CoreV2MutationTransactionSummary {
+  readonly appliedCount: number;
+  readonly missingCount: number;
+  readonly unchangedCount: number;
+}
+
+export type CoreV2MutationTransactionPlan =
+  | Readonly<{
+      readonly status: 'planned';
+      readonly changed: boolean;
+      readonly schemaRevision: typeof CORE_V2_MUTATION_TRANSACTION_REVISION;
+      readonly strict: boolean;
+      readonly conflictPolicy: CoreV2MutationConflictPolicy;
+      readonly actionId?: string;
+      readonly recordHistory?: boolean;
+      readonly history?: CoreV2MutationJsonValue;
+      readonly candidate: MaterializedCoreV2Dataset;
+      readonly applied: readonly CoreV2MutationTarget[];
+      readonly missing: readonly CoreV2MutationTarget[];
+      readonly unchanged: readonly CoreV2MutationTarget[];
+      readonly summary: CoreV2MutationTransactionSummary;
+    }>
+  | Readonly<{
+      readonly status: 'rejected';
+      readonly changed: false;
+      readonly schemaRevision: typeof CORE_V2_MUTATION_TRANSACTION_REVISION;
+      readonly candidate: null;
+      readonly applied: readonly [];
+      readonly missing: readonly [];
+      readonly unchanged: readonly [];
+      readonly summary: CoreV2MutationTransactionSummary;
+      readonly diagnostic: CoreV2MutationTransactionDiagnostic;
+    }>;
+
+type MutableJsonValue =
+  | null
+  | string
+  | number
+  | boolean
+  | MutableJsonValue[]
+  | { [key: string]: MutableJsonValue };
+type MutableJsonRecord = { [key: string]: MutableJsonValue };
+
+interface NormalizedTransaction {
+  readonly operations: readonly CoreV2MutationOperation[];
+  readonly strict: boolean;
+  readonly conflictPolicy: CoreV2MutationConflictPolicy;
+  readonly actionId?: string;
+  readonly recordHistory?: boolean;
+  readonly history?: CoreV2MutationJsonValue;
+}
+
+interface StagedLocation {
+  readonly kind: CoreV2MutationTarget['kind'];
+  readonly ownerId?: string;
+  readonly parent: MutableJsonValue[];
+  readonly index: number;
+  record: MutableJsonRecord;
+}
+
+type TargetOutcome = 'missing' | 'unchanged' | 'applied';
+
+interface TargetJournalEntry {
+  readonly target: CoreV2MutationTarget;
+  outcome: TargetOutcome;
+}
+
+const TRANSACTION_FIELDS = new Set([
+  'operations',
+  'strict',
+  'actionId',
+  'conflictPolicy',
+  'recordHistory',
+  'history',
+]);
+const TARGET_ELEMENT_FIELDS = new Set(['kind', 'id']);
+const TARGET_COMPONENT_FIELDS = new Set(['kind', 'ownerId', 'id']);
+const MERGE_FIELDS = new Set(['op', 'target', 'changes']);
+const CHANGE_FIELDS = new Set(['path', 'value']);
+const REPLACE_FIELDS = new Set(['op', 'target', 'value']);
+const RECONCILE_FIELDS = new Set(['op', 'target', 'components', 'matchMode']);
+const REMOVE_FIELDS = new Set(['op', 'target', 'cascade']);
+const UNSAFE_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor']);
+const ELEMENT_TYPE_SET = new Set<string>(CORE_V2_ELEMENT_TYPES);
+const COMPONENT_TYPE_SET = new Set<string>(CORE_V2_COMPONENT_TYPES);
+const SUPPORTED_OPERATION_SET = new Set(['merge', 'replace', 'reconcile-components', 'remove']);
+const CONTRACT_OPERATION_SET = new Set([
+  'add',
+  'merge',
+  'unset',
+  'replace',
+  'reconcile-components',
+  'move',
+  'group',
+  'ungroup',
+  'remove',
+  'refresh',
+]);
+const EMPTY_TARGETS: readonly [] = Object.freeze([]);
+
+/**
+ * Validate and stage one versioned mutation transaction without touching engine,
+ * history, renderer, or handle state. All operations run against one detached
+ * candidate and the dataset is materialized exactly once after staging succeeds.
+ */
+export function planCoreV2MutationTransaction(
+  current: MaterializedCoreV2Dataset,
+  requestInput: unknown,
+  schemaRevision: string = CORE_V2_MUTATION_TRANSACTION_REVISION,
+): CoreV2MutationTransactionPlan {
+  if (schemaRevision !== CORE_V2_MUTATION_TRANSACTION_REVISION) {
+    return rejected(
+      diagnostic(
+        'INVALID_SCHEMA_VERSION',
+        'INVALID_INPUT',
+        '$.schemaRevision',
+        `Expected ${CORE_V2_MUTATION_TRANSACTION_REVISION}`,
+      ),
+    );
+  }
+
+  let request: NormalizedTransaction;
+  try {
+    request = normalizeTransaction(requestInput);
+  } catch (error) {
+    if (!(error instanceof TransactionValidationFailure)) throw error;
+    return rejected(error.diagnostic);
+  }
+
+  const stagedValue = cloneMutableJson(current.dataset, '$.current');
+  if (!Array.isArray(stagedValue)) {
+    return rejected(
+      diagnostic('INVALID_VALUE', 'INVALID_INPUT', '$.current', 'Current dataset must be an array'),
+    );
+  }
+  const staged = stagedValue;
+  let index = indexDataset(staged);
+  const journal = new Map<string, TargetJournalEntry>();
+
+  try {
+    request.operations.forEach((operation, operationIndex) => {
+      const operationPath = `$.operations[${operationIndex}]`;
+      const located = locate(index, operation.target, operationPath, operationIndex);
+      if (located === undefined) {
+        noteOutcome(journal, operation.target, 'missing');
+        if (request.strict) {
+          transactionFail(
+            'MISSING_TARGET',
+            'MISSING_TARGET',
+            `${operationPath}.target`,
+            `No staged record matches ${targetLabel(operation.target)}`,
+            operationIndex,
+            operation.target,
+          );
+        }
+        return;
+      }
+
+      const before = cloneMutableJson(located.record, `${operationPath}.target`);
+      let rebuildIndex = false;
+      switch (operation.op) {
+        case 'merge':
+          for (const change of operation.changes) {
+            applyPathChange(located.record, change, operationPath, operationIndex, operation.target);
+            if (isIndexStructuralPath(change.path)) rebuildIndex = true;
+          }
+          break;
+        case 'replace': {
+          const replacement = replacementRecord(operation, operationPath, operationIndex);
+          located.parent[located.index] = replacement;
+          located.record = replacement;
+          rebuildIndex = operation.target.kind === 'element';
+          break;
+        }
+        case 'reconcile-components':
+          reconcileComponents(located, operation, operationPath, operationIndex);
+          rebuildIndex = true;
+          break;
+        case 'remove':
+          removeTarget(located, operation, operationPath, operationIndex);
+          rebuildIndex = true;
+          break;
+      }
+
+      const changed = operation.op === 'remove' || !jsonEquivalent(before, located.record);
+      noteOutcome(journal, operation.target, changed ? 'applied' : 'unchanged');
+      if (rebuildIndex) index = indexDataset(staged);
+    });
+  } catch (error) {
+    if (!(error instanceof TransactionValidationFailure)) throw error;
+    return rejected(error.diagnostic);
+  }
+
+  let candidate: MaterializedCoreV2Dataset;
+  try {
+    candidate = materializeCoreV2Dataset(staged);
+  } catch (error) {
+    if (!(error instanceof CoreV2DatasetError)) throw error;
+    const code = datasetDiagnosticCode(error);
+    return rejected(
+      diagnostic(
+        code,
+        'INVALID_INPUT',
+        error.datasetPath,
+        error.message,
+        undefined,
+        undefined,
+        error.code,
+      ),
+    );
+  }
+
+  const applied = journalTargets(journal, 'applied');
+  const missing = journalTargets(journal, 'missing');
+  const unchanged = journalTargets(journal, 'unchanged');
+  const summary = freezeSummary(applied.length, missing.length, unchanged.length);
+  const changed = !jsonEquivalent(current.dataset, candidate.dataset);
+
+  return Object.freeze({
+    status: 'planned',
+    changed,
+    schemaRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+    strict: request.strict,
+    conflictPolicy: request.conflictPolicy,
+    ...(request.actionId === undefined ? {} : { actionId: request.actionId }),
+    ...(request.recordHistory === undefined ? {} : { recordHistory: request.recordHistory }),
+    ...(request.history === undefined ? {} : { history: request.history }),
+    candidate,
+    applied,
+    missing,
+    unchanged,
+    summary,
+  });
+}
+
+function normalizeTransaction(value: unknown): NormalizedTransaction {
+  const record = strictRecord(value, '$', 'transaction must be a strict plain record');
+  rejectUnknownFields(record, TRANSACTION_FIELDS, '$');
+
+  if (!Array.isArray(record.operations) || record.operations.length === 0) {
+    transactionFail(
+      'INVALID_MUTATION',
+      'INVALID_INPUT',
+      '$.operations',
+      'operations must be a non-empty ordered array',
+    );
+  }
+  if (typeof record.strict !== 'boolean') {
+    transactionFail('INVALID_VALUE', 'INVALID_INPUT', '$.strict', 'strict must be a boolean');
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(record, 'actionId') &&
+    (typeof record.actionId !== 'string' || record.actionId.length === 0)
+  ) {
+    transactionFail(
+      'INVALID_VALUE',
+      'INVALID_INPUT',
+      '$.actionId',
+      'actionId must be a non-empty string',
+    );
+  }
+  const conflictPolicy = record.conflictPolicy ?? 'reject';
+  if (
+    conflictPolicy !== 'reject' &&
+    conflictPolicy !== 'cancel-active' &&
+    conflictPolicy !== 'queue-after'
+  ) {
+    transactionFail(
+      'INVALID_VALUE',
+      'INVALID_INPUT',
+      '$.conflictPolicy',
+      'conflictPolicy must be reject, cancel-active, or queue-after',
+    );
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(record, 'recordHistory') &&
+    typeof record.recordHistory !== 'boolean'
+  ) {
+    transactionFail(
+      'INVALID_VALUE',
+      'INVALID_INPUT',
+      '$.recordHistory',
+      'recordHistory must be a boolean',
+    );
+  }
+
+  const operations = Object.freeze(
+    record.operations.map((operation, index) => normalizeOperation(operation, index)),
+  );
+  const history = Object.prototype.hasOwnProperty.call(record, 'history')
+    ? cloneImmutableJson(record.history, '$.history')
+    : undefined;
+  const actionId = typeof record.actionId === 'string' ? record.actionId : undefined;
+  const recordHistory = typeof record.recordHistory === 'boolean'
+    ? record.recordHistory
+    : undefined;
+
+  return Object.freeze({
+    operations,
+    strict: record.strict,
+    conflictPolicy,
+    ...(actionId === undefined ? {} : { actionId }),
+    ...(recordHistory === undefined ? {} : { recordHistory }),
+    ...(history === undefined ? {} : { history }),
+  });
+}
+
+function normalizeOperation(value: unknown, operationIndex: number): CoreV2MutationOperation {
+  const path = `$.operations[${operationIndex}]`;
+  const record = strictRecord(value, path, 'operation must be a strict plain record');
+  if (typeof record.op !== 'string') {
+    transactionFail(
+      'INVALID_MUTATION',
+      'INVALID_INPUT',
+      `${path}.op`,
+      'operation discriminator must be a string',
+      operationIndex,
+    );
+  }
+  if (!SUPPORTED_OPERATION_SET.has(record.op)) {
+    const known = CONTRACT_OPERATION_SET.has(record.op);
+    transactionFail(
+      known ? 'UNSUPPORTED_RUNTIME' : 'INVALID_MUTATION',
+      known ? 'UNSUPPORTED_RUNTIME' : 'INVALID_INPUT',
+      `${path}.op`,
+      known
+        ? `Operation ${record.op} is outside this planner profile`
+        : `Unknown operation discriminator ${record.op}`,
+      operationIndex,
+    );
+  }
+
+  switch (record.op) {
+    case 'merge': {
+      rejectUnknownFields(record, MERGE_FIELDS, path, operationIndex);
+      const target = normalizeTarget(record.target, `${path}.target`, operationIndex);
+      if (!Array.isArray(record.changes)) {
+        transactionFail(
+          'INVALID_VALUE',
+          'INVALID_INPUT',
+          `${path}.changes`,
+          'changes must be an ordered array',
+          operationIndex,
+          target,
+        );
+      }
+      const changes = Object.freeze(
+        record.changes.map((change, changeIndex) =>
+          normalizeChange(change, operationIndex, changeIndex, target),
+        ),
+      );
+      assertNoOverlappingPaths(changes, operationIndex, target);
+      return Object.freeze({ op: 'merge', target, changes });
+    }
+    case 'replace': {
+      rejectUnknownFields(record, REPLACE_FIELDS, path, operationIndex);
+      const target = normalizeTarget(record.target, `${path}.target`, operationIndex);
+      const valueRecord = strictRecord(
+        record.value,
+        `${path}.value`,
+        'replacement value must be a strict plain record',
+      );
+      const replacement = cloneImmutableJson(valueRecord, `${path}.value`);
+      if (!isJsonRecord(replacement)) throw new Error('Replacement clone lost record shape');
+      return Object.freeze({ op: 'replace', target, value: replacement });
+    }
+    case 'reconcile-components': {
+      rejectUnknownFields(record, RECONCILE_FIELDS, path, operationIndex);
+      const target = normalizeTarget(record.target, `${path}.target`, operationIndex);
+      if (target.kind !== 'element') {
+        transactionFail(
+          'INVALID_MUTATION',
+          'INVALID_INPUT',
+          `${path}.target.kind`,
+          'reconcile-components requires an element target',
+          operationIndex,
+          target,
+        );
+      }
+      if (!Array.isArray(record.components)) {
+        transactionFail(
+          'INVALID_VALUE',
+          'INVALID_INPUT',
+          `${path}.components`,
+          'components must be an ordered array',
+          operationIndex,
+          target,
+        );
+      }
+      if (record.matchMode !== undefined && record.matchMode !== 'replace') {
+        transactionFail(
+          'UNSUPPORTED_RUNTIME',
+          'UNSUPPORTED_RUNTIME',
+          `${path}.matchMode`,
+          'Only authoritative replace reconciliation is implemented by this profile',
+          operationIndex,
+          target,
+        );
+      }
+      const components = Object.freeze(
+        record.components.map((component, index) => {
+          const componentRecord = strictRecord(
+            component,
+            `${path}.components[${index}]`,
+            'component must be a strict plain record',
+          );
+          const clone = cloneImmutableJson(componentRecord, `${path}.components[${index}]`);
+          if (!isJsonRecord(clone)) throw new Error('Component clone lost record shape');
+          return clone;
+        }),
+      );
+      assertUniqueComponentIds(components, path, operationIndex, target);
+      return Object.freeze({
+        op: 'reconcile-components',
+        target,
+        components,
+        matchMode: 'replace',
+      });
+    }
+    case 'remove': {
+      rejectUnknownFields(record, REMOVE_FIELDS, path, operationIndex);
+      const target = normalizeTarget(record.target, `${path}.target`, operationIndex);
+      if (record.cascade !== 'reject' && record.cascade !== 'subtree') {
+        transactionFail(
+          'INVALID_VALUE',
+          'INVALID_INPUT',
+          `${path}.cascade`,
+          'cascade must be reject or subtree',
+          operationIndex,
+          target,
+        );
+      }
+      return Object.freeze({ op: 'remove', target, cascade: record.cascade });
+    }
+    default:
+      throw new Error('Supported operation was not normalized');
+  }
+}
+
+function normalizeChange(
+  value: unknown,
+  operationIndex: number,
+  changeIndex: number,
+  target: CoreV2MutationTarget,
+): CoreV2MutationPathChange {
+  const path = `$.operations[${operationIndex}].changes[${changeIndex}]`;
+  const record = strictRecord(value, path, 'change must be a strict plain record');
+  rejectUnknownFields(record, CHANGE_FIELDS, path, operationIndex, target);
+  if (!Object.prototype.hasOwnProperty.call(record, 'value')) {
+    transactionFail(
+      'INVALID_MUTATION',
+      'INVALID_INPUT',
+      `${path}.value`,
+      'change value is required',
+      operationIndex,
+      target,
+    );
+  }
+  if (!Array.isArray(record.path) || record.path.length === 0) {
+    transactionFail(
+      'INVALID_PATH',
+      'INVALID_INPUT',
+      `${path}.path`,
+      'path must be a non-empty segment array',
+      operationIndex,
+      target,
+    );
+  }
+  const segments = Object.freeze(
+    record.path.map((segment, segmentIndex) => {
+      if (typeof segment === 'string') {
+        if (segment.length === 0 || UNSAFE_PATH_SEGMENTS.has(segment)) {
+          transactionFail(
+            'INVALID_PATH',
+            'INVALID_INPUT',
+            `${path}.path[${segmentIndex}]`,
+            'path contains an empty or unsafe property segment',
+            operationIndex,
+            target,
+          );
+        }
+        return segment;
+      }
+      if (typeof segment === 'number' && Number.isInteger(segment) && segment >= 0) {
+        return segment;
+      }
+      transactionFail(
+        'INVALID_PATH',
+        'INVALID_INPUT',
+        `${path}.path[${segmentIndex}]`,
+        'path segments must be property strings or nonnegative integer indexes',
+        operationIndex,
+        target,
+      );
+    }),
+  );
+  if (segments[0] === 'id' || segments[0] === 'type') {
+    transactionFail(
+      'INVALID_PATH',
+      'INVALID_INPUT',
+      `${path}.path[0]`,
+      'identity and discriminator fields require explicit structural operations',
+      operationIndex,
+      target,
+    );
+  }
+  return Object.freeze({
+    path: segments,
+    value: cloneImmutableJson(record.value, `${path}.value`),
+  });
+}
+
+function normalizeTarget(
+  value: unknown,
+  path: string,
+  operationIndex: number,
+): CoreV2MutationTarget {
+  const record = strictRecord(value, path, 'target must be a strict plain record');
+  if (record.kind !== 'element' && record.kind !== 'component') {
+    transactionFail(
+      'INVALID_MUTATION',
+      'INVALID_INPUT',
+      `${path}.kind`,
+      "target kind must be 'element' or 'component'",
+      operationIndex,
+    );
+  }
+  rejectUnknownFields(
+    record,
+    record.kind === 'element' ? TARGET_ELEMENT_FIELDS : TARGET_COMPONENT_FIELDS,
+    path,
+    operationIndex,
+  );
+  if (typeof record.id !== 'string') {
+    transactionFail(
+      'INVALID_VALUE',
+      'INVALID_INPUT',
+      `${path}.id`,
+      'target id must be a string',
+      operationIndex,
+    );
+  }
+  if (record.kind === 'element') return Object.freeze({ kind: 'element', id: record.id });
+  if (typeof record.ownerId !== 'string') {
+    transactionFail(
+      'INVALID_VALUE',
+      'INVALID_INPUT',
+      `${path}.ownerId`,
+      'component target ownerId must be a string',
+      operationIndex,
+    );
+  }
+  return Object.freeze({ kind: 'component', ownerId: record.ownerId, id: record.id });
+}
+
+function applyPathChange(
+  target: MutableJsonRecord,
+  change: CoreV2MutationPathChange,
+  operationPath: string,
+  operationIndex: number,
+  logicalTarget: CoreV2MutationTarget,
+): void {
+  let parent: MutableJsonValue = target;
+  const lastIndex = change.path.length - 1;
+  for (let index = 0; index < lastIndex; index += 1) {
+    const segment = requireAt(change.path, index);
+    const nextSegment = requireAt(change.path, index + 1);
+    if (typeof segment === 'number') {
+      if (!Array.isArray(parent) || segment >= parent.length) {
+        invalidAppliedPath(operationPath, operationIndex, logicalTarget, change.path, index);
+      }
+      parent = requireAt(parent, segment);
+      continue;
+    }
+    if (!isMutableJsonRecord(parent)) {
+      invalidAppliedPath(operationPath, operationIndex, logicalTarget, change.path, index);
+    }
+    const existing: MutableJsonValue | undefined = parent[segment];
+    if (existing === undefined) {
+      if (typeof nextSegment === 'number') {
+        invalidAppliedPath(operationPath, operationIndex, logicalTarget, change.path, index);
+      }
+      const created: MutableJsonRecord = {};
+      defineMutableProperty(parent, segment, created);
+      parent = created;
+      continue;
+    }
+    parent = existing;
+  }
+
+  const leaf = requireAt(change.path, lastIndex);
+  const incoming = cloneMutableJson(change.value, `${operationPath}.changes.value`);
+  if (typeof leaf === 'number') {
+    if (!Array.isArray(parent) || leaf >= parent.length) {
+      invalidAppliedPath(operationPath, operationIndex, logicalTarget, change.path, lastIndex);
+    }
+    const previous = requireAt(parent, leaf);
+    parent[leaf] = mergedValue(previous, incoming);
+    return;
+  }
+  if (!isMutableJsonRecord(parent)) {
+    invalidAppliedPath(operationPath, operationIndex, logicalTarget, change.path, lastIndex);
+  }
+  const previous = parent[leaf];
+  defineMutableProperty(
+    parent,
+    leaf,
+    previous === undefined ? incoming : mergedValue(previous, incoming),
+  );
+}
+
+function replacementRecord(
+  operation: Extract<CoreV2MutationOperation, { readonly op: 'replace' }>,
+  operationPath: string,
+  operationIndex: number,
+): MutableJsonRecord {
+  const replacement = cloneMutableJson(operation.value, `${operationPath}.value`);
+  if (!isMutableJsonRecord(replacement)) throw new Error('Replacement clone lost record shape');
+  const suppliedId = replacement.id;
+  if (suppliedId !== undefined && suppliedId !== operation.target.id) {
+    transactionFail(
+      'CONFLICTING_FIELDS',
+      'INVALID_INPUT',
+      `${operationPath}.value.id`,
+      'replacement identity must equal the logical target identity',
+      operationIndex,
+      operation.target,
+    );
+  }
+  defineMutableProperty(replacement, 'id', operation.target.id);
+  const type = replacement.type;
+  const validScope = operation.target.kind === 'element'
+    ? typeof type === 'string' && ELEMENT_TYPE_SET.has(type)
+    : typeof type === 'string' && COMPONENT_TYPE_SET.has(type);
+  if (!validScope) {
+    transactionFail(
+      'INVALID_RECORD_KIND',
+      'INVALID_INPUT',
+      `${operationPath}.value.type`,
+      `replacement discriminator is not valid for ${operation.target.kind} scope`,
+      operationIndex,
+      operation.target,
+    );
+  }
+  return replacement;
+}
+
+function reconcileComponents(
+  location: StagedLocation,
+  operation: Extract<CoreV2MutationOperation, { readonly op: 'reconcile-components' }>,
+  operationPath: string,
+  operationIndex: number,
+): void {
+  if (location.record.type !== 'item') {
+    transactionFail(
+      'INVALID_MUTATION',
+      'INVALID_INPUT',
+      `${operationPath}.target`,
+      'reconcile-components target must resolve to an item element',
+      operationIndex,
+      operation.target,
+    );
+  }
+  const components = operation.components.map((component) =>
+    cloneMutableJson(component, `${operationPath}.components`),
+  );
+  defineMutableProperty(location.record, 'components', components);
+}
+
+function removeTarget(
+  location: StagedLocation,
+  operation: Extract<CoreV2MutationOperation, { readonly op: 'remove' }>,
+  operationPath: string,
+  operationIndex: number,
+): void {
+  if (
+    operation.target.kind === 'element' &&
+    operation.cascade === 'reject' &&
+    location.record.type === 'group' &&
+    Array.isArray(location.record.children) &&
+    location.record.children.length > 0
+  ) {
+    transactionFail(
+      'CONFLICTING_FIELDS',
+      'INVALID_INPUT',
+      `${operationPath}.cascade`,
+      'cascade reject cannot remove a group with children',
+      operationIndex,
+      operation.target,
+    );
+  }
+  location.parent.splice(location.index, 1);
+}
+
+function indexDataset(dataset: MutableJsonValue[]): ReadonlyMap<string, readonly StagedLocation[]> {
+  const mutable = new Map<string, StagedLocation[]>();
+  dataset.forEach((value, index) => indexElement(value, dataset, index, mutable));
+  return mutable;
+}
+
+function indexElement(
+  value: MutableJsonValue,
+  parent: MutableJsonValue[],
+  index: number,
+  targetIndex: Map<string, StagedLocation[]>,
+): void {
+  if (!isMutableJsonRecord(value)) return;
+  const id = value.id;
+  if (typeof id !== 'string') return;
+  addLocation(targetIndex, targetKey({ kind: 'element', id }), {
+    kind: 'element',
+    parent,
+    index,
+    record: value,
+  });
+
+  if (value.type === 'group' && Array.isArray(value.children)) {
+    value.children.forEach((child, childIndex) =>
+      indexElement(child, value.children as MutableJsonValue[], childIndex, targetIndex),
+    );
+  }
+  if (value.type === 'item' && Array.isArray(value.components)) {
+    indexComponents(value.components, id, targetIndex);
+  }
+  const gridItem = value.item;
+  if (value.type === 'grid' && isMutableJsonRecord(gridItem) && Array.isArray(gridItem.components)) {
+    indexComponents(gridItem.components, id, targetIndex);
+  }
+}
+
+function indexComponents(
+  components: MutableJsonValue[],
+  ownerId: string,
+  targetIndex: Map<string, StagedLocation[]>,
+): void {
+  components.forEach((value, index) => {
+    if (!isMutableJsonRecord(value) || typeof value.id !== 'string') return;
+    addLocation(targetIndex, targetKey({ kind: 'component', ownerId, id: value.id }), {
+      kind: 'component',
+      ownerId,
+      parent: components,
+      index,
+      record: value,
+    });
+  });
+}
+
+function addLocation(
+  index: Map<string, StagedLocation[]>,
+  key: string,
+  location: StagedLocation,
+): void {
+  const existing = index.get(key);
+  if (existing === undefined) index.set(key, [location]);
+  else existing.push(location);
+}
+
+function locate(
+  index: ReadonlyMap<string, readonly StagedLocation[]>,
+  target: CoreV2MutationTarget,
+  operationPath: string,
+  operationIndex: number,
+): StagedLocation | undefined {
+  const matches = index.get(targetKey(target)) ?? [];
+  if (matches.length > 1) {
+    transactionFail(
+      'DUPLICATE_ID',
+      'INVALID_INPUT',
+      `${operationPath}.target`,
+      `${targetLabel(target)} resolves to multiple staged records`,
+      operationIndex,
+      target,
+    );
+  }
+  return matches[0];
+}
+
+function assertNoOverlappingPaths(
+  changes: readonly CoreV2MutationPathChange[],
+  operationIndex: number,
+  target: CoreV2MutationTarget,
+): void {
+  for (let leftIndex = 0; leftIndex < changes.length; leftIndex += 1) {
+    const left = requireAt(changes, leftIndex).path;
+    for (let rightIndex = leftIndex + 1; rightIndex < changes.length; rightIndex += 1) {
+      const right = requireAt(changes, rightIndex).path;
+      if (pathIsPrefix(left, right) || pathIsPrefix(right, left)) {
+        transactionFail(
+          'OVERLAPPING_PATH',
+          'INVALID_INPUT',
+          `$.operations[${operationIndex}].changes[${rightIndex}].path`,
+          'merge changes contain duplicate or prefix-overlapping paths',
+          operationIndex,
+          target,
+        );
+      }
+    }
+  }
+}
+
+function assertUniqueComponentIds(
+  components: readonly Readonly<Record<string, CoreV2MutationJsonValue>>[],
+  operationPath: string,
+  operationIndex: number,
+  target: CoreV2MutationTarget,
+): void {
+  const ids = new Set<string>();
+  components.forEach((component, index) => {
+    if (typeof component.id !== 'string') return;
+    if (ids.has(component.id)) {
+      transactionFail(
+        'DUPLICATE_ID',
+        'INVALID_INPUT',
+        `${operationPath}.components[${index}].id`,
+        `duplicate owner-local component identity ${JSON.stringify(component.id)}`,
+        operationIndex,
+        target,
+      );
+    }
+    ids.add(component.id);
+  });
+}
+
+function noteOutcome(
+  journal: Map<string, TargetJournalEntry>,
+  target: CoreV2MutationTarget,
+  outcome: TargetOutcome,
+): void {
+  const key = targetKey(target);
+  const previous = journal.get(key);
+  if (previous === undefined) {
+    journal.set(key, { target, outcome });
+    return;
+  }
+  if (outcomeRank(outcome) > outcomeRank(previous.outcome)) previous.outcome = outcome;
+}
+
+function journalTargets(
+  journal: ReadonlyMap<string, TargetJournalEntry>,
+  outcome: TargetOutcome,
+): readonly CoreV2MutationTarget[] {
+  return Object.freeze(
+    [...journal.values()].filter((entry) => entry.outcome === outcome).map((entry) => entry.target),
+  );
+}
+
+function outcomeRank(outcome: TargetOutcome): number {
+  switch (outcome) {
+    case 'missing':
+      return 0;
+    case 'unchanged':
+      return 1;
+    case 'applied':
+      return 2;
+  }
+}
+
+function mergedValue(current: MutableJsonValue, incoming: MutableJsonValue): MutableJsonValue {
+  if (!isMutableJsonRecord(current) || !isMutableJsonRecord(incoming)) return incoming;
+  const result = cloneMutableJson(current, '$.merge');
+  if (!isMutableJsonRecord(result)) throw new Error('Record clone lost record shape');
+  for (const key of Object.keys(incoming)) {
+    const previous = result[key];
+    const next = requireRecordValue(incoming, key);
+    defineMutableProperty(
+      result,
+      key,
+      previous === undefined ? cloneMutableJson(next, '$.merge') : mergedValue(previous, next),
+    );
+  }
+  return result;
+}
+
+function isIndexStructuralPath(path: readonly CoreV2MutationPathSegment[]): boolean {
+  const root = path[0];
+  return root === 'children' || root === 'components' || root === 'item' || root === 'cells';
+}
+
+function pathIsPrefix(
+  prefix: readonly CoreV2MutationPathSegment[],
+  candidate: readonly CoreV2MutationPathSegment[],
+): boolean {
+  return prefix.length <= candidate.length && prefix.every((segment, index) => segment === candidate[index]);
+}
+
+function targetKey(target: CoreV2MutationTarget): string {
+  return target.kind === 'element'
+    ? `element:${target.id.length}:${target.id}`
+    : `component:${target.ownerId.length}:${target.ownerId}:${target.id.length}:${target.id}`;
+}
+
+function targetLabel(target: CoreV2MutationTarget): string {
+  return target.kind === 'element'
+    ? `element:${target.id}`
+    : `component:${target.ownerId}/${target.id}`;
+}
+
+function invalidAppliedPath(
+  operationPath: string,
+  operationIndex: number,
+  target: CoreV2MutationTarget,
+  path: readonly CoreV2MutationPathSegment[],
+  segmentIndex: number,
+): never {
+  transactionFail(
+    'INVALID_PATH',
+    'INVALID_INPUT',
+    `${operationPath}.changes.path[${segmentIndex}]`,
+    `path ${JSON.stringify(path)} does not address a mergeable staged value`,
+    operationIndex,
+    target,
+  );
+}
+
+function rejectUnknownFields(
+  record: Readonly<Record<string, unknown>>,
+  accepted: ReadonlySet<string>,
+  path: string,
+  operationIndex?: number,
+  target?: CoreV2MutationTarget,
+): void {
+  const unknown = Object.keys(record).filter((key) => !accepted.has(key)).sort()[0];
+  if (unknown !== undefined) {
+    transactionFail(
+      'UNKNOWN_FIELD',
+      'INVALID_INPUT',
+      `${path}.${unknown}`,
+      'field is not in the closed mutation schema',
+      operationIndex,
+      target,
+    );
+  }
+}
+
+function strictRecord(
+  value: unknown,
+  path: string,
+  message: string,
+): Readonly<Record<string, unknown>> {
+  if (!isPlainRecord(value)) {
+    transactionFail('INVALID_VALUE', 'INVALID_INPUT', path, message);
+  }
+  return value;
+}
+
+function cloneImmutableJson(
+  value: unknown,
+  path: string,
+  ancestors = new Set<object>(),
+): CoreV2MutationJsonValue {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) nonSerializable(path, 'numbers must be finite');
+    return value;
+  }
+  if (Array.isArray(value)) {
+    if (ancestors.has(value)) nonSerializable(path, 'cyclic values are not accepted');
+    ancestors.add(value);
+    try {
+      const result: CoreV2MutationJsonValue[] = [];
+      for (let index = 0; index < value.length; index += 1) {
+        if (!Object.prototype.hasOwnProperty.call(value, index)) {
+          nonSerializable(`${path}[${index}]`, 'sparse arrays are not accepted');
+        }
+        result.push(cloneImmutableJson(value[index], `${path}[${index}]`, ancestors));
+      }
+      return Object.freeze(result);
+    } finally {
+      ancestors.delete(value);
+    }
+  }
+  if (isPlainRecord(value)) {
+    if (ancestors.has(value)) nonSerializable(path, 'cyclic values are not accepted');
+    ancestors.add(value);
+    try {
+      const result: Record<string, CoreV2MutationJsonValue> = {};
+      for (const key of Object.keys(value)) {
+        if (UNSAFE_PATH_SEGMENTS.has(key)) nonSerializable(`${path}.${key}`, 'unsafe keys are not accepted');
+        defineImmutableProperty(result, key, cloneImmutableJson(value[key], `${path}.${key}`, ancestors));
+      }
+      return Object.freeze(result);
+    } finally {
+      ancestors.delete(value);
+    }
+  }
+  nonSerializable(path, 'values must be JSON scalars, arrays, or strict plain records');
+}
+
+function cloneMutableJson(
+  value: unknown,
+  path: string,
+  ancestors = new Set<object>(),
+): MutableJsonValue {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) nonSerializable(path, 'numbers must be finite');
+    return value;
+  }
+  if (Array.isArray(value)) {
+    if (ancestors.has(value)) nonSerializable(path, 'cyclic values are not accepted');
+    ancestors.add(value);
+    try {
+      return value.map((entry, index) => cloneMutableJson(entry, `${path}[${index}]`, ancestors));
+    } finally {
+      ancestors.delete(value);
+    }
+  }
+  if (isPlainRecord(value)) {
+    if (ancestors.has(value)) nonSerializable(path, 'cyclic values are not accepted');
+    ancestors.add(value);
+    try {
+      const result: MutableJsonRecord = {};
+      for (const key of Object.keys(value)) {
+        if (UNSAFE_PATH_SEGMENTS.has(key)) nonSerializable(`${path}.${key}`, 'unsafe keys are not accepted');
+        defineMutableProperty(result, key, cloneMutableJson(value[key], `${path}.${key}`, ancestors));
+      }
+      return result;
+    } finally {
+      ancestors.delete(value);
+    }
+  }
+  nonSerializable(path, 'values must be JSON scalars, arrays, or strict plain records');
+}
+
+function jsonEquivalent(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return left.length === right.length && left.every((entry, index) => jsonEquivalent(entry, right[index]));
+  }
+  if (!isPlainRecord(left) || !isPlainRecord(right)) return false;
+  const leftKeys = Object.keys(left).sort();
+  const rightKeys = Object.keys(right).sort();
+  return leftKeys.length === rightKeys.length && leftKeys.every(
+    (key, index) => key === rightKeys[index] && jsonEquivalent(left[key], right[key]),
+  );
+}
+
+function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype: unknown = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function isJsonRecord(
+  value: CoreV2MutationJsonValue,
+): value is Readonly<Record<string, CoreV2MutationJsonValue>> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isMutableJsonRecord(value: unknown): value is MutableJsonRecord {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function requireRecordValue(record: MutableJsonRecord, key: string): MutableJsonValue {
+  const value = record[key];
+  if (value === undefined) throw new Error(`Missing staged record value ${key}`);
+  return value;
+}
+
+function defineMutableProperty(target: MutableJsonRecord, key: string, value: MutableJsonValue): void {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  });
+}
+
+function defineImmutableProperty(
+  target: Record<string, CoreV2MutationJsonValue>,
+  key: string,
+  value: CoreV2MutationJsonValue,
+): void {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: true,
+    configurable: false,
+    writable: false,
+  });
+}
+
+function requireAt<T>(values: readonly T[], index: number): T {
+  const value = values[index];
+  if (value === undefined) throw new Error(`Missing value at index ${index}`);
+  return value;
+}
+
+function datasetDiagnosticCode(error: CoreV2DatasetError): CoreV2MutationDiagnosticCode {
+  if (/duplicate/iu.test(error.message)) return 'DUPLICATE_ID';
+  return error.code;
+}
+
+function freezeSummary(
+  appliedCount: number,
+  missingCount: number,
+  unchangedCount: number,
+): CoreV2MutationTransactionSummary {
+  return Object.freeze({ appliedCount, missingCount, unchangedCount });
+}
+
+function rejected(
+  mutationDiagnostic: CoreV2MutationTransactionDiagnostic,
+): Extract<CoreV2MutationTransactionPlan, { readonly status: 'rejected' }> {
+  return Object.freeze({
+    status: 'rejected',
+    changed: false,
+    schemaRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+    candidate: null,
+    applied: EMPTY_TARGETS,
+    missing: EMPTY_TARGETS,
+    unchanged: EMPTY_TARGETS,
+    summary: freezeSummary(0, 0, 0),
+    diagnostic: mutationDiagnostic,
+  });
+}
+
+function diagnostic(
+  code: CoreV2MutationDiagnosticCode,
+  category: CoreV2MutationDiagnosticCategory,
+  path: string,
+  message: string,
+  operationIndex?: number,
+  target?: CoreV2MutationTarget,
+  datasetCode?: CoreV2DatasetError['code'],
+): CoreV2MutationTransactionDiagnostic {
+  return Object.freeze({
+    code,
+    category,
+    path,
+    message,
+    ...(operationIndex === undefined ? {} : { operationIndex }),
+    ...(target === undefined ? {} : { target }),
+    ...(datasetCode === undefined ? {} : { datasetCode }),
+  });
+}
+
+function transactionFail(
+  code: CoreV2MutationDiagnosticCode,
+  category: CoreV2MutationDiagnosticCategory,
+  path: string,
+  message: string,
+  operationIndex?: number,
+  target?: CoreV2MutationTarget,
+): never {
+  throw new TransactionValidationFailure(
+    diagnostic(code, category, path, message, operationIndex, target),
+  );
+}
+
+function nonSerializable(path: string, message: string): never {
+  transactionFail('NON_SERIALIZABLE_VALUE', 'INVALID_INPUT', path, message);
+}
+
+class TransactionValidationFailure extends Error {
+  public readonly diagnostic: CoreV2MutationTransactionDiagnostic;
+
+  public constructor(mutationDiagnostic: CoreV2MutationTransactionDiagnostic) {
+    super(mutationDiagnostic.message);
+    this.name = 'TransactionValidationFailure';
+    this.diagnostic = mutationDiagnostic;
+  }
+}
