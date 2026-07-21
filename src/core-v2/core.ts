@@ -25,6 +25,7 @@ import type {
   CoreV2ComponentRenderRole,
   CoreV2EntityProjection,
   CoreV2ProjectionIndex,
+  CoreV2TextProjection,
 } from './contracts';
 import { parsePatchMapV010, projectCoreV2IntrinsicImageAffine } from './parser';
 import { withRendererDegradationDiagnostics } from './renderers/degradation';
@@ -42,6 +43,10 @@ import {
 import type {
   CoreV2EntityPaintProbe,
   CoreV2RenderLaneSnapshot,
+  CoreV2TextAttachedSignatures,
+  CoreV2TextRendererKind,
+  CoreV2TextRendererProbe,
+  CoreV2TextSemanticSignatures,
   CoreV2WorldOrientation,
   PixiCoreV2RendererDebug,
 } from './renderers/types';
@@ -187,7 +192,86 @@ export interface CoreV2ComponentVisualProductProbe {
   readonly renderLanes: CoreV2RenderLaneSnapshot | null;
 }
 
+export type CoreV2TextTarget =
+  | Readonly<{ readonly kind: 'element'; readonly id: string }>
+  | Readonly<{
+      readonly kind: 'component';
+      readonly ownerId: string;
+      readonly id: string;
+    }>;
+
+export interface CoreV2TextGeometryProbe {
+  readonly localBounds: CoreV2BoundsTuple;
+  readonly ownerLocalBounds: CoreV2BoundsTuple;
+  readonly worldBounds: CoreV2BoundsTuple;
+  /** Same affine geometry authority consumed by transformed hit testing. */
+  readonly hitBounds: CoreV2BoundsTuple;
+  readonly visibleBounds: CoreV2BoundsTuple | null;
+}
+
+export interface CoreV2TextStateProbe {
+  readonly visible: boolean;
+  readonly interactive: boolean;
+  readonly zIndex: number;
+  readonly opacity: number;
+}
+
+export interface CoreV2TextTransformProbe {
+  readonly affine: CoreV2EntityProjection['affine'];
+  readonly worldBasis: CoreV2EntityProjection['worldBasis'];
+  readonly visibleCenter: CoreV2EntityProjection['visibleCenter'];
+  readonly rotationDegrees: number;
+  readonly scaleX: number;
+  readonly scaleY: number;
+  readonly contentOrientation: CoreV2EntityProjection['contentOrientation'];
+}
+
+export type CoreV2TextProductPublicationStatus = 'absent' | 'pending' | 'current';
+
+/** Pixi-object-free renderer facts correlated against the current text sidecar. */
+export interface CoreV2TextRendererProductProbe {
+  readonly semanticRoute: CoreV2TextProjection['rendererRoute'];
+  readonly route: CoreV2TextRendererProbe['route'] | null;
+  readonly rendererKind: CoreV2TextRendererKind;
+  readonly routeReason: CoreV2TextRendererProbe['routeReason'];
+  readonly objectCount: 0 | 1;
+  readonly semanticSignatures: CoreV2TextSemanticSignatures;
+  readonly attachedSignatures: CoreV2TextAttachedSignatures | null;
+  readonly lastRenderedSignatures: CoreV2TextAttachedSignatures | null;
+  readonly lastRenderedFrame: number | null;
+  readonly staleGlyphCount: number;
+}
+
+/**
+ * Constant-time text observation assembled from immutable parser projections,
+ * the dense ID index, and the renderer's detached entity probe index.
+ */
+export interface CoreV2TextProductProbe {
+  readonly target: CoreV2TextTarget;
+  /** Source item/grid owner; differs from an expanded grid instance target. */
+  readonly semanticOwnerId: string;
+  readonly entityId: string;
+  readonly semantic: CoreV2TextProjection;
+  readonly geometry: CoreV2TextGeometryProbe;
+  readonly state: CoreV2TextStateProbe;
+  readonly transform: CoreV2TextTransformProbe;
+  readonly renderer: CoreV2TextRendererProductProbe;
+  readonly rendererPaint: CoreV2EntityPaintProbe | null;
+  readonly renderLanes: CoreV2RenderLaneSnapshot | null;
+  readonly publication: Readonly<{
+    readonly status: CoreV2TextProductPublicationStatus;
+    readonly sceneRevision: number;
+    readonly renderedSceneRevision: number | null;
+    readonly rendererFrame: number | null;
+  }>;
+}
+
 interface IndexedComponentTarget {
+  readonly entityId: string;
+  readonly semanticOwnerId: string;
+}
+
+interface IndexedTextTarget {
   readonly entityId: string;
   readonly semanticOwnerId: string;
 }
@@ -235,6 +319,9 @@ export class CoreV2 {
   private readonly pendingIntrinsicImageSizes = new Map<string, CoreV2SceneImageIntrinsicSize>();
   private componentTargets = new Map<string, IndexedComponentTarget | null>();
   private componentRendererFactsPublished = false;
+  private textTargets = new Map<string, IndexedTextTarget | null>();
+  private textRendererFactsPublished = false;
+  private renderedSceneRevision: number | null = null;
 
   private constructor(renderer: PixiCoreV2Renderer, options: CoreV2Options) {
     this.renderer = renderer;
@@ -324,6 +411,7 @@ export class CoreV2 {
     });
     this.reapplyResolvedIntrinsicSizes();
     this.componentTargets = indexComponentTargets(parse);
+    this.textTargets = indexTextTargets(parse);
     this.staleHitProjectionIds.clear();
     this.spatialHitAnimationEnds.clear();
     this.invalidateEntityHitIndex();
@@ -399,6 +487,7 @@ export class CoreV2 {
     });
     this.reapplyResolvedIntrinsicSizes();
     this.componentTargets = indexComponentTargets(parse);
+    this.textTargets = indexTextTargets(parse);
     this.staleHitProjectionIds.clear();
     this.spatialHitAnimationEnds.clear();
     this.invalidateEntityHitIndex();
@@ -493,7 +582,10 @@ export class CoreV2 {
     this.assertAlive();
     const result = this.scene.advance(timeMs);
     this.animationClockMs = timeMs;
-    if (result.changed > 0) this.componentRendererFactsPublished = false;
+    if (result.changed > 0) {
+      this.componentRendererFactsPublished = false;
+      this.textRendererFactsPublished = false;
+    }
     if (result.changed > 0 && this.spatialHitAnimationEnds.size > 0) {
       this.invalidateEntityHitIndex();
     }
@@ -632,6 +724,103 @@ export class CoreV2 {
         ? this.renderer.entityPaintProbe(indexed.entityId)
         : null,
       renderLanes: rendererFactsPublished ? this.renderer.renderLaneProbe() : null,
+    });
+  }
+
+  public textProbe(target: CoreV2TextTarget): CoreV2TextProductProbe | null {
+    if (this.destroyedValue) return null;
+    const normalizedTarget = normalizeCoreV2TextTarget(target);
+    const indexed = this.textTargets.get(coreV2TextTargetKey(normalizedTarget));
+    if (!indexed) return null;
+    const semantic = this.projectionValue?.textsByEntityId?.[indexed.entityId];
+    const projection = this.projectionValue?.byEntityId[indexed.entityId];
+    const entity = this.scene.get(indexed.entityId);
+    if (
+      !semantic ||
+      !projection ||
+      !entity ||
+      entity.kind !== 'text' ||
+      !textProjectionMatchesTarget(semantic, normalizedTarget, indexed.semanticOwnerId)
+    ) {
+      return null;
+    }
+    const worldBounds = coreV2EntityWorldAabb(entity, projection);
+    if (worldBounds === null) return null;
+    const rendererProbe = entity.visible
+      ? this.renderer.textRendererProbe(indexed.entityId)
+      : null;
+    const rendererPaint = entity.visible
+      ? this.renderer.entityPaintProbe(indexed.entityId)
+      : null;
+    const renderLanes = entity.visible ? this.renderer.renderLaneProbe() : null;
+    const semanticSignatures = freezeTextSemanticSignatures(semantic);
+    const rendererCorrelated = rendererTextProbeCorrelates(
+      rendererProbe,
+      indexed.entityId,
+      semanticSignatures,
+    );
+    const current = entity.visible &&
+      this.textRendererFactsPublished &&
+      rendererCorrelated &&
+      rendererTextPaintCorrelates(
+        rendererPaint,
+        indexed.entityId,
+        semantic.color,
+        entity.opacity,
+      ) &&
+      rendererTextLaneCorrelates(renderLanes) &&
+      this.renderedSceneRevision === this.scene.revision;
+    const status: CoreV2TextProductPublicationStatus = !entity.visible
+      ? 'absent'
+      : current
+        ? 'current'
+        : 'pending';
+    const renderer = freezeTextRendererProductProbe(
+      semantic,
+      semanticSignatures,
+      entity.visible ? rendererProbe : null,
+    );
+    return Object.freeze({
+      target: normalizedTarget,
+      semanticOwnerId: indexed.semanticOwnerId,
+      entityId: indexed.entityId,
+      semantic,
+      geometry: Object.freeze({
+        localBounds: projection.localBounds,
+        ownerLocalBounds: freezeCoreV2Bounds(
+          semantic.ownerLocalBounds.x,
+          semantic.ownerLocalBounds.y,
+          semantic.ownerLocalBounds.width,
+          semantic.ownerLocalBounds.height,
+        ),
+        worldBounds,
+        hitBounds: worldBounds,
+        visibleBounds: entity.visible ? worldBounds : null,
+      }),
+      state: Object.freeze({
+        visible: entity.visible,
+        interactive: entity.interactive,
+        zIndex: entity.zIndex,
+        opacity: entity.opacity,
+      }),
+      transform: Object.freeze({
+        affine: projection.affine,
+        worldBasis: projection.worldBasis,
+        visibleCenter: projection.visibleCenter,
+        rotationDegrees: projection.rotationDegrees,
+        scaleX: projection.scaleX,
+        scaleY: projection.scaleY,
+        contentOrientation: projection.contentOrientation,
+      }),
+      renderer,
+      rendererPaint: current ? rendererPaint : null,
+      renderLanes: current ? renderLanes : null,
+      publication: Object.freeze({
+        status,
+        sceneRevision: this.scene.revision,
+        renderedSceneRevision: this.renderedSceneRevision,
+        rendererFrame: renderer.lastRenderedFrame,
+      }),
     });
   }
 
@@ -793,6 +982,9 @@ export class CoreV2 {
     this.projectionValue = null;
     this.componentTargets.clear();
     this.componentRendererFactsPublished = false;
+    this.textTargets.clear();
+    this.textRendererFactsPublished = false;
+    this.renderedSceneRevision = null;
     this.pendingIntrinsicImageSizes.clear();
     try {
       this.scene.destroy();
@@ -837,12 +1029,17 @@ export class CoreV2 {
 
   private invalidate(reason: string): void {
     this.componentRendererFactsPublished = false;
+    this.textRendererFactsPublished = false;
     if (this.autoRender) this.scheduler.invalidate(reason);
   }
 
   private flushScene(): FrameReport {
     const report = this.scene.flush();
     this.componentRendererFactsPublished = true;
+    if (report.rendered) {
+      this.textRendererFactsPublished = true;
+      this.renderedSceneRevision = report.revision;
+    }
     return report;
   }
 
@@ -1364,6 +1561,207 @@ function normalizeComponentVisualTarget(
 
 function componentTargetKey(target: CoreV2ComponentVisualTarget): string {
   return `${target.ownerId.length}:${target.ownerId}:${target.componentId}`;
+}
+
+function indexTextTargets(
+  parse: ParsePatchMapResult,
+): Map<string, IndexedTextTarget | null> {
+  const targets = new Map<string, IndexedTextTarget | null>();
+  const texts = parse.projection.textsByEntityId ?? {};
+  for (const entityId of Object.keys(texts).sort()) {
+    const text = texts[entityId];
+    if (!text) continue;
+    const source = parse.identity.entitySourceById[entityId];
+    if (text.targetKind === 'element') {
+      const sourceId = source?.sourceElementId ?? entityId;
+      indexTextTarget(
+        targets,
+        { kind: 'element', id: sourceId },
+        Object.freeze({ entityId, semanticOwnerId: sourceId }),
+      );
+      continue;
+    }
+    if (!text.ownerId || !text.componentId) continue;
+    const semanticOwnerId = source?.sourceElementId ?? text.ownerId;
+    const indexed = Object.freeze({ entityId, semanticOwnerId });
+    indexTextTarget(
+      targets,
+      { kind: 'component', ownerId: text.ownerId, id: text.componentId },
+      indexed,
+    );
+    if (semanticOwnerId !== text.ownerId) {
+      indexTextTarget(
+        targets,
+        { kind: 'component', ownerId: semanticOwnerId, id: text.componentId },
+        indexed,
+      );
+    }
+  }
+  return targets;
+}
+
+function indexTextTarget(
+  targets: Map<string, IndexedTextTarget | null>,
+  target: CoreV2TextTarget,
+  indexed: IndexedTextTarget,
+): void {
+  const key = coreV2TextTargetKey(target);
+  const previous = targets.get(key);
+  if (previous === undefined || previous?.entityId === indexed.entityId) {
+    targets.set(key, indexed);
+    return;
+  }
+  // A source grid template can expand to many instance-qualified text leaves.
+  // Keep the template target explicitly ambiguous instead of selecting one.
+  targets.set(key, null);
+}
+
+export function normalizeCoreV2TextTarget(target: CoreV2TextTarget): CoreV2TextTarget {
+  if (target === null || typeof target !== 'object' || Array.isArray(target)) {
+    throw new TypeError('text target must be an object');
+  }
+  if (target.kind === 'element') {
+    assertExactTextTargetKeys(target, ['kind', 'id']);
+    assertTextTargetId(target.id, 'text target id');
+    return Object.freeze({ kind: 'element', id: target.id });
+  }
+  if (target.kind === 'component') {
+    assertExactTextTargetKeys(target, ['kind', 'ownerId', 'id']);
+    assertTextTargetId(target.ownerId, 'text target ownerId');
+    assertTextTargetId(target.id, 'text target id');
+    return Object.freeze({ kind: 'component', ownerId: target.ownerId, id: target.id });
+  }
+  throw new TypeError('text target kind must be "element" or "component"');
+}
+
+function assertExactTextTargetKeys(
+  target: object,
+  expected: readonly string[],
+): void {
+  const keys = Reflect.ownKeys(target);
+  if (
+    keys.length !== expected.length ||
+    keys.some((key) => typeof key !== 'string' || !expected.includes(key))
+  ) {
+    throw new TypeError(`text target must contain exactly ${expected.join(', ')}`);
+  }
+}
+
+function assertTextTargetId(value: unknown, label: string): asserts value is string {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new TypeError(`${label} must be a non-empty string`);
+  }
+}
+
+function coreV2TextTargetKey(target: CoreV2TextTarget): string {
+  return target.kind === 'element'
+    ? `element:${target.id.length}:${target.id}`
+    : `component:${target.ownerId.length}:${target.ownerId}:${target.id.length}:${target.id}`;
+}
+
+function textProjectionMatchesTarget(
+  projection: CoreV2TextProjection,
+  target: CoreV2TextTarget,
+  semanticOwnerId: string,
+): boolean {
+  if (target.kind === 'element') {
+    return projection.targetKind === 'element' && semanticOwnerId === target.id;
+  }
+  return projection.targetKind === 'component' &&
+    projection.componentId === target.id &&
+    (projection.ownerId === target.ownerId || semanticOwnerId === target.ownerId);
+}
+
+function freezeTextSemanticSignatures(
+  semantic: CoreV2TextProjection,
+): CoreV2TextSemanticSignatures {
+  return Object.freeze({
+    content: semantic.contentSignature,
+    style: semantic.styleSignature,
+    layout: semantic.layoutSignature,
+  });
+}
+
+function rendererTextProbeCorrelates(
+  renderer: CoreV2TextRendererProbe | null,
+  entityId: string,
+  semantic: CoreV2TextSemanticSignatures,
+): renderer is CoreV2TextRendererProbe {
+  return renderer !== null &&
+    renderer.entityId === entityId &&
+    renderer.publicationStatus === 'current' &&
+    renderer.objectCount === 1 &&
+    renderer.staleGlyphCount === 0 &&
+    renderer.route !== 'none' &&
+    renderer.rendererKind !== 'none' &&
+    renderer.route === renderer.rendererKind &&
+    sameTextSemanticSignatures(renderer.semanticSignatures, semantic) &&
+    sameTextAttachedSemantic(renderer.attachedSignatures, semantic) &&
+    sameTextAttachedSemantic(renderer.lastRenderedSignatures, semantic) &&
+    renderer.attachedSignatures?.renderer === renderer.lastRenderedSignatures?.renderer &&
+    renderer.lastRenderedFrame !== null;
+}
+
+function sameTextSemanticSignatures(
+  left: CoreV2TextSemanticSignatures,
+  right: CoreV2TextSemanticSignatures,
+): boolean {
+  return left.content === right.content &&
+    left.style === right.style &&
+    left.layout === right.layout;
+}
+
+function sameTextAttachedSemantic(
+  attached: CoreV2TextAttachedSignatures | null,
+  semantic: CoreV2TextSemanticSignatures,
+): boolean {
+  return attached !== null && sameTextSemanticSignatures(attached, semantic);
+}
+
+function rendererTextPaintCorrelates(
+  paint: CoreV2EntityPaintProbe | null,
+  entityId: string,
+  packedColor: number,
+  opacity: number,
+): paint is CoreV2EntityPaintProbe {
+  const color = packedColor >>> 0;
+  return paint !== null &&
+    paint.entityId === entityId &&
+    paint.lane === 'text' &&
+    paint.rendererKind === 'text' &&
+    paint.primitiveCount === 1 &&
+    paint.renderObjectCount === 1 &&
+    paint.packedTint === color &&
+    paint.rgbTint === color >>> 8 &&
+    paint.alpha === ((color & 0xff) / 255) * opacity;
+}
+
+function rendererTextLaneCorrelates(
+  lanes: CoreV2RenderLaneSnapshot | null,
+): lanes is CoreV2RenderLaneSnapshot {
+  return lanes !== null &&
+    lanes.text.role === 'text' &&
+    lanes.text.renderObjectCount >= 1 &&
+    lanes.text.visiblePrimitiveCount >= 1;
+}
+
+function freezeTextRendererProductProbe(
+  semantic: CoreV2TextProjection,
+  semanticSignatures: CoreV2TextSemanticSignatures,
+  renderer: CoreV2TextRendererProbe | null,
+): CoreV2TextRendererProductProbe {
+  return Object.freeze({
+    semanticRoute: semantic.rendererRoute,
+    route: renderer?.route ?? null,
+    rendererKind: renderer?.rendererKind ?? 'none',
+    routeReason: renderer?.routeReason ?? 'not-attached',
+    objectCount: renderer?.objectCount ?? 0,
+    semanticSignatures,
+    attachedSignatures: renderer?.attachedSignatures ?? null,
+    lastRenderedSignatures: renderer?.lastRenderedSignatures ?? null,
+    lastRenderedFrame: renderer?.lastRenderedFrame ?? null,
+    staleGlyphCount: renderer?.staleGlyphCount ?? 0,
+  });
 }
 
 export type { EntityPatch };

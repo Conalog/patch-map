@@ -1,4 +1,4 @@
-export { CoreV2, createCoreV2 } from './core';
+export { CoreV2, createCoreV2, normalizeCoreV2TextTarget } from './core';
 export type {
   AnimateBarsOptions,
   CoreV2LoadResult,
@@ -9,6 +9,13 @@ export type {
   CoreV2ReconcileResult,
   CoreV2ReconcileTimings,
   CoreV2RuntimeDebug,
+  CoreV2TextGeometryProbe,
+  CoreV2TextProductProbe,
+  CoreV2TextProductPublicationStatus,
+  CoreV2TextRendererProductProbe,
+  CoreV2TextStateProbe,
+  CoreV2TextTarget,
+  CoreV2TextTransformProbe,
 } from './core';
 export { CoreV2Engine, CoreV2EngineError } from './engine';
 export type * from './engine';

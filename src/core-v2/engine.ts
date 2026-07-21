@@ -5,9 +5,20 @@ import {
   type CoreV2ComponentVisualProductProbe,
   type CoreV2ComponentVisualTarget,
   type CoreV2Options,
+  type CoreV2TextGeometryProbe,
+  type CoreV2TextProductProbe,
+  type CoreV2TextRendererProductProbe,
+  type CoreV2TextStateProbe,
+  type CoreV2TextTarget,
+  type CoreV2TextTransformProbe,
+  normalizeCoreV2TextTarget,
 } from './core';
 import type { SceneSnapshot } from '../core-v1/contracts';
-import type { CoreV2ImageSourceKind, CoreV2ProjectionIndex } from './contracts';
+import type {
+  CoreV2ImageSourceKind,
+  CoreV2ProjectionIndex,
+  CoreV2TextProjection,
+} from './contracts';
 import type {
   CoreV2EntityPaintProbe,
   CoreV2RenderLaneSnapshot,
@@ -51,6 +62,7 @@ import {
   type CoreV2Component,
   type CoreV2ComponentSize,
   type CoreV2ComponentType,
+  type CoreV2TextStyle,
   type NormalizedCoreV2Element,
 } from './semantic/dataset';
 import {
@@ -367,6 +379,60 @@ export interface CoreV2EngineComponentVisualProbe {
   }>;
 }
 
+export interface CoreV2EngineTextSemanticProbe {
+  readonly target: CoreV2TextTarget;
+  readonly semanticOwnerId: string;
+  readonly source: string;
+  readonly authoredStyle: CoreV2TextStyle;
+  readonly placement: CoreV2TextProjection['placement'];
+  readonly margin: CoreV2TextProjection['margin'];
+  readonly tint: unknown;
+  readonly split: number;
+  readonly show: boolean;
+  readonly locked: boolean;
+  readonly contentOrientation: CoreV2TextProjection['contentOrientation'];
+}
+
+export type CoreV2EngineTextPublicationStatus =
+  | 'unavailable'
+  | 'absent'
+  | 'pending'
+  | 'current';
+
+export interface CoreV2EngineTextRevisionTuple {
+  readonly current: CoreV2RevisionStamp;
+  readonly published: CoreV2PublishedTuple;
+  readonly frameRevision: number;
+  readonly surfaceSceneRevision: number | null;
+  readonly surfaceRenderedSceneRevision: number | null;
+  readonly rendererFrame: number | null;
+}
+
+export interface CoreV2EngineTextProbe {
+  readonly target: CoreV2TextTarget;
+  readonly semantic: CoreV2EngineTextSemanticProbe | null;
+  readonly semanticOwnerId: string | null;
+  readonly entityId: string | null;
+  readonly projection: CoreV2TextProjection | null;
+  readonly geometry: CoreV2TextGeometryProbe | null;
+  readonly state: CoreV2TextStateProbe | null;
+  readonly transform: CoreV2TextTransformProbe | null;
+  readonly renderer: CoreV2TextRendererProductProbe | null;
+  readonly rendererPaint: CoreV2EntityPaintProbe | null;
+  readonly renderLanes: CoreV2RenderLaneSnapshot | null;
+  readonly publication: Readonly<{
+    readonly status: CoreV2EngineTextPublicationStatus;
+    readonly revisions: CoreV2EngineTextRevisionTuple;
+  }>;
+  readonly availability: Readonly<{
+    readonly semantic: boolean;
+    readonly surface: boolean;
+    readonly renderer: boolean;
+    readonly rendererPaint: boolean;
+    readonly renderLanes: boolean;
+  }>;
+}
+
 export interface CoreV2EngineSurface {
   readonly canvasCount: number;
   readonly destroyed: boolean;
@@ -389,6 +455,7 @@ export interface CoreV2EngineSurface {
   componentVisualProbe?(
     target: CoreV2ComponentVisualTarget,
   ): CoreV2SurfaceComponentVisualProbe | null;
+  textProbe?(target: CoreV2TextTarget): CoreV2TextProductProbe | null;
   settleSceneImages?(): Promise<void>;
   settleSceneImageBindings?(bindingKeys: readonly string[]): Promise<void>;
   relationHitTestScreen?(
@@ -606,6 +673,11 @@ const FACILITIES = Object.freeze([
   'assets',
 ] as const);
 
+interface IndexedEngineTextSemantic {
+  readonly probe: CoreV2EngineTextSemanticProbe;
+  readonly gridTemplate: boolean;
+}
+
 export class CoreV2Engine {
   private readonly surfaceFactory: CoreV2EngineSurfaceFactory;
   private readonly assetRuntime: CoreV2AssetRuntime;
@@ -618,6 +690,7 @@ export class CoreV2Engine {
   private instanceId: string | null = null;
   private materialized: MaterializedCoreV2Dataset | null = null;
   private componentSemantics = new Map<string, CoreV2EngineComponentSemanticProbe>();
+  private textSemantics = new Map<string, IndexedEngineTextSemantic>();
   private datasetRef: string | null = null;
   private lifecycleGeneration = 0;
   private sceneRevision = 0;
@@ -791,6 +864,7 @@ export class CoreV2Engine {
     const surface = this.requireSurface('loadDataset');
     const materialized = materializeCoreV2Dataset(input);
     const componentSemantics = indexComponentSemantics(materialized.dataset);
+    const textSemantics = indexTextSemantics(materialized.dataset);
     const selectionBefore = surface.debugSnapshot().selectionIds;
     surface.load(materialized.dataset);
     if (selectionBefore.length > 0 && surface.debugSnapshot().selectionIds.length === 0) {
@@ -798,6 +872,7 @@ export class CoreV2Engine {
     }
     this.materialized = materialized;
     this.componentSemantics = componentSemantics;
+    this.textSemantics = textSemantics;
     this.datasetRef = options.datasetRef ?? null;
     this.sceneRevision += 1;
     this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
@@ -872,6 +947,7 @@ export class CoreV2Engine {
     }
 
     const componentSemantics = indexComponentSemantics(mutation.candidate.dataset);
+    const textSemantics = indexTextSemantics(mutation.candidate.dataset);
     let reconcile: CoreV2SurfaceReconcileResult;
     try {
       reconcile = surface.reconcile(mutation.candidate.dataset);
@@ -908,6 +984,7 @@ export class CoreV2Engine {
 
     this.materialized = mutation.candidate;
     this.componentSemantics = componentSemantics;
+    this.textSemantics = textSemantics;
     this.sceneRevision += 1;
     this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
     const result = Object.freeze({
@@ -979,6 +1056,7 @@ export class CoreV2Engine {
     }
 
     const componentSemantics = indexComponentSemantics(mutation.candidate.dataset);
+    const textSemantics = indexTextSemantics(mutation.candidate.dataset);
     const selectionBefore = surface.debugSnapshot().selectionIds;
     let reconcile: CoreV2SurfaceReconcileResult;
     try {
@@ -1016,6 +1094,7 @@ export class CoreV2Engine {
 
     this.materialized = mutation.candidate;
     this.componentSemantics = componentSemantics;
+    this.textSemantics = textSemantics;
     this.sceneRevision += 1;
     this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
     if (!sameStringArray(selectionBefore, surface.debugSnapshot().selectionIds)) {
@@ -1293,6 +1372,75 @@ export class CoreV2Engine {
     });
   }
 
+  /**
+   * Resolve text through prebuilt semantic and surface indexes. No probe-time
+   * traversal of materialized datasets, dense snapshots, or Pixi children is
+   * permitted on this path.
+   */
+  public textProbe(target: CoreV2TextTarget): CoreV2EngineTextProbe | null {
+    if (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') return null;
+    const normalizedTarget = normalizeCoreV2TextTarget(target);
+    const surface = this.requireSurface('textProbe');
+    const requestedSemantic = this.textSemantics.get(engineTextTargetKey(normalizedTarget)) ?? null;
+    const visual = surface.textProbe?.(normalizedTarget) ?? null;
+    if (visual === null && requestedSemantic?.gridTemplate) return null;
+
+    const semantic = visual?.semanticOwnerId && normalizedTarget.kind === 'component'
+      ? this.textSemantics.get(engineTextTargetKey({
+          kind: 'component',
+          ownerId: visual.semanticOwnerId,
+          id: normalizedTarget.id,
+        })) ?? requestedSemantic
+      : requestedSemantic;
+    if (semantic === null && visual === null) return null;
+
+    const currentRevisions = this.revisionStamp();
+    const publishedCurrent = this.publishedTuple.scene === this.sceneRevision &&
+      this.publishedTuple.view === this.viewRevision &&
+      this.publishedTuple.interaction === this.interactionRevision;
+    const status: CoreV2EngineTextPublicationStatus = surfaceTextProbeIsAbsent(visual)
+      ? 'absent'
+      : surfaceTextProbeIsCurrent(visual) && publishedCurrent
+        ? 'current'
+        : visual === null
+          ? 'unavailable'
+          : 'pending';
+    const revisionTuple: CoreV2EngineTextRevisionTuple = Object.freeze({
+      current: currentRevisions,
+      published: this.publishedTuple,
+      frameRevision: this.frameRevision,
+      surfaceSceneRevision: visual?.publication.sceneRevision ?? null,
+      surfaceRenderedSceneRevision: visual?.publication.renderedSceneRevision ?? null,
+      rendererFrame: visual?.publication.rendererFrame ?? null,
+    });
+    const rendererAvailable = visual !== null &&
+      visual.renderer.route !== null &&
+      visual.renderer.route !== 'none' &&
+      visual.renderer.rendererKind !== 'none' &&
+      visual.renderer.route === visual.renderer.rendererKind;
+    return Object.freeze({
+      target: normalizedTarget,
+      semantic: semantic?.probe ?? null,
+      semanticOwnerId: visual?.semanticOwnerId ?? semantic?.probe.semanticOwnerId ?? null,
+      entityId: visual?.entityId ?? null,
+      projection: visual?.semantic ?? null,
+      geometry: visual?.geometry ?? null,
+      state: visual?.state ?? null,
+      transform: visual?.transform ?? null,
+      renderer: visual?.renderer ?? null,
+      rendererPaint: visual?.rendererPaint ?? null,
+      renderLanes: visual?.renderLanes ?? null,
+      publication: Object.freeze({ status, revisions: revisionTuple }),
+      availability: Object.freeze({
+        semantic: semantic !== null,
+        surface: visual !== null,
+        renderer: rendererAvailable,
+        rendererPaint: visual?.rendererPaint !== null && visual?.rendererPaint !== undefined,
+        renderLanes: visual?.renderLanes !== null && visual?.renderLanes !== undefined,
+      }),
+    });
+  }
+
   public settleSceneImages(): Promise<void> {
     const surface = this.requireSurface('settleSceneImages');
     return surface.settleSceneImages ? surface.settleSceneImages() : Promise.resolve();
@@ -1400,6 +1548,7 @@ export class CoreV2Engine {
     this.surface = null;
     this.materialized = null;
     this.componentSemantics.clear();
+    this.textSemantics.clear();
     this.datasetRef = null;
     this.rendererConfiguration = null;
     this.initializePromise = null;
@@ -1947,6 +2096,10 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     });
   }
 
+  public textProbe(target: CoreV2TextTarget): CoreV2TextProductProbe | null {
+    return this.core.textProbe(target);
+  }
+
   public settleSceneImages(): Promise<void> {
     return this.core.settleSceneImages();
   }
@@ -2120,6 +2273,201 @@ function normalizeEngineComponentVisualTarget(
 function componentSemanticKey(ownerId: string, componentId: string): string {
   return `${ownerId.length}:${ownerId}:${componentId}`;
 }
+
+function indexTextSemantics(
+  dataset: readonly NormalizedCoreV2Element[],
+): Map<string, IndexedEngineTextSemantic> {
+  const index = new Map<string, IndexedEngineTextSemantic>();
+  const visit = (
+    elements: readonly NormalizedCoreV2Element[],
+    ancestorVisible: boolean,
+    ancestorLocked: boolean,
+  ): void => {
+    for (const element of elements) {
+      const visible = ancestorVisible && element.show;
+      const locked = ancestorLocked || element.locked;
+      if (element.type === 'text') {
+        const target = Object.freeze({ kind: 'element' as const, id: element.id });
+        index.set(engineTextTargetKey(target), Object.freeze({
+          gridTemplate: false,
+          probe: freezeEngineTextSemantic({
+            target,
+            semanticOwnerId: element.id,
+            source: element.text,
+            authoredStyle: element.style,
+            placement: null,
+            margin: EMPTY_TEXT_MARGIN,
+            tint: null,
+            split: 0,
+            show: visible,
+            locked,
+            contentOrientation: 'follow-item',
+          }),
+        }));
+        continue;
+      }
+      if (element.type === 'item') {
+        for (const component of element.components) {
+          if (component.type !== 'text') continue;
+          addEngineTextComponentSemantic(index, {
+            ownerId: element.id,
+            component,
+            show: visible && component.show,
+            locked,
+            contentOrientation: element.contentOrientation,
+            gridTemplate: false,
+          });
+        }
+        continue;
+      }
+      if (element.type === 'grid') {
+        for (const component of element.item.components) {
+          if (component.type !== 'text') continue;
+          addEngineTextComponentSemantic(index, {
+            ownerId: element.id,
+            component,
+            show: visible && component.show,
+            locked,
+            contentOrientation: element.item.contentOrientation,
+            gridTemplate: true,
+          });
+        }
+        continue;
+      }
+      if (element.type === 'group') visit(element.children, visible, locked);
+    }
+  };
+  visit(dataset, true, false);
+  return index;
+}
+
+function addEngineTextComponentSemantic(
+  index: Map<string, IndexedEngineTextSemantic>,
+  input: Readonly<{
+    ownerId: string;
+    component: Extract<CoreV2Component, { readonly type: 'text' }>;
+    show: boolean;
+    locked: boolean;
+    contentOrientation: CoreV2TextProjection['contentOrientation'];
+    gridTemplate: boolean;
+  }>,
+): void {
+  const target = Object.freeze({
+    kind: 'component' as const,
+    ownerId: input.ownerId,
+    id: input.component.id,
+  });
+  index.set(engineTextTargetKey(target), Object.freeze({
+    gridTemplate: input.gridTemplate,
+    probe: freezeEngineTextSemantic({
+      target,
+      semanticOwnerId: input.ownerId,
+      source: input.component.text,
+      authoredStyle: input.component.style,
+      placement: input.component.placement,
+      margin: input.component.margin,
+      tint: input.component.tint,
+      split: input.component.split,
+      show: input.show,
+      locked: input.locked,
+      contentOrientation: input.contentOrientation,
+    }),
+  }));
+}
+
+function freezeEngineTextSemantic(
+  probe: CoreV2EngineTextSemanticProbe,
+): CoreV2EngineTextSemanticProbe {
+  return Object.freeze({
+    ...probe,
+    target: normalizeCoreV2TextTarget(probe.target),
+    authoredStyle: cloneDetachedComponentValue(probe.authoredStyle) as CoreV2TextStyle,
+    margin: cloneDetachedComponentValue(probe.margin) as CoreV2TextProjection['margin'],
+    tint: cloneDetachedComponentValue(probe.tint),
+  });
+}
+
+function engineTextTargetKey(target: CoreV2TextTarget): string {
+  return target.kind === 'element'
+    ? `element:${target.id.length}:${target.id}`
+    : `component:${target.ownerId.length}:${target.ownerId}:${target.id.length}:${target.id}`;
+}
+
+function surfaceTextProbeIsCurrent(probe: CoreV2TextProductProbe | null): boolean {
+  if (
+    probe === null ||
+    !probe.state.visible ||
+    probe.publication.status !== 'current' ||
+    probe.publication.sceneRevision !== probe.publication.renderedSceneRevision ||
+    probe.publication.rendererFrame === null ||
+    probe.renderer.route === null ||
+    probe.renderer.route === 'none' ||
+    probe.renderer.rendererKind === 'none' ||
+    probe.renderer.route !== probe.renderer.rendererKind ||
+    probe.renderer.objectCount !== 1 ||
+    probe.renderer.staleGlyphCount !== 0 ||
+    probe.renderer.lastRenderedFrame !== probe.publication.rendererFrame ||
+    probe.renderer.attachedSignatures === null ||
+    probe.renderer.lastRenderedSignatures === null ||
+    probe.rendererPaint === null ||
+    probe.renderLanes === null
+  ) {
+    return false;
+  }
+  const expected = {
+    content: probe.semantic.contentSignature,
+    style: probe.semantic.styleSignature,
+    layout: probe.semantic.layoutSignature,
+  };
+  const semantic = probe.renderer.semanticSignatures;
+  const attached = probe.renderer.attachedSignatures;
+  const rendered = probe.renderer.lastRenderedSignatures;
+  return semantic.content === expected.content &&
+    semantic.style === expected.style &&
+    semantic.layout === expected.layout &&
+    attached.content === semantic.content &&
+    attached.style === semantic.style &&
+    attached.layout === semantic.layout &&
+    rendered.content === attached.content &&
+    rendered.style === attached.style &&
+    rendered.layout === attached.layout &&
+    rendered.renderer === attached.renderer &&
+    probe.rendererPaint.entityId === probe.entityId &&
+    probe.rendererPaint.lane === 'text' &&
+    probe.rendererPaint.rendererKind === 'text' &&
+    probe.rendererPaint.primitiveCount === 1 &&
+    probe.rendererPaint.renderObjectCount === 1 &&
+    probe.rendererPaint.packedTint === (probe.semantic.color >>> 0) &&
+    probe.rendererPaint.rgbTint === (probe.semantic.color >>> 8) &&
+    probe.rendererPaint.alpha ===
+      (((probe.semantic.color >>> 0) & 0xff) / 255) * probe.state.opacity &&
+    probe.renderLanes.text.role === 'text' &&
+    probe.renderLanes.text.renderObjectCount >= 1 &&
+    probe.renderLanes.text.visiblePrimitiveCount >= 1;
+}
+
+function surfaceTextProbeIsAbsent(probe: CoreV2TextProductProbe | null): boolean {
+  return probe !== null &&
+    !probe.state.visible &&
+    probe.geometry.visibleBounds === null &&
+    probe.publication.status === 'absent' &&
+    probe.renderer.route === null &&
+    probe.renderer.rendererKind === 'none' &&
+    probe.renderer.objectCount === 0 &&
+    probe.renderer.staleGlyphCount === 0 &&
+    probe.renderer.attachedSignatures === null &&
+    probe.renderer.lastRenderedSignatures === null &&
+    probe.renderer.lastRenderedFrame === null &&
+    probe.rendererPaint === null &&
+    probe.renderLanes === null;
+}
+
+const EMPTY_TEXT_MARGIN = Object.freeze({
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0,
+});
 
 async function createPixiSurface(options: CoreV2SurfaceOptions): Promise<CoreV2EngineSurface> {
   const coreOptions: CoreV2Options = {
