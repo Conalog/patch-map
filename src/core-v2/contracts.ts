@@ -214,6 +214,23 @@ export interface CoreV2TextProjection extends CoreV2TextLayout {
   readonly contentOrientation: CoreV2ContentOrientation;
 }
 
+/**
+ * Immutable authored animation policy and resolved semantic destination for a
+ * bar component. Presentation state is intentionally absent: the runtime owns
+ * that transient state separately from the parser's semantic authority.
+ */
+export interface CoreV2BarProjection {
+  readonly entityId: string;
+  readonly ownerId: string;
+  readonly componentId: string;
+  readonly placement: CoreV2Placement;
+  readonly margin: CoreV2Edges;
+  readonly contentOrientation: CoreV2ContentOrientation;
+  readonly animation: boolean;
+  readonly animationDuration: number;
+  readonly destinationHeight: number;
+}
+
 /** Immutable numeric metadata that the Core v1-compatible dense rows omit. */
 export interface CoreV2ProjectionIndex {
   readonly byEntityId: Readonly<Record<string, CoreV2EntityProjection>>;
@@ -225,6 +242,8 @@ export interface CoreV2ProjectionIndex {
   readonly imagesByEntityId?: Readonly<Record<string, CoreV2ImageProjection>>;
   /** Deterministic semantic layout and stable target identity for every text entity. */
   readonly textsByEntityId?: Readonly<Record<string, CoreV2TextProjection>>;
+  /** Authored animation policy and semantic destination for every bar entity. */
+  readonly barsByEntityId?: Readonly<Record<string, CoreV2BarProjection>>;
   /** Present on parser-produced indexes; optional for older injected test surfaces. */
   readonly relationsByEntityId?: Readonly<Record<string, CoreV2RelationProjection>>;
   /** Syntactically valid links with unresolved endpoints are explicit, not fatal. */

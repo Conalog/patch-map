@@ -9,6 +9,7 @@ import type {
 import {
   PatchMapParseError,
   type CoreV2BackgroundPaintProjection,
+  type CoreV2BarProjection,
   type ComponentIdentity,
   type CoreV2ComponentRenderRole,
   type CoreV2ComponentVisualProjection,
@@ -124,6 +125,7 @@ interface ParseState {
   readonly backgroundPaintProjectionByEntityId: Record<string, CoreV2BackgroundPaintProjection>;
   readonly imageProjectionByEntityId: Record<string, CoreV2ImageProjection>;
   readonly textProjectionByEntityId: Record<string, CoreV2TextProjection>;
+  readonly barProjectionByEntityId: Record<string, CoreV2BarProjection>;
   readonly relationProjectionByEntityId: Record<string, CoreV2RelationProjection>;
   readonly omittedRelations: CoreV2OmittedRelationProjection[];
   readonly pendingRelations: PendingRelation[];
@@ -261,6 +263,7 @@ export function parsePatchMapV010(
     >,
     imageProjectionByEntityId: Object.create(null) as Record<string, CoreV2ImageProjection>,
     textProjectionByEntityId: Object.create(null) as Record<string, CoreV2TextProjection>,
+    barProjectionByEntityId: Object.create(null) as Record<string, CoreV2BarProjection>,
     relationProjectionByEntityId: Object.create(null) as Record<string, CoreV2RelationProjection>,
     omittedRelations: [],
     pendingRelations: [],
@@ -318,6 +321,7 @@ export function parsePatchMapV010(
       backgroundsByEntityId: state.backgroundPaintProjectionByEntityId,
       imagesByEntityId: state.imageProjectionByEntityId,
       textsByEntityId: state.textProjectionByEntityId,
+      barsByEntityId: state.barProjectionByEntityId,
       relationsByEntityId: state.relationProjectionByEntityId,
       omittedRelations: state.omittedRelations,
     },
@@ -614,18 +618,16 @@ function parseComponent(
     return;
   }
   const type = typeof value.type === 'string' ? value.type : 'unknown';
-  // Default animation fields are inert at initial load. Non-default values stay
-  // explicit because the parser does not claim to implement mutation animation.
   if (
-    (value.animation !== undefined && value.animation !== true) ||
-    (value.animationDuration !== undefined && value.animationDuration !== 200)
+    type !== 'bar' &&
+    (value.animation !== undefined || value.animationDuration !== undefined)
   ) {
     warnOnce(
       state,
       `component-animation:${type}`,
       path,
       'component-animation-unsupported',
-      'Input animation/animationDuration are not applied or retained; the Core v2 runtime animation API supplies duration',
+      'animation/animationDuration are unsupported on non-bar components',
       sourceElementId,
     );
   }
@@ -756,9 +758,18 @@ function parseComponent(
 
   if (type === 'bar') {
     const componentSize = resolveComponentSize(value.size, content, `${path}.size`, state);
-    const local = placeBox(content, componentSize, value.placement ?? 'bottom', value.margin, path, state);
+    const placement = barPlacement(value.placement, `${path}.placement`, state);
+    const margin = boxSpacing(value.margin, `${path}.margin`, state);
+    const local = resolveCoreV2PlacementBounds(content, componentSize, placement, margin, path);
     const transform = componentTransform(itemTransform, local, attrs, path, state);
     const denseTransform = centerPivotTopLeft(transform, local, contentOrientation);
+    const animation = barAnimation(value.animation, `${path}.animation`, sourceElementId, state);
+    const animationDuration = barAnimationDuration(
+      value.animationDuration,
+      `${path}.animationDuration`,
+      sourceElementId,
+      state,
+    );
     const source = isRecord(value.source) ? value.source : undefined;
     if (value.source !== undefined && source?.type !== 'rect') {
       warn(state, `${path}.source`, 'bar-source-degraded', 'Non-rect bar source is rendered as a tinted aggregate bar', sourceElementId);
@@ -767,6 +778,17 @@ function parseComponent(
     const fill = value.tint === undefined
       ? trackFill
       : multiplyColor(trackFill === 0 ? 0xffffffff : trackFill, resolveColor(value.tint, 0xffffffff, `${path}.tint`, state));
+    state.barProjectionByEntityId[entityId] = Object.freeze({
+      entityId,
+      ownerId: instanceId,
+      componentId,
+      placement,
+      margin: Object.freeze(margin),
+      contentOrientation,
+      animation,
+      animationDuration,
+      destinationHeight: local.height,
+    });
     addEntity(
       {
         kind: 'bar',
@@ -1855,6 +1877,56 @@ function resolveComponentSize(value: unknown, reference: Size, path: string, sta
   }
   const length = componentLength(value, Math.min(reference.width, reference.height), path, state);
   return { width: length, height: length };
+}
+
+function barPlacement(
+  value: unknown,
+  path: string,
+  state: ParseState,
+): CoreV2Placement {
+  if (value === undefined) return 'bottom';
+  if (typeof value === 'string' && TEXT_PLACEMENTS.has(value as CoreV2Placement)) {
+    return value as CoreV2Placement;
+  }
+  if (typeof value === 'string') {
+    warn(state, path, 'invalid-placement', 'Invalid placement fell back to center');
+  }
+  return 'center';
+}
+
+function barAnimation(
+  value: unknown,
+  path: string,
+  sourceId: string,
+  state: ParseState,
+): boolean {
+  if (value === undefined) return true;
+  if (typeof value === 'boolean') return value;
+  fatal(
+    state,
+    path,
+    'invalid-component-animation',
+    'Bar animation must be a boolean',
+    sourceId,
+  );
+}
+
+function barAnimationDuration(
+  value: unknown,
+  path: string,
+  sourceId: string,
+  state: ParseState,
+): number {
+  if (value === undefined) return 200;
+  const duration = finiteNumber(value);
+  if (duration !== undefined && duration >= 0) return duration;
+  fatal(
+    state,
+    path,
+    'invalid-animation-duration',
+    'Bar animationDuration must be a nonnegative finite number',
+    sourceId,
+  );
 }
 
 function componentLength(value: unknown, reference: number, path: string, state: ParseState): number {

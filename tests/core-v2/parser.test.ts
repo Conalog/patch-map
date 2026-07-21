@@ -247,8 +247,10 @@ describe('Core v2 PATCH MAP v0.10 parser', () => {
     expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
       code: 'content-orientation-unsupported',
     }));
+    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: 'component-animation-unsupported',
+    }));
     expect(result.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: 'component-animation-unsupported' }),
       expect.objectContaining({ code: 'relation-style-degraded' }),
       expect.objectContaining({ code: 'inactive-cell-strategy-unsupported' }),
       expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.display' }),
@@ -260,6 +262,13 @@ describe('Core v2 PATCH MAP v0.10 parser', () => {
     expect(result.projection.relationsByEntityId?.['@relation:5:links6:item-a6:item-a']?.affine).toEqual([
       1, 0, 0, 1, 10, 0,
     ]);
+    expect(result.projection.barsByEntityId?.['item-a::bar:bar-a']).toMatchObject({
+      ownerId: 'item-a',
+      componentId: 'bar-a',
+      animation: true,
+      animationDuration: 500,
+      destinationHeight: 10,
+    });
   });
 
   it('fails atomically for duplicate visible IDs and explicitly omits dangling endpoints', () => {

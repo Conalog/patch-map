@@ -75,10 +75,17 @@ describe('Core v2 approved render projection closure', () => {
       },
     ]).dataset);
 
+    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: 'component-animation-unsupported',
+    }));
     expect(result.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: 'component-animation-unsupported' }),
       expect.objectContaining({ code: 'relation-style-degraded' }),
     ]));
+    expect(result.projection.barsByEntityId?.['item::bar:bar']).toMatchObject({
+      animation: false,
+      animationDuration: 350,
+      destinationHeight: 20,
+    });
     expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
       code: 'text-split-degraded',
     }));
