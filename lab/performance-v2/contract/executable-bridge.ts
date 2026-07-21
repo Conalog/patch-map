@@ -132,12 +132,14 @@ export function createCoreV2ExecutableLabBridge(
     lastRun = null;
 
     let execution: Readonly<Record<string, unknown>> | null = null;
+    let postDestroyProductProbe: (() => Readonly<Record<string, unknown>>) | null = null;
     let supplementalEngine: TargetedWebGLCoreV2Engine | null = null;
     let supplementalCleanup: Readonly<Record<string, unknown>> | null = null;
     let supplementalReleaseError: unknown = null;
 
     try {
       const runRuntime = runtime.createRun(casePlan);
+      postDestroyProductProbe = runRuntime.postDestroyProductProbe ?? null;
       if (runtime.needsSupplementalWebGLLease) {
         supplementalEngine = new TargetedWebGLCoreV2Engine(
           options.surfaceHost,
@@ -170,10 +172,12 @@ export function createCoreV2ExecutableLabBridge(
         clock: new ExecutableLabClock(),
         handlerEntries: runRuntime.handlerEntries,
       });
-      if (runRuntime.postDestroyProductProbe) {
+      if (postDestroyProductProbe) {
+        const probe = postDestroyProductProbe;
+        postDestroyProductProbe = null;
         execution = attachPostDestroyProductProbe(
           execution,
-          runRuntime.postDestroyProductProbe(),
+          probe(),
         );
       }
       const folded = runtime.fold({
@@ -229,12 +233,28 @@ export function createCoreV2ExecutableLabBridge(
             });
         supplementalEngine = null;
       }
-      const partialExecution = execution ?? partialExecutionFrom(error);
+      let partialExecution = execution ?? partialExecutionFrom(error);
+      let productProbeFailure: Readonly<Record<string, unknown>> | null = null;
+      if (postDestroyProductProbe) {
+        const probe = postDestroyProductProbe;
+        postDestroyProductProbe = null;
+        try {
+          const productResources = probe();
+          partialExecution = partialExecution
+            ? attachPostDestroyProductProbe(partialExecution, productResources)
+            : executionWithProductCleanup(productResources);
+        } catch (probeError) {
+          productProbeFailure = deepFreeze({
+            status: 'failed',
+            error: serializeError(probeError),
+          });
+        }
+      }
       lastExecution = partialExecution;
       const executionCleanup = partialExecution && isRecord(partialExecution.cleanup)
         ? partialExecution.cleanup
         : null;
-      lastCleanup = mergeCleanup(executionCleanup, supplementalCleanup);
+      lastCleanup = mergeCleanup(executionCleanup, supplementalCleanup, productProbeFailure);
       actionIndex = partialExecution ? executionActionIndex(partialExecution) : -1;
       publishedTuple = partialExecution ? executionPublishedTuple(partialExecution) : emptyPublishedTuple();
       status = 'failed';
@@ -426,11 +446,13 @@ async function releaseSupplementalWebGLLease(
 function mergeCleanup(
   executionCleanup: Readonly<Record<string, unknown>> | null,
   supplementalCleanup: Readonly<Record<string, unknown>> | null,
+  productProbeFailure: Readonly<Record<string, unknown>> | null = null,
 ): Readonly<Record<string, unknown>> | null {
-  if (!executionCleanup && !supplementalCleanup) return null;
+  if (!executionCleanup && !supplementalCleanup && !productProbeFailure) return null;
   const executionStatus = executionCleanup?.status;
   const supplementalStatus = supplementalCleanup?.status;
-  const status = [executionStatus, supplementalStatus]
+  const productProbeStatus = productProbeFailure?.status;
+  const status = [executionStatus, supplementalStatus, productProbeStatus]
     .filter((value): value is string => typeof value === 'string')
     .every((value) => value === 'completed')
     ? 'completed'
@@ -439,6 +461,7 @@ function mergeCleanup(
     ...(executionCleanup ?? {}),
     status,
     ...(supplementalCleanup ? { supplementalWebGLLease: supplementalCleanup } : {}),
+    ...(productProbeFailure ? { productResourceProbe: productProbeFailure } : {}),
   });
 }
 
@@ -447,12 +470,29 @@ function attachPostDestroyProductProbe(
   productResources: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> {
   const cleanup = requireRecord(execution.cleanup, 'execution cleanup');
-  invariant(cleanup.status === 'completed', 'post-destroy probe requires completed cleanup');
+  invariant(
+    cleanup.status === 'completed' || cleanup.status === 'failed',
+    'post-destroy probe requires terminal cleanup',
+  );
   invariant(cleanup.productResources === undefined, 'execution cleanup productResources is unique');
   return deepFreeze({
     ...execution,
     cleanup: {
       ...cleanup,
+      productResources,
+    },
+  });
+}
+
+function executionWithProductCleanup(
+  productResources: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  return deepFreeze({
+    status: 'failed',
+    cleanup: {
+      status: 'completed',
+      errors: [],
+      releases: [],
       productResources,
     },
   });
