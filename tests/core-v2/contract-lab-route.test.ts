@@ -78,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(149);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(72);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(101);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(158);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(77);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(96);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(262);
+    ), 0)).toBe(275);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);

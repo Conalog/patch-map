@@ -14,7 +14,12 @@ const CASE_IDS = Object.freeze([
   'EVT-009',
   'SEL-005',
   'SEL-006',
+  'SEL-007',
   'SEL-008',
+  'SEL-009',
+  'TRN-002',
+  'TRN-003',
+  'TRN-010',
 ]);
 const DOMAIN_NAMES = Object.freeze([
   'case',
@@ -422,6 +427,42 @@ function projectCaseDomains(caseId, execution) {
         },
       });
     }
+    case 'SEL-007': {
+      const visual = actionActual(execution, 0, 'selection-visual-matrix');
+      const eligibility = actionActual(
+        execution,
+        1,
+        'selection-eligibility-matrix',
+      );
+      const cases = cloneRecord(
+        eligibility.cases,
+        'SEL-007 eligibility cases',
+      );
+      return domains({
+        geometry: {
+          single: cloneRecord(visual.single, 'SEL-007 single frame'),
+          multi: cloneRecord(visual.multi, 'SEL-007 multi frame'),
+          handleCssPxByZoom: cloneArray(
+            visual.handleCssPxByZoom,
+            'SEL-007 handle sizes',
+          ),
+          strokeCssPxByZoom: cloneArray(
+            visual.strokeCssPxByZoom,
+            'SEL-007 stroke sizes',
+          ),
+        },
+        interaction: {
+          empty: cloneRecord(visual.empty, 'SEL-007 empty visual'),
+          hidden: cloneRecord(visual.hidden, 'SEL-007 hidden visual'),
+          'group-only': cloneRecord(cases['group-only'], 'SEL-007 group visual'),
+          'element-only': cloneRecord(
+            cases['element-only'],
+            'SEL-007 element visual',
+          ),
+          mixed: cloneRecord(cases.mixed, 'SEL-007 mixed visual'),
+        },
+      });
+    }
     case 'SEL-008': {
       const canvas = actionActual(execution, 0, 'canvas-user-select');
       const external = actionActual(execution, 1, 'set-external-selection');
@@ -472,6 +513,161 @@ function projectCaseDomains(caseId, execution) {
             canvas.change,
             'SEL-008 canvas selection change',
           ).changed === true,
+        },
+      });
+    }
+    case 'SEL-009': {
+      const first = actionActual(execution, 0, 'select-relation-endpoints');
+      const replaced = actionActual(execution, 1, 'replace-endpoint');
+      const toggled = actionActual(execution, 2, 'select-relation-endpoints');
+      const missing = actionActual(execution, 3, 'select-relation-endpoints');
+      const removed = actionActual(execution, 5, 'select-relation-endpoints');
+      const lifecycleIdentity = cloneRecord(
+        replaced.lifecycleIdentity,
+        'SEL-009 replacement identity',
+      );
+      return domains({
+        scene: {
+          current: {
+            elements: {
+              'rect-b': lifecycleIdentity,
+            },
+          },
+        },
+        interaction: {
+          first: {
+            targets: cloneArray(first.resolvedTargets, 'SEL-009 first targets'),
+            duplicateCount: nonNegativeInteger(
+              first.duplicateCount,
+              'SEL-009 duplicate count',
+            ),
+            missingCount: nonNegativeInteger(
+              first.missingCount,
+              'SEL-009 missing count',
+            ),
+          },
+          replacedEndpoint: {
+            id: stringValue(replaced.id, 'SEL-009 replacement ID'),
+            lifecycleIdentity,
+          },
+          staleEndpointResolutionCount: nonNegativeInteger(
+            toggled.staleEndpointResolutionCount,
+            'SEL-009 stale endpoint count',
+          ),
+          missingRelation: {
+            targets: cloneArray(
+              missing.resolvedTargets,
+              'SEL-009 missing relation targets',
+            ),
+          },
+          removedEndpoint: {
+            missingIds: cloneArray(
+              removed.missingIds,
+              'SEL-009 removed endpoint IDs',
+            ),
+          },
+          addMode: {
+            targets: cloneArray(
+              missing.selectionTargets,
+              'SEL-009 add-mode selection',
+            ),
+          },
+        },
+      });
+    }
+    case 'TRN-002': {
+      const action = actionActual(execution, 0, 'inspect-transform-handles');
+      return domains({
+        geometry: {
+          visibleCorners: cloneArray(
+            action.visibleCorners,
+            'TRN-002 visible corners',
+          ),
+          cornerCssPxByZoom: cloneArray(
+            action.cornerCssPxByZoom,
+            'TRN-002 corner sizes',
+          ),
+          edgeStripCssPxByZoom: cloneArray(
+            action.edgeStripCssPxByZoom,
+            'TRN-002 edge sizes',
+          ),
+        },
+        interaction: {
+          overlapPriority: cloneArray(
+            action.overlapPriority,
+            'TRN-002 overlap priority',
+          ),
+          cursorDirectionByHandle: cloneRecord(
+            action.cursorDirectionByHandle,
+            'TRN-002 cursor directions',
+          ),
+        },
+      });
+    }
+    case 'TRN-003': {
+      const subset = actionActual(execution, 0, 'evaluate-transformable-subset');
+      const matrix = actionActual(
+        execution,
+        1,
+        'evaluate-transformable-kind-matrix',
+      );
+      return domains({
+        scene: {
+          before: {
+            targets: cloneRecord(
+              subset.beforeTargets,
+              'TRN-003 before targets',
+            ),
+          },
+          targets: cloneRecord(
+            subset.currentTargets,
+            'TRN-003 current targets',
+          ),
+        },
+        interaction: {
+          rotatableTargets: cloneArray(
+            subset.rotatableTargets,
+            'TRN-003 rotatable targets',
+          ),
+          resizableTargets: cloneArray(
+            subset.resizableTargets,
+            'TRN-003 resizable targets',
+          ),
+          activeResizeHandles: booleanValue(
+            subset.activeResizeHandles,
+            'TRN-003 active resize handles',
+          ),
+          subsetIndicator: cloneRecord(
+            subset.subsetIndicator,
+            'TRN-003 subset indicator',
+          ),
+          kindEligibility: cloneRecord(
+            matrix.kindEligibility,
+            'TRN-003 kind eligibility',
+          ),
+        },
+      });
+    }
+    case 'TRN-010': {
+      const gesture = actionActual(execution, 0, 'transform-handle-gesture');
+      const after = actionActual(execution, 1, 'pointer-click');
+      return domains({
+        interaction: {
+          afterTransform: {
+            owner: stringValue(after.owner, 'TRN-010 input owner'),
+          },
+        },
+        events: {
+          duringTransform: cloneRecord(
+            gesture.duringTransform,
+            'TRN-010 transform counters',
+          ),
+          afterTransform: {
+            clickCount: nonNegativeInteger(
+              after.clickCount,
+              'TRN-010 post-transform click count',
+            ),
+          },
         },
       });
     }
@@ -624,6 +820,11 @@ function recordValue(value, label) {
 
 function stringValue(value, label) {
   assert(typeof value === 'string' && value.length > 0, `${label} must be a string`);
+  return value;
+}
+
+function booleanValue(value, label) {
+  assert(typeof value === 'boolean', `${label} must be a boolean`);
   return value;
 }
 

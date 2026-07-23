@@ -12,7 +12,12 @@ export const POINTER_SELECTION_CASE_IDS = Object.freeze([
   'EVT-009',
   'SEL-005',
   'SEL-006',
+  'SEL-007',
   'SEL-008',
+  'SEL-009',
+  'TRN-002',
+  'TRN-003',
+  'TRN-010',
 ]);
 
 export const POINTER_SELECTION_ACTION_TYPES = Object.freeze([
@@ -35,10 +40,20 @@ export const POINTER_SELECTION_ACTION_TYPES = Object.freeze([
   'box-selection',
   'relation-box-intersection-matrix',
   'paint-selection',
+  'selection-visual-matrix',
+  'selection-eligibility-matrix',
   'canvas-user-select',
   'set-external-selection',
   'replace-scene',
   'remount',
+  'select-relation-endpoints',
+  'replace-endpoint',
+  'remove-relation-endpoint',
+  'inspect-transform-handles',
+  'evaluate-transformable-subset',
+  'evaluate-transformable-kind-matrix',
+  'transform-handle-gesture',
+  'pointer-click',
 ]);
 
 const CASE_ACTIONS = Object.freeze({
@@ -66,6 +81,10 @@ const CASE_ACTIONS = Object.freeze({
     'relation-box-intersection-matrix',
   ]),
   'SEL-006': Object.freeze(['paint-selection']),
+  'SEL-007': Object.freeze([
+    'selection-visual-matrix',
+    'selection-eligibility-matrix',
+  ]),
   'SEL-008': Object.freeze([
     'canvas-user-select',
     'set-external-selection',
@@ -73,6 +92,20 @@ const CASE_ACTIONS = Object.freeze({
     'replace-scene',
     'remount',
   ]),
+  'SEL-009': Object.freeze([
+    'select-relation-endpoints',
+    'replace-endpoint',
+    'select-relation-endpoints',
+    'select-relation-endpoints',
+    'remove-relation-endpoint',
+    'select-relation-endpoints',
+  ]),
+  'TRN-002': Object.freeze(['inspect-transform-handles']),
+  'TRN-003': Object.freeze([
+    'evaluate-transformable-subset',
+    'evaluate-transformable-kind-matrix',
+  ]),
+  'TRN-010': Object.freeze(['transform-handle-gesture', 'pointer-click']),
 });
 
 export function createPointerSelectionHandlerEntries(productValue) {
@@ -122,10 +155,48 @@ export function createPointerSelectionHandlerEntries(productValue) {
       relationBoxIntersectionMatrixAction,
     ),
     'paint-selection': withState(product, states, paintSelectionAction),
+    'selection-visual-matrix': withState(product, states, selectionVisualMatrixAction),
+    'selection-eligibility-matrix': withState(
+      product,
+      states,
+      selectionEligibilityMatrixAction,
+    ),
     'canvas-user-select': withState(product, states, canvasUserSelectAction),
     'set-external-selection': withState(product, states, setExternalSelectionAction),
     'replace-scene': withState(product, states, replaceSelectionSceneAction),
     'remount': withState(product, states, remountSelectionAction),
+    'select-relation-endpoints': withState(
+      product,
+      states,
+      selectRelationEndpointsAction,
+    ),
+    'replace-endpoint': withState(product, states, replaceEndpointAction),
+    'remove-relation-endpoint': withState(
+      product,
+      states,
+      removeRelationEndpointAction,
+    ),
+    'inspect-transform-handles': withState(
+      product,
+      states,
+      inspectTransformHandlesAction,
+    ),
+    'evaluate-transformable-subset': withState(
+      product,
+      states,
+      evaluateTransformableSubsetAction,
+    ),
+    'evaluate-transformable-kind-matrix': withState(
+      product,
+      states,
+      evaluateTransformableKindMatrixAction,
+    ),
+    'transform-handle-gesture': withState(
+      product,
+      states,
+      transformHandleGestureAction,
+    ),
+    'pointer-click': withState(product, states, postTransformPointerClickAction),
   });
   return Object.freeze(POINTER_SELECTION_ACTION_TYPES.map((type) => Object.freeze([
     `contract/${type}`,
@@ -151,6 +222,10 @@ function withState(product, states, handler) {
         selectionHostUnbind: null,
         canvasToHost: [],
         externalSelectionIds: [],
+        firstEndpointTargets: [],
+        replacedEndpointBefore: null,
+        replacedEndpointCurrent: null,
+        transformCounters: null,
       };
       states.set(context.ensureSessionEngine, state);
     }
@@ -948,6 +1023,554 @@ async function paintSelectionAction(product, state, context, action) {
   return { actual, captureSource: actual };
 }
 
+async function selectionVisualMatrixAction(product, state, context, action) {
+  assert(context.caseId === 'SEL-007', 'selection-visual-matrix case');
+  const operands = exactOperands(
+    action,
+    ['singleRotationDegrees', 'handleCssPx', 'strokeCssPx'],
+  );
+  const engine = await ensureBaseline(state, context);
+  const selections = arrayValue(
+    context.fixtureParams.selections,
+    'selection visual selections',
+  ).map((value, index) => stringArray(value, `selection visual selection ${index}`));
+  assert(selections.length >= 3, 'selection visual selection phases');
+  const zoomLevels = numberArray(
+    context.fixtureParams.zoomLevels,
+    'selection visual zoom levels',
+  );
+  const modes = stringArray(context.fixtureParams.modes, 'selection visual modes');
+  const singleRotationDegrees = finiteNumber(
+    operands.singleRotationDegrees,
+    'selection visual rotation',
+  );
+  const handleCssPx = positiveFinite(operands.handleCssPx, 'selection visual handle');
+  const strokeCssPx = positiveFinite(operands.strokeCssPx, 'selection visual stroke');
+  const singleIds = selections[1];
+  const multiIds = selections[2];
+  assert(singleIds.length === 1, 'selection visual single target');
+  const rotationResult = callSync(engine, 'patch', {
+    kind: 'element',
+    id: singleIds[0],
+  }, {
+    attrs: { rotation: singleRotationDegrees * Math.PI / 180 },
+  });
+  assert(rotationResult.status === 'committed', 'selection visual rotation commit');
+
+  callSync(engine, 'applySelection', {
+    op: 'replace',
+    ids: selections[0],
+    source: 'programmatic',
+  });
+  const empty = callSync(engine, 'setSelectionVisualPolicy', {
+    selectionIds: selections[0],
+    mode: 'all',
+    handleCssPx,
+    strokeCssPx,
+  });
+  callSync(engine, 'publishFrame', context.actionIndex + 10);
+
+  const handleCssPxByZoom = [];
+  const strokeCssPxByZoom = [];
+  let single = null;
+  for (const [index, zoom] of zoomLevels.entries()) {
+    callSync(engine, 'setViewport', {
+      centerWorld: [400 / zoom, 300 / zoom],
+      scale: zoom,
+    });
+    callSync(engine, 'applySelection', {
+      op: 'replace',
+      ids: singleIds,
+      source: 'programmatic',
+    });
+    callSync(engine, 'setSelectionVisualPolicy', {
+      selectionIds: singleIds,
+      mode: 'all',
+      handleCssPx,
+      strokeCssPx,
+    });
+    callSync(engine, 'publishFrame', context.actionIndex + 20 + index);
+    single = callSync(engine, 'selectionVisualProbe', {
+      selectionIds: singleIds,
+      mode: 'all',
+      handleCssPx,
+      strokeCssPx,
+    });
+    assert(single !== null && single.frame !== null, 'selection visual single frame');
+    handleCssPxByZoom.push(single.handleCssPx);
+    strokeCssPxByZoom.push(single.strokeCssPx);
+  }
+
+  callSync(engine, 'setViewport', { centerWorld: [400, 300], scale: 1 });
+  callSync(engine, 'applySelection', {
+    op: 'replace',
+    ids: multiIds,
+    source: 'programmatic',
+  });
+  const multi = callSync(engine, 'setSelectionVisualPolicy', {
+    selectionIds: multiIds,
+    mode: 'all',
+    handleCssPx,
+    strokeCssPx,
+  });
+  callSync(engine, 'publishFrame', context.actionIndex + 40);
+  assert(multi !== null && multi.frame !== null, 'selection visual multi frame');
+
+  assert(modes.includes('hidden'), 'selection visual hidden mode');
+  const hidden = callSync(engine, 'setSelectionVisualPolicy', {
+    selectionIds: multiIds,
+    mode: 'hidden',
+    handleCssPx,
+    strokeCssPx,
+  });
+  callSync(engine, 'publishFrame', context.actionIndex + 41);
+  const actual = {
+    empty: {
+      overlayCount: empty?.overlayCount ?? 0,
+    },
+    single: {
+      frameOrientationDegrees: single.frame.orientationDegrees,
+    },
+    multi: {
+      frameKind: multi.frame.kind,
+    },
+    hidden: {
+      overlayCount: hidden?.overlayCount ?? 0,
+    },
+    handleCssPxByZoom,
+    strokeCssPxByZoom,
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function selectionEligibilityMatrixAction(product, state, context, action) {
+  assert(context.caseId === 'SEL-007', 'selection-eligibility-matrix case');
+  const operands = exactOperands(action, ['cases']);
+  const engine = await ensureBaseline(state, context);
+  const cases = {};
+  for (const [index, value] of arrayValue(
+    operands.cases,
+    'selection eligibility cases',
+  ).entries()) {
+    const entry = recordValue(value, `selection eligibility case ${index}`);
+    const id = stringValue(entry.id, `selection eligibility case ${index} ID`);
+    const selected = stringArray(
+      entry.selected,
+      `selection eligibility case ${id} selected`,
+    );
+    const hasKinds = Object.hasOwn(entry, 'eligibleKinds');
+    const hasRejected = Object.hasOwn(entry, 'ineligibleIds');
+    assert(hasKinds !== hasRejected, `selection eligibility case ${id} filter`);
+    assertExactKeys(
+      entry,
+      hasKinds
+        ? ['id', 'selected', 'eligibleKinds']
+        : ['id', 'selected', 'ineligibleIds'],
+      `selection eligibility case ${id}`,
+    );
+    callSync(engine, 'applySelection', {
+      op: 'replace',
+      ids: selected,
+      source: 'programmatic',
+    });
+    const visual = callSync(engine, 'setSelectionVisualPolicy', {
+      selectionIds: selected,
+      mode: id === 'group-only' || id === 'element-only' ? id : 'all',
+      ...(hasKinds
+        ? {
+            includeTypes: stringArray(
+              entry.eligibleKinds,
+              `selection eligibility case ${id} kinds`,
+            ),
+          }
+        : {
+            rejectIds: stringArray(
+              entry.ineligibleIds,
+              `selection eligibility case ${id} rejected`,
+            ),
+          }),
+      handleCssPx: 8,
+      strokeCssPx: 1,
+    });
+    callSync(engine, 'publishFrame', context.actionIndex + 50 + index);
+    assert(visual !== null, `selection eligibility case ${id} visual`);
+    cases[id] = {
+      overlayTargets: visual.overlayTargets.map(({ selectionId }) => selectionId),
+    };
+  }
+  const actual = {
+    cases,
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function selectRelationEndpointsAction(product, state, context, action) {
+  assert(context.caseId === 'SEL-009', 'select-relation-endpoints case');
+  const operands = exactOperands(action, ['relations', 'mode']);
+  const engine = await ensureBaseline(state, context);
+  const result = callSync(
+    engine,
+    'selectRelationEndpoints',
+    stringArray(operands.relations, 'relation endpoint relation IDs'),
+    stringValue(operands.mode, 'relation endpoint selection mode'),
+    'programmatic',
+  );
+  if (context.actionIndex === 0) {
+    state.firstEndpointTargets = [...result.targets];
+  }
+  const staleEndpointResolutionCount = context.actionIndex === 2
+    ? result.targets.filter((target) =>
+        state.firstEndpointTargets.includes(target)).length
+    : 0;
+  const actual = {
+    resolvedTargets: result.targets.map(({ selectionId }) => selectionId),
+    selectionTargets: clone(result.change.current),
+    duplicateCount: result.duplicateTargetCount,
+    missingCount: result.missingEndpointIds.length,
+    missingIds: clone(result.missingEndpointIds),
+    missingRelationIds: clone(result.missingRelationIds),
+    staleEndpointResolutionCount,
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function replaceEndpointAction(product, state, context, action) {
+  assert(context.caseId === 'SEL-009', 'replace-endpoint case');
+  const operands = exactOperands(action, ['remove', 'add']);
+  const engine = await ensureBaseline(state, context);
+  const removeId = stringValue(operands.remove, 'replace endpoint remove ID');
+  const add = recordValue(operands.add, 'replace endpoint add');
+  assertExactKeys(add, ['id', 'kind'], 'replace endpoint add');
+  const addId = stringValue(add.id, 'replace endpoint add ID');
+  const addKind = stringValue(add.kind, 'replace endpoint add kind');
+  assert(addId === removeId, 'replace endpoint stable ID');
+  const beforeQuery = callSync(engine, 'queryScene', { where: { id: removeId } });
+  assert(beforeQuery.status === 'matched', 'replace endpoint before target');
+  state.replacedEndpointBefore = beforeQuery.targets[0];
+  const dataset = replaceSceneElement(
+    clone(callSync(engine, 'exportDataset')),
+    removeId,
+    (element) => ({
+      ...clone(element),
+      type: addKind,
+      id: addId,
+      label: `replacement:${addId}`,
+    }),
+  );
+  callSync(engine, 'loadDataset', dataset, {
+    datasetRef: `contract:${context.caseId}:replace-endpoint`,
+  });
+  callSync(engine, 'publishFrame', context.actionIndex + 100);
+  const currentQuery = callSync(engine, 'queryScene', { where: { id: addId } });
+  assert(currentQuery.status === 'matched', 'replace endpoint current target');
+  state.replacedEndpointCurrent = currentQuery.targets[0];
+  const lifecycleIdentity = {
+    key: currentQuery.targets[0].key,
+    sceneOrder: currentQuery.targets[0].sceneOrder,
+    lifecycleGeneration: currentQuery.lifecycleGeneration,
+    sceneRevision: currentQuery.sceneRevision,
+  };
+  const actual = {
+    id: addId,
+    lifecycleIdentity,
+    replacedObject: state.replacedEndpointBefore !== state.replacedEndpointCurrent,
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function removeRelationEndpointAction(product, state, context, action) {
+  assert(context.caseId === 'SEL-009', 'remove-relation-endpoint case');
+  const operands = exactOperands(action, ['relationId', 'endpointId']);
+  const engine = await ensureBaseline(state, context);
+  const relationId = stringValue(operands.relationId, 'remove relation endpoint relation ID');
+  const endpointId = stringValue(operands.endpointId, 'remove relation endpoint ID');
+  const dataset = removeSceneElement(
+    clone(callSync(engine, 'exportDataset')),
+    endpointId,
+  );
+  callSync(engine, 'loadDataset', dataset, {
+    datasetRef: `contract:${context.caseId}:remove-endpoint`,
+  });
+  callSync(engine, 'publishFrame', context.actionIndex + 120);
+  const actual = {
+    relationId,
+    endpointId,
+    currentTargetCount: callSync(engine, 'queryScene', {
+      where: { id: endpointId },
+    }).targets.length,
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function inspectTransformHandlesAction(product, state, context, action) {
+  assert(context.caseId === 'TRN-002', 'inspect-transform-handles case');
+  const operands = exactOperands(action, ['regions', 'overlapProbe']);
+  const engine = await ensureBaseline(state, context);
+  const regions = stringArray(operands.regions, 'transform handle regions');
+  assert(
+    stringValue(operands.overlapProbe, 'transform overlap probe') ===
+      'corner-edge-rotate',
+    'transform overlap probe value',
+  );
+  const target = stringValue(context.fixtureParams.target, 'transform handle target');
+  const rotationDegrees = finiteNumber(
+    context.fixtureParams.rotationDegrees,
+    'transform handle rotation',
+  );
+  const cornerCssPx = positiveFinite(
+    context.fixtureParams.cornerCssPx,
+    'transform corner CSS size',
+  );
+  const edgeStripCssPx = positiveFinite(
+    context.fixtureParams.edgeStripCssPx,
+    'transform edge CSS size',
+  );
+  const rotateZoneCssPx = positiveFinite(
+    context.fixtureParams.rotateZoneCssPx,
+    'transform rotate CSS size',
+  );
+  const zoomLevels = numberArray(
+    context.fixtureParams.zoomLevels,
+    'transform handle zoom levels',
+  );
+  const rotationResult = callSync(engine, 'patch', {
+    kind: 'element',
+    id: target,
+  }, {
+    attrs: { rotation: rotationDegrees * Math.PI / 180 },
+  });
+  assert(rotationResult.status === 'committed', 'transform handle rotation commit');
+  callSync(engine, 'applySelection', {
+    op: 'replace',
+    ids: [target],
+    source: 'programmatic',
+  });
+  const cornerCssPxByZoom = [];
+  const edgeStripCssPxByZoom = [];
+  let probe = null;
+  for (const [index, zoom] of zoomLevels.entries()) {
+    callSync(engine, 'setViewport', {
+      centerWorld: [400 / zoom, 300 / zoom],
+      scale: zoom,
+    });
+    callSync(engine, 'setSelectionVisualPolicy', {
+      selectionIds: [target],
+      mode: 'all',
+      handleCssPx: cornerCssPx,
+      strokeCssPx: 1,
+    });
+    callSync(engine, 'publishFrame', context.actionIndex + 150 + index);
+    probe = callSync(engine, 'transformerHandleProbe', {
+      selectionIds: [target],
+      cornerCssPx,
+      edgeStripCssPx,
+      rotateZoneCssPx,
+    });
+    assert(probe !== null, 'transform handle probe');
+    cornerCssPxByZoom.push(probe.cornerCssPx);
+    edgeStripCssPxByZoom.push(probe.edgeStripCssPx);
+  }
+  callSync(engine, 'setViewport', { centerWorld: [400, 300], scale: 1 });
+  assert(probe !== null, 'terminal transform handle probe');
+  const actual = {
+    visibleCorners: probe.visibleCorners.filter((id) => regions.includes(id)),
+    overlapPriority: probe.overlapPriority.slice(0, 3),
+    cornerCssPxByZoom,
+    edgeStripCssPxByZoom,
+    cursorDirectionByHandle: clone(probe.cursorDirectionByHandle),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function evaluateTransformableSubsetAction(product, state, context, action) {
+  assert(context.caseId === 'TRN-003', 'evaluate-transformable-subset case');
+  const operands = exactOperands(action, ['selection', 'lockedIds']);
+  const engine = await ensureBaseline(state, context);
+  const selection = stringArray(operands.selection, 'transform subset selection');
+  const lockedIds = stringArray(operands.lockedIds, 'transform subset locked IDs');
+  const beforeTargets = {
+    'text-c': logicalTargetValue(engine, 'text-c'),
+    links: logicalTargetValue(engine, 'links'),
+  };
+  callSync(engine, 'applySelection', {
+    op: 'replace',
+    ids: selection,
+    source: 'programmatic',
+  });
+  const subset = callSync(engine, 'transformableSubset', selection, lockedIds);
+  callSync(engine, 'setSelectionVisualPolicy', {
+    selectionIds: selection,
+    mode: 'all',
+    lockedIds,
+    handleCssPx: 8,
+    strokeCssPx: 1,
+  });
+  callSync(engine, 'publishFrame', context.actionIndex + 180);
+  const actual = {
+    rotatableTargets: subset.rotatableTargets.map(({ selectionId }) => selectionId),
+    resizableTargets: subset.resizableTargets.map(({ selectionId }) => selectionId),
+    activeResizeHandles: subset.activeResizeHandles,
+    subsetIndicator: clone(subset.subsetIndicator),
+    beforeTargets,
+    currentTargets: {
+      'text-c': logicalTargetValue(engine, 'text-c'),
+      links: logicalTargetValue(engine, 'links'),
+    },
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function evaluateTransformableKindMatrixAction(product, state, context, action) {
+  assert(context.caseId === 'TRN-003', 'evaluate-transformable-kind-matrix case');
+  const operands = exactOperands(action, ['cases', 'lockedIds']);
+  const engine = await ensureBaseline(state, context);
+  const lockedIds = stringArray(operands.lockedIds, 'transform kind locked IDs');
+  const kindEligibility = {};
+  for (const id of stringArray(operands.cases, 'transform kind cases')) {
+    if (id === 'empty') {
+      kindEligibility[id] = 'none';
+      continue;
+    }
+    const subset = callSync(engine, 'transformableSubset', [id], lockedIds);
+    kindEligibility[id] = subset.eligibilityById[id] ?? 'none';
+  }
+  const actual = {
+    kindEligibility,
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function transformHandleGestureAction(product, state, context, action) {
+  assert(context.caseId === 'TRN-010', 'transform-handle-gesture case');
+  const operands = exactOperands(
+    action,
+    ['pointerId', 'button', 'handle', 'downScreen', 'moveScreen', 'upScreen'],
+  );
+  const engine = await ensureBaseline(state, context);
+  const pointerId = nonNegativeInteger(operands.pointerId, 'transform pointerId');
+  const button = nonNegativeInteger(operands.button, 'transform pointer button');
+  assert(button === 0, 'transform primary button');
+  const handle = stringValue(operands.handle, 'transform handle');
+  const target = stringValue(context.fixtureParams.target, 'transform target');
+  callSync(engine, 'applySelection', {
+    op: 'replace',
+    ids: [target],
+    source: 'programmatic',
+  });
+  callSync(engine, 'setSelectionVisualPolicy', {
+    selectionIds: [target],
+    mode: 'all',
+    handleCssPx: 8,
+    strokeCssPx: 1,
+  });
+  callSync(engine, 'publishFrame', context.actionIndex + 200);
+  const pointerEvents = [];
+  const selectionEvents = [];
+  const unbindPointer = callSync(
+    engine,
+    'on',
+    'pointerEvent',
+    (event) => pointerEvents.push(clone(event)),
+  );
+  const unbindSelection = callSync(
+    engine,
+    'on',
+    'selectionChanged',
+    (event) => selectionEvents.push(clone(event)),
+  );
+  const routed = {};
+  let completion;
+  try {
+    callSync(engine, 'beginTransformerHandleGesture', pointerId, handle);
+    for (const family of ['selection', 'pan', 'hover', 'context-menu']) {
+      routed[family] = callSync(engine, 'routeTransformerInput', pointerId, family);
+    }
+    dispatchPointer(engine, {
+      type: 'down',
+      pointerId,
+      pointerType: 'mouse',
+      button,
+      buttons: 1,
+      screen: pointTuple(operands.downScreen, 'transform down screen'),
+      timeMs: 0,
+    }, 0);
+    dispatchPointer(engine, {
+      type: 'move',
+      pointerId,
+      pointerType: 'mouse',
+      button,
+      buttons: 1,
+      screen: pointTuple(operands.moveScreen, 'transform move screen'),
+      timeMs: 16,
+    }, 1);
+    dispatchPointer(engine, {
+      type: 'up-outside',
+      pointerId,
+      pointerType: 'mouse',
+      button,
+      buttons: 0,
+      screen: pointTuple(operands.upScreen, 'transform up screen'),
+      timeMs: 32,
+    }, 2);
+    completion = callSync(engine, 'completeTransformerHandleGesture', pointerId);
+  } finally {
+    unbindPointer();
+    unbindSelection();
+  }
+  const probe = callSync(engine, 'transformerGestureProbe');
+  state.transformCounters = {
+    selectionCount: selectionEvents.length +
+      (routed.selection?.deliveryCount ?? 0),
+    panCount: routed.pan?.deliveryCount ?? 0,
+    hoverCount: pointerEvents.filter(({ type }) => type === 'hover-change').length +
+      (routed.hover?.deliveryCount ?? 0),
+    contextMenuCount: routed['context-menu']?.deliveryCount ?? 0,
+  };
+  const actual = {
+    duringTransform: clone(state.transformCounters),
+    pointerEventCount: pointerEvents.length,
+    completion: clone(completion),
+    gesture: clone(probe),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function postTransformPointerClickAction(product, state, context, action) {
+  assert(context.caseId === 'TRN-010', 'post-transform pointer-click case');
+  const operands = exactOperands(action, ['pointerId', 'button', 'screen']);
+  const engine = await ensureBaseline(state, context);
+  const pointerId = nonNegativeInteger(operands.pointerId, 'post-transform pointerId');
+  const button = nonNegativeInteger(operands.button, 'post-transform pointer button');
+  const screen = pointTuple(operands.screen, 'post-transform pointer screen');
+  const events = [];
+  const unbind = callSync(
+    engine,
+    'on',
+    'pointerEvent',
+    (event) => events.push(clone(event)),
+  );
+  try {
+    dispatchProductClick(engine, pointerId, button, screen, 100);
+  } finally {
+    unbind();
+  }
+  const actual = {
+    clickCount: events.filter(({ type }) => type === 'click').length,
+    owner: callSync(engine, 'routeTransformerInput', pointerId, 'selection').owner,
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
 async function canvasUserSelectAction(product, state, context, action) {
   assert(context.caseId === 'SEL-008', 'canvas-user-select case');
   const operands = exactOperands(action, ['ids', 'source']);
@@ -1082,7 +1705,9 @@ async function ensureBaseline(state, context) {
   if (state.loadedDatasetRef !== null) return engine;
   const profileId = context.caseId.startsWith('EVT-')
     ? 'input-device-and-gesture-matrix'
-    : 'selection-and-hit-matrix';
+    : context.caseId.startsWith('TRN-')
+      ? 'transformer-gesture-matrix'
+      : 'selection-and-hit-matrix';
   const profiles = recordValue(context.fixtureProfiles, 'fixture profiles');
   const profile = recordValue(profiles[profileId], `${profileId} profile`);
   const datasetRef = stringValue(profile.datasetRef, `${profileId}.datasetRef`);
@@ -1361,6 +1986,53 @@ function retainSceneElements(elementsValue, retained, removed) {
     }
   }
   return next;
+}
+
+function replaceSceneElement(elementsValue, targetId, replace) {
+  const elements = arrayValue(elementsValue, 'replace endpoint dataset');
+  let replaced = false;
+  const visit = (elementValue) => {
+    const element = recordValue(elementValue, 'replace endpoint element');
+    if (element.id === targetId) {
+      assert(!replaced, 'replace endpoint unique target');
+      replaced = true;
+      return replace(element);
+    }
+    if (!Array.isArray(element.children)) return clone(element);
+    return {
+      ...clone(element),
+      children: element.children.map(visit),
+    };
+  };
+  const result = elements.map(visit);
+  assert(replaced, 'replace endpoint target exists');
+  return result;
+}
+
+function removeSceneElement(elementsValue, targetId) {
+  const elements = arrayValue(elementsValue, 'remove endpoint dataset');
+  let removed = false;
+  const visit = (values) => values.flatMap((elementValue) => {
+    const element = recordValue(elementValue, 'remove endpoint element');
+    if (element.id === targetId) {
+      removed = true;
+      return [];
+    }
+    if (!Array.isArray(element.children)) return [clone(element)];
+    return [{
+      ...clone(element),
+      children: visit(element.children),
+    }];
+  });
+  const result = visit(elements);
+  assert(removed, 'remove endpoint target exists');
+  return result;
+}
+
+function logicalTargetValue(engine, id) {
+  const query = callSync(engine, 'queryScene', { where: { id } });
+  assert(query.status === 'matched' && query.targets.length === 1, `logical target ${id}`);
+  return clone(query.targets[0].value);
 }
 
 function callSync(target, method, ...args) {

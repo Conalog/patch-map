@@ -21,7 +21,9 @@ export const CORE_V2_EXECUTABLE_CASE_IDS = Object.freeze([
   'SEL-004',
   'SEL-005',
   'SEL-006',
+  'SEL-007',
   'SEL-008',
+  'SEL-009',
   'LIF-001',
   'LIF-002',
   'LIF-004',
@@ -72,6 +74,9 @@ export const CORE_V2_EXECUTABLE_CASE_IDS = Object.freeze([
   'VIE-003',
   'VIE-004',
   'VIE-008',
+  'TRN-002',
+  'TRN-003',
+  'TRN-010',
   'CSM-001',
   'CSM-003',
   'CSM-009',
@@ -80,15 +85,15 @@ export const CORE_V2_EXECUTABLE_CASE_IDS = Object.freeze([
 
 export type CoreV2ExecutableCaseId = (typeof CORE_V2_EXECUTABLE_CASE_IDS)[number];
 
-export const CORE_V2_EXECUTABLE_COUNT = 72;
-export const CORE_V2_CONTRACT_STUB_COUNT = 101;
+export const CORE_V2_EXECUTABLE_COUNT = 77;
+export const CORE_V2_CONTRACT_STUB_COUNT = 96;
 
 const CONTRACT_REVISION = 'core-v2-functional-contract/2026-07-16.2';
 const ACTION_LANGUAGE_REVISION = 'core-v2-catalog-actions/1';
 const APPROVED_CASE_COUNT = 173;
 const APPROVED_ACTION_DEFINITION_COUNT = 381;
-const EXECUTABLE_ACTION_COUNT = 262;
-const EXECUTABLE_ACTION_TYPE_COUNT = 149;
+const EXECUTABLE_ACTION_COUNT = 275;
+const EXECUTABLE_ACTION_TYPE_COUNT = 158;
 const CANONICAL_SIZES = new Set(['100', '500', '1000', '2000', '5000', 'production']);
 const EXECUTABLE_ID_SET = new Set<string>(CORE_V2_EXECUTABLE_CASE_IDS);
 
@@ -238,10 +243,10 @@ for (const fixture of selectedFixtures) {
   fixtureById.set(fixture.id, fixture);
 }
 
-invariant(selectedActionCount === EXECUTABLE_ACTION_COUNT, 'executable action count must remain 262');
+invariant(selectedActionCount === EXECUTABLE_ACTION_COUNT, 'executable action count must remain 275');
 invariant(
   selectedActionTypes.size === EXECUTABLE_ACTION_TYPE_COUNT,
-  'executable action type count must remain 149',
+  'executable action type count must remain 158',
 );
 
 const actionDefinitionByType = new Map(actionSchema.definitions.map((definition) => [definition.type, definition]));

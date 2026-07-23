@@ -20,7 +20,12 @@ export const CORE_V2_POINTER_SELECTION_CASE_IDS = Object.freeze([
   'EVT-009',
   'SEL-005',
   'SEL-006',
+  'SEL-007',
   'SEL-008',
+  'SEL-009',
+  'TRN-002',
+  'TRN-003',
+  'TRN-010',
 ] as const);
 
 export type CoreV2PointerSelectionCaseId =
@@ -77,6 +82,7 @@ export function createCoreV2PointerSelectionRuntime(
         semantic: structuredClone(input.engine.semanticProbe()),
         geometry: structuredClone(input.engine.geometryProbe()),
         pointerGesture: structuredClone(input.engine.pointerGestureProbe()),
+        transformerGesture: structuredClone(input.engine.transformerGestureProbe()),
         hostInteraction: structuredClone(input.engine.hostInteractionProbe()),
         interactionOwnership: structuredClone(input.engine.interactionOwnershipProbe()),
         runtimeCounts: runtimeCounts(),
