@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-23T12:35:14.748Z",
+  "generatedAt": "2026-07-23T13:15:08.040Z",
   "workload": {
     "sourceItems": 1000,
     "expandedEntities": 5099
@@ -9,23 +9,1159 @@
     "warmups": 2,
     "measured": 7
   },
+  "hostInteractionLifecycle": [
+    {
+      "index": 0,
+      "phase": "warmup",
+      "error": null,
+      "observedEventCount": 1,
+      "hostPublicationCount": 1,
+      "beforeDestroy": {
+        "bindings": 1,
+        "bindingListeners": 1,
+        "eventSubscriptions": 1,
+        "selectionHostListeners": 1,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "pan",
+          "stack": [
+            "select",
+            "pan"
+          ],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 1,
+          "paused": false,
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "afterDestroy": {
+        "bindings": 0,
+        "bindingListeners": 0,
+        "eventSubscriptions": 0,
+        "selectionHostListeners": 0,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "select",
+          "stack": [],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 0,
+          "paused": false,
+          "destroyed": true
+        },
+        "destroyed": true
+      },
+      "snapshot": {
+        "lifecycle": "destroyed",
+        "instanceId": "memory-host-interaction-0",
+        "revisions": {
+          "lifecycleGeneration": 1,
+          "sceneRevision": 1,
+          "viewRevision": 0,
+          "interactionRevision": 1
+        },
+        "publishedTuple": {
+          "scene": 0,
+          "view": 0,
+          "interaction": 0
+        },
+        "frameRevision": 0,
+        "datasetRef": null,
+        "semanticHash": null,
+        "rootIds": [],
+        "historyDepth": 0,
+        "pendingWork": 0,
+        "zoomLimits": [
+          0.5,
+          30
+        ],
+        "viewport": {
+          "centerWorld": [
+            160,
+            90
+          ],
+          "scale": 1,
+          "screenBounds": [
+            0,
+            0,
+            320,
+            180
+          ]
+        },
+        "selectionIds": [],
+        "facilities": [
+          "renderer",
+          "viewport",
+          "world",
+          "state",
+          "history",
+          "resize",
+          "assets"
+        ],
+        "resources": {
+          "canvasCount": 0,
+          "canvas": {
+            "cssSize": [
+              320,
+              180
+            ],
+            "backingSize": [
+              320,
+              180
+            ]
+          },
+          "renderer": null,
+          "rendering": {
+            "commandCount": 0,
+            "visiblePrimitiveCount": 0
+          },
+          "assets": null,
+          "subscriptions": {
+            "active": 0,
+            "duplicates": 0
+          }
+        }
+      },
+      "retainedCanvasCount": 0
+    },
+    {
+      "index": 1,
+      "phase": "warmup",
+      "error": null,
+      "observedEventCount": 1,
+      "hostPublicationCount": 1,
+      "beforeDestroy": {
+        "bindings": 1,
+        "bindingListeners": 1,
+        "eventSubscriptions": 1,
+        "selectionHostListeners": 1,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "pan",
+          "stack": [
+            "select",
+            "pan"
+          ],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 1,
+          "paused": false,
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "afterDestroy": {
+        "bindings": 0,
+        "bindingListeners": 0,
+        "eventSubscriptions": 0,
+        "selectionHostListeners": 0,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "select",
+          "stack": [],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 0,
+          "paused": false,
+          "destroyed": true
+        },
+        "destroyed": true
+      },
+      "snapshot": {
+        "lifecycle": "destroyed",
+        "instanceId": "memory-host-interaction-1",
+        "revisions": {
+          "lifecycleGeneration": 1,
+          "sceneRevision": 1,
+          "viewRevision": 0,
+          "interactionRevision": 1
+        },
+        "publishedTuple": {
+          "scene": 0,
+          "view": 0,
+          "interaction": 0
+        },
+        "frameRevision": 0,
+        "datasetRef": null,
+        "semanticHash": null,
+        "rootIds": [],
+        "historyDepth": 0,
+        "pendingWork": 0,
+        "zoomLimits": [
+          0.5,
+          30
+        ],
+        "viewport": {
+          "centerWorld": [
+            160,
+            90
+          ],
+          "scale": 1,
+          "screenBounds": [
+            0,
+            0,
+            320,
+            180
+          ]
+        },
+        "selectionIds": [],
+        "facilities": [
+          "renderer",
+          "viewport",
+          "world",
+          "state",
+          "history",
+          "resize",
+          "assets"
+        ],
+        "resources": {
+          "canvasCount": 0,
+          "canvas": {
+            "cssSize": [
+              320,
+              180
+            ],
+            "backingSize": [
+              320,
+              180
+            ]
+          },
+          "renderer": null,
+          "rendering": {
+            "commandCount": 0,
+            "visiblePrimitiveCount": 0
+          },
+          "assets": null,
+          "subscriptions": {
+            "active": 0,
+            "duplicates": 0
+          }
+        }
+      },
+      "retainedCanvasCount": 0
+    },
+    {
+      "index": 2,
+      "phase": "measured",
+      "error": null,
+      "observedEventCount": 1,
+      "hostPublicationCount": 1,
+      "beforeDestroy": {
+        "bindings": 1,
+        "bindingListeners": 1,
+        "eventSubscriptions": 1,
+        "selectionHostListeners": 1,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "pan",
+          "stack": [
+            "select",
+            "pan"
+          ],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 1,
+          "paused": false,
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "afterDestroy": {
+        "bindings": 0,
+        "bindingListeners": 0,
+        "eventSubscriptions": 0,
+        "selectionHostListeners": 0,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "select",
+          "stack": [],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 0,
+          "paused": false,
+          "destroyed": true
+        },
+        "destroyed": true
+      },
+      "snapshot": {
+        "lifecycle": "destroyed",
+        "instanceId": "memory-host-interaction-2",
+        "revisions": {
+          "lifecycleGeneration": 1,
+          "sceneRevision": 1,
+          "viewRevision": 0,
+          "interactionRevision": 1
+        },
+        "publishedTuple": {
+          "scene": 0,
+          "view": 0,
+          "interaction": 0
+        },
+        "frameRevision": 0,
+        "datasetRef": null,
+        "semanticHash": null,
+        "rootIds": [],
+        "historyDepth": 0,
+        "pendingWork": 0,
+        "zoomLimits": [
+          0.5,
+          30
+        ],
+        "viewport": {
+          "centerWorld": [
+            160,
+            90
+          ],
+          "scale": 1,
+          "screenBounds": [
+            0,
+            0,
+            320,
+            180
+          ]
+        },
+        "selectionIds": [],
+        "facilities": [
+          "renderer",
+          "viewport",
+          "world",
+          "state",
+          "history",
+          "resize",
+          "assets"
+        ],
+        "resources": {
+          "canvasCount": 0,
+          "canvas": {
+            "cssSize": [
+              320,
+              180
+            ],
+            "backingSize": [
+              320,
+              180
+            ]
+          },
+          "renderer": null,
+          "rendering": {
+            "commandCount": 0,
+            "visiblePrimitiveCount": 0
+          },
+          "assets": null,
+          "subscriptions": {
+            "active": 0,
+            "duplicates": 0
+          }
+        }
+      },
+      "retainedCanvasCount": 0
+    },
+    {
+      "index": 3,
+      "phase": "measured",
+      "error": null,
+      "observedEventCount": 1,
+      "hostPublicationCount": 1,
+      "beforeDestroy": {
+        "bindings": 1,
+        "bindingListeners": 1,
+        "eventSubscriptions": 1,
+        "selectionHostListeners": 1,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "pan",
+          "stack": [
+            "select",
+            "pan"
+          ],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 1,
+          "paused": false,
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "afterDestroy": {
+        "bindings": 0,
+        "bindingListeners": 0,
+        "eventSubscriptions": 0,
+        "selectionHostListeners": 0,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "select",
+          "stack": [],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 0,
+          "paused": false,
+          "destroyed": true
+        },
+        "destroyed": true
+      },
+      "snapshot": {
+        "lifecycle": "destroyed",
+        "instanceId": "memory-host-interaction-3",
+        "revisions": {
+          "lifecycleGeneration": 1,
+          "sceneRevision": 1,
+          "viewRevision": 0,
+          "interactionRevision": 1
+        },
+        "publishedTuple": {
+          "scene": 0,
+          "view": 0,
+          "interaction": 0
+        },
+        "frameRevision": 0,
+        "datasetRef": null,
+        "semanticHash": null,
+        "rootIds": [],
+        "historyDepth": 0,
+        "pendingWork": 0,
+        "zoomLimits": [
+          0.5,
+          30
+        ],
+        "viewport": {
+          "centerWorld": [
+            160,
+            90
+          ],
+          "scale": 1,
+          "screenBounds": [
+            0,
+            0,
+            320,
+            180
+          ]
+        },
+        "selectionIds": [],
+        "facilities": [
+          "renderer",
+          "viewport",
+          "world",
+          "state",
+          "history",
+          "resize",
+          "assets"
+        ],
+        "resources": {
+          "canvasCount": 0,
+          "canvas": {
+            "cssSize": [
+              320,
+              180
+            ],
+            "backingSize": [
+              320,
+              180
+            ]
+          },
+          "renderer": null,
+          "rendering": {
+            "commandCount": 0,
+            "visiblePrimitiveCount": 0
+          },
+          "assets": null,
+          "subscriptions": {
+            "active": 0,
+            "duplicates": 0
+          }
+        }
+      },
+      "retainedCanvasCount": 0
+    },
+    {
+      "index": 4,
+      "phase": "measured",
+      "error": null,
+      "observedEventCount": 1,
+      "hostPublicationCount": 1,
+      "beforeDestroy": {
+        "bindings": 1,
+        "bindingListeners": 1,
+        "eventSubscriptions": 1,
+        "selectionHostListeners": 1,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "pan",
+          "stack": [
+            "select",
+            "pan"
+          ],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 1,
+          "paused": false,
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "afterDestroy": {
+        "bindings": 0,
+        "bindingListeners": 0,
+        "eventSubscriptions": 0,
+        "selectionHostListeners": 0,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "select",
+          "stack": [],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 0,
+          "paused": false,
+          "destroyed": true
+        },
+        "destroyed": true
+      },
+      "snapshot": {
+        "lifecycle": "destroyed",
+        "instanceId": "memory-host-interaction-4",
+        "revisions": {
+          "lifecycleGeneration": 1,
+          "sceneRevision": 1,
+          "viewRevision": 0,
+          "interactionRevision": 1
+        },
+        "publishedTuple": {
+          "scene": 0,
+          "view": 0,
+          "interaction": 0
+        },
+        "frameRevision": 0,
+        "datasetRef": null,
+        "semanticHash": null,
+        "rootIds": [],
+        "historyDepth": 0,
+        "pendingWork": 0,
+        "zoomLimits": [
+          0.5,
+          30
+        ],
+        "viewport": {
+          "centerWorld": [
+            160,
+            90
+          ],
+          "scale": 1,
+          "screenBounds": [
+            0,
+            0,
+            320,
+            180
+          ]
+        },
+        "selectionIds": [],
+        "facilities": [
+          "renderer",
+          "viewport",
+          "world",
+          "state",
+          "history",
+          "resize",
+          "assets"
+        ],
+        "resources": {
+          "canvasCount": 0,
+          "canvas": {
+            "cssSize": [
+              320,
+              180
+            ],
+            "backingSize": [
+              320,
+              180
+            ]
+          },
+          "renderer": null,
+          "rendering": {
+            "commandCount": 0,
+            "visiblePrimitiveCount": 0
+          },
+          "assets": null,
+          "subscriptions": {
+            "active": 0,
+            "duplicates": 0
+          }
+        }
+      },
+      "retainedCanvasCount": 0
+    },
+    {
+      "index": 5,
+      "phase": "measured",
+      "error": null,
+      "observedEventCount": 1,
+      "hostPublicationCount": 1,
+      "beforeDestroy": {
+        "bindings": 1,
+        "bindingListeners": 1,
+        "eventSubscriptions": 1,
+        "selectionHostListeners": 1,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "pan",
+          "stack": [
+            "select",
+            "pan"
+          ],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 1,
+          "paused": false,
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "afterDestroy": {
+        "bindings": 0,
+        "bindingListeners": 0,
+        "eventSubscriptions": 0,
+        "selectionHostListeners": 0,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "select",
+          "stack": [],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 0,
+          "paused": false,
+          "destroyed": true
+        },
+        "destroyed": true
+      },
+      "snapshot": {
+        "lifecycle": "destroyed",
+        "instanceId": "memory-host-interaction-5",
+        "revisions": {
+          "lifecycleGeneration": 1,
+          "sceneRevision": 1,
+          "viewRevision": 0,
+          "interactionRevision": 1
+        },
+        "publishedTuple": {
+          "scene": 0,
+          "view": 0,
+          "interaction": 0
+        },
+        "frameRevision": 0,
+        "datasetRef": null,
+        "semanticHash": null,
+        "rootIds": [],
+        "historyDepth": 0,
+        "pendingWork": 0,
+        "zoomLimits": [
+          0.5,
+          30
+        ],
+        "viewport": {
+          "centerWorld": [
+            160,
+            90
+          ],
+          "scale": 1,
+          "screenBounds": [
+            0,
+            0,
+            320,
+            180
+          ]
+        },
+        "selectionIds": [],
+        "facilities": [
+          "renderer",
+          "viewport",
+          "world",
+          "state",
+          "history",
+          "resize",
+          "assets"
+        ],
+        "resources": {
+          "canvasCount": 0,
+          "canvas": {
+            "cssSize": [
+              320,
+              180
+            ],
+            "backingSize": [
+              320,
+              180
+            ]
+          },
+          "renderer": null,
+          "rendering": {
+            "commandCount": 0,
+            "visiblePrimitiveCount": 0
+          },
+          "assets": null,
+          "subscriptions": {
+            "active": 0,
+            "duplicates": 0
+          }
+        }
+      },
+      "retainedCanvasCount": 0
+    },
+    {
+      "index": 6,
+      "phase": "measured",
+      "error": null,
+      "observedEventCount": 1,
+      "hostPublicationCount": 1,
+      "beforeDestroy": {
+        "bindings": 1,
+        "bindingListeners": 1,
+        "eventSubscriptions": 1,
+        "selectionHostListeners": 1,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "pan",
+          "stack": [
+            "select",
+            "pan"
+          ],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 1,
+          "paused": false,
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "afterDestroy": {
+        "bindings": 0,
+        "bindingListeners": 0,
+        "eventSubscriptions": 0,
+        "selectionHostListeners": 0,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "select",
+          "stack": [],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 0,
+          "paused": false,
+          "destroyed": true
+        },
+        "destroyed": true
+      },
+      "snapshot": {
+        "lifecycle": "destroyed",
+        "instanceId": "memory-host-interaction-6",
+        "revisions": {
+          "lifecycleGeneration": 1,
+          "sceneRevision": 1,
+          "viewRevision": 0,
+          "interactionRevision": 1
+        },
+        "publishedTuple": {
+          "scene": 0,
+          "view": 0,
+          "interaction": 0
+        },
+        "frameRevision": 0,
+        "datasetRef": null,
+        "semanticHash": null,
+        "rootIds": [],
+        "historyDepth": 0,
+        "pendingWork": 0,
+        "zoomLimits": [
+          0.5,
+          30
+        ],
+        "viewport": {
+          "centerWorld": [
+            160,
+            90
+          ],
+          "scale": 1,
+          "screenBounds": [
+            0,
+            0,
+            320,
+            180
+          ]
+        },
+        "selectionIds": [],
+        "facilities": [
+          "renderer",
+          "viewport",
+          "world",
+          "state",
+          "history",
+          "resize",
+          "assets"
+        ],
+        "resources": {
+          "canvasCount": 0,
+          "canvas": {
+            "cssSize": [
+              320,
+              180
+            ],
+            "backingSize": [
+              320,
+              180
+            ]
+          },
+          "renderer": null,
+          "rendering": {
+            "commandCount": 0,
+            "visiblePrimitiveCount": 0
+          },
+          "assets": null,
+          "subscriptions": {
+            "active": 0,
+            "duplicates": 0
+          }
+        }
+      },
+      "retainedCanvasCount": 0
+    },
+    {
+      "index": 7,
+      "phase": "measured",
+      "error": null,
+      "observedEventCount": 1,
+      "hostPublicationCount": 1,
+      "beforeDestroy": {
+        "bindings": 1,
+        "bindingListeners": 1,
+        "eventSubscriptions": 1,
+        "selectionHostListeners": 1,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "pan",
+          "stack": [
+            "select",
+            "pan"
+          ],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 1,
+          "paused": false,
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "afterDestroy": {
+        "bindings": 0,
+        "bindingListeners": 0,
+        "eventSubscriptions": 0,
+        "selectionHostListeners": 0,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "select",
+          "stack": [],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 0,
+          "paused": false,
+          "destroyed": true
+        },
+        "destroyed": true
+      },
+      "snapshot": {
+        "lifecycle": "destroyed",
+        "instanceId": "memory-host-interaction-7",
+        "revisions": {
+          "lifecycleGeneration": 1,
+          "sceneRevision": 1,
+          "viewRevision": 0,
+          "interactionRevision": 1
+        },
+        "publishedTuple": {
+          "scene": 0,
+          "view": 0,
+          "interaction": 0
+        },
+        "frameRevision": 0,
+        "datasetRef": null,
+        "semanticHash": null,
+        "rootIds": [],
+        "historyDepth": 0,
+        "pendingWork": 0,
+        "zoomLimits": [
+          0.5,
+          30
+        ],
+        "viewport": {
+          "centerWorld": [
+            160,
+            90
+          ],
+          "scale": 1,
+          "screenBounds": [
+            0,
+            0,
+            320,
+            180
+          ]
+        },
+        "selectionIds": [],
+        "facilities": [
+          "renderer",
+          "viewport",
+          "world",
+          "state",
+          "history",
+          "resize",
+          "assets"
+        ],
+        "resources": {
+          "canvasCount": 0,
+          "canvas": {
+            "cssSize": [
+              320,
+              180
+            ],
+            "backingSize": [
+              320,
+              180
+            ]
+          },
+          "renderer": null,
+          "rendering": {
+            "commandCount": 0,
+            "visiblePrimitiveCount": 0
+          },
+          "assets": null,
+          "subscriptions": {
+            "active": 0,
+            "duplicates": 0
+          }
+        }
+      },
+      "retainedCanvasCount": 0
+    },
+    {
+      "index": 8,
+      "phase": "measured",
+      "error": null,
+      "observedEventCount": 1,
+      "hostPublicationCount": 1,
+      "beforeDestroy": {
+        "bindings": 1,
+        "bindingListeners": 1,
+        "eventSubscriptions": 1,
+        "selectionHostListeners": 1,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "pan",
+          "stack": [
+            "select",
+            "pan"
+          ],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 1,
+          "paused": false,
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "afterDestroy": {
+        "bindings": 0,
+        "bindingListeners": 0,
+        "eventSubscriptions": 0,
+        "selectionHostListeners": 0,
+        "callbackFailureCount": 0,
+        "mode": {
+          "activeState": "select",
+          "stack": [],
+          "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:pan"
+          ],
+          "temporaryModeCount": 0,
+          "captureCount": 0,
+          "activeOwnerCount": 0,
+          "paused": false,
+          "destroyed": true
+        },
+        "destroyed": true
+      },
+      "snapshot": {
+        "lifecycle": "destroyed",
+        "instanceId": "memory-host-interaction-8",
+        "revisions": {
+          "lifecycleGeneration": 1,
+          "sceneRevision": 1,
+          "viewRevision": 0,
+          "interactionRevision": 1
+        },
+        "publishedTuple": {
+          "scene": 0,
+          "view": 0,
+          "interaction": 0
+        },
+        "frameRevision": 0,
+        "datasetRef": null,
+        "semanticHash": null,
+        "rootIds": [],
+        "historyDepth": 0,
+        "pendingWork": 0,
+        "zoomLimits": [
+          0.5,
+          30
+        ],
+        "viewport": {
+          "centerWorld": [
+            160,
+            90
+          ],
+          "scale": 1,
+          "screenBounds": [
+            0,
+            0,
+            320,
+            180
+          ]
+        },
+        "selectionIds": [],
+        "facilities": [
+          "renderer",
+          "viewport",
+          "world",
+          "state",
+          "history",
+          "resize",
+          "assets"
+        ],
+        "resources": {
+          "canvasCount": 0,
+          "canvas": {
+            "cssSize": [
+              320,
+              180
+            ],
+            "backingSize": [
+              320,
+              180
+            ]
+          },
+          "renderer": null,
+          "rendering": {
+            "commandCount": 0,
+            "visiblePrimitiveCount": 0
+          },
+          "assets": null,
+          "subscriptions": {
+            "active": 0,
+            "duplicates": 0
+          }
+        }
+      },
+      "retainedCanvasCount": 0
+    }
+  ],
   "jsHeap": {
-    "before": 6750444,
-    "after": 12517004,
-    "processDelta": 5766560,
+    "before": 6830884,
+    "after": 12995216,
+    "processDelta": 6164332,
     "samples": [
-      187447,
-      82995,
-      400879,
-      8574,
-      8943,
-      51023,
-      206699
+      187299,
+      82471,
+      402027,
+      87483,
+      0,
+      46475,
+      208499
     ],
-    "median": 82995,
-    "p95": 400879,
-    "maximum": 400879,
-    "trend": 19252
+    "median": 87483,
+    "p95": 402027,
+    "maximum": 402027,
+    "trend": 21200
   },
   "dom": {
     "canvasCount": 0,

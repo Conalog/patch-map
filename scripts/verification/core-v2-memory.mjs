@@ -48,6 +48,91 @@ try {
     warmups: 2,
     measured: 7,
   }));
+  const hostInteractionLifecycle = await page.evaluate(async () => {
+    const { CoreV2Engine } = await import('/src/core-v2/index.ts');
+    const trials = [];
+    for (let index = 0; index < 9; index += 1) {
+      const host = document.createElement('div');
+      host.style.width = '320px';
+      host.style.height = '180px';
+      document.body.append(host);
+      const engine = new CoreV2Engine();
+      let error = null;
+      let beforeDestroy = null;
+      let afterDestroy = null;
+      let snapshot = null;
+      let observedEventCount = 0;
+      let hostPublicationCount = 0;
+      try {
+        await engine.initialize({
+          instanceId: `memory-host-interaction-${index}`,
+          target: host,
+          width: 320,
+          height: 180,
+          pixelRatio: 1,
+          strategy: 'mesh',
+          preference: 'webgl',
+        });
+        engine.loadDataset([
+          {
+            type: 'item',
+            id: 'item-a',
+            size: { width: 100, height: 80 },
+            components: [{ type: 'text', id: 'label', text: 'Alpha' }],
+            attrs: { x: 10, y: 20 },
+          },
+          {
+            type: 'rect',
+            id: 'rect-b',
+            size: { width: 40, height: 30 },
+            fill: '#ff8800',
+            attrs: { x: 160, y: 40 },
+          },
+        ]);
+        engine.bindLogicalEvents([
+          {
+            id: 'memory-rect',
+            event: 'click',
+            target: { kind: 'element', id: 'rect-b' },
+          },
+        ], () => {}).enable();
+        engine.subscribeHostEvent('selection', 'changed', () => {
+          observedEventCount += 1;
+        });
+        engine.bindSelectionHost(() => {
+          hostPublicationCount += 1;
+        });
+        engine.applyInteractionModeOperation({ op: 'replace', state: 'select' });
+        engine.applyInteractionModeOperation({ op: 'push', state: 'pan' });
+        engine.applySelection({
+          op: 'replace',
+          ids: ['rect-b'],
+          source: 'canvas',
+        });
+        beforeDestroy = engine.hostInteractionProbe();
+        await engine.destroy();
+        afterDestroy = engine.hostInteractionProbe();
+        snapshot = engine.snapshot();
+      } catch (caught) {
+        error = caught instanceof Error ? caught.message : String(caught);
+        await engine.destroy().catch(() => undefined);
+      } finally {
+        host.remove();
+      }
+      trials.push({
+        index,
+        phase: index < 2 ? 'warmup' : 'measured',
+        error,
+        observedEventCount,
+        hostPublicationCount,
+        beforeDestroy,
+        afterDestroy,
+        snapshot,
+        retainedCanvasCount: host.querySelectorAll('canvas').length,
+      });
+    }
+    return trials;
+  });
   await cdp.send('HeapProfiler.collectGarbage');
   const after = metric(await cdp.send('Performance.getMetrics'), 'JSHeapUsedSize');
   const dom = await page.evaluate(() => ({
@@ -72,6 +157,30 @@ try {
       lifecycleFailures.push(`measured trial ${index} did not release runtime/renderer/scheduler/canvas`);
     }
   }
+  for (const trial of hostInteractionLifecycle) {
+    if (
+      trial.error !== null ||
+      trial.observedEventCount !== 1 ||
+      trial.hostPublicationCount !== 1 ||
+      trial.beforeDestroy?.bindings !== 1 ||
+      trial.beforeDestroy?.bindingListeners !== 1 ||
+      trial.beforeDestroy?.eventSubscriptions !== 1 ||
+      trial.beforeDestroy?.selectionHostListeners !== 1 ||
+      trial.afterDestroy?.bindings !== 0 ||
+      trial.afterDestroy?.bindingListeners !== 0 ||
+      trial.afterDestroy?.eventSubscriptions !== 0 ||
+      trial.afterDestroy?.selectionHostListeners !== 0 ||
+      trial.afterDestroy?.mode?.activeOwnerCount !== 0 ||
+      trial.afterDestroy?.destroyed !== true ||
+      trial.snapshot?.resources?.canvasCount !== 0 ||
+      trial.snapshot?.resources?.subscriptions?.active !== 0 ||
+      trial.retainedCanvasCount !== 0
+    ) {
+      lifecycleFailures.push(
+        `host interaction ${trial.phase} trial ${trial.index} did not release callbacks/renderer/canvas`,
+      );
+    }
+  }
   const failures = [
     ...(errors.console.length || errors.page.length || errors.network.length ? ['browser errors are not empty'] : []),
     ...(dom.canvasCount !== 0 || dom.surfaceChildren !== 0 ? ['surface retains a lifecycle DOM node'] : []),
@@ -87,6 +196,7 @@ try {
     generatedAt: new Date().toISOString(),
     workload: { sourceItems: 1_000, expandedEntities: run.measuredRaw[0]?.diagnostics.expandedEntityCount },
     protocol: { warmups: 2, measured: 7 },
+    hostInteractionLifecycle,
     jsHeap: { before, after, processDelta: after - before, samples, median, p95, maximum, trend },
     dom,
     lifecycleFailures,

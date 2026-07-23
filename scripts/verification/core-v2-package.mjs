@@ -44,10 +44,12 @@ try {
 <html><body><div id="host" style="width:640px;height:360px"></div><script type="module" src="/main.js"></script></body></html>\n`);
   await writeFile(path.join(consumer, 'main.js'), `
 import {
+  CORE_V2_HOST_INTERACTION_REVISION,
   CORE_V2_MUTATION_TRANSACTION_REVISION,
   CORE_V2_POINTER_GESTURE_REVISION,
   CORE_V2_PRESENTATION_POLICY_REVISION,
   CoreV2Engine,
+  CoreV2HostInteractionAuthority,
   CoreV2PointerGestureAuthority,
   createCoreV2,
   hitCoreV2BoxRegion,
@@ -128,6 +130,46 @@ await engine.initialize({
   preference: 'webgl',
 });
 engine.loadDataset(input);
+const hostBindingDeliveries = [];
+const hostBinding = engine.bindLogicalEvents([
+  {
+    id: 'consumer-direct',
+    event: 'click',
+    target: { kind: 'element', id: 'consumer-item' },
+  },
+], (delivery) => hostBindingDeliveries.push(delivery.targetId));
+hostBinding.enable();
+engine.dispatchPointerInput(pointerInput('down', 40, 1));
+engine.dispatchPointerInput(pointerInput('up', 56, 0));
+hostBinding.dispose();
+engine.applySelection({ op: 'clear', source: 'programmatic' });
+const hostEvents = [];
+const hostEventSubscription = engine.subscribeHostEvent(
+  'selection',
+  'changed',
+  (event) => hostEvents.push(event),
+);
+const hostSelectionPublications = [];
+const unbindSelectionHost = engine.bindSelectionHost(
+  (publication) => hostSelectionPublications.push(publication),
+);
+engine.applySelection({
+  op: 'replace',
+  ids: ['consumer-item'],
+  source: 'canvas',
+});
+const externalSelection = engine.setExternalSelection(['consumer-item', 'missing']);
+const logicalPropagation = engine.dispatchLogicalPropagation({
+  kind: 'component',
+  ownerId: 'consumer-item',
+  id: 'label',
+});
+engine.applyInteractionModeOperation({ op: 'replace', state: 'select' });
+engine.applyInteractionModeOperation({ op: 'push', state: 'pan' });
+engine.applyInteractionModeOperation({ op: 'pop' });
+hostEventSubscription.dispose();
+unbindSelectionHost();
+const hostInteractionBeforeDestroy = engine.hostInteractionProbe();
 const emptyBulk = engine.bulkPatch({
   strict: true,
   actionId: 'packed-empty-target-set',
@@ -243,6 +285,7 @@ const hierarchyCycleRevisionDelta =
   hierarchySnapshot.revisions.sceneRevision - hierarchyCycleRevision;
 const interactionOwnership = engine.interactionOwnershipProbe();
 const engineDestroyResult = await engine.destroy();
+const hostInteractionAfterDestroy = engine.hostInteractionProbe();
 const engineAfterDestroy = engine.snapshot();
 window.__PACKAGE_RESULT__ = {
   immutable: before === JSON.stringify(input),
@@ -257,6 +300,7 @@ window.__PACKAGE_RESULT__ = {
   canvasCountAfterDestroy: document.querySelectorAll('canvas').length,
   destroyed: core.debugSnapshot().destroyed,
   transactionRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+  hostInteractionRevision: CORE_V2_HOST_INTERACTION_REVISION,
   pointerRevision: CORE_V2_POINTER_GESTURE_REVISION,
   presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
   pointerPackage: {
@@ -265,6 +309,23 @@ window.__PACKAGE_RESULT__ = {
     boxTargets: pointerBox.candidateIds,
     paintTargets: pointerPaint.candidateIds,
     destroyed: pointerAuthority.probe().destroyed,
+  },
+  hostInteractionPackage: {
+    authorityType: typeof CoreV2HostInteractionAuthority,
+    bindingDeliveries: hostBindingDeliveries,
+    eventCount: hostEvents.length,
+    hostPublicationCount: hostSelectionPublications.length,
+    missingIds: externalSelection.missingIds,
+    propagationTarget: logicalPropagation?.target ?? null,
+    propagationPhases: logicalPropagation?.phases ?? [],
+    activeState: hostInteractionBeforeDestroy.mode.activeState,
+    liveResources: {
+      bindings: hostInteractionBeforeDestroy.bindings,
+      subscriptions: hostInteractionBeforeDestroy.eventSubscriptions,
+      selectionHosts: hostInteractionBeforeDestroy.selectionHostListeners,
+    },
+    destroyed: hostInteractionAfterDestroy.destroyed,
+    destroyedOwnerCount: hostInteractionAfterDestroy.mode.activeOwnerCount,
   },
   emptyBulkStatus: emptyBulk.status,
   emptyBulkSceneRevision: emptyBulk.revisions.sceneRevision,
@@ -340,10 +401,12 @@ function findHierarchyRecord(values, id, parentId = null) {
 `);
   await writeFile(path.join(consumer, 'consumer.cjs'), `
 const {
+  CORE_V2_HOST_INTERACTION_REVISION,
   CORE_V2_MUTATION_TRANSACTION_REVISION,
   CORE_V2_POINTER_GESTURE_REVISION,
   CORE_V2_PRESENTATION_POLICY_REVISION,
   CoreV2PointerGestureAuthority,
+  CoreV2HostInteractionAuthority,
   parsePatchMapV010,
   planCoreV2MutationTransaction,
 } = require('@conalog/patch-map/core-v2');
@@ -354,6 +417,8 @@ process.stdout.write(JSON.stringify({
   transactionRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
   pointerRevision: CORE_V2_POINTER_GESTURE_REVISION,
   pointerAuthorityType: typeof CoreV2PointerGestureAuthority,
+  hostInteractionRevision: CORE_V2_HOST_INTERACTION_REVISION,
+  hostInteractionAuthorityType: typeof CoreV2HostInteractionAuthority,
   presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
   plannerType: typeof planCoreV2MutationTransaction,
 }));
@@ -411,6 +476,7 @@ process.stdout.write(JSON.stringify({
   if (esm.canvasCountAfterDestroy !== 0 || !esm.destroyed) failures.push('packed ESM lifecycle leaked a canvas or live runtime');
   if (esm.transactionRevision !== 'core-v2-mutation-transaction/1') failures.push('packed ESM transaction revision export failed');
   if (esm.pointerRevision !== 'core-v2-pointer-gesture/1') failures.push('packed ESM pointer revision export failed');
+  if (esm.hostInteractionRevision !== 'core-v2-host-interaction/1') failures.push('packed ESM host interaction revision export failed');
   if (
     JSON.stringify(esm.pointerPackage?.eventTypes) !== JSON.stringify(['up', 'click']) ||
     esm.pointerPackage?.clickTarget !== 'consumer-item' ||
@@ -418,6 +484,31 @@ process.stdout.write(JSON.stringify({
     JSON.stringify(esm.pointerPackage?.paintTargets) !== JSON.stringify(['consumer-item']) ||
     esm.pointerPackage?.destroyed !== true
   ) failures.push('packed ESM pointer/selection exports failed');
+  if (
+    esm.hostInteractionPackage?.authorityType !== 'function' ||
+    JSON.stringify(esm.hostInteractionPackage?.bindingDeliveries) !==
+      JSON.stringify(['consumer-item']) ||
+    esm.hostInteractionPackage?.eventCount !== 1 ||
+    esm.hostInteractionPackage?.hostPublicationCount !== 1 ||
+    JSON.stringify(esm.hostInteractionPackage?.missingIds) !==
+      JSON.stringify(['missing']) ||
+    esm.hostInteractionPackage?.propagationTarget !==
+      'component:consumer-item/label' ||
+    JSON.stringify(esm.hostInteractionPackage?.propagationPhases) !==
+      JSON.stringify([
+        'capture:surface',
+        'capture:consumer-item',
+        'target:component:consumer-item/label',
+        'bubble:consumer-item',
+        'bubble:surface',
+      ]) ||
+    esm.hostInteractionPackage?.activeState !== 'select' ||
+    esm.hostInteractionPackage?.liveResources?.bindings !== 0 ||
+    esm.hostInteractionPackage?.liveResources?.subscriptions !== 0 ||
+    esm.hostInteractionPackage?.liveResources?.selectionHosts !== 0 ||
+    esm.hostInteractionPackage?.destroyed !== true ||
+    esm.hostInteractionPackage?.destroyedOwnerCount !== 0
+  ) failures.push('packed ESM host interaction exports failed');
   if (esm.presentationRevision !== 'core-v2-presentation-policy/1') failures.push('packed ESM presentation revision export failed');
   if (esm.emptyBulkStatus !== 'unchanged' || esm.emptyBulkSceneRevision !== 1) failures.push('packed ESM empty bulk target-set semantics failed');
   if (esm.transactionStatus !== 'committed' || esm.transactionSceneRevision !== 2 || esm.transactionBarHeight !== 30) failures.push('packed ESM engine transaction failed');
@@ -482,6 +573,8 @@ process.stdout.write(JSON.stringify({
     cjs.transactionRevision !== 'core-v2-mutation-transaction/1' ||
     cjs.pointerRevision !== 'core-v2-pointer-gesture/1' ||
     cjs.pointerAuthorityType !== 'function' ||
+    cjs.hostInteractionRevision !== 'core-v2-host-interaction/1' ||
+    cjs.hostInteractionAuthorityType !== 'function' ||
     cjs.presentationRevision !== 'core-v2-presentation-policy/1' ||
     cjs.plannerType !== 'function'
   ) failures.push('packed CJS transaction/presentation exports failed');
