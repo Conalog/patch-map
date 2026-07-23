@@ -125,6 +125,7 @@ import {
   CORE_V2_QUERY_SELECTION_REVISION,
   CoreV2LogicalSceneIndex,
   applyCoreV2SelectionOperation,
+  coreV2LogicalTargetKey,
   type CoreV2LogicalTargetSnapshot,
   type CoreV2QueryReuseOperation,
   type CoreV2SceneQuery,
@@ -151,6 +152,24 @@ import {
   type CoreV2RegionHitResult,
   type CoreV2SemanticPointerEvent,
 } from './pointer-gesture';
+import {
+  CoreV2HostInteractionAuthority,
+  coreV2OwnsKeyboardInput,
+  coreV2TransformerHandlePropagationProbe,
+  createCoreV2LogicalPropagationTrace,
+  type CoreV2HostEventSubscription,
+  type CoreV2HostInteractionProbe,
+  type CoreV2HostObservedEvent,
+  type CoreV2InteractionModeOperation,
+  type CoreV2InteractionModeProbe,
+  type CoreV2InteractionModeResult,
+  type CoreV2LogicalEventBindingDescriptor,
+  type CoreV2LogicalEventDelivery,
+  type CoreV2LogicalEventBindingHandle,
+  type CoreV2LogicalPropagationOptions,
+  type CoreV2LogicalPropagationTrace,
+  type CoreV2SelectionHostPublication,
+} from './host-interaction';
 
 export type CoreV2Lifecycle =
   | 'new'
@@ -830,6 +849,12 @@ export interface CoreV2EnginePointSelectionResult extends CoreV2EngineSelectionH
   readonly change: CoreV2SelectionChange;
 }
 
+export interface CoreV2ExternalSelectionResult {
+  readonly requestedIds: readonly string[];
+  readonly missingIds: readonly string[];
+  readonly change: CoreV2SelectionChange;
+}
+
 export interface CoreV2EngineRegionSelectionOptions
   extends CoreV2SelectionEligibilityOptions {
   readonly mode?: 'replace' | 'add' | 'toggle';
@@ -1261,6 +1286,7 @@ export class CoreV2Engine {
     readonly NormalizedCoreV2Element[],
     CoreV2EngineHistoryCompanion
   >;
+  private readonly hostInteractions: CoreV2HostInteractionAuthority;
   private readonly listeners = new Map<CoreV2EngineEvent, Set<(event: unknown) => void>>();
   private lifecycle: CoreV2Lifecycle = 'new';
   private surface: CoreV2EngineSurface | null = null;
@@ -1351,6 +1377,12 @@ export class CoreV2Engine {
     this.assetPolicy = options.assetPolicy;
     this.history = new CoreV2SemanticHistory({
       ...(options.historyLimit === undefined ? {} : { capacity: options.historyLimit }),
+    });
+    this.hostInteractions = new CoreV2HostInteractionAuthority({
+      queryTargets: (query) => {
+        const evaluated = this.logicalSceneIndex().query(query);
+        return evaluated.status === 'rejected' ? Object.freeze([]) : evaluated.targets;
+      },
     });
   }
 
@@ -3084,6 +3116,98 @@ export class CoreV2Engine {
     }).current;
   }
 
+  public bindLogicalEvents(
+    descriptors: readonly CoreV2LogicalEventBindingDescriptor[],
+    listener: (delivery: CoreV2LogicalEventDelivery) => void,
+  ): CoreV2LogicalEventBindingHandle {
+    this.requireSurface('bindLogicalEvents');
+    return this.hostInteractions.bindLogicalEvents(descriptors, listener);
+  }
+
+  public redrawLogicalEventBindings(): number {
+    this.requireSurface('redrawLogicalEventBindings');
+    return this.hostInteractions.redrawBindings();
+  }
+
+  public dispatchLogicalPropagation(
+    targetOrId: CoreV2MutationTarget | string,
+    options: CoreV2LogicalPropagationOptions = {},
+  ): CoreV2LogicalPropagationTrace | null {
+    this.requireSurface('dispatchLogicalPropagation');
+    const target = this.logicalSceneIndex().target(
+      typeof targetOrId === 'string'
+        ? targetOrId
+        : coreV2LogicalTargetKey(targetOrId),
+    );
+    return target === null
+      ? null
+      : createCoreV2LogicalPropagationTrace(target, this.sceneRevision, options);
+  }
+
+  public ownsKeyboardInput(pathKind: string): boolean {
+    this.requireSurface('ownsKeyboardInput');
+    return coreV2OwnsKeyboardInput(pathKind);
+  }
+
+  public transformerHandlePropagationProbe(): ReturnType<
+    typeof coreV2TransformerHandlePropagationProbe
+  > {
+    this.requireSurface('transformerHandlePropagationProbe');
+    return coreV2TransformerHandlePropagationProbe();
+  }
+
+  public subscribeHostEvent(
+    family: string,
+    type: string | null,
+    listener: (event: CoreV2HostObservedEvent) => void,
+  ): CoreV2HostEventSubscription {
+    this.requireSurface('subscribeHostEvent');
+    return this.hostInteractions.subscribe(family, type, listener);
+  }
+
+  public applyInteractionModeOperation(
+    operation: CoreV2InteractionModeOperation,
+  ): CoreV2InteractionModeResult {
+    this.requireSurface('applyInteractionModeOperation');
+    return this.hostInteractions.applyModeOperation(operation);
+  }
+
+  public interactionModeProbe(): CoreV2InteractionModeProbe {
+    this.requireSurface('interactionModeProbe');
+    return this.hostInteractions.modeProbe();
+  }
+
+  public interactionInputOwner(state: string, input: string): string | null {
+    this.requireSurface('interactionInputOwner');
+    return this.hostInteractions.inputOwner(state, input);
+  }
+
+  public bindSelectionHost(
+    listener: (publication: CoreV2SelectionHostPublication) => void,
+  ): () => void {
+    this.requireSurface('bindSelectionHost');
+    return this.hostInteractions.bindSelectionHost(listener);
+  }
+
+  public setExternalSelection(ids: readonly string[]): CoreV2ExternalSelectionResult {
+    const change = this.applySelection({
+      op: 'replace',
+      ids,
+      source: 'external',
+    });
+    const requestedIds = Object.freeze([...new Set(ids)]);
+    const currentIds = new Set(change.current);
+    return Object.freeze({
+      requestedIds,
+      missingIds: Object.freeze(requestedIds.filter((id) => !currentIds.has(id))),
+      change,
+    });
+  }
+
+  public hostInteractionProbe(): CoreV2HostInteractionProbe {
+    return this.hostInteractions.probe();
+  }
+
   public applySelection(input: CoreV2SelectionSetOperation): CoreV2SelectionChange {
     const surface = this.requireSurface('select');
     const materialized = this.materialized;
@@ -3100,6 +3224,23 @@ export class CoreV2Engine {
       }
       this.interactionRevision += 1;
       this.emit('selectionChanged', change);
+      const source = change.source === 'canvas' ? 'pointer' : change.source;
+      this.hostInteractions.publish(
+        'selection',
+        'changed',
+        Object.freeze({
+          source,
+          target: change.current.at(-1) ?? null,
+          selectedIds: change.current,
+        }),
+        this.interactionRevision,
+      );
+      if (change.source === 'canvas') {
+        this.hostInteractions.publishSelectionToHost(
+          change.current,
+          this.interactionRevision,
+        );
+      }
     }
     return change;
   }
@@ -3183,7 +3324,10 @@ export class CoreV2Engine {
       viewRevision: input.viewRevision ?? this.viewRevision,
     }));
     if (result.events.length > 0) this.interactionRevision += 1;
-    for (const event of result.events) this.emit('pointerEvent', event);
+    for (const event of result.events) {
+      this.emit('pointerEvent', event);
+      this.hostInteractions.dispatchPointerEvent(event);
+    }
     const click = result.events.find((event) => event.type === 'click');
     if (click !== undefined && click.payload.button === 0) {
       this.applySelection({
@@ -3646,6 +3790,7 @@ export class CoreV2Engine {
     surface?.cancelViewportGestures?.();
     this.pointerGestureAuthority?.destroy();
     this.pointerGestureAuthority = null;
+    this.hostInteractions.destroy();
     const pendingInitialization = this.initializePromise;
     const assetSession = this.assetSession;
     const cleanupFailures: unknown[] = [];

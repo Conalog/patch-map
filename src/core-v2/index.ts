@@ -49,6 +49,15 @@ export {
   hitCoreV2PaintRegion,
 } from './pointer-gesture';
 export type * from './pointer-gesture';
+export {
+  CORE_V2_HOST_INTERACTION_REVISION,
+  CoreV2HostInteractionAuthority,
+  CoreV2InteractionModeAuthority,
+  coreV2OwnsKeyboardInput,
+  coreV2TransformerHandlePropagationProbe,
+  createCoreV2LogicalPropagationTrace,
+} from './host-interaction';
+export type * from './host-interaction';
 export type * from './semantic/paint-order';
 export { CoreV2Engine, CoreV2EngineError } from './engine';
 export type * from './engine';
