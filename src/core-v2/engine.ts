@@ -6,6 +6,7 @@ import {
   type CoreV2ComponentVisualProductProbe,
   type CoreV2ComponentVisualTarget,
   type CoreV2Options,
+  type CoreV2RootViewportChangeSource,
   type CoreV2SemanticRefreshResult,
   type CoreV2TextGeometryProbe,
   type CoreV2TextProductProbe,
@@ -19,6 +20,17 @@ import type {
   CoreV2PresentationPolicyInput,
   CoreV2PresentationPolicyProductProbe,
 } from './presentation-policy';
+import {
+  CORE_V2_DEFAULT_VIEWPORT_POLICIES,
+  CORE_V2_VIEWPORT_POLICIES,
+  CORE_V2_VIEWPORT_REVISION,
+  coreV2BoundsCenter,
+  coreV2ViewportFitScale,
+  normalizeCoreV2ViewportPadding,
+  resolveCoreV2ViewportContributors,
+  type CoreV2ViewportContributorResult,
+  type CoreV2ViewportPolicy,
+} from './viewport';
 import type { CoreV2PaintOrderProductProbe } from './paint-order-product';
 import type { SceneSnapshot, SlotRange } from '../core-v1/contracts';
 import type {
@@ -184,6 +196,116 @@ export interface CoreV2ViewportState {
   readonly centerWorld: readonly [number, number];
   readonly scale: number;
   readonly screenBounds: readonly [number, number, number, number];
+}
+
+export type CoreV2ViewportChangeSource =
+  | 'programmatic'
+  | 'pointer'
+  | 'middle-pointer'
+  | 'modifier-wheel'
+  | 'wheel'
+  | 'pinch'
+  | 'deceleration'
+  | 'focus'
+  | 'fit'
+  | 'restore'
+  | 'fallback-fit';
+
+export interface CoreV2ViewportChangeResult {
+  readonly changed: boolean;
+  readonly blocked: boolean;
+  readonly source: CoreV2ViewportChangeSource;
+  readonly previous: CoreV2ViewportState;
+  readonly viewport: CoreV2ViewportState;
+  readonly previousRevisions: CoreV2RevisionStamp;
+  readonly revisions: CoreV2RevisionStamp;
+}
+
+export interface CoreV2SurfaceViewportInput {
+  readonly source: CoreV2RootViewportChangeSource;
+  readonly centerWorld: readonly [number, number];
+  readonly scale: number;
+}
+
+export interface CoreV2SerializedViewportState {
+  readonly schemaRevision: typeof CORE_V2_VIEWPORT_REVISION;
+  readonly centerWorld: readonly [number, number];
+  readonly scale: number;
+}
+
+export interface CoreV2ViewportPersistenceProbe {
+  readonly settledPublicationCount: number;
+  readonly persistenceWriteCount: number;
+  readonly equivalentSaveCount: 0;
+  readonly suppressedEquivalentSaveCount: number;
+  readonly settled: boolean;
+  readonly serialized: CoreV2SerializedViewportState | null;
+}
+
+export interface CoreV2HostLifecycleRebindResult {
+  readonly lifecycleGeneration: number;
+  readonly sceneRevision: number;
+  readonly canvasCount: number;
+  readonly selectionIds: readonly string[];
+  readonly revisions: CoreV2RevisionStamp;
+}
+
+export interface CoreV2ViewportSettleResult {
+  readonly changed: boolean;
+  readonly viewport: CoreV2ViewportState;
+  readonly publicationCount: number;
+  readonly persistence: CoreV2ViewportPersistenceProbe;
+}
+
+export interface CoreV2ViewportRestoreResult {
+  readonly status: 'restored' | 'fallback:auto-fit';
+  readonly changed: boolean;
+  readonly viewport: CoreV2ViewportState;
+  readonly fit: CoreV2ViewportFitResult | null;
+}
+
+export interface CoreV2ViewportTargetOptions {
+  readonly targets?: readonly string[] | null;
+  readonly rejectIds?: readonly string[];
+  readonly relationEndpointsAvailable?: boolean;
+}
+
+export interface CoreV2ViewportFocusResult extends CoreV2ViewportContributorResult {
+  readonly status: 'applied' | 'empty';
+  readonly changed: boolean;
+  readonly viewport: CoreV2ViewportState;
+}
+
+export interface CoreV2ViewportFitOptions extends CoreV2ViewportTargetOptions {
+  readonly paddingCssPx?: number | readonly [number, number];
+}
+
+export interface CoreV2ViewportFitResult extends CoreV2ViewportContributorResult {
+  readonly status: 'applied' | 'empty';
+  readonly changed: boolean;
+  readonly paddingCssPx: readonly [number, number];
+  readonly viewport: CoreV2ViewportState;
+}
+
+export type CoreV2ViewportPolicyOperation =
+  | Readonly<{ readonly op: 'add' | 'start' | 'stop' | 'remove'; readonly policy: CoreV2ViewportPolicy }>
+  | Readonly<{ readonly op: 'temporary'; readonly policy: CoreV2ViewportPolicy }>
+  | Readonly<{ readonly op: 'restore-temporary' | 'cancel-all' | 'redraw' }>;
+
+export interface CoreV2ViewportPolicyProbe {
+  readonly schemaRevision: typeof CORE_V2_VIEWPORT_REVISION;
+  readonly policies: readonly CoreV2ViewportPolicy[];
+  readonly enabledPolicies: readonly CoreV2ViewportPolicy[];
+  readonly temporary: boolean;
+  readonly callbacksByPolicy: Readonly<Record<CoreV2ViewportPolicy, 0 | 1>>;
+  readonly resources: Readonly<{
+    readonly tickers: 0;
+    readonly listeners: 0;
+    readonly captures: 0;
+    readonly motions: 0 | 1;
+    readonly cursors: 0;
+  }>;
+  readonly destroyed: boolean;
 }
 
 export interface CoreV2WorldTransformInput {
@@ -522,6 +644,7 @@ export interface CoreV2EngineSurface {
   readonly canvasCount: number;
   readonly destroyed: boolean;
   load(input: unknown): void;
+  loadAsync?(input: unknown, assertCurrent?: () => void): Promise<void>;
   /**
    * Atomically reconcile a detached PATCH MAP candidate without replacing the
    * whole dense scene. Older injected surfaces may omit this capability; the
@@ -534,6 +657,12 @@ export interface CoreV2EngineSurface {
   publishFrame(timeMs: number): void;
   resize(width: number, height: number, pixelRatio: number): boolean;
   setView(view: CoreV2SurfaceView): void;
+  setViewportGesturePolicies?(policies: readonly CoreV2ViewportPolicy[]): void;
+  setViewportZoomLimits?(limits: readonly [number, number]): void;
+  bindViewportInput?(
+    listener: (input: CoreV2SurfaceViewportInput) => void,
+  ): () => void;
+  cancelViewportGestures?(): void;
   select(ids: readonly string[]): void;
   setPresentationPolicy?(
     input: CoreV2PresentationPolicyInput,
@@ -950,6 +1079,9 @@ type CoreV2EngineEventMap = {
     frameRevision: number;
     publishedTuple: CoreV2PublishedTuple;
   }>;
+  readonly viewChanged: CoreV2ViewportChangeResult;
+  readonly viewSettled: CoreV2ViewportSettleResult;
+  readonly viewportPolicyChanged: CoreV2ViewportPolicyProbe;
   readonly presentationChanged: CoreV2EnginePresentationResult;
   readonly overlayAccepted: CoreV2LiveOverlayTuple;
   readonly overlayPublished: CoreV2LiveOverlayPublishedTuple;
@@ -1000,6 +1132,12 @@ interface CoreV2EngineHistoryCompanion {
   readonly selectionIds: readonly string[];
 }
 
+interface PreparedCoreV2EngineLoad {
+  readonly materialized: MaterializedCoreV2Dataset;
+  readonly componentSemantics: Map<string, CoreV2EngineComponentSemanticProbe>;
+  readonly textSemantics: Map<string, IndexedEngineTextSemantic>;
+}
+
 export class CoreV2Engine {
   private readonly surfaceFactory: CoreV2EngineSurfaceFactory;
   private readonly assetRuntime: CoreV2AssetRuntime;
@@ -1042,6 +1180,7 @@ export class CoreV2Engine {
     backend: 'webgl' | 'webgpu';
   }> | null = null;
   private submissionSequence = 0;
+  private loadSequence = 0;
   private pendingWork = 0;
   private latestOverlayAccepted: CoreV2LiveOverlayTuple | null = null;
   private latestOverlayPublished: CoreV2LiveOverlayPublishedTuple | null = null;
@@ -1054,6 +1193,27 @@ export class CoreV2Engine {
   private viewportPixelRatio = 1;
   private viewportCenterWorld: readonly [number, number] = Object.freeze([0, 0]);
   private viewportScale = 1;
+  private viewportPolicyRegistry = new Set<CoreV2ViewportPolicy>(
+    CORE_V2_DEFAULT_VIEWPORT_POLICIES,
+  );
+  private viewportPolicyEnabled = new Set<CoreV2ViewportPolicy>(
+    CORE_V2_DEFAULT_VIEWPORT_POLICIES,
+  );
+  private viewportTemporaryPolicies: Readonly<{
+    readonly registry: readonly CoreV2ViewportPolicy[];
+    readonly enabled: readonly CoreV2ViewportPolicy[];
+  }> | null = null;
+  private viewportMotion: Readonly<{
+    readonly velocityX: number;
+    readonly velocityY: number;
+  }> | null = null;
+  private lastSettledViewportKey: string | null = null;
+  private lastSerializedViewportKey: string | null = null;
+  private lastSerializedViewport: CoreV2SerializedViewportState | null = null;
+  private viewportSettledPublicationCount = 0;
+  private viewportPersistenceWriteCount = 0;
+  private viewportSuppressedEquivalentSaveCount = 0;
+  private surfaceViewportInputUnbind: (() => void) | null = null;
   private worldRotationDegrees = 0;
   private worldFlipX = false;
   private worldFlipY = false;
@@ -1149,6 +1309,7 @@ export class CoreV2Engine {
     this.worldRotationDegrees = 0;
     this.worldFlipX = false;
     this.worldFlipY = false;
+    this.resetViewportRuntime();
     const requiredAliases = options.requiredAssets?.map(({ alias }) => alias) ?? [];
     this.initializePromise = (async (): Promise<CoreV2InitializeResult> => {
       const attemptAcquisitions: CoreV2AssetAcquisition[] = [];
@@ -1167,12 +1328,19 @@ export class CoreV2Engine {
           backend: surfaceOptions.preference,
         });
         pendingSurface = await this.surfaceFactory(surfaceOptions);
+        pendingSurface.setViewportGesturePolicies?.(this.orderedEnabledViewportPolicies());
+        pendingSurface.setViewportZoomLimits?.(this.zoomLimits);
         if (this.isDestroyingOrDestroyed()) {
           this.retainedCleanupSurface = pendingSurface;
           pendingSurface = null;
           throw this.operationError('DESTROYED', 'DESTROYED', 'initialize', false);
         }
-        this.surface = pendingSurface;
+        const readySurface = pendingSurface;
+        const viewportInputUnbind = readySurface.bindViewportInput?.((input) => {
+          this.acceptSurfaceViewportInput(readySurface, input);
+        }) ?? null;
+        this.surface = readySurface;
+        this.surfaceViewportInputUnbind = viewportInputUnbind;
         this.geometryRevisionCorrelation = null;
         pendingSurface = null;
         this.requiredAssetAcquisitions.push(...attemptAcquisitions);
@@ -1208,11 +1376,83 @@ export class CoreV2Engine {
 
   public loadDataset(input: unknown, options: CoreV2LoadOptions = {}): CoreV2EngineLoadResult {
     const surface = this.requireSurface('loadDataset');
+    this.loadSequence += 1;
+    const prepared = this.prepareDatasetLoad(input);
+    surface.load(prepared.materialized.dataset);
+    return this.commitPreparedDatasetLoad(prepared, options);
+  }
+
+  public async loadDatasetAsync(
+    input: unknown,
+    options: CoreV2LoadOptions = {},
+  ): Promise<CoreV2EngineLoadResult> {
+    const surface = this.requireSurface('loadDatasetAsync');
+    const sequence = ++this.loadSequence;
+    const lifecycleGeneration = this.lifecycleGeneration;
+    const sceneRevision = this.sceneRevision;
+    this.pendingWork += 1;
+    try {
+      const materialized = materializeCoreV2Dataset(input);
+      await yieldCoreV2EngineTask();
+      this.assertCooperativeLoadCurrent(
+        surface,
+        sequence,
+        lifecycleGeneration,
+        sceneRevision,
+      );
+      const componentSemantics = indexComponentSemantics(materialized.dataset);
+      await yieldCoreV2EngineTask();
+      this.assertCooperativeLoadCurrent(
+        surface,
+        sequence,
+        lifecycleGeneration,
+        sceneRevision,
+      );
+      const textSemantics = indexTextSemantics(materialized.dataset);
+      const prepared = Object.freeze({
+        materialized,
+        componentSemantics,
+        textSemantics,
+      });
+      await yieldCoreV2EngineTask();
+      this.assertCooperativeLoadCurrent(
+        surface,
+        sequence,
+        lifecycleGeneration,
+        sceneRevision,
+      );
+      const assertCurrent = (): void => {
+        this.assertCooperativeLoadCurrent(
+          surface,
+          sequence,
+          lifecycleGeneration,
+          sceneRevision,
+        );
+      };
+      if (surface.loadAsync) await surface.loadAsync(materialized.dataset, assertCurrent);
+      else surface.load(materialized.dataset);
+      assertCurrent();
+      return this.commitPreparedDatasetLoad(prepared, options);
+    } finally {
+      this.pendingWork -= 1;
+    }
+  }
+
+  private prepareDatasetLoad(input: unknown): PreparedCoreV2EngineLoad {
     const materialized = materializeCoreV2Dataset(input);
-    const componentSemantics = indexComponentSemantics(materialized.dataset);
-    const textSemantics = indexTextSemantics(materialized.dataset);
+    return Object.freeze({
+      materialized,
+      componentSemantics: indexComponentSemantics(materialized.dataset),
+      textSemantics: indexTextSemantics(materialized.dataset),
+    });
+  }
+
+  private commitPreparedDatasetLoad(
+    prepared: PreparedCoreV2EngineLoad,
+    options: CoreV2LoadOptions,
+  ): CoreV2EngineLoadResult {
+    const { componentSemantics, materialized, textSemantics } = prepared;
     const selectionBefore = this.logicalSelectionIds;
-    surface.load(materialized.dataset);
     this.logicalSelectionIds = Object.freeze([]);
     if (selectionBefore.length > 0) this.interactionRevision += 1;
     this.materialized = materialized;
@@ -2241,23 +2481,377 @@ export class CoreV2Engine {
     return true;
   }
 
+  public viewportProbe(): CoreV2ViewportState {
+    return this.viewportState();
+  }
+
+  public panViewport(
+    deltaCss: readonly [number, number],
+    source: CoreV2ViewportChangeSource = 'pointer',
+  ): CoreV2ViewportChangeResult {
+    const delta = finiteTuple(deltaCss, 'deltaCss');
+    const surface = this.requireSurface('panViewport');
+    if (
+      (source === 'pointer' || source === 'middle-pointer') &&
+      !this.viewportPolicyEnabled.has('pan')
+    ) {
+      return this.blockedViewportResult(source);
+    }
+    if (source === 'deceleration' && !this.viewportPolicyEnabled.has('deceleration')) {
+      return this.blockedViewportResult(source);
+    }
+    const center = surface.screenToWorld({
+      x: this.viewportWidth / 2 - delta[0],
+      y: this.viewportHeight / 2 - delta[1],
+    });
+    return this.commitViewport([center.x, center.y], this.viewportScale, source);
+  }
+
+  public zoomViewportAt(input: Readonly<{
+    readonly factor: number;
+    readonly anchorCss: readonly [number, number];
+    readonly source?: 'wheel' | 'modifier-wheel' | 'pinch' | 'programmatic';
+  }>): CoreV2ViewportChangeResult {
+    if (!Number.isFinite(input.factor) || !(input.factor > 0)) {
+      throw new RangeError('zoom factor must be positive and finite');
+    }
+    const anchor = finiteTuple(input.anchorCss, 'anchorCss');
+    const source = input.source ?? 'wheel';
+    const policy = source === 'pinch' ? 'pinch' : source === 'programmatic' ? null : 'wheel';
+    const surface = this.requireSurface('zoomViewportAt');
+    if (policy !== null && !this.viewportPolicyEnabled.has(policy)) {
+      return this.blockedViewportResult(source);
+    }
+    const worldUnderAnchor = surface.screenToWorld({ x: anchor[0], y: anchor[1] });
+    const nextScale = Math.min(
+      this.zoomLimits[1],
+      Math.max(this.zoomLimits[0], this.viewportScale * input.factor),
+    );
+    const ratio = this.viewportScale / nextScale;
+    const center: readonly [number, number] = Object.freeze([
+      worldUnderAnchor.x -
+        (worldUnderAnchor.x - this.viewportCenterWorld[0]) * ratio,
+      worldUnderAnchor.y -
+        (worldUnderAnchor.y - this.viewportCenterWorld[1]) * ratio,
+    ]);
+    return this.commitViewport(center, nextScale, source);
+  }
+
+  public startViewportDeceleration(
+    velocityCssPxPerMs: readonly [number, number],
+  ): boolean {
+    const velocity = finiteTuple(velocityCssPxPerMs, 'velocityCssPxPerMs');
+    this.requireSurface('startViewportDeceleration');
+    if (!this.viewportPolicyEnabled.has('deceleration')) return false;
+    this.viewportMotion = Object.freeze({
+      velocityX: velocity[0],
+      velocityY: velocity[1],
+    });
+    return true;
+  }
+
+  public advanceViewportMotion(deltaMs: number): CoreV2ViewportChangeResult {
+    if (!Number.isFinite(deltaMs) || deltaMs < 0) {
+      throw new RangeError('viewport motion deltaMs must be finite and non-negative');
+    }
+    const motion = this.viewportMotion;
+    if (motion === null || !this.viewportPolicyEnabled.has('deceleration')) {
+      this.viewportMotion = null;
+      return this.blockedViewportResult('deceleration');
+    }
+    const decay = Math.exp(-deltaMs / 120);
+    const displacementScale = 120 * (1 - decay);
+    const result = this.panViewport(
+      [
+        motion.velocityX * displacementScale,
+        motion.velocityY * displacementScale,
+      ],
+      'deceleration',
+    );
+    const velocityX = motion.velocityX * decay;
+    const velocityY = motion.velocityY * decay;
+    this.viewportMotion = Math.hypot(velocityX, velocityY) < 0.001
+      ? null
+      : Object.freeze({ velocityX, velocityY });
+    return result;
+  }
+
+  public cancelViewportMotion(): boolean {
+    const changed = this.viewportMotion !== null;
+    this.viewportMotion = null;
+    this.surface?.cancelViewportGestures?.();
+    return changed;
+  }
+
+  public settleViewport(): CoreV2ViewportSettleResult {
+    this.requireSurface('settleViewport');
+    this.cancelViewportMotion();
+    const key = viewportStateKey(this.viewportCenterWorld, this.viewportScale);
+    const changed = key !== this.lastSettledViewportKey;
+    if (changed) {
+      this.lastSettledViewportKey = key;
+      this.viewportSettledPublicationCount += 1;
+    }
+    const result = Object.freeze({
+      changed,
+      viewport: this.viewportState(),
+      publicationCount: this.viewportSettledPublicationCount,
+      persistence: this.viewportPersistenceProbe(),
+    } satisfies CoreV2ViewportSettleResult);
+    if (changed) this.emit('viewSettled', result);
+    return result;
+  }
+
+  public serializeViewport(): CoreV2SerializedViewportState {
+    this.requireSurface('serializeViewport');
+    const serialized = serializedViewport(this.viewportCenterWorld, this.viewportScale);
+    const key = viewportStateKey(serialized.centerWorld, serialized.scale);
+    if (key === this.lastSerializedViewportKey) {
+      this.viewportSuppressedEquivalentSaveCount += 1;
+      return this.lastSerializedViewport ?? serialized;
+    }
+    this.lastSerializedViewportKey = key;
+    this.lastSerializedViewport = serialized;
+    this.viewportPersistenceWriteCount += 1;
+    return serialized;
+  }
+
+  public viewportPersistenceProbe(): CoreV2ViewportPersistenceProbe {
+    return Object.freeze({
+      settledPublicationCount: this.viewportSettledPublicationCount,
+      persistenceWriteCount: this.viewportPersistenceWriteCount,
+      equivalentSaveCount: 0,
+      suppressedEquivalentSaveCount: this.viewportSuppressedEquivalentSaveCount,
+      settled:
+        this.lastSettledViewportKey ===
+        viewportStateKey(this.viewportCenterWorld, this.viewportScale),
+      serialized: this.lastSerializedViewport,
+    });
+  }
+
+  /**
+   * Rebind a long-lived GPU Engine to a new host UI generation. The aggregate
+   * renderer and canvas stay owned by the Engine, while gesture captures,
+   * pending loads, selection, and resolved-target authority cannot cross the
+   * host lifecycle boundary.
+   */
+  public rebindHostLifecycle(
+    requestedGeneration: number,
+  ): CoreV2HostLifecycleRebindResult {
+    if (
+      !Number.isSafeInteger(requestedGeneration) ||
+      requestedGeneration !== this.lifecycleGeneration + 1
+    ) {
+      throw new RangeError('host lifecycle generation must advance by exactly one');
+    }
+    const surface = this.requireSurface('rebindHostLifecycle');
+    this.submissionSequence += 1;
+    this.loadSequence += 1;
+    this.viewportMotion = null;
+    surface.cancelViewportGestures?.();
+    if (this.logicalSelectionIds.length > 0) {
+      surface.select([]);
+      this.logicalSelectionIds = Object.freeze([]);
+      this.interactionRevision += 1;
+    }
+    this.lifecycleGeneration = requestedGeneration;
+    this.targetLifecycleGeneration += 1;
+    return Object.freeze({
+      lifecycleGeneration: this.lifecycleGeneration,
+      sceneRevision: this.sceneRevision,
+      canvasCount: surface.canvasCount,
+      selectionIds: this.logicalSelectionIds,
+      revisions: this.revisionStamp(),
+    });
+  }
+
+  public restoreViewport(
+    input: unknown,
+    fallback: CoreV2ViewportFitOptions = {},
+  ): CoreV2ViewportRestoreResult {
+    const restored = normalizeSerializedViewport(input, this.zoomLimits);
+    if (restored !== null) {
+      const result = this.commitViewport(
+        restored.centerWorld,
+        restored.scale,
+        'restore',
+      );
+      return Object.freeze({
+        status: 'restored',
+        changed: result.changed,
+        viewport: result.viewport,
+        fit: null,
+      });
+    }
+    const fit = this.fitViewport(fallback, 'fallback-fit');
+    return Object.freeze({
+      status: 'fallback:auto-fit',
+      changed: fit.changed,
+      viewport: fit.viewport,
+      fit,
+    });
+  }
+
+  public focusViewport(
+    options: CoreV2ViewportTargetOptions = {},
+  ): CoreV2ViewportFocusResult {
+    const contributors = this.resolveViewportContributors(options);
+    if (contributors.worldBounds === null) {
+      return Object.freeze({
+        ...contributors,
+        status: 'empty',
+        changed: false,
+        viewport: this.viewportState(),
+      });
+    }
+    const center = coreV2BoundsCenter(contributors.worldBounds);
+    const change = this.commitViewport(center, this.viewportScale, 'focus');
+    return Object.freeze({
+      ...contributors,
+      status: 'applied',
+      changed: change.changed,
+      viewport: change.viewport,
+    });
+  }
+
+  public fitViewport(
+    options: CoreV2ViewportFitOptions = {},
+    source: 'fit' | 'fallback-fit' = 'fit',
+  ): CoreV2ViewportFitResult {
+    const padding = normalizeCoreV2ViewportPadding(options.paddingCssPx);
+    const contributors = this.resolveViewportContributors(options);
+    const paddingCssPx = Object.freeze([padding.x, padding.y] as const);
+    if (contributors.worldBounds === null) {
+      return Object.freeze({
+        ...contributors,
+        status: 'empty',
+        changed: false,
+        paddingCssPx,
+        viewport: this.viewportState(),
+      });
+    }
+    const scale = coreV2ViewportFitScale(
+      contributors.worldBounds,
+      [this.viewportWidth, this.viewportHeight],
+      padding,
+      this.worldRotationDegrees,
+      this.zoomLimits,
+    );
+    const center = coreV2BoundsCenter(contributors.worldBounds);
+    const change = this.commitViewport(center, scale, source);
+    return Object.freeze({
+      ...contributors,
+      status: 'applied',
+      changed: change.changed,
+      paddingCssPx,
+      viewport: change.viewport,
+    });
+  }
+
+  public configureViewportPolicy(
+    operation: CoreV2ViewportPolicyOperation,
+  ): CoreV2ViewportPolicyProbe {
+    const surface = this.requireSurface('configureViewportPolicy');
+    const registry = new Set(this.viewportPolicyRegistry);
+    const enabled = new Set(this.viewportPolicyEnabled);
+    let temporary = this.viewportTemporaryPolicies;
+    switch (operation.op) {
+      case 'add':
+        registry.add(normalizeViewportPolicy(operation.policy));
+        enabled.add(operation.policy);
+        break;
+      case 'start': {
+        const policy = normalizeViewportPolicy(operation.policy);
+        if (!registry.has(policy)) registry.add(policy);
+        enabled.add(policy);
+        break;
+      }
+      case 'stop':
+        enabled.delete(normalizeViewportPolicy(operation.policy));
+        break;
+      case 'remove': {
+        const policy = normalizeViewportPolicy(operation.policy);
+        registry.delete(policy);
+        enabled.delete(policy);
+        break;
+      }
+      case 'temporary': {
+        const policy = normalizeViewportPolicy(operation.policy);
+        if (temporary !== null) {
+          throw new Error('a temporary viewport policy is already active');
+        }
+        temporary = Object.freeze({
+          registry: orderedViewportPolicies(registry),
+          enabled: orderedViewportPolicies(enabled),
+        });
+        registry.add(policy);
+        enabled.add(policy);
+        break;
+      }
+      case 'restore-temporary':
+        if (temporary !== null) {
+          replacePolicySet(registry, temporary.registry);
+          replacePolicySet(enabled, temporary.enabled);
+          temporary = null;
+        }
+        break;
+      case 'cancel-all':
+        this.viewportMotion = null;
+        surface.cancelViewportGestures?.();
+        break;
+      case 'redraw':
+        break;
+    }
+    const orderedEnabled = orderedViewportPolicies(enabled);
+    surface.setViewportGesturePolicies?.(orderedEnabled);
+    this.viewportPolicyRegistry = registry;
+    this.viewportPolicyEnabled = enabled;
+    this.viewportTemporaryPolicies = temporary;
+    const probe = this.viewportPolicyProbe();
+    this.emit('viewportPolicyChanged', probe);
+    return probe;
+  }
+
+  public viewportPolicyProbe(): CoreV2ViewportPolicyProbe {
+    const destroyed = this.lifecycle === 'destroyed' || this.lifecycle === 'destroying';
+    const registry = destroyed
+      ? Object.freeze([] as CoreV2ViewportPolicy[])
+      : orderedViewportPolicies(this.viewportPolicyRegistry);
+    const enabled = destroyed
+      ? Object.freeze([] as CoreV2ViewportPolicy[])
+      : orderedViewportPolicies(this.viewportPolicyEnabled);
+    const callbacks = Object.fromEntries(
+      CORE_V2_VIEWPORT_POLICIES.map((policy) => [
+        policy,
+        registry.includes(policy) ? 1 : 0,
+      ]),
+    ) as Record<CoreV2ViewportPolicy, 0 | 1>;
+    return Object.freeze({
+      schemaRevision: CORE_V2_VIEWPORT_REVISION,
+      policies: registry,
+      enabledPolicies: enabled,
+      temporary: !destroyed && this.viewportTemporaryPolicies !== null,
+      callbacksByPolicy: Object.freeze(callbacks),
+      resources: Object.freeze({
+        tickers: 0,
+        listeners: 0,
+        captures: 0,
+        motions: destroyed || this.viewportMotion === null ? 0 : 1,
+        cursors: 0,
+      }),
+      destroyed,
+    });
+  }
+
   public setViewport(input: Readonly<{
     centerWorld: readonly [number, number];
     scale: number;
   }>): CoreV2ViewportState {
-    const [centerX, centerY] = input.centerWorld;
-    if (!Number.isFinite(centerX) || !Number.isFinite(centerY)) {
-      throw new RangeError('centerWorld must contain finite coordinates');
-    }
-    if (!Number.isFinite(input.scale) || input.scale < this.zoomLimits[0] || input.scale > this.zoomLimits[1]) {
-      throw new RangeError('scale must be within the configured zoom limits');
-    }
-    const surface = this.requireSurface('setViewport');
-    this.viewportCenterWorld = Object.freeze([centerX, centerY]);
-    this.viewportScale = input.scale;
-    surface.setView(this.resolvedSurfaceView());
-    this.viewRevision += 1;
-    return this.viewportState();
+    return this.commitViewport(
+      input.centerWorld,
+      input.scale,
+      'programmatic',
+    ).viewport;
   }
 
   public setWorldTransform(input: CoreV2WorldTransformInput): CoreV2WorldTransformState {
@@ -2662,7 +3256,10 @@ export class CoreV2Engine {
     if (this.lifecycle === 'destroyed') return this.retryDestroyedCleanup();
     this.lifecycle = 'destroying';
     this.submissionSequence += 1;
+    this.loadSequence += 1;
     const surface = this.surface;
+    this.viewportMotion = null;
+    surface?.cancelViewportGestures?.();
     const pendingInitialization = this.initializePromise;
     const assetSession = this.assetSession;
     const cleanupFailures: unknown[] = [];
@@ -2701,6 +3298,9 @@ export class CoreV2Engine {
     this.materialized = null;
     this.logicalSelectionIds = Object.freeze([]);
     this.resetLiveOverlayState();
+    this.viewportPolicyRegistry.clear();
+    this.viewportPolicyEnabled.clear();
+    this.viewportTemporaryPolicies = null;
     this.externalDependencyRevisions.clear();
     this.history.destroy();
     this.componentSemantics.clear();
@@ -2897,6 +3497,17 @@ export class CoreV2Engine {
     surface: CoreV2EngineSurface,
   ): Promise<Readonly<{ released: boolean; error: Error | null }>> {
     let lastError: Error | null = null;
+    let viewportCleanupFailed = false;
+    if (this.surface === surface && this.surfaceViewportInputUnbind !== null) {
+      try {
+        this.surfaceViewportInputUnbind();
+      } catch {
+        lastError = new Error('Core v2 viewport input cleanup failed');
+        viewportCleanupFailed = true;
+      } finally {
+        this.surfaceViewportInputUnbind = null;
+      }
+    }
     for (let attempt = 0; attempt < 2; attempt += 1) {
       let attemptFailed = false;
       try {
@@ -2910,7 +3521,7 @@ export class CoreV2Engine {
         if (this.retainedCleanupSurface === surface) this.retainedCleanupSurface = null;
         return Object.freeze({
           released: true,
-          error: attemptFailed ? lastError : null,
+          error: attemptFailed || viewportCleanupFailed ? lastError : null,
         });
       }
       if (!attemptFailed) lastError = new Error('Core v2 surface retained a canvas after destroy');
@@ -2990,6 +3601,68 @@ export class CoreV2Engine {
       revisionLags,
       revisionLag: revisionLags.scene,
     });
+  }
+
+  private assertCooperativeLoadCurrent(
+    surface: CoreV2EngineSurface,
+    sequence: number,
+    lifecycleGeneration: number,
+    sceneRevision: number,
+  ): void {
+    if (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
+      throw this.operationError('DESTROYED', 'DESTROYED', 'loadDatasetAsync', false);
+    }
+    if (
+      this.surface !== surface ||
+      this.loadSequence !== sequence ||
+      this.lifecycleGeneration !== lifecycleGeneration ||
+      this.sceneRevision !== sceneRevision
+    ) {
+      throw this.operationError('SUPERSEDED', 'SUPERSEDED', 'loadDatasetAsync', true);
+    }
+  }
+
+  private acceptSurfaceViewportInput(
+    surface: CoreV2EngineSurface,
+    input: CoreV2SurfaceViewportInput,
+  ): void {
+    if (
+      this.surface !== surface ||
+      this.lifecycle === 'destroyed' ||
+      this.lifecycle === 'destroying'
+    ) {
+      return;
+    }
+    const centerWorld = finiteTuple(input.centerWorld, 'surface viewport centerWorld');
+    if (
+      !Number.isFinite(input.scale) ||
+      input.scale < this.zoomLimits[0] ||
+      input.scale > this.zoomLimits[1]
+    ) {
+      throw new RangeError('surface viewport scale must be within the configured zoom limits');
+    }
+    const previous = this.viewportState();
+    if (
+      centerWorld[0] === this.viewportCenterWorld[0] &&
+      centerWorld[1] === this.viewportCenterWorld[1] &&
+      input.scale === this.viewportScale
+    ) {
+      return;
+    }
+    const previousRevisions = this.revisionStamp();
+    this.viewportCenterWorld = centerWorld;
+    this.viewportScale = input.scale;
+    this.viewRevision += 1;
+    const result = Object.freeze({
+      changed: true,
+      blocked: false,
+      source: input.source,
+      previous,
+      viewport: this.viewportState(),
+      previousRevisions,
+      revisions: this.revisionStamp(),
+    } satisfies CoreV2ViewportChangeResult);
+    this.emit('viewChanged', result);
   }
 
   private requireSurface(operation: string): CoreV2EngineSurface {
@@ -3251,20 +3924,131 @@ export class CoreV2Engine {
     return count;
   }
 
+  private commitViewport(
+    centerWorldValue: readonly [number, number],
+    scale: number,
+    source: CoreV2ViewportChangeSource,
+  ): CoreV2ViewportChangeResult {
+    const centerWorld = finiteTuple(centerWorldValue, 'centerWorld');
+    if (
+      !Number.isFinite(scale) ||
+      scale < this.zoomLimits[0] ||
+      scale > this.zoomLimits[1]
+    ) {
+      throw new RangeError('scale must be within the configured zoom limits');
+    }
+    const surface = this.requireSurface('setViewport');
+    const previous = this.viewportState();
+    const previousRevisions = this.revisionStamp();
+    const changed =
+      centerWorld[0] !== this.viewportCenterWorld[0] ||
+      centerWorld[1] !== this.viewportCenterWorld[1] ||
+      scale !== this.viewportScale;
+    if (changed) {
+      surface.setView(this.resolvedSurfaceView(
+        this.worldTransformState(),
+        centerWorld,
+        scale,
+      ));
+      this.viewportCenterWorld = centerWorld;
+      this.viewportScale = scale;
+      this.viewRevision += 1;
+    }
+    const result = Object.freeze({
+      changed,
+      blocked: false,
+      source,
+      previous,
+      viewport: this.viewportState(),
+      previousRevisions,
+      revisions: this.revisionStamp(),
+    } satisfies CoreV2ViewportChangeResult);
+    if (changed) this.emit('viewChanged', result);
+    return result;
+  }
+
+  private blockedViewportResult(
+    source: CoreV2ViewportChangeSource,
+  ): CoreV2ViewportChangeResult {
+    const viewport = this.viewportState();
+    const revisions = this.revisionStamp();
+    return Object.freeze({
+      changed: false,
+      blocked: true,
+      source,
+      previous: viewport,
+      viewport,
+      previousRevisions: revisions,
+      revisions,
+    });
+  }
+
+  private resolveViewportContributors(
+    options: CoreV2ViewportTargetOptions,
+  ): CoreV2ViewportContributorResult {
+    const surface = this.requireSurface('resolveViewportContributors');
+    const materialized = this.materialized;
+    if (materialized === null) {
+      return Object.freeze({
+        contributors: Object.freeze([]),
+        applied: Object.freeze([]),
+        missing: Object.freeze([...(options.targets ?? [])]),
+        excluded: Object.freeze([]),
+        duplicateCount: 0,
+        worldBounds: null,
+      });
+    }
+    const geometry = surface.geometrySnapshot?.();
+    if (!geometry) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'resolveViewportContributors',
+        false,
+      );
+    }
+    return resolveCoreV2ViewportContributors(materialized.dataset, geometry, {
+      targets: options.targets ?? null,
+      ...(options.rejectIds === undefined ? {} : { rejectIds: options.rejectIds }),
+      ...(options.relationEndpointsAvailable === undefined
+        ? {}
+        : { relationEndpointsAvailable: options.relationEndpointsAvailable }),
+    });
+  }
+
+  private resetViewportRuntime(): void {
+    this.viewportPolicyRegistry = new Set(CORE_V2_DEFAULT_VIEWPORT_POLICIES);
+    this.viewportPolicyEnabled = new Set(CORE_V2_DEFAULT_VIEWPORT_POLICIES);
+    this.viewportTemporaryPolicies = null;
+    this.viewportMotion = null;
+    this.lastSettledViewportKey = null;
+    this.lastSerializedViewportKey = null;
+    this.lastSerializedViewport = null;
+    this.viewportSettledPublicationCount = 0;
+    this.viewportPersistenceWriteCount = 0;
+    this.viewportSuppressedEquivalentSaveCount = 0;
+  }
+
+  private orderedEnabledViewportPolicies(): readonly CoreV2ViewportPolicy[] {
+    return orderedViewportPolicies(this.viewportPolicyEnabled);
+  }
+
   private resolvedSurfaceView(
     world: CoreV2WorldTransformInput = this.worldTransformState(),
+    centerWorld: readonly [number, number] = this.viewportCenterWorld,
+    scale: number = this.viewportScale,
   ): CoreV2SurfaceView {
     const radians = world.rotationDegrees * Math.PI / 180;
     const cosine = Math.cos(radians);
     const sine = Math.sin(radians);
-    const scaledX = this.viewportCenterWorld[0] * this.viewportScale;
-    const scaledY = this.viewportCenterWorld[1] * this.viewportScale;
+    const scaledX = centerWorld[0] * scale;
+    const scaledY = centerWorld[1] * scale;
     const transformedCenterX = (scaledX * cosine - scaledY * sine) * (world.flipX ? -1 : 1);
     const transformedCenterY = (scaledX * sine + scaledY * cosine) * (world.flipY ? -1 : 1);
     return Object.freeze({
       x: this.viewportWidth / 2 - transformedCenterX,
       y: this.viewportHeight / 2 - transformedCenterY,
-      scale: this.viewportScale,
+      scale,
       rotation: world.rotationDegrees,
       ...(world.flipX ? { flipX: true } : {}),
       ...(world.flipY ? { flipY: true } : {}),
@@ -3371,6 +4155,12 @@ async function releaseDatasetSubmission(
   await submission.release?.(result);
 }
 
+function yieldCoreV2EngineTask(): Promise<void> {
+  return new Promise((resolve) => {
+    globalThis.setTimeout(resolve, 0);
+  });
+}
+
 function assetInternalEngineCleanupFailure(): Error {
   return new Error('Core v2 required asset cleanup failed');
 }
@@ -3387,6 +4177,10 @@ export class CoreV2EngineError extends Error {
 
 export class PixiEngineSurface implements CoreV2EngineSurface {
   private readonly core: CoreV2;
+  private readonly unbindCoreViewportChanges: () => void;
+  private viewportInputListener:
+    | ((input: CoreV2SurfaceViewportInput) => void)
+    | null = null;
   private canvasPresent = true;
   private geometryRevision = 0;
   private geometryCache: CoreV2SurfaceGeometrySnapshot | null = null;
@@ -3404,6 +4198,28 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
 
   public constructor(core: CoreV2) {
     this.core = core;
+    this.unbindCoreViewportChanges = typeof core.bindRootViewportChanges === 'function'
+      ? core.bindRootViewportChanges(({ source, view }) => {
+          this.surfaceView = Object.freeze({
+            ...this.surfaceView,
+            x: view.x,
+            y: view.y,
+            scale: view.scale,
+            rotation: view.rotation ?? this.surfaceView.rotation,
+          });
+          this.geometryRevision += 1;
+          this.invalidateGeometryCache();
+          const center = core.screenToWorld({
+            x: core.renderer.width / 2,
+            y: core.renderer.height / 2,
+          });
+          this.viewportInputListener?.(Object.freeze({
+            source,
+            centerWorld: Object.freeze([center.x, center.y] as const),
+            scale: view.scale,
+          }));
+        })
+      : () => {};
   }
 
   public get canvasCount(): number {
@@ -3416,6 +4232,17 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
 
   public load(input: unknown): void {
     this.core.load(input);
+    this.geometryRevision += 1;
+    this.geometryRevisionProjection = this.core.visibleProjection;
+    this.invalidateGeometryCache();
+  }
+
+  public async loadAsync(input: unknown, assertCurrent?: () => void): Promise<void> {
+    await this.core.loadAsync(
+      input,
+      undefined,
+      assertCurrent === undefined ? {} : { assertCurrent },
+    );
     this.geometryRevision += 1;
     this.geometryRevisionProjection = this.core.visibleProjection;
     this.invalidateGeometryCache();
@@ -3488,6 +4315,35 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     this.surfaceView = nextView;
     this.geometryRevision += 1;
     this.invalidateGeometryCache();
+  }
+
+  public setViewportGesturePolicies(
+    policies: readonly CoreV2ViewportPolicy[],
+  ): void {
+    this.core.setViewportGesturePolicies(policies);
+  }
+
+  public setViewportZoomLimits(limits: readonly [number, number]): void {
+    this.core.setViewportZoomLimits(limits);
+  }
+
+  public bindViewportInput(
+    listener: (input: CoreV2SurfaceViewportInput) => void,
+  ): () => void {
+    if (typeof listener !== 'function') {
+      throw new TypeError('viewport input listener must be a function');
+    }
+    if (this.viewportInputListener !== null) {
+      throw new Error('viewport input listener is already bound');
+    }
+    this.viewportInputListener = listener;
+    return () => {
+      if (this.viewportInputListener === listener) this.viewportInputListener = null;
+    };
+  }
+
+  public cancelViewportGestures(): void {
+    this.core.cancelViewportGestures();
   }
 
   public select(ids: readonly string[]): void {
@@ -3672,6 +4528,8 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
   }
 
   public async destroy(): Promise<boolean> {
+    this.viewportInputListener = null;
+    this.unbindCoreViewportChanges();
     try {
       return await this.core.destroy();
     } finally {
@@ -4052,6 +4910,92 @@ function validatePoint(point: CoreV2Point, operation: string): void {
   if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
     throw new RangeError(`${operation} point must contain finite coordinates`);
   }
+}
+
+function finiteTuple(
+  value: readonly [number, number],
+  label: string,
+): readonly [number, number] {
+  if (
+    !Array.isArray(value) ||
+    value.length !== 2 ||
+    !Number.isFinite(value[0]) ||
+    !Number.isFinite(value[1])
+  ) {
+    throw new RangeError(`${label} must contain two finite coordinates`);
+  }
+  return Object.freeze([value[0], value[1]]);
+}
+
+function serializedViewport(
+  centerWorld: readonly [number, number],
+  scale: number,
+): CoreV2SerializedViewportState {
+  return Object.freeze({
+    schemaRevision: CORE_V2_VIEWPORT_REVISION,
+    centerWorld: Object.freeze([centerWorld[0], centerWorld[1]] as const),
+    scale,
+  });
+}
+
+function normalizeSerializedViewport(
+  value: unknown,
+  limits: readonly [number, number],
+): CoreV2SerializedViewportState | null {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as Readonly<Record<string, unknown>>;
+  const center = record.centerWorld;
+  const scale = record.scale;
+  if (
+    !Array.isArray(center) ||
+    center.length !== 2 ||
+    !Number.isFinite(center[0]) ||
+    !Number.isFinite(center[1]) ||
+    !Number.isFinite(scale) ||
+    (scale as number) < limits[0] ||
+    (scale as number) > limits[1]
+  ) {
+    return null;
+  }
+  return serializedViewport(
+    [center[0] as number, center[1] as number],
+    scale as number,
+  );
+}
+
+function viewportStateKey(
+  centerWorld: readonly [number, number],
+  scale: number,
+): string {
+  return `${canonicalViewportScalar(centerWorld[0])},${canonicalViewportScalar(centerWorld[1])},${canonicalViewportScalar(scale)}`;
+}
+
+function canonicalViewportScalar(value: number): number {
+  return Object.is(value, -0) ? 0 : value;
+}
+
+function normalizeViewportPolicy(value: unknown): CoreV2ViewportPolicy {
+  if (
+    typeof value !== 'string' ||
+    !CORE_V2_VIEWPORT_POLICIES.includes(value as CoreV2ViewportPolicy)
+  ) {
+    throw new TypeError('unsupported viewport policy');
+  }
+  return value as CoreV2ViewportPolicy;
+}
+
+function orderedViewportPolicies(
+  values: ReadonlySet<CoreV2ViewportPolicy>,
+): readonly CoreV2ViewportPolicy[] {
+  return Object.freeze(CORE_V2_VIEWPORT_POLICIES.filter((policy) => values.has(policy)));
+}
+
+function replacePolicySet(
+  target: Set<CoreV2ViewportPolicy>,
+  values: readonly CoreV2ViewportPolicy[],
+): void {
+  target.clear();
+  for (const value of values) target.add(value);
 }
 
 function normalizeDegrees(value: number): number {

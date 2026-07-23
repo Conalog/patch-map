@@ -7,6 +7,14 @@ export type CoreV2NormalizedRgba = readonly [number, number, number, number];
 export type CoreV2ByteRgba = readonly [number, number, number, number];
 export type CoreV2ColorTheme = Readonly<Record<string, unknown>>;
 
+export const CORE_V2_DEFAULT_COLOR_THEME: CoreV2ColorTheme = Object.freeze({
+  white: '#ffffffff',
+  black: '#000000ff',
+  transparent: '#00000000',
+  'primary.default': '#4f46e5ff',
+  'primary.dark': '#312e81ff',
+});
+
 export type CoreV2ResolvedColor =
   | Readonly<{
       source: 'direct';

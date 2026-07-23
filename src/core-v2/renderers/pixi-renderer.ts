@@ -8,7 +8,6 @@ import {
   Rectangle,
   type ApplicationOptions,
   type FederatedPointerEvent,
-  type FederatedWheelEvent,
 } from 'pixi.js';
 
 import type { CoreView, SlotRange } from '../../core-v1/contracts';
@@ -792,23 +791,33 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     const pointerCancel = (event: FederatedPointerEvent): void => {
       handlers.pointerCancel(event.pointerId);
     };
-    const wheel = (event: FederatedWheelEvent): void => {
+    // Pixi v8 forwards wheel through a passive native listener in Chromium.
+    // Keep pointer input federated, but own one non-passive root canvas wheel
+    // listener so preventing page scroll never emits a browser console error.
+    const wheel = (event: WheelEvent): void => {
       event.preventDefault();
-      handlers.wheel(event.global.x, event.global.y, event.deltaY);
+      const bounds = this.canvas.getBoundingClientRect();
+      const scaleX = bounds.width > 0 ? this.widthValue / bounds.width : 1;
+      const scaleY = bounds.height > 0 ? this.heightValue / bounds.height : 1;
+      handlers.wheel(
+        (event.clientX - bounds.left) * scaleX,
+        (event.clientY - bounds.top) * scaleY,
+        event.deltaY,
+      );
     };
     stage.on('pointerdown', pointerDown);
     stage.on('pointermove', pointerMove);
     stage.on('pointerup', pointerUp);
     stage.on('pointerupoutside', pointerUp);
     stage.on('pointercancel', pointerCancel);
-    stage.on('wheel', wheel);
+    this.canvas.addEventListener('wheel', wheel, { passive: false });
     const unbind = (): void => {
       stage.off('pointerdown', pointerDown);
       stage.off('pointermove', pointerMove);
       stage.off('pointerup', pointerUp);
       stage.off('pointerupoutside', pointerUp);
       stage.off('pointercancel', pointerCancel);
-      stage.off('wheel', wheel);
+      this.canvas.removeEventListener('wheel', wheel);
       if (this.interactionUnbind === unbind) this.interactionUnbind = null;
     };
     this.interactionUnbind = unbind;

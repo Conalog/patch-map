@@ -1,5 +1,3 @@
-import { Color, type ColorSource } from 'pixi.js';
-
 import {
   CORE_V2_COMPONENT_TYPES,
   CORE_V2_ELEMENT_TYPES,
@@ -11,8 +9,16 @@ import {
   type CoreV2TextStyle,
   type MaterializedCoreV2Dataset,
 } from './dataset';
+import {
+  CORE_V2_DEFAULT_COLOR_THEME,
+  createCoreV2ColorResolver,
+} from './color';
 
 export const CORE_V2_SEMANTIC_PROBE_REVISION = 'core-v2-semantic-probe/1' as const;
+
+const DEFAULT_PAINT_RESOLVER = createCoreV2ColorResolver(
+  CORE_V2_DEFAULT_COLOR_THEME,
+);
 
 export type CoreV2SemanticProbeLifecycle =
   | 'new'
@@ -540,7 +546,7 @@ function collectPaint(
   role: CoreV2PaintRole,
   accumulator: ProbeAccumulator,
 ): void {
-  const rgba = resolvePaint(value);
+  const rgba = resolvePaint(value, path);
   accumulator.paintIntents.push({
     path,
     role,
@@ -549,14 +555,12 @@ function collectPaint(
   });
 }
 
-function resolvePaint(value: unknown): readonly [number, number, number, number] | null {
+function resolvePaint(
+  value: unknown,
+  path: string,
+): readonly [number, number, number, number] | null {
   try {
-    const { r, g, b, a } = new Color(value as ColorSource).toRgba();
-    const channels = [r, g, b, a];
-    if (channels.some((channel) => !Number.isFinite(channel) || channel < 0 || channel > 1)) {
-      return null;
-    }
-    return channels.map((channel) => Math.round(channel * 255)) as [number, number, number, number];
+    return DEFAULT_PAINT_RESOLVER.resolve(value, path).byteRgba;
   } catch {
     return null;
   }

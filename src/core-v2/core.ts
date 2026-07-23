@@ -1,4 +1,3 @@
-import { CoreScene } from '../core-v1/scene';
 import type {
   AdvanceResult,
   CommitResult,
@@ -18,6 +17,11 @@ import type {
   SlotRange,
   TransactionBatch,
 } from '../core-v1/contracts';
+import type {
+  CoreRenderer,
+  RendererFlushResult,
+  RenderStoreView,
+} from '../core-v1/renderer/types';
 import type {
   ParseDiagnostic,
   ParseIdentityIndex,
@@ -45,7 +49,11 @@ import {
   createCoreV2PaintOrderProductProbe,
   type CoreV2PaintOrderProductProbe,
 } from './paint-order-product';
-import { parsePatchMapV010, projectCoreV2IntrinsicImageAffine } from './parser';
+import {
+  parsePatchMapV010,
+  parsePatchMapV010Async,
+  projectCoreV2IntrinsicImageAffine,
+} from './parser';
 import { withRendererDegradationDiagnostics } from './renderers/degradation';
 import { InvalidationScheduler, type FrameSchedulerDebug } from './scheduler';
 import {
@@ -92,11 +100,27 @@ import {
   panView,
   zoomViewAt,
 } from './view';
+import {
+  CORE_V2_DEFAULT_VIEWPORT_POLICIES,
+  CORE_V2_VIEWPORT_POLICIES,
+  type CoreV2ViewportPolicy,
+} from './viewport';
+import { CoreV2Scene } from './scene';
 
 export interface CoreV2Options extends PixiCoreV2RendererOptions, CoreSceneOptions {
   readonly parse?: ParsePatchMapOptions;
   /** Schedule one invalidation frame after mutations. Defaults to true. */
   readonly autoRender?: boolean;
+}
+
+export type CoreV2RootViewportChangeSource =
+  | 'pointer'
+  | 'middle-pointer'
+  | 'wheel';
+
+export interface CoreV2RootViewportChange {
+  readonly source: CoreV2RootViewportChangeSource;
+  readonly view: CoreView;
 }
 
 export interface CoreV2SemanticRefreshResult {
@@ -116,6 +140,15 @@ export interface CoreV2LoadResult {
   readonly store: LoadResult;
   readonly normalizeMs: number;
   readonly storeLoadMs: number;
+}
+
+interface CoreV2CooperativeLoadHooks {
+  /**
+   * Called after every cooperative boundary and immediately before the
+   * authoritative scene swap. A superseded Engine load throws here while the
+   * currently published Core state is still untouched.
+   */
+  readonly assertCurrent?: () => void;
 }
 
 export interface CoreV2PrepareResult {
@@ -353,6 +386,7 @@ export interface AnimateBarsOptions {
 
 interface PanState {
   readonly pointerId: number;
+  readonly source: Extract<CoreV2RootViewportChangeSource, 'pointer' | 'middle-pointer'>;
   x: number;
   y: number;
 }
@@ -361,7 +395,8 @@ export class CoreV2 {
   public readonly renderer: PixiCoreV2Renderer;
   public readonly initializationMetrics: PixiCoreV2InitializationMetrics;
 
-  private readonly scene: CoreScene;
+  private scene: CoreV2Scene;
+  private readonly sceneOptions: CoreSceneOptions;
   private readonly scheduler: InvalidationScheduler;
   private readonly sceneImages: CoreV2SceneImageController;
   private readonly presentationProjection = new CoreV2PresentationProjectionStore();
@@ -382,6 +417,16 @@ export class CoreV2 {
   private lastAnimationFrameTime: number | null = null;
   private lastFrameReport: FrameReport | null = null;
   private pan: PanState | null = null;
+  private viewportPolicies = new Set<CoreV2ViewportPolicy>(
+    CORE_V2_DEFAULT_VIEWPORT_POLICIES,
+  );
+  private viewportZoomLimits: readonly [number, number] = Object.freeze([
+    Number.MIN_VALUE,
+    Number.MAX_VALUE,
+  ]);
+  private readonly rootViewportListeners = new Set<
+    (change: CoreV2RootViewportChange) => void
+  >();
   private pointerSequence = 0;
   private entityCountValue = 0;
   private destroyedValue = false;
@@ -395,21 +440,22 @@ export class CoreV2 {
   private textRendererFactsPublished = false;
   private renderedSceneRevision: number | null = null;
   private presentationGhostPublicationCount = 0;
+  private loadSequence = 0;
 
   private constructor(renderer: PixiCoreV2Renderer, options: CoreV2Options) {
     this.renderer = renderer;
     this.initializationMetrics = renderer.initializationMetrics;
     this.parseOptions = options.parse ?? {};
     this.autoRender = options.autoRender ?? true;
-    this.presentationController = new CoreV2PresentationController({
-      lifecycleGeneration: this.presentationGeneration,
-    });
-    this.scene = new CoreScene({
-      renderer,
+    this.sceneOptions = Object.freeze({
       ...(options.initialCapacity === undefined ? {} : { initialCapacity: options.initialCapacity }),
       ...(options.historyLimit === undefined ? {} : { historyLimit: options.historyLimit }),
       ...(options.eventLimit === undefined ? {} : { eventLimit: options.eventLimit }),
     });
+    this.presentationController = new CoreV2PresentationController({
+      lifecycleGeneration: this.presentationGeneration,
+    });
+    this.scene = this.createScene();
     this.scheduler = new InvalidationScheduler((timeMs) => this.renderScheduledFrame(timeMs));
     this.sceneImages = new CoreV2SceneImageController(renderer, {
       onInvalidate: (reason) => this.invalidate(reason),
@@ -420,7 +466,20 @@ export class CoreV2 {
       pointerMove: (x, y, pointerId) => this.onPointerMove(x, y, pointerId),
       pointerUp: (_x, _y, pointerId) => this.onPointerUp(pointerId),
       pointerCancel: (pointerId) => this.onPointerUp(pointerId),
-      wheel: (x, y, deltaY) => this.zoomAt({ x, y }, Math.exp(-deltaY * 0.0015)),
+      wheel: (x, y, deltaY) => {
+        if (this.viewportPolicies.has('wheel')) {
+          const before = this.currentView;
+          const nextScale = Math.min(
+            this.viewportZoomLimits[1],
+            Math.max(
+              this.viewportZoomLimits[0],
+              before.scale * Math.exp(-deltaY * 0.001),
+            ),
+          );
+          this.zoomAt({ x, y }, nextScale / before.scale);
+          this.publishRootViewportChange('wheel', before);
+        }
+      },
     });
   }
 
@@ -472,16 +531,106 @@ export class CoreV2 {
 
   public load(input: unknown, options: ParsePatchMapOptions = this.parseOptions): CoreV2LoadResult {
     this.assertAlive();
-    this.pendingIntrinsicImageSizes.clear();
+    this.loadSequence += 1;
     const normalizeStarted = now();
     const parse = withRendererDegradationDiagnostics(
       parsePatchMapV010(input, options),
       this.renderer.strategy,
     );
     const normalizeMs = now() - normalizeStarted;
+    this.pendingIntrinsicImageSizes.clear();
     const storeStarted = now();
     const store = this.scene.load(parse.document);
     const storeLoadMs = now() - storeStarted;
+    this.applyLoadedProjection(parse, store);
+    this.finishLoadedProjection(parse, store);
+    return Object.freeze({ parse, store, normalizeMs, storeLoadMs });
+  }
+
+  /**
+   * Cooperative first-load path for large browser scenes. Parsing, dense-store
+   * construction, aggregate projection binding, and final indexing each occupy
+   * a separate main-thread task while the Engine keeps the candidate private.
+   */
+  public async loadAsync(
+    input: unknown,
+    options: ParsePatchMapOptions = this.parseOptions,
+    hooks: CoreV2CooperativeLoadHooks = {},
+  ): Promise<CoreV2LoadResult> {
+    this.assertAlive();
+    const sequence = ++this.loadSequence;
+    const sceneRevision = this.scene.revision;
+    const assertCurrent = (): void => {
+      this.assertAlive();
+      if (this.loadSequence !== sequence || this.scene.revision !== sceneRevision) {
+        throw new Error('CoreV2 cooperative load was superseded');
+      }
+      hooks.assertCurrent?.();
+    };
+    assertCurrent();
+    const normalizeStarted = now();
+    const parse = withRendererDegradationDiagnostics(
+      await parsePatchMapV010Async(input, options),
+      this.renderer.strategy,
+    );
+    const normalizeMs = now() - normalizeStarted;
+    await yieldCoreV2MainTask();
+    assertCurrent();
+
+    if (sceneRevision === 0 && this.entityCountValue === 0) {
+      let candidate: CoreV2Scene | null = this.createScene(parse.document.entities.length);
+      try {
+        const storeStarted = now();
+        const store = await candidate.loadCooperatively(parse.document, assertCurrent);
+        const storeLoadMs = now() - storeStarted;
+        await yieldCoreV2MainTask();
+        assertCurrent();
+
+        const previous = this.scene;
+        const next = candidate;
+        candidate = null;
+        this.pendingIntrinsicImageSizes.clear();
+        this.scene = next;
+        try {
+          this.applyLoadedProjection(parse, store);
+          this.finishLoadedProjection(parse, store);
+        } catch (error) {
+          this.scene = previous;
+          next.destroy();
+          throw error;
+        }
+        previous.destroy();
+        return Object.freeze({ parse, store, normalizeMs, storeLoadMs });
+      } finally {
+        candidate?.destroy();
+      }
+    }
+
+    // The parser and caller-side Engine indexes may yield, but the scene,
+    // projection, image ownership, and invalidation authorities publish as one
+    // synchronous commit. No host callback can observe a half-loaded Core.
+    this.pendingIntrinsicImageSizes.clear();
+    const storeStarted = now();
+    const store = this.scene.load(parse.document);
+    const storeLoadMs = now() - storeStarted;
+    this.applyLoadedProjection(parse, store);
+    this.finishLoadedProjection(parse, store);
+    return Object.freeze({ parse, store, normalizeMs, storeLoadMs });
+  }
+
+  private createScene(minimumCapacity = 0): CoreV2Scene {
+    return new CoreV2Scene({
+      renderer: new CoreV2RendererLease(this.renderer),
+      ...this.sceneOptions,
+      initialCapacity: Math.max(
+        this.sceneOptions.initialCapacity ?? 0,
+        minimumCapacity,
+        1,
+      ),
+    });
+  }
+
+  private applyLoadedProjection(parse: ParsePatchMapResult, store: LoadResult): void {
     this.parseResultValue = parse;
     this.projectionValue = parse.projection;
     this.resetPresentationController();
@@ -492,6 +641,9 @@ export class CoreV2 {
     this.lastAnimationFrameTime = null;
     this.staleHitProjectionIds.clear();
     this.renderer.setProjection(presentation, undefined, this.staleHitProjectionIds);
+  }
+
+  private finishLoadedProjection(parse: ParsePatchMapResult, store: LoadResult): void {
     this.sceneImages.reconcile(parse.projection, {
       activeEntityIds: this.activeSceneImageIds(),
     });
@@ -503,7 +655,6 @@ export class CoreV2 {
     this.invalidateEntityHitIndex();
     this.renderer.markChanges(store.changedRanges, 'load', { fullRebuild: true });
     this.invalidate('load');
-    return Object.freeze({ parse, store, normalizeMs, storeLoadMs });
   }
 
   /**
@@ -1332,10 +1483,69 @@ export class CoreV2 {
     return this.renderer.interactionOwnershipProbe();
   }
 
+  public setViewportGesturePolicies(
+    policies: readonly CoreV2ViewportPolicy[],
+  ): readonly CoreV2ViewportPolicy[] {
+    this.assertAlive();
+    if (!Array.isArray(policies)) throw new TypeError('viewport policies must be an array');
+    const supported = new Set<CoreV2ViewportPolicy>(CORE_V2_VIEWPORT_POLICIES);
+    const next = new Set<CoreV2ViewportPolicy>();
+    const requested = policies as readonly unknown[];
+    for (const [index, value] of requested.entries()) {
+      if (typeof value !== 'string' || !supported.has(value as CoreV2ViewportPolicy)) {
+        throw new TypeError(`viewport policies[${index}] is unsupported`);
+      }
+      const policy = value as CoreV2ViewportPolicy;
+      next.add(policy);
+    }
+    this.viewportPolicies = next;
+    if (!next.has('pan')) this.cancelViewportGestures();
+    return Object.freeze(CORE_V2_VIEWPORT_POLICIES.filter((policy) => next.has(policy)));
+  }
+
+  public setViewportZoomLimits(
+    limits: readonly [number, number],
+  ): readonly [number, number] {
+    this.assertAlive();
+    if (
+      !Array.isArray(limits) ||
+      limits.length !== 2 ||
+      !Number.isFinite(limits[0]) ||
+      !Number.isFinite(limits[1]) ||
+      !(limits[0] > 0) ||
+      limits[1] < limits[0]
+    ) {
+      throw new RangeError('viewport zoom limits must be finite, positive, and ordered');
+    }
+    this.viewportZoomLimits = Object.freeze([limits[0], limits[1]]);
+    return this.viewportZoomLimits;
+  }
+
+  public bindRootViewportChanges(
+    listener: (change: CoreV2RootViewportChange) => void,
+  ): () => void {
+    this.assertAlive();
+    if (typeof listener !== 'function') {
+      throw new TypeError('root viewport listener must be a function');
+    }
+    this.rootViewportListeners.add(listener);
+    return () => {
+      this.rootViewportListeners.delete(listener);
+    };
+  }
+
+  public cancelViewportGestures(): void {
+    this.assertAlive();
+    this.pan = null;
+    this.scheduler.setContinuous(false, 'gesture-cancel');
+  }
+
   public async destroy(): Promise<boolean> {
     if (this.destroyedValue) return false;
     this.destroyedValue = true;
     this.pan = null;
+    this.viewportPolicies.clear();
+    this.rootViewportListeners.clear();
     this.scheduler.destroy();
     this.unbindInteractions();
     this.entityHitIndexValue = null;
@@ -1359,6 +1569,11 @@ export class CoreV2 {
     this.pendingIntrinsicImageSizes.clear();
     try {
       this.scene.destroy();
+    } catch (error) {
+      cleanupFailures.push(normalizeCleanupFailure(error));
+    }
+    try {
+      this.renderer.destroy();
     } catch (error) {
       cleanupFailures.push(normalizeCleanupFailure(error));
     }
@@ -1856,9 +2071,17 @@ export class CoreV2 {
 
   private onPointerDown(x: number, y: number, pointerId: number, button: number): void {
     if (this.destroyedValue) return;
-    const target = this.selectAtScreen({ x, y });
-    if (!target && (button === 0 || button === 1)) {
-      this.pan = { pointerId, x, y };
+    if (button === 0) this.selectAtScreen({ x, y });
+    if (
+      this.viewportPolicies.has('pan') &&
+      (button === 0 || button === 1)
+    ) {
+      this.pan = {
+        pointerId,
+        source: button === 1 ? 'middle-pointer' : 'pointer',
+        x,
+        y,
+      };
       this.scheduler.setContinuous(true, 'gesture');
     }
   }
@@ -1869,7 +2092,9 @@ export class CoreV2 {
     const delta = { x: x - pan.x, y: y - pan.y };
     pan.x = x;
     pan.y = y;
+    const before = this.currentView;
     this.panBy(delta);
+    this.publishRootViewportChange(pan.source, before);
   }
 
   private onPointerUp(pointerId: number): void {
@@ -1886,6 +2111,76 @@ export class CoreV2 {
 
   private assertAlive(): void {
     if (this.destroyedValue) throw new Error('CoreV2 is destroyed');
+  }
+
+  private publishRootViewportChange(
+    source: CoreV2RootViewportChangeSource,
+    before: CoreView,
+  ): void {
+    const view = this.currentView;
+    if (
+      before.x === view.x &&
+      before.y === view.y &&
+      before.scale === view.scale &&
+      before.rotation === view.rotation
+    ) {
+      return;
+    }
+    const change = Object.freeze({ source, view } satisfies CoreV2RootViewportChange);
+    for (const listener of [...this.rootViewportListeners]) listener(change);
+  }
+}
+
+/**
+ * CoreScene owns the lifecycle of the renderer it receives. Core v2 instead
+ * owns one Pixi renderer across private candidate scenes, so each scene gets a
+ * revocable forwarding lease whose destroy never tears down the shared GPU
+ * Application.
+ */
+class CoreV2RendererLease implements CoreRenderer {
+  private destroyedValue = false;
+
+  public constructor(private readonly renderer: PixiCoreV2Renderer) {}
+
+  public get width(): number {
+    return this.destroyedValue ? 0 : this.renderer.width;
+  }
+
+  public get height(): number {
+    return this.destroyedValue ? 0 : this.renderer.height;
+  }
+
+  public get pixelRatio(): number {
+    return this.destroyedValue ? 1 : this.renderer.pixelRatio;
+  }
+
+  public get destroyed(): boolean {
+    return this.destroyedValue;
+  }
+
+  public resize(width: number, height: number, pixelRatio?: number): boolean {
+    this.assertAlive();
+    return this.renderer.resize(width, height, pixelRatio);
+  }
+
+  public setView(view: CoreView): boolean {
+    this.assertAlive();
+    return this.renderer.setView(view);
+  }
+
+  public flush(store: RenderStoreView): RendererFlushResult {
+    this.assertAlive();
+    return this.renderer.flush(store);
+  }
+
+  public destroy(): boolean {
+    if (this.destroyedValue) return false;
+    this.destroyedValue = true;
+    return true;
+  }
+
+  private assertAlive(): void {
+    if (this.destroyedValue) throw new Error('CoreV2 renderer lease is destroyed');
   }
 }
 
@@ -1935,6 +2230,12 @@ function contiguousSlotRanges(slots: readonly number[]): readonly SlotRange[] {
 
 function now(): number {
   return globalThis.performance?.now() ?? Date.now();
+}
+
+function yieldCoreV2MainTask(): Promise<void> {
+  return new Promise((resolve) => {
+    globalThis.setTimeout(resolve, 0);
+  });
 }
 
 function screenToWorldWithFlips(

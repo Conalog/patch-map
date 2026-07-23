@@ -53,6 +53,7 @@ import {
   type CoreV2TextLayoutOptions,
 } from './semantic/text-layout';
 import { resolveCoreV2PlacementBounds } from './semantic/placement';
+import { CORE_V2_DEFAULT_COLOR_THEME } from './semantic/color';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -150,13 +151,6 @@ interface EntityOwner {
   readonly component?: MutableComponentIdentity;
 }
 
-const DEFAULT_COLORS: Readonly<Record<string, string>> = Object.freeze({
-  white: '#ffffffff',
-  black: '#000000ff',
-  transparent: '#00000000',
-  'primary.default': '#4f46e5ff',
-  'primary.dark': '#312e81ff',
-});
 const ZERO_EDGES: CoreV2Edges = Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 });
 const TEXT_PLACEMENTS = new Set<CoreV2Placement>([
   'left',
@@ -238,7 +232,46 @@ export function parsePatchMapV010(
   input: unknown,
   options: ParsePatchMapOptions = {},
 ): ParsePatchMapResult {
-  const state: ParseState = {
+  const state = createParseState(options);
+  if (!Array.isArray(input)) {
+    fatal(state, '$', 'invalid-root', 'PATCH MAP v0.10 input must be an array');
+  }
+
+  parseElements(input, '$', ROOT_CONTEXT, state);
+  validateRelationEndpoints(state);
+  return finishParseState(state);
+}
+
+/**
+ * Expected-equivalent cooperative parser for large browser loads. Individual
+ * top-level records remain atomic, while the shared identity/relation state is
+ * retained across bounded main-thread tasks.
+ */
+export async function parsePatchMapV010Async(
+  input: unknown,
+  options: ParsePatchMapOptions = {},
+): Promise<ParsePatchMapResult> {
+  const state = createParseState(options);
+  if (!Array.isArray(input)) {
+    fatal(state, '$', 'invalid-root', 'PATCH MAP v0.10 input must be an array');
+  }
+
+  let sliceStarted = parserNow();
+  for (const [index, value] of input.entries()) {
+    parseElement(value, `$[${index}]`, ROOT_CONTEXT, state);
+    if (parserNow() - sliceStarted < 8 || index === input.length - 1) continue;
+    await yieldParserTask();
+    sliceStarted = parserNow();
+  }
+  await yieldParserTask();
+  validateRelationEndpoints(state);
+  const result = finishParseState(state, false);
+  await deepFreezeAsync(result);
+  return result;
+}
+
+function createParseState(options: ParsePatchMapOptions): ParseState {
+  return {
     options,
     entities: [],
     diagnostics: [],
@@ -273,14 +306,12 @@ export function parsePatchMapV010(
     relationLinks: 0,
     gridCells: 0,
   };
+}
 
-  if (!Array.isArray(input)) {
-    fatal(state, '$', 'invalid-root', 'PATCH MAP v0.10 input must be an array');
-  }
-
-  parseElements(input, '$', ROOT_CONTEXT, state);
-  validateRelationEndpoints(state);
-
+function finishParseState(
+  state: ParseState,
+  freezeResult = true,
+): ParsePatchMapResult {
   const kinds: Record<EntityKind, number> = {
     rect: 0,
     text: 0,
@@ -327,7 +358,17 @@ export function parsePatchMapV010(
     },
   };
 
-  return deepFreeze(result);
+  return freezeResult ? deepFreeze(result) : result;
+}
+
+function parserNow(): number {
+  return globalThis.performance?.now() ?? Date.now();
+}
+
+function yieldParserTask(): Promise<void> {
+  return new Promise((resolve) => {
+    globalThis.setTimeout(resolve, 0);
+  });
 }
 
 function parseElements(
@@ -2199,7 +2240,7 @@ function resolveColor(value: unknown, fallback: Rgba, path: string, state: Parse
     return (numeric <= 0xffffff ? numeric * 0x100 + 0xff : numeric) >>> 0;
   }
   if (typeof value === 'string') {
-    const themeValue = state.options.colors?.[value] ?? DEFAULT_COLORS[value];
+    const themeValue = state.options.colors?.[value] ?? CORE_V2_DEFAULT_COLOR_THEME[value];
     if (themeValue !== undefined && themeValue !== value) {
       return resolveColor(themeValue, fallback, path, state);
     }
@@ -2547,4 +2588,26 @@ function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
   seen.add(value as object);
   for (const entry of Object.values(value as Record<string, unknown>)) deepFreeze(entry, seen);
   return Object.freeze(value);
+}
+
+async function deepFreezeAsync<T>(value: T): Promise<T> {
+  if (typeof value !== 'object' || value === null) return value;
+  const seen = new WeakSet<object>();
+  const pending: object[] = [value as object];
+  let sliceStarted = parserNow();
+  while (pending.length > 0) {
+    const current = pending.pop()!;
+    if (seen.has(current)) continue;
+    seen.add(current);
+    for (const nested of Object.values(current as Record<string, unknown>)) {
+      if (typeof nested === 'object' && nested !== null && !seen.has(nested)) {
+        pending.push(nested);
+      }
+    }
+    Object.freeze(current);
+    if (parserNow() - sliceStarted < 8 || pending.length === 0) continue;
+    await yieldParserTask();
+    sliceStarted = parserNow();
+  }
+  return value;
 }

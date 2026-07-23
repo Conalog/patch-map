@@ -22,6 +22,16 @@ export type {
 } from './core';
 export { CORE_V2_PRESENTATION_POLICY_REVISION } from './presentation-policy';
 export type * from './presentation-policy';
+export {
+  CORE_V2_DEFAULT_VIEWPORT_POLICIES,
+  CORE_V2_VIEWPORT_POLICIES,
+  CORE_V2_VIEWPORT_REVISION,
+  coreV2BoundsCenter,
+  coreV2ViewportFitScale,
+  normalizeCoreV2ViewportPadding,
+  resolveCoreV2ViewportContributors,
+} from './viewport';
+export type * from './viewport';
 export type * from './paint-order-product';
 export type * from './history';
 export type * from './semantic/paint-order';
