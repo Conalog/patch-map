@@ -147,3 +147,9 @@
 - Direct dense animation can temporarily be newer than the immutable parser projection. Track only those stable entity IDs as projection-stale, render and hit-test them from dense authority, and clear the marker when JSON reconciliation publishes a current projection.
 - This preserves atomic semantic destinations, visible intermediate Mesh geometry, dirty-range upload evidence, stable identity, and expected-blind probes without rebuilding parser output or introducing per-entity Pixi objects.
 - Full 2+7 measurements retain the O(scene) staleness-transition scan as an explicit current cost; optimize it only at a later measured hot-path checkpoint rather than changing evidence after the tranche.
+
+**2026-07-23**
+- Background: Root gestures and programmatic view changes previously had separate authorities, large first loads needed cooperative yielding without publishing a partial scene, and Pixi's forwarded wheel event was passive in the verified Chromium path.
+- Decision: Keep one Engine viewport authority, report Core root gestures into it, build cooperative loads in a private candidate scene under one renderer lease, and combine Pixi federated root pointer handling with one non-passive root canvas wheel listener.
+- Why: One revision and persistence source keeps transformed hit testing and restore deterministic; candidate publication remains atomic; the native wheel boundary prevents page scroll without console errors while preserving zero entity listeners and tickers.
+- Impact: `VIE-001/002/003/004/008` and `CSM-009/010` close on the aggregate WebGL path. The focused Lab owns trusted gesture arm/settle/release milestones, every root binding is released on destroy, approved expected evidence is unchanged, and native Windows remains pending.
