@@ -336,6 +336,7 @@ const UPDATE_TRANSACTION_CASE_IDS = new Set<CoreV2UpdateTransactionsCaseId>([
   'UPD-006',
   'UPD-007',
   'UPD-008',
+  'UPD-009',
   'UPD-010',
 ]);
 

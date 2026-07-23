@@ -50,7 +50,7 @@ describe('Core v2 executable Lab product bridge', () => {
       const surfaceFactory = createFakeSurfaceFactory(
         surfaces,
         receivedTargets,
-        ['LAY-004', 'REN-007', 'UPD-004', 'UPD-010'].includes(caseId)
+        ['LAY-004', 'REN-007', 'UPD-004', 'UPD-009', 'UPD-010'].includes(caseId)
           ? 'projection'
           : 'flat',
       );
@@ -468,6 +468,7 @@ describe('Core v2 executable Lab product bridge', () => {
       'UPD-006': 'update-transactions',
       'UPD-007': 'update-transactions',
       'UPD-008': 'update-transactions',
+      'UPD-009': 'update-transactions',
       'UPD-010': 'update-transactions',
       'ANI-001': 'presentation-dynamics',
       'ANI-002': 'presentation-dynamics',

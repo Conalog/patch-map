@@ -28,6 +28,15 @@ const CASE_ACTIONS = Object.freeze({
     'setComponentVisibility',
     'setComponentVisibility',
   ]),
+  'UPD-009': Object.freeze([
+    'loadDataset',
+    'setSelection',
+    'moveAcrossParents',
+    'group',
+    'ungroup',
+    'moveAcrossParents',
+    'moveAcrossParents',
+  ]),
   'UPD-010': Object.freeze([
     'loadDataset',
     'patch',
@@ -54,7 +63,7 @@ const DOMAIN_NAMES = Object.freeze([
 ]);
 
 /**
- * Fold detached public product captures for the eight staged-update cases.
+ * Fold detached public product captures for the nine staged-update cases.
  * This module is intentionally import-free and has no access to comparison
  * evidence. Every asserted fact is derived from execution output, a declared
  * capture, or an explicitly exposed fixture-reference namespace.
@@ -89,6 +98,9 @@ export function foldUpdateTransactionExecution(optionsValue) {
       break;
     case 'UPD-008':
       projectComponents(actual, execution);
+      break;
+    case 'UPD-009':
+      projectStructure(actual, execution);
       break;
     case 'UPD-010':
       projectRelations(actual, execution);
@@ -605,6 +617,108 @@ function projectComponents(actual, execution) {
     reconciled.retainedDelta,
     'UPD-008 retained resource delta',
   );
+}
+
+function projectStructure(actual, execution) {
+  const loaded = actionActualAt(execution, 0, 'loadDataset');
+  const selected = actionActualAt(execution, 1, 'setSelection');
+  const moved = actionActualAt(execution, 2, 'moveAcrossParents');
+  const grouped = actionActualAt(execution, 3, 'group');
+  const ungrouped = actionActualAt(execution, 4, 'ungroup');
+  const unrecorded = actionActualAt(execution, 5, 'moveAcrossParents');
+  const cycle = actionActualAt(execution, 6, 'moveAcrossParents');
+  const moveHierarchy = recordValue(moved.hierarchy, 'UPD-009 moved hierarchy');
+  const ungroupHierarchy = recordValue(ungrouped.hierarchy, 'UPD-009 ungroup hierarchy');
+  const movedResult = recordValue(moved.result, 'UPD-009 move result');
+  const groupedResult = recordValue(grouped.result, 'UPD-009 group result');
+  const ungroupedResult = recordValue(ungrouped.result, 'UPD-009 ungroup result');
+  const unrecordedResult = recordValue(unrecorded.result, 'UPD-009 unrecorded result');
+  const cycleResult = recordValue(cycle.result, 'UPD-009 cycle result');
+  const cycleDiagnostic = mutationDiagnostic(cycle, cycleResult, 'UPD-009 cycle');
+  const initialHistory = recordValue(
+    productAt(execution, 0).history,
+    'UPD-009 initial history',
+  );
+  const finalProduct = productAt(execution, 6);
+  const finalHistory = recordValue(finalProduct.history, 'UPD-009 final history');
+  const finalSelection = stringArray(
+    recordValue(finalProduct.semantic, 'UPD-009 final semantic').interaction.selectionIds,
+    'UPD-009 final selection',
+  );
+
+  actual.scene.afterMove = {
+    'rect-b': {
+      parentId: stringValue(moveHierarchy.parentId, 'UPD-009 moved parent'),
+      worldPosition: pointValue(
+        moveHierarchy.worldPosition,
+        'UPD-009 moved world position',
+      ),
+    },
+  };
+  actual.scene.afterUngroup = {
+    'rect-b': {
+      worldPosition: pointValue(
+        ungroupHierarchy.worldPosition,
+        'UPD-009 ungroup world position',
+      ),
+    },
+  };
+  actual.scene.relations = {
+    staleSegments: staleRelationCount(finalProduct.relations),
+  };
+  actual.interaction.selection = { ids: finalSelection };
+  actual.history.hostCompanion = { selectedIds: finalSelection };
+  actual.history.unitsDelta =
+    nonNegativeInteger(finalHistory.undoDepth, 'UPD-009 final undo depth') -
+    nonNegativeInteger(initialHistory.undoDepth, 'UPD-009 initial undo depth');
+  actual.outcome.cycle = {
+    // Preserve the public product diagnostic. The immutable expected uses the
+    // rejected HIERARCHY_CYCLE alias and remains a declared catalog conflict.
+    code: stringValue(cycleDiagnostic.code, 'UPD-009 cycle code'),
+    revisionDelta: nonNegativeInteger(cycle.revisionDelta, 'UPD-009 cycle revision delta'),
+  };
+
+  assert(
+    sameJson(selected.selectionIds, ['rect-b']),
+    'UPD-009 initial selection product correlation',
+  );
+  for (const [label, result] of [
+    ['move', movedResult],
+    ['group', groupedResult],
+    ['ungroup', ungroupedResult],
+  ]) {
+    assert(result.status === 'committed', `UPD-009 ${label} status`);
+    const history = recordValue(result.history, `UPD-009 ${label} history`);
+    assert(history.recorded === true, `UPD-009 ${label} history recorded`);
+    assert(
+      nonNegativeInteger(history.depthDelta, `UPD-009 ${label} history depth delta`) === 1,
+      `UPD-009 ${label} one history unit`,
+    );
+  }
+  assert(unrecordedResult.status === 'committed', 'UPD-009 unrecorded move status');
+  const unrecordedHistory = recordValue(
+    unrecordedResult.history,
+    'UPD-009 unrecorded history',
+  );
+  assert(unrecordedHistory.recorded === false, 'UPD-009 unrecorded move history policy');
+  assert(
+    nonNegativeInteger(unrecordedHistory.depthDelta, 'UPD-009 unrecorded depth delta') === 0,
+    'UPD-009 unrecorded move creates no history unit',
+  );
+  assert(cycleResult.status === 'rejected', 'UPD-009 cycle must reject');
+  assert(
+    sameJson(productRecord(cycle.before, 'UPD-009 cycle before').dataset, finalProduct.dataset),
+    'UPD-009 cycle authority continuity',
+  );
+  assert(
+    sameJson(ungrouped.selectionIds, ['rect-b']),
+    'UPD-009 ungroup selection product correlation',
+  );
+  assert(
+    nonNegativeInteger(actual.history.unitsDelta, 'UPD-009 history units delta') === 3,
+    'UPD-009 history unit total',
+  );
+  assert(loaded.input.unchanged === true, 'UPD-009 dataset ownership');
 }
 
 function projectRelations(actual, execution) {

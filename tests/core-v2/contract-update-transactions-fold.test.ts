@@ -126,6 +126,7 @@ const CASE_IDS = [
   'UPD-006',
   'UPD-007',
   'UPD-008',
+  'UPD-009',
   'UPD-010',
 ] as const;
 const DOMAIN_NAMES = [
@@ -152,6 +153,7 @@ const EXPECTED_RESULTS: Readonly<Record<(typeof CASE_IDS)[number], readonly [num
   'UPD-006': [11, 0],
   'UPD-007': [13, 2],
   'UPD-008': [13, 0],
+  'UPD-009': [13, 1],
   'UPD-010': [12, 0],
 };
 
@@ -222,6 +224,11 @@ describe('Core v2 update-transaction actual-only fold', () => {
         expect(valueAt(folded.actual, 'outcome.valid.eventRevision')).toBe(2);
         expect(valueAt(folded.actual, 'revisions.frame.revision')).toBe(1);
         expect(valueAt(folded.captures, 'valid.frameRevision')).toBe(1);
+      } else if (caseId === 'UPD-009') {
+        expect(comparison.assertions.filter(({ passed }) => !passed)).toEqual([
+          expect.objectContaining({ path: '/outcome/cycle/code' }),
+        ]);
+        expect(valueAt(folded.actual, 'outcome.cycle.code')).toBe('CONFLICT');
       } else {
         expect(comparison.assertions.every(({ passed }) => passed)).toBe(true);
       }
@@ -390,6 +397,8 @@ function caseShape(caseId: string): Readonly<{
       return atomicBulkShape();
     case 'UPD-008':
       return componentShape();
+    case 'UPD-009':
+      return structureShape();
     case 'UPD-010':
       return relationShape();
     default:
@@ -668,6 +677,92 @@ function componentShape() {
   };
 }
 
+function structureShape() {
+  const dataset = [
+    { type: 'group', id: 'group-b', children: [rect('rect-b', -80, 40)] },
+    { type: 'relations', id: 'links', links: [] },
+  ];
+  const loaded = product(dataset, { sceneRevision: 1, historyDepth: 0 });
+  const selected = product(dataset, {
+    sceneRevision: 1,
+    historyDepth: 0,
+    selectionIds: ['rect-b'],
+  });
+  const moved = product(dataset, {
+    sceneRevision: 2,
+    historyDepth: 1,
+    selectionIds: ['rect-b'],
+    relations: relations([], []),
+  });
+  const grouped = product(dataset, {
+    sceneRevision: 3,
+    historyDepth: 2,
+    selectionIds: ['group-c'],
+    relations: relations([], []),
+  });
+  const ungrouped = product(dataset, {
+    sceneRevision: 4,
+    historyDepth: 3,
+    selectionIds: ['rect-b'],
+    relations: relations([], []),
+  });
+  const finalProduct = product(dataset, {
+    sceneRevision: 5,
+    historyDepth: 3,
+    selectionIds: ['rect-b'],
+    relations: relations([], []),
+  });
+  return {
+    actuals: [
+      actual(loaded, { datasetRef: 'all-kinds-scene' }),
+      actual(selected, { selectionIds: ['rect-b'], result: { status: 'selected' } }),
+      actual(moved, {
+        hierarchy: { parentId: 'group-b', worldPosition: [160, 40] },
+        result: committed([{ kind: 'element', id: 'rect-b' }]),
+        revisionDelta: 1,
+        events: { change: [{}], frame: [] },
+        before: selected,
+      }),
+      actual(grouped, {
+        hierarchy: { 'rect-b': { parentId: 'group-c', worldPosition: [160, 40] } },
+        selectionIds: ['group-c'],
+        result: committed([{ kind: 'element', id: 'rect-b' }]),
+        revisionDelta: 1,
+        events: { change: [{}], frame: [] },
+        before: moved,
+      }),
+      actual(ungrouped, {
+        hierarchy: { parentId: 'group-b', worldPosition: [160, 40] },
+        selectionIds: ['rect-b'],
+        result: committed([{ kind: 'element', id: 'group-c' }]),
+        revisionDelta: 1,
+        events: { change: [{}], frame: [] },
+        before: grouped,
+      }),
+      actual(finalProduct, {
+        hierarchy: { parentId: 'group-b', worldPosition: [0, 0] },
+        result: {
+          status: 'committed',
+          history: { recorded: false, depthDelta: 0, state: { undoDepth: 3, redoDepth: 0 } },
+        },
+        revisionDelta: 1,
+        events: { change: [{}], frame: [] },
+        before: ungrouped,
+      }),
+      actual(finalProduct, {
+        hierarchy: { parentId: null, worldPosition: [240, 0] },
+        result: rejected('CONFLICT'),
+        diagnostic: { code: 'CONFLICT', category: 'CONFLICT' },
+        revisionDelta: 0,
+        events: { change: [], frame: [] },
+        before: structuredClone(finalProduct),
+      }),
+    ],
+    captures: [],
+    bindings: {},
+  };
+}
+
 function relationShape() {
   const movedRows = [
     relation('a>a', 'a', 'a', [10, 10], [10, 10], [10, 10, 0, 0]),
@@ -746,11 +841,13 @@ function product(
     historyDepth?: number;
     geometry?: JsonRecord;
     relations?: JsonRecord;
+    selectionIds?: readonly string[];
   }> = {},
 ): JsonRecord {
   const sceneRevision = overrides.sceneRevision ?? 1;
   const frameRevision = overrides.frameRevision ?? sceneRevision;
   const historyDepth = overrides.historyDepth ?? Math.max(0, sceneRevision - 1);
+  const selectionIds = [...(overrides.selectionIds ?? [])];
   const componentCount = dataset.reduce<number>((count, value) => {
     if (!isRecord(value) || !Array.isArray(value.components)) return count;
     return count + value.components.length;
@@ -803,7 +900,12 @@ function product(
       geometry: { finiteValueCount: 4, nonFiniteValueCount: 0, allFinite: true },
       text: { sourceCount: 0, codeUnitCount: 0, sourcesWithUnpairedSurrogate: 0, unpairedSurrogateCount: 0 },
       paint: { intentCount: 0, resolvedCount: 0, unresolvedCount: 0, intents: [] },
-      interaction: { mode: 'select', selectionIds: [], activeAnimationCount: 0, activeGestureCount: 0 },
+      interaction: {
+        mode: 'select',
+        selectionIds,
+        activeAnimationCount: 0,
+        activeGestureCount: 0,
+      },
       history: { depth: historyDepth },
     },
     dataset: {

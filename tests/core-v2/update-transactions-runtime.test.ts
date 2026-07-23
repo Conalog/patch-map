@@ -104,6 +104,7 @@ describe('Core v2 update-transactions focused Lab runtime', () => {
       'UPD-006',
       'UPD-007',
       'UPD-008',
+      'UPD-009',
       'UPD-010',
     ]);
     for (const caseId of CORE_V2_UPDATE_TRANSACTIONS_CASE_IDS) {

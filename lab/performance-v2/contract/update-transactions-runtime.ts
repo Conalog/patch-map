@@ -13,6 +13,7 @@ export const CORE_V2_UPDATE_TRANSACTIONS_CASE_IDS = Object.freeze([
   'UPD-006',
   'UPD-007',
   'UPD-008',
+  'UPD-009',
   'UPD-010',
 ] as const);
 
@@ -41,7 +42,7 @@ export interface CoreV2UpdateTransactionsRuntime {
 }
 
 /**
- * Actual-only transport seam shared by the eight synchronous update cases.
+ * Actual-only transport seam shared by the nine synchronous update cases.
  *
  * The adapter only authors the seeded UPD-007 input and snapshots facts already
  * exposed by public Engine probes. It never owns an Engine, Pixi object, ticker,

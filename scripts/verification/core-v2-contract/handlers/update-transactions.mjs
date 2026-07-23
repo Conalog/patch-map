@@ -9,11 +9,16 @@ export const UPDATE_TRANSACTIONS_CASE_IDS = Object.freeze([
   'UPD-006',
   'UPD-007',
   'UPD-008',
+  'UPD-009',
   'UPD-010',
 ]);
 
 export const UPDATE_TRANSACTIONS_ACTION_TYPES = Object.freeze([
   'loadDataset',
+  'setSelection',
+  'moveAcrossParents',
+  'group',
+  'ungroup',
   'retainTarget',
   'replaceDataset',
   'resolveTarget',
@@ -58,6 +63,15 @@ const CASE_ACTIONS = Object.freeze({
     'setComponentVisibility',
     'setComponentVisibility',
   ]),
+  'UPD-009': Object.freeze([
+    'loadDataset',
+    'setSelection',
+    'moveAcrossParents',
+    'group',
+    'ungroup',
+    'moveAcrossParents',
+    'moveAcrossParents',
+  ]),
   'UPD-010': Object.freeze([
     'loadDataset',
     'patch',
@@ -69,12 +83,16 @@ const CASE_ACTIONS = Object.freeze({
 
 const BASELINE_PROFILE = 'mutation-transaction-matrix';
 
-/** Shared browser-safe product handlers for eight update transaction cases. */
+/** Shared browser-safe product handlers for nine update transaction cases. */
 export function createUpdateTransactionHandlerEntries(product) {
   const adapter = validateProductAdapter(product);
   const states = new WeakMap();
   const handlers = Object.freeze({
     loadDataset: withState(adapter, states, loadDatasetAction),
+    setSelection: withState(adapter, states, setSelectionAction),
+    moveAcrossParents: withState(adapter, states, moveAcrossParentsAction),
+    group: withState(adapter, states, groupAction),
+    ungroup: withState(adapter, states, ungroupAction),
     retainTarget: withState(adapter, states, retainTargetAction),
     replaceDataset: withState(adapter, states, replaceDatasetAction),
     resolveTarget: withState(adapter, states, resolveTargetAction),
@@ -135,7 +153,12 @@ function withState(adapter, states, handler) {
 }
 
 async function loadDatasetAction(adapter, state, context, action) {
-  assert(context.caseId === 'UPD-001' || context.caseId === 'UPD-010', 'loadDataset case');
+  assert(
+    context.caseId === 'UPD-001' ||
+      context.caseId === 'UPD-009' ||
+      context.caseId === 'UPD-010',
+    'loadDataset case',
+  );
   const operands = exactOperands(action, ['datasetRef']);
   const datasetRef = stringValue(operands.datasetRef, 'loadDataset.datasetRef');
   const engine = await ensureInitializedEngine(state, context);
@@ -157,6 +180,190 @@ async function loadDatasetAction(adapter, state, context, action) {
       ...(context.caseId === 'UPD-010'
         ? { relationState: relationFacts(product.relations) }
         : {}),
+    },
+  };
+}
+
+function setSelectionAction(adapter, state, context, action) {
+  assert(context.caseId === 'UPD-009', 'setSelection case');
+  const operands = exactOperands(action, ['mode', 'targetIds']);
+  const mode = stringValue(operands.mode, 'setSelection.mode');
+  assert(mode === 'replace', 'setSelection mode');
+  const targetIds = stringArray(operands.targetIds, 'setSelection.targetIds');
+  const engine = currentEngine(state, 'setSelection');
+  const before = observeProduct(adapter, context, engine);
+  const selectedIds = callSync(engine, 'select', targetIds);
+  const product = observeProduct(adapter, context, engine);
+  return {
+    actual: {
+      mode,
+      targetIds,
+      input: fingerprintValue(context, action.operands),
+      before,
+      product,
+      result: { status: 'selected', selectedIds: clone(selectedIds) },
+      selectionIds: clone(selectedIds),
+    },
+  };
+}
+
+function moveAcrossParentsAction(adapter, state, context, action) {
+  assert(context.caseId === 'UPD-009', 'moveAcrossParents case');
+  const operands = recordValue(action.operands, 'moveAcrossParents operands');
+  const acceptedKeys = ['targetId', 'toParentId'];
+  for (const optional of [
+    'actionId',
+    'fromParentId',
+    'preserveWorld',
+    'recordHistory',
+    'strict',
+  ]) {
+    if (Object.hasOwn(operands, optional)) acceptedKeys.push(optional);
+  }
+  assertExactKeys(operands, acceptedKeys, 'moveAcrossParents operands');
+  if (Object.hasOwn(operands, 'preserveWorld')) {
+    assert(operands.preserveWorld === true, 'moveAcrossParents preserveWorld');
+  }
+  const targetId = stringValue(operands.targetId, 'moveAcrossParents.targetId');
+  const toParentId = stringValue(operands.toParentId, 'moveAcrossParents.toParentId');
+  const fromParentId = Object.hasOwn(operands, 'fromParentId')
+    ? stringValue(operands.fromParentId, 'moveAcrossParents.fromParentId')
+    : undefined;
+  const strict = Object.hasOwn(operands, 'strict')
+    ? booleanValue(operands.strict, 'moveAcrossParents.strict')
+    : true;
+  const recordHistory = Object.hasOwn(operands, 'recordHistory')
+    ? booleanValue(operands.recordHistory, 'moveAcrossParents.recordHistory')
+    : undefined;
+  const actionId = Object.hasOwn(operands, 'actionId')
+    ? stringValue(operands.actionId, 'moveAcrossParents.actionId')
+    : undefined;
+  const engine = currentEngine(state, 'moveAcrossParents');
+  const hierarchyBefore = hierarchyElementFacts(engine, targetId);
+  if (fromParentId !== undefined) {
+    assert(hierarchyBefore.parentId === fromParentId, 'moveAcrossParents source parent');
+  }
+  const before = observeProduct(adapter, context, engine);
+  const observed = observeChangeEvents(engine, () => callSync(engine, 'transact', {
+    strict,
+    ...(actionId === undefined ? {} : { actionId }),
+    ...(recordHistory === undefined ? {} : { recordHistory }),
+    operations: [{
+      op: 'move',
+      target: elementTarget(targetId),
+      parent: elementTarget(toParentId),
+      index: hierarchyChildCount(engine, toParentId),
+    }],
+  }));
+  if (observed.result.status === 'committed') {
+    callSync(engine, 'publishFrame', context.clock.now());
+  }
+  const product = observeProduct(adapter, context, engine);
+  const result = clone(observed.result);
+  const hierarchy = result.status === 'committed'
+    ? hierarchyElementFacts(engine, targetId)
+    : hierarchyBefore;
+  return {
+    actual: {
+      targetId,
+      fromParentId: fromParentId ?? hierarchyBefore.parentId,
+      toParentId,
+      input: fingerprintValue(context, action.operands),
+      before,
+      product,
+      result,
+      diagnostic: clone(result.transactionDiagnostic ?? result.diagnostic ?? null),
+      events: clone(observed.events),
+      revisionDelta: sceneRevision(product) - sceneRevision(before),
+      hierarchy,
+      relationState: relationFacts(product.relations),
+    },
+  };
+}
+
+function groupAction(adapter, state, context, action) {
+  assert(context.caseId === 'UPD-009', 'group case');
+  const operands = exactOperands(action, [
+    'actionId',
+    'groupId',
+    'preserveWorld',
+    'targetIds',
+  ]);
+  assert(operands.preserveWorld === true, 'group preserveWorld');
+  const targetIds = stringArray(operands.targetIds, 'group.targetIds');
+  const groupId = stringValue(operands.groupId, 'group.groupId');
+  const actionId = stringValue(operands.actionId, 'group.actionId');
+  const engine = currentEngine(state, 'group');
+  const before = observeProduct(adapter, context, engine);
+  const observed = observeChangeEvents(engine, () => callSync(engine, 'transact', {
+    strict: true,
+    actionId,
+    operations: [{
+      op: 'group',
+      targets: targetIds.map(elementTarget),
+      value: { type: 'group', id: groupId },
+    }],
+  }));
+  if (observed.result.status === 'committed') {
+    callSync(engine, 'publishFrame', context.clock.now());
+  }
+  const product = observeProduct(adapter, context, engine);
+  return {
+    actual: {
+      groupId,
+      targetIds,
+      input: fingerprintValue(context, action.operands),
+      before,
+      product,
+      result: clone(observed.result),
+      events: clone(observed.events),
+      revisionDelta: sceneRevision(product) - sceneRevision(before),
+      hierarchy: Object.fromEntries(targetIds.map((targetId) => [
+        targetId,
+        hierarchyElementFacts(engine, targetId),
+      ])),
+      selectionIds: clone(product.snapshot.selectionIds),
+      relationState: relationFacts(product.relations),
+    },
+  };
+}
+
+function ungroupAction(adapter, state, context, action) {
+  assert(context.caseId === 'UPD-009', 'ungroup case');
+  const operands = exactOperands(action, ['actionId', 'groupId', 'preserveWorld']);
+  assert(operands.preserveWorld === true, 'ungroup preserveWorld');
+  const groupId = stringValue(operands.groupId, 'ungroup.groupId');
+  const actionId = stringValue(operands.actionId, 'ungroup.actionId');
+  const params = recordValue(context.fixtureParams, 'fixture params');
+  const childId = stringValue(params.childId, 'fixture childId');
+  const engine = currentEngine(state, 'ungroup');
+  const before = observeProduct(adapter, context, engine);
+  const observed = observeChangeEvents(engine, () => callSync(engine, 'transact', {
+    strict: true,
+    actionId,
+    operations: [{
+      op: 'ungroup',
+      target: elementTarget(groupId),
+      relationPolicy: 'reject',
+    }],
+  }));
+  if (observed.result.status === 'committed') {
+    callSync(engine, 'publishFrame', context.clock.now());
+  }
+  const product = observeProduct(adapter, context, engine);
+  return {
+    actual: {
+      groupId,
+      childId,
+      input: fingerprintValue(context, action.operands),
+      before,
+      product,
+      result: clone(observed.result),
+      events: clone(observed.events),
+      revisionDelta: sceneRevision(product) - sceneRevision(before),
+      hierarchy: hierarchyElementFacts(engine, childId),
+      selectionIds: clone(product.snapshot.selectionIds),
+      relationState: relationFacts(product.relations),
     },
   };
 }
@@ -939,6 +1146,89 @@ function mergeBaseline(engine, target) {
 function currentRecord(engine, target) {
   const snapshot = callSync(engine, 'resolveTarget', target);
   return snapshot === null ? null : clone(snapshot.value);
+}
+
+function hierarchyElementFacts(engine, id) {
+  const dataset = callSync(engine, 'exportDataset');
+  assert(Array.isArray(dataset), 'hierarchy dataset');
+  const found = findHierarchyElement(dataset, id, null, identityAffine());
+  assert(found !== null, `hierarchy element ${id}`);
+  return deepFreeze({
+    id,
+    parentId: found.parentId,
+    worldPosition: [cleanNumber(found.worldAffine[4]), cleanNumber(found.worldAffine[5])],
+    record: clone(found.record),
+  });
+}
+
+function hierarchyChildCount(engine, parentId) {
+  const dataset = callSync(engine, 'exportDataset');
+  assert(Array.isArray(dataset), 'hierarchy dataset');
+  const found = findHierarchyElement(dataset, parentId, null, identityAffine());
+  assert(found !== null, `hierarchy parent ${parentId}`);
+  assert(found.record.type === 'group', `hierarchy parent ${parentId} group`);
+  assert(Array.isArray(found.record.children), `hierarchy parent ${parentId} children`);
+  return found.record.children.length;
+}
+
+function findHierarchyElement(values, id, parentId, parentAffine) {
+  for (const value of values) {
+    if (!isRecord(value)) continue;
+    const worldAffine = multiplyAffine(parentAffine, elementLocalAffine(value));
+    if (value.id === id) return { record: value, parentId, worldAffine };
+    if (value.type !== 'group' || !Array.isArray(value.children)) continue;
+    const nested = findHierarchyElement(value.children, id, String(value.id), worldAffine);
+    if (nested !== null) return nested;
+  }
+  return null;
+}
+
+function elementLocalAffine(record) {
+  const attrs = isRecord(record.attrs) ? record.attrs : {};
+  const x = numberOr(attrs.x, 0);
+  const y = numberOr(attrs.y, 0);
+  const angle = typeof attrs.angle === 'number' && Number.isFinite(attrs.angle)
+    ? attrs.angle
+    : typeof attrs.rotation === 'number' && Number.isFinite(attrs.rotation)
+      ? attrs.rotation * 180 / Math.PI
+      : 0;
+  const scaleX = numberOr(attrs.scaleX, 1);
+  const scaleY = numberOr(attrs.scaleY, 1);
+  const radians = angle * Math.PI / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  return [
+    cosine * scaleX,
+    sine * scaleX,
+    -sine * scaleY,
+    cosine * scaleY,
+    x,
+    y,
+  ];
+}
+
+function identityAffine() {
+  return [1, 0, 0, 1, 0, 0];
+}
+
+function multiplyAffine(left, right) {
+  return [
+    left[0] * right[0] + left[2] * right[1],
+    left[1] * right[0] + left[3] * right[1],
+    left[0] * right[2] + left[2] * right[3],
+    left[1] * right[2] + left[3] * right[3],
+    left[0] * right[4] + left[2] * right[5] + left[4],
+    left[1] * right[4] + left[3] * right[5] + left[5],
+  ];
+}
+
+function cleanNumber(value) {
+  const normalized = Math.abs(value) <= 1e-10 ? 0 : value;
+  return Number(normalized.toFixed(10));
+}
+
+function numberOr(value, fallback) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
 function targetRecords(engine, ids) {

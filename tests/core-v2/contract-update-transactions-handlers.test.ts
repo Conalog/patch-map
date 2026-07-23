@@ -20,6 +20,7 @@ import {
   type CoreV2SurfaceDebug,
   type CoreV2SurfaceGeometrySnapshot,
   type CoreV2SurfaceOptions,
+  type CoreV2SurfaceReconcileOptions,
   type CoreV2SurfaceReconcileResult,
 } from '../../src/core-v2/engine';
 import type { CoreV2ComponentRenderRole } from '../../src/core-v2/contracts';
@@ -202,6 +203,7 @@ describe('Core v2 shared update transaction action handlers', () => {
       'UPD-006',
       'UPD-007',
       'UPD-008',
+      'UPD-009',
       'UPD-010',
     ]);
     expect(entries.map(([id]) => id)).toEqual(
@@ -479,6 +481,36 @@ function assertCaseFacts(caseId: string, execution: CaseExecution): void {
       expect(actualAt(execution, 3)).toMatchObject({ currentTarget: { id: 'bar', show: true } });
       break;
     }
+    case 'UPD-009': {
+      expect(actualAt(execution, 1)).toMatchObject({
+        selectionIds: ['rect-b'],
+      });
+      expect(actualAt(execution, 2)).toMatchObject({
+        hierarchy: {
+          parentId: 'group-b',
+          worldPosition: [160, 40],
+        },
+        result: { history: { recorded: true, depthDelta: 1 } },
+      });
+      expect(actualAt(execution, 3)).toMatchObject({
+        selectionIds: ['group-c'],
+        result: { history: { recorded: true, depthDelta: 1 } },
+      });
+      expect(actualAt(execution, 4)).toMatchObject({
+        hierarchy: { parentId: 'group-b', worldPosition: [160, 40] },
+        selectionIds: ['rect-b'],
+        result: { history: { recorded: true, depthDelta: 1 } },
+      });
+      expect(actualAt(execution, 5)).toMatchObject({
+        result: { history: { recorded: false, depthDelta: 0 } },
+      });
+      expect(actualAt(execution, 6)).toMatchObject({
+        diagnostic: { code: 'CONFLICT' },
+        revisionDelta: 0,
+        result: { status: 'rejected' },
+      });
+      break;
+    }
     case 'UPD-010': {
       expect(actualAt(execution, 1)).toMatchObject({
         relationState: { counts: { 'a>a': 1, 'a>b': 1, 'b>a': 1 } },
@@ -505,6 +537,8 @@ async function executeCase(
   const adapter = createProductAdapter(options.adapterFault);
   const entries = createUpdateTransactionHandlerEntries(adapter);
   const required = new Set(plan.actionTrace.map((action) => `contract/${action.type}`));
+  const datasets = new Map(testDatasets());
+  if (plan.id === 'UPD-009') datasets.set('all-kinds-scene', hierarchyScene());
   return executeContractCase({
     caseRecord: plan,
     actionDefinitions: catalog.actionDefinitions,
@@ -518,7 +552,7 @@ async function executeCase(
         options.resourceJournal,
       )),
     }),
-    datasets: testDatasets(),
+    datasets,
     clock: new ManualClock(),
     handlerEntries: entries.filter(([id]) => required.has(id)),
   });
@@ -649,11 +683,14 @@ class UpdateContractSurface implements CoreV2EngineSurface {
     if (this.assetOwnershipEnabled) this.queueAssetSynchronization();
   }
 
-  public reconcile(input: unknown): CoreV2SurfaceReconcileResult {
+  public reconcile(
+    input: unknown,
+    options: CoreV2SurfaceReconcileOptions = {},
+  ): CoreV2SurfaceReconcileResult {
     this.dataset = asDataset(input);
-    this.selectionIds = Object.freeze(
-      this.selectionIds.filter((id) => this.dataset.some((record) => record.id === id)),
-    );
+    this.selectionIds = options.selectionIds === undefined
+      ? Object.freeze(this.selectionIds.filter((id) => hasElementId(this.dataset, id)))
+      : Object.freeze([...options.selectionIds]);
     this.geometryRevision += 1;
     if (this.assetOwnershipEnabled) this.queueAssetSynchronization();
     return Object.freeze({
@@ -701,10 +738,10 @@ class UpdateContractSurface implements CoreV2EngineSurface {
   }
 
   public geometrySnapshot(): CoreV2SurfaceGeometrySnapshot {
-    const nodes = this.dataset.filter((record) => record.type !== 'relations');
-    const entities = nodes.map((record) => entityGeometry(record));
+    const nodes = flattenGeometryNodes(this.dataset);
+    const entities = nodes.map(({ record, affine }) => entityGeometry(record, affine));
     const entityById = new Map(entities.map((entity) => [entity.id, entity]));
-    const recordById = new Map(nodes.map((record) => [String(record.id), record]));
+    const recordById = new Map(nodes.map(({ record }) => [String(record.id), record]));
     const relations = [];
     const omittedRelations = [];
     for (const relationRecord of this.dataset.filter((record) => record.type === 'relations')) {
@@ -1127,25 +1164,26 @@ class UpdateContractSurface implements CoreV2EngineSurface {
   }
 }
 
-function entityGeometry(record: JsonRecord) {
+function entityGeometry(record: JsonRecord, affine = recordAffine(record)) {
   const attrs = isRecord(record.attrs) ? record.attrs : {};
   const size = isRecord(record.size) ? record.size : { width: 0, height: 0 };
-  const x = numberOr(attrs.x, 0);
-  const y = numberOr(attrs.y, 0);
   const width = numberOr(size.width, 0);
   const height = numberOr(size.height, 0);
   const angle = numberOr(attrs.angle, 0);
-  const radians = angle * Math.PI / 180;
-  const cosine = Math.cos(radians);
-  const sine = Math.sin(radians);
+  const a = requiredNumber(affine, 0);
+  const b = requiredNumber(affine, 1);
+  const c = requiredNumber(affine, 2);
+  const d = requiredNumber(affine, 3);
+  const tx = requiredNumber(affine, 4);
+  const ty = requiredNumber(affine, 5);
   const corners = [
     [0, 0],
     [width, 0],
     [width, height],
     [0, height],
   ].map(([localX = 0, localY = 0]) => [
-    x + localX * cosine - localY * sine,
-    y + localX * sine + localY * cosine,
+    a * localX + c * localY + tx,
+    b * localX + d * localY + ty,
   ] as const);
   const xs = corners.map(([cornerX]) => cornerX);
   const ys = corners.map(([, cornerY]) => cornerY);
@@ -1164,11 +1202,84 @@ function entityGeometry(record: JsonRecord) {
     visible: record.show !== false,
     interactive: record.interactive !== false,
     visibleCenter: [
-      x + width / 2 * cosine - height / 2 * sine,
-      y + width / 2 * sine + height / 2 * cosine,
+      a * width / 2 + c * height / 2 + tx,
+      b * width / 2 + d * height / 2 + ty,
     ] as const,
     screenAngle: angle,
   });
+}
+
+function flattenGeometryNodes(
+  values: readonly JsonRecord[],
+  parentAffine: readonly number[] = [1, 0, 0, 1, 0, 0],
+): readonly Readonly<{ readonly record: JsonRecord; readonly affine: readonly number[] }>[] {
+  const nodes: Readonly<{ readonly record: JsonRecord; readonly affine: readonly number[] }>[] = [];
+  for (const record of values) {
+    const affine = multiplyAffine(parentAffine, recordAffine(record));
+    if (record.type === 'group' && Array.isArray(record.children)) {
+      nodes.push(...flattenGeometryNodes(asDataset(record.children), affine));
+      continue;
+    }
+    if (record.type !== 'relations') nodes.push(Object.freeze({ record, affine }));
+  }
+  return Object.freeze(nodes);
+}
+
+function recordAffine(record: JsonRecord): readonly number[] {
+  const attrs = isRecord(record.attrs) ? record.attrs : {};
+  const angle = typeof attrs.angle === 'number' && Number.isFinite(attrs.angle)
+    ? attrs.angle
+    : typeof attrs.rotation === 'number' && Number.isFinite(attrs.rotation)
+      ? attrs.rotation * 180 / Math.PI
+      : 0;
+  const radians = angle * Math.PI / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  const scaleX = numberOr(attrs.scaleX, 1);
+  const scaleY = numberOr(attrs.scaleY, 1);
+  return Object.freeze([
+    cosine * scaleX,
+    sine * scaleX,
+    -sine * scaleY,
+    cosine * scaleY,
+    numberOr(attrs.x, 0),
+    numberOr(attrs.y, 0),
+  ]);
+}
+
+function multiplyAffine(left: readonly number[], right: readonly number[]): readonly number[] {
+  return Object.freeze([
+    requiredNumber(left, 0) * requiredNumber(right, 0) +
+      requiredNumber(left, 2) * requiredNumber(right, 1),
+    requiredNumber(left, 1) * requiredNumber(right, 0) +
+      requiredNumber(left, 3) * requiredNumber(right, 1),
+    requiredNumber(left, 0) * requiredNumber(right, 2) +
+      requiredNumber(left, 2) * requiredNumber(right, 3),
+    requiredNumber(left, 1) * requiredNumber(right, 2) +
+      requiredNumber(left, 3) * requiredNumber(right, 3),
+    requiredNumber(left, 0) * requiredNumber(right, 4) +
+      requiredNumber(left, 2) * requiredNumber(right, 5) + requiredNumber(left, 4),
+    requiredNumber(left, 1) * requiredNumber(right, 4) +
+      requiredNumber(left, 3) * requiredNumber(right, 5) + requiredNumber(left, 5),
+  ]);
+}
+
+function requiredNumber(values: readonly number[], index: number): number {
+  const value = values[index];
+  if (value === undefined) throw new Error(`Missing affine entry ${index}`);
+  return value;
+}
+
+function hasElementId(values: readonly JsonRecord[], id: string): boolean {
+  for (const record of values) {
+    if (record.id === id) return true;
+    if (
+      record.type === 'group' &&
+      Array.isArray(record.children) &&
+      hasElementId(asDataset(record.children), id)
+    ) return true;
+  }
+  return false;
 }
 
 function componentProductRenderRole(
@@ -1271,6 +1382,38 @@ function allKindsScene(): readonly unknown[] {
       source: 'fixture://image-a.png',
       size: { width: 80, height: 40 },
       attrs: { x: -20, y: 200 },
+    },
+  ]);
+}
+
+function hierarchyScene(): readonly unknown[] {
+  return deepFreeze([
+    {
+      type: 'group',
+      id: 'group-a',
+      attrs: { x: 0, y: 0 },
+      children: [
+        {
+          type: 'item',
+          id: 'item-a',
+          size: { width: 100, height: 80 },
+          padding: 4,
+          attrs: { x: 10, y: 20 },
+          components: [],
+        },
+        rect('rect-b', 160, 40, 40, 30),
+      ],
+    },
+    { type: 'group', id: 'group-b', attrs: { x: 240, y: 0 }, children: [] },
+    {
+      type: 'relations',
+      id: 'links',
+      links: [
+        { source: 'item-a', target: 'item-a' },
+        { source: 'item-a', target: 'rect-b' },
+        { source: 'rect-b', target: 'item-a' },
+      ],
+      style: { color: '#222222', width: 2 },
     },
   ]);
 }

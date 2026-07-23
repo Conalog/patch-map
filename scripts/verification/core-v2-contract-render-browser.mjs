@@ -20,10 +20,10 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 379;
-const EXPECTED_ASSERTION_PASS_TOTAL = 374;
-const EXPECTED_ASSERTION_FAILURE_TOTAL = 5;
-const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 7;
+const EXPECTED_ASSERTION_TOTAL = 393;
+const EXPECTED_ASSERTION_PASS_TOTAL = 387;
+const EXPECTED_ASSERTION_FAILURE_TOTAL = 6;
+const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 8;
 const CASE_TIMEOUT_MS = 180_000;
 const CHECKPOINT_TIMEOUT_MS = 30 * 60_000;
 const REN_005_IMMUTABLE_FAILURES = Object.freeze([
@@ -69,6 +69,13 @@ const UPD_007_LATENT_IMMUTABLE_CONFLICTS = Object.freeze([
     failurePath: '/outcome/valid/eventRevision',
   }),
 ]);
+const UPD_009_IMMUTABLE_FAILURES = Object.freeze([
+  Object.freeze({
+    path: '/outcome/cycle/code',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/cycle/code',
+  }),
+]);
 const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'LAY-001', expectedAssertions: 9 }),
   Object.freeze({ id: 'LAY-002', expectedAssertions: 28 }),
@@ -106,6 +113,11 @@ const RENDER_CASES = Object.freeze([
     latentConflicts: UPD_007_LATENT_IMMUTABLE_CONFLICTS,
   }),
   Object.freeze({ id: 'UPD-008', expectedAssertions: 13 }),
+  Object.freeze({
+    id: 'UPD-009',
+    expectedAssertions: 14,
+    expectedFailures: UPD_009_IMMUTABLE_FAILURES,
+  }),
   Object.freeze({ id: 'UPD-010', expectedAssertions: 12 }),
   Object.freeze({ id: 'ANI-001', expectedAssertions: 14 }),
   Object.freeze({
@@ -131,6 +143,7 @@ const UPDATE_TRANSACTION_TRANCHE_CASES = new Set([
   'UPD-006',
   'UPD-007',
   'UPD-008',
+  'UPD-009',
   'UPD-010',
 ]);
 const CONTROL_CASES = new Set([
@@ -145,6 +158,7 @@ const GPU_EVIDENCE_CASES = new Set([
   'ANI-002',
   'UPD-007',
   'UPD-008',
+  'UPD-009',
 ]);
 
 const options = parseArguments(process.argv.slice(2));
@@ -273,28 +287,28 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all twenty-seven render routes completed'
+      ? 'all twenty-eight render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 374 pass and 5 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 387 pass and 6 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 374 pass and 5 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 387 pass and 6 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 374 pass and 5 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 387 pass and 6 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -1589,6 +1603,10 @@ function assertGpuEvidence(caseId, gpu, runLabel) {
     assertUpd008GpuPublication(gpu, prefix);
     return;
   }
+  if (caseId === 'UPD-009') {
+    assertUpd009GpuPublication(gpu, prefix);
+    return;
+  }
   assertAnimatedBarGpuProjection(caseId, gpu, prefix);
 }
 
@@ -1631,6 +1649,20 @@ function assertUpd008GpuPublication(gpu, prefix) {
   invariant(
     updateFrames.length === 3 && updateFrames.every((frame) => frame.draws.length > 0),
     `${prefix} reconcile/hide/show post-update frames contain real GPU draws (${gpuFrameDiagnostic(gpu)})`,
+  );
+}
+
+function assertUpd009GpuPublication(gpu, prefix) {
+  const sequences = webGl2DrawFrameSequences(gpu);
+  const publishedSequence = sequences.find((sequence) => sequence.length >= 4);
+  invariant(
+    publishedSequence !== undefined,
+    `${prefix} move/group/ungroup/unrecorded-move each publish WebGL2 draws (${gpuFrameDiagnostic(gpu)})`,
+  );
+  const structuralFrames = publishedSequence.slice(-4);
+  invariant(
+    structuralFrames.length === 4 && structuralFrames.every((frame) => frame.draws.length > 0),
+    `${prefix} structural frames contain real GPU draws (${gpuFrameDiagnostic(gpu)})`,
   );
 }
 
@@ -2209,19 +2241,19 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 379',
+    'render checkpoint assertion inventory must remain 393',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===
       EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'render checkpoint observed immutable conflict inventory must remain 5',
+    'render checkpoint observed immutable conflict inventory must remain 6',
   );
   invariant(
     sum(
       RENDER_CASES,
       (record) => (record.expectedFailures?.length ?? 0) + (record.latentConflicts?.length ?? 0),
     ) === DECLARED_IMMUTABLE_CONFLICT_TOTAL,
-    'render checkpoint declared immutable conflict inventory must remain 7',
+    'render checkpoint declared immutable conflict inventory must remain 8',
   );
   return selected;
 }

@@ -9,6 +9,9 @@ const ACTUALS_BY_CASE = Object.freeze({
     Object.freeze({ path: '/outcome/valid/queryRevision', value: 2 }),
     Object.freeze({ path: '/outcome/valid/eventRevision', value: 2 }),
   ]),
+  'UPD-009': Object.freeze([
+    Object.freeze({ path: '/outcome/cycle/code', value: 'CONFLICT' }),
+  ]),
 });
 
 /**

@@ -24,6 +24,9 @@ describe('Core v2 update immutable-conflict actual pins', () => {
     expect(inspectCoreV2UpdateConflictActuals('UPD-007', {
       outcome: { valid: { queryRevision: 2, eventRevision: 2 } },
     })).toEqual([]);
+    expect(inspectCoreV2UpdateConflictActuals('UPD-009', {
+      outcome: { cycle: { code: 'CONFLICT' } },
+    })).toEqual([]);
   });
 
   it('rejects arbitrary replacement diagnostics and revision-domain drift', () => {
@@ -42,6 +45,16 @@ describe('Core v2 update immutable-conflict actual pins', () => {
     })).toEqual([
       expect.objectContaining({ path: '/outcome/valid/queryRevision', status: 'value-mismatch' }),
       expect.objectContaining({ path: '/outcome/valid/eventRevision', status: 'unresolved' }),
+    ]);
+    expect(inspectCoreV2UpdateConflictActuals('UPD-009', {
+      outcome: { cycle: { code: 'ARBITRARY_DIAGNOSTIC' } },
+    })).toEqual([
+      expect.objectContaining({
+        path: '/outcome/cycle/code',
+        expectedActual: 'CONFLICT',
+        observedActual: 'ARBITRARY_DIAGNOSTIC',
+        status: 'value-mismatch',
+      }),
     ]);
   });
 
