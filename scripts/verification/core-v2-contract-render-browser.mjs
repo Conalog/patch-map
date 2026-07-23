@@ -8,6 +8,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
 import { compareObservation } from './core-v2-contract/compare.mjs';
+import { maskVolatile } from './core-v2-contract/evidence.mjs';
 import { inspectCoreV2UpdateConflictActuals } from './core-v2-contract/update-conflict-actuals.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
@@ -20,8 +21,8 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 431;
-const EXPECTED_ASSERTION_PASS_TOTAL = 425;
+const EXPECTED_ASSERTION_TOTAL = 532;
+const EXPECTED_ASSERTION_PASS_TOTAL = 526;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 6;
 const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 8;
 const CASE_TIMEOUT_MS = 180_000;
@@ -129,6 +130,13 @@ const RENDER_CASES = Object.freeze([
   }),
   Object.freeze({ id: 'UPD-013', expectedAssertions: 8 }),
   Object.freeze({ id: 'UPD-014', expectedAssertions: 10 }),
+  Object.freeze({ id: 'VIE-001', expectedAssertions: 10 }),
+  Object.freeze({ id: 'VIE-002', expectedAssertions: 6 }),
+  Object.freeze({ id: 'VIE-003', expectedAssertions: 14 }),
+  Object.freeze({ id: 'VIE-004', expectedAssertions: 17 }),
+  Object.freeze({ id: 'VIE-008', expectedAssertions: 11 }),
+  Object.freeze({ id: 'CSM-009', expectedAssertions: 21 }),
+  Object.freeze({ id: 'CSM-010', expectedAssertions: 22 }),
 ]);
 const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-006', 'REN-008', 'REN-010', 'REN-011']);
 const PRESENTATION_TRANCHE_CASES = new Set([
@@ -154,9 +162,19 @@ const UPDATE_TRANSACTION_TRANCHE_CASES = new Set([
   'UPD-013',
   'UPD-014',
 ]);
+const VIEWPORT_TRANCHE_CASES = new Set([
+  'VIE-001',
+  'VIE-002',
+  'VIE-003',
+  'VIE-004',
+  'VIE-008',
+  'CSM-009',
+  'CSM-010',
+]);
 const CONTROL_CASES = new Set([
   ...PRESENTATION_TRANCHE_CASES,
   ...UPDATE_TRANSACTION_TRANCHE_CASES,
+  ...VIEWPORT_TRANCHE_CASES,
 ]);
 const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);
 const GPU_EVIDENCE_CASES = new Set([
@@ -295,28 +313,28 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all thirty-two render routes completed'
+      ? 'all thirty-nine render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 425 pass and 6 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 526 pass and 6 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 425 pass and 6 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 526 pass and 6 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 425 pass and 6 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 526 pass and 6 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -636,8 +654,19 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
     assertCaseRun(caseSpec, repeat, repeatComparison, 'repeat');
     invariant(
       comparison.stableActualSha256 === repeatComparison.stableActualSha256,
-      `${caseSpec.id} repeat stable actual digest`,
+      `${caseSpec.id} repeat stable actual digest (difference=${
+        firstJsonDifference(
+          maskVolatile(first.actualObservation, expectedCase.volatileFields),
+          maskVolatile(repeat.actualObservation, expectedCase.volatileFields),
+          '',
+        )
+      })`,
     );
+
+    const rootInput = caseSpec.id === 'VIE-001'
+      ? await verifyViewportRootInput(page)
+      : null;
+    if (rootInput !== null) traceCasePhase(caseSpec.id, 'trusted root input verified');
 
     const destroyed = await destroyBrowserCase(page, caseSpec.id);
     traceCasePhase(caseSpec.id, 'first session destroyed');
@@ -692,6 +721,7 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
       focusedUi: DOM_CONTROL_CASES.has(caseSpec.id)
         ? { first: first.ui, repeat: repeat.ui, fresh: fresh.run.ui }
         : null,
+      rootInput,
       controls: CONTROL_CASES.has(caseSpec.id)
         ? {
             first: first.ui?.trigger ?? null,
@@ -743,6 +773,157 @@ async function executeFreshSession({
   } finally {
     await page.close().catch(() => undefined);
     await context.close().catch(() => undefined);
+  }
+}
+
+async function verifyViewportRootInput(page) {
+  const wheelProbeName = '__PATCH_MAP_CORE_V2_NATIVE_WHEEL_PROBE__';
+  let armed = false;
+  let cleanup = null;
+  try {
+    const gesturePlan = await page.evaluate(async (bridgeName) => {
+      const bridge = window[bridgeName];
+      if (!bridge) throw new Error('VIE-001 focused Lab bridge is unavailable');
+      return bridge.armGesture(0);
+    }, BRIDGE_NAME);
+    armed = true;
+
+    const canvas = page.locator(gesturePlan.ownerQualifiedTarget);
+    await canvas.waitFor({ state: 'visible', timeout: 30_000 });
+    await canvas.scrollIntoViewIfNeeded();
+    await canvas.evaluate((element, name) => {
+      const state = { count: 0, lastDeltaY: null };
+      const listener = (event) => {
+        state.count += 1;
+        state.lastDeltaY = event.deltaY;
+      };
+      element.addEventListener('wheel', listener, { capture: true });
+      window[name] = { element, listener, state };
+    }, wheelProbeName);
+    const bounds = await canvas.boundingBox();
+    invariant(bounds !== null, 'VIE-001 trusted input canvas bounds');
+    const center = {
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2,
+    };
+
+    await page.mouse.move(center.x, center.y);
+    await page.mouse.down({ button: 'left' });
+    await page.mouse.move(center.x + 40, center.y - 20, { steps: 1 });
+    await page.mouse.up({ button: 'left' });
+    await page.waitForFunction(
+      async (bridgeName) => {
+        const observation = await window[bridgeName]?.actualObservation();
+        return Array.isArray(observation?.events) && observation.events.length >= 1;
+      },
+      BRIDGE_NAME,
+      { timeout: 10_000 },
+    );
+
+    const beforeWheel = await page.evaluate(async (bridgeName) => {
+      const observation = await window[bridgeName].actualObservation();
+      return observation.anchorWorld;
+    }, BRIDGE_NAME);
+    await page.mouse.move(center.x, center.y);
+    await page.mouse.wheel(0, -240);
+    await page.waitForFunction(
+      async (bridgeName) => {
+        const observation = await window[bridgeName]?.actualObservation();
+        return Array.isArray(observation?.events) && observation.events.length >= 2;
+      },
+      BRIDGE_NAME,
+      { timeout: 10_000 },
+    );
+
+    const observed = await page.evaluate(async (bridgeName) => {
+      const bridge = window[bridgeName];
+      await bridge.awaitMilestone(0, 'settled');
+      const observation = await bridge.actualObservation();
+      const nativeWheel = window.__PATCH_MAP_CORE_V2_NATIVE_WHEEL_PROBE__?.state ?? null;
+      return {
+        events: observation.events,
+        viewport: observation.viewport,
+        revisions: observation.revisions,
+        ownership: observation.ownership,
+        anchorWorld: observation.anchorWorld,
+        transformedHit: observation.transformedHit,
+        resources: observation.resources,
+        nativeWheel,
+      };
+    }, BRIDGE_NAME);
+
+    invariant(
+      observed.events.length === 2 &&
+        observed.events[0]?.source === 'pointer' &&
+        observed.events[1]?.source === 'wheel',
+      `VIE-001 trusted pointer and wheel publish exactly one view event each: ${
+        JSON.stringify(observed.events)
+      }`,
+    );
+    invariant(
+      observed.viewport.scale > 1 && observed.viewport.scale <= 4,
+      'VIE-001 trusted wheel respects configured scale limits',
+    );
+    invariant(
+      Math.abs(beforeWheel.x - observed.anchorWorld.x) <= 1e-6 &&
+        Math.abs(beforeWheel.y - observed.anchorWorld.y) <= 1e-6,
+      'VIE-001 trusted wheel preserves the cursor world point',
+    );
+    invariant(
+      observed.transformedHit.target === 'rect-b',
+      'VIE-001 trusted transformed hit resolves the current target',
+    );
+    invariant(
+      observed.ownership?.rootBindingCount === 6 &&
+        observed.ownership?.entityCallbackCount === 0,
+      'VIE-001 trusted input retains root-only interaction ownership',
+    );
+    invariant(
+      observed.revisions.viewRevision >= 2,
+      'VIE-001 trusted input advances the Engine view authority',
+    );
+    invariant(
+      observed.resources?.canvasCount === 1 &&
+        observed.resources?.pendingWork === 0,
+      'VIE-001 trusted input keeps one settled live canvas',
+    );
+    invariant(
+      observed.nativeWheel?.count === 1 && observed.nativeWheel?.lastDeltaY === -240,
+      `VIE-001 trusted browser emitted one native wheel event: ${
+        JSON.stringify(observed.nativeWheel)
+      }`,
+    );
+    return {
+      status: 'passed',
+      driverId: gesturePlan.driverId,
+      eventSources: observed.events.map(({ source }) => source),
+      viewport: observed.viewport,
+      revisions: observed.revisions,
+      ownership: observed.ownership,
+      wheelAnchor: { before: beforeWheel, after: observed.anchorWorld },
+      transformedHit: observed.transformedHit,
+    };
+  } finally {
+    cleanup = await page.evaluate(async ({ bridgeName, shouldRelease }) => {
+      const nativeWheelProbe = window.__PATCH_MAP_CORE_V2_NATIVE_WHEEL_PROBE__;
+      if (nativeWheelProbe) {
+        nativeWheelProbe.element.removeEventListener('wheel', nativeWheelProbe.listener, {
+          capture: true,
+        });
+        delete window.__PATCH_MAP_CORE_V2_NATIVE_WHEEL_PROBE__;
+      }
+      const bridge = window[bridgeName];
+      if (bridge && shouldRelease) await bridge.awaitMilestone(0, 'released');
+      const host = document.querySelector('[data-contract-surface]');
+      return {
+        canvasCount: host?.querySelectorAll('canvas[data-patch-map-core="v2"]').length ?? 0,
+        released: shouldRelease,
+      };
+    }, { bridgeName: BRIDGE_NAME, shouldRelease: armed }).catch(() => null);
+    invariant(
+      cleanup?.canvasCount === 0 && cleanup?.released === armed,
+      'VIE-001 trusted input probe releases its Engine and canvas',
+    );
   }
 }
 
@@ -906,6 +1087,9 @@ async function executeBrowserRun(
       sample();
       const actualObservation = await bridge.actualObservation();
       const execution = bridge.execution();
+      const terminalAction = Array.isArray(execution?.actionResults)
+        ? execution.actionResults.at(-1)
+        : null;
       return {
         operation: operationName,
         runningStatus,
@@ -920,6 +1104,10 @@ async function executeBrowserRun(
         captures: run.captures,
         actualMatchesRun: JSON.stringify(actualObservation) === JSON.stringify(run.actualObservation),
         cleanupStatus: run.cleanup?.status ?? null,
+        diagnostics: {
+          longTaskMeasurements:
+            terminalAction?.delta?.actual?.longTasks?.measurements ?? null,
+        },
         ui,
         gpu: gpuProbe && typeof gpuProbe.snapshot === 'function'
           ? gpuProbe.snapshot()
@@ -1493,6 +1681,13 @@ function compareCaseRun(expectedCase, browserRun) {
 function assertCaseRun(caseSpec, run, comparison, runLabel) {
   const prefix = `${caseSpec.id} ${runLabel}`;
   const expectedFailures = caseSpec.expectedFailures ?? [];
+  const failureActuals = caseSpec.id === 'CSM-010'
+    ? {
+        longTaskAtLeast100Ms: run.actualObservation?.outcome?.longTaskAtLeast100Ms ?? null,
+        rawTimingSamples: run.actualObservation?.outcome?.rawTimingSamples ?? null,
+        measurements: run.diagnostics?.longTaskMeasurements ?? null,
+      }
+    : null;
   invariant(run.runningStatus === 'running', `${prefix} enters running state`);
   invariant(run.terminalStatus === 'observed', `${prefix} observed terminal state`);
   invariant(run.runStatus === 'observed', `${prefix} public bridge run result`);
@@ -1508,7 +1703,8 @@ function assertCaseRun(caseSpec, run, comparison, runLabel) {
   invariant(
     comparison.passed === caseSpec.expectedAssertions - expectedFailures.length,
     `${prefix} exact assertion pass count (${comparison.passed}/${caseSpec.expectedAssertions}; `
-      + `failures=${JSON.stringify(comparisonFailures(comparison))})`,
+      + `failures=${JSON.stringify(comparisonFailures(comparison))}; `
+      + `actuals=${JSON.stringify(failureActuals)})`,
   );
   invariant(
     comparison.failed === expectedFailures.length,
@@ -2316,6 +2512,40 @@ function comparisonFailures(comparison) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function firstJsonDifference(left, right, pointer) {
+  if (Object.is(left, right)) return null;
+  if (Array.isArray(left) && Array.isArray(right)) {
+    if (left.length !== right.length) return `${pointer}/length`;
+    for (let index = 0; index < left.length; index += 1) {
+      const nested = firstJsonDifference(left[index], right[index], `${pointer}/${index}`);
+      if (nested !== null) return nested;
+    }
+    return null;
+  }
+  if (
+    left !== null
+    && right !== null
+    && typeof left === 'object'
+    && typeof right === 'object'
+    && !Array.isArray(left)
+    && !Array.isArray(right)
+  ) {
+    const leftKeys = Object.keys(left).sort();
+    const rightKeys = Object.keys(right).sort();
+    if (!sameJson(leftKeys, rightKeys)) return `${pointer}/keys`;
+    for (const key of leftKeys) {
+      const nested = firstJsonDifference(
+        left[key],
+        right[key],
+        `${pointer}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`,
+      );
+      if (nested !== null) return nested;
+    }
+    return null;
+  }
+  return pointer || '/';
 }
 
 function cleanupStatus(cleanup) {

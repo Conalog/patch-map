@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import normalizedExpected from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
 import { CoreV2ContractExecutionNotImplementedError } from '../../lab/performance-v2/contract/bridge';
 import { createCoreV2ExecutableLabBridge } from '../../lab/performance-v2/contract/executable-bridge';
 import {
@@ -32,6 +33,24 @@ import {
   type CoreV2PresentationPolicyProductProbe,
 } from '../../src/core-v2/presentation-policy';
 import type { CoreV2SemanticTarget } from '../../src/core-v2/semantic/probe';
+// @ts-expect-error -- the independent browser-safe comparator is authored as ESM JavaScript.
+import * as compareModule from '../../scripts/verification/core-v2-contract/compare.mjs';
+
+interface CompareRuntime {
+  compareObservation(this: void, input: Readonly<Record<string, unknown>>): Readonly<{
+    readonly passed: number;
+    readonly failed: number;
+    readonly assertions: readonly Readonly<{
+      readonly passed: boolean;
+      readonly path: string;
+      readonly code: string;
+      readonly actual: unknown;
+      readonly expected: unknown;
+    }>[];
+  }>;
+}
+
+const { compareObservation } = compareModule as unknown as CompareRuntime;
 
 describe('Core v2 executable Lab product bridge', () => {
   it.each(CORE_V2_EXECUTABLE_CASE_IDS.filter(
@@ -58,7 +77,20 @@ describe('Core v2 executable Lab product bridge', () => {
       const surfaceFactory = createFakeSurfaceFactory(
         surfaces,
         receivedTargets,
-        ['LAY-004', 'REN-007', 'UPD-004', 'UPD-009', 'UPD-010'].includes(caseId)
+        [
+          'LAY-004',
+          'REN-007',
+          'UPD-004',
+          'UPD-009',
+          'UPD-010',
+          'VIE-001',
+          'VIE-002',
+          'VIE-003',
+          'VIE-004',
+          'VIE-008',
+          'CSM-009',
+          'CSM-010',
+        ].includes(caseId)
           ? 'projection'
           : 'flat',
       );
@@ -108,9 +140,24 @@ describe('Core v2 executable Lab product bridge', () => {
       expect(receivedTargets.every((target) => target === surfaceHost)).toBe(true);
       expect(surfaces.every((surface) => surface.preference === 'webgl')).toBe(true);
       expect(JSON.stringify(run)).not.toContain('"status":"pass"');
-      await expect(
-        bridge.armGesture(0),
-      ).rejects.toBeInstanceOf(CoreV2ContractExecutionNotImplementedError);
+      if (caseId === 'VIE-001') {
+        await expect(bridge.armGesture(0)).resolves.toMatchObject({
+          revision: 'core-v2-contract-gesture-plan/1',
+          actionIndex: 0,
+          driverId: 'trusted-pointer-wheel',
+          button: 0,
+        });
+        await expect(bridge.actualObservation()).resolves.toMatchObject({
+          $schema: 'core-v2-contract-gesture-observation/1',
+          case: { id: 'VIE-001', actionIndex: 0 },
+          resources: { canvasCount: 1, pendingWork: 0 },
+        });
+        await expect(bridge.awaitMilestone(0, 'released')).resolves.toBeUndefined();
+      } else {
+        await expect(
+          bridge.armGesture(0),
+        ).rejects.toBeInstanceOf(CoreV2ContractExecutionNotImplementedError);
+      }
       await expect(
         bridge.awaitMilestone(run.execution.actionResults instanceof Array
           ? run.execution.actionResults.length - 1
@@ -134,6 +181,53 @@ describe('Core v2 executable Lab product bridge', () => {
       });
       expect(bridge.state().status).toBe('destroyed');
       expect(await bridge.actualObservation()).toBe(run.actualObservation);
+    },
+    60_000,
+  );
+
+  it.each([
+    'VIE-001',
+    'VIE-002',
+    'VIE-003',
+    'VIE-004',
+    'VIE-008',
+    'CSM-009',
+    'CSM-010',
+  ] as const)(
+    'produces independently comparable viewport actuals for %s',
+    async (caseId) => {
+      const surfaces: FakeSurface[] = [];
+      const bridge = createCoreV2ExecutableLabBridge({
+        caseId,
+        rootTestId: `scenario-${caseId.toLowerCase()}`,
+        size: '100',
+        seed: 319,
+        surfaceHost: createSurfaceHost(),
+        surfaceFactory: createFakeSurfaceFactory(surfaces, [], 'projection'),
+        environment: {
+          browser: 'vitest',
+          browserVersion: 'vitest',
+          backend: 'webgl2',
+          routeSize: '100',
+          runtimeResourceIds: [],
+        },
+      });
+      const run = await bridge.runCase();
+      const expected = normalizedExpected.cases.find(({ id }) => id === caseId);
+      expect(expected).toBeDefined();
+      const comparison = compareObservation({
+        expectedCase: expected,
+        actual: run.actualObservation,
+        fixtures: run.fixtures,
+        captures: run.captures,
+      });
+
+      expect(comparison.assertions.filter(({ passed }) => !passed)).toEqual([]);
+      expect(comparison.failed).toBe(0);
+      expect(comparison.passed).toBe(expected?.expected.assertions.length);
+      expect(run.cleanup).toMatchObject({ status: 'completed' });
+      expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
+      await bridge.destroyCase();
     },
     60_000,
   );
@@ -482,10 +576,17 @@ describe('Core v2 executable Lab product bridge', () => {
       'UPD-012': 'update-transactions',
       'UPD-013': 'update-transactions',
       'UPD-014': 'update-transactions',
+      'VIE-001': 'viewport',
+      'VIE-002': 'viewport',
+      'VIE-003': 'viewport',
+      'VIE-004': 'viewport',
+      'VIE-008': 'viewport',
       'ANI-001': 'presentation-dynamics',
       'ANI-002': 'presentation-dynamics',
       'CSM-001': 'foundation',
       'CSM-003': 'foundation',
+      'CSM-009': 'viewport',
+      'CSM-010': 'viewport',
       'LAY-001': 'render-foundation',
       'LAY-002': 'layout-order',
       'LAY-003': 'layout-order',

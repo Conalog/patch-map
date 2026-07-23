@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the thirty-two selected render routes and their 431 canonical assertions', () => {
+  it('pins exactly the thirty-nine selected render routes and their 532 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -70,20 +70,27 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'ANI-002', expectedAssertions: 11 },
       { id: 'UPD-013', expectedAssertions: 8 },
       { id: 'UPD-014', expectedAssertions: 10 },
+      { id: 'VIE-001', expectedAssertions: 10 },
+      { id: 'VIE-002', expectedAssertions: 6 },
+      { id: 'VIE-003', expectedAssertions: 14 },
+      { id: 'VIE-004', expectedAssertions: 17 },
+      { id: 'VIE-008', expectedAssertions: 11 },
+      { id: 'CSM-009', expectedAssertions: 21 },
+      { id: 'CSM-010', expectedAssertions: 22 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(431);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 431;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 425;');
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(532);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 532;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 526;');
     expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 6;');
     expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 8;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 425 pass and 6 observed immutable conflicts'",
+      "'canonical comparison must be exactly 526 pass and 6 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 425 pass and 6 observed immutable conflicts'",
+      "'repeat comparison must be exactly 526 pass and 6 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 425 pass and 6 observed immutable conflicts'",
+      "'fresh comparison must be exactly 526 pass and 6 observed immutable conflicts'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -282,7 +289,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('focusedUi: DOM_CONTROL_CASES.has(caseSpec.id)');
   });
 
-  it('drives presentation and update tranches through actual Run, Repeat, and Destroy controls', () => {
+  it('drives presentation, update, and viewport tranches through actual Run, Repeat, and Destroy controls', () => {
     expect(source).toContain("const PRESENTATION_TRANCHE_CASES = new Set([");
     for (const caseId of ['LAY-002', 'LAY-003', 'UPD-005', 'REN-009', 'ANI-001', 'ANI-002']) {
       expect(source).toContain(`'${caseId}',`);
@@ -305,6 +312,26 @@ describe('Core v2 render browser checkpoint script', () => {
     ]) {
       expect(source).toContain(`'${caseId}',`);
     }
+    expect(source).toContain('const VIEWPORT_TRANCHE_CASES = new Set([');
+    for (const caseId of [
+      'VIE-001',
+      'VIE-002',
+      'VIE-003',
+      'VIE-004',
+      'VIE-008',
+      'CSM-009',
+      'CSM-010',
+    ]) {
+      expect(source).toContain(`'${caseId}',`);
+    }
+    expect(source).toContain("const rootInput = caseSpec.id === 'VIE-001'");
+    expect(source).toContain('await verifyViewportRootInput(page)');
+    expect(source).toContain('return bridge.armGesture(0)');
+    expect(source).toContain("await bridge.awaitMilestone(0, 'settled')");
+    expect(source).toContain("await bridge.awaitMilestone(0, 'released')");
+    expect(source).toContain("observed.events[0]?.source === 'pointer'");
+    expect(source).toContain("observed.events[1]?.source === 'wheel'");
+    expect(source).toContain('observed.nativeWheel?.count === 1');
     expect(source).toContain('const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);');
     expect(source).toContain('const first = DOM_CONTROL_CASES.has(caseSpec.id)');
     expect(source).toContain('const repeat = DOM_CONTROL_CASES.has(caseSpec.id)');

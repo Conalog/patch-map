@@ -79,6 +79,20 @@ class TargetedWebGLCoreV2Engine extends CoreV2Engine {
   }
 }
 
+interface LiveViewportGestureEvent {
+  readonly source: string;
+  readonly centerWorld: readonly [number, number];
+  readonly scale: number;
+  readonly viewRevision: number;
+}
+
+interface LiveViewportGestureSession {
+  readonly actionIndex: number;
+  readonly engine: TargetedWebGLCoreV2Engine;
+  readonly events: LiveViewportGestureEvent[];
+  readonly unbind: () => void;
+}
+
 export function createCoreV2ExecutableLabBridge(
   options: CoreV2ExecutableLabBridgeOptions,
 ): CoreV2ContractLabBridgeV1 {
@@ -101,6 +115,7 @@ export function createCoreV2ExecutableLabBridge(
   let lastObservation: Readonly<Record<string, unknown>> | null = null;
   let lastRun: Readonly<CoreV2ContractLabRunResult> | null = null;
   let activeRun: Promise<Readonly<CoreV2ContractLabRunResult>> | null = null;
+  let liveViewportGesture: LiveViewportGestureSession | null = null;
 
   function state(): Readonly<CoreV2ContractLabState> {
     return Object.freeze({
@@ -121,6 +136,7 @@ export function createCoreV2ExecutableLabBridge(
 
   async function executeFreshRun(isRepeat: boolean): Promise<Readonly<CoreV2ContractLabRunResult>> {
     invariant(!destroyed, `${options.caseId} bridge is destroyed`);
+    if (liveViewportGesture !== null) await releaseViewportGesture();
     assertSurfaceIsReleased(options.surfaceHost);
     status = 'running';
     actionIndex = -1;
@@ -285,6 +301,153 @@ export function createCoreV2ExecutableLabBridge(
     await activeRun.catch(() => undefined);
   }
 
+  async function armViewportGesture(
+    value: number,
+  ): Promise<Readonly<CoreV2ContractGesturePlan>> {
+    invariant(options.caseId === 'VIE-001', `${options.caseId} live gesture case`);
+    invariant(value === 0, 'VIE-001 live gesture action index');
+    invariant(!destroyed, `${options.caseId} bridge is destroyed`);
+    invariant(options.surfaceHost !== undefined, 'VIE-001 live gesture surface host');
+    await awaitActiveRun();
+
+    if (liveViewportGesture === null) {
+      assertSurfaceIsReleased(options.surfaceHost);
+      const engine = new TargetedWebGLCoreV2Engine(
+        options.surfaceHost,
+        options.surfaceFactory,
+      );
+      try {
+        await engine.initialize({
+          instanceId: `contract-${options.caseId.toLowerCase()}-trusted-gesture`,
+          width: 800,
+          height: 600,
+          pixelRatio: 1,
+          strategy: 'mesh',
+          preference: 'webgl',
+          zoomLimits: [0.25, 4],
+        });
+        const profile = requireRecord(
+          casePlan.fixtureProfiles['viewport-transform-matrix'],
+          'VIE-001 viewport fixture profile',
+        );
+        const datasetRef = requiredString(
+          profile.datasetRef,
+          'VIE-001 viewport fixture datasetRef',
+        );
+        const dataset = structuredClone(resolveCoreV2ExecutableDataset(datasetRef));
+        engine.loadDataset(dataset, { datasetRef });
+        engine.setViewport({ centerWorld: [400, 300], scale: 1 });
+        engine.publishFrame(0);
+        const events: LiveViewportGestureEvent[] = [];
+        const unbind = engine.on('viewChanged', (event) => {
+          events.push(Object.freeze({
+            source: event.source,
+            centerWorld: Object.freeze([
+              event.viewport.centerWorld[0],
+              event.viewport.centerWorld[1],
+            ] as const),
+            scale: event.viewport.scale,
+            viewRevision: event.revisions.viewRevision,
+          }));
+        });
+        if (options.surfaceHost.dataset) {
+          options.surfaceHost.dataset.coreV2RootInputProbe = 'true';
+        }
+        liveViewportGesture = { actionIndex: value, engine, events, unbind };
+      } catch (error) {
+        await engine.destroy().catch(() => undefined);
+        if (options.surfaceHost.dataset) {
+          delete options.surfaceHost.dataset.coreV2RootInputProbe;
+        }
+        throw error;
+      }
+    }
+
+    return deepFreeze({
+      revision: 'core-v2-contract-gesture-plan/1',
+      actionIndex: value,
+      driverId: 'trusted-pointer-wheel',
+      ownerQualifiedTarget:
+        `[data-testid="${casePlan.rootTestId}"] [data-contract-surface] `
+        + 'canvas[data-patch-map-core="v2"]',
+      cssLocalAnchors: [
+        { x: 400, y: 300 },
+        { x: 440, y: 280 },
+      ],
+      button: 0,
+      modifiers: [],
+      publishedTuple,
+    });
+  }
+
+  function viewportGestureObservation(): Readonly<Record<string, unknown>> {
+    const session = liveViewportGesture;
+    invariant(session !== null, 'VIE-001 live gesture session');
+    const { engine } = session;
+    const geometry = engine.geometryProbe();
+    invariant(geometry !== null, 'VIE-001 live gesture geometry');
+    const target = geometry.entities.find((entity) => entity.id === 'rect-b');
+    invariant(target !== undefined, 'VIE-001 live gesture target geometry');
+    const point = {
+      x: target.screenBounds[0] + target.screenBounds[2] / 2,
+      y: target.screenBounds[1] + target.screenBounds[3] / 2,
+    };
+    const snapshot = engine.snapshot();
+    const anchorWorld = engine.screenToWorld({ x: 400, y: 300 });
+    return deepFreeze({
+      $schema: 'core-v2-contract-gesture-observation/1',
+      case: {
+        id: options.caseId,
+        actionIndex: session.actionIndex,
+      },
+      events: structuredClone(session.events),
+      viewport: structuredClone(engine.viewportProbe()),
+      persistence: structuredClone(engine.viewportPersistenceProbe()),
+      revisions: structuredClone(snapshot.revisions),
+      ownership: structuredClone(engine.interactionOwnershipProbe()),
+      anchorWorld: { x: anchorWorld.x, y: anchorWorld.y },
+      transformedHit: {
+        point,
+        target: engine.hitTest(point),
+      },
+      resources: {
+        canvasCount: snapshot.resources.canvasCount,
+        subscriptions: snapshot.resources.subscriptions.active,
+        pendingWork: snapshot.pendingWork,
+      },
+    });
+  }
+
+  async function releaseViewportGesture(): Promise<void> {
+    const session = liveViewportGesture;
+    if (session === null) return;
+    liveViewportGesture = null;
+    const errors: unknown[] = [];
+    try {
+      session.unbind();
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      await session.engine.destroy();
+    } catch (error) {
+      errors.push(error);
+    }
+    if (options.surfaceHost) {
+      if (options.surfaceHost.dataset) {
+        delete options.surfaceHost.dataset.coreV2RootInputProbe;
+      }
+      try {
+        assertSurfaceIsReleased(options.surfaceHost);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length > 0) {
+      throw new AggregateError(errors, 'Core v2 VIE-001 live gesture cleanup failed');
+    }
+  }
+
   return Object.freeze({
     revision: CORE_V2_CONTRACT_LAB_BRIDGE_REVISION,
     state,
@@ -300,6 +463,7 @@ export function createCoreV2ExecutableLabBridge(
     async resetCase(): Promise<Readonly<Record<string, unknown>>> {
       invariant(!destroyed, `${options.caseId} bridge is destroyed`);
       await awaitActiveRun();
+      await releaseViewportGesture();
       const summary = cleanupSummary(lastCleanup, runCount, completedRunCount);
       assertSurfaceIsReleased(options.surfaceHost);
       status = 'armed';
@@ -317,6 +481,7 @@ export function createCoreV2ExecutableLabBridge(
     },
     armGesture(value: number): Promise<Readonly<CoreV2ContractGesturePlan>> {
       assertActionIndex(value);
+      if (options.caseId === 'VIE-001') return armViewportGesture(value);
       return Promise.reject(new CoreV2ContractExecutionNotImplementedError(
         options.caseId,
         'gesture execution for the current non-gesture executable slice',
@@ -324,6 +489,15 @@ export function createCoreV2ExecutableLabBridge(
     },
     async awaitMilestone(value: number, milestone: CoreV2ContractLabMilestone): Promise<void> {
       assertActionIndex(value);
+      if (options.caseId === 'VIE-001' && liveViewportGesture !== null) {
+        invariant(liveViewportGesture.actionIndex === value, 'VIE-001 live gesture action identity');
+        if (milestone === 'settled') {
+          liveViewportGesture.engine.settleViewport();
+          liveViewportGesture.engine.publishFrame(0);
+        }
+        if (milestone === 'released') await releaseViewportGesture();
+        return;
+      }
       const run = await startRun(false);
       const result = arrayValue(run.execution.actionResults, 'execution actionResults')[value];
       invariant(isRecord(result) && result.status === 'completed', `${options.caseId} action ${value} completion`);
@@ -332,6 +506,7 @@ export function createCoreV2ExecutableLabBridge(
       }
     },
     async actualObservation(): Promise<Readonly<Record<string, unknown>>> {
+      if (liveViewportGesture !== null) return viewportGestureObservation();
       if (lastObservation) return lastObservation;
       if (destroyed) return destroyedWithoutRunObservation(casePlan);
       try {
@@ -344,6 +519,7 @@ export function createCoreV2ExecutableLabBridge(
     async destroyCase(): Promise<Readonly<Record<string, unknown>>> {
       if (!destroyed) {
         await awaitActiveRun();
+        await releaseViewportGesture();
         destroyed = true;
         status = 'destroyed';
       }
@@ -625,6 +801,11 @@ function arrayValue(value: unknown, label: string): readonly unknown[] {
 
 function requireRecord(value: unknown, label: string): Readonly<Record<string, unknown>> {
   invariant(isRecord(value), label);
+  return value;
+}
+
+function requiredString(value: unknown, label: string): string {
+  invariant(typeof value === 'string' && value.length > 0, label);
   return value;
 }
 

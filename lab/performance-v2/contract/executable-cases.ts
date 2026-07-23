@@ -49,21 +49,28 @@ export const CORE_V2_EXECUTABLE_CASE_IDS = Object.freeze([
   'ANI-002',
   'UPD-013',
   'UPD-014',
+  'VIE-001',
+  'VIE-002',
+  'VIE-003',
+  'VIE-004',
+  'VIE-008',
   'CSM-001',
   'CSM-003',
+  'CSM-009',
+  'CSM-010',
 ] as const);
 
 export type CoreV2ExecutableCaseId = (typeof CORE_V2_EXECUTABLE_CASE_IDS)[number];
 
-export const CORE_V2_EXECUTABLE_COUNT = 47;
-export const CORE_V2_CONTRACT_STUB_COUNT = 126;
+export const CORE_V2_EXECUTABLE_COUNT = 54;
+export const CORE_V2_CONTRACT_STUB_COUNT = 119;
 
 const CONTRACT_REVISION = 'core-v2-functional-contract/2026-07-16.2';
 const ACTION_LANGUAGE_REVISION = 'core-v2-catalog-actions/1';
 const APPROVED_CASE_COUNT = 173;
 const APPROVED_ACTION_DEFINITION_COUNT = 381;
-const EXECUTABLE_ACTION_COUNT = 199;
-const EXECUTABLE_ACTION_TYPE_COUNT = 98;
+const EXECUTABLE_ACTION_COUNT = 223;
+const EXECUTABLE_ACTION_TYPE_COUNT = 116;
 const CANONICAL_SIZES = new Set(['100', '500', '1000', '2000', '5000', 'production']);
 const EXECUTABLE_ID_SET = new Set<string>(CORE_V2_EXECUTABLE_CASE_IDS);
 

@@ -78,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(98);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(47);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(126);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(116);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(54);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(119);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(199);
+    ), 0)).toBe(223);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -307,6 +307,55 @@ describe('Core v2 focused contract Lab shell', () => {
       expect(route.presenter.rootTestId).toBe(`scenario-${caseId.toLowerCase()}`);
       expect(plan.actionTrace.map(({ type }) => type)).toEqual(actions);
       expect(resolveCoreV2ExecutableRuntime(caseId).key).toBe('update-transactions');
+      expect(markup).toContain(`data-testid="scenario-${caseId.toLowerCase()}"`);
+      expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(actions.length);
+      expect(markup).toContain('Actual-only case execution is available');
+      expect(markup).not.toContain('data-contract-status="pass"');
+    }
+  });
+
+  it('connects the seven viewport cases to one actual-only runtime and exact focused routes', () => {
+    const cases = [
+      ['VIE-001', ['view-gesture-series']],
+      [
+        'VIE-002',
+        ['set-view', 'settle-view', 'serialize-view', 'remount-and-restore', 'restore-view'],
+      ],
+      ['VIE-003', ['focus-target-matrix', 'focus-contributor-matrix']],
+      [
+        'VIE-004',
+        ['fit-target-matrix', 'fit-targets', 'fit-contributor-matrix', 'resize-after-fit'],
+      ],
+      ['VIE-008', ['viewport-policy-lifecycle']],
+      [
+        'CSM-009',
+        ['load-scene', 'restore-or-fit-view', 'restore-or-fit-view', 'probe-declared-failure'],
+      ],
+      [
+        'CSM-010',
+        [
+          'load-scene',
+          'pan-view',
+          'zoom-view',
+          'fit-view',
+          'await-view-settle',
+          'remount-and-restore-view',
+          'probe-declared-failure',
+        ],
+      ],
+    ] as const;
+
+    for (const [caseId, actions] of cases) {
+      const route = parseCoreV2ContractRoute(
+        `/lab/core-v2?scenario=${caseId}&size=100&seed=319`,
+      );
+      const plan = materializeCoreV2ExecutableCase(caseId, '100', 319);
+      const markup = renderCoreV2ContractLab(route);
+
+      expect(route.presenter.executionStatus).toBe('actual-observable');
+      expect(route.presenter.rootTestId).toBe(`scenario-${caseId.toLowerCase()}`);
+      expect(plan.actionTrace.map(({ type }) => type)).toEqual(actions);
+      expect(resolveCoreV2ExecutableRuntime(caseId).key).toBe('viewport');
       expect(markup).toContain(`data-testid="scenario-${caseId.toLowerCase()}"`);
       expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(actions.length);
       expect(markup).toContain('Actual-only case execution is available');
