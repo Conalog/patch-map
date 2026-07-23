@@ -58,7 +58,16 @@ const input = [{
     { type: 'text', id: 'label', text: '42', placement: 'top', style: { fontSize: 14, fill: '#111827' } },
   ],
 }];
+const hierarchyInput = [
+  {
+    type: 'group', id: 'group-a', attrs: { x: 0, y: 0 }, children: [
+      { type: 'rect', id: 'rect-b', size: { width: 40, height: 30 }, fill: '#ff8800', attrs: { x: 160, y: 40 } },
+    ],
+  },
+  { type: 'group', id: 'group-b', attrs: { x: 240, y: 0 }, children: [] },
+];
 const before = JSON.stringify(input);
+const hierarchyBefore = JSON.stringify(hierarchyInput);
 const parsed = parsePatchMapV010(input);
 const core = await createCoreV2({ target: document.querySelector('#host'), width: 640, height: 360, strategy: 'mesh', preference: 'webgl', autoRender: false });
 const loaded = core.load(input);
@@ -102,11 +111,70 @@ const resolvedBar = engine.resolveTarget({
   ownerId: 'consumer-item',
   id: 'bar',
 });
+engine.loadDataset(hierarchyInput, { datasetRef: 'packed-hierarchy' });
+engine.select(['rect-b']);
+const hierarchyMove = engine.transact({
+  strict: true,
+  actionId: 'packed-structure-1',
+  operations: [{
+    op: 'move',
+    target: { kind: 'element', id: 'rect-b' },
+    parent: { kind: 'element', id: 'group-b' },
+    index: 0,
+  }],
+});
+const hierarchyGroup = engine.transact({
+  strict: true,
+  actionId: 'packed-structure-2',
+  operations: [{
+    op: 'group',
+    targets: [{ kind: 'element', id: 'rect-b' }],
+    value: { type: 'group', id: 'group-c' },
+  }],
+});
+const hierarchyUngroup = engine.transact({
+  strict: true,
+  actionId: 'packed-structure-3',
+  operations: [{
+    op: 'ungroup',
+    target: { kind: 'element', id: 'group-c' },
+    relationPolicy: 'reject',
+  }],
+});
+const hierarchyUnrecorded = engine.transact({
+  strict: true,
+  recordHistory: false,
+  operations: [{
+    op: 'move',
+    target: { kind: 'element', id: 'group-a' },
+    parent: { kind: 'element', id: 'group-b' },
+    index: 1,
+  }],
+});
+const hierarchyCycleRevision = engine.snapshot().revisions.sceneRevision;
+const hierarchyCycle = engine.transact({
+  strict: true,
+  operations: [{
+    op: 'move',
+    target: { kind: 'element', id: 'group-b' },
+    parent: { kind: 'element', id: 'group-a' },
+    index: 0,
+  }],
+});
+await engine.publishFrame(32);
+const hierarchyDataset = engine.exportDataset();
+const hierarchyRect = findHierarchyRecord(hierarchyDataset, 'rect-b');
+const hierarchyRelations = engine.relationProbe();
+const hierarchySnapshot = engine.snapshot();
+const hierarchyHistory = engine.historyState();
+const hierarchyCycleRevisionDelta =
+  hierarchySnapshot.revisions.sceneRevision - hierarchyCycleRevision;
 const interactionOwnership = engine.interactionOwnershipProbe();
 const engineDestroyResult = await engine.destroy();
 const engineAfterDestroy = engine.snapshot();
 window.__PACKAGE_RESULT__ = {
   immutable: before === JSON.stringify(input),
+  hierarchyImmutable: hierarchyBefore === JSON.stringify(hierarchyInput),
   parsedEntities: parsed.identity.counts.entities,
   loadedEntities: loaded.store.entityCount,
   capturePrefix: capture.slice(0, 22),
@@ -122,6 +190,22 @@ window.__PACKAGE_RESULT__ = {
   transactionStatus: transaction.status,
   transactionSceneRevision: transaction.revisions.sceneRevision,
   transactionBarHeight: resolvedBar?.value?.size?.height ?? null,
+  hierarchy: {
+    moveStatus: hierarchyMove.status,
+    groupStatus: hierarchyGroup.status,
+    ungroupStatus: hierarchyUngroup.status,
+    unrecordedStatus: hierarchyUnrecorded.status,
+    cycleStatus: hierarchyCycle.status,
+    cycleCode: hierarchyCycle.transactionDiagnostic?.code ?? hierarchyCycle.diagnostic?.code ?? null,
+    cycleRevisionDelta: hierarchyCycleRevisionDelta,
+    rectParentId: hierarchyRect?.parentId ?? null,
+    rectLocalPosition: hierarchyRect === null
+      ? null
+      : [hierarchyRect.record.attrs.x, hierarchyRect.record.attrs.y],
+    selectionIds: hierarchySnapshot.selectionIds,
+    historyDepth: hierarchyHistory.undoDepth,
+    relationRevisionLag: hierarchyRelations?.revisionLag ?? null,
+  },
   interactionOwnership,
   engineDestroyResult,
   engineAfterDestroy: {
@@ -137,6 +221,16 @@ window.__PACKAGE_RESULT__ = {
     assets: engineAfterDestroy.resources.assets,
   },
 };
+
+function findHierarchyRecord(values, id, parentId = null) {
+  for (const value of values) {
+    if (value.id === id) return { record: value, parentId };
+    if (value.type !== 'group') continue;
+    const nested = findHierarchyRecord(value.children, id, value.id);
+    if (nested !== null) return nested;
+  }
+  return null;
+}
 `);
   await writeFile(path.join(consumer, 'consumer.cjs'), `
 const {
@@ -178,10 +272,25 @@ process.stdout.write(JSON.stringify({
     if (response.status() >= 400) errors.network.push(`${response.url()} HTTP ${response.status()}`);
   });
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
-  await page.waitForFunction(() => window.__PACKAGE_RESULT__ !== undefined, undefined, { timeout: 30_000 });
+  try {
+    await page.waitForFunction(() => window.__PACKAGE_RESULT__ !== undefined, undefined, {
+      timeout: 30_000,
+    });
+  } catch (error) {
+    const browserState = await page.evaluate(() => ({
+      readyState: document.readyState,
+      resultPublished: window.__PACKAGE_RESULT__ !== undefined,
+      bodyText: document.body.textContent?.slice(0, 500) ?? '',
+    }));
+    throw new Error(
+      `packed consumer result timeout: ${error instanceof Error ? error.message : String(error)}; ` +
+      `browserState=${JSON.stringify(browserState)}; errors=${JSON.stringify(errors)}`,
+    );
+  }
   const esm = await page.evaluate(() => window.__PACKAGE_RESULT__);
   const failures = [];
   if (!esm.immutable) failures.push('packed ESM consumer mutated direct input');
+  if (!esm.hierarchyImmutable) failures.push('packed ESM hierarchy transaction mutated direct input');
   if (esm.parsedEntities !== esm.loadedEntities || esm.loadedEntities < 3) failures.push('packed ESM entity counts disagree');
   if (!String(esm.capturePrefix).startsWith('data:image/png')) failures.push('packed ESM capture is not PNG data');
   if (!(esm.captureLength > 100)) failures.push('packed ESM capture is unexpectedly empty');
@@ -191,6 +300,20 @@ process.stdout.write(JSON.stringify({
   if (esm.transactionRevision !== 'core-v2-mutation-transaction/1') failures.push('packed ESM transaction revision export failed');
   if (esm.emptyBulkStatus !== 'unchanged' || esm.emptyBulkSceneRevision !== 1) failures.push('packed ESM empty bulk target-set semantics failed');
   if (esm.transactionStatus !== 'committed' || esm.transactionSceneRevision !== 2 || esm.transactionBarHeight !== 30) failures.push('packed ESM engine transaction failed');
+  if (
+    esm.hierarchy?.moveStatus !== 'committed' ||
+    esm.hierarchy?.groupStatus !== 'committed' ||
+    esm.hierarchy?.ungroupStatus !== 'committed' ||
+    esm.hierarchy?.unrecordedStatus !== 'committed' ||
+    esm.hierarchy?.cycleStatus !== 'rejected' ||
+    esm.hierarchy?.cycleCode !== 'CONFLICT' ||
+    esm.hierarchy?.cycleRevisionDelta !== 0 ||
+    esm.hierarchy?.rectParentId !== 'group-b' ||
+    JSON.stringify(esm.hierarchy?.rectLocalPosition) !== JSON.stringify([-80, 40]) ||
+    JSON.stringify(esm.hierarchy?.selectionIds) !== JSON.stringify(['rect-b']) ||
+    esm.hierarchy?.historyDepth !== 3 ||
+    esm.hierarchy?.relationRevisionLag !== 0
+  ) failures.push('packed ESM hierarchy transaction contract failed');
   if (esm.interactionOwnership?.rootBindingCount !== 6 || esm.interactionOwnership?.entityCallbackCount !== 0) failures.push('packed ESM interaction ownership probe failed');
   if (esm.engineDestroyResult !== true) failures.push('packed ESM raw Engine destroy did not own cleanup');
   if (

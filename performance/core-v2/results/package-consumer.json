@@ -1,14 +1,15 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-21T10:42:07.122Z",
+  "generatedAt": "2026-07-23T05:55:56.538Z",
   "package": "@conalog/patch-map/core-v2",
   "pixi": "8.19.0",
   "esm": {
     "immutable": true,
+    "hierarchyImmutable": true,
     "parsedEntities": 4,
     "loadedEntities": 4,
     "capturePrefix": "data:image/png;base64,",
-    "captureLength": 9450,
+    "captureLength": 9438,
     "backend": "webgl",
     "strategy": "mesh",
     "renderObjects": 4,
@@ -20,6 +21,25 @@
     "transactionStatus": "committed",
     "transactionSceneRevision": 2,
     "transactionBarHeight": 30,
+    "hierarchy": {
+      "moveStatus": "committed",
+      "groupStatus": "committed",
+      "ungroupStatus": "committed",
+      "unrecordedStatus": "committed",
+      "cycleStatus": "rejected",
+      "cycleCode": "CONFLICT",
+      "cycleRevisionDelta": 0,
+      "rectParentId": "group-b",
+      "rectLocalPosition": [
+        -80,
+        40
+      ],
+      "selectionIds": [
+        "rect-b"
+      ],
+      "historyDepth": 3,
+      "relationRevisionLag": 0
+    },
     "interactionOwnership": {
       "rootBindingCount": 6,
       "entityCallbackCount": 0
