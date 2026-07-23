@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the nineteen selected render routes and their 284 canonical assertions', () => {
+  it('pins exactly the twenty-seven selected render routes and their 379 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -54,22 +54,31 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'REN-009', expectedAssertions: 13 },
       { id: 'REN-010', expectedAssertions: 11 },
       { id: 'REN-011', expectedAssertions: 20 },
+      { id: 'UPD-001', expectedAssertions: 8 },
+      { id: 'UPD-002', expectedAssertions: 11 },
+      { id: 'UPD-003', expectedAssertions: 13 },
+      { id: 'UPD-004', expectedAssertions: 12 },
       { id: 'UPD-005', expectedAssertions: 10 },
+      { id: 'UPD-006', expectedAssertions: 11 },
+      { id: 'UPD-007', expectedAssertions: 15 },
+      { id: 'UPD-008', expectedAssertions: 13 },
+      { id: 'UPD-010', expectedAssertions: 12 },
       { id: 'ANI-001', expectedAssertions: 14 },
       { id: 'ANI-002', expectedAssertions: 11 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(284);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 284;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 280;');
-    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 4;');
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(379);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 379;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 374;');
+    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 5;');
+    expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 7;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 280 pass and 4 immutable conflicts'",
+      "'canonical comparison must be exactly 374 pass and 5 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 280 pass and 4 immutable conflicts'",
+      "'repeat comparison must be exactly 374 pass and 5 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 280 pass and 4 immutable conflicts'",
+      "'fresh comparison must be exactly 374 pass and 5 observed immutable conflicts'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -77,7 +86,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("new URL(page.url()).pathname + new URL(page.url()).search === route");
   });
 
-  it('allows only the three REN-005 conflicts and the one ANI-002 clock-code conflict', () => {
+  it('separates observed conflicts from the latent UPD-007 revision-domain conflicts', () => {
     const conflictBlock = source.match(
       /const REN_005_IMMUTABLE_FAILURES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body ?? '';
@@ -121,10 +130,54 @@ describe('Core v2 render browser checkpoint script', () => {
       code: 'VALUE_MISMATCH',
       failurePath: '/outcome/backwardTime/code',
     }]);
+    const updateConflictBlock = source.match(
+      /const UPD_003_IMMUTABLE_FAILURES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
+    )?.groups?.body ?? '';
+    const updateFailures = [...updateConflictBlock.matchAll(
+      /path: '(?<path>\/[^']+)',\s*code: '(?<code>[^']+)',\s*failurePath: '(?<failurePath>\/[^']+)'/gu,
+    )].map((match) => ({
+      path: match.groups?.path,
+      code: match.groups?.code,
+      failurePath: match.groups?.failurePath,
+    }));
+    expect(updateFailures).toEqual([{
+      path: '/outcome/invalidCrossScope/code',
+      code: 'VALUE_MISMATCH',
+      failurePath: '/outcome/invalidCrossScope/code',
+    }]);
+    const bulkConflictBlock = source.match(
+      /const UPD_007_LATENT_IMMUTABLE_CONFLICTS = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
+    )?.groups?.body ?? '';
+    const bulkFailures = [...bulkConflictBlock.matchAll(
+      /path: '(?<path>\/[^']+)',\s*code: '(?<code>[^']+)',\s*failurePath: '(?<failurePath>\/[^']+)'/gu,
+    )].map((match) => ({
+      path: match.groups?.path,
+      code: match.groups?.code,
+      failurePath: match.groups?.failurePath,
+    }));
+    expect(bulkFailures).toEqual([
+      {
+        path: '/outcome/valid/queryRevision',
+        code: 'VALUE_MISMATCH',
+        failurePath: '/outcome/valid/queryRevision',
+      },
+      {
+        path: '/outcome/valid/eventRevision',
+        code: 'VALUE_MISMATCH',
+        failurePath: '/outcome/valid/eventRevision',
+      },
+    ]);
     expect(source).toContain('comparison.passed === caseSpec.expectedAssertions - expectedFailures.length');
     expect(source).toContain('comparison.failed === expectedFailures.length');
     expect(source).toContain('sameJson(comparisonFailures(comparison), expectedFailures)');
-    expect(source).toContain("'render checkpoint immutable conflict inventory must remain 4'");
+    expect(source).toContain('latentConflicts: UPD_007_LATENT_IMMUTABLE_CONFLICTS');
+    expect(source).toContain("'render checkpoint observed immutable conflict inventory must remain 5'");
+    expect(source).toContain("'render checkpoint declared immutable conflict inventory must remain 7'");
+    expect(source).toContain('latentCases: selectedRenderCases');
+    expect(source).toContain(".filter((record) => (record.latentConflicts?.length ?? 0) > 0)");
+    expect(source).toContain("import { inspectCoreV2UpdateConflictActuals } from './core-v2-contract/update-conflict-actuals.mjs';");
+    expect(source).toContain('assertImmutableConflictActuals(caseSpec.id, run.actualObservation, runLabel)');
+    expect(source).toContain('inspectCoreV2UpdateConflictActuals(caseId, actualObservation)');
   });
 
   it('keeps canonical expected data outside the public Lab bridge executor', () => {
@@ -149,7 +202,9 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("await executeBrowserRun(page, 'repeatCase')");
     expect(source).toContain('await bridge.destroyCase()');
     expect(source).toContain("process.argv.slice(2)");
-    expect(source).toContain("const allowed = new Set(['--headed']);");
+    expect(source).toContain("if (argument === '--headed')");
+    expect(source).toContain("if (argument.startsWith('--case='))");
+    expect(source).toContain("return { headed, caseId }");
     expect(source).toContain('chromium.launch({ headless: !headed })');
     expect(source).toContain("process.stdout.write(`${JSON.stringify(report, null, 2)}\\n`)");
     expect(source).not.toMatch(
@@ -158,12 +213,30 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).not.toMatch(/writeFile|mkdir|results\//u);
   });
 
+  it('bounds each route and closes browser and server ownership on completion or interruption', () => {
+    expect(source).toContain('const CASE_TIMEOUT_MS = 180_000;');
+    expect(source).toContain('const CHECKPOINT_TIMEOUT_MS = 30 * 60_000;');
+    expect(source).toContain('process.once(\'SIGINT\', onInterrupt)');
+    expect(source).toContain('process.once(\'SIGTERM\', onTerminate)');
+    expect(source).toContain("requestShutdown('checkpoint-timeout')");
+    expect(source).toContain('await withTimeout(');
+    expect(source).toContain('`${caseSpec.id} first/repeat/fresh execution`');
+    expect(source).toContain('await closeOwnedResources()');
+    expect(source).toContain('await ownedBrowser.close().catch(() => undefined)');
+    expect(source).toContain('await ownedServer.close().catch(() => undefined)');
+    expect(source).toContain('[core-v2-render-browser] ${caseSpec.id} start');
+    expect(source).toContain('[core-v2-render-browser] ${caseSpec.id} complete');
+    expect(source).toContain("traceCasePhase(caseSpec.id, 'fresh session destroyed')");
+  });
+
   it('drives REN-005 through the real Run and Repeat controls and returns focused DOM evidence', () => {
     expect(source).toContain("await executeBrowserUiRun(page, caseSpec.id, 'runCase', 'load-dataset')");
     expect(source).toContain("await executeBrowserUiRun(page, caseSpec.id, 'repeatCase', 'repeat-action')");
     expect(source).toContain('button.click()');
     expect(source).toContain('waitForUiRunCompletion(bridge.state().rootTestId, operationName)');
     expect(source).toContain("root.addEventListener('core-v2-contract-run-complete', onComplete)");
+    expect(source).toContain("typeof execution?.error?.message === 'string'");
+    expect(source).toContain('completion did not include a run result${failureMessage}');
     const uiInvocationBranch = source.match(
       /if \(triggerTestId !== null\) \{(?<body>[\s\S]*?)\n\s*\} else \{/u,
     )?.groups?.body ?? '';
@@ -189,14 +262,25 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('focusedUi: DOM_CONTROL_CASES.has(caseSpec.id)');
   });
 
-  it('drives all six presentation-tranche routes through actual Run, Repeat, and Destroy controls', () => {
+  it('drives presentation and update tranches through actual Run, Repeat, and Destroy controls', () => {
     expect(source).toContain("const PRESENTATION_TRANCHE_CASES = new Set([");
     for (const caseId of ['LAY-002', 'LAY-003', 'UPD-005', 'REN-009', 'ANI-001', 'ANI-002']) {
       expect(source).toContain(`'${caseId}',`);
     }
-    expect(source).toContain(
-      'const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...PRESENTATION_TRANCHE_CASES]);',
-    );
+    expect(source).toContain('const UPDATE_TRANSACTION_TRANCHE_CASES = new Set([');
+    for (const caseId of [
+      'UPD-001',
+      'UPD-002',
+      'UPD-003',
+      'UPD-004',
+      'UPD-006',
+      'UPD-007',
+      'UPD-008',
+      'UPD-010',
+    ]) {
+      expect(source).toContain(`'${caseId}',`);
+    }
+    expect(source).toContain('const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);');
     expect(source).toContain('const first = DOM_CONTROL_CASES.has(caseSpec.id)');
     expect(source).toContain('const repeat = DOM_CONTROL_CASES.has(caseSpec.id)');
     expect(source).toContain('const run = DOM_CONTROL_CASES.has(caseSpec.id)');
@@ -212,10 +296,19 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("ui.controls?.destroyDisabled === false");
   });
 
-  it('captures WebGL2 draw and readPixels facts for paint order and visible bar projection', () => {
-    expect(source).toContain(
-      "const GPU_EVIDENCE_CASES = new Set(['LAY-003', 'REN-009', 'ANI-001', 'ANI-002']);",
-    );
+  it('captures WebGL2 draw evidence for paint, animation, and update publication', () => {
+    const gpuCaseBlock = source.match(
+      /const GPU_EVIDENCE_CASES = new Set\(\[(?<body>[\s\S]*?)\]\);/u,
+    )?.groups?.body ?? '';
+    expect([...gpuCaseBlock.matchAll(/'(?<id>[A-Z]{3}-\d{3})'/gu)]
+      .map((match) => match.groups?.id)).toEqual([
+      'LAY-003',
+      'REN-009',
+      'ANI-001',
+      'ANI-002',
+      'UPD-007',
+      'UPD-008',
+    ]);
     expect(source).toContain('await installWebGlCanvasProbe(page, caseSpec.id)');
     expect(source).toContain('await page.addInitScript(({ probeName, caseIdentity }) => {');
     expect(source).toContain('const originalGetContext = HTMLCanvasElement.prototype.getContext;');
@@ -228,6 +321,16 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('visible 10 -> 36.25 -> 40 bar projection');
     expect(source).toContain('visible retargeted 10 -> 36.25 -> 22.03125 -> 20 projection');
     expect(source).toContain('both frame-cadence schedules reach the same visible projection');
+    expect(source).toContain('assertUpd007GpuPublication(gpu, prefix)');
+    expect(source).toContain('assertUpd008GpuPublication(gpu, prefix)');
+    expect(source).toContain('function assertUpd007GpuPublication(gpu, prefix)');
+    expect(source).toContain('function assertUpd008GpuPublication(gpu, prefix)');
+    expect(source).toContain('publishedSequence !== undefined');
+    expect(source).toContain('postBulkFrame?.draws.length > 0');
+    expect(source).toContain('updateFrames.every((frame) => frame.draws.length > 0)');
+    expect(source).toContain('initial and post-bulk publish both issue WebGL2 draws');
+    expect(source).toContain('initial/reconcile/hide/show each issue WebGL2 draws');
+    expect(source).toContain("context.actualContext === 'webgl2'");
 
     const probeSource = source.slice(
       source.indexOf('async function installWebGlCanvasProbe'),

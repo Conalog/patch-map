@@ -1,0 +1,1107 @@
+export const UPDATE_TRANSACTIONS_FOLD_REVISION =
+  'core-v2-update-transactions-fold/1';
+
+const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
+const EXECUTION_REVISION = 'core-v2-contract-case-execution/1';
+const DELTA_REVISION = 'core-v2-semantic-observation-delta/1';
+const CASE_ACTIONS = Object.freeze({
+  'UPD-001': Object.freeze([
+    'loadDataset',
+    'retainTarget',
+    'replaceDataset',
+    'resolveTarget',
+    'patch',
+  ]),
+  'UPD-002': Object.freeze(['freezePatch', 'merge', 'merge']),
+  'UPD-003': Object.freeze(['replace', 'replace', 'replace']),
+  'UPD-004': Object.freeze(['patch', 'relativePatch', 'resizeAroundOrigin']),
+  'UPD-006': Object.freeze(['bulkPatch', 'bulkPatch', 'bulkPatch', 'bulkPatch']),
+  'UPD-007': Object.freeze([
+    'generateSyntheticScene',
+    'bulkOverlay',
+    'publishFrame',
+    'bulkOverlay',
+  ]),
+  'UPD-008': Object.freeze([
+    'capture-observation',
+    'reconcileComponents',
+    'setComponentVisibility',
+    'setComponentVisibility',
+  ]),
+  'UPD-010': Object.freeze([
+    'loadDataset',
+    'patch',
+    'setVisibility',
+    'setVisibility',
+    'remove',
+  ]),
+});
+const DOMAIN_NAMES = Object.freeze([
+  'case',
+  'provenance',
+  'environment',
+  'revisions',
+  'scene',
+  'geometry',
+  'text',
+  'paint',
+  'interaction',
+  'events',
+  'history',
+  'accessibility',
+  'outcome',
+  'resources',
+]);
+
+/**
+ * Fold detached public product captures for the eight staged-update cases.
+ * This module is intentionally import-free and has no access to comparison
+ * evidence. Every asserted fact is derived from execution output, a declared
+ * capture, or an explicitly exposed fixture-reference namespace.
+ */
+export function foldUpdateTransactionExecution(optionsValue) {
+  const options = validateOptions(optionsValue);
+  const plan = validateCasePlan(options.casePlan);
+  const execution = validateExecution(options.execution, plan);
+  const captures = projectCaptures(plan, execution);
+  const finalProduct = productAt(execution, plan.actionTypes.length - 1);
+  validateTerminalCorrelation(execution, finalProduct);
+
+  const actual = baseActual(options, plan, execution, finalProduct);
+  switch (plan.id) {
+    case 'UPD-001':
+      projectStableTarget(actual, execution);
+      break;
+    case 'UPD-002':
+      projectPartialMerge(actual, execution, plan);
+      break;
+    case 'UPD-003':
+      projectReplacement(actual, execution);
+      break;
+    case 'UPD-004':
+      projectGeometryOrigin(actual, execution);
+      break;
+    case 'UPD-006':
+      projectMissingTargets(actual, execution);
+      break;
+    case 'UPD-007':
+      projectAtomicBulk(actual, execution);
+      break;
+    case 'UPD-008':
+      projectComponents(actual, execution);
+      break;
+    case 'UPD-010':
+      projectRelations(actual, execution);
+      break;
+    default:
+      throw new Error(`Core v2 update fold invalid: unsupported case ${String(plan.id)}`);
+  }
+
+  assert(
+    DOMAIN_NAMES.every((domain) => isPlainObject(actual[domain])),
+    'actual must contain all fourteen object domains',
+  );
+  validateJsonValue(actual, 'actual', new WeakSet());
+  return deepFreeze({
+    actual,
+    fixtures: cloneRecord(plan.fixture.setup.params, `${plan.id} fixture params`),
+    captures,
+  });
+}
+
+function baseActual(options, plan, execution, product) {
+  const snapshot = product.snapshot;
+  const semantic = product.semantic;
+  const revisions = recordValue(snapshot.revisions, 'terminal product revisions');
+  const semanticScene = recordValue(semantic.scene, 'terminal semantic scene');
+  const counts = recordValue(semanticScene.counts, 'terminal semantic counts');
+  const semanticGeometry = recordValue(semantic.geometry, 'terminal semantic geometry');
+  const semanticInteraction = recordValue(
+    semantic.interaction,
+    'terminal semantic interaction',
+  );
+  const rendering = recordValue(snapshot.resources, 'terminal snapshot resources').rendering;
+  const sceneRevision = nonNegativeInteger(revisions.sceneRevision, 'terminal scene revision');
+
+  return {
+    $schema: OBSERVATION_REVISION,
+    case: {
+      id: plan.id,
+      caseType: plan.caseType,
+      rootTestId: plan.rootTestId,
+      fixtureSha256: plan.fixtureSha256,
+      executionStatus: execution.status,
+    },
+    provenance: cloneRecord(options.provenance, 'provenance'),
+    environment: cloneRecord(options.environment, 'environment'),
+    revisions: {
+      _availability: { lifecycle: 'public-engine-snapshot', frame: 'public-engine-snapshot' },
+      lifecycle: {
+        generation: nonNegativeInteger(
+          revisions.lifecycleGeneration,
+          'terminal lifecycle generation',
+        ),
+      },
+      scene: { revision: sceneRevision },
+      frame: {
+        revision: nonNegativeInteger(snapshot.frameRevision, 'terminal frame revision'),
+      },
+    },
+    scene: {
+      _availability: {
+        authority: 'public-exported-dataset',
+        hierarchy: 'public-semantic-probe',
+      },
+      revision: sceneRevision,
+      rootIds: stringArray(snapshot.rootIds, 'terminal root IDs'),
+      hierarchy: {
+        nodeCount:
+          nonNegativeInteger(counts.elements, 'terminal element count') +
+          nonNegativeInteger(counts.components, 'terminal component count'),
+      },
+    },
+    geometry: {
+      _availability: { semanticProbe: 'available', rendererProbe: 'available' },
+      finiteValueCount: nonNegativeInteger(
+        semanticGeometry.finiteValueCount,
+        'terminal finite geometry count',
+      ),
+    },
+    text: notExercised('update-transaction-fold-does-not-assert-text'),
+    paint: {
+      _availability: { aggregateRenderer: 'public-engine-snapshot' },
+      commandCount: nullableNonNegativeInteger(
+        recordValue(rendering, 'terminal rendering resources').commandCount,
+        'terminal render command count',
+      ),
+    },
+    interaction: {
+      _availability: {
+        semanticProbe: 'available',
+        ownershipProbe: product.interactionOwnership === null ? 'unavailable' : 'available',
+      },
+      activeGestureCount: nonNegativeInteger(
+        semanticInteraction.activeGestureCount ?? 0,
+        'terminal active gesture count',
+      ),
+      selectionIds: stringArray(semanticInteraction.selectionIds, 'terminal selection IDs'),
+    },
+    events: {
+      _availability: { eventJournal: 'available', actionEvents: 'available' },
+      totalCount: execution.eventJournal.length + actionEventCount(execution),
+      journal: clone(execution.eventJournal),
+    },
+    history: {
+      _availability: { publicHistory: 'available' },
+      depth: nonNegativeInteger(snapshot.historyDepth, 'terminal history depth'),
+      state: clone(product.history),
+    },
+    accessibility: notExercised('update-transaction-fold-does-not-assert-accessibility'),
+    outcome: {
+      _availability: { actionResults: 'available', inputOwnership: 'fingerprint-observed' },
+      recorded: true,
+      inputUnchanged: execution.actionResults.every((_, index) =>
+        inputEvidenceAt(execution, index).unchanged),
+      actionResults: execution.actionResults.map(({ index, type, status }) => ({
+        index,
+        type,
+        status,
+      })),
+    },
+    resources: {
+      _availability: { cleanup: 'available', publicRuntimeProbe: 'available' },
+      cleanup: clone(execution.cleanup),
+      terminal: clone(product.resources),
+    },
+  };
+}
+
+function projectStableTarget(actual, execution) {
+  const resolved = actionActualAt(execution, 3, 'resolveTarget');
+  const stale = actionActualAt(execution, 4, 'patch');
+  const currentTarget = recordValue(resolved.currentTarget, 'UPD-001 current target');
+  const target = recordValue(stale.result, 'UPD-001 stale result');
+  const diagnostic = mutationDiagnostic(stale, target, 'UPD-001 stale patch');
+
+  actual.scene.currentTarget = {
+    ownerId: stringValue(currentTarget.ownerId, 'UPD-001 current owner'),
+    id: stringValue(currentTarget.id, 'UPD-001 current ID'),
+    lifecycleGeneration: nonNegativeInteger(
+      currentTarget.lifecycleGeneration,
+      'UPD-001 lifecycle generation',
+    ),
+    size: cloneRecord(currentTarget.size, 'UPD-001 current size'),
+  };
+  actual.outcome.stalePatch = {
+    code: stringValue(diagnostic.code, 'UPD-001 stale code'),
+  };
+  assert(target.status === 'rejected', 'UPD-001 stale patch must be rejected');
+  assert(
+    sameJson(productAt(execution, 3).dataset, productAt(execution, 4).dataset),
+    'UPD-001 stale patch authority continuity',
+  );
+}
+
+function projectPartialMerge(actual, execution, plan) {
+  const frozen = actionActualAt(execution, 0, 'freezePatch');
+  const merged = actionActualAt(execution, 1, 'merge');
+  const empty = actionActualAt(execution, 2, 'merge');
+  const target = recordValue(plan.fixture.setup.params.target, 'UPD-002 target');
+  const ownerId = stringValue(target.ownerId, 'UPD-002 owner ID');
+  const targetId = stringValue(target.id, 'UPD-002 target ID');
+  const finalComponent = recordValue(empty.record, 'UPD-002 target record');
+  const emptyEvents = recordValue(empty.events, 'UPD-002 empty events');
+  const frozenPatch = cloneRecord(frozen.patch, 'UPD-002 frozen patch');
+
+  assert(frozen.frozen === true, 'UPD-002 patch must be frozen');
+  assert(
+    sameJson(frozenPatch, plan.fixture.setup.params.patch),
+    'UPD-002 frozen patch fixture correlation',
+  );
+  assert(
+    recordValue(merged.result, 'UPD-002 merge result').status === 'committed',
+    'UPD-002 merge status',
+  );
+  assert(
+    recordValue(empty.result, 'UPD-002 empty result').status === 'unchanged',
+    'UPD-002 empty merge status',
+  );
+
+  actual.scene.target = {
+    size: cloneRecord(finalComponent.size, 'UPD-002 target size'),
+    source: clone(finalComponent.source),
+  };
+  actual.scene.siblings = cloneArray(empty.siblings, 'UPD-002 final siblings');
+  actual.scene.emptyPatch = {
+    revisionDelta: nonNegativeInteger(empty.revisionDelta, 'UPD-002 empty revision delta'),
+    events: {
+      count: eventCount(emptyEvents, 'UPD-002 empty events'),
+    },
+  };
+  actual.outcome.input = { patch: frozenPatch };
+}
+
+function projectReplacement(actual, execution) {
+  const afterRectAction = actionActualAt(execution, 0, 'replace');
+  const afterKindAction = actionActualAt(execution, 1, 'replace');
+  const invalidAction = actionActualAt(execution, 2, 'replace');
+  const afterRect = recordValue(afterRectAction.record, 'UPD-003 rectangle record');
+  const afterKind = recordValue(afterKindAction.record, 'UPD-003 kind record');
+  const invalidResult = recordValue(invalidAction.result, 'UPD-003 invalid result');
+  const diagnostic = mutationDiagnostic(invalidAction, invalidResult, 'UPD-003 invalid replace');
+  const queried = recordValue(invalidAction.record, 'UPD-003 queried record');
+
+  actual.scene.afterRect = {
+    id: stringValue(afterRect.id, 'UPD-003 rectangle ID'),
+    size: sizeTuple(afterRect.size, 'UPD-003 rectangle size'),
+    attrs: afterRect.attrs === undefined ? null : clone(afterRect.attrs),
+  };
+  actual.scene.afterKind = {
+    type: stringValue(afterKind.type, 'UPD-003 replacement type'),
+    id: stringValue(afterKind.id, 'UPD-003 replacement ID'),
+  };
+  actual.scene.query = {
+    [queried.id]: { type: stringValue(queried.type, 'UPD-003 queried type') },
+  };
+  actual.outcome.invalidCrossScope = {
+    // Preserve the public Engine diagnostic verbatim. The approved immutable
+    // comparison currently expects a different label and must remain a visible
+    // conflict rather than being aliased here.
+    code: stringValue(diagnostic.code, 'UPD-003 invalid code'),
+    publicationCount: nonNegativeInteger(
+      invalidAction.publicationCount,
+      'UPD-003 invalid publication count',
+    ),
+  };
+  assert(invalidResult.status === 'rejected', 'UPD-003 invalid replace must reject');
+  assert(
+    sameJson(productAt(execution, 1).dataset, productAt(execution, 2).dataset),
+    'UPD-003 invalid replace authority continuity',
+  );
+}
+
+function projectGeometryOrigin(actual, execution) {
+  const absolute = actionActualAt(execution, 0, 'patch');
+  const relative = actionActualAt(execution, 1, 'relativePatch');
+  const resized = actionActualAt(execution, 2, 'resizeAroundOrigin');
+  const absoluteRecord = recordValue(absolute.record, 'UPD-004 absolute record');
+  const relativeRecord = recordValue(relative.record, 'UPD-004 relative record');
+  const resizedRecord = recordValue(resized.record, 'UPD-004 resized record');
+  const beforeEntity = geometryEntity(
+    productRecord(resized.before, 'UPD-004 resize before'),
+    stringValue(resized.targetId, 'UPD-004 target ID'),
+  );
+  const afterProduct = productAt(execution, 2);
+  const afterEntity = geometryEntity(afterProduct, resized.targetId);
+  const afterGeometry = recordValue(afterProduct.geometry, 'UPD-004 after geometry');
+  const selectionOverlay = recordValue(
+    afterGeometry.selectionOverlay,
+    'UPD-004 selection overlay',
+  );
+  const hit = recordValue(resized.hit, 'UPD-004 center hit');
+
+  actual.scene.afterAbsolute = {
+    position: positionTuple(absoluteRecord, 'UPD-004 absolute position'),
+  };
+  actual.scene.afterRelative = {
+    position: positionTuple(relativeRecord, 'UPD-004 relative position'),
+    angle: finiteNumber(
+      recordValue(relativeRecord.attrs, 'UPD-004 relative attrs').angle,
+      'UPD-004 relative angle',
+    ),
+  };
+  actual.scene.afterResize = {
+    size: sizeTuple(resizedRecord.size, 'UPD-004 resized size'),
+  };
+  actual.scene.relations = {
+    staleSegments: staleRelationCount(afterProduct.relations),
+  };
+  actual.geometry.centerBefore = pointValue(
+    beforeEntity.visibleCenter,
+    'UPD-004 center before',
+  );
+  actual.geometry.centerAfter = pointValue(
+    afterEntity.visibleCenter,
+    'UPD-004 center after',
+  );
+  actual.interaction.selection = {
+    overlayBounds: boundsValue(
+      selectionOverlay.screenBounds,
+      'UPD-004 selection overlay bounds',
+    ),
+  };
+  actual.interaction.hitTest = {
+    center: { id: nullableString(hit.id, 'UPD-004 hit target ID') },
+  };
+  assert(
+    sameJson(actual.geometry.centerBefore, pointValue(resized.centerBefore, 'UPD-004 observed center before')),
+    'UPD-004 center-before product correlation',
+  );
+  assert(
+    sameJson(actual.geometry.centerAfter, pointValue(resized.centerAfter, 'UPD-004 observed center after')),
+    'UPD-004 center-after product correlation',
+  );
+  assert(
+    sameJson(afterEntity.worldBounds, resized.worldBounds),
+    'UPD-004 world-bounds product correlation',
+  );
+}
+
+function projectMissingTargets(actual, execution) {
+  const permissiveMissing = actionActualAt(execution, 0, 'bulkPatch');
+  const permissiveMixed = actionActualAt(execution, 1, 'bulkPatch');
+  const empty = actionActualAt(execution, 2, 'bulkPatch');
+  const strictMixed = actionActualAt(execution, 3, 'bulkPatch');
+  const permissiveMissingResult = recordValue(
+    permissiveMissing.result,
+    'UPD-006 permissive missing result',
+  );
+  const permissiveMixedResult = recordValue(
+    permissiveMixed.result,
+    'UPD-006 permissive mixed result',
+  );
+  const emptyResult = recordValue(empty.result, 'UPD-006 empty result');
+  const strictResult = recordValue(strictMixed.result, 'UPD-006 strict result');
+  const strictDiagnostic = mutationDiagnostic(
+    strictMixed,
+    strictResult,
+    'UPD-006 strict result',
+  );
+  const targetId = stringArray(strictMixed.targets, 'UPD-006 strict targets')[0];
+  assert(targetId !== undefined, 'UPD-006 strict target');
+  const records = recordValue(strictMixed.records, 'UPD-006 strict records');
+  const finalTarget = recordValue(records[targetId], `UPD-006 final record ${targetId}`);
+
+  actual.scene.permissiveMissing = targetSetResult(permissiveMissingResult, 'UPD-006 missing');
+  actual.scene.permissiveMixed = targetSetResult(permissiveMixedResult, 'UPD-006 mixed');
+  actual.outcome.empty = {
+    applied: mutationTargetIds(emptyResult.applied, 'UPD-006 empty applied'),
+    revisionDelta: nonNegativeInteger(empty.revisionDelta, 'UPD-006 empty revision delta'),
+  };
+  actual.scene.strictMixed = {
+    code: stringValue(strictDiagnostic.code, 'UPD-006 strict code'),
+    [targetId]: {
+      x: finiteNumber(
+        recordValue(finalTarget.attrs, 'UPD-006 final attrs').x,
+        'UPD-006 final x',
+      ),
+    },
+  };
+  assert(strictResult.status === 'rejected', 'UPD-006 strict mixed must reject');
+  assert(
+    sameJson(productRecord(strictMixed.before, 'UPD-006 strict before').dataset, productAt(execution, 3).dataset),
+    'UPD-006 strict authority continuity',
+  );
+}
+
+function projectAtomicBulk(actual, execution) {
+  const valid = actionActualAt(execution, 1, 'bulkOverlay');
+  const frame = actionActualAt(execution, 2, 'publishFrame');
+  const invalid = actionActualAt(execution, 3, 'bulkOverlay');
+  const validResult = recordValue(valid.result, 'UPD-007 valid bulk result');
+  const invalidResult = recordValue(invalid.result, 'UPD-007 invalid bulk result');
+  const invalidDiagnostic = mutationDiagnostic(invalid, invalidResult, 'UPD-007 invalid bulk');
+  const validProduct = productAt(execution, 1);
+  const frameProduct = productAt(execution, 2);
+  const finalProduct = productAt(execution, 3);
+  const validSnapshot = recordValue(validProduct.snapshot, 'UPD-007 valid snapshot');
+  const validRevisions = recordValue(validSnapshot.revisions, 'UPD-007 valid revisions');
+  const frameSnapshot = recordValue(frameProduct.snapshot, 'UPD-007 frame snapshot');
+  const frameRevisions = recordValue(frameSnapshot.revisions, 'UPD-007 frame revisions');
+  const publishedTuple = recordValue(
+    frameSnapshot.publishedTuple,
+    'UPD-007 published tuple',
+  );
+  const frameResult = recordValue(frame.result, 'UPD-007 frame result');
+  const validEvents = recordValue(valid.events, 'UPD-007 valid events');
+  assert(Array.isArray(validEvents.change), 'UPD-007 valid change events');
+  assert(validEvents.change.length === 1, 'UPD-007 one atomic change event');
+  const changeEvent = recordValue(validEvents.change[0], 'UPD-007 change event');
+  const changeRevisions = recordValue(
+    changeEvent.revisions,
+    'UPD-007 change event revisions',
+  );
+  const querySceneRevision = nonNegativeInteger(
+    valid.queryRevision,
+    'UPD-007 query scene revision',
+  );
+  const eventSceneRevision = nonNegativeInteger(
+    valid.eventRevision,
+    'UPD-007 event scene revision',
+  );
+  const publishedSceneRevision = nonNegativeInteger(
+    publishedTuple.scene,
+    'UPD-007 published scene revision',
+  );
+
+  actual.outcome.valid = {
+    revisionDelta: nonNegativeInteger(valid.revisionDelta, 'UPD-007 valid revision delta'),
+    intermediatePublicationCount: nonNegativeInteger(
+      valid.intermediatePublicationCount,
+      'UPD-007 intermediate publication count',
+    ),
+    queryRevision: querySceneRevision,
+    eventRevision: eventSceneRevision,
+    historyUnits: nonNegativeInteger(
+      recordValue(validResult.history, 'UPD-007 valid history').depthDelta,
+      'UPD-007 valid history units',
+    ),
+  };
+  actual.outcome.invalid = {
+    code: stringValue(invalidDiagnostic.code, 'UPD-007 invalid code'),
+    revisionDelta: nonNegativeInteger(invalid.revisionDelta, 'UPD-007 invalid revision delta'),
+    scene: nullableString(
+      recordValue(finalProduct.snapshot, 'UPD-007 final snapshot').semanticHash,
+      'UPD-007 invalid scene token',
+    ),
+  };
+  assert(validResult.status === 'committed', 'UPD-007 valid bulk must commit');
+  assert(invalidResult.status === 'rejected', 'UPD-007 invalid bulk must reject');
+  assert(
+    querySceneRevision === nonNegativeInteger(
+      validRevisions.sceneRevision,
+      'UPD-007 post-transaction scene revision',
+    ),
+    'UPD-007 query/product scene revision correlation',
+  );
+  assert(
+    eventSceneRevision === querySceneRevision,
+    'UPD-007 event/query scene revision correlation',
+  );
+  assert(
+    eventSceneRevision === nonNegativeInteger(
+      changeRevisions.sceneRevision,
+      'UPD-007 change event scene revision',
+    ),
+    'UPD-007 event journal scene revision correlation',
+  );
+  assert(
+    nonNegativeInteger(frame.queryRevision, 'UPD-007 frame query scene revision') ===
+      querySceneRevision,
+    'UPD-007 post-publish query scene revision correlation',
+  );
+  assert(
+    nonNegativeInteger(frame.eventRevision, 'UPD-007 frame event scene revision') ===
+      eventSceneRevision,
+    'UPD-007 post-publish event scene revision correlation',
+  );
+  assert(
+    nonNegativeInteger(frameRevisions.sceneRevision, 'UPD-007 frame scene revision') ===
+      querySceneRevision &&
+      publishedSceneRevision === querySceneRevision,
+    'UPD-007 published scene revision correlation',
+  );
+  assert(
+    nonNegativeInteger(frameResult.frameRevision, 'UPD-007 published frame revision') ===
+      nonNegativeInteger(frameSnapshot.frameRevision, 'UPD-007 frame counter'),
+    'UPD-007 frame counter correlation',
+  );
+  assert(
+    sameJson(frameProduct.dataset, finalProduct.dataset),
+    'UPD-007 invalid authority continuity',
+  );
+  assert(
+    sameJson(productRecord(invalid.before, 'UPD-007 invalid before').dataset, finalProduct.dataset),
+    'UPD-007 invalid before/after continuity',
+  );
+  assert(
+    finiteNumber(frame.timeMs, 'UPD-007 frame time') >= 0,
+    'UPD-007 non-negative frame time',
+  );
+}
+
+function projectComponents(actual, execution) {
+  const reconciled = actionActualAt(execution, 1, 'reconcileComponents');
+  const hidden = actionActualAt(execution, 2, 'setComponentVisibility');
+  const shown = actionActualAt(execution, 3, 'setComponentVisibility');
+  const components = recordValue(reconciled.components, 'UPD-008 components');
+  const removed = recordValue(reconciled.removed, 'UPD-008 removed');
+  const removedIcon = recordValue(removed.icon, 'UPD-008 removed icon');
+  const hiddenVisual = recordValue(hidden.componentVisual, 'UPD-008 hidden visual');
+  const shownTarget = recordValue(shown.currentTarget, 'UPD-008 shown target');
+  const order = stringArray(components.order, 'UPD-008 component order');
+  stringValue(reconciled.ownerId, 'UPD-008 owner ID');
+  const shownComponents = recordValue(shown.components, 'UPD-008 shown components');
+  const finalIds = stringArray(shownComponents.order, 'UPD-008 shown component order');
+
+  assert(sameJson(order, finalIds), 'UPD-008 component order/product correlation');
+  actual.scene.components = {
+    order,
+    icon: {
+      logicalCount: finalIds.filter((id) => id === 'icon').length,
+      resources: nonNegativeInteger(
+        recordValue(removedIcon.resources, 'UPD-008 icon resources').retainedDelta,
+        'UPD-008 icon retained delta',
+      ),
+    },
+    'hidden-label': {
+      logicalCount: finalIds.filter((id) => id === 'hidden-label').length,
+    },
+  };
+  actual.scene.hidden = {
+    bar: {
+      logicalCount: nonNegativeInteger(
+        hiddenVisual.logicalCount,
+        'UPD-008 hidden logical count',
+      ),
+      renderObjectCount: nonNegativeInteger(
+        hiddenVisual.renderObjectCount,
+        'UPD-008 hidden render count',
+      ),
+    },
+  };
+  actual.scene.shown = {
+    bar: { id: stringValue(shownTarget.id, 'UPD-008 shown bar ID') },
+  };
+  actual.scene.removed = {
+    icon: {
+      eventCallbacks: nonNegativeInteger(
+        removedIcon.eventCallbacks,
+        'UPD-008 removed icon callbacks',
+      ),
+    },
+  };
+  actual.resources.retainedDelta = nonNegativeInteger(
+    reconciled.retainedDelta,
+    'UPD-008 retained resource delta',
+  );
+}
+
+function projectRelations(actual, execution) {
+  const moved = productAt(execution, 1);
+  const hidden = productAt(execution, 2);
+  const shown = productAt(execution, 3);
+  const removed = productAt(execution, 4);
+  const movedRows = relationRows(moved);
+  const shownRows = relationRows(shown);
+  const removedRows = relationRows(removed);
+  const movedPair = requireRelation(movedRows, 'a>b', 'UPD-010 moved pair');
+  const selfLink = requireRelation(removedRows, 'a>a', 'UPD-010 self link');
+  const selfBounds = boundsValue(selfLink.worldBounds, 'UPD-010 self-link bounds');
+
+  actual.scene.afterMove = {
+    'a>b': {
+      endWorld: pointValue(
+        tupleAt(movedPair.worldEndpoints, 1, 'UPD-010 moved endpoints'),
+        'UPD-010 moved endpoint',
+      ),
+    },
+    staleSegments: staleRelationCount(moved.relations),
+  };
+  actual.scene.hidden = { visibleSegments: visibleRelationKeys(hidden) };
+  actual.scene.shown = { visibleSegments: visibleRelationKeys(shown) };
+  actual.scene.removed = {
+    segmentsToB: removedRows.filter((row) => row.sourceId === 'b' || row.targetId === 'b').length,
+  };
+  actual.outcome.selfLink = { bounds: { x: selfBounds[0] } };
+  actual.outcome.duplicateOrderedPair = {
+    count: shownRows.filter((row) => row.key === 'a>b').length,
+  };
+  actual.outcome.reversePair = {
+    count: shownRows.filter((row) => row.key === 'b>a').length,
+  };
+}
+
+function validateOptions(options) {
+  assert(isPlainObject(options), 'options must be a plain object');
+  assertExactKeys(options, ['casePlan', 'environment', 'execution', 'provenance'], 'options');
+  assert(isPlainObject(options.casePlan), 'casePlan');
+  assert(isPlainObject(options.execution), 'execution');
+  assert(isPlainObject(options.provenance), 'provenance');
+  assert(isPlainObject(options.environment), 'environment');
+  validateJsonValue(options.provenance, 'provenance', new WeakSet());
+  validateJsonValue(options.environment, 'environment', new WeakSet());
+  return options;
+}
+
+function validateCasePlan(casePlan) {
+  validateJsonValue(casePlan, 'casePlan', new WeakSet());
+  const actionTypes = CASE_ACTIONS[casePlan.id];
+  assert(actionTypes !== undefined, `unsupported case ${String(casePlan.id)}`);
+  assert(casePlan.caseType === 'capability', `${casePlan.id} caseType`);
+  assert(typeof casePlan.rootTestId === 'string' && casePlan.rootTestId.length > 0, 'rootTestId');
+  assert(typeof casePlan.fixtureSha256 === 'string' && casePlan.fixtureSha256.length > 0, 'fixtureSha256');
+  assert(isPlainObject(casePlan.fixture), `${casePlan.id} fixture`);
+  assert(isPlainObject(casePlan.fixture.setup), `${casePlan.id} fixture setup`);
+  assert(isPlainObject(casePlan.fixture.setup.params), `${casePlan.id} fixture params`);
+  assert(isPlainObject(casePlan.routeParams), `${casePlan.id} route params`);
+  assert(typeof casePlan.routeParams.size === 'string', `${casePlan.id} route size`);
+  assertUint32(casePlan.routeParams.seed, `${casePlan.id} route seed`);
+
+  const actions = casePlan.fixture.actionTrace;
+  assert(Array.isArray(actions), `${casePlan.id} action trace`);
+  assert(actions.length === actionTypes.length, `${casePlan.id} action count`);
+  actions.forEach((action, index) => {
+    assert(isPlainObject(action), `${casePlan.id} action ${index}`);
+    assertExactKeys(action, ['index', 'operands', 'type'], `${casePlan.id} action ${index}`);
+    assert(action.index === index, `${casePlan.id} action ${index} index`);
+    assert(action.type === actionTypes[index], `${casePlan.id} action ${index} type`);
+    assert(isPlainObject(action.operands), `${casePlan.id} action ${index} operands`);
+  });
+  assert(
+    sameJson(casePlan.actionTrace, actions),
+    `${casePlan.id} materialized action trace drift`,
+  );
+
+  const checkpoints = casePlan.fixture.captureCheckpoints ?? [];
+  assert(Array.isArray(checkpoints), `${casePlan.id} capture checkpoints`);
+  const ids = new Set();
+  for (const checkpoint of checkpoints) {
+    assert(isPlainObject(checkpoint), `${casePlan.id} checkpoint`);
+    assert(typeof checkpoint.id === 'string' && checkpoint.id.length > 0, 'checkpoint ID');
+    assert(!ids.has(checkpoint.id), `${casePlan.id} duplicate checkpoint ${checkpoint.id}`);
+    ids.add(checkpoint.id);
+    assert(
+      checkpoint.phase === 'before-actions' || checkpoint.phase === 'after-action',
+      `${casePlan.id} checkpoint phase`,
+    );
+    assert(Number.isInteger(checkpoint.afterActionIndex), `${casePlan.id} checkpoint index`);
+    assert(Array.isArray(checkpoint.paths) && checkpoint.paths.length > 0, 'checkpoint paths');
+    checkpoint.paths.forEach((path) => stringValue(path, 'checkpoint path'));
+  }
+  return { ...casePlan, actionTypes, checkpoints };
+}
+
+function validateExecution(execution, plan) {
+  validateJsonValue(execution, 'execution', new WeakSet());
+  assert(execution.$schema === EXECUTION_REVISION, 'execution schema');
+  assert(execution.caseId === plan.id, 'execution case ID');
+  assert(execution.caseType === plan.caseType, 'execution caseType');
+  assert(execution.status === 'completed', 'execution status');
+  assert(execution.error === null, 'execution error');
+  assert(execution.hostSeamDelta === null, 'capability host seam');
+  assert(Array.isArray(execution.actionResults), 'execution action results');
+  assert(execution.actionResults.length === plan.actionTypes.length, 'execution action count');
+  execution.actionResults.forEach((result, index) => {
+    const actionType = plan.actionTypes[index];
+    assert(isPlainObject(result), `execution action ${index}`);
+    assert(result.index === index, `execution action ${index} index`);
+    assert(result.type === actionType, `execution action ${index} type`);
+    assert(result.handlerId === `contract/${actionType}`, `execution action ${index} handler`);
+    assert(result.status === 'completed', `execution action ${index} status`);
+    assertFiniteNumber(result.startedAtMs, `execution action ${index} start`);
+    assertFiniteNumber(result.completedAtMs, `execution action ${index} completion`);
+    assert(result.completedAtMs >= result.startedAtMs, `execution action ${index} timing`);
+    const delta = recordValue(result.delta, `execution action ${index} delta`);
+    assert(delta.$schema === DELTA_REVISION, `execution action ${index} delta schema`);
+    assert(delta.caseId === plan.id, `execution action ${index} delta case`);
+    assert(delta.actionIndex === index, `execution action ${index} delta index`);
+    assert(delta.actionType === actionType, `execution action ${index} delta type`);
+    assert(isPlainObject(delta.actual), `execution action ${index} actual`);
+    universalProduct(delta.actual.product, `execution action ${index} product`);
+    inputEvidenceAt(execution, index);
+  });
+  assert(Array.isArray(execution.eventJournal), 'execution event journal');
+  assert(Array.isArray(execution.eventJournalFailures), 'execution journal failures');
+  assert(execution.eventJournalFailures.length === 0, 'execution journal failures empty');
+  assert(isPlainObject(execution.bindings), 'execution bindings');
+  assert(Array.isArray(execution.captures), 'execution captures');
+  assert(isPlainObject(execution.terminalSnapshot), 'terminal snapshot');
+  assert(isPlainObject(execution.terminalSemanticProbe), 'terminal semantic probe');
+  assert(isPlainObject(execution.cleanup), 'execution cleanup');
+  assert(execution.cleanup.status === 'completed', 'execution cleanup status');
+  assert(Array.isArray(execution.cleanup.errors), 'execution cleanup errors');
+  assert(execution.cleanup.errors.length === 0, 'execution cleanup errors empty');
+  return execution;
+}
+
+function validateTerminalCorrelation(execution, finalProduct) {
+  assert(
+    sameJson(finalProduct.snapshot, execution.terminalSnapshot),
+    'final product/terminal snapshot correlation',
+  );
+  assert(
+    sameJson(finalProduct.semantic, execution.terminalSemanticProbe),
+    'final product/terminal semantic correlation',
+  );
+}
+
+function universalProduct(value, label) {
+  const product = recordValue(value, label);
+  assertExactKeys(
+    product,
+    [
+      'dataset',
+      'geometry',
+      'history',
+      'interactionOwnership',
+      'relations',
+      'resources',
+      'sceneImages',
+      'semantic',
+      'snapshot',
+    ],
+    label,
+  );
+  const dataset = recordValue(product.dataset, `${label} dataset`);
+  assertExactKeys(
+    dataset,
+    ['fingerprint', 'rootCount', 'rootIds', 'semanticHash'],
+    `${label} dataset`,
+  );
+  assert(
+    typeof dataset.fingerprint === 'string' && dataset.fingerprint.length > 0,
+    `${label} dataset fingerprint`,
+  );
+  nullableString(dataset.semanticHash, `${label} dataset semantic hash`);
+  stringArray(dataset.rootIds, `${label} dataset root IDs`);
+  nonNegativeInteger(dataset.rootCount, `${label} dataset root count`);
+  assert(isPlainObject(product.snapshot), `${label} snapshot`);
+  assert(isPlainObject(product.semantic), `${label} semantic`);
+  assert(product.geometry === null || isPlainObject(product.geometry), `${label} geometry`);
+  assert(product.relations === null || isPlainObject(product.relations), `${label} relations`);
+  assert(
+    product.sceneImages === null || isPlainObject(product.sceneImages),
+    `${label} scene images`,
+  );
+  assert(
+    product.interactionOwnership === null || isPlainObject(product.interactionOwnership),
+    `${label} interaction ownership`,
+  );
+  assert(isPlainObject(product.history), `${label} history`);
+  assert(isPlainObject(product.resources), `${label} resources`);
+  return product;
+}
+
+function productAt(execution, index) {
+  return universalProduct(actionActualAt(execution, index).product, `action ${index} product`);
+}
+
+function productRecord(value, label) {
+  return universalProduct(value, label);
+}
+
+function actionActualAt(execution, index, type) {
+  const result = execution.actionResults[index];
+  assert(result !== undefined, `action ${index} exists`);
+  if (type !== undefined) assert(result.type === type, `action ${index} requires ${type}`);
+  return recordValue(recordValue(result.delta, `action ${index} delta`).actual, `action ${index} actual`);
+}
+
+function inputEvidenceAt(execution, index) {
+  const input = recordValue(actionActualAt(execution, index).input, `action ${index} input`);
+  assertExactKeys(input, ['afterFingerprint', 'beforeFingerprint', 'unchanged'], `action ${index} input`);
+  assert(typeof input.beforeFingerprint === 'string', `action ${index} before fingerprint`);
+  assert(typeof input.afterFingerprint === 'string', `action ${index} after fingerprint`);
+  assert(typeof input.unchanged === 'boolean', `action ${index} input unchanged`);
+  assert(
+    input.unchanged === (input.beforeFingerprint === input.afterFingerprint),
+    `action ${index} input fingerprint correlation`,
+  );
+  return input;
+}
+
+function projectCaptures(plan, execution) {
+  const projected = {};
+  for (const [name, value] of Object.entries(execution.bindings)) {
+    assert(name.length > 0, 'binding name');
+    assignOwned(projected, name, clone(value), `binding ${name}`);
+  }
+
+  const declared = new Map(plan.checkpoints.map((checkpoint) => [checkpoint.id, checkpoint]));
+  const seen = new Set();
+  for (const captureValue of execution.captures) {
+    const capture = recordValue(captureValue, 'execution capture');
+    const id = stringValue(capture.id, 'capture ID');
+    assert(!seen.has(id), `duplicate capture ${id}`);
+    seen.add(id);
+    const checkpoint = declared.get(id);
+    assert(checkpoint !== undefined, `undeclared capture ${id}`);
+    assert(capture.phase === checkpoint.phase, `capture ${id} phase`);
+    assert(capture.afterActionIndex === checkpoint.afterActionIndex, `capture ${id} action index`);
+    const values = recordValue(capture.values, `capture ${id} values`);
+    const nested = {};
+    for (const path of checkpoint.paths) {
+      assert(Object.hasOwn(values, path), `capture ${id} missing ${path}`);
+      assignPath(nested, path.split('/'), clone(values[path]), `capture ${id}`);
+    }
+    assignOwned(projected, id, nested, `capture ${id}`);
+  }
+  assert(seen.size === declared.size, 'execution must contain every declared capture');
+  return projected;
+}
+
+function mutationDiagnostic(action, result, label) {
+  const candidate = action.diagnostic ?? result.transactionDiagnostic ?? result.diagnostic;
+  return recordValue(candidate, `${label} diagnostic`);
+}
+
+function targetSetResult(result, label) {
+  return {
+    applied: mutationTargetIds(result.applied, `${label} applied`),
+    missing: mutationTargetIds(result.missing, `${label} missing`),
+  };
+}
+
+function mutationTargetIds(value, label) {
+  assert(Array.isArray(value), `${label} array`);
+  return value.map((entry, index) => {
+    if (typeof entry === 'string') return entry;
+    const target = recordValue(entry, `${label}[${index}]`);
+    return stringValue(target.id, `${label}[${index}].id`);
+  });
+}
+
+function geometryEntity(product, id) {
+  const geometry = recordValue(product.geometry, `geometry for ${id}`);
+  assert(Array.isArray(geometry.entities), `geometry entities for ${id}`);
+  const entity = geometry.entities.find((candidate) =>
+    isPlainObject(candidate) && candidate.id === id);
+  assert(entity !== undefined, `geometry entity ${id}`);
+  return entity;
+}
+
+function relationRows(product) {
+  const probe = recordValue(product.relations, 'relation product probe');
+  assert(Array.isArray(probe.relations), 'relation rows');
+  return probe.relations.map((entry, index) => {
+    const row = recordValue(entry, `relation row ${index}`);
+    stringValue(row.sourceId, `relation row ${index} source`);
+    stringValue(row.targetId, `relation row ${index} target`);
+    stringValue(row.key, `relation row ${index} key`);
+    return row;
+  });
+}
+
+function requireRelation(rows, key, label) {
+  const row = rows.find((candidate) => candidate.key === key);
+  assert(row !== undefined, label);
+  return row;
+}
+
+function visibleRelationKeys(product) {
+  return relationRows(product)
+    .filter((row) => row.visible !== false)
+    .map((row) => stringValue(row.key, 'visible relation key'));
+}
+
+function staleRelationCount(value) {
+  if (value === null) return 0;
+  const probe = recordValue(value, 'relation probe');
+  const omitted = probe.omittedRelations ?? [];
+  assert(Array.isArray(omitted), 'omitted relations');
+  const revisionLag = probe.revisionLag;
+  assert(
+    revisionLag === null || (Number.isInteger(revisionLag) && revisionLag >= 0),
+    'relation revision lag',
+  );
+  return omitted.length + (revisionLag === null || revisionLag === 0 ? 0 : 1);
+}
+
+function actionEventCount(execution) {
+  return execution.actionResults.reduce((count, _, index) => {
+    const events = actionActualAt(execution, index).events;
+    if (events === undefined) return count;
+    return count + eventCount(events, `action ${index} events`);
+  }, 0);
+}
+
+function eventCount(value, label) {
+  const events = recordValue(value, label);
+  assertExactKeys(events, ['change', 'frame'], label);
+  assert(Array.isArray(events.change), `${label} change`);
+  assert(Array.isArray(events.frame), `${label} frame`);
+  return events.change.length + events.frame.length;
+}
+
+function positionTuple(record, label) {
+  const attrs = recordValue(record.attrs, `${label} attrs`);
+  return [
+    finiteNumber(attrs.x, `${label} x`),
+    finiteNumber(attrs.y, `${label} y`),
+  ];
+}
+
+function sizeTuple(value, label) {
+  const size = recordValue(value, label);
+  return [
+    finiteNumber(size.width, `${label} width`),
+    finiteNumber(size.height, `${label} height`),
+  ];
+}
+
+function pointValue(value, label) {
+  return numberTuple(value, 2, label);
+}
+
+function boundsValue(value, label) {
+  return numberTuple(value, 4, label);
+}
+
+function numberTuple(value, length, label) {
+  assert(Array.isArray(value) && value.length === length, `${label} tuple`);
+  return value.map((entry, index) => finiteNumber(entry, `${label}[${index}]`));
+}
+
+function tupleAt(value, index, label) {
+  assert(Array.isArray(value), `${label} array`);
+  const entry = value[index];
+  assert(entry !== undefined, `${label}[${index}]`);
+  return entry;
+}
+
+function nullableNonNegativeInteger(value, label) {
+  if (value === null) return null;
+  return nonNegativeInteger(value, label);
+}
+
+function nonNegativeInteger(value, label) {
+  assert(Number.isInteger(value) && value >= 0, `${label} non-negative integer`);
+  return value;
+}
+
+function assertUint32(value, label) {
+  assert(Number.isInteger(value) && value >= 0 && value <= 0xffff_ffff, `${label} uint32`);
+}
+
+function finiteNumber(value, label) {
+  assertFiniteNumber(value, label);
+  return value;
+}
+
+function assertFiniteNumber(value, label) {
+  assert(typeof value === 'number' && Number.isFinite(value), `${label} finite number`);
+}
+
+function nullableString(value, label) {
+  assert(value === null || typeof value === 'string', `${label} nullable string`);
+  return value;
+}
+
+function stringValue(value, label) {
+  assert(typeof value === 'string' && value.length > 0, `${label} non-empty string`);
+  return value;
+}
+
+function stringArray(value, label) {
+  assert(Array.isArray(value), `${label} array`);
+  return value.map((entry, index) => stringValue(entry, `${label}[${index}]`));
+}
+
+function notExercised(reason) {
+  return { _availability: { status: 'not-exercised', reason } };
+}
+
+function cloneRecord(value, label) {
+  return clone(recordValue(value, label));
+}
+
+function cloneArray(value, label) {
+  assert(Array.isArray(value), `${label} array`);
+  return clone(value);
+}
+
+function recordValue(value, label) {
+  assert(isPlainObject(value), `${label} object`);
+  return value;
+}
+
+function assignOwned(target, key, value, label) {
+  assert(!Object.hasOwn(target, key), `${label} collision`);
+  target[key] = value;
+}
+
+function assignPath(target, segments, value, label) {
+  let cursor = target;
+  segments.forEach((segment, index) => {
+    assert(segment.length > 0, `${label} path segment`);
+    if (index === segments.length - 1) {
+      assignOwned(cursor, segment, value, `${label}/${segment}`);
+      return;
+    }
+    if (!Object.hasOwn(cursor, segment)) cursor[segment] = {};
+    cursor = recordValue(cursor[segment], `${label}/${segment}`);
+  });
+}
+
+function assertExactKeys(value, expectedKeys, label) {
+  const actual = Object.keys(value).sort();
+  const expected = [...expectedKeys].sort();
+  assert(sameJson(actual, expected), `${label} keys`);
+}
+
+function validateJsonValue(value, path, ancestors) {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
+  if (typeof value === 'number') {
+    assert(Number.isFinite(value) && !Object.is(value, -0), `${path} finite JSON number`);
+    return;
+  }
+  assert(typeof value === 'object', `${path} JSON value`);
+  assert(!ancestors.has(value), `${path} acyclic`);
+  ancestors.add(value);
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => validateJsonValue(entry, `${path}[${index}]`, ancestors));
+  } else {
+    assert(isPlainObject(value), `${path} plain object`);
+    for (const [key, nested] of Object.entries(value)) {
+      assert(key !== '__proto__' && key !== 'constructor' && key !== 'prototype', `${path} safe key`);
+      validateJsonValue(nested, `${path}.${key}`, ancestors);
+    }
+  }
+  ancestors.delete(value);
+}
+
+function deepFreeze(value, seen = new WeakSet()) {
+  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
+  seen.add(value);
+  for (const nested of Object.values(value)) deepFreeze(nested, seen);
+  return Object.freeze(value);
+}
+
+function clone(value) {
+  return structuredClone(value);
+}
+
+function sameJson(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function isPlainObject(value) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function assert(condition, message) {
+  if (!condition) throw new Error(`Core v2 update fold invalid: ${message}`);
+}

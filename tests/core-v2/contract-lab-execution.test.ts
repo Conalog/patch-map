@@ -39,7 +39,8 @@ describe('Core v2 executable Lab product bridge', () => {
       && caseId !== 'LAY-003'
       && caseId !== 'UPD-005'
       && caseId !== 'ANI-001'
-      && caseId !== 'ANI-002',
+      && caseId !== 'ANI-002'
+      && caseId !== 'UPD-008',
   ))(
     'executes %s through a targeted CoreV2Engine and retains actual-only cleanup facts',
     async (caseId) => {
@@ -49,7 +50,9 @@ describe('Core v2 executable Lab product bridge', () => {
       const surfaceFactory = createFakeSurfaceFactory(
         surfaces,
         receivedTargets,
-        caseId === 'LAY-004' || caseId === 'REN-007' ? 'projection' : 'flat',
+        ['LAY-004', 'REN-007', 'UPD-004', 'UPD-010'].includes(caseId)
+          ? 'projection'
+          : 'flat',
       );
       const bridge = createCoreV2ExecutableLabBridge({
         caseId,
@@ -124,6 +127,7 @@ describe('Core v2 executable Lab product bridge', () => {
       expect(bridge.state().status).toBe('destroyed');
       expect(await bridge.actualObservation()).toBe(run.actualObservation);
     },
+    60_000,
   );
 
   it('repeats DAT-002 in fresh isolated generations and reset clears only Lab-held results', async () => {
@@ -456,7 +460,15 @@ describe('Core v2 executable Lab product bridge', () => {
       'DAT-007': 'data-closure',
       'DAT-008': 'data-closure',
       'AST-001': 'assets',
+      'UPD-001': 'update-transactions',
+      'UPD-002': 'update-transactions',
+      'UPD-003': 'update-transactions',
+      'UPD-004': 'update-transactions',
       'UPD-005': 'presentation-dynamics',
+      'UPD-006': 'update-transactions',
+      'UPD-007': 'update-transactions',
+      'UPD-008': 'update-transactions',
+      'UPD-010': 'update-transactions',
       'ANI-001': 'presentation-dynamics',
       'ANI-002': 'presentation-dynamics',
       'CSM-001': 'foundation',
@@ -578,7 +590,7 @@ class FakeSurface implements CoreV2EngineSurface {
   }
 
   public hitTestScreen(point: CoreV2Point): string | null {
-    return this.geometryEntities().filter((entity) => (
+    return this.geometrySnapshot().entities.filter((entity) => (
       entity.visible
       && entity.interactive
       && fakeBoundsContain(entity.screenBounds, point)
@@ -597,6 +609,13 @@ class FakeSurface implements CoreV2EngineSurface {
       x: (point.x - this.view.x) / this.view.scale,
       y: (point.y - this.view.y) / this.view.scale,
     });
+  }
+
+  public interactionOwnershipProbe(): Readonly<{
+    readonly rootBindingCount: number;
+    readonly entityCallbackCount: number;
+  }> {
+    return Object.freeze({ rootBindingCount: 6, entityCallbackCount: 0 });
   }
 
   public debugSnapshot(): CoreV2SurfaceDebug {
@@ -620,7 +639,7 @@ class FakeSurface implements CoreV2EngineSurface {
     if (this.geometryMode === 'projection') {
       const parsed = parsePatchMapV010(this.dataset);
       const projected = createCoreV2SurfaceGeometrySnapshot(
-        fakeSceneSnapshot(parsed.document, this.geometryRevision),
+        fakeSceneSnapshot(parsed.document, this.geometryRevision, this.selectionIds),
         parsed.projection,
         this.view,
       );
@@ -652,11 +671,13 @@ class FakeSurface implements CoreV2EngineSurface {
   private geometryEntities(): CoreV2SurfaceGeometrySnapshot['entities'][number][] {
     return this.dataset.flatMap((element) => fakeGeometryEntity(element, this.view));
   }
+
 }
 
 function fakeSceneSnapshot(
   document: ReturnType<typeof parsePatchMapV010>['document'],
   revision: number,
+  selectionIds: readonly string[],
 ): Parameters<typeof createCoreV2SurfaceGeometrySnapshot>[0] {
   const entities = document.entities.map((entity, slot) => Object.freeze({
     ref: Object.freeze({ slot, generation: 1 }),
@@ -690,7 +711,12 @@ function fakeSceneSnapshot(
     view: Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 }),
     entityCount: entities.length,
     entities: Object.freeze(entities),
-    selection: Object.freeze({ revision, refs: Object.freeze([]) }),
+    selection: Object.freeze({
+      revision,
+      refs: Object.freeze(
+        entities.filter((entity) => selectionIds.includes(entity.id)).map(({ ref }) => ref),
+      ),
+    }),
   });
 }
 

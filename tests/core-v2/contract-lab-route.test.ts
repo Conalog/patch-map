@@ -78,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(74);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(34);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(139);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(86);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(42);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(131);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(145);
+    ), 0)).toBe(176);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -237,6 +237,44 @@ describe('Core v2 focused contract Lab shell', () => {
       expect(resolveCoreV2ExecutableRuntime(caseId).key).toBe(runtimeKey);
       expect(markup).toContain(`data-testid="scenario-${caseId.toLowerCase()}"`);
       expect(markup).toContain('data-contract-status="armed"');
+      expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(actions.length);
+      expect(markup).toContain('Actual-only case execution is available');
+      expect(markup).not.toContain('data-contract-status="pass"');
+    }
+  });
+
+  it('connects all eight update-transaction cases to one actual-only runtime and exact routes', () => {
+    const cases = [
+      ['UPD-001', ['loadDataset', 'retainTarget', 'replaceDataset', 'resolveTarget', 'patch']],
+      ['UPD-002', ['freezePatch', 'merge', 'merge']],
+      ['UPD-003', ['replace', 'replace', 'replace']],
+      ['UPD-004', ['patch', 'relativePatch', 'resizeAroundOrigin']],
+      ['UPD-006', ['bulkPatch', 'bulkPatch', 'bulkPatch', 'bulkPatch']],
+      ['UPD-007', ['generateSyntheticScene', 'bulkOverlay', 'publishFrame', 'bulkOverlay']],
+      [
+        'UPD-008',
+        [
+          'capture-observation',
+          'reconcileComponents',
+          'setComponentVisibility',
+          'setComponentVisibility',
+        ],
+      ],
+      ['UPD-010', ['loadDataset', 'patch', 'setVisibility', 'setVisibility', 'remove']],
+    ] as const;
+
+    for (const [caseId, actions] of cases) {
+      const route = parseCoreV2ContractRoute(
+        `/lab/core-v2?scenario=${caseId}&size=100&seed=319`,
+      );
+      const plan = materializeCoreV2ExecutableCase(caseId, '100', 319);
+      const markup = renderCoreV2ContractLab(route);
+
+      expect(route.presenter.executionStatus).toBe('actual-observable');
+      expect(route.presenter.rootTestId).toBe(`scenario-${caseId.toLowerCase()}`);
+      expect(plan.actionTrace.map(({ type }) => type)).toEqual(actions);
+      expect(resolveCoreV2ExecutableRuntime(caseId).key).toBe('update-transactions');
+      expect(markup).toContain(`data-testid="scenario-${caseId.toLowerCase()}"`);
       expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(actions.length);
       expect(markup).toContain('Actual-only case execution is available');
       expect(markup).not.toContain('data-contract-status="pass"');
@@ -515,7 +553,7 @@ describe('Core v2 focused contract Lab shell', () => {
     const assetIndex = CORE_V2_EXECUTABLE_CASE_IDS.indexOf('AST-001');
 
     expect(CORE_V2_EXECUTABLE_CASE_IDS[assetIndex - 1]).toBe('LAY-005');
-    expect(CORE_V2_EXECUTABLE_CASE_IDS[assetIndex + 1]).toBe('UPD-005');
+    expect(CORE_V2_EXECUTABLE_CASE_IDS[assetIndex + 1]).toBe('UPD-001');
     expect(route.presenter.executionStatus).toBe('actual-observable');
     expect(route.presenter.rootTestId).toBe('scenario-ast-001');
     expect(plan.route).toBe('/lab/core-v2?scenario=AST-001&size=100&seed=319');

@@ -702,9 +702,9 @@ async function refreshBridgeUi(
   const observation = terminal ? await bridge.actualObservation() : null;
   const trace = root.querySelector<HTMLPreElement>(`[data-testid="${route.presenter.traceTestId}"]`);
   if (trace) {
-    trace.hidden = !terminal;
+    trace.hidden = state.status !== 'failed';
     trace.textContent = terminal
-      ? JSON.stringify({ state, execution, actualObservation: observation, cleanup }, null, 2)
+      ? JSON.stringify(compactContractTrace(state, execution, observation, cleanup), null, 2)
       : state.status;
   }
 
@@ -715,6 +715,57 @@ async function refreshBridgeUi(
   if (runObservation && performancePrefix) {
     appendRunPerformance(root, performancePrefix, runObservation);
   }
+}
+
+function compactContractTrace(
+  state: ReturnType<CoreV2ContractLabBridgeV1['state']>,
+  execution: Readonly<Record<string, unknown>> | null,
+  observation: Readonly<Record<string, unknown>> | null,
+  cleanup: Readonly<Record<string, unknown>> | null,
+): Readonly<Record<string, unknown>> {
+  const actionResults = execution && Array.isArray(execution.actionResults)
+    ? execution.actionResults
+    : [];
+  const eventCount = execution && Array.isArray(execution.eventJournal)
+    ? execution.eventJournal.length
+    : 0;
+  const error = execution && isRecord(execution.error) ? execution.error : null;
+  return Object.freeze({
+    state: Object.freeze({
+      caseId: state.caseId,
+      status: state.status,
+      actionIndex: state.actionIndex,
+      repeatIndex: state.repeatIndex,
+    }),
+    actions: Object.freeze(actionResults.map((result, index) => Object.freeze({
+      index,
+      status: isRecord(result) && typeof result.status === 'string'
+        ? result.status
+        : 'not-run',
+    }))),
+    eventCount,
+    observation: observation
+      ? Object.freeze({
+          schema: typeof observation.$schema === 'string' ? observation.$schema : null,
+          status: isRecord(observation.execution)
+            && typeof observation.execution.status === 'string'
+            ? observation.execution.status
+            : state.status,
+        })
+      : null,
+    error: error
+      ? Object.freeze({
+          name: typeof error.name === 'string' ? error.name : null,
+          code: typeof error.code === 'string' ? error.code : null,
+          message: typeof error.message === 'string' ? error.message : null,
+        })
+      : null,
+    cleanup: cleanup
+      ? Object.freeze({
+          status: typeof cleanup.status === 'string' ? cleanup.status : null,
+        })
+      : null,
+  });
 }
 
 function refreshRen005Inspector(

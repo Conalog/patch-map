@@ -13,6 +13,18 @@ const browserScriptUrl = new URL(
 );
 
 describe('Core v2 REN-006 / REN-011 focused text Lab UI', () => {
+  it('keeps terminal traces bounded and hidden unless the actual execution failed', async () => {
+    const source = await readFile(mainUrl, 'utf8');
+
+    expect(source).toContain("trace.hidden = state.status !== 'failed'");
+    expect(source).toContain('JSON.stringify(compactContractTrace(');
+    expect(source).toContain('function compactContractTrace(');
+    expect(source).toContain('actions: Object.freeze(actionResults.map(');
+    expect(source).not.toContain(
+      'JSON.stringify({ state, execution, actualObservation: observation, cleanup }, null, 2)',
+    );
+  });
+
   it('renders six seeded REN-006 actual phases without changing its six canonical actions', () => {
     const route = parseCoreV2ContractRoute(
       '/lab/core-v2?scenario=REN-006&size=100&seed=319',

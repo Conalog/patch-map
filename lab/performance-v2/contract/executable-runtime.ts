@@ -53,6 +53,8 @@ import * as layoutOrderHandlersModule from '../../../scripts/verification/core-v
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as presentationDynamicsHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/presentation-dynamics.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as updateTransactionsHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/update-transactions.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as assetHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/assets.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as foundationFoldModule from '../../../scripts/verification/core-v2-contract/fold-foundation.mjs';
@@ -83,6 +85,8 @@ import * as layoutOrderFoldModule from '../../../scripts/verification/core-v2-co
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as presentationDynamicsFoldModule from '../../../scripts/verification/core-v2-contract/fold-presentation-dynamics.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as updateTransactionsFoldModule from '../../../scripts/verification/core-v2-contract/fold-update-transactions.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as assetFoldModule from '../../../scripts/verification/core-v2-contract/fold-assets.mjs';
 
 import type {
@@ -91,6 +95,10 @@ import type {
 } from './executable-cases';
 import { createCoreV2LayoutOrderRuntime } from './layout-order-runtime';
 import { createCoreV2PresentationDynamicsRuntime } from './presentation-dynamics-runtime';
+import {
+  createCoreV2UpdateTransactionsRuntime,
+  type CoreV2UpdateTransactionsCaseId,
+} from './update-transactions-runtime';
 import { createCoreV2RenderComponentAssetsRuntime } from './render-component-assets-runtime';
 import { createCoreV2RenderImagesRuntime } from './render-images-runtime';
 import { createCoreV2RenderTextRuntime } from './render-text-runtime';
@@ -110,6 +118,7 @@ export type CoreV2ExecutableRuntimeKey =
   | 'render-text'
   | 'layout-order'
   | 'presentation-dynamics'
+  | 'update-transactions'
   | 'assets';
 
 type Handler = (
@@ -155,6 +164,10 @@ interface HandlerFactoryRuntime {
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
   createPresentationDynamicsHandlerEntries?(
+    this: void,
+    product: Readonly<Record<string, unknown>>,
+  ): readonly HandlerEntry[];
+  createUpdateTransactionHandlerEntries?(
     this: void,
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
@@ -221,6 +234,10 @@ interface FoldRuntime {
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
+  foldUpdateTransactionExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
   foldAssetExecution?(
     this: void,
     options: Readonly<Record<string, unknown>>,
@@ -267,6 +284,7 @@ const renderComponentAssetsHandlers = renderComponentAssetsHandlersModule as unk
 const renderTextHandlers = renderTextHandlersModule as unknown as HandlerFactoryRuntime;
 const layoutOrderHandlers = layoutOrderHandlersModule as unknown as HandlerFactoryRuntime;
 const presentationDynamicsHandlers = presentationDynamicsHandlersModule as unknown as HandlerFactoryRuntime;
+const updateTransactionsHandlers = updateTransactionsHandlersModule as unknown as HandlerFactoryRuntime;
 const assetHandlers = assetHandlersModule as unknown as HandlerFactoryRuntime;
 const foundationFold = foundationFoldModule as unknown as FoldRuntime;
 const dataFoundationFold = dataFoundationFoldModule as unknown as FoldRuntime;
@@ -282,6 +300,7 @@ const renderComponentAssetsFold = renderComponentAssetsFoldModule as unknown as 
 const renderTextFold = renderTextFoldModule as unknown as FoldRuntime;
 const layoutOrderFold = layoutOrderFoldModule as unknown as FoldRuntime;
 const presentationDynamicsFold = presentationDynamicsFoldModule as unknown as FoldRuntime;
+const updateTransactionsFold = updateTransactionsFoldModule as unknown as FoldRuntime;
 const assetFold = assetFoldModule as unknown as FoldRuntime;
 
 const FOUNDATION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
@@ -308,6 +327,16 @@ const RENDER_FOUNDATION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
   'REN-004',
   'REN-003',
   'REN-002',
+]);
+const UPDATE_TRANSACTION_CASE_IDS = new Set<CoreV2UpdateTransactionsCaseId>([
+  'UPD-001',
+  'UPD-002',
+  'UPD-003',
+  'UPD-004',
+  'UPD-006',
+  'UPD-007',
+  'UPD-008',
+  'UPD-010',
 ]);
 
 const DATA_FOUNDATION_PRODUCT = Object.freeze({
@@ -454,6 +483,7 @@ const RENDER_COMPONENT_ASSETS_DESCRIPTOR = createRenderComponentAssetsDescriptor
 const RENDER_TEXT_DESCRIPTOR = createRenderTextDescriptor();
 const LAYOUT_ORDER_DESCRIPTOR = createLayoutOrderDescriptor();
 const PRESENTATION_DYNAMICS_DESCRIPTOR = createPresentationDynamicsDescriptor();
+const UPDATE_TRANSACTIONS_DESCRIPTOR = createUpdateTransactionsDescriptor();
 
 export function resolveCoreV2ExecutableRuntime(
   caseId: CoreV2ExecutableCaseId,
@@ -477,8 +507,54 @@ export function resolveCoreV2ExecutableRuntime(
     || caseId === 'ANI-001'
     || caseId === 'ANI-002'
   ) return PRESENTATION_DYNAMICS_DESCRIPTOR;
+  if (isUpdateTransactionCaseId(caseId)) return UPDATE_TRANSACTIONS_DESCRIPTOR;
   if (caseId === 'AST-001') return ASSET_DESCRIPTOR;
   throw new Error(`Unsupported Core v2 executable runtime: ${String(caseId)}`);
+}
+
+function createUpdateTransactionsDescriptor(): CoreV2ExecutableRuntimeDescriptor {
+  const fold = requireFold(
+    updateTransactionsFold.foldUpdateTransactionExecution,
+    'update-transactions fold',
+  );
+  const createEntries = requireFactory(
+    updateTransactionsHandlers.createUpdateTransactionHandlerEntries,
+    'update-transactions handlers',
+  );
+  const createRun = (plan: CoreV2ExecutableCasePlan) => {
+    invariant(isUpdateTransactionCaseId(plan.id), 'update-transactions case identity');
+    const runtime = createCoreV2UpdateTransactionsRuntime(plan.id);
+    return Object.freeze({
+      handlerEntries: selectHandlerEntries(
+        plan,
+        createEntries(runtime.product as unknown as Readonly<Record<string, unknown>>),
+      ),
+      engineOptions: Object.freeze({}),
+      postDestroyProductProbe: () => runtime.postDestroyProductProbe(),
+    });
+  };
+  return Object.freeze({
+    key: 'update-transactions',
+    needsSupplementalWebGLLease: false,
+    createRun,
+    handlerEntries(plan: CoreV2ExecutableCasePlan): readonly HandlerEntry[] {
+      return createRun(plan).handlerEntries;
+    },
+    fold(input: CoreV2RuntimeFoldInput): CoreV2FoldedExecution {
+      return fold({
+        casePlan: input.casePlan,
+        execution: input.execution,
+        provenance: input.provenance,
+        environment: input.environment,
+      });
+    },
+  });
+}
+
+function isUpdateTransactionCaseId(
+  caseId: CoreV2ExecutableCaseId,
+): caseId is CoreV2UpdateTransactionsCaseId {
+  return UPDATE_TRANSACTION_CASE_IDS.has(caseId as CoreV2UpdateTransactionsCaseId);
 }
 
 function createLayoutOrderDescriptor(): CoreV2ExecutableRuntimeDescriptor {

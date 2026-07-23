@@ -8,6 +8,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
 import { compareObservation } from './core-v2-contract/compare.mjs';
+import { inspectCoreV2UpdateConflictActuals } from './core-v2-contract/update-conflict-actuals.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const EXPECTED_PATH = fileURLToPath(new URL(
@@ -19,9 +20,12 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 284;
-const EXPECTED_ASSERTION_PASS_TOTAL = 280;
-const EXPECTED_ASSERTION_FAILURE_TOTAL = 4;
+const EXPECTED_ASSERTION_TOTAL = 379;
+const EXPECTED_ASSERTION_PASS_TOTAL = 374;
+const EXPECTED_ASSERTION_FAILURE_TOTAL = 5;
+const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 7;
+const CASE_TIMEOUT_MS = 180_000;
+const CHECKPOINT_TIMEOUT_MS = 30 * 60_000;
 const REN_005_IMMUTABLE_FAILURES = Object.freeze([
   Object.freeze({
     path: '/resources/images/alias',
@@ -46,6 +50,25 @@ const ANI_002_IMMUTABLE_FAILURES = Object.freeze([
     failurePath: '/outcome/backwardTime/code',
   }),
 ]);
+const UPD_003_IMMUTABLE_FAILURES = Object.freeze([
+  Object.freeze({
+    path: '/outcome/invalidCrossScope/code',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/invalidCrossScope/code',
+  }),
+]);
+const UPD_007_LATENT_IMMUTABLE_CONFLICTS = Object.freeze([
+  Object.freeze({
+    path: '/outcome/valid/queryRevision',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/valid/queryRevision',
+  }),
+  Object.freeze({
+    path: '/outcome/valid/eventRevision',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/valid/eventRevision',
+  }),
+]);
 const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'LAY-001', expectedAssertions: 9 }),
   Object.freeze({ id: 'LAY-002', expectedAssertions: 28 }),
@@ -67,7 +90,23 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'REN-009', expectedAssertions: 13 }),
   Object.freeze({ id: 'REN-010', expectedAssertions: 11 }),
   Object.freeze({ id: 'REN-011', expectedAssertions: 20 }),
+  Object.freeze({ id: 'UPD-001', expectedAssertions: 8 }),
+  Object.freeze({ id: 'UPD-002', expectedAssertions: 11 }),
+  Object.freeze({
+    id: 'UPD-003',
+    expectedAssertions: 13,
+    expectedFailures: UPD_003_IMMUTABLE_FAILURES,
+  }),
+  Object.freeze({ id: 'UPD-004', expectedAssertions: 12 }),
   Object.freeze({ id: 'UPD-005', expectedAssertions: 10 }),
+  Object.freeze({ id: 'UPD-006', expectedAssertions: 11 }),
+  Object.freeze({
+    id: 'UPD-007',
+    expectedAssertions: 15,
+    latentConflicts: UPD_007_LATENT_IMMUTABLE_CONFLICTS,
+  }),
+  Object.freeze({ id: 'UPD-008', expectedAssertions: 13 }),
+  Object.freeze({ id: 'UPD-010', expectedAssertions: 12 }),
   Object.freeze({ id: 'ANI-001', expectedAssertions: 14 }),
   Object.freeze({
     id: 'ANI-002',
@@ -84,25 +123,71 @@ const PRESENTATION_TRANCHE_CASES = new Set([
   'ANI-001',
   'ANI-002',
 ]);
-const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...PRESENTATION_TRANCHE_CASES]);
-const GPU_EVIDENCE_CASES = new Set(['LAY-003', 'REN-009', 'ANI-001', 'ANI-002']);
+const UPDATE_TRANSACTION_TRANCHE_CASES = new Set([
+  'UPD-001',
+  'UPD-002',
+  'UPD-003',
+  'UPD-004',
+  'UPD-006',
+  'UPD-007',
+  'UPD-008',
+  'UPD-010',
+]);
+const CONTROL_CASES = new Set([
+  ...PRESENTATION_TRANCHE_CASES,
+  ...UPDATE_TRANSACTION_TRANCHE_CASES,
+]);
+const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);
+const GPU_EVIDENCE_CASES = new Set([
+  'LAY-003',
+  'REN-009',
+  'ANI-001',
+  'ANI-002',
+  'UPD-007',
+  'UPD-008',
+]);
 
-const headed = parseArguments(process.argv.slice(2));
+const options = parseArguments(process.argv.slice(2));
+const headed = options.headed;
+const selectedRenderCases = options.caseId === null
+  ? RENDER_CASES
+  : RENDER_CASES.filter((record) => record.id === options.caseId);
+invariant(selectedRenderCases.length > 0, `unknown render case ${String(options.caseId)}`);
+const selectedAssertionTotal = sum(selectedRenderCases, (record) => record.expectedAssertions);
+const selectedObservedConflictTotal = sum(
+  selectedRenderCases,
+  (record) => record.expectedFailures?.length ?? 0,
+);
+const selectedDeclaredConflictTotal = sum(
+  selectedRenderCases,
+  (record) => (record.expectedFailures?.length ?? 0) + (record.latentConflicts?.length ?? 0),
+);
 const errors = { console: [], page: [], network: [], externalFixture: [] };
 const report = {
   $schema: 'core-v2-contract-render-browser-checkpoint/1',
   status: 'failed',
   headed,
+  scope: options.caseId === null ? 'full' : 'case',
+  selectedCase: options.caseId,
   routeParams: { size: DATASET_SIZE, seed: SEED },
+  activeCase: null,
   cases: [],
   assertions: {
-    expected: EXPECTED_ASSERTION_TOTAL,
+    expected: selectedAssertionTotal,
     passed: 0,
-    failed: EXPECTED_ASSERTION_TOTAL,
+    failed: selectedAssertionTotal,
     repeatPassed: 0,
-    repeatFailed: EXPECTED_ASSERTION_TOTAL,
+    repeatFailed: selectedAssertionTotal,
     freshPassed: 0,
-    freshFailed: EXPECTED_ASSERTION_TOTAL,
+    freshFailed: selectedAssertionTotal,
+  },
+  conflicts: {
+    declared: selectedDeclaredConflictTotal,
+    observed: selectedObservedConflictTotal,
+    latent: selectedDeclaredConflictTotal - selectedObservedConflictTotal,
+    latentCases: selectedRenderCases
+      .filter((record) => (record.latentConflicts?.length ?? 0) > 0)
+      .map((record) => record.id),
   },
   errors,
   browser: null,
@@ -112,6 +197,17 @@ const report = {
 let server = null;
 let browser = null;
 let lastFocusedUi = null;
+let cleanupPromise = null;
+let shutdownReason = null;
+
+const checkpointDeadline = setTimeout(() => {
+  requestShutdown('checkpoint-timeout');
+}, CHECKPOINT_TIMEOUT_MS);
+checkpointDeadline.unref();
+const onInterrupt = () => requestShutdown('SIGINT');
+const onTerminate = () => requestShutdown('SIGTERM');
+process.once('SIGINT', onInterrupt);
+process.once('SIGTERM', onTerminate);
 
 try {
   const expectedCases = await loadExpectedCases();
@@ -137,18 +233,26 @@ try {
     platform: process.platform,
   };
 
-  for (const caseSpec of RENDER_CASES) {
+  for (const caseSpec of selectedRenderCases) {
+    report.activeCase = caseSpec.id;
+    process.stderr.write(`[core-v2-render-browser] ${caseSpec.id} start\n`);
     const expectedCase = expectedCases.get(caseSpec.id);
     invariant(expectedCase !== undefined, `${caseSpec.id} normalized expected record is missing`);
-    const caseReport = await executeCase({
-      browser,
-      baseUrl,
-      caseSpec,
-      expectedCase,
-      errors,
-    });
+    const caseReport = await withTimeout(
+      executeCase({
+        browser,
+        baseUrl,
+        caseSpec,
+        expectedCase,
+        errors,
+      }),
+      CASE_TIMEOUT_MS,
+      `${caseSpec.id} first/repeat/fresh execution`,
+    );
     report.cases.push(caseReport);
+    process.stderr.write(`[core-v2-render-browser] ${caseSpec.id} complete\n`);
   }
+  report.activeCase = null;
 
   const passed = sum(report.cases, (record) => record.comparison.passed);
   const failed = sum(report.cases, (record) => record.comparison.failed);
@@ -157,7 +261,7 @@ try {
   const freshPassed = sum(report.cases, (record) => record.freshComparison.passed);
   const freshFailed = sum(report.cases, (record) => record.freshComparison.failed);
   report.assertions = {
-    expected: EXPECTED_ASSERTION_TOTAL,
+    expected: selectedAssertionTotal,
     passed,
     failed,
     repeatPassed,
@@ -166,20 +270,32 @@ try {
     freshFailed,
   };
 
-  invariant(report.cases.length === RENDER_CASES.length, 'all nineteen render routes completed');
   invariant(
-    passed === EXPECTED_ASSERTION_PASS_TOTAL && failed === EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'canonical comparison must be exactly 280 pass and 4 immutable conflicts',
+    report.cases.length === selectedRenderCases.length,
+    options.caseId === null
+      ? 'all twenty-seven render routes completed'
+      : `${options.caseId} targeted render route completed`,
   );
   invariant(
-    repeatPassed === EXPECTED_ASSERTION_PASS_TOTAL &&
-      repeatFailed === EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'repeat comparison must be exactly 280 pass and 4 immutable conflicts',
+    passed === selectedAssertionTotal - selectedObservedConflictTotal
+      && failed === selectedObservedConflictTotal,
+    options.caseId === null
+      ? 'canonical comparison must be exactly 374 pass and 5 observed immutable conflicts'
+      : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
-    freshPassed === EXPECTED_ASSERTION_PASS_TOTAL &&
-      freshFailed === EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'fresh comparison must be exactly 280 pass and 4 immutable conflicts',
+    repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
+      && repeatFailed === selectedObservedConflictTotal,
+    options.caseId === null
+      ? 'repeat comparison must be exactly 374 pass and 5 observed immutable conflicts'
+      : `${options.caseId} targeted repeat comparison`,
+  );
+  invariant(
+    freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
+      && freshFailed === selectedObservedConflictTotal,
+    options.caseId === null
+      ? 'fresh comparison must be exactly 374 pass and 5 observed immutable conflicts'
+      : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
   invariant(errors.page.length === 0, 'page error count must be zero');
@@ -187,15 +303,46 @@ try {
   invariant(errors.externalFixture.length === 0, 'external fixture request count must be zero');
   report.status = 'pass';
 } catch (error) {
+  if (report.failure === null) {
+    report.failure = {
+      ...serializeError(error),
+      focusedUi: lastFocusedUi,
+    };
+  }
+  if (shutdownReason === null) process.exitCode = 1;
+} finally {
+  clearTimeout(checkpointDeadline);
+  process.removeListener('SIGINT', onInterrupt);
+  process.removeListener('SIGTERM', onTerminate);
+  await closeOwnedResources();
+  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+}
+
+function requestShutdown(reason) {
+  if (shutdownReason !== null) return;
+  shutdownReason = reason;
   report.failure = {
-    ...serializeError(error),
+    name: 'AbortError',
+    message: `Core v2 render browser checkpoint stopped: ${reason}`,
+    stack: null,
     focusedUi: lastFocusedUi,
   };
-  process.exitCode = 1;
-} finally {
-  if (browser) await browser.close().catch(() => undefined);
-  if (server) await server.close().catch(() => undefined);
-  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+  process.exitCode = reason === 'SIGINT' ? 130 : reason === 'SIGTERM' ? 143 : 1;
+  process.stderr.write(`[core-v2-render-browser] stopping: ${reason}\n`);
+  void closeOwnedResources();
+}
+
+function closeOwnedResources() {
+  if (cleanupPromise !== null) return cleanupPromise;
+  cleanupPromise = (async () => {
+    const ownedBrowser = browser;
+    const ownedServer = server;
+    browser = null;
+    server = null;
+    if (ownedBrowser) await ownedBrowser.close().catch(() => undefined);
+    if (ownedServer) await ownedServer.close().catch(() => undefined);
+  })();
+  return cleanupPromise;
 }
 
 async function installWebGlCanvasProbe(page, caseId) {
@@ -448,10 +595,12 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
 
   try {
     await openFocusedCase(page, routeUrl, route, caseSpec.id);
+    traceCasePhase(caseSpec.id, 'initial route armed');
 
     const first = DOM_CONTROL_CASES.has(caseSpec.id)
       ? await executeBrowserUiRun(page, caseSpec.id, 'runCase', 'load-dataset')
       : await executeBrowserRun(page, 'runCase');
+    traceCasePhase(caseSpec.id, 'first run observed');
     lastFocusedUi = first.ui;
     const comparison = compareCaseRun(expectedCase, first);
     assertCaseRun(caseSpec, first, comparison, 'first');
@@ -459,6 +608,7 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
     const repeat = DOM_CONTROL_CASES.has(caseSpec.id)
       ? await executeBrowserUiRun(page, caseSpec.id, 'repeatCase', 'repeat-action')
       : await executeBrowserRun(page, 'repeatCase');
+    traceCasePhase(caseSpec.id, 'repeat run observed');
     lastFocusedUi = repeat.ui;
     const repeatComparison = compareCaseRun(expectedCase, repeat);
     assertCaseRun(caseSpec, repeat, repeatComparison, 'repeat');
@@ -468,9 +618,10 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
     );
 
     const destroyed = await destroyBrowserCase(page, caseSpec.id);
+    traceCasePhase(caseSpec.id, 'first session destroyed');
     invariant(destroyed.status === 'destroyed', `${caseSpec.id} bridge destroy terminal status`);
     invariant(destroyed.canvasCount === 0, `${caseSpec.id} destroy releases every canvas`);
-    assertPresentationTrancheDestroyControl(caseSpec.id, destroyed, 'first/repeat');
+    assertDestroyControl(caseSpec.id, destroyed, 'first/repeat');
 
     const fresh = await executeFreshSession({
       browser: activeBrowser,
@@ -480,6 +631,7 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
       expectedCase,
       errors: capturedErrors,
     });
+    traceCasePhase(caseSpec.id, 'fresh session observed and destroyed');
     invariant(
       comparison.stableActualSha256 === fresh.comparison.stableActualSha256,
       `${caseSpec.id} fresh-session stable actual digest`,
@@ -518,7 +670,7 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
       focusedUi: DOM_CONTROL_CASES.has(caseSpec.id)
         ? { first: first.ui, repeat: repeat.ui, fresh: fresh.run.ui }
         : null,
-      controls: PRESENTATION_TRANCHE_CASES.has(caseSpec.id)
+      controls: CONTROL_CASES.has(caseSpec.id)
         ? {
             first: first.ui?.trigger ?? null,
             repeat: repeat.ui?.trigger ?? null,
@@ -552,16 +704,19 @@ async function executeFreshSession({
 
   try {
     await openFocusedCase(page, routeUrl, route, caseSpec.id);
+    traceCasePhase(caseSpec.id, 'fresh route armed');
     const run = DOM_CONTROL_CASES.has(caseSpec.id)
       ? await executeBrowserUiRun(page, caseSpec.id, 'runCase', 'load-dataset')
       : await executeBrowserRun(page, 'runCase');
+    traceCasePhase(caseSpec.id, 'fresh run observed');
     lastFocusedUi = run.ui;
     const comparison = compareCaseRun(expectedCase, run);
     assertCaseRun(caseSpec, run, comparison, 'fresh');
     const destroyed = await destroyBrowserCase(page, caseSpec.id);
+    traceCasePhase(caseSpec.id, 'fresh session destroyed');
     invariant(destroyed.status === 'destroyed', `${caseSpec.id} fresh bridge destroy terminal status`);
     invariant(destroyed.canvasCount === 0, `${caseSpec.id} fresh destroy releases every canvas`);
-    assertPresentationTrancheDestroyControl(caseSpec.id, destroyed, 'fresh');
+    assertDestroyControl(caseSpec.id, destroyed, 'fresh');
     return { run, comparison, destroyed };
   } finally {
     await page.close().catch(() => undefined);
@@ -631,7 +786,7 @@ async function destroyBrowserCase(page, caseId) {
     };
   }, {
     bridgeName: BRIDGE_NAME,
-    useDomControl: PRESENTATION_TRANCHE_CASES.has(caseId),
+    useDomControl: CONTROL_CASES.has(caseId),
   });
 }
 
@@ -641,7 +796,7 @@ function executeBrowserUiRun(page, caseId, operation, buttonTestId) {
     operation,
     buttonTestId,
     caseId,
-    PRESENTATION_TRANCHE_CASES.has(caseId),
+    CONTROL_CASES.has(caseId),
   );
 }
 
@@ -770,7 +925,13 @@ async function executeBrowserRun(
           window.clearTimeout(timeout);
           root.removeEventListener('core-v2-contract-run-complete', onComplete);
           if (!event.detail.run || typeof event.detail.run !== 'object') {
-            reject(new Error(`Focused ${rootTestId} completion did not include a run result`));
+            const execution = bridge.execution();
+            const failureMessage = typeof execution?.error?.message === 'string'
+              ? `: ${execution.error.message}`
+              : '';
+            reject(new Error(
+              `Focused ${rootTestId} completion did not include a run result${failureMessage}`,
+            ));
             return;
           }
           resolve(event.detail.run);
@@ -1335,6 +1496,7 @@ function assertCaseRun(caseSpec, run, comparison, runLabel) {
     sameJson(comparisonFailures(comparison), expectedFailures),
     `${prefix} only declared immutable assertion conflicts`,
   );
+  assertImmutableConflictActuals(caseSpec.id, run.actualObservation, runLabel);
   if (caseSpec.id === 'REN-005') assertRen005FocusedUi(run.ui, runLabel);
   if (caseSpec.id === 'REN-006' || caseSpec.id === 'REN-011') {
     assertTextFocusedUi(caseSpec.id, run.ui, runLabel);
@@ -1342,15 +1504,15 @@ function assertCaseRun(caseSpec, run, comparison, runLabel) {
   if (caseSpec.id === 'REN-008' || caseSpec.id === 'REN-010') {
     assertComponentAssetFocusedUi(caseSpec.id, run.ui, runLabel);
   }
-  if (PRESENTATION_TRANCHE_CASES.has(caseSpec.id)) {
-    assertPresentationTrancheControlUi(caseSpec.id, run.ui, runLabel);
+  if (CONTROL_CASES.has(caseSpec.id)) {
+    assertControlUi(caseSpec.id, run.ui, runLabel);
   }
   if (GPU_EVIDENCE_CASES.has(caseSpec.id)) {
     assertGpuEvidence(caseSpec.id, run.gpu, runLabel);
   }
 }
 
-function assertPresentationTrancheControlUi(caseId, ui, runLabel) {
+function assertControlUi(caseId, ui, runLabel) {
   invariant(ui && typeof ui === 'object', `${caseId} ${runLabel} generic focused UI evidence`);
   const expectedTrigger = runLabel === 'repeat'
     ? 'click:repeat-action'
@@ -1369,8 +1531,8 @@ function assertPresentationTrancheControlUi(caseId, ui, runLabel) {
   invariant(ui.controls?.destroyDisabled === false, `${caseId} ${runLabel} Destroy control is enabled`);
 }
 
-function assertPresentationTrancheDestroyControl(caseId, destroyed, runLabel) {
-  if (!PRESENTATION_TRANCHE_CASES.has(caseId)) return;
+function assertDestroyControl(caseId, destroyed, runLabel) {
+  if (!CONTROL_CASES.has(caseId)) return;
   invariant(
     destroyed.trigger === 'click:destroy-case',
     `${caseId} ${runLabel} actual Destroy control`,
@@ -1379,6 +1541,14 @@ function assertPresentationTrancheDestroyControl(caseId, destroyed, runLabel) {
   invariant(
     cleanupStatus(destroyed.cleanup) === 'completed',
     `${caseId} ${runLabel} Destroy control cleanup completion`,
+  );
+}
+
+function assertImmutableConflictActuals(caseId, actualObservation, runLabel) {
+  const mismatches = inspectCoreV2UpdateConflictActuals(caseId, actualObservation);
+  invariant(
+    mismatches.length === 0,
+    `${caseId} ${runLabel} immutable-conflict actuals (${JSON.stringify(mismatches)})`,
   );
 }
 
@@ -1411,6 +1581,14 @@ function assertGpuEvidence(caseId, gpu, runLabel) {
     assertLay003GpuPaintOrder(gpu, prefix);
     return;
   }
+  if (caseId === 'UPD-007') {
+    assertUpd007GpuPublication(gpu, prefix);
+    return;
+  }
+  if (caseId === 'UPD-008') {
+    assertUpd008GpuPublication(gpu, prefix);
+    return;
+  }
   assertAnimatedBarGpuProjection(caseId, gpu, prefix);
 }
 
@@ -1426,6 +1604,45 @@ function assertLay003GpuPaintOrder(gpu, prefix) {
     containsOrderedRecords(frameOrders, [initial, patched, initial, patched]),
     `${prefix} initial/patch/undo/redo GPU draw order (${JSON.stringify(frameOrders)})`,
   );
+}
+
+function assertUpd007GpuPublication(gpu, prefix) {
+  const sequences = webGl2DrawFrameSequences(gpu);
+  const publishedSequence = sequences.find((sequence) => sequence.length >= 2);
+  invariant(
+    publishedSequence !== undefined,
+    `${prefix} initial and post-bulk publish both issue WebGL2 draws (${gpuFrameDiagnostic(gpu)})`,
+  );
+  const postBulkFrame = publishedSequence.at(-1);
+  invariant(
+    postBulkFrame?.draws.length > 0,
+    `${prefix} post-bulk frame contains a real GPU draw (${gpuFrameDiagnostic(gpu)})`,
+  );
+}
+
+function assertUpd008GpuPublication(gpu, prefix) {
+  const sequences = webGl2DrawFrameSequences(gpu);
+  const publishedSequence = sequences.find((sequence) => sequence.length >= 4);
+  invariant(
+    publishedSequence !== undefined,
+    `${prefix} initial/reconcile/hide/show each issue WebGL2 draws (${gpuFrameDiagnostic(gpu)})`,
+  );
+  const updateFrames = publishedSequence.slice(-3);
+  invariant(
+    updateFrames.length === 3 && updateFrames.every((frame) => frame.draws.length > 0),
+    `${prefix} reconcile/hide/show post-update frames contain real GPU draws (${gpuFrameDiagnostic(gpu)})`,
+  );
+}
+
+function webGl2DrawFrameSequences(gpu) {
+  return gpu.contexts
+    .filter((context) => context.actualContext === 'webgl2' && context.trackedCanvas === true)
+    .map((context) => gpu.frames.filter((frame) => (
+      frame.contextIndex === context.index
+      && frame.trackedCanvas === true
+      && Array.isArray(frame.draws)
+      && frame.draws.length > 0
+    )));
 }
 
 function assertAnimatedBarGpuProjection(caseId, gpu, prefix) {
@@ -1992,12 +2209,19 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 284',
+    'render checkpoint assertion inventory must remain 379',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===
       EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'render checkpoint immutable conflict inventory must remain 4',
+    'render checkpoint observed immutable conflict inventory must remain 5',
+  );
+  invariant(
+    sum(
+      RENDER_CASES,
+      (record) => (record.expectedFailures?.length ?? 0) + (record.latentConflicts?.length ?? 0),
+    ) === DECLARED_IMMUTABLE_CONFLICT_TOTAL,
+    'render checkpoint declared immutable conflict inventory must remain 7',
   );
   return selected;
 }
@@ -2061,11 +2285,42 @@ function cleanupStatus(cleanup) {
 }
 
 function parseArguments(arguments_) {
-  const allowed = new Set(['--headed']);
+  let headed = false;
+  let caseId = null;
   for (const argument of arguments_) {
-    invariant(allowed.has(argument), `unknown argument ${argument}`);
+    if (argument === '--headed') {
+      headed = true;
+      continue;
+    }
+    if (argument.startsWith('--case=')) {
+      invariant(caseId === null, 'render case may be selected only once');
+      caseId = argument.slice('--case='.length);
+      invariant(/^[A-Z]{3}-\d{3}$/u.test(caseId), `invalid render case ${caseId}`);
+      continue;
+    }
+    invariant(false, `unknown argument ${argument}`);
   }
-  return arguments_.includes('--headed');
+  return { headed, caseId };
+}
+
+function traceCasePhase(caseId, phase) {
+  process.stderr.write(`[core-v2-render-browser] ${caseId}: ${phase}\n`);
+}
+
+async function withTimeout(promise, timeoutMs, label) {
+  let timeout;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => {
+          reject(new Error(`Core v2 render browser checkpoint timed out: ${label}`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function sum(records, select) {
