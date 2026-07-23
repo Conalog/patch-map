@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-15T13:53:12.655Z",
+  "generatedAt": "2026-07-21T10:42:07.122Z",
   "package": "@conalog/patch-map/core-v2",
   "pixi": "8.19.0",
   "esm": {
@@ -8,16 +8,44 @@
     "parsedEntities": 4,
     "loadedEntities": 4,
     "capturePrefix": "data:image/png;base64,",
-    "captureLength": 8338,
+    "captureLength": 9450,
     "backend": "webgl",
     "strategy": "mesh",
     "renderObjects": 4,
     "canvasCountAfterDestroy": 0,
-    "destroyed": true
+    "destroyed": true,
+    "transactionRevision": "core-v2-mutation-transaction/1",
+    "emptyBulkStatus": "unchanged",
+    "emptyBulkSceneRevision": 1,
+    "transactionStatus": "committed",
+    "transactionSceneRevision": 2,
+    "transactionBarHeight": 30,
+    "interactionOwnership": {
+      "rootBindingCount": 6,
+      "entityCallbackCount": 0
+    },
+    "engineDestroyResult": true,
+    "engineAfterDestroy": {
+      "lifecycle": "destroyed",
+      "rootIds": [],
+      "datasetRef": null,
+      "semanticHash": null,
+      "historyDepth": 0,
+      "pendingWork": 0,
+      "canvasCount": 0,
+      "subscriptions": {
+        "active": 0,
+        "duplicates": 0
+      },
+      "renderer": null,
+      "assets": null
+    }
   },
   "cjs": {
     "entities": 1,
-    "id": "cjs-rect"
+    "id": "cjs-rect",
+    "transactionRevision": "core-v2-mutation-transaction/1",
+    "plannerType": "function"
   },
   "errors": {
     "console": [],

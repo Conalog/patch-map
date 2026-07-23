@@ -43,7 +43,12 @@ try {
   await writeFile(path.join(consumer, 'index.html'), `<!doctype html>
 <html><body><div id="host" style="width:640px;height:360px"></div><script type="module" src="/main.js"></script></body></html>\n`);
   await writeFile(path.join(consumer, 'main.js'), `
-import { createCoreV2, parsePatchMapV010 } from '@conalog/patch-map/core-v2';
+import {
+  CORE_V2_MUTATION_TRANSACTION_REVISION,
+  CoreV2Engine,
+  createCoreV2,
+  parsePatchMapV010,
+} from '@conalog/patch-map/core-v2';
 
 const input = [{
   type: 'item', id: 'consumer-item', show: true, attrs: { x: 20, y: 30 }, size: { width: 80, height: 120 },
@@ -66,6 +71,40 @@ core.flush('consumer-animation');
 const capture = await core.captureBase64();
 const debugBeforeDestroy = core.debugSnapshot();
 await core.destroy();
+const engine = new CoreV2Engine();
+await engine.initialize({
+  instanceId: 'packed-engine-transaction',
+  target: document.querySelector('#host'),
+  width: 640,
+  height: 360,
+  strategy: 'mesh',
+  preference: 'webgl',
+});
+engine.loadDataset(input);
+const emptyBulk = engine.bulkPatch({
+  strict: true,
+  actionId: 'packed-empty-target-set',
+  targets: [],
+  changes: [{ path: ['attrs', 'x'], value: 999 }],
+});
+const transaction = engine.transact({
+  strict: true,
+  actionId: 'packed-bar-update',
+  operations: [{
+    op: 'merge',
+    target: { kind: 'component', ownerId: 'consumer-item', id: 'bar' },
+    changes: [{ path: ['size', 'height'], value: 30 }],
+  }],
+});
+await engine.publishFrame(16);
+const resolvedBar = engine.resolveTarget({
+  kind: 'component',
+  ownerId: 'consumer-item',
+  id: 'bar',
+});
+const interactionOwnership = engine.interactionOwnershipProbe();
+const engineDestroyResult = await engine.destroy();
+const engineAfterDestroy = engine.snapshot();
 window.__PACKAGE_RESULT__ = {
   immutable: before === JSON.stringify(input),
   parsedEntities: parsed.identity.counts.entities,
@@ -77,12 +116,41 @@ window.__PACKAGE_RESULT__ = {
   renderObjects: debugBeforeDestroy.renderer.aggregateRenderObjects,
   canvasCountAfterDestroy: document.querySelectorAll('canvas').length,
   destroyed: core.debugSnapshot().destroyed,
+  transactionRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+  emptyBulkStatus: emptyBulk.status,
+  emptyBulkSceneRevision: emptyBulk.revisions.sceneRevision,
+  transactionStatus: transaction.status,
+  transactionSceneRevision: transaction.revisions.sceneRevision,
+  transactionBarHeight: resolvedBar?.value?.size?.height ?? null,
+  interactionOwnership,
+  engineDestroyResult,
+  engineAfterDestroy: {
+    lifecycle: engineAfterDestroy.lifecycle,
+    rootIds: engineAfterDestroy.rootIds,
+    datasetRef: engineAfterDestroy.datasetRef,
+    semanticHash: engineAfterDestroy.semanticHash,
+    historyDepth: engineAfterDestroy.historyDepth,
+    pendingWork: engineAfterDestroy.pendingWork,
+    canvasCount: engineAfterDestroy.resources.canvasCount,
+    subscriptions: engineAfterDestroy.resources.subscriptions,
+    renderer: engineAfterDestroy.resources.renderer,
+    assets: engineAfterDestroy.resources.assets,
+  },
 };
 `);
   await writeFile(path.join(consumer, 'consumer.cjs'), `
-const { parsePatchMapV010 } = require('@conalog/patch-map/core-v2');
+const {
+  CORE_V2_MUTATION_TRANSACTION_REVISION,
+  parsePatchMapV010,
+  planCoreV2MutationTransaction,
+} = require('@conalog/patch-map/core-v2');
 const result = parsePatchMapV010([{ type: 'rect', id: 'cjs-rect', size: 10, fill: '#ff0000' }]);
-process.stdout.write(JSON.stringify({ entities: result.identity.counts.entities, id: result.document.entities[0].id }));
+process.stdout.write(JSON.stringify({
+  entities: result.identity.counts.entities,
+  id: result.document.entities[0].id,
+  transactionRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+  plannerType: typeof planCoreV2MutationTransaction,
+}));
 `);
 
   await execute('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], {
@@ -120,7 +188,26 @@ process.stdout.write(JSON.stringify({ entities: result.identity.counts.entities,
   if (esm.strategy !== 'mesh' || esm.backend !== 'webgl') failures.push('packed ESM did not use selected WebGL Mesh runtime');
   if (!(esm.renderObjects > 0)) failures.push('packed ESM produced no aggregate render objects');
   if (esm.canvasCountAfterDestroy !== 0 || !esm.destroyed) failures.push('packed ESM lifecycle leaked a canvas or live runtime');
+  if (esm.transactionRevision !== 'core-v2-mutation-transaction/1') failures.push('packed ESM transaction revision export failed');
+  if (esm.emptyBulkStatus !== 'unchanged' || esm.emptyBulkSceneRevision !== 1) failures.push('packed ESM empty bulk target-set semantics failed');
+  if (esm.transactionStatus !== 'committed' || esm.transactionSceneRevision !== 2 || esm.transactionBarHeight !== 30) failures.push('packed ESM engine transaction failed');
+  if (esm.interactionOwnership?.rootBindingCount !== 6 || esm.interactionOwnership?.entityCallbackCount !== 0) failures.push('packed ESM interaction ownership probe failed');
+  if (esm.engineDestroyResult !== true) failures.push('packed ESM raw Engine destroy did not own cleanup');
+  if (
+    esm.engineAfterDestroy?.lifecycle !== 'destroyed' ||
+    esm.engineAfterDestroy.canvasCount !== 0 ||
+    esm.engineAfterDestroy.subscriptions?.active !== 0 ||
+    esm.engineAfterDestroy.subscriptions?.duplicates !== 0 ||
+    esm.engineAfterDestroy.pendingWork !== 0 ||
+    esm.engineAfterDestroy.historyDepth !== 0 ||
+    esm.engineAfterDestroy.rootIds?.length !== 0 ||
+    esm.engineAfterDestroy.datasetRef !== null ||
+    esm.engineAfterDestroy.semanticHash !== null ||
+    esm.engineAfterDestroy.renderer !== null ||
+    esm.engineAfterDestroy.assets !== null
+  ) failures.push('packed ESM raw Engine retained lifecycle resources after destroy');
   if (cjs.entities !== 1 || cjs.id !== 'cjs-rect') failures.push('packed CJS parser subpath failed');
+  if (cjs.transactionRevision !== 'core-v2-mutation-transaction/1' || cjs.plannerType !== 'function') failures.push('packed CJS transaction exports failed');
   if (errors.console.length || errors.page.length || errors.network.length) failures.push('packed browser consumer emitted errors');
 
   const evidence = {
@@ -143,4 +230,3 @@ process.stdout.write(JSON.stringify({ entities: result.identity.counts.entities,
   await server?.close();
   await rm(temporary, { recursive: true, force: true });
 }
-

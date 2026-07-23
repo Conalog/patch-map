@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { percentile, summarize } from '../../performance/core-v2/protocol';
-import { createSyntheticPatchMap } from '../../performance/core-v2/workloads';
+import {
+  createSyntheticPatchMap,
+  resolveSyntheticBitmapTextCapability,
+} from '../../performance/core-v2/workloads';
+import { parsePatchMapV010 } from '../../src/core-v2/parser';
+import { selectCoreV2TextRenderRoute } from '../../src/core-v2/semantic/text-render-route';
 
 describe('Core v2 performance protocol', () => {
   it('retains raw sample order and reports deterministic nearest-rank statistics', () => {
@@ -18,6 +23,59 @@ describe('Core v2 performance protocol', () => {
     expect(left).toHaveLength(101);
     expect(left[0]).toMatchObject({ type: 'item', id: 'item-00000' });
     expect(left.at(-1)).toMatchObject({ type: 'relations', id: 'synthetic-relations' });
+    const parsed = parsePatchMapV010(left);
+    expect(Object.values(parsed.projection.textsByEntityId ?? {}).every(
+      (text) => text.rendererRoute === 'bitmap-text' &&
+        text.visibleFontRuns.every((run) => run.fallbackReason === undefined),
+    )).toBe(true);
+    const firstText = Object.values(parsed.projection.textsByEntityId ?? {})[0];
+    if (!firstText) throw new Error('missing synthetic text projection');
+    const routeStyle = {
+      fontFamily: 'Unifont',
+      fontSize: firstText.fontSizePx,
+      fontWeight: 600,
+      fontStyle: 'normal' as const,
+      lineHeight: firstText.lineHeightPx,
+      letterSpacing: firstText.letterSpacingPx,
+      advancedFeatures: [] as const,
+    };
+    expect(selectCoreV2TextRenderRoute({
+      text: firstText.visibleText,
+      style: routeStyle,
+      glyphResolution: { missingGlyphCount: 0, fallbackGlyphCount: 0 },
+      bitmapCapability: resolveSyntheticBitmapTextCapability({
+        entityId: firstText.entityId,
+        text: firstText.visibleText,
+        style: routeStyle,
+        projection: firstText,
+      }),
+    }).route).toBe('bitmap-text');
+  });
+
+  it('proves only the pinned finite benchmark BitmapText profile', () => {
+    const request = {
+      entityId: 'item-00000::component:value',
+      text: 'CPU 42%',
+      style: {
+        fontFamily: 'Unifont',
+        fontSize: 11,
+        fontWeight: 600,
+        fontStyle: 'normal' as const,
+        lineHeight: 20,
+        letterSpacing: 0,
+        advancedFeatures: [] as const,
+      },
+      projection: null,
+    };
+    expect(resolveSyntheticBitmapTextCapability(request)).toMatchObject({
+      coverage: 'proven',
+      atlasId: 'core-v2-benchmark-unifont-ascii-11-600',
+      multiline: false,
+    });
+    expect(resolveSyntheticBitmapTextCapability({ ...request, text: '상태 42' })).toBeNull();
+    expect(resolveSyntheticBitmapTextCapability({
+      ...request,
+      style: { ...request.style, fontWeight: 400 },
+    })).toBeNull();
   });
 });
-

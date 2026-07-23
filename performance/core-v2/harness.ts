@@ -9,6 +9,7 @@ import {
   CORE_V2_SYNTHETIC_ASSET_ALIAS,
   CORE_V2_SYNTHETIC_ASSET_DATA_URL,
   createSyntheticPatchMap,
+  resolveSyntheticBitmapTextCapability,
   seededRandom,
 } from './workloads';
 import { percentile, type CoreV2Trial, type CoreV2Scale } from './protocol';
@@ -112,6 +113,7 @@ async function runTrial(
     preference: 'webgl',
     autoRender: false,
     antialias: false,
+    resolveBitmapTextCapability: resolveSyntheticBitmapTextCapability,
     assetPolicy: ({ descriptor }) => {
       if (descriptor.src !== CORE_V2_SYNTHETIC_ASSET_DATA_URL) {
         throw new Error('Core v2 benchmark asset policy rejected a non-fixture source');

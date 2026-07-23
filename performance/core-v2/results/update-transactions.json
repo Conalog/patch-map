@@ -1,0 +1,1848 @@
+{
+  "schemaVersion": 1,
+  "checkpoint": "core-v2-update-transactions",
+  "generatedAt": "2026-07-23T01:24:13.243Z",
+  "durationMs": 17953.261209,
+  "protocol": {
+    "warmups": 2,
+    "measured": 7,
+    "scales": [
+      100,
+      500,
+      1000,
+      2000,
+      5000
+    ],
+    "operations": {
+      "full": "bulkPatch over every item target",
+      "partial": "bulkPatch over nearest-lower 10% item targets",
+      "empty": "validated bulkPatch over an empty target set",
+      "invalid": "strict transact with a valid first operation and missing final target"
+    }
+  },
+  "scope": {
+    "measured": [
+      "public CoreV2Engine transaction validation",
+      "detached semantic candidate materialization",
+      "component/text semantic indexing",
+      "history preparation and publication bookkeeping"
+    ],
+    "excluded": [
+      "PixiJS renderer reconciliation",
+      "GPU upload",
+      "frame publication",
+      "browser scheduling",
+      "retained heap"
+    ],
+    "surface": "injected deterministic no-render surface",
+    "rendererEvidence": "canonical Core v2 Chromium 4x matrix; not rerun by this checkpoint",
+    "productionDataset": "covered by canonical full matrix; this isolated scale checkpoint uses seeded synthetic input"
+  },
+  "environment": {
+    "runtime": "node 22.21.1",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "cpuModel": "Apple M2",
+    "logicalCpuCount": 8,
+    "timer": "node:perf_hooks performance.now",
+    "chromium4x": "not-run; tranche reuses existing surface reconciliation and this checkpoint isolates new Engine staging/orchestration",
+    "windowsNative": "pending; this CPU-isolation checkpoint is not native target evidence"
+  },
+  "runs": [
+    {
+      "scale": 100,
+      "itemTargetCount": 100,
+      "partialTargetCount": 10,
+      "warmupRaw": [
+        {
+          "trial": 0,
+          "seed": 3235807516,
+          "timings": {
+            "fullBulkPatchMs": 16.871875000000045,
+            "partialBulkPatchMs": 12.493249999999989,
+            "emptyBulkPatchMs": 0.03854199999989305,
+            "invalidRollbackMs": 1.6787909999999329
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 100
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 10
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 1,
+          "seed": 3235807517,
+          "timings": {
+            "fullBulkPatchMs": 11.918583000000012,
+            "partialBulkPatchMs": 8.549417000000062,
+            "emptyBulkPatchMs": 0.019499999999993634,
+            "invalidRollbackMs": 1.4757500000000618
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 100
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 10
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        }
+      ],
+      "measuredRaw": [
+        {
+          "trial": 2,
+          "seed": 3235807518,
+          "timings": {
+            "fullBulkPatchMs": 10.123874999999998,
+            "partialBulkPatchMs": 8.94683299999997,
+            "emptyBulkPatchMs": 0.08916700000008859,
+            "invalidRollbackMs": 1.4285840000000007
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 100
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 10
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 3,
+          "seed": 3235807519,
+          "timings": {
+            "fullBulkPatchMs": 10.565665999999965,
+            "partialBulkPatchMs": 8.282958000000008,
+            "emptyBulkPatchMs": 0.019290999999952874,
+            "invalidRollbackMs": 1.4182499999999436
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 100
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 10
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 4,
+          "seed": 3235807520,
+          "timings": {
+            "fullBulkPatchMs": 9.89595799999995,
+            "partialBulkPatchMs": 8.514416000000097,
+            "emptyBulkPatchMs": 0.017083999999954358,
+            "invalidRollbackMs": 1.4199590000000626
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 100
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 10
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 5,
+          "seed": 3235807521,
+          "timings": {
+            "fullBulkPatchMs": 9.928959000000077,
+            "partialBulkPatchMs": 7.8680839999999534,
+            "emptyBulkPatchMs": 0.010541999999986729,
+            "invalidRollbackMs": 1.4166669999999613
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 100
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 10
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 6,
+          "seed": 3235807522,
+          "timings": {
+            "fullBulkPatchMs": 9.857583999999974,
+            "partialBulkPatchMs": 8.037874999999985,
+            "emptyBulkPatchMs": 0.009542000000010376,
+            "invalidRollbackMs": 2.048208000000045
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 100
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 10
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 7,
+          "seed": 3235807523,
+          "timings": {
+            "fullBulkPatchMs": 9.208124999999995,
+            "partialBulkPatchMs": 8.72341700000004,
+            "emptyBulkPatchMs": 0.010583000000110587,
+            "invalidRollbackMs": 1.4633750000000418
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 100
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 10
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 8,
+          "seed": 3235807524,
+          "timings": {
+            "fullBulkPatchMs": 10.31512500000008,
+            "partialBulkPatchMs": 7.952166000000034,
+            "emptyBulkPatchMs": 0.015417000000070402,
+            "invalidRollbackMs": 1.5927910000000338
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 100
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 10
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        }
+      ],
+      "summary": {
+        "fullBulkPatchMs": {
+          "samples": [
+            10.123874999999998,
+            10.565665999999965,
+            9.89595799999995,
+            9.928959000000077,
+            9.857583999999974,
+            9.208124999999995,
+            10.31512500000008
+          ],
+          "min": 9.208124999999995,
+          "median": 9.928959000000077,
+          "p95": 10.565665999999965,
+          "max": 10.565665999999965
+        },
+        "partialBulkPatchMs": {
+          "samples": [
+            8.94683299999997,
+            8.282958000000008,
+            8.514416000000097,
+            7.8680839999999534,
+            8.037874999999985,
+            8.72341700000004,
+            7.952166000000034
+          ],
+          "min": 7.8680839999999534,
+          "median": 8.282958000000008,
+          "p95": 8.94683299999997,
+          "max": 8.94683299999997
+        },
+        "emptyBulkPatchMs": {
+          "samples": [
+            0.08916700000008859,
+            0.019290999999952874,
+            0.017083999999954358,
+            0.010541999999986729,
+            0.009542000000010376,
+            0.010583000000110587,
+            0.015417000000070402
+          ],
+          "min": 0.009542000000010376,
+          "median": 0.015417000000070402,
+          "p95": 0.08916700000008859,
+          "max": 0.08916700000008859
+        },
+        "invalidRollbackMs": {
+          "samples": [
+            1.4285840000000007,
+            1.4182499999999436,
+            1.4199590000000626,
+            1.4166669999999613,
+            2.048208000000045,
+            1.4633750000000418,
+            1.5927910000000338
+          ],
+          "min": 1.4166669999999613,
+          "median": 1.4285840000000007,
+          "p95": 2.048208000000045,
+          "max": 2.048208000000045
+        }
+      }
+    },
+    {
+      "scale": 500,
+      "itemTargetCount": 500,
+      "partialTargetCount": 50,
+      "warmupRaw": [
+        {
+          "trial": 0,
+          "seed": 3235819916,
+          "timings": {
+            "fullBulkPatchMs": 51.31712500000003,
+            "partialBulkPatchMs": 47.16329100000007,
+            "emptyBulkPatchMs": 0.028458999999884327,
+            "invalidRollbackMs": 8.541958999999906
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 500
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 50
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 1,
+          "seed": 3235819917,
+          "timings": {
+            "fullBulkPatchMs": 48.455625000000055,
+            "partialBulkPatchMs": 39.557832999999846,
+            "emptyBulkPatchMs": 0.02437499999996362,
+            "invalidRollbackMs": 8.741167000000132
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 500
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 50
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        }
+      ],
+      "measuredRaw": [
+        {
+          "trial": 2,
+          "seed": 3235819918,
+          "timings": {
+            "fullBulkPatchMs": 125.09358399999996,
+            "partialBulkPatchMs": 62.51650000000018,
+            "emptyBulkPatchMs": 0.020792000000028565,
+            "invalidRollbackMs": 9.282375000000002
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 500
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 50
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 3,
+          "seed": 3235819919,
+          "timings": {
+            "fullBulkPatchMs": 56.83745900000008,
+            "partialBulkPatchMs": 43.47870899999998,
+            "emptyBulkPatchMs": 0.01954099999989012,
+            "invalidRollbackMs": 8.114874999999984
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 500
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 50
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 4,
+          "seed": 3235819920,
+          "timings": {
+            "fullBulkPatchMs": 48.63216699999998,
+            "partialBulkPatchMs": 40.252874999999904,
+            "emptyBulkPatchMs": 0.01724999999987631,
+            "invalidRollbackMs": 7.655834000000141
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 500
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 50
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 5,
+          "seed": 3235819921,
+          "timings": {
+            "fullBulkPatchMs": 45.801291999999876,
+            "partialBulkPatchMs": 38.682832999999846,
+            "emptyBulkPatchMs": 0.012166999999863037,
+            "invalidRollbackMs": 7.535082999999986
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 500
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 50
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 6,
+          "seed": 3235819922,
+          "timings": {
+            "fullBulkPatchMs": 46.672166999999945,
+            "partialBulkPatchMs": 65.86829199999988,
+            "emptyBulkPatchMs": 0.02270900000007714,
+            "invalidRollbackMs": 20.228625000000193
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 500
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 50
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 7,
+          "seed": 3235819923,
+          "timings": {
+            "fullBulkPatchMs": 50.37391700000012,
+            "partialBulkPatchMs": 38.94662500000004,
+            "emptyBulkPatchMs": 0.016290999999910127,
+            "invalidRollbackMs": 7.457832999999937
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 500
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 50
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 8,
+          "seed": 3235819924,
+          "timings": {
+            "fullBulkPatchMs": 48.16341599999987,
+            "partialBulkPatchMs": 47.41062499999998,
+            "emptyBulkPatchMs": 0.015292000000044936,
+            "invalidRollbackMs": 7.607291999999688
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 500
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 50
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        }
+      ],
+      "summary": {
+        "fullBulkPatchMs": {
+          "samples": [
+            125.09358399999996,
+            56.83745900000008,
+            48.63216699999998,
+            45.801291999999876,
+            46.672166999999945,
+            50.37391700000012,
+            48.16341599999987
+          ],
+          "min": 45.801291999999876,
+          "median": 48.63216699999998,
+          "p95": 125.09358399999996,
+          "max": 125.09358399999996
+        },
+        "partialBulkPatchMs": {
+          "samples": [
+            62.51650000000018,
+            43.47870899999998,
+            40.252874999999904,
+            38.682832999999846,
+            65.86829199999988,
+            38.94662500000004,
+            47.41062499999998
+          ],
+          "min": 38.682832999999846,
+          "median": 43.47870899999998,
+          "p95": 65.86829199999988,
+          "max": 65.86829199999988
+        },
+        "emptyBulkPatchMs": {
+          "samples": [
+            0.020792000000028565,
+            0.01954099999989012,
+            0.01724999999987631,
+            0.012166999999863037,
+            0.02270900000007714,
+            0.016290999999910127,
+            0.015292000000044936
+          ],
+          "min": 0.012166999999863037,
+          "median": 0.01724999999987631,
+          "p95": 0.02270900000007714,
+          "max": 0.02270900000007714
+        },
+        "invalidRollbackMs": {
+          "samples": [
+            9.282375000000002,
+            8.114874999999984,
+            7.655834000000141,
+            7.535082999999986,
+            20.228625000000193,
+            7.457832999999937,
+            7.607291999999688
+          ],
+          "min": 7.457832999999937,
+          "median": 7.655834000000141,
+          "p95": 20.228625000000193,
+          "max": 20.228625000000193
+        }
+      }
+    },
+    {
+      "scale": 1000,
+      "itemTargetCount": 1000,
+      "partialTargetCount": 100,
+      "warmupRaw": [
+        {
+          "trial": 0,
+          "seed": 3235835416,
+          "timings": {
+            "fullBulkPatchMs": 94.83779200000026,
+            "partialBulkPatchMs": 82.50504199999978,
+            "emptyBulkPatchMs": 0.013832999999976892,
+            "invalidRollbackMs": 18.14083299999993
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 1000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 100
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 1,
+          "seed": 3235835417,
+          "timings": {
+            "fullBulkPatchMs": 97.22883299999967,
+            "partialBulkPatchMs": 79.58258399999977,
+            "emptyBulkPatchMs": 0.023333999999977095,
+            "invalidRollbackMs": 14.367542000000412
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 1000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 100
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        }
+      ],
+      "measuredRaw": [
+        {
+          "trial": 2,
+          "seed": 3235835418,
+          "timings": {
+            "fullBulkPatchMs": 90.78970799999979,
+            "partialBulkPatchMs": 77.62966700000015,
+            "emptyBulkPatchMs": 0.021541999999953987,
+            "invalidRollbackMs": 14.990999999999985
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 1000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 100
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 3,
+          "seed": 3235835419,
+          "timings": {
+            "fullBulkPatchMs": 101.21812500000033,
+            "partialBulkPatchMs": 145.06387500000028,
+            "emptyBulkPatchMs": 0.018458000000009633,
+            "invalidRollbackMs": 15.7209170000001
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 1000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 100
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 4,
+          "seed": 3235835420,
+          "timings": {
+            "fullBulkPatchMs": 93.18241699999999,
+            "partialBulkPatchMs": 79.34820799999989,
+            "emptyBulkPatchMs": 0.015291000000161148,
+            "invalidRollbackMs": 14.43008299999974
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 1000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 100
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 5,
+          "seed": 3235835421,
+          "timings": {
+            "fullBulkPatchMs": 104.63850000000002,
+            "partialBulkPatchMs": 110.99512499999992,
+            "emptyBulkPatchMs": 0.028999999999996362,
+            "invalidRollbackMs": 15.533832999999959
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 1000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 100
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 6,
+          "seed": 3235835422,
+          "timings": {
+            "fullBulkPatchMs": 92.90925000000016,
+            "partialBulkPatchMs": 78.52749999999969,
+            "emptyBulkPatchMs": 0.014249999999719876,
+            "invalidRollbackMs": 13.869833000000199
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 1000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 100
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 7,
+          "seed": 3235835423,
+          "timings": {
+            "fullBulkPatchMs": 88.53420800000004,
+            "partialBulkPatchMs": 75.50783300000012,
+            "emptyBulkPatchMs": 0.01579100000071776,
+            "invalidRollbackMs": 13.872333000000253
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 1000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 100
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 8,
+          "seed": 3235835424,
+          "timings": {
+            "fullBulkPatchMs": 88.28695799999969,
+            "partialBulkPatchMs": 75.29120899999998,
+            "emptyBulkPatchMs": 0.013416999999208201,
+            "invalidRollbackMs": 13.874500000000808
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 1000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 100
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        }
+      ],
+      "summary": {
+        "fullBulkPatchMs": {
+          "samples": [
+            90.78970799999979,
+            101.21812500000033,
+            93.18241699999999,
+            104.63850000000002,
+            92.90925000000016,
+            88.53420800000004,
+            88.28695799999969
+          ],
+          "min": 88.28695799999969,
+          "median": 92.90925000000016,
+          "p95": 104.63850000000002,
+          "max": 104.63850000000002
+        },
+        "partialBulkPatchMs": {
+          "samples": [
+            77.62966700000015,
+            145.06387500000028,
+            79.34820799999989,
+            110.99512499999992,
+            78.52749999999969,
+            75.50783300000012,
+            75.29120899999998
+          ],
+          "min": 75.29120899999998,
+          "median": 78.52749999999969,
+          "p95": 145.06387500000028,
+          "max": 145.06387500000028
+        },
+        "emptyBulkPatchMs": {
+          "samples": [
+            0.021541999999953987,
+            0.018458000000009633,
+            0.015291000000161148,
+            0.028999999999996362,
+            0.014249999999719876,
+            0.01579100000071776,
+            0.013416999999208201
+          ],
+          "min": 0.013416999999208201,
+          "median": 0.01579100000071776,
+          "p95": 0.028999999999996362,
+          "max": 0.028999999999996362
+        },
+        "invalidRollbackMs": {
+          "samples": [
+            14.990999999999985,
+            15.7209170000001,
+            14.43008299999974,
+            15.533832999999959,
+            13.869833000000199,
+            13.872333000000253,
+            13.874500000000808
+          ],
+          "min": 13.869833000000199,
+          "median": 14.43008299999974,
+          "p95": 15.7209170000001,
+          "max": 15.7209170000001
+        }
+      }
+    },
+    {
+      "scale": 2000,
+      "itemTargetCount": 2000,
+      "partialTargetCount": 200,
+      "warmupRaw": [
+        {
+          "trial": 0,
+          "seed": 3235866416,
+          "timings": {
+            "fullBulkPatchMs": 184.7430000000004,
+            "partialBulkPatchMs": 152.8965420000004,
+            "emptyBulkPatchMs": 0.014667000000372354,
+            "invalidRollbackMs": 28.63799999999992
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 2000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 200
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 1,
+          "seed": 3235866417,
+          "timings": {
+            "fullBulkPatchMs": 180.41295900000023,
+            "partialBulkPatchMs": 154.3111660000004,
+            "emptyBulkPatchMs": 0.02254200000061246,
+            "invalidRollbackMs": 27.954082999999628
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 2000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 200
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        }
+      ],
+      "measuredRaw": [
+        {
+          "trial": 2,
+          "seed": 3235866418,
+          "timings": {
+            "fullBulkPatchMs": 180.95345799999996,
+            "partialBulkPatchMs": 151.32949999999983,
+            "emptyBulkPatchMs": 0.015625,
+            "invalidRollbackMs": 27.779332999999497
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 2000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 200
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 3,
+          "seed": 3235866419,
+          "timings": {
+            "fullBulkPatchMs": 190.61220799999955,
+            "partialBulkPatchMs": 164.88724999999977,
+            "emptyBulkPatchMs": 0.025499999999738066,
+            "invalidRollbackMs": 28.702000000000226
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 2000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 200
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 4,
+          "seed": 3235866420,
+          "timings": {
+            "fullBulkPatchMs": 180.96662500000002,
+            "partialBulkPatchMs": 152.22112499999912,
+            "emptyBulkPatchMs": 0.014500000000225555,
+            "invalidRollbackMs": 27.881416000000172
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 2000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 200
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 5,
+          "seed": 3235866421,
+          "timings": {
+            "fullBulkPatchMs": 177.9833750000007,
+            "partialBulkPatchMs": 151.85483399999976,
+            "emptyBulkPatchMs": 0.013707999999496678,
+            "invalidRollbackMs": 28.859459000000243
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 2000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 200
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 6,
+          "seed": 3235866422,
+          "timings": {
+            "fullBulkPatchMs": 192.43404199999986,
+            "partialBulkPatchMs": 151.20366699999977,
+            "emptyBulkPatchMs": 0.02275000000008731,
+            "invalidRollbackMs": 28.254500000000007
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 2000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 200
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 7,
+          "seed": 3235866423,
+          "timings": {
+            "fullBulkPatchMs": 177.99516699999913,
+            "partialBulkPatchMs": 150.66795900000034,
+            "emptyBulkPatchMs": 0.015499999999519787,
+            "invalidRollbackMs": 28.455708000000413
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 2000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 200
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 8,
+          "seed": 3235866424,
+          "timings": {
+            "fullBulkPatchMs": 178.0022080000008,
+            "partialBulkPatchMs": 153.86495800000012,
+            "emptyBulkPatchMs": 0.01641699999981938,
+            "invalidRollbackMs": 28.9248749999997
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 2000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 200
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        }
+      ],
+      "summary": {
+        "fullBulkPatchMs": {
+          "samples": [
+            180.95345799999996,
+            190.61220799999955,
+            180.96662500000002,
+            177.9833750000007,
+            192.43404199999986,
+            177.99516699999913,
+            178.0022080000008
+          ],
+          "min": 177.9833750000007,
+          "median": 180.95345799999996,
+          "p95": 192.43404199999986,
+          "max": 192.43404199999986
+        },
+        "partialBulkPatchMs": {
+          "samples": [
+            151.32949999999983,
+            164.88724999999977,
+            152.22112499999912,
+            151.85483399999976,
+            151.20366699999977,
+            150.66795900000034,
+            153.86495800000012
+          ],
+          "min": 150.66795900000034,
+          "median": 151.85483399999976,
+          "p95": 164.88724999999977,
+          "max": 164.88724999999977
+        },
+        "emptyBulkPatchMs": {
+          "samples": [
+            0.015625,
+            0.025499999999738066,
+            0.014500000000225555,
+            0.013707999999496678,
+            0.02275000000008731,
+            0.015499999999519787,
+            0.01641699999981938
+          ],
+          "min": 0.013707999999496678,
+          "median": 0.015625,
+          "p95": 0.025499999999738066,
+          "max": 0.025499999999738066
+        },
+        "invalidRollbackMs": {
+          "samples": [
+            27.779332999999497,
+            28.702000000000226,
+            27.881416000000172,
+            28.859459000000243,
+            28.254500000000007,
+            28.455708000000413,
+            28.9248749999997
+          ],
+          "min": 27.779332999999497,
+          "median": 28.455708000000413,
+          "p95": 28.9248749999997,
+          "max": 28.9248749999997
+        }
+      }
+    },
+    {
+      "scale": 5000,
+      "itemTargetCount": 5000,
+      "partialTargetCount": 500,
+      "warmupRaw": [
+        {
+          "trial": 0,
+          "seed": 3235959416,
+          "timings": {
+            "fullBulkPatchMs": 465.3942499999994,
+            "partialBulkPatchMs": 409.5032919999994,
+            "emptyBulkPatchMs": 0.02275000000008731,
+            "invalidRollbackMs": 71.22320899999977
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 5000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 500
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 1,
+          "seed": 3235959417,
+          "timings": {
+            "fullBulkPatchMs": 450.78570899999977,
+            "partialBulkPatchMs": 379.3115830000006,
+            "emptyBulkPatchMs": 0.022915999999895575,
+            "invalidRollbackMs": 73.0619170000009
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 5000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 500
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        }
+      ],
+      "measuredRaw": [
+        {
+          "trial": 2,
+          "seed": 3235959418,
+          "timings": {
+            "fullBulkPatchMs": 446.69641599999886,
+            "partialBulkPatchMs": 395.91020899999967,
+            "emptyBulkPatchMs": 0.023333999999522348,
+            "invalidRollbackMs": 71.02824999999939
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 5000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 500
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 3,
+          "seed": 3235959419,
+          "timings": {
+            "fullBulkPatchMs": 446.15366600000016,
+            "partialBulkPatchMs": 382.5322499999984,
+            "emptyBulkPatchMs": 0.01504199999908451,
+            "invalidRollbackMs": 71.1282910000009
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 5000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 500
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 4,
+          "seed": 3235959420,
+          "timings": {
+            "fullBulkPatchMs": 482.8759169999994,
+            "partialBulkPatchMs": 413.26570899999933,
+            "emptyBulkPatchMs": 0.02604100000098697,
+            "invalidRollbackMs": 71.07025000000067
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 5000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 500
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 5,
+          "seed": 3235959421,
+          "timings": {
+            "fullBulkPatchMs": 449.60079099999894,
+            "partialBulkPatchMs": 411.27445799999987,
+            "emptyBulkPatchMs": 0.015375000000858563,
+            "invalidRollbackMs": 73.86854200000016
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 5000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 500
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 6,
+          "seed": 3235959422,
+          "timings": {
+            "fullBulkPatchMs": 538.5159999999996,
+            "partialBulkPatchMs": 421.1520410000012,
+            "emptyBulkPatchMs": 0.024167000001398264,
+            "invalidRollbackMs": 71.66404200000034
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 5000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 500
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 7,
+          "seed": 3235959423,
+          "timings": {
+            "fullBulkPatchMs": 451.1466670000009,
+            "partialBulkPatchMs": 385.23433300000033,
+            "emptyBulkPatchMs": 0.015708999999333173,
+            "invalidRollbackMs": 71.20095899999797
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 5000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 500
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        },
+        {
+          "trial": 8,
+          "seed": 3235959424,
+          "timings": {
+            "fullBulkPatchMs": 488.9751670000005,
+            "partialBulkPatchMs": 384.2347919999993,
+            "emptyBulkPatchMs": 0.023874999998952262,
+            "invalidRollbackMs": 70.80991699999868
+          },
+          "observations": {
+            "full": {
+              "status": "committed",
+              "applied": 5000
+            },
+            "partial": {
+              "status": "committed",
+              "applied": 500
+            },
+            "empty": {
+              "status": "unchanged",
+              "sceneRevisionDelta": 0
+            },
+            "invalid": {
+              "status": "rejected",
+              "diagnosticCode": "MISSING_TARGET",
+              "sceneRevisionDelta": 0,
+              "authorityPreserved": true
+            },
+            "reconcileCount": 2,
+            "inputImmutable": true
+          }
+        }
+      ],
+      "summary": {
+        "fullBulkPatchMs": {
+          "samples": [
+            446.69641599999886,
+            446.15366600000016,
+            482.8759169999994,
+            449.60079099999894,
+            538.5159999999996,
+            451.1466670000009,
+            488.9751670000005
+          ],
+          "min": 446.15366600000016,
+          "median": 451.1466670000009,
+          "p95": 538.5159999999996,
+          "max": 538.5159999999996
+        },
+        "partialBulkPatchMs": {
+          "samples": [
+            395.91020899999967,
+            382.5322499999984,
+            413.26570899999933,
+            411.27445799999987,
+            421.1520410000012,
+            385.23433300000033,
+            384.2347919999993
+          ],
+          "min": 382.5322499999984,
+          "median": 395.91020899999967,
+          "p95": 421.1520410000012,
+          "max": 421.1520410000012
+        },
+        "emptyBulkPatchMs": {
+          "samples": [
+            0.023333999999522348,
+            0.01504199999908451,
+            0.02604100000098697,
+            0.015375000000858563,
+            0.024167000001398264,
+            0.015708999999333173,
+            0.023874999998952262
+          ],
+          "min": 0.01504199999908451,
+          "median": 0.023333999999522348,
+          "p95": 0.02604100000098697,
+          "max": 0.02604100000098697
+        },
+        "invalidRollbackMs": {
+          "samples": [
+            71.02824999999939,
+            71.1282910000009,
+            71.07025000000067,
+            73.86854200000016,
+            71.66404200000034,
+            71.20095899999797,
+            70.80991699999868
+          ],
+          "min": 70.80991699999868,
+          "median": 71.1282910000009,
+          "p95": 73.86854200000016,
+          "max": 73.86854200000016
+        }
+      }
+    }
+  ]
+}

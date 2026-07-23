@@ -1,8 +1,48 @@
 import type { MapData } from '../../src/contracts';
+import type { CoreV2BitmapTextCapabilityRequest } from '../../src/core-v2/renderers/leaf-layer';
+import type { CoreV2BitmapTextCapabilityProof } from '../../src/core-v2/semantic/text-render-route';
 
 export const CORE_V2_SYNTHETIC_ASSET_ALIAS = 'core-v2-synthetic-dot';
 export const CORE_V2_SYNTHETIC_ASSET_DATA_URL =
   'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="8" height="8"%3E%3Ccircle cx="4" cy="4" r="3" fill="white"/%3E%3C/svg%3E';
+
+const CORE_V2_SYNTHETIC_BITMAP_GLYPHS = Object.freeze(
+  Array.from({ length: 95 }, (_, index) => String.fromCharCode(0x20 + index)),
+);
+
+/** Exact finite proof for the benchmark's one pinned dynamic ASCII profile. */
+export function resolveSyntheticBitmapTextCapability(
+  request: CoreV2BitmapTextCapabilityRequest,
+): CoreV2BitmapTextCapabilityProof | null {
+  const { style, text } = request;
+  if (
+    text.length > 128 ||
+    [...text].some((glyph) => !CORE_V2_SYNTHETIC_BITMAP_GLYPHS.includes(glyph)) ||
+    style.fontFamily !== 'Unifont' ||
+    style.fontSize !== 11 ||
+    style.fontWeight !== 600 ||
+    style.fontStyle !== 'normal' ||
+    style.lineHeight !== 20 ||
+    style.letterSpacing !== 0 ||
+    style.advancedFeatures.length !== 0
+  ) {
+    return null;
+  }
+  return Object.freeze({
+    coverage: 'proven',
+    atlasId: 'core-v2-benchmark-unifont-ascii-11-600',
+    glyphs: CORE_V2_SYNTHETIC_BITMAP_GLYPHS,
+    style: Object.freeze({
+      fontFamily: style.fontFamily,
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight,
+      fontStyle: style.fontStyle,
+      lineHeight: style.lineHeight,
+      letterSpacing: style.letterSpacing,
+    }),
+    multiline: false,
+  });
+}
 
 export function createSyntheticPatchMap(itemCount: number, seed = 0x5eed): MapData {
   if (!Number.isSafeInteger(itemCount) || itemCount < 1) {
@@ -49,7 +89,13 @@ export function createSyntheticPatchMap(itemCount: number, seed = 0x5eed): MapDa
           text: String(value),
           placement: 'top',
           margin: { top: 5 },
-          style: { fontFamily: 'Arial', fontSize: 11, fontWeight: 600, fill: '#18243a' },
+          style: {
+            fontFamily: 'Unifont',
+            fontSize: 11,
+            fontWeight: 600,
+            lineHeight: 20,
+            fill: '#18243a',
+          },
         },
         ...(index % 10 === 0
           ? [{
@@ -91,4 +137,3 @@ export function seededRandom(seed: number): () => number {
     return state / 0x1_0000_0000;
   };
 }
-

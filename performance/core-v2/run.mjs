@@ -193,16 +193,25 @@ async function startServer(explicitUrl) {
     logLevel: 'error',
     server: { host: '127.0.0.1', port: 0, strictPort: false },
   });
-  await server.listen();
-  const baseUrl = server.resolvedUrls?.local?.[0];
-  if (!baseUrl) {
-    await server.close();
-    throw new Error('Vite did not expose a local benchmark URL');
+  try {
+    await server.listen();
+    const baseUrl = server.resolvedUrls?.local?.[0];
+    if (!baseUrl) throw new Error('Vite did not expose a local benchmark URL');
+    return {
+      pageUrl: new URL('performance/core-v2/index.html', baseUrl).href,
+      close: () => server.close(),
+    };
+  } catch (error) {
+    try {
+      await server.close();
+    } catch (closeError) {
+      throw new AggregateError(
+        [error, closeError],
+        'Core v2 benchmark server startup and cleanup both failed',
+      );
+    }
+    throw error;
   }
-  return {
-    pageUrl: new URL('performance/core-v2/index.html', baseUrl).href,
-    close: () => server.close(),
-  };
 }
 
 async function runHarness(page, { role, strategy, scale, seed }) {
