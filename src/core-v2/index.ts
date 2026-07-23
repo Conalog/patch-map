@@ -34,6 +34,14 @@ export {
 export type * from './viewport';
 export type * from './paint-order-product';
 export type * from './history';
+export {
+  CORE_V2_QUERY_SELECTION_REVISION,
+  CoreV2LogicalSceneIndex,
+  applyCoreV2SelectionOperation,
+  coreV2LogicalTargetKey,
+  coreV2SelectionClickType,
+} from './query-selection';
+export type * from './query-selection';
 export type * from './semantic/paint-order';
 export { CoreV2Engine, CoreV2EngineError } from './engine';
 export type * from './engine';

@@ -120,6 +120,21 @@ import {
   type CoreV2HistoryState,
   type CoreV2SemanticHistorySnapshotInput,
 } from './history';
+import {
+  CORE_V2_QUERY_SELECTION_REVISION,
+  CoreV2LogicalSceneIndex,
+  applyCoreV2SelectionOperation,
+  type CoreV2LogicalTargetSnapshot,
+  type CoreV2QueryReuseOperation,
+  type CoreV2SceneQuery,
+  type CoreV2SelectionChange,
+  type CoreV2SelectionEligibilityOptions,
+  type CoreV2SelectionHit,
+  type CoreV2SelectionHitOptions,
+  type CoreV2SelectionInteraction,
+  type CoreV2SelectionInteractionOptions,
+  type CoreV2SelectionSetOperation,
+} from './query-selection';
 
 export type CoreV2Lifecycle =
   | 'new'
@@ -752,6 +767,39 @@ export interface CoreV2ResolvedTargetSnapshot {
   readonly value: Readonly<Record<string, unknown>>;
 }
 
+export interface CoreV2EngineQueryResult {
+  readonly schemaRevision: typeof CORE_V2_QUERY_SELECTION_REVISION;
+  readonly status: 'matched' | 'empty' | 'rejected';
+  readonly code: 'CONFLICT' | null;
+  readonly lifecycleGeneration: number;
+  readonly sceneRevision: number;
+  readonly targets: readonly CoreV2LogicalTargetSnapshot[];
+}
+
+export type CoreV2EngineQueryReuseResult =
+  | Readonly<{
+      readonly status: 'accepted';
+      readonly code: null;
+      readonly operation: CoreV2QueryReuseOperation;
+      readonly appliedCount: number;
+      readonly targets: readonly CoreV2LogicalTargetSnapshot[];
+    }>
+  | Readonly<{
+      readonly status: 'rejected';
+      readonly code: 'STALE_TARGET';
+      readonly operation: CoreV2QueryReuseOperation;
+      readonly appliedCount: 0;
+      readonly targets: readonly CoreV2LogicalTargetSnapshot[];
+    }>;
+
+export interface CoreV2EngineSelectionHit extends CoreV2SelectionHit {
+  readonly worldPoint: CoreV2Point;
+}
+
+export interface CoreV2EnginePointSelectionResult extends CoreV2EngineSelectionHit {
+  readonly change: CoreV2SelectionChange;
+}
+
 export interface CoreV2EngineTransactionHistory {
   readonly recorded: boolean;
   readonly commandId: string | null;
@@ -1089,6 +1137,7 @@ type CoreV2EngineEventMap = {
     CoreV2EngineSemanticRefreshResult,
     { readonly status: 'committed' }
   >;
+  readonly selectionChanged: CoreV2SelectionChange;
   readonly change:
     | Extract<CoreV2EnginePatchResult, { readonly status: 'committed' }>
     | Extract<CoreV2EngineTransactionResult, { readonly status: 'committed' }>;
@@ -1107,6 +1156,13 @@ type CoreV2EngineListener<K extends CoreV2EngineEvent> = (event: CoreV2EngineEve
 
 const DEFAULT_ZOOM_LIMITS = Object.freeze([0.5, 30] as const);
 const EMPTY_MATERIALIZED_DATASET = materializeCoreV2Dataset([]);
+const CORE_V2_QUERY_REUSE_OPERATIONS = Object.freeze([
+  'update',
+  'event-bind',
+  'focus',
+  'transform',
+  'select',
+] as const satisfies readonly CoreV2QueryReuseOperation[]);
 const FACILITIES = Object.freeze([
   'renderer',
   'viewport',
@@ -1126,6 +1182,12 @@ interface CoreV2ResolvedTargetAuthority {
   readonly target: CoreV2MutationTarget;
   readonly lifecycleGeneration: number;
   readonly sceneRevision: number;
+}
+
+interface CoreV2QueryResultAuthority {
+  readonly lifecycleGeneration: number;
+  readonly sceneRevision: number;
+  readonly targets: readonly CoreV2LogicalTargetSnapshot[];
 }
 
 interface CoreV2EngineHistoryCompanion {
@@ -1157,6 +1219,14 @@ export class CoreV2Engine {
     CoreV2ResolvedTargetSnapshot,
     CoreV2ResolvedTargetAuthority
   >();
+  private readonly queryResultAuthorities = new WeakMap<
+    CoreV2EngineQueryResult,
+    CoreV2QueryResultAuthority
+  >();
+  private logicalSceneIndexCache: Readonly<{
+    readonly materialized: MaterializedCoreV2Dataset;
+    readonly index: CoreV2LogicalSceneIndex;
+  }> | null = null;
   private componentSemantics = new Map<string, CoreV2EngineComponentSemanticProbe>();
   private textSemantics = new Map<string, IndexedEngineTextSemantic>();
   private logicalSelectionIds: readonly string[] = Object.freeze([]);
@@ -2883,17 +2953,166 @@ export class CoreV2Engine {
     return this.worldTransformState();
   }
 
+  public queryScene(input: CoreV2SceneQuery = {}): CoreV2EngineQueryResult {
+    this.requireSurface('queryScene');
+    const evaluated = this.logicalSceneIndex().query(input);
+    const result = Object.freeze({
+      schemaRevision: CORE_V2_QUERY_SELECTION_REVISION,
+      status: evaluated.status,
+      code: evaluated.code,
+      lifecycleGeneration: this.targetLifecycleGeneration,
+      sceneRevision: this.sceneRevision,
+      targets: evaluated.targets,
+    } satisfies CoreV2EngineQueryResult);
+    if (result.status !== 'rejected') {
+      this.queryResultAuthorities.set(result, Object.freeze({
+        lifecycleGeneration: this.targetLifecycleGeneration,
+        sceneRevision: this.sceneRevision,
+        targets: result.targets,
+      }));
+    }
+    return result;
+  }
+
+  /**
+   * Validate and unwrap a revision-bound query handle for another product
+   * subsystem. The returned logical targets are the same immutable snapshots;
+   * a copied, foreign, lifecycle-old, or scene-old result never authorizes a
+   * reused dense slot.
+   */
+  public reuseQueryResult(
+    result: CoreV2EngineQueryResult,
+    operation: CoreV2QueryReuseOperation,
+  ): CoreV2EngineQueryReuseResult {
+    this.requireSurface('reuseQueryResult');
+    if (!CORE_V2_QUERY_REUSE_OPERATIONS.includes(operation)) {
+      throw new TypeError('query reuse operation is unsupported');
+    }
+    const authority = this.queryResultAuthorities.get(result);
+    if (
+      authority === undefined ||
+      authority.lifecycleGeneration !== this.targetLifecycleGeneration ||
+      authority.sceneRevision !== this.sceneRevision
+    ) {
+      return Object.freeze({
+        status: 'rejected',
+        code: 'STALE_TARGET',
+        operation,
+        appliedCount: 0,
+        targets: Object.freeze([]),
+      });
+    }
+    return Object.freeze({
+      status: 'accepted',
+      code: null,
+      operation,
+      appliedCount: authority.targets.length,
+      targets: authority.targets,
+    });
+  }
+
   public select(ids: readonly string[]): readonly string[] {
-    const unique = Object.freeze([...new Set(ids.map((id) => {
-      if (typeof id !== 'string' || id.length === 0) throw new TypeError('selection IDs must be non-empty strings');
-      return id;
-    }))]);
+    return this.applySelection({
+      op: 'replace',
+      ids,
+      source: 'programmatic',
+    }).current;
+  }
+
+  public applySelection(input: CoreV2SelectionSetOperation): CoreV2SelectionChange {
     const surface = this.requireSurface('select');
-    const logical = this.validLogicalSelection(unique, this.materialized);
-    surface.select(logical);
-    if (!sameStringArray(this.logicalSelectionIds, logical)) this.interactionRevision += 1;
-    this.logicalSelectionIds = logical;
-    return logical;
+    const materialized = this.materialized;
+    const change = applyCoreV2SelectionOperation(
+      this.logicalSelectionIds,
+      input,
+      (id) => materialized !== null && logicalElementIdExists(materialized.dataset, id),
+    );
+    surface.select(change.current);
+    this.logicalSelectionIds = change.current;
+    if (change.changed) {
+      this.interactionRevision += 1;
+      this.emit('selectionChanged', change);
+    }
+    return change;
+  }
+
+  public filterSelectionTargets(
+    targetIds: readonly string[],
+    options: CoreV2SelectionEligibilityOptions = {},
+  ): readonly CoreV2LogicalTargetSnapshot[] {
+    this.requireSurface('filterSelectionTargets');
+    return this.logicalSceneIndex().filterSelection(targetIds, options);
+  }
+
+  public selectionHitTestScreen(
+    point: CoreV2Point,
+    options: CoreV2SelectionHitOptions = {},
+  ): CoreV2EngineSelectionHit {
+    validatePoint(point, 'selectionHitTestScreen');
+    const surface = this.requireSurface('selectionHitTestScreen');
+    const worldPoint = surface.screenToWorld(point);
+    const logicalIndex = this.logicalSceneIndex();
+    if (selectionHitUsesSpatialFastPath(options)) {
+      const id = surface.hitTestScreen(point);
+      const hit = id === null
+        ? Object.freeze({ target: null, candidates: Object.freeze([]) })
+        : logicalIndex.hitFromTarget(id);
+      return Object.freeze({ ...hit, worldPoint });
+    }
+    const geometry = surface.geometrySnapshot?.();
+    if (geometry === undefined) {
+      const id = surface.hitTestScreen(point);
+      const target = id === null
+        ? null
+        : logicalIndex.filterSelection([id], options)[0] ?? null;
+      return Object.freeze({
+        target,
+        candidates: Object.freeze(target === null ? [] : [target]),
+        worldPoint,
+      });
+    }
+    const hit = logicalIndex.hitTest(
+      geometry.entities.map((entity) => Object.freeze({
+        id: entity.id,
+        ...(entity.ownerItemId === undefined ? {} : { ownerItemId: entity.ownerItemId }),
+        ...(entity.componentId === undefined ? {} : { componentId: entity.componentId }),
+        screenBounds: entity.screenBounds,
+        visible: entity.visible,
+      })),
+      point,
+      options,
+    );
+    return Object.freeze({
+      ...hit,
+      worldPoint,
+    });
+  }
+
+  public selectPoint(
+    point: CoreV2Point,
+    options: CoreV2SelectionHitOptions & Readonly<{
+      readonly mode?: 'replace' | 'add' | 'toggle';
+    }> = {},
+  ): CoreV2EnginePointSelectionResult {
+    const hit = this.selectionHitTestScreen(point, options);
+    const ids = hit.target === null
+      ? Object.freeze([] as string[])
+      : Object.freeze([hit.target.selectionId]);
+    const mode = options.mode ?? 'replace';
+    const change = this.applySelection({
+      op: mode,
+      ids,
+      source: 'canvas',
+    });
+    return Object.freeze({ ...hit, change });
+  }
+
+  public resolveSelectionInteraction(
+    targetOrId: string,
+    options: CoreV2SelectionInteractionOptions,
+  ): CoreV2SelectionInteraction | null {
+    this.requireSurface('resolveSelectionInteraction');
+    return this.logicalSceneIndex().resolveSelectionInteraction(targetOrId, options);
   }
 
   public hitTest(point: CoreV2Point): string | null {
@@ -3296,6 +3515,7 @@ export class CoreV2Engine {
     }
     this.surface = null;
     this.materialized = null;
+    this.logicalSceneIndexCache = null;
     this.logicalSelectionIds = Object.freeze([]);
     this.resetLiveOverlayState();
     this.viewportPolicyRegistry.clear();
@@ -3491,6 +3711,17 @@ export class CoreV2Engine {
     if (materialized === null) return Object.freeze([]);
     return Object.freeze([...new Set(ids)].filter((id) =>
       logicalElementIdExists(materialized.dataset, id)));
+  }
+
+  private logicalSceneIndex(): CoreV2LogicalSceneIndex {
+    const materialized = this.materialized ?? EMPTY_MATERIALIZED_DATASET;
+    if (this.logicalSceneIndexCache?.materialized !== materialized) {
+      this.logicalSceneIndexCache = Object.freeze({
+        materialized,
+        index: new CoreV2LogicalSceneIndex(materialized.dataset),
+      });
+    }
+    return this.logicalSceneIndexCache.index;
   }
 
   private async cleanupSurface(
@@ -5834,6 +6065,13 @@ function logicalElementIdExists(
     }
   }
   return false;
+}
+
+function selectionHitUsesSpatialFastPath(options: CoreV2SelectionHitOptions): boolean {
+  return options.candidateIds === undefined &&
+    options.rejectIds === undefined &&
+    options.lockedIds === undefined &&
+    options.predicate === undefined;
 }
 
 function componentSelectionIdExists(
