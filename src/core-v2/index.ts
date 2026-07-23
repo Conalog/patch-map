@@ -10,6 +10,8 @@ export type {
   CoreV2ReconcileResult,
   CoreV2ReconcileTimings,
   CoreV2RuntimeDebug,
+  CoreV2SemanticRefreshOptions,
+  CoreV2SemanticRefreshResult,
   CoreV2TextGeometryProbe,
   CoreV2TextProductProbe,
   CoreV2TextProductPublicationStatus,
@@ -18,6 +20,8 @@ export type {
   CoreV2TextTarget,
   CoreV2TextTransformProbe,
 } from './core';
+export { CORE_V2_PRESENTATION_POLICY_REVISION } from './presentation-policy';
+export type * from './presentation-policy';
 export type * from './paint-order-product';
 export type * from './history';
 export type * from './semantic/paint-order';

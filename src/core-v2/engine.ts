@@ -6,6 +6,7 @@ import {
   type CoreV2ComponentVisualProductProbe,
   type CoreV2ComponentVisualTarget,
   type CoreV2Options,
+  type CoreV2SemanticRefreshResult,
   type CoreV2TextGeometryProbe,
   type CoreV2TextProductProbe,
   type CoreV2TextRendererProductProbe,
@@ -14,8 +15,12 @@ import {
   type CoreV2TextTransformProbe,
   normalizeCoreV2TextTarget,
 } from './core';
+import type {
+  CoreV2PresentationPolicyInput,
+  CoreV2PresentationPolicyProductProbe,
+} from './presentation-policy';
 import type { CoreV2PaintOrderProductProbe } from './paint-order-product';
-import type { SceneSnapshot } from '../core-v1/contracts';
+import type { SceneSnapshot, SlotRange } from '../core-v1/contracts';
 import type {
   CoreV2ImageSourceKind,
   CoreV2ProjectionIndex,
@@ -530,6 +535,15 @@ export interface CoreV2EngineSurface {
   resize(width: number, height: number, pixelRatio: number): boolean;
   setView(view: CoreV2SurfaceView): void;
   select(ids: readonly string[]): void;
+  setPresentationPolicy?(
+    input: CoreV2PresentationPolicyInput,
+  ): CoreV2PresentationPolicyProductProbe;
+  clearPresentationPolicy?(): CoreV2PresentationPolicyProductProbe;
+  presentationPolicyProbe?(): CoreV2PresentationPolicyProductProbe;
+  refreshSemanticTargets?(
+    targets: readonly CoreV2SemanticTarget[],
+    options?: Readonly<{ readonly strict?: boolean }>,
+  ): CoreV2SemanticRefreshResult;
   hitTestScreen(point: CoreV2Point): string | null;
   screenToWorld(point: CoreV2Point): CoreV2Point;
   debugSnapshot(): CoreV2SurfaceDebug;
@@ -732,18 +746,124 @@ export type CoreV2EngineDestroyTargetResult =
 export interface CoreV2DatasetSubmission {
   readonly requestId: string;
   readonly datasetRef?: string;
+  readonly sourceRevision?: number;
   readonly input: Promise<unknown>;
+  /** Per-request temporary-resource disposer; invoked exactly once. */
+  readonly release?: (
+    result: CoreV2DatasetSubmissionResult,
+  ) => void | Promise<void>;
 }
 
 export type CoreV2DatasetSubmissionResult =
   | Readonly<{
       status: 'committed';
       requestId: string;
+      sourceRevision?: number;
       sceneRevision: number;
       semanticHash: string;
     }>
-  | Readonly<{ status: 'superseded'; requestId: string; diagnostic: CoreV2EngineDiagnostic }>
-  | Readonly<{ status: 'rejected'; requestId: string; diagnostic: CoreV2EngineDiagnostic }>;
+  | Readonly<{
+      status: 'superseded';
+      requestId: string;
+      sourceRevision?: number;
+      diagnostic: CoreV2EngineDiagnostic;
+    }>
+  | Readonly<{
+      status: 'rejected';
+      requestId: string;
+      sourceRevision?: number;
+      diagnostic: CoreV2EngineDiagnostic;
+    }>;
+
+export interface CoreV2EnginePresentationResult {
+  readonly changed: boolean;
+  readonly publication: 'pending' | 'current';
+  readonly previousRevisions: CoreV2RevisionStamp;
+  readonly revisions: CoreV2RevisionStamp;
+  readonly policy: CoreV2PresentationPolicyProductProbe;
+}
+
+export interface CoreV2LiveOverlayTuple {
+  readonly sourceRevision: number;
+  readonly payloadHash: string;
+  readonly sceneRevision: number;
+}
+
+export interface CoreV2LiveOverlayPublishedTuple extends CoreV2LiveOverlayTuple {
+  readonly frameRevision: number;
+}
+
+export interface CoreV2LiveOverlayInput {
+  readonly sourceRevision: number;
+  readonly payloadHash: string;
+  readonly transaction: CoreV2MutationTransactionRequest;
+}
+
+export type CoreV2LiveOverlayResult =
+  | Readonly<{
+      readonly status: 'accepted';
+      readonly changed: boolean;
+      readonly publication: 'pending';
+      readonly tuple: CoreV2LiveOverlayTuple;
+      readonly transaction: CoreV2EngineTransactionResult;
+    }>
+  | Readonly<{
+      readonly status: 'superseded' | 'rejected';
+      readonly changed: false;
+      readonly sourceRevision: number;
+      readonly payloadHash: string;
+      readonly diagnostic: CoreV2EngineDiagnostic;
+      readonly transaction?: CoreV2EngineTransactionResult;
+    }>;
+
+export interface CoreV2LiveOverlayProbe {
+  readonly latestAccepted: CoreV2LiveOverlayTuple | null;
+  readonly latestPublished: CoreV2LiveOverlayPublishedTuple | null;
+  readonly pendingPublicationCount: 0 | 1;
+  readonly acceptedCount: number;
+  readonly publicationCount: number;
+}
+
+export interface CoreV2SemanticRefreshInput {
+  readonly targets: readonly CoreV2SemanticTarget[];
+  readonly strict?: boolean;
+  readonly recordHistory?: boolean;
+}
+
+export type CoreV2EngineSemanticRefreshResult =
+  | Readonly<{
+      readonly status: 'committed';
+      readonly changed: true;
+      readonly publication: 'pending';
+      readonly previousRevisions: CoreV2RevisionStamp;
+      readonly revisions: CoreV2RevisionStamp;
+      readonly recomputedTargets: readonly string[];
+      readonly missingTargets: readonly string[];
+      readonly dirtyRanges: readonly SlotRange[];
+      readonly dataDiffCount: 0;
+      readonly history: CoreV2HistoryState;
+      readonly selectionIds: readonly string[];
+    }>
+  | Readonly<{
+      readonly status: 'unchanged' | 'rejected';
+      readonly changed: false;
+      readonly previousRevisions: CoreV2RevisionStamp;
+      readonly revisions: CoreV2RevisionStamp;
+      readonly recomputedTargets: readonly string[];
+      readonly missingTargets: readonly string[];
+      readonly dirtyRanges: readonly SlotRange[];
+      readonly dataDiffCount: 0;
+      readonly history: CoreV2HistoryState;
+      readonly selectionIds: readonly string[];
+      readonly diagnostic?: CoreV2EngineDiagnostic;
+    }>;
+
+export interface CoreV2ExternalDependencyResult {
+  readonly changed: boolean;
+  readonly dependencyId: string;
+  readonly previousRevision: string | null;
+  readonly revision: string;
+}
 
 export interface CoreV2EngineSnapshot {
   readonly lifecycle: CoreV2Lifecycle;
@@ -821,6 +941,7 @@ type CoreV2EngineEventMap = {
   readonly sceneCommitted: CoreV2EngineLoadResult;
   readonly drawComplete: Readonly<{
     requestId: string;
+    sourceRevision?: number;
     sceneRevision: number;
     semanticHash: string;
     datasetRef: string | null;
@@ -829,6 +950,13 @@ type CoreV2EngineEventMap = {
     frameRevision: number;
     publishedTuple: CoreV2PublishedTuple;
   }>;
+  readonly presentationChanged: CoreV2EnginePresentationResult;
+  readonly overlayAccepted: CoreV2LiveOverlayTuple;
+  readonly overlayPublished: CoreV2LiveOverlayPublishedTuple;
+  readonly semanticRefreshed: Extract<
+    CoreV2EngineSemanticRefreshResult,
+    { readonly status: 'committed' }
+  >;
   readonly change:
     | Extract<CoreV2EnginePatchResult, { readonly status: 'committed' }>
     | Extract<CoreV2EngineTransactionResult, { readonly status: 'committed' }>;
@@ -915,6 +1043,12 @@ export class CoreV2Engine {
   }> | null = null;
   private submissionSequence = 0;
   private pendingWork = 0;
+  private latestOverlayAccepted: CoreV2LiveOverlayTuple | null = null;
+  private latestOverlayPublished: CoreV2LiveOverlayPublishedTuple | null = null;
+  private pendingOverlayPublication: CoreV2LiveOverlayTuple | null = null;
+  private overlayAcceptedCount = 0;
+  private overlayPublicationCount = 0;
+  private readonly externalDependencyRevisions = new Map<string, string>();
   private viewportWidth = 0;
   private viewportHeight = 0;
   private viewportPixelRatio = 1;
@@ -1086,6 +1220,7 @@ export class CoreV2Engine {
     this.history.clear();
     this.componentSemantics = componentSemantics;
     this.textSemantics = textSemantics;
+    this.resetLiveOverlayState();
     this.datasetRef = options.datasetRef ?? null;
     this.sceneRevision += 1;
     this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
@@ -1728,48 +1863,337 @@ export class CoreV2Engine {
     return result;
   }
 
-  public async submitDataset(submission: CoreV2DatasetSubmission): Promise<CoreV2DatasetSubmissionResult> {
-    if (!this.surface) {
+  public setPresentationPolicy(
+    input: CoreV2PresentationPolicyInput,
+  ): CoreV2EnginePresentationResult {
+    const surface = this.requireSurface('setPresentationPolicy');
+    if (!surface.setPresentationPolicy || !surface.presentationPolicyProbe) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'setPresentationPolicy',
+        false,
+      );
+    }
+    const previousRevisions = this.revisionStamp();
+    const before = surface.presentationPolicyProbe();
+    const policy = surface.setPresentationPolicy(input);
+    const changed = policy.revision !== before.revision;
+    if (changed) this.interactionRevision += 1;
+    const result = Object.freeze({
+      changed,
+      publication: changed ? 'pending' : 'current',
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      policy,
+    } satisfies CoreV2EnginePresentationResult);
+    if (changed) this.emit('presentationChanged', result);
+    return result;
+  }
+
+  public clearPresentationPolicy(): CoreV2EnginePresentationResult {
+    const surface = this.requireSurface('clearPresentationPolicy');
+    if (!surface.clearPresentationPolicy || !surface.presentationPolicyProbe) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'clearPresentationPolicy',
+        false,
+      );
+    }
+    const previousRevisions = this.revisionStamp();
+    const before = surface.presentationPolicyProbe();
+    const policy = surface.clearPresentationPolicy();
+    const changed = policy.revision !== before.revision;
+    if (changed) this.interactionRevision += 1;
+    const result = Object.freeze({
+      changed,
+      publication: changed ? 'pending' : 'current',
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      policy,
+    } satisfies CoreV2EnginePresentationResult);
+    if (changed) this.emit('presentationChanged', result);
+    return result;
+  }
+
+  public presentationPolicyProbe(): CoreV2PresentationPolicyProductProbe {
+    const surface = this.requireSurface('presentationPolicyProbe');
+    if (!surface.presentationPolicyProbe) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'presentationPolicyProbe',
+        false,
+      );
+    }
+    return surface.presentationPolicyProbe();
+  }
+
+  public applyLiveOverlay(input: CoreV2LiveOverlayInput): CoreV2LiveOverlayResult {
+    this.requireSurface('applyLiveOverlay');
+    const sourceRevision = positiveSafeInteger(input.sourceRevision, 'sourceRevision');
+    const payloadHash = nonEmptyValue(input.payloadHash, 'payloadHash');
+    const latest = this.latestOverlayAccepted;
+    if (latest !== null && sourceRevision <= latest.sourceRevision) {
+      const diagnostic = this.operationDiagnostic(
+        'SUPERSEDED',
+        'SUPERSEDED',
+        'applyLiveOverlay',
+        true,
+      );
       return Object.freeze({
-        status: 'rejected',
-        requestId: submission.requestId,
-        diagnostic: this.operationDiagnostic('NOT_READY', 'NOT_READY', 'loadDataset', true),
+        status: 'superseded',
+        changed: false,
+        sourceRevision,
+        payloadHash,
+        diagnostic,
       });
     }
-    const sequence = ++this.submissionSequence;
+    if (input.transaction.recordHistory === true) {
+      const diagnostic = this.operationDiagnostic(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        'applyLiveOverlay',
+        true,
+      );
+      this.emit('diagnostic', diagnostic);
+      return Object.freeze({
+        status: 'rejected',
+        changed: false,
+        sourceRevision,
+        payloadHash,
+        diagnostic,
+      });
+    }
+    const transaction = this.transact({
+      ...input.transaction,
+      recordHistory: false,
+    });
+    if (transaction.status === 'rejected' || transaction.status === 'refused') {
+      return Object.freeze({
+        status: 'rejected',
+        changed: false,
+        sourceRevision,
+        payloadHash,
+        diagnostic: transaction.diagnostic,
+        transaction,
+      });
+    }
+    const tuple = Object.freeze({
+      sourceRevision,
+      payloadHash,
+      sceneRevision: this.sceneRevision,
+    });
+    this.latestOverlayAccepted = tuple;
+    this.pendingOverlayPublication = tuple;
+    this.overlayAcceptedCount += 1;
+    this.emit('overlayAccepted', tuple);
+    return Object.freeze({
+      status: 'accepted',
+      changed: transaction.changed,
+      publication: 'pending',
+      tuple,
+      transaction,
+    });
+  }
+
+  public liveOverlayProbe(): CoreV2LiveOverlayProbe {
+    this.requireSurface('liveOverlayProbe');
+    return Object.freeze({
+      latestAccepted: this.latestOverlayAccepted,
+      latestPublished: this.latestOverlayPublished,
+      pendingPublicationCount: this.pendingOverlayPublication === null ? 0 : 1,
+      acceptedCount: this.overlayAcceptedCount,
+      publicationCount: this.overlayPublicationCount,
+    });
+  }
+
+  public replaceExternalDependency(
+    dependencyIdValue: string,
+    revisionValue: string,
+  ): CoreV2ExternalDependencyResult {
+    this.requireSurface('replaceExternalDependency');
+    const dependencyId = nonEmptyValue(dependencyIdValue, 'dependencyId');
+    const revision = nonEmptyValue(revisionValue, 'revision');
+    const previousRevision = this.externalDependencyRevisions.get(dependencyId) ?? null;
+    const changed = previousRevision !== revision;
+    if (changed) this.externalDependencyRevisions.set(dependencyId, revision);
+    return Object.freeze({
+      changed,
+      dependencyId,
+      previousRevision,
+      revision,
+    });
+  }
+
+  public externalDependencyProbe(): Readonly<Record<string, string>> {
+    this.requireSurface('externalDependencyProbe');
+    return Object.freeze(Object.fromEntries(
+      [...this.externalDependencyRevisions].sort(([left], [right]) => left.localeCompare(right)),
+    ));
+  }
+
+  public refreshSemantic(
+    input: CoreV2SemanticRefreshInput,
+  ): CoreV2EngineSemanticRefreshResult {
+    const surface = this.requireSurface('refreshSemantic');
+    const previousRevisions = this.revisionStamp();
+    const history = this.history.state();
+    const selectionIds = this.logicalSelectionIds;
+    const rejectedBase = {
+      changed: false as const,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      recomputedTargets: Object.freeze([] as string[]),
+      missingTargets: Object.freeze([] as string[]),
+      dirtyRanges: Object.freeze([] as SlotRange[]),
+      dataDiffCount: 0 as const,
+      history,
+      selectionIds,
+    };
+    if (input.recordHistory === true) {
+      const diagnostic = this.operationDiagnostic(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'refreshSemantic',
+        true,
+      );
+      this.emit('diagnostic', diagnostic);
+      return Object.freeze({ status: 'rejected', ...rejectedBase, diagnostic });
+    }
+    if (!surface.refreshSemanticTargets) {
+      const diagnostic = this.operationDiagnostic(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'refreshSemantic',
+        false,
+      );
+      this.emit('diagnostic', diagnostic);
+      return Object.freeze({ status: 'rejected', ...rejectedBase, diagnostic });
+    }
+    const refreshed = surface.refreshSemanticTargets(input.targets, {
+      strict: input.strict ?? true,
+    });
+    if ((input.strict ?? true) && refreshed.missingTargets.length > 0) {
+      const diagnostic = this.operationDiagnostic(
+        'MISSING_TARGET',
+        'MISSING_TARGET',
+        'refreshSemantic',
+        true,
+      );
+      const result = Object.freeze({
+        status: 'rejected' as const,
+        changed: false as const,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        recomputedTargets: refreshed.recomputedTargets,
+        missingTargets: refreshed.missingTargets,
+        dirtyRanges: refreshed.dirtyRanges,
+        dataDiffCount: 0 as const,
+        history,
+        selectionIds,
+        diagnostic,
+      });
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+    if (!refreshed.changed) {
+      return Object.freeze({
+        status: 'unchanged',
+        changed: false,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        recomputedTargets: refreshed.recomputedTargets,
+        missingTargets: refreshed.missingTargets,
+        dirtyRanges: refreshed.dirtyRanges,
+        dataDiffCount: 0,
+        history,
+        selectionIds,
+      });
+    }
+    this.sceneRevision += 1;
+    const result = Object.freeze({
+      status: 'committed',
+      changed: true,
+      publication: 'pending',
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      recomputedTargets: refreshed.recomputedTargets,
+      missingTargets: refreshed.missingTargets,
+      dirtyRanges: refreshed.dirtyRanges,
+      dataDiffCount: 0,
+      history,
+      selectionIds,
+    } satisfies CoreV2EngineSemanticRefreshResult);
+    this.emit('semanticRefreshed', result);
+    return result;
+  }
+
+  public async submitDataset(submission: CoreV2DatasetSubmission): Promise<CoreV2DatasetSubmissionResult> {
+    let sourceFields: Readonly<{ readonly sourceRevision?: number }> = Object.freeze({});
+    let sequence = 0;
+    let outcome: CoreV2DatasetSubmissionResult | null = null;
     this.pendingWork += 1;
     try {
+      const sourceRevision = normalizeOptionalSourceRevision(submission.sourceRevision);
+      sourceFields = sourceRevision === undefined
+        ? Object.freeze({})
+        : Object.freeze({ sourceRevision });
+      if (!this.surface) {
+        outcome = Object.freeze({
+          status: 'rejected',
+          requestId: submission.requestId,
+          ...sourceFields,
+          diagnostic: this.operationDiagnostic('NOT_READY', 'NOT_READY', 'loadDataset', true),
+        } satisfies CoreV2DatasetSubmissionResult);
+        return outcome;
+      }
+      sequence = ++this.submissionSequence;
       const input = await submission.input;
       if (sequence !== this.submissionSequence || this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
-        return Object.freeze({
+        outcome = Object.freeze({
           status: 'superseded',
           requestId: submission.requestId,
+          ...sourceFields,
           diagnostic: this.operationDiagnostic('SUPERSEDED', 'SUPERSEDED', 'loadDataset', true),
-        });
+        } satisfies CoreV2DatasetSubmissionResult);
+        return outcome;
       }
-      try {
-        const result = this.loadDataset(input, {
-          ...(submission.datasetRef ? { datasetRef: submission.datasetRef } : {}),
-        });
-        this.emit('drawComplete', Object.freeze({
-          requestId: submission.requestId,
-          sceneRevision: result.sceneRevision,
-          semanticHash: result.semanticHash,
-          datasetRef: submission.datasetRef ?? null,
-        }));
-        return Object.freeze({
-          status: 'committed',
-          requestId: submission.requestId,
-          sceneRevision: result.sceneRevision,
-          semanticHash: result.semanticHash,
-        });
-      } catch (error) {
-        const diagnostic = this.diagnosticFrom(error, 'loadDataset');
-        this.emit('diagnostic', diagnostic);
-        return Object.freeze({ status: 'rejected', requestId: submission.requestId, diagnostic });
-      }
+      const result = this.loadDataset(input, {
+        ...(submission.datasetRef ? { datasetRef: submission.datasetRef } : {}),
+      });
+      this.emit('drawComplete', Object.freeze({
+        requestId: submission.requestId,
+        ...sourceFields,
+        sceneRevision: result.sceneRevision,
+        semanticHash: result.semanticHash,
+        datasetRef: submission.datasetRef ?? null,
+      }));
+      outcome = Object.freeze({
+        status: 'committed',
+        requestId: submission.requestId,
+        ...sourceFields,
+        sceneRevision: result.sceneRevision,
+        semanticHash: result.semanticHash,
+      } satisfies CoreV2DatasetSubmissionResult);
+      return outcome;
+    } catch (error) {
+      const diagnostic = this.diagnosticFrom(error, 'loadDataset');
+      if (!this.isDestroyingOrDestroyed()) this.emit('diagnostic', diagnostic);
+      outcome = Object.freeze({
+        status: 'rejected',
+        requestId: submission.requestId,
+        ...sourceFields,
+        diagnostic,
+      } satisfies CoreV2DatasetSubmissionResult);
+      return outcome;
     } finally {
-      this.pendingWork -= 1;
+      try {
+        if (outcome !== null) await releaseDatasetSubmission(submission, outcome);
+      } finally {
+        this.pendingWork -= 1;
+      }
     }
   }
 
@@ -1790,6 +2214,16 @@ export class CoreV2Engine {
       interaction: this.interactionRevision,
     });
     this.emit('frame', Object.freeze({ frameRevision: this.frameRevision, publishedTuple: this.publishedTuple }));
+    if (this.pendingOverlayPublication !== null) {
+      const published = Object.freeze({
+        ...this.pendingOverlayPublication,
+        frameRevision: this.frameRevision,
+      });
+      this.latestOverlayPublished = published;
+      this.pendingOverlayPublication = null;
+      this.overlayPublicationCount += 1;
+      this.emit('overlayPublished', published);
+    }
   }
 
   public resize(width: number, height: number, pixelRatio = globalThis.devicePixelRatio ?? 1): boolean {
@@ -2266,6 +2700,8 @@ export class CoreV2Engine {
     this.surface = null;
     this.materialized = null;
     this.logicalSelectionIds = Object.freeze([]);
+    this.resetLiveOverlayState();
+    this.externalDependencyRevisions.clear();
     this.history.destroy();
     this.componentSemantics.clear();
     this.textSemantics.clear();
@@ -2307,6 +2743,14 @@ export class CoreV2Engine {
       throw this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'destroy', false);
     }
     return false;
+  }
+
+  private resetLiveOverlayState(): void {
+    this.latestOverlayAccepted = null;
+    this.latestOverlayPublished = null;
+    this.pendingOverlayPublication = null;
+    this.overlayAcceptedCount = 0;
+    this.overlayPublicationCount = 0;
   }
 
   private applyHistory(direction: CoreV2HistoryDirection): CoreV2EngineHistoryResult {
@@ -2902,6 +3346,31 @@ function rejectedReasons(
   return reasons;
 }
 
+function normalizeOptionalSourceRevision(value: unknown): number | undefined {
+  return value === undefined ? undefined : positiveSafeInteger(value, 'sourceRevision');
+}
+
+function positiveSafeInteger(value: unknown, label: string): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 1) {
+    throw new RangeError(`${label} must be a positive safe integer`);
+  }
+  return value as number;
+}
+
+function nonEmptyValue(value: unknown, label: string): string {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new TypeError(`${label} must be a non-empty string`);
+  }
+  return value;
+}
+
+async function releaseDatasetSubmission(
+  submission: CoreV2DatasetSubmission,
+  result: CoreV2DatasetSubmissionResult,
+): Promise<void> {
+  await submission.release?.(result);
+}
+
 function assetInternalEngineCleanupFailure(): Error {
   return new Error('Core v2 required asset cleanup failed');
 }
@@ -3025,6 +3494,33 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     this.core.selectSemantic(ids);
     this.geometryRevision += 1;
     this.invalidateGeometryCache();
+  }
+
+  public setPresentationPolicy(
+    input: CoreV2PresentationPolicyInput,
+  ): CoreV2PresentationPolicyProductProbe {
+    return this.core.setPresentationPolicy(input);
+  }
+
+  public clearPresentationPolicy(): CoreV2PresentationPolicyProductProbe {
+    return this.core.clearPresentationPolicy();
+  }
+
+  public presentationPolicyProbe(): CoreV2PresentationPolicyProductProbe {
+    return this.core.presentationPolicyProbe();
+  }
+
+  public refreshSemanticTargets(
+    targets: readonly CoreV2SemanticTarget[],
+    options: Readonly<{ readonly strict?: boolean }> = {},
+  ): CoreV2SemanticRefreshResult {
+    const result = this.core.refreshSemanticTargets(targets, options);
+    if (result.changed) {
+      this.geometryRevision += 1;
+      this.geometryRevisionProjection = this.core.visibleProjection;
+      this.invalidateGeometryCache();
+    }
+    return result;
   }
 
   public hitTestScreen(point: CoreV2Point): string | null {

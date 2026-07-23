@@ -204,6 +204,152 @@ describe('CoreV2Engine lifecycle authority', () => {
     expect(surfaces[0]?.frameCount).toBe(1);
   });
 
+  it('releases every async revision once while suppressing superseded and post-destroy publication', async () => {
+    const { factory, surfaces } = createSurfaceFactory();
+    const engine = new CoreV2Engine({ surfaceFactory: factory });
+    const drawComplete: unknown[] = [];
+    const releases: Array<Readonly<{ requestId: string; status: string }>> = [];
+    engine.on('drawComplete', (event) => drawComplete.push(event));
+    await engine.initialize({ instanceId: 'map-async-order', width: 800, height: 600 });
+    const first = deferred<unknown>();
+    const second = deferred<unknown>();
+    const third = deferred<unknown>();
+    const release = (requestId: string) => (
+      result: Readonly<{ readonly status: string }>,
+    ): void => {
+      releases.push(Object.freeze({ requestId, status: result.status }));
+    };
+
+    const drawA = engine.submitDataset({
+      requestId: 'A',
+      sourceRevision: 2,
+      input: first.promise,
+      release: release('A'),
+    });
+    const drawB = engine.submitDataset({
+      requestId: 'B',
+      sourceRevision: 3,
+      input: second.promise,
+      release: release('B'),
+    });
+    const drawC = engine.submitDataset({
+      requestId: 'C',
+      sourceRevision: 4,
+      input: third.promise,
+      release: release('C'),
+    });
+
+    second.resolve(catalogProfiles.datasets['all-kinds-scene']);
+    await expect(drawB).resolves.toMatchObject({
+      status: 'superseded',
+      requestId: 'B',
+      sourceRevision: 3,
+    });
+    third.resolve(catalogProfiles.datasets['interactive-scene-revision-2']);
+    await expect(drawC).resolves.toMatchObject({
+      status: 'committed',
+      requestId: 'C',
+      sourceRevision: 4,
+      sceneRevision: 1,
+    });
+    expect(drawComplete).toEqual([
+      expect.objectContaining({ requestId: 'C', sourceRevision: 4, sceneRevision: 1 }),
+    ]);
+
+    await engine.destroy();
+    first.resolve(catalogProfiles.datasets['interactive-scene']);
+    await expect(drawA).resolves.toMatchObject({
+      status: 'superseded',
+      requestId: 'A',
+      sourceRevision: 2,
+    });
+
+    expect(drawComplete).toHaveLength(1);
+    expect(surfaces[0]?.loadCount).toBe(1);
+    expect(surfaces[0]?.frameCount).toBe(0);
+    expect(releases).toEqual([
+      { requestId: 'B', status: 'superseded' },
+      { requestId: 'C', status: 'committed' },
+      { requestId: 'A', status: 'superseded' },
+    ]);
+    expect(engine.snapshot()).toMatchObject({
+      lifecycle: 'destroyed',
+      pendingWork: 0,
+      resources: { canvasCount: 0 },
+    });
+  });
+
+  it('releases rejected submissions once and retains pending ownership until async release settles', async () => {
+    const { factory } = createSurfaceFactory();
+    const engine = new CoreV2Engine({ surfaceFactory: factory });
+    const releases: Array<Readonly<{ requestId: string; status: string }>> = [];
+    const notReadyReleaseStarted = deferred<void>();
+    const notReadyReleaseGate = deferred<void>();
+    const recordRelease = (requestId: string) => (
+      result: Readonly<{ readonly status: string }>,
+    ): void => {
+      releases.push(Object.freeze({ requestId, status: result.status }));
+    };
+
+    await expect(engine.submitDataset({
+      requestId: 'invalid-source-revision',
+      sourceRevision: 0,
+      input: Promise.resolve([]),
+      release: recordRelease('invalid-source-revision'),
+    })).resolves.toMatchObject({
+      status: 'rejected',
+      requestId: 'invalid-source-revision',
+    });
+    const notReady = engine.submitDataset({
+      requestId: 'not-ready',
+      sourceRevision: 1,
+      input: Promise.resolve([]),
+      release: async (result) => {
+        releases.push(Object.freeze({ requestId: 'not-ready', status: result.status }));
+        notReadyReleaseStarted.resolve();
+        await notReadyReleaseGate.promise;
+      },
+    });
+    await notReadyReleaseStarted.promise;
+    expect(engine.snapshot().pendingWork).toBe(1);
+    notReadyReleaseGate.resolve();
+    await expect(notReady).resolves.toMatchObject({
+      status: 'rejected',
+      requestId: 'not-ready',
+    });
+    expect(engine.snapshot().pendingWork).toBe(0);
+
+    await engine.initialize({ instanceId: 'map-async-release', width: 800, height: 600 });
+    const releaseStarted = deferred<void>();
+    const releaseGate = deferred<void>();
+    const committed = engine.submitDataset({
+      requestId: 'committed',
+      sourceRevision: 2,
+      input: Promise.resolve(catalogProfiles.datasets['interactive-scene']),
+      release: async (result) => {
+        releases.push(Object.freeze({ requestId: 'committed', status: result.status }));
+        releaseStarted.resolve();
+        await releaseGate.promise;
+      },
+    });
+
+    await releaseStarted.promise;
+    expect(engine.snapshot().pendingWork).toBe(1);
+    releaseGate.resolve();
+    await expect(committed).resolves.toMatchObject({
+      status: 'committed',
+      requestId: 'committed',
+      sourceRevision: 2,
+    });
+    expect(engine.snapshot().pendingWork).toBe(0);
+    expect(releases).toEqual([
+      { requestId: 'invalid-source-revision', status: 'rejected' },
+      { requestId: 'not-ready', status: 'rejected' },
+      { requestId: 'committed', status: 'committed' },
+    ]);
+    await engine.destroy();
+  });
+
   it('keeps caller input immutable and returns deterministic empty/missing results', async () => {
     const { factory } = createSurfaceFactory();
     const engine = new CoreV2Engine({ surfaceFactory: factory });

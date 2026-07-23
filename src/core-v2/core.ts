@@ -34,6 +34,12 @@ import {
   type CoreV2PresentationFrame,
   type CoreV2PresentationSnapshot,
 } from './presentation';
+import {
+  CORE_V2_PRESENTATION_POLICY_REVISION,
+  type CoreV2PresentationPolicyInput,
+  type CoreV2PresentationPolicyProductProbe,
+  type CoreV2ResolvedPresentationPolicy,
+} from './presentation-policy';
 import { CoreV2PresentationProjectionStore } from './presentation-projection';
 import {
   createCoreV2PaintOrderProductProbe,
@@ -67,6 +73,7 @@ import {
   coreV2EntityWorldAabb,
   hitTestCoreV2EntityIndex,
 } from './semantic/entity-hit-index';
+import type { CoreV2SemanticTarget } from './semantic/probe';
 import {
   CoreV2SceneImageController,
   type CoreV2SceneImageIntrinsicSize,
@@ -90,6 +97,18 @@ export interface CoreV2Options extends PixiCoreV2RendererOptions, CoreSceneOptio
   readonly parse?: ParsePatchMapOptions;
   /** Schedule one invalidation frame after mutations. Defaults to true. */
   readonly autoRender?: boolean;
+}
+
+export interface CoreV2SemanticRefreshResult {
+  readonly changed: boolean;
+  readonly recomputedTargets: readonly string[];
+  readonly missingTargets: readonly string[];
+  readonly dirtyRanges: readonly SlotRange[];
+  readonly dataDiffCount: 0;
+}
+
+export interface CoreV2SemanticRefreshOptions {
+  readonly strict?: boolean;
 }
 
 export interface CoreV2LoadResult {
@@ -317,6 +336,13 @@ interface IndexedTextTarget {
   readonly semanticOwnerId: string;
 }
 
+interface CoreV2LogicalPresentationPolicy {
+  readonly revision: number;
+  readonly highlightIds: readonly string[] | null;
+  readonly deEmphasisAlpha: number;
+  readonly hiddenLayerIds: readonly string[];
+}
+
 export interface AnimateBarsOptions {
   readonly seed?: number;
   readonly fraction?: number;
@@ -342,6 +368,8 @@ export class CoreV2 {
   private readonly parseOptions: ParsePatchMapOptions;
   private readonly autoRender: boolean;
   private readonly unbindInteractions: () => void;
+  private logicalPresentationPolicy: CoreV2LogicalPresentationPolicy | null = null;
+  private presentationPolicyRevision = 0;
   private parseResultValue: ParsePatchMapResult | null = null;
   private projectionValue: CoreV2ProjectionIndex | null = null;
   private presentationController: CoreV2PresentationController;
@@ -470,6 +498,7 @@ export class CoreV2 {
     this.reapplyResolvedIntrinsicSizes();
     this.componentTargets = indexComponentTargets(parse);
     this.textTargets = indexTextTargets(parse);
+    this.applyPresentationPolicyToRenderer();
     this.spatialHitAnimationEnds.clear();
     this.invalidateEntityHitIndex();
     this.renderer.markChanges(store.changedRanges, 'load', { fullRebuild: true });
@@ -559,6 +588,7 @@ export class CoreV2 {
     this.reapplyResolvedIntrinsicSizes();
     this.componentTargets = indexComponentTargets(parse);
     this.textTargets = indexTextTargets(parse);
+    this.applyPresentationPolicyToRenderer();
     this.spatialHitAnimationEnds.clear();
     this.invalidateEntityHitIndex();
     if (this.presentationController.activeCount > 0) this.invalidate('presentation');
@@ -1043,6 +1073,141 @@ export class CoreV2 {
     });
   }
 
+  public setPresentationPolicy(
+    input: CoreV2PresentationPolicyInput,
+  ): CoreV2PresentationPolicyProductProbe {
+    this.assertAlive();
+    const candidate = normalizeLogicalPresentationPolicy(
+      input,
+      this.presentationPolicyRevision + 1,
+    );
+    if (sameLogicalPresentationPolicy(this.logicalPresentationPolicy, candidate)) {
+      return this.presentationPolicyProbe();
+    }
+    this.presentationPolicyRevision += 1;
+    this.logicalPresentationPolicy = Object.freeze({
+      ...candidate,
+      revision: this.presentationPolicyRevision,
+    });
+    this.applyPresentationPolicyToRenderer();
+    this.invalidateEntityHitIndex();
+    this.invalidate('presentation-policy');
+    return this.presentationPolicyProbe();
+  }
+
+  public clearPresentationPolicy(): CoreV2PresentationPolicyProductProbe {
+    this.assertAlive();
+    if (this.logicalPresentationPolicy === null) return this.presentationPolicyProbe();
+    this.presentationPolicyRevision += 1;
+    this.logicalPresentationPolicy = null;
+    this.renderer.setPresentationPolicy(null);
+    this.invalidateEntityHitIndex();
+    this.invalidate('presentation-policy:clear');
+    return this.presentationPolicyProbe();
+  }
+
+  public presentationPolicyProbe(): CoreV2PresentationPolicyProductProbe {
+    this.assertAlive();
+    const parse = this.parseResultValue;
+    const policy = this.logicalPresentationPolicy;
+    const sourceIds = parse === null
+      ? []
+      : [...new Set([
+          ...Object.keys(parse.identity.entityIdsBySourceId),
+          ...parse.document.entities.map(({ id }) => id),
+        ])].sort();
+    const highlightSet = new Set(policy?.highlightIds ?? []);
+    const hiddenSet = new Set(policy?.hiddenLayerIds ?? []);
+    const entities = sourceIds.map((id) => {
+      const denseEntityIds = parse === null
+        ? Object.freeze([] as string[])
+        : semanticSelectionDenseIds(parse, [id]);
+      const rendererFacts = denseEntityIds.flatMap((entityId) => {
+        const probe = this.renderer.presentationEntityProbe(entityId);
+        return probe === null ? [] : [probe];
+      });
+      return Object.freeze({
+        id,
+        denseEntityIds,
+        emphasis: policy?.highlightIds === null || policy === null || highlightSet.has(id)
+          ? 1
+          : policy.deEmphasisAlpha,
+        visible: !hiddenSet.has(id) && rendererFacts.some(({ visible }) => visible),
+        renderObjectCount: rendererFacts.reduce(
+          (count, { renderObjectCount }) => count + renderObjectCount,
+          0,
+        ),
+      });
+    });
+    return Object.freeze({
+      schemaRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
+      revision: this.presentationPolicyRevision,
+      status: policy === null ? 'normal' : 'active',
+      highlightIds: policy?.highlightIds ?? null,
+      deEmphasisAlpha: policy?.deEmphasisAlpha ?? 1,
+      hiddenLayerIds: policy?.hiddenLayerIds ?? Object.freeze([]),
+      entities: Object.freeze(entities),
+    });
+  }
+
+  public refreshSemanticTargets(
+    targets: readonly CoreV2SemanticTarget[],
+    options: CoreV2SemanticRefreshOptions = {},
+  ): CoreV2SemanticRefreshResult {
+    this.assertAlive();
+    if (!Array.isArray(targets)) throw new TypeError('refresh targets must be an array');
+    const parse = this.parseResultValue;
+    if (parse === null) throw new Error('CoreV2.refreshSemanticTargets requires a loaded dataset');
+    const recomputedTargets: string[] = [];
+    const missingTargets: string[] = [];
+    const denseEntityIds = new Set<string>();
+    for (const [index, target] of targets.entries()) {
+      const normalized = normalizeRefreshTarget(target, index);
+      const label = normalized.kind === 'component'
+        ? `${normalized.ownerId}/${normalized.id}`
+        : normalized.id;
+      const resolved = normalized.kind === 'component'
+        ? componentRefreshEntityIds(this.componentTargets, normalized)
+        : semanticSelectionDenseIds(parse, [normalized.id]);
+      if (resolved.length === 0) {
+        missingTargets.push(label);
+        continue;
+      }
+      recomputedTargets.push(label);
+      for (const entityId of resolved) denseEntityIds.add(entityId);
+    }
+    if (options.strict === true && missingTargets.length > 0) {
+      return Object.freeze({
+        changed: false,
+        recomputedTargets: Object.freeze([]),
+        missingTargets: Object.freeze(missingTargets),
+        dirtyRanges: Object.freeze([]),
+        dataDiffCount: 0,
+      });
+    }
+    const slots = [...denseEntityIds].flatMap((entityId) => {
+      const ref = this.scene.ref(entityId);
+      return ref === null ? [] : [ref.slot];
+    }).sort((left, right) => left - right);
+    const dirtyRanges = contiguousSlotRanges(slots);
+    const projection = this.presentationProjection.presentation;
+    if (dirtyRanges.length > 0 && projection !== null) {
+      this.renderer.setProjection(projection, dirtyRanges);
+      this.componentRendererFactsPublished = false;
+      this.textRendererFactsPublished = false;
+      this.renderedSceneRevision = null;
+      this.invalidateEntityHitIndex();
+      this.invalidate('semantic-refresh');
+    }
+    return Object.freeze({
+      changed: dirtyRanges.length > 0,
+      recomputedTargets: Object.freeze(recomputedTargets),
+      missingTargets: Object.freeze(missingTargets),
+      dirtyRanges,
+      dataDiffCount: 0,
+    });
+  }
+
   public animateBarHeights(options: AnimateBarsOptions = {}): CommitResult {
     this.assertAlive();
     const fraction = clampFraction(options.fraction ?? 1);
@@ -1178,6 +1343,7 @@ export class CoreV2 {
     this.spatialHitAnimationEnds.clear();
     this.presentationController.destroy();
     this.presentationProjection.clear();
+    this.logicalPresentationPolicy = null;
     const cleanupFailures: Error[] = [];
     try {
       await this.sceneImages.destroy();
@@ -1262,6 +1428,31 @@ export class CoreV2 {
 
   private invalidateEntityHitIndex(): void {
     this.entityHitIndexValue = null;
+  }
+
+  private applyPresentationPolicyToRenderer(): void {
+    const policy = this.logicalPresentationPolicy;
+    if (policy === null) {
+      if (typeof this.renderer.setPresentationPolicy === 'function') {
+        this.renderer.setPresentationPolicy(null);
+      }
+      return;
+    }
+    if (typeof this.renderer.setPresentationPolicy !== 'function') {
+      throw new Error('CoreV2 presentation policy requires renderer support');
+    }
+    const parse = this.parseResultValue;
+    const resolved: CoreV2ResolvedPresentationPolicy = Object.freeze({
+      revision: policy.revision,
+      highlightedEntityIds: policy.highlightIds === null || parse === null
+        ? policy.highlightIds
+        : semanticSelectionDenseIds(parse, policy.highlightIds),
+      deEmphasisAlpha: policy.deEmphasisAlpha,
+      hiddenEntityIds: parse === null
+        ? Object.freeze([])
+        : semanticSelectionDenseIds(parse, policy.hiddenLayerIds),
+    });
+    this.renderer.setPresentationPolicy(resolved);
   }
 
   private resetPresentationController(): void {
@@ -2092,6 +2283,93 @@ function indexComponentTarget(
   // source-owner target is deliberately unavailable instead of selecting an
   // arbitrary instance; callers can query an instance-qualified owner.
   targets.set(key, null);
+}
+
+function normalizeLogicalPresentationPolicy(
+  input: CoreV2PresentationPolicyInput,
+  revision: number,
+): CoreV2LogicalPresentationPolicy {
+  if (input === null || typeof input !== 'object') {
+    throw new TypeError('presentation policy must be an object');
+  }
+  const deEmphasisAlpha = input.deEmphasisAlpha ?? 0.2;
+  if (
+    !Number.isFinite(deEmphasisAlpha) ||
+    deEmphasisAlpha < 0 ||
+    deEmphasisAlpha > 1
+  ) {
+    throw new RangeError('deEmphasisAlpha must be between zero and one');
+  }
+  return Object.freeze({
+    revision,
+    highlightIds: input.highlightIds === undefined || input.highlightIds === null
+      ? null
+      : freezeLogicalIds(input.highlightIds, 'highlightIds'),
+    deEmphasisAlpha,
+    hiddenLayerIds: freezeLogicalIds(input.hiddenLayerIds ?? [], 'hiddenLayerIds'),
+  });
+}
+
+function freezeLogicalIds(values: readonly string[], label: string): readonly string[] {
+  if (!Array.isArray(values)) throw new TypeError(`${label} must be an array`);
+  return Object.freeze([...new Set(values.map((value, index) => {
+    if (typeof value !== 'string' || value.length === 0) {
+      throw new TypeError(`${label}[${index}] must be a non-empty string`);
+    }
+    return value;
+  }))].sort());
+}
+
+function sameLogicalPresentationPolicy(
+  left: CoreV2LogicalPresentationPolicy | null,
+  right: CoreV2LogicalPresentationPolicy,
+): boolean {
+  return left !== null &&
+    left.deEmphasisAlpha === right.deEmphasisAlpha &&
+    sameNullableStringArray(left.highlightIds, right.highlightIds) &&
+    sameStringArray(left.hiddenLayerIds, right.hiddenLayerIds);
+}
+
+function sameNullableStringArray(
+  left: readonly string[] | null,
+  right: readonly string[] | null,
+): boolean {
+  return left === null || right === null ? left === right : sameStringArray(left, right);
+}
+
+function normalizeRefreshTarget(
+  target: unknown,
+  index: number,
+): CoreV2SemanticTarget {
+  if (!isPlainRecord(target)) {
+    throw new TypeError(`refresh targets[${index}] must be an object`);
+  }
+  if (target.kind !== 'element' && target.kind !== 'component') {
+    throw new TypeError(`refresh targets[${index}].kind is unsupported`);
+  }
+  if (typeof target.id !== 'string' || target.id.length === 0) {
+    throw new TypeError(`refresh targets[${index}].id must be a non-empty string`);
+  }
+  if (target.kind === 'component') {
+    if (typeof target.ownerId !== 'string' || target.ownerId.length === 0) {
+      throw new TypeError(`refresh targets[${index}].ownerId must be a non-empty string`);
+    }
+    return Object.freeze({ kind: 'component', ownerId: target.ownerId, id: target.id });
+  }
+  return Object.freeze({ kind: 'element', id: target.id });
+}
+
+function componentRefreshEntityIds(
+  targets: ReadonlyMap<string, IndexedComponentTarget | null>,
+  target: Extract<CoreV2SemanticTarget, { readonly kind: 'component' }>,
+): readonly string[] {
+  const indexed = targets.get(componentTargetKey({
+    ownerId: target.ownerId,
+    componentId: target.id,
+  }));
+  return indexed === undefined || indexed === null
+    ? Object.freeze([])
+    : Object.freeze([indexed.entityId]);
 }
 
 function normalizeComponentVisualTarget(

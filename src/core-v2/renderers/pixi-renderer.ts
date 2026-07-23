@@ -56,6 +56,11 @@ import {
   type CoreV2ProjectionRenderContext,
   type CoreV2WorldOrientation,
 } from './types';
+import type {
+  CoreV2RendererPresentationEntityProbe,
+  CoreV2ResolvedPresentationPolicy,
+} from '../presentation-policy';
+import { CoreV2PresentationStoreView } from './presentation-store';
 
 export interface PixiCoreV2RendererOptions {
   readonly target?: HTMLElement;
@@ -121,6 +126,10 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private cleanupPromise: Promise<void> = Promise.resolve();
   private interactionUnbind: (() => void) | null = null;
   private lastStore: RenderStoreView | null = null;
+  private lastSourceStore: RenderStoreView | null = null;
+  private presentationPolicy: CoreV2ResolvedPresentationPolicy | null = null;
+  private presentationStore: CoreV2PresentationStoreView | null = null;
+  private presentationBaseStore: RenderStoreView | null = null;
   private pendingRanges: SlotRange[] | undefined;
   private pendingOverlayRanges: SlotRange[] | undefined;
   private storeEpoch = 0;
@@ -323,6 +332,57 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   }
 
   /**
+   * Apply host presentation state without touching the authoritative dense
+   * store. Policy changes intentionally rebuild aggregate batches once;
+   * subsequent scene updates retain dirty-range synchronization.
+   */
+  public setPresentationPolicy(policy: CoreV2ResolvedPresentationPolicy | null): boolean {
+    this.assertAlive();
+    const normalized = policy === null ? null : normalizePresentationPolicy(policy);
+    if (samePresentationPolicy(this.presentationPolicy, normalized)) return false;
+    this.presentationPolicy = normalized;
+    this.presentationStore = normalized === null || this.lastSourceStore === null
+      ? null
+      : new CoreV2PresentationStoreView(this.lastSourceStore, normalized);
+    this.presentationBaseStore = this.presentationStore === null
+      ? null
+      : this.lastSourceStore;
+    this.pendingRanges = undefined;
+    this.pendingOverlayRanges = undefined;
+    this.lastInvalidation = normalized === null
+      ? 'presentation-policy:clear'
+      : `presentation-policy:${normalized.revision}`;
+    return true;
+  }
+
+  public presentationEntityProbe(
+    entityId: string,
+  ): CoreV2RendererPresentationEntityProbe | null {
+    this.assertAlive();
+    if (typeof entityId !== 'string' || entityId.length === 0) {
+      throw new TypeError('entityId must be a non-empty string');
+    }
+    const active = this.presentationStore?.entityProbe(entityId);
+    if (active !== null && active !== undefined) {
+      return Object.freeze({ entityId, ...active });
+    }
+    const store = this.presentationPolicy === null
+      ? this.lastSourceStore ?? this.lastStore
+      : this.presentationStore;
+    if (store === null) return null;
+    const slot = store.ids.indexOf(entityId);
+    if (slot < 0 || (store.alive[slot] ?? 0) === 0) return null;
+    const visible = ((store.flags[slot] ?? 0) & RenderFlags.Visible) !== 0 &&
+      (store.opacity[slot] ?? 0) > 0;
+    return Object.freeze({
+      entityId,
+      emphasis: 1,
+      visible,
+      renderObjectCount: visible ? 1 : 0,
+    });
+  }
+
+  /**
    * Replace the semantic projection index, or publish in-place transient
    * presentation edits with caller-owned dirty ranges. The explicit-range
    * path avoids an O(scene) projection diff on every animation frame.
@@ -441,7 +501,8 @@ export class PixiCoreV2Renderer implements CoreRenderer {
 
   public flush(store: RenderStoreView): RendererFlushResult {
     this.assertAlive();
-    const storeReplaced = this.lastStore !== store;
+    const effectiveStore = this.presentationStoreFor(store);
+    const storeReplaced = this.lastStore !== effectiveStore;
     if (storeReplaced) {
       this.storeEpoch += 1;
       this.pendingRanges = undefined;
@@ -450,7 +511,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     }
     // View rotation can change upright projection geometry. Resolve it before
     // consuming pending ranges so the first published frame cannot lag.
-    this.setView(store.view);
+    this.setView(effectiveStore.view);
     if (
       storeReplaced ||
       this.pendingRanges === undefined ||
@@ -469,22 +530,29 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     const ranges = this.pendingRanges === undefined || this.relationSlotsByEndpoint.size === 0
       ? this.pendingRanges
       : expandCoreV2RelationDependencyRanges(
-          store,
+          effectiveStore,
           this.pendingRanges,
           this.relationSlotsByEndpoint,
         );
-    this.syncTextVisibility(store, storeReplaced || ranges === undefined ? undefined : ranges);
+    this.syncTextVisibility(
+      effectiveStore,
+      storeReplaced || ranges === undefined ? undefined : ranges,
+    );
     const aggregate = !storeReplaced && ranges?.length === 0
       ? idleAggregateResult(this.lastAggregateResult)
-      : this.syncAggregate(store, ranges);
+      : this.syncAggregate(effectiveStore, ranges);
     this.lastAggregateResult = aggregate;
-    const leaves = this.leaves.sync(store, {
+    const leaves = this.leaves.sync(effectiveStore, {
       fullRebuildEpoch: this.storeEpoch,
       projectionContext: this.projectionContext(),
       ...(ranges === undefined ? {} : { changedRanges: ranges }),
     });
     this.textProjectionSynchronizedRevision = this.projectionRevision;
-    this.syncSelectionOverlay(store, storeReplaced, this.pendingOverlayRanges ?? ranges);
+    this.syncSelectionOverlay(
+      effectiveStore,
+      storeReplaced,
+      this.pendingOverlayRanges ?? ranges,
+    );
     const rendered = !this.synchronizeOnly;
     this.synchronizeOnly = false;
     if (rendered) {
@@ -493,9 +561,10 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       this.leaves.confirmRenderedFrame(renderedFrame);
       this.frame = renderedFrame;
       this.lastRenderedTextProjectionRevision = this.projectionRevision;
-      this.lastRenderedTextStoreRevision = store.revision;
+      this.lastRenderedTextStoreRevision = effectiveStore.revision;
     }
-    this.lastStore = store;
+    this.lastStore = effectiveStore;
+    this.lastSourceStore = store;
     this.pendingRanges = [];
     this.pendingOverlayRanges = [];
     const overlayCount = this.selectedSlots.size > 0 ? 2 : 0;
@@ -505,7 +574,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       backend: backendName(this.application),
       frame: this.frame,
       storeEpoch: this.storeEpoch,
-      entityCount: store.liveCount,
+      entityCount: effectiveStore.liveCount,
       aggregateRenderObjects: aggregate.renderObjects + leaves.bitmapTextCount + leaves.fallbackTextCount + leaves.imageCount + overlayCount,
       visiblePrimitives: aggregate.visiblePrimitives,
       uploadedChunks: aggregate.uploadedChunks,
@@ -523,11 +592,27 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       lastInvalidation: this.lastInvalidation,
       destroyed: false,
     });
-    this.world.label = `PATCH MAP Core v2 / world (${store.liveCount} entities)`;
+    this.world.label = `PATCH MAP Core v2 / world (${effectiveStore.liveCount} entities)`;
     return Object.freeze({
       rendered,
       commandCount: this.lastDebug.aggregateRenderObjects,
     });
+  }
+
+  private presentationStoreFor(store: RenderStoreView): RenderStoreView {
+    const policy = this.presentationPolicy;
+    if (policy === null) return store;
+    if (
+      this.presentationStore === null ||
+      this.presentationBaseStore !== store ||
+      this.presentationStore.capacity !== store.capacity
+    ) {
+      this.presentationStore = new CoreV2PresentationStoreView(store, policy);
+      this.presentationBaseStore = store;
+      return this.presentationStore;
+    }
+    this.presentationStore.synchronize(store, policy, this.pendingRanges);
+    return this.presentationStore;
   }
 
   public synchronizeNextFlush(): void {
@@ -771,6 +856,10 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.application.destroy({ removeView: false }, { children: true });
     this.canvas.remove();
     this.lastStore = null;
+    this.lastSourceStore = null;
+    this.presentationPolicy = null;
+    this.presentationStore = null;
+    this.presentationBaseStore = null;
     this.pendingRanges = [];
     this.pendingOverlayRanges = [];
     this.selectedSlots.clear();
@@ -1062,6 +1151,65 @@ function sameStringSet(left: ReadonlySet<string>, right: ReadonlySet<string>): b
     if (!right.has(value)) return false;
   }
   return true;
+}
+
+function normalizePresentationPolicy(
+  policy: CoreV2ResolvedPresentationPolicy,
+): CoreV2ResolvedPresentationPolicy {
+  if (!Number.isSafeInteger(policy.revision) || policy.revision < 1) {
+    throw new RangeError('presentation policy revision must be a positive safe integer');
+  }
+  if (
+    !Number.isFinite(policy.deEmphasisAlpha) ||
+    policy.deEmphasisAlpha < 0 ||
+    policy.deEmphasisAlpha > 1
+  ) {
+    throw new RangeError('presentation deEmphasisAlpha must be between zero and one');
+  }
+  return Object.freeze({
+    revision: policy.revision,
+    highlightedEntityIds: policy.highlightedEntityIds === null
+      ? null
+      : freezePresentationIds(policy.highlightedEntityIds, 'highlightedEntityIds'),
+    deEmphasisAlpha: policy.deEmphasisAlpha,
+    hiddenEntityIds: freezePresentationIds(policy.hiddenEntityIds, 'hiddenEntityIds'),
+  });
+}
+
+function freezePresentationIds(values: readonly string[], label: string): readonly string[] {
+  if (!Array.isArray(values)) throw new TypeError(`${label} must be an array`);
+  const result = values.map((value, index) => {
+    if (typeof value !== 'string' || value.length === 0) {
+      throw new TypeError(`${label}[${index}] must be a non-empty string`);
+    }
+    return value;
+  });
+  return Object.freeze([...new Set(result)].sort());
+}
+
+function samePresentationPolicy(
+  left: CoreV2ResolvedPresentationPolicy | null,
+  right: CoreV2ResolvedPresentationPolicy | null,
+): boolean {
+  if (left === right) return true;
+  if (left === null || right === null) return false;
+  return left.revision === right.revision &&
+    left.deEmphasisAlpha === right.deEmphasisAlpha &&
+    sameOptionalStringArray(left.highlightedEntityIds, right.highlightedEntityIds) &&
+    sameOrderedStrings(left.hiddenEntityIds, right.hiddenEntityIds);
+}
+
+function sameOptionalStringArray(
+  left: readonly string[] | null,
+  right: readonly string[] | null,
+): boolean {
+  return left === null || right === null
+    ? left === right
+    : sameOrderedStrings(left, right);
+}
+
+function sameOrderedStrings(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function projectionStalenessChangedRanges(
