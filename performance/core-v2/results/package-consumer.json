@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-23T05:55:56.538Z",
+  "generatedAt": "2026-07-23T07:07:11.881Z",
   "package": "@conalog/patch-map/core-v2",
   "pixi": "8.19.0",
   "esm": {
@@ -16,11 +16,36 @@
     "canvasCountAfterDestroy": 0,
     "destroyed": true,
     "transactionRevision": "core-v2-mutation-transaction/1",
+    "presentationRevision": "core-v2-presentation-policy/1",
     "emptyBulkStatus": "unchanged",
     "emptyBulkSceneRevision": 1,
     "transactionStatus": "committed",
     "transactionSceneRevision": 2,
     "transactionBarHeight": 30,
+    "presentation": {
+      "setChanged": true,
+      "status": "active",
+      "itemEmphasis": 1,
+      "clearChanged": true,
+      "clearedStatus": "normal"
+    },
+    "liveOverlay": {
+      "status": "accepted",
+      "latestAcceptedRevision": 2,
+      "latestPublishedRevision": 2,
+      "pendingPublicationCount": 0,
+      "historyUnchanged": true
+    },
+    "semanticRefresh": {
+      "dependencyChanged": true,
+      "status": "committed",
+      "recomputedTargets": [
+        "consumer-item/label"
+      ],
+      "dataDiffCount": 0,
+      "revisionDelta": 1,
+      "representedSceneRevision": 4
+    },
     "hierarchy": {
       "moveStatus": "committed",
       "groupStatus": "committed",
@@ -65,6 +90,7 @@
     "entities": 1,
     "id": "cjs-rect",
     "transactionRevision": "core-v2-mutation-transaction/1",
+    "presentationRevision": "core-v2-presentation-policy/1",
     "plannerType": "function"
   },
   "errors": {

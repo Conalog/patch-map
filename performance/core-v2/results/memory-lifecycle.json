@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-23T04:22:46.552Z",
+  "generatedAt": "2026-07-23T07:09:28.463Z",
   "workload": {
     "sourceItems": 1000,
     "expandedEntities": 5099
@@ -10,22 +10,22 @@
     "measured": 7
   },
   "jsHeap": {
-    "before": 6209840,
-    "after": 11977760,
-    "processDelta": 5767920,
+    "before": 6396140,
+    "after": 12159968,
+    "processDelta": 5763828,
     "samples": [
-      191919,
-      88147,
-      408643,
+      188163,
+      86123,
+      404015,
+      87067,
+      15507,
       0,
-      15111,
-      45775,
-      203763
+      201635
     ],
-    "median": 88147,
-    "p95": 408643,
-    "maximum": 408643,
-    "trend": 11844
+    "median": 87067,
+    "p95": 404015,
+    "maximum": 404015,
+    "trend": 13472
   },
   "dom": {
     "canvasCount": 0,

@@ -45,6 +45,7 @@ try {
   await writeFile(path.join(consumer, 'main.js'), `
 import {
   CORE_V2_MUTATION_TRANSACTION_REVISION,
+  CORE_V2_PRESENTATION_POLICY_REVISION,
   CoreV2Engine,
   createCoreV2,
   parsePatchMapV010,
@@ -111,6 +112,40 @@ const resolvedBar = engine.resolveTarget({
   ownerId: 'consumer-item',
   id: 'bar',
 });
+const presentationSet = engine.setPresentationPolicy({
+  highlightIds: ['consumer-item'],
+  deEmphasisAlpha: 0.2,
+});
+engine.publishFrame(20);
+const presentationProbe = engine.presentationPolicyProbe();
+const presentationClear = engine.clearPresentationPolicy();
+engine.publishFrame(24);
+const overlayHistoryBefore = engine.historyState();
+const liveOverlay = engine.applyLiveOverlay({
+  sourceRevision: 2,
+  payloadHash: 'packed-overlay-2',
+  transaction: {
+    strict: true,
+    recordHistory: false,
+    actionId: 'packed-live-overlay',
+    operations: [{
+      op: 'merge',
+      target: { kind: 'component', ownerId: 'consumer-item', id: 'label' },
+      changes: [{ path: ['text'], value: '43' }],
+    }],
+  },
+});
+engine.publishFrame(28);
+const liveOverlayProbe = engine.liveOverlayProbe();
+const externalDependency = engine.replaceExternalDependency('font-fixture', 'font-fixture-2');
+const refreshBefore = engine.snapshot();
+const semanticRefresh = engine.refreshSemantic({
+  targets: [{ kind: 'component', ownerId: 'consumer-item', id: 'label' }],
+  recordHistory: false,
+});
+engine.publishFrame(32);
+const refreshAfter = engine.snapshot();
+const overlayHistoryAfter = engine.historyState();
 engine.loadDataset(hierarchyInput, { datasetRef: 'packed-hierarchy' });
 engine.select(['rect-b']);
 const hierarchyMove = engine.transact({
@@ -185,11 +220,37 @@ window.__PACKAGE_RESULT__ = {
   canvasCountAfterDestroy: document.querySelectorAll('canvas').length,
   destroyed: core.debugSnapshot().destroyed,
   transactionRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+  presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
   emptyBulkStatus: emptyBulk.status,
   emptyBulkSceneRevision: emptyBulk.revisions.sceneRevision,
   transactionStatus: transaction.status,
   transactionSceneRevision: transaction.revisions.sceneRevision,
   transactionBarHeight: resolvedBar?.value?.size?.height ?? null,
+  presentation: {
+    setChanged: presentationSet.changed,
+    status: presentationProbe.status,
+    itemEmphasis:
+      presentationProbe.entities.find(({ id }) => id === 'consumer-item')?.emphasis ?? null,
+    clearChanged: presentationClear.changed,
+    clearedStatus: presentationClear.policy.status,
+  },
+  liveOverlay: {
+    status: liveOverlay.status,
+    latestAcceptedRevision: liveOverlayProbe.latestAccepted?.sourceRevision ?? null,
+    latestPublishedRevision: liveOverlayProbe.latestPublished?.sourceRevision ?? null,
+    pendingPublicationCount: liveOverlayProbe.pendingPublicationCount,
+    historyUnchanged:
+      JSON.stringify(overlayHistoryBefore) === JSON.stringify(overlayHistoryAfter),
+  },
+  semanticRefresh: {
+    dependencyChanged: externalDependency.changed,
+    status: semanticRefresh.status,
+    recomputedTargets: semanticRefresh.recomputedTargets,
+    dataDiffCount: semanticRefresh.dataDiffCount,
+    revisionDelta:
+      refreshAfter.revisions.sceneRevision - refreshBefore.revisions.sceneRevision,
+    representedSceneRevision: refreshAfter.publishedTuple.scene,
+  },
   hierarchy: {
     moveStatus: hierarchyMove.status,
     groupStatus: hierarchyGroup.status,
@@ -235,6 +296,7 @@ function findHierarchyRecord(values, id, parentId = null) {
   await writeFile(path.join(consumer, 'consumer.cjs'), `
 const {
   CORE_V2_MUTATION_TRANSACTION_REVISION,
+  CORE_V2_PRESENTATION_POLICY_REVISION,
   parsePatchMapV010,
   planCoreV2MutationTransaction,
 } = require('@conalog/patch-map/core-v2');
@@ -243,6 +305,7 @@ process.stdout.write(JSON.stringify({
   entities: result.identity.counts.entities,
   id: result.document.entities[0].id,
   transactionRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+  presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
   plannerType: typeof planCoreV2MutationTransaction,
 }));
 `);
@@ -298,8 +361,32 @@ process.stdout.write(JSON.stringify({
   if (!(esm.renderObjects > 0)) failures.push('packed ESM produced no aggregate render objects');
   if (esm.canvasCountAfterDestroy !== 0 || !esm.destroyed) failures.push('packed ESM lifecycle leaked a canvas or live runtime');
   if (esm.transactionRevision !== 'core-v2-mutation-transaction/1') failures.push('packed ESM transaction revision export failed');
+  if (esm.presentationRevision !== 'core-v2-presentation-policy/1') failures.push('packed ESM presentation revision export failed');
   if (esm.emptyBulkStatus !== 'unchanged' || esm.emptyBulkSceneRevision !== 1) failures.push('packed ESM empty bulk target-set semantics failed');
   if (esm.transactionStatus !== 'committed' || esm.transactionSceneRevision !== 2 || esm.transactionBarHeight !== 30) failures.push('packed ESM engine transaction failed');
+  if (
+    esm.presentation?.setChanged !== true ||
+    esm.presentation.status !== 'active' ||
+    esm.presentation.itemEmphasis !== 1 ||
+    esm.presentation.clearChanged !== true ||
+    esm.presentation.clearedStatus !== 'normal'
+  ) failures.push('packed ESM presentation policy boundary failed');
+  if (
+    esm.liveOverlay?.status !== 'accepted' ||
+    esm.liveOverlay.latestAcceptedRevision !== 2 ||
+    esm.liveOverlay.latestPublishedRevision !== 2 ||
+    esm.liveOverlay.pendingPublicationCount !== 0 ||
+    esm.liveOverlay.historyUnchanged !== true
+  ) failures.push('packed ESM live overlay boundary failed');
+  if (
+    esm.semanticRefresh?.dependencyChanged !== true ||
+    esm.semanticRefresh.status !== 'committed' ||
+    JSON.stringify(esm.semanticRefresh.recomputedTargets) !==
+      JSON.stringify(['consumer-item/label']) ||
+    esm.semanticRefresh.dataDiffCount !== 0 ||
+    esm.semanticRefresh.revisionDelta !== 1 ||
+    esm.semanticRefresh.representedSceneRevision !== 4
+  ) failures.push('packed ESM semantic refresh boundary failed');
   if (
     esm.hierarchy?.moveStatus !== 'committed' ||
     esm.hierarchy?.groupStatus !== 'committed' ||
@@ -330,7 +417,11 @@ process.stdout.write(JSON.stringify({
     esm.engineAfterDestroy.assets !== null
   ) failures.push('packed ESM raw Engine retained lifecycle resources after destroy');
   if (cjs.entities !== 1 || cjs.id !== 'cjs-rect') failures.push('packed CJS parser subpath failed');
-  if (cjs.transactionRevision !== 'core-v2-mutation-transaction/1' || cjs.plannerType !== 'function') failures.push('packed CJS transaction exports failed');
+  if (
+    cjs.transactionRevision !== 'core-v2-mutation-transaction/1' ||
+    cjs.presentationRevision !== 'core-v2-presentation-policy/1' ||
+    cjs.plannerType !== 'function'
+  ) failures.push('packed CJS transaction/presentation exports failed');
   if (errors.console.length || errors.page.length || errors.network.length) failures.push('packed browser consumer emitted errors');
 
   const evidence = {
