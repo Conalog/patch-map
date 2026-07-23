@@ -130,6 +130,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private pixelRatioValue: number;
   private view: CoreView = DEFAULT_VIEW;
   private projectionIndex: CoreV2ProjectionIndex = EMPTY_PROJECTION_INDEX;
+  private staleProjectionEntityIds: ReadonlySet<string> = new Set();
   private relationSlotsByEndpoint: ReadonlyMap<number, readonly number[]> = new Map();
   private relationSlots = new Set<number>();
   private relationEndpointsBySlot: ReadonlyMap<number, readonly [number, number]> = new Map();
@@ -329,17 +330,41 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   public setProjection(
     index: CoreV2ProjectionIndex,
     changedRanges?: readonly SlotRange[],
+    staleEntityIds?: ReadonlySet<string>,
   ): boolean {
     this.assertAlive();
-    if (this.projectionIndex === index && changedRanges === undefined) return false;
+    const nextStaleEntityIds = staleEntityIds === undefined
+      ? this.staleProjectionEntityIds
+      : new Set(staleEntityIds);
+    const stalenessChanged = !sameStringSet(
+      this.staleProjectionEntityIds,
+      nextStaleEntityIds,
+    );
+    if (
+      this.projectionIndex === index &&
+      changedRanges === undefined &&
+      !stalenessChanged
+    ) {
+      return false;
+    }
     const previous = this.projectionIndex;
+    const previousStaleEntityIds = this.staleProjectionEntityIds;
     this.projectionIndex = index;
+    this.staleProjectionEntityIds = nextStaleEntityIds;
     this.projectionRevision += 1;
-    const ranges = changedRanges === undefined
+    const projectionRanges = changedRanges === undefined
       ? this.lastStore
         ? projectionChangedRanges(this.lastStore, previous, index)
         : []
       : mergeRanges([], changedRanges);
+    const stalenessRanges = stalenessChanged && this.lastStore
+      ? projectionStalenessChangedRanges(
+          this.lastStore,
+          previousStaleEntityIds,
+          nextStaleEntityIds,
+        )
+      : [];
+    const ranges = mergeRanges(projectionRanges, stalenessRanges);
     this.pendingRanges = mergeRanges(this.pendingRanges ?? [], ranges);
     this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], ranges);
     this.lastInvalidation = changedRanges === undefined
@@ -754,6 +779,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.relationEndpointsBySlot = new Map();
     this.textEntityIdBySlot.clear();
     this.textVisibilityByEntityId.clear();
+    this.staleProjectionEntityIds = new Set();
     this.textProjectionSynchronizedRevision = -1;
     this.lastRenderedTextProjectionRevision = null;
     this.lastRenderedTextStoreRevision = null;
@@ -959,6 +985,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       index: this.projectionIndex,
       revision: this.projectionRevision,
       world: this.worldOrientation,
+      staleEntityIds: this.staleProjectionEntityIds,
     });
   }
 
@@ -1026,6 +1053,30 @@ function slotsForRanges(capacity: number, ranges: readonly SlotRange[]): readonl
     for (let slot = start; slot < end; slot += 1) slots.push(slot);
   }
   return slots;
+}
+
+function sameStringSet(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
+  if (left === right) return true;
+  if (left.size !== right.size) return false;
+  for (const value of left) {
+    if (!right.has(value)) return false;
+  }
+  return true;
+}
+
+function projectionStalenessChangedRanges(
+  store: RenderStoreView,
+  previous: ReadonlySet<string>,
+  next: ReadonlySet<string>,
+): SlotRange[] {
+  const slots: number[] = [];
+  for (let slot = 0; slot < store.capacity; slot += 1) {
+    if ((store.alive[slot] ?? 0) === 0) continue;
+    const entityId = store.ids[slot];
+    if (entityId === undefined) continue;
+    if (previous.has(entityId) !== next.has(entityId)) slots.push(slot);
+  }
+  return contiguousRanges(slots);
 }
 
 function mergeRanges(left: readonly SlotRange[], right: readonly SlotRange[]): SlotRange[] {

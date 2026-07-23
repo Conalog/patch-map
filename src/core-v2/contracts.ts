@@ -167,7 +167,9 @@ export interface CoreV2ImageProjection {
 export type CoreV2ComponentRenderRole =
   | 'background-geometry'
   | 'background-asset'
-  | 'content-asset';
+  | 'content-asset'
+  | 'ordinary-geometry'
+  | 'text';
 
 /**
  * Stable semantic ownership and render classification for a projected item

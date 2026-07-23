@@ -154,6 +154,7 @@ interface BarPrimitiveBinding {
 }
 
 interface BarSlotBinding {
+  readonly entityId: string;
   readonly track: BarPrimitiveBinding | null;
   readonly fill: BarPrimitiveBinding | null;
   x: number;
@@ -199,6 +200,7 @@ interface AggregateChunkLaneGeometry {
 interface AggregateBarLaneGeometry {
   readonly groups: readonly AggregateGeometryGroup[];
   readonly bindings: ReadonlyMap<number, BarSlotBinding>;
+  readonly paintProbes: ReadonlyMap<string, CoreV2EntityPaintProbe>;
   readonly visibleBars: number;
 }
 
@@ -733,6 +735,7 @@ function appendBarSlot(
   const height = store.height[slot] as number;
   const rotation = store.rotation[slot] as number;
   const progress = resolveBarProgress(store, slot);
+  const entityId = store.ids[slot] ?? `@slot:${slot}`;
   const trackQuad = resolveCoreV2SlotQuad(store, slot, projectionContext);
   const fillQuad = resolveCoreV2SlotQuad(store, slot, projectionContext, progress);
   if (isDrawable(store, slot)) {
@@ -773,6 +776,7 @@ function appendBarSlot(
     }
   }
   bindings.set(slot, {
+    entityId,
     track,
     fill,
     x,
@@ -793,6 +797,7 @@ function buildAggregateBarLaneGeometry(
 ): AggregateBarLaneGeometry {
   const groups = new Map<string, MutableQuadGroup>();
   const bindings = new Map<number, BarSlotBinding>();
+  const paintProbes = new Map<string, CoreV2EntityPaintProbe>();
   let visibleBars = 0;
   for (const slot of barSlots) {
     if (
@@ -803,15 +808,32 @@ function buildAggregateBarLaneGeometry(
     ) {
       continue;
     }
-    visibleBars += appendBarSlot(store, slot, groups, bindings, projectionContext);
+    const primitives = appendBarSlot(store, slot, groups, bindings, projectionContext);
+    visibleBars += primitives;
+    const entityId = store.ids[slot] ?? `@slot:${slot}`;
+    paintProbes.set(entityId, barEntityPaintProbe(entityId, primitives));
   }
   return {
     groups: [...groups.values()].map((group) =>
       geometryGroup(group, buildQuadGeometry(group.primitives)),
     ),
     bindings,
+    paintProbes,
     visibleBars,
   };
+}
+
+function barEntityPaintProbe(entityId: string, primitives: number): CoreV2EntityPaintProbe {
+  return freezeEntityPaintProbe({
+    entityId,
+    lane: 'relations-dynamic',
+    rendererKind: primitives > 0 ? 'mesh' : 'none',
+    primitiveCount: primitives,
+    renderObjectCount: 0,
+    packedTint: null,
+    rgbTint: null,
+    alpha: null,
+  });
 }
 
 function hasVisiblePackedAlpha(packed: number, opacity: number): boolean {
@@ -870,6 +892,7 @@ function barSlotBindingMatches(
 ): boolean {
   if (
     binding === undefined ||
+    binding.entityId !== (store.ids[slot] ?? `@slot:${slot}`) ||
     (store.alive[slot] as number) === 0 ||
     (store.kind[slot] as number) !== RenderKind.Bar
   ) {
@@ -1003,16 +1026,7 @@ function buildAggregateChunkLaneGeometry(
       barSlots.push(slot);
       const primitives = appendBarSlot(store, slot, barGroups, barBindings, projectionContext);
       visibleBars += primitives;
-      paintProbes.set(entityId, freezeEntityPaintProbe({
-        entityId,
-        lane: 'relations-dynamic',
-        rendererKind: primitives > 0 ? 'mesh' : 'none',
-        primitiveCount: primitives,
-        renderObjectCount: 0,
-        packedTint: null,
-        rgbTint: null,
-        alpha: null,
-      }));
+      paintProbes.set(entityId, barEntityPaintProbe(entityId, primitives));
       continue;
     }
     if (
@@ -1808,6 +1822,10 @@ export class AggregateMeshLayer {
     chunkIndex: number,
     chunk: ChunkRecord,
   ): UploadDelta {
+    for (const binding of chunk.barBindings.values()) {
+      this.#paintProbesByEntityId.delete(binding.entityId);
+      chunk.paintEntityIds.delete(binding.entityId);
+    }
     const built = buildAggregateBarLaneGeometry(
       store,
       chunk.barSlots,
@@ -1824,6 +1842,10 @@ export class AggregateMeshLayer {
     chunk.barBindings.clear();
     for (const [slot, binding] of built.bindings) {
       chunk.barBindings.set(slot, binding);
+    }
+    for (const [entityId, probe] of built.paintProbes) {
+      chunk.paintEntityIds.add(entityId);
+      this.#paintProbesByEntityId.set(entityId, probe);
     }
     return { ...delta, visitedSlots: chunk.barSlots.length };
   }

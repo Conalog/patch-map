@@ -79,10 +79,13 @@ import {
 } from './semantic/mutation';
 import {
   CORE_V2_MUTATION_TRANSACTION_REVISION,
+  planCoreV2BulkPatch,
   planCoreV2MutationTransaction,
+  type CoreV2BulkPatchRequest,
   type CoreV2MutationOperation,
   type CoreV2MutationTarget,
   type CoreV2MutationTransactionDiagnostic,
+  type CoreV2MutationTransactionPlan,
   type CoreV2MutationTransactionRequest,
 } from './semantic/transaction';
 import {
@@ -1104,14 +1107,69 @@ export class CoreV2Engine {
     const surface = this.requireSurface('transact');
     const previousRevisions = this.revisionStamp();
     const previousHistory = this.history.state();
-    const plan = planCoreV2MutationTransaction(
+    const plan = this.planMutationRequest(request, schemaRevision);
+    return this.applyPlannedTransaction(
+      surface,
+      plan,
+      'transact',
+      previousRevisions,
+      previousHistory,
+    );
+  }
+
+  /**
+   * Merge one change list over an explicit target set. Unlike a raw staged
+   * transaction, an empty target set is a validated no-op with no publication,
+   * revision, history, or event side effects.
+   */
+  public bulkPatch(
+    request: CoreV2BulkPatchRequest,
+    schemaRevision = CORE_V2_MUTATION_TRANSACTION_REVISION,
+  ): CoreV2EngineTransactionResult {
+    const surface = this.requireSurface('bulkPatch');
+    const previousRevisions = this.revisionStamp();
+    const previousHistory = this.history.state();
+    const plan = this.planBulkPatchRequest(request, schemaRevision);
+    return this.applyPlannedTransaction(
+      surface,
+      plan,
+      'bulkPatch',
+      previousRevisions,
+      previousHistory,
+    );
+  }
+
+  private planMutationRequest(
+    request: CoreV2MutationTransactionRequest,
+    schemaRevision: string,
+  ): CoreV2MutationTransactionPlan {
+    return planCoreV2MutationTransaction(
       this.materialized ?? EMPTY_MATERIALIZED_DATASET,
       request,
       schemaRevision,
     );
+  }
 
+  private planBulkPatchRequest(
+    request: CoreV2BulkPatchRequest,
+    schemaRevision: string,
+  ): CoreV2MutationTransactionPlan {
+    return planCoreV2BulkPatch(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      request,
+      schemaRevision,
+    );
+  }
+
+  private applyPlannedTransaction(
+    surface: CoreV2EngineSurface,
+    plan: CoreV2MutationTransactionPlan,
+    operation: 'transact' | 'bulkPatch',
+    previousRevisions: CoreV2RevisionStamp,
+    previousHistory: CoreV2HistoryState,
+  ): CoreV2EngineTransactionResult {
     if (plan.status === 'rejected') {
-      const diagnostic = this.engineTransactionDiagnostic(plan.diagnostic, 'transact');
+      const diagnostic = this.engineTransactionDiagnostic(plan.diagnostic, operation);
       const result = this.rejectedTransactionResult(
         plan.actionId ?? null,
         previousRevisions,
@@ -1128,7 +1186,7 @@ export class CoreV2Engine {
       const diagnostic = this.operationDiagnostic(
         'UNSUPPORTED_RUNTIME',
         'UNSUPPORTED_RUNTIME',
-        'transact',
+        operation,
         true,
       );
       const result = this.rejectedTransactionResult(
@@ -1145,7 +1203,7 @@ export class CoreV2Engine {
       const diagnostic = this.operationDiagnostic(
         'UNSUPPORTED_RUNTIME',
         'UNSUPPORTED_RUNTIME',
-        'transact',
+        operation,
         true,
       );
       const result = this.rejectedTransactionResult(
@@ -1178,7 +1236,7 @@ export class CoreV2Engine {
       const diagnostic = this.operationDiagnostic(
         'UNSUPPORTED_RUNTIME',
         'UNSUPPORTED_RUNTIME',
-        'transact',
+        operation,
         false,
       );
       const result = this.refusedTransactionResult(
@@ -1208,7 +1266,7 @@ export class CoreV2Engine {
         });
       }
     } catch (error) {
-      const diagnostic = this.diagnosticFrom(error, 'transact');
+      const diagnostic = this.diagnosticFrom(error, operation);
       const result = this.rejectedTransactionResult(
         actionId,
         previousRevisions,
@@ -1231,7 +1289,7 @@ export class CoreV2Engine {
       });
     } catch (error) {
       if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
-      const diagnostic = this.diagnosticFrom(error, 'transact');
+      const diagnostic = this.diagnosticFrom(error, operation);
       const result = this.refusedTransactionResult(
         actionId,
         previousRevisions,
@@ -1251,7 +1309,7 @@ export class CoreV2Engine {
       const diagnostic = this.operationDiagnostic(
         'CONFLICT',
         'CONFLICT',
-        'transact',
+        operation,
         true,
         datasetPath,
       );
@@ -1279,7 +1337,7 @@ export class CoreV2Engine {
     if (preparedHistory !== null) {
       const historyStatus = this.history.commitPrepared(preparedHistory);
       if (historyStatus === 'stale' || historyStatus === 'invalid' || historyStatus === 'cancelled') {
-        throw new Error(`history preflight became ${historyStatus} after surface commit`);
+        throw new Error(`${operation} history preflight became ${historyStatus} after surface commit`);
       }
       historyRecorded = historyStatus === 'recorded';
     }

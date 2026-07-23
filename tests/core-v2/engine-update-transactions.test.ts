@@ -255,6 +255,147 @@ describe('CoreV2Engine update transactions', () => {
     expect(rectById(engine, 'rect-b').attrs?.y).toBe(40);
   });
 
+  it('routes an empty bulk target set through a validated zero-publication product no-op', async () => {
+    const { engine, surface } = await createEngine(engines, 'empty-bulk-targets');
+    engine.loadDataset(updateScene());
+    const changes: unknown[] = [];
+    const diagnostics: unknown[] = [];
+    engine.on('change', (event) => changes.push(event));
+    engine.on('diagnostic', (event) => diagnostics.push(event));
+    const authorityBefore = engine.exportDataset();
+    const snapshotBefore = engine.snapshot();
+    const historyBefore = engine.historyState();
+    const request = Object.freeze({
+      strict: true,
+      actionId: 'empty-target-set',
+      targets: Object.freeze([]),
+      changes: Object.freeze([
+        Object.freeze({ path: Object.freeze(['attrs', 'x']), value: 200 }),
+      ]),
+    });
+    const requestBefore = JSON.stringify(request);
+
+    const result = engine.bulkPatch(request);
+
+    expect(result).toMatchObject({
+      status: 'unchanged',
+      changed: false,
+      actionId: 'empty-target-set',
+      applied: [],
+      missing: [],
+      unchanged: [],
+      history: { recorded: false, depthDelta: 0 },
+    });
+    expect(engine.exportDataset()).toBe(authorityBefore);
+    expect(engine.snapshot()).toEqual(snapshotBefore);
+    expect(engine.historyState()).toEqual(historyBefore);
+    expect(surface.reconcileCalls).toHaveLength(0);
+    expect(changes).toEqual([]);
+    expect(diagnostics).toEqual([]);
+    expect(JSON.stringify(request)).toBe(requestBefore);
+
+    const invalid = engine.bulkPatch({
+      strict: true,
+      targets: [],
+      changes: [{ path: ['constructor'], value: 1 }],
+    });
+    expect(invalid).toMatchObject({
+      status: 'rejected',
+      diagnostic: { operation: 'bulkPatch' },
+      transactionDiagnostic: { code: 'INVALID_PATH' },
+    });
+    expect(surface.reconcileCalls).toHaveLength(0);
+  });
+
+  it('plans a non-empty bulk patch once before the shared atomic commit path', async () => {
+    const { engine, surface } = await createEngine(engines, 'single-plan-bulk');
+    engine.loadDataset(updateScene());
+    const planningCalls: string[] = [];
+    const planningSeam = engine as unknown as {
+      planMutationRequest(request: unknown, schemaRevision: string): unknown;
+      planBulkPatchRequest(request: unknown, schemaRevision: string): unknown;
+    };
+    const planMutationRequest = planningSeam.planMutationRequest.bind(engine);
+    const planBulkPatchRequest = planningSeam.planBulkPatchRequest.bind(engine);
+    planningSeam.planMutationRequest = (request, schemaRevision) => {
+      planningCalls.push('transact');
+      return planMutationRequest(request, schemaRevision);
+    };
+    planningSeam.planBulkPatchRequest = (request, schemaRevision) => {
+      planningCalls.push('bulkPatch');
+      return planBulkPatchRequest(request, schemaRevision);
+    };
+    const changes: unknown[] = [];
+    engine.on('change', (event) => changes.push(event));
+    const request = Object.freeze({
+      strict: false,
+      actionId: 'bulk-single-plan',
+      targets: Object.freeze([
+        Object.freeze({ kind: 'element' as const, id: 'rect-b' }),
+        Object.freeze({ kind: 'element' as const, id: 'missing' }),
+      ]),
+      changes: Object.freeze([
+        Object.freeze({ path: Object.freeze(['attrs', 'x']), value: 220 }),
+      ]),
+    });
+    const requestBefore = JSON.stringify(request);
+
+    const result = engine.bulkPatch(request);
+
+    expect(planningCalls).toEqual(['bulkPatch']);
+    expect(result).toMatchObject({
+      status: 'committed',
+      changed: true,
+      actionId: 'bulk-single-plan',
+      previousRevisions: { sceneRevision: 1 },
+      revisions: { sceneRevision: 2 },
+      applied: [{ kind: 'element', id: 'rect-b' }],
+      missing: [{ kind: 'element', id: 'missing' }],
+      unchanged: [],
+      history: {
+        recorded: true,
+        commandId: 'bulk-single-plan',
+        depthDelta: 1,
+        state: { undoDepth: 1, redoDepth: 0 },
+      },
+      publication: 'pending',
+    });
+    expect(rectById(engine, 'rect-b').attrs?.x).toBe(220);
+    expect(surface.reconcileCalls).toHaveLength(1);
+    expect(changes).toEqual([result]);
+    expect(JSON.stringify(request)).toBe(requestBefore);
+
+    planningCalls.length = 0;
+    surface.mode = 'refused';
+    const authorityBeforeRefusal = engine.exportDataset();
+    const historyBeforeRefusal = engine.historyState();
+    expect(engine.bulkPatch({
+      strict: true,
+      actionId: 'bulk-refused',
+      targets: [{ kind: 'element', id: 'rect-b' }],
+      changes: [{ path: ['attrs', 'x'], value: 230 }],
+    })).toMatchObject({
+      status: 'refused',
+      changed: false,
+      diagnostic: { code: 'CONFLICT', operation: 'bulkPatch' },
+      history: { recorded: false, depthDelta: 0 },
+    });
+    expect(planningCalls).toEqual(['bulkPatch']);
+    expect(engine.exportDataset()).toBe(authorityBeforeRefusal);
+    expect(engine.historyState()).toEqual(historyBeforeRefusal);
+    expect(changes).toEqual([result]);
+    expect(surface.reconcileCalls).toHaveLength(2);
+
+    planningCalls.length = 0;
+    surface.mode = 'committed';
+    expect(engine.transact({
+      strict: true,
+      operations: [mergeElement('rect-b', [['attrs', 'x']], [220])],
+    })).toMatchObject({ status: 'unchanged', changed: false });
+    expect(planningCalls).toEqual(['transact']);
+    expect(surface.reconcileCalls).toHaveLength(2);
+  });
+
   it('keeps empty merges and cross-scope replacements at zero publication', async () => {
     const { engine, surface } = await createEngine(engines, 'no-op-invalid-kind');
     engine.loadDataset(updateScene());

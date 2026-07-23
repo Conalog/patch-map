@@ -116,6 +116,40 @@ describe('Core v2 orientation renderer lanes', () => {
     layer.destroy();
   });
 
+  it('uploads direct dense bar geometry while its parser projection is stale', () => {
+    const parsed = parsePatchMapV010([item('direct-meter', 'follow-item', [{
+      type: 'bar',
+      id: 'direct-level',
+      size: { width: 16, height: 8 },
+      source: { type: 'rect', fill: '#334455' },
+    }])]);
+    const entity = parsed.document.entities.find((candidate) => candidate.kind === 'bar')!;
+    const store = createRenderStore([entity]);
+    const layer = new AggregateMeshLayer({ chunkSize: 8 });
+    layer.sync(store, {
+      fullRebuildEpoch: 1,
+      projectionContext: projectionContext(parsed.projection, 1, 0, false, false),
+    });
+
+    const mutableHeight = store.height as Float64Array;
+    mutableHeight[0] = (mutableHeight[0] ?? 0) / 2;
+    const staleContext = Object.freeze({
+      ...projectionContext(parsed.projection, 2, 0, false, false),
+      staleEntityIds: new Set([entity.id]),
+    });
+    const changed = layer.sync(store, {
+      changedRanges: [{ start: 0, end: 1 }],
+      fullRebuildEpoch: 1,
+      projectionContext: staleContext,
+    });
+
+    expect(resolveCoreV2SlotQuad(store, 0, staleContext).projection).toBeNull();
+    expect(changed.uploadedChunks).toBe(1);
+    expect(changed.uploadedBytes).toBeGreaterThan(0);
+    expect(changed.geometrySlotsVisited).toBe(1);
+    layer.destroy();
+  });
+
   it('applies signed follow basis and upright counter-basis to Sprite/Text leaves', async () => {
     const parsed = parsePatchMapV010([
       item('follow-icon-item', 'follow-item', [{

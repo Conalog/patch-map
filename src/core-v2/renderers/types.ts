@@ -116,6 +116,12 @@ export interface CoreV2ProjectionRenderContext {
   readonly index: CoreV2ProjectionIndex;
   readonly revision: number;
   readonly world: CoreV2WorldOrientation;
+  /**
+   * Dense entities whose geometry changed without a matching parser
+   * projection replacement. Render and hit testing use the dense authority
+   * until JSON reconciliation publishes a current projection again.
+   */
+  readonly staleEntityIds?: ReadonlySet<string>;
 }
 
 export type CoreV2QuadVertices = readonly [
@@ -287,7 +293,9 @@ export function writeCoreV2SlotQuad(
     ? Math.max(0, Math.min(1, widthFraction))
     : 0;
   const entityId = store.ids[slot] ?? `@slot:${slot}`;
-  const projection = context?.index.byEntityId[entityId] ?? null;
+  const projection = context?.staleEntityIds?.has(entityId) === true
+    ? null
+    : context?.index.byEntityId[entityId] ?? null;
   const radians = (context?.world.rotationDegrees ?? 0) * Math.PI / 180;
   const cosine = Math.cos(radians);
   const sine = Math.sin(radians);

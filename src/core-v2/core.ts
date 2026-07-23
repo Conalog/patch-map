@@ -23,6 +23,7 @@ import type {
   ParseIdentityIndex,
   ParsePatchMapOptions,
   ParsePatchMapResult,
+  CoreV2ComponentVisualProjection,
   CoreV2ComponentRenderRole,
   CoreV2EntityProjection,
   CoreV2ProjectionIndex,
@@ -459,14 +460,14 @@ export class CoreV2 {
     this.currentView = parse.document.view ?? { x: 0, y: 0, scale: 1, rotation: 0 };
     this.animationClockMs = 0;
     this.lastAnimationFrameTime = null;
-    this.renderer.setProjection(presentation);
+    this.staleHitProjectionIds.clear();
+    this.renderer.setProjection(presentation, undefined, this.staleHitProjectionIds);
     this.sceneImages.reconcile(parse.projection, {
       activeEntityIds: this.activeSceneImageIds(),
     });
     this.reapplyResolvedIntrinsicSizes();
     this.componentTargets = indexComponentTargets(parse);
     this.textTargets = indexTextTargets(parse);
-    this.staleHitProjectionIds.clear();
     this.spatialHitAnimationEnds.clear();
     this.invalidateEntityHitIndex();
     this.renderer.markChanges(store.changedRanges, 'load', { fullRebuild: true });
@@ -540,14 +541,14 @@ export class CoreV2 {
     );
     this.parseResultValue = parse;
     this.projectionValue = parse.projection;
-    this.renderer.setProjection(presentation);
+    this.staleHitProjectionIds.clear();
+    this.renderer.setProjection(presentation, undefined, this.staleHitProjectionIds);
     this.sceneImages.reconcile(parse.projection, {
       activeEntityIds: this.activeSceneImageIds(),
     });
     this.reapplyResolvedIntrinsicSizes();
     this.componentTargets = indexComponentTargets(parse);
     this.textTargets = indexTextTargets(parse);
-    this.staleHitProjectionIds.clear();
     this.spatialHitAnimationEnds.clear();
     this.invalidateEntityHitIndex();
     if (this.presentationController.activeCount > 0) this.invalidate('presentation');
@@ -629,12 +630,27 @@ export class CoreV2 {
     if (hasSelection) this.renderer.markOverlayChanges(result.changedRanges, 'selection');
     if (this.scene.activeAnimations > 0) this.lastAnimationFrameTime = null;
     if (hitImpact.invalidate) this.invalidateEntityHitIndex();
+    let projectionStalenessChanged = false;
     for (const id of hitImpact.removedIds) {
-      this.staleHitProjectionIds.delete(id);
+      projectionStalenessChanged = this.staleHitProjectionIds.delete(id) ||
+        projectionStalenessChanged;
       this.deleteSpatialHitAnimations(id);
     }
     for (const id of hitImpact.staleProjectionIds) {
-      if (this.scene.ref(id) !== null) this.staleHitProjectionIds.add(id);
+      if (this.scene.ref(id) !== null && !this.staleHitProjectionIds.has(id)) {
+        this.staleHitProjectionIds.add(id);
+        projectionStalenessChanged = true;
+      }
+    }
+    if (projectionStalenessChanged) {
+      const projection = this.presentationProjection.presentation;
+      if (projection !== null) {
+        this.renderer.setProjection(
+          projection,
+          result.changedRanges,
+          this.staleHitProjectionIds,
+        );
+      }
     }
     for (const animation of hitImpact.spatialAnimations) {
       this.spatialHitAnimationEnds.set(animation.key, animation.endTimeMs);
@@ -765,7 +781,7 @@ export class CoreV2 {
     const normalizedTarget = normalizeComponentVisualTarget(target);
     const indexed = this.componentTargets.get(componentTargetKey(normalizedTarget));
     if (!indexed) return null;
-    const component = this.projectionValue?.componentsByEntityId?.[indexed.entityId];
+    const component = componentVisualProjection(this.projectionValue, indexed.entityId);
     const projection = this.presentationProjection.presentation?.byEntityId[indexed.entityId];
     const entity = this.scene.get(indexed.entityId);
     if (
@@ -1445,8 +1461,8 @@ export class CoreV2 {
     const next = freezeProjectionReplacements(currentIndex, replacements);
     this.projectionValue = next;
     const presentation = this.presentationProjection.replace(next, this.visibleBarHeights());
-    this.renderer.setProjection(presentation);
     for (const entityId of changedIds) this.staleHitProjectionIds.delete(entityId);
+    this.renderer.setProjection(presentation, undefined, this.staleHitProjectionIds);
     this.invalidateEntityHitIndex();
   }
 
@@ -1913,7 +1929,63 @@ function indexComponentTargets(
       indexComponentTarget(targets, semanticOwnerId, bar.componentId, indexed);
     }
   }
+  const texts = parse.projection.textsByEntityId ?? {};
+  for (const entityId of Object.keys(texts).sort()) {
+    const text = texts[entityId];
+    if (
+      text?.targetKind !== 'component' ||
+      text.ownerId === undefined ||
+      text.componentId === undefined
+    ) {
+      continue;
+    }
+    const semanticOwnerId = parse.identity.entitySourceById[entityId]?.sourceElementId ??
+      text.ownerId;
+    const indexed = Object.freeze({ entityId, semanticOwnerId });
+    indexComponentTarget(targets, text.ownerId, text.componentId, indexed);
+    if (semanticOwnerId !== text.ownerId) {
+      indexComponentTarget(targets, semanticOwnerId, text.componentId, indexed);
+    }
+  }
   return targets;
+}
+
+function componentVisualProjection(
+  projection: CoreV2ProjectionIndex | null,
+  entityId: string,
+): CoreV2ComponentVisualProjection | null {
+  if (projection === null) return null;
+  const component = projection.componentsByEntityId?.[entityId];
+  if (component !== undefined) return component;
+
+  const bar = projection.barsByEntityId?.[entityId];
+  if (bar !== undefined) {
+    return Object.freeze({
+      entityId,
+      ownerId: bar.ownerId,
+      componentId: bar.componentId,
+      componentType: 'bar',
+      logicalIdentity: entityId,
+      renderRole: 'ordinary-geometry',
+    });
+  }
+
+  const text = projection.textsByEntityId?.[entityId];
+  if (
+    text?.targetKind === 'component' &&
+    text.ownerId !== undefined &&
+    text.componentId !== undefined
+  ) {
+    return Object.freeze({
+      entityId,
+      ownerId: text.ownerId,
+      componentId: text.componentId,
+      componentType: 'text',
+      logicalIdentity: entityId,
+      renderRole: 'text',
+    });
+  }
+  return null;
 }
 
 function indexComponentTarget(

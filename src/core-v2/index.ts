@@ -69,6 +69,7 @@ export {
 export type * from './semantic/probe';
 export {
   CORE_V2_MUTATION_TRANSACTION_REVISION,
+  planCoreV2BulkPatch,
   planCoreV2MutationTransaction,
 } from './semantic/transaction';
 export type * from './semantic/transaction';

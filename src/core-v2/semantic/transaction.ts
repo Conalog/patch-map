@@ -64,6 +64,17 @@ export interface CoreV2MutationTransactionRequest {
   readonly history?: CoreV2MutationJsonValue;
 }
 
+/**
+ * A target-set merge keeps the empty-set no-op distinct from a raw mutation
+ * transaction, whose operations array remains intentionally non-empty.
+ */
+export interface CoreV2BulkPatchRequest {
+  readonly targets: readonly CoreV2MutationTarget[];
+  readonly changes: readonly CoreV2MutationPathChange[];
+  readonly strict: boolean;
+  readonly actionId?: string;
+}
+
 export type CoreV2MutationDiagnosticCategory =
   | 'INVALID_INPUT'
   | 'MISSING_TARGET'
@@ -170,6 +181,7 @@ const TRANSACTION_FIELDS = new Set([
   'recordHistory',
   'history',
 ]);
+const BULK_PATCH_FIELDS = new Set(['targets', 'changes', 'strict', 'actionId']);
 const TARGET_ELEMENT_FIELDS = new Set(['kind', 'id']);
 const TARGET_COMPONENT_FIELDS = new Set(['kind', 'ownerId', 'id']);
 const MERGE_FIELDS = new Set(['op', 'target', 'changes']);
@@ -194,6 +206,55 @@ const CONTRACT_OPERATION_SET = new Set([
   'refresh',
 ]);
 const EMPTY_TARGETS: readonly [] = Object.freeze([]);
+const EMPTY_OPERATIONS: readonly CoreV2MutationOperation[] = Object.freeze([]);
+
+/**
+ * Validate a bulk target-set merge. An empty target set is a real product
+ * no-op, while an empty raw transaction remains invalid.
+ */
+export function planCoreV2BulkPatch(
+  current: MaterializedCoreV2Dataset,
+  requestInput: unknown,
+  schemaRevision: string = CORE_V2_MUTATION_TRANSACTION_REVISION,
+): CoreV2MutationTransactionPlan {
+  if (schemaRevision !== CORE_V2_MUTATION_TRANSACTION_REVISION) {
+    return rejected(
+      diagnostic(
+        'INVALID_SCHEMA_VERSION',
+        'INVALID_INPUT',
+        '$.schemaRevision',
+        `Expected ${CORE_V2_MUTATION_TRANSACTION_REVISION}`,
+      ),
+    );
+  }
+
+  let request: NormalizedTransaction;
+  try {
+    request = normalizeBulkPatch(requestInput);
+  } catch (error) {
+    if (!(error instanceof TransactionValidationFailure)) throw error;
+    return rejected(error.diagnostic);
+  }
+
+  if (request.operations.length > 0) {
+    return planNormalizedCoreV2MutationTransaction(current, request);
+  }
+
+  return Object.freeze({
+    status: 'planned',
+    changed: false,
+    schemaRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+    strict: request.strict,
+    conflictPolicy: 'reject',
+    operations: EMPTY_OPERATIONS,
+    ...(request.actionId === undefined ? {} : { actionId: request.actionId }),
+    candidate: current,
+    applied: EMPTY_TARGETS,
+    missing: EMPTY_TARGETS,
+    unchanged: EMPTY_TARGETS,
+    summary: freezeSummary(0, 0, 0),
+  });
+}
 
 /**
  * Validate and stage one versioned mutation transaction without touching engine,
@@ -224,6 +285,13 @@ export function planCoreV2MutationTransaction(
     return rejected(error.diagnostic);
   }
 
+  return planNormalizedCoreV2MutationTransaction(current, request);
+}
+
+function planNormalizedCoreV2MutationTransaction(
+  current: MaterializedCoreV2Dataset,
+  request: NormalizedTransaction,
+): CoreV2MutationTransactionPlan {
   const stagedValue = cloneMutableJson(current.dataset, '$.current');
   if (!Array.isArray(stagedValue)) {
     return rejected(
@@ -330,6 +398,70 @@ export function planCoreV2MutationTransaction(
     missing,
     unchanged,
     summary,
+  });
+}
+
+function normalizeBulkPatch(value: unknown): NormalizedTransaction {
+  const record = strictRecord(value, '$', 'bulk patch must be a strict plain record');
+  rejectUnknownFields(record, BULK_PATCH_FIELDS, '$');
+  if (!Array.isArray(record.targets)) {
+    transactionFail(
+      'INVALID_VALUE',
+      'INVALID_INPUT',
+      '$.targets',
+      'targets must be an ordered array',
+    );
+  }
+  if (!Array.isArray(record.changes)) {
+    transactionFail(
+      'INVALID_VALUE',
+      'INVALID_INPUT',
+      '$.changes',
+      'changes must be an ordered array',
+    );
+  }
+  if (typeof record.strict !== 'boolean') {
+    transactionFail('INVALID_VALUE', 'INVALID_INPUT', '$.strict', 'strict must be a boolean');
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(record, 'actionId') &&
+    (typeof record.actionId !== 'string' || record.actionId.length === 0)
+  ) {
+    transactionFail(
+      'INVALID_VALUE',
+      'INVALID_INPUT',
+      '$.actionId',
+      'actionId must be a non-empty string',
+    );
+  }
+
+  const targets = record.targets.map((target, index) =>
+    normalizeTarget(target, `$.targets[${index}]`, index));
+  const actionId = typeof record.actionId === 'string' ? record.actionId : undefined;
+  if (targets.length === 0) {
+    // Validate and detach the shared change list without inventing a staged
+    // product target. The synthetic target is normalization-only and is never
+    // returned, indexed, queried, or applied.
+    normalizeOperation({
+      op: 'merge',
+      target: { kind: 'element', id: '__core_v2_empty_bulk_validation__' },
+      changes: record.changes,
+    }, 0);
+    return Object.freeze({
+      operations: EMPTY_OPERATIONS,
+      strict: record.strict,
+      conflictPolicy: 'reject',
+      ...(actionId === undefined ? {} : { actionId }),
+    });
+  }
+
+  const operations = Object.freeze(targets.map((target, index) =>
+    normalizeOperation({ op: 'merge', target, changes: record.changes }, index)));
+  return Object.freeze({
+    operations,
+    strict: record.strict,
+    conflictPolicy: 'reject',
+    ...(actionId === undefined ? {} : { actionId }),
   });
 }
 

@@ -9,6 +9,7 @@ import {
 } from '../../src/core-v2/semantic/dataset';
 import {
   CORE_V2_MUTATION_TRANSACTION_REVISION,
+  planCoreV2BulkPatch,
   planCoreV2MutationTransaction,
 } from '../../src/core-v2/semantic/transaction';
 
@@ -221,6 +222,40 @@ describe('Core v2 staged semantic transaction planner', () => {
     expect(nonFinite).toMatchObject({
       status: 'rejected',
       diagnostic: { code: 'NON_SERIALIZABLE_VALUE' },
+    });
+  });
+
+  it('validates an empty bulk target set as a detached product no-op', () => {
+    const current = makeScene();
+    const request = Object.freeze({
+      strict: true,
+      actionId: 'empty-target-set',
+      targets: Object.freeze([]),
+      changes: Object.freeze([
+        Object.freeze({ path: Object.freeze(['attrs', 'x']), value: 200 }),
+      ]),
+    });
+
+    const result = planCoreV2BulkPatch(current, request);
+
+    expect(result).toMatchObject({
+      status: 'planned',
+      changed: false,
+      actionId: 'empty-target-set',
+      operations: [],
+      applied: [],
+      missing: [],
+      unchanged: [],
+      summary: { appliedCount: 0, missingCount: 0, unchangedCount: 0 },
+    });
+    expect(result.status === 'planned' ? result.candidate : null).toBe(current);
+    expect(planCoreV2BulkPatch(current, {
+      strict: true,
+      targets: [],
+      changes: [{ path: ['__proto__'], value: 1 }],
+    })).toMatchObject({
+      status: 'rejected',
+      diagnostic: { code: 'INVALID_PATH' },
     });
   });
 

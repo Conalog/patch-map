@@ -319,8 +319,29 @@ describe('AggregateMeshLayer', () => {
       ),
     ).toBe(relationBefore);
 
-    (store.value as Float32Array)[1] = 25;
+    const barFlags = (store.flags as Uint8Array)[1] as number;
+    (store.flags as Uint8Array)[1] = barFlags & ~RenderFlags.Visible;
     (store as { revision: number }).revision = 4;
+    const hidden = layer.sync(store, { changedRanges: [{ start: 1, end: 2 }] });
+    expect(hidden.geometrySlotsVisited).toBe(1);
+    expect(layer.entityPaintProbe('bar')).toMatchObject({
+      rendererKind: 'none',
+      primitiveCount: 0,
+      renderObjectCount: 0,
+    });
+
+    (store.flags as Uint8Array)[1] = barFlags;
+    (store as { revision: number }).revision = 5;
+    const shown = layer.sync(store, { changedRanges: [{ start: 1, end: 2 }] });
+    expect(shown.geometrySlotsVisited).toBe(1);
+    expect(layer.entityPaintProbe('bar')).toMatchObject({
+      rendererKind: 'mesh',
+      primitiveCount: 2,
+      renderObjectCount: 0,
+    });
+
+    (store.value as Float32Array)[1] = 25;
+    (store as { revision: number }).revision = 6;
     const forcedFull = layer.sync(store, {
       changedRanges: [{ start: 1, end: 2 }],
       force: true,

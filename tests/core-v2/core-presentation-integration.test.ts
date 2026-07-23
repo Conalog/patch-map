@@ -184,6 +184,32 @@ describe('Core v2 bar presentation integration', () => {
       .toMatchObject({ semanticHeight: 12, presentationHeight: 12, active: false });
   });
 
+  it('publishes direct dense animation staleness until JSON reconciliation replaces it', () => {
+    const { core, renderer } = createTestCore(allocated);
+    core.load(scene(10));
+    core.flush('initial');
+    const barRef = core.query({ kinds: ['bar'] })[0];
+    if (!barRef) throw new Error('missing bar entity');
+    const barId = core.get(barRef)?.id;
+    if (!barId) throw new Error('missing bar identity');
+
+    const scheduled = core.animateBarHeights({
+      fraction: 1,
+      seed: 0x51a1e,
+      durationMs: 200,
+      minScale: 0.5,
+      maxScale: 0.5,
+    });
+    expect(scheduled.operationCount).toBe(1);
+    expect(renderer.projectionCalls.at(-1)).toMatchObject({ staleIds: [barId] });
+
+    core.advance(100);
+    expect(core.get(barRef)?.bounds.height).toBeCloseTo(7.5, 8);
+
+    expect(core.reconcile(scene(20), { animateBarChanges: false }).status).toBe('committed');
+    expect(renderer.projectionCalls.at(-1)).toMatchObject({ staleIds: [] });
+  });
+
   it('publishes through Engine and maps backward clock conflicts without advancing revisions', async () => {
     const { core } = createTestCore(allocated);
     const surface = new PixiEngineSurface(core);
@@ -277,6 +303,7 @@ class RendererTestDouble {
   public readonly projectionCalls: Array<Readonly<{
     index: CoreV2ProjectionIndex;
     ranges: readonly SlotRange[] | null;
+    staleIds: readonly string[] | null;
   }>> = [];
   public destroyed = false;
   private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
@@ -284,10 +311,15 @@ class RendererTestDouble {
   public markChanges(): void {}
   public markOverlayChanges(): void {}
 
-  public setProjection(index: CoreV2ProjectionIndex, ranges?: readonly SlotRange[]): boolean {
+  public setProjection(
+    index: CoreV2ProjectionIndex,
+    ranges?: readonly SlotRange[],
+    staleIds?: ReadonlySet<string>,
+  ): boolean {
     this.projectionCalls.push(Object.freeze({
       index,
       ranges: ranges === undefined ? null : Object.freeze([...ranges]),
+      staleIds: staleIds === undefined ? null : Object.freeze([...staleIds].sort()),
     }));
     return true;
   }
