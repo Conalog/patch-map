@@ -12,6 +12,12 @@ import {
   planCoreV2BulkPatch,
   planCoreV2MutationTransaction,
 } from '../../src/core-v2/semantic/transaction';
+import {
+  CORE_V2_IDENTITY_AFFINE,
+  createCoreV2Affine,
+  multiplyCoreV2Affine,
+  type CoreV2AffineMatrix,
+} from '../../src/core-v2/semantic/geometry';
 
 describe('Core v2 staged semantic transaction planner', () => {
   it('runs ordered nested merges against one detached staged candidate', () => {
@@ -547,6 +553,174 @@ describe('Core v2 staged semantic transaction planner', () => {
       diagnostic: { code: 'UNSUPPORTED_RUNTIME', category: 'UNSUPPORTED_RUNTIME' },
     });
   });
+
+  it('moves, groups, and ungroups one stable subtree while preserving pinned world geometry', () => {
+    const source = hierarchyScene();
+    const sourceBefore = JSON.stringify(source);
+    const moved = planCoreV2MutationTransaction(source, {
+      strict: true,
+      actionId: 'structure-1',
+      operations: [{
+        op: 'move',
+        target: elementTarget('rect-b'),
+        parent: elementTarget('group-b'),
+        index: 0,
+      }],
+    });
+
+    expect(moved.status).toBe('planned');
+    if (moved.status !== 'planned') throw new Error('Expected hierarchy move plan');
+    expect(parentId(moved.candidate.dataset, 'rect-b')).toBe('group-b');
+    expect(requireElement(moved.candidate.dataset, 'rect-b').attrs).toMatchObject({
+      x: -80,
+      y: 40,
+    });
+    expect(moved.allowedElementOrderIds).toEqual(['rect-b']);
+
+    const grouped = planCoreV2MutationTransaction(moved.candidate, {
+      strict: true,
+      actionId: 'structure-2',
+      operations: [{
+        op: 'group',
+        targets: [elementTarget('rect-b')],
+        value: { type: 'group', id: 'group-c' },
+      }],
+    });
+    expect(grouped.status).toBe('planned');
+    if (grouped.status !== 'planned') throw new Error('Expected group plan');
+    expect(parentId(grouped.candidate.dataset, 'group-c')).toBe('group-b');
+    expect(parentId(grouped.candidate.dataset, 'rect-b')).toBe('group-c');
+    expect(grouped.selectionIds).toEqual(['group-c']);
+    expect(requireElement(grouped.candidate.dataset, 'rect-b').attrs).toMatchObject({
+      x: -80,
+      y: 40,
+    });
+
+    const ungrouped = planCoreV2MutationTransaction(grouped.candidate, {
+      strict: true,
+      actionId: 'structure-3',
+      operations: [{ op: 'ungroup', target: elementTarget('group-c') }],
+    });
+    expect(ungrouped.status).toBe('planned');
+    if (ungrouped.status !== 'planned') throw new Error('Expected ungroup plan');
+    expect(findElement(ungrouped.candidate.dataset, 'group-c')).toBeUndefined();
+    expect(parentId(ungrouped.candidate.dataset, 'rect-b')).toBe('group-b');
+    expect(ungrouped.selectionIds).toEqual(['rect-b']);
+    expect(requireElement(ungrouped.candidate.dataset, 'rect-b').attrs).toMatchObject({
+      x: -80,
+      y: 40,
+    });
+    expect(JSON.stringify(source)).toBe(sourceBefore);
+  });
+
+  it('rebases the pinned rotation and uniform-scale profile without changing world affine', () => {
+    const source = materializeCoreV2Dataset([
+      {
+        type: 'group',
+        id: 'group-a',
+        attrs: { x: 10, y: 20, angle: 30, scaleX: 2, scaleY: 2 },
+        children: [{
+          type: 'rect',
+          id: 'rect-b',
+          size: { width: 40, height: 30 },
+          fill: '#ff8800',
+          attrs: { x: 5, y: 7, angle: 15, scaleX: 1.5, scaleY: 1.5 },
+        }],
+      },
+      {
+        type: 'group',
+        id: 'group-b',
+        attrs: { x: 100, y: 50, angle: -20 },
+        children: [],
+      },
+    ]);
+    const before = elementWorldAffine(source.dataset, 'rect-b');
+    const moved = planCoreV2MutationTransaction(source, {
+      strict: true,
+      operations: [{
+        op: 'move',
+        target: elementTarget('rect-b'),
+        parent: elementTarget('group-b'),
+        index: 0,
+      }],
+    });
+
+    expect(moved.status).toBe('planned');
+    if (moved.status !== 'planned') throw new Error('Expected affine hierarchy move plan');
+    const after = elementWorldAffine(moved.candidate.dataset, 'rect-b');
+    after.forEach((value, index) => expect(value).toBeCloseTo(before[index] ?? Number.NaN, 10));
+  });
+
+  it('rejects hierarchy cycles, locked ancestry, cross-parent groups, and caller children atomically', () => {
+    const moved = planCoreV2MutationTransaction(hierarchyScene(), {
+      strict: true,
+      recordHistory: false,
+      operations: [{
+        op: 'move',
+        target: elementTarget('group-a'),
+        parent: elementTarget('group-b'),
+        index: 0,
+      }],
+    });
+    expect(moved.status).toBe('planned');
+    if (moved.status !== 'planned') throw new Error('Expected hierarchy setup plan');
+
+    const cycle = planCoreV2MutationTransaction(moved.candidate, {
+      strict: true,
+      operations: [{
+        op: 'move',
+        target: elementTarget('group-b'),
+        parent: elementTarget('group-a'),
+        index: 0,
+      }],
+    });
+    expect(cycle).toMatchObject({
+      status: 'rejected',
+      candidate: null,
+      diagnostic: { code: 'CONFLICT', category: 'CONFLICT' },
+    });
+    expect(parentId(moved.candidate.dataset, 'group-a')).toBe('group-b');
+
+    const locked = planCoreV2MutationTransaction(lockedHierarchyScene(), {
+      strict: true,
+      operations: [{
+        op: 'move',
+        target: elementTarget('rect-b'),
+        parent: elementTarget('group-b'),
+        index: 0,
+      }],
+    });
+    expect(locked).toMatchObject({
+      status: 'rejected',
+      diagnostic: { code: 'CONFLICT', category: 'CONFLICT' },
+    });
+
+    const crossParent = planCoreV2MutationTransaction(hierarchyScene(), {
+      strict: true,
+      operations: [{
+        op: 'group',
+        targets: [elementTarget('rect-b'), elementTarget('other')],
+        value: { type: 'group', id: 'group-c' },
+      }],
+    });
+    expect(crossParent).toMatchObject({
+      status: 'rejected',
+      diagnostic: { code: 'CONFLICT', category: 'CONFLICT' },
+    });
+
+    const callerChildren = planCoreV2MutationTransaction(hierarchyScene(), {
+      strict: true,
+      operations: [{
+        op: 'group',
+        targets: [elementTarget('rect-b')],
+        value: { type: 'group', id: 'group-c', children: [] },
+      }],
+    });
+    expect(callerChildren).toMatchObject({
+      status: 'rejected',
+      diagnostic: { code: 'CONFLICTING_FIELDS' },
+    });
+  });
 });
 
 function merge(
@@ -663,6 +837,53 @@ function makeScene(): MaterializedCoreV2Dataset {
   ]);
 }
 
+function hierarchyScene(): MaterializedCoreV2Dataset {
+  return materializeCoreV2Dataset([
+    {
+      type: 'group',
+      id: 'group-a',
+      attrs: { x: 0, y: 0 },
+      children: [{
+        type: 'rect',
+        id: 'rect-b',
+        size: { width: 40, height: 30 },
+        fill: '#ff8800',
+        attrs: { x: 160, y: 40 },
+      }],
+    },
+    {
+      type: 'group',
+      id: 'group-b',
+      attrs: { x: 240, y: 0 },
+      children: [],
+    },
+    {
+      type: 'rect',
+      id: 'other',
+      size: { width: 10, height: 10 },
+      fill: '#00ff00',
+    },
+  ]);
+}
+
+function lockedHierarchyScene(): MaterializedCoreV2Dataset {
+  return materializeCoreV2Dataset([
+    {
+      type: 'group',
+      id: 'group-a',
+      locked: true,
+      children: [{
+        type: 'rect',
+        id: 'rect-b',
+        size: { width: 40, height: 30 },
+        fill: '#ff8800',
+        attrs: { x: 160, y: 40 },
+      }],
+    },
+    { type: 'group', id: 'group-b', children: [] },
+  ]);
+}
+
 function requireItem(materialized: MaterializedCoreV2Dataset, id: string): CoreV2ItemElement {
   const element = requireElement(materialized.dataset, id);
   if (element.type !== 'item') throw new Error(`Expected item ${id}`);
@@ -694,4 +915,47 @@ function findElement(elements: readonly CoreV2Element[], id: string): CoreV2Elem
     }
   }
   return undefined;
+}
+
+function parentId(elements: readonly CoreV2Element[], id: string): string | null | undefined {
+  for (const element of elements) {
+    if (element.id === id) return null;
+    if (element.type !== 'group') continue;
+    if (element.children.some((child) => child.id === id)) return element.id;
+    const nested = parentId(element.children, id);
+    if (nested !== undefined) return nested;
+  }
+  return undefined;
+}
+
+function elementWorldAffine(
+  elements: readonly CoreV2Element[],
+  id: string,
+  parent: CoreV2AffineMatrix = CORE_V2_IDENTITY_AFFINE,
+): CoreV2AffineMatrix {
+  for (const element of elements) {
+    const attrs = element.attrs;
+    const angle = attrs.angle ?? (attrs.rotation === undefined
+      ? 0
+      : attrs.rotation * 180 / Math.PI);
+    const local = createCoreV2Affine(
+      attrs.x,
+      attrs.y,
+      angle,
+      attrs.scaleX,
+      attrs.scaleY,
+    );
+    const world = multiplyCoreV2Affine(parent, local);
+    if (element.id === id) return world;
+    if (element.type === 'group') {
+      try {
+        return elementWorldAffine(element.children, id, world);
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== `Missing affine element ${id}`) {
+          throw error;
+        }
+      }
+    }
+  }
+  throw new Error(`Missing affine element ${id}`);
 }

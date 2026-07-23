@@ -21,6 +21,8 @@ interface RecordedReconcile {
       componentId: string;
     }>[];
     allowedComponentOrderOwners: readonly string[];
+    allowedElementOrderIds?: readonly string[];
+    selectionIds?: readonly string[];
   }>;
 }
 
@@ -65,6 +67,12 @@ class TransactionSurface implements CoreV2EngineSurface {
         allowedComponentOrderOwners: Object.freeze([
           ...(options.allowedComponentOrderOwners ?? []),
         ]),
+        ...(options.allowedElementOrderIds === undefined
+          ? {}
+          : { allowedElementOrderIds: Object.freeze([...options.allowedElementOrderIds]) }),
+        ...(options.selectionIds === undefined
+          ? {}
+          : { selectionIds: Object.freeze([...options.selectionIds]) }),
       }),
     }));
     if (this.mode === 'throw') throw new Error('surface transaction failure');
@@ -82,6 +90,9 @@ class TransactionSurface implements CoreV2EngineSurface {
       });
     }
     this.loaded = input;
+    if (options.selectionIds !== undefined) {
+      this.selectionIds = Object.freeze([...options.selectionIds]);
+    }
     return Object.freeze({
       status: 'committed',
       operationCount: 1,
@@ -704,6 +715,125 @@ describe('CoreV2Engine update transactions', () => {
     });
     expect(itemById(engine, 'item-a').size.width).toBe(140);
   });
+
+  it('publishes move/group/ungroup atomically with logical selection, history, and cycle refusal', async () => {
+    const { engine, surface } = await createEngine(engines, 'hierarchy-transactions');
+    const source = hierarchyUpdateScene();
+    const sourceBefore = JSON.stringify(source);
+    engine.loadDataset(source);
+    engine.select(['rect-b']);
+
+    const moved = engine.transact({
+      strict: true,
+      actionId: 'structure-1',
+      operations: [{
+        op: 'move',
+        target: { kind: 'element', id: 'rect-b' },
+        parent: { kind: 'element', id: 'group-b' },
+        index: 0,
+      }],
+    });
+    expect(moved).toMatchObject({
+      status: 'committed',
+      revisions: { sceneRevision: 2 },
+      history: { depthDelta: 1, state: { undoDepth: 1 } },
+    });
+    expect(parentId(engine.exportDataset(), 'rect-b')).toBe('group-b');
+    expect(position(rectById(engine, 'rect-b'))).toEqual([-80, 40]);
+    expect(engine.snapshot().selectionIds).toEqual(['rect-b']);
+    expect(surface.reconcileCalls[0]?.options.allowedElementOrderIds).toEqual(['rect-b']);
+
+    const grouped = engine.transact({
+      strict: true,
+      actionId: 'structure-2',
+      operations: [{
+        op: 'group',
+        targets: [{ kind: 'element', id: 'rect-b' }],
+        value: { type: 'group', id: 'group-c' },
+      }],
+    });
+    expect(grouped).toMatchObject({
+      status: 'committed',
+      history: { depthDelta: 1, state: { undoDepth: 2 } },
+    });
+    expect(parentId(engine.exportDataset(), 'rect-b')).toBe('group-c');
+    expect(engine.snapshot().selectionIds).toEqual(['group-c']);
+    expect(surface.reconcileCalls[1]?.options.selectionIds).toEqual(['group-c']);
+
+    const ungrouped = engine.transact({
+      strict: true,
+      actionId: 'structure-3',
+      operations: [{
+        op: 'ungroup',
+        target: { kind: 'element', id: 'group-c' },
+        relationPolicy: 'reject',
+      }],
+    });
+    expect(ungrouped).toMatchObject({
+      status: 'committed',
+      history: { depthDelta: 1, state: { undoDepth: 3 } },
+    });
+    expect(parentId(engine.exportDataset(), 'rect-b')).toBe('group-b');
+    expect(engine.snapshot().selectionIds).toEqual(['rect-b']);
+    expect(surface.reconcileCalls[2]?.options.selectionIds).toEqual(['rect-b']);
+
+    expect(engine.undo()).toMatchObject({
+      status: 'committed',
+      direction: 'undo',
+      history: { undoDepth: 2, redoDepth: 1 },
+    });
+    expect(parentId(engine.exportDataset(), 'rect-b')).toBe('group-c');
+    expect(engine.snapshot().selectionIds).toEqual(['group-c']);
+    expect(engine.redo()).toMatchObject({
+      status: 'committed',
+      direction: 'redo',
+      history: { undoDepth: 3, redoDepth: 0 },
+    });
+    expect(parentId(engine.exportDataset(), 'rect-b')).toBe('group-b');
+    expect(engine.snapshot().selectionIds).toEqual(['rect-b']);
+
+    const unrecorded = engine.transact({
+      strict: true,
+      recordHistory: false,
+      operations: [{
+        op: 'move',
+        target: { kind: 'element', id: 'group-a' },
+        parent: { kind: 'element', id: 'group-b' },
+        index: 1,
+      }],
+    });
+    expect(unrecorded).toMatchObject({
+      status: 'committed',
+      history: { recorded: false, depthDelta: 0, state: { undoDepth: 3 } },
+    });
+    const beforeCycle = engine.snapshot();
+    const cycle = engine.transact({
+      strict: true,
+      operations: [{
+        op: 'move',
+        target: { kind: 'element', id: 'group-b' },
+        parent: { kind: 'element', id: 'group-a' },
+        index: 0,
+      }],
+    });
+    expect(cycle).toMatchObject({
+      status: 'rejected',
+      diagnostic: { code: 'CONFLICT', category: 'CONFLICT' },
+      transactionDiagnostic: { code: 'CONFLICT', category: 'CONFLICT' },
+      history: { depthDelta: 0, state: { undoDepth: 3 } },
+    });
+    expect(engine.snapshot()).toEqual(beforeCycle);
+    expect(surface.reconcileCalls).toHaveLength(6);
+    expect(JSON.stringify(source)).toBe(sourceBefore);
+  });
+
+  it('retains dense component selection identity while rejecting unknown logical targets', async () => {
+    const { engine } = await createEngine(engines, 'component-logical-selection');
+    engine.loadDataset(updateScene());
+
+    expect(engine.select(['item-a::bar:bar', 'missing'])).toEqual(['item-a::bar:bar']);
+    expect(engine.snapshot().selectionIds).toEqual(['item-a::bar:bar']);
+  });
 });
 
 async function createEngine(
@@ -735,6 +865,23 @@ function updateScene(): readonly unknown[] {
       ],
     },
     rectRecord('rect-b', 160, 40),
+  ];
+}
+
+function hierarchyUpdateScene(): readonly unknown[] {
+  return [
+    {
+      type: 'group',
+      id: 'group-a',
+      attrs: { x: 0, y: 0 },
+      children: [rectRecord('rect-b', 160, 40)],
+    },
+    {
+      type: 'group',
+      id: 'group-b',
+      attrs: { x: 240, y: 0 },
+      children: [],
+    },
   ];
 }
 
@@ -844,9 +991,30 @@ function relationById(
 }
 
 function elementById(engine: CoreV2Engine, id: string): CoreV2Element {
-  const element = engine.exportDataset().find((candidate) => candidate.id === id);
+  const element = findElement(engine.exportDataset(), id);
   if (element === undefined) throw new Error(`Missing element ${id}`);
   return element;
+}
+
+function findElement(elements: readonly CoreV2Element[], id: string): CoreV2Element | undefined {
+  for (const element of elements) {
+    if (element.id === id) return element;
+    if (element.type !== 'group') continue;
+    const nested = findElement(element.children, id);
+    if (nested !== undefined) return nested;
+  }
+  return undefined;
+}
+
+function parentId(elements: readonly CoreV2Element[], id: string): string | null | undefined {
+  for (const element of elements) {
+    if (element.id === id) return null;
+    if (element.type !== 'group') continue;
+    if (element.children.some((child) => child.id === id)) return element.id;
+    const nested = parentId(element.children, id);
+    if (nested !== undefined) return nested;
+  }
+  return undefined;
 }
 
 function componentById(engine: CoreV2Engine, ownerId: string, id: string) {

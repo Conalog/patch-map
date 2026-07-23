@@ -124,6 +124,8 @@ export interface CoreV2ReconcileOptions extends CoreV2DenseReconcileOptions {
   readonly animatedBarTargets?: readonly CoreV2ComponentVisualTarget[];
   /** Permit authoritative component order changes for these semantic item owners. */
   readonly allowedComponentOrderOwners?: readonly string[];
+  /** Permit explicit hierarchy operations to reorder these semantic element subtrees. */
+  readonly allowedElementOrderIds?: readonly string[];
 }
 
 export interface CoreV2ReconcileTimings {
@@ -503,7 +505,15 @@ export class CoreV2 {
     const plan = planCoreV2SceneReconcile(
       currentParse.document,
       parse.document,
-      denseReconcileOptions(options, currentParse, parse),
+      denseReconcileOptions(
+        options,
+        currentParse,
+        parse,
+        this.scene.selection().refs.flatMap((ref) => {
+          const entity = this.scene.get(ref);
+          return entity === null ? [] : [entity.id];
+        }),
+      ),
     );
     const semanticChanged = !jsonEquivalent(currentParse, parse);
     const planMs = now() - planStarted;
@@ -1013,6 +1023,24 @@ export class CoreV2 {
     this.renderer.markOverlayChanges(result.changedRanges, 'selection');
     this.invalidate('selection');
     return target;
+  }
+
+  /**
+   * Project authored semantic selection identities onto the aggregate dense
+   * entities that currently represent them. Groups and grids intentionally do
+   * not require one DisplayObject/entity per authored node.
+   */
+  public selectSemantic(ids: readonly string[]): void {
+    this.assertAlive();
+    const parse = this.parseResultValue;
+    if (parse === null) throw new Error('CoreV2.selectSemantic requires a loaded dataset');
+    this.commit({
+      operations: [{
+        type: 'selection',
+        targets: semanticSelectionDenseIds(parse, ids),
+        mode: 'replace',
+      }],
+    });
   }
 
   public animateBarHeights(options: AnimateBarsOptions = {}): CommitResult {
@@ -1766,17 +1794,77 @@ function denseReconcileOptions(
   options: CoreV2ReconcileOptions,
   current: ParsePatchMapResult,
   candidate: ParsePatchMapResult,
+  currentSelectionIds: readonly string[],
 ): CoreV2DenseReconcileOptions {
   const allowedRetainedOrderIds = Object.freeze([
     ...(options.allowedRetainedOrderIds ?? []),
+    ...elementOrderDenseIds(current, options.allowedElementOrderIds),
+    ...elementOrderDenseIds(candidate, options.allowedElementOrderIds),
     ...componentOrderDenseIds(current, options.allowedComponentOrderOwners),
     ...componentOrderDenseIds(candidate, options.allowedComponentOrderOwners),
   ]);
   return Object.freeze({
     ...(options.id === undefined ? {} : { id: options.id }),
     ...(options.recordHistory === undefined ? {} : { recordHistory: options.recordHistory }),
+    ...(options.selectionIds === undefined
+      ? {}
+      : selectionReconcileOption(candidate, options.selectionIds, currentSelectionIds)),
     ...(allowedRetainedOrderIds.length === 0 ? {} : { allowedRetainedOrderIds }),
   });
+}
+
+function selectionReconcileOption(
+  candidate: ParsePatchMapResult,
+  semanticIds: readonly string[],
+  currentSelectionIds: readonly string[],
+): Readonly<{ readonly selectionIds?: readonly string[] }> {
+  const selectionIds = semanticSelectionDenseIds(candidate, semanticIds);
+  return sameStringArray(selectionIds, currentSelectionIds)
+    ? Object.freeze({})
+    : Object.freeze({ selectionIds });
+}
+
+function semanticSelectionDenseIds(
+  parse: ParsePatchMapResult,
+  semanticIds: readonly string[],
+): readonly string[] {
+  if (!Array.isArray(semanticIds)) throw new TypeError('selectionIds must be an array');
+  const documentIds = new Set(parse.document.entities.map(({ id }) => id));
+  const denseIds = new Set<string>();
+  semanticIds.forEach((semanticId, index) => {
+    if (typeof semanticId !== 'string' || semanticId.length === 0) {
+      throw new TypeError(`selectionIds[${index}] must be a non-empty string`);
+    }
+    if (documentIds.has(semanticId)) {
+      denseIds.add(semanticId);
+      return;
+    }
+    for (const entityId of parse.identity.entityIdsBySourceId[semanticId] ?? []) {
+      if (documentIds.has(entityId)) denseIds.add(entityId);
+    }
+  });
+  return Object.freeze([...denseIds]);
+}
+
+function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function elementOrderDenseIds(
+  parse: ParsePatchMapResult,
+  elementIds: readonly string[] | undefined,
+): readonly string[] {
+  if (elementIds === undefined || elementIds.length === 0) return Object.freeze([]);
+  const ids = new Set<string>();
+  elementIds.forEach((elementId, index) => {
+    if (typeof elementId !== 'string' || elementId.length === 0) {
+      throw new TypeError(`allowedElementOrderIds[${index}] must be a non-empty string`);
+    }
+    for (const entityId of parse.identity.entityIdsBySourceId[elementId] ?? []) {
+      ids.add(entityId);
+    }
+  });
+  return Object.freeze([...ids].sort());
 }
 
 function componentOrderDenseIds(

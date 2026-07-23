@@ -56,6 +56,8 @@ export interface CoreV2DenseReconcilePlan {
 export interface CoreV2ReconcileOptions {
   readonly id?: string;
   readonly recordHistory?: boolean;
+  /** Optional logical selection replacement committed in the same dense batch. */
+  readonly selectionIds?: readonly string[];
   /**
    * Stable dense IDs whose same-z authored order may change without rebuilding
    * their rows. Every ID participating in an order inversion must be present.
@@ -150,6 +152,12 @@ export function planCoreV2SceneReconcile(
   const currentView = normalizedView(current.view, '$.current.view');
   const candidateView = normalizedView(candidate.view, '$.candidate.view');
   const viewChanged = !sameView(currentView, candidateView);
+  const selectionOperations = options.selectionIds === undefined
+    ? []
+    : [freezeOperation({
+        type: 'selection',
+        targets: normalizedSelectionIds(options.selectionIds),
+      })];
   const viewOperations: CoreOperation[] = viewChanged
     ? [freezeOperation({ type: 'view', view: candidateView })]
     : [];
@@ -160,6 +168,7 @@ export function planCoreV2SceneReconcile(
     ...changedEntities,
     ...addedRelations,
     ...changedRelations,
+    ...selectionOperations,
     ...viewOperations,
   ]);
   const batch = freezeBatch(operations, options);
@@ -181,6 +190,16 @@ export function planCoreV2SceneReconcile(
       unsupported,
     },
   });
+}
+
+function normalizedSelectionIds(values: readonly string[]): readonly string[] {
+  if (!Array.isArray(values)) throw new TypeError('selectionIds must be an array');
+  return Object.freeze([...new Set(values.map((value, index) => {
+    if (typeof value !== 'string' || value.length === 0) {
+      throw new TypeError(`selectionIds[${index}] must be a non-empty string`);
+    }
+    return value;
+  }))]);
 }
 
 /**

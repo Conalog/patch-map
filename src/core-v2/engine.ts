@@ -358,6 +358,10 @@ export interface CoreV2SurfaceReconcileOptions {
   }>[];
   /** Semantic item owners whose supplied component order is authoritative. */
   readonly allowedComponentOrderOwners?: readonly string[];
+  /** Semantic hierarchy IDs whose retained aggregate order may change. */
+  readonly allowedElementOrderIds?: readonly string[];
+  /** Logical selection replacement committed with the candidate scene. */
+  readonly selectionIds?: readonly string[];
 }
 
 export interface CoreV2EngineSceneImageAttemptProbe extends Omit<
@@ -889,6 +893,7 @@ export class CoreV2Engine {
   >();
   private componentSemantics = new Map<string, CoreV2EngineComponentSemanticProbe>();
   private textSemantics = new Map<string, IndexedEngineTextSemantic>();
+  private logicalSelectionIds: readonly string[] = Object.freeze([]);
   private datasetRef: string | null = null;
   private lifecycleGeneration = 0;
   private targetLifecycleGeneration = 0;
@@ -1072,11 +1077,10 @@ export class CoreV2Engine {
     const materialized = materializeCoreV2Dataset(input);
     const componentSemantics = indexComponentSemantics(materialized.dataset);
     const textSemantics = indexTextSemantics(materialized.dataset);
-    const selectionBefore = surface.debugSnapshot().selectionIds;
+    const selectionBefore = this.logicalSelectionIds;
     surface.load(materialized.dataset);
-    if (selectionBefore.length > 0 && surface.debugSnapshot().selectionIds.length === 0) {
-      this.interactionRevision += 1;
-    }
+    this.logicalSelectionIds = Object.freeze([]);
+    if (selectionBefore.length > 0) this.interactionRevision += 1;
     this.materialized = materialized;
     this.targetLifecycleGeneration += 1;
     this.history.clear();
@@ -1253,15 +1257,17 @@ export class CoreV2Engine {
 
     const componentSemantics = indexComponentSemantics(plan.candidate.dataset);
     const textSemantics = indexTextSemantics(plan.candidate.dataset);
-    const selectionBefore = surface.debugSnapshot().selectionIds;
-    const selectionAfter = transactionSelectionAfter(selectionBefore, plan.operations);
+    const selectionBefore = this.logicalSelectionIds;
+    const requestedSelectionAfter = plan.selectionIds ??
+      transactionSelectionAfter(selectionBefore, plan.operations);
+    const selectionAfter = this.validLogicalSelection(requestedSelectionAfter, plan.candidate);
     const commandId = actionId ?? `transaction:${this.sceneRevision + 1}`;
     let preparedHistory: CoreV2HistoryPreparedRecord | null = null;
     try {
       if (plan.recordHistory !== false) {
         preparedHistory = this.history.prepareRecord({
           id: commandId,
-          before: this.historySnapshot(surface),
+          before: this.historySnapshot(),
           after: historySnapshotForDataset(plan.candidate.dataset, selectionAfter),
         });
       }
@@ -1286,6 +1292,12 @@ export class CoreV2Engine {
         animateBarChanges: animatedBarTargets.length > 0,
         animatedBarTargets,
         allowedComponentOrderOwners,
+        ...(plan.allowedElementOrderIds === undefined
+          ? {}
+          : { allowedElementOrderIds: plan.allowedElementOrderIds }),
+        ...(!sameStringArray(selectionBefore, selectionAfter)
+          ? { selectionIds: selectionAfter }
+          : {}),
       });
     } catch (error) {
       if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
@@ -1328,11 +1340,10 @@ export class CoreV2Engine {
     this.materialized = plan.candidate;
     this.componentSemantics = componentSemantics;
     this.textSemantics = textSemantics;
+    this.logicalSelectionIds = selectionAfter;
     this.sceneRevision += 1;
     this.lifecycle = plan.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
-    if (!sameStringArray(selectionBefore, surface.debugSnapshot().selectionIds)) {
-      this.interactionRevision += 1;
-    }
+    if (!sameStringArray(selectionBefore, selectionAfter)) this.interactionRevision += 1;
     let historyRecorded = false;
     if (preparedHistory !== null) {
       const historyStatus = this.history.commitPrepared(preparedHistory);
@@ -1476,12 +1487,12 @@ export class CoreV2Engine {
 
     const componentSemantics = indexComponentSemantics(mutation.candidate.dataset);
     const textSemantics = indexTextSemantics(mutation.candidate.dataset);
-    const selectionBefore = surface.debugSnapshot().selectionIds;
+    const selectionBefore = this.logicalSelectionIds;
     let preparedHistory: CoreV2HistoryPreparedRecord;
     try {
       preparedHistory = this.history.prepareRecord({
         id: `patch:${this.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
-        before: this.historySnapshot(surface),
+        before: this.historySnapshot(),
         after: historySnapshotForDataset(mutation.candidate.dataset, selectionBefore),
       });
     } catch (error) {
@@ -1619,15 +1630,13 @@ export class CoreV2Engine {
 
     const componentSemantics = indexComponentSemantics(mutation.candidate.dataset);
     const textSemantics = indexTextSemantics(mutation.candidate.dataset);
-    const selectionBefore = surface.debugSnapshot().selectionIds;
-    const selectionAfter = Object.freeze(
-      selectionBefore.filter((id) => id !== mutation.target.id),
-    );
+    const selectionBefore = this.logicalSelectionIds;
+    const selectionAfter = this.validLogicalSelection(selectionBefore, mutation.candidate);
     let preparedHistory: CoreV2HistoryPreparedRecord;
     try {
       preparedHistory = this.history.prepareRecord({
         id: `destroy:${this.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
-        before: this.historySnapshot(surface),
+        before: this.historySnapshot(),
         after: historySnapshotForDataset(mutation.candidate.dataset, selectionAfter),
       });
     } catch (error) {
@@ -1652,6 +1661,9 @@ export class CoreV2Engine {
     try {
       reconcile = surface.reconcile(mutation.candidate.dataset, {
         animateBarChanges: false,
+        ...(!sameStringArray(selectionBefore, selectionAfter)
+          ? { selectionIds: selectionAfter }
+          : {}),
       });
     } catch (error) {
       this.history.cancelPrepared(preparedHistory);
@@ -1689,11 +1701,10 @@ export class CoreV2Engine {
     this.materialized = mutation.candidate;
     this.componentSemantics = componentSemantics;
     this.textSemantics = textSemantics;
+    this.logicalSelectionIds = selectionAfter;
     this.sceneRevision += 1;
     this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
-    if (!sameStringArray(selectionBefore, surface.debugSnapshot().selectionIds)) {
-      this.interactionRevision += 1;
-    }
+    if (!sameStringArray(selectionBefore, selectionAfter)) this.interactionRevision += 1;
     const historyStatus = this.history.commitPrepared(preparedHistory);
     if (historyStatus === 'stale' || historyStatus === 'invalid' || historyStatus === 'cancelled') {
       throw new Error(`destroy history preflight became ${historyStatus} after surface commit`);
@@ -1850,9 +1861,11 @@ export class CoreV2Engine {
       return id;
     }))]);
     const surface = this.requireSurface('select');
-    surface.select(unique);
-    this.interactionRevision += 1;
-    return surface.debugSnapshot().selectionIds;
+    const logical = this.validLogicalSelection(unique, this.materialized);
+    surface.select(logical);
+    if (!sameStringArray(this.logicalSelectionIds, logical)) this.interactionRevision += 1;
+    this.logicalSelectionIds = logical;
+    return logical;
   }
 
   public hitTest(point: CoreV2Point): string | null {
@@ -1951,7 +1964,7 @@ export class CoreV2Engine {
       pendingWork: this.pendingWork,
       zoomLimits: this.zoomLimits,
       viewport: this.viewportState(),
-      selectionIds: surfaceDebug.selectionIds,
+      selectionIds: this.logicalSelectionIds,
       facilities: FACILITIES,
       resources: Object.freeze({
         canvasCount:
@@ -1981,7 +1994,7 @@ export class CoreV2Engine {
       lifecycle: this.lifecycle,
       datasetRef: this.datasetRef,
       interactionMode: 'select',
-      selectionIds: surfaceDebug.selectionIds,
+      selectionIds: this.logicalSelectionIds,
       activeAnimationCount: surfaceDebug.activeAnimationCount,
       ...(surfaceDebug.activeGestureCount === undefined
         ? {}
@@ -2252,6 +2265,7 @@ export class CoreV2Engine {
     }
     this.surface = null;
     this.materialized = null;
+    this.logicalSelectionIds = Object.freeze([]);
     this.history.destroy();
     this.componentSemantics.clear();
     this.textSemantics.clear();
@@ -2330,10 +2344,18 @@ export class CoreV2Engine {
       }>;
     }>): boolean => {
       let materialized: MaterializedCoreV2Dataset;
+      const selectionBefore = this.logicalSelectionIds;
       try {
         materialized = materializeCoreV2Dataset(transition.snapshot.dataset);
+        const selection = this.validLogicalSelection(
+          transition.snapshot.companion?.selectionIds ?? Object.freeze([]),
+          materialized,
+        );
         const reconcile = surface.reconcile?.(materialized.dataset, {
           animateBarChanges: false,
+          ...(!sameStringArray(selectionBefore, selection)
+            ? { selectionIds: selection }
+            : {}),
         });
         if (reconcile === undefined) return false;
         reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
@@ -2342,22 +2364,18 @@ export class CoreV2Engine {
           failure = this.operationDiagnostic('CONFLICT', 'CONFLICT', direction, true, datasetPath);
           return false;
         }
+        this.logicalSelectionIds = selection;
       } catch (error) {
         failure = this.diagnosticFrom(error, direction);
         return false;
       }
 
-      const selectionBefore = surface.debugSnapshot().selectionIds;
-      const selection = transition.snapshot.companion?.selectionIds ?? Object.freeze([]);
-      if (!sameStringArray(selectionBefore, selection)) surface.select(selection);
       this.materialized = materialized;
       this.componentSemantics = indexComponentSemantics(materialized.dataset);
       this.textSemantics = indexTextSemantics(materialized.dataset);
       this.sceneRevision += 1;
       this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
-      if (!sameStringArray(selectionBefore, surface.debugSnapshot().selectionIds)) {
-        this.interactionRevision += 1;
-      }
+      if (!sameStringArray(selectionBefore, this.logicalSelectionIds)) this.interactionRevision += 1;
       return true;
     };
 
@@ -2410,18 +2428,25 @@ export class CoreV2Engine {
     return result;
   }
 
-  private historySnapshot(
-    surface: CoreV2EngineSurface,
-  ): CoreV2SemanticHistorySnapshotInput<
+  private historySnapshot(): CoreV2SemanticHistorySnapshotInput<
     readonly NormalizedCoreV2Element[],
     CoreV2EngineHistoryCompanion
   > {
     return Object.freeze({
       dataset: this.materialized?.dataset ?? Object.freeze([]),
       companion: Object.freeze({
-        selectionIds: Object.freeze([...surface.debugSnapshot().selectionIds]),
+        selectionIds: Object.freeze([...this.logicalSelectionIds]),
       }),
     });
+  }
+
+  private validLogicalSelection(
+    ids: readonly string[],
+    materialized: MaterializedCoreV2Dataset | null,
+  ): readonly string[] {
+    if (materialized === null) return Object.freeze([]);
+    return Object.freeze([...new Set(ids)].filter((id) =>
+      logicalElementIdExists(materialized.dataset, id)));
   }
 
   private async cleanupSurface(
@@ -2610,6 +2635,8 @@ export class CoreV2Engine {
   ): CoreV2EngineDiagnostic {
     const category: CoreV2DiagnosticCategory = diagnostic.category === 'MISSING_TARGET'
       ? 'MISSING_TARGET'
+      : diagnostic.category === 'CONFLICT'
+        ? 'CONFLICT'
       : diagnostic.category === 'UNSUPPORTED_RUNTIME'
         ? 'UNSUPPORTED_RUNTIME'
         : 'INVALID_INPUT';
@@ -2939,6 +2966,12 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
       ...(options.allowedComponentOrderOwners === undefined
         ? {}
         : { allowedComponentOrderOwners: options.allowedComponentOrderOwners }),
+      ...(options.allowedElementOrderIds === undefined
+        ? {}
+        : { allowedElementOrderIds: options.allowedElementOrderIds }),
+      ...(options.selectionIds === undefined
+        ? {}
+        : { selectionIds: options.selectionIds }),
     });
     if (result.status === 'committed') {
       this.geometryRevision += 1;
@@ -2989,7 +3022,7 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
   }
 
   public select(ids: readonly string[]): void {
-    this.core.commit({ operations: [{ type: 'selection', targets: ids, mode: 'replace' }] });
+    this.core.selectSemantic(ids);
     this.geometryRevision += 1;
     this.invalidateGeometryCache();
   }
@@ -3609,9 +3642,10 @@ function transactionSelectionAfter(
   operations: readonly CoreV2MutationOperation[],
 ): readonly string[] {
   const removed = new Set(
-    operations
-      .filter((operation) => operation.op === 'remove' && operation.target.kind === 'element')
-      .map((operation) => operation.target.id),
+    operations.flatMap((operation) =>
+      operation.op === 'remove' && operation.target.kind === 'element'
+        ? [operation.target.id]
+        : []),
   );
   return Object.freeze(selectionIds.filter((id) => !removed.has(id)));
 }
@@ -4334,4 +4368,39 @@ function findElement(
     }
   }
   return null;
+}
+
+function logicalElementIdExists(
+  values: readonly NormalizedCoreV2Element[],
+  id: string,
+): boolean {
+  for (const value of values) {
+    if (value.id === id && value.type !== 'relations') return true;
+    if (
+      value.type === 'item' &&
+      componentSelectionIdExists(value.id, value.components, id)
+    ) return true;
+    if (value.type === 'group' && logicalElementIdExists(value.children, id)) return true;
+    if (value.type !== 'grid') continue;
+    for (let row = 0; row < value.cells.length; row += 1) {
+      const cells = value.cells[row] ?? [];
+      for (let column = 0; column < cells.length; column += 1) {
+        const instanceId = `${value.id}.${row}.${column}`;
+        const active = value.inactiveCellStrategy === 'hide' || cells[column] !== 0;
+        if (!active) continue;
+        if (id === instanceId) return true;
+        if (componentSelectionIdExists(instanceId, value.item.components, id)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function componentSelectionIdExists(
+  ownerId: string,
+  components: readonly Readonly<{ readonly type: string; readonly id: string }>[],
+  id: string,
+): boolean {
+  return components.some((component) =>
+    id === `${ownerId}::${component.type}:${component.id}`);
 }

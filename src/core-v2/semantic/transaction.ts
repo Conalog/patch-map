@@ -5,6 +5,13 @@ import {
   materializeCoreV2Dataset,
   type MaterializedCoreV2Dataset,
 } from './dataset';
+import {
+  CORE_V2_IDENTITY_AFFINE,
+  createCoreV2Affine,
+  invertCoreV2Affine,
+  multiplyCoreV2Affine,
+  type CoreV2AffineMatrix,
+} from './geometry';
 
 export const CORE_V2_MUTATION_TRANSACTION_REVISION =
   'core-v2-mutation-transaction/1' as const;
@@ -53,6 +60,25 @@ export type CoreV2MutationOperation =
       readonly op: 'remove';
       readonly target: CoreV2MutationTarget;
       readonly cascade: 'reject' | 'subtree';
+    }>
+  | Readonly<{
+      readonly op: 'move';
+      readonly target: Extract<CoreV2MutationTarget, { readonly kind: 'element' }>;
+      readonly parent: Extract<CoreV2MutationTarget, { readonly kind: 'element' }> | null;
+      readonly index: number;
+    }>
+  | Readonly<{
+      readonly op: 'group';
+      readonly targets: readonly Extract<
+        CoreV2MutationTarget,
+        { readonly kind: 'element' }
+      >[];
+      readonly value: Readonly<Record<string, CoreV2MutationJsonValue>>;
+    }>
+  | Readonly<{
+      readonly op: 'ungroup';
+      readonly target: Extract<CoreV2MutationTarget, { readonly kind: 'element' }>;
+      readonly relationPolicy: 'reject' | 'remove';
     }>;
 
 export interface CoreV2MutationTransactionRequest {
@@ -78,6 +104,7 @@ export interface CoreV2BulkPatchRequest {
 export type CoreV2MutationDiagnosticCategory =
   | 'INVALID_INPUT'
   | 'MISSING_TARGET'
+  | 'CONFLICT'
   | 'UNSUPPORTED_RUNTIME';
 
 export type CoreV2MutationDiagnosticCode =
@@ -92,6 +119,7 @@ export type CoreV2MutationDiagnosticCode =
   | 'DUPLICATE_ID'
   | 'NON_SERIALIZABLE_VALUE'
   | 'MISSING_TARGET'
+  | 'CONFLICT'
   | 'UNSUPPORTED_RUNTIME';
 
 export interface CoreV2MutationTransactionDiagnostic {
@@ -121,6 +149,10 @@ export type CoreV2MutationTransactionPlan =
       readonly actionId?: string;
       readonly recordHistory?: boolean;
       readonly history?: CoreV2MutationJsonValue;
+      /** Logical selection replacement authored by group/ungroup. */
+      readonly selectionIds?: readonly string[];
+      /** Semantic hierarchy IDs whose aggregate retained order may change. */
+      readonly allowedElementOrderIds?: readonly string[];
       readonly candidate: MaterializedCoreV2Dataset;
       readonly applied: readonly CoreV2MutationTarget[];
       readonly missing: readonly CoreV2MutationTarget[];
@@ -163,6 +195,10 @@ interface StagedLocation {
   readonly ownerId?: string;
   readonly parent: MutableJsonValue[];
   readonly index: number;
+  readonly parentElementId?: string | null;
+  readonly parentAffine?: CoreV2AffineMatrix;
+  readonly worldAffine?: CoreV2AffineMatrix;
+  readonly locked?: boolean;
   record: MutableJsonRecord;
 }
 
@@ -189,10 +225,21 @@ const CHANGE_FIELDS = new Set(['path', 'value']);
 const REPLACE_FIELDS = new Set(['op', 'target', 'value']);
 const RECONCILE_FIELDS = new Set(['op', 'target', 'components', 'matchMode']);
 const REMOVE_FIELDS = new Set(['op', 'target', 'cascade']);
+const MOVE_FIELDS = new Set(['op', 'target', 'parent', 'index']);
+const GROUP_FIELDS = new Set(['op', 'targets', 'value']);
+const UNGROUP_FIELDS = new Set(['op', 'target', 'relationPolicy']);
 const UNSAFE_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor']);
 const ELEMENT_TYPE_SET = new Set<string>(CORE_V2_ELEMENT_TYPES);
 const COMPONENT_TYPE_SET = new Set<string>(CORE_V2_COMPONENT_TYPES);
-const SUPPORTED_OPERATION_SET = new Set(['merge', 'replace', 'reconcile-components', 'remove']);
+const SUPPORTED_OPERATION_SET = new Set([
+  'merge',
+  'replace',
+  'reconcile-components',
+  'move',
+  'group',
+  'ungroup',
+  'remove',
+]);
 const CONTRACT_OPERATION_SET = new Set([
   'add',
   'merge',
@@ -302,10 +349,37 @@ function planNormalizedCoreV2MutationTransaction(
   const staged = stagedValue;
   let index = indexDataset(staged);
   const journal = new Map<string, TargetJournalEntry>();
+  const allowedElementOrderIds = new Set<string>();
+  let selectionIds: readonly string[] | undefined;
 
   try {
     request.operations.forEach((operation, operationIndex) => {
       const operationPath = `$.operations[${operationIndex}]`;
+      if (
+        operation.op === 'move' ||
+        operation.op === 'group' ||
+        operation.op === 'ungroup'
+      ) {
+        const structural = applyStructuralOperation(
+          staged,
+          index,
+          operation,
+          operationPath,
+          operationIndex,
+          request.strict,
+        );
+        for (const outcome of structural.outcomes) {
+          noteOutcome(journal, outcome.target, outcome.outcome);
+        }
+        for (const id of structural.allowedElementOrderIds) {
+          allowedElementOrderIds.add(id);
+        }
+        if (structural.selectionIds !== undefined) {
+          selectionIds = structural.selectionIds;
+        }
+        if (structural.changed) index = indexDataset(staged);
+        return;
+      }
       const located = locate(index, operation.target, operationPath, operationIndex);
       if (located === undefined) {
         noteOutcome(journal, operation.target, 'missing');
@@ -393,6 +467,10 @@ function planNormalizedCoreV2MutationTransaction(
     ...(request.actionId === undefined ? {} : { actionId: request.actionId }),
     ...(request.recordHistory === undefined ? {} : { recordHistory: request.recordHistory }),
     ...(request.history === undefined ? {} : { history: request.history }),
+    ...(selectionIds === undefined ? {} : { selectionIds }),
+    ...(allowedElementOrderIds.size === 0
+      ? {}
+      : { allowedElementOrderIds: Object.freeze([...allowedElementOrderIds]) }),
     candidate,
     applied,
     missing,
@@ -649,6 +727,72 @@ function normalizeOperation(value: unknown, operationIndex: number): CoreV2Mutat
         matchMode: 'replace',
       });
     }
+    case 'move': {
+      rejectUnknownFields(record, MOVE_FIELDS, path, operationIndex);
+      const target = normalizeElementTarget(record.target, `${path}.target`, operationIndex);
+      const parent = record.parent === null
+        ? null
+        : normalizeElementTarget(record.parent, `${path}.parent`, operationIndex);
+      if (!Number.isSafeInteger(record.index) || Number(record.index) < 0) {
+        transactionFail(
+          'INVALID_VALUE',
+          'INVALID_INPUT',
+          `${path}.index`,
+          'move index must be a non-negative safe integer',
+          operationIndex,
+          target,
+        );
+      }
+      return Object.freeze({ op: 'move', target, parent, index: Number(record.index) });
+    }
+    case 'group': {
+      rejectUnknownFields(record, GROUP_FIELDS, path, operationIndex);
+      if (!Array.isArray(record.targets) || record.targets.length === 0) {
+        transactionFail(
+          'INVALID_VALUE',
+          'INVALID_INPUT',
+          `${path}.targets`,
+          'group targets must be a non-empty ordered array',
+          operationIndex,
+        );
+      }
+      const targets = Object.freeze(record.targets.map((target, targetIndex) =>
+        normalizeElementTarget(target, `${path}.targets[${targetIndex}]`, operationIndex)));
+      const identities = new Set(targets.map((target) => target.id));
+      if (identities.size !== targets.length) {
+        transactionFail(
+          'CONFLICTING_FIELDS',
+          'INVALID_INPUT',
+          `${path}.targets`,
+          'group targets must be unique',
+          operationIndex,
+        );
+      }
+      const valueRecord = strictRecord(
+        record.value,
+        `${path}.value`,
+        'group value must be a strict plain record',
+      );
+      const value = cloneImmutableJson(valueRecord, `${path}.value`);
+      if (!isJsonRecord(value)) throw new Error('Group clone lost record shape');
+      return Object.freeze({ op: 'group', targets, value });
+    }
+    case 'ungroup': {
+      rejectUnknownFields(record, UNGROUP_FIELDS, path, operationIndex);
+      const target = normalizeElementTarget(record.target, `${path}.target`, operationIndex);
+      const relationPolicy = record.relationPolicy ?? 'reject';
+      if (relationPolicy !== 'reject' && relationPolicy !== 'remove') {
+        transactionFail(
+          'INVALID_VALUE',
+          'INVALID_INPUT',
+          `${path}.relationPolicy`,
+          'ungroup relationPolicy must be reject or remove',
+          operationIndex,
+          target,
+        );
+      }
+      return Object.freeze({ op: 'ungroup', target, relationPolicy });
+    }
     case 'remove': {
       rejectUnknownFields(record, REMOVE_FIELDS, path, operationIndex);
       const target = normalizeTarget(record.target, `${path}.target`, operationIndex);
@@ -667,6 +811,25 @@ function normalizeOperation(value: unknown, operationIndex: number): CoreV2Mutat
     default:
       throw new Error('Supported operation was not normalized');
   }
+}
+
+function normalizeElementTarget(
+  value: unknown,
+  path: string,
+  operationIndex: number,
+): Extract<CoreV2MutationTarget, { readonly kind: 'element' }> {
+  const target = normalizeTarget(value, path, operationIndex);
+  if (target.kind !== 'element') {
+    transactionFail(
+      'INVALID_MUTATION',
+      'INVALID_INPUT',
+      `${path}.kind`,
+      'structural hierarchy operations require element targets',
+      operationIndex,
+      target,
+    );
+  }
+  return target;
 }
 
 function normalizeChange(
@@ -924,9 +1087,645 @@ function removeTarget(
   location.parent.splice(location.index, 1);
 }
 
+interface StructuralTargetOutcome {
+  readonly target: Extract<CoreV2MutationTarget, { readonly kind: 'element' }>;
+  readonly outcome: TargetOutcome;
+}
+
+interface StructuralMutationResult {
+  readonly changed: boolean;
+  readonly outcomes: readonly StructuralTargetOutcome[];
+  readonly selectionIds?: readonly string[];
+  readonly allowedElementOrderIds: readonly string[];
+}
+
+type StructuralOperation = Extract<
+  CoreV2MutationOperation,
+  { readonly op: 'move' | 'group' | 'ungroup' }
+>;
+
+function applyStructuralOperation(
+  dataset: MutableJsonValue[],
+  index: ReadonlyMap<string, readonly StagedLocation[]>,
+  operation: StructuralOperation,
+  operationPath: string,
+  operationIndex: number,
+  strict: boolean,
+): StructuralMutationResult {
+  switch (operation.op) {
+    case 'move':
+      return moveElement(dataset, index, operation, operationPath, operationIndex, strict);
+    case 'group':
+      return groupElements(dataset, index, operation, operationPath, operationIndex, strict);
+    case 'ungroup':
+      return ungroupElement(dataset, index, operation, operationPath, operationIndex, strict);
+  }
+}
+
+function moveElement(
+  dataset: MutableJsonValue[],
+  index: ReadonlyMap<string, readonly StagedLocation[]>,
+  operation: Extract<StructuralOperation, { readonly op: 'move' }>,
+  operationPath: string,
+  operationIndex: number,
+  strict: boolean,
+): StructuralMutationResult {
+  const source = locate(index, operation.target, operationPath, operationIndex);
+  if (source === undefined) {
+    return missingStructuralResult(operation.target, operationPath, operationIndex, strict);
+  }
+  requireElementLocation(source, operation.target, operationPath, operationIndex);
+  assertUnlockedLocation(source, operation.target, operationPath, operationIndex);
+
+  const destination = structuralDestination(
+    dataset,
+    index,
+    operation.parent,
+    operationPath,
+    operationIndex,
+    strict,
+  );
+  if (destination === null) {
+    const missing = operation.parent ?? operation.target;
+    return Object.freeze({
+      changed: false,
+      outcomes: Object.freeze([{ target: missing, outcome: 'missing' as const }]),
+      allowedElementOrderIds: Object.freeze([]),
+    });
+  }
+  if (operation.parent?.id === operation.target.id ||
+      (operation.parent !== null && elementSubtreeIds(source.record).has(operation.parent.id))) {
+    hierarchyConflict(
+      `${operationPath}.parent`,
+      'move parent cannot be the target or one of its descendants',
+      operationIndex,
+      operation.target,
+    );
+  }
+  if (operation.index > destination.children.length) {
+    transactionFail(
+      'INVALID_VALUE',
+      'INVALID_INPUT',
+      `${operationPath}.index`,
+      'move index exceeds the destination insertion range',
+      operationIndex,
+      operation.target,
+    );
+  }
+
+  const sourceSiblings = elementIdsInArray(source.parent);
+  const destinationSiblings = elementIdsInArray(destination.children);
+  const sameParent = source.parent === destination.children;
+  let insertionIndex = operation.index;
+  if (sameParent && source.index < insertionIndex) insertionIndex -= 1;
+  const unchanged = sameParent && source.index === insertionIndex;
+  if (unchanged) {
+    return Object.freeze({
+      changed: false,
+      outcomes: Object.freeze([{ target: operation.target, outcome: 'unchanged' as const }]),
+      allowedElementOrderIds: Object.freeze([]),
+    });
+  }
+
+  const worldAffine = requireLocationAffine(source, operationPath, operationIndex, operation.target);
+  source.parent.splice(source.index, 1);
+  rebaseElementRecord(
+    source.record,
+    worldAffine,
+    destination.parentAffine,
+    operationPath,
+    operationIndex,
+    operation.target,
+  );
+  destination.children.splice(insertionIndex, 0, source.record);
+  return Object.freeze({
+    changed: true,
+    outcomes: Object.freeze([{ target: operation.target, outcome: 'applied' as const }]),
+    allowedElementOrderIds: freezeUniqueStrings([
+      operation.target.id,
+      ...sourceSiblings,
+      ...destinationSiblings,
+    ]),
+  });
+}
+
+function groupElements(
+  dataset: MutableJsonValue[],
+  index: ReadonlyMap<string, readonly StagedLocation[]>,
+  operation: Extract<StructuralOperation, { readonly op: 'group' }>,
+  operationPath: string,
+  operationIndex: number,
+  strict: boolean,
+): StructuralMutationResult {
+  const outcomes: StructuralTargetOutcome[] = [];
+  const locations: Array<Readonly<{
+    target: Extract<CoreV2MutationTarget, { readonly kind: 'element' }>;
+    location: StagedLocation;
+  }>> = [];
+  for (const [targetIndex, target] of operation.targets.entries()) {
+    const location = locate(index, target, operationPath, operationIndex);
+    if (location === undefined) {
+      if (strict) {
+        missingStructuralTarget(
+          target,
+          `${operationPath}.targets[${targetIndex}]`,
+          operationIndex,
+        );
+      }
+      outcomes.push({ target, outcome: 'missing' });
+      continue;
+    }
+    requireElementLocation(location, target, operationPath, operationIndex);
+    assertUnlockedLocation(location, target, operationPath, operationIndex);
+    locations.push(Object.freeze({ target, location }));
+  }
+  if (locations.length === 0) {
+    return Object.freeze({
+      changed: false,
+      outcomes: Object.freeze(outcomes),
+      allowedElementOrderIds: Object.freeze([]),
+    });
+  }
+
+  const parent = locations[0]?.location.parent;
+  if (parent === undefined || locations.some(({ location }) => location.parent !== parent)) {
+    hierarchyConflict(
+      `${operationPath}.targets`,
+      'group targets must share one current parent',
+      operationIndex,
+      locations[0]?.target,
+    );
+  }
+  const parentAffine = requireLocationParentAffine(
+    locations[0]!.location,
+    operationPath,
+    operationIndex,
+    locations[0]!.target,
+  );
+  const groupRecord = groupValueRecord(operation, operationPath, operationIndex);
+  const groupId = String(groupRecord.id);
+  const groupTarget = Object.freeze({ kind: 'element' as const, id: groupId });
+  if (locate(index, groupTarget, operationPath, operationIndex) !== undefined) {
+    transactionFail(
+      'DUPLICATE_ID',
+      'INVALID_INPUT',
+      `${operationPath}.value.id`,
+      `group ID ${groupId} already exists`,
+      operationIndex,
+      groupTarget,
+    );
+  }
+
+  const sorted = [...locations].sort((left, right) => left.location.index - right.location.index);
+  const siblingIds = elementIdsInArray(parent);
+  const firstIndex = sorted[0]!.location.index;
+  const groupWorld = multiplyCoreV2Affine(parentAffine, stagedElementLocalAffine(groupRecord));
+  const children = sorted.map(({ location }) => {
+    const world = requireLocationAffine(location, operationPath, operationIndex, locationTarget(location));
+    rebaseElementRecord(
+      location.record,
+      world,
+      groupWorld,
+      operationPath,
+      operationIndex,
+      locationTarget(location),
+    );
+    return location.record;
+  });
+  for (const { location } of [...sorted].sort((left, right) => right.location.index - left.location.index)) {
+    parent.splice(location.index, 1);
+  }
+  defineMutableProperty(groupRecord, 'children', children);
+  parent.splice(firstIndex, 0, groupRecord);
+  outcomes.push(...sorted.map(({ target }) => ({ target, outcome: 'applied' as const })));
+  return Object.freeze({
+    changed: true,
+    outcomes: Object.freeze(outcomes),
+    selectionIds: Object.freeze([groupId]),
+    allowedElementOrderIds: freezeUniqueStrings([
+      groupId,
+      ...siblingIds,
+      ...sorted.map(({ target }) => target.id),
+    ]),
+  });
+}
+
+function ungroupElement(
+  dataset: MutableJsonValue[],
+  index: ReadonlyMap<string, readonly StagedLocation[]>,
+  operation: Extract<StructuralOperation, { readonly op: 'ungroup' }>,
+  operationPath: string,
+  operationIndex: number,
+  strict: boolean,
+): StructuralMutationResult {
+  const location = locate(index, operation.target, operationPath, operationIndex);
+  if (location === undefined) {
+    return missingStructuralResult(operation.target, operationPath, operationIndex, strict);
+  }
+  requireElementLocation(location, operation.target, operationPath, operationIndex);
+  assertUnlockedLocation(location, operation.target, operationPath, operationIndex);
+  if (location.record.type !== 'group' || !Array.isArray(location.record.children)) {
+    transactionFail(
+      'INVALID_MUTATION',
+      'INVALID_INPUT',
+      `${operationPath}.target`,
+      'ungroup target must resolve to a group element',
+      operationIndex,
+      operation.target,
+    );
+  }
+  const dependentRelationCount = relationDependencyCount(dataset, operation.target.id);
+  if (dependentRelationCount > 0 && operation.relationPolicy === 'reject') {
+    hierarchyConflict(
+      `${operationPath}.relationPolicy`,
+      'ungroup target is referenced by a relation endpoint',
+      operationIndex,
+      operation.target,
+    );
+  }
+  if (dependentRelationCount > 0) removeRelationDependencies(dataset, operation.target.id);
+
+  const parentAffine = requireLocationParentAffine(
+    location,
+    operationPath,
+    operationIndex,
+    operation.target,
+  );
+  const groupWorld = requireLocationAffine(location, operationPath, operationIndex, operation.target);
+  const siblingIds = elementIdsInArray(location.parent);
+  const children = location.record.children.map((value, childIndex) => {
+    if (!isMutableJsonRecord(value) || typeof value.id !== 'string') {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        `${operationPath}.target.children[${childIndex}]`,
+        'ungroup child must be a materialized element record',
+        operationIndex,
+        operation.target,
+      );
+    }
+    const childTarget = Object.freeze({ kind: 'element' as const, id: value.id });
+    const childWorld = multiplyCoreV2Affine(groupWorld, stagedElementLocalAffine(value));
+    rebaseElementRecord(
+      value,
+      childWorld,
+      parentAffine,
+      operationPath,
+      operationIndex,
+      childTarget,
+    );
+    return value;
+  });
+  location.parent.splice(location.index, 1, ...children);
+  const childIds = children.map((child) => String(child.id));
+  return Object.freeze({
+    changed: true,
+    outcomes: Object.freeze([{ target: operation.target, outcome: 'applied' as const }]),
+    selectionIds: Object.freeze(childIds),
+    allowedElementOrderIds: freezeUniqueStrings([
+      operation.target.id,
+      ...siblingIds,
+      ...childIds,
+    ]),
+  });
+}
+
+function structuralDestination(
+  dataset: MutableJsonValue[],
+  index: ReadonlyMap<string, readonly StagedLocation[]>,
+  parent: Extract<CoreV2MutationTarget, { readonly kind: 'element' }> | null,
+  operationPath: string,
+  operationIndex: number,
+  strict: boolean,
+): Readonly<{
+  readonly children: MutableJsonValue[];
+  readonly parentAffine: CoreV2AffineMatrix;
+}> | null {
+  if (parent === null) {
+    return Object.freeze({ children: dataset, parentAffine: CORE_V2_IDENTITY_AFFINE });
+  }
+  const location = locate(index, parent, operationPath, operationIndex);
+  if (location === undefined) {
+    if (strict) missingStructuralTarget(parent, `${operationPath}.parent`, operationIndex);
+    return null;
+  }
+  requireElementLocation(location, parent, operationPath, operationIndex);
+  assertUnlockedLocation(location, parent, operationPath, operationIndex);
+  if (location.record.type !== 'group' || !Array.isArray(location.record.children)) {
+    transactionFail(
+      'INVALID_MUTATION',
+      'INVALID_INPUT',
+      `${operationPath}.parent`,
+      'move parent must resolve to a group element or null',
+      operationIndex,
+      parent,
+    );
+  }
+  return Object.freeze({
+    children: location.record.children,
+    parentAffine: requireLocationAffine(location, operationPath, operationIndex, parent),
+  });
+}
+
+function groupValueRecord(
+  operation: Extract<StructuralOperation, { readonly op: 'group' }>,
+  operationPath: string,
+  operationIndex: number,
+): MutableJsonRecord {
+  const value = cloneMutableJson(operation.value, `${operationPath}.value`);
+  if (!isMutableJsonRecord(value)) throw new Error('Group clone lost record shape');
+  if (value.type !== 'group') {
+    transactionFail(
+      'INVALID_RECORD_KIND',
+      'INVALID_INPUT',
+      `${operationPath}.value.type`,
+      'group value discriminator must be group',
+      operationIndex,
+    );
+  }
+  if (typeof value.id !== 'string' || value.id.length === 0) {
+    transactionFail(
+      'INVALID_VALUE',
+      'INVALID_INPUT',
+      `${operationPath}.value.id`,
+      'group value ID must be a non-empty string',
+      operationIndex,
+    );
+  }
+  if (Object.prototype.hasOwnProperty.call(value, 'children')) {
+    transactionFail(
+      'CONFLICTING_FIELDS',
+      'INVALID_INPUT',
+      `${operationPath}.value.children`,
+      'group value must not supply children',
+      operationIndex,
+    );
+  }
+  return value;
+}
+
+function missingStructuralResult(
+  target: Extract<CoreV2MutationTarget, { readonly kind: 'element' }>,
+  operationPath: string,
+  operationIndex: number,
+  strict: boolean,
+): StructuralMutationResult {
+  if (strict) missingStructuralTarget(target, `${operationPath}.target`, operationIndex);
+  return Object.freeze({
+    changed: false,
+    outcomes: Object.freeze([{ target, outcome: 'missing' as const }]),
+    allowedElementOrderIds: Object.freeze([]),
+  });
+}
+
+function missingStructuralTarget(
+  target: Extract<CoreV2MutationTarget, { readonly kind: 'element' }>,
+  path: string,
+  operationIndex: number,
+): never {
+  transactionFail(
+    'MISSING_TARGET',
+    'MISSING_TARGET',
+    path,
+    `No staged record matches ${targetLabel(target)}`,
+    operationIndex,
+    target,
+  );
+}
+
+function hierarchyConflict(
+  path: string,
+  message: string,
+  operationIndex: number,
+  target?: CoreV2MutationTarget,
+): never {
+  transactionFail('CONFLICT', 'CONFLICT', path, message, operationIndex, target);
+}
+
+function requireElementLocation(
+  location: StagedLocation,
+  target: Extract<CoreV2MutationTarget, { readonly kind: 'element' }>,
+  operationPath: string,
+  operationIndex: number,
+): void {
+  if (location.kind === 'element') return;
+  transactionFail(
+    'INVALID_MUTATION',
+    'INVALID_INPUT',
+    `${operationPath}.target`,
+    'hierarchy target must resolve to an element',
+    operationIndex,
+    target,
+  );
+}
+
+function assertUnlockedLocation(
+  location: StagedLocation,
+  target: Extract<CoreV2MutationTarget, { readonly kind: 'element' }>,
+  operationPath: string,
+  operationIndex: number,
+): void {
+  if (location.locked !== true) return;
+  hierarchyConflict(
+    `${operationPath}.target`,
+    'hierarchy target or one of its ancestors is locked',
+    operationIndex,
+    target,
+  );
+}
+
+function requireLocationAffine(
+  location: StagedLocation,
+  operationPath: string,
+  operationIndex: number,
+  target: CoreV2MutationTarget,
+): CoreV2AffineMatrix {
+  if (location.worldAffine !== undefined) return location.worldAffine;
+  hierarchyConflict(
+    `${operationPath}.target`,
+    'hierarchy target has no finite world transform',
+    operationIndex,
+    target,
+  );
+}
+
+function requireLocationParentAffine(
+  location: StagedLocation,
+  operationPath: string,
+  operationIndex: number,
+  target: CoreV2MutationTarget,
+): CoreV2AffineMatrix {
+  if (location.parentAffine !== undefined) return location.parentAffine;
+  hierarchyConflict(
+    `${operationPath}.target`,
+    'hierarchy target has no finite parent transform',
+    operationIndex,
+    target,
+  );
+}
+
+function rebaseElementRecord(
+  record: MutableJsonRecord,
+  worldAffine: CoreV2AffineMatrix,
+  parentAffine: CoreV2AffineMatrix,
+  operationPath: string,
+  operationIndex: number,
+  target: CoreV2MutationTarget,
+): void {
+  let local: CoreV2AffineMatrix;
+  try {
+    local = multiplyCoreV2Affine(invertCoreV2Affine(parentAffine), worldAffine);
+  } catch {
+    hierarchyConflict(
+      `${operationPath}.target`,
+      'hierarchy transform cannot be rebased through a singular parent',
+      operationIndex,
+      target,
+    );
+  }
+  const [a, b, c, d, x, y] = local;
+  const scaleX = Math.hypot(a, b);
+  const determinant = a * d - b * c;
+  if (!(scaleX > 1e-12) || !Number.isFinite(determinant)) {
+    hierarchyConflict(
+      `${operationPath}.target`,
+      'hierarchy transform cannot be represented by the pinned affine profile',
+      operationIndex,
+      target,
+    );
+  }
+  const scaleY = determinant / scaleX;
+  const skew = a * c + b * d;
+  const tolerance = 1e-8 * Math.max(1, scaleX * Math.abs(scaleY));
+  if (!Number.isFinite(scaleY) || Math.abs(scaleY) <= 1e-12 || Math.abs(skew) > tolerance) {
+    hierarchyConflict(
+      `${operationPath}.target`,
+      'hierarchy rebase would require unsupported skew or singular scale',
+      operationIndex,
+      target,
+    );
+  }
+  const angle = normalizeSignedZero(Math.atan2(b, a) * 180 / Math.PI);
+  const attrs = isMutableJsonRecord(record.attrs) ? record.attrs : {};
+  defineMutableProperty(attrs, 'x', normalizeSignedZero(x));
+  defineMutableProperty(attrs, 'y', normalizeSignedZero(y));
+  if (Object.prototype.hasOwnProperty.call(attrs, 'rotation') &&
+      !Object.prototype.hasOwnProperty.call(attrs, 'angle')) {
+    defineMutableProperty(attrs, 'rotation', normalizeSignedZero(angle * Math.PI / 180));
+  } else if (angle !== 0 || Object.prototype.hasOwnProperty.call(attrs, 'angle')) {
+    defineMutableProperty(attrs, 'angle', angle);
+    delete attrs.rotation;
+  } else {
+    delete attrs.angle;
+    delete attrs.rotation;
+  }
+  writeScaleAttribute(attrs, 'scaleX', scaleX);
+  writeScaleAttribute(attrs, 'scaleY', scaleY);
+  defineMutableProperty(record, 'attrs', attrs);
+}
+
+function writeScaleAttribute(
+  attrs: MutableJsonRecord,
+  key: 'scaleX' | 'scaleY',
+  value: number,
+): void {
+  const normalized = normalizeSignedZero(Math.abs(value - 1) <= 1e-12 ? 1 : value);
+  if (normalized === 1 && !Object.prototype.hasOwnProperty.call(attrs, key)) delete attrs[key];
+  else defineMutableProperty(attrs, key, normalized);
+}
+
+function stagedElementLocalAffine(record: MutableJsonRecord): CoreV2AffineMatrix {
+  const attrs = isMutableJsonRecord(record.attrs) ? record.attrs : undefined;
+  const x = finiteOr(attrs?.x, 0);
+  const y = finiteOr(attrs?.y, 0);
+  const angle = Number.isFinite(attrs?.angle)
+    ? Number(attrs?.angle)
+    : Number.isFinite(attrs?.rotation)
+      ? Number(attrs?.rotation) * 180 / Math.PI
+      : 0;
+  const scaleX = finiteOr(attrs?.scaleX, 1);
+  const scaleY = finiteOr(attrs?.scaleY, 1);
+  return createCoreV2Affine(x, y, angle, scaleX, scaleY);
+}
+
+function finiteOr(value: MutableJsonValue | undefined, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function elementSubtreeIds(record: MutableJsonRecord): ReadonlySet<string> {
+  const ids = new Set<string>();
+  const visit = (value: MutableJsonValue): void => {
+    if (!isMutableJsonRecord(value)) return;
+    if (typeof value.id === 'string') ids.add(value.id);
+    if (value.type === 'group' && Array.isArray(value.children)) {
+      for (const child of value.children) visit(child);
+    }
+  };
+  visit(record);
+  return ids;
+}
+
+function elementIdsInArray(values: readonly MutableJsonValue[]): readonly string[] {
+  return Object.freeze(values.flatMap((value) =>
+    isMutableJsonRecord(value) && typeof value.id === 'string' ? [value.id] : []));
+}
+
+function freezeUniqueStrings(values: readonly string[]): readonly string[] {
+  return Object.freeze([...new Set(values)]);
+}
+
+function locationTarget(
+  location: StagedLocation,
+): Extract<CoreV2MutationTarget, { readonly kind: 'element' }> {
+  return Object.freeze({ kind: 'element', id: String(location.record.id) });
+}
+
+function relationDependencyCount(dataset: readonly MutableJsonValue[], id: string): number {
+  let count = 0;
+  visitRelationRecords(dataset, (links) => {
+    for (const link of links) {
+      if (!isMutableJsonRecord(link)) continue;
+      if (link.source === id || link.target === id) count += 1;
+    }
+  });
+  return count;
+}
+
+function removeRelationDependencies(dataset: readonly MutableJsonValue[], id: string): void {
+  visitRelationRecords(dataset, (links, owner) => {
+    defineMutableProperty(owner, 'links', links.filter((link) =>
+      !isMutableJsonRecord(link) || (link.source !== id && link.target !== id)));
+  });
+}
+
+function visitRelationRecords(
+  values: readonly MutableJsonValue[],
+  visit: (links: MutableJsonValue[], owner: MutableJsonRecord) => void,
+): void {
+  for (const value of values) {
+    if (!isMutableJsonRecord(value)) continue;
+    if (value.type === 'relations' && Array.isArray(value.links)) visit(value.links, value);
+    if (value.type === 'group' && Array.isArray(value.children)) {
+      visitRelationRecords(value.children, visit);
+    }
+  }
+}
+
+function normalizeSignedZero(value: number): number {
+  return Object.is(value, -0) || Math.abs(value) <= 1e-12 ? 0 : value;
+}
+
 function indexDataset(dataset: MutableJsonValue[]): ReadonlyMap<string, readonly StagedLocation[]> {
   const mutable = new Map<string, StagedLocation[]>();
-  dataset.forEach((value, index) => indexElement(value, dataset, index, mutable));
+  dataset.forEach((value, index) => indexElement(
+    value,
+    dataset,
+    index,
+    mutable,
+    null,
+    CORE_V2_IDENTITY_AFFINE,
+    false,
+  ));
   return mutable;
 }
 
@@ -935,20 +1734,37 @@ function indexElement(
   parent: MutableJsonValue[],
   index: number,
   targetIndex: Map<string, StagedLocation[]>,
+  parentElementId: string | null,
+  parentAffine: CoreV2AffineMatrix,
+  ancestorLocked: boolean,
 ): void {
   if (!isMutableJsonRecord(value)) return;
   const id = value.id;
   if (typeof id !== 'string') return;
+  const worldAffine = multiplyCoreV2Affine(parentAffine, stagedElementLocalAffine(value));
+  const locked = ancestorLocked || value.locked === true;
   addLocation(targetIndex, targetKey({ kind: 'element', id }), {
     kind: 'element',
     parent,
     index,
+    parentElementId,
+    parentAffine,
+    worldAffine,
+    locked,
     record: value,
   });
 
   if (value.type === 'group' && Array.isArray(value.children)) {
     value.children.forEach((child, childIndex) =>
-      indexElement(child, value.children as MutableJsonValue[], childIndex, targetIndex),
+      indexElement(
+        child,
+        value.children as MutableJsonValue[],
+        childIndex,
+        targetIndex,
+        id,
+        worldAffine,
+        locked,
+      ),
     );
   }
   if (value.type === 'item' && Array.isArray(value.components)) {

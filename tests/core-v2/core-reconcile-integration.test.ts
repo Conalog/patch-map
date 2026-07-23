@@ -318,6 +318,72 @@ describe('Core v2 runtime dense reconcile', () => {
     for (const [id, ref] of refs) expect(core.ref(`item-a::text:${id}`)).toEqual(ref);
   });
 
+  it('accepts an explicitly scoped hierarchy reorder and selection in one dense batch', () => {
+    const { core } = createTestCore(allocated);
+    const current = [
+      {
+        type: 'group',
+        id: 'group-a',
+        children: [directRect('a'), directRect('b')],
+      },
+      { type: 'group', id: 'group-b', children: [] },
+    ];
+    core.load(current);
+    const refs = new Map(['a', 'b'].map((id) => [id, core.ref(id)]));
+    const candidate = [
+      { type: 'group', id: 'group-a', children: [directRect('b')] },
+      { type: 'group', id: 'group-b', children: [directRect('a')] },
+    ];
+
+    const result = core.reconcile(candidate, {
+      allowedElementOrderIds: ['a', 'b'],
+      selectionIds: ['a'],
+    });
+
+    expect(result.status).toBe('committed');
+    expect(result.plan.safeToCommit).toBe(true);
+    expect(result.plan.batch.operations).toEqual([{
+      type: 'selection',
+      targets: ['a'],
+    }]);
+    expect(core.ref('a')).toEqual(refs.get('a'));
+    expect(core.ref('b')).toEqual(refs.get('b'));
+    expect(core.selection().refs).toEqual([refs.get('a')]);
+    expect(core.identity?.elements.map((element) => element.sourceId)).toEqual([
+      'group-a',
+      'b',
+      'group-b',
+      'a',
+    ]);
+  });
+
+  it('projects a logical group selection onto its aggregate descendant entities', () => {
+    const { core } = createTestCore(allocated);
+    core.load([
+      { type: 'group', id: 'group-a', children: [directRect('a')] },
+      { type: 'group', id: 'group-b', children: [] },
+    ]);
+
+    const result = core.reconcile([
+      { type: 'group', id: 'group-a', children: [] },
+      {
+        type: 'group',
+        id: 'group-b',
+        children: [{ type: 'group', id: 'group-c', children: [directRect('a')] }],
+      },
+    ], {
+      allowedElementOrderIds: ['a', 'group-c'],
+      selectionIds: ['group-c'],
+    });
+
+    expect(result.status).toBe('committed');
+    expect(result.plan.batch.operations).toContainEqual({
+      type: 'selection',
+      targets: ['a'],
+    });
+    expect(core.selection().refs).toEqual([core.ref('a')]);
+  });
+
   it('commits empty plans once and distinguishes exact no-op from semantic-only authority', () => {
     const { core } = createTestCore(allocated);
     const current = [directRect('box', { label: 'Before' })];
