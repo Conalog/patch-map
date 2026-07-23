@@ -118,6 +118,11 @@ describe('Core v2 root pointer and region-selection substrate', () => {
     const kinds = ['click', 'box', 'paint', 'pan', 'move', 'resize', 'rotate'] as const;
     for (const kind of kinds) {
       authority.beginOwnedGesture(kind, 7);
+      expect(authority.dispatch(pointer('move', 7, [20, 30], 1))).toMatchObject({
+        events: [],
+        clickSuppressed: true,
+        semanticCompletionCount: 0,
+      });
       expect(authority.terminateOwnedGesture('pointer-up-outside')).toMatchObject({
         kind,
         state: 'committed',

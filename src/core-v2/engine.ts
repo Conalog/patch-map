@@ -8,6 +8,7 @@ import {
   type CoreV2Options,
   type CoreV2RootPointerInput,
   type CoreV2RootViewportChangeSource,
+  type CoreV2SelectionOverlayPolicyInput,
   type CoreV2SemanticRefreshResult,
   type CoreV2TextGeometryProbe,
   type CoreV2TextProductProbe,
@@ -170,6 +171,22 @@ import {
   type CoreV2LogicalPropagationTrace,
   type CoreV2SelectionHostPublication,
 } from './host-interaction';
+import {
+  CoreV2TransformerGestureAuthority,
+  createCoreV2SelectionVisualProbe,
+  createCoreV2TransformerHandleProbe,
+  evaluateCoreV2TransformableSubset,
+  hitCoreV2TransformerHandle,
+  resolveCoreV2RelationEndpoints,
+  type CoreV2RelationEndpointResolution,
+  type CoreV2SelectionVisualOptions,
+  type CoreV2SelectionVisualProbe,
+  type CoreV2TransformableSubsetProbe,
+  type CoreV2TransformerGestureProbe,
+  type CoreV2TransformerHandle,
+  type CoreV2TransformerHandleProbe,
+  type CoreV2TransformerInputFamily,
+} from './selection-transformer';
 
 export type CoreV2Lifecycle =
   | 'new'
@@ -728,6 +745,7 @@ export interface CoreV2EngineSurface {
   ): () => void;
   cancelViewportGestures?(): void;
   select(ids: readonly string[]): void;
+  setSelectionOverlayPolicy?(input: CoreV2SelectionOverlayPolicyInput): boolean;
   setPresentationPolicy?(
     input: CoreV2PresentationPolicyInput,
   ): CoreV2PresentationPolicyProductProbe;
@@ -852,6 +870,11 @@ export interface CoreV2EnginePointSelectionResult extends CoreV2EngineSelectionH
 export interface CoreV2ExternalSelectionResult {
   readonly requestedIds: readonly string[];
   readonly missingIds: readonly string[];
+  readonly change: CoreV2SelectionChange;
+}
+
+export interface CoreV2EngineRelationEndpointSelectionResult
+  extends CoreV2RelationEndpointResolution {
   readonly change: CoreV2SelectionChange;
 }
 
@@ -1287,6 +1310,7 @@ export class CoreV2Engine {
     CoreV2EngineHistoryCompanion
   >;
   private readonly hostInteractions: CoreV2HostInteractionAuthority;
+  private readonly transformerGestures = new CoreV2TransformerGestureAuthority();
   private readonly listeners = new Map<CoreV2EngineEvent, Set<(event: unknown) => void>>();
   private lifecycle: CoreV2Lifecycle = 'new';
   private surface: CoreV2EngineSurface | null = null;
@@ -1545,6 +1569,7 @@ export class CoreV2Engine {
     const prepared = this.prepareDatasetLoad(input);
     surface.load(prepared.materialized.dataset);
     this.pointerGestureAuthority?.interrupt('replace');
+    this.transformerGestures.interrupt();
     return this.commitPreparedDatasetLoad(prepared, options);
   }
 
@@ -1599,6 +1624,7 @@ export class CoreV2Engine {
       else surface.load(materialized.dataset);
       assertCurrent();
       this.pointerGestureAuthority?.interrupt('replace');
+      this.transformerGestures.interrupt();
       return this.commitPreparedDatasetLoad(prepared, options);
     } finally {
       this.pendingWork -= 1;
@@ -2816,6 +2842,7 @@ export class CoreV2Engine {
     this.loadSequence += 1;
     this.viewportMotion = null;
     surface.cancelViewportGestures?.();
+    this.transformerGestures.interrupt();
     if (this.logicalSelectionIds.length > 0) {
       surface.select([]);
       this.logicalSelectionIds = Object.freeze([]);
@@ -3224,6 +3251,188 @@ export class CoreV2Engine {
     return this.hostInteractions.probe();
   }
 
+  public transformableSubset(
+    selectionIds: readonly string[] = this.logicalSelectionIds,
+    lockedIds: readonly string[] = [],
+  ): CoreV2TransformableSubsetProbe {
+    this.requireSurface('transformableSubset');
+    return evaluateCoreV2TransformableSubset(
+      this.logicalSceneIndex(),
+      selectionIds,
+      lockedIds,
+    );
+  }
+
+  public selectionVisualProbe(
+    options: Omit<CoreV2SelectionVisualOptions, 'selectionIds'> & Readonly<{
+      readonly selectionIds?: readonly string[];
+    }> = {},
+  ): CoreV2SelectionVisualProbe | null {
+    const surface = this.requireSurface('selectionVisualProbe');
+    const geometry = surface.geometrySnapshot?.() ?? null;
+    if (geometry === null) return null;
+    return createCoreV2SelectionVisualProbe(
+      this.logicalSceneIndex(),
+      geometry.entities,
+      {
+        ...options,
+        selectionIds: options.selectionIds ?? this.logicalSelectionIds,
+        viewportScale: options.viewportScale ?? this.viewportScale,
+      },
+    );
+  }
+
+  public setSelectionVisualPolicy(
+    options: Omit<CoreV2SelectionVisualOptions, 'selectionIds'> & Readonly<{
+      readonly selectionIds?: readonly string[];
+    }> = {},
+  ): CoreV2SelectionVisualProbe | null {
+    const surface = this.requireSurface('setSelectionVisualPolicy');
+    const visual = this.selectionVisualProbe(options);
+    if (visual === null) return null;
+    const subset = evaluateCoreV2TransformableSubset(
+      this.logicalSceneIndex(),
+      visual.overlayTargets.map((target) => target.selectionId),
+      options.lockedIds ?? [],
+    );
+    const changed = surface.setSelectionOverlayPolicy?.({
+      visibleIds: visual.overlayTargets.map((target) => target.selectionId),
+      transformableIds: subset.transformableTargets.map((target) => target.selectionId),
+      resizableIds: subset.resizableTargets.map((target) => target.selectionId),
+      hidden: visual.mode === 'hidden',
+      handleCssPx: visual.handleCssPx,
+      strokeCssPx: visual.strokeCssPx,
+    }) ?? false;
+    if (changed) this.interactionRevision += 1;
+    return visual;
+  }
+
+  public transformerHandleProbe(
+    options: Omit<CoreV2SelectionVisualOptions, 'selectionIds'> & Readonly<{
+      readonly selectionIds?: readonly string[];
+      readonly cornerCssPx?: number;
+      readonly edgeStripCssPx?: number;
+      readonly rotateZoneCssPx?: number;
+    }> = {},
+  ): CoreV2TransformerHandleProbe | null {
+    const visual = this.selectionVisualProbe(options);
+    if (visual === null || visual.frame === null) return null;
+    return createCoreV2TransformerHandleProbe(visual.frame, {
+      ...(options.cornerCssPx === undefined
+        ? {}
+        : { cornerCssPx: options.cornerCssPx }),
+      ...(options.edgeStripCssPx === undefined
+        ? {}
+        : { edgeStripCssPx: options.edgeStripCssPx }),
+      ...(options.rotateZoneCssPx === undefined
+        ? {}
+        : { rotateZoneCssPx: options.rotateZoneCssPx }),
+    });
+  }
+
+  public hitTransformerHandle(
+    point: readonly [number, number],
+    options: Parameters<CoreV2Engine['transformerHandleProbe']>[0] = {},
+  ): CoreV2TransformerHandle | null {
+    const probe = this.transformerHandleProbe(options);
+    return probe === null ? null : hitCoreV2TransformerHandle(probe, point);
+  }
+
+  public selectRelationEndpoints(
+    relationIds: readonly string[],
+    mode: 'replace' | 'add' | 'toggle' = 'replace',
+    source: 'canvas' | 'external' | 'programmatic' = 'programmatic',
+  ): CoreV2EngineRelationEndpointSelectionResult {
+    this.requireSurface('selectRelationEndpoints');
+    const materialized = this.materialized;
+    if (materialized === null) {
+      throw this.operationError('NOT_READY', 'NOT_READY', 'selectRelationEndpoints', true);
+    }
+    const resolution = resolveCoreV2RelationEndpoints(
+      materialized.dataset,
+      this.logicalSceneIndex(),
+      relationIds,
+    );
+    const change = this.applySelection({
+      op: mode,
+      ids: resolution.targets.map((target) => target.selectionId),
+      source,
+    });
+    return Object.freeze({ ...resolution, change });
+  }
+
+  public beginTransformerHandleGesture(
+    pointerId: number,
+    handle: CoreV2TransformerHandle,
+  ): CoreV2TransformerGestureProbe {
+    this.requireSurface('beginTransformerHandleGesture');
+    this.transformerGestures.begin(pointerId, handle);
+    try {
+      this.requirePointerGestureAuthority('beginTransformerHandleGesture')
+        .beginOwnedGesture(
+          handle === 'rotate' ? 'rotate' : handle === 'frame' ? 'move' : 'resize',
+          pointerId,
+        );
+    } catch (error) {
+      this.transformerGestures.cancel(pointerId);
+      throw error;
+    }
+    return this.transformerGestures.probe();
+  }
+
+  public routeTransformerInput(
+    pointerId: number,
+    family: CoreV2TransformerInputFamily,
+  ): ReturnType<CoreV2TransformerGestureAuthority['route']> {
+    this.requireSurface('routeTransformerInput');
+    return this.transformerGestures.route(pointerId, family);
+  }
+
+  public completeTransformerHandleGesture(
+    pointerId: number,
+  ): Readonly<{
+    readonly completed: boolean;
+    readonly pointer: CoreV2OwnedGestureTermination | null;
+    readonly probe: CoreV2TransformerGestureProbe;
+  }> {
+    this.requireSurface('completeTransformerHandleGesture');
+    const completed = this.transformerGestures.complete(pointerId);
+    const pointer = completed
+      ? this.requirePointerGestureAuthority('completeTransformerHandleGesture')
+          .terminateOwnedGesture('pointer-up-outside')
+      : null;
+    return Object.freeze({
+      completed,
+      pointer,
+      probe: this.transformerGestures.probe(),
+    });
+  }
+
+  public cancelTransformerHandleGesture(
+    pointerId: number,
+    reason: CoreV2GestureCancelReason = 'pointer-cancel',
+  ): Readonly<{
+    readonly cancelled: boolean;
+    readonly pointer: CoreV2OwnedGestureTermination | null;
+    readonly probe: CoreV2TransformerGestureProbe;
+  }> {
+    this.requireSurface('cancelTransformerHandleGesture');
+    const cancelled = this.transformerGestures.cancel(pointerId);
+    const pointer = cancelled
+      ? this.requirePointerGestureAuthority('cancelTransformerHandleGesture')
+          .cancelOwnedGesture(reason)
+      : null;
+    return Object.freeze({
+      cancelled,
+      pointer,
+      probe: this.transformerGestures.probe(),
+    });
+  }
+
+  public transformerGestureProbe(): CoreV2TransformerGestureProbe {
+    return this.transformerGestures.probe();
+  }
+
   public applySelection(input: CoreV2SelectionSetOperation): CoreV2SelectionChange {
     const surface = this.requireSurface('select');
     const materialized = this.materialized;
@@ -3235,6 +3444,7 @@ export class CoreV2Engine {
     surface.select(change.current);
     this.logicalSelectionIds = change.current;
     if (change.changed) {
+      this.transformerGestures.interrupt();
       if (change.source !== 'canvas') {
         this.pointerGestureAuthority?.interrupt('selection-change');
       }
@@ -3335,6 +3545,9 @@ export class CoreV2Engine {
   public dispatchPointerInput(input: CoreV2EnginePointerInput): CoreV2PointerDispatchResult {
     this.requireSurface('dispatchPointerInput');
     const authority = this.requirePointerGestureAuthority('dispatchPointerInput');
+    if (this.transformerGestures.owns(input.pointerId)) {
+      this.transformerGestures.route(input.pointerId, 'transform');
+    }
     const result = authority.dispatch(Object.freeze({
       ...input,
       viewRevision: input.viewRevision ?? this.viewRevision,
@@ -3806,6 +4019,7 @@ export class CoreV2Engine {
     surface?.cancelViewportGestures?.();
     this.pointerGestureAuthority?.destroy();
     this.pointerGestureAuthority = null;
+    this.transformerGestures.destroy();
     this.hostInteractions.destroy();
     const pendingInitialization = this.initializePromise;
     const assetSession = this.assetSession;
@@ -5018,6 +5232,10 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     this.core.selectSemantic(ids);
     this.geometryRevision += 1;
     this.invalidateGeometryCache();
+  }
+
+  public setSelectionOverlayPolicy(input: CoreV2SelectionOverlayPolicyInput): boolean {
+    return this.core.setSelectionOverlayPolicy(input);
   }
 
   public setPresentationPolicy(

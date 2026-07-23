@@ -38,6 +38,7 @@ import {
 import type {
   CoreV2BackendPreference,
   CoreV2EntityPaintProbe,
+  CoreV2InteractionOverlayPolicy,
   CoreV2OverlayPaintProbe,
   CoreV2RenderLaneProbe,
   CoreV2RenderLaneRole,
@@ -104,6 +105,14 @@ const DEFAULT_WORLD_ORIENTATION: CoreV2WorldOrientation = Object.freeze({
   flipX: false,
   flipY: false,
 });
+const DEFAULT_INTERACTION_OVERLAY_POLICY: CoreV2InteractionOverlayPolicy = Object.freeze({
+  visibleEntityIds: null,
+  transformableEntityIds: null,
+  resizableEntityIds: null,
+  hidden: false,
+  handleCssPx: 6,
+  strokeCssPx: 2,
+});
 const EMPTY_PROJECTION_INDEX: CoreV2ProjectionIndex = Object.freeze({
   byEntityId: Object.freeze({}),
 });
@@ -122,6 +131,10 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private readonly selectionOverlay: Graphics;
   private readonly transformerOverlay: Graphics;
   private readonly selectedSlots = new Set<number>();
+  private readonly visibleOverlaySlots = new Set<number>();
+  private readonly transformerOverlaySlots = new Set<number>();
+  private readonly resizableOverlaySlots = new Set<number>();
+  private interactionOverlayPolicy = DEFAULT_INTERACTION_OVERLAY_POLICY;
   private readonly target: HTMLElement | undefined;
   private cleanupPromise: Promise<void> = Promise.resolve();
   private interactionUnbind: (() => void) | null = null;
@@ -331,6 +344,20 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], ranges);
   }
 
+  public setInteractionOverlayPolicy(
+    policy: CoreV2InteractionOverlayPolicy,
+  ): boolean {
+    this.assertAlive();
+    const normalized = normalizeInteractionOverlayPolicy(policy);
+    if (sameInteractionOverlayPolicy(this.interactionOverlayPolicy, normalized)) {
+      return false;
+    }
+    this.interactionOverlayPolicy = normalized;
+    this.pendingOverlayRanges = undefined;
+    this.lastInvalidation = 'interaction-overlay-policy';
+    return true;
+  }
+
   /**
    * Apply host presentation state without touching the authoritative dense
    * store. Policy changes intentionally rebuild aggregate batches once;
@@ -476,6 +503,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.assertAlive();
     if (sameView(this.view, view)) return false;
     const rotationChanged = (this.view.rotation ?? 0) !== (view.rotation ?? 0);
+    const scaleChanged = this.view.scale !== view.scale;
     this.view = Object.freeze({
       x: view.x,
       y: view.y,
@@ -494,6 +522,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
         this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], upright);
       }
     }
+    if (scaleChanged) this.pendingOverlayRanges = undefined;
     this.applyWorldTransform();
     this.lastInvalidation = 'view';
     return true;
@@ -508,6 +537,9 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       this.pendingRanges = undefined;
       this.pendingOverlayRanges = undefined;
       this.selectedSlots.clear();
+      this.visibleOverlaySlots.clear();
+      this.transformerOverlaySlots.clear();
+      this.resizableOverlaySlots.clear();
     }
     // View rotation can change upright projection geometry. Resolve it before
     // consuming pending ranges so the first published frame cannot lag.
@@ -567,7 +599,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.lastSourceStore = store;
     this.pendingRanges = [];
     this.pendingOverlayRanges = [];
-    const overlayCount = this.selectedSlots.size > 0 ? 2 : 0;
+    const overlayCount = this.visibleOverlaySlots.size > 0 ? 2 : 0;
     this.lastLaneProbe = this.buildLaneProbe(overlayCount);
     this.lastDebug = Object.freeze({
       strategy: this.strategy,
@@ -761,12 +793,12 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   /** Exact scene-tail order and current visibility of aggregate editor overlays. */
   public overlayPaintProbe(): CoreV2OverlayPaintProbe {
     this.assertAlive();
-    const visible = this.selectedSlots.size > 0;
+    const visible = this.visibleOverlaySlots.size > 0;
     return Object.freeze({
       order: Object.freeze(['selection', 'transformer'] as const),
       selection: visible,
-      transformer: visible,
-      selectedEntityCount: this.selectedSlots.size,
+      transformer: this.transformerOverlaySlots.size > 0,
+      selectedEntityCount: this.visibleOverlaySlots.size,
       renderObjectCount: visible ? 2 : 0,
     });
   }
@@ -909,6 +941,11 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     ]);
     this.interactionUnbind?.();
     this.interactionUnbind = null;
+    this.selectedSlots.clear();
+    this.visibleOverlaySlots.clear();
+    this.transformerOverlaySlots.clear();
+    this.resizableOverlaySlots.clear();
+    this.interactionOverlayPolicy = DEFAULT_INTERACTION_OVERLAY_POLICY;
     this.application.stage.removeChild(this.world);
     this.world.removeChildren();
     this.aggregate.destroy();
@@ -1035,19 +1072,68 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       if (before !== selected || (selected && !fullRebuild)) changed = true;
     }
     if (!changed) return;
+    const policy = this.interactionOverlayPolicy;
+    const visibleIds = policy.visibleEntityIds === null
+      ? null
+      : new Set(policy.visibleEntityIds);
+    const transformableIds = policy.transformableEntityIds === null
+      ? null
+      : new Set(policy.transformableEntityIds);
+    const resizableIds = policy.resizableEntityIds === null
+      ? null
+      : new Set(policy.resizableEntityIds);
+    this.visibleOverlaySlots.clear();
+    this.transformerOverlaySlots.clear();
+    this.resizableOverlaySlots.clear();
+    if (!policy.hidden) {
+      for (const slot of this.selectedSlots) {
+        const id = store.ids[slot];
+        if (!id || (visibleIds !== null && !visibleIds.has(id))) continue;
+        this.visibleOverlaySlots.add(slot);
+        if (transformableIds === null || transformableIds.has(id)) {
+          this.transformerOverlaySlots.add(slot);
+        }
+        if (resizableIds === null || resizableIds.has(id)) {
+          this.resizableOverlaySlots.add(slot);
+        }
+      }
+    }
     this.selectionOverlay.clear();
     this.transformerOverlay.clear();
-    for (const slot of [...this.selectedSlots].sort((left, right) => left - right)) {
-      appendRotatedOutline(this.selectionOverlay, store, slot, this.projectionContext());
-      appendTransformerHandles(this.transformerOverlay, store, slot, this.projectionContext(), this.view.scale);
+    const overlayVertices = resolveAggregateOverlayVertices(
+      store,
+      [...this.visibleOverlaySlots].sort((left, right) => left - right),
+      this.projectionContext(),
+    );
+    if (overlayVertices !== null) {
+      appendOverlayOutline(this.selectionOverlay, overlayVertices);
+      if (this.resizableOverlaySlots.size > 0) {
+        appendOverlayHandles(
+          this.transformerOverlay,
+          overlayVertices,
+          policy.handleCssPx / Math.max(this.view.scale, 0.001),
+        );
+      }
     }
-    if (this.selectedSlots.size > 0) {
-      this.selectionOverlay.stroke({ color: 0x2f80ed, width: 2 / Math.max(this.view.scale, 0.001), alpha: 1 });
+    if (this.visibleOverlaySlots.size > 0) {
+      this.selectionOverlay.stroke({
+        color: 0x2f80ed,
+        width: policy.strokeCssPx / Math.max(this.view.scale, 0.001),
+        alpha: 1,
+      });
+    }
+    if (this.resizableOverlaySlots.size > 0) {
       this.transformerOverlay.fill({ color: 0xffffff, alpha: 1 });
-      this.transformerOverlay.stroke({ color: 0x2f80ed, width: 1 / Math.max(this.view.scale, 0.001), alpha: 1 });
+      this.transformerOverlay.stroke({
+        color: 0x2f80ed,
+        width: policy.strokeCssPx / Math.max(this.view.scale, 0.001),
+        alpha: 1,
+      });
     }
-    this.selectionOverlay.label = `PATCH MAP Core v2 / selection overlay (${this.selectedSlots.size})`;
-    this.transformerOverlay.label = `PATCH MAP Core v2 / transformer overlay (${this.selectedSlots.size})`;
+    this.selectionOverlay.label =
+      `PATCH MAP Core v2 / selection overlay (${this.visibleOverlaySlots.size})`;
+    this.transformerOverlay.label =
+      `PATCH MAP Core v2 / transformer overlay (${this.transformerOverlaySlots.size})`;
   }
 
   private emptyDebug(): PixiCoreV2RendererDebug {
@@ -1162,35 +1248,58 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   }
 }
 
-function appendRotatedOutline(
-  graphics: Graphics,
+function resolveAggregateOverlayVertices(
   store: RenderStoreView,
-  slot: number,
+  slots: readonly number[],
   projectionContext: CoreV2ProjectionRenderContext,
+): readonly number[] | null {
+  const quads = slots.flatMap((slot) => {
+    const quad = resolveCoreV2SlotQuad(store, slot, projectionContext);
+    return quad.width > 0 && quad.height > 0 ? [quad] : [];
+  });
+  if (quads.length === 0) return null;
+  if (quads.length === 1) return Object.freeze([...quads[0]!.vertices]);
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const quad of quads) {
+    for (let index = 0; index < quad.vertices.length; index += 2) {
+      const x = quad.vertices[index];
+      const y = quad.vertices[index + 1];
+      if (x === undefined || y === undefined) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+  return Object.freeze([minX, minY, maxX, minY, maxX, maxY, minX, maxY]);
+}
+
+function appendOverlayOutline(
+  graphics: Graphics,
+  vertices: readonly number[],
 ): void {
-  const quad = resolveCoreV2SlotQuad(store, slot, projectionContext);
-  if (!(quad.width > 0) || !(quad.height > 0)) return;
-  graphics.moveTo(quad.vertices[0], quad.vertices[1]);
-  for (let index = 2; index < quad.vertices.length; index += 2) {
-    graphics.lineTo(quad.vertices[index]!, quad.vertices[index + 1]!);
+  const firstX = vertices[0];
+  const firstY = vertices[1];
+  if (firstX === undefined || firstY === undefined) return;
+  graphics.moveTo(firstX, firstY);
+  for (let index = 2; index < vertices.length; index += 2) {
+    graphics.lineTo(vertices[index]!, vertices[index + 1]!);
   }
   graphics.closePath();
 }
 
-function appendTransformerHandles(
+function appendOverlayHandles(
   graphics: Graphics,
-  store: RenderStoreView,
-  slot: number,
-  projectionContext: CoreV2ProjectionRenderContext,
-  viewScale: number,
+  vertices: readonly number[],
+  size: number,
 ): void {
-  const quad = resolveCoreV2SlotQuad(store, slot, projectionContext);
-  if (!(quad.width > 0) || !(quad.height > 0)) return;
-  const size = 6 / Math.max(viewScale, 0.001);
   const half = size / 2;
-  for (let index = 0; index < quad.vertices.length; index += 2) {
-    const x = quad.vertices[index];
-    const y = quad.vertices[index + 1];
+  for (let index = 0; index < vertices.length; index += 2) {
+    const x = vertices[index];
+    const y = vertices[index + 1];
     if (x === undefined || y === undefined) continue;
     graphics.rect(x - half, y - half, size, size);
   }
@@ -1217,6 +1326,63 @@ function sameStringSet(left: ReadonlySet<string>, right: ReadonlySet<string>): b
     if (!right.has(value)) return false;
   }
   return true;
+}
+
+function normalizeInteractionOverlayPolicy(
+  policy: CoreV2InteractionOverlayPolicy,
+): CoreV2InteractionOverlayPolicy {
+  const visibleEntityIds = policy.visibleEntityIds === null
+    ? null
+    : freezeEntityIds(policy.visibleEntityIds, 'visibleEntityIds');
+  const transformableEntityIds = policy.transformableEntityIds === null
+    ? null
+    : freezeEntityIds(policy.transformableEntityIds, 'transformableEntityIds');
+  return Object.freeze({
+    visibleEntityIds,
+    transformableEntityIds,
+    resizableEntityIds: policy.resizableEntityIds === null
+      ? null
+      : freezeEntityIds(policy.resizableEntityIds, 'resizableEntityIds'),
+    hidden: policy.hidden,
+    handleCssPx: positive(policy.handleCssPx, 'handleCssPx'),
+    strokeCssPx: positive(policy.strokeCssPx, 'strokeCssPx'),
+  });
+}
+
+function sameInteractionOverlayPolicy(
+  left: CoreV2InteractionOverlayPolicy,
+  right: CoreV2InteractionOverlayPolicy,
+): boolean {
+  return left.hidden === right.hidden &&
+    left.handleCssPx === right.handleCssPx &&
+    left.strokeCssPx === right.strokeCssPx &&
+    sameNullableStringArray(left.visibleEntityIds, right.visibleEntityIds) &&
+    sameNullableStringArray(left.transformableEntityIds, right.transformableEntityIds) &&
+    sameNullableStringArray(left.resizableEntityIds, right.resizableEntityIds);
+}
+
+function sameNullableStringArray(
+  left: readonly string[] | null,
+  right: readonly string[] | null,
+): boolean {
+  return left === null || right === null
+    ? left === right
+    : sameStringArray(left, right);
+}
+
+function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length &&
+    left.every((value, index) => value === right[index]);
+}
+
+function freezeEntityIds(values: readonly string[], label: string): readonly string[] {
+  if (!Array.isArray(values)) throw new TypeError(`${label} must be an array`);
+  return Object.freeze([...new Set(values.map((value, index) => {
+    if (typeof value !== 'string' || value.length === 0) {
+      throw new TypeError(`${label}[${index}] must be a non-empty string`);
+    }
+    return value;
+  }))]);
 }
 
 function normalizePresentationPolicy(

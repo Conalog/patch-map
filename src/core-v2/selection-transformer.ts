@@ -1,0 +1,842 @@
+import type {
+  CoreV2LogicalSceneIndex,
+  CoreV2LogicalTargetSnapshot,
+} from './query-selection';
+import type {
+  CoreV2RelationsElement,
+  NormalizedCoreV2Element,
+} from './semantic/dataset';
+
+export const CORE_V2_SELECTION_TRANSFORMER_REVISION =
+  'core-v2-selection-transformer/1' as const;
+
+export type CoreV2SelectionVisualMode =
+  | 'all'
+  | 'group-only'
+  | 'element-only'
+  | 'hidden';
+
+export type CoreV2TransformEligibility =
+  | 'ineligible'
+  | 'move-rotate'
+  | 'move-resize-rotate'
+  | 'locked'
+  | 'none';
+
+export type CoreV2TransformerHandle =
+  | 'nw'
+  | 'ne'
+  | 'sw'
+  | 'se'
+  | 'n'
+  | 'e'
+  | 's'
+  | 'w'
+  | 'frame'
+  | 'rotate';
+
+export type CoreV2TransformerInputFamily =
+  | 'selection'
+  | 'pan'
+  | 'hover'
+  | 'context-menu'
+  | 'transform';
+
+export interface CoreV2TransformerTargetGeometry {
+  readonly id: string;
+  readonly ownerItemId?: string;
+  readonly componentId?: string;
+  readonly localBounds?: readonly [number, number, number, number];
+  readonly screenBounds: readonly [number, number, number, number];
+  readonly screenBasis?: readonly [number, number, number, number];
+  readonly screenAngle?: number;
+  readonly visible: boolean;
+}
+
+export interface CoreV2TransformableSubsetProbe {
+  readonly schemaRevision: typeof CORE_V2_SELECTION_TRANSFORMER_REVISION;
+  readonly selectedTargets: readonly CoreV2LogicalTargetSnapshot[];
+  readonly transformableTargets: readonly CoreV2LogicalTargetSnapshot[];
+  readonly rotatableTargets: readonly CoreV2LogicalTargetSnapshot[];
+  readonly resizableTargets: readonly CoreV2LogicalTargetSnapshot[];
+  readonly lockedTargets: readonly CoreV2LogicalTargetSnapshot[];
+  readonly ineligibleTargets: readonly CoreV2LogicalTargetSnapshot[];
+  readonly activeResizeHandles: boolean;
+  readonly subsetIndicator: Readonly<{
+    readonly selected: number;
+    readonly transformable: number;
+    readonly resizable: number;
+  }>;
+  readonly eligibilityById: Readonly<Record<string, CoreV2TransformEligibility>>;
+}
+
+export interface CoreV2SelectionFrameProbe {
+  readonly kind: 'oriented' | 'axis-aligned-union';
+  readonly orientationDegrees: number;
+  readonly screenBounds: readonly [number, number, number, number];
+  readonly screenCorners: readonly [
+    readonly [number, number],
+    readonly [number, number],
+    readonly [number, number],
+    readonly [number, number],
+  ];
+}
+
+export interface CoreV2SelectionVisualOptions {
+  readonly selectionIds: readonly string[];
+  readonly mode?: CoreV2SelectionVisualMode;
+  readonly rejectIds?: readonly string[];
+  readonly lockedIds?: readonly string[];
+  readonly includeTypes?: readonly string[];
+  readonly handleCssPx?: number;
+  readonly strokeCssPx?: number;
+  readonly viewportScale?: number;
+}
+
+export interface CoreV2SelectionVisualProbe {
+  readonly schemaRevision: typeof CORE_V2_SELECTION_TRANSFORMER_REVISION;
+  readonly mode: CoreV2SelectionVisualMode;
+  readonly selectedTargets: readonly CoreV2LogicalTargetSnapshot[];
+  readonly overlayTargets: readonly CoreV2LogicalTargetSnapshot[];
+  readonly transformableTargets: readonly CoreV2LogicalTargetSnapshot[];
+  readonly overlayCount: 0 | 1;
+  readonly explicitlyIndicatesTransformableSubset: boolean;
+  readonly handleCssPx: number;
+  readonly strokeCssPx: number;
+  readonly frame: CoreV2SelectionFrameProbe | null;
+}
+
+export interface CoreV2TransformerHandleRegion {
+  readonly id: CoreV2TransformerHandle;
+  readonly kind: 'corner' | 'edge' | 'frame' | 'rotate';
+  readonly center: readonly [number, number];
+  readonly cursor: string;
+}
+
+export interface CoreV2TransformerHandleProbe {
+  readonly schemaRevision: typeof CORE_V2_SELECTION_TRANSFORMER_REVISION;
+  readonly frame: CoreV2SelectionFrameProbe;
+  readonly visibleCorners: readonly ['nw', 'ne', 'sw', 'se'];
+  readonly regions: readonly CoreV2TransformerHandleRegion[];
+  readonly overlapPriority: readonly ['corner', 'edge', 'rotate', 'frame'];
+  readonly cornerCssPx: number;
+  readonly edgeStripCssPx: number;
+  readonly rotateZoneCssPx: number;
+  readonly cursorDirectionByHandle: Readonly<Record<string, string>>;
+}
+
+export interface CoreV2RelationEndpointResolution {
+  readonly schemaRevision: typeof CORE_V2_SELECTION_TRANSFORMER_REVISION;
+  readonly requestedRelationIds: readonly string[];
+  readonly resolvedRelationIds: readonly string[];
+  readonly missingRelationIds: readonly string[];
+  readonly targets: readonly CoreV2LogicalTargetSnapshot[];
+  readonly missingEndpointIds: readonly string[];
+  readonly duplicateTargetCount: 0;
+  readonly suppressedDuplicateEndpointCount: number;
+  readonly retainedEndpointSnapshotCount: 0;
+}
+
+export interface CoreV2TransformerGestureProbe {
+  readonly schemaRevision: typeof CORE_V2_SELECTION_TRANSFORMER_REVISION;
+  readonly activeGestureCount: 0 | 1;
+  readonly pointerCaptureCount: 0 | 1;
+  readonly activePointerId: number | null;
+  readonly activeHandle: CoreV2TransformerHandle | null;
+  readonly selectionDeliveryCount: number;
+  readonly panDeliveryCount: number;
+  readonly hoverDeliveryCount: number;
+  readonly contextMenuDeliveryCount: number;
+  readonly transformDeliveryCount: number;
+  readonly staleCompletionCount: number;
+  readonly destroyed: boolean;
+}
+
+interface ActiveTransformerGesture {
+  readonly pointerId: number;
+  readonly handle: CoreV2TransformerHandle;
+}
+
+interface MutableGestureDeliveries {
+  selection: number;
+  pan: number;
+  hover: number;
+  contextMenu: number;
+  transform: number;
+}
+
+const CORNER_HANDLES = Object.freeze(['nw', 'ne', 'sw', 'se'] as const);
+const HANDLE_PRIORITY = Object.freeze(['corner', 'edge', 'rotate', 'frame'] as const);
+const HANDLE_CURSORS = Object.freeze({
+  nw: 'nwse-resize',
+  ne: 'nesw-resize',
+  sw: 'nesw-resize',
+  se: 'nwse-resize',
+  n: 'ns-resize',
+  e: 'ew-resize',
+  s: 'ns-resize',
+  w: 'ew-resize',
+  frame: 'move',
+  rotate: 'crosshair',
+});
+
+export function evaluateCoreV2TransformableSubset(
+  index: CoreV2LogicalSceneIndex,
+  selectionIds: readonly string[],
+  lockedIds: readonly string[] = [],
+): CoreV2TransformableSubsetProbe {
+  validateStringArray(selectionIds, 'transform selection IDs');
+  validateStringArray(lockedIds, 'transform locked IDs');
+  const selectedTargets = uniqueCurrentTargets(index, selectionIds);
+  const locked = new Set(lockedIds);
+  const eligibilityById: Record<string, CoreV2TransformEligibility> = {};
+  const transformableTargets: CoreV2LogicalTargetSnapshot[] = [];
+  const rotatableTargets: CoreV2LogicalTargetSnapshot[] = [];
+  const resizableTargets: CoreV2LogicalTargetSnapshot[] = [];
+  const lockedTargets: CoreV2LogicalTargetSnapshot[] = [];
+  const ineligibleTargets: CoreV2LogicalTargetSnapshot[] = [];
+
+  for (const target of selectedTargets) {
+    const eligibility = coreV2TransformEligibility(target, locked);
+    eligibilityById[target.selectionId] = eligibility;
+    if (eligibility === 'locked') {
+      lockedTargets.push(target);
+      continue;
+    }
+    if (eligibility === 'ineligible' || eligibility === 'none') {
+      ineligibleTargets.push(target);
+      continue;
+    }
+    transformableTargets.push(target);
+    rotatableTargets.push(target);
+    if (eligibility === 'move-resize-rotate') resizableTargets.push(target);
+  }
+
+  return Object.freeze({
+    schemaRevision: CORE_V2_SELECTION_TRANSFORMER_REVISION,
+    selectedTargets: Object.freeze(selectedTargets),
+    transformableTargets: Object.freeze(transformableTargets),
+    rotatableTargets: Object.freeze(rotatableTargets),
+    resizableTargets: Object.freeze(resizableTargets),
+    lockedTargets: Object.freeze(lockedTargets),
+    ineligibleTargets: Object.freeze(ineligibleTargets),
+    activeResizeHandles: resizableTargets.length > 0,
+    subsetIndicator: Object.freeze({
+      selected: selectedTargets.length,
+      transformable: transformableTargets.length,
+      resizable: resizableTargets.length,
+    }),
+    eligibilityById: Object.freeze(eligibilityById),
+  });
+}
+
+export function createCoreV2SelectionVisualProbe(
+  index: CoreV2LogicalSceneIndex,
+  geometries: readonly CoreV2TransformerTargetGeometry[],
+  options: CoreV2SelectionVisualOptions,
+): CoreV2SelectionVisualProbe {
+  validateGeometryList(geometries);
+  const mode = options.mode ?? 'all';
+  if (!['all', 'group-only', 'element-only', 'hidden'].includes(mode)) {
+    throw new TypeError('selection visual mode is unsupported');
+  }
+  const handleCssPx = positiveFinite(options.handleCssPx ?? 8, 'handleCssPx');
+  const strokeCssPx = positiveFinite(options.strokeCssPx ?? 1, 'strokeCssPx');
+  const viewportScale = positiveFinite(options.viewportScale ?? 1, 'viewportScale');
+  const selectedTargets = uniqueCurrentTargets(index, options.selectionIds);
+  const rejected = new Set(options.rejectIds ?? []);
+  const includedTypes = options.includeTypes === undefined
+    ? null
+    : new Set(options.includeTypes);
+  const overlayTargets = mode === 'hidden'
+    ? []
+    : selectedTargets.filter((target) => {
+        if (rejected.has(target.selectionId) || rejected.has(target.id)) return false;
+        if (includedTypes !== null && !includedTypes.has(target.type)) return false;
+        if (mode === 'group-only') return target.type === 'group';
+        if (mode === 'element-only') {
+          return target.kind === 'element' &&
+            target.type !== 'group' &&
+            target.type !== 'relations';
+        }
+        return true;
+      });
+  const subset = evaluateCoreV2TransformableSubset(
+    index,
+    overlayTargets.map((target) => target.selectionId),
+    options.lockedIds ?? [],
+  );
+  const frame = selectionFrame(index, geometries, overlayTargets, viewportScale);
+
+  return Object.freeze({
+    schemaRevision: CORE_V2_SELECTION_TRANSFORMER_REVISION,
+    mode,
+    selectedTargets: Object.freeze(selectedTargets),
+    overlayTargets: Object.freeze(overlayTargets),
+    transformableTargets: subset.transformableTargets,
+    overlayCount: frame === null ? 0 : 1,
+    explicitlyIndicatesTransformableSubset:
+      subset.transformableTargets.length !== selectedTargets.length,
+    handleCssPx,
+    strokeCssPx,
+    frame,
+  });
+}
+
+export function createCoreV2TransformerHandleProbe(
+  frame: CoreV2SelectionFrameProbe,
+  options: Readonly<{
+    readonly cornerCssPx?: number;
+    readonly edgeStripCssPx?: number;
+    readonly rotateZoneCssPx?: number;
+  }> = {},
+): CoreV2TransformerHandleProbe {
+  const cornerCssPx = positiveFinite(options.cornerCssPx ?? 8, 'cornerCssPx');
+  const edgeStripCssPx = positiveFinite(options.edgeStripCssPx ?? 6, 'edgeStripCssPx');
+  const rotateZoneCssPx = positiveFinite(options.rotateZoneCssPx ?? 12, 'rotateZoneCssPx');
+  const [nw, ne, se, sw] = frame.screenCorners;
+  const center = midpoint(nw, se);
+  const north = midpoint(nw, ne);
+  const east = midpoint(ne, se);
+  const south = midpoint(sw, se);
+  const west = midpoint(nw, sw);
+  const northVector = normalizedVector(
+    Object.freeze([north[0] - center[0], north[1] - center[1]]),
+  );
+  const rotate = Object.freeze([
+    north[0] + northVector[0] * (rotateZoneCssPx + cornerCssPx),
+    north[1] + northVector[1] * (rotateZoneCssPx + cornerCssPx),
+  ] as const);
+  const entries: readonly Readonly<{
+    id: CoreV2TransformerHandle;
+    kind: CoreV2TransformerHandleRegion['kind'];
+    center: readonly [number, number];
+  }>[] = Object.freeze([
+    { id: 'nw', kind: 'corner', center: nw },
+    { id: 'ne', kind: 'corner', center: ne },
+    { id: 'sw', kind: 'corner', center: sw },
+    { id: 'se', kind: 'corner', center: se },
+    { id: 'n', kind: 'edge', center: north },
+    { id: 'e', kind: 'edge', center: east },
+    { id: 's', kind: 'edge', center: south },
+    { id: 'w', kind: 'edge', center: west },
+    { id: 'frame', kind: 'frame', center },
+    { id: 'rotate', kind: 'rotate', center: rotate },
+  ]);
+  const regions = entries.map((entry) => Object.freeze({
+    ...entry,
+    cursor: HANDLE_CURSORS[entry.id],
+  }));
+  return Object.freeze({
+    schemaRevision: CORE_V2_SELECTION_TRANSFORMER_REVISION,
+    frame,
+    visibleCorners: CORNER_HANDLES,
+    regions: Object.freeze(regions),
+    overlapPriority: HANDLE_PRIORITY,
+    cornerCssPx,
+    edgeStripCssPx,
+    rotateZoneCssPx,
+    cursorDirectionByHandle: HANDLE_CURSORS,
+  });
+}
+
+export function hitCoreV2TransformerHandle(
+  probe: CoreV2TransformerHandleProbe,
+  point: readonly [number, number],
+): CoreV2TransformerHandle | null {
+  validateFiniteTuple(point, 'transformer hit point');
+  const regions = new Map(probe.regions.map((region) => [region.id, region]));
+  for (const id of CORNER_HANDLES) {
+    const region = regions.get(id);
+    if (region !== undefined && squareContains(region.center, probe.cornerCssPx, point)) {
+      return id;
+    }
+  }
+  const corners = probe.frame.screenCorners;
+  const edges = Object.freeze([
+    ['n', corners[0], corners[1]],
+    ['e', corners[1], corners[2]],
+    ['s', corners[3], corners[2]],
+    ['w', corners[0], corners[3]],
+  ] as const);
+  for (const [id, start, end] of edges) {
+    if (distanceToSegment(point, start, end) <= probe.edgeStripCssPx / 2) return id;
+  }
+  const rotate = regions.get('rotate');
+  if (
+    rotate !== undefined &&
+    pointDistance(point, rotate.center) <= probe.rotateZoneCssPx / 2
+  ) {
+    return 'rotate';
+  }
+  return pointInConvexQuad(point, corners) ? 'frame' : null;
+}
+
+export function resolveCoreV2RelationEndpoints(
+  dataset: readonly NormalizedCoreV2Element[],
+  index: CoreV2LogicalSceneIndex,
+  relationIds: readonly string[],
+): CoreV2RelationEndpointResolution {
+  validateStringArray(relationIds, 'relation IDs');
+  const requestedRelationIds = Object.freeze([...new Set(relationIds)]);
+  const relations = relationElements(dataset);
+  const resolvedRelationIds: string[] = [];
+  const missingRelationIds: string[] = [];
+  const targets: CoreV2LogicalTargetSnapshot[] = [];
+  const missingEndpointIds: string[] = [];
+  const seenTargets = new Set<string>();
+  const seenMissing = new Set<string>();
+  let duplicateTargetCount = 0;
+
+  for (const relationId of requestedRelationIds) {
+    const relation = relations.get(relationId);
+    if (relation === undefined) {
+      missingRelationIds.push(relationId);
+      continue;
+    }
+    resolvedRelationIds.push(relationId);
+    for (const link of relation.links) {
+      for (const endpointId of [link.source, link.target]) {
+        const target = index.target(endpointId);
+        if (target === null || target.kind !== 'element') {
+          if (!seenMissing.has(endpointId)) {
+            seenMissing.add(endpointId);
+            missingEndpointIds.push(endpointId);
+          }
+          continue;
+        }
+        if (seenTargets.has(target.key)) {
+          duplicateTargetCount += 1;
+          continue;
+        }
+        seenTargets.add(target.key);
+        targets.push(target);
+      }
+    }
+  }
+
+  return Object.freeze({
+    schemaRevision: CORE_V2_SELECTION_TRANSFORMER_REVISION,
+    requestedRelationIds,
+    resolvedRelationIds: Object.freeze(resolvedRelationIds),
+    missingRelationIds: Object.freeze(missingRelationIds),
+    targets: Object.freeze(targets),
+    missingEndpointIds: Object.freeze(missingEndpointIds),
+    duplicateTargetCount: 0,
+    suppressedDuplicateEndpointCount: duplicateTargetCount,
+    retainedEndpointSnapshotCount: 0,
+  });
+}
+
+/**
+ * One root transformer gesture record. It does not own entity listeners,
+ * timers, tickers, or renderer objects; it only arbitrates input families.
+ */
+export class CoreV2TransformerGestureAuthority {
+  private active: ActiveTransformerGesture | null = null;
+  private readonly deliveries: MutableGestureDeliveries = {
+    selection: 0,
+    pan: 0,
+    hover: 0,
+    contextMenu: 0,
+    transform: 0,
+  };
+  private staleCompletionCount = 0;
+  private destroyed = false;
+
+  public begin(pointerId: number, handle: CoreV2TransformerHandle): void {
+    this.assertAlive('begin');
+    validatePointerId(pointerId);
+    validateHandle(handle);
+    if (this.active !== null) throw new Error('Core v2 transformer already owns a gesture');
+    this.active = Object.freeze({ pointerId, handle });
+  }
+
+  public owns(pointerId: number): boolean {
+    return !this.destroyed && this.active?.pointerId === pointerId;
+  }
+
+  public route(
+    pointerId: number,
+    family: CoreV2TransformerInputFamily,
+  ): Readonly<{ readonly owner: 'transformer' | 'canvas'; readonly deliveryCount: 0 | 1 }> {
+    validatePointerId(pointerId);
+    if (!['selection', 'pan', 'hover', 'context-menu', 'transform'].includes(family)) {
+      throw new TypeError('transformer input family is unsupported');
+    }
+    if (!this.owns(pointerId)) {
+      return Object.freeze({ owner: 'canvas', deliveryCount: 1 });
+    }
+    if (family === 'transform') {
+      this.deliveries.transform += 1;
+      return Object.freeze({ owner: 'transformer', deliveryCount: 1 });
+    }
+    return Object.freeze({ owner: 'transformer', deliveryCount: 0 });
+  }
+
+  public complete(pointerId: number): boolean {
+    validatePointerId(pointerId);
+    if (!this.owns(pointerId)) {
+      this.staleCompletionCount += 1;
+      return false;
+    }
+    this.active = null;
+    return true;
+  }
+
+  public cancel(pointerId: number): boolean {
+    return this.complete(pointerId);
+  }
+
+  public interrupt(): boolean {
+    if (this.active === null) return false;
+    this.active = null;
+    return true;
+  }
+
+  public probe(): CoreV2TransformerGestureProbe {
+    return Object.freeze({
+      schemaRevision: CORE_V2_SELECTION_TRANSFORMER_REVISION,
+      activeGestureCount: this.active === null ? 0 : 1,
+      pointerCaptureCount: this.active === null ? 0 : 1,
+      activePointerId: this.active?.pointerId ?? null,
+      activeHandle: this.active?.handle ?? null,
+      selectionDeliveryCount: this.deliveries.selection,
+      panDeliveryCount: this.deliveries.pan,
+      hoverDeliveryCount: this.deliveries.hover,
+      contextMenuDeliveryCount: this.deliveries.contextMenu,
+      transformDeliveryCount: this.deliveries.transform,
+      staleCompletionCount: this.staleCompletionCount,
+      destroyed: this.destroyed,
+    });
+  }
+
+  public destroy(): void {
+    if (this.destroyed) return;
+    this.active = null;
+    this.destroyed = true;
+  }
+
+  private assertAlive(operation: string): void {
+    if (this.destroyed) {
+      throw new Error(`Core v2 transformer gesture authority is destroyed (${operation})`);
+    }
+  }
+}
+
+function coreV2TransformEligibility(
+  target: CoreV2LogicalTargetSnapshot,
+  lockedIds: ReadonlySet<string>,
+): CoreV2TransformEligibility {
+  if (
+    target.locked ||
+    target.ancestorLocked ||
+    lockedIds.has(target.id) ||
+    lockedIds.has(target.selectionId) ||
+    lockedIds.has(target.key)
+  ) {
+    return 'locked';
+  }
+  if (target.kind !== 'element') return 'ineligible';
+  if (target.type === 'rect' || target.type === 'image') return 'move-resize-rotate';
+  if (target.type === 'grid' || target.type === 'item' || target.type === 'text') {
+    return 'move-rotate';
+  }
+  return target.type.length === 0 ? 'none' : 'ineligible';
+}
+
+function selectionFrame(
+  index: CoreV2LogicalSceneIndex,
+  geometries: readonly CoreV2TransformerTargetGeometry[],
+  targets: readonly CoreV2LogicalTargetSnapshot[],
+  viewportScale: number,
+): CoreV2SelectionFrameProbe | null {
+  if (targets.length === 0) return null;
+  const members = uniqueGeometries(targets.flatMap((target) =>
+    targetGeometries(index, target, geometries)));
+  if (members.length === 0) return null;
+  if (
+    targets.length === 1 &&
+    members.length === 1 &&
+    targets[0]?.type !== 'group' &&
+    targets[0]?.type !== 'grid'
+  ) {
+    const corners = orientedScreenCorners(members[0]!, viewportScale);
+    return Object.freeze({
+      kind: 'oriented',
+      orientationDegrees: normalizeDegrees(members[0]?.screenAngle ?? 0),
+      screenBounds: boundsForPoints(corners),
+      screenCorners: corners,
+    });
+  }
+  const bounds = unionBounds(members.map((geometry) => geometry.screenBounds));
+  if (bounds === null) return null;
+  return Object.freeze({
+    kind: 'axis-aligned-union',
+    orientationDegrees: 0,
+    screenBounds: bounds,
+    screenCorners: boundsCorners(bounds),
+  });
+}
+
+function targetGeometries(
+  index: CoreV2LogicalSceneIndex,
+  target: CoreV2LogicalTargetSnapshot,
+  geometries: readonly CoreV2TransformerTargetGeometry[],
+): readonly CoreV2TransformerTargetGeometry[] {
+  const direct = geometries.filter((geometry) => {
+    if (!geometry.visible) return false;
+    if (target.kind === 'component') {
+      return geometry.ownerItemId === target.ownerId &&
+        geometry.componentId === target.id;
+    }
+    return geometry.id === target.id;
+  });
+  if (target.type !== 'group' && target.type !== 'grid') return direct;
+  const descendantIds = new Set(index.targets()
+    .filter((candidate) => candidate.ancestorKeys.includes(target.key))
+    .flatMap((candidate) => [candidate.id, candidate.selectionId]));
+  return geometries.filter((geometry) =>
+    geometry.visible &&
+    (
+      descendantIds.has(geometry.id) ||
+      (geometry.ownerItemId !== undefined && descendantIds.has(geometry.ownerItemId))
+    ));
+}
+
+function uniqueCurrentTargets(
+  index: CoreV2LogicalSceneIndex,
+  ids: readonly string[],
+): CoreV2LogicalTargetSnapshot[] {
+  validateStringArray(ids, 'selection IDs');
+  const result: CoreV2LogicalTargetSnapshot[] = [];
+  const seen = new Set<string>();
+  for (const id of ids) {
+    const target = index.target(id);
+    if (target === null || seen.has(target.key)) continue;
+    seen.add(target.key);
+    result.push(target);
+  }
+  return result;
+}
+
+function relationElements(
+  dataset: readonly NormalizedCoreV2Element[],
+): ReadonlyMap<string, CoreV2RelationsElement> {
+  const result = new Map<string, CoreV2RelationsElement>();
+  const visit = (element: NormalizedCoreV2Element): void => {
+    if (element.type === 'relations') result.set(element.id, element);
+    if (element.type === 'group') element.children.forEach(visit);
+  };
+  dataset.forEach(visit);
+  return result;
+}
+
+function orientedScreenCorners(
+  geometry: CoreV2TransformerTargetGeometry,
+  viewportScale: number,
+): CoreV2SelectionFrameProbe['screenCorners'] {
+  const local = geometry.localBounds;
+  const basis = geometry.screenBasis;
+  if (local === undefined || basis === undefined) {
+    return boundsCorners(geometry.screenBounds);
+  }
+  const center = Object.freeze([
+    geometry.screenBounds[0] + geometry.screenBounds[2] / 2,
+    geometry.screenBounds[1] + geometry.screenBounds[3] / 2,
+  ] as const);
+  const halfX = Object.freeze([
+    basis[0] * local[2] * viewportScale / 2,
+    basis[1] * local[2] * viewportScale / 2,
+  ] as const);
+  const halfY = Object.freeze([
+    basis[2] * local[3] * viewportScale / 2,
+    basis[3] * local[3] * viewportScale / 2,
+  ] as const);
+  return Object.freeze([
+    freezePoint(center[0] - halfX[0] - halfY[0], center[1] - halfX[1] - halfY[1]),
+    freezePoint(center[0] + halfX[0] - halfY[0], center[1] + halfX[1] - halfY[1]),
+    freezePoint(center[0] + halfX[0] + halfY[0], center[1] + halfX[1] + halfY[1]),
+    freezePoint(center[0] - halfX[0] + halfY[0], center[1] - halfX[1] + halfY[1]),
+  ]);
+}
+
+function boundsCorners(
+  bounds: readonly [number, number, number, number],
+): CoreV2SelectionFrameProbe['screenCorners'] {
+  const [x, y, width, height] = bounds;
+  return Object.freeze([
+    freezePoint(x, y),
+    freezePoint(x + width, y),
+    freezePoint(x + width, y + height),
+    freezePoint(x, y + height),
+  ]);
+}
+
+function boundsForPoints(
+  points: readonly (readonly [number, number])[],
+): readonly [number, number, number, number] {
+  const xs = points.map((point) => point[0]);
+  const ys = points.map((point) => point[1]);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  return Object.freeze([
+    minX,
+    minY,
+    Math.max(...xs) - minX,
+    Math.max(...ys) - minY,
+  ]);
+}
+
+function unionBounds(
+  values: readonly (readonly [number, number, number, number])[],
+): readonly [number, number, number, number] | null {
+  if (values.length === 0) return null;
+  const minX = Math.min(...values.map((value) => value[0]));
+  const minY = Math.min(...values.map((value) => value[1]));
+  const maxX = Math.max(...values.map((value) => value[0] + value[2]));
+  const maxY = Math.max(...values.map((value) => value[1] + value[3]));
+  return Object.freeze([minX, minY, maxX - minX, maxY - minY]);
+}
+
+function uniqueGeometries(
+  values: readonly CoreV2TransformerTargetGeometry[],
+): readonly CoreV2TransformerTargetGeometry[] {
+  const result: CoreV2TransformerTargetGeometry[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    const key = `${value.ownerItemId ?? ''}/${value.componentId ?? ''}/${value.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(value);
+  }
+  return Object.freeze(result);
+}
+
+function midpoint(
+  left: readonly [number, number],
+  right: readonly [number, number],
+): readonly [number, number] {
+  return freezePoint((left[0] + right[0]) / 2, (left[1] + right[1]) / 2);
+}
+
+function normalizedVector(
+  value: readonly [number, number],
+): readonly [number, number] {
+  const length = Math.hypot(value[0], value[1]);
+  return length > 0
+    ? freezePoint(value[0] / length, value[1] / length)
+    : freezePoint(0, -1);
+}
+
+function squareContains(
+  center: readonly [number, number],
+  size: number,
+  point: readonly [number, number],
+): boolean {
+  const half = size / 2;
+  return Math.abs(point[0] - center[0]) <= half &&
+    Math.abs(point[1] - center[1]) <= half;
+}
+
+function distanceToSegment(
+  point: readonly [number, number],
+  start: readonly [number, number],
+  end: readonly [number, number],
+): number {
+  const dx = end[0] - start[0];
+  const dy = end[1] - start[1];
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared === 0) return pointDistance(point, start);
+  const t = Math.max(0, Math.min(1, (
+    (point[0] - start[0]) * dx +
+    (point[1] - start[1]) * dy
+  ) / lengthSquared));
+  return Math.hypot(point[0] - (start[0] + t * dx), point[1] - (start[1] + t * dy));
+}
+
+function pointDistance(
+  left: readonly [number, number],
+  right: readonly [number, number],
+): number {
+  return Math.hypot(left[0] - right[0], left[1] - right[1]);
+}
+
+function pointInConvexQuad(
+  point: readonly [number, number],
+  corners: CoreV2SelectionFrameProbe['screenCorners'],
+): boolean {
+  let sign = 0;
+  for (let index = 0; index < corners.length; index += 1) {
+    const start = corners[index]!;
+    const end = corners[(index + 1) % corners.length]!;
+    const cross = (end[0] - start[0]) * (point[1] - start[1]) -
+      (end[1] - start[1]) * (point[0] - start[0]);
+    if (Math.abs(cross) < 1e-9) continue;
+    const nextSign = Math.sign(cross);
+    if (sign !== 0 && nextSign !== sign) return false;
+    sign = nextSign;
+  }
+  return true;
+}
+
+function normalizeDegrees(value: number): number {
+  const normalized = value % 360;
+  return Object.is(normalized < 0 ? normalized + 360 : normalized, -0)
+    ? 0
+    : normalized < 0
+      ? normalized + 360
+      : normalized;
+}
+
+function positiveFinite(value: number, label: string): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new RangeError(`${label} must be finite and positive`);
+  }
+  return value;
+}
+
+function validateGeometryList(values: readonly CoreV2TransformerTargetGeometry[]): void {
+  if (!Array.isArray(values)) throw new TypeError('transformer geometries must be an array');
+  const geometries = values as readonly CoreV2TransformerTargetGeometry[];
+  geometries.forEach((geometry, index) => {
+    if (typeof geometry.id !== 'string' || geometry.id.length === 0) {
+      throw new TypeError(`transformer geometry ${index} needs an ID`);
+    }
+    validateFiniteTuple(geometry.screenBounds, `transformer geometry ${index} bounds`);
+    if (geometry.screenBounds.length !== 4) {
+      throw new TypeError(`transformer geometry ${index} bounds need four values`);
+    }
+  });
+}
+
+function validateStringArray(values: readonly string[], label: string): void {
+  if (!Array.isArray(values)) throw new TypeError(`${label} must be an array`);
+  values.forEach((value, index) => {
+    if (typeof value !== 'string' || value.length === 0) {
+      throw new TypeError(`${label}[${index}] must be a non-empty string`);
+    }
+  });
+}
+
+function validateFiniteTuple(values: readonly number[], label: string): void {
+  if (!Array.isArray(values) || values.some((value) => !Number.isFinite(value))) {
+    throw new RangeError(`${label} must contain finite numbers`);
+  }
+}
+
+function validatePointerId(pointerId: number): void {
+  if (!Number.isSafeInteger(pointerId) || pointerId < 0) {
+    throw new RangeError('transformer pointerId must be a non-negative safe integer');
+  }
+}
+
+function validateHandle(handle: CoreV2TransformerHandle): void {
+  if (!['nw', 'ne', 'sw', 'se', 'n', 'e', 's', 'w', 'frame', 'rotate'].includes(handle)) {
+    throw new TypeError('transformer handle is unsupported');
+  }
+}
+
+function freezePoint(x: number, y: number): readonly [number, number] {
+  return Object.freeze([x, y] as const);
+}

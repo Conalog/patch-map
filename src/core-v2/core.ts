@@ -68,6 +68,7 @@ import {
 } from './renderers/pixi-renderer';
 import type {
   CoreV2EntityPaintProbe,
+  CoreV2InteractionOverlayPolicy,
   CoreV2RenderLaneSnapshot,
   CoreV2TextAttachedSignatures,
   CoreV2TextRendererKind,
@@ -138,6 +139,15 @@ export interface CoreV2SemanticRefreshResult {
 
 export interface CoreV2SemanticRefreshOptions {
   readonly strict?: boolean;
+}
+
+export interface CoreV2SelectionOverlayPolicyInput {
+  readonly visibleIds: readonly string[] | null;
+  readonly transformableIds: readonly string[] | null;
+  readonly resizableIds: readonly string[] | null;
+  readonly hidden: boolean;
+  readonly handleCssPx: number;
+  readonly strokeCssPx: number;
 }
 
 export interface CoreV2LoadResult {
@@ -1242,6 +1252,33 @@ export class CoreV2 {
         mode: 'replace',
       }],
     });
+  }
+
+  public setSelectionOverlayPolicy(
+    input: CoreV2SelectionOverlayPolicyInput,
+  ): boolean {
+    this.assertAlive();
+    const parse = this.parseResultValue;
+    if (parse === null) {
+      throw new Error('CoreV2.setSelectionOverlayPolicy requires a loaded dataset');
+    }
+    const policy: CoreV2InteractionOverlayPolicy = Object.freeze({
+      visibleEntityIds: input.visibleIds === null
+        ? null
+        : semanticSelectionDenseIds(parse, input.visibleIds),
+      transformableEntityIds: input.transformableIds === null
+        ? null
+        : semanticSelectionDenseIds(parse, input.transformableIds),
+      resizableEntityIds: input.resizableIds === null
+        ? null
+        : semanticSelectionDenseIds(parse, input.resizableIds),
+      hidden: input.hidden,
+      handleCssPx: input.handleCssPx,
+      strokeCssPx: input.strokeCssPx,
+    });
+    const changed = this.renderer.setInteractionOverlayPolicy(policy);
+    if (changed) this.invalidate('interaction-overlay-policy');
+    return changed;
   }
 
   public setPresentationPolicy(

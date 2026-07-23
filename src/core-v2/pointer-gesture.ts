@@ -211,6 +211,14 @@ export class CoreV2PointerGestureAuthority {
   public dispatch(inputValue: CoreV2PointerInput): CoreV2PointerDispatchResult {
     const input = normalizePointerInput(inputValue);
     if (this.destroyed) return emptyDispatchResult(this.hoverTarget);
+    if (this.ownedGesture?.pointerId === input.pointerId) {
+      return Object.freeze({
+        events: Object.freeze([]),
+        hoverTarget: this.hoverTarget,
+        clickSuppressed: true,
+        semanticCompletionCount: 0,
+      });
+    }
     if (input.type === 'down') return this.pointerDown(input);
     if (input.type === 'move') return this.pointerMove(input);
     if (input.type === 'up' || input.type === 'up-outside') {

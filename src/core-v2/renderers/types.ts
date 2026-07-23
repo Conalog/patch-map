@@ -66,6 +66,18 @@ export interface CoreV2OverlayPaintProbe {
   readonly renderObjectCount: 0 | 2;
 }
 
+export interface CoreV2InteractionOverlayPolicy {
+  /** Null keeps every selected dense entity visible in the aggregate outline. */
+  readonly visibleEntityIds: readonly string[] | null;
+  /** Null keeps the transformer eligible wherever the selection outline is visible. */
+  readonly transformableEntityIds: readonly string[] | null;
+  /** Null preserves the legacy all-selected handle policy. */
+  readonly resizableEntityIds: readonly string[] | null;
+  readonly hidden: boolean;
+  readonly handleCssPx: number;
+  readonly strokeCssPx: number;
+}
+
 export type CoreV2TextRendererKind = CoreV2TextRenderRoute | 'none';
 export type CoreV2TextRendererRouteReason = CoreV2TextRenderRouteReason | 'not-attached';
 export type CoreV2TextPublicationStatus = 'pending' | 'current';

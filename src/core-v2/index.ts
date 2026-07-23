@@ -10,6 +10,7 @@ export type {
   CoreV2ReconcileResult,
   CoreV2ReconcileTimings,
   CoreV2RuntimeDebug,
+  CoreV2SelectionOverlayPolicyInput,
   CoreV2SemanticRefreshOptions,
   CoreV2SemanticRefreshResult,
   CoreV2TextGeometryProbe,
@@ -42,6 +43,16 @@ export {
   coreV2SelectionClickType,
 } from './query-selection';
 export type * from './query-selection';
+export {
+  CORE_V2_SELECTION_TRANSFORMER_REVISION,
+  CoreV2TransformerGestureAuthority,
+  createCoreV2SelectionVisualProbe,
+  createCoreV2TransformerHandleProbe,
+  evaluateCoreV2TransformableSubset,
+  hitCoreV2TransformerHandle,
+  resolveCoreV2RelationEndpoints,
+} from './selection-transformer';
+export type * from './selection-transformer';
 export {
   CORE_V2_POINTER_GESTURE_REVISION,
   CoreV2PointerGestureAuthority,
