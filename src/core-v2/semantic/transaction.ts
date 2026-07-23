@@ -1263,7 +1263,7 @@ function groupElements(
     locations[0]!.target,
   );
   const groupRecord = groupValueRecord(operation, operationPath, operationIndex);
-  const groupId = String(groupRecord.id);
+  const groupId = groupRecord.id;
   const groupTarget = Object.freeze({ kind: 'element' as const, id: groupId });
   if (locate(index, groupTarget, operationPath, operationIndex) !== undefined) {
     transactionFail(
@@ -1377,7 +1377,12 @@ function ungroupElement(
     return value;
   });
   location.parent.splice(location.index, 1, ...children);
-  const childIds = children.map((child) => String(child.id));
+  const childIds = children.map((child) => {
+    if (typeof child.id !== 'string') {
+      throw new Error('Materialized ungroup child lost its string ID');
+    }
+    return child.id;
+  });
   return Object.freeze({
     changed: true,
     outcomes: Object.freeze([{ target: operation.target, outcome: 'applied' as const }]),
@@ -1431,7 +1436,7 @@ function groupValueRecord(
   operation: Extract<StructuralOperation, { readonly op: 'group' }>,
   operationPath: string,
   operationIndex: number,
-): MutableJsonRecord {
+): MutableJsonRecord & { id: string } {
   const value = cloneMutableJson(operation.value, `${operationPath}.value`);
   if (!isMutableJsonRecord(value)) throw new Error('Group clone lost record shape');
   if (value.type !== 'group') {
@@ -1443,7 +1448,8 @@ function groupValueRecord(
       operationIndex,
     );
   }
-  if (typeof value.id !== 'string' || value.id.length === 0) {
+  const id = value.id;
+  if (typeof id !== 'string' || id.length === 0) {
     transactionFail(
       'INVALID_VALUE',
       'INVALID_INPUT',
@@ -1461,7 +1467,7 @@ function groupValueRecord(
       operationIndex,
     );
   }
-  return value;
+  return Object.assign(value, { id });
 }
 
 function missingStructuralResult(
@@ -1677,7 +1683,11 @@ function freezeUniqueStrings(values: readonly string[]): readonly string[] {
 function locationTarget(
   location: StagedLocation,
 ): Extract<CoreV2MutationTarget, { readonly kind: 'element' }> {
-  return Object.freeze({ kind: 'element', id: String(location.record.id) });
+  const id = location.record.id;
+  if (typeof id !== 'string') {
+    throw new Error('Staged element location lost its string ID');
+  }
+  return Object.freeze({ kind: 'element', id });
 }
 
 function relationDependencyCount(dataset: readonly MutableJsonValue[], id: string): number {

@@ -934,16 +934,17 @@ function elementWorldAffine(
   parent: CoreV2AffineMatrix = CORE_V2_IDENTITY_AFFINE,
 ): CoreV2AffineMatrix {
   for (const element of elements) {
-    const attrs = element.attrs;
-    const angle = attrs.angle ?? (attrs.rotation === undefined
-      ? 0
-      : attrs.rotation * 180 / Math.PI);
+    const attrs = element.attrs ?? {};
+    const rotation = finiteAttribute(attrs.rotation, 0);
+    const angle = typeof attrs.angle === 'number' && Number.isFinite(attrs.angle)
+      ? attrs.angle
+      : rotation * 180 / Math.PI;
     const local = createCoreV2Affine(
-      attrs.x,
-      attrs.y,
+      finiteAttribute(attrs.x, 0),
+      finiteAttribute(attrs.y, 0),
       angle,
-      attrs.scaleX,
-      attrs.scaleY,
+      finiteAttribute(attrs.scaleX, 1),
+      finiteAttribute(attrs.scaleY, 1),
     );
     const world = multiplyCoreV2Affine(parent, local);
     if (element.id === id) return world;
@@ -958,4 +959,8 @@ function elementWorldAffine(
     }
   }
   throw new Error(`Missing affine element ${id}`);
+}
+
+function finiteAttribute(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }

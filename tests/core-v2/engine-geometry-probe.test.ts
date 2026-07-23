@@ -200,6 +200,9 @@ describe('CoreV2Engine renderer-aligned geometry probe', () => {
       commit: () => {
         selected = true;
       },
+      selectSemantic: () => {
+        selected = true;
+      },
       resize: () => true,
       setWorldTransform: () => {},
     };
