@@ -141,3 +141,9 @@
 - Preserve the unfavorable intervals as first-class evidence: Particle wins several small-scene first-frame/text/heap intervals and production GPU prepare, first frame, pan, and destroy. Do not turn the renderer choice into a claim that Mesh wins every phase.
 - The selected production Mesh result is 390.2 ms first frame, 5.7 ms pan p95, 95.8 ms full-bar p95, 13.6 ms partial-bar p95, and 39,613 retained bytes under the development proxy.
 - This remains Chromium 4x on WebGL2/SwiftShader. WebGPU is unavailable and Windows-native performance remains pending.
+
+**2026-07-23**
+- Bulk target-set updates and raw ordered transactions share one planner and publication path, but keep distinct validation semantics: an empty bulk target set is a validated side-effect-free no-op while a raw transaction still requires a non-empty operation list.
+- Direct dense animation can temporarily be newer than the immutable parser projection. Track only those stable entity IDs as projection-stale, render and hit-test them from dense authority, and clear the marker when JSON reconciliation publishes a current projection.
+- This preserves atomic semantic destinations, visible intermediate Mesh geometry, dirty-range upload evidence, stable identity, and expected-blind probes without rebuilding parser output or introducing per-entity Pixi objects.
+- Full 2+7 measurements retain the O(scene) staleness-transition scan as an explicit current cost; optimize it only at a later measured hot-path checkpoint rather than changing evidence after the tranche.
