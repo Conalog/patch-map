@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the twenty-eight selected render routes and their 393 canonical assertions', () => {
+  it('pins exactly the thirty-two selected render routes and their 431 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -64,22 +64,26 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'UPD-008', expectedAssertions: 13 },
       { id: 'UPD-009', expectedAssertions: 14 },
       { id: 'UPD-010', expectedAssertions: 12 },
+      { id: 'UPD-011', expectedAssertions: 10 },
+      { id: 'UPD-012', expectedAssertions: 10 },
       { id: 'ANI-001', expectedAssertions: 14 },
       { id: 'ANI-002', expectedAssertions: 11 },
+      { id: 'UPD-013', expectedAssertions: 8 },
+      { id: 'UPD-014', expectedAssertions: 10 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(393);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 393;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 387;');
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(431);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 431;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 425;');
     expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 6;');
     expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 8;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 387 pass and 6 observed immutable conflicts'",
+      "'canonical comparison must be exactly 425 pass and 6 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 387 pass and 6 observed immutable conflicts'",
+      "'repeat comparison must be exactly 425 pass and 6 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 387 pass and 6 observed immutable conflicts'",
+      "'fresh comparison must be exactly 425 pass and 6 observed immutable conflicts'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -294,6 +298,10 @@ describe('Core v2 render browser checkpoint script', () => {
       'UPD-008',
       'UPD-009',
       'UPD-010',
+      'UPD-011',
+      'UPD-012',
+      'UPD-013',
+      'UPD-014',
     ]) {
       expect(source).toContain(`'${caseId}',`);
     }

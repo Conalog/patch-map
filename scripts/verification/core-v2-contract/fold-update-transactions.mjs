@@ -44,6 +44,27 @@ const CASE_ACTIONS = Object.freeze({
     'setVisibility',
     'remove',
   ]),
+  'UPD-011': Object.freeze([
+    'startAsyncRevision',
+    'startAsyncRevision',
+    'startAsyncRevision',
+    'completeAsyncRevision',
+    'completeAsyncRevision',
+    'destroy',
+    'completeAsyncRevision',
+  ]),
+  'UPD-012': Object.freeze([
+    'setHighlightPolicy',
+    'setLayerVisibility',
+    'clearPresentationPolicy',
+  ]),
+  'UPD-013': Object.freeze(['streamOverlay', 'publishFrame']),
+  'UPD-014': Object.freeze([
+    'snapshot',
+    'replaceExternalDependency',
+    'refresh',
+    'publishFrame',
+  ]),
 });
 const DOMAIN_NAMES = Object.freeze([
   'case',
@@ -63,7 +84,7 @@ const DOMAIN_NAMES = Object.freeze([
 ]);
 
 /**
- * Fold detached public product captures for the nine staged-update cases.
+ * Fold detached public product captures for the thirteen staged-update cases.
  * This module is intentionally import-free and has no access to comparison
  * evidence. Every asserted fact is derived from execution output, a declared
  * capture, or an explicitly exposed fixture-reference namespace.
@@ -104,6 +125,18 @@ export function foldUpdateTransactionExecution(optionsValue) {
       break;
     case 'UPD-010':
       projectRelations(actual, execution);
+      break;
+    case 'UPD-011':
+      projectAsyncRevision(actual, execution);
+      break;
+    case 'UPD-012':
+      projectHostPresentation(actual, execution);
+      break;
+    case 'UPD-013':
+      projectLiveOverlay(actual, execution);
+      break;
+    case 'UPD-014':
+      projectSemanticRefresh(actual, execution);
       break;
     default:
       throw new Error(`Core v2 update fold invalid: unsupported case ${String(plan.id)}`);
@@ -756,6 +789,195 @@ function projectRelations(actual, execution) {
   };
 }
 
+function projectAsyncRevision(actual, execution) {
+  const completedB = actionActualAt(execution, 3, 'completeAsyncRevision');
+  const completedC = actionActualAt(execution, 4, 'completeAsyncRevision');
+  const completedA = actionActualAt(execution, 6, 'completeAsyncRevision');
+  const resultB = recordValue(completedB.result, 'UPD-011 result B');
+  const resultC = recordValue(completedC.result, 'UPD-011 result C');
+  const resultA = recordValue(completedA.result, 'UPD-011 result A');
+  assert(resultB.status === 'superseded', 'UPD-011 B superseded');
+  assert(resultC.status === 'committed', 'UPD-011 C committed');
+  assert(resultA.status === 'superseded', 'UPD-011 A superseded after destroy');
+  const published = recordValue(completedA.published, 'UPD-011 published');
+  const revisions = cloneArray(published.revisions, 'UPD-011 published revisions')
+    .map((value, index) => nonNegativeInteger(value, `UPD-011 revision ${index}`));
+  const requestIds = stringArray(published.requestIds, 'UPD-011 request IDs');
+  const postDestroy = recordValue(completedA.postDestroy, 'UPD-011 post destroy');
+  const temporary = recordValue(completedA.temporary, 'UPD-011 temporary');
+
+  actual.revisions.published = { revisions, requestIds };
+  actual.outcome.superseded = {
+    events: nonNegativeInteger(
+      completedA.supersededEventCount,
+      'UPD-011 superseded event count',
+    ),
+  };
+  actual.resources.postDestroy = {
+    events: nonNegativeInteger(postDestroy.events, 'UPD-011 post-destroy events'),
+    frames: nonNegativeInteger(postDestroy.frames, 'UPD-011 post-destroy frames'),
+  };
+  actual.resources.temporary = {
+    unreleased: nonNegativeInteger(temporary.unreleased, 'UPD-011 unreleased resources'),
+  };
+  assert(revisions.length === requestIds.length, 'UPD-011 publication tuple lengths');
+  assert(
+    completedA.input.unchanged === true &&
+      completedB.input.unchanged === true &&
+      completedC.input.unchanged === true,
+    'UPD-011 async dataset ownership',
+  );
+}
+
+function projectHostPresentation(actual, execution) {
+  const highlighted = actionActualAt(execution, 1, 'setLayerVisibility');
+  const cleared = actionActualAt(execution, 2, 'clearPresentationPolicy');
+  const presentation = recordValue(highlighted.presentation, 'UPD-012 presentation');
+  const entities = cloneArray(presentation.entities, 'UPD-012 presentation entities');
+  const byId = new Map(entities.map((entry, index) => {
+    const entity = recordValue(entry, `UPD-012 entity ${index}`);
+    return [stringValue(entity.id, `UPD-012 entity ${index} id`), entity];
+  }));
+  const item = requireMapValue(byId, 'item-a', 'UPD-012 item-a');
+  const rect = requireMapValue(byId, 'rect-b', 'UPD-012 rect-b');
+  const text = requireMapValue(byId, 'text-c', 'UPD-012 text-c');
+  const links = requireMapValue(byId, 'links', 'UPD-012 links');
+  const finalPresentation = recordValue(cleared.presentation, 'UPD-012 cleared presentation');
+  const persisted = recordValue(cleared.persisted, 'UPD-012 persisted');
+
+  actual.paint.highlight = {
+    'item-a': { emphasis: finiteNumber(item.emphasis, 'UPD-012 item emphasis') },
+    'rect-b': { emphasis: finiteNumber(rect.emphasis, 'UPD-012 rect emphasis') },
+    'text-c': { emphasis: finiteNumber(text.emphasis, 'UPD-012 text emphasis') },
+  };
+  actual.scene.hidden = {
+    links: {
+      renderObjectCount: nonNegativeInteger(
+        links.renderObjectCount,
+        'UPD-012 hidden link objects',
+      ),
+    },
+  };
+  actual.scene.persisted = {
+    links: clone(persisted.links),
+    elements: clone(persisted.elements),
+  };
+  actual.scene.cleared = {
+    presentation: stringValue(finalPresentation.status, 'UPD-012 cleared status'),
+  };
+  assert(presentation.status === 'active', 'UPD-012 active presentation');
+  assert(links.visible === false, 'UPD-012 links hidden');
+  assert(finalPresentation.status === 'normal', 'UPD-012 presentation cleared');
+}
+
+function projectLiveOverlay(actual, execution) {
+  const streamed = actionActualAt(execution, 0, 'streamOverlay');
+  const published = actionActualAt(execution, 1, 'publishFrame');
+  const acceptedEvents = cloneArray(streamed.acceptedEvents, 'UPD-013 accepted events');
+  const acceptedRevisions = acceptedEvents.map((entry, index) => {
+    const event = recordValue(entry, `UPD-013 accepted event ${index}`);
+    return nonNegativeInteger(event.sourceRevision, `UPD-013 accepted revision ${index}`);
+  });
+  const semantic = recordValue(streamed.overlay, 'UPD-013 semantic overlay');
+  const latestSemantic = recordValue(
+    semantic.latestAccepted,
+    'UPD-013 latest accepted overlay',
+  );
+  const frame = recordValue(published.overlay, 'UPD-013 frame overlay');
+  const latestFrame = recordValue(frame.latestPublished, 'UPD-013 latest published overlay');
+  const publicationEvents = cloneArray(
+    published.publicationEvents,
+    'UPD-013 publication events',
+  );
+  assert(publicationEvents.length === 1, 'UPD-013 one coalesced publication event');
+  const lastPublication = recordValue(publicationEvents[0], 'UPD-013 last publication');
+
+  actual.outcome.accepted = { revisions: acceptedRevisions };
+  actual.outcome.semantic = {
+    latestRevision: nonNegativeInteger(
+      latestSemantic.sourceRevision,
+      'UPD-013 semantic revision',
+    ),
+    latestPayloadHash: stringValue(
+      latestSemantic.payloadHash,
+      'UPD-013 semantic payload hash',
+    ),
+  };
+  actual.revisions.frame.latestRevision = nonNegativeInteger(
+    latestFrame.sourceRevision,
+    'UPD-013 frame source revision',
+  );
+  actual.revisions.frame.latestPayloadHash = stringValue(
+    latestFrame.payloadHash,
+    'UPD-013 frame payload hash',
+  );
+  actual.events.publication = {
+    last: {
+      revision: nonNegativeInteger(
+        lastPublication.sourceRevision,
+        'UPD-013 publication revision',
+      ),
+    },
+    pendingCount: nonNegativeInteger(
+      frame.pendingPublicationCount,
+      'UPD-013 pending publication count',
+    ),
+  };
+  assert(
+    nonNegativeInteger(frame.publicationCount, 'UPD-013 publication count') === 1,
+    'UPD-013 one publication',
+  );
+}
+
+function projectSemanticRefresh(actual, execution) {
+  const before = actionActualAt(execution, 0, 'snapshot');
+  const refreshed = actionActualAt(execution, 2, 'refresh');
+  const published = actionActualAt(execution, 3, 'publishFrame');
+  const result = recordValue(refreshed.result, 'UPD-014 refresh result');
+  const previousRevisions = recordValue(
+    result.previousRevisions,
+    'UPD-014 previous revisions',
+  );
+  const revisions = recordValue(result.revisions, 'UPD-014 revisions');
+  const product = productRecord(published.product, 'UPD-014 published product');
+  const snapshot = recordValue(product.snapshot, 'UPD-014 published snapshot');
+  const publishedTuple = recordValue(snapshot.publishedTuple, 'UPD-014 published tuple');
+
+  actual.scene.refresh = {
+    revisionDelta:
+      nonNegativeInteger(revisions.sceneRevision, 'UPD-014 revision after') -
+      nonNegativeInteger(previousRevisions.sceneRevision, 'UPD-014 revision before'),
+    recomputedTargets: stringArray(
+      result.recomputedTargets,
+      'UPD-014 recomputed targets',
+    ),
+    dataDiffCount: nonNegativeInteger(result.dataDiffCount, 'UPD-014 data diff count'),
+  };
+  actual.interaction.selection = stringArray(
+    snapshot.selectionIds,
+    'UPD-014 final selection',
+  );
+  actual.history.snapshot = clone(product.history);
+  actual.scene.ids = stringArray(refreshed.ids, 'UPD-014 stable IDs');
+  actual.revisions.frame.revision = nonNegativeInteger(
+    publishedTuple.scene,
+    'UPD-014 frame represented scene revision',
+  );
+  assert(result.status === 'committed', 'UPD-014 refresh committed');
+  assert(
+    sameJson(before.snapshot.history, product.history),
+    'UPD-014 history unchanged',
+  );
+  assert(
+    sameJson(before.snapshot.selection, snapshot.selectionIds),
+    'UPD-014 selection unchanged',
+  );
+  assert(
+    sameJson(before.snapshot.ids, refreshed.ids),
+    'UPD-014 IDs unchanged',
+  );
+}
+
 function validateOptions(options) {
   assert(isPlainObject(options), 'options must be a plain object');
   assertExactKeys(options, ['casePlan', 'environment', 'execution', 'provenance'], 'options');
@@ -1021,6 +1243,12 @@ function requireRelation(rows, key, label) {
   const row = rows.find((candidate) => candidate.key === key);
   assert(row !== undefined, label);
   return row;
+}
+
+function requireMapValue(map, key, label) {
+  const value = map.get(key);
+  assert(value !== undefined, label);
+  return value;
 }
 
 function visibleRelationKeys(product) {

@@ -338,6 +338,10 @@ const UPDATE_TRANSACTION_CASE_IDS = new Set<CoreV2UpdateTransactionsCaseId>([
   'UPD-008',
   'UPD-009',
   'UPD-010',
+  'UPD-011',
+  'UPD-012',
+  'UPD-013',
+  'UPD-014',
 ]);
 
 const DATA_FOUNDATION_PRODUCT = Object.freeze({

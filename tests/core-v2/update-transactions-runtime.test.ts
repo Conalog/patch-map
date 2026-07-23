@@ -95,7 +95,7 @@ describe('Core v2 update-transactions focused Lab runtime', () => {
     await Promise.all(engines.splice(0).map((engine) => engine.destroy()));
   });
 
-  it('exposes the exact eight-case runtime family', () => {
+  it('exposes the exact thirteen-case runtime family', () => {
     expect(CORE_V2_UPDATE_TRANSACTIONS_CASE_IDS).toEqual([
       'UPD-001',
       'UPD-002',
@@ -106,6 +106,10 @@ describe('Core v2 update-transactions focused Lab runtime', () => {
       'UPD-008',
       'UPD-009',
       'UPD-010',
+      'UPD-011',
+      'UPD-012',
+      'UPD-013',
+      'UPD-014',
     ]);
     for (const caseId of CORE_V2_UPDATE_TRANSACTIONS_CASE_IDS) {
       expect(createCoreV2UpdateTransactionsRuntime(caseId).postDestroyProductProbe())

@@ -128,6 +128,10 @@ const CASE_IDS = [
   'UPD-008',
   'UPD-009',
   'UPD-010',
+  'UPD-011',
+  'UPD-012',
+  'UPD-013',
+  'UPD-014',
 ] as const;
 const DOMAIN_NAMES = [
   'case',
@@ -155,6 +159,10 @@ const EXPECTED_RESULTS: Readonly<Record<(typeof CASE_IDS)[number], readonly [num
   'UPD-008': [13, 0],
   'UPD-009': [13, 1],
   'UPD-010': [12, 0],
+  'UPD-011': [10, 0],
+  'UPD-012': [10, 0],
+  'UPD-013': [8, 0],
+  'UPD-014': [10, 0],
 };
 
 let catalog: ExecutorCatalog;
@@ -401,6 +409,14 @@ function caseShape(caseId: string): Readonly<{
       return structureShape();
     case 'UPD-010':
       return relationShape();
+    case 'UPD-011':
+      return asyncRevisionShape();
+    case 'UPD-012':
+      return hostPresentationShape();
+    case 'UPD-013':
+      return liveOverlayShape();
+    case 'UPD-014':
+      return semanticRefreshShape();
     default:
       throw new Error(`Unsupported shape ${caseId}`);
   }
@@ -819,6 +835,298 @@ function relationShape() {
   };
 }
 
+function asyncRevisionShape() {
+  const initialProduct = product([], { sceneRevision: 0, frameRevision: 0, historyDepth: 0 });
+  const publishedProduct = product([rect('rect-b', 160, 40)], {
+    sceneRevision: 1,
+    frameRevision: 0,
+    historyDepth: 0,
+  });
+  const started = (requestId: string, revision: number, allocated: number): JsonRecord => (
+    actual(initialProduct, {
+      requestId,
+      revision,
+      result: { status: 'started', requestId, revision },
+      temporary: { allocated, released: 0, unreleased: allocated },
+      before: structuredClone(initialProduct),
+    })
+  );
+  return {
+    actuals: [
+      started('A', 2, 1),
+      started('B', 3, 2),
+      started('C', 4, 3),
+      actual(initialProduct, {
+        requestId: 'B',
+        revision: 3,
+        result: { status: 'superseded', requestId: 'B', sourceRevision: 3 },
+        publicationEventDelta: 0,
+        frameDelta: 0,
+        published: { revisions: [], requestIds: [] },
+        supersededEventCount: 0,
+        postDestroy: { events: 0, frames: 0 },
+        temporary: { allocated: 3, released: 1, unreleased: 2 },
+      }),
+      actual(publishedProduct, {
+        requestId: 'C',
+        revision: 4,
+        result: { status: 'committed', requestId: 'C', sourceRevision: 4 },
+        publicationEventDelta: 2,
+        frameDelta: 0,
+        published: { revisions: [4], requestIds: ['C'] },
+        supersededEventCount: 0,
+        postDestroy: { events: 0, frames: 0 },
+        temporary: { allocated: 3, released: 2, unreleased: 1 },
+      }),
+      actual(publishedProduct, {
+        result: { status: 'destroyed', returned: true },
+        temporary: { allocated: 3, released: 2, unreleased: 1 },
+        before: structuredClone(publishedProduct),
+      }),
+      actual(publishedProduct, {
+        requestId: 'A',
+        revision: 2,
+        result: { status: 'superseded', requestId: 'A', sourceRevision: 2 },
+        publicationEventDelta: 0,
+        frameDelta: 0,
+        published: { revisions: [4], requestIds: ['C'] },
+        supersededEventCount: 0,
+        postDestroy: { events: 0, frames: 0 },
+        temporary: { allocated: 3, released: 3, unreleased: 0 },
+      }),
+    ],
+    captures: [],
+    bindings: {},
+  };
+}
+
+function hostPresentationShape() {
+  const elements = [
+    item('item-a', [bar(10), text('label', 'Alpha')]),
+    rect('rect-b', 160, 40),
+    text('text-c', 'Bravo'),
+  ];
+  const links = [{
+    type: 'relations',
+    id: 'links',
+    links: [{ source: 'item-a', target: 'rect-b' }],
+  }];
+  const productValue = product([...elements, ...links], {
+    sceneRevision: 1,
+    frameRevision: 2,
+    historyDepth: 0,
+  });
+  const active = {
+    schemaRevision: 'core-v2-presentation-policy/1',
+    revision: 2,
+    status: 'active',
+    highlightIds: ['item-a', 'rect-b'],
+    deEmphasisAlpha: 0.2,
+    hiddenLayerIds: ['links'],
+    entities: [
+      presentationEntity('item-a', 1, true, 1),
+      presentationEntity('rect-b', 1, true, 1),
+      presentationEntity('text-c', 0.2, true, 1),
+      presentationEntity('links', 0.2, false, 0),
+    ],
+  };
+  const persisted = { elements, links };
+  return {
+    actuals: [
+      actual(productValue, {
+        presentation: {
+          ...active,
+          revision: 1,
+          hiddenLayerIds: [],
+          entities: active.entities.map((entity) => (
+            entity.id === 'links' ? presentationEntity('links', 0.2, true, 1) : entity
+          )),
+        },
+        result: { changed: true },
+        before: structuredClone(productValue),
+      }),
+      actual(productValue, {
+        presentation: active,
+        result: { changed: true },
+        before: structuredClone(productValue),
+      }),
+      actual(productValue, {
+        presentation: {
+          schemaRevision: 'core-v2-presentation-policy/1',
+          revision: 3,
+          status: 'normal',
+          highlightIds: null,
+          deEmphasisAlpha: 1,
+          hiddenLayerIds: [],
+          entities: active.entities.map((entity) => (
+            presentationEntity(String(entity.id), 1, true, 1)
+          )),
+        },
+        persisted,
+        result: { changed: true },
+        before: structuredClone(productValue),
+      }),
+    ],
+    captures: [capture('before', 'before-actions', -1, {
+      'persisted/elements': elements,
+      'persisted/links': links,
+    })],
+    bindings: {},
+  };
+}
+
+function liveOverlayShape() {
+  const productValue = product([item('item-a', [bar(21), text('label', 'Overlay 319:13')])], {
+    sceneRevision: 13,
+    frameRevision: 1,
+    historyDepth: 0,
+  });
+  const acceptedEvents = Array.from({ length: 12 }, (_, index) => ({
+    sourceRevision: index + 2,
+    payloadHash: `overlay-319-${index + 2}`,
+    sceneRevision: index + 2,
+  }));
+  const latest = {
+    sourceRevision: 13,
+    payloadHash: 'overlay-319-13',
+    sceneRevision: 13,
+  };
+  return {
+    actuals: [
+      actual(productValue, {
+        result: { status: 'streamed', count: 12 },
+        results: acceptedEvents.map((tuple) => ({ status: 'accepted', tuple })),
+        acceptedEvents,
+        overlay: {
+          latestAccepted: latest,
+          latestPublished: null,
+          pendingPublicationCount: 1,
+          acceptedCount: 12,
+          publicationCount: 0,
+        },
+        before: structuredClone(productValue),
+      }),
+      actual(productValue, {
+        result: { status: 'published', frameRevision: 1 },
+        overlayBefore: {
+          latestAccepted: latest,
+          latestPublished: null,
+          pendingPublicationCount: 1,
+          acceptedCount: 12,
+          publicationCount: 0,
+        },
+        overlay: {
+          latestAccepted: latest,
+          latestPublished: { ...latest, frameRevision: 1 },
+          pendingPublicationCount: 0,
+          acceptedCount: 12,
+          publicationCount: 1,
+        },
+        publicationEvents: [{ ...latest, frameRevision: 1 }],
+        before: structuredClone(productValue),
+      }),
+    ],
+    captures: [],
+    bindings: {},
+  };
+}
+
+function semanticRefreshShape() {
+  const dataset = [
+    item('item-a', [bar(10), text('label', 'Alpha')]),
+    rect('rect-b', 160, 40),
+    {
+      type: 'relations',
+      id: 'links',
+      links: [{ source: 'item-a', target: 'rect-b' }],
+    },
+  ];
+  const beforeProduct = product(dataset, {
+    sceneRevision: 1,
+    frameRevision: 0,
+    historyDepth: 0,
+  });
+  const refreshedProduct = product(dataset, {
+    sceneRevision: 2,
+    frameRevision: 1,
+    historyDepth: 0,
+  });
+  const ids = ['item-a', 'item-a/bar', 'item-a/label', 'links', 'rect-b'];
+  const beforeSnapshot = {
+    scene: dataset,
+    selection: [],
+    history: { undoDepth: 0, redoDepth: 0 },
+    ids,
+  };
+  return {
+    actuals: [
+      actual(beforeProduct, {
+        result: { status: 'snapshotted' },
+        snapshot: beforeSnapshot,
+      }),
+      actual(beforeProduct, {
+        result: {
+          changed: true,
+          dependencyId: 'font-fixture',
+          previousRevision: null,
+          revision: 'font-fixture-2',
+        },
+        dependencies: { 'font-fixture': 'font-fixture-2' },
+        before: structuredClone(beforeProduct),
+      }),
+      actual(refreshedProduct, {
+        result: {
+          status: 'committed',
+          changed: true,
+          previousRevisions: {
+            lifecycleGeneration: 1,
+            sceneRevision: 1,
+            viewRevision: 0,
+            interactionRevision: 0,
+          },
+          revisions: {
+            lifecycleGeneration: 1,
+            sceneRevision: 2,
+            viewRevision: 0,
+            interactionRevision: 0,
+          },
+          recomputedTargets: ['item-a/label', 'links'],
+          missingTargets: [],
+          dirtyRanges: [{ start: 0, end: 2 }],
+          dataDiffCount: 0,
+          history: { undoDepth: 0, redoDepth: 0 },
+          selectionIds: [],
+        },
+        refreshEvents: [{}],
+        ids,
+        before: structuredClone(beforeProduct),
+      }),
+      actual(refreshedProduct, {
+        result: { status: 'published', frameRevision: 1 },
+        before: structuredClone(refreshedProduct),
+      }),
+    ],
+    captures: [
+      capture('before', 'after-action', 0, {
+        history: beforeSnapshot.history,
+        ids,
+        selection: [],
+      }),
+      capture('refresh', 'after-action', 2, { revision: 2 }),
+    ],
+    bindings: {},
+  };
+}
+
+function presentationEntity(
+  id: string,
+  emphasis: number,
+  visible: boolean,
+  renderObjectCount: number,
+): JsonRecord {
+  return { id, denseEntityIds: [id], emphasis, visible, renderObjectCount };
+}
+
 function actual(productValue: JsonRecord, fields: JsonRecord): JsonRecord {
   return {
     input: {
@@ -870,6 +1178,7 @@ function product(
       datasetRef: null,
       semanticHash: overrides.semanticHash ?? `sha256:scene-${sceneRevision}`,
       rootIds,
+      selectionIds,
       historyDepth,
       pendingWork: 0,
       resources: {

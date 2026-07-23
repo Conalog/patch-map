@@ -78,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(90);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(43);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(130);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(98);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(47);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(126);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(183);
+    ), 0)).toBe(199);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -243,7 +243,7 @@ describe('Core v2 focused contract Lab shell', () => {
     }
   });
 
-  it('connects all nine update-transaction cases to one actual-only runtime and exact routes', () => {
+  it('connects all thirteen update-transaction cases to one actual-only runtime and exact routes', () => {
     const cases = [
       ['UPD-001', ['loadDataset', 'retainTarget', 'replaceDataset', 'resolveTarget', 'patch']],
       ['UPD-002', ['freezePatch', 'merge', 'merge']],
@@ -273,6 +273,27 @@ describe('Core v2 focused contract Lab shell', () => {
         ],
       ],
       ['UPD-010', ['loadDataset', 'patch', 'setVisibility', 'setVisibility', 'remove']],
+      [
+        'UPD-011',
+        [
+          'startAsyncRevision',
+          'startAsyncRevision',
+          'startAsyncRevision',
+          'completeAsyncRevision',
+          'completeAsyncRevision',
+          'destroy',
+          'completeAsyncRevision',
+        ],
+      ],
+      [
+        'UPD-012',
+        ['setHighlightPolicy', 'setLayerVisibility', 'clearPresentationPolicy'],
+      ],
+      ['UPD-013', ['streamOverlay', 'publishFrame']],
+      [
+        'UPD-014',
+        ['snapshot', 'replaceExternalDependency', 'refresh', 'publishFrame'],
+      ],
     ] as const;
 
     for (const [caseId, actions] of cases) {

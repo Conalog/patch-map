@@ -23,11 +23,19 @@ import {
   type CoreV2SurfaceReconcileOptions,
   type CoreV2SurfaceReconcileResult,
 } from '../../src/core-v2/engine';
+import type { SlotRange } from '../../src/core-v1/contracts';
+import type { CoreV2SemanticRefreshResult } from '../../src/core-v2/core';
 import type { CoreV2ComponentRenderRole } from '../../src/core-v2/contracts';
+import {
+  CORE_V2_PRESENTATION_POLICY_REVISION,
+  type CoreV2PresentationPolicyInput,
+  type CoreV2PresentationPolicyProductProbe,
+} from '../../src/core-v2/presentation-policy';
 import type {
   CoreV2RenderLaneRole,
   CoreV2RenderLaneSnapshot,
 } from '../../src/core-v2/renderers/types';
+import type { CoreV2SemanticTarget } from '../../src/core-v2/semantic/probe';
 
 type JsonRecord = Record<string, unknown>;
 type HandlerEntry = readonly [string, (context: unknown, action: unknown) => unknown];
@@ -205,6 +213,10 @@ describe('Core v2 shared update transaction action handlers', () => {
       'UPD-008',
       'UPD-009',
       'UPD-010',
+      'UPD-011',
+      'UPD-012',
+      'UPD-013',
+      'UPD-014',
     ]);
     expect(entries.map(([id]) => id)).toEqual(
       UPDATE_TRANSACTIONS_ACTION_TYPES.map((type) => `contract/${type}`),
@@ -525,6 +537,124 @@ function assertCaseFacts(caseId: string, execution: CaseExecution): void {
       expect(segmentCountTo(actualAt(execution, 4), 'b')).toBe(0);
       break;
     }
+    case 'UPD-011': {
+      expect(actualAt(execution, 3)).toMatchObject({
+        requestId: 'B',
+        revision: 3,
+        result: { status: 'superseded' },
+        publicationEventDelta: 0,
+        frameDelta: 0,
+      });
+      expect(actualAt(execution, 4)).toMatchObject({
+        requestId: 'C',
+        revision: 4,
+        result: { status: 'committed' },
+        published: { revisions: [4], requestIds: ['C'] },
+      });
+      expect(actualAt(execution, 5)).toMatchObject({
+        result: { status: 'destroyed', returned: true },
+      });
+      expect(actualAt(execution, 6)).toMatchObject({
+        requestId: 'A',
+        revision: 2,
+        result: { status: 'superseded' },
+        published: { revisions: [4], requestIds: ['C'] },
+        supersededEventCount: 0,
+        postDestroy: { events: 0, frames: 0 },
+        temporary: { allocated: 3, released: 3, unreleased: 0 },
+      });
+      break;
+    }
+    case 'UPD-012': {
+      expect(actualAt(execution, 0)).toMatchObject({
+        presentation: {
+          status: 'active',
+          highlightIds: ['item-a', 'rect-b'],
+          deEmphasisAlpha: 0.2,
+        },
+      });
+      const presentation = requireRecord(
+        actualAt(execution, 1).presentation,
+        'UPD-012 active presentation',
+      );
+      expect(presentation).toMatchObject({
+        status: 'active',
+        hiddenLayerIds: ['links'],
+      });
+      const entities = requireArray(presentation.entities, 'UPD-012 presentation entities');
+      const entity = (id: string): JsonRecord => requireRecord(
+        entities.find((value) => isRecord(value) && value.id === id),
+        `UPD-012 presentation entity ${id}`,
+      );
+      expect(entity('item-a')).toMatchObject({ emphasis: 1, visible: true });
+      expect(entity('rect-b')).toMatchObject({ emphasis: 1, visible: true });
+      expect(entity('text-c')).toMatchObject({ emphasis: 0.2, visible: true });
+      expect(entity('links')).toMatchObject({ visible: false, renderObjectCount: 0 });
+      expect(actualAt(execution, 2)).toMatchObject({
+        presentation: { status: 'normal' },
+      });
+      break;
+    }
+    case 'UPD-013': {
+      expect(actualAt(execution, 0)).toMatchObject({
+        result: { status: 'streamed', count: 12 },
+        overlay: {
+          latestAccepted: {
+            sourceRevision: 13,
+            payloadHash: 'overlay-319-13',
+          },
+          acceptedCount: 12,
+          pendingPublicationCount: 1,
+        },
+      });
+      expect(actualAt(execution, 0).acceptedEvents).toHaveLength(12);
+      expect(actualAt(execution, 1)).toMatchObject({
+        overlay: {
+          latestPublished: {
+            sourceRevision: 13,
+            payloadHash: 'overlay-319-13',
+          },
+          publicationCount: 1,
+          pendingPublicationCount: 0,
+        },
+        publicationEvents: [
+          expect.objectContaining({ sourceRevision: 13, payloadHash: 'overlay-319-13' }),
+        ],
+      });
+      break;
+    }
+    case 'UPD-014': {
+      expect(actualAt(execution, 1)).toMatchObject({
+        result: {
+          changed: true,
+          dependencyId: 'font-fixture',
+          revision: 'font-fixture-2',
+        },
+        dependencies: { 'font-fixture': 'font-fixture-2' },
+      });
+      expect(actualAt(execution, 2)).toMatchObject({
+        result: {
+          status: 'committed',
+          changed: true,
+          recomputedTargets: ['item-a/label', 'links'],
+          dataDiffCount: 0,
+        },
+      });
+      const refresh = actualAt(execution, 2);
+      const previous = requireRecord(
+        requireRecord(refresh.result, 'refresh result').previousRevisions,
+        'refresh previous revisions',
+      );
+      const revisions = requireRecord(
+        requireRecord(refresh.result, 'refresh result').revisions,
+        'refresh revisions',
+      );
+      expect(Number(revisions.sceneRevision) - Number(previous.sceneRevision)).toBe(1);
+      expect(captureValues(execution, 'refresh')).toEqual({
+        revision: revisions.sceneRevision,
+      });
+      break;
+    }
     default:
       throw new Error(`Unknown update case ${caseId}`);
   }
@@ -620,13 +750,14 @@ function createProductAdapter(fault?: AdapterFault): Readonly<JsonRecord> {
           resources.subscriptions = { ...subscriptions, duplicates: 1 };
         }
       }
+      const destroyed = snapshot.lifecycle === 'destroyed' || snapshot.lifecycle === 'destroying';
       return deepFreeze({
         revision: 'test-update-resource-probe/1',
         caseId: input.caseId,
         engine: {
           snapshot,
           semantic: engine.semanticProbe(),
-          interactionOwnership: engine.interactionOwnershipProbe(),
+          interactionOwnership: destroyed ? null : engine.interactionOwnershipProbe(),
         },
         runtime: {
           ownership: zeroOwnership(),
@@ -648,6 +779,8 @@ class UpdateContractSurface implements CoreV2EngineSurface {
   private assetAcquisition: CoreV2AssetAcquisition | null = null;
   private assetAlias: string | null = null;
   private assetSettlement: Promise<void> = Promise.resolve();
+  private presentationInput: CoreV2PresentationPolicyInput | null = null;
+  private presentationRevision = 0;
   private readonly width: number;
   private readonly height: number;
   private readonly pixelRatio: number;
@@ -718,6 +851,79 @@ class UpdateContractSurface implements CoreV2EngineSurface {
 
   public select(ids: readonly string[]): void {
     this.selectionIds = Object.freeze([...ids]);
+  }
+
+  public setPresentationPolicy(
+    input: CoreV2PresentationPolicyInput,
+  ): CoreV2PresentationPolicyProductProbe {
+    this.presentationInput = Object.freeze({
+      highlightIds: input.highlightIds === null
+        ? null
+        : Object.freeze([...(input.highlightIds ?? [])]),
+      deEmphasisAlpha: input.deEmphasisAlpha ?? 0.2,
+      hiddenLayerIds: Object.freeze([...(input.hiddenLayerIds ?? [])]),
+    });
+    this.presentationRevision += 1;
+    return this.presentationPolicyProbe();
+  }
+
+  public clearPresentationPolicy(): CoreV2PresentationPolicyProductProbe {
+    if (this.presentationInput !== null) this.presentationRevision += 1;
+    this.presentationInput = null;
+    return this.presentationPolicyProbe();
+  }
+
+  public presentationPolicyProbe(): CoreV2PresentationPolicyProductProbe {
+    const highlightIds = this.presentationInput?.highlightIds ?? null;
+    const highlighted = new Set(highlightIds ?? []);
+    const hidden = new Set(this.presentationInput?.hiddenLayerIds ?? []);
+    const deEmphasisAlpha = this.presentationInput?.deEmphasisAlpha ?? 1;
+    return deepFreeze({
+      schemaRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
+      revision: this.presentationRevision,
+      status: this.presentationInput === null ? 'normal' : 'active',
+      highlightIds,
+      deEmphasisAlpha,
+      hiddenLayerIds: this.presentationInput?.hiddenLayerIds ?? Object.freeze([]),
+      entities: ['item-a', 'rect-b', 'text-c', 'links'].map((id) => {
+        const visible = !hidden.has(id);
+        return {
+          id,
+          denseEntityIds: [id],
+          emphasis: highlightIds === null || highlighted.has(id) ? 1 : deEmphasisAlpha,
+          visible,
+          renderObjectCount: visible ? 1 : 0,
+        };
+      }),
+    });
+  }
+
+  public refreshSemanticTargets(
+    targets: readonly CoreV2SemanticTarget[],
+    options: Readonly<{ readonly strict?: boolean }> = {},
+  ): CoreV2SemanticRefreshResult {
+    const labels = targets.map(refreshTargetLabel);
+    const missingTargets = labels.filter((label) => !['item-a/label', 'links'].includes(label));
+    if (options.strict === true && missingTargets.length > 0) {
+      return Object.freeze({
+        changed: false,
+        recomputedTargets: Object.freeze([]),
+        missingTargets: Object.freeze(missingTargets),
+        dirtyRanges: Object.freeze([]),
+        dataDiffCount: 0,
+      });
+    }
+    const recomputedTargets = labels.filter((label) => !missingTargets.includes(label));
+    const dirtyRanges: readonly SlotRange[] = recomputedTargets.length === 0
+      ? Object.freeze([])
+      : Object.freeze([{ start: 0, end: recomputedTargets.length }]);
+    return Object.freeze({
+      changed: recomputedTargets.length > 0,
+      recomputedTargets: Object.freeze(recomputedTargets),
+      missingTargets: Object.freeze(missingTargets),
+      dirtyRanges,
+      dataDiffCount: 0,
+    });
   }
 
   public hitTestScreen(point: CoreV2Point): string | null {
@@ -1038,6 +1244,7 @@ class UpdateContractSurface implements CoreV2EngineSurface {
     this.canvasCount = 0;
     this.dataset = Object.freeze([]);
     this.selectionIds = Object.freeze([]);
+    this.presentationInput = null;
     return true;
   }
 
@@ -1377,13 +1584,36 @@ function allKindsScene(): readonly unknown[] {
     },
     rect('rect-b', 160, 40, 40, 30),
     {
+      type: 'relations',
+      id: 'links',
+      links: [
+        { source: 'item-a', target: 'item-a' },
+        { source: 'item-a', target: 'rect-b' },
+      ],
+      style: { color: '#222222', width: 2 },
+    },
+    {
       type: 'image',
       id: 'image-a',
       source: 'fixture://image-a.png',
       size: { width: 80, height: 40 },
       attrs: { x: -20, y: 200 },
     },
+    {
+      type: 'text',
+      id: 'text-c',
+      text: 'Bravo',
+      style: { fontFamily: 'FiraCode', fontSize: 16, fill: '#222222' },
+      size: { width: 80, height: 20 },
+      attrs: { x: 40, y: 140 },
+    },
   ]);
+}
+
+function refreshTargetLabel(target: CoreV2SemanticTarget): string {
+  return target.kind === 'component'
+    ? `${target.ownerId}/${target.id}`
+    : target.id;
 }
 
 function hierarchyScene(): readonly unknown[] {

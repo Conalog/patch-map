@@ -7,7 +7,9 @@ import {
   materializeCoreV2ExecutableCase,
 } from '../../lab/performance-v2/contract/executable-cases';
 import { resolveCoreV2ExecutableRuntime } from '../../lab/performance-v2/contract/executable-runtime';
+import type { SlotRange } from '../../src/core-v1/contracts';
 import { parsePatchMapV010 } from '../../src/core-v2';
+import type { CoreV2SemanticRefreshResult } from '../../src/core-v2/core';
 import {
   createCoreV2SurfaceGeometrySnapshot,
   hitTestCoreV2SurfaceRelations,
@@ -24,6 +26,12 @@ import type {
   CoreV2SurfaceOptions,
   CoreV2SurfaceView,
 } from '../../src/core-v2/engine';
+import {
+  CORE_V2_PRESENTATION_POLICY_REVISION,
+  type CoreV2PresentationPolicyInput,
+  type CoreV2PresentationPolicyProductProbe,
+} from '../../src/core-v2/presentation-policy';
+import type { CoreV2SemanticTarget } from '../../src/core-v2/semantic/probe';
 
 describe('Core v2 executable Lab product bridge', () => {
   it.each(CORE_V2_EXECUTABLE_CASE_IDS.filter(
@@ -470,6 +478,10 @@ describe('Core v2 executable Lab product bridge', () => {
       'UPD-008': 'update-transactions',
       'UPD-009': 'update-transactions',
       'UPD-010': 'update-transactions',
+      'UPD-011': 'update-transactions',
+      'UPD-012': 'update-transactions',
+      'UPD-013': 'update-transactions',
+      'UPD-014': 'update-transactions',
       'ANI-001': 'presentation-dynamics',
       'ANI-002': 'presentation-dynamics',
       'CSM-001': 'foundation',
@@ -538,6 +550,8 @@ class FakeSurface implements CoreV2EngineSurface {
   private selectionIds: readonly string[] = Object.freeze([]);
   private dataset: readonly Readonly<Record<string, unknown>>[] = Object.freeze([]);
   private geometryRevision = 0;
+  private presentationInput: CoreV2PresentationPolicyInput | null = null;
+  private presentationRevision = 0;
   private view: CoreV2SurfaceView = Object.freeze({
     x: 0,
     y: 0,
@@ -588,6 +602,81 @@ class FakeSurface implements CoreV2EngineSurface {
 
   public select(ids: readonly string[]): void {
     this.selectionIds = Object.freeze([...ids]);
+  }
+
+  public setPresentationPolicy(
+    input: CoreV2PresentationPolicyInput,
+  ): CoreV2PresentationPolicyProductProbe {
+    this.presentationInput = Object.freeze({
+      highlightIds: input.highlightIds === null
+        ? null
+        : Object.freeze([...(input.highlightIds ?? [])]),
+      deEmphasisAlpha: input.deEmphasisAlpha ?? 0.2,
+      hiddenLayerIds: Object.freeze([...(input.hiddenLayerIds ?? [])]),
+    });
+    this.presentationRevision += 1;
+    return this.presentationPolicyProbe();
+  }
+
+  public clearPresentationPolicy(): CoreV2PresentationPolicyProductProbe {
+    if (this.presentationInput !== null) this.presentationRevision += 1;
+    this.presentationInput = null;
+    return this.presentationPolicyProbe();
+  }
+
+  public presentationPolicyProbe(): CoreV2PresentationPolicyProductProbe {
+    const highlightIds = this.presentationInput?.highlightIds ?? null;
+    const highlighted = new Set(highlightIds ?? []);
+    const hidden = new Set(this.presentationInput?.hiddenLayerIds ?? []);
+    const deEmphasisAlpha = this.presentationInput?.deEmphasisAlpha ?? 1;
+    return Object.freeze({
+      schemaRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
+      revision: this.presentationRevision,
+      status: this.presentationInput === null ? 'normal' : 'active',
+      highlightIds,
+      deEmphasisAlpha,
+      hiddenLayerIds: this.presentationInput?.hiddenLayerIds ?? Object.freeze([]),
+      entities: Object.freeze(['item-a', 'rect-b', 'text-c', 'links'].map((id) => {
+        const visible = !hidden.has(id);
+        return Object.freeze({
+          id,
+          denseEntityIds: Object.freeze([id]),
+          emphasis: highlightIds === null || highlighted.has(id) ? 1 : deEmphasisAlpha,
+          visible,
+          renderObjectCount: visible ? 1 : 0,
+        });
+      })),
+    });
+  }
+
+  public refreshSemanticTargets(
+    targets: readonly CoreV2SemanticTarget[],
+    options: Readonly<{ readonly strict?: boolean }> = {},
+  ): CoreV2SemanticRefreshResult {
+    const labels = targets.map((target) => (
+      target.kind === 'component' ? `${target.ownerId}/${target.id}` : target.id
+    ));
+    const missingTargets = labels.filter((label) => !['item-a/label', 'links'].includes(label));
+    if (options.strict === true && missingTargets.length > 0) {
+      return Object.freeze({
+        changed: false,
+        recomputedTargets: Object.freeze([]),
+        missingTargets: Object.freeze(missingTargets),
+        dirtyRanges: Object.freeze([]),
+        dataDiffCount: 0,
+      });
+    }
+    const recomputedTargets = labels.filter((label) => !missingTargets.includes(label));
+    const dirtyRanges: readonly SlotRange[] = recomputedTargets.length === 0
+      ? Object.freeze([])
+      : Object.freeze([{ start: 0, end: recomputedTargets.length }]);
+    return Object.freeze({
+      changed: recomputedTargets.length > 0,
+      recomputedTargets: Object.freeze(recomputedTargets),
+      missingTargets: Object.freeze(missingTargets),
+      dirtyRanges,
+      dataDiffCount: 0,
+    });
   }
 
   public hitTestScreen(point: CoreV2Point): string | null {
@@ -660,6 +749,7 @@ class FakeSurface implements CoreV2EngineSurface {
     this.canvasCount = 0;
     this.selectionIds = Object.freeze([]);
     this.dataset = Object.freeze([]);
+    this.presentationInput = null;
     return Promise.resolve(true);
   }
 

@@ -11,6 +11,10 @@ export const UPDATE_TRANSACTIONS_CASE_IDS = Object.freeze([
   'UPD-008',
   'UPD-009',
   'UPD-010',
+  'UPD-011',
+  'UPD-012',
+  'UPD-013',
+  'UPD-014',
 ]);
 
 export const UPDATE_TRANSACTIONS_ACTION_TYPES = Object.freeze([
@@ -37,6 +41,16 @@ export const UPDATE_TRANSACTIONS_ACTION_TYPES = Object.freeze([
   'setComponentVisibility',
   'setVisibility',
   'remove',
+  'startAsyncRevision',
+  'completeAsyncRevision',
+  'destroy',
+  'setHighlightPolicy',
+  'setLayerVisibility',
+  'clearPresentationPolicy',
+  'streamOverlay',
+  'snapshot',
+  'replaceExternalDependency',
+  'refresh',
 ]);
 
 const CASE_ACTIONS = Object.freeze({
@@ -79,11 +93,32 @@ const CASE_ACTIONS = Object.freeze({
     'setVisibility',
     'remove',
   ]),
+  'UPD-011': Object.freeze([
+    'startAsyncRevision',
+    'startAsyncRevision',
+    'startAsyncRevision',
+    'completeAsyncRevision',
+    'completeAsyncRevision',
+    'destroy',
+    'completeAsyncRevision',
+  ]),
+  'UPD-012': Object.freeze([
+    'setHighlightPolicy',
+    'setLayerVisibility',
+    'clearPresentationPolicy',
+  ]),
+  'UPD-013': Object.freeze(['streamOverlay', 'publishFrame']),
+  'UPD-014': Object.freeze([
+    'snapshot',
+    'replaceExternalDependency',
+    'refresh',
+    'publishFrame',
+  ]),
 });
 
 const BASELINE_PROFILE = 'mutation-transaction-matrix';
 
-/** Shared browser-safe product handlers for nine update transaction cases. */
+/** Shared browser-safe product handlers for thirteen update transaction cases. */
 export function createUpdateTransactionHandlerEntries(product) {
   const adapter = validateProductAdapter(product);
   const states = new WeakMap();
@@ -111,6 +146,16 @@ export function createUpdateTransactionHandlerEntries(product) {
     setComponentVisibility: withState(adapter, states, setComponentVisibilityAction),
     setVisibility: withState(adapter, states, setVisibilityAction),
     remove: withState(adapter, states, removeAction),
+    startAsyncRevision: withState(adapter, states, startAsyncRevisionAction),
+    completeAsyncRevision: withState(adapter, states, completeAsyncRevisionAction),
+    destroy: withState(adapter, states, destroyAsyncRevisionAction),
+    setHighlightPolicy: withState(adapter, states, setHighlightPolicyAction),
+    setLayerVisibility: withState(adapter, states, setLayerVisibilityAction),
+    clearPresentationPolicy: withState(adapter, states, clearPresentationPolicyAction),
+    streamOverlay: withState(adapter, states, streamOverlayAction),
+    snapshot: withState(adapter, states, snapshotAction),
+    replaceExternalDependency: withState(adapter, states, replaceExternalDependencyAction),
+    refresh: withState(adapter, states, refreshAction),
   });
   return Object.freeze(UPDATE_TRANSACTIONS_ACTION_TYPES.map((type) => Object.freeze([
     `contract/${type}`,
@@ -144,6 +189,18 @@ function withState(adapter, states, handler) {
         patches: new Map(),
         retainedTargets: new Map(),
         lastBulkEventRevision: null,
+        asyncRequests: new Map(),
+        asyncPublishedRevisions: [],
+        asyncPublishedRequestIds: [],
+        asyncTemporaryAllocated: 0,
+        asyncTemporaryReleased: 0,
+        asyncSupersededEventCount: 0,
+        asyncPostDestroyEventCount: 0,
+        asyncPostDestroyFrameCount: 0,
+        asyncEventCount: 0,
+        asyncFrameCount: 0,
+        asyncDestroyed: false,
+        asyncMonitorAttached: false,
       };
       states.set(context.ensureMainEngine, state);
     }
@@ -796,13 +853,31 @@ function bulkOverlayAction(adapter, state, context, action) {
 }
 
 async function publishFrameAction(adapter, state, context, action) {
-  assert(context.caseId === 'UPD-007', 'publishFrame case');
+  assert(
+    context.caseId === 'UPD-007' ||
+      context.caseId === 'UPD-013' ||
+      context.caseId === 'UPD-014',
+    'publishFrame case',
+  );
   const operands = exactOperands(action, ['timeMs']);
   const timeMs = finiteNumber(operands.timeMs, 'publishFrame.timeMs');
   await context.clock.advanceTo(timeMs);
   const engine = currentEngine(state, 'publishFrame');
   const before = observeProduct(adapter, context, engine);
-  callSync(engine, 'publishFrame', timeMs);
+  const overlayBefore = context.caseId === 'UPD-013'
+    ? clone(callSync(engine, 'liveOverlayProbe'))
+    : null;
+  const publicationEvents = [];
+  const removePublication = context.caseId === 'UPD-013'
+    ? callSync(engine, 'on', 'overlayPublished', (event) => {
+        publicationEvents.push(clone(event));
+      })
+    : () => undefined;
+  try {
+    callSync(engine, 'publishFrame', timeMs);
+  } finally {
+    removePublication();
+  }
   const product = observeProduct(adapter, context, engine);
   const frameRevision = product.snapshot.frameRevision;
   const captureSource = {
@@ -817,7 +892,14 @@ async function publishFrameAction(adapter, state, context, action) {
       product,
       result: { status: 'published', frameRevision },
       queryRevision: product.snapshot.revisions.sceneRevision,
-      eventRevision: state.lastBulkEventRevision,
+      eventRevision: context.caseId === 'UPD-007' ? state.lastBulkEventRevision : null,
+      ...(context.caseId === 'UPD-013'
+        ? {
+            overlayBefore,
+            overlay: clone(callSync(engine, 'liveOverlayProbe')),
+            publicationEvents,
+          }
+        : {}),
     },
     captureSource,
   };
@@ -1004,6 +1086,348 @@ async function removeAction(adapter, state, context, action) {
   };
 }
 
+async function startAsyncRevisionAction(adapter, state, context, action) {
+  assert(context.caseId === 'UPD-011', 'startAsyncRevision case');
+  const operands = exactOperands(action, ['requestId', 'revision', 'timeMs']);
+  const requestId = stringValue(operands.requestId, 'startAsyncRevision.requestId');
+  const revision = positiveInteger(operands.revision, 'startAsyncRevision.revision');
+  const timeMs = finiteNumber(operands.timeMs, 'startAsyncRevision.timeMs');
+  assert(!state.asyncRequests.has(requestId), 'async request identity must be unique');
+  await context.clock.advanceTo(timeMs);
+  const engine = await ensureInitializedEngine(state, context);
+  attachAsyncMonitor(state, engine);
+  const source = await resolveBaselineDataset(context);
+  const before = observeProduct(adapter, context, engine);
+  const inputFingerprint = context.fingerprint(source.dataset);
+  const deferred = createDeferred();
+  let released = false;
+  state.asyncTemporaryAllocated += 1;
+  const resultPromise = callSync(engine, 'submitDataset', {
+    requestId,
+    sourceRevision: revision,
+    datasetRef: source.datasetRef,
+    input: deferred.promise,
+    release(result) {
+      assert(!released, `async request ${requestId} released once`);
+      released = true;
+      state.asyncTemporaryReleased += 1;
+      assert(result.requestId === requestId, `async request ${requestId} release identity`);
+    },
+  });
+  resultPromise.catch(() => undefined);
+  state.asyncRequests.set(requestId, {
+    requestId,
+    revision,
+    source,
+    inputFingerprint,
+    deferred,
+    resultPromise,
+  });
+  return {
+    actual: {
+      requestId,
+      revision,
+      timeMs,
+      input: fingerprintValue(context, action.operands),
+      before,
+      product: observeProduct(adapter, context, engine),
+      result: { status: 'started', requestId, revision },
+      temporary: asyncTemporaryFacts(state),
+    },
+  };
+}
+
+async function completeAsyncRevisionAction(adapter, state, context, action) {
+  assert(context.caseId === 'UPD-011', 'completeAsyncRevision case');
+  const operands = exactOperands(action, ['requestId', 'timeMs']);
+  const requestId = stringValue(operands.requestId, 'completeAsyncRevision.requestId');
+  const timeMs = finiteNumber(operands.timeMs, 'completeAsyncRevision.timeMs');
+  const request = state.asyncRequests.get(requestId);
+  assert(request !== undefined, `async request ${requestId} exists`);
+  await context.clock.advanceTo(timeMs);
+  const engine = currentEngine(state, 'completeAsyncRevision');
+  const eventCountBefore = state.asyncEventCount;
+  const frameCountBefore = state.asyncFrameCount;
+  request.deferred.resolve(request.source.dataset);
+  const result = await request.resultPromise;
+  const eventDelta = state.asyncEventCount - eventCountBefore;
+  const frameDelta = state.asyncFrameCount - frameCountBefore;
+  if (result.status === 'superseded') {
+    state.asyncSupersededEventCount += eventDelta + frameDelta;
+  }
+  state.asyncRequests.delete(requestId);
+  const inputAfter = context.fingerprint(request.source.dataset);
+  return {
+    actual: {
+      requestId,
+      revision: request.revision,
+      timeMs,
+      input: inputObservation(request.inputFingerprint, inputAfter),
+      product: observeProduct(adapter, context, engine),
+      result: clone(result),
+      publicationEventDelta: eventDelta,
+      frameDelta,
+      published: {
+        revisions: clone(state.asyncPublishedRevisions),
+        requestIds: clone(state.asyncPublishedRequestIds),
+      },
+      supersededEventCount: state.asyncSupersededEventCount,
+      postDestroy: {
+        events: state.asyncPostDestroyEventCount,
+        frames: state.asyncPostDestroyFrameCount,
+      },
+      temporary: asyncTemporaryFacts(state),
+    },
+  };
+}
+
+async function destroyAsyncRevisionAction(adapter, state, context, action) {
+  assert(context.caseId === 'UPD-011', 'destroy async case');
+  const operands = exactOperands(action, ['timeMs']);
+  const timeMs = finiteNumber(operands.timeMs, 'destroy.timeMs');
+  await context.clock.advanceTo(timeMs);
+  const engine = currentEngine(state, 'destroy');
+  const before = observeProduct(adapter, context, engine);
+  const returned = await call(engine, 'destroy');
+  state.asyncDestroyed = true;
+  return {
+    actual: {
+      timeMs,
+      input: fingerprintValue(context, action.operands),
+      before,
+      product: observeProduct(adapter, context, engine),
+      result: { status: 'destroyed', returned },
+      temporary: asyncTemporaryFacts(state),
+    },
+  };
+}
+
+async function setHighlightPolicyAction(adapter, state, context, action) {
+  assert(context.caseId === 'UPD-012', 'setHighlightPolicy case');
+  const operands = exactOperands(action, ['deEmphasisAlpha', 'ids']);
+  const ids = stringArray(operands.ids, 'setHighlightPolicy.ids');
+  const deEmphasisAlpha = finiteNumber(
+    operands.deEmphasisAlpha,
+    'setHighlightPolicy.deEmphasisAlpha',
+  );
+  assert(deEmphasisAlpha >= 0 && deEmphasisAlpha <= 1, 'de-emphasis alpha range');
+  const engine = await ensureBaseline(adapter, state, context);
+  const persisted = persistedDatasetParts(callSync(engine, 'exportDataset'));
+  const before = observeProduct(adapter, context, engine);
+  const result = callSync(engine, 'setPresentationPolicy', {
+    highlightIds: ids,
+    deEmphasisAlpha,
+  });
+  return {
+    actual: {
+      ids,
+      deEmphasisAlpha,
+      input: fingerprintValue(context, action.operands),
+      before,
+      product: observeProduct(adapter, context, engine),
+      result: clone(result),
+      presentation: clone(callSync(engine, 'presentationPolicyProbe')),
+    },
+    beforeCaptureSource: { persisted },
+  };
+}
+
+async function setLayerVisibilityAction(adapter, state, context, action) {
+  assert(context.caseId === 'UPD-012', 'setLayerVisibility case');
+  const operands = exactOperands(action, ['id', 'show']);
+  const id = stringValue(operands.id, 'setLayerVisibility.id');
+  const show = booleanValue(operands.show, 'setLayerVisibility.show');
+  const engine = await ensureBaseline(adapter, state, context);
+  const before = observeProduct(adapter, context, engine);
+  const current = callSync(engine, 'presentationPolicyProbe');
+  const hiddenLayerIds = new Set(current.hiddenLayerIds);
+  if (show) hiddenLayerIds.delete(id);
+  else hiddenLayerIds.add(id);
+  const result = callSync(engine, 'setPresentationPolicy', {
+    highlightIds: current.highlightIds,
+    deEmphasisAlpha: current.deEmphasisAlpha,
+    hiddenLayerIds: [...hiddenLayerIds].sort(),
+  });
+  callSync(engine, 'publishFrame', context.clock.now());
+  return {
+    actual: {
+      id,
+      show,
+      input: fingerprintValue(context, action.operands),
+      before,
+      product: observeProduct(adapter, context, engine),
+      result: clone(result),
+      presentation: clone(callSync(engine, 'presentationPolicyProbe')),
+    },
+  };
+}
+
+async function clearPresentationPolicyAction(adapter, state, context, action) {
+  assert(context.caseId === 'UPD-012', 'clearPresentationPolicy case');
+  exactOperands(action, []);
+  const engine = await ensureBaseline(adapter, state, context);
+  const before = observeProduct(adapter, context, engine);
+  const result = callSync(engine, 'clearPresentationPolicy');
+  callSync(engine, 'publishFrame', context.clock.now());
+  const persisted = persistedDatasetParts(callSync(engine, 'exportDataset'));
+  return {
+    actual: {
+      input: fingerprintValue(context, action.operands),
+      before,
+      product: observeProduct(adapter, context, engine),
+      result: clone(result),
+      presentation: clone(callSync(engine, 'presentationPolicyProbe')),
+      persisted,
+    },
+  };
+}
+
+async function streamOverlayAction(adapter, state, context, action) {
+  assert(context.caseId === 'UPD-013', 'streamOverlay case');
+  const operands = exactOperands(action, ['count', 'revisionStart', 'seed', 'stepMs']);
+  const revisionStart = positiveInteger(operands.revisionStart, 'streamOverlay.revisionStart');
+  const count = positiveInteger(operands.count, 'streamOverlay.count');
+  const stepMs = finiteNumber(operands.stepMs, 'streamOverlay.stepMs');
+  const seed = nonNegativeInteger(operands.seed, 'streamOverlay.seed');
+  assert(stepMs > 0, 'streamOverlay step');
+  const params = recordValue(context.fixtureParams, 'streamOverlay fixture params');
+  const startMs = finiteNumber(params.startMs, 'streamOverlay fixture startMs');
+  const fields = stringArray(params.fields, 'streamOverlay fixture fields');
+  assert(
+    fields.join(',') === 'text,bar,tint,icon,show,size,padding',
+    'streamOverlay declared field profile',
+  );
+  const engine = await ensureBaseline(adapter, state, context);
+  const before = observeProduct(adapter, context, engine);
+  const acceptedEvents = [];
+  const removeAccepted = callSync(engine, 'on', 'overlayAccepted', (event) => {
+    acceptedEvents.push(clone(event));
+  });
+  const results = [];
+  try {
+    for (let offset = 0; offset < count; offset += 1) {
+      const sourceRevision = revisionStart + offset;
+      await context.clock.advanceTo(startMs + stepMs * offset);
+      const result = callSync(engine, 'applyLiveOverlay', {
+        sourceRevision,
+        payloadHash: `overlay-${seed}-${sourceRevision}`,
+        transaction: {
+          strict: true,
+          recordHistory: false,
+          actionId: `UPD-013:${sourceRevision}`,
+          operations: liveOverlayOperations(sourceRevision, seed),
+        },
+      });
+      assert(result.status === 'accepted', `overlay revision ${sourceRevision} accepted`);
+      results.push(clone(result));
+    }
+  } finally {
+    removeAccepted();
+  }
+  const overlay = callSync(engine, 'liveOverlayProbe');
+  return {
+    actual: {
+      revisionStart,
+      count,
+      stepMs,
+      seed,
+      input: fingerprintValue(context, action.operands),
+      before,
+      product: observeProduct(adapter, context, engine),
+      result: { status: 'streamed', count },
+      results,
+      acceptedEvents,
+      overlay: clone(overlay),
+    },
+  };
+}
+
+async function snapshotAction(adapter, state, context, action) {
+  assert(context.caseId === 'UPD-014', 'snapshot case');
+  const operands = exactOperands(action, ['paths']);
+  const paths = stringArray(operands.paths, 'snapshot.paths');
+  const engine = await ensureBaseline(adapter, state, context);
+  const product = observeProduct(adapter, context, engine);
+  const snapshot = {
+    scene: clone(product.dataset),
+    selection: clone(product.snapshot.selectionIds),
+    history: clone(product.history),
+    ids: stableDatasetIds(callSync(engine, 'exportDataset')),
+  };
+  return {
+    actual: {
+      paths,
+      input: fingerprintValue(context, action.operands),
+      product,
+      result: { status: 'snapshotted' },
+      snapshot: clone(snapshot),
+    },
+    captureSource: snapshot,
+  };
+}
+
+async function replaceExternalDependencyAction(adapter, state, context, action) {
+  assert(context.caseId === 'UPD-014', 'replaceExternalDependency case');
+  const operands = exactOperands(action, ['dependencyId', 'revision']);
+  const dependencyId = stringValue(
+    operands.dependencyId,
+    'replaceExternalDependency.dependencyId',
+  );
+  const revision = stringValue(operands.revision, 'replaceExternalDependency.revision');
+  const engine = await ensureBaseline(adapter, state, context);
+  const before = observeProduct(adapter, context, engine);
+  const result = callSync(engine, 'replaceExternalDependency', dependencyId, revision);
+  return {
+    actual: {
+      dependencyId,
+      revision,
+      input: fingerprintValue(context, action.operands),
+      before,
+      product: observeProduct(adapter, context, engine),
+      result: clone(result),
+      dependencies: clone(callSync(engine, 'externalDependencyProbe')),
+    },
+  };
+}
+
+async function refreshAction(adapter, state, context, action) {
+  assert(context.caseId === 'UPD-014', 'refresh case');
+  const operands = exactOperands(action, ['recordHistory', 'targets']);
+  const recordHistory = booleanValue(operands.recordHistory, 'refresh.recordHistory');
+  const targets = refreshTargets(operands.targets);
+  const engine = await ensureBaseline(adapter, state, context);
+  const before = observeProduct(adapter, context, engine);
+  const events = [];
+  const remove = callSync(engine, 'on', 'semanticRefreshed', (event) => {
+    events.push(clone(event));
+  });
+  let result;
+  try {
+    result = callSync(engine, 'refreshSemantic', {
+      targets,
+      recordHistory,
+      strict: true,
+    });
+  } finally {
+    remove();
+  }
+  return {
+    actual: {
+      targets: clone(targets),
+      recordHistory,
+      input: fingerprintValue(context, action.operands),
+      before,
+      product: observeProduct(adapter, context, engine),
+      result: clone(result),
+      refreshEvents: events,
+      ids: stableDatasetIds(callSync(engine, 'exportDataset')),
+    },
+    captureSource: {
+      revision: result.revisions.sceneRevision,
+    },
+  };
+}
+
 async function ensureBaseline(adapter, state, context) {
   const engine = await ensureInitializedEngine(state, context);
   if (!state.baselineLoaded) {
@@ -1052,23 +1476,28 @@ function currentEngine(state, operation) {
 }
 
 function observeProduct(adapter, context, engine) {
+  const directSnapshot = clone(callSync(engine, 'snapshot'));
   const resources = clone(adapter.resourceProbe({ caseId: context.caseId, engine }));
   const resourceEngine = isRecord(resources.engine) ? resources.engine : null;
   const snapshot = isRecord(resourceEngine?.snapshot)
     ? clone(resourceEngine.snapshot)
-    : clone(callSync(engine, 'snapshot'));
-  const dataset = callSync(engine, 'exportDataset');
+    : directSnapshot;
   const semantic = isRecord(resourceEngine?.semantic)
     ? clone(resourceEngine.semantic)
     : clone(callSync(engine, 'semanticProbe'));
-  const geometry = clone(callSync(engine, 'geometryProbe'));
-  const relations = clone(callSync(engine, 'relationProbe'));
-  const sceneImages = clone(callSync(engine, 'sceneImageProbe'));
-  const interactionOwnership = resourceEngine !== null &&
-    Object.hasOwn(resourceEngine, 'interactionOwnership')
-    ? clone(resourceEngine.interactionOwnership)
-    : clone(callSync(engine, 'interactionOwnershipProbe'));
-  const history = clone(callSync(engine, 'historyState'));
+  const destroyed = snapshot.lifecycle === 'destroyed' || snapshot.lifecycle === 'destroying';
+  const dataset = destroyed ? Object.freeze([]) : callSync(engine, 'exportDataset');
+  const geometry = destroyed ? null : clone(callSync(engine, 'geometryProbe'));
+  const relations = destroyed ? null : clone(callSync(engine, 'relationProbe'));
+  const sceneImages = destroyed ? null : clone(callSync(engine, 'sceneImageProbe'));
+  const interactionOwnership = destroyed
+    ? null
+    : resourceEngine !== null && Object.hasOwn(resourceEngine, 'interactionOwnership')
+      ? clone(resourceEngine.interactionOwnership)
+      : clone(callSync(engine, 'interactionOwnershipProbe'));
+  const history = destroyed
+    ? { undoDepth: snapshot.historyDepth, redoDepth: 0, capacity: 0 }
+    : clone(callSync(engine, 'historyState'));
   const product = deepFreeze({
     snapshot,
     semantic,
@@ -1939,6 +2368,173 @@ function sceneAuthority(product) {
 
 function sceneRevision(product) {
   return nonNegativeInteger(product.snapshot.revisions.sceneRevision, 'scene revision');
+}
+
+function attachAsyncMonitor(state, engine) {
+  if (state.asyncMonitorAttached) return;
+  state.asyncMonitorAttached = true;
+  callSync(engine, 'on', 'sceneCommitted', () => {
+    state.asyncEventCount += 1;
+    if (state.asyncDestroyed) state.asyncPostDestroyEventCount += 1;
+  });
+  callSync(engine, 'on', 'drawComplete', (event) => {
+    state.asyncEventCount += 1;
+    if (state.asyncDestroyed) {
+      state.asyncPostDestroyEventCount += 1;
+      return;
+    }
+    state.asyncPublishedRevisions.push(
+      positiveInteger(event.sourceRevision, 'drawComplete source revision'),
+    );
+    state.asyncPublishedRequestIds.push(
+      stringValue(event.requestId, 'drawComplete request ID'),
+    );
+  });
+  callSync(engine, 'on', 'frame', () => {
+    state.asyncFrameCount += 1;
+    if (state.asyncDestroyed) state.asyncPostDestroyFrameCount += 1;
+  });
+}
+
+async function resolveBaselineDataset(context) {
+  const profiles = recordValue(context.fixtureProfiles, 'fixture profiles');
+  const profile = profiles[BASELINE_PROFILE];
+  const datasetRef = isRecord(profile)
+    ? stringValue(profile.datasetRef, `${BASELINE_PROFILE}.datasetRef`)
+    : 'all-kinds-scene';
+  return {
+    datasetRef,
+    dataset: await context.resolveDataset(datasetRef),
+  };
+}
+
+function createDeferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function asyncTemporaryFacts(state) {
+  return {
+    allocated: state.asyncTemporaryAllocated,
+    released: state.asyncTemporaryReleased,
+    unreleased: Math.max(
+      0,
+      state.asyncTemporaryAllocated - state.asyncTemporaryReleased,
+    ),
+  };
+}
+
+function persistedDatasetParts(datasetValue) {
+  assert(Array.isArray(datasetValue), 'persisted dataset array');
+  const elements = [];
+  const links = [];
+  for (const record of datasetValue) {
+    if (record?.type === 'relations') links.push(clone(record));
+    else elements.push(clone(record));
+  }
+  return deepFreeze({ elements, links });
+}
+
+function stableDatasetIds(datasetValue) {
+  assert(Array.isArray(datasetValue), 'stable ID dataset array');
+  const ids = [];
+  const visit = (elements) => {
+    for (const element of elements) {
+      const record = recordValue(element, 'stable ID element');
+      const id = stringValue(record.id, 'stable ID element identity');
+      ids.push(id);
+      if (record.type === 'item') {
+        appendComponentIds(ids, id, record.components);
+      } else if (record.type === 'grid') {
+        const item = recordValue(record.item, 'stable ID grid item');
+        appendComponentIds(ids, id, item.components);
+      } else if (record.type === 'group') {
+        assert(Array.isArray(record.children), 'stable ID group children');
+        visit(record.children);
+      }
+    }
+  };
+  visit(datasetValue);
+  return Object.freeze(ids.sort());
+}
+
+function appendComponentIds(ids, ownerId, componentsValue) {
+  assert(Array.isArray(componentsValue), 'stable ID components');
+  for (const component of componentsValue) {
+    const record = recordValue(component, 'stable ID component');
+    ids.push(`${ownerId}/${stringValue(record.id, 'stable component ID')}`);
+  }
+}
+
+function liveOverlayOperations(sourceRevision, seed) {
+  const variant = (sourceRevision + seed) >>> 0;
+  return [
+    {
+      op: 'merge',
+      target: elementTarget('item-a'),
+      changes: [
+        { path: ['size', 'width'], value: 100 + sourceRevision },
+        { path: ['size', 'height'], value: 80 + sourceRevision % 7 },
+        { path: ['padding'], value: 2 + sourceRevision % 5 },
+      ],
+    },
+    {
+      op: 'merge',
+      target: elementTarget('rect-b'),
+      changes: [{ path: ['show'], value: sourceRevision % 2 === 1 }],
+    },
+    {
+      op: 'merge',
+      target: componentTarget('item-a', 'bar'),
+      changes: [
+        { path: ['size', 'height'], value: 8 + sourceRevision % 31 },
+        {
+          path: ['tint'],
+          value: variant % 2 === 0 ? '#22aa66ff' : '#ee8844ff',
+        },
+      ],
+    },
+    {
+      op: 'merge',
+      target: componentTarget('item-a', 'label'),
+      changes: [
+        { path: ['text'], value: `Overlay ${seed}:${sourceRevision}` },
+        {
+          path: ['tint'],
+          value: variant % 2 === 0 ? '#113355ff' : '#552211ff',
+        },
+      ],
+    },
+    {
+      op: 'merge',
+      target: componentTarget('item-a', 'icon'),
+      changes: [
+        { path: ['source'], value: variant % 2 === 0 ? 'warning' : 'wifi' },
+        {
+          path: ['tint'],
+          value: variant % 2 === 0 ? '#ef4444ff' : '#2563ebff',
+        },
+      ],
+    },
+  ];
+}
+
+function refreshTargets(value) {
+  assert(Array.isArray(value), 'refresh targets array');
+  return value.map((entry, index) => {
+    if (typeof entry === 'string') return elementTarget(stringValue(entry, `refresh target ${index}`));
+    const record = recordValue(entry, `refresh target ${index}`);
+    assertExactKeys(record, ['id', 'ownerId'], `refresh target ${index}`);
+    return componentTarget(
+      stringValue(record.ownerId, `refresh target ${index} ownerId`),
+      stringValue(record.id, `refresh target ${index} id`),
+    );
+  });
 }
 
 function bulkOverlayOperations(targetIds, fields, actionIndex) {
