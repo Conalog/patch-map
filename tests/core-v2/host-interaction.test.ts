@@ -6,6 +6,7 @@ import {
   type CoreV2EngineSurface,
   type CoreV2Point,
   type CoreV2SurfaceDebug,
+  type CoreV2SurfaceGeometrySnapshot,
   type CoreV2SurfaceView,
 } from '../../src/core-v2';
 
@@ -90,9 +91,7 @@ describe('Core v2 host interaction substrate', () => {
   it('propagates through the logical path and isolates host-owned keyboard targets', async () => {
     const { engine } = await createEngine('host-propagation');
     engine.loadDataset(HOST_DATASET);
-    const target = { kind: 'component', ownerId: 'item-a', id: 'label' } as const;
-
-    expect(engine.dispatchLogicalPropagation(target)).toEqual({
+    expect(engine.dispatchLogicalPropagationAtScreen({ x: 60, y: 60 })).toEqual({
       phases: [
         'capture:surface',
         'capture:item-a',
@@ -112,7 +111,7 @@ describe('Core v2 host interaction substrate', () => {
       targetListenerCount: 2,
       sceneRevision: 1,
     });
-    expect(engine.dispatchLogicalPropagation(target, {
+    expect(engine.dispatchLogicalPropagationAtScreen({ x: 60, y: 60 }, {
       phase: 'target',
       mode: 'stop',
     })?.phases).toEqual([
@@ -120,7 +119,7 @@ describe('Core v2 host interaction substrate', () => {
       'capture:item-a',
       'target:component:item-a/label',
     ]);
-    expect(engine.dispatchLogicalPropagation(target, {
+    expect(engine.dispatchLogicalPropagationAtScreen({ x: 60, y: 60 }, {
       phase: 'target',
       mode: 'immediate-stop',
     })?.targetListenerCount).toBe(1);
@@ -407,6 +406,20 @@ class HostInteractionSurface implements CoreV2EngineSurface {
     return Object.freeze({ ...point });
   }
 
+  public geometrySnapshot(): CoreV2SurfaceGeometrySnapshot {
+    return Object.freeze({
+      revision: 1,
+      entities: Object.freeze([
+        geometry('item-a', [10, 20, 100, 80]),
+        geometry('item-a::text:label', [20, 30, 60, 40], 'item-a', 'label'),
+        geometry('rect-b', [160, 40, 40, 30]),
+        geometry('text-c', [40, 140, 80, 20]),
+      ]),
+      relations: Object.freeze([]),
+      selectionOverlay: null,
+    });
+  }
+
   public debugSnapshot(): CoreV2SurfaceDebug {
     return Object.freeze({
       cssSize: Object.freeze([800, 600] as const),
@@ -421,4 +434,22 @@ class HostInteractionSurface implements CoreV2EngineSurface {
     this.destroyed = true;
     return Promise.resolve(true);
   }
+}
+
+function geometry(
+  id: string,
+  screenBounds: readonly [number, number, number, number],
+  ownerItemId?: string,
+  componentId?: string,
+) {
+  return {
+    id,
+    kind: 'rect',
+    worldBounds: screenBounds,
+    screenBounds,
+    visible: true,
+    interactive: true,
+    ...(ownerItemId === undefined ? {} : { ownerItemId }),
+    ...(componentId === undefined ? {} : { componentId }),
+  };
 }

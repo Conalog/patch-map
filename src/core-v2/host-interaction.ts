@@ -599,7 +599,9 @@ export function createCoreV2LogicalPropagationTrace(
   const mode = options.mode ?? 'none';
   const stopPhase = options.phase ?? 'target';
   const targetName = logicalTargetName(target.key);
-  const ancestorNames = [...target.ancestorKeys].reverse().map(logicalTargetName);
+  const ancestorNames = target.kind === 'component' && target.ownerId !== null
+    ? [logicalTargetName(`element:${target.ownerId}`)]
+    : [];
   const composedPath = Object.freeze([targetName, ...ancestorNames, 'surface']);
   const captureNames = Object.freeze(['surface', ...[...ancestorNames].reverse()]);
   const phases: string[] = [];

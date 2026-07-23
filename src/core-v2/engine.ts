@@ -3144,6 +3144,22 @@ export class CoreV2Engine {
       : createCoreV2LogicalPropagationTrace(target, this.sceneRevision, options);
   }
 
+  public dispatchLogicalPropagationAtScreen(
+    point: CoreV2Point,
+    options: CoreV2LogicalPropagationOptions = {},
+  ): CoreV2LogicalPropagationTrace | null {
+    const hit = this.selectionHitTestScreen(point, {
+      predicate: () => true,
+    });
+    return hit.target === null
+      ? null
+      : createCoreV2LogicalPropagationTrace(
+          hit.target,
+          this.sceneRevision,
+          options,
+        );
+  }
+
   public ownsKeyboardInput(pathKind: string): boolean {
     this.requireSurface('ownsKeyboardInput');
     return coreV2OwnsKeyboardInput(pathKind);
