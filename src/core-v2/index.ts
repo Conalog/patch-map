@@ -42,6 +42,13 @@ export {
   coreV2SelectionClickType,
 } from './query-selection';
 export type * from './query-selection';
+export {
+  CORE_V2_POINTER_GESTURE_REVISION,
+  CoreV2PointerGestureAuthority,
+  hitCoreV2BoxRegion,
+  hitCoreV2PaintRegion,
+} from './pointer-gesture';
+export type * from './pointer-gesture';
 export type * from './semantic/paint-order';
 export { CoreV2Engine, CoreV2EngineError } from './engine';
 export type * from './engine';

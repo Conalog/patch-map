@@ -188,12 +188,25 @@ export interface AggregateLayer {
   destroy(): void;
 }
 
+export interface RootPointerInput {
+  readonly type: 'down' | 'move' | 'up' | 'up-outside' | 'cancel' | 'leave';
+  readonly screenX: number;
+  readonly screenY: number;
+  readonly pointerId: number;
+  readonly pointerType: string;
+  readonly button: number;
+  readonly buttons: number;
+  readonly timeMs: number;
+  readonly shiftKey: boolean;
+  readonly ctrlKey: boolean;
+  readonly altKey: boolean;
+  readonly metaKey: boolean;
+}
+
 export interface RootInteractionHandlers {
-  readonly pointerDown: (screenX: number, screenY: number, pointerId: number, button: number) => void;
-  readonly pointerMove: (screenX: number, screenY: number, pointerId: number, buttons: number) => void;
-  readonly pointerUp: (screenX: number, screenY: number, pointerId: number) => void;
-  readonly pointerCancel: (pointerId: number) => void;
+  readonly pointer: (input: RootPointerInput) => void;
   readonly wheel: (screenX: number, screenY: number, deltaY: number) => void;
+  readonly contextMenu: (screenX: number, screenY: number) => boolean;
 }
 
 export interface PixiCoreV2RendererDebug {

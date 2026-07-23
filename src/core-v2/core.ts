@@ -75,6 +75,7 @@ import type {
   CoreV2TextSemanticSignatures,
   CoreV2WorldOrientation,
   PixiCoreV2RendererDebug,
+  RootPointerInput,
 } from './renderers/types';
 import {
   CoreV2EntityHitIndex,
@@ -111,6 +112,8 @@ export interface CoreV2Options extends PixiCoreV2RendererOptions, CoreSceneOptio
   readonly parse?: ParsePatchMapOptions;
   /** Schedule one invalidation frame after mutations. Defaults to true. */
   readonly autoRender?: boolean;
+  /** Defer semantic selection to an Engine-owned click authority. */
+  readonly rootSelectionMode?: 'immediate' | 'deferred';
 }
 
 export type CoreV2RootViewportChangeSource =
@@ -122,6 +125,8 @@ export interface CoreV2RootViewportChange {
   readonly source: CoreV2RootViewportChangeSource;
   readonly view: CoreView;
 }
+
+export type CoreV2RootPointerInput = RootPointerInput;
 
 export interface CoreV2SemanticRefreshResult {
   readonly changed: boolean;
@@ -402,6 +407,7 @@ export class CoreV2 {
   private readonly presentationProjection = new CoreV2PresentationProjectionStore();
   private readonly parseOptions: ParsePatchMapOptions;
   private readonly autoRender: boolean;
+  private readonly rootSelectionMode: 'immediate' | 'deferred';
   private readonly unbindInteractions: () => void;
   private logicalPresentationPolicy: CoreV2LogicalPresentationPolicy | null = null;
   private presentationPolicyRevision = 0;
@@ -427,6 +433,9 @@ export class CoreV2 {
   private readonly rootViewportListeners = new Set<
     (change: CoreV2RootViewportChange) => void
   >();
+  private readonly rootPointerListeners = new Set<
+    (input: CoreV2RootPointerInput) => void
+  >();
   private pointerSequence = 0;
   private entityCountValue = 0;
   private destroyedValue = false;
@@ -447,6 +456,7 @@ export class CoreV2 {
     this.initializationMetrics = renderer.initializationMetrics;
     this.parseOptions = options.parse ?? {};
     this.autoRender = options.autoRender ?? true;
+    this.rootSelectionMode = options.rootSelectionMode ?? 'immediate';
     this.sceneOptions = Object.freeze({
       ...(options.initialCapacity === undefined ? {} : { initialCapacity: options.initialCapacity }),
       ...(options.historyLimit === undefined ? {} : { historyLimit: options.historyLimit }),
@@ -462,10 +472,16 @@ export class CoreV2 {
       onIntrinsicSize: (resolution) => this.queueIntrinsicImageSize(resolution),
     });
     this.unbindInteractions = renderer.bindRootInteractions({
-      pointerDown: (x, y, pointerId, button) => this.onPointerDown(x, y, pointerId, button),
-      pointerMove: (x, y, pointerId) => this.onPointerMove(x, y, pointerId),
-      pointerUp: (_x, _y, pointerId) => this.onPointerUp(pointerId),
-      pointerCancel: (pointerId) => this.onPointerUp(pointerId),
+      pointer: (input) => {
+        this.publishRootPointerInput(input);
+        if (input.type === 'down') {
+          this.onPointerDown(input.screenX, input.screenY, input.pointerId, input.button);
+        } else if (input.type === 'move') {
+          this.onPointerMove(input.screenX, input.screenY, input.pointerId);
+        } else {
+          this.onPointerUp(input.pointerId);
+        }
+      },
       wheel: (x, y, deltaY) => {
         if (this.viewportPolicies.has('wheel')) {
           const before = this.currentView;
@@ -480,6 +496,10 @@ export class CoreV2 {
           this.publishRootViewportChange('wheel', before);
         }
       },
+      contextMenu: (x, y) => this.hitTestScreen(
+        { x, y },
+        { interactiveOnly: true },
+      ) !== null,
     });
   }
 
@@ -1477,6 +1497,7 @@ export class CoreV2 {
 
   public interactionOwnershipProbe(): Readonly<{
     readonly rootBindingCount: number;
+    readonly rootListenerCount?: number;
     readonly entityCallbackCount: number;
   }> {
     this.assertAlive();
@@ -1534,6 +1555,19 @@ export class CoreV2 {
     };
   }
 
+  public bindRootPointerInputs(
+    listener: (input: CoreV2RootPointerInput) => void,
+  ): () => void {
+    this.assertAlive();
+    if (typeof listener !== 'function') {
+      throw new TypeError('root pointer input listener must be a function');
+    }
+    this.rootPointerListeners.add(listener);
+    return () => {
+      this.rootPointerListeners.delete(listener);
+    };
+  }
+
   public cancelViewportGestures(): void {
     this.assertAlive();
     this.pan = null;
@@ -1546,6 +1580,7 @@ export class CoreV2 {
     this.pan = null;
     this.viewportPolicies.clear();
     this.rootViewportListeners.clear();
+    this.rootPointerListeners.clear();
     this.scheduler.destroy();
     this.unbindInteractions();
     this.entityHitIndexValue = null;
@@ -2071,7 +2106,9 @@ export class CoreV2 {
 
   private onPointerDown(x: number, y: number, pointerId: number, button: number): void {
     if (this.destroyedValue) return;
-    if (button === 0) this.selectAtScreen({ x, y });
+    if (button === 0 && this.rootSelectionMode === 'immediate') {
+      this.selectAtScreen({ x, y });
+    }
     if (
       this.viewportPolicies.has('pan') &&
       (button === 0 || button === 1)
@@ -2128,6 +2165,11 @@ export class CoreV2 {
     }
     const change = Object.freeze({ source, view } satisfies CoreV2RootViewportChange);
     for (const listener of [...this.rootViewportListeners]) listener(change);
+  }
+
+  private publishRootPointerInput(input: CoreV2RootPointerInput): void {
+    if (this.destroyedValue) return;
+    for (const listener of [...this.rootPointerListeners]) listener(input);
   }
 }
 

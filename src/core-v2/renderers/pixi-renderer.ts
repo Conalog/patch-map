@@ -48,6 +48,7 @@ import type {
   CoreV2TextRendererProbe,
   PixiCoreV2RendererDebug,
   RootInteractionHandlers,
+  RootPointerInput,
 } from './types';
 import {
   createCoreV2WorldAffine,
@@ -779,17 +780,56 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.assertAlive();
     this.interactionUnbind?.();
     const stage = this.application.stage;
+    const pointerInput = (
+      type: RootPointerInput['type'],
+      event: FederatedPointerEvent,
+    ): RootPointerInput => Object.freeze({
+      type,
+      screenX: event.global.x,
+      screenY: event.global.y,
+      pointerId: event.pointerId,
+      pointerType: event.pointerType,
+      button: event.button,
+      buttons: event.buttons,
+      timeMs: event.timeStamp,
+      shiftKey: event.shiftKey,
+      ctrlKey: event.ctrlKey,
+      altKey: event.altKey,
+      metaKey: event.metaKey,
+    });
     const pointerDown = (event: FederatedPointerEvent): void => {
-      handlers.pointerDown(event.global.x, event.global.y, event.pointerId, event.button);
+      handlers.pointer(pointerInput('down', event));
     };
     const pointerMove = (event: FederatedPointerEvent): void => {
-      handlers.pointerMove(event.global.x, event.global.y, event.pointerId, event.buttons);
+      handlers.pointer(pointerInput('move', event));
     };
     const pointerUp = (event: FederatedPointerEvent): void => {
-      handlers.pointerUp(event.global.x, event.global.y, event.pointerId);
+      handlers.pointer(pointerInput('up', event));
+    };
+    const pointerUpOutside = (event: FederatedPointerEvent): void => {
+      handlers.pointer(pointerInput('up-outside', event));
     };
     const pointerCancel = (event: FederatedPointerEvent): void => {
-      handlers.pointerCancel(event.pointerId);
+      handlers.pointer(pointerInput('cancel', event));
+    };
+    const pointerLeave = (event: PointerEvent): void => {
+      const bounds = this.canvas.getBoundingClientRect();
+      const scaleX = bounds.width > 0 ? this.widthValue / bounds.width : 1;
+      const scaleY = bounds.height > 0 ? this.heightValue / bounds.height : 1;
+      handlers.pointer(Object.freeze({
+        type: 'leave',
+        screenX: (event.clientX - bounds.left) * scaleX,
+        screenY: (event.clientY - bounds.top) * scaleY,
+        pointerId: event.pointerId,
+        pointerType: event.pointerType,
+        button: event.button,
+        buttons: event.buttons,
+        timeMs: event.timeStamp,
+        shiftKey: event.shiftKey,
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey,
+        metaKey: event.metaKey,
+      }));
     };
     // Pixi v8 forwards wheel through a passive native listener in Chromium.
     // Keep pointer input federated, but own one non-passive root canvas wheel
@@ -805,19 +845,34 @@ export class PixiCoreV2Renderer implements CoreRenderer {
         event.deltaY,
       );
     };
+    const contextMenu = (event: MouseEvent): void => {
+      const bounds = this.canvas.getBoundingClientRect();
+      const scaleX = bounds.width > 0 ? this.widthValue / bounds.width : 1;
+      const scaleY = bounds.height > 0 ? this.heightValue / bounds.height : 1;
+      if (handlers.contextMenu(
+        (event.clientX - bounds.left) * scaleX,
+        (event.clientY - bounds.top) * scaleY,
+      )) {
+        event.preventDefault();
+      }
+    };
     stage.on('pointerdown', pointerDown);
     stage.on('pointermove', pointerMove);
     stage.on('pointerup', pointerUp);
-    stage.on('pointerupoutside', pointerUp);
+    stage.on('pointerupoutside', pointerUpOutside);
     stage.on('pointercancel', pointerCancel);
     this.canvas.addEventListener('wheel', wheel, { passive: false });
+    this.canvas.addEventListener('pointerleave', pointerLeave);
+    this.canvas.addEventListener('contextmenu', contextMenu);
     const unbind = (): void => {
       stage.off('pointerdown', pointerDown);
       stage.off('pointermove', pointerMove);
       stage.off('pointerup', pointerUp);
-      stage.off('pointerupoutside', pointerUp);
+      stage.off('pointerupoutside', pointerUpOutside);
       stage.off('pointercancel', pointerCancel);
       this.canvas.removeEventListener('wheel', wheel);
+      this.canvas.removeEventListener('pointerleave', pointerLeave);
+      this.canvas.removeEventListener('contextmenu', contextMenu);
       if (this.interactionUnbind === unbind) this.interactionUnbind = null;
     };
     this.interactionUnbind = unbind;
@@ -826,10 +881,12 @@ export class PixiCoreV2Renderer implements CoreRenderer {
 
   public interactionOwnershipProbe(): Readonly<{
     readonly rootBindingCount: number;
+    readonly rootListenerCount: number;
     readonly entityCallbackCount: number;
   }> {
     return Object.freeze({
       rootBindingCount: this.interactionUnbind === null ? 0 : 6,
+      rootListenerCount: this.interactionUnbind === null ? 0 : 8,
       entityCallbackCount: 0,
     });
   }

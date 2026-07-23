@@ -6,6 +6,7 @@ import {
   type CoreV2ComponentVisualProductProbe,
   type CoreV2ComponentVisualTarget,
   type CoreV2Options,
+  type CoreV2RootPointerInput,
   type CoreV2RootViewportChangeSource,
   type CoreV2SemanticRefreshResult,
   type CoreV2TextGeometryProbe,
@@ -135,6 +136,21 @@ import {
   type CoreV2SelectionInteractionOptions,
   type CoreV2SelectionSetOperation,
 } from './query-selection';
+import {
+  CORE_V2_POINTER_GESTURE_REVISION,
+  CoreV2PointerGestureAuthority,
+  hitCoreV2BoxRegion,
+  hitCoreV2PaintRegion,
+  type CoreV2GestureCancelReason,
+  type CoreV2GestureTerminationReason,
+  type CoreV2OwnedGestureKind,
+  type CoreV2OwnedGestureTermination,
+  type CoreV2PointerDispatchResult,
+  type CoreV2PointerGestureProbe,
+  type CoreV2PointerInput,
+  type CoreV2RegionHitResult,
+  type CoreV2SemanticPointerEvent,
+} from './pointer-gesture';
 
 export type CoreV2Lifecycle =
   | 'new'
@@ -241,6 +257,16 @@ export interface CoreV2SurfaceViewportInput {
   readonly centerWorld: readonly [number, number];
   readonly scale: number;
 }
+
+export type CoreV2SurfacePointerInput = Readonly<
+  Omit<CoreV2PointerInput, 'viewRevision'>
+>;
+
+export type CoreV2EnginePointerInput = Readonly<
+  CoreV2SurfacePointerInput & {
+    readonly viewRevision?: number;
+  }
+>;
 
 export interface CoreV2SerializedViewportState {
   readonly schemaRevision: typeof CORE_V2_VIEWPORT_REVISION;
@@ -353,6 +379,7 @@ export interface CoreV2SurfaceDebug {
 
 export interface CoreV2InteractionOwnershipProbe {
   readonly rootBindingCount: number;
+  readonly rootListenerCount?: number;
   readonly entityCallbackCount: number;
 }
 
@@ -677,6 +704,9 @@ export interface CoreV2EngineSurface {
   bindViewportInput?(
     listener: (input: CoreV2SurfaceViewportInput) => void,
   ): () => void;
+  bindPointerInput?(
+    listener: (input: CoreV2SurfacePointerInput) => void,
+  ): () => void;
   cancelViewportGestures?(): void;
   select(ids: readonly string[]): void;
   setPresentationPolicy?(
@@ -798,6 +828,28 @@ export interface CoreV2EngineSelectionHit extends CoreV2SelectionHit {
 
 export interface CoreV2EnginePointSelectionResult extends CoreV2EngineSelectionHit {
   readonly change: CoreV2SelectionChange;
+}
+
+export interface CoreV2EngineRegionSelectionOptions
+  extends CoreV2SelectionEligibilityOptions {
+  readonly mode?: 'replace' | 'add' | 'toggle';
+  readonly commit?: boolean;
+  readonly partialIntersection?: boolean;
+  readonly toleranceCssPx?: number;
+}
+
+export interface CoreV2EngineRegionSelectionResult {
+  readonly schemaRevision: typeof CORE_V2_POINTER_GESTURE_REVISION;
+  readonly targets: readonly CoreV2LogicalTargetSnapshot[];
+  readonly candidateIds: readonly string[];
+  readonly filteredIds: readonly string[];
+  readonly lockedIds: readonly string[];
+  readonly relationIds: readonly string[];
+  readonly duplicateCount: number;
+  readonly nonFiniteCount: number;
+  readonly liveChangeCount: number;
+  readonly strokeCssPx: 1;
+  readonly change: CoreV2SelectionChange | null;
 }
 
 export interface CoreV2EngineTransactionHistory {
@@ -1137,6 +1189,7 @@ type CoreV2EngineEventMap = {
     CoreV2EngineSemanticRefreshResult,
     { readonly status: 'committed' }
   >;
+  readonly pointerEvent: CoreV2SemanticPointerEvent;
   readonly selectionChanged: CoreV2SelectionChange;
   readonly change:
     | Extract<CoreV2EnginePatchResult, { readonly status: 'committed' }>
@@ -1284,6 +1337,8 @@ export class CoreV2Engine {
   private viewportPersistenceWriteCount = 0;
   private viewportSuppressedEquivalentSaveCount = 0;
   private surfaceViewportInputUnbind: (() => void) | null = null;
+  private surfacePointerInputUnbind: (() => void) | null = null;
+  private pointerGestureAuthority: CoreV2PointerGestureAuthority | null = null;
   private worldRotationDegrees = 0;
   private worldFlipX = false;
   private worldFlipY = false;
@@ -1409,8 +1464,16 @@ export class CoreV2Engine {
         const viewportInputUnbind = readySurface.bindViewportInput?.((input) => {
           this.acceptSurfaceViewportInput(readySurface, input);
         }) ?? null;
+        const pointerAuthority = new CoreV2PointerGestureAuthority({
+          hitTest: (point) => readySurface.hitTestScreen(point),
+        });
+        const pointerInputUnbind = readySurface.bindPointerInput?.((input) => {
+          this.acceptSurfacePointerInput(readySurface, input);
+        }) ?? null;
         this.surface = readySurface;
         this.surfaceViewportInputUnbind = viewportInputUnbind;
+        this.surfacePointerInputUnbind = pointerInputUnbind;
+        this.pointerGestureAuthority = pointerAuthority;
         this.geometryRevisionCorrelation = null;
         pendingSurface = null;
         this.requiredAssetAcquisitions.push(...attemptAcquisitions);
@@ -1449,6 +1512,7 @@ export class CoreV2Engine {
     this.loadSequence += 1;
     const prepared = this.prepareDatasetLoad(input);
     surface.load(prepared.materialized.dataset);
+    this.pointerGestureAuthority?.interrupt('replace');
     return this.commitPreparedDatasetLoad(prepared, options);
   }
 
@@ -1502,6 +1566,7 @@ export class CoreV2Engine {
       if (surface.loadAsync) await surface.loadAsync(materialized.dataset, assertCurrent);
       else surface.load(materialized.dataset);
       assertCurrent();
+      this.pointerGestureAuthority?.interrupt('replace');
       return this.commitPreparedDatasetLoad(prepared, options);
     } finally {
       this.pendingWork -= 1;
@@ -3030,6 +3095,9 @@ export class CoreV2Engine {
     surface.select(change.current);
     this.logicalSelectionIds = change.current;
     if (change.changed) {
+      if (change.source !== 'canvas') {
+        this.pointerGestureAuthority?.interrupt('selection-change');
+      }
       this.interactionRevision += 1;
       this.emit('selectionChanged', change);
     }
@@ -3105,6 +3173,103 @@ export class CoreV2Engine {
       source: 'canvas',
     });
     return Object.freeze({ ...hit, change });
+  }
+
+  public dispatchPointerInput(input: CoreV2EnginePointerInput): CoreV2PointerDispatchResult {
+    this.requireSurface('dispatchPointerInput');
+    const authority = this.requirePointerGestureAuthority('dispatchPointerInput');
+    const result = authority.dispatch(Object.freeze({
+      ...input,
+      viewRevision: input.viewRevision ?? this.viewRevision,
+    }));
+    if (result.events.length > 0) this.interactionRevision += 1;
+    for (const event of result.events) this.emit('pointerEvent', event);
+    const click = result.events.find((event) => event.type === 'click');
+    if (click !== undefined && click.payload.button === 0) {
+      this.applySelection({
+        op: 'replace',
+        ids: click.payload.target === null ? [] : [click.payload.target.id],
+        source: 'canvas',
+      });
+    }
+    return result;
+  }
+
+  public pointerGestureProbe(): CoreV2PointerGestureProbe {
+    return this.pointerGestureAuthority?.probe() ?? destroyedPointerGestureProbe();
+  }
+
+  public ownsContextMenu(point: CoreV2Point): boolean {
+    validatePoint(point, 'ownsContextMenu');
+    return this.requireSurface('ownsContextMenu').hitTestScreen(point) !== null;
+  }
+
+  public interruptPointerGestures(
+    reason: CoreV2GestureCancelReason,
+  ): CoreV2OwnedGestureTermination | null {
+    this.requireSurface('interruptPointerGestures');
+    return this.requirePointerGestureAuthority('interruptPointerGestures').interrupt(reason);
+  }
+
+  public beginOwnedPointerGesture(kind: CoreV2OwnedGestureKind, pointerId: number): void {
+    this.requireSurface('beginOwnedPointerGesture');
+    this.requirePointerGestureAuthority('beginOwnedPointerGesture')
+      .beginOwnedGesture(kind, pointerId);
+  }
+
+  public terminateOwnedPointerGesture(
+    reason: CoreV2GestureTerminationReason,
+  ): CoreV2OwnedGestureTermination | null {
+    this.requireSurface('terminateOwnedPointerGesture');
+    return this.requirePointerGestureAuthority('terminateOwnedPointerGesture')
+      .terminateOwnedGesture(reason);
+  }
+
+  public cancelOwnedPointerGesture(
+    reason: CoreV2GestureCancelReason,
+  ): CoreV2OwnedGestureTermination | null {
+    this.requireSurface('cancelOwnedPointerGesture');
+    return this.requirePointerGestureAuthority('cancelOwnedPointerGesture')
+      .cancelOwnedGesture(reason);
+  }
+
+  public selectBox(
+    start: readonly [number, number],
+    end: readonly [number, number],
+    options: CoreV2EngineRegionSelectionOptions = {},
+  ): CoreV2EngineRegionSelectionResult {
+    const surface = this.requireSurface('selectBox');
+    const geometry = requireRegionGeometry(surface, 'selectBox');
+    const hit = hitCoreV2BoxRegion(
+      geometry.entities,
+      geometry.relations,
+      start,
+      end,
+      options.partialIntersection === undefined
+        ? {}
+        : { partialIntersection: options.partialIntersection },
+    );
+    return this.applyRegionSelection(hit, options, 1);
+  }
+
+  public selectPaint(
+    segments: readonly (readonly [
+      readonly [number, number],
+      readonly [number, number],
+    ])[],
+    options: CoreV2EngineRegionSelectionOptions = {},
+  ): CoreV2EngineRegionSelectionResult {
+    const surface = this.requireSurface('selectPaint');
+    const geometry = requireRegionGeometry(surface, 'selectPaint');
+    const hit = hitCoreV2PaintRegion(
+      geometry.entities,
+      geometry.relations,
+      segments,
+      options.toleranceCssPx === undefined
+        ? {}
+        : { toleranceCssPx: options.toleranceCssPx },
+    );
+    return this.applyRegionSelection(hit, options, segments.length);
   }
 
   public resolveSelectionInteraction(
@@ -3479,6 +3644,8 @@ export class CoreV2Engine {
     const surface = this.surface;
     this.viewportMotion = null;
     surface?.cancelViewportGestures?.();
+    this.pointerGestureAuthority?.destroy();
+    this.pointerGestureAuthority = null;
     const pendingInitialization = this.initializePromise;
     const assetSession = this.assetSession;
     const cleanupFailures: unknown[] = [];
@@ -3724,6 +3891,67 @@ export class CoreV2Engine {
     return this.logicalSceneIndexCache.index;
   }
 
+  private requirePointerGestureAuthority(operation: string): CoreV2PointerGestureAuthority {
+    const authority = this.pointerGestureAuthority;
+    if (authority === null) {
+      throw this.operationError('NOT_READY', 'NOT_READY', operation, true);
+    }
+    return authority;
+  }
+
+  private applyRegionSelection(
+    hit: CoreV2RegionHitResult,
+    options: CoreV2EngineRegionSelectionOptions,
+    liveChangeCount: number,
+  ): CoreV2EngineRegionSelectionResult {
+    const index = this.logicalSceneIndex();
+    const rejected = new Set(options.rejectIds ?? []);
+    const locked = new Set(options.lockedIds ?? []);
+    const filteredIds: string[] = [];
+    const lockedIds: string[] = [];
+    for (const id of hit.candidateIds) {
+      const target = index.target(id);
+      if (target === null) continue;
+      if (
+        target.locked ||
+        target.ancestorLocked ||
+        targetAliasesMatch(target, locked)
+      ) {
+        lockedIds.push(target.id);
+      } else if (
+        targetAliasesMatch(target, rejected) ||
+        (options.predicate !== undefined && !options.predicate(target))
+      ) {
+        filteredIds.push(target.id);
+      }
+    }
+    const targets = index.filterSelection(hit.candidateIds, {
+      ...(options.rejectIds === undefined ? {} : { rejectIds: options.rejectIds }),
+      ...(options.lockedIds === undefined ? {} : { lockedIds: options.lockedIds }),
+      ...(options.predicate === undefined ? {} : { predicate: options.predicate }),
+    });
+    const change = options.commit === false
+      ? null
+      : this.applySelection({
+          op: options.mode ?? 'replace',
+          ids: targets.map((target) => target.selectionId),
+          source: 'canvas',
+        });
+    return Object.freeze({
+      schemaRevision: CORE_V2_POINTER_GESTURE_REVISION,
+      targets,
+      candidateIds: hit.candidateIds,
+      filteredIds: Object.freeze(filteredIds),
+      lockedIds: Object.freeze(lockedIds),
+      relationIds: hit.relationIds,
+      duplicateCount: hit.duplicateCount,
+      nonFiniteCount: hit.nonFiniteCount,
+      liveChangeCount,
+      strokeCssPx: 1,
+      change,
+    });
+  }
+
   private async cleanupSurface(
     surface: CoreV2EngineSurface,
   ): Promise<Readonly<{ released: boolean; error: Error | null }>> {
@@ -3737,6 +3965,16 @@ export class CoreV2Engine {
         viewportCleanupFailed = true;
       } finally {
         this.surfaceViewportInputUnbind = null;
+      }
+    }
+    if (this.surface === surface && this.surfacePointerInputUnbind !== null) {
+      try {
+        this.surfacePointerInputUnbind();
+      } catch {
+        lastError = new Error('Core v2 pointer input cleanup failed');
+        viewportCleanupFailed = true;
+      } finally {
+        this.surfacePointerInputUnbind = null;
       }
     }
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -3894,6 +4132,20 @@ export class CoreV2Engine {
       revisions: this.revisionStamp(),
     } satisfies CoreV2ViewportChangeResult);
     this.emit('viewChanged', result);
+  }
+
+  private acceptSurfacePointerInput(
+    surface: CoreV2EngineSurface,
+    input: CoreV2SurfacePointerInput,
+  ): void {
+    if (
+      this.surface !== surface ||
+      this.lifecycle === 'destroyed' ||
+      this.lifecycle === 'destroying'
+    ) {
+      return;
+    }
+    this.dispatchPointerInput(input);
   }
 
   private requireSurface(operation: string): CoreV2EngineSurface {
@@ -4409,8 +4661,12 @@ export class CoreV2EngineError extends Error {
 export class PixiEngineSurface implements CoreV2EngineSurface {
   private readonly core: CoreV2;
   private readonly unbindCoreViewportChanges: () => void;
+  private readonly unbindCorePointerInputs: () => void;
   private viewportInputListener:
     | ((input: CoreV2SurfaceViewportInput) => void)
+    | null = null;
+  private pointerInputListener:
+    | ((input: CoreV2SurfacePointerInput) => void)
     | null = null;
   private canvasPresent = true;
   private geometryRevision = 0;
@@ -4449,6 +4705,11 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
             centerWorld: Object.freeze([center.x, center.y] as const),
             scale: view.scale,
           }));
+        })
+      : () => {};
+    this.unbindCorePointerInputs = typeof core.bindRootPointerInputs === 'function'
+      ? core.bindRootPointerInputs((input) => {
+          this.pointerInputListener?.(surfacePointerInput(input));
         })
       : () => {};
   }
@@ -4570,6 +4831,21 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     this.viewportInputListener = listener;
     return () => {
       if (this.viewportInputListener === listener) this.viewportInputListener = null;
+    };
+  }
+
+  public bindPointerInput(
+    listener: (input: CoreV2SurfacePointerInput) => void,
+  ): () => void {
+    if (typeof listener !== 'function') {
+      throw new TypeError('pointer input listener must be a function');
+    }
+    if (this.pointerInputListener !== null) {
+      throw new Error('pointer input listener is already bound');
+    }
+    this.pointerInputListener = listener;
+    return () => {
+      if (this.pointerInputListener === listener) this.pointerInputListener = null;
     };
   }
 
@@ -4760,6 +5036,8 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
 
   public async destroy(): Promise<boolean> {
     this.viewportInputListener = null;
+    this.pointerInputListener = null;
+    this.unbindCorePointerInputs();
     this.unbindCoreViewportChanges();
     try {
       return await this.core.destroy();
@@ -5116,11 +5394,63 @@ async function createPixiSurface(options: CoreV2SurfaceOptions): Promise<CoreV2E
     preference: options.preference,
     powerPreference: options.powerPreference,
     autoRender: false,
+    rootSelectionMode: 'deferred',
     ...(options.assetSession ? { assetSession: options.assetSession } : {}),
     ...(options.target ? { target: options.target } : {}),
     ...(options.canvas ? { canvas: options.canvas } : {}),
   };
   return new PixiEngineSurface(await createCoreV2(coreOptions));
+}
+
+function surfacePointerInput(input: CoreV2RootPointerInput): CoreV2SurfacePointerInput {
+  return Object.freeze({
+    type: input.type,
+    pointerId: input.pointerId,
+    pointerType: input.pointerType,
+    button: input.button,
+    buttons: input.buttons,
+    screen: Object.freeze([input.screenX, input.screenY] as const),
+    timeMs: input.timeMs,
+    modifiers: Object.freeze({
+      shift: input.shiftKey,
+      ctrl: input.ctrlKey,
+      alt: input.altKey,
+      meta: input.metaKey,
+    }),
+  });
+}
+
+function requireRegionGeometry(
+  surface: CoreV2EngineSurface,
+  operation: string,
+): CoreV2SurfaceGeometrySnapshot {
+  const geometry = surface.geometrySnapshot?.();
+  if (geometry === undefined) {
+    throw new Error(`${operation} requires aggregate surface geometry`);
+  }
+  return geometry;
+}
+
+function targetAliasesMatch(
+  target: CoreV2LogicalTargetSnapshot,
+  values: ReadonlySet<string>,
+): boolean {
+  return values.has(target.key) ||
+    values.has(target.id) ||
+    values.has(target.selectionId) ||
+    (target.ownerId !== null && values.has(target.ownerId));
+}
+
+function destroyedPointerGestureProbe(): CoreV2PointerGestureProbe {
+  return Object.freeze({
+    activePointerCount: 0,
+    pointerCaptureCount: 0,
+    activeGestureCount: 0,
+    hoverTarget: null,
+    hoverListenerCount: 0,
+    staleGestureCount: 0,
+    destroyed: true,
+  });
 }
 
 function validateInitializeOptions(options: CoreV2InitializeOptions): void {
