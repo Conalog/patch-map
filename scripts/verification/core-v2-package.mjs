@@ -45,9 +45,13 @@ try {
   await writeFile(path.join(consumer, 'main.js'), `
 import {
   CORE_V2_MUTATION_TRANSACTION_REVISION,
+  CORE_V2_POINTER_GESTURE_REVISION,
   CORE_V2_PRESENTATION_POLICY_REVISION,
   CoreV2Engine,
+  CoreV2PointerGestureAuthority,
   createCoreV2,
+  hitCoreV2BoxRegion,
+  hitCoreV2PaintRegion,
   parsePatchMapV010,
 } from '@conalog/patch-map/core-v2';
 
@@ -70,6 +74,39 @@ const hierarchyInput = [
 const before = JSON.stringify(input);
 const hierarchyBefore = JSON.stringify(hierarchyInput);
 const parsed = parsePatchMapV010(input);
+const pointerAuthority = new CoreV2PointerGestureAuthority({
+  hitTest: ({ x, y }) => x <= 100 && y <= 100 ? 'consumer-item' : null,
+});
+const pointerInput = (type, timeMs, buttons) => ({
+  type,
+  pointerId: 1,
+  pointerType: 'mouse',
+  button: 0,
+  buttons,
+  screen: [20, 30],
+  timeMs,
+  modifiers: { shift: false, ctrl: false, alt: false, meta: false },
+  viewRevision: 0,
+});
+pointerAuthority.dispatch(pointerInput('down', 0, 1));
+const pointerClick = pointerAuthority.dispatch(pointerInput('up', 16, 0));
+const pointerBox = hitCoreV2BoxRegion([
+  {
+    id: 'consumer-item',
+    screenBounds: [10, 20, 80, 120],
+    visible: true,
+    interactive: true,
+  },
+], [], [0, 0], [100, 160]);
+const pointerPaint = hitCoreV2PaintRegion([
+  {
+    id: 'consumer-item',
+    screenBounds: [10, 20, 80, 120],
+    visible: true,
+    interactive: true,
+  },
+], [], [[[0, 30], [100, 30]]]);
+pointerAuthority.destroy();
 const core = await createCoreV2({ target: document.querySelector('#host'), width: 640, height: 360, strategy: 'mesh', preference: 'webgl', autoRender: false });
 const loaded = core.load(input);
 await core.prepare();
@@ -220,7 +257,15 @@ window.__PACKAGE_RESULT__ = {
   canvasCountAfterDestroy: document.querySelectorAll('canvas').length,
   destroyed: core.debugSnapshot().destroyed,
   transactionRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+  pointerRevision: CORE_V2_POINTER_GESTURE_REVISION,
   presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
+  pointerPackage: {
+    eventTypes: pointerClick.events.map(({ type }) => type),
+    clickTarget: pointerClick.events.at(-1)?.payload.target?.id ?? null,
+    boxTargets: pointerBox.candidateIds,
+    paintTargets: pointerPaint.candidateIds,
+    destroyed: pointerAuthority.probe().destroyed,
+  },
   emptyBulkStatus: emptyBulk.status,
   emptyBulkSceneRevision: emptyBulk.revisions.sceneRevision,
   transactionStatus: transaction.status,
@@ -296,7 +341,9 @@ function findHierarchyRecord(values, id, parentId = null) {
   await writeFile(path.join(consumer, 'consumer.cjs'), `
 const {
   CORE_V2_MUTATION_TRANSACTION_REVISION,
+  CORE_V2_POINTER_GESTURE_REVISION,
   CORE_V2_PRESENTATION_POLICY_REVISION,
+  CoreV2PointerGestureAuthority,
   parsePatchMapV010,
   planCoreV2MutationTransaction,
 } = require('@conalog/patch-map/core-v2');
@@ -305,6 +352,8 @@ process.stdout.write(JSON.stringify({
   entities: result.identity.counts.entities,
   id: result.document.entities[0].id,
   transactionRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+  pointerRevision: CORE_V2_POINTER_GESTURE_REVISION,
+  pointerAuthorityType: typeof CoreV2PointerGestureAuthority,
   presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
   plannerType: typeof planCoreV2MutationTransaction,
 }));
@@ -361,6 +410,14 @@ process.stdout.write(JSON.stringify({
   if (!(esm.renderObjects > 0)) failures.push('packed ESM produced no aggregate render objects');
   if (esm.canvasCountAfterDestroy !== 0 || !esm.destroyed) failures.push('packed ESM lifecycle leaked a canvas or live runtime');
   if (esm.transactionRevision !== 'core-v2-mutation-transaction/1') failures.push('packed ESM transaction revision export failed');
+  if (esm.pointerRevision !== 'core-v2-pointer-gesture/1') failures.push('packed ESM pointer revision export failed');
+  if (
+    JSON.stringify(esm.pointerPackage?.eventTypes) !== JSON.stringify(['up', 'click']) ||
+    esm.pointerPackage?.clickTarget !== 'consumer-item' ||
+    JSON.stringify(esm.pointerPackage?.boxTargets) !== JSON.stringify(['consumer-item']) ||
+    JSON.stringify(esm.pointerPackage?.paintTargets) !== JSON.stringify(['consumer-item']) ||
+    esm.pointerPackage?.destroyed !== true
+  ) failures.push('packed ESM pointer/selection exports failed');
   if (esm.presentationRevision !== 'core-v2-presentation-policy/1') failures.push('packed ESM presentation revision export failed');
   if (esm.emptyBulkStatus !== 'unchanged' || esm.emptyBulkSceneRevision !== 1) failures.push('packed ESM empty bulk target-set semantics failed');
   if (esm.transactionStatus !== 'committed' || esm.transactionSceneRevision !== 2 || esm.transactionBarHeight !== 30) failures.push('packed ESM engine transaction failed');
@@ -401,7 +458,11 @@ process.stdout.write(JSON.stringify({
     esm.hierarchy?.historyDepth !== 3 ||
     esm.hierarchy?.relationRevisionLag !== 0
   ) failures.push('packed ESM hierarchy transaction contract failed');
-  if (esm.interactionOwnership?.rootBindingCount !== 6 || esm.interactionOwnership?.entityCallbackCount !== 0) failures.push('packed ESM interaction ownership probe failed');
+  if (
+    esm.interactionOwnership?.rootBindingCount !== 6 ||
+    esm.interactionOwnership?.rootListenerCount !== 8 ||
+    esm.interactionOwnership?.entityCallbackCount !== 0
+  ) failures.push('packed ESM interaction ownership probe failed');
   if (esm.engineDestroyResult !== true) failures.push('packed ESM raw Engine destroy did not own cleanup');
   if (
     esm.engineAfterDestroy?.lifecycle !== 'destroyed' ||
@@ -419,6 +480,8 @@ process.stdout.write(JSON.stringify({
   if (cjs.entities !== 1 || cjs.id !== 'cjs-rect') failures.push('packed CJS parser subpath failed');
   if (
     cjs.transactionRevision !== 'core-v2-mutation-transaction/1' ||
+    cjs.pointerRevision !== 'core-v2-pointer-gesture/1' ||
+    cjs.pointerAuthorityType !== 'function' ||
     cjs.presentationRevision !== 'core-v2-presentation-policy/1' ||
     cjs.plannerType !== 'function'
   ) failures.push('packed CJS transaction/presentation exports failed');

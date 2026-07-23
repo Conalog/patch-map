@@ -21,10 +21,10 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 587;
-const EXPECTED_ASSERTION_PASS_TOTAL = 580;
-const EXPECTED_ASSERTION_FAILURE_TOTAL = 7;
-const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 9;
+const EXPECTED_ASSERTION_TOTAL = 677;
+const EXPECTED_ASSERTION_PASS_TOTAL = 668;
+const EXPECTED_ASSERTION_FAILURE_TOTAL = 9;
+const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 11;
 const CASE_TIMEOUT_MS = 180_000;
 const CHECKPOINT_TIMEOUT_MS = 30 * 60_000;
 const REN_005_IMMUTABLE_FAILURES = Object.freeze([
@@ -82,6 +82,20 @@ const QRY_001_IMMUTABLE_FAILURES = Object.freeze([
     path: '/outcome/queries/ambiguous-component/code',
     code: 'VALUE_MISMATCH',
     failurePath: '/outcome/queries/ambiguous-component/code',
+  }),
+]);
+const EVT_003_IMMUTABLE_FAILURES = Object.freeze([
+  Object.freeze({
+    path: '/interaction/overlapRedrawTrace',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/interaction/overlapRedrawTrace',
+  }),
+]);
+const EVT_008_IMMUTABLE_FAILURES = Object.freeze([
+  Object.freeze({
+    path: '/events/clickCounts',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/events/clickCounts',
   }),
 ]);
 const RENDER_CASES = Object.freeze([
@@ -147,6 +161,21 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'SEL-002', expectedAssertions: 11 }),
   Object.freeze({ id: 'SEL-003', expectedAssertions: 7 }),
   Object.freeze({ id: 'SEL-004', expectedAssertions: 4 }),
+  Object.freeze({ id: 'EVT-001', expectedAssertions: 40 }),
+  Object.freeze({ id: 'EVT-002', expectedAssertions: 10 }),
+  Object.freeze({
+    id: 'EVT-003',
+    expectedAssertions: 7,
+    expectedFailures: EVT_003_IMMUTABLE_FAILURES,
+  }),
+  Object.freeze({ id: 'EVT-004', expectedAssertions: 8 }),
+  Object.freeze({
+    id: 'EVT-008',
+    expectedAssertions: 7,
+    expectedFailures: EVT_008_IMMUTABLE_FAILURES,
+  }),
+  Object.freeze({ id: 'SEL-005', expectedAssertions: 9 }),
+  Object.freeze({ id: 'SEL-006', expectedAssertions: 9 }),
   Object.freeze({ id: 'VIE-001', expectedAssertions: 10 }),
   Object.freeze({ id: 'VIE-002', expectedAssertions: 6 }),
   Object.freeze({ id: 'VIE-003', expectedAssertions: 14 }),
@@ -196,11 +225,21 @@ const QUERY_SELECTION_TRANCHE_CASES = new Set([
   'SEL-003',
   'SEL-004',
 ]);
+const POINTER_SELECTION_TRANCHE_CASES = new Set([
+  'EVT-001',
+  'EVT-002',
+  'EVT-003',
+  'EVT-004',
+  'EVT-008',
+  'SEL-005',
+  'SEL-006',
+]);
 const CONTROL_CASES = new Set([
   ...PRESENTATION_TRANCHE_CASES,
   ...UPDATE_TRANSACTION_TRANCHE_CASES,
   ...VIEWPORT_TRANCHE_CASES,
   ...QUERY_SELECTION_TRANCHE_CASES,
+  ...POINTER_SELECTION_TRANCHE_CASES,
 ]);
 const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);
 const GPU_EVIDENCE_CASES = new Set([
@@ -339,28 +378,28 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all forty-five render routes completed'
+      ? 'all fifty-two render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 580 pass and 7 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 668 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 580 pass and 7 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 668 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 580 pass and 7 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 668 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -689,9 +728,12 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
       })`,
     );
 
-    const rootInput = caseSpec.id === 'VIE-001'
-      ? await verifyViewportRootInput(page)
-      : null;
+    let rootInput = null;
+    if (caseSpec.id === 'VIE-001') {
+      rootInput = await verifyViewportRootInput(page);
+    } else if (caseSpec.id === 'EVT-003' || caseSpec.id === 'EVT-008') {
+      rootInput = await verifyPointerRootInput(page, caseSpec.id);
+    }
     if (rootInput !== null) traceCasePhase(caseSpec.id, 'trusted root input verified');
 
     const destroyed = await destroyBrowserCase(page, caseSpec.id);
@@ -949,6 +991,190 @@ async function verifyViewportRootInput(page) {
     invariant(
       cleanup?.canvasCount === 0 && cleanup?.released === armed,
       'VIE-001 trusted input probe releases its Engine and canvas',
+    );
+  }
+}
+
+async function verifyPointerRootInput(page, caseId) {
+  invariant(
+    caseId === 'EVT-003' || caseId === 'EVT-008',
+    `unsupported trusted pointer case ${caseId}`,
+  );
+  const contextMenuProbeName = '__PATCH_MAP_CORE_V2_NATIVE_CONTEXT_MENU_PROBE__';
+  let armed = false;
+  let cleanup = null;
+  try {
+    const gesturePlan = await page.evaluate(async (bridgeName) => {
+      const bridge = window[bridgeName];
+      if (!bridge) throw new Error('Core v2 pointer focused Lab bridge is unavailable');
+      return bridge.armGesture(0);
+    }, BRIDGE_NAME);
+    armed = true;
+
+    const canvas = page.locator(gesturePlan.ownerQualifiedTarget);
+    await canvas.waitFor({ state: 'visible', timeout: 30_000 });
+    await canvas.scrollIntoViewIfNeeded();
+    const bounds = await canvas.boundingBox();
+    invariant(bounds !== null, `${caseId} trusted input canvas bounds`);
+    const pagePoint = (anchor) => ({
+      x: bounds.x + anchor.x * bounds.width / 800,
+      y: bounds.y + anchor.y * bounds.height / 600,
+    });
+
+    if (caseId === 'EVT-003') {
+      const hovered = pagePoint(gesturePlan.cssLocalAnchors[0]);
+      const viewport = page.viewportSize();
+      const right = bounds.x + bounds.width + 8;
+      const left = bounds.x - 8;
+      const outside = {
+        x: viewport !== null && right < viewport.width ? right : left,
+        y: bounds.y + Math.min(bounds.height / 2, 100),
+      };
+      await page.mouse.move(hovered.x, hovered.y);
+      await page.mouse.move(outside.x, outside.y);
+      await page.waitForFunction(
+        async (bridgeName) => {
+          const observation = await window[bridgeName]?.actualObservation();
+          if (!Array.isArray(observation?.events)) return false;
+          const hoverEvents = observation.events.filter((event) => event?.type === 'hover-change');
+          return hoverEvents.some((event) => event.payload?.target?.id === 'item-a') &&
+            hoverEvents.some((event) => event.payload?.target === null);
+        },
+        BRIDGE_NAME,
+        { timeout: 10_000 },
+      );
+    } else {
+      await page.evaluate((probeName) => {
+        const state = [];
+        const listener = (event) => {
+          state.push({
+            clientX: event.clientX,
+            clientY: event.clientY,
+            defaultPrevented: event.defaultPrevented,
+          });
+        };
+        document.addEventListener('contextmenu', listener);
+        window[probeName] = { listener, state };
+      }, contextMenuProbeName);
+      const owned = pagePoint(gesturePlan.cssLocalAnchors[0]);
+      const empty = pagePoint(gesturePlan.cssLocalAnchors[1]);
+      await page.mouse.click(owned.x, owned.y, { button: 'right' });
+      await page.mouse.click(empty.x, empty.y, { button: 'right' });
+      await page.waitForFunction(
+        async ({ bridgeName, probeName }) => {
+          const observation = await window[bridgeName]?.actualObservation();
+          const clicks = Array.isArray(observation?.events)
+            ? observation.events.filter((event) =>
+                event?.type === 'click' && event.payload?.button === 2)
+            : [];
+          return clicks.length === 2 && window[probeName]?.state?.length === 2;
+        },
+        { bridgeName: BRIDGE_NAME, probeName: contextMenuProbeName },
+        { timeout: 10_000 },
+      );
+    }
+
+    const observed = await page.evaluate(async ({ bridgeName, probeName }) => {
+      const observation = await window[bridgeName].actualObservation();
+      return {
+        events: observation.events,
+        pointerGesture: observation.pointerGesture,
+        ownership: observation.ownership,
+        resources: observation.resources,
+        nativeContextMenu: window[probeName]?.state ?? null,
+      };
+    }, { bridgeName: BRIDGE_NAME, probeName: contextMenuProbeName });
+
+    invariant(
+      observed.ownership?.rootBindingCount === 6 &&
+        observed.ownership?.rootListenerCount === 8 &&
+        observed.ownership?.entityCallbackCount === 0,
+      `${caseId} trusted input retains eight root-only listeners`,
+    );
+    invariant(
+      observed.pointerGesture?.activePointerCount === 0 &&
+        observed.pointerGesture?.pointerCaptureCount === 0 &&
+        observed.pointerGesture?.activeGestureCount === 0,
+      `${caseId} trusted input releases pointer and gesture ownership`,
+    );
+    invariant(
+      observed.resources?.canvasCount === 1 &&
+        observed.resources?.pendingWork === 0,
+      `${caseId} trusted input keeps one settled live canvas`,
+    );
+
+    if (caseId === 'EVT-003') {
+      const hoverTargets = observed.events
+        .filter((event) => event?.type === 'hover-change')
+        .map((event) => event.payload?.target?.id ?? null);
+      invariant(
+        hoverTargets.includes('item-a') && hoverTargets.at(-1) === null,
+        `EVT-003 trusted hover enter/leave trace: ${JSON.stringify(hoverTargets)}`,
+      );
+      invariant(
+        observed.pointerGesture?.hoverTarget === null,
+        'EVT-003 trusted pointerleave clears hover state',
+      );
+      return {
+        status: 'passed',
+        driverId: gesturePlan.driverId,
+        hoverTargets,
+        pointerGesture: observed.pointerGesture,
+        ownership: observed.ownership,
+      };
+    }
+
+    const secondaryClicks = observed.events.filter((event) =>
+      event?.type === 'click' && event.payload?.button === 2);
+    const secondaryTargets = secondaryClicks.map((event) => event.payload?.target?.id ?? null);
+    invariant(
+      secondaryTargets.length === 2 &&
+        secondaryTargets[0] === 'rect-b' &&
+        secondaryTargets[1] === null,
+      `EVT-008 trusted secondary click targets: ${JSON.stringify(secondaryTargets)}`,
+    );
+    invariant(
+      secondaryClicks.every((event) => event.payload?.clickCount === 1),
+      'EVT-008 trusted secondary clicks each count one physical completion',
+    );
+    invariant(
+      observed.nativeContextMenu?.length === 2 &&
+        observed.nativeContextMenu[0]?.defaultPrevented === true &&
+        observed.nativeContextMenu[1]?.defaultPrevented === false,
+      `EVT-008 contextmenu ownership: ${JSON.stringify(observed.nativeContextMenu)}`,
+    );
+    return {
+      status: 'passed',
+      driverId: gesturePlan.driverId,
+      secondaryTargets,
+      contextMenuDefaultPrevented: observed.nativeContextMenu.map(
+        ({ defaultPrevented }) => defaultPrevented,
+      ),
+      pointerGesture: observed.pointerGesture,
+      ownership: observed.ownership,
+    };
+  } finally {
+    cleanup = await page.evaluate(async ({ bridgeName, probeName, shouldRelease }) => {
+      const nativeContextMenuProbe = window[probeName];
+      if (nativeContextMenuProbe) {
+        document.removeEventListener('contextmenu', nativeContextMenuProbe.listener);
+        delete window[probeName];
+      }
+      const bridge = window[bridgeName];
+      if (bridge && shouldRelease) await bridge.awaitMilestone(0, 'released');
+      const host = document.querySelector('[data-contract-surface]');
+      return {
+        canvasCount: host?.querySelectorAll('canvas[data-patch-map-core="v2"]').length ?? 0,
+        released: shouldRelease,
+      };
+    }, {
+      bridgeName: BRIDGE_NAME,
+      probeName: contextMenuProbeName,
+      shouldRelease: armed,
+    }).catch(() => null);
+    invariant(
+      cleanup?.canvasCount === 0 && cleanup?.released === armed,
+      `${caseId} trusted input probe releases its Engine and canvas`,
     );
   }
 }
