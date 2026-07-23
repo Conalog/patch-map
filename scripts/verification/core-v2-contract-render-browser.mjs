@@ -21,10 +21,10 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 532;
-const EXPECTED_ASSERTION_PASS_TOTAL = 526;
-const EXPECTED_ASSERTION_FAILURE_TOTAL = 6;
-const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 8;
+const EXPECTED_ASSERTION_TOTAL = 587;
+const EXPECTED_ASSERTION_PASS_TOTAL = 580;
+const EXPECTED_ASSERTION_FAILURE_TOTAL = 7;
+const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 9;
 const CASE_TIMEOUT_MS = 180_000;
 const CHECKPOINT_TIMEOUT_MS = 30 * 60_000;
 const REN_005_IMMUTABLE_FAILURES = Object.freeze([
@@ -75,6 +75,13 @@ const UPD_009_IMMUTABLE_FAILURES = Object.freeze([
     path: '/outcome/cycle/code',
     code: 'VALUE_MISMATCH',
     failurePath: '/outcome/cycle/code',
+  }),
+]);
+const QRY_001_IMMUTABLE_FAILURES = Object.freeze([
+  Object.freeze({
+    path: '/outcome/queries/ambiguous-component/code',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/queries/ambiguous-component/code',
   }),
 ]);
 const RENDER_CASES = Object.freeze([
@@ -130,6 +137,16 @@ const RENDER_CASES = Object.freeze([
   }),
   Object.freeze({ id: 'UPD-013', expectedAssertions: 8 }),
   Object.freeze({ id: 'UPD-014', expectedAssertions: 10 }),
+  Object.freeze({
+    id: 'QRY-001',
+    expectedAssertions: 13,
+    expectedFailures: QRY_001_IMMUTABLE_FAILURES,
+  }),
+  Object.freeze({ id: 'QRY-002', expectedAssertions: 10 }),
+  Object.freeze({ id: 'SEL-001', expectedAssertions: 10 }),
+  Object.freeze({ id: 'SEL-002', expectedAssertions: 11 }),
+  Object.freeze({ id: 'SEL-003', expectedAssertions: 7 }),
+  Object.freeze({ id: 'SEL-004', expectedAssertions: 4 }),
   Object.freeze({ id: 'VIE-001', expectedAssertions: 10 }),
   Object.freeze({ id: 'VIE-002', expectedAssertions: 6 }),
   Object.freeze({ id: 'VIE-003', expectedAssertions: 14 }),
@@ -171,10 +188,19 @@ const VIEWPORT_TRANCHE_CASES = new Set([
   'CSM-009',
   'CSM-010',
 ]);
+const QUERY_SELECTION_TRANCHE_CASES = new Set([
+  'QRY-001',
+  'QRY-002',
+  'SEL-001',
+  'SEL-002',
+  'SEL-003',
+  'SEL-004',
+]);
 const CONTROL_CASES = new Set([
   ...PRESENTATION_TRANCHE_CASES,
   ...UPDATE_TRANSACTION_TRANCHE_CASES,
   ...VIEWPORT_TRANCHE_CASES,
+  ...QUERY_SELECTION_TRANCHE_CASES,
 ]);
 const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);
 const GPU_EVIDENCE_CASES = new Set([
@@ -313,28 +339,28 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all thirty-nine render routes completed'
+      ? 'all forty-five render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 526 pass and 6 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 580 pass and 7 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 526 pass and 6 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 580 pass and 7 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 526 pass and 6 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 580 pass and 7 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -2450,14 +2476,14 @@ async function loadExpectedCases() {
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===
       EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'render checkpoint observed immutable conflict inventory must remain 6',
+    'render checkpoint observed immutable conflict inventory must remain 7',
   );
   invariant(
     sum(
       RENDER_CASES,
       (record) => (record.expectedFailures?.length ?? 0) + (record.latentConflicts?.length ?? 0),
     ) === DECLARED_IMMUTABLE_CONFLICT_TOTAL,
-    'render checkpoint declared immutable conflict inventory must remain 8',
+    'render checkpoint declared immutable conflict inventory must remain 9',
   );
   return selected;
 }

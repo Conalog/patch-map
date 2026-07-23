@@ -5,6 +5,7 @@ import { createFoundationHandlerEntries } from './handlers/foundation.mjs';
 const ACTUAL_DELTA_SCHEMA = 'core-v2-semantic-observation-delta/1';
 const EXECUTION_SCHEMA = 'core-v2-contract-case-execution/1';
 const HOST_DELTA_SCHEMA = 'core-v2-host-seam-delta/1';
+const OBSERVATION_ONLY_BINDING_SHAPES = new Set(['query-scene']);
 const ENGINE_EVENTS = Object.freeze([
   'ready',
   'sceneCommitted',
@@ -295,11 +296,18 @@ function stageBindings(state, definition, action, output) {
     assert(typeof name === 'string' && state.bindings.has(name), `${action.type} unresolved binding ${String(name)}`);
   }
 
-  const expectedNames = producesFields.map((field) => {
+  const expectedNames = producesFields.flatMap((field) => {
+    // QRY-001's approved saved-query shape observes a result matrix without
+    // creating a reusable handle. Keep this exception narrow so DAT-008's
+    // immutable retainTarget binding inconsistency still fails atomically.
+    if (
+      OBSERVATION_ONLY_BINDING_SHAPES.has(action.type) &&
+      !Object.hasOwn(action.operands, field)
+    ) return [];
     const name = action.operands[field];
     assert(typeof name === 'string' && name.length > 0, `${action.type} binding operand ${field}`);
     assert(!state.bindings.has(name), `${action.type} duplicate binding ${name}`);
-    return name;
+    return [name];
   });
   const produced = output.bindings ?? {};
   assert(isRecord(produced), `${action.type} bindings must be an object`);

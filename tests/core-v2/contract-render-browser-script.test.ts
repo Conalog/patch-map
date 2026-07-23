@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the thirty-nine selected render routes and their 532 canonical assertions', () => {
+  it('pins exactly the forty-five selected render routes and their 587 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -70,6 +70,12 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'ANI-002', expectedAssertions: 11 },
       { id: 'UPD-013', expectedAssertions: 8 },
       { id: 'UPD-014', expectedAssertions: 10 },
+      { id: 'QRY-001', expectedAssertions: 13 },
+      { id: 'QRY-002', expectedAssertions: 10 },
+      { id: 'SEL-001', expectedAssertions: 10 },
+      { id: 'SEL-002', expectedAssertions: 11 },
+      { id: 'SEL-003', expectedAssertions: 7 },
+      { id: 'SEL-004', expectedAssertions: 4 },
       { id: 'VIE-001', expectedAssertions: 10 },
       { id: 'VIE-002', expectedAssertions: 6 },
       { id: 'VIE-003', expectedAssertions: 14 },
@@ -78,19 +84,19 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'CSM-009', expectedAssertions: 21 },
       { id: 'CSM-010', expectedAssertions: 22 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(532);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 532;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 526;');
-    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 6;');
-    expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 8;');
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(587);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 587;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 580;');
+    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 7;');
+    expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 9;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 526 pass and 6 observed immutable conflicts'",
+      "'canonical comparison must be exactly 580 pass and 7 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 526 pass and 6 observed immutable conflicts'",
+      "'repeat comparison must be exactly 580 pass and 7 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 526 pass and 6 observed immutable conflicts'",
+      "'fresh comparison must be exactly 580 pass and 7 observed immutable conflicts'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -98,7 +104,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("new URL(page.url()).pathname + new URL(page.url()).search === route");
   });
 
-  it('separates observed conflicts from the latent UPD-007 revision-domain conflicts', () => {
+  it('separates observed query/update conflicts from latent UPD-007 revision conflicts', () => {
     const conflictBlock = source.match(
       /const REN_005_IMMUTABLE_FAILURES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body ?? '';
@@ -194,12 +200,27 @@ describe('Core v2 render browser checkpoint script', () => {
       code: 'VALUE_MISMATCH',
       failurePath: '/outcome/cycle/code',
     }]);
+    const queryConflictBlock = source.match(
+      /const QRY_001_IMMUTABLE_FAILURES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
+    )?.groups?.body ?? '';
+    const queryFailures = [...queryConflictBlock.matchAll(
+      /path: '(?<path>\/[^']+)',\s*code: '(?<code>[^']+)',\s*failurePath: '(?<failurePath>\/[^']+)'/gu,
+    )].map((match) => ({
+      path: match.groups?.path,
+      code: match.groups?.code,
+      failurePath: match.groups?.failurePath,
+    }));
+    expect(queryFailures).toEqual([{
+      path: '/outcome/queries/ambiguous-component/code',
+      code: 'VALUE_MISMATCH',
+      failurePath: '/outcome/queries/ambiguous-component/code',
+    }]);
     expect(source).toContain('comparison.passed === caseSpec.expectedAssertions - expectedFailures.length');
     expect(source).toContain('comparison.failed === expectedFailures.length');
     expect(source).toContain('sameJson(comparisonFailures(comparison), expectedFailures)');
     expect(source).toContain('latentConflicts: UPD_007_LATENT_IMMUTABLE_CONFLICTS');
-    expect(source).toContain("'render checkpoint observed immutable conflict inventory must remain 6'");
-    expect(source).toContain("'render checkpoint declared immutable conflict inventory must remain 8'");
+    expect(source).toContain("'render checkpoint observed immutable conflict inventory must remain 7'");
+    expect(source).toContain("'render checkpoint declared immutable conflict inventory must remain 9'");
     expect(source).toContain('latentCases: selectedRenderCases');
     expect(source).toContain(".filter((record) => (record.latentConflicts?.length ?? 0) > 0)");
     expect(source).toContain("import { inspectCoreV2UpdateConflictActuals } from './core-v2-contract/update-conflict-actuals.mjs';");
@@ -289,7 +310,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('focusedUi: DOM_CONTROL_CASES.has(caseSpec.id)');
   });
 
-  it('drives presentation, update, and viewport tranches through actual Run, Repeat, and Destroy controls', () => {
+  it('drives presentation, update, viewport, and query-selection tranches through controls', () => {
     expect(source).toContain("const PRESENTATION_TRANCHE_CASES = new Set([");
     for (const caseId of ['LAY-002', 'LAY-003', 'UPD-005', 'REN-009', 'ANI-001', 'ANI-002']) {
       expect(source).toContain(`'${caseId}',`);
@@ -321,6 +342,17 @@ describe('Core v2 render browser checkpoint script', () => {
       'VIE-008',
       'CSM-009',
       'CSM-010',
+    ]) {
+      expect(source).toContain(`'${caseId}',`);
+    }
+    expect(source).toContain('const QUERY_SELECTION_TRANCHE_CASES = new Set([');
+    for (const caseId of [
+      'QRY-001',
+      'QRY-002',
+      'SEL-001',
+      'SEL-002',
+      'SEL-003',
+      'SEL-004',
     ]) {
       expect(source).toContain(`'${caseId}',`);
     }

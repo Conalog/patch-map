@@ -90,6 +90,12 @@ describe('Core v2 executable Lab product bridge', () => {
           'VIE-008',
           'CSM-009',
           'CSM-010',
+          'QRY-001',
+          'QRY-002',
+          'SEL-001',
+          'SEL-002',
+          'SEL-003',
+          'SEL-004',
         ].includes(caseId)
           ? 'projection'
           : 'flat',
@@ -225,6 +231,59 @@ describe('Core v2 executable Lab product bridge', () => {
       expect(comparison.assertions.filter(({ passed }) => !passed)).toEqual([]);
       expect(comparison.failed).toBe(0);
       expect(comparison.passed).toBe(expected?.expected.assertions.length);
+      expect(run.cleanup).toMatchObject({ status: 'completed' });
+      expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
+      await bridge.destroyCase();
+    },
+    60_000,
+  );
+
+  it.each([
+    'QRY-001',
+    'QRY-002',
+    'SEL-001',
+    'SEL-002',
+    'SEL-003',
+    'SEL-004',
+  ] as const)(
+    'produces independently comparable query/selection actuals for %s',
+    async (caseId) => {
+      const surfaces: FakeSurface[] = [];
+      const bridge = createCoreV2ExecutableLabBridge({
+        caseId,
+        rootTestId: `scenario-${caseId.toLowerCase()}`,
+        size: '100',
+        seed: 319,
+        surfaceHost: createSurfaceHost(),
+        surfaceFactory: createFakeSurfaceFactory(surfaces, [], 'projection'),
+        environment: {
+          browser: 'vitest',
+          browserVersion: 'vitest',
+          backend: 'webgl2',
+          routeSize: '100',
+          runtimeResourceIds: [],
+        },
+      });
+      const run = await bridge.runCase();
+      const expected = normalizedExpected.cases.find(({ id }) => id === caseId);
+      expect(expected).toBeDefined();
+      const comparison = compareObservation({
+        expectedCase: expected,
+        actual: run.actualObservation,
+        fixtures: run.fixtures,
+        captures: run.captures,
+      });
+      const failures = comparison.assertions.filter(({ passed }) => !passed);
+
+      if (caseId === 'QRY-001') {
+        expect(comparison.failed, JSON.stringify(failures)).toBe(1);
+        expect(failures).toMatchObject([
+          { path: '/outcome/queries/ambiguous-component/code' },
+        ]);
+      } else {
+        expect(comparison.failed, JSON.stringify(failures)).toBe(0);
+        expect(comparison.passed).toBe(expected?.expected.assertions.length);
+      }
       expect(run.cleanup).toMatchObject({ status: 'completed' });
       expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
       await bridge.destroyCase();
@@ -577,6 +636,12 @@ describe('Core v2 executable Lab product bridge', () => {
       'UPD-013': 'update-transactions',
       'UPD-014': 'update-transactions',
       'VIE-001': 'viewport',
+      'QRY-001': 'query-selection',
+      'QRY-002': 'query-selection',
+      'SEL-001': 'query-selection',
+      'SEL-002': 'query-selection',
+      'SEL-003': 'query-selection',
+      'SEL-004': 'query-selection',
       'VIE-002': 'viewport',
       'VIE-003': 'viewport',
       'VIE-004': 'viewport',
@@ -796,9 +861,16 @@ class FakeSurface implements CoreV2EngineSurface {
   }
 
   public screenToWorld(point: CoreV2Point): CoreV2Point {
+    const radians = this.view.rotation * Math.PI / 180;
+    const cosine = Math.cos(radians);
+    const sine = Math.sin(radians);
+    const translatedX = (point.x - this.view.x) / this.view.scale *
+      (this.view.flipX === true ? -1 : 1);
+    const translatedY = (point.y - this.view.y) / this.view.scale *
+      (this.view.flipY === true ? -1 : 1);
     return Object.freeze({
-      x: (point.x - this.view.x) / this.view.scale,
-      y: (point.y - this.view.y) / this.view.scale,
+      x: translatedX * cosine + translatedY * sine,
+      y: -translatedX * sine + translatedY * cosine,
     });
   }
 

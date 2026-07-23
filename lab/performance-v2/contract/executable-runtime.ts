@@ -57,6 +57,8 @@ import * as updateTransactionsHandlersModule from '../../../scripts/verification
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as viewportHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/viewport.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as querySelectionHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/query-selection.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as assetHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/assets.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as foundationFoldModule from '../../../scripts/verification/core-v2-contract/fold-foundation.mjs';
@@ -91,6 +93,8 @@ import * as updateTransactionsFoldModule from '../../../scripts/verification/cor
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as viewportFoldModule from '../../../scripts/verification/core-v2-contract/fold-viewport.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as querySelectionFoldModule from '../../../scripts/verification/core-v2-contract/fold-query-selection.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as assetFoldModule from '../../../scripts/verification/core-v2-contract/fold-assets.mjs';
 
 import type {
@@ -108,6 +112,11 @@ import {
   createCoreV2ViewportRuntime,
   type CoreV2ViewportCaseId,
 } from './viewport-runtime';
+import {
+  CORE_V2_QUERY_SELECTION_CASE_IDS,
+  createCoreV2QuerySelectionRuntime,
+  type CoreV2QuerySelectionCaseId,
+} from './query-selection-runtime';
 import { createCoreV2RenderComponentAssetsRuntime } from './render-component-assets-runtime';
 import { createCoreV2RenderImagesRuntime } from './render-images-runtime';
 import { createCoreV2RenderTextRuntime } from './render-text-runtime';
@@ -129,6 +138,7 @@ export type CoreV2ExecutableRuntimeKey =
   | 'presentation-dynamics'
   | 'update-transactions'
   | 'viewport'
+  | 'query-selection'
   | 'assets';
 
 type Handler = (
@@ -182,6 +192,10 @@ interface HandlerFactoryRuntime {
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
   createViewportHandlerEntries?(
+    this: void,
+    product: Readonly<Record<string, unknown>>,
+  ): readonly HandlerEntry[];
+  createQuerySelectionHandlerEntries?(
     this: void,
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
@@ -256,6 +270,10 @@ interface FoldRuntime {
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
+  foldQuerySelectionExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
   foldAssetExecution?(
     this: void,
     options: Readonly<Record<string, unknown>>,
@@ -304,6 +322,7 @@ const layoutOrderHandlers = layoutOrderHandlersModule as unknown as HandlerFacto
 const presentationDynamicsHandlers = presentationDynamicsHandlersModule as unknown as HandlerFactoryRuntime;
 const updateTransactionsHandlers = updateTransactionsHandlersModule as unknown as HandlerFactoryRuntime;
 const viewportHandlers = viewportHandlersModule as unknown as HandlerFactoryRuntime;
+const querySelectionHandlers = querySelectionHandlersModule as unknown as HandlerFactoryRuntime;
 const assetHandlers = assetHandlersModule as unknown as HandlerFactoryRuntime;
 const foundationFold = foundationFoldModule as unknown as FoldRuntime;
 const dataFoundationFold = dataFoundationFoldModule as unknown as FoldRuntime;
@@ -321,6 +340,7 @@ const layoutOrderFold = layoutOrderFoldModule as unknown as FoldRuntime;
 const presentationDynamicsFold = presentationDynamicsFoldModule as unknown as FoldRuntime;
 const updateTransactionsFold = updateTransactionsFoldModule as unknown as FoldRuntime;
 const viewportFold = viewportFoldModule as unknown as FoldRuntime;
+const querySelectionFold = querySelectionFoldModule as unknown as FoldRuntime;
 const assetFold = assetFoldModule as unknown as FoldRuntime;
 
 const FOUNDATION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
@@ -364,6 +384,9 @@ const UPDATE_TRANSACTION_CASE_IDS = new Set<CoreV2UpdateTransactionsCaseId>([
   'UPD-014',
 ]);
 const VIEWPORT_CASE_IDS = new Set<CoreV2ViewportCaseId>(CORE_V2_VIEWPORT_CASE_IDS);
+const QUERY_SELECTION_CASE_IDS = new Set<CoreV2QuerySelectionCaseId>(
+  CORE_V2_QUERY_SELECTION_CASE_IDS,
+);
 
 const DATA_FOUNDATION_PRODUCT = Object.freeze({
   createColorResolver: createCoreV2ColorResolver,
@@ -511,6 +534,7 @@ const LAYOUT_ORDER_DESCRIPTOR = createLayoutOrderDescriptor();
 const PRESENTATION_DYNAMICS_DESCRIPTOR = createPresentationDynamicsDescriptor();
 const UPDATE_TRANSACTIONS_DESCRIPTOR = createUpdateTransactionsDescriptor();
 const VIEWPORT_DESCRIPTOR = createViewportDescriptor();
+const QUERY_SELECTION_DESCRIPTOR = createQuerySelectionDescriptor();
 
 export function resolveCoreV2ExecutableRuntime(
   caseId: CoreV2ExecutableCaseId,
@@ -535,6 +559,7 @@ export function resolveCoreV2ExecutableRuntime(
     || caseId === 'ANI-002'
   ) return PRESENTATION_DYNAMICS_DESCRIPTOR;
   if (isUpdateTransactionCaseId(caseId)) return UPDATE_TRANSACTIONS_DESCRIPTOR;
+  if (isQuerySelectionCaseId(caseId)) return QUERY_SELECTION_DESCRIPTOR;
   if (isViewportCaseId(caseId)) return VIEWPORT_DESCRIPTOR;
   if (caseId === 'AST-001') return ASSET_DESCRIPTOR;
   throw new Error(`Unsupported Core v2 executable runtime: ${String(caseId)}`);
@@ -628,6 +653,51 @@ function isViewportCaseId(
   caseId: CoreV2ExecutableCaseId,
 ): caseId is CoreV2ViewportCaseId {
   return VIEWPORT_CASE_IDS.has(caseId as CoreV2ViewportCaseId);
+}
+
+function createQuerySelectionDescriptor(): CoreV2ExecutableRuntimeDescriptor {
+  const fold = requireFold(
+    querySelectionFold.foldQuerySelectionExecution,
+    'query-selection fold',
+  );
+  const createEntries = requireFactory(
+    querySelectionHandlers.createQuerySelectionHandlerEntries,
+    'query-selection handlers',
+  );
+  const createRun = (plan: CoreV2ExecutableCasePlan) => {
+    invariant(isQuerySelectionCaseId(plan.id), 'query-selection case identity');
+    const runtime = createCoreV2QuerySelectionRuntime(plan.id);
+    return Object.freeze({
+      handlerEntries: selectHandlerEntries(
+        plan,
+        createEntries(runtime.product as unknown as Readonly<Record<string, unknown>>),
+      ),
+      engineOptions: Object.freeze({}),
+      postDestroyProductProbe: () => runtime.postDestroyProductProbe(),
+    });
+  };
+  return Object.freeze({
+    key: 'query-selection',
+    needsSupplementalWebGLLease: false,
+    createRun,
+    handlerEntries(plan: CoreV2ExecutableCasePlan): readonly HandlerEntry[] {
+      return createRun(plan).handlerEntries;
+    },
+    fold(input: CoreV2RuntimeFoldInput): CoreV2FoldedExecution {
+      return fold({
+        casePlan: input.casePlan,
+        execution: input.execution,
+        provenance: input.provenance,
+        environment: input.environment,
+      });
+    },
+  });
+}
+
+function isQuerySelectionCaseId(
+  caseId: CoreV2ExecutableCaseId,
+): caseId is CoreV2QuerySelectionCaseId {
+  return QUERY_SELECTION_CASE_IDS.has(caseId as CoreV2QuerySelectionCaseId);
 }
 
 function createLayoutOrderDescriptor(): CoreV2ExecutableRuntimeDescriptor {
