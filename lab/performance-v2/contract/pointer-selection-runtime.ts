@@ -13,9 +13,14 @@ export const CORE_V2_POINTER_SELECTION_CASE_IDS = Object.freeze([
   'EVT-002',
   'EVT-003',
   'EVT-004',
+  'EVT-005',
+  'EVT-006',
+  'EVT-007',
   'EVT-008',
+  'EVT-009',
   'SEL-005',
   'SEL-006',
+  'SEL-008',
 ] as const);
 
 export type CoreV2PointerSelectionCaseId =
@@ -29,6 +34,7 @@ interface CoreV2PointerSelectionResourceProbeInput {
 interface CoreV2PointerSelectionReleasedProbeInput {
   readonly caseId: CoreV2PointerSelectionCaseId;
   readonly pointerGesture: CoreV2PointerGestureProbe;
+  readonly hostInteraction?: Readonly<Record<string, unknown>>;
 }
 
 export interface CoreV2PointerSelectionProductAdapter {
@@ -71,6 +77,7 @@ export function createCoreV2PointerSelectionRuntime(
         semantic: structuredClone(input.engine.semanticProbe()),
         geometry: structuredClone(input.engine.geometryProbe()),
         pointerGesture: structuredClone(input.engine.pointerGestureProbe()),
+        hostInteraction: structuredClone(input.engine.hostInteractionProbe()),
         interactionOwnership: structuredClone(input.engine.interactionOwnershipProbe()),
         runtimeCounts: runtimeCounts(),
       });
@@ -83,6 +90,7 @@ export function createCoreV2PointerSelectionRuntime(
         revision: CORE_V2_POINTER_SELECTION_RUNTIME_REVISION,
         caseId,
         pointerGesture: structuredClone(input.pointerGesture),
+        hostInteraction: structuredClone(input.hostInteraction ?? null),
         runtimeCounts: runtimeCounts(),
       });
     },

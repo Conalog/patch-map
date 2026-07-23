@@ -7,9 +7,14 @@ const CASE_IDS = Object.freeze([
   'EVT-002',
   'EVT-003',
   'EVT-004',
+  'EVT-005',
+  'EVT-006',
+  'EVT-007',
   'EVT-008',
+  'EVT-009',
   'SEL-005',
   'SEL-006',
+  'SEL-008',
 ]);
 const DOMAIN_NAMES = Object.freeze([
   'case',
@@ -29,7 +34,7 @@ const DOMAIN_NAMES = Object.freeze([
 ]);
 
 /**
- * Fold seven shared pointer/selection executions without importing approved
+ * Fold shared pointer/selection executions without importing approved
  * expected observations or a comparator.
  */
 export function foldPointerSelectionExecution(options) {
@@ -184,6 +189,99 @@ function projectCaseDomains(caseId, execution) {
         },
       });
     }
+    case 'EVT-005': {
+      const action = actionActual(execution, 1, 'binding-probe-sequence');
+      return domains({
+        interaction: {
+          staleGestureCount: nonNegativeInteger(
+            action.staleGestureCount,
+            'EVT-005 stale gestures',
+          ),
+        },
+        events: {
+          deliveryByTarget: cloneRecord(
+            action.deliveryByTarget,
+            'EVT-005 target deliveries',
+          ),
+          deliveryByBinding: cloneRecord(
+            action.deliveryByBinding,
+            'EVT-005 binding deliveries',
+          ),
+          afterDisposeCount: nonNegativeInteger(
+            action.afterDisposeCount,
+            'EVT-005 post-dispose deliveries',
+          ),
+        },
+        outcome: {
+          disposeResults: cloneArray(
+            action.disposeResults,
+            'EVT-005 dispose results',
+          ),
+        },
+        resources: cloneRecord(action.resources, 'EVT-005 resources'),
+      });
+    }
+    case 'EVT-006': {
+      const propagation = actionActual(execution, 0, 'dispatch-propagating-event');
+      const keyboard = actionActual(execution, 1, 'keyboard-matrix');
+      const transformer = actionActual(
+        execution,
+        2,
+        'transformer-handle-propagation-probe',
+      );
+      return domains({
+        interaction: {
+          keyboardOwned: cloneRecord(
+            keyboard.keyboardOwned,
+            'EVT-006 keyboard ownership',
+          ),
+        },
+        events: {
+          noStop: cloneRecord(propagation.noStop, 'EVT-006 no-stop trace'),
+          stop: cloneRecord(propagation.stop, 'EVT-006 stop trace'),
+          immediateStop: cloneRecord(
+            propagation.immediateStop,
+            'EVT-006 immediate-stop trace',
+          ),
+          transformerHandle: cloneRecord(
+            transformer.transformerHandle,
+            'EVT-006 transformer handle',
+          ),
+        },
+        history: {
+          corruptEntryCount: nonNegativeInteger(
+            propagation.corruptEntryCount,
+            'EVT-006 corrupt history entries',
+          ),
+        },
+      });
+    }
+    case 'EVT-007': {
+      const stack = actionActual(execution, 0, 'state-stack');
+      const ownership = actionActual(execution, 1, 'dispatch-state-owned-input');
+      const destroyed = actionActual(execution, 2, 'destroy-state-stack');
+      return domains({
+        interaction: {
+          activeState: stringValue(stack.activeState, 'EVT-007 active state'),
+          inputOwnerTrace: cloneArray(
+            ownership.inputOwnerTrace,
+            'EVT-007 input owners',
+          ),
+          afterDestroy: cloneRecord(
+            destroyed.afterDestroy,
+            'EVT-007 destroyed mode state',
+          ),
+        },
+        events: {
+          lifecycle: cloneArray(stack.lifecycle, 'EVT-007 lifecycle'),
+        },
+        outcome: {
+          emptyPop: stringValue(stack.emptyPop, 'EVT-007 empty pop'),
+          unknownState: stringValue(stack.unknownState, 'EVT-007 unknown state'),
+        },
+        resources: cloneRecord(destroyed.resources, 'EVT-007 resources'),
+      });
+    }
     case 'EVT-008': {
       const action = actionActual(execution, 0, 'click-suppression-matrix');
       return domains({
@@ -199,6 +297,40 @@ function projectCaseDomains(caseId, execution) {
         },
         events: {
           clickCounts: cloneRecord(action.clickCounts, 'EVT-008 click counts'),
+        },
+      });
+    }
+    case 'EVT-009': {
+      const action = actionActual(execution, 1, 'set-selection');
+      const observations = cloneArray(
+        action.observations,
+        'EVT-009 event observations',
+      );
+      const specific = observations.find(({ id }) => id === 'specific');
+      const family = observations.find(({ id }) => id === 'family');
+      assert(isRecord(specific), 'EVT-009 specific observation');
+      assert(isRecord(family), 'EVT-009 family observation');
+      return domains({
+        interaction: {
+          staleGestureCount: nonNegativeInteger(
+            action.staleGestureCount,
+            'EVT-009 stale gestures',
+          ),
+        },
+        events: {
+          order: observations.map(({ id }) =>
+            stringValue(id, 'EVT-009 observer ID')),
+          specific: {
+            payload: clone(specific.payload),
+            revision: finiteNumber(
+              specific.revision,
+              'EVT-009 specific revision',
+            ),
+          },
+          family: {
+            payload: clone(family.payload),
+            revision: finiteNumber(family.revision, 'EVT-009 family revision'),
+          },
         },
       });
     }
@@ -287,6 +419,59 @@ function projectCaseDomains(caseId, execution) {
             'SEL-006 live change count',
           ),
           dragEnd: cloneRecord(action.dragEnd, 'SEL-006 drag end'),
+        },
+      });
+    }
+    case 'SEL-008': {
+      const canvas = actionActual(execution, 0, 'canvas-user-select');
+      const external = actionActual(execution, 1, 'set-external-selection');
+      const redraw = actionActual(execution, 2, 'replace-scene');
+      const withoutHost = actionActual(execution, 3, 'replace-scene');
+      const remount = actionActual(execution, 4, 'remount');
+      const publications = cloneArray(
+        remount.canvasToHost,
+        'SEL-008 host publications',
+      );
+      return domains({
+        interaction: {
+          afterExternal: {
+            targets: cloneArray(
+              external.targets,
+              'SEL-008 external selection',
+            ),
+          },
+          afterRedraw: {
+            targets: cloneArray(redraw.targets, 'SEL-008 redraw selection'),
+          },
+          withoutHostInput: {
+            targets: cloneArray(
+              withoutHost.targets,
+              'SEL-008 hostless selection',
+            ),
+          },
+          afterRemount: {
+            targets: cloneArray(remount.targets, 'SEL-008 remount selection'),
+          },
+        },
+        events: {
+          canvasToHost: {
+            publicationCount: publications.length,
+            payload: publications.length === 0
+              ? null
+              : clone(publications.at(-1)),
+          },
+        },
+        resources: {
+          staleOutlines: nonNegativeInteger(
+            remount.staleOutlines,
+            'SEL-008 stale outlines',
+          ),
+        },
+        outcome: {
+          canvasSelectionChanged: recordValue(
+            canvas.change,
+            'SEL-008 canvas selection change',
+          ).changed === true,
         },
       });
     }

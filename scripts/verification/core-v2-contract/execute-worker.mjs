@@ -19,6 +19,7 @@ const POINTER_EVENT_CASE_IDS = new Set([
   'EVT-002',
   'EVT-003',
   'EVT-004',
+  'EVT-005',
   'EVT-008',
   'SEL-005',
   'SEL-006',

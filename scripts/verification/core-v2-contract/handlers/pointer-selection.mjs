@@ -5,9 +5,14 @@ export const POINTER_SELECTION_CASE_IDS = Object.freeze([
   'EVT-002',
   'EVT-003',
   'EVT-004',
+  'EVT-005',
+  'EVT-006',
+  'EVT-007',
   'EVT-008',
+  'EVT-009',
   'SEL-005',
   'SEL-006',
+  'SEL-008',
 ]);
 
 export const POINTER_SELECTION_ACTION_TYPES = Object.freeze([
@@ -16,10 +21,24 @@ export const POINTER_SELECTION_ACTION_TYPES = Object.freeze([
   'pointer-hover-series',
   'hover-overlap-redraw-probe',
   'gesture-termination-matrix',
+  'bind-events',
+  'binding-probe-sequence',
+  'dispatch-propagating-event',
+  'keyboard-matrix',
+  'transformer-handle-propagation-probe',
+  'state-stack',
+  'dispatch-state-owned-input',
+  'destroy-state-stack',
   'click-suppression-matrix',
+  'subscribe-events',
+  'set-selection',
   'box-selection',
   'relation-box-intersection-matrix',
   'paint-selection',
+  'canvas-user-select',
+  'set-external-selection',
+  'replace-scene',
+  'remount',
 ]);
 
 const CASE_ACTIONS = Object.freeze({
@@ -27,7 +46,19 @@ const CASE_ACTIONS = Object.freeze({
   'EVT-002': Object.freeze(['physical-click-series']),
   'EVT-003': Object.freeze(['pointer-hover-series', 'hover-overlap-redraw-probe']),
   'EVT-004': Object.freeze(['gesture-termination-matrix']),
+  'EVT-005': Object.freeze(['bind-events', 'binding-probe-sequence']),
+  'EVT-006': Object.freeze([
+    'dispatch-propagating-event',
+    'keyboard-matrix',
+    'transformer-handle-propagation-probe',
+  ]),
+  'EVT-007': Object.freeze([
+    'state-stack',
+    'dispatch-state-owned-input',
+    'destroy-state-stack',
+  ]),
   'EVT-008': Object.freeze(['click-suppression-matrix']),
+  'EVT-009': Object.freeze(['subscribe-events', 'set-selection']),
   'SEL-005': Object.freeze([
     'box-selection',
     'box-selection',
@@ -35,6 +66,13 @@ const CASE_ACTIONS = Object.freeze({
     'relation-box-intersection-matrix',
   ]),
   'SEL-006': Object.freeze(['paint-selection']),
+  'SEL-008': Object.freeze([
+    'canvas-user-select',
+    'set-external-selection',
+    'replace-scene',
+    'replace-scene',
+    'remount',
+  ]),
 });
 
 export function createPointerSelectionHandlerEntries(productValue) {
@@ -54,7 +92,29 @@ export function createPointerSelectionHandlerEntries(productValue) {
       states,
       gestureTerminationMatrixAction,
     ),
+    'bind-events': withState(product, states, bindEventsAction),
+    'binding-probe-sequence': withState(product, states, bindingProbeSequenceAction),
+    'dispatch-propagating-event': withState(
+      product,
+      states,
+      dispatchPropagatingEventAction,
+    ),
+    'keyboard-matrix': withState(product, states, keyboardMatrixAction),
+    'transformer-handle-propagation-probe': withState(
+      product,
+      states,
+      transformerHandlePropagationProbeAction,
+    ),
+    'state-stack': withState(product, states, stateStackAction),
+    'dispatch-state-owned-input': withState(
+      product,
+      states,
+      dispatchStateOwnedInputAction,
+    ),
+    'destroy-state-stack': withState(product, states, destroyStateStackAction),
     'click-suppression-matrix': withState(product, states, clickSuppressionMatrixAction),
+    'subscribe-events': withState(product, states, subscribeEventsAction),
+    'set-selection': withState(product, states, setSelectionAction),
     'box-selection': withState(product, states, boxSelectionAction),
     'relation-box-intersection-matrix': withState(
       product,
@@ -62,6 +122,10 @@ export function createPointerSelectionHandlerEntries(productValue) {
       relationBoxIntersectionMatrixAction,
     ),
     'paint-selection': withState(product, states, paintSelectionAction),
+    'canvas-user-select': withState(product, states, canvasUserSelectAction),
+    'set-external-selection': withState(product, states, setExternalSelectionAction),
+    'replace-scene': withState(product, states, replaceSelectionSceneAction),
+    'remount': withState(product, states, remountSelectionAction),
   });
   return Object.freeze(POINTER_SELECTION_ACTION_TYPES.map((type) => Object.freeze([
     `contract/${type}`,
@@ -80,6 +144,13 @@ function withState(product, states, handler) {
         engine: null,
         loadedDatasetRef: null,
         sessionIndex: 1,
+        bindingHandle: null,
+        bindingDeliveries: [],
+        observerEvents: [],
+        eventSubscriptions: [],
+        selectionHostUnbind: null,
+        canvasToHost: [],
+        externalSelectionIds: [],
       };
       states.set(context.ensureSessionEngine, state);
     }
@@ -314,6 +385,283 @@ async function gestureTerminationMatrixAction(product, state, context, action) {
   return { actual, captureSource: actual };
 }
 
+async function bindEventsAction(product, state, context, action) {
+  assert(context.caseId === 'EVT-005', 'bind-events case');
+  const operands = exactOperands(action, ['bindings']);
+  const engine = await ensureBaseline(state, context);
+  const descriptors = arrayValue(operands.bindings, 'event bindings')
+    .map((bindingValue, index) => {
+      const binding = recordValue(bindingValue, `event binding ${index}`);
+      const common = {
+        id: stringValue(binding.id, `event binding ${index} ID`),
+        event: stringValue(binding.event, `event binding ${index} event`),
+      };
+      if (Object.hasOwn(binding, 'target')) {
+        assertExactKeys(binding, ['id', 'target', 'event'], `event binding ${index}`);
+        return { ...common, target: clone(binding.target) };
+      }
+      assertExactKeys(binding, ['id', 'query', 'event'], `event binding ${index}`);
+      return {
+        ...common,
+        query: { where: cloneRecord(binding.query, `event binding ${index} query`) },
+      };
+    });
+  state.bindingDeliveries = [];
+  state.bindingHandle = callSync(
+    engine,
+    'bindLogicalEvents',
+    descriptors,
+    (delivery) => state.bindingDeliveries.push(clone(delivery)),
+  );
+  const actual = {
+    bindingCount: descriptors.length,
+    probe: clone(callSync(state.bindingHandle, 'probe')),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function bindingProbeSequenceAction(product, state, context, action) {
+  assert(context.caseId === 'EVT-005', 'binding-probe-sequence case');
+  const operands = exactOperands(action, ['steps']);
+  const engine = currentStateEngine(state, 'binding-probe-sequence');
+  const handle = state.bindingHandle;
+  assert(handle !== null, 'binding handle');
+  const disposeResults = [];
+  const operationResults = [];
+  let disposed = false;
+  let afterDisposeCount = 0;
+  for (const [index, stepValue] of arrayValue(operands.steps, 'binding steps').entries()) {
+    const step = recordValue(stepValue, `binding step ${index}`);
+    const op = stringValue(step.op, `binding step ${index} operation`);
+    if (op === 'enable' || op === 'disable') {
+      assertExactKeys(step, ['op'], `binding ${op} step`);
+      operationResults.push(callSync(handle, op));
+    } else if (op === 'dispose') {
+      assertExactKeys(step, ['op'], 'binding dispose step');
+      const result = callSync(handle, 'dispose');
+      disposeResults.push(result);
+      disposed = true;
+    } else if (op === 'redraw') {
+      assertExactKeys(step, ['op'], 'binding redraw step');
+      operationResults.push(callSync(engine, 'redrawLogicalEventBindings'));
+    } else if (op === 'pointer-click') {
+      const expectedKey = Object.hasOwn(step, 'expectedSurfaceDelivery')
+        ? 'expectedSurfaceDelivery'
+        : 'expectedDelivery';
+      assertExactKeys(
+        step,
+        ['op', 'pointerId', 'button', 'screen', expectedKey],
+        'binding pointer-click step',
+      );
+      const before = state.bindingDeliveries.length;
+      dispatchProductClick(
+        engine,
+        nonNegativeInteger(step.pointerId, 'binding pointer ID'),
+        integerValue(step.button, 'binding pointer button'),
+        pointTuple(step.screen, 'binding pointer screen'),
+        index * 100,
+      );
+      const delivered = state.bindingDeliveries.length - before;
+      operationResults.push(delivered);
+      if (disposed) afterDisposeCount += delivered;
+    } else if (op === 'destroy') {
+      assertExactKeys(step, ['op'], 'binding destroy step');
+      await context.releaseEngine(engine, 'logical-bindings-destroy');
+      state.engine = null;
+      state.loadedDatasetRef = null;
+      state.sessionIndex += 1;
+    } else {
+      throw new Error(`Core v2 pointer/selection handler invalid: unsupported binding op ${op}`);
+    }
+  }
+  const hostInteraction = callSync(engine, 'hostInteractionProbe');
+  const pointerGesture = callSync(engine, 'pointerGestureProbe');
+  const deliveries = state.bindingDeliveries.map(clone);
+  const actual = {
+    deliveryByTarget: countBy(deliveries, (delivery) => delivery.targetId ?? 'surface'),
+    deliveryByBinding: countManyBy(deliveries, (delivery) => delivery.bindingIds),
+    afterDisposeCount,
+    disposeResults,
+    operationResults,
+    resources: {
+      bindings: hostInteraction.bindings,
+      listeners: hostInteraction.bindingListeners,
+    },
+    staleGestureCount: pointerGesture.staleGestureCount,
+    product: clone(product.releasedResourceProbe({
+      caseId: context.caseId,
+      pointerGesture,
+      hostInteraction,
+    })),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function dispatchPropagatingEventAction(product, state, context, action) {
+  assert(context.caseId === 'EVT-006', 'dispatch-propagating-event case');
+  const operands = exactOperands(action, ['pointerId', 'screen', 'stops']);
+  nonNegativeInteger(operands.pointerId, 'propagating pointer ID');
+  pointTuple(operands.screen, 'propagating event screen');
+  const engine = await ensureBaseline(state, context);
+  const targetPath = stringArray(
+    context.fixtureParams.targetPath,
+    'propagation target path',
+  );
+  const target = targetPath.at(-1);
+  assert(target !== undefined, 'propagation target path terminal');
+  const traces = {};
+  for (const stopValue of arrayValue(operands.stops, 'propagation stops')) {
+    const stop = recordValue(stopValue, 'propagation stop');
+    assertExactKeys(stop, ['phase', 'mode'], 'propagation stop');
+    const phase = stringValue(stop.phase, 'propagation stop phase');
+    const mode = stringValue(stop.mode, 'propagation stop mode');
+    const trace = callSync(
+      engine,
+      'dispatchLogicalPropagation',
+      target,
+      { phase, mode },
+    );
+    assert(trace !== null, 'propagation logical target');
+    const key = mode === 'none'
+      ? 'noStop'
+      : mode === 'stop'
+        ? 'stop'
+        : 'immediateStop';
+    traces[key] = clone(trace);
+  }
+  const actual = {
+    ...traces,
+    corruptEntryCount: historyCorruptEntryCount(callSync(engine, 'historyState')),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function keyboardMatrixAction(product, state, context, action) {
+  assert(context.caseId === 'EVT-006', 'keyboard-matrix case');
+  const operands = exactOperands(
+    action,
+    ['key', 'code', 'ctrlKey', 'metaKey', 'shiftKey', 'paths'],
+  );
+  stringValue(operands.key, 'keyboard key');
+  stringValue(operands.code, 'keyboard code');
+  booleanValue(operands.ctrlKey, 'keyboard ctrlKey');
+  booleanValue(operands.metaKey, 'keyboard metaKey');
+  booleanValue(operands.shiftKey, 'keyboard shiftKey');
+  const engine = await ensureBaseline(state, context);
+  const keyboardOwned = {};
+  for (const path of stringArray(operands.paths, 'keyboard paths')) {
+    keyboardOwned[path] = callSync(engine, 'ownsKeyboardInput', path);
+  }
+  const actual = {
+    keyboardOwned,
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function transformerHandlePropagationProbeAction(product, state, context, action) {
+  assert(context.caseId === 'EVT-006', 'transformer-handle-propagation-probe case');
+  const operands = exactOperands(
+    action,
+    ['handle', 'screen', 'expectedSurfaceDelivery'],
+  );
+  stringValue(operands.handle, 'transformer handle');
+  pointTuple(operands.screen, 'transformer handle screen');
+  const engine = await ensureBaseline(state, context);
+  const actual = {
+    transformerHandle: clone(callSync(engine, 'transformerHandlePropagationProbe')),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function stateStackAction(product, state, context, action) {
+  assert(context.caseId === 'EVT-007', 'state-stack case');
+  const operands = exactOperands(action, ['operations']);
+  const engine = await ensureBaseline(state, context);
+  const lifecycle = [];
+  let emptyPop = null;
+  let unknownState = null;
+  for (const operationValue of arrayValue(operands.operations, 'state operations')) {
+    const operation = cloneRecord(operationValue, 'state operation');
+    const result = callSync(engine, 'applyInteractionModeOperation', operation);
+    lifecycle.push(...result.lifecycleDelta);
+    if (operation.op === 'pop' && result.status === 'unchanged') {
+      emptyPop = result.status;
+    }
+    if (result.status === 'rejected') unknownState = result.code;
+  }
+  const probe = callSync(engine, 'interactionModeProbe');
+  const actual = {
+    lifecycle,
+    activeState: probe.activeState,
+    emptyPop,
+    unknownState,
+    resources: {
+      temporaryModes: probe.temporaryModeCount,
+      captures: probe.captureCount,
+    },
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function dispatchStateOwnedInputAction(product, state, context, action) {
+  assert(context.caseId === 'EVT-007', 'dispatch-state-owned-input case');
+  const operands = exactOperands(action, ['probes']);
+  const engine = await ensureBaseline(state, context);
+  const inputOwnerTrace = [];
+  for (const probeValue of arrayValue(operands.probes, 'state input probes')) {
+    const probe = recordValue(probeValue, 'state input probe');
+    assertExactKeys(
+      probe,
+      ['state', 'input', 'expectedOwner'],
+      'state input probe',
+    );
+    inputOwnerTrace.push(callSync(
+      engine,
+      'interactionInputOwner',
+      stringValue(probe.state, 'state input state'),
+      stringValue(probe.input, 'state input type'),
+    ));
+  }
+  const actual = {
+    inputOwnerTrace,
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function destroyStateStackAction(product, state, context, action) {
+  assert(context.caseId === 'EVT-007', 'destroy-state-stack case');
+  const operands = exactOperands(action, ['restoreState', 'expectedActiveOwners']);
+  const engine = currentStateEngine(state, 'destroy-state-stack');
+  callSync(engine, 'applyInteractionModeOperation', {
+    op: 'replace',
+    state: stringValue(operands.restoreState, 'restore state'),
+  });
+  await context.releaseEngine(engine, 'state-stack-destroy');
+  state.engine = null;
+  state.loadedDatasetRef = null;
+  state.sessionIndex += 1;
+  const hostInteraction = callSync(engine, 'hostInteractionProbe');
+  const actual = {
+    afterDestroy: clone(hostInteraction.mode),
+    resources: {
+      temporaryModes: hostInteraction.mode.temporaryModeCount,
+      captures: hostInteraction.mode.captureCount,
+    },
+    product: clone(product.releasedResourceProbe({
+      caseId: context.caseId,
+      pointerGesture: callSync(engine, 'pointerGestureProbe'),
+      hostInteraction,
+    })),
+  };
+  return { actual, captureSource: actual };
+}
+
 async function clickSuppressionMatrixAction(product, state, context, action) {
   assert(context.caseId === 'EVT-008', 'click-suppression-matrix case');
   const operands = exactOperands(action, ['cases']);
@@ -384,6 +732,73 @@ async function clickSuppressionMatrixAction(product, state, context, action) {
     thresholdCssPxByZoom,
     nativeContextMenuPrevented,
     pointerGesture: clone(callSync(engine, 'pointerGestureProbe')),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function subscribeEventsAction(product, state, context, action) {
+  assert(context.caseId === 'EVT-009', 'subscribe-events case');
+  const operands = exactOperands(action, ['subscriptions']);
+  const engine = await ensureBaseline(state, context);
+  state.observerEvents = [];
+  state.eventSubscriptions = [];
+  for (const subscriptionValue of arrayValue(
+    operands.subscriptions,
+    'event subscriptions',
+  )) {
+    const subscription = recordValue(subscriptionValue, 'event subscription');
+    const hasType = Object.hasOwn(subscription, 'type');
+    assertExactKeys(
+      subscription,
+      hasType ? ['id', 'family', 'type'] : ['id', 'family'],
+      'event subscription',
+    );
+    const id = stringValue(subscription.id, 'event subscription ID');
+    const family = stringValue(subscription.family, 'event subscription family');
+    const type = hasType
+      ? stringValue(subscription.type, 'event subscription type')
+      : null;
+    state.eventSubscriptions.push(callSync(
+      engine,
+      'subscribeHostEvent',
+      family,
+      type,
+      (event) => state.observerEvents.push({ id, ...clone(event) }),
+    ));
+  }
+  const actual = {
+    subscriptionCount: state.eventSubscriptions.length,
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function setSelectionAction(product, state, context, action) {
+  assert(context.caseId === 'EVT-009', 'set-selection case');
+  const operands = exactOperands(action, ['mode', 'targets', 'source']);
+  const engine = await ensureBaseline(state, context);
+  const targets = arrayValue(operands.targets, 'selection targets').map(
+    (targetValue, index) => {
+      const target = recordValue(targetValue, `selection target ${index}`);
+      assertExactKeys(target, ['kind', 'id'], `selection target ${index}`);
+      assert(
+        stringValue(target.kind, `selection target ${index} kind`) === 'element',
+        `selection target ${index} kind`,
+      );
+      return stringValue(target.id, `selection target ${index} ID`);
+    },
+  );
+  const source = stringValue(operands.source, 'selection source');
+  const change = callSync(engine, 'applySelection', {
+    op: stringValue(operands.mode, 'selection mode'),
+    ids: targets,
+    source: source === 'pointer' ? 'canvas' : source,
+  });
+  const actual = {
+    change: clone(change),
+    observations: state.observerEvents.map(clone),
+    staleGestureCount: callSync(engine, 'pointerGestureProbe').staleGestureCount,
     product: observeProduct(product, context, engine),
   };
   return { actual, captureSource: actual };
@@ -533,6 +948,135 @@ async function paintSelectionAction(product, state, context, action) {
   return { actual, captureSource: actual };
 }
 
+async function canvasUserSelectAction(product, state, context, action) {
+  assert(context.caseId === 'SEL-008', 'canvas-user-select case');
+  const operands = exactOperands(action, ['ids', 'source']);
+  const engine = await ensureBaseline(state, context);
+  assert(
+    stringValue(operands.source, 'canvas selection source') === 'pointer-click',
+    'canvas selection source',
+  );
+  if (state.selectionHostUnbind === null) {
+    state.selectionHostUnbind = callSync(
+      engine,
+      'bindSelectionHost',
+      (publication) => state.canvasToHost.push(clone(publication)),
+    );
+  }
+  const change = callSync(engine, 'applySelection', {
+    op: 'replace',
+    ids: stringArray(operands.ids, 'canvas selection IDs'),
+    source: 'canvas',
+  });
+  const actual = {
+    change: clone(change),
+    canvasToHost: state.canvasToHost.map(clone),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function setExternalSelectionAction(product, state, context, action) {
+  assert(context.caseId === 'SEL-008', 'set-external-selection case');
+  const operands = exactOperands(action, ['ids']);
+  const engine = await ensureBaseline(state, context);
+  state.externalSelectionIds = stringArray(
+    operands.ids,
+    'external selection IDs',
+  );
+  const result = callSync(
+    engine,
+    'setExternalSelection',
+    state.externalSelectionIds,
+  );
+  const actual = {
+    targets: clone(result.change.current),
+    missingIds: clone(result.missingIds),
+    canvasToHost: state.canvasToHost.map(clone),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function replaceSelectionSceneAction(product, state, context, action) {
+  assert(context.caseId === 'SEL-008', 'replace-scene case');
+  const engine = await ensureBaseline(state, context);
+  const operands = recordValue(action.operands, 'replace-scene operands');
+  let dataset = clone(callSync(engine, 'exportDataset'));
+  let reapplyHostSelection = false;
+  if (Object.hasOwn(operands, 'retainIds')) {
+    assertExactKeys(operands, ['retainIds', 'removeIds'], 'retained replace-scene');
+    const retained = new Set(stringArray(operands.retainIds, 'retained scene IDs'));
+    const removed = new Set(stringArray(operands.removeIds, 'removed scene IDs'));
+    dataset = retainSceneElements(dataset, retained, removed);
+    reapplyHostSelection = true;
+  } else {
+    assertExactKeys(
+      operands,
+      ['hostSelectionSupplied'],
+      'hostless replace-scene',
+    );
+    reapplyHostSelection = booleanValue(
+      operands.hostSelectionSupplied,
+      'host selection supplied',
+    );
+  }
+  callSync(engine, 'loadDataset', dataset, {
+    datasetRef: `contract:${context.caseId}:replace:${context.actionIndex}`,
+  });
+  if (reapplyHostSelection) {
+    callSync(engine, 'setExternalSelection', state.externalSelectionIds);
+  }
+  callSync(engine, 'publishFrame', context.actionIndex + 100);
+  const snapshot = callSync(engine, 'snapshot');
+  const actual = {
+    targets: clone(snapshot.selectionIds),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function remountSelectionAction(product, state, context, action) {
+  assert(context.caseId === 'SEL-008', 'remount case');
+  const operands = exactOperands(action, ['hostSelectionIds']);
+  const engine = currentStateEngine(state, 'remount');
+  state.selectionHostUnbind?.();
+  state.selectionHostUnbind = null;
+  const snapshot = callSync(engine, 'snapshot');
+  callSync(
+    engine,
+    'rebindHostLifecycle',
+    snapshot.revisions.lifecycleGeneration + 1,
+  );
+  state.selectionHostUnbind = callSync(
+    engine,
+    'bindSelectionHost',
+    (publication) => state.canvasToHost.push(clone(publication)),
+  );
+  state.externalSelectionIds = stringArray(
+    operands.hostSelectionIds,
+    'remount host selection IDs',
+  );
+  const selection = callSync(
+    engine,
+    'setExternalSelection',
+    state.externalSelectionIds,
+  );
+  callSync(engine, 'publishFrame', context.actionIndex + 200);
+  const selected = clone(selection.change.current);
+  const staleOutlines = selected.filter((id) => {
+    const query = callSync(engine, 'queryScene', { where: { id } });
+    return query.status !== 'matched';
+  }).length;
+  const actual = {
+    targets: selected,
+    staleOutlines,
+    canvasToHost: state.canvasToHost.map(clone),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
 async function ensureBaseline(state, context) {
   const engine = await ensureInitializedEngine(state, context);
   if (state.loadedDatasetRef !== null) return engine;
@@ -555,6 +1099,11 @@ async function ensureBaseline(state, context) {
   return engine;
 }
 
+function currentStateEngine(state, operation) {
+  assert(state.engine !== null, `${operation} active engine`);
+  return state.engine;
+}
+
 async function ensureInitializedEngine(state, context) {
   const engine = state.engine ?? await context.ensureSessionEngine(state.sessionIndex);
   state.engine = engine;
@@ -574,6 +1123,27 @@ async function ensureInitializedEngine(state, context) {
     });
   }
   return engine;
+}
+
+function dispatchProductClick(engine, pointerId, button, screen, timeMs) {
+  dispatchPointer(engine, {
+    type: 'down',
+    pointerId,
+    pointerType: 'mouse',
+    button,
+    buttons: button === 2 ? 2 : 1,
+    screen,
+    timeMs,
+  }, 0);
+  return dispatchPointer(engine, {
+    type: 'up',
+    pointerId,
+    pointerType: 'mouse',
+    button,
+    buttons: 0,
+    screen,
+    timeMs: timeMs + 16,
+  }, 1);
 }
 
 function dispatchPointer(engine, eventValue, fallbackIndex) {
@@ -693,6 +1263,11 @@ function numberArray(value, label) {
     positiveFinite(entry, `${label}[${index}]`));
 }
 
+function booleanValue(value, label) {
+  assert(typeof value === 'boolean', `${label} must be boolean`);
+  return value;
+}
+
 function stringArray(value, label) {
   return arrayValue(value, label).map((entry, index) =>
     stringValue(entry, `${label}[${index}]`));
@@ -736,6 +1311,58 @@ function nonNegativeInteger(value, label) {
   return number;
 }
 
+function countBy(values, keyForValue) {
+  const counts = {};
+  for (const value of values) {
+    const key = keyForValue(value);
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function countManyBy(values, keysForValue) {
+  const counts = {};
+  for (const value of values) {
+    for (const key of keysForValue(value)) {
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+  }
+  return counts;
+}
+
+function historyCorruptEntryCount(value) {
+  const state = recordValue(value, 'history state');
+  const depth = nonNegativeInteger(state.depth, 'history depth');
+  const cursor = nonNegativeInteger(state.cursor, 'history cursor');
+  const undoDepth = nonNegativeInteger(state.undoDepth, 'history undo depth');
+  const redoDepth = nonNegativeInteger(state.redoDepth, 'history redo depth');
+  return Number(
+    cursor > depth ||
+    undoDepth !== cursor ||
+    redoDepth !== depth - cursor ||
+    state.canUndo !== (!state.destroyed && cursor > 0) ||
+    state.canRedo !== (!state.destroyed && cursor < depth),
+  );
+}
+
+function retainSceneElements(elementsValue, retained, removed) {
+  const elements = arrayValue(elementsValue, 'replace-scene dataset');
+  const next = [];
+  for (const elementValue of elements) {
+    const element = recordValue(elementValue, 'replace-scene element');
+    const id = stringValue(element.id, 'replace-scene element ID');
+    if (removed.has(id)) continue;
+    const hasChildren = Array.isArray(element.children);
+    const children = hasChildren
+      ? retainSceneElements(element.children, retained, removed)
+      : [];
+    if (retained.has(id) || children.length > 0) {
+      next.push(hasChildren ? { ...clone(element), children } : clone(element));
+    }
+  }
+  return next;
+}
+
 function callSync(target, method, ...args) {
   assert(target !== null && typeof target === 'object', `${method} target`);
   assert(typeof target[method] === 'function', `${method} product method`);
@@ -761,6 +1388,10 @@ function assertExactKeys(value, expected, label) {
 
 function clone(value) {
   return structuredClone(value);
+}
+
+function cloneRecord(value, label) {
+  return clone(recordValue(value, label));
 }
 
 function isRecord(value) {
