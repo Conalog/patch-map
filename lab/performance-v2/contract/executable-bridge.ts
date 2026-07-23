@@ -93,6 +93,13 @@ interface LiveViewportGestureSession {
   readonly unbind: () => void;
 }
 
+interface LivePointerGestureSession {
+  readonly actionIndex: number;
+  readonly engine: TargetedWebGLCoreV2Engine;
+  readonly events: Readonly<Record<string, unknown>>[];
+  readonly unbind: () => void;
+}
+
 export function createCoreV2ExecutableLabBridge(
   options: CoreV2ExecutableLabBridgeOptions,
 ): CoreV2ContractLabBridgeV1 {
@@ -116,6 +123,7 @@ export function createCoreV2ExecutableLabBridge(
   let lastRun: Readonly<CoreV2ContractLabRunResult> | null = null;
   let activeRun: Promise<Readonly<CoreV2ContractLabRunResult>> | null = null;
   let liveViewportGesture: LiveViewportGestureSession | null = null;
+  let livePointerGesture: LivePointerGestureSession | null = null;
 
   function state(): Readonly<CoreV2ContractLabState> {
     return Object.freeze({
@@ -137,6 +145,7 @@ export function createCoreV2ExecutableLabBridge(
   async function executeFreshRun(isRepeat: boolean): Promise<Readonly<CoreV2ContractLabRunResult>> {
     invariant(!destroyed, `${options.caseId} bridge is destroyed`);
     if (liveViewportGesture !== null) await releaseViewportGesture();
+    if (livePointerGesture !== null) await releasePointerGesture();
     assertSurfaceIsReleased(options.surfaceHost);
     status = 'running';
     actionIndex = -1;
@@ -448,6 +457,135 @@ export function createCoreV2ExecutableLabBridge(
     }
   }
 
+  async function armPointerGesture(
+    value: number,
+  ): Promise<Readonly<CoreV2ContractGesturePlan>> {
+    invariant(
+      options.caseId === 'EVT-003' || options.caseId === 'EVT-008',
+      `${options.caseId} live pointer case`,
+    );
+    invariant(value === 0, `${options.caseId} live pointer action index`);
+    invariant(!destroyed, `${options.caseId} bridge is destroyed`);
+    invariant(options.surfaceHost !== undefined, `${options.caseId} live pointer surface host`);
+    await awaitActiveRun();
+
+    if (livePointerGesture === null) {
+      assertSurfaceIsReleased(options.surfaceHost);
+      const engine = new TargetedWebGLCoreV2Engine(
+        options.surfaceHost,
+        options.surfaceFactory,
+      );
+      try {
+        await engine.initialize({
+          instanceId: `contract-${options.caseId.toLowerCase()}-trusted-pointer`,
+          width: 800,
+          height: 600,
+          pixelRatio: 1,
+          strategy: 'mesh',
+          preference: 'webgl',
+          zoomLimits: [0.25, 4],
+        });
+        const profile = requireRecord(
+          casePlan.fixtureProfiles['input-device-and-gesture-matrix'],
+          `${options.caseId} pointer fixture profile`,
+        );
+        const datasetRef = requiredString(
+          profile.datasetRef,
+          `${options.caseId} pointer fixture datasetRef`,
+        );
+        const dataset = structuredClone(resolveCoreV2ExecutableDataset(datasetRef));
+        engine.loadDataset(dataset, { datasetRef });
+        engine.setViewport({ centerWorld: [400, 300], scale: 1 });
+        engine.publishFrame(0);
+        const events: Readonly<Record<string, unknown>>[] = [];
+        const unbind = engine.on('pointerEvent', (event) => {
+          events.push(
+            structuredClone(event) as unknown as Readonly<Record<string, unknown>>,
+          );
+        });
+        if (options.surfaceHost.dataset) {
+          options.surfaceHost.dataset.coreV2RootInputProbe = 'true';
+        }
+        livePointerGesture = { actionIndex: value, engine, events, unbind };
+      } catch (error) {
+        await engine.destroy().catch(() => undefined);
+        if (options.surfaceHost.dataset) {
+          delete options.surfaceHost.dataset.coreV2RootInputProbe;
+        }
+        throw error;
+      }
+    }
+
+    const anchors = options.caseId === 'EVT-003'
+      ? [{ x: 20, y: 30 }, { x: 400, y: 400 }]
+      : [{ x: 170, y: 50 }, { x: 400, y: 400 }];
+    return deepFreeze({
+      revision: 'core-v2-contract-gesture-plan/1',
+      actionIndex: value,
+      driverId: options.caseId === 'EVT-003'
+        ? 'trusted-pointer-hover-leave'
+        : 'trusted-secondary-contextmenu',
+      ownerQualifiedTarget:
+        `[data-testid="${casePlan.rootTestId}"] [data-contract-surface] `
+        + 'canvas[data-patch-map-core="v2"]',
+      cssLocalAnchors: anchors,
+      button: options.caseId === 'EVT-008' ? 2 : 0,
+      modifiers: [],
+      publishedTuple,
+    });
+  }
+
+  function pointerGestureObservation(): Readonly<Record<string, unknown>> {
+    const session = livePointerGesture;
+    invariant(session !== null, `${options.caseId} live pointer session`);
+    const snapshot = session.engine.snapshot();
+    return deepFreeze({
+      $schema: 'core-v2-contract-pointer-input-observation/1',
+      case: {
+        id: options.caseId,
+        actionIndex: session.actionIndex,
+      },
+      events: structuredClone(session.events),
+      pointerGesture: structuredClone(session.engine.pointerGestureProbe()),
+      ownership: structuredClone(session.engine.interactionOwnershipProbe()),
+      resources: {
+        canvasCount: snapshot.resources.canvasCount,
+        subscriptions: snapshot.resources.subscriptions.active,
+        pendingWork: snapshot.pendingWork,
+      },
+    });
+  }
+
+  async function releasePointerGesture(): Promise<void> {
+    const session = livePointerGesture;
+    if (session === null) return;
+    livePointerGesture = null;
+    const errors: unknown[] = [];
+    try {
+      session.unbind();
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      await session.engine.destroy();
+    } catch (error) {
+      errors.push(error);
+    }
+    if (options.surfaceHost) {
+      if (options.surfaceHost.dataset) {
+        delete options.surfaceHost.dataset.coreV2RootInputProbe;
+      }
+      try {
+        assertSurfaceIsReleased(options.surfaceHost);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length > 0) {
+      throw new AggregateError(errors, `Core v2 ${options.caseId} live pointer cleanup failed`);
+    }
+  }
+
   return Object.freeze({
     revision: CORE_V2_CONTRACT_LAB_BRIDGE_REVISION,
     state,
@@ -464,6 +602,7 @@ export function createCoreV2ExecutableLabBridge(
       invariant(!destroyed, `${options.caseId} bridge is destroyed`);
       await awaitActiveRun();
       await releaseViewportGesture();
+      await releasePointerGesture();
       const summary = cleanupSummary(lastCleanup, runCount, completedRunCount);
       assertSurfaceIsReleased(options.surfaceHost);
       status = 'armed';
@@ -482,6 +621,9 @@ export function createCoreV2ExecutableLabBridge(
     armGesture(value: number): Promise<Readonly<CoreV2ContractGesturePlan>> {
       assertActionIndex(value);
       if (options.caseId === 'VIE-001') return armViewportGesture(value);
+      if (options.caseId === 'EVT-003' || options.caseId === 'EVT-008') {
+        return armPointerGesture(value);
+      }
       return Promise.reject(new CoreV2ContractExecutionNotImplementedError(
         options.caseId,
         'gesture execution for the current non-gesture executable slice',
@@ -498,6 +640,17 @@ export function createCoreV2ExecutableLabBridge(
         if (milestone === 'released') await releaseViewportGesture();
         return;
       }
+      if (
+        (options.caseId === 'EVT-003' || options.caseId === 'EVT-008') &&
+        livePointerGesture !== null
+      ) {
+        invariant(
+          livePointerGesture.actionIndex === value,
+          `${options.caseId} live pointer action identity`,
+        );
+        if (milestone === 'released') await releasePointerGesture();
+        return;
+      }
       const run = await startRun(false);
       const result = arrayValue(run.execution.actionResults, 'execution actionResults')[value];
       invariant(isRecord(result) && result.status === 'completed', `${options.caseId} action ${value} completion`);
@@ -507,6 +660,7 @@ export function createCoreV2ExecutableLabBridge(
     },
     async actualObservation(): Promise<Readonly<Record<string, unknown>>> {
       if (liveViewportGesture !== null) return viewportGestureObservation();
+      if (livePointerGesture !== null) return pointerGestureObservation();
       if (lastObservation) return lastObservation;
       if (destroyed) return destroyedWithoutRunObservation(casePlan);
       try {
@@ -520,6 +674,7 @@ export function createCoreV2ExecutableLabBridge(
       if (!destroyed) {
         await awaitActiveRun();
         await releaseViewportGesture();
+        await releasePointerGesture();
         destroyed = true;
         status = 'destroyed';
       }

@@ -96,6 +96,13 @@ describe('Core v2 executable Lab product bridge', () => {
           'SEL-002',
           'SEL-003',
           'SEL-004',
+          'SEL-005',
+          'SEL-006',
+          'EVT-001',
+          'EVT-002',
+          'EVT-003',
+          'EVT-004',
+          'EVT-008',
         ].includes(caseId)
           ? 'projection'
           : 'flat',
@@ -156,6 +163,21 @@ describe('Core v2 executable Lab product bridge', () => {
         await expect(bridge.actualObservation()).resolves.toMatchObject({
           $schema: 'core-v2-contract-gesture-observation/1',
           case: { id: 'VIE-001', actionIndex: 0 },
+          resources: { canvasCount: 1, pendingWork: 0 },
+        });
+        await expect(bridge.awaitMilestone(0, 'released')).resolves.toBeUndefined();
+      } else if (caseId === 'EVT-003' || caseId === 'EVT-008') {
+        await expect(bridge.armGesture(0)).resolves.toMatchObject({
+          revision: 'core-v2-contract-gesture-plan/1',
+          actionIndex: 0,
+          driverId: caseId === 'EVT-003'
+            ? 'trusted-pointer-hover-leave'
+            : 'trusted-secondary-contextmenu',
+          button: caseId === 'EVT-003' ? 0 : 2,
+        });
+        await expect(bridge.actualObservation()).resolves.toMatchObject({
+          $schema: 'core-v2-contract-pointer-input-observation/1',
+          case: { id: caseId, actionIndex: 0 },
           resources: { canvasCount: 1, pendingWork: 0 },
         });
         await expect(bridge.awaitMilestone(0, 'released')).resolves.toBeUndefined();
@@ -283,6 +305,69 @@ describe('Core v2 executable Lab product bridge', () => {
       } else {
         expect(comparison.failed, JSON.stringify(failures)).toBe(0);
         expect(comparison.passed).toBe(expected?.expected.assertions.length);
+      }
+      expect(run.cleanup).toMatchObject({ status: 'completed' });
+      expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
+      await bridge.destroyCase();
+    },
+    60_000,
+  );
+
+  it.each([
+    'EVT-001',
+    'EVT-002',
+    'EVT-003',
+    'EVT-004',
+    'EVT-008',
+    'SEL-005',
+    'SEL-006',
+  ] as const)(
+    'produces independently comparable pointer/selection actuals for %s',
+    async (caseId) => {
+      const surfaces: FakeSurface[] = [];
+      const bridge = createCoreV2ExecutableLabBridge({
+        caseId,
+        rootTestId: `scenario-${caseId.toLowerCase()}`,
+        size: '100',
+        seed: 319,
+        surfaceHost: createSurfaceHost(),
+        surfaceFactory: createFakeSurfaceFactory(surfaces, [], 'projection'),
+        environment: {
+          browser: 'vitest',
+          browserVersion: 'vitest',
+          backend: 'webgl2',
+          routeSize: '100',
+          runtimeResourceIds: [],
+        },
+      });
+      const run = await bridge.runCase();
+      const expected = normalizedExpected.cases.find(({ id }) => id === caseId);
+      expect(expected).toBeDefined();
+      const comparison = compareObservation({
+        expectedCase: expected,
+        actual: run.actualObservation,
+        fixtures: run.fixtures,
+        captures: run.captures,
+      });
+      const failures = comparison.assertions.filter(({ passed }) => !passed);
+
+      const immutableConflictPath = caseId === 'EVT-003'
+        ? '/interaction/overlapRedrawTrace'
+        : caseId === 'EVT-008'
+          ? '/events/clickCounts'
+          : null;
+      if (immutableConflictPath === null) {
+        expect(comparison.failed, JSON.stringify({
+          failures,
+          actual: run.actualObservation,
+        })).toBe(0);
+        expect(comparison.passed).toBe(expected?.expected.assertions.length);
+      } else {
+        expect(failures).toMatchObject([{ path: immutableConflictPath }]);
+        expect(comparison.failed).toBe(1);
+        expect(comparison.passed).toBe(
+          (expected?.expected.assertions.length ?? 0) - 1,
+        );
       }
       expect(run.cleanup).toMatchObject({ status: 'completed' });
       expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
@@ -608,6 +693,11 @@ describe('Core v2 executable Lab product bridge', () => {
     );
 
     expect(runtimeByCase).toEqual({
+      'EVT-001': 'pointer-selection',
+      'EVT-002': 'pointer-selection',
+      'EVT-003': 'pointer-selection',
+      'EVT-004': 'pointer-selection',
+      'EVT-008': 'pointer-selection',
       'LIF-001': 'foundation',
       'LIF-002': 'foundation',
       'LIF-004': 'lifecycle-resize',
@@ -642,6 +732,8 @@ describe('Core v2 executable Lab product bridge', () => {
       'SEL-002': 'query-selection',
       'SEL-003': 'query-selection',
       'SEL-004': 'query-selection',
+      'SEL-005': 'pointer-selection',
+      'SEL-006': 'pointer-selection',
       'VIE-002': 'viewport',
       'VIE-003': 'viewport',
       'VIE-004': 'viewport',

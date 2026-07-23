@@ -59,6 +59,8 @@ import * as viewportHandlersModule from '../../../scripts/verification/core-v2-c
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as querySelectionHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/query-selection.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as pointerSelectionHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/pointer-selection.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as assetHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/assets.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as foundationFoldModule from '../../../scripts/verification/core-v2-contract/fold-foundation.mjs';
@@ -95,6 +97,8 @@ import * as viewportFoldModule from '../../../scripts/verification/core-v2-contr
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as querySelectionFoldModule from '../../../scripts/verification/core-v2-contract/fold-query-selection.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as pointerSelectionFoldModule from '../../../scripts/verification/core-v2-contract/fold-pointer-selection.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as assetFoldModule from '../../../scripts/verification/core-v2-contract/fold-assets.mjs';
 
 import type {
@@ -117,6 +121,11 @@ import {
   createCoreV2QuerySelectionRuntime,
   type CoreV2QuerySelectionCaseId,
 } from './query-selection-runtime';
+import {
+  CORE_V2_POINTER_SELECTION_CASE_IDS,
+  createCoreV2PointerSelectionRuntime,
+  type CoreV2PointerSelectionCaseId,
+} from './pointer-selection-runtime';
 import { createCoreV2RenderComponentAssetsRuntime } from './render-component-assets-runtime';
 import { createCoreV2RenderImagesRuntime } from './render-images-runtime';
 import { createCoreV2RenderTextRuntime } from './render-text-runtime';
@@ -139,6 +148,7 @@ export type CoreV2ExecutableRuntimeKey =
   | 'update-transactions'
   | 'viewport'
   | 'query-selection'
+  | 'pointer-selection'
   | 'assets';
 
 type Handler = (
@@ -196,6 +206,10 @@ interface HandlerFactoryRuntime {
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
   createQuerySelectionHandlerEntries?(
+    this: void,
+    product: Readonly<Record<string, unknown>>,
+  ): readonly HandlerEntry[];
+  createPointerSelectionHandlerEntries?(
     this: void,
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
@@ -274,6 +288,10 @@ interface FoldRuntime {
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
+  foldPointerSelectionExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
   foldAssetExecution?(
     this: void,
     options: Readonly<Record<string, unknown>>,
@@ -323,6 +341,7 @@ const presentationDynamicsHandlers = presentationDynamicsHandlersModule as unkno
 const updateTransactionsHandlers = updateTransactionsHandlersModule as unknown as HandlerFactoryRuntime;
 const viewportHandlers = viewportHandlersModule as unknown as HandlerFactoryRuntime;
 const querySelectionHandlers = querySelectionHandlersModule as unknown as HandlerFactoryRuntime;
+const pointerSelectionHandlers = pointerSelectionHandlersModule as unknown as HandlerFactoryRuntime;
 const assetHandlers = assetHandlersModule as unknown as HandlerFactoryRuntime;
 const foundationFold = foundationFoldModule as unknown as FoldRuntime;
 const dataFoundationFold = dataFoundationFoldModule as unknown as FoldRuntime;
@@ -341,6 +360,7 @@ const presentationDynamicsFold = presentationDynamicsFoldModule as unknown as Fo
 const updateTransactionsFold = updateTransactionsFoldModule as unknown as FoldRuntime;
 const viewportFold = viewportFoldModule as unknown as FoldRuntime;
 const querySelectionFold = querySelectionFoldModule as unknown as FoldRuntime;
+const pointerSelectionFold = pointerSelectionFoldModule as unknown as FoldRuntime;
 const assetFold = assetFoldModule as unknown as FoldRuntime;
 
 const FOUNDATION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
@@ -386,6 +406,9 @@ const UPDATE_TRANSACTION_CASE_IDS = new Set<CoreV2UpdateTransactionsCaseId>([
 const VIEWPORT_CASE_IDS = new Set<CoreV2ViewportCaseId>(CORE_V2_VIEWPORT_CASE_IDS);
 const QUERY_SELECTION_CASE_IDS = new Set<CoreV2QuerySelectionCaseId>(
   CORE_V2_QUERY_SELECTION_CASE_IDS,
+);
+const POINTER_SELECTION_CASE_IDS = new Set<CoreV2PointerSelectionCaseId>(
+  CORE_V2_POINTER_SELECTION_CASE_IDS,
 );
 
 const DATA_FOUNDATION_PRODUCT = Object.freeze({
@@ -535,6 +558,7 @@ const PRESENTATION_DYNAMICS_DESCRIPTOR = createPresentationDynamicsDescriptor();
 const UPDATE_TRANSACTIONS_DESCRIPTOR = createUpdateTransactionsDescriptor();
 const VIEWPORT_DESCRIPTOR = createViewportDescriptor();
 const QUERY_SELECTION_DESCRIPTOR = createQuerySelectionDescriptor();
+const POINTER_SELECTION_DESCRIPTOR = createPointerSelectionDescriptor();
 
 export function resolveCoreV2ExecutableRuntime(
   caseId: CoreV2ExecutableCaseId,
@@ -560,6 +584,7 @@ export function resolveCoreV2ExecutableRuntime(
   ) return PRESENTATION_DYNAMICS_DESCRIPTOR;
   if (isUpdateTransactionCaseId(caseId)) return UPDATE_TRANSACTIONS_DESCRIPTOR;
   if (isQuerySelectionCaseId(caseId)) return QUERY_SELECTION_DESCRIPTOR;
+  if (isPointerSelectionCaseId(caseId)) return POINTER_SELECTION_DESCRIPTOR;
   if (isViewportCaseId(caseId)) return VIEWPORT_DESCRIPTOR;
   if (caseId === 'AST-001') return ASSET_DESCRIPTOR;
   throw new Error(`Unsupported Core v2 executable runtime: ${String(caseId)}`);
@@ -698,6 +723,51 @@ function isQuerySelectionCaseId(
   caseId: CoreV2ExecutableCaseId,
 ): caseId is CoreV2QuerySelectionCaseId {
   return QUERY_SELECTION_CASE_IDS.has(caseId as CoreV2QuerySelectionCaseId);
+}
+
+function createPointerSelectionDescriptor(): CoreV2ExecutableRuntimeDescriptor {
+  const fold = requireFold(
+    pointerSelectionFold.foldPointerSelectionExecution,
+    'pointer-selection fold',
+  );
+  const createEntries = requireFactory(
+    pointerSelectionHandlers.createPointerSelectionHandlerEntries,
+    'pointer-selection handlers',
+  );
+  const createRun = (plan: CoreV2ExecutableCasePlan) => {
+    invariant(isPointerSelectionCaseId(plan.id), 'pointer-selection case identity');
+    const runtime = createCoreV2PointerSelectionRuntime(plan.id);
+    return Object.freeze({
+      handlerEntries: selectHandlerEntries(
+        plan,
+        createEntries(runtime.product as unknown as Readonly<Record<string, unknown>>),
+      ),
+      engineOptions: Object.freeze({}),
+      postDestroyProductProbe: () => runtime.postDestroyProductProbe(),
+    });
+  };
+  return Object.freeze({
+    key: 'pointer-selection',
+    needsSupplementalWebGLLease: false,
+    createRun,
+    handlerEntries(plan: CoreV2ExecutableCasePlan): readonly HandlerEntry[] {
+      return createRun(plan).handlerEntries;
+    },
+    fold(input: CoreV2RuntimeFoldInput): CoreV2FoldedExecution {
+      return fold({
+        casePlan: input.casePlan,
+        execution: input.execution,
+        provenance: input.provenance,
+        environment: input.environment,
+      });
+    },
+  });
+}
+
+function isPointerSelectionCaseId(
+  caseId: CoreV2ExecutableCaseId,
+): caseId is CoreV2PointerSelectionCaseId {
+  return POINTER_SELECTION_CASE_IDS.has(caseId as CoreV2PointerSelectionCaseId);
 }
 
 function createLayoutOrderDescriptor(): CoreV2ExecutableRuntimeDescriptor {

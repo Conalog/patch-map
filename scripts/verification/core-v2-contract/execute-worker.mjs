@@ -14,6 +14,15 @@ const ENGINE_EVENTS = Object.freeze([
   'diagnostic',
   'destroyed',
 ]);
+const POINTER_EVENT_CASE_IDS = new Set([
+  'EVT-001',
+  'EVT-002',
+  'EVT-003',
+  'EVT-004',
+  'EVT-008',
+  'SEL-005',
+  'SEL-006',
+]);
 
 export class CoreV2ContractExecutionError extends Error {
   constructor(code, message, partialExecution, cause) {
@@ -517,7 +526,10 @@ function currentSessionEngine(state, session) {
 }
 
 function attachEventJournal(state, record) {
-  for (const event of ENGINE_EVENTS) {
+  const events = POINTER_EVENT_CASE_IDS.has(state.caseRecord.id)
+    ? [...ENGINE_EVENTS, 'pointerEvent']
+    : ENGINE_EVENTS;
+  for (const event of events) {
     const unsubscribe = record.engine.on(event, (actual) => recordEngineEvent(state, record, event, actual));
     assert(typeof unsubscribe === 'function', `${record.role} ${event} subscription must return unsubscribe()`);
     record.journalUnsubscribers.push(unsubscribe);
