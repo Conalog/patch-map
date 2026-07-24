@@ -302,6 +302,43 @@ const hierarchySnapshot = engine.snapshot();
 const hierarchyHistory = engine.historyState();
 const hierarchyCycleRevisionDelta =
   hierarchySnapshot.revisions.sceneRevision - hierarchyCycleRevision;
+const historyCompanionBefore = engine.setHistoryCompanion({
+  selectedIds: ['rect-b'],
+  mode: 'select',
+  dirty: false,
+});
+const historyTransaction = engine.transact({
+  strict: true,
+  actionId: 'packed-history',
+  operations: [{
+    op: 'merge',
+    target: { kind: 'element', id: 'group-a' },
+    changes: [{ path: ['attrs', 'x'], value: 12 }],
+  }],
+  history: {
+    selectedIds: ['rect-b'],
+    mode: 'transform',
+    dirty: true,
+  },
+});
+const historyInspection = engine.historyInspection();
+const historyUndo = engine.undo();
+const historyCompanionAfterUndo = engine.historyCompanionState();
+await engine.publishFrame(36);
+const historyRedo = engine.redo();
+const historyCompanionAfterRedo = engine.historyCompanionState();
+await engine.publishFrame(40);
+const historyInvalidCapacity = engine.setHistoryCapacity(-1);
+const historyProtectedShortcut = engine.handleHistoryShortcut({
+  key: 'z',
+  code: 'KeyZ',
+  ctrlKey: true,
+  metaKey: false,
+  shiftKey: false,
+  pathKind: 'input',
+});
+const historyClear = engine.clearHistory();
+const historyAfterClear = engine.historyState();
 const interactionOwnership = engine.interactionOwnershipProbe();
 const engineDestroyResult = await engine.destroy();
 const hostInteractionAfterDestroy = engine.hostInteractionProbe();
@@ -407,6 +444,29 @@ window.__PACKAGE_RESULT__ = {
     historyDepth: hierarchyHistory.undoDepth,
     relationRevisionLag: hierarchyRelations?.revisionLag ?? null,
   },
+  historyPackage: {
+    companionBefore: historyCompanionBefore,
+    transactionStatus: historyTransaction.status,
+    transactionActionId: historyTransaction.history?.commandId ?? null,
+    inspectedDepth: historyInspection.state.depth,
+    inspectedLastActionId: historyInspection.commands.at(-1)?.id ?? null,
+    inspectedLastRecordCount:
+      historyInspection.commands.at(-1)?.records.length ?? null,
+    undoStatus: historyUndo.status,
+    undoDirection: historyUndo.direction,
+    undoActionId: historyUndo.actionId,
+    companionAfterUndo: historyCompanionAfterUndo,
+    redoStatus: historyRedo.status,
+    redoDirection: historyRedo.direction,
+    redoActionId: historyRedo.actionId,
+    companionAfterRedo: historyCompanionAfterRedo,
+    invalidCapacityStatus: historyInvalidCapacity.status,
+    invalidCapacityCode: historyInvalidCapacity.code,
+    protectedShortcut: historyProtectedShortcut,
+    clearChanged: historyClear.changed,
+    clearReason: historyClear.reason,
+    clearedDepth: historyAfterClear.depth,
+  },
   interactionOwnership,
   engineDestroyResult,
   engineAfterDestroy: {
@@ -441,6 +501,7 @@ const {
   CORE_V2_PRESENTATION_POLICY_REVISION,
   CORE_V2_SELECTION_TRANSFORMER_REVISION,
   CoreV2PointerGestureAuthority,
+  CoreV2Engine,
   CoreV2HostInteractionAuthority,
   CoreV2TransformerGestureAuthority,
   parsePatchMapV010,
@@ -459,6 +520,12 @@ process.stdout.write(JSON.stringify({
   selectionTransformerAuthorityType: typeof CoreV2TransformerGestureAuthority,
   presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
   plannerType: typeof planCoreV2MutationTransaction,
+  historyEngineType: typeof CoreV2Engine,
+  historyInspectionType: typeof CoreV2Engine.prototype.historyInspection,
+  historyCompanionType: typeof CoreV2Engine.prototype.setHistoryCompanion,
+  historyCapacityType: typeof CoreV2Engine.prototype.setHistoryCapacity,
+  historyShortcutType: typeof CoreV2Engine.prototype.handleHistoryShortcut,
+  historyClearType: typeof CoreV2Engine.prototype.clearHistory,
 }));
 `);
 
@@ -610,6 +677,31 @@ process.stdout.write(JSON.stringify({
     esm.interactionOwnership?.rootListenerCount !== 8 ||
     esm.interactionOwnership?.entityCallbackCount !== 0
   ) failures.push('packed ESM interaction ownership probe failed');
+  if (
+    esm.historyPackage?.companionBefore?.mode !== 'select' ||
+    JSON.stringify(esm.historyPackage?.companionBefore?.selectionIds) !==
+      JSON.stringify(['rect-b']) ||
+    esm.historyPackage?.transactionStatus !== 'committed' ||
+    esm.historyPackage?.transactionActionId !== 'packed-history' ||
+    esm.historyPackage?.inspectedDepth !== 4 ||
+    esm.historyPackage?.inspectedLastActionId !== 'packed-history' ||
+    esm.historyPackage?.inspectedLastRecordCount !== 1 ||
+    esm.historyPackage?.undoStatus !== 'committed' ||
+    esm.historyPackage?.undoDirection !== 'undo' ||
+    esm.historyPackage?.undoActionId !== 'packed-history' ||
+    esm.historyPackage?.companionAfterUndo?.mode !== 'select' ||
+    esm.historyPackage?.redoStatus !== 'committed' ||
+    esm.historyPackage?.redoDirection !== 'redo' ||
+    esm.historyPackage?.redoActionId !== 'packed-history' ||
+    esm.historyPackage?.companionAfterRedo?.mode !== 'transform' ||
+    esm.historyPackage?.invalidCapacityStatus !== 'rejected' ||
+    esm.historyPackage?.invalidCapacityCode !== 'INVALID_VALUE' ||
+    esm.historyPackage?.protectedShortcut?.handled !== false ||
+    esm.historyPackage?.protectedShortcut?.preventDefault !== false ||
+    esm.historyPackage?.clearChanged !== true ||
+    esm.historyPackage?.clearReason !== 'host' ||
+    esm.historyPackage?.clearedDepth !== 0
+  ) failures.push('packed ESM history transaction contract failed');
   if (esm.engineDestroyResult !== true) failures.push('packed ESM raw Engine destroy did not own cleanup');
   if (
     esm.engineAfterDestroy?.lifecycle !== 'destroyed' ||
@@ -634,7 +726,13 @@ process.stdout.write(JSON.stringify({
     cjs.selectionTransformerRevision !== 'core-v2-selection-transformer/1' ||
     cjs.selectionTransformerAuthorityType !== 'function' ||
     cjs.presentationRevision !== 'core-v2-presentation-policy/1' ||
-    cjs.plannerType !== 'function'
+    cjs.plannerType !== 'function' ||
+    cjs.historyEngineType !== 'function' ||
+    cjs.historyInspectionType !== 'function' ||
+    cjs.historyCompanionType !== 'function' ||
+    cjs.historyCapacityType !== 'function' ||
+    cjs.historyShortcutType !== 'function' ||
+    cjs.historyClearType !== 'function'
   ) failures.push('packed CJS transaction/presentation exports failed');
   if (errors.console.length || errors.page.length || errors.network.length) failures.push('packed browser consumer emitted errors');
 

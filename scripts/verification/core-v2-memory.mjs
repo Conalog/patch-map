@@ -62,6 +62,7 @@ try {
       let afterDestroy = null;
       let transformerBeforeDestroy = null;
       let transformerAfterDestroy = null;
+      let historyBeforeDestroy = null;
       let snapshot = null;
       let observedEventCount = 0;
       let hostPublicationCount = 0;
@@ -104,6 +105,67 @@ try {
         engine.bindSelectionHost(() => {
           hostPublicationCount += 1;
         });
+        engine.setHistoryCompanion({
+          selectedIds: ['item-a'],
+          mode: 'select',
+          dirty: false,
+          owner: 'memory-lifecycle',
+        });
+        engine.transact({
+          strict: true,
+          actionId: 'memory-drag',
+          operations: [{
+            op: 'merge',
+            target: { kind: 'element', id: 'rect-b' },
+            changes: [{ path: ['attrs', 'x'], value: 170 }],
+          }],
+          history: {
+            selectedIds: ['item-a'],
+            mode: 'transform',
+            dirty: true,
+            owner: 'memory-lifecycle',
+          },
+        });
+        engine.transact({
+          strict: true,
+          actionId: 'memory-drag',
+          operations: [{
+            op: 'merge',
+            target: { kind: 'element', id: 'rect-b' },
+            changes: [{ path: ['attrs', 'x'], value: 180 }],
+          }],
+          history: {
+            selectedIds: ['item-a'],
+            mode: 'transform',
+            dirty: true,
+            owner: 'memory-lifecycle',
+          },
+        });
+        engine.transact({
+          strict: true,
+          actionId: 'memory-label',
+          operations: [{
+            op: 'merge',
+            target: { kind: 'component', ownerId: 'item-a', id: 'label' },
+            changes: [{ path: ['text'], value: 'Beta' }],
+          }],
+          history: {
+            selectedIds: ['item-a'],
+            mode: 'select',
+            dirty: true,
+            owner: 'memory-lifecycle',
+          },
+        });
+        const historyInspection = engine.historyInspection();
+        const historyCompanion = engine.historyCompanionState();
+        historyBeforeDestroy = {
+          state: historyInspection.state,
+          commandIds: historyInspection.commands.map(({ id }) => id),
+          recordCounts: historyInspection.commands.map(({ records }) => records.length),
+          companionMode: historyCompanion.mode,
+          companionSelectionIds: historyCompanion.selectionIds,
+          hostCompanionFrozen: Object.isFrozen(historyCompanion.hostCompanion),
+        };
         engine.applyInteractionModeOperation({ op: 'replace', state: 'select' });
         engine.applyInteractionModeOperation({ op: 'push', state: 'pan' });
         engine.applySelection({
@@ -134,6 +196,7 @@ try {
         afterDestroy,
         transformerBeforeDestroy,
         transformerAfterDestroy,
+        historyBeforeDestroy,
         snapshot,
         retainedCanvasCount: host.querySelectorAll('canvas').length,
       });
@@ -184,6 +247,17 @@ try {
       trial.transformerAfterDestroy?.activeGestureCount !== 0 ||
       trial.transformerAfterDestroy?.pointerCaptureCount !== 0 ||
       trial.transformerAfterDestroy?.destroyed !== true ||
+      trial.historyBeforeDestroy?.state?.depth !== 2 ||
+      trial.historyBeforeDestroy?.state?.undoDepth !== 2 ||
+      JSON.stringify(trial.historyBeforeDestroy?.commandIds) !==
+        JSON.stringify(['memory-drag', 'memory-label']) ||
+      JSON.stringify(trial.historyBeforeDestroy?.recordCounts) !==
+        JSON.stringify([2, 1]) ||
+      trial.historyBeforeDestroy?.companionMode !== 'select' ||
+      JSON.stringify(trial.historyBeforeDestroy?.companionSelectionIds) !==
+        JSON.stringify(['item-a']) ||
+      trial.historyBeforeDestroy?.hostCompanionFrozen !== true ||
+      trial.snapshot?.historyDepth !== 0 ||
       trial.snapshot?.resources?.canvasCount !== 0 ||
       trial.snapshot?.resources?.subscriptions?.active !== 0 ||
       trial.retainedCanvasCount !== 0

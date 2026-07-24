@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-24T01:24:19.108Z",
+  "generatedAt": "2026-07-24T02:34:28.713Z",
   "workload": {
     "sourceItems": 1000,
     "expandedEntities": 5099
@@ -31,6 +31,10 @@
           "lifecycle": [
             "enter:select",
             "exit:select",
+            "enter:transform",
+            "exit:transform",
+            "enter:select",
+            "exit:select",
             "enter:pan"
           ],
           "temporaryModeCount": 0,
@@ -51,6 +55,10 @@
           "activeState": "select",
           "stack": [],
           "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:transform",
+            "exit:transform",
             "enter:select",
             "exit:select",
             "enter:pan"
@@ -91,14 +99,39 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "historyBeforeDestroy": {
+        "state": {
+          "capacity": 50,
+          "depth": 2,
+          "cursor": 2,
+          "undoDepth": 2,
+          "redoDepth": 0,
+          "canUndo": true,
+          "canRedo": false,
+          "destroyed": false
+        },
+        "commandIds": [
+          "memory-drag",
+          "memory-label"
+        ],
+        "recordCounts": [
+          2,
+          1
+        ],
+        "companionMode": "select",
+        "companionSelectionIds": [
+          "item-a"
+        ],
+        "hostCompanionFrozen": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-0",
         "revisions": {
           "lifecycleGeneration": 1,
-          "sceneRevision": 1,
+          "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 1
+          "interactionRevision": 5
         },
         "publishedTuple": {
           "scene": 0,
@@ -185,6 +218,10 @@
           "lifecycle": [
             "enter:select",
             "exit:select",
+            "enter:transform",
+            "exit:transform",
+            "enter:select",
+            "exit:select",
             "enter:pan"
           ],
           "temporaryModeCount": 0,
@@ -205,6 +242,10 @@
           "activeState": "select",
           "stack": [],
           "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:transform",
+            "exit:transform",
             "enter:select",
             "exit:select",
             "enter:pan"
@@ -245,14 +286,39 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "historyBeforeDestroy": {
+        "state": {
+          "capacity": 50,
+          "depth": 2,
+          "cursor": 2,
+          "undoDepth": 2,
+          "redoDepth": 0,
+          "canUndo": true,
+          "canRedo": false,
+          "destroyed": false
+        },
+        "commandIds": [
+          "memory-drag",
+          "memory-label"
+        ],
+        "recordCounts": [
+          2,
+          1
+        ],
+        "companionMode": "select",
+        "companionSelectionIds": [
+          "item-a"
+        ],
+        "hostCompanionFrozen": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-1",
         "revisions": {
           "lifecycleGeneration": 1,
-          "sceneRevision": 1,
+          "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 1
+          "interactionRevision": 5
         },
         "publishedTuple": {
           "scene": 0,
@@ -339,6 +405,10 @@
           "lifecycle": [
             "enter:select",
             "exit:select",
+            "enter:transform",
+            "exit:transform",
+            "enter:select",
+            "exit:select",
             "enter:pan"
           ],
           "temporaryModeCount": 0,
@@ -359,6 +429,10 @@
           "activeState": "select",
           "stack": [],
           "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:transform",
+            "exit:transform",
             "enter:select",
             "exit:select",
             "enter:pan"
@@ -399,14 +473,39 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "historyBeforeDestroy": {
+        "state": {
+          "capacity": 50,
+          "depth": 2,
+          "cursor": 2,
+          "undoDepth": 2,
+          "redoDepth": 0,
+          "canUndo": true,
+          "canRedo": false,
+          "destroyed": false
+        },
+        "commandIds": [
+          "memory-drag",
+          "memory-label"
+        ],
+        "recordCounts": [
+          2,
+          1
+        ],
+        "companionMode": "select",
+        "companionSelectionIds": [
+          "item-a"
+        ],
+        "hostCompanionFrozen": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-2",
         "revisions": {
           "lifecycleGeneration": 1,
-          "sceneRevision": 1,
+          "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 1
+          "interactionRevision": 5
         },
         "publishedTuple": {
           "scene": 0,
@@ -493,6 +592,10 @@
           "lifecycle": [
             "enter:select",
             "exit:select",
+            "enter:transform",
+            "exit:transform",
+            "enter:select",
+            "exit:select",
             "enter:pan"
           ],
           "temporaryModeCount": 0,
@@ -513,6 +616,10 @@
           "activeState": "select",
           "stack": [],
           "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:transform",
+            "exit:transform",
             "enter:select",
             "exit:select",
             "enter:pan"
@@ -553,14 +660,39 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "historyBeforeDestroy": {
+        "state": {
+          "capacity": 50,
+          "depth": 2,
+          "cursor": 2,
+          "undoDepth": 2,
+          "redoDepth": 0,
+          "canUndo": true,
+          "canRedo": false,
+          "destroyed": false
+        },
+        "commandIds": [
+          "memory-drag",
+          "memory-label"
+        ],
+        "recordCounts": [
+          2,
+          1
+        ],
+        "companionMode": "select",
+        "companionSelectionIds": [
+          "item-a"
+        ],
+        "hostCompanionFrozen": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-3",
         "revisions": {
           "lifecycleGeneration": 1,
-          "sceneRevision": 1,
+          "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 1
+          "interactionRevision": 5
         },
         "publishedTuple": {
           "scene": 0,
@@ -647,6 +779,10 @@
           "lifecycle": [
             "enter:select",
             "exit:select",
+            "enter:transform",
+            "exit:transform",
+            "enter:select",
+            "exit:select",
             "enter:pan"
           ],
           "temporaryModeCount": 0,
@@ -667,6 +803,10 @@
           "activeState": "select",
           "stack": [],
           "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:transform",
+            "exit:transform",
             "enter:select",
             "exit:select",
             "enter:pan"
@@ -707,14 +847,39 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "historyBeforeDestroy": {
+        "state": {
+          "capacity": 50,
+          "depth": 2,
+          "cursor": 2,
+          "undoDepth": 2,
+          "redoDepth": 0,
+          "canUndo": true,
+          "canRedo": false,
+          "destroyed": false
+        },
+        "commandIds": [
+          "memory-drag",
+          "memory-label"
+        ],
+        "recordCounts": [
+          2,
+          1
+        ],
+        "companionMode": "select",
+        "companionSelectionIds": [
+          "item-a"
+        ],
+        "hostCompanionFrozen": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-4",
         "revisions": {
           "lifecycleGeneration": 1,
-          "sceneRevision": 1,
+          "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 1
+          "interactionRevision": 5
         },
         "publishedTuple": {
           "scene": 0,
@@ -801,6 +966,10 @@
           "lifecycle": [
             "enter:select",
             "exit:select",
+            "enter:transform",
+            "exit:transform",
+            "enter:select",
+            "exit:select",
             "enter:pan"
           ],
           "temporaryModeCount": 0,
@@ -821,6 +990,10 @@
           "activeState": "select",
           "stack": [],
           "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:transform",
+            "exit:transform",
             "enter:select",
             "exit:select",
             "enter:pan"
@@ -861,14 +1034,39 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "historyBeforeDestroy": {
+        "state": {
+          "capacity": 50,
+          "depth": 2,
+          "cursor": 2,
+          "undoDepth": 2,
+          "redoDepth": 0,
+          "canUndo": true,
+          "canRedo": false,
+          "destroyed": false
+        },
+        "commandIds": [
+          "memory-drag",
+          "memory-label"
+        ],
+        "recordCounts": [
+          2,
+          1
+        ],
+        "companionMode": "select",
+        "companionSelectionIds": [
+          "item-a"
+        ],
+        "hostCompanionFrozen": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-5",
         "revisions": {
           "lifecycleGeneration": 1,
-          "sceneRevision": 1,
+          "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 1
+          "interactionRevision": 5
         },
         "publishedTuple": {
           "scene": 0,
@@ -955,6 +1153,10 @@
           "lifecycle": [
             "enter:select",
             "exit:select",
+            "enter:transform",
+            "exit:transform",
+            "enter:select",
+            "exit:select",
             "enter:pan"
           ],
           "temporaryModeCount": 0,
@@ -975,6 +1177,10 @@
           "activeState": "select",
           "stack": [],
           "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:transform",
+            "exit:transform",
             "enter:select",
             "exit:select",
             "enter:pan"
@@ -1015,14 +1221,39 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "historyBeforeDestroy": {
+        "state": {
+          "capacity": 50,
+          "depth": 2,
+          "cursor": 2,
+          "undoDepth": 2,
+          "redoDepth": 0,
+          "canUndo": true,
+          "canRedo": false,
+          "destroyed": false
+        },
+        "commandIds": [
+          "memory-drag",
+          "memory-label"
+        ],
+        "recordCounts": [
+          2,
+          1
+        ],
+        "companionMode": "select",
+        "companionSelectionIds": [
+          "item-a"
+        ],
+        "hostCompanionFrozen": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-6",
         "revisions": {
           "lifecycleGeneration": 1,
-          "sceneRevision": 1,
+          "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 1
+          "interactionRevision": 5
         },
         "publishedTuple": {
           "scene": 0,
@@ -1109,6 +1340,10 @@
           "lifecycle": [
             "enter:select",
             "exit:select",
+            "enter:transform",
+            "exit:transform",
+            "enter:select",
+            "exit:select",
             "enter:pan"
           ],
           "temporaryModeCount": 0,
@@ -1129,6 +1364,10 @@
           "activeState": "select",
           "stack": [],
           "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:transform",
+            "exit:transform",
             "enter:select",
             "exit:select",
             "enter:pan"
@@ -1169,14 +1408,39 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "historyBeforeDestroy": {
+        "state": {
+          "capacity": 50,
+          "depth": 2,
+          "cursor": 2,
+          "undoDepth": 2,
+          "redoDepth": 0,
+          "canUndo": true,
+          "canRedo": false,
+          "destroyed": false
+        },
+        "commandIds": [
+          "memory-drag",
+          "memory-label"
+        ],
+        "recordCounts": [
+          2,
+          1
+        ],
+        "companionMode": "select",
+        "companionSelectionIds": [
+          "item-a"
+        ],
+        "hostCompanionFrozen": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-7",
         "revisions": {
           "lifecycleGeneration": 1,
-          "sceneRevision": 1,
+          "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 1
+          "interactionRevision": 5
         },
         "publishedTuple": {
           "scene": 0,
@@ -1263,6 +1527,10 @@
           "lifecycle": [
             "enter:select",
             "exit:select",
+            "enter:transform",
+            "exit:transform",
+            "enter:select",
+            "exit:select",
             "enter:pan"
           ],
           "temporaryModeCount": 0,
@@ -1283,6 +1551,10 @@
           "activeState": "select",
           "stack": [],
           "lifecycle": [
+            "enter:select",
+            "exit:select",
+            "enter:transform",
+            "exit:transform",
             "enter:select",
             "exit:select",
             "enter:pan"
@@ -1323,14 +1595,39 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "historyBeforeDestroy": {
+        "state": {
+          "capacity": 50,
+          "depth": 2,
+          "cursor": 2,
+          "undoDepth": 2,
+          "redoDepth": 0,
+          "canUndo": true,
+          "canRedo": false,
+          "destroyed": false
+        },
+        "commandIds": [
+          "memory-drag",
+          "memory-label"
+        ],
+        "recordCounts": [
+          2,
+          1
+        ],
+        "companionMode": "select",
+        "companionSelectionIds": [
+          "item-a"
+        ],
+        "hostCompanionFrozen": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-8",
         "revisions": {
           "lifecycleGeneration": 1,
-          "sceneRevision": 1,
+          "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 1
+          "interactionRevision": 5
         },
         "publishedTuple": {
           "scene": 0,
@@ -1398,22 +1695,22 @@
     }
   ],
   "jsHeap": {
-    "before": 6939508,
-    "after": 13113368,
-    "processDelta": 6173860,
+    "before": 6976196,
+    "after": 13466088,
+    "processDelta": 6489892,
     "samples": [
-      183199,
-      76939,
-      402783,
+      180147,
+      76863,
+      402691,
+      85587,
       0,
-      13591,
-      46327,
-      207971
+      48731,
+      208379
     ],
-    "median": 76939,
-    "p95": 402783,
-    "maximum": 402783,
-    "trend": 24772
+    "median": 85587,
+    "p95": 402691,
+    "maximum": 402691,
+    "trend": 28232
   },
   "dom": {
     "canvasCount": 0,

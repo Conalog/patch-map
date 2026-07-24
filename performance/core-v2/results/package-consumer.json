@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-24T01:23:56.663Z",
+  "generatedAt": "2026-07-24T02:33:01.998Z",
   "package": "@conalog/patch-map/core-v2",
   "pixi": "8.19.0",
   "esm": {
@@ -137,6 +137,69 @@
       "historyDepth": 3,
       "relationRevisionLag": 0
     },
+    "historyPackage": {
+      "companionBefore": {
+        "selectionIds": [
+          "rect-b"
+        ],
+        "mode": "select",
+        "hostCompanion": {
+          "selectedIds": [
+            "rect-b"
+          ],
+          "mode": "select",
+          "dirty": false
+        }
+      },
+      "transactionStatus": "committed",
+      "transactionActionId": "packed-history",
+      "inspectedDepth": 4,
+      "inspectedLastActionId": "packed-history",
+      "inspectedLastRecordCount": 1,
+      "undoStatus": "committed",
+      "undoDirection": "undo",
+      "undoActionId": "packed-history",
+      "companionAfterUndo": {
+        "selectionIds": [
+          "rect-b"
+        ],
+        "mode": "select",
+        "hostCompanion": {
+          "selectedIds": [
+            "rect-b"
+          ],
+          "mode": "select",
+          "dirty": false
+        }
+      },
+      "redoStatus": "committed",
+      "redoDirection": "redo",
+      "redoActionId": "packed-history",
+      "companionAfterRedo": {
+        "selectionIds": [
+          "rect-b"
+        ],
+        "mode": "transform",
+        "hostCompanion": {
+          "selectedIds": [
+            "rect-b"
+          ],
+          "mode": "transform",
+          "dirty": true
+        }
+      },
+      "invalidCapacityStatus": "rejected",
+      "invalidCapacityCode": "INVALID_VALUE",
+      "protectedShortcut": {
+        "action": "undo",
+        "handled": false,
+        "preventDefault": false,
+        "result": null
+      },
+      "clearChanged": true,
+      "clearReason": "host",
+      "clearedDepth": 0
+    },
     "interactionOwnership": {
       "rootBindingCount": 6,
       "rootListenerCount": 8,
@@ -170,7 +233,13 @@
     "selectionTransformerRevision": "core-v2-selection-transformer/1",
     "selectionTransformerAuthorityType": "function",
     "presentationRevision": "core-v2-presentation-policy/1",
-    "plannerType": "function"
+    "plannerType": "function",
+    "historyEngineType": "function",
+    "historyInspectionType": "function",
+    "historyCompanionType": "function",
+    "historyCapacityType": "function",
+    "historyShortcutType": "function",
+    "historyClearType": "function"
   },
   "errors": {
     "console": [],
