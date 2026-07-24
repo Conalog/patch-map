@@ -17,15 +17,15 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 
 # Current State
 
-- Coverage is 114 executable routes, 113 actual-producing routes, 59 explicit stubs, 417 executable actions, and 229 action types.
-- Product commit `7a5027a` adds exact duplicate/reference diagnostics and opt-in strict pre-publication validation. Automation commit `2b59038` connects `ERR-001` and `CSM-005/006/007/008` through the shared expected-blind update runtime and five focused Lab routes; approved expected evidence is unchanged.
-- Promotion gates pass 157 files/1,389 Core v2 tests, full lint/typecheck, Core v2/Lab builds, and canonical 38-decision/32-negative/173-record verification. The changed five routes pass targeted headless first/repeat/fresh/destroy at 89/89 with zero console, page, network, or external-fixture errors.
-- The focused browser inventory is now 99 routes and 1,267 assertions, with 1,258 expected passes and the same nine observed conflicts; the full 99-route matrix was not repeated. Packed ESM/CJS directly proves the strict validator, exact `MISSING_TARGET` failure, atomic state preservation, and public export.
-- The 2+7 memory and performance matrices were not repeated because renderer/resource/destroy ownership and measured hot paths did not change. `ERR-003` remains with the controlled asset/security tranche. This checkpoint pauses before selection/host consumers; no child agent is active.
+- Coverage is 120 executable routes, 119 actual-producing routes, 53 explicit stubs, 449 executable actions, and 247 action types.
+- Product commit `689de99` adds owner-qualified component selection and immutable command-target status authority. Automation commit `c03c189` connects `CSM-011/012/015/016/020/021` through the shared expected-blind pointer/selection runtime and six focused Lab routes; approved expected evidence is unchanged.
+- Promotion gates pass 157 files/1,402 Core v2 tests, full lint/typecheck, Core v2/Lab builds, and canonical 38-decision/32-negative/173-record verification. The six changed headless routes pass first/repeat/fresh/destroy at 111/111 per session with deterministic observations, canvas cleanup zero, and zero console, page, network, or external-fixture errors.
+- The focused browser inventory is 105 routes and 1,378 assertions, with 1,369 expected passes and the same nine observed conflicts; the full matrix was not repeated. Packed ESM/CJS proves component aliases, command status progression, public exports, and lifecycle cleanup.
+- The 2+7 memory and performance matrices were not repeated because only weak command-state provenance was added and renderer/resource/destroy ownership and measured hot paths did not change. No child agent or owned Vitest/Vite/Chromium process remains.
 
 # Next Step
 
-After restart, implement `CSM-011/012/015/016/020/021` as one 32-action selection/host-interaction tranche using the existing pointer, host-interaction, and selection substrate plus declarative action/probe mappings. Begin with targeted shared-runtime tests, scoped lint, typecheck, and six focused headless routes; run expensive gates only if this tranche changes their owning risk boundary.
+After restart, inventory and implement `CSM-013/018/022/023/024` as the next root-interaction/editor-transform tranche, reusing pointer, transformer, viewport, history, and interruption authorities. Keep `ERR-003` with the later controlled asset/security tranche and trigger memory or performance checkpoints only if ownership or a measured hot path changes.
 
 # Working Boundary
 
