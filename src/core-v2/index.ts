@@ -100,6 +100,7 @@ export {
   CORE_V2_ELEMENT_TYPES,
   CoreV2DatasetError,
   materializeCoreV2Dataset,
+  validateCoreV2DatasetReferences,
 } from './semantic/dataset';
 export type * from './semantic/dataset';
 export {

@@ -16,6 +16,8 @@ export type CoreV2ElementType = (typeof CORE_V2_ELEMENT_TYPES)[number];
 export type CoreV2ComponentType = (typeof CORE_V2_COMPONENT_TYPES)[number];
 export type CoreV2DatasetDiagnosticCode =
   | 'INVALID_RECORD_KIND'
+  | 'DUPLICATE_ID'
+  | 'MISSING_TARGET'
   | 'UNKNOWN_FIELD'
   | 'INVALID_VALUE';
 
@@ -236,19 +238,21 @@ export type MaterializedCoreV2Dataset = CoreV2DatasetMaterialization;
 export type NormalizedCoreV2Element = CoreV2Element;
 
 export class CoreV2DatasetError extends Error {
-  public readonly category = 'INVALID_INPUT' as const;
+  public readonly category: 'INVALID_INPUT' | 'MISSING_TARGET';
   public readonly code: CoreV2DatasetDiagnosticCode;
   public readonly datasetPath: string;
   public readonly recoverable = false;
   public readonly retryable = false;
   public readonly appliedCount = 0;
-  public readonly missingCount = 0;
+  public readonly missingCount: 0 | 1;
   public readonly unchangedCount = 0;
 
   public constructor(code: CoreV2DatasetDiagnosticCode, datasetPath: string, detail: string) {
     super(`${code} at ${datasetPath}: ${detail}`);
     this.name = 'CoreV2DatasetError';
     this.code = code;
+    this.category = code === 'MISSING_TARGET' ? 'MISSING_TARGET' : 'INVALID_INPUT';
+    this.missingCount = code === 'MISSING_TARGET' ? 1 : 0;
     this.datasetPath = datasetPath;
   }
 }
@@ -413,6 +417,61 @@ export function materializeCoreV2Dataset(input: unknown): CoreV2DatasetMateriali
     semanticHash: semanticHash(dataset),
     visibleBoundsFinite: true,
   });
+}
+
+/**
+ * Optional strict reference pass for host workflows that must reject dangling
+ * relation endpoints before the last complete scene is published. The default
+ * parser remains compatibility-oriented and may project dangling paths as
+ * explicit omitted relations.
+ */
+export function validateCoreV2DatasetReferences(
+  dataset: readonly CoreV2Element[],
+): void {
+  const elementIds = new Set<string>();
+  const relations: {
+    readonly element: CoreV2RelationsElement;
+    readonly path: string;
+  }[] = [];
+
+  const visit = (elements: readonly CoreV2Element[], parentPath: string): void => {
+    elements.forEach((element, index) => {
+      const path = `${parentPath}[${index}]`;
+      elementIds.add(element.id);
+      if (element.type === 'grid') {
+        element.cells.forEach((row, rowIndex) => {
+          row.forEach((cell, columnIndex) => {
+            if (cell === 0 && element.inactiveCellStrategy === 'destroy') return;
+            elementIds.add(`${element.id}.${rowIndex}.${columnIndex}`);
+          });
+        });
+      } else if (element.type === 'group') {
+        visit(element.children, `${path}.children`);
+      } else if (element.type === 'relations') {
+        relations.push(Object.freeze({ element, path }));
+      }
+    });
+  };
+  visit(dataset, '$');
+
+  for (const { element, path } of relations) {
+    element.links.forEach((link, index) => {
+      if (!elementIds.has(link.source)) {
+        throw new CoreV2DatasetError(
+          'MISSING_TARGET',
+          `${path}.links[${index}].source`,
+          `relation source ${JSON.stringify(link.source)} does not exist`,
+        );
+      }
+      if (!elementIds.has(link.target)) {
+        throw new CoreV2DatasetError(
+          'MISSING_TARGET',
+          `${path}.links[${index}].target`,
+          `relation target ${JSON.stringify(link.target)} does not exist`,
+        );
+      }
+    });
+  }
 }
 
 function normalizeElement(
@@ -1187,7 +1246,9 @@ function validateVector(value: unknown, path: string): void {
 }
 
 function registerElementId(id: string, path: string, state: NormalizationState): void {
-  if (state.elementIds.has(id)) invalidValue(path, `duplicate scene-global element identity ${JSON.stringify(id)}`);
+  if (state.elementIds.has(id)) {
+    duplicateId(path, `duplicate scene-global element identity ${JSON.stringify(id)}`);
+  }
   state.elementIds.add(id);
 }
 
@@ -1202,7 +1263,9 @@ function registerComponentId(
     ids = new Set();
     state.componentIdsByOwner.set(ownerId, ids);
   }
-  if (ids.has(id)) invalidValue(path, `duplicate owner-local component identity ${JSON.stringify(id)}`);
+  if (ids.has(id)) {
+    duplicateId(path, `duplicate owner-local component identity ${JSON.stringify(id)}`);
+  }
   ids.add(id);
 }
 
@@ -1466,4 +1529,8 @@ function defineDataProperty(target: Record<string, unknown>, key: string, value:
 
 function invalidValue(path: string, detail: string): never {
   throw new CoreV2DatasetError('INVALID_VALUE', path, detail);
+}
+
+function duplicateId(path: string, detail: string): never {
+  throw new CoreV2DatasetError('DUPLICATE_ID', path, detail);
 }

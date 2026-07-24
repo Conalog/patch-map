@@ -77,6 +77,7 @@ import {
 import {
   CoreV2DatasetError,
   materializeCoreV2Dataset,
+  validateCoreV2DatasetReferences,
   type MaterializedCoreV2Dataset,
   type CoreV2AssetSource,
   type CoreV2BackgroundSource,
@@ -872,6 +873,11 @@ export interface CoreV2InitializeResult {
 
 export interface CoreV2LoadOptions {
   readonly datasetRef?: string;
+  /**
+   * Reject dangling relation endpoints before publication. Omitted/false keeps
+   * compatibility projection behavior and reports dangling paths as omitted.
+   */
+  readonly strict?: boolean;
 }
 
 export interface CoreV2EngineLoadResult {
@@ -1789,7 +1795,7 @@ export class CoreV2Engine {
 
   public loadDataset(input: unknown, options: CoreV2LoadOptions = {}): CoreV2EngineLoadResult {
     const surface = this.requireSurface('loadDataset');
-    const prepared = this.prepareDatasetLoad(input);
+    const prepared = this.prepareDatasetLoad(input, options);
     return this.publishPreparedDatasetLoad(surface, prepared, options);
   }
 
@@ -1818,6 +1824,7 @@ export class CoreV2Engine {
     this.pendingWork += 1;
     try {
       const materialized = materializeCoreV2Dataset(input);
+      this.validateStrictDatasetLoad(materialized, options);
       await yieldCoreV2EngineTask();
       this.assertCooperativeLoadCurrent(
         surface,
@@ -1865,13 +1872,33 @@ export class CoreV2Engine {
     }
   }
 
-  private prepareDatasetLoad(input: unknown): PreparedCoreV2EngineLoad {
+  private prepareDatasetLoad(
+    input: unknown,
+    options: CoreV2LoadOptions = {},
+  ): PreparedCoreV2EngineLoad {
     const materialized = materializeCoreV2Dataset(input);
+    this.validateStrictDatasetLoad(materialized, options);
     return Object.freeze({
       materialized,
       componentSemantics: indexComponentSemantics(materialized.dataset),
       textSemantics: indexTextSemantics(materialized.dataset),
     });
+  }
+
+  private validateStrictDatasetLoad(
+    materialized: MaterializedCoreV2Dataset,
+    options: CoreV2LoadOptions,
+  ): void {
+    if (options.strict !== undefined && typeof options.strict !== 'boolean') {
+      throw new CoreV2DatasetError(
+        'INVALID_VALUE',
+        '$.options.strict',
+        'strict must be a boolean',
+      );
+    }
+    if (options.strict === true) {
+      validateCoreV2DatasetReferences(materialized.dataset);
+    }
   }
 
   private commitPreparedDatasetLoad(

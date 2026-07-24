@@ -237,8 +237,8 @@ describe('Core v2 data-closure actual-only handlers', () => {
     const hashes = actualAt(execution, 0, 'semanticHashes');
     expect(hashes).toEqual(Array(5).fill((hashes as readonly string[])[0]));
     expect((hashes as readonly string[])[0]).toMatch(/^fnv1a64:[a-f0-9]{16}$/u);
-    expect(actualAt(execution, 1, 'element.code')).toBe('INVALID_VALUE');
-    expect(actualAt(execution, 1, 'component.code')).toBe('INVALID_VALUE');
+    expect(actualAt(execution, 1, 'element.code')).toBe('DUPLICATE_ID');
+    expect(actualAt(execution, 1, 'component.code')).toBe('DUPLICATE_ID');
     expect(actualAt(execution, 1, 'authoritativeSceneUnchanged')).toBe(true);
     expect(actualAt(execution, 3, 'supported')).toBe(false);
     expect(actualAt(execution, 4, 'supported')).toBe(false);

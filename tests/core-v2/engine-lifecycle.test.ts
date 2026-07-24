@@ -434,6 +434,79 @@ describe('CoreV2Engine lifecycle authority', () => {
     expect(engine.snapshot()).toMatchObject({ lifecycle: 'ready-empty', rootIds: [], historyDepth: 0, pendingWork: 0 });
   });
 
+  it('keeps compatibility projection permissive while strict loads reject dangling references atomically', async () => {
+    const { factory, surfaces } = createSurfaceFactory();
+    const engine = new CoreV2Engine({ surfaceFactory: factory });
+    await engine.initialize({ instanceId: 'map-strict-references', width: 800, height: 600 });
+    const baseline = structuredClone(catalogProfiles.datasets['interactive-scene']);
+    engine.loadDataset(baseline, { datasetRef: 'baseline', strict: true });
+    const before = engine.snapshot();
+    const beforeDataset = engine.exportDataset();
+    const dangling = structuredClone(baseline);
+    const relation = dangling.find((element) => element.type === 'relations');
+    if (relation?.type !== 'relations') throw new Error('Missing relation fixture');
+    relation.links = [{ source: 'item-a', target: 'absent' }];
+    const inputBefore = JSON.stringify(dangling);
+
+    expect(() => engine.loadDataset(dangling, {
+      datasetRef: 'strict-dangling',
+      strict: true,
+    })).toThrowError(expect.objectContaining({
+      code: 'MISSING_TARGET',
+      category: 'MISSING_TARGET',
+      datasetPath: '$[3].links[0].target',
+    }));
+    expect(engine.snapshot()).toEqual(before);
+    expect(engine.exportDataset()).toBe(beforeDataset);
+    expect(surfaces[0]?.loadCount).toBe(1);
+    expect(JSON.stringify(dangling)).toBe(inputBefore);
+
+    expect(engine.loadDataset(dangling, {
+      datasetRef: 'compatibility-dangling',
+    })).toMatchObject({
+      sceneRevision: 2,
+    });
+    expect(engine.snapshot().datasetRef).toBe('compatibility-dangling');
+    expect(surfaces[0]?.loadCount).toBe(2);
+    expect(JSON.stringify(dangling)).toBe(inputBefore);
+  });
+
+  it('classifies duplicate IDs exactly and keeps strict async validation before surface publication', async () => {
+    const { factory, surfaces } = createSurfaceFactory();
+    const engine = new CoreV2Engine({ surfaceFactory: factory });
+    await engine.initialize({ instanceId: 'map-strict-async', width: 800, height: 600 });
+    const baseline = structuredClone(catalogProfiles.datasets['interactive-scene']);
+    engine.loadDataset(baseline, { datasetRef: 'baseline', strict: true });
+    const before = engine.snapshot();
+    const beforeDataset = engine.exportDataset();
+    const duplicate = [
+      { type: 'rect', id: 'dup', size: 10 },
+      { type: 'rect', id: 'dup', size: 10 },
+    ];
+    const dangling = structuredClone(baseline);
+    const relation = dangling.find((element) => element.type === 'relations');
+    if (relation?.type !== 'relations') throw new Error('Missing relation fixture');
+    relation.links = [{ source: 'item-a', target: 'absent' }];
+
+    expect(() => engine.loadDataset(duplicate, {
+      datasetRef: 'duplicate',
+      strict: true,
+    })).toThrowError(expect.objectContaining({
+      code: 'DUPLICATE_ID',
+      datasetPath: '$[1].id',
+    }));
+    await expect(engine.loadDatasetAsync(dangling, {
+      datasetRef: 'strict-async-dangling',
+      strict: true,
+    })).rejects.toMatchObject({
+      code: 'MISSING_TARGET',
+      datasetPath: '$[3].links[0].target',
+    });
+    expect(engine.snapshot()).toEqual(before);
+    expect(engine.exportDataset()).toBe(beforeDataset);
+    expect(surfaces[0]?.loadCount).toBe(1);
+  });
+
   it('clears selection identity on authoritative dataset replacement', async () => {
     const { factory } = createSurfaceFactory();
     const engine = new CoreV2Engine({ surfaceFactory: factory });

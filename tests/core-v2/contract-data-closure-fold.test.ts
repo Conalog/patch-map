@@ -243,7 +243,7 @@ describe('Core v2 data-closure actual-only fold', () => {
   it.each([
     ['DAT-006', 5, 4],
     ['DAT-007', 10, 0],
-    ['DAT-008', 11, 5],
+    ['DAT-008', 13, 3],
   ] as const)(
     'folds %s actual observations with %i passing and %i failing assertions',
     async (caseId, passed, failed) => {
@@ -330,8 +330,8 @@ describe('Core v2 data-closure actual-only fold', () => {
       'duplicate',
     ]);
     expect(valueAt(folded.actual, 'outcome.staleTarget.code')).toBe('UNSUPPORTED_OPERATION');
-    expect(valueAt(folded.actual, 'outcome.duplicates.element.code')).toBe('INVALID_VALUE');
-    expect(valueAt(folded.actual, 'outcome.duplicates.component.code')).toBe('INVALID_VALUE');
+    expect(valueAt(folded.actual, 'outcome.duplicates.element.code')).toBe('DUPLICATE_ID');
+    expect(valueAt(folded.actual, 'outcome.duplicates.component.code')).toBe('DUPLICATE_ID');
     expect(valueAt(folded.actual, 'scene.replacement.attrs.x')).toEqual({
       _availability: 'missing',
     });
@@ -342,8 +342,6 @@ describe('Core v2 data-closure actual-only fold', () => {
       '/outcome/sessions/semanticHashes',
       '/scene/equalZOrder',
       '/outcome/staleTarget/code',
-      '/outcome/duplicates/element/code',
-      '/outcome/duplicates/component/code',
     ]);
   });
 
