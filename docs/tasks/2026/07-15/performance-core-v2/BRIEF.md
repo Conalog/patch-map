@@ -21,10 +21,12 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 - Promotion gates pass: 123 files/1,138 Core v2 tests, full lint/typecheck, Core v2/Lab builds, canonical contract verification, and 94 headless routes first/repeat/fresh at 1,169/1,178 with only the nine known immutable conflicts. Console, page, network, and external-fixture errors are zero.
 - The 2+7 lifecycle run expands 1,000 items to 5,099 entities, retains median/p95 76,271/403,503 JS-heap bytes, and closes all nine extraction trials with zero canvas, renderer, subscription, or pending-work retention. Packed ESM captures the exact tuple on the authoritative canvas and packed CJS exposes the API.
 - Chromium 4× WebGL/SwiftShader extraction preserves every 2+7×10 raw sample. Total median/p95 is 1,127.3/1,151.2 ms at 100, 13,320.2/64,231.0 ms at 5,000, and 17,287.9/110,215.2 ms for production; the unfavorable large-scene outliers are retained. Core v1 has no comparable exact-tuple boundary, WebGPU was not run, and Windows native remains pending.
+- The next shared-runtime tranche is selected but not implemented: `ERR-001` plus `CSM-005/006/007/008` (21 approved actions). It extends the existing update/transaction runtime for real invalid-operation atomicity, host redraw/merge persistence, live-overlay ordering, and presentation/export isolation. `ERR-003` stays with the later asset/security tranche because it needs a controlled asset backend.
+- This pause checkpoint adds no product or contract changes. The worktree is clean, no child agent is active, and no worktree-owned browser, Vite, or test process remains.
 
 # Next Step
 
-After the user restarts Codex, confirm the clean `performance/core-v2` checkpoint and inventory the remaining 64 stubs to select the next dependency-aligned 5–10 case shared-runtime tranche. Do not repeat the completed expensive extraction gates unless their product or ownership paths change.
+After restart, implement `ERR-001` and `CSM-005/006/007/008` by extending the shared update/transaction product adapter, expected-blind handler/fold/runtime, and declarative focused Lab registration. Start with targeted tests, scoped lint, and typecheck; defer full/headless/package/memory/performance gates until the connected tranche or an affected risk boundary requires them.
 
 # Working Boundary
 
