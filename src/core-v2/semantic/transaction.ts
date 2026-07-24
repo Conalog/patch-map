@@ -34,6 +34,14 @@ export type CoreV2MutationJsonValue =
   | readonly CoreV2MutationJsonValue[]
   | Readonly<{ readonly [key: string]: CoreV2MutationJsonValue }>;
 
+/** Detach caller-owned JSON for host companion and transaction boundaries. */
+export function detachCoreV2MutationJsonValue(
+  value: unknown,
+  path = '$.value',
+): CoreV2MutationJsonValue {
+  return cloneImmutableJson(value, path);
+}
+
 export interface CoreV2MutationPathChange {
   readonly path: readonly CoreV2MutationPathSegment[];
   readonly value: CoreV2MutationJsonValue;

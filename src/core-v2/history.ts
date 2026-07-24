@@ -43,6 +43,22 @@ export interface CoreV2SemanticHistoryCommand<
   TCompanion = never,
 > {
   readonly id: string;
+  /** Number of accepted consecutive records represented by this human action. */
+  readonly recordCount: number;
+  /**
+   * Detached accepted records in authored order. Grouped undo traverses this
+   * array in reverse and redo traverses it forward, while the aggregate surface
+   * may reconcile directly to the command boundary snapshot.
+   */
+  readonly records: readonly CoreV2SemanticHistoryRecord<TDataset, TCompanion>[];
+  readonly before: CoreV2SemanticHistorySnapshot<TDataset, TCompanion>;
+  readonly after: CoreV2SemanticHistorySnapshot<TDataset, TCompanion>;
+}
+
+export interface CoreV2SemanticHistoryRecord<
+  TDataset extends readonly unknown[] = CoreV2SemanticDataset,
+  TCompanion = never,
+> {
   readonly before: CoreV2SemanticHistorySnapshot<TDataset, TCompanion>;
   readonly after: CoreV2SemanticHistorySnapshot<TDataset, TCompanion>;
 }
@@ -84,6 +100,15 @@ export interface CoreV2SemanticHistoryOptions {
   readonly capacity?: number;
 }
 
+export interface CoreV2HistoryCapacityChange {
+  readonly changed: boolean;
+  readonly previousCapacity: number;
+  readonly capacity: number;
+  readonly evictedActionIds: readonly string[];
+  readonly retainedActionIds: readonly string[];
+  readonly state: CoreV2HistoryState;
+}
+
 /**
  * Opaque record preflight token. The public fields are diagnostic only;
  * commitPrepared validates instance ownership and the private prepared plan.
@@ -111,7 +136,7 @@ export class CoreV2SemanticHistory<
   TDataset extends readonly unknown[] = CoreV2SemanticDataset,
   TCompanion = never,
 > {
-  private readonly capacityValue: number;
+  private capacityValue: number;
   private entriesValue: readonly CoreV2SemanticHistoryCommand<TDataset, TCompanion>[] =
     Object.freeze([]);
   private readonly preparedRecords = new WeakMap<
@@ -120,6 +145,7 @@ export class CoreV2SemanticHistory<
   >();
   private cursorValue = 0;
   private epochValue = 0;
+  private continuationId: string | null = null;
   private transitioning = false;
   private destroyedValue = false;
 
@@ -163,6 +189,7 @@ export class CoreV2SemanticHistory<
     let plannedStatus: CoreV2HistoryRecordStatus;
     let nextEntries = baseEntries;
     let nextCursor = this.cursorValue;
+    let nextContinuationId = this.continuationId;
 
     if (outcome !== 'accepted') {
       plannedStatus = outcome;
@@ -172,12 +199,24 @@ export class CoreV2SemanticHistory<
         plannedStatus = 'no-op';
       } else if (this.capacityValue === 0) {
         plannedStatus = 'disabled';
+        nextContinuationId = null;
       } else {
         plannedStatus = 'recorded';
-        const branch = [...baseEntries.slice(0, this.cursorValue), detached];
+        const previous = baseEntries[this.cursorValue - 1];
+        const canContinue =
+          this.cursorValue === baseEntries.length &&
+          this.continuationId === detached.id &&
+          previous?.id === detached.id;
+        const branch = canContinue && previous !== undefined
+          ? [
+              ...baseEntries.slice(0, -1),
+              mergeCommands(previous, detached),
+            ]
+          : [...baseEntries.slice(0, this.cursorValue), detached];
         const overflow = Math.max(0, branch.length - this.capacityValue);
         nextEntries = Object.freeze(overflow === 0 ? branch : branch.slice(overflow));
         nextCursor = nextEntries.length;
+        nextContinuationId = detached.id;
       }
     }
 
@@ -191,6 +230,7 @@ export class CoreV2SemanticHistory<
       baseEntries,
       nextEntries,
       nextCursor,
+      nextContinuationId,
     });
     return token;
   }
@@ -221,6 +261,7 @@ export class CoreV2SemanticHistory<
     plan.phase = 'committed';
     this.entriesValue = plan.nextEntries;
     this.cursorValue = plan.nextCursor;
+    this.continuationId = plan.nextContinuationId;
     this.epochValue += 1;
     return token.plannedStatus;
   }
@@ -272,11 +313,62 @@ export class CoreV2SemanticHistory<
 
   public clear(): boolean {
     this.assertMutable('clear');
-    if (this.entriesValue.length === 0) return false;
+    const changed = this.entriesValue.length > 0;
+    if (!changed && this.continuationId === null) return false;
     this.entriesValue = Object.freeze([]);
     this.cursorValue = 0;
+    this.continuationId = null;
+    this.epochValue += 1;
+    return changed;
+  }
+
+  /**
+   * End consecutive action-ID grouping without changing the visible stack.
+   * Accepted unrecorded mutations use this barrier so a later reused action ID
+   * cannot absorb changes that were intentionally outside history.
+   */
+  public closeActionGroup(): boolean {
+    this.assertMutable('close action group');
+    if (this.continuationId === null) return false;
+    this.continuationId = null;
     this.epochValue += 1;
     return true;
+  }
+
+  /** Reconfigure bounded retention while preserving the newest valid branch. */
+  public setCapacity(capacity: number): CoreV2HistoryCapacityChange {
+    this.assertMutable('set capacity');
+    assertCapacity(capacity);
+    const previousCapacity = this.capacityValue;
+    if (capacity === previousCapacity) {
+      return capacityChange(
+        false,
+        previousCapacity,
+        capacity,
+        [],
+        this.entriesValue,
+        this.state(),
+      );
+    }
+    const overflow = capacity === 0
+      ? this.entriesValue.length
+      : Math.max(0, this.entriesValue.length - capacity);
+    const evicted = this.entriesValue.slice(0, overflow);
+    this.entriesValue = Object.freeze(
+      capacity === 0 ? [] : this.entriesValue.slice(overflow),
+    );
+    this.cursorValue = Math.max(0, this.cursorValue - overflow);
+    this.capacityValue = capacity;
+    this.continuationId = null;
+    this.epochValue += 1;
+    return capacityChange(
+      true,
+      previousCapacity,
+      capacity,
+      evicted,
+      this.entriesValue,
+      this.state(),
+    );
   }
 
   public state(): CoreV2HistoryState {
@@ -310,6 +402,7 @@ export class CoreV2SemanticHistory<
     }
     this.entriesValue = Object.freeze([]);
     this.cursorValue = 0;
+    this.continuationId = null;
     this.epochValue += 1;
     this.destroyedValue = true;
     return true;
@@ -344,6 +437,7 @@ export class CoreV2SemanticHistory<
     }
     if (accepted !== true) return null;
     this.cursorValue = cursorAfter;
+    this.continuationId = null;
     this.epochValue += 1;
     return transition;
   }
@@ -366,6 +460,7 @@ interface CoreV2PreparedRecordPlan<
   readonly baseEntries: readonly CoreV2SemanticHistoryCommand<TDataset, TCompanion>[];
   readonly nextEntries: readonly CoreV2SemanticHistoryCommand<TDataset, TCompanion>[];
   readonly nextCursor: number;
+  readonly nextContinuationId: string | null;
 }
 
 function detachCommand<
@@ -380,10 +475,31 @@ function detachCommand<
   if (typeof input.id !== 'string' || input.id.length === 0) {
     throw new TypeError('history command id must be a non-empty string');
   }
+  const before = detachSnapshot(input.before, '$.before');
+  const after = detachSnapshot(input.after, '$.after');
+  const record = Object.freeze({ before, after });
   return Object.freeze({
     id: input.id,
-    before: detachSnapshot(input.before, '$.before'),
-    after: detachSnapshot(input.after, '$.after'),
+    recordCount: 1,
+    records: Object.freeze([record]),
+    before,
+    after,
+  });
+}
+
+function mergeCommands<
+  TDataset extends readonly unknown[],
+  TCompanion,
+>(
+  previous: CoreV2SemanticHistoryCommand<TDataset, TCompanion>,
+  next: CoreV2SemanticHistoryCommand<TDataset, TCompanion>,
+): CoreV2SemanticHistoryCommand<TDataset, TCompanion> {
+  return Object.freeze({
+    id: previous.id,
+    recordCount: previous.recordCount + next.recordCount,
+    records: Object.freeze([...previous.records, ...next.records]),
+    before: previous.before,
+    after: next.after,
   });
 }
 
@@ -485,4 +601,31 @@ function assertCommitOutcome(value: string): asserts value is CoreV2HistoryCommi
   if (value !== 'accepted' && value !== 'no-op' && value !== 'refused') {
     throw new TypeError('history outcome must be accepted, no-op, or refused');
   }
+}
+
+function assertCapacity(value: number): void {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new RangeError('capacity must be a non-negative safe integer');
+  }
+}
+
+function capacityChange<
+  TDataset extends readonly unknown[],
+  TCompanion,
+>(
+  changed: boolean,
+  previousCapacity: number,
+  capacity: number,
+  evicted: readonly CoreV2SemanticHistoryCommand<TDataset, TCompanion>[],
+  retained: readonly CoreV2SemanticHistoryCommand<TDataset, TCompanion>[],
+  state: CoreV2HistoryState,
+): CoreV2HistoryCapacityChange {
+  return Object.freeze({
+    changed,
+    previousCapacity,
+    capacity,
+    evictedActionIds: Object.freeze(evicted.map(({ id }) => id)),
+    retainedActionIds: Object.freeze(retained.map(({ id }) => id)),
+    state,
+  });
 }

@@ -284,6 +284,100 @@ describe('Core v2 semantic history', () => {
     expect(() => new CoreV2SemanticHistory({ capacity: -1 })).toThrow(RangeError);
   });
 
+  it('coalesces consecutive records with one action ID and honors explicit barriers', () => {
+    const history = new CoreV2SemanticHistory<StackDataset>();
+    const zero = singleDataset('box', 0);
+    const one = singleDataset('box', 1);
+    const two = singleDataset('box', 2);
+    const three = singleDataset('box', 3);
+
+    expect(history.record(simpleCommand('drag-1', zero, one))).toBe('recorded');
+    expect(history.record(simpleCommand('drag-1', one, two))).toBe('recorded');
+    expect(history.inspect().commands).toMatchObject([
+      {
+        id: 'drag-1',
+        recordCount: 2,
+        records: [
+          {
+            before: { dataset: [{ id: 'box', zIndex: 0 }] },
+            after: { dataset: [{ id: 'box', zIndex: 1 }] },
+          },
+          {
+            before: { dataset: [{ id: 'box', zIndex: 1 }] },
+            after: { dataset: [{ id: 'box', zIndex: 2 }] },
+          },
+        ],
+        before: { dataset: [{ id: 'box', zIndex: 0 }] },
+        after: { dataset: [{ id: 'box', zIndex: 2 }] },
+      },
+    ]);
+    expect(history.state()).toMatchObject({ depth: 1, cursor: 1 });
+
+    expect(history.closeActionGroup()).toBe(true);
+    expect(history.closeActionGroup()).toBe(false);
+    expect(history.record(simpleCommand('drag-1', two, three))).toBe('recorded');
+    expect(history.inspect().commands.map(({ id, recordCount }) => ({
+      id,
+      recordCount,
+    }))).toEqual([
+      { id: 'drag-1', recordCount: 2 },
+      { id: 'drag-1', recordCount: 1 },
+    ]);
+
+    expect(history.undo((transition) => (
+      transition.snapshot.dataset[0]?.zIndex === 2
+    ))).not.toBeNull();
+    expect(history.undo((transition) => (
+      transition.snapshot.dataset[0]?.zIndex === 0
+    ))).not.toBeNull();
+  });
+
+  it('reconfigures retention atomically with exact oldest-action eviction', () => {
+    const history = new CoreV2SemanticHistory<StackDataset>();
+    for (let index = 0; index < 52; index += 1) {
+      history.record(simpleCommand(
+        `a-${String(index).padStart(2, '0')}`,
+        singleDataset('box', index),
+        singleDataset('box', index + 1),
+      ));
+    }
+
+    expect(history.inspect().commands.map(({ id }) => id)).toEqual(
+      Array.from({ length: 50 }, (_, index) => `a-${String(index + 2).padStart(2, '0')}`),
+    );
+    const decrease = history.setCapacity(2);
+    expect(decrease).toMatchObject({
+      changed: true,
+      previousCapacity: 50,
+      capacity: 2,
+      retainedActionIds: ['a-50', 'a-51'],
+      state: { depth: 2, cursor: 2 },
+    });
+    expect(decrease.evictedActionIds).toHaveLength(48);
+    expect(decrease.evictedActionIds.at(0)).toBe('a-02');
+    expect(decrease.evictedActionIds.at(-1)).toBe('a-49');
+
+    expect(history.setCapacity(51)).toMatchObject({
+      changed: true,
+      previousCapacity: 2,
+      capacity: 51,
+      evictedActionIds: [],
+      retainedActionIds: ['a-50', 'a-51'],
+      state: { depth: 2, cursor: 2 },
+    });
+    expect(history.setCapacity(0)).toMatchObject({
+      changed: true,
+      previousCapacity: 51,
+      capacity: 0,
+      evictedActionIds: ['a-50', 'a-51'],
+      retainedActionIds: [],
+      state: { depth: 0, cursor: 0 },
+    });
+    const disabledState = history.inspect();
+    expect(() => history.setCapacity(-1)).toThrow(RangeError);
+    expect(history.inspect()).toEqual(disabledState);
+  });
+
   it('clears all retained snapshots on destroy and rejects later mutation', () => {
     const history = new CoreV2SemanticHistory<StackDataset>();
     const before = singleDataset('box', 0);

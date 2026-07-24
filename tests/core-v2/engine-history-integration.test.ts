@@ -165,6 +165,210 @@ describe('CoreV2Engine semantic history integration', () => {
     expect(disabled.engine.undo()).toMatchObject({ status: 'unavailable' });
     await disabled.engine.destroy();
   });
+
+  it('restores selection, mode, and detached host companion through one compound action', async () => {
+    const { engine } = await createEngine();
+    engine.loadDataset(stacking());
+    const hostBefore = {
+      selectedIds: ['first'],
+      mode: 'select',
+      dirty: false,
+    };
+    const hostAfter = {
+      selectedIds: ['first'],
+      mode: 'transform',
+      dirty: true,
+    };
+    const events: string[] = [];
+    engine.on('semanticRestored', ({ direction }) => events.push(`semantic:${direction}`));
+    engine.on('selectionReconciled', ({ direction }) => events.push(`selection:${direction}`));
+    engine.on('historyUndone', () => events.push('history:undo:pending'));
+    engine.on('historyRedone', () => events.push('history:redo:pending'));
+    engine.on('frame', () => events.push('frame:published'));
+    engine.on('historyVisible', ({ direction }) => events.push(`visible:${direction}:published`));
+
+    expect(engine.setHistoryCompanion(hostBefore)).toEqual({
+      selectionIds: ['first'],
+      mode: 'select',
+      hostCompanion: hostBefore,
+    });
+    expect(Object.isFrozen(engine.historyCompanionState().hostCompanion)).toBe(true);
+    expect(engine.transact({
+      actionId: 'compound-editor-1',
+      strict: true,
+      operations: [{
+        op: 'merge',
+        target: { kind: 'element', id: 'first' },
+        changes: [
+          { path: ['attrs', 'x'], value: 180 },
+          { path: ['attrs', 'y'], value: 50 },
+        ],
+      }],
+      history: hostAfter,
+    })).toMatchObject({
+      status: 'committed',
+      history: { recorded: true, commandId: 'compound-editor-1' },
+    });
+    expect(engine.historyCompanionState()).toEqual({
+      selectionIds: ['first'],
+      mode: 'transform',
+      hostCompanion: hostAfter,
+    });
+    hostBefore.selectedIds.push('late-before');
+    hostAfter.selectedIds.push('late-after');
+
+    expect(engine.undo()).toMatchObject({
+      status: 'committed',
+      direction: 'undo',
+      actionId: 'compound-editor-1',
+      recordCount: 1,
+      publication: 'pending',
+    });
+    expect(engine.historyCompanionState()).toEqual({
+      selectionIds: ['first'],
+      mode: 'select',
+      hostCompanion: {
+        selectedIds: ['first'],
+        mode: 'select',
+        dirty: false,
+      },
+    });
+    engine.publishFrame(10);
+    expect(events).toEqual([
+      'semantic:undo',
+      'selection:undo',
+      'history:undo:pending',
+      'frame:published',
+      'visible:undo:published',
+    ]);
+
+    expect(engine.redo()).toMatchObject({
+      status: 'committed',
+      direction: 'redo',
+      actionId: 'compound-editor-1',
+      recordCount: 1,
+    });
+    expect(engine.historyCompanionState()).toEqual({
+      selectionIds: ['first'],
+      mode: 'transform',
+      hostCompanion: {
+        selectedIds: ['first'],
+        mode: 'transform',
+        dirty: true,
+      },
+    });
+    await engine.destroy();
+  });
+
+  it('groups consecutive action IDs, exposes operation order, and applies an unrecorded barrier', async () => {
+    const { engine } = await createEngine();
+    engine.loadDataset(stacking());
+    for (const entry of [
+      { actionId: 'drag-1', value: 170, recordHistory: true },
+      { actionId: 'drag-1', value: 180, recordHistory: true },
+      { actionId: undefined, value: 185, recordHistory: false },
+      { actionId: 'drag-1', value: 190, recordHistory: true },
+      { actionId: 'other', value: 200, recordHistory: true },
+    ] as const) {
+      expect(engine.transact({
+        strict: true,
+        ...(entry.actionId === undefined ? {} : { actionId: entry.actionId }),
+        recordHistory: entry.recordHistory,
+        operations: [{
+          op: 'merge',
+          target: { kind: 'element', id: 'first' },
+          changes: [{ path: ['attrs', 'x'], value: entry.value }],
+        }],
+      })).toMatchObject({ status: 'committed' });
+    }
+
+    const inspection = engine.historyInspection();
+    expect(inspection.commands.map(({ id }) => id)).toEqual([
+      'drag-1',
+      'drag-1',
+      'other',
+    ]);
+    expect(inspection.state).toMatchObject({ depth: 3, undoDepth: 3 });
+    const firstGroup = inspection.commands[0]!;
+    expect(firstGroup.records.map(({ after }) => elementX(after.dataset, 'first')))
+      .toEqual([170, 180]);
+    expect([...firstGroup.records].reverse().map(({ after }) =>
+      elementX(after.dataset, 'first'))).toEqual([180, 170]);
+
+    expect(engine.undo()).toMatchObject({ actionId: 'other' });
+    expect(engine.undo()).toMatchObject({ actionId: 'drag-1' });
+    expect(engine.redo()).toMatchObject({ actionId: 'drag-1' });
+    expect(engine.redo()).toMatchObject({ actionId: 'other' });
+    expect(elementX(engine.exportDataset(), 'first')).toBe(200);
+    await engine.destroy();
+  });
+
+  it('offers structured capacity, shortcut, clear, replace, and destroy boundaries', async () => {
+    const { engine } = await createEngine();
+    engine.loadDataset(stacking());
+    engine.transact({
+      strict: true,
+      actionId: 'move',
+      operations: [{
+        op: 'merge',
+        target: { kind: 'element', id: 'first' },
+        changes: [{ path: ['attrs', 'x'], value: 10 }],
+      }],
+    });
+
+    const invalidBefore = engine.historyInspection();
+    expect(engine.setHistoryCapacity(-1)).toEqual({
+      status: 'rejected',
+      changed: false,
+      code: 'INVALID_VALUE',
+      capacity: -1,
+      history: invalidBefore.state,
+    });
+    expect(engine.historyInspection()).toEqual(invalidBefore);
+    expect(engine.handleHistoryShortcut({
+      key: 'z',
+      code: 'KeyZ',
+      ctrlKey: true,
+      metaKey: false,
+      shiftKey: false,
+      pathKind: 'input',
+    })).toEqual({
+      action: 'undo',
+      handled: false,
+      preventDefault: false,
+      result: null,
+    });
+    expect(engine.handleHistoryShortcut({
+      key: 'z',
+      code: 'KeyZ',
+      ctrlKey: true,
+      metaKey: false,
+      shiftKey: false,
+      pathKind: 'canvas',
+    })).toMatchObject({
+      action: 'undo',
+      handled: true,
+      preventDefault: true,
+      result: { status: 'committed', direction: 'undo' },
+    });
+
+    const lifecycle: string[] = [];
+    engine.on('historyCleared', ({ reason }) => lifecycle.push(`history-cleared:${reason}`));
+    engine.on('destroyed', () => lifecycle.push('destroyed'));
+    expect(engine.clearHistory()).toMatchObject({
+      changed: true,
+      reason: 'host',
+      history: { depth: 0 },
+    });
+    engine.loadDataset(stacking());
+    expect(engine.historyState().depth).toBe(0);
+    await engine.destroy();
+    expect(lifecycle).toEqual([
+      'history-cleared:host',
+      'history-cleared:destroy',
+      'destroyed',
+    ]);
+  });
 });
 
 async function createEngine(
@@ -202,5 +406,19 @@ function zIndex(engine: CoreV2Engine, id: string): number {
   const element = engine.exportDataset().find((entry) => entry.id === id);
   const value = element?.attrs?.zIndex;
   if (typeof value !== 'number') throw new Error(`missing zIndex for ${id}`);
+  return value;
+}
+
+function elementX(
+  dataset: readonly Readonly<Record<string, unknown>>[],
+  id: string,
+): number {
+  const element = dataset.find((entry) => entry.id === id);
+  const attrs = element?.attrs;
+  if (attrs === null || typeof attrs !== 'object' || Array.isArray(attrs)) {
+    throw new Error(`missing attrs for ${id}`);
+  }
+  const value = (attrs as Readonly<Record<string, unknown>>).x;
+  if (typeof value !== 'number') throw new Error(`missing x for ${id}`);
   return value;
 }

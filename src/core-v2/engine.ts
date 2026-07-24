@@ -98,9 +98,11 @@ import {
 } from './semantic/mutation';
 import {
   CORE_V2_MUTATION_TRANSACTION_REVISION,
+  detachCoreV2MutationJsonValue,
   planCoreV2BulkPatch,
   planCoreV2MutationTransaction,
   type CoreV2BulkPatchRequest,
+  type CoreV2MutationJsonValue,
   type CoreV2MutationOperation,
   type CoreV2MutationTarget,
   type CoreV2MutationTransactionDiagnostic,
@@ -117,7 +119,9 @@ import type { CoreV2ReconcileDiagnostic } from './semantic/reconcile';
 import { CoreV2PresentationError } from './presentation';
 import {
   CoreV2SemanticHistory,
+  type CoreV2HistoryCapacityChange,
   type CoreV2HistoryDirection,
+  type CoreV2HistoryInspection,
   type CoreV2HistoryPreparedRecord,
   type CoreV2HistoryState,
   type CoreV2SemanticHistorySnapshotInput,
@@ -161,6 +165,7 @@ import {
   type CoreV2HostEventSubscription,
   type CoreV2HostInteractionProbe,
   type CoreV2HostObservedEvent,
+  type CoreV2InteractionMode,
   type CoreV2InteractionModeOperation,
   type CoreV2InteractionModeProbe,
   type CoreV2InteractionModeResult,
@@ -1183,6 +1188,8 @@ export type CoreV2EngineHistoryResult =
       readonly status: 'committed';
       readonly changed: true;
       readonly direction: CoreV2HistoryDirection;
+      readonly actionId: string;
+      readonly recordCount: number;
       readonly previousRevisions: CoreV2RevisionStamp;
       readonly revisions: CoreV2RevisionStamp;
       readonly sceneRevision: number;
@@ -1212,6 +1219,65 @@ export type CoreV2EngineHistoryResult =
       readonly reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[];
       readonly history: CoreV2HistoryState;
     }>;
+
+export interface CoreV2EngineHistoryCompanionState {
+  readonly selectionIds: readonly string[];
+  readonly mode: CoreV2InteractionMode;
+  /** Detached host-authored JSON restored atomically with Engine state. */
+  readonly hostCompanion: CoreV2MutationJsonValue | null;
+}
+
+export type CoreV2EngineHistoryCapacityResult =
+  | Readonly<{
+      readonly status: 'committed';
+      readonly changed: boolean;
+      readonly code: null;
+      readonly change: CoreV2HistoryCapacityChange;
+    }>
+  | Readonly<{
+      readonly status: 'rejected';
+      readonly changed: false;
+      readonly code: 'INVALID_VALUE';
+      readonly capacity: number;
+      readonly history: CoreV2HistoryState;
+    }>;
+
+export interface CoreV2EngineHistoryClearResult {
+  readonly changed: boolean;
+  readonly reason: 'host' | 'replace' | 'destroy';
+  readonly history: CoreV2HistoryState;
+}
+
+export interface CoreV2HistoryShortcutInput {
+  readonly key: string;
+  readonly code?: string;
+  readonly ctrlKey: boolean;
+  readonly metaKey: boolean;
+  readonly shiftKey: boolean;
+  readonly pathKind: string;
+}
+
+export interface CoreV2HistoryShortcutResult {
+  readonly action: CoreV2HistoryDirection | null;
+  readonly handled: boolean;
+  readonly preventDefault: boolean;
+  readonly result: CoreV2EngineHistoryResult | null;
+}
+
+export interface CoreV2EngineHistoryRestoredEvent {
+  readonly direction: CoreV2HistoryDirection;
+  readonly sceneRevision: number;
+  readonly selectionIds: readonly string[];
+  readonly mode: CoreV2InteractionMode;
+  readonly publication: 'pending';
+}
+
+export interface CoreV2EngineHistoryVisibleEvent {
+  readonly direction: CoreV2HistoryDirection;
+  readonly sceneRevision: number;
+  readonly frameRevision: number;
+  readonly publication: 'published';
+}
 
 type CoreV2EngineEventMap = {
   readonly ready: CoreV2InitializeResult;
@@ -1248,6 +1314,10 @@ type CoreV2EngineEventMap = {
   >;
   readonly historyUndone: Extract<CoreV2EngineHistoryResult, { readonly status: 'committed' }>;
   readonly historyRedone: Extract<CoreV2EngineHistoryResult, { readonly status: 'committed' }>;
+  readonly semanticRestored: CoreV2EngineHistoryRestoredEvent;
+  readonly selectionReconciled: CoreV2EngineHistoryRestoredEvent;
+  readonly historyVisible: CoreV2EngineHistoryVisibleEvent;
+  readonly historyCleared: CoreV2EngineHistoryClearResult;
   readonly diagnostic: CoreV2EngineDiagnostic;
   readonly destroyed: Readonly<{ lifecycleGeneration: number }>;
 };
@@ -1291,9 +1361,7 @@ interface CoreV2QueryResultAuthority {
   readonly targets: readonly CoreV2LogicalTargetSnapshot[];
 }
 
-interface CoreV2EngineHistoryCompanion {
-  readonly selectionIds: readonly string[];
-}
+type CoreV2EngineHistoryCompanion = CoreV2EngineHistoryCompanionState;
 
 interface PreparedCoreV2EngineLoad {
   readonly materialized: MaterializedCoreV2Dataset;
@@ -1333,6 +1401,11 @@ export class CoreV2Engine {
   private componentSemantics = new Map<string, CoreV2EngineComponentSemanticProbe>();
   private textSemantics = new Map<string, IndexedEngineTextSemantic>();
   private logicalSelectionIds: readonly string[] = Object.freeze([]);
+  private historyHostCompanion: CoreV2MutationJsonValue | null = null;
+  private pendingHistoryPublications: readonly Readonly<{
+    readonly direction: CoreV2HistoryDirection;
+    readonly sceneRevision: number;
+  }>[] = Object.freeze([]);
   private datasetRef: string | null = null;
   private lifecycleGeneration = 0;
   private targetLifecycleGeneration = 0;
@@ -1646,11 +1719,16 @@ export class CoreV2Engine {
   ): CoreV2EngineLoadResult {
     const { componentSemantics, materialized, textSemantics } = prepared;
     const selectionBefore = this.logicalSelectionIds;
+    const modeBefore = this.hostInteractions.modeProbe().activeState;
     this.logicalSelectionIds = Object.freeze([]);
-    if (selectionBefore.length > 0) this.interactionRevision += 1;
+    this.historyHostCompanion = null;
+    if (modeBefore !== 'select') {
+      this.hostInteractions.applyModeOperation({ op: 'replace', state: 'select' });
+    }
+    if (selectionBefore.length > 0 || modeBefore !== 'select') this.interactionRevision += 1;
     this.materialized = materialized;
     this.targetLifecycleGeneration += 1;
-    this.history.clear();
+    this.clearHistoryAuthority('replace');
     this.componentSemantics = componentSemantics;
     this.textSemantics = textSemantics;
     this.resetLiveOverlayState();
@@ -1771,24 +1849,6 @@ export class CoreV2Engine {
       this.emit('diagnostic', diagnostic);
       return result;
     }
-    if (plan.history !== undefined) {
-      const diagnostic = this.operationDiagnostic(
-        'UNSUPPORTED_RUNTIME',
-        'UNSUPPORTED_RUNTIME',
-        operation,
-        true,
-      );
-      const result = this.rejectedTransactionResult(
-        actionId,
-        previousRevisions,
-        diagnostic,
-        undefined,
-        previousHistory,
-      );
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-
     if (!plan.changed) {
       return Object.freeze({
         status: 'unchanged',
@@ -1826,9 +1886,29 @@ export class CoreV2Engine {
     const componentSemantics = indexComponentSemantics(plan.candidate.dataset);
     const textSemantics = indexTextSemantics(plan.candidate.dataset);
     const selectionBefore = this.logicalSelectionIds;
+    const modeBefore = this.hostInteractions.modeProbe().activeState;
     const requestedSelectionAfter = plan.selectionIds ??
       transactionSelectionAfter(selectionBefore, plan.operations);
-    const selectionAfter = this.validLogicalSelection(requestedSelectionAfter, plan.candidate);
+    let companionAfter: CoreV2EngineHistoryCompanion;
+    try {
+      companionAfter = this.nextHistoryCompanion(
+        plan.history,
+        requestedSelectionAfter,
+        plan.candidate,
+      );
+    } catch (error) {
+      const diagnostic = this.diagnosticFrom(error, operation);
+      const result = this.rejectedTransactionResult(
+        actionId,
+        previousRevisions,
+        diagnostic,
+        undefined,
+        previousHistory,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+    const selectionAfter = companionAfter.selectionIds;
     const commandId = actionId ?? `transaction:${this.sceneRevision + 1}`;
     let preparedHistory: CoreV2HistoryPreparedRecord | null = null;
     try {
@@ -1836,7 +1916,7 @@ export class CoreV2Engine {
         preparedHistory = this.history.prepareRecord({
           id: commandId,
           before: this.historySnapshot(),
-          after: historySnapshotForDataset(plan.candidate.dataset, selectionAfter),
+          after: historySnapshotForDataset(plan.candidate.dataset, companionAfter),
         });
       }
     } catch (error) {
@@ -1909,9 +1989,20 @@ export class CoreV2Engine {
     this.componentSemantics = componentSemantics;
     this.textSemantics = textSemantics;
     this.logicalSelectionIds = selectionAfter;
+    this.historyHostCompanion = companionAfter.hostCompanion;
+    this.hostInteractions.applyModeOperation({
+      op: 'replace',
+      state: companionAfter.mode,
+    });
     this.sceneRevision += 1;
     this.lifecycle = plan.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
-    if (!sameStringArray(selectionBefore, selectionAfter)) this.interactionRevision += 1;
+    if (
+      !sameStringArray(selectionBefore, selectionAfter) ||
+      modeBefore !== companionAfter.mode ||
+      plan.history !== undefined
+    ) {
+      this.interactionRevision += 1;
+    }
     let historyRecorded = false;
     if (preparedHistory !== null) {
       const historyStatus = this.history.commitPrepared(preparedHistory);
@@ -1919,6 +2010,8 @@ export class CoreV2Engine {
         throw new Error(`${operation} history preflight became ${historyStatus} after surface commit`);
       }
       historyRecorded = historyStatus === 'recorded';
+    } else {
+      this.history.closeActionGroup();
     }
     const currentHistory = this.history.state();
     const result = Object.freeze({
@@ -2061,7 +2154,10 @@ export class CoreV2Engine {
       preparedHistory = this.history.prepareRecord({
         id: `patch:${this.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
         before: this.historySnapshot(),
-        after: historySnapshotForDataset(mutation.candidate.dataset, selectionBefore),
+        after: historySnapshotForDataset(
+          mutation.candidate.dataset,
+          this.historyCompanionForSelection(selectionBefore),
+        ),
       });
     } catch (error) {
       const diagnostic = this.diagnosticFrom(error, 'patch');
@@ -2205,7 +2301,10 @@ export class CoreV2Engine {
       preparedHistory = this.history.prepareRecord({
         id: `destroy:${this.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
         before: this.historySnapshot(),
-        after: historySnapshotForDataset(mutation.candidate.dataset, selectionAfter),
+        after: historySnapshotForDataset(
+          mutation.candidate.dataset,
+          this.historyCompanionForSelection(selectionAfter),
+        ),
       });
     } catch (error) {
       const diagnostic = this.diagnosticFrom(error, 'destroyTarget');
@@ -2647,6 +2746,19 @@ export class CoreV2Engine {
       interaction: this.interactionRevision,
     });
     this.emit('frame', Object.freeze({ frameRevision: this.frameRevision, publishedTuple: this.publishedTuple }));
+    if (this.pendingHistoryPublications.length > 0) {
+      const pending = this.pendingHistoryPublications;
+      this.pendingHistoryPublications = Object.freeze([]);
+      for (const entry of pending) {
+        if (entry.sceneRevision !== this.publishedTuple.scene) continue;
+        this.emit('historyVisible', Object.freeze({
+          direction: entry.direction,
+          sceneRevision: entry.sceneRevision,
+          frameRevision: this.frameRevision,
+          publication: 'published',
+        }));
+      }
+    }
     if (this.pendingOverlayPublication !== null) {
       const published = Object.freeze({
         ...this.pendingOverlayPublication,
@@ -3778,7 +3890,7 @@ export class CoreV2Engine {
     return createCoreV2SemanticProbe(this.materialized, {
       lifecycle: this.lifecycle,
       datasetRef: this.datasetRef,
-      interactionMode: 'select',
+      interactionMode: this.hostInteractions.modeProbe().activeState,
       selectionIds: this.logicalSelectionIds,
       activeAnimationCount: surfaceDebug.activeAnimationCount,
       ...(surfaceDebug.activeGestureCount === undefined
@@ -4000,6 +4112,99 @@ export class CoreV2Engine {
     return this.history.state();
   }
 
+  public historyInspection(): CoreV2HistoryInspection<
+    readonly NormalizedCoreV2Element[],
+    CoreV2EngineHistoryCompanion
+  > {
+    this.requireSurface('historyInspection');
+    return this.history.inspect();
+  }
+
+  public historyCompanionState(): CoreV2EngineHistoryCompanionState {
+    this.requireSurface('historyCompanionState');
+    return this.historyCompanionForSelection(this.logicalSelectionIds);
+  }
+
+  /**
+   * Stage detached host editor state before a compound transaction. Recognized
+   * `selectedIds` and `mode` fields join Engine interaction authority; all JSON
+   * fields remain available as the opaque reversible host companion.
+   */
+  public setHistoryCompanion(
+    value: CoreV2MutationJsonValue,
+  ): CoreV2EngineHistoryCompanionState {
+    const surface = this.requireSurface('setHistoryCompanion');
+    const detached = detachCoreV2MutationJsonValue(value, '$.historyCompanion');
+    const previousSelection = this.logicalSelectionIds;
+    const previousMode = this.hostInteractions.modeProbe().activeState;
+    const next = this.nextHistoryCompanion(
+      detached,
+      previousSelection,
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+    );
+    surface.select(next.selectionIds);
+    this.logicalSelectionIds = next.selectionIds;
+    this.hostInteractions.applyModeOperation({ op: 'replace', state: next.mode });
+    this.historyHostCompanion = next.hostCompanion;
+    if (
+      !sameStringArray(previousSelection, next.selectionIds) ||
+      previousMode !== next.mode ||
+      next.hostCompanion !== null
+    ) {
+      this.interactionRevision += 1;
+    }
+    return this.historyCompanionForSelection(this.logicalSelectionIds);
+  }
+
+  public setHistoryCapacity(capacity: number): CoreV2EngineHistoryCapacityResult {
+    this.requireSurface('setHistoryCapacity');
+    try {
+      const change = this.history.setCapacity(capacity);
+      return Object.freeze({
+        status: 'committed',
+        changed: change.changed,
+        code: null,
+        change,
+      });
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error;
+      return Object.freeze({
+        status: 'rejected',
+        changed: false,
+        code: 'INVALID_VALUE',
+        capacity,
+        history: this.history.state(),
+      });
+    }
+  }
+
+  public clearHistory(): CoreV2EngineHistoryClearResult {
+    this.requireSurface('clearHistory');
+    return this.clearHistoryAuthority('host', true);
+  }
+
+  public handleHistoryShortcut(
+    input: CoreV2HistoryShortcutInput,
+  ): CoreV2HistoryShortcutResult {
+    this.requireSurface('handleHistoryShortcut');
+    const action = resolveCoreV2HistoryShortcut(input);
+    if (action === null || !coreV2OwnsKeyboardInput(input.pathKind)) {
+      return Object.freeze({
+        action,
+        handled: false,
+        preventDefault: false,
+        result: null,
+      });
+    }
+    const result = action === 'undo' ? this.undo() : this.redo();
+    return Object.freeze({
+      action,
+      handled: true,
+      preventDefault: true,
+      result,
+    });
+  }
+
   public undo(): CoreV2EngineHistoryResult {
     return this.applyHistory('undo');
   }
@@ -4064,7 +4269,10 @@ export class CoreV2Engine {
     this.viewportPolicyEnabled.clear();
     this.viewportTemporaryPolicies = null;
     this.externalDependencyRevisions.clear();
+    this.clearHistoryAuthority('destroy', true);
     this.history.destroy();
+    this.historyHostCompanion = null;
+    this.pendingHistoryPublications = Object.freeze([]);
     this.componentSemantics.clear();
     this.textSemantics.clear();
     this.datasetRef = null;
@@ -4143,6 +4351,8 @@ export class CoreV2Engine {
 
     let failure: CoreV2EngineDiagnostic | null = null;
     let reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[] = EMPTY_RECONCILE_DIAGNOSTICS;
+    const modeBefore = this.hostInteractions.modeProbe().activeState;
+    const hostCompanionBefore = this.historyHostCompanion;
     const apply = (transition: Readonly<{
       readonly snapshot: Readonly<{
         readonly dataset: readonly NormalizedCoreV2Element[];
@@ -4153,8 +4363,13 @@ export class CoreV2Engine {
       const selectionBefore = this.logicalSelectionIds;
       try {
         materialized = materializeCoreV2Dataset(transition.snapshot.dataset);
+        const companion = transition.snapshot.companion;
+        const mode = companion?.mode ?? 'select';
+        if (!isCoreV2InteractionMode(mode)) {
+          throw new TypeError('history companion mode is unsupported');
+        }
         const selection = this.validLogicalSelection(
-          transition.snapshot.companion?.selectionIds ?? Object.freeze([]),
+          companion?.selectionIds ?? Object.freeze([]),
           materialized,
         );
         const reconcile = surface.reconcile?.(materialized.dataset, {
@@ -4171,6 +4386,8 @@ export class CoreV2Engine {
           return false;
         }
         this.logicalSelectionIds = selection;
+        this.hostInteractions.applyModeOperation({ op: 'replace', state: mode });
+        this.historyHostCompanion = companion?.hostCompanion ?? null;
       } catch (error) {
         failure = this.diagnosticFrom(error, direction);
         return false;
@@ -4181,7 +4398,13 @@ export class CoreV2Engine {
       this.textSemantics = indexTextSemantics(materialized.dataset);
       this.sceneRevision += 1;
       this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
-      if (!sameStringArray(selectionBefore, this.logicalSelectionIds)) this.interactionRevision += 1;
+      if (
+        !sameStringArray(selectionBefore, this.logicalSelectionIds) ||
+        modeBefore !== this.hostInteractions.modeProbe().activeState ||
+        hostCompanionBefore !== this.historyHostCompanion
+      ) {
+        this.interactionRevision += 1;
+      }
       return true;
     };
 
@@ -4223,6 +4446,8 @@ export class CoreV2Engine {
       status: 'committed',
       changed: true,
       direction,
+      actionId: transition.command.id,
+      recordCount: transition.command.recordCount,
       previousRevisions,
       revisions: this.revisionStamp(),
       sceneRevision: this.sceneRevision,
@@ -4230,7 +4455,20 @@ export class CoreV2Engine {
       publication: 'pending',
       history: this.history.state(),
     } satisfies CoreV2EngineHistoryResult);
+    const restored = Object.freeze({
+      direction,
+      sceneRevision: this.sceneRevision,
+      selectionIds: Object.freeze([...this.logicalSelectionIds]),
+      mode: this.hostInteractions.modeProbe().activeState,
+      publication: 'pending',
+    } satisfies CoreV2EngineHistoryRestoredEvent);
+    this.emit('semanticRestored', restored);
+    this.emit('selectionReconciled', restored);
     this.emit(direction === 'undo' ? 'historyUndone' : 'historyRedone', result);
+    this.pendingHistoryPublications = Object.freeze([
+      ...this.pendingHistoryPublications,
+      Object.freeze({ direction, sceneRevision: this.sceneRevision }),
+    ]);
     return result;
   }
 
@@ -4242,8 +4480,70 @@ export class CoreV2Engine {
       dataset: this.materialized?.dataset ?? Object.freeze([]),
       companion: Object.freeze({
         selectionIds: Object.freeze([...this.logicalSelectionIds]),
+        mode: this.hostInteractions.modeProbe().activeState,
+        hostCompanion: this.historyHostCompanion,
       }),
     });
+  }
+
+  private historyCompanionForSelection(
+    selectionIds: readonly string[],
+  ): CoreV2EngineHistoryCompanion {
+    return Object.freeze({
+      selectionIds: Object.freeze([...selectionIds]),
+      mode: this.hostInteractions.modeProbe().activeState,
+      hostCompanion: this.historyHostCompanion,
+    });
+  }
+
+  private nextHistoryCompanion(
+    value: CoreV2MutationJsonValue | undefined,
+    fallbackSelectionIds: readonly string[],
+    materialized: MaterializedCoreV2Dataset,
+  ): CoreV2EngineHistoryCompanion {
+    const record = isCoreV2HistoryCompanionRecord(value) ? value : null;
+    const selectedValue = record?.selectedIds;
+    if (
+      selectedValue !== undefined &&
+      (
+        !Array.isArray(selectedValue) ||
+        selectedValue.some((entry) => typeof entry !== 'string')
+      )
+    ) {
+      throw new TypeError('history companion selectedIds must be an array of strings');
+    }
+    const modeValue = record?.mode;
+    if (modeValue !== undefined && !isCoreV2InteractionMode(modeValue)) {
+      throw new TypeError('history companion mode is unsupported');
+    }
+    const selectedIds = this.validLogicalSelection(
+      selectedValue === undefined
+        ? fallbackSelectionIds
+        : selectedValue as readonly string[],
+      materialized,
+    );
+    return Object.freeze({
+      selectionIds: selectedIds,
+      mode: modeValue === undefined
+        ? this.hostInteractions.modeProbe().activeState
+        : modeValue,
+      hostCompanion: value === undefined ? this.historyHostCompanion : value,
+    });
+  }
+
+  private clearHistoryAuthority(
+    reason: CoreV2EngineHistoryClearResult['reason'],
+    emitEvenIfUnchanged = false,
+  ): CoreV2EngineHistoryClearResult {
+    const changed = this.history.clear();
+    this.pendingHistoryPublications = Object.freeze([]);
+    const result = Object.freeze({
+      changed,
+      reason,
+      history: this.history.state(),
+    });
+    if (changed || emitEvenIfUnchanged) this.emit('historyCleared', result);
+    return result;
   }
 
   private validLogicalSelection(
@@ -5943,6 +6243,43 @@ function normalizeDegrees(value: number): number {
   return Object.is(normalized, -0) ? 0 : normalized;
 }
 
+function resolveCoreV2HistoryShortcut(
+  input: CoreV2HistoryShortcutInput,
+): CoreV2HistoryDirection | null {
+  if (input === null || typeof input !== 'object') {
+    throw new TypeError('history shortcut input must be an object');
+  }
+  if (typeof input.key !== 'string') {
+    throw new TypeError('history shortcut key must be a string');
+  }
+  if (
+    typeof input.ctrlKey !== 'boolean' ||
+    typeof input.metaKey !== 'boolean' ||
+    typeof input.shiftKey !== 'boolean'
+  ) {
+    throw new TypeError('history shortcut modifiers must be booleans');
+  }
+  if (input.ctrlKey === input.metaKey) return null;
+  const key = input.key.toLowerCase();
+  if (key === 'z') return input.shiftKey ? 'redo' : 'undo';
+  if (key === 'y' && !input.shiftKey) return 'redo';
+  return null;
+}
+
+function isCoreV2InteractionMode(value: unknown): value is CoreV2InteractionMode {
+  return value === 'select' ||
+    value === 'pan' ||
+    value === 'transform' ||
+    value === 'relation-paint' ||
+    value === 'text-edit';
+}
+
+function isCoreV2HistoryCompanionRecord(
+  value: unknown,
+): value is Readonly<Record<string, CoreV2MutationJsonValue>> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 function emptySurfaceDebug(width: number, height: number, pixelRatio: number): CoreV2SurfaceDebug {
   return Object.freeze({
     cssSize: Object.freeze([width, height] as [number, number]),
@@ -6006,14 +6343,14 @@ function freezeTransactionHistory(
 
 function historySnapshotForDataset(
   dataset: readonly NormalizedCoreV2Element[],
-  selectionIds: readonly string[],
+  companion: CoreV2EngineHistoryCompanion,
 ): CoreV2SemanticHistorySnapshotInput<
   readonly NormalizedCoreV2Element[],
   CoreV2EngineHistoryCompanion
 > {
   return Object.freeze({
     dataset,
-    companion: Object.freeze({ selectionIds: Object.freeze([...selectionIds]) }),
+    companion,
   });
 }
 

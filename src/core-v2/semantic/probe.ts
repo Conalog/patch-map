@@ -76,7 +76,12 @@ export interface CoreV2PaintIntentProbe {
 export interface CoreV2SemanticProbeContext {
   readonly lifecycle: CoreV2SemanticProbeLifecycle;
   readonly datasetRef?: string | null;
-  readonly interactionMode?: 'select';
+  readonly interactionMode?:
+    | 'select'
+    | 'pan'
+    | 'transform'
+    | 'relation-paint'
+    | 'text-edit';
   readonly selectionIds?: readonly string[];
   readonly activeAnimationCount?: number;
   readonly activeGestureCount?: number;
@@ -127,7 +132,12 @@ export interface CoreV2SemanticProductProbe {
     intents: readonly CoreV2PaintIntentProbe[];
   }>;
   readonly interaction: Readonly<{
-    mode?: 'select';
+    mode?:
+      | 'select'
+      | 'pan'
+      | 'transform'
+      | 'relation-paint'
+      | 'text-edit';
     selectionIds: readonly string[];
     activeAnimationCount?: number;
     activeGestureCount?: number;

@@ -57,6 +57,7 @@ export interface CoreV2HostEventSubscription {
 export type CoreV2InteractionMode =
   | 'select'
   | 'pan'
+  | 'transform'
   | 'relation-paint'
   | 'text-edit';
 
@@ -158,7 +159,7 @@ export class CoreV2HostInteractionAuthority {
     this.queryTargets = options.queryTargets;
     this.modes = new CoreV2InteractionModeAuthority({
       normal: options.normalMode ?? 'select',
-      modes: options.modes ?? ['select', 'pan', 'relation-paint', 'text-edit'],
+      modes: options.modes ?? ['select', 'pan', 'transform', 'relation-paint', 'text-edit'],
     });
   }
 
@@ -479,7 +480,7 @@ export class CoreV2InteractionModeAuthority {
     if (state === null || typeof input !== 'string' || input.length === 0) return null;
     if (state === 'select' && input !== 'pointer-click') return null;
     if (
-      (state === 'pan' || state === 'relation-paint') &&
+      (state === 'pan' || state === 'transform' || state === 'relation-paint') &&
       input !== 'pointer-drag'
     ) {
       return null;
