@@ -16,15 +16,15 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 
 # Current State
 
-- Coverage is 99 executable routes, 98 actual-producing routes, 74 explicit stubs, 361 executable actions, and 199 action types.
-- `ERR-002`, `ERR-005`, `LIF-003`, `CSM-002`, `CSM-004`, and `CSM-037` share one replacement/recovery runtime, handler, fold, and six focused Lab routes. Successful replacement clears scene-bound selection, bindings, animation, history, and unmanaged overlays; failed or stale work preserves the last complete scene.
-- Declared-failure engines keep their approved isolated generation but mount on detached hosts, so the focused surface owns exactly one transient Pixi canvas. Report replacement publishes real WebGL frames and transient packed RGBA presentation without persisting host policy.
-- Core v2 verification passes 122 files/1,115 tests, lint, typecheck, both builds, canonical verification, and packed ESM/CJS consumption. The 84-route headless Chromium checkpoint completes first/repeat/fresh at 1,031/1,040 matches per session with the same nine observed conflicts, deterministic actuals, canvas cleanup zero, and zero console/page/network/external-fixture errors.
+- Coverage is 104 executable routes, 103 actual-producing routes, 69 explicit stubs, 376 executable actions, and 210 action types.
+- `ERR-004`, `ERR-006`, `PRF-007`, `CSM-017`, and `CSM-036` share one lifecycle/interruption product adapter, handler, fold, and five focused Lab routes. Root pointer `up`/`up-outside` now commits an owned transformer edit once; `cancel`/`leave` reverts it and releases capture/listeners without stale completion.
+- `PRF-007` executes ten production-shaped initialize/load/interact/destroy cycles. Its forced-GC growth is measured only after executor references and the cached input leave scope; raw heap samples stay in the approved volatile timing domain while the independently compared no-leak result remains expected-blind.
+- Core v2 verification passes 122 files/1,126 tests, lint, typecheck, both builds, and canonical verification. The five new headless Chromium routes complete first/repeat/fresh at 68/68 matches per session with deterministic actuals, canvas cleanup zero, and zero console/page/network/external-fixture errors. The prior 84-route full checkpoint and packed ESM/CJS proof remain current because their covered paths did not change.
 - The refreshed 2+7 lifecycle proof covers 5,099 entities with retained-heap median/p95 79,375/406,615 bytes and releases DOM, scheduler, renderer, and pending work. The prior unfavorable transaction performance checkpoint remains current because this tranche did not change the measured hot path. Final independent release review remains pending.
 
 # Next Step
 
-Resume by inventorying the next 5–10 case lifecycle-interruption tranche against existing product substrate, then connect its declarative actions, expected-blind fold, and focused routes before one risk-based tranche gate. Do not repeat the completed package, memory, browser, or performance gates unless their covered paths change.
+Resume from the completed lifecycle/interruption checkpoint by inventorying the next 5–10 not-yet-executable cases around one reusable product substrate. Connect declarative actions, one expected-blind fold/runtime, and the same focused routes before a single risk-based tranche gate; do not repeat package, memory, full-browser, or performance gates unless their covered paths change.
 
 # Working Boundary
 
