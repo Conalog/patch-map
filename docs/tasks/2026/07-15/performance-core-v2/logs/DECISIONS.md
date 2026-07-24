@@ -177,3 +177,9 @@
 - Decision: Project the immutable logical scene index and aggregate geometry into one oriented single-target frame or axis-aligned multi-target union. Keep CSS handle/stroke dimensions invariant, resolve relation endpoints from the current ID index on every operation, and arbitrate transformer input through one root gesture authority.
 - Why: One shared product substrate keeps render, hit, selection, replacement, and destroy semantics revision-aligned while avoiding retained endpoint snapshots, entity listeners, tickers, callbacks, and DisplayObject authority.
 - Impact: `SEL-007/009` and `TRN-002/003/010` close through one aggregate Pixi overlay and shared expected-blind runtime. Packed ESM/CJS and active-gesture 2+7 lifecycle proofs cover the new public boundary; quick Chromium 4× measures the selection path, while WebGPU and native Windows remain pending.
+
+**2026-07-24**
+- Background: Transformer pointer moves must be visible on the aggregate Pixi surface without turning every preview into authoritative JSON/history state or allocating per-entity display objects, listeners, and closures.
+- Decision: Plan move, resize, and rotation from one detached starting materialization. Reconcile each preview only to the aggregate surface, then commit the latest plan through exactly one semantic transaction and history command; cancellation restores the starting surface and releases root gesture ownership.
+- Why: The semantic/frame boundary preserves immutable input, stable identity, atomic failure, undo/redo, and deterministic first/repeat/fresh observations while still showing every gesture frame.
+- Impact: `TRN-001/004/005/006/007/008/009` share the existing pointer/selection runtime and focused Lab shell. Packed ESM/CJS proves the planner and session exports; 2+7 lifecycle starts with a live preview and proves destroy clears overlay and capture ownership. The large-scene matrix remains unchanged because it does not measure transformer gestures.
