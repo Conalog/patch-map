@@ -21,8 +21,8 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 839;
-const EXPECTED_ASSERTION_PASS_TOTAL = 830;
+const EXPECTED_ASSERTION_TOTAL = 916;
+const EXPECTED_ASSERTION_PASS_TOTAL = 907;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 9;
 const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 11;
 const CASE_TIMEOUT_MS = 180_000;
@@ -194,8 +194,15 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'VIE-003', expectedAssertions: 14 }),
   Object.freeze({ id: 'VIE-004', expectedAssertions: 17 }),
   Object.freeze({ id: 'VIE-008', expectedAssertions: 11 }),
+  Object.freeze({ id: 'TRN-001', expectedAssertions: 7 }),
   Object.freeze({ id: 'TRN-002', expectedAssertions: 6 }),
   Object.freeze({ id: 'TRN-003', expectedAssertions: 9 }),
+  Object.freeze({ id: 'TRN-004', expectedAssertions: 16 }),
+  Object.freeze({ id: 'TRN-005', expectedAssertions: 11 }),
+  Object.freeze({ id: 'TRN-006', expectedAssertions: 13 }),
+  Object.freeze({ id: 'TRN-007', expectedAssertions: 8 }),
+  Object.freeze({ id: 'TRN-008', expectedAssertions: 10 }),
+  Object.freeze({ id: 'TRN-009', expectedAssertions: 12 }),
   Object.freeze({ id: 'TRN-010', expectedAssertions: 7 }),
   Object.freeze({ id: 'CSM-009', expectedAssertions: 21 }),
   Object.freeze({ id: 'CSM-010', expectedAssertions: 22 }),
@@ -251,8 +258,15 @@ const POINTER_SELECTION_TRANCHE_CASES = new Set([
   'SEL-006',
   'SEL-007',
   'SEL-009',
+  'TRN-001',
   'TRN-002',
   'TRN-003',
+  'TRN-004',
+  'TRN-005',
+  'TRN-006',
+  'TRN-007',
+  'TRN-008',
+  'TRN-009',
   'TRN-010',
 ]);
 const HISTORY_TRANCHE_CASES = new Set([
@@ -415,21 +429,21 @@ try {
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 830 pass and 9 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 907 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 830 pass and 9 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 907 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 830 pass and 9 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 907 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');

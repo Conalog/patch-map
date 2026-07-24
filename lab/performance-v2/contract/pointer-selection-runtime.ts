@@ -23,8 +23,15 @@ export const CORE_V2_POINTER_SELECTION_CASE_IDS = Object.freeze([
   'SEL-007',
   'SEL-008',
   'SEL-009',
+  'TRN-001',
   'TRN-002',
   'TRN-003',
+  'TRN-004',
+  'TRN-005',
+  'TRN-006',
+  'TRN-007',
+  'TRN-008',
+  'TRN-009',
   'TRN-010',
 ] as const);
 
