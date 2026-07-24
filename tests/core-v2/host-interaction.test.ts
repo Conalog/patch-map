@@ -88,6 +88,47 @@ describe('Core v2 host interaction substrate', () => {
     });
   });
 
+  it('disposes scene-bound bindings on replacement while retaining host observers', async () => {
+    const { engine } = await createEngine('host-binding-replacement');
+    engine.loadDataset(HOST_DATASET);
+    const logicalDeliveries: unknown[] = [];
+    const hostDeliveries: unknown[] = [];
+    const handle = engine.bindLogicalEvents([
+      {
+        id: 'old-item-a',
+        event: 'click',
+        target: { kind: 'element', id: 'item-a' },
+      },
+    ], (delivery) => logicalDeliveries.push(delivery));
+    handle.enable();
+    const hostSubscription = engine.subscribeHostEvent(
+      'selection',
+      'changed',
+      (event) => hostDeliveries.push(event),
+    );
+
+    engine.loadDataset(HOST_DATASET);
+
+    expect(handle.probe()).toMatchObject({
+      enabled: false,
+      disposed: true,
+      bindingCount: 0,
+      listenerCount: 0,
+      deliveryCount: 0,
+    });
+    expect(engine.hostInteractionProbe()).toMatchObject({
+      bindings: 0,
+      bindingListeners: 0,
+      eventSubscriptions: 1,
+    });
+    click(engine, 1, [60, 60], 0);
+    expect(logicalDeliveries).toEqual([]);
+    expect(hostDeliveries).toHaveLength(1);
+
+    expect(hostSubscription.dispose()).toBe('disposed');
+    await expect(engine.destroy()).resolves.toBe(true);
+  });
+
   it('propagates through the logical path and isolates host-owned keyboard targets', async () => {
     const { engine } = await createEngine('host-propagation');
     engine.loadDataset(HOST_DATASET);

@@ -250,6 +250,25 @@ export class CoreV2HostInteractionAuthority {
     return [...this.bindingGroups].filter((group) => !group.disposed).length;
   }
 
+  /**
+   * Dispose scene-bound logical bindings without touching host-wide event or
+   * selection observers. A replacement scene may reuse the same logical IDs,
+   * so revision checks alone cannot prevent an old binding from attaching to
+   * the new authority.
+   */
+  public clearLogicalBindings(): number {
+    if (this.destroyed) return 0;
+    let disposedCount = 0;
+    for (const group of this.bindingGroups) {
+      if (group.disposed) continue;
+      disposedCount += group.descriptors.length;
+      group.enabled = false;
+      group.disposed = true;
+    }
+    this.bindingGroups.clear();
+    return disposedCount;
+  }
+
   public subscribe(
     family: string,
     type: string | null,

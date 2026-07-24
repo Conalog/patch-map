@@ -1759,9 +1759,17 @@ export class CoreV2Engine {
 
   public loadDataset(input: unknown, options: CoreV2LoadOptions = {}): CoreV2EngineLoadResult {
     const surface = this.requireSurface('loadDataset');
+    const prepared = this.prepareDatasetLoad(input);
+    return this.publishPreparedDatasetLoad(surface, prepared, options);
+  }
+
+  private publishPreparedDatasetLoad(
+    surface: CoreV2EngineSurface,
+    prepared: PreparedCoreV2EngineLoad,
+    options: CoreV2LoadOptions,
+  ): CoreV2EngineLoadResult {
     this.cancelActiveTransformerEdit('replace', true);
     this.loadSequence += 1;
-    const prepared = this.prepareDatasetLoad(input);
     surface.load(prepared.materialized.dataset);
     this.pointerGestureAuthority?.interrupt('replace');
     this.transformerGestures.interrupt();
@@ -1849,6 +1857,7 @@ export class CoreV2Engine {
       this.hostInteractions.applyModeOperation({ op: 'replace', state: 'select' });
     }
     if (selectionBefore.length > 0 || modeBefore !== 'select') this.interactionRevision += 1;
+    this.hostInteractions.clearLogicalBindings();
     this.materialized = materialized;
     this.targetLifecycleGeneration += 1;
     this.clearHistoryAuthority('replace');
@@ -2792,6 +2801,7 @@ export class CoreV2Engine {
   public async submitDataset(submission: CoreV2DatasetSubmission): Promise<CoreV2DatasetSubmissionResult> {
     let sourceFields: Readonly<{ readonly sourceRevision?: number }> = Object.freeze({});
     let sequence = 0;
+    let inputResolved = false;
     let outcome: CoreV2DatasetSubmissionResult | null = null;
     this.pendingWork += 1;
     try {
@@ -2810,6 +2820,8 @@ export class CoreV2Engine {
       }
       sequence = ++this.submissionSequence;
       const input = await submission.input;
+      inputResolved = true;
+      const prepared = this.prepareDatasetLoad(input);
       if (sequence !== this.submissionSequence || this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
         outcome = Object.freeze({
           status: 'superseded',
@@ -2819,7 +2831,8 @@ export class CoreV2Engine {
         } satisfies CoreV2DatasetSubmissionResult);
         return outcome;
       }
-      const result = this.loadDataset(input, {
+      const surface = this.requireSurface('loadDataset');
+      const result = this.publishPreparedDatasetLoad(surface, prepared, {
         ...(submission.datasetRef ? { datasetRef: submission.datasetRef } : {}),
       });
       this.emit('drawComplete', Object.freeze({
@@ -2838,6 +2851,28 @@ export class CoreV2Engine {
       } satisfies CoreV2DatasetSubmissionResult);
       return outcome;
     } catch (error) {
+      if (
+        !inputResolved &&
+        sequence !== 0 &&
+        (
+          sequence !== this.submissionSequence ||
+          this.lifecycle === 'destroyed' ||
+          this.lifecycle === 'destroying'
+        )
+      ) {
+        outcome = Object.freeze({
+          status: 'superseded',
+          requestId: submission.requestId,
+          ...sourceFields,
+          diagnostic: this.operationDiagnostic(
+            'SUPERSEDED',
+            'SUPERSEDED',
+            'loadDataset',
+            true,
+          ),
+        } satisfies CoreV2DatasetSubmissionResult);
+        return outcome;
+      }
       const diagnostic = this.diagnosticFrom(error, 'loadDataset');
       if (!this.isDestroyingOrDestroyed()) this.emit('diagnostic', diagnostic);
       outcome = Object.freeze({

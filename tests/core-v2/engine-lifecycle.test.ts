@@ -204,6 +204,76 @@ describe('CoreV2Engine lifecycle authority', () => {
     expect(surfaces[0]?.frameCount).toBe(1);
   });
 
+  it('classifies resolved invalid input before staleness and obsolete transport failure as superseded', async () => {
+    const { factory } = createSurfaceFactory();
+    const engine = new CoreV2Engine({ surfaceFactory: factory });
+    await engine.initialize({ instanceId: 'map-async-classification', width: 800, height: 600 });
+    engine.loadDataset(catalogProfiles.datasets['interactive-scene'], {
+      datasetRef: 'interactive-scene',
+    });
+
+    const invalidA = deferred<unknown>();
+    const validB = deferred<unknown>();
+    const requestA = engine.submitDataset({
+      requestId: 'A',
+      sourceRevision: 2,
+      input: invalidA.promise,
+    });
+    const requestB = engine.submitDataset({
+      requestId: 'B',
+      sourceRevision: 3,
+      datasetRef: 'interactive-scene-revision-2',
+      input: validB.promise,
+    });
+    invalidA.resolve(catalogProfiles.datasets.malformed);
+    await expect(requestA).resolves.toMatchObject({
+      status: 'rejected',
+      requestId: 'A',
+      diagnostic: { code: 'INVALID_VALUE' },
+    });
+    validB.resolve(catalogProfiles.datasets['interactive-scene-revision-2']);
+    await expect(requestB).resolves.toMatchObject({
+      status: 'committed',
+      requestId: 'B',
+      sourceRevision: 3,
+      sceneRevision: 2,
+    });
+
+    const failedC = deferred<unknown>();
+    const validD = deferred<unknown>();
+    const requestC = engine.submitDataset({
+      requestId: 'C',
+      sourceRevision: 4,
+      input: failedC.promise,
+    });
+    const requestD = engine.submitDataset({
+      requestId: 'D',
+      sourceRevision: 5,
+      datasetRef: 'interactive-scene',
+      input: validD.promise,
+    });
+    validD.resolve(catalogProfiles.datasets['interactive-scene']);
+    await expect(requestD).resolves.toMatchObject({
+      status: 'committed',
+      requestId: 'D',
+      sourceRevision: 5,
+      sceneRevision: 3,
+    });
+    failedC.reject(new Error('obsolete transport failure'));
+    await expect(requestC).resolves.toMatchObject({
+      status: 'superseded',
+      requestId: 'C',
+      sourceRevision: 4,
+      diagnostic: { code: 'SUPERSEDED' },
+    });
+    expect(engine.snapshot()).toMatchObject({
+      pendingWork: 0,
+      revisions: { sceneRevision: 3 },
+    });
+
+    await engine.destroy();
+  });
+
   it('releases every async revision once while suppressing superseded and post-destroy publication', async () => {
     const { factory, surfaces } = createSurfaceFactory();
     const engine = new CoreV2Engine({ surfaceFactory: factory });
