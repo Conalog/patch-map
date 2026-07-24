@@ -584,6 +584,31 @@ describe('CoreV2Engine update transactions', () => {
       status: 'rejected',
       diagnostic: { code: 'STALE_TARGET' },
     });
+
+    expect(engine.undo()).toMatchObject({
+      status: 'committed',
+      direction: 'undo',
+      history: { undoDepth: 0, redoDepth: 1 },
+    });
+    expect(itemById(engine, 'item-a').components.map((component) => component.id)).toEqual([
+      'bg',
+      'bar',
+      'label',
+    ]);
+    expect(surface.reconcileCalls[1]?.options.allowedComponentOrderOwners).toEqual(['item-a']);
+
+    expect(engine.redo()).toMatchObject({
+      status: 'committed',
+      direction: 'redo',
+      history: { undoDepth: 1, redoDepth: 0 },
+    });
+    expect(itemById(engine, 'item-a').components.map((component) => component.id)).toEqual([
+      'label',
+      'bar',
+      'bg',
+      'status',
+    ]);
+    expect(surface.reconcileCalls[2]?.options.allowedComponentOrderOwners).toEqual(['item-a']);
   });
 
   it('reconciles relation endpoint move, hide, show, and removal without scene reload', async () => {
@@ -784,6 +809,10 @@ describe('CoreV2Engine update transactions', () => {
     });
     expect(parentId(engine.exportDataset(), 'rect-b')).toBe('group-c');
     expect(engine.snapshot().selectionIds).toEqual(['group-c']);
+    expect(surface.reconcileCalls[3]?.options.allowedElementOrderIds).toEqual([
+      'group-c',
+      'rect-b',
+    ]);
     expect(engine.redo()).toMatchObject({
       status: 'committed',
       direction: 'redo',
@@ -791,6 +820,10 @@ describe('CoreV2Engine update transactions', () => {
     });
     expect(parentId(engine.exportDataset(), 'rect-b')).toBe('group-b');
     expect(engine.snapshot().selectionIds).toEqual(['rect-b']);
+    expect(surface.reconcileCalls[4]?.options.allowedElementOrderIds).toEqual([
+      'group-c',
+      'rect-b',
+    ]);
 
     const unrecorded = engine.transact({
       strict: true,
@@ -825,6 +858,40 @@ describe('CoreV2Engine update transactions', () => {
     expect(engine.snapshot()).toEqual(beforeCycle);
     expect(surface.reconcileCalls).toHaveLength(6);
     expect(JSON.stringify(source)).toBe(sourceBefore);
+  });
+
+  it('restores a grouped structural command with one boundary-scoped order permission', async () => {
+    const { engine, surface } = await createEngine(engines, 'grouped-structural-history');
+    engine.loadDataset([
+      rectRecord('a', 0, 0),
+      rectRecord('b', 50, 0),
+      rectRecord('c', 100, 0),
+    ]);
+
+    for (const id of ['c', 'b']) {
+      expect(engine.transact({
+        strict: true,
+        actionId: 'drag-order',
+        operations: [{
+          op: 'move',
+          target: { kind: 'element', id },
+          parent: null,
+          index: 0,
+        }],
+      })).toMatchObject({ status: 'committed' });
+    }
+    expect(engine.exportDataset().map(({ id }) => id)).toEqual(['b', 'c', 'a']);
+    expect(engine.historyInspection().commands).toMatchObject([
+      { id: 'drag-order', recordCount: 2 },
+    ]);
+
+    expect(engine.undo()).toMatchObject({ status: 'committed', direction: 'undo' });
+    expect(engine.exportDataset().map(({ id }) => id)).toEqual(['a', 'b', 'c']);
+    expect(surface.reconcileCalls[2]?.options.allowedElementOrderIds).toEqual(['a', 'b', 'c']);
+
+    expect(engine.redo()).toMatchObject({ status: 'committed', direction: 'redo' });
+    expect(engine.exportDataset().map(({ id }) => id)).toEqual(['b', 'c', 'a']);
+    expect(surface.reconcileCalls[3]?.options.allowedElementOrderIds).toEqual(['a', 'b', 'c']);
   });
 
   it('retains dense component selection identity while rejecting unknown logical targets', async () => {

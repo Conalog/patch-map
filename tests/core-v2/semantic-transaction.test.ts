@@ -534,11 +534,9 @@ describe('Core v2 staged semantic transaction planner', () => {
       strict: true,
       operations: [
         {
-          op: 'add',
-          parent: null,
-          collection: 'children',
-          index: 0,
-          value: { type: 'rect', id: 'new', size: { width: 1, height: 1 } },
+          op: 'unset',
+          target: elementTarget('rect-b'),
+          paths: [['attrs', 'x']],
         },
       ],
     });
@@ -551,6 +549,84 @@ describe('Core v2 staged semantic transaction planner', () => {
     expect(unsupported).toMatchObject({
       status: 'rejected',
       diagnostic: { code: 'UNSUPPORTED_RUNTIME', category: 'UNSUPPORTED_RUNTIME' },
+    });
+  });
+
+  it('adds one detached element at an exact root or group-child index', () => {
+    const source = hierarchyScene();
+    const sourceBefore = JSON.stringify(source);
+    const request = {
+      strict: true,
+      actionId: 'structure-add',
+      operations: [{
+        op: 'add',
+        parent: elementTarget('group-b'),
+        collection: 'children',
+        index: 0,
+        value: {
+          type: 'rect',
+          id: 'rect-c',
+          size: { width: 12, height: 8 },
+          fill: '#123456',
+          attrs: { x: 4, y: 6 },
+        },
+      }],
+    };
+    const requestBefore = JSON.stringify(request);
+    const added = planCoreV2MutationTransaction(source, request);
+
+    expect(added.status).toBe('planned');
+    if (added.status !== 'planned') throw new Error('Expected add plan');
+    expect(parentId(added.candidate.dataset, 'rect-c')).toBe('group-b');
+    expect(requireElement(added.candidate.dataset, 'rect-c')).toMatchObject({
+      type: 'rect',
+      size: { width: 12, height: 8 },
+      attrs: { x: 4, y: 6 },
+    });
+    expect(added.applied).toEqual([elementTarget('rect-c')]);
+    expect(added.selectionIds).toEqual(['rect-c']);
+    expect(added.allowedElementOrderIds).toEqual(['rect-c']);
+    expect(JSON.stringify(source)).toBe(sourceBefore);
+    expect(JSON.stringify(request)).toBe(requestBefore);
+
+    const rootAdded = planCoreV2MutationTransaction(added.candidate, {
+      strict: true,
+      operations: [{
+        op: 'add',
+        parent: null,
+        collection: 'children',
+        index: 0,
+        value: {
+          type: 'text',
+          id: 'text-root',
+          text: 'Added',
+          style: { fontSize: 12, fill: '#111111' },
+        },
+      }],
+    });
+    expect(rootAdded.status).toBe('planned');
+    if (rootAdded.status !== 'planned') throw new Error('Expected root add plan');
+    expect(parentId(rootAdded.candidate.dataset, 'text-root')).toBeNull();
+    expect(rootAdded.candidate.dataset[0]?.id).toBe('text-root');
+
+    const duplicate = planCoreV2MutationTransaction(added.candidate, request);
+    expect(duplicate).toMatchObject({
+      status: 'rejected',
+      candidate: null,
+      diagnostic: { code: 'DUPLICATE_ID', category: 'INVALID_INPUT' },
+    });
+
+    const invalidIndex = planCoreV2MutationTransaction(source, {
+      strict: true,
+      operations: [{
+        ...request.operations[0],
+        index: 1,
+      }],
+    });
+    expect(invalidIndex).toMatchObject({
+      status: 'rejected',
+      candidate: null,
+      diagnostic: { code: 'INVALID_VALUE', category: 'INVALID_INPUT' },
     });
   });
 

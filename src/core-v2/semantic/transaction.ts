@@ -49,6 +49,13 @@ export interface CoreV2MutationPathChange {
 
 export type CoreV2MutationOperation =
   | Readonly<{
+      readonly op: 'add';
+      readonly parent: Extract<CoreV2MutationTarget, { readonly kind: 'element' }> | null;
+      readonly collection: 'children';
+      readonly index: number;
+      readonly value: Readonly<Record<string, CoreV2MutationJsonValue>>;
+    }>
+  | Readonly<{
       readonly op: 'merge';
       readonly target: CoreV2MutationTarget;
       readonly changes: readonly CoreV2MutationPathChange[];
@@ -228,6 +235,7 @@ const TRANSACTION_FIELDS = new Set([
 const BULK_PATCH_FIELDS = new Set(['targets', 'changes', 'strict', 'actionId']);
 const TARGET_ELEMENT_FIELDS = new Set(['kind', 'id']);
 const TARGET_COMPONENT_FIELDS = new Set(['kind', 'ownerId', 'id']);
+const ADD_FIELDS = new Set(['op', 'parent', 'collection', 'index', 'value']);
 const MERGE_FIELDS = new Set(['op', 'target', 'changes']);
 const CHANGE_FIELDS = new Set(['path', 'value']);
 const REPLACE_FIELDS = new Set(['op', 'target', 'value']);
@@ -240,6 +248,7 @@ const UNSAFE_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor']);
 const ELEMENT_TYPE_SET = new Set<string>(CORE_V2_ELEMENT_TYPES);
 const COMPONENT_TYPE_SET = new Set<string>(CORE_V2_COMPONENT_TYPES);
 const SUPPORTED_OPERATION_SET = new Set([
+  'add',
   'merge',
   'replace',
   'reconcile-components',
@@ -364,6 +373,7 @@ function planNormalizedCoreV2MutationTransaction(
     request.operations.forEach((operation, operationIndex) => {
       const operationPath = `$.operations[${operationIndex}]`;
       if (
+        operation.op === 'add' ||
         operation.op === 'move' ||
         operation.op === 'group' ||
         operation.op === 'ungroup'
@@ -649,6 +659,47 @@ function normalizeOperation(value: unknown, operationIndex: number): CoreV2Mutat
   }
 
   switch (record.op) {
+    case 'add': {
+      rejectUnknownFields(record, ADD_FIELDS, path, operationIndex);
+      const parent = record.parent === null
+        ? null
+        : normalizeElementTarget(record.parent, `${path}.parent`, operationIndex);
+      if (record.collection !== 'children') {
+        transactionFail(
+          'INVALID_VALUE',
+          'INVALID_INPUT',
+          `${path}.collection`,
+          'add collection must be children',
+          operationIndex,
+          parent ?? undefined,
+        );
+      }
+      if (!Number.isSafeInteger(record.index) || Number(record.index) < 0) {
+        transactionFail(
+          'INVALID_VALUE',
+          'INVALID_INPUT',
+          `${path}.index`,
+          'add index must be a non-negative safe integer',
+          operationIndex,
+          parent ?? undefined,
+        );
+      }
+      const valueRecord = strictRecord(
+        record.value,
+        `${path}.value`,
+        'add value must be a strict plain record',
+      );
+      const value = cloneImmutableJson(valueRecord, `${path}.value`);
+      if (!isJsonRecord(value)) throw new Error('Add clone lost record shape');
+      validateAddedElementRecord(value, path, operationIndex);
+      return Object.freeze({
+        op: 'add',
+        parent,
+        collection: 'children',
+        index: Number(record.index),
+        value,
+      });
+    }
     case 'merge': {
       rejectUnknownFields(record, MERGE_FIELDS, path, operationIndex);
       const target = normalizeTarget(record.target, `${path}.target`, operationIndex);
@@ -838,6 +889,32 @@ function normalizeElementTarget(
     );
   }
   return target;
+}
+
+function validateAddedElementRecord(
+  value: Readonly<Record<string, CoreV2MutationJsonValue>>,
+  operationPath: string,
+  operationIndex: number,
+): void {
+  if (typeof value.id !== 'string' || value.id.length === 0) {
+    transactionFail(
+      'INVALID_VALUE',
+      'INVALID_INPUT',
+      `${operationPath}.value.id`,
+      'add value ID must be a non-empty string',
+      operationIndex,
+    );
+  }
+  if (typeof value.type !== 'string' || !ELEMENT_TYPE_SET.has(value.type)) {
+    transactionFail(
+      'INVALID_RECORD_KIND',
+      'INVALID_INPUT',
+      `${operationPath}.value.type`,
+      'add value discriminator must be an element kind',
+      operationIndex,
+      { kind: 'element', id: value.id },
+    );
+  }
 }
 
 function normalizeChange(
@@ -1109,7 +1186,7 @@ interface StructuralMutationResult {
 
 type StructuralOperation = Extract<
   CoreV2MutationOperation,
-  { readonly op: 'move' | 'group' | 'ungroup' }
+  { readonly op: 'add' | 'move' | 'group' | 'ungroup' }
 >;
 
 function applyStructuralOperation(
@@ -1121,6 +1198,8 @@ function applyStructuralOperation(
   strict: boolean,
 ): StructuralMutationResult {
   switch (operation.op) {
+    case 'add':
+      return addElement(dataset, index, operation, operationPath, operationIndex, strict);
     case 'move':
       return moveElement(dataset, index, operation, operationPath, operationIndex, strict);
     case 'group':
@@ -1128,6 +1207,65 @@ function applyStructuralOperation(
     case 'ungroup':
       return ungroupElement(dataset, index, operation, operationPath, operationIndex, strict);
   }
+}
+
+function addElement(
+  dataset: MutableJsonValue[],
+  index: ReadonlyMap<string, readonly StagedLocation[]>,
+  operation: Extract<StructuralOperation, { readonly op: 'add' }>,
+  operationPath: string,
+  operationIndex: number,
+  strict: boolean,
+): StructuralMutationResult {
+  const value = cloneMutableJson(operation.value, `${operationPath}.value`);
+  if (!isMutableJsonRecord(value) || typeof value.id !== 'string') {
+    throw new Error('Normalized add value lost its element identity');
+  }
+  const target = Object.freeze({ kind: 'element' as const, id: value.id });
+  if (locate(index, target, operationPath, operationIndex) !== undefined) {
+    transactionFail(
+      'DUPLICATE_ID',
+      'INVALID_INPUT',
+      `${operationPath}.value.id`,
+      `add ID ${target.id} already exists`,
+      operationIndex,
+      target,
+    );
+  }
+  const destination = structuralDestination(
+    dataset,
+    index,
+    operation.parent,
+    operationPath,
+    operationIndex,
+    strict,
+  );
+  if (destination === null) {
+    const missing = operation.parent ?? target;
+    return Object.freeze({
+      changed: false,
+      outcomes: Object.freeze([{ target: missing, outcome: 'missing' as const }]),
+      allowedElementOrderIds: Object.freeze([]),
+    });
+  }
+  if (operation.index > destination.children.length) {
+    transactionFail(
+      'INVALID_VALUE',
+      'INVALID_INPUT',
+      `${operationPath}.index`,
+      'add index exceeds the destination insertion range',
+      operationIndex,
+      target,
+    );
+  }
+  const siblingIds = elementIdsInArray(destination.children);
+  destination.children.splice(operation.index, 0, value);
+  return Object.freeze({
+    changed: true,
+    outcomes: Object.freeze([{ target, outcome: 'applied' as const }]),
+    selectionIds: Object.freeze([target.id]),
+    allowedElementOrderIds: freezeUniqueStrings([target.id, ...siblingIds]),
+  });
 }
 
 function moveElement(

@@ -124,6 +124,7 @@ import {
   type CoreV2HistoryInspection,
   type CoreV2HistoryPreparedRecord,
   type CoreV2HistoryState,
+  type CoreV2HistoryTransition,
   type CoreV2SemanticHistorySnapshotInput,
 } from './history';
 import {
@@ -1362,6 +1363,10 @@ interface CoreV2QueryResultAuthority {
 }
 
 type CoreV2EngineHistoryCompanion = CoreV2EngineHistoryCompanionState;
+type CoreV2EngineHistoryTransition = CoreV2HistoryTransition<
+  readonly NormalizedCoreV2Element[],
+  CoreV2EngineHistoryCompanion
+>;
 
 interface PreparedCoreV2EngineLoad {
   readonly materialized: MaterializedCoreV2Dataset;
@@ -4353,16 +4358,12 @@ export class CoreV2Engine {
     let reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[] = EMPTY_RECONCILE_DIAGNOSTICS;
     const modeBefore = this.hostInteractions.modeProbe().activeState;
     const hostCompanionBefore = this.historyHostCompanion;
-    const apply = (transition: Readonly<{
-      readonly snapshot: Readonly<{
-        readonly dataset: readonly NormalizedCoreV2Element[];
-        readonly companion: CoreV2EngineHistoryCompanion | null;
-      }>;
-    }>): boolean => {
+    const apply = (transition: CoreV2EngineHistoryTransition): boolean => {
       let materialized: MaterializedCoreV2Dataset;
       const selectionBefore = this.logicalSelectionIds;
       try {
         materialized = materializeCoreV2Dataset(transition.snapshot.dataset);
+        const orderScope = historyReconcileOrderScope(transition.command);
         const companion = transition.snapshot.companion;
         const mode = companion?.mode ?? 'select';
         if (!isCoreV2InteractionMode(mode)) {
@@ -4374,6 +4375,12 @@ export class CoreV2Engine {
         );
         const reconcile = surface.reconcile?.(materialized.dataset, {
           animateBarChanges: false,
+          ...(orderScope.allowedElementOrderIds.length === 0
+            ? {}
+            : { allowedElementOrderIds: orderScope.allowedElementOrderIds }),
+          ...(orderScope.allowedComponentOrderOwners.length === 0
+            ? {}
+            : { allowedComponentOrderOwners: orderScope.allowedComponentOrderOwners }),
           ...(!sameStringArray(selectionBefore, selection)
             ? { selectionIds: selection }
             : {}),
@@ -6352,6 +6359,91 @@ function historySnapshotForDataset(
     dataset,
     companion,
   });
+}
+
+interface CoreV2HistoryOrderIndex {
+  readonly elementIdsByParent: ReadonlyMap<string | null, readonly string[]>;
+  readonly componentIdsByOwner: ReadonlyMap<string, readonly string[]>;
+}
+
+interface CoreV2HistoryReconcileOrderScope {
+  readonly allowedElementOrderIds: readonly string[];
+  readonly allowedComponentOrderOwners: readonly string[];
+}
+
+const EMPTY_HISTORY_ORDER_IDS = Object.freeze([] as string[]);
+
+function historyReconcileOrderScope(
+  command: CoreV2EngineHistoryTransition['command'],
+): CoreV2HistoryReconcileOrderScope {
+  const allowedElementOrderIds = new Set<string>();
+  const allowedComponentOrderOwners = new Set<string>();
+
+  // History reconciles directly between grouped command boundaries rather than
+  // replaying each accepted record. Comparing those two boundaries once keeps
+  // the authorization exact without multiplying work by a gesture's record count.
+  const before = indexHistoryOrders(command.before.dataset);
+  const after = indexHistoryOrders(command.after.dataset);
+  const parentIds = new Set([
+    ...before.elementIdsByParent.keys(),
+    ...after.elementIdsByParent.keys(),
+  ]);
+  for (const parentId of parentIds) {
+    const beforeIds = before.elementIdsByParent.get(parentId) ?? EMPTY_HISTORY_ORDER_IDS;
+    const afterIds = after.elementIdsByParent.get(parentId) ?? EMPTY_HISTORY_ORDER_IDS;
+    if (sameStringArray(beforeIds, afterIds)) continue;
+    beforeIds.forEach((id) => allowedElementOrderIds.add(id));
+    afterIds.forEach((id) => allowedElementOrderIds.add(id));
+  }
+
+  const ownerIds = new Set([
+    ...before.componentIdsByOwner.keys(),
+    ...after.componentIdsByOwner.keys(),
+  ]);
+  for (const ownerId of ownerIds) {
+    const beforeIds = before.componentIdsByOwner.get(ownerId) ?? EMPTY_HISTORY_ORDER_IDS;
+    const afterIds = after.componentIdsByOwner.get(ownerId) ?? EMPTY_HISTORY_ORDER_IDS;
+    if (!sameStringArray(beforeIds, afterIds)) {
+      allowedComponentOrderOwners.add(ownerId);
+    }
+  }
+
+  return Object.freeze({
+    allowedElementOrderIds: Object.freeze([...allowedElementOrderIds].sort()),
+    allowedComponentOrderOwners: Object.freeze([...allowedComponentOrderOwners].sort()),
+  });
+}
+
+function indexHistoryOrders(
+  dataset: readonly NormalizedCoreV2Element[],
+): CoreV2HistoryOrderIndex {
+  const elementIdsByParent = new Map<string | null, readonly string[]>();
+  const componentIdsByOwner = new Map<string, readonly string[]>();
+  const visit = (
+    elements: readonly NormalizedCoreV2Element[],
+    parentId: string | null,
+  ): void => {
+    elementIdsByParent.set(
+      parentId,
+      Object.freeze(elements.map((element) => element.id)),
+    );
+    for (const element of elements) {
+      if (element.type === 'group') visit(element.children, element.id);
+      if (element.type === 'item') {
+        componentIdsByOwner.set(
+          element.id,
+          Object.freeze(element.components.map((component) => component.id)),
+        );
+      } else if (element.type === 'grid') {
+        componentIdsByOwner.set(
+          element.id,
+          Object.freeze(element.item.components.map((component) => component.id)),
+        );
+      }
+    }
+  };
+  visit(dataset, null);
+  return Object.freeze({ elementIdsByParent, componentIdsByOwner });
 }
 
 function transactionSelectionAfter(
