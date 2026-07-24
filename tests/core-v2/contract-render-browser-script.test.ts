@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the ninety-nine selected render routes and their 1267 canonical assertions', () => {
+  it('pins exactly the one-hundred-five selected render routes and their 1378 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -121,6 +121,12 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'TRN-010', expectedAssertions: 7 },
       { id: 'CSM-009', expectedAssertions: 21 },
       { id: 'CSM-010', expectedAssertions: 22 },
+      { id: 'CSM-011', expectedAssertions: 17 },
+      { id: 'CSM-012', expectedAssertions: 19 },
+      { id: 'CSM-015', expectedAssertions: 19 },
+      { id: 'CSM-016', expectedAssertions: 19 },
+      { id: 'CSM-020', expectedAssertions: 18 },
+      { id: 'CSM-021', expectedAssertions: 19 },
       { id: 'ERR-002', expectedAssertions: 10 },
       { id: 'ERR-004', expectedAssertions: 12 },
       { id: 'ERR-005', expectedAssertions: 6 },
@@ -138,19 +144,19 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'CSM-035', expectedAssertions: 25 },
       { id: 'CSM-038', expectedAssertions: 27 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_267);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_267;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_258;');
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_378);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_378;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_369;');
     expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 9;');
     expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 11;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 1258 pass and 9 observed immutable conflicts'",
+      "'canonical comparison must be exactly 1369 pass and 9 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 1258 pass and 9 observed immutable conflicts'",
+      "'repeat comparison must be exactly 1369 pass and 9 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 1258 pass and 9 observed immutable conflicts'",
+      "'fresh comparison must be exactly 1369 pass and 9 observed immutable conflicts'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');

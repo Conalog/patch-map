@@ -27,6 +27,28 @@ const CASE_IDS = Object.freeze([
   'TRN-008',
   'TRN-009',
   'TRN-010',
+  'CSM-011',
+  'CSM-012',
+  'CSM-015',
+  'CSM-016',
+  'CSM-020',
+  'CSM-021',
+]);
+const CONSUMER_CASE_IDS = new Set([
+  'CSM-011',
+  'CSM-012',
+  'CSM-015',
+  'CSM-016',
+  'CSM-020',
+  'CSM-021',
+]);
+const CLASSIFIED_ENGINE_EVENTS = new Set([
+  'ready',
+  'sceneCommitted',
+  'drawComplete',
+  'frame',
+  'diagnostic',
+  'destroyed',
 ]);
 const DOMAIN_NAMES = Object.freeze([
   'case',
@@ -112,6 +134,9 @@ export function foldPointerSelectionExecution(options) {
       ...projected.resources,
     },
   };
+  if (plan.caseType === 'consumer-journey') {
+    projectConsumerInvariants(actual, execution, terminalSemantic);
+  }
   assert(
     DOMAIN_NAMES.every((domain) => isRecord(actual[domain])),
     'actual must contain all fourteen object domains',
@@ -924,6 +949,290 @@ function projectCaseDomains(caseId, execution) {
         },
       });
     }
+    case 'CSM-011': {
+      const cleared = actionActual(execution, 4, 'clear-selection');
+      const failure = actionActual(execution, 5, 'probe-declared-failure');
+      const selectionTrace = cloneArray(
+        cleared.selectionTrace,
+        'CSM-011 selection trace',
+      );
+      const snapshot = actionProductSnapshot(cleared, 'CSM-011');
+      return domains({
+        interaction: { selectionTrace },
+        outcome: {
+          hostEngineSeam: {
+            engineReturns: {
+              traces: clone(selectionTrace),
+              selectedIds: cloneArray(
+                snapshot.selectionIds,
+                'CSM-011 selected IDs',
+              ),
+            },
+            failureRollback: cloneRecord(
+              failure.rollback,
+              'CSM-011 failure rollback',
+            ),
+            finalState: {
+              selectedIds: cloneArray(
+                snapshot.selectionIds,
+                'CSM-011 final selection',
+              ),
+              mode: semanticInteractionMode(cleared, 'CSM-011'),
+              sceneRevision: semanticSceneRevision(cleared, 'CSM-011'),
+            },
+          },
+        },
+      });
+    }
+    case 'CSM-012': {
+      const user = actionActual(execution, 1, 'user-select');
+      const redraw = actionActual(execution, 2, 'redraw-scene');
+      const failure = actionActual(execution, 3, 'probe-declared-failure');
+      const selectedTargets = cloneArray(
+        redraw.selectedTargets,
+        'CSM-012 selected targets',
+      );
+      const highlightedTargets = cloneArray(
+        redraw.highlightedTargets,
+        'CSM-012 highlighted targets',
+      );
+      const callbacks = cloneArray(
+        user.selectionCallbacks,
+        'CSM-012 selection callbacks',
+      );
+      return domains({
+        interaction: { selectedTargets, highlightedTargets },
+        events: { selectionCallbacks: callbacks },
+        outcome: {
+          hostEngineSeam: {
+            engineReturns: {
+              callbackSelectedIds: clone(callbacks.at(-1) ?? []),
+              selectionAfterRedraw: clone(selectedTargets),
+              highlightAfterRedraw: clone(highlightedTargets),
+            },
+            failureRollback: cloneRecord(
+              failure.rollback,
+              'CSM-012 failure rollback',
+            ),
+            finalState: {
+              selectedIds: clone(selectedTargets),
+              highlightedIds: clone(highlightedTargets),
+              mode: semanticInteractionMode(redraw, 'CSM-012'),
+            },
+          },
+        },
+      });
+    }
+    case 'CSM-015': {
+      const down = actionActual(execution, 0, 'pointerdown');
+      const cancelled = actionActual(execution, 1, 'pointercancel');
+      const shortcut = actionActual(execution, 2, 'dispatch-host-shortcut');
+      const failure = actionActual(execution, 3, 'probe-declared-failure');
+      const hostShortcut = cloneRecord(
+        shortcut.hostShortcut,
+        'CSM-015 host shortcut',
+      );
+      const selectedIds = cloneArray(
+        cancelled.selectionIds,
+        'CSM-015 selected IDs',
+      );
+      const temporaryModifiers = cloneArray(
+        cancelled.temporaryModifiers,
+        'CSM-015 temporary modifiers',
+      );
+      return domains({
+        interaction: {
+          pointerShift: booleanValue(down.pointerShift, 'CSM-015 pointer Shift'),
+          temporaryModifiersAfterCancel: temporaryModifiers,
+        },
+        events: {
+          hostShortcut: {
+            coreIntercepted: booleanValue(
+              hostShortcut.coreIntercepted,
+              'CSM-015 shortcut interception',
+            ),
+          },
+        },
+        outcome: {
+          hostEngineSeam: {
+            engineReturns: {
+              shiftAtPointerDown: booleanValue(
+                down.pointerShift,
+                'CSM-015 Shift at pointer down',
+              ),
+              modifierAfterCancel: temporaryModifiers.length > 0,
+              coreShortcutIntercepted: booleanValue(
+                hostShortcut.coreIntercepted,
+                'CSM-015 core shortcut intercepted',
+              ),
+            },
+            failureRollback: cloneRecord(
+              failure.rollback,
+              'CSM-015 failure rollback',
+            ),
+            finalState: {
+              selectedIds,
+              temporaryModifiers,
+              activeGesture: pointerActiveCount(cancelled, 'CSM-015') === 0
+                ? null
+                : 'pointer',
+            },
+          },
+        },
+      });
+    }
+    case 'CSM-016': {
+      const opened = actionActual(execution, 1, 'snapshot-command-targets');
+      const status = actionActual(execution, 3, 'apply-command-status');
+      const failure = actionActual(execution, 4, 'probe-declared-failure');
+      const openedState = cloneRecord(
+        opened.commandState,
+        'CSM-016 opened command',
+      );
+      const finalState = cloneRecord(
+        status.commandState,
+        'CSM-016 final command',
+      );
+      const commandTargetIds = cloneArray(
+        openedState.targetIds,
+        'CSM-016 command target IDs',
+      );
+      const statusTrace = cloneArray(
+        finalState.statusTrace,
+        'CSM-016 status trace',
+      );
+      return domains({
+        events: { statusTrace },
+        outcome: {
+          commandTargetIds,
+          commandTargetIdsAfterSelectionChange: cloneArray(
+            finalState.targetIds,
+            'CSM-016 retained command targets',
+          ),
+          hostEngineSeam: {
+            engineReturns: {
+              commandTargetIds: clone(commandTargetIds),
+              statusTrace: clone(statusTrace),
+            },
+            failureRollback: cloneRecord(
+              failure.rollback,
+              'CSM-016 failure rollback',
+            ),
+            finalState: {
+              commandId: stringValue(finalState.commandId, 'CSM-016 command ID'),
+              commandTargetIds: cloneArray(
+                finalState.targetIds,
+                'CSM-016 final target IDs',
+              ),
+              selectedIds: cloneArray(
+                status.selectionAfterStatus,
+                'CSM-016 final selection',
+              ),
+              status: stringValue(finalState.status, 'CSM-016 final status'),
+            },
+          },
+        },
+      });
+    }
+    case 'CSM-020': {
+      const secondary = actionActual(execution, 4, 'secondary-click');
+      const cleared = actionActual(execution, 5, 'clear-selection');
+      const failure = actionActual(execution, 6, 'probe-declared-failure');
+      const selectionTrace = cloneArray(
+        cleared.selectionTrace,
+        'CSM-020 selection trace',
+      );
+      const selectedIds = cloneArray(
+        actionProductSnapshot(cleared, 'CSM-020').selectionIds,
+        'CSM-020 selected IDs',
+      );
+      return domains({
+        interaction: {
+          selectionTrace,
+          lockedSelectedCount: selectionTrace.flat().filter(
+            (id) => id === 'text-c',
+          ).length,
+        },
+        events: {
+          contextMenu: {
+            targetId: stringValue(
+              secondary.targetId,
+              'CSM-020 context menu target',
+            ),
+          },
+        },
+        outcome: {
+          hostEngineSeam: {
+            engineReturns: {
+              selectionTrace: clone(selectionTrace),
+              contextMenuTarget: secondary.targetId,
+            },
+            failureRollback: cloneRecord(
+              failure.rollback,
+              'CSM-020 failure rollback',
+            ),
+            finalState: {
+              selectedIds,
+              mode: semanticInteractionMode(cleared, 'CSM-020'),
+              contextMenuTarget: cleared.contextMenuTarget ?? null,
+            },
+          },
+        },
+      });
+    }
+    case 'CSM-021': {
+      const range = actionActual(execution, 1, 'range-select-from-sidebar');
+      const renamed = actionActual(execution, 2, 'rename-target');
+      const revealed = actionActual(execution, 3, 'reveal-target');
+      const cleared = actionActual(execution, 4, 'clear-selection');
+      const failure = actionActual(execution, 5, 'probe-declared-failure');
+      const renamedTarget = cloneRecord(
+        renamed.renamedTarget,
+        'CSM-021 renamed target',
+      );
+      const selectedIds = cloneArray(
+        actionProductSnapshot(cleared, 'CSM-021').selectionIds,
+        'CSM-021 selected IDs',
+      );
+      const rangeSelection = cloneArray(
+        range.rangeSelection,
+        'CSM-021 range selection',
+      );
+      const reveal = cloneRecord(revealed.result, 'CSM-021 reveal result');
+      return domains({
+        scene: {
+          targets: {
+            [stringValue(renamedTarget.id, 'CSM-021 renamed ID')]: {
+              label: stringValue(renamedTarget.label, 'CSM-021 renamed label'),
+            },
+          },
+        },
+        interaction: { rangeSelection, selectedTargets: selectedIds },
+        outcome: {
+          hostEngineSeam: {
+            engineReturns: {
+              selectedIdsAfterRange: clone(rangeSelection),
+              renamedTarget: renamedTarget.id,
+              revealViewChanged: booleanValue(
+                reveal.changed,
+                'CSM-021 reveal changed',
+              ),
+            },
+            failureRollback: cloneRecord(
+              failure.rollback,
+              'CSM-021 failure rollback',
+            ),
+            finalState: {
+              selectedIds: clone(selectedIds),
+              mode: semanticInteractionMode(cleared, 'CSM-021'),
+              labelById: {
+                [renamedTarget.id]: renamedTarget.label,
+              },
+            },
+          },
+        },
+      });
+    }
     default:
       throw new Error(`Core v2 pointer/selection fold invalid: unsupported case ${caseId}`);
   }
@@ -955,7 +1264,10 @@ function validateOptions(value) {
 function validatePlan(value) {
   const plan = recordValue(value, 'case plan');
   assert(CASE_IDS.includes(plan.id), 'case ID');
-  assert(plan.caseType === 'capability', 'case type');
+  const expectedCaseType = CONSUMER_CASE_IDS.has(plan.id)
+    ? 'consumer-journey'
+    : 'capability';
+  assert(plan.caseType === expectedCaseType, 'case type');
   assert(isRecord(plan.fixture), 'case fixture');
   assert(isRecord(plan.fixture.setup), 'case fixture setup');
   assert(isRecord(plan.fixture.setup.params), 'case fixture params');
@@ -969,8 +1281,22 @@ function validateExecution(value, plan) {
   const execution = recordValue(value, 'execution');
   assert(execution.$schema === EXECUTION_REVISION, 'execution revision');
   assert(execution.caseId === plan.id, 'execution case identity');
+  assert(execution.caseType === plan.caseType, 'execution case type');
   assert(execution.status === 'completed', 'execution status');
   assert(execution.error === null, 'execution error');
+  if (plan.caseType === 'consumer-journey') {
+    const hostSeam = recordValue(
+      execution.hostSeamDelta,
+      `${plan.id} host seam delta`,
+    );
+    assert(hostSeam.caseId === plan.id, `${plan.id} host seam case ID`);
+    assert(
+      hostSeam.capabilityPassInherited === false,
+      `${plan.id} host seam inheritance`,
+    );
+  } else {
+    assert(execution.hostSeamDelta === null, 'capability host seam');
+  }
   assert(Array.isArray(execution.actionResults), 'execution action results');
   assert(execution.actionResults.length === plan.actionTrace.length, 'action result count');
   execution.actionResults.forEach((resultValue, index) => {
@@ -983,6 +1309,7 @@ function validateExecution(value, plan) {
     assert(isRecord(result.delta), `action ${index} delta`);
     assert(isRecord(result.delta.actual), `action ${index} actual`);
   });
+  assert(Array.isArray(execution.eventJournal), 'event journal');
   assert(Array.isArray(execution.eventJournalFailures), 'event failures');
   assert(execution.eventJournalFailures.length === 0, 'event journal failures');
   assert(Array.isArray(execution.captures), 'execution captures');
@@ -991,6 +1318,107 @@ function validateExecution(value, plan) {
   assert(isRecord(execution.cleanup), 'cleanup');
   assert(execution.cleanup.status === 'completed', 'cleanup status');
   return execution;
+}
+
+function actionProductSnapshot(action, label) {
+  const product = recordValue(action.product, `${label} product`);
+  return recordValue(product.snapshot, `${label} product snapshot`);
+}
+
+function actionProductSemantic(action, label) {
+  const product = recordValue(action.product, `${label} product`);
+  return recordValue(product.semantic, `${label} product semantic`);
+}
+
+function semanticInteractionMode(action, label) {
+  const semantic = actionProductSemantic(action, label);
+  const interaction = recordValue(
+    semantic.interaction,
+    `${label} semantic interaction`,
+  );
+  return stringValue(
+    interaction.mode ?? interaction.interactionMode,
+    `${label} interaction mode`,
+  );
+}
+
+function semanticSceneRevision(action, label) {
+  const snapshot = actionProductSnapshot(action, label);
+  const revisions = recordValue(
+    snapshot.revisions,
+    `${label} product revisions`,
+  );
+  return finiteNumber(revisions.sceneRevision, `${label} scene revision`);
+}
+
+function pointerActiveCount(action, label) {
+  const pointer = recordValue(
+    action.pointerGesture,
+    `${label} pointer gesture`,
+  );
+  return nonNegativeInteger(
+    pointer.activePointerCount,
+    `${label} active pointer count`,
+  );
+}
+
+function projectConsumerInvariants(actual, execution, semantic) {
+  const semanticText = recordValue(semantic.text, 'consumer semantic text');
+  const semanticPaint = recordValue(semantic.paint, 'consumer semantic paint');
+  const semanticInteraction = recordValue(
+    semantic.interaction,
+    'consumer semantic interaction',
+  );
+  const semanticHistory = recordValue(
+    semantic.history,
+    'consumer semantic history',
+  );
+  const revisionValues = execution.actionResults.map((result, index) => {
+    const action = recordValue(
+      result.delta.actual,
+      `consumer action ${index} actual`,
+    );
+    const snapshot = actionProductSnapshot(action, `consumer action ${index}`);
+    return recordValue(
+      snapshot.revisions,
+      `consumer action ${index} revisions`,
+    );
+  });
+
+  actual.revisions.valuesFinite = allNumbersFinite(revisionValues);
+  actual.text = {
+    _availability: { semanticProbe: 'available' },
+    unpairedSurrogates: nonNegativeInteger(
+      semanticText.unpairedSurrogateCount,
+      'consumer unpaired surrogate count',
+    ),
+    targets: {},
+  };
+  actual.paint = {
+    _availability: { semanticProbe: 'available' },
+    unresolvedIntentCount: nonNegativeInteger(
+      semanticPaint.unresolvedCount,
+      'consumer unresolved paint count',
+    ),
+    targets: {},
+  };
+  actual.interaction.staleGestureCount = nonNegativeInteger(
+    semanticInteraction.activeGestureCount ?? 0,
+    'consumer stale gesture count',
+  );
+  actual.events.unclassifiedCount = execution.eventJournal.filter((entryValue) => {
+    const entry = recordValue(entryValue, 'consumer event journal entry');
+    return !CLASSIFIED_ENGINE_EVENTS.has(
+      stringValue(entry.event, 'consumer event journal type'),
+    );
+  }).length;
+  actual.history.corruptEntryCount = semanticHistory.corruptCount === undefined
+    ? 0
+    : nonNegativeInteger(
+      semanticHistory.corruptCount,
+      'consumer corrupt history count',
+    );
+  actual.resources.leakDelta = cleanupLeakDelta(execution.cleanup);
 }
 
 function actionActual(execution, index, type) {
@@ -1034,6 +1462,41 @@ function semanticNonFiniteCount(semantic) {
 function semanticHistoryDepth(semantic) {
   const history = recordValue(semantic.history, 'semantic history');
   return nonNegativeInteger(history.depth ?? 0, 'semantic history depth');
+}
+
+function cleanupLeakDelta(value) {
+  const cleanup = recordValue(value, 'execution cleanup');
+  const releases = cloneArray(cleanup.releases, 'cleanup releases');
+  let total = 0;
+  for (const releaseValue of releases) {
+    const release = recordValue(releaseValue, 'cleanup release');
+    if (!isRecord(release.remainingResources)) continue;
+    for (const field of ['canvasCount', 'subscriptions', 'pendingWork']) {
+      const count = release.remainingResources[field];
+      if (typeof count === 'number' && Number.isFinite(count)) {
+        total += Math.abs(count);
+      }
+    }
+  }
+  if (isRecord(cleanup.productResources)) {
+    const runtimeCounts = cleanup.productResources.runtimeCounts;
+    if (isRecord(runtimeCounts)) {
+      for (const count of Object.values(runtimeCounts)) {
+        if (typeof count === 'number' && Number.isFinite(count)) {
+          total += Math.abs(count);
+        }
+      }
+    }
+  }
+  return total;
+}
+
+function allNumbersFinite(value, seen = new WeakSet()) {
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (value === null || typeof value !== 'object' || seen.has(value)) return true;
+  seen.add(value);
+  return Object.values(value).every((nested) =>
+    allNumbersFinite(nested, seen));
 }
 
 function unclassifiedErrorCount(execution) {

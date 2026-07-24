@@ -25,6 +25,12 @@ export const POINTER_SELECTION_CASE_IDS = Object.freeze([
   'TRN-008',
   'TRN-009',
   'TRN-010',
+  'CSM-011',
+  'CSM-012',
+  'CSM-015',
+  'CSM-016',
+  'CSM-020',
+  'CSM-021',
 ]);
 
 export const POINTER_SELECTION_ACTION_TYPES = Object.freeze([
@@ -79,6 +85,27 @@ export const POINTER_SELECTION_ACTION_TYPES = Object.freeze([
   'transform-completion-matrix',
   'transform-handle-gesture',
   'pointer-click',
+  'single-select',
+  'toggle-select',
+  'select-related-targets',
+  'box-select',
+  'clear-selection',
+  'probe-declared-failure',
+  'apply-host-selection',
+  'user-select',
+  'redraw-scene',
+  'pointerdown',
+  'pointercancel',
+  'dispatch-host-shortcut',
+  'select-targets',
+  'snapshot-command-targets',
+  'apply-command-status',
+  'drill-down',
+  'secondary-click',
+  'select-from-sidebar',
+  'range-select-from-sidebar',
+  'rename-target',
+  'reveal-target',
 ]);
 
 const CASE_ACTIONS = Object.freeze({
@@ -163,6 +190,50 @@ const CASE_ACTIONS = Object.freeze({
     'transform-completion-matrix',
   ]),
   'TRN-010': Object.freeze(['transform-handle-gesture', 'pointer-click']),
+  'CSM-011': Object.freeze([
+    'single-select',
+    'toggle-select',
+    'select-related-targets',
+    'box-select',
+    'clear-selection',
+    'probe-declared-failure',
+  ]),
+  'CSM-012': Object.freeze([
+    'apply-host-selection',
+    'user-select',
+    'redraw-scene',
+    'probe-declared-failure',
+  ]),
+  'CSM-015': Object.freeze([
+    'pointerdown',
+    'pointercancel',
+    'dispatch-host-shortcut',
+    'probe-declared-failure',
+  ]),
+  'CSM-016': Object.freeze([
+    'select-targets',
+    'snapshot-command-targets',
+    'clear-selection',
+    'apply-command-status',
+    'probe-declared-failure',
+  ]),
+  'CSM-020': Object.freeze([
+    'single-select',
+    'toggle-select',
+    'box-select',
+    'drill-down',
+    'secondary-click',
+    'clear-selection',
+    'probe-declared-failure',
+  ]),
+  'CSM-021': Object.freeze([
+    'select-from-sidebar',
+    'range-select-from-sidebar',
+    'rename-target',
+    'reveal-target',
+    'clear-selection',
+    'probe-declared-failure',
+  ]),
 });
 
 export function createPointerSelectionHandlerEntries(productValue) {
@@ -300,6 +371,55 @@ export function createPointerSelectionHandlerEntries(productValue) {
       transformHandleGestureAction,
     ),
     'pointer-click': withState(product, states, postTransformPointerClickAction),
+    'single-select': withState(product, states, singleSelectAction),
+    'toggle-select': withState(product, states, toggleSelectAction),
+    'select-related-targets': withState(
+      product,
+      states,
+      selectRelatedTargetsAction,
+    ),
+    'box-select': withState(product, states, consumerBoxSelectAction),
+    'clear-selection': withState(product, states, clearConsumerSelectionAction),
+    'probe-declared-failure': withState(
+      product,
+      states,
+      probeConsumerDeclaredFailureAction,
+    ),
+    'apply-host-selection': withState(product, states, applyHostSelectionAction),
+    'user-select': withState(product, states, userSelectAction),
+    'redraw-scene': withState(product, states, redrawConsumerSceneAction),
+    pointerdown: withState(product, states, consumerPointerDownAction),
+    pointercancel: withState(product, states, consumerPointerCancelAction),
+    'dispatch-host-shortcut': withState(
+      product,
+      states,
+      dispatchHostShortcutAction,
+    ),
+    'select-targets': withState(product, states, selectConsumerTargetsAction),
+    'snapshot-command-targets': withState(
+      product,
+      states,
+      snapshotCommandTargetsAction,
+    ),
+    'apply-command-status': withState(
+      product,
+      states,
+      applyCommandStatusAction,
+    ),
+    'drill-down': withState(product, states, drillDownAction),
+    'secondary-click': withState(product, states, secondaryClickAction),
+    'select-from-sidebar': withState(
+      product,
+      states,
+      selectFromSidebarAction,
+    ),
+    'range-select-from-sidebar': withState(
+      product,
+      states,
+      rangeSelectFromSidebarAction,
+    ),
+    'rename-target': withState(product, states, renameTargetAction),
+    'reveal-target': withState(product, states, revealTargetAction),
   });
   return Object.freeze(POINTER_SELECTION_ACTION_TYPES.map((type) => Object.freeze([
     `contract/${type}`,
@@ -334,6 +454,19 @@ function withState(product, states, handler) {
         transformerBaselineDataset: null,
         transformBeforeGesture: null,
         transformAfterCommit: null,
+        consumerSelectionTrace: [],
+        currentHostSelection: [],
+        currentHighlights: [],
+        selectionCallbacks: [],
+        commandState: null,
+        pointerShift: false,
+        temporaryModifiers: [],
+        pointerScreen: [170, 50],
+        hostShortcut: null,
+        contextMenuTarget: null,
+        rangeSelection: [],
+        renamedTarget: null,
+        revealResult: null,
       };
       states.set(context.ensureSessionEngine, state);
     }
@@ -2826,6 +2959,719 @@ async function remountSelectionAction(product, state, context, action) {
   return { actual, captureSource: actual };
 }
 
+async function singleSelectAction(product, state, context, action) {
+  assert(
+    context.caseId === 'CSM-011' || context.caseId === 'CSM-020',
+    'single-select case',
+  );
+  const operands = exactOperands(action, ['target']);
+  const engine = await ensureBaseline(state, context);
+  const target = stringValue(operands.target, 'single-select target');
+  const change = callSync(engine, 'applySelection', {
+    op: 'replace',
+    ids: [target],
+    source: 'canvas',
+  });
+  recordConsumerSelection(state, change.current);
+  const actual = {
+    target,
+    change: clone(change),
+    selectionTrace: state.consumerSelectionTrace.map(clone),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function toggleSelectAction(product, state, context, action) {
+  assert(
+    context.caseId === 'CSM-011' || context.caseId === 'CSM-020',
+    'toggle-select case',
+  );
+  const operands = exactOperands(action, ['target', 'modifier']);
+  const engine = await ensureBaseline(state, context);
+  assert(
+    stringValue(operands.modifier, 'toggle-select modifier') === 'Shift',
+    'toggle-select Shift modifier',
+  );
+  const target = stringValue(operands.target, 'toggle-select target');
+  const change = callSync(engine, 'applySelection', {
+    op: 'toggle',
+    ids: [target],
+    source: 'canvas',
+  });
+  recordConsumerSelection(state, change.current);
+  const actual = {
+    target,
+    change: clone(change),
+    selectionTrace: state.consumerSelectionTrace.map(clone),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function selectRelatedTargetsAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-011', 'select-related-targets case');
+  const operands = exactOperands(action, ['target', 'relationId']);
+  const engine = await ensureBaseline(state, context);
+  const target = stringValue(operands.target, 'related selection target');
+  const relationId = stringValue(operands.relationId, 'related selection relation ID');
+  const current = callSync(engine, 'snapshot').selectionIds;
+  assert(current.includes(target), 'related selection source is selected');
+  const result = callSync(
+    engine,
+    'selectRelationEndpoints',
+    [relationId],
+    'add',
+    'canvas',
+  );
+  recordConsumerSelection(state, result.change.current);
+  const actual = {
+    target,
+    relationId,
+    resolvedTargets: result.targets.map(({ selectionId }) => selectionId),
+    change: clone(result.change),
+    selectionTrace: state.consumerSelectionTrace.map(clone),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function consumerBoxSelectAction(product, state, context, action) {
+  assert(
+    context.caseId === 'CSM-011' || context.caseId === 'CSM-020',
+    'box-select case',
+  );
+  const expectedKeys = context.caseId === 'CSM-011'
+    ? ['boxWorld', 'predicate']
+    : ['boxWorld', 'excludeLocked'];
+  const operands = exactOperands(action, expectedKeys);
+  const engine = await ensureBaseline(state, context);
+  const box = numberTuple(operands.boxWorld, 4, 'box-select world bounds');
+  const lockedIds = context.caseId === 'CSM-020'
+    ? stringArray(context.fixtureParams.lockedIds, 'box-select locked IDs')
+    : [];
+  if (context.caseId === 'CSM-011') {
+    const predicate = recordValue(operands.predicate, 'box-select predicate');
+    assertExactKeys(predicate, ['locked', 'visible'], 'box-select predicate');
+    assert(predicate.locked === false && predicate.visible === true, 'box-select predicate values');
+  } else {
+    assert(
+      booleanValue(operands.excludeLocked, 'box-select excludeLocked'),
+      'box-select excludes locked targets',
+    );
+  }
+  const result = callSync(
+    engine,
+    'selectBox',
+    [box[0], box[1]],
+    [box[0] + box[2], box[1] + box[3]],
+    {
+      mode: 'replace',
+      lockedIds,
+      predicate: (target) => target.value.show !== false,
+    },
+  );
+  recordConsumerSelection(state, result.change?.current ?? []);
+  const actual = {
+    targets: result.targets.map(({ selectionId }) => selectionId),
+    lockedIds: clone(result.lockedIds),
+    duplicateCount: result.duplicateCount,
+    change: clone(result.change),
+    selectionTrace: state.consumerSelectionTrace.map(clone),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function clearConsumerSelectionAction(product, state, context, action) {
+  assert(
+    ['CSM-011', 'CSM-016', 'CSM-020', 'CSM-021'].includes(context.caseId),
+    'clear-selection case',
+  );
+  const operands = exactOperands(action, ['source']);
+  const engine = await ensureBaseline(state, context);
+  const source = stringValue(operands.source, 'clear-selection source');
+  const change = callSync(engine, 'applySelection', {
+    op: 'clear',
+    source: source === 'host' ? 'external' : 'canvas',
+  });
+  if (context.caseId !== 'CSM-016') recordConsumerSelection(state, change.current);
+  if (context.caseId === 'CSM-020') state.contextMenuTarget = null;
+  const actual = {
+    source,
+    change: clone(change),
+    selectionTrace: state.consumerSelectionTrace.map(clone),
+    contextMenuTarget: state.contextMenuTarget,
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function applyHostSelectionAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-012', 'apply-host-selection case');
+  const operands = exactOperands(action, ['selectedIds', 'highlightedIds']);
+  const engine = await ensureBaseline(state, context);
+  state.currentHostSelection = stringArray(
+    operands.selectedIds,
+    'host selected IDs',
+  );
+  state.currentHighlights = currentLogicalIds(
+    engine,
+    stringArray(operands.highlightedIds, 'host highlighted IDs'),
+  );
+  const selection = callSync(
+    engine,
+    'setExternalSelection',
+    state.currentHostSelection,
+  );
+  state.currentHostSelection = clone(selection.change.current);
+  const presentation = callSync(engine, 'setPresentationPolicy', {
+    highlightIds: state.currentHighlights,
+  });
+  const actual = {
+    selectedTargets: clone(selection.change.current),
+    highlightedTargets: clone(presentation.policy.highlightIds ?? []),
+    missingIds: clone(selection.missingIds),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function userSelectAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-012', 'user-select case');
+  const operands = exactOperands(action, ['target', 'mode']);
+  const engine = await ensureBaseline(state, context);
+  if (state.selectionHostUnbind === null) {
+    state.selectionHostUnbind = callSync(
+      engine,
+      'bindSelectionHost',
+      (publication) => {
+        const selectedIds = clone(publication.selectedIds);
+        state.selectionCallbacks.push(selectedIds);
+        state.currentHostSelection = selectedIds;
+      },
+    );
+  }
+  const mode = stringValue(operands.mode, 'user-select mode');
+  assert(['replace', 'add', 'toggle'].includes(mode), 'user-select mode');
+  const target = stringValue(operands.target, 'user-select target');
+  const change = callSync(engine, 'applySelection', {
+    op: mode,
+    ids: [target],
+    source: 'canvas',
+  });
+  const actual = {
+    change: clone(change),
+    selectionCallbacks: state.selectionCallbacks.map(clone),
+    highlightedTargets: clone(
+      callSync(engine, 'presentationPolicyProbe').highlightIds ?? [],
+    ),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function redrawConsumerSceneAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-012', 'redraw-scene consumer case');
+  const operands = exactOperands(action, ['datasetRef', 'hostRevision']);
+  const engine = await ensureBaseline(state, context);
+  const datasetRef = stringValue(operands.datasetRef, 'redraw datasetRef');
+  const hostRevision = positiveInteger(operands.hostRevision, 'redraw host revision');
+  const dataset = await context.resolveDataset(datasetRef);
+  callSync(engine, 'loadDataset', dataset, {
+    datasetRef: `${datasetRef}:host:${hostRevision}`,
+  });
+  const selection = callSync(
+    engine,
+    'setExternalSelection',
+    state.currentHostSelection,
+  );
+  const presentation = callSync(engine, 'setPresentationPolicy', {
+    highlightIds: state.currentHighlights,
+  });
+  callSync(engine, 'publishFrame', context.actionIndex + 300);
+  const actual = {
+    selectedTargets: clone(selection.change.current),
+    highlightedTargets: clone(presentation.policy.highlightIds ?? []),
+    selectionCallbacks: state.selectionCallbacks.map(clone),
+    hostRevision,
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function consumerPointerDownAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-015', 'pointerdown consumer case');
+  const operands = exactOperands(action, ['target', 'modifiers', 'keydownObserved']);
+  const engine = await ensureBaseline(state, context);
+  const target = stringValue(operands.target, 'pointerdown target');
+  const modifiers = modifierRecord(operands.modifiers, 'pointerdown modifiers');
+  assert(operands.keydownObserved === false, 'pointerdown missed keydown');
+  state.pointerScreen = centerOfElement(engine, target);
+  const result = dispatchPointer(engine, {
+    type: 'down',
+    pointerId: 1,
+    pointerType: 'mouse',
+    button: 0,
+    buttons: 1,
+    screen: state.pointerScreen,
+    timeMs: 100,
+    ...modifiers,
+  }, 0);
+  const down = result.events.find(({ type }) => type === 'down');
+  state.pointerShift = down?.payload.modifiers.shift === true;
+  state.temporaryModifiers = state.pointerShift ? ['Shift'] : [];
+  const actual = {
+    pointerShift: state.pointerShift,
+    temporaryModifiers: clone(state.temporaryModifiers),
+    keydownObserved: false,
+    pointerGesture: clone(callSync(engine, 'pointerGestureProbe')),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function consumerPointerCancelAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-015', 'pointercancel consumer case');
+  const operands = exactOperands(action, ['pointerId']);
+  const engine = await ensureBaseline(state, context);
+  const pointerId = nonNegativeInteger(operands.pointerId, 'pointercancel pointerId');
+  dispatchPointer(engine, {
+    type: 'cancel',
+    pointerId,
+    pointerType: 'mouse',
+    button: 0,
+    buttons: 0,
+    screen: state.pointerScreen,
+    timeMs: 116,
+    shiftKey: state.pointerShift,
+  }, 1);
+  const probe = callSync(engine, 'pointerGestureProbe');
+  state.temporaryModifiers = probe.activePointerCount === 0 ? [] : state.temporaryModifiers;
+  const actual = {
+    temporaryModifiers: clone(state.temporaryModifiers),
+    selectionIds: clone(callSync(engine, 'snapshot').selectionIds),
+    pointerGesture: clone(probe),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function dispatchHostShortcutAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-015', 'dispatch-host-shortcut case');
+  const operands = exactOperands(action, ['targetType', 'key', 'modifiers']);
+  const engine = await ensureBaseline(state, context);
+  const targetType = stringValue(operands.targetType, 'host shortcut target type');
+  const key = stringValue(operands.key, 'host shortcut key');
+  modifierRecord(operands.modifiers, 'host shortcut modifiers');
+  const coreIntercepted = callSync(engine, 'ownsKeyboardInput', targetType);
+  state.hostShortcut = {
+    targetType,
+    key,
+    coreIntercepted,
+    browserDefaultPreserved: !coreIntercepted,
+  };
+  const actual = {
+    hostShortcut: clone(state.hostShortcut),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function selectConsumerTargetsAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-016', 'select-targets consumer case');
+  const operands = exactOperands(action, ['targets', 'mode']);
+  const engine = await ensureBaseline(state, context);
+  const mode = stringValue(operands.mode, 'command selection mode');
+  assert(['replace', 'add', 'toggle'].includes(mode), 'command selection mode');
+  const change = callSync(engine, 'applySelection', {
+    op: mode,
+    ids: stringArray(operands.targets, 'command selection targets'),
+    source: 'external',
+  });
+  const actual = {
+    change: clone(change),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function snapshotCommandTargetsAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-016', 'snapshot-command-targets case');
+  const operands = exactOperands(action, ['commandId']);
+  const engine = await ensureBaseline(state, context);
+  state.commandState = callSync(
+    engine,
+    'snapshotCommandTargets',
+    stringValue(operands.commandId, 'command ID'),
+  );
+  const actual = {
+    commandState: clone(state.commandState),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function applyCommandStatusAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-016', 'apply-command-status case');
+  const operands = exactOperands(action, ['commandId', 'statuses']);
+  const engine = await ensureBaseline(state, context);
+  const commandId = stringValue(operands.commandId, 'command status ID');
+  assert(state.commandState?.commandId === commandId, 'command status open state');
+  for (const status of stringArray(operands.statuses, 'command statuses')) {
+    const result = callSync(
+      engine,
+      'applyCommandTargetStatus',
+      state.commandState,
+      status,
+    );
+    assert(result.status === 'applied', `command status ${status}`);
+    state.commandState = result.state;
+    callSync(engine, 'setPresentationPolicy', {
+      highlightIds: status === 'released' ? null : state.commandState.targetIds,
+    });
+  }
+  const actual = {
+    commandState: clone(state.commandState),
+    selectionAfterStatus: clone(callSync(engine, 'snapshot').selectionIds),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function drillDownAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-020', 'drill-down case');
+  const operands = exactOperands(action, ['target', 'clickCount']);
+  const engine = await ensureBaseline(state, context);
+  const target = recordValue(operands.target, 'drill-down target');
+  assertExactKeys(target, ['ownerId', 'id'], 'drill-down target');
+  const targetId = `${stringValue(target.ownerId, 'drill-down owner')}/${
+    stringValue(target.id, 'drill-down component')
+  }`;
+  const clickCount = positiveInteger(operands.clickCount, 'drill-down click count');
+  const resolved = callSync(engine, 'resolveSelectionInteraction', targetId, {
+    unit: 'closest-group',
+    clickCount,
+  });
+  assert(resolved !== null && resolved.resolved.kind === 'component', 'drill-down component');
+  const change = callSync(engine, 'applySelection', {
+    op: 'replace',
+    ids: [targetId],
+    source: 'canvas',
+  });
+  recordConsumerSelection(state, change.current);
+  const actual = {
+    targetId,
+    resolved: clone(resolved),
+    change: clone(change),
+    selectionTrace: state.consumerSelectionTrace.map(clone),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function secondaryClickAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-020', 'secondary-click case');
+  const operands = exactOperands(action, ['target']);
+  const engine = await ensureBaseline(state, context);
+  const target = stringValue(operands.target, 'secondary-click target');
+  const screen = centerOfElement(engine, target);
+  const rootOwned = callSync(engine, 'ownsContextMenu', pointRecord(screen));
+  const resolved = callSync(engine, 'resolveSelectionInteraction', target, {
+    unit: 'closest-group',
+    clickCount: 1,
+  });
+  const owned = resolved !== null;
+  const change = callSync(engine, 'applySelection', {
+    op: 'replace',
+    ids: owned ? [target] : [],
+    source: 'canvas',
+  });
+  state.contextMenuTarget = owned ? target : null;
+  recordConsumerSelection(state, change.current);
+  const actual = {
+    targetId: state.contextMenuTarget,
+    owned,
+    rootOwned,
+    resolved: clone(resolved),
+    change: clone(change),
+    selectionTrace: state.consumerSelectionTrace.map(clone),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function selectFromSidebarAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-021', 'select-from-sidebar case');
+  const operands = exactOperands(action, ['target']);
+  const engine = await ensureBaseline(state, context);
+  const target = stringValue(operands.target, 'sidebar target');
+  const change = callSync(engine, 'applySelection', {
+    op: 'replace',
+    ids: [target],
+    source: 'external',
+  });
+  recordConsumerSelection(state, change.current);
+  const actual = {
+    change: clone(change),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function rangeSelectFromSidebarAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-021', 'range-select-from-sidebar case');
+  const operands = exactOperands(action, ['anchor', 'target', 'excludeLocked']);
+  const engine = await ensureBaseline(state, context);
+  assert(
+    booleanValue(operands.excludeLocked, 'sidebar range excludeLocked'),
+    'sidebar range excludes locked',
+  );
+  const order = stringArray(context.fixtureParams.sidebarOrder, 'sidebar order');
+  const anchor = stringValue(operands.anchor, 'sidebar range anchor');
+  const target = stringValue(operands.target, 'sidebar range target');
+  const anchorIndex = order.indexOf(anchor);
+  const targetIndex = order.indexOf(target);
+  assert(anchorIndex >= 0 && targetIndex >= 0, 'sidebar range endpoints');
+  const start = Math.min(anchorIndex, targetIndex);
+  const end = Math.max(anchorIndex, targetIndex);
+  const filtered = callSync(
+    engine,
+    'filterSelectionTargets',
+    order.slice(start, end + 1),
+    {
+      lockedIds: stringArray(context.fixtureParams.lockedIds, 'sidebar locked IDs'),
+    },
+  );
+  state.rangeSelection = filtered.map(({ selectionId }) => selectionId);
+  const change = callSync(engine, 'applySelection', {
+    op: 'replace',
+    ids: state.rangeSelection,
+    source: 'external',
+  });
+  recordConsumerSelection(state, change.current);
+  const actual = {
+    rangeSelection: clone(state.rangeSelection),
+    change: clone(change),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function renameTargetAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-021', 'rename-target case');
+  const operands = exactOperands(action, ['target', 'label']);
+  const engine = await ensureBaseline(state, context);
+  const target = stringValue(operands.target, 'rename target');
+  const label = stringValue(operands.label, 'rename label');
+  const result = callSync(
+    engine,
+    'patch',
+    { kind: 'element', id: target },
+    { label },
+  );
+  assert(result.status === 'committed', 'rename target commit');
+  const record = logicalElementValue(engine, target);
+  state.renamedTarget = { id: target, label: record.label };
+  const actual = {
+    result: clone(result),
+    renamedTarget: clone(state.renamedTarget),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function revealTargetAction(product, state, context, action) {
+  assert(context.caseId === 'CSM-021', 'reveal-target case');
+  const operands = exactOperands(action, ['target']);
+  const engine = await ensureBaseline(state, context);
+  const target = stringValue(operands.target, 'reveal target');
+  state.revealResult = callSync(engine, 'focusViewport', { targets: [target] });
+  const actual = {
+    target,
+    result: clone(state.revealResult),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function probeConsumerDeclaredFailureAction(product, state, context, action) {
+  assert(context.caseId.startsWith('CSM-'), 'consumer declared failure case');
+  const operands = exactOperands(
+    action,
+    ['journeyId', 'isolate', 'afterActionIndex', 'injection', 'expectedRollback'],
+  );
+  assert(
+    stringValue(operands.journeyId, 'declared failure journey ID') === context.caseId,
+    'declared failure journey identity',
+  );
+  assert(booleanValue(operands.isolate, 'declared failure isolation'), 'declared failure isolation');
+  assert(
+    nonNegativeInteger(
+      operands.afterActionIndex,
+      'declared failure afterActionIndex',
+    ) === context.actionIndex - 1,
+    'declared failure action boundary',
+  );
+  const injection = recordValue(operands.injection, 'declared failure injection');
+  assertExactKeys(injection, ['id', 'diagnostic', 'mode'], 'declared failure injection');
+  recordValue(operands.expectedRollback, 'declared failure rollback declaration');
+  const engine = await ensureBaseline(state, context);
+  const before = callSync(engine, 'snapshot');
+  let rollback;
+  let diagnosticCode = stringValue(
+    injection.diagnostic,
+    'declared failure diagnostic',
+  );
+
+  if (context.caseId === 'CSM-011') {
+    const missing = callSync(engine, 'applySelection', {
+      op: 'add',
+      ids: ['missing-target'],
+      source: 'external',
+    });
+    let predicateRejected = false;
+    try {
+      callSync(engine, 'selectBox', [0, 0], [220, 100], {
+        mode: 'replace',
+        predicate: () => {
+          throw new Error('isolated invalid predicate');
+        },
+      });
+    } catch {
+      predicateRejected = true;
+    }
+    const after = callSync(engine, 'snapshot');
+    rollback = {
+      missingTargetIgnored: missing.changed === false,
+      selectionRollbackOnInvalidPredicate:
+        predicateRejected && sameJson(before.selectionIds, after.selectionIds),
+      historyDepthDelta: after.historyDepth - before.historyDepth,
+    };
+  } else if (context.caseId === 'CSM-012') {
+    const callbackCountBefore = state.selectionCallbacks.length;
+    const priorSelection = clone(before.selectionIds);
+    const result = callSync(
+      engine,
+      'setExternalSelection',
+      [...priorSelection, 'missing-target'],
+    );
+    rollback = {
+      unknownIdsDropped: result.missingIds.includes('missing-target'),
+      callbackOnNoop: state.selectionCallbacks.length !== callbackCountBefore,
+      priorValidSelectionRetainedOnInvalidInput: sameJson(
+        result.change.current,
+        priorSelection,
+      ),
+    };
+  } else if (context.caseId === 'CSM-015') {
+    const probe = callSync(engine, 'pointerGestureProbe');
+    rollback = {
+      clearTemporaryModifiers:
+        state.temporaryModifiers.length === 0 && probe.activePointerCount === 0,
+      selectionUnchangedOnCancel: sameJson(before.selectionIds, []),
+      browserDefaultPreserved: state.hostShortcut?.browserDefaultPreserved === true,
+    };
+  } else if (context.caseId === 'CSM-016') {
+    assert(state.commandState !== null, 'declared failure command state');
+    const targetIds = clone(state.commandState.targetIds);
+    const rejected = callSync(
+      engine,
+      'applyCommandTargetStatus',
+      state.commandState,
+      'active',
+      'missing-target',
+    );
+    diagnosticCode = rejected.code;
+    rollback = {
+      missingCommandTargetReported: rejected.code === 'MISSING_TARGET',
+      openCommandTargetIdsUnchanged: sameJson(
+        rejected.state.targetIds,
+        targetIds,
+      ),
+    };
+  } else if (context.caseId === 'CSM-020') {
+    const savedSelection = clone(before.selectionIds);
+    callSync(engine, 'applySelection', {
+      op: 'replace',
+      ids: ['rect-b'],
+      source: 'external',
+    });
+    const screen = centerOfElement(engine, 'rect-b');
+    callSync(engine, 'ownsContextMenu', pointRecord(screen));
+    const owned = callSync(
+      engine,
+      'resolveSelectionInteraction',
+      'rect-b',
+      { unit: 'closest-group', clickCount: 1 },
+    ) !== null;
+    let hostMenuFailureCaught = false;
+    try {
+      if (owned) throw new Error('isolated host menu failure');
+    } catch {
+      hostMenuFailureCaught = true;
+    }
+    const retained = clone(callSync(engine, 'snapshot').selectionIds);
+    callSync(engine, 'applySelection', {
+      op: 'replace',
+      ids: savedSelection,
+      source: 'external',
+    });
+    rollback = {
+      lockedTargetExcluded: callSync(
+        engine,
+        'filterSelectionTargets',
+        ['text-c'],
+        { lockedIds: ['text-c'] },
+      ).length === 0,
+      blankClearsSelection: savedSelection.length === 0,
+      hostMenuFailureKeepsSelection:
+        hostMenuFailureCaught ? retained : [],
+    };
+  } else {
+    assert(context.caseId === 'CSM-021', 'sidebar declared failure case');
+    const savedSelection = clone(before.selectionIds);
+    callSync(engine, 'applySelection', {
+      op: 'replace',
+      ids: state.rangeSelection,
+      source: 'external',
+    });
+    const labelBefore = logicalElementValue(engine, 'rect-b').label;
+    const result = callSync(
+      engine,
+      'patch',
+      { kind: 'element', id: 'rect-b' },
+      { label: 42 },
+    );
+    diagnosticCode = result.diagnostic?.code ?? 'UNCLASSIFIED';
+    const selectionRollback = clone(callSync(engine, 'snapshot').selectionIds);
+    const labelAfter = logicalElementValue(engine, 'rect-b').label;
+    callSync(engine, 'applySelection', {
+      op: 'replace',
+      ids: savedSelection,
+      source: 'external',
+    });
+    rollback = {
+      invalidRenameCode: diagnosticCode,
+      selectionRollback,
+      lockedTargetUnchanged: labelAfter === labelBefore,
+    };
+  }
+
+  const after = callSync(engine, 'snapshot');
+  assert(
+    sameJson(after.selectionIds, before.selectionIds),
+    'declared failure preserves main selection',
+  );
+  const actual = {
+    injectionId: stringValue(injection.id, 'declared failure injection ID'),
+    diagnosticCode,
+    rollback,
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
 async function ensureBaseline(state, context) {
   const engine = await ensureInitializedEngine(state, context);
   if (state.loadedDatasetRef !== null) return engine;
@@ -2833,7 +3679,9 @@ async function ensureBaseline(state, context) {
     ? 'input-device-and-gesture-matrix'
     : context.caseId.startsWith('TRN-')
       ? 'transformer-gesture-matrix'
-      : 'selection-and-hit-matrix';
+      : context.caseId.startsWith('CSM-')
+        ? 'packed-host-seam'
+        : 'selection-and-hit-matrix';
   const profiles = recordValue(context.fixtureProfiles, 'fixture profiles');
   const profile = recordValue(profiles[profileId], `${profileId} profile`);
   const datasetRef = stringValue(profile.datasetRef, `${profileId}.datasetRef`);
@@ -3176,6 +4024,46 @@ function projectPointerPayload(value) {
 
 function pointRecord(point) {
   return { x: point[0], y: point[1] };
+}
+
+function recordConsumerSelection(state, ids) {
+  state.consumerSelectionTrace.push(clone(ids));
+}
+
+function currentLogicalIds(engine, ids) {
+  return ids.filter((id) => {
+    const query = callSync(engine, 'queryScene', { where: { id } });
+    return query.status === 'matched' && query.targets.length === 1;
+  });
+}
+
+function centerOfElement(engine, id) {
+  const geometry = elementGeometrySnapshot(engine, id);
+  return [
+    geometry.x + geometry.width / 2,
+    geometry.y + geometry.height / 2,
+  ];
+}
+
+function modifierRecord(value, label) {
+  const modifiers = recordValue(value, label);
+  const allowed = ['shift', 'ctrl', 'alt', 'meta'];
+  assert(
+    Object.keys(modifiers).every((key) => allowed.includes(key)),
+    `${label} keys`,
+  );
+  return {
+    shiftKey: modifiers.shift === true,
+    ctrlKey: modifiers.ctrl === true,
+    altKey: modifiers.alt === true,
+    metaKey: modifiers.meta === true,
+  };
+}
+
+function numberTuple(value, length, label) {
+  const tuple = arrayValue(value, label);
+  assert(tuple.length === length, `${label} length`);
+  return tuple.map((entry, index) => finiteNumber(entry, `${label}[${index}]`));
 }
 
 function pointTuple(value, label) {

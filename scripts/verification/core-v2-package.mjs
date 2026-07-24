@@ -47,6 +47,7 @@ try {
 <html><body><div id="host" style="width:640px;height:360px"></div><script type="module" src="/main.js"></script></body></html>\n`);
   await writeFile(path.join(consumer, 'main.js'), `
 import {
+  CORE_V2_COMMAND_TARGET_REVISION,
   CORE_V2_HOST_INTERACTION_REVISION,
   CORE_V2_MUTATION_TRANSACTION_REVISION,
   CORE_V2_POINTER_GESTURE_REVISION,
@@ -58,6 +59,7 @@ import {
   CoreV2PointerGestureAuthority,
   CoreV2TransformerGestureAuthority,
   createCoreV2,
+  createCoreV2CommandTargetState,
   hitCoreV2BoxRegion,
   hitCoreV2PaintRegion,
   parsePatchMapV010,
@@ -202,6 +204,22 @@ engine.applyInteractionModeOperation({ op: 'pop' });
 hostEventSubscription.dispose();
 unbindSelectionHost();
 const hostInteractionBeforeDestroy = engine.hostInteractionProbe();
+const componentAliasSelection = engine.applySelection({
+  op: 'replace',
+  ids: ['consumer-item/bar'],
+  source: 'external',
+});
+const commandOpened = engine.snapshotCommandTargets('packed-command');
+engine.applySelection({ op: 'clear', source: 'external' });
+const commandPending = engine.applyCommandTargetStatus(commandOpened, 'pending');
+if (commandPending.status !== 'applied') {
+  throw new Error('packed command pending state was rejected');
+}
+const commandActive = engine.applyCommandTargetStatus(commandPending.state, 'active');
+if (commandActive.status !== 'applied') {
+  throw new Error('packed command active state was rejected');
+}
+const commandReleased = engine.applyCommandTargetStatus(commandActive.state, 'released');
 const emptyBulk = engine.bulkPatch({
   strict: true,
   actionId: 'packed-empty-target-set',
@@ -456,6 +474,7 @@ window.__PACKAGE_RESULT__ = {
   canvasCountAfterDestroy: document.querySelectorAll('canvas').length,
   destroyed: core.debugSnapshot().destroyed,
   transactionRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+  commandTargetRevision: CORE_V2_COMMAND_TARGET_REVISION,
   hostInteractionRevision: CORE_V2_HOST_INTERACTION_REVISION,
   pointerRevision: CORE_V2_POINTER_GESTURE_REVISION,
   presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
@@ -495,6 +514,15 @@ window.__PACKAGE_RESULT__ = {
     },
     destroyed: hostInteractionAfterDestroy.destroyed,
     destroyedOwnerCount: hostInteractionAfterDestroy.mode.activeOwnerCount,
+  },
+  commandTargetPackage: {
+    factoryType: typeof createCoreV2CommandTargetState,
+    componentAliasSelection: componentAliasSelection.current,
+    openedTargets: commandOpened.targetIds,
+    releasedStatus:
+      commandReleased.status === 'applied' ? commandReleased.state.status : null,
+    statusTrace:
+      commandReleased.status === 'applied' ? commandReleased.state.statusTrace : [],
   },
   selectionTransformerPackage: {
     authorityType: typeof CoreV2TransformerGestureAuthority,
@@ -625,6 +653,7 @@ function findHierarchyRecord(values, id, parentId = null) {
 `);
   await writeFile(path.join(consumer, 'consumer.cjs'), `
 const {
+  CORE_V2_COMMAND_TARGET_REVISION,
   CORE_V2_HOST_INTERACTION_REVISION,
   CORE_V2_MUTATION_TRANSACTION_REVISION,
   CORE_V2_POINTER_GESTURE_REVISION,
@@ -635,6 +664,7 @@ const {
   CoreV2Engine,
   CoreV2HostInteractionAuthority,
   CoreV2TransformerGestureAuthority,
+  createCoreV2CommandTargetState,
   parsePatchMapV010,
   planCoreV2TransformerEdit,
   planCoreV2MutationTransaction,
@@ -646,6 +676,10 @@ process.stdout.write(JSON.stringify({
   entities: result.identity.counts.entities,
   id: result.document.entities[0].id,
   transactionRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+  commandTargetRevision: CORE_V2_COMMAND_TARGET_REVISION,
+  commandTargetFactoryType: typeof createCoreV2CommandTargetState,
+  commandTargetSnapshotType: typeof CoreV2Engine.prototype.snapshotCommandTargets,
+  commandTargetStatusType: typeof CoreV2Engine.prototype.applyCommandTargetStatus,
   pointerRevision: CORE_V2_POINTER_GESTURE_REVISION,
   pointerAuthorityType: typeof CoreV2PointerGestureAuthority,
   hostInteractionRevision: CORE_V2_HOST_INTERACTION_REVISION,
@@ -720,6 +754,7 @@ process.stdout.write(JSON.stringify({
   if (!(esm.renderObjects > 0)) failures.push('packed ESM produced no aggregate render objects');
   if (esm.canvasCountAfterDestroy !== 0 || !esm.destroyed) failures.push('packed ESM lifecycle leaked a canvas or live runtime');
   if (esm.transactionRevision !== 'core-v2-mutation-transaction/1') failures.push('packed ESM transaction revision export failed');
+  if (esm.commandTargetRevision !== 'core-v2-command-target/1') failures.push('packed ESM command target revision export failed');
   if (esm.pointerRevision !== 'core-v2-pointer-gesture/1') failures.push('packed ESM pointer revision export failed');
   if (esm.hostInteractionRevision !== 'core-v2-host-interaction/1') failures.push('packed ESM host interaction revision export failed');
   if (esm.selectionTransformerRevision !== 'core-v2-selection-transformer/1') failures.push('packed ESM selection transformer revision export failed');
@@ -765,6 +800,16 @@ process.stdout.write(JSON.stringify({
     esm.hostInteractionPackage?.destroyed !== true ||
     esm.hostInteractionPackage?.destroyedOwnerCount !== 0
   ) failures.push('packed ESM host interaction exports failed');
+  if (
+    esm.commandTargetPackage?.factoryType !== 'function' ||
+    JSON.stringify(esm.commandTargetPackage?.componentAliasSelection) !==
+      JSON.stringify(['consumer-item/bar']) ||
+    JSON.stringify(esm.commandTargetPackage?.openedTargets) !==
+      JSON.stringify(['consumer-item/bar']) ||
+    esm.commandTargetPackage?.releasedStatus !== 'released' ||
+    JSON.stringify(esm.commandTargetPackage?.statusTrace) !==
+      JSON.stringify(['pending', 'active', 'released'])
+  ) failures.push('packed ESM command target and component alias exports failed');
   if (
     esm.selectionTransformerPackage?.authorityType !== 'function' ||
     JSON.stringify(esm.selectionTransformerPackage?.subsetIndicator) !==
@@ -902,6 +947,10 @@ process.stdout.write(JSON.stringify({
   if (cjs.entities !== 1 || cjs.id !== 'cjs-rect') failures.push('packed CJS parser subpath failed');
   if (
     cjs.transactionRevision !== 'core-v2-mutation-transaction/1' ||
+    cjs.commandTargetRevision !== 'core-v2-command-target/1' ||
+    cjs.commandTargetFactoryType !== 'function' ||
+    cjs.commandTargetSnapshotType !== 'function' ||
+    cjs.commandTargetStatusType !== 'function' ||
     cjs.pointerRevision !== 'core-v2-pointer-gesture/1' ||
     cjs.pointerAuthorityType !== 'function' ||
     cjs.hostInteractionRevision !== 'core-v2-host-interaction/1' ||

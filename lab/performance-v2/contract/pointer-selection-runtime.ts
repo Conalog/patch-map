@@ -33,6 +33,12 @@ export const CORE_V2_POINTER_SELECTION_CASE_IDS = Object.freeze([
   'TRN-008',
   'TRN-009',
   'TRN-010',
+  'CSM-011',
+  'CSM-012',
+  'CSM-015',
+  'CSM-016',
+  'CSM-020',
+  'CSM-021',
 ] as const);
 
 export type CoreV2PointerSelectionCaseId =
