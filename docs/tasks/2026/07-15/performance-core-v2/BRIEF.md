@@ -17,13 +17,14 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 # Current State
 
 - Coverage is 109 executable routes, 108 actual-producing routes, 64 explicit stubs, 396 executable actions, and 223 action types.
-- Product checkpoint `ce61c67` owns exact published-tuple Pixi PNG extraction. Commit `7b3fda1` connects `DET-004`, `PIX-004`, `PRF-008`, `CSM-035`, and `CSM-038` through one expected-blind export/extraction runtime, handler, fold, and five focused Lab routes.
-- The five routes match all 70 assertions in current headless Chromium first/repeat/fresh runs. They preserve one-canvas handoff, exact canvas restoration, canonical export immutability, temporary image/data-URL cleanup, and zero console/page/network/external-fixture errors.
-- Scoped lint, 206 targeted tests, typecheck, and canonical 38-decision/32-negative/173-record verification pass. The user-requested restart checkpoint intentionally leaves full unit/lint/build, the promoted 94-route browser run, packed consumer, 2+7 memory, and extraction performance evidence pending.
+- Product checkpoint `ce61c67` owns exact published-tuple Pixi PNG extraction; `7b3fda1` connects `DET-004`, `PIX-004`, `PRF-008`, `CSM-035`, and `CSM-038` through one expected-blind runtime and five focused Lab routes. Verification checkpoint `58f2b66` promotes the boundary through packed ESM/CJS, lifecycle memory, and six-scale performance proof.
+- Promotion gates pass: 123 files/1,138 Core v2 tests, full lint/typecheck, Core v2/Lab builds, canonical contract verification, and 94 headless routes first/repeat/fresh at 1,169/1,178 with only the nine known immutable conflicts. Console, page, network, and external-fixture errors are zero.
+- The 2+7 lifecycle run expands 1,000 items to 5,099 entities, retains median/p95 76,271/403,503 JS-heap bytes, and closes all nine extraction trials with zero canvas, renderer, subscription, or pending-work retention. Packed ESM captures the exact tuple on the authoritative canvas and packed CJS exposes the API.
+- Chromium 4× WebGL/SwiftShader extraction preserves every 2+7×10 raw sample. Total median/p95 is 1,127.3/1,151.2 ms at 100, 13,320.2/64,231.0 ms at 5,000, and 17,287.9/110,215.2 ms for production; the unfavorable large-scene outliers are retained. Core v1 has no comparable exact-tuple boundary, WebGPU was not run, and Windows native remains pending.
 
 # Next Step
 
-Resume with the export/extraction tranche promotion gates, beginning with full Core v2 unit/lint/typecheck/build and canonical verification. If clean, run the 94-route headless checkpoint, packed consumer, 2+7 lifecycle memory, and the designated extraction hot-path performance checkpoint.
+After the user restarts Codex, confirm the clean `performance/core-v2` checkpoint and inventory the remaining 64 stubs to select the next dependency-aligned 5–10 case shared-runtime tranche. Do not repeat the completed expensive extraction gates unless their product or ownership paths change.
 
 # Working Boundary
 
