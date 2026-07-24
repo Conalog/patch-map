@@ -170,6 +170,15 @@ export class CoreV2LogicalSceneIndex {
     if (targetOrId.startsWith('element:') || targetOrId.startsWith('component:')) {
       return this.byKey.get(targetOrId as CoreV2LogicalTargetKey) ?? null;
     }
+    const componentSeparator = targetOrId.indexOf('/');
+    if (
+      componentSeparator > 0 &&
+      componentSeparator < targetOrId.length - 1
+    ) {
+      const ownerId = targetOrId.slice(0, componentSeparator);
+      const componentId = targetOrId.slice(componentSeparator + 1);
+      return this.byKey.get(`component:${ownerId}/${componentId}`) ?? null;
+    }
     return this.byKey.get(`element:${targetOrId}`) ??
       this.bySelectionId.get(targetOrId) ??
       null;

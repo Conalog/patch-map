@@ -161,9 +161,13 @@ import {
 } from './pointer-gesture';
 import {
   CoreV2HostInteractionAuthority,
+  advanceCoreV2CommandTargetState,
   coreV2OwnsKeyboardInput,
   coreV2TransformerHandlePropagationProbe,
+  createCoreV2CommandTargetState,
   createCoreV2LogicalPropagationTrace,
+  type CoreV2CommandTargetState,
+  type CoreV2CommandTargetStatus,
   type CoreV2HostEventSubscription,
   type CoreV2HostInteractionProbe,
   type CoreV2HostObservedEvent,
@@ -937,6 +941,18 @@ export interface CoreV2ExternalSelectionResult {
   readonly change: CoreV2SelectionChange;
 }
 
+export type CoreV2CommandTargetStatusResult =
+  | Readonly<{
+      readonly status: 'applied';
+      readonly code: null;
+      readonly state: CoreV2CommandTargetState;
+    }>
+  | Readonly<{
+      readonly status: 'rejected';
+      readonly code: 'MISSING_TARGET' | 'STALE_TARGET';
+      readonly state: CoreV2CommandTargetState;
+    }>;
+
 export interface CoreV2EngineRelationEndpointSelectionResult
   extends CoreV2RelationEndpointResolution {
   readonly change: CoreV2SelectionChange;
@@ -1544,6 +1560,13 @@ export class CoreV2Engine {
   private readonly queryResultAuthorities = new WeakMap<
     CoreV2EngineQueryResult,
     CoreV2QueryResultAuthority
+  >();
+  private readonly commandTargetAuthorities = new WeakMap<
+    CoreV2CommandTargetState,
+    Readonly<{
+      readonly lifecycleGeneration: number;
+      readonly targetIds: readonly string[];
+    }>
   >();
   private logicalSceneIndexCache: Readonly<{
     readonly materialized: MaterializedCoreV2Dataset;
@@ -3614,6 +3637,48 @@ export class CoreV2Engine {
     });
   }
 
+  /**
+   * Freeze the current logical selection for one host command. Later canvas or
+   * host selection changes cannot retarget the returned immutable state.
+   */
+  public snapshotCommandTargets(commandId: string): CoreV2CommandTargetState {
+    this.requireSurface('snapshotCommandTargets');
+    const state = createCoreV2CommandTargetState(commandId, this.logicalSelectionIds);
+    this.rememberCommandTargetState(state);
+    return state;
+  }
+
+  /**
+   * Advance a host-computed command status only while every frozen target is
+   * still present. An explicit target outside the open command is rejected
+   * without changing the immutable state.
+   */
+  public applyCommandTargetStatus(
+    current: CoreV2CommandTargetState,
+    status: CoreV2CommandTargetStatus,
+    targetId?: string,
+  ): CoreV2CommandTargetStatusResult {
+    this.requireSurface('applyCommandTargetStatus');
+    const authority = this.commandTargetAuthorities.get(current);
+    if (
+      authority === undefined ||
+      authority.lifecycleGeneration !== this.lifecycleGeneration
+    ) {
+      return Object.freeze({ status: 'rejected', code: 'STALE_TARGET', state: current });
+    }
+    const targetIds = authority.targetIds;
+    const missingTarget = (
+      targetId !== undefined &&
+      (!targetIds.includes(targetId) || this.logicalSceneIndex().target(targetId) === null)
+    ) || targetIds.some((id) => this.logicalSceneIndex().target(id) === null);
+    if (missingTarget) {
+      return Object.freeze({ status: 'rejected', code: 'MISSING_TARGET', state: current });
+    }
+    const state = advanceCoreV2CommandTargetState(current, status);
+    this.rememberCommandTargetState(state);
+    return Object.freeze({ status: 'applied', code: null, state });
+  }
+
   public hostInteractionProbe(): CoreV2HostInteractionProbe {
     return this.hostInteractions.probe();
   }
@@ -4108,10 +4173,11 @@ export class CoreV2Engine {
   public applySelection(input: CoreV2SelectionSetOperation): CoreV2SelectionChange {
     const surface = this.requireSurface('select');
     const materialized = this.materialized;
+    const logicalIndex = materialized === null ? null : this.logicalSceneIndex();
     const change = applyCoreV2SelectionOperation(
       this.logicalSelectionIds,
       input,
-      (id) => materialized !== null && logicalElementIdExists(materialized.dataset, id),
+      (id) => logicalIndex?.target(id) !== null,
     );
     if (change.changed) {
       if (this.cancelActiveTransformerEdit('selection-change', true) === null) {
@@ -5253,6 +5319,13 @@ export class CoreV2Engine {
     });
   }
 
+  private rememberCommandTargetState(state: CoreV2CommandTargetState): void {
+    this.commandTargetAuthorities.set(state, Object.freeze({
+      lifecycleGeneration: this.lifecycleGeneration,
+      targetIds: state.targetIds,
+    }));
+  }
+
   private historyCompanionForSelection(
     selectionIds: readonly string[],
   ): CoreV2EngineHistoryCompanion {
@@ -5318,8 +5391,12 @@ export class CoreV2Engine {
     materialized: MaterializedCoreV2Dataset | null,
   ): readonly string[] {
     if (materialized === null) return Object.freeze([]);
-    return Object.freeze([...new Set(ids)].filter((id) =>
-      logicalElementIdExists(materialized.dataset, id)));
+    const index = materialized === this.materialized
+      ? this.logicalSceneIndex()
+      : new CoreV2LogicalSceneIndex(materialized.dataset);
+    return Object.freeze(
+      [...new Set(ids)].filter((id) => index.target(id) !== null),
+    );
   }
 
   private logicalSceneIndex(): CoreV2LogicalSceneIndex {
@@ -7995,44 +8072,9 @@ function findElement(
   return null;
 }
 
-function logicalElementIdExists(
-  values: readonly NormalizedCoreV2Element[],
-  id: string,
-): boolean {
-  for (const value of values) {
-    if (value.id === id && value.type !== 'relations') return true;
-    if (
-      value.type === 'item' &&
-      componentSelectionIdExists(value.id, value.components, id)
-    ) return true;
-    if (value.type === 'group' && logicalElementIdExists(value.children, id)) return true;
-    if (value.type !== 'grid') continue;
-    for (let row = 0; row < value.cells.length; row += 1) {
-      const cells = value.cells[row] ?? [];
-      for (let column = 0; column < cells.length; column += 1) {
-        const instanceId = `${value.id}.${row}.${column}`;
-        const active = value.inactiveCellStrategy === 'hide' || cells[column] !== 0;
-        if (!active) continue;
-        if (id === instanceId) return true;
-        if (componentSelectionIdExists(instanceId, value.item.components, id)) return true;
-      }
-    }
-  }
-  return false;
-}
-
 function selectionHitUsesSpatialFastPath(options: CoreV2SelectionHitOptions): boolean {
   return options.candidateIds === undefined &&
     options.rejectIds === undefined &&
     options.lockedIds === undefined &&
     options.predicate === undefined;
-}
-
-function componentSelectionIdExists(
-  ownerId: string,
-  components: readonly Readonly<{ readonly type: string; readonly id: string }>[],
-  id: string,
-): boolean {
-  return components.some((component) =>
-    id === `${ownerId}::${component.type}:${component.id}`);
 }

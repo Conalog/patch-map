@@ -1250,7 +1250,7 @@ export class CoreV2 {
     this.commit({
       operations: [{
         type: 'selection',
-        targets: semanticSelectionDenseIds(parse, ids),
+        targets: semanticSelectionDenseIds(parse, ids, this.componentTargets),
         mode: 'replace',
       }],
     });
@@ -1267,13 +1267,13 @@ export class CoreV2 {
     const policy: CoreV2InteractionOverlayPolicy = Object.freeze({
       visibleEntityIds: input.visibleIds === null
         ? null
-        : semanticSelectionDenseIds(parse, input.visibleIds),
+        : semanticSelectionDenseIds(parse, input.visibleIds, this.componentTargets),
       transformableEntityIds: input.transformableIds === null
         ? null
-        : semanticSelectionDenseIds(parse, input.transformableIds),
+        : semanticSelectionDenseIds(parse, input.transformableIds, this.componentTargets),
       resizableEntityIds: input.resizableIds === null
         ? null
-        : semanticSelectionDenseIds(parse, input.resizableIds),
+        : semanticSelectionDenseIds(parse, input.resizableIds, this.componentTargets),
       hidden: input.hidden,
       handleCssPx: input.handleCssPx,
       strokeCssPx: input.strokeCssPx,
@@ -1746,11 +1746,11 @@ export class CoreV2 {
       revision: policy.revision,
       highlightedEntityIds: policy.highlightIds === null || parse === null
         ? policy.highlightIds
-        : semanticSelectionDenseIds(parse, policy.highlightIds),
+        : semanticSelectionDenseIds(parse, policy.highlightIds, this.componentTargets),
       deEmphasisAlpha: policy.deEmphasisAlpha,
       hiddenEntityIds: parse === null
         ? Object.freeze([])
-        : semanticSelectionDenseIds(parse, policy.hiddenLayerIds),
+        : semanticSelectionDenseIds(parse, policy.hiddenLayerIds, this.componentTargets),
       fillOverrides: parse === null
         ? Object.freeze([])
         : resolvePresentationFillOverrides(parse, policy.fillOverrides),
@@ -2414,6 +2414,7 @@ function selectionReconcileOption(
 function semanticSelectionDenseIds(
   parse: ParsePatchMapResult,
   semanticIds: readonly string[],
+  componentTargets?: ReadonlyMap<string, IndexedComponentTarget | null>,
 ): readonly string[] {
   if (!Array.isArray(semanticIds)) throw new TypeError('selectionIds must be an array');
   const documentIds = new Set(parse.document.entities.map(({ id }) => id));
@@ -2425,6 +2426,37 @@ function semanticSelectionDenseIds(
     if (documentIds.has(semanticId)) {
       denseIds.add(semanticId);
       return;
+    }
+    const components = parse.projection.componentsByEntityId ?? {};
+    const separator = semanticId.indexOf('/');
+    if (
+      separator > 0 &&
+      separator < semanticId.length - 1 &&
+      componentTargets !== undefined
+    ) {
+      const indexed = componentTargets.get(componentTargetKey({
+        ownerId: semanticId.slice(0, separator),
+        componentId: semanticId.slice(separator + 1),
+      }));
+      if (indexed) denseIds.add(indexed.entityId);
+    }
+    for (const component of Object.values(components)) {
+      const semanticOwnerId =
+        parse.identity.entitySourceById[component.entityId]?.sourceElementId ??
+        component.ownerId;
+      if (
+        component.logicalIdentity === semanticId ||
+        (
+          separator > 0 &&
+          (
+            component.ownerId === semanticId.slice(0, separator) ||
+            semanticOwnerId === semanticId.slice(0, separator)
+          ) &&
+          component.componentId === semanticId.slice(separator + 1)
+        )
+      ) {
+        denseIds.add(component.entityId);
+      }
     }
     for (const entityId of parse.identity.entityIdsBySourceId[semanticId] ?? []) {
       if (documentIds.has(entityId)) denseIds.add(entityId);

@@ -7,6 +7,17 @@ import type { CoreV2SemanticPointerEvent } from './pointer-gesture';
 import type { CoreV2MutationTarget } from './semantic/transaction';
 
 export const CORE_V2_HOST_INTERACTION_REVISION = 'core-v2-host-interaction/1' as const;
+export const CORE_V2_COMMAND_TARGET_REVISION = 'core-v2-command-target/1' as const;
+
+export type CoreV2CommandTargetStatus = 'pending' | 'active' | 'released';
+
+export interface CoreV2CommandTargetState {
+  readonly schemaRevision: typeof CORE_V2_COMMAND_TARGET_REVISION;
+  readonly commandId: string;
+  readonly targetIds: readonly string[];
+  readonly status: CoreV2CommandTargetStatus | null;
+  readonly statusTrace: readonly CoreV2CommandTargetStatus[];
+}
 
 export type CoreV2LogicalEventBindingDescriptor =
   | Readonly<{
@@ -137,6 +148,73 @@ export interface CoreV2HostInteractionAuthorityOptions {
   readonly queryTargets: (query: CoreV2SceneQuery) => readonly CoreV2LogicalTargetSnapshot[];
   readonly normalMode?: CoreV2InteractionMode;
   readonly modes?: readonly CoreV2InteractionMode[];
+}
+
+/**
+ * Freeze the exact logical selection used to open a host command. The value is
+ * detached from later Engine selection changes; hosts may carry it through an
+ * asynchronous pending/active/released lifecycle without retaining renderer
+ * objects or entity callbacks.
+ */
+export function createCoreV2CommandTargetState(
+  commandId: string,
+  targetIdsValue: readonly string[],
+): CoreV2CommandTargetState {
+  validateNonEmptyString(commandId, 'command target ID');
+  if (!Array.isArray(targetIdsValue)) {
+    throw new TypeError('command target IDs must be an array');
+  }
+  const targetIds = [...new Set(targetIdsValue.map((targetId, index) => {
+    validateNonEmptyString(targetId, `command target ID ${index}`);
+    return targetId;
+  }))];
+  return Object.freeze({
+    schemaRevision: CORE_V2_COMMAND_TARGET_REVISION,
+    commandId,
+    targetIds: Object.freeze(targetIds),
+    status: null,
+    statusTrace: Object.freeze([]),
+  });
+}
+
+/** Return a new immutable command state while preserving its frozen target IDs. */
+export function advanceCoreV2CommandTargetState(
+  current: CoreV2CommandTargetState,
+  status: CoreV2CommandTargetStatus,
+): CoreV2CommandTargetState {
+  if (
+    current === null ||
+    typeof current !== 'object' ||
+    current.schemaRevision !== CORE_V2_COMMAND_TARGET_REVISION ||
+    typeof current.commandId !== 'string' ||
+    !Array.isArray(current.targetIds) ||
+    !Array.isArray(current.statusTrace)
+  ) {
+    throw new TypeError('command target state is invalid');
+  }
+  if (!['pending', 'active', 'released'].includes(status)) {
+    throw new TypeError('command target status is unsupported');
+  }
+  const targetIds: string[] = [];
+  for (const [index, targetId] of (current.targetIds as readonly unknown[]).entries()) {
+    validateNonEmptyString(targetId, `command target ID ${index}`);
+    targetIds.push(targetId);
+  }
+  const statusTrace: CoreV2CommandTargetStatus[] = [];
+  for (const entry of current.statusTrace as readonly unknown[]) {
+    if (!['pending', 'active', 'released'].includes(String(entry))) {
+      throw new TypeError('command target status trace is invalid');
+    }
+    statusTrace.push(entry as CoreV2CommandTargetStatus);
+  }
+  statusTrace.push(status);
+  return Object.freeze({
+    schemaRevision: CORE_V2_COMMAND_TARGET_REVISION,
+    commandId: current.commandId,
+    targetIds: Object.freeze(targetIds),
+    status,
+    statusTrace: Object.freeze(statusTrace),
+  });
 }
 
 /**

@@ -71,11 +71,14 @@ export {
 } from './pointer-gesture';
 export type * from './pointer-gesture';
 export {
+  CORE_V2_COMMAND_TARGET_REVISION,
   CORE_V2_HOST_INTERACTION_REVISION,
   CoreV2HostInteractionAuthority,
   CoreV2InteractionModeAuthority,
+  advanceCoreV2CommandTargetState,
   coreV2OwnsKeyboardInput,
   coreV2TransformerHandlePropagationProbe,
+  createCoreV2CommandTargetState,
   createCoreV2LogicalPropagationTrace,
 } from './host-interaction';
 export type * from './host-interaction';

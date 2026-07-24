@@ -119,6 +119,11 @@ describe('Core v2 logical query and selection substrate', () => {
     expect(keys(index.query({ where: { ownerId: 'item-a', id: 'bar' } }))).toEqual([
       'component:item-a/bar',
     ]);
+    expect(index.target('item-a/bar')).toMatchObject({
+      key: 'component:item-a/bar',
+      ownerId: 'item-a',
+      id: 'bar',
+    });
     expect(keys(index.query({
       recursive: true,
       where: { type: 'bar' },
@@ -313,6 +318,15 @@ describe('Core v2 logical query and selection substrate', () => {
     expect(surfaces[0]?.selectionIds).toEqual([]);
 
     engine.loadDataset(QUERY_DATASET);
+    expect(engine.applySelection({
+      op: 'replace',
+      ids: ['item-a/bar'],
+      source: 'canvas',
+    })).toMatchObject({
+      changed: true,
+      current: ['item-a/bar'],
+    });
+    expect(surfaces[0]?.selectionIds).toEqual(['item-a/bar']);
     expect(engine.reuseQueryResult(oldResult, 'select')).toMatchObject({
       status: 'rejected',
       code: 'STALE_TARGET',

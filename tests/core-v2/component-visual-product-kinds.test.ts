@@ -99,6 +99,15 @@ describe('Core v2 component visual product kinds', () => {
       });
     expect(core.componentVisualProbe({ ownerId: 'item', componentId: 'missing' })).toBeNull();
 
+    core.selectSemantic(['item::bar:bar']);
+    expect(core.selection().refs.map((ref) => core.get(ref)?.id)).toEqual([
+      'item::bar:bar',
+    ]);
+    core.selectSemantic(['item/bar']);
+    expect(core.selection().refs.map((ref) => core.get(ref)?.id)).toEqual([
+      'item::bar:bar',
+    ]);
+
     const barRef = core.ref('item::bar:bar');
     const textRef = core.ref('item::text:label');
     expect(core.reconcile(componentKindsDataset(true), { animateBarChanges: false }).status)

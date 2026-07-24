@@ -339,6 +339,65 @@ describe('Core v2 host interaction substrate', () => {
     await expect(engine.destroy()).resolves.toBe(true);
     expect(engine.hostInteractionProbe().selectionHostListeners).toBe(0);
   });
+
+  it('freezes command targets across selection changes and rejects missing targets atomically', async () => {
+    const { engine } = await createEngine('host-command-targets');
+    engine.loadDataset(HOST_DATASET);
+    engine.applySelection({
+      op: 'replace',
+      ids: ['item-a', 'rect-b'],
+      source: 'external',
+    });
+
+    const opened = engine.snapshotCommandTargets('command-1');
+    expect(opened).toEqual({
+      schemaRevision: 'core-v2-command-target/1',
+      commandId: 'command-1',
+      targetIds: ['item-a', 'rect-b'],
+      status: null,
+      statusTrace: [],
+    });
+    expect(Object.isFrozen(opened.targetIds)).toBe(true);
+
+    engine.applySelection({ op: 'clear', source: 'external' });
+    const pending = engine.applyCommandTargetStatus(opened, 'pending');
+    expect(pending).toMatchObject({
+      status: 'applied',
+      code: null,
+      state: {
+        targetIds: ['item-a', 'rect-b'],
+        status: 'pending',
+        statusTrace: ['pending'],
+      },
+    });
+    if (pending.status !== 'applied') throw new Error('expected pending command state');
+
+    const rejected = engine.applyCommandTargetStatus(
+      pending.state,
+      'active',
+      'missing-target',
+    );
+    expect(rejected).toEqual({
+      status: 'rejected',
+      code: 'MISSING_TARGET',
+      state: pending.state,
+    });
+    expect(pending.state.statusTrace).toEqual(['pending']);
+
+    const active = engine.applyCommandTargetStatus(pending.state, 'active');
+    if (active.status !== 'applied') throw new Error('expected active command state');
+    const released = engine.applyCommandTargetStatus(active.state, 'released');
+    expect(released).toMatchObject({
+      status: 'applied',
+      state: {
+        targetIds: ['item-a', 'rect-b'],
+        status: 'released',
+        statusTrace: ['pending', 'active', 'released'],
+      },
+    });
+
+    await expect(engine.destroy()).resolves.toBe(true);
+  });
 });
 
 const HOST_DATASET = [
