@@ -48,9 +48,11 @@ import {
   CORE_V2_MUTATION_TRANSACTION_REVISION,
   CORE_V2_POINTER_GESTURE_REVISION,
   CORE_V2_PRESENTATION_POLICY_REVISION,
+  CORE_V2_SELECTION_TRANSFORMER_REVISION,
   CoreV2Engine,
   CoreV2HostInteractionAuthority,
   CoreV2PointerGestureAuthority,
+  CoreV2TransformerGestureAuthority,
   createCoreV2,
   hitCoreV2BoxRegion,
   hitCoreV2PaintRegion,
@@ -227,6 +229,23 @@ const refreshAfter = engine.snapshot();
 const overlayHistoryAfter = engine.historyState();
 engine.loadDataset(hierarchyInput, { datasetRef: 'packed-hierarchy' });
 engine.select(['rect-b']);
+const transformerSubset = engine.transformableSubset(['rect-b']);
+const transformerVisual = engine.setSelectionVisualPolicy({
+  selectionIds: ['rect-b'],
+  mode: 'all',
+  handleCssPx: 8,
+  strokeCssPx: 1,
+});
+const transformerHandles = engine.transformerHandleProbe({
+  selectionIds: ['rect-b'],
+  cornerCssPx: 8,
+  edgeStripCssPx: 6,
+  rotateZoneCssPx: 12,
+});
+engine.beginTransformerHandleGesture(91, 'se');
+const transformerSelectionRoute = engine.routeTransformerInput(91, 'selection');
+const transformerDeliveryRoute = engine.routeTransformerInput(91, 'transform');
+const transformerCompletion = engine.completeTransformerHandleGesture(91);
 const hierarchyMove = engine.transact({
   strict: true,
   actionId: 'packed-structure-1',
@@ -286,6 +305,7 @@ const hierarchyCycleRevisionDelta =
 const interactionOwnership = engine.interactionOwnershipProbe();
 const engineDestroyResult = await engine.destroy();
 const hostInteractionAfterDestroy = engine.hostInteractionProbe();
+const transformerAfterDestroy = engine.transformerGestureProbe();
 const engineAfterDestroy = engine.snapshot();
 window.__PACKAGE_RESULT__ = {
   immutable: before === JSON.stringify(input),
@@ -303,6 +323,7 @@ window.__PACKAGE_RESULT__ = {
   hostInteractionRevision: CORE_V2_HOST_INTERACTION_REVISION,
   pointerRevision: CORE_V2_POINTER_GESTURE_REVISION,
   presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
+  selectionTransformerRevision: CORE_V2_SELECTION_TRANSFORMER_REVISION,
   pointerPackage: {
     eventTypes: pointerClick.events.map(({ type }) => type),
     clickTarget: pointerClick.events.at(-1)?.payload.target?.id ?? null,
@@ -326,6 +347,19 @@ window.__PACKAGE_RESULT__ = {
     },
     destroyed: hostInteractionAfterDestroy.destroyed,
     destroyedOwnerCount: hostInteractionAfterDestroy.mode.activeOwnerCount,
+  },
+  selectionTransformerPackage: {
+    authorityType: typeof CoreV2TransformerGestureAuthority,
+    subsetIndicator: transformerSubset.subsetIndicator,
+    activeResizeHandles: transformerSubset.activeResizeHandles,
+    overlayCount: transformerVisual?.overlayCount ?? 0,
+    visibleCorners: transformerHandles?.visibleCorners ?? [],
+    selectionRoute: transformerSelectionRoute,
+    transformRoute: transformerDeliveryRoute,
+    completed: transformerCompletion.completed,
+    settledActiveGestureCount: transformerCompletion.probe.activeGestureCount,
+    destroyed: transformerAfterDestroy.destroyed,
+    destroyedActiveGestureCount: transformerAfterDestroy.activeGestureCount,
   },
   emptyBulkStatus: emptyBulk.status,
   emptyBulkSceneRevision: emptyBulk.revisions.sceneRevision,
@@ -405,8 +439,10 @@ const {
   CORE_V2_MUTATION_TRANSACTION_REVISION,
   CORE_V2_POINTER_GESTURE_REVISION,
   CORE_V2_PRESENTATION_POLICY_REVISION,
+  CORE_V2_SELECTION_TRANSFORMER_REVISION,
   CoreV2PointerGestureAuthority,
   CoreV2HostInteractionAuthority,
+  CoreV2TransformerGestureAuthority,
   parsePatchMapV010,
   planCoreV2MutationTransaction,
 } = require('@conalog/patch-map/core-v2');
@@ -419,6 +455,8 @@ process.stdout.write(JSON.stringify({
   pointerAuthorityType: typeof CoreV2PointerGestureAuthority,
   hostInteractionRevision: CORE_V2_HOST_INTERACTION_REVISION,
   hostInteractionAuthorityType: typeof CoreV2HostInteractionAuthority,
+  selectionTransformerRevision: CORE_V2_SELECTION_TRANSFORMER_REVISION,
+  selectionTransformerAuthorityType: typeof CoreV2TransformerGestureAuthority,
   presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
   plannerType: typeof planCoreV2MutationTransaction,
 }));
@@ -477,6 +515,7 @@ process.stdout.write(JSON.stringify({
   if (esm.transactionRevision !== 'core-v2-mutation-transaction/1') failures.push('packed ESM transaction revision export failed');
   if (esm.pointerRevision !== 'core-v2-pointer-gesture/1') failures.push('packed ESM pointer revision export failed');
   if (esm.hostInteractionRevision !== 'core-v2-host-interaction/1') failures.push('packed ESM host interaction revision export failed');
+  if (esm.selectionTransformerRevision !== 'core-v2-selection-transformer/1') failures.push('packed ESM selection transformer revision export failed');
   if (
     JSON.stringify(esm.pointerPackage?.eventTypes) !== JSON.stringify(['up', 'click']) ||
     esm.pointerPackage?.clickTarget !== 'consumer-item' ||
@@ -509,6 +548,23 @@ process.stdout.write(JSON.stringify({
     esm.hostInteractionPackage?.destroyed !== true ||
     esm.hostInteractionPackage?.destroyedOwnerCount !== 0
   ) failures.push('packed ESM host interaction exports failed');
+  if (
+    esm.selectionTransformerPackage?.authorityType !== 'function' ||
+    JSON.stringify(esm.selectionTransformerPackage?.subsetIndicator) !==
+      JSON.stringify({ selected: 1, transformable: 1, resizable: 1 }) ||
+    esm.selectionTransformerPackage?.activeResizeHandles !== true ||
+    esm.selectionTransformerPackage?.overlayCount !== 1 ||
+    JSON.stringify(esm.selectionTransformerPackage?.visibleCorners) !==
+      JSON.stringify(['nw', 'ne', 'sw', 'se']) ||
+    esm.selectionTransformerPackage?.selectionRoute?.owner !== 'transformer' ||
+    esm.selectionTransformerPackage?.selectionRoute?.deliveryCount !== 0 ||
+    esm.selectionTransformerPackage?.transformRoute?.owner !== 'transformer' ||
+    esm.selectionTransformerPackage?.transformRoute?.deliveryCount !== 1 ||
+    esm.selectionTransformerPackage?.completed !== true ||
+    esm.selectionTransformerPackage?.settledActiveGestureCount !== 0 ||
+    esm.selectionTransformerPackage?.destroyed !== true ||
+    esm.selectionTransformerPackage?.destroyedActiveGestureCount !== 0
+  ) failures.push('packed ESM selection transformer exports failed');
   if (esm.presentationRevision !== 'core-v2-presentation-policy/1') failures.push('packed ESM presentation revision export failed');
   if (esm.emptyBulkStatus !== 'unchanged' || esm.emptyBulkSceneRevision !== 1) failures.push('packed ESM empty bulk target-set semantics failed');
   if (esm.transactionStatus !== 'committed' || esm.transactionSceneRevision !== 2 || esm.transactionBarHeight !== 30) failures.push('packed ESM engine transaction failed');
@@ -575,6 +631,8 @@ process.stdout.write(JSON.stringify({
     cjs.pointerAuthorityType !== 'function' ||
     cjs.hostInteractionRevision !== 'core-v2-host-interaction/1' ||
     cjs.hostInteractionAuthorityType !== 'function' ||
+    cjs.selectionTransformerRevision !== 'core-v2-selection-transformer/1' ||
+    cjs.selectionTransformerAuthorityType !== 'function' ||
     cjs.presentationRevision !== 'core-v2-presentation-policy/1' ||
     cjs.plannerType !== 'function'
   ) failures.push('packed CJS transaction/presentation exports failed');

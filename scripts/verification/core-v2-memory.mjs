@@ -60,6 +60,8 @@ try {
       let error = null;
       let beforeDestroy = null;
       let afterDestroy = null;
+      let transformerBeforeDestroy = null;
+      let transformerAfterDestroy = null;
       let snapshot = null;
       let observedEventCount = 0;
       let hostPublicationCount = 0;
@@ -109,9 +111,12 @@ try {
           ids: ['rect-b'],
           source: 'canvas',
         });
+        engine.beginTransformerHandleGesture(100 + index, 'se');
+        transformerBeforeDestroy = engine.transformerGestureProbe();
         beforeDestroy = engine.hostInteractionProbe();
         await engine.destroy();
         afterDestroy = engine.hostInteractionProbe();
+        transformerAfterDestroy = engine.transformerGestureProbe();
         snapshot = engine.snapshot();
       } catch (caught) {
         error = caught instanceof Error ? caught.message : String(caught);
@@ -127,6 +132,8 @@ try {
         hostPublicationCount,
         beforeDestroy,
         afterDestroy,
+        transformerBeforeDestroy,
+        transformerAfterDestroy,
         snapshot,
         retainedCanvasCount: host.querySelectorAll('canvas').length,
       });
@@ -172,6 +179,11 @@ try {
       trial.afterDestroy?.selectionHostListeners !== 0 ||
       trial.afterDestroy?.mode?.activeOwnerCount !== 0 ||
       trial.afterDestroy?.destroyed !== true ||
+      trial.transformerBeforeDestroy?.activeGestureCount !== 1 ||
+      trial.transformerBeforeDestroy?.pointerCaptureCount !== 1 ||
+      trial.transformerAfterDestroy?.activeGestureCount !== 0 ||
+      trial.transformerAfterDestroy?.pointerCaptureCount !== 0 ||
+      trial.transformerAfterDestroy?.destroyed !== true ||
       trial.snapshot?.resources?.canvasCount !== 0 ||
       trial.snapshot?.resources?.subscriptions?.active !== 0 ||
       trial.retainedCanvasCount !== 0
