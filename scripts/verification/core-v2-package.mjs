@@ -310,11 +310,25 @@ const historyCompanionBefore = engine.setHistoryCompanion({
 const historyTransaction = engine.transact({
   strict: true,
   actionId: 'packed-history',
-  operations: [{
-    op: 'merge',
-    target: { kind: 'element', id: 'group-a' },
-    changes: [{ path: ['attrs', 'x'], value: 12 }],
-  }],
+  operations: [
+    {
+      op: 'add',
+      parent: { kind: 'element', id: 'group-b' },
+      collection: 'children',
+      index: 0,
+      value: {
+        type: 'rect',
+        id: 'packed-history-added',
+        size: { width: 16, height: 12 },
+        fill: '#334455',
+      },
+    },
+    {
+      op: 'merge',
+      target: { kind: 'element', id: 'group-a' },
+      changes: [{ path: ['attrs', 'x'], value: 12 }],
+    },
+  ],
   history: {
     selectedIds: ['rect-b'],
     mode: 'transform',
@@ -324,9 +338,17 @@ const historyTransaction = engine.transact({
 const historyInspection = engine.historyInspection();
 const historyUndo = engine.undo();
 const historyCompanionAfterUndo = engine.historyCompanionState();
+const historyAddedAfterUndo = engine.resolveTarget({
+  kind: 'element',
+  id: 'packed-history-added',
+});
 await engine.publishFrame(36);
 const historyRedo = engine.redo();
 const historyCompanionAfterRedo = engine.historyCompanionState();
+const historyAddedAfterRedo = engine.resolveTarget({
+  kind: 'element',
+  id: 'packed-history-added',
+});
 await engine.publishFrame(40);
 const historyInvalidCapacity = engine.setHistoryCapacity(-1);
 const historyProtectedShortcut = engine.handleHistoryShortcut({
@@ -456,10 +478,12 @@ window.__PACKAGE_RESULT__ = {
     undoDirection: historyUndo.direction,
     undoActionId: historyUndo.actionId,
     companionAfterUndo: historyCompanionAfterUndo,
+    addedPresentAfterUndo: historyAddedAfterUndo !== null,
     redoStatus: historyRedo.status,
     redoDirection: historyRedo.direction,
     redoActionId: historyRedo.actionId,
     companionAfterRedo: historyCompanionAfterRedo,
+    addedTypeAfterRedo: historyAddedAfterRedo?.value?.type ?? null,
     invalidCapacityStatus: historyInvalidCapacity.status,
     invalidCapacityCode: historyInvalidCapacity.code,
     protectedShortcut: historyProtectedShortcut,
@@ -690,10 +714,12 @@ process.stdout.write(JSON.stringify({
     esm.historyPackage?.undoDirection !== 'undo' ||
     esm.historyPackage?.undoActionId !== 'packed-history' ||
     esm.historyPackage?.companionAfterUndo?.mode !== 'select' ||
+    esm.historyPackage?.addedPresentAfterUndo !== false ||
     esm.historyPackage?.redoStatus !== 'committed' ||
     esm.historyPackage?.redoDirection !== 'redo' ||
     esm.historyPackage?.redoActionId !== 'packed-history' ||
     esm.historyPackage?.companionAfterRedo?.mode !== 'transform' ||
+    esm.historyPackage?.addedTypeAfterRedo !== 'rect' ||
     esm.historyPackage?.invalidCapacityStatus !== 'rejected' ||
     esm.historyPackage?.invalidCapacityCode !== 'INVALID_VALUE' ||
     esm.historyPackage?.protectedShortcut?.handled !== false ||

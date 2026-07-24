@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-24T02:33:01.998Z",
+  "generatedAt": "2026-07-24T03:22:16.239Z",
   "package": "@conalog/patch-map/core-v2",
   "pixi": "8.19.0",
   "esm": {
@@ -172,6 +172,7 @@
           "dirty": false
         }
       },
+      "addedPresentAfterUndo": false,
       "redoStatus": "committed",
       "redoDirection": "redo",
       "redoActionId": "packed-history",
@@ -188,6 +189,7 @@
           "dirty": true
         }
       },
+      "addedTypeAfterRedo": "rect",
       "invalidCapacityStatus": "rejected",
       "invalidCapacityCode": "INVALID_VALUE",
       "protectedShortcut": {
