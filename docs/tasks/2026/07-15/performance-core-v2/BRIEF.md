@@ -18,13 +18,13 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 
 - Coverage is 104 executable routes, 103 actual-producing routes, 69 explicit stubs, 376 executable actions, and 210 action types.
 - `ERR-004`, `ERR-006`, `PRF-007`, `CSM-017`, and `CSM-036` share one lifecycle/interruption product adapter, handler, fold, and five focused Lab routes. Root pointer `up`/`up-outside` now commits an owned transformer edit once; `cancel`/`leave` reverts it and releases capture/listeners without stale completion.
-- `PRF-007` executes ten production-shaped initialize/load/interact/destroy cycles. Its forced-GC growth is measured only after executor references and the cached input leave scope; raw heap samples stay in the approved volatile timing domain while the independently compared no-leak result remains expected-blind.
+- Product checkpoint `ce61c67` adds an exact published-tuple Pixi extraction boundary. It captures PNG through the renderer, preserves the authoritative canvas object, reports CSS/backing size and zero Core-owned temporary image/render-texture retention, rejects stale or replaced surfaces, and drains pending work on failure.
 - Core v2 verification passes 122 files/1,126 tests, lint, typecheck, both builds, and canonical verification. The five new headless Chromium routes complete first/repeat/fresh at 68/68 matches per session with deterministic actuals, canvas cleanup zero, and zero console/page/network/external-fixture errors. The prior 84-route full checkpoint and packed ESM/CJS proof remain current because their covered paths did not change.
-- The refreshed 2+7 lifecycle proof covers 5,099 entities with retained-heap median/p95 79,375/406,615 bytes and releases DOM, scheduler, renderer, and pending work. The prior unfavorable transaction performance checkpoint remains current because this tranche did not change the measured hot path. Final independent release review remains pending.
+- The extraction checkpoint passes scoped lint, typecheck, and 15 targeted extraction/lifecycle tests. It is not yet connected to contract automation or Lab routes, so coverage counts and prior browser/package/memory/performance evidence remain unchanged; final independent release review remains pending.
 
 # Next Step
 
-Resume from the completed lifecycle/interruption checkpoint by inventorying the next 5–10 not-yet-executable cases around one reusable product substrate. Connect declarative actions, one expected-blind fold/runtime, and the same focused routes before a single risk-based tranche gate; do not repeat package, memory, full-browser, or performance gates unless their covered paths change.
+Resume by connecting `DET-004`, `PIX-004`, `PRF-008`, `CSM-035`, and `CSM-038` to one shared expected-blind export/extraction runtime and the same focused Lab shell, using `ce61c67` as the product substrate. Then run the tranche-level gates; package and 2+7 memory become necessary only after the public/runtime ownership boundary is connected.
 
 # Working Boundary
 
