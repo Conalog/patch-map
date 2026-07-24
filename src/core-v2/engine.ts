@@ -410,6 +410,20 @@ export interface CoreV2WorldTransformInput {
 
 export type CoreV2WorldTransformState = CoreV2WorldTransformInput;
 
+export interface CoreV2ViewportTransformProbe {
+  readonly schemaRevision: typeof CORE_V2_VIEWPORT_REVISION;
+  readonly world: CoreV2WorldTransformState;
+  readonly pointerTransformRevision: number;
+  readonly resizePolicyApplicationCount: number;
+  readonly blackFrameCount: number;
+  readonly pendingResizeFrame: boolean;
+  readonly surface: Readonly<{
+    readonly canvasCount: number;
+    readonly cssSize: readonly [number, number];
+    readonly backingSize: readonly [number, number];
+  }>;
+}
+
 export interface CoreV2SurfaceView {
   readonly x: number;
   readonly y: number;
@@ -1568,6 +1582,10 @@ export class CoreV2Engine {
   private worldRotationDegrees = 0;
   private worldFlipX = false;
   private worldFlipY = false;
+  private viewportPointerTransformRevision = 0;
+  private viewportResizePolicyApplicationCount = 0;
+  private viewportBlackFrameCount = 0;
+  private viewportResizePendingFrame = false;
   private assetSession: CoreV2AssetSession | null = null;
   private requiredAssetAcquisitions: CoreV2AssetAcquisition[] = [];
 
@@ -2848,6 +2866,16 @@ export class CoreV2Engine {
       this.emit('diagnostic', diagnostic);
       throw new CoreV2EngineError(diagnostic);
     }
+    if (this.viewportResizePendingFrame) {
+      const visiblePrimitiveCount = surface.debugSnapshot().visiblePrimitiveCount;
+      if (
+        (this.materialized?.rootIds.length ?? 0) > 0 &&
+        visiblePrimitiveCount === 0
+      ) {
+        this.viewportBlackFrameCount += 1;
+      }
+      this.viewportResizePendingFrame = false;
+    }
     this.frameRevision += 1;
     this.publishedTuple = Object.freeze({
       scene: this.sceneRevision,
@@ -2892,11 +2920,32 @@ export class CoreV2Engine {
     this.viewportPixelRatio = pixelRatio;
     surface.setView(this.resolvedSurfaceView());
     this.viewRevision += 1;
+    this.viewportPointerTransformRevision = this.viewRevision;
+    this.viewportResizePolicyApplicationCount += 1;
+    this.viewportResizePendingFrame = true;
     return true;
   }
 
   public viewportProbe(): CoreV2ViewportState {
     return this.viewportState();
+  }
+
+  public viewportTransformProbe(): CoreV2ViewportTransformProbe {
+    const surface = this.requireSurface('viewportTransformProbe');
+    const debug = surface.debugSnapshot();
+    return Object.freeze({
+      schemaRevision: CORE_V2_VIEWPORT_REVISION,
+      world: this.worldTransformState(),
+      pointerTransformRevision: this.viewportPointerTransformRevision,
+      resizePolicyApplicationCount: this.viewportResizePolicyApplicationCount,
+      blackFrameCount: this.viewportBlackFrameCount,
+      pendingResizeFrame: this.viewportResizePendingFrame,
+      surface: Object.freeze({
+        canvasCount: surface.canvasCount,
+        cssSize: debug.cssSize,
+        backingSize: debug.backingSize,
+      }),
+    });
   }
 
   public panViewport(
@@ -3279,16 +3328,18 @@ export class CoreV2Engine {
       throw new TypeError('flipX and flipY must be booleans');
     }
     const surface = this.requireSurface('setWorldTransform');
-    const normalizedRotation = normalizeDegrees(input.rotationDegrees);
+    const rotationDegrees = Object.is(input.rotationDegrees, -0)
+      ? 0
+      : input.rotationDegrees;
     if (
-      normalizedRotation === this.worldRotationDegrees &&
+      rotationDegrees === this.worldRotationDegrees &&
       input.flipX === this.worldFlipX &&
       input.flipY === this.worldFlipY
     ) {
       return this.worldTransformState();
     }
     const next = Object.freeze({
-      rotationDegrees: normalizedRotation,
+      rotationDegrees,
       flipX: input.flipX,
       flipY: input.flipY,
     });
@@ -3297,6 +3348,7 @@ export class CoreV2Engine {
     this.worldFlipX = next.flipX;
     this.worldFlipY = next.flipY;
     this.viewRevision += 1;
+    this.viewportPointerTransformRevision = this.viewRevision;
     return this.worldTransformState();
   }
 
@@ -5277,6 +5329,7 @@ export class CoreV2Engine {
     this.viewportCenterWorld = centerWorld;
     this.viewportScale = input.scale;
     this.viewRevision += 1;
+    this.viewportPointerTransformRevision = this.viewRevision;
     const result = Object.freeze({
       changed: true,
       blocked: false,
@@ -5591,6 +5644,7 @@ export class CoreV2Engine {
       this.viewportCenterWorld = centerWorld;
       this.viewportScale = scale;
       this.viewRevision += 1;
+      this.viewportPointerTransformRevision = this.viewRevision;
     }
     const result = Object.freeze({
       changed,
@@ -5665,6 +5719,10 @@ export class CoreV2Engine {
     this.viewportSettledPublicationCount = 0;
     this.viewportPersistenceWriteCount = 0;
     this.viewportSuppressedEquivalentSaveCount = 0;
+    this.viewportPointerTransformRevision = this.viewRevision;
+    this.viewportResizePolicyApplicationCount = 0;
+    this.viewportBlackFrameCount = 0;
+    this.viewportResizePendingFrame = false;
   }
 
   private orderedEnabledViewportPolicies(): readonly CoreV2ViewportPolicy[] {

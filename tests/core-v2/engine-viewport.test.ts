@@ -174,6 +174,85 @@ describe('CoreV2Engine viewport authority', () => {
     )).toBe(true);
   });
 
+  it('preserves authored world angles and correlates each changed resize to one current pointer transform', async () => {
+    const { engine, surface } = await createEngine(engines, 'viewport-world-transform');
+    engine.loadDataset(catalogProfiles.datasets['all-kinds-scene']);
+    engine.setViewport({ centerWorld: [200, 150], scale: 1 });
+
+    expect(engine.setWorldTransform({
+      rotationDegrees: 90,
+      flipX: false,
+      flipY: false,
+    })).toEqual({
+      rotationDegrees: 90,
+      flipX: false,
+      flipY: false,
+    });
+    expect(engine.setWorldTransform({
+      rotationDegrees: 45,
+      flipX: true,
+      flipY: false,
+    })).toEqual({
+      rotationDegrees: 45,
+      flipX: true,
+      flipY: false,
+    });
+    expect(engine.setWorldTransform({
+      rotationDegrees: 450,
+      flipX: true,
+      flipY: true,
+    })).toEqual({
+      rotationDegrees: 450,
+      flipX: true,
+      flipY: true,
+    });
+    expect(engine.viewportProbe().centerWorld).toEqual([200, 150]);
+    expect(engine.screenToWorld({ x: 400, y: 300 })).toEqual({ x: 200, y: 150 });
+
+    const beforeInvalid = engine.viewportTransformProbe();
+    expect(() => engine.setWorldTransform({
+      rotationDegrees: Number.NaN,
+      flipX: false,
+      flipY: false,
+    })).toThrow('rotationDegrees must be finite');
+    expect(engine.viewportTransformProbe()).toEqual(beforeInvalid);
+
+    const setViewCountBefore = surface.setViewCount;
+    const resizeProbeBefore = engine.viewportTransformProbe();
+    expect(engine.resize(1024, 768, 2)).toBe(true);
+    expect(surface.setViewCount - setViewCountBefore).toBe(1);
+    expect(engine.viewportTransformProbe()).toMatchObject({
+      pointerTransformRevision: engine.snapshot().revisions.viewRevision,
+      resizePolicyApplicationCount:
+        resizeProbeBefore.resizePolicyApplicationCount + 1,
+      blackFrameCount: 0,
+      pendingResizeFrame: true,
+      surface: {
+        canvasCount: 1,
+        cssSize: [1024, 768],
+        backingSize: [2048, 1536],
+      },
+    });
+
+    engine.publishFrame(1);
+    expect(engine.viewportTransformProbe()).toMatchObject({
+      pointerTransformRevision: engine.snapshot().revisions.viewRevision,
+      blackFrameCount: 0,
+      pendingResizeFrame: false,
+    });
+    const afterPublishedResize = engine.viewportTransformProbe();
+    expect(engine.resize(1024, 768, 2)).toBe(false);
+    expect(engine.viewportTransformProbe()).toEqual(afterPublishedResize);
+
+    surface.visiblePrimitiveCount = 0;
+    expect(engine.resize(900, 700, 1)).toBe(true);
+    engine.publishFrame(2);
+    expect(engine.viewportTransformProbe()).toMatchObject({
+      blackFrameCount: 1,
+      pendingResizeFrame: false,
+    });
+  });
+
   it('settles and serializes once, restores valid state, and falls back from invalid state', async () => {
     const first = await createEngine(engines, 'viewport-persist-1');
     first.engine.loadDataset(catalogProfiles.datasets['all-kinds-scene']);
@@ -348,6 +427,8 @@ class ViewportSurface implements CoreV2EngineSurface {
   public canvasCount = 1;
   public destroyed = false;
   public cancelCount = 0;
+  public setViewCount = 0;
+  public visiblePrimitiveCount = WORLD_ENTITIES.length;
   private width: number;
   private height: number;
   private pixelRatio: number;
@@ -381,6 +462,7 @@ class ViewportSurface implements CoreV2EngineSurface {
 
   public setView(view: CoreV2SurfaceView): void {
     this.view = Object.freeze({ ...view });
+    this.setViewCount += 1;
   }
 
   public setViewportGesturePolicies(policies: readonly CoreV2ViewportPolicy[]): void {
@@ -512,7 +594,7 @@ class ViewportSurface implements CoreV2EngineSurface {
       activeAnimationCount: 0,
       activeGestureCount: 0,
       renderCommandCount: 1,
-      visiblePrimitiveCount: WORLD_ENTITIES.length,
+      visiblePrimitiveCount: this.visiblePrimitiveCount,
     });
   }
 

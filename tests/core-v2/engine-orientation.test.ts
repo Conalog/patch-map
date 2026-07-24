@@ -9,7 +9,7 @@ import {
 } from '../../src/core-v2/engine';
 
 describe('CoreV2Engine world orientation API', () => {
-  it('keeps the viewport center stable and revisions only effective changes', async () => {
+  it('keeps the viewport center stable while preserving observable authored angles', async () => {
     const surface = new OrientationSurface();
     const engine = new CoreV2Engine({ surfaceFactory: () => Promise.resolve(surface) });
     await engine.initialize({ instanceId: 'orientation', width: 200, height: 100 });
@@ -26,8 +26,20 @@ describe('CoreV2Engine world orientation API', () => {
     expect(toScreen([60, 40], surface.view)).toEqual([100, 70]);
     expect(engine.snapshot().revisions.viewRevision).toBe(before + 1);
 
+    expect(engine.setWorldTransform({
+      rotationDegrees: 450,
+      flipX: true,
+      flipY: false,
+    })).toEqual({
+      rotationDegrees: 450,
+      flipX: true,
+      flipY: false,
+    });
+    expect(surface.view).toMatchObject({ rotation: 450, flipX: true, scale: 2 });
+    expect(toScreen([50, 40], surface.view)).toEqual([100, 50]);
+    expect(engine.snapshot().revisions.viewRevision).toBe(before + 2);
     engine.setWorldTransform({ rotationDegrees: 450, flipX: true, flipY: false });
-    expect(engine.snapshot().revisions.viewRevision).toBe(before + 1);
+    expect(engine.snapshot().revisions.viewRevision).toBe(before + 2);
     await engine.destroy();
   });
 
