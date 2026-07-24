@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-23T13:13:38.499Z",
+  "generatedAt": "2026-07-24T01:23:56.663Z",
   "package": "@conalog/patch-map/core-v2",
   "pixi": "8.19.0",
   "esm": {
@@ -19,6 +19,7 @@
     "hostInteractionRevision": "core-v2-host-interaction/1",
     "pointerRevision": "core-v2-pointer-gesture/1",
     "presentationRevision": "core-v2-presentation-policy/1",
+    "selectionTransformerRevision": "core-v2-selection-transformer/1",
     "pointerPackage": {
       "eventTypes": [
         "up",
@@ -59,6 +60,34 @@
       },
       "destroyed": true,
       "destroyedOwnerCount": 0
+    },
+    "selectionTransformerPackage": {
+      "authorityType": "function",
+      "subsetIndicator": {
+        "selected": 1,
+        "transformable": 1,
+        "resizable": 1
+      },
+      "activeResizeHandles": true,
+      "overlayCount": 1,
+      "visibleCorners": [
+        "nw",
+        "ne",
+        "sw",
+        "se"
+      ],
+      "selectionRoute": {
+        "owner": "transformer",
+        "deliveryCount": 0
+      },
+      "transformRoute": {
+        "owner": "transformer",
+        "deliveryCount": 1
+      },
+      "completed": true,
+      "settledActiveGestureCount": 0,
+      "destroyed": true,
+      "destroyedActiveGestureCount": 0
     },
     "emptyBulkStatus": "unchanged",
     "emptyBulkSceneRevision": 1,
@@ -138,6 +167,8 @@
     "pointerAuthorityType": "function",
     "hostInteractionRevision": "core-v2-host-interaction/1",
     "hostInteractionAuthorityType": "function",
+    "selectionTransformerRevision": "core-v2-selection-transformer/1",
+    "selectionTransformerAuthorityType": "function",
     "presentationRevision": "core-v2-presentation-policy/1",
     "plannerType": "function"
   },

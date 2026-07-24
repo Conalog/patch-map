@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-23T13:15:08.040Z",
+  "generatedAt": "2026-07-24T01:24:19.108Z",
   "workload": {
     "sourceItems": 1000,
     "expandedEntities": 5099
@@ -61,6 +61,34 @@
           "paused": false,
           "destroyed": true
         },
+        "destroyed": true
+      },
+      "transformerBeforeDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 1,
+        "pointerCaptureCount": 1,
+        "activePointerId": 100,
+        "activeHandle": "se",
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
+        "destroyed": false
+      },
+      "transformerAfterDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0,
+        "activePointerId": null,
+        "activeHandle": null,
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
         "destroyed": true
       },
       "snapshot": {
@@ -189,6 +217,34 @@
         },
         "destroyed": true
       },
+      "transformerBeforeDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 1,
+        "pointerCaptureCount": 1,
+        "activePointerId": 101,
+        "activeHandle": "se",
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
+        "destroyed": false
+      },
+      "transformerAfterDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0,
+        "activePointerId": null,
+        "activeHandle": null,
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
+        "destroyed": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-1",
@@ -313,6 +369,34 @@
           "paused": false,
           "destroyed": true
         },
+        "destroyed": true
+      },
+      "transformerBeforeDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 1,
+        "pointerCaptureCount": 1,
+        "activePointerId": 102,
+        "activeHandle": "se",
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
+        "destroyed": false
+      },
+      "transformerAfterDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0,
+        "activePointerId": null,
+        "activeHandle": null,
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
         "destroyed": true
       },
       "snapshot": {
@@ -441,6 +525,34 @@
         },
         "destroyed": true
       },
+      "transformerBeforeDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 1,
+        "pointerCaptureCount": 1,
+        "activePointerId": 103,
+        "activeHandle": "se",
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
+        "destroyed": false
+      },
+      "transformerAfterDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0,
+        "activePointerId": null,
+        "activeHandle": null,
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
+        "destroyed": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-3",
@@ -565,6 +677,34 @@
           "paused": false,
           "destroyed": true
         },
+        "destroyed": true
+      },
+      "transformerBeforeDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 1,
+        "pointerCaptureCount": 1,
+        "activePointerId": 104,
+        "activeHandle": "se",
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
+        "destroyed": false
+      },
+      "transformerAfterDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0,
+        "activePointerId": null,
+        "activeHandle": null,
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
         "destroyed": true
       },
       "snapshot": {
@@ -693,6 +833,34 @@
         },
         "destroyed": true
       },
+      "transformerBeforeDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 1,
+        "pointerCaptureCount": 1,
+        "activePointerId": 105,
+        "activeHandle": "se",
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
+        "destroyed": false
+      },
+      "transformerAfterDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0,
+        "activePointerId": null,
+        "activeHandle": null,
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
+        "destroyed": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-5",
@@ -817,6 +985,34 @@
           "paused": false,
           "destroyed": true
         },
+        "destroyed": true
+      },
+      "transformerBeforeDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 1,
+        "pointerCaptureCount": 1,
+        "activePointerId": 106,
+        "activeHandle": "se",
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
+        "destroyed": false
+      },
+      "transformerAfterDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0,
+        "activePointerId": null,
+        "activeHandle": null,
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
         "destroyed": true
       },
       "snapshot": {
@@ -945,6 +1141,34 @@
         },
         "destroyed": true
       },
+      "transformerBeforeDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 1,
+        "pointerCaptureCount": 1,
+        "activePointerId": 107,
+        "activeHandle": "se",
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
+        "destroyed": false
+      },
+      "transformerAfterDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0,
+        "activePointerId": null,
+        "activeHandle": null,
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
+        "destroyed": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-7",
@@ -1071,6 +1295,34 @@
         },
         "destroyed": true
       },
+      "transformerBeforeDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 1,
+        "pointerCaptureCount": 1,
+        "activePointerId": 108,
+        "activeHandle": "se",
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
+        "destroyed": false
+      },
+      "transformerAfterDestroy": {
+        "schemaRevision": "core-v2-selection-transformer/1",
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0,
+        "activePointerId": null,
+        "activeHandle": null,
+        "selectionDeliveryCount": 0,
+        "panDeliveryCount": 0,
+        "hoverDeliveryCount": 0,
+        "contextMenuDeliveryCount": 0,
+        "transformDeliveryCount": 0,
+        "staleCompletionCount": 0,
+        "destroyed": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-8",
@@ -1146,22 +1398,22 @@
     }
   ],
   "jsHeap": {
-    "before": 6830884,
-    "after": 12995216,
-    "processDelta": 6164332,
+    "before": 6939508,
+    "after": 13113368,
+    "processDelta": 6173860,
     "samples": [
-      187299,
-      82471,
-      402027,
-      87483,
+      183199,
+      76939,
+      402783,
       0,
-      46475,
-      208499
+      13591,
+      46327,
+      207971
     ],
-    "median": 87483,
-    "p95": 402027,
-    "maximum": 402027,
-    "trend": 21200
+    "median": 76939,
+    "p95": 402783,
+    "maximum": 402783,
+    "trend": 24772
   },
   "dom": {
     "canvasCount": 0,
