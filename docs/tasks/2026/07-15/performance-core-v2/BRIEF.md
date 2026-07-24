@@ -13,20 +13,19 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 - Contract revision `core-v2-functional-contract/2026-07-16.2` contains 38 approved decisions, 135 capabilities, 38 journeys, 646 actions, and 1,388 assertions. Canonical verification and all 32 negative drift probes pass unchanged.
 - Core v2 uses a dense store, aggregate Mesh/asset/text/interaction layers, root-only event authority, one manual scheduler, and explicit scene-versus-frame publication. WebGL2 is mandatory; WebGPU and native Windows remain pending.
 - `DAT-008` truthfully stops at its malformed approved action. Nine immutable conflicts are observed and two `UPD-007` conflicts remain declared latent; none are hidden or aliased.
+- Default PATCH MAP loading remains compatibility-permissive for dangling relations, while an explicit strict load option performs exact duplicate/reference validation before publication and preserves the prior scene atomically on failure.
 
 # Current State
 
-- Coverage is 109 executable routes, 108 actual-producing routes, 64 explicit stubs, 396 executable actions, and 223 action types.
-- Product checkpoint `ce61c67` owns exact published-tuple Pixi PNG extraction; `7b3fda1` connects `DET-004`, `PIX-004`, `PRF-008`, `CSM-035`, and `CSM-038` through one expected-blind runtime and five focused Lab routes. Verification checkpoint `58f2b66` promotes the boundary through packed ESM/CJS, lifecycle memory, and six-scale performance proof.
-- Promotion gates pass: 123 files/1,138 Core v2 tests, full lint/typecheck, Core v2/Lab builds, canonical contract verification, and 94 headless routes first/repeat/fresh at 1,169/1,178 with only the nine known immutable conflicts. Console, page, network, and external-fixture errors are zero.
-- The 2+7 lifecycle run expands 1,000 items to 5,099 entities, retains median/p95 76,271/403,503 JS-heap bytes, and closes all nine extraction trials with zero canvas, renderer, subscription, or pending-work retention. Packed ESM captures the exact tuple on the authoritative canvas and packed CJS exposes the API.
-- Chromium 4× WebGL/SwiftShader extraction preserves every 2+7×10 raw sample. Total median/p95 is 1,127.3/1,151.2 ms at 100, 13,320.2/64,231.0 ms at 5,000, and 17,287.9/110,215.2 ms for production; the unfavorable large-scene outliers are retained. Core v1 has no comparable exact-tuple boundary, WebGPU was not run, and Windows native remains pending.
-- The next shared-runtime tranche is selected but not implemented: `ERR-001` plus `CSM-005/006/007/008` (21 approved actions). It extends the existing update/transaction runtime for real invalid-operation atomicity, host redraw/merge persistence, live-overlay ordering, and presentation/export isolation. `ERR-003` stays with the later asset/security tranche because it needs a controlled asset backend.
-- This pause checkpoint adds no product or contract changes. The worktree is clean, no child agent is active, and no worktree-owned browser, Vite, or test process remains.
+- Coverage is 114 executable routes, 113 actual-producing routes, 59 explicit stubs, 417 executable actions, and 229 action types.
+- Product commit `7a5027a` adds exact duplicate/reference diagnostics and opt-in strict pre-publication validation. Automation commit `2b59038` connects `ERR-001` and `CSM-005/006/007/008` through the shared expected-blind update runtime and five focused Lab routes; approved expected evidence is unchanged.
+- Promotion gates pass 157 files/1,389 Core v2 tests, full lint/typecheck, Core v2/Lab builds, and canonical 38-decision/32-negative/173-record verification. The changed five routes pass targeted headless first/repeat/fresh/destroy at 89/89 with zero console, page, network, or external-fixture errors.
+- The focused browser inventory is now 99 routes and 1,267 assertions, with 1,258 expected passes and the same nine observed conflicts; the full 99-route matrix was not repeated. Packed ESM/CJS directly proves the strict validator, exact `MISSING_TARGET` failure, atomic state preservation, and public export.
+- The 2+7 memory and performance matrices were not repeated because renderer/resource/destroy ownership and measured hot paths did not change. `ERR-003` remains with the controlled asset/security tranche. This checkpoint pauses before selection/host consumers; no child agent is active.
 
 # Next Step
 
-After restart, implement `ERR-001` and `CSM-005/006/007/008` by extending the shared update/transaction product adapter, expected-blind handler/fold/runtime, and declarative focused Lab registration. Start with targeted tests, scoped lint, and typecheck; defer full/headless/package/memory/performance gates until the connected tranche or an affected risk boundary requires them.
+After restart, implement `CSM-011/012/015/016/020/021` as one 32-action selection/host-interaction tranche using the existing pointer, host-interaction, and selection substrate plus declarative action/probe mappings. Begin with targeted shared-runtime tests, scoped lint, typecheck, and six focused headless routes; run expensive gates only if this tranche changes their owning risk boundary.
 
 # Working Boundary
 

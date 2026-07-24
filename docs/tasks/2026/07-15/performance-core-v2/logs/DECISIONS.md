@@ -189,3 +189,9 @@
 - Decision: Preserve the finite authored angle in Engine state and pass it through the common affine surface; use one read-only viewport-transform probe for current world state, pointer-transform revision, resize-policy applications, CSS/backing dimensions, canvas ownership, and black-frame accounting.
 - Why: Separating authored state from equivalent trigonometric output satisfies exact contract observability while keeping render, inverse hit, focus, fit, and transformer geometry on the existing aggregate transform authority.
 - Impact: `VIE-005/006/007` add only scalar Engine observations and no per-entity node, listener, ticker, closure, resource owner, or new frame loop. Changed resize applies the center policy once and the next published frame closes the pending-resize observation.
+
+**2026-07-24**
+- Background: Approved error and consumer cases need exact duplicate/dangling-reference failures, while the existing PATCH MAP direct-input boundary remains compatibility-permissive for relations that cannot be projected.
+- Decision: Keep default loads permissive and add an explicit strict pre-publication reference-validation option shared by synchronous and asynchronous Engine loads; export the same validator for direct consumers.
+- Why: Opt-in strictness gives hosts deterministic exact codes and atomic refusal without silently changing established default load behavior or letting a failed candidate publish partial state.
+- Impact: Strict duplicate and missing-target failures preserve the prior scene, hash, revision, and dataset reference; packed ESM/CJS consumers can probe the public boundary, while default parsing continues to report omitted dangling relations.
