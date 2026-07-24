@@ -47,6 +47,8 @@ describe('Core v2 extraction verification scripts', () => {
     expect(packageSource).toContain('CORE_V2_PACKAGE_ARTIFACT_DIR');
     expect(packageSource).toContain('engine.extractPublishedScene({');
     expect(packageSource).toContain('extractionType: typeof CoreV2Engine.prototype.extractPublishedScene');
+    expect(packageSource).toContain('validateCoreV2DatasetReferences(engine.exportDataset())');
+    expect(packageSource).toContain("strictReferenceValidatorType: typeof validateCoreV2DatasetReferences");
     expect(memorySource).toContain('CORE_V2_MEMORY_ARTIFACT_DIR');
     expect(memorySource).toContain('engine.extractPublishedScene({');
     expect(memorySource).toContain('trial.extractionBeforeDestroy?.pendingWorkAfter !== 0');

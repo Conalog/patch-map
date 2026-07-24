@@ -124,6 +124,7 @@ import type {
 import { createCoreV2LayoutOrderRuntime } from './layout-order-runtime';
 import { createCoreV2PresentationDynamicsRuntime } from './presentation-dynamics-runtime';
 import {
+  CORE_V2_UPDATE_TRANSACTIONS_CASE_IDS,
   createCoreV2UpdateTransactionsRuntime,
   type CoreV2UpdateTransactionsCaseId,
 } from './update-transactions-runtime';
@@ -477,21 +478,9 @@ const RENDER_FOUNDATION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
   'REN-003',
   'REN-002',
 ]);
-const UPDATE_TRANSACTION_CASE_IDS = new Set<CoreV2UpdateTransactionsCaseId>([
-  'UPD-001',
-  'UPD-002',
-  'UPD-003',
-  'UPD-004',
-  'UPD-006',
-  'UPD-007',
-  'UPD-008',
-  'UPD-009',
-  'UPD-010',
-  'UPD-011',
-  'UPD-012',
-  'UPD-013',
-  'UPD-014',
-]);
+const UPDATE_TRANSACTION_CASE_IDS = new Set<CoreV2UpdateTransactionsCaseId>(
+  CORE_V2_UPDATE_TRANSACTIONS_CASE_IDS,
+);
 const VIEWPORT_CASE_IDS = new Set<CoreV2ViewportCaseId>(CORE_V2_VIEWPORT_CASE_IDS);
 const QUERY_SELECTION_CASE_IDS = new Set<CoreV2QuerySelectionCaseId>(
   CORE_V2_QUERY_SELECTION_CASE_IDS,

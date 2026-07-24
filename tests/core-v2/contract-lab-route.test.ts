@@ -78,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(223);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(109);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(64);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(229);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(114);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(59);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(396);
+    ), 0)).toBe(417);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -271,8 +271,9 @@ describe('Core v2 focused contract Lab shell', () => {
     }
   });
 
-  it('connects all thirteen update-transaction cases to one actual-only runtime and exact routes', () => {
+  it('connects all eighteen update-transaction cases to one actual-only runtime and exact routes', () => {
     const cases = [
+      ['ERR-001', ['load-dataset', 'run-invalid-operation-matrix']],
       ['UPD-001', ['loadDataset', 'retainTarget', 'replaceDataset', 'resolveTarget', 'patch']],
       ['UPD-002', ['freezePatch', 'merge', 'merge']],
       ['UPD-003', ['replace', 'replace', 'replace']],
@@ -321,6 +322,34 @@ describe('Core v2 focused contract Lab shell', () => {
       [
         'UPD-014',
         ['snapshot', 'replaceExternalDependency', 'refresh', 'publishFrame'],
+      ],
+      [
+        'CSM-005',
+        ['load-scene', 'apply-merge', 'redraw-scene', 'apply-merge', 'probe-declared-failure'],
+      ],
+      [
+        'CSM-006',
+        ['load-scene', 'apply-live-overlay', 'await-frame', 'probe-declared-failure'],
+      ],
+      [
+        'CSM-007',
+        [
+          'submit-overlay-revision',
+          'submit-overlay-revision',
+          'submit-overlay-revision',
+          'complete-overlay-revisions',
+          'destroy-engine',
+          'probe-declared-failure',
+        ],
+      ],
+      [
+        'CSM-008',
+        [
+          'load-scene',
+          'apply-presentation-overlay',
+          'export-canonical-dataset',
+          'probe-declared-failure',
+        ],
       ],
     ] as const;
 
@@ -688,7 +717,7 @@ describe('Core v2 focused contract Lab shell', () => {
 
   it('keeps every non-executable route disabled and explicitly not implemented', () => {
     const route = parseCoreV2ContractRoute(
-      '/lab/core-v2?scenario=ERR-001&size=500&seed=319',
+      '/lab/core-v2?scenario=ERR-003&size=500&seed=319',
     );
     const markup = renderCoreV2ContractLab(route);
 

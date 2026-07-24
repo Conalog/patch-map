@@ -21,8 +21,8 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 1_178;
-const EXPECTED_ASSERTION_PASS_TOTAL = 1_169;
+const EXPECTED_ASSERTION_TOTAL = 1_267;
+const EXPECTED_ASSERTION_PASS_TOTAL = 1_258;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 9;
 const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 11;
 const CASE_TIMEOUT_MS = 180_000;
@@ -119,6 +119,7 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'REN-009', expectedAssertions: 13 }),
   Object.freeze({ id: 'REN-010', expectedAssertions: 11 }),
   Object.freeze({ id: 'REN-011', expectedAssertions: 20 }),
+  Object.freeze({ id: 'ERR-001', expectedAssertions: 6 }),
   Object.freeze({ id: 'UPD-001', expectedAssertions: 8 }),
   Object.freeze({ id: 'UPD-002', expectedAssertions: 11 }),
   Object.freeze({
@@ -151,6 +152,10 @@ const RENDER_CASES = Object.freeze([
   }),
   Object.freeze({ id: 'UPD-013', expectedAssertions: 8 }),
   Object.freeze({ id: 'UPD-014', expectedAssertions: 10 }),
+  Object.freeze({ id: 'CSM-005', expectedAssertions: 21 }),
+  Object.freeze({ id: 'CSM-006', expectedAssertions: 22 }),
+  Object.freeze({ id: 'CSM-007', expectedAssertions: 21 }),
+  Object.freeze({ id: 'CSM-008', expectedAssertions: 19 }),
   Object.freeze({
     id: 'QRY-001',
     expectedAssertions: 13,
@@ -236,6 +241,7 @@ const PRESENTATION_TRANCHE_CASES = new Set([
   'ANI-002',
 ]);
 const UPDATE_TRANSACTION_TRANCHE_CASES = new Set([
+  'ERR-001',
   'UPD-001',
   'UPD-002',
   'UPD-003',
@@ -249,6 +255,10 @@ const UPDATE_TRANSACTION_TRANCHE_CASES = new Set([
   'UPD-012',
   'UPD-013',
   'UPD-014',
+  'CSM-005',
+  'CSM-006',
+  'CSM-007',
+  'CSM-008',
 ]);
 const VIEWPORT_TRANCHE_CASES = new Set([
   'VIE-001',
@@ -474,28 +484,28 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all ninety-four render routes completed'
+      ? 'all ninety-nine render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 1169 pass and 9 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 1258 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 1169 pass and 9 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 1258 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 1169 pass and 9 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 1258 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -2845,7 +2855,7 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 1178',
+    'render checkpoint assertion inventory must remain 1267',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===

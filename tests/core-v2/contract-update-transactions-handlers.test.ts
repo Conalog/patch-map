@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
 import {
   CoreV2AssetRuntime,
   type CoreV2AssetAcquisition,
@@ -142,6 +143,41 @@ interface WorkerRuntime {
   ): Promise<CaseExecution>;
 }
 
+interface FoldRuntime {
+  foldUpdateTransactionExecution(
+    this: void,
+    options: Readonly<{
+      readonly casePlan: MaterializedCase;
+      readonly execution: Readonly<JsonRecord>;
+      readonly provenance: Readonly<JsonRecord>;
+      readonly environment: Readonly<JsonRecord>;
+    }>,
+  ): Readonly<{
+    readonly actual: Readonly<JsonRecord>;
+    readonly fixtures: Readonly<JsonRecord>;
+    readonly captures: Readonly<JsonRecord>;
+  }>;
+}
+
+interface CompareRuntime {
+  compareObservation(
+    this: void,
+    options: Readonly<{
+      readonly expectedCase: Readonly<JsonRecord>;
+      readonly actual: Readonly<JsonRecord>;
+      readonly fixtures: Readonly<JsonRecord>;
+      readonly captures: Readonly<JsonRecord>;
+    }>,
+  ): Readonly<{
+    readonly passed: number;
+    readonly failed: number;
+    readonly assertions: readonly Readonly<{
+      readonly path: string;
+      readonly passed: boolean;
+    }>[];
+  }>;
+}
+
 type SurfaceFault =
   | 'missing-component'
   | 'missing-interaction'
@@ -170,13 +206,24 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
   return namespace as T;
 }
 
-const [catalogRuntime, materializeRuntime, handlerRuntime, workerRuntime] = await Promise.all([
+const [
+  catalogRuntime,
+  materializeRuntime,
+  handlerRuntime,
+  workerRuntime,
+  foldRuntime,
+  compareRuntime,
+] = await Promise.all([
   loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
   loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
   loadRuntime<HandlerRuntime>(
     '../../scripts/verification/core-v2-contract/handlers/update-transactions.mjs',
   ),
   loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+  loadRuntime<FoldRuntime>(
+    '../../scripts/verification/core-v2-contract/fold-update-transactions.mjs',
+  ),
+  loadRuntime<CompareRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -187,6 +234,8 @@ const {
   createUpdateTransactionHandlerEntries,
 } = handlerRuntime;
 const { executeContractCase } = workerRuntime;
+const { foldUpdateTransactionExecution } = foldRuntime;
+const { compareObservation } = compareRuntime;
 
 let catalog: ExecutorCatalog;
 
@@ -204,6 +253,7 @@ describe('Core v2 shared update transaction action handlers', () => {
     const entries = createUpdateTransactionHandlerEntries(adapter);
 
     expect(UPDATE_TRANSACTIONS_CASE_IDS).toEqual([
+      'ERR-001',
       'UPD-001',
       'UPD-002',
       'UPD-003',
@@ -217,6 +267,10 @@ describe('Core v2 shared update transaction action handlers', () => {
       'UPD-012',
       'UPD-013',
       'UPD-014',
+      'CSM-005',
+      'CSM-006',
+      'CSM-007',
+      'CSM-008',
     ]);
     expect(entries.map(([id]) => id)).toEqual(
       UPDATE_TRANSACTIONS_ACTION_TYPES.map((type) => `contract/${type}`),
@@ -252,6 +306,36 @@ describe('Core v2 shared update transaction action handlers', () => {
       }
 
       assertCaseFacts(caseId, execution);
+    },
+    20_000,
+  );
+
+  it.each(['ERR-001', 'CSM-005', 'CSM-006', 'CSM-007', 'CSM-008'] as const)(
+    'folds real %s product execution and compares it independently',
+    async (caseId) => {
+      const plan = selectedCase(caseId);
+      const execution = await executeCase(plan);
+      const folded = foldUpdateTransactionExecution({
+        casePlan: plan,
+        execution,
+        provenance: {
+          codeCommit: 'test-commit',
+          packedPackageSha256: 'test-package',
+        },
+        environment: { browserVersion: 'test-browser', renderer: 'webgl' },
+      });
+      const expectedCase = normalizedExpectedCatalog.cases.find(({ id }) => id === caseId);
+      if (expectedCase === undefined) throw new Error(`Missing expected ${caseId}`);
+      const comparison = compareObservation({
+        expectedCase: expectedCase as unknown as Readonly<JsonRecord>,
+        actual: folded.actual,
+        fixtures: folded.fixtures,
+        captures: folded.captures,
+      });
+
+      expect(comparison.failed).toBe(0);
+      expect(comparison.passed).toBe(expectedCase.expected.assertions.length);
+      expect(comparison.assertions.every(({ passed }) => passed)).toBe(true);
     },
     20_000,
   );
@@ -386,6 +470,34 @@ describe('Core v2 shared update transaction action handlers', () => {
 
 function assertCaseFacts(caseId: string, execution: CaseExecution): void {
   switch (caseId) {
+    case 'ERR-001': {
+      const matrix = actualAt(execution, 1);
+      const results = requireArray(matrix.results, 'ERR-001 results');
+      expect(results).toHaveLength(5);
+      expect(results.map((value) => requireRecord(
+        requireRecord(value, 'ERR-001 result').diagnostic,
+        'ERR-001 diagnostic',
+      ).code)).toEqual([
+        'INVALID_VALUE',
+        'DUPLICATE_ID',
+        'INVALID_VALUE',
+        'MISSING_TARGET',
+        'OVERLAPPING_PATH',
+      ]);
+      expect(results.every((value) =>
+        requireRecord(value, 'ERR-001 result').atomic === true)).toBe(true);
+      expect(matrix).toMatchObject({
+        baselineInput: { unchanged: true },
+        product: {
+          snapshot: {
+            revisions: { sceneRevision: 1 },
+            selectionIds: [],
+            historyDepth: 0,
+          },
+        },
+      });
+      break;
+    }
     case 'UPD-001': {
       expect(actualAt(execution, 3).currentTarget).toMatchObject({
         ownerId: 'item-a',
@@ -652,6 +764,97 @@ function assertCaseFacts(caseId: string, execution: CaseExecution): void {
       expect(Number(revisions.sceneRevision) - Number(previous.sceneRevision)).toBe(1);
       expect(captureValues(execution, 'refresh')).toEqual({
         revision: revisions.sceneRevision,
+      });
+      break;
+    }
+    case 'CSM-005': {
+      expect(actualAt(execution, 3)).toMatchObject({
+        result: {
+          status: 'committed',
+          applied: [{ kind: 'element', id: 'rect-b' }],
+        },
+        record: { id: 'rect-b', attrs: { x: 180 } },
+        product: { snapshot: { revisions: { sceneRevision: 4 } } },
+      });
+      expect(actualAt(execution, 4)).toMatchObject({
+        rollback: {
+          strictAtomic: true,
+          targetMissingCode: 'MISSING_TARGET',
+          sceneUnchangedOnFailure: true,
+        },
+      });
+      break;
+    }
+    case 'CSM-006': {
+      expect(actualAt(execution, 2)).toMatchObject({
+        result: { status: 'published', sceneRevision: 2 },
+        facts: {
+          rootIds: ['item-a', 'rect-b', 'text-c', 'links'],
+          components: {
+            bar: { record: { size: { width: 60, height: 45 } } },
+            label: { record: { text: 'ACTIVE' } },
+            icon: { record: { source: 'active', tint: '#00ff00' } },
+          },
+          selectedIds: [],
+          mode: 'select',
+          unresolvedIntentCount: 0,
+        },
+      });
+      expect(actualAt(execution, 3)).toMatchObject({
+        rollback: {
+          keepLastOverlayRevision: 1,
+          partialPublicationCount: 0,
+          strictInvalidCode: 'INVALID_VALUE',
+        },
+      });
+      break;
+    }
+    case 'CSM-007': {
+      expect(actualAt(execution, 3)).toMatchObject({
+        acceptedHostRevision: 12,
+        supersededHostRevisions: [10, 11],
+        pendingHostRevisions: [],
+        facts: {
+          components: {
+            bar: { record: { size: { width: 60, height: 18 } } },
+          },
+        },
+      });
+      expect(actualAt(execution, 4)).toMatchObject({
+        product: {
+          snapshot: { lifecycle: 'destroyed', pendingWork: 0 },
+        },
+        postDestroy: { events: 0, frames: 0, callbacks: 0 },
+      });
+      expect(actualAt(execution, 5)).toMatchObject({
+        rollback: {
+          priorCompleteSceneAvailable: true,
+          latePublicationAfterDestroy: 0,
+          staleSuccessCallbacks: 0,
+        },
+        postDestroy: { events: 0, frames: 0, callbacks: 0 },
+      });
+      break;
+    }
+    case 'CSM-008': {
+      expect(actualAt(execution, 1)).toMatchObject({
+        presentation: {
+          status: 'active',
+          highlightIds: ['item-a', 'rect-b'],
+          hiddenLayerIds: ['links'],
+        },
+        persisted: { unchanged: true },
+        unresolvedIntentCount: 0,
+      });
+      expect(actualAt(execution, 2)).toMatchObject({
+        result: { status: 'exported', root: 'array', rootCount: 4 },
+        export: { unchanged: true },
+      });
+      expect(actualAt(execution, 3)).toMatchObject({
+        rollback: {
+          removeOverlayOnFailure: true,
+          persistedDataUnchanged: true,
+        },
       });
       break;
     }
@@ -1546,9 +1749,69 @@ function center(bounds: readonly [number, number, number, number]): readonly [nu
 
 function testDatasets(): ReadonlyMap<string, unknown> {
   return new Map([
+    ['interactive-scene', interactiveScene()],
     ['all-kinds-scene', allKindsScene()],
     ['replacement-interactive-scene', replacementScene()],
     ['relation-variants-scene', relationScene()],
+  ]);
+}
+
+function interactiveScene(): readonly unknown[] {
+  return deepFreeze([
+    {
+      type: 'item',
+      id: 'item-a',
+      label: 'Item A',
+      size: { width: 100, height: 80 },
+      padding: 4,
+      components: [
+        {
+          type: 'background',
+          id: 'bg',
+          source: { type: 'rect', fill: '#336699' },
+        },
+        {
+          type: 'bar',
+          id: 'bar',
+          source: { type: 'rect', fill: '#00aa66' },
+          size: { width: 60, height: 10 },
+          placement: 'bottom',
+          animation: true,
+          animationDuration: 200,
+        },
+        {
+          type: 'icon',
+          id: 'icon',
+          source: 'active',
+          size: { width: 16, height: 16 },
+          placement: 'left-top',
+          tint: '#ffffff',
+        },
+        {
+          type: 'text',
+          id: 'label',
+          text: 'Alpha',
+          placement: 'center',
+          style: { fontFamily: 'FiraCode', fontSize: 16, fill: '#111111' },
+        },
+      ],
+      attrs: { x: 10, y: 20, zIndex: 1 },
+    },
+    rect('rect-b', 160, 40, 40, 30),
+    {
+      type: 'text',
+      id: 'text-c',
+      text: 'Bravo',
+      style: { fontFamily: 'FiraCode', fontSize: 16, fill: '#222222' },
+      size: { width: 80, height: 20 },
+      attrs: { x: 40, y: 140 },
+    },
+    {
+      type: 'relations',
+      id: 'links',
+      links: [{ source: 'item-a', target: 'rect-b' }],
+      style: { color: '#222222', width: 2 },
+    },
   ]);
 }
 

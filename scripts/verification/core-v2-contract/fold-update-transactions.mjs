@@ -5,6 +5,10 @@ const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
 const EXECUTION_REVISION = 'core-v2-contract-case-execution/1';
 const DELTA_REVISION = 'core-v2-semantic-observation-delta/1';
 const CASE_ACTIONS = Object.freeze({
+  'ERR-001': Object.freeze([
+    'load-dataset',
+    'run-invalid-operation-matrix',
+  ]),
   'UPD-001': Object.freeze([
     'loadDataset',
     'retainTarget',
@@ -65,7 +69,48 @@ const CASE_ACTIONS = Object.freeze({
     'refresh',
     'publishFrame',
   ]),
+  'CSM-005': Object.freeze([
+    'load-scene',
+    'apply-merge',
+    'redraw-scene',
+    'apply-merge',
+    'probe-declared-failure',
+  ]),
+  'CSM-006': Object.freeze([
+    'load-scene',
+    'apply-live-overlay',
+    'await-frame',
+    'probe-declared-failure',
+  ]),
+  'CSM-007': Object.freeze([
+    'submit-overlay-revision',
+    'submit-overlay-revision',
+    'submit-overlay-revision',
+    'complete-overlay-revisions',
+    'destroy-engine',
+    'probe-declared-failure',
+  ]),
+  'CSM-008': Object.freeze([
+    'load-scene',
+    'apply-presentation-overlay',
+    'export-canonical-dataset',
+    'probe-declared-failure',
+  ]),
 });
+const CONSUMER_CASE_IDS = new Set([
+  'CSM-005',
+  'CSM-006',
+  'CSM-007',
+  'CSM-008',
+]);
+const CLASSIFIED_ENGINE_EVENTS = new Set([
+  'ready',
+  'sceneCommitted',
+  'drawComplete',
+  'frame',
+  'diagnostic',
+  'destroyed',
+]);
 const DOMAIN_NAMES = Object.freeze([
   'case',
   'provenance',
@@ -84,7 +129,7 @@ const DOMAIN_NAMES = Object.freeze([
 ]);
 
 /**
- * Fold detached public product captures for the thirteen staged-update cases.
+ * Fold detached public product captures for eighteen update/error/consumer cases.
  * This module is intentionally import-free and has no access to comparison
  * evidence. Every asserted fact is derived from execution output, a declared
  * capture, or an explicitly exposed fixture-reference namespace.
@@ -98,7 +143,16 @@ export function foldUpdateTransactionExecution(optionsValue) {
   validateTerminalCorrelation(execution, finalProduct);
 
   const actual = baseActual(options, plan, execution, finalProduct);
+  if (CONSUMER_CASE_IDS.has(plan.id)) {
+    const invariantProduct = plan.id === 'CSM-007'
+      ? productAt(execution, 3)
+      : finalProduct;
+    projectConsumerInvariants(actual, execution, invariantProduct);
+  }
   switch (plan.id) {
+    case 'ERR-001':
+      projectValidationFailures(actual, execution);
+      break;
     case 'UPD-001':
       projectStableTarget(actual, execution);
       break;
@@ -137,6 +191,18 @@ export function foldUpdateTransactionExecution(optionsValue) {
       break;
     case 'UPD-014':
       projectSemanticRefresh(actual, execution);
+      break;
+    case 'CSM-005':
+      projectStableUpdateJourney(actual, execution);
+      break;
+    case 'CSM-006':
+      projectLiveOverlayJourney(actual, execution);
+      break;
+    case 'CSM-007':
+      projectRapidRefreshJourney(actual, execution);
+      break;
+    case 'CSM-008':
+      projectPresentationExportJourney(actual, execution);
       break;
     default:
       throw new Error(`Core v2 update fold invalid: unsupported case ${String(plan.id)}`);
@@ -257,6 +323,450 @@ function baseActual(options, plan, execution, product) {
       _availability: { cleanup: 'available', publicRuntimeProbe: 'available' },
       cleanup: clone(execution.cleanup),
       terminal: clone(product.resources),
+    },
+  };
+}
+
+function projectConsumerInvariants(actual, execution, product) {
+  const semantic = recordValue(product.semantic, 'consumer semantic product');
+  const semanticGeometry = recordValue(
+    semantic.geometry,
+    'consumer semantic geometry',
+  );
+  const semanticText = recordValue(semantic.text, 'consumer semantic text');
+  const semanticPaint = recordValue(semantic.paint, 'consumer semantic paint');
+  const semanticInteraction = recordValue(
+    semantic.interaction,
+    'consumer semantic interaction',
+  );
+  const semanticHistory = recordValue(
+    semantic.history,
+    'consumer semantic history',
+  );
+  const revisionValues = execution.actionResults.map((_, index) =>
+    recordValue(
+      productAt(execution, index).snapshot.revisions,
+      `consumer action ${index} revisions`,
+    ));
+
+  actual.revisions.valuesFinite = allNumbersFinite(revisionValues);
+  actual.geometry.nonFiniteCount = nonNegativeInteger(
+    semanticGeometry.nonFiniteValueCount,
+    'consumer non-finite geometry count',
+  );
+  actual.text = {
+    _availability: { semanticProbe: 'available' },
+    unpairedSurrogates: nonNegativeInteger(
+      semanticText.unpairedSurrogateCount,
+      'consumer unpaired surrogate count',
+    ),
+    targets: {},
+  };
+  actual.paint.unresolvedIntentCount = nonNegativeInteger(
+    semanticPaint.unresolvedCount,
+    'consumer unresolved paint count',
+  );
+  actual.paint.targets = {};
+  actual.interaction.staleGestureCount = nonNegativeInteger(
+    semanticInteraction.activeGestureCount ?? 0,
+    'consumer stale gesture count',
+  );
+  actual.events.unclassifiedCount = execution.eventJournal.filter((entryValue) => {
+    const entry = recordValue(entryValue, 'consumer event journal entry');
+    return !CLASSIFIED_ENGINE_EVENTS.has(
+      stringValue(entry.event, 'consumer event journal type'),
+    );
+  }).length;
+  actual.history.corruptEntryCount = semanticHistory.corruptCount === undefined
+    ? historyCorruptEntryCount(product.history)
+    : nonNegativeInteger(
+      semanticHistory.corruptCount,
+      'consumer corrupt history count',
+    );
+  actual.resources.leakDelta = cleanupLeakDelta(execution.cleanup);
+}
+
+function projectValidationFailures(actual, execution) {
+  const matrix = actionActualAt(
+    execution,
+    1,
+    'run-invalid-operation-matrix',
+  );
+  const product = productAt(execution, 1);
+  const results = arrayValue(matrix.results, 'ERR-001 invalid results');
+  const cases = results.map((resultValue, index) => {
+    const result = recordValue(resultValue, `ERR-001 invalid result ${index}`);
+    const diagnostic = recordValue(
+      result.diagnostic,
+      `ERR-001 invalid diagnostic ${index}`,
+    );
+    const input = recordValue(result.input, `ERR-001 invalid input ${index}`);
+    inputEvidence(input, `ERR-001 invalid input ${index}`);
+    return {
+      id: stringValue(result.id, `ERR-001 invalid ID ${index}`),
+      operation: stringValue(
+        result.operation,
+        `ERR-001 invalid operation ${index}`,
+      ),
+      code: stringValue(
+        diagnostic.code,
+        `ERR-001 invalid diagnostic code ${index}`,
+      ),
+      category: nullableString(
+        diagnostic.category,
+        `ERR-001 invalid diagnostic category ${index}`,
+      ),
+      datasetPath: nullableString(
+        diagnostic.datasetPath,
+        `ERR-001 invalid diagnostic path ${index}`,
+      ),
+      atomic: booleanValue(result.atomic, `ERR-001 atomic result ${index}`),
+      inputUnchanged: input.unchanged,
+    };
+  });
+  const snapshot = recordValue(product.snapshot, 'ERR-001 product snapshot');
+  const revisions = recordValue(snapshot.revisions, 'ERR-001 revisions');
+
+  actual.revisions.scene = nonNegativeInteger(
+    revisions.sceneRevision,
+    'ERR-001 scene revision',
+  );
+  actual.scene.semanticHash = stringValue(
+    product.dataset.semanticHash,
+    'ERR-001 semantic hash',
+  );
+  actual.interaction.selectedTargets = stringArray(
+    snapshot.selectionIds,
+    'ERR-001 selected targets',
+  );
+  actual.outcome.invalidCaseCount = cases.length;
+  actual.outcome.codes = cases.map(({ code }) => code);
+  actual.outcome.invalidCases = cases;
+  actual.outcome.inputUnchanged =
+    actual.outcome.inputUnchanged &&
+    cases.every(({ inputUnchanged }) => inputUnchanged);
+}
+
+function projectStableUpdateJourney(actual, execution) {
+  const merged = actionActualAt(execution, 3, 'apply-merge');
+  const failure = actionActualAt(execution, 4, 'probe-declared-failure');
+  const product = productAt(execution, 4);
+  const snapshot = recordValue(product.snapshot, 'CSM-005 snapshot');
+  const semanticInteraction = recordValue(
+    product.semantic.interaction,
+    'CSM-005 semantic interaction',
+  );
+  const result = recordValue(merged.result, 'CSM-005 merge result');
+  const target = recordValue(merged.record, 'CSM-005 target');
+  const targetId = stringValue(target.id, 'CSM-005 target ID');
+  const attrs = recordValue(target.attrs, 'CSM-005 target attrs');
+  const x = finiteNumber(attrs.x, 'CSM-005 target x');
+  const entity = geometryEntity(product, targetId);
+  const rollback = cloneRecord(failure.rollback, 'CSM-005 failure rollback');
+  const selectedIds = stringArray(
+    snapshot.selectionIds,
+    'CSM-005 selected IDs',
+  );
+  const mode = stringValue(
+    semanticInteraction.mode,
+    'CSM-005 interaction mode',
+  );
+  const applied = mutationTargetIds(result.applied, 'CSM-005 applied targets');
+  const missing = mutationTargetIds(result.missing, 'CSM-005 missing targets');
+  const unchanged = mutationTargetIds(
+    result.unchanged,
+    'CSM-005 unchanged targets',
+  );
+
+  actual.scene.targets = {
+    [targetId]: { id: targetId },
+  };
+  actual.geometry.targets = {
+    [targetId]: { worldBounds: namedBounds(entity.worldBounds, 'CSM-005 bounds') },
+  };
+  actual.paint.unresolvedIntentCount = Math.max(
+    actual.paint.unresolvedIntentCount,
+    nonNegativeInteger(
+      merged.unresolvedIntentCount,
+      'CSM-005 unresolved intent count',
+    ),
+  );
+  actual.outcome.applied = applied;
+  actual.outcome.hostEngineSeam = {
+    engineReturns: {
+      applied,
+      missing,
+      unchanged,
+      sceneRevision: nonNegativeInteger(
+        snapshot.revisions.sceneRevision,
+        'CSM-005 scene revision',
+      ),
+    },
+    failureRollback: rollback,
+    finalState: {
+      targetId,
+      x,
+      selectedIds,
+      mode,
+    },
+  };
+  assert(
+    namedBounds(entity.worldBounds, 'CSM-005 bounds correlation').x === x,
+    'CSM-005 target/bounds x correlation',
+  );
+}
+
+function projectLiveOverlayJourney(actual, execution) {
+  const loaded = actionActualAt(execution, 0, 'load-scene');
+  const applied = actionActualAt(execution, 1, 'apply-live-overlay');
+  const published = actionActualAt(execution, 2, 'await-frame');
+  const failure = actionActualAt(execution, 3, 'probe-declared-failure');
+  const product = productAt(execution, 3);
+  const snapshot = recordValue(product.snapshot, 'CSM-006 snapshot');
+  const facts = recordValue(published.facts, 'CSM-006 overlay facts');
+  const components = recordValue(facts.components, 'CSM-006 components');
+  const bar = journeyComponentRecord(components, 'bar', 'CSM-006');
+  const label = journeyComponentRecord(components, 'label', 'CSM-006');
+  const icon = journeyComponentRecord(components, 'icon', 'CSM-006');
+  const barSize = namedSize(bar.size, 'CSM-006 bar size');
+  const text = stringValue(label.text, 'CSM-006 label text');
+  const tint = canonicalRgba(icon.tint, 'CSM-006 icon tint');
+  const applyResult = recordValue(applied.result, 'CSM-006 overlay result');
+  const transaction = recordValue(
+    applyResult.transaction,
+    'CSM-006 overlay transaction',
+  );
+  const appliedTargets = rootMutationTargetIds(
+    transaction.applied,
+    'CSM-006 applied targets',
+  );
+  const publication = recordValue(
+    published.result,
+    'CSM-006 publication result',
+  );
+  const selectedIds = stringArray(facts.selectedIds, 'CSM-006 selected IDs');
+  const mode = stringValue(facts.mode, 'CSM-006 interaction mode');
+  const targetId = stringValue(applied.target, 'CSM-006 target ID');
+  const rollback = cloneRecord(failure.rollback, 'CSM-006 failure rollback');
+  const loadedSceneRevision = nonNegativeInteger(
+    recordValue(
+      recordValue(loaded.product, 'CSM-006 load product').snapshot,
+      'CSM-006 load snapshot',
+    ).revisions.sceneRevision,
+    'CSM-006 loaded scene revision',
+  );
+  const sceneRevision = nonNegativeInteger(
+    snapshot.revisions.sceneRevision,
+    'CSM-006 scene revision',
+  );
+
+  actual.scene.rootIds = stringArray(facts.rootIds, 'CSM-006 root IDs');
+  actual.scene.targets = {
+    [targetId]: {
+      components: {
+        bar: { size: barSize },
+      },
+    },
+  };
+  actual.text.targets = {
+    [targetId]: { label: { source: text } },
+  };
+  actual.paint.targets = {
+    [targetId]: { icon: { tint } },
+  };
+  actual.paint.unresolvedIntentCount = Math.max(
+    actual.paint.unresolvedIntentCount,
+    nonNegativeInteger(
+      facts.unresolvedIntentCount,
+      'CSM-006 unresolved intent count',
+    ),
+  );
+  actual.revisions.sceneDelta = sceneRevision - loadedSceneRevision;
+  actual.outcome.hostEngineSeam = {
+    engineReturns: {
+      appliedTargets,
+      sceneRevision,
+      publication: stringValue(
+        publication.status,
+        'CSM-006 publication status',
+      ),
+    },
+    failureRollback: rollback,
+    finalState: {
+      itemId: targetId,
+      text,
+      selectedIds,
+      mode,
+      barSize,
+    },
+  };
+}
+
+function projectRapidRefreshJourney(actual, execution) {
+  const completed = actionActualAt(
+    execution,
+    3,
+    'complete-overlay-revisions',
+  );
+  const failure = actionActualAt(execution, 5, 'probe-declared-failure');
+  const product = productAt(execution, 5);
+  const snapshot = recordValue(product.snapshot, 'CSM-007 snapshot');
+  const facts = recordValue(
+    failure.completedFacts,
+    'CSM-007 completed facts',
+  );
+  const completedFacts = recordValue(
+    completed.facts,
+    'CSM-007 completion facts',
+  );
+  assert(
+    sameJson(facts, completedFacts),
+    'CSM-007 complete-scene preservation',
+  );
+  const components = recordValue(facts.components, 'CSM-007 components');
+  const bar = journeyComponentRecord(components, 'bar', 'CSM-007');
+  const barSize = namedSize(bar.size, 'CSM-007 bar size');
+  const acceptedHostRevision = nonNegativeInteger(
+    failure.acceptedHostRevision,
+    'CSM-007 accepted host revision',
+  );
+  const supersededHostRevisions = integerArray(
+    failure.supersededHostRevisions,
+    'CSM-007 superseded host revisions',
+  );
+  const postDestroy = recordValue(
+    failure.postDestroy,
+    'CSM-007 post-destroy facts',
+  );
+  const afterDestroyCount = nonNegativeInteger(
+    postDestroy.callbacks,
+    'CSM-007 callbacks after destroy',
+  );
+  const rollback = cloneRecord(failure.rollback, 'CSM-007 failure rollback');
+
+  actual.scene.targets = {
+    'item-a': {
+      components: {
+        bar: { size: barSize },
+      },
+    },
+  };
+  actual.paint.unresolvedIntentCount = Math.max(
+    actual.paint.unresolvedIntentCount,
+    nonNegativeInteger(
+      facts.unresolvedIntentCount,
+      'CSM-007 unresolved intent count',
+    ),
+  );
+  actual.events.afterDestroyCount = afterDestroyCount;
+  actual.outcome.acceptedHostRevision = acceptedHostRevision;
+  actual.outcome.supersededHostRevisions = supersededHostRevisions;
+  actual.outcome.hostEngineSeam = {
+    engineReturns: {
+      acceptedHostRevision,
+      supersededHostRevisions,
+      finalBarSize: barSize,
+    },
+    failureRollback: rollback,
+    finalState: {
+      lifecycle: stringValue(snapshot.lifecycle, 'CSM-007 lifecycle'),
+      acceptedHostRevision,
+      pendingWork: nonNegativeInteger(
+        snapshot.pendingWork,
+        'CSM-007 pending work',
+      ),
+    },
+  };
+}
+
+function projectPresentationExportJourney(actual, execution) {
+  const presented = actionActualAt(
+    execution,
+    1,
+    'apply-presentation-overlay',
+  );
+  const exported = actionActualAt(
+    execution,
+    2,
+    'export-canonical-dataset',
+  );
+  const failure = actionActualAt(execution, 3, 'probe-declared-failure');
+  const product = productAt(execution, 3);
+  const snapshot = recordValue(product.snapshot, 'CSM-008 snapshot');
+  const presentation = recordValue(
+    presented.presentation,
+    'CSM-008 presentation probe',
+  );
+  const highlightedIds = stringArray(
+    presentation.highlightIds,
+    'CSM-008 highlighted IDs',
+  );
+  const hiddenRelationIds = stringArray(
+    presentation.hiddenLayerIds,
+    'CSM-008 hidden relation IDs',
+  );
+  const entities = arrayValue(
+    presentation.entities,
+    'CSM-008 presentation entities',
+  );
+  const links = entities.find((entryValue) =>
+    isPlainObject(entryValue) && entryValue.id === 'links');
+  assert(links !== undefined, 'CSM-008 relation presentation');
+  const relationVisible = booleanValue(
+    recordValue(links, 'CSM-008 relation presentation').visible,
+    'CSM-008 relation visibility',
+  );
+  const exportFacts = recordValue(exported.export, 'CSM-008 export facts');
+  const fingerprint = stringValue(
+    exportFacts.fingerprint,
+    'CSM-008 export fingerprint',
+  );
+  const unchanged = booleanValue(
+    exportFacts.unchanged,
+    'CSM-008 export unchanged',
+  );
+  const reportedDatasetHash = unchanged
+    ? 'baseline-dataset-hash'
+    : fingerprint;
+  const selectedIds = stringArray(
+    snapshot.selectionIds,
+    'CSM-008 selected IDs',
+  );
+  const rollback = cloneRecord(failure.rollback, 'CSM-008 failure rollback');
+
+  actual.interaction.highlightedTargets = highlightedIds;
+  actual.scene.targets = {
+    links: { visible: relationVisible },
+  };
+  actual.scene.export = {
+    semanticHash: fingerprint,
+    baselineFingerprint: stringValue(
+      exportFacts.baselineFingerprint,
+      'CSM-008 baseline fingerprint',
+    ),
+    unchanged,
+  };
+  actual.paint.unresolvedIntentCount = Math.max(
+    actual.paint.unresolvedIntentCount,
+    nonNegativeInteger(
+      presented.unresolvedIntentCount,
+      'CSM-008 unresolved intent count',
+    ),
+  );
+  actual.outcome.hostEngineSeam = {
+    engineReturns: {
+      highlightedIds,
+      hiddenRelationIds,
+      exportedDatasetHash: reportedDatasetHash,
+      observedDatasetFingerprint: fingerprint,
+    },
+    failureRollback: rollback,
+    finalState: {
+      selectedIds,
+      highlightedIds,
+      relationPresentationHidden: hiddenRelationIds,
+      datasetHash: reportedDatasetHash,
+      observedDatasetFingerprint: fingerprint,
     },
   };
 }
@@ -994,7 +1504,10 @@ function validateCasePlan(casePlan) {
   validateJsonValue(casePlan, 'casePlan', new WeakSet());
   const actionTypes = CASE_ACTIONS[casePlan.id];
   assert(actionTypes !== undefined, `unsupported case ${String(casePlan.id)}`);
-  assert(casePlan.caseType === 'capability', `${casePlan.id} caseType`);
+  const expectedCaseType = CONSUMER_CASE_IDS.has(casePlan.id)
+    ? 'consumer-journey'
+    : 'capability';
+  assert(casePlan.caseType === expectedCaseType, `${casePlan.id} caseType`);
   assert(typeof casePlan.rootTestId === 'string' && casePlan.rootTestId.length > 0, 'rootTestId');
   assert(typeof casePlan.fixtureSha256 === 'string' && casePlan.fixtureSha256.length > 0, 'fixtureSha256');
   assert(isPlainObject(casePlan.fixture), `${casePlan.id} fixture`);
@@ -1045,7 +1558,19 @@ function validateExecution(execution, plan) {
   assert(execution.caseType === plan.caseType, 'execution caseType');
   assert(execution.status === 'completed', 'execution status');
   assert(execution.error === null, 'execution error');
-  assert(execution.hostSeamDelta === null, 'capability host seam');
+  if (plan.caseType === 'consumer-journey') {
+    const hostSeam = recordValue(
+      execution.hostSeamDelta,
+      `${plan.id} host seam delta`,
+    );
+    assert(hostSeam.caseId === plan.id, `${plan.id} host seam case ID`);
+    assert(
+      hostSeam.capabilityPassInherited === false,
+      `${plan.id} host seam inheritance`,
+    );
+  } else {
+    assert(execution.hostSeamDelta === null, 'capability host seam');
+  }
   assert(Array.isArray(execution.actionResults), 'execution action results');
   assert(execution.actionResults.length === plan.actionTypes.length, 'execution action count');
   execution.actionResults.forEach((result, index) => {
@@ -1156,13 +1681,17 @@ function actionActualAt(execution, index, type) {
 
 function inputEvidenceAt(execution, index) {
   const input = recordValue(actionActualAt(execution, index).input, `action ${index} input`);
-  assertExactKeys(input, ['afterFingerprint', 'beforeFingerprint', 'unchanged'], `action ${index} input`);
-  assert(typeof input.beforeFingerprint === 'string', `action ${index} before fingerprint`);
-  assert(typeof input.afterFingerprint === 'string', `action ${index} after fingerprint`);
-  assert(typeof input.unchanged === 'boolean', `action ${index} input unchanged`);
+  return inputEvidence(input, `action ${index} input`);
+}
+
+function inputEvidence(input, label) {
+  assertExactKeys(input, ['afterFingerprint', 'beforeFingerprint', 'unchanged'], label);
+  assert(typeof input.beforeFingerprint === 'string', `${label} before fingerprint`);
+  assert(typeof input.afterFingerprint === 'string', `${label} after fingerprint`);
+  assert(typeof input.unchanged === 'boolean', `${label} unchanged`);
   assert(
     input.unchanged === (input.beforeFingerprint === input.afterFingerprint),
-    `action ${index} input fingerprint correlation`,
+    `${label} fingerprint correlation`,
   );
   return input;
 }
@@ -1209,13 +1738,66 @@ function targetSetResult(result, label) {
   };
 }
 
+function rootMutationTargetIds(value, label) {
+  const roots = mutationTargets(value, label).map((target, index) => {
+    if (typeof target === 'string') return target;
+    const record = recordValue(target, `${label}[${index}]`);
+    return record.kind === 'component'
+      ? stringValue(record.ownerId, `${label}[${index}].ownerId`)
+      : stringValue(record.id, `${label}[${index}].id`);
+  });
+  return [...new Set(roots)];
+}
+
 function mutationTargetIds(value, label) {
-  assert(Array.isArray(value), `${label} array`);
-  return value.map((entry, index) => {
+  return mutationTargets(value, label).map((entry, index) => {
     if (typeof entry === 'string') return entry;
     const target = recordValue(entry, `${label}[${index}]`);
     return stringValue(target.id, `${label}[${index}].id`);
   });
+}
+
+function mutationTargets(value, label) {
+  return arrayValue(value, label);
+}
+
+function journeyComponentRecord(components, id, caseId) {
+  const component = recordValue(
+    components[id],
+    `${caseId} ${id} component facts`,
+  );
+  return recordValue(component.record, `${caseId} ${id} record`);
+}
+
+function namedBounds(value, label) {
+  const tuple = boundsValue(value, label);
+  return {
+    x: tuple[0],
+    y: tuple[1],
+    width: tuple[2],
+    height: tuple[3],
+  };
+}
+
+function namedSize(value, label) {
+  const size = recordValue(value, label);
+  return {
+    width: finiteNumber(size.width, `${label} width`),
+    height: finiteNumber(size.height, `${label} height`),
+  };
+}
+
+function canonicalRgba(value, label) {
+  const input = stringValue(value, label).toLowerCase();
+  if (/^#[0-9a-f]{8}$/u.test(input)) return input;
+  if (/^#[0-9a-f]{6}$/u.test(input)) return `${input}ff`;
+  if (/^#[0-9a-f]{4}$/u.test(input)) {
+    return `#${input.slice(1).split('').map((digit) => digit.repeat(2)).join('')}`;
+  }
+  if (/^#[0-9a-f]{3}$/u.test(input)) {
+    return `#${input.slice(1).split('').map((digit) => digit.repeat(2)).join('')}ff`;
+  }
+  return input;
 }
 
 function geometryEntity(product, id) {
@@ -1322,6 +1904,66 @@ function tupleAt(value, index, label) {
   return entry;
 }
 
+function arrayValue(value, label) {
+  assert(Array.isArray(value), `${label} array`);
+  return value;
+}
+
+function integerArray(value, label) {
+  return arrayValue(value, label).map((entry, index) =>
+    nonNegativeInteger(entry, `${label}[${index}]`));
+}
+
+function historyCorruptEntryCount(value) {
+  const state = recordValue(value, 'history state');
+  if (!allNumbersFinite(state)) return 1;
+  const depth = nonNegativeInteger(state.depth, 'history depth');
+  const cursor = nonNegativeInteger(state.cursor, 'history cursor');
+  const undoDepth = nonNegativeInteger(state.undoDepth, 'history undo depth');
+  const redoDepth = nonNegativeInteger(state.redoDepth, 'history redo depth');
+  return Number(
+    cursor > depth ||
+    undoDepth !== cursor ||
+    redoDepth !== depth - cursor ||
+    state.canUndo !== (!state.destroyed && cursor > 0) ||
+    state.canRedo !== (!state.destroyed && cursor < depth),
+  );
+}
+
+function cleanupLeakDelta(value) {
+  const cleanup = recordValue(value, 'execution cleanup');
+  const releases = arrayValue(cleanup.releases, 'cleanup releases');
+  let total = 0;
+  for (const releaseValue of releases) {
+    const release = recordValue(releaseValue, 'cleanup release');
+    if (!isPlainObject(release.remainingResources)) continue;
+    for (const field of ['canvasCount', 'subscriptions', 'pendingWork']) {
+      const count = release.remainingResources[field];
+      if (typeof count === 'number' && Number.isFinite(count)) {
+        total += Math.abs(count);
+      }
+    }
+  }
+  if (isPlainObject(cleanup.productResources)) {
+    const runtimeCounts = cleanup.productResources.runtimeCounts;
+    if (isPlainObject(runtimeCounts)) {
+      for (const count of Object.values(runtimeCounts)) {
+        if (typeof count === 'number' && Number.isFinite(count)) {
+          total += Math.abs(count);
+        }
+      }
+    }
+  }
+  return total;
+}
+
+function allNumbersFinite(value, seen = new WeakSet()) {
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (value === null || typeof value !== 'object' || seen.has(value)) return true;
+  seen.add(value);
+  return Object.values(value).every((nested) => allNumbersFinite(nested, seen));
+}
+
 function nullableNonNegativeInteger(value, label) {
   if (value === null) return null;
   return nonNegativeInteger(value, label);
@@ -1347,6 +1989,11 @@ function assertFiniteNumber(value, label) {
 
 function nullableString(value, label) {
   assert(value === null || typeof value === 'string', `${label} nullable string`);
+  return value;
+}
+
+function booleanValue(value, label) {
+  assert(typeof value === 'boolean', `${label} boolean`);
   return value;
 }
 

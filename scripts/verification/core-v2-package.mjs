@@ -63,6 +63,7 @@ import {
   parsePatchMapV010,
   planCoreV2TransformerEdit,
   resolveCoreV2RotationSnap,
+  validateCoreV2DatasetReferences,
 } from '@conalog/patch-map/core-v2';
 
 const input = [{
@@ -138,6 +139,29 @@ await engine.initialize({
   preference: 'webgl',
 });
 engine.loadDataset(input);
+validateCoreV2DatasetReferences(engine.exportDataset());
+const strictReferenceBefore = engine.snapshot();
+let strictReferenceDiagnostic = null;
+try {
+  engine.loadDataset([
+    ...structuredClone(input),
+    {
+      type: 'relations',
+      id: 'consumer-links',
+      links: [{ source: 'consumer-item', target: 'missing-consumer-target' }],
+    },
+  ], {
+    datasetRef: 'packed-strict-dangling',
+    strict: true,
+  });
+} catch (error) {
+  strictReferenceDiagnostic = {
+    code: error?.code ?? null,
+    category: error?.category ?? null,
+    datasetPath: error?.datasetPath ?? null,
+  };
+}
+const strictReferenceAfter = engine.snapshot();
 const hostBindingDeliveries = [];
 const hostBinding = engine.bindLogicalEvents([
   {
@@ -437,6 +461,17 @@ window.__PACKAGE_RESULT__ = {
   presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
   selectionTransformerRevision: CORE_V2_SELECTION_TRANSFORMER_REVISION,
   transformerEditRevision: CORE_V2_TRANSFORMER_EDIT_REVISION,
+  strictReferenceValidation: {
+    validatorType: typeof validateCoreV2DatasetReferences,
+    diagnostic: strictReferenceDiagnostic,
+    sceneRevisionUnchanged:
+      strictReferenceAfter.revisions.sceneRevision ===
+        strictReferenceBefore.revisions.sceneRevision,
+    semanticHashUnchanged:
+      strictReferenceAfter.semanticHash === strictReferenceBefore.semanticHash,
+    datasetRefUnchanged:
+      strictReferenceAfter.datasetRef === strictReferenceBefore.datasetRef,
+  },
   pointerPackage: {
     eventTypes: pointerClick.events.map(({ type }) => type),
     clickTarget: pointerClick.events.at(-1)?.payload.target?.id ?? null,
@@ -604,6 +639,7 @@ const {
   planCoreV2TransformerEdit,
   planCoreV2MutationTransaction,
   resolveCoreV2RotationSnap,
+  validateCoreV2DatasetReferences,
 } = require('@conalog/patch-map/core-v2');
 const result = parsePatchMapV010([{ type: 'rect', id: 'cjs-rect', size: 10, fill: '#ff0000' }]);
 process.stdout.write(JSON.stringify({
@@ -629,6 +665,7 @@ process.stdout.write(JSON.stringify({
   historyShortcutType: typeof CoreV2Engine.prototype.handleHistoryShortcut,
   historyClearType: typeof CoreV2Engine.prototype.clearHistory,
   extractionType: typeof CoreV2Engine.prototype.extractPublishedScene,
+  strictReferenceValidatorType: typeof validateCoreV2DatasetReferences,
 }));
 `);
 
@@ -686,6 +723,16 @@ process.stdout.write(JSON.stringify({
   if (esm.pointerRevision !== 'core-v2-pointer-gesture/1') failures.push('packed ESM pointer revision export failed');
   if (esm.hostInteractionRevision !== 'core-v2-host-interaction/1') failures.push('packed ESM host interaction revision export failed');
   if (esm.selectionTransformerRevision !== 'core-v2-selection-transformer/1') failures.push('packed ESM selection transformer revision export failed');
+  if (
+    esm.strictReferenceValidation?.validatorType !== 'function' ||
+    esm.strictReferenceValidation?.diagnostic?.code !== 'MISSING_TARGET' ||
+    esm.strictReferenceValidation?.diagnostic?.category !== 'MISSING_TARGET' ||
+    esm.strictReferenceValidation?.diagnostic?.datasetPath !==
+      '$[1].links[0].target' ||
+    esm.strictReferenceValidation?.sceneRevisionUnchanged !== true ||
+    esm.strictReferenceValidation?.semanticHashUnchanged !== true ||
+    esm.strictReferenceValidation?.datasetRefUnchanged !== true
+  ) failures.push('packed ESM strict reference validation failed');
   if (
     JSON.stringify(esm.pointerPackage?.eventTypes) !== JSON.stringify(['up', 'click']) ||
     esm.pointerPackage?.clickTarget !== 'consumer-item' ||
@@ -873,7 +920,8 @@ process.stdout.write(JSON.stringify({
     cjs.historyCapacityType !== 'function' ||
     cjs.historyShortcutType !== 'function' ||
     cjs.historyClearType !== 'function' ||
-    cjs.extractionType !== 'function'
+    cjs.extractionType !== 'function' ||
+    cjs.strictReferenceValidatorType !== 'function'
   ) failures.push('packed CJS transaction/presentation exports failed');
   if (errors.console.length || errors.page.length || errors.network.length) failures.push('packed browser consumer emitted errors');
 
