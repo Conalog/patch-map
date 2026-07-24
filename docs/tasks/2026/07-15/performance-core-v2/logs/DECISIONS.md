@@ -183,3 +183,9 @@
 - Decision: Plan move, resize, and rotation from one detached starting materialization. Reconcile each preview only to the aggregate surface, then commit the latest plan through exactly one semantic transaction and history command; cancellation restores the starting surface and releases root gesture ownership.
 - Why: The semantic/frame boundary preserves immutable input, stable identity, atomic failure, undo/redo, and deterministic first/repeat/fresh observations while still showing every gesture frame.
 - Impact: `TRN-001/004/005/006/007/008/009` share the existing pointer/selection runtime and focused Lab shell. Packed ESM/CJS proves the planner and session exports; 2+7 lifecycle starts with a live preview and proves destroy clears overlay and capture ownership. The large-scene matrix remains unchanged because it does not measure transformer gestures.
+
+**2026-07-24**
+- Background: World angles such as 450 degrees are render-equivalent to 90 degrees but remain distinct approved authored observations, while resize correctness needs one revision-correlated proof without exposing Pixi internals.
+- Decision: Preserve the finite authored angle in Engine state and pass it through the common affine surface; use one read-only viewport-transform probe for current world state, pointer-transform revision, resize-policy applications, CSS/backing dimensions, canvas ownership, and black-frame accounting.
+- Why: Separating authored state from equivalent trigonometric output satisfies exact contract observability while keeping render, inverse hit, focus, fit, and transformer geometry on the existing aggregate transform authority.
+- Impact: `VIE-005/006/007` add only scalar Engine observations and no per-entity node, listener, ticker, closure, resource owner, or new frame loop. Changed resize applies the center policy once and the next published frame closes the pending-resize observation.
