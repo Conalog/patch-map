@@ -242,6 +242,50 @@ describe('CoreV2Engine transformer edit integration', () => {
     }
   });
 
+  it('commits or cancels an owned transformer session from root pointer terminals', async () => {
+    const { engine } = await createEngine(engines);
+    engine.loadDataset(scene());
+    engine.applySelection({ op: 'replace', ids: ['rect-b'], source: 'programmatic' });
+
+    beginMovePreview(engine, 17);
+    expect(engine.dispatchPointerInput(pointerInput('up-outside', 17))).toMatchObject({
+      clickSuppressed: true,
+      semanticCompletionCount: 0,
+    });
+    expect(geometry(engine, 'rect-b')).toMatchObject({ x: 170, y: 45 });
+    expect(engine.historyState().undoDepth).toBe(1);
+    expect(engine.transformerEditProbe()).toMatchObject({
+      activeSessionCount: 0,
+      committedMutationCount: 1,
+      staleCompletionCount: 0,
+    });
+    expect(engine.transformerGestureProbe()).toMatchObject({
+      activeGestureCount: 0,
+      pointerCaptureCount: 0,
+      staleCompletionCount: 0,
+    });
+
+    engine.loadDataset(scene());
+    engine.applySelection({ op: 'replace', ids: ['rect-b'], source: 'programmatic' });
+    beginMovePreview(engine, 18);
+    expect(engine.dispatchPointerInput(pointerInput('cancel', 18))).toMatchObject({
+      clickSuppressed: true,
+      semanticCompletionCount: 0,
+    });
+    expect(geometry(engine, 'rect-b')).toMatchObject({ x: 160, y: 40 });
+    expect(engine.historyState().undoDepth).toBe(0);
+    expect(engine.transformerEditProbe()).toMatchObject({
+      activeSessionCount: 0,
+      cancelledSessionCount: 1,
+      staleCompletionCount: 0,
+    });
+    expect(engine.transformerGestureProbe()).toMatchObject({
+      activeGestureCount: 0,
+      pointerCaptureCount: 0,
+      staleCompletionCount: 0,
+    });
+  });
+
   it('interrupts preview ownership on selection, replacement, mutation, and destroy', async () => {
     const { engine } = await createEngine(engines);
     engine.loadDataset(scene());
@@ -339,6 +383,27 @@ function beginMovePreview(engine: CoreV2Engine, pointerId: number): void {
     selectionIds: ['rect-b'],
     deltaWorld: [10, 5],
   });
+}
+
+function pointerInput(
+  type: 'up-outside' | 'cancel',
+  pointerId: number,
+): Parameters<CoreV2Engine['dispatchPointerInput']>[0] {
+  return {
+    type,
+    pointerId,
+    pointerType: 'mouse',
+    button: 0,
+    buttons: 0,
+    screen: [170, 50],
+    timeMs: 32,
+    modifiers: {
+      shift: false,
+      ctrl: false,
+      alt: false,
+      meta: false,
+    },
+  };
 }
 
 function geometry(

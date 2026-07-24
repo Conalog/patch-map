@@ -4164,13 +4164,21 @@ export class CoreV2Engine {
   public dispatchPointerInput(input: CoreV2EnginePointerInput): CoreV2PointerDispatchResult {
     this.requireSurface('dispatchPointerInput');
     const authority = this.requirePointerGestureAuthority('dispatchPointerInput');
-    if (this.transformerGestures.owns(input.pointerId)) {
+    const transformerOwned = this.transformerGestures.owns(input.pointerId);
+    if (transformerOwned) {
       this.transformerGestures.route(input.pointerId, 'transform');
     }
     const result = authority.dispatch(Object.freeze({
       ...input,
       viewRevision: input.viewRevision ?? this.viewRevision,
     }));
+    if (transformerOwned) {
+      if (input.type === 'up' || input.type === 'up-outside') {
+        this.completeTransformerEdit(input.pointerId);
+      } else if (input.type === 'cancel' || input.type === 'leave') {
+        this.cancelTransformerEdit(input.pointerId, 'pointer-cancel');
+      }
+    }
     if (result.events.length > 0) this.interactionRevision += 1;
     for (const event of result.events) {
       this.emit('pointerEvent', event);
