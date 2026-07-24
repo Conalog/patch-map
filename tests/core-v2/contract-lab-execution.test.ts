@@ -396,6 +396,55 @@ describe('Core v2 executable Lab product bridge', () => {
     60_000,
   );
 
+  it.each([
+    'HIS-001',
+    'HIS-002',
+    'HIS-003',
+    'HIS-004',
+    'HIS-005',
+    'HIS-006',
+  ] as const)(
+    'produces independently comparable history actuals for %s',
+    async (caseId) => {
+      const surfaces: FakeSurface[] = [];
+      const bridge = createCoreV2ExecutableLabBridge({
+        caseId,
+        rootTestId: `scenario-${caseId.toLowerCase()}`,
+        size: '100',
+        seed: 319,
+        surfaceHost: createSurfaceHost(),
+        surfaceFactory: createFakeSurfaceFactory(surfaces, [], 'projection'),
+        environment: {
+          browser: 'vitest',
+          browserVersion: 'vitest',
+          backend: 'webgl2',
+          routeSize: '100',
+          runtimeResourceIds: [],
+        },
+      });
+      const run = await bridge.runCase();
+      const expected = normalizedExpected.cases.find(({ id }) => id === caseId);
+      expect(expected).toBeDefined();
+      const comparison = compareObservation({
+        expectedCase: expected,
+        actual: run.actualObservation,
+        fixtures: run.fixtures,
+        captures: run.captures,
+      });
+      const failures = comparison.assertions.filter(({ passed }) => !passed);
+
+      expect(comparison.failed, JSON.stringify({
+        failures,
+        actual: run.actualObservation,
+      })).toBe(0);
+      expect(comparison.passed).toBe(expected?.expected.assertions.length);
+      expect(run.cleanup).toMatchObject({ status: 'completed' });
+      expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
+      await bridge.destroyCase();
+    },
+    60_000,
+  );
+
   it('repeats DAT-002 in fresh isolated generations and reset clears only Lab-held results', async () => {
     const surfaceHost = createSurfaceHost();
     const surfaces: FakeSurface[] = [];
@@ -722,6 +771,12 @@ describe('Core v2 executable Lab product bridge', () => {
       'EVT-007': 'pointer-selection',
       'EVT-008': 'pointer-selection',
       'EVT-009': 'pointer-selection',
+      'HIS-001': 'history',
+      'HIS-002': 'history',
+      'HIS-003': 'history',
+      'HIS-004': 'history',
+      'HIS-005': 'history',
+      'HIS-006': 'history',
       'LIF-001': 'foundation',
       'LIF-002': 'foundation',
       'LIF-004': 'lifecycle-resize',

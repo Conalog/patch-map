@@ -21,8 +21,8 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 777;
-const EXPECTED_ASSERTION_PASS_TOTAL = 768;
+const EXPECTED_ASSERTION_TOTAL = 839;
+const EXPECTED_ASSERTION_PASS_TOTAL = 830;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 9;
 const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 11;
 const CASE_TIMEOUT_MS = 180_000;
@@ -183,6 +183,12 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'SEL-007', expectedAssertions: 10 }),
   Object.freeze({ id: 'SEL-008', expectedAssertions: 9 }),
   Object.freeze({ id: 'SEL-009', expectedAssertions: 13 }),
+  Object.freeze({ id: 'HIS-001', expectedAssertions: 13 }),
+  Object.freeze({ id: 'HIS-002', expectedAssertions: 11 }),
+  Object.freeze({ id: 'HIS-003', expectedAssertions: 8 }),
+  Object.freeze({ id: 'HIS-004', expectedAssertions: 6 }),
+  Object.freeze({ id: 'HIS-005', expectedAssertions: 11 }),
+  Object.freeze({ id: 'HIS-006', expectedAssertions: 13 }),
   Object.freeze({ id: 'VIE-001', expectedAssertions: 10 }),
   Object.freeze({ id: 'VIE-002', expectedAssertions: 6 }),
   Object.freeze({ id: 'VIE-003', expectedAssertions: 14 }),
@@ -249,12 +255,21 @@ const POINTER_SELECTION_TRANCHE_CASES = new Set([
   'TRN-003',
   'TRN-010',
 ]);
+const HISTORY_TRANCHE_CASES = new Set([
+  'HIS-001',
+  'HIS-002',
+  'HIS-003',
+  'HIS-004',
+  'HIS-005',
+  'HIS-006',
+]);
 const CONTROL_CASES = new Set([
   ...PRESENTATION_TRANCHE_CASES,
   ...UPDATE_TRANSACTION_TRANCHE_CASES,
   ...VIEWPORT_TRANCHE_CASES,
   ...QUERY_SELECTION_TRANCHE_CASES,
   ...POINTER_SELECTION_TRANCHE_CASES,
+  ...HISTORY_TRANCHE_CASES,
 ]);
 const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);
 const GPU_EVIDENCE_CASES = new Set([
@@ -400,21 +415,21 @@ try {
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 768 pass and 9 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 830 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 768 pass and 9 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 830 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 768 pass and 9 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 830 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
