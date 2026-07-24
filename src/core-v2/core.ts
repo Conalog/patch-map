@@ -40,6 +40,7 @@ import {
 } from './presentation';
 import {
   CORE_V2_PRESENTATION_POLICY_REVISION,
+  type CoreV2PresentationFillOverride,
   type CoreV2PresentationPolicyInput,
   type CoreV2PresentationPolicyProductProbe,
   type CoreV2ResolvedPresentationPolicy,
@@ -389,6 +390,7 @@ interface CoreV2LogicalPresentationPolicy {
   readonly highlightIds: readonly string[] | null;
   readonly deEmphasisAlpha: number;
   readonly hiddenLayerIds: readonly string[];
+  readonly fillOverrides: readonly CoreV2PresentationFillOverride[];
 }
 
 export interface AnimateBarsOptions {
@@ -1334,6 +1336,13 @@ export class CoreV2 {
         const probe = this.renderer.presentationEntityProbe(entityId);
         return probe === null ? [] : [probe];
       });
+      const fillOverride = policy?.fillOverrides.find((entry) => entry.id === id);
+      const packedFillFacts = fillOverride === undefined || parse === null
+        ? rendererFacts
+        : semanticPresentationFillDenseIds(parse, id).flatMap((entityId) => {
+            const probe = this.renderer.presentationEntityProbe(entityId);
+            return probe === null ? [] : [probe];
+          });
       return Object.freeze({
         id,
         denseEntityIds,
@@ -1345,6 +1354,9 @@ export class CoreV2 {
           (count, { renderObjectCount }) => count + renderObjectCount,
           0,
         ),
+        packedFills: Object.freeze(
+          [...new Set(packedFillFacts.map(({ packedFill }) => packedFill >>> 0))],
+        ),
       });
     });
     return Object.freeze({
@@ -1354,6 +1366,7 @@ export class CoreV2 {
       highlightIds: policy?.highlightIds ?? null,
       deEmphasisAlpha: policy?.deEmphasisAlpha ?? 1,
       hiddenLayerIds: policy?.hiddenLayerIds ?? Object.freeze([]),
+      fillOverrides: policy?.fillOverrides ?? Object.freeze([]),
       entities: Object.freeze(entities),
     });
   }
@@ -1738,6 +1751,9 @@ export class CoreV2 {
       hiddenEntityIds: parse === null
         ? Object.freeze([])
         : semanticSelectionDenseIds(parse, policy.hiddenLayerIds),
+      fillOverrides: parse === null
+        ? Object.freeze([])
+        : resolvePresentationFillOverrides(parse, policy.fillOverrides),
     });
     this.renderer.setPresentationPolicy(resolved);
   }
@@ -2417,6 +2433,37 @@ function semanticSelectionDenseIds(
   return Object.freeze([...denseIds]);
 }
 
+function resolvePresentationFillOverrides(
+  parse: ParsePatchMapResult,
+  overrides: readonly CoreV2PresentationFillOverride[],
+): readonly CoreV2PresentationFillOverride[] {
+  const resolved = new Map<string, number>();
+  for (const { id, packedColor } of overrides) {
+    for (const entityId of semanticPresentationFillDenseIds(parse, id)) {
+      resolved.set(entityId, packedColor);
+    }
+  }
+  return Object.freeze([...resolved].map(([id, packedColor]) =>
+    Object.freeze({ id, packedColor }),
+  ).sort((left, right) => left.id.localeCompare(right.id)));
+}
+
+function semanticPresentationFillDenseIds(
+  parse: ParsePatchMapResult,
+  semanticId: string,
+): readonly string[] {
+  const backgroundIds = Object.values(parse.projection.componentsByEntityId ?? {})
+    .filter((component) =>
+      component.ownerId === semanticId &&
+      component.renderRole === 'background-geometry'
+    )
+    .map(({ entityId }) => entityId)
+    .sort();
+  return backgroundIds.length > 0
+    ? Object.freeze(backgroundIds)
+    : semanticSelectionDenseIds(parse, [semanticId]);
+}
+
 function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
@@ -2687,7 +2734,37 @@ function normalizeLogicalPresentationPolicy(
       : freezeLogicalIds(input.highlightIds, 'highlightIds'),
     deEmphasisAlpha,
     hiddenLayerIds: freezeLogicalIds(input.hiddenLayerIds ?? [], 'hiddenLayerIds'),
+    fillOverrides: freezePresentationFillOverrides(input.fillOverrides ?? []),
   });
+}
+
+function freezePresentationFillOverrides(
+  values: readonly CoreV2PresentationFillOverride[],
+): readonly CoreV2PresentationFillOverride[] {
+  if (!Array.isArray(values)) throw new TypeError('fillOverrides must be an array');
+  const byId = new Map<string, CoreV2PresentationFillOverride>();
+  for (const [index, value] of values.entries()) {
+    if (!isPlainRecord(value)) {
+      throw new TypeError(`fillOverrides[${index}] must be an object`);
+    }
+    const { id, packedColor } = value;
+    if (typeof id !== 'string' || id.length === 0) {
+      throw new TypeError(`fillOverrides[${index}].id must be a non-empty string`);
+    }
+    if (
+      typeof packedColor !== 'number' ||
+      !Number.isSafeInteger(packedColor) ||
+      packedColor < 0 ||
+      packedColor > 0xffffffff
+    ) {
+      throw new RangeError(`fillOverrides[${index}].packedColor must be a packed RGBA integer`);
+    }
+    if (byId.has(id)) throw new RangeError(`fillOverrides contains duplicate id ${id}`);
+    byId.set(id, Object.freeze({ id, packedColor: packedColor >>> 0 }));
+  }
+  return Object.freeze([...byId.values()].sort((left, right) =>
+    left.id.localeCompare(right.id),
+  ));
 }
 
 function freezeLogicalIds(values: readonly string[], label: string): readonly string[] {
@@ -2707,7 +2784,17 @@ function sameLogicalPresentationPolicy(
   return left !== null &&
     left.deEmphasisAlpha === right.deEmphasisAlpha &&
     sameNullableStringArray(left.highlightIds, right.highlightIds) &&
-    sameStringArray(left.hiddenLayerIds, right.hiddenLayerIds);
+    sameStringArray(left.hiddenLayerIds, right.hiddenLayerIds) &&
+    samePresentationFillOverrides(left.fillOverrides, right.fillOverrides);
+}
+
+function samePresentationFillOverrides(
+  left: readonly CoreV2PresentationFillOverride[],
+  right: readonly CoreV2PresentationFillOverride[],
+): boolean {
+  return left.length === right.length && left.every((value, index) =>
+    value.id === right[index]?.id && value.packedColor === right[index]?.packedColor
+  );
 }
 
 function sameNullableStringArray(

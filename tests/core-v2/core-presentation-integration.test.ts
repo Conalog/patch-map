@@ -11,6 +11,10 @@ import {
 } from '../../src/core-v2/engine';
 import { CoreV2PresentationError } from '../../src/core-v2/presentation';
 import type {
+  CoreV2RendererPresentationEntityProbe,
+  CoreV2ResolvedPresentationPolicy,
+} from '../../src/core-v2/presentation-policy';
+import type {
   PixiCoreV2InitializationMetrics,
   PixiCoreV2Renderer,
 } from '../../src/core-v2/renderers/pixi-renderer';
@@ -184,6 +188,31 @@ describe('Core v2 bar presentation integration', () => {
       .toMatchObject({ semanticHeight: 12, presentationHeight: 12, active: false });
   });
 
+  it('resolves one logical panel fill to its aggregate background entity only', () => {
+    const { core, renderer } = createTestCore(allocated);
+    core.load(panelScene());
+    const fillOverrides = [{ id: 'item-a', packedColor: 0x00aa66ff }];
+
+    const probe = core.setPresentationPolicy({
+      fillOverrides,
+    });
+    fillOverrides[0]!.packedColor = 0xff0000ff;
+
+    expect(renderer.presentationPolicies.at(-1)?.fillOverrides).toEqual([
+      { id: 'item-a::background:bg', packedColor: 0x00aa66ff },
+    ]);
+    expect(renderer.presentationPolicies.at(-1)?.fillOverrides).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'item-a::bar:level' }),
+      ]),
+    );
+    expect(probe.fillOverrides).toEqual([
+      { id: 'item-a', packedColor: 0x00aa66ff },
+    ]);
+    expect(probe.entities.find(({ id }) => id === 'item-a')?.packedFills)
+      .toContain(0x00aa66ff);
+  });
+
   it('publishes direct dense animation staleness until JSON reconciliation replaces it', () => {
     const { core, renderer } = createTestCore(allocated);
     core.load(scene(10));
@@ -305,6 +334,7 @@ class RendererTestDouble {
     ranges: readonly SlotRange[] | null;
     staleIds: readonly string[] | null;
   }>> = [];
+  public readonly presentationPolicies: Array<CoreV2ResolvedPresentationPolicy | null> = [];
   public destroyed = false;
   private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
 
@@ -322,6 +352,25 @@ class RendererTestDouble {
       staleIds: staleIds === undefined ? null : Object.freeze([...staleIds].sort()),
     }));
     return true;
+  }
+
+  public setPresentationPolicy(policy: CoreV2ResolvedPresentationPolicy | null): boolean {
+    this.presentationPolicies.push(policy);
+    return true;
+  }
+
+  public presentationEntityProbe(
+    entityId: string,
+  ): CoreV2RendererPresentationEntityProbe {
+    const packedFill = this.presentationPolicies.at(-1)?.fillOverrides
+      .find(({ id }) => id === entityId)?.packedColor ?? 0;
+    return Object.freeze({
+      entityId,
+      emphasis: 1,
+      visible: true,
+      renderObjectCount: 1,
+      packedFill,
+    });
   }
 
   public setWorldOrientation(): boolean { return true; }
@@ -403,6 +452,27 @@ function scene(height: number, animation = true): readonly unknown[] {
       animation,
       animationDuration: 200,
     }],
+  }];
+}
+
+function panelScene(): readonly unknown[] {
+  return [{
+    type: 'item',
+    id: 'item-a',
+    size: { width: 100, height: 80 },
+    components: [
+      {
+        type: 'background',
+        id: 'bg',
+        source: { type: 'rect', fill: '#336699' },
+      },
+      {
+        type: 'bar',
+        id: 'level',
+        source: { type: 'rect', fill: '#336699' },
+        size: { width: 60, height: 20 },
+      },
+    ],
   }];
 }
 

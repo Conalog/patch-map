@@ -862,6 +862,9 @@ class UpdateContractSurface implements CoreV2EngineSurface {
         : Object.freeze([...(input.highlightIds ?? [])]),
       deEmphasisAlpha: input.deEmphasisAlpha ?? 0.2,
       hiddenLayerIds: Object.freeze([...(input.hiddenLayerIds ?? [])]),
+      fillOverrides: Object.freeze((input.fillOverrides ?? []).map((entry) =>
+        Object.freeze({ ...entry }),
+      )),
     });
     this.presentationRevision += 1;
     return this.presentationPolicyProbe();
@@ -877,6 +880,8 @@ class UpdateContractSurface implements CoreV2EngineSurface {
     const highlightIds = this.presentationInput?.highlightIds ?? null;
     const highlighted = new Set(highlightIds ?? []);
     const hidden = new Set(this.presentationInput?.hiddenLayerIds ?? []);
+    const fillOverrides = this.presentationInput?.fillOverrides ?? Object.freeze([]);
+    const fillById = new Map(fillOverrides.map(({ id, packedColor }) => [id, packedColor]));
     const deEmphasisAlpha = this.presentationInput?.deEmphasisAlpha ?? 1;
     return deepFreeze({
       schemaRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
@@ -885,6 +890,7 @@ class UpdateContractSurface implements CoreV2EngineSurface {
       highlightIds,
       deEmphasisAlpha,
       hiddenLayerIds: this.presentationInput?.hiddenLayerIds ?? Object.freeze([]),
+      fillOverrides,
       entities: ['item-a', 'rect-b', 'text-c', 'links'].map((id) => {
         const visible = !hidden.has(id);
         return {
@@ -893,6 +899,7 @@ class UpdateContractSurface implements CoreV2EngineSurface {
           emphasis: highlightIds === null || highlighted.has(id) ? 1 : deEmphasisAlpha,
           visible,
           renderObjectCount: visible ? 1 : 0,
+          packedFills: [fillById.get(id) ?? 0],
         };
       }),
     });

@@ -1036,9 +1036,12 @@ function buildAggregateChunkLaneGeometry(
     ) {
       const paint = projectionContext.index.backgroundsByEntityId?.[entityId];
       const opacity = store.opacity[slot] as number;
-      const packedFill = paint?.sourceKind === 'rect'
-        ? multiplyPackedRgba(paint.fill, paint.tint)
-        : (store.fill[slot] as number) >>> 0;
+      const presentationFill = presentationFillOverride(store, entityId);
+      const packedFill = presentationFill ?? (
+        paint?.sourceKind === 'rect'
+          ? multiplyPackedRgba(paint.fill, paint.tint)
+          : (store.fill[slot] as number) >>> 0
+      );
       const fillStyle = packedRgbaToMeshStyle(packedFill, opacity);
       const packedBorder = paint?.sourceKind === 'rect'
         ? multiplyPackedRgba(paint.borderColor, paint.tint)
@@ -1232,6 +1235,20 @@ function buildAggregateChunkLaneGeometry(
     visibleBars,
     visibleRelations,
   };
+}
+
+function presentationFillOverride(
+  store: RenderStoreView,
+  entityId: string,
+): number | null {
+  const candidate = (
+    store as RenderStoreView & {
+      presentationFillOverride?: (id: string) => number | null;
+    }
+  ).presentationFillOverride;
+  if (typeof candidate !== 'function') return null;
+  const value = candidate.call(store, entityId);
+  return value === null ? null : value >>> 0;
 }
 
 function endpointGeometry(

@@ -406,6 +406,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       emphasis: 1,
       visible,
       renderObjectCount: visible ? 1 : 0,
+      packedFill: (store.fill[slot] ?? 0) >>> 0,
     });
   }
 
@@ -1405,7 +1406,39 @@ function normalizePresentationPolicy(
       : freezePresentationIds(policy.highlightedEntityIds, 'highlightedEntityIds'),
     deEmphasisAlpha: policy.deEmphasisAlpha,
     hiddenEntityIds: freezePresentationIds(policy.hiddenEntityIds, 'hiddenEntityIds'),
+    fillOverrides: freezePresentationFillOverrides(policy.fillOverrides),
   });
+}
+
+function freezePresentationFillOverrides(
+  values: CoreV2ResolvedPresentationPolicy['fillOverrides'],
+): CoreV2ResolvedPresentationPolicy['fillOverrides'] {
+  if (!Array.isArray(values as unknown)) {
+    throw new TypeError('fillOverrides must be an array');
+  }
+  const seen = new Set<string>();
+  return Object.freeze(values.map((value, index) => {
+    if (value === null || typeof value !== 'object') {
+      throw new TypeError(`fillOverrides[${index}] must be an object`);
+    }
+    if (typeof value.id !== 'string' || value.id.length === 0) {
+      throw new TypeError(`fillOverrides[${index}].id must be a non-empty string`);
+    }
+    if (seen.has(value.id)) {
+      throw new RangeError(`fillOverrides contains duplicate id ${value.id}`);
+    }
+    if (
+      !Number.isSafeInteger(value.packedColor) ||
+      value.packedColor < 0 ||
+      value.packedColor > 0xffffffff
+    ) {
+      throw new RangeError(
+        `fillOverrides[${index}].packedColor must be a packed RGBA integer`,
+      );
+    }
+    seen.add(value.id);
+    return Object.freeze({ id: value.id, packedColor: value.packedColor >>> 0 });
+  }).sort((left, right) => left.id.localeCompare(right.id)));
 }
 
 function freezePresentationIds(values: readonly string[], label: string): readonly string[] {
@@ -1428,7 +1461,17 @@ function samePresentationPolicy(
   return left.revision === right.revision &&
     left.deEmphasisAlpha === right.deEmphasisAlpha &&
     sameOptionalStringArray(left.highlightedEntityIds, right.highlightedEntityIds) &&
-    sameOrderedStrings(left.hiddenEntityIds, right.hiddenEntityIds);
+    sameOrderedStrings(left.hiddenEntityIds, right.hiddenEntityIds) &&
+    samePresentationFillOverrides(left.fillOverrides, right.fillOverrides);
+}
+
+function samePresentationFillOverrides(
+  left: CoreV2ResolvedPresentationPolicy['fillOverrides'],
+  right: CoreV2ResolvedPresentationPolicy['fillOverrides'],
+): boolean {
+  return left.length === right.length && left.every((value, index) =>
+    value.id === right[index]?.id && value.packedColor === right[index]?.packedColor
+  );
 }
 
 function sameOptionalStringArray(

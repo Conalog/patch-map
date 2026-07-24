@@ -8,8 +8,8 @@ import type { CoreV2ResolvedPresentationPolicy } from '../presentation-policy';
 /**
  * Stable renderer-only view over the dense store.
  *
- * Only `flags` and `opacity` are materialized. Every other column remains a
- * direct view of the authoritative dense store. Dirty-range synchronization
+ * Only presentation-owned columns are materialized. Every other column remains
+ * a direct view of the authoritative dense store. Dirty-range synchronization
  * keeps normal updates incremental while a host presentation policy is active.
  */
 export class CoreV2PresentationStoreView implements RenderStoreView {
@@ -17,9 +17,11 @@ export class CoreV2PresentationStoreView implements RenderStoreView {
   private policy: CoreV2ResolvedPresentationPolicy;
   private readonly highlighted = new Set<string>();
   private readonly hidden = new Set<string>();
+  private readonly fillOverrides = new Map<string, number>();
 
   public readonly flags: Uint8Array;
   public readonly opacity: Float32Array;
+  public readonly fill: Uint32Array;
 
   public constructor(
     base: RenderStoreView,
@@ -29,6 +31,7 @@ export class CoreV2PresentationStoreView implements RenderStoreView {
     this.policy = policy;
     this.flags = new Uint8Array(base.capacity);
     this.opacity = new Float32Array(base.capacity);
+    this.fill = new Uint32Array(base.capacity);
     this.synchronize(base, policy);
   }
 
@@ -74,10 +77,6 @@ export class CoreV2PresentationStoreView implements RenderStoreView {
 
   public get rotation(): ArrayLike<number> {
     return this.base.rotation;
-  }
-
-  public get fill(): ArrayLike<number> {
-    return this.base.fill;
   }
 
   public get stroke(): ArrayLike<number> {
@@ -176,6 +175,10 @@ export class CoreV2PresentationStoreView implements RenderStoreView {
     return this.base.renderOrder();
   }
 
+  public presentationFillOverride(entityId: string): number | null {
+    return this.fillOverrides.get(entityId) ?? null;
+  }
+
   public synchronize(
     base: RenderStoreView,
     policy: CoreV2ResolvedPresentationPolicy,
@@ -188,6 +191,7 @@ export class CoreV2PresentationStoreView implements RenderStoreView {
     this.policy = policy;
     replaceSet(this.highlighted, policy.highlightedEntityIds ?? []);
     replaceSet(this.hidden, policy.hiddenEntityIds);
+    replaceFillOverrides(this.fillOverrides, policy.fillOverrides);
     if (ranges === undefined) {
       this.synchronizeRange(0, base.capacity);
       return;
@@ -201,6 +205,7 @@ export class CoreV2PresentationStoreView implements RenderStoreView {
     readonly emphasis: number;
     readonly visible: boolean;
     readonly renderObjectCount: number;
+    readonly packedFill: number;
   }> | null {
     const slot = this.base.ids.indexOf(entityId);
     if (slot < 0 || (this.base.alive[slot] ?? 0) === 0) return null;
@@ -210,6 +215,7 @@ export class CoreV2PresentationStoreView implements RenderStoreView {
       emphasis: this.emphasis(entityId),
       visible,
       renderObjectCount: visible ? 1 : 0,
+      packedFill: this.fill[slot] ?? 0,
     });
   }
 
@@ -222,6 +228,7 @@ export class CoreV2PresentationStoreView implements RenderStoreView {
       const flags = this.base.flags[slot] ?? 0;
       this.flags[slot] = hidden ? flags & ~RenderFlags.Visible : flags;
       this.opacity[slot] = (this.base.opacity[slot] ?? 0) * this.emphasis(id);
+      this.fill[slot] = this.fillOverrides.get(id) ?? this.base.fill[slot] ?? 0;
     }
   }
 
@@ -235,4 +242,12 @@ export class CoreV2PresentationStoreView implements RenderStoreView {
 function replaceSet(target: Set<string>, values: readonly string[]): void {
   target.clear();
   for (const value of values) target.add(value);
+}
+
+function replaceFillOverrides(
+  target: Map<string, number>,
+  values: CoreV2ResolvedPresentationPolicy['fillOverrides'],
+): void {
+  target.clear();
+  for (const { id, packedColor } of values) target.set(id, packedColor >>> 0);
 }

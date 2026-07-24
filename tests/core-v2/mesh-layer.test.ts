@@ -16,6 +16,7 @@ import {
   dirtyChunkIndices,
   packedRgbaToMeshStyle,
 } from '../../src/core-v2/renderers/mesh-layer';
+import { CoreV2PresentationStoreView } from '../../src/core-v2/renderers/presentation-store';
 
 describe('aggregate mesh geometry builders', () => {
   it('converts packed 0xRRGGBBAA into a Pixi tint and composed alpha', () => {
@@ -91,6 +92,54 @@ describe('aggregate mesh geometry builders', () => {
     expect([...built.relationGroups[0]!.positions]).toEqual([
       5, 6, 105, 6, 105, 4, 5, 4,
     ]);
+  });
+
+  it('lets a transient presentation fill override win over authored background projection paint', () => {
+    const base = createStore();
+    const view = new CoreV2PresentationStoreView(base, Object.freeze({
+      revision: 1,
+      highlightedEntityIds: null,
+      deEmphasisAlpha: 0.2,
+      hiddenEntityIds: Object.freeze([]),
+      fillOverrides: Object.freeze([
+        Object.freeze({ id: 'rect', packedColor: 0x00aa66ff }),
+      ]),
+    }));
+    const projection: CoreV2ProjectionIndex = Object.freeze({
+      byEntityId: Object.freeze({}),
+      componentsByEntityId: Object.freeze({
+        rect: Object.freeze({
+          entityId: 'rect',
+          ownerId: 'item-a',
+          componentId: 'bg',
+          componentType: 'background',
+          logicalIdentity: 'item-a::background:bg',
+          renderRole: 'background-geometry',
+        }),
+      }),
+      backgroundsByEntityId: Object.freeze({
+        rect: Object.freeze({
+          entityId: 'rect',
+          sourceKind: 'rect',
+          fill: 0xff0000ff,
+          borderWidth: 0,
+          borderColor: 0x00000000,
+          radius: Object.freeze([0, 0, 0, 0] as const),
+          tint: 0xffffffff,
+        }),
+      }),
+    });
+    const context: CoreV2ProjectionRenderContext = Object.freeze({
+      index: projection,
+      revision: 1,
+      world: Object.freeze({ rotationDegrees: 0, flipX: false, flipY: false }),
+    });
+
+    const built = buildAggregateChunkGeometry(view, 0, view.capacity, context);
+
+    expect(built.quadGroups.find(({ tint }) => tint === 0x00aa66)?.primitiveCount).toBe(1);
+    expect(built.quadGroups.some(({ tint }) => tint === 0xff0000)).toBe(false);
+    expect(base.fill[0]).not.toBe(0x00aa66ff);
   });
 
   it('expands one logical self relation into four aggregate Mesh segments', () => {

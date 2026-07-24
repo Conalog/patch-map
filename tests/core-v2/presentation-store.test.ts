@@ -16,6 +16,7 @@ describe('Core v2 renderer presentation store', () => {
     const view = new CoreV2PresentationStoreView(base, policy({
       highlightedEntityIds: ['item-a'],
       hiddenEntityIds: ['links:0'],
+      fillOverrides: [{ id: 'item-a', packedColor: 0x00aa66ff }],
     }));
 
     expect([...view.flags]).toEqual([
@@ -32,17 +33,22 @@ describe('Core v2 renderer presentation store', () => {
       emphasis: 1,
       visible: true,
       renderObjectCount: 1,
+      packedFill: 0x00aa66ff,
     });
     expect(view.entityProbe('text-c')).toEqual({
       emphasis: 0.2,
       visible: true,
       renderObjectCount: 1,
+      packedFill: 0,
     });
     expect(view.entityProbe('links:0')).toEqual({
       emphasis: 0.2,
       visible: false,
       renderObjectCount: 0,
+      packedFill: 0,
     });
+    expect(view.fill[0]).toBe(0x00aa66ff);
+    expect(base.fill[0]).toBe(0);
     expect(Array.from(base.flags)).toEqual(beforeFlags);
     expect(Array.from(base.opacity)).toEqual(beforeOpacity);
   });
@@ -88,6 +94,7 @@ function policy(
     highlightedEntityIds: overrides.highlightedEntityIds ?? null,
     deEmphasisAlpha: overrides.deEmphasisAlpha ?? 0.2,
     hiddenEntityIds: overrides.hiddenEntityIds ?? Object.freeze([]),
+    fillOverrides: overrides.fillOverrides ?? Object.freeze([]),
   });
 }
 
