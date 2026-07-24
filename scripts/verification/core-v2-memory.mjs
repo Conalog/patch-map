@@ -62,6 +62,8 @@ try {
       let afterDestroy = null;
       let transformerBeforeDestroy = null;
       let transformerAfterDestroy = null;
+      let transformerEditBeforeDestroy = null;
+      let transformerEditAfterDestroy = null;
       let historyBeforeDestroy = null;
       let snapshot = null;
       let observedEventCount = 0;
@@ -173,12 +175,26 @@ try {
           ids: ['rect-b'],
           source: 'canvas',
         });
-        engine.beginTransformerHandleGesture(100 + index, 'se');
+        engine.beginTransformerEdit({
+          pointerId: 100 + index,
+          actionId: `memory-transform-preview-${index}`,
+          kind: 'resize',
+          handle: 'se',
+          selectionIds: ['rect-b'],
+        });
+        engine.previewTransformerEdit(100 + index, {
+          kind: 'resize',
+          selectionIds: ['rect-b'],
+          handle: 'se',
+          deltaWorld: [10, 10],
+        });
         transformerBeforeDestroy = engine.transformerGestureProbe();
+        transformerEditBeforeDestroy = engine.transformerEditProbe();
         beforeDestroy = engine.hostInteractionProbe();
         await engine.destroy();
         afterDestroy = engine.hostInteractionProbe();
         transformerAfterDestroy = engine.transformerGestureProbe();
+        transformerEditAfterDestroy = engine.transformerEditProbe();
         snapshot = engine.snapshot();
       } catch (caught) {
         error = caught instanceof Error ? caught.message : String(caught);
@@ -196,6 +212,8 @@ try {
         afterDestroy,
         transformerBeforeDestroy,
         transformerAfterDestroy,
+        transformerEditBeforeDestroy,
+        transformerEditAfterDestroy,
         historyBeforeDestroy,
         snapshot,
         retainedCanvasCount: host.querySelectorAll('canvas').length,
@@ -247,6 +265,11 @@ try {
       trial.transformerAfterDestroy?.activeGestureCount !== 0 ||
       trial.transformerAfterDestroy?.pointerCaptureCount !== 0 ||
       trial.transformerAfterDestroy?.destroyed !== true ||
+      trial.transformerEditBeforeDestroy?.activeSessionCount !== 1 ||
+      trial.transformerEditBeforeDestroy?.previewOverlayCount !== 1 ||
+      trial.transformerEditAfterDestroy?.activeSessionCount !== 0 ||
+      trial.transformerEditAfterDestroy?.previewOverlayCount !== 0 ||
+      trial.transformerEditAfterDestroy?.edgePanActiveCount !== 0 ||
       trial.historyBeforeDestroy?.state?.depth !== 2 ||
       trial.historyBeforeDestroy?.state?.undoDepth !== 2 ||
       JSON.stringify(trial.historyBeforeDestroy?.commandIds) !==

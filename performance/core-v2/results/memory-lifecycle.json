@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-24T02:34:28.713Z",
+  "generatedAt": "2026-07-24T04:18:24.606Z",
   "workload": {
     "sourceItems": 1000,
     "expandedEntities": 5099
@@ -99,6 +99,32 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "transformerEditBeforeDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 1,
+        "activePointerId": 100,
+        "activeKind": "resize",
+        "activeActionId": "memory-transform-preview-0",
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 0,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 1,
+        "edgePanActiveCount": 0
+      },
+      "transformerEditAfterDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 0,
+        "activePointerId": null,
+        "activeKind": null,
+        "activeActionId": null,
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 1,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 0,
+        "edgePanActiveCount": 0
+      },
       "historyBeforeDestroy": {
         "state": {
           "capacity": 50,
@@ -131,7 +157,7 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 5
+          "interactionRevision": 6
         },
         "publishedTuple": {
           "scene": 0,
@@ -286,6 +312,32 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "transformerEditBeforeDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 1,
+        "activePointerId": 101,
+        "activeKind": "resize",
+        "activeActionId": "memory-transform-preview-1",
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 0,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 1,
+        "edgePanActiveCount": 0
+      },
+      "transformerEditAfterDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 0,
+        "activePointerId": null,
+        "activeKind": null,
+        "activeActionId": null,
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 1,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 0,
+        "edgePanActiveCount": 0
+      },
       "historyBeforeDestroy": {
         "state": {
           "capacity": 50,
@@ -318,7 +370,7 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 5
+          "interactionRevision": 6
         },
         "publishedTuple": {
           "scene": 0,
@@ -473,6 +525,32 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "transformerEditBeforeDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 1,
+        "activePointerId": 102,
+        "activeKind": "resize",
+        "activeActionId": "memory-transform-preview-2",
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 0,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 1,
+        "edgePanActiveCount": 0
+      },
+      "transformerEditAfterDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 0,
+        "activePointerId": null,
+        "activeKind": null,
+        "activeActionId": null,
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 1,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 0,
+        "edgePanActiveCount": 0
+      },
       "historyBeforeDestroy": {
         "state": {
           "capacity": 50,
@@ -505,7 +583,7 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 5
+          "interactionRevision": 6
         },
         "publishedTuple": {
           "scene": 0,
@@ -660,6 +738,32 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "transformerEditBeforeDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 1,
+        "activePointerId": 103,
+        "activeKind": "resize",
+        "activeActionId": "memory-transform-preview-3",
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 0,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 1,
+        "edgePanActiveCount": 0
+      },
+      "transformerEditAfterDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 0,
+        "activePointerId": null,
+        "activeKind": null,
+        "activeActionId": null,
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 1,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 0,
+        "edgePanActiveCount": 0
+      },
       "historyBeforeDestroy": {
         "state": {
           "capacity": 50,
@@ -692,7 +796,7 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 5
+          "interactionRevision": 6
         },
         "publishedTuple": {
           "scene": 0,
@@ -847,6 +951,32 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "transformerEditBeforeDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 1,
+        "activePointerId": 104,
+        "activeKind": "resize",
+        "activeActionId": "memory-transform-preview-4",
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 0,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 1,
+        "edgePanActiveCount": 0
+      },
+      "transformerEditAfterDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 0,
+        "activePointerId": null,
+        "activeKind": null,
+        "activeActionId": null,
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 1,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 0,
+        "edgePanActiveCount": 0
+      },
       "historyBeforeDestroy": {
         "state": {
           "capacity": 50,
@@ -879,7 +1009,7 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 5
+          "interactionRevision": 6
         },
         "publishedTuple": {
           "scene": 0,
@@ -1034,6 +1164,32 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "transformerEditBeforeDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 1,
+        "activePointerId": 105,
+        "activeKind": "resize",
+        "activeActionId": "memory-transform-preview-5",
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 0,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 1,
+        "edgePanActiveCount": 0
+      },
+      "transformerEditAfterDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 0,
+        "activePointerId": null,
+        "activeKind": null,
+        "activeActionId": null,
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 1,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 0,
+        "edgePanActiveCount": 0
+      },
       "historyBeforeDestroy": {
         "state": {
           "capacity": 50,
@@ -1066,7 +1222,7 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 5
+          "interactionRevision": 6
         },
         "publishedTuple": {
           "scene": 0,
@@ -1221,6 +1377,32 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "transformerEditBeforeDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 1,
+        "activePointerId": 106,
+        "activeKind": "resize",
+        "activeActionId": "memory-transform-preview-6",
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 0,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 1,
+        "edgePanActiveCount": 0
+      },
+      "transformerEditAfterDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 0,
+        "activePointerId": null,
+        "activeKind": null,
+        "activeActionId": null,
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 1,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 0,
+        "edgePanActiveCount": 0
+      },
       "historyBeforeDestroy": {
         "state": {
           "capacity": 50,
@@ -1253,7 +1435,7 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 5
+          "interactionRevision": 6
         },
         "publishedTuple": {
           "scene": 0,
@@ -1408,6 +1590,32 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "transformerEditBeforeDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 1,
+        "activePointerId": 107,
+        "activeKind": "resize",
+        "activeActionId": "memory-transform-preview-7",
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 0,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 1,
+        "edgePanActiveCount": 0
+      },
+      "transformerEditAfterDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 0,
+        "activePointerId": null,
+        "activeKind": null,
+        "activeActionId": null,
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 1,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 0,
+        "edgePanActiveCount": 0
+      },
       "historyBeforeDestroy": {
         "state": {
           "capacity": 50,
@@ -1440,7 +1648,7 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 5
+          "interactionRevision": 6
         },
         "publishedTuple": {
           "scene": 0,
@@ -1595,6 +1803,32 @@
         "staleCompletionCount": 0,
         "destroyed": true
       },
+      "transformerEditBeforeDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 1,
+        "activePointerId": 108,
+        "activeKind": "resize",
+        "activeActionId": "memory-transform-preview-8",
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 0,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 1,
+        "edgePanActiveCount": 0
+      },
+      "transformerEditAfterDestroy": {
+        "schemaRevision": "core-v2-transformer-edit/1",
+        "activeSessionCount": 0,
+        "activePointerId": null,
+        "activeKind": null,
+        "activeActionId": null,
+        "previewCount": 1,
+        "committedMutationCount": 0,
+        "cancelledSessionCount": 1,
+        "staleCompletionCount": 0,
+        "previewOverlayCount": 0,
+        "edgePanActiveCount": 0
+      },
       "historyBeforeDestroy": {
         "state": {
           "capacity": 50,
@@ -1627,7 +1861,7 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 5
+          "interactionRevision": 6
         },
         "publishedTuple": {
           "scene": 0,
@@ -1695,22 +1929,22 @@
     }
   ],
   "jsHeap": {
-    "before": 6976196,
-    "after": 13466088,
-    "processDelta": 6489892,
+    "before": 7110896,
+    "after": 13714484,
+    "processDelta": 6603588,
     "samples": [
-      180147,
-      76863,
-      402691,
-      85587,
+      181551,
+      75735,
+      403051,
+      83811,
+      15343,
       0,
-      48731,
-      208379
+      210567
     ],
-    "median": 85587,
-    "p95": 402691,
-    "maximum": 402691,
-    "trend": 28232
+    "median": 83811,
+    "p95": 403051,
+    "maximum": 403051,
+    "trend": 29016
   },
   "dom": {
     "canvasCount": 0,

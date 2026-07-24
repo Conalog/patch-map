@@ -49,6 +49,7 @@ import {
   CORE_V2_POINTER_GESTURE_REVISION,
   CORE_V2_PRESENTATION_POLICY_REVISION,
   CORE_V2_SELECTION_TRANSFORMER_REVISION,
+  CORE_V2_TRANSFORMER_EDIT_REVISION,
   CoreV2Engine,
   CoreV2HostInteractionAuthority,
   CoreV2PointerGestureAuthority,
@@ -57,6 +58,8 @@ import {
   hitCoreV2BoxRegion,
   hitCoreV2PaintRegion,
   parsePatchMapV010,
+  planCoreV2TransformerEdit,
+  resolveCoreV2RotationSnap,
 } from '@conalog/patch-map/core-v2';
 
 const input = [{
@@ -229,6 +232,27 @@ const refreshAfter = engine.snapshot();
 const overlayHistoryAfter = engine.historyState();
 engine.loadDataset(hierarchyInput, { datasetRef: 'packed-hierarchy' });
 engine.select(['rect-b']);
+const transformerEditPlan = planCoreV2TransformerEdit(engine.exportDataset(), {
+  kind: 'resize',
+  selectionIds: ['rect-b'],
+  handle: 'se',
+  deltaWorld: [10, 10],
+});
+const transformerSnap = resolveCoreV2RotationSnap(350, 7, true, 15);
+const transformerSessionBegin = engine.beginTransformerEdit({
+  pointerId: 92,
+  actionId: 'packed-transform-preview',
+  kind: 'move',
+  handle: 'frame',
+  selectionIds: ['rect-b'],
+});
+const transformerPreview = engine.previewTransformerEdit(92, {
+  kind: 'move',
+  selectionIds: ['rect-b'],
+  deltaWorld: [10, 5],
+});
+const transformerSessionCancel = engine.cancelTransformerEdit(92, 'escape');
+const transformerEditProbe = engine.transformerEditProbe();
 const transformerSubset = engine.transformableSubset(['rect-b']);
 const transformerVisual = engine.setSelectionVisualPolicy({
   selectionIds: ['rect-b'],
@@ -383,6 +407,7 @@ window.__PACKAGE_RESULT__ = {
   pointerRevision: CORE_V2_POINTER_GESTURE_REVISION,
   presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
   selectionTransformerRevision: CORE_V2_SELECTION_TRANSFORMER_REVISION,
+  transformerEditRevision: CORE_V2_TRANSFORMER_EDIT_REVISION,
   pointerPackage: {
     eventTypes: pointerClick.events.map(({ type }) => type),
     clickTarget: pointerClick.events.at(-1)?.payload.target?.id ?? null,
@@ -419,6 +444,22 @@ window.__PACKAGE_RESULT__ = {
     settledActiveGestureCount: transformerCompletion.probe.activeGestureCount,
     destroyed: transformerAfterDestroy.destroyed,
     destroyedActiveGestureCount: transformerAfterDestroy.activeGestureCount,
+  },
+  transformerEditPackage: {
+    plannerType: typeof planCoreV2TransformerEdit,
+    snapType: typeof resolveCoreV2RotationSnap,
+    planStatus: transformerEditPlan.status,
+    plannedSize: [
+      transformerEditPlan.after['rect-b']?.width ?? null,
+      transformerEditPlan.after['rect-b']?.height ?? null,
+    ],
+    snapAppliedDegrees: transformerSnap.appliedDegrees,
+    sessionActiveCount: transformerSessionBegin.activeSessionCount,
+    previewStatus: transformerPreview.status,
+    cancelStatus: transformerSessionCancel.status,
+    settledActiveCount: transformerEditProbe.activeSessionCount,
+    settledOverlayCount: transformerEditProbe.previewOverlayCount,
+    settledCaptureCount: engine.transformerGestureProbe().pointerCaptureCount,
   },
   emptyBulkStatus: emptyBulk.status,
   emptyBulkSceneRevision: emptyBulk.revisions.sceneRevision,
@@ -524,12 +565,15 @@ const {
   CORE_V2_POINTER_GESTURE_REVISION,
   CORE_V2_PRESENTATION_POLICY_REVISION,
   CORE_V2_SELECTION_TRANSFORMER_REVISION,
+  CORE_V2_TRANSFORMER_EDIT_REVISION,
   CoreV2PointerGestureAuthority,
   CoreV2Engine,
   CoreV2HostInteractionAuthority,
   CoreV2TransformerGestureAuthority,
   parsePatchMapV010,
+  planCoreV2TransformerEdit,
   planCoreV2MutationTransaction,
+  resolveCoreV2RotationSnap,
 } = require('@conalog/patch-map/core-v2');
 const result = parsePatchMapV010([{ type: 'rect', id: 'cjs-rect', size: 10, fill: '#ff0000' }]);
 process.stdout.write(JSON.stringify({
@@ -542,6 +586,10 @@ process.stdout.write(JSON.stringify({
   hostInteractionAuthorityType: typeof CoreV2HostInteractionAuthority,
   selectionTransformerRevision: CORE_V2_SELECTION_TRANSFORMER_REVISION,
   selectionTransformerAuthorityType: typeof CoreV2TransformerGestureAuthority,
+  transformerEditRevision: CORE_V2_TRANSFORMER_EDIT_REVISION,
+  transformerEditPlannerType: typeof planCoreV2TransformerEdit,
+  transformerSnapType: typeof resolveCoreV2RotationSnap,
+  transformerSessionType: typeof CoreV2Engine.prototype.beginTransformerEdit,
   presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
   plannerType: typeof planCoreV2MutationTransaction,
   historyEngineType: typeof CoreV2Engine,
@@ -656,6 +704,21 @@ process.stdout.write(JSON.stringify({
     esm.selectionTransformerPackage?.destroyed !== true ||
     esm.selectionTransformerPackage?.destroyedActiveGestureCount !== 0
   ) failures.push('packed ESM selection transformer exports failed');
+  if (
+    esm.transformerEditRevision !== 'core-v2-transformer-edit/1' ||
+    esm.transformerEditPackage?.plannerType !== 'function' ||
+    esm.transformerEditPackage?.snapType !== 'function' ||
+    esm.transformerEditPackage?.planStatus !== 'planned' ||
+    JSON.stringify(esm.transformerEditPackage?.plannedSize) !==
+      JSON.stringify([50, 40]) ||
+    esm.transformerEditPackage?.snapAppliedDegrees !== 0 ||
+    esm.transformerEditPackage?.sessionActiveCount !== 1 ||
+    esm.transformerEditPackage?.previewStatus !== 'previewed' ||
+    esm.transformerEditPackage?.cancelStatus !== 'cancelled' ||
+    esm.transformerEditPackage?.settledActiveCount !== 0 ||
+    esm.transformerEditPackage?.settledOverlayCount !== 0 ||
+    esm.transformerEditPackage?.settledCaptureCount !== 0
+  ) failures.push('packed ESM transformer edit exports failed');
   if (esm.presentationRevision !== 'core-v2-presentation-policy/1') failures.push('packed ESM presentation revision export failed');
   if (esm.emptyBulkStatus !== 'unchanged' || esm.emptyBulkSceneRevision !== 1) failures.push('packed ESM empty bulk target-set semantics failed');
   if (esm.transactionStatus !== 'committed' || esm.transactionSceneRevision !== 2 || esm.transactionBarHeight !== 30) failures.push('packed ESM engine transaction failed');
@@ -751,6 +814,10 @@ process.stdout.write(JSON.stringify({
     cjs.hostInteractionAuthorityType !== 'function' ||
     cjs.selectionTransformerRevision !== 'core-v2-selection-transformer/1' ||
     cjs.selectionTransformerAuthorityType !== 'function' ||
+    cjs.transformerEditRevision !== 'core-v2-transformer-edit/1' ||
+    cjs.transformerEditPlannerType !== 'function' ||
+    cjs.transformerSnapType !== 'function' ||
+    cjs.transformerSessionType !== 'function' ||
     cjs.presentationRevision !== 'core-v2-presentation-policy/1' ||
     cjs.plannerType !== 'function' ||
     cjs.historyEngineType !== 'function' ||

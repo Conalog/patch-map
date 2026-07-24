@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-24T03:22:16.239Z",
+  "generatedAt": "2026-07-24T04:17:37.128Z",
   "package": "@conalog/patch-map/core-v2",
   "pixi": "8.19.0",
   "esm": {
@@ -20,6 +20,7 @@
     "pointerRevision": "core-v2-pointer-gesture/1",
     "presentationRevision": "core-v2-presentation-policy/1",
     "selectionTransformerRevision": "core-v2-selection-transformer/1",
+    "transformerEditRevision": "core-v2-transformer-edit/1",
     "pointerPackage": {
       "eventTypes": [
         "up",
@@ -88,6 +89,22 @@
       "settledActiveGestureCount": 0,
       "destroyed": true,
       "destroyedActiveGestureCount": 0
+    },
+    "transformerEditPackage": {
+      "plannerType": "function",
+      "snapType": "function",
+      "planStatus": "planned",
+      "plannedSize": [
+        50,
+        40
+      ],
+      "snapAppliedDegrees": 0,
+      "sessionActiveCount": 1,
+      "previewStatus": "previewed",
+      "cancelStatus": "cancelled",
+      "settledActiveCount": 0,
+      "settledOverlayCount": 0,
+      "settledCaptureCount": 0
     },
     "emptyBulkStatus": "unchanged",
     "emptyBulkSceneRevision": 1,
@@ -234,6 +251,10 @@
     "hostInteractionAuthorityType": "function",
     "selectionTransformerRevision": "core-v2-selection-transformer/1",
     "selectionTransformerAuthorityType": "function",
+    "transformerEditRevision": "core-v2-transformer-edit/1",
+    "transformerEditPlannerType": "function",
+    "transformerSnapType": "function",
+    "transformerSessionType": "function",
     "presentationRevision": "core-v2-presentation-policy/1",
     "plannerType": "function",
     "historyEngineType": "function",
