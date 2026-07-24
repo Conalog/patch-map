@@ -173,7 +173,9 @@ export function createCoreV2ExecutableLabBridge(
     lastRun = null;
 
     let execution: Readonly<Record<string, unknown>> | null = null;
-    let postDestroyProductProbe: (() => Readonly<Record<string, unknown>>) | null = null;
+    let postDestroyProductProbe: (() =>
+      | Readonly<Record<string, unknown>>
+      | Promise<Readonly<Record<string, unknown>>>) | null = null;
     let supplementalEngine: TargetedWebGLCoreV2Engine | null = null;
     let supplementalCleanup: Readonly<Record<string, unknown>> | null = null;
     let supplementalReleaseError: unknown = null;
@@ -212,13 +214,16 @@ export function createCoreV2ExecutableLabBridge(
         datasets: { resolve: resolveCoreV2ExecutableDataset },
         clock: new ExecutableLabClock(),
         handlerEntries: runRuntime.handlerEntries,
+        ...(runRuntime.actionTimeoutMs === undefined
+          ? {}
+          : { actionTimeoutMs: runRuntime.actionTimeoutMs }),
       });
       if (postDestroyProductProbe) {
         const probe = postDestroyProductProbe;
         postDestroyProductProbe = null;
         execution = attachPostDestroyProductProbe(
           execution,
-          probe(),
+          await probe(),
         );
       }
       const folded = runtime.fold({
@@ -280,7 +285,7 @@ export function createCoreV2ExecutableLabBridge(
         const probe = postDestroyProductProbe;
         postDestroyProductProbe = null;
         try {
-          const productResources = probe();
+          const productResources = await probe();
           partialExecution = partialExecution
             ? attachPostDestroyProductProbe(partialExecution, productResources)
             : executionWithProductCleanup(productResources);

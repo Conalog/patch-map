@@ -281,6 +281,122 @@ describe('Core v2 executable Lab product bridge', () => {
   );
 
   it.each([
+    'ERR-004',
+    'ERR-006',
+    'CSM-017',
+    'CSM-036',
+  ] as const)(
+    'produces independently comparable lifecycle/interruption actuals for %s',
+    async (caseId) => {
+      const surfaces: FakeSurface[] = [];
+      const bridge = createCoreV2ExecutableLabBridge({
+        caseId,
+        rootTestId: `scenario-${caseId.toLowerCase()}`,
+        size: '100',
+        seed: 319,
+        surfaceHost: createSurfaceHost(),
+        surfaceFactory: createFakeSurfaceFactory(surfaces, [], 'projection'),
+        environment: {
+          browser: 'vitest',
+          browserVersion: 'vitest',
+          backend: 'webgl2',
+          routeSize: '100',
+          runtimeResourceIds: [],
+        },
+      });
+      const run = await bridge.runCase();
+      const expected = normalizedExpected.cases.find(({ id }) => id === caseId);
+      expect(expected).toBeDefined();
+      const comparison = compareObservation({
+        expectedCase: expected,
+        actual: run.actualObservation,
+        fixtures: run.fixtures,
+        captures: run.captures,
+      });
+      const failures = comparison.assertions.filter(({ passed }) => !passed);
+
+      expect(comparison.failed, JSON.stringify({
+        failures,
+        actual: run.actualObservation,
+      })).toBe(0);
+      expect(comparison.passed).toBe(expected?.expected.assertions.length);
+      expect(run.cleanup).toMatchObject({ status: 'completed' });
+      expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
+      await bridge.destroyCase();
+    },
+    60_000,
+  );
+
+  it('projects PRF-007 forced-GC evidence without consulting approved expected data', async () => {
+    const originalGc = Object.getOwnPropertyDescriptor(globalThis, 'gc');
+    const originalMemory = Object.getOwnPropertyDescriptor(performance, 'memory');
+    let usedJSHeapSize = 8 * 1024 * 1024;
+    Object.defineProperty(globalThis, 'gc', {
+      configurable: true,
+      value: () => undefined,
+    });
+    Object.defineProperty(performance, 'memory', {
+      configurable: true,
+      value: {
+        get usedJSHeapSize(): number {
+          return usedJSHeapSize;
+        },
+      },
+    });
+    const surfaces: FakeSurface[] = [];
+    try {
+      const bridge = createCoreV2ExecutableLabBridge({
+        caseId: 'PRF-007',
+        rootTestId: 'scenario-prf-007',
+        size: '100',
+        seed: 319,
+        surfaceHost: createSurfaceHost(),
+        surfaceFactory: createFakeSurfaceFactory(surfaces, [], 'projection'),
+        environment: {
+          browser: 'vitest',
+          browserVersion: 'vitest',
+          backend: 'webgl2',
+          routeSize: '100',
+          runtimeResourceIds: [],
+        },
+      });
+      usedJSHeapSize += 256 * 1024;
+      const run = await bridge.runCase();
+      const expected = normalizedExpected.cases.find(({ id }) => id === 'PRF-007');
+      expect(expected).toBeDefined();
+      const comparison = compareObservation({
+        expectedCase: expected,
+        actual: run.actualObservation,
+        fixtures: run.fixtures,
+        captures: run.captures,
+      });
+
+      expect(comparison.assertions.filter(({ passed }) => !passed)).toEqual([]);
+      expect(comparison.passed).toBe(expected?.expected.assertions.length);
+      expect(run.actualObservation).toMatchObject({
+        resources: {
+          postDestroyForcedGcGrowthMiB: 0,
+          canvasDelta: 0,
+          listenerDelta: 0,
+          tickerDelta: 0,
+          textureLeaseDelta: 0,
+          pendingWorkDelta: 0,
+        },
+      });
+      expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
+      await bridge.destroyCase();
+    } finally {
+      if (originalGc === undefined) delete (globalThis as { gc?: () => void }).gc;
+      else Object.defineProperty(globalThis, 'gc', originalGc);
+      if (originalMemory === undefined) {
+        delete (performance as Performance & { memory?: unknown }).memory;
+      } else {
+        Object.defineProperty(performance, 'memory', originalMemory);
+      }
+    }
+  }, 60_000);
+
+  it.each([
     'VIE-001',
     'VIE-002',
     'VIE-003',
@@ -886,7 +1002,10 @@ describe('Core v2 executable Lab product bridge', () => {
       'HIS-005': 'history',
       'HIS-006': 'history',
       'ERR-002': 'replacement-recovery',
+      'ERR-004': 'lifecycle-interruption',
       'ERR-005': 'replacement-recovery',
+      'ERR-006': 'lifecycle-interruption',
+      'PRF-007': 'lifecycle-interruption',
       'LIF-001': 'foundation',
       'LIF-002': 'foundation',
       'LIF-003': 'replacement-recovery',
@@ -952,6 +1071,8 @@ describe('Core v2 executable Lab product bridge', () => {
       'CSM-004': 'replacement-recovery',
       'CSM-009': 'viewport',
       'CSM-010': 'viewport',
+      'CSM-017': 'lifecycle-interruption',
+      'CSM-036': 'lifecycle-interruption',
       'CSM-037': 'replacement-recovery',
       'LAY-001': 'render-foundation',
       'LAY-002': 'layout-order',

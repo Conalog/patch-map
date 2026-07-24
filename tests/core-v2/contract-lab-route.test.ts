@@ -78,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(199);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(99);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(74);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(210);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(104);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(69);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(361);
+    ), 0)).toBe(376);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -773,11 +773,14 @@ describe('Core v2 actual-only Lab bridge', () => {
       'executable-cases.ts',
       'executable-runtime.ts',
       'replacement-recovery-runtime.ts',
+      'lifecycle-interruption-runtime.ts',
       'main.ts',
     ].map((file) => readFile(new URL(`../../lab/performance-v2/contract/${file}`, import.meta.url), 'utf8')));
     const automationSources = await Promise.all([
       '../../scripts/verification/core-v2-contract/handlers/replacement-recovery.mjs',
       '../../scripts/verification/core-v2-contract/fold-replacement-recovery.mjs',
+      '../../scripts/verification/core-v2-contract/handlers/lifecycle-interruption.mjs',
+      '../../scripts/verification/core-v2-contract/fold-lifecycle-interruption.mjs',
     ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
     const joined = [...sources, ...automationSources].join('\n');
     expect(joined).not.toContain('catalog-normalized-expected');

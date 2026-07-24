@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the eighty-four selected render routes and their 1040 canonical assertions', () => {
+  it('pins exactly the eighty-nine selected render routes and their 1108 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -117,25 +117,30 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'CSM-009', expectedAssertions: 21 },
       { id: 'CSM-010', expectedAssertions: 22 },
       { id: 'ERR-002', expectedAssertions: 10 },
+      { id: 'ERR-004', expectedAssertions: 12 },
       { id: 'ERR-005', expectedAssertions: 6 },
+      { id: 'ERR-006', expectedAssertions: 6 },
+      { id: 'PRF-007', expectedAssertions: 9 },
       { id: 'LIF-003', expectedAssertions: 19 },
       { id: 'CSM-002', expectedAssertions: 21 },
       { id: 'CSM-004', expectedAssertions: 20 },
+      { id: 'CSM-017', expectedAssertions: 20 },
+      { id: 'CSM-036', expectedAssertions: 21 },
       { id: 'CSM-037', expectedAssertions: 23 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_040);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_040;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_031;');
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_108);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_108;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_099;');
     expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 9;');
     expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 11;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 1031 pass and 9 observed immutable conflicts'",
+      "'canonical comparison must be exactly 1099 pass and 9 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 1031 pass and 9 observed immutable conflicts'",
+      "'repeat comparison must be exactly 1099 pass and 9 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 1031 pass and 9 observed immutable conflicts'",
+      "'fresh comparison must be exactly 1099 pass and 9 observed immutable conflicts'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -292,7 +297,8 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("if (argument === '--headed')");
     expect(source).toContain("if (argument.startsWith('--case='))");
     expect(source).toContain("return { headed, caseId }");
-    expect(source).toContain('chromium.launch({ headless: !headed })');
+    expect(source).toContain("args: ['--js-flags=--expose-gc', '--enable-precise-memory-info']");
+    expect(source).toContain('headless: !headed');
     expect(source).toContain("process.stdout.write(`${JSON.stringify(report, null, 2)}\\n`)");
     expect(source).not.toMatch(
       /execute-worker|handlers\/|fold-[a-z]|src\/core-v2|performance\/core-v1|lab\/engine-comparison/u,
