@@ -54,6 +54,16 @@ export {
 } from './selection-transformer';
 export type * from './selection-transformer';
 export {
+  CORE_V2_TRANSFORMER_EDIT_REVISION,
+  planCoreV2MoveTransform,
+  planCoreV2ResizeTransform,
+  planCoreV2RotateTransform,
+  planCoreV2TransformerEdit,
+  resolveCoreV2EdgeAutoPan,
+  resolveCoreV2RotationSnap,
+} from './transformer-edit';
+export type * from './transformer-edit';
+export {
   CORE_V2_POINTER_GESTURE_REVISION,
   CoreV2PointerGestureAuthority,
   hitCoreV2BoxRegion,

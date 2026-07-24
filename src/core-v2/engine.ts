@@ -193,6 +193,17 @@ import {
   type CoreV2TransformerHandleProbe,
   type CoreV2TransformerInputFamily,
 } from './selection-transformer';
+import {
+  CORE_V2_TRANSFORMER_EDIT_REVISION,
+  planCoreV2TransformerEdit,
+  resolveCoreV2EdgeAutoPan,
+  resolveCoreV2RotationSnap,
+  type CoreV2EdgeAutoPanResult,
+  type CoreV2RotationSnapResult,
+  type CoreV2TransformerEditKind,
+  type CoreV2TransformerEditPlan,
+  type CoreV2TransformerEditRequest,
+} from './transformer-edit';
 
 export type CoreV2Lifecycle =
   | 'new'
@@ -1280,6 +1291,74 @@ export interface CoreV2EngineHistoryVisibleEvent {
   readonly publication: 'published';
 }
 
+export interface CoreV2EngineTransformerEditOptions {
+  readonly actionId?: string;
+  readonly recordHistory?: boolean;
+}
+
+export interface CoreV2EngineTransformerEditResult {
+  readonly schemaRevision: typeof CORE_V2_TRANSFORMER_EDIT_REVISION;
+  readonly status: CoreV2TransformerEditPlan['status'] | CoreV2EngineTransactionResult['status'];
+  readonly changed: boolean;
+  readonly plan: CoreV2TransformerEditPlan;
+  readonly transaction: CoreV2EngineTransactionResult | null;
+  readonly historyDepthDelta: number;
+}
+
+export interface CoreV2EngineTransformerSessionBeginInput {
+  readonly pointerId: number;
+  readonly actionId: string;
+  readonly kind: CoreV2TransformerEditKind;
+  readonly handle: CoreV2TransformerHandle;
+  readonly selectionIds?: readonly string[];
+}
+
+export interface CoreV2EngineTransformerSessionProbe {
+  readonly schemaRevision: typeof CORE_V2_TRANSFORMER_EDIT_REVISION;
+  readonly activeSessionCount: 0 | 1;
+  readonly activePointerId: number | null;
+  readonly activeKind: CoreV2TransformerEditKind | null;
+  readonly activeActionId: string | null;
+  readonly previewCount: number;
+  readonly committedMutationCount: number;
+  readonly cancelledSessionCount: number;
+  readonly staleCompletionCount: number;
+  readonly previewOverlayCount: 0 | 1;
+  readonly edgePanActiveCount: 0;
+}
+
+export interface CoreV2EngineTransformerPreviewResult {
+  readonly status: 'previewed' | 'unchanged' | 'rejected' | 'refused';
+  readonly changed: boolean;
+  readonly plan: CoreV2TransformerEditPlan;
+  readonly reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[];
+  readonly probe: CoreV2EngineTransformerSessionProbe;
+}
+
+export interface CoreV2EngineTransformerCompletionResult {
+  readonly status: 'committed' | 'unchanged' | 'refused' | 'stale';
+  readonly changed: boolean;
+  readonly mutationCount: 0 | 1;
+  readonly historyDepthDelta: 0 | 1;
+  readonly transaction: CoreV2EngineTransactionResult | null;
+  readonly gesture: ReturnType<CoreV2Engine['completeTransformerHandleGesture']> | null;
+  readonly probe: CoreV2EngineTransformerSessionProbe;
+}
+
+export interface CoreV2EngineTransformerCancelResult {
+  readonly status: 'cancelled' | 'stale';
+  readonly cancelled: boolean;
+  readonly reason: CoreV2GestureCancelReason;
+  readonly historyDepthDelta: 0;
+  readonly gesture: ReturnType<CoreV2Engine['cancelTransformerHandleGesture']> | null;
+  readonly probe: CoreV2EngineTransformerSessionProbe;
+}
+
+export interface CoreV2EngineTransformerEdgePanResult extends CoreV2EdgeAutoPanResult {
+  readonly policyRestored: true;
+  readonly edgePanActiveCount: 0;
+}
+
 type CoreV2EngineEventMap = {
   readonly ready: CoreV2InitializeResult;
   readonly sceneCommitted: CoreV2EngineLoadResult;
@@ -1374,6 +1453,20 @@ interface PreparedCoreV2EngineLoad {
   readonly textSemantics: Map<string, IndexedEngineTextSemantic>;
 }
 
+interface ActiveCoreV2TransformerEdit {
+  readonly pointerId: number;
+  readonly actionId: string;
+  readonly kind: CoreV2TransformerEditKind;
+  readonly handle: CoreV2TransformerHandle;
+  readonly selectionIds: readonly string[];
+  readonly startMaterialized: MaterializedCoreV2Dataset;
+  readonly startSelectionIds: readonly string[];
+  readonly historyDepthBefore: number;
+  readonly previewCountBefore: number;
+  readonly latestPlan: CoreV2TransformerEditPlan | null;
+  readonly previewMaterialized: MaterializedCoreV2Dataset | null;
+}
+
 export class CoreV2Engine {
   private readonly surfaceFactory: CoreV2EngineSurfaceFactory;
   private readonly assetRuntime: CoreV2AssetRuntime;
@@ -1384,6 +1477,11 @@ export class CoreV2Engine {
   >;
   private readonly hostInteractions: CoreV2HostInteractionAuthority;
   private readonly transformerGestures = new CoreV2TransformerGestureAuthority();
+  private activeTransformerEdit: ActiveCoreV2TransformerEdit | null = null;
+  private transformerEditPreviewCount = 0;
+  private transformerEditCommittedMutationCount = 0;
+  private transformerEditCancelledSessionCount = 0;
+  private transformerEditStaleCompletionCount = 0;
   private readonly listeners = new Map<CoreV2EngineEvent, Set<(event: unknown) => void>>();
   private lifecycle: CoreV2Lifecycle = 'new';
   private surface: CoreV2EngineSurface | null = null;
@@ -1643,6 +1741,7 @@ export class CoreV2Engine {
 
   public loadDataset(input: unknown, options: CoreV2LoadOptions = {}): CoreV2EngineLoadResult {
     const surface = this.requireSurface('loadDataset');
+    this.cancelActiveTransformerEdit('replace', true);
     this.loadSequence += 1;
     const prepared = this.prepareDatasetLoad(input);
     surface.load(prepared.materialized.dataset);
@@ -1656,6 +1755,7 @@ export class CoreV2Engine {
     options: CoreV2LoadOptions = {},
   ): Promise<CoreV2EngineLoadResult> {
     const surface = this.requireSurface('loadDatasetAsync');
+    this.cancelActiveTransformerEdit('replace', true);
     const sequence = ++this.loadSequence;
     const lifecycleGeneration = this.lifecycleGeneration;
     const sceneRevision = this.sceneRevision;
@@ -1760,6 +1860,7 @@ export class CoreV2Engine {
     schemaRevision = CORE_V2_MUTATION_TRANSACTION_REVISION,
   ): CoreV2EngineTransactionResult {
     const surface = this.requireSurface('transact');
+    this.cancelActiveTransformerEdit('redraw', true);
     const previousRevisions = this.revisionStamp();
     const previousHistory = this.history.state();
     const plan = this.planMutationRequest(request, schemaRevision);
@@ -1782,6 +1883,7 @@ export class CoreV2Engine {
     schemaRevision = CORE_V2_MUTATION_TRANSACTION_REVISION,
   ): CoreV2EngineTransactionResult {
     const surface = this.requireSurface('bulkPatch');
+    this.cancelActiveTransformerEdit('redraw', true);
     const previousRevisions = this.revisionStamp();
     const previousHistory = this.history.state();
     const plan = this.planBulkPatchRequest(request, schemaRevision);
@@ -2098,6 +2200,7 @@ export class CoreV2Engine {
    */
   public patch(target: CoreV2SemanticTarget, patch: unknown): CoreV2EnginePatchResult {
     const surface = this.requireSurface('patch');
+    this.cancelActiveTransformerEdit('redraw', true);
     const previousRevisions = this.revisionStamp();
     const mutation = applyCoreV2SemanticPatch(
       this.materialized ?? EMPTY_MATERIALIZED_DATASET,
@@ -2255,6 +2358,7 @@ export class CoreV2Engine {
    */
   public destroyTarget(target: CoreV2SemanticTarget): CoreV2EngineDestroyTargetResult {
     const surface = this.requireSurface('destroyTarget');
+    this.cancelActiveTransformerEdit('redraw', true);
     const previousRevisions = this.revisionStamp();
     const mutation = removeCoreV2SemanticTarget(
       this.materialized ?? EMPTY_MATERIALIZED_DATASET,
@@ -2959,7 +3063,9 @@ export class CoreV2Engine {
     this.loadSequence += 1;
     this.viewportMotion = null;
     surface.cancelViewportGestures?.();
-    this.transformerGestures.interrupt();
+    if (this.cancelActiveTransformerEdit('redraw', true) === null) {
+      this.transformerGestures.interrupt();
+    }
     if (this.logicalSelectionIds.length > 0) {
       surface.select([]);
       this.logicalSelectionIds = Object.freeze([]);
@@ -3550,6 +3656,311 @@ export class CoreV2Engine {
     return this.transformerGestures.probe();
   }
 
+  public applyTransformerEdit(
+    request: CoreV2TransformerEditRequest,
+    options: CoreV2EngineTransformerEditOptions = {},
+  ): CoreV2EngineTransformerEditResult {
+    this.requireSurface('applyTransformerEdit');
+    const materialized = this.materialized;
+    if (materialized === null) {
+      throw this.operationError('NOT_READY', 'NOT_READY', 'applyTransformerEdit', true);
+    }
+    const plan = planCoreV2TransformerEdit(materialized.dataset, request);
+    if (plan.status !== 'planned') {
+      return Object.freeze({
+        schemaRevision: CORE_V2_TRANSFORMER_EDIT_REVISION,
+        status: plan.status,
+        changed: false,
+        plan,
+        transaction: null,
+        historyDepthDelta: 0,
+      });
+    }
+    const before = this.history.state();
+    const transaction = this.transact({
+      strict: true,
+      operations: plan.operations,
+      ...(options.actionId === undefined ? {} : { actionId: options.actionId }),
+      ...(options.recordHistory === undefined
+        ? {}
+        : { recordHistory: options.recordHistory }),
+    });
+    const after = this.history.state();
+    return Object.freeze({
+      schemaRevision: CORE_V2_TRANSFORMER_EDIT_REVISION,
+      status: transaction.status,
+      changed: transaction.changed,
+      plan,
+      transaction,
+      historyDepthDelta: after.undoDepth - before.undoDepth,
+    });
+  }
+
+  public beginTransformerEdit(
+    input: CoreV2EngineTransformerSessionBeginInput,
+  ): CoreV2EngineTransformerSessionProbe {
+    this.requireSurface('beginTransformerEdit');
+    if (this.activeTransformerEdit !== null) {
+      throw new Error('Core v2 transformer edit session is already active');
+    }
+    const materialized = this.materialized;
+    if (materialized === null) {
+      throw this.operationError('NOT_READY', 'NOT_READY', 'beginTransformerEdit', true);
+    }
+    assertTransformerHandleKind(input.handle, input.kind);
+    const actionId = nonEmptyValue(input.actionId, 'transformer actionId');
+    const selectionIds = Object.freeze([
+      ...(input.selectionIds ?? this.logicalSelectionIds),
+    ]);
+    if (input.selectionIds !== undefined) {
+      this.applySelection({
+        op: 'replace',
+        ids: selectionIds,
+        source: 'programmatic',
+      });
+    }
+    this.beginTransformerHandleGesture(input.pointerId, input.handle);
+    this.activeTransformerEdit = Object.freeze({
+      pointerId: input.pointerId,
+      actionId,
+      kind: input.kind,
+      handle: input.handle,
+      selectionIds,
+      startMaterialized: materialized,
+      startSelectionIds: Object.freeze([...this.logicalSelectionIds]),
+      historyDepthBefore: this.history.state().undoDepth,
+      previewCountBefore: this.transformerEditPreviewCount,
+      latestPlan: null,
+      previewMaterialized: null,
+    });
+    return this.transformerEditProbe();
+  }
+
+  public previewTransformerEdit(
+    pointerId: number,
+    request: CoreV2TransformerEditRequest,
+  ): CoreV2EngineTransformerPreviewResult {
+    const surface = this.requireSurface('previewTransformerEdit');
+    const active = this.requireActiveTransformerEdit(pointerId, 'previewTransformerEdit');
+    if (request.kind !== active.kind) {
+      throw new TypeError('transformer preview kind must match the active session');
+    }
+    if (!sameStringArray(request.selectionIds, active.selectionIds)) {
+      throw new TypeError('transformer preview selection must match the active session');
+    }
+    const plan = planCoreV2TransformerEdit(active.startMaterialized.dataset, request);
+    if (plan.status === 'rejected') {
+      return Object.freeze({
+        status: 'rejected',
+        changed: false,
+        plan,
+        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+        probe: this.transformerEditProbe(),
+      });
+    }
+    if (!surface.reconcile) {
+      return Object.freeze({
+        status: 'refused',
+        changed: false,
+        plan,
+        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+        probe: this.transformerEditProbe(),
+      });
+    }
+
+    let previewMaterialized = active.startMaterialized;
+    if (plan.status === 'planned') {
+      const preview = planCoreV2MutationTransaction(active.startMaterialized, {
+        strict: true,
+        recordHistory: false,
+        operations: plan.operations,
+      });
+      if (preview.status !== 'planned') {
+        throw new Error(`transformer preview transaction became ${preview.status}`);
+      }
+      previewMaterialized = preview.candidate;
+    }
+    const reconcile = surface.reconcile(previewMaterialized.dataset, {
+      animateBarChanges: false,
+    });
+    const diagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
+    if (reconcile.status === 'refused') {
+      return Object.freeze({
+        status: 'refused',
+        changed: false,
+        plan,
+        reconcileDiagnostics: diagnostics,
+        probe: this.transformerEditProbe(),
+      });
+    }
+
+    this.transformerEditPreviewCount += 1;
+    this.interactionRevision += 1;
+    this.activeTransformerEdit = Object.freeze({
+      ...active,
+      latestPlan: plan,
+      previewMaterialized,
+    });
+    return Object.freeze({
+      status: plan.status === 'planned' ? 'previewed' : 'unchanged',
+      changed: plan.changed,
+      plan,
+      reconcileDiagnostics: diagnostics,
+      probe: this.transformerEditProbe(),
+    });
+  }
+
+  public completeTransformerEdit(
+    pointerId: number,
+  ): CoreV2EngineTransformerCompletionResult {
+    const active = this.activeTransformerEdit;
+    if (active === null || active.pointerId !== pointerId) {
+      this.transformerEditStaleCompletionCount += 1;
+      return Object.freeze({
+        status: 'stale',
+        changed: false,
+        mutationCount: 0,
+        historyDepthDelta: 0,
+        transaction: null,
+        gesture: null,
+        probe: this.transformerEditProbe(),
+      });
+    }
+    const plan = active.latestPlan;
+    if (plan === null || plan.status !== 'planned') {
+      this.activeTransformerEdit = null;
+      const gesture = this.completeTransformerHandleGesture(pointerId);
+      return Object.freeze({
+        status: 'unchanged',
+        changed: false,
+        mutationCount: 0,
+        historyDepthDelta: 0,
+        transaction: null,
+        gesture,
+        probe: this.transformerEditProbe(),
+      });
+    }
+
+    this.activeTransformerEdit = null;
+    const transaction = this.transact({
+      strict: true,
+      actionId: active.actionId,
+      operations: plan.operations,
+    });
+    if (transaction.status !== 'committed') {
+      this.restoreTransformerPreview(active);
+      const gesture = this.cancelTransformerHandleGesture(pointerId, 'redraw');
+      this.transformerEditCancelledSessionCount += 1;
+      return Object.freeze({
+        status: 'refused',
+        changed: false,
+        mutationCount: 0,
+        historyDepthDelta: 0,
+        transaction,
+        gesture: Object.freeze({
+          completed: gesture.cancelled,
+          pointer: gesture.pointer,
+          probe: gesture.probe,
+        }),
+        probe: this.transformerEditProbe(),
+      });
+    }
+    const depthDelta = this.history.state().undoDepth - active.historyDepthBefore;
+    this.transformerEditCommittedMutationCount += 1;
+    const gesture = this.completeTransformerHandleGesture(pointerId);
+    return Object.freeze({
+      status: 'committed',
+      changed: true,
+      mutationCount: 1,
+      historyDepthDelta: depthDelta === 1 ? 1 : 0,
+      transaction,
+      gesture,
+      probe: this.transformerEditProbe(),
+    });
+  }
+
+  public cancelTransformerEdit(
+    pointerId: number,
+    reason: CoreV2GestureCancelReason,
+  ): CoreV2EngineTransformerCancelResult {
+    const active = this.activeTransformerEdit;
+    if (active === null || active.pointerId !== pointerId) {
+      return Object.freeze({
+        status: 'stale',
+        cancelled: false,
+        reason,
+        historyDepthDelta: 0,
+        gesture: null,
+        probe: this.transformerEditProbe(),
+      });
+    }
+    const gesture = this.cancelActiveTransformerEdit(reason, true);
+    if (gesture === null) throw new Error('active transformer cancellation was lost');
+    return Object.freeze({
+      status: 'cancelled',
+      cancelled: true,
+      reason,
+      historyDepthDelta: 0,
+      gesture,
+      probe: this.transformerEditProbe(),
+    });
+  }
+
+  public transformerEditProbe(): CoreV2EngineTransformerSessionProbe {
+    const active = this.activeTransformerEdit;
+    return Object.freeze({
+      schemaRevision: CORE_V2_TRANSFORMER_EDIT_REVISION,
+      activeSessionCount: active === null ? 0 : 1,
+      activePointerId: active?.pointerId ?? null,
+      activeKind: active?.kind ?? null,
+      activeActionId: active?.actionId ?? null,
+      previewCount: this.transformerEditPreviewCount,
+      committedMutationCount: this.transformerEditCommittedMutationCount,
+      cancelledSessionCount: this.transformerEditCancelledSessionCount,
+      staleCompletionCount: this.transformerEditStaleCompletionCount,
+      previewOverlayCount: active?.previewMaterialized === null || active === null ? 0 : 1,
+      edgePanActiveCount: 0,
+    });
+  }
+
+  public resolveTransformerRotationSnap(
+    startDegrees: number,
+    pointerDegrees: number,
+    snap: boolean,
+    incrementDegrees = 15,
+  ): CoreV2RotationSnapResult {
+    this.requireSurface('resolveTransformerRotationSnap');
+    return resolveCoreV2RotationSnap(
+      startDegrees,
+      pointerDegrees,
+      snap,
+      incrementDegrees,
+    );
+  }
+
+  public edgeAutoPanTransformer(
+    pointerScreen: readonly [number, number],
+    deltaCss: readonly [number, number],
+  ): CoreV2EngineTransformerEdgePanResult {
+    this.requireSurface('edgeAutoPanTransformer');
+    const resolved = resolveCoreV2EdgeAutoPan(
+      pointerScreen,
+      deltaCss,
+      this.viewportCenterWorld,
+      this.viewportScale,
+      [this.viewportWidth, this.viewportHeight],
+    );
+    this.setViewport({
+      centerWorld: resolved.centerWorld,
+      scale: this.viewportScale,
+    });
+    return Object.freeze({
+      ...resolved,
+      policyRestored: true,
+      edgePanActiveCount: 0,
+    });
+  }
+
   public applySelection(input: CoreV2SelectionSetOperation): CoreV2SelectionChange {
     const surface = this.requireSurface('select');
     const materialized = this.materialized;
@@ -3558,10 +3969,14 @@ export class CoreV2Engine {
       input,
       (id) => materialized !== null && logicalElementIdExists(materialized.dataset, id),
     );
+    if (change.changed) {
+      if (this.cancelActiveTransformerEdit('selection-change', true) === null) {
+        this.transformerGestures.interrupt();
+      }
+    }
     surface.select(change.current);
     this.logicalSelectionIds = change.current;
     if (change.changed) {
-      this.transformerGestures.interrupt();
       if (change.source !== 'canvas') {
         this.pointerGestureAuthority?.interrupt('selection-change');
       }
@@ -4211,16 +4626,19 @@ export class CoreV2Engine {
   }
 
   public undo(): CoreV2EngineHistoryResult {
+    this.cancelActiveTransformerEdit('redraw', true);
     return this.applyHistory('undo');
   }
 
   public redo(): CoreV2EngineHistoryResult {
+    this.cancelActiveTransformerEdit('redraw', true);
     return this.applyHistory('redo');
   }
 
   public async destroy(): Promise<boolean> {
     if (this.lifecycle === 'destroying') return false;
     if (this.lifecycle === 'destroyed') return this.retryDestroyedCleanup();
+    this.cancelActiveTransformerEdit('destroy', false);
     this.lifecycle = 'destroying';
     this.submissionSequence += 1;
     this.loadSequence += 1;
@@ -4326,6 +4744,61 @@ export class CoreV2Engine {
     this.pendingOverlayPublication = null;
     this.overlayAcceptedCount = 0;
     this.overlayPublicationCount = 0;
+  }
+
+  private requireActiveTransformerEdit(
+    pointerId: number,
+    operation: string,
+  ): ActiveCoreV2TransformerEdit {
+    const active = this.activeTransformerEdit;
+    if (active === null || active.pointerId !== pointerId) {
+      throw new Error(`${operation} requires the active transformer pointer`);
+    }
+    return active;
+  }
+
+  private restoreTransformerPreview(active: ActiveCoreV2TransformerEdit): void {
+    if (active.previewMaterialized === null) return;
+    const surface = this.requireSurface('restoreTransformerPreview');
+    if (!surface.reconcile) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'restoreTransformerPreview',
+        false,
+      );
+    }
+    const reconcile = surface.reconcile(active.startMaterialized.dataset, {
+      animateBarChanges: false,
+      ...(!sameStringArray(this.logicalSelectionIds, active.startSelectionIds)
+        ? { selectionIds: active.startSelectionIds }
+        : {}),
+    });
+    if (reconcile.status === 'refused') {
+      throw this.operationError(
+        'CONFLICT',
+        'CONFLICT',
+        'restoreTransformerPreview',
+        false,
+      );
+    }
+    if (!sameStringArray(this.logicalSelectionIds, active.startSelectionIds)) {
+      this.logicalSelectionIds = active.startSelectionIds;
+    }
+    this.interactionRevision += 1;
+  }
+
+  private cancelActiveTransformerEdit(
+    reason: CoreV2GestureCancelReason,
+    restoreSurface: boolean,
+  ): ReturnType<CoreV2Engine['cancelTransformerHandleGesture']> | null {
+    const active = this.activeTransformerEdit;
+    if (active === null) return null;
+    if (restoreSurface) this.restoreTransformerPreview(active);
+    this.activeTransformerEdit = null;
+    const gesture = this.cancelTransformerHandleGesture(active.pointerId, reason);
+    this.transformerEditCancelledSessionCount += 1;
+    return gesture;
   }
 
   private applyHistory(direction: CoreV2HistoryDirection): CoreV2EngineHistoryResult {
@@ -6271,6 +6744,20 @@ function resolveCoreV2HistoryShortcut(
   if (key === 'z') return input.shiftKey ? 'redo' : 'undo';
   if (key === 'y' && !input.shiftKey) return 'redo';
   return null;
+}
+
+function assertTransformerHandleKind(
+  handle: CoreV2TransformerHandle,
+  kind: CoreV2TransformerEditKind,
+): void {
+  const resolved = handle === 'frame'
+    ? 'move'
+    : handle === 'rotate'
+      ? 'rotate'
+      : 'resize';
+  if (resolved !== kind) {
+    throw new TypeError(`transformer ${handle} handle cannot begin a ${kind} edit`);
+  }
 }
 
 function isCoreV2InteractionMode(value: unknown): value is CoreV2InteractionMode {
