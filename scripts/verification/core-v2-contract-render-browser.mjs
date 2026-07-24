@@ -21,8 +21,8 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 1_108;
-const EXPECTED_ASSERTION_PASS_TOTAL = 1_099;
+const EXPECTED_ASSERTION_TOTAL = 1_178;
+const EXPECTED_ASSERTION_PASS_TOTAL = 1_169;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 9;
 const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 11;
 const CASE_TIMEOUT_MS = 180_000;
@@ -220,6 +220,11 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'CSM-017', expectedAssertions: 20 }),
   Object.freeze({ id: 'CSM-036', expectedAssertions: 21 }),
   Object.freeze({ id: 'CSM-037', expectedAssertions: 23 }),
+  Object.freeze({ id: 'DET-004', expectedAssertions: 5 }),
+  Object.freeze({ id: 'PRF-008', expectedAssertions: 7 }),
+  Object.freeze({ id: 'PIX-004', expectedAssertions: 6 }),
+  Object.freeze({ id: 'CSM-035', expectedAssertions: 25 }),
+  Object.freeze({ id: 'CSM-038', expectedAssertions: 27 }),
 ]);
 const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-006', 'REN-008', 'REN-010', 'REN-011']);
 const PRESENTATION_TRANCHE_CASES = new Set([
@@ -309,6 +314,13 @@ const LIFECYCLE_INTERRUPTION_TRANCHE_CASES = new Set([
   'CSM-017',
   'CSM-036',
 ]);
+const EXPORT_EXTRACTION_TRANCHE_CASES = new Set([
+  'DET-004',
+  'PIX-004',
+  'PRF-008',
+  'CSM-035',
+  'CSM-038',
+]);
 const CONTROL_CASES = new Set([
   ...PRESENTATION_TRANCHE_CASES,
   ...UPDATE_TRANSACTION_TRANCHE_CASES,
@@ -318,6 +330,7 @@ const CONTROL_CASES = new Set([
   ...HISTORY_TRANCHE_CASES,
   ...REPLACEMENT_RECOVERY_TRANCHE_CASES,
   ...LIFECYCLE_INTERRUPTION_TRANCHE_CASES,
+  ...EXPORT_EXTRACTION_TRANCHE_CASES,
 ]);
 const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);
 const GPU_EVIDENCE_CASES = new Set([
@@ -461,28 +474,28 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all eighty-nine render routes completed'
+      ? 'all ninety-four render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 1099 pass and 9 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 1169 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 1099 pass and 9 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 1169 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 1099 pass and 9 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 1169 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -2832,7 +2845,7 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 1108',
+    'render checkpoint assertion inventory must remain 1178',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===

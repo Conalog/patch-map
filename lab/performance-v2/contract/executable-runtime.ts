@@ -68,6 +68,8 @@ import * as assetHandlersModule from '../../../scripts/verification/core-v2-cont
 import * as historyHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/history.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as replacementRecoveryHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/replacement-recovery.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as exportExtractionHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/export-extraction.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as foundationFoldModule from '../../../scripts/verification/core-v2-contract/fold-foundation.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
@@ -112,6 +114,8 @@ import * as assetFoldModule from '../../../scripts/verification/core-v2-contract
 import * as historyFoldModule from '../../../scripts/verification/core-v2-contract/fold-history.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as replacementRecoveryFoldModule from '../../../scripts/verification/core-v2-contract/fold-replacement-recovery.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as exportExtractionFoldModule from '../../../scripts/verification/core-v2-contract/fold-export-extraction.mjs';
 
 import type {
   CoreV2ExecutableCaseId,
@@ -156,6 +160,11 @@ import {
   createCoreV2LifecycleInterruptionRuntime,
   type CoreV2LifecycleInterruptionCaseId,
 } from './lifecycle-interruption-runtime';
+import {
+  CORE_V2_EXPORT_EXTRACTION_CASE_IDS,
+  createCoreV2ExportExtractionRuntime,
+  type CoreV2ExportExtractionCaseId,
+} from './export-extraction-runtime';
 
 export type CoreV2ExecutableRuntimeKey =
   | 'foundation'
@@ -179,6 +188,7 @@ export type CoreV2ExecutableRuntimeKey =
   | 'pointer-selection'
   | 'history'
   | 'replacement-recovery'
+  | 'export-extraction'
   | 'assets';
 
 type Handler = (
@@ -256,6 +266,10 @@ interface HandlerFactoryRuntime {
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
   createReplacementRecoveryHandlerEntries?(
+    this: void,
+    product: Readonly<Record<string, unknown>>,
+  ): readonly HandlerEntry[];
+  createExportExtractionHandlerEntries?(
     this: void,
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
@@ -350,6 +364,10 @@ interface FoldRuntime {
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
+  foldExportExtractionExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
 }
 
 export interface CoreV2FoldedExecution {
@@ -405,6 +423,8 @@ const assetHandlers = assetHandlersModule as unknown as HandlerFactoryRuntime;
 const historyHandlers = historyHandlersModule as unknown as HandlerFactoryRuntime;
 const replacementRecoveryHandlers =
   replacementRecoveryHandlersModule as unknown as HandlerFactoryRuntime;
+const exportExtractionHandlers =
+  exportExtractionHandlersModule as unknown as HandlerFactoryRuntime;
 const foundationFold = foundationFoldModule as unknown as FoldRuntime;
 const dataFoundationFold = dataFoundationFoldModule as unknown as FoldRuntime;
 const dataClosureFold = dataClosureFoldModule as unknown as FoldRuntime;
@@ -429,6 +449,8 @@ const assetFold = assetFoldModule as unknown as FoldRuntime;
 const historyFold = historyFoldModule as unknown as FoldRuntime;
 const replacementRecoveryFold =
   replacementRecoveryFoldModule as unknown as FoldRuntime;
+const exportExtractionFold =
+  exportExtractionFoldModule as unknown as FoldRuntime;
 
 const FOUNDATION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
   'LIF-001',
@@ -485,6 +507,9 @@ const REPLACEMENT_RECOVERY_CASE_IDS = new Set<CoreV2ReplacementRecoveryCaseId>(
 );
 const LIFECYCLE_INTERRUPTION_CASE_IDS = new Set<CoreV2LifecycleInterruptionCaseId>(
   CORE_V2_LIFECYCLE_INTERRUPTION_CASE_IDS,
+);
+const EXPORT_EXTRACTION_CASE_IDS = new Set<CoreV2ExportExtractionCaseId>(
+  CORE_V2_EXPORT_EXTRACTION_CASE_IDS,
 );
 
 const DATA_FOUNDATION_PRODUCT = Object.freeze({
@@ -638,6 +663,7 @@ const POINTER_SELECTION_DESCRIPTOR = createPointerSelectionDescriptor();
 const HISTORY_DESCRIPTOR = createHistoryDescriptor();
 const REPLACEMENT_RECOVERY_DESCRIPTOR = createReplacementRecoveryDescriptor();
 const LIFECYCLE_INTERRUPTION_DESCRIPTOR = createLifecycleInterruptionDescriptor();
+const EXPORT_EXTRACTION_DESCRIPTOR = createExportExtractionDescriptor();
 
 export function resolveCoreV2ExecutableRuntime(
   caseId: CoreV2ExecutableCaseId,
@@ -667,6 +693,7 @@ export function resolveCoreV2ExecutableRuntime(
   if (isHistoryCaseId(caseId)) return HISTORY_DESCRIPTOR;
   if (isReplacementRecoveryCaseId(caseId)) return REPLACEMENT_RECOVERY_DESCRIPTOR;
   if (isLifecycleInterruptionCaseId(caseId)) return LIFECYCLE_INTERRUPTION_DESCRIPTOR;
+  if (isExportExtractionCaseId(caseId)) return EXPORT_EXTRACTION_DESCRIPTOR;
   if (isViewportCaseId(caseId)) return VIEWPORT_DESCRIPTOR;
   if (caseId === 'AST-001') return ASSET_DESCRIPTOR;
   throw new Error(`Unsupported Core v2 executable runtime: ${String(caseId)}`);
@@ -720,6 +747,54 @@ function isLifecycleInterruptionCaseId(
 ): caseId is CoreV2LifecycleInterruptionCaseId {
   return LIFECYCLE_INTERRUPTION_CASE_IDS.has(
     caseId as CoreV2LifecycleInterruptionCaseId,
+  );
+}
+
+function createExportExtractionDescriptor(): CoreV2ExecutableRuntimeDescriptor {
+  const fold = requireFold(
+    exportExtractionFold.foldExportExtractionExecution,
+    'export-extraction fold',
+  );
+  const createEntries = requireFactory(
+    exportExtractionHandlers.createExportExtractionHandlerEntries,
+    'export-extraction handlers',
+  );
+  const createRun = (plan: CoreV2ExecutableCasePlan) => {
+    invariant(isExportExtractionCaseId(plan.id), 'export-extraction case identity');
+    const runtime = createCoreV2ExportExtractionRuntime(plan.id);
+    return Object.freeze({
+      handlerEntries: selectHandlerEntries(
+        plan,
+        createEntries(runtime.product as unknown as Readonly<Record<string, unknown>>),
+      ),
+      engineOptions: Object.freeze({}),
+      actionTimeoutMs: 60_000,
+      postDestroyProductProbe: () => runtime.postDestroyProductProbe(),
+    });
+  };
+  return Object.freeze({
+    key: 'export-extraction',
+    needsSupplementalWebGLLease: false,
+    createRun,
+    handlerEntries(plan: CoreV2ExecutableCasePlan): readonly HandlerEntry[] {
+      return createRun(plan).handlerEntries;
+    },
+    fold(input: CoreV2RuntimeFoldInput): CoreV2FoldedExecution {
+      return fold({
+        casePlan: input.casePlan,
+        execution: input.execution,
+        provenance: input.provenance,
+        environment: input.environment,
+      });
+    },
+  });
+}
+
+function isExportExtractionCaseId(
+  caseId: CoreV2ExecutableCaseId,
+): caseId is CoreV2ExportExtractionCaseId {
+  return EXPORT_EXTRACTION_CASE_IDS.has(
+    caseId as CoreV2ExportExtractionCaseId,
   );
 }
 

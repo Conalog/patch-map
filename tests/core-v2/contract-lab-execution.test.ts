@@ -235,6 +235,61 @@ describe('Core v2 executable Lab product bridge', () => {
   );
 
   it.each([
+    'DET-004',
+    'PIX-004',
+    'PRF-008',
+    'CSM-035',
+    'CSM-038',
+  ] as const)(
+    'produces independently comparable export/extraction actuals for %s',
+    async (caseId) => {
+      const surfaces: FakeSurface[] = [];
+      const bridge = createCoreV2ExecutableLabBridge({
+        caseId,
+        rootTestId: `scenario-${caseId.toLowerCase()}`,
+        size: '100',
+        seed: 319,
+        surfaceHost: createSurfaceHost(),
+        surfaceFactory: createFakeSurfaceFactory(surfaces, [], 'projection'),
+        environment: {
+          browser: 'vitest',
+          browserVersion: 'vitest',
+          backend: 'webgl2',
+          routeSize: '100',
+          runtimeResourceIds: [],
+        },
+      });
+      const run = await bridge.runCase();
+      const expected = normalizedExpected.cases.find(({ id }) => id === caseId);
+      expect(expected).toBeDefined();
+      const comparison = compareObservation({
+        expectedCase: expected,
+        actual: run.actualObservation,
+        fixtures: run.fixtures,
+        captures: run.captures,
+      });
+      const failures = comparison.assertions.filter(({ passed }) => !passed);
+
+      expect(comparison.failed, JSON.stringify({
+        failures,
+        actual: run.actualObservation,
+      })).toBe(0);
+      expect(comparison.passed).toBe(expected?.expected.assertions.length);
+      expect(run.cleanup).toMatchObject({
+        status: 'completed',
+        productResources: {
+          retainedDataUrlCount: 0,
+          temporaryImageCount: 0,
+          renderTextureCount: 0,
+        },
+      });
+      expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
+      await bridge.destroyCase();
+    },
+    60_000,
+  );
+
+  it.each([
     'ERR-002',
     'ERR-005',
     'LIF-003',
@@ -1005,7 +1060,9 @@ describe('Core v2 executable Lab product bridge', () => {
       'ERR-004': 'lifecycle-interruption',
       'ERR-005': 'replacement-recovery',
       'ERR-006': 'lifecycle-interruption',
+      'DET-004': 'export-extraction',
       'PRF-007': 'lifecycle-interruption',
+      'PRF-008': 'export-extraction',
       'LIF-001': 'foundation',
       'LIF-002': 'foundation',
       'LIF-003': 'replacement-recovery',
@@ -1019,6 +1076,7 @@ describe('Core v2 executable Lab product bridge', () => {
       'DAT-006': 'data-closure',
       'DAT-007': 'data-closure',
       'DAT-008': 'data-closure',
+      'PIX-004': 'export-extraction',
       'AST-001': 'assets',
       'UPD-001': 'update-transactions',
       'UPD-002': 'update-transactions',
@@ -1072,8 +1130,10 @@ describe('Core v2 executable Lab product bridge', () => {
       'CSM-009': 'viewport',
       'CSM-010': 'viewport',
       'CSM-017': 'lifecycle-interruption',
+      'CSM-035': 'export-extraction',
       'CSM-036': 'lifecycle-interruption',
       'CSM-037': 'replacement-recovery',
+      'CSM-038': 'export-extraction',
       'LAY-001': 'render-foundation',
       'LAY-002': 'layout-order',
       'LAY-003': 'layout-order',
@@ -1132,6 +1192,7 @@ class FakeSurface implements CoreV2EngineSurface {
   public destroyed = false;
   public readonly preference: CoreV2SurfaceOptions['preference'];
 
+  private readonly canvas = {} as HTMLCanvasElement;
   private width: number;
   private height: number;
   private pixelRatio: number;
@@ -1158,6 +1219,14 @@ class FakeSurface implements CoreV2EngineSurface {
     this.width = options.width;
     this.height = options.height;
     this.pixelRatio = options.pixelRatio;
+  }
+
+  public canvasElement(): HTMLCanvasElement {
+    return this.canvas;
+  }
+
+  public captureBase64(): Promise<string> {
+    return Promise.resolve('data:image/png;base64,cGl4aQ==');
   }
 
   public load(input: unknown): void {
