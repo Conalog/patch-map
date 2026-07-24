@@ -257,6 +257,31 @@ export interface CoreV2PublishedTuple {
   readonly interaction: number;
 }
 
+export interface CoreV2EngineCanvasHandle {
+  readonly element: HTMLCanvasElement;
+  readonly identity: 'initial-canvas';
+  readonly cssSize: readonly [number, number];
+  readonly backingSize: readonly [number, number];
+}
+
+export interface CoreV2EngineExtractionRequest {
+  readonly targetTuple: CoreV2PublishedTuple;
+  readonly cssSize: readonly [number, number];
+  readonly mime: 'image/png';
+}
+
+export interface CoreV2EngineExtractionResult {
+  readonly capturedTuple: CoreV2PublishedTuple;
+  readonly cssSize: readonly [number, number];
+  readonly backingSize: readonly [number, number];
+  readonly mime: 'image/png';
+  readonly dataUrl: string;
+  readonly canvasIdentity: 'initial-canvas';
+  readonly authoritativeCanvasRetained: true;
+  readonly temporaryImageCount: 0;
+  readonly renderTextureCount: 0;
+}
+
 export interface CoreV2SurfaceOptions {
   readonly target?: HTMLElement;
   readonly canvas?: HTMLCanvasElement;
@@ -752,6 +777,8 @@ export type CoreV2EnginePaintOrderProbe = Readonly<
 export interface CoreV2EngineSurface {
   readonly canvasCount: number;
   readonly destroyed: boolean;
+  canvasElement?(): HTMLCanvasElement | null;
+  captureBase64?(): Promise<string>;
   load(input: unknown): void;
   loadAsync?(input: unknown, assertCurrent?: () => void): Promise<void>;
   /**
@@ -1500,6 +1527,7 @@ export class CoreV2Engine {
   private lifecycle: CoreV2Lifecycle = 'new';
   private surface: CoreV2EngineSurface | null = null;
   private retainedCleanupSurface: CoreV2EngineSurface | null = null;
+  private authoritativeCanvas: HTMLCanvasElement | null = null;
   private initializePromise: Promise<CoreV2InitializeResult> | null = null;
   private instanceId: string | null = null;
   private materialized: MaterializedCoreV2Dataset | null = null;
@@ -1721,6 +1749,7 @@ export class CoreV2Engine {
           this.acceptSurfacePointerInput(readySurface, input);
         }) ?? null;
         this.surface = readySurface;
+        this.authoritativeCanvas = readySurface.canvasElement?.() ?? null;
         this.surfaceViewportInputUnbind = viewportInputUnbind;
         this.surfacePointerInputUnbind = pointerInputUnbind;
         this.pointerGestureAuthority = pointerAuthority;
@@ -1743,6 +1772,7 @@ export class CoreV2Engine {
         );
         cleanupFailures.push(...rejectedReasons(acquisitionSettlements));
         this.surface = null;
+        this.authoritativeCanvas = null;
         this.initializePromise = null;
         this.rendererConfiguration = null;
         if (this.lifecycle !== 'destroyed' && this.lifecycle !== 'destroying') {
@@ -4622,6 +4652,140 @@ export class CoreV2Engine {
     return this.materialized?.dataset ?? [];
   }
 
+  public canvasHandle(): CoreV2EngineCanvasHandle {
+    const surface = this.requireSurface('canvasHandle');
+    return this.canvasHandleForSurface(surface, 'canvasHandle');
+  }
+
+  private canvasHandleForSurface(
+    surface: CoreV2EngineSurface,
+    operation: string,
+  ): CoreV2EngineCanvasHandle {
+    const canvas = surface.canvasElement?.() ?? null;
+    if (canvas === null || this.authoritativeCanvas === null) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        operation,
+        false,
+      );
+    }
+    if (canvas !== this.authoritativeCanvas) {
+      throw this.operationError(
+        'RENDERER_LOST',
+        'RENDERER_LOST',
+        operation,
+        true,
+      );
+    }
+    const debug = surface.debugSnapshot();
+    return Object.freeze({
+      element: canvas,
+      identity: 'initial-canvas',
+      cssSize: Object.freeze([...debug.cssSize] as [number, number]),
+      backingSize: Object.freeze([...debug.backingSize] as [number, number]),
+    });
+  }
+
+  public async extractPublishedScene(
+    request: CoreV2EngineExtractionRequest,
+  ): Promise<CoreV2EngineExtractionResult> {
+    validateExtractionRequest(request);
+    const surface = this.requireSurface('extractPublishedScene');
+    if (surface.captureBase64 === undefined) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'extractPublishedScene',
+        false,
+      );
+    }
+    if (!samePublishedTuple(this.publishedTuple, request.targetTuple)) {
+      throw this.operationError(
+        'STALE_TARGET',
+        'STALE_TARGET',
+        'extractPublishedScene',
+        true,
+      );
+    }
+    const before = this.canvasHandleForSurface(surface, 'extractPublishedScene');
+    if (
+      before.cssSize[0] !== request.cssSize[0] ||
+      before.cssSize[1] !== request.cssSize[1]
+    ) {
+      throw this.operationError(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        'extractPublishedScene',
+        true,
+      );
+    }
+
+    this.pendingWork += 1;
+    try {
+      const dataUrl = await surface.captureBase64();
+      if (this.surface !== surface || this.isDestroyingOrDestroyed()) {
+        throw this.operationError(
+          'DESTROYED',
+          'DESTROYED',
+          'extractPublishedScene',
+          false,
+        );
+      }
+      if (!samePublishedTuple(this.publishedTuple, request.targetTuple)) {
+        throw this.operationError(
+          'SUPERSEDED',
+          'SUPERSEDED',
+          'extractPublishedScene',
+          true,
+        );
+      }
+      const after = this.canvasHandleForSurface(surface, 'extractPublishedScene');
+      if (before.element !== after.element) {
+        throw this.operationError(
+          'RENDERER_LOST',
+          'RENDERER_LOST',
+          'extractPublishedScene',
+          true,
+        );
+      }
+      if (!dataUrl.startsWith('data:image/png;base64,')) {
+        throw this.operationError(
+          'EXTRACTION_FAILURE',
+          'EXTRACTION_FAILURE',
+          'extractPublishedScene',
+          true,
+        );
+      }
+      return Object.freeze({
+        capturedTuple: Object.freeze({ ...request.targetTuple }),
+        cssSize: after.cssSize,
+        backingSize: after.backingSize,
+        mime: 'image/png',
+        dataUrl,
+        canvasIdentity: after.identity,
+        authoritativeCanvasRetained: true,
+        temporaryImageCount: 0,
+        renderTextureCount: 0,
+      });
+    } catch (error) {
+      const failure = error instanceof CoreV2EngineError
+        ? error
+        : this.operationError(
+            'EXTRACTION_FAILURE',
+            'EXTRACTION_FAILURE',
+            'extractPublishedScene',
+            true,
+          );
+      if (!this.isDestroyingOrDestroyed()) {
+        this.emit('diagnostic', failure.diagnostic);
+      }
+      throw failure;
+    } finally {
+      this.pendingWork -= 1;
+    }
+  }
+
   public historyState(): CoreV2HistoryState {
     this.requireSurface('historyState');
     return this.history.state();
@@ -4779,6 +4943,7 @@ export class CoreV2Engine {
       cleanupFailures.push(error);
     }
     this.surface = null;
+    this.authoritativeCanvas = null;
     this.materialized = null;
     this.logicalSceneIndexCache = null;
     this.logicalSelectionIds = Object.freeze([]);
@@ -5978,6 +6143,14 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     return this.core.destroyed;
   }
 
+  public canvasElement(): HTMLCanvasElement {
+    return this.core.renderer.canvas;
+  }
+
+  public captureBase64(): Promise<string> {
+    return this.core.captureBase64();
+  }
+
   public load(input: unknown): void {
     this.core.load(input);
     this.geometryRevision += 1;
@@ -6721,6 +6894,34 @@ function validateInitializeOptions(options: CoreV2InitializeOptions): void {
   if (options.pixelRatio !== undefined && (!(options.pixelRatio > 0) || !Number.isFinite(options.pixelRatio))) {
     throw new RangeError('pixelRatio must be positive and finite');
   }
+}
+
+function validateExtractionRequest(request: CoreV2EngineExtractionRequest): void {
+  if (request.mime !== 'image/png') {
+    throw new TypeError('extractPublishedScene mime must be image/png');
+  }
+  if (
+    !Array.isArray(request.cssSize) ||
+    request.cssSize.length !== 2 ||
+    !request.cssSize.every((value) => Number.isFinite(value) && value > 0)
+  ) {
+    throw new RangeError('extractPublishedScene cssSize must contain two positive finite values');
+  }
+  for (const key of ['scene', 'view', 'interaction'] as const) {
+    const value = request.targetTuple[key];
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new RangeError(`extractPublishedScene targetTuple.${key} must be non-negative`);
+    }
+  }
+}
+
+function samePublishedTuple(
+  left: CoreV2PublishedTuple,
+  right: CoreV2PublishedTuple,
+): boolean {
+  return left.scene === right.scene &&
+    left.view === right.view &&
+    left.interaction === right.interaction;
 }
 
 function validatePositiveFinite(name: string, value: number): void {
