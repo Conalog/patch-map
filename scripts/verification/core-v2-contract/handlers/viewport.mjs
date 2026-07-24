@@ -5,6 +5,9 @@ export const VIEWPORT_CASE_IDS = Object.freeze([
   'VIE-002',
   'VIE-003',
   'VIE-004',
+  'VIE-005',
+  'VIE-006',
+  'VIE-007',
   'VIE-008',
   'CSM-009',
   'CSM-010',
@@ -23,6 +26,11 @@ export const VIEWPORT_ACTION_TYPES = Object.freeze([
   'fit-targets',
   'fit-contributor-matrix',
   'resize-after-fit',
+  'world-rotation-series',
+  'resize-surface',
+  'world-flip-matrix',
+  'view-dependent-feature-matrix',
+  'surface-resize-matrix',
   'viewport-policy-lifecycle',
   'load-scene',
   'restore-or-fit-view',
@@ -53,6 +61,15 @@ const CASE_ACTIONS = Object.freeze({
     'fit-contributor-matrix',
     'resize-after-fit',
   ]),
+  'VIE-005': Object.freeze([
+    'world-rotation-series',
+    'resize-surface',
+  ]),
+  'VIE-006': Object.freeze([
+    'world-flip-matrix',
+    'view-dependent-feature-matrix',
+  ]),
+  'VIE-007': Object.freeze(['surface-resize-matrix']),
   'VIE-008': Object.freeze(['viewport-policy-lifecycle']),
   'CSM-009': Object.freeze([
     'load-scene',
@@ -71,9 +88,17 @@ const CASE_ACTIONS = Object.freeze({
   ]),
 });
 
-const BASELINE_CASES = new Set(['VIE-001', 'VIE-002', 'VIE-003', 'VIE-004']);
+const BASELINE_CASES = new Set([
+  'VIE-001',
+  'VIE-002',
+  'VIE-003',
+  'VIE-004',
+  'VIE-005',
+  'VIE-006',
+  'VIE-007',
+]);
 
-/** Shared expected-blind product handlers for seven viewport contract cases. */
+/** Shared expected-blind product handlers for ten viewport contract cases. */
 export function createViewportHandlerEntries(productValue) {
   const product = validateProductAdapter(productValue);
   const states = new WeakMap();
@@ -90,6 +115,15 @@ export function createViewportHandlerEntries(productValue) {
     'fit-targets': withState(product, states, fitTargetsAction),
     'fit-contributor-matrix': withState(product, states, fitContributorMatrixAction),
     'resize-after-fit': withState(product, states, resizeAfterFitAction),
+    'world-rotation-series': withState(product, states, worldRotationSeriesAction),
+    'resize-surface': withState(product, states, resizeSurfaceAction),
+    'world-flip-matrix': withState(product, states, worldFlipMatrixAction),
+    'view-dependent-feature-matrix': withState(
+      product,
+      states,
+      viewDependentFeatureMatrixAction,
+    ),
+    'surface-resize-matrix': withState(product, states, surfaceResizeMatrixAction),
     'viewport-policy-lifecycle': withState(product, states, viewportPolicyLifecycleAction),
     'load-scene': withState(product, states, loadSceneAction),
     'restore-or-fit-view': withState(product, states, restoreOrFitViewAction),
@@ -493,6 +527,389 @@ async function resizeAfterFitAction(product, state, context, action) {
     contentCss,
     targetsVisible,
     viewport: clone(callSync(engine, 'viewportProbe')),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function worldRotationSeriesAction(product, state, context, action) {
+  assert(context.caseId === 'VIE-005', 'world rotation case');
+  const operands = exactOperands(action, ['operations']);
+  const operations = arrayValue(
+    operands.operations,
+    'world-rotation-series.operations',
+  );
+  const setup = recordValue(context.fixtureParams, 'VIE-005 fixture params');
+  const centerWorld = pointTuple(setup.centerWorld, 'VIE-005 centerWorld');
+  const engine = await ensureBaseline(state, context);
+  callSync(engine, 'setViewport', { centerWorld, scale: 1 });
+
+  let world = clone(callSync(engine, 'viewportTransformProbe').world);
+  const steps = [];
+  let beforeInvalid = null;
+  let invalid = null;
+  for (const [index, operationValue] of operations.entries()) {
+    const operation = recordValue(operationValue, `VIE-005 operation ${index}`);
+    assertExactKeys(operation, ['degrees', 'op'], `VIE-005 operation ${index}`);
+    const op = stringValue(operation.op, `VIE-005 operation ${index} op`);
+    const beforeView = clone(callSync(engine, 'viewportProbe'));
+    const beforeWorld = clone(world);
+    let accepted = true;
+    let error = null;
+    try {
+      let rotationDegrees;
+      if (op === 'reset') {
+        finiteNumber(operation.degrees, `VIE-005 operation ${index} degrees`);
+        rotationDegrees = 0;
+      } else if (op === 'set') {
+        rotationDegrees = operation.degrees;
+      } else {
+        const degrees = finiteNumber(
+          operation.degrees,
+          `VIE-005 operation ${index} degrees`,
+        );
+        assert(op === 'add', `VIE-005 operation ${index} supported op`);
+        rotationDegrees = beforeWorld.rotationDegrees + degrees;
+      }
+      world = clone(callSync(engine, 'setWorldTransform', {
+        rotationDegrees,
+        flipX: beforeWorld.flipX,
+        flipY: beforeWorld.flipY,
+      }));
+    } catch (caught) {
+      accepted = false;
+      error = actualError(caught);
+      world = clone(callSync(engine, 'viewportTransformProbe').world);
+      beforeInvalid = { view: beforeView, world: beforeWorld };
+      invalid = {
+        accepted,
+        error,
+        view: clone(callSync(engine, 'viewportProbe')),
+        world: clone(world),
+      };
+    }
+    steps.push({
+      index,
+      op,
+      accepted,
+      error,
+      world: clone(world),
+      viewport: clone(callSync(engine, 'viewportProbe')),
+    });
+  }
+  assert(beforeInvalid !== null && invalid !== null, 'VIE-005 invalid rotation observed');
+  const actual = {
+    steps,
+    beforeInvalid,
+    invalid,
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function resizeSurfaceAction(product, state, context, action) {
+  assert(context.caseId === 'VIE-005', 'rotation resize case');
+  const operands = exactOperands(action, ['devicePixelRatio', 'viewportCssPx']);
+  const viewportCssPx = pointTuple(
+    operands.viewportCssPx,
+    'resize-surface.viewportCssPx',
+  );
+  const devicePixelRatio = positiveFinite(
+    operands.devicePixelRatio,
+    'resize-surface.devicePixelRatio',
+  );
+  const engine = await ensureBaseline(state, context);
+  const before = clone(callSync(engine, 'viewportTransformProbe'));
+  const changed = callSync(
+    engine,
+    'resize',
+    viewportCssPx[0],
+    viewportCssPx[1],
+    devicePixelRatio,
+  );
+  callSync(engine, 'publishFrame');
+  const after = clone(callSync(engine, 'viewportTransformProbe'));
+  const geometry = requireGeometry(engine);
+  const rect = requireGeometryEntity(geometry, 'rect-b');
+  const hitPoint = boundsCenter(rect.screenBounds, 'VIE-005 rect screen bounds');
+  const transformedHit = callSync(engine, 'hitTest', pointRecord(hitPoint));
+  const actual = {
+    changed,
+    before,
+    after,
+    transformedHit: { point: hitPoint, target: transformedHit },
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function worldFlipMatrixAction(product, state, context, action) {
+  assert(context.caseId === 'VIE-006', 'world flip case');
+  const operands = exactOperands(action, ['cases']);
+  const caseIds = stringArray(operands.cases, 'world-flip-matrix.cases');
+  const setup = recordValue(context.fixtureParams, 'VIE-006 fixture params');
+  const centerWorld = pointTuple(setup.centerWorld, 'VIE-006 centerWorld');
+  const cases = arrayValue(setup.cases, 'VIE-006 cases');
+  assert(caseIds.length === cases.length, 'VIE-006 case count');
+  const engine = await ensureBaseline(state, context);
+  callSync(engine, 'setViewport', { centerWorld, scale: 1 });
+
+  const results = [];
+  for (const [index, caseId] of caseIds.entries()) {
+    const input = recordValue(cases[index], `VIE-006 ${caseId}`);
+    assertExactKeys(
+      input,
+      ['flipX', 'flipY', 'rotationDegrees'],
+      `VIE-006 ${caseId}`,
+    );
+    const world = callSync(engine, 'setWorldTransform', {
+      rotationDegrees: finiteNumber(
+        input.rotationDegrees,
+        `VIE-006 ${caseId} rotationDegrees`,
+      ),
+      flipX: booleanValue(input.flipX, `VIE-006 ${caseId} flipX`),
+      flipY: booleanValue(input.flipY, `VIE-006 ${caseId} flipY`),
+    });
+    const geometry = requireGeometry(engine);
+    const rect = requireGeometryEntity(geometry, 'rect-b');
+    const hitPoint = boundsCenter(rect.screenBounds, `VIE-006 ${caseId} rect bounds`);
+    results.push({
+      id: caseId,
+      world: clone(world),
+      viewport: clone(callSync(engine, 'viewportProbe')),
+      hit: callSync(engine, 'hitTest', pointRecord(hitPoint)),
+    });
+  }
+  const geometry = requireGeometry(engine);
+  const relation = geometry.relations.find((candidate) =>
+    candidate.sourceId === 'item-a' && candidate.targetId === 'rect-b');
+  assert(relation !== undefined, 'VIE-006 item-a to rect-b relation');
+  const text = geometry.entities.find((candidate) =>
+    candidate.kind === 'text' &&
+    candidate.visible === true &&
+    candidate.contentOrientation === 'upright');
+  assert(text !== undefined, 'VIE-006 upright text geometry');
+  const actual = {
+    results,
+    final: clone(callSync(engine, 'viewportTransformProbe').world),
+    relation: {
+      sourceTargetOrder: [relation.sourceId, relation.targetId],
+    },
+    text: {
+      id: text.id,
+      contentOrientation: text.contentOrientation ?? null,
+      screenBasis: text.screenBasis ?? null,
+      upright: text.contentOrientation === 'upright' &&
+        (text.screenBasis === undefined || basisNearIdentity(text.screenBasis)),
+    },
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function viewDependentFeatureMatrixAction(product, state, context, action) {
+  assert(context.caseId === 'VIE-006', 'world flip dependent features case');
+  const operands = exactOperands(action, ['cases', 'features']);
+  const caseIds = stringArray(
+    operands.cases,
+    'view-dependent-feature-matrix.cases',
+  );
+  const features = stringArray(
+    operands.features,
+    'view-dependent-feature-matrix.features',
+  );
+  assert(
+    sameJson(features, ['focus', 'fit', 'transformer']),
+    'VIE-006 supported feature order',
+  );
+  const setup = recordValue(context.fixtureParams, 'VIE-006 fixture params');
+  const cases = arrayValue(setup.cases, 'VIE-006 cases');
+  assert(caseIds.length === cases.length, 'VIE-006 dependent case count');
+  const engine = await ensureBaseline(state, context);
+  const viewportCssPx = fixtureViewportSize(context.fixtureParams);
+  const results = [];
+
+  for (const [index, caseId] of caseIds.entries()) {
+    const input = recordValue(cases[index], `VIE-006 ${caseId}`);
+    callSync(engine, 'setWorldTransform', {
+      rotationDegrees: finiteNumber(
+        input.rotationDegrees,
+        `VIE-006 ${caseId} rotationDegrees`,
+      ),
+      flipX: booleanValue(input.flipX, `VIE-006 ${caseId} flipX`),
+      flipY: booleanValue(input.flipY, `VIE-006 ${caseId} flipY`),
+    });
+
+    const focus = callSync(engine, 'focusViewport', { targets: ['rect-b'] });
+    let geometry = requireGeometry(engine);
+    const focusedRect = requireGeometryEntity(geometry, 'rect-b');
+    const focusCorrect = pointNear(
+      boundsCenter(focusedRect.screenBounds, `VIE-006 ${caseId} focus bounds`),
+      [viewportCssPx[0] / 2, viewportCssPx[1] / 2],
+    );
+
+    const fit = callSync(engine, 'fitViewport', {
+      targets: ['item-a', 'rect-b'],
+      paddingCssPx: 16,
+    });
+    geometry = requireGeometry(engine);
+    const fitBounds = screenUnionForIds(geometry, ['item-a', 'rect-b']);
+    const fitCorrect = fit.status === 'applied' &&
+      boundsInsideViewport(fitBounds, viewportCssPx);
+
+    callSync(engine, 'select', ['rect-b']);
+    const visual = callSync(engine, 'selectionVisualProbe');
+    geometry = requireGeometry(engine);
+    const transformerRect = requireGeometryEntity(geometry, 'rect-b');
+    const transformerCorrect = visual !== null &&
+      visual.frame !== null &&
+      visual.frame.kind === 'oriented' &&
+      pointNear(
+        boundsCenter(
+          visual.frame.screenBounds,
+          `VIE-006 ${caseId} transformer frame`,
+        ),
+        boundsCenter(
+          transformerRect.screenBounds,
+          `VIE-006 ${caseId} transformer target`,
+        ),
+      );
+    results.push({
+      id: caseId,
+      focus: { correct: focusCorrect, result: clone(focus) },
+      fit: { correct: fitCorrect, result: clone(fit), bounds: fitBounds },
+      transformer: {
+        correct: transformerCorrect,
+        visual: visual === null ? null : clone(visual),
+      },
+    });
+  }
+
+  const actual = {
+    results,
+    final: clone(callSync(engine, 'viewportTransformProbe').world),
+    product: observeProduct(product, context, engine),
+  };
+  return { actual, captureSource: actual };
+}
+
+async function surfaceResizeMatrixAction(product, state, context, action) {
+  assert(context.caseId === 'VIE-007', 'surface resize matrix case');
+  const operands = exactOperands(action, ['phases', 'sizes']);
+  const phases = stringArray(operands.phases, 'surface-resize-matrix.phases');
+  const sizes = arrayValue(operands.sizes, 'surface-resize-matrix.sizes')
+    .map((sizeValue, index) => {
+      const size = recordValue(sizeValue, `surface-resize-matrix.sizes[${index}]`);
+      assertExactKeys(size, ['css', 'dpr'], `surface-resize-matrix.sizes[${index}]`);
+      return Object.freeze({
+        css: pointTuple(size.css, `surface-resize-matrix.sizes[${index}].css`),
+        dpr: positiveFinite(size.dpr, `surface-resize-matrix.sizes[${index}].dpr`),
+      });
+    });
+  assert(
+    sameJson(phases, ['idle', 'animation', 'pan', 'transform', 'capture']),
+    'VIE-007 supported phase order',
+  );
+  const engine = await ensureBaseline(state, context);
+  const initialProbe = clone(callSync(engine, 'viewportTransformProbe'));
+  const rows = [];
+
+  for (const [phaseIndex, phase] of phases.entries()) {
+    let activePointerId = null;
+    if (phase === 'animation') {
+      const patch = callSync(
+        engine,
+        'patch',
+        { kind: 'component', ownerId: 'item-a', id: 'bar' },
+        { size: { height: 20 } },
+      );
+      assert(
+        patch.status === 'committed' || patch.status === 'unchanged',
+        'VIE-007 animation phase patch',
+      );
+    } else if (phase === 'pan') {
+      activePointerId = 7_000 + phaseIndex;
+      callSync(engine, 'beginOwnedPointerGesture', 'pan', activePointerId);
+    } else if (phase === 'transform') {
+      activePointerId = 7_000 + phaseIndex;
+      callSync(engine, 'beginTransformerEdit', {
+        pointerId: activePointerId,
+        actionId: 'VIE-007-resize-transform',
+        kind: 'move',
+        handle: 'frame',
+        selectionIds: ['rect-b'],
+      });
+      const preview = callSync(engine, 'previewTransformerEdit', activePointerId, {
+        kind: 'move',
+        selectionIds: ['rect-b'],
+        deltaWorld: [2, 1],
+      });
+      assert(
+        preview.status === 'previewed' || preview.status === 'unchanged',
+        'VIE-007 transform phase preview',
+      );
+    }
+
+    try {
+      for (const [sizeIndex, size] of sizes.entries()) {
+        const before = clone(callSync(engine, 'viewportTransformProbe'));
+        const beforeRevisions = clone(callSync(engine, 'snapshot').revisions);
+        const changed = callSync(
+          engine,
+          'resize',
+          size.css[0],
+          size.css[1],
+          size.dpr,
+        );
+        callSync(engine, 'publishFrame');
+        const after = clone(callSync(engine, 'viewportTransformProbe'));
+        const afterRevisions = clone(callSync(engine, 'snapshot').revisions);
+        rows.push({
+          phase,
+          phaseIndex,
+          sizeIndex,
+          css: size.css,
+          dpr: size.dpr,
+          changed,
+          centerPolicyApplicationCount:
+            after.resizePolicyApplicationCount -
+            before.resizePolicyApplicationCount,
+          viewRevisionDelta:
+            afterRevisions.viewRevision - beforeRevisions.viewRevision,
+          pointerTransformRevision: after.pointerTransformRevision,
+          centerWorld: clone(callSync(engine, 'viewportProbe').centerWorld),
+          frameRevision: callSync(engine, 'snapshot').frameRevision,
+          visiblePrimitiveCount:
+            callSync(engine, 'snapshot').resources.rendering.visiblePrimitiveCount,
+        });
+      }
+    } finally {
+      if (phase === 'pan' && activePointerId !== null) {
+        callSync(engine, 'terminateOwnedPointerGesture', 'pointer-up-outside');
+      } else if (phase === 'transform' && activePointerId !== null) {
+        callSync(engine, 'cancelTransformerEdit', activePointerId, 'redraw');
+      }
+    }
+  }
+
+  const finalProbe = clone(callSync(engine, 'viewportTransformProbe'));
+  const finalSnapshot = clone(callSync(engine, 'snapshot'));
+  const actual = {
+    rows,
+    changedResizeRows: rows.filter(({ changed }) => changed),
+    centerPolicyApplicationCountByResize: rows
+      .filter(({ changed }) => changed)
+      .map(({ centerPolicyApplicationCount }) => centerPolicyApplicationCount),
+    pointerTransformRevision: finalProbe.pointerTransformRevision,
+    blackFrameCount: finalProbe.blackFrameCount - initialProbe.blackFrameCount,
+    final: {
+      canvasCount: finalProbe.surface.canvasCount,
+      cssSize: finalProbe.surface.cssSize,
+      backingSize: finalProbe.surface.backingSize,
+      frameRevision: finalSnapshot.frameRevision,
+      visiblePrimitiveCount:
+        finalSnapshot.resources.rendering.visiblePrimitiveCount,
+    },
     product: observeProduct(product, context, engine),
   };
   return { actual, captureSource: actual };
@@ -1105,6 +1522,10 @@ function observeProduct(product, context, engine) {
             'viewport interaction ownership',
           )),
     viewport: productEngine.viewport === null ? null : clone(productEngine.viewport),
+    viewportTransform:
+      productEngine.viewportTransform === null
+        ? null
+        : clone(productEngine.viewportTransform),
     persistence:
       productEngine.persistence === null ? null : clone(productEngine.persistence),
     policy: clone(recordValue(productEngine.policy, 'viewport policy probe')),
@@ -1321,6 +1742,19 @@ function pointRecord(value) {
 
 function pointDistance(left, right) {
   return Math.hypot(left[0] - right[0], left[1] - right[1]);
+}
+
+function pointNear(left, right, epsilon = 0.000_001) {
+  return pointDistance(left, right) <= epsilon;
+}
+
+function basisNearIdentity(value, epsilon = 0.000_001) {
+  const basis = arrayValue(value, 'screen basis');
+  return basis.length === 4 &&
+    basis.every((entry, index) =>
+      typeof entry === 'number' &&
+      Number.isFinite(entry) &&
+      Math.abs(entry - [1, 0, 0, 1][index]) <= epsilon);
 }
 
 function finiteOrNull(value, label) {

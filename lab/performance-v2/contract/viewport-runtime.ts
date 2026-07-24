@@ -9,6 +9,9 @@ export const CORE_V2_VIEWPORT_CASE_IDS = Object.freeze([
   'VIE-002',
   'VIE-003',
   'VIE-004',
+  'VIE-005',
+  'VIE-006',
+  'VIE-007',
   'VIE-008',
   'CSM-009',
   'CSM-010',
@@ -98,6 +101,9 @@ export function createCoreV2ViewportRuntime(
         ? null
         : detach(input.engine.interactionOwnershipProbe());
       const viewport = destroyed ? null : detach(input.engine.viewportProbe());
+      const viewportTransform = destroyed
+        ? null
+        : detach(input.engine.viewportTransformProbe());
       const persistence = destroyed
         ? null
         : detach(input.engine.viewportPersistenceProbe());
@@ -118,6 +124,7 @@ export function createCoreV2ViewportRuntime(
           geometry,
           interactionOwnership,
           viewport,
+          viewportTransform,
           persistence,
           policy,
         },
@@ -368,6 +375,7 @@ function productResourceProbeRequest(value: unknown): ProductResourceProbeReques
     'viewportPersistenceProbe',
     'viewportPolicyProbe',
     'viewportProbe',
+    'viewportTransformProbe',
   ]) {
     invariant(
       typeof (engine as Record<string, unknown>)[method] === 'function',

@@ -22,6 +22,15 @@ const CASE_ACTIONS = Object.freeze({
     'fit-contributor-matrix',
     'resize-after-fit',
   ]),
+  'VIE-005': Object.freeze([
+    'world-rotation-series',
+    'resize-surface',
+  ]),
+  'VIE-006': Object.freeze([
+    'world-flip-matrix',
+    'view-dependent-feature-matrix',
+  ]),
+  'VIE-007': Object.freeze(['surface-resize-matrix']),
   'VIE-008': Object.freeze(['viewport-policy-lifecycle']),
   'CSM-009': Object.freeze([
     'load-scene',
@@ -65,7 +74,7 @@ const CLASSIFIED_EVENTS = new Set([
 ]);
 
 /**
- * Project actual public Engine observations for the seven viewport cases.
+ * Project actual public Engine observations for the ten viewport cases.
  * This browser-safe fold has no comparator, normalized-expected, or verifier
  * dependency; fixture fields are used only as declared action inputs.
  */
@@ -88,6 +97,15 @@ export function foldViewportExecution(optionsValue) {
       break;
     case 'VIE-004':
       projectFit(actual, execution);
+      break;
+    case 'VIE-005':
+      projectWorldRotation(actual, execution);
+      break;
+    case 'VIE-006':
+      projectWorldFlip(actual, execution);
+      break;
+    case 'VIE-007':
+      projectSurfaceResize(actual, execution);
       break;
     case 'VIE-008':
       projectPolicy(actual, execution);
@@ -427,6 +445,132 @@ function projectFit(actual, execution) {
   actual.interaction.contributors = projectContributorResults(
     contributors.results,
     'VIE-004 contributors',
+  );
+}
+
+function projectWorldRotation(actual, execution) {
+  const rotation = actionActualAt(execution, 0, 'world-rotation-series');
+  const resized = actionActualAt(execution, 1, 'resize-surface');
+  const steps = arrayValue(rotation.steps, 'VIE-005 rotation steps');
+  actual.interaction.centerWorldByStep = steps.map((stepValue, index) => {
+    const step = recordValue(stepValue, `VIE-005 step ${index}`);
+    const viewport = recordValue(step.viewport, `VIE-005 step ${index} viewport`);
+    return pointTuple(viewport.centerWorld, `VIE-005 step ${index} center`);
+  });
+  actual.interaction.angleDegreesByStep = steps.map((stepValue, index) => {
+    const step = recordValue(stepValue, `VIE-005 step ${index}`);
+    const world = recordValue(step.world, `VIE-005 step ${index} world`);
+    return normalizeFiniteNumber(
+      world.rotationDegrees,
+      `VIE-005 step ${index} rotation`,
+    );
+  });
+  actual.interaction.beforeInvalid = {
+    view: clone(recordValue(
+      recordValue(rotation.beforeInvalid, 'VIE-005 before invalid').view,
+      'VIE-005 before invalid view',
+    )),
+  };
+  actual.interaction.invalid = {
+    view: clone(recordValue(
+      recordValue(rotation.invalid, 'VIE-005 invalid').view,
+      'VIE-005 invalid view',
+    )),
+  };
+  const transformedHit = recordValue(
+    resized.transformedHit,
+    'VIE-005 transformed hit',
+  );
+  actual.geometry.transformedHit = {
+    target: nullableString(
+      transformedHit.target,
+      'VIE-005 transformed hit target',
+    ),
+  };
+}
+
+function projectWorldFlip(actual, execution) {
+  const matrix = actionActualAt(execution, 0, 'world-flip-matrix');
+  const dependent = actionActualAt(
+    execution,
+    1,
+    'view-dependent-feature-matrix',
+  );
+  const matrixResults = arrayValue(matrix.results, 'VIE-006 flip results');
+  const dependentResults = arrayValue(
+    dependent.results,
+    'VIE-006 dependent results',
+  );
+  actual.interaction.centerWorldByCase = matrixResults.map((rowValue, index) => {
+    const row = recordValue(rowValue, `VIE-006 flip result ${index}`);
+    const viewport = recordValue(
+      row.viewport,
+      `VIE-006 flip result ${index} viewport`,
+    );
+    return pointTuple(
+      viewport.centerWorld,
+      `VIE-006 flip result ${index} center`,
+    );
+  });
+  actual.interaction.hitByCase = matrixResults.map((rowValue, index) => {
+    const row = recordValue(rowValue, `VIE-006 flip result ${index}`);
+    return nullableString(row.hit, `VIE-006 flip result ${index} hit`);
+  });
+  actual.interaction.final = cloneRecord(
+    dependent.final,
+    'VIE-006 final world transform',
+  );
+  actual.geometry.relation = {
+    sourceTargetOrder: stringArray(
+      recordValue(matrix.relation, 'VIE-006 relation').sourceTargetOrder,
+      'VIE-006 source target order',
+    ),
+  };
+  actual.geometry.text = {
+    upright: booleanValue(
+      recordValue(matrix.text, 'VIE-006 text').upright,
+      'VIE-006 upright text',
+    ),
+  };
+  for (const feature of ['focus', 'fit', 'transformer']) {
+    actual.interaction[feature] = {
+      correctByCase: dependentResults.map((rowValue, index) => {
+        const row = recordValue(rowValue, `VIE-006 dependent result ${index}`);
+        return booleanValue(
+          recordValue(
+            row[feature],
+            `VIE-006 dependent result ${index} ${feature}`,
+          ).correct,
+          `VIE-006 dependent result ${index} ${feature} correct`,
+        );
+      }),
+    };
+  }
+}
+
+function projectSurfaceResize(actual, execution) {
+  const action = actionActualAt(execution, 0, 'surface-resize-matrix');
+  const final = recordValue(action.final, 'VIE-007 final surface');
+  actual.resources.canvasCount = nonNegativeInteger(
+    final.canvasCount,
+    'VIE-007 canvas count',
+  );
+  actual.geometry.final = {
+    cssSize: pointTuple(final.cssSize, 'VIE-007 final CSS size'),
+    backingSize: pointTuple(final.backingSize, 'VIE-007 final backing size'),
+  };
+  actual.events.centerPolicyApplicationCountByResize = arrayValue(
+    action.centerPolicyApplicationCountByResize,
+    'VIE-007 resize policy counts',
+  ).map((count, index) =>
+    nonNegativeInteger(count, `VIE-007 resize policy count ${index}`));
+  actual.events.blackFrameCount = nonNegativeInteger(
+    action.blackFrameCount,
+    'VIE-007 black frame count',
+  );
+  actual.interaction.pointerTransformRevision = nonNegativeInteger(
+    action.pointerTransformRevision,
+    'VIE-007 pointer transform revision',
   );
 }
 
