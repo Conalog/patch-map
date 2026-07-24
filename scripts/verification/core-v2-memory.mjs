@@ -7,7 +7,10 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
 const ROOT = process.cwd();
-const RESULTS = path.join(ROOT, 'performance/core-v2/results');
+const RESULTS = path.resolve(
+  process.env.CORE_V2_MEMORY_ARTIFACT_DIR
+    ?? path.join(ROOT, 'performance/core-v2/results'),
+);
 const server = await createServer({
   root: ROOT,
   configFile: false,
@@ -65,6 +68,7 @@ try {
       let transformerEditBeforeDestroy = null;
       let transformerEditAfterDestroy = null;
       let historyBeforeDestroy = null;
+      let extractionBeforeDestroy = null;
       let snapshot = null;
       let observedEventCount = 0;
       let hostPublicationCount = 0;
@@ -190,6 +194,28 @@ try {
         });
         transformerBeforeDestroy = engine.transformerGestureProbe();
         transformerEditBeforeDestroy = engine.transformerEditProbe();
+        engine.publishFrame(index + 1);
+        extractionBeforeDestroy = await (async () => {
+          const requestedTuple = engine.snapshot().publishedTuple;
+          const beforeCanvas = engine.canvasHandle();
+          const extracted = await engine.extractPublishedScene({
+            targetTuple: requestedTuple,
+            cssSize: [320, 180],
+            mime: 'image/png',
+          });
+          const afterCanvas = engine.canvasHandle();
+          return {
+            requestedTuple,
+            capturedTuple: extracted.capturedTuple,
+            dataUrlPrefix: extracted.dataUrl.slice(0, 22),
+            dataUrlLength: extracted.dataUrl.length,
+            sameCanvasObject: beforeCanvas.element === afterCanvas.element,
+            authoritativeCanvasRetained: extracted.authoritativeCanvasRetained,
+            temporaryImageCount: extracted.temporaryImageCount,
+            renderTextureCount: extracted.renderTextureCount,
+            pendingWorkAfter: engine.snapshot().pendingWork,
+          };
+        })();
         beforeDestroy = engine.hostInteractionProbe();
         await engine.destroy();
         afterDestroy = engine.hostInteractionProbe();
@@ -215,6 +241,7 @@ try {
         transformerEditBeforeDestroy,
         transformerEditAfterDestroy,
         historyBeforeDestroy,
+        extractionBeforeDestroy,
         snapshot,
         retainedCanvasCount: host.querySelectorAll('canvas').length,
       });
@@ -280,6 +307,15 @@ try {
       JSON.stringify(trial.historyBeforeDestroy?.companionSelectionIds) !==
         JSON.stringify(['item-a']) ||
       trial.historyBeforeDestroy?.hostCompanionFrozen !== true ||
+      JSON.stringify(trial.extractionBeforeDestroy?.capturedTuple) !==
+        JSON.stringify(trial.extractionBeforeDestroy?.requestedTuple) ||
+      !String(trial.extractionBeforeDestroy?.dataUrlPrefix).startsWith('data:image/png') ||
+      !(trial.extractionBeforeDestroy?.dataUrlLength > 100) ||
+      trial.extractionBeforeDestroy?.sameCanvasObject !== true ||
+      trial.extractionBeforeDestroy?.authoritativeCanvasRetained !== true ||
+      trial.extractionBeforeDestroy?.temporaryImageCount !== 0 ||
+      trial.extractionBeforeDestroy?.renderTextureCount !== 0 ||
+      trial.extractionBeforeDestroy?.pendingWorkAfter !== 0 ||
       trial.snapshot?.historyDepth !== 0 ||
       trial.snapshot?.resources?.canvasCount !== 0 ||
       trial.snapshot?.resources?.subscriptions?.active !== 0 ||

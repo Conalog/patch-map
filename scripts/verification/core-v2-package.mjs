@@ -11,7 +11,10 @@ import { createServer } from 'vite';
 
 const execute = promisify(execFile);
 const ROOT = process.cwd();
-const RESULTS = path.join(ROOT, 'performance/core-v2/results');
+const RESULTS = path.resolve(
+  process.env.CORE_V2_PACKAGE_ARTIFACT_DIR
+    ?? path.join(ROOT, 'performance/core-v2/results'),
+);
 const temporary = await mkdtemp(path.join(tmpdir(), 'patch-map-core-v2-package-'));
 const consumer = path.join(temporary, 'consumer');
 const errors = { console: [], page: [], network: [] };
@@ -385,6 +388,32 @@ const historyProtectedShortcut = engine.handleHistoryShortcut({
 });
 const historyClear = engine.clearHistory();
 const historyAfterClear = engine.historyState();
+await engine.publishFrame(44);
+const engineExtraction = await (async () => {
+  const requestedTuple = engine.snapshot().publishedTuple;
+  const beforeCanvas = engine.canvasHandle();
+  const extracted = await engine.extractPublishedScene({
+    targetTuple: requestedTuple,
+    cssSize: [640, 360],
+    mime: 'image/png',
+  });
+  const afterCanvas = engine.canvasHandle();
+  return {
+    requestedTuple,
+    capturedTuple: extracted.capturedTuple,
+    cssSize: extracted.cssSize,
+    backingSize: extracted.backingSize,
+    mime: extracted.mime,
+    dataUrlPrefix: extracted.dataUrl.slice(0, 22),
+    dataUrlLength: extracted.dataUrl.length,
+    canvasIdentity: extracted.canvasIdentity,
+    sameCanvasObject: beforeCanvas.element === afterCanvas.element,
+    authoritativeCanvasRetained: extracted.authoritativeCanvasRetained,
+    temporaryImageCount: extracted.temporaryImageCount,
+    renderTextureCount: extracted.renderTextureCount,
+    pendingWorkAfter: engine.snapshot().pendingWork,
+  };
+})();
 const interactionOwnership = engine.interactionOwnershipProbe();
 const engineDestroyResult = await engine.destroy();
 const hostInteractionAfterDestroy = engine.hostInteractionProbe();
@@ -532,6 +561,7 @@ window.__PACKAGE_RESULT__ = {
     clearReason: historyClear.reason,
     clearedDepth: historyAfterClear.depth,
   },
+  engineExtraction,
   interactionOwnership,
   engineDestroyResult,
   engineAfterDestroy: {
@@ -598,6 +628,7 @@ process.stdout.write(JSON.stringify({
   historyCapacityType: typeof CoreV2Engine.prototype.setHistoryCapacity,
   historyShortcutType: typeof CoreV2Engine.prototype.handleHistoryShortcut,
   historyClearType: typeof CoreV2Engine.prototype.clearHistory,
+  extractionType: typeof CoreV2Engine.prototype.extractPublishedScene,
 }));
 `);
 
@@ -760,6 +791,22 @@ process.stdout.write(JSON.stringify({
     esm.hierarchy?.relationRevisionLag !== 0
   ) failures.push('packed ESM hierarchy transaction contract failed');
   if (
+    JSON.stringify(esm.engineExtraction?.capturedTuple) !==
+      JSON.stringify(esm.engineExtraction?.requestedTuple) ||
+    JSON.stringify(esm.engineExtraction?.cssSize) !== JSON.stringify([640, 360]) ||
+    !Array.isArray(esm.engineExtraction?.backingSize) ||
+    !esm.engineExtraction.backingSize.every((value) => Number.isFinite(value) && value > 0) ||
+    esm.engineExtraction?.mime !== 'image/png' ||
+    !String(esm.engineExtraction?.dataUrlPrefix).startsWith('data:image/png') ||
+    !(esm.engineExtraction?.dataUrlLength > 100) ||
+    esm.engineExtraction?.canvasIdentity !== 'initial-canvas' ||
+    esm.engineExtraction?.sameCanvasObject !== true ||
+    esm.engineExtraction?.authoritativeCanvasRetained !== true ||
+    esm.engineExtraction?.temporaryImageCount !== 0 ||
+    esm.engineExtraction?.renderTextureCount !== 0 ||
+    esm.engineExtraction?.pendingWorkAfter !== 0
+  ) failures.push('packed ESM exact published-scene extraction failed');
+  if (
     esm.interactionOwnership?.rootBindingCount !== 6 ||
     esm.interactionOwnership?.rootListenerCount !== 8 ||
     esm.interactionOwnership?.entityCallbackCount !== 0
@@ -825,7 +872,8 @@ process.stdout.write(JSON.stringify({
     cjs.historyCompanionType !== 'function' ||
     cjs.historyCapacityType !== 'function' ||
     cjs.historyShortcutType !== 'function' ||
-    cjs.historyClearType !== 'function'
+    cjs.historyClearType !== 'function' ||
+    cjs.extractionType !== 'function'
   ) failures.push('packed CJS transaction/presentation exports failed');
   if (errors.console.length || errors.page.length || errors.network.length) failures.push('packed browser consumer emitted errors');
 

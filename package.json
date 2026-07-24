@@ -76,6 +76,7 @@
     "perf:core-v1:quick": "node performance/core-v1/selected/run.mjs --quick",
     "perf:core-v2": "node performance/core-v2/run.mjs",
     "perf:core-v2:quick": "node performance/core-v2/run.mjs --quick",
+    "perf:core-v2:extraction": "node scripts/verification/core-v2-extraction-performance.mjs",
     "verify:performance-report:core-v2": "node performance/core-v2/report/verify.mjs"
   },
   "devDependencies": {

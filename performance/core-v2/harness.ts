@@ -1,4 +1,5 @@
 import {
+  CoreV2Engine,
   createCoreV2,
   worldToScreen,
   type CoreV2,
@@ -28,11 +29,44 @@ interface BenchmarkResult {
   readonly environment: Readonly<Record<string, unknown>>;
 }
 
+interface ExtractionTrial {
+  readonly trial: number;
+  readonly seed: number;
+  readonly extractionSamplesMs: readonly number[];
+  readonly totalMs: number;
+  readonly retainedJsHeapBytes: number;
+  readonly diagnostics: Readonly<{
+    sourceRootCount: number;
+    requestedTuple: Readonly<{ scene: number; view: number; interaction: number }>;
+    capturedTuple: Readonly<{ scene: number; view: number; interaction: number }>;
+    cssSize: readonly [number, number];
+    backingSize: readonly [number, number];
+    dataUrlLengths: readonly number[];
+    sameCanvasObject: boolean;
+    authoritativeCanvasRetained: boolean;
+    temporaryImageCount: number;
+    renderTextureCount: number;
+    pendingWorkAfter: number;
+    inputUnchanged: boolean;
+    backend: 'webgl' | 'webgpu' | null;
+    destroyReturned: boolean;
+    lifecycleAfterDestroy: string;
+    canvasCountAfterDestroy: number;
+  }>;
+}
+
+interface ExtractionBenchmarkResult {
+  readonly warmupRaw: readonly ExtractionTrial[];
+  readonly measuredRaw: readonly ExtractionTrial[];
+  readonly environment: Readonly<Record<string, unknown>>;
+}
+
 declare global {
   interface Window {
     __PATCH_MAP_CORE_V2_BENCHMARK__: {
       readonly selectedStrategy: CoreV2RendererStrategy;
       run(spec: BenchmarkSpec): Promise<BenchmarkResult>;
+      runExtraction(spec: BenchmarkSpec): Promise<ExtractionBenchmarkResult>;
     };
     gc?: () => void;
   }
@@ -41,6 +75,7 @@ declare global {
 const surface = requiredElement<HTMLDivElement>('surface');
 const status = requiredElement<HTMLPreElement>('status');
 let productionInputPromise: Promise<unknown> | null = null;
+const EXTRACTIONS_PER_TRIAL = 10;
 
 window.__PATCH_MAP_CORE_V2_BENCHMARK__ = {
   selectedStrategy: 'mesh',
@@ -72,7 +107,175 @@ window.__PATCH_MAP_CORE_V2_BENCHMARK__ = {
       }),
     });
   },
+  async runExtraction(spec): Promise<ExtractionBenchmarkResult> {
+    validateSpec(spec);
+    status.textContent = `${spec.strategy}/${spec.scale}: preparing extraction input`;
+    const source = await sourceFor(spec.scale, spec.seed);
+    const warmupRaw: ExtractionTrial[] = [];
+    const measuredRaw: ExtractionTrial[] = [];
+
+    for (let index = 0; index < spec.warmups; index += 1) {
+      status.textContent =
+        `${spec.strategy}/${spec.scale}: extraction warmup ${index + 1}/${spec.warmups}`;
+      warmupRaw.push(
+        await runMeasuredExtractionTrial(source, spec, index, spec.seed + index),
+      );
+    }
+    for (let index = 0; index < spec.measured; index += 1) {
+      status.textContent =
+        `${spec.strategy}/${spec.scale}: extraction measured ${index + 1}/${spec.measured}`;
+      measuredRaw.push(
+        await runMeasuredExtractionTrial(
+          source,
+          spec,
+          index,
+          spec.seed + spec.warmups + index,
+        ),
+      );
+    }
+    status.textContent = `${spec.strategy}/${spec.scale}: extraction complete`;
+    return Object.freeze({
+      warmupRaw: Object.freeze(warmupRaw),
+      measuredRaw: Object.freeze(measuredRaw),
+      environment: Object.freeze({
+        userAgent: navigator.userAgent,
+        devicePixelRatio,
+        heapMethod: heapMethod(),
+        backend: 'webgl',
+        canvasCssSize: Object.freeze([960, 540]),
+        extractionsPerTrial: EXTRACTIONS_PER_TRIAL,
+      }),
+    });
+  },
 };
+
+async function runMeasuredExtractionTrial(
+  source: unknown,
+  spec: BenchmarkSpec,
+  trial: number,
+  seed: number,
+): Promise<ExtractionTrial> {
+  await forceGc();
+  const heapBefore = usedHeap();
+  const result = await runExtractionTrial(source, spec, trial, seed);
+  await forceGc();
+  return Object.freeze({
+    ...result,
+    retainedJsHeapBytes: Math.max(0, usedHeap() - heapBefore),
+  });
+}
+
+async function runExtractionTrial(
+  source: unknown,
+  spec: BenchmarkSpec,
+  trial: number,
+  seed: number,
+): Promise<Omit<ExtractionTrial, 'retainedJsHeapBytes'>> {
+  surface.replaceChildren();
+  const input = structuredClone(source);
+  const serializedBefore = JSON.stringify(input);
+  const engine = new CoreV2Engine({
+    assetPolicy: ({ descriptor, packageOwned }) => {
+      if (
+        !packageOwned
+        && descriptor.src !== CORE_V2_SYNTHETIC_ASSET_DATA_URL
+      ) {
+        throw new Error('Core v2 extraction benchmark rejected a non-fixture asset');
+      }
+    },
+  });
+  let destroyed = false;
+  try {
+    await engine.initialize({
+      instanceId: `core-v2-extraction-${String(spec.scale)}-${trial}-${seed}`,
+      target: surface,
+      width: 960,
+      height: 540,
+      pixelRatio: 1,
+      strategy: spec.strategy,
+      preference: 'webgl',
+      antialias: false,
+      requiredAssets: [{
+        alias: CORE_V2_SYNTHETIC_ASSET_ALIAS,
+        descriptor: CORE_V2_SYNTHETIC_ASSET_DATA_URL,
+        kind: 'image',
+      }],
+    });
+    engine.loadDataset(input, {
+      datasetRef: `performance:${String(spec.scale)}:${seed}`,
+    });
+    if (JSON.stringify(input) !== serializedBefore) {
+      throw new Error('Core v2 extraction benchmark mutated its input');
+    }
+    engine.publishFrame(0);
+    await nextAnimationFrame();
+
+    const requestedTuple = engine.snapshot().publishedTuple;
+    const beforeCanvas = engine.canvasHandle();
+    const extractionSamplesMs: number[] = [];
+    const dataUrlLengths: number[] = [];
+    let capturedTuple = requestedTuple;
+    let cssSize = beforeCanvas.cssSize;
+    let backingSize = beforeCanvas.backingSize;
+    let authoritativeCanvasRetained = true;
+    let temporaryImageCount = 0;
+    let renderTextureCount = 0;
+    const totalStarted = performance.now();
+    for (let index = 0; index < EXTRACTIONS_PER_TRIAL; index += 1) {
+      const started = performance.now();
+      const extracted = await engine.extractPublishedScene({
+        targetTuple: requestedTuple,
+        cssSize: [960, 540],
+        mime: 'image/png',
+      });
+      extractionSamplesMs.push(performance.now() - started);
+      if (!extracted.dataUrl.startsWith('data:image/png;base64,')) {
+        throw new Error('Core v2 extraction benchmark received non-PNG data');
+      }
+      dataUrlLengths.push(extracted.dataUrl.length);
+      capturedTuple = extracted.capturedTuple;
+      cssSize = extracted.cssSize;
+      backingSize = extracted.backingSize;
+      authoritativeCanvasRetained &&= extracted.authoritativeCanvasRetained;
+      temporaryImageCount += extracted.temporaryImageCount;
+      renderTextureCount += extracted.renderTextureCount;
+    }
+    const totalMs = performance.now() - totalStarted;
+    const afterCanvas = engine.canvasHandle();
+    const activeSnapshot = engine.snapshot();
+    const destroyReturned = await engine.destroy();
+    destroyed = true;
+    const destroyedSnapshot = engine.snapshot();
+
+    return Object.freeze({
+      trial,
+      seed,
+      extractionSamplesMs: Object.freeze(extractionSamplesMs),
+      totalMs,
+      diagnostics: Object.freeze({
+        sourceRootCount: Array.isArray(input) ? input.length : 0,
+        requestedTuple,
+        capturedTuple,
+        cssSize,
+        backingSize,
+        dataUrlLengths: Object.freeze(dataUrlLengths),
+        sameCanvasObject: beforeCanvas.element === afterCanvas.element,
+        authoritativeCanvasRetained,
+        temporaryImageCount,
+        renderTextureCount,
+        pendingWorkAfter: activeSnapshot.pendingWork,
+        inputUnchanged: JSON.stringify(input) === serializedBefore,
+        backend: activeSnapshot.resources.renderer?.backend ?? null,
+        destroyReturned,
+        lifecycleAfterDestroy: destroyedSnapshot.lifecycle,
+        canvasCountAfterDestroy: destroyedSnapshot.resources.canvasCount,
+      }),
+    });
+  } finally {
+    if (!destroyed) await engine.destroy().catch(() => undefined);
+    surface.replaceChildren();
+  }
+}
 
 async function runMeasuredTrial(
   source: unknown,
