@@ -150,6 +150,7 @@ function projectCaseDomains(caseId, execution) {
               matrix.semanticDiffCount,
               'HIS-001 semantic diff count',
             ),
+            rows: clone(arrayValue(matrix.rows, 'HIS-001 domain rows')),
           },
         },
       });
@@ -300,6 +301,7 @@ function projectCaseDomains(caseId, execution) {
               matrix.hostCompanionDiffCount,
               'HIS-006 companion diff count',
             ),
+            rows: clone(arrayValue(matrix.rows, 'HIS-006 domain rows')),
           },
         },
       });

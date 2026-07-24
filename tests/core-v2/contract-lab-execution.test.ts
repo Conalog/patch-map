@@ -438,6 +438,47 @@ describe('Core v2 executable Lab product bridge', () => {
         actual: run.actualObservation,
       })).toBe(0);
       expect(comparison.passed).toBe(expected?.expected.assertions.length);
+      if (caseId === 'HIS-001' || caseId === 'HIS-006') {
+        const history = isRecord(run.actualObservation.history)
+          ? run.actualObservation.history
+          : {};
+        const matrixKey = caseId === 'HIS-001'
+          ? 'domainMatrix'
+          : 'compoundDomainMatrix';
+        const matrix = isRecord(history[matrixKey]) ? history[matrixKey] : {};
+        const rows = Array.isArray(matrix.rows) ? matrix.rows : [];
+        expect(rows.map((row) => isRecord(row)
+          ? [row.domain, isRecord(row.operation) ? row.operation.op : null]
+          : null)).toEqual(caseId === 'HIS-001'
+          ? [
+              ['geometry', 'merge'],
+              ['text', 'merge'],
+              ['color', 'merge'],
+              ['asset', 'merge'],
+              ['style', 'merge'],
+              ['placement', 'merge'],
+              ['metadata', 'merge'],
+              ['grid', 'merge'],
+              ['relation', 'merge'],
+              ['components', 'merge'],
+              ['hierarchy', 'move'],
+            ]
+          : [
+              ['create', 'add'],
+              ['relation', 'merge'],
+              ['grid', 'merge'],
+              ['text', 'merge'],
+              ['group', 'group'],
+              ['ungroup', 'ungroup'],
+              ['reorder', 'move'],
+              ['duplicate', 'add'],
+              ['delete', 'remove'],
+            ]);
+        expect(rows.every((row) => isRecord(row)
+          && row.committed === true
+          && row.semanticRestored === true
+          && row.hostRestored === true)).toBe(true);
+      }
       expect(run.cleanup).toMatchObject({ status: 'completed' });
       expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
       await bridge.destroyCase();

@@ -584,7 +584,8 @@ async function exerciseDomainMatrix(
   let hostCompanionDiffCount = 0;
   const rows = [];
   for (const [index, domain] of domains.entries()) {
-    await reloadBaseline(engine, state, context);
+    const clockBase = 1_000 + index * 4;
+    await reloadDomainMatrixBaseline(engine, state, context, clockBase);
     const baseHost = {
       selectedIds: ['rect-b'],
       mode: 'select',
@@ -592,7 +593,7 @@ async function exerciseDomainMatrix(
     };
     callSync(engine, 'setHistoryCompanion', baseHost);
     const before = clone(callSync(engine, 'exportDataset'));
-    const operation = matrixOperation(domain, index);
+    const operation = matrixOperation(domain, index, before);
     const afterHost = compound
       ? {
           selectedIds: ['rect-b'],
@@ -608,11 +609,18 @@ async function exerciseDomainMatrix(
       ...(afterHost === undefined ? {} : { history: afterHost }),
     });
     const committed = transaction.status === 'committed';
+    if (committed) callSync(engine, 'publishFrame', clockBase + 1);
     const after = committed ? clone(callSync(engine, 'exportDataset')) : null;
     const undo = committed ? callSync(engine, 'undo') : null;
+    if (undo?.status === 'committed') {
+      callSync(engine, 'publishFrame', clockBase + 2);
+    }
     const undoDataset = clone(callSync(engine, 'exportDataset'));
     const undoCompanion = clone(callSync(engine, 'historyCompanionState'));
     const redo = committed ? callSync(engine, 'redo') : null;
+    if (redo?.status === 'committed') {
+      callSync(engine, 'publishFrame', clockBase + 3);
+    }
     const redoDataset = clone(callSync(engine, 'exportDataset'));
     const redoCompanion = clone(callSync(engine, 'historyCompanionState'));
     const semanticRestored = committed &&
@@ -645,14 +653,16 @@ async function exerciseDomainMatrix(
   };
 }
 
-function matrixOperation(domain, index) {
+function matrixOperation(domain, index, dataset) {
   switch (domain) {
+    case 'geometry':
+      return merge('rect-b', ['attrs', 'x'], 170 + index);
     case 'text':
       return merge('text-c', ['text'], `Bravo history ${index}`);
     case 'color':
       return merge('rect-b', ['fill'], index % 2 === 0 ? '#ff8801' : '#ff8802');
     case 'asset':
-      return componentMerge('item-a', 'icon', ['tint'], '#eeeeee');
+      return componentMerge('item-a', 'icon', ['source'], 'active');
     case 'style':
       return merge('text-c', ['style', 'fontSize'], 17 + index);
     case 'placement':
@@ -662,15 +672,80 @@ function matrixOperation(domain, index) {
     case 'components':
       return componentMerge('item-a', 'bar', ['size', 'height'], 11 + index);
     case 'hierarchy':
-    case 'reorder':
-      return merge('rect-b', ['attrs', 'zIndex'], 20 + index);
+      return {
+        op: 'move',
+        target: { kind: 'element', id: 'rect-b' },
+        parent: { kind: 'element', id: 'group-b' },
+        index: 0,
+      };
     case 'grid':
-      return merge('item-a', ['attrs', 'historyGridRevision'], index + 1);
+      return merge('grid-a', ['cells', 0, 0], `History ${index}`);
     case 'metadata':
-      return merge('rect-b', ['attrs', 'historyMetadataRevision'], index + 1);
+      return merge('rect-b', ['attrs', 'metadata'], {
+        historyRevision: index + 1,
+      });
+    case 'create':
+      return addElement(
+        { kind: 'element', id: 'group-b' },
+        0,
+        {
+          type: 'rect',
+          id: `history-created-${index}`,
+          size: { width: 24, height: 18 },
+          fill: '#336699',
+          attrs: { x: 8, y: 10 },
+        },
+      );
+    case 'group':
+      return {
+        op: 'group',
+        targets: [
+          { kind: 'element', id: 'item-a' },
+          { kind: 'element', id: 'rect-b' },
+        ],
+        value: { type: 'group', id: `history-group-${index}` },
+      };
+    case 'ungroup':
+      return {
+        op: 'ungroup',
+        target: { kind: 'element', id: 'group-a' },
+        relationPolicy: 'reject',
+      };
+    case 'reorder':
+      return {
+        op: 'move',
+        target: { kind: 'element', id: 'image-a' },
+        parent: null,
+        index: 0,
+      };
+    case 'duplicate': {
+      const source = findDatasetElement(dataset, 'zone-a');
+      assert(source !== null, 'history duplicate source');
+      return addElement(
+        null,
+        1,
+        { ...source, id: `zone-a-copy-${index}` },
+      );
+    }
+    case 'delete':
+      return {
+        op: 'remove',
+        target: { kind: 'element', id: 'zone-a' },
+        cascade: 'subtree',
+      };
     default:
-      return merge('rect-b', ['attrs', `history_${domain}`], index + 1);
+      throw new Error(`Core v2 history handler invalid: unsupported domain ${domain}`);
   }
+}
+
+function addElement(parent, index, value) {
+  return {
+    op: 'add',
+    parent,
+    collection: 'children',
+    index,
+    value,
+  };
 }
 
 function merge(id, path, value) {
@@ -730,6 +805,14 @@ async function reloadBaseline(engine, state, context) {
   if (isRecord(profile.hostCompanion)) {
     callSync(engine, 'setHistoryCompanion', clone(profile.hostCompanion));
   }
+  state.loadedDatasetRef = datasetRef;
+}
+
+async function reloadDomainMatrixBaseline(engine, state, context, clockMs) {
+  const datasetRef = 'all-kinds-scene';
+  const dataset = await context.resolveDataset(datasetRef);
+  callSync(engine, 'loadDataset', dataset, { datasetRef });
+  callSync(engine, 'publishFrame', clockMs);
   state.loadedDatasetRef = datasetRef;
 }
 
@@ -863,6 +946,18 @@ function elementAttr(dataset, id, key) {
   assert(element !== undefined, `history record element ${id}`);
   const attrs = recordValue(element.attrs, `history record ${id} attrs`);
   return finiteNumber(attrs[key], `history record ${id} attrs.${key}`);
+}
+
+function findDatasetElement(dataset, id) {
+  for (const value of arrayValue(dataset, 'history matrix dataset')) {
+    const element = recordValue(value, 'history matrix element');
+    if (element.id === id) return clone(element);
+    if (Array.isArray(element.children)) {
+      const nested = findDatasetElement(element.children, id);
+      if (nested !== null) return nested;
+    }
+  }
+  return null;
 }
 
 function observeProduct(product, context, engine) {

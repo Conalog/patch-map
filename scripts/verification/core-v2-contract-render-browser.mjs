@@ -1969,7 +1969,11 @@ function assertCaseRun(caseSpec, run, comparison, runLabel) {
         rawTimingSamples: run.actualObservation?.outcome?.rawTimingSamples ?? null,
         measurements: run.diagnostics?.longTaskMeasurements ?? null,
       }
-    : null;
+    : caseSpec.id === 'HIS-001'
+      ? run.actualObservation?.history?.domainMatrix?.rows ?? null
+      : caseSpec.id === 'HIS-006'
+        ? run.actualObservation?.history?.compoundDomainMatrix?.rows ?? null
+        : null;
   invariant(run.runningStatus === 'running', `${prefix} enters running state`);
   invariant(run.terminalStatus === 'observed', `${prefix} observed terminal state`);
   invariant(run.runStatus === 'observed', `${prefix} public bridge run result`);
