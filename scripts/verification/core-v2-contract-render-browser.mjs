@@ -21,8 +21,8 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 941;
-const EXPECTED_ASSERTION_PASS_TOTAL = 932;
+const EXPECTED_ASSERTION_TOTAL = 1_040;
+const EXPECTED_ASSERTION_PASS_TOTAL = 1_031;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 9;
 const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 11;
 const CASE_TIMEOUT_MS = 180_000;
@@ -209,6 +209,12 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'TRN-010', expectedAssertions: 7 }),
   Object.freeze({ id: 'CSM-009', expectedAssertions: 21 }),
   Object.freeze({ id: 'CSM-010', expectedAssertions: 22 }),
+  Object.freeze({ id: 'ERR-002', expectedAssertions: 10 }),
+  Object.freeze({ id: 'ERR-005', expectedAssertions: 6 }),
+  Object.freeze({ id: 'LIF-003', expectedAssertions: 19 }),
+  Object.freeze({ id: 'CSM-002', expectedAssertions: 21 }),
+  Object.freeze({ id: 'CSM-004', expectedAssertions: 20 }),
+  Object.freeze({ id: 'CSM-037', expectedAssertions: 23 }),
 ]);
 const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-006', 'REN-008', 'REN-010', 'REN-011']);
 const PRESENTATION_TRANCHE_CASES = new Set([
@@ -283,6 +289,14 @@ const HISTORY_TRANCHE_CASES = new Set([
   'HIS-005',
   'HIS-006',
 ]);
+const REPLACEMENT_RECOVERY_TRANCHE_CASES = new Set([
+  'ERR-002',
+  'ERR-005',
+  'LIF-003',
+  'CSM-002',
+  'CSM-004',
+  'CSM-037',
+]);
 const CONTROL_CASES = new Set([
   ...PRESENTATION_TRANCHE_CASES,
   ...UPDATE_TRANSACTION_TRANCHE_CASES,
@@ -290,6 +304,7 @@ const CONTROL_CASES = new Set([
   ...QUERY_SELECTION_TRANCHE_CASES,
   ...POINTER_SELECTION_TRANCHE_CASES,
   ...HISTORY_TRANCHE_CASES,
+  ...REPLACEMENT_RECOVERY_TRANCHE_CASES,
 ]);
 const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);
 const GPU_EVIDENCE_CASES = new Set([
@@ -300,6 +315,8 @@ const GPU_EVIDENCE_CASES = new Set([
   'UPD-007',
   'UPD-008',
   'UPD-009',
+  'LIF-003',
+  'CSM-037',
 ]);
 
 const options = parseArguments(process.argv.slice(2));
@@ -428,28 +445,28 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all fifty-seven render routes completed'
+      ? 'all eighty-four render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 932 pass and 9 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 1031 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 932 pass and 9 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 1031 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 932 pass and 9 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 1031 pass and 9 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -2003,7 +2020,10 @@ function assertCaseRun(caseSpec, run, comparison, runLabel) {
   invariant(run.actualMatchesRun === true, `${prefix} actualObservation public accessor parity`);
   invariant(run.cleanupStatus === 'completed', `${prefix} cleanup completion`);
   invariant(run.canvas.initial === 0, `${prefix} starts without a retained canvas`);
-  invariant(run.canvas.maximumDuringRun === 1, `${prefix} owns exactly one transient canvas`);
+  invariant(
+    run.canvas.maximumDuringRun === 1,
+    `${prefix} owns exactly one transient canvas (observed ${run.canvas.maximumDuringRun})`,
+  );
   invariant(run.canvas.afterCleanup === 0, `${prefix} cleanup releases the transient canvas`);
   invariant(comparison.assertions.length === caseSpec.expectedAssertions, `${prefix} assertion inventory`);
   invariant(
@@ -2117,6 +2137,14 @@ function assertGpuEvidence(caseId, gpu, runLabel) {
     assertUpd009GpuPublication(gpu, prefix);
     return;
   }
+  if (caseId === 'LIF-003') {
+    assertLif003GpuReplacement(gpu, prefix);
+    return;
+  }
+  if (caseId === 'CSM-037') {
+    assertCsm037GpuPresentation(gpu, prefix);
+    return;
+  }
   assertAnimatedBarGpuProjection(caseId, gpu, prefix);
 }
 
@@ -2173,6 +2201,43 @@ function assertUpd009GpuPublication(gpu, prefix) {
   invariant(
     structuralFrames.length === 4 && structuralFrames.every((frame) => frame.draws.length > 0),
     `${prefix} structural frames contain real GPU draws (${gpuFrameDiagnostic(gpu)})`,
+  );
+}
+
+function assertLif003GpuReplacement(gpu, prefix) {
+  const sequences = [...new Set(gpu.frames.map((frame) => frame.contextIndex))]
+    .map((contextIndex) => gpu.frames
+      .filter((frame) => frame.contextIndex === contextIndex)
+      .map(frameBarHeight)
+      .filter((height) => height !== null));
+  const visibleReplacement = sequences.some((sequence) => {
+    const initial = sequence.findIndex((height) => height >= 9 && height <= 11);
+    const animated = sequence.findIndex((height, index) => (
+      index > initial && height > 10.1 && height < 29.9
+    ));
+    return initial >= 0
+      && animated > initial
+      && sequence.some((height, index) => (
+        index > animated && height >= 9 && height <= 11
+      ));
+  });
+  invariant(
+    visibleReplacement,
+    `${prefix} publishes initial, animated, and replacement bar frames (${JSON.stringify(sequences)})`,
+  );
+}
+
+function assertCsm037GpuPresentation(gpu, prefix) {
+  const sequences = webGl2DrawFrameSequences(gpu);
+  invariant(
+    sequences.some((sequence) => sequence.length >= 3),
+    `${prefix} report load, replacement, and fit each publish WebGL2 draws (${gpuFrameDiagnostic(gpu)})`,
+  );
+  invariant(
+    gpu.frames.some((frame) => frame.draws.some((draw) => (
+      draw.centerRgba === '#00aa66ff' || draw.barColumn?.rgba === '#00aa66ff'
+    ))),
+    `${prefix} includes the report panel presentation color (${gpuFrameDiagnostic(gpu)})`,
   );
 }
 
@@ -2751,19 +2816,19 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 431',
+    'render checkpoint assertion inventory must remain 1040',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===
       EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'render checkpoint observed immutable conflict inventory must remain 7',
+    'render checkpoint observed immutable conflict inventory must remain 9',
   );
   invariant(
     sum(
       RENDER_CASES,
       (record) => (record.expectedFailures?.length ?? 0) + (record.latentConflicts?.length ?? 0),
     ) === DECLARED_IMMUTABLE_CONFLICT_TOTAL,
-    'render checkpoint declared immutable conflict inventory must remain 9',
+    'render checkpoint declared immutable conflict inventory must remain 11',
   );
   return selected;
 }
