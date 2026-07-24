@@ -79,6 +79,22 @@ class TargetedWebGLCoreV2Engine extends CoreV2Engine {
   }
 }
 
+function surfaceHostForEngineRole(
+  visibleHost: HTMLElement | undefined,
+  factoryContext: unknown,
+): HTMLElement | undefined {
+  if (
+    visibleHost === undefined
+    || typeof document === 'undefined'
+    || !isRecord(factoryContext)
+    || typeof factoryContext.role !== 'string'
+    || !factoryContext.role.startsWith('declared-failure:')
+  ) {
+    return visibleHost;
+  }
+  return document.createElement('div');
+}
+
 interface LiveViewportGestureEvent {
   readonly source: string;
   readonly centerWorld: readonly [number, number];
@@ -188,8 +204,8 @@ export function createCoreV2ExecutableLabBridge(
       execution = await executeContractCase({
         caseRecord: freshCasePlan(casePlan),
         actionDefinitions: selectCoreV2ExecutableActionDefinitions(casePlan),
-        engineFactory: () => new TargetedWebGLCoreV2Engine(
-          options.surfaceHost,
+        engineFactory: (factoryContext: unknown) => new TargetedWebGLCoreV2Engine(
+          surfaceHostForEngineRole(options.surfaceHost, factoryContext),
           options.surfaceFactory,
           runRuntime.engineOptions,
         ),

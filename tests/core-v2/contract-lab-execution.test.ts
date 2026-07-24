@@ -21,6 +21,7 @@ import type {
   CoreV2Point,
   CoreV2RelationHit,
   CoreV2RelationHitOptions,
+  CoreV2SurfaceReconcileOptions,
   CoreV2SurfaceReconcileResult,
   CoreV2SurfaceDebug,
   CoreV2SurfaceGeometrySnapshot,
@@ -229,6 +230,52 @@ describe('Core v2 executable Lab product bridge', () => {
       });
       expect(bridge.state().status).toBe('destroyed');
       expect(await bridge.actualObservation()).toBe(run.actualObservation);
+    },
+    60_000,
+  );
+
+  it.each([
+    'ERR-002',
+    'ERR-005',
+    'LIF-003',
+    'CSM-002',
+    'CSM-004',
+    'CSM-037',
+  ] as const)(
+    'produces independently comparable replacement/recovery actuals for %s',
+    async (caseId) => {
+      const surfaces: FakeSurface[] = [];
+      const bridge = createCoreV2ExecutableLabBridge({
+        caseId,
+        rootTestId: `scenario-${caseId.toLowerCase()}`,
+        size: '100',
+        seed: 319,
+        surfaceHost: createSurfaceHost(),
+        surfaceFactory: createFakeSurfaceFactory(surfaces, [], 'projection'),
+        environment: {
+          browser: 'vitest',
+          browserVersion: 'vitest',
+          backend: 'webgl2',
+          routeSize: '100',
+          runtimeResourceIds: [],
+        },
+      });
+      const run = await bridge.runCase();
+      const expected = normalizedExpected.cases.find(({ id }) => id === caseId);
+      expect(expected).toBeDefined();
+      const comparison = compareObservation({
+        expectedCase: expected,
+        actual: run.actualObservation,
+        fixtures: run.fixtures,
+        captures: run.captures,
+      });
+      const failures = comparison.assertions.filter(({ passed }) => !passed);
+
+      expect(comparison.failed, JSON.stringify(failures)).toBe(0);
+      expect(comparison.passed).toBe(expected?.expected.assertions.length);
+      expect(run.cleanup).toMatchObject({ status: 'completed' });
+      expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
+      await bridge.destroyCase();
     },
     60_000,
   );
@@ -838,8 +885,11 @@ describe('Core v2 executable Lab product bridge', () => {
       'HIS-004': 'history',
       'HIS-005': 'history',
       'HIS-006': 'history',
+      'ERR-002': 'replacement-recovery',
+      'ERR-005': 'replacement-recovery',
       'LIF-001': 'foundation',
       'LIF-002': 'foundation',
+      'LIF-003': 'replacement-recovery',
       'LIF-004': 'lifecycle-resize',
       'LIF-005': 'lifecycle-destroy',
       'DAT-001': 'foundation',
@@ -897,9 +947,12 @@ describe('Core v2 executable Lab product bridge', () => {
       'ANI-001': 'presentation-dynamics',
       'ANI-002': 'presentation-dynamics',
       'CSM-001': 'foundation',
+      'CSM-002': 'replacement-recovery',
       'CSM-003': 'foundation',
+      'CSM-004': 'replacement-recovery',
       'CSM-009': 'viewport',
       'CSM-010': 'viewport',
+      'CSM-037': 'replacement-recovery',
       'LAY-001': 'render-foundation',
       'LAY-002': 'layout-order',
       'LAY-003': 'layout-order',
@@ -963,6 +1016,7 @@ class FakeSurface implements CoreV2EngineSurface {
   private pixelRatio: number;
   private selectionIds: readonly string[] = Object.freeze([]);
   private dataset: readonly Readonly<Record<string, unknown>>[] = Object.freeze([]);
+  private activeAnimationCount = 0;
   private geometryRevision = 0;
   private presentationInput: CoreV2PresentationPolicyInput | null = null;
   private presentationRevision = 0;
@@ -988,10 +1042,17 @@ class FakeSurface implements CoreV2EngineSurface {
   public load(input: unknown): void {
     this.replaceDataset(input);
     this.selectionIds = Object.freeze([]);
+    this.activeAnimationCount = 0;
   }
 
-  public reconcile(input: unknown): CoreV2SurfaceReconcileResult {
+  public reconcile(
+    input: unknown,
+    options: CoreV2SurfaceReconcileOptions = {},
+  ): CoreV2SurfaceReconcileResult {
     this.replaceDataset(input);
+    this.activeAnimationCount = options.animateBarChanges === true
+      ? Math.max(1, options.animatedBarTargets?.length ?? 0)
+      : 0;
     return Object.freeze({
       status: 'committed',
       operationCount: 1,
@@ -1146,7 +1207,7 @@ class FakeSurface implements CoreV2EngineSurface {
         Math.round(this.height * this.pixelRatio),
       ] as const),
       selectionIds: this.selectionIds,
-      activeAnimationCount: 0,
+      activeAnimationCount: this.activeAnimationCount,
       activeGestureCount: 0,
       renderCommandCount: geometry.entities.length + visibleRelationCount,
       visiblePrimitiveCount: geometry.entities.length + visibleRelationCount,
@@ -1177,6 +1238,7 @@ class FakeSurface implements CoreV2EngineSurface {
     this.canvasCount = 0;
     this.selectionIds = Object.freeze([]);
     this.dataset = Object.freeze([]);
+    this.activeAnimationCount = 0;
     this.presentationInput = null;
     return Promise.resolve(true);
   }

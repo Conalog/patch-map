@@ -78,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(189);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(93);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(80);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(199);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(99);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(74);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(323);
+    ), 0)).toBe(361);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -238,6 +238,34 @@ describe('Core v2 focused contract Lab shell', () => {
       expect(markup).toContain(`data-testid="scenario-${caseId.toLowerCase()}"`);
       expect(markup).toContain('data-contract-status="armed"');
       expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(actions.length);
+      expect(markup).toContain('Actual-only case execution is available');
+      expect(markup).not.toContain('data-contract-status="pass"');
+    }
+  });
+
+  it('connects six replacement/recovery cases to one expected-blind runtime and exact routes', () => {
+    const cases = [
+      ['ERR-002', 8],
+      ['ERR-005', 4],
+      ['LIF-003', 10],
+      ['CSM-002', 5],
+      ['CSM-004', 6],
+      ['CSM-037', 5],
+    ] as const;
+
+    for (const [caseId, actionCount] of cases) {
+      const route = parseCoreV2ContractRoute(
+        `/lab/core-v2?scenario=${caseId}&size=100&seed=319`,
+      );
+      const plan = materializeCoreV2ExecutableCase(caseId, '100', 319);
+      const markup = renderCoreV2ContractLab(route);
+
+      expect(route.presenter.executionStatus).toBe('actual-observable');
+      expect(resolveCoreV2ExecutableRuntime(caseId).key).toBe('replacement-recovery');
+      expect(plan.actionTrace).toHaveLength(actionCount);
+      expect(markup).toContain(`data-testid="scenario-${caseId.toLowerCase()}"`);
+      expect(markup).toContain('data-contract-status="armed"');
+      expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(actionCount);
       expect(markup).toContain('Actual-only case execution is available');
       expect(markup).not.toContain('data-contract-status="pass"');
     }
@@ -660,7 +688,7 @@ describe('Core v2 focused contract Lab shell', () => {
 
   it('keeps every non-executable route disabled and explicitly not implemented', () => {
     const route = parseCoreV2ContractRoute(
-      '/lab/core-v2?scenario=LIF-003&size=500&seed=319',
+      '/lab/core-v2?scenario=ERR-001&size=500&seed=319',
     );
     const markup = renderCoreV2ContractLab(route);
 
@@ -744,9 +772,14 @@ describe('Core v2 actual-only Lab bridge', () => {
       'executable-bridge.ts',
       'executable-cases.ts',
       'executable-runtime.ts',
+      'replacement-recovery-runtime.ts',
       'main.ts',
     ].map((file) => readFile(new URL(`../../lab/performance-v2/contract/${file}`, import.meta.url), 'utf8')));
-    const joined = sources.join('\n');
+    const automationSources = await Promise.all([
+      '../../scripts/verification/core-v2-contract/handlers/replacement-recovery.mjs',
+      '../../scripts/verification/core-v2-contract/fold-replacement-recovery.mjs',
+    ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+    const joined = [...sources, ...automationSources].join('\n');
     expect(joined).not.toContain('catalog-normalized-expected');
     expect(joined).not.toMatch(/from ['"].*compare/);
     expect(joined).not.toMatch(/from ['"].*observe/);
