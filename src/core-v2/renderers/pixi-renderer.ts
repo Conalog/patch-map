@@ -1056,13 +1056,15 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       });
     }
     const system = this.application.renderer.accessibility;
+    const shadowRoot = system.isActive ? system.div : null;
     const activeElement =
       typeof document === 'undefined' ? null : document.activeElement;
     let shadowDomFocusedId: string | null = null;
     if (
+      shadowRoot !== null &&
       typeof HTMLElement !== 'undefined' &&
       activeElement instanceof HTMLElement &&
-      system.div.contains(activeElement)
+      shadowRoot.contains(activeElement)
     ) {
       for (const [id, node] of this.accessibilityNodes) {
         if (
@@ -1078,7 +1080,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       active: this.accessibilityRoot !== null,
       shadowDomActive: system.isActive,
       overlayNodeCount: this.accessibilityNodes.size,
-      shadowDomNodeCount: system.isActive ? system.div.children.length : 0,
+      shadowDomNodeCount: shadowRoot?.children.length ?? 0,
       rootListenerCount: this.accessibilityClickListener === null ? 0 : 1,
       entityListenerCount: 0,
       focusedId: this.accessibilityFocusedId,

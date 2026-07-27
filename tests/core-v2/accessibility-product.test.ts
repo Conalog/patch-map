@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   CORE_V2_ACCESSIBILITY_REVISION,
@@ -17,8 +17,43 @@ import {
   type CoreV2SurfaceReconcileResult,
   type CoreV2SurfaceView,
 } from '../../src/core-v2';
+import { PixiCoreV2Renderer } from '../../src/core-v2/renderers/pixi-renderer';
 
 describe('Core v2 accessibility product authority', () => {
+  it('probes an inactive Pixi accessibility system without dereferencing its released DOM root', () => {
+    class TestHTMLElement {}
+    vi.stubGlobal('HTMLElement', TestHTMLElement);
+    vi.stubGlobal('document', {
+      activeElement: new TestHTMLElement(),
+    });
+    try {
+      const probe = PixiCoreV2Renderer.prototype.accessibilitySurfaceProbe.call({
+        destroyedValue: false,
+        application: {
+          renderer: {
+            accessibility: {
+              isActive: false,
+              div: null,
+            },
+          },
+        },
+        accessibilityRoot: null,
+        accessibilityNodes: new Map(),
+        accessibilityClickListener: null,
+        accessibilityFocusedId: null,
+      } as unknown as PixiCoreV2Renderer);
+
+      expect(probe).toMatchObject({
+        active: false,
+        shadowDomActive: false,
+        shadowDomNodeCount: 0,
+        destroyed: false,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('derives stable focus order and owner-aggregate bounds without Pixi identities', () => {
     const materialized = materializeCoreV2Dataset(interactiveScene());
     const logical = new CoreV2LogicalSceneIndex(materialized.dataset);
