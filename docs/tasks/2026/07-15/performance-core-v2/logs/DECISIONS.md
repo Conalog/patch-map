@@ -219,3 +219,9 @@
 - Transport the committed package-consumer result through one browser-safe expected-blind adapter and shared handler/fold; PKG-003 adds a local two-Engine lifecycle smoke, but the packed proof remains normative.
 - This preserves the actual-versus-expected firewall, avoids performing an offline package build inside every Lab route, and still exercises live PixiJS instance isolation and cleanup where it matters.
 - PKG-001..005 now bind provenance to one packed artifact and expose deterministic route actuals; repeat the packed gate only when the published package boundary changes.
+
+**2026-07-27**
+- Background: Large flat bar, text, transform, and bulk updates spent most of their time cloning, parsing, normalizing, indexing, and diffing unchanged roots before touching aggregate GPU ranges.
+- Decision: Structural-share only materializer-owned flat roots, authenticate unchanged references and parser options before selected-root parsing, retain owned frozen history snapshots, and fall back to the canonical full transaction/parser/reconcile path for every unsupported or untrusted shape.
+- Why: The capability boundary preserves input immutability, stable identity, atomic failure, exact parser output, and expected-blind observations while removing redundant whole-scene CPU work without introducing per-entity Pixi nodes, listeners, tickers, or closures.
+- Impact: Large partial updates improve materially while whole-scene and complex inputs retain the proven path. The refreshed 2+7 matrix and lifecycle memory proof remain authoritative; fourteen budget deficits, the edge-auto-pan regression, headed release, WebGPU, and native Windows stay explicit.
