@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-24T06:30:21.820Z",
+  "generatedAt": "2026-07-27T05:20:51.785Z",
   "workload": {
     "sourceItems": 1000,
     "expandedEntities": 5099
@@ -16,12 +16,32 @@
       "error": null,
       "observedEventCount": 1,
       "hostPublicationCount": 1,
+      "tooltipPublicationReasons": [
+        "hover",
+        "pin",
+        "drag",
+        "destroy"
+      ],
+      "tooltipSubscriptionDisposeAfterDestroy": "disposed",
       "beforeDestroy": {
         "bindings": 1,
         "bindingListeners": 1,
         "eventSubscriptions": 1,
         "selectionHostListeners": 1,
+        "tooltipHostListeners": 1,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 3,
+          "clearTrace": [
+            "drag"
+          ],
+          "destroyed": false
+        },
         "mode": {
           "activeState": "pan",
           "stack": [
@@ -38,6 +58,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 1,
           "paused": false,
@@ -50,7 +71,21 @@
         "bindingListeners": 0,
         "eventSubscriptions": 0,
         "selectionHostListeners": 0,
+        "tooltipHostListeners": 0,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 4,
+          "clearTrace": [
+            "drag",
+            "destroy"
+          ],
+          "destroyed": true
+        },
         "mode": {
           "activeState": "select",
           "stack": [],
@@ -64,6 +99,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 0,
           "paused": false,
@@ -150,6 +186,25 @@
         ],
         "hostCompanionFrozen": true
       },
+      "extractionBeforeDestroy": {
+        "requestedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "capturedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "dataUrlPrefix": "data:image/png;base64,",
+        "dataUrlLength": 2242,
+        "sameCanvasObject": true,
+        "authoritativeCanvasRetained": true,
+        "temporaryImageCount": 0,
+        "renderTextureCount": 0,
+        "pendingWorkAfter": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-0",
@@ -157,14 +212,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 6
+          "interactionRevision": 8
         },
         "publishedTuple": {
-          "scene": 0,
+          "scene": 4,
           "view": 0,
-          "interaction": 0
+          "interaction": 8
         },
-        "frameRevision": 0,
+        "frameRevision": 1,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -229,12 +284,32 @@
       "error": null,
       "observedEventCount": 1,
       "hostPublicationCount": 1,
+      "tooltipPublicationReasons": [
+        "hover",
+        "pin",
+        "drag",
+        "destroy"
+      ],
+      "tooltipSubscriptionDisposeAfterDestroy": "disposed",
       "beforeDestroy": {
         "bindings": 1,
         "bindingListeners": 1,
         "eventSubscriptions": 1,
         "selectionHostListeners": 1,
+        "tooltipHostListeners": 1,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 3,
+          "clearTrace": [
+            "drag"
+          ],
+          "destroyed": false
+        },
         "mode": {
           "activeState": "pan",
           "stack": [
@@ -251,6 +326,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 1,
           "paused": false,
@@ -263,7 +339,21 @@
         "bindingListeners": 0,
         "eventSubscriptions": 0,
         "selectionHostListeners": 0,
+        "tooltipHostListeners": 0,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 4,
+          "clearTrace": [
+            "drag",
+            "destroy"
+          ],
+          "destroyed": true
+        },
         "mode": {
           "activeState": "select",
           "stack": [],
@@ -277,6 +367,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 0,
           "paused": false,
@@ -363,6 +454,25 @@
         ],
         "hostCompanionFrozen": true
       },
+      "extractionBeforeDestroy": {
+        "requestedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "capturedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "dataUrlPrefix": "data:image/png;base64,",
+        "dataUrlLength": 2242,
+        "sameCanvasObject": true,
+        "authoritativeCanvasRetained": true,
+        "temporaryImageCount": 0,
+        "renderTextureCount": 0,
+        "pendingWorkAfter": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-1",
@@ -370,14 +480,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 6
+          "interactionRevision": 8
         },
         "publishedTuple": {
-          "scene": 0,
+          "scene": 4,
           "view": 0,
-          "interaction": 0
+          "interaction": 8
         },
-        "frameRevision": 0,
+        "frameRevision": 1,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -442,12 +552,32 @@
       "error": null,
       "observedEventCount": 1,
       "hostPublicationCount": 1,
+      "tooltipPublicationReasons": [
+        "hover",
+        "pin",
+        "drag",
+        "destroy"
+      ],
+      "tooltipSubscriptionDisposeAfterDestroy": "disposed",
       "beforeDestroy": {
         "bindings": 1,
         "bindingListeners": 1,
         "eventSubscriptions": 1,
         "selectionHostListeners": 1,
+        "tooltipHostListeners": 1,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 3,
+          "clearTrace": [
+            "drag"
+          ],
+          "destroyed": false
+        },
         "mode": {
           "activeState": "pan",
           "stack": [
@@ -464,6 +594,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 1,
           "paused": false,
@@ -476,7 +607,21 @@
         "bindingListeners": 0,
         "eventSubscriptions": 0,
         "selectionHostListeners": 0,
+        "tooltipHostListeners": 0,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 4,
+          "clearTrace": [
+            "drag",
+            "destroy"
+          ],
+          "destroyed": true
+        },
         "mode": {
           "activeState": "select",
           "stack": [],
@@ -490,6 +635,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 0,
           "paused": false,
@@ -576,6 +722,25 @@
         ],
         "hostCompanionFrozen": true
       },
+      "extractionBeforeDestroy": {
+        "requestedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "capturedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "dataUrlPrefix": "data:image/png;base64,",
+        "dataUrlLength": 2242,
+        "sameCanvasObject": true,
+        "authoritativeCanvasRetained": true,
+        "temporaryImageCount": 0,
+        "renderTextureCount": 0,
+        "pendingWorkAfter": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-2",
@@ -583,14 +748,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 6
+          "interactionRevision": 8
         },
         "publishedTuple": {
-          "scene": 0,
+          "scene": 4,
           "view": 0,
-          "interaction": 0
+          "interaction": 8
         },
-        "frameRevision": 0,
+        "frameRevision": 1,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -655,12 +820,32 @@
       "error": null,
       "observedEventCount": 1,
       "hostPublicationCount": 1,
+      "tooltipPublicationReasons": [
+        "hover",
+        "pin",
+        "drag",
+        "destroy"
+      ],
+      "tooltipSubscriptionDisposeAfterDestroy": "disposed",
       "beforeDestroy": {
         "bindings": 1,
         "bindingListeners": 1,
         "eventSubscriptions": 1,
         "selectionHostListeners": 1,
+        "tooltipHostListeners": 1,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 3,
+          "clearTrace": [
+            "drag"
+          ],
+          "destroyed": false
+        },
         "mode": {
           "activeState": "pan",
           "stack": [
@@ -677,6 +862,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 1,
           "paused": false,
@@ -689,7 +875,21 @@
         "bindingListeners": 0,
         "eventSubscriptions": 0,
         "selectionHostListeners": 0,
+        "tooltipHostListeners": 0,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 4,
+          "clearTrace": [
+            "drag",
+            "destroy"
+          ],
+          "destroyed": true
+        },
         "mode": {
           "activeState": "select",
           "stack": [],
@@ -703,6 +903,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 0,
           "paused": false,
@@ -789,6 +990,25 @@
         ],
         "hostCompanionFrozen": true
       },
+      "extractionBeforeDestroy": {
+        "requestedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "capturedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "dataUrlPrefix": "data:image/png;base64,",
+        "dataUrlLength": 2242,
+        "sameCanvasObject": true,
+        "authoritativeCanvasRetained": true,
+        "temporaryImageCount": 0,
+        "renderTextureCount": 0,
+        "pendingWorkAfter": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-3",
@@ -796,14 +1016,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 6
+          "interactionRevision": 8
         },
         "publishedTuple": {
-          "scene": 0,
+          "scene": 4,
           "view": 0,
-          "interaction": 0
+          "interaction": 8
         },
-        "frameRevision": 0,
+        "frameRevision": 1,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -868,12 +1088,32 @@
       "error": null,
       "observedEventCount": 1,
       "hostPublicationCount": 1,
+      "tooltipPublicationReasons": [
+        "hover",
+        "pin",
+        "drag",
+        "destroy"
+      ],
+      "tooltipSubscriptionDisposeAfterDestroy": "disposed",
       "beforeDestroy": {
         "bindings": 1,
         "bindingListeners": 1,
         "eventSubscriptions": 1,
         "selectionHostListeners": 1,
+        "tooltipHostListeners": 1,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 3,
+          "clearTrace": [
+            "drag"
+          ],
+          "destroyed": false
+        },
         "mode": {
           "activeState": "pan",
           "stack": [
@@ -890,6 +1130,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 1,
           "paused": false,
@@ -902,7 +1143,21 @@
         "bindingListeners": 0,
         "eventSubscriptions": 0,
         "selectionHostListeners": 0,
+        "tooltipHostListeners": 0,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 4,
+          "clearTrace": [
+            "drag",
+            "destroy"
+          ],
+          "destroyed": true
+        },
         "mode": {
           "activeState": "select",
           "stack": [],
@@ -916,6 +1171,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 0,
           "paused": false,
@@ -1002,6 +1258,25 @@
         ],
         "hostCompanionFrozen": true
       },
+      "extractionBeforeDestroy": {
+        "requestedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "capturedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "dataUrlPrefix": "data:image/png;base64,",
+        "dataUrlLength": 2242,
+        "sameCanvasObject": true,
+        "authoritativeCanvasRetained": true,
+        "temporaryImageCount": 0,
+        "renderTextureCount": 0,
+        "pendingWorkAfter": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-4",
@@ -1009,14 +1284,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 6
+          "interactionRevision": 8
         },
         "publishedTuple": {
-          "scene": 0,
+          "scene": 4,
           "view": 0,
-          "interaction": 0
+          "interaction": 8
         },
-        "frameRevision": 0,
+        "frameRevision": 1,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -1081,12 +1356,32 @@
       "error": null,
       "observedEventCount": 1,
       "hostPublicationCount": 1,
+      "tooltipPublicationReasons": [
+        "hover",
+        "pin",
+        "drag",
+        "destroy"
+      ],
+      "tooltipSubscriptionDisposeAfterDestroy": "disposed",
       "beforeDestroy": {
         "bindings": 1,
         "bindingListeners": 1,
         "eventSubscriptions": 1,
         "selectionHostListeners": 1,
+        "tooltipHostListeners": 1,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 3,
+          "clearTrace": [
+            "drag"
+          ],
+          "destroyed": false
+        },
         "mode": {
           "activeState": "pan",
           "stack": [
@@ -1103,6 +1398,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 1,
           "paused": false,
@@ -1115,7 +1411,21 @@
         "bindingListeners": 0,
         "eventSubscriptions": 0,
         "selectionHostListeners": 0,
+        "tooltipHostListeners": 0,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 4,
+          "clearTrace": [
+            "drag",
+            "destroy"
+          ],
+          "destroyed": true
+        },
         "mode": {
           "activeState": "select",
           "stack": [],
@@ -1129,6 +1439,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 0,
           "paused": false,
@@ -1215,6 +1526,25 @@
         ],
         "hostCompanionFrozen": true
       },
+      "extractionBeforeDestroy": {
+        "requestedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "capturedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "dataUrlPrefix": "data:image/png;base64,",
+        "dataUrlLength": 2242,
+        "sameCanvasObject": true,
+        "authoritativeCanvasRetained": true,
+        "temporaryImageCount": 0,
+        "renderTextureCount": 0,
+        "pendingWorkAfter": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-5",
@@ -1222,14 +1552,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 6
+          "interactionRevision": 8
         },
         "publishedTuple": {
-          "scene": 0,
+          "scene": 4,
           "view": 0,
-          "interaction": 0
+          "interaction": 8
         },
-        "frameRevision": 0,
+        "frameRevision": 1,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -1294,12 +1624,32 @@
       "error": null,
       "observedEventCount": 1,
       "hostPublicationCount": 1,
+      "tooltipPublicationReasons": [
+        "hover",
+        "pin",
+        "drag",
+        "destroy"
+      ],
+      "tooltipSubscriptionDisposeAfterDestroy": "disposed",
       "beforeDestroy": {
         "bindings": 1,
         "bindingListeners": 1,
         "eventSubscriptions": 1,
         "selectionHostListeners": 1,
+        "tooltipHostListeners": 1,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 3,
+          "clearTrace": [
+            "drag"
+          ],
+          "destroyed": false
+        },
         "mode": {
           "activeState": "pan",
           "stack": [
@@ -1316,6 +1666,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 1,
           "paused": false,
@@ -1328,7 +1679,21 @@
         "bindingListeners": 0,
         "eventSubscriptions": 0,
         "selectionHostListeners": 0,
+        "tooltipHostListeners": 0,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 4,
+          "clearTrace": [
+            "drag",
+            "destroy"
+          ],
+          "destroyed": true
+        },
         "mode": {
           "activeState": "select",
           "stack": [],
@@ -1342,6 +1707,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 0,
           "paused": false,
@@ -1428,6 +1794,25 @@
         ],
         "hostCompanionFrozen": true
       },
+      "extractionBeforeDestroy": {
+        "requestedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "capturedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "dataUrlPrefix": "data:image/png;base64,",
+        "dataUrlLength": 2242,
+        "sameCanvasObject": true,
+        "authoritativeCanvasRetained": true,
+        "temporaryImageCount": 0,
+        "renderTextureCount": 0,
+        "pendingWorkAfter": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-6",
@@ -1435,14 +1820,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 6
+          "interactionRevision": 8
         },
         "publishedTuple": {
-          "scene": 0,
+          "scene": 4,
           "view": 0,
-          "interaction": 0
+          "interaction": 8
         },
-        "frameRevision": 0,
+        "frameRevision": 1,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -1507,12 +1892,32 @@
       "error": null,
       "observedEventCount": 1,
       "hostPublicationCount": 1,
+      "tooltipPublicationReasons": [
+        "hover",
+        "pin",
+        "drag",
+        "destroy"
+      ],
+      "tooltipSubscriptionDisposeAfterDestroy": "disposed",
       "beforeDestroy": {
         "bindings": 1,
         "bindingListeners": 1,
         "eventSubscriptions": 1,
         "selectionHostListeners": 1,
+        "tooltipHostListeners": 1,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 3,
+          "clearTrace": [
+            "drag"
+          ],
+          "destroyed": false
+        },
         "mode": {
           "activeState": "pan",
           "stack": [
@@ -1529,6 +1934,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 1,
           "paused": false,
@@ -1541,7 +1947,21 @@
         "bindingListeners": 0,
         "eventSubscriptions": 0,
         "selectionHostListeners": 0,
+        "tooltipHostListeners": 0,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 4,
+          "clearTrace": [
+            "drag",
+            "destroy"
+          ],
+          "destroyed": true
+        },
         "mode": {
           "activeState": "select",
           "stack": [],
@@ -1555,6 +1975,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 0,
           "paused": false,
@@ -1641,6 +2062,25 @@
         ],
         "hostCompanionFrozen": true
       },
+      "extractionBeforeDestroy": {
+        "requestedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "capturedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "dataUrlPrefix": "data:image/png;base64,",
+        "dataUrlLength": 2242,
+        "sameCanvasObject": true,
+        "authoritativeCanvasRetained": true,
+        "temporaryImageCount": 0,
+        "renderTextureCount": 0,
+        "pendingWorkAfter": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-7",
@@ -1648,14 +2088,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 6
+          "interactionRevision": 8
         },
         "publishedTuple": {
-          "scene": 0,
+          "scene": 4,
           "view": 0,
-          "interaction": 0
+          "interaction": 8
         },
-        "frameRevision": 0,
+        "frameRevision": 1,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -1720,12 +2160,32 @@
       "error": null,
       "observedEventCount": 1,
       "hostPublicationCount": 1,
+      "tooltipPublicationReasons": [
+        "hover",
+        "pin",
+        "drag",
+        "destroy"
+      ],
+      "tooltipSubscriptionDisposeAfterDestroy": "disposed",
       "beforeDestroy": {
         "bindings": 1,
         "bindingListeners": 1,
         "eventSubscriptions": 1,
         "selectionHostListeners": 1,
+        "tooltipHostListeners": 1,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 3,
+          "clearTrace": [
+            "drag"
+          ],
+          "destroyed": false
+        },
         "mode": {
           "activeState": "pan",
           "stack": [
@@ -1742,6 +2202,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 1,
           "paused": false,
@@ -1754,7 +2215,21 @@
         "bindingListeners": 0,
         "eventSubscriptions": 0,
         "selectionHostListeners": 0,
+        "tooltipHostListeners": 0,
         "callbackFailureCount": 0,
+        "tooltip": {
+          "schemaRevision": "core-v2-host-tooltip/1",
+          "targetId": null,
+          "anchorCss": null,
+          "boundsCss": null,
+          "pinned": false,
+          "revision": 4,
+          "clearTrace": [
+            "drag",
+            "destroy"
+          ],
+          "destroyed": true
+        },
         "mode": {
           "activeState": "select",
           "stack": [],
@@ -1768,6 +2243,7 @@
             "enter:pan"
           ],
           "temporaryModeCount": 0,
+          "temporaryModifiers": [],
           "captureCount": 0,
           "activeOwnerCount": 0,
           "paused": false,
@@ -1854,6 +2330,25 @@
         ],
         "hostCompanionFrozen": true
       },
+      "extractionBeforeDestroy": {
+        "requestedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "capturedTuple": {
+          "scene": 4,
+          "view": 0,
+          "interaction": 8
+        },
+        "dataUrlPrefix": "data:image/png;base64,",
+        "dataUrlLength": 2242,
+        "sameCanvasObject": true,
+        "authoritativeCanvasRetained": true,
+        "temporaryImageCount": 0,
+        "renderTextureCount": 0,
+        "pendingWorkAfter": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-8",
@@ -1861,14 +2356,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 6
+          "interactionRevision": 8
         },
         "publishedTuple": {
-          "scene": 0,
+          "scene": 4,
           "view": 0,
-          "interaction": 0
+          "interaction": 8
         },
-        "frameRevision": 0,
+        "frameRevision": 1,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -1929,22 +2424,22 @@
     }
   ],
   "jsHeap": {
-    "before": 7135768,
-    "after": 13758472,
-    "processDelta": 6622704,
+    "before": 7562448,
+    "after": 14397052,
+    "processDelta": 6834604,
     "samples": [
-      184015,
-      79375,
-      406615,
+      180687,
+      76959,
+      402107,
+      87323,
+      12683,
       0,
-      14375,
-      47819,
-      210103
+      210323
     ],
-    "median": 79375,
-    "p95": 406615,
-    "maximum": 406615,
-    "trend": 26088
+    "median": 87323,
+    "p95": 402107,
+    "maximum": 402107,
+    "trend": 29636
   },
   "dom": {
     "canvasCount": 0,

@@ -139,6 +139,11 @@ describe('Core v2 executable Lab product bridge', () => {
           'CSM-029',
           'CSM-030',
           'CSM-031',
+          'CSM-025',
+          'CSM-026',
+          'CSM-027',
+          'CSM-033',
+          'CSM-034',
         ].includes(caseId)
           ? 'projection'
           : 'flat',
@@ -245,6 +250,69 @@ describe('Core v2 executable Lab product bridge', () => {
       });
       expect(bridge.state().status).toBe('destroyed');
       expect(await bridge.actualObservation()).toBe(run.actualObservation);
+    },
+    60_000,
+  );
+
+  it.each([
+    'CSM-025',
+    'CSM-026',
+    'CSM-027',
+    'CSM-033',
+    'CSM-034',
+  ] as const)(
+    'produces independently comparable editor workflow actuals for %s',
+    async (caseId) => {
+      const surfaces: FakeSurface[] = [];
+      const bridge = createCoreV2ExecutableLabBridge({
+        caseId,
+        rootTestId: `scenario-${caseId.toLowerCase()}`,
+        size: '100',
+        seed: 319,
+        surfaceHost: createSurfaceHost(),
+        surfaceFactory: createFakeSurfaceFactory(surfaces, [], 'projection'),
+        environment: {
+          browser: 'vitest',
+          browserVersion: 'vitest',
+          backend: 'webgl2',
+          routeSize: '100',
+          runtimeResourceIds: [],
+        },
+      });
+      const run = await bridge.runCase();
+      const expected = normalizedExpected.cases.find(({ id }) => id === caseId);
+      expect(expected).toBeDefined();
+      const comparison = compareObservation({
+        expectedCase: expected,
+        actual: run.actualObservation,
+        fixtures: run.fixtures,
+        captures: run.captures,
+      });
+      const failures = comparison.assertions.filter(({ passed }) => !passed);
+
+      expect(comparison.failed, JSON.stringify({
+        failures,
+        actual: run.actualObservation,
+      })).toBe(0);
+      expect(comparison.passed).toBe(expected?.expected.assertions.length);
+      expect(run.cleanup).toMatchObject({
+        status: 'completed',
+        productResources: {
+          runtimeCounts: {
+            engines: 0,
+            renderers: 0,
+            listeners: 0,
+            observers: 0,
+            timers: 0,
+            pendingWork: 0,
+            retainedDatasets: 0,
+            assetLeases: 0,
+            editorSessions: 0,
+          },
+        },
+      });
+      expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
+      await bridge.destroyCase();
     },
     60_000,
   );
@@ -1299,11 +1367,16 @@ describe('Core v2 executable Lab product bridge', () => {
       'CSM-022': 'interaction-editor',
       'CSM-023': 'interaction-editor',
       'CSM-024': 'interaction-editor',
+      'CSM-025': 'editor-workflow',
+      'CSM-026': 'editor-workflow',
+      'CSM-027': 'editor-workflow',
       'CSM-028': 'authoring',
       'CSM-029': 'authoring',
       'CSM-030': 'authoring',
       'CSM-031': 'authoring',
       'CSM-032': 'asset-ingestion',
+      'CSM-033': 'editor-workflow',
+      'CSM-034': 'editor-workflow',
       'CSM-035': 'export-extraction',
       'CSM-036': 'lifecycle-interruption',
       'CSM-037': 'replacement-recovery',

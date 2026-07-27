@@ -67,6 +67,8 @@ import * as interactionEditorHandlersModule from '../../../scripts/verification/
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as authoringHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/authoring.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as editorWorkflowHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/editor-workflow.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as assetHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/assets.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as assetIngestionHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/asset-ingestion.mjs';
@@ -119,6 +121,8 @@ import * as interactionEditorFoldModule from '../../../scripts/verification/core
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as authoringFoldModule from '../../../scripts/verification/core-v2-contract/fold-authoring.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as editorWorkflowFoldModule from '../../../scripts/verification/core-v2-contract/fold-editor-workflow.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as assetFoldModule from '../../../scripts/verification/core-v2-contract/fold-assets.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as assetIngestionFoldModule from '../../../scripts/verification/core-v2-contract/fold-asset-ingestion.mjs';
@@ -165,6 +169,11 @@ import {
   createCoreV2AuthoringRuntime,
   type CoreV2AuthoringCaseId,
 } from './authoring-runtime';
+import {
+  CORE_V2_EDITOR_WORKFLOW_CASE_IDS,
+  createCoreV2EditorWorkflowRuntime,
+  type CoreV2EditorWorkflowCaseId,
+} from './editor-workflow-runtime';
 import { createCoreV2RenderComponentAssetsRuntime } from './render-component-assets-runtime';
 import { createCoreV2RenderImagesRuntime } from './render-images-runtime';
 import { createCoreV2RenderTextRuntime } from './render-text-runtime';
@@ -212,6 +221,7 @@ export type CoreV2ExecutableRuntimeKey =
   | 'pointer-selection'
   | 'interaction-editor'
   | 'authoring'
+  | 'editor-workflow'
   | 'history'
   | 'replacement-recovery'
   | 'export-extraction'
@@ -289,6 +299,10 @@ interface HandlerFactoryRuntime {
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
   createAuthoringHandlerEntries?(
+    this: void,
+    product: Readonly<Record<string, unknown>>,
+  ): readonly HandlerEntry[];
+  createEditorWorkflowHandlerEntries?(
     this: void,
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
@@ -399,6 +413,10 @@ interface FoldRuntime {
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
+  foldEditorWorkflowExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
   foldAssetExecution?(
     this: void,
     options: Readonly<Record<string, unknown>>,
@@ -474,6 +492,8 @@ const interactionEditorHandlers =
   interactionEditorHandlersModule as unknown as HandlerFactoryRuntime;
 const authoringHandlers =
   authoringHandlersModule as unknown as HandlerFactoryRuntime;
+const editorWorkflowHandlers =
+  editorWorkflowHandlersModule as unknown as HandlerFactoryRuntime;
 const assetHandlers = assetHandlersModule as unknown as HandlerFactoryRuntime;
 const assetIngestionHandlers =
   assetIngestionHandlersModule as unknown as HandlerFactoryRuntime;
@@ -506,6 +526,8 @@ const interactionEditorFold =
   interactionEditorFoldModule as unknown as FoldRuntime;
 const authoringFold =
   authoringFoldModule as unknown as FoldRuntime;
+const editorWorkflowFold =
+  editorWorkflowFoldModule as unknown as FoldRuntime;
 const assetFold = assetFoldModule as unknown as FoldRuntime;
 const assetIngestionFold =
   assetIngestionFoldModule as unknown as FoldRuntime;
@@ -555,6 +577,9 @@ const INTERACTION_EDITOR_CASE_IDS = new Set<CoreV2InteractionEditorCaseId>(
 );
 const AUTHORING_CASE_IDS = new Set<CoreV2AuthoringCaseId>(
   CORE_V2_AUTHORING_CASE_IDS,
+);
+const EDITOR_WORKFLOW_CASE_IDS = new Set<CoreV2EditorWorkflowCaseId>(
+  CORE_V2_EDITOR_WORKFLOW_CASE_IDS,
 );
 const HISTORY_CASE_IDS = new Set<CoreV2HistoryCaseId>(
   CORE_V2_HISTORY_CASE_IDS,
@@ -727,6 +752,7 @@ const QUERY_SELECTION_DESCRIPTOR = createQuerySelectionDescriptor();
 const POINTER_SELECTION_DESCRIPTOR = createPointerSelectionDescriptor();
 const INTERACTION_EDITOR_DESCRIPTOR = createInteractionEditorDescriptor();
 const AUTHORING_DESCRIPTOR = createAuthoringDescriptor();
+const EDITOR_WORKFLOW_DESCRIPTOR = createEditorWorkflowDescriptor();
 const HISTORY_DESCRIPTOR = createHistoryDescriptor();
 const REPLACEMENT_RECOVERY_DESCRIPTOR = createReplacementRecoveryDescriptor();
 const LIFECYCLE_INTERRUPTION_DESCRIPTOR = createLifecycleInterruptionDescriptor();
@@ -758,6 +784,7 @@ export function resolveCoreV2ExecutableRuntime(
   if (isQuerySelectionCaseId(caseId)) return QUERY_SELECTION_DESCRIPTOR;
   if (isPointerSelectionCaseId(caseId)) return POINTER_SELECTION_DESCRIPTOR;
   if (isInteractionEditorCaseId(caseId)) return INTERACTION_EDITOR_DESCRIPTOR;
+  if (isEditorWorkflowCaseId(caseId)) return EDITOR_WORKFLOW_DESCRIPTOR;
   if (isAuthoringCaseId(caseId)) return AUTHORING_DESCRIPTOR;
   if (isHistoryCaseId(caseId)) return HISTORY_DESCRIPTOR;
   if (isReplacementRecoveryCaseId(caseId)) return REPLACEMENT_RECOVERY_DESCRIPTOR;
@@ -1140,6 +1167,51 @@ function isInteractionEditorCaseId(
   return INTERACTION_EDITOR_CASE_IDS.has(
     caseId as CoreV2InteractionEditorCaseId,
   );
+}
+
+function createEditorWorkflowDescriptor(): CoreV2ExecutableRuntimeDescriptor {
+  const fold = requireFold(
+    editorWorkflowFold.foldEditorWorkflowExecution,
+    'editor-workflow fold',
+  );
+  const createEntries = requireFactory(
+    editorWorkflowHandlers.createEditorWorkflowHandlerEntries,
+    'editor-workflow handlers',
+  );
+  const createRun = (plan: CoreV2ExecutableCasePlan) => {
+    invariant(isEditorWorkflowCaseId(plan.id), 'editor-workflow case identity');
+    const runtime = createCoreV2EditorWorkflowRuntime(plan.id);
+    return Object.freeze({
+      handlerEntries: selectHandlerEntries(
+        plan,
+        createEntries(runtime.product as unknown as Readonly<Record<string, unknown>>),
+      ),
+      engineOptions: Object.freeze({}),
+      postDestroyProductProbe: () => runtime.postDestroyProductProbe(),
+    });
+  };
+  return Object.freeze({
+    key: 'editor-workflow',
+    needsSupplementalWebGLLease: false,
+    createRun,
+    handlerEntries(plan: CoreV2ExecutableCasePlan): readonly HandlerEntry[] {
+      return createRun(plan).handlerEntries;
+    },
+    fold(input: CoreV2RuntimeFoldInput): CoreV2FoldedExecution {
+      return fold({
+        casePlan: input.casePlan,
+        execution: input.execution,
+        provenance: input.provenance,
+        environment: input.environment,
+      });
+    },
+  });
+}
+
+function isEditorWorkflowCaseId(
+  caseId: CoreV2ExecutableCaseId,
+): caseId is CoreV2EditorWorkflowCaseId {
+  return EDITOR_WORKFLOW_CASE_IDS.has(caseId as CoreV2EditorWorkflowCaseId);
 }
 
 function createAuthoringDescriptor(): CoreV2ExecutableRuntimeDescriptor {

@@ -21,8 +21,8 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 1_641;
-const EXPECTED_ASSERTION_PASS_TOTAL = 1_620;
+const EXPECTED_ASSERTION_TOTAL = 1_751;
+const EXPECTED_ASSERTION_PASS_TOTAL = 1_730;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;
 const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;
 const CASE_TIMEOUT_MS = 180_000;
@@ -303,6 +303,9 @@ const RENDER_CASES = Object.freeze([
     expectedAssertions: 20,
     expectedFailures: CSM_024_IMMUTABLE_FAILURES,
   }),
+  Object.freeze({ id: 'CSM-025', expectedAssertions: 22 }),
+  Object.freeze({ id: 'CSM-026', expectedAssertions: 19 }),
+  Object.freeze({ id: 'CSM-027', expectedAssertions: 26 }),
   Object.freeze({ id: 'CSM-019', expectedAssertions: 21 }),
   Object.freeze({
     id: 'CSM-028',
@@ -341,6 +344,8 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'AST-003', expectedAssertions: 10 }),
   Object.freeze({ id: 'SEC-001', expectedAssertions: 7 }),
   Object.freeze({ id: 'CSM-032', expectedAssertions: 21 }),
+  Object.freeze({ id: 'CSM-033', expectedAssertions: 20 }),
+  Object.freeze({ id: 'CSM-034', expectedAssertions: 23 }),
 ]);
 const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-006', 'REN-008', 'REN-010', 'REN-011']);
 const PRESENTATION_TRANCHE_CASES = new Set([
@@ -432,6 +437,13 @@ const AUTHORING_TRANCHE_CASES = new Set([
   'CSM-030',
   'CSM-031',
 ]);
+const EDITOR_WORKFLOW_TRANCHE_CASES = new Set([
+  'CSM-025',
+  'CSM-026',
+  'CSM-027',
+  'CSM-033',
+  'CSM-034',
+]);
 const HISTORY_TRANCHE_CASES = new Set([
   'HIS-001',
   'HIS-002',
@@ -470,6 +482,7 @@ const CONTROL_CASES = new Set([
   ...POINTER_SELECTION_TRANCHE_CASES,
   ...INTERACTION_EDITOR_TRANCHE_CASES,
   ...AUTHORING_TRANCHE_CASES,
+  ...EDITOR_WORKFLOW_TRANCHE_CASES,
   ...HISTORY_TRANCHE_CASES,
   ...REPLACEMENT_RECOVERY_TRANCHE_CASES,
   ...LIFECYCLE_INTERRUPTION_TRANCHE_CASES,
@@ -487,6 +500,7 @@ const GPU_EVIDENCE_CASES = new Set([
   'LIF-003',
   'CSM-037',
   ...AUTHORING_TRANCHE_CASES,
+  ...EDITOR_WORKFLOW_TRANCHE_CASES,
 ]);
 
 const options = parseArguments(process.argv.slice(2));
@@ -618,28 +632,28 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all one-hundred-fifteen render routes completed'
+      ? 'all one-hundred-twenty-five render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 1620 pass and 21 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 1730 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 1620 pass and 21 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 1730 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 1620 pass and 21 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 1730 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -2293,7 +2307,10 @@ function assertGpuEvidence(caseId, gpu, runLabel) {
     gpu.frames.every((frame) => frame.trackedCanvas === true),
     `${prefix} tracked canvas frames (${gpuFrameDiagnostic(gpu)})`,
   );
-  if (AUTHORING_TRANCHE_CASES.has(caseId)) {
+  if (
+    AUTHORING_TRANCHE_CASES.has(caseId)
+    || EDITOR_WORKFLOW_TRANCHE_CASES.has(caseId)
+  ) {
     invariant(
       gpu.frames.some((frame) => frame.draws.length > 0),
       `${prefix} post-authoring draw frame (${gpuFrameDiagnostic(gpu)})`,
@@ -3000,7 +3017,7 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 1641',
+    'render checkpoint assertion inventory must remain 1751',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===
