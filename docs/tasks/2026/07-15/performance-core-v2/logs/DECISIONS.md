@@ -207,3 +207,9 @@
 - Keep the product digest truthful as fnv1a32 output and report both first/second hash mismatches as immutable comparison conflicts.
 - Replacing a real content digest with a fixture token would fabricate product output, weaken idempotence evidence, and couple expected data into execution.
 - The shared authoring fold remains expected-blind; CSM-028 contributes two explicit conflict paths while real digest equality still proves the second distribution is idempotent.
+
+**2026-07-27**
+- Background: Page suspension can cross asset/extraction completion, animated presentation, viewport motion, pointer capture, and transformer ownership while a long wall-clock gap must not become one giant animation delta.
+- Decision: Keep one engine-local flat lifecycle authority with authenticated generation tokens. Settle presentation to its already-committed destination before entering hidden state, cancel interaction ownership, and admit exactly one explicit manual publication after resume.
+- Why: A fixed-size metadata ledger makes stale completion fail closed without retaining Promises, Pixi objects, listeners, tickers, timers, datasets, or per-entity callbacks, while ordering surface transition before ledger publication preserves atomic failure.
+- Impact: `LIF-006` and packed/memory consumers use the public Engine visibility boundary. Hidden asset/extraction registrations are rejected, obsolete tokens cannot apply, and aggregate WebGL ownership and manual rendering remain unchanged.

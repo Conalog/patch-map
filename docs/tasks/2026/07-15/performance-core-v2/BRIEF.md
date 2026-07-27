@@ -17,15 +17,15 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 
 # Current State
 
-- Coverage is 140 executable routes, 139 actual-producing routes, 33 explicit stubs, 545 executable actions, and 304 action types.
-- `CSM-025/026/027/033/034` are closed in product commit `105eb7b` and shared expected-blind automation/Lab commit `330dacf`. One engine-local workflow authority covers grid, relation, text, confirmed cascade delete, and the twelve-kind mutation/history matrix through existing transaction, history, selection, and aggregate publication paths.
-- Full gates pass 160 files/1,454 unit tests, lint, typecheck, Core v2/Lab builds, canonical contract verification, and packed ESM/CJS consumption. The five changed headless WebGL routes pass first/repeat/fresh/destroy at 110/110 assertions per session with deterministic actuals, one transient canvas returning to zero, and zero console/page/network/external-fixture errors.
-- The browser registry now contains 125 routes and 1,751 assertions: 1,730 matches, twenty-one observed immutable conflicts, and two latent conflicts. The 2+7 lifecycle checkpoint covers 5,099 entities with retained-heap median/p95 87,323/402,107 bytes and zero lifecycle, DOM, console, page, or network failures.
-- Renderer hot paths were unchanged, so the full 125-route browser and performance matrices were not repeated. Headed final release verification, WebGPU, native Windows, and final independent release review remain pending.
+- Coverage is 145 executable routes, 144 actual-producing routes, 28 explicit stubs, 573 executable actions, and 317 action types.
+- `DET-001/002/003`, `ANI-003`, and `LIF-006` are closed in product commit `bfd3b92` and shared expected-blind automation/Lab commit `6953b08`. One engine-local lifecycle authority cancels obsolete asset/extraction work, settles animation without a giant wall-clock delta, releases gesture ownership, and admits one coherent resume frame; seeded scene generation is shared with the existing transaction control.
+- The five changed headless WebGL routes pass first/repeat/fresh/destroy at 49/49 assertions per session with deterministic actuals, one transient canvas returning to zero, real WebGL2 draws, and zero console/page/network/external-fixture errors. The browser registry contains 130 routes and 1,800 assertions: 1,779 matches, twenty-one observed immutable conflicts, and two latent conflicts.
+- Full lint, typecheck, Core v2/Lab builds, canonical verification, packed ESM/CJS consumption, and scoped post-review regressions pass. A full unit run reached 1,471/1,472 before finding one stale verification-script pin; that assertion-only pin was corrected and its file passes 3/3 without repeating unrelated gates.
+- The refreshed 2+7 lifecycle checkpoint covers 5,099 entities with retained-heap median/p95 76,659/399,531 bytes and zero lifecycle, DOM, renderer, scheduler, console, page, or network failures. Renderer hot paths were unchanged, so the full 130-route browser and performance matrices were not repeated; headed final release verification, WebGPU, native Windows, and final independent release review remain pending.
 
 # Next Step
 
-Work is intentionally paused at a clean editor-workflow checkpoint. After restart, re-read the mandatory policy and this brief, confirm branch/status, then inventory the remaining 33 stubs and select one shared-substrate tranche of 5–10 related cases. Do not reopen this tranche unless a regression demonstrates a product defect.
+Work is intentionally paused at a clean determinism/lifecycle checkpoint. After restart, re-read the mandatory policy and this brief, confirm branch/status, then connect `PIX-001/002/003/005` plus `PKG-001/002/003/004/005` through shared Pixi/backend/package probes and focused routes. Do not reopen the closed tranche unless a regression demonstrates a product defect.
 
 # Working Boundary
 
