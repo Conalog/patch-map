@@ -231,3 +231,9 @@
 - Decision: Own one Engine-local operations authority with bounded sanitized records, registration-ordered telemetry, post-delivery queued actions, callback-failure isolation, and destroy cleanup; gate extraction readback through a separate logical readability preflight while preserving the authoritative canvas.
 - Why: One expected-blind authority preserves stable identity, atomic failure, manual aggregate Pixi rendering, and explicit resource ownership while keeping raw customer values and approved expected evidence outside product channels.
 - Impact: SEC-002..004 and OPS-001..002 share one runtime and five focused Lab routes; Engine-backed routes prove real WebGL2 frames, no-surface routes retain zero canvas, callback registrations drain to zero, and package supply-chain evidence remains independently generated.
+
+**2026-07-27**
+- The accessibility contract requires stable logical semantics and an actual PixiJS shadow-DOM bridge without restoring object-per-entity visual authority.
+- Keep focus, action deduplication, supported actions, selection intent, and reduced motion in one Engine-local authority; create empty Pixi Containers only while accessibility is enabled, publish them under one aggregate accessibility root, and handle activation through one delegated listener.
+- This uses the public PixiJS AccessibilitySystem for real browser focus and assistive activation while preserving aggregate Mesh visuals, manual rendering, stable logical IDs, and the expected-blind execution boundary.
+- ACC-001..003 close with hidden and removed targets filtered, alias activation deduplicated, reduced-motion bars settled immediately, legacy injected renderers treated as optional-capability surfaces, and overlay, listener, logical state, host DOM, and canvas ownership released on destroy; headed assistive-technology and native Windows evidence remain pending.
