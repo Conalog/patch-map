@@ -271,23 +271,10 @@ async function main() {
     );
     return;
   }
-  const summary = await summarizeEvidence(rawOutput, {
-    browserErrorCount,
-    codeCommit,
-    requestedHeaded,
-    actualMode: headed ? 'headed' : 'headless',
-  });
   const timestamp = rawOutput.generatedAt.replaceAll(':', '-').replaceAll('.', '-');
   const rawFilename = `contract-performance-raw-${timestamp}.json`;
   const rawText = `${JSON.stringify(rawOutput, null, 2)}\n`;
   const rawDigest = hashText(rawText);
-  summary.provenance.rawArtifactSha256 = rawDigest;
-  summary.rawArtifact = {
-    path: `performance/core-v2/results/${rawFilename}`,
-    sha256: rawDigest,
-    sampleCount: SIZES.length * MEASURED,
-    warmupSampleCount: SIZES.length * WARMUPS,
-  };
   await mkdir(RESULTS_ROOT, { recursive: true });
   await Promise.all([
     writeFile(path.join(RESULTS_ROOT, rawFilename), rawText),
@@ -295,11 +282,24 @@ async function main() {
       path.join(RESULTS_ROOT, 'contract-performance-raw-latest.json'),
       rawText,
     ),
-    writeFile(
-      path.join(RESULTS_ROOT, 'contract-performance.json'),
-      `${JSON.stringify(summary, null, 2)}\n`,
-    ),
   ]);
+  const summary = await summarizeEvidence(rawOutput, {
+    browserErrorCount,
+    codeCommit,
+    requestedHeaded,
+    actualMode: headed ? 'headed' : 'headless',
+  });
+  summary.provenance.rawArtifactSha256 = rawDigest;
+  summary.rawArtifact = {
+    path: `performance/core-v2/results/${rawFilename}`,
+    sha256: rawDigest,
+    sampleCount: SIZES.length * MEASURED,
+    warmupSampleCount: SIZES.length * WARMUPS,
+  };
+  await writeFile(
+    path.join(RESULTS_ROOT, 'contract-performance.json'),
+    `${JSON.stringify(summary, null, 2)}\n`,
+  );
   process.stdout.write(
     `[core-v2-contract-perf] wrote ${rawFilename} (${rawDigest})\n`,
   );

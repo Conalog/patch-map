@@ -180,6 +180,17 @@ async function runTrial(
         frameGapsMs.push(observation.frameGapMs);
         text.push(observation);
       }
+      const bulkObservation = await applyCoreV2PerformanceBulkPatch(engine, {
+        size: spec.size,
+        seed: spec.seed,
+        targetFraction: 0.1,
+        strict: true,
+        timeMs: 352,
+        actionId: 'contract-performance-bulk-2000',
+      });
+      actionToVisibleMs.push(bulkObservation.actionToVisibleMs);
+      frameGapsMs.push(bulkObservation.frameGapMs);
+      bulk.push(bulkObservation);
     } else if (spec.size === 5_000) {
       const interactionObservation = await runCoreV2ContinuousInteraction(engine, {
         size: spec.size,
