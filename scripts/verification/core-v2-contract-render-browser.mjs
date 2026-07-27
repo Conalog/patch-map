@@ -22,11 +22,13 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 1_891;
-const EXPECTED_ASSERTION_PASS_TOTAL = 1_870;
+const EXPECTED_ASSERTION_TOTAL = 1_946;
+const EXPECTED_ASSERTION_PASS_TOTAL = 1_911;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;
+const EXPECTED_PERFORMANCE_DEFICIT_TOTAL = 14;
 const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;
 const CASE_TIMEOUT_MS = 180_000;
+const PERFORMANCE_CASE_TIMEOUT_MS = 20 * 60_000;
 const CHECKPOINT_TIMEOUT_MS = 30 * 60_000;
 const REN_005_IMMUTABLE_FAILURES = Object.freeze([
   Object.freeze({
@@ -112,6 +114,88 @@ const AST_002_IMMUTABLE_FAILURES = Object.freeze([
     path: '/outcome/validation/cyclic/code',
     code: 'VALUE_MISMATCH',
     failurePath: '/outcome/validation/cyclic/code',
+  }),
+]);
+const PRF_001_PERFORMANCE_DEFICITS = Object.freeze([
+  Object.freeze({
+    path: '/outcome/actionToVisibleP95Ms',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/actionToVisibleP95Ms',
+  }),
+  Object.freeze({
+    path: '/outcome/frameGapP95Ms',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/frameGapP95Ms',
+  }),
+  Object.freeze({
+    path: '/outcome/longTaskAtLeast100Ms',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/longTaskAtLeast100Ms',
+  }),
+]);
+const PRF_002_PERFORMANCE_DEFICITS = Object.freeze([
+  Object.freeze({
+    path: '/outcome/longTaskAtLeast100Ms',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/longTaskAtLeast100Ms',
+  }),
+]);
+const PRF_003_PERFORMANCE_DEFICITS = Object.freeze([
+  Object.freeze({
+    path: '/outcome/actionToVisibleP95Ms',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/actionToVisibleP95Ms',
+  }),
+  Object.freeze({
+    path: '/outcome/frameGapP95Ms',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/frameGapP95Ms',
+  }),
+  Object.freeze({
+    path: '/outcome/longTaskAtLeast100Ms',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/longTaskAtLeast100Ms',
+  }),
+]);
+const PRF_004_PERFORMANCE_DEFICITS = Object.freeze([
+  Object.freeze({
+    path: '/outcome/actionToVisibleP95Ms',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/actionToVisibleP95Ms',
+  }),
+  Object.freeze({
+    path: '/outcome/longTaskAtLeast100Ms',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/longTaskAtLeast100Ms',
+  }),
+]);
+const PRF_005_PERFORMANCE_DEFICITS = Object.freeze([
+  Object.freeze({
+    path: '/outcome/actionToVisibleP95Ms',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/actionToVisibleP95Ms',
+  }),
+  Object.freeze({
+    path: '/outcome/longTaskAtLeast100Ms',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/longTaskAtLeast100Ms',
+  }),
+]);
+const PRF_006_PERFORMANCE_DEFICITS = Object.freeze([
+  Object.freeze({
+    path: '/outcome/frameGapP95Ms',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/frameGapP95Ms',
+  }),
+  Object.freeze({
+    path: '/outcome/inputToVisibleP95Ms',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/inputToVisibleP95Ms',
+  }),
+  Object.freeze({
+    path: '/outcome/longTaskAtLeast100Ms',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/longTaskAtLeast100Ms',
   }),
 ]);
 const RENDER_CASES = Object.freeze([
@@ -271,6 +355,36 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'ERR-004', expectedAssertions: 12 }),
   Object.freeze({ id: 'ERR-005', expectedAssertions: 6 }),
   Object.freeze({ id: 'ERR-006', expectedAssertions: 6 }),
+  Object.freeze({
+    id: 'PRF-001',
+    expectedAssertions: 9,
+    expectedDeficits: PRF_001_PERFORMANCE_DEFICITS,
+  }),
+  Object.freeze({
+    id: 'PRF-002',
+    expectedAssertions: 10,
+    expectedDeficits: PRF_002_PERFORMANCE_DEFICITS,
+  }),
+  Object.freeze({
+    id: 'PRF-003',
+    expectedAssertions: 8,
+    expectedDeficits: PRF_003_PERFORMANCE_DEFICITS,
+  }),
+  Object.freeze({
+    id: 'PRF-004',
+    expectedAssertions: 7,
+    expectedDeficits: PRF_004_PERFORMANCE_DEFICITS,
+  }),
+  Object.freeze({
+    id: 'PRF-005',
+    expectedAssertions: 6,
+    expectedDeficits: PRF_005_PERFORMANCE_DEFICITS,
+  }),
+  Object.freeze({
+    id: 'PRF-006',
+    expectedAssertions: 6,
+    expectedDeficits: PRF_006_PERFORMANCE_DEFICITS,
+  }),
   Object.freeze({ id: 'PRF-007', expectedAssertions: 9 }),
   Object.freeze({ id: 'LIF-003', expectedAssertions: 19 }),
   Object.freeze({ id: 'CSM-002', expectedAssertions: 21 }),
@@ -283,6 +397,7 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'DET-003', expectedAssertions: 5 }),
   Object.freeze({ id: 'DET-004', expectedAssertions: 5 }),
   Object.freeze({ id: 'PRF-008', expectedAssertions: 7 }),
+  Object.freeze({ id: 'PRF-009', expectedAssertions: 9 }),
   Object.freeze({ id: 'PIX-001', expectedAssertions: 6 }),
   Object.freeze({ id: 'PIX-002', expectedAssertions: 6 }),
   Object.freeze({ id: 'PIX-003', expectedAssertions: 13 }),
@@ -455,6 +570,22 @@ const PACKAGE_INTEGRATION_TRANCHE_CASES = new Set([
   'PKG-004',
   'PKG-005',
 ]);
+const PERFORMANCE_TRANCHE_CASES = new Set([
+  'PRF-001',
+  'PRF-002',
+  'PRF-003',
+  'PRF-004',
+  'PRF-005',
+  'PRF-006',
+  'PRF-009',
+]);
+const PERFORMANCE_GPU_CASES = new Set([
+  'PRF-003',
+  'PRF-004',
+  'PRF-005',
+  'PRF-006',
+  'PRF-009',
+]);
 const CONTROL_CASES = new Set([
   ...PRESENTATION_TRANCHE_CASES,
   ...UPDATE_TRANSACTION_TRANCHE_CASES,
@@ -471,6 +602,7 @@ const CONTROL_CASES = new Set([
   ...EXPORT_EXTRACTION_TRANCHE_CASES,
   ...PIXIJS_INTEGRATION_TRANCHE_CASES,
   ...PACKAGE_INTEGRATION_TRANCHE_CASES,
+  ...PERFORMANCE_GPU_CASES,
 ]);
 const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);
 const GPU_EVIDENCE_CASES = new Set([
@@ -489,6 +621,7 @@ const GPU_EVIDENCE_CASES = new Set([
   ...DETERMINISM_LIFECYCLE_TRANCHE_CASES,
   ...AUTHORING_TRANCHE_CASES,
   ...EDITOR_WORKFLOW_TRANCHE_CASES,
+  ...PERFORMANCE_GPU_CASES,
 ]);
 
 const options = parseArguments(process.argv.slice(2));
@@ -502,6 +635,12 @@ const selectedObservedConflictTotal = sum(
   selectedRenderCases,
   (record) => record.expectedFailures?.length ?? 0,
 );
+const selectedPerformanceDeficitTotal = sum(
+  selectedRenderCases,
+  (record) => record.expectedDeficits?.length ?? 0,
+);
+const selectedObservedFailureTotal =
+  selectedObservedConflictTotal + selectedPerformanceDeficitTotal;
 const selectedDeclaredConflictTotal = sum(
   selectedRenderCases,
   (record) => (record.expectedFailures?.length ?? 0) + (record.latentConflicts?.length ?? 0),
@@ -532,6 +671,10 @@ const report = {
     latentCases: selectedRenderCases
       .filter((record) => (record.latentConflicts?.length ?? 0) > 0)
       .map((record) => record.id),
+  },
+  performanceDeficits: {
+    declared: selectedPerformanceDeficitTotal,
+    observed: selectedPerformanceDeficitTotal,
   },
   errors,
   browser: null,
@@ -593,7 +736,9 @@ try {
         expectedCase,
         errors,
       }),
-      CASE_TIMEOUT_MS,
+      PERFORMANCE_TRANCHE_CASES.has(caseSpec.id)
+        ? PERFORMANCE_CASE_TIMEOUT_MS
+        : CASE_TIMEOUT_MS,
       `${caseSpec.id} first/repeat/fresh execution`,
     );
     report.cases.push(caseReport);
@@ -620,35 +765,38 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all one-hundred-forty render routes completed'
+      ? 'all one-hundred-forty-seven render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
-    passed === selectedAssertionTotal - selectedObservedConflictTotal
-      && failed === selectedObservedConflictTotal,
+    passed === selectedAssertionTotal - selectedObservedFailureTotal
+      && failed === selectedObservedFailureTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 1870 pass and 21 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 1911 pass, 21 immutable conflicts, and 14 performance deficits'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
-    repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
-      && repeatFailed === selectedObservedConflictTotal,
+    repeatPassed === selectedAssertionTotal - selectedObservedFailureTotal
+      && repeatFailed === selectedObservedFailureTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 1870 pass and 21 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 1911 pass, 21 immutable conflicts, and 14 performance deficits'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
-    freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
-      && freshFailed === selectedObservedConflictTotal,
+    freshPassed === selectedAssertionTotal - selectedObservedFailureTotal
+      && freshFailed === selectedObservedFailureTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 1870 pass and 21 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 1911 pass, 21 immutable conflicts, and 14 performance deficits'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
   invariant(errors.page.length === 0, 'page error count must be zero');
   invariant(errors.network.length === 0, 'network error count must be zero');
   invariant(errors.externalFixture.length === 0, 'external fixture request count must be zero');
-  report.status = 'pass';
+  report.status = selectedPerformanceDeficitTotal === 0
+    ? 'pass'
+    : 'observed-contract-deficit';
+  if (selectedPerformanceDeficitTotal > 0) process.exitCode = 2;
 } catch (error) {
   if (report.failure === null) {
     report.failure = {
@@ -1504,6 +1652,10 @@ async function executeBrowserRun(
   focusedCaseId = null,
   genericControlCase = false,
 ) {
+  const completionTimeoutMs = focusedCaseId !== null
+    && PERFORMANCE_TRANCHE_CASES.has(focusedCaseId)
+    ? PERFORMANCE_CASE_TIMEOUT_MS
+    : 30_000;
   return page.evaluate(async ({
     bridgeName,
     gpuProbeName,
@@ -1511,6 +1663,7 @@ async function executeBrowserRun(
     triggerTestId,
     uiCaseId,
     collectGenericControlUi,
+    completionTimeout,
   }) => {
     const bridge = window[bridgeName];
     if (!bridge) throw new Error(`Missing public Lab bridge ${bridgeName}`);
@@ -1623,7 +1776,7 @@ async function executeBrowserRun(
         const timeout = window.setTimeout(() => {
           root.removeEventListener('core-v2-contract-run-complete', onComplete);
           reject(new Error(`Focused ${rootTestId} run completion event timed out`));
-        }, 30_000);
+        }, completionTimeout);
         const onComplete = (event) => {
           if (!(event instanceof CustomEvent) || event.detail?.operation !== expectedOperation) return;
           window.clearTimeout(timeout);
@@ -2160,6 +2313,7 @@ async function executeBrowserRun(
     triggerTestId: buttonTestId,
     uiCaseId: focusedCaseId,
     collectGenericControlUi: genericControlCase,
+    completionTimeout: completionTimeoutMs,
   });
 }
 
@@ -2174,7 +2328,10 @@ function compareCaseRun(expectedCase, browserRun) {
 
 function assertCaseRun(caseSpec, run, comparison, runLabel) {
   const prefix = `${caseSpec.id} ${runLabel}`;
-  const expectedFailures = caseSpec.expectedFailures ?? [];
+  const expectedFailures = [
+    ...(caseSpec.expectedFailures ?? []),
+    ...(caseSpec.expectedDeficits ?? []),
+  ];
   const failureActuals = caseSpec.id === 'CSM-010'
     ? {
         longTaskAtLeast100Ms: run.actualObservation?.outcome?.longTaskAtLeast100Ms ?? null,
@@ -2215,7 +2372,7 @@ function assertCaseRun(caseSpec, run, comparison, runLabel) {
   );
   invariant(
     sameJson(comparisonFailures(comparison), expectedFailures),
-    `${prefix} only declared immutable assertion conflicts`,
+    `${prefix} only declared immutable conflicts or measured performance deficits`,
   );
   assertImmutableConflictActuals(caseSpec.id, run.actualObservation, runLabel);
   if (caseSpec.id === 'REN-005') assertRen005FocusedUi(run.ui, runLabel);
@@ -2313,6 +2470,7 @@ function assertGpuEvidence(caseId, gpu, runLabel) {
   );
   if (PIXIJS_INTEGRATION_TRANCHE_CASES.has(caseId)) return;
   if (DETERMINISM_LIFECYCLE_TRANCHE_CASES.has(caseId)) return;
+  if (PERFORMANCE_GPU_CASES.has(caseId)) return;
 
   if (caseId === 'LAY-003') {
     assertLay003GpuPaintOrder(gpu, prefix);
@@ -3009,12 +3167,24 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 1891',
+    'render checkpoint assertion inventory must remain 1946',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===
       EXPECTED_ASSERTION_FAILURE_TOTAL,
     'render checkpoint observed immutable conflict inventory must remain 21',
+  );
+  invariant(
+    sum(RENDER_CASES, (record) => record.expectedDeficits?.length ?? 0) ===
+      EXPECTED_PERFORMANCE_DEFICIT_TOTAL,
+    'render checkpoint measured performance deficit inventory must remain 14',
+  );
+  invariant(
+    EXPECTED_ASSERTION_TOTAL
+      - EXPECTED_ASSERTION_FAILURE_TOTAL
+      - EXPECTED_PERFORMANCE_DEFICIT_TOTAL
+      === EXPECTED_ASSERTION_PASS_TOTAL,
+    'render checkpoint passing assertion inventory must remain 1911',
   );
   invariant(
     sum(

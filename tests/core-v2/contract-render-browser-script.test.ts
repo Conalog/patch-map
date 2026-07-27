@@ -38,7 +38,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the one-hundred-forty selected routes and their 1891 canonical assertions', () => {
+  it('pins exactly the one-hundred-forty-seven selected routes and their 1946 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -159,6 +159,12 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'ERR-004', expectedAssertions: 12 },
       { id: 'ERR-005', expectedAssertions: 6 },
       { id: 'ERR-006', expectedAssertions: 6 },
+      { id: 'PRF-001', expectedAssertions: 9 },
+      { id: 'PRF-002', expectedAssertions: 10 },
+      { id: 'PRF-003', expectedAssertions: 8 },
+      { id: 'PRF-004', expectedAssertions: 7 },
+      { id: 'PRF-005', expectedAssertions: 6 },
+      { id: 'PRF-006', expectedAssertions: 6 },
       { id: 'PRF-007', expectedAssertions: 9 },
       { id: 'LIF-003', expectedAssertions: 19 },
       { id: 'CSM-002', expectedAssertions: 21 },
@@ -171,6 +177,7 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'DET-003', expectedAssertions: 5 },
       { id: 'DET-004', expectedAssertions: 5 },
       { id: 'PRF-008', expectedAssertions: 7 },
+      { id: 'PRF-009', expectedAssertions: 9 },
       { id: 'PIX-001', expectedAssertions: 6 },
       { id: 'PIX-002', expectedAssertions: 6 },
       { id: 'PIX-003', expectedAssertions: 13 },
@@ -192,19 +199,21 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'CSM-034', expectedAssertions: 23 },
       { id: 'LIF-006', expectedAssertions: 17 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_891);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_891;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_870;');
+    expect(records).toHaveLength(147);
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_946);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_946;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_911;');
     expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;');
+    expect(source).toContain('const EXPECTED_PERFORMANCE_DEFICIT_TOTAL = 14;');
     expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 1870 pass and 21 observed immutable conflicts'",
+      "'canonical comparison must be exactly 1911 pass, 21 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 1870 pass and 21 observed immutable conflicts'",
+      "'repeat comparison must be exactly 1911 pass, 21 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 1870 pass and 21 observed immutable conflicts'",
+      "'fresh comparison must be exactly 1911 pass, 21 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -365,6 +374,39 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('inspectCoreV2UpdateConflictActuals(caseId, actualObservation)');
   });
 
+  it('reports measured performance deficits separately from immutable conflicts', () => {
+    const deficitBlocks = [...source.matchAll(
+      /const PRF_\d{3}_PERFORMANCE_DEFICITS = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/gu,
+    )];
+    const deficits = deficitBlocks.flatMap((match) => [
+      ...(match.groups?.body ?? '').matchAll(
+        /path: '(?<path>\/[^']+)',\s*code: '(?<code>[^']+)',\s*failurePath: '(?<failurePath>\/[^']+)'/gu,
+      ),
+    ].map((entry) => ({
+      path: entry.groups?.path,
+      code: entry.groups?.code,
+      failurePath: entry.groups?.failurePath,
+    })));
+
+    expect(deficitBlocks).toHaveLength(6);
+    expect(deficits).toHaveLength(14);
+    expect(deficits.every(({ code, path, failurePath }) =>
+      code === 'VALUE_MISMATCH' && path === failurePath)).toBe(true);
+    expect(source).toContain('expectedDeficits: PRF_001_PERFORMANCE_DEFICITS');
+    expect(source).toContain('expectedDeficits: PRF_006_PERFORMANCE_DEFICITS');
+    expect(source).toContain('selectedObservedConflictTotal + selectedPerformanceDeficitTotal');
+    expect(source).toContain('performanceDeficits: {');
+    expect(source).toContain("report.status = selectedPerformanceDeficitTotal === 0");
+    expect(source).toContain(": 'observed-contract-deficit';");
+    expect(source).toContain('if (selectedPerformanceDeficitTotal > 0) process.exitCode = 2;');
+    expect(source).toContain(
+      "'render checkpoint measured performance deficit inventory must remain 14'",
+    );
+    expect(source).toContain(
+      "'render checkpoint passing assertion inventory must remain 1911'",
+    );
+  });
+
   it('keeps canonical expected data outside the public Lab bridge executor', () => {
     expect(source.match(/catalog-normalized-expected\.v1\.json/gu)).toHaveLength(1);
     expect(source).toContain("import { compareObservation } from './core-v2-contract/compare.mjs';");
@@ -401,11 +443,14 @@ describe('Core v2 render browser checkpoint script', () => {
 
   it('bounds each route and closes browser and server ownership on completion or interruption', () => {
     expect(source).toContain('const CASE_TIMEOUT_MS = 180_000;');
+    expect(source).toContain('const PERFORMANCE_CASE_TIMEOUT_MS = 20 * 60_000;');
     expect(source).toContain('const CHECKPOINT_TIMEOUT_MS = 30 * 60_000;');
     expect(source).toContain('process.once(\'SIGINT\', onInterrupt)');
     expect(source).toContain('process.once(\'SIGTERM\', onTerminate)');
     expect(source).toContain("requestShutdown('checkpoint-timeout')");
     expect(source).toContain('await withTimeout(');
+    expect(source).toContain('PERFORMANCE_TRANCHE_CASES.has(caseSpec.id)');
+    expect(source).toContain('completionTimeout: completionTimeoutMs');
     expect(source).toContain('`${caseSpec.id} first/repeat/fresh execution`');
     expect(source).toContain('await closeOwnedResources()');
     expect(source).toContain('await ownedBrowser.close().catch(() => undefined)');
@@ -609,6 +654,7 @@ describe('Core v2 render browser checkpoint script', () => {
       'PIX-003',
     ]);
     expect(gpuCaseBlock).toContain('...DETERMINISM_LIFECYCLE_TRANCHE_CASES');
+    expect(gpuCaseBlock).toContain('...PERFORMANCE_GPU_CASES');
     expect(source).toContain('await installWebGlCanvasProbe(page, caseSpec.id)');
     expect(source).toContain('await page.addInitScript(({ probeName, caseIdentity }) => {');
     expect(source).toContain('const originalGetContext = HTMLCanvasElement.prototype.getContext;');
@@ -617,6 +663,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('context.readPixels(x, y, 1, 1');
     expect(source).toContain('context.readPixels(x, 0, 1, canvas.height');
     expect(source).toContain('if (PIXIJS_INTEGRATION_TRANCHE_CASES.has(caseId)) return;');
+    expect(source).toContain('if (PERFORMANCE_GPU_CASES.has(caseId)) return;');
     expect(source).toContain('assertLay003GpuPaintOrder(gpu, prefix)');
     expect(source).toContain('initial/patch/undo/redo GPU draw order');
     expect(source).toContain('visible 10 -> 36.25 -> 40 bar projection');
