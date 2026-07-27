@@ -78,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(319);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(146);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(27);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(325);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(150);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(23);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(578);
+    ), 0)).toBe(586);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -785,9 +785,24 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).not.toContain('data-contract-status="pass"');
   });
 
-  it('keeps every non-executable route disabled and explicitly not implemented', () => {
+  it('renders PIX-001 as an actual-observable focused Lab route', () => {
     const route = parseCoreV2ContractRoute(
       '/lab/core-v2?scenario=PIX-001&size=500&seed=319',
+    );
+    const markup = renderCoreV2ContractLab(route);
+
+    expect(route.presenter.executionStatus).toBe('actual-observable');
+    expect(markup).toContain('data-contract-status="armed"');
+    expect(markup).toContain('data-testid="load-dataset"');
+    expect(markup).not.toContain('data-testid="load-dataset" disabled');
+    expect(markup).toContain('data-testid="destroy-case" disabled');
+    expect(markup).toContain('Actual-only case execution is available');
+    expect(markup).not.toContain('data-contract-status="pass"');
+  });
+
+  it('keeps every remaining non-executable route disabled and explicitly not implemented', () => {
+    const route = parseCoreV2ContractRoute(
+      '/lab/core-v2?scenario=PKG-001&size=500&seed=319',
     );
     const markup = renderCoreV2ContractLab(route);
 

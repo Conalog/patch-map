@@ -9,12 +9,14 @@ import {
   type CoreV2SurfaceOptions,
   type CoreV2SurfaceView,
 } from '../../src/core-v2/engine';
+import type { PixiCoreV2RendererLossProbe } from '../../src/core-v2/renderers/types';
 
 class ExtractionSurface implements CoreV2EngineSurface {
   public canvasCount = 1;
   public destroyed = false;
   public captureCount = 0;
   public replaceCanvasAfterCapture = false;
+  public rendererLost = false;
 
   private canvas = {} as HTMLCanvasElement;
   private width: number;
@@ -38,6 +40,22 @@ class ExtractionSurface implements CoreV2EngineSurface {
       this.canvas = {} as HTMLCanvasElement;
     }
     return Promise.resolve('data:image/png;base64,cGl4aQ==');
+  }
+
+  public rendererLossProbe(): PixiCoreV2RendererLossProbe {
+    return Object.freeze({
+      backend: 'webgl2',
+      webGLVersion: 2,
+      state: this.rendererLost ? 'lost' : 'healthy',
+      contextLost: this.rendererLost,
+      lossEventCount: this.rendererLost ? 1 : 0,
+      restorationEventCount: 0,
+      recoveredFrameCount: 0,
+      listenerCount: this.destroyed ? 0 : 2,
+      lastLossFrame: this.rendererLost ? 1 : null,
+      lastRecoveryFrame: null,
+      destroyed: this.destroyed,
+    });
   }
 
   public load(): void {}
@@ -183,6 +201,42 @@ describe('CoreV2Engine published scene extraction', () => {
         operation: 'extractPublishedScene',
       }),
     ]);
+    expect(engine.snapshot().pendingWork).toBe(0);
+    await engine.destroy();
+  });
+
+  it('rejects a lost renderer before asking PixiJS to capture', async () => {
+    let surface: ExtractionSurface | null = null;
+    const engine = new CoreV2Engine({
+      surfaceFactory: (options) => {
+        surface = new ExtractionSurface(options);
+        return Promise.resolve(surface);
+      },
+    });
+    await engine.initialize({
+      instanceId: 'extract-renderer-loss',
+      width: 320,
+      height: 180,
+      pixelRatio: 1,
+    });
+    engine.loadDataset(scene());
+    engine.publishFrame(1);
+    const activeSurface = surface as ExtractionSurface | null;
+    if (activeSurface === null) throw new Error('missing extraction surface');
+    activeSurface.rendererLost = true;
+
+    await expect(engine.extractPublishedScene({
+      targetTuple: { scene: 1, view: 0, interaction: 0 },
+      cssSize: [320, 180],
+      mime: 'image/png',
+    })).rejects.toMatchObject({
+      diagnostic: {
+        code: 'RENDERER_LOST',
+        category: 'RENDERER_LOST',
+        operation: 'extractPublishedScene',
+      },
+    });
+    expect(activeSurface.captureCount).toBe(0);
     expect(engine.snapshot().pendingWork).toBe(0);
     await engine.destroy();
   });

@@ -5570,6 +5570,15 @@ export class CoreV2Engine {
         false,
       );
     }
+    const rendererLoss = surface.rendererLossProbe?.() ?? null;
+    if (rendererLoss?.contextLost === true || rendererLoss?.state === 'lost') {
+      throw this.operationError(
+        'RENDERER_LOST',
+        'RENDERER_LOST',
+        'extractPublishedScene',
+        true,
+      );
+    }
     if (!samePublishedTuple(this.publishedTuple, request.targetTuple)) {
       throw this.operationError(
         'STALE_TARGET',
@@ -7397,7 +7406,25 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
   }
 
   public rendererLossProbe(): PixiCoreV2RendererLossProbe {
-    return this.core.renderer.rendererLossProbe();
+    const renderer = this.core.renderer;
+    if (typeof renderer.rendererLossProbe === 'function') {
+      return renderer.rendererLossProbe();
+    }
+    const debug = renderer.debugSnapshot();
+    const backend = debug.backend === 'webgpu' ? 'webgpu' : 'webgl2';
+    return Object.freeze({
+      backend,
+      webGLVersion: backend === 'webgl2' ? 2 : null,
+      state: debug.destroyed ? 'destroyed' : 'healthy',
+      contextLost: false,
+      lossEventCount: 0,
+      restorationEventCount: 0,
+      recoveredFrameCount: 0,
+      listenerCount: 0,
+      lastLossFrame: null,
+      lastRecoveryFrame: null,
+      destroyed: debug.destroyed,
+    });
   }
 
   public forceRendererLoss(): boolean {

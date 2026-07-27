@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the one-hundred-thirty-one selected render routes and their 1821 canonical assertions', () => {
+  it('pins exactly the one-hundred-thirty-five selected render routes and their 1855 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -158,7 +158,11 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'DET-003', expectedAssertions: 5 },
       { id: 'DET-004', expectedAssertions: 5 },
       { id: 'PRF-008', expectedAssertions: 7 },
+      { id: 'PIX-001', expectedAssertions: 6 },
+      { id: 'PIX-002', expectedAssertions: 6 },
+      { id: 'PIX-003', expectedAssertions: 13 },
       { id: 'PIX-004', expectedAssertions: 6 },
+      { id: 'PIX-005', expectedAssertions: 9 },
       { id: 'CSM-035', expectedAssertions: 25 },
       { id: 'CSM-038', expectedAssertions: 27 },
       { id: 'ERR-003', expectedAssertions: 6 },
@@ -170,19 +174,19 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'CSM-034', expectedAssertions: 23 },
       { id: 'LIF-006', expectedAssertions: 17 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_821);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_821;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_800;');
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_855);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_855;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_834;');
     expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;');
     expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 1800 pass and 21 observed immutable conflicts'",
+      "'canonical comparison must be exactly 1834 pass and 21 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 1800 pass and 21 observed immutable conflicts'",
+      "'repeat comparison must be exactly 1834 pass and 21 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 1800 pass and 21 observed immutable conflicts'",
+      "'fresh comparison must be exactly 1834 pass and 21 observed immutable conflicts'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -471,6 +475,10 @@ describe('Core v2 render browser checkpoint script', () => {
     ]) {
       expect(source).toContain(`'${caseId}',`);
     }
+    expect(source).toContain('const PIXIJS_INTEGRATION_TRANCHE_CASES = new Set([');
+    for (const caseId of ['PIX-001', 'PIX-002', 'PIX-003', 'PIX-005']) {
+      expect(source).toContain(`'${caseId}',`);
+    }
     expect(source).toContain('const POINTER_SELECTION_TRANCHE_CASES = new Set([');
     for (const caseId of [
       'EVT-001',
@@ -593,6 +601,9 @@ describe('Core v2 render browser checkpoint script', () => {
       'UPD-009',
       'LIF-003',
       'CSM-037',
+      'PIX-001',
+      'PIX-002',
+      'PIX-003',
     ]);
     expect(gpuCaseBlock).toContain('...DETERMINISM_LIFECYCLE_TRANCHE_CASES');
     expect(source).toContain('await installWebGlCanvasProbe(page, caseSpec.id)');
@@ -602,6 +613,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("'drawElementsInstanced'");
     expect(source).toContain('context.readPixels(x, y, 1, 1');
     expect(source).toContain('context.readPixels(x, 0, 1, canvas.height');
+    expect(source).toContain('if (PIXIJS_INTEGRATION_TRANCHE_CASES.has(caseId)) return;');
     expect(source).toContain('assertLay003GpuPaintOrder(gpu, prefix)');
     expect(source).toContain('initial/patch/undo/redo GPU draw order');
     expect(source).toContain('visible 10 -> 36.25 -> 40 bar projection');

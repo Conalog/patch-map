@@ -668,6 +668,15 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     const rendered = !this.synchronizeOnly;
     this.synchronizeOnly = false;
     if (rendered) {
+      if (
+        this.rendererLossState === 'lost'
+        && publicGlContext(this.application)?.isLost === true
+      ) {
+        throw new PixiCoreV2RuntimeError(
+          'RENDERER_LOST',
+          'PixiJS WebGL2 context is lost before frame publication',
+        );
+      }
       this.application.render();
       const renderedFrame = this.frame + 1;
       if (this.rendererLossState !== 'healthy') {

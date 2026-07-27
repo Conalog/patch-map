@@ -21,8 +21,8 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 1_821;
-const EXPECTED_ASSERTION_PASS_TOTAL = 1_800;
+const EXPECTED_ASSERTION_TOTAL = 1_855;
+const EXPECTED_ASSERTION_PASS_TOTAL = 1_834;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;
 const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;
 const CASE_TIMEOUT_MS = 180_000;
@@ -337,7 +337,11 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'DET-003', expectedAssertions: 5 }),
   Object.freeze({ id: 'DET-004', expectedAssertions: 5 }),
   Object.freeze({ id: 'PRF-008', expectedAssertions: 7 }),
+  Object.freeze({ id: 'PIX-001', expectedAssertions: 6 }),
+  Object.freeze({ id: 'PIX-002', expectedAssertions: 6 }),
+  Object.freeze({ id: 'PIX-003', expectedAssertions: 13 }),
   Object.freeze({ id: 'PIX-004', expectedAssertions: 6 }),
+  Object.freeze({ id: 'PIX-005', expectedAssertions: 9 }),
   Object.freeze({ id: 'CSM-035', expectedAssertions: 25 }),
   Object.freeze({ id: 'CSM-038', expectedAssertions: 27 }),
   Object.freeze({ id: 'ERR-003', expectedAssertions: 6 }),
@@ -487,6 +491,12 @@ const EXPORT_EXTRACTION_TRANCHE_CASES = new Set([
   'CSM-035',
   'CSM-038',
 ]);
+const PIXIJS_INTEGRATION_TRANCHE_CASES = new Set([
+  'PIX-001',
+  'PIX-002',
+  'PIX-003',
+  'PIX-005',
+]);
 const CONTROL_CASES = new Set([
   ...PRESENTATION_TRANCHE_CASES,
   ...UPDATE_TRANSACTION_TRANCHE_CASES,
@@ -501,6 +511,7 @@ const CONTROL_CASES = new Set([
   ...LIFECYCLE_INTERRUPTION_TRANCHE_CASES,
   ...DETERMINISM_LIFECYCLE_TRANCHE_CASES,
   ...EXPORT_EXTRACTION_TRANCHE_CASES,
+  ...PIXIJS_INTEGRATION_TRANCHE_CASES,
 ]);
 const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);
 const GPU_EVIDENCE_CASES = new Set([
@@ -513,6 +524,9 @@ const GPU_EVIDENCE_CASES = new Set([
   'UPD-009',
   'LIF-003',
   'CSM-037',
+  'PIX-001',
+  'PIX-002',
+  'PIX-003',
   ...DETERMINISM_LIFECYCLE_TRANCHE_CASES,
   ...AUTHORING_TRANCHE_CASES,
   ...EDITOR_WORKFLOW_TRANCHE_CASES,
@@ -654,21 +668,21 @@ try {
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 1800 pass and 21 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 1834 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 1800 pass and 21 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 1834 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 1800 pass and 21 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 1834 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -2336,6 +2350,7 @@ function assertGpuEvidence(caseId, gpu, runLabel) {
     gpu.frames.every((frame) => frame.draws.length > 0),
     `${prefix} draw frames (${gpuFrameDiagnostic(gpu)})`,
   );
+  if (PIXIJS_INTEGRATION_TRANCHE_CASES.has(caseId)) return;
   if (DETERMINISM_LIFECYCLE_TRANCHE_CASES.has(caseId)) return;
 
   if (caseId === 'LAY-003') {
@@ -3033,7 +3048,7 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 1821',
+    'render checkpoint assertion inventory must remain 1855',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===

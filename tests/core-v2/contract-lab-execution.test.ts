@@ -23,11 +23,18 @@ import type {
   CoreV2RelationHitOptions,
   CoreV2SurfaceReconcileOptions,
   CoreV2SurfaceReconcileResult,
+  CoreV2SurfaceComponentVisualProbe,
   CoreV2SurfaceDebug,
   CoreV2SurfaceGeometrySnapshot,
   CoreV2SurfaceOptions,
   CoreV2SurfaceView,
 } from '../../src/core-v2/engine';
+import type {
+  CoreV2RenderLaneRole,
+  CoreV2RenderLaneSnapshot,
+  PixiCoreV2PublicSurfaceProbe,
+  PixiCoreV2RendererLossProbe,
+} from '../../src/core-v2/renderers/types';
 import {
   CORE_V2_PRESENTATION_POLICY_REVISION,
   type CoreV2PresentationPolicyInput,
@@ -147,6 +154,7 @@ describe('Core v2 executable Lab product bridge', () => {
         ].includes(caseId)
           ? 'projection'
           : 'flat',
+        caseId.startsWith('PIX-'),
       );
       const bridge = createCoreV2ExecutableLabBridge({
         caseId,
@@ -250,6 +258,82 @@ describe('Core v2 executable Lab product bridge', () => {
       });
       expect(bridge.state().status).toBe('destroyed');
       expect(await bridge.actualObservation()).toBe(run.actualObservation);
+    },
+    60_000,
+  );
+
+  it.each([
+    'PIX-001',
+    'PIX-002',
+    'PIX-003',
+    'PIX-005',
+  ] as const)(
+    'produces independently comparable PixiJS integration actuals for %s',
+    async (caseId) => {
+      const surfaces: FakeSurface[] = [];
+      const bridge = createCoreV2ExecutableLabBridge({
+        caseId,
+        rootTestId: `scenario-${caseId.toLowerCase()}`,
+        size: '100',
+        seed: 319,
+        surfaceHost: createSurfaceHost(),
+        surfaceFactory: createFakeSurfaceFactory(surfaces, [], 'flat', true),
+        environment: {
+          browser: 'vitest',
+          browserVersion: 'vitest',
+          backend: 'webgl2',
+          routeSize: '100',
+          runtimeResourceIds: [],
+        },
+      });
+      const run = await bridge.runCase();
+      const expected = normalizedExpected.cases.find(({ id }) => id === caseId);
+      expect(expected).toBeDefined();
+      const comparison = compareObservation({
+        expectedCase: expected,
+        actual: run.actualObservation,
+        fixtures: run.fixtures,
+        captures: run.captures,
+      });
+      const failures = comparison.assertions.filter(({ passed }) => !passed);
+
+      expect(comparison.failed, JSON.stringify({
+        failures,
+        actual: run.actualObservation,
+      })).toBe(0);
+      expect(comparison.passed).toBe(expected?.expected.assertions.length);
+      if (caseId === 'PIX-003') {
+        expect(run.actualObservation).toMatchObject({
+          outcome: {
+            runtimeMatrix: {
+              measuredCellCount: 0,
+              pendingCellCount: 8,
+            },
+          },
+        });
+      }
+      expect(run.execution).toMatchObject({
+        cleanup: {
+          status: 'completed',
+          errors: [],
+        },
+      });
+      const cleanup = isRecord(run.execution.cleanup) ? run.execution.cleanup : null;
+      const releases: readonly unknown[] = cleanup && Array.isArray(cleanup.releases)
+        ? cleanup.releases
+        : [];
+      expect(releases.length).toBeGreaterThan(0);
+      expect(releases).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          remainingResources: {
+            canvasCount: 0,
+            subscriptions: 0,
+            pendingWork: 0,
+          },
+        }),
+      ]));
+      expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
+      await bridge.destroyCase();
     },
     60_000,
   );
@@ -1364,7 +1448,11 @@ describe('Core v2 executable Lab product bridge', () => {
       'DAT-006': 'data-closure',
       'DAT-007': 'data-closure',
       'DAT-008': 'data-closure',
+      'PIX-001': 'pixijs-integration',
+      'PIX-002': 'pixijs-integration',
+      'PIX-003': 'pixijs-integration',
       'PIX-004': 'export-extraction',
+      'PIX-005': 'pixijs-integration',
       'AST-001': 'assets',
       'AST-002': 'asset-ingestion',
       'AST-003': 'asset-ingestion',
@@ -1497,10 +1585,11 @@ function createFakeSurfaceFactory(
   surfaces: FakeSurface[],
   receivedTargets: Array<HTMLElement | undefined>,
   geometryMode: 'flat' | 'projection' = 'flat',
+  pixiIntegrationMode = false,
 ): CoreV2EngineSurfaceFactory {
   return (options) => {
     receivedTargets.push(options.target);
-    const surface = new FakeSurface(options, geometryMode);
+    const surface = new FakeSurface(options, geometryMode, pixiIntegrationMode);
     surfaces.push(surface);
     return Promise.resolve(surface);
   };
@@ -1512,6 +1601,8 @@ class FakeSurface implements CoreV2EngineSurface {
   public readonly preference: CoreV2SurfaceOptions['preference'];
 
   private readonly canvas = {} as HTMLCanvasElement;
+  private readonly devtools: boolean;
+  private readonly lanes = fakeRenderLanes();
   private width: number;
   private height: number;
   private pixelRatio: number;
@@ -1521,6 +1612,10 @@ class FakeSurface implements CoreV2EngineSurface {
   private geometryRevision = 0;
   private presentationInput: CoreV2PresentationPolicyInput | null = null;
   private presentationRevision = 0;
+  private rendererLossState: PixiCoreV2RendererLossProbe['state'] = 'healthy';
+  private rendererLossEventCount = 0;
+  private rendererRestorationEventCount = 0;
+  private recoveredRendererFrameCount = 0;
   private view: CoreV2SurfaceView = Object.freeze({
     x: 0,
     y: 0,
@@ -1533,8 +1628,10 @@ class FakeSurface implements CoreV2EngineSurface {
   public constructor(
     options: CoreV2SurfaceOptions,
     private readonly geometryMode: 'flat' | 'projection' = 'flat',
+    private readonly pixiIntegrationMode = false,
   ) {
     this.preference = options.preference;
+    this.devtools = options.devtools ?? false;
     this.width = options.width;
     this.height = options.height;
     this.pixelRatio = options.pixelRatio;
@@ -1570,7 +1667,16 @@ class FakeSurface implements CoreV2EngineSurface {
     });
   }
 
-  public publishFrame(_timeMs: number): void {}
+  public publishFrame(_timeMs: number): void {
+    if (
+      this.rendererLossState === 'lost'
+      || this.rendererLossState === 'restored-pending-frame'
+    ) {
+      this.rendererLossState = 'healthy';
+      this.rendererRestorationEventCount += 1;
+      this.recoveredRendererFrameCount += 1;
+    }
+  }
 
   public suspendPresentation(timeMs: number): Readonly<{
     readonly state: 'suspended';
@@ -1737,6 +1843,89 @@ class FakeSurface implements CoreV2EngineSurface {
     return Object.freeze({ rootBindingCount: 6, entityCallbackCount: 0 });
   }
 
+  public componentVisualProbe(
+    target: Readonly<{ readonly ownerId: string; readonly componentId: string }>,
+  ): CoreV2SurfaceComponentVisualProbe | null {
+    if (!this.pixiIntegrationMode) return null;
+    if (target.ownerId !== 'item-a' || target.componentId !== 'bar') return null;
+    return Object.freeze({
+      target: Object.freeze({ ownerId: 'item-a', componentId: 'bar' }),
+      semanticOwnerId: 'item-a',
+      entityId: 'item-a/bar',
+      logicalIdentity: 'component:item-a/bar',
+      componentType: 'bar',
+      renderRole: 'ordinary-geometry',
+      entityKind: 'bar',
+      geometry: Object.freeze({
+        localBounds: Object.freeze([0, 0, 60, 10] as const),
+        worldBounds: Object.freeze([10, 90, 60, 10] as const),
+        visibleBounds: Object.freeze([10, 90, 60, 10] as const),
+        visible: true,
+        interactive: true,
+      }),
+      publication: Object.freeze({ rendererFacts: 'current' }),
+      sceneImage: null,
+      rendererPaint: Object.freeze({
+        entityId: 'item-a/bar',
+        lane: 'ordinary-geometry',
+        rendererKind: 'mesh',
+        primitiveCount: 1,
+        renderObjectCount: 1,
+        packedTint: 0x00aa66ff,
+        rgbTint: 0x00aa66,
+        alpha: 1,
+      }),
+      renderLanes: this.lanes,
+    });
+  }
+
+  public pixiPublicSurfaceProbe(): PixiCoreV2PublicSurfaceProbe {
+    return Object.freeze({
+      rendererLibrary: 'pixi.js-v8',
+      rendererVersion: '8.test',
+      backend: 'webgl2',
+      applicationInitialized: true,
+      manualRender: true,
+      canvas: Object.freeze({
+        authoritative: true,
+        attached: true,
+        patchMapCore: 'v2',
+      }),
+      stage: Object.freeze({
+        label: 'PATCH MAP Core v2',
+        authoritative: true,
+        discoverableByDevTools: this.devtools,
+        worldAttached: true,
+        childCount: 1,
+      }),
+      aggregateLayers: Object.freeze(
+        FAKE_RENDER_LANE_ROLES.map((role) => this.lanes[role]),
+      ),
+    });
+  }
+
+  public rendererLossProbe(): PixiCoreV2RendererLossProbe {
+    return Object.freeze({
+      backend: 'webgl2',
+      webGLVersion: 2,
+      state: this.destroyed ? 'destroyed' : this.rendererLossState,
+      contextLost: this.rendererLossState === 'lost',
+      lossEventCount: this.rendererLossEventCount,
+      restorationEventCount: this.rendererRestorationEventCount,
+      recoveredFrameCount: this.recoveredRendererFrameCount,
+      listenerCount: this.destroyed ? 0 : 2,
+      lastLossFrame: this.rendererLossEventCount === 0 ? null : 0,
+      lastRecoveryFrame: this.recoveredRendererFrameCount === 0 ? null : 1,
+      destroyed: this.destroyed,
+    });
+  }
+
+  public forceRendererLoss(): boolean {
+    this.rendererLossEventCount += 1;
+    this.rendererLossState = 'lost';
+    return true;
+  }
+
   public debugSnapshot(): CoreV2SurfaceDebug {
     const geometry = this.geometrySnapshot();
     const visibleRelationCount = geometry.relations.filter(({ visible }) => visible).length;
@@ -1780,6 +1969,7 @@ class FakeSurface implements CoreV2EngineSurface {
     this.dataset = Object.freeze([]);
     this.activeAnimationCount = 0;
     this.presentationInput = null;
+    this.rendererLossState = 'destroyed';
     return Promise.resolve(true);
   }
 
@@ -1793,6 +1983,28 @@ class FakeSurface implements CoreV2EngineSurface {
     return this.dataset.flatMap((element) => fakeGeometryEntity(element, this.view));
   }
 
+}
+
+const FAKE_RENDER_LANE_ROLES: readonly CoreV2RenderLaneRole[] = [
+  'background-geometry',
+  'background-assets',
+  'ordinary-geometry',
+  'relations-dynamic',
+  'content-assets',
+  'text',
+  'interaction-overlay',
+];
+
+function fakeRenderLanes(): CoreV2RenderLaneSnapshot {
+  return Object.freeze(Object.fromEntries(FAKE_RENDER_LANE_ROLES.map((role) => [
+    role,
+    Object.freeze({
+      role,
+      label: `PATCH MAP Core v2 / ${role}`,
+      renderObjectCount: role === 'ordinary-geometry' ? 1 : 0,
+      visiblePrimitiveCount: role === 'ordinary-geometry' ? 1 : 0,
+    }),
+  ])) as unknown as CoreV2RenderLaneSnapshot);
 }
 
 function fakeSceneSnapshot(
