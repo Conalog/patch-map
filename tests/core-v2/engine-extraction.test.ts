@@ -10,6 +10,7 @@ import {
   type CoreV2SurfaceView,
 } from '../../src/core-v2/engine';
 import type { PixiCoreV2RendererLossProbe } from '../../src/core-v2/renderers/types';
+import { CoreV2ExtractionSecurityAuthority } from '../../src/core-v2/operations';
 
 class ExtractionSurface implements CoreV2EngineSurface {
   public canvasCount = 1;
@@ -238,6 +239,65 @@ describe('CoreV2Engine published scene extraction', () => {
     });
     expect(activeSurface.captureCount).toBe(0);
     expect(engine.snapshot().pendingWork).toBe(0);
+    await engine.destroy();
+  });
+
+  it('fails tainted and unreadable assets during preflight while preserving the live canvas', async () => {
+    let surface: ExtractionSurface | null = null;
+    const extractionSecurity = new CoreV2ExtractionSecurityAuthority();
+    const engine = new CoreV2Engine({
+      extractionSecurity,
+      surfaceFactory: (options) => {
+        surface = new ExtractionSurface(options);
+        return Promise.resolve(surface);
+      },
+    });
+    await engine.initialize({
+      instanceId: 'extract-security-preflight',
+      width: 320,
+      height: 180,
+      pixelRatio: 1,
+    });
+    engine.loadDataset(scene());
+    engine.publishFrame(1);
+    const authoritativeCanvas = engine.canvasHandle().element;
+    const request = {
+      targetTuple: { scene: 1, view: 0, interaction: 0 },
+      cssSize: [320, 180],
+      mime: 'image/png',
+    } as const;
+
+    extractionSecurity.setAssetReadability('tainted-image', 'tainted');
+    await expect(engine.extractPublishedScene(request)).rejects.toMatchObject({
+      diagnostic: {
+        code: 'EXTRACTION_TAINTED',
+        category: 'EXTRACTION_FAILURE',
+      },
+    });
+    expect(surface).toMatchObject({ captureCount: 0 });
+    expect(engine.canvasHandle().element).toBe(authoritativeCanvas);
+    engine.publishFrame(2);
+
+    extractionSecurity.setAssetReadability('tainted-image', 'readable');
+    extractionSecurity.setAssetReadability('failed-image', 'readback-failed');
+    await expect(engine.extractPublishedScene(request)).rejects.toMatchObject({
+      diagnostic: {
+        code: 'EXTRACTION_READBACK_FAILED',
+        category: 'EXTRACTION_FAILURE',
+      },
+    });
+    expect(surface).toMatchObject({ captureCount: 0 });
+    expect(engine.snapshot().pendingWork).toBe(0);
+    expect(engine.canvasHandle().element).toBe(authoritativeCanvas);
+
+    extractionSecurity.clear();
+    await expect(engine.extractPublishedScene(request)).resolves.toMatchObject({
+      capturedTuple: request.targetTuple,
+      authoritativeCanvasRetained: true,
+      temporaryImageCount: 0,
+      renderTextureCount: 0,
+    });
+    expect(surface).toMatchObject({ captureCount: 1 });
     await engine.destroy();
   });
 });

@@ -257,6 +257,18 @@ import {
   type CoreV2AuthoringFacts,
   type CoreV2AuthoringPlan,
 } from './authoring';
+import {
+  CoreV2ExtractionSecurityAuthority,
+  CoreV2OperationsAuthority,
+  type CoreV2OperationalCallback,
+  type CoreV2OperationalDiagnosticInput,
+  type CoreV2OperationalDispatchResult,
+  type CoreV2OperationalEventInput,
+  type CoreV2OperationalSubscription,
+  type CoreV2OperationsProbe,
+  type CoreV2RuntimeDiagnosticsSnapshot,
+  type CoreV2SanitizedDiagnostic,
+} from './operations';
 
 export type CoreV2Lifecycle =
   | 'new'
@@ -295,6 +307,9 @@ export interface CoreV2EngineDiagnostic {
   readonly missingCount: number;
   readonly unchangedCount: number;
   readonly datasetPath?: string;
+  readonly logicalId?: string | null;
+  readonly sanitizedAssetId?: string;
+  readonly sanitizedHash?: string;
 }
 
 export interface CoreV2RevisionStamp {
@@ -943,6 +958,8 @@ export interface CoreV2EngineOptions {
   readonly assetRuntime?: CoreV2AssetRuntime;
   readonly assetPolicy?: CoreV2AssetPolicy;
   readonly historyLimit?: number;
+  readonly operations?: CoreV2OperationsAuthority;
+  readonly extractionSecurity?: CoreV2ExtractionSecurityAuthority;
 }
 
 export interface CoreV2InitializeOptions {
@@ -1743,6 +1760,8 @@ export class CoreV2Engine {
   private readonly surfaceFactory: CoreV2EngineSurfaceFactory;
   private readonly assetRuntime: CoreV2AssetRuntime;
   private readonly assetPolicy: CoreV2AssetPolicy | undefined;
+  private readonly operations: CoreV2OperationsAuthority;
+  private readonly extractionSecurity: CoreV2ExtractionSecurityAuthority;
   private readonly history: CoreV2SemanticHistory<
     readonly NormalizedCoreV2Element[],
     CoreV2EngineHistoryCompanion
@@ -1863,6 +1882,9 @@ export class CoreV2Engine {
     this.surfaceFactory = options.surfaceFactory ?? createPixiSurface;
     this.assetRuntime = options.assetRuntime ?? CORE_V2_ASSET_RUNTIME;
     this.assetPolicy = options.assetPolicy;
+    this.operations = options.operations ?? new CoreV2OperationsAuthority();
+    this.extractionSecurity = options.extractionSecurity
+      ?? new CoreV2ExtractionSecurityAuthority();
     this.history = new CoreV2SemanticHistory({
       ...(options.historyLimit === undefined ? {} : { capacity: options.historyLimit }),
     });
@@ -1879,6 +1901,73 @@ export class CoreV2Engine {
     listeners.add(listener as (event: unknown) => void);
     this.listeners.set(event, listeners);
     return () => listeners.delete(listener as (event: unknown) => void);
+  }
+
+  public subscribeOperationalEvent(
+    id: string,
+    callback: CoreV2OperationalCallback,
+  ): CoreV2OperationalSubscription {
+    return this.operations.subscribeTelemetry(id, callback);
+  }
+
+  public subscribeOperationalDiagnostics(
+    id: string,
+    callback: (diagnostic: CoreV2SanitizedDiagnostic) => void,
+  ): CoreV2OperationalSubscription {
+    return this.operations.subscribeDiagnostics(id, callback);
+  }
+
+  public emitOperationalEvent(
+    input: CoreV2OperationalEventInput,
+  ): CoreV2OperationalDispatchResult {
+    return this.operations.emitTelemetry(input);
+  }
+
+  public reportOperationalFailure(
+    input: Omit<
+      CoreV2OperationalDiagnosticInput,
+      'category' | 'lifecycleGeneration' | 'revisionStamp' | 'sceneRevision'
+    > & Readonly<{ readonly category: CoreV2DiagnosticCategory }>,
+  ): CoreV2SanitizedDiagnostic & CoreV2EngineDiagnostic {
+    const diagnostic = this.operations.reportDiagnostic({
+      ...input,
+      lifecycleGeneration: this.lifecycleGeneration,
+      sceneRevision: this.sceneRevision,
+      revisionStamp: this.revisionStamp(),
+    }) as CoreV2SanitizedDiagnostic & CoreV2EngineDiagnostic;
+    this.deliverEngineEvent('diagnostic', diagnostic);
+    return diagnostic;
+  }
+
+  public setRuntimeDiagnosticsEnabled(enabled: boolean): boolean {
+    return this.operations.setCollectionEnabled(enabled);
+  }
+
+  public setOperationalTelemetryEnabled(enabled: boolean): boolean {
+    return this.operations.setTelemetryEnabled(enabled);
+  }
+
+  public operationsProbe(): CoreV2OperationsProbe {
+    return this.operations.probe();
+  }
+
+  public extractionSecurityProbe(): ReturnType<CoreV2ExtractionSecurityAuthority['preflight']> {
+    return this.extractionSecurity.preflight();
+  }
+
+  public setExtractionAssetReadability(
+    logicalAssetId: string,
+    readability: Parameters<CoreV2ExtractionSecurityAuthority['setAssetReadability']>[1],
+  ): void {
+    this.extractionSecurity.setAssetReadability(logicalAssetId, readability);
+  }
+
+  public deleteExtractionAssetReadability(logicalAssetId: string): boolean {
+    return this.extractionSecurity.deleteAsset(logicalAssetId);
+  }
+
+  public clearExtractionAssetReadability(): void {
+    this.extractionSecurity.clear();
   }
 
   public registerAssets(
@@ -1935,6 +2024,7 @@ export class CoreV2Engine {
       );
     }
     validateInitializeOptions(options);
+    this.operations.configureInstance(options.instanceId);
     let assetSession: CoreV2AssetSession;
     try {
       assetSession = this.ensureAssetSession(options.instanceId);
@@ -5266,6 +5356,97 @@ export class CoreV2Engine {
     });
   }
 
+  public runtimeDiagnostics(): CoreV2RuntimeDiagnosticsSnapshot {
+    if (!this.operations.isCollectionEnabled) {
+      return this.operations.captureRuntimeDiagnostics({
+        instanceId: this.instanceId,
+        lifecycle: this.lifecycle,
+        backend: { kind: null, lossState: 'uncollected' },
+        revisions: this.revisionStamp(),
+        counts: {
+          roots: 0,
+          elements: 0,
+          components: 0,
+          materialized: 0,
+          text: 0,
+          relations: 0,
+        },
+        activeWork: {
+          gestures: 0,
+          animations: 0,
+          pendingAssets: 0,
+          pendingWork: 0,
+        },
+        resources: {
+          canvases: 0,
+          listeners: 0,
+          observers: 0,
+          tickers: 0,
+          textureLeases: 0,
+          callbackRegistrations: 0,
+        },
+        cleanup: {
+          destroyed: this.lifecycle === 'destroyed',
+          released: this.lifecycle === 'destroyed',
+        },
+      });
+    }
+    const semantic = this.semanticProbe();
+    const surfaceDebug = this.surface?.debugSnapshot() ?? emptySurfaceDebug(
+      this.viewportWidth,
+      this.viewportHeight,
+      this.viewportPixelRatio,
+    );
+    const assetProbe = this.assetSession?.probe() ?? null;
+    const operationsProbe = this.operations.probe();
+    const rendererLoss = this.surface?.rendererLossProbe?.()
+      ?? this.terminalRendererLossProbe;
+    const elements = semantic.scene.counts.elements;
+    const components = semantic.scene.counts.components;
+    const canvasCount =
+      (this.surface?.canvasCount ?? 0) + (this.retainedCleanupSurface?.canvasCount ?? 0);
+    return this.operations.captureRuntimeDiagnostics({
+      instanceId: this.instanceId,
+      lifecycle: this.lifecycle,
+      backend: {
+        kind: this.rendererConfiguration?.backend ?? rendererLoss?.backend ?? null,
+        lossState: rendererLoss?.state ?? 'unavailable',
+      },
+      revisions: this.revisionStamp(),
+      counts: {
+        roots: semantic.scene.counts.rootElements,
+        elements,
+        components,
+        materialized: elements + components,
+        text: semantic.text.sourceCount,
+        relations: countCoreV2RelationLinks(this.materialized?.dataset ?? []),
+      },
+      activeWork: {
+        gestures: surfaceDebug.activeGestureCount ?? 0,
+        animations: surfaceDebug.activeAnimationCount,
+        pendingAssets: assetProbe?.pendingCount ?? 0,
+        pendingWork: this.pendingWork,
+      },
+      resources: {
+        canvases: canvasCount,
+        listeners: this.subscriptionCount(),
+        observers:
+          operationsProbe.diagnosticObserverCount + operationsProbe.telemetryObserverCount,
+        tickers: 0,
+        textureLeases: assetProbe?.leaseCount ?? 0,
+        callbackRegistrations: operationsProbe.callbackRegistrations,
+      },
+      cleanup: {
+        destroyed: this.lifecycle === 'destroyed',
+        released:
+          this.lifecycle === 'destroyed'
+          && canvasCount === 0
+          && this.pendingWork === 0
+          && operationsProbe.callbackRegistrations === 0,
+      },
+    });
+  }
+
   public semanticProbe(): CoreV2SemanticProductProbe {
     const surfaceDebug = this.surface?.debugSnapshot() ?? emptySurfaceDebug(
       this.viewportWidth,
@@ -5662,6 +5843,23 @@ export class CoreV2Engine {
         true,
       );
     }
+    const extractionPreflight = this.extractionSecurity.preflight();
+    if (extractionPreflight.code !== null) {
+      const diagnostic = Object.freeze({
+        ...this.operationDiagnostic(
+          extractionPreflight.code,
+          'EXTRACTION_FAILURE',
+          'extractPublishedScene',
+          true,
+        ),
+        ...(extractionPreflight.sanitizedAssetId === null
+          ? {}
+          : { sanitizedAssetId: extractionPreflight.sanitizedAssetId }),
+      });
+      const failure = new CoreV2EngineError(diagnostic);
+      this.emit('diagnostic', diagnostic);
+      throw failure;
+    }
     if (!samePublishedTuple(this.publishedTuple, request.targetTuple)) {
       throw this.operationError(
         'STALE_TARGET',
@@ -5713,7 +5911,7 @@ export class CoreV2Engine {
       }
       if (!dataUrl.startsWith('data:image/png;base64,')) {
         throw this.operationError(
-          'EXTRACTION_FAILURE',
+          'EXTRACTION_READBACK_FAILED',
           'EXTRACTION_FAILURE',
           'extractPublishedScene',
           true,
@@ -5742,7 +5940,7 @@ export class CoreV2Engine {
               true,
             )
         : this.operationError(
-            'EXTRACTION_FAILURE',
+            extractionFailureCode(error),
             'EXTRACTION_FAILURE',
             'extractPublishedScene',
             true,
@@ -5880,11 +6078,12 @@ export class CoreV2Engine {
     this.editorWorkflows.destroy();
     this.pageLifecycle.destroy();
     this.hostInteractions.destroy();
+    this.operations.disposeCallbacks();
     const pendingInitialization = this.initializePromise;
     const assetSession = this.assetSession;
     const cleanupFailures: unknown[] = [];
     const requiredAcquisitions = this.requiredAssetAcquisitions.splice(0);
-    let assetCleanup: Promise<void> | null = null;
+    let assetCleanup: Promise<void>;
     if (surface) {
       const cleanup = await this.cleanupSurface(surface);
       if (cleanup.error) cleanupFailures.push(cleanup.error);
@@ -7006,13 +7205,45 @@ export class CoreV2Engine {
   }
 
   private emit<K extends CoreV2EngineEvent>(event: K, value: CoreV2EngineEventMap[K]): void {
-    for (const listener of [...(this.listeners.get(event) ?? [])]) {
+    if (event === 'diagnostic') {
+      this.operations.reportDiagnostic(value as CoreV2EngineDiagnostic);
+    } else {
+      this.operations.noteAction(event);
+    }
+    this.deliverEngineEvent(event, value);
+  }
+
+  private deliverEngineEvent<K extends CoreV2EngineEvent>(
+    event: K,
+    value: CoreV2EngineEventMap[K],
+  ): void {
+    const listeners = this.listeners.get(event);
+    if (listeners === undefined) return;
+    const callbackFailures: CoreV2SanitizedDiagnostic[] = [];
+    for (const listener of [...listeners]) {
+      if (!listeners.has(listener)) continue;
       try {
         listener(value);
-      } catch {
-        // Host callback isolation is observable through the later diagnostics tranche;
-        // a callback must never unwind an already committed engine transition.
+      } catch (error) {
+        if (event === 'diagnostic') continue;
+        callbackFailures.push(this.operations.reportDiagnostic({
+          code: 'HOST_CALLBACK_FAILURE',
+          category: 'HOST_CALLBACK_FAILURE',
+          operation: `event:${event}`,
+          lifecycleGeneration: this.lifecycleGeneration,
+          sceneRevision: this.sceneRevision,
+          revisionStamp: this.revisionStamp(),
+          recoverable: true,
+          retryable: false,
+          details: error,
+        }));
       }
+    }
+    for (const failure of callbackFailures) {
+      this.deliverEngineEvent(
+        'diagnostic',
+        failure as CoreV2SanitizedDiagnostic & CoreV2EngineDiagnostic,
+      );
     }
   }
 }
@@ -8060,6 +8291,20 @@ function validateExtractionRequest(request: CoreV2EngineExtractionRequest): void
   }
 }
 
+function extractionFailureCode(
+  error: unknown,
+): 'EXTRACTION_TAINTED' | 'EXTRACTION_READBACK_FAILED' {
+  if (
+    error instanceof DOMException
+    && (error.name === 'SecurityError' || error.name === 'InvalidStateError')
+  ) {
+    return error.name === 'SecurityError'
+      ? 'EXTRACTION_TAINTED'
+      : 'EXTRACTION_READBACK_FAILED';
+  }
+  return 'EXTRACTION_READBACK_FAILED';
+}
+
 function samePublishedTuple(
   left: CoreV2PublishedTuple,
   right: CoreV2PublishedTuple,
@@ -8517,12 +8762,12 @@ function normalizeSnapshotTarget(value: unknown): CoreV2MutationTarget | null {
 function findEngineSemanticTarget(
   dataset: readonly NormalizedCoreV2Element[],
   target: CoreV2MutationTarget,
-): Readonly<Record<string, unknown>> | null {
-  let result: Readonly<Record<string, unknown>> | null = null;
+): NormalizedCoreV2Element | CoreV2Component | null {
+  let result: NormalizedCoreV2Element | CoreV2Component | null = null;
   const visit = (elements: readonly NormalizedCoreV2Element[]): void => {
     for (const element of elements) {
       if (target.kind === 'element' && element.id === target.id) {
-        result = element as Readonly<Record<string, unknown>>;
+        result = element;
       }
       if (target.kind === 'component' && element.id === target.ownerId) {
         const components = element.type === 'item'
@@ -8532,7 +8777,7 @@ function findEngineSemanticTarget(
             : Object.freeze([] as CoreV2Component[]);
         const component = components.find((entry) => entry.id === target.id);
         if (component !== undefined) {
-          result = component as unknown as Readonly<Record<string, unknown>>;
+          result = component;
         }
       }
       if (element.type === 'group') visit(element.children);
@@ -8543,7 +8788,7 @@ function findEngineSemanticTarget(
 }
 
 function cloneDetachedEngineRecord(
-  value: Readonly<Record<string, unknown>>,
+  value: NormalizedCoreV2Element | CoreV2Component,
 ): Readonly<Record<string, unknown>> {
   const clone = cloneDetachedComponentValue(value);
   if (clone === null || typeof clone !== 'object' || Array.isArray(clone)) {
@@ -9129,6 +9374,20 @@ function boundsCenter(
   bounds: readonly [number, number, number, number],
 ): readonly [number, number] {
   return freezePoint(bounds[0] + bounds[2] / 2, bounds[1] + bounds[3] / 2);
+}
+
+function countCoreV2RelationLinks(
+  dataset: readonly NormalizedCoreV2Element[],
+): number {
+  let count = 0;
+  const visit = (elements: readonly NormalizedCoreV2Element[]): void => {
+    for (const element of elements) {
+      if (element.type === 'relations') count += element.links.length;
+      if (element.type === 'group') visit(element.children);
+    }
+  };
+  visit(dataset);
+  return count;
 }
 
 export type { CoreV2ComponentVisualTarget } from './core';

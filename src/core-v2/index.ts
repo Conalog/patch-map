@@ -124,6 +124,16 @@ export {
   CoreV2PageLifecycleAuthority,
 } from './page-lifecycle';
 export type * from './page-lifecycle';
+export {
+  CORE_V2_EXTRACTION_SECURITY_REVISION,
+  CORE_V2_OPERATIONS_REVISION,
+  CORE_V2_RUNTIME_DIAGNOSTICS_REVISION,
+  CoreV2ExtractionSecurityAuthority,
+  CoreV2OperationsAuthority,
+  redactCoreV2OperationalDiagnostic,
+  redactCoreV2OperationalEvent,
+} from './operations';
+export type * from './operations';
 export { PatchMapParseError } from './contracts';
 export type * from './contracts';
 export { parsePatchMapV010 } from './parser';
