@@ -103,6 +103,19 @@ describe('Core v2 production operations authority', () => {
     expect(second.probe().recordCount).toBe(1);
   });
 
+  it('preflights instance identity without mutating an unbound authority', () => {
+    const operations = new CoreV2OperationsAuthority();
+
+    expect(operations.isInstanceCompatible('A')).toBe(true);
+    expect(operations.isInstanceCompatible('B')).toBe(true);
+    operations.configureInstance('A');
+    expect(operations.isInstanceCompatible('A')).toBe(true);
+    expect(operations.isInstanceCompatible('B')).toBe(false);
+    expect(() => operations.configureInstance('B')).toThrow(
+      /instance identity cannot change/u,
+    );
+  });
+
   it('isolates callback failure and drains reentrant actions after registration order', () => {
     const operations = new CoreV2OperationsAuthority({ telemetryEnabled: true });
     const delivery: string[] = [];

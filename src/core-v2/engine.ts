@@ -2024,13 +2024,18 @@ export class CoreV2Engine {
       );
     }
     validateInitializeOptions(options);
-    this.operations.configureInstance(options.instanceId);
+    if (!this.operations.isInstanceCompatible(options.instanceId)) {
+      return Promise.reject(
+        this.operationError('CONFLICT', 'CONFLICT', 'initialize', false),
+      );
+    }
     let assetSession: CoreV2AssetSession;
     try {
       assetSession = this.ensureAssetSession(options.instanceId);
     } catch (error) {
       return Promise.reject(this.assetInitializationError(error));
     }
+    this.operations.configureInstance(options.instanceId);
     if (this.initializePromise) return this.initializePromise;
     if (this.surface) return Promise.resolve(this.initializeResult());
     try {

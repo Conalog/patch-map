@@ -234,6 +234,11 @@ export class CoreV2OperationsAuthority {
     return this.collectionEnabled;
   }
 
+  public isInstanceCompatible(instanceId: string): boolean {
+    const normalized = controlledValue(instanceId, 'instance');
+    return this.instanceId === null || this.instanceId === normalized;
+  }
+
   public configureInstance(instanceId: string): void {
     const normalized = controlledValue(instanceId, 'instance');
     if (this.instanceId !== null && this.instanceId !== normalized) {
