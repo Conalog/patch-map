@@ -196,11 +196,9 @@ describe('Core v2 security and operations automation substrate', () => {
       }
       expect(first.cleanup).toMatchObject({ status: 'completed', errors: [] });
       expect(repeated.cleanup).toMatchObject({ status: 'completed', errors: [] });
-      if (caseId !== 'SEC-004') {
-        expect(
-          comparison.assertions.filter(({ passed }) => !passed).map(({ path }) => path),
-        ).toEqual([]);
-      }
+      expect(
+        comparison.assertions.filter(({ passed }) => !passed).map(({ path }) => path),
+      ).toEqual([]);
       const destroyed = await bridge.destroyCase();
       expect(destroyed).toMatchObject({
         status: 'completed',

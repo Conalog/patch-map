@@ -59,6 +59,9 @@ interface CompareRuntime {
 }
 
 const { compareObservation } = compareModule as unknown as CompareRuntime;
+const PACKED_CODE_COMMIT = '98442e5d32e6324d37e31fae3c91172f64e5ee81';
+const PACKED_PACKAGE_SHA256 =
+  '2522114eb25245a94cedf57a29a9e9a2aaab7709077c661498acec1ab54091d9';
 
 describe('Core v2 executable Lab product bridge', () => {
   it.each(CORE_V2_EXECUTABLE_CASE_IDS.filter(
@@ -201,9 +204,8 @@ describe('Core v2 executable Lab product bridge', () => {
       if (caseId.startsWith('PKG-')) {
         expect(run.actualObservation).toMatchObject({
           provenance: {
-            codeCommit: 'd712cacf64df76fdf960dca780fbfd6d784bcb40',
-            packedPackageSha256:
-              '9d186b59270753a437d11e400b942513312831a04f3cd4475e21651f1c0e16d1',
+            codeCommit: PACKED_CODE_COMMIT,
+            packedPackageSha256: PACKED_PACKAGE_SHA256,
             expectedEvidenceBound: true,
           },
           environment: {
@@ -223,10 +225,16 @@ describe('Core v2 executable Lab product bridge', () => {
       }
       expect(bridge.execution()).toBe(run.execution);
       expect(bridge.cleanup()).toBe(run.cleanup);
-      expect(surfaces.length).toBeGreaterThan(0);
-      expect(surfaces.every((surface) => surface.destroyed)).toBe(true);
-      expect(receivedTargets.every((target) => target === surfaceHost)).toBe(true);
-      expect(surfaces.every((surface) => surface.preference === 'webgl')).toBe(true);
+      const hasProductSurface = caseId !== 'SEC-003' && caseId !== 'SEC-004';
+      if (!hasProductSurface) {
+        expect(surfaces).toHaveLength(0);
+        expect(receivedTargets).toHaveLength(0);
+      } else {
+        expect(surfaces.length).toBeGreaterThan(0);
+        expect(surfaces.every((surface) => surface.destroyed)).toBe(true);
+        expect(receivedTargets.every((target) => target === surfaceHost)).toBe(true);
+        expect(surfaces.every((surface) => surface.preference === 'webgl')).toBe(true);
+      }
       if (caseId.startsWith('PKG-')) {
         expect(run.actualObservation).toMatchObject({
           outcome: { packageEvidenceStatus: 'pass' },
@@ -284,9 +292,9 @@ describe('Core v2 executable Lab product bridge', () => {
         completedRunCount: 1,
         releasedEngineCount: executorReleaseCount
           + Number(resolveCoreV2ExecutableRuntime(caseId).needsSupplementalWebGLLease),
-        retainedCanvasCount: 0,
-        retainedSubscriptionCount: 0,
-        retainedPendingWork: 0,
+        retainedCanvasCount: hasProductSurface ? 0 : null,
+        retainedSubscriptionCount: hasProductSurface ? 0 : null,
+        retainedPendingWork: hasProductSurface ? 0 : null,
       });
       expect(bridge.state().status).toBe('destroyed');
       expect(await bridge.actualObservation()).toBe(run.actualObservation);
@@ -331,9 +339,8 @@ describe('Core v2 executable Lab product bridge', () => {
       expect(comparison.passed).toBe(expected?.expected.assertions.length);
       expect(run.actualObservation).toMatchObject({
         provenance: {
-          codeCommit: 'd712cacf64df76fdf960dca780fbfd6d784bcb40',
-          packedPackageSha256:
-            '9d186b59270753a437d11e400b942513312831a04f3cd4475e21651f1c0e16d1',
+          codeCommit: PACKED_CODE_COMMIT,
+          packedPackageSha256: PACKED_PACKAGE_SHA256,
           expectedEvidenceBound: true,
         },
         environment: {
@@ -1549,6 +1556,8 @@ describe('Core v2 executable Lab product bridge', () => {
       'LIF-004': 'lifecycle-resize',
       'LIF-005': 'lifecycle-destroy',
       'LIF-006': 'determinism-lifecycle',
+      'OPS-001': 'security-operations',
+      'OPS-002': 'security-operations',
       'DAT-001': 'foundation',
       'DAT-002': 'foundation',
       'DAT-003': 'data-foundation',
@@ -1571,6 +1580,9 @@ describe('Core v2 executable Lab product bridge', () => {
       'AST-002': 'asset-ingestion',
       'AST-003': 'asset-ingestion',
       'SEC-001': 'asset-ingestion',
+      'SEC-002': 'security-operations',
+      'SEC-003': 'security-operations',
+      'SEC-004': 'security-operations',
       'UPD-001': 'update-transactions',
       'UPD-002': 'update-transactions',
       'UPD-003': 'update-transactions',

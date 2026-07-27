@@ -38,7 +38,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the one-hundred-forty-seven selected routes and their 1946 canonical assertions', () => {
+  it('pins exactly the one-hundred-fifty-two selected routes and their 1979 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -194,26 +194,31 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'AST-002', expectedAssertions: 9 },
       { id: 'AST-003', expectedAssertions: 10 },
       { id: 'SEC-001', expectedAssertions: 7 },
+      { id: 'SEC-002', expectedAssertions: 6 },
+      { id: 'SEC-003', expectedAssertions: 6 },
+      { id: 'SEC-004', expectedAssertions: 6 },
+      { id: 'OPS-001', expectedAssertions: 9 },
+      { id: 'OPS-002', expectedAssertions: 6 },
       { id: 'CSM-032', expectedAssertions: 21 },
       { id: 'CSM-033', expectedAssertions: 20 },
       { id: 'CSM-034', expectedAssertions: 23 },
       { id: 'LIF-006', expectedAssertions: 17 },
     ]);
-    expect(records).toHaveLength(147);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_946);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_946;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_911;');
+    expect(records).toHaveLength(152);
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_979);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_979;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_944;');
     expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;');
     expect(source).toContain('const EXPECTED_PERFORMANCE_DEFICIT_TOTAL = 14;');
     expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 1911 pass, 21 immutable conflicts, and 14 performance deficits'",
+      "'canonical comparison must be exactly 1944 pass, 21 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 1911 pass, 21 immutable conflicts, and 14 performance deficits'",
+      "'repeat comparison must be exactly 1944 pass, 21 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 1911 pass, 21 immutable conflicts, and 14 performance deficits'",
+      "'fresh comparison must be exactly 1944 pass, 21 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -403,7 +408,7 @@ describe('Core v2 render browser checkpoint script', () => {
       "'render checkpoint measured performance deficit inventory must remain 14'",
     );
     expect(source).toContain(
-      "'render checkpoint passing assertion inventory must remain 1911'",
+      "'render checkpoint passing assertion inventory must remain 1944'",
     );
   });
 
@@ -652,6 +657,9 @@ describe('Core v2 render browser checkpoint script', () => {
       'PIX-001',
       'PIX-002',
       'PIX-003',
+      'SEC-002',
+      'OPS-001',
+      'OPS-002',
     ]);
     expect(gpuCaseBlock).toContain('...DETERMINISM_LIFECYCLE_TRANCHE_CASES');
     expect(gpuCaseBlock).toContain('...PERFORMANCE_GPU_CASES');
@@ -663,6 +671,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('context.readPixels(x, y, 1, 1');
     expect(source).toContain('context.readPixels(x, 0, 1, canvas.height');
     expect(source).toContain('if (PIXIJS_INTEGRATION_TRANCHE_CASES.has(caseId)) return;');
+    expect(source).toContain('if (SECURITY_OPERATIONS_TRANCHE_CASES.has(caseId)) return;');
     expect(source).toContain('if (PERFORMANCE_GPU_CASES.has(caseId)) return;');
     expect(source).toContain('assertLay003GpuPaintOrder(gpu, prefix)');
     expect(source).toContain('initial/patch/undo/redo GPU draw order');
@@ -721,6 +730,8 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('const expectedMaxCanvas = caseSpec.expectedMaxCanvas ?? 1;');
     expect(source).toContain('run.canvas.maximumDuringRun === expectedMaxCanvas');
     expect(source).toContain("id: 'PKG-003', expectedAssertions: 6, expectedMaxCanvas: 2");
+    expect(source).toContain("id: 'SEC-003', expectedAssertions: 6, expectedMaxCanvas: 0");
+    expect(source).toContain("id: 'SEC-004', expectedAssertions: 6, expectedMaxCanvas: 0");
     expect(source).toContain("run.canvas.afterCleanup === 0");
     expect(source).toContain("comparison.stableActualSha256 === repeatComparison.stableActualSha256");
     expect(source).toContain("comparison.stableActualSha256 === fresh.comparison.stableActualSha256");
