@@ -140,6 +140,18 @@ export {
   deriveCoreV2AccessibilityTargets,
 } from './accessibility';
 export type * from './accessibility';
+export {
+  CORE_V2_MIGRATION_BLOCKERS,
+  CORE_V2_MIGRATION_COHORTS,
+  CORE_V2_MIGRATION_EFFECTS,
+  CORE_V2_MIGRATION_REVISION,
+  CoreV2MigrationAuthority,
+  CoreV2MigrationError,
+  assertCoreV2SemanticRoundtrip,
+  materializeCoreV2CompatibilityDataset,
+  prepareCoreV2PersistenceExport,
+} from './migration';
+export type * from './migration';
 export { PatchMapParseError } from './contracts';
 export type * from './contracts';
 export { parsePatchMapV010 } from './parser';

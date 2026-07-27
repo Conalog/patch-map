@@ -1,5 +1,7 @@
 import {
   CoreV2Engine,
+  materializeCoreV2CompatibilityDataset,
+  prepareCoreV2PersistenceExport,
   type CoreV2BulkPatchRequest,
   type CoreV2EngineExtractionResult,
   type CoreV2EngineLoadResult,
@@ -11,6 +13,7 @@ import {
   type CoreV2InitializeOptions,
   type CoreV2LoadOptions,
   type CoreV2LogicalTargetSnapshot,
+  type CoreV2PersistenceExport,
   type CoreV2SelectionChange,
   type CoreV2TransformerEditRequest,
 } from '@conalog/patch-map/core-v2';
@@ -71,7 +74,14 @@ export class CoreV2HostAdapter {
   }
 
   public load(input: unknown, options: CoreV2LoadOptions = {}): CoreV2EngineLoadResult {
-    return this.#engine.loadDataset(input, options);
+    const compatible = materializeCoreV2CompatibilityDataset(input);
+    return this.#engine.loadDataset(compatible.canonicalDataset, options);
+  }
+
+  public prepareSave(strictReferences = true): CoreV2PersistenceExport {
+    return prepareCoreV2PersistenceExport(this.#engine.exportDataset(), {
+      strictReferences,
+    });
   }
 
   public lookup(id: string): CoreV2LogicalTargetSnapshot | null {
