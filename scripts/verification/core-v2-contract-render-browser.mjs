@@ -22,8 +22,8 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 1_979;
-const EXPECTED_ASSERTION_PASS_TOTAL = 1_944;
+const EXPECTED_ASSERTION_TOTAL = 1_999;
+const EXPECTED_ASSERTION_PASS_TOTAL = 1_964;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;
 const EXPECTED_PERFORMANCE_DEFICIT_TOTAL = 14;
 const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;
@@ -421,6 +421,9 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'SEC-002', expectedAssertions: 6 }),
   Object.freeze({ id: 'SEC-003', expectedAssertions: 6, expectedMaxCanvas: 0 }),
   Object.freeze({ id: 'SEC-004', expectedAssertions: 6, expectedMaxCanvas: 0 }),
+  Object.freeze({ id: 'ACC-001', expectedAssertions: 9 }),
+  Object.freeze({ id: 'ACC-002', expectedAssertions: 5 }),
+  Object.freeze({ id: 'ACC-003', expectedAssertions: 6 }),
   Object.freeze({ id: 'OPS-001', expectedAssertions: 9 }),
   Object.freeze({ id: 'OPS-002', expectedAssertions: 6 }),
   Object.freeze({ id: 'CSM-032', expectedAssertions: 21 }),
@@ -582,6 +585,11 @@ const SECURITY_OPERATIONS_TRANCHE_CASES = new Set([
   'OPS-001',
   'OPS-002',
 ]);
+const ACCESSIBILITY_TRANCHE_CASES = new Set([
+  'ACC-001',
+  'ACC-002',
+  'ACC-003',
+]);
 const PERFORMANCE_TRANCHE_CASES = new Set([
   'PRF-001',
   'PRF-002',
@@ -615,6 +623,7 @@ const CONTROL_CASES = new Set([
   ...PIXIJS_INTEGRATION_TRANCHE_CASES,
   ...PACKAGE_INTEGRATION_TRANCHE_CASES,
   ...SECURITY_OPERATIONS_TRANCHE_CASES,
+  ...ACCESSIBILITY_TRANCHE_CASES,
   ...PERFORMANCE_GPU_CASES,
 ]);
 const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);
@@ -634,6 +643,7 @@ const GPU_EVIDENCE_CASES = new Set([
   'SEC-002',
   'OPS-001',
   'OPS-002',
+  ...ACCESSIBILITY_TRANCHE_CASES,
   ...DETERMINISM_LIFECYCLE_TRANCHE_CASES,
   ...AUTHORING_TRANCHE_CASES,
   ...EDITOR_WORKFLOW_TRANCHE_CASES,
@@ -781,28 +791,28 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all one-hundred-fifty-two render routes completed'
+      ? 'all one-hundred-fifty-five render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
     passed === selectedAssertionTotal - selectedObservedFailureTotal
       && failed === selectedObservedFailureTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 1944 pass, 21 immutable conflicts, and 14 performance deficits'
+      ? 'canonical comparison must be exactly 1964 pass, 21 immutable conflicts, and 14 performance deficits'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedFailureTotal
       && repeatFailed === selectedObservedFailureTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 1944 pass, 21 immutable conflicts, and 14 performance deficits'
+      ? 'repeat comparison must be exactly 1964 pass, 21 immutable conflicts, and 14 performance deficits'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedFailureTotal
       && freshFailed === selectedObservedFailureTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 1944 pass, 21 immutable conflicts, and 14 performance deficits'
+      ? 'fresh comparison must be exactly 1964 pass, 21 immutable conflicts, and 14 performance deficits'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -1137,7 +1147,11 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
     let rootInput = null;
     if (caseSpec.id === 'VIE-001') {
       rootInput = await verifyViewportRootInput(page);
-    } else if (caseSpec.id === 'EVT-003' || caseSpec.id === 'EVT-008') {
+    } else if (
+      caseSpec.id === 'EVT-003' ||
+      caseSpec.id === 'EVT-008' ||
+      caseSpec.id === 'ACC-002'
+    ) {
       rootInput = await verifyPointerRootInput(page, caseSpec.id);
     }
     if (rootInput !== null) traceCasePhase(caseSpec.id, 'trusted root input verified');
@@ -1403,7 +1417,7 @@ async function verifyViewportRootInput(page) {
 
 async function verifyPointerRootInput(page, caseId) {
   invariant(
-    caseId === 'EVT-003' || caseId === 'EVT-008',
+    caseId === 'EVT-003' || caseId === 'EVT-008' || caseId === 'ACC-002',
     `unsupported trusted pointer case ${caseId}`,
   );
   const contextMenuProbeName = '__PATCH_MAP_CORE_V2_NATIVE_CONTEXT_MENU_PROBE__';
@@ -1427,7 +1441,23 @@ async function verifyPointerRootInput(page, caseId) {
       y: bounds.y + anchor.y * bounds.height / 600,
     });
 
-    if (caseId === 'EVT-003') {
+    if (caseId === 'ACC-002') {
+      const owned = pagePoint(gesturePlan.cssLocalAnchors[0]);
+      await page.mouse.click(owned.x, owned.y);
+      await page.waitForFunction(
+        async (bridgeName) => {
+          const observation = await window[bridgeName]?.actualObservation();
+          return Array.isArray(observation?.snapshot?.selectionIds) &&
+            observation.snapshot.selectionIds.length === 1 &&
+            observation.snapshot.selectionIds[0] === 'rect-b' &&
+            observation.accessibility?.focusedId === 'rect-b' &&
+            observation.accessibility?.targets?.['rect-b']
+              ?.performedActions?.includes('activate');
+        },
+        BRIDGE_NAME,
+        { timeout: 10_000 },
+      );
+    } else if (caseId === 'EVT-003') {
       const hovered = pagePoint(gesturePlan.cssLocalAnchors[0]);
       const viewport = page.viewportSize();
       const right = bounds.x + bounds.width + 8;
@@ -1486,6 +1516,8 @@ async function verifyPointerRootInput(page, caseId) {
         events: observation.events,
         pointerGesture: observation.pointerGesture,
         ownership: observation.ownership,
+        accessibility: observation.accessibility,
+        snapshot: observation.snapshot,
         resources: observation.resources,
         nativeContextMenu: window[probeName]?.state ?? null,
       };
@@ -1508,6 +1540,42 @@ async function verifyPointerRootInput(page, caseId) {
         observed.resources?.pendingWork === 0,
       `${caseId} trusted input keeps one settled live canvas`,
     );
+
+    if (caseId === 'ACC-002') {
+      invariant(
+        sameJson(observed.snapshot?.selectionIds, ['rect-b']),
+        `ACC-002 trusted accessibility click selection: ${
+          JSON.stringify(observed.snapshot?.selectionIds)
+        }`,
+      );
+      invariant(
+        observed.accessibility?.focusedId === 'rect-b' &&
+          observed.accessibility?.surface?.focusedId === 'rect-b' &&
+          observed.accessibility?.surface?.shadowDomNodeCount === 3 &&
+          observed.accessibility?.surface?.rootListenerCount === 1 &&
+          observed.accessibility?.surface?.entityListenerCount === 0,
+        `ACC-002 trusted accessibility bridge: ${
+          JSON.stringify(observed.accessibility)
+        }`,
+      );
+      invariant(
+        observed.accessibility?.targets?.['rect-b']?.performedActions?.includes('activate') &&
+          observed.accessibility.targets['rect-b'].performedActions.includes('select'),
+        'ACC-002 trusted accessibility click emits one semantic activation',
+      );
+      return {
+        status: 'passed',
+        driverId: gesturePlan.driverId,
+        selectedTargets: observed.snapshot.selectionIds,
+        focusedId: observed.accessibility.focusedId,
+        shadowDomFocusedId:
+          observed.accessibility.surface.shadowDomFocusedId,
+        shadowDomNodeCount:
+          observed.accessibility.surface.shadowDomNodeCount,
+        pointerGesture: observed.pointerGesture,
+        ownership: observed.ownership,
+      };
+    }
 
     if (caseId === 'EVT-003') {
       const hoverTargets = observed.events
@@ -2391,6 +2459,9 @@ function assertCaseRun(caseSpec, run, comparison, runLabel) {
     `${prefix} only declared immutable conflicts or measured performance deficits`,
   );
   assertImmutableConflictActuals(caseSpec.id, run.actualObservation, runLabel);
+  if (ACCESSIBILITY_TRANCHE_CASES.has(caseSpec.id)) {
+    assertAccessibilityActuals(caseSpec.id, run.actualObservation, runLabel);
+  }
   if (caseSpec.id === 'REN-005') assertRen005FocusedUi(run.ui, runLabel);
   if (caseSpec.id === 'REN-006' || caseSpec.id === 'REN-011') {
     assertTextFocusedUi(caseSpec.id, run.ui, runLabel);
@@ -2446,6 +2517,27 @@ function assertImmutableConflictActuals(caseId, actualObservation, runLabel) {
   );
 }
 
+function assertAccessibilityActuals(caseId, actualObservation, runLabel) {
+  const prefix = `${caseId} ${runLabel} Pixi accessibility`;
+  const surface = actualObservation?.accessibility?.surface;
+  invariant(surface && typeof surface === 'object', `${prefix} surface probe`);
+  invariant(surface.active === true, `${prefix} aggregate overlay active`);
+  invariant(surface.shadowDomActive === true, `${prefix} shadow DOM active`);
+  invariant(surface.overlayNodeCount === 3, `${prefix} logical node count`);
+  invariant(
+    surface.shadowDomNodeCount === 3,
+    `${prefix} shadow DOM node count (${String(surface.shadowDomNodeCount)})`,
+  );
+  invariant(surface.rootListenerCount === 1, `${prefix} one delegated listener`);
+  invariant(surface.entityListenerCount === 0, `${prefix} no entity listener`);
+  const focusedId = caseId === 'ACC-002' ? 'rect-b' : 'item-a';
+  invariant(surface.focusedId === focusedId, `${prefix} logical focus`);
+  invariant(
+    surface.shadowDomFocusedId === focusedId,
+    `${prefix} shadow DOM focus (${String(surface.shadowDomFocusedId)})`,
+  );
+}
+
 function assertGpuEvidence(caseId, gpu, runLabel) {
   const prefix = `${caseId} ${runLabel} WebGL evidence`;
   invariant(gpu && typeof gpu === 'object', `${prefix} exists`);
@@ -2487,6 +2579,7 @@ function assertGpuEvidence(caseId, gpu, runLabel) {
   if (PIXIJS_INTEGRATION_TRANCHE_CASES.has(caseId)) return;
   if (DETERMINISM_LIFECYCLE_TRANCHE_CASES.has(caseId)) return;
   if (SECURITY_OPERATIONS_TRANCHE_CASES.has(caseId)) return;
+  if (ACCESSIBILITY_TRANCHE_CASES.has(caseId)) return;
   if (PERFORMANCE_GPU_CASES.has(caseId)) return;
 
   if (caseId === 'LAY-003') {
@@ -3184,7 +3277,7 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 1979',
+    'render checkpoint assertion inventory must remain 1999',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===
@@ -3201,7 +3294,7 @@ async function loadExpectedCases() {
       - EXPECTED_ASSERTION_FAILURE_TOTAL
       - EXPECTED_PERFORMANCE_DEFICIT_TOTAL
       === EXPECTED_ASSERTION_PASS_TOTAL,
-    'render checkpoint passing assertion inventory must remain 1944',
+    'render checkpoint passing assertion inventory must remain 1964',
   );
   invariant(
     sum(

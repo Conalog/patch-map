@@ -72,5 +72,17 @@ describe('Core v2 extraction verification scripts', () => {
       "trial.tooltipSubscriptionDisposeAfterDestroy !== 'disposed'",
     );
     expect(memorySource).toContain('trial.extractionBeforeDestroy?.pendingWorkAfter !== 0');
+    expect(memorySource).toContain("engine.accessibilityTree('scene')");
+    expect(memorySource).toContain("engine.focusAccessibilityTarget('rect-b')");
+    expect(memorySource).toContain(
+      'trial.accessibilityBeforeDestroy?.surface?.shadowDomNodeCount !== 2',
+    );
+    expect(memorySource).toContain(
+      'trial.accessibilityBeforeDestroy?.surface?.rootListenerCount !== 1',
+    );
+    expect(memorySource).toContain(
+      'trial.accessibilityAfterDestroy?.surface !== null',
+    );
+    expect(memorySource).toContain('trial.retainedHostChildCount !== 0');
   });
 });

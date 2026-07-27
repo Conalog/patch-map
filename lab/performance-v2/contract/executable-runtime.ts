@@ -77,6 +77,8 @@ import * as assetIngestionHandlersModule from '../../../scripts/verification/cor
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as securityOperationsHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/security-operations.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as accessibilityHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/accessibility.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as historyHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/history.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as replacementRecoveryHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/replacement-recovery.mjs';
@@ -140,6 +142,8 @@ import * as assetFoldModule from '../../../scripts/verification/core-v2-contract
 import * as assetIngestionFoldModule from '../../../scripts/verification/core-v2-contract/fold-asset-ingestion.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as securityOperationsFoldModule from '../../../scripts/verification/core-v2-contract/fold-security-operations.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as accessibilityFoldModule from '../../../scripts/verification/core-v2-contract/fold-accessibility.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as historyFoldModule from '../../../scripts/verification/core-v2-contract/fold-history.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
@@ -229,6 +233,11 @@ import {
   type CoreV2SecurityOperationsCaseId,
 } from './security-operations-runtime';
 import {
+  CORE_V2_ACCESSIBILITY_CASE_IDS,
+  createCoreV2AccessibilityRuntime,
+  type CoreV2AccessibilityCaseId,
+} from './accessibility-runtime';
+import {
   CORE_V2_PACKAGE_INTEGRATION_CASE_IDS,
   createCoreV2PackageIntegrationRuntime,
   type CoreV2PackageIntegrationCaseId,
@@ -271,6 +280,7 @@ export type CoreV2ExecutableRuntimeKey =
   | 'performance'
   | 'asset-ingestion'
   | 'security-operations'
+  | 'accessibility'
   | 'assets';
 
 type Handler = (
@@ -367,6 +377,10 @@ interface HandlerFactoryRuntime {
     this: void,
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
+  createAccessibilityHandlerEntries?(
+    this: void,
+    product: Readonly<Record<string, unknown>>,
+  ): readonly HandlerEntry[];
   createHistoryHandlerEntries?(
     this: void,
     product: Readonly<Record<string, unknown>>,
@@ -404,6 +418,10 @@ interface FoldRuntime {
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
   foldSecurityOperationsExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
+  foldAccessibilityExecution?(
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
@@ -583,6 +601,8 @@ const assetIngestionHandlers =
   assetIngestionHandlersModule as unknown as HandlerFactoryRuntime;
 const securityOperationsHandlers =
   securityOperationsHandlersModule as unknown as HandlerFactoryRuntime;
+const accessibilityHandlers =
+  accessibilityHandlersModule as unknown as HandlerFactoryRuntime;
 const historyHandlers = historyHandlersModule as unknown as HandlerFactoryRuntime;
 const replacementRecoveryHandlers =
   replacementRecoveryHandlersModule as unknown as HandlerFactoryRuntime;
@@ -627,6 +647,8 @@ const assetIngestionFold =
   assetIngestionFoldModule as unknown as FoldRuntime;
 const securityOperationsFold =
   securityOperationsFoldModule as unknown as FoldRuntime;
+const accessibilityFold =
+  accessibilityFoldModule as unknown as FoldRuntime;
 const historyFold = historyFoldModule as unknown as FoldRuntime;
 const replacementRecoveryFold =
   replacementRecoveryFoldModule as unknown as FoldRuntime;
@@ -720,6 +742,9 @@ const ASSET_INGESTION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
 ]);
 const SECURITY_OPERATIONS_CASE_IDS = new Set<CoreV2SecurityOperationsCaseId>(
   CORE_V2_SECURITY_OPERATIONS_CASE_IDS,
+);
+const ACCESSIBILITY_CASE_IDS = new Set<CoreV2AccessibilityCaseId>(
+  CORE_V2_ACCESSIBILITY_CASE_IDS,
 );
 
 const DATA_FOUNDATION_PRODUCT = Object.freeze({
@@ -885,6 +910,7 @@ const PACKAGE_MULTI_INSTANCE_DESCRIPTOR = createPackageIntegrationDescriptor(fal
 const PERFORMANCE_EVIDENCE_DESCRIPTOR = createPerformanceDescriptor(true);
 const PERFORMANCE_PRODUCT_DESCRIPTOR = createPerformanceDescriptor(false);
 const SECURITY_OPERATIONS_DESCRIPTOR = createSecurityOperationsDescriptor();
+const ACCESSIBILITY_DESCRIPTOR = createAccessibilityDescriptor();
 
 export function resolveCoreV2ExecutableRuntime(
   caseId: CoreV2ExecutableCaseId,
@@ -931,6 +957,7 @@ export function resolveCoreV2ExecutableRuntime(
       : PERFORMANCE_PRODUCT_DESCRIPTOR;
   }
   if (isViewportCaseId(caseId)) return VIEWPORT_DESCRIPTOR;
+  if (isAccessibilityCaseId(caseId)) return ACCESSIBILITY_DESCRIPTOR;
   if (isSecurityOperationsCaseId(caseId)) return SECURITY_OPERATIONS_DESCRIPTOR;
   if (ASSET_INGESTION_CASE_IDS.has(caseId)) return ASSET_INGESTION_DESCRIPTOR;
   if (caseId === 'AST-001') return ASSET_DESCRIPTOR;
@@ -1994,6 +2021,54 @@ function isSecurityOperationsCaseId(
   return SECURITY_OPERATIONS_CASE_IDS.has(
     caseId as CoreV2SecurityOperationsCaseId,
   );
+}
+
+function createAccessibilityDescriptor(): CoreV2ExecutableRuntimeDescriptor {
+  const fold = requireFold(
+    accessibilityFold.foldAccessibilityExecution,
+    'accessibility fold',
+  );
+  const createEntries = requireFactory(
+    accessibilityHandlers.createAccessibilityHandlerEntries,
+    'accessibility handlers',
+  );
+  const createRun = (plan: CoreV2ExecutableCasePlan) => {
+    invariant(isAccessibilityCaseId(plan.id), 'accessibility case identity');
+    const runtime = createCoreV2AccessibilityRuntime(plan.id);
+    return Object.freeze({
+      handlerEntries: selectHandlerEntries(
+        plan,
+        createEntries(
+          runtime.product as unknown as Readonly<Record<string, unknown>>,
+        ),
+      ),
+      engineOptions: Object.freeze({}),
+      actionTimeoutMs: 60_000,
+      postDestroyProductProbe: () => runtime.postDestroyProductProbe(),
+    });
+  };
+  return Object.freeze({
+    key: 'accessibility',
+    needsSupplementalWebGLLease: false,
+    createRun,
+    handlerEntries(plan: CoreV2ExecutableCasePlan): readonly HandlerEntry[] {
+      return createRun(plan).handlerEntries;
+    },
+    fold(input: CoreV2RuntimeFoldInput): CoreV2FoldedExecution {
+      return fold({
+        casePlan: input.casePlan,
+        execution: input.execution,
+        provenance: input.provenance,
+        environment: input.environment,
+      });
+    },
+  });
+}
+
+function isAccessibilityCaseId(
+  caseId: CoreV2ExecutableCaseId,
+): caseId is CoreV2AccessibilityCaseId {
+  return ACCESSIBILITY_CASE_IDS.has(caseId as CoreV2AccessibilityCaseId);
 }
 
 function selectHandlerEntries(

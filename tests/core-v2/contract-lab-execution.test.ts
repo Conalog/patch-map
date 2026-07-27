@@ -10,7 +10,11 @@ import {
 import { resolveCoreV2ExecutableRuntime } from '../../lab/performance-v2/contract/executable-runtime';
 import type { SlotRange } from '../../src/core-v1/contracts';
 import { parsePatchMapV010 } from '../../src/core-v2';
-import type { CoreV2SemanticRefreshResult } from '../../src/core-v2/core';
+import type {
+  CoreV2BarPresentationProductProbe,
+  CoreV2ComponentVisualTarget,
+  CoreV2SemanticRefreshResult,
+} from '../../src/core-v2/core';
 import {
   createCoreV2SurfaceGeometrySnapshot,
   hitTestCoreV2SurfaceRelations,
@@ -255,14 +259,16 @@ describe('Core v2 executable Lab product bridge', () => {
           resources: { canvasCount: 1, pendingWork: 0 },
         });
         await expect(bridge.awaitMilestone(0, 'released')).resolves.toBeUndefined();
-      } else if (caseId === 'EVT-003' || caseId === 'EVT-008') {
+      } else if (caseId === 'EVT-003' || caseId === 'EVT-008' || caseId === 'ACC-002') {
         await expect(bridge.armGesture(0)).resolves.toMatchObject({
           revision: 'core-v2-contract-gesture-plan/1',
           actionIndex: 0,
           driverId: caseId === 'EVT-003'
             ? 'trusted-pointer-hover-leave'
-            : 'trusted-secondary-contextmenu',
-          button: caseId === 'EVT-003' ? 0 : 2,
+            : caseId === 'EVT-008'
+              ? 'trusted-secondary-contextmenu'
+              : 'trusted-accessibility-click',
+          button: caseId === 'EVT-008' ? 2 : 0,
         });
         await expect(bridge.actualObservation()).resolves.toMatchObject({
           $schema: 'core-v2-contract-pointer-input-observation/1',
@@ -1556,6 +1562,9 @@ describe('Core v2 executable Lab product bridge', () => {
       'LIF-004': 'lifecycle-resize',
       'LIF-005': 'lifecycle-destroy',
       'LIF-006': 'determinism-lifecycle',
+      'ACC-001': 'accessibility',
+      'ACC-002': 'accessibility',
+      'ACC-003': 'accessibility',
       'OPS-001': 'security-operations',
       'OPS-002': 'security-operations',
       'DAT-001': 'foundation',
@@ -2002,6 +2011,49 @@ class FakeSurface implements CoreV2EngineSurface {
         alpha: 1,
       }),
       renderLanes: this.lanes,
+    });
+  }
+
+  public barPresentationProbe(
+    target: CoreV2ComponentVisualTarget,
+  ): CoreV2BarPresentationProductProbe | null {
+    const owner = this.dataset.find((element) => element.id === target.ownerId);
+    const components: readonly unknown[] = Array.isArray(owner?.components)
+      ? owner.components
+      : [];
+    const component = components.find((entry) =>
+      isRecord(entry) && entry.id === target.componentId);
+    if (!isRecord(component) || component.type !== 'bar') return null;
+    const size = isRecord(component.size) ? component.size : {};
+    const height = fakeNumber(size.height, 0);
+    const durationMs = fakeNumber(component.animationDuration, 200);
+    return Object.freeze({
+      target: Object.freeze({ ...target }),
+      entityId: `${target.ownerId}::bar:${target.componentId}`,
+      policy: Object.freeze({
+        enabled: component.animation === true,
+        durationMs,
+      }),
+      semanticHeight: height,
+      presentationHeight: height,
+      active: false,
+      startHeight: height,
+      destinationHeight: height,
+      startTimeMs: null,
+      controller: Object.freeze({
+        lifecycleGeneration: 1,
+        presentationRevision: this.geometryRevision,
+        clockMs: 0,
+        activeCount: 0,
+        indexedCount: 0,
+        capacity: 0,
+        totalSettlementCount: 0,
+        totalCancellationCount: 0,
+        totalSupersessionCount: 0,
+        publishedFrameCount: 0,
+        destroyed: this.destroyed,
+      }),
+      ghostPublicationCount: 0,
     });
   }
 

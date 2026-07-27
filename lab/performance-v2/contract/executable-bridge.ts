@@ -482,7 +482,9 @@ export function createCoreV2ExecutableLabBridge(
     value: number,
   ): Promise<Readonly<CoreV2ContractGesturePlan>> {
     invariant(
-      options.caseId === 'EVT-003' || options.caseId === 'EVT-008',
+      options.caseId === 'EVT-003' ||
+        options.caseId === 'EVT-008' ||
+        options.caseId === 'ACC-002',
       `${options.caseId} live pointer case`,
     );
     invariant(value === 0, `${options.caseId} live pointer action index`);
@@ -506,8 +508,11 @@ export function createCoreV2ExecutableLabBridge(
           preference: 'webgl',
           zoomLimits: [0.25, 4],
         });
+        const profileId = options.caseId === 'ACC-002'
+          ? 'logical-accessibility-tree'
+          : 'input-device-and-gesture-matrix';
         const profile = requireRecord(
-          casePlan.fixtureProfiles['input-device-and-gesture-matrix'],
+          casePlan.fixtureProfiles[profileId],
           `${options.caseId} pointer fixture profile`,
         );
         const datasetRef = requiredString(
@@ -518,6 +523,10 @@ export function createCoreV2ExecutableLabBridge(
         engine.loadDataset(dataset, { datasetRef });
         engine.setViewport({ centerWorld: [400, 300], scale: 1 });
         engine.publishFrame(0);
+        if (options.caseId === 'ACC-002') {
+          engine.accessibilityTree('scene');
+          engine.publishFrame(1);
+        }
         const events: Readonly<Record<string, unknown>>[] = [];
         const unbind = engine.on('pointerEvent', (event) => {
           events.push(
@@ -545,7 +554,9 @@ export function createCoreV2ExecutableLabBridge(
       actionIndex: value,
       driverId: options.caseId === 'EVT-003'
         ? 'trusted-pointer-hover-leave'
-        : 'trusted-secondary-contextmenu',
+        : options.caseId === 'EVT-008'
+          ? 'trusted-secondary-contextmenu'
+          : 'trusted-accessibility-click',
       ownerQualifiedTarget:
         `[data-testid="${casePlan.rootTestId}"] [data-contract-surface] `
         + 'canvas[data-patch-map-core="v2"]',
@@ -569,6 +580,8 @@ export function createCoreV2ExecutableLabBridge(
       events: structuredClone(session.events),
       pointerGesture: structuredClone(session.engine.pointerGestureProbe()),
       ownership: structuredClone(session.engine.interactionOwnershipProbe()),
+      accessibility: structuredClone(session.engine.accessibilityProbe()),
+      snapshot: structuredClone(session.engine.snapshot()),
       resources: {
         canvasCount: snapshot.resources.canvasCount,
         subscriptions: snapshot.resources.subscriptions.active,
@@ -642,7 +655,11 @@ export function createCoreV2ExecutableLabBridge(
     armGesture(value: number): Promise<Readonly<CoreV2ContractGesturePlan>> {
       assertActionIndex(value);
       if (options.caseId === 'VIE-001') return armViewportGesture(value);
-      if (options.caseId === 'EVT-003' || options.caseId === 'EVT-008') {
+      if (
+        options.caseId === 'EVT-003' ||
+        options.caseId === 'EVT-008' ||
+        options.caseId === 'ACC-002'
+      ) {
         return armPointerGesture(value);
       }
       return Promise.reject(new CoreV2ContractExecutionNotImplementedError(
@@ -662,7 +679,11 @@ export function createCoreV2ExecutableLabBridge(
         return;
       }
       if (
-        (options.caseId === 'EVT-003' || options.caseId === 'EVT-008') &&
+        (
+          options.caseId === 'EVT-003' ||
+          options.caseId === 'EVT-008' ||
+          options.caseId === 'ACC-002'
+        ) &&
         livePointerGesture !== null
       ) {
         invariant(

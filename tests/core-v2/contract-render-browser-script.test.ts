@@ -38,7 +38,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the one-hundred-fifty-two selected routes and their 1979 canonical assertions', () => {
+  it('pins exactly the one-hundred-fifty-five selected routes and their 1999 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -197,6 +197,9 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'SEC-002', expectedAssertions: 6 },
       { id: 'SEC-003', expectedAssertions: 6 },
       { id: 'SEC-004', expectedAssertions: 6 },
+      { id: 'ACC-001', expectedAssertions: 9 },
+      { id: 'ACC-002', expectedAssertions: 5 },
+      { id: 'ACC-003', expectedAssertions: 6 },
       { id: 'OPS-001', expectedAssertions: 9 },
       { id: 'OPS-002', expectedAssertions: 6 },
       { id: 'CSM-032', expectedAssertions: 21 },
@@ -204,21 +207,21 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'CSM-034', expectedAssertions: 23 },
       { id: 'LIF-006', expectedAssertions: 17 },
     ]);
-    expect(records).toHaveLength(152);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_979);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_979;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_944;');
+    expect(records).toHaveLength(155);
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_999);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_999;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_964;');
     expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;');
     expect(source).toContain('const EXPECTED_PERFORMANCE_DEFICIT_TOTAL = 14;');
     expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 1944 pass, 21 immutable conflicts, and 14 performance deficits'",
+      "'canonical comparison must be exactly 1964 pass, 21 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 1944 pass, 21 immutable conflicts, and 14 performance deficits'",
+      "'repeat comparison must be exactly 1964 pass, 21 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 1944 pass, 21 immutable conflicts, and 14 performance deficits'",
+      "'fresh comparison must be exactly 1964 pass, 21 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -408,7 +411,7 @@ describe('Core v2 render browser checkpoint script', () => {
       "'render checkpoint measured performance deficit inventory must remain 14'",
     );
     expect(source).toContain(
-      "'render checkpoint passing assertion inventory must remain 1944'",
+      "'render checkpoint passing assertion inventory must remain 1964'",
     );
   });
 
@@ -608,9 +611,15 @@ describe('Core v2 render browser checkpoint script', () => {
     ]) {
       expect(source).toContain(`'${caseId}',`);
     }
+    expect(source).toContain('const ACCESSIBILITY_TRANCHE_CASES = new Set([');
+    for (const caseId of ['ACC-001', 'ACC-002', 'ACC-003']) {
+      expect(source).toContain(`'${caseId}',`);
+    }
     expect(source).toContain("if (caseSpec.id === 'VIE-001')");
     expect(source).toContain('await verifyViewportRootInput(page)');
-    expect(source).toContain("caseSpec.id === 'EVT-003' || caseSpec.id === 'EVT-008'");
+    expect(source).toContain("caseSpec.id === 'EVT-003'");
+    expect(source).toContain("caseSpec.id === 'EVT-008'");
+    expect(source).toContain("caseSpec.id === 'ACC-002'");
     expect(source).toContain('await verifyPointerRootInput(page, caseSpec.id)');
     expect(source).toContain('return bridge.armGesture(0)');
     expect(source).toContain("await bridge.awaitMilestone(0, 'settled')");
@@ -620,6 +629,9 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('observed.nativeWheel?.count === 1');
     expect(source).toContain("event?.type === 'hover-change'");
     expect(source).toContain("event?.type === 'click' && event.payload?.button === 2");
+    expect(source).toContain("observation.snapshot.selectionIds[0] === 'rect-b'");
+    expect(source).toContain("surface?.focusedId === 'rect-b'");
+    expect(source).toContain("performedActions?.includes('activate')");
     expect(source).toContain('observed.ownership?.rootListenerCount === 8');
     expect(source).toContain('observed.nativeContextMenu[0]?.defaultPrevented === true');
     expect(source).toContain('observed.nativeContextMenu[1]?.defaultPrevented === false');
@@ -662,6 +674,7 @@ describe('Core v2 render browser checkpoint script', () => {
       'OPS-002',
     ]);
     expect(gpuCaseBlock).toContain('...DETERMINISM_LIFECYCLE_TRANCHE_CASES');
+    expect(gpuCaseBlock).toContain('...ACCESSIBILITY_TRANCHE_CASES');
     expect(gpuCaseBlock).toContain('...PERFORMANCE_GPU_CASES');
     expect(source).toContain('await installWebGlCanvasProbe(page, caseSpec.id)');
     expect(source).toContain('await page.addInitScript(({ probeName, caseIdentity }) => {');
@@ -672,6 +685,12 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('context.readPixels(x, 0, 1, canvas.height');
     expect(source).toContain('if (PIXIJS_INTEGRATION_TRANCHE_CASES.has(caseId)) return;');
     expect(source).toContain('if (SECURITY_OPERATIONS_TRANCHE_CASES.has(caseId)) return;');
+    expect(source).toContain('if (ACCESSIBILITY_TRANCHE_CASES.has(caseId)) return;');
+    expect(source).toContain('assertAccessibilityActuals(caseSpec.id, run.actualObservation, runLabel)');
+    expect(source).toContain('surface.shadowDomNodeCount === 3');
+    expect(source).toContain('surface.rootListenerCount === 1');
+    expect(source).toContain('surface.entityListenerCount === 0');
+    expect(source).toContain('surface.shadowDomFocusedId === focusedId');
     expect(source).toContain('if (PERFORMANCE_GPU_CASES.has(caseId)) return;');
     expect(source).toContain('assertLay003GpuPaintOrder(gpu, prefix)');
     expect(source).toContain('initial/patch/undo/redo GPU draw order');

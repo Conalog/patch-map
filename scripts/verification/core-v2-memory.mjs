@@ -71,6 +71,8 @@ try {
       let extractionBeforeDestroy = null;
       let pageLifecycleBeforeDestroy = null;
       let pageLifecycleAfterDestroy = null;
+      let accessibilityBeforeDestroy = null;
+      let accessibilityAfterDestroy = null;
       let snapshot = null;
       let observedEventCount = 0;
       let hostPublicationCount = 0;
@@ -205,6 +207,9 @@ try {
         transformerBeforeDestroy = engine.transformerGestureProbe();
         transformerEditBeforeDestroy = engine.transformerEditProbe();
         engine.publishFrame(index + 1);
+        engine.accessibilityTree('scene');
+        engine.focusAccessibilityTarget('rect-b');
+        engine.publishFrame(index + 2);
         extractionBeforeDestroy = await (async () => {
           const requestedTuple = engine.snapshot().publishedTuple;
           const beforeCanvas = engine.canvasHandle();
@@ -255,6 +260,7 @@ try {
             visible.probe.resumeFramePending,
           ...engine.pageLifecycleProbe(),
         };
+        accessibilityBeforeDestroy = engine.accessibilityProbe();
         await engine.destroy();
         tooltipSubscriptionDisposeAfterDestroy = tooltipSubscription.dispose();
         afterDestroy = engine.hostInteractionProbe();
@@ -262,6 +268,7 @@ try {
         transformerEditAfterDestroy = engine.transformerEditProbe();
         snapshot = engine.snapshot();
         pageLifecycleAfterDestroy = engine.pageLifecycleProbe();
+        accessibilityAfterDestroy = engine.accessibilityProbe();
       } catch (caught) {
         error = caught instanceof Error ? caught.message : String(caught);
         await engine.destroy().catch(() => undefined);
@@ -286,8 +293,11 @@ try {
         extractionBeforeDestroy,
         pageLifecycleBeforeDestroy,
         pageLifecycleAfterDestroy,
+        accessibilityBeforeDestroy,
+        accessibilityAfterDestroy,
         snapshot,
         retainedCanvasCount: host.querySelectorAll('canvas').length,
+        retainedHostChildCount: host.childElementCount,
       });
     }
     return trials;
@@ -386,10 +396,25 @@ try {
       trial.pageLifecycleAfterDestroy?.destroyed !== true ||
       trial.pageLifecycleAfterDestroy?.pendingWorkCount !== 0 ||
       trial.pageLifecycleAfterDestroy?.resumeFramePending !== false ||
+      JSON.stringify(trial.accessibilityBeforeDestroy?.orderedIds) !==
+        JSON.stringify(['item-a', 'rect-b']) ||
+      trial.accessibilityBeforeDestroy?.focusedId !== 'rect-b' ||
+      trial.accessibilityBeforeDestroy?.surface?.active !== true ||
+      trial.accessibilityBeforeDestroy?.surface?.shadowDomActive !== true ||
+      trial.accessibilityBeforeDestroy?.surface?.overlayNodeCount !== 2 ||
+      trial.accessibilityBeforeDestroy?.surface?.shadowDomNodeCount !== 2 ||
+      trial.accessibilityBeforeDestroy?.surface?.rootListenerCount !== 1 ||
+      trial.accessibilityBeforeDestroy?.surface?.entityListenerCount !== 0 ||
+      trial.accessibilityAfterDestroy?.destroyed !== true ||
+      trial.accessibilityAfterDestroy?.focusedId !== null ||
+      trial.accessibilityAfterDestroy?.surface !== null ||
+      JSON.stringify(trial.accessibilityAfterDestroy?.orderedIds) !==
+        JSON.stringify([]) ||
       trial.snapshot?.historyDepth !== 0 ||
       trial.snapshot?.resources?.canvasCount !== 0 ||
       trial.snapshot?.resources?.subscriptions?.active !== 0 ||
-      trial.retainedCanvasCount !== 0
+      trial.retainedCanvasCount !== 0 ||
+      trial.retainedHostChildCount !== 0
     ) {
       lifecycleFailures.push(
         `host interaction ${trial.phase} trial ${trial.index} did not release callbacks/renderer/canvas`,
