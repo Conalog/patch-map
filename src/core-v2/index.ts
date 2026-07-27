@@ -111,6 +111,13 @@ export {
   CoreV2HostAssetIngestionAuthority,
 } from './host-asset-ingestion';
 export type * from './host-asset-ingestion';
+export {
+  CORE_V2_EDITOR_MUTATION_KINDS,
+  CORE_V2_EDITOR_WORKFLOW_REVISION,
+  CoreV2EditorWorkflowAuthority,
+  planCoreV2EditorMatrixMutation,
+} from './editor-workflow';
+export type * from './editor-workflow';
 export { PatchMapParseError } from './contracts';
 export type * from './contracts';
 export { parsePatchMapV010 } from './parser';

@@ -71,6 +71,18 @@ import {
   type CoreV2HostAssetIngestionProbe,
 } from './host-asset-ingestion';
 import {
+  CORE_V2_EDITOR_MUTATION_KINDS,
+  CORE_V2_EDITOR_WORKFLOW_REVISION,
+  CoreV2EditorWorkflowAuthority,
+  planCoreV2EditorMatrixMutation,
+  type CoreV2EditorMutationKind,
+  type CoreV2EditorWorkflowAction,
+  type CoreV2EditorWorkflowDiagnostic,
+  type CoreV2EditorWorkflowFacts,
+  type CoreV2EditorWorkflowPlan,
+  type CoreV2EditorWorkflowProbe,
+} from './editor-workflow';
+import {
   coreV2AffineBasis,
   coreV2AffineCorners,
   createCoreV2Affine,
@@ -1077,6 +1089,39 @@ export interface CoreV2EngineHostAssetIngestionResult {
   readonly probe: CoreV2HostAssetIngestionProbe;
 }
 
+export interface CoreV2EngineEditorWorkflowResult {
+  readonly schemaRevision: typeof CORE_V2_EDITOR_WORKFLOW_REVISION;
+  readonly actionType: CoreV2EditorWorkflowAction['type'];
+  readonly status: 'committed' | 'unchanged' | 'rejected' | 'refused';
+  readonly changed: boolean;
+  readonly code: string | null;
+  readonly plan: CoreV2EditorWorkflowPlan;
+  readonly facts: CoreV2EditorWorkflowFacts;
+  readonly transaction: CoreV2EngineTransactionResult | null;
+  readonly diagnostic: CoreV2EditorWorkflowDiagnostic | CoreV2EngineDiagnostic | null;
+  readonly history: CoreV2HistoryState;
+  readonly selectionIds: readonly string[];
+  readonly probe: CoreV2EditorWorkflowProbe;
+}
+
+export interface CoreV2EngineEditorMutationMatrixInput {
+  readonly mutationKinds: readonly CoreV2EditorMutationKind[];
+  readonly oneActionEach: true;
+  readonly companion: CoreV2MutationJsonValue;
+}
+
+export interface CoreV2EngineEditorMutationMatrixResult {
+  readonly schemaRevision: typeof CORE_V2_EDITOR_WORKFLOW_REVISION;
+  readonly status: 'committed' | 'rejected' | 'refused';
+  readonly changed: boolean;
+  readonly code: string | null;
+  readonly requestedCount: number;
+  readonly executedCount: number;
+  readonly transactions: readonly CoreV2EngineTransactionResult[];
+  readonly history: CoreV2HistoryState;
+  readonly companionRestored: boolean;
+}
+
 interface CoreV2EnginePatchResultBase {
   readonly changed: boolean;
   readonly target: CoreV2SemanticTarget | null;
@@ -1592,6 +1637,7 @@ export class CoreV2Engine {
   >;
   private readonly hostInteractions: CoreV2HostInteractionAuthority;
   private readonly hostAssetIngestion = new CoreV2HostAssetIngestionAuthority();
+  private readonly editorWorkflows = new CoreV2EditorWorkflowAuthority();
   private readonly transformerGestures = new CoreV2TransformerGestureAuthority();
   private activeTransformerEdit: ActiveCoreV2TransformerEdit | null = null;
   private transformerEditPreviewCount = 0;
@@ -2001,6 +2047,7 @@ export class CoreV2Engine {
     this.datasetRef = options.datasetRef ?? null;
     this.sceneRevision += 1;
     this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
+    this.editorWorkflows.onSceneReplaced();
     const result: CoreV2EngineLoadResult = Object.freeze({
       lifecycle: this.lifecycle,
       sceneRevision: this.sceneRevision,
@@ -2179,6 +2226,192 @@ export class CoreV2Engine {
   public hostAssetIngestionProbe(): CoreV2HostAssetIngestionProbe {
     this.requireSurface('hostAssetIngestionProbe');
     return this.hostAssetIngestion.probe();
+  }
+
+  /**
+   * Execute one host/editor action against logical session authority. Every
+   * semantic change still enters through transact(); session-only actions only
+   * update selection and detached companion state.
+   */
+  public editorWorkflow(
+    action: CoreV2EditorWorkflowAction,
+  ): CoreV2EngineEditorWorkflowResult {
+    this.requireSurface('editorWorkflow');
+    const plan = this.editorWorkflows.plan(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      action,
+    );
+    if (plan.status === 'rejected') {
+      return Object.freeze({
+        schemaRevision: CORE_V2_EDITOR_WORKFLOW_REVISION,
+        actionType: plan.actionType,
+        status: 'rejected',
+        changed: false,
+        code: plan.diagnostic.code,
+        plan,
+        facts: plan.facts,
+        transaction: null,
+        diagnostic: plan.diagnostic,
+        history: this.history.state(),
+        selectionIds: Object.freeze([...this.logicalSelectionIds]),
+        probe: this.editorWorkflows.probe(),
+      });
+    }
+
+    if (plan.transaction === null) {
+      if (plan.selectionIds !== undefined) this.select(plan.selectionIds);
+      this.editorWorkflows.commit(plan);
+      if (plan.closeHistoryGroup) this.history.closeActionGroup();
+      return Object.freeze({
+        schemaRevision: CORE_V2_EDITOR_WORKFLOW_REVISION,
+        actionType: plan.actionType,
+        status: plan.status === 'unchanged' ? 'unchanged' : 'committed',
+        changed: plan.changed,
+        code: null,
+        plan,
+        facts: plan.facts,
+        transaction: null,
+        diagnostic: null,
+        history: this.history.state(),
+        selectionIds: Object.freeze([...this.logicalSelectionIds]),
+        probe: this.editorWorkflows.probe(),
+      });
+    }
+
+    const transaction = this.transact(plan.transaction);
+    const accepted = transaction.status === 'committed' || transaction.status === 'unchanged';
+    if (accepted) {
+      if (plan.selectionIds !== undefined) this.select(plan.selectionIds);
+      this.editorWorkflows.commit(plan);
+      if (plan.closeHistoryGroup) this.history.closeActionGroup();
+    } else {
+      this.editorWorkflows.discard(plan);
+    }
+    const diagnostic =
+      transaction.status === 'rejected' || transaction.status === 'refused'
+        ? transaction.diagnostic
+        : null;
+    return Object.freeze({
+      schemaRevision: CORE_V2_EDITOR_WORKFLOW_REVISION,
+      actionType: plan.actionType,
+      status: transaction.status,
+      changed: transaction.changed,
+      code: diagnostic?.code ?? null,
+      plan,
+      facts: plan.facts,
+      transaction,
+      diagnostic,
+      history: transaction.history.state,
+      selectionIds: Object.freeze([...this.logicalSelectionIds]),
+      probe: this.editorWorkflows.probe(),
+    });
+  }
+
+  public editorWorkflowProbe(): CoreV2EditorWorkflowProbe {
+    this.requireSurface('editorWorkflowProbe');
+    return this.editorWorkflows.probe();
+  }
+
+  /**
+   * Run the approved editor mutation taxonomy as twelve real, separately
+   * reversible semantic transactions. This is deliberately not a synthetic
+   * counter: every entry publishes through the current aggregate surface.
+   */
+  public runEditorMutationMatrix(
+    input: CoreV2EngineEditorMutationMatrixInput,
+  ): CoreV2EngineEditorMutationMatrixResult {
+    this.requireSurface('runEditorMutationMatrix');
+    const requested: readonly CoreV2EditorMutationKind[] = Object.freeze(
+      input.mutationKinds.map((kind) => kind),
+    );
+    const valid =
+      input.oneActionEach === true &&
+      requested.length === CORE_V2_EDITOR_MUTATION_KINDS.length &&
+      requested.every((kind, index) => kind === CORE_V2_EDITOR_MUTATION_KINDS[index]);
+    if (!valid) {
+      return Object.freeze({
+        schemaRevision: CORE_V2_EDITOR_WORKFLOW_REVISION,
+        status: 'rejected',
+        changed: false,
+        code: 'INVALID_VALUE',
+        requestedCount: requested.length,
+        executedCount: 0,
+        transactions: Object.freeze([]),
+        history: this.history.state(),
+        companionRestored: false,
+      });
+    }
+    const companion = detachCoreV2MutationJsonValue(
+      input.companion,
+      '$.editorMutationMatrix.companion',
+    );
+    this.setHistoryCompanion(companion);
+    const transactions: CoreV2EngineTransactionResult[] = [];
+    for (const kind of requested) {
+      const materialized = this.materialized;
+      if (materialized === null) {
+        return Object.freeze({
+          schemaRevision: CORE_V2_EDITOR_WORKFLOW_REVISION,
+          status: 'rejected',
+          changed: transactions.length > 0,
+          code: 'INVALID_MUTATION',
+          requestedCount: requested.length,
+          executedCount: transactions.length,
+          transactions: Object.freeze([...transactions]),
+          history: this.history.state(),
+          companionRestored: false,
+        });
+      }
+      let request: CoreV2MutationTransactionRequest;
+      try {
+        request = planCoreV2EditorMatrixMutation(materialized, kind, companion);
+      } catch {
+        return Object.freeze({
+          schemaRevision: CORE_V2_EDITOR_WORKFLOW_REVISION,
+          status: 'rejected',
+          changed: transactions.length > 0,
+          code: 'INVALID_MUTATION',
+          requestedCount: requested.length,
+          executedCount: transactions.length,
+          transactions: Object.freeze([...transactions]),
+          history: this.history.state(),
+          companionRestored: false,
+        });
+      }
+      const result = this.transact(request);
+      transactions.push(result);
+      if (result.status !== 'committed') {
+        const code =
+          result.status === 'rejected' || result.status === 'refused'
+            ? result.diagnostic.code
+            : 'INVALID_MUTATION';
+        return Object.freeze({
+          schemaRevision: CORE_V2_EDITOR_WORKFLOW_REVISION,
+          status: result.status === 'refused' ? 'refused' : 'rejected',
+          changed: transactions.some((entry) => entry.changed),
+          code,
+          requestedCount: requested.length,
+          executedCount: transactions.filter((entry) => entry.status === 'committed').length,
+          transactions: Object.freeze([...transactions]),
+          history: this.history.state(),
+          companionRestored: false,
+        });
+      }
+    }
+    this.history.closeActionGroup();
+    const currentCompanion = this.historyCompanionState().hostCompanion;
+    return Object.freeze({
+      schemaRevision: CORE_V2_EDITOR_WORKFLOW_REVISION,
+      status: 'committed',
+      changed: true,
+      code: null,
+      requestedCount: requested.length,
+      executedCount: transactions.length,
+      transactions: Object.freeze([...transactions]),
+      history: this.history.state(),
+      companionRestored:
+        JSON.stringify(currentCompanion) === JSON.stringify(companion),
+    });
   }
 
   private planMutationRequest(
@@ -5272,6 +5505,7 @@ export class CoreV2Engine {
     this.pointerGestureAuthority?.destroy();
     this.pointerGestureAuthority = null;
     this.transformerGestures.destroy();
+    this.editorWorkflows.destroy();
     this.hostInteractions.destroy();
     const pendingInitialization = this.initializePromise;
     const assetSession = this.assetSession;
