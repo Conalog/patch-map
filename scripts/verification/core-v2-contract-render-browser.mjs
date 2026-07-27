@@ -21,8 +21,8 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 1_751;
-const EXPECTED_ASSERTION_PASS_TOTAL = 1_730;
+const EXPECTED_ASSERTION_TOTAL = 1_800;
+const EXPECTED_ASSERTION_PASS_TOTAL = 1_779;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;
 const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;
 const CASE_TIMEOUT_MS = 180_000;
@@ -220,6 +220,7 @@ const RENDER_CASES = Object.freeze([
     expectedAssertions: 11,
     expectedFailures: ANI_002_IMMUTABLE_FAILURES,
   }),
+  Object.freeze({ id: 'ANI-003', expectedAssertions: 14 }),
   Object.freeze({ id: 'UPD-013', expectedAssertions: 8 }),
   Object.freeze({ id: 'UPD-014', expectedAssertions: 10 }),
   Object.freeze({ id: 'CSM-005', expectedAssertions: 21 }),
@@ -330,6 +331,9 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'CSM-017', expectedAssertions: 20 }),
   Object.freeze({ id: 'CSM-036', expectedAssertions: 21 }),
   Object.freeze({ id: 'CSM-037', expectedAssertions: 23 }),
+  Object.freeze({ id: 'DET-001', expectedAssertions: 4 }),
+  Object.freeze({ id: 'DET-002', expectedAssertions: 9 }),
+  Object.freeze({ id: 'DET-003', expectedAssertions: 5 }),
   Object.freeze({ id: 'DET-004', expectedAssertions: 5 }),
   Object.freeze({ id: 'PRF-008', expectedAssertions: 7 }),
   Object.freeze({ id: 'PIX-004', expectedAssertions: 6 }),
@@ -346,6 +350,7 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'CSM-032', expectedAssertions: 21 }),
   Object.freeze({ id: 'CSM-033', expectedAssertions: 20 }),
   Object.freeze({ id: 'CSM-034', expectedAssertions: 23 }),
+  Object.freeze({ id: 'LIF-006', expectedAssertions: 17 }),
 ]);
 const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-006', 'REN-008', 'REN-010', 'REN-011']);
 const PRESENTATION_TRANCHE_CASES = new Set([
@@ -467,6 +472,13 @@ const LIFECYCLE_INTERRUPTION_TRANCHE_CASES = new Set([
   'CSM-017',
   'CSM-036',
 ]);
+const DETERMINISM_LIFECYCLE_TRANCHE_CASES = new Set([
+  'DET-001',
+  'DET-002',
+  'DET-003',
+  'ANI-003',
+  'LIF-006',
+]);
 const EXPORT_EXTRACTION_TRANCHE_CASES = new Set([
   'DET-004',
   'PIX-004',
@@ -486,6 +498,7 @@ const CONTROL_CASES = new Set([
   ...HISTORY_TRANCHE_CASES,
   ...REPLACEMENT_RECOVERY_TRANCHE_CASES,
   ...LIFECYCLE_INTERRUPTION_TRANCHE_CASES,
+  ...DETERMINISM_LIFECYCLE_TRANCHE_CASES,
   ...EXPORT_EXTRACTION_TRANCHE_CASES,
 ]);
 const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);
@@ -499,6 +512,7 @@ const GPU_EVIDENCE_CASES = new Set([
   'UPD-009',
   'LIF-003',
   'CSM-037',
+  ...DETERMINISM_LIFECYCLE_TRANCHE_CASES,
   ...AUTHORING_TRANCHE_CASES,
   ...EDITOR_WORKFLOW_TRANCHE_CASES,
 ]);
@@ -632,28 +646,28 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all one-hundred-twenty-five render routes completed'
+      ? 'all one-hundred-thirty render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 1730 pass and 21 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 1779 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 1730 pass and 21 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 1779 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 1730 pass and 21 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 1779 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -2321,6 +2335,7 @@ function assertGpuEvidence(caseId, gpu, runLabel) {
     gpu.frames.every((frame) => frame.draws.length > 0),
     `${prefix} draw frames (${gpuFrameDiagnostic(gpu)})`,
   );
+  if (DETERMINISM_LIFECYCLE_TRANCHE_CASES.has(caseId)) return;
 
   if (caseId === 'LAY-003') {
     assertLay003GpuPaintOrder(gpu, prefix);
@@ -3017,7 +3032,7 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 1751',
+    'render checkpoint assertion inventory must remain 1800',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===

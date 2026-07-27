@@ -1,4 +1,5 @@
 import type { CoreV2Engine } from '../../../src/core-v2';
+import { buildCoreV2SeededScenarioScene } from './seeded-scene';
 
 export const CORE_V2_UPDATE_TRANSACTIONS_RUNTIME_REVISION =
   'core-v2-update-transactions-runtime/1';
@@ -73,7 +74,7 @@ export function createCoreV2UpdateTransactionsRuntime(
       assertActive(released, 'synthetic scene construction');
       invariant(caseId === 'UPD-007', 'synthetic scenes belong to UPD-007');
       const input = syntheticSceneRequest(inputValue);
-      const dataset = buildSyntheticScene(input.size, input.seed);
+      const dataset = buildCoreV2SeededScenarioScene(input.size, input.seed);
       syntheticBuildCount += 1;
       syntheticEntityCount += dataset.length;
       journal.append('synthetic-scene-created', {
@@ -151,64 +152,6 @@ export function createCoreV2UpdateTransactionsRuntime(
   });
 }
 
-function buildSyntheticScene(
-  size: number,
-  seed: number,
-): readonly Readonly<Record<string, unknown>>[] {
-  const random = createSeededRandom(seed);
-  const columns = Math.max(1, Math.ceil(Math.sqrt(size)));
-  const dataset: Readonly<Record<string, unknown>>[] = [];
-  for (let index = 0; index < size; index += 1) {
-    const width = 88 + Math.floor(random() * 25);
-    const height = 60 + Math.floor(random() * 21);
-    const barHeight = 8 + Math.floor(random() * 25);
-    const color = rgbaHex(
-      Math.floor(random() * 192) + 32,
-      Math.floor(random() * 192) + 32,
-      Math.floor(random() * 192) + 32,
-    );
-    dataset.push({
-      type: 'item',
-      id: `node-${index}`,
-      label: `Node ${index}`,
-      size: { width, height },
-      padding: 4,
-      attrs: {
-        x: (index % columns) * 128,
-        y: Math.floor(index / columns) * 92,
-      },
-      components: [
-        {
-          type: 'background',
-          id: 'bg',
-          source: { type: 'rect', fill: '#e2e8f0ff' },
-        },
-        {
-          type: 'bar',
-          id: 'bar',
-          source: { type: 'rect', fill: color },
-          size: { width: Math.max(1, width - 16), height: barHeight },
-          placement: 'bottom',
-          animation: true,
-          animationDuration: 200,
-        },
-        {
-          type: 'text',
-          id: 'label',
-          text: `${index}`,
-          placement: 'center',
-          style: {
-            fontFamily: 'FiraCode',
-            fontSize: 12,
-            fill: '#0f172aff',
-          },
-        },
-      ],
-    });
-  }
-  return deepFreeze(dataset);
-}
-
 function syntheticSceneRequest(value: unknown): SyntheticSceneRequest {
   const input = requireRecord(value, 'synthetic scene request');
   assertExactKeys(input, ['caseId', 'seed', 'size'], 'synthetic scene request');
@@ -267,25 +210,6 @@ function zeroOwnership(): Readonly<Record<string, number>> {
     assetLeaseCount: 0,
     pendingWorkCount: 0,
   });
-}
-
-function createSeededRandom(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let mixed = state;
-    mixed = Math.imul(mixed ^ (mixed >>> 15), mixed | 1);
-    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61);
-    return ((mixed ^ (mixed >>> 14)) >>> 0) / 0x1_0000_0000;
-  };
-}
-
-function rgbaHex(red: number, green: number, blue: number): string {
-  return `#${hexByte(red)}${hexByte(green)}${hexByte(blue)}ff`;
-}
-
-function hexByte(value: number): string {
-  return value.toString(16).padStart(2, '0');
 }
 
 class RuntimeJournal {

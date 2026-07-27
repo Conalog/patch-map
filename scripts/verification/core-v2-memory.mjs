@@ -69,6 +69,8 @@ try {
       let transformerEditAfterDestroy = null;
       let historyBeforeDestroy = null;
       let extractionBeforeDestroy = null;
+      let pageLifecycleBeforeDestroy = null;
+      let pageLifecycleAfterDestroy = null;
       let snapshot = null;
       let observedEventCount = 0;
       let hostPublicationCount = 0;
@@ -225,12 +227,41 @@ try {
           };
         })();
         beforeDestroy = engine.hostInteractionProbe();
+        const pageAsset = engine.registerPageLifecycleWork({
+          kind: 'asset',
+          requestId: `memory-page-asset-${index}`,
+        });
+        engine.registerPageLifecycleWork({
+          kind: 'extraction',
+          requestId: `memory-page-extraction-${index}`,
+        });
+        const hidden = engine.setDocumentVisibility({
+          state: 'hidden',
+          timeMs: 100 + index,
+        });
+        const obsolete = engine.completePageLifecycleWork(pageAsset);
+        const visible = engine.setDocumentVisibility({
+          state: 'visible',
+          timeMs: 10_100 + index,
+        });
+        engine.publishFrame(10_116.666667 + index);
+        engine.publishFrame(10_133.333334 + index);
+        pageLifecycleBeforeDestroy = {
+          hiddenCancelledAssetCount: hidden.transition.cancelledAssetCount,
+          hiddenCancelledExtractionCount:
+            hidden.transition.cancelledExtractionCount,
+          obsoleteStatus: obsolete.status,
+          resumeFramePendingBeforePublication:
+            visible.probe.resumeFramePending,
+          ...engine.pageLifecycleProbe(),
+        };
         await engine.destroy();
         tooltipSubscriptionDisposeAfterDestroy = tooltipSubscription.dispose();
         afterDestroy = engine.hostInteractionProbe();
         transformerAfterDestroy = engine.transformerGestureProbe();
         transformerEditAfterDestroy = engine.transformerEditProbe();
         snapshot = engine.snapshot();
+        pageLifecycleAfterDestroy = engine.pageLifecycleProbe();
       } catch (caught) {
         error = caught instanceof Error ? caught.message : String(caught);
         await engine.destroy().catch(() => undefined);
@@ -253,6 +284,8 @@ try {
         transformerEditAfterDestroy,
         historyBeforeDestroy,
         extractionBeforeDestroy,
+        pageLifecycleBeforeDestroy,
+        pageLifecycleAfterDestroy,
         snapshot,
         retainedCanvasCount: host.querySelectorAll('canvas').length,
       });
@@ -301,11 +334,11 @@ try {
       trial.afterDestroy?.selectionHostListeners !== 0 ||
       trial.afterDestroy?.tooltipHostListeners !== 0 ||
       JSON.stringify(trial.afterDestroy?.tooltip?.clearTrace) !==
-        JSON.stringify(['drag', 'destroy']) ||
+        JSON.stringify(['drag', 'redraw', 'destroy']) ||
       trial.afterDestroy?.tooltip?.targetId !== null ||
       trial.afterDestroy?.tooltip?.destroyed !== true ||
       JSON.stringify(trial.tooltipPublicationReasons) !==
-        JSON.stringify(['hover', 'pin', 'drag', 'destroy']) ||
+        JSON.stringify(['hover', 'pin', 'drag', 'redraw', 'destroy']) ||
       trial.tooltipSubscriptionDisposeAfterDestroy !== 'disposed' ||
       trial.afterDestroy?.mode?.activeOwnerCount !== 0 ||
       trial.afterDestroy?.destroyed !== true ||
@@ -338,6 +371,21 @@ try {
       trial.extractionBeforeDestroy?.temporaryImageCount !== 0 ||
       trial.extractionBeforeDestroy?.renderTextureCount !== 0 ||
       trial.extractionBeforeDestroy?.pendingWorkAfter !== 0 ||
+      trial.pageLifecycleBeforeDestroy?.hiddenCancelledAssetCount !== 1 ||
+      trial.pageLifecycleBeforeDestroy?.hiddenCancelledExtractionCount !== 1 ||
+      trial.pageLifecycleBeforeDestroy?.obsoleteStatus !== 'obsolete' ||
+      trial.pageLifecycleBeforeDestroy?.state !== 'visible' ||
+      trial.pageLifecycleBeforeDestroy?.pendingWorkCount !== 0 ||
+      trial.pageLifecycleBeforeDestroy?.cancelledAssetCount !== 1 ||
+      trial.pageLifecycleBeforeDestroy?.cancelledExtractionCount !== 1 ||
+      trial.pageLifecycleBeforeDestroy?.obsoleteCompletionCount !== 1 ||
+      trial.pageLifecycleBeforeDestroy
+        ?.resumeFramePendingBeforePublication !== true ||
+      trial.pageLifecycleBeforeDestroy?.resumeFramePending !== false ||
+      trial.pageLifecycleBeforeDestroy?.resumePublishedFrameCount !== 1 ||
+      trial.pageLifecycleAfterDestroy?.destroyed !== true ||
+      trial.pageLifecycleAfterDestroy?.pendingWorkCount !== 0 ||
+      trial.pageLifecycleAfterDestroy?.resumeFramePending !== false ||
       trial.snapshot?.historyDepth !== 0 ||
       trial.snapshot?.resources?.canvasCount !== 0 ||
       trial.snapshot?.resources?.subscriptions?.active !== 0 ||

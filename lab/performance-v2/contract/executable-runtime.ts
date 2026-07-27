@@ -37,6 +37,8 @@ import * as lifecycleDestroyHandlersModule from '../../../scripts/verification/c
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as lifecycleInterruptionHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/lifecycle-interruption.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as determinismLifecycleHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/determinism-lifecycle.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as renderFoundationHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/render-foundation.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as renderBoundsHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/render-bounds.mjs';
@@ -90,6 +92,8 @@ import * as lifecycleResizeFoldModule from '../../../scripts/verification/core-v
 import * as lifecycleDestroyFoldModule from '../../../scripts/verification/core-v2-contract/fold-lifecycle-destroy.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as lifecycleInterruptionFoldModule from '../../../scripts/verification/core-v2-contract/fold-lifecycle-interruption.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as determinismLifecycleFoldModule from '../../../scripts/verification/core-v2-contract/fold-determinism-lifecycle.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as renderFoundationFoldModule from '../../../scripts/verification/core-v2-contract/fold-render-foundation.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
@@ -193,6 +197,11 @@ import {
   type CoreV2LifecycleInterruptionCaseId,
 } from './lifecycle-interruption-runtime';
 import {
+  CORE_V2_DETERMINISM_LIFECYCLE_CASE_IDS,
+  createCoreV2DeterminismLifecycleRuntime,
+  type CoreV2DeterminismLifecycleCaseId,
+} from './determinism-lifecycle-runtime';
+import {
   CORE_V2_EXPORT_EXTRACTION_CASE_IDS,
   createCoreV2ExportExtractionRuntime,
   type CoreV2ExportExtractionCaseId,
@@ -206,6 +215,7 @@ export type CoreV2ExecutableRuntimeKey =
   | 'lifecycle-resize'
   | 'lifecycle-destroy'
   | 'lifecycle-interruption'
+  | 'determinism-lifecycle'
   | 'render-foundation'
   | 'render-bounds'
   | 'render-orientation'
@@ -251,6 +261,10 @@ interface HandlerFactoryRuntime {
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
   createLifecycleInterruptionHandlerEntries?(
+    this: void,
+    product: Readonly<Record<string, unknown>>,
+  ): readonly HandlerEntry[];
+  createDeterminismLifecycleHandlerEntries?(
     this: void,
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
@@ -350,6 +364,10 @@ interface FoldRuntime {
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
   foldLifecycleInterruptionExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
+  foldDeterminismLifecycleExecution?(
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
@@ -475,6 +493,8 @@ const lifecycleResizeHandlers = lifecycleResizeHandlersModule as unknown as Hand
 const lifecycleDestroyHandlers = lifecycleDestroyHandlersModule as unknown as HandlerFactoryRuntime;
 const lifecycleInterruptionHandlers =
   lifecycleInterruptionHandlersModule as unknown as HandlerFactoryRuntime;
+const determinismLifecycleHandlers =
+  determinismLifecycleHandlersModule as unknown as HandlerFactoryRuntime;
 const renderFoundationHandlers = renderFoundationHandlersModule as unknown as HandlerFactoryRuntime;
 const renderBoundsHandlers = renderBoundsHandlersModule as unknown as HandlerFactoryRuntime;
 const renderOrientationHandlers = renderOrientationHandlersModule as unknown as HandlerFactoryRuntime;
@@ -509,6 +529,8 @@ const lifecycleResizeFold = lifecycleResizeFoldModule as unknown as FoldRuntime;
 const lifecycleDestroyFold = lifecycleDestroyFoldModule as unknown as FoldRuntime;
 const lifecycleInterruptionFold =
   lifecycleInterruptionFoldModule as unknown as FoldRuntime;
+const determinismLifecycleFold =
+  determinismLifecycleFoldModule as unknown as FoldRuntime;
 const renderFoundationFold = renderFoundationFoldModule as unknown as FoldRuntime;
 const renderBoundsFold = renderBoundsFoldModule as unknown as FoldRuntime;
 const renderOrientationFold = renderOrientationFoldModule as unknown as FoldRuntime;
@@ -590,6 +612,10 @@ const REPLACEMENT_RECOVERY_CASE_IDS = new Set<CoreV2ReplacementRecoveryCaseId>(
 const LIFECYCLE_INTERRUPTION_CASE_IDS = new Set<CoreV2LifecycleInterruptionCaseId>(
   CORE_V2_LIFECYCLE_INTERRUPTION_CASE_IDS,
 );
+const DETERMINISM_LIFECYCLE_CASE_IDS =
+  new Set<CoreV2DeterminismLifecycleCaseId>(
+    CORE_V2_DETERMINISM_LIFECYCLE_CASE_IDS,
+  );
 const EXPORT_EXTRACTION_CASE_IDS = new Set<CoreV2ExportExtractionCaseId>(
   CORE_V2_EXPORT_EXTRACTION_CASE_IDS,
 );
@@ -756,6 +782,7 @@ const EDITOR_WORKFLOW_DESCRIPTOR = createEditorWorkflowDescriptor();
 const HISTORY_DESCRIPTOR = createHistoryDescriptor();
 const REPLACEMENT_RECOVERY_DESCRIPTOR = createReplacementRecoveryDescriptor();
 const LIFECYCLE_INTERRUPTION_DESCRIPTOR = createLifecycleInterruptionDescriptor();
+const DETERMINISM_LIFECYCLE_DESCRIPTOR = createDeterminismLifecycleDescriptor();
 const EXPORT_EXTRACTION_DESCRIPTOR = createExportExtractionDescriptor();
 
 export function resolveCoreV2ExecutableRuntime(
@@ -789,6 +816,7 @@ export function resolveCoreV2ExecutableRuntime(
   if (isHistoryCaseId(caseId)) return HISTORY_DESCRIPTOR;
   if (isReplacementRecoveryCaseId(caseId)) return REPLACEMENT_RECOVERY_DESCRIPTOR;
   if (isLifecycleInterruptionCaseId(caseId)) return LIFECYCLE_INTERRUPTION_DESCRIPTOR;
+  if (isDeterminismLifecycleCaseId(caseId)) return DETERMINISM_LIFECYCLE_DESCRIPTOR;
   if (isExportExtractionCaseId(caseId)) return EXPORT_EXTRACTION_DESCRIPTOR;
   if (isViewportCaseId(caseId)) return VIEWPORT_DESCRIPTOR;
   if (ASSET_INGESTION_CASE_IDS.has(caseId)) return ASSET_INGESTION_DESCRIPTOR;
@@ -844,6 +872,58 @@ function isLifecycleInterruptionCaseId(
 ): caseId is CoreV2LifecycleInterruptionCaseId {
   return LIFECYCLE_INTERRUPTION_CASE_IDS.has(
     caseId as CoreV2LifecycleInterruptionCaseId,
+  );
+}
+
+function createDeterminismLifecycleDescriptor(): CoreV2ExecutableRuntimeDescriptor {
+  const fold = requireFold(
+    determinismLifecycleFold.foldDeterminismLifecycleExecution,
+    'determinism-lifecycle fold',
+  );
+  const createEntries = requireFactory(
+    determinismLifecycleHandlers.createDeterminismLifecycleHandlerEntries,
+    'determinism-lifecycle handlers',
+  );
+  const createRun = (plan: CoreV2ExecutableCasePlan) => {
+    invariant(
+      isDeterminismLifecycleCaseId(plan.id),
+      'determinism-lifecycle case identity',
+    );
+    const runtime = createCoreV2DeterminismLifecycleRuntime(plan.id);
+    return Object.freeze({
+      handlerEntries: selectHandlerEntries(
+        plan,
+        createEntries(
+          runtime.product as unknown as Readonly<Record<string, unknown>>,
+        ),
+      ),
+      engineOptions: Object.freeze({}),
+      postDestroyProductProbe: () => runtime.postDestroyProductProbe(),
+    });
+  };
+  return Object.freeze({
+    key: 'determinism-lifecycle',
+    needsSupplementalWebGLLease: false,
+    createRun,
+    handlerEntries(plan: CoreV2ExecutableCasePlan): readonly HandlerEntry[] {
+      return createRun(plan).handlerEntries;
+    },
+    fold(input: CoreV2RuntimeFoldInput): CoreV2FoldedExecution {
+      return fold({
+        casePlan: input.casePlan,
+        execution: input.execution,
+        provenance: input.provenance,
+        environment: input.environment,
+      });
+    },
+  });
+}
+
+function isDeterminismLifecycleCaseId(
+  caseId: CoreV2ExecutableCaseId,
+): caseId is CoreV2DeterminismLifecycleCaseId {
+  return DETERMINISM_LIFECYCLE_CASE_IDS.has(
+    caseId as CoreV2DeterminismLifecycleCaseId,
   );
 }
 

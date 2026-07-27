@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-27T05:20:51.785Z",
+  "generatedAt": "2026-07-27T06:31:04.170Z",
   "workload": {
     "sourceItems": 1000,
     "expandedEntities": 5099
@@ -20,6 +20,7 @@
         "hover",
         "pin",
         "drag",
+        "redraw",
         "destroy"
       ],
       "tooltipSubscriptionDisposeAfterDestroy": "disposed",
@@ -79,9 +80,10 @@
           "anchorCss": null,
           "boundsCss": null,
           "pinned": false,
-          "revision": 4,
+          "revision": 5,
           "clearTrace": [
             "drag",
+            "redraw",
             "destroy"
           ],
           "destroyed": true
@@ -205,6 +207,54 @@
         "renderTextureCount": 0,
         "pendingWorkAfter": 0
       },
+      "pageLifecycleBeforeDestroy": {
+        "hiddenCancelledAssetCount": 1,
+        "hiddenCancelledExtractionCount": 1,
+        "obsoleteStatus": "obsolete",
+        "resumeFramePendingBeforePublication": true,
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10100,
+        "hiddenAtMs": 100,
+        "resumedAtMs": 10100,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": false,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
+      "pageLifecycleAfterDestroy": {
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10100,
+        "hiddenAtMs": 100,
+        "resumedAtMs": 10100,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": true,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-0",
@@ -212,14 +262,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 8
+          "interactionRevision": 10
         },
         "publishedTuple": {
           "scene": 4,
           "view": 0,
-          "interaction": 8
+          "interaction": 10
         },
-        "frameRevision": 1,
+        "frameRevision": 3,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -288,6 +338,7 @@
         "hover",
         "pin",
         "drag",
+        "redraw",
         "destroy"
       ],
       "tooltipSubscriptionDisposeAfterDestroy": "disposed",
@@ -347,9 +398,10 @@
           "anchorCss": null,
           "boundsCss": null,
           "pinned": false,
-          "revision": 4,
+          "revision": 5,
           "clearTrace": [
             "drag",
+            "redraw",
             "destroy"
           ],
           "destroyed": true
@@ -473,6 +525,54 @@
         "renderTextureCount": 0,
         "pendingWorkAfter": 0
       },
+      "pageLifecycleBeforeDestroy": {
+        "hiddenCancelledAssetCount": 1,
+        "hiddenCancelledExtractionCount": 1,
+        "obsoleteStatus": "obsolete",
+        "resumeFramePendingBeforePublication": true,
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10101,
+        "hiddenAtMs": 101,
+        "resumedAtMs": 10101,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": false,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
+      "pageLifecycleAfterDestroy": {
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10101,
+        "hiddenAtMs": 101,
+        "resumedAtMs": 10101,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": true,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-1",
@@ -480,14 +580,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 8
+          "interactionRevision": 10
         },
         "publishedTuple": {
           "scene": 4,
           "view": 0,
-          "interaction": 8
+          "interaction": 10
         },
-        "frameRevision": 1,
+        "frameRevision": 3,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -556,6 +656,7 @@
         "hover",
         "pin",
         "drag",
+        "redraw",
         "destroy"
       ],
       "tooltipSubscriptionDisposeAfterDestroy": "disposed",
@@ -615,9 +716,10 @@
           "anchorCss": null,
           "boundsCss": null,
           "pinned": false,
-          "revision": 4,
+          "revision": 5,
           "clearTrace": [
             "drag",
+            "redraw",
             "destroy"
           ],
           "destroyed": true
@@ -741,6 +843,54 @@
         "renderTextureCount": 0,
         "pendingWorkAfter": 0
       },
+      "pageLifecycleBeforeDestroy": {
+        "hiddenCancelledAssetCount": 1,
+        "hiddenCancelledExtractionCount": 1,
+        "obsoleteStatus": "obsolete",
+        "resumeFramePendingBeforePublication": true,
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10102,
+        "hiddenAtMs": 102,
+        "resumedAtMs": 10102,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": false,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
+      "pageLifecycleAfterDestroy": {
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10102,
+        "hiddenAtMs": 102,
+        "resumedAtMs": 10102,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": true,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-2",
@@ -748,14 +898,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 8
+          "interactionRevision": 10
         },
         "publishedTuple": {
           "scene": 4,
           "view": 0,
-          "interaction": 8
+          "interaction": 10
         },
-        "frameRevision": 1,
+        "frameRevision": 3,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -824,6 +974,7 @@
         "hover",
         "pin",
         "drag",
+        "redraw",
         "destroy"
       ],
       "tooltipSubscriptionDisposeAfterDestroy": "disposed",
@@ -883,9 +1034,10 @@
           "anchorCss": null,
           "boundsCss": null,
           "pinned": false,
-          "revision": 4,
+          "revision": 5,
           "clearTrace": [
             "drag",
+            "redraw",
             "destroy"
           ],
           "destroyed": true
@@ -1009,6 +1161,54 @@
         "renderTextureCount": 0,
         "pendingWorkAfter": 0
       },
+      "pageLifecycleBeforeDestroy": {
+        "hiddenCancelledAssetCount": 1,
+        "hiddenCancelledExtractionCount": 1,
+        "obsoleteStatus": "obsolete",
+        "resumeFramePendingBeforePublication": true,
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10103,
+        "hiddenAtMs": 103,
+        "resumedAtMs": 10103,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": false,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
+      "pageLifecycleAfterDestroy": {
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10103,
+        "hiddenAtMs": 103,
+        "resumedAtMs": 10103,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": true,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-3",
@@ -1016,14 +1216,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 8
+          "interactionRevision": 10
         },
         "publishedTuple": {
           "scene": 4,
           "view": 0,
-          "interaction": 8
+          "interaction": 10
         },
-        "frameRevision": 1,
+        "frameRevision": 3,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -1092,6 +1292,7 @@
         "hover",
         "pin",
         "drag",
+        "redraw",
         "destroy"
       ],
       "tooltipSubscriptionDisposeAfterDestroy": "disposed",
@@ -1151,9 +1352,10 @@
           "anchorCss": null,
           "boundsCss": null,
           "pinned": false,
-          "revision": 4,
+          "revision": 5,
           "clearTrace": [
             "drag",
+            "redraw",
             "destroy"
           ],
           "destroyed": true
@@ -1277,6 +1479,54 @@
         "renderTextureCount": 0,
         "pendingWorkAfter": 0
       },
+      "pageLifecycleBeforeDestroy": {
+        "hiddenCancelledAssetCount": 1,
+        "hiddenCancelledExtractionCount": 1,
+        "obsoleteStatus": "obsolete",
+        "resumeFramePendingBeforePublication": true,
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10104,
+        "hiddenAtMs": 104,
+        "resumedAtMs": 10104,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": false,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
+      "pageLifecycleAfterDestroy": {
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10104,
+        "hiddenAtMs": 104,
+        "resumedAtMs": 10104,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": true,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-4",
@@ -1284,14 +1534,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 8
+          "interactionRevision": 10
         },
         "publishedTuple": {
           "scene": 4,
           "view": 0,
-          "interaction": 8
+          "interaction": 10
         },
-        "frameRevision": 1,
+        "frameRevision": 3,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -1360,6 +1610,7 @@
         "hover",
         "pin",
         "drag",
+        "redraw",
         "destroy"
       ],
       "tooltipSubscriptionDisposeAfterDestroy": "disposed",
@@ -1419,9 +1670,10 @@
           "anchorCss": null,
           "boundsCss": null,
           "pinned": false,
-          "revision": 4,
+          "revision": 5,
           "clearTrace": [
             "drag",
+            "redraw",
             "destroy"
           ],
           "destroyed": true
@@ -1545,6 +1797,54 @@
         "renderTextureCount": 0,
         "pendingWorkAfter": 0
       },
+      "pageLifecycleBeforeDestroy": {
+        "hiddenCancelledAssetCount": 1,
+        "hiddenCancelledExtractionCount": 1,
+        "obsoleteStatus": "obsolete",
+        "resumeFramePendingBeforePublication": true,
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10105,
+        "hiddenAtMs": 105,
+        "resumedAtMs": 10105,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": false,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
+      "pageLifecycleAfterDestroy": {
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10105,
+        "hiddenAtMs": 105,
+        "resumedAtMs": 10105,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": true,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-5",
@@ -1552,14 +1852,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 8
+          "interactionRevision": 10
         },
         "publishedTuple": {
           "scene": 4,
           "view": 0,
-          "interaction": 8
+          "interaction": 10
         },
-        "frameRevision": 1,
+        "frameRevision": 3,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -1628,6 +1928,7 @@
         "hover",
         "pin",
         "drag",
+        "redraw",
         "destroy"
       ],
       "tooltipSubscriptionDisposeAfterDestroy": "disposed",
@@ -1687,9 +1988,10 @@
           "anchorCss": null,
           "boundsCss": null,
           "pinned": false,
-          "revision": 4,
+          "revision": 5,
           "clearTrace": [
             "drag",
+            "redraw",
             "destroy"
           ],
           "destroyed": true
@@ -1813,6 +2115,54 @@
         "renderTextureCount": 0,
         "pendingWorkAfter": 0
       },
+      "pageLifecycleBeforeDestroy": {
+        "hiddenCancelledAssetCount": 1,
+        "hiddenCancelledExtractionCount": 1,
+        "obsoleteStatus": "obsolete",
+        "resumeFramePendingBeforePublication": true,
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10106,
+        "hiddenAtMs": 106,
+        "resumedAtMs": 10106,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": false,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
+      "pageLifecycleAfterDestroy": {
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10106,
+        "hiddenAtMs": 106,
+        "resumedAtMs": 10106,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": true,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-6",
@@ -1820,14 +2170,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 8
+          "interactionRevision": 10
         },
         "publishedTuple": {
           "scene": 4,
           "view": 0,
-          "interaction": 8
+          "interaction": 10
         },
-        "frameRevision": 1,
+        "frameRevision": 3,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -1896,6 +2246,7 @@
         "hover",
         "pin",
         "drag",
+        "redraw",
         "destroy"
       ],
       "tooltipSubscriptionDisposeAfterDestroy": "disposed",
@@ -1955,9 +2306,10 @@
           "anchorCss": null,
           "boundsCss": null,
           "pinned": false,
-          "revision": 4,
+          "revision": 5,
           "clearTrace": [
             "drag",
+            "redraw",
             "destroy"
           ],
           "destroyed": true
@@ -2081,6 +2433,54 @@
         "renderTextureCount": 0,
         "pendingWorkAfter": 0
       },
+      "pageLifecycleBeforeDestroy": {
+        "hiddenCancelledAssetCount": 1,
+        "hiddenCancelledExtractionCount": 1,
+        "obsoleteStatus": "obsolete",
+        "resumeFramePendingBeforePublication": true,
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10107,
+        "hiddenAtMs": 107,
+        "resumedAtMs": 10107,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": false,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
+      "pageLifecycleAfterDestroy": {
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10107,
+        "hiddenAtMs": 107,
+        "resumedAtMs": 10107,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": true,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-7",
@@ -2088,14 +2488,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 8
+          "interactionRevision": 10
         },
         "publishedTuple": {
           "scene": 4,
           "view": 0,
-          "interaction": 8
+          "interaction": 10
         },
-        "frameRevision": 1,
+        "frameRevision": 3,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -2164,6 +2564,7 @@
         "hover",
         "pin",
         "drag",
+        "redraw",
         "destroy"
       ],
       "tooltipSubscriptionDisposeAfterDestroy": "disposed",
@@ -2223,9 +2624,10 @@
           "anchorCss": null,
           "boundsCss": null,
           "pinned": false,
-          "revision": 4,
+          "revision": 5,
           "clearTrace": [
             "drag",
+            "redraw",
             "destroy"
           ],
           "destroyed": true
@@ -2349,6 +2751,54 @@
         "renderTextureCount": 0,
         "pendingWorkAfter": 0
       },
+      "pageLifecycleBeforeDestroy": {
+        "hiddenCancelledAssetCount": 1,
+        "hiddenCancelledExtractionCount": 1,
+        "obsoleteStatus": "obsolete",
+        "resumeFramePendingBeforePublication": true,
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10108,
+        "hiddenAtMs": 108,
+        "resumedAtMs": 10108,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": false,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
+      "pageLifecycleAfterDestroy": {
+        "schemaRevision": "core-v2-page-lifecycle/1",
+        "state": "visible",
+        "lifecycleGeneration": 3,
+        "clockMs": 10108,
+        "hiddenAtMs": 108,
+        "resumedAtMs": 10108,
+        "pendingAssetCount": 0,
+        "pendingExtractionCount": 0,
+        "pendingWorkCount": 0,
+        "cancelledAssetCount": 1,
+        "cancelledExtractionCount": 1,
+        "obsoleteCompletionCount": 1,
+        "resumeFramePending": false,
+        "resumePublishedFrameCount": 1,
+        "transitionCount": 2,
+        "destroyed": true,
+        "activeAnimationCount": 0,
+        "decelerationActive": false,
+        "activeGestureCount": 0,
+        "pointerCaptureCount": 0
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-8",
@@ -2356,14 +2806,14 @@
           "lifecycleGeneration": 1,
           "sceneRevision": 4,
           "viewRevision": 0,
-          "interactionRevision": 8
+          "interactionRevision": 10
         },
         "publishedTuple": {
           "scene": 4,
           "view": 0,
-          "interaction": 8
+          "interaction": 10
         },
-        "frameRevision": 1,
+        "frameRevision": 3,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -2424,22 +2874,22 @@
     }
   ],
   "jsHeap": {
-    "before": 7562448,
-    "after": 14397052,
-    "processDelta": 6834604,
+    "before": 7605476,
+    "after": 14484916,
+    "processDelta": 6879440,
     "samples": [
-      180687,
-      76959,
-      402107,
-      87323,
-      12683,
+      180319,
+      76659,
+      399531,
       0,
-      210323
+      16939,
+      48331,
+      206943
     ],
-    "median": 87323,
-    "p95": 402107,
-    "maximum": 402107,
-    "trend": 29636
+    "median": 76659,
+    "p95": 399531,
+    "maximum": 399531,
+    "trend": 26624
   },
   "dom": {
     "canvasCount": 0,

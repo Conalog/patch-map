@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the one-hundred-twenty-five selected render routes and their 1751 canonical assertions', () => {
+  it('pins exactly the one-hundred-thirty selected render routes and their 1800 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -69,6 +69,7 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'UPD-012', expectedAssertions: 10 },
       { id: 'ANI-001', expectedAssertions: 14 },
       { id: 'ANI-002', expectedAssertions: 11 },
+      { id: 'ANI-003', expectedAssertions: 14 },
       { id: 'UPD-013', expectedAssertions: 8 },
       { id: 'UPD-014', expectedAssertions: 10 },
       { id: 'CSM-005', expectedAssertions: 21 },
@@ -151,6 +152,9 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'CSM-017', expectedAssertions: 20 },
       { id: 'CSM-036', expectedAssertions: 21 },
       { id: 'CSM-037', expectedAssertions: 23 },
+      { id: 'DET-001', expectedAssertions: 4 },
+      { id: 'DET-002', expectedAssertions: 9 },
+      { id: 'DET-003', expectedAssertions: 5 },
       { id: 'DET-004', expectedAssertions: 5 },
       { id: 'PRF-008', expectedAssertions: 7 },
       { id: 'PIX-004', expectedAssertions: 6 },
@@ -163,20 +167,21 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'CSM-032', expectedAssertions: 21 },
       { id: 'CSM-033', expectedAssertions: 20 },
       { id: 'CSM-034', expectedAssertions: 23 },
+      { id: 'LIF-006', expectedAssertions: 17 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_751);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_751;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_730;');
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_800);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_800;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_779;');
     expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;');
     expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 1730 pass and 21 observed immutable conflicts'",
+      "'canonical comparison must be exactly 1779 pass and 21 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 1730 pass and 21 observed immutable conflicts'",
+      "'repeat comparison must be exactly 1779 pass and 21 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 1730 pass and 21 observed immutable conflicts'",
+      "'fresh comparison must be exactly 1779 pass and 21 observed immutable conflicts'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -499,6 +504,11 @@ describe('Core v2 render browser checkpoint script', () => {
       expect(source).toContain(`'${caseId}',`);
     }
     expect(source).toContain('...AUTHORING_TRANCHE_CASES');
+    expect(source).toContain('const DETERMINISM_LIFECYCLE_TRANCHE_CASES = new Set([');
+    for (const caseId of ['DET-001', 'DET-002', 'DET-003', 'ANI-003', 'LIF-006']) {
+      expect(source).toContain(`'${caseId}',`);
+    }
+    expect(source).toContain('...DETERMINISM_LIFECYCLE_TRANCHE_CASES');
     expect(source).toContain('const HISTORY_TRANCHE_CASES = new Set([');
     for (const caseId of [
       'HIS-001',
@@ -567,7 +577,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("ui.controls?.destroyDisabled === false");
   });
 
-  it('captures WebGL2 draw evidence for paint, animation, and update publication', () => {
+  it('captures WebGL2 draw evidence for paint, animation, lifecycle, and update publication', () => {
     const gpuCaseBlock = source.match(
       /const GPU_EVIDENCE_CASES = new Set\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body ?? '';
@@ -583,6 +593,7 @@ describe('Core v2 render browser checkpoint script', () => {
       'LIF-003',
       'CSM-037',
     ]);
+    expect(gpuCaseBlock).toContain('...DETERMINISM_LIFECYCLE_TRANCHE_CASES');
     expect(source).toContain('await installWebGlCanvasProbe(page, caseSpec.id)');
     expect(source).toContain('await page.addInitScript(({ probeName, caseIdentity }) => {');
     expect(source).toContain('const originalGetContext = HTMLCanvasElement.prototype.getContext;');

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-27T05:20:06.264Z",
+  "generatedAt": "2026-07-27T06:30:19.545Z",
   "package": "@conalog/patch-map/core-v2",
   "pixi": "8.19.0",
   "esm": {
@@ -22,6 +22,7 @@
     "hostInteractionRevision": "core-v2-host-interaction/1",
     "hostTooltipRevision": "core-v2-host-tooltip/1",
     "pointerRevision": "core-v2-pointer-gesture/1",
+    "pageLifecycleRevision": "core-v2-page-lifecycle/1",
     "presentationRevision": "core-v2-presentation-policy/1",
     "selectionTransformerRevision": "core-v2-selection-transformer/1",
     "transformerEditRevision": "core-v2-transformer-edit/1",
@@ -56,6 +57,18 @@
         "consumer-item"
       ],
       "destroyed": true
+    },
+    "pageLifecyclePackage": {
+      "authorityType": "function",
+      "hiddenState": "hidden",
+      "hiddenCancelledAssetCount": 1,
+      "hiddenCancelledExtractionCount": 1,
+      "obsoleteStatus": "obsolete",
+      "rejectedStatus": "rejected",
+      "visibleState": "visible",
+      "resumeFramePendingBeforePublication": true,
+      "resumeFramePendingAfterPublication": false,
+      "resumePublishedFrameCount": 1
     },
     "hostInteractionPackage": {
       "authorityType": "function",
@@ -116,6 +129,7 @@
         "redraw",
         "drag",
         "drag",
+        "redraw",
         "destroy"
       ],
       "finalTarget": null,
@@ -123,6 +137,7 @@
         "redraw",
         "drag",
         "drag",
+        "redraw",
         "destroy"
       ],
       "disposeAfterDestroy": "disposed"
@@ -369,6 +384,10 @@
     "tooltipPinType": "function",
     "tooltipClearType": "function",
     "pointerRevision": "core-v2-pointer-gesture/1",
+    "pageLifecycleRevision": "core-v2-page-lifecycle/1",
+    "pageLifecycleAuthorityType": "function",
+    "pageLifecycleVisibilityType": "function",
+    "pageLifecycleProbeType": "function",
     "pointerAuthorityType": "function",
     "hostInteractionRevision": "core-v2-host-interaction/1",
     "hostInteractionAuthorityType": "function",

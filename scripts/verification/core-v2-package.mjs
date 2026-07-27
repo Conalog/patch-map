@@ -53,12 +53,14 @@ import {
   CORE_V2_HOST_INTERACTION_REVISION,
   CORE_V2_HOST_TOOLTIP_REVISION,
   CORE_V2_MUTATION_TRANSACTION_REVISION,
+  CORE_V2_PAGE_LIFECYCLE_REVISION,
   CORE_V2_POINTER_GESTURE_REVISION,
   CORE_V2_PRESENTATION_POLICY_REVISION,
   CORE_V2_SELECTION_TRANSFORMER_REVISION,
   CORE_V2_TRANSFORMER_EDIT_REVISION,
   CoreV2Engine,
   CoreV2HostInteractionAuthority,
+  CoreV2PageLifecycleAuthority,
   CoreV2PointerGestureAuthority,
   CoreV2TransformerGestureAuthority,
   createCoreV2,
@@ -485,6 +487,29 @@ const authoredRecord = engine.resolveTarget({
   id: 'packed-author-rect',
 });
 const interactionOwnership = engine.interactionOwnershipProbe();
+const pageLifecycleAsset = engine.registerPageLifecycleWork({
+  kind: 'asset',
+  requestId: 'packed-page-asset',
+});
+const pageLifecycleExtraction = engine.registerPageLifecycleWork({
+  kind: 'extraction',
+  requestId: 'packed-page-extraction',
+});
+const pageLifecycleHidden = engine.setDocumentVisibility({
+  state: 'hidden',
+  timeMs: 100,
+});
+const pageLifecycleObsolete = engine.completePageLifecycleWork(pageLifecycleAsset);
+const pageLifecycleRejected = engine.completePageLifecycleWork({
+  ...pageLifecycleExtraction,
+});
+const pageLifecycleVisible = engine.setDocumentVisibility({
+  state: 'visible',
+  timeMs: 10_100,
+});
+engine.publishFrame(10_116.666667);
+engine.publishFrame(10_133.333334);
+const pageLifecycleAfterResume = engine.pageLifecycleProbe();
 const engineDestroyResult = await engine.destroy();
 const tooltipSubscriptionDisposeAfterDestroy = tooltipSubscription.dispose();
 const hostInteractionAfterDestroy = engine.hostInteractionProbe();
@@ -509,6 +534,7 @@ window.__PACKAGE_RESULT__ = {
   hostInteractionRevision: CORE_V2_HOST_INTERACTION_REVISION,
   hostTooltipRevision: CORE_V2_HOST_TOOLTIP_REVISION,
   pointerRevision: CORE_V2_POINTER_GESTURE_REVISION,
+  pageLifecycleRevision: CORE_V2_PAGE_LIFECYCLE_REVISION,
   presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
   selectionTransformerRevision: CORE_V2_SELECTION_TRANSFORMER_REVISION,
   transformerEditRevision: CORE_V2_TRANSFORMER_EDIT_REVISION,
@@ -536,6 +562,23 @@ window.__PACKAGE_RESULT__ = {
     boxTargets: pointerBox.candidateIds,
     paintTargets: pointerPaint.candidateIds,
     destroyed: pointerAuthority.probe().destroyed,
+  },
+  pageLifecyclePackage: {
+    authorityType: typeof CoreV2PageLifecycleAuthority,
+    hiddenState: pageLifecycleHidden.probe.state,
+    hiddenCancelledAssetCount:
+      pageLifecycleHidden.transition.cancelledAssetCount,
+    hiddenCancelledExtractionCount:
+      pageLifecycleHidden.transition.cancelledExtractionCount,
+    obsoleteStatus: pageLifecycleObsolete.status,
+    rejectedStatus: pageLifecycleRejected.status,
+    visibleState: pageLifecycleVisible.probe.state,
+    resumeFramePendingBeforePublication:
+      pageLifecycleVisible.probe.resumeFramePending,
+    resumeFramePendingAfterPublication:
+      pageLifecycleAfterResume.resumeFramePending,
+    resumePublishedFrameCount:
+      pageLifecycleAfterResume.resumePublishedFrameCount,
   },
   hostInteractionPackage: {
     authorityType: typeof CoreV2HostInteractionAuthority,
@@ -714,6 +757,7 @@ const {
   CORE_V2_HOST_INTERACTION_REVISION,
   CORE_V2_HOST_TOOLTIP_REVISION,
   CORE_V2_MUTATION_TRANSACTION_REVISION,
+  CORE_V2_PAGE_LIFECYCLE_REVISION,
   CORE_V2_POINTER_GESTURE_REVISION,
   CORE_V2_PRESENTATION_POLICY_REVISION,
   CORE_V2_SELECTION_TRANSFORMER_REVISION,
@@ -721,6 +765,7 @@ const {
   CoreV2PointerGestureAuthority,
   CoreV2Engine,
   CoreV2HostInteractionAuthority,
+  CoreV2PageLifecycleAuthority,
   CoreV2TransformerGestureAuthority,
   createCoreV2CommandTargetState,
   parsePatchMapV010,
@@ -751,6 +796,10 @@ process.stdout.write(JSON.stringify({
   tooltipPinType: typeof CoreV2Engine.prototype.toggleTooltipPinAtScreen,
   tooltipClearType: typeof CoreV2Engine.prototype.clearHostTooltip,
   pointerRevision: CORE_V2_POINTER_GESTURE_REVISION,
+  pageLifecycleRevision: CORE_V2_PAGE_LIFECYCLE_REVISION,
+  pageLifecycleAuthorityType: typeof CoreV2PageLifecycleAuthority,
+  pageLifecycleVisibilityType: typeof CoreV2Engine.prototype.setDocumentVisibility,
+  pageLifecycleProbeType: typeof CoreV2Engine.prototype.pageLifecycleProbe,
   pointerAuthorityType: typeof CoreV2PointerGestureAuthority,
   hostInteractionRevision: CORE_V2_HOST_INTERACTION_REVISION,
   hostInteractionAuthorityType: typeof CoreV2HostInteractionAuthority,
@@ -835,6 +884,7 @@ process.stdout.write(JSON.stringify({
   if (esm.commandTargetRevision !== 'core-v2-command-target/1') failures.push('packed ESM command target revision export failed');
   if (esm.editorMountRevision !== 'core-v2-editor-mount/1') failures.push('packed ESM editor mount revision export failed');
   if (esm.pointerRevision !== 'core-v2-pointer-gesture/1') failures.push('packed ESM pointer revision export failed');
+  if (esm.pageLifecycleRevision !== 'core-v2-page-lifecycle/1') failures.push('packed ESM page lifecycle revision export failed');
   if (esm.hostInteractionRevision !== 'core-v2-host-interaction/1') failures.push('packed ESM host interaction revision export failed');
   if (esm.hostTooltipRevision !== 'core-v2-host-tooltip/1') failures.push('packed ESM host tooltip revision export failed');
   if (esm.selectionTransformerRevision !== 'core-v2-selection-transformer/1') failures.push('packed ESM selection transformer revision export failed');
@@ -855,6 +905,18 @@ process.stdout.write(JSON.stringify({
     JSON.stringify(esm.pointerPackage?.paintTargets) !== JSON.stringify(['consumer-item']) ||
     esm.pointerPackage?.destroyed !== true
   ) failures.push('packed ESM pointer/selection exports failed');
+  if (
+    esm.pageLifecyclePackage?.authorityType !== 'function' ||
+    esm.pageLifecyclePackage?.hiddenState !== 'hidden' ||
+    esm.pageLifecyclePackage?.hiddenCancelledAssetCount !== 1 ||
+    esm.pageLifecyclePackage?.hiddenCancelledExtractionCount !== 1 ||
+    esm.pageLifecyclePackage?.obsoleteStatus !== 'obsolete' ||
+    esm.pageLifecyclePackage?.rejectedStatus !== 'rejected' ||
+    esm.pageLifecyclePackage?.visibleState !== 'visible' ||
+    esm.pageLifecyclePackage?.resumeFramePendingBeforePublication !== true ||
+    esm.pageLifecyclePackage?.resumeFramePendingAfterPublication !== false ||
+    esm.pageLifecyclePackage?.resumePublishedFrameCount !== 1
+  ) failures.push('packed ESM page lifecycle boundary failed');
   if (
     esm.hostInteractionPackage?.authorityType !== 'function' ||
     JSON.stringify(esm.hostInteractionPackage?.bindingDeliveries) !==
@@ -896,10 +958,18 @@ process.stdout.write(JSON.stringify({
     JSON.stringify(esm.hostTooltipPackage?.hoverAnchor) !== JSON.stringify([20, 30]) ||
     esm.hostTooltipPackage?.pinned !== true ||
     JSON.stringify(esm.hostTooltipPackage?.publicationReasons) !==
-      JSON.stringify(['hover', 'pin', 'redraw', 'drag', 'drag', 'destroy']) ||
+      JSON.stringify([
+        'hover',
+        'pin',
+        'redraw',
+        'drag',
+        'drag',
+        'redraw',
+        'destroy',
+      ]) ||
     esm.hostTooltipPackage?.finalTarget !== null ||
     JSON.stringify(esm.hostTooltipPackage?.clearTrace) !==
-      JSON.stringify(['redraw', 'drag', 'drag', 'destroy']) ||
+      JSON.stringify(['redraw', 'drag', 'drag', 'redraw', 'destroy']) ||
     esm.hostTooltipPackage?.disposeAfterDestroy !== 'disposed'
   ) failures.push(
     `packed ESM host tooltip lifecycle failed: ${JSON.stringify(esm.hostTooltipPackage)}`,
@@ -1067,6 +1137,10 @@ process.stdout.write(JSON.stringify({
     cjs.tooltipClearType !== 'function' ||
     cjs.pointerRevision !== 'core-v2-pointer-gesture/1' ||
     cjs.pointerAuthorityType !== 'function' ||
+    cjs.pageLifecycleRevision !== 'core-v2-page-lifecycle/1' ||
+    cjs.pageLifecycleAuthorityType !== 'function' ||
+    cjs.pageLifecycleVisibilityType !== 'function' ||
+    cjs.pageLifecycleProbeType !== 'function' ||
     cjs.hostInteractionRevision !== 'core-v2-host-interaction/1' ||
     cjs.hostInteractionAuthorityType !== 'function' ||
     cjs.selectionTransformerRevision !== 'core-v2-selection-transformer/1' ||

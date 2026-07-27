@@ -54,11 +54,19 @@ describe('Core v2 extraction verification scripts', () => {
     expect(packageSource).toContain('engine.hoverTooltipAtScreen({ x: 20, y: 30 }, [160, 80])');
     expect(packageSource).toContain("tooltipRevision: CORE_V2_HOST_TOOLTIP_REVISION");
     expect(packageSource).toContain("editorMountRevision: CORE_V2_EDITOR_MOUNT_REVISION");
+    expect(packageSource).toContain(
+      'pageLifecycleRevision: CORE_V2_PAGE_LIFECYCLE_REVISION',
+    );
+    expect(packageSource).toContain('engine.setDocumentVisibility({');
     expect(memorySource).toContain('CORE_V2_MEMORY_ARTIFACT_DIR');
     expect(memorySource).toContain('engine.extractPublishedScene({');
     expect(memorySource).toContain('tooltipSubscription = engine.bindTooltipHost(');
     expect(memorySource).toContain(
-      "JSON.stringify(['hover', 'pin', 'drag', 'destroy'])",
+      "JSON.stringify(['hover', 'pin', 'drag', 'redraw', 'destroy'])",
+    );
+    expect(memorySource).toContain('engine.registerPageLifecycleWork({');
+    expect(memorySource).toContain(
+      'trial.pageLifecycleAfterDestroy?.pendingWorkCount !== 0',
     );
     expect(memorySource).toContain(
       "trial.tooltipSubscriptionDisposeAfterDestroy !== 'disposed'",

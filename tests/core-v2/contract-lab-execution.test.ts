@@ -465,6 +465,72 @@ describe('Core v2 executable Lab product bridge', () => {
     60_000,
   );
 
+  it.each([
+    'DET-001',
+    'DET-002',
+    'DET-003',
+    'ANI-003',
+    'LIF-006',
+  ] as const)(
+    'produces independently comparable determinism/lifecycle actuals for %s',
+    async (caseId) => {
+      const surfaces: FakeSurface[] = [];
+      const bridge = createCoreV2ExecutableLabBridge({
+        caseId,
+        rootTestId: `scenario-${caseId.toLowerCase()}`,
+        size: '100',
+        seed: 319,
+        surfaceHost: createSurfaceHost(),
+        surfaceFactory: createFakeSurfaceFactory(surfaces, [], 'projection'),
+        environment: {
+          browser: 'vitest',
+          browserVersion: 'vitest',
+          backend: 'webgl2',
+          routeSize: '100',
+          runtimeResourceIds: [],
+        },
+      });
+      const run = await bridge.runCase();
+      const expected = normalizedExpected.cases.find(({ id }) => id === caseId);
+      expect(expected).toBeDefined();
+      const comparison = compareObservation({
+        expectedCase: expected,
+        actual: run.actualObservation,
+        fixtures: run.fixtures,
+        captures: run.captures,
+      });
+      const failures = comparison.assertions.filter(({ passed }) => !passed);
+
+      expect(comparison.failed, JSON.stringify({
+        failures,
+        actual: run.actualObservation,
+      })).toBe(0);
+      expect(comparison.passed).toBe(expected?.expected.assertions.length);
+      expect(run.cleanup).toMatchObject({
+        status: 'completed',
+        productResources: {
+          runtimeCounts: {
+            activeSessionCount: 0,
+            retainedDatasetCount: 0,
+            rendererObjectCount: 0,
+            subscriptionCount: 0,
+            pendingPromiseCount: 0,
+            pendingTimerCount: 0,
+            pendingWorkCount: 0,
+          },
+        },
+      });
+      if (caseId === 'ANI-003') {
+        expect(run.actualObservation.history).toMatchObject({
+          actionIdAfterPatch: 'bar-destination',
+        });
+      }
+      expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
+      await bridge.destroyCase();
+    },
+    60_000,
+  );
+
   it('projects PRF-007 forced-GC evidence without consulting approved expected data', async () => {
     const originalGc = Object.getOwnPropertyDescriptor(globalThis, 'gc');
     const originalMemory = Object.getOwnPropertyDescriptor(performance, 'memory');
@@ -1278,6 +1344,9 @@ describe('Core v2 executable Lab product bridge', () => {
       'ERR-004': 'lifecycle-interruption',
       'ERR-005': 'replacement-recovery',
       'ERR-006': 'lifecycle-interruption',
+      'DET-001': 'determinism-lifecycle',
+      'DET-002': 'determinism-lifecycle',
+      'DET-003': 'determinism-lifecycle',
       'DET-004': 'export-extraction',
       'PRF-007': 'lifecycle-interruption',
       'PRF-008': 'export-extraction',
@@ -1286,6 +1355,7 @@ describe('Core v2 executable Lab product bridge', () => {
       'LIF-003': 'replacement-recovery',
       'LIF-004': 'lifecycle-resize',
       'LIF-005': 'lifecycle-destroy',
+      'LIF-006': 'determinism-lifecycle',
       'DAT-001': 'foundation',
       'DAT-002': 'foundation',
       'DAT-003': 'data-foundation',
@@ -1344,6 +1414,7 @@ describe('Core v2 executable Lab product bridge', () => {
       'VIE-008': 'viewport',
       'ANI-001': 'presentation-dynamics',
       'ANI-002': 'presentation-dynamics',
+      'ANI-003': 'determinism-lifecycle',
       'CSM-001': 'foundation',
       'CSM-002': 'replacement-recovery',
       'CSM-003': 'foundation',
@@ -1499,6 +1570,37 @@ class FakeSurface implements CoreV2EngineSurface {
   }
 
   public publishFrame(_timeMs: number): void {}
+
+  public suspendPresentation(timeMs: number): Readonly<{
+    readonly state: 'suspended';
+    readonly timeMs: number;
+    readonly settledCount: number;
+    readonly activeAnimationCount: number;
+  }> {
+    const settledCount = this.activeAnimationCount;
+    this.activeAnimationCount = 0;
+    return Object.freeze({
+      state: 'suspended',
+      timeMs,
+      settledCount,
+      activeAnimationCount: 0,
+    });
+  }
+
+  public resumePresentation(timeMs: number): Readonly<{
+    readonly state: 'running';
+    readonly timeMs: number;
+    readonly settledCount: number;
+    readonly activeAnimationCount: number;
+  }> {
+    this.activeAnimationCount = 0;
+    return Object.freeze({
+      state: 'running',
+      timeMs,
+      settledCount: 0,
+      activeAnimationCount: 0,
+    });
+  }
 
   public resize(width: number, height: number, pixelRatio: number): boolean {
     const changed = width !== this.width || height !== this.height || pixelRatio !== this.pixelRatio;
