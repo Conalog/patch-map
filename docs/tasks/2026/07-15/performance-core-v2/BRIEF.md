@@ -25,7 +25,7 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 
 # Next Step
 
-Work is intentionally paused at a clean determinism/lifecycle checkpoint. After restart, re-read the mandatory policy and this brief, confirm branch/status, then connect `PIX-001/002/003/005` plus `PKG-001/002/003/004/005` through shared Pixi/backend/package probes and focused routes. Do not reopen the closed tranche unless a regression demonstrates a product defect.
+Work is intentionally paused at a clean determinism/lifecycle checkpoint. After restart, re-read the mandatory policy and this brief, confirm branch/status, then close `CSM-014` first and connect `PIX-001/002/003/005` plus `PKG-001/002/003/004/005` through shared Pixi/backend/package probes and focused routes; `CSM-014` is required before `PKG-004` can truthfully run all 38 consumer journeys. Do not reopen the closed tranche unless a regression demonstrates a product defect.
 
 # Working Boundary
 
