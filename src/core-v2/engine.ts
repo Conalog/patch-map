@@ -6,6 +6,7 @@ import {
   type CoreV2ComponentVisualProductProbe,
   type CoreV2ComponentVisualTarget,
   type CoreV2Options,
+  type CoreV2PresentationLifecycleResult,
   type CoreV2RootPointerInput,
   type CoreV2RootViewportChangeSource,
   type CoreV2SelectionOverlayPolicyInput,
@@ -82,6 +83,16 @@ import {
   type CoreV2EditorWorkflowPlan,
   type CoreV2EditorWorkflowProbe,
 } from './editor-workflow';
+import {
+  CORE_V2_PAGE_LIFECYCLE_REVISION,
+  CoreV2PageLifecycleAuthority,
+  type CoreV2DocumentVisibilityState,
+  type CoreV2PageLifecycleProbe,
+  type CoreV2PageLifecycleTransition,
+  type CoreV2PageLifecycleWorkCompletion,
+  type CoreV2PageLifecycleWorkKind,
+  type CoreV2PageLifecycleWorkToken,
+} from './page-lifecycle';
 import {
   coreV2AffineBasis,
   coreV2AffineCorners,
@@ -317,6 +328,30 @@ export interface CoreV2EngineExtractionResult {
   readonly authoritativeCanvasRetained: true;
   readonly temporaryImageCount: 0;
   readonly renderTextureCount: 0;
+}
+
+export interface CoreV2EnginePageLifecycleWorkInput {
+  readonly kind: CoreV2PageLifecycleWorkKind;
+  readonly requestId: string;
+}
+
+export interface CoreV2EngineDocumentVisibilityInput {
+  readonly state: CoreV2DocumentVisibilityState;
+  readonly timeMs: number;
+}
+
+export interface CoreV2EnginePageLifecycleProbe extends CoreV2PageLifecycleProbe {
+  readonly activeAnimationCount: number;
+  readonly decelerationActive: boolean;
+  readonly activeGestureCount: number;
+  readonly pointerCaptureCount: number;
+}
+
+export interface CoreV2EngineDocumentVisibilityResult {
+  readonly schemaRevision: typeof CORE_V2_PAGE_LIFECYCLE_REVISION;
+  readonly transition: CoreV2PageLifecycleTransition;
+  readonly presentation: CoreV2PresentationLifecycleResult | null;
+  readonly probe: CoreV2EnginePageLifecycleProbe;
 }
 
 export interface CoreV2SurfaceOptions {
@@ -828,6 +863,12 @@ export interface CoreV2EngineSurface {
     options?: CoreV2SurfaceReconcileOptions,
   ): CoreV2SurfaceReconcileResult;
   publishFrame(timeMs: number): void;
+  suspendPresentation?(
+    timeMs: number,
+  ): CoreV2PresentationLifecycleResult;
+  resumePresentation?(
+    timeMs: number,
+  ): CoreV2PresentationLifecycleResult;
   resize(width: number, height: number, pixelRatio: number): boolean;
   setView(view: CoreV2SurfaceView): void;
   setViewportGesturePolicies?(policies: readonly CoreV2ViewportPolicy[]): void;
@@ -1536,6 +1577,7 @@ type CoreV2EngineEventMap = {
   readonly viewChanged: CoreV2ViewportChangeResult;
   readonly viewSettled: CoreV2ViewportSettleResult;
   readonly viewportPolicyChanged: CoreV2ViewportPolicyProbe;
+  readonly documentVisibilityChanged: CoreV2EngineDocumentVisibilityResult;
   readonly presentationChanged: CoreV2EnginePresentationResult;
   readonly overlayAccepted: CoreV2LiveOverlayTuple;
   readonly overlayPublished: CoreV2LiveOverlayPublishedTuple;
@@ -1638,6 +1680,7 @@ export class CoreV2Engine {
   private readonly hostInteractions: CoreV2HostInteractionAuthority;
   private readonly hostAssetIngestion = new CoreV2HostAssetIngestionAuthority();
   private readonly editorWorkflows = new CoreV2EditorWorkflowAuthority();
+  private readonly pageLifecycle = new CoreV2PageLifecycleAuthority();
   private readonly transformerGestures = new CoreV2TransformerGestureAuthority();
   private activeTransformerEdit: ActiveCoreV2TransformerEdit | null = null;
   private transformerEditPreviewCount = 0;
@@ -3382,8 +3425,85 @@ export class CoreV2Engine {
     }
   }
 
+  public registerPageLifecycleWork(
+    input: CoreV2EnginePageLifecycleWorkInput,
+  ): CoreV2PageLifecycleWorkToken {
+    this.requireSurface('registerPageLifecycleWork');
+    return this.pageLifecycle.register(input.kind, input.requestId);
+  }
+
+  public completePageLifecycleWork(
+    token: CoreV2PageLifecycleWorkToken,
+  ): CoreV2PageLifecycleWorkCompletion {
+    return this.pageLifecycle.complete(token);
+  }
+
+  public setDocumentVisibility(
+    input: CoreV2EngineDocumentVisibilityInput,
+  ): CoreV2EngineDocumentVisibilityResult {
+    const surface = this.requireSurface('setDocumentVisibility');
+    const before = this.pageLifecycle.probe();
+    if (input.state !== 'visible' && input.state !== 'hidden') {
+      throw new TypeError('document visibility state must be visible or hidden');
+    }
+    if (
+      !Number.isFinite(input.timeMs) ||
+      input.timeMs < before.clockMs
+    ) {
+      throw new RangeError('page lifecycle time must be finite and monotonic');
+    }
+    const pointerBefore = this.pointerGestureAuthority?.probe() ?? destroyedPointerGestureProbe();
+    const motionBefore = this.viewportMotion !== null;
+    let presentation: CoreV2PresentationLifecycleResult | null = null;
+    const changed = input.state !== before.state;
+    if (changed && input.state === 'hidden') {
+      presentation = surface.suspendPresentation?.(input.timeMs) ?? null;
+    } else if (changed) {
+      presentation = surface.resumePresentation?.(input.timeMs) ?? null;
+    }
+    const transition = this.pageLifecycle.transition(input.state, input.timeMs);
+    if (transition.changed && transition.state === 'hidden') {
+      this.viewportMotion = null;
+      surface.cancelViewportGestures?.();
+      if (this.cancelActiveTransformerEdit('blur', true) === null) {
+        this.transformerGestures.interrupt();
+      }
+      this.pointerGestureAuthority?.interrupt('blur');
+      this.hostInteractions.clearTooltip('redraw');
+      if (
+        motionBefore ||
+        pointerBefore.activePointerCount > 0 ||
+        pointerBefore.activeGestureCount > 0
+      ) {
+        this.interactionRevision += 1;
+      }
+    }
+    const result = Object.freeze({
+      schemaRevision: CORE_V2_PAGE_LIFECYCLE_REVISION,
+      transition,
+      presentation,
+      probe: this.pageLifecycleProbe(),
+    } satisfies CoreV2EngineDocumentVisibilityResult);
+    if (transition.changed) this.emit('documentVisibilityChanged', result);
+    return result;
+  }
+
+  public pageLifecycleProbe(): CoreV2EnginePageLifecycleProbe {
+    const lifecycle = this.pageLifecycle.probe();
+    const pointer = this.pointerGestureAuthority?.probe() ?? destroyedPointerGestureProbe();
+    const activeAnimationCount = this.surface?.debugSnapshot().activeAnimationCount ?? 0;
+    return Object.freeze({
+      ...lifecycle,
+      activeAnimationCount,
+      decelerationActive: this.viewportMotion !== null,
+      activeGestureCount: pointer.activeGestureCount,
+      pointerCaptureCount: pointer.pointerCaptureCount,
+    });
+  }
+
   public publishFrame(timeMs = globalThis.performance?.now() ?? Date.now()): void {
     if (!Number.isFinite(timeMs)) throw new TypeError('timeMs must be finite');
+    if (this.pageLifecycle.probe().state === 'hidden') return;
     const surface = this.requireSurface('publishFrame');
     try {
       surface.publishFrame(timeMs);
@@ -3432,6 +3552,7 @@ export class CoreV2Engine {
       this.overlayPublicationCount += 1;
       this.emit('overlayPublished', published);
     }
+    this.pageLifecycle.publishedFrame();
   }
 
   public resize(width: number, height: number, pixelRatio = globalThis.devicePixelRatio ?? 1): boolean {
@@ -5506,6 +5627,7 @@ export class CoreV2Engine {
     this.pointerGestureAuthority = null;
     this.transformerGestures.destroy();
     this.editorWorkflows.destroy();
+    this.pageLifecycle.destroy();
     this.hostInteractions.destroy();
     const pendingInitialization = this.initializePromise;
     const assetSession = this.assetSession;
@@ -6818,6 +6940,26 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     this.geometryRevision += 1;
     this.geometryRevisionProjection = this.core.visibleProjection;
     this.invalidateGeometryCache();
+  }
+
+  public suspendPresentation(
+    timeMs: number,
+  ): CoreV2PresentationLifecycleResult {
+    const result = this.core.suspendPresentation(timeMs);
+    this.geometryRevision += 1;
+    this.geometryRevisionProjection = this.core.visibleProjection;
+    this.invalidateGeometryCache();
+    return result;
+  }
+
+  public resumePresentation(
+    timeMs: number,
+  ): CoreV2PresentationLifecycleResult {
+    const result = this.core.resumePresentation(timeMs);
+    this.geometryRevision += 1;
+    this.geometryRevisionProjection = this.core.visibleProjection;
+    this.invalidateGeometryCache();
+    return result;
   }
 
   public resize(width: number, height: number, pixelRatio: number): boolean {

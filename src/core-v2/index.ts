@@ -5,6 +5,7 @@ export type {
   CoreV2Options,
   CoreV2BarPresentationProductProbe,
   CoreV2PrepareResult,
+  CoreV2PresentationLifecycleResult,
   CoreV2ReconcileFacts,
   CoreV2ReconcileOptions,
   CoreV2ReconcileResult,
@@ -118,6 +119,11 @@ export {
   planCoreV2EditorMatrixMutation,
 } from './editor-workflow';
 export type * from './editor-workflow';
+export {
+  CORE_V2_PAGE_LIFECYCLE_REVISION,
+  CoreV2PageLifecycleAuthority,
+} from './page-lifecycle';
+export type * from './page-lifecycle';
 export { PatchMapParseError } from './contracts';
 export type * from './contracts';
 export { parsePatchMapV010 } from './parser';

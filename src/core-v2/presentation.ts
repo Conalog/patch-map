@@ -321,6 +321,33 @@ export class CoreV2PresentationController {
     return this.finishFrame('advance', timeMs, updates, settledIds);
   }
 
+  /**
+   * Settle every active presentation at its already-committed semantic
+   * destination without interpreting a long wall-clock gap as animation time.
+   * Page suspension uses this once before the manual scheduler is gated.
+   */
+  public settle(timeMs: number): CoreV2PresentationFrame {
+    this.assertAlive('advance');
+    this.assertMonotonic(timeMs, 'advance');
+    this.clockMsValue = timeMs;
+    if (this.countValue === 0) return this.finishFrame('advance', timeMs, [], []);
+
+    const updates: CoreV2PresentationUpdate[] = [];
+    const settledIds: string[] = [];
+    while (this.countValue > 0) {
+      const id = this.requiredId(0);
+      const destination = this.destinationValues[0] ?? 0;
+      if (!Object.is(this.currentValues[0], destination)) {
+        this.currentValues[0] = destination;
+        updates.push(this.updateAt(0, destination));
+      }
+      settledIds.push(id);
+      this.totalSettlementCountValue += 1;
+      this.removeAt(0);
+    }
+    return this.finishFrame('advance', timeMs, updates, settledIds);
+  }
+
   public cancel(input: CoreV2PresentationCancelInput): CoreV2PresentationCancelResult {
     this.assertAlive('cancel');
     const entityId = nonEmptyString(input.entityId, 'entityId');

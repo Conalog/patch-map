@@ -140,6 +140,34 @@ describe('CoreV2PresentationController', () => {
     expect(controller.snapshot()).toMatchObject({ activeCount: 0, indexedCount: 0 });
   });
 
+  it('settles every active row at its destination when page time is suspended', () => {
+    const controller = new CoreV2PresentationController();
+    controller.retarget(retarget('bar-a', 4, 1, 10, 40, 0));
+    controller.retarget(retarget('bar-b', 8, 2, 5, 25, 0));
+    controller.advance(40);
+
+    const settled = controller.settle(40);
+
+    expect(settled).toMatchObject({
+      activeCount: 0,
+      changedCount: 2,
+      settledCount: 2,
+      settledEntityIds: ['bar-a', 'bar-b'],
+      dirtyEntityIds: ['bar-a', 'bar-b'],
+      dirtyRanges: [{ start: 4, end: 5 }, { start: 8, end: 9 }],
+    });
+    expect(settled.updates).toEqual([
+      { entityId: 'bar-a', slot: 4, generation: 1, value: 40 },
+      { entityId: 'bar-b', slot: 8, generation: 2, value: 25 },
+    ]);
+    expect(controller.snapshot()).toMatchObject({
+      clockMs: 40,
+      activeCount: 0,
+      indexedCount: 0,
+      totalSettlementCount: 2,
+    });
+  });
+
   it('cancels on hide/remove/replacement/destroy and cannot publish after destroy', () => {
     const controller = new CoreV2PresentationController();
     controller.retarget(retarget('hidden', 1, 1, 0, 10, 0));

@@ -240,6 +240,7 @@ export type CoreV2ReconcileResult =
 
 export interface CoreV2RuntimeDebug {
   readonly destroyed: boolean;
+  readonly suspended: boolean;
   readonly entityCount: number;
   readonly activeAnimations: number;
   readonly activeGestureCount: number;
@@ -247,6 +248,13 @@ export interface CoreV2RuntimeDebug {
   readonly diagnostics: number;
   readonly renderer: PixiCoreV2RendererDebug;
   readonly scheduler: FrameSchedulerDebug;
+}
+
+export interface CoreV2PresentationLifecycleResult {
+  readonly state: 'suspended' | 'running';
+  readonly timeMs: number;
+  readonly settledCount: number;
+  readonly activeAnimationCount: number;
 }
 
 export interface CoreV2ComponentVisualTarget {
@@ -435,6 +443,7 @@ export class CoreV2 {
   private animationClockMs = 0;
   private lastAnimationFrameTime: number | null = null;
   private lastFrameReport: FrameReport | null = null;
+  private suspended = false;
   private pan: PanState | null = null;
   private viewportPolicies = new Set<CoreV2ViewportPolicy>(
     CORE_V2_DEFAULT_VIEWPORT_POLICIES,
@@ -831,6 +840,56 @@ export class CoreV2 {
     if (this.lastFrameReport.rendered) void this.sceneImages.finalizeAfterRenderedFrame();
     if (this.autoRender && this.activeAnimations > 0) this.scheduler.invalidate('presentation');
     return this.requireFrameReport();
+  }
+
+  /**
+   * Gate the manual scheduler and settle renderer-visible values at their
+   * already-committed semantic destinations. The supplied time is recorded,
+   * but no elapsed wall-clock delta is integrated.
+   */
+  public suspendPresentation(timeMs: number): CoreV2PresentationLifecycleResult {
+    this.assertAlive();
+    if (!Number.isFinite(timeMs) || timeMs < this.animationClockMs) {
+      throw new RangeError('suspend timeMs must be finite and monotonic');
+    }
+    this.scheduler.cancelPending();
+    this.scheduler.setContinuous(false, 'page-suspend');
+    this.pan = null;
+    const frame = this.applyPresentationFrame(
+      this.presentationController.settle(timeMs),
+    );
+    this.animationClockMs = timeMs;
+    this.lastAnimationFrameTime = null;
+    this.suspended = true;
+    return Object.freeze({
+      state: 'suspended',
+      timeMs,
+      settledCount: frame.settledCount,
+      activeAnimationCount: this.activeAnimations,
+    });
+  }
+
+  /**
+   * Resume from a deterministic time origin. Rendering remains manual and the
+   * caller chooses the single coherent publication frame.
+   */
+  public resumePresentation(timeMs: number): CoreV2PresentationLifecycleResult {
+    this.assertAlive();
+    if (!Number.isFinite(timeMs) || timeMs < this.animationClockMs) {
+      throw new RangeError('resume timeMs must be finite and monotonic');
+    }
+    const frame = this.applyPresentationFrame(
+      this.presentationController.settle(timeMs),
+    );
+    this.animationClockMs = timeMs;
+    this.lastAnimationFrameTime = null;
+    this.suspended = false;
+    return Object.freeze({
+      state: 'running',
+      timeMs,
+      settledCount: frame.settledCount,
+      activeAnimationCount: this.activeAnimations,
+    });
   }
 
   public commit(batch: TransactionBatch): CommitResult {
@@ -1541,8 +1600,9 @@ export class CoreV2 {
     const selectionCount = this.destroyedValue ? 0 : this.scene.selection().refs.length;
     return Object.freeze({
       destroyed: this.destroyedValue,
+      suspended: this.suspended,
       entityCount: this.entityCountValue,
-      activeAnimations: this.destroyedValue ? 0 : this.scene.activeAnimations,
+      activeAnimations: this.activeAnimations,
       activeGestureCount: this.destroyedValue || this.pan === null ? 0 : 1,
       selectionCount,
       diagnostics: this.diagnostics.length,
@@ -1633,6 +1693,7 @@ export class CoreV2 {
   public async destroy(): Promise<boolean> {
     if (this.destroyedValue) return false;
     this.destroyedValue = true;
+    this.suspended = false;
     this.pan = null;
     this.viewportPolicies.clear();
     this.rootViewportListeners.clear();
@@ -1684,7 +1745,7 @@ export class CoreV2 {
   }
 
   private renderScheduledFrame(timeMs: number): boolean {
-    if (this.destroyedValue) return false;
+    if (this.destroyedValue || this.suspended) return false;
     this.applyPendingIntrinsicImageSizes();
     if (this.activeAnimations > 0) {
       if (this.lastAnimationFrameTime === null) this.lastAnimationFrameTime = timeMs;
@@ -1710,7 +1771,7 @@ export class CoreV2 {
   private invalidate(reason: string): void {
     this.componentRendererFactsPublished = false;
     this.textRendererFactsPublished = false;
-    if (this.autoRender) this.scheduler.invalidate(reason);
+    if (this.autoRender && !this.suspended) this.scheduler.invalidate(reason);
   }
 
   private flushScene(): FrameReport {
@@ -1873,7 +1934,12 @@ export class CoreV2 {
   }
 
   private advancePresentation(timeMs: number): CoreV2PresentationFrame {
-    const frame = this.presentationController.advance(timeMs);
+    return this.applyPresentationFrame(this.presentationController.advance(timeMs));
+  }
+
+  private applyPresentationFrame(
+    frame: CoreV2PresentationFrame,
+  ): CoreV2PresentationFrame {
     if (frame.updates.length === 0) return frame;
     const changedSlots: number[] = [];
     for (const update of frame.updates) {
