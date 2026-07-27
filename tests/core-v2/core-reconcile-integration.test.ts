@@ -21,6 +21,10 @@ import type {
   PixiCoreV2RendererDebug,
   RootInteractionHandlers,
 } from '../../src/core-v2/renderers/types';
+import {
+  assembleOwnedCoreV2Dataset,
+  materializeCoreV2Dataset,
+} from '../../src/core-v2/semantic/dataset';
 
 describe('Core v2 runtime dense reconcile', () => {
   const allocated: CoreV2[] = [];
@@ -83,6 +87,57 @@ describe('Core v2 runtime dense reconcile', () => {
     expect(candidate).toEqual(candidateBefore);
     Reflect.set(candidate[0] as object, 'fill', '#000000');
     expect(core.get('box')?.data.fill).toBe(0xaabbccff);
+  });
+
+  it('ignores incomplete incremental hints unless unchanged roots retain Engine ownership', () => {
+    const { core } = createTestCore(allocated);
+    const current = materializeCoreV2Dataset([
+      directRect('a', { x: 1 }),
+      directRect('b', { x: 2 }),
+    ]);
+    core.load(current.dataset);
+    const candidate = materializeCoreV2Dataset([
+      directRect('a', { x: 10 }),
+      directRect('b', { x: 20 }),
+    ]);
+
+    const result = core.reconcile(candidate.dataset, {
+      incrementalRootIds: ['a'],
+    });
+
+    expect(result.status).toBe('committed');
+    expect(core.get('a')?.bounds.x).toBe(10);
+    expect(core.get('b')?.bounds.x).toBe(20);
+    expect(result.plan.summary.patched).toBe(2);
+  });
+
+  it('falls back to full parsing when parser color options change', () => {
+    const { core } = createTestCore(allocated);
+    const current = materializeCoreV2Dataset([
+      directRect('a', { x: 1, fill: 'theme.brand' }),
+      directRect('b', { x: 2, fill: 'theme.brand' }),
+    ]);
+    core.load(current.dataset, { colors: { 'theme.brand': '#ff0000' } });
+    const changedRoot = materializeCoreV2Dataset([
+      directRect('a', { x: 10, fill: 'theme.brand' }),
+    ]).dataset[0]!;
+    const candidate = assembleOwnedCoreV2Dataset(current, [
+      changedRoot,
+      current.dataset[1]!,
+    ]);
+
+    const result = core.reconcile(candidate.dataset, {
+      incrementalRootIds: ['a'],
+      parse: { colors: { 'theme.brand': '#0000ff' } },
+    });
+
+    expect(result.status).toBe('committed');
+    expect(core.get('a')).toMatchObject({
+      bounds: { x: 10 },
+      data: { fill: 0x0000ffff },
+    });
+    expect(core.get('b')?.data.fill).toBe(0x0000ffff);
+    expect(result.plan.summary.patched).toBe(2);
   });
 
   it('preserves owner-local component entity identity through a parsed component patch', () => {

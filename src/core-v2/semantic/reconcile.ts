@@ -77,6 +77,42 @@ export function planCoreV2SceneReconcile(
 ): CoreV2DenseReconcilePlan {
   const currentEntities = normalizeDocument(current);
   const candidateEntities = normalizeDocument(candidate);
+  return planNormalizedCoreV2SceneReconcile(
+    current,
+    candidate,
+    currentEntities,
+    candidateEntities,
+    options,
+  );
+}
+
+/**
+ * Reconcile parser-produced documents without normalizing the same canonical
+ * entity rows a second time. Callers must own both results from
+ * `parsePatchMapV010`; arbitrary SceneDocument input belongs in the validating
+ * `planCoreV2SceneReconcile` entry point above.
+ */
+export function planCoreV2ParsedSceneReconcile(
+  current: SceneDocument,
+  candidate: SceneDocument,
+  options: CoreV2ReconcileOptions = {},
+): CoreV2DenseReconcilePlan {
+  return planNormalizedCoreV2SceneReconcile(
+    current,
+    candidate,
+    current.entities as unknown as readonly CanonicalEntity[],
+    candidate.entities as unknown as readonly CanonicalEntity[],
+    options,
+  );
+}
+
+function planNormalizedCoreV2SceneReconcile(
+  current: SceneDocument,
+  candidate: SceneDocument,
+  currentEntities: readonly CanonicalEntity[],
+  candidateEntities: readonly CanonicalEntity[],
+  options: CoreV2ReconcileOptions,
+): CoreV2DenseReconcilePlan {
   const currentById = indexEntities(currentEntities);
   const candidateById = indexEntities(candidateEntities);
   const diagnostics: CoreV2ReconcileDiagnostic[] = [];

@@ -243,6 +243,37 @@ export function parsePatchMapV010(
 }
 
 /**
+ * Parse selected canonical top-level roots into one fragment result. The
+ * guarded incremental reconciler owns whole-dataset identity validation and
+ * combines these fragments with unchanged parser-owned roots.
+ */
+export function parsePatchMapV010SelectedRoots(
+  input: unknown,
+  rootIndices: readonly number[],
+  options: ParsePatchMapOptions = {},
+): ParsePatchMapResult {
+  const state = createParseState(options);
+  if (!Array.isArray(input)) {
+    fatal(state, '$', 'invalid-root', 'PATCH MAP v0.10 input must be an array');
+  }
+  const seen = new Set<number>();
+  for (const index of rootIndices) {
+    if (
+      !Number.isSafeInteger(index) ||
+      index < 0 ||
+      index >= input.length ||
+      seen.has(index)
+    ) {
+      throw new RangeError('selected parser root indices must be unique in-range integers');
+    }
+    seen.add(index);
+    parseElement(input[index], `$[${index}]`, ROOT_CONTEXT, state);
+  }
+  validateRelationEndpoints(state);
+  return finishParseState(state);
+}
+
+/**
  * Expected-equivalent cooperative parser for large browser loads. Individual
  * top-level records remain atomic, while the shared identity/relation state is
  * retained across bounded main-thread tasks.

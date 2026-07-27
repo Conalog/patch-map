@@ -4,6 +4,7 @@ import {
   CoreV2SemanticHistory,
   type CoreV2SemanticHistoryCommandInput,
 } from '../../src/core-v2/history';
+import { materializeCoreV2Dataset } from '../../src/core-v2/semantic/dataset';
 import { planCoreV2PaintOrder } from '../../src/core-v2/semantic/paint-order';
 
 interface StackNode {
@@ -177,6 +178,59 @@ describe('Core v2 semantic history', () => {
       },
     });
     expect(history.commitPrepared(prepared)).toBe('stale');
+  });
+
+  it('retains Engine-owned frozen changed snapshots without cloning them', () => {
+    const history = new CoreV2SemanticHistory<
+      ReturnType<typeof materializeCoreV2Dataset>['dataset'],
+      CompanionState
+    >();
+    const before = materializeCoreV2Dataset([{
+      type: 'rect',
+      id: 'box',
+      size: { width: 10, height: 10 },
+      attrs: { zIndex: 0 },
+    }]).dataset;
+    const after = materializeCoreV2Dataset([{
+      type: 'rect',
+      id: 'box',
+      size: { width: 10, height: 10 },
+      attrs: { zIndex: 1 },
+    }]).dataset;
+    const beforeCompanion = Object.freeze({
+      selection: Object.freeze(['box']) as unknown as string[],
+      mode: 'select',
+    });
+    const afterCompanion = Object.freeze({
+      selection: Object.freeze(['box']) as unknown as string[],
+      mode: 'transform',
+    });
+    const prepared = history.prepareOwnedChangedRecord({
+      id: 'owned',
+      before: { dataset: before, companion: beforeCompanion },
+      after: { dataset: after, companion: afterCompanion },
+    });
+
+    expect(prepared.plannedStatus).toBe('recorded');
+    expect(history.commitPrepared(prepared)).toBe('recorded');
+    const recorded = history.inspect().commands[0]!;
+    expect(recorded.before.dataset).toBe(before);
+    expect(recorded.after.dataset).toBe(after);
+    expect(recorded.before.companion).toBe(beforeCompanion);
+    expect(recorded.after.companion).toBe(afterCompanion);
+    expect(() => history.prepareOwnedChangedRecord({
+      id: 'unowned',
+      before: { dataset: Object.freeze([...before]) },
+      after: { dataset: after },
+    })).toThrow('Engine-owned materialized array');
+    expect(() => history.prepareOwnedChangedRecord({
+      id: 'shallow-companion',
+      before: {
+        dataset: before,
+        companion: Object.freeze({ selection: ['box'], mode: 'select' }),
+      },
+      after: { dataset: after, companion: afterCompanion },
+    })).toThrow('deeply frozen');
   });
 
   it('fails stale and foreign prepared tokens closed without replacing a newer branch', () => {

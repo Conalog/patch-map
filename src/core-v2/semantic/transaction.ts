@@ -1,8 +1,10 @@
 import {
+  assembleOwnedCoreV2Dataset,
   CORE_V2_COMPONENT_TYPES,
   CORE_V2_ELEMENT_TYPES,
   CoreV2DatasetError,
   materializeCoreV2Dataset,
+  type CoreV2Element,
   type MaterializedCoreV2Dataset,
 } from './dataset';
 import {
@@ -301,6 +303,8 @@ export function planCoreV2BulkPatch(
   }
 
   if (request.operations.length > 0) {
+    const incremental = planFlatOwnedMergeTransaction(current, request);
+    if (incremental !== null) return incremental;
     return planNormalizedCoreV2MutationTransaction(current, request);
   }
 
@@ -318,6 +322,156 @@ export function planCoreV2BulkPatch(
     unchanged: EMPTY_TARGETS,
     summary: freezeSummary(0, 0, 0),
   });
+}
+
+const FAST_FLAT_ROOT_TYPES = new Set([
+  'item',
+  'rect',
+  'image',
+  'text',
+]);
+
+/**
+ * Structural-share the common flat merge candidate. Validation, missing
+ * targets, hierarchy, identity/type edits, or large whole-scene writes fall
+ * back to the canonical generic transaction planner.
+ */
+function planFlatOwnedMergeTransaction(
+  current: MaterializedCoreV2Dataset,
+  request: NormalizedTransaction,
+): CoreV2MutationTransactionPlan | null {
+  if (
+    current.dataset.length === 0 ||
+    request.operations.some((operation) => operation.op !== 'merge') ||
+    current.dataset.some((root) => !FAST_FLAT_ROOT_TYPES.has(root.type))
+  ) {
+    return null;
+  }
+  const rootIndexById = new Map<string, number>();
+  for (const [index, root] of current.dataset.entries()) {
+    if (rootIndexById.has(root.id)) return null;
+    rootIndexById.set(root.id, index);
+  }
+  const dirtyRootIds = new Set<string>();
+  for (const operation of request.operations) {
+    if (operation.op !== 'merge') return null;
+    if (operation.changes.some((change) =>
+      !fastFlatMergePathSupported(operation.target, change.path))) {
+      return null;
+    }
+    const rootId = operation.target.kind === 'element'
+      ? operation.target.id
+      : operation.target.ownerId;
+    if (!rootIndexById.has(rootId)) return null;
+    dirtyRootIds.add(rootId);
+  }
+  if (dirtyRootIds.size * 2 > current.dataset.length) return null;
+
+  const mutableRoots = new Map<number, MutableJsonRecord>();
+  const journal = new Map<string, TargetJournalEntry>();
+  try {
+    for (const [operationIndex, operation] of request.operations.entries()) {
+      if (operation.op !== 'merge') return null;
+      const rootId = operation.target.kind === 'element'
+        ? operation.target.id
+        : operation.target.ownerId;
+      const rootIndex = rootIndexById.get(rootId);
+      if (rootIndex === undefined) return null;
+      let root = mutableRoots.get(rootIndex);
+      if (root === undefined) {
+        const cloned = cloneMutableJson(current.dataset[rootIndex], `$[${rootIndex}]`);
+        if (!isMutableJsonRecord(cloned)) return null;
+        root = cloned;
+        mutableRoots.set(rootIndex, root);
+      }
+      const target = flatRootTarget(root, operation.target);
+      if (target === null) return null;
+      const before = cloneMutableJson(target, `$.operations[${operationIndex}].target`);
+      for (const change of operation.changes) {
+        applyPathChange(
+          target,
+          change,
+          `$.operations[${operationIndex}]`,
+          operationIndex,
+          operation.target,
+        );
+      }
+      noteOutcome(
+        journal,
+        operation.target,
+        jsonEquivalent(before, target) ? 'unchanged' : 'applied',
+      );
+    }
+  } catch (error) {
+    if (!(error instanceof TransactionValidationFailure)) throw error;
+    return rejected(error.diagnostic, request.actionId);
+  }
+
+  const roots: CoreV2Element[] = [...current.dataset];
+  try {
+    for (const [rootIndex, root] of mutableRoots) {
+      const normalized = materializeCoreV2Dataset([root]).dataset[0];
+      if (normalized === undefined) return null;
+      roots[rootIndex] = normalized;
+    }
+  } catch (error) {
+    if (error instanceof CoreV2DatasetError) return null;
+    throw error;
+  }
+  const candidate = assembleOwnedCoreV2Dataset(current, roots);
+  const applied = journalTargets(journal, 'applied');
+  const missing = journalTargets(journal, 'missing');
+  const unchanged = journalTargets(journal, 'unchanged');
+  const changed = [...mutableRoots.keys()].some((rootIndex) =>
+    !jsonEquivalent(current.dataset[rootIndex], candidate.dataset[rootIndex]));
+
+  return Object.freeze({
+    status: 'planned',
+    changed,
+    schemaRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+    strict: request.strict,
+    conflictPolicy: request.conflictPolicy,
+    operations: request.operations,
+    ...(request.actionId === undefined ? {} : { actionId: request.actionId }),
+    ...(request.recordHistory === undefined ? {} : { recordHistory: request.recordHistory }),
+    ...(request.history === undefined ? {} : { history: request.history }),
+    candidate,
+    applied,
+    missing,
+    unchanged,
+    summary: freezeSummary(applied.length, missing.length, unchanged.length),
+  });
+}
+
+function fastFlatMergePathSupported(
+  target: CoreV2MutationTarget,
+  path: readonly CoreV2MutationPathSegment[],
+): boolean {
+  const root = path[0];
+  if (typeof root !== 'string' || root === 'id' || root === 'type') return false;
+  return target.kind === 'component' ||
+    !['children', 'components', 'item', 'cells', 'links'].includes(root);
+}
+
+function flatRootTarget(
+  root: MutableJsonRecord,
+  target: CoreV2MutationTarget,
+): MutableJsonRecord | null {
+  if (target.kind === 'element') {
+    return root.id === target.id ? root : null;
+  }
+  if (
+    root.id !== target.ownerId ||
+    root.type !== 'item' ||
+    !Array.isArray(root.components)
+  ) {
+    return null;
+  }
+  const matches = root.components.filter((component) =>
+    isMutableJsonRecord(component) && component.id === target.id);
+  return matches.length === 1 && isMutableJsonRecord(matches[0])
+    ? matches[0]
+    : null;
 }
 
 /**
@@ -349,6 +503,8 @@ export function planCoreV2MutationTransaction(
     return rejected(error.diagnostic);
   }
 
+  const incremental = planFlatOwnedMergeTransaction(current, request);
+  if (incremental !== null) return incremental;
   return planNormalizedCoreV2MutationTransaction(current, request);
 }
 

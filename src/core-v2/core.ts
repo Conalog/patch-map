@@ -55,10 +55,12 @@ import {
   parsePatchMapV010Async,
   projectCoreV2IntrinsicImageAffine,
 } from './parser';
+import { parsePatchMapV010IncrementalFlat } from './incremental-parser';
+import { isOwnedCoreV2Dataset } from './semantic/dataset';
 import { withRendererDegradationDiagnostics } from './renderers/degradation';
 import { InvalidationScheduler, type FrameSchedulerDebug } from './scheduler';
 import {
-  planCoreV2SceneReconcile,
+  planCoreV2ParsedSceneReconcile,
   type CoreV2DenseReconcilePlan,
   type CoreV2ReconcileOptions as CoreV2DenseReconcileOptions,
 } from './semantic/reconcile';
@@ -195,6 +197,11 @@ export interface CoreV2ReconcileOptions extends CoreV2DenseReconcileOptions {
   readonly allowedComponentOrderOwners?: readonly string[];
   /** Permit explicit hierarchy operations to reorder these semantic element subtrees. */
   readonly allowedElementOrderIds?: readonly string[];
+  /**
+   * Engine-owned flat top-level roots changed by one already-staged immutable
+   * transaction. Unsupported shapes fall back to the canonical full parser.
+   */
+  readonly incrementalRootIds?: readonly string[];
 }
 
 export interface CoreV2ReconcileTimings {
@@ -434,6 +441,8 @@ export class CoreV2 {
   private presentationPolicyRevision = 0;
   private parseResultValue: ParsePatchMapResult | null = null;
   private projectionValue: CoreV2ProjectionIndex | null = null;
+  private ownedInputDataset: readonly unknown[] | null = null;
+  private ownedParseOptionsKey: string | null = null;
   private presentationController: CoreV2PresentationController;
   private presentationGeneration = 1;
   private sceneImageReconcileSuspended = false;
@@ -586,6 +595,7 @@ export class CoreV2 {
     const storeLoadMs = now() - storeStarted;
     this.applyLoadedProjection(parse, store);
     this.finishLoadedProjection(parse, store);
+    this.retainOwnedInputDataset(input, options);
     return Object.freeze({ parse, store, normalizeMs, storeLoadMs });
   }
 
@@ -642,6 +652,7 @@ export class CoreV2 {
           throw error;
         }
         previous.destroy();
+        this.retainOwnedInputDataset(input, options);
         return Object.freeze({ parse, store, normalizeMs, storeLoadMs });
       } finally {
         candidate?.destroy();
@@ -657,6 +668,7 @@ export class CoreV2 {
     const storeLoadMs = now() - storeStarted;
     this.applyLoadedProjection(parse, store);
     this.finishLoadedProjection(parse, store);
+    this.retainOwnedInputDataset(input, options);
     return Object.freeze({ parse, store, normalizeMs, storeLoadMs });
   }
 
@@ -699,6 +711,45 @@ export class CoreV2 {
     this.invalidate('load');
   }
 
+  private retainOwnedInputDataset(
+    input: unknown,
+    options: ParsePatchMapOptions,
+  ): void {
+    const optionsKey = incrementalParseOptionsKey(options);
+    this.ownedInputDataset =
+      isOwnedCoreV2Dataset(input) && optionsKey !== null
+        ? input
+        : null;
+    this.ownedParseOptionsKey = this.ownedInputDataset === null
+      ? null
+      : optionsKey;
+  }
+
+  private matchesOwnedIncrementalInput(
+    input: unknown,
+    dirtyRootIds: readonly string[],
+    options: ParsePatchMapOptions,
+  ): boolean {
+    const optionsKey = incrementalParseOptionsKey(options);
+    if (
+      !isOwnedCoreV2Dataset(input) ||
+      this.ownedInputDataset === null ||
+      optionsKey === null ||
+      optionsKey !== this.ownedParseOptionsKey ||
+      input.length !== this.ownedInputDataset.length
+    ) {
+      return false;
+    }
+    const dirty = new Set(dirtyRootIds);
+    for (let index = 0; index < input.length; index += 1) {
+      const root = input[index];
+      const rootId = root?.id;
+      if (typeof rootId !== 'string') return false;
+      if (!dirty.has(rootId) && root !== this.ownedInputDataset[index]) return false;
+    }
+    return true;
+  }
+
   /**
    * Incrementally reconcile a direct PATCH MAP v0.10 input into the current
    * dense store. Safe candidates commit exactly one batch; this method never
@@ -717,14 +768,28 @@ export class CoreV2 {
     const totalStarted = now();
     const before = this.scene.snapshot();
     const parseStarted = now();
+    const parseOptions = options.parse ?? this.parseOptions;
+    const incrementalParse = options.incrementalRootIds === undefined ||
+      !this.matchesOwnedIncrementalInput(
+        input,
+        options.incrementalRootIds,
+        parseOptions,
+      )
+      ? null
+      : parsePatchMapV010IncrementalFlat(
+          input,
+          currentParse,
+          options.incrementalRootIds,
+          parseOptions,
+        );
     const parse = withRendererDegradationDiagnostics(
-      parsePatchMapV010(input, options.parse ?? this.parseOptions),
+      incrementalParse ?? parsePatchMapV010(input, parseOptions),
       this.renderer.strategy,
     );
     const parseMs = now() - parseStarted;
 
     const planStarted = now();
-    const plan = planCoreV2SceneReconcile(
+    const plan = planCoreV2ParsedSceneReconcile(
       currentParse.document,
       parse.document,
       denseReconcileOptions(
@@ -773,8 +838,13 @@ export class CoreV2 {
     );
     this.parseResultValue = parse;
     this.projectionValue = parse.projection;
+    this.retainOwnedInputDataset(input, parseOptions);
     this.staleHitProjectionIds.clear();
-    this.renderer.setProjection(presentation, undefined, this.staleHitProjectionIds);
+    this.renderer.setProjection(
+      presentation,
+      commit.changedRanges,
+      this.staleHitProjectionIds,
+    );
     this.sceneImages.reconcile(parse.projection, {
       activeEntityIds: this.activeSceneImageIds(),
     });
@@ -900,6 +970,14 @@ export class CoreV2 {
       : this.directImageVisibilityIds(batch);
     const hitImpact = this.entityHitCommitImpact(batch);
     const result = this.scene.commit(batch);
+    if (
+      !this.sceneImageReconcileSuspended &&
+      batch.operations.some((operation) =>
+        operation.type !== 'view' && operation.type !== 'selection')
+    ) {
+      this.ownedInputDataset = null;
+      this.ownedParseOptionsKey = null;
+    }
     if (directImageVisibilityIds.size > 0) {
       this.synchronizeParsedImageVisibility(directImageVisibilityIds);
     }
@@ -1713,6 +1791,8 @@ export class CoreV2 {
       cleanupFailures.push(normalizeCleanupFailure(error));
     }
     this.projectionValue = null;
+    this.ownedInputDataset = null;
+    this.ownedParseOptionsKey = null;
     this.componentTargets.clear();
     this.componentRendererFactsPublished = false;
     this.textTargets.clear();
@@ -2667,6 +2747,31 @@ function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown
   if (value === null || typeof value !== 'object') return false;
   const prototype: unknown = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
+}
+
+/**
+ * Conservative key for parser configuration reused by the incremental path.
+ * Unsupported runtime shapes deliberately disable reuse; the canonical parser
+ * remains authoritative for them.
+ */
+function incrementalParseOptionsKey(options: ParsePatchMapOptions): string | null {
+  const colors = options.colors;
+  if (colors === undefined) return 'colors:default';
+  if (!isPlainRecord(colors)) return null;
+  const entries: string[] = [];
+  for (const key of Object.keys(colors).sort()) {
+    const value = colors[key];
+    if (typeof value === 'string') {
+      entries.push(JSON.stringify([key, 'string', value]));
+    } else if (typeof value === 'number' && Number.isFinite(value)) {
+      entries.push(JSON.stringify([key, 'number', Object.is(value, -0) ? 0 : value]));
+    } else if (value === undefined) {
+      entries.push(JSON.stringify([key, 'undefined']));
+    } else {
+      return null;
+    }
+  }
+  return `colors:${entries.join('|')}`;
 }
 
 const IMAGE_PROJECTION_PATCH_FIELDS = Object.freeze([

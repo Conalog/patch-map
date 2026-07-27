@@ -703,6 +703,8 @@ export interface CoreV2SurfaceReconcileOptions {
   readonly allowedElementOrderIds?: readonly string[];
   /** Logical selection replacement committed with the candidate scene. */
   readonly selectionIds?: readonly string[];
+  /** Engine-owned dirty flat roots eligible for guarded incremental parsing. */
+  readonly incrementalRootIds?: readonly string[];
 }
 
 export interface CoreV2EngineSceneImageAttemptProbe extends Omit<
@@ -2678,8 +2680,27 @@ export class CoreV2Engine {
       return result;
     }
 
-    const componentSemantics = indexComponentSemantics(plan.candidate.dataset);
-    const textSemantics = indexTextSemantics(plan.candidate.dataset);
+    const incrementalRootIds = incrementalFlatRootIds(
+      this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset,
+      plan.candidate.dataset,
+      plan.operations,
+    );
+    const componentSemantics = incrementalRootIds === undefined
+      ? indexComponentSemantics(plan.candidate.dataset)
+      : reconcileFlatComponentSemantics(
+          this.componentSemantics,
+          this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset,
+          plan.candidate.dataset,
+          incrementalRootIds,
+        );
+    const textSemantics = incrementalRootIds === undefined
+      ? indexTextSemantics(plan.candidate.dataset)
+      : reconcileFlatTextSemantics(
+          this.textSemantics,
+          this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset,
+          plan.candidate.dataset,
+          incrementalRootIds,
+        );
     const selectionBefore = this.logicalSelectionIds;
     const modeBefore = this.hostInteractions.modeProbe().activeState;
     const requestedSelectionAfter = plan.selectionIds ??
@@ -2708,7 +2729,7 @@ export class CoreV2Engine {
     let preparedHistory: CoreV2HistoryPreparedRecord | null = null;
     try {
       if (plan.recordHistory !== false) {
-        preparedHistory = this.history.prepareRecord({
+        preparedHistory = this.history.prepareOwnedChangedRecord({
           id: commandId,
           before: this.historySnapshot(),
           after: historySnapshotForDataset(plan.candidate.dataset, companionAfter),
@@ -2735,6 +2756,9 @@ export class CoreV2Engine {
         animateBarChanges: animatedBarTargets.length > 0,
         animatedBarTargets,
         allowedComponentOrderOwners,
+        ...(incrementalRootIds === undefined
+          ? {}
+          : { incrementalRootIds }),
         ...(plan.allowedElementOrderIds === undefined
           ? {}
           : { allowedElementOrderIds: plan.allowedElementOrderIds }),
@@ -2947,7 +2971,7 @@ export class CoreV2Engine {
     const selectionBefore = this.logicalSelectionIds;
     let preparedHistory: CoreV2HistoryPreparedRecord;
     try {
-      preparedHistory = this.history.prepareRecord({
+      preparedHistory = this.history.prepareOwnedChangedRecord({
         id: `patch:${this.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
         before: this.historySnapshot(),
         after: historySnapshotForDataset(
@@ -3095,7 +3119,7 @@ export class CoreV2Engine {
     const selectionAfter = this.validLogicalSelection(selectionBefore, mutation.candidate);
     let preparedHistory: CoreV2HistoryPreparedRecord;
     try {
-      preparedHistory = this.history.prepareRecord({
+      preparedHistory = this.history.prepareOwnedChangedRecord({
         id: `destroy:${this.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
         before: this.historySnapshot(),
         after: historySnapshotForDataset(
@@ -7166,6 +7190,9 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
       ...(options.selectionIds === undefined
         ? {}
         : { selectionIds: options.selectionIds }),
+      ...(options.incrementalRootIds === undefined
+        ? {}
+        : { incrementalRootIds: options.incrementalRootIds }),
     });
     if (result.status === 'committed') {
       this.geometryRevision += 1;
@@ -7594,6 +7621,29 @@ function indexComponentSemantics(
   return index;
 }
 
+function reconcileFlatComponentSemantics(
+  current: ReadonlyMap<string, CoreV2EngineComponentSemanticProbe>,
+  beforeDataset: readonly NormalizedCoreV2Element[],
+  afterDataset: readonly NormalizedCoreV2Element[],
+  dirtyRootIds: readonly string[],
+): Map<string, CoreV2EngineComponentSemanticProbe> {
+  const next = new Map(current);
+  const dirty = new Set(dirtyRootIds);
+  for (const element of beforeDataset) {
+    if (!dirty.has(element.id) || element.type !== 'item') continue;
+    for (const component of element.components) {
+      next.delete(componentSemanticKey(element.id, component.id));
+    }
+  }
+  for (const element of afterDataset) {
+    if (!dirty.has(element.id) || element.type !== 'item') continue;
+    for (const component of element.components) {
+      addComponentSemantic(next, element.id, component);
+    }
+  }
+  return next;
+}
+
 function addComponentSemantic(
   index: Map<string, CoreV2EngineComponentSemanticProbe>,
   ownerId: string,
@@ -7674,23 +7724,7 @@ function indexTextSemantics(
       const visible = ancestorVisible && element.show;
       const locked = ancestorLocked || element.locked;
       if (element.type === 'text') {
-        const target = Object.freeze({ kind: 'element' as const, id: element.id });
-        index.set(engineTextTargetKey(target), Object.freeze({
-          gridTemplate: false,
-          probe: freezeEngineTextSemantic({
-            target,
-            semanticOwnerId: element.id,
-            source: element.text,
-            authoredStyle: element.style,
-            placement: null,
-            margin: EMPTY_TEXT_MARGIN,
-            tint: null,
-            split: 0,
-            show: visible,
-            locked,
-            contentOrientation: 'follow-item',
-          }),
-        }));
+        addEngineTextElementSemantic(index, element, visible, locked);
         continue;
       }
       if (element.type === 'item') {
@@ -7726,6 +7760,75 @@ function indexTextSemantics(
   };
   visit(dataset, true, false);
   return index;
+}
+
+function reconcileFlatTextSemantics(
+  current: ReadonlyMap<string, IndexedEngineTextSemantic>,
+  beforeDataset: readonly NormalizedCoreV2Element[],
+  afterDataset: readonly NormalizedCoreV2Element[],
+  dirtyRootIds: readonly string[],
+): Map<string, IndexedEngineTextSemantic> {
+  const next = new Map(current);
+  const dirty = new Set(dirtyRootIds);
+  for (const element of beforeDataset) {
+    if (!dirty.has(element.id)) continue;
+    if (element.type === 'text') {
+      next.delete(engineTextTargetKey({ kind: 'element', id: element.id }));
+    } else if (element.type === 'item') {
+      for (const component of element.components) {
+        if (component.type !== 'text') continue;
+        next.delete(engineTextTargetKey({
+          kind: 'component',
+          ownerId: element.id,
+          id: component.id,
+        }));
+      }
+    }
+  }
+  for (const element of afterDataset) {
+    if (!dirty.has(element.id)) continue;
+    if (element.type === 'text') {
+      addEngineTextElementSemantic(next, element, element.show, element.locked);
+    } else if (element.type === 'item') {
+      for (const component of element.components) {
+        if (component.type !== 'text') continue;
+        addEngineTextComponentSemantic(next, {
+          ownerId: element.id,
+          component,
+          show: element.show && component.show,
+          locked: element.locked,
+          contentOrientation: element.contentOrientation,
+          gridTemplate: false,
+        });
+      }
+    }
+  }
+  return next;
+}
+
+function addEngineTextElementSemantic(
+  index: Map<string, IndexedEngineTextSemantic>,
+  element: Extract<NormalizedCoreV2Element, { readonly type: 'text' }>,
+  show: boolean,
+  locked: boolean,
+): void {
+  const target = Object.freeze({ kind: 'element' as const, id: element.id });
+  index.set(engineTextTargetKey(target), Object.freeze({
+    gridTemplate: false,
+    probe: freezeEngineTextSemantic({
+      target,
+      semanticOwnerId: element.id,
+      source: element.text,
+      authoredStyle: element.style,
+      placement: null,
+      margin: EMPTY_TEXT_MARGIN,
+      tint: null,
+      split: 0,
+      show,
+      locked,
+      contentOrientation: 'follow-item',
+    }),
+  }));
 }
 
 function addEngineTextComponentSemantic(
@@ -8323,6 +8426,57 @@ function componentOrderOwners(
       .filter((operation) => operation.op === 'reconcile-components')
       .map((operation) => operation.target.id),
   )]);
+}
+
+const INCREMENTAL_FLAT_ROOT_TYPES = new Set([
+  'item',
+  'rect',
+  'image',
+  'text',
+]);
+
+function incrementalFlatRootIds(
+  current: readonly NormalizedCoreV2Element[],
+  candidate: readonly NormalizedCoreV2Element[],
+  operations: readonly CoreV2MutationOperation[],
+): readonly string[] | undefined {
+  if (
+    current.length === 0 ||
+    current.length !== candidate.length ||
+    operations.length === 0
+  ) {
+    return undefined;
+  }
+  const rootOrder = new Map<string, number>();
+  for (let index = 0; index < candidate.length; index += 1) {
+    const before = current[index];
+    const after = candidate[index];
+    if (
+      before === undefined ||
+      after === undefined ||
+      before.id !== after.id ||
+      before.type !== after.type ||
+      !INCREMENTAL_FLAT_ROOT_TYPES.has(after.type) ||
+      rootOrder.has(after.id)
+    ) {
+      return undefined;
+    }
+    rootOrder.set(after.id, index);
+  }
+
+  const dirty = new Set<string>();
+  for (const operation of operations) {
+    if (operation.op !== 'merge') return undefined;
+    const rootId = operation.target.kind === 'element'
+      ? operation.target.id
+      : operation.target.ownerId;
+    if (!rootOrder.has(rootId)) return undefined;
+    dirty.add(rootId);
+  }
+  if (dirty.size === 0 || dirty.size * 2 > candidate.length) return undefined;
+  return Object.freeze(
+    [...dirty].sort((left, right) => rootOrder.get(left)! - rootOrder.get(right)!),
+  );
 }
 
 function normalizeEngineMutationTarget(value: unknown): CoreV2MutationTarget {

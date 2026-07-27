@@ -385,6 +385,8 @@ const THEME_COLOR_PATH = /^[A-Za-z_][\w-]*(?:\.[A-Za-z_][\w-]*)+$/u;
 const BLACK = '#1a1a1aff';
 const WHITE = '#ffffffff';
 const TRANSPARENT = '#00000000';
+const OWNED_CORE_V2_DATASETS = new WeakSet<object>();
+const OWNED_CORE_V2_ROOTS = new WeakSet<object>();
 
 /**
  * Validate and detach a canonical PATCH MAP array before it becomes authoritative.
@@ -404,6 +406,8 @@ export function materializeCoreV2Dataset(input: unknown): CoreV2DatasetMateriali
   const dataset = Object.freeze(
     input.map((element, index) => normalizeElement(element, `$[${index}]`, state)),
   );
+  dataset.forEach((root) => OWNED_CORE_V2_ROOTS.add(root));
+  OWNED_CORE_V2_DATASETS.add(dataset);
   const rootIds = Object.freeze(dataset.map((element) => element.id));
   const elementTypes = Object.freeze(
     CORE_V2_ELEMENT_TYPES.filter((type) => state.elementTypes.has(type)),
@@ -420,6 +424,54 @@ export function materializeCoreV2Dataset(input: unknown): CoreV2DatasetMateriali
     semanticHash: semanticHash(dataset),
     visibleBoundsFinite: true,
   });
+}
+
+/**
+ * Assemble a structurally shared candidate from individually normalized,
+ * Engine-owned roots. Identity and type inventories are reusable only when
+ * root order, IDs, and types are unchanged.
+ */
+export function assembleOwnedCoreV2Dataset(
+  current: MaterializedCoreV2Dataset,
+  roots: readonly CoreV2Element[],
+): CoreV2DatasetMaterialization {
+  if (roots.length !== current.dataset.length) {
+    throw new RangeError('owned Core v2 root count changed');
+  }
+  for (let index = 0; index < roots.length; index += 1) {
+    const before = current.dataset[index];
+    const after = roots[index];
+    if (
+      before === undefined ||
+      after === undefined ||
+      before.id !== after.id ||
+      before.type !== after.type ||
+      !OWNED_CORE_V2_ROOTS.has(after)
+    ) {
+      throw new TypeError(
+        `owned Core v2 root ${index} changed identity or is not materializer-owned`,
+      );
+    }
+  }
+  const dataset = Object.freeze([...roots]);
+  OWNED_CORE_V2_DATASETS.add(dataset);
+  return Object.freeze({
+    dataset,
+    rootIds: current.rootIds,
+    elementTypes: current.elementTypes,
+    componentTypes: current.componentTypes,
+    semanticHash: semanticHash(dataset),
+    visibleBoundsFinite: current.visibleBoundsFinite,
+  });
+}
+
+/** Internal capability check for detached, deeply frozen materializer output. */
+export function isOwnedCoreV2Dataset(
+  value: unknown,
+): value is readonly CoreV2Element[] {
+  return typeof value === 'object' &&
+    value !== null &&
+    OWNED_CORE_V2_DATASETS.has(value);
 }
 
 /**

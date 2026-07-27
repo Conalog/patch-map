@@ -1,4 +1,7 @@
-import type { CoreV2Element } from './semantic/dataset';
+import {
+  isOwnedCoreV2Dataset,
+  type CoreV2Element,
+} from './semantic/dataset';
 
 export type CoreV2SemanticDataset = readonly CoreV2Element[];
 export type CoreV2HistoryDirection = 'undo' | 'redo';
@@ -183,6 +186,38 @@ export class CoreV2SemanticHistory<
     command: CoreV2SemanticHistoryCommandInput<TDataset, TCompanion>,
     outcome: CoreV2HistoryCommitOutcome = 'accepted',
   ): CoreV2HistoryPreparedRecord {
+    return this.prepareRecordWith(
+      command,
+      outcome,
+      detachCommand,
+      true,
+    );
+  }
+
+  /**
+   * Preflight one known-changed Engine-owned command without cloning its
+   * already detached, deeply frozen materialized datasets a second time.
+   * Caller-owned or merely shallow-frozen input belongs in `prepareRecord`.
+   */
+  public prepareOwnedChangedRecord(
+    command: CoreV2SemanticHistoryCommandInput<TDataset, TCompanion>,
+  ): CoreV2HistoryPreparedRecord {
+    return this.prepareRecordWith(
+      command,
+      'accepted',
+      retainOwnedImmutableCommand,
+      false,
+    );
+  }
+
+  private prepareRecordWith(
+    command: CoreV2SemanticHistoryCommandInput<TDataset, TCompanion>,
+    outcome: CoreV2HistoryCommitOutcome,
+    prepareCommand: (
+      input: CoreV2SemanticHistoryCommandInput<TDataset, TCompanion>,
+    ) => CoreV2SemanticHistoryCommand<TDataset, TCompanion>,
+    detectNoOp: boolean,
+  ): CoreV2HistoryPreparedRecord {
     this.assertMutable('prepare record');
     assertCommitOutcome(outcome);
     const baseEntries = this.entriesValue;
@@ -194,8 +229,8 @@ export class CoreV2SemanticHistory<
     if (outcome !== 'accepted') {
       plannedStatus = outcome;
     } else {
-      const detached = detachCommand(command);
-      if (semanticEqual(detached.before, detached.after)) {
+      const detached = prepareCommand(command);
+      if (detectNoOp && semanticEqual(detached.before, detached.after)) {
         plannedStatus = 'no-op';
       } else if (this.capacityValue === 0) {
         plannedStatus = 'disabled';
@@ -485,6 +520,85 @@ function detachCommand<
     before,
     after,
   });
+}
+
+function retainOwnedImmutableCommand<
+  TDataset extends readonly unknown[],
+  TCompanion,
+>(
+  input: CoreV2SemanticHistoryCommandInput<TDataset, TCompanion>,
+): CoreV2SemanticHistoryCommand<TDataset, TCompanion> {
+  if (input === null || typeof input !== 'object') {
+    throw new TypeError('history command must be an object');
+  }
+  if (typeof input.id !== 'string' || input.id.length === 0) {
+    throw new TypeError('history command id must be a non-empty string');
+  }
+  const before = retainOwnedImmutableSnapshot(input.before, '$.before');
+  const after = retainOwnedImmutableSnapshot(input.after, '$.after');
+  const record = Object.freeze({ before, after });
+  return Object.freeze({
+    id: input.id,
+    recordCount: 1,
+    records: Object.freeze([record]),
+    before,
+    after,
+  });
+}
+
+function retainOwnedImmutableSnapshot<
+  TDataset extends readonly unknown[],
+  TCompanion,
+>(
+  input: CoreV2SemanticHistorySnapshotInput<TDataset, TCompanion>,
+  path: string,
+): CoreV2SemanticHistorySnapshot<TDataset, TCompanion> {
+  if (input === null || typeof input !== 'object') {
+    throw new TypeError(`${path} must be an object`);
+  }
+  if (!isOwnedCoreV2Dataset(input.dataset)) {
+    throw new TypeError(`${path}.dataset must be an Engine-owned materialized array`);
+  }
+  const companion = input.companion === undefined ? null : input.companion;
+  if (!isDeeplyFrozenJson(companion)) {
+    throw new TypeError(`${path}.companion must be Engine-owned and deeply frozen`);
+  }
+  return Object.freeze({ dataset: input.dataset, companion });
+}
+
+function isDeeplyFrozenJson(
+  value: unknown,
+  visited: Set<object> = new Set(),
+): boolean {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return true;
+  }
+  if (typeof value !== 'object' || !Object.isFrozen(value)) return false;
+  if (visited.has(value)) return false;
+  visited.add(value);
+  if (!Array.isArray(value) && !isPlainJsonRecord(value)) {
+    visited.delete(value);
+    return false;
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const deeplyFrozen = Object.keys(value).every((key) => {
+    const descriptor = descriptors[key];
+    return descriptor !== undefined &&
+      'value' in descriptor &&
+      isDeeplyFrozenJson(descriptor.value, visited);
+  });
+  visited.delete(value);
+  return deeplyFrozen;
+}
+
+function isPlainJsonRecord(value: object): value is Readonly<Record<string, unknown>> {
+  const prototype: unknown = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 function mergeCommands<
