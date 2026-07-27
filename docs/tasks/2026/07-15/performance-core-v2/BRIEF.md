@@ -17,15 +17,15 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 
 # Current State
 
-- Coverage is 145 executable routes, 144 actual-producing routes, 28 explicit stubs, 573 executable actions, and 317 action types.
-- `DET-001/002/003`, `ANI-003`, and `LIF-006` are closed in product commit `bfd3b92` and shared expected-blind automation/Lab commit `6953b08`. One engine-local lifecycle authority cancels obsolete asset/extraction work, settles animation without a giant wall-clock delta, releases gesture ownership, and admits one coherent resume frame; seeded scene generation is shared with the existing transaction control.
-- The five changed headless WebGL routes pass first/repeat/fresh/destroy at 49/49 assertions per session with deterministic actuals, one transient canvas returning to zero, real WebGL2 draws, and zero console/page/network/external-fixture errors. The browser registry contains 130 routes and 1,800 assertions: 1,779 matches, twenty-one observed immutable conflicts, and two latent conflicts.
-- Full lint, typecheck, Core v2/Lab builds, canonical verification, packed ESM/CJS consumption, and scoped post-review regressions pass. A full unit run reached 1,471/1,472 before finding one stale verification-script pin; that assertion-only pin was corrected and its file passes 3/3 without repeating unrelated gates.
-- The refreshed 2+7 lifecycle checkpoint covers 5,099 entities with retained-heap median/p95 76,659/399,531 bytes and zero lifecycle, DOM, renderer, scheduler, console, page, or network failures. Renderer hot paths were unchanged, so the full 130-route browser and performance matrices were not repeated; headed final release verification, WebGPU, native Windows, and final independent release review remain pending.
+- Coverage is 146 executable routes, 145 actual-producing routes, 27 explicit stubs, 578 executable actions, and 319 action types.
+- `CSM-014` is closed in `154c4c8` through the shared update/transaction runtime. Chart, percent, and number host values atomically update bar geometry, text, tint, and visibility; remount restores percent on a fresh Engine, and an invalid column is rejected without changing the prior scene.
+- Its headless WebGL first/repeat/fresh/destroy route passes 21/21 assertions per session with deterministic actuals, canvas `0 -> 1 -> 0`, and zero console/page/network/external-fixture errors. The browser registry now contains 131 routes and 1,821 assertions: 1,800 matches, twenty-one observed immutable conflicts, and two latent conflicts.
+- Full lint, typecheck, Core v2 Lab build, canonical verification, and targeted CSM handler/fold/runtime tests pass. The serial Core v2 unit run reached 1,246/1,247 before finding one stale runtime-map pin; that pin was corrected and its focused regression passes.
+- The prior packed ESM/CJS and 2+7 lifecycle proof remains current because package exports, renderer/resource ownership, destroy paths, and hot paths did not change. No owned Vitest/Vite/Chromium process remains; headed release proof, WebGPU, native Windows, and final independent release review remain pending.
 
 # Next Step
 
-Work is intentionally paused at a clean determinism/lifecycle checkpoint. After restart, re-read the mandatory policy and this brief, confirm branch/status, then close `CSM-014` first and connect `PIX-001/002/003/005` plus `PKG-001/002/003/004/005` through shared Pixi/backend/package probes and focused routes; `CSM-014` is required before `PKG-004` can truthfully run all 38 consumer journeys. Do not reopen the closed tranche unless a regression demonstrates a product defect.
+Work is intentionally paused at a clean CSM-014 checkpoint. After restart, re-read the mandatory policy and this brief, confirm branch/status, then connect `PIX-001/002/003/005` plus `PKG-001/002/003/004/005` through shared public Pixi/backend/package probes and focused routes. Keep native Windows cells in `PIX-003` explicitly pending until measured on target hardware.
 
 # Working Boundary
 
