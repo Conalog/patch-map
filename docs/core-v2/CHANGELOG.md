@@ -7,6 +7,9 @@
   transformer, viewport, history, asset, extraction, and lifecycle APIs.
 - Added packaged minimal, Dashboard, Editor, and Report examples plus a
   consumer-owned host adapter.
+- Added explicit canonical/legacy input materialization, guarded persistence
+  roundtrip, session-stable canary, shadow suppression, and next-remount
+  rollback APIs.
 - Added strict ESM/CJS/types, package hygiene, multi-instance, host journey,
   documentation, and digest-bound release verification.
 
