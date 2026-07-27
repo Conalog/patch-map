@@ -589,9 +589,26 @@ async function runHostAdapter() {
         strategy: 'mesh',
       },
     });
+    const legacyLoad = adapter.load({
+      kind: 'generic-item',
+      id: 'legacy-a',
+      x: 10,
+      y: 20,
+      width: 100,
+      height: 80,
+      label: 'Legacy A',
+    }, { datasetRef: 'package:legacy-host-adapter' });
+    if (legacyLoad.rootIds[0] !== 'legacy-a') throw new Error('adapter legacy load');
     const load = adapter.load(DATASET, { datasetRef: 'package:host-adapter' });
     if (load.rootIds.length !== 2) throw new Error('adapter load root count');
     reachedCapabilities.push('load');
+
+    const save = adapter.prepareSave(true);
+    if (
+      save.rootKind !== 'array'
+      || !Array.isArray(JSON.parse(save.serialized))
+      || save.semanticHash !== load.semanticHash
+    ) throw new Error('adapter persistence guard');
 
     const lookup = adapter.lookup('rect-b');
     if (lookup?.id !== 'rect-b') throw new Error('adapter stable lookup');

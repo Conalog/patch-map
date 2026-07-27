@@ -19,9 +19,9 @@ const MISSING_VALUE = Object.freeze({ _availability: 'missing' });
 /**
  * Register actual-only DAT-006/007/008 handlers.
  *
- * Product and engine capabilities are injected. This module deliberately does
- * not polyfill legacy ingestion, mutations, diagnostics, generated identities,
- * or semantic hashes: unavailable product operations remain observable as
+ * Product and engine capabilities are injected. This module never synthesizes
+ * legacy conversion, mutations, diagnostics, generated identities, or
+ * semantic hashes: unavailable product operations remain observable as
  * UNSUPPORTED_OPERATION instead of being adjusted to contract expectations.
  */
 export function createDataClosureHandlerEntries(product) {

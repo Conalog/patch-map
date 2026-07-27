@@ -52,7 +52,14 @@ try {
     measured: 7,
   }));
   const hostInteractionLifecycle = await page.evaluate(async () => {
-    const { CoreV2Engine } = await import('/src/core-v2/index.ts');
+    const {
+      CORE_V2_MIGRATION_BLOCKERS,
+      CORE_V2_MIGRATION_COHORTS,
+      CoreV2Engine,
+      CoreV2MigrationAuthority,
+      materializeCoreV2CompatibilityDataset,
+      prepareCoreV2PersistenceExport,
+    } = await import('/src/core-v2/index.ts');
     const trials = [];
     for (let index = 0; index < 9; index += 1) {
       const host = document.createElement('div');
@@ -73,6 +80,8 @@ try {
       let pageLifecycleAfterDestroy = null;
       let accessibilityBeforeDestroy = null;
       let accessibilityAfterDestroy = null;
+      let migrationBeforeDestroy = null;
+      let migrationAfterDestroy = null;
       let snapshot = null;
       let observedEventCount = 0;
       let hostPublicationCount = 0;
@@ -261,7 +270,42 @@ try {
           ...engine.pageLifecycleProbe(),
         };
         accessibilityBeforeDestroy = engine.accessibilityProbe();
+        const legacy = materializeCoreV2CompatibilityDataset({
+          kind: 'generic-item',
+          id: `memory-legacy-${index}`,
+          width: 100,
+          height: 80,
+        });
+        const persistence = prepareCoreV2PersistenceExport(
+          engine.exportDataset(),
+        );
+        const migration = new CoreV2MigrationAuthority('core-v2');
+        migration.mountSession(`memory-canary-${index}`, {
+          authoritative: 'core-v2',
+          shadow: 'comparison',
+          shadowMode: 'read-only',
+        });
+        migration.recordEffect('authoritative', 'persistence');
+        migration.recordEffect('shadow', 'persistence');
+        const cohort = migration.evaluateCanary({
+          cohortsPercent: CORE_V2_MIGRATION_COHORTS,
+          guardedBlockers: CORE_V2_MIGRATION_BLOCKERS,
+        });
+        migration.requestRollback({
+          from: 'core-v2',
+          to: 'previous',
+          effectiveAt: 'next-remount',
+        });
+        migration.remountSession(`memory-rollback-${index}`);
+        migrationBeforeDestroy = {
+          ...migration.probe(),
+          legacyId: legacy.canonicalDataset[0]?.id ?? null,
+          persistenceRootKind: persistence.rootKind,
+          cohortCompleted: cohort.completedCohorts,
+        };
         await engine.destroy();
+        migration.destroy();
+        migrationAfterDestroy = migration.probe();
         tooltipSubscriptionDisposeAfterDestroy = tooltipSubscription.dispose();
         afterDestroy = engine.hostInteractionProbe();
         transformerAfterDestroy = engine.transformerGestureProbe();
@@ -295,6 +339,8 @@ try {
         pageLifecycleAfterDestroy,
         accessibilityBeforeDestroy,
         accessibilityAfterDestroy,
+        migrationBeforeDestroy,
+        migrationAfterDestroy,
         snapshot,
         retainedCanvasCount: host.querySelectorAll('canvas').length,
         retainedHostChildCount: host.childElementCount,
@@ -410,6 +456,20 @@ try {
       trial.accessibilityAfterDestroy?.surface !== null ||
       JSON.stringify(trial.accessibilityAfterDestroy?.orderedIds) !==
         JSON.stringify([]) ||
+      trial.migrationBeforeDestroy?.activeEngine !== 'previous' ||
+      trial.migrationBeforeDestroy?.activeLifecycleCount !== 1 ||
+      trial.migrationBeforeDestroy?.canvasCount !== 1 ||
+      trial.migrationBeforeDestroy?.shadowEffectCount !== 0 ||
+      trial.migrationBeforeDestroy?.replayedGestureCount !== 0 ||
+      trial.migrationBeforeDestroy?.legacyId !==
+        `memory-legacy-${trial.index}` ||
+      trial.migrationBeforeDestroy?.persistenceRootKind !== 'array' ||
+      JSON.stringify(trial.migrationBeforeDestroy?.cohortCompleted) !==
+        JSON.stringify([1, 10, 50, 100]) ||
+      trial.migrationAfterDestroy?.destroyed !== true ||
+      trial.migrationAfterDestroy?.activeLifecycleCount !== 0 ||
+      trial.migrationAfterDestroy?.canvasCount !== 0 ||
+      trial.migrationAfterDestroy?.retainedCallbackCount !== 0 ||
       trial.snapshot?.historyDepth !== 0 ||
       trial.snapshot?.resources?.canvasCount !== 0 ||
       trial.snapshot?.resources?.subscriptions?.active !== 0 ||

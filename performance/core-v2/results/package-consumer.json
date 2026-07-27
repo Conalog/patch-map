@@ -1,11 +1,11 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-27T14:17:16.357Z",
+  "generatedAt": "2026-07-27T17:01:29.834Z",
   "package": "@conalog/patch-map/core-v2",
   "pixi": "8.19.0",
   "provenance": {
-    "codeCommit": "98442e5d32e6324d37e31fae3c91172f64e5ee81",
-    "packedPackageSha256": "2522114eb25245a94cedf57a29a9e9a2aaab7709077c661498acec1ab54091d9",
+    "codeCommit": "a8122253b4cd4ef9f3ebda6c801f7d36a2782c79",
+    "packedPackageSha256": "4b58eeb21a06698a45ef368754c27dbb556125047f597cd020899b63111ca1fb",
     "expectedEvidenceBound": true
   },
   "environment": {
@@ -16,11 +16,11 @@
     "productionBundler": "vite"
   },
   "artifact": {
-    "sha256": "2522114eb25245a94cedf57a29a9e9a2aaab7709077c661498acec1ab54091d9",
+    "sha256": "4b58eeb21a06698a45ef368754c27dbb556125047f597cd020899b63111ca1fb",
     "filename": "conalog-patch-map-0.10.0.tgz",
-    "size": 955697,
-    "unpackedSize": 3242301,
-    "fileCount": 111,
+    "size": 1059951,
+    "unpackedSize": 3657913,
+    "fileCount": 113,
     "sourceMapCount": 0,
     "sourceMaps": [],
     "restrictedEvidenceCount": 0,
@@ -48,23 +48,23 @@
   },
   "supplyChain": {
     "schemaVersion": 1,
-    "sourceRevision": "98442e5d32e6324d37e31fae3c91172f64e5ee81",
+    "sourceRevision": "a8122253b4cd4ef9f3ebda6c801f7d36a2782c79",
     "builds": [
       {
         "index": 0,
-        "sha256": "2522114eb25245a94cedf57a29a9e9a2aaab7709077c661498acec1ab54091d9",
+        "sha256": "4b58eeb21a06698a45ef368754c27dbb556125047f597cd020899b63111ca1fb",
         "filename": "conalog-patch-map-0.10.0.tgz",
-        "size": 955697,
-        "unpackedSize": 3242301,
-        "fileCount": 111
+        "size": 1059951,
+        "unpackedSize": 3657913,
+        "fileCount": 113
       },
       {
         "index": 1,
-        "sha256": "2522114eb25245a94cedf57a29a9e9a2aaab7709077c661498acec1ab54091d9",
+        "sha256": "4b58eeb21a06698a45ef368754c27dbb556125047f597cd020899b63111ca1fb",
         "filename": "conalog-patch-map-0.10.0.tgz",
-        "size": 955697,
-        "unpackedSize": 3242301,
-        "fileCount": 111
+        "size": 1059951,
+        "unpackedSize": 3657913,
+        "fileCount": 113
       }
     ],
     "reproducible": true,
@@ -108,7 +108,7 @@
     },
     "sbom": {
       "format": "core-v2-spdx-lite/1",
-      "packageDigest": "2522114eb25245a94cedf57a29a9e9a2aaab7709077c661498acec1ab54091d9",
+      "packageDigest": "4b58eeb21a06698a45ef368754c27dbb556125047f597cd020899b63111ca1fb",
       "packageCount": 198,
       "packages": [
         {
@@ -2548,13 +2548,13 @@
   },
   "packageBoundary": {
     "production": {
-      "packedEntry": "/var/folders/wv/2zqlsrz10lv73mczw_5wsm8w0000gn/T/patch-map-core-v2-package-PikW3q/consumer/node_modules/@conalog/patch-map/dist/core-v2.js",
-      "resolutionCount": 12,
-      "sourceImportResolutionCount": 12,
+      "packedEntry": "/var/folders/wv/2zqlsrz10lv73mczw_5wsm8w0000gn/T/patch-map-core-v2-package-Qgbt4D/consumer/node_modules/@conalog/patch-map/dist/core-v2.js",
+      "resolutionCount": 14,
+      "sourceImportResolutionCount": 14,
       "packageImportResolutionCount": 0
     },
     "browser": {
-      "packedEntry": "/var/folders/wv/2zqlsrz10lv73mczw_5wsm8w0000gn/T/patch-map-core-v2-package-PikW3q/consumer/node_modules/@conalog/patch-map/dist/core-v2.js",
+      "packedEntry": "/var/folders/wv/2zqlsrz10lv73mczw_5wsm8w0000gn/T/patch-map-core-v2-package-Qgbt4D/consumer/node_modules/@conalog/patch-map/dist/core-v2.js",
       "resolutionCount": 0,
       "sourceImportResolutionCount": 0,
       "packageImportResolutionCount": 0
@@ -2733,7 +2733,7 @@
     "journeyCount": 38,
     "passedJourneyCount": 38,
     "failedJourneyCount": 0,
-    "packageDigestAcrossJourneys": "2522114eb25245a94cedf57a29a9e9a2aaab7709077c661498acec1ab54091d9",
+    "packageDigestAcrossJourneys": "4b58eeb21a06698a45ef368754c27dbb556125047f597cd020899b63111ca1fb",
     "cleanupFailureCount": 0,
     "rows": [
       {
@@ -3330,6 +3330,7 @@
     "editorMountRevision": "core-v2-editor-mount/1",
     "hostInteractionRevision": "core-v2-host-interaction/1",
     "hostTooltipRevision": "core-v2-host-tooltip/1",
+    "migrationRevision": "core-v2-migration/1",
     "pointerRevision": "core-v2-pointer-gesture/1",
     "pageLifecycleRevision": "core-v2-page-lifecycle/1",
     "presentationRevision": "core-v2-presentation-policy/1",
@@ -3345,6 +3346,32 @@
       "sceneRevisionUnchanged": true,
       "semanticHashUnchanged": true,
       "datasetRefUnchanged": true
+    },
+    "migrationPackage": {
+      "compatibilitySourceKind": "canonical-array",
+      "legacySourceKind": "legacy-generic-item",
+      "legacyId": "legacy-packed",
+      "roundtripSemanticHashEqual": true,
+      "exportRootKind": "array",
+      "nonserializable": {
+        "code": "NON_SERIALIZABLE_VALUE",
+        "path": "$[0].attrs.bad"
+      },
+      "authoritativeEffectPublished": true,
+      "shadowEffectPublished": false,
+      "shadowEffectCount": 0,
+      "activeCanvasesPerHostSlot": 1,
+      "completedCohorts": [
+        1,
+        10,
+        50,
+        100
+      ],
+      "rollbackActiveBeforeRemount": "core-v2",
+      "rollbackDesiredBeforeRemount": "previous",
+      "rollbackActiveAfterRemount": "previous",
+      "canaryDestroyed": true,
+      "rollbackDestroyed": true
     },
     "authoringPackage": {
       "plannerType": "function",
@@ -3688,6 +3715,10 @@
     "editorMountRevision": "core-v2-editor-mount/1",
     "editorMountResolverType": "function",
     "tooltipRevision": "core-v2-host-tooltip/1",
+    "migrationRevision": "core-v2-migration/1",
+    "migrationAuthorityType": "function",
+    "migrationCompatibilityType": "function",
+    "migrationPersistenceType": "function",
     "tooltipBindingType": "function",
     "tooltipHoverType": "function",
     "tooltipPinType": "function",

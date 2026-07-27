@@ -22,8 +22,8 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 1_999;
-const EXPECTED_ASSERTION_PASS_TOTAL = 1_964;
+const EXPECTED_ASSERTION_TOTAL = 2_028;
+const EXPECTED_ASSERTION_PASS_TOTAL = 1_993;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;
 const EXPECTED_PERFORMANCE_DEFICIT_TOTAL = 14;
 const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;
@@ -426,6 +426,9 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'ACC-003', expectedAssertions: 6 }),
   Object.freeze({ id: 'OPS-001', expectedAssertions: 9 }),
   Object.freeze({ id: 'OPS-002', expectedAssertions: 6 }),
+  Object.freeze({ id: 'MIG-001', expectedAssertions: 10, expectedMaxCanvas: 2 }),
+  Object.freeze({ id: 'MIG-002', expectedAssertions: 9 }),
+  Object.freeze({ id: 'MIG-003', expectedAssertions: 10 }),
   Object.freeze({ id: 'CSM-032', expectedAssertions: 21 }),
   Object.freeze({ id: 'CSM-033', expectedAssertions: 20 }),
   Object.freeze({ id: 'CSM-034', expectedAssertions: 23 }),
@@ -590,6 +593,11 @@ const ACCESSIBILITY_TRANCHE_CASES = new Set([
   'ACC-002',
   'ACC-003',
 ]);
+const MIGRATION_TRANCHE_CASES = new Set([
+  'MIG-001',
+  'MIG-002',
+  'MIG-003',
+]);
 const PERFORMANCE_TRANCHE_CASES = new Set([
   'PRF-001',
   'PRF-002',
@@ -624,6 +632,7 @@ const CONTROL_CASES = new Set([
   ...PACKAGE_INTEGRATION_TRANCHE_CASES,
   ...SECURITY_OPERATIONS_TRANCHE_CASES,
   ...ACCESSIBILITY_TRANCHE_CASES,
+  ...MIGRATION_TRANCHE_CASES,
   ...PERFORMANCE_GPU_CASES,
 ]);
 const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);
@@ -644,6 +653,7 @@ const GPU_EVIDENCE_CASES = new Set([
   'OPS-001',
   'OPS-002',
   ...ACCESSIBILITY_TRANCHE_CASES,
+  ...MIGRATION_TRANCHE_CASES,
   ...DETERMINISM_LIFECYCLE_TRANCHE_CASES,
   ...AUTHORING_TRANCHE_CASES,
   ...EDITOR_WORKFLOW_TRANCHE_CASES,
@@ -791,28 +801,28 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all one-hundred-fifty-five render routes completed'
+      ? 'all one-hundred-fifty-eight render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
     passed === selectedAssertionTotal - selectedObservedFailureTotal
       && failed === selectedObservedFailureTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 1964 pass, 21 immutable conflicts, and 14 performance deficits'
+      ? 'canonical comparison must be exactly 1993 pass, 21 immutable conflicts, and 14 performance deficits'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedFailureTotal
       && repeatFailed === selectedObservedFailureTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 1964 pass, 21 immutable conflicts, and 14 performance deficits'
+      ? 'repeat comparison must be exactly 1993 pass, 21 immutable conflicts, and 14 performance deficits'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedFailureTotal
       && freshFailed === selectedObservedFailureTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 1964 pass, 21 immutable conflicts, and 14 performance deficits'
+      ? 'fresh comparison must be exactly 1993 pass, 21 immutable conflicts, and 14 performance deficits'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -2580,6 +2590,7 @@ function assertGpuEvidence(caseId, gpu, runLabel) {
   if (DETERMINISM_LIFECYCLE_TRANCHE_CASES.has(caseId)) return;
   if (SECURITY_OPERATIONS_TRANCHE_CASES.has(caseId)) return;
   if (ACCESSIBILITY_TRANCHE_CASES.has(caseId)) return;
+  if (MIGRATION_TRANCHE_CASES.has(caseId)) return;
   if (PERFORMANCE_GPU_CASES.has(caseId)) return;
 
   if (caseId === 'LAY-003') {
@@ -3277,7 +3288,7 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 1999',
+    'render checkpoint assertion inventory must remain 2028',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===
@@ -3294,7 +3305,7 @@ async function loadExpectedCases() {
       - EXPECTED_ASSERTION_FAILURE_TOTAL
       - EXPECTED_PERFORMANCE_DEFICIT_TOTAL
       === EXPECTED_ASSERTION_PASS_TOTAL,
-    'render checkpoint passing assertion inventory must remain 1964',
+    'render checkpoint passing assertion inventory must remain 1993',
   );
   invariant(
     sum(

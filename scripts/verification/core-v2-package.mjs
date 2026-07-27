@@ -108,6 +108,9 @@ import {
   CORE_V2_EDITOR_MOUNT_REVISION,
   CORE_V2_HOST_INTERACTION_REVISION,
   CORE_V2_HOST_TOOLTIP_REVISION,
+  CORE_V2_MIGRATION_BLOCKERS,
+  CORE_V2_MIGRATION_COHORTS,
+  CORE_V2_MIGRATION_REVISION,
   CORE_V2_MUTATION_TRANSACTION_REVISION,
   CORE_V2_PAGE_LIFECYCLE_REVISION,
   CORE_V2_POINTER_GESTURE_REVISION,
@@ -116,6 +119,7 @@ import {
   CORE_V2_TRANSFORMER_EDIT_REVISION,
   CoreV2Engine,
   CoreV2HostInteractionAuthority,
+  CoreV2MigrationAuthority,
   CoreV2PageLifecycleAuthority,
   CoreV2PointerGestureAuthority,
   CoreV2TransformerGestureAuthority,
@@ -123,9 +127,12 @@ import {
   createCoreV2CommandTargetState,
   hitCoreV2BoxRegion,
   hitCoreV2PaintRegion,
+  assertCoreV2SemanticRoundtrip,
+  materializeCoreV2CompatibilityDataset,
   parsePatchMapV010,
   planCoreV2AuthoringAction,
   planCoreV2TransformerEdit,
+  prepareCoreV2PersistenceExport,
   resolveCoreV2EditorMount,
   resolveCoreV2RotationSnap,
   validateCoreV2DatasetReferences,
@@ -149,6 +156,62 @@ const hierarchyInput = [
 ];
 const before = JSON.stringify(input);
 const hierarchyBefore = JSON.stringify(hierarchyInput);
+const compatibility = materializeCoreV2CompatibilityDataset(input);
+const legacyCompatibility = materializeCoreV2CompatibilityDataset({
+  kind: 'generic-item',
+  id: 'legacy-packed',
+  x: 10,
+  y: 20,
+  width: 100,
+  height: 80,
+  label: 'Legacy Packed',
+});
+const migrationPersistence = prepareCoreV2PersistenceExport(
+  compatibility.canonicalDataset,
+);
+const migrationReload = materializeCoreV2CompatibilityDataset(
+  JSON.parse(migrationPersistence.serialized),
+);
+assertCoreV2SemanticRoundtrip(migrationPersistence, migrationReload);
+let migrationNonserializable = null;
+try {
+  const invalidPersistence = structuredClone(input);
+  invalidPersistence[0].attrs.bad = () => undefined;
+  prepareCoreV2PersistenceExport(invalidPersistence);
+} catch (error) {
+  migrationNonserializable = {
+    code: error.code ?? null,
+    path: error.datasetPath ?? null,
+  };
+}
+const canaryAuthority = new CoreV2MigrationAuthority('core-v2');
+canaryAuthority.mountSession('packed-canary', {
+  authoritative: 'core-v2',
+  shadow: 'comparison',
+  shadowMode: 'read-only',
+});
+const authoritativeEffect = canaryAuthority.recordEffect(
+  'authoritative',
+  'persistence',
+);
+const shadowEffect = canaryAuthority.recordEffect('shadow', 'persistence');
+const canaryCohort = canaryAuthority.evaluateCanary({
+  cohortsPercent: CORE_V2_MIGRATION_COHORTS,
+  guardedBlockers: CORE_V2_MIGRATION_BLOCKERS,
+});
+const canaryProbe = canaryAuthority.probe();
+canaryAuthority.destroy();
+const rollbackAuthority = new CoreV2MigrationAuthority('core-v2');
+rollbackAuthority.mountSession('packed-rollback-current');
+const rollbackPending = rollbackAuthority.requestRollback({
+  from: 'core-v2',
+  to: 'previous',
+  effectiveAt: 'next-remount',
+});
+const rollbackRemounted = rollbackAuthority.remountSession(
+  'packed-rollback-next',
+);
+rollbackAuthority.destroy();
 const parsed = parsePatchMapV010(input);
 const pointerAuthority = new CoreV2PointerGestureAuthority({
   hitTest: ({ x, y }) => x <= 100 && y <= 100 ? 'consumer-item' : null,
@@ -589,6 +652,7 @@ window.__PACKAGE_RESULT__ = {
   editorMountRevision: CORE_V2_EDITOR_MOUNT_REVISION,
   hostInteractionRevision: CORE_V2_HOST_INTERACTION_REVISION,
   hostTooltipRevision: CORE_V2_HOST_TOOLTIP_REVISION,
+  migrationRevision: CORE_V2_MIGRATION_REVISION,
   pointerRevision: CORE_V2_POINTER_GESTURE_REVISION,
   pageLifecycleRevision: CORE_V2_PAGE_LIFECYCLE_REVISION,
   presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
@@ -604,6 +668,25 @@ window.__PACKAGE_RESULT__ = {
       strictReferenceAfter.semanticHash === strictReferenceBefore.semanticHash,
     datasetRefUnchanged:
       strictReferenceAfter.datasetRef === strictReferenceBefore.datasetRef,
+  },
+  migrationPackage: {
+    compatibilitySourceKind: compatibility.sourceKind,
+    legacySourceKind: legacyCompatibility.sourceKind,
+    legacyId: legacyCompatibility.canonicalDataset[0]?.id ?? null,
+    roundtripSemanticHashEqual:
+      migrationPersistence.semanticHash === migrationReload.semanticHash,
+    exportRootKind: migrationPersistence.rootKind,
+    nonserializable: migrationNonserializable,
+    authoritativeEffectPublished: authoritativeEffect.published,
+    shadowEffectPublished: shadowEffect.published,
+    shadowEffectCount: canaryProbe.shadowEffectCount,
+    activeCanvasesPerHostSlot: canaryProbe.activeCanvasesPerHostSlot,
+    completedCohorts: canaryCohort.completedCohorts,
+    rollbackActiveBeforeRemount: rollbackPending.activeEngine,
+    rollbackDesiredBeforeRemount: rollbackPending.desiredEngine,
+    rollbackActiveAfterRemount: rollbackRemounted.activeEngine,
+    canaryDestroyed: canaryAuthority.probe().destroyed,
+    rollbackDestroyed: rollbackAuthority.probe().destroyed,
   },
   authoringPackage: {
     plannerType: typeof planCoreV2AuthoringAction,
@@ -812,6 +895,7 @@ const {
   CORE_V2_EDITOR_MOUNT_REVISION,
   CORE_V2_HOST_INTERACTION_REVISION,
   CORE_V2_HOST_TOOLTIP_REVISION,
+  CORE_V2_MIGRATION_REVISION,
   CORE_V2_MUTATION_TRANSACTION_REVISION,
   CORE_V2_PAGE_LIFECYCLE_REVISION,
   CORE_V2_POINTER_GESTURE_REVISION,
@@ -821,12 +905,15 @@ const {
   CoreV2PointerGestureAuthority,
   CoreV2Engine,
   CoreV2HostInteractionAuthority,
+  CoreV2MigrationAuthority,
   CoreV2PageLifecycleAuthority,
   CoreV2TransformerGestureAuthority,
   createCoreV2CommandTargetState,
   parsePatchMapV010,
+  materializeCoreV2CompatibilityDataset,
   planCoreV2AuthoringAction,
   planCoreV2TransformerEdit,
+  prepareCoreV2PersistenceExport,
   planCoreV2MutationTransaction,
   resolveCoreV2EditorMount,
   resolveCoreV2RotationSnap,
@@ -847,6 +934,10 @@ process.stdout.write(JSON.stringify({
   editorMountRevision: CORE_V2_EDITOR_MOUNT_REVISION,
   editorMountResolverType: typeof resolveCoreV2EditorMount,
   tooltipRevision: CORE_V2_HOST_TOOLTIP_REVISION,
+  migrationRevision: CORE_V2_MIGRATION_REVISION,
+  migrationAuthorityType: typeof CoreV2MigrationAuthority,
+  migrationCompatibilityType: typeof materializeCoreV2CompatibilityDataset,
+  migrationPersistenceType: typeof prepareCoreV2PersistenceExport,
   tooltipBindingType: typeof CoreV2Engine.prototype.bindTooltipHost,
   tooltipHoverType: typeof CoreV2Engine.prototype.hoverTooltipAtScreen,
   tooltipPinType: typeof CoreV2Engine.prototype.toggleTooltipPinAtScreen,
@@ -998,6 +1089,27 @@ process.stdout.write(JSON.stringify({
   if (esm.pageLifecycleRevision !== 'core-v2-page-lifecycle/1') failures.push('packed ESM page lifecycle revision export failed');
   if (esm.hostInteractionRevision !== 'core-v2-host-interaction/1') failures.push('packed ESM host interaction revision export failed');
   if (esm.hostTooltipRevision !== 'core-v2-host-tooltip/1') failures.push('packed ESM host tooltip revision export failed');
+  if (
+    esm.migrationRevision !== 'core-v2-migration/1' ||
+    esm.migrationPackage?.compatibilitySourceKind !== 'canonical-array' ||
+    esm.migrationPackage?.legacySourceKind !== 'legacy-generic-item' ||
+    esm.migrationPackage?.legacyId !== 'legacy-packed' ||
+    esm.migrationPackage?.roundtripSemanticHashEqual !== true ||
+    esm.migrationPackage?.exportRootKind !== 'array' ||
+    esm.migrationPackage?.nonserializable?.code !== 'NON_SERIALIZABLE_VALUE' ||
+    esm.migrationPackage?.nonserializable?.path !== '$[0].attrs.bad' ||
+    esm.migrationPackage?.authoritativeEffectPublished !== true ||
+    esm.migrationPackage?.shadowEffectPublished !== false ||
+    esm.migrationPackage?.shadowEffectCount !== 0 ||
+    esm.migrationPackage?.activeCanvasesPerHostSlot !== 1 ||
+    JSON.stringify(esm.migrationPackage?.completedCohorts) !==
+      JSON.stringify([1, 10, 50, 100]) ||
+    esm.migrationPackage?.rollbackActiveBeforeRemount !== 'core-v2' ||
+    esm.migrationPackage?.rollbackDesiredBeforeRemount !== 'previous' ||
+    esm.migrationPackage?.rollbackActiveAfterRemount !== 'previous' ||
+    esm.migrationPackage?.canaryDestroyed !== true ||
+    esm.migrationPackage?.rollbackDestroyed !== true
+  ) failures.push('packed ESM migration boundary failed');
   if (esm.selectionTransformerRevision !== 'core-v2-selection-transformer/1') failures.push('packed ESM selection transformer revision export failed');
   if (
     esm.strictReferenceValidation?.validatorType !== 'function' ||
@@ -1242,6 +1354,10 @@ process.stdout.write(JSON.stringify({
     cjs.editorMountRevision !== 'core-v2-editor-mount/1' ||
     cjs.editorMountResolverType !== 'function' ||
     cjs.tooltipRevision !== 'core-v2-host-tooltip/1' ||
+    cjs.migrationRevision !== 'core-v2-migration/1' ||
+    cjs.migrationAuthorityType !== 'function' ||
+    cjs.migrationCompatibilityType !== 'function' ||
+    cjs.migrationPersistenceType !== 'function' ||
     cjs.tooltipBindingType !== 'function' ||
     cjs.tooltipHoverType !== 'function' ||
     cjs.tooltipPinType !== 'function' ||

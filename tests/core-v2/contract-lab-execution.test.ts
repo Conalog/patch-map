@@ -63,9 +63,9 @@ interface CompareRuntime {
 }
 
 const { compareObservation } = compareModule as unknown as CompareRuntime;
-const PACKED_CODE_COMMIT = '98442e5d32e6324d37e31fae3c91172f64e5ee81';
+const PACKED_CODE_COMMIT = 'a8122253b4cd4ef9f3ebda6c801f7d36a2782c79';
 const PACKED_PACKAGE_SHA256 =
-  '2522114eb25245a94cedf57a29a9e9a2aaab7709077c661498acec1ab54091d9';
+  '4b58eeb21a06698a45ef368754c27dbb556125047f597cd020899b63111ca1fb';
 
 describe('Core v2 executable Lab product bridge', () => {
   it.each(CORE_V2_EXECUTABLE_CASE_IDS.filter(
@@ -1567,6 +1567,9 @@ describe('Core v2 executable Lab product bridge', () => {
       'ACC-003': 'accessibility',
       'OPS-001': 'security-operations',
       'OPS-002': 'security-operations',
+      'MIG-001': 'migration',
+      'MIG-002': 'migration',
+      'MIG-003': 'migration',
       'DAT-001': 'foundation',
       'DAT-002': 'foundation',
       'DAT-003': 'data-foundation',

@@ -84,9 +84,9 @@ describe('Core v2 packed integration automation substrate', () => {
       schemaVersion: 2,
       status: 'pass',
       provenance: {
-        codeCommit: '98442e5d32e6324d37e31fae3c91172f64e5ee81',
+        codeCommit: 'a8122253b4cd4ef9f3ebda6c801f7d36a2782c79',
         packedPackageSha256:
-          '2522114eb25245a94cedf57a29a9e9a2aaab7709077c661498acec1ab54091d9',
+          '4b58eeb21a06698a45ef368754c27dbb556125047f597cd020899b63111ca1fb',
       },
       packageMatrix: {
         remainingCanvasCount: 0,

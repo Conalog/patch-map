@@ -6,7 +6,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
   CoreV2Engine,
-  materializeCoreV2Dataset,
+  materializeCoreV2CompatibilityDataset,
   type CoreV2EngineSurface,
   type CoreV2Point,
   type CoreV2SurfaceDebug,
@@ -241,7 +241,7 @@ describe('Core v2 data-closure actual-only fold', () => {
   });
 
   it.each([
-    ['DAT-006', 5, 4],
+    ['DAT-006', 9, 0],
     ['DAT-007', 10, 0],
     ['DAT-008', 13, 3],
   ] as const)(
@@ -268,7 +268,7 @@ describe('Core v2 data-closure actual-only fold', () => {
     },
   );
 
-  it('projects DAT-006 product rejection instead of manufacturing legacy compatibility', async () => {
+  it('projects DAT-006 product compatibility without fold-side normalization', async () => {
     const { folded } = await executeAndFold('DAT-006');
     const comparison = compareObservation({
       expectedCase: normalizedCase('DAT-006'),
@@ -280,16 +280,13 @@ describe('Core v2 data-closure actual-only fold', () => {
     expect(valueAt(folded.actual, 'scene.legacy.input')).toEqual(
       valueAt(folded.fixtures, 'legacyRoot'),
     );
-    expect(valueAt(folded.actual, 'scene.legacy.accepted')).toBe(false);
-    expect(valueAt(folded.actual, 'scene.legacy.canonical')).toBeNull();
-    expect(valueAt(folded.actual, 'outcome.malformed.code')).toBe('INVALID_VALUE');
-    expect(valueAt(folded.actual, 'outcome.malformed.path')).toBe('$');
-    expect(failedPaths(comparison)).toEqual([
-      '/scene/legacy/canonical',
-      '/scene/legacy/semanticHash',
-      '/outcome/malformed/code',
-      '/outcome/malformed/path',
-    ]);
+    expect(valueAt(folded.actual, 'scene.legacy.accepted')).toBe(true);
+    expect(valueAt(folded.actual, 'scene.legacy.canonical')).toEqual(
+      valueAt(folded.fixtures, 'canonicalDataset'),
+    );
+    expect(valueAt(folded.actual, 'outcome.malformed.code')).toBe('INVALID_LEGACY_ROOT');
+    expect(valueAt(folded.actual, 'outcome.malformed.path')).toBe('$.height');
+    expect(failedPaths(comparison)).toEqual([]);
   });
 
   it('projects DAT-007 atomic rejection with preserved authority', async () => {
@@ -488,7 +485,15 @@ function selectedCase(id: string): MaterializedCase {
 }
 
 function productAdapter(): Readonly<JsonRecord> {
-  return Object.freeze({ materializeDataset: materializeCoreV2Dataset });
+  return Object.freeze({
+    materializeDataset(input: unknown): Readonly<JsonRecord> {
+      const compatible = materializeCoreV2CompatibilityDataset(input);
+      return Object.freeze({
+        dataset: compatible.canonicalDataset,
+        semanticHash: compatible.semanticHash,
+      });
+    },
+  });
 }
 
 function engineFactory(engines: CoreV2Engine[]): (_metadata: Readonly<JsonRecord>) => CoreV2Engine {

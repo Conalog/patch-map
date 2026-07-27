@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-27T14:34:48.938Z",
+  "generatedAt": "2026-07-27T17:22:35.463Z",
   "workload": {
     "sourceItems": 1000,
     "expandedEntities": 5099
@@ -200,7 +200,7 @@
           "interaction": 8
         },
         "dataUrlPrefix": "data:image/png;base64,",
-        "dataUrlLength": 2242,
+        "dataUrlLength": 2498,
         "sameCanvasObject": true,
         "authoritativeCanvasRetained": true,
         "temporaryImageCount": 0,
@@ -255,6 +255,207 @@
         "activeGestureCount": 0,
         "pointerCaptureCount": 0
       },
+      "accessibilityBeforeDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [
+          "item-a",
+          "rect-b"
+        ],
+        "children": [
+          "item-a",
+          "rect-b"
+        ],
+        "targets": {
+          "item-a": {
+            "id": "item-a",
+            "role": "button",
+            "name": "item-a",
+            "description": null,
+            "disabled": false,
+            "label": "item-a",
+            "type": "item",
+            "screenBounds": [
+              10,
+              20,
+              100,
+              80
+            ],
+            "focused": false,
+            "focusVisible": false,
+            "selected": false,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [],
+            "children": []
+          },
+          "rect-b": {
+            "id": "rect-b",
+            "role": "button",
+            "name": "rect-b",
+            "description": null,
+            "disabled": false,
+            "label": "rect-b",
+            "type": "rect",
+            "screenBounds": [
+              180,
+              40,
+              40,
+              30
+            ],
+            "focused": true,
+            "focusVisible": true,
+            "selected": true,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [
+              "focus"
+            ],
+            "children": []
+          }
+        },
+        "focusedId": "rect-b",
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": {
+          "active": true,
+          "shadowDomActive": true,
+          "overlayNodeCount": 2,
+          "shadowDomNodeCount": 2,
+          "rootListenerCount": 1,
+          "entityListenerCount": 0,
+          "focusedId": "rect-b",
+          "shadowDomFocusedId": "rect-b",
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "accessibilityAfterDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [],
+        "children": [],
+        "targets": {},
+        "focusedId": null,
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": null,
+        "destroyed": true
+      },
+      "migrationBeforeDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": "previous",
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": "memory-rollback-0",
+        "activeLifecycleCount": 1,
+        "canvasCount": 1,
+        "activeCanvasesPerHostSlot": 1,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 1,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": {
+          "guardedBlockers": [
+            "semantic-mismatch",
+            "runtime-error",
+            "performance-budget",
+            "cleanup-budget"
+          ],
+          "failures": [],
+          "completedCohorts": [
+            1,
+            10,
+            50,
+            100
+          ],
+          "stoppedAtPercent": null,
+          "promotionAllowed": true
+        },
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": false,
+        "legacyId": "memory-legacy-0",
+        "persistenceRootKind": "array",
+        "cohortCompleted": [
+          1,
+          10,
+          50,
+          100
+        ]
+      },
+      "migrationAfterDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": null,
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": null,
+        "activeLifecycleCount": 0,
+        "canvasCount": 0,
+        "activeCanvasesPerHostSlot": 0,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 0,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": null,
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-0",
@@ -269,7 +470,7 @@
           "view": 0,
           "interaction": 10
         },
-        "frameRevision": 3,
+        "frameRevision": 4,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -326,7 +527,8 @@
           }
         }
       },
-      "retainedCanvasCount": 0
+      "retainedCanvasCount": 0,
+      "retainedHostChildCount": 0
     },
     {
       "index": 1,
@@ -518,7 +720,7 @@
           "interaction": 8
         },
         "dataUrlPrefix": "data:image/png;base64,",
-        "dataUrlLength": 2242,
+        "dataUrlLength": 2498,
         "sameCanvasObject": true,
         "authoritativeCanvasRetained": true,
         "temporaryImageCount": 0,
@@ -573,6 +775,207 @@
         "activeGestureCount": 0,
         "pointerCaptureCount": 0
       },
+      "accessibilityBeforeDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [
+          "item-a",
+          "rect-b"
+        ],
+        "children": [
+          "item-a",
+          "rect-b"
+        ],
+        "targets": {
+          "item-a": {
+            "id": "item-a",
+            "role": "button",
+            "name": "item-a",
+            "description": null,
+            "disabled": false,
+            "label": "item-a",
+            "type": "item",
+            "screenBounds": [
+              10,
+              20,
+              100,
+              80
+            ],
+            "focused": false,
+            "focusVisible": false,
+            "selected": false,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [],
+            "children": []
+          },
+          "rect-b": {
+            "id": "rect-b",
+            "role": "button",
+            "name": "rect-b",
+            "description": null,
+            "disabled": false,
+            "label": "rect-b",
+            "type": "rect",
+            "screenBounds": [
+              180,
+              40,
+              40,
+              30
+            ],
+            "focused": true,
+            "focusVisible": true,
+            "selected": true,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [
+              "focus"
+            ],
+            "children": []
+          }
+        },
+        "focusedId": "rect-b",
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": {
+          "active": true,
+          "shadowDomActive": true,
+          "overlayNodeCount": 2,
+          "shadowDomNodeCount": 2,
+          "rootListenerCount": 1,
+          "entityListenerCount": 0,
+          "focusedId": "rect-b",
+          "shadowDomFocusedId": "rect-b",
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "accessibilityAfterDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [],
+        "children": [],
+        "targets": {},
+        "focusedId": null,
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": null,
+        "destroyed": true
+      },
+      "migrationBeforeDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": "previous",
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": "memory-rollback-1",
+        "activeLifecycleCount": 1,
+        "canvasCount": 1,
+        "activeCanvasesPerHostSlot": 1,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 1,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": {
+          "guardedBlockers": [
+            "semantic-mismatch",
+            "runtime-error",
+            "performance-budget",
+            "cleanup-budget"
+          ],
+          "failures": [],
+          "completedCohorts": [
+            1,
+            10,
+            50,
+            100
+          ],
+          "stoppedAtPercent": null,
+          "promotionAllowed": true
+        },
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": false,
+        "legacyId": "memory-legacy-1",
+        "persistenceRootKind": "array",
+        "cohortCompleted": [
+          1,
+          10,
+          50,
+          100
+        ]
+      },
+      "migrationAfterDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": null,
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": null,
+        "activeLifecycleCount": 0,
+        "canvasCount": 0,
+        "activeCanvasesPerHostSlot": 0,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 0,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": null,
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-1",
@@ -587,7 +990,7 @@
           "view": 0,
           "interaction": 10
         },
-        "frameRevision": 3,
+        "frameRevision": 4,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -644,7 +1047,8 @@
           }
         }
       },
-      "retainedCanvasCount": 0
+      "retainedCanvasCount": 0,
+      "retainedHostChildCount": 0
     },
     {
       "index": 2,
@@ -836,7 +1240,7 @@
           "interaction": 8
         },
         "dataUrlPrefix": "data:image/png;base64,",
-        "dataUrlLength": 2242,
+        "dataUrlLength": 2498,
         "sameCanvasObject": true,
         "authoritativeCanvasRetained": true,
         "temporaryImageCount": 0,
@@ -891,6 +1295,207 @@
         "activeGestureCount": 0,
         "pointerCaptureCount": 0
       },
+      "accessibilityBeforeDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [
+          "item-a",
+          "rect-b"
+        ],
+        "children": [
+          "item-a",
+          "rect-b"
+        ],
+        "targets": {
+          "item-a": {
+            "id": "item-a",
+            "role": "button",
+            "name": "item-a",
+            "description": null,
+            "disabled": false,
+            "label": "item-a",
+            "type": "item",
+            "screenBounds": [
+              10,
+              20,
+              100,
+              80
+            ],
+            "focused": false,
+            "focusVisible": false,
+            "selected": false,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [],
+            "children": []
+          },
+          "rect-b": {
+            "id": "rect-b",
+            "role": "button",
+            "name": "rect-b",
+            "description": null,
+            "disabled": false,
+            "label": "rect-b",
+            "type": "rect",
+            "screenBounds": [
+              180,
+              40,
+              40,
+              30
+            ],
+            "focused": true,
+            "focusVisible": true,
+            "selected": true,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [
+              "focus"
+            ],
+            "children": []
+          }
+        },
+        "focusedId": "rect-b",
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": {
+          "active": true,
+          "shadowDomActive": true,
+          "overlayNodeCount": 2,
+          "shadowDomNodeCount": 2,
+          "rootListenerCount": 1,
+          "entityListenerCount": 0,
+          "focusedId": "rect-b",
+          "shadowDomFocusedId": "rect-b",
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "accessibilityAfterDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [],
+        "children": [],
+        "targets": {},
+        "focusedId": null,
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": null,
+        "destroyed": true
+      },
+      "migrationBeforeDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": "previous",
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": "memory-rollback-2",
+        "activeLifecycleCount": 1,
+        "canvasCount": 1,
+        "activeCanvasesPerHostSlot": 1,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 1,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": {
+          "guardedBlockers": [
+            "semantic-mismatch",
+            "runtime-error",
+            "performance-budget",
+            "cleanup-budget"
+          ],
+          "failures": [],
+          "completedCohorts": [
+            1,
+            10,
+            50,
+            100
+          ],
+          "stoppedAtPercent": null,
+          "promotionAllowed": true
+        },
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": false,
+        "legacyId": "memory-legacy-2",
+        "persistenceRootKind": "array",
+        "cohortCompleted": [
+          1,
+          10,
+          50,
+          100
+        ]
+      },
+      "migrationAfterDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": null,
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": null,
+        "activeLifecycleCount": 0,
+        "canvasCount": 0,
+        "activeCanvasesPerHostSlot": 0,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 0,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": null,
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-2",
@@ -905,7 +1510,7 @@
           "view": 0,
           "interaction": 10
         },
-        "frameRevision": 3,
+        "frameRevision": 4,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -962,7 +1567,8 @@
           }
         }
       },
-      "retainedCanvasCount": 0
+      "retainedCanvasCount": 0,
+      "retainedHostChildCount": 0
     },
     {
       "index": 3,
@@ -1154,7 +1760,7 @@
           "interaction": 8
         },
         "dataUrlPrefix": "data:image/png;base64,",
-        "dataUrlLength": 2242,
+        "dataUrlLength": 2498,
         "sameCanvasObject": true,
         "authoritativeCanvasRetained": true,
         "temporaryImageCount": 0,
@@ -1209,6 +1815,207 @@
         "activeGestureCount": 0,
         "pointerCaptureCount": 0
       },
+      "accessibilityBeforeDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [
+          "item-a",
+          "rect-b"
+        ],
+        "children": [
+          "item-a",
+          "rect-b"
+        ],
+        "targets": {
+          "item-a": {
+            "id": "item-a",
+            "role": "button",
+            "name": "item-a",
+            "description": null,
+            "disabled": false,
+            "label": "item-a",
+            "type": "item",
+            "screenBounds": [
+              10,
+              20,
+              100,
+              80
+            ],
+            "focused": false,
+            "focusVisible": false,
+            "selected": false,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [],
+            "children": []
+          },
+          "rect-b": {
+            "id": "rect-b",
+            "role": "button",
+            "name": "rect-b",
+            "description": null,
+            "disabled": false,
+            "label": "rect-b",
+            "type": "rect",
+            "screenBounds": [
+              180,
+              40,
+              40,
+              30
+            ],
+            "focused": true,
+            "focusVisible": true,
+            "selected": true,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [
+              "focus"
+            ],
+            "children": []
+          }
+        },
+        "focusedId": "rect-b",
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": {
+          "active": true,
+          "shadowDomActive": true,
+          "overlayNodeCount": 2,
+          "shadowDomNodeCount": 2,
+          "rootListenerCount": 1,
+          "entityListenerCount": 0,
+          "focusedId": "rect-b",
+          "shadowDomFocusedId": "rect-b",
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "accessibilityAfterDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [],
+        "children": [],
+        "targets": {},
+        "focusedId": null,
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": null,
+        "destroyed": true
+      },
+      "migrationBeforeDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": "previous",
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": "memory-rollback-3",
+        "activeLifecycleCount": 1,
+        "canvasCount": 1,
+        "activeCanvasesPerHostSlot": 1,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 1,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": {
+          "guardedBlockers": [
+            "semantic-mismatch",
+            "runtime-error",
+            "performance-budget",
+            "cleanup-budget"
+          ],
+          "failures": [],
+          "completedCohorts": [
+            1,
+            10,
+            50,
+            100
+          ],
+          "stoppedAtPercent": null,
+          "promotionAllowed": true
+        },
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": false,
+        "legacyId": "memory-legacy-3",
+        "persistenceRootKind": "array",
+        "cohortCompleted": [
+          1,
+          10,
+          50,
+          100
+        ]
+      },
+      "migrationAfterDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": null,
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": null,
+        "activeLifecycleCount": 0,
+        "canvasCount": 0,
+        "activeCanvasesPerHostSlot": 0,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 0,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": null,
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-3",
@@ -1223,7 +2030,7 @@
           "view": 0,
           "interaction": 10
         },
-        "frameRevision": 3,
+        "frameRevision": 4,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -1280,7 +2087,8 @@
           }
         }
       },
-      "retainedCanvasCount": 0
+      "retainedCanvasCount": 0,
+      "retainedHostChildCount": 0
     },
     {
       "index": 4,
@@ -1472,7 +2280,7 @@
           "interaction": 8
         },
         "dataUrlPrefix": "data:image/png;base64,",
-        "dataUrlLength": 2242,
+        "dataUrlLength": 2498,
         "sameCanvasObject": true,
         "authoritativeCanvasRetained": true,
         "temporaryImageCount": 0,
@@ -1527,6 +2335,207 @@
         "activeGestureCount": 0,
         "pointerCaptureCount": 0
       },
+      "accessibilityBeforeDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [
+          "item-a",
+          "rect-b"
+        ],
+        "children": [
+          "item-a",
+          "rect-b"
+        ],
+        "targets": {
+          "item-a": {
+            "id": "item-a",
+            "role": "button",
+            "name": "item-a",
+            "description": null,
+            "disabled": false,
+            "label": "item-a",
+            "type": "item",
+            "screenBounds": [
+              10,
+              20,
+              100,
+              80
+            ],
+            "focused": false,
+            "focusVisible": false,
+            "selected": false,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [],
+            "children": []
+          },
+          "rect-b": {
+            "id": "rect-b",
+            "role": "button",
+            "name": "rect-b",
+            "description": null,
+            "disabled": false,
+            "label": "rect-b",
+            "type": "rect",
+            "screenBounds": [
+              180,
+              40,
+              40,
+              30
+            ],
+            "focused": true,
+            "focusVisible": true,
+            "selected": true,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [
+              "focus"
+            ],
+            "children": []
+          }
+        },
+        "focusedId": "rect-b",
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": {
+          "active": true,
+          "shadowDomActive": true,
+          "overlayNodeCount": 2,
+          "shadowDomNodeCount": 2,
+          "rootListenerCount": 1,
+          "entityListenerCount": 0,
+          "focusedId": "rect-b",
+          "shadowDomFocusedId": "rect-b",
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "accessibilityAfterDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [],
+        "children": [],
+        "targets": {},
+        "focusedId": null,
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": null,
+        "destroyed": true
+      },
+      "migrationBeforeDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": "previous",
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": "memory-rollback-4",
+        "activeLifecycleCount": 1,
+        "canvasCount": 1,
+        "activeCanvasesPerHostSlot": 1,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 1,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": {
+          "guardedBlockers": [
+            "semantic-mismatch",
+            "runtime-error",
+            "performance-budget",
+            "cleanup-budget"
+          ],
+          "failures": [],
+          "completedCohorts": [
+            1,
+            10,
+            50,
+            100
+          ],
+          "stoppedAtPercent": null,
+          "promotionAllowed": true
+        },
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": false,
+        "legacyId": "memory-legacy-4",
+        "persistenceRootKind": "array",
+        "cohortCompleted": [
+          1,
+          10,
+          50,
+          100
+        ]
+      },
+      "migrationAfterDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": null,
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": null,
+        "activeLifecycleCount": 0,
+        "canvasCount": 0,
+        "activeCanvasesPerHostSlot": 0,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 0,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": null,
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-4",
@@ -1541,7 +2550,7 @@
           "view": 0,
           "interaction": 10
         },
-        "frameRevision": 3,
+        "frameRevision": 4,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -1598,7 +2607,8 @@
           }
         }
       },
-      "retainedCanvasCount": 0
+      "retainedCanvasCount": 0,
+      "retainedHostChildCount": 0
     },
     {
       "index": 5,
@@ -1790,7 +2800,7 @@
           "interaction": 8
         },
         "dataUrlPrefix": "data:image/png;base64,",
-        "dataUrlLength": 2242,
+        "dataUrlLength": 2498,
         "sameCanvasObject": true,
         "authoritativeCanvasRetained": true,
         "temporaryImageCount": 0,
@@ -1845,6 +2855,207 @@
         "activeGestureCount": 0,
         "pointerCaptureCount": 0
       },
+      "accessibilityBeforeDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [
+          "item-a",
+          "rect-b"
+        ],
+        "children": [
+          "item-a",
+          "rect-b"
+        ],
+        "targets": {
+          "item-a": {
+            "id": "item-a",
+            "role": "button",
+            "name": "item-a",
+            "description": null,
+            "disabled": false,
+            "label": "item-a",
+            "type": "item",
+            "screenBounds": [
+              10,
+              20,
+              100,
+              80
+            ],
+            "focused": false,
+            "focusVisible": false,
+            "selected": false,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [],
+            "children": []
+          },
+          "rect-b": {
+            "id": "rect-b",
+            "role": "button",
+            "name": "rect-b",
+            "description": null,
+            "disabled": false,
+            "label": "rect-b",
+            "type": "rect",
+            "screenBounds": [
+              180,
+              40,
+              40,
+              30
+            ],
+            "focused": true,
+            "focusVisible": true,
+            "selected": true,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [
+              "focus"
+            ],
+            "children": []
+          }
+        },
+        "focusedId": "rect-b",
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": {
+          "active": true,
+          "shadowDomActive": true,
+          "overlayNodeCount": 2,
+          "shadowDomNodeCount": 2,
+          "rootListenerCount": 1,
+          "entityListenerCount": 0,
+          "focusedId": "rect-b",
+          "shadowDomFocusedId": "rect-b",
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "accessibilityAfterDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [],
+        "children": [],
+        "targets": {},
+        "focusedId": null,
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": null,
+        "destroyed": true
+      },
+      "migrationBeforeDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": "previous",
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": "memory-rollback-5",
+        "activeLifecycleCount": 1,
+        "canvasCount": 1,
+        "activeCanvasesPerHostSlot": 1,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 1,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": {
+          "guardedBlockers": [
+            "semantic-mismatch",
+            "runtime-error",
+            "performance-budget",
+            "cleanup-budget"
+          ],
+          "failures": [],
+          "completedCohorts": [
+            1,
+            10,
+            50,
+            100
+          ],
+          "stoppedAtPercent": null,
+          "promotionAllowed": true
+        },
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": false,
+        "legacyId": "memory-legacy-5",
+        "persistenceRootKind": "array",
+        "cohortCompleted": [
+          1,
+          10,
+          50,
+          100
+        ]
+      },
+      "migrationAfterDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": null,
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": null,
+        "activeLifecycleCount": 0,
+        "canvasCount": 0,
+        "activeCanvasesPerHostSlot": 0,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 0,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": null,
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-5",
@@ -1859,7 +3070,7 @@
           "view": 0,
           "interaction": 10
         },
-        "frameRevision": 3,
+        "frameRevision": 4,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -1916,7 +3127,8 @@
           }
         }
       },
-      "retainedCanvasCount": 0
+      "retainedCanvasCount": 0,
+      "retainedHostChildCount": 0
     },
     {
       "index": 6,
@@ -2108,7 +3320,7 @@
           "interaction": 8
         },
         "dataUrlPrefix": "data:image/png;base64,",
-        "dataUrlLength": 2242,
+        "dataUrlLength": 2498,
         "sameCanvasObject": true,
         "authoritativeCanvasRetained": true,
         "temporaryImageCount": 0,
@@ -2163,6 +3375,207 @@
         "activeGestureCount": 0,
         "pointerCaptureCount": 0
       },
+      "accessibilityBeforeDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [
+          "item-a",
+          "rect-b"
+        ],
+        "children": [
+          "item-a",
+          "rect-b"
+        ],
+        "targets": {
+          "item-a": {
+            "id": "item-a",
+            "role": "button",
+            "name": "item-a",
+            "description": null,
+            "disabled": false,
+            "label": "item-a",
+            "type": "item",
+            "screenBounds": [
+              10,
+              20,
+              100,
+              80
+            ],
+            "focused": false,
+            "focusVisible": false,
+            "selected": false,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [],
+            "children": []
+          },
+          "rect-b": {
+            "id": "rect-b",
+            "role": "button",
+            "name": "rect-b",
+            "description": null,
+            "disabled": false,
+            "label": "rect-b",
+            "type": "rect",
+            "screenBounds": [
+              180,
+              40,
+              40,
+              30
+            ],
+            "focused": true,
+            "focusVisible": true,
+            "selected": true,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [
+              "focus"
+            ],
+            "children": []
+          }
+        },
+        "focusedId": "rect-b",
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": {
+          "active": true,
+          "shadowDomActive": true,
+          "overlayNodeCount": 2,
+          "shadowDomNodeCount": 2,
+          "rootListenerCount": 1,
+          "entityListenerCount": 0,
+          "focusedId": "rect-b",
+          "shadowDomFocusedId": "rect-b",
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "accessibilityAfterDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [],
+        "children": [],
+        "targets": {},
+        "focusedId": null,
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": null,
+        "destroyed": true
+      },
+      "migrationBeforeDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": "previous",
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": "memory-rollback-6",
+        "activeLifecycleCount": 1,
+        "canvasCount": 1,
+        "activeCanvasesPerHostSlot": 1,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 1,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": {
+          "guardedBlockers": [
+            "semantic-mismatch",
+            "runtime-error",
+            "performance-budget",
+            "cleanup-budget"
+          ],
+          "failures": [],
+          "completedCohorts": [
+            1,
+            10,
+            50,
+            100
+          ],
+          "stoppedAtPercent": null,
+          "promotionAllowed": true
+        },
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": false,
+        "legacyId": "memory-legacy-6",
+        "persistenceRootKind": "array",
+        "cohortCompleted": [
+          1,
+          10,
+          50,
+          100
+        ]
+      },
+      "migrationAfterDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": null,
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": null,
+        "activeLifecycleCount": 0,
+        "canvasCount": 0,
+        "activeCanvasesPerHostSlot": 0,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 0,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": null,
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-6",
@@ -2177,7 +3590,7 @@
           "view": 0,
           "interaction": 10
         },
-        "frameRevision": 3,
+        "frameRevision": 4,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -2234,7 +3647,8 @@
           }
         }
       },
-      "retainedCanvasCount": 0
+      "retainedCanvasCount": 0,
+      "retainedHostChildCount": 0
     },
     {
       "index": 7,
@@ -2426,7 +3840,7 @@
           "interaction": 8
         },
         "dataUrlPrefix": "data:image/png;base64,",
-        "dataUrlLength": 2242,
+        "dataUrlLength": 2498,
         "sameCanvasObject": true,
         "authoritativeCanvasRetained": true,
         "temporaryImageCount": 0,
@@ -2481,6 +3895,207 @@
         "activeGestureCount": 0,
         "pointerCaptureCount": 0
       },
+      "accessibilityBeforeDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [
+          "item-a",
+          "rect-b"
+        ],
+        "children": [
+          "item-a",
+          "rect-b"
+        ],
+        "targets": {
+          "item-a": {
+            "id": "item-a",
+            "role": "button",
+            "name": "item-a",
+            "description": null,
+            "disabled": false,
+            "label": "item-a",
+            "type": "item",
+            "screenBounds": [
+              10,
+              20,
+              100,
+              80
+            ],
+            "focused": false,
+            "focusVisible": false,
+            "selected": false,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [],
+            "children": []
+          },
+          "rect-b": {
+            "id": "rect-b",
+            "role": "button",
+            "name": "rect-b",
+            "description": null,
+            "disabled": false,
+            "label": "rect-b",
+            "type": "rect",
+            "screenBounds": [
+              180,
+              40,
+              40,
+              30
+            ],
+            "focused": true,
+            "focusVisible": true,
+            "selected": true,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [
+              "focus"
+            ],
+            "children": []
+          }
+        },
+        "focusedId": "rect-b",
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": {
+          "active": true,
+          "shadowDomActive": true,
+          "overlayNodeCount": 2,
+          "shadowDomNodeCount": 2,
+          "rootListenerCount": 1,
+          "entityListenerCount": 0,
+          "focusedId": "rect-b",
+          "shadowDomFocusedId": "rect-b",
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "accessibilityAfterDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [],
+        "children": [],
+        "targets": {},
+        "focusedId": null,
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": null,
+        "destroyed": true
+      },
+      "migrationBeforeDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": "previous",
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": "memory-rollback-7",
+        "activeLifecycleCount": 1,
+        "canvasCount": 1,
+        "activeCanvasesPerHostSlot": 1,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 1,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": {
+          "guardedBlockers": [
+            "semantic-mismatch",
+            "runtime-error",
+            "performance-budget",
+            "cleanup-budget"
+          ],
+          "failures": [],
+          "completedCohorts": [
+            1,
+            10,
+            50,
+            100
+          ],
+          "stoppedAtPercent": null,
+          "promotionAllowed": true
+        },
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": false,
+        "legacyId": "memory-legacy-7",
+        "persistenceRootKind": "array",
+        "cohortCompleted": [
+          1,
+          10,
+          50,
+          100
+        ]
+      },
+      "migrationAfterDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": null,
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": null,
+        "activeLifecycleCount": 0,
+        "canvasCount": 0,
+        "activeCanvasesPerHostSlot": 0,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 0,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": null,
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-7",
@@ -2495,7 +4110,7 @@
           "view": 0,
           "interaction": 10
         },
-        "frameRevision": 3,
+        "frameRevision": 4,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -2552,7 +4167,8 @@
           }
         }
       },
-      "retainedCanvasCount": 0
+      "retainedCanvasCount": 0,
+      "retainedHostChildCount": 0
     },
     {
       "index": 8,
@@ -2744,7 +4360,7 @@
           "interaction": 8
         },
         "dataUrlPrefix": "data:image/png;base64,",
-        "dataUrlLength": 2242,
+        "dataUrlLength": 2498,
         "sameCanvasObject": true,
         "authoritativeCanvasRetained": true,
         "temporaryImageCount": 0,
@@ -2799,6 +4415,207 @@
         "activeGestureCount": 0,
         "pointerCaptureCount": 0
       },
+      "accessibilityBeforeDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [
+          "item-a",
+          "rect-b"
+        ],
+        "children": [
+          "item-a",
+          "rect-b"
+        ],
+        "targets": {
+          "item-a": {
+            "id": "item-a",
+            "role": "button",
+            "name": "item-a",
+            "description": null,
+            "disabled": false,
+            "label": "item-a",
+            "type": "item",
+            "screenBounds": [
+              10,
+              20,
+              100,
+              80
+            ],
+            "focused": false,
+            "focusVisible": false,
+            "selected": false,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [],
+            "children": []
+          },
+          "rect-b": {
+            "id": "rect-b",
+            "role": "button",
+            "name": "rect-b",
+            "description": null,
+            "disabled": false,
+            "label": "rect-b",
+            "type": "rect",
+            "screenBounds": [
+              180,
+              40,
+              40,
+              30
+            ],
+            "focused": true,
+            "focusVisible": true,
+            "selected": true,
+            "actions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "supportedActions": [
+              "focus",
+              "activate",
+              "select"
+            ],
+            "performedActions": [
+              "focus"
+            ],
+            "children": []
+          }
+        },
+        "focusedId": "rect-b",
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": {
+          "active": true,
+          "shadowDomActive": true,
+          "overlayNodeCount": 2,
+          "shadowDomNodeCount": 2,
+          "rootListenerCount": 1,
+          "entityListenerCount": 0,
+          "focusedId": "rect-b",
+          "shadowDomFocusedId": "rect-b",
+          "destroyed": false
+        },
+        "destroyed": false
+      },
+      "accessibilityAfterDestroy": {
+        "schemaRevision": "core-v2-accessibility/1",
+        "root": "scene",
+        "orderedIds": [],
+        "children": [],
+        "targets": {},
+        "focusedId": null,
+        "duplicateActivationCount": 0,
+        "suppressedAliasCount": 0,
+        "hiddenFocusableCount": 0,
+        "invalidNodeCount": 0,
+        "nonFiniteBoundsCount": 0,
+        "reducedMotion": false,
+        "surface": null,
+        "destroyed": true
+      },
+      "migrationBeforeDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": "previous",
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": "memory-rollback-8",
+        "activeLifecycleCount": 1,
+        "canvasCount": 1,
+        "activeCanvasesPerHostSlot": 1,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 1,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": {
+          "guardedBlockers": [
+            "semantic-mismatch",
+            "runtime-error",
+            "performance-budget",
+            "cleanup-budget"
+          ],
+          "failures": [],
+          "completedCohorts": [
+            1,
+            10,
+            50,
+            100
+          ],
+          "stoppedAtPercent": null,
+          "promotionAllowed": true
+        },
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": false,
+        "legacyId": "memory-legacy-8",
+        "persistenceRootKind": "array",
+        "cohortCompleted": [
+          1,
+          10,
+          50,
+          100
+        ]
+      },
+      "migrationAfterDestroy": {
+        "revision": "core-v2-migration/1",
+        "desiredEngine": "previous",
+        "activeEngine": null,
+        "shadowEngine": null,
+        "shadowMode": null,
+        "activeSessionId": null,
+        "activeLifecycleCount": 0,
+        "canvasCount": 0,
+        "activeCanvasesPerHostSlot": 0,
+        "shadowCanvasCount": 0,
+        "activeSessionHotSwapCount": 0,
+        "authoritativeEngineCountPerSession": 0,
+        "authoritativeEffectCount": 1,
+        "shadowEffectCount": 0,
+        "suppressedShadowEffectCount": 1,
+        "effectCounts": {
+          "selection": 0,
+          "command": 0,
+          "history": 0,
+          "persistence": 1,
+          "callback": 0,
+          "analytics": 0
+        },
+        "cohort": null,
+        "rollbackPending": false,
+        "triggerStates": [],
+        "activeGestureCount": 0,
+        "staleGestureCount": 0,
+        "replayedGestureCount": 0,
+        "retainedCallbackCount": 0,
+        "destroyed": true
+      },
       "snapshot": {
         "lifecycle": "destroyed",
         "instanceId": "memory-host-interaction-8",
@@ -2813,7 +4630,7 @@
           "view": 0,
           "interaction": 10
         },
-        "frameRevision": 3,
+        "frameRevision": 4,
         "datasetRef": null,
         "semanticHash": null,
         "rootIds": [],
@@ -2870,26 +4687,27 @@
           }
         }
       },
-      "retainedCanvasCount": 0
+      "retainedCanvasCount": 0,
+      "retainedHostChildCount": 0
     }
   ],
   "jsHeap": {
-    "before": 7830488,
-    "after": 14828464,
-    "processDelta": 6997976,
+    "before": 7991096,
+    "after": 15258892,
+    "processDelta": 7267796,
     "samples": [
-      187131,
-      74643,
-      406663,
-      86999,
-      20619,
-      0,
-      207243
+      187255,
+      75399,
+      405899,
+      88231,
+      20391,
+      49695,
+      115694
     ],
-    "median": 86999,
-    "p95": 406663,
-    "maximum": 406663,
-    "trend": 20112
+    "median": 88231,
+    "p95": 405899,
+    "maximum": 405899,
+    "trend": -71561
   },
   "dom": {
     "canvasCount": 0,

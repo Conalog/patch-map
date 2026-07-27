@@ -38,7 +38,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the one-hundred-fifty-five selected routes and their 1999 canonical assertions', () => {
+  it('pins exactly the one-hundred-fifty-eight selected routes and their 2028 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -202,26 +202,29 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'ACC-003', expectedAssertions: 6 },
       { id: 'OPS-001', expectedAssertions: 9 },
       { id: 'OPS-002', expectedAssertions: 6 },
+      { id: 'MIG-001', expectedAssertions: 10 },
+      { id: 'MIG-002', expectedAssertions: 9 },
+      { id: 'MIG-003', expectedAssertions: 10 },
       { id: 'CSM-032', expectedAssertions: 21 },
       { id: 'CSM-033', expectedAssertions: 20 },
       { id: 'CSM-034', expectedAssertions: 23 },
       { id: 'LIF-006', expectedAssertions: 17 },
     ]);
-    expect(records).toHaveLength(155);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_999);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_999;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_964;');
+    expect(records).toHaveLength(158);
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(2_028);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 2_028;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_993;');
     expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;');
     expect(source).toContain('const EXPECTED_PERFORMANCE_DEFICIT_TOTAL = 14;');
     expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 1964 pass, 21 immutable conflicts, and 14 performance deficits'",
+      "'canonical comparison must be exactly 1993 pass, 21 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 1964 pass, 21 immutable conflicts, and 14 performance deficits'",
+      "'repeat comparison must be exactly 1993 pass, 21 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 1964 pass, 21 immutable conflicts, and 14 performance deficits'",
+      "'fresh comparison must be exactly 1993 pass, 21 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -411,7 +414,7 @@ describe('Core v2 render browser checkpoint script', () => {
       "'render checkpoint measured performance deficit inventory must remain 14'",
     );
     expect(source).toContain(
-      "'render checkpoint passing assertion inventory must remain 1964'",
+      "'render checkpoint passing assertion inventory must remain 1993'",
     );
   });
 

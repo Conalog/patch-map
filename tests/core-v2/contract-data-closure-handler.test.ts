@@ -6,7 +6,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
   CoreV2Engine,
-  materializeCoreV2Dataset,
+  materializeCoreV2CompatibilityDataset,
   type CoreV2EngineSurface,
   type CoreV2Point,
   type CoreV2SurfaceDebug,
@@ -172,7 +172,7 @@ describe('Core v2 data-closure actual-only handlers', () => {
     expect(source).not.toMatch(/^\s*import\s/mu);
   });
 
-  it('observes unsupported legacy roots without synthesizing a canonical conversion', async () => {
+  it('observes product-owned legacy compatibility and exact malformed diagnostics', async () => {
     const { execution, engines, surfaces } = await runCase('DAT-006');
 
     expectCompleted(execution, [
@@ -182,15 +182,20 @@ describe('Core v2 data-closure actual-only handlers', () => {
       'snapshot',
       'ingestLegacyRoot',
     ]);
-    expect(actualAt(execution, 0, 'accepted')).toBe(false);
-    expect(actualAt(execution, 0, 'canonical')).toBeNull();
-    expect(actualAt(execution, 0, 'diagnostic.code')).toBe('INVALID_VALUE');
-    expect(actualAt(execution, 0, 'diagnostic.datasetPath')).toBe('$');
+    expect(actualAt(execution, 0, 'accepted')).toBe(true);
+    expect(actualAt(execution, 0, 'canonical')).toEqual([{
+      type: 'item',
+      id: 'legacy-a',
+      label: 'Legacy A',
+      size: { width: 100, height: 80 },
+      attrs: { x: 10, y: 20 },
+    }]);
+    expect(actualAt(execution, 0, 'diagnostic')).toBeNull();
     expect(actualAt(execution, 0, 'inputObservation.unchanged')).toBe(true);
     expect(actualAt(execution, 2, 'canonical.0.id')).toBe('legacy-a');
     expect(actualAt(execution, 2, 'sceneRevision')).toBe(1);
-    expect(actualAt(execution, 4, 'diagnostic.code')).toBe('INVALID_VALUE');
-    expect(actualAt(execution, 4, 'diagnostic.datasetPath')).toBe('$');
+    expect(actualAt(execution, 4, 'diagnostic.code')).toBe('INVALID_LEGACY_ROOT');
+    expect(actualAt(execution, 4, 'diagnostic.datasetPath')).toBe('$.height');
     expect(engines).toHaveLength(1);
     expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
   });
@@ -346,7 +351,15 @@ function selectedCase(id: string): MaterializedCase {
 }
 
 function productAdapter(): Readonly<JsonRecord> {
-  return Object.freeze({ materializeDataset: materializeCoreV2Dataset });
+  return Object.freeze({
+    materializeDataset(input: unknown): Readonly<JsonRecord> {
+      const compatible = materializeCoreV2CompatibilityDataset(input);
+      return Object.freeze({
+        dataset: compatible.canonicalDataset,
+        semanticHash: compatible.semanticHash,
+      });
+    },
+  });
 }
 
 function datasets(): ReadonlyMap<string, unknown> {
