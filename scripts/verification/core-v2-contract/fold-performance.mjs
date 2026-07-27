@@ -113,6 +113,9 @@ function baseActual(plan, execution, final, fallbackProvenance, fallbackEnvironm
       && environment.cpuProfile === requestedProfile
       && recordValue(binding.protocol, 'performance protocol').backend === 'webgl2';
   }
+  if (environment.runtimeResourceIds === undefined) {
+    environment.runtimeResourceIds = [];
+  }
 
   return {
     $schema: OBSERVATION_REVISION,
@@ -138,6 +141,7 @@ function baseActual(plan, execution, final, fallbackProvenance, fallbackEnvironm
     },
     outcome: {
       recorded: true,
+      rawTimingSamples: [],
       actionResults: execution.actionResults.map(({ index, type, status }) => ({
         index,
         type,

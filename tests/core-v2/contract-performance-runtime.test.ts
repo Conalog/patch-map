@@ -192,6 +192,78 @@ describe('Core v2 performance contract automation substrate', () => {
     });
   });
 
+  it('folds PRF-009 semantic parity with explicit empty volatile inventories', () => {
+    const plan = materializeCoreV2ExecutableCase('PRF-009', '100', 319);
+    const digest = 'c'.repeat(64);
+    const actionResults = plan.actionTrace.map((action, index) => ({
+      index,
+      type: action.type,
+      status: 'completed',
+      delta: {
+        actual: index === plan.actionTrace.length - 1
+          ? {
+              semanticDiffCount: 0,
+              expectedEvidenceDigest: digest,
+              expectedEvidenceDigestBefore: digest,
+              terminalProjection: {
+                scene: { invalidNodeCount: 0 },
+                geometry: { nonFiniteCount: 0 },
+                text: { unpairedSurrogates: 0 },
+                paint: { unresolvedIntentCount: 0 },
+                interaction: { staleGestureCount: 0 },
+                events: { unclassifiedCount: 0 },
+                history: { corruptEntryCount: 0 },
+              },
+            }
+          : {},
+      },
+    }));
+    const folded = fold.foldPerformanceExecution({
+      casePlan: plan,
+      execution: {
+        caseId: 'PRF-009',
+        status: 'completed',
+        actionResults,
+        eventJournal: [],
+        captures: [],
+        cleanup: {
+          status: 'completed',
+          releases: [],
+          productResources: {
+            ownership: {
+              engineCount: 0,
+              observerCount: 0,
+              timerCount: 0,
+              animationFrameCount: 0,
+              listenerCount: 0,
+              workerCount: 0,
+            },
+          },
+        },
+      },
+      provenance: {
+        codeCommit: 'test',
+        packedPackageSha256: 'd'.repeat(64),
+      },
+      environment: {
+        backend: 'webgl2',
+        browserVersion: 'Chromium test',
+      },
+    });
+    const expected = expectedJson.cases.find(({ id }) => id === 'PRF-009');
+    expect(expected).toBeDefined();
+    expect(folded.actual).toMatchObject({
+      environment: { runtimeResourceIds: [] },
+      outcome: { rawTimingSamples: [] },
+    });
+    expect(compare.compareObservation({
+      expectedCase: expected,
+      actual: folded.actual,
+      fixtures: folded.fixtures,
+      captures: folded.captures,
+    })).toMatchObject({ passed: 9, failed: 0 });
+  });
+
   it('keeps product transport, handlers, and fold outside expected/comparator data', async () => {
     const urls = [
       new URL(

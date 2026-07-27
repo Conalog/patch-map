@@ -432,6 +432,7 @@ export async function runCoreV2ContinuousInteraction(
     seed: number;
     durationMs: number;
     gestureSequence: readonly string[];
+    startTimeMs?: number;
   }>,
 ): Promise<CoreV2PerformanceInteractionObservation> {
   const inputToVisibleMs: number[] = [];
@@ -439,9 +440,11 @@ export async function runCoreV2ContinuousInteraction(
   let transformedHitMismatchCount = 0;
   const selectionId = 'node-0';
   const timeStep = input.durationMs / Math.max(1, input.gestureSequence.length);
+  const startTimeMs = input.startTimeMs ?? 0;
 
   for (const [index, gesture] of input.gestureSequence.entries()) {
-    const timeMs = Math.min(input.durationMs, Math.round(index * timeStep));
+    const timeMs = startTimeMs
+      + Math.min(input.durationMs, Math.round(index * timeStep));
     const geometry = requiredEntityGeometry(engine.geometryProbe(), selectionId);
     const point = boundsCenter(geometry.screenBounds);
     const measurement = await measureCoreV2VisibleAction(engine, timeMs, () => {

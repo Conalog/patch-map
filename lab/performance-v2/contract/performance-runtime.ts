@@ -91,6 +91,7 @@ export interface CoreV2PerformanceProductAdapter {
     durationMs: number;
     gestureSequence: readonly string[];
     ensureScene: boolean;
+    startTimeMs?: number;
   }>): Promise<Readonly<Record<string, unknown>>>;
   runOptimizedScenarioSuite(input: Readonly<{
     engine: CoreV2Engine;
@@ -155,6 +156,7 @@ export function createCoreV2PerformanceRuntime(
     size: number,
     seed: number,
     actionIndex = 0,
+    publicationTimeMs = 0,
   ): Promise<Readonly<Record<string, unknown>>> => {
     await initializeCoreV2ContractPerformanceEngine(engine, { instanceId });
     const dataset = buildCoreV2ContractPerformanceDataset(
@@ -169,7 +171,7 @@ export function createCoreV2PerformanceRuntime(
       datasetRef: `performance:${size}:${seed}:${actionIndex}`,
     });
     const prepare = await engine.prepareScene();
-    engine.publishFrame(0);
+    engine.publishFrame(publicationTimeMs);
     await nextAnimationFrame();
     invariant(JSON.stringify(dataset) === serializedBefore, 'performance input immutability');
     append('synthetic-scene-loaded', {
@@ -349,7 +351,14 @@ export function createCoreV2PerformanceRuntime(
         includeWordWrapWidth: true,
         timeMs: 336,
       });
-      await ensureSyntheticScene(input.engine, input.instanceId, 5_000, input.seed);
+      await ensureSyntheticScene(
+        input.engine,
+        input.instanceId,
+        5_000,
+        input.seed,
+        0,
+        344,
+      );
       await applyCoreV2PerformanceBulkPatch(input.engine, {
         size: 5_000,
         seed: input.seed,
@@ -370,6 +379,7 @@ export function createCoreV2PerformanceRuntime(
         size: 5_000,
         seed: input.seed,
         durationMs: 5_000,
+        startTimeMs: 384,
         gestureSequence: [
           'pan',
           'zoom',
