@@ -1,4 +1,5 @@
 import 'pixi.js/prepare';
+import 'pixi.js/accessibility';
 
 import {
   Application,
@@ -67,6 +68,11 @@ import type {
   CoreV2ResolvedPresentationPolicy,
 } from '../presentation-policy';
 import { CoreV2PresentationStoreView } from './presentation-store';
+import type {
+  CoreV2AccessibilityActivationInput,
+  CoreV2AccessibilityRenderNode,
+  CoreV2AccessibilitySurfaceProbe,
+} from '../accessibility';
 
 export interface PixiCoreV2RendererOptions {
   readonly target?: HTMLElement;
@@ -184,6 +190,20 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private readonly visibleOverlaySlots = new Set<number>();
   private readonly transformerOverlaySlots = new Set<number>();
   private readonly resizableOverlaySlots = new Set<number>();
+  private accessibilityRoot: Container | null = null;
+  private readonly accessibilityNodes = new Map<string, Container>();
+  private readonly accessibilityIdByNode = new Map<Container, string>();
+  private accessibilityActivationListener:
+    | ((
+        targetId: string,
+        input: CoreV2AccessibilityActivationInput,
+      ) => void)
+    | null = null;
+  private accessibilityClickListener:
+    | ((event: FederatedPointerEvent) => void)
+    | null = null;
+  private accessibilityActivationSequence = 0;
+  private accessibilityFocusedId: string | null = null;
   private interactionOverlayPolicy = DEFAULT_INTERACTION_OVERLAY_POLICY;
   private readonly target: HTMLElement | undefined;
   private cleanupPromise: Promise<void> = Promise.resolve();
@@ -909,6 +929,164 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     return this.application.renderer.extract.base64({ target: this.application.stage, format: 'png' });
   }
 
+  /**
+   * Publish detached screen-space accessibility records. The Containers have
+   * no visual content and exist only while accessibility is enabled; aggregate
+   * meshes remain the sole visual representation of scene entities.
+   */
+  public setAccessibilityTree(
+    nodes: readonly CoreV2AccessibilityRenderNode[],
+  ): CoreV2AccessibilitySurfaceProbe {
+    this.assertAlive();
+    const ids = new Set<string>();
+    for (const node of nodes) {
+      if (ids.has(node.id)) {
+        throw new TypeError(`duplicate accessibility target ${node.id}`);
+      }
+      ids.add(node.id);
+      validateAccessibilityRenderNode(node);
+    }
+    if (nodes.length === 0) {
+      this.destroyAccessibilityOverlay();
+      return this.accessibilitySurfaceProbe();
+    }
+    this.ensureAccessibilityRoot();
+    const root = this.accessibilityRoot;
+    if (root === null) throw new Error('accessibility root was not created');
+
+    for (const [id, container] of this.accessibilityNodes) {
+      if (ids.has(id)) continue;
+      if (container.parent === root) root.removeChild(container);
+      this.accessibilityNodes.delete(id);
+      this.accessibilityIdByNode.delete(container);
+      container.destroy();
+    }
+
+    nodes.forEach((node, index) => {
+      let container = this.accessibilityNodes.get(node.id);
+      if (container === undefined) {
+        container = new Container({
+          label: `PATCH MAP Core v2 / accessibility / ${node.id}`,
+        });
+        container.eventMode = 'static';
+        container.interactiveChildren = false;
+        container.accessible = true;
+        container.accessibleChildren = true;
+        container.accessiblePointerEvents = 'auto';
+        root.addChild(container);
+        this.accessibilityNodes.set(node.id, container);
+        this.accessibilityIdByNode.set(container, node.id);
+      }
+      container.accessibleTitle = node.title;
+      container.accessibleHint = node.hint;
+      container.accessibleText = node.text;
+      container.accessibleType = node.type;
+      container.tabIndex = node.tabIndex;
+      updateAccessibilityRectangle(container, 'boundsArea', node.screenBounds);
+      updateAccessibilityRectangle(container, 'hitArea', node.screenBounds);
+      if (root.children[index] !== container) {
+        root.setChildIndex(container, index);
+      }
+    });
+    if (
+      this.accessibilityFocusedId !== null &&
+      !this.accessibilityNodes.has(this.accessibilityFocusedId)
+    ) {
+      this.accessibilityFocusedId = null;
+    }
+    const accessibility = this.application.renderer.accessibility;
+    const enabled = nodes.length > 0;
+    if (accessibility.isActive !== enabled) {
+      accessibility.setAccessibilityEnabled(enabled);
+    }
+    this.application.stage.interactiveChildren = nodes.length > 0;
+    return this.accessibilitySurfaceProbe();
+  }
+
+  public bindAccessibilityActivation(
+    listener: (
+      targetId: string,
+      input: CoreV2AccessibilityActivationInput,
+    ) => void,
+  ): () => void {
+    this.assertAlive();
+    if (typeof listener !== 'function') {
+      throw new TypeError('accessibility activation listener must be a function');
+    }
+    if (this.accessibilityActivationListener !== null) {
+      throw new Error('accessibility activation listener is already bound');
+    }
+    this.accessibilityActivationListener = listener;
+    return () => {
+      if (this.accessibilityActivationListener === listener) {
+        this.accessibilityActivationListener = null;
+      }
+    };
+  }
+
+  public focusAccessibilityTarget(targetId: string): boolean {
+    this.assertAlive();
+    const node = this.accessibilityNodes.get(targetId);
+    if (node === undefined) return false;
+    this.accessibilityFocusedId = targetId;
+    const system = this.application.renderer.accessibility;
+    if (!system.isActive) system.setAccessibilityEnabled(true);
+    const shadow = [...system.div.children].find((child) =>
+      child instanceof HTMLElement &&
+      child.title === node.accessibleTitle &&
+      child.tabIndex === node.tabIndex);
+    if (shadow instanceof HTMLElement) {
+      shadow.focus({ preventScroll: true });
+    }
+    return true;
+  }
+
+  public accessibilitySurfaceProbe(): CoreV2AccessibilitySurfaceProbe {
+    if (this.destroyedValue) {
+      return Object.freeze({
+        active: false,
+        shadowDomActive: false,
+        overlayNodeCount: 0,
+        shadowDomNodeCount: 0,
+        rootListenerCount: 0,
+        entityListenerCount: 0,
+        focusedId: null,
+        shadowDomFocusedId: null,
+        destroyed: true,
+      });
+    }
+    const system = this.application.renderer.accessibility;
+    const activeElement =
+      typeof document === 'undefined' ? null : document.activeElement;
+    let shadowDomFocusedId: string | null = null;
+    if (
+      typeof HTMLElement !== 'undefined' &&
+      activeElement instanceof HTMLElement &&
+      system.div.contains(activeElement)
+    ) {
+      for (const [id, node] of this.accessibilityNodes) {
+        if (
+          activeElement.title === node.accessibleTitle &&
+          activeElement.tabIndex === node.tabIndex
+        ) {
+          shadowDomFocusedId = id;
+          break;
+        }
+      }
+    }
+    return Object.freeze({
+      active: this.accessibilityRoot !== null,
+      shadowDomActive: system.isActive,
+      overlayNodeCount: this.accessibilityNodes.size,
+      shadowDomNodeCount: system.isActive ? system.div.children.length : 0,
+      rootListenerCount: this.accessibilityClickListener === null ? 0 : 1,
+      entityListenerCount: 0,
+      focusedId: this.accessibilityFocusedId,
+      shadowDomFocusedId,
+      destroyed: false,
+    });
+  }
+
   public bindRootInteractions(handlers: RootInteractionHandlers): () => void {
     this.assertAlive();
     this.interactionUnbind?.();
@@ -1119,6 +1297,8 @@ export class PixiCoreV2Renderer implements CoreRenderer {
 
   public destroy(): boolean {
     if (this.destroyedValue) return false;
+    this.destroyAccessibilityOverlay();
+    this.accessibilityActivationListener = null;
     this.destroyedValue = true;
     this.rendererLossState = 'destroyed';
     this.contextLossUnbind?.();
@@ -1178,6 +1358,68 @@ export class PixiCoreV2Renderer implements CoreRenderer {
 
   public async whenDestroyed(): Promise<void> {
     await this.cleanupPromise;
+  }
+
+  private ensureAccessibilityRoot(): void {
+    if (this.accessibilityRoot !== null) return;
+    const root = new Container({
+      label: 'PATCH MAP Core v2 / accessibility overlay',
+    });
+    root.eventMode = 'static';
+    root.interactiveChildren = true;
+    root.accessible = false;
+    root.accessibleChildren = true;
+    const click = (event: FederatedPointerEvent): void => {
+      const targetId = this.accessibilityIdByNode.get(
+        event.target as Container,
+      );
+      if (targetId === undefined) return;
+      this.accessibilityFocusedId = targetId;
+      this.accessibilityActivationSequence =
+        this.accessibilityActivationSequence === Number.MAX_SAFE_INTEGER
+          ? 1
+          : this.accessibilityActivationSequence + 1;
+      this.accessibilityActivationListener?.(
+        targetId,
+        Object.freeze({
+          source: 'pixi-click-alias',
+          activationId:
+            `pixi:${targetId}:${this.accessibilityActivationSequence}`,
+        }),
+      );
+    };
+    root.on('click', click);
+    this.accessibilityClickListener = click;
+    this.accessibilityRoot = root;
+    this.application.stage.addChild(root);
+  }
+
+  private destroyAccessibilityOverlay(): void {
+    const root = this.accessibilityRoot;
+    if (root === null) {
+      this.application.stage.interactiveChildren = false;
+      const accessibility = this.application.renderer.accessibility;
+      if (accessibility.isActive) {
+        accessibility.setAccessibilityEnabled(false);
+      }
+      return;
+    }
+    if (this.accessibilityClickListener !== null) {
+      root.off('click', this.accessibilityClickListener);
+    }
+    this.accessibilityClickListener = null;
+    if (root.parent !== null) root.parent.removeChild(root);
+    for (const child of root.removeChildren()) child.destroy();
+    root.destroy();
+    this.accessibilityRoot = null;
+    this.accessibilityNodes.clear();
+    this.accessibilityIdByNode.clear();
+    this.accessibilityFocusedId = null;
+    this.application.stage.interactiveChildren = false;
+    const accessibility = this.application.renderer.accessibility;
+    if (accessibility.isActive) {
+      accessibility.setAccessibilityEnabled(false);
+    }
   }
 
   private syncAggregate(store: RenderStoreView, ranges: readonly SlotRange[] | undefined): AggregateResult {
@@ -2125,6 +2367,50 @@ function freezeLaneSnapshot(
   const result = Object.create(null) as Record<CoreV2RenderLaneRole, CoreV2RenderLaneProbe>;
   for (const [role, label] of lanes) result[role] = freezeLane(role, label, 0, 0);
   return Object.freeze(result);
+}
+
+function validateAccessibilityRenderNode(
+  node: CoreV2AccessibilityRenderNode,
+): void {
+  if (typeof node.id !== 'string' || node.id.length === 0) {
+    throw new TypeError('accessibility node ID must be non-empty');
+  }
+  if (
+    typeof node.title !== 'string' ||
+    node.title.length === 0 ||
+    typeof node.hint !== 'string' ||
+    typeof node.text !== 'string'
+  ) {
+    throw new TypeError('accessibility node text fields are invalid');
+  }
+  if (!Number.isSafeInteger(node.tabIndex) || node.tabIndex < 0) {
+    throw new RangeError('accessibility tabIndex must be non-negative');
+  }
+  const [x, y, width, height] = node.screenBounds;
+  if (
+    ![x, y, width, height].every(Number.isFinite) ||
+    width < 0 ||
+    height < 0
+  ) {
+    throw new RangeError('accessibility bounds must be finite and non-negative');
+  }
+}
+
+function updateAccessibilityRectangle(
+  container: Container,
+  field: 'boundsArea' | 'hitArea',
+  bounds: readonly [number, number, number, number],
+): void {
+  const current = field === 'boundsArea'
+    ? container.boundsArea
+    : container.hitArea;
+  if (current instanceof Rectangle) {
+    [current.x, current.y, current.width, current.height] = bounds;
+    return;
+  }
+  const rectangle = new Rectangle(...bounds);
+  if (field === 'boundsArea') container.boundsArea = rectangle;
+  else container.hitArea = rectangle;
 }
 
 function positive(value: number, name: string): number {

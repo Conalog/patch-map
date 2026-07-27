@@ -49,7 +49,10 @@ import type {
   CoreV2RenderLaneRole,
   CoreV2RenderLaneSnapshot,
 } from './renderers/types';
-import { PixiCoreV2RuntimeError } from './renderers/pixi-renderer';
+import {
+  PixiCoreV2RuntimeError,
+  type PixiCoreV2Renderer,
+} from './renderers/pixi-renderer';
 import type {
   CoreV2SceneImageAttemptProbe,
   CoreV2SceneImageProductProbe,
@@ -98,6 +101,15 @@ import {
   type CoreV2PageLifecycleWorkKind,
   type CoreV2PageLifecycleWorkToken,
 } from './page-lifecycle';
+import {
+  CoreV2AccessibilityAuthority,
+  deriveCoreV2AccessibilityTargets,
+  type CoreV2AccessibilityActivationInput,
+  type CoreV2AccessibilityActivationResult,
+  type CoreV2AccessibilityProbe,
+  type CoreV2AccessibilityRenderNode,
+  type CoreV2AccessibilitySurfaceProbe,
+} from './accessibility';
 import {
   coreV2AffineBasis,
   coreV2AffineCorners,
@@ -905,8 +917,20 @@ export interface CoreV2EngineSurface {
   bindPointerInput?(
     listener: (input: CoreV2SurfacePointerInput) => void,
   ): () => void;
+  bindAccessibilityActivation?(
+    listener: (
+      targetId: string,
+      input: CoreV2AccessibilityActivationInput,
+    ) => void,
+  ): () => void;
   cancelViewportGestures?(): void;
   select(ids: readonly string[]): void;
+  setAccessibilityTree?(
+    nodes: readonly CoreV2AccessibilityRenderNode[],
+  ): CoreV2AccessibilitySurfaceProbe | undefined;
+  focusAccessibilityTarget?(targetId: string): boolean;
+  accessibilitySurfaceProbe?(): CoreV2AccessibilitySurfaceProbe | undefined;
+  setReducedMotion?(enabled: boolean): boolean;
   setSelectionOverlayPolicy?(input: CoreV2SelectionOverlayPolicyInput): boolean;
   setPresentationPolicy?(
     input: CoreV2PresentationPolicyInput,
@@ -1770,6 +1794,7 @@ export class CoreV2Engine {
   private readonly hostAssetIngestion = new CoreV2HostAssetIngestionAuthority();
   private readonly editorWorkflows = new CoreV2EditorWorkflowAuthority();
   private readonly pageLifecycle = new CoreV2PageLifecycleAuthority();
+  private readonly accessibility = new CoreV2AccessibilityAuthority();
   private readonly transformerGestures = new CoreV2TransformerGestureAuthority();
   private activeTransformerEdit: ActiveCoreV2TransformerEdit | null = null;
   private transformerEditPreviewCount = 0;
@@ -1867,6 +1892,7 @@ export class CoreV2Engine {
   private viewportSuppressedEquivalentSaveCount = 0;
   private surfaceViewportInputUnbind: (() => void) | null = null;
   private surfacePointerInputUnbind: (() => void) | null = null;
+  private surfaceAccessibilityActivationUnbind: (() => void) | null = null;
   private pointerGestureAuthority: CoreV2PointerGestureAuthority | null = null;
   private worldRotationDegrees = 0;
   private worldFlipX = false;
@@ -2107,10 +2133,19 @@ export class CoreV2Engine {
         const pointerInputUnbind = readySurface.bindPointerInput?.((input) => {
           this.acceptSurfacePointerInput(readySurface, input);
         }) ?? null;
+        const accessibilityActivationUnbind =
+          readySurface.bindAccessibilityActivation?.((targetId, input) => {
+            if (this.surface !== readySurface || this.isDestroyingOrDestroyed()) {
+              return;
+            }
+            this.activateAccessibilityTarget(targetId, input);
+          }) ?? null;
         this.surface = readySurface;
         this.authoritativeCanvas = readySurface.canvasElement?.() ?? null;
         this.surfaceViewportInputUnbind = viewportInputUnbind;
         this.surfacePointerInputUnbind = pointerInputUnbind;
+        this.surfaceAccessibilityActivationUnbind =
+          accessibilityActivationUnbind;
         this.pointerGestureAuthority = pointerAuthority;
         this.geometryRevisionCorrelation = null;
         pendingSurface = null;
@@ -2305,6 +2340,7 @@ export class CoreV2Engine {
     if (selectionBefore.length > 0 || modeBefore !== 'select') this.interactionRevision += 1;
     this.hostInteractions.clearTooltip('redraw');
     this.hostInteractions.clearLogicalBindings();
+    this.accessibility.replaceScene();
     this.materialized = materialized;
     this.targetLifecycleGeneration += 1;
     this.clearHistoryAuthority('replace');
@@ -2848,7 +2884,9 @@ export class CoreV2Engine {
     let reconcile: CoreV2SurfaceReconcileResult;
     try {
       reconcile = surface.reconcile(plan.candidate.dataset, {
-        animateBarChanges: animatedBarTargets.length > 0,
+        animateBarChanges:
+          !this.accessibility.reducedMotion &&
+          animatedBarTargets.length > 0,
         animatedBarTargets,
         allowedComponentOrderOwners,
         ...(incrementalRootIds === undefined
@@ -3095,7 +3133,9 @@ export class CoreV2Engine {
     let reconcile: CoreV2SurfaceReconcileResult;
     try {
       reconcile = surface.reconcile(mutation.candidate.dataset, {
-        animateBarChanges: mutation.target.kind === 'component',
+        animateBarChanges:
+          !this.accessibility.reducedMotion &&
+          mutation.target.kind === 'component',
       });
     } catch (error) {
       this.history.cancelPrepared(preparedHistory);
@@ -3752,6 +3792,7 @@ export class CoreV2Engine {
     if (this.pageLifecycle.probe().state === 'hidden') return;
     const surface = this.requireSurface('publishFrame');
     try {
+      this.refreshAccessibilitySurfaceIfActive('publishFrame');
       surface.publishFrame(timeMs);
     } catch (error) {
       const diagnostic = this.diagnosticFrom(error, 'publishFrame');
@@ -4310,6 +4351,72 @@ export class CoreV2Engine {
       ids,
       source: 'programmatic',
     }).current;
+  }
+
+  public accessibilityTree(root: 'scene' = 'scene'): CoreV2AccessibilityProbe {
+    if (root !== 'scene') {
+      throw new TypeError('Core v2 accessibility root must be scene');
+    }
+    this.refreshAccessibilityAuthority('accessibilityTree');
+    return this.accessibility.probe(
+      this.logicalSelectionIds,
+      this.surface?.accessibilitySurfaceProbe?.() ?? null,
+    );
+  }
+
+  public accessibilityProbe(): CoreV2AccessibilityProbe {
+    if (this.accessibility.enabled && !this.isDestroyingOrDestroyed()) {
+      this.refreshAccessibilityAuthority('accessibilityProbe');
+    }
+    return this.accessibility.probe(
+      this.logicalSelectionIds,
+      this.surface?.accessibilitySurfaceProbe?.() ?? null,
+    );
+  }
+
+  public focusAccessibilityTarget(targetId: string): CoreV2AccessibilityProbe {
+    const surface = this.requireSurface('focusAccessibilityTarget');
+    this.refreshAccessibilityAuthority('focusAccessibilityTarget');
+    this.accessibility.focus(targetId, true);
+    surface.focusAccessibilityTarget?.(targetId);
+    return this.accessibility.probe(
+      this.logicalSelectionIds,
+      surface.accessibilitySurfaceProbe?.() ?? null,
+    );
+  }
+
+  public activateAccessibilityTarget(
+    targetId: string,
+    input: CoreV2AccessibilityActivationInput,
+  ): CoreV2AccessibilityActivationResult {
+    this.requireSurface('activateAccessibilityTarget');
+    this.refreshAccessibilityAuthority('activateAccessibilityTarget');
+    const result = this.accessibility.activate(targetId, input);
+    if (result.selectRequested) this.select([targetId]);
+    return result;
+  }
+
+  public setReducedMotion(
+    enabled: boolean,
+  ): Readonly<{
+    readonly changed: boolean;
+    readonly enabled: boolean;
+    readonly activeAnimationCount: number;
+  }> {
+    const surface = this.requireSurface('setReducedMotion');
+    if (typeof enabled !== 'boolean') {
+      throw new TypeError('reduced motion must be a boolean');
+    }
+    surface.setReducedMotion?.(enabled);
+    const changed = this.accessibility.setReducedMotion(enabled);
+    if (this.accessibility.enabled) {
+      this.refreshAccessibilityAuthority('setReducedMotion');
+    }
+    return Object.freeze({
+      changed,
+      enabled: this.accessibility.reducedMotion,
+      activeAnimationCount: surface.debugSnapshot().activeAnimationCount,
+    });
   }
 
   public bindLogicalEvents(
@@ -6083,6 +6190,7 @@ export class CoreV2Engine {
     this.editorWorkflows.destroy();
     this.pageLifecycle.destroy();
     this.hostInteractions.destroy();
+    this.accessibility.destroy();
     this.operations.disposeCallbacks();
     const pendingInitialization = this.initializePromise;
     const assetSession = this.assetSession;
@@ -6493,6 +6601,29 @@ export class CoreV2Engine {
     return this.logicalSceneIndexCache.index;
   }
 
+  private refreshAccessibilityAuthority(operation: string): void {
+    const surface = this.requireSurface(operation);
+    const geometry = surface.geometrySnapshot?.();
+    if (geometry === undefined) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        operation,
+        false,
+      );
+    }
+    this.accessibility.reconcile(deriveCoreV2AccessibilityTargets(
+      this.logicalSceneIndex().targets(),
+      geometry.entities,
+    ));
+    surface.setAccessibilityTree?.(this.accessibility.renderNodes());
+  }
+
+  private refreshAccessibilitySurfaceIfActive(operation: string): void {
+    if (!this.accessibility.enabled || this.isDestroyingOrDestroyed()) return;
+    this.refreshAccessibilityAuthority(operation);
+  }
+
   private requirePointerGestureAuthority(operation: string): CoreV2PointerGestureAuthority {
     const authority = this.pointerGestureAuthority;
     if (authority === null) {
@@ -6577,6 +6708,21 @@ export class CoreV2Engine {
         viewportCleanupFailed = true;
       } finally {
         this.surfacePointerInputUnbind = null;
+      }
+    }
+    if (
+      this.surface === surface &&
+      this.surfaceAccessibilityActivationUnbind !== null
+    ) {
+      try {
+        this.surfaceAccessibilityActivationUnbind();
+      } catch {
+        lastError = new Error(
+          'Core v2 accessibility activation cleanup failed',
+        );
+        viewportCleanupFailed = true;
+      } finally {
+        this.surfaceAccessibilityActivationUnbind = null;
       }
     }
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -7050,6 +7196,7 @@ export class CoreV2Engine {
       this.viewportScale = scale;
       this.viewRevision += 1;
       this.viewportPointerTransformRevision = this.viewRevision;
+      this.refreshAccessibilitySurfaceIfActive('setViewport');
     }
     const result = Object.freeze({
       changed,
@@ -7538,6 +7685,20 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     };
   }
 
+  public bindAccessibilityActivation(
+    listener: (
+      targetId: string,
+      input: CoreV2AccessibilityActivationInput,
+    ) => void,
+  ): () => void {
+    const bind = (
+      this.core.renderer as Partial<PixiCoreV2Renderer>
+    ).bindAccessibilityActivation;
+    return bind === undefined
+      ? () => undefined
+      : bind.call(this.core.renderer, listener);
+  }
+
   public cancelViewportGestures(): void {
     this.core.cancelViewportGestures();
   }
@@ -7546,6 +7707,33 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     this.core.selectSemantic(ids);
     this.geometryRevision += 1;
     this.invalidateGeometryCache();
+  }
+
+  public setAccessibilityTree(
+    nodes: readonly CoreV2AccessibilityRenderNode[],
+  ): CoreV2AccessibilitySurfaceProbe | undefined {
+    const publish = (
+      this.core.renderer as Partial<PixiCoreV2Renderer>
+    ).setAccessibilityTree;
+    return publish?.call(this.core.renderer, nodes);
+  }
+
+  public focusAccessibilityTarget(targetId: string): boolean {
+    const focus = (
+      this.core.renderer as Partial<PixiCoreV2Renderer>
+    ).focusAccessibilityTarget;
+    return focus?.call(this.core.renderer, targetId) ?? false;
+  }
+
+  public accessibilitySurfaceProbe(): CoreV2AccessibilitySurfaceProbe | undefined {
+    const probe = (
+      this.core.renderer as Partial<PixiCoreV2Renderer>
+    ).accessibilitySurfaceProbe;
+    return probe?.call(this.core.renderer);
+  }
+
+  public setReducedMotion(enabled: boolean): boolean {
+    return this.core.setReducedMotion(enabled);
   }
 
   public setSelectionOverlayPolicy(input: CoreV2SelectionOverlayPolicyInput): boolean {

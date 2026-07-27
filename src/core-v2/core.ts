@@ -481,6 +481,7 @@ export class CoreV2 {
   private renderedSceneRevision: number | null = null;
   private presentationGhostPublicationCount = 0;
   private loadSequence = 0;
+  private reducedMotionValue = false;
 
   private constructor(renderer: PixiCoreV2Renderer, options: CoreV2Options) {
     this.renderer = renderer;
@@ -557,6 +558,10 @@ export class CoreV2 {
     return this.destroyedValue
       ? 0
       : this.scene.activeAnimations + this.presentationController.activeCount;
+  }
+
+  public get reducedMotion(): boolean {
+    return this.reducedMotionValue;
   }
 
   public get view(): CoreView {
@@ -833,7 +838,7 @@ export class CoreV2 {
     const commitMs = now() - commitStarted;
     const presentation = this.reconcileBarPresentation(
       parse.projection,
-      options.animateBarChanges !== false,
+      !this.reducedMotionValue && options.animateBarChanges !== false,
       options.animatedBarTargets,
     );
     this.parseResultValue = parse;
@@ -910,6 +915,31 @@ export class CoreV2 {
     if (this.lastFrameReport.rendered) void this.sceneImages.finalizeAfterRenderedFrame();
     if (this.autoRender && this.activeAnimations > 0) this.scheduler.invalidate('presentation');
     return this.requireFrameReport();
+  }
+
+  /**
+   * Reduced motion is a presentation policy, not a semantic mutation. Enabling
+   * it settles current bar sidecars at their committed destinations and keeps
+   * later reconciles from scheduling interpolation.
+   */
+  public setReducedMotion(enabled: boolean): boolean {
+    this.assertAlive();
+    if (typeof enabled !== 'boolean') {
+      throw new TypeError('reduced motion must be a boolean');
+    }
+    if (this.reducedMotionValue === enabled) return false;
+    this.reducedMotionValue = enabled;
+    if (enabled && this.projectionValue !== null) {
+      const presentation = this.reconcileBarPresentation(
+        this.projectionValue,
+        false,
+      );
+      this.renderer.setProjection(presentation);
+      this.spatialHitAnimationEnds.clear();
+      this.invalidateEntityHitIndex();
+      this.invalidate('reduced-motion');
+    }
+    return true;
   }
 
   /**

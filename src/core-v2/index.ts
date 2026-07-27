@@ -134,6 +134,12 @@ export {
   redactCoreV2OperationalEvent,
 } from './operations';
 export type * from './operations';
+export {
+  CORE_V2_ACCESSIBILITY_REVISION,
+  CoreV2AccessibilityAuthority,
+  deriveCoreV2AccessibilityTargets,
+} from './accessibility';
+export type * from './accessibility';
 export { PatchMapParseError } from './contracts';
 export type * from './contracts';
 export { parsePatchMapV010 } from './parser';
