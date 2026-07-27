@@ -25,6 +25,7 @@ export const CORE_V2_UPDATE_TRANSACTIONS_CASE_IDS = Object.freeze([
   'CSM-006',
   'CSM-007',
   'CSM-008',
+  'CSM-014',
 ] as const);
 
 export type CoreV2UpdateTransactionsCaseId =
@@ -52,7 +53,7 @@ export interface CoreV2UpdateTransactionsRuntime {
 }
 
 /**
- * Actual-only transport seam shared by eighteen update/error/consumer cases.
+ * Actual-only transport seam shared by update/error/consumer cases.
  *
  * The adapter only authors the seeded UPD-007 input and snapshots facts already
  * exposed by public Engine probes. It never owns an Engine, Pixi object, ticker,

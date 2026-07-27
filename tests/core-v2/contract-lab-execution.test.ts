@@ -1428,6 +1428,7 @@ describe('Core v2 executable Lab product bridge', () => {
       'CSM-011': 'pointer-selection',
       'CSM-012': 'pointer-selection',
       'CSM-013': 'interaction-editor',
+      'CSM-014': 'update-transactions',
       'CSM-015': 'pointer-selection',
       'CSM-016': 'pointer-selection',
       'CSM-017': 'lifecycle-interruption',

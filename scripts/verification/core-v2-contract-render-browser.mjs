@@ -21,8 +21,8 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 1_800;
-const EXPECTED_ASSERTION_PASS_TOTAL = 1_779;
+const EXPECTED_ASSERTION_TOTAL = 1_821;
+const EXPECTED_ASSERTION_PASS_TOTAL = 1_800;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;
 const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;
 const CASE_TIMEOUT_MS = 180_000;
@@ -288,6 +288,7 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'CSM-011', expectedAssertions: 17 }),
   Object.freeze({ id: 'CSM-012', expectedAssertions: 19 }),
   Object.freeze({ id: 'CSM-013', expectedAssertions: 20 }),
+  Object.freeze({ id: 'CSM-014', expectedAssertions: 21 }),
   Object.freeze({ id: 'CSM-015', expectedAssertions: 19 }),
   Object.freeze({ id: 'CSM-016', expectedAssertions: 19 }),
   Object.freeze({ id: 'CSM-018', expectedAssertions: 20 }),
@@ -646,28 +647,28 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all one-hundred-thirty render routes completed'
+      ? 'all one-hundred-thirty-one render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 1779 pass and 21 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 1800 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 1779 pass and 21 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 1800 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 1779 pass and 21 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 1800 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -3032,7 +3033,7 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 1800',
+    'render checkpoint assertion inventory must remain 1821',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===

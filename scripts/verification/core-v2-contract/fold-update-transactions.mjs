@@ -96,12 +96,20 @@ const CASE_ACTIONS = Object.freeze({
     'export-canonical-dataset',
     'probe-declared-failure',
   ]),
+  'CSM-014': Object.freeze([
+    'apply-view-column',
+    'apply-view-column',
+    'apply-view-column',
+    'remount-and-restore-column',
+    'probe-declared-failure',
+  ]),
 });
 const CONSUMER_CASE_IDS = new Set([
   'CSM-005',
   'CSM-006',
   'CSM-007',
   'CSM-008',
+  'CSM-014',
 ]);
 const CLASSIFIED_ENGINE_EVENTS = new Set([
   'ready',
@@ -129,7 +137,7 @@ const DOMAIN_NAMES = Object.freeze([
 ]);
 
 /**
- * Fold detached public product captures for eighteen update/error/consumer cases.
+ * Fold detached public product captures for update/error/consumer cases.
  * This module is intentionally import-free and has no access to comparison
  * evidence. Every asserted fact is derived from execution output, a declared
  * capture, or an explicitly exposed fixture-reference namespace.
@@ -203,6 +211,9 @@ export function foldUpdateTransactionExecution(optionsValue) {
       break;
     case 'CSM-008':
       projectPresentationExportJourney(actual, execution);
+      break;
+    case 'CSM-014':
+      projectViewColumnJourney(actual, execution);
       break;
     default:
       throw new Error(`Core v2 update fold invalid: unsupported case ${String(plan.id)}`);
@@ -769,6 +780,78 @@ function projectPresentationExportJourney(actual, execution) {
       observedDatasetFingerprint: fingerprint,
     },
   };
+}
+
+function projectViewColumnJourney(actual, execution) {
+  const remounted = actionActualAt(
+    execution,
+    3,
+    'remount-and-restore-column',
+  );
+  const failure = actionActualAt(
+    execution,
+    4,
+    'probe-declared-failure',
+  );
+  const facts = recordValue(remounted.facts, 'CSM-014 remounted facts');
+  const components = recordValue(facts.components, 'CSM-014 components');
+  const bar = journeyComponentRecord(components, 'bar', 'CSM-014');
+  const label = journeyComponentRecord(components, 'label', 'CSM-014');
+  const barSize = namedSize(bar.size, 'CSM-014 bar size');
+  const text = stringValue(label.text, 'CSM-014 label source');
+  const selectedColumn = stringValue(
+    remounted.remountedColumn,
+    'CSM-014 remounted column',
+  );
+  const appliedColumnTrace = stringArray(
+    remounted.appliedColumnTrace,
+    'CSM-014 applied column trace',
+  );
+  const rollback = cloneRecord(
+    failure.rollback,
+    'CSM-014 failure rollback',
+  );
+  const mode = stringValue(facts.mode, 'CSM-014 interaction mode');
+  const activeCanvasCount = nonNegativeInteger(
+    remounted.activeCanvasCount,
+    'CSM-014 active canvas count',
+  );
+
+  actual.scene.targets = {
+    'item-a': {
+      components: {
+        bar: { size: barSize },
+      },
+    },
+  };
+  actual.text.targets = {
+    'item-a': {
+      label: { source: text },
+    },
+  };
+  actual.paint.unresolvedIntentCount = Math.max(
+    actual.paint.unresolvedIntentCount,
+    nonNegativeInteger(
+      facts.unresolvedIntentCount,
+      'CSM-014 unresolved intent count',
+    ),
+  );
+  actual.outcome.appliedColumnTrace = appliedColumnTrace;
+  actual.outcome.remountedColumn = selectedColumn;
+  actual.outcome.hostEngineSeam = {
+    engineReturns: {
+      appliedColumnTrace,
+      remountedColumn: selectedColumn,
+    },
+    failureRollback: rollback,
+    finalState: {
+      selectedColumn,
+      text,
+      mode,
+      barSize,
+    },
+  };
+  assert(activeCanvasCount === 1, 'CSM-014 remount retains one authoritative canvas');
 }
 
 function projectStableTarget(actual, execution) {

@@ -78,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(317);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(145);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(28);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(319);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(146);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(27);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(573);
+    ), 0)).toBe(578);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -331,7 +331,7 @@ describe('Core v2 focused contract Lab shell', () => {
     }
   });
 
-  it('connects all eighteen update-transaction cases to one actual-only runtime and exact routes', () => {
+  it('connects all nineteen update-transaction cases to one actual-only runtime and exact routes', () => {
     const cases = [
       ['ERR-001', ['load-dataset', 'run-invalid-operation-matrix']],
       ['UPD-001', ['loadDataset', 'retainTarget', 'replaceDataset', 'resolveTarget', 'patch']],
@@ -408,6 +408,16 @@ describe('Core v2 focused contract Lab shell', () => {
           'load-scene',
           'apply-presentation-overlay',
           'export-canonical-dataset',
+          'probe-declared-failure',
+        ],
+      ],
+      [
+        'CSM-014',
+        [
+          'apply-view-column',
+          'apply-view-column',
+          'apply-view-column',
+          'remount-and-restore-column',
           'probe-declared-failure',
         ],
       ],

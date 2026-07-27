@@ -271,6 +271,7 @@ describe('Core v2 shared update transaction action handlers', () => {
       'CSM-006',
       'CSM-007',
       'CSM-008',
+      'CSM-014',
     ]);
     expect(entries.map(([id]) => id)).toEqual(
       UPDATE_TRANSACTIONS_ACTION_TYPES.map((type) => `contract/${type}`),
@@ -310,7 +311,7 @@ describe('Core v2 shared update transaction action handlers', () => {
     20_000,
   );
 
-  it.each(['ERR-001', 'CSM-005', 'CSM-006', 'CSM-007', 'CSM-008'] as const)(
+  it.each(['ERR-001', 'CSM-005', 'CSM-006', 'CSM-007', 'CSM-008', 'CSM-014'] as const)(
     'folds real %s product execution and compares it independently',
     async (caseId) => {
       const plan = selectedCase(caseId);
@@ -854,6 +855,64 @@ function assertCaseFacts(caseId: string, execution: CaseExecution): void {
         rollback: {
           removeOverlayOnFailure: true,
           persistedDataUnchanged: true,
+        },
+      });
+      break;
+    }
+    case 'CSM-014': {
+      expect(actualAt(execution, 0)).toMatchObject({
+        column: 'chart',
+        result: { status: 'committed' },
+        facts: {
+          components: {
+            bar: {
+              record: {
+                show: true,
+                tint: '#ff8800',
+                size: { width: 60, height: 15 },
+              },
+            },
+            label: {
+              record: {
+                show: true,
+                tint: '#ff8800',
+                text: '25%',
+              },
+            },
+          },
+        },
+        appliedColumnTrace: ['chart'],
+      });
+      expect(actualAt(execution, 3)).toMatchObject({
+        remountedColumn: 'percent',
+        appliedColumnTrace: ['chart', 'percent', 'number'],
+        activeCanvasCount: 1,
+        facts: {
+          components: {
+            bar: {
+              record: {
+                show: true,
+                tint: '#00aa66',
+                size: { width: 60, height: 45 },
+              },
+            },
+            label: {
+              record: {
+                show: true,
+                tint: '#00aa66',
+                text: '75%',
+              },
+            },
+          },
+          mode: 'select',
+          unresolvedIntentCount: 0,
+        },
+      });
+      expect(actualAt(execution, 4)).toMatchObject({
+        rollback: {
+          invalidColumnRejected: true,
+          priorColumnRetained: true,
+          sceneUnchangedOnFailure: true,
         },
       });
       break;

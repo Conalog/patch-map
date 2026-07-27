@@ -20,6 +20,7 @@ export const UPDATE_TRANSACTIONS_CASE_IDS = Object.freeze([
   'CSM-006',
   'CSM-007',
   'CSM-008',
+  'CSM-014',
 ]);
 
 export const UPDATE_TRANSACTIONS_ACTION_TYPES = Object.freeze([
@@ -36,6 +37,8 @@ export const UPDATE_TRANSACTIONS_ACTION_TYPES = Object.freeze([
   'destroy-engine',
   'apply-presentation-overlay',
   'export-canonical-dataset',
+  'apply-view-column',
+  'remount-and-restore-column',
   'loadDataset',
   'setSelection',
   'moveAcrossParents',
@@ -163,11 +166,18 @@ const CASE_ACTIONS = Object.freeze({
     'export-canonical-dataset',
     'probe-declared-failure',
   ]),
+  'CSM-014': Object.freeze([
+    'apply-view-column',
+    'apply-view-column',
+    'apply-view-column',
+    'remount-and-restore-column',
+    'probe-declared-failure',
+  ]),
 });
 
 const BASELINE_PROFILE = 'mutation-transaction-matrix';
 
-/** Shared browser-safe product handlers for eighteen update and consumer cases. */
+/** Shared browser-safe product handlers for update and consumer cases. */
 export function createUpdateTransactionHandlerEntries(product) {
   const adapter = validateProductAdapter(product);
   const states = new WeakMap();
@@ -208,6 +218,16 @@ export function createUpdateTransactionHandlerEntries(product) {
       adapter,
       states,
       exportJourneyCanonicalDatasetAction,
+    ),
+    'apply-view-column': withState(
+      adapter,
+      states,
+      applyViewColumnAction,
+    ),
+    'remount-and-restore-column': withState(
+      adapter,
+      states,
+      remountAndRestoreColumnAction,
     ),
     loadDataset: withState(adapter, states, loadDatasetAction),
     setSelection: withState(adapter, states, setSelectionAction),
@@ -300,6 +320,9 @@ function withState(adapter, states, handler) {
         overlayFrameCount: 0,
         overlayPostDestroyEventCount: 0,
         overlayPostDestroyFrameCount: 0,
+        viewColumnTrace: [],
+        viewColumnValues: new Map(),
+        viewColumnSelected: null,
       };
       states.set(context.ensureMainEngine, state);
     }
@@ -840,12 +863,92 @@ function exportJourneyCanonicalDatasetAction(adapter, state, context, action) {
   };
 }
 
+async function applyViewColumnAction(adapter, state, context, action) {
+  assert(context.caseId === 'CSM-014', 'apply-view-column case');
+  const operands = exactOperands(action, ['column', 'values']);
+  const column = viewColumnName(context, operands.column);
+  const values = viewColumnValues(operands.values);
+  const engine = await ensureViewColumnSession(state, context, 1);
+  const inputBefore = context.fingerprint(operands.values);
+  const before = observeProduct(adapter, context, engine);
+  const result = applyViewColumn(engine, context, column, values);
+  callSync(engine, 'publishFrame', context.clock.now());
+  state.viewColumnTrace.push(column);
+  state.viewColumnValues.set(column, values);
+  state.viewColumnSelected = column;
+  const facts = journeyOverlayFacts(engine);
+  const product = observeProduct(adapter, context, engine);
+  return {
+    actual: {
+      column,
+      input: inputObservation(
+        inputBefore,
+        context.fingerprint(operands.values),
+      ),
+      before,
+      product,
+      result: clone(result),
+      facts,
+      appliedColumnTrace: clone(state.viewColumnTrace),
+    },
+    host: {
+      operation: 'apply-view-column',
+      supplied: { column, values: clone(values) },
+      returned: {
+        status: result.status,
+        selectedColumn: column,
+        sceneRevision: sceneRevision(product),
+      },
+    },
+  };
+}
+
+async function remountAndRestoreColumnAction(adapter, state, context, action) {
+  assert(context.caseId === 'CSM-014', 'remount-and-restore-column case');
+  const operands = exactOperands(action, ['selectedColumn']);
+  const selectedColumn = viewColumnName(context, operands.selectedColumn);
+  const values = state.viewColumnValues.get(selectedColumn);
+  assert(values !== undefined, 'remounted column must have prior host values');
+  const prior = currentEngine(state, 'remount-and-restore-column');
+  const before = observeProduct(adapter, context, prior);
+  const engine = await ensureViewColumnSession(state, context, 2);
+  const result = applyViewColumn(engine, context, selectedColumn, values);
+  callSync(engine, 'publishFrame', context.clock.now());
+  state.viewColumnSelected = selectedColumn;
+  const facts = journeyOverlayFacts(engine);
+  const product = observeProduct(adapter, context, engine);
+  return {
+    actual: {
+      selectedColumn,
+      input: fingerprintValue(context, action.operands),
+      before,
+      product,
+      result: clone(result),
+      facts,
+      appliedColumnTrace: clone(state.viewColumnTrace),
+      remountedColumn: selectedColumn,
+      priorLifecycle: before.snapshot.lifecycle,
+      activeCanvasCount: product.snapshot.resources.canvasCount,
+    },
+    host: {
+      operation: 'remount-and-restore-column',
+      supplied: { selectedColumn },
+      returned: {
+        selectedColumn,
+        sceneRevision: sceneRevision(product),
+        canvasCount: product.snapshot.resources.canvasCount,
+      },
+    },
+  };
+}
+
 async function probeJourneyDeclaredFailureAction(adapter, state, context, action) {
   assert(
     context.caseId === 'CSM-005' ||
       context.caseId === 'CSM-006' ||
       context.caseId === 'CSM-007' ||
-      context.caseId === 'CSM-008',
+      context.caseId === 'CSM-008' ||
+      context.caseId === 'CSM-014',
     'probe-declared-failure case',
   );
   const operands = exactOperands(action, [
@@ -1010,7 +1113,7 @@ async function probeJourneyDeclaredFailureAction(adapter, state, context, action
         before,
         after,
       };
-    } else {
+    } else if (context.caseId === 'CSM-008') {
       const params = recordValue(context.fixtureParams, 'CSM-008 fixture params');
       const highlightIds = stringArray(params.highlightIds, 'CSM-008 highlight IDs');
       const hiddenRelationIds = stringArray(
@@ -1044,6 +1147,46 @@ async function probeJourneyDeclaredFailureAction(adapter, state, context, action
         result: clone(result),
         diagnostic: publicDiagnosticFromResult(result),
         presentation: clone(presentation),
+      };
+    } else {
+      const selectedColumn = viewColumnName(
+        context,
+        state.viewColumnSelected,
+      );
+      const values = state.viewColumnValues.get(selectedColumn);
+      assert(values !== undefined, 'CSM-014 selected column values');
+      applyViewColumn(isolated, context, selectedColumn, values);
+      callSync(isolated, 'publishFrame', context.clock.now());
+      const before = isolatedFailureSnapshot(isolated, context);
+      const beforeFacts = journeyOverlayFacts(isolated);
+      let diagnostic = null;
+      try {
+        viewColumnName(context, '__invalid_column__');
+      } catch (error) {
+        diagnostic = publicDiagnosticFromError(error);
+      }
+      const after = isolatedFailureSnapshot(isolated, context);
+      const afterFacts = journeyOverlayFacts(isolated);
+      const beforeBar = beforeFacts.components.bar.record;
+      const afterBar = afterFacts.components.bar.record;
+      const beforeLabel = beforeFacts.components.label.record;
+      const afterLabel = afterFacts.components.label.record;
+      rollback = {
+        invalidColumnRejected: diagnostic !== null,
+        priorColumnRetained:
+          context.fingerprint(beforeBar) === context.fingerprint(afterBar) &&
+          context.fingerprint(beforeLabel) === context.fingerprint(afterLabel),
+        sceneUnchangedOnFailure:
+          before.fingerprint === after.fingerprint &&
+          sceneRevisionFromSnapshot(before.snapshot) ===
+            sceneRevisionFromSnapshot(after.snapshot),
+      };
+      failure = {
+        diagnostic,
+        before,
+        after,
+        beforeFacts,
+        afterFacts,
       };
     }
   } finally {
@@ -2748,6 +2891,92 @@ async function ensureInitializedEngine(state, context) {
   return engine;
 }
 
+async function ensureViewColumnSession(state, context, session) {
+  assert(context.caseId === 'CSM-014', 'view column session case');
+  const engine = await context.ensureSessionEngine(session);
+  state.engine = engine;
+  const snapshot = callSync(engine, 'snapshot');
+  if (snapshot.lifecycle === 'new') {
+    await initializeIsolatedJourneyEngine(
+      engine,
+      `${context.caseId}-session-${session}`,
+    );
+    const datasetRef = journeyDatasetRef(context);
+    const dataset = await context.resolveDataset(datasetRef);
+    const fingerprint = context.fingerprint(dataset);
+    callSync(engine, 'loadDataset', dataset, { datasetRef });
+    callSync(engine, 'applyInteractionModeOperation', {
+      op: 'replace',
+      state: 'select',
+    });
+    state.datasets.set(datasetRef, { value: dataset, fingerprint });
+    state.baselineLoaded = true;
+    state.journeyBaselineFingerprint = fingerprint;
+  }
+  return engine;
+}
+
+function applyViewColumn(engine, context, column, values) {
+  const transaction = {
+    strict: true,
+    recordHistory: false,
+    actionId: `CSM-014:${column}`,
+    operations: [
+      {
+        op: 'merge',
+        target: componentTarget('item-a', 'bar'),
+        changes: [
+          { path: ['show'], value: values.show },
+          { path: ['tint'], value: values.tint },
+          { path: ['size', 'width'], value: values.barSize.width },
+          { path: ['size', 'height'], value: values.barSize.height },
+        ],
+      },
+      {
+        op: 'merge',
+        target: componentTarget('item-a', 'label'),
+        changes: [
+          { path: ['show'], value: values.show },
+          { path: ['tint'], value: values.tint },
+          { path: ['text'], value: values.text },
+        ],
+      },
+    ],
+  };
+  const before = context.fingerprint(transaction);
+  const result = callSync(engine, 'transact', transaction);
+  assert(
+    before === context.fingerprint(transaction),
+    'view column transaction input remains immutable',
+  );
+  assert(result.status === 'committed', `view column ${column} transaction committed`);
+  return result;
+}
+
+function viewColumnName(context, value) {
+  const column = stringValue(value, 'view column');
+  const params = recordValue(context.fixtureParams, 'CSM-014 fixture params');
+  const columns = stringArray(params.columns, 'CSM-014 columns');
+  assert(columns.includes(column), `unsupported view column ${column}`);
+  return column;
+}
+
+function viewColumnValues(value) {
+  const values = recordValue(value, 'view column values');
+  assertExactKeys(values, ['barSize', 'show', 'text', 'tint'], 'view column values');
+  const barSize = recordValue(values.barSize, 'view column bar size');
+  assertExactKeys(barSize, ['height', 'width'], 'view column bar size');
+  return deepFreeze({
+    text: stringValue(values.text, 'view column text'),
+    tint: stringValue(values.tint, 'view column tint'),
+    show: booleanValue(values.show, 'view column show'),
+    barSize: {
+      width: finiteNumber(barSize.width, 'view column bar width'),
+      height: finiteNumber(barSize.height, 'view column bar height'),
+    },
+  });
+}
+
 function currentEngine(state, operation) {
   assert(state.engine !== null, `${operation} engine exists`);
   return state.engine;
@@ -4051,6 +4280,7 @@ function validateContext(contextValue) {
   const context = recordValue(contextValue, 'handler context');
   for (const method of [
     'ensureMainEngine',
+    'ensureSessionEngine',
     'createEngine',
     'releaseEngine',
     'resolveDataset',
