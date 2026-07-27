@@ -17,15 +17,15 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 
 # Current State
 
-- Coverage is 150 executable routes, 149 actual-producing routes, 23 explicit stubs, 586 executable actions, and 325 action types.
-- `PIX-001/002/003/005` now share one expected-blind handler/fold/runtime and the focused Lab shell. They expose the real WebGL2 Application/stage/aggregate-owner surface, reject WebGL1 before allocation, keep eight native Windows cells explicitly pending, and classify renderer loss across idle/load/animation/gesture/extraction/resize/suspension/destroy without stale publication or retained listeners/canvases.
-- Headless Chromium first/repeat/fresh/destroy passes all 34 PIX assertions per session with deterministic actuals, canvas `0 -> 1 -> 0`, WebGL2 draw proof for PIX-001/002/003, and zero console/page/network/external-fixture errors. The browser inventory is 135 routes and 1,855 assertions: 1,834 matches, twenty-one observed immutable conflicts, and two latent conflicts.
-- The committed package boundary now includes a thin Engine-delegating host adapter, four strict TypeScript examples, and public API/dataset/integration/migration/compatibility/troubleshooting docs. Packed offline install, declarations, ESM/CJS, production bundling, package hygiene, all 38 CSM journeys, shared builtin-asset multi-instance isolation, extraction, and terminal canvas cleanup pass with zero browser errors.
-- Core v2 unit passes 1,263/1,263 alongside full lint/typecheck, Lab build, canonical verification, and 2+7 lifecycle memory over 5,099 entities at 88,275-byte retained-heap median with terminal DOM/scheduler/renderer release. `PKG-001..005` actual routes, headed release proof, WebGPU, native Windows, performance promotion, and final independent release review remain pending.
+- Coverage is 155 executable routes, 154 actual-producing routes, 18 explicit stubs, 600 executable actions, and 338 action types.
+- `PKG-001..005` share one expected-blind handler/fold/runtime and five focused Lab routes. The routes bind the independently produced committed packed-consumer proof; `PKG-003` also runs a local two-Engine isolation/recreate smoke while keeping packed evidence normative.
+- Targeted headless Chromium first/repeat/fresh/destroy passes all five PKG routes with deterministic actuals, zero browser errors, and terminal canvas cleanup. `PKG-003` reaches two simultaneous canvases and every other PKG route one. The browser inventory is 140 routes and 1,891 assertions: 1,870 matches, twenty-one observed immutable conflicts, and two latent conflicts.
+- Packed offline install, declarations, ESM/CJS, production bundling, package hygiene, all 38 CSM journeys, four strict examples, shared builtin-asset multi-instance isolation, extraction, and terminal cleanup remain proven by the digest-bound package artifact.
+- Full verification passes 165 files/1,505 unit tests, lint, typecheck, Lab build, and canonical 38-decision/32-negative/173-record verification. The prior 2+7 lifecycle memory result remains current because renderer ownership and destroy paths did not change. Headed release proof, WebGPU, native Windows, performance promotion, the remaining 18 routes, and final independent release review remain pending.
 
 # Next Step
 
-After restart, map the committed packed-consumer evidence into one expected-blind `PKG-001..005` handler/fold/runtime and five focused Lab routes. Run targeted unit/Lab/canonical gates; repeat the packed gate only if the packaged boundary changes, and do not repeat PIX memory/performance gates unless renderer ownership, destroy paths, or measured hot paths change.
+After restart, tranche `PRF-001..006/009` around the existing benchmark and aggregate render substrate. Preserve 2+7 raw measurements and unfavorable intervals, connect expected-blind folds and focused routes, and run the expensive performance checkpoint only once the seven-case tranche changes or promotes the measured hot path.
 
 # Working Boundary
 

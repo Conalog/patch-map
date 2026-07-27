@@ -213,3 +213,9 @@
 - Decision: Keep one engine-local flat lifecycle authority with authenticated generation tokens. Settle presentation to its already-committed destination before entering hidden state, cancel interaction ownership, and admit exactly one explicit manual publication after resume.
 - Why: A fixed-size metadata ledger makes stale completion fail closed without retaining Promises, Pixi objects, listeners, tickers, timers, datasets, or per-entity callbacks, while ordering surface transition before ledger publication preserves atomic failure.
 - Impact: `LIF-006` and packed/memory consumers use the public Engine visibility boundary. Hidden asset/extraction registrations are rejected, obsolete tokens cannot apply, and aggregate WebGL ownership and manual rendering remain unchanged.
+
+**2026-07-27**
+- The five package cases require actual observations in the same focused Lab, while package installation and consumer execution already have an independent digest-bound verifier.
+- Transport the committed package-consumer result through one browser-safe expected-blind adapter and shared handler/fold; PKG-003 adds a local two-Engine lifecycle smoke, but the packed proof remains normative.
+- This preserves the actual-versus-expected firewall, avoids performing an offline package build inside every Lab route, and still exercises live PixiJS instance isolation and cleanup where it matters.
+- PKG-001..005 now bind provenance to one packed artifact and expose deterministic route actuals; repeat the packed gate only when the published package boundary changes.
