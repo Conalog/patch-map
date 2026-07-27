@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-27T02:27:34.510Z",
+  "generatedAt": "2026-07-27T03:40:33.300Z",
   "package": "@conalog/patch-map/core-v2",
   "pixi": "8.19.0",
   "esm": {
@@ -15,6 +15,7 @@
     "renderObjects": 4,
     "canvasCountAfterDestroy": 0,
     "destroyed": true,
+    "authoringRevision": "core-v2-authoring/1",
     "transactionRevision": "core-v2-mutation-transaction/1",
     "commandTargetRevision": "core-v2-command-target/1",
     "editorMountRevision": "core-v2-editor-mount/1",
@@ -34,6 +35,13 @@
       "sceneRevisionUnchanged": true,
       "semanticHashUnchanged": true,
       "datasetRefUnchanged": true
+    },
+    "authoringPackage": {
+      "plannerType": "function",
+      "engineMethodType": "function",
+      "status": "committed",
+      "createdId": "packed-author-rect",
+      "recordId": "packed-author-rect"
     },
     "pointerPackage": {
       "eventTypes": [
@@ -345,6 +353,9 @@
   "cjs": {
     "entities": 1,
     "id": "cjs-rect",
+    "authoringRevision": "core-v2-authoring/1",
+    "authoringPlannerType": "function",
+    "authoringEngineMethodType": "function",
     "transactionRevision": "core-v2-mutation-transaction/1",
     "commandTargetRevision": "core-v2-command-target/1",
     "commandTargetFactoryType": "function",
