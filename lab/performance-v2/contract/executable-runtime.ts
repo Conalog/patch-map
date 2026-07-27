@@ -82,6 +82,8 @@ import * as replacementRecoveryHandlersModule from '../../../scripts/verificatio
 import * as exportExtractionHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/export-extraction.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as pixijsIntegrationHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/pixijs-integration.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as packageIntegrationHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/package-integration.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as foundationFoldModule from '../../../scripts/verification/core-v2-contract/fold-foundation.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
@@ -140,6 +142,8 @@ import * as replacementRecoveryFoldModule from '../../../scripts/verification/co
 import * as exportExtractionFoldModule from '../../../scripts/verification/core-v2-contract/fold-export-extraction.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as pixijsIntegrationFoldModule from '../../../scripts/verification/core-v2-contract/fold-pixijs-integration.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as packageIntegrationFoldModule from '../../../scripts/verification/core-v2-contract/fold-package-integration.mjs';
 
 import type {
   CoreV2ExecutableCaseId,
@@ -211,6 +215,11 @@ import {
   type CoreV2ExportExtractionCaseId,
 } from './export-extraction-runtime';
 import { createCoreV2AssetIngestionRuntime } from './asset-ingestion-runtime';
+import {
+  CORE_V2_PACKAGE_INTEGRATION_CASE_IDS,
+  createCoreV2PackageIntegrationRuntime,
+  type CoreV2PackageIntegrationCaseId,
+} from './package-integration-runtime';
 
 export type CoreV2ExecutableRuntimeKey =
   | 'foundation'
@@ -240,6 +249,7 @@ export type CoreV2ExecutableRuntimeKey =
   | 'replacement-recovery'
   | 'export-extraction'
   | 'pixijs-integration'
+  | 'package-integration'
   | 'asset-ingestion'
   | 'assets';
 
@@ -346,6 +356,10 @@ interface HandlerFactoryRuntime {
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
   createPixijsIntegrationHandlerEntries?(this: void): readonly HandlerEntry[];
+  createPackageIntegrationHandlerEntries?(
+    this: void,
+    product: Readonly<Record<string, unknown>>,
+  ): readonly HandlerEntry[];
 }
 
 interface FoldRuntime {
@@ -465,6 +479,10 @@ interface FoldRuntime {
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
+  foldPackageIntegrationExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
 }
 
 export interface CoreV2FoldedExecution {
@@ -534,6 +552,8 @@ const exportExtractionHandlers =
   exportExtractionHandlersModule as unknown as HandlerFactoryRuntime;
 const pixijsIntegrationHandlers =
   pixijsIntegrationHandlersModule as unknown as HandlerFactoryRuntime;
+const packageIntegrationHandlers =
+  packageIntegrationHandlersModule as unknown as HandlerFactoryRuntime;
 const foundationFold = foundationFoldModule as unknown as FoldRuntime;
 const dataFoundationFold = dataFoundationFoldModule as unknown as FoldRuntime;
 const dataClosureFold = dataClosureFoldModule as unknown as FoldRuntime;
@@ -572,6 +592,8 @@ const exportExtractionFold =
   exportExtractionFoldModule as unknown as FoldRuntime;
 const pixijsIntegrationFold =
   pixijsIntegrationFoldModule as unknown as FoldRuntime;
+const packageIntegrationFold =
+  packageIntegrationFoldModule as unknown as FoldRuntime;
 
 const FOUNDATION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
   'LIF-001',
@@ -639,6 +661,9 @@ const PIXIJS_INTEGRATION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
   'PIX-003',
   'PIX-005',
 ]);
+const PACKAGE_INTEGRATION_CASE_IDS = new Set<CoreV2PackageIntegrationCaseId>(
+  CORE_V2_PACKAGE_INTEGRATION_CASE_IDS,
+);
 const ASSET_INGESTION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
   'ERR-003',
   'AST-002',
@@ -805,6 +830,8 @@ const LIFECYCLE_INTERRUPTION_DESCRIPTOR = createLifecycleInterruptionDescriptor(
 const DETERMINISM_LIFECYCLE_DESCRIPTOR = createDeterminismLifecycleDescriptor();
 const EXPORT_EXTRACTION_DESCRIPTOR = createExportExtractionDescriptor();
 const PIXIJS_INTEGRATION_DESCRIPTOR = createPixijsIntegrationDescriptor();
+const PACKAGE_INTEGRATION_DESCRIPTOR = createPackageIntegrationDescriptor(true);
+const PACKAGE_MULTI_INSTANCE_DESCRIPTOR = createPackageIntegrationDescriptor(false);
 
 export function resolveCoreV2ExecutableRuntime(
   caseId: CoreV2ExecutableCaseId,
@@ -840,6 +867,11 @@ export function resolveCoreV2ExecutableRuntime(
   if (isDeterminismLifecycleCaseId(caseId)) return DETERMINISM_LIFECYCLE_DESCRIPTOR;
   if (isExportExtractionCaseId(caseId)) return EXPORT_EXTRACTION_DESCRIPTOR;
   if (PIXIJS_INTEGRATION_CASE_IDS.has(caseId)) return PIXIJS_INTEGRATION_DESCRIPTOR;
+  if (isPackageIntegrationCaseId(caseId)) {
+    return caseId === 'PKG-003'
+      ? PACKAGE_MULTI_INSTANCE_DESCRIPTOR
+      : PACKAGE_INTEGRATION_DESCRIPTOR;
+  }
   if (isViewportCaseId(caseId)) return VIEWPORT_DESCRIPTOR;
   if (ASSET_INGESTION_CASE_IDS.has(caseId)) return ASSET_INGESTION_DESCRIPTOR;
   if (caseId === 'AST-001') return ASSET_DESCRIPTOR;
@@ -1033,6 +1065,55 @@ function createPixijsIntegrationDescriptor(): CoreV2ExecutableRuntimeDescriptor 
       });
     },
   });
+}
+
+function createPackageIntegrationDescriptor(
+  needsSupplementalWebGLLease: boolean,
+): CoreV2ExecutableRuntimeDescriptor {
+  const fold = requireFold(
+    packageIntegrationFold.foldPackageIntegrationExecution,
+    'package integration fold',
+  );
+  const createEntries = requireFactory(
+    packageIntegrationHandlers.createPackageIntegrationHandlerEntries,
+    'package integration handlers',
+  );
+  const createRun = (plan: CoreV2ExecutableCasePlan) => {
+    invariant(isPackageIntegrationCaseId(plan.id), 'package integration case identity');
+    const runtime = createCoreV2PackageIntegrationRuntime();
+    return Object.freeze({
+      handlerEntries: selectHandlerEntries(
+        plan,
+        createEntries(runtime.product as unknown as Readonly<Record<string, unknown>>),
+      ),
+      engineOptions: Object.freeze({}),
+      actionTimeoutMs: 120_000,
+    });
+  };
+  return Object.freeze({
+    key: 'package-integration',
+    needsSupplementalWebGLLease,
+    createRun,
+    handlerEntries(plan: CoreV2ExecutableCasePlan): readonly HandlerEntry[] {
+      return createRun(plan).handlerEntries;
+    },
+    fold(input: CoreV2RuntimeFoldInput): CoreV2FoldedExecution {
+      return fold({
+        casePlan: input.casePlan,
+        execution: input.execution,
+        provenance: input.provenance,
+        environment: input.environment,
+      });
+    },
+  });
+}
+
+function isPackageIntegrationCaseId(
+  caseId: CoreV2ExecutableCaseId,
+): caseId is CoreV2PackageIntegrationCaseId {
+  return PACKAGE_INTEGRATION_CASE_IDS.has(
+    caseId as CoreV2PackageIntegrationCaseId,
+  );
 }
 
 function createReplacementRecoveryDescriptor(): CoreV2ExecutableRuntimeDescriptor {
