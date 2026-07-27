@@ -27,6 +27,8 @@
   "files": [
     "dist",
     "!dist/**/*.map",
+    "docs/core-v2",
+    "examples/core-v2",
     "LICENSE",
     "README.md",
     "README_KR.md"
