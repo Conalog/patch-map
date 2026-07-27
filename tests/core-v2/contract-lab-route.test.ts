@@ -78,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(325);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(150);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(23);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(338);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(155);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(18);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(586);
+    ), 0)).toBe(600);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -800,17 +800,20 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).not.toContain('data-contract-status="pass"');
   });
 
-  it('keeps every remaining non-executable route disabled and explicitly not implemented', () => {
+  it('renders PKG-001 as an actual-observable packed-proof Lab route', () => {
     const route = parseCoreV2ContractRoute(
       '/lab/core-v2?scenario=PKG-001&size=500&seed=319',
     );
     const markup = renderCoreV2ContractLab(route);
 
-    expect(markup).toContain('data-contract-status="not-implemented"');
-    expect(markup).toContain('data-testid="load-dataset" disabled');
+    expect(route.presenter.executionStatus).toBe('actual-observable');
+    expect(markup).toContain('data-contract-status="armed"');
+    expect(markup).toContain('data-testid="scenario-pkg-001-action-00"');
+    expect(markup).toContain('contract/build-package');
+    expect(markup).toContain('data-testid="load-dataset"');
+    expect(markup).not.toContain('data-testid="load-dataset" disabled');
     expect(markup).toContain('data-testid="destroy-case" disabled');
-    expect(markup).toContain('data-action-status="not-implemented"');
-    expect(markup).toContain('No engine action, semantic observation, or promotion result');
+    expect(markup).toContain('Actual-only case execution is available');
     expect(markup).not.toContain('data-contract-status="pass"');
   });
 

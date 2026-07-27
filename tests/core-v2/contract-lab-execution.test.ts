@@ -188,20 +188,43 @@ describe('Core v2 executable Lab product bridge', () => {
       expect(run.actualObservation).toMatchObject({
         $schema: 'core-v2-semantic-observation/1',
         case: { id: caseId },
-        provenance: {
-          codeCommit: 'unbound-worktree-source',
-          packedPackageSha256: 'not-packed-source-lab',
-          promotionEligible: false,
-        },
-        environment: { backend: 'webgl2', routeSize: '5000' },
       });
+      if (caseId.startsWith('PKG-')) {
+        expect(run.actualObservation).toMatchObject({
+          provenance: {
+            codeCommit: 'd712cacf64df76fdf960dca780fbfd6d784bcb40',
+            packedPackageSha256:
+              '9d186b59270753a437d11e400b942513312831a04f3cd4475e21651f1c0e16d1',
+            expectedEvidenceBound: true,
+          },
+          environment: {
+            browserVersion: '143.0.7499.4',
+            contractProfileBound: true,
+          },
+        });
+      } else {
+        expect(run.actualObservation).toMatchObject({
+          provenance: {
+            codeCommit: 'unbound-worktree-source',
+            packedPackageSha256: 'not-packed-source-lab',
+            promotionEligible: false,
+          },
+          environment: { backend: 'webgl2', routeSize: '5000' },
+        });
+      }
       expect(bridge.execution()).toBe(run.execution);
       expect(bridge.cleanup()).toBe(run.cleanup);
       expect(surfaces.length).toBeGreaterThan(0);
       expect(surfaces.every((surface) => surface.destroyed)).toBe(true);
       expect(receivedTargets.every((target) => target === surfaceHost)).toBe(true);
       expect(surfaces.every((surface) => surface.preference === 'webgl')).toBe(true);
-      expect(JSON.stringify(run)).not.toContain('"status":"pass"');
+      if (caseId.startsWith('PKG-')) {
+        expect(run.actualObservation).toMatchObject({
+          outcome: { packageEvidenceStatus: 'pass' },
+        });
+      } else {
+        expect(JSON.stringify(run)).not.toContain('"status":"pass"');
+      }
       if (caseId === 'VIE-001') {
         await expect(bridge.armGesture(0)).resolves.toMatchObject({
           revision: 'core-v2-contract-gesture-plan/1',
@@ -258,6 +281,76 @@ describe('Core v2 executable Lab product bridge', () => {
       });
       expect(bridge.state().status).toBe('destroyed');
       expect(await bridge.actualObservation()).toBe(run.actualObservation);
+    },
+    60_000,
+  );
+
+  it.each([
+    'PKG-001',
+    'PKG-002',
+    'PKG-003',
+    'PKG-004',
+    'PKG-005',
+  ] as const)(
+    'produces independently comparable packed integration actuals for %s',
+    async (caseId) => {
+      const surfaces: FakeSurface[] = [];
+      const bridge = createCoreV2ExecutableLabBridge({
+        caseId,
+        rootTestId: `scenario-${caseId.toLowerCase()}`,
+        size: '100',
+        seed: 319,
+        surfaceHost: createSurfaceHost(),
+        surfaceFactory: createFakeSurfaceFactory(surfaces, [], 'flat'),
+      });
+      const run = await bridge.runCase();
+      const expected = normalizedExpected.cases.find(({ id }) => id === caseId);
+      expect(expected).toBeDefined();
+      const comparison = compareObservation({
+        expectedCase: expected,
+        actual: run.actualObservation,
+        fixtures: run.fixtures,
+        captures: run.captures,
+      });
+      const failures = comparison.assertions.filter(({ passed }) => !passed);
+
+      expect(comparison.failed, JSON.stringify({
+        failures,
+        actual: run.actualObservation,
+        captures: run.captures,
+      })).toBe(0);
+      expect(comparison.passed).toBe(expected?.expected.assertions.length);
+      expect(run.actualObservation).toMatchObject({
+        provenance: {
+          codeCommit: 'd712cacf64df76fdf960dca780fbfd6d784bcb40',
+          packedPackageSha256:
+            '9d186b59270753a437d11e400b942513312831a04f3cd4475e21651f1c0e16d1',
+          expectedEvidenceBound: true,
+        },
+        environment: {
+          contractProfileBound: true,
+          offlineInstall: true,
+          strictTypeScript: true,
+        },
+      });
+      if (caseId === 'PKG-003') {
+        expect(run.captures).toEqual({
+          baselineB: {
+            assetLeaseCount: 1,
+            sceneSemanticHash: 'fnv1a64:b858a777de1619ca',
+          },
+        });
+        expect(surfaces).toHaveLength(3);
+      } else {
+        expect(surfaces).toHaveLength(1);
+      }
+      expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
+      await expect(bridge.destroyCase()).resolves.toMatchObject({
+        status: 'completed',
+        retainedCanvasCount: 0,
+        retainedSubscriptionCount: 0,
+        retainedPendingWork: 0,
+      });
     },
     60_000,
   );
@@ -1453,6 +1546,11 @@ describe('Core v2 executable Lab product bridge', () => {
       'PIX-003': 'pixijs-integration',
       'PIX-004': 'export-extraction',
       'PIX-005': 'pixijs-integration',
+      'PKG-001': 'package-integration',
+      'PKG-002': 'package-integration',
+      'PKG-003': 'package-integration',
+      'PKG-004': 'package-integration',
+      'PKG-005': 'package-integration',
       'AST-001': 'assets',
       'AST-002': 'asset-ingestion',
       'AST-003': 'asset-ingestion',

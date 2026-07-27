@@ -22,8 +22,8 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 1_855;
-const EXPECTED_ASSERTION_PASS_TOTAL = 1_834;
+const EXPECTED_ASSERTION_TOTAL = 1_891;
+const EXPECTED_ASSERTION_PASS_TOTAL = 1_870;
 const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;
 const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;
 const CASE_TIMEOUT_MS = 180_000;
@@ -288,6 +288,11 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'PIX-003', expectedAssertions: 13 }),
   Object.freeze({ id: 'PIX-004', expectedAssertions: 6 }),
   Object.freeze({ id: 'PIX-005', expectedAssertions: 9 }),
+  Object.freeze({ id: 'PKG-001', expectedAssertions: 6 }),
+  Object.freeze({ id: 'PKG-002', expectedAssertions: 7 }),
+  Object.freeze({ id: 'PKG-003', expectedAssertions: 6, expectedMaxCanvas: 2 }),
+  Object.freeze({ id: 'PKG-004', expectedAssertions: 11 }),
+  Object.freeze({ id: 'PKG-005', expectedAssertions: 6 }),
   Object.freeze({ id: 'CSM-035', expectedAssertions: 25 }),
   Object.freeze({ id: 'CSM-038', expectedAssertions: 27 }),
   Object.freeze({ id: 'ERR-003', expectedAssertions: 6 }),
@@ -443,6 +448,13 @@ const PIXIJS_INTEGRATION_TRANCHE_CASES = new Set([
   'PIX-003',
   'PIX-005',
 ]);
+const PACKAGE_INTEGRATION_TRANCHE_CASES = new Set([
+  'PKG-001',
+  'PKG-002',
+  'PKG-003',
+  'PKG-004',
+  'PKG-005',
+]);
 const CONTROL_CASES = new Set([
   ...PRESENTATION_TRANCHE_CASES,
   ...UPDATE_TRANSACTION_TRANCHE_CASES,
@@ -458,6 +470,7 @@ const CONTROL_CASES = new Set([
   ...DETERMINISM_LIFECYCLE_TRANCHE_CASES,
   ...EXPORT_EXTRACTION_TRANCHE_CASES,
   ...PIXIJS_INTEGRATION_TRANCHE_CASES,
+  ...PACKAGE_INTEGRATION_TRANCHE_CASES,
 ]);
 const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);
 const GPU_EVIDENCE_CASES = new Set([
@@ -607,28 +620,28 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all one-hundred-thirty-one render routes completed'
+      ? 'all one-hundred-forty render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 1834 pass and 21 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 1870 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 1834 pass and 21 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 1870 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 1834 pass and 21 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 1870 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -2182,9 +2195,11 @@ function assertCaseRun(caseSpec, run, comparison, runLabel) {
   invariant(run.actualMatchesRun === true, `${prefix} actualObservation public accessor parity`);
   invariant(run.cleanupStatus === 'completed', `${prefix} cleanup completion`);
   invariant(run.canvas.initial === 0, `${prefix} starts without a retained canvas`);
+  const expectedMaxCanvas = caseSpec.expectedMaxCanvas ?? 1;
   invariant(
-    run.canvas.maximumDuringRun === 1,
-    `${prefix} owns exactly one transient canvas (observed ${run.canvas.maximumDuringRun})`,
+    run.canvas.maximumDuringRun === expectedMaxCanvas,
+    `${prefix} owns exactly ${expectedMaxCanvas} transient canvas(es) `
+      + `(observed ${run.canvas.maximumDuringRun})`,
   );
   invariant(run.canvas.afterCleanup === 0, `${prefix} cleanup releases the transient canvas`);
   invariant(comparison.assertions.length === caseSpec.expectedAssertions, `${prefix} assertion inventory`);
@@ -2994,7 +3009,7 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 1855',
+    'render checkpoint assertion inventory must remain 1891',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===

@@ -38,7 +38,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the one-hundred-thirty-five selected render routes and their 1855 canonical assertions', () => {
+  it('pins exactly the one-hundred-forty selected routes and their 1891 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -176,6 +176,11 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'PIX-003', expectedAssertions: 13 },
       { id: 'PIX-004', expectedAssertions: 6 },
       { id: 'PIX-005', expectedAssertions: 9 },
+      { id: 'PKG-001', expectedAssertions: 6 },
+      { id: 'PKG-002', expectedAssertions: 7 },
+      { id: 'PKG-003', expectedAssertions: 6 },
+      { id: 'PKG-004', expectedAssertions: 11 },
+      { id: 'PKG-005', expectedAssertions: 6 },
       { id: 'CSM-035', expectedAssertions: 25 },
       { id: 'CSM-038', expectedAssertions: 27 },
       { id: 'ERR-003', expectedAssertions: 6 },
@@ -187,19 +192,19 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'CSM-034', expectedAssertions: 23 },
       { id: 'LIF-006', expectedAssertions: 17 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_855);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_855;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_834;');
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_891);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_891;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_870;');
     expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;');
     expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 1834 pass and 21 observed immutable conflicts'",
+      "'canonical comparison must be exactly 1870 pass and 21 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 1834 pass and 21 observed immutable conflicts'",
+      "'repeat comparison must be exactly 1870 pass and 21 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 1834 pass and 21 observed immutable conflicts'",
+      "'fresh comparison must be exactly 1870 pass and 21 observed immutable conflicts'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -472,6 +477,11 @@ describe('Core v2 render browser checkpoint script', () => {
     for (const caseId of ['PIX-001', 'PIX-002', 'PIX-003', 'PIX-005']) {
       expect(source).toContain(`'${caseId}',`);
     }
+    expect(source).toContain('const PACKAGE_INTEGRATION_TRANCHE_CASES = new Set([');
+    for (const caseId of ['PKG-001', 'PKG-002', 'PKG-003', 'PKG-004', 'PKG-005']) {
+      expect(source).toContain(`'${caseId}',`);
+    }
+    expect(source).toContain('...PACKAGE_INTEGRATION_TRANCHE_CASES');
     expect(source).toContain('const POINTER_SELECTION_TRANCHE_CASES = new Set([');
     for (const caseId of [
       'EVT-001',
@@ -660,8 +670,10 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("ui.resourceJournal.events.includes('backend-texture-resolved')");
   });
 
-  it('requires one transient canvas, repeat and fresh determinism, and zero browser errors', () => {
-    expect(source).toContain("run.canvas.maximumDuringRun === 1");
+  it('requires bounded transient canvases, repeat and fresh determinism, and zero browser errors', () => {
+    expect(source).toContain('const expectedMaxCanvas = caseSpec.expectedMaxCanvas ?? 1;');
+    expect(source).toContain('run.canvas.maximumDuringRun === expectedMaxCanvas');
+    expect(source).toContain("id: 'PKG-003', expectedAssertions: 6, expectedMaxCanvas: 2");
     expect(source).toContain("run.canvas.afterCleanup === 0");
     expect(source).toContain("comparison.stableActualSha256 === repeatComparison.stableActualSha256");
     expect(source).toContain("comparison.stableActualSha256 === fresh.comparison.stableActualSha256");
