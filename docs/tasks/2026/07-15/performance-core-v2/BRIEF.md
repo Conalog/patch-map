@@ -18,14 +18,15 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 # Current State
 
 - Coverage is 125 executable routes, 124 actual-producing routes, 48 explicit stubs, 476 executable actions, and 263 action types.
-- Product commit `d5e81bd` adds editor mount preflight, root-owned tooltip publication, pan-click suppression, and cleanup on drag/redraw/destroy. Automation commit `abaec4b` connects `CSM-013/018/022/023/024` through one expected-blind interaction/editor runtime and five focused Lab routes; approved expected evidence is unchanged.
-- Promotion gates pass 157 files/1,415 tests, full lint/typecheck, Core v2/Lab builds, and canonical 38-decision/32-negative/173-record verification. The five changed headless routes pass first/repeat/fresh/destroy at 96 matches plus five explicit conflicts out of 101 assertions per session, with deterministic observations and zero console, page, network, or external-fixture errors.
-- The focused browser inventory is 110 routes and 1,479 assertions, with 1,465 expected passes, fourteen observed conflicts, and two latent conflicts. Verification commit `ec4e8b3` proves the new ESM/CJS host seam and a 2+7 lifecycle run over 5,099 entities with retained-heap median 88,063 bytes and zero terminal DOM, renderer, scheduler, subscription, or canvas ownership.
-- The performance matrix was not repeated because aggregate renderer, buffer upload, and continuous pointer hot paths did not change. No child agent or owned Vitest/Vite/Chromium process remains; WebGPU, native Windows, and final independent release review remain pending.
+- The preceding `CSM-013/018/022/023/024` tranche remains promoted: 157 files/1,415 tests, full lint/typecheck, both builds, canonical verification, targeted headless lifecycle, packed consumption, and 2+7 memory pass. Its 110-route inventory retains fourteen observed and two latent immutable conflicts.
+- Product commit `0564eae` adds one strict authoring planner and Engine transaction boundary for `CSM-019/028/029/030/031`: seven create types, affine position/align/distribute, advanced text styles, hierarchy/z-order, group/duplicate/paste/ungroup, reference rewriting, stable identity, no-op detection, and atomic failures.
+- Four targeted files/52 tests, scoped lint, typecheck, and whitespace checks pass for that product checkpoint. Automation, focused routes, and tranche promotion gates have not run, so executable coverage is intentionally unchanged.
+- `CSM-030` asks to parent `rect-b` under PATCH MAP `item-a`, while the approved schema and mutation authority permit children only under `group`. Core v2 rejects this atomically as `INVALID_MUTATION`; the immutable expected parent remains unchanged and must be reported as an actual conflict.
+- No child agent or owned Vitest/Vite/Chromium process remains. WebGPU, native Windows, and final independent release review remain pending.
 
 # Next Step
 
-After restart, inventory `CSM-019/028/029/030/031` as the shared authoring-transaction tranche, then implement create, position/style, hierarchy, group, and copy semantics through the existing semantic transaction/history authorities before adding expected-blind automation and focused routes.
+After restart, connect `CSM-019/028/029/030/031` through one shared expected-blind authoring handler/fold/runtime and five focused Lab routes, preserving the `CSM-030` conflict, then run targeted checks and the tranche promotion gates.
 
 # Working Boundary
 

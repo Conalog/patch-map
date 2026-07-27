@@ -195,3 +195,9 @@
 - Decision: Keep default loads permissive and add an explicit strict pre-publication reference-validation option shared by synchronous and asynchronous Engine loads; export the same validator for direct consumers.
 - Why: Opt-in strictness gives hosts deterministic exact codes and atomic refusal without silently changing established default load behavior or letting a failed candidate publish partial state.
 - Impact: Strict duplicate and missing-target failures preserve the prior scene, hash, revision, and dataset reference; packed ESM/CJS consumers can probe the public boundary, while default parsing continues to report omitted dangling relations.
+
+**2026-07-27**
+- Background: `CSM-030` requests moving `rect-b` under `item-a`, but the approved PATCH MAP schema represents `item-a` as an `item` and permits hierarchy children only under `group`.
+- Decision: Keep the schema and shared mutation authority strict: an item cannot become a hierarchy parent, and the move fails atomically with `INVALID_MUTATION`.
+- Why: Reinterpreting an item as a group would change external input semantics, component identity, and observable hierarchy only to match an immutable expected value.
+- Impact: Product state, selection, history, and publication remain unchanged after the move. The expected-blind runtime must record the actual rejection and comparison conflict without aliases, fabricated observations, or expected changes.
