@@ -75,6 +75,8 @@ import * as assetHandlersModule from '../../../scripts/verification/core-v2-cont
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as assetIngestionHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/asset-ingestion.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as securityOperationsHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/security-operations.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as historyHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/history.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as replacementRecoveryHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/replacement-recovery.mjs';
@@ -136,6 +138,8 @@ import * as editorWorkflowFoldModule from '../../../scripts/verification/core-v2
 import * as assetFoldModule from '../../../scripts/verification/core-v2-contract/fold-assets.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as assetIngestionFoldModule from '../../../scripts/verification/core-v2-contract/fold-asset-ingestion.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as securityOperationsFoldModule from '../../../scripts/verification/core-v2-contract/fold-security-operations.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as historyFoldModule from '../../../scripts/verification/core-v2-contract/fold-history.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
@@ -220,6 +224,11 @@ import {
 } from './export-extraction-runtime';
 import { createCoreV2AssetIngestionRuntime } from './asset-ingestion-runtime';
 import {
+  CORE_V2_SECURITY_OPERATIONS_CASE_IDS,
+  createCoreV2SecurityOperationsRuntime,
+  type CoreV2SecurityOperationsCaseId,
+} from './security-operations-runtime';
+import {
   CORE_V2_PACKAGE_INTEGRATION_CASE_IDS,
   createCoreV2PackageIntegrationRuntime,
   type CoreV2PackageIntegrationCaseId,
@@ -261,6 +270,7 @@ export type CoreV2ExecutableRuntimeKey =
   | 'package-integration'
   | 'performance'
   | 'asset-ingestion'
+  | 'security-operations'
   | 'assets';
 
 type Handler = (
@@ -353,6 +363,10 @@ interface HandlerFactoryRuntime {
     this: void,
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
+  createSecurityOperationsHandlerEntries?(
+    this: void,
+    product: Readonly<Record<string, unknown>>,
+  ): readonly HandlerEntry[];
   createHistoryHandlerEntries?(
     this: void,
     product: Readonly<Record<string, unknown>>,
@@ -386,6 +400,10 @@ interface FoldRuntime {
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
   foldDataClosureExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
+  foldSecurityOperationsExecution?(
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
@@ -563,6 +581,8 @@ const editorWorkflowHandlers =
 const assetHandlers = assetHandlersModule as unknown as HandlerFactoryRuntime;
 const assetIngestionHandlers =
   assetIngestionHandlersModule as unknown as HandlerFactoryRuntime;
+const securityOperationsHandlers =
+  securityOperationsHandlersModule as unknown as HandlerFactoryRuntime;
 const historyHandlers = historyHandlersModule as unknown as HandlerFactoryRuntime;
 const replacementRecoveryHandlers =
   replacementRecoveryHandlersModule as unknown as HandlerFactoryRuntime;
@@ -605,6 +625,8 @@ const editorWorkflowFold =
 const assetFold = assetFoldModule as unknown as FoldRuntime;
 const assetIngestionFold =
   assetIngestionFoldModule as unknown as FoldRuntime;
+const securityOperationsFold =
+  securityOperationsFoldModule as unknown as FoldRuntime;
 const historyFold = historyFoldModule as unknown as FoldRuntime;
 const replacementRecoveryFold =
   replacementRecoveryFoldModule as unknown as FoldRuntime;
@@ -696,6 +718,9 @@ const ASSET_INGESTION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
   'SEC-001',
   'CSM-032',
 ]);
+const SECURITY_OPERATIONS_CASE_IDS = new Set<CoreV2SecurityOperationsCaseId>(
+  CORE_V2_SECURITY_OPERATIONS_CASE_IDS,
+);
 
 const DATA_FOUNDATION_PRODUCT = Object.freeze({
   createColorResolver: createCoreV2ColorResolver,
@@ -859,6 +884,7 @@ const PACKAGE_INTEGRATION_DESCRIPTOR = createPackageIntegrationDescriptor(true);
 const PACKAGE_MULTI_INSTANCE_DESCRIPTOR = createPackageIntegrationDescriptor(false);
 const PERFORMANCE_EVIDENCE_DESCRIPTOR = createPerformanceDescriptor(true);
 const PERFORMANCE_PRODUCT_DESCRIPTOR = createPerformanceDescriptor(false);
+const SECURITY_OPERATIONS_DESCRIPTOR = createSecurityOperationsDescriptor();
 
 export function resolveCoreV2ExecutableRuntime(
   caseId: CoreV2ExecutableCaseId,
@@ -905,6 +931,7 @@ export function resolveCoreV2ExecutableRuntime(
       : PERFORMANCE_PRODUCT_DESCRIPTOR;
   }
   if (isViewportCaseId(caseId)) return VIEWPORT_DESCRIPTOR;
+  if (isSecurityOperationsCaseId(caseId)) return SECURITY_OPERATIONS_DESCRIPTOR;
   if (ASSET_INGESTION_CASE_IDS.has(caseId)) return ASSET_INGESTION_DESCRIPTOR;
   if (caseId === 'AST-001') return ASSET_DESCRIPTOR;
   throw new Error(`Unsupported Core v2 executable runtime: ${String(caseId)}`);
@@ -1919,6 +1946,54 @@ function createAssetIngestionDescriptor(): CoreV2ExecutableRuntimeDescriptor {
       });
     },
   });
+}
+
+function createSecurityOperationsDescriptor(): CoreV2ExecutableRuntimeDescriptor {
+  const fold = requireFold(
+    securityOperationsFold.foldSecurityOperationsExecution,
+    'security-operations fold',
+  );
+  const createEntries = requireFactory(
+    securityOperationsHandlers.createSecurityOperationsHandlerEntries,
+    'security-operations handlers',
+  );
+  const createRun = (plan: CoreV2ExecutableCasePlan) => {
+    invariant(isSecurityOperationsCaseId(plan.id), 'security-operations case identity');
+    const runtime = createCoreV2SecurityOperationsRuntime(plan.id);
+    return Object.freeze({
+      handlerEntries: selectHandlerEntries(
+        plan,
+        createEntries(runtime.product as unknown as Readonly<Record<string, unknown>>),
+      ),
+      engineOptions: Object.freeze({}),
+      actionTimeoutMs: 120_000,
+      postDestroyProductProbe: () => runtime.postDestroyProductProbe(),
+    });
+  };
+  return Object.freeze({
+    key: 'security-operations',
+    needsSupplementalWebGLLease: false,
+    createRun,
+    handlerEntries(plan: CoreV2ExecutableCasePlan): readonly HandlerEntry[] {
+      return createRun(plan).handlerEntries;
+    },
+    fold(input: CoreV2RuntimeFoldInput): CoreV2FoldedExecution {
+      return fold({
+        casePlan: input.casePlan,
+        execution: input.execution,
+        provenance: input.provenance,
+        environment: input.environment,
+      });
+    },
+  });
+}
+
+function isSecurityOperationsCaseId(
+  caseId: CoreV2ExecutableCaseId,
+): caseId is CoreV2SecurityOperationsCaseId {
+  return SECURITY_OPERATIONS_CASE_IDS.has(
+    caseId as CoreV2SecurityOperationsCaseId,
+  );
 }
 
 function selectHandlerEntries(

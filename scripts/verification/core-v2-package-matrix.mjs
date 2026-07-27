@@ -43,6 +43,23 @@ const RESTRICTED_PACKAGE_PATHS = Object.freeze([
   /(?:^|\/)evidence(?:\/|$)/u,
   /\.(?:test|spec)\.[cm]?[jt]sx?$/u,
 ]);
+const PROHIBITED_PACKAGE_PATHS = Object.freeze({
+  'source-map': Object.freeze([/\.map$/u]),
+  'restricted-evidence': RESTRICTED_PACKAGE_PATHS,
+  fixture: Object.freeze([/(?:^|\/)fixtures?(?:\/|$)/iu]),
+  secret: Object.freeze([
+    /(?:^|\/)\.env(?:\.|$)/iu,
+    /(?:^|\/)(?:credentials?|secrets?)(?:\.|\/|$)/iu,
+  ]),
+  'original-material': Object.freeze([
+    /(?:^|\/)(?:original|oracle|clean-?room)(?:\/|$)/iu,
+  ]),
+  'dependency-bundle': Object.freeze([
+    /(?:^|\/)node_modules(?:\/|$)/u,
+    /(?:^|\/)vendor(?:\/|$)/iu,
+    /(?:^|\/)dependency-bundle(?:\.|\/|$)/iu,
+  ]),
+});
 
 export async function analyzePackedArtifact({ packRecord, tarball }) {
   const files = Array.isArray(packRecord?.files)
@@ -58,6 +75,13 @@ export async function analyzePackedArtifact({ packRecord, tarball }) {
     RESTRICTED_PACKAGE_PATHS.some((pattern) => pattern.test(file)));
   const missingDocs = PUBLIC_DOCS.filter((file) => !files.includes(file));
   const missingExamples = PUBLIC_EXAMPLES.filter((file) => !files.includes(file));
+  const prohibitedEntries = Object.entries(PROHIBITED_PACKAGE_PATHS)
+    .flatMap(([category, patterns]) => files
+      .filter((file) => patterns.some((pattern) => pattern.test(file)))
+      .map((file) => Object.freeze({ category, path: file })))
+    .filter((entry, index, entries) =>
+      entries.findIndex((candidate) =>
+        candidate.category === entry.category && candidate.path === entry.path) === index);
   return Object.freeze({
     sha256,
     filename: packRecord.filename,
@@ -72,6 +96,8 @@ export async function analyzePackedArtifact({ packRecord, tarball }) {
     publicExamples: PUBLIC_EXAMPLES,
     missingDocs,
     missingExamples,
+    prohibitedEntryCount: prohibitedEntries.length,
+    prohibitedEntries: Object.freeze(prohibitedEntries),
   });
 }
 

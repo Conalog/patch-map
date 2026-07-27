@@ -29,12 +29,14 @@ const RESULTS = path.resolve(
 );
 const temporary = await mkdtemp(path.join(tmpdir(), 'patch-map-core-v2-package-'));
 const consumer = path.join(temporary, 'consumer');
+const reproduciblePackDirectory = path.join(temporary, 'reproducible-pack');
 const errors = { console: [], page: [], network: [] };
 let server;
 let browser;
 
 try {
   await mkdir(consumer, { recursive: true });
+  await mkdir(reproduciblePackDirectory, { recursive: true });
   const packed = await execute('npm', ['pack', '--json', '--pack-destination', temporary], {
     cwd: ROOT,
     maxBuffer: 10 * 1024 * 1024,
@@ -45,6 +47,23 @@ try {
   if (typeof filename !== 'string') throw new Error('npm pack did not return a tarball filename');
   const tarball = path.join(temporary, filename);
   const packageArtifact = await analyzePackedArtifact({ packRecord, tarball });
+  const secondPacked = await execute(
+    'npm',
+    ['pack', '--json', '--pack-destination', reproduciblePackDirectory],
+    {
+      cwd: ROOT,
+      maxBuffer: 10 * 1024 * 1024,
+    },
+  );
+  const secondPackRecord = JSON.parse(secondPacked.stdout)[0];
+  const secondFilename = secondPackRecord?.filename;
+  if (typeof secondFilename !== 'string') {
+    throw new Error('second npm pack did not return a tarball filename');
+  }
+  const secondPackageArtifact = await analyzePackedArtifact({
+    packRecord: secondPackRecord,
+    tarball: path.join(reproduciblePackDirectory, secondFilename),
+  });
   const hostAdapterAudit = await auditPackedHostAdapter(ROOT);
   const codeCommit = (
     await execute('git', ['rev-parse', 'HEAD'], {
@@ -52,6 +71,15 @@ try {
       maxBuffer: 1024 * 1024,
     })
   ).stdout.trim();
+  const dependencyAudit = await auditDependencyLock(ROOT);
+  const licenseInventory = await inventoryDependencyLicenses(ROOT);
+  const supplyChain = createSupplyChainEvidence({
+    codeCommit,
+    first: packageArtifact,
+    second: secondPackageArtifact,
+    dependencyAudit,
+    licenseInventory,
+  });
   await writeFile(
     path.join(consumer, 'package.json'),
     `${JSON.stringify({
@@ -1247,6 +1275,21 @@ process.stdout.write(JSON.stringify({
     packageArtifact.sourceMapCount !== 0 ||
     packageArtifact.restrictedEvidenceCount !== 0
   ) failures.push('packed artifact contains source maps or restricted evidence');
+  if (!supplyChain.reproducible) {
+    failures.push('packed artifact is not reproducible across two release builds');
+  }
+  if (supplyChain.packageInspection.prohibitedEntryCount !== 0) {
+    failures.push('packed artifact contains prohibited supply-chain entries');
+  }
+  if (supplyChain.audit.knownVulnerabilityCount !== 0) {
+    failures.push('packed dependency audit found known vulnerabilities');
+  }
+  if (supplyChain.licenses.unapprovedLicenseCount !== 0) {
+    failures.push('packed dependency inventory contains unapproved licenses');
+  }
+  if (supplyChain.sbom.packageDigest !== packageArtifact.sha256) {
+    failures.push('packed SBOM is not bound to the package digest');
+  }
   if (
     packageArtifact.missingDocs.length !== 0 ||
     packageArtifact.missingExamples.length !== 0
@@ -1333,6 +1376,9 @@ process.stdout.write(JSON.stringify({
       productionBundler: productionBuild.productionBundler,
     },
     artifact: packageArtifact,
+    supplyChain,
+    dependencyAudit,
+    licenseInventory,
     types,
     productionBuild,
     packageBoundary: {
@@ -1360,4 +1406,167 @@ process.stdout.write(JSON.stringify({
   await browser?.close();
   await server?.close();
   await rm(temporary, { recursive: true, force: true });
+}
+
+async function auditDependencyLock(root) {
+  let stdout = '';
+  let exitCode = 0;
+  try {
+    const result = await execute(
+      'npm',
+      ['audit', '--package-lock-only', '--json', '--audit-level=low'],
+      {
+        cwd: root,
+        maxBuffer: 10 * 1024 * 1024,
+      },
+    );
+    stdout = result.stdout;
+  } catch (error) {
+    exitCode = Number.isSafeInteger(error?.code) ? error.code : 1;
+    stdout = typeof error?.stdout === 'string'
+      ? error.stdout
+      : error?.stdout?.toString?.() ?? '';
+  }
+  if (stdout.length === 0) {
+    throw new Error('npm audit produced no JSON result');
+  }
+  const parsed = JSON.parse(stdout);
+  if (parsed.error !== undefined) {
+    throw new Error(`npm audit failed: ${JSON.stringify(parsed.error)}`);
+  }
+  const vulnerabilities = parsed.metadata?.vulnerabilities ?? {};
+  const severityCounts = Object.freeze({
+    info: nonNegativeAuditCount(vulnerabilities.info),
+    low: nonNegativeAuditCount(vulnerabilities.low),
+    moderate: nonNegativeAuditCount(vulnerabilities.moderate),
+    high: nonNegativeAuditCount(vulnerabilities.high),
+    critical: nonNegativeAuditCount(vulnerabilities.critical),
+  });
+  const total = Number.isSafeInteger(vulnerabilities.total)
+    ? vulnerabilities.total
+    : Object.values(severityCounts).reduce((sum, count) => sum + count, 0);
+  return Object.freeze({
+    auditLevel: 'low',
+    exitCode,
+    knownVulnerabilityCount: nonNegativeAuditCount(total),
+    severityCounts,
+  });
+}
+
+async function inventoryDependencyLicenses(root) {
+  const lock = JSON.parse(await readFile(path.join(root, 'package-lock.json'), 'utf8'));
+  const rootRecord = lock.packages?.[''] ?? {};
+  const directNames = new Set([
+    ...Object.keys(rootRecord.dependencies ?? {}),
+    ...Object.keys(rootRecord.devDependencies ?? {}),
+    ...Object.keys(rootRecord.peerDependencies ?? {}),
+  ]);
+  const approvedLicenses = Object.freeze([
+    'Apache-2.0',
+    'BSD-2-Clause',
+    'BSD-3-Clause',
+    'ISC',
+    'MIT',
+    'Python-2.0',
+  ]);
+  const approved = new Set(approvedLicenses);
+  const packages = Object.entries(lock.packages ?? {})
+    .filter(([lockPath]) => lockPath.length > 0)
+    .map(([lockPath, record]) => {
+      const name = packageNameFromLockPath(lockPath);
+      return Object.freeze({
+        name,
+        version: typeof record?.version === 'string' ? record.version : 'unknown',
+        license: typeof record?.license === 'string' ? record.license : 'UNKNOWN',
+        direct: directNames.has(name),
+      });
+    })
+    .sort((left, right) =>
+      left.name.localeCompare(right.name) || left.version.localeCompare(right.version));
+  const unapproved = packages.filter(({ license }) => !approved.has(license));
+  const licenseCounts = {};
+  for (const { license } of packages) {
+    licenseCounts[license] = (licenseCounts[license] ?? 0) + 1;
+  }
+  return Object.freeze({
+    approvedLicenses,
+    packageCount: packages.length,
+    unapprovedLicenseCount: unapproved.length,
+    unapproved: Object.freeze(unapproved),
+    licenseCounts: Object.freeze(licenseCounts),
+    packages: Object.freeze(packages),
+  });
+}
+
+function createSupplyChainEvidence({
+  codeCommit,
+  first,
+  second,
+  dependencyAudit,
+  licenseInventory,
+}) {
+  const builds = Object.freeze([first, second].map((artifact, index) => Object.freeze({
+    index,
+    sha256: artifact.sha256,
+    filename: artifact.filename,
+    size: artifact.size,
+    unpackedSize: artifact.unpackedSize,
+    fileCount: artifact.fileCount,
+  })));
+  const reproducible =
+    first.sha256 === second.sha256
+    && first.size === second.size
+    && first.unpackedSize === second.unpackedSize
+    && first.fileCount === second.fileCount;
+  const packageInspection = Object.freeze({
+    prohibitedEntryCount: first.prohibitedEntryCount,
+    prohibitedEntries: first.prohibitedEntries,
+    sourceMapCount: first.sourceMapCount,
+    restrictedEvidenceCount: first.restrictedEvidenceCount,
+  });
+  const audit = Object.freeze({
+    auditLevel: dependencyAudit.auditLevel,
+    knownVulnerabilityCount: dependencyAudit.knownVulnerabilityCount,
+    severityCounts: dependencyAudit.severityCounts,
+  });
+  const licenses = Object.freeze({
+    approvedLicenses: licenseInventory.approvedLicenses,
+    packageCount: licenseInventory.packageCount,
+    unapprovedLicenseCount: licenseInventory.unapprovedLicenseCount,
+    licenseCounts: licenseInventory.licenseCounts,
+  });
+  const sbom = Object.freeze({
+    format: 'core-v2-spdx-lite/1',
+    packageDigest: first.sha256,
+    packageCount: licenseInventory.packageCount,
+    packages: licenseInventory.packages,
+  });
+  return Object.freeze({
+    schemaVersion: 1,
+    sourceRevision: codeCommit,
+    builds,
+    reproducible,
+    packageInspection,
+    audit,
+    licenses,
+    sbom,
+    status:
+      reproducible
+      && packageInspection.prohibitedEntryCount === 0
+      && audit.knownVulnerabilityCount === 0
+      && licenses.unapprovedLicenseCount === 0
+      && sbom.packageDigest === first.sha256
+        ? 'pass'
+        : 'fail',
+  });
+}
+
+function packageNameFromLockPath(lockPath) {
+  const marker = 'node_modules/';
+  const index = lockPath.lastIndexOf(marker);
+  return index === -1 ? lockPath : lockPath.slice(index + marker.length);
+}
+
+function nonNegativeAuditCount(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
