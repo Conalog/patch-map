@@ -221,6 +221,60 @@ export interface RootInteractionHandlers {
   readonly contextMenu: (screenX: number, screenY: number) => boolean;
 }
 
+export type CoreV2ActiveRendererBackend =
+  | 'webgl1'
+  | 'webgl2'
+  | 'webgpu'
+  | 'unknown';
+
+export type CoreV2RendererLossState =
+  | 'healthy'
+  | 'lost'
+  | 'restored-pending-frame'
+  | 'destroyed';
+
+/** Detached PixiJS public-surface facts; no live renderer object crosses this boundary. */
+export interface PixiCoreV2PublicSurfaceProbe {
+  readonly rendererLibrary: 'pixi.js-v8';
+  readonly rendererVersion: string;
+  readonly backend: CoreV2ActiveRendererBackend;
+  readonly applicationInitialized: boolean;
+  readonly manualRender: true;
+  readonly canvas: Readonly<{
+    readonly authoritative: boolean;
+    readonly attached: boolean;
+    readonly patchMapCore: 'v2' | null;
+  }>;
+  readonly stage: Readonly<{
+    readonly label: string;
+    readonly authoritative: boolean;
+    readonly discoverableByDevTools: boolean;
+    readonly worldAttached: boolean;
+    readonly childCount: number;
+  }>;
+  readonly aggregateLayers: readonly Readonly<{
+    readonly role: CoreV2RenderLaneRole;
+    readonly label: string;
+    readonly renderObjectCount: number;
+    readonly visiblePrimitiveCount: number;
+  }>[];
+}
+
+/** Public context/device-loss accounting owned by one renderer instance. */
+export interface PixiCoreV2RendererLossProbe {
+  readonly backend: CoreV2ActiveRendererBackend;
+  readonly webGLVersion: 1 | 2 | null;
+  readonly state: CoreV2RendererLossState;
+  readonly contextLost: boolean;
+  readonly lossEventCount: number;
+  readonly restorationEventCount: number;
+  readonly recoveredFrameCount: number;
+  readonly listenerCount: 0 | 2;
+  readonly lastLossFrame: number | null;
+  readonly lastRecoveryFrame: number | null;
+  readonly destroyed: boolean;
+}
+
 export interface PixiCoreV2RendererDebug {
   readonly strategy: CoreV2RendererStrategy;
   readonly backend: string;

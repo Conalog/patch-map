@@ -170,15 +170,22 @@ export {
   resizeCoreV2GeometryAroundOrigin,
 } from './semantic/geometry-update';
 export type * from './semantic/geometry-update';
-export { PixiCoreV2Renderer } from './renderers/pixi-renderer';
+export {
+  PixiCoreV2Renderer,
+  PixiCoreV2RuntimeError,
+} from './renderers/pixi-renderer';
 export type {
   PixiCoreV2InitializationMetrics,
   PixiCoreV2RendererOptions,
 } from './renderers/pixi-renderer';
 export type {
+  CoreV2ActiveRendererBackend,
   CoreV2BackendPreference,
+  CoreV2RendererLossState,
   CoreV2RendererStrategy,
+  PixiCoreV2PublicSurfaceProbe,
   PixiCoreV2RendererDebug,
+  PixiCoreV2RendererLossProbe,
 } from './renderers/types';
 export {
   CORE_V2_MAX_SCALE,

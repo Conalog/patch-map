@@ -6,6 +6,7 @@ import {
   Graphics,
   Matrix,
   Rectangle,
+  VERSION,
   type ApplicationOptions,
   type FederatedPointerEvent,
 } from 'pixi.js';
@@ -40,14 +41,18 @@ import type {
   CoreV2EntityPaintProbe,
   CoreV2InteractionOverlayPolicy,
   CoreV2OverlayPaintProbe,
+  CoreV2ActiveRendererBackend,
   CoreV2RenderLaneProbe,
   CoreV2RenderLaneRole,
   CoreV2RenderLaneSnapshot,
+  CoreV2RendererLossState,
   CoreV2RendererStrategy,
   CoreV2TextAttachedSignatures,
   CoreV2TextSemanticSignatures,
   CoreV2TextRendererProbe,
+  PixiCoreV2PublicSurfaceProbe,
   PixiCoreV2RendererDebug,
+  PixiCoreV2RendererLossProbe,
   RootInteractionHandlers,
   RootPointerInput,
 } from './types';
@@ -74,6 +79,10 @@ export interface PixiCoreV2RendererOptions {
   readonly antialias?: boolean;
   readonly background?: number;
   readonly powerPreference?: 'high-performance' | 'low-power';
+  /** Reject a WebGL renderer unless Pixi reports a live WebGL2 context. */
+  readonly requireWebGL2?: boolean;
+  /** Register this Application with the official PixiJS DevTools hook. */
+  readonly devtools?: boolean;
   readonly assetSession?: CoreV2AssetSession;
   readonly assetPolicy?: CoreV2AssetPolicy;
   readonly resolveBitmapTextCapability?: (
@@ -84,6 +93,19 @@ export interface PixiCoreV2RendererOptions {
 export interface PixiCoreV2InitializationMetrics {
   readonly applicationInitMs: number;
   readonly rendererBuildMs: number;
+}
+
+export class PixiCoreV2RuntimeError extends Error {
+  public readonly code: 'UNSUPPORTED_RUNTIME' | 'RENDERER_LOST';
+
+  public constructor(
+    code: 'UNSUPPORTED_RUNTIME' | 'RENDERER_LOST',
+    message: string,
+  ) {
+    super(message);
+    this.name = 'PixiCoreV2RuntimeError';
+    this.code = code;
+  }
 }
 
 type AggregateLayer = AggregateMeshLayer | ParticleGraphicsLayer;
@@ -116,6 +138,34 @@ const DEFAULT_INTERACTION_OVERLAY_POLICY: CoreV2InteractionOverlayPolicy = Objec
 const EMPTY_PROJECTION_INDEX: CoreV2ProjectionIndex = Object.freeze({
   byEntityId: Object.freeze({}),
 });
+
+interface PixiPublicGlContextSystem {
+  readonly webGLVersion?: 1 | 2;
+  readonly isLost?: boolean;
+  forceContextLoss?(): void;
+}
+
+interface PixiPublicRendererSurface {
+  readonly name?: string;
+  readonly context?: PixiPublicGlContextSystem;
+}
+
+interface PixiDevtoolsHandle {
+  readonly app: Application;
+}
+
+interface PixiDevtoolsRegistration {
+  readonly token: object;
+  readonly handle: PixiDevtoolsHandle;
+}
+
+type PixiDevtoolsGlobal = typeof globalThis & {
+  __PIXI_DEVTOOLS__?: PixiDevtoolsHandle;
+};
+
+const DEVTOOLS_REGISTRATIONS: PixiDevtoolsRegistration[] = [];
+let previousDevtoolsHandle: PixiDevtoolsHandle | undefined;
+let previousDevtoolsHandleWasPresent = false;
 
 export class PixiCoreV2Renderer implements CoreRenderer {
   public readonly application: Application;
@@ -167,6 +217,17 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private lastInvalidation = 'init';
   private destroyedValue = false;
   private synchronizeOnly = false;
+  private readonly devtoolsToken = Object.freeze({});
+  private readonly activeBackend: CoreV2ActiveRendererBackend;
+  private readonly initialWebGLVersion: 1 | 2 | null;
+  private devtoolsRegistered = false;
+  private contextLossUnbind: (() => void) | null = null;
+  private rendererLossState: CoreV2RendererLossState = 'healthy';
+  private rendererLossEventCount = 0;
+  private rendererRestorationEventCount = 0;
+  private recoveredRendererFrameCount = 0;
+  private lastRendererLossFrame: number | null = null;
+  private lastRendererRecoveryFrame: number | null = null;
   private lastDebug: PixiCoreV2RendererDebug;
   private lastLaneProbe: CoreV2RenderLaneSnapshot;
   private lastAggregateResult: AggregateResult = {
@@ -185,13 +246,15 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     options: Required<Pick<PixiCoreV2RendererOptions, 'width' | 'height' | 'pixelRatio' | 'strategy' | 'preference'>> &
       Pick<
         PixiCoreV2RendererOptions,
-        'target' | 'assetSession' | 'assetPolicy' | 'resolveBitmapTextCapability'
+        'target' | 'devtools' | 'assetSession' | 'assetPolicy' | 'resolveBitmapTextCapability'
       >,
     metrics: PixiCoreV2InitializationMetrics,
   ) {
     const buildStarted = now();
     this.application = application;
     this.canvas = application.canvas;
+    this.activeBackend = activeRendererBackend(application);
+    this.initialWebGLVersion = publicGlContext(application)?.webGLVersion ?? null;
     this.target = options.target;
     this.strategy = options.strategy;
     this.preference = options.preference;
@@ -249,6 +312,11 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.application.stage.hitArea = new Rectangle(0, 0, this.widthValue, this.heightValue);
     this.application.stage.addChild(this.world);
     this.application.ticker.stop();
+    this.bindRendererLossEvents();
+    if (options.devtools === true) {
+      registerPixiDevtools(this.devtoolsToken, this.application);
+      this.devtoolsRegistered = true;
+    }
     this.target?.appendChild(this.canvas);
     this.canvas.style.touchAction = 'none';
     this.canvas.dataset.patchMapCore = 'v2';
@@ -281,6 +349,9 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       sharedTicker: false,
       preference,
       powerPreference: options.powerPreference ?? 'high-performance',
+      webgl: {
+        preferWebGLVersion: 2,
+      },
       background: packedRgb(packedBackground),
       backgroundAlpha: packedAlpha(packedBackground),
       clearBeforeRender: true,
@@ -288,6 +359,13 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     };
     await application.init(initOptions);
     const applicationInitMs = now() - applicationStarted;
+    if (options.requireWebGL2 === true && activeRendererBackend(application) !== 'webgl2') {
+      application.destroy({ removeView: false }, { children: true });
+      throw new PixiCoreV2RuntimeError(
+        'UNSUPPORTED_RUNTIME',
+        'Core v2 requires a PixiJS WebGL2 renderer',
+      );
+    }
     return new PixiCoreV2Renderer(
       application,
       {
@@ -297,6 +375,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
         strategy,
         preference,
         ...(options.target ? { target: options.target } : {}),
+        ...(options.devtools === true ? { devtools: true } : {}),
         ...(options.assetSession ? { assetSession: options.assetSession } : {}),
         ...(options.assetPolicy ? { assetPolicy: options.assetPolicy } : {}),
         ...(options.resolveBitmapTextCapability
@@ -591,6 +670,18 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     if (rendered) {
       this.application.render();
       const renderedFrame = this.frame + 1;
+      if (this.rendererLossState !== 'healthy') {
+        if (publicGlContext(this.application)?.isLost === true) {
+          throw new PixiCoreV2RuntimeError(
+            'RENDERER_LOST',
+            'PixiJS WebGL2 context remained lost after a recovery render',
+          );
+        }
+        this.rendererLossState = 'healthy';
+        this.recoveredRendererFrameCount += 1;
+        this.lastRendererRecoveryFrame = renderedFrame;
+        this.lastInvalidation = 'renderer-context-recovered';
+      }
       this.leaves.confirmRenderedFrame(renderedFrame);
       this.frame = renderedFrame;
       this.lastRenderedTextProjectionRevision = this.projectionRevision;
@@ -924,6 +1015,95 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     });
   }
 
+  public publicSurfaceProbe(): PixiCoreV2PublicSurfaceProbe {
+    const stage = this.application.stage;
+    const roles: readonly CoreV2RenderLaneRole[] = [
+      'background-geometry',
+      'background-assets',
+      'ordinary-geometry',
+      'relations-dynamic',
+      'content-assets',
+      'text',
+      'interaction-overlay',
+    ];
+    return Object.freeze({
+      rendererLibrary: 'pixi.js-v8',
+      rendererVersion: VERSION,
+      backend: activeRendererBackend(this.application),
+      applicationInitialized: this.application.renderer !== undefined,
+      manualRender: true,
+      canvas: Object.freeze({
+        authoritative: this.application.canvas === this.canvas,
+        attached: this.target?.contains(this.canvas) ?? this.canvas.isConnected,
+        patchMapCore: this.canvas.dataset.patchMapCore === 'v2' ? 'v2' : null,
+      }),
+      stage: Object.freeze({
+        label: stage.label,
+        authoritative: stage.children.includes(this.world) && this.world.parent === stage,
+        discoverableByDevTools: pixiDevtoolsOwnsApplication(this.application),
+        worldAttached: stage.children.includes(this.world) && this.world.parent === stage,
+        childCount: stage.children.length,
+      }),
+      aggregateLayers: Object.freeze(roles.map((role) => {
+        const lane = this.lastLaneProbe[role];
+        return Object.freeze({
+          role,
+          label: lane.label,
+          renderObjectCount: lane.renderObjectCount,
+          visiblePrimitiveCount: lane.visiblePrimitiveCount,
+        });
+      })),
+    });
+  }
+
+  public rendererLossProbe(): PixiCoreV2RendererLossProbe {
+    if (this.destroyedValue) {
+      return Object.freeze({
+        backend: this.activeBackend,
+        webGLVersion: this.initialWebGLVersion,
+        state: 'destroyed',
+        contextLost: false,
+        lossEventCount: this.rendererLossEventCount,
+        restorationEventCount: this.rendererRestorationEventCount,
+        recoveredFrameCount: this.recoveredRendererFrameCount,
+        listenerCount: 0,
+        lastLossFrame: this.lastRendererLossFrame,
+        lastRecoveryFrame: this.lastRendererRecoveryFrame,
+        destroyed: true,
+      });
+    }
+    const context = publicGlContext(this.application);
+    const contextLost = context?.isLost === true;
+    return Object.freeze({
+      backend: this.activeBackend,
+      webGLVersion: context?.webGLVersion ?? this.initialWebGLVersion,
+      state: contextLost ? 'lost' : this.rendererLossState,
+      contextLost,
+      lossEventCount: this.rendererLossEventCount,
+      restorationEventCount: this.rendererRestorationEventCount,
+      recoveredFrameCount: this.recoveredRendererFrameCount,
+      listenerCount: this.contextLossUnbind === null ? 0 : 2,
+      lastLossFrame: this.lastRendererLossFrame,
+      lastRecoveryFrame: this.lastRendererRecoveryFrame,
+      destroyed: false,
+    });
+  }
+
+  /**
+   * Deterministic public loss fixture for verification. Pixi's documented
+   * GlContextSystem owns the actual GPU resource release/recreation.
+   */
+  public forceRendererLoss(): boolean {
+    this.assertAlive();
+    const context = publicGlContext(this.application);
+    if (typeof context?.forceContextLoss !== 'function') return false;
+    this.rendererLossState = 'lost';
+    this.lastRendererLossFrame = this.frame;
+    this.lastInvalidation = 'renderer-context-lost';
+    context.forceContextLoss();
+    return true;
+  }
+
   public debugSnapshot(): PixiCoreV2RendererDebug {
     return this.destroyedValue ? Object.freeze({ ...this.lastDebug, destroyed: true }) : this.lastDebug;
   }
@@ -931,6 +1111,13 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   public destroy(): boolean {
     if (this.destroyedValue) return false;
     this.destroyedValue = true;
+    this.rendererLossState = 'destroyed';
+    this.contextLossUnbind?.();
+    this.contextLossUnbind = null;
+    if (this.devtoolsRegistered) {
+      unregisterPixiDevtools(this.devtoolsToken);
+      this.devtoolsRegistered = false;
+    }
     this.lastLaneProbe = freezeLaneSnapshot([
       ['background-geometry', this.backgroundGeometryLane.label],
       ['background-assets', this.leaves.backgroundAssetContainer.label],
@@ -1242,6 +1429,30 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       this.view.x,
       this.view.y,
     ));
+  }
+
+  private bindRendererLossEvents(): void {
+    if (activeRendererBackend(this.application) !== 'webgl2') return;
+    const lost = (event: Event): void => {
+      event.preventDefault();
+      if (this.destroyedValue) return;
+      this.rendererLossEventCount += 1;
+      this.rendererLossState = 'lost';
+      this.lastRendererLossFrame = this.frame;
+      this.lastInvalidation = 'renderer-context-lost';
+    };
+    const restored = (): void => {
+      if (this.destroyedValue) return;
+      this.rendererRestorationEventCount += 1;
+      this.rendererLossState = 'restored-pending-frame';
+      this.lastInvalidation = 'renderer-context-restored';
+    };
+    this.canvas.addEventListener('webglcontextlost', lost);
+    this.canvas.addEventListener('webglcontextrestored', restored);
+    this.contextLossUnbind = () => {
+      this.canvas.removeEventListener('webglcontextlost', lost);
+      this.canvas.removeEventListener('webglcontextrestored', restored);
+    };
   }
 
   private assertAlive(): void {
@@ -1815,8 +2026,68 @@ function rangesTouchCoreV2RelationTopology(
   return false;
 }
 
+function publicRenderer(application: Application): PixiPublicRendererSurface {
+  return application.renderer as unknown as PixiPublicRendererSurface;
+}
+
+function publicGlContext(application: Application): PixiPublicGlContextSystem | null {
+  return publicRenderer(application).context ?? null;
+}
+
+function activeRendererBackend(application: Application): CoreV2ActiveRendererBackend {
+  const renderer = publicRenderer(application);
+  const name = renderer.name ?? application.renderer.constructor.name;
+  if (/webgpu/i.test(name)) return 'webgpu';
+  if (/webgl|glrenderer/i.test(name)) {
+    const version = renderer.context?.webGLVersion;
+    return version === 2 ? 'webgl2' : version === 1 ? 'webgl1' : 'unknown';
+  }
+  return 'unknown';
+}
+
+function registerPixiDevtools(token: object, application: Application): void {
+  const root = globalThis as PixiDevtoolsGlobal;
+  if (DEVTOOLS_REGISTRATIONS.length === 0) {
+    previousDevtoolsHandleWasPresent = Object.prototype.hasOwnProperty.call(
+      root,
+      '__PIXI_DEVTOOLS__',
+    );
+    previousDevtoolsHandle = root.__PIXI_DEVTOOLS__;
+  }
+  const registration = Object.freeze({
+    token,
+    handle: Object.freeze({ app: application }),
+  });
+  DEVTOOLS_REGISTRATIONS.push(registration);
+  root.__PIXI_DEVTOOLS__ = registration.handle;
+}
+
+function unregisterPixiDevtools(token: object): void {
+  const index = DEVTOOLS_REGISTRATIONS.findIndex((entry) => entry.token === token);
+  if (index < 0) return;
+  const [registration] = DEVTOOLS_REGISTRATIONS.splice(index, 1);
+  const root = globalThis as PixiDevtoolsGlobal;
+  if (root.__PIXI_DEVTOOLS__ !== registration?.handle) return;
+  const next = DEVTOOLS_REGISTRATIONS.at(-1);
+  if (next) {
+    root.__PIXI_DEVTOOLS__ = next.handle;
+    return;
+  }
+  if (previousDevtoolsHandleWasPresent) {
+    Reflect.set(root, '__PIXI_DEVTOOLS__', previousDevtoolsHandle);
+  } else {
+    Reflect.deleteProperty(root, '__PIXI_DEVTOOLS__');
+  }
+  previousDevtoolsHandle = undefined;
+  previousDevtoolsHandleWasPresent = false;
+}
+
+function pixiDevtoolsOwnsApplication(application: Application): boolean {
+  return (globalThis as PixiDevtoolsGlobal).__PIXI_DEVTOOLS__?.app === application;
+}
+
 function backendName(application: Application): string {
-  const name = application.renderer.constructor.name;
+  const name = publicRenderer(application).name ?? application.renderer.constructor.name;
   if (/webgpu/i.test(name)) return 'webgpu';
   if (/webgl|glrenderer/i.test(name)) return 'webgl';
   return name || 'unknown';

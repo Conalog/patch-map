@@ -37,14 +37,19 @@ import {
 import type { CoreV2PaintOrderProductProbe } from './paint-order-product';
 import type { SceneSnapshot, SlotRange } from '../core-v1/contracts';
 import type {
+  CoreV2ComponentRenderRole,
   CoreV2ImageSourceKind,
   CoreV2ProjectionIndex,
   CoreV2TextProjection,
 } from './contracts';
 import type {
   CoreV2EntityPaintProbe,
+  PixiCoreV2PublicSurfaceProbe,
+  PixiCoreV2RendererLossProbe,
+  CoreV2RenderLaneRole,
   CoreV2RenderLaneSnapshot,
 } from './renderers/types';
+import { PixiCoreV2RuntimeError } from './renderers/pixi-renderer';
 import type {
   CoreV2SceneImageAttemptProbe,
   CoreV2SceneImageProductProbe,
@@ -364,6 +369,9 @@ export interface CoreV2SurfaceOptions {
   readonly background: number;
   readonly strategy: 'mesh' | 'particle';
   readonly preference: 'webgl' | 'webgpu';
+  readonly backend?: 'webgl2' | 'webgpu';
+  readonly requireWebGL2?: boolean;
+  readonly devtools?: boolean;
   readonly powerPreference: 'high-performance' | 'low-power';
   readonly assetSession?: CoreV2AssetSession;
 }
@@ -912,6 +920,9 @@ export interface CoreV2EngineSurface {
     options?: CoreV2RelationHitOptions,
   ): CoreV2RelationHit | null;
   interactionOwnershipProbe?(): CoreV2InteractionOwnershipProbe;
+  pixiPublicSurfaceProbe?(): PixiCoreV2PublicSurfaceProbe;
+  rendererLossProbe?(): PixiCoreV2RendererLossProbe;
+  forceRendererLoss?(): boolean;
   destroy(): Promise<boolean>;
 }
 
@@ -938,6 +949,10 @@ export interface CoreV2InitializeOptions {
   readonly zoomLimits?: readonly [number, number];
   readonly strategy?: 'mesh' | 'particle';
   readonly preference?: 'webgl' | 'webgpu';
+  /** Normative backend request. WebGL1 is an explicit unsupported fixture. */
+  readonly backend?: 'webgl2' | 'webgpu' | 'webgl1';
+  /** Opt-in official PixiJS DevTools Application registration. */
+  readonly devtools?: boolean;
   readonly powerPreference?: 'high-performance' | 'low-power';
   readonly requiredAssets?: readonly CoreV2AssetRegistration[];
 }
@@ -947,6 +962,36 @@ export interface CoreV2InitializeResult {
   readonly instanceId: string;
   readonly revisions: CoreV2RevisionStamp;
   readonly facilities: readonly string[];
+}
+
+export type CoreV2EnginePixiPublicSurfaceProbe = Readonly<
+  PixiCoreV2PublicSurfaceProbe & {
+    readonly lifecycle: CoreV2Lifecycle;
+    readonly revisions: CoreV2RevisionStamp;
+    readonly canvasCount: number;
+  }
+>;
+
+export type CoreV2EngineRendererLossProbe = Readonly<
+  PixiCoreV2RendererLossProbe & {
+    readonly revisions: CoreV2RevisionStamp;
+    readonly publishedTuple: CoreV2PublishedTuple;
+    readonly canvasCount: number;
+  }
+>;
+
+export interface CoreV2AggregateRenderOwnerProbe {
+  readonly target: CoreV2ComponentVisualTarget;
+  readonly logicalTarget: CoreV2LogicalTargetSnapshot;
+  readonly entityId: string;
+  readonly aggregateRenderOwnerId: `render-owner:${string}/${string}`;
+  readonly rendererKind: CoreV2EntityPaintProbe['rendererKind'] | null;
+  readonly renderLane: CoreV2RenderLaneSnapshot[CoreV2RenderLaneRole] | null;
+  readonly worldBounds: readonly [number, number, number, number];
+  readonly visible: boolean;
+  readonly revisions: CoreV2RevisionStamp;
+  readonly publishedTuple: CoreV2PublishedTuple;
+  readonly frameRevision: number;
 }
 
 export interface CoreV2LoadOptions {
@@ -1692,6 +1737,7 @@ export class CoreV2Engine {
   private surface: CoreV2EngineSurface | null = null;
   private retainedCleanupSurface: CoreV2EngineSurface | null = null;
   private authoritativeCanvas: HTMLCanvasElement | null = null;
+  private terminalRendererLossProbe: PixiCoreV2RendererLossProbe | null = null;
   private initializePromise: Promise<CoreV2InitializeResult> | null = null;
   private instanceId: string | null = null;
   private materialized: MaterializedCoreV2Dataset | null = null;
@@ -1845,6 +1891,24 @@ export class CoreV2Engine {
         this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'initialize', false),
       );
     }
+    if (options.backend === 'webgl1') {
+      return Promise.reject(
+        this.operationError(
+          'UNSUPPORTED_RUNTIME',
+          'UNSUPPORTED_RUNTIME',
+          'initialize',
+          false,
+        ),
+      );
+    }
+    const backend = options.backend ??
+      (options.preference === 'webgpu' ? 'webgpu' : 'webgl2');
+    const preference = backend === 'webgpu' ? 'webgpu' : 'webgl';
+    if (options.preference !== undefined && options.preference !== preference) {
+      return Promise.reject(
+        this.operationError('INVALID_VALUE', 'INVALID_INPUT', 'initialize', true),
+      );
+    }
     validateInitializeOptions(options);
     let assetSession: CoreV2AssetSession;
     try {
@@ -1860,6 +1924,7 @@ export class CoreV2Engine {
       return Promise.reject(this.assetInitializationError(error));
     }
     this.lifecycle = 'initializing';
+    this.terminalRendererLossProbe = null;
     this.instanceId = options.instanceId;
     this.zoomLimits = normalizeZoomLimits(options.zoomLimits ?? DEFAULT_ZOOM_LIMITS);
     const surfaceOptions: CoreV2SurfaceOptions = {
@@ -1869,7 +1934,10 @@ export class CoreV2Engine {
       antialias: options.antialias ?? true,
       background: normalizeBackground(options.background ?? '#FAFAFA'),
       strategy: options.strategy ?? 'mesh',
-      preference: options.preference ?? 'webgl',
+      preference,
+      backend,
+      requireWebGL2: backend === 'webgl2',
+      devtools: options.devtools ?? false,
       powerPreference: options.powerPreference ?? 'high-performance',
       assetSession,
       ...(options.target ? { target: options.target } : {}),
@@ -5366,6 +5434,89 @@ export class CoreV2Engine {
     return this.requireSurface('interactionOwnershipProbe').interactionOwnershipProbe?.() ?? null;
   }
 
+  public pixiPublicSurfaceProbe(): CoreV2EnginePixiPublicSurfaceProbe | null {
+    const surface = this.requireSurface('pixiPublicSurfaceProbe');
+    const probe = surface.pixiPublicSurfaceProbe?.() ?? null;
+    if (probe === null) return null;
+    return Object.freeze({
+      ...probe,
+      lifecycle: this.lifecycle,
+      revisions: this.revisionStamp(),
+      canvasCount: surface.canvasCount,
+    });
+  }
+
+  public aggregateRenderOwnerProbe(
+    target: CoreV2ComponentVisualTarget,
+  ): CoreV2AggregateRenderOwnerProbe | null {
+    const normalized = normalizeEngineComponentVisualTarget(target);
+    const logicalTarget = this.logicalSceneIndex().target({
+      kind: 'component',
+      ownerId: normalized.ownerId,
+      id: normalized.componentId,
+    });
+    const visual = this.componentVisualProbe(normalized);
+    if (
+      logicalTarget === null ||
+      visual === null ||
+      visual.entityId === null ||
+      visual.geometry === null
+    ) {
+      return null;
+    }
+    const laneRole = visual.rendererPaint?.lane ?? componentRenderLane(visual.renderRole);
+    return Object.freeze({
+      target: normalized,
+      logicalTarget,
+      entityId: visual.entityId,
+      aggregateRenderOwnerId:
+        `render-owner:${normalized.ownerId}/${normalized.componentId}`,
+      rendererKind: visual.rendererPaint?.rendererKind ?? null,
+      renderLane: laneRole === null ? null : visual.renderLanes?.[laneRole] ?? null,
+      worldBounds: visual.geometry.worldBounds,
+      visible: visual.geometry.visible,
+      revisions: this.revisionStamp(),
+      publishedTuple: this.publishedTuple,
+      frameRevision: this.frameRevision,
+    });
+  }
+
+  public rendererLossProbe(): CoreV2EngineRendererLossProbe | null {
+    if (
+      (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') &&
+      this.terminalRendererLossProbe !== null
+    ) {
+      return Object.freeze({
+        ...this.terminalRendererLossProbe,
+        revisions: this.revisionStamp(),
+        publishedTuple: this.publishedTuple,
+        canvasCount: 0,
+      });
+    }
+    const surface = this.requireSurface('rendererLossProbe');
+    const probe = surface.rendererLossProbe?.() ?? null;
+    if (probe === null) return null;
+    return Object.freeze({
+      ...probe,
+      revisions: this.revisionStamp(),
+      publishedTuple: this.publishedTuple,
+      canvasCount: surface.canvasCount,
+    });
+  }
+
+  public forceRendererLoss(): boolean {
+    const surface = this.requireSurface('forceRendererLoss');
+    if (surface.forceRendererLoss === undefined) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'forceRendererLoss',
+        false,
+      );
+    }
+    return surface.forceRendererLoss();
+  }
+
   public exportDataset(): readonly NormalizedCoreV2Element[] {
     this.requireSurface('exportDataset');
     return this.materialized?.dataset ?? [];
@@ -5488,8 +5639,16 @@ export class CoreV2Engine {
         renderTextureCount: 0,
       });
     } catch (error) {
+      const rendererLoss = surface.rendererLossProbe?.() ?? null;
       const failure = error instanceof CoreV2EngineError
         ? error
+        : rendererLoss?.contextLost === true || rendererLoss?.state === 'lost'
+          ? this.operationError(
+              'RENDERER_LOST',
+              'RENDERER_LOST',
+              'extractPublishedScene',
+              true,
+            )
         : this.operationError(
             'EXTRACTION_FAILURE',
             'EXTRACTION_FAILURE',
@@ -6128,6 +6287,10 @@ export class CoreV2Engine {
       let attemptFailed = false;
       try {
         await surface.destroy();
+        const rendererLoss = surface.rendererLossProbe?.() ?? null;
+        if (rendererLoss?.destroyed === true) {
+          this.terminalRendererLossProbe = rendererLoss;
+        }
       } catch {
         lastError = new Error('Core v2 surface cleanup failed');
         attemptFailed = true;
@@ -6333,6 +6496,9 @@ export class CoreV2Engine {
 
   private assetInitializationError(error: unknown): CoreV2EngineError {
     if (error instanceof CoreV2EngineError) return error;
+    if (error instanceof PixiCoreV2RuntimeError) {
+      return this.operationError(error.code, error.code, 'initialize', false);
+    }
     if (error instanceof CoreV2AssetError) {
       return this.operationError(
         error.code,
@@ -6349,6 +6515,9 @@ export class CoreV2Engine {
       return this.operationDiagnostic(error.code, error.category, operation, true, error.datasetPath);
     }
     if (error instanceof CoreV2EngineError) return error.diagnostic;
+    if (error instanceof PixiCoreV2RuntimeError) {
+      return this.operationDiagnostic(error.code, error.code, operation, false);
+    }
     if (error instanceof CoreV2PresentationError) {
       return this.operationDiagnostic('CONFLICT', 'CONFLICT', operation, true);
     }
@@ -7223,6 +7392,18 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     return this.core.interactionOwnershipProbe();
   }
 
+  public pixiPublicSurfaceProbe(): PixiCoreV2PublicSurfaceProbe {
+    return this.core.renderer.publicSurfaceProbe();
+  }
+
+  public rendererLossProbe(): PixiCoreV2RendererLossProbe {
+    return this.core.renderer.rendererLossProbe();
+  }
+
+  public forceRendererLoss(): boolean {
+    return this.core.renderer.forceRendererLoss();
+  }
+
   public async destroy(): Promise<boolean> {
     this.viewportInputListener = null;
     this.pointerInputListener = null;
@@ -7371,6 +7552,15 @@ function normalizeEngineComponentVisualTarget(
     throw new TypeError('component visual target componentId must be a non-empty string');
   }
   return Object.freeze({ ownerId: target.ownerId, componentId: target.componentId });
+}
+
+function componentRenderLane(
+  role: CoreV2ComponentRenderRole | null,
+): CoreV2RenderLaneRole | null {
+  if (role === null) return null;
+  if (role === 'background-asset') return 'background-assets';
+  if (role === 'content-asset') return 'content-assets';
+  return role;
 }
 
 function componentSemanticKey(ownerId: string, componentId: string): string {
@@ -7581,6 +7771,8 @@ async function createPixiSurface(options: CoreV2SurfaceOptions): Promise<CoreV2E
     background: options.background,
     strategy: options.strategy,
     preference: options.preference,
+    requireWebGL2: options.requireWebGL2 ?? options.preference === 'webgl',
+    devtools: options.devtools ?? false,
     powerPreference: options.powerPreference,
     autoRender: false,
     rootSelectionMode: 'deferred',
