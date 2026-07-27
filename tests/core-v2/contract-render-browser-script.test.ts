@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the one-hundred-five selected render routes and their 1378 canonical assertions', () => {
+  it('pins exactly the one-hundred-ten selected render routes and their 1479 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -123,10 +123,15 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'CSM-010', expectedAssertions: 22 },
       { id: 'CSM-011', expectedAssertions: 17 },
       { id: 'CSM-012', expectedAssertions: 19 },
+      { id: 'CSM-013', expectedAssertions: 20 },
       { id: 'CSM-015', expectedAssertions: 19 },
       { id: 'CSM-016', expectedAssertions: 19 },
+      { id: 'CSM-018', expectedAssertions: 20 },
       { id: 'CSM-020', expectedAssertions: 18 },
       { id: 'CSM-021', expectedAssertions: 19 },
+      { id: 'CSM-022', expectedAssertions: 20 },
+      { id: 'CSM-023', expectedAssertions: 21 },
+      { id: 'CSM-024', expectedAssertions: 20 },
       { id: 'ERR-002', expectedAssertions: 10 },
       { id: 'ERR-004', expectedAssertions: 12 },
       { id: 'ERR-005', expectedAssertions: 6 },
@@ -144,19 +149,19 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'CSM-035', expectedAssertions: 25 },
       { id: 'CSM-038', expectedAssertions: 27 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_378);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_378;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_369;');
-    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 9;');
-    expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 11;');
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_479);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_479;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_465;');
+    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 14;');
+    expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 16;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 1369 pass and 9 observed immutable conflicts'",
+      "'canonical comparison must be exactly 1465 pass and 14 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 1369 pass and 9 observed immutable conflicts'",
+      "'repeat comparison must be exactly 1465 pass and 14 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 1369 pass and 9 observed immutable conflicts'",
+      "'fresh comparison must be exactly 1465 pass and 14 observed immutable conflicts'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -275,12 +280,61 @@ describe('Core v2 render browser checkpoint script', () => {
       code: 'VALUE_MISMATCH',
       failurePath: '/outcome/queries/ambiguous-component/code',
     }]);
+    const moveConflictBlock = source.match(
+      /const CSM_022_IMMUTABLE_FAILURES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
+    )?.groups?.body ?? '';
+    const moveFailures = [...moveConflictBlock.matchAll(
+      /path: '(?<path>\/[^']+)',\s*code: '(?<code>[^']+)',\s*failurePath: '(?<failurePath>\/[^']+)'/gu,
+    )].map((match) => ({
+      path: match.groups?.path,
+      code: match.groups?.code,
+      failurePath: match.groups?.failurePath,
+    }));
+    expect(moveFailures).toEqual([
+      {
+        path: '/geometry/targets/item-a/worldBounds/x',
+        code: 'VALUE_MISMATCH',
+        failurePath: '/geometry/targets/item-a/worldBounds/x',
+      },
+      {
+        path: '/geometry/targets/rect-b/worldBounds/x',
+        code: 'VALUE_MISMATCH',
+        failurePath: '/geometry/targets/rect-b/worldBounds/x',
+      },
+      {
+        path: '/outcome/hostEngineSeam/failureRollback/conflictCode',
+        code: 'VALUE_MISMATCH',
+        failurePath: '/outcome/hostEngineSeam/failureRollback/conflictCode',
+      },
+    ]);
+    const navigationConflictBlock = source.match(
+      /const CSM_024_IMMUTABLE_FAILURES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
+    )?.groups?.body ?? '';
+    const navigationFailures = [...navigationConflictBlock.matchAll(
+      /path: '(?<path>\/[^']+)',\s*code: '(?<code>[^']+)',\s*failurePath: '(?<failurePath>\/[^']+)'/gu,
+    )].map((match) => ({
+      path: match.groups?.path,
+      code: match.groups?.code,
+      failurePath: match.groups?.failurePath,
+    }));
+    expect(navigationFailures).toEqual([
+      {
+        path: '/interaction/hitTarget',
+        code: 'VALUE_MISMATCH',
+        failurePath: '/interaction/hitTarget',
+      },
+      {
+        path: '/outcome/hostEngineSeam/engineReturns/transformedHitTarget',
+        code: 'VALUE_MISMATCH',
+        failurePath: '/outcome/hostEngineSeam/engineReturns/transformedHitTarget',
+      },
+    ]);
     expect(source).toContain('comparison.passed === caseSpec.expectedAssertions - expectedFailures.length');
     expect(source).toContain('comparison.failed === expectedFailures.length');
     expect(source).toContain('sameJson(comparisonFailures(comparison), expectedFailures)');
     expect(source).toContain('latentConflicts: UPD_007_LATENT_IMMUTABLE_CONFLICTS');
-    expect(source).toContain("'render checkpoint observed immutable conflict inventory must remain 9'");
-    expect(source).toContain("'render checkpoint declared immutable conflict inventory must remain 11'");
+    expect(source).toContain("'render checkpoint observed immutable conflict inventory must remain 14'");
+    expect(source).toContain("'render checkpoint declared immutable conflict inventory must remain 16'");
     expect(source).toContain('latentCases: selectedRenderCases');
     expect(source).toContain(".filter((record) => (record.latentConflicts?.length ?? 0) > 0)");
     expect(source).toContain("import { inspectCoreV2UpdateConflictActuals } from './core-v2-contract/update-conflict-actuals.mjs';");
@@ -371,7 +425,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('focusedUi: DOM_CONTROL_CASES.has(caseSpec.id)');
   });
 
-  it('drives presentation, update, viewport, query, and pointer tranches through controls', () => {
+  it('drives product tranches, including interaction/editor, through controls', () => {
     expect(source).toContain("const PRESENTATION_TRANCHE_CASES = new Set([");
     for (const caseId of ['LAY-002', 'LAY-003', 'UPD-005', 'REN-009', 'ANI-001', 'ANI-002']) {
       expect(source).toContain(`'${caseId}',`);
@@ -420,6 +474,11 @@ describe('Core v2 render browser checkpoint script', () => {
     ]) {
       expect(source).toContain(`'${caseId}',`);
     }
+    expect(source).toContain('const INTERACTION_EDITOR_TRANCHE_CASES = new Set([');
+    for (const caseId of ['CSM-013', 'CSM-018', 'CSM-022', 'CSM-023', 'CSM-024']) {
+      expect(source).toContain(`'${caseId}',`);
+    }
+    expect(source).toContain('...INTERACTION_EDITOR_TRANCHE_CASES');
     expect(source).toContain('const HISTORY_TRANCHE_CASES = new Set([');
     for (const caseId of [
       'HIS-001',

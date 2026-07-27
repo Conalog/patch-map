@@ -124,6 +124,11 @@ describe('Core v2 executable Lab product bridge', () => {
           'TRN-008',
           'TRN-009',
           'TRN-010',
+          'CSM-013',
+          'CSM-018',
+          'CSM-022',
+          'CSM-023',
+          'CSM-024',
         ].includes(caseId)
           ? 'projection'
           : 'flat',
@@ -641,6 +646,69 @@ describe('Core v2 executable Lab product bridge', () => {
   );
 
   it.each([
+    'CSM-013',
+    'CSM-018',
+    'CSM-022',
+    'CSM-023',
+    'CSM-024',
+  ] as const)(
+    'produces independently comparable interaction/editor actuals for %s',
+    async (caseId) => {
+      const surfaces: FakeSurface[] = [];
+      const bridge = createCoreV2ExecutableLabBridge({
+        caseId,
+        rootTestId: `scenario-${caseId.toLowerCase()}`,
+        size: '100',
+        seed: 319,
+        surfaceHost: createSurfaceHost(),
+        surfaceFactory: createFakeSurfaceFactory(surfaces, [], 'projection'),
+        environment: {
+          browser: 'vitest',
+          browserVersion: 'vitest',
+          backend: 'webgl2',
+          routeSize: '100',
+          runtimeResourceIds: [],
+        },
+      });
+      const run = await bridge.runCase();
+      const expected = normalizedExpected.cases.find(({ id }) => id === caseId);
+      expect(expected).toBeDefined();
+      const comparison = compareObservation({
+        expectedCase: expected,
+        actual: run.actualObservation,
+        fixtures: run.fixtures,
+        captures: run.captures,
+      });
+      const failures = comparison.assertions.filter(({ passed }) => !passed);
+      const immutableConflictPaths = caseId === 'CSM-022'
+        ? [
+            '/geometry/targets/item-a/worldBounds/x',
+            '/geometry/targets/rect-b/worldBounds/x',
+            '/outcome/hostEngineSeam/failureRollback/conflictCode',
+          ]
+        : caseId === 'CSM-024'
+          ? [
+              '/interaction/hitTarget',
+              '/outcome/hostEngineSeam/engineReturns/transformedHitTarget',
+            ]
+          : [];
+
+      expect(
+        failures.map(({ path }) => path),
+        JSON.stringify({ failures, actual: run.actualObservation }),
+      ).toEqual(immutableConflictPaths);
+      expect(comparison.failed).toBe(immutableConflictPaths.length);
+      expect(comparison.passed).toBe(
+        (expected?.expected.assertions.length ?? 0) - immutableConflictPaths.length,
+      );
+      expect(run.cleanup).toMatchObject({ status: 'completed' });
+      expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
+      await bridge.destroyCase();
+    },
+    60_000,
+  );
+
+  it.each([
     'HIS-001',
     'HIS-002',
     'HIS-003',
@@ -1142,11 +1210,16 @@ describe('Core v2 executable Lab product bridge', () => {
       'CSM-010': 'viewport',
       'CSM-011': 'pointer-selection',
       'CSM-012': 'pointer-selection',
+      'CSM-013': 'interaction-editor',
       'CSM-015': 'pointer-selection',
       'CSM-016': 'pointer-selection',
       'CSM-017': 'lifecycle-interruption',
+      'CSM-018': 'interaction-editor',
       'CSM-020': 'pointer-selection',
       'CSM-021': 'pointer-selection',
+      'CSM-022': 'interaction-editor',
+      'CSM-023': 'interaction-editor',
+      'CSM-024': 'interaction-editor',
       'CSM-035': 'export-extraction',
       'CSM-036': 'lifecycle-interruption',
       'CSM-037': 'replacement-recovery',

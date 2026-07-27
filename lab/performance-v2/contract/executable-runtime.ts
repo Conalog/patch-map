@@ -63,6 +63,8 @@ import * as querySelectionHandlersModule from '../../../scripts/verification/cor
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as pointerSelectionHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/pointer-selection.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as interactionEditorHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/interaction-editor.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as assetHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/assets.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as historyHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/history.mjs';
@@ -109,6 +111,8 @@ import * as querySelectionFoldModule from '../../../scripts/verification/core-v2
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as pointerSelectionFoldModule from '../../../scripts/verification/core-v2-contract/fold-pointer-selection.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as interactionEditorFoldModule from '../../../scripts/verification/core-v2-contract/fold-interaction-editor.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as assetFoldModule from '../../../scripts/verification/core-v2-contract/fold-assets.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as historyFoldModule from '../../../scripts/verification/core-v2-contract/fold-history.mjs';
@@ -143,6 +147,11 @@ import {
   createCoreV2PointerSelectionRuntime,
   type CoreV2PointerSelectionCaseId,
 } from './pointer-selection-runtime';
+import {
+  CORE_V2_INTERACTION_EDITOR_CASE_IDS,
+  createCoreV2InteractionEditorRuntime,
+  type CoreV2InteractionEditorCaseId,
+} from './interaction-editor-runtime';
 import { createCoreV2RenderComponentAssetsRuntime } from './render-component-assets-runtime';
 import { createCoreV2RenderImagesRuntime } from './render-images-runtime';
 import { createCoreV2RenderTextRuntime } from './render-text-runtime';
@@ -187,6 +196,7 @@ export type CoreV2ExecutableRuntimeKey =
   | 'viewport'
   | 'query-selection'
   | 'pointer-selection'
+  | 'interaction-editor'
   | 'history'
   | 'replacement-recovery'
   | 'export-extraction'
@@ -255,6 +265,10 @@ interface HandlerFactoryRuntime {
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
   createPointerSelectionHandlerEntries?(
+    this: void,
+    product: Readonly<Record<string, unknown>>,
+  ): readonly HandlerEntry[];
+  createInteractionEditorHandlerEntries?(
     this: void,
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
@@ -353,6 +367,10 @@ interface FoldRuntime {
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
+  foldInteractionEditorExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
   foldAssetExecution?(
     this: void,
     options: Readonly<Record<string, unknown>>,
@@ -420,6 +438,8 @@ const updateTransactionsHandlers = updateTransactionsHandlersModule as unknown a
 const viewportHandlers = viewportHandlersModule as unknown as HandlerFactoryRuntime;
 const querySelectionHandlers = querySelectionHandlersModule as unknown as HandlerFactoryRuntime;
 const pointerSelectionHandlers = pointerSelectionHandlersModule as unknown as HandlerFactoryRuntime;
+const interactionEditorHandlers =
+  interactionEditorHandlersModule as unknown as HandlerFactoryRuntime;
 const assetHandlers = assetHandlersModule as unknown as HandlerFactoryRuntime;
 const historyHandlers = historyHandlersModule as unknown as HandlerFactoryRuntime;
 const replacementRecoveryHandlers =
@@ -446,6 +466,8 @@ const updateTransactionsFold = updateTransactionsFoldModule as unknown as FoldRu
 const viewportFold = viewportFoldModule as unknown as FoldRuntime;
 const querySelectionFold = querySelectionFoldModule as unknown as FoldRuntime;
 const pointerSelectionFold = pointerSelectionFoldModule as unknown as FoldRuntime;
+const interactionEditorFold =
+  interactionEditorFoldModule as unknown as FoldRuntime;
 const assetFold = assetFoldModule as unknown as FoldRuntime;
 const historyFold = historyFoldModule as unknown as FoldRuntime;
 const replacementRecoveryFold =
@@ -487,6 +509,9 @@ const QUERY_SELECTION_CASE_IDS = new Set<CoreV2QuerySelectionCaseId>(
 );
 const POINTER_SELECTION_CASE_IDS = new Set<CoreV2PointerSelectionCaseId>(
   CORE_V2_POINTER_SELECTION_CASE_IDS,
+);
+const INTERACTION_EDITOR_CASE_IDS = new Set<CoreV2InteractionEditorCaseId>(
+  CORE_V2_INTERACTION_EDITOR_CASE_IDS,
 );
 const HISTORY_CASE_IDS = new Set<CoreV2HistoryCaseId>(
   CORE_V2_HISTORY_CASE_IDS,
@@ -649,6 +674,7 @@ const UPDATE_TRANSACTIONS_DESCRIPTOR = createUpdateTransactionsDescriptor();
 const VIEWPORT_DESCRIPTOR = createViewportDescriptor();
 const QUERY_SELECTION_DESCRIPTOR = createQuerySelectionDescriptor();
 const POINTER_SELECTION_DESCRIPTOR = createPointerSelectionDescriptor();
+const INTERACTION_EDITOR_DESCRIPTOR = createInteractionEditorDescriptor();
 const HISTORY_DESCRIPTOR = createHistoryDescriptor();
 const REPLACEMENT_RECOVERY_DESCRIPTOR = createReplacementRecoveryDescriptor();
 const LIFECYCLE_INTERRUPTION_DESCRIPTOR = createLifecycleInterruptionDescriptor();
@@ -679,6 +705,7 @@ export function resolveCoreV2ExecutableRuntime(
   if (isUpdateTransactionCaseId(caseId)) return UPDATE_TRANSACTIONS_DESCRIPTOR;
   if (isQuerySelectionCaseId(caseId)) return QUERY_SELECTION_DESCRIPTOR;
   if (isPointerSelectionCaseId(caseId)) return POINTER_SELECTION_DESCRIPTOR;
+  if (isInteractionEditorCaseId(caseId)) return INTERACTION_EDITOR_DESCRIPTOR;
   if (isHistoryCaseId(caseId)) return HISTORY_DESCRIPTOR;
   if (isReplacementRecoveryCaseId(caseId)) return REPLACEMENT_RECOVERY_DESCRIPTOR;
   if (isLifecycleInterruptionCaseId(caseId)) return LIFECYCLE_INTERRUPTION_DESCRIPTOR;
@@ -1012,6 +1039,53 @@ function isPointerSelectionCaseId(
   caseId: CoreV2ExecutableCaseId,
 ): caseId is CoreV2PointerSelectionCaseId {
   return POINTER_SELECTION_CASE_IDS.has(caseId as CoreV2PointerSelectionCaseId);
+}
+
+function createInteractionEditorDescriptor(): CoreV2ExecutableRuntimeDescriptor {
+  const fold = requireFold(
+    interactionEditorFold.foldInteractionEditorExecution,
+    'interaction-editor fold',
+  );
+  const createEntries = requireFactory(
+    interactionEditorHandlers.createInteractionEditorHandlerEntries,
+    'interaction-editor handlers',
+  );
+  const createRun = (plan: CoreV2ExecutableCasePlan) => {
+    invariant(isInteractionEditorCaseId(plan.id), 'interaction-editor case identity');
+    const runtime = createCoreV2InteractionEditorRuntime(plan.id);
+    return Object.freeze({
+      handlerEntries: selectHandlerEntries(
+        plan,
+        createEntries(runtime.product as unknown as Readonly<Record<string, unknown>>),
+      ),
+      engineOptions: Object.freeze({}),
+      postDestroyProductProbe: () => runtime.postDestroyProductProbe(),
+    });
+  };
+  return Object.freeze({
+    key: 'interaction-editor',
+    needsSupplementalWebGLLease: false,
+    createRun,
+    handlerEntries(plan: CoreV2ExecutableCasePlan): readonly HandlerEntry[] {
+      return createRun(plan).handlerEntries;
+    },
+    fold(input: CoreV2RuntimeFoldInput): CoreV2FoldedExecution {
+      return fold({
+        casePlan: input.casePlan,
+        execution: input.execution,
+        provenance: input.provenance,
+        environment: input.environment,
+      });
+    },
+  });
+}
+
+function isInteractionEditorCaseId(
+  caseId: CoreV2ExecutableCaseId,
+): caseId is CoreV2InteractionEditorCaseId {
+  return INTERACTION_EDITOR_CASE_IDS.has(
+    caseId as CoreV2InteractionEditorCaseId,
+  );
 }
 
 function createHistoryDescriptor(): CoreV2ExecutableRuntimeDescriptor {

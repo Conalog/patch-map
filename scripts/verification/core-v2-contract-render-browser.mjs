@@ -21,10 +21,10 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 1_378;
-const EXPECTED_ASSERTION_PASS_TOTAL = 1_369;
-const EXPECTED_ASSERTION_FAILURE_TOTAL = 9;
-const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 11;
+const EXPECTED_ASSERTION_TOTAL = 1_479;
+const EXPECTED_ASSERTION_PASS_TOTAL = 1_465;
+const EXPECTED_ASSERTION_FAILURE_TOTAL = 14;
+const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 16;
 const CASE_TIMEOUT_MS = 180_000;
 const CHECKPOINT_TIMEOUT_MS = 30 * 60_000;
 const REN_005_IMMUTABLE_FAILURES = Object.freeze([
@@ -96,6 +96,35 @@ const EVT_008_IMMUTABLE_FAILURES = Object.freeze([
     path: '/events/clickCounts',
     code: 'VALUE_MISMATCH',
     failurePath: '/events/clickCounts',
+  }),
+]);
+const CSM_022_IMMUTABLE_FAILURES = Object.freeze([
+  Object.freeze({
+    path: '/geometry/targets/item-a/worldBounds/x',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/geometry/targets/item-a/worldBounds/x',
+  }),
+  Object.freeze({
+    path: '/geometry/targets/rect-b/worldBounds/x',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/geometry/targets/rect-b/worldBounds/x',
+  }),
+  Object.freeze({
+    path: '/outcome/hostEngineSeam/failureRollback/conflictCode',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/hostEngineSeam/failureRollback/conflictCode',
+  }),
+]);
+const CSM_024_IMMUTABLE_FAILURES = Object.freeze([
+  Object.freeze({
+    path: '/interaction/hitTarget',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/interaction/hitTarget',
+  }),
+  Object.freeze({
+    path: '/outcome/hostEngineSeam/engineReturns/transformedHitTarget',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/hostEngineSeam/engineReturns/transformedHitTarget',
   }),
 ]);
 const RENDER_CASES = Object.freeze([
@@ -216,10 +245,23 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'CSM-010', expectedAssertions: 22 }),
   Object.freeze({ id: 'CSM-011', expectedAssertions: 17 }),
   Object.freeze({ id: 'CSM-012', expectedAssertions: 19 }),
+  Object.freeze({ id: 'CSM-013', expectedAssertions: 20 }),
   Object.freeze({ id: 'CSM-015', expectedAssertions: 19 }),
   Object.freeze({ id: 'CSM-016', expectedAssertions: 19 }),
+  Object.freeze({ id: 'CSM-018', expectedAssertions: 20 }),
   Object.freeze({ id: 'CSM-020', expectedAssertions: 18 }),
   Object.freeze({ id: 'CSM-021', expectedAssertions: 19 }),
+  Object.freeze({
+    id: 'CSM-022',
+    expectedAssertions: 20,
+    expectedFailures: CSM_022_IMMUTABLE_FAILURES,
+  }),
+  Object.freeze({ id: 'CSM-023', expectedAssertions: 21 }),
+  Object.freeze({
+    id: 'CSM-024',
+    expectedAssertions: 20,
+    expectedFailures: CSM_024_IMMUTABLE_FAILURES,
+  }),
   Object.freeze({ id: 'ERR-002', expectedAssertions: 10 }),
   Object.freeze({ id: 'ERR-004', expectedAssertions: 12 }),
   Object.freeze({ id: 'ERR-005', expectedAssertions: 6 }),
@@ -313,6 +355,13 @@ const POINTER_SELECTION_TRANCHE_CASES = new Set([
   'CSM-020',
   'CSM-021',
 ]);
+const INTERACTION_EDITOR_TRANCHE_CASES = new Set([
+  'CSM-013',
+  'CSM-018',
+  'CSM-022',
+  'CSM-023',
+  'CSM-024',
+]);
 const HISTORY_TRANCHE_CASES = new Set([
   'HIS-001',
   'HIS-002',
@@ -349,6 +398,7 @@ const CONTROL_CASES = new Set([
   ...VIEWPORT_TRANCHE_CASES,
   ...QUERY_SELECTION_TRANCHE_CASES,
   ...POINTER_SELECTION_TRANCHE_CASES,
+  ...INTERACTION_EDITOR_TRANCHE_CASES,
   ...HISTORY_TRANCHE_CASES,
   ...REPLACEMENT_RECOVERY_TRANCHE_CASES,
   ...LIFECYCLE_INTERRUPTION_TRANCHE_CASES,
@@ -496,28 +546,28 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all one-hundred-five render routes completed'
+      ? 'all one-hundred-ten render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 1369 pass and 9 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 1465 pass and 14 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 1369 pass and 9 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 1465 pass and 14 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 1369 pass and 9 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 1465 pass and 14 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -2867,19 +2917,19 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 1378',
+    'render checkpoint assertion inventory must remain 1479',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===
       EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'render checkpoint observed immutable conflict inventory must remain 9',
+    'render checkpoint observed immutable conflict inventory must remain 14',
   );
   invariant(
     sum(
       RENDER_CASES,
       (record) => (record.expectedFailures?.length ?? 0) + (record.latentConflicts?.length ?? 0),
     ) === DECLARED_IMMUTABLE_CONFLICT_TOTAL,
-    'render checkpoint declared immutable conflict inventory must remain 11',
+    'render checkpoint declared immutable conflict inventory must remain 16',
   );
   return selected;
 }
