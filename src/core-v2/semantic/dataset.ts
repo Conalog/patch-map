@@ -340,6 +340,9 @@ const TEXT_STYLE_FIELDS = new Set([
   'fontVariant',
   'fill',
   'stroke',
+  'strokeWidth',
+  'alpha',
+  'cornerRadius',
   'dropShadow',
   'align',
   'textBaseline',
@@ -1078,6 +1081,13 @@ function normalizeTextStyle(
         style[key] = isRecord(fieldValue)
           ? normalizeStrokeStyle(fieldValue, fieldPath)
           : normalizeColorLike(fieldValue, fieldPath);
+        break;
+      case 'strokeWidth':
+      case 'cornerRadius':
+        style[key] = nonnegativeFiniteNumber(fieldValue, fieldPath);
+        break;
+      case 'alpha':
+        style[key] = rangedNumber(fieldValue, fieldPath, 0, 1);
         break;
       case 'dropShadow':
         style[key] = normalizeDropShadow(fieldValue, fieldPath);

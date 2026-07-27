@@ -64,6 +64,11 @@ export {
 } from './transformer-edit';
 export type * from './transformer-edit';
 export {
+  CORE_V2_AUTHORING_REVISION,
+  planCoreV2AuthoringAction,
+} from './authoring';
+export type * from './authoring';
+export {
   CORE_V2_POINTER_GESTURE_REVISION,
   CoreV2PointerGestureAuthority,
   hitCoreV2BoxRegion,

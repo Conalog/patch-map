@@ -860,6 +860,126 @@ describe('CoreV2Engine update transactions', () => {
     expect(JSON.stringify(source)).toBe(sourceBefore);
   });
 
+  it('commits authoring actions through one reconcile/history boundary and leaves invalid attempts atomic', async () => {
+    const { engine, surface } = await createEngine(engines, 'authoring-actions');
+    engine.loadDataset([
+      ...updateScene(),
+      {
+        type: 'text',
+        id: 'text-c',
+        text: 'Bravo',
+        style: { fontFamily: 'FiraCode', fontSize: 16, fill: '#222222' },
+        size: { width: 80, height: 20 },
+        attrs: { x: 40, y: 140 },
+      },
+    ]);
+
+    expect(engine.author({
+      type: 'edit-position-angle',
+      target: 'rect-b',
+      x: 200,
+      y: 100,
+      angleDegrees: 30,
+      actionId: 'position-1',
+    })).toMatchObject({
+      status: 'committed',
+      code: null,
+      transaction: { history: { depthDelta: 1 } },
+      history: { undoDepth: 1 },
+    });
+    expect(engine.author({
+      type: 'align-targets',
+      targets: ['item-a', 'rect-b', 'text-c'],
+      axis: 'left',
+      actionId: 'align-1',
+    })).toMatchObject({
+      status: 'committed',
+      transaction: { history: { depthDelta: 1 } },
+      history: { undoDepth: 2 },
+    });
+    const firstDistribution = engine.author({
+      type: 'distribute-targets',
+      targets: ['item-a', 'rect-b', 'text-c'],
+      axis: 'horizontal',
+      basis: 'bounds',
+      actionId: 'distribute-1',
+    });
+    const secondDistribution = engine.author({
+      type: 'distribute-targets',
+      targets: ['item-a', 'rect-b', 'text-c'],
+      axis: 'horizontal',
+      basis: 'bounds',
+      actionId: 'distribute-2',
+    });
+    expect(firstDistribution).toMatchObject({
+      status: 'committed',
+      history: { undoDepth: 3 },
+    });
+    expect(firstDistribution.facts.distributionDigest).toMatch(/^fnv1a32:/);
+    expect(secondDistribution).toMatchObject({
+      status: 'unchanged',
+      transaction: null,
+      facts: { distributionDigest: firstDistribution.facts.distributionDigest },
+      history: { undoDepth: 3 },
+    });
+
+    const beforeInvalidDistribution = engine.snapshot();
+    expect(engine.author({
+      type: 'distribute-targets',
+      targets: ['item-a', 'rect-b'],
+      axis: 'horizontal',
+      basis: 'bounds',
+      actionId: 'invalid-distribution',
+    })).toMatchObject({
+      status: 'rejected',
+      changed: false,
+      code: 'INVALID_VALUE',
+      plan: { diagnostic: { path: ['targets'] } },
+      transaction: null,
+      history: { undoDepth: 3 },
+    });
+    expect(engine.snapshot()).toEqual(beforeInvalidDistribution);
+
+    expect(engine.author({
+      type: 'apply-style',
+      target: 'text-c',
+      changes: {
+        alpha: 0.8,
+        fill: '#112233',
+        stroke: '#445566',
+        strokeWidth: 2,
+        cornerRadius: 4,
+        fontSize: 18,
+        letterSpacing: 1,
+        lineHeight: 22,
+      },
+      strict: true,
+      actionId: 'style-1',
+    })).toMatchObject({
+      status: 'committed',
+      history: { undoDepth: 4 },
+    });
+    const beforeInvalidStyle = engine.snapshot();
+    expect(engine.author({
+      type: 'apply-style',
+      target: 'text-c',
+      changes: { alpha: 2 },
+      strict: true,
+      actionId: 'style-invalid',
+    })).toMatchObject({
+      status: 'rejected',
+      code: 'INVALID_VALUE',
+      plan: { diagnostic: { path: ['alpha'] } },
+      history: { undoDepth: 4 },
+    });
+    expect(engine.snapshot()).toEqual(beforeInvalidStyle);
+    expect(surface.reconcileCalls).toHaveLength(4);
+    expect(engine.snapshot()).toMatchObject({
+      selectionIds: ['text-c'],
+      historyDepth: 4,
+    });
+  });
+
   it('restores a grouped structural command with one boundary-scoped order permission', async () => {
     const { engine, surface } = await createEngine(engines, 'grouped-structural-history');
     engine.loadDataset([

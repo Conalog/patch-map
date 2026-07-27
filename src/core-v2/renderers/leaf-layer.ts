@@ -690,7 +690,7 @@ export class AggregateLeafLayer {
       bitmapCapability: capability,
     });
     const route = routeDecision.route;
-    const style = textStyle(store, slot, routeStyle);
+    const style = textStyle(store, slot, routeStyle, projection?.authoredStyle);
     const objectStyleSignature = stableSerialize({
       style,
       atlasId: routeDecision.atlas.atlasId,
@@ -1267,7 +1267,9 @@ function textStyle(
   store: RenderStoreView,
   slot: number,
   routeStyle: CoreV2TextRenderStyle,
+  authoredStyle: CoreV2TextProjection['authoredStyle'] | undefined,
 ): TextStyleOptions {
+  const stroke = pixiTextStroke(authoredStyle);
   return {
     fontFamily: routeStyle.fontFamily,
     fontSize: routeStyle.fontSize,
@@ -1279,8 +1281,25 @@ function textStyle(
     wordWrap: false,
     // Keep the raster white and apply exact packed paint through leaf tint.
     fill: 0xffffff,
+    ...(stroke === undefined ? {} : { stroke }),
     align: alignName(store.align[slot] ?? RenderAlign.Left),
   };
+}
+
+function pixiTextStroke(
+  authoredStyle: CoreV2TextProjection['authoredStyle'] | undefined,
+): TextStyleOptions['stroke'] | undefined {
+  const stroke = authoredStyle?.stroke;
+  if (stroke === undefined) return undefined;
+  const width = authoredStyle?.strokeWidth;
+  if (
+    (typeof stroke === 'string' || typeof stroke === 'number') &&
+    typeof width === 'number' &&
+    Number.isFinite(width)
+  ) {
+    return { color: stroke, width };
+  }
+  return stroke as TextStyleOptions['stroke'];
 }
 
 function textRenderStyle(

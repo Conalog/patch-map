@@ -213,6 +213,14 @@ import {
   type CoreV2TransformerEditPlan,
   type CoreV2TransformerEditRequest,
 } from './transformer-edit';
+import {
+  CORE_V2_AUTHORING_REVISION,
+  planCoreV2AuthoringAction,
+  type CoreV2AuthoringActionType,
+  type CoreV2AuthoringDiagnostic,
+  type CoreV2AuthoringFacts,
+  type CoreV2AuthoringPlan,
+} from './authoring';
 
 export type CoreV2Lifecycle =
   | 'new'
@@ -1028,6 +1036,19 @@ export type CoreV2EngineTransactionResult =
       readonly diagnostic: CoreV2EngineDiagnostic;
       readonly reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[];
     }>;
+
+export interface CoreV2EngineAuthoringResult {
+  readonly schemaRevision: typeof CORE_V2_AUTHORING_REVISION;
+  readonly actionType: CoreV2AuthoringActionType | null;
+  readonly status: 'committed' | 'unchanged' | 'rejected' | 'refused';
+  readonly changed: boolean;
+  readonly code: string | null;
+  readonly plan: CoreV2AuthoringPlan;
+  readonly facts: CoreV2AuthoringFacts;
+  readonly transaction: CoreV2EngineTransactionResult | null;
+  readonly diagnostic: CoreV2AuthoringDiagnostic | CoreV2EngineDiagnostic | null;
+  readonly history: CoreV2HistoryState;
+}
 
 interface CoreV2EnginePatchResultBase {
   readonly changed: boolean;
@@ -2006,6 +2027,66 @@ export class CoreV2Engine {
       previousRevisions,
       previousHistory,
     );
+  }
+
+  /**
+   * Plan and commit one pinned editor action through the same immutable
+   * transaction, aggregate reconcile, selection, and history authority as
+   * lower-level semantic updates.
+   */
+  public author(action: unknown): CoreV2EngineAuthoringResult {
+    this.requireSurface('author');
+    const plan = planCoreV2AuthoringAction(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      action,
+      { selectionIds: this.logicalSelectionIds },
+    );
+    if (plan.status === 'rejected') {
+      return Object.freeze({
+        schemaRevision: CORE_V2_AUTHORING_REVISION,
+        actionType: plan.actionType,
+        status: 'rejected',
+        changed: false,
+        code: plan.diagnostic.code,
+        plan,
+        facts: plan.facts,
+        transaction: null,
+        diagnostic: plan.diagnostic,
+        history: this.history.state(),
+      });
+    }
+    if (plan.status === 'unchanged') {
+      return Object.freeze({
+        schemaRevision: CORE_V2_AUTHORING_REVISION,
+        actionType: plan.actionType,
+        status: 'unchanged',
+        changed: false,
+        code: null,
+        plan,
+        facts: plan.facts,
+        transaction: null,
+        diagnostic: null,
+        history: this.history.state(),
+      });
+    }
+
+    const transaction = this.transact(plan.transaction);
+    const diagnostic =
+      transaction.status === 'rejected' || transaction.status === 'refused'
+        ? transaction.diagnostic
+        : null;
+    return Object.freeze({
+      schemaRevision: CORE_V2_AUTHORING_REVISION,
+      actionType: plan.actionType,
+      status: transaction.status,
+      changed: transaction.changed,
+      code: diagnostic?.code ?? null,
+      plan,
+      facts: plan.facts,
+      transaction,
+      diagnostic,
+      history: transaction.history.state,
+    });
   }
 
   private planMutationRequest(

@@ -167,7 +167,14 @@ describe('Core v2 PATCH MAP v0.10 parser', () => {
             type: 'text',
             id: 'text-a',
             text: '온도 42',
-            style: { fill: '#0f08', fontSize: 16 },
+            style: {
+              fill: '#0f08',
+              stroke: '#123456',
+              strokeWidth: 2,
+              alpha: 0.8,
+              cornerRadius: 4,
+              fontSize: 16,
+            },
           },
         ],
       },
@@ -192,6 +199,7 @@ describe('Core v2 PATCH MAP v0.10 parser', () => {
       id: 'text-a',
       text: '온도 42',
       color: 0x00ff0088,
+      opacity: 0.8,
     });
     expect(result.identity.entityIdsBySourceId['group-a']).toEqual([
       'rect-a',

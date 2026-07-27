@@ -1538,6 +1538,9 @@ function textEntity(
     text: layout.visibleText,
     color,
     fontSize: layout.fontSizePx,
+    ...(finiteNumber(style.alpha) === undefined
+      ? {}
+      : { opacity: clamp01(finiteNumber(style.alpha) as number) }),
     ...(typeof style.fontFamily === 'string' ? { fontFamily: style.fontFamily } : {}),
     ...(fontWeight(style.fontWeight) !== undefined ? { fontWeight: fontWeight(style.fontWeight) as number } : {}),
     align,
