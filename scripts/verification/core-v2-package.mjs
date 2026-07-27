@@ -48,7 +48,9 @@ try {
   await writeFile(path.join(consumer, 'main.js'), `
 import {
   CORE_V2_COMMAND_TARGET_REVISION,
+  CORE_V2_EDITOR_MOUNT_REVISION,
   CORE_V2_HOST_INTERACTION_REVISION,
+  CORE_V2_HOST_TOOLTIP_REVISION,
   CORE_V2_MUTATION_TRANSACTION_REVISION,
   CORE_V2_POINTER_GESTURE_REVISION,
   CORE_V2_PRESENTATION_POLICY_REVISION,
@@ -64,6 +66,7 @@ import {
   hitCoreV2PaintRegion,
   parsePatchMapV010,
   planCoreV2TransformerEdit,
+  resolveCoreV2EditorMount,
   resolveCoreV2RotationSnap,
   validateCoreV2DatasetReferences,
 } from '@conalog/patch-map/core-v2';
@@ -141,6 +144,17 @@ await engine.initialize({
   preference: 'webgl',
 });
 engine.loadDataset(input);
+const mountAllowed = resolveCoreV2EditorMount(false);
+const mountBlocked = resolveCoreV2EditorMount(true);
+const tooltipPublications = [];
+const tooltipSubscription = engine.bindTooltipHost(
+  ({ reason, state }) => tooltipPublications.push({
+    reason,
+    targetId: state.targetId,
+  }),
+);
+const tooltipHover = engine.hoverTooltipAtScreen({ x: 20, y: 30 }, [160, 80]);
+const tooltipPin = engine.toggleTooltipPinAtScreen({ x: 20, y: 30 }, [160, 80]);
 validateCoreV2DatasetReferences(engine.exportDataset());
 const strictReferenceBefore = engine.snapshot();
 let strictReferenceDiagnostic = null;
@@ -458,6 +472,7 @@ const engineExtraction = await (async () => {
 })();
 const interactionOwnership = engine.interactionOwnershipProbe();
 const engineDestroyResult = await engine.destroy();
+const tooltipSubscriptionDisposeAfterDestroy = tooltipSubscription.dispose();
 const hostInteractionAfterDestroy = engine.hostInteractionProbe();
 const transformerAfterDestroy = engine.transformerGestureProbe();
 const engineAfterDestroy = engine.snapshot();
@@ -475,7 +490,9 @@ window.__PACKAGE_RESULT__ = {
   destroyed: core.debugSnapshot().destroyed,
   transactionRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
   commandTargetRevision: CORE_V2_COMMAND_TARGET_REVISION,
+  editorMountRevision: CORE_V2_EDITOR_MOUNT_REVISION,
   hostInteractionRevision: CORE_V2_HOST_INTERACTION_REVISION,
+  hostTooltipRevision: CORE_V2_HOST_TOOLTIP_REVISION,
   pointerRevision: CORE_V2_POINTER_GESTURE_REVISION,
   presentationRevision: CORE_V2_PRESENTATION_POLICY_REVISION,
   selectionTransformerRevision: CORE_V2_SELECTION_TRANSFORMER_REVISION,
@@ -511,9 +528,25 @@ window.__PACKAGE_RESULT__ = {
       bindings: hostInteractionBeforeDestroy.bindings,
       subscriptions: hostInteractionBeforeDestroy.eventSubscriptions,
       selectionHosts: hostInteractionBeforeDestroy.selectionHostListeners,
+      tooltipHosts: hostInteractionBeforeDestroy.tooltipHostListeners,
     },
     destroyed: hostInteractionAfterDestroy.destroyed,
     destroyedOwnerCount: hostInteractionAfterDestroy.mode.activeOwnerCount,
+    destroyedTooltipHosts: hostInteractionAfterDestroy.tooltipHostListeners,
+  },
+  editorMountPackage: {
+    resolverType: typeof resolveCoreV2EditorMount,
+    allowed: mountAllowed,
+    blocked: mountBlocked,
+  },
+  hostTooltipPackage: {
+    hoverTarget: tooltipHover.targetId,
+    hoverAnchor: tooltipHover.anchorCss,
+    pinned: tooltipPin.pinned,
+    publicationReasons: tooltipPublications.map(({ reason }) => reason),
+    finalTarget: hostInteractionAfterDestroy.tooltip.targetId,
+    clearTrace: hostInteractionAfterDestroy.tooltip.clearTrace,
+    disposeAfterDestroy: tooltipSubscriptionDisposeAfterDestroy,
   },
   commandTargetPackage: {
     factoryType: typeof createCoreV2CommandTargetState,
@@ -654,7 +687,9 @@ function findHierarchyRecord(values, id, parentId = null) {
   await writeFile(path.join(consumer, 'consumer.cjs'), `
 const {
   CORE_V2_COMMAND_TARGET_REVISION,
+  CORE_V2_EDITOR_MOUNT_REVISION,
   CORE_V2_HOST_INTERACTION_REVISION,
+  CORE_V2_HOST_TOOLTIP_REVISION,
   CORE_V2_MUTATION_TRANSACTION_REVISION,
   CORE_V2_POINTER_GESTURE_REVISION,
   CORE_V2_PRESENTATION_POLICY_REVISION,
@@ -668,6 +703,7 @@ const {
   parsePatchMapV010,
   planCoreV2TransformerEdit,
   planCoreV2MutationTransaction,
+  resolveCoreV2EditorMount,
   resolveCoreV2RotationSnap,
   validateCoreV2DatasetReferences,
 } = require('@conalog/patch-map/core-v2');
@@ -680,6 +716,13 @@ process.stdout.write(JSON.stringify({
   commandTargetFactoryType: typeof createCoreV2CommandTargetState,
   commandTargetSnapshotType: typeof CoreV2Engine.prototype.snapshotCommandTargets,
   commandTargetStatusType: typeof CoreV2Engine.prototype.applyCommandTargetStatus,
+  editorMountRevision: CORE_V2_EDITOR_MOUNT_REVISION,
+  editorMountResolverType: typeof resolveCoreV2EditorMount,
+  tooltipRevision: CORE_V2_HOST_TOOLTIP_REVISION,
+  tooltipBindingType: typeof CoreV2Engine.prototype.bindTooltipHost,
+  tooltipHoverType: typeof CoreV2Engine.prototype.hoverTooltipAtScreen,
+  tooltipPinType: typeof CoreV2Engine.prototype.toggleTooltipPinAtScreen,
+  tooltipClearType: typeof CoreV2Engine.prototype.clearHostTooltip,
   pointerRevision: CORE_V2_POINTER_GESTURE_REVISION,
   pointerAuthorityType: typeof CoreV2PointerGestureAuthority,
   hostInteractionRevision: CORE_V2_HOST_INTERACTION_REVISION,
@@ -755,8 +798,10 @@ process.stdout.write(JSON.stringify({
   if (esm.canvasCountAfterDestroy !== 0 || !esm.destroyed) failures.push('packed ESM lifecycle leaked a canvas or live runtime');
   if (esm.transactionRevision !== 'core-v2-mutation-transaction/1') failures.push('packed ESM transaction revision export failed');
   if (esm.commandTargetRevision !== 'core-v2-command-target/1') failures.push('packed ESM command target revision export failed');
+  if (esm.editorMountRevision !== 'core-v2-editor-mount/1') failures.push('packed ESM editor mount revision export failed');
   if (esm.pointerRevision !== 'core-v2-pointer-gesture/1') failures.push('packed ESM pointer revision export failed');
   if (esm.hostInteractionRevision !== 'core-v2-host-interaction/1') failures.push('packed ESM host interaction revision export failed');
+  if (esm.hostTooltipRevision !== 'core-v2-host-tooltip/1') failures.push('packed ESM host tooltip revision export failed');
   if (esm.selectionTransformerRevision !== 'core-v2-selection-transformer/1') failures.push('packed ESM selection transformer revision export failed');
   if (
     esm.strictReferenceValidation?.validatorType !== 'function' ||
@@ -797,9 +842,33 @@ process.stdout.write(JSON.stringify({
     esm.hostInteractionPackage?.liveResources?.bindings !== 0 ||
     esm.hostInteractionPackage?.liveResources?.subscriptions !== 0 ||
     esm.hostInteractionPackage?.liveResources?.selectionHosts !== 0 ||
+    esm.hostInteractionPackage?.liveResources?.tooltipHosts !== 1 ||
     esm.hostInteractionPackage?.destroyed !== true ||
-    esm.hostInteractionPackage?.destroyedOwnerCount !== 0
+    esm.hostInteractionPackage?.destroyedOwnerCount !== 0 ||
+    esm.hostInteractionPackage?.destroyedTooltipHosts !== 0
   ) failures.push('packed ESM host interaction exports failed');
+  if (
+    esm.editorMountPackage?.resolverType !== 'function' ||
+    esm.editorMountPackage?.allowed?.status !== 'allowed' ||
+    esm.editorMountPackage?.allowed?.createsEngine !== true ||
+    esm.editorMountPackage?.allowed?.canvasBudget !== 1 ||
+    esm.editorMountPackage?.blocked?.status !== 'blocked' ||
+    esm.editorMountPackage?.blocked?.createsEngine !== false ||
+    esm.editorMountPackage?.blocked?.canvasBudget !== 0
+  ) failures.push('packed ESM editor mount preflight export failed');
+  if (
+    esm.hostTooltipPackage?.hoverTarget !== 'consumer-item' ||
+    JSON.stringify(esm.hostTooltipPackage?.hoverAnchor) !== JSON.stringify([20, 30]) ||
+    esm.hostTooltipPackage?.pinned !== true ||
+    JSON.stringify(esm.hostTooltipPackage?.publicationReasons) !==
+      JSON.stringify(['hover', 'pin', 'redraw', 'drag', 'drag', 'destroy']) ||
+    esm.hostTooltipPackage?.finalTarget !== null ||
+    JSON.stringify(esm.hostTooltipPackage?.clearTrace) !==
+      JSON.stringify(['redraw', 'drag', 'drag', 'destroy']) ||
+    esm.hostTooltipPackage?.disposeAfterDestroy !== 'disposed'
+  ) failures.push(
+    `packed ESM host tooltip lifecycle failed: ${JSON.stringify(esm.hostTooltipPackage)}`,
+  );
   if (
     esm.commandTargetPackage?.factoryType !== 'function' ||
     JSON.stringify(esm.commandTargetPackage?.componentAliasSelection) !==
@@ -951,6 +1020,13 @@ process.stdout.write(JSON.stringify({
     cjs.commandTargetFactoryType !== 'function' ||
     cjs.commandTargetSnapshotType !== 'function' ||
     cjs.commandTargetStatusType !== 'function' ||
+    cjs.editorMountRevision !== 'core-v2-editor-mount/1' ||
+    cjs.editorMountResolverType !== 'function' ||
+    cjs.tooltipRevision !== 'core-v2-host-tooltip/1' ||
+    cjs.tooltipBindingType !== 'function' ||
+    cjs.tooltipHoverType !== 'function' ||
+    cjs.tooltipPinType !== 'function' ||
+    cjs.tooltipClearType !== 'function' ||
     cjs.pointerRevision !== 'core-v2-pointer-gesture/1' ||
     cjs.pointerAuthorityType !== 'function' ||
     cjs.hostInteractionRevision !== 'core-v2-host-interaction/1' ||

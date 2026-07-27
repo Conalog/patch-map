@@ -72,6 +72,9 @@ try {
       let snapshot = null;
       let observedEventCount = 0;
       let hostPublicationCount = 0;
+      const tooltipPublicationReasons = [];
+      let tooltipSubscription = null;
+      let tooltipSubscriptionDisposeAfterDestroy = null;
       try {
         await engine.initialize({
           instanceId: `memory-host-interaction-${index}`,
@@ -111,6 +114,11 @@ try {
         engine.bindSelectionHost(() => {
           hostPublicationCount += 1;
         });
+        tooltipSubscription = engine.bindTooltipHost(({ reason }) => {
+          tooltipPublicationReasons.push(reason);
+        });
+        engine.hoverTooltipAtScreen({ x: 20, y: 30 }, [120, 60]);
+        engine.toggleTooltipPinAtScreen({ x: 20, y: 30 }, [120, 60]);
         engine.setHistoryCompanion({
           selectedIds: ['item-a'],
           mode: 'select',
@@ -218,6 +226,7 @@ try {
         })();
         beforeDestroy = engine.hostInteractionProbe();
         await engine.destroy();
+        tooltipSubscriptionDisposeAfterDestroy = tooltipSubscription.dispose();
         afterDestroy = engine.hostInteractionProbe();
         transformerAfterDestroy = engine.transformerGestureProbe();
         transformerEditAfterDestroy = engine.transformerEditProbe();
@@ -234,6 +243,8 @@ try {
         error,
         observedEventCount,
         hostPublicationCount,
+        tooltipPublicationReasons,
+        tooltipSubscriptionDisposeAfterDestroy,
         beforeDestroy,
         afterDestroy,
         transformerBeforeDestroy,
@@ -281,10 +292,21 @@ try {
       trial.beforeDestroy?.bindingListeners !== 1 ||
       trial.beforeDestroy?.eventSubscriptions !== 1 ||
       trial.beforeDestroy?.selectionHostListeners !== 1 ||
+      trial.beforeDestroy?.tooltipHostListeners !== 1 ||
+      JSON.stringify(trial.beforeDestroy?.tooltip?.clearTrace) !==
+        JSON.stringify(['drag']) ||
       trial.afterDestroy?.bindings !== 0 ||
       trial.afterDestroy?.bindingListeners !== 0 ||
       trial.afterDestroy?.eventSubscriptions !== 0 ||
       trial.afterDestroy?.selectionHostListeners !== 0 ||
+      trial.afterDestroy?.tooltipHostListeners !== 0 ||
+      JSON.stringify(trial.afterDestroy?.tooltip?.clearTrace) !==
+        JSON.stringify(['drag', 'destroy']) ||
+      trial.afterDestroy?.tooltip?.targetId !== null ||
+      trial.afterDestroy?.tooltip?.destroyed !== true ||
+      JSON.stringify(trial.tooltipPublicationReasons) !==
+        JSON.stringify(['hover', 'pin', 'drag', 'destroy']) ||
+      trial.tooltipSubscriptionDisposeAfterDestroy !== 'disposed' ||
       trial.afterDestroy?.mode?.activeOwnerCount !== 0 ||
       trial.afterDestroy?.destroyed !== true ||
       trial.transformerBeforeDestroy?.activeGestureCount !== 1 ||

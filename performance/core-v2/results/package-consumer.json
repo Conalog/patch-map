@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-24T06:30:01.405Z",
+  "generatedAt": "2026-07-27T02:27:34.510Z",
   "package": "@conalog/patch-map/core-v2",
   "pixi": "8.19.0",
   "esm": {
@@ -16,11 +16,25 @@
     "canvasCountAfterDestroy": 0,
     "destroyed": true,
     "transactionRevision": "core-v2-mutation-transaction/1",
+    "commandTargetRevision": "core-v2-command-target/1",
+    "editorMountRevision": "core-v2-editor-mount/1",
     "hostInteractionRevision": "core-v2-host-interaction/1",
+    "hostTooltipRevision": "core-v2-host-tooltip/1",
     "pointerRevision": "core-v2-pointer-gesture/1",
     "presentationRevision": "core-v2-presentation-policy/1",
     "selectionTransformerRevision": "core-v2-selection-transformer/1",
     "transformerEditRevision": "core-v2-transformer-edit/1",
+    "strictReferenceValidation": {
+      "validatorType": "function",
+      "diagnostic": {
+        "code": "MISSING_TARGET",
+        "category": "MISSING_TARGET",
+        "datasetPath": "$[1].links[0].target"
+      },
+      "sceneRevisionUnchanged": true,
+      "semanticHashUnchanged": true,
+      "datasetRefUnchanged": true
+    },
     "pointerPackage": {
       "eventTypes": [
         "up",
@@ -57,10 +71,68 @@
       "liveResources": {
         "bindings": 0,
         "subscriptions": 0,
-        "selectionHosts": 0
+        "selectionHosts": 0,
+        "tooltipHosts": 1
       },
       "destroyed": true,
-      "destroyedOwnerCount": 0
+      "destroyedOwnerCount": 0,
+      "destroyedTooltipHosts": 0
+    },
+    "editorMountPackage": {
+      "resolverType": "function",
+      "allowed": {
+        "schemaRevision": "core-v2-editor-mount/1",
+        "status": "allowed",
+        "blockedPlant": false,
+        "createsEngine": true,
+        "canvasBudget": 1
+      },
+      "blocked": {
+        "schemaRevision": "core-v2-editor-mount/1",
+        "status": "blocked",
+        "blockedPlant": true,
+        "createsEngine": false,
+        "canvasBudget": 0
+      }
+    },
+    "hostTooltipPackage": {
+      "hoverTarget": "consumer-item",
+      "hoverAnchor": [
+        20,
+        30
+      ],
+      "pinned": true,
+      "publicationReasons": [
+        "hover",
+        "pin",
+        "redraw",
+        "drag",
+        "drag",
+        "destroy"
+      ],
+      "finalTarget": null,
+      "clearTrace": [
+        "redraw",
+        "drag",
+        "drag",
+        "destroy"
+      ],
+      "disposeAfterDestroy": "disposed"
+    },
+    "commandTargetPackage": {
+      "factoryType": "function",
+      "componentAliasSelection": [
+        "consumer-item/bar"
+      ],
+      "openedTargets": [
+        "consumer-item/bar"
+      ],
+      "releasedStatus": "released",
+      "statusTrace": [
+        "pending",
+        "active",
+        "released"
+      ]
     },
     "selectionTransformerPackage": {
       "authorityType": "function",
@@ -219,6 +291,35 @@
       "clearReason": "host",
       "clearedDepth": 0
     },
+    "engineExtraction": {
+      "requestedTuple": {
+        "scene": 12,
+        "view": 0,
+        "interaction": 21
+      },
+      "capturedTuple": {
+        "scene": 12,
+        "view": 0,
+        "interaction": 21
+      },
+      "cssSize": [
+        640,
+        360
+      ],
+      "backingSize": [
+        640,
+        360
+      ],
+      "mime": "image/png",
+      "dataUrlPrefix": "data:image/png;base64,",
+      "dataUrlLength": 1054,
+      "canvasIdentity": "initial-canvas",
+      "sameCanvasObject": true,
+      "authoritativeCanvasRetained": true,
+      "temporaryImageCount": 0,
+      "renderTextureCount": 0,
+      "pendingWorkAfter": 0
+    },
     "interactionOwnership": {
       "rootBindingCount": 6,
       "rootListenerCount": 8,
@@ -245,6 +346,17 @@
     "entities": 1,
     "id": "cjs-rect",
     "transactionRevision": "core-v2-mutation-transaction/1",
+    "commandTargetRevision": "core-v2-command-target/1",
+    "commandTargetFactoryType": "function",
+    "commandTargetSnapshotType": "function",
+    "commandTargetStatusType": "function",
+    "editorMountRevision": "core-v2-editor-mount/1",
+    "editorMountResolverType": "function",
+    "tooltipRevision": "core-v2-host-tooltip/1",
+    "tooltipBindingType": "function",
+    "tooltipHoverType": "function",
+    "tooltipPinType": "function",
+    "tooltipClearType": "function",
     "pointerRevision": "core-v2-pointer-gesture/1",
     "pointerAuthorityType": "function",
     "hostInteractionRevision": "core-v2-host-interaction/1",
@@ -262,7 +374,9 @@
     "historyCompanionType": "function",
     "historyCapacityType": "function",
     "historyShortcutType": "function",
-    "historyClearType": "function"
+    "historyClearType": "function",
+    "extractionType": "function",
+    "strictReferenceValidatorType": "function"
   },
   "errors": {
     "console": [],
