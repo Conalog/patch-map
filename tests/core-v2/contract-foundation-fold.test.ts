@@ -319,6 +319,20 @@ describe('Core v2 actual-only foundation observation fold', () => {
     expect(result.actual).not.toHaveProperty('extensions');
   });
 
+  it('merges independently observed browser interaction and history quality facts', () => {
+    const result = fold('CSM-001', {
+      browserProbe: {
+        $schema: 'core-v2-browser-probe/1',
+        caseId: 'CSM-001',
+        history: { corruptEntryCount: 0 },
+        interaction: { staleGestureCount: 0 },
+      },
+    });
+
+    expect(valueAt(result.actual, 'history.corruptEntryCount')).toBe(0);
+    expect(valueAt(result.actual, 'interaction.staleGestureCount')).toBe(0);
+  });
+
   it('rejects wrong order/status, malformed probes, and source collisions', () => {
     const wrongOrder = makePlan('LIF-001');
     wrongOrder.actionTrace[0]!.type = 'snapshot';

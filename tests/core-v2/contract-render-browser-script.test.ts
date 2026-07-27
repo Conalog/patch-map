@@ -4,6 +4,19 @@ import { fileURLToPath } from 'node:url';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
+// @ts-expect-error -- the committed verifier ledger is authored as an ESM JavaScript module.
+import { CORE_V2_CSM_DECLARED_IMMUTABLE_CONFLICTS } from '../../scripts/verification/core-v2-contract/immutable-conflicts.mjs';
+
+interface ImmutableConflict {
+  readonly path: string;
+  readonly code: string;
+  readonly failurePath: string;
+}
+
+const declaredCsmConflicts = CORE_V2_CSM_DECLARED_IMMUTABLE_CONFLICTS as unknown as Readonly<
+  Record<string, readonly ImmutableConflict[]>
+>;
+
 const scriptUrl = new URL(
   '../../scripts/verification/core-v2-contract-render-browser.mjs',
   import.meta.url,
@@ -305,17 +318,7 @@ describe('Core v2 render browser checkpoint script', () => {
       code: 'VALUE_MISMATCH',
       failurePath: '/outcome/queries/ambiguous-component/code',
     }]);
-    const moveConflictBlock = source.match(
-      /const CSM_022_IMMUTABLE_FAILURES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
-    )?.groups?.body ?? '';
-    const moveFailures = [...moveConflictBlock.matchAll(
-      /path: '(?<path>\/[^']+)',\s*code: '(?<code>[^']+)',\s*failurePath: '(?<failurePath>\/[^']+)'/gu,
-    )].map((match) => ({
-      path: match.groups?.path,
-      code: match.groups?.code,
-      failurePath: match.groups?.failurePath,
-    }));
-    expect(moveFailures).toEqual([
+    expect(declaredCsmConflicts['CSM-022']).toEqual([
       {
         path: '/geometry/targets/item-a/worldBounds/x',
         code: 'VALUE_MISMATCH',
@@ -332,17 +335,7 @@ describe('Core v2 render browser checkpoint script', () => {
         failurePath: '/outcome/hostEngineSeam/failureRollback/conflictCode',
       },
     ]);
-    const navigationConflictBlock = source.match(
-      /const CSM_024_IMMUTABLE_FAILURES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
-    )?.groups?.body ?? '';
-    const navigationFailures = [...navigationConflictBlock.matchAll(
-      /path: '(?<path>\/[^']+)',\s*code: '(?<code>[^']+)',\s*failurePath: '(?<failurePath>\/[^']+)'/gu,
-    )].map((match) => ({
-      path: match.groups?.path,
-      code: match.groups?.code,
-      failurePath: match.groups?.failurePath,
-    }));
-    expect(navigationFailures).toEqual([
+    expect(declaredCsmConflicts['CSM-024']).toEqual([
       {
         path: '/interaction/hitTarget',
         code: 'VALUE_MISMATCH',

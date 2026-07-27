@@ -106,7 +106,7 @@ export function foldFoundationExecution(options) {
     paint: projectPaint(semantic, browserProbe),
     interaction: projectInteraction(execution, semantic, browserProbe),
     events: projectEvents(execution, browserProbe),
-    history: projectHistory(execution, semantic),
+    history: projectHistory(execution, semantic, browserProbe),
     accessibility: {
       _availability: {
         status: 'not-exercised',
@@ -378,13 +378,41 @@ function validateBrowserProbe(probe, caseId) {
   validateJsonValue(probe, 'browserProbe', new WeakSet());
   assertExactKeys(
     probe,
-    ['$schema', 'caseId', 'events', 'geometry', 'interaction', 'paint', 'resources', 'text'],
+    [
+      '$schema',
+      'caseId',
+      'events',
+      'geometry',
+      'history',
+      'interaction',
+      'paint',
+      'resources',
+      'text',
+    ],
     'browserProbe',
-    { optional: ['events', 'geometry', 'interaction', 'paint', 'resources', 'text'] },
+    {
+      optional: [
+        'events',
+        'geometry',
+        'history',
+        'interaction',
+        'paint',
+        'resources',
+        'text',
+      ],
+    },
   );
   assert(probe.$schema === BROWSER_PROBE_REVISION, 'browserProbe schema');
   assert(probe.caseId === caseId, 'browserProbe caseId');
-  for (const domain of ['events', 'geometry', 'interaction', 'paint', 'resources', 'text']) {
+  for (const domain of [
+    'events',
+    'geometry',
+    'history',
+    'interaction',
+    'paint',
+    'resources',
+    'text',
+  ]) {
     if (probe[domain] !== undefined) assert(isPlainObject(probe[domain]), `browserProbe ${domain}`);
   }
   return probe;
@@ -687,7 +715,7 @@ function projectEvents(execution, browserProbe) {
   return domain;
 }
 
-function projectHistory(execution, semantic) {
+function projectHistory(execution, semantic, browserProbe) {
   const terminal = execution.terminalSnapshot;
   const domain = {
     _availability: sourceAvailability('semanticProbe', semantic.probe, semantic.source),
@@ -701,6 +729,7 @@ function projectHistory(execution, semantic) {
   if (semantic.probe && semantic.probe.history.corruptCount !== undefined) {
     domain.corruptEntryCount = semantic.probe.history.corruptCount;
   }
+  mergeBrowserDomain(domain, browserProbe, 'history');
   return domain;
 }
 

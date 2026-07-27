@@ -9,6 +9,7 @@ import { createServer } from 'vite';
 
 import { compareObservation } from './core-v2-contract/compare.mjs';
 import { maskVolatile } from './core-v2-contract/evidence.mjs';
+import { CORE_V2_CSM_DECLARED_IMMUTABLE_CONFLICTS } from './core-v2-contract/immutable-conflicts.mjs';
 import { inspectCoreV2UpdateConflictActuals } from './core-v2-contract/update-conflict-actuals.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
@@ -98,69 +99,14 @@ const EVT_008_IMMUTABLE_FAILURES = Object.freeze([
     failurePath: '/events/clickCounts',
   }),
 ]);
-const CSM_022_IMMUTABLE_FAILURES = Object.freeze([
-  Object.freeze({
-    path: '/geometry/targets/item-a/worldBounds/x',
-    code: 'VALUE_MISMATCH',
-    failurePath: '/geometry/targets/item-a/worldBounds/x',
-  }),
-  Object.freeze({
-    path: '/geometry/targets/rect-b/worldBounds/x',
-    code: 'VALUE_MISMATCH',
-    failurePath: '/geometry/targets/rect-b/worldBounds/x',
-  }),
-  Object.freeze({
-    path: '/outcome/hostEngineSeam/failureRollback/conflictCode',
-    code: 'VALUE_MISMATCH',
-    failurePath: '/outcome/hostEngineSeam/failureRollback/conflictCode',
-  }),
-]);
-const CSM_024_IMMUTABLE_FAILURES = Object.freeze([
-  Object.freeze({
-    path: '/interaction/hitTarget',
-    code: 'VALUE_MISMATCH',
-    failurePath: '/interaction/hitTarget',
-  }),
-  Object.freeze({
-    path: '/outcome/hostEngineSeam/engineReturns/transformedHitTarget',
-    code: 'VALUE_MISMATCH',
-    failurePath: '/outcome/hostEngineSeam/engineReturns/transformedHitTarget',
-  }),
-]);
-const CSM_028_IMMUTABLE_FAILURES = Object.freeze([
-  Object.freeze({
-    path: '/outcome/hostEngineSeam/engineReturns/firstDistributionHash',
-    code: 'VALUE_MISMATCH',
-    failurePath: '/outcome/hostEngineSeam/engineReturns/firstDistributionHash',
-  }),
-  Object.freeze({
-    path: '/outcome/hostEngineSeam/engineReturns/secondDistributionHash',
-    code: 'VALUE_MISMATCH',
-    failurePath: '/outcome/hostEngineSeam/engineReturns/secondDistributionHash',
-  }),
-]);
-const CSM_030_IMMUTABLE_FAILURES = Object.freeze([
-  Object.freeze({
-    path: '/outcome/hostEngineSeam/engineReturns/movedTarget',
-    code: 'VALUE_MISMATCH',
-    failurePath: '/outcome/hostEngineSeam/engineReturns/movedTarget',
-  }),
-  Object.freeze({
-    path: '/outcome/hostEngineSeam/engineReturns/parentId',
-    code: 'VALUE_MISMATCH',
-    failurePath: '/outcome/hostEngineSeam/engineReturns/parentId',
-  }),
-  Object.freeze({
-    path: '/outcome/hostEngineSeam/finalState/parentById/rect-b',
-    code: 'VALUE_MISMATCH',
-    failurePath: '/outcome/hostEngineSeam/finalState/parentById/rect-b',
-  }),
-  Object.freeze({
-    path: '/scene/targets/rect-b/parentId',
-    code: 'VALUE_MISMATCH',
-    failurePath: '/scene/targets/rect-b/parentId',
-  }),
-]);
+const CSM_022_IMMUTABLE_FAILURES =
+  CORE_V2_CSM_DECLARED_IMMUTABLE_CONFLICTS['CSM-022'];
+const CSM_024_IMMUTABLE_FAILURES =
+  CORE_V2_CSM_DECLARED_IMMUTABLE_CONFLICTS['CSM-024'];
+const CSM_028_IMMUTABLE_FAILURES =
+  CORE_V2_CSM_DECLARED_IMMUTABLE_CONFLICTS['CSM-028'];
+const CSM_030_IMMUTABLE_FAILURES =
+  CORE_V2_CSM_DECLARED_IMMUTABLE_CONFLICTS['CSM-030'];
 const AST_002_IMMUTABLE_FAILURES = Object.freeze([
   Object.freeze({
     path: '/outcome/validation/cyclic/code',

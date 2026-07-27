@@ -9,6 +9,18 @@ import { promisify } from 'node:util';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
+import {
+  analyzePackedArtifact,
+  auditPackedHostAdapter,
+  comparePackedJourneys,
+  createPackedProductAlias,
+  preparePackedConsumerMatrix,
+  readPackedBrowserResult,
+  runPackedJourneyMatrix,
+  verifyPackedConsumerTypes,
+  verifyPackedProductionBuild,
+} from './core-v2-package-matrix.mjs';
+
 const execute = promisify(execFile);
 const ROOT = process.cwd();
 const RESULTS = path.resolve(
@@ -28,9 +40,18 @@ try {
     maxBuffer: 10 * 1024 * 1024,
   });
   const packResult = JSON.parse(packed.stdout);
-  const filename = packResult[0]?.filename;
+  const packRecord = packResult[0];
+  const filename = packRecord?.filename;
   if (typeof filename !== 'string') throw new Error('npm pack did not return a tarball filename');
   const tarball = path.join(temporary, filename);
+  const packageArtifact = await analyzePackedArtifact({ packRecord, tarball });
+  const hostAdapterAudit = await auditPackedHostAdapter(ROOT);
+  const codeCommit = (
+    await execute('git', ['rev-parse', 'HEAD'], {
+      cwd: ROOT,
+      maxBuffer: 1024 * 1024,
+    })
+  ).stdout.trim();
   await writeFile(
     path.join(consumer, 'package.json'),
     `${JSON.stringify({
@@ -40,9 +61,16 @@ try {
       dependencies: {
         '@conalog/patch-map': `file:${tarball}`,
         'pixi.js': '8.19.0',
+        'typescript': '5.9.3',
       },
     }, null, 2)}\n`,
   );
+  await preparePackedConsumerMatrix({
+    root: ROOT,
+    consumer,
+    packageDigest: packageArtifact.sha256,
+    codeCommit,
+  });
   await writeFile(path.join(consumer, 'index.html'), `<!doctype html>
 <html><body><div id="host" style="width:640px;height:360px"></div><script type="module" src="/main.js"></script></body></html>\n`);
   await writeFile(path.join(consumer, 'main.js'), `
@@ -822,16 +850,32 @@ process.stdout.write(JSON.stringify({
 }));
 `);
 
-  await execute('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], {
+  await execute('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund'], {
     cwd: consumer,
     maxBuffer: 20 * 1024 * 1024,
   });
+  const types = await verifyPackedConsumerTypes(consumer);
+  const productionAlias = createPackedProductAlias({ root: ROOT, consumer });
+  const productionBuild = await verifyPackedProductionBuild({
+    consumer,
+    outputDirectory: path.join(consumer, '.package-build'),
+    aliasPlugin: productionAlias.plugin,
+  });
+  const productionAliasProbe = productionAlias.probe();
   const cjs = JSON.parse((await execute('node', ['consumer.cjs'], { cwd: consumer })).stdout);
+  const browserAlias = createPackedProductAlias({ root: ROOT, consumer });
   server = await createServer({
     root: consumer,
     configFile: false,
     logLevel: 'error',
-    server: { host: '127.0.0.1', port: 0 },
+    plugins: [browserAlias.plugin],
+    server: {
+      host: '127.0.0.1',
+      port: 0,
+      fs: {
+        allow: [ROOT, consumer],
+      },
+    },
   });
   await server.listen();
   const baseUrl = server.resolvedUrls?.local?.[0];
@@ -841,7 +885,9 @@ process.stdout.write(JSON.stringify({
   page.on('console', (message) => {
     if (message.type() === 'error') errors.console.push(message.text());
   });
-  page.on('pageerror', (error) => errors.page.push(error.stack ?? error.message));
+  page.on('pageerror', (error) => {
+    errors.page.push(error.stack || `${error.name}: ${error.message}`);
+  });
   page.on('requestfailed', (request) => errors.network.push(`${request.url()} ${request.failure()?.errorText ?? ''}`));
   page.on('response', (response) => {
     if (response.status() >= 400) errors.network.push(`${response.url()} HTTP ${response.status()}`);
@@ -863,6 +909,43 @@ process.stdout.write(JSON.stringify({
     );
   }
   const esm = await page.evaluate(() => window.__PACKAGE_RESULT__);
+  const examples = await readPackedBrowserResult(
+    page,
+    baseUrl,
+    'examples.html',
+    '__CORE_V2_PACKAGE_EXAMPLES__',
+    60_000,
+  );
+  const packageMatrix = await readPackedBrowserResult(
+    page,
+    baseUrl,
+    'matrix.html',
+    '__CORE_V2_PACKAGE_MATRIX__',
+    60_000,
+  );
+  let journeyBrowser;
+  try {
+    journeyBrowser = await runPackedJourneyMatrix(page, baseUrl);
+  } catch (error) {
+    const journeyState = await page.evaluate(() => ({
+      readyState: document.readyState,
+      bodyText: document.body.textContent?.slice(0, 500) ?? '',
+      runnerPublished:
+        window.__CORE_V2_PACKAGE_JOURNEY_RUNNER__ !== undefined,
+    }));
+    throw new Error(
+      `packed journey harness failed: ${
+        error instanceof Error ? error.message : String(error)
+      }; state=${JSON.stringify(journeyState)}; errors=${JSON.stringify(errors)}`,
+      { cause: error },
+    );
+  }
+  const journeyMatrix = await comparePackedJourneys({
+    root: ROOT,
+    browserResult: journeyBrowser,
+    packageDigest: packageArtifact.sha256,
+  });
+  const browserAliasProbe = browserAlias.probe();
   const failures = [];
   if (!esm.immutable) failures.push('packed ESM consumer mutated direct input');
   if (!esm.hierarchyImmutable) failures.push('packed ESM hierarchy transaction mutated direct input');
@@ -1160,13 +1243,106 @@ process.stdout.write(JSON.stringify({
     cjs.extractionType !== 'function' ||
     cjs.strictReferenceValidatorType !== 'function'
   ) failures.push('packed CJS transaction/presentation exports failed');
+  if (
+    packageArtifact.sourceMapCount !== 0 ||
+    packageArtifact.restrictedEvidenceCount !== 0
+  ) failures.push('packed artifact contains source maps or restricted evidence');
+  if (
+    packageArtifact.missingDocs.length !== 0 ||
+    packageArtifact.missingExamples.length !== 0
+  ) failures.push('packed artifact is missing public Core v2 docs or examples');
+  if (types.strict !== true || types.exitCode !== 0) {
+    failures.push('packed strict TypeScript consumer failed');
+  }
+  if (
+    productionBuild.productionBundler !== 'vite' ||
+    productionBuild.sourceMap !== false ||
+    productionAliasProbe.sourceImportResolutionCount === 0
+  ) failures.push('packed production host harness did not bind source product imports to the tarball');
+  if (
+    JSON.stringify(examples.compiledExamples) !==
+      JSON.stringify(['minimal', 'dashboard', 'editor', 'report']) ||
+    JSON.stringify(examples.executedExamples) !==
+      JSON.stringify(['minimal', 'dashboard', 'editor', 'report']) ||
+    examples.results?.some((result) => result.status !== 'pass') ||
+    examples.remainingCanvasCount !== 0
+  ) failures.push('packed public Core v2 examples failed compile/run cleanup');
+  if (
+    packageMatrix.failure !== null ||
+    packageMatrix.remainingCanvasCount !== 0
+  ) failures.push(`packed adapter/multi-instance matrix failed: ${JSON.stringify(packageMatrix.failure)}`);
+  if (
+    JSON.stringify(packageMatrix.hostAdapter?.reachedCapabilities) !==
+      JSON.stringify([
+        'load',
+        'lookup',
+        'bulk-update',
+        'selection',
+        'transform',
+        'history',
+        'dispose',
+        'snapshot',
+        'extract',
+        'destroy',
+      ]) ||
+    hostAdapterAudit.originalImportCount !== 0 ||
+    hostAdapterAudit.restrictedImportCount !== 0 ||
+    hostAdapterAudit.adapterReimplementedEngineBehaviorCount !== 0 ||
+    packageMatrix.hostAdapter?.invalidNodeCount !== 0 ||
+    packageMatrix.hostAdapter?.staleGestureCount !== 0 ||
+    packageMatrix.hostAdapter?.corruptEntryCount !== 0 ||
+    packageMatrix.hostAdapter?.leakDelta !== 0
+  ) failures.push('packed redesigned host adapter capability/audit proof failed');
+  if (
+    packageMatrix.multipleInstances?.B?.semanticHash !==
+      packageMatrix.multipleInstances?.baselineB?.sceneSemanticHash ||
+    packageMatrix.multipleInstances?.B?.callbackCountFromA !== 0 ||
+    packageMatrix.multipleInstances?.B?.assetLeaseCount !==
+      packageMatrix.multipleInstances?.baselineB?.assetLeaseCount ||
+    packageMatrix.multipleInstances?.B?.sharedLeaseCount !== 1 ||
+    packageMatrix.multipleInstances?.sharedLeaseCountAfterRecreate !== 2 ||
+    packageMatrix.multipleInstances?.hostSlots?.A?.canvasCount !== 1 ||
+    packageMatrix.multipleInstances?.hostSlots?.B?.canvasCount !== 1 ||
+    packageMatrix.multipleInstances?.unclassifiedErrorCount !== 0
+  ) failures.push('packed multiple-instance isolation or shared asset lease proof failed');
+  if (
+    journeyBrowser.remainingCanvasCount !== 0 ||
+    journeyMatrix.journeyCount !== 38 ||
+    journeyMatrix.passedJourneyCount !== 38 ||
+    journeyMatrix.failedJourneyCount !== 0 ||
+    journeyMatrix.packageDigestAcrossJourneys !== packageArtifact.sha256 ||
+    journeyMatrix.cleanupFailureCount !== 0
+  ) failures.push('packed 38-journey production host matrix failed');
   if (errors.console.length || errors.page.length || errors.network.length) failures.push('packed browser consumer emitted errors');
 
   const evidence = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: new Date().toISOString(),
     package: '@conalog/patch-map/core-v2',
     pixi: '8.19.0',
+    provenance: {
+      codeCommit,
+      packedPackageSha256: packageArtifact.sha256,
+      expectedEvidenceBound: true,
+    },
+    environment: {
+      browserVersion: browser.version(),
+      contractProfileBound: true,
+      strictTypeScript: true,
+      offlineInstall: true,
+      productionBundler: productionBuild.productionBundler,
+    },
+    artifact: packageArtifact,
+    types,
+    productionBuild,
+    packageBoundary: {
+      production: productionAliasProbe,
+      browser: browserAliasProbe,
+    },
+    hostAdapterAudit,
+    examples,
+    packageMatrix,
+    journeyMatrix,
     esm,
     cjs,
     errors,
@@ -1176,7 +1352,10 @@ process.stdout.write(JSON.stringify({
   await mkdir(RESULTS, { recursive: true });
   await writeFile(path.join(RESULTS, 'package-consumer.json'), `${JSON.stringify(evidence, null, 2)}\n`);
   if (failures.length) throw new Error(failures.join('; '));
-  process.stdout.write(`PASS: packed Core v2 ESM browser + CJS consumer, ${esm.loadedEntities} entities, ${esm.renderObjects} aggregate objects, lifecycle clean\n`);
+  process.stdout.write(
+    `PASS: packed Core v2 ESM/CJS/types + ${journeyMatrix.passedJourneyCount} journeys, `
+    + `${examples.executedExamples.length} examples, ${esm.renderObjects} aggregate objects, lifecycle clean\n`,
+  );
 } finally {
   await browser?.close();
   await server?.close();
