@@ -1,11 +1,11 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-27T17:01:29.834Z",
+  "generatedAt": "2026-07-27T17:35:54.515Z",
   "package": "@conalog/patch-map/core-v2",
   "pixi": "8.19.0",
   "provenance": {
-    "codeCommit": "a8122253b4cd4ef9f3ebda6c801f7d36a2782c79",
-    "packedPackageSha256": "4b58eeb21a06698a45ef368754c27dbb556125047f597cd020899b63111ca1fb",
+    "codeCommit": "cd32eca90e862e4794e50ff890ad5d5f6b1c36a3",
+    "packedPackageSha256": "cc691f4c855eed102d672c51e7284ed5bba0f1ebac1c9e8ae8794c33b1140eef",
     "expectedEvidenceBound": true
   },
   "environment": {
@@ -16,10 +16,10 @@
     "productionBundler": "vite"
   },
   "artifact": {
-    "sha256": "4b58eeb21a06698a45ef368754c27dbb556125047f597cd020899b63111ca1fb",
+    "sha256": "cc691f4c855eed102d672c51e7284ed5bba0f1ebac1c9e8ae8794c33b1140eef",
     "filename": "conalog-patch-map-0.10.0.tgz",
-    "size": 1059951,
-    "unpackedSize": 3657913,
+    "size": 1061321,
+    "unpackedSize": 3661385,
     "fileCount": 113,
     "sourceMapCount": 0,
     "sourceMaps": [],
@@ -48,22 +48,22 @@
   },
   "supplyChain": {
     "schemaVersion": 1,
-    "sourceRevision": "a8122253b4cd4ef9f3ebda6c801f7d36a2782c79",
+    "sourceRevision": "cd32eca90e862e4794e50ff890ad5d5f6b1c36a3",
     "builds": [
       {
         "index": 0,
-        "sha256": "4b58eeb21a06698a45ef368754c27dbb556125047f597cd020899b63111ca1fb",
+        "sha256": "cc691f4c855eed102d672c51e7284ed5bba0f1ebac1c9e8ae8794c33b1140eef",
         "filename": "conalog-patch-map-0.10.0.tgz",
-        "size": 1059951,
-        "unpackedSize": 3657913,
+        "size": 1061321,
+        "unpackedSize": 3661385,
         "fileCount": 113
       },
       {
         "index": 1,
-        "sha256": "4b58eeb21a06698a45ef368754c27dbb556125047f597cd020899b63111ca1fb",
+        "sha256": "cc691f4c855eed102d672c51e7284ed5bba0f1ebac1c9e8ae8794c33b1140eef",
         "filename": "conalog-patch-map-0.10.0.tgz",
-        "size": 1059951,
-        "unpackedSize": 3657913,
+        "size": 1061321,
+        "unpackedSize": 3661385,
         "fileCount": 113
       }
     ],
@@ -108,7 +108,7 @@
     },
     "sbom": {
       "format": "core-v2-spdx-lite/1",
-      "packageDigest": "4b58eeb21a06698a45ef368754c27dbb556125047f597cd020899b63111ca1fb",
+      "packageDigest": "cc691f4c855eed102d672c51e7284ed5bba0f1ebac1c9e8ae8794c33b1140eef",
       "packageCount": 198,
       "packages": [
         {
@@ -2548,13 +2548,13 @@
   },
   "packageBoundary": {
     "production": {
-      "packedEntry": "/var/folders/wv/2zqlsrz10lv73mczw_5wsm8w0000gn/T/patch-map-core-v2-package-Qgbt4D/consumer/node_modules/@conalog/patch-map/dist/core-v2.js",
+      "packedEntry": "/var/folders/wv/2zqlsrz10lv73mczw_5wsm8w0000gn/T/patch-map-core-v2-package-C2lExl/consumer/node_modules/@conalog/patch-map/dist/core-v2.js",
       "resolutionCount": 14,
       "sourceImportResolutionCount": 14,
       "packageImportResolutionCount": 0
     },
     "browser": {
-      "packedEntry": "/var/folders/wv/2zqlsrz10lv73mczw_5wsm8w0000gn/T/patch-map-core-v2-package-Qgbt4D/consumer/node_modules/@conalog/patch-map/dist/core-v2.js",
+      "packedEntry": "/var/folders/wv/2zqlsrz10lv73mczw_5wsm8w0000gn/T/patch-map-core-v2-package-C2lExl/consumer/node_modules/@conalog/patch-map/dist/core-v2.js",
       "resolutionCount": 0,
       "sourceImportResolutionCount": 0,
       "packageImportResolutionCount": 0
@@ -2733,7 +2733,7 @@
     "journeyCount": 38,
     "passedJourneyCount": 38,
     "failedJourneyCount": 0,
-    "packageDigestAcrossJourneys": "4b58eeb21a06698a45ef368754c27dbb556125047f597cd020899b63111ca1fb",
+    "packageDigestAcrossJourneys": "cc691f4c855eed102d672c51e7284ed5bba0f1ebac1c9e8ae8794c33b1140eef",
     "cleanupFailureCount": 0,
     "rows": [
       {
