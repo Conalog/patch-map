@@ -18,14 +18,14 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 # Current State
 
 - Coverage is 146 executable routes, 145 actual-producing routes, 27 explicit stubs, 578 executable actions, and 319 action types.
-- `CSM-014` is closed in `154c4c8` through the shared update/transaction runtime. Chart, percent, and number host values atomically update bar geometry, text, tint, and visibility; remount restores percent on a fresh Engine, and an invalid column is rejected without changing the prior scene.
-- Its headless WebGL first/repeat/fresh/destroy route passes 21/21 assertions per session with deterministic actuals, canvas `0 -> 1 -> 0`, and zero console/page/network/external-fixture errors. The browser registry now contains 131 routes and 1,821 assertions: 1,800 matches, twenty-one observed immutable conflicts, and two latent conflicts.
-- Full lint, typecheck, Core v2 Lab build, canonical verification, and targeted CSM handler/fold/runtime tests pass. The serial Core v2 unit run reached 1,246/1,247 before finding one stale runtime-map pin; that pin was corrected and its focused regression passes.
-- The prior packed ESM/CJS and 2+7 lifecycle proof remains current because package exports, renderer/resource ownership, destroy paths, and hot paths did not change. No owned Vitest/Vite/Chromium process remains; headed release proof, WebGPU, native Windows, and final independent release review remain pending.
+- The product half of `PIX-001/002/003/005` is checkpointed: initialization accepts an explicit normative WebGL2 backend, rejects WebGL1 before surface allocation, optionally registers the official PixiJS DevTools Application handle, exposes detached Application/stage/aggregate-owner facts, and owns structured renderer-loss/listener cleanup probes through destroy.
+- Four targeted product tests, scoped lint, and typecheck pass. Shared expected-blind handlers/folds, focused Lab routes, and their actual headless WebGL lifecycle evidence are intentionally not connected yet; coverage counts therefore remain unchanged.
+- The latest completed route checkpoint remains `CSM-014`: 21/21 assertions per session, deterministic first/repeat/fresh/destroy observations, canvas `0 -> 1 -> 0`, and zero console/page/network/external-fixture errors.
+- No child agent or owned Vitest/Vite/Chromium process remains. Headed release proof, WebGPU, native Windows, final package/memory/performance promotion, and independent release review remain pending.
 
 # Next Step
 
-Work is intentionally paused at a clean CSM-014 checkpoint. After restart, re-read the mandatory policy and this brief, confirm branch/status, then connect `PIX-001/002/003/005` plus `PKG-001/002/003/004/005` through shared public Pixi/backend/package probes and focused routes. Keep native Windows cells in `PIX-003` explicitly pending until measured on target hardware.
+After restart, connect `PIX-001/002/003/005` to one declarative expected-blind handler/fold/runtime and the same focused Lab shell, then run their targeted tests plus changed-route headless WebGL first/repeat/fresh/destroy proof. Keep `PIX-003` native Windows cells explicitly pending. Run the 2+7 memory checkpoint only because this route tranche will exercise renderer-loss/destroy ownership; begin `PKG-001..005` only after the PIX checkpoint is clean.
 
 # Working Boundary
 
