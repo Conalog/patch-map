@@ -201,3 +201,9 @@
 - Decision: Keep the schema and shared mutation authority strict: an item cannot become a hierarchy parent, and the move fails atomically with `INVALID_MUTATION`.
 - Why: Reinterpreting an item as a group would change external input semantics, component identity, and observable hierarchy only to match an immutable expected value.
 - Impact: Product state, selection, history, and publication remain unchanged after the move. The expected-blind runtime must record the actual rejection and comparison conflict without aliases, fabricated observations, or expected changes.
+
+**2026-07-27**
+- CSM-028 immutable expected uses the symbolic literal distribution-hash, while the public authoring planner computes a deterministic digest from the actual distributed geometry.
+- Keep the product digest truthful as fnv1a32 output and report both first/second hash mismatches as immutable comparison conflicts.
+- Replacing a real content digest with a fixture token would fabricate product output, weaken idempotence evidence, and couple expected data into execution.
+- The shared authoring fold remains expected-blind; CSM-028 contributes two explicit conflict paths while real digest equality still proves the second distribution is idempotent.
