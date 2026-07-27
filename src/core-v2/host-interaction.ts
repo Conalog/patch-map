@@ -8,6 +8,8 @@ import type { CoreV2MutationTarget } from './semantic/transaction';
 
 export const CORE_V2_HOST_INTERACTION_REVISION = 'core-v2-host-interaction/1' as const;
 export const CORE_V2_COMMAND_TARGET_REVISION = 'core-v2-command-target/1' as const;
+export const CORE_V2_HOST_TOOLTIP_REVISION = 'core-v2-host-tooltip/1' as const;
+export const CORE_V2_EDITOR_MOUNT_REVISION = 'core-v2-editor-mount/1' as const;
 
 export type CoreV2CommandTargetStatus = 'pending' | 'active' | 'released';
 
@@ -17,6 +19,43 @@ export interface CoreV2CommandTargetState {
   readonly targetIds: readonly string[];
   readonly status: CoreV2CommandTargetStatus | null;
   readonly statusTrace: readonly CoreV2CommandTargetStatus[];
+}
+
+export type CoreV2TooltipClearReason = 'drag' | 'redraw' | 'destroy' | 'empty-target';
+
+export interface CoreV2HostTooltipInput {
+  readonly targetId: string;
+  readonly anchorCss: readonly [number, number];
+  readonly viewportCssPx: readonly [number, number];
+  readonly tooltipSizeCssPx: readonly [number, number];
+}
+
+export interface CoreV2HostTooltipState {
+  readonly schemaRevision: typeof CORE_V2_HOST_TOOLTIP_REVISION;
+  readonly targetId: string | null;
+  readonly anchorCss: readonly [number, number] | null;
+  readonly boundsCss: readonly [number, number, number, number] | null;
+  readonly pinned: boolean;
+  readonly revision: number;
+  readonly clearTrace: readonly CoreV2TooltipClearReason[];
+  readonly destroyed: boolean;
+}
+
+export interface CoreV2HostTooltipPublication {
+  readonly reason: 'hover' | 'pin' | 'unpin' | CoreV2TooltipClearReason;
+  readonly state: CoreV2HostTooltipState;
+}
+
+export interface CoreV2HostTooltipSubscription {
+  dispose(): 'disposed' | 'already-disposed';
+}
+
+export interface CoreV2EditorMountDecision {
+  readonly schemaRevision: typeof CORE_V2_EDITOR_MOUNT_REVISION;
+  readonly status: 'allowed' | 'blocked';
+  readonly blockedPlant: boolean;
+  readonly createsEngine: boolean;
+  readonly canvasBudget: 0 | 1;
 }
 
 export type CoreV2LogicalEventBindingDescriptor =
@@ -94,6 +133,7 @@ export interface CoreV2InteractionModeProbe {
   readonly stack: readonly CoreV2InteractionMode[];
   readonly lifecycle: readonly string[];
   readonly temporaryModeCount: 0 | 1;
+  readonly temporaryModifiers: readonly string[];
   readonly captureCount: 0;
   readonly activeOwnerCount: 0 | 1;
   readonly paused: boolean;
@@ -124,7 +164,9 @@ export interface CoreV2HostInteractionProbe {
   readonly bindingListeners: number;
   readonly eventSubscriptions: number;
   readonly selectionHostListeners: number;
+  readonly tooltipHostListeners: number;
   readonly callbackFailureCount: number;
+  readonly tooltip: CoreV2HostTooltipState;
   readonly mode: CoreV2InteractionModeProbe;
   readonly destroyed: boolean;
 }
@@ -148,6 +190,26 @@ export interface CoreV2HostInteractionAuthorityOptions {
   readonly queryTargets: (query: CoreV2SceneQuery) => readonly CoreV2LogicalTargetSnapshot[];
   readonly normalMode?: CoreV2InteractionMode;
   readonly modes?: readonly CoreV2InteractionMode[];
+}
+
+/**
+ * Resolve the host's editor mount decision before an Engine or Pixi canvas is
+ * allocated. A blocked plant is a complete preflight result, not a late
+ * renderer teardown path.
+ */
+export function resolveCoreV2EditorMount(
+  blockedPlant: boolean,
+): CoreV2EditorMountDecision {
+  if (typeof blockedPlant !== 'boolean') {
+    throw new TypeError('editor blockedPlant must be a boolean');
+  }
+  return Object.freeze({
+    schemaRevision: CORE_V2_EDITOR_MOUNT_REVISION,
+    status: blockedPlant ? 'blocked' : 'allowed',
+    blockedPlant,
+    createsEngine: !blockedPlant,
+    canvasBudget: blockedPlant ? 0 : 1,
+  });
 }
 
 /**
@@ -229,7 +291,12 @@ export class CoreV2HostInteractionAuthority {
   private readonly selectionHostListeners = new Set<
     (publication: CoreV2SelectionHostPublication) => void
   >();
+  private readonly tooltipHostListeners = new Set<
+    (publication: CoreV2HostTooltipPublication) => void
+  >();
   private readonly modes: CoreV2InteractionModeAuthority;
+  private tooltipState: CoreV2HostTooltipState = emptyTooltipState();
+  private tooltipEverActive = false;
   private callbackFailureCount = 0;
   private destroyed = false;
 
@@ -447,6 +514,109 @@ export class CoreV2HostInteractionAuthority {
     return publication;
   }
 
+  public bindTooltipHost(
+    listener: (publication: CoreV2HostTooltipPublication) => void,
+  ): CoreV2HostTooltipSubscription {
+    this.assertAlive('bindTooltipHost');
+    if (typeof listener !== 'function') {
+      throw new TypeError('tooltip host listener must be a function');
+    }
+    let disposed = false;
+    this.tooltipHostListeners.add(listener);
+    return Object.freeze({
+      dispose: () => {
+        if (disposed) return 'already-disposed';
+        disposed = true;
+        this.tooltipHostListeners.delete(listener);
+        return 'disposed';
+      },
+    });
+  }
+
+  public hoverTooltip(inputValue: CoreV2HostTooltipInput): CoreV2HostTooltipState {
+    this.assertAlive('hoverTooltip');
+    const input = normalizeTooltipInput(inputValue);
+    if (this.tooltipState.pinned && this.tooltipState.targetId !== input.targetId) {
+      return this.tooltipProbe();
+    }
+    this.tooltipEverActive = true;
+    this.tooltipState = tooltipState(
+      input,
+      false,
+      this.tooltipState.revision + 1,
+      this.tooltipState.clearTrace,
+      false,
+    );
+    this.publishTooltip('hover');
+    return this.tooltipProbe();
+  }
+
+  public toggleTooltipPin(
+    inputValue: CoreV2HostTooltipInput,
+  ): CoreV2HostTooltipState {
+    this.assertAlive('toggleTooltipPin');
+    const input = normalizeTooltipInput(inputValue);
+    this.tooltipEverActive = true;
+    const pinned = !(
+      this.tooltipState.targetId === input.targetId &&
+      this.tooltipState.pinned
+    );
+    this.tooltipState = tooltipState(
+      input,
+      pinned,
+      this.tooltipState.revision + 1,
+      this.tooltipState.clearTrace,
+      false,
+    );
+    this.publishTooltip(pinned ? 'pin' : 'unpin');
+    return this.tooltipProbe();
+  }
+
+  public clearTooltip(reason: CoreV2TooltipClearReason): CoreV2HostTooltipState {
+    if (!isTooltipClearReason(reason)) {
+      throw new TypeError('tooltip clear reason is unsupported');
+    }
+    if (this.destroyed || !this.tooltipEverActive) return this.tooltipProbe();
+    this.tooltipState = Object.freeze({
+      schemaRevision: CORE_V2_HOST_TOOLTIP_REVISION,
+      targetId: null,
+      anchorCss: null,
+      boundsCss: null,
+      pinned: false,
+      revision: this.tooltipState.revision + 1,
+      clearTrace: Object.freeze([...this.tooltipState.clearTrace, reason]),
+      destroyed: false,
+    });
+    this.publishTooltip(reason);
+    return this.tooltipProbe();
+  }
+
+  public tooltipProbe(): CoreV2HostTooltipState {
+    const anchorCss: readonly [number, number] | null =
+      this.tooltipState.anchorCss === null
+        ? null
+        : Object.freeze([
+            this.tooltipState.anchorCss[0],
+            this.tooltipState.anchorCss[1],
+          ]);
+    const boundsCss: readonly [number, number, number, number] | null =
+      this.tooltipState.boundsCss === null
+        ? null
+        : Object.freeze([
+            this.tooltipState.boundsCss[0],
+            this.tooltipState.boundsCss[1],
+            this.tooltipState.boundsCss[2],
+            this.tooltipState.boundsCss[3],
+          ]);
+    return Object.freeze({
+      ...this.tooltipState,
+      anchorCss,
+      boundsCss,
+      clearTrace: Object.freeze([...this.tooltipState.clearTrace]),
+      destroyed: this.destroyed,
+    });
+  }
+
   public applyModeOperation(
     operation: CoreV2InteractionModeOperation,
   ): CoreV2InteractionModeResult {
@@ -470,7 +640,9 @@ export class CoreV2HostInteractionAuthority {
       bindingListeners: groups.filter((group) => group.enabled).length,
       eventSubscriptions: [...this.subscriptions].filter(({ disposed }) => !disposed).length,
       selectionHostListeners: this.selectionHostListeners.size,
+      tooltipHostListeners: this.tooltipHostListeners.size,
       callbackFailureCount: this.callbackFailureCount,
+      tooltip: this.tooltipProbe(),
       mode: this.modes.probe(),
       destroyed: this.destroyed,
     });
@@ -478,6 +650,7 @@ export class CoreV2HostInteractionAuthority {
 
   public destroy(): void {
     if (this.destroyed) return;
+    this.clearTooltip('destroy');
     for (const group of this.bindingGroups) {
       group.enabled = false;
       group.disposed = true;
@@ -486,8 +659,25 @@ export class CoreV2HostInteractionAuthority {
     this.bindingGroups.clear();
     this.subscriptions.clear();
     this.selectionHostListeners.clear();
+    this.tooltipHostListeners.clear();
     this.modes.destroy();
     this.destroyed = true;
+  }
+
+  private publishTooltip(
+    reason: CoreV2HostTooltipPublication['reason'],
+  ): void {
+    const publication = Object.freeze({
+      reason,
+      state: this.tooltipProbe(),
+    });
+    for (const listener of [...this.tooltipHostListeners]) {
+      try {
+        listener(publication);
+      } catch {
+        this.callbackFailureCount += 1;
+      }
+    }
   }
 
   private assertAlive(operation: string): void {
@@ -591,6 +781,9 @@ export class CoreV2InteractionModeAuthority {
       stack: Object.freeze([...this.stack]),
       lifecycle: Object.freeze([...this.lifecycle]),
       temporaryModeCount: this.temporary === null ? 0 : 1,
+      temporaryModifiers: Object.freeze(
+        this.temporary === null ? [] : [this.temporary.modifier],
+      ),
       captureCount: 0,
       activeOwnerCount: this.destroyed ? 0 : 1,
       paused: this.paused,
@@ -684,6 +877,91 @@ export class CoreV2InteractionModeAuthority {
       ? value as CoreV2InteractionMode
       : null;
   }
+}
+
+function emptyTooltipState(): CoreV2HostTooltipState {
+  return Object.freeze({
+    schemaRevision: CORE_V2_HOST_TOOLTIP_REVISION,
+    targetId: null,
+    anchorCss: null,
+    boundsCss: null,
+    pinned: false,
+    revision: 0,
+    clearTrace: Object.freeze([]),
+    destroyed: false,
+  });
+}
+
+function tooltipState(
+  input: CoreV2HostTooltipInput,
+  pinned: boolean,
+  revision: number,
+  clearTrace: readonly CoreV2TooltipClearReason[],
+  destroyed: boolean,
+): CoreV2HostTooltipState {
+  const [viewportWidth, viewportHeight] = input.viewportCssPx;
+  const [tooltipWidth, tooltipHeight] = input.tooltipSizeCssPx;
+  const x = Math.min(
+    Math.max(0, input.anchorCss[0]),
+    Math.max(0, viewportWidth - tooltipWidth),
+  );
+  const y = Math.min(
+    Math.max(0, input.anchorCss[1]),
+    Math.max(0, viewportHeight - tooltipHeight),
+  );
+  const boundsCss: readonly [number, number, number, number] = Object.freeze([
+    x,
+    y,
+    tooltipWidth,
+    tooltipHeight,
+  ]);
+  return Object.freeze({
+    schemaRevision: CORE_V2_HOST_TOOLTIP_REVISION,
+    targetId: input.targetId,
+    anchorCss: input.anchorCss,
+    boundsCss,
+    pinned,
+    revision,
+    clearTrace: Object.freeze([...clearTrace]),
+    destroyed,
+  });
+}
+
+function normalizeTooltipInput(
+  value: CoreV2HostTooltipInput,
+): CoreV2HostTooltipInput {
+  if (!isRecord(value)) throw new TypeError('tooltip input must be an object');
+  validateNonEmptyString(value.targetId, 'tooltip target ID');
+  return Object.freeze({
+    targetId: value.targetId,
+    anchorCss: finitePair(value.anchorCss, 'tooltip anchorCss', true),
+    viewportCssPx: finitePair(value.viewportCssPx, 'tooltip viewportCssPx', false),
+    tooltipSizeCssPx: finitePair(value.tooltipSizeCssPx, 'tooltip sizeCssPx', false),
+  });
+}
+
+function finitePair(
+  value: readonly [number, number],
+  label: string,
+  allowNegative: boolean,
+): readonly [number, number] {
+  if (
+    !Array.isArray(value) ||
+    value.length !== 2 ||
+    value.some((entry) =>
+      typeof entry !== 'number' ||
+      !Number.isFinite(entry) ||
+      (!allowNegative && !(entry > 0)))
+  ) {
+    throw new TypeError(
+      `${label} must contain two ${allowNegative ? 'finite' : 'positive finite'} numbers`,
+    );
+  }
+  return Object.freeze([value[0], value[1]]);
+}
+
+function isTooltipClearReason(value: string): value is CoreV2TooltipClearReason {
+  return ['drag', 'redraw', 'destroy', 'empty-target'].includes(value);
 }
 
 export function createCoreV2LogicalPropagationTrace(

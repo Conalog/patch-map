@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CoreV2Engine,
+  resolveCoreV2EditorMount,
   type CoreV2EnginePointerInput,
   type CoreV2EngineSurface,
   type CoreV2Point,
@@ -11,6 +12,26 @@ import {
 } from '../../src/core-v2';
 
 describe('Core v2 host interaction substrate', () => {
+  it('blocks editor plants before allocating an Engine or canvas', () => {
+    expect(resolveCoreV2EditorMount(false)).toEqual({
+      schemaRevision: 'core-v2-editor-mount/1',
+      status: 'allowed',
+      blockedPlant: false,
+      createsEngine: true,
+      canvasBudget: 1,
+    });
+    expect(resolveCoreV2EditorMount(true)).toEqual({
+      schemaRevision: 'core-v2-editor-mount/1',
+      status: 'blocked',
+      blockedPlant: true,
+      createsEngine: false,
+      canvasBudget: 0,
+    });
+    expect(() => resolveCoreV2EditorMount(null as unknown as boolean)).toThrow(
+      'editor blockedPlant must be a boolean',
+    );
+  });
+
   it('binds surface, direct, and query clicks with one deduplicated delivery', async () => {
     const { engine } = await createEngine('host-bindings');
     engine.loadDataset(HOST_DATASET);
@@ -206,6 +227,11 @@ describe('Core v2 host interaction substrate', () => {
     apply({ op: 'push', state: 'relation-paint' });
     apply({ op: 'pop' });
     apply({ op: 'temporary', state: 'pan', modifier: 'Space' });
+    expect(engine.interactionModeProbe()).toMatchObject({
+      activeState: 'pan',
+      temporaryModeCount: 1,
+      temporaryModifiers: ['Space'],
+    });
     apply({ op: 'release-temporary', modifier: 'Space' });
     apply({ op: 'pop' });
     expect(apply({ op: 'pop' }).status).toBe('unchanged');
@@ -292,6 +318,78 @@ describe('Core v2 host interaction substrate', () => {
     expect(revisions[0]).toBe(engine.snapshot().revisions.interactionRevision);
     expect(specific.dispose()).toBe('disposed');
     expect(family.dispose()).toBe('disposed');
+    await expect(engine.destroy()).resolves.toBe(true);
+  });
+
+  it('publishes one host tooltip and clears it across drag, redraw, and destroy', async () => {
+    const { engine } = await createEngine('host-tooltip');
+    engine.loadDataset(HOST_DATASET);
+    const publications: Array<Readonly<{
+      reason: string;
+      targetId: string | null;
+    }>> = [];
+    const subscription = engine.bindTooltipHost(({ reason, state }) => {
+      publications.push({ reason, targetId: state.targetId });
+    });
+
+    expect(engine.hoverTooltipAtScreen(
+      { x: 20, y: 30 },
+      [160, 80],
+    )).toMatchObject({
+      targetId: 'item-a',
+      anchorCss: [20, 30],
+      boundsCss: [20, 30, 160, 80],
+      pinned: false,
+    });
+    expect(engine.toggleTooltipPinAtScreen(
+      { x: 20, y: 30 },
+      [160, 80],
+    )).toMatchObject({
+      targetId: 'item-a',
+      pinned: true,
+    });
+
+    engine.beginOwnedPointerGesture('move', 91);
+    engine.terminateOwnedPointerGesture('pointer-up-outside');
+    engine.loadDataset(HOST_DATASET);
+    await expect(engine.destroy()).resolves.toBe(true);
+
+    expect(publications).toEqual([
+      { reason: 'hover', targetId: 'item-a' },
+      { reason: 'pin', targetId: 'item-a' },
+      { reason: 'drag', targetId: null },
+      { reason: 'redraw', targetId: null },
+      { reason: 'destroy', targetId: null },
+    ]);
+    expect(engine.hostTooltipProbe()).toEqual({
+      schemaRevision: 'core-v2-host-tooltip/1',
+      targetId: null,
+      anchorCss: null,
+      boundsCss: null,
+      pinned: false,
+      revision: 5,
+      clearTrace: ['drag', 'redraw', 'destroy'],
+      destroyed: true,
+    });
+    expect(engine.hostInteractionProbe()).toMatchObject({
+      tooltipHostListeners: 0,
+      callbackFailureCount: 0,
+    });
+    expect(subscription.dispose()).toBe('disposed');
+  });
+
+  it('suppresses canvas click selection outside select mode', async () => {
+    const { engine } = await createEngine('host-pan-click');
+    engine.loadDataset(HOST_DATASET);
+    engine.applyInteractionModeOperation({ op: 'replace', state: 'pan' });
+
+    click(engine, 1, [170, 50], 0);
+    expect(engine.snapshot().selectionIds).toEqual([]);
+
+    engine.applyInteractionModeOperation({ op: 'replace', state: 'select' });
+    click(engine, 2, [170, 50], 100);
+    expect(engine.snapshot().selectionIds).toEqual(['rect-b']);
+
     await expect(engine.destroy()).resolves.toBe(true);
   });
 

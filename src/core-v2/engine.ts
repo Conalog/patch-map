@@ -171,6 +171,9 @@ import {
   type CoreV2HostEventSubscription,
   type CoreV2HostInteractionProbe,
   type CoreV2HostObservedEvent,
+  type CoreV2HostTooltipPublication,
+  type CoreV2HostTooltipState,
+  type CoreV2HostTooltipSubscription,
   type CoreV2InteractionMode,
   type CoreV2InteractionModeOperation,
   type CoreV2InteractionModeProbe,
@@ -181,6 +184,7 @@ import {
   type CoreV2LogicalPropagationOptions,
   type CoreV2LogicalPropagationTrace,
   type CoreV2SelectionHostPublication,
+  type CoreV2TooltipClearReason,
 } from './host-interaction';
 import {
   CoreV2TransformerGestureAuthority,
@@ -1937,6 +1941,7 @@ export class CoreV2Engine {
       this.hostInteractions.applyModeOperation({ op: 'replace', state: 'select' });
     }
     if (selectionBefore.length > 0 || modeBefore !== 'select') this.interactionRevision += 1;
+    this.hostInteractions.clearTooltip('redraw');
     this.hostInteractions.clearLogicalBindings();
     this.materialized = materialized;
     this.targetLifecycleGeneration += 1;
@@ -3223,6 +3228,7 @@ export class CoreV2Engine {
       throw new RangeError('host lifecycle generation must advance by exactly one');
     }
     const surface = this.requireSurface('rebindHostLifecycle');
+    this.hostInteractions.clearTooltip('redraw');
     this.submissionSequence += 1;
     this.loadSequence += 1;
     this.viewportMotion = null;
@@ -3622,6 +3628,63 @@ export class CoreV2Engine {
     return this.hostInteractions.bindSelectionHost(listener);
   }
 
+  public bindTooltipHost(
+    listener: (publication: CoreV2HostTooltipPublication) => void,
+  ): CoreV2HostTooltipSubscription {
+    this.requireSurface('bindTooltipHost');
+    return this.hostInteractions.bindTooltipHost(listener);
+  }
+
+  public hoverTooltipAtScreen(
+    point: CoreV2Point,
+    tooltipSizeCssPx: readonly [number, number],
+  ): CoreV2HostTooltipState {
+    return this.updateTooltipAtScreen('hover', point, tooltipSizeCssPx);
+  }
+
+  public toggleTooltipPinAtScreen(
+    point: CoreV2Point,
+    tooltipSizeCssPx: readonly [number, number],
+  ): CoreV2HostTooltipState {
+    return this.updateTooltipAtScreen('pin', point, tooltipSizeCssPx);
+  }
+
+  public clearHostTooltip(reason: CoreV2TooltipClearReason): CoreV2HostTooltipState {
+    this.requireSurface('clearHostTooltip');
+    return this.hostInteractions.clearTooltip(reason);
+  }
+
+  public hostTooltipProbe(): CoreV2HostTooltipState {
+    return this.hostInteractions.tooltipProbe();
+  }
+
+  private updateTooltipAtScreen(
+    operation: 'hover' | 'pin',
+    point: CoreV2Point,
+    tooltipSizeCssPx: readonly [number, number],
+  ): CoreV2HostTooltipState {
+    validatePoint(point, `${operation}TooltipAtScreen`);
+    const hit = this.selectionHitTestScreen(point);
+    if (hit.target === null) {
+      return this.hostInteractions.clearTooltip('empty-target');
+    }
+    const input = Object.freeze({
+      targetId: hit.target.ownerId ?? hit.target.selectionId,
+      anchorCss: Object.freeze([point.x, point.y] as const),
+      viewportCssPx: Object.freeze([
+        this.viewportWidth,
+        this.viewportHeight,
+      ] as const),
+      tooltipSizeCssPx,
+    });
+    const beforeRevision = this.hostInteractions.tooltipProbe().revision;
+    const state = operation === 'hover'
+      ? this.hostInteractions.hoverTooltip(input)
+      : this.hostInteractions.toggleTooltipPin(input);
+    if (state.revision !== beforeRevision) this.interactionRevision += 1;
+    return state;
+  }
+
   public setExternalSelection(ids: readonly string[]): CoreV2ExternalSelectionResult {
     const change = this.applySelection({
       op: 'replace',
@@ -3798,6 +3861,7 @@ export class CoreV2Engine {
     handle: CoreV2TransformerHandle,
   ): CoreV2TransformerGestureProbe {
     this.requireSurface('beginTransformerHandleGesture');
+    this.hostInteractions.clearTooltip('drag');
     this.transformerGestures.begin(pointerId, handle);
     try {
       this.requirePointerGestureAuthority('beginTransformerHandleGesture')
@@ -4308,7 +4372,11 @@ export class CoreV2Engine {
       this.hostInteractions.dispatchPointerEvent(event);
     }
     const click = result.events.find((event) => event.type === 'click');
-    if (click !== undefined && click.payload.button === 0) {
+    if (
+      click !== undefined &&
+      click.payload.button === 0 &&
+      this.hostInteractions.modeProbe().activeState === 'select'
+    ) {
       this.applySelection({
         op: 'replace',
         ids: click.payload.target === null ? [] : [click.payload.target.id],
@@ -4336,6 +4404,7 @@ export class CoreV2Engine {
 
   public beginOwnedPointerGesture(kind: CoreV2OwnedGestureKind, pointerId: number): void {
     this.requireSurface('beginOwnedPointerGesture');
+    this.hostInteractions.clearTooltip('drag');
     this.requirePointerGestureAuthority('beginOwnedPointerGesture')
       .beginOwnedGesture(kind, pointerId);
   }
