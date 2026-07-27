@@ -859,6 +859,7 @@ export interface CoreV2EngineSurface {
   readonly destroyed: boolean;
   canvasElement?(): HTMLCanvasElement | null;
   captureBase64?(): Promise<string>;
+  prepare?(): Promise<CoreV2SurfacePrepareResult>;
   load(input: unknown): void;
   loadAsync?(input: unknown, assertCurrent?: () => void): Promise<void>;
   /**
@@ -924,6 +925,11 @@ export interface CoreV2EngineSurface {
   rendererLossProbe?(): PixiCoreV2RendererLossProbe;
   forceRendererLoss?(): boolean;
   destroy(): Promise<boolean>;
+}
+
+export interface CoreV2SurfacePrepareResult {
+  readonly storeSyncMs: number;
+  readonly gpuPrepareMs: number;
 }
 
 export type CoreV2EngineSurfaceFactory = (
@@ -1009,6 +1015,23 @@ export interface CoreV2EngineLoadResult {
   readonly semanticHash: string;
   readonly rootIds: readonly string[];
 }
+
+export type CoreV2EnginePrepareResult = Readonly<
+  | {
+      readonly status: 'prepared';
+      readonly storeSyncMs: number;
+      readonly gpuPrepareMs: number;
+      readonly revisions: CoreV2RevisionStamp;
+      readonly publishedTuple: CoreV2PublishedTuple;
+    }
+  | {
+      readonly status: 'unsupported';
+      readonly storeSyncMs: null;
+      readonly gpuPrepareMs: null;
+      readonly revisions: CoreV2RevisionStamp;
+      readonly publishedTuple: CoreV2PublishedTuple;
+    }
+>;
 
 /**
  * Detached immutable query result. The private Engine registry, not these
@@ -2030,6 +2053,42 @@ export class CoreV2Engine {
     const surface = this.requireSurface('loadDataset');
     const prepared = this.prepareDatasetLoad(input, options);
     return this.publishPreparedDatasetLoad(surface, prepared, options);
+  }
+
+  /**
+   * Synchronize aggregate resources and ask PixiJS PrepareSystem to upload
+   * them without publishing a visible frame. Legacy injected surfaces report
+   * explicit unsupported status instead of fabricated upload timing.
+   */
+  public async prepareScene(): Promise<CoreV2EnginePrepareResult> {
+    const surface = this.requireSurface('prepareScene');
+    const revisions = this.revisionStamp();
+    const publishedTuple = this.publishedTuple;
+    if (surface.prepare === undefined) {
+      return Object.freeze({
+        status: 'unsupported',
+        storeSyncMs: null,
+        gpuPrepareMs: null,
+        revisions,
+        publishedTuple,
+      });
+    }
+    try {
+      const prepared = await surface.prepare();
+      validateNonNegativeFinite('storeSyncMs', prepared.storeSyncMs);
+      validateNonNegativeFinite('gpuPrepareMs', prepared.gpuPrepareMs);
+      return Object.freeze({
+        status: 'prepared',
+        storeSyncMs: prepared.storeSyncMs,
+        gpuPrepareMs: prepared.gpuPrepareMs,
+        revisions,
+        publishedTuple,
+      });
+    } catch (error) {
+      const diagnostic = this.diagnosticFrom(error, 'prepareScene');
+      this.emit('diagnostic', diagnostic);
+      throw new CoreV2EngineError(diagnostic);
+    }
   }
 
   private publishPreparedDatasetLoad(
@@ -7061,6 +7120,14 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     return this.core.captureBase64();
   }
 
+  public async prepare(): Promise<CoreV2SurfacePrepareResult> {
+    const prepared = await this.core.prepare();
+    return Object.freeze({
+      storeSyncMs: prepared.storeSyncMs,
+      gpuPrepareMs: prepared.gpuPrepareMs,
+    });
+  }
+
   public load(input: unknown): void {
     this.core.load(input);
     this.geometryRevision += 1;
@@ -7901,6 +7968,12 @@ function samePublishedTuple(
 
 function validatePositiveFinite(name: string, value: number): void {
   if (!(value > 0) || !Number.isFinite(value)) throw new RangeError(`${name} must be positive and finite`);
+}
+
+function validateNonNegativeFinite(name: string, value: number): void {
+  if (value < 0 || !Number.isFinite(value)) {
+    throw new RangeError(`${name} must be non-negative and finite`);
+  }
 }
 
 function validatePoint(point: CoreV2Point, operation: string): void {

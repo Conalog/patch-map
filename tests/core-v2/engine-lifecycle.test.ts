@@ -36,6 +36,7 @@ class FakeSurface implements CoreV2EngineSurface {
   public canvasCount = 1;
   public destroyed = false;
   public loadCount = 0;
+  public prepareCount = 0;
   public frameCount = 0;
   public lastInput: unknown = null;
   public activeGestureCount = 0;
@@ -62,6 +63,14 @@ class FakeSurface implements CoreV2EngineSurface {
     this.loadCount += 1;
     this.lastInput = input;
     this.selectionIds = Object.freeze([]);
+  }
+
+  public prepare(): Promise<Readonly<{ storeSyncMs: number; gpuPrepareMs: number }>> {
+    this.prepareCount += 1;
+    return Promise.resolve(Object.freeze({
+      storeSyncMs: 1.25,
+      gpuPrepareMs: 2.5,
+    }));
   }
 
   public publishFrame(): void {
@@ -202,6 +211,26 @@ describe('CoreV2Engine lifecycle authority', () => {
     engine.publishFrame(16.666667);
     expect(engine.snapshot().publishedTuple).toEqual({ scene: 1, view: 0, interaction: 0 });
     expect(surfaces[0]?.frameCount).toBe(1);
+  });
+
+  it('prepares aggregate GPU resources without publishing a visible frame', async () => {
+    const { factory, surfaces } = createSurfaceFactory();
+    const engine = new CoreV2Engine({ surfaceFactory: factory });
+    await engine.initialize({ instanceId: 'prepare-scene', width: 800, height: 600 });
+    engine.loadDataset(catalogProfiles.datasets['interactive-scene']);
+    const before = engine.snapshot();
+
+    await expect(engine.prepareScene()).resolves.toEqual({
+      status: 'prepared',
+      storeSyncMs: 1.25,
+      gpuPrepareMs: 2.5,
+      revisions: before.revisions,
+      publishedTuple: before.publishedTuple,
+    });
+    expect(surfaces[0]?.prepareCount).toBe(1);
+    expect(surfaces[0]?.frameCount).toBe(0);
+    expect(engine.snapshot().frameRevision).toBe(before.frameRevision);
+    expect(engine.snapshot().publishedTuple).toEqual(before.publishedTuple);
   });
 
   it('classifies resolved invalid input before staleness and obsolete transport failure as superseded', async () => {
