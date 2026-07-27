@@ -17,15 +17,14 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 
 # Current State
 
-- Coverage is 146 executable routes, 145 actual-producing routes, 27 explicit stubs, 578 executable actions, and 319 action types.
-- The product half of `PIX-001/002/003/005` is checkpointed: initialization accepts an explicit normative WebGL2 backend, rejects WebGL1 before surface allocation, optionally registers the official PixiJS DevTools Application handle, exposes detached Application/stage/aggregate-owner facts, and owns structured renderer-loss/listener cleanup probes through destroy.
-- Four targeted product tests, scoped lint, and typecheck pass. Shared expected-blind handlers/folds, focused Lab routes, and their actual headless WebGL lifecycle evidence are intentionally not connected yet; coverage counts therefore remain unchanged.
-- The latest completed route checkpoint remains `CSM-014`: 21/21 assertions per session, deterministic first/repeat/fresh/destroy observations, canvas `0 -> 1 -> 0`, and zero console/page/network/external-fixture errors.
-- No child agent or owned Vitest/Vite/Chromium process remains. Headed release proof, WebGPU, native Windows, final package/memory/performance promotion, and independent release review remain pending.
+- Coverage is 150 executable routes, 149 actual-producing routes, 23 explicit stubs, 586 executable actions, and 325 action types.
+- `PIX-001/002/003/005` now share one expected-blind handler/fold/runtime and the focused Lab shell. They expose the real WebGL2 Application/stage/aggregate-owner surface, reject WebGL1 before allocation, keep eight native Windows cells explicitly pending, and classify renderer loss across idle/load/animation/gesture/extraction/resize/suspension/destroy without stale publication or retained listeners/canvases.
+- Headless Chromium first/repeat/fresh/destroy passes all 34 PIX assertions per session with deterministic actuals, canvas `0 -> 1 -> 0`, WebGL2 draw proof for PIX-001/002/003, and zero console/page/network/external-fixture errors. The browser inventory is 135 routes and 1,855 assertions: 1,834 matches, twenty-one observed immutable conflicts, and two latent conflicts.
+- Core v2 unit passes 1,263/1,263 alongside full lint/typecheck, Lab build, canonical verification, and 2+7 lifecycle memory over 5,099 entities at 88,275-byte retained-heap median with terminal DOM/scheduler/renderer release. Headed release proof, WebGPU, native Windows, package promotion, performance promotion, and final independent release review remain pending.
 
 # Next Step
 
-After restart, connect `PIX-001/002/003/005` to one declarative expected-blind handler/fold/runtime and the same focused Lab shell, then run their targeted tests plus changed-route headless WebGL first/repeat/fresh/destroy proof. Keep `PIX-003` native Windows cells explicitly pending. Run the 2+7 memory checkpoint only because this route tranche will exercise renderer-loss/destroy ownership; begin `PKG-001..005` only after the PIX checkpoint is clean.
+After restart, implement `PKG-001..005` as one package/consumer-boundary tranche, connect their declarative actual automation and focused Lab routes, then run targeted tests plus packed ESM/CJS consumer proof. Do not repeat PIX browser/memory gates unless renderer or lifecycle ownership changes again.
 
 # Working Boundary
 
