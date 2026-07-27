@@ -225,3 +225,9 @@
 - Decision: Structural-share only materializer-owned flat roots, authenticate unchanged references and parser options before selected-root parsing, retain owned frozen history snapshots, and fall back to the canonical full transaction/parser/reconcile path for every unsupported or untrusted shape.
 - Why: The capability boundary preserves input immutability, stable identity, atomic failure, exact parser output, and expected-blind observations while removing redundant whole-scene CPU work without introducing per-entity Pixi nodes, listeners, tickers, or closures.
 - Impact: Large partial updates improve materially while whole-scene and complex inputs retain the proven path. The refreshed 2+7 matrix and lifecycle memory proof remain authoritative; fourteen budget deficits, the edge-auto-pan regression, headed release, WebGPU, and native Windows stay explicit.
+
+**2026-07-27**
+- Background: Extraction failures, runtime diagnostics, telemetry, and host callbacks need product observability without leaking caller data, re-entering mutation delivery, or retaining per-entity callback ownership.
+- Decision: Own one Engine-local operations authority with bounded sanitized records, registration-ordered telemetry, post-delivery queued actions, callback-failure isolation, and destroy cleanup; gate extraction readback through a separate logical readability preflight while preserving the authoritative canvas.
+- Why: One expected-blind authority preserves stable identity, atomic failure, manual aggregate Pixi rendering, and explicit resource ownership while keeping raw customer values and approved expected evidence outside product channels.
+- Impact: SEC-002..004 and OPS-001..002 share one runtime and five focused Lab routes; Engine-backed routes prove real WebGL2 frames, no-surface routes retain zero canvas, callback registrations drain to zero, and package supply-chain evidence remains independently generated.

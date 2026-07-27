@@ -17,16 +17,16 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 
 # Current State
 
-- Coverage is 162 executable routes, 161 actual-producing routes, 11 explicit stubs, 614 executable actions, and 351 action types. `DAT-008` is the sole executable route that intentionally cannot produce a terminal actual.
-- `PRF-001..006/009` share one expected-blind runtime and seven focused Lab routes. Flat Engine-owned merges structurally share untouched roots, reparse authenticated dirty roots, reuse parser-owned rows, retain frozen history snapshots, and publish dirty aggregate ranges; complex or untrusted inputs use the canonical full path.
+- Coverage is 167 executable routes, 166 actual-producing routes, 6 explicit stubs, 626 executable actions, and 362 action types. `DAT-008` is the sole executable route that intentionally cannot produce a terminal actual; only `ACC-001..003` and `MIG-001..003` remain stubbed.
+- `SEC-002..004` and `OPS-001..002` share one expected-blind runtime and five focused Lab routes. One instance-local operations authority owns bounded sanitized diagnostics, ordered telemetry, post-delivery actions, callback-failure isolation, and destroy cleanup; extraction preflight fails closed without replacing the live canvas.
+- `PRF-001..006/009` share one expected-blind runtime and seven focused Lab routes. Flat Engine-owned merges share untouched roots, reparse authenticated dirty roots, and publish dirty aggregate ranges; complex or untrusted inputs use the canonical full path.
 - Chromium 4x 2+7 evidence is bound to `464bfee` with raw digest `5181d36ca690175bd67f463e0eac6cdc969fe0102c3fdd8c68a2d0f70af25a15`. Median 2,000-record bar/text/10% bulk improved 45–66%; 5,000-record move/rotate/10% bulk improved 64–75%, and whole-scene bulk 21%. Edge auto-pan regressed 23%.
-- Headless Chromium first/repeat/fresh/destroy proves deterministic actuals, real WebGL2 draws, zero console/page/network errors, and terminal canvas cleanup for all seven routes. The browser inventory is 147 routes and 1,946 assertions: 1,911 matches, twenty-one immutable conflicts, fourteen measured performance deficits, and two latent conflicts.
-- The Chromium 4x proxy is unfavorable on PRF-001/003/004/005/006 latency and long-task thresholds; PRF-002 first-useful-frame, PRF-005 complexity, every local semantic invariant, and PRF-009 all pass. These deficits are reported separately and make performance promotion incomplete.
-- Full verification passes 168 files/1,522 tests, lint, typecheck, both builds, and canonical verification. Refreshed 2+7 memory covers 5,099 entities at median/p95 89,019/406,315 bytes with terminal cleanup. Packed proof remains current because exports did not change. Headed release, WebGPU, native Windows, fourteen deficits, eleven routes, and final review remain pending.
+- Targeted headless Chromium first/repeat/fresh/destroy passes the five security/operations routes with deterministic actuals, real WebGL2 draws where an Engine exists, zero browser errors, and terminal canvas cleanup. The registered browser inventory is 152 routes and 1,979 assertions: 1,944 matches, twenty-one immutable conflicts, fourteen measured performance deficits, and two latent conflicts; the full 152-route rerun remains deferred.
+- Full Core v2 verification passes 139 files/1,316 tests, lint, typecheck, both builds, and canonical verification. Reproducible packed ESM/CJS proof covers all 38 journeys with audit 0, approved license inventory, digest-bound SPDX-lite SBOM, and terminal canvas zero. Refreshed 2+7 memory covers 5,099 entities at median/p95 86,999/406,663 bytes with terminal cleanup. Headed release, WebGPU, native Windows, fourteen deficits, six routes, and final independent review remain pending.
 
 # Next Step
 
-Implement `SEC-002/003/004` and `OPS-001/002` as one five-case tranche over shared redaction, bounded diagnostics/telemetry, and host-callback isolation substrate, then connect expected-blind execution and the same focused Lab routes.
+Implement `ACC-001/002/003` as one accessibility tranche over aggregate keyboard/focus semantics, public product probes, shared expected-blind execution, and the same focused Lab shell.
 
 # Working Boundary
 
