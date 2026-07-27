@@ -17,15 +17,15 @@ Connect all 38 approved decisions and 173 cases to PixiJS product behavior, inde
 
 # Current State
 
-- Coverage is 155 executable routes, 154 actual-producing routes, 18 explicit stubs, 600 executable actions, and 338 action types.
-- `PKG-001..005` share one expected-blind handler/fold/runtime and five focused Lab routes. The routes bind the independently produced committed packed-consumer proof; `PKG-003` also runs a local two-Engine isolation/recreate smoke while keeping packed evidence normative.
-- Targeted headless Chromium first/repeat/fresh/destroy passes all five PKG routes with deterministic actuals, zero browser errors, and terminal canvas cleanup. `PKG-003` reaches two simultaneous canvases and every other PKG route one. The browser inventory is 140 routes and 1,891 assertions: 1,870 matches, twenty-one observed immutable conflicts, and two latent conflicts.
-- Packed offline install, declarations, ESM/CJS, production bundling, package hygiene, all 38 CSM journeys, four strict examples, shared builtin-asset multi-instance isolation, extraction, and terminal cleanup remain proven by the digest-bound package artifact.
-- Full verification passes 165 files/1,505 unit tests, lint, typecheck, Lab build, and canonical 38-decision/32-negative/173-record verification. The prior 2+7 lifecycle memory result remains current because renderer ownership and destroy paths did not change. Headed release proof, WebGPU, native Windows, performance promotion, the remaining 18 routes, and final independent release review remain pending.
+- Coverage is 162 executable routes, 161 actual-producing routes, 11 explicit stubs, 614 executable actions, and 351 action types. `DAT-008` is the sole executable route that intentionally cannot produce a terminal actual.
+- `PRF-001..006/009` share one expected-blind performance runtime, handler/fold family, and seven focused Lab routes. The six measured cases bind the preserved two-warmup/seven-sample six-scale WebGL2 evidence; `PRF-009` independently replays two sequential Engine sessions with monotonic publication time and exact semantic parity.
+- Headless Chromium first/repeat/fresh/destroy proves deterministic actuals, real WebGL2 draws, zero console/page/network errors, and terminal canvas cleanup for all seven routes. The browser inventory is 147 routes and 1,946 assertions: 1,911 matches, twenty-one immutable conflicts, fourteen measured performance deficits, and two latent conflicts.
+- The Chromium 4x proxy is unfavorable on PRF-001/003/004/005/006 latency and long-task thresholds; PRF-002 first-useful-frame, PRF-005 complexity, every local semantic invariant, and PRF-009 all pass. These deficits are reported separately and make performance promotion incomplete.
+- Full verification passes 167 files/1,515 unit tests, lint, typecheck, Core v2/Lab builds, and canonical 38-decision/32-negative/173-record verification. Packed proof and the prior 2+7 lifecycle memory result remain current because exports, renderer ownership, and destroy paths did not change. Headed release proof, WebGPU, native Windows, performance remediation, the remaining 11 routes, and final release review remain pending.
 
 # Next Step
 
-After restart, tranche `PRF-001..006/009` around the existing benchmark and aggregate render substrate. Preserve 2+7 raw measurements and unfavorable intervals, connect expected-blind folds and focused routes, and run the expensive performance checkpoint only once the seven-case tranche changes or promotes the measured hot path.
+Profile the shared transaction/reconciliation/publication path behind PRF-003/004/005/006, implement the smallest incremental aggregate update that preserves atomic semantics, and use targeted 2,000/5,000 headless measurements to decide whether a new full two-warmup/seven-sample matrix is warranted.
 
 # Working Boundary
 
