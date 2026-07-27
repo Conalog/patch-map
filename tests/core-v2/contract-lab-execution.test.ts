@@ -57,6 +57,11 @@ describe('Core v2 executable Lab product bridge', () => {
   it.each(CORE_V2_EXECUTABLE_CASE_IDS.filter(
     (caseId) => caseId !== 'DAT-008'
       && caseId !== 'AST-001'
+      && caseId !== 'ERR-003'
+      && caseId !== 'AST-002'
+      && caseId !== 'AST-003'
+      && caseId !== 'SEC-001'
+      && caseId !== 'CSM-032'
       && caseId !== 'REN-005'
       && caseId !== 'REN-006'
       && caseId !== 'REN-008'
@@ -1201,6 +1206,7 @@ describe('Core v2 executable Lab product bridge', () => {
       'HIS-006': 'history',
       'ERR-001': 'update-transactions',
       'ERR-002': 'replacement-recovery',
+      'ERR-003': 'asset-ingestion',
       'ERR-004': 'lifecycle-interruption',
       'ERR-005': 'replacement-recovery',
       'ERR-006': 'lifecycle-interruption',
@@ -1222,6 +1228,9 @@ describe('Core v2 executable Lab product bridge', () => {
       'DAT-008': 'data-closure',
       'PIX-004': 'export-extraction',
       'AST-001': 'assets',
+      'AST-002': 'asset-ingestion',
+      'AST-003': 'asset-ingestion',
+      'SEC-001': 'asset-ingestion',
       'UPD-001': 'update-transactions',
       'UPD-002': 'update-transactions',
       'UPD-003': 'update-transactions',
@@ -1294,6 +1303,7 @@ describe('Core v2 executable Lab product bridge', () => {
       'CSM-029': 'authoring',
       'CSM-030': 'authoring',
       'CSM-031': 'authoring',
+      'CSM-032': 'asset-ingestion',
       'CSM-035': 'export-extraction',
       'CSM-036': 'lifecycle-interruption',
       'CSM-037': 'replacement-recovery',

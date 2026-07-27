@@ -69,6 +69,8 @@ import * as authoringHandlersModule from '../../../scripts/verification/core-v2-
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as assetHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/assets.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as assetIngestionHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/asset-ingestion.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as historyHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/history.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as replacementRecoveryHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/replacement-recovery.mjs';
@@ -118,6 +120,8 @@ import * as interactionEditorFoldModule from '../../../scripts/verification/core
 import * as authoringFoldModule from '../../../scripts/verification/core-v2-contract/fold-authoring.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as assetFoldModule from '../../../scripts/verification/core-v2-contract/fold-assets.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as assetIngestionFoldModule from '../../../scripts/verification/core-v2-contract/fold-asset-ingestion.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as historyFoldModule from '../../../scripts/verification/core-v2-contract/fold-history.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
@@ -184,6 +188,7 @@ import {
   createCoreV2ExportExtractionRuntime,
   type CoreV2ExportExtractionCaseId,
 } from './export-extraction-runtime';
+import { createCoreV2AssetIngestionRuntime } from './asset-ingestion-runtime';
 
 export type CoreV2ExecutableRuntimeKey =
   | 'foundation'
@@ -210,6 +215,7 @@ export type CoreV2ExecutableRuntimeKey =
   | 'history'
   | 'replacement-recovery'
   | 'export-extraction'
+  | 'asset-ingestion'
   | 'assets';
 
 type Handler = (
@@ -287,6 +293,10 @@ interface HandlerFactoryRuntime {
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
   createAssetHandlerEntries?(
+    this: void,
+    product: Readonly<Record<string, unknown>>,
+  ): readonly HandlerEntry[];
+  createAssetIngestionHandlerEntries?(
     this: void,
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
@@ -393,6 +403,10 @@ interface FoldRuntime {
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
+  foldAssetIngestionExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
   foldHistoryExecution?(
     this: void,
     options: Readonly<Record<string, unknown>>,
@@ -461,6 +475,8 @@ const interactionEditorHandlers =
 const authoringHandlers =
   authoringHandlersModule as unknown as HandlerFactoryRuntime;
 const assetHandlers = assetHandlersModule as unknown as HandlerFactoryRuntime;
+const assetIngestionHandlers =
+  assetIngestionHandlersModule as unknown as HandlerFactoryRuntime;
 const historyHandlers = historyHandlersModule as unknown as HandlerFactoryRuntime;
 const replacementRecoveryHandlers =
   replacementRecoveryHandlersModule as unknown as HandlerFactoryRuntime;
@@ -491,6 +507,8 @@ const interactionEditorFold =
 const authoringFold =
   authoringFoldModule as unknown as FoldRuntime;
 const assetFold = assetFoldModule as unknown as FoldRuntime;
+const assetIngestionFold =
+  assetIngestionFoldModule as unknown as FoldRuntime;
 const historyFold = historyFoldModule as unknown as FoldRuntime;
 const replacementRecoveryFold =
   replacementRecoveryFoldModule as unknown as FoldRuntime;
@@ -550,6 +568,13 @@ const LIFECYCLE_INTERRUPTION_CASE_IDS = new Set<CoreV2LifecycleInterruptionCaseI
 const EXPORT_EXTRACTION_CASE_IDS = new Set<CoreV2ExportExtractionCaseId>(
   CORE_V2_EXPORT_EXTRACTION_CASE_IDS,
 );
+const ASSET_INGESTION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
+  'ERR-003',
+  'AST-002',
+  'AST-003',
+  'SEC-001',
+  'CSM-032',
+]);
 
 const DATA_FOUNDATION_PRODUCT = Object.freeze({
   createColorResolver: createCoreV2ColorResolver,
@@ -690,6 +715,7 @@ const RENDER_RELATIONS_DESCRIPTOR = createDescriptor({
 });
 
 const ASSET_DESCRIPTOR = createAssetDescriptor();
+const ASSET_INGESTION_DESCRIPTOR = createAssetIngestionDescriptor();
 const RENDER_IMAGES_DESCRIPTOR = createRenderImagesDescriptor();
 const RENDER_COMPONENT_ASSETS_DESCRIPTOR = createRenderComponentAssetsDescriptor();
 const RENDER_TEXT_DESCRIPTOR = createRenderTextDescriptor();
@@ -738,6 +764,7 @@ export function resolveCoreV2ExecutableRuntime(
   if (isLifecycleInterruptionCaseId(caseId)) return LIFECYCLE_INTERRUPTION_DESCRIPTOR;
   if (isExportExtractionCaseId(caseId)) return EXPORT_EXTRACTION_DESCRIPTOR;
   if (isViewportCaseId(caseId)) return VIEWPORT_DESCRIPTOR;
+  if (ASSET_INGESTION_CASE_IDS.has(caseId)) return ASSET_INGESTION_DESCRIPTOR;
   if (caseId === 'AST-001') return ASSET_DESCRIPTOR;
   throw new Error(`Unsupported Core v2 executable runtime: ${String(caseId)}`);
 }
@@ -1463,6 +1490,47 @@ function createAssetDescriptor(): CoreV2ExecutableRuntimeDescriptor {
   return Object.freeze({
     key: 'assets',
     needsSupplementalWebGLLease: true,
+    createRun,
+    handlerEntries(plan: CoreV2ExecutableCasePlan): readonly HandlerEntry[] {
+      return createRun(plan).handlerEntries;
+    },
+    fold(input: CoreV2RuntimeFoldInput): CoreV2FoldedExecution {
+      return fold({
+        casePlan: input.casePlan,
+        execution: input.execution,
+        provenance: input.provenance,
+        environment: input.environment,
+      });
+    },
+  });
+}
+
+function createAssetIngestionDescriptor(): CoreV2ExecutableRuntimeDescriptor {
+  const fold = requireFold(
+    assetIngestionFold.foldAssetIngestionExecution,
+    'asset-ingestion fold',
+  );
+  const createEntries = requireFactory(
+    assetIngestionHandlers.createAssetIngestionHandlerEntries,
+    'asset-ingestion handlers',
+  );
+  const createRun = (plan: CoreV2ExecutableCasePlan) => {
+    const runtime = createCoreV2AssetIngestionRuntime();
+    return Object.freeze({
+      handlerEntries: selectHandlerEntries(
+        plan,
+        createEntries(runtime.product as unknown as Readonly<Record<string, unknown>>),
+      ),
+      engineOptions: Object.freeze({
+        assetRuntime: runtime.assetRuntime,
+        assetPolicy: runtime.assetPolicy,
+      }),
+      postDestroyProductProbe: () => runtime.postDestroyProductProbe(),
+    });
+  };
+  return Object.freeze({
+    key: 'asset-ingestion',
+    needsSupplementalWebGLLease: false,
     createRun,
     handlerEntries(plan: CoreV2ExecutableCasePlan): readonly HandlerEntry[] {
       return createRun(plan).handlerEntries;

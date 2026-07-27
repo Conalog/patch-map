@@ -21,10 +21,10 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 1_588;
-const EXPECTED_ASSERTION_PASS_TOTAL = 1_568;
-const EXPECTED_ASSERTION_FAILURE_TOTAL = 20;
-const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 22;
+const EXPECTED_ASSERTION_TOTAL = 1_641;
+const EXPECTED_ASSERTION_PASS_TOTAL = 1_620;
+const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;
+const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;
 const CASE_TIMEOUT_MS = 180_000;
 const CHECKPOINT_TIMEOUT_MS = 30 * 60_000;
 const REN_005_IMMUTABLE_FAILURES = Object.freeze([
@@ -159,6 +159,13 @@ const CSM_030_IMMUTABLE_FAILURES = Object.freeze([
     path: '/scene/targets/rect-b/parentId',
     code: 'VALUE_MISMATCH',
     failurePath: '/scene/targets/rect-b/parentId',
+  }),
+]);
+const AST_002_IMMUTABLE_FAILURES = Object.freeze([
+  Object.freeze({
+    path: '/outcome/validation/cyclic/code',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/validation/cyclic/code',
   }),
 ]);
 const RENDER_CASES = Object.freeze([
@@ -325,6 +332,15 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'PIX-004', expectedAssertions: 6 }),
   Object.freeze({ id: 'CSM-035', expectedAssertions: 25 }),
   Object.freeze({ id: 'CSM-038', expectedAssertions: 27 }),
+  Object.freeze({ id: 'ERR-003', expectedAssertions: 6 }),
+  Object.freeze({
+    id: 'AST-002',
+    expectedAssertions: 9,
+    expectedFailures: AST_002_IMMUTABLE_FAILURES,
+  }),
+  Object.freeze({ id: 'AST-003', expectedAssertions: 10 }),
+  Object.freeze({ id: 'SEC-001', expectedAssertions: 7 }),
+  Object.freeze({ id: 'CSM-032', expectedAssertions: 21 }),
 ]);
 const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-006', 'REN-008', 'REN-010', 'REN-011']);
 const PRESENTATION_TRANCHE_CASES = new Set([
@@ -609,21 +625,21 @@ try {
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 1568 pass and 20 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 1620 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 1568 pass and 20 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 1620 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 1568 pass and 20 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 1620 pass and 21 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -2984,19 +3000,19 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 1588',
+    'render checkpoint assertion inventory must remain 1641',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===
       EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'render checkpoint observed immutable conflict inventory must remain 20',
+    'render checkpoint observed immutable conflict inventory must remain 21',
   );
   invariant(
     sum(
       RENDER_CASES,
       (record) => (record.expectedFailures?.length ?? 0) + (record.latentConflicts?.length ?? 0),
     ) === DECLARED_IMMUTABLE_CONFLICT_TOTAL,
-    'render checkpoint declared immutable conflict inventory must remain 22',
+    'render checkpoint declared immutable conflict inventory must remain 23',
   );
   return selected;
 }

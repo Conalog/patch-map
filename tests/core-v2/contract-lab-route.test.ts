@@ -78,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(274);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(130);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(43);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(286);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(135);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(38);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(495);
+    ), 0)).toBe(514);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -755,7 +755,7 @@ describe('Core v2 focused contract Lab shell', () => {
     const assetIndex = CORE_V2_EXECUTABLE_CASE_IDS.indexOf('AST-001');
 
     expect(CORE_V2_EXECUTABLE_CASE_IDS[assetIndex - 1]).toBe('LAY-005');
-    expect(CORE_V2_EXECUTABLE_CASE_IDS[assetIndex + 1]).toBe('UPD-001');
+    expect(CORE_V2_EXECUTABLE_CASE_IDS[assetIndex + 1]).toBe('AST-002');
     expect(route.presenter.executionStatus).toBe('actual-observable');
     expect(route.presenter.rootTestId).toBe('scenario-ast-001');
     expect(plan.route).toBe('/lab/core-v2?scenario=AST-001&size=100&seed=319');
@@ -777,7 +777,7 @@ describe('Core v2 focused contract Lab shell', () => {
 
   it('keeps every non-executable route disabled and explicitly not implemented', () => {
     const route = parseCoreV2ContractRoute(
-      '/lab/core-v2?scenario=ERR-003&size=500&seed=319',
+      '/lab/core-v2?scenario=DET-001&size=500&seed=319',
     );
     const markup = renderCoreV2ContractLab(route);
 

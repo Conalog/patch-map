@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the one-hundred-fifteen selected render routes and their 1588 canonical assertions', () => {
+  it('pins exactly the one-hundred-twenty selected render routes and their 1641 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -153,20 +153,25 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'PIX-004', expectedAssertions: 6 },
       { id: 'CSM-035', expectedAssertions: 25 },
       { id: 'CSM-038', expectedAssertions: 27 },
+      { id: 'ERR-003', expectedAssertions: 6 },
+      { id: 'AST-002', expectedAssertions: 9 },
+      { id: 'AST-003', expectedAssertions: 10 },
+      { id: 'SEC-001', expectedAssertions: 7 },
+      { id: 'CSM-032', expectedAssertions: 21 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_588);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_588;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_568;');
-    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 20;');
-    expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 22;');
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_641);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_641;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_620;');
+    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;');
+    expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 1568 pass and 20 observed immutable conflicts'",
+      "'canonical comparison must be exactly 1620 pass and 21 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 1568 pass and 20 observed immutable conflicts'",
+      "'repeat comparison must be exactly 1620 pass and 21 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 1568 pass and 20 observed immutable conflicts'",
+      "'fresh comparison must be exactly 1620 pass and 21 observed immutable conflicts'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -338,8 +343,8 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('comparison.failed === expectedFailures.length');
     expect(source).toContain('sameJson(comparisonFailures(comparison), expectedFailures)');
     expect(source).toContain('latentConflicts: UPD_007_LATENT_IMMUTABLE_CONFLICTS');
-    expect(source).toContain("'render checkpoint observed immutable conflict inventory must remain 20'");
-    expect(source).toContain("'render checkpoint declared immutable conflict inventory must remain 22'");
+    expect(source).toContain("'render checkpoint observed immutable conflict inventory must remain 21'");
+    expect(source).toContain("'render checkpoint declared immutable conflict inventory must remain 23'");
     expect(source).toContain('latentCases: selectedRenderCases');
     expect(source).toContain(".filter((record) => (record.latentConflicts?.length ?? 0) > 0)");
     expect(source).toContain("import { inspectCoreV2UpdateConflictActuals } from './core-v2-contract/update-conflict-actuals.mjs';");
