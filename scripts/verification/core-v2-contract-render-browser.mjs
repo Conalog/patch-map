@@ -21,10 +21,10 @@ const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
 const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const EXPECTED_ASSERTION_TOTAL = 1_479;
-const EXPECTED_ASSERTION_PASS_TOTAL = 1_465;
-const EXPECTED_ASSERTION_FAILURE_TOTAL = 14;
-const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 16;
+const EXPECTED_ASSERTION_TOTAL = 1_588;
+const EXPECTED_ASSERTION_PASS_TOTAL = 1_568;
+const EXPECTED_ASSERTION_FAILURE_TOTAL = 20;
+const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 22;
 const CASE_TIMEOUT_MS = 180_000;
 const CHECKPOINT_TIMEOUT_MS = 30 * 60_000;
 const REN_005_IMMUTABLE_FAILURES = Object.freeze([
@@ -125,6 +125,40 @@ const CSM_024_IMMUTABLE_FAILURES = Object.freeze([
     path: '/outcome/hostEngineSeam/engineReturns/transformedHitTarget',
     code: 'VALUE_MISMATCH',
     failurePath: '/outcome/hostEngineSeam/engineReturns/transformedHitTarget',
+  }),
+]);
+const CSM_028_IMMUTABLE_FAILURES = Object.freeze([
+  Object.freeze({
+    path: '/outcome/hostEngineSeam/engineReturns/firstDistributionHash',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/hostEngineSeam/engineReturns/firstDistributionHash',
+  }),
+  Object.freeze({
+    path: '/outcome/hostEngineSeam/engineReturns/secondDistributionHash',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/hostEngineSeam/engineReturns/secondDistributionHash',
+  }),
+]);
+const CSM_030_IMMUTABLE_FAILURES = Object.freeze([
+  Object.freeze({
+    path: '/outcome/hostEngineSeam/engineReturns/movedTarget',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/hostEngineSeam/engineReturns/movedTarget',
+  }),
+  Object.freeze({
+    path: '/outcome/hostEngineSeam/engineReturns/parentId',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/hostEngineSeam/engineReturns/parentId',
+  }),
+  Object.freeze({
+    path: '/outcome/hostEngineSeam/finalState/parentById/rect-b',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/hostEngineSeam/finalState/parentById/rect-b',
+  }),
+  Object.freeze({
+    path: '/scene/targets/rect-b/parentId',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/scene/targets/rect-b/parentId',
   }),
 ]);
 const RENDER_CASES = Object.freeze([
@@ -262,6 +296,19 @@ const RENDER_CASES = Object.freeze([
     expectedAssertions: 20,
     expectedFailures: CSM_024_IMMUTABLE_FAILURES,
   }),
+  Object.freeze({ id: 'CSM-019', expectedAssertions: 21 }),
+  Object.freeze({
+    id: 'CSM-028',
+    expectedAssertions: 18,
+    expectedFailures: CSM_028_IMMUTABLE_FAILURES,
+  }),
+  Object.freeze({ id: 'CSM-029', expectedAssertions: 24 }),
+  Object.freeze({
+    id: 'CSM-030',
+    expectedAssertions: 21,
+    expectedFailures: CSM_030_IMMUTABLE_FAILURES,
+  }),
+  Object.freeze({ id: 'CSM-031', expectedAssertions: 25 }),
   Object.freeze({ id: 'ERR-002', expectedAssertions: 10 }),
   Object.freeze({ id: 'ERR-004', expectedAssertions: 12 }),
   Object.freeze({ id: 'ERR-005', expectedAssertions: 6 }),
@@ -362,6 +409,13 @@ const INTERACTION_EDITOR_TRANCHE_CASES = new Set([
   'CSM-023',
   'CSM-024',
 ]);
+const AUTHORING_TRANCHE_CASES = new Set([
+  'CSM-019',
+  'CSM-028',
+  'CSM-029',
+  'CSM-030',
+  'CSM-031',
+]);
 const HISTORY_TRANCHE_CASES = new Set([
   'HIS-001',
   'HIS-002',
@@ -399,6 +453,7 @@ const CONTROL_CASES = new Set([
   ...QUERY_SELECTION_TRANCHE_CASES,
   ...POINTER_SELECTION_TRANCHE_CASES,
   ...INTERACTION_EDITOR_TRANCHE_CASES,
+  ...AUTHORING_TRANCHE_CASES,
   ...HISTORY_TRANCHE_CASES,
   ...REPLACEMENT_RECOVERY_TRANCHE_CASES,
   ...LIFECYCLE_INTERRUPTION_TRANCHE_CASES,
@@ -415,6 +470,7 @@ const GPU_EVIDENCE_CASES = new Set([
   'UPD-009',
   'LIF-003',
   'CSM-037',
+  ...AUTHORING_TRANCHE_CASES,
 ]);
 
 const options = parseArguments(process.argv.slice(2));
@@ -546,28 +602,28 @@ try {
   invariant(
     report.cases.length === selectedRenderCases.length,
     options.caseId === null
-      ? 'all one-hundred-ten render routes completed'
+      ? 'all one-hundred-fifteen render routes completed'
       : `${options.caseId} targeted render route completed`,
   );
   invariant(
     passed === selectedAssertionTotal - selectedObservedConflictTotal
       && failed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 1465 pass and 14 observed immutable conflicts'
+      ? 'canonical comparison must be exactly 1568 pass and 20 observed immutable conflicts'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && repeatFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 1465 pass and 14 observed immutable conflicts'
+      ? 'repeat comparison must be exactly 1568 pass and 20 observed immutable conflicts'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedConflictTotal
       && freshFailed === selectedObservedConflictTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 1465 pass and 14 observed immutable conflicts'
+      ? 'fresh comparison must be exactly 1568 pass and 20 observed immutable conflicts'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -2218,8 +2274,19 @@ function assertGpuEvidence(caseId, gpu, runLabel) {
   );
   invariant(Array.isArray(gpu.frames) && gpu.frames.length > 0, `${prefix} visible frame inventory`);
   invariant(
-    gpu.frames.every((frame) => frame.trackedCanvas === true && frame.draws.length > 0),
-    `${prefix} tracked canvas draw frames (${gpuFrameDiagnostic(gpu)})`,
+    gpu.frames.every((frame) => frame.trackedCanvas === true),
+    `${prefix} tracked canvas frames (${gpuFrameDiagnostic(gpu)})`,
+  );
+  if (AUTHORING_TRANCHE_CASES.has(caseId)) {
+    invariant(
+      gpu.frames.some((frame) => frame.draws.length > 0),
+      `${prefix} post-authoring draw frame (${gpuFrameDiagnostic(gpu)})`,
+    );
+    return;
+  }
+  invariant(
+    gpu.frames.every((frame) => frame.draws.length > 0),
+    `${prefix} draw frames (${gpuFrameDiagnostic(gpu)})`,
   );
 
   if (caseId === 'LAY-003') {
@@ -2917,19 +2984,19 @@ async function loadExpectedCases() {
   }
   invariant(
     sum(RENDER_CASES, (record) => record.expectedAssertions) === EXPECTED_ASSERTION_TOTAL,
-    'render checkpoint assertion inventory must remain 1479',
+    'render checkpoint assertion inventory must remain 1588',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===
       EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'render checkpoint observed immutable conflict inventory must remain 14',
+    'render checkpoint observed immutable conflict inventory must remain 20',
   );
   invariant(
     sum(
       RENDER_CASES,
       (record) => (record.expectedFailures?.length ?? 0) + (record.latentConflicts?.length ?? 0),
     ) === DECLARED_IMMUTABLE_CONFLICT_TOTAL,
-    'render checkpoint declared immutable conflict inventory must remain 16',
+    'render checkpoint declared immutable conflict inventory must remain 22',
   );
   return selected;
 }

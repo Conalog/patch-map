@@ -120,11 +120,16 @@ export const CORE_V2_EXECUTABLE_CASE_IDS = Object.freeze([
   'CSM-016',
   'CSM-017',
   'CSM-018',
+  'CSM-019',
   'CSM-020',
   'CSM-021',
   'CSM-022',
   'CSM-023',
   'CSM-024',
+  'CSM-028',
+  'CSM-029',
+  'CSM-030',
+  'CSM-031',
   'CSM-035',
   'CSM-036',
   'CSM-037',
@@ -133,15 +138,15 @@ export const CORE_V2_EXECUTABLE_CASE_IDS = Object.freeze([
 
 export type CoreV2ExecutableCaseId = (typeof CORE_V2_EXECUTABLE_CASE_IDS)[number];
 
-export const CORE_V2_EXECUTABLE_COUNT = 125;
-export const CORE_V2_CONTRACT_STUB_COUNT = 48;
+export const CORE_V2_EXECUTABLE_COUNT = 130;
+export const CORE_V2_CONTRACT_STUB_COUNT = 43;
 
 const CONTRACT_REVISION = 'core-v2-functional-contract/2026-07-16.2';
 const ACTION_LANGUAGE_REVISION = 'core-v2-catalog-actions/1';
 const APPROVED_CASE_COUNT = 173;
 const APPROVED_ACTION_DEFINITION_COUNT = 381;
-const EXECUTABLE_ACTION_COUNT = 476;
-const EXECUTABLE_ACTION_TYPE_COUNT = 263;
+const EXECUTABLE_ACTION_COUNT = 495;
+const EXECUTABLE_ACTION_TYPE_COUNT = 274;
 const CANONICAL_SIZES = new Set(['100', '500', '1000', '2000', '5000', 'production']);
 const EXECUTABLE_ID_SET = new Set<string>(CORE_V2_EXECUTABLE_CASE_IDS);
 
@@ -167,6 +172,9 @@ interface FixtureRecord {
   readonly captureCheckpoints: readonly Readonly<Record<string, unknown>>[];
   readonly cleanupTrace: readonly Readonly<Record<string, unknown>>[];
   readonly requiredObservationDomains: readonly string[];
+  readonly hostEngineSeam?: Readonly<{
+    readonly hostSupplies: Readonly<Record<string, unknown>>;
+  }>;
 }
 
 interface FixtureCatalog {
@@ -220,6 +228,7 @@ export interface CoreV2ExecutableCasePlan extends Readonly<Record<string, unknow
   readonly routeParams: Readonly<{ size: string; seed: number }>;
   readonly fixtureSha256: string;
   readonly fixtureProfiles: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+  readonly hostSupplies: Readonly<Record<string, unknown>>;
   readonly fixture: Readonly<{
     readonly setup: Readonly<{ readonly params: Readonly<Record<string, unknown>> }>;
     readonly actionTrace: readonly ContractAction[];
@@ -354,12 +363,18 @@ export function materializeCoreV2ExecutableCase(
     routeParams: { size, seed },
     fixtureSha256: manifestRecord.fixtureSha256,
     fixtureProfiles: structuredClone(fixtureProfiles),
+    hostSupplies: structuredClone(source.hostEngineSeam?.hostSupplies ?? {}),
     fixture,
     actionTrace: structuredClone(fixture.actionTrace),
     captureCheckpoints: structuredClone(fixture.captureCheckpoints),
     cleanupTrace: structuredClone(fixture.cleanupTrace),
   };
   invariant(!Object.hasOwn(plan, 'expected'), `${caseId} plan must not contain approved expected evidence`);
+  invariant(
+    !['engineReturns', 'failureRollback', 'finalState'].some((key) =>
+      Object.hasOwn(plan.hostSupplies, key)),
+    `${caseId} plan host input must not contain approved result evidence`,
+  );
   return deepFreeze(plan);
 }
 

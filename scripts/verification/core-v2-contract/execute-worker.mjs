@@ -251,6 +251,7 @@ function handlerContext(state, action, signal) {
     actionIndex: action.index,
     fixtureParams: state.fixture.setup?.params ?? {},
     fixtureProfiles: state.fixtureProfiles,
+    hostSupplies: state.caseRecord.hostSupplies ?? {},
     routeParams: state.caseRecord.routeParams ?? {},
     clock: state.clock,
     signal,

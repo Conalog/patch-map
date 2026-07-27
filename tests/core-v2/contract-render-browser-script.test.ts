@@ -25,7 +25,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(checked.stderr).toBe('');
   });
 
-  it('pins exactly the one-hundred-ten selected render routes and their 1479 canonical assertions', () => {
+  it('pins exactly the one-hundred-fifteen selected render routes and their 1588 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -132,6 +132,11 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'CSM-022', expectedAssertions: 20 },
       { id: 'CSM-023', expectedAssertions: 21 },
       { id: 'CSM-024', expectedAssertions: 20 },
+      { id: 'CSM-019', expectedAssertions: 21 },
+      { id: 'CSM-028', expectedAssertions: 18 },
+      { id: 'CSM-029', expectedAssertions: 24 },
+      { id: 'CSM-030', expectedAssertions: 21 },
+      { id: 'CSM-031', expectedAssertions: 25 },
       { id: 'ERR-002', expectedAssertions: 10 },
       { id: 'ERR-004', expectedAssertions: 12 },
       { id: 'ERR-005', expectedAssertions: 6 },
@@ -149,19 +154,19 @@ describe('Core v2 render browser checkpoint script', () => {
       { id: 'CSM-035', expectedAssertions: 25 },
       { id: 'CSM-038', expectedAssertions: 27 },
     ]);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_479);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_479;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_465;');
-    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 14;');
-    expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 16;');
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_588);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_588;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_568;');
+    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 20;');
+    expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 22;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 1465 pass and 14 observed immutable conflicts'",
+      "'canonical comparison must be exactly 1568 pass and 20 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 1465 pass and 14 observed immutable conflicts'",
+      "'repeat comparison must be exactly 1568 pass and 20 observed immutable conflicts'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 1465 pass and 14 observed immutable conflicts'",
+      "'fresh comparison must be exactly 1568 pass and 20 observed immutable conflicts'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -333,8 +338,8 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('comparison.failed === expectedFailures.length');
     expect(source).toContain('sameJson(comparisonFailures(comparison), expectedFailures)');
     expect(source).toContain('latentConflicts: UPD_007_LATENT_IMMUTABLE_CONFLICTS');
-    expect(source).toContain("'render checkpoint observed immutable conflict inventory must remain 14'");
-    expect(source).toContain("'render checkpoint declared immutable conflict inventory must remain 16'");
+    expect(source).toContain("'render checkpoint observed immutable conflict inventory must remain 20'");
+    expect(source).toContain("'render checkpoint declared immutable conflict inventory must remain 22'");
     expect(source).toContain('latentCases: selectedRenderCases');
     expect(source).toContain(".filter((record) => (record.latentConflicts?.length ?? 0) > 0)");
     expect(source).toContain("import { inspectCoreV2UpdateConflictActuals } from './core-v2-contract/update-conflict-actuals.mjs';");
@@ -425,7 +430,7 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('focusedUi: DOM_CONTROL_CASES.has(caseSpec.id)');
   });
 
-  it('drives product tranches, including interaction/editor, through controls', () => {
+  it('drives product tranches, including interaction/editor and authoring, through controls', () => {
     expect(source).toContain("const PRESENTATION_TRANCHE_CASES = new Set([");
     for (const caseId of ['LAY-002', 'LAY-003', 'UPD-005', 'REN-009', 'ANI-001', 'ANI-002']) {
       expect(source).toContain(`'${caseId}',`);
@@ -479,6 +484,11 @@ describe('Core v2 render browser checkpoint script', () => {
       expect(source).toContain(`'${caseId}',`);
     }
     expect(source).toContain('...INTERACTION_EDITOR_TRANCHE_CASES');
+    expect(source).toContain('const AUTHORING_TRANCHE_CASES = new Set([');
+    for (const caseId of ['CSM-019', 'CSM-028', 'CSM-029', 'CSM-030', 'CSM-031']) {
+      expect(source).toContain(`'${caseId}',`);
+    }
+    expect(source).toContain('...AUTHORING_TRANCHE_CASES');
     expect(source).toContain('const HISTORY_TRANCHE_CASES = new Set([');
     for (const caseId of [
       'HIS-001',

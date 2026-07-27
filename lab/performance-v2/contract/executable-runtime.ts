@@ -65,6 +65,8 @@ import * as pointerSelectionHandlersModule from '../../../scripts/verification/c
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as interactionEditorHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/interaction-editor.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as authoringHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/authoring.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as assetHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/assets.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as historyHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/history.mjs';
@@ -113,6 +115,8 @@ import * as pointerSelectionFoldModule from '../../../scripts/verification/core-
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as interactionEditorFoldModule from '../../../scripts/verification/core-v2-contract/fold-interaction-editor.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as authoringFoldModule from '../../../scripts/verification/core-v2-contract/fold-authoring.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as assetFoldModule from '../../../scripts/verification/core-v2-contract/fold-assets.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as historyFoldModule from '../../../scripts/verification/core-v2-contract/fold-history.mjs';
@@ -152,6 +156,11 @@ import {
   createCoreV2InteractionEditorRuntime,
   type CoreV2InteractionEditorCaseId,
 } from './interaction-editor-runtime';
+import {
+  CORE_V2_AUTHORING_CASE_IDS,
+  createCoreV2AuthoringRuntime,
+  type CoreV2AuthoringCaseId,
+} from './authoring-runtime';
 import { createCoreV2RenderComponentAssetsRuntime } from './render-component-assets-runtime';
 import { createCoreV2RenderImagesRuntime } from './render-images-runtime';
 import { createCoreV2RenderTextRuntime } from './render-text-runtime';
@@ -197,6 +206,7 @@ export type CoreV2ExecutableRuntimeKey =
   | 'query-selection'
   | 'pointer-selection'
   | 'interaction-editor'
+  | 'authoring'
   | 'history'
   | 'replacement-recovery'
   | 'export-extraction'
@@ -269,6 +279,10 @@ interface HandlerFactoryRuntime {
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
   createInteractionEditorHandlerEntries?(
+    this: void,
+    product: Readonly<Record<string, unknown>>,
+  ): readonly HandlerEntry[];
+  createAuthoringHandlerEntries?(
     this: void,
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
@@ -371,6 +385,10 @@ interface FoldRuntime {
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
+  foldAuthoringExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
   foldAssetExecution?(
     this: void,
     options: Readonly<Record<string, unknown>>,
@@ -440,6 +458,8 @@ const querySelectionHandlers = querySelectionHandlersModule as unknown as Handle
 const pointerSelectionHandlers = pointerSelectionHandlersModule as unknown as HandlerFactoryRuntime;
 const interactionEditorHandlers =
   interactionEditorHandlersModule as unknown as HandlerFactoryRuntime;
+const authoringHandlers =
+  authoringHandlersModule as unknown as HandlerFactoryRuntime;
 const assetHandlers = assetHandlersModule as unknown as HandlerFactoryRuntime;
 const historyHandlers = historyHandlersModule as unknown as HandlerFactoryRuntime;
 const replacementRecoveryHandlers =
@@ -468,6 +488,8 @@ const querySelectionFold = querySelectionFoldModule as unknown as FoldRuntime;
 const pointerSelectionFold = pointerSelectionFoldModule as unknown as FoldRuntime;
 const interactionEditorFold =
   interactionEditorFoldModule as unknown as FoldRuntime;
+const authoringFold =
+  authoringFoldModule as unknown as FoldRuntime;
 const assetFold = assetFoldModule as unknown as FoldRuntime;
 const historyFold = historyFoldModule as unknown as FoldRuntime;
 const replacementRecoveryFold =
@@ -512,6 +534,9 @@ const POINTER_SELECTION_CASE_IDS = new Set<CoreV2PointerSelectionCaseId>(
 );
 const INTERACTION_EDITOR_CASE_IDS = new Set<CoreV2InteractionEditorCaseId>(
   CORE_V2_INTERACTION_EDITOR_CASE_IDS,
+);
+const AUTHORING_CASE_IDS = new Set<CoreV2AuthoringCaseId>(
+  CORE_V2_AUTHORING_CASE_IDS,
 );
 const HISTORY_CASE_IDS = new Set<CoreV2HistoryCaseId>(
   CORE_V2_HISTORY_CASE_IDS,
@@ -675,6 +700,7 @@ const VIEWPORT_DESCRIPTOR = createViewportDescriptor();
 const QUERY_SELECTION_DESCRIPTOR = createQuerySelectionDescriptor();
 const POINTER_SELECTION_DESCRIPTOR = createPointerSelectionDescriptor();
 const INTERACTION_EDITOR_DESCRIPTOR = createInteractionEditorDescriptor();
+const AUTHORING_DESCRIPTOR = createAuthoringDescriptor();
 const HISTORY_DESCRIPTOR = createHistoryDescriptor();
 const REPLACEMENT_RECOVERY_DESCRIPTOR = createReplacementRecoveryDescriptor();
 const LIFECYCLE_INTERRUPTION_DESCRIPTOR = createLifecycleInterruptionDescriptor();
@@ -706,6 +732,7 @@ export function resolveCoreV2ExecutableRuntime(
   if (isQuerySelectionCaseId(caseId)) return QUERY_SELECTION_DESCRIPTOR;
   if (isPointerSelectionCaseId(caseId)) return POINTER_SELECTION_DESCRIPTOR;
   if (isInteractionEditorCaseId(caseId)) return INTERACTION_EDITOR_DESCRIPTOR;
+  if (isAuthoringCaseId(caseId)) return AUTHORING_DESCRIPTOR;
   if (isHistoryCaseId(caseId)) return HISTORY_DESCRIPTOR;
   if (isReplacementRecoveryCaseId(caseId)) return REPLACEMENT_RECOVERY_DESCRIPTOR;
   if (isLifecycleInterruptionCaseId(caseId)) return LIFECYCLE_INTERRUPTION_DESCRIPTOR;
@@ -1086,6 +1113,51 @@ function isInteractionEditorCaseId(
   return INTERACTION_EDITOR_CASE_IDS.has(
     caseId as CoreV2InteractionEditorCaseId,
   );
+}
+
+function createAuthoringDescriptor(): CoreV2ExecutableRuntimeDescriptor {
+  const fold = requireFold(
+    authoringFold.foldAuthoringExecution,
+    'authoring fold',
+  );
+  const createEntries = requireFactory(
+    authoringHandlers.createAuthoringHandlerEntries,
+    'authoring handlers',
+  );
+  const createRun = (plan: CoreV2ExecutableCasePlan) => {
+    invariant(isAuthoringCaseId(plan.id), 'authoring case identity');
+    const runtime = createCoreV2AuthoringRuntime(plan.id);
+    return Object.freeze({
+      handlerEntries: selectHandlerEntries(
+        plan,
+        createEntries(runtime.product as unknown as Readonly<Record<string, unknown>>),
+      ),
+      engineOptions: Object.freeze({}),
+      postDestroyProductProbe: () => runtime.postDestroyProductProbe(),
+    });
+  };
+  return Object.freeze({
+    key: 'authoring',
+    needsSupplementalWebGLLease: false,
+    createRun,
+    handlerEntries(plan: CoreV2ExecutableCasePlan): readonly HandlerEntry[] {
+      return createRun(plan).handlerEntries;
+    },
+    fold(input: CoreV2RuntimeFoldInput): CoreV2FoldedExecution {
+      return fold({
+        casePlan: input.casePlan,
+        execution: input.execution,
+        provenance: input.provenance,
+        environment: input.environment,
+      });
+    },
+  });
+}
+
+function isAuthoringCaseId(
+  caseId: CoreV2ExecutableCaseId,
+): caseId is CoreV2AuthoringCaseId {
+  return AUTHORING_CASE_IDS.has(caseId as CoreV2AuthoringCaseId);
 }
 
 function createHistoryDescriptor(): CoreV2ExecutableRuntimeDescriptor {

@@ -78,12 +78,12 @@ describe('Core v2 focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(263);
-    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(125);
-    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(48);
+    expect(CORE_V2_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(274);
+    expect(CORE_V2_EXECUTABLE_CASE_IDS).toHaveLength(130);
+    expect(CORE_V2_CONTRACT_STUB_COUNT).toBe(43);
     expect(CORE_V2_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializeCoreV2ExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(476);
+    ), 0)).toBe(495);
     for (const caseId of CORE_V2_EXECUTABLE_CASE_IDS) {
       const first = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializeCoreV2ExecutableCase(caseId, 'production', 4_294_967_295);
@@ -99,8 +99,13 @@ describe('Core v2 focused contract Lab presenters', () => {
       expect(Object.isFrozen(first)).toBe(true);
       expect(Object.isFrozen(first.fixture.actionTrace)).toBe(true);
       expect(Object.isFrozen(first.fixtureProfiles)).toBe(true);
+      expect(Object.isFrozen(first.hostSupplies)).toBe(true);
+      expect(first.hostSupplies).not.toHaveProperty('engineReturns');
+      expect(first.hostSupplies).not.toHaveProperty('failureRollback');
+      expect(first.hostSupplies).not.toHaveProperty('finalState');
       expect(first).not.toBe(second);
       expect(first.fixtureProfiles).not.toBe(second.fixtureProfiles);
+      expect(first.hostSupplies).not.toBe(second.hostSupplies);
     }
 
     const mutationPlan = materializeCoreV2ExecutableCase('UPD-005', '100', 319);
@@ -235,6 +240,61 @@ describe('Core v2 focused contract Lab shell', () => {
       expect(route.presenter.rootTestId).toBe(`scenario-${caseId.toLowerCase()}`);
       expect(plan.actionTrace.map(({ type }) => type)).toEqual(actions);
       expect(resolveCoreV2ExecutableRuntime(caseId).key).toBe(runtimeKey);
+      expect(markup).toContain(`data-testid="scenario-${caseId.toLowerCase()}"`);
+      expect(markup).toContain('data-contract-status="armed"');
+      expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(actions.length);
+      expect(markup).toContain('Actual-only case execution is available');
+      expect(markup).not.toContain('data-contract-status="pass"');
+    }
+  });
+
+  it('connects five authoring cases to one expected-blind runtime and exact routes', () => {
+    const cases = [
+      ['CSM-019', ['create-element-matrix', 'probe-declared-failure']],
+      [
+        'CSM-028',
+        [
+          'edit-position-angle',
+          'align-targets',
+          'distribute-targets',
+          'distribute-targets',
+          'probe-declared-failure',
+        ],
+      ],
+      [
+        'CSM-029',
+        [
+          'apply-style-transaction',
+          'apply-style-transaction',
+          'probe-declared-failure',
+        ],
+      ],
+      [
+        'CSM-030',
+        ['move-hierarchy', 'reorder-z', 'move-hierarchy', 'probe-declared-failure'],
+      ],
+      [
+        'CSM-031',
+        [
+          'group-targets',
+          'duplicate-tree',
+          'copy-paste-tree',
+          'ungroup-target',
+          'probe-declared-failure',
+        ],
+      ],
+    ] as const;
+
+    for (const [caseId, actions] of cases) {
+      const route = parseCoreV2ContractRoute(
+        `/lab/core-v2?scenario=${caseId}&size=100&seed=319`,
+      );
+      const plan = materializeCoreV2ExecutableCase(caseId, '100', 319);
+      const markup = renderCoreV2ContractLab(route);
+
+      expect(route.presenter.executionStatus).toBe('actual-observable');
+      expect(resolveCoreV2ExecutableRuntime(caseId).key).toBe('authoring');
+      expect(plan.actionTrace.map(({ type }) => type)).toEqual(actions);
       expect(markup).toContain(`data-testid="scenario-${caseId.toLowerCase()}"`);
       expect(markup).toContain('data-contract-status="armed"');
       expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(actions.length);
@@ -801,6 +861,7 @@ describe('Core v2 actual-only Lab bridge', () => {
       'executable-bridge.ts',
       'executable-cases.ts',
       'executable-runtime.ts',
+      'authoring-runtime.ts',
       'replacement-recovery-runtime.ts',
       'lifecycle-interruption-runtime.ts',
       'main.ts',
@@ -810,6 +871,8 @@ describe('Core v2 actual-only Lab bridge', () => {
       '../../scripts/verification/core-v2-contract/fold-replacement-recovery.mjs',
       '../../scripts/verification/core-v2-contract/handlers/lifecycle-interruption.mjs',
       '../../scripts/verification/core-v2-contract/fold-lifecycle-interruption.mjs',
+      '../../scripts/verification/core-v2-contract/handlers/authoring.mjs',
+      '../../scripts/verification/core-v2-contract/fold-authoring.mjs',
     ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
     const joined = [...sources, ...automationSources].join('\n');
     expect(joined).not.toContain('catalog-normalized-expected');
