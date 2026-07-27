@@ -1021,6 +1021,94 @@ describe('CoreV2Engine update transactions', () => {
     expect(engine.select(['item-a::bar:bar', 'missing'])).toEqual(['item-a::bar:bar']);
     expect(engine.snapshot().selectionIds).toEqual(['item-a::bar:bar']);
   });
+
+  it('ingests host-prepared text and image batches with atomic selection and cleanup facts', async () => {
+    const { engine, surface } = await createEngine(engines, 'host-asset-ingestion');
+    engine.loadDataset(updateScene());
+    const files = [
+      { name: 'a.png', mime: 'image/png', bytes: 1_024 },
+      { name: 'b.png', mime: 'image/png', bytes: 2_048 },
+    ];
+    const before = structuredClone(files);
+
+    expect(engine.ingestHostAsset({
+      kind: 'text',
+      idPrefix: 'pasted',
+      text: 'Line 1\r\nLine 2',
+      targetWorld: [400, 300],
+      activeEditor: false,
+    })).toMatchObject({
+      status: 'committed',
+      createdTextId: 'pasted-text-1',
+    });
+    expect(elementById(engine, 'pasted-text-1')).toMatchObject({
+      type: 'text',
+      text: 'Line 1\r\nLine 2',
+    });
+
+    expect(engine.ingestHostAsset({
+      kind: 'images',
+      idPrefix: 'pasted',
+      source: 'paste',
+      files,
+      targetWorld: [420, 320],
+      insideCanvas: true,
+    })).toMatchObject({
+      status: 'committed',
+      createdImageIds: ['pasted-image-1', 'pasted-image-2'],
+    });
+    expect(engine.ingestHostAsset({
+      kind: 'images',
+      idPrefix: 'pasted',
+      source: 'drop',
+      files,
+      targetWorld: [440, 340],
+      insideCanvas: true,
+    })).toMatchObject({
+      status: 'committed',
+      createdImageIds: ['pasted-image-3', 'pasted-image-4'],
+    });
+    expect(surface.selectionIds).toEqual(['pasted-image-3', 'pasted-image-4']);
+    expect(engine.snapshot().selectionIds).toEqual(['pasted-image-3', 'pasted-image-4']);
+
+    expect(engine.ingestHostAsset({
+      kind: 'images',
+      idPrefix: 'pasted',
+      source: 'drop',
+      files: [files[0]!],
+      targetWorld: [0, 0],
+      insideCanvas: false,
+    })).toMatchObject({
+      status: 'ignored',
+      changed: false,
+      createdImageIds: [],
+      probe: { ignoredOutsideDropCount: 1 },
+    });
+    expect(engine.ingestHostAsset({
+      kind: 'failure',
+      code: 'ASSET_DECODE_FAILED',
+      compressionFailureTargetScoped: true,
+      activeEditorClipboardNotStolen: true,
+      outsideDropNotStolen: true,
+    })).toMatchObject({
+      status: 'failed',
+      code: 'ASSET_DECODE_FAILED',
+      changed: false,
+      probe: { failedAssetTemporaryResources: 0 },
+    });
+    expect(engine.hostAssetIngestionProbe()).toEqual({
+      textSequence: 1,
+      imageSequence: 4,
+      ignoredOutsideDropCount: 1,
+      failedAssetTemporaryResources: 0,
+    });
+    expect(files).toEqual(before);
+    expect(engine.historyInspection().commands.slice(-3)).toMatchObject([
+      { recordCount: 1 },
+      { recordCount: 1 },
+      { recordCount: 1 },
+    ]);
+  });
 });
 
 async function createEngine(

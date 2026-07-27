@@ -62,6 +62,13 @@ export interface CoreV2SceneImageReconcileResult {
   readonly bindingsRetired: readonly string[];
 }
 
+export interface CoreV2SceneImageRetryResult {
+  readonly status: 'started' | 'deduplicated' | 'unavailable';
+  readonly entityId: string;
+  readonly bindingKey: string | null;
+  readonly generation: number;
+}
+
 export interface CoreV2SceneImageDiagnostic {
   readonly level: 'warning';
   readonly code: 'ASSET_LOAD_FAILED';
@@ -324,6 +331,78 @@ export class CoreV2SceneImageController {
     });
     if (reconcileChanged(result)) this.invalidate('scene-images:reconcile');
     return result;
+  }
+
+  /**
+   * Retry one failed logical image target. Consumers sharing the same binding
+   * join one new request generation; a concurrent retry observes and reuses
+   * that pending generation instead of issuing another backend request.
+   */
+  public retry(entityId: string): CoreV2SceneImageRetryResult {
+    this.assertAlive();
+    const target = this.targets.get(nonempty(entityId, 'image retry entityId'));
+    if (!target || !target.active) {
+      return retryResult('unavailable', entityId, null, 0);
+    }
+    const binding = this.bindings.get(target.current.bindingKey);
+    if (!binding) {
+      return retryResult(
+        'unavailable',
+        target.entityId,
+        target.current.bindingKey,
+        target.generation,
+      );
+    }
+    if (binding.resourceState === 'pending') {
+      return retryResult(
+        'deduplicated',
+        target.entityId,
+        binding.key,
+        target.generation,
+      );
+    }
+    if (binding.resourceState !== 'failed') {
+      return retryResult(
+        'unavailable',
+        target.entityId,
+        binding.key,
+        target.generation,
+      );
+    }
+
+    binding.resourceState = 'pending';
+    binding.observation = null;
+    binding.rendererGeneration = null;
+    binding.settlement = null;
+    for (const consumerId of [...binding.consumers.keys()].sort()) {
+      const consumer = this.targets.get(consumerId);
+      if (
+        !consumer ||
+        !consumer.active ||
+        consumer.current.bindingKey !== binding.key
+      ) {
+        binding.consumers.delete(consumerId);
+        continue;
+      }
+      const generation = (this.generations.get(consumerId) ?? consumer.generation) + 1;
+      this.generations.set(consumerId, generation);
+      const attempt = createAttempt(consumerId, consumer.projection, generation, true);
+      consumer.generation = generation;
+      consumer.current = attempt;
+      consumer.attempts.push(attempt);
+      this.pruneTargetAttempts(consumer);
+      binding.consumers.set(consumerId, generation);
+      binding.attempts.add(attempt);
+      attempt.binding = binding;
+    }
+    this.startBinding(binding);
+    this.invalidate(`scene-image:${binding.key}:retry`);
+    return retryResult(
+      'started',
+      target.entityId,
+      binding.key,
+      this.targets.get(target.entityId)?.generation ?? target.generation,
+    );
   }
 
   /** Waits only currently issued asset settlements; controlled requests may intentionally block it. */
@@ -913,6 +992,20 @@ function freezeAttemptProbe(attempt: ImageAttempt): CoreV2SceneImageAttemptProbe
     naturalSize: attempt.naturalSize,
     reusedResolvedResource: attempt.reusedResolvedResource,
     diagnosticCount: attempt.diagnosticCount,
+  });
+}
+
+function retryResult(
+  status: CoreV2SceneImageRetryResult['status'],
+  entityId: string,
+  bindingKey: string | null,
+  generation: number,
+): CoreV2SceneImageRetryResult {
+  return Object.freeze({
+    status,
+    entityId,
+    bindingKey,
+    generation,
   });
 }
 

@@ -47,6 +47,7 @@ import type {
 import type {
   CoreV2SceneImageAttemptProbe,
   CoreV2SceneImageProductProbe,
+  CoreV2SceneImageRetryResult,
   CoreV2SceneImagesProbe,
 } from './scene-images';
 import {
@@ -62,6 +63,13 @@ import {
   type CoreV2AssetSession,
   type CoreV2AssetSessionProbe,
 } from './assets';
+import {
+  CORE_V2_HOST_ASSET_INGESTION_REVISION,
+  CoreV2HostAssetIngestionAuthority,
+  type CoreV2HostAssetIngestionInput,
+  type CoreV2HostAssetIngestionPlan,
+  type CoreV2HostAssetIngestionProbe,
+} from './host-asset-ingestion';
 import {
   coreV2AffineBasis,
   coreV2AffineCorners,
@@ -835,6 +843,7 @@ export interface CoreV2EngineSurface {
   debugSnapshot(): CoreV2SurfaceDebug;
   geometrySnapshot?(): CoreV2SurfaceGeometrySnapshot;
   sceneImageProbe?(): CoreV2EngineSceneImagesProbe;
+  retrySceneImage?(entityId: string): CoreV2SceneImageRetryResult;
   componentVisualProbe?(
     target: CoreV2ComponentVisualTarget,
   ): CoreV2SurfaceComponentVisualProbe | null;
@@ -1048,6 +1057,24 @@ export interface CoreV2EngineAuthoringResult {
   readonly transaction: CoreV2EngineTransactionResult | null;
   readonly diagnostic: CoreV2AuthoringDiagnostic | CoreV2EngineDiagnostic | null;
   readonly history: CoreV2HistoryState;
+}
+
+export interface CoreV2EngineHostAssetIngestionResult {
+  readonly schemaRevision: typeof CORE_V2_HOST_ASSET_INGESTION_REVISION;
+  readonly status:
+    | 'committed'
+    | 'unchanged'
+    | 'ignored'
+    | 'failed'
+    | 'rejected'
+    | 'refused';
+  readonly changed: boolean;
+  readonly code: string | null;
+  readonly createdTextId: string | null;
+  readonly createdImageIds: readonly string[];
+  readonly plan: CoreV2HostAssetIngestionPlan;
+  readonly transaction: CoreV2EngineTransactionResult | null;
+  readonly probe: CoreV2HostAssetIngestionProbe;
 }
 
 interface CoreV2EnginePatchResultBase {
@@ -1564,6 +1591,7 @@ export class CoreV2Engine {
     CoreV2EngineHistoryCompanion
   >;
   private readonly hostInteractions: CoreV2HostInteractionAuthority;
+  private readonly hostAssetIngestion = new CoreV2HostAssetIngestionAuthority();
   private readonly transformerGestures = new CoreV2TransformerGestureAuthority();
   private activeTransformerEdit: ActiveCoreV2TransformerEdit | null = null;
   private transformerEditPreviewCount = 0;
@@ -2087,6 +2115,70 @@ export class CoreV2Engine {
       diagnostic,
       history: transaction.history.state,
     });
+  }
+
+  /**
+   * Commit host-prepared text/images without accepting DOM/File ownership.
+   * Multi-image intake, selection, and history publish as one transaction.
+   */
+  public ingestHostAsset(
+    input: CoreV2HostAssetIngestionInput,
+  ): CoreV2EngineHostAssetIngestionResult {
+    this.requireSurface('ingestHostAsset');
+    const plan = this.hostAssetIngestion.plan(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      input,
+    );
+    if (plan.status === 'ignored') {
+      return Object.freeze({
+        schemaRevision: CORE_V2_HOST_ASSET_INGESTION_REVISION,
+        status: 'ignored',
+        changed: false,
+        code: null,
+        createdTextId: null,
+        createdImageIds: Object.freeze([]),
+        plan,
+        transaction: null,
+        probe: this.hostAssetIngestion.probe(),
+      });
+    }
+    if (plan.status === 'failed') {
+      return Object.freeze({
+        schemaRevision: CORE_V2_HOST_ASSET_INGESTION_REVISION,
+        status: 'failed',
+        changed: false,
+        code: plan.code,
+        createdTextId: null,
+        createdImageIds: Object.freeze([]),
+        plan,
+        transaction: null,
+        probe: this.hostAssetIngestion.probe(),
+      });
+    }
+    const transaction = this.transact(plan.transaction);
+    if (transaction.status === 'committed') this.hostAssetIngestion.commit(plan);
+    const code =
+      transaction.status === 'rejected' || transaction.status === 'refused'
+        ? transaction.diagnostic.code
+        : null;
+    return Object.freeze({
+      schemaRevision: CORE_V2_HOST_ASSET_INGESTION_REVISION,
+      status: transaction.status,
+      changed: transaction.changed,
+      code,
+      createdTextId: transaction.status === 'committed' ? plan.createdTextId : null,
+      createdImageIds: transaction.status === 'committed'
+        ? plan.createdImageIds
+        : Object.freeze([]),
+      plan,
+      transaction,
+      probe: this.hostAssetIngestion.probe(),
+    });
+  }
+
+  public hostAssetIngestionProbe(): CoreV2HostAssetIngestionProbe {
+    this.requireSurface('hostAssetIngestionProbe');
+    return this.hostAssetIngestion.probe();
   }
 
   private planMutationRequest(
@@ -4692,6 +4784,36 @@ export class CoreV2Engine {
     return this.requireSurface('sceneImageProbe').sceneImageProbe?.() ?? null;
   }
 
+  public retryAsset(
+    target: CoreV2ComponentVisualTarget | string,
+  ): CoreV2SceneImageRetryResult {
+    const surface = this.requireSurface('retryAsset');
+    if (!surface.retrySceneImage) {
+      return Object.freeze({
+        status: 'unavailable',
+        entityId: typeof target === 'string' ? target : '',
+        bindingKey: null,
+        generation: 0,
+      });
+    }
+    let entityId: string;
+    if (typeof target === 'string') {
+      entityId = target;
+    } else {
+      const visual = this.componentVisualProbe(target);
+      entityId = visual?.entityId ?? '';
+    }
+    if (entityId.length === 0) {
+      return Object.freeze({
+        status: 'unavailable',
+        entityId,
+        bindingKey: null,
+        generation: 0,
+      });
+    }
+    return surface.retrySceneImage(entityId);
+  }
+
   /**
    * Join the detached semantic component index with an optional renderer
    * surface probe. Legacy/injected surfaces stay observable as unavailable;
@@ -6653,6 +6775,10 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
       ...controller,
       images: Object.freeze(images),
     });
+  }
+
+  public retrySceneImage(entityId: string): CoreV2SceneImageRetryResult {
+    return this.core.retrySceneImage(entityId);
   }
 
   public componentVisualProbe(

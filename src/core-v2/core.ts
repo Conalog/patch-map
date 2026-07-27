@@ -89,6 +89,7 @@ import {
   CoreV2SceneImageController,
   type CoreV2SceneImageIntrinsicSize,
   type CoreV2SceneImageProductProbe,
+  type CoreV2SceneImageRetryResult,
   type CoreV2SceneImagesProbe,
 } from './scene-images';
 import {
@@ -995,6 +996,11 @@ export class CoreV2 {
   public sceneImageProbe(): CoreV2SceneImagesProbe {
     this.assertAlive();
     return this.sceneImages.probe(this.componentRendererFactsPublished);
+  }
+
+  public retrySceneImage(entityId: string): CoreV2SceneImageRetryResult {
+    this.assertAlive();
+    return this.sceneImages.retry(entityId);
   }
 
   public componentVisualProbe(

@@ -549,6 +549,57 @@ describe('CoreV2SceneImageController', () => {
     expect(renderer.operations.filter((value) => value === `bind:${failedKey}`)).toHaveLength(1);
   });
 
+  it('retries one failed shared binding once and deduplicates concurrent retry', async () => {
+    const renderer = new MockImageRenderer();
+    const controller = new CoreV2SceneImageController(renderer);
+    const key = 'url:https://assets.example.test/retry.png';
+    controller.reconcile(imageIndex([
+      image('retry-a', 'https://assets.example.test/retry.png', 'url'),
+      image('retry-b', 'https://assets.example.test/retry.png', 'url'),
+    ]));
+    renderer.fail(key, 1);
+    await controller.settleBindings([key]);
+
+    expect(controller.imageProbe('retry-a')).toMatchObject({
+      generation: 1,
+      state: 'failed',
+      diagnosticCount: 1,
+    });
+    expect(controller.retry('retry-a')).toEqual({
+      status: 'started',
+      entityId: 'retry-a',
+      bindingKey: key,
+      generation: 2,
+    });
+    expect(controller.retry('retry-b')).toEqual({
+      status: 'deduplicated',
+      entityId: 'retry-b',
+      bindingKey: key,
+      generation: 2,
+    });
+    expect(renderer.operations.filter((value) => value === `bind:${key}`)).toHaveLength(2);
+
+    renderer.resolve(key, { generation: 2 });
+    await controller.settleBindings([key]);
+    expect(controller.imageProbe('retry-a')).toMatchObject({
+      generation: 2,
+      state: 'resolved',
+      attachmentState: 'current',
+      diagnosticCount: 1,
+      attempts: [
+        expect.objectContaining({ generation: 1, diagnosticCount: 1 }),
+        expect.objectContaining({ generation: 2, diagnosticCount: 0 }),
+      ],
+    });
+    expect(controller.imageProbe('retry-b')).toMatchObject({
+      generation: 2,
+      state: 'resolved',
+      attachmentState: 'current',
+      diagnosticCount: 1,
+    });
+    expect(controller.retry('retry-a').status).toBe('unavailable');
+  });
+
   it('does not request another frame for an unchanged image reconciliation', () => {
     const renderer = new MockImageRenderer();
     const invalidate = vi.fn();

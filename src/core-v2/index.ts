@@ -99,10 +99,18 @@ export {
   CoreV2AssetError,
   CoreV2AssetRuntime,
   CoreV2AssetSession,
+  assertCoreV2AssetResponseAllowed,
+  createCoreV2AssetIngestionPolicy,
   createCoreV2PixiAssetBackend,
+  evaluateCoreV2AssetResponsePolicy,
   normalizeCoreV2AssetDescriptor,
 } from './assets';
 export type * from './assets';
+export {
+  CORE_V2_HOST_ASSET_INGESTION_REVISION,
+  CoreV2HostAssetIngestionAuthority,
+} from './host-asset-ingestion';
+export type * from './host-asset-ingestion';
 export { PatchMapParseError } from './contracts';
 export type * from './contracts';
 export { parsePatchMapV010 } from './parser';
