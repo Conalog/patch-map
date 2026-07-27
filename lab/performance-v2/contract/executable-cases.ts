@@ -40,8 +40,15 @@ export const CORE_V2_EXECUTABLE_CASE_IDS = Object.freeze([
   'DET-002',
   'DET-003',
   'DET-004',
+  'PRF-001',
+  'PRF-002',
+  'PRF-003',
+  'PRF-004',
+  'PRF-005',
+  'PRF-006',
   'PRF-007',
   'PRF-008',
+  'PRF-009',
   'LIF-001',
   'LIF-002',
   'LIF-003',
@@ -163,15 +170,15 @@ export const CORE_V2_EXECUTABLE_CASE_IDS = Object.freeze([
 
 export type CoreV2ExecutableCaseId = (typeof CORE_V2_EXECUTABLE_CASE_IDS)[number];
 
-export const CORE_V2_EXECUTABLE_COUNT = 155;
-export const CORE_V2_CONTRACT_STUB_COUNT = 18;
+export const CORE_V2_EXECUTABLE_COUNT = 162;
+export const CORE_V2_CONTRACT_STUB_COUNT = 11;
 
 const CONTRACT_REVISION = 'core-v2-functional-contract/2026-07-16.2';
 const ACTION_LANGUAGE_REVISION = 'core-v2-catalog-actions/1';
 const APPROVED_CASE_COUNT = 173;
 const APPROVED_ACTION_DEFINITION_COUNT = 381;
-const EXECUTABLE_ACTION_COUNT = 600;
-const EXECUTABLE_ACTION_TYPE_COUNT = 338;
+const EXECUTABLE_ACTION_COUNT = 614;
+const EXECUTABLE_ACTION_TYPE_COUNT = 351;
 const CANONICAL_SIZES = new Set(['100', '500', '1000', '2000', '5000', 'production']);
 const EXECUTABLE_ID_SET = new Set<string>(CORE_V2_EXECUTABLE_CASE_IDS);
 

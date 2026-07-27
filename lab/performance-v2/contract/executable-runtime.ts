@@ -84,6 +84,8 @@ import * as exportExtractionHandlersModule from '../../../scripts/verification/c
 import * as pixijsIntegrationHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/pixijs-integration.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as packageIntegrationHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/package-integration.mjs';
+// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
+import * as performanceHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/performance.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as foundationFoldModule from '../../../scripts/verification/core-v2-contract/fold-foundation.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
@@ -144,6 +146,8 @@ import * as exportExtractionFoldModule from '../../../scripts/verification/core-
 import * as pixijsIntegrationFoldModule from '../../../scripts/verification/core-v2-contract/fold-pixijs-integration.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
 import * as packageIntegrationFoldModule from '../../../scripts/verification/core-v2-contract/fold-package-integration.mjs';
+// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
+import * as performanceFoldModule from '../../../scripts/verification/core-v2-contract/fold-performance.mjs';
 
 import type {
   CoreV2ExecutableCaseId,
@@ -220,6 +224,11 @@ import {
   createCoreV2PackageIntegrationRuntime,
   type CoreV2PackageIntegrationCaseId,
 } from './package-integration-runtime';
+import {
+  CORE_V2_PERFORMANCE_CASE_IDS,
+  createCoreV2PerformanceRuntime,
+  type CoreV2PerformanceCaseId,
+} from './performance-runtime';
 
 export type CoreV2ExecutableRuntimeKey =
   | 'foundation'
@@ -250,6 +259,7 @@ export type CoreV2ExecutableRuntimeKey =
   | 'export-extraction'
   | 'pixijs-integration'
   | 'package-integration'
+  | 'performance'
   | 'asset-ingestion'
   | 'assets';
 
@@ -357,6 +367,10 @@ interface HandlerFactoryRuntime {
   ): readonly HandlerEntry[];
   createPixijsIntegrationHandlerEntries?(this: void): readonly HandlerEntry[];
   createPackageIntegrationHandlerEntries?(
+    this: void,
+    product: Readonly<Record<string, unknown>>,
+  ): readonly HandlerEntry[];
+  createPerformanceHandlerEntries?(
     this: void,
     product: Readonly<Record<string, unknown>>,
   ): readonly HandlerEntry[];
@@ -483,6 +497,10 @@ interface FoldRuntime {
     this: void,
     options: Readonly<Record<string, unknown>>,
   ): CoreV2FoldedExecution;
+  foldPerformanceExecution?(
+    this: void,
+    options: Readonly<Record<string, unknown>>,
+  ): CoreV2FoldedExecution;
 }
 
 export interface CoreV2FoldedExecution {
@@ -554,6 +572,8 @@ const pixijsIntegrationHandlers =
   pixijsIntegrationHandlersModule as unknown as HandlerFactoryRuntime;
 const packageIntegrationHandlers =
   packageIntegrationHandlersModule as unknown as HandlerFactoryRuntime;
+const performanceHandlers =
+  performanceHandlersModule as unknown as HandlerFactoryRuntime;
 const foundationFold = foundationFoldModule as unknown as FoldRuntime;
 const dataFoundationFold = dataFoundationFoldModule as unknown as FoldRuntime;
 const dataClosureFold = dataClosureFoldModule as unknown as FoldRuntime;
@@ -594,6 +614,8 @@ const pixijsIntegrationFold =
   pixijsIntegrationFoldModule as unknown as FoldRuntime;
 const packageIntegrationFold =
   packageIntegrationFoldModule as unknown as FoldRuntime;
+const performanceFold =
+  performanceFoldModule as unknown as FoldRuntime;
 
 const FOUNDATION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
   'LIF-001',
@@ -663,6 +685,9 @@ const PIXIJS_INTEGRATION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
 ]);
 const PACKAGE_INTEGRATION_CASE_IDS = new Set<CoreV2PackageIntegrationCaseId>(
   CORE_V2_PACKAGE_INTEGRATION_CASE_IDS,
+);
+const PERFORMANCE_CASE_IDS = new Set<CoreV2PerformanceCaseId>(
+  CORE_V2_PERFORMANCE_CASE_IDS,
 );
 const ASSET_INGESTION_CASE_IDS = new Set<CoreV2ExecutableCaseId>([
   'ERR-003',
@@ -832,6 +857,8 @@ const EXPORT_EXTRACTION_DESCRIPTOR = createExportExtractionDescriptor();
 const PIXIJS_INTEGRATION_DESCRIPTOR = createPixijsIntegrationDescriptor();
 const PACKAGE_INTEGRATION_DESCRIPTOR = createPackageIntegrationDescriptor(true);
 const PACKAGE_MULTI_INSTANCE_DESCRIPTOR = createPackageIntegrationDescriptor(false);
+const PERFORMANCE_EVIDENCE_DESCRIPTOR = createPerformanceDescriptor(true);
+const PERFORMANCE_PRODUCT_DESCRIPTOR = createPerformanceDescriptor(false);
 
 export function resolveCoreV2ExecutableRuntime(
   caseId: CoreV2ExecutableCaseId,
@@ -871,6 +898,11 @@ export function resolveCoreV2ExecutableRuntime(
     return caseId === 'PKG-003'
       ? PACKAGE_MULTI_INSTANCE_DESCRIPTOR
       : PACKAGE_INTEGRATION_DESCRIPTOR;
+  }
+  if (isPerformanceCaseId(caseId)) {
+    return caseId === 'PRF-001' || caseId === 'PRF-002'
+      ? PERFORMANCE_EVIDENCE_DESCRIPTOR
+      : PERFORMANCE_PRODUCT_DESCRIPTOR;
   }
   if (isViewportCaseId(caseId)) return VIEWPORT_DESCRIPTOR;
   if (ASSET_INGESTION_CASE_IDS.has(caseId)) return ASSET_INGESTION_DESCRIPTOR;
@@ -1114,6 +1146,56 @@ function isPackageIntegrationCaseId(
   return PACKAGE_INTEGRATION_CASE_IDS.has(
     caseId as CoreV2PackageIntegrationCaseId,
   );
+}
+
+function createPerformanceDescriptor(
+  needsSupplementalWebGLLease: boolean,
+): CoreV2ExecutableRuntimeDescriptor {
+  const fold = requireFold(
+    performanceFold.foldPerformanceExecution,
+    'performance fold',
+  );
+  const createEntries = requireFactory(
+    performanceHandlers.createPerformanceHandlerEntries,
+    'performance handlers',
+  );
+  const createRun = (plan: CoreV2ExecutableCasePlan) => {
+    invariant(isPerformanceCaseId(plan.id), 'performance case identity');
+    const runtime = createCoreV2PerformanceRuntime(plan.id);
+    return Object.freeze({
+      handlerEntries: selectHandlerEntries(
+        plan,
+        createEntries(
+          runtime.product as unknown as Readonly<Record<string, unknown>>,
+        ),
+      ),
+      engineOptions: Object.freeze({}),
+      actionTimeoutMs: 180_000,
+      postDestroyProductProbe: () => runtime.postDestroyProductProbe(),
+    });
+  };
+  return Object.freeze({
+    key: 'performance',
+    needsSupplementalWebGLLease,
+    createRun,
+    handlerEntries(plan: CoreV2ExecutableCasePlan): readonly HandlerEntry[] {
+      return createRun(plan).handlerEntries;
+    },
+    fold(input: CoreV2RuntimeFoldInput): CoreV2FoldedExecution {
+      return fold({
+        casePlan: input.casePlan,
+        execution: input.execution,
+        provenance: input.provenance,
+        environment: input.environment,
+      });
+    },
+  });
+}
+
+function isPerformanceCaseId(
+  caseId: CoreV2ExecutableCaseId,
+): caseId is CoreV2PerformanceCaseId {
+  return PERFORMANCE_CASE_IDS.has(caseId as CoreV2PerformanceCaseId);
 }
 
 function createReplacementRecoveryDescriptor(): CoreV2ExecutableRuntimeDescriptor {

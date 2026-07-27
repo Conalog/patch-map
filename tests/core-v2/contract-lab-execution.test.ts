@@ -80,7 +80,16 @@ describe('Core v2 executable Lab product bridge', () => {
       && caseId !== 'UPD-005'
       && caseId !== 'ANI-001'
       && caseId !== 'ANI-002'
-      && caseId !== 'UPD-008',
+      && caseId !== 'UPD-008'
+      // The performance routes intentionally execute their 2,000/5,000-object
+      // product workloads only in the dedicated unit/headless checkpoint.
+      && caseId !== 'PRF-001'
+      && caseId !== 'PRF-002'
+      && caseId !== 'PRF-003'
+      && caseId !== 'PRF-004'
+      && caseId !== 'PRF-005'
+      && caseId !== 'PRF-006'
+      && caseId !== 'PRF-009',
   ))(
     'executes %s through a targeted CoreV2Engine and retains actual-only cleanup facts',
     async (caseId) => {
@@ -1525,8 +1534,15 @@ describe('Core v2 executable Lab product bridge', () => {
       'DET-002': 'determinism-lifecycle',
       'DET-003': 'determinism-lifecycle',
       'DET-004': 'export-extraction',
+      'PRF-001': 'performance',
+      'PRF-002': 'performance',
+      'PRF-003': 'performance',
+      'PRF-004': 'performance',
+      'PRF-005': 'performance',
+      'PRF-006': 'performance',
       'PRF-007': 'lifecycle-interruption',
       'PRF-008': 'export-extraction',
+      'PRF-009': 'performance',
       'LIF-001': 'foundation',
       'LIF-002': 'foundation',
       'LIF-003': 'replacement-recovery',
