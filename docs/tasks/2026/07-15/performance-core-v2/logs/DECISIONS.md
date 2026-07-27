@@ -237,3 +237,9 @@
 - Keep focus, action deduplication, supported actions, selection intent, and reduced motion in one Engine-local authority; create empty Pixi Containers only while accessibility is enabled, publish them under one aggregate accessibility root, and handle activation through one delegated listener.
 - This uses the public PixiJS AccessibilitySystem for real browser focus and assistive activation while preserving aggregate Mesh visuals, manual rendering, stable logical IDs, and the expected-blind execution boundary.
 - ACC-001..003 close with hidden and removed targets filtered, alias activation deduplicated, reduced-motion bars settled immediately, legacy injected renderers treated as optional-capability surfaces, and overlay, listener, logical state, host DOM, and canvas ownership released on destroy; headed assistive-technology and native Windows evidence remain pending.
+
+**2026-07-27**
+- The strict Engine parser must preserve the unversioned PATCH MAP array contract, while the approved migration cases also require a pinned legacy cutover, guarded persistence, shadow comparison, and rollback to a host-owned prior engine.
+- Keep Engine loading array-strict. Admit only canonical arrays or the explicit generic-item object through the host compatibility materializer, validate array persistence and semantic hashes before writes, and let one instance-local migration authority select a host-supplied engine only at mount/remount.
+- This prevents guessed legacy conversion, partial writes, expected-data leakage, active-session hot swaps, duplicate effects, and accidental bundling or emulation of the frozen prior engine.
+- MIG-001..003 and the host adapter share the boundary. The Lab exercises the previous-host seam with a Core v2 stand-in, while the real prior-engine factory, headed assistive-technology run, and native Windows qualification remain external release responsibilities.

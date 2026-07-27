@@ -1,32 +1,63 @@
 # Goal
 
-Connect all 38 approved decisions and 173 cases to PixiJS product behavior, independent actual automation, focused Lab routes, packed integration, and release evidence without changing approved expected observations.
+Connect all 38 approved decisions and 173 cases to PixiJS product behavior,
+independent actual automation, focused Lab routes, packed integration, and
+release evidence without changing approved expected observations.
 
 # Scope
 
-- Implement approved records in 5–10 case dependency tranches with shared product and expected-blind automation substrate.
-- Work only on `performance/core-v2`; keep immutable fixtures/expected/review evidence, Core v1, clean-room/comparison paths, dependency internals, and other refs/worktrees frozen.
-- Preserve PATCH MAP input immutability, stable identity, atomic failure, aggregate Pixi WebGL rendering, and explicit lifecycle/resource ownership.
+- Keep the PATCH MAP v0.10 array boundary, caller immutability, stable logical
+  identity, atomic failure, aggregate PixiJS WebGL rendering, and explicit
+  lifecycle/resource ownership.
+- Work only on `performance/core-v2`; immutable fixtures/expected/review
+  evidence, Core v1, clean-room/comparison paths, dependency internals, and
+  other refs/worktrees remain frozen.
+- Use shared expected-blind automation and risk-based tranche gates; native
+  release qualification remains distinct from the Chromium development proxy.
 
 # Current Facts
 
-- Contract revision `core-v2-functional-contract/2026-07-16.2` contains 38 approved decisions, 135 capabilities, 38 journeys, 646 actions, and 1,388 assertions. Canonical verification and all 32 negative drift probes pass unchanged.
-- Core v2 uses a dense store, aggregate Mesh/asset/text/interaction layers, root-only event authority, one manual scheduler, and explicit scene-versus-frame publication. WebGL2 is mandatory; WebGPU and native Windows remain pending.
-- `DAT-008` truthfully stops at its malformed approved action. Twenty-one immutable conflicts are observed and two `UPD-007` conflicts remain declared latent; none are hidden or aliased.
-- Default PATCH MAP loading remains compatibility-permissive for dangling relations, while explicit strict loading validates duplicates and references before atomic publication.
+- Contract revision `core-v2-functional-contract/2026-07-16.2` contains 38
+  approved decisions, 135 capabilities, 38 journeys, 646 actions, and 1,388
+  assertions. Canonical verification and all 32 negative drift probes pass.
+- Core v2 uses a dense store, aggregate Mesh/asset/text/interaction layers,
+  root-only event authority, one manual scheduler, and explicit
+  scene-versus-frame publication. WebGL2 is mandatory; WebGPU is experimental.
+- Default array loading remains compatibility-permissive for dangling
+  relations. Explicit strict loading validates duplicates/references before
+  atomic publication; the host compatibility seam additionally accepts only
+  the pinned `generic-item` object and guards array persistence roundtrips.
+- `DAT-008` truthfully stops at its malformed approved action. Twenty-one
+  immutable conflicts are observed and two `UPD-007` conflicts remain latent;
+  none are hidden, aliased, or used by product execution.
 
 # Current State
 
-- Coverage is 170 executable routes, 169 actual-producing routes, 3 explicit stubs, 636 executable actions, and 371 action types. `DAT-008` remains the sole executable route without a terminal actual; only `MIG-001..003` remain stubbed.
-- `ACC-001..003` use one Engine-local logical authority and the public PixiJS AccessibilitySystem. Empty target Containers exist only while enabled; one delegated root click bridges stable IDs while aggregate visuals retain zero entity listeners. Reduced motion settles presentation immediately.
-- `PRF-001..006/009` share one expected-blind runtime and seven focused Lab routes. Flat Engine-owned merges share untouched roots, reparse authenticated dirty roots, and publish dirty aggregate ranges; complex or untrusted inputs use the canonical full path.
-- Chromium 4x 2+7 evidence is bound to `464bfee` with raw digest `5181d36ca690175bd67f463e0eac6cdc969fe0102c3fdd8c68a2d0f70af25a15`. Median 2,000-record bar/text/10% bulk improved 45–66%; 5,000-record move/rotate/10% bulk improved 64–75%, and whole-scene bulk 21%. Edge auto-pan regressed 23%.
-- Targeted headless Chromium first/repeat/fresh/destroy passes all three accessibility routes at 20/20 assertions with deterministic actuals, real WebGL2/shadow-DOM evidence, zero browser errors, and terminal canvas cleanup. The registered inventory is 155 routes and 1,999 assertions: 1,964 matches, twenty-one immutable conflicts, fourteen performance deficits, and two latent conflicts; the full 155-route rerun remains deferred.
-- Full Core v2 verification passes 140 files/1,324 tests, lint, typecheck, both builds, and canonical verification. Packed ESM/CJS covers all 38 journeys. Refreshed 2+7 memory exercises accessibility on nine cycles, covers 5,099 entities at 89,095-byte median retained heap, and ends with zero logical nodes, surface, host DOM, listeners, or canvas. Headed release, WebGPU, native Windows, fourteen deficits, three migration routes, and final independent review remain pending.
+- All 173 routes are executable, 172 produce terminal actuals, and no stub
+  remains. Every case has shared product execution, independent comparison,
+  and the same focused Lab shell; `DAT-008` is the intentional exception to a
+  terminal actual.
+- Final verification passes 142 Core v2 files/1,345 tests, full lint and
+  typecheck, both builds, and canonical contract verification. Headless
+  Chromium completes 158 routes and 2,028 assertions in first/repeat/fresh
+  sessions: 1,993 match, 21 are declared immutable conflicts, and 14 are
+  measured performance deficits, with zero console/page/network errors.
+- Packed ESM/CJS/types and all 38 journeys pass against artifact
+  `cc691f4c855eed102d672c51e7284ed5bba0f1ebac1c9e8ae8794c33b1140eef`;
+  four examples execute, audit/package hygiene pass, and canvas cleanup is
+  zero. The final 2+7 lifecycle run covers 5,099 entities at 88,231-byte median
+  retained heap and releases renderer, scheduler, DOM, listeners, and canvas.
+- Preserved Chromium 4x evidence has 18 runs/162 raw trials. Median
+  2,000-record bar/text/10% bulk improves 45–66%, 5,000-record
+  move/rotate/10% bulk improves 64–75%, and whole-scene bulk improves 21%;
+  edge auto-pan regresses 23%. Headed assistive-technology evidence, native
+  Windows Chrome/Edge, and WebGPU remain pending.
 
 # Next Step
 
-Implement `MIG-001/002/003` as the final contract tranche over schema cutover, cohort promotion, session-stable engine choice, rollback, shared expected-blind execution, and the same focused Lab shell.
+Run the release-owned headed Windows Chrome/Edge plus NVDA and native
+performance matrix, then adjudicate the 14 proxy deficits and declared
+contract conflicts without changing immutable expected evidence.
 
 # Working Boundary
 
