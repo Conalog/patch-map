@@ -37,15 +37,16 @@ release evidence without changing approved expected observations.
   remains. Every case has shared product execution, independent comparison,
   and the same focused Lab shell; `DAT-008` is the intentional exception to a
   terminal actual.
-- Current verification passes 175 files/1,591 tests, full lint and
-  typecheck, both builds, and canonical contract verification. Headless
-  Chromium completes 158 routes and 2,028 assertions in first/repeat/fresh
-  sessions: 1,993 match, 21 are declared immutable conflicts, and 14 are
-  measured performance deficits, with zero console/page/network errors.
+- The interaction tranche full unit checkpoint passes 176 files/1,610 tests;
+  its two later narrow renderer/empty-selection corrections pass 35- and
+  32-test targeted regressions. Final full lint/typecheck, Core v2 and Lab
+  builds, canonical contract verification, 31 product browser checks, and all
+  189 human-Lab checks across 173 routes pass with zero console/page/network
+  errors.
 - Packed ESM/CJS/types and all 38 journeys pass against artifact
-  `cc691f4c855eed102d672c51e7284ed5bba0f1ebac1c9e8ae8794c33b1140eef`;
+  `c762337093139d7b42a089a5f8cdc83f0b6705a4e70d090f2755cb0c2253c966`;
   four examples execute, audit/package hygiene pass, and canvas cleanup is
-  zero. The final 2+7 lifecycle run covers 5,099 entities at 88,231-byte median
+  zero. The final 2+7 lifecycle run covers 5,099 entities at 76,991-byte median
   retained heap and releases renderer, scheduler, DOM, listeners, and canvas.
 - Preserved Chromium 4x evidence has 18 runs/162 raw trials. Median
   2,000-record bar/text/10% bulk improves 45–66%, 5,000-record
@@ -72,6 +73,17 @@ release evidence without changing approved expected observations.
   and reports zero console/page/network/external errors. Pre-harness baseline
   raw is unavailable; its comparable exploratory medians remain explicitly
   labeled, while native Windows is still pending.
+- The broader 5,000-entity interaction checkpoint covers pointer
+  click/shift/empty, box/paint selection, pan/zoom, transformer
+  move/resize/rotate/cancel, keyboard nudge, undo/redo, structural authoring,
+  random text, assets, accessibility, capture, resize, and destroy/re-init in
+  two warmups plus seven measured sessions at both 1x and Chromium 4x. At 1x,
+  pointer p95 is 0.3--0.5 ms, pan/zoom frame p95 is 6.6/4.5 ms, and pan during
+  all-bar animation is 12.3 ms; at 4x those values are 2.1--3.4 ms,
+  26.4/20.1 ms, and 42.8 ms. The evidence preserves every raw sample and has
+  zero threshold violations or browser/external errors. Capture, accessibility
+  tree creation, and re-init remain explicitly classified as expensive
+  one-shot operations rather than continuous interaction.
 
 # Next Step
 
