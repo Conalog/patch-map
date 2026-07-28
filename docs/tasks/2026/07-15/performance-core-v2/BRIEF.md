@@ -37,17 +37,20 @@ release evidence without changing approved expected observations.
   remains. Every case has shared product execution, independent comparison,
   and the same focused Lab shell; `DAT-008` is the intentional exception to a
   terminal actual.
-- The interaction tranche full unit checkpoint passes 176 files/1,610 tests;
-  its two later narrow renderer/empty-selection corrections pass 35- and
-  32-test targeted regressions. Final full lint/typecheck, Core v2 and Lab
-  builds, canonical contract verification, 31 product browser checks, and all
-  189 human-Lab checks across 173 routes pass with zero console/page/network
-  errors.
+- The latest interaction checkpoint is green across 146 Core v2 files/1,403
+  tests, including targeted provenance and adaptive-culling regressions. Full
+  lint/typecheck, Core v2 and Lab builds, canonical contract verification, 31
+  product browser checks, and all 189 human-Lab checks across 173 routes pass
+  with zero console/page/network errors.
 - Packed ESM/CJS/types and all 38 journeys pass against artifact
   `c762337093139d7b42a089a5f8cdc83f0b6705a4e70d090f2755cb0c2253c966`;
   four examples execute, audit/package hygiene pass, and canvas cleanup is
-  zero. The final 2+7 lifecycle run covers 5,099 entities at 76,991-byte median
-  retained heap and releases renderer, scheduler, DOM, listeners, and canvas.
+  zero. Package exports and assets did not change in the interaction
+  optimization tranche, so that packed proof was not rerun. The current 2+7
+  lifecycle run covers 5,099 entities at 86,403-byte median retained heap and
+  releases renderer, scheduler, DOM, listeners, and canvas. This is 12.2%
+  higher than the prior 76,991-byte checkpoint but remains within the release
+  budget with no retained lifecycle owner.
 - Preserved Chromium 4x evidence has 18 runs/162 raw trials. Median
   2,000-record bar/text/10% bulk improves 45–66%, 5,000-record
   move/rotate/10% bulk improves 64–75%, and whole-scene bulk improves 21%;
@@ -66,24 +69,33 @@ release evidence without changing approved expected observations.
   with zero console/page/network errors.
 - The 5,000-bar `REN-009` path now uses one compact atomic height batch,
   incremental direct projection, visible-chunk Mesh uploads, fallback-text
-  chunk culling, and viewport-first manual frames. The preserved headless 2+7
-  checkpoint records 1x action/pan p95 of 275.2/1,696.0 ms and 31.8 canvas
-  fps; the Chromium 4x proxy records 954.3/2,653.7 ms and 17.3 canvas fps.
+  chunk culling, default Pixi Mesh batching, precise idle record culling,
+  coarse animation chunks, and viewport-first manual frames. The current
+  headless 2+7 checkpoint records 1x action/pan p95 of 133.5/664.4 ms and 61.6
+  canvas fps; the Chromium 4x proxy records 510.9/953.0 ms and 50.4 canvas fps.
+  Relative to the prior checkpoint, action/pan p95 falls 51.5/60.8% at 1x and
+  46.5/64.1% at 4x.
   Every run visibly interpolates, moves the viewport, destroys to zero canvas,
   and reports zero console/page/network/external errors. Pre-harness baseline
   raw is unavailable; its comparable exploratory medians remain explicitly
-  labeled, while native Windows is still pending.
+  labeled. The 4x proxy still records two pan long tasks per run and a 107 ms
+  maximum, while native Windows is still pending.
 - The broader 5,000-entity interaction checkpoint covers pointer
   click/shift/empty, box/paint selection, pan/zoom, transformer
   move/resize/rotate/cancel, keyboard nudge, undo/redo, structural authoring,
   random text, assets, accessibility, capture, resize, and destroy/re-init in
-  two warmups plus seven measured sessions at both 1x and Chromium 4x. At 1x,
-  pointer p95 is 0.3--0.5 ms, pan/zoom frame p95 is 6.6/4.5 ms, and pan during
-  all-bar animation is 12.3 ms; at 4x those values are 2.1--3.4 ms,
-  26.4/20.1 ms, and 42.8 ms. The evidence preserves every raw sample and has
-  zero threshold violations or browser/external errors. Capture, accessibility
-  tree creation, and re-init remain explicitly classified as expensive
-  one-shot operations rather than continuous interaction.
+  two warmups plus seven measured sessions at both 1x and Chromium 4x.
+  Aggregate child detachment, exact incremental reconcile, O(changed) renderer
+  slot lookup, geometry-only semantic reuse, bounded parser/record overlays,
+  and text fast paths reduce 1x pan/zoom p95 to 1.6/1.5 ms and animation-pan to
+  8.4 ms; 4x records 7.6/3.9/31.3 ms. Pointer/box/paint p95 remains 0.1--0.8 ms
+  at 1x and 1.1--3.3 ms at 4x. Move commit p95 is 8.3/35.5 ms, keyboard nudge
+  is 9.2/36.2 ms, and random text is 86.9/344.8 ms at 1x/4x. The evidence
+  preserves every raw sample and has zero threshold violations or
+  browser/external errors. Capture, accessibility tree creation, and re-init
+  remain explicitly classified as expensive one-shot operations. Chromium 4x
+  animation-pan remains above a 16.7 ms native-frame target and requires native
+  Windows qualification.
 
 # Next Step
 
