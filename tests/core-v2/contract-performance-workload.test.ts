@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   CORE_V2_CONTRACT_PERFORMANCE_SIZES,
@@ -6,8 +6,15 @@ import {
   canonicalCoreV2DatasetSha256,
   coreV2PerformancePercentile,
   countCoreV2LongTasksAtLeast,
+  measureCoreV2VisibleAction,
   validateCoreV2ContractPerformanceDataset,
 } from '../../performance/core-v2/contract-workload';
+import type { CoreV2Engine } from '../../src/core-v2/engine';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe('Core v2 contract performance workload', () => {
   it('builds deterministic detached frozen synthetic PATCH MAP input', () => {
@@ -55,5 +62,33 @@ describe('Core v2 contract performance workload', () => {
     expect(countCoreV2LongTasksAtLeast([99.9, 100, 140], 100)).toBe(2);
     expect(coreV2PerformancePercentile([1, 2, 3, 4, 5, 6, 7], 0.95)).toBe(7);
     expect(coreV2PerformancePercentile([], 0.95)).toBe(0);
+  });
+
+  it('uses one monotonic clock when a throttled rAF timestamp trails performance.now', async () => {
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      callback(-1_000);
+      return 1;
+    });
+    vi.spyOn(performance, 'now')
+      .mockReturnValueOnce(10)
+      .mockReturnValueOnce(20)
+      .mockReturnValueOnce(30);
+    const engine = {
+      publishFrame: vi.fn(),
+    } as unknown as CoreV2Engine;
+
+    const measurement = await measureCoreV2VisibleAction(
+      engine,
+      123,
+      () => 'visible',
+    );
+
+    expect(measurement).toMatchObject({
+      result: 'visible',
+      actionToVisibleMs: 10,
+      frameGapMs: 20,
+      frameTimeMs: 30,
+    });
+    expect(engine.publishFrame).toHaveBeenCalledWith(123);
   });
 });

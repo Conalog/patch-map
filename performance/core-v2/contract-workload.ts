@@ -678,7 +678,9 @@ function nextAnimationFrameTime(): Promise<number> {
   if (typeof requestAnimationFrame !== 'function') {
     return Promise.resolve(performance.now());
   }
-  return new Promise((resolve) => requestAnimationFrame(resolve));
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => resolve(performance.now()));
+  });
 }
 
 function rgbaHex(red: number, green: number, blue: number): string {
