@@ -4,6 +4,13 @@ import {
 } from './bridge';
 import { createCoreV2ExecutableLabBridge } from './executable-bridge';
 import { isCoreV2ExecutableCaseId } from './executable-cases';
+import {
+  coreV2KoreanActionLabel,
+  coreV2KoreanCaseInstruction,
+  coreV2KoreanCaseTitle,
+  coreV2KoreanCaseType,
+  coreV2KoreanStatus,
+} from './korean-copy';
 import { CORE_V2_CONTRACT_PRESENTERS } from './presenters';
 import {
   buildCoreV2ContractRoute,
@@ -43,13 +50,13 @@ interface CoreV2ContractUiRunMetrics {
 }
 
 const REN_005_SPECIMENS = Object.freeze([
-  Object.freeze({ id: 'alias', label: 'Alias' }),
-  Object.freeze({ id: 'url', label: 'Direct URL' }),
-  Object.freeze({ id: 'descriptor', label: 'Descriptor replacement' }),
-  Object.freeze({ id: 'data-uri', label: 'Data URI' }),
-  Object.freeze({ id: 'transformed', label: 'Transformed shared source' }),
-  Object.freeze({ id: 'hidden-image', label: 'Hidden image' }),
-  Object.freeze({ id: 'failed-image', label: 'Failed placeholder' }),
+  Object.freeze({ id: 'alias', label: '에셋 별칭' }),
+  Object.freeze({ id: 'url', label: '직접 URL' }),
+  Object.freeze({ id: 'descriptor', label: '설명자 교체' }),
+  Object.freeze({ id: 'data-uri', label: '데이터 URI' }),
+  Object.freeze({ id: 'transformed', label: '변환된 공유 원본' }),
+  Object.freeze({ id: 'hidden-image', label: '숨겨진 이미지' }),
+  Object.freeze({ id: 'failed-image', label: '실패 자리표시자' }),
 ]);
 
 interface CoreV2TextInspectorChoice {
@@ -58,62 +65,62 @@ interface CoreV2TextInspectorChoice {
 }
 
 const REN_006_TEXT_CHOICES: readonly CoreV2TextInspectorChoice[] = Object.freeze([
-  Object.freeze({ id: 'initial', label: 'Initial Unicode' }),
-  Object.freeze({ id: 'empty', label: 'Empty text' }),
-  Object.freeze({ id: 'long', label: 'Long wrapped text' }),
-  Object.freeze({ id: 'missing-font', label: 'Missing-font fallback' }),
-  Object.freeze({ id: 'rapid', label: 'Rapid final publication' }),
-  Object.freeze({ id: 'terminal', label: 'Terminal Arabic text' }),
+  Object.freeze({ id: 'initial', label: '초기 유니코드' }),
+  Object.freeze({ id: 'empty', label: '빈 텍스트' }),
+  Object.freeze({ id: 'long', label: '긴 줄바꿈 텍스트' }),
+  Object.freeze({ id: 'missing-font', label: '폰트 누락 대체' }),
+  Object.freeze({ id: 'rapid', label: '빠른 최종 게시' }),
+  Object.freeze({ id: 'terminal', label: '최종 아랍어 텍스트' }),
 ]);
 
 const REN_011_TEXT_CHOICES: readonly CoreV2TextInspectorChoice[] = Object.freeze([
-  Object.freeze({ id: 'placed', label: 'Placed + tinted' }),
-  Object.freeze({ id: 'auto', label: 'Auto font' }),
-  Object.freeze({ id: 'wrap', label: 'Wrapped' }),
-  Object.freeze({ id: 'overflow-visible', label: 'Overflow visible' }),
-  Object.freeze({ id: 'overflow-hidden', label: 'Overflow hidden' }),
-  Object.freeze({ id: 'overflow-ellipsis', label: 'Overflow ellipsis' }),
-  Object.freeze({ id: 'upright', label: 'Upright in rotated item' }),
+  Object.freeze({ id: 'placed', label: '배치·색조 적용' }),
+  Object.freeze({ id: 'auto', label: '자동 글꼴' }),
+  Object.freeze({ id: 'wrap', label: '줄바꿈' }),
+  Object.freeze({ id: 'overflow-visible', label: '넘침 표시' }),
+  Object.freeze({ id: 'overflow-hidden', label: '넘침 숨김' }),
+  Object.freeze({ id: 'overflow-ellipsis', label: '넘침 말줄임표' }),
+  Object.freeze({ id: 'upright', label: '회전 항목 안에서 정방향' }),
 ]);
 
 const REN_006_TEXT_FIELDS = Object.freeze([
-  Object.freeze({ suffix: 'phase', label: 'Phase' }),
-  Object.freeze({ suffix: 'source', label: 'Source' }),
-  Object.freeze({ suffix: 'visible-text', label: 'Visible text' }),
-  Object.freeze({ suffix: 'lines', label: 'Lines' }),
-  Object.freeze({ suffix: 'font-runs', label: 'Font runs' }),
-  Object.freeze({ suffix: 'layout-bounds', label: 'Layout bounds' }),
-  Object.freeze({ suffix: 'world-bounds', label: 'World bounds' }),
-  Object.freeze({ suffix: 'hit-bounds', label: 'Hit bounds' }),
-  Object.freeze({ suffix: 'publication', label: 'Publication' }),
-  Object.freeze({ suffix: 'intermediate-publication-count', label: 'Intermediate publications' }),
-  Object.freeze({ suffix: 'stale-glyph-count', label: 'Stale glyphs' }),
-  Object.freeze({ suffix: 'renderer-route', label: 'Renderer route' }),
-  Object.freeze({ suffix: 'style', label: 'Paint style' }),
-  Object.freeze({ suffix: 'geometry', label: 'World transform' }),
+  Object.freeze({ suffix: 'phase', label: '단계' }),
+  Object.freeze({ suffix: 'source', label: '원본' }),
+  Object.freeze({ suffix: 'visible-text', label: '보이는 텍스트' }),
+  Object.freeze({ suffix: 'lines', label: '줄' }),
+  Object.freeze({ suffix: 'font-runs', label: '글꼴 구간' }),
+  Object.freeze({ suffix: 'layout-bounds', label: '배치 영역' }),
+  Object.freeze({ suffix: 'world-bounds', label: '월드 영역' }),
+  Object.freeze({ suffix: 'hit-bounds', label: '적중 영역' }),
+  Object.freeze({ suffix: 'publication', label: '게시 정보' }),
+  Object.freeze({ suffix: 'intermediate-publication-count', label: '중간 게시 수' }),
+  Object.freeze({ suffix: 'stale-glyph-count', label: '오래된 글리프 수' }),
+  Object.freeze({ suffix: 'renderer-route', label: '렌더러 경로' }),
+  Object.freeze({ suffix: 'style', label: '그리기 스타일' }),
+  Object.freeze({ suffix: 'geometry', label: '월드 변환' }),
 ]);
 
 const REN_011_TEXT_FIELDS = Object.freeze([
-  Object.freeze({ suffix: 'specimen', label: 'Specimen' }),
-  Object.freeze({ suffix: 'source', label: 'Source' }),
-  Object.freeze({ suffix: 'placement', label: 'Placement' }),
-  Object.freeze({ suffix: 'margin', label: 'Margin' }),
-  Object.freeze({ suffix: 'tint', label: 'Authored tint' }),
-  Object.freeze({ suffix: 'rgba', label: 'Projected RGBA' }),
-  Object.freeze({ suffix: 'frame', label: 'Frame' }),
-  Object.freeze({ suffix: 'auto-font', label: 'Auto font' }),
-  Object.freeze({ suffix: 'wrap-width', label: 'Wrap width' }),
-  Object.freeze({ suffix: 'overflow', label: 'Overflow' }),
-  Object.freeze({ suffix: 'visible-text', label: 'Visible text' }),
-  Object.freeze({ suffix: 'lines', label: 'Lines' }),
-  Object.freeze({ suffix: 'layout-bounds', label: 'Layout bounds' }),
-  Object.freeze({ suffix: 'item-angle', label: 'Item angle' }),
-  Object.freeze({ suffix: 'orientation', label: 'Orientation' }),
-  Object.freeze({ suffix: 'screen-angle', label: 'Screen angle' }),
-  Object.freeze({ suffix: 'local-bounds', label: 'Placed local bounds' }),
-  Object.freeze({ suffix: 'paint-tint', label: 'Renderer paint tint' }),
-  Object.freeze({ suffix: 'publication', label: 'Publication' }),
-  Object.freeze({ suffix: 'all-rows-exact', label: 'All rows semantically exact' }),
+  Object.freeze({ suffix: 'specimen', label: '예제' }),
+  Object.freeze({ suffix: 'source', label: '원본' }),
+  Object.freeze({ suffix: 'placement', label: '배치' }),
+  Object.freeze({ suffix: 'margin', label: '여백' }),
+  Object.freeze({ suffix: 'tint', label: '입력 색조' }),
+  Object.freeze({ suffix: 'rgba', label: '계산된 RGBA' }),
+  Object.freeze({ suffix: 'frame', label: '프레임' }),
+  Object.freeze({ suffix: 'auto-font', label: '자동 글꼴' }),
+  Object.freeze({ suffix: 'wrap-width', label: '줄바꿈 너비' }),
+  Object.freeze({ suffix: 'overflow', label: '넘침 처리' }),
+  Object.freeze({ suffix: 'visible-text', label: '보이는 텍스트' }),
+  Object.freeze({ suffix: 'lines', label: '줄' }),
+  Object.freeze({ suffix: 'layout-bounds', label: '배치 영역' }),
+  Object.freeze({ suffix: 'item-angle', label: '항목 각도' }),
+  Object.freeze({ suffix: 'orientation', label: '방향' }),
+  Object.freeze({ suffix: 'screen-angle', label: '화면 각도' }),
+  Object.freeze({ suffix: 'local-bounds', label: '배치된 로컬 영역' }),
+  Object.freeze({ suffix: 'paint-tint', label: '렌더러 그리기 색조' }),
+  Object.freeze({ suffix: 'publication', label: '게시 정보' }),
+  Object.freeze({ suffix: 'all-rows-exact', label: '모든 행의 의미 일치' }),
 ]);
 
 interface CoreV2ComponentAssetPhase {
@@ -124,30 +131,30 @@ interface CoreV2ComponentAssetPhase {
 }
 
 const REN_008_PHASES: readonly CoreV2ComponentAssetPhase[] = Object.freeze([
-  Object.freeze({ id: 'initial', label: 'A0 Rect', actionIndex: 0, productKey: 'product' }),
-  Object.freeze({ id: 'image', label: 'A1 Image', actionIndex: 1, productKey: 'after' }),
-  Object.freeze({ id: 'hidden', label: 'A2 Hidden', actionIndex: 2, productKey: 'after' }),
-  Object.freeze({ id: 'shown', label: 'A3 Shown', actionIndex: 3, productKey: 'after' }),
+  Object.freeze({ id: 'initial', label: 'A0 사각형', actionIndex: 0, productKey: 'product' }),
+  Object.freeze({ id: 'image', label: 'A1 이미지', actionIndex: 1, productKey: 'after' }),
+  Object.freeze({ id: 'hidden', label: 'A2 숨김', actionIndex: 2, productKey: 'after' }),
+  Object.freeze({ id: 'shown', label: 'A3 표시', actionIndex: 3, productKey: 'after' }),
 ]);
 
 const REN_010_PHASES: readonly CoreV2ComponentAssetPhase[] = Object.freeze([
-  Object.freeze({ id: 'initial', label: 'A0 Initial alias', actionIndex: 0, productKey: 'product' }),
-  Object.freeze({ id: 'replacement', label: 'A1 Replacement alias', actionIndex: 1, productKey: 'after' }),
-  Object.freeze({ id: 'tint', label: 'A2 Tint patch', actionIndex: 2, productKey: 'after' }),
+  Object.freeze({ id: 'initial', label: 'A0 초기 별칭', actionIndex: 0, productKey: 'product' }),
+  Object.freeze({ id: 'replacement', label: 'A1 교체 별칭', actionIndex: 1, productKey: 'after' }),
+  Object.freeze({ id: 'tint', label: 'A2 색조 부분 갱신', actionIndex: 2, productKey: 'after' }),
 ]);
 
 const COMPONENT_ASSET_RESOURCE_FIELDS = Object.freeze([
-  Object.freeze({ suffix: 'canvas-count', key: 'canvasCount', label: 'Canvases' }),
-  Object.freeze({ suffix: 'subscription-count', key: 'subscriptionCount', label: 'Subscriptions' }),
-  Object.freeze({ suffix: 'pending-work-count', key: 'pendingWorkCount', label: 'Pending work' }),
-  Object.freeze({ suffix: 'binding-count', key: 'bindingCount', label: 'Bindings' }),
-  Object.freeze({ suffix: 'resource-count', key: 'resourceCount', label: 'Resources' }),
-  Object.freeze({ suffix: 'lease-count', key: 'leaseCount', label: 'Leases' }),
-  Object.freeze({ suffix: 'pending-settlement-count', key: 'pendingSettlementCount', label: 'Pending settlement' }),
-  Object.freeze({ suffix: 'pending-release-count', key: 'pendingReleaseCount', label: 'Pending release' }),
-  Object.freeze({ suffix: 'stale-attachment-resource-count', key: 'staleAttachmentCount', label: 'Stale attachments' }),
-  Object.freeze({ suffix: 'renderer-object-resource-count', key: 'rendererObjectCount', label: 'Renderer objects' }),
-  Object.freeze({ suffix: 'cleanup-failure-count', key: 'cleanupFailureCount', label: 'Cleanup failures' }),
+  Object.freeze({ suffix: 'canvas-count', key: 'canvasCount', label: '캔버스 수' }),
+  Object.freeze({ suffix: 'subscription-count', key: 'subscriptionCount', label: '구독 수' }),
+  Object.freeze({ suffix: 'pending-work-count', key: 'pendingWorkCount', label: '대기 작업 수' }),
+  Object.freeze({ suffix: 'binding-count', key: 'bindingCount', label: '연결 수' }),
+  Object.freeze({ suffix: 'resource-count', key: 'resourceCount', label: '자원 수' }),
+  Object.freeze({ suffix: 'lease-count', key: 'leaseCount', label: '사용권 수' }),
+  Object.freeze({ suffix: 'pending-settlement-count', key: 'pendingSettlementCount', label: '완료 대기 수' }),
+  Object.freeze({ suffix: 'pending-release-count', key: 'pendingReleaseCount', label: '반납 대기 수' }),
+  Object.freeze({ suffix: 'stale-attachment-resource-count', key: 'staleAttachmentCount', label: '오래된 연결 수' }),
+  Object.freeze({ suffix: 'renderer-object-resource-count', key: 'rendererObjectCount', label: '렌더러 객체 수' }),
+  Object.freeze({ suffix: 'cleanup-failure-count', key: 'cleanupFailureCount', label: '정리 실패 수' }),
 ]);
 
 function escapeHtml(value: string): string {
@@ -163,8 +170,9 @@ function scenarioList(route: CoreV2ContractRoute): string {
   return CORE_V2_CONTRACT_PRESENTERS.map((presenter) => {
     const href = buildCoreV2ContractRoute(presenter.caseId, route.size, route.seed);
     const selected = presenter.caseId === route.scenario;
-    const searchText = `${presenter.caseId} ${presenter.title} ${presenter.priority}`.toLowerCase();
-    return `<a class="contract-scenario-link${selected ? ' is-selected' : ''}" href="${href}" data-scenario-index="${escapeHtml(searchText)}"${selected ? ' aria-current="page"' : ''}><span>${presenter.caseId}</span><strong>${escapeHtml(presenter.title)}</strong><small>${presenter.priority}</small></a>`;
+    const koreanTitle = coreV2KoreanCaseTitle(presenter.caseId);
+    const searchText = `${presenter.caseId} ${koreanTitle} ${presenter.title} ${presenter.priority}`.toLowerCase();
+    return `<a class="contract-scenario-link${selected ? ' is-selected' : ''}" href="${href}" data-scenario-index="${escapeHtml(searchText)}"${selected ? ' aria-current="page"' : ''}><span>${presenter.caseId}</span><strong>${escapeHtml(koreanTitle)}</strong><small title="계약 우선순위">우선순위 ${presenter.priority}</small></a>`;
   }).join('');
 }
 
@@ -174,7 +182,7 @@ function actionControls(route: CoreV2ContractRoute, executable: boolean): string
       ? ''
       : ` data-testid="${action.primaryTestId}"`;
     const actionStatus = executable ? 'queued' : 'not-implemented';
-    return `<div class="contract-case-action" data-testid="${action.actionTestId}" data-action-index="${action.index}" data-action-status="${actionStatus}"><span>${String(action.index + 1).padStart(2, '0')}</span><button type="button"${primary} disabled aria-disabled="true">${escapeHtml(action.label)}</button><code>${escapeHtml(action.handlerId)}</code><output data-action-result>${actionStatus}</output></div>`;
+    return `<div class="contract-case-action" data-testid="${action.actionTestId}" data-action-index="${action.index}" data-action-status="${actionStatus}"><span>${String(action.index + 1).padStart(2, '0')}</span><button type="button"${primary} disabled aria-disabled="true">${escapeHtml(coreV2KoreanActionLabel(action.index))}</button><code title="자동 실행기의 내부 작업 식별자">기술 ID · ${escapeHtml(action.handlerId)}</code><output data-action-result>${coreV2KoreanStatus(actionStatus)}</output></div>`;
   }).join('');
 }
 
@@ -185,47 +193,47 @@ function renderRen005Inspector(route: CoreV2ContractRoute): string {
   )).join('');
   return `<section class="contract-image-inspector" data-testid="ren-005-image-inspector" data-observation-status="queued" aria-labelledby="ren-005-inspector-title">
     <div class="contract-image-inspector-heading">
-      <div><span class="contract-kicker">REN-005 actual observer</span><h3 id="ren-005-inspector-title">Image source and lifecycle facts</h3></div>
-      <label>Specimen<select data-testid="ren-005-specimen-select">${options}</select></label>
+      <div><span class="contract-kicker">REN-005 실제 관찰기</span><h3 id="ren-005-inspector-title">이미지 원본과 수명 주기 정보</h3></div>
+      <label>예제<select data-testid="ren-005-specimen-select">${options}</select></label>
     </div>
-    <p class="contract-image-observer-note">This chooser changes only the displayed actual facts. It never adds, removes, reorders, or repeats the approved four actions.</p>
+    <p class="contract-image-observer-note">이 선택기는 이미 수집된 실제 정보의 표시만 바꿉니다. 승인된 네 작업을 추가·삭제·재정렬·반복하지 않습니다.</p>
     <div class="contract-image-facts" data-testid="ren-005-selected-facts">
       <dl>
-        <div><dt>Source</dt><dd data-testid="ren-005-selected-source">not observed</dd></div>
-        <div><dt>Source kind</dt><dd data-testid="ren-005-selected-source-kind">not observed</dd></div>
-        <div><dt>State</dt><dd data-testid="ren-005-selected-state">not observed</dd></div>
-        <div><dt>Role</dt><dd data-testid="ren-005-selected-role">not observed</dd></div>
-        <div><dt>World bounds</dt><dd data-testid="ren-005-selected-bounds">not observed</dd></div>
-        <div><dt>Initial source</dt><dd data-testid="ren-005-selected-initial-source">not observed</dd></div>
-        <div><dt>Initial state</dt><dd data-testid="ren-005-selected-initial-state">not observed</dd></div>
-        <div><dt>Stale attach</dt><dd data-testid="ren-005-selected-stale-attach">not observed</dd></div>
-        <div><dt>Stale completion</dt><dd data-testid="ren-005-selected-stale-completion">not observed</dd></div>
-        <div><dt>Diagnostics</dt><dd data-testid="ren-005-selected-diagnostics">not observed</dd></div>
+        <div><dt>원본</dt><dd data-testid="ren-005-selected-source">관찰 전</dd></div>
+        <div><dt>원본 종류</dt><dd data-testid="ren-005-selected-source-kind">관찰 전</dd></div>
+        <div><dt>상태</dt><dd data-testid="ren-005-selected-state">관찰 전</dd></div>
+        <div><dt>역할</dt><dd data-testid="ren-005-selected-role">관찰 전</dd></div>
+        <div><dt>월드 영역</dt><dd data-testid="ren-005-selected-bounds">관찰 전</dd></div>
+        <div><dt>초기 원본</dt><dd data-testid="ren-005-selected-initial-source">관찰 전</dd></div>
+        <div><dt>초기 상태</dt><dd data-testid="ren-005-selected-initial-state">관찰 전</dd></div>
+        <div><dt>오래된 연결</dt><dd data-testid="ren-005-selected-stale-attach">관찰 전</dd></div>
+        <div><dt>오래된 완료</dt><dd data-testid="ren-005-selected-stale-completion">관찰 전</dd></div>
+        <div><dt>진단</dt><dd data-testid="ren-005-selected-diagnostics">관찰 전</dd></div>
       </dl>
     </div>
-    <div class="contract-image-ledger" aria-label="Image asset counters">
+    <div class="contract-image-ledger" aria-label="이미지 에셋 수">
       <dl>
-        <div><dt>Requests</dt><dd data-testid="ren-005-request-count">not observed</dd></div>
-        <div><dt>Backend</dt><dd data-testid="ren-005-backend-counts">not observed</dd></div>
-        <div><dt>Resources</dt><dd data-testid="ren-005-resource-count">not observed</dd></div>
-        <div><dt>Leases</dt><dd data-testid="ren-005-lease-count">not observed</dd></div>
-        <div><dt>Stale</dt><dd data-testid="ren-005-stale-count">not observed</dd></div>
-        <div><dt>Pending release</dt><dd data-testid="ren-005-pending-release-count">not observed</dd></div>
+        <div><dt>요청</dt><dd data-testid="ren-005-request-count">관찰 전</dd></div>
+        <div><dt>백엔드</dt><dd data-testid="ren-005-backend-counts">관찰 전</dd></div>
+        <div><dt>자원</dt><dd data-testid="ren-005-resource-count">관찰 전</dd></div>
+        <div><dt>사용권</dt><dd data-testid="ren-005-lease-count">관찰 전</dd></div>
+        <div><dt>오래된 항목</dt><dd data-testid="ren-005-stale-count">관찰 전</dd></div>
+        <div><dt>반납 대기</dt><dd data-testid="ren-005-pending-release-count">관찰 전</dd></div>
       </dl>
       <div class="contract-request-journal">
-        <h4>Request journal</h4>
-        <ol data-testid="ren-005-request-journal"><li data-testid="ren-005-request-journal-empty">Run the exact case to inspect requests.</li></ol>
+        <h4>요청 기록</h4>
+        <ol data-testid="ren-005-request-journal"><li data-testid="ren-005-request-journal-empty">정확 실행을 시작하면 요청을 확인할 수 있습니다.</li></ol>
       </div>
     </div>
     <div class="contract-run-observer" data-testid="ren-005-run-observation">
-      <div><span class="contract-kicker">Per-run main-thread observation</span><p>FPS and frame gaps use requestAnimationFrame; long tasks use the browser Long Tasks API when available.</p></div>
+      <div><span class="contract-kicker">실행별 메인 스레드 관찰</span><p>FPS와 프레임 간격은 requestAnimationFrame으로, 긴 작업은 지원되는 경우 브라우저 Long Tasks API로 측정합니다.</p></div>
       <dl>
-        <div><dt>Run</dt><dd data-testid="ren-005-run-index">not observed</dd></div>
-        <div><dt>FPS</dt><dd data-testid="ren-005-run-fps">not observed</dd></div>
-        <div><dt>Frames</dt><dd data-testid="ren-005-run-frame-count">not observed</dd></div>
-        <div><dt>Max frame gap</dt><dd data-testid="ren-005-run-max-frame-gap">not observed</dd></div>
-        <div><dt>Long tasks</dt><dd data-testid="ren-005-run-long-task-count">not observed</dd></div>
-        <div><dt>Duration</dt><dd data-testid="ren-005-run-duration">not observed</dd></div>
+        <div><dt>실행</dt><dd data-testid="ren-005-run-index">관찰 전</dd></div>
+        <div><dt>FPS</dt><dd data-testid="ren-005-run-fps">관찰 전</dd></div>
+        <div><dt>프레임 수</dt><dd data-testid="ren-005-run-frame-count">관찰 전</dd></div>
+        <div><dt>최대 프레임 간격</dt><dd data-testid="ren-005-run-max-frame-gap">관찰 전</dd></div>
+        <div><dt>긴 작업 수</dt><dd data-testid="ren-005-run-long-task-count">관찰 전</dd></div>
+        <div><dt>걸린 시간</dt><dd data-testid="ren-005-run-duration">관찰 전</dd></div>
       </dl>
       <ol class="contract-performance-journal" data-testid="ren-005-performance-journal"></ol>
     </div>
@@ -246,7 +254,7 @@ function renderTextInspectorFacts(
   fields: readonly Readonly<{ suffix: string; label: string }>[],
 ): string {
   const rows = fields.map(({ suffix, label }) => (
-    `<div><dt>${label}</dt><dd data-testid="${prefix}-${suffix}" data-text-observation-field>not observed</dd></div>`
+    `<div><dt>${label}</dt><dd data-testid="${prefix}-${suffix}" data-text-observation-field>관찰 전</dd></div>`
   )).join('');
   return `<div class="contract-image-facts contract-text-facts" data-testid="${prefix}-selected-facts"><dl>${rows}</dl></div>`;
 }
@@ -262,16 +270,16 @@ function renderTextInspector(route: CoreV2ContractRoute): string {
   const configuration = route.scenario === 'REN-006'
     ? {
         prefix: 'ren-006' as const,
-        title: 'Unicode text phases and publication',
-        selectorLabel: 'Observed phase',
+        title: '유니코드 텍스트 단계와 게시',
+        selectorLabel: '관찰 단계',
         choices: REN_006_TEXT_CHOICES,
         fields: REN_006_TEXT_FIELDS,
       }
     : route.scenario === 'REN-011'
       ? {
           prefix: 'ren-011' as const,
-          title: 'Item text contract matrix',
-          selectorLabel: 'Observed specimen',
+          title: '항목 텍스트 계약 행렬',
+          selectorLabel: '관찰 예제',
           choices: REN_011_TEXT_CHOICES,
           fields: REN_011_TEXT_FIELDS,
         }
@@ -281,10 +289,10 @@ function renderTextInspector(route: CoreV2ContractRoute): string {
   const options = renderTextInspectorOptions(configuration.choices, seededChoice);
   return `<section class="contract-image-inspector contract-text-inspector" data-testid="${configuration.prefix}-text-inspector" data-observation-status="queued" data-observed-choice-count="0" data-seeded-choice="${seededChoice}" aria-labelledby="${configuration.prefix}-inspector-title">
     <div class="contract-image-inspector-heading">
-      <div><span class="contract-kicker">${configuration.prefix.toUpperCase()} folded actual observer</span><h3 id="${configuration.prefix}-inspector-title">${configuration.title}</h3></div>
-      <label>${configuration.selectorLabel}<select data-testid="${configuration.prefix}-text-choice-select" disabled>${options}</select><output class="contract-phase-observation-count" data-testid="${configuration.prefix}-observed-choice-count">0 / ${configuration.choices.length} observed</output></label>
+      <div><span class="contract-kicker">${configuration.prefix.toUpperCase()} 실제 관찰 결과</span><h3 id="${configuration.prefix}-inspector-title">${configuration.title}</h3></div>
+      <label>${configuration.selectorLabel}<select data-testid="${configuration.prefix}-text-choice-select" disabled>${options}</select><output class="contract-phase-observation-count" data-testid="${configuration.prefix}-observed-choice-count">0 / ${configuration.choices.length}개 관찰</output></label>
     </div>
-    <p class="contract-image-observer-note" data-testid="${configuration.prefix}-display-only-note">Display-only exploration. This chooser reads completed folded actualObservation only; it never adds, removes, reorders, repeats, or mutates the canonical action trace. The route seed chooses the initial display deterministically.</p>
+    <p class="contract-image-observer-note" data-testid="${configuration.prefix}-display-only-note">표시 전용 탐색입니다. 이 선택기는 완료된 실제 관찰 결과만 읽으며 기준 작업 순서를 추가·삭제·재정렬·반복·변경하지 않습니다. 처음 보일 항목은 주소의 시드로 결정됩니다.</p>
     ${renderTextInspectorFacts(configuration.prefix, configuration.fields)}
     ${renderRunObserver(configuration.prefix)}
   </section>`;
@@ -301,27 +309,27 @@ function renderComponentAssetPhaseOptions(
 
 function renderComponentAssetResourceLedger(prefix: 'ren-008' | 'ren-010'): string {
   const counters = COMPONENT_ASSET_RESOURCE_FIELDS.map(({ suffix, label }) => (
-    `<div><dt>${label}</dt><dd data-testid="${prefix}-${suffix}" data-component-asset-field>not observed</dd></div>`
+    `<div><dt>${label}</dt><dd data-testid="${prefix}-${suffix}" data-component-asset-field>관찰 전</dd></div>`
   )).join('');
-  return `<div class="contract-image-ledger" aria-label="Observed component resource counters">
+  return `<div class="contract-image-ledger" aria-label="관찰된 컴포넌트 자원 수">
     <dl>${counters}</dl>
     <div class="contract-component-resource-journal">
-      <h4>Observed resource journal</h4>
-      <ol data-testid="${prefix}-resource-journal"><li data-testid="${prefix}-resource-journal-empty">Run the exact case to inspect observed resources.</li></ol>
+      <h4>관찰된 자원 기록</h4>
+      <ol data-testid="${prefix}-resource-journal"><li data-testid="${prefix}-resource-journal-empty">정확 실행을 시작하면 관찰된 자원을 확인할 수 있습니다.</li></ol>
     </div>
   </div>`;
 }
 
 function renderRunObserver(prefix: CoreV2RunObserverPrefix): string {
   return `<div class="contract-run-observer" data-testid="${prefix}-run-observation">
-    <div><span class="contract-kicker">Per-run main-thread observation</span><p>FPS and frame gaps use requestAnimationFrame; long tasks use the browser Long Tasks API when available.</p></div>
+    <div><span class="contract-kicker">실행별 메인 스레드 관찰</span><p>FPS와 프레임 간격은 requestAnimationFrame으로, 긴 작업은 지원되는 경우 브라우저 Long Tasks API로 측정합니다.</p></div>
     <dl>
-      <div><dt>Run</dt><dd data-testid="${prefix}-run-index">not observed</dd></div>
-      <div><dt>FPS</dt><dd data-testid="${prefix}-run-fps">not observed</dd></div>
-      <div><dt>Frames</dt><dd data-testid="${prefix}-run-frame-count">not observed</dd></div>
-      <div><dt>Max frame gap</dt><dd data-testid="${prefix}-run-max-frame-gap">not observed</dd></div>
-      <div><dt>Long tasks</dt><dd data-testid="${prefix}-run-long-task-count">not observed</dd></div>
-      <div><dt>Duration</dt><dd data-testid="${prefix}-run-duration">not observed</dd></div>
+      <div><dt>실행</dt><dd data-testid="${prefix}-run-index">관찰 전</dd></div>
+      <div><dt>FPS</dt><dd data-testid="${prefix}-run-fps">관찰 전</dd></div>
+      <div><dt>프레임 수</dt><dd data-testid="${prefix}-run-frame-count">관찰 전</dd></div>
+      <div><dt>최대 프레임 간격</dt><dd data-testid="${prefix}-run-max-frame-gap">관찰 전</dd></div>
+      <div><dt>긴 작업 수</dt><dd data-testid="${prefix}-run-long-task-count">관찰 전</dd></div>
+      <div><dt>걸린 시간</dt><dd data-testid="${prefix}-run-duration">관찰 전</dd></div>
     </dl>
     <ol class="contract-performance-journal" data-testid="${prefix}-performance-journal"></ol>
   </div>`;
@@ -332,32 +340,32 @@ function renderRen008Inspector(route: CoreV2ContractRoute): string {
   const options = renderComponentAssetPhaseOptions(REN_008_PHASES, 'shown');
   return `<section class="contract-image-inspector contract-component-inspector" data-testid="ren-008-background-inspector" data-observation-status="queued" data-observed-phase-count="0" aria-labelledby="ren-008-inspector-title">
     <div class="contract-image-inspector-heading">
-      <div><span class="contract-kicker">REN-008 actual observer</span><h3 id="ren-008-inspector-title">Background component phases</h3></div>
-      <label>Observed phase<select data-testid="ren-008-phase-select" disabled>${options}</select><output class="contract-phase-observation-count" data-testid="ren-008-observed-phase-count">0 / 4 observed</output></label>
+      <div><span class="contract-kicker">REN-008 실제 관찰기</span><h3 id="ren-008-inspector-title">배경 컴포넌트 단계</h3></div>
+      <label>관찰 단계<select data-testid="ren-008-phase-select" disabled>${options}</select><output class="contract-phase-observation-count" data-testid="ren-008-observed-phase-count">0 / 4개 관찰</output></label>
     </div>
-    <p class="contract-image-observer-note">This chooser displays only completed action products. It cannot add, remove, reorder, repeat, or mutate the canonical four-action trace.</p>
+    <p class="contract-image-observer-note">이 선택기는 완료된 작업 결과만 표시합니다. 기준 네 작업을 추가·삭제·재정렬·반복·변경할 수 없습니다.</p>
     <div class="contract-image-facts" data-testid="ren-008-selected-facts">
       <dl>
-        <div><dt>Phase</dt><dd data-testid="ren-008-phase" data-component-asset-field>not observed</dd></div>
-        <div><dt>Owner ID</dt><dd data-testid="ren-008-owner-id" data-component-asset-field>not observed</dd></div>
-        <div><dt>Component ID</dt><dd data-testid="ren-008-component-id" data-component-asset-field>not observed</dd></div>
-        <div><dt>Dense entity ID</dt><dd data-testid="ren-008-entity-id" data-component-asset-field>not observed</dd></div>
-        <div><dt>Logical identity</dt><dd data-testid="ren-008-logical-identity" data-component-asset-field>not observed</dd></div>
-        <div><dt>Authored inert size</dt><dd data-testid="ren-008-authored-size" data-component-asset-field>not observed</dd></div>
-        <div><dt>Full item bounds</dt><dd data-testid="ren-008-full-bounds" data-component-asset-field>not observed</dd></div>
-        <div><dt>Visible bounds</dt><dd data-testid="ren-008-visible-bounds" data-component-asset-field>not observed</dd></div>
-        <div><dt>Source</dt><dd data-testid="ren-008-source" data-component-asset-field>not observed</dd></div>
-        <div><dt>Resource state</dt><dd data-testid="ren-008-resource-state" data-component-asset-field>not observed</dd></div>
-        <div><dt>Render role</dt><dd data-testid="ren-008-render-role" data-component-asset-field>not observed</dd></div>
-        <div><dt>Binding</dt><dd data-testid="ren-008-binding-key" data-component-asset-field>not observed</dd></div>
-        <div><dt>Generation</dt><dd data-testid="ren-008-generation" data-component-asset-field>not observed</dd></div>
-        <div><dt>Render objects</dt><dd data-testid="ren-008-render-object-count" data-component-asset-field>not observed</dd></div>
-        <div><dt>Stale attachments</dt><dd data-testid="ren-008-stale-count" data-component-asset-field>not observed</dd></div>
+        <div><dt>단계</dt><dd data-testid="ren-008-phase" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>소유자 ID</dt><dd data-testid="ren-008-owner-id" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>컴포넌트 ID</dt><dd data-testid="ren-008-component-id" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>밀집 엔티티 ID</dt><dd data-testid="ren-008-entity-id" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>논리 ID</dt><dd data-testid="ren-008-logical-identity" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>입력 비활성 크기</dt><dd data-testid="ren-008-authored-size" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>전체 항목 영역</dt><dd data-testid="ren-008-full-bounds" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>보이는 영역</dt><dd data-testid="ren-008-visible-bounds" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>원본</dt><dd data-testid="ren-008-source" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>자원 상태</dt><dd data-testid="ren-008-resource-state" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>렌더 역할</dt><dd data-testid="ren-008-render-role" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>연결</dt><dd data-testid="ren-008-binding-key" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>세대</dt><dd data-testid="ren-008-generation" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>렌더 객체 수</dt><dd data-testid="ren-008-render-object-count" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>오래된 연결 수</dt><dd data-testid="ren-008-stale-count" data-component-asset-field>관찰 전</dd></div>
       </dl>
     </div>
-    <div class="contract-component-capture" aria-label="Declared observed capture">
-      <h4>Declared capture</h4>
-      <dl><div data-testid="ren-008-capture-row"><dt>initial/id</dt><dd data-testid="ren-008-capture-id" data-component-asset-field>not observed</dd></div></dl>
+    <div class="contract-component-capture" aria-label="선언된 관찰 캡처">
+      <h4>선언된 캡처</h4>
+      <dl><div data-testid="ren-008-capture-row"><dt>초기/ID</dt><dd data-testid="ren-008-capture-id" data-component-asset-field>관찰 전</dd></div></dl>
     </div>
     ${renderComponentAssetResourceLedger('ren-008')}
     ${renderRunObserver('ren-008')}
@@ -369,31 +377,31 @@ function renderRen010Inspector(route: CoreV2ContractRoute): string {
   const options = renderComponentAssetPhaseOptions(REN_010_PHASES, 'tint');
   return `<section class="contract-image-inspector contract-component-inspector" data-testid="ren-010-icon-inspector" data-observation-status="queued" data-observed-phase-count="0" aria-labelledby="ren-010-inspector-title">
     <div class="contract-image-inspector-heading">
-      <div><span class="contract-kicker">REN-010 actual observer</span><h3 id="ren-010-inspector-title">Icon source and tint phases</h3></div>
-      <label>Observed phase<select data-testid="ren-010-phase-select" disabled>${options}</select><output class="contract-phase-observation-count" data-testid="ren-010-observed-phase-count">0 / 3 observed</output></label>
+      <div><span class="contract-kicker">REN-010 실제 관찰기</span><h3 id="ren-010-inspector-title">아이콘 원본과 색조 단계</h3></div>
+      <label>관찰 단계<select data-testid="ren-010-phase-select" disabled>${options}</select><output class="contract-phase-observation-count" data-testid="ren-010-observed-phase-count">0 / 3개 관찰</output></label>
     </div>
-    <p class="contract-image-observer-note">This chooser displays only completed action products. It cannot add, remove, reorder, repeat, or mutate the canonical three-action trace.</p>
+    <p class="contract-image-observer-note">이 선택기는 완료된 작업 결과만 표시합니다. 기준 세 작업을 추가·삭제·재정렬·반복·변경할 수 없습니다.</p>
     <div class="contract-image-facts" data-testid="ren-010-selected-facts">
       <dl>
-        <div><dt>Phase</dt><dd data-testid="ren-010-phase" data-component-asset-field>not observed</dd></div>
-        <div><dt>Owner ID</dt><dd data-testid="ren-010-owner-id" data-component-asset-field>not observed</dd></div>
-        <div><dt>Component ID</dt><dd data-testid="ren-010-component-id" data-component-asset-field>not observed</dd></div>
-        <div><dt>Dense entity ID</dt><dd data-testid="ren-010-entity-id" data-component-asset-field>not observed</dd></div>
-        <div><dt>Logical identity</dt><dd data-testid="ren-010-logical-identity" data-component-asset-field>not observed</dd></div>
-        <div><dt>Content box from observed export</dt><dd data-testid="ren-010-content-box" data-component-asset-field>not observed</dd></div>
-        <div><dt>Actual icon bounds</dt><dd data-testid="ren-010-icon-bounds" data-component-asset-field>not observed</dd></div>
-        <div><dt>Authored percentage size</dt><dd data-testid="ren-010-authored-size" data-component-asset-field>not observed</dd></div>
-        <div><dt>Placement</dt><dd data-testid="ren-010-placement" data-component-asset-field>not observed</dd></div>
-        <div><dt>Margins</dt><dd data-testid="ren-010-margins" data-component-asset-field>not observed</dd></div>
-        <div><dt>Source</dt><dd data-testid="ren-010-source" data-component-asset-field>not observed</dd></div>
-        <div><dt>Resource state</dt><dd data-testid="ren-010-resource-state" data-component-asset-field>not observed</dd></div>
-        <div><dt>Render role</dt><dd data-testid="ren-010-render-role" data-component-asset-field>not observed</dd></div>
-        <div><dt>Binding</dt><dd data-testid="ren-010-binding-key" data-component-asset-field>not observed</dd></div>
-        <div><dt>Generation</dt><dd data-testid="ren-010-generation" data-component-asset-field>not observed</dd></div>
-        <div><dt>Semantic tint</dt><dd data-testid="ren-010-semantic-tint" data-component-asset-field>not observed</dd></div>
-        <div><dt>Renderer tint</dt><dd data-testid="ren-010-renderer-tint" data-component-asset-field>not observed</dd></div>
-        <div><dt>Render objects</dt><dd data-testid="ren-010-render-object-count" data-component-asset-field>not observed</dd></div>
-        <div><dt>Stale attachments</dt><dd data-testid="ren-010-stale-count" data-component-asset-field>not observed</dd></div>
+        <div><dt>단계</dt><dd data-testid="ren-010-phase" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>소유자 ID</dt><dd data-testid="ren-010-owner-id" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>컴포넌트 ID</dt><dd data-testid="ren-010-component-id" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>밀집 엔티티 ID</dt><dd data-testid="ren-010-entity-id" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>논리 ID</dt><dd data-testid="ren-010-logical-identity" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>관찰 내보내기의 콘텐츠 영역</dt><dd data-testid="ren-010-content-box" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>실제 아이콘 영역</dt><dd data-testid="ren-010-icon-bounds" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>입력 비율 크기</dt><dd data-testid="ren-010-authored-size" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>배치</dt><dd data-testid="ren-010-placement" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>여백</dt><dd data-testid="ren-010-margins" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>원본</dt><dd data-testid="ren-010-source" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>자원 상태</dt><dd data-testid="ren-010-resource-state" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>렌더 역할</dt><dd data-testid="ren-010-render-role" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>연결</dt><dd data-testid="ren-010-binding-key" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>세대</dt><dd data-testid="ren-010-generation" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>의미 색조</dt><dd data-testid="ren-010-semantic-tint" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>렌더러 색조</dt><dd data-testid="ren-010-renderer-tint" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>렌더 객체 수</dt><dd data-testid="ren-010-render-object-count" data-component-asset-field>관찰 전</dd></div>
+        <div><dt>오래된 연결 수</dt><dd data-testid="ren-010-stale-count" data-component-asset-field>관찰 전</dd></div>
       </dl>
     </div>
     ${renderComponentAssetResourceLedger('ren-010')}
@@ -409,57 +417,59 @@ export function renderCoreV2ContractLab(route: CoreV2ContractRoute): string {
   const presenter = route.presenter;
   const executable = presenter.executionStatus === 'actual-observable';
   const initialStatus = executable ? 'armed' : 'not-implemented';
-  const statusLabel = executable ? 'Ready to observe' : 'Not implemented';
+  const statusLabel = executable ? '실행 준비' : '미구현';
+  const koreanTitle = coreV2KoreanCaseTitle(presenter.caseId);
   const sizeOptions = CORE_V2_CONTRACT_DATASET_SIZES.map((size) =>
-    `<option value="${size}"${size === route.size ? ' selected' : ''}>${size}</option>`,
+    `<option value="${size}"${size === route.size ? ' selected' : ''}>${size === 'production' ? '운영 데이터 형태' : `${size}개 객체`}</option>`,
   ).join('');
 
   return `<main class="contract-lab-shell" data-testid="${presenter.rootTestId}" data-contract-status="${initialStatus}">
   <header class="contract-lab-header">
-    <div><span class="contract-kicker">Core v2 functional contract</span><h1>${presenter.caseId} · ${escapeHtml(presenter.title)}</h1><p>${presenter.caseType} · ${presenter.priority} · selected case only</p></div>
+    <div><span class="contract-kicker">Core v2 기능 계약</span><h1>${presenter.caseId} · ${escapeHtml(koreanTitle)}</h1><p>${coreV2KoreanCaseType(presenter.caseType)} · 우선순위 ${presenter.priority} · 현재 케이스만 표시</p></div>
     <strong class="contract-status" data-contract-status-label>${statusLabel}</strong>
   </header>
   <div class="contract-lab-layout">
-    <aside class="contract-catalog" aria-label="Approved Core v2 scenarios">
-      <label for="core-v2-contract-search">Find scenario</label>
-      <input id="core-v2-contract-search" type="search" data-testid="scenario-search" autocomplete="off" placeholder="ID or title">
+    <aside class="contract-catalog" aria-label="승인된 Core v2 케이스">
+      <label for="core-v2-contract-search">173개 케이스 찾기</label>
+      <input id="core-v2-contract-search" type="search" data-testid="scenario-search" autocomplete="off" placeholder="ID 또는 한국어 제목">
       <nav data-testid="scenario-list">${scenarioList(route)}</nav>
     </aside>
     <section class="contract-focus">
       <div class="contract-route-controls">
-        <label>Dataset size<select data-testid="dataset-size">${sizeOptions}</select></label>
-        <label>Seed<input data-testid="seed" inputmode="numeric" value="${route.seed}" pattern="(?:0|[1-9][0-9]*)"></label>
-        <button type="button" data-testid="load-dataset"${executable ? '' : ' disabled'}>Run exact case</button>
-        <button type="button" data-testid="reset-case" disabled>Reset case</button>
-        <button type="button" data-testid="repeat-action" disabled>Repeat action</button>
-        <button type="button" data-testid="destroy-case" disabled>Destroy runtime</button>
-        <button type="button" data-testid="copy-url">Copy URL</button>
+        <label>데이터셋 크기<select data-testid="dataset-size">${sizeOptions}</select></label>
+        <label>무작위 시드<input data-testid="seed" inputmode="numeric" value="${route.seed}" pattern="(?:0|[1-9][0-9]*)"></label>
+        <button type="button" data-testid="load-dataset"${executable ? '' : ' disabled'} title="승인된 작업을 정확한 순서로 한 번 자동 실행합니다.">정확 실행 시작</button>
+        <button type="button" data-testid="reset-case" disabled title="자동 실행 결과를 지우고 처음 상태로 되돌립니다.">자동 실행 초기화</button>
+        <button type="button" data-testid="repeat-action" disabled title="같은 케이스를 같은 입력으로 한 번 더 실행합니다.">같은 실행 반복</button>
+        <button type="button" data-testid="destroy-case" disabled title="자동 실행기의 임시 런타임을 종료하고 자원을 정리합니다.">자동 런타임 종료</button>
+        <button type="button" data-testid="copy-url" title="현재 케이스·크기·시드 주소를 클립보드에 복사합니다.">현재 주소 복사</button>
       </div>
       <p class="contract-stub-notice">${executable
-        ? 'Actual-only case execution is available on the PixiJS WebGL baseline. The canvas is transient and is removed by executor cleanup; this Lab reports observed or failed facts without an expected comparison.'
-        : 'This approved route remains explicitly not implemented. No engine action, semantic observation, or promotion result is produced.'}</p>
+        ? 'PixiJS WebGL 기준선에서 실제 제품만 실행합니다. 자동 실행기의 캔버스는 임시이며 정리 단계에서 제거됩니다. 이 화면은 예상값과 비교하지 않고 실제 관찰 또는 실패 정보만 보여줍니다.'
+        : '이 승인 경로는 명시적으로 미구현 상태입니다. 엔진 작업·의미 관찰·승격 결과를 만들지 않습니다.'}</p>
       ${renderCoreV2ManualWorkbench(presenter)}
       <section class="contract-case-card" aria-labelledby="contract-case-title">
-        <span class="contract-kicker">Independent exact evidence runner</span>
-        <h2 id="contract-case-title">${escapeHtml(presenter.title)}</h2>
-        <p class="contract-instruction">${escapeHtml(presenter.instruction)}</p>
+        <span class="contract-kicker">독립 정확 증거 실행기</span>
+        <h2 id="contract-case-title">${escapeHtml(koreanTitle)}</h2>
+        <p class="contract-instruction">${escapeHtml(coreV2KoreanCaseInstruction(presenter.caseId))}</p>
         <div class="contract-canvas" data-testid="canvas-host">
-          <div data-testid="${presenter.gestureSurfaceTestId}" data-contract-surface aria-label="Core v2 contract case surface">
+          <div data-testid="${presenter.gestureSurfaceTestId}" data-contract-surface aria-label="Core v2 계약 케이스 자동 실행 화면">
             <p data-canvas-lifetime>${executable
-              ? 'PixiJS WebGL canvas mounts only while the exact executor owns a live engine.'
-              : 'No canvas is allocated for a not-implemented route.'}</p>
+              ? '정확 실행기가 실제 엔진을 소유한 동안에만 PixiJS WebGL 캔버스가 붙습니다.'
+              : '미구현 경로에는 캔버스를 만들지 않습니다.'}</p>
           </div>
         </div>
-        <div class="contract-actions" aria-label="Selected case action ownership">${actionControls(route, executable)}</div>
+        <p class="contract-action-note">회색의 ‘기술 ID’는 자동 실행기가 사용하는 내부 작업 이름입니다. 직접 조작할 때는 위의 한국어 도구와 안내만 따라가면 됩니다.</p>
+        <div class="contract-actions" aria-label="현재 케이스의 승인 작업">${actionControls(route, executable)}</div>
         ${renderRen005Inspector(route)}
         ${renderTextInspector(route)}
         ${renderComponentAssetInspector(route)}
       </section>
       <section class="contract-result-strip" data-testid="${presenter.resultTestId}" aria-live="polite">
-        <dl><div><dt>Actions</dt><dd data-result-actions>${executable ? 'queued' : 'not run'}</dd></div><div><dt>Events</dt><dd data-result-events>not observed</dd></div><div><dt>Cleanup</dt><dd data-result-cleanup>not run</dd></div><div><dt>Observation</dt><dd data-result-observation>${initialStatus}</dd></div></dl>
+        <dl><div><dt>작업</dt><dd data-result-actions>${executable ? '대기 중' : '실행 전'}</dd></div><div><dt>이벤트</dt><dd data-result-events>관찰 전</dd></div><div><dt>정리</dt><dd data-result-cleanup>실행 전</dd></div><div><dt>관찰</dt><dd data-result-observation>${coreV2KoreanStatus(initialStatus)}</dd></div></dl>
         <p data-testid="${presenter.firstFailureTestId}">${executable
-          ? 'Run the exact ordered case to inspect product, event, semantic, and cleanup facts.'
-          : 'Action executor is not implemented; no actual observation exists.'}</p>
+          ? '정확 실행을 시작하면 제품·이벤트·의미·자원 정리 정보를 확인할 수 있습니다.'
+          : '작업 실행기가 미구현이라 실제 관찰 결과가 없습니다.'}</p>
         <pre data-testid="${presenter.traceTestId}" hidden>${initialStatus}</pre>
       </section>
     </section>
@@ -468,7 +478,7 @@ export function renderCoreV2ContractLab(route: CoreV2ContractRoute): string {
 }
 
 export function renderCoreV2ContractRouteError(error: CoreV2ContractRouteError): string {
-  return `<main class="contract-lab-shell contract-route-error" data-testid="core-v2-contract-route-error" data-contract-status="invalid-route"><span class="contract-kicker">Core v2 functional contract</span><h1>Route cannot run</h1><p><strong>${error.code}</strong>: ${escapeHtml(error.message)}</p><p>This route is non-passing. Provide exactly scenario, size, and canonical uint32 seed parameters.</p></main>`;
+  return `<main class="contract-lab-shell contract-route-error" data-testid="core-v2-contract-route-error" data-contract-status="invalid-route"><span class="contract-kicker">Core v2 기능 계약</span><h1>이 주소는 실행할 수 없습니다</h1><p><strong>${error.code}</strong>: ${escapeHtml(error.message)}</p><p>주소의 케이스, 데이터셋 크기, 0~4,294,967,295 범위 무작위 시드 값을 확인하세요.</p></main>`;
 }
 
 function bindShell(
@@ -530,7 +540,7 @@ function bindShell(
       seed.setCustomValidity('');
       void navigate(buildCoreV2ContractRoute(route.scenario, route.size, nextSeed));
     } catch {
-      seed.setCustomValidity('Use a canonical uint32 decimal seed.');
+      seed.setCustomValidity('무작위 시드는 0~4,294,967,295 범위의 정수로 입력하세요.');
       seed.reportValidity();
     }
   }, { signal });
@@ -689,13 +699,13 @@ async function refreshBridgeUi(
     : 0;
   const completedCount = results.filter((result) => isRecord(result) && result.status === 'completed').length;
   const cleanup = bridge.cleanup();
-  setText(root.querySelector('[data-result-actions]'), `${completedCount}/${route.presenter.actions.length} completed`);
-  setText(root.querySelector('[data-result-events]'), `${eventCount} public events`);
+  setText(root.querySelector('[data-result-actions]'), `${completedCount}/${route.presenter.actions.length}개 완료`);
+  setText(root.querySelector('[data-result-events]'), `공개 이벤트 ${eventCount}개`);
   setText(
     root.querySelector('[data-result-cleanup]'),
-    typeof cleanup?.status === 'string' ? cleanup.status : 'not run',
+    typeof cleanup?.status === 'string' ? coreV2KoreanStatus(cleanup.status) : '실행 전',
   );
-  setText(root.querySelector('[data-result-observation]'), state.status);
+  setText(root.querySelector('[data-result-observation]'), coreV2KoreanStatus(state.status));
 
   const resultMessage = root.querySelector<HTMLElement>(
     `[data-testid="${route.presenter.firstFailureTestId}"]`,
@@ -785,12 +795,12 @@ function refreshRen005Inspector(
   if (!product) {
     inspector.dataset.observationStatus = 'queued';
     for (const field of inspector.querySelectorAll<HTMLElement>('dd[data-testid^="ren-005-selected-"]')) {
-      field.textContent = 'not observed';
+      field.textContent = '관찰 전';
     }
     for (const field of inspector.querySelectorAll<HTMLElement>(
       '[data-testid="ren-005-request-count"], [data-testid="ren-005-backend-counts"], [data-testid="ren-005-resource-count"], [data-testid="ren-005-lease-count"], [data-testid="ren-005-stale-count"], [data-testid="ren-005-pending-release-count"]',
     )) {
-      field.textContent = 'not observed';
+      field.textContent = '관찰 전';
     }
     renderRen005RequestJournal(inspector, []);
     return;
@@ -822,7 +832,7 @@ function refreshRen005Inspector(
   setText(inspector.querySelector('[data-testid="ren-005-selected-role"]'), stringField(image, 'role'));
   setText(
     inspector.querySelector('[data-testid="ren-005-selected-bounds"]'),
-    bounds ? JSON.stringify(bounds) : 'unavailable',
+    bounds ? JSON.stringify(bounds) : '정보 없음',
   );
   setText(
     inspector.querySelector('[data-testid="ren-005-selected-initial-source"]'),
@@ -916,7 +926,7 @@ function refreshTextInspector(
   inspector.dataset.observedChoiceCount = String(observedCount);
   setText(
     inspector.querySelector(`[data-testid="${configuration.prefix}-observed-choice-count"]`),
-    `${observedCount} / ${configuration.choices.length} observed`,
+    `${observedCount} / ${configuration.choices.length}개 관찰`,
   );
 
   const chooser = inspector.querySelector<HTMLSelectElement>(
@@ -1083,7 +1093,7 @@ function ren011TextChoiceFacts(
     : observedValue(rowValue.localBounds);
   facts['paint-tint'] = choiceId === 'placed'
     ? observedValue(placedPaint?.tint)
-    : 'unavailable';
+    : '정보 없음';
   facts.publication = observedValue(itemTextScene?.publication);
   facts['all-rows-exact'] = observedValue(matrixOutcome?.allRowsExact);
   return facts;
@@ -1092,7 +1102,7 @@ function ren011TextChoiceFacts(
 function unavailableTextFacts(
   fields: readonly Readonly<{ suffix: string }>[],
 ): Record<string, string> {
-  return Object.fromEntries(fields.map(({ suffix }) => [suffix, 'unavailable']));
+  return Object.fromEntries(fields.map(({ suffix }) => [suffix, '정보 없음']));
 }
 
 function observedTextLiteral(value: unknown): string {
@@ -1101,7 +1111,7 @@ function observedTextLiteral(value: unknown): string {
 
 function resetTextInspectorFields(inspector: HTMLElement): void {
   for (const field of inspector.querySelectorAll<HTMLElement>('[data-text-observation-field]')) {
-    field.textContent = 'not observed';
+    field.textContent = '관찰 전';
   }
 }
 
@@ -1134,7 +1144,7 @@ function refreshComponentAssetInspector(
   inspector.dataset.observedPhaseCount = String(observedCount);
   setText(
     inspector.querySelector(`[data-testid="${configuration.prefix}-observed-phase-count"]`),
-    `${observedCount} / ${configuration.phases.length} observed`,
+    `${observedCount} / ${configuration.phases.length}개 관찰`,
   );
 
   const chooser = inspector.querySelector<HTMLSelectElement>(
@@ -1222,7 +1232,7 @@ function refreshComponentAssetInspector(
     inspector,
     configuration.prefix,
     'resource-state',
-    sceneImage ? stringField(sceneImage, 'state') : 'not applicable · aggregate geometry',
+    sceneImage ? stringField(sceneImage, 'state') : '해당 없음 · 집계 도형',
   );
   setComponentAssetField(
     inspector,
@@ -1234,13 +1244,13 @@ function refreshComponentAssetInspector(
     inspector,
     configuration.prefix,
     'binding-key',
-    sceneImage ? stringField(sceneImage, 'bindingKey') : 'not applicable',
+    sceneImage ? stringField(sceneImage, 'bindingKey') : '해당 없음',
   );
   setComponentAssetField(
     inspector,
     configuration.prefix,
     'generation',
-    sceneImage ? numberField(sceneImage, 'generation') : 'not applicable',
+    sceneImage ? numberField(sceneImage, 'generation') : '해당 없음',
   );
   setComponentAssetField(
     inspector,
@@ -1252,7 +1262,7 @@ function refreshComponentAssetInspector(
     inspector,
     configuration.prefix,
     'stale-count',
-    sceneImage ? numberField(sceneImage, 'staleAttachCount') : 'not applicable',
+    sceneImage ? numberField(sceneImage, 'staleAttachCount') : '해당 없음',
   );
 
   for (const { suffix, key } of COMPONENT_ASSET_RESOURCE_FIELDS) {
@@ -1348,7 +1358,7 @@ function componentAssetProductAt(
 
 function resetComponentAssetFields(inspector: HTMLElement): void {
   for (const field of inspector.querySelectorAll<HTMLElement>('[data-component-asset-field]')) {
-    field.textContent = 'not observed';
+    field.textContent = '관찰 전';
   }
 }
 
@@ -1364,7 +1374,7 @@ function setComponentAssetField(
 function ren008CaptureId(
   execution: Readonly<Record<string, unknown>> | null,
 ): string {
-  if (!execution || !Array.isArray(execution.captures)) return 'not observed';
+  if (!execution || !Array.isArray(execution.captures)) return '관찰 전';
   const capture: unknown = execution.captures.find((candidate: unknown) => (
     isRecord(candidate)
     && candidate.id === 'initial'
@@ -1469,26 +1479,26 @@ function finiteNumberOrZero(value: unknown): number | null {
 }
 
 function observedValue(value: unknown): string {
-  if (value === undefined) return 'unavailable';
+  if (value === undefined) return '정보 없음';
   if (value === null) return 'null';
   if (typeof value === 'string' || typeof value === 'boolean') return String(value);
-  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'unavailable';
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '정보 없음';
   try {
     return JSON.stringify(value);
   } catch {
-    return 'unavailable';
+    return '정보 없음';
   }
 }
 
 function rendererTintLabel(value: Readonly<Record<string, unknown>> | null): string {
-  if (!value) return 'unavailable';
+  if (!value) return '정보 없음';
   const packed = finiteUnsignedInteger(value.packedTint);
   const rgb = finiteUnsignedInteger(value.rgbTint);
   const alpha = typeof value.alpha === 'number' && Number.isFinite(value.alpha)
     ? value.alpha
     : null;
-  if (packed === null || rgb === null || alpha === null) return 'unavailable';
-  return `packed 0x${packed.toString(16).padStart(8, '0')} · rgb 0x${rgb.toString(16).padStart(6, '0')} · alpha ${alpha.toFixed(3)}`;
+  if (packed === null || rgb === null || alpha === null) return '정보 없음';
+  return `패킹 0x${packed.toString(16).padStart(8, '0')} · RGB 0x${rgb.toString(16).padStart(6, '0')} · 투명도 ${alpha.toFixed(3)}`;
 }
 
 function finiteUnsignedInteger(value: unknown): number | null {
@@ -1507,7 +1517,7 @@ function renderComponentAssetResourceJournal(
   );
   if (!list) return;
   if (journal.length === 0) {
-    list.innerHTML = `<li data-testid="${prefix}-resource-journal-empty">No observed resource events for this phase.</li>`;
+    list.innerHTML = `<li data-testid="${prefix}-resource-journal-empty">이 단계에서 관찰된 자원 이벤트가 없습니다.</li>`;
     return;
   }
   list.innerHTML = journal.map((entry) => {
@@ -1551,26 +1561,31 @@ function ren005WorldBounds(
 }
 
 function sourceLabel(value: Readonly<Record<string, unknown>> | null): string {
-  if (!value) return 'unavailable';
+  if (!value) return '정보 없음';
   if (typeof value.authoredSource === 'string') return value.authoredSource;
   if (isRecord(value.authoredSource)) return JSON.stringify(value.authoredSource);
-  if (typeof value.authoredSourceKind === 'string') return `[${value.authoredSourceKind} payload]`;
-  return 'unavailable';
+  if (typeof value.authoredSourceKind === 'string') return `[${value.authoredSourceKind} 데이터]`;
+  return '정보 없음';
 }
 
 function stringField(value: Readonly<Record<string, unknown>> | null, key: string): string {
-  return value && typeof value[key] === 'string' ? value[key] : 'unavailable';
+  return value && typeof value[key] === 'string' ? value[key] : '정보 없음';
 }
 
 function numberField(value: Readonly<Record<string, unknown>> | null, key: string): string {
   return value && typeof value[key] === 'number' && Number.isFinite(value[key])
     ? String(value[key])
-    : 'unavailable';
+    : '정보 없음';
 }
 
 function backendCountsLabel(value: Readonly<Record<string, unknown>> | null): string {
-  return ['pending', 'resolved', 'rejected', 'unloaded'].map((label) => (
-    `${label} ${numberField(value, `${label}Count`)}`
+  return [
+    ['pending', '대기'],
+    ['resolved', '완료'],
+    ['rejected', '거부'],
+    ['unloaded', '해제'],
+  ].map(([key, label]) => (
+    `${label} ${numberField(value, `${key}Count`)}`
   )).join(' · ');
 }
 
@@ -1581,7 +1596,7 @@ function renderRen005RequestJournal(
   const list = inspector.querySelector<HTMLOListElement>('[data-testid="ren-005-request-journal"]');
   if (!list) return;
   if (journal.length === 0) {
-    list.innerHTML = '<li data-testid="ren-005-request-journal-empty">Run the exact case to inspect requests.</li>';
+    list.innerHTML = '<li data-testid="ren-005-request-journal-empty">정확 실행을 시작하면 요청을 확인할 수 있습니다.</li>';
     return;
   }
   list.innerHTML = journal.map((entry) => {
@@ -1653,7 +1668,7 @@ function appendRunPerformance(
   row.dataset.longTaskTotalMs = metrics.longTaskTotalMs.toFixed(3);
   row.dataset.maxFrameGapMs = metrics.maxFrameGapMs.toFixed(3);
   row.dataset.durationMs = metrics.durationMs.toFixed(3);
-  row.textContent = `${observation.runKind} ${observation.runIndex}: ${metrics.framesPerSecond.toFixed(1)} FPS · ${metrics.longTaskCount} long tasks · ${metrics.maxFrameGapMs.toFixed(1)} ms max gap`;
+  row.textContent = `${observation.runKind === 'repeat' ? '반복 실행' : '첫 실행'} ${observation.runIndex}: ${metrics.framesPerSecond.toFixed(1)} FPS · 긴 작업 ${metrics.longTaskCount}개 · 최대 간격 ${metrics.maxFrameGapMs.toFixed(1)} ms`;
   journal.append(row);
 }
 
@@ -1668,7 +1683,7 @@ function resetRunPerformance(root: HTMLElement, prefix: CoreV2RunObserverPrefix)
     'run-long-task-count',
     'run-duration',
   ]) {
-    setText(observer.querySelector(`[data-testid="${prefix}-${suffix}"]`), 'not observed');
+    setText(observer.querySelector(`[data-testid="${prefix}-${suffix}"]`), '관찰 전');
   }
   observer.querySelector(`[data-testid="${prefix}-performance-journal"]`)?.replaceChildren();
 }
@@ -1768,13 +1783,15 @@ function startUiRunObservation(): Readonly<{
 }
 
 function actionResultLabel(result: unknown, fallback: string): string {
-  if (!isRecord(result)) return fallback;
+  if (!isRecord(result)) return coreV2KoreanStatus(fallback);
   const actual = isRecord(result.delta) && isRecord(result.delta.actual)
     ? result.delta.actual
     : null;
   const error = actual && isRecord(actual.error) ? actual.error : null;
-  if (typeof error?.code === 'string') return `failed · ${error.code}`;
-  return typeof result.status === 'string' ? result.status : fallback;
+  if (typeof error?.code === 'string') return `실패 · ${error.code}`;
+  return typeof result.status === 'string'
+    ? coreV2KoreanStatus(result.status)
+    : coreV2KoreanStatus(fallback);
 }
 
 function resultMessageFor(
@@ -1782,34 +1799,34 @@ function resultMessageFor(
   execution: Readonly<Record<string, unknown>> | null,
 ): string {
   if (status === 'observed') {
-    return 'Actual observation captured from product execution. Expected comparison and promotion are intentionally outside this focused Lab run.';
+    return '제품 실행에서 실제 관찰 결과를 수집했습니다. 예상값 비교와 승격은 의도적으로 이 집중 Lab 실행과 분리되어 있습니다.';
   }
   if (status === 'failed') {
     const error = execution && isRecord(execution.error) ? execution.error : null;
-    return `Execution failed and its cleanup trace was retained${typeof error?.message === 'string' ? `: ${error.message}` : '.'}`;
+    return `실행에 실패했으며 정리 기록은 보존했습니다${typeof error?.message === 'string' ? `: ${error.message}` : '.'}`;
   }
-  if (status === 'running') return 'Executing the approved actions in exact order with a transient PixiJS WebGL surface.';
-  if (status === 'destroyed') return 'The route bridge is destroyed; the last actual and cleanup trace remain inspectable.';
-  return 'Run the exact ordered case to inspect product, event, semantic, and cleanup facts.';
+  if (status === 'running') return '임시 PixiJS WebGL 화면에서 승인된 작업을 정확한 순서로 실행하고 있습니다.';
+  if (status === 'destroyed') return '자동 실행기는 종료됐지만 마지막 실제 결과와 정리 기록은 계속 확인할 수 있습니다.';
+  return '정확 실행을 시작하면 제품·이벤트·의미·자원 정리 정보를 확인할 수 있습니다.';
 }
 
 function canvasLifetimeFor(status: ReturnType<CoreV2ContractLabBridgeV1['state']>['status']): string {
-  if (status === 'running') return 'Transient PixiJS WebGL canvas is owned by the active executor generation.';
-  if (status === 'observed') return 'Canvas removed by executor cleanup; semantic, event, and resource facts remain in the trace.';
-  if (status === 'failed') return 'Execution failed; the executor cleanup boundary removed every tracked canvas.';
-  return 'PixiJS WebGL canvas mounts only while the exact executor owns a live engine.';
+  if (status === 'running') return '현재 실행 세대가 임시 PixiJS WebGL 캔버스를 소유하고 있습니다.';
+  if (status === 'observed') return '실행기 정리로 캔버스를 제거했으며 의미·이벤트·자원 정보는 기록에 남아 있습니다.';
+  if (status === 'failed') return '실행에 실패했으며 실행기 정리 경계가 추적 중인 모든 캔버스를 제거했습니다.';
+  return '정확 실행기가 실제 엔진을 소유한 동안에만 PixiJS WebGL 캔버스가 붙습니다.';
 }
 
 function statusLabel(status: ReturnType<CoreV2ContractLabBridgeV1['state']>['status']): string {
   const labels = {
-    loading: 'Loading',
-    ready: 'Ready',
-    armed: 'Ready to observe',
-    running: 'Running',
-    observed: 'Observed',
-    'not-implemented': 'Not implemented',
-    failed: 'Failed',
-    destroyed: 'Destroyed',
+    loading: '불러오는 중',
+    ready: '준비됨',
+    armed: '실행 준비',
+    running: '실행 중',
+    observed: '관찰 완료',
+    'not-implemented': '미구현',
+    failed: '실패',
+    destroyed: '종료됨',
   } as const;
   return labels[status];
 }

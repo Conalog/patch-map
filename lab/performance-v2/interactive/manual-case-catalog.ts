@@ -3,6 +3,9 @@ import {
   type CoreV2ContractActionPresenter,
   type CoreV2ContractPresenterDescriptor,
 } from '../contract/presenters';
+import {
+  coreV2KoreanCaseTitle,
+} from '../contract/korean-copy';
 
 export const CORE_V2_MANUAL_LAB_REVISION = 'core-v2-manual-lab/1' as const;
 
@@ -39,17 +42,33 @@ export interface CoreV2ManualCaseDescriptor {
 export const CORE_V2_MANUAL_TOOL_LABELS: Readonly<
   Record<CoreV2ManualToolGroup, string>
 > = Object.freeze({
-  selection: 'Selection',
-  transform: 'Transformer',
-  history: 'History',
-  view: 'Viewport',
-  animation: 'Animation & paint',
-  data: 'Dataset & updates',
-  authoring: 'Editor actions',
-  assets: 'Assets & extract',
-  lifecycle: 'Lifecycle',
-  accessibility: 'Accessibility',
-  diagnostics: 'Diagnostics',
+  selection: '선택',
+  transform: '이동·크기·회전',
+  history: '히스토리',
+  view: '화면 이동·확대',
+  animation: '애니메이션·꾸미기',
+  data: '데이터셋·갱신',
+  authoring: '편집 작업',
+  assets: '에셋·이미지 추출',
+  lifecycle: '시작·종료',
+  accessibility: '접근성',
+  diagnostics: '진단·고급',
+});
+
+export const CORE_V2_MANUAL_TOOL_DESCRIPTIONS: Readonly<
+  Record<CoreV2ManualToolGroup, string>
+> = Object.freeze({
+  selection: '객체를 고르고 선택 목록을 확인합니다.',
+  transform: '선택 객체를 이동·크기 조절·회전합니다.',
+  history: '편집 기록을 실행 취소하거나 다시 실행합니다.',
+  view: '캔버스의 위치·배율·월드 방향을 바꿉니다.',
+  animation: '막대·텍스트·스타일의 화면 변화를 실행합니다.',
+  data: 'PATCH MAP JSON을 불러오고 원자적으로 갱신합니다.',
+  authoring: '객체를 생성·복제·정렬·그룹화·삭제합니다.',
+  assets: '에셋 수명과 현재 장면 이미지 추출을 확인합니다.',
+  lifecycle: '세션을 교체·종료·재시작하고 크기를 바꿉니다.',
+  accessibility: '논리 트리·포커스·키보드 동작을 확인합니다.',
+  diagnostics: '제품 상태·이벤트·공개 기능 결과를 자세히 봅니다.',
 });
 
 const PREFIX_TOOLS: Readonly<Record<string, readonly CoreV2ManualToolGroup[]>> =
@@ -93,94 +112,94 @@ const PREFIX_TOOLS: Readonly<Record<string, readonly CoreV2ManualToolGroup[]>> =
 
 const CASE_TASKS: Readonly<Record<string, readonly string[]>> = Object.freeze({
   'SEL-004': [
-    'Click an object, then Shift-click other objects to toggle them in and out.',
-    'Use Select first 3, Clear, Box, and Paint to compare every set operation.',
-    'Watch selected IDs and the selection event journal update after each gesture.',
+    '객체를 클릭한 뒤 다른 객체를 Shift+클릭해 선택에 추가하거나 빼보세요.',
+    '‘처음 3개 선택’, ‘선택 해제’, ‘영역 선택’, ‘붓질 선택’을 차례로 비교하세요.',
+    '동작할 때마다 선택된 ID와 이벤트 기록이 바뀌는지 확인하세요.',
   ],
   'SEL-005': [
-    'Choose Box and drag across complete and partially intersecting objects.',
-    'Hold Shift while releasing the box to add the region to the current selection.',
-    'Pan or zoom, then repeat the same box gesture in transformed screen coordinates.',
+    '‘영역 선택’을 고르고 객체 전체와 일부가 걸치도록 드래그하세요.',
+    '마우스를 놓을 때 Shift를 누르면 기존 선택에 영역 결과가 추가됩니다.',
+    '화면을 이동하거나 확대·축소한 뒤 같은 영역 선택을 반복하세요.',
   ],
   'SEL-006': [
-    'Choose Paint and scrub across several objects with one continuous pointer gesture.',
-    'Repeat while holding Shift to add painted targets to the current set.',
-    'Inspect the segment count and selected IDs after each stroke.',
+    '‘붓질 선택’을 고르고 한 번의 연속 동작으로 여러 객체를 문질러 지나가세요.',
+    'Shift를 누른 채 반복하면 기존 선택에 지나간 대상이 추가됩니다.',
+    '한 번 그을 때마다 선택된 ID와 이벤트 기록을 확인하세요.',
   ],
   'HIS-001': [
-    'Move, resize, rotate, style, or create objects to build real history records.',
-    'Use Undo/Redo buttons or Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z.',
-    'Compare the live stack, current geometry, selection, and published revision.',
+    '객체를 이동·크기 조절·회전·꾸미거나 새로 만들어 실제 기록을 쌓으세요.',
+    '‘실행 취소/다시 실행’ 버튼 또는 Ctrl/Cmd+Z와 Ctrl/Cmd+Shift+Z를 사용하세요.',
+    '기록 목록, 현재 도형, 선택 상태와 게시된 화면이 함께 복원되는지 확인하세요.',
   ],
   'HIS-002': [
-    'Set a small capacity, perform more edits than the capacity, and inspect eviction.',
-    'Undo one step, make a different edit, and verify the redo branch disappears.',
-    'Clear history and confirm scene state remains while both stacks become empty.',
+    '최대 기록 수를 작게 정하고 그보다 많은 편집을 해 오래된 기록이 빠지는지 보세요.',
+    '한 번 실행 취소한 뒤 다른 편집을 해 이전 다시 실행 분기가 사라지는지 확인하세요.',
+    '기록을 비운 뒤에도 현재 장면은 그대로이고 두 스택만 비는지 확인하세요.',
   ],
   'HIS-004': [
-    'Focus the canvas or Lab chrome and use Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, or Ctrl/Cmd+Y.',
-    'Use the matching host buttons and compare the same history result.',
-    'Focus a text input and verify the Lab does not steal its native editing shortcut.',
+    '캔버스나 Lab 화면에 초점을 두고 Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, Ctrl/Cmd+Y를 사용하세요.',
+    '같은 기능의 버튼을 눌러 동일한 히스토리 결과가 나오는지 비교하세요.',
+    '텍스트 입력란에서는 Lab이 기본 편집 단축키를 가로채지 않는지 확인하세요.',
   ],
   'REN-009': [
-    'Trigger all bars, 10%, or selected bars repeatedly; animations remain visibly interpolated.',
-    'Pan and zoom while bars are moving and watch frame/animation counters.',
-    'Enable reduced motion and trigger another update to compare the presentation policy.',
+    '전체·10%·선택 막대 애니메이션을 여러 번 실행해 높이가 부드럽게 변하는지 보세요.',
+    '막대가 움직이는 동안 화면을 이동·확대하고 프레임·애니메이션 수를 확인하세요.',
+    '‘동작 줄이기’를 켜고 다시 실행해 표시 정책 차이를 비교하세요.',
   ],
   'ANI-001': [
-    'Trigger selected, 10%, and all-bar updates as often as needed.',
-    'Use Pause frames to freeze a visible intermediate height, then resume.',
-    'Undo or replace the scene during motion and inspect the animation/resource counters.',
+    '선택·10%·전체 막대 갱신을 원하는 만큼 반복하세요.',
+    '‘프레임 일시 정지’로 중간 높이를 멈춘 뒤 다시 재생하세요.',
+    '움직이는 동안 실행 취소하거나 장면을 교체하고 애니메이션·자원 수를 확인하세요.',
   ],
   'PRF-003': [
-    'Start all-bar animation and immediately drag-pan and wheel-zoom the live canvas.',
-    'Repeat with 10% and selected-only updates while watching FPS and the longest frame gap.',
-    'Change dataset size from the route controls to compare the same interaction workload.',
+    '전체 막대 애니메이션을 시작한 즉시 캔버스를 드래그하고 휠로 확대하세요.',
+    '10%와 선택 막대도 반복하면서 FPS와 최대 프레임 간격을 관찰하세요.',
+    '상단의 데이터셋 크기를 바꿔 같은 조작 부하를 비교하세요.',
   ],
   'TRN-004': [
-    'Select a standalone rectangle and drag each visible corner or edge handle.',
-    'Use the Resize tool fallback and the eight direction buttons for repeatable deltas.',
-    'Hold Shift during a handle drag to lock the current aspect ratio.',
+    '독립 사각형 하나를 선택하고 보이는 모서리·변 핸들을 각각 드래그하세요.',
+    '‘크기 조절’ 모드와 방향 버튼으로 같은 변화량을 반복해보세요.',
+    '핸들을 드래그할 때 Shift를 누르면 현재 가로세로 비율이 고정됩니다.',
   ],
   'TRN-006': [
-    'Shift-select multiple movable objects, choose Rotate, and drag around the selection center.',
-    'Use ±15° buttons for deterministic group rotation.',
-    'Undo and redo to confirm the whole selection rotates as one history action.',
+    '이동 가능한 객체 여러 개를 Shift로 선택하고 ‘회전’ 모드에서 선택 중심 둘레로 드래그하세요.',
+    '±15° 버튼으로 정확한 그룹 회전을 반복하세요.',
+    '전체 선택이 하나의 히스토리 작업으로 실행 취소·재실행되는지 확인하세요.',
   ],
   'TRN-008': [
-    'Select an object and drag it with Move; hold Shift for axis lock.',
-    'Use arrow keys for one-pixel nudges and Shift+arrow for ten pixels.',
-    'Move near a viewport edge, then pan/zoom and continue transforming.',
+    '객체를 선택해 ‘이동’으로 드래그하고 Shift를 눌러 축을 고정하세요.',
+    '방향키는 1px, Shift+방향키는 10px씩 이동합니다.',
+    '화면 가장자리 가까이 옮긴 뒤 화면 이동·확대 후에도 계속 변형해보세요.',
   ],
   'TRN-009': [
-    'Drag a selected object through several previews and release to create one history step.',
-    'Press Escape mid-drag to cancel and restore the pre-gesture geometry.',
-    'Undo and redo the completed gesture while watching preview and history counters.',
+    '선택 객체를 여러 중간 위치로 드래그한 뒤 놓아 히스토리 한 단계를 만드세요.',
+    '드래그 도중 Escape를 눌러 취소하고 시작 전 도형으로 돌아오는지 보세요.',
+    '완료한 제스처를 실행 취소·재실행하며 화면과 기록 수를 확인하세요.',
   ],
   'CSM-011': [
-    'Click, Shift-toggle, Box, Paint, relation endpoint select, and blank-space clear freely.',
-    'Pan/zoom between selections to exercise transformed hit testing.',
-    'Inspect canvas-to-host selection publications in the event journal.',
+    '클릭·Shift 전환·영역·붓질·관계 끝점 선택과 빈 공간 해제를 자유롭게 사용하세요.',
+    '선택 사이에 화면 이동·확대를 넣어 변환된 좌표의 적중 검사를 확인하세요.',
+    '이벤트 기록에서 캔버스 선택이 호스트로 전달되는지 확인하세요.',
   ],
   'CSM-022': [
-    'Select one or several objects, drag to move, and nudge with the keyboard.',
-    'Hold Shift during drag for axis lock and use Shift+arrow for ten-pixel steps.',
-    'Undo once and confirm the complete gesture—not each preview—is reversed.',
+    '객체 하나 또는 여러 개를 선택해 드래그하고 키보드로 미세 이동하세요.',
+    '드래그 중 Shift로 축을 고정하고 Shift+방향키로 10px씩 이동하세요.',
+    '실행 취소 한 번으로 중간 위치가 아니라 전체 제스처가 되돌아가는지 확인하세요.',
   ],
   'CSM-023': [
-    'Resize by any visible handle, then rotate the same or a multi-object selection.',
-    'Hold Shift for ratio lock or 15° rotation snapping and press Escape to cancel.',
-    'Use Undo/Redo to replay the completed transform as one action.',
+    '보이는 모든 핸들로 크기를 조절한 뒤 같은 객체 또는 여러 객체를 회전하세요.',
+    'Shift로 비율 또는 15° 회전을 맞추고 Escape로 진행 중 동작을 취소하세요.',
+    '완료된 변형이 한 작업으로 실행 취소·재실행되는지 확인하세요.',
   ],
   'CSM-034': [
-    'Mix transform, create, style, group, duplicate, and delete operations.',
-    'Undo all available records, then redo them while watching selection and interaction mode.',
-    'Create a new branch after undo and verify stale redo records are removed.',
+    '변형·생성·꾸미기·그룹·복제·삭제 작업을 섞어 기록을 쌓으세요.',
+    '가능한 기록을 모두 실행 취소한 뒤 다시 실행하며 선택과 조작 모드를 확인하세요.',
+    '실행 취소 뒤 새 편집을 만들어 이전 다시 실행 기록이 제거되는지 보세요.',
   ],
   'CSM-038': [
-    'Capture the current published PixiJS scene and inspect the image preview.',
-    'Continue selecting, panning, and animating after capture to prove the live canvas remains.',
-    'Repeat capture and compare canvas identity, pending work, and resource counts.',
+    '현재 게시된 PixiJS 장면을 캡처하고 이미지 미리보기를 확인하세요.',
+    '캡처 뒤에도 선택·화면 이동·애니메이션을 계속해 실제 캔버스가 유지되는지 보세요.',
+    '캡처를 반복하며 캔버스 ID, 대기 작업과 자원 수를 비교하세요.',
   ],
 });
 
@@ -221,7 +240,7 @@ export function createCoreV2ManualCaseDescriptor(
   return Object.freeze({
     revision: CORE_V2_MANUAL_LAB_REVISION,
     caseId: presenter.caseId,
-    title: presenter.title,
+    title: coreV2KoreanCaseTitle(presenter.caseId),
     tools,
     tasks: Object.freeze([...tasks]),
     actions: Object.freeze(actionDescriptors),
@@ -267,7 +286,7 @@ function manualActionDescriptor(
   return Object.freeze({
     index: action.index,
     type: action.type,
-    label: action.label,
+    label: `${CORE_V2_MANUAL_TOOL_LABELS[group]} · 작업 ${action.index + 1}`,
     group,
     instruction: manualInstructionForAction(action.type, group),
   });
@@ -410,39 +429,39 @@ function manualInstructionForAction(
   group: CoreV2ManualToolGroup,
 ): string {
   const value = type.toLowerCase();
-  if (value.includes('undo')) return 'Build several edits, then press Undo or Ctrl/Cmd+Z.';
-  if (value.includes('redo')) return 'Undo first, then press Redo, Ctrl/Cmd+Shift+Z, or Ctrl/Cmd+Y.';
+  if (value.includes('undo')) return '편집을 여러 번 한 뒤 ‘실행 취소’ 또는 Ctrl/Cmd+Z를 누르세요.';
+  if (value.includes('redo')) return '먼저 실행 취소한 뒤 ‘다시 실행’, Ctrl/Cmd+Shift+Z 또는 Ctrl/Cmd+Y를 누르세요.';
   if (value.includes('box-select') || value.includes('box-selection')) {
-    return 'Choose Box and drag a region directly across the live canvas.';
+    return '‘영역 선택’을 고르고 실제 캔버스 위에서 범위를 드래그하세요.';
   }
   if (value.includes('paint-select') || value.includes('paint-selection')) {
-    return 'Choose Paint and scrub a continuous path across live objects.';
+    return '‘붓질 선택’을 고르고 실제 객체들을 가로질러 연속으로 문지르세요.';
   }
   if (value.includes('animate') || value.includes('bar') || value.includes('advance-clock')) {
-    return 'Use Animation & paint controls repeatedly and manipulate the viewport while frames run.';
+    return '‘애니메이션·꾸미기’ 도구를 반복 실행하고 프레임이 도는 동안 화면도 조작하세요.';
   }
   if (value.includes('resize')) {
-    return 'Select a rectangle, choose Resize, and drag its visible handles or use direction controls.';
+    return '사각형을 선택하고 ‘크기 조절’에서 보이는 핸들을 끌거나 방향 버튼을 사용하세요.';
   }
   if (value.includes('rotate')) {
-    return 'Select one or more objects, choose Rotate, and drag or use deterministic angle buttons.';
+    return '객체 하나 이상을 선택하고 ‘회전’에서 직접 끌거나 각도 버튼을 사용하세요.';
   }
   if (value.includes('move') || value.includes('nudge')) {
-    return 'Select movable targets, drag with Move, or use the arrow-key nudge controls.';
+    return '이동 가능한 대상을 선택하고 ‘이동’으로 끌거나 방향키 미세 이동을 사용하세요.';
   }
   if (value.includes('extract') || value.includes('capture')) {
-    return 'Publish the current frame, capture it, inspect the preview, and continue using the same canvas.';
+    return '현재 프레임을 게시·캡처하고 미리보기를 확인한 뒤 같은 캔버스를 계속 사용하세요.';
   }
   if (value.includes('destroy') || value.includes('remount')) {
-    return 'Destroy and re-initialize the live session while watching canvas and resource counters.';
+    return '실제 세션을 종료·재초기화하며 캔버스와 자원 수를 확인하세요.';
   }
   if (value.includes('load') || value.includes('replace')) {
-    return 'Edit or regenerate the PATCH MAP JSON, then load it as a complete authoritative scene.';
+    return 'PATCH MAP JSON을 편집하거나 다시 만든 뒤 전체 기준 장면으로 불러오세요.';
   }
   if (value.includes('patch') || value.includes('merge') || value.includes('update')) {
-    return 'Select a target and apply a patch, style, text, or advanced JSON operation.';
+    return '대상을 선택하고 부분 갱신·스타일·텍스트 또는 고급 JSON 작업을 적용하세요.';
   }
-  return `Use the ${CORE_V2_MANUAL_TOOL_LABELS[group]} panel and inspect the live result and journal.`;
+  return `‘${CORE_V2_MANUAL_TOOL_LABELS[group]}’ 도구에서 실행한 뒤 실제 결과와 이벤트 기록을 확인하세요.`;
 }
 
 function defaultTasks(
@@ -451,9 +470,9 @@ function defaultTasks(
 ): readonly string[] {
   const unique = [...new Set(actions.map(({ instruction }) => instruction))];
   return Object.freeze([
-    presenter.instruction,
+    `‘${coreV2KoreanCaseTitle(presenter.caseId)}’ 동작을 실제 캔버스에서 직접 확인하는 케이스입니다.`,
     ...(unique.slice(0, 2)),
-    'Repeat, vary, undo, and inspect each operation; the manual session remains live until you destroy it.',
+    '같은 동작을 여러 값으로 반복하고 실행 취소·다시 실행해보세요. 직접 종료하기 전까지 세션은 계속 유지됩니다.',
   ]);
 }
 

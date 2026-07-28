@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  font-family: "Avenir Next", Avenir, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  font-family: Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   color: #18243a;
   background: #edf1f5;
 }
@@ -99,6 +99,12 @@ body {
   font-size: 1rem;
 }
 
+.manual-case-guide > div > p {
+  margin: 7px 0 0;
+  color: #756b60;
+  font-size: 0.68rem;
+}
+
 .manual-case-id {
   display: inline-flex;
   padding: 4px 7px;
@@ -115,6 +121,103 @@ body {
   color: #3f495b;
   font-size: 0.74rem;
   line-height: 1.45;
+}
+
+.manual-onboarding {
+  padding: 18px 24px;
+  border-bottom: 1px solid #d4cec2;
+  background: #fffdf7;
+}
+
+.manual-onboarding-heading {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.manual-onboarding-heading h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.manual-onboarding > ol {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 13px 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.manual-onboarding > ol > li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 9px;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid #d3cdc0;
+  background: #faf7f0;
+}
+
+.manual-onboarding > ol > li > span {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--manual-blue);
+  font: 800 0.72rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  place-items: center;
+}
+
+.manual-onboarding li strong {
+  font-size: 0.72rem;
+}
+
+.manual-onboarding li p {
+  margin: 4px 0 0;
+  color: #626b79;
+  font-size: 0.65rem;
+  line-height: 1.45;
+}
+
+.manual-onboarding details {
+  border: 1px solid #c9c2b6;
+  background: #f8f3e9;
+}
+
+.manual-onboarding summary {
+  padding: 9px 11px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.manual-layout-help {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  padding: 0 10px 10px;
+}
+
+.manual-layout-help p {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 9px;
+  border-left: 3px solid var(--manual-orange);
+  background: #fff;
+}
+
+.manual-layout-help strong {
+  font-size: 0.68rem;
+}
+
+.manual-layout-help span {
+  color: #626b79;
+  font-size: 0.63rem;
+  line-height: 1.4;
 }
 
 .manual-stage-layout {
@@ -318,6 +421,8 @@ body {
 }
 
 .manual-tool-tabs button {
+  display: grid;
+  gap: 3px;
   min-height: 39px;
   padding: 7px 9px;
   border: 0;
@@ -328,9 +433,24 @@ body {
   text-align: left;
 }
 
+.manual-tool-tabs button strong {
+  font-size: 0.7rem;
+}
+
+.manual-tool-tabs button small {
+  color: #777f8b;
+  font-size: 0.56rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
 .manual-tool-tabs button[aria-pressed="true"] {
   color: #fff;
   background: var(--manual-ink);
+}
+
+.manual-tool-tabs button[aria-pressed="true"] small {
+  color: #cbd5e5;
 }
 
 .manual-tool-panels {
@@ -354,6 +474,9 @@ body {
 .manual-tool-panel button,
 .manual-approved-actions button,
 .manual-field-action button {
+  display: grid;
+  gap: 3px;
+  align-content: center;
   min-height: 36px;
   padding: 7px 9px;
   border: 1px solid #aeb3bb;
@@ -361,6 +484,19 @@ body {
   background: #fff;
   font-size: 0.69rem;
   font-weight: 760;
+}
+
+.manual-tool-panel button small,
+.manual-field-action button small {
+  color: #747d8a;
+  font-size: 0.55rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.manual-tool-panel button:hover:not(:disabled) small,
+.manual-field-action button:hover:not(:disabled) small {
+  color: #8e2d11;
 }
 
 .manual-tool-panel button:hover:not(:disabled),
@@ -448,6 +584,7 @@ body {
 .manual-nudge-pad button:nth-child(2) { grid-area: left; }
 .manual-nudge-pad button:nth-child(3) { grid-area: down; }
 .manual-nudge-pad button:nth-child(4) { grid-area: right; }
+.manual-nudge-pad button small { display: none; }
 
 .manual-shortcut-note {
   color: #747c89;
@@ -640,6 +777,15 @@ body {
 @media (max-width: 760px) {
   .manual-workbench-header,
   .manual-case-guide {
+    grid-template-columns: 1fr;
+  }
+
+  .manual-onboarding-heading {
+    display: grid;
+  }
+
+  .manual-onboarding > ol,
+  .manual-layout-help {
     grid-template-columns: 1fr;
   }
 
@@ -919,10 +1065,20 @@ p {
   font-size: 0.72rem;
 }
 
+.contract-action-note {
+  margin: 14px 0 0;
+  padding: 8px 10px;
+  border-left: 3px solid #4a78b7;
+  color: #52657f;
+  background: #f1f6fc;
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
 .contract-actions {
   display: grid;
   gap: 6px;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .contract-case-action {

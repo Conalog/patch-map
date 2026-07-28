@@ -57,7 +57,7 @@ export function buildCoreV2ManualScene(size: string, seed: number): CoreV2Manual
     {
       type: 'text',
       id: 'manual-text',
-      text: 'Edit me · 직접 편집',
+      text: '직접 편집하세요',
       size: { width: 220, height: 46 },
       style: {
         fontFamily: 'Fira Code',
@@ -83,7 +83,7 @@ export function buildCoreV2ManualScene(size: string, seed: number): CoreV2Manual
         {
           type: 'text',
           id: 'manual-group-label',
-          text: 'GROUP',
+          text: '그룹',
           size: { width: 110, height: 28 },
           style: { fontFamily: 'Fira Code', fontSize: 18, fill: '#172033' },
           attrs: { x: 22, y: 40, zIndex: 1 },
