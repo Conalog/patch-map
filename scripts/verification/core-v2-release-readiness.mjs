@@ -5,6 +5,15 @@ import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
+import {
+  CAPABILITY_DEPENDENT_INPUTS,
+  cellArtifactRole,
+  CORE_V2_NATIVE_RELEASE_SCHEMA,
+  MANDATORY_INPUTS,
+  REQUIRED_BROWSER_CELLS,
+  requiredNativeArtifactRoles,
+} from './core-v2-native-release-contract.mjs';
+
 const ROOT = process.cwd();
 const CODE_COMMIT = process.env.CORE_V2_CODE_COMMIT ?? 'uncommitted';
 const OUTPUT_PATH = path.resolve(
@@ -19,25 +28,6 @@ const NATIVE_MANIFEST_PATH = argumentValue('--native-manifest');
 const REQUIRE_RELEASE = process.argv.includes('--require-release');
 const HASH = /^[a-f0-9]{64}$/u;
 const PROHIBITED_PATH_SEGMENT = /(^|[\\/])(node_modules|dist|bundle)([\\/]|$)|\.map$|\.umd\.|\.bundle\./u;
-const REQUIRED_BROWSER_CELLS = Object.freeze(
-  ['Windows 10', 'Windows 11'].flatMap((osName) =>
-    ['Chrome', 'Edge'].flatMap((browserName) =>
-      ['latest-1', 'latest'].map((releaseRank) => ({
-        id: `${slug(osName)}-${browserName.toLowerCase()}-${releaseRank}`,
-        osName,
-        browserName,
-        releaseRank,
-      })))),
-);
-const MANDATORY_INPUTS = Object.freeze([
-  'mouse',
-  'precision-trackpad',
-  'keyboard',
-  'browser-zoom',
-  'host-css-transform',
-  'scroll',
-  'DPR-change',
-]);
 const LOCAL_ARTIFACTS = Object.freeze([
   {
     id: 'browser-functional',
@@ -260,9 +250,10 @@ if (releaseVerified) {
 async function validateNativeManifest(manifest, context) {
   const checks = [];
   const failures = [];
-  const artifactIds = new Set();
+  const artifactById = new Map();
+  const artifactRoleCounts = new Map();
 
-  add(manifest?.$schema === 'core-v2-native-release-evidence/1', 'native manifest schema');
+  add(manifest?.$schema === CORE_V2_NATIVE_RELEASE_SCHEMA, 'native manifest schema');
   add(manifest?.status === 'pass', 'native manifest terminal pass');
   add(HASH.test(manifest?.implementation?.commit ?? ''), 'implementation commit');
   if (HASH.test(context.codeCommit)) {
@@ -276,22 +267,39 @@ async function validateNativeManifest(manifest, context) {
     'packed package SHA-256',
   );
   add(
-    typeof manifest?.implementation?.pixiVersion === 'string'
-      && manifest.implementation.pixiVersion.startsWith('8.'),
+    /^8\.\d+\.\d+(?:[-+].+)?$/u.test(
+      manifest?.implementation?.pixiVersion ?? '',
+    ),
     'PixiJS v8 exact version',
   );
-  add(nonEmpty(manifest?.implementation?.typescriptVersion), 'TypeScript exact version');
-  add(nonEmpty(manifest?.implementation?.bundler), 'bundler exact version');
-  add(nonEmpty(manifest?.implementation?.cspProfile), 'CSP profile');
+  add(
+    /^\d+\.\d+\.\d+(?:[-+].+)?$/u.test(
+      manifest?.implementation?.typescriptVersion ?? '',
+    ),
+    'TypeScript exact version',
+  );
+  add(
+    /^[a-z0-9-]+@\d+\.\d+\.\d+(?:[-+].+)?$/u.test(
+      manifest?.implementation?.bundler ?? '',
+    ),
+    'bundler exact version',
+  );
+  add(nonPlaceholder(manifest?.implementation?.cspProfile), 'CSP profile');
 
   const artifacts = Array.isArray(manifest?.artifacts) ? manifest.artifacts : [];
   add(artifacts.length > 0, 'digest-bound artifact inventory');
   for (const artifact of artifacts) {
     const label = `artifact ${String(artifact?.id ?? '<missing>')}`;
-    const validId = nonEmpty(artifact?.id) && !artifactIds.has(artifact.id);
+    const validId = nonEmpty(artifact?.id) && !artifactById.has(artifact.id);
     add(validId, `${label} unique ID`);
-    if (validId) artifactIds.add(artifact.id);
+    if (validId) artifactById.set(artifact.id, artifact);
     add(nonEmpty(artifact?.role), `${label} role`);
+    if (nonEmpty(artifact?.role)) {
+      artifactRoleCounts.set(
+        artifact.role,
+        (artifactRoleCounts.get(artifact.role) ?? 0) + 1,
+      );
+    }
     add(HASH.test(artifact?.sha256 ?? ''), `${label} SHA-256`);
     if (nonEmpty(artifact?.path) && HASH.test(artifact?.sha256 ?? '')) {
       try {
@@ -305,6 +313,12 @@ async function validateNativeManifest(manifest, context) {
     } else {
       add(false, `${label} path`);
     }
+  }
+  for (const role of requiredNativeArtifactRoles()) {
+    add(
+      artifactRoleCounts.get(role) === 1,
+      `exactly one digest-bound artifact for role ${role}`,
+    );
   }
 
   const profile = manifest?.performanceProfile;
@@ -325,7 +339,7 @@ async function validateNativeManifest(manifest, context) {
   add(profile?.memory?.type === canonical.memory.type, 'target memory type');
   add(profile?.memory?.channels === canonical.memory.channels, 'target memory channels');
   add(profile?.gpu?.model === canonical.gpu.model, 'target GPU');
-  add(nonEmpty(profile?.gpu?.driver), 'exact target GPU driver');
+  add(nonPlaceholder(profile?.gpu?.driver), 'exact target GPU driver');
   add(deepEqual(profile?.display?.physicalPixels, canonical.display.physicalPixels), 'display pixels');
   add(profile?.display?.refreshHz === canonical.display.refreshHz, 'display refresh');
   add(
@@ -360,16 +374,27 @@ async function validateNativeManifest(manifest, context) {
     if (!cell) continue;
     add(cell.status === 'pass', `${label} terminal pass`);
     add(cell.os?.name === required.osName, `${label} OS`);
-    add(nonEmpty(cell.os?.release), `${label} OS release`);
+    add(nonPlaceholder(cell.os?.release), `${label} OS release`);
     add(Number.isInteger(cell.os?.build), `${label} OS build`);
     add(cell.browser?.name === required.browserName, `${label} browser`);
     add(cell.browser?.releaseRank === required.releaseRank, `${label} release rank`);
-    add(nonEmpty(cell.browser?.exactVersion), `${label} exact browser version`);
+    add(nonPlaceholder(cell.browser?.exactVersion), `${label} exact browser version`);
+    add(nonPlaceholder(cell.browser?.executable), `${label} exact browser executable`);
+    add(
+      cell.implementation?.commit === manifest?.implementation?.commit,
+      `${label} implementation commit binding`,
+    );
+    add(
+      cell.implementation?.packedPackageSha256
+        === manifest?.implementation?.packedPackageSha256,
+      `${label} packed package digest binding`,
+    );
     add(cell.runtime?.headed === true, `${label} headed`);
     add(cell.runtime?.backend === 'webgl2', `${label} mandatory WebGL2 backend`);
     add(cell.runtime?.hardwareAcceleration === true, `${label} hardware acceleration`);
     add(cell.runtime?.devicePixelRatio === 1, `${label} DPR`);
     add(deepEqual(cell.runtime?.viewportCssPixels, [1_280, 720]), `${label} viewport`);
+    add(cell.runtime?.browserZoomPercent === 100, `${label} browser zoom`);
     add(cell.functional?.caseCount === 173, `${label} 173 actual cases`);
     add(cell.functional?.freshSessionCount === 2, `${label} two fresh sessions`);
     add(cell.functional?.stableActualEqual === true, `${label} deterministic actuals`);
@@ -377,79 +402,127 @@ async function validateNativeManifest(manifest, context) {
     add(cell.functional?.pageErrors === 0, `${label} page errors`);
     add(cell.functional?.networkErrors === 0, `${label} network errors`);
     add(cell.functional?.cleanupOwnerDelta === 0, `${label} cleanup owner delta`);
-    add(cell.accessibility?.nvda?.status === 'pass', `${label} NVDA pass`);
-    add(nonEmpty(cell.accessibility?.nvda?.version), `${label} NVDA exact version`);
     add(
-      artifactIds.has(cell.accessibility?.nvda?.artifactId),
+      artifactHasRole(
+        cell.functional?.rawArtifactId,
+        cellArtifactRole(required.id, 'functional'),
+      ),
+      `${label} functional digest-bound artifact`,
+    );
+    add(cell.accessibility?.nvda?.status === 'pass', `${label} NVDA pass`);
+    add(nonPlaceholder(cell.accessibility?.nvda?.version), `${label} NVDA exact version`);
+    add(
+      artifactHasRole(
+        cell.accessibility?.nvda?.artifactId,
+        cellArtifactRole(required.id, 'nvda'),
+      ),
       `${label} NVDA digest-bound artifact`,
     );
     for (const input of MANDATORY_INPUTS) {
       const inputEvidence = cell.inputs?.[input];
       add(inputEvidence?.status === 'pass', `${label} ${input} pass`);
-      add(artifactIds.has(inputEvidence?.artifactId), `${label} ${input} artifact`);
+      add(
+        artifactHasRole(
+          inputEvidence?.artifactId,
+          cellArtifactRole(required.id, 'inputs'),
+        ),
+        `${label} ${input} artifact`,
+      );
     }
-    for (const capability of ['touch', 'pen', 'multi-pointer']) {
+    for (const capability of CAPABILITY_DEPENDENT_INPUTS) {
       const capabilityEvidence = cell.inputs?.[capability];
       const valid =
         capabilityEvidence?.status === 'not-present-on-device'
         || (
           capabilityEvidence?.status === 'pass'
           && capabilityEvidence?.realCapableWindowsDevice === true
-          && artifactIds.has(capabilityEvidence?.artifactId)
         );
       add(valid, `${label} ${capability} honest capability result`);
+      add(
+        artifactHasRole(
+          capabilityEvidence?.artifactId,
+          cellArtifactRole(required.id, 'inputs'),
+        ),
+        `${label} ${capability} inventory artifact`,
+      );
     }
     const performance = cell.performance;
     add(performance?.warmups === 2, `${label} performance warmups`);
     add(performance?.measuredSamples === 7, `${label} performance measured samples`);
-    add(performance?.frameGapP95Ms <= 33, `${label} frame-gap p95 budget`);
     add(
-      performance?.actionToVisibleP95Ms <= 50,
+      finiteAtMost(performance?.frameGapP95Ms, 33),
+      `${label} frame-gap p95 budget`,
+    );
+    add(
+      finiteAtMost(performance?.actionToVisibleP95Ms, 50),
       `${label} action-to-visible p95 budget`,
     );
     add(
       performance?.mainThreadTasksAtLeast100Ms === 0,
       `${label} main-thread long-task budget`,
     );
-    add(performance?.droppedFrameRatio <= 0.02, `${label} dropped-frame budget`);
     add(
-      performance?.maximumFrozenBaselineRegressionPercent <= 10,
+      finiteAtMost(performance?.droppedFrameRatio, 0.02),
+      `${label} dropped-frame budget`,
+    );
+    add(
+      Number.isFinite(performance?.maximumFrozenBaselineRegressionPercent)
+        && performance.maximumFrozenBaselineRegressionPercent <= 10,
       `${label} frozen-baseline regression budget`,
     );
-    add(artifactIds.has(performance?.rawArtifactId), `${label} raw performance artifact`);
+    add(
+      artifactHasRole(
+        performance?.rawArtifactId,
+        cellArtifactRole(required.id, 'performance'),
+      ),
+      `${label} raw performance artifact`,
+    );
     const lifecycle = cell.lifecycle;
     add(lifecycle?.cycles === 10, `${label} lifecycle cycles`);
-    add(lifecycle?.postDestroyForcedGcGrowthMiB <= 2, `${label} forced-GC growth budget`);
+    add(
+      finiteAtMost(lifecycle?.postDestroyForcedGcGrowthMiB, 2),
+      `${label} forced-GC growth budget`,
+    );
     add(lifecycle?.canvasListenerTickerTextureDelta === 0, `${label} owner cleanup`);
-    add(artifactIds.has(lifecycle?.rawArtifactId), `${label} lifecycle artifact`);
+    add(
+      artifactHasRole(
+        lifecycle?.rawArtifactId,
+        cellArtifactRole(required.id, 'lifecycle'),
+      ),
+      `${label} lifecycle artifact`,
+    );
   }
 
   add(cellsById.size === REQUIRED_BROWSER_CELLS.length, 'no duplicate or extra browser cells');
   add(manifest?.actualHost?.status === 'pass', 'actual production host pass');
   add(manifest?.actualHost?.mock === false, 'actual host is not a mock');
   add(manifest?.actualHost?.journeyCount === 38, 'actual host 38 journeys');
-  add(nonEmpty(manifest?.actualHost?.hostRevision), 'actual host revision');
+  add(nonPlaceholder(manifest?.actualHost?.hostRevision), 'actual host revision');
   add(HASH.test(manifest?.actualHost?.hostCommit ?? ''), 'actual host commit');
   add(
     manifest?.actualHost?.packedPackageSha256
       === manifest?.implementation?.packedPackageSha256,
     'actual host package digest binding',
   );
-  add(artifactIds.has(manifest?.actualHost?.artifactId), 'actual host artifact');
+  add(artifactHasRole(manifest?.actualHost?.artifactId, 'actual-host'), 'actual host artifact');
 
   add(manifest?.security?.status === 'pass', 'security gate');
   add(manifest?.security?.auditFindingCount === 0, 'security audit findings');
-  add(artifactIds.has(manifest?.security?.artifactId), 'security artifact');
+  add(artifactHasRole(manifest?.security?.artifactId, 'security'), 'security artifact');
   add(manifest?.migration?.status === 'pass', 'migration gate');
   add(manifest?.migration?.schemaRoundtrip === 'pass', 'schema roundtrip');
   add(manifest?.migration?.singleAuthoritativeEngine === 'pass', 'single engine authority');
   add(deepEqual(manifest?.migration?.canaryStagesPercent, [1, 10, 50, 100]), 'canary stages');
   add(manifest?.migration?.rollbackRehearsal === 'pass', 'rollback rehearsal');
-  add(artifactIds.has(manifest?.migration?.artifactId), 'migration artifact');
+  add(artifactHasRole(manifest?.migration?.artifactId, 'migration'), 'migration artifact');
   add(manifest?.review?.status === 'approved', 'independent release review');
-  add(nonEmpty(manifest?.review?.reviewer), 'release reviewer');
-  add(nonEmpty(manifest?.review?.reviewedAt), 'release review date');
-  add(artifactIds.has(manifest?.review?.artifactId), 'review artifact');
+  add(nonPlaceholder(manifest?.review?.reviewer), 'release reviewer');
+  add(
+    nonPlaceholder(manifest?.review?.reviewedAt)
+      && Number.isFinite(Date.parse(manifest.review.reviewedAt)),
+    'release review date',
+  );
+  add(artifactHasRole(manifest?.review?.artifactId, 'review'), 'review artifact');
 
   return {
     status: failures.length === 0 ? 'pass' : 'fail',
@@ -467,6 +540,10 @@ async function validateNativeManifest(manifest, context) {
     };
     checks.push(record);
     if (!condition) failures.push(label);
+  }
+
+  function artifactHasRole(id, role) {
+    return nonEmpty(id) && artifactById.get(id)?.role === role;
   }
 }
 
@@ -511,10 +588,15 @@ function nonEmpty(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function deepEqual(left, right) {
-  return JSON.stringify(left) === JSON.stringify(right);
+function nonPlaceholder(value) {
+  return nonEmpty(value)
+    && !/(^|[-_ ])(?:pending|replace|unknown|todo)(?:$|[-_ ])/iu.test(value);
 }
 
-function slug(value) {
-  return value.toLowerCase().replaceAll(' ', '-');
+function finiteAtMost(value, maximum) {
+  return Number.isFinite(value) && value >= 0 && value <= maximum;
+}
+
+function deepEqual(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }

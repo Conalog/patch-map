@@ -1,12 +1,27 @@
 #!/usr/bin/env node
 
 import { mkdir, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
+import {
+  parseCoreV2BrowserLaunch,
+  parseCoreV2NativeWindowsCell,
+} from './core-v2-browser-launch.mjs';
+
 const ROOT = process.cwd();
+const CODE_COMMIT = process.env.CORE_V2_CODE_COMMIT ?? 'uncommitted';
+const browserLaunch = parseCoreV2BrowserLaunch(process.argv.slice(2), {
+  extraArgs: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
+});
+const nativeWindows = parseCoreV2NativeWindowsCell(
+  process.argv.slice(2),
+  browserLaunch,
+);
+const HOST_LIFECYCLE_CYCLES = nativeWindows.requested ? 10 : 9;
 const RESULTS = path.resolve(
   process.env.CORE_V2_MEMORY_ARTIFACT_DIR
     ?? path.join(ROOT, 'performance/core-v2/results'),
@@ -17,31 +32,56 @@ const server = await createServer({
   logLevel: 'error',
   server: { host: '127.0.0.1', port: 0 },
 });
-await server.listen();
-const baseUrl = server.resolvedUrls?.local?.[0];
-if (!baseUrl) throw new Error('Core v2 memory Vite server has no URL');
-const browser = await chromium.launch({
-  headless: true,
-  args: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
-});
-const context = await browser.newContext({ viewport: { width: 1_280, height: 720 } });
-const page = await context.newPage();
-const cdp = await context.newCDPSession(page);
+let browser = null;
+let context = null;
+let page = null;
 const errors = { console: [], page: [], network: [] };
-page.on('console', (message) => {
-  if (message.type() === 'error') errors.console.push(message.text());
-});
-page.on('pageerror', (error) => errors.page.push(error.stack ?? error.message));
-page.on('requestfailed', (request) => errors.network.push(`${request.url()} ${request.failure()?.errorText ?? ''}`));
-page.on('response', (response) => {
-  if (response.status() >= 400) errors.network.push(`${response.url()} HTTP ${response.status()}`);
-});
 
 try {
+  await server.listen();
+  const baseUrl = server.resolvedUrls?.local?.[0];
+  if (!baseUrl) throw new Error('Core v2 memory Vite server has no URL');
+  browser = await chromium.launch(browserLaunch.launchOptions);
+  context = await browser.newContext({
+    viewport: { width: 1_280, height: 720 },
+    deviceScaleFactor: 1,
+  });
+  page = await context.newPage();
+  const cdp = await context.newCDPSession(page);
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.console.push(message.text());
+  });
+  page.on('pageerror', (error) => errors.page.push(error.stack ?? error.message));
+  page.on('requestfailed', (request) => {
+    errors.network.push(`${request.url()} ${request.failure()?.errorText ?? ''}`);
+  });
+  page.on('response', (response) => {
+    if (response.status() >= 400) {
+      errors.network.push(`${response.url()} HTTP ${response.status()}`);
+    }
+  });
   await cdp.send('Performance.enable');
   await cdp.send('HeapProfiler.enable');
   await page.goto(new URL('performance/core-v2/index.html', baseUrl).href, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => typeof window.__PATCH_MAP_CORE_V2_BENCHMARK__?.run === 'function');
+  const gpu = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl2');
+    if (!gl) return { context: null };
+    const debug = gl.getExtension('WEBGL_debug_renderer_info');
+    return {
+      context: 'webgl2',
+      vendor: gl.getParameter(gl.VENDOR),
+      renderer: gl.getParameter(gl.RENDERER),
+      version: gl.getParameter(gl.VERSION),
+      unmaskedVendor: debug
+        ? gl.getParameter(debug.UNMASKED_VENDOR_WEBGL)
+        : null,
+      unmaskedRenderer: debug
+        ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)
+        : null,
+    };
+  });
   await cdp.send('HeapProfiler.collectGarbage');
   const before = metric(await cdp.send('Performance.getMetrics'), 'JSHeapUsedSize');
   const run = await page.evaluate(async () => window.__PATCH_MAP_CORE_V2_BENCHMARK__.run({
@@ -51,22 +91,35 @@ try {
     warmups: 2,
     measured: 7,
   }));
-  const hostInteractionLifecycle = await page.evaluate(async () => {
+  await cdp.send('HeapProfiler.collectGarbage');
+  const lifecycleBefore = metric(
+    await cdp.send('Performance.getMetrics'),
+    'JSHeapUsedSize',
+  );
+  const hostInteractionLifecycle = await page.evaluate(async (spec) => {
     const {
       CORE_V2_MIGRATION_BLOCKERS,
       CORE_V2_MIGRATION_COHORTS,
       CoreV2Engine,
       CoreV2MigrationAuthority,
+      CoreV2OperationsAuthority,
       materializeCoreV2CompatibilityDataset,
       prepareCoreV2PersistenceExport,
     } = await import('/src/core-v2/index.ts');
     const trials = [];
-    for (let index = 0; index < 9; index += 1) {
+    for (let index = 0; index < spec.cycles; index += 1) {
       const host = document.createElement('div');
       host.style.width = '320px';
       host.style.height = '180px';
       document.body.append(host);
-      const engine = new CoreV2Engine();
+      const instanceId = `memory-host-interaction-${index}`;
+      const engine = new CoreV2Engine({
+        operations: new CoreV2OperationsAuthority({
+          collectionEnabled: true,
+          capacity: 16,
+          instanceId,
+        }),
+      });
       let error = null;
       let beforeDestroy = null;
       let afterDestroy = null;
@@ -82,6 +135,8 @@ try {
       let accessibilityAfterDestroy = null;
       let migrationBeforeDestroy = null;
       let migrationAfterDestroy = null;
+      let runtimeDiagnosticsBeforeDestroy = null;
+      let runtimeDiagnosticsAfterDestroy = null;
       let snapshot = null;
       let observedEventCount = 0;
       let hostPublicationCount = 0;
@@ -90,7 +145,7 @@ try {
       let tooltipSubscriptionDisposeAfterDestroy = null;
       try {
         await engine.initialize({
-          instanceId: `memory-host-interaction-${index}`,
+          instanceId,
           target: host,
           width: 320,
           height: 180,
@@ -303,6 +358,7 @@ try {
           persistenceRootKind: persistence.rootKind,
           cohortCompleted: cohort.completedCohorts,
         };
+        runtimeDiagnosticsBeforeDestroy = engine.runtimeDiagnostics().current;
         await engine.destroy();
         migration.destroy();
         migrationAfterDestroy = migration.probe();
@@ -313,6 +369,7 @@ try {
         snapshot = engine.snapshot();
         pageLifecycleAfterDestroy = engine.pageLifecycleProbe();
         accessibilityAfterDestroy = engine.accessibilityProbe();
+        runtimeDiagnosticsAfterDestroy = engine.runtimeDiagnostics().current;
       } catch (caught) {
         error = caught instanceof Error ? caught.message : String(caught);
         await engine.destroy().catch(() => undefined);
@@ -321,7 +378,7 @@ try {
       }
       trials.push({
         index,
-        phase: index < 2 ? 'warmup' : 'measured',
+        phase: spec.native ? 'cycle' : index < 2 ? 'warmup' : 'measured',
         error,
         observedEventCount,
         hostPublicationCount,
@@ -341,14 +398,23 @@ try {
         accessibilityAfterDestroy,
         migrationBeforeDestroy,
         migrationAfterDestroy,
+        runtimeDiagnosticsBeforeDestroy,
+        runtimeDiagnosticsAfterDestroy,
         snapshot,
         retainedCanvasCount: host.querySelectorAll('canvas').length,
         retainedHostChildCount: host.childElementCount,
       });
     }
     return trials;
+  }, {
+    cycles: HOST_LIFECYCLE_CYCLES,
+    native: nativeWindows.requested,
   });
   await cdp.send('HeapProfiler.collectGarbage');
+  const lifecycleAfter = metric(
+    await cdp.send('Performance.getMetrics'),
+    'JSHeapUsedSize',
+  );
   const after = metric(await cdp.send('Performance.getMetrics'), 'JSHeapUsedSize');
   const dom = await page.evaluate(() => ({
     canvasCount: document.querySelectorAll('#surface canvas').length,
@@ -360,6 +426,19 @@ try {
   const p95 = percentile(sorted, 0.95);
   const maximum = Math.max(...samples);
   const trend = samples.at(-1) - samples[0];
+  const postDestroyForcedGcGrowthBytes = Math.max(
+    0,
+    lifecycleAfter - lifecycleBefore,
+  );
+  const postDestroyForcedGcGrowthMiB =
+    postDestroyForcedGcGrowthBytes / (1024 * 1024);
+  const gpuRendererIdentity = [
+    gpu.renderer,
+    gpu.unmaskedRenderer,
+  ].filter((value) => typeof value === 'string').join(' ');
+  const softwareGpu = /swiftshader|llvmpipe|software raster/iu.test(
+    gpuRendererIdentity,
+  );
   const lifecycleFailures = [];
   for (const [index, trial] of run.measuredRaw.entries()) {
     const diagnostics = trial.diagnostics;
@@ -470,6 +549,18 @@ try {
       trial.migrationAfterDestroy?.activeLifecycleCount !== 0 ||
       trial.migrationAfterDestroy?.canvasCount !== 0 ||
       trial.migrationAfterDestroy?.retainedCallbackCount !== 0 ||
+      trial.runtimeDiagnosticsAfterDestroy?.activeWork?.gestures !== 0 ||
+      trial.runtimeDiagnosticsAfterDestroy?.activeWork?.animations !== 0 ||
+      trial.runtimeDiagnosticsAfterDestroy?.activeWork?.pendingAssets !== 0 ||
+      trial.runtimeDiagnosticsAfterDestroy?.activeWork?.pendingWork !== 0 ||
+      trial.runtimeDiagnosticsAfterDestroy?.resources?.canvases !== 0 ||
+      trial.runtimeDiagnosticsAfterDestroy?.resources?.listeners !== 0 ||
+      trial.runtimeDiagnosticsAfterDestroy?.resources?.observers !== 0 ||
+      trial.runtimeDiagnosticsAfterDestroy?.resources?.tickers !== 0 ||
+      trial.runtimeDiagnosticsAfterDestroy?.resources?.textureLeases !== 0 ||
+      trial.runtimeDiagnosticsAfterDestroy?.resources?.callbackRegistrations !== 0 ||
+      trial.runtimeDiagnosticsAfterDestroy?.cleanup?.destroyed !== true ||
+      trial.runtimeDiagnosticsAfterDestroy?.cleanup?.released !== true ||
       trial.snapshot?.historyDepth !== 0 ||
       trial.snapshot?.resources?.canvasCount !== 0 ||
       trial.snapshot?.resources?.subscriptions?.active !== 0 ||
@@ -490,14 +581,67 @@ try {
     ...(maximum > 50 * 1024 * 1024 ? [`retained heap max ${maximum} exceeds 50 MiB`] : []),
     ...(trend > 10 * 1024 * 1024 ? [`retained heap trend ${trend} exceeds 10 MiB`] : []),
     ...(after - before > 20 * 1024 * 1024 ? [`post-GC process delta ${after - before} exceeds 20 MiB`] : []),
+    ...(nativeWindows.requested && hostInteractionLifecycle.length !== 10
+      ? [`native lifecycle cycle count ${hostInteractionLifecycle.length} is not 10`]
+      : []),
+    ...(nativeWindows.requested && postDestroyForcedGcGrowthMiB > 2
+      ? [`native forced-GC growth ${postDestroyForcedGcGrowthMiB} MiB exceeds 2 MiB`]
+      : []),
+    ...(nativeWindows.requested && gpu.context !== 'webgl2'
+      ? ['native memory run did not acquire WebGL2']
+      : []),
+    ...(nativeWindows.requested && softwareGpu
+      ? [`native memory run used a software GPU: ${gpuRendererIdentity}`]
+      : []),
   ];
+  const canvasListenerTickerTextureDelta =
+    lifecycleFailures.length === 0
+      && dom.canvasCount === 0
+      && dom.surfaceChildren === 0
+      ? 0
+      : 1;
   const evidence = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
+    codeCommit: CODE_COMMIT,
     workload: { sourceItems: 1_000, expandedEntities: run.measuredRaw[0]?.diagnostics.expandedEntityCount },
-    protocol: { warmups: 2, measured: 7 },
+    protocol: {
+      warmups: 2,
+      measured: 7,
+      lifecycleCycles: HOST_LIFECYCLE_CYCLES,
+    },
+    environment: {
+      platform: process.platform,
+      architecture: process.arch,
+      headed: browserLaunch.headed,
+      browserTarget: browserLaunch.target,
+      browserVersion: browser.version(),
+      windowsNative: nativeWindows.evidenceStatus,
+      nativeCellId: nativeWindows.cellId,
+      viewport: { width: 1_280, height: 720, deviceScaleFactor: 1 },
+      osRelease: os.release(),
+      cpuModel: os.cpus()[0]?.model ?? 'unknown',
+      logicalCpuCount: os.cpus().length,
+      totalMemoryBytes: os.totalmem(),
+      gpu,
+      hardwareAcceleratedCandidate: gpu.context === 'webgl2' && !softwareGpu,
+    },
     hostInteractionLifecycle,
     jsHeap: { before, after, processDelta: after - before, samples, median, p95, maximum, trend },
+    nativeRelease: {
+      lifecycleCycles: HOST_LIFECYCLE_CYCLES,
+      forcedGcMeasurementWindow: {
+        beforeBytes: lifecycleBefore,
+        afterBytes: lifecycleAfter,
+      },
+      postDestroyForcedGcGrowthBytes,
+      postDestroyForcedGcGrowthMiB,
+      canvasListenerTickerTextureDelta,
+      qualification:
+        nativeWindows.requested
+          ? failures.length === 0 ? 'measured-candidate-unreviewed' : 'failed'
+          : 'not-run',
+    },
     dom,
     lifecycleFailures,
     errors,
@@ -512,11 +656,15 @@ try {
   await writeFile(path.join(RESULTS, 'memory-lifecycle.json'), `${JSON.stringify(evidence, null, 2)}\n`);
   if (failures.length) throw new Error(failures.join('; '));
   process.stdout.write(
-    `PASS: Core v2 2+7 lifecycle, ${evidence.workload.expandedEntities} entities, retained heap median ${Math.round(median)} bytes, DOM/scheduler/renderer released\n`,
+    `PASS: Core v2 2+7 lifecycle + ${HOST_LIFECYCLE_CYCLES} ownership cycles, `
+      + `${evidence.workload.expandedEntities} entities, retained heap median `
+      + `${Math.round(median)} bytes, DOM/scheduler/renderer released\n`,
   );
 } finally {
-  await browser.close();
-  await server.close();
+  await page?.close().catch(() => undefined);
+  await context?.close().catch(() => undefined);
+  await browser?.close().catch(() => undefined);
+  await server.close().catch(() => undefined);
 }
 
 function metric(result, name) {

@@ -86,6 +86,8 @@
     "perf:core-v2:extraction": "node scripts/verification/core-v2-extraction-performance.mjs",
     "verify:performance-report:core-v2": "node performance/core-v2/report/verify.mjs",
     "verify:performance-contract:core-v2": "node performance/core-v2/report/verify-contract.mjs",
+    "generate:release-manifest:core-v2": "node scripts/verification/core-v2-native-release-template.mjs",
+    "verify:native-release-probes:core-v2": "node scripts/verification/core-v2-native-release-negative-probes.mjs",
     "verify:release-readiness:core-v2": "node scripts/verification/core-v2-release-readiness.mjs",
     "verify:release-readiness:core-v2:strict": "node scripts/verification/core-v2-release-readiness.mjs --require-release"
   },
