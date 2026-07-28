@@ -56,9 +56,13 @@ release evidence without changing approved expected observations.
   approved actions to shared Selection, Transformer, History, Viewport,
   Animation, Data, Authoring, Assets, Lifecycle, Accessibility, and
   Diagnostics controls while the independent exact runner remains separate.
-  Headless Chromium passes 189/189 manual-route checks, including direct
-  gestures, undo/redo shortcuts, visible bar animation, capture, and
-  destroy/re-init, with zero console/page/network errors.
+  Its visible case catalog, controls, statuses, and guidance are Korean; every
+  route opens with a three-step walkthrough, an expanded screen map, tool
+  descriptions, button-level effects, and an explicit boundary around
+  untranslated technical IDs. Headless Chromium passes 189/189 manual-route
+  checks, including direct gestures, undo/redo shortcuts, visible bar
+  animation, capture, destroy/re-init, and all 173 localized route mappings,
+  with zero console/page/network errors.
 
 # Next Step
 
