@@ -3132,14 +3132,14 @@ function assertComponentAssetFocusedUi(caseId, ui, runLabel) {
         `REN-008 ${runLabel} full item bounds`,
       );
     }
-    invariant(ui.phases.initial.phase === 'A0 Rect', `REN-008 ${runLabel} initial phase label`);
+    invariant(ui.phases.initial.phase === 'A0 사각형', `REN-008 ${runLabel} initial phase label`);
     invariant(ui.phases.initial['render-role'] === 'background-geometry', `REN-008 ${runLabel} rect phase`);
     invariant(
       ui.phases.initial['render-object-count'] === '0',
       `REN-008 ${runLabel} aggregate rect has no per-component render object`,
     );
-    invariant(ui.phases.initial['stale-count'] === 'not applicable', `REN-008 ${runLabel} rect has no texture`);
-    invariant(ui.phases.image.phase === 'A1 Image', `REN-008 ${runLabel} image phase label`);
+    invariant(ui.phases.initial['stale-count'] === '해당 없음', `REN-008 ${runLabel} rect has no texture`);
+    invariant(ui.phases.image.phase === 'A1 이미지', `REN-008 ${runLabel} image phase label`);
     invariant(ui.phases.image.source === 'fixture-image', `REN-008 ${runLabel} image source`);
     invariant(ui.phases.image['resource-state'] === 'resolved', `REN-008 ${runLabel} image resolved`);
     invariant(ui.phases.image['render-role'] === 'background-asset', `REN-008 ${runLabel} image lane`);
@@ -3147,12 +3147,12 @@ function assertComponentAssetFocusedUi(caseId, ui, runLabel) {
     invariant(ui.phases.image.generation === '1', `REN-008 ${runLabel} image generation`);
     invariant(ui.phases.image['render-object-count'] === '1', `REN-008 ${runLabel} image object`);
     invariant(ui.phases.image['stale-count'] === '0', `REN-008 ${runLabel} image zero stale attachment`);
-    invariant(ui.phases.hidden.phase === 'A2 Hidden', `REN-008 ${runLabel} hidden phase label`);
+    invariant(ui.phases.hidden.phase === 'A2 숨김', `REN-008 ${runLabel} hidden phase label`);
     invariant(ui.phases.hidden['visible-bounds'] === 'null', `REN-008 ${runLabel} hidden bounds`);
     invariant(ui.phases.hidden['render-object-count'] === '0', `REN-008 ${runLabel} hidden renderer object`);
     invariant(ui.phases.hidden.generation === '2', `REN-008 ${runLabel} hidden generation`);
     invariant(ui.phases.hidden['stale-count'] === '0', `REN-008 ${runLabel} hidden zero stale attachment`);
-    invariant(ui.phases.shown.phase === 'A3 Shown', `REN-008 ${runLabel} shown phase label`);
+    invariant(ui.phases.shown.phase === 'A3 표시', `REN-008 ${runLabel} shown phase label`);
     invariant(ui.phases.shown.source === 'fixture-image', `REN-008 ${runLabel} shown source`);
     invariant(ui.phases.shown['visible-bounds'] === '[0,0,100,80]', `REN-008 ${runLabel} shown bounds`);
     invariant(ui.phases.shown['render-object-count'] === '1', `REN-008 ${runLabel} shown renderer object`);
@@ -3189,17 +3189,17 @@ function assertComponentAssetFocusedUi(caseId, ui, runLabel) {
     invariant(ui.phases.initial.source === 'fixture-icon', `REN-010 ${runLabel} initial source`);
     invariant(ui.phases.initial['binding-key'] === 'alias:fixture-icon', `REN-010 ${runLabel} initial binding`);
     invariant(ui.phases.initial.generation === '1', `REN-010 ${runLabel} initial generation`);
-    invariant(ui.phases.initial.phase === 'A0 Initial alias', `REN-010 ${runLabel} initial phase label`);
+    invariant(ui.phases.initial.phase === 'A0 초기 별칭', `REN-010 ${runLabel} initial phase label`);
     invariant(ui.phases.replacement.source === 'fixture-icon-2', `REN-010 ${runLabel} replacement source`);
     invariant(ui.phases.replacement['binding-key'] === 'alias:fixture-icon-2', `REN-010 ${runLabel} replacement binding`);
     invariant(ui.phases.replacement.generation === '2', `REN-010 ${runLabel} replacement generation`);
-    invariant(ui.phases.replacement.phase === 'A1 Replacement alias', `REN-010 ${runLabel} replacement phase label`);
+    invariant(ui.phases.replacement.phase === 'A1 교체 별칭', `REN-010 ${runLabel} replacement phase label`);
     invariant(ui.phases.tint.source === 'fixture-icon-2', `REN-010 ${runLabel} tint retains source`);
     invariant(ui.phases.tint.generation === '2', `REN-010 ${runLabel} tint retains generation`);
-    invariant(ui.phases.tint.phase === 'A2 Tint patch', `REN-010 ${runLabel} tint phase label`);
+    invariant(ui.phases.tint.phase === 'A2 색조 부분 갱신', `REN-010 ${runLabel} tint phase label`);
     invariant(ui.phases.tint['semantic-tint'] === '#00ff00ff', `REN-010 ${runLabel} semantic tint`);
     invariant(
-      ui.phases.tint['renderer-tint'] === 'packed 0x00ff00ff · rgb 0x00ff00 · alpha 1.000',
+      ui.phases.tint['renderer-tint'] === '패킹 0x00ff00ff · RGB 0x00ff00 · 투명도 1.000',
       `REN-010 ${runLabel} renderer tint`,
     );
     invariant(

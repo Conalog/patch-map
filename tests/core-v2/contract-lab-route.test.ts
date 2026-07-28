@@ -179,11 +179,13 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).toContain(`data-testid="${route.presenter.rootTestId}-primary"`);
     expect(markup).toContain(`data-testid="${route.presenter.resultTestId}"`);
     expect(markup).toContain('data-contract-status="armed"');
-    expect(markup).toContain('Run exact case');
+    expect(markup).toContain('정확 실행 시작');
     expect(markup).toContain('data-testid="destroy-case" disabled');
-    expect(markup).toContain('Destroy runtime');
-    expect(markup).toContain('Actual-only case execution is available');
+    expect(markup).toContain('자동 런타임 종료');
+    expect(markup).toContain('PixiJS WebGL 기준선에서 실제 제품만 실행합니다');
     expect(markup).toContain('data-action-status="queued"');
+    expect(markup).toContain('기술 ID · contract/');
+    expect(markup).toContain('직접 조작할 때는 위의 한국어 도구와 안내만 따라가면 됩니다');
     expect(markup).not.toContain('data-contract-status="pass"');
   });
 
@@ -243,7 +245,7 @@ describe('Core v2 focused contract Lab shell', () => {
       expect(markup).toContain(`data-testid="scenario-${caseId.toLowerCase()}"`);
       expect(markup).toContain('data-contract-status="armed"');
       expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(actions.length);
-      expect(markup).toContain('Actual-only case execution is available');
+      expect(markup).toContain('PixiJS WebGL 기준선에서 실제 제품만 실행합니다');
       expect(markup).not.toContain('data-contract-status="pass"');
     }
   });
@@ -298,7 +300,7 @@ describe('Core v2 focused contract Lab shell', () => {
       expect(markup).toContain(`data-testid="scenario-${caseId.toLowerCase()}"`);
       expect(markup).toContain('data-contract-status="armed"');
       expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(actions.length);
-      expect(markup).toContain('Actual-only case execution is available');
+      expect(markup).toContain('PixiJS WebGL 기준선에서 실제 제품만 실행합니다');
       expect(markup).not.toContain('data-contract-status="pass"');
     }
   });
@@ -326,7 +328,7 @@ describe('Core v2 focused contract Lab shell', () => {
       expect(markup).toContain(`data-testid="scenario-${caseId.toLowerCase()}"`);
       expect(markup).toContain('data-contract-status="armed"');
       expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(actionCount);
-      expect(markup).toContain('Actual-only case execution is available');
+      expect(markup).toContain('PixiJS WebGL 기준선에서 실제 제품만 실행합니다');
       expect(markup).not.toContain('data-contract-status="pass"');
     }
   });
@@ -436,7 +438,7 @@ describe('Core v2 focused contract Lab shell', () => {
       expect(resolveCoreV2ExecutableRuntime(caseId).key).toBe('update-transactions');
       expect(markup).toContain(`data-testid="scenario-${caseId.toLowerCase()}"`);
       expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(actions.length);
-      expect(markup).toContain('Actual-only case execution is available');
+      expect(markup).toContain('PixiJS WebGL 기준선에서 실제 제품만 실행합니다');
       expect(markup).not.toContain('data-contract-status="pass"');
     }
   });
@@ -488,7 +490,7 @@ describe('Core v2 focused contract Lab shell', () => {
       expect(resolveCoreV2ExecutableRuntime(caseId).key).toBe('viewport');
       expect(markup).toContain(`data-testid="scenario-${caseId.toLowerCase()}"`);
       expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(actions.length);
-      expect(markup).toContain('Actual-only case execution is available');
+      expect(markup).toContain('PixiJS WebGL 기준선에서 실제 제품만 실행합니다');
       expect(markup).not.toContain('data-contract-status="pass"');
     }
   });
@@ -513,7 +515,7 @@ describe('Core v2 focused contract Lab shell', () => {
     ]);
     expect(markup).toContain('data-testid="scenario-ren-007"');
     expect(markup).toContain('data-contract-status="armed"');
-    expect(markup).toContain('Actual-only case execution is available');
+    expect(markup).toContain('PixiJS WebGL 기준선에서 실제 제품만 실행합니다');
     expect(markup).not.toContain('data-contract-status="pass"');
   });
 
@@ -565,17 +567,17 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(JSON.stringify(plan)).not.toContain('catalog-normalized-expected');
     expect(markup).toContain('data-testid="scenario-ren-005"');
     expect(markup).toContain('data-contract-status="armed"');
-    expect(markup).toContain('Actual-only case execution is available');
+    expect(markup).toContain('PixiJS WebGL 기준선에서 실제 제품만 실행합니다');
     expect(markup.match(/data-action-status="queued"/gu)).toHaveLength(4);
     expect(markup).toContain('data-testid="ren-005-image-inspector"');
     expect(markup).toContain('data-testid="ren-005-specimen-select"');
-    expect(markup).toContain('<option value="alias">Alias</option>');
-    expect(markup).toContain('<option value="url">Direct URL</option>');
-    expect(markup).toContain('<option value="descriptor" selected>Descriptor replacement</option>');
-    expect(markup).toContain('<option value="data-uri">Data URI</option>');
-    expect(markup).toContain('<option value="transformed">Transformed shared source</option>');
-    expect(markup).toContain('<option value="hidden-image">Hidden image</option>');
-    expect(markup).toContain('<option value="failed-image">Failed placeholder</option>');
+    expect(markup).toContain('<option value="alias">에셋 별칭</option>');
+    expect(markup).toContain('<option value="url">직접 URL</option>');
+    expect(markup).toContain('<option value="descriptor" selected>설명자 교체</option>');
+    expect(markup).toContain('<option value="data-uri">데이터 URI</option>');
+    expect(markup).toContain('<option value="transformed">변환된 공유 원본</option>');
+    expect(markup).toContain('<option value="hidden-image">숨겨진 이미지</option>');
+    expect(markup).toContain('<option value="failed-image">실패 자리표시자</option>');
     expect(markup).toContain('data-testid="ren-005-selected-source"');
     expect(markup).toContain('data-testid="ren-005-selected-state"');
     expect(markup).toContain('data-testid="ren-005-selected-role"');
@@ -590,7 +592,7 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).toContain('data-testid="ren-005-run-fps"');
     expect(markup).toContain('data-testid="ren-005-run-long-task-count"');
     expect(markup).toContain('data-testid="ren-005-run-max-frame-gap"');
-    expect(markup).toContain('This chooser changes only the displayed actual facts');
+    expect(markup).toContain('이 선택기는 이미 수집된 실제 정보의 표시만 바꿉니다');
     expect(markup).not.toContain('data-contract-status="pass"');
   });
 
@@ -645,10 +647,10 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).toContain('value="image" data-action-index="1"');
     expect(markup).toContain('value="hidden" data-action-index="2"');
     expect(markup).toContain('value="shown" data-action-index="3"');
-    expect(markup).toContain('A0 Rect');
-    expect(markup).toContain('A1 Image');
-    expect(markup).toContain('A2 Hidden');
-    expect(markup).toContain('A3 Shown');
+    expect(markup).toContain('A0 사각형');
+    expect(markup).toContain('A1 이미지');
+    expect(markup).toContain('A2 숨김');
+    expect(markup).toContain('A3 표시');
     expect(markup).toContain('data-testid="ren-008-component-id"');
     expect(markup).toContain('data-testid="ren-008-entity-id"');
     expect(markup).toContain('data-testid="ren-008-authored-size"');
@@ -670,7 +672,7 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).toContain('data-testid="ren-008-run-fps"');
     expect(markup).toContain('data-testid="ren-008-run-max-frame-gap"');
     expect(markup).toContain('data-testid="ren-008-run-long-task-count"');
-    expect(markup).toContain('displays only completed action products');
+    expect(markup).toContain('이 선택기는 완료된 작업 결과만 표시합니다');
     expect(markup).not.toContain('data-testid="ren-005-image-inspector"');
     expect(markup).not.toContain('data-testid="ren-010-icon-inspector"');
     expect(markup).not.toContain('data-contract-status="pass"');
@@ -723,9 +725,9 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).toContain('value="initial" data-action-index="0"');
     expect(markup).toContain('value="replacement" data-action-index="1"');
     expect(markup).toContain('value="tint" data-action-index="2"');
-    expect(markup).toContain('A0 Initial alias');
-    expect(markup).toContain('A1 Replacement alias');
-    expect(markup).toContain('A2 Tint patch');
+    expect(markup).toContain('A0 초기 별칭');
+    expect(markup).toContain('A1 교체 별칭');
+    expect(markup).toContain('A2 색조 부분 갱신');
     expect(markup).toContain('data-testid="ren-010-component-id"');
     expect(markup).toContain('data-testid="ren-010-entity-id"');
     expect(markup).toContain('data-testid="ren-010-content-box"');
@@ -749,7 +751,7 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).toContain('data-testid="ren-010-run-fps"');
     expect(markup).toContain('data-testid="ren-010-run-max-frame-gap"');
     expect(markup).toContain('data-testid="ren-010-run-long-task-count"');
-    expect(markup).toContain('displays only completed action products');
+    expect(markup).toContain('이 선택기는 완료된 작업 결과만 표시합니다');
     expect(markup).not.toContain('data-testid="ren-005-image-inspector"');
     expect(markup).not.toContain('data-testid="ren-008-background-inspector"');
     expect(markup).not.toContain('ren-010-capture-row');
@@ -781,7 +783,7 @@ describe('Core v2 focused contract Lab shell', () => {
     ]);
     expect(markup).toContain('data-testid="scenario-ast-001"');
     expect(markup).toContain('data-contract-status="armed"');
-    expect(markup).toContain('Actual-only case execution is available');
+    expect(markup).toContain('PixiJS WebGL 기준선에서 실제 제품만 실행합니다');
     expect(markup).not.toContain('data-contract-status="pass"');
   });
 
@@ -796,7 +798,7 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).toContain('data-testid="load-dataset"');
     expect(markup).not.toContain('data-testid="load-dataset" disabled');
     expect(markup).toContain('data-testid="destroy-case" disabled');
-    expect(markup).toContain('Actual-only case execution is available');
+    expect(markup).toContain('PixiJS WebGL 기준선에서 실제 제품만 실행합니다');
     expect(markup).not.toContain('data-contract-status="pass"');
   });
 
@@ -813,7 +815,7 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).toContain('data-testid="load-dataset"');
     expect(markup).not.toContain('data-testid="load-dataset" disabled');
     expect(markup).toContain('data-testid="destroy-case" disabled');
-    expect(markup).toContain('Actual-only case execution is available');
+    expect(markup).toContain('PixiJS WebGL 기준선에서 실제 제품만 실행합니다');
     expect(markup).not.toContain('data-contract-status="pass"');
   });
 

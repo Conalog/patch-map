@@ -67,12 +67,12 @@ describe('Core v2 REN-006 / REN-011 focused text Lab UI', () => {
       'terminal',
     ]);
     expect(markup).toContain('<option value="empty" data-observation-status="queued" selected disabled>');
-    expect(markup).toContain('data-testid="ren-006-observed-choice-count">0 / 6 observed');
+    expect(markup).toContain('data-testid="ren-006-observed-choice-count">0 / 6개 관찰');
     expect(markup).toContain('data-testid="ren-006-run-observation"');
     expect(markup).toContain('data-testid="ren-006-performance-journal"');
-    expect(markup).toContain('Display-only exploration.');
-    expect(markup).toContain('completed folded actualObservation only');
-    expect(markup).toContain('canonical action trace');
+    expect(markup).toContain('표시 전용 탐색입니다.');
+    expect(markup).toContain('완료된 실제 관찰 결과만 읽으며');
+    expect(markup).toContain('기준 작업 순서');
     expect(markup).not.toContain('data-testid="ren-011-text-inspector"');
   });
 
@@ -114,7 +114,7 @@ describe('Core v2 REN-006 / REN-011 focused text Lab UI', () => {
       'upright',
     ]);
     expect(markup).toContain('<option value="overflow-hidden" data-observation-status="queued" selected disabled>');
-    expect(markup).toContain('data-testid="ren-011-observed-choice-count">0 / 7 observed');
+    expect(markup).toContain('data-testid="ren-011-observed-choice-count">0 / 7개 관찰');
     expect(markup).toContain('data-testid="ren-011-source" data-text-observation-field');
     expect(markup).toContain('data-testid="ren-011-placement" data-text-observation-field');
     expect(markup).toContain('data-testid="ren-011-margin" data-text-observation-field');

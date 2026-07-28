@@ -254,6 +254,27 @@ try {
       caseId: window.__PATCH_MAP_CORE_V2_MANUAL_LAB__?.state().caseId,
       status: window.__PATCH_MAP_CORE_V2_MANUAL_LAB__?.state().status,
       canvasCount: window.__PATCH_MAP_CORE_V2_MANUAL_LAB__?.state().canvasCount,
+      documentLanguage: document.documentElement.lang,
+      documentTitle: document.title,
+      localizedTitle:
+        document.querySelector('#manual-case-guide-title')?.textContent ?? '',
+      hasGettingStartedGuide:
+        document.querySelector('#manual-onboarding-title')?.textContent
+          ?.includes('버튼은 세 단계로 사용하면 됩니다') ?? false,
+      expandedLayoutGuide:
+        document.querySelector('.manual-onboarding details')?.hasAttribute('open') ?? false,
+      localizedToolDescriptionCount:
+        [...document.querySelectorAll('[data-manual-tool-button] small')]
+          .filter((element) => /[가-힣]/u.test(element.textContent ?? '')).length,
+      oldEnglishPhrases:
+        [
+          'Human-operated product Lab',
+          'Keep the engine alive',
+          'Selection you can keep changing',
+          'Approved action map',
+        ].filter((phrase) =>
+          document.querySelector('[data-testid="manual-workbench"]')?.textContent
+            ?.includes(phrase)),
       mappedActions:
         document.querySelectorAll('[data-manual-approved-action]').length,
       toolButtons:
@@ -263,9 +284,16 @@ try {
       routeProbe.caseId === record.id &&
         routeProbe.status === 'ready' &&
         routeProbe.canvasCount === 1 &&
+        routeProbe.documentLanguage === 'ko' &&
+        routeProbe.documentTitle === 'PATCH MAP Core v2 기능 검증 실험실' &&
+        /[가-힣]/u.test(routeProbe.localizedTitle) &&
+        routeProbe.hasGettingStartedGuide &&
+        routeProbe.expandedLayoutGuide &&
+        routeProbe.localizedToolDescriptionCount === routeProbe.toolButtons &&
+        routeProbe.oldEnglishPhrases.length === 0 &&
         routeProbe.mappedActions === record.actionCount &&
         routeProbe.toolButtons > 0,
-      `${record.id} mounts a live manual route with every approved action mapped`,
+      `${record.id} mounts a localized live manual route with every approved action mapped`,
       routeProbe,
     );
   }
