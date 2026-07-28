@@ -145,6 +145,8 @@ interface MutableLineGroup extends PackedMeshStyle {
 interface MeshRecord {
   readonly mesh: Mesh<MeshGeometry>;
   readonly geometry: MeshGeometry;
+  readonly parent: Container;
+  bounds: AggregateViewportBounds | null;
   primitiveCount: number;
 }
 
@@ -184,6 +186,7 @@ interface ChunkRecord {
   visibleBars: number;
   visibleRelations: number;
   geometryBounds: AggregateViewportBounds | null;
+  geometryVisible: boolean | null;
 }
 
 interface AggregateViewportBounds {
@@ -1368,6 +1371,7 @@ function createChunkRecord(): ChunkRecord {
     visibleBars: 0,
     visibleRelations: 0,
     geometryBounds: null,
+    geometryVisible: null,
   };
 }
 
@@ -1441,15 +1445,76 @@ function chunkIntersectsViewport(
     minY <= height + padding;
 }
 
-function setChunkGeometryVisible(chunk: ChunkRecord, visible: boolean): void {
+function setChunkGeometryVisible(
+  chunk: ChunkRecord,
+  visible: boolean,
+  backgroundParent: Container,
+  viewport: AggregateViewportCull,
+  precise: boolean,
+  force = false,
+): void {
+  if (
+    !force &&
+    chunk.geometryVisible === visible &&
+    (!visible || !precise)
+  ) {
+    return;
+  }
   for (const records of [
     chunk.backgroundMeshes,
     chunk.rectMeshes,
     chunk.barMeshes,
   ]) {
-    for (const { mesh } of records.values()) mesh.visible = visible;
+    for (const { mesh, parent, bounds } of records.values()) {
+      const recordVisible =
+        visible && (!precise || boundsIntersectsViewport(bounds, viewport));
+      mesh.visible = recordVisible;
+      if (recordVisible) {
+        if (mesh.parent !== parent) parent.addChild(mesh);
+      } else if (mesh.parent === parent) {
+        parent.removeChild(mesh);
+      }
+    }
   }
-  if (chunk.backgroundGraphics !== null) chunk.backgroundGraphics.visible = visible;
+  if (chunk.backgroundGraphics !== null) {
+    chunk.backgroundGraphics.visible = visible;
+    if (visible) {
+      if (chunk.backgroundGraphics.parent !== backgroundParent) {
+        backgroundParent.addChild(chunk.backgroundGraphics);
+      }
+    } else if (chunk.backgroundGraphics.parent === backgroundParent) {
+      backgroundParent.removeChild(chunk.backgroundGraphics);
+    }
+  }
+  chunk.geometryVisible = visible;
+}
+
+function boundsIntersectsViewport(
+  bounds: AggregateViewportBounds | null,
+  viewport: AggregateViewportCull,
+): boolean {
+  if (bounds === null) return true;
+  const { matrix, width, height, padding } = viewport;
+  const x0 = bounds.minX;
+  const y0 = bounds.minY;
+  const x1 = bounds.maxX;
+  const y1 = bounds.maxY;
+  const screenX0 = matrix.a * x0 + matrix.c * y0 + matrix.tx;
+  const screenY0 = matrix.b * x0 + matrix.d * y0 + matrix.ty;
+  const screenX1 = matrix.a * x1 + matrix.c * y0 + matrix.tx;
+  const screenY1 = matrix.b * x1 + matrix.d * y0 + matrix.ty;
+  const screenX2 = matrix.a * x1 + matrix.c * y1 + matrix.tx;
+  const screenY2 = matrix.b * x1 + matrix.d * y1 + matrix.ty;
+  const screenX3 = matrix.a * x0 + matrix.c * y1 + matrix.tx;
+  const screenY3 = matrix.b * x0 + matrix.d * y1 + matrix.ty;
+  const minX = Math.min(screenX0, screenX1, screenX2, screenX3);
+  const minY = Math.min(screenY0, screenY1, screenY2, screenY3);
+  const maxX = Math.max(screenX0, screenX1, screenX2, screenX3);
+  const maxY = Math.max(screenY0, screenY1, screenY2, screenY3);
+  return maxX >= -padding &&
+    minX <= width + padding &&
+    maxY >= -padding &&
+    minY <= height + padding;
 }
 
 function freezeEntityPaintProbe(
@@ -1531,6 +1596,7 @@ export class AggregateMeshLayer {
   #view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
   #projectionContext: CoreV2ProjectionRenderContext | undefined;
   #viewportCull: AggregateViewportCull | null = null;
+  #preciseViewportCull = true;
   readonly #trackQuadScratch = createCoreV2ResolvedRenderQuadScratch();
   readonly #fillQuadScratch = createCoreV2ResolvedRenderQuadScratch();
 
@@ -1641,6 +1707,7 @@ export class AggregateMeshLayer {
     viewportWidth: number,
     viewportHeight: number,
     padding = 48,
+    precise = true,
   ): number {
     this.#assertAlive();
     if (
@@ -1659,11 +1726,20 @@ export class AggregateMeshLayer {
       height: viewportHeight,
       padding,
     };
+    const precisionChanged = this.#preciseViewportCull !== precise;
     this.#viewportCull = viewport;
+    this.#preciseViewportCull = precise;
     let visibleChunks = 0;
     for (const chunk of this.#chunks.values()) {
       const visible = chunkIntersectsViewport(chunk, viewport);
-      setChunkGeometryVisible(chunk, visible);
+      setChunkGeometryVisible(
+        chunk,
+        visible,
+        this.backgroundGeometryContainer,
+        viewport,
+        precise,
+        precisionChanged,
+      );
       if (visible) visibleChunks += 1;
     }
     return visibleChunks;
@@ -2003,6 +2079,10 @@ export class AggregateMeshLayer {
       setChunkGeometryVisible(
         chunk,
         chunkIntersectsViewport(chunk, this.#viewportCull),
+        this.backgroundGeometryContainer,
+        this.#viewportCull,
+        this.#preciseViewportCull,
+        true,
       );
     }
     return {
@@ -2083,6 +2163,7 @@ export class AggregateMeshLayer {
     for (const record of dirtyRecords) {
       record.geometry.getBuffer('aPosition').update(record.geometry.positions.byteLength);
       bytes += record.geometry.positions.byteLength;
+      record.bounds = includePositionBounds(null, record.geometry.positions);
       chunk.geometryBounds = includePositionBounds(
         chunk.geometryBounds,
         record.geometry.positions,
@@ -2092,6 +2173,10 @@ export class AggregateMeshLayer {
       setChunkGeometryVisible(
         chunk,
         chunkIntersectsViewport(chunk, this.#viewportCull),
+        this.backgroundGeometryContainer,
+        this.#viewportCull,
+        this.#preciseViewportCull,
+        this.#preciseViewportCull,
       );
     }
     return {
@@ -2138,6 +2223,10 @@ export class AggregateMeshLayer {
       setChunkGeometryVisible(
         chunk,
         chunkIntersectsViewport(chunk, this.#viewportCull),
+        this.backgroundGeometryContainer,
+        this.#viewportCull,
+        this.#preciseViewportCull,
+        true,
       );
     }
     return { ...delta, visitedSlots: chunk.barSlots.length };
@@ -2207,6 +2296,7 @@ export class AggregateMeshLayer {
         current.mesh.tint = group.tint;
         current.mesh.alpha = group.alpha;
         current.mesh.zIndex = group.drawOrder;
+        current.bounds = includePositionBounds(null, group.positions);
         current.primitiveCount = group.primitiveCount;
         bytes += current.geometry.positions.byteLength;
         changed = true;
@@ -2220,7 +2310,6 @@ export class AggregateMeshLayer {
         indices: group.indices,
         topology: 'triangle-list',
       });
-      geometry.batchMode = 'no-batch';
       const mesh = new Mesh({ geometry, texture: Texture.WHITE, roundPixels: false });
       mesh.label = `${this.#baseLabel}: ${lane} chunk ${chunkIndex}`;
       mesh.eventMode = 'none';
@@ -2228,7 +2317,13 @@ export class AggregateMeshLayer {
       mesh.alpha = group.alpha;
       mesh.zIndex = group.drawOrder;
       parent.addChild(mesh);
-      records.set(group.key, { mesh, geometry, primitiveCount: group.primitiveCount });
+      records.set(group.key, {
+        mesh,
+        geometry,
+        parent,
+        bounds: includePositionBounds(null, group.positions),
+        primitiveCount: group.primitiveCount,
+      });
       bytes += group.byteLength;
       changed = true;
     }

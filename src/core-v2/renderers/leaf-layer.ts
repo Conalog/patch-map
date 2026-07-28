@@ -63,6 +63,7 @@ interface TextChunk {
   readonly container: Container;
   readonly slots: Set<number>;
   vertices: CoreV2QuadVertices;
+  allChildrenVisible: boolean;
 }
 
 type LeafImageLane = 'background-assets' | 'content-assets';
@@ -244,6 +245,7 @@ export class AggregateLeafLayer {
   private staleCompletionCount = 0;
   private storeEpoch = -1;
   private readonly dirtyImageLanes = new Set<LeafImageLane>();
+  private debugCache: LeafLayerDebug | null = null;
   private destroyed = false;
 
   public constructor(
@@ -426,13 +428,26 @@ export class AggregateLeafLayer {
       throw new TypeError('rendered text frame must be a positive monotonic safe integer');
     }
     this.confirmedTextFrame = frame;
-    for (const entry of this.pendingTextEntries) {
-      if (!entry.object.visible || !this.textEntryChunkVisible(entry)) continue;
-      entry.lastRenderedSignatures = entry.attachedSignatures;
-      entry.lastRenderedFrame = frame;
-      entry.lastRenderedVisibleGraphemeCount = entry.attachedVisibleGraphemeCount;
-      this.publishTextProbe(entry);
-      this.pendingTextEntries.delete(entry);
+    if (this.textChunking) {
+      for (const chunk of this.textChunks.values()) {
+        if (!chunk.container.visible) continue;
+        for (const slot of chunk.slots) {
+          const entry = this.texts.get(slot);
+          if (
+            entry === undefined ||
+            !entry.object.visible ||
+            !this.pendingTextEntries.has(entry)
+          ) {
+            continue;
+          }
+          this.confirmPendingTextEntry(entry, frame);
+        }
+      }
+    } else {
+      for (const entry of this.pendingTextEntries) {
+        if (!entry.object.visible) continue;
+        this.confirmPendingTextEntry(entry, frame);
+      }
     }
     if (this.framePendingAssetReleases.length > 0) {
       this.readyAssetReleases.push(...this.framePendingAssetReleases.splice(0));
@@ -458,6 +473,14 @@ export class AggregateLeafLayer {
     this.assertAlive();
     const epoch = options.fullRebuildEpoch ?? this.storeEpoch;
     const fullRebuild = epoch !== this.storeEpoch;
+    const changedRanges = options.changedRanges;
+    const hasLeafWork =
+      fullRebuild ||
+      changedRanges === undefined ||
+      changedRanges.length > 0 ||
+      this.dirtyAssetSlots.size > 0;
+    if (!hasLeafWork) return this.debugSnapshot();
+    this.debugCache = null;
     if (fullRebuild) {
       this.clearDisplayObjects();
       this.storeEpoch = epoch;
@@ -527,15 +550,32 @@ export class AggregateLeafLayer {
     let visibleCount = 0;
     if (this.textChunking) {
       for (const chunk of this.textChunks.values()) {
-        const chunkVisible = quadIntersectsViewport(
+        const coverage = quadViewportCoverage(
           chunk.vertices,
           worldMatrix,
           viewportWidth,
           viewportHeight,
           padding,
         );
-        chunk.container.visible = chunkVisible;
+        const chunkVisible = coverage !== 'outside';
+        if (chunk.container.visible !== chunkVisible) {
+          chunk.container.visible = chunkVisible;
+        }
         if (!chunkVisible) continue;
+        if (coverage === 'inside') {
+          if (!chunk.allChildrenVisible) {
+            for (const slot of chunk.slots) {
+              const entry = this.texts.get(slot);
+              if (entry !== undefined && !entry.object.visible) {
+                entry.object.visible = true;
+              }
+            }
+            chunk.allChildrenVisible = true;
+          }
+          visibleCount += chunk.slots.size;
+          continue;
+        }
+        let allChildrenVisible = true;
         for (const slot of chunk.slots) {
           const entry = this.texts.get(slot);
           if (entry === undefined) continue;
@@ -546,9 +586,11 @@ export class AggregateLeafLayer {
             viewportHeight,
             padding,
           );
-          entry.object.visible = visible;
+          if (entry.object.visible !== visible) entry.object.visible = visible;
           if (visible) visibleCount += 1;
+          else allChildrenVisible = false;
         }
+        chunk.allChildrenVisible = allChildrenVisible;
       }
     } else {
       for (const entry of this.texts.values()) {
@@ -578,6 +620,7 @@ export class AggregateLeafLayer {
   }
 
   public debugSnapshot(): LeafLayerDebug {
+    if (this.debugCache !== null) return this.debugCache;
     let bitmapTextCount = 0;
     let loadedAssetCount = 0;
     let pendingAssetCount = 0;
@@ -602,7 +645,7 @@ export class AggregateLeafLayer {
     for (const image of this.images.values()) {
       if (image.role === 'asset-placeholder') placeholderCount += 1;
     }
-    return Object.freeze({
+    this.debugCache = Object.freeze({
       bitmapTextCount,
       fallbackTextCount: this.texts.size - bitmapTextCount,
       imageCount: this.images.size,
@@ -614,6 +657,7 @@ export class AggregateLeafLayer {
       staleAttachCount,
       staleCompletionCount: this.staleCompletionCount,
     });
+    return this.debugCache;
   }
 
   public async destroy(): Promise<void> {
@@ -745,6 +789,7 @@ export class AggregateLeafLayer {
     binding: LeafAssetBinding,
     state: LeafAssetBindingTransition['state'],
   ): void {
+    this.debugCache = null;
     const dirtySlots = Object.freeze([
       ...(this.imageSlotsByBinding.get(binding.key) ?? []),
     ].sort((left, right) => left - right));
@@ -1101,6 +1146,7 @@ export class AggregateLeafLayer {
       container,
       slots: new Set([slot]),
       vertices: EMPTY_QUAD_VERTICES,
+      allChildrenVisible: true,
     };
     this.textChunks.set(key, chunk);
     this.dirtyTextChunkKeys.add(key);
@@ -1157,9 +1203,12 @@ export class AggregateLeafLayer {
     this.textChunkOrderDirty = false;
   }
 
-  private textEntryChunkVisible(entry: TextEntry): boolean {
-    return !this.textChunking ||
-      this.textChunks.get(textChunkKey(entry.slot))?.container.visible === true;
+  private confirmPendingTextEntry(entry: TextEntry, frame: number): void {
+    entry.lastRenderedSignatures = entry.attachedSignatures;
+    entry.lastRenderedFrame = frame;
+    entry.lastRenderedVisibleGraphemeCount = entry.attachedVisibleGraphemeCount;
+    this.publishTextProbe(entry);
+    this.pendingTextEntries.delete(entry);
   }
 
   private observeImageSlot(
@@ -1333,6 +1382,7 @@ export class AggregateLeafLayer {
 
   private recordStaleCompletion(key: string): void {
     if (this.destroyed) return;
+    this.debugCache = null;
     this.staleCompletionCount += 1;
     const current = this.bindings.get(key);
     if (current) current.staleCompletionCount += 1;
@@ -1374,6 +1424,7 @@ export class AggregateLeafLayer {
   }
 
   private clearDisplayObjects(): void {
+    this.debugCache = null;
     for (const entry of this.texts.values()) entry.object.destroy();
     for (const entry of this.images.values()) entry.object.destroy();
     this.texts.clear();
@@ -1430,6 +1481,22 @@ function quadIntersectsViewport(
   height: number,
   padding: number,
 ): boolean {
+  return quadViewportCoverage(
+    vertices,
+    matrix,
+    width,
+    height,
+    padding,
+  ) !== 'outside';
+}
+
+function quadViewportCoverage(
+  vertices: CoreV2QuadVertices,
+  matrix: Matrix,
+  width: number,
+  height: number,
+  padding: number,
+): 'outside' | 'partial' | 'inside' {
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
@@ -1444,10 +1511,22 @@ function quadIntersectsViewport(
     maxX = Math.max(maxX, screenX);
     maxY = Math.max(maxY, screenY);
   }
-  return maxX >= -padding &&
-    minX <= width + padding &&
-    maxY >= -padding &&
-    minY <= height + padding;
+  if (
+    maxX < -padding ||
+    minX > width + padding ||
+    maxY < -padding ||
+    minY > height + padding
+  ) {
+    return 'outside';
+  }
+  return (
+    minX >= -padding &&
+    maxX <= width + padding &&
+    minY >= -padding &&
+    maxY <= height + padding
+  )
+    ? 'inside'
+    : 'partial';
 }
 
 function imageLaneContainer(

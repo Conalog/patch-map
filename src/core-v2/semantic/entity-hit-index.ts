@@ -27,6 +27,13 @@ interface CoreV2EntityHitEntry {
 export interface CoreV2EntityHitIndexOptions {
   readonly cellSize?: 64 | 128;
   readonly maxCellsPerEntity?: number;
+  /**
+   * Optional second projection used only for broad-phase membership.
+   * The union of the live and envelope AABBs keeps an interpolating entity in
+   * stable buckets while the narrow phase continues to use the live
+   * projection.
+   */
+  readonly envelopeProjection?: CoreV2ProjectionIndex | null;
 }
 
 export interface CoreV2EntityHitIndexDebug {
@@ -66,6 +73,25 @@ export class CoreV2EntityHitIndex {
     staleProjectionIds: ReadonlySet<string> = new Set(),
     options: CoreV2EntityHitIndexOptions = {},
   ): CoreV2EntityHitIndex {
+    return CoreV2EntityHitIndex.buildEntities(
+      snapshot.entities,
+      projection,
+      staleProjectionIds,
+      options,
+    );
+  }
+
+  /**
+   * Build from an already selected render-ordered entity slice. This lets the
+   * presentation path index only actively interpolating bars instead of
+   * snapshotting the complete dense scene.
+   */
+  public static buildEntities(
+    entities: readonly EntitySnapshot[],
+    projection: CoreV2ProjectionIndex | null,
+    staleProjectionIds: ReadonlySet<string> = new Set(),
+    options: CoreV2EntityHitIndexOptions = {},
+  ): CoreV2EntityHitIndex {
     const cellSize = options.cellSize ?? CORE_V2_ENTITY_HIT_CELL_SIZE;
     const maxCells = options.maxCellsPerEntity ?? CORE_V2_ENTITY_HIT_MAX_CELLS;
     if (cellSize !== 64 && cellSize !== 128) {
@@ -79,14 +105,20 @@ export class CoreV2EntityHitIndex {
     const overflow: CoreV2EntityHitEntry[] = [];
     let indexedEntityCount = 0;
     let bucketMembershipCount = 0;
-    snapshot.entities.forEach((entity, order) => {
+    entities.forEach((entity, order) => {
       if (entity.kind === 'relation') return;
       indexedEntityCount += 1;
       const entry = Object.freeze({ ref: entity.ref, order });
       const entityProjection = staleProjectionIds.has(entity.id)
         ? undefined
         : projection?.byEntityId[entity.id];
-      const bounds = coreV2EntityWorldAabb(entity, entityProjection);
+      const envelopeEntityProjection = staleProjectionIds.has(entity.id)
+        ? undefined
+        : options.envelopeProjection?.byEntityId[entity.id];
+      const bounds = unionBounds(
+        coreV2EntityWorldAabb(entity, entityProjection),
+        coreV2EntityWorldAabb(entity, envelopeEntityProjection),
+      );
       const coverage = bounds && boundedCellCoverage(bounds, cellSize, maxCells);
       if (!coverage) {
         overflow.push(entry);
@@ -134,6 +166,19 @@ export class CoreV2EntityHitIndex {
   public debugSnapshot(): CoreV2EntityHitIndexDebug {
     return this.debugValue;
   }
+}
+
+function unionBounds(
+  left: readonly [number, number, number, number] | null,
+  right: readonly [number, number, number, number] | null,
+): readonly [number, number, number, number] | null {
+  if (left === null) return right;
+  if (right === null) return left;
+  const minX = Math.min(left[0], right[0]);
+  const minY = Math.min(left[1], right[1]);
+  const maxX = Math.max(left[0] + left[2], right[0] + right[2]);
+  const maxY = Math.max(left[1] + left[3], right[1] + right[3]);
+  return Object.freeze([minX, minY, maxX - minX, maxY - minY]);
 }
 
 export function hitTestCoreV2EntityIndex(

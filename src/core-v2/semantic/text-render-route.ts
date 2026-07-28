@@ -1,5 +1,48 @@
 export const CORE_V2_TEXT_RENDER_ROUTE_REVISION = 'core-v2-text-render-route/1';
 export const CORE_V2_BITMAP_TEXT_MAX_CODE_UNITS = 128;
+const CJK_RANGES = Object.freeze([
+  [0x1100, 0x11ff],
+  [0x2e80, 0x31bf],
+  [0x31f0, 0x31ff],
+  [0x3400, 0x4dbf],
+  [0x4e00, 0x9fff],
+  [0xa960, 0xa97f],
+  [0xac00, 0xd7ff],
+  [0xf900, 0xfaff],
+  [0x20000, 0x323af],
+] as const);
+const BIDI_RANGES = Object.freeze([
+  [0x0590, 0x08ff],
+  [0x200e, 0x200f],
+  [0x202a, 0x202e],
+  [0x2066, 0x2069],
+  [0xfb1d, 0xfdff],
+  [0xfe70, 0xfeff],
+  [0x10800, 0x10fff],
+  [0x1e800, 0x1eeff],
+] as const);
+const EMOJI_RANGES = Object.freeze([
+  [0x2600, 0x27bf],
+  [0x1f000, 0x1faff],
+] as const);
+const COMBINING_RANGES = Object.freeze([
+  [0x0300, 0x036f],
+  [0x0483, 0x0489],
+  [0x0591, 0x05bd],
+  [0x05bf, 0x05bf],
+  [0x05c1, 0x05c2],
+  [0x05c4, 0x05c5],
+  [0x0610, 0x061a],
+  [0x064b, 0x065f],
+  [0x0670, 0x0670],
+  [0x1ab0, 0x1aff],
+  [0x1dc0, 0x1dff],
+  [0x20d0, 0x20ff],
+  [0xfe00, 0xfe0f],
+  [0xfe20, 0xfe2f],
+  [0x1f3fb, 0x1f3ff],
+  [0xe0100, 0xe01ef],
+] as const);
 
 export type CoreV2TextRenderRoute = 'bitmap-text' | 'fallback-text';
 
@@ -239,30 +282,53 @@ function inspectContent(text: string): ContentInspection {
   let containsCombiningSequence = false;
   let containsUnsupportedControl = false;
   let containsUnsupportedScript = false;
+  let lineCount = 1;
+  let previousWasCarriageReturn = false;
 
   for (const glyph of text) {
     const codePoint = glyph.codePointAt(0);
     if (codePoint === undefined) continue;
-    if (codePoint === 0x0a || codePoint === 0x0d) continue;
+    if (codePoint === 0x0d) {
+      lineCount += 1;
+      previousWasCarriageReturn = true;
+      continue;
+    }
+    if (codePoint === 0x0a) {
+      if (!previousWasCarriageReturn) lineCount += 1;
+      previousWasCarriageReturn = false;
+      continue;
+    }
+    previousWasCarriageReturn = false;
     requiredGlyphs.add(glyph);
-    if (codePoint > 0x7f) containsNonAscii = true;
-    if (isCjk(codePoint)) containsCjk = true;
-    if (isBidi(codePoint)) containsBidi = true;
-    if (isEmoji(codePoint)) containsEmoji = true;
-    if (isCombining(codePoint)) containsCombiningSequence = true;
+    if (codePoint <= 0x7f) {
+      if (isUnsupportedControl(codePoint)) {
+        containsUnsupportedControl = true;
+        containsUnsupportedScript = true;
+      }
+      continue;
+    }
+    const cjk = isCjk(codePoint);
+    const bidi = isBidi(codePoint);
+    const emoji = isEmoji(codePoint);
+    const combining = isCombining(codePoint);
+    containsNonAscii = true;
+    if (cjk) containsCjk = true;
+    if (bidi) containsBidi = true;
+    if (emoji) containsEmoji = true;
+    if (combining) containsCombiningSequence = true;
     if (isUnsupportedControl(codePoint)) containsUnsupportedControl = true;
     if (!isSimpleLatin(codePoint)
-      && !isCjk(codePoint)
-      && !isBidi(codePoint)
-      && !isEmoji(codePoint)
-      && !isCombining(codePoint)) {
+      && !cjk
+      && !bidi
+      && !emoji
+      && !combining) {
       containsUnsupportedScript = true;
     }
   }
 
   return {
     requiredGlyphs: Object.freeze([...requiredGlyphs]),
-    lineCount: text.split(/\r\n|\r|\n/u).length,
+    lineCount,
     containsNonAscii,
     containsCjk,
     containsBidi,
@@ -404,59 +470,20 @@ function isSimpleLatin(codePoint: number): boolean {
 }
 
 function isCjk(codePoint: number): boolean {
-  return inRanges(codePoint, [
-    [0x1100, 0x11ff],
-    [0x2e80, 0x31bf],
-    [0x31f0, 0x31ff],
-    [0x3400, 0x4dbf],
-    [0x4e00, 0x9fff],
-    [0xa960, 0xa97f],
-    [0xac00, 0xd7ff],
-    [0xf900, 0xfaff],
-    [0x20000, 0x323af],
-  ]);
+  return inRanges(codePoint, CJK_RANGES);
 }
 
 function isBidi(codePoint: number): boolean {
-  return inRanges(codePoint, [
-    [0x0590, 0x08ff],
-    [0x200e, 0x200f],
-    [0x202a, 0x202e],
-    [0x2066, 0x2069],
-    [0xfb1d, 0xfdff],
-    [0xfe70, 0xfeff],
-    [0x10800, 0x10fff],
-    [0x1e800, 0x1eeff],
-  ]);
+  return inRanges(codePoint, BIDI_RANGES);
 }
 
 function isEmoji(codePoint: number): boolean {
-  return inRanges(codePoint, [
-    [0x2600, 0x27bf],
-    [0x1f000, 0x1faff],
-  ]);
+  return inRanges(codePoint, EMOJI_RANGES);
 }
 
 function isCombining(codePoint: number): boolean {
   return codePoint === 0x200d
-    || inRanges(codePoint, [
-      [0x0300, 0x036f],
-      [0x0483, 0x0489],
-      [0x0591, 0x05bd],
-      [0x05bf, 0x05bf],
-      [0x05c1, 0x05c2],
-      [0x05c4, 0x05c5],
-      [0x0610, 0x061a],
-      [0x064b, 0x065f],
-      [0x0670, 0x0670],
-      [0x1ab0, 0x1aff],
-      [0x1dc0, 0x1dff],
-      [0x20d0, 0x20ff],
-      [0xfe00, 0xfe0f],
-      [0xfe20, 0xfe2f],
-      [0x1f3fb, 0x1f3ff],
-      [0xe0100, 0xe01ef],
-    ]);
+    || inRanges(codePoint, COMBINING_RANGES);
 }
 
 function isUnsupportedControl(codePoint: number): boolean {
@@ -464,7 +491,10 @@ function isUnsupportedControl(codePoint: number): boolean {
 }
 
 function inRanges(codePoint: number, ranges: readonly (readonly [number, number])[]): boolean {
-  return ranges.some(([start, end]) => codePoint >= start && codePoint <= end);
+  for (const [start, end] of ranges) {
+    if (codePoint >= start && codePoint <= end) return true;
+  }
+  return false;
 }
 
 function finitePositive(value: number): boolean {

@@ -392,6 +392,20 @@ const OWNED_CORE_V2_MATERIALIZATIONS = new WeakMap<
   CoreV2DatasetMaterialization
 >();
 const OWNED_CORE_V2_ELEMENT_IDS = new WeakMap<object, ReadonlySet<string>>();
+const OWNED_CORE_V2_EXACT_PATCHES = new WeakMap<
+  object,
+  Readonly<{
+    readonly base: readonly unknown[];
+    readonly dirtyIndices: readonly number[];
+  }>
+>();
+const OWNED_CORE_V2_PREVIEW_PATCHES = new WeakMap<
+  object,
+  Readonly<{
+    readonly base: readonly unknown[];
+    readonly dirtyIndices: readonly number[];
+  }>
+>();
 const STABLE_ROOT_SERIALIZATIONS = new WeakMap<object, string>();
 const STABLE_VALUE_SERIALIZATIONS = new WeakMap<object, string>();
 const STABLE_SERIALIZATION_KEY_ORDERS = new Map<
@@ -404,6 +418,7 @@ const STABLE_SERIALIZATION_KEY_ORDERS = new Map<
 const MAX_STABLE_SERIALIZATION_KEY_ORDER_SHAPES = 128;
 let stableSerializationKeyOrderShapeCount = 0;
 let semanticHashWasmModule: WebAssembly.Module | null | false = null;
+let semanticHashWasmDatasetScratch: SemanticHashWasmDatasetScratch | null = null;
 const SEMANTIC_HASH_WASM_BYTES = new Uint8Array([
   0, 97, 115, 109, 1, 0, 0, 0, 1, 7, 1, 96, 2, 127, 127, 1, 126, 3, 2, 1,
   0, 5, 3, 1, 0, 1, 7, 17, 2, 6, 109, 101, 109, 111, 114, 121, 2, 0, 4, 104,
@@ -464,11 +479,15 @@ export function assembleOwnedCoreV2Dataset(
   current: MaterializedCoreV2Dataset,
   roots: readonly CoreV2Element[],
 ): CoreV2DatasetMaterialization {
-  validateOwnedCoreV2Roots(current, roots);
+  const dirtyIndices = validateOwnedCoreV2Roots(current, roots);
   const dataset = Object.freeze([...roots]);
   OWNED_CORE_V2_DATASETS.add(dataset);
   const elementIds = OWNED_CORE_V2_ELEMENT_IDS.get(current.dataset);
   if (elementIds !== undefined) OWNED_CORE_V2_ELEMENT_IDS.set(dataset, elementIds);
+  OWNED_CORE_V2_EXACT_PATCHES.set(dataset, Object.freeze({
+    base: current.dataset,
+    dirtyIndices,
+  }));
   const materialized = Object.freeze({
     dataset,
     rootIds: current.rootIds,
@@ -504,6 +523,60 @@ export function assembleOwnedCoreV2PreviewDataset(
     visibleBoundsFinite: current.visibleBoundsFinite,
   });
   return materialized;
+}
+
+/**
+ * Assemble an internally planned transient preview from only its normalized
+ * replacement roots. Unlike the general preview assembly above, this shape
+ * cannot conceal changes outside `replacements`, so pointer-move previews do
+ * not need to rescan every unchanged root merely to prove structural sharing.
+ */
+export function assembleOwnedCoreV2SparsePreviewDataset(
+  current: MaterializedCoreV2Dataset,
+  replacements: readonly Readonly<{
+    readonly index: number;
+    readonly root: CoreV2Element;
+  }>[],
+): CoreV2DatasetMaterialization {
+  const roots = [...current.dataset];
+  const seen = new Set<number>();
+  const dirtyIndices: number[] = [];
+  for (const replacement of replacements) {
+    const { index, root } = replacement;
+    const before = current.dataset[index];
+    if (
+      !Number.isSafeInteger(index) ||
+      index < 0 ||
+      index >= current.dataset.length ||
+      seen.has(index) ||
+      before === undefined ||
+      before.id !== root.id ||
+      before.type !== root.type ||
+      !OWNED_CORE_V2_ROOTS.has(root)
+    ) {
+      throw new TypeError('sparse Core v2 preview replacement is invalid');
+    }
+    seen.add(index);
+    dirtyIndices.push(index);
+    roots[index] = root;
+  }
+  dirtyIndices.sort((left, right) => left - right);
+  const dataset = Object.freeze(roots);
+  OWNED_CORE_V2_DATASETS.add(dataset);
+  const elementIds = OWNED_CORE_V2_ELEMENT_IDS.get(current.dataset);
+  if (elementIds !== undefined) OWNED_CORE_V2_ELEMENT_IDS.set(dataset, elementIds);
+  OWNED_CORE_V2_PREVIEW_PATCHES.set(dataset, Object.freeze({
+    base: current.dataset,
+    dirtyIndices: Object.freeze(dirtyIndices),
+  }));
+  return Object.freeze({
+    dataset,
+    rootIds: current.rootIds,
+    elementTypes: current.elementTypes,
+    componentTypes: current.componentTypes,
+    semanticHash: current.semanticHash,
+    visibleBoundsFinite: current.visibleBoundsFinite,
+  });
 }
 
 /**
@@ -570,6 +643,19 @@ export function ownedCoreV2Materialization(
     : null;
 }
 
+/**
+ * Release the latest exact-hash scratch when its owning dataset leaves the
+ * product lifecycle. The cache is only an acceleration aid; a different live
+ * dataset remains untouched and every miss rebuilds from canonical values.
+ */
+export function releaseCoreV2SemanticHashScratch(
+  dataset: readonly unknown[],
+): void {
+  if (semanticHashWasmDatasetScratch?.dataset.deref() === dataset) {
+    semanticHashWasmDatasetScratch = null;
+  }
+}
+
 /** Exact immutable element membership retained with Engine-owned datasets. */
 export function ownedCoreV2ElementIds(
   input: unknown,
@@ -579,13 +665,38 @@ export function ownedCoreV2ElementIds(
     : null;
 }
 
+/** Exact sparse lineage for one internally assembled transient preview. */
+export function ownedCoreV2PreviewPatchIndices(
+  input: unknown,
+  base: readonly unknown[],
+): readonly number[] | null {
+  if (input === null || typeof input !== 'object') return null;
+  const patch = OWNED_CORE_V2_PREVIEW_PATCHES.get(input);
+  return patch?.base === base ? patch.dirtyIndices : null;
+}
+
+/**
+ * Exact root replacements recorded while an authoritative candidate is
+ * validated and canonically hashed. Consumers may skip redundant whole-scene
+ * identity scans only when they still hold the exact base dataset.
+ */
+export function ownedCoreV2ExactPatchIndices(
+  input: unknown,
+  base: readonly unknown[],
+): readonly number[] | null {
+  if (input === null || typeof input !== 'object') return null;
+  const patch = OWNED_CORE_V2_EXACT_PATCHES.get(input);
+  return patch?.base === base ? patch.dirtyIndices : null;
+}
+
 function validateOwnedCoreV2Roots(
   current: MaterializedCoreV2Dataset,
   roots: readonly CoreV2Element[],
-): void {
+): readonly number[] {
   if (roots.length !== current.dataset.length) {
     throw new RangeError('owned Core v2 root count changed');
   }
+  const dirtyIndices: number[] = [];
   for (let index = 0; index < roots.length; index += 1) {
     const before = current.dataset[index];
     const after = roots[index];
@@ -600,7 +711,9 @@ function validateOwnedCoreV2Roots(
         `owned Core v2 root ${index} changed identity or is not materializer-owned`,
       );
     }
+    if (before !== after) dirtyIndices.push(index);
   }
+  return Object.freeze(dirtyIndices);
 }
 
 function inventoryOwnedStructuralElement(
@@ -672,6 +785,7 @@ export function replaceOwnedCoreV2BarHeightRoot(
   root: CoreV2Element,
   componentId: string,
   height: number,
+  componentIndexHint?: number,
 ): CoreV2ItemElement | null {
   if (
     !OWNED_CORE_V2_ROOTS.has(root) ||
@@ -681,7 +795,12 @@ export function replaceOwnedCoreV2BarHeightRoot(
   ) {
     return null;
   }
-  const componentIndex = root.components.findIndex(({ id }) => id === componentId);
+  const hintedComponent = componentIndexHint === undefined
+    ? undefined
+    : root.components[componentIndexHint];
+  const componentIndex = hintedComponent?.id === componentId
+    ? componentIndexHint!
+    : root.components.findIndex(({ id }) => id === componentId);
   const component = componentIndex < 0 ? undefined : root.components[componentIndex];
   if (
     component?.type !== 'bar' ||
@@ -715,6 +834,8 @@ export function replaceOwnedCoreV2TextRoot(
   root: CoreV2Element,
   componentId: string,
   text: string,
+  stylePatch?: CoreV2TextStyle,
+  componentIndexHint?: number,
 ): CoreV2ItemElement | null {
   if (
     !OWNED_CORE_V2_ROOTS.has(root) ||
@@ -723,10 +844,21 @@ export function replaceOwnedCoreV2TextRoot(
   ) {
     return null;
   }
-  const componentIndex = root.components.findIndex(({ id }) => id === componentId);
+  const hintedComponent = componentIndexHint === undefined
+    ? undefined
+    : root.components[componentIndexHint];
+  const componentIndex = hintedComponent?.id === componentId
+    ? componentIndexHint!
+    : root.components.findIndex(({ id }) => id === componentId);
   const component = componentIndex < 0 ? undefined : root.components[componentIndex];
   if (component?.type !== 'text') return null;
-  const replacement = Object.freeze({ ...component, text });
+  const replacement = Object.freeze({
+    ...component,
+    text,
+    ...(stylePatch === undefined
+      ? {}
+      : { style: Object.freeze({ ...component.style, ...stylePatch }) }),
+  });
   const components = [...root.components];
   components[componentIndex] = replacement;
   const next = Object.freeze({
@@ -735,6 +867,38 @@ export function replaceOwnedCoreV2TextRoot(
   });
   OWNED_CORE_V2_ROOTS.add(next);
   return next;
+}
+
+/**
+ * Replace one validated top-level flat-root angle without cloning and
+ * re-normalizing its complete component subtree.
+ */
+export function replaceOwnedCoreV2ElementAngleRoot(
+  root: CoreV2Element,
+  angle: number,
+): CoreV2Element | null {
+  if (
+    !OWNED_CORE_V2_ROOTS.has(root) ||
+    !Number.isFinite(angle) ||
+    !['item', 'rect', 'image', 'text'].includes(root.type)
+  ) {
+    return null;
+  }
+  const attrs = Object.freeze({
+    ...(root.attrs ?? {}),
+    angle,
+  });
+  const next = Object.freeze({ ...root, attrs }) as CoreV2Element;
+  OWNED_CORE_V2_ROOTS.add(next);
+  return next;
+}
+
+/** Normalize the approved item-text style patch profile without defaults. */
+export function normalizeCoreV2TextStylePatch(
+  value: unknown,
+  path = '$.style',
+): CoreV2TextStyle {
+  return normalizeTextStyle(value, path, true, false);
 }
 
 /** Internal capability check for detached, deeply frozen materializer output. */
@@ -1837,52 +2001,188 @@ function semanticHash(value: unknown): string {
 function wasmSemanticHashDataset(roots: readonly unknown[]): string | null {
   if (typeof WebAssembly === 'undefined') return null;
   try {
-    if (semanticHashWasmModule === null) {
-      semanticHashWasmModule = new WebAssembly.Module(SEMANTIC_HASH_WASM_BYTES);
+    const previous = semanticHashWasmDatasetScratch?.dataset.deref();
+    if (Array.isArray(previous) && roots.length < previous.length) {
+      // Dirty-root normalization hashes a small temporary array immediately
+      // before assembling the large structurally shared candidate. Keep the
+      // large candidate buffer hot instead of evicting it for this transient.
+      return wasmSemanticHash(stableDatasetSerialization(roots));
     }
-    if (semanticHashWasmModule === false) return null;
-    const serializedRoots: string[] = [];
-    let length = 2 + Math.max(0, roots.length - 1);
-    for (const root of roots) {
-      let serialized: string;
-      if (root !== null && typeof root === 'object') {
-        serialized = STABLE_ROOT_SERIALIZATIONS.get(root) ?? stableSerialize(root);
-        STABLE_ROOT_SERIALIZATIONS.set(root, serialized);
-      } else {
-        serialized = stableSerialize(root);
-      }
-      serializedRoots.push(serialized);
-      length += serialized.length;
-    }
-    const exports = new WebAssembly.Instance(semanticHashWasmModule).exports as {
-      readonly memory?: WebAssembly.Memory;
-      readonly hash?: (offset: number, length: number) => bigint;
-    };
-    const memory = exports.memory;
-    const hash = exports.hash;
-    if (memory === undefined || hash === undefined) return null;
-    const requiredPages = Math.max(
-      1,
-      Math.ceil((length * Uint16Array.BYTES_PER_ELEMENT) / 65_536),
-    );
-    if (requiredPages > 1) memory.grow(requiredPages - 1);
-    const units = new Uint16Array(memory.buffer, 0, length);
-    let offset = 0;
-    units[offset++] = 91;
-    for (let index = 0; index < serializedRoots.length; index += 1) {
-      if (index > 0) units[offset++] = 44;
-      const serialized = serializedRoots[index]!;
-      for (let character = 0; character < serialized.length; character += 1) {
-        units[offset++] = serialized.charCodeAt(character);
-      }
-    }
-    units[offset] = 93;
-    const value = BigInt.asUintN(64, hash(0, length));
-    return `fnv1a64:${value.toString(16).padStart(16, '0')}`;
+    const reused = patchSemanticHashDatasetScratch(roots);
+    if (reused !== null) return reused;
+    return rebuildSemanticHashDatasetScratch(roots);
   } catch {
     semanticHashWasmModule = false;
+    semanticHashWasmDatasetScratch = null;
     return null;
   }
+}
+
+interface SemanticHashWasmDatasetScratch {
+  readonly dataset: WeakRef<object>;
+  readonly memory: WebAssembly.Memory;
+  readonly hash: (offset: number, length: number) => bigint;
+  readonly rootStarts: number[];
+  readonly rootLengths: number[];
+  length: number;
+}
+
+function patchSemanticHashDatasetScratch(
+  roots: readonly unknown[],
+): string | null {
+  const scratch = semanticHashWasmDatasetScratch;
+  const previousValue = scratch?.dataset.deref();
+  if (
+    scratch === null ||
+    !Array.isArray(previousValue) ||
+    previousValue.length !== roots.length
+  ) {
+    return null;
+  }
+  const previous = previousValue as readonly unknown[];
+  const changes: Array<Readonly<{
+    index: number;
+    serialized: string;
+    lengthDelta: number;
+  }>> = [];
+  let nextLength = scratch.length;
+  for (let index = 0; index < roots.length; index += 1) {
+    const root = roots[index];
+    if (previous[index] === root) continue;
+    const serialized = stableRootSerialization(root);
+    const lengthDelta = serialized.length - (scratch.rootLengths[index] ?? 0);
+    changes.push(Object.freeze({ index, serialized, lengthDelta }));
+    nextLength += lengthDelta;
+  }
+  if (changes.length === 0) {
+    semanticHashWasmDatasetScratch = {
+      ...scratch,
+      dataset: new WeakRef(roots as object),
+    };
+    return hashSemanticHashScratch(scratch);
+  }
+
+  const lengthChangingCount = changes.filter(({ lengthDelta }) => lengthDelta !== 0).length;
+  if (lengthChangingCount > 8) return null;
+  ensureSemanticHashMemory(scratch.memory, nextLength);
+  const units = new Uint16Array(scratch.memory.buffer);
+  let currentLength = scratch.length;
+  for (const change of changes) {
+    const start = scratch.rootStarts[change.index];
+    const oldLength = scratch.rootLengths[change.index];
+    if (start === undefined || oldLength === undefined) return null;
+    const nextRootLength = change.serialized.length;
+    if (change.lengthDelta !== 0) {
+      units.copyWithin(
+        start + nextRootLength,
+        start + oldLength,
+        currentLength,
+      );
+      currentLength += change.lengthDelta;
+      scratch.rootLengths[change.index] = nextRootLength;
+      for (
+        let index = change.index + 1;
+        index < scratch.rootStarts.length;
+        index += 1
+      ) {
+        scratch.rootStarts[index] = (scratch.rootStarts[index] ?? 0) +
+          change.lengthDelta;
+      }
+    }
+    writeSemanticHashUnits(units, start, change.serialized);
+  }
+  scratch.length = currentLength;
+  semanticHashWasmDatasetScratch = {
+    ...scratch,
+    dataset: new WeakRef(roots as object),
+  };
+  return hashSemanticHashScratch(semanticHashWasmDatasetScratch);
+}
+
+function rebuildSemanticHashDatasetScratch(
+  roots: readonly unknown[],
+): string | null {
+  const exports = semanticHashExports();
+  if (exports === null) return null;
+  const serializedRoots = roots.map(stableRootSerialization);
+  const length = 2 + Math.max(0, roots.length - 1) +
+    serializedRoots.reduce((total, serialized) => total + serialized.length, 0);
+  ensureSemanticHashMemory(exports.memory, length);
+  const units = new Uint16Array(exports.memory.buffer);
+  const rootStarts: number[] = [];
+  const rootLengths: number[] = [];
+  let offset = 0;
+  units[offset++] = 91;
+  for (let index = 0; index < serializedRoots.length; index += 1) {
+    if (index > 0) units[offset++] = 44;
+    const serialized = serializedRoots[index]!;
+    rootStarts.push(offset);
+    rootLengths.push(serialized.length);
+    writeSemanticHashUnits(units, offset, serialized);
+    offset += serialized.length;
+  }
+  units[offset] = 93;
+  semanticHashWasmDatasetScratch = {
+    dataset: new WeakRef(roots as object),
+    memory: exports.memory,
+    hash: exports.hash,
+    rootStarts,
+    rootLengths,
+    length,
+  };
+  return hashSemanticHashScratch(semanticHashWasmDatasetScratch);
+}
+
+function semanticHashExports(): Readonly<{
+  memory: WebAssembly.Memory;
+  hash: (offset: number, length: number) => bigint;
+}> | null {
+  if (semanticHashWasmModule === null) {
+    semanticHashWasmModule = new WebAssembly.Module(SEMANTIC_HASH_WASM_BYTES);
+  }
+  if (semanticHashWasmModule === false) return null;
+  const exports = new WebAssembly.Instance(semanticHashWasmModule).exports as {
+    readonly memory?: WebAssembly.Memory;
+    readonly hash?: (offset: number, length: number) => bigint;
+  };
+  return exports.memory === undefined || exports.hash === undefined
+    ? null
+    : Object.freeze({ memory: exports.memory, hash: exports.hash });
+}
+
+function ensureSemanticHashMemory(memory: WebAssembly.Memory, length: number): void {
+  const requiredPages = Math.max(
+    1,
+    Math.ceil((length * Uint16Array.BYTES_PER_ELEMENT) / 65_536),
+  );
+  const currentPages = memory.buffer.byteLength / 65_536;
+  if (requiredPages > currentPages) memory.grow(requiredPages - currentPages);
+}
+
+function stableRootSerialization(root: unknown): string {
+  if (root === null || typeof root !== 'object') return stableSerialize(root);
+  const cached = STABLE_ROOT_SERIALIZATIONS.get(root);
+  if (cached !== undefined) return cached;
+  const serialized = stableSerialize(root);
+  STABLE_ROOT_SERIALIZATIONS.set(root, serialized);
+  return serialized;
+}
+
+function writeSemanticHashUnits(
+  units: Uint16Array,
+  offset: number,
+  serialized: string,
+): void {
+  for (let index = 0; index < serialized.length; index += 1) {
+    units[offset + index] = serialized.charCodeAt(index);
+  }
+}
+
+function hashSemanticHashScratch(
+  scratch: SemanticHashWasmDatasetScratch,
+): string {
+  const value = BigInt.asUintN(64, scratch.hash(0, scratch.length));
+  return `fnv1a64:${value.toString(16).padStart(16, '0')}`;
 }
 
 function stableDatasetSerialization(value: unknown): string {

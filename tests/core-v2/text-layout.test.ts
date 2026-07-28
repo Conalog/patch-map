@@ -563,6 +563,80 @@ describe('Core v2 deterministic Unicode semantic layout', () => {
     expect(performance.now() - startedAt).toBeLessThan(20_000);
   });
 
+  it('keeps specialized signature streams byte-equivalent to canonical sorted JSON', () => {
+    const corpus: readonly CoreV2TextLayoutOptions[] = [
+      { source: 'CPU 123' },
+      {
+        source: '中😀é\nمرحبا',
+        requestedFont: 'Missing Sans',
+        availableRequestedFonts: [],
+        wordWrapWidthPx: 42,
+        breakWords: true,
+      },
+      {
+        source: 'AA AA',
+        wordWrapWidthPx: 25,
+        contentFrame: { width: 18, height: 100 },
+        autoFont: { minPx: 8, maxPx: 64 },
+        overflow: 'ellipsis',
+        origin: { x: 12, y: -4 },
+      },
+      { source: `A${String.fromCharCode(0xd800)}B` },
+      { source: 'quote" slash\\ tab\t separator\u2028' },
+    ];
+
+    for (const options of corpus) {
+      const result = layoutCoreV2Text(options);
+      const effectiveWordWrapWidthPx =
+        options.autoFont !== undefined &&
+        options.contentFrame !== undefined &&
+        result.wordWrapWidthPx !== null
+          ? Math.min(result.wordWrapWidthPx, options.contentFrame.width)
+          : result.wordWrapWidthPx;
+      const requestedFontUnavailable =
+        options.requestedFont !== undefined &&
+        result.sourceFontRuns.some(
+          ({ fallbackReason }) => fallbackReason === 'requested-font-unavailable',
+        );
+      expect(result.contentSignature).toBe(referenceSignature('text-content/v1', {
+        source: options.source,
+        layoutSource: result.layoutSource,
+        visibleText: result.visibleText,
+      }));
+      expect(result.styleSignature).toBe(referenceSignature('text-style/v1', {
+        fontSizePx: result.fontSizePx,
+        lineHeightPx: result.lineHeightPx,
+        alphabeticBaselinePx: result.alphabeticBaselinePx,
+        letterSpacingPx: result.letterSpacingPx,
+        requestedFont: options.requestedFont ?? null,
+        requestedFontUnavailable,
+        split: result.split,
+        wordWrapWidthPx: result.wordWrapWidthPx,
+        ...(effectiveWordWrapWidthPx !== result.wordWrapWidthPx
+          ? { effectiveWordWrapWidthPx }
+          : {}),
+        breakWords: result.breakWords,
+        overflow: result.overflow,
+        contentFrame: result.contentFrame,
+        rendererRoute: result.rendererRoute,
+      }));
+      expect(result.layoutSignature).toBe(referenceSignature('text-layout/v1', {
+        contentSignature: result.contentSignature,
+        styleSignature: result.styleSignature,
+        graphemes: result.graphemes,
+        lines: result.lines,
+        visibleLines: result.visibleLines,
+        layoutBounds: result.layoutBounds,
+        ownerLocalBounds: result.ownerLocalBounds,
+        bidiLines: result.bidiLines,
+        fontRuns: result.fontRuns,
+        sourceFontRuns: result.sourceFontRuns,
+        visibleFontRuns: result.visibleFontRuns,
+        diagnostics: result.diagnostics,
+      }));
+    }
+  });
+
   it('saturates extreme finite arithmetic with an explicit precision diagnostic', () => {
     const result = layoutCoreV2Text({
       source: 'AB\nCD',
@@ -587,3 +661,27 @@ describe('Core v2 deterministic Unicode semantic layout', () => {
     });
   });
 });
+
+function referenceSignature(prefix: string, value: unknown): string {
+  const source = referenceStableSerialize(value);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `${prefix}:${hash.toString(16).padStart(8, '0')}`;
+}
+
+function referenceStableSerialize(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value) ?? 'undefined';
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(referenceStableSerialize).join(',')}]`;
+  }
+  const record = value as Readonly<Record<string, unknown>>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${referenceStableSerialize(record[key])}`)
+    .join(',')}}`;
+}

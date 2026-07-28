@@ -134,11 +134,16 @@ describe('Core v2 staged semantic transaction planner', () => {
       Object.freeze({ ownerId: 'item-b', componentId: 'label-b' }),
     ]);
     const texts = Object.freeze(['Changed', 'Bravo']);
+    const styles = Object.freeze([
+      Object.freeze({ fontSize: 22, fill: '#123456ff' }),
+      Object.freeze({}),
+    ]);
     const before = JSON.stringify(current);
 
     const result = planCoreV2TextBatch(current, {
       targets,
       texts,
+      styles,
       actionId: 'compact-texts',
     });
 
@@ -156,7 +161,10 @@ describe('Core v2 staged semantic transaction planner', () => {
       ],
     });
     expect(requireComponent(result.candidate, 'item-a', 'label-a'))
-      .toMatchObject({ text: 'Changed' });
+      .toMatchObject({
+        text: 'Changed',
+        style: { fontSize: 22, fill: '#123456ff' },
+      });
     expect(result.candidate.dataset[1]).toBe(current.dataset[1]);
     expect(JSON.stringify(current)).toBe(before);
     expect(targets).toEqual([
@@ -164,6 +172,10 @@ describe('Core v2 staged semantic transaction planner', () => {
       { ownerId: 'item-b', componentId: 'label-b' },
     ]);
     expect(texts).toEqual(['Changed', 'Bravo']);
+    expect(styles).toEqual([
+      { fontSize: 22, fill: '#123456ff' },
+      {},
+    ]);
 
     const rejected = planCoreV2TextBatch(current, {
       targets: [
@@ -180,6 +192,19 @@ describe('Core v2 staged semantic transaction planner', () => {
     });
     expect(requireComponent(current, 'item-a', 'label-a'))
       .toMatchObject({ text: 'Alpha' });
+
+    expect(planCoreV2TextBatch(current, {
+      targets: [{ ownerId: 'item-a', componentId: 'label-a' }],
+      texts: ['Tentative'],
+      styles: [{ fontSize: -1 }],
+    })).toMatchObject({
+      status: 'rejected',
+      changed: false,
+      diagnostic: {
+        code: 'INVALID_VALUE',
+        path: '$.styles[0].fontSize',
+      },
+    });
   });
 
   it('runs ordered nested merges against one detached staged candidate', () => {
@@ -425,6 +450,65 @@ describe('Core v2 staged semantic transaction planner', () => {
       status: 'rejected',
       diagnostic: { code: 'INVALID_PATH' },
     });
+  });
+
+  it('normalizes a multi-root flat bulk candidate as one exact owned batch', () => {
+    const current = materializeCoreV2Dataset([
+      {
+        type: 'rect',
+        id: 'rect-a',
+        size: { width: 40, height: 20 },
+        fill: '#2563ebff',
+        attrs: { x: 10, y: 20 },
+      },
+      {
+        type: 'rect',
+        id: 'rect-b',
+        size: { width: 50, height: 30 },
+        fill: '#ef4444ff',
+        attrs: { x: 70, y: 40 },
+      },
+      {
+        type: 'rect',
+        id: 'rect-c',
+        size: { width: 60, height: 40 },
+        fill: '#22c55eff',
+        attrs: { x: 130, y: 60 },
+      },
+    ]);
+
+    const result = planCoreV2BulkPatch(current, {
+      strict: true,
+      actionId: 'rotate-flat-roots',
+      targets: current.rootIds.map((id) => ({ kind: 'element' as const, id })),
+      changes: [{ path: ['attrs', 'angle'], value: 7 }],
+    });
+
+    expect(result.status).toBe('planned');
+    if (result.status !== 'planned') throw new Error('Expected planned flat bulk patch');
+    expect(result).toMatchObject({
+      changed: true,
+      applied: [
+        { kind: 'element', id: 'rect-a' },
+        { kind: 'element', id: 'rect-b' },
+        { kind: 'element', id: 'rect-c' },
+      ],
+      directElementAngleUpdates: [
+        { id: 'rect-a', angle: 7 },
+        { id: 'rect-b', angle: 7 },
+        { id: 'rect-c', angle: 7 },
+      ],
+      summary: { appliedCount: 3, missingCount: 0, unchangedCount: 0 },
+    });
+    expect(result.candidate.dataset.map(({ attrs }) => attrs?.angle)).toEqual([7, 7, 7]);
+    expect(result.candidate.semanticHash).toBe(
+      materializeCoreV2Dataset(result.candidate.dataset).semanticHash,
+    );
+    expect(current.dataset.map(({ attrs }) => attrs?.angle)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
   });
 
   it('rejects engine-style handles instead of treating them as logical targets', () => {

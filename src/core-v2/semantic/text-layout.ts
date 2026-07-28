@@ -182,6 +182,22 @@ interface CoreV2TextLayoutSignatureInput {
   readonly diagnostics: readonly CoreV2TextDiagnostic[];
 }
 
+interface CoreV2TextStyleSignatureInput {
+  readonly fontSizePx: number;
+  readonly lineHeightPx: number;
+  readonly alphabeticBaselinePx: number;
+  readonly letterSpacingPx: number;
+  readonly requestedFont: string | null;
+  readonly requestedFontUnavailable: boolean;
+  readonly split: number;
+  readonly wordWrapWidthPx: number | null;
+  readonly effectiveWordWrapWidthPx?: number | null;
+  readonly breakWords: boolean;
+  readonly overflow: CoreV2TextOverflow;
+  readonly contentFrame: CoreV2TextFrame | null;
+  readonly rendererRoute: CoreV2TextRendererRoute;
+}
+
 type CoreV2BidiClusterType = CoreV2TextDirection | 'number' | null;
 type CoreV2ResolvedBidiClusterType = Exclude<CoreV2BidiClusterType, null>;
 
@@ -332,6 +348,11 @@ export function layoutCoreV2Text(options: CoreV2TextLayoutOptions): CoreV2TextLa
     visibleFontRuns,
     options.advancedStyle ?? false,
   );
+  const hardLines = Object.freeze(core.hardLines.map(joinRawClusters));
+  const splitLines = Object.freeze(core.splitLines.map(joinRawClusters));
+  const lines = Object.freeze(core.lines.map(joinRawClusters));
+  const visibleLines = Object.freeze(core.visibleLines.map(joinClusters));
+  const frozenDiagnostics = Object.freeze(diagnostics);
 
   const semanticStyle = {
     fontSizePx,
@@ -348,28 +369,28 @@ export function layoutCoreV2Text(options: CoreV2TextLayoutOptions): CoreV2TextLa
     contentFrame,
     rendererRoute,
   };
-  const contentSignature = signature('text-content/v1', {
-    source: options.source,
+  const contentSignature = textContentSignature(
+    options.source,
     layoutSource,
-    visibleText: core.visibleText,
-  });
-  const styleSignature = signature('text-style/v1', semanticStyle);
+    core.visibleText,
+  );
+  const styleSignature = textStyleSignature(semanticStyle);
   const layoutSignature = textLayoutSignature({
     contentSignature,
     styleSignature,
     graphemes: core.sourceGraphemes,
-    lines: core.lines.map(joinRawClusters),
-    visibleLines: core.visibleLines.map(joinClusters),
+    lines,
+    visibleLines,
     layoutBounds,
     ownerLocalBounds,
     bidiLines,
     fontRuns,
     sourceFontRuns,
     visibleFontRuns,
-    diagnostics,
+    diagnostics: frozenDiagnostics,
   });
 
-  return deepFreeze({
+  return Object.freeze({
     profile: CORE_V2_TEXT_PROFILE,
     source: options.source,
     layoutSource,
@@ -377,10 +398,10 @@ export function layoutCoreV2Text(options: CoreV2TextLayoutOptions): CoreV2TextLa
     unicodeNormalizationApplied: false,
     graphemes: core.sourceGraphemes,
     layoutGraphemes: core.layoutGraphemes,
-    hardLines: core.hardLines.map(joinRawClusters),
-    splitLines: core.splitLines.map(joinRawClusters),
-    lines: core.lines.map(joinRawClusters),
-    visibleLines: core.visibleLines.map(joinClusters),
+    hardLines,
+    splitLines,
+    lines,
+    visibleLines,
     visibleText: core.visibleText,
     lineCount: core.lines.length,
     baseDirection: bidi.baseDirection,
@@ -409,7 +430,7 @@ export function layoutCoreV2Text(options: CoreV2TextLayoutOptions): CoreV2TextLa
     contentSignature,
     styleSignature,
     layoutSignature,
-    diagnostics,
+    diagnostics: frozenDiagnostics,
   });
 }
 
@@ -537,7 +558,7 @@ function produceLayoutCore(input: Readonly<{
   const splitLines = splitByCount(hardLines, input.split);
   const lines = input.wordWrapWidthPx === null
     ? splitLines
-    : splitLines.flatMap((line) =>
+    : Object.freeze(splitLines.flatMap((line) =>
         wrapLine(
           line,
           input.wordWrapWidthPx ?? 0,
@@ -545,10 +566,10 @@ function produceLayoutCore(input: Readonly<{
           input.fontSizePx,
           input.letterSpacingPx,
         ),
-      );
-  const naturalLineAdvancesPx = lines.map((line) =>
+      ));
+  const naturalLineAdvancesPx = Object.freeze(lines.map((line) =>
     measureLine(line, input.fontSizePx, input.letterSpacingPx),
-  );
+  ));
   const overflowResult = applyOverflow(
     lines,
     input.overflow,
@@ -557,10 +578,10 @@ function produceLayoutCore(input: Readonly<{
     input.lineHeightPx,
     input.letterSpacingPx,
   );
-  const lineAdvancesPx = overflowResult.lines.map((line) =>
+  const lineAdvancesPx = Object.freeze(overflowResult.lines.map((line) =>
     measureLine(line, input.fontSizePx, input.letterSpacingPx),
-  );
-  return deepFreeze({
+  ));
+  return Object.freeze({
     sourceGraphemes,
     layoutGraphemes,
     hardLines,
@@ -805,10 +826,15 @@ function applyOverflow(
   letterSpacingPx: number,
 ): Readonly<{ lines: readonly (readonly string[])[]; truncated: boolean }> {
   if (overflow === 'visible' || frame === null) {
-    return deepFreeze({ lines, truncated: false });
+    return Object.freeze({ lines, truncated: false });
   }
   const maxLines = Math.floor(frame.height / lineHeightPx);
-  if (maxLines <= 0) return deepFreeze({ lines: [], truncated: lines.length > 0 });
+  if (maxLines <= 0) {
+    return Object.freeze({
+      lines: Object.freeze([]),
+      truncated: lines.length > 0,
+    });
+  }
   const selected = lines.slice(0, maxLines).map((line) => [...line]);
   let truncated = selected.length < lines.length;
   for (let index = 0; index < selected.length; index += 1) {
@@ -841,7 +867,10 @@ function applyOverflow(
       selected[lastIndex] = [];
     }
   }
-  return deepFreeze({ lines: selected, truncated });
+  return Object.freeze({
+    lines: Object.freeze(selected.map((line) => Object.freeze(line))),
+    truncated,
+  });
 }
 
 function largestFittingPrefix(
@@ -1040,7 +1069,7 @@ function resolveBidiLines(
   return Object.freeze(
     lines.map((line, lineIndex) => {
       const resolved = resolveBidi(line);
-      return deepFreeze({
+      return Object.freeze({
         lineIndex,
         source: line.join(''),
         baseDirection: resolved.baseDirection,
@@ -1053,13 +1082,13 @@ function resolveBidiLines(
 }
 
 function emptyBidiLine(): CoreV2BidiLine {
-  return deepFreeze({
+  return Object.freeze({
     lineIndex: 0,
     source: '',
     baseDirection: 'ltr',
-    logicalRuns: [],
-    visualRuns: [],
-    logicalToVisual: [],
+    logicalRuns: Object.freeze([]),
+    visualRuns: Object.freeze([]),
+    logicalToVisual: Object.freeze([]),
   });
 }
 
@@ -1124,7 +1153,12 @@ function resolveBidi(graphemes: readonly string[]): Readonly<{
     (left, right) =>
       minimumVisualIndex(left, logicalToVisual) - minimumVisualIndex(right, logicalToVisual),
   );
-  return deepFreeze({ baseDirection, logicalRuns, visualRuns, logicalToVisual });
+  return Object.freeze({
+    baseDirection,
+    logicalRuns: Object.freeze(logicalRuns),
+    visualRuns: Object.freeze(visualRuns),
+    logicalToVisual: Object.freeze(logicalToVisual),
+  });
 }
 
 function automaticBaseDirection(graphemes: readonly string[]): CoreV2TextDirection {
@@ -1507,27 +1541,228 @@ function saturatingMultiply(left: number, right: number): number {
 }
 
 function textLayoutSignature(input: CoreV2TextLayoutSignatureInput): string {
-  return signature('text-layout/v1', input);
+  let hash = hashString(0x811c9dc5, '{"bidiLines":');
+  hash = hashBidiLines(hash, input.bidiLines);
+  hash = hashString(hash, ',"contentSignature":');
+  hash = hashJsonScalar(hash, input.contentSignature);
+  hash = hashString(hash, ',"diagnostics":');
+  hash = hashDiagnostics(hash, input.diagnostics);
+  hash = hashString(hash, ',"fontRuns":');
+  hash = hashFontRuns(hash, input.fontRuns);
+  hash = hashString(hash, ',"graphemes":');
+  hash = hashStringArray(hash, input.graphemes);
+  hash = hashString(hash, ',"layoutBounds":');
+  hash = hashBounds(hash, input.layoutBounds);
+  hash = hashString(hash, ',"lines":');
+  hash = hashStringArray(hash, input.lines);
+  hash = hashString(hash, ',"ownerLocalBounds":');
+  hash = hashBounds(hash, input.ownerLocalBounds);
+  hash = hashString(hash, ',"sourceFontRuns":');
+  hash = hashFontRuns(hash, input.sourceFontRuns);
+  hash = hashString(hash, ',"styleSignature":');
+  hash = hashJsonScalar(hash, input.styleSignature);
+  hash = hashString(hash, ',"visibleFontRuns":');
+  hash = hashFontRuns(hash, input.visibleFontRuns);
+  hash = hashString(hash, ',"visibleLines":');
+  hash = hashStringArray(hash, input.visibleLines);
+  return formattedSignature('text-layout/v1', hashString(hash, '}'));
 }
 
-function signature(prefix: string, value: unknown): string {
-  const source = stableSerialize(value);
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < source.length; index += 1) {
-    hash ^= source.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
+function textContentSignature(
+  source: string,
+  layoutSource: string,
+  visibleText: string,
+): string {
+  let hash = hashString(0x811c9dc5, '{"layoutSource":');
+  hash = hashJsonScalar(hash, layoutSource);
+  hash = hashString(hash, ',"source":');
+  hash = hashJsonScalar(hash, source);
+  hash = hashString(hash, ',"visibleText":');
+  hash = hashJsonScalar(hash, visibleText);
+  return formattedSignature('text-content/v1', hashString(hash, '}'));
+}
+
+function textStyleSignature(input: CoreV2TextStyleSignatureInput): string {
+  let hash = hashString(0x811c9dc5, '{"alphabeticBaselinePx":');
+  hash = hashJsonScalar(hash, input.alphabeticBaselinePx);
+  hash = hashString(hash, ',"breakWords":');
+  hash = hashJsonScalar(hash, input.breakWords);
+  hash = hashString(hash, ',"contentFrame":');
+  hash = input.contentFrame === null
+    ? hashString(hash, 'null')
+    : hashTextFrame(hash, input.contentFrame);
+  if (input.effectiveWordWrapWidthPx !== undefined) {
+    hash = hashString(hash, ',"effectiveWordWrapWidthPx":');
+    hash = hashJsonScalar(hash, input.effectiveWordWrapWidthPx);
   }
+  hash = hashString(hash, ',"fontSizePx":');
+  hash = hashJsonScalar(hash, input.fontSizePx);
+  hash = hashString(hash, ',"letterSpacingPx":');
+  hash = hashJsonScalar(hash, input.letterSpacingPx);
+  hash = hashString(hash, ',"lineHeightPx":');
+  hash = hashJsonScalar(hash, input.lineHeightPx);
+  hash = hashString(hash, ',"overflow":');
+  hash = hashJsonScalar(hash, input.overflow);
+  hash = hashString(hash, ',"rendererRoute":');
+  hash = hashJsonScalar(hash, input.rendererRoute);
+  hash = hashString(hash, ',"requestedFont":');
+  hash = hashJsonScalar(hash, input.requestedFont);
+  hash = hashString(hash, ',"requestedFontUnavailable":');
+  hash = hashJsonScalar(hash, input.requestedFontUnavailable);
+  hash = hashString(hash, ',"split":');
+  hash = hashJsonScalar(hash, input.split);
+  hash = hashString(hash, ',"wordWrapWidthPx":');
+  hash = hashJsonScalar(hash, input.wordWrapWidthPx);
+  return formattedSignature('text-style/v1', hashString(hash, '}'));
+}
+
+function hashBounds(hash: number, boundsValue: CoreV2TextBounds): number {
+  let next = hashString(hash, '{"height":');
+  next = hashJsonScalar(next, boundsValue.height);
+  next = hashString(next, ',"width":');
+  next = hashJsonScalar(next, boundsValue.width);
+  next = hashString(next, ',"x":');
+  next = hashJsonScalar(next, boundsValue.x);
+  next = hashString(next, ',"y":');
+  next = hashJsonScalar(next, boundsValue.y);
+  return hashString(next, '}');
+}
+
+function hashTextFrame(hash: number, frame: CoreV2TextFrame): number {
+  let next = hashString(hash, '{"height":');
+  next = hashJsonScalar(next, frame.height);
+  next = hashString(next, ',"width":');
+  next = hashJsonScalar(next, frame.width);
+  return hashString(next, '}');
+}
+
+function hashStringArray(hash: number, values: readonly string[]): number {
+  let next = hashString(hash, '[');
+  for (let index = 0; index < values.length; index += 1) {
+    if (index > 0) next = hashString(next, ',');
+    next = hashJsonScalar(next, values[index]);
+  }
+  return hashString(next, ']');
+}
+
+function hashNumberArray(hash: number, values: readonly number[]): number {
+  let next = hashString(hash, '[');
+  for (let index = 0; index < values.length; index += 1) {
+    if (index > 0) next = hashString(next, ',');
+    next = hashJsonScalar(next, values[index]);
+  }
+  return hashString(next, ']');
+}
+
+function hashBidiLines(hash: number, lines: readonly CoreV2BidiLine[]): number {
+  let next = hashString(hash, '[');
+  for (let index = 0; index < lines.length; index += 1) {
+    if (index > 0) next = hashString(next, ',');
+    const line = lines[index]!;
+    next = hashString(next, '{"baseDirection":');
+    next = hashJsonScalar(next, line.baseDirection);
+    next = hashString(next, ',"lineIndex":');
+    next = hashJsonScalar(next, line.lineIndex);
+    next = hashString(next, ',"logicalRuns":');
+    next = hashBidiRuns(next, line.logicalRuns);
+    next = hashString(next, ',"logicalToVisual":');
+    next = hashNumberArray(next, line.logicalToVisual);
+    next = hashString(next, ',"source":');
+    next = hashJsonScalar(next, line.source);
+    next = hashString(next, ',"visualRuns":');
+    next = hashBidiRuns(next, line.visualRuns);
+    next = hashString(next, '}');
+  }
+  return hashString(next, ']');
+}
+
+function hashBidiRuns(hash: number, runs: readonly CoreV2BidiRun[]): number {
+  let next = hashString(hash, '[');
+  for (let index = 0; index < runs.length; index += 1) {
+    if (index > 0) next = hashString(next, ',');
+    const run = runs[index]!;
+    next = hashString(next, '{"direction":');
+    next = hashJsonScalar(next, run.direction);
+    next = hashString(next, ',"level":');
+    next = hashJsonScalar(next, run.level);
+    next = hashString(next, ',"logicalEnd":');
+    next = hashJsonScalar(next, run.logicalEnd);
+    next = hashString(next, ',"logicalStart":');
+    next = hashJsonScalar(next, run.logicalStart);
+    next = hashString(next, ',"text":');
+    next = hashJsonScalar(next, run.text);
+    next = hashString(next, '}');
+  }
+  return hashString(next, ']');
+}
+
+function hashFontRuns(hash: number, runs: readonly CoreV2TextFontRun[]): number {
+  let next = hashString(hash, '[');
+  for (let index = 0; index < runs.length; index += 1) {
+    if (index > 0) next = hashString(next, ',');
+    const run = runs[index]!;
+    next = hashString(next, '{');
+    let hasProperty = false;
+    if (run.fallbackReason !== undefined) {
+      next = hashString(next, '"fallbackReason":');
+      next = hashJsonScalar(next, run.fallbackReason);
+      hasProperty = true;
+    }
+    if (hasProperty) next = hashString(next, ',');
+    next = hashString(next, '"font":');
+    next = hashJsonScalar(next, run.font);
+    if (run.fontSizePx !== undefined) {
+      next = hashString(next, ',"fontSizePx":');
+      next = hashJsonScalar(next, run.fontSizePx);
+    }
+    next = hashString(next, ',"text":');
+    next = hashJsonScalar(next, run.text);
+    next = hashString(next, '}');
+  }
+  return hashString(next, ']');
+}
+
+function hashDiagnostics(
+  hash: number,
+  diagnostics: readonly CoreV2TextDiagnostic[],
+): number {
+  let next = hashString(hash, '[');
+  for (let index = 0; index < diagnostics.length; index += 1) {
+    if (index > 0) next = hashString(next, ',');
+    const diagnostic = diagnostics[index]!;
+    next = hashString(next, '{"code":');
+    next = hashJsonScalar(next, diagnostic.code);
+    next = hashString(next, ',"detail":');
+    next = hashJsonScalar(next, diagnostic.detail);
+    next = hashString(next, ',"severity":');
+    next = hashJsonScalar(next, diagnostic.severity);
+    if (diagnostic.sourceIndex !== undefined) {
+      next = hashString(next, ',"sourceIndex":');
+      next = hashJsonScalar(next, diagnostic.sourceIndex);
+    }
+    next = hashString(next, '}');
+  }
+  return hashString(next, ']');
+}
+
+function hashJsonScalar(
+  hash: number,
+  value: string | number | boolean | null | undefined,
+): number {
+  return hashString(hash, JSON.stringify(value) ?? 'undefined');
+}
+
+function formattedSignature(prefix: string, hash: number): string {
   return `${prefix}:${hash.toString(16).padStart(8, '0')}`;
 }
 
-function stableSerialize(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'undefined';
-  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
-  const record = value as Readonly<Record<string, unknown>>;
-  return `{${Object.keys(record)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${stableSerialize(record[key])}`)
-    .join(',')}}`;
+function hashString(hash: number, source: string): number {
+  let next = hash;
+  for (let index = 0; index < source.length; index += 1) {
+    next ^= source.charCodeAt(index);
+    next = Math.imul(next, 0x01000193) >>> 0;
+  }
+  return next;
 }
 
 function assertFinite(value: number, path: string): void {

@@ -145,41 +145,60 @@ interface CoreV2SelectionEligibilityContext {
  * DisplayObject or renderer handle crosses this boundary.
  */
 export class CoreV2LogicalSceneIndex {
-  private readonly targetsValue: readonly CoreV2LogicalTargetSnapshot[];
+  private targetsValue: readonly CoreV2LogicalTargetSnapshot[] | null = null;
   private readonly byKey = new Map<CoreV2LogicalTargetKey, CoreV2LogicalTargetSnapshot>();
   private readonly bySelectionId = new Map<string, CoreV2LogicalTargetSnapshot>();
 
-  public constructor(dataset: readonly NormalizedCoreV2Element[]) {
-    this.targetsValue = buildLogicalTargets(dataset);
-    for (const target of this.targetsValue) {
-      this.byKey.set(target.key, target);
-      this.bySelectionId.set(target.selectionId, target);
-    }
-  }
+  public constructor(
+    private readonly dataset: readonly NormalizedCoreV2Element[],
+  ) {}
 
   public targets(): readonly CoreV2LogicalTargetSnapshot[] {
-    return this.targetsValue;
+    return this.ensureTargets();
   }
 
   public target(
     targetOrId: CoreV2MutationTarget | string,
   ): CoreV2LogicalTargetSnapshot | null {
     if (typeof targetOrId !== 'string') {
-      return this.byKey.get(coreV2LogicalTargetKey(targetOrId)) ?? null;
+      const key = coreV2LogicalTargetKey(targetOrId);
+      const cached = this.byKey.get(key);
+      if (cached !== undefined) return cached;
+      const direct = targetOrId.kind === 'element'
+        ? this.topLevelElement(targetOrId.id)
+        : null;
+      if (direct !== null) return direct;
+      this.ensureTargets();
+      return this.byKey.get(key) ?? null;
     }
     if (targetOrId.startsWith('element:') || targetOrId.startsWith('component:')) {
-      return this.byKey.get(targetOrId as CoreV2LogicalTargetKey) ?? null;
+      const key = targetOrId as CoreV2LogicalTargetKey;
+      const cached = this.byKey.get(key);
+      if (cached !== undefined) return cached;
+      const direct = targetOrId.startsWith('element:')
+        ? this.topLevelElement(targetOrId.slice('element:'.length))
+        : null;
+      if (direct !== null) return direct;
+      this.ensureTargets();
+      return this.byKey.get(key) ?? null;
     }
     const componentSeparator = targetOrId.indexOf('/');
     if (
       componentSeparator > 0 &&
       componentSeparator < targetOrId.length - 1
     ) {
+      this.ensureTargets();
       const ownerId = targetOrId.slice(0, componentSeparator);
       const componentId = targetOrId.slice(componentSeparator + 1);
       return this.byKey.get(`component:${ownerId}/${componentId}`) ?? null;
     }
-    return this.byKey.get(`element:${targetOrId}`) ??
+    const elementKey = `element:${targetOrId}` as const;
+    const cached = this.byKey.get(elementKey) ?? this.bySelectionId.get(targetOrId);
+    if (cached !== undefined) return cached;
+    const direct = this.topLevelElement(targetOrId);
+    if (direct !== null) return direct;
+    this.ensureTargets();
+    return this.byKey.get(elementKey) ??
       this.bySelectionId.get(targetOrId) ??
       null;
   }
@@ -187,7 +206,7 @@ export class CoreV2LogicalSceneIndex {
   public query(input: CoreV2SceneQuery = {}): CoreV2SceneQueryEvaluation {
     validateQuery(input);
     const recursive = input.recursive ?? true;
-    let candidates = queryScope(this.targetsValue, input.root ?? null, recursive);
+    let candidates = queryScope(this.ensureTargets(), input.root ?? null, recursive);
     const where = input.where ?? {};
 
     if (where.id !== undefined && where.ownerId === undefined) {
@@ -275,6 +294,7 @@ export class CoreV2LogicalSceneIndex {
     options: CoreV2SelectionHitOptions = {},
   ): CoreV2SelectionHit {
     validateFinitePoint(point);
+    this.ensureTargets();
     const eligibility = compileSelectionEligibility(options);
     const allowed = options.candidateIds === undefined
       ? null
@@ -356,6 +376,60 @@ export class CoreV2LogicalSceneIndex {
         target;
     }
     return ancestors.find((entry) => entry.type === 'group') ?? target;
+  }
+
+  /**
+   * A root-owned spatial hit does not need the full query catalog. Keeping this
+   * path lazy avoids cloning and indexing every component before the first
+   * pointer interaction in a large flat scene. Nested/component resolution and
+   * declarative queries still materialize the canonical complete index.
+   */
+  private topLevelElement(id: string): CoreV2LogicalTargetSnapshot | null {
+    if (this.targetsValue !== null) return null;
+    let sceneOrder = 0;
+    for (const element of this.dataset) {
+      if (element.id === id) {
+        const target = Object.freeze({ kind: 'element', id: element.id } as const);
+        const key = coreV2LogicalTargetKey(target);
+        const snapshot = logicalSnapshot({
+          key,
+          target,
+          selectionId: element.id,
+          kind: 'element',
+          id: element.id,
+          ownerId: null,
+          type: element.type,
+          label: element.label ?? null,
+          parentKey: null,
+          ancestors: Object.freeze([]),
+          depth: 0,
+          sceneOrder,
+          zIndex: recordZIndex(element),
+          topLevel: true,
+          locked: element.locked === true,
+          ancestorLocked: false,
+          value: element as unknown as Readonly<Record<string, unknown>>,
+        });
+        this.byKey.set(key, snapshot);
+        this.bySelectionId.set(snapshot.selectionId, snapshot);
+        return snapshot;
+      }
+      sceneOrder += logicalTargetCount(element);
+    }
+    return null;
+  }
+
+  private ensureTargets(): readonly CoreV2LogicalTargetSnapshot[] {
+    if (this.targetsValue !== null) return this.targetsValue;
+    const targets = buildLogicalTargets(this.dataset);
+    this.byKey.clear();
+    this.bySelectionId.clear();
+    for (const target of targets) {
+      this.byKey.set(target.key, target);
+      this.bySelectionId.set(target.selectionId, target);
+    }
+    this.targetsValue = targets;
+    return targets;
   }
 }
 
@@ -566,6 +640,25 @@ function buildLogicalTargets(
 
   for (const element of dataset) appendElement(element, null, Object.freeze([]), false, true);
   return Object.freeze([...elements, ...components]);
+}
+
+function logicalTargetCount(element: NormalizedCoreV2Element): number {
+  if (element.type === 'group') {
+    return 1 + element.children.reduce(
+      (count, child) => count + logicalTargetCount(child),
+      0,
+    );
+  }
+  if (element.type === 'item') return 1 + element.components.length;
+  if (element.type !== 'grid') return 1;
+  let count = 1;
+  for (const row of element.cells) {
+    for (const cell of row) {
+      if (cell === 0 && element.inactiveCellStrategy !== 'hide') continue;
+      count += 1 + element.item.components.length;
+    }
+  }
+  return count;
 }
 
 function logicalSnapshot(

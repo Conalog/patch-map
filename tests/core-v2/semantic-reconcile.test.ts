@@ -12,6 +12,7 @@ import {
   planCoreV2DatasetReconcile,
   planCoreV2ParsedSceneReconcile,
   planCoreV2ParsedSceneReconcileIncremental,
+  planCoreV2ParsedSceneReconcileStructuralWindow,
   planCoreV2SceneReconcile,
 } from '../../src/core-v2/semantic/reconcile';
 
@@ -86,6 +87,15 @@ describe('Core v2 dense reconcile planner', () => {
     expect(incremental).toEqual(canonical);
     expect(planCoreV2ParsedSceneReconcileIncremental(current, candidate, ['a']))
       .toBeNull();
+    expect(
+      planCoreV2ParsedSceneReconcileIncremental(
+        current,
+        candidate,
+        ['b'],
+        {},
+        true,
+      ),
+    ).toEqual(canonical);
   });
 
   it('keeps owner-local component identity while changing component geometry and text', () => {
@@ -311,6 +321,48 @@ describe('Core v2 dense reconcile planner', () => {
       'item-a::text:second',
       'item-a::text:third',
     ]);
+  });
+
+  it('plans a large parser-owned reference reorder in one empty dense batch', () => {
+    const entities = Object.freeze(
+      Array.from({ length: 2_000 }, (_, index) =>
+        rect(`node-${index}`)) as readonly EntityInput[],
+    );
+    const reordered = Object.freeze([
+      ...entities.slice(1),
+      entities[0]!,
+    ]);
+    const plan = planCoreV2ParsedSceneReconcileStructuralWindow(
+      document(...entities),
+      document(...reordered),
+      { allowedRetainedOrderIds: entities.map(({ id }) => id) },
+    );
+
+    expect(plan).not.toBeNull();
+    expect(plan).toMatchObject({
+      safeToCommit: true,
+      batch: { operations: [] },
+      summary: {
+        operationCount: 0,
+        unchanged: 2_000,
+        unsupported: 0,
+      },
+    });
+  });
+
+  it('does not fast-accept a reference reorder with a partial authority set', () => {
+    const first = rect('first');
+    const second = rect('second');
+    const plan = planCoreV2ParsedSceneReconcileStructuralWindow(
+      document(first, second),
+      document(second, first),
+      { allowedRetainedOrderIds: ['first'] },
+    );
+
+    expect(plan?.safeToCommit).toBe(false);
+    expect(plan?.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'ENTITY_ORDER_CHANGE_UNSUPPORTED',
+    }));
   });
 
   it('refuses a component reorder when the declared retained-order set is partial', () => {

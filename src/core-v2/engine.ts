@@ -6,9 +6,11 @@ import {
   type CoreV2ComponentVisualProductProbe,
   type CoreV2ComponentVisualTarget,
   type CoreV2DirectBarHeightUpdate,
+  type CoreV2DirectElementAngleUpdate,
   type CoreV2DirectTextUpdate,
   type CoreV2Options,
   type CoreV2PresentationLifecycleResult,
+  type CoreV2ReconcileTimings,
   type CoreV2RootPointerInput,
   type CoreV2RootViewportChangeSource,
   type CoreV2SelectionOverlayPolicyInput,
@@ -130,7 +132,10 @@ import {
   CoreV2DatasetError,
   materializeCoreV2Dataset,
   ownedCoreV2ElementIds,
+  ownedCoreV2ExactPatchIndices,
   ownedCoreV2Materialization,
+  ownedCoreV2PreviewPatchIndices,
+  releaseCoreV2SemanticHashScratch,
   validateCoreV2DatasetReferences,
   type MaterializedCoreV2Dataset,
   type CoreV2AssetSource,
@@ -737,6 +742,7 @@ export interface CoreV2SurfaceReconcileResult {
   readonly operationCount: number;
   readonly denseChanged: boolean;
   readonly diagnostics: readonly CoreV2ReconcileDiagnostic[];
+  readonly timings?: CoreV2ReconcileTimings;
 }
 
 export interface CoreV2SurfaceReconcileOptions {
@@ -761,6 +767,8 @@ export interface CoreV2SurfaceReconcileOptions {
   readonly directBarHeightUpdates?: readonly CoreV2DirectBarHeightUpdate[];
   /** Validated component text replacements eligible for direct projection. */
   readonly directTextUpdates?: readonly CoreV2DirectTextUpdate[];
+  /** Validated flat-root absolute angles eligible for affine-delta projection. */
+  readonly directElementAngleUpdates?: readonly CoreV2DirectElementAngleUpdate[];
 }
 
 export interface CoreV2EngineSceneImageAttemptProbe extends Omit<
@@ -1215,6 +1223,15 @@ export interface CoreV2EngineTransactionHistory {
   readonly commandId: string | null;
   readonly depthDelta: number;
   readonly state: CoreV2HistoryState;
+}
+
+export interface CoreV2EngineTransactionPerformanceProbe {
+  readonly transactionPlanMs: number;
+  readonly preReconcileMs: number;
+  readonly reconcileMs: number;
+  readonly postReconcileMs: number;
+  readonly totalMs: number;
+  readonly surfaceTimings: CoreV2ReconcileTimings | null;
 }
 
 interface CoreV2EngineTransactionResultBase {
@@ -1848,6 +1865,8 @@ export class CoreV2Engine {
   private transformerEditCommittedMutationCount = 0;
   private transformerEditCancelledSessionCount = 0;
   private transformerEditStaleCompletionCount = 0;
+  private pendingTransactionPlanMs = 0;
+  private lastTransactionPerformance: CoreV2EngineTransactionPerformanceProbe | null = null;
   private readonly listeners = new Map<CoreV2EngineEvent, Set<(event: unknown) => void>>();
   private lifecycle: CoreV2Lifecycle = 'new';
   private surface: CoreV2EngineSurface | null = null;
@@ -1875,6 +1894,11 @@ export class CoreV2Engine {
   private logicalSceneIndexCache: Readonly<{
     readonly materialized: MaterializedCoreV2Dataset;
     readonly index: CoreV2LogicalSceneIndex;
+  }> | null = null;
+  private defaultViewportContributorsCache: Readonly<{
+    readonly dataset: readonly NormalizedCoreV2Element[];
+    readonly geometry: CoreV2ViewportGeometry;
+    readonly result: CoreV2ViewportContributorResult;
   }> | null = null;
   private readonly logicalSceneIndexesByMaterialized =
     new WeakMap<MaterializedCoreV2Dataset, CoreV2LogicalSceneIndex>();
@@ -2393,6 +2417,7 @@ export class CoreV2Engine {
     this.hostInteractions.clearLogicalBindings();
     this.accessibility.replaceScene();
     this.materialized = materialized;
+    this.defaultViewportContributorsCache = null;
     this.logicalSceneIndexCache = null;
     this.targetLifecycleGeneration += 1;
     this.clearHistoryAuthority('replace');
@@ -2426,7 +2451,9 @@ export class CoreV2Engine {
     this.cancelActiveTransformerEdit('redraw', true);
     const previousRevisions = this.revisionStamp();
     const previousHistory = this.history.state();
+    const planStarted = enginePerformanceNow();
     const plan = this.planMutationRequest(request, schemaRevision);
+    this.pendingTransactionPlanMs = enginePerformanceNow() - planStarted;
     return this.applyPlannedTransaction(
       surface,
       plan,
@@ -2449,10 +2476,12 @@ export class CoreV2Engine {
     this.cancelActiveTransformerEdit('redraw', true);
     const previousRevisions = this.revisionStamp();
     const previousHistory = this.history.state();
+    const planStarted = enginePerformanceNow();
     const plan = planCoreV2BarHeightBatch(
       this.materialized ?? EMPTY_MATERIALIZED_DATASET,
       request,
     );
+    this.pendingTransactionPlanMs = enginePerformanceNow() - planStarted;
     return this.applyPlannedTransaction(
       surface,
       plan,
@@ -2474,10 +2503,12 @@ export class CoreV2Engine {
     this.cancelActiveTransformerEdit('redraw', true);
     const previousRevisions = this.revisionStamp();
     const previousHistory = this.history.state();
+    const planStarted = enginePerformanceNow();
     const plan = planCoreV2TextBatch(
       this.materialized ?? EMPTY_MATERIALIZED_DATASET,
       request,
     );
+    this.pendingTransactionPlanMs = enginePerformanceNow() - planStarted;
     return this.applyPlannedTransaction(
       surface,
       plan,
@@ -2500,7 +2531,9 @@ export class CoreV2Engine {
     this.cancelActiveTransformerEdit('redraw', true);
     const previousRevisions = this.revisionStamp();
     const previousHistory = this.history.state();
+    const planStarted = enginePerformanceNow();
     const plan = this.planBulkPatchRequest(request, schemaRevision);
+    this.pendingTransactionPlanMs = enginePerformanceNow() - planStarted;
     return this.applyPlannedTransaction(
       surface,
       plan,
@@ -2849,6 +2882,7 @@ export class CoreV2Engine {
     previousRevisions: CoreV2RevisionStamp,
     previousHistory: CoreV2HistoryState,
   ): CoreV2EngineTransactionResult {
+    const applyStarted = enginePerformanceNow();
     if (plan.status === 'rejected') {
       const diagnostic = this.engineTransactionDiagnostic(plan.diagnostic, operation);
       const result = this.rejectedTransactionResult(
@@ -2918,6 +2952,7 @@ export class CoreV2Engine {
       this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset;
     const plannedBarHeightUpdates = plan.directBarHeightUpdates;
     const plannedTextUpdates = plan.directTextUpdates;
+    const plannedElementAngleUpdates = plan.directElementAngleUpdates;
     const incrementalRootIds = plannedBarHeightUpdates !== undefined
       ? incrementalBarHeightRootIds(
           currentDataset,
@@ -2926,16 +2961,27 @@ export class CoreV2Engine {
         )
       : plannedTextUpdates !== undefined
         ? incrementalOwnedRootIds(currentDataset, plan.candidate.dataset)
-        : incrementalFlatRootIds(
-            currentDataset,
-            plan.candidate.dataset,
-            plan.operations,
-          );
-    const structuralSharing = operationsMayChangeElementStructure(plan.operations);
+        : plannedElementAngleUpdates !== undefined
+          ? Object.freeze(plannedElementAngleUpdates.map(({ id }) => id))
+          : incrementalFlatRootIds(
+              currentDataset,
+              plan.candidate.dataset,
+              plan.operations,
+            );
+    const directSemanticProjection =
+      plannedBarHeightUpdates !== undefined ||
+      plannedTextUpdates !== undefined ||
+      plannedElementAngleUpdates !== undefined;
+    const elementGeometryOnly = operationsOnlyUpdateElementGeometry(plan.operations);
+    const structuralSharing = !directSemanticProjection &&
+      operationsMayChangeElementStructure(plan.operations);
     const structuralRootDelta = structuralSharing
       ? ownedStructuralRootDelta(currentDataset, plan.candidate.dataset)
       : null;
-    const directBarComponentSemantics = plannedBarHeightUpdates === undefined
+    const directBarComponentSemantics =
+      plannedElementAngleUpdates !== undefined || elementGeometryOnly
+      ? null
+      : plannedBarHeightUpdates === undefined
       ? reconcileDirectBarHeightComponentSemantics(
           this.componentSemantics,
           plan.candidate.dataset,
@@ -2946,7 +2992,10 @@ export class CoreV2Engine {
           plan.candidate.dataset,
           plannedBarHeightUpdates,
         );
-    const componentSemantics = plannedTextUpdates !== undefined
+    const componentSemantics =
+      plannedTextUpdates !== undefined ||
+      plannedElementAngleUpdates !== undefined ||
+      elementGeometryOnly
       ? this.componentSemantics
       : directBarComponentSemantics ??
         (incrementalRootIds === undefined
@@ -2963,7 +3012,9 @@ export class CoreV2Engine {
               incrementalRootIds,
             ));
     const textSemantics =
-      plannedTextUpdates === undefined &&
+      plannedElementAngleUpdates !== undefined || elementGeometryOnly
+      ? this.textSemantics
+      : plannedTextUpdates === undefined &&
       (
         directBarComponentSemantics !== null ||
         operationsOnlyUpdateBarSize(plan.operations, componentSemantics)
@@ -2985,7 +3036,7 @@ export class CoreV2Engine {
     const selectionBefore = this.logicalSelectionIds;
     const modeBefore = this.hostInteractions.modeProbe().activeState;
     const requestedSelectionAfter = plan.selectionIds ??
-      (plannedBarHeightUpdates === undefined && plannedTextUpdates === undefined
+      (!directSemanticProjection
         ? transactionSelectionAfter(selectionBefore, plan.operations)
         : selectionBefore);
     let companionAfter: CoreV2EngineHistoryCompanion;
@@ -3033,15 +3084,20 @@ export class CoreV2Engine {
       return result;
     }
 
-    const animatedBarTargets = plannedBarHeightUpdates ??
-      directAnimatedBarTargets(plan.operations, componentSemantics);
-    const directBarHeightUpdates = plannedBarHeightUpdates ??
-      directBarHeightUpdatesFor(plan.operations, componentSemantics);
+    const animatedBarTargets = plannedElementAngleUpdates !== undefined
+      ? EMPTY_COMPONENT_VISUAL_TARGETS
+      : plannedBarHeightUpdates ??
+        directAnimatedBarTargets(plan.operations, componentSemantics);
+    const directBarHeightUpdates = plannedElementAngleUpdates !== undefined
+      ? undefined
+      : plannedBarHeightUpdates ??
+        directBarHeightUpdatesFor(plan.operations, componentSemantics);
     const allowedComponentOrderOwners =
-      plannedBarHeightUpdates === undefined && plannedTextUpdates === undefined
+      !directSemanticProjection
       ? componentOrderOwners(plan.operations)
       : EMPTY_HISTORY_ORDER_IDS;
     let reconcile: CoreV2SurfaceReconcileResult;
+    const reconcileStarted = enginePerformanceNow();
     try {
       reconcile = surface.reconcile(plan.candidate.dataset, {
         animateBarChanges:
@@ -3059,6 +3115,9 @@ export class CoreV2Engine {
         ...(plannedTextUpdates === undefined
           ? {}
           : { directTextUpdates: plannedTextUpdates }),
+        ...(plannedElementAngleUpdates === undefined
+          ? {}
+          : { directElementAngleUpdates: plannedElementAngleUpdates }),
         ...(plan.allowedElementOrderIds === undefined
           ? {}
           : { allowedElementOrderIds: plan.allowedElementOrderIds }),
@@ -3080,6 +3139,7 @@ export class CoreV2Engine {
       this.emit('diagnostic', diagnostic);
       return result;
     }
+    const reconcileCompleted = enginePerformanceNow();
 
     const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
     if (reconcile.status === 'refused') {
@@ -3104,26 +3164,9 @@ export class CoreV2Engine {
       return result;
     }
 
-    const retainedSelectionIndex =
-      plannedBarHeightUpdates === undefined && plannedTextUpdates === undefined
-        ? undefined
-        : this.logicalSceneIndexCache?.index ??
-          (this.materialized === null
-            ? undefined
-            : this.logicalSelectionIndexesByMaterialized.get(this.materialized));
     this.materialized = plan.candidate;
-    if (retainedSelectionIndex !== undefined) {
-      this.logicalSelectionIndexesByMaterialized.set(
-        plan.candidate,
-        retainedSelectionIndex,
-      );
-    }
-    if (
-      plannedBarHeightUpdates === undefined &&
-      plannedTextUpdates === undefined
-    ) {
-      this.logicalSceneIndexCache = null;
-    }
+    this.defaultViewportContributorsCache = null;
+    this.logicalSceneIndexCache = null;
     this.componentSemantics = componentSemantics;
     this.textSemantics = textSemantics;
     this.logicalSelectionIds = selectionAfter;
@@ -3173,8 +3216,24 @@ export class CoreV2Engine {
       denseChanged: reconcile.denseChanged,
       reconcileDiagnostics,
     } satisfies CoreV2EngineTransactionResult);
+    const completed = enginePerformanceNow();
+    this.lastTransactionPerformance = Object.freeze({
+      transactionPlanMs: this.pendingTransactionPlanMs,
+      preReconcileMs: reconcileStarted - applyStarted,
+      reconcileMs: reconcileCompleted - reconcileStarted,
+      postReconcileMs: completed - reconcileCompleted,
+      totalMs:
+        this.pendingTransactionPlanMs +
+        (completed - applyStarted),
+      surfaceTimings: reconcile.timings ?? null,
+    });
+    this.pendingTransactionPlanMs = 0;
     this.emit('change', result);
     return result;
+  }
+
+  public transactionPerformanceProbe(): CoreV2EngineTransactionPerformanceProbe | null {
+    return this.lastTransactionPerformance;
   }
 
   public relativePatch(
@@ -3378,6 +3437,7 @@ export class CoreV2Engine {
     }
 
     this.materialized = mutation.candidate;
+    this.defaultViewportContributorsCache = null;
     this.logicalSceneIndexCache = null;
     this.componentSemantics = componentSemantics;
     this.textSemantics = textSemantics;
@@ -3549,6 +3609,7 @@ export class CoreV2Engine {
     }
 
     this.materialized = mutation.candidate;
+    this.defaultViewportContributorsCache = null;
     this.logicalSceneIndexCache = null;
     this.componentSemantics = componentSemantics;
     this.textSemantics = textSemantics;
@@ -5450,14 +5511,15 @@ export class CoreV2Engine {
     validatePoint(point, 'selectionHitTestScreen');
     const surface = this.requireSurface('selectionHitTestScreen');
     const worldPoint = surface.screenToWorld(point);
-    const logicalIndex = this.logicalSceneIndex();
     if (selectionHitUsesSpatialFastPath(options)) {
+      const logicalIndex = this.logicalSceneSelectionIndex();
       const id = surface.hitTestScreen(point);
       const hit = id === null
         ? Object.freeze({ target: null, candidates: Object.freeze([]) })
         : logicalIndex.hitFromTarget(id);
       return Object.freeze({ ...hit, worldPoint });
     }
+    const logicalIndex = this.logicalSceneIndex();
     const geometry = surface.geometrySnapshot?.();
     if (geometry === undefined) {
       const id = surface.hitTestScreen(point);
@@ -6517,7 +6579,11 @@ export class CoreV2Engine {
     }
     this.surface = null;
     this.authoritativeCanvas = null;
+    if (this.materialized !== null) {
+      releaseCoreV2SemanticHashScratch(this.materialized.dataset);
+    }
     this.materialized = null;
+    this.defaultViewportContributorsCache = null;
     this.logicalSceneIndexCache = null;
     this.logicalSelectionIds = Object.freeze([]);
     this.resetLiveOverlayState();
@@ -6531,6 +6597,8 @@ export class CoreV2Engine {
     this.pendingHistoryPublications = Object.freeze([]);
     this.componentSemantics.clear();
     this.textSemantics.clear();
+    this.pendingTransactionPlanMs = 0;
+    this.lastTransactionPerformance = null;
     this.datasetRef = null;
     this.rendererConfiguration = null;
     this.initializePromise = null;
@@ -6774,6 +6842,7 @@ export class CoreV2Engine {
       }
 
       this.materialized = materialized;
+      this.defaultViewportContributorsCache = null;
       this.logicalSceneIndexCache = null;
       this.componentSemantics = componentSemantics;
       this.textSemantics = textSemantics;
@@ -7086,8 +7155,12 @@ export class CoreV2Engine {
 
   private logicalSceneSelectionIndex(): CoreV2LogicalSceneIndex {
     const materialized = this.materialized ?? EMPTY_MATERIALIZED_DATASET;
-    return this.logicalSelectionIndexesByMaterialized.get(materialized) ??
-      this.logicalSceneIndex();
+    let index = this.logicalSelectionIndexesByMaterialized.get(materialized);
+    if (index === undefined) {
+      index = new CoreV2LogicalSceneIndex(materialized.dataset);
+      this.logicalSelectionIndexesByMaterialized.set(materialized, index);
+    }
+    return index;
   }
 
   private refreshAccessibilityAuthority(operation: string): void {
@@ -7740,13 +7813,34 @@ export class CoreV2Engine {
         false,
       );
     }
-    return resolveCoreV2ViewportContributors(materialized.dataset, geometry, {
+    const defaultRequest =
+      (options.targets === undefined || options.targets === null) &&
+      options.rejectIds === undefined &&
+      options.relationEndpointsAvailable === undefined;
+    const cached = this.defaultViewportContributorsCache;
+    if (
+      defaultRequest &&
+      cached !== null &&
+      cached.dataset === materialized.dataset &&
+      cached.geometry === geometry
+    ) {
+      return cached.result;
+    }
+    const result = resolveCoreV2ViewportContributors(materialized.dataset, geometry, {
       targets: options.targets ?? null,
       ...(options.rejectIds === undefined ? {} : { rejectIds: options.rejectIds }),
       ...(options.relationEndpointsAvailable === undefined
         ? {}
         : { relationEndpointsAvailable: options.relationEndpointsAvailable }),
     });
+    if (defaultRequest) {
+      this.defaultViewportContributorsCache = Object.freeze({
+        dataset: materialized.dataset,
+        geometry,
+        result,
+      });
+    }
+    return result;
   }
 
   private resetViewportRuntime(): void {
@@ -8087,6 +8181,9 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
       ...(options.directTextUpdates === undefined
         ? {}
         : { directTextUpdates: options.directTextUpdates }),
+      ...(options.directElementAngleUpdates === undefined
+        ? {}
+        : { directElementAngleUpdates: options.directElementAngleUpdates }),
     });
     if (result.status === 'committed') {
       this.geometryRevision += 1;
@@ -8098,6 +8195,7 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
       operationCount: result.plan.summary.operationCount,
       denseChanged: result.facts.denseChanged,
       diagnostics: freezeReconcileDiagnostics(result.plan.diagnostics),
+      timings: result.timings,
     });
   }
 
@@ -8126,13 +8224,12 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
 
   public publishFrame(timeMs: number): void {
     const projectionBefore = this.core.visibleProjection;
-    const activeAnimationsBefore = this.core.activeAnimations;
+    const presentationRevisionBefore = this.core.presentationRevision;
     this.core.publishFrame(timeMs);
     const projectionAfter = this.core.visibleProjection;
     if (
       projectionAfter !== projectionBefore ||
-      activeAnimationsBefore > 0 ||
-      this.core.activeAnimations > 0
+      this.core.presentationRevision !== presentationRevisionBefore
     ) {
       this.geometryRevision += 1;
       this.geometryRevisionProjection = projectionAfter;
@@ -9199,6 +9296,7 @@ async function createPixiSurface(options: CoreV2SurfaceOptions): Promise<CoreV2E
     powerPreference: options.powerPreference,
     autoRender: false,
     rootSelectionMode: 'deferred',
+    internalStableRecordOverlays: true,
     ...(options.assetSession ? { assetSession: options.assetSession } : {}),
     ...(options.target ? { target: options.target } : {}),
     ...(options.canvas ? { canvas: options.canvas } : {}),
@@ -9549,6 +9647,9 @@ function packedColorToHex(value: number): string {
 }
 
 const EMPTY_TARGETS = Object.freeze([] as CoreV2SemanticTarget[]);
+const EMPTY_COMPONENT_VISUAL_TARGETS = Object.freeze(
+  [] as CoreV2ComponentVisualTarget[],
+);
 const EMPTY_RECONCILE_DIAGNOSTICS = Object.freeze([] as CoreV2ReconcileDiagnostic[]);
 
 function freezeMutationTargets(
@@ -9713,17 +9814,18 @@ function reconcileDirectBarHeightComponentSemantics(
   operations: readonly CoreV2MutationOperation[],
 ): Map<string, CoreV2EngineComponentSemanticProbe> | null {
   if (operations.length === 0) return null;
+  if (operations.some((operation) => (
+    operation.op !== 'merge' ||
+    operation.target.kind !== 'component' ||
+    operation.changes.length !== 1
+  ))) {
+    return null;
+  }
   const roots = new Map(candidate.map((root) => [root.id, root] as const));
   if (roots.size !== candidate.length) return null;
   const next = new Map(current);
   for (const operation of operations) {
-    if (
-      operation.op !== 'merge' ||
-      operation.target.kind !== 'component' ||
-      operation.changes.length !== 1
-    ) {
-      return null;
-    }
+    if (operation.op !== 'merge' || operation.target.kind !== 'component') return null;
     const [change] = operation.changes;
     if (
       change === undefined ||
@@ -9867,6 +9969,28 @@ function operationsMayChangeElementStructure(
   });
 }
 
+function operationsOnlyUpdateElementGeometry(
+  operations: readonly CoreV2MutationOperation[],
+): boolean {
+  if (operations.length === 0) return false;
+  return operations.every((operation) => (
+    operation.op === 'merge' &&
+    operation.target.kind === 'element' &&
+    operation.changes.length > 0 &&
+    operation.changes.every((change) => {
+      if (change.path.length !== 2) return false;
+      const [domain, field] = change.path;
+      return (
+        domain === 'attrs' &&
+        (field === 'x' || field === 'y' || field === 'angle' || field === 'rotation')
+      ) || (
+        domain === 'size' &&
+        (field === 'width' || field === 'height')
+      );
+    })
+  ));
+}
+
 const INCREMENTAL_FLAT_ROOT_TYPES = new Set([
   'item',
   'rect',
@@ -9886,6 +10010,26 @@ function incrementalOwnedRootIds(
 ): readonly string[] | undefined {
   if (current.length === 0 || current.length !== candidate.length) {
     return undefined;
+  }
+  const exactDirtyIndices = ownedCoreV2ExactPatchIndices(candidate, current);
+  if (exactDirtyIndices !== null) {
+    if (exactDirtyIndices.length === 0) return undefined;
+    const dirty: string[] = [];
+    for (const index of exactDirtyIndices) {
+      const before = current[index];
+      const after = candidate[index];
+      if (
+        before === undefined ||
+        after === undefined ||
+        before.id !== after.id ||
+        before.type !== after.type ||
+        !INCREMENTAL_FLAT_ROOT_TYPES.has(after.type)
+      ) {
+        return undefined;
+      }
+      dirty.push(after.id);
+    }
+    return Object.freeze(dirty);
   }
   const dirty: string[] = [];
   const ids = new Set<string>();
@@ -9917,9 +10061,42 @@ function incrementalFlatRootIds(
   if (
     current.length === 0 ||
     current.length !== candidate.length ||
-    operations.length === 0
+      operations.length === 0
   ) {
     return undefined;
+  }
+  const sparseDirtyIndices =
+    ownedCoreV2ExactPatchIndices(candidate, current) ??
+    ownedCoreV2PreviewPatchIndices(candidate, current);
+  if (sparseDirtyIndices !== null) {
+    const dirty = new Set<string>();
+    for (const operation of operations) {
+      if (operation.op !== 'merge') return undefined;
+      dirty.add(
+        operation.target.kind === 'element'
+          ? operation.target.id
+          : operation.target.ownerId,
+      );
+    }
+    const ordered: string[] = [];
+    for (const index of sparseDirtyIndices) {
+      const before = current[index];
+      const after = candidate[index];
+      if (
+        before === undefined ||
+        after === undefined ||
+        before.id !== after.id ||
+        before.type !== after.type ||
+        !dirty.delete(after.id) ||
+        !INCREMENTAL_FLAT_ROOT_TYPES.has(after.type)
+      ) {
+        return undefined;
+      }
+      ordered.push(after.id);
+    }
+    return dirty.size === 0 && ordered.length > 0
+      ? Object.freeze(ordered)
+      : undefined;
   }
   const rootOrder = new Map<string, number>();
   for (let index = 0; index < candidate.length; index += 1) {
@@ -9970,6 +10147,26 @@ function incrementalBarHeightRootIds(
     updates.length === 0
   ) {
     return undefined;
+  }
+  const exactDirtyIndices = ownedCoreV2ExactPatchIndices(candidate, current);
+  if (exactDirtyIndices !== null) {
+    const updateOwnerIds = new Set(updates.map(({ ownerId }) => ownerId));
+    const dirty: string[] = [];
+    for (const index of exactDirtyIndices) {
+      const before = current[index];
+      const after = candidate[index];
+      if (
+        before === undefined ||
+        after?.type !== 'item' ||
+        before.id !== after.id ||
+        before.type !== after.type ||
+        !updateOwnerIds.delete(after.id)
+      ) {
+        return undefined;
+      }
+      dirty.push(after.id);
+    }
+    if (updateOwnerIds.size === 0) return Object.freeze(dirty);
   }
   const rootOrder = new Map<string, number>();
   for (let index = 0; index < candidate.length; index += 1) {
@@ -10855,4 +11052,8 @@ function selectionHitUsesSpatialFastPath(options: CoreV2SelectionHitOptions): bo
     options.rejectIds === undefined &&
     options.lockedIds === undefined &&
     options.predicate === undefined;
+}
+
+function enginePerformanceNow(): number {
+  return typeof performance === 'undefined' ? Date.now() : performance.now();
 }

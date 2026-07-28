@@ -53,6 +53,10 @@ import {
   type CoreV2TextLayoutOptions,
 } from './semantic/text-layout';
 import { resolveCoreV2PlacementBounds } from './semantic/placement';
+import {
+  patchCoreV2StableRecord,
+  type CoreV2StableRecordStrategy,
+} from './semantic/stable-record-overlay';
 import { CORE_V2_DEFAULT_COLOR_THEME } from './semantic/color';
 
 type JsonRecord = Record<string, unknown>;
@@ -325,6 +329,7 @@ export function parsePatchMapV010DirectTextBatch(
   updates: readonly CoreV2DirectTextParseUpdate[],
   options: ParsePatchMapOptions = {},
   resolvedTargets?: readonly CoreV2DirectTextParseTargetIndex[],
+  recordStrategy: CoreV2StableRecordStrategy = 'frozen-copy',
 ): ParsePatchMapResult | null {
   if (!Array.isArray(input) || input.length === 0 || updates.length === 0) {
     return null;
@@ -410,30 +415,41 @@ export function parsePatchMapV010DirectTextBatch(
     }));
   }
 
-  const selected = finishParseState(state);
   if (
-    selected.diagnostics.length !== 0 ||
-    selected.document.entities.length !== pending.length
+    state.diagnostics.length !== 0 ||
+    state.entities.length !== pending.length
   ) {
     return null;
   }
   const selectedEntities = new Map(
-    selected.document.entities.map((entity) => [entity.id, entity] as const),
+    state.entities.map((entity) => [entity.id, deepFreeze(entity)] as const),
   );
-  if (selectedEntities.size !== selected.document.entities.length) return null;
+  if (selectedEntities.size !== state.entities.length) return null;
   const entities = [...previous.document.entities];
-  const entityProjections = { ...previous.projection.byEntityId };
-  const textProjections = { ...(previous.projection.textsByEntityId ?? {}) };
+  const entityIds = pending.map(({ entityId }) => entityId);
+  const entityProjections = patchCoreV2StableRecord(
+    previous.projection.byEntityId,
+    state.projectionByEntityId,
+    entityIds,
+    recordStrategy,
+    true,
+  );
+  const textProjections = patchCoreV2StableRecord(
+    previous.projection.textsByEntityId,
+    state.textProjectionByEntityId,
+    entityIds,
+    recordStrategy,
+    true,
+  );
+  if (entityProjections === null || textProjections === null) return null;
   for (const entry of pending) {
     const entity = selectedEntities.get(entry.entityId);
-    const projection = selected.projection.byEntityId[entry.entityId];
-    const text = selected.projection.textsByEntityId?.[entry.entityId];
+    const projection = state.projectionByEntityId[entry.entityId];
+    const text = state.textProjectionByEntityId[entry.entityId];
     if (entity?.kind !== 'text' || projection === undefined || text === undefined) {
       return null;
     }
     entities[entry.entityIndex] = entity;
-    entityProjections[entry.entityId] = projection;
-    textProjections[entry.entityId] = text;
   }
 
   const result = Object.freeze({
@@ -444,8 +460,8 @@ export function parsePatchMapV010DirectTextBatch(
     }),
     projection: Object.freeze({
       ...previous.projection,
-      byEntityId: Object.freeze(entityProjections),
-      textsByEntityId: Object.freeze(textProjections),
+      byEntityId: entityProjections,
+      textsByEntityId: textProjections,
     }),
   });
   if (indexes !== null) DIRECT_TEXT_PARSE_INDEX_CACHE.set(result, indexes);

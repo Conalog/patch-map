@@ -102,6 +102,42 @@ describe('Core v2 bounded entity hit index', () => {
     )).toBeNull();
   });
 
+  it('keeps interpolation endpoints in stable broad-phase buckets', () => {
+    const bar = entity(0, 'bar', 0, 90, 20, 10, 0, 'bar');
+    const liveProjection = projectionIndex(
+      bar,
+      freezeCoreV2Affine(1, 0, 0, 1, 0, 90),
+      [0, 0, 20, 10],
+    );
+    const destinationProjection = projectionIndex(
+      bar,
+      freezeCoreV2Affine(1, 0, 0, 1, 0, 20),
+      [0, 0, 20, 80],
+    );
+    const index = CoreV2EntityHitIndex.build(
+      snapshot([bar]),
+      liveProjection,
+      new Set(),
+      { envelopeProjection: destinationProjection },
+    );
+
+    expect(index.candidates({ x: 10, y: 25 })).toEqual([bar.ref]);
+    expect(hitTestCoreV2EntityIndex(
+      index,
+      { x: 10, y: 25 },
+      {},
+      () => bar,
+      liveProjection,
+    )).toBeNull();
+    expect(hitTestCoreV2EntityIndex(
+      index,
+      { x: 10, y: 25 },
+      {},
+      () => bar,
+      destinationProjection,
+    )).toEqual(bar.ref);
+  });
+
   it('applies visible, interactive, kind, and topmost filters after the broad phase', () => {
     const bottom = entity(0, 'bottom', 0, 0, 20, 20, 0, 'rect');
     const hidden = { ...entity(1, 'hidden', 0, 0, 20, 20, 1, 'image'), visible: false };
@@ -130,7 +166,7 @@ describe('Core v2 bounded entity hit index', () => {
     )).toBeNull();
   });
 
-  it('reuses one lazy snapshot and invalidates only mutation-sensitive transitions', async () => {
+  it('uses dense spatial buckets for orthogonal scenes and keeps the exact fallback lazy', async () => {
     const renderer = fakeRenderer();
     type UnsafeCoreV2Constructor = new (rendererValue: unknown, options: unknown) => CoreV2;
     const UnsafeCoreV2 = CoreV2 as unknown as UnsafeCoreV2Constructor;
@@ -143,6 +179,7 @@ describe('Core v2 bounded entity hit index', () => {
         ref(id: string): EntityRef | null;
       };
       entityHitIndexValue: CoreV2EntityHitIndex | null;
+      denseHitGeometryCompatible: boolean;
       staleHitProjectionIds: Set<string>;
       spatialHitAnimationEnds: Map<string, number>;
     };
@@ -169,13 +206,13 @@ describe('Core v2 bounded entity hit index', () => {
 
     expect(core.hitTestScreen({ x: 5, y: 5 })?.slot).toBe(0);
     expect(core.hitTestScreen({ x: 5, y: 5 })?.slot).toBe(0);
-    expect(snapshotSpy).toHaveBeenCalledTimes(1);
+    expect(snapshotSpy).not.toHaveBeenCalled();
     expect(querySpy).not.toHaveBeenCalled();
 
     core.commit({ operations: [{ type: 'selection', targets: ['target'], mode: 'replace' }] });
     core.setView({ x: 10, y: 0, scale: 1, rotation: 0 });
     expect(core.hitTestScreen({ x: 15, y: 5 })?.slot).toBe(0);
-    expect(snapshotSpy).toHaveBeenCalledTimes(1);
+    expect(snapshotSpy).not.toHaveBeenCalled();
 
     core.resetView();
     core.commit({ operations: [{
@@ -194,7 +231,7 @@ describe('Core v2 bounded entity hit index', () => {
       },
     }] });
     expect(core.hitTestScreen({ x: 35, y: 5 })).not.toBeNull();
-    expect(snapshotSpy).toHaveBeenCalledTimes(2);
+    expect(snapshotSpy).toHaveBeenCalledTimes(1);
     core.commit({ operations: [{
       type: 'animate',
       target: 'value-bar',
@@ -205,7 +242,7 @@ describe('Core v2 bounded entity hit index', () => {
     }] });
     core.advance(25);
     expect(core.hitTestScreen({ x: 35, y: 5 })).not.toBeNull();
-    expect(snapshotSpy).toHaveBeenCalledTimes(2);
+    expect(snapshotSpy).toHaveBeenCalledTimes(1);
     expect(internals.spatialHitAnimationEnds.size).toBe(0);
     core.commit({ operations: [{ type: 'remove', target: 'value-bar' }] });
     expect([...internals.staleHitProjectionIds].some((id) => id.startsWith('churn-'))).toBe(false);
@@ -213,7 +250,7 @@ describe('Core v2 bounded entity hit index', () => {
     core.commit({ operations: [{ type: 'patch', target: 'target', changes: { x: 128 } }] });
     expect(core.hitTestScreen({ x: 133, y: 5 })?.slot).toBe(0);
     expect(core.hitTestScreen({ x: 5, y: 5 })).toBeNull();
-    expect(snapshotSpy).toHaveBeenCalledTimes(3);
+    expect(snapshotSpy).toHaveBeenCalledTimes(2);
     const refSpy = vi.spyOn(internals.scene, 'ref');
     core.commit({ operations: [{ type: 'selection', targets: ['target'], mode: 'replace' }] });
     expect(refSpy).not.toHaveBeenCalled();
@@ -229,23 +266,26 @@ describe('Core v2 bounded entity hit index', () => {
       }],
     });
     expect(core.hitTestScreen({ x: 133, y: 5 })?.slot).toBe(0);
-    expect(snapshotSpy).toHaveBeenCalledTimes(4);
+    expect(snapshotSpy).toHaveBeenCalledTimes(3);
     core.advance(75);
     expect(core.hitTestScreen({ x: 197, y: 5 })?.slot).toBe(0);
-    expect(snapshotSpy).toHaveBeenCalledTimes(5);
+    expect(snapshotSpy).toHaveBeenCalledTimes(4);
     core.advance(125);
     expect(core.hitTestScreen({ x: 261, y: 5 })?.slot).toBe(0);
-    expect(snapshotSpy).toHaveBeenCalledTimes(6);
+    expect(snapshotSpy).toHaveBeenCalledTimes(5);
     expect(internals.spatialHitAnimationEnds.size).toBe(0);
 
     core.reconcile([{ type: 'rect', id: 'target', size: 10, attrs: { x: 300 } }]);
     expect(core.hitTestScreen({ x: 305, y: 5 })?.slot).toBe(0);
-    // Reconcile publishes its prepared scene without repeating before/after
-    // snapshots; only the first later hit contributes the lazy index build.
-    expect(snapshotSpy).toHaveBeenCalledTimes(7);
+    expect(snapshotSpy).toHaveBeenCalledTimes(5);
     expect(core.hitTestScreen({ x: 305, y: 5 })?.slot).toBe(0);
-    expect(snapshotSpy).toHaveBeenCalledTimes(7);
+    expect(snapshotSpy).toHaveBeenCalledTimes(5);
     expect(querySpy).not.toHaveBeenCalled();
+
+    internals.denseHitGeometryCompatible = false;
+    expect(core.hitTestScreen({ x: 305, y: 5 })?.slot).toBe(0);
+    expect(snapshotSpy).toHaveBeenCalledTimes(6);
+    expect(internals.entityHitIndexValue).not.toBeNull();
 
     expect(await core.destroy()).toBe(true);
     expect(internals.entityHitIndexValue).toBeNull();
@@ -285,6 +325,39 @@ function snapshot(entities: readonly EntitySnapshot[]): SceneSnapshot {
     entityCount: entities.length,
     entities: Object.freeze([...entities]),
     selection: Object.freeze({ revision: 1, refs: Object.freeze([]) }),
+  });
+}
+
+function projectionIndex(
+  source: EntitySnapshot,
+  affine: ReturnType<typeof freezeCoreV2Affine>,
+  localBounds: readonly [number, number, number, number],
+): CoreV2ProjectionIndex {
+  const projection: CoreV2EntityProjection = Object.freeze({
+    entityId: source.id,
+    localBounds: Object.freeze(localBounds),
+    affine,
+    worldBasis: Object.freeze([
+      affine[0],
+      affine[1],
+      affine[2],
+      affine[3],
+    ] as const),
+    visibleCenter: applyCoreV2Affine(affine, [
+      localBounds[0] + localBounds[2] / 2,
+      localBounds[1] + localBounds[3] / 2,
+    ]),
+    rotationDegrees: 0,
+    scaleX: 1,
+    scaleY: 1,
+    contentOrientation: 'follow-item',
+  });
+  return Object.freeze({
+    byEntityId: Object.freeze({ [source.id]: projection }),
+    barsByEntityId: Object.freeze({}),
+    textsByEntityId: Object.freeze({}),
+    imagesByEntityId: Object.freeze({}),
+    relationsByEntityId: Object.freeze({}),
   });
 }
 

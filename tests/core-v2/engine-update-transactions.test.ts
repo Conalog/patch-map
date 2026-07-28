@@ -44,6 +44,7 @@ class TransactionSurface implements CoreV2EngineSurface {
   public frameCount = 0;
   public loaded: unknown = null;
   public mode: 'committed' | 'refused' | 'throw' = 'committed';
+  public hitId: string | null = null;
   public selectionIds: readonly string[] = Object.freeze([]);
   public readonly reconcileCalls: RecordedReconcile[] = [];
   private width: number;
@@ -155,7 +156,7 @@ class TransactionSurface implements CoreV2EngineSurface {
   }
 
   public hitTestScreen(): string | null {
-    return null;
+    return this.hitId;
   }
 
   public screenToWorld(point: CoreV2Point): CoreV2Point {
@@ -438,6 +439,52 @@ describe('CoreV2Engine update transactions', () => {
     })).toMatchObject({ status: 'unchanged', changed: false });
     expect(planningCalls).toEqual(['transact']);
     expect(surface.reconcileCalls).toHaveLength(2);
+  });
+
+  it('keeps spatial hits lazy and current across geometry and label patches', async () => {
+    const { engine, surface } = await createEngine(engines, 'bulk-selection-index');
+    engine.loadDataset(updateScene());
+    engine.queryScene();
+    const seam = engine as unknown as {
+      logicalSceneIndex(): unknown;
+    };
+    const logicalSceneIndex = seam.logicalSceneIndex.bind(engine);
+    let logicalSceneIndexCalls = 0;
+    seam.logicalSceneIndex = () => {
+      logicalSceneIndexCalls += 1;
+      return logicalSceneIndex();
+    };
+    surface.hitId = 'rect-b';
+
+    expect(engine.bulkPatch({
+      strict: true,
+      targets: [{ kind: 'element', id: 'rect-b' }],
+      changes: [{ path: ['attrs', 'angle'], value: 7 }],
+    })).toMatchObject({ status: 'committed' });
+    expect(engine.selectionHitTestScreen({ x: 10, y: 10 })).toMatchObject({
+      target: { id: 'rect-b', value: { attrs: { angle: 7 } } },
+    });
+    expect(logicalSceneIndexCalls).toBe(0);
+
+    expect(engine.queryScene({ where: { id: 'rect-b' } })).toMatchObject({
+      targets: [{ value: { attrs: { angle: 7 } } }],
+    });
+    expect(logicalSceneIndexCalls).toBe(1);
+
+    logicalSceneIndexCalls = 0;
+    expect(engine.bulkPatch({
+      strict: true,
+      targets: [{ kind: 'element', id: 'rect-b' }],
+      changes: [{ path: ['label'], value: 'Changed label' }],
+    })).toMatchObject({ status: 'committed' });
+    expect(engine.selectionHitTestScreen({ x: 10, y: 10 })).toMatchObject({
+      target: { id: 'rect-b', label: 'Changed label' },
+    });
+    expect(logicalSceneIndexCalls).toBe(0);
+    expect(engine.queryScene({ where: { id: 'rect-b' } })).toMatchObject({
+      targets: [{ label: 'Changed label' }],
+    });
+    expect(logicalSceneIndexCalls).toBe(1);
   });
 
   it('keeps empty merges and cross-scope replacements at zero publication', async () => {
@@ -857,10 +904,14 @@ describe('CoreV2Engine update transactions', () => {
       Object.freeze({ ownerId: 'item-a', componentId: 'label' }),
     ]);
     const texts = Object.freeze(['Changed']);
+    const styles = Object.freeze([
+      Object.freeze({ fontSize: 22, fill: '#123456ff' }),
+    ]);
 
     expect(engine.updateTexts({
       targets,
       texts,
+      styles,
       actionId: 'text-batch-1',
     })).toMatchObject({
       status: 'committed',
@@ -884,11 +935,15 @@ describe('CoreV2Engine update transactions', () => {
         { ownerId: 'item-a', componentId: 'label', text: 'Changed' },
       ],
     });
-    expect(componentById(engine, 'item-a', 'label')).toMatchObject({ text: 'Changed' });
+    expect(componentById(engine, 'item-a', 'label')).toMatchObject({
+      text: 'Changed',
+      style: { fontSize: 22, fill: '#123456ff' },
+    });
     expect(targets).toEqual([
       { ownerId: 'item-a', componentId: 'label' },
     ]);
     expect(texts).toEqual(['Changed']);
+    expect(styles).toEqual([{ fontSize: 22, fill: '#123456ff' }]);
 
     expect(engine.undo()).toMatchObject({
       status: 'committed',

@@ -209,6 +209,10 @@ export class CoreV2PresentationController {
     return this.destroyedValue ? 0 : this.countValue;
   }
 
+  public get presentationRevision(): number {
+    return this.presentationRevisionValue;
+  }
+
   public get lifecycleGeneration(): number {
     return this.lifecycleGenerationValue;
   }

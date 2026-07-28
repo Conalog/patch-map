@@ -7,8 +7,11 @@ import { describe, expect, it } from 'vitest';
 import {
   assembleOwnedCoreV2Dataset,
   assembleOwnedCoreV2PreviewDataset,
+  assembleOwnedCoreV2SparsePreviewDataset,
   materializeCoreV2Dataset,
+  ownedCoreV2ExactPatchIndices,
   ownedCoreV2Materialization,
+  ownedCoreV2PreviewPatchIndices,
 } from '../../src/core-v2/semantic/dataset';
 import type { CoreV2DatasetError } from '../../src/core-v2/semantic/dataset';
 
@@ -98,6 +101,52 @@ describe('Core v2 approved dataset foundation', () => {
     expect(ownedCoreV2Materialization(current.dataset)).toBe(current);
     expect(ownedCoreV2Materialization(assembled.dataset)).toBe(assembled);
     expect(ownedCoreV2Materialization(preview.dataset)).toBeNull();
+  });
+
+  it('retains exact sparse preview lineage without accepting a different base', () => {
+    const current = materializeCoreV2Dataset([
+      { type: 'rect', id: 'one', size: { width: 10, height: 10 } },
+      { type: 'rect', id: 'two', size: { width: 20, height: 20 } },
+    ]);
+    const replacement = materializeCoreV2Dataset([
+      { type: 'rect', id: 'two', size: { width: 24, height: 20 } },
+    ]).dataset[0]!;
+    const preview = assembleOwnedCoreV2SparsePreviewDataset(current, [
+      { index: 1, root: replacement },
+    ]);
+    const other = materializeCoreV2Dataset([
+      { type: 'rect', id: 'one', size: { width: 10, height: 10 } },
+      { type: 'rect', id: 'two', size: { width: 20, height: 20 } },
+    ]);
+
+    expect(preview.dataset[0]).toBe(current.dataset[0]);
+    expect(preview.dataset[1]).toBe(replacement);
+    expect(ownedCoreV2PreviewPatchIndices(preview.dataset, current.dataset)).toEqual([1]);
+    expect(ownedCoreV2PreviewPatchIndices(preview.dataset, other.dataset)).toBeNull();
+    expect(ownedCoreV2Materialization(preview.dataset)).toBeNull();
+  });
+
+  it('retains exact authoritative patch lineage only for its validated base', () => {
+    const current = materializeCoreV2Dataset([
+      { type: 'rect', id: 'one', size: { width: 10, height: 10 } },
+      { type: 'rect', id: 'two', size: { width: 20, height: 20 } },
+    ]);
+    const replacement = materializeCoreV2Dataset([
+      { type: 'rect', id: 'two', size: { width: 24, height: 20 } },
+    ]).dataset[0]!;
+    const assembled = assembleOwnedCoreV2Dataset(current, [
+      current.dataset[0]!,
+      replacement,
+    ]);
+    const other = materializeCoreV2Dataset([
+      { type: 'rect', id: 'one', size: { width: 10, height: 10 } },
+      { type: 'rect', id: 'two', size: { width: 20, height: 20 } },
+    ]);
+
+    expect(ownedCoreV2ExactPatchIndices(assembled.dataset, current.dataset)).toEqual([1]);
+    expect(ownedCoreV2ExactPatchIndices(assembled.dataset, other.dataset)).toBeNull();
+    expect(ownedCoreV2PreviewPatchIndices(assembled.dataset, current.dataset)).toBeNull();
+    expect(ownedCoreV2Materialization(assembled.dataset)).toBe(assembled);
   });
 
   it('rejects an unsupported discriminator atomically with the closed diagnostic code', () => {

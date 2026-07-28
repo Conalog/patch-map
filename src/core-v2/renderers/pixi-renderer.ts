@@ -216,6 +216,8 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private pendingRanges: SlotRange[] | undefined;
   private pendingOverlayRanges: SlotRange[] | undefined;
   private pendingProjectionTransformOnly = false;
+  private pendingBarPresentationOnly = false;
+  private pendingTextOnly = false;
   private storeEpoch = 0;
   private frame = 0;
   private widthValue: number;
@@ -231,6 +233,8 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private textProjectionSynchronizedRevision = -1;
   private lastRenderedTextProjectionRevision: number | null = null;
   private lastRenderedTextStoreRevision: number | null = null;
+  private readonly entityIdBySlot = new Map<number, string>();
+  private readonly slotByEntityId = new Map<string, number>();
   private readonly textEntityIdBySlot = new Map<number, string>();
   private readonly textVisibilityByEntityId = new Map<string, boolean>();
   private worldOrientation: CoreV2WorldOrientation = DEFAULT_WORLD_ORIENTATION;
@@ -427,15 +431,29 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   public markChanges(
     ranges: readonly SlotRange[],
     reason: string,
-    options: { readonly fullRebuild?: boolean } = {},
+    options: {
+      readonly fullRebuild?: boolean;
+      readonly domain?: 'bar-only' | 'text-only';
+    } = {},
   ): void {
     this.assertAlive();
     this.lastInvalidation = reason;
+    const previousIdle =
+      this.pendingRanges !== undefined &&
+      this.pendingRanges.length === 0;
+    const barOnly =
+      options.domain === 'bar-only' &&
+      (previousIdle || this.pendingBarPresentationOnly);
+    const textOnly =
+      options.domain === 'text-only' &&
+      (previousIdle || this.pendingTextOnly);
     // A view-only commit intentionally publishes an empty range after
     // setWorldOrientation(). Preserve the orientation fast-path promise in
     // that case; any actual scene mutation or full rebuild revokes it.
     if (options.fullRebuild || ranges.length > 0) {
       this.pendingProjectionTransformOnly = false;
+      this.pendingBarPresentationOnly = barOnly;
+      this.pendingTextOnly = textOnly;
     }
     if (options.fullRebuild) {
       this.storeEpoch += 1;
@@ -484,6 +502,8 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.pendingRanges = undefined;
     this.pendingOverlayRanges = undefined;
     this.pendingProjectionTransformOnly = false;
+    this.pendingBarPresentationOnly = false;
+    this.pendingTextOnly = false;
     this.lastInvalidation = normalized === null
       ? 'presentation-policy:clear'
       : `presentation-policy:${normalized.revision}`;
@@ -527,6 +547,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     index: CoreV2ProjectionIndex,
     changedRanges?: readonly SlotRange[],
     staleEntityIds?: ReadonlySet<string>,
+    updateKind?: 'bar-presentation' | 'text',
   ): boolean {
     this.assertAlive();
     const nextStaleEntityIds = staleEntityIds === undefined
@@ -556,14 +577,32 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       : mergeRanges([], changedRanges);
     const stalenessRanges = stalenessChanged && this.lastStore
       ? projectionStalenessChangedRanges(
-          this.lastStore,
           previousStaleEntityIds,
           nextStaleEntityIds,
+          this.slotByEntityId,
         )
       : [];
     const ranges = mergeRanges(projectionRanges, stalenessRanges);
+    const barPresentationOnly =
+      updateKind === 'bar-presentation' &&
+      changedRanges !== undefined &&
+      this.pendingRanges !== undefined &&
+      (
+        this.pendingRanges.length === 0 ||
+        this.pendingBarPresentationOnly
+      );
+    const textOnly =
+      updateKind === 'text' &&
+      changedRanges !== undefined &&
+      this.pendingRanges !== undefined &&
+      (
+        this.pendingRanges.length === 0 ||
+        this.pendingTextOnly
+      );
     this.pendingRanges = mergeRanges(this.pendingRanges ?? [], ranges);
     this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], ranges);
+    this.pendingBarPresentationOnly = barPresentationOnly;
+    this.pendingTextOnly = textOnly;
     this.lastInvalidation = changedRanges === undefined
       ? 'projection'
       : 'presentation-projection';
@@ -575,6 +614,8 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     if (sameWorldOrientation(this.worldOrientation, world)) return false;
     this.worldOrientation = Object.freeze({ ...world });
     this.projectionRevision += 1;
+    this.pendingBarPresentationOnly = false;
+    this.pendingTextOnly = false;
     this.applyWorldTransform();
     const transformOnlyEligible =
       this.pendingRanges !== undefined && this.pendingRanges.length === 0;
@@ -637,11 +678,37 @@ export class PixiCoreV2Renderer implements CoreRenderer {
         this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], upright);
       }
       this.pendingProjectionTransformOnly = transformOnlyEligible;
+      this.pendingBarPresentationOnly = false;
+      this.pendingTextOnly = false;
     }
     if (scaleChanged) this.pendingOverlayRanges = undefined;
     this.applyWorldTransform();
     this.lastInvalidation = 'view';
     return true;
+  }
+
+  /**
+   * Move retained Mesh records between precise idle culling and coarse
+   * animation culling without submitting a frame. Large bar transactions use
+   * this during their one-shot commit so the first direct-manipulation frame
+   * does not pay thousands of scene-child attachments.
+   */
+  public setAggregateCullPrecision(precise: boolean): number {
+    this.assertAlive();
+    if (!(this.aggregate instanceof AggregateMeshLayer)) return 0;
+    const visibleChunks = this.aggregate.cull(
+      this.worldMatrix,
+      this.widthValue,
+      this.heightValue,
+      48,
+      precise,
+    );
+    if (!precise) {
+      this.aggregate.backgroundGeometryContainer.sortChildren();
+      this.aggregate.quadContainer.sortChildren();
+      this.aggregate.relationContainer.sortChildren();
+    }
+    return visibleChunks;
   }
 
   public flush(store: RenderStoreView): RendererFlushResult {
@@ -653,6 +720,8 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       this.pendingRanges = undefined;
       this.pendingOverlayRanges = undefined;
       this.pendingProjectionTransformOnly = false;
+      this.pendingBarPresentationOnly = false;
+      this.pendingTextOnly = false;
       this.selectedSlots.clear();
       this.visibleOverlaySlots.clear();
       this.transformerOverlaySlots.clear();
@@ -680,6 +749,14 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       this.pendingProjectionTransformOnly &&
       !storeReplaced &&
       this.pendingRanges !== undefined;
+    const barPresentationOnly =
+      this.pendingBarPresentationOnly &&
+      !storeReplaced &&
+      this.pendingRanges !== undefined;
+    const textOnly =
+      this.pendingTextOnly &&
+      !storeReplaced &&
+      this.pendingRanges !== undefined;
     const ranges = this.pendingRanges === undefined ||
       this.relationSlotsByEndpoint.size === 0 ||
       projectionTransformOnly
@@ -689,7 +766,11 @@ export class PixiCoreV2Renderer implements CoreRenderer {
           this.pendingRanges,
           this.relationSlotsByEndpoint,
         );
-    if (!projectionTransformOnly) {
+    if (!projectionTransformOnly && !barPresentationOnly) {
+      this.syncEntitySlots(
+        effectiveStore,
+        storeReplaced ? undefined : ranges,
+      );
       this.syncTextVisibility(
         effectiveStore,
         storeReplaced || ranges === undefined ? undefined : ranges,
@@ -697,20 +778,40 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     }
     let aggregateViewportWork = false;
     if (this.aggregate instanceof AggregateMeshLayer) {
-      this.aggregate.cull(this.worldMatrix, this.widthValue, this.heightValue);
+      this.aggregate.cull(
+        this.worldMatrix,
+        this.widthValue,
+        this.heightValue,
+        48,
+        !barPresentationOnly,
+      );
       aggregateViewportWork = this.aggregate.hasVisibleDeferredBarUpdates();
     }
-    const aggregate = !storeReplaced && ranges?.length === 0 && !aggregateViewportWork
+    const aggregate = !storeReplaced &&
+      (ranges?.length === 0 || textOnly) &&
+      !aggregateViewportWork
       ? idleAggregateResult(this.lastAggregateResult)
-      : this.syncAggregate(effectiveStore, ranges, projectionTransformOnly);
+      : this.syncAggregate(
+          effectiveStore,
+          textOnly ? [] : ranges,
+          projectionTransformOnly,
+        );
     this.lastAggregateResult = aggregate;
     if (this.aggregate instanceof AggregateMeshLayer) {
-      this.aggregate.cull(this.worldMatrix, this.widthValue, this.heightValue);
+      this.aggregate.cull(
+        this.worldMatrix,
+        this.widthValue,
+        this.heightValue,
+        48,
+        !barPresentationOnly,
+      );
     }
     const leaves = this.leaves.sync(effectiveStore, {
       fullRebuildEpoch: this.storeEpoch,
       projectionContext: this.projectionContext(),
-      ...(ranges === undefined ? {} : { changedRanges: ranges }),
+      ...(ranges === undefined
+        ? {}
+        : { changedRanges: barPresentationOnly ? [] : ranges }),
       ...(projectionTransformOnly ? { projectionTransformOnly: true } : {}),
     });
     this.leaves.cull(this.worldMatrix, this.widthValue, this.heightValue);
@@ -756,6 +857,8 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.pendingRanges = [];
     this.pendingOverlayRanges = [];
     this.pendingProjectionTransformOnly = false;
+    this.pendingBarPresentationOnly = false;
+    this.pendingTextOnly = false;
     const overlayCount = this.visibleOverlaySlots.size > 0 ? 2 : 0;
     this.lastLaneProbe = this.buildLaneProbe(overlayCount);
     this.lastDebug = Object.freeze({
@@ -1401,6 +1504,8 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.relationSlotsByEndpoint = new Map();
     this.relationSlots.clear();
     this.relationEndpointsBySlot = new Map();
+    this.entityIdBySlot.clear();
+    this.slotByEntityId.clear();
     this.textEntityIdBySlot.clear();
     this.textVisibilityByEntityId.clear();
     this.staleProjectionEntityIds = new Set();
@@ -1549,6 +1654,33 @@ export class PixiCoreV2Renderer implements CoreRenderer {
         entityId,
         ((store.flags[slot] ?? 0) & RenderFlags.Visible) !== 0,
       );
+    }
+  }
+
+  private syncEntitySlots(
+    store: RenderStoreView,
+    ranges: readonly SlotRange[] | undefined,
+  ): void {
+    const slots = ranges === undefined
+      ? Array.from({ length: store.capacity }, (_value, slot) => slot)
+      : slotsForRanges(store.capacity, ranges);
+    if (ranges === undefined) {
+      this.entityIdBySlot.clear();
+      this.slotByEntityId.clear();
+    }
+    for (const slot of slots) {
+      const previousEntityId = this.entityIdBySlot.get(slot);
+      if (previousEntityId !== undefined) {
+        this.entityIdBySlot.delete(slot);
+        if (this.slotByEntityId.get(previousEntityId) === slot) {
+          this.slotByEntityId.delete(previousEntityId);
+        }
+      }
+      if ((store.alive[slot] ?? 0) !== 1) continue;
+      const entityId = store.ids[slot];
+      if (entityId === undefined) continue;
+      this.entityIdBySlot.set(slot, entityId);
+      this.slotByEntityId.set(entityId, slot);
     }
   }
 
@@ -2011,16 +2143,20 @@ function sameOrderedStrings(left: readonly string[], right: readonly string[]): 
 }
 
 function projectionStalenessChangedRanges(
-  store: RenderStoreView,
   previous: ReadonlySet<string>,
   next: ReadonlySet<string>,
+  slotByEntityId: ReadonlyMap<string, number>,
 ): SlotRange[] {
   const slots: number[] = [];
-  for (let slot = 0; slot < store.capacity; slot += 1) {
-    if ((store.alive[slot] ?? 0) === 0) continue;
-    const entityId = store.ids[slot];
-    if (entityId === undefined) continue;
-    if (previous.has(entityId) !== next.has(entityId)) slots.push(slot);
+  for (const entityId of previous) {
+    if (next.has(entityId)) continue;
+    const slot = slotByEntityId.get(entityId);
+    if (slot !== undefined) slots.push(slot);
+  }
+  for (const entityId of next) {
+    if (previous.has(entityId)) continue;
+    const slot = slotByEntityId.get(entityId);
+    if (slot !== undefined) slots.push(slot);
   }
   return contiguousRanges(slots);
 }

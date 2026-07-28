@@ -1,6 +1,7 @@
 import type { EntityInput, EntityKind } from '../core-v1/contracts';
 import type {
   ComponentIdentity,
+  CoreV2EntityProjection,
   CoreV2ProjectionIndex,
   ElementIdentity,
   EntitySourceIdentity,
@@ -10,8 +11,23 @@ import type {
   ParsePatchMapResult,
 } from './contracts';
 import { parsePatchMapV010SelectedRoots } from './parser';
+import {
+  CORE_V2_IDENTITY_AFFINE,
+  coreV2AffineBasis,
+  coreV2AffineCenter,
+  createCoreV2Affine,
+  invertCoreV2Affine,
+  multiplyCoreV2Affine,
+  projectCoreV2SignedRect,
+  type CoreV2AffineMatrix,
+} from './semantic/geometry';
+import {
+  patchCoreV2StableRecord,
+  type CoreV2StableRecordStrategy,
+} from './semantic/stable-record-overlay';
 
 type JsonRecord = Readonly<Record<string, unknown>>;
+const EMPTY_RECORD = Object.freeze({}) as JsonRecord;
 
 interface RootFragment {
   readonly element: ElementIdentity;
@@ -29,6 +45,11 @@ const FLAT_INCREMENTAL_ELEMENT_TYPES = new Set([
   'image',
   'text',
 ]);
+const DIRECT_ANGLE_ELEMENT_TYPES = new Set([
+  'item',
+  'rect',
+  'text',
+]);
 const ROOT_FRAGMENTS_CACHE = new WeakMap<
   ParsePatchMapResult,
   readonly RootFragment[]
@@ -36,6 +57,14 @@ const ROOT_FRAGMENTS_CACHE = new WeakMap<
 const STABLE_PARSE_INDEX_CACHE = new WeakMap<
   ParsePatchMapResult,
   StableParseIndexes
+>();
+const DIRECT_ANGLE_LOCAL_AFFINE_CACHE = new WeakMap<
+  ParsePatchMapResult,
+  Map<string, CoreV2AffineMatrix>
+>();
+const STRUCTURAL_CHANGED_ENTITY_IDS_CACHE = new WeakMap<
+  ParsePatchMapResult,
+  readonly string[]
 >();
 
 /**
@@ -52,6 +81,18 @@ export function inheritPatchMapV010IncrementalParserCaches(
   if (fragments !== undefined) ROOT_FRAGMENTS_CACHE.set(target, fragments);
   const indexes = STABLE_PARSE_INDEX_CACHE.get(source);
   if (indexes !== undefined) STABLE_PARSE_INDEX_CACHE.set(target, indexes);
+  const localAffines = DIRECT_ANGLE_LOCAL_AFFINE_CACHE.get(source);
+  if (localAffines !== undefined) {
+    DIRECT_ANGLE_LOCAL_AFFINE_CACHE.set(target, localAffines);
+  }
+  const structuralChangedEntityIds =
+    STRUCTURAL_CHANGED_ENTITY_IDS_CACHE.get(source);
+  if (structuralChangedEntityIds !== undefined) {
+    STRUCTURAL_CHANGED_ENTITY_IDS_CACHE.set(
+      target,
+      structuralChangedEntityIds,
+    );
+  }
 }
 
 interface StableParseIndexes {
@@ -73,6 +114,13 @@ export function primePatchMapV010IncrementalFlat(
   if (rootCount === 0) return false;
   return previousRootFragments(parsed, rootCount) !== null &&
     stableParseIndexes(parsed) !== null;
+}
+
+/** Exact projection membership/value delta retained by a structural parse. */
+export function patchMapV010StructuralChangedEntityIds(
+  parsed: ParsePatchMapResult,
+): readonly string[] | null {
+  return STRUCTURAL_CHANGED_ENTITY_IDS_CACHE.get(parsed) ?? null;
 }
 
 /**
@@ -234,6 +282,24 @@ export function parsePatchMapV010IncrementalStructure(
   );
   if (combined === null) return null;
   ROOT_FRAGMENTS_CACHE.set(combined, Object.freeze(completed));
+  const changedEntityIds: string[] = [];
+  const changedEntityIdSet = new Set<string>();
+  const appendChanged = (fragment: RootFragment | undefined): void => {
+    for (const entity of fragment?.entities ?? []) {
+      if (!changedEntityIdSet.has(entity.id)) {
+        changedEntityIdSet.add(entity.id);
+        changedEntityIds.push(entity.id);
+      }
+    }
+  };
+  for (let index = 0; index < previousFragments.length; index += 1) {
+    if (!reusedPreviousIndices.has(index)) appendChanged(previousFragments[index]);
+  }
+  for (const index of dirtyIndices) appendChanged(completed[index]);
+  STRUCTURAL_CHANGED_ENTITY_IDS_CACHE.set(
+    combined,
+    Object.freeze(changedEntityIds),
+  );
   stableParseIndexes(combined);
   return combined;
 }
@@ -254,6 +320,7 @@ export function parsePatchMapV010IncrementalFlat(
   dirtyRootIds: readonly string[],
   options: ParsePatchMapOptions = {},
   selectedParse?: ParsePatchMapResult,
+  recordStrategy: CoreV2StableRecordStrategy = 'frozen-copy',
 ): ParsePatchMapResult | null {
   if (
     !Array.isArray(input) ||
@@ -315,9 +382,249 @@ export function parsePatchMapV010IncrementalFlat(
   if (selectedFragments === null) return null;
   const nextFragments = Object.freeze(previousFragments.map((fragment, index) =>
     selectedFragments.get(index) ?? fragment));
-  const combined = combineRootFragments(nextFragments, previous);
+  const combined = combineRootFragments(nextFragments, previous, recordStrategy);
   if (combined !== null) ROOT_FRAGMENTS_CACHE.set(combined, nextFragments);
   return combined;
+}
+
+export interface CoreV2DirectElementAngleParseUpdate {
+  readonly id: string;
+  readonly angle: number;
+}
+
+/**
+ * Re-project an Engine-owned batch that changes only absolute angles on flat
+ * top-level roots. The canonical parser already established every identity,
+ * component layout, paint, asset, and text record; this guarded path applies
+ * the exact root affine delta to those stable projections instead of parsing
+ * the same 5,000 component trees again.
+ *
+ * Any structural-sharing, relation, image-pivot, diagnostic, or finite-math
+ * ambiguity returns `null` before publication so CoreV2 can run the canonical
+ * selected-root parser unchanged.
+ */
+export function parsePatchMapV010DirectElementAngleBatch(
+  input: unknown,
+  previousInput: unknown,
+  previous: ParsePatchMapResult,
+  updates: readonly CoreV2DirectElementAngleParseUpdate[],
+  recordStrategy: CoreV2StableRecordStrategy = 'frozen-copy',
+): ParsePatchMapResult | null {
+  if (
+    !Array.isArray(input) ||
+    !Array.isArray(previousInput) ||
+    input.length === 0 ||
+    input.length !== previousInput.length ||
+    updates.length === 0 ||
+    Object.keys(previous.projection.relationsByEntityId ?? {}).length > 0 ||
+    (previous.projection.omittedRelations?.length ?? 0) > 0
+  ) {
+    return null;
+  }
+  const roots = input as readonly unknown[];
+  const previousRoots = previousInput as readonly unknown[];
+
+  const previousFragments = previousRootFragments(previous, roots.length);
+  const indexes = stableParseIndexes(previous);
+  if (previousFragments === null || indexes === null) return null;
+
+  const updatesById = new Map<string, CoreV2DirectElementAngleParseUpdate>();
+  for (const update of updates) {
+    if (
+      typeof update.id !== 'string' ||
+      update.id.length === 0 ||
+      !Number.isFinite(update.angle) ||
+      updatesById.has(update.id)
+    ) {
+      return null;
+    }
+    updatesById.set(update.id, update);
+  }
+
+  const entities = [...previous.document.entities];
+  const elements = [...previous.identity.elements];
+  const selectedProjections = Object.create(null) as Record<
+    string,
+    CoreV2EntityProjection
+  >;
+  const dirtyEntityIds: string[] = [];
+  const nextFragments: RootFragment[] = [...previousFragments];
+  const localAffines: Map<string, CoreV2AffineMatrix> =
+    DIRECT_ANGLE_LOCAL_AFFINE_CACHE.get(previous) ??
+    new Map<string, CoreV2AffineMatrix>();
+  let updatedRootCount = 0;
+
+  for (let rootIndex = 0; rootIndex < roots.length; rootIndex += 1) {
+    const beforeRoot: unknown = previousRoots[rootIndex];
+    const afterRoot: unknown = roots[rootIndex];
+    const fragment = previousFragments[rootIndex];
+    if (
+      fragment === undefined ||
+      !isRecord(beforeRoot) ||
+      !isRecord(afterRoot) ||
+      beforeRoot.id !== fragment.element.sourceId ||
+      afterRoot.id !== fragment.element.sourceId ||
+      beforeRoot.type !== fragment.element.type ||
+      afterRoot.type !== fragment.element.type
+    ) {
+      return null;
+    }
+
+    const update = updatesById.get(fragment.element.sourceId);
+    if (update === undefined) {
+      if (beforeRoot !== afterRoot) return null;
+      continue;
+    }
+    updatedRootCount += 1;
+    if (
+      !DIRECT_ANGLE_ELEMENT_TYPES.has(fragment.element.type) ||
+      !sameRecordExcept(beforeRoot, afterRoot, 'attrs')
+    ) {
+      return null;
+    }
+    const beforeAttrs = isRecord(beforeRoot.attrs) ? beforeRoot.attrs : EMPTY_RECORD;
+    const afterAttrs = isRecord(afterRoot.attrs) ? afterRoot.attrs : EMPTY_RECORD;
+    if (
+      afterAttrs.angle !== update.angle ||
+      Object.hasOwn(afterAttrs, 'rotation') ||
+      !sameRecordExcept(beforeAttrs, afterAttrs, 'angle')
+    ) {
+      return null;
+    }
+    if (previous.diagnostics.some((diagnostic) => {
+      if (diagnostic.path.startsWith('$.renderer.')) return false;
+      return diagnostic.path === fragment.element.sourcePath ||
+        diagnostic.path.startsWith(`${fragment.element.sourcePath}.`);
+    })) {
+      return null;
+    }
+
+    const rootProjection = fragment.projection.byEntityId[fragment.element.sourceId];
+    if (rootProjection === undefined) return null;
+    let rootAffine: CoreV2AffineMatrix;
+    let inverseRootAffine: CoreV2AffineMatrix;
+    try {
+      rootAffine = createCoreV2Affine(
+        finiteRecordNumber(afterAttrs, 'x', 0),
+        finiteRecordNumber(afterAttrs, 'y', 0),
+        update.angle,
+        finiteRecordNumber(afterAttrs, 'scaleX', 1),
+        finiteRecordNumber(afterAttrs, 'scaleY', 1),
+      );
+      inverseRootAffine = invertCoreV2Affine(rootProjection.affine);
+    } catch {
+      return null;
+    }
+    const angleDelta = update.angle - rootProjection.rotationDegrees;
+    const fragmentEntities: EntityInput[] = [];
+    const fragmentProjections = Object.create(null) as Record<
+      string,
+      CoreV2EntityProjection
+    >;
+
+    for (const entity of fragment.entities) {
+      if (entity.kind === 'relation') return null;
+      const projection = fragment.projection.byEntityId[entity.id];
+      if (projection === undefined) return null;
+      let localAffine = localAffines.get(entity.id);
+      if (localAffine === undefined) {
+        localAffine = entity.id === fragment.element.sourceId
+          ? CORE_V2_IDENTITY_AFFINE
+          : multiplyCoreV2Affine(inverseRootAffine, projection.affine);
+        localAffines.set(entity.id, localAffine);
+      }
+      const affine = entity.id === fragment.element.sourceId
+        ? rootAffine
+        : multiplyCoreV2Affine(rootAffine, localAffine);
+      const rotationDegrees = projection.rotationDegrees + angleDelta;
+      const dense = projectCoreV2SignedRect(
+        {
+          x: affine[4],
+          y: affine[5],
+          rotation: rotationDegrees,
+          scaleX: projection.scaleX,
+          scaleY: projection.scaleY,
+        },
+        projection.localBounds[2],
+        projection.localBounds[3],
+      );
+      const nextEntity = Object.freeze({
+        ...entity,
+        x: dense.x,
+        y: dense.y,
+        width: dense.width,
+        height: dense.height,
+        rotation: rotationDegrees,
+      }) as EntityInput;
+      const nextProjection = Object.freeze({
+        ...projection,
+        affine,
+        worldBasis: coreV2AffineBasis(affine),
+        visibleCenter: coreV2AffineCenter(affine, projection.localBounds),
+        rotationDegrees,
+      });
+      const entityIndex = indexes.entityById.get(entity.id);
+      if (entityIndex === undefined) return null;
+      entities[entityIndex] = nextEntity;
+      selectedProjections[entity.id] = nextProjection;
+      fragmentEntities.push(nextEntity);
+      fragmentProjections[entity.id] = nextProjection;
+      dirtyEntityIds.push(entity.id);
+    }
+
+    const elementIndex = indexes.elementByPath.get(fragment.element.sourcePath);
+    if (elementIndex === undefined) return null;
+    const nextElement = Object.freeze({
+      ...fragment.element,
+      rawAttrs: afterAttrs,
+    });
+    elements[elementIndex] = nextElement;
+    const fragmentElements = Object.freeze(fragment.elements.map((element) =>
+      element === fragment.element ? nextElement : element));
+    if (!fragmentElements.includes(nextElement)) return null;
+    nextFragments[rootIndex] = Object.freeze({
+      ...fragment,
+      element: nextElement,
+      elements: fragmentElements,
+      entities: Object.freeze(fragmentEntities),
+      projection: Object.freeze({
+        ...fragment.projection,
+        byEntityId: Object.freeze(fragmentProjections),
+      }),
+    });
+  }
+
+  if (updatedRootCount !== updatesById.size || dirtyEntityIds.length === 0) {
+    return null;
+  }
+  const byEntityId = patchCoreV2StableRecord(
+    previous.projection.byEntityId,
+    selectedProjections,
+    dirtyEntityIds,
+    recordStrategy,
+    true,
+  );
+  if (byEntityId === null) return null;
+  const result = Object.freeze({
+    ...previous,
+    document: Object.freeze({
+      ...previous.document,
+      entities: Object.freeze(entities),
+    }),
+    identity: Object.freeze({
+      ...previous.identity,
+      elements: Object.freeze(elements),
+    }),
+    projection: Object.freeze({
+      ...previous.projection,
+      byEntityId,
+    }),
+  });
+  const frozenFragments = Object.freeze(nextFragments);
+  ROOT_FRAGMENTS_CACHE.set(result, frozenFragments);
+  STABLE_PARSE_INDEX_CACHE.set(result, indexes);
+  DIRECT_ANGLE_LOCAL_AFFINE_CACHE.set(result, localAffines);
+  return result;
 }
 
 function previousRootFragments(
@@ -725,64 +1032,75 @@ function combineStructuralRootFragments(
   previous: ParsePatchMapResult,
   diagnostics: readonly ParseDiagnostic[],
 ): ParsePatchMapResult | null {
-  const entities: EntityInput[] = [];
   const elements: ElementIdentity[] = [];
   const components: ComponentIdentity[] = [];
   const expandedItems: ExpandedItemIdentity[] = [];
+  const elementByPath = new Map<string, number>();
+  const componentByPath = new Map<string, number>();
   const entityIds = new Set<string>();
   const sourceIds = new Set<string>();
   const entityIdsBySourceId = Object.create(null) as Record<string, string[]>;
   const entityIdsByComponentId = Object.create(null) as Record<string, string[]>;
   const entitySourceById = Object.create(null) as Record<string, EntitySourceIdentity>;
+  const sourceIdsByEntityId = new Map<string, string[]>();
+  const sourceByEntityId = new Map<string, EntitySourceIdentity>();
+  const nonRelationEntities: EntityInput[] = [];
+  const relationEntities: EntityInput[] = [];
   const projection = emptyProjection();
-  const nonRelationEntities: Array<Readonly<{
-    readonly entity: EntityInput;
-    readonly fragment: RootFragment;
-  }>> = [];
-  const relationEntities: Array<Readonly<{
-    readonly entity: EntityInput;
-    readonly fragment: RootFragment;
-  }>> = [];
 
   for (const fragment of fragments) {
     for (const element of fragment.elements) {
-      if (sourceIds.has(element.sourceId)) return null;
+      if (
+        sourceIds.has(element.sourceId) ||
+        elementByPath.has(element.sourcePath)
+      ) {
+        return null;
+      }
       sourceIds.add(element.sourceId);
+      elementByPath.set(element.sourcePath, elements.length);
       elements.push(element);
+      for (const entityId of element.entityIds) {
+        const ids = sourceIdsByEntityId.get(entityId);
+        if (ids === undefined) sourceIdsByEntityId.set(entityId, [element.sourceId]);
+        else ids.push(element.sourceId);
+      }
     }
-    components.push(...fragment.components);
+    for (const component of fragment.components) {
+      if (componentByPath.has(component.componentPath)) return null;
+      componentByPath.set(component.componentPath, components.length);
+      components.push(component);
+    }
     expandedItems.push(...fragment.expandedItems);
     for (const entity of fragment.entities) {
       if (entityIds.has(entity.id)) return null;
       entityIds.add(entity.id);
+      const source = fragment.entitySources[entity.id];
+      if (source === undefined) return null;
+      sourceByEntityId.set(entity.id, source);
       (entity.kind === 'relation' ? relationEntities : nonRelationEntities)
-        .push(Object.freeze({ entity, fragment }));
+        .push(entity);
+      appendProjectionEntity(projection, fragment.projection, entity.id);
     }
   }
-  for (const { entity, fragment } of [
+  const entities = [
     ...nonRelationEntities,
     ...relationEntities,
-  ]) {
-    entities.push(entity);
-    const source = fragment.entitySources[entity.id];
-    if (source === undefined) return null;
+  ];
+  for (const entity of entities) {
+    const source = sourceByEntityId.get(entity.id);
+    const elementSourceIds = sourceIdsByEntityId.get(entity.id);
+    if (source === undefined || elementSourceIds === undefined) {
+      return null;
+    }
     entitySourceById[entity.id] = source;
     appendIdentityEntityId(
       entityIdsBySourceId,
       source.sourceElementId,
       entity.id,
     );
-    for (const element of fragment.elements) {
-      if (
-        element.sourceId !== source.sourceElementId &&
-        element.entityIds.includes(entity.id)
-      ) {
-        appendIdentityEntityId(
-          entityIdsBySourceId,
-          element.sourceId,
-          entity.id,
-        );
-      }
+    for (const sourceId of elementSourceIds) {
+      if (sourceId === source.sourceElementId) continue;
+      appendIdentityEntityId(entityIdsBySourceId, sourceId, entity.id);
     }
     if (source.componentId !== undefined) {
       appendIdentityEntityId(
@@ -791,11 +1109,14 @@ function combineStructuralRootFragments(
         entity.id,
       );
     }
-    appendProjectionEntity(projection, fragment.projection, entity.id);
   }
+  const omittedRelations: NonNullable<
+    CoreV2ProjectionIndex['omittedRelations']
+  >[number][] = [];
   for (const fragment of fragments) {
-    projection.omittedRelations.push(...(fragment.projection.omittedRelations ?? []));
+    omittedRelations.push(...(fragment.projection.omittedRelations ?? []));
   }
+  projection.omittedRelations.push(...omittedRelations);
   freezeRecordArrays(entityIdsBySourceId);
   freezeRecordArrays(entityIdsByComponentId);
   const kinds: Record<EntityKind, number> = {
@@ -805,12 +1126,17 @@ function combineStructuralRootFragments(
     bar: 0,
     relation: 0,
   };
-  for (const entity of entities) kinds[entity.kind] += 1;
+  const entityById = new Map<string, number>();
+  for (let index = 0; index < entities.length; index += 1) {
+    const entity = entities[index]!;
+    kinds[entity.kind] += 1;
+    entityById.set(entity.id, index);
+  }
   const frozenEntities = Object.freeze(entities);
   const frozenElements = Object.freeze(elements);
   const frozenComponents = Object.freeze(components);
   const frozenExpandedItems = Object.freeze(expandedItems);
-  return Object.freeze({
+  const result = Object.freeze({
     document: Object.freeze({
       ...previous.document,
       entities: frozenEntities,
@@ -822,7 +1148,7 @@ function combineStructuralRootFragments(
         sourceComponents: frozenComponents.length,
         expandedItems: frozenExpandedItems.length,
         gridCells: frozenExpandedItems.filter((entry) => entry.grid !== undefined).length,
-        relationLinks: kinds.relation + projection.omittedRelations.length,
+        relationLinks: kinds.relation + omittedRelations.length,
         entities: frozenEntities.length,
         kinds: Object.freeze(kinds),
       }),
@@ -836,13 +1162,24 @@ function combineStructuralRootFragments(
     }),
     projection: freezeProjection(projection),
   });
+  STABLE_PARSE_INDEX_CACHE.set(result, Object.freeze({
+    entityById,
+    elementByPath,
+    componentByPath,
+  }));
+  return result;
 }
 
 function combineRootFragments(
   fragments: readonly RootFragment[],
   previous: ParsePatchMapResult,
+  recordStrategy: CoreV2StableRecordStrategy,
 ): ParsePatchMapResult | null {
-  const stable = combineStableRootFragments(fragments, previous);
+  const stable = combineStableRootFragments(
+    fragments,
+    previous,
+    recordStrategy,
+  );
   if (stable !== null) return stable;
 
   const entities: EntityInput[] = [];
@@ -962,6 +1299,7 @@ function combineRootFragments(
 function combineStableRootFragments(
   fragments: readonly RootFragment[],
   previous: ParsePatchMapResult,
+  recordStrategy: CoreV2StableRecordStrategy,
 ): ParsePatchMapResult | null {
   const previousFragments = ROOT_FRAGMENTS_CACHE.get(previous);
   if (
@@ -1020,6 +1358,7 @@ function combineStableRootFragments(
     fragments,
     dirtyIndices,
     dirtyEntityIds,
+    recordStrategy,
   );
   if (projection === null) return null;
   const result = Object.freeze({
@@ -1180,6 +1519,7 @@ function patchStableProjection(
   fragments: readonly RootFragment[],
   dirtyIndices: readonly number[],
   entityIds: readonly string[],
+  recordStrategy: CoreV2StableRecordStrategy,
 ): CoreV2ProjectionIndex | null {
   const selected = emptyProjection();
   for (const rootIndex of dirtyIndices) {
@@ -1189,36 +1529,47 @@ function patchStableProjection(
       appendProjectionEntity(selected, fragment.projection, entity.id);
     }
   }
-  const byEntityId = patchProjectionRecord(previous.byEntityId, selected.byEntityId, entityIds);
-  const componentsByEntityId = patchProjectionRecord(
+  const byEntityId = patchCoreV2StableRecord(
+    previous.byEntityId,
+    selected.byEntityId,
+    entityIds,
+    recordStrategy,
+  );
+  const componentsByEntityId = patchCoreV2StableRecord(
     previous.componentsByEntityId,
     selected.componentsByEntityId,
     entityIds,
+    recordStrategy,
   );
-  const backgroundsByEntityId = patchProjectionRecord(
+  const backgroundsByEntityId = patchCoreV2StableRecord(
     previous.backgroundsByEntityId,
     selected.backgroundsByEntityId,
     entityIds,
+    recordStrategy,
   );
-  const imagesByEntityId = patchProjectionRecord(
+  const imagesByEntityId = patchCoreV2StableRecord(
     previous.imagesByEntityId,
     selected.imagesByEntityId,
     entityIds,
+    recordStrategy,
   );
-  const textsByEntityId = patchProjectionRecord(
+  const textsByEntityId = patchCoreV2StableRecord(
     previous.textsByEntityId,
     selected.textsByEntityId,
     entityIds,
+    recordStrategy,
   );
-  const barsByEntityId = patchProjectionRecord(
+  const barsByEntityId = patchCoreV2StableRecord(
     previous.barsByEntityId,
     selected.barsByEntityId,
     entityIds,
+    recordStrategy,
   );
-  const relationsByEntityId = patchProjectionRecord(
+  const relationsByEntityId = patchCoreV2StableRecord(
     previous.relationsByEntityId,
     selected.relationsByEntityId,
     entityIds,
+    recordStrategy,
   );
   if (
     byEntityId === null ||
@@ -1241,39 +1592,6 @@ function patchStableProjection(
     relationsByEntityId,
     omittedRelations: previous.omittedRelations ?? Object.freeze([]),
   });
-}
-
-function patchProjectionRecord<Value>(
-  previous: Readonly<Record<string, Value>> | undefined,
-  selected: Readonly<Record<string, Value>>,
-  entityIds: readonly string[],
-): Readonly<Record<string, Value>> | null {
-  const current: Readonly<Record<string, Value>> =
-    previous ?? Object.freeze({} as Record<string, Value>);
-  let changed = false;
-  for (const entityId of entityIds) {
-    if (
-      Object.hasOwn(current, entityId) !==
-      Object.hasOwn(selected, entityId)
-    ) {
-      return null;
-    }
-    const before = current[entityId];
-    const after = selected[entityId];
-    if (
-      before !== after &&
-      JSON.stringify(before) !== JSON.stringify(after)
-    ) {
-      changed = true;
-    }
-  }
-  if (!changed) return current;
-  const next = Object.assign(Object.create(null) as Record<string, Value>, current);
-  for (const entityId of entityIds) {
-    const value = selected[entityId];
-    if (value !== undefined) next[entityId] = value;
-  }
-  return Object.freeze(next);
 }
 
 function projectionForEntities(
@@ -1406,6 +1724,36 @@ function reorderRecordLike<Value>(
     ordered[key] = value;
   }
   return ordered;
+}
+
+function sameRecordExcept(
+  before: JsonRecord,
+  after: JsonRecord,
+  ignoredKey: string,
+): boolean {
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  keys.delete(ignoredKey);
+  for (const key of keys) {
+    if (
+      Object.hasOwn(before, key) !== Object.hasOwn(after, key) ||
+      before[key] !== after[key]
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function finiteRecordNumber(
+  record: JsonRecord,
+  key: string,
+  fallback: number,
+): number {
+  if (!Object.hasOwn(record, key)) return fallback;
+  const value = record[key];
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : Number.NaN;
 }
 
 function isRecord(value: unknown): value is JsonRecord {

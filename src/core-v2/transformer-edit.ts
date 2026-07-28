@@ -384,7 +384,7 @@ function normalizeBaseRequest(
   if (!Array.isArray(dataset)) throw new TypeError('transform dataset must be an array');
   const selectionIds = uniqueStrings(selectionIdsValue, 'transform selectionIds');
   const lockedIds = new Set(uniqueStrings(lockedIdsValue, 'transform lockedIds'));
-  const index = indexTransformTargets(dataset, lockedIds);
+  const index = indexTransformTargets(dataset, lockedIds, new Set(selectionIds));
   return Object.freeze({
     selectionIds,
     targets: Object.freeze(selectionIds.map((id) => index.get(id) ?? null)),
@@ -507,27 +507,34 @@ function planBase(
 function indexTransformTargets(
   dataset: readonly NormalizedCoreV2Element[],
   lockedIds: ReadonlySet<string>,
+  requestedIds: ReadonlySet<string>,
 ): ReadonlyMap<string, LocatedTransformTarget> {
   const result = new Map<string, LocatedTransformTarget>();
+  if (requestedIds.size === 0) return result;
   const visit = (
     elements: readonly NormalizedCoreV2Element[],
     parentId: string | null,
     parentAffine: CoreV2AffineMatrix,
     ancestorLocked: boolean,
-  ): void => {
+  ): boolean => {
     for (const element of elements) {
       const locked = ancestorLocked || element.locked || lockedIds.has(element.id);
-      const geometry = elementGeometry(element, parentId, parentAffine);
-      result.set(element.id, Object.freeze({ element, geometry, parentAffine, locked }));
+      if (requestedIds.has(element.id)) {
+        const geometry = elementGeometry(element, parentId, parentAffine);
+        result.set(element.id, Object.freeze({ element, geometry, parentAffine, locked }));
+        if (result.size === requestedIds.size) return true;
+      }
       if (element.type === 'group') {
-        visit(
+        const complete = visit(
           element.children,
           element.id,
           multiplyCoreV2Affine(parentAffine, localAffine(element)),
           locked,
         );
+        if (complete) return true;
       }
     }
+    return false;
   };
   visit(dataset, null, CORE_V2_IDENTITY_AFFINE, false);
   return result;

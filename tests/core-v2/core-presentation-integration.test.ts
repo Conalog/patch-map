@@ -91,6 +91,53 @@ describe('Core v2 bar presentation integration', () => {
     expect(core.activeAnimations).toBe(1);
   });
 
+  it('reuses the animated-bar hit envelope across presentation frames', () => {
+    const { core } = createTestCore(allocated);
+    core.load(scene(10));
+    core.publishFrame(0);
+    core.reconcile(scene(40));
+    core.publishFrame(50);
+    const internals = core as unknown as {
+      animatedBarHitIndexValue: unknown;
+      entityHitIndexValue: unknown;
+    };
+    const firstCenter = core.visibleProjection?.byEntityId['item-a::bar:level']?.visibleCenter;
+    if (firstCenter === undefined) throw new Error('missing first bar center');
+    const firstHit = core.hitTestScreen({ x: firstCenter[0], y: firstCenter[1] });
+    const envelope = internals.animatedBarHitIndexValue;
+
+    expect(core.get(firstHit!)?.id).toBe('item-a');
+    expect(envelope).not.toBeNull();
+    expect(internals.entityHitIndexValue).toBeNull();
+
+    core.publishFrame(100);
+    const secondCenter = core.visibleProjection?.byEntityId['item-a::bar:level']?.visibleCenter;
+    if (secondCenter === undefined) throw new Error('missing second bar center');
+    expect(core.get(core.hitTestScreen({
+      x: secondCenter[0],
+      y: secondCenter[1],
+    })!)?.id).toBe('item-a');
+    expect(internals.animatedBarHitIndexValue).toBe(envelope);
+
+    core.publishFrame(200);
+    expect(internals.animatedBarHitIndexValue).toBeNull();
+  });
+
+  it('invalidates surface geometry only when a presentation frame advances', () => {
+    const { core } = createTestCore(allocated);
+    const surface = new PixiEngineSurface(core);
+    surface.load(scene(10));
+    surface.publishFrame(0);
+    surface.reconcile(scene(40));
+    const before = surface.geometrySnapshot();
+
+    surface.publishFrame(0);
+    expect(surface.geometrySnapshot()).toBe(before);
+
+    surface.publishFrame(100);
+    expect(surface.geometrySnapshot()).not.toBe(before);
+  });
+
   it('does not rebuild dense entity snapshots for steady presentation frames after a view-only commit', () => {
     const { core } = createTestCore(allocated);
     core.load(scene(10));

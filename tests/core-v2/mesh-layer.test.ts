@@ -215,14 +215,21 @@ describe('AggregateMeshLayer', () => {
     (store.flags as Uint8Array)[2] = RenderFlags.Visible;
     const layer = new AggregateMeshLayer({ chunkSize: 2, label: 'viewport chunks' });
     layer.sync(store, { fullRebuildEpoch: 1 });
+    const firstRect = layer.quadContainer.children.find((child) =>
+      child.label.includes(': rect chunk 0')
+    );
+    const secondRect = layer.quadContainer.children.find((child) =>
+      child.label.includes(': rect chunk 1')
+    );
+    if (firstRect === undefined || secondRect === undefined) {
+      throw new Error('expected two retained rect chunks');
+    }
 
     expect(layer.cull(new Matrix(), 70, 40, 0)).toBe(1);
-    expect(
-      layer.quadContainer.children.find((child) => child.label.includes(': rect chunk 0'))?.visible,
-    ).toBe(true);
-    expect(
-      layer.quadContainer.children.find((child) => child.label.includes(': rect chunk 1'))?.visible,
-    ).toBe(false);
+    expect(firstRect.visible).toBe(true);
+    expect(firstRect.parent).toBe(layer.quadContainer);
+    expect(secondRect.visible).toBe(false);
+    expect(secondRect.parent).toBeNull();
     expect(
       layer.relationContainer.children.find(
         (child) => child.label.includes(': relation chunk 1'),
@@ -230,12 +237,37 @@ describe('AggregateMeshLayer', () => {
     ).toBe(true);
 
     expect(layer.cull(new Matrix(1, 0, 0, 1, -80, 0), 70, 40, 0)).toBe(1);
-    expect(
-      layer.quadContainer.children.find((child) => child.label.includes(': rect chunk 0'))?.visible,
-    ).toBe(false);
-    expect(
-      layer.quadContainer.children.find((child) => child.label.includes(': rect chunk 1'))?.visible,
-    ).toBe(true);
+    expect(firstRect.visible).toBe(false);
+    expect(firstRect.parent).toBeNull();
+    expect(secondRect.visible).toBe(true);
+    expect(secondRect.parent).toBe(layer.quadContainer);
+    layer.destroy();
+  });
+
+  it('switches between precise idle records and coarse animation chunks', () => {
+    const store = createBarChunkStore();
+    const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'adaptive chunks' });
+    layer.sync(store, { fullRebuildEpoch: 1 });
+    const barMeshes = layer.relationContainer.children.filter(
+      (child): child is Mesh<MeshGeometry> =>
+        child instanceof Mesh && child.label.includes(': bar chunk 0'),
+    );
+    const minimumX = (mesh: Mesh<MeshGeometry>): number => Math.min(
+      ...mesh.geometry.positions.filter((_value, index) => index % 2 === 0),
+    );
+    const firstBar = barMeshes.find((mesh) => minimumX(mesh) < 20);
+    const distantBar = barMeshes.find((mesh) => minimumX(mesh) >= 200);
+    if (firstBar === undefined || distantBar === undefined) {
+      throw new Error('expected near and distant bar records in one chunk');
+    }
+
+    expect(layer.cull(new Matrix(), 70, 40, 0, true)).toBe(1);
+    expect(firstBar.parent).toBe(layer.relationContainer);
+    expect(distantBar.parent).toBeNull();
+
+    expect(layer.cull(new Matrix(), 70, 40, 0, false)).toBe(1);
+    expect(firstBar.parent).toBe(layer.relationContainer);
+    expect(distantBar.parent).toBe(layer.relationContainer);
     layer.destroy();
   });
 
@@ -348,6 +380,7 @@ describe('AggregateMeshLayer', () => {
       (child): child is Mesh<MeshGeometry> =>
         child instanceof Mesh && child.label.includes(': bar chunk 0'),
     );
+    expect(barsBefore.every((mesh) => mesh.geometry.batchMode === 'auto')).toBe(true);
     const relationCandidate = layer.relationContainer.children.find((child) =>
       child.label.includes(': relation chunk 0'),
     );

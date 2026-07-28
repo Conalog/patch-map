@@ -65,6 +65,15 @@ export interface CoreV2ReconcileOptions {
   readonly allowedRetainedOrderIds?: readonly string[];
 }
 
+/** Warm the immutable ID-position index during one-time scene publication. */
+export function primeCoreV2ParsedSceneReconcileIncremental(
+  document: SceneDocument,
+): boolean {
+  const entities = document.entities as unknown as readonly CanonicalEntity[];
+  indexEntityPositions(entities);
+  return entities.length > 0;
+}
+
 /**
  * Plan one incremental dense-store transaction from two authoritative scene
  * projections. The planner never loads a replacement scene and never retains a
@@ -116,6 +125,7 @@ export function planCoreV2ParsedSceneReconcileIncremental(
   candidate: SceneDocument,
   dirtyEntityIds: readonly string[],
   options: CoreV2ReconcileOptions = {},
+  exactUnchangedEntityIdentity = false,
 ): CoreV2DenseReconcilePlan | null {
   if (
     dirtyEntityIds.length === 0 ||
@@ -124,6 +134,14 @@ export function planCoreV2ParsedSceneReconcileIncremental(
     !sameOptionalView(current.view, candidate.view)
   ) {
     return null;
+  }
+  if (exactUnchangedEntityIdentity) {
+    return planExactIdentityCoreV2SceneReconcile(
+      current,
+      candidate,
+      dirtyEntityIds,
+      options,
+    );
   }
   const dirty = new Set(dirtyEntityIds);
   if (dirty.size !== dirtyEntityIds.length) return null;
@@ -191,6 +209,89 @@ export function planCoreV2ParsedSceneReconcileIncremental(
 }
 
 /**
+ * Parser-owned direct/incremental projections preserve every undeclared row
+ * by exact object identity and retain entity order. The Core calls this path
+ * only after that parser authority succeeds, so subsequent edits can reuse
+ * the prior ID-to-position index and visit only declared dirty entities.
+ *
+ * Arbitrary callers must use the guarded scan above; this helper deliberately
+ * does not infer or weaken the identity-lineage precondition.
+ */
+function planExactIdentityCoreV2SceneReconcile(
+  current: SceneDocument,
+  candidate: SceneDocument,
+  dirtyEntityIds: readonly string[],
+  options: CoreV2ReconcileOptions,
+): CoreV2DenseReconcilePlan | null {
+  const dirty = new Set(dirtyEntityIds);
+  if (dirty.size !== dirtyEntityIds.length) return null;
+  const currentEntities = current.entities as unknown as readonly CanonicalEntity[];
+  const candidateEntities = candidate.entities as unknown as readonly CanonicalEntity[];
+  const positions = indexEntityPositions(currentEntities);
+  const changedEntities: CoreOperation[] = [];
+  const changedRelations: CoreOperation[] = [];
+  let patched = 0;
+  let visibilityChanged = 0;
+  let changedEntityCount = 0;
+
+  for (const entityId of dirtyEntityIds) {
+    const index = positions.get(entityId);
+    const before = index === undefined ? undefined : currentEntities[index];
+    const after = index === undefined ? undefined : candidateEntities[index];
+    if (
+      before === undefined ||
+      after === undefined ||
+      before.id !== entityId ||
+      after.id !== entityId ||
+      before.kind !== after.kind ||
+      before.zIndex !== after.zIndex
+    ) {
+      return null;
+    }
+    const operations = entityDelta(before, after);
+    if (operations.length === 0) continue;
+    changedEntityCount += 1;
+    for (const operation of operations) {
+      if (operation.type === 'patch') patched += 1;
+      else visibilityChanged += 1;
+      (after.kind === 'relation' ? changedRelations : changedEntities)
+        .push(operation);
+    }
+  }
+
+  // Parser identity lineage also guarantees identical IDs at every retained
+  // position. Transfer the immutable index so the next edit stays O(dirty).
+  ENTITY_POSITION_INDEX_CACHE.set(candidateEntities, positions);
+  const selectionOperations = options.selectionIds === undefined
+    ? []
+    : [freezeOperation({
+        type: 'selection',
+        targets: normalizedSelectionIds(options.selectionIds),
+      })];
+  const operations = Object.freeze([
+    ...changedEntities,
+    ...changedRelations,
+    ...selectionOperations,
+  ]);
+  return freezePlan({
+    batch: freezeBatch(operations, options),
+    safeToCommit: true,
+    diagnostics: Object.freeze([]),
+    summary: {
+      operationCount: operations.length,
+      added: 0,
+      patched,
+      visibilityChanged,
+      removed: 0,
+      replaced: 0,
+      unchanged: candidateEntities.length - changedEntityCount,
+      viewChanged: false,
+      unsupported: 0,
+    },
+  });
+}
+
+/**
  * Guarded structural window planner. The incremental structural parser keeps
  * every unaffected entity record by identity, so a small changed middle
  * window can publish add/remove/patch operations without indexing and
@@ -210,6 +311,12 @@ export function planCoreV2ParsedSceneReconcileStructuralWindow(
   }
   const before = current.entities as unknown as readonly CanonicalEntity[];
   const after = candidate.entities as unknown as readonly CanonicalEntity[];
+  const referenceReorder = planReferenceOnlyStructuralReorder(
+    before,
+    after,
+    options,
+  );
+  if (referenceReorder !== null) return referenceReorder;
   let prefix = 0;
   while (
     prefix < before.length &&
@@ -320,6 +427,91 @@ export function planCoreV2ParsedSceneReconcileStructuralWindow(
       unchanged: after.length - added - changedEntityCount,
       viewChanged: false,
       unsupported,
+    },
+  });
+}
+
+/**
+ * A hierarchy/front-back command commonly moves a few root fragments across a
+ * large flat array while retaining nearly every dense entity object exactly.
+ * Prove that sparse reference permutation in one pass and avoid a second full
+ * entity map, field comparison, and order audit.
+ */
+function planReferenceOnlyStructuralReorder(
+  before: readonly CanonicalEntity[],
+  after: readonly CanonicalEntity[],
+  options: CoreV2ReconcileOptions,
+): CoreV2DenseReconcilePlan | null {
+  if (before.length !== after.length) return null;
+  const currentById = indexEntities(before);
+  const allowed = normalizedAllowedRetainedOrderIds(
+    options.allowedRetainedOrderIds,
+  );
+  const seen = new Set<string>();
+  const changedEntities: CoreOperation[] = [];
+  const changedRelations: CoreOperation[] = [];
+  let nonIdenticalCount = 0;
+  let changedEntityCount = 0;
+  let patched = 0;
+  let visibilityChanged = 0;
+  for (let index = 0; index < after.length; index += 1) {
+    const currentAtIndex = before[index];
+    const candidate = after[index];
+    const previous = candidate === undefined
+      ? undefined
+      : currentById.get(candidate.id);
+    if (
+      currentAtIndex === undefined ||
+      candidate === undefined ||
+      previous === undefined ||
+      previous.kind !== candidate.kind ||
+      seen.has(candidate.id)
+    ) {
+      return null;
+    }
+    seen.add(candidate.id);
+    if (currentAtIndex === candidate) continue;
+    if (!allowed.has(currentAtIndex.id) || !allowed.has(candidate.id)) {
+      return null;
+    }
+    if (previous === candidate) continue;
+    nonIdenticalCount += 1;
+    if (nonIdenticalCount > 512) return null;
+    const operations = entityDelta(previous, candidate);
+    if (operations.length === 0) continue;
+    changedEntityCount += 1;
+    for (const operation of operations) {
+      if (operation.type === 'patch') patched += 1;
+      else visibilityChanged += 1;
+      (candidate.kind === 'relation' ? changedRelations : changedEntities)
+        .push(operation);
+    }
+  }
+  const selectionOperations = options.selectionIds === undefined
+    ? []
+    : [freezeOperation({
+        type: 'selection',
+        targets: normalizedSelectionIds(options.selectionIds),
+      })];
+  const orderedOperations = Object.freeze([
+    ...changedEntities,
+    ...changedRelations,
+    ...selectionOperations,
+  ]);
+  return freezePlan({
+    batch: freezeBatch(orderedOperations, options),
+    safeToCommit: true,
+    diagnostics: Object.freeze([]),
+    summary: {
+      operationCount: orderedOperations.length,
+      added: 0,
+      patched,
+      visibilityChanged,
+      removed: 0,
+      replaced: 0,
+      unchanged: after.length - changedEntityCount,
+      viewChanged: false,
+      unsupported: 0,
     },
   });
 }
@@ -525,12 +717,30 @@ const ENTITY_INDEX_CACHE = new WeakMap<
   readonly CanonicalEntity[],
   ReadonlyMap<string, CanonicalEntity>
 >();
+const ENTITY_POSITION_INDEX_CACHE = new WeakMap<
+  readonly CanonicalEntity[],
+  ReadonlyMap<string, number>
+>();
 
 function indexEntities(entities: readonly CanonicalEntity[]): ReadonlyMap<string, CanonicalEntity> {
   const cached = ENTITY_INDEX_CACHE.get(entities);
   if (cached !== undefined) return cached;
   const index = new Map(entities.map((entity) => [entity.id, entity]));
   ENTITY_INDEX_CACHE.set(entities, index);
+  return index;
+}
+
+function indexEntityPositions(
+  entities: readonly CanonicalEntity[],
+): ReadonlyMap<string, number> {
+  const cached = ENTITY_POSITION_INDEX_CACHE.get(entities);
+  if (cached !== undefined) return cached;
+  const index = new Map<string, number>();
+  for (let position = 0; position < entities.length; position += 1) {
+    const entity = entities[position];
+    if (entity !== undefined) index.set(entity.id, position);
+  }
+  ENTITY_POSITION_INDEX_CACHE.set(entities, index);
   return index;
 }
 

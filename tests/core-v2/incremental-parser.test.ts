@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   parsePatchMapV010IncrementalFlat,
   parsePatchMapV010IncrementalStructure,
+  patchMapV010StructuralChangedEntityIds,
   primePatchMapV010IncrementalFlat,
 } from '../../src/core-v2/incremental-parser';
 import {
@@ -400,6 +401,16 @@ describe('Core v2 guarded incremental parser', () => {
       expect(incremental).not.toBeNull();
       expect(incremental).toEqual(canonical);
       expect(JSON.stringify(incremental)).toBe(JSON.stringify(canonical));
+      const projectionIds = new Set([
+        ...Object.keys(previous.projection.byEntityId),
+        ...Object.keys(incremental!.projection.byEntityId),
+      ]);
+      const expectedChangedIds = [...projectionIds].filter((entityId) =>
+        previous.projection.byEntityId[entityId] !==
+          incremental!.projection.byEntityId[entityId]);
+      expect(
+        new Set(patchMapV010StructuralChangedEntityIds(incremental!)),
+      ).toEqual(new Set(expectedChangedIds));
       const reconcileOptions = {
         ...(plan.selectionIds === undefined
           ? {}

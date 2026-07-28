@@ -1,14 +1,17 @@
 import {
   assembleOwnedCoreV2Dataset,
-  assembleOwnedCoreV2PreviewDataset,
+  assembleOwnedCoreV2SparsePreviewDataset,
   CORE_V2_COMPONENT_TYPES,
   CORE_V2_ELEMENT_TYPES,
   CoreV2DatasetError,
   materializeCoreV2Dataset,
   materializeOwnedCoreV2StructuralDataset,
+  normalizeCoreV2TextStylePatch,
   replaceOwnedCoreV2BarHeightRoot,
+  replaceOwnedCoreV2ElementAngleRoot,
   replaceOwnedCoreV2TextRoot,
   type CoreV2Element,
+  type CoreV2TextStyle,
   type MaterializedCoreV2Dataset,
 } from './dataset';
 import {
@@ -146,12 +149,18 @@ export interface CoreV2TextBatchTarget {
 export interface CoreV2TextBatchRequest {
   readonly targets: readonly CoreV2TextBatchTarget[];
   readonly texts: readonly string[];
+  readonly styles?: readonly CoreV2TextStyle[];
   readonly actionId?: string;
   readonly recordHistory?: boolean;
 }
 
 export interface CoreV2PlannedTextUpdate extends CoreV2TextBatchTarget {
   readonly text: string;
+}
+
+export interface CoreV2PlannedElementAngleUpdate {
+  readonly id: string;
+  readonly angle: number;
 }
 
 export type CoreV2MutationDiagnosticCategory =
@@ -206,6 +215,8 @@ export type CoreV2MutationTransactionPlan =
       readonly directBarHeightUpdates?: readonly CoreV2PlannedBarHeightUpdate[];
       /** Compact owner-qualified text batch used by the editor text hot path. */
       readonly directTextUpdates?: readonly CoreV2PlannedTextUpdate[];
+      /** Compact top-level angle batch used by viewport-scale authoring. */
+      readonly directElementAngleUpdates?: readonly CoreV2PlannedElementAngleUpdate[];
       /** Logical selection replacement authored by group/ungroup. */
       readonly selectionIds?: readonly string[];
       /** Semantic hierarchy IDs whose aggregate retained order may change. */
@@ -285,6 +296,7 @@ const BAR_HEIGHT_BATCH_TARGET_FIELDS = new Set(['ownerId', 'componentId']);
 const TEXT_BATCH_FIELDS = new Set([
   'targets',
   'texts',
+  'styles',
   'actionId',
   'recordHistory',
 ]);
@@ -422,12 +434,22 @@ export function planCoreV2BarHeightBatch(
     });
   }
 
-  const rootIndexById = new Map(
-    current.dataset.map((root, index) => [root.id, index] as const),
-  );
+  const rootIndexById = ownedRootIndexById(current.dataset);
+  if (rootIndexById === null) {
+    return rejected(
+      diagnostic(
+        'DUPLICATE_ID',
+        'INVALID_INPUT',
+        '$.targets',
+        'current owned root identity is ambiguous',
+      ),
+      actionId,
+    );
+  }
   const roots: CoreV2Element[] = [...current.dataset];
-  const journal = new Map<string, TargetJournalEntry>();
-  const directUpdates = new Map<string, CoreV2PlannedBarHeightUpdate>();
+  const applied: CoreV2MutationTarget[] = [];
+  const unchanged: CoreV2MutationTarget[] = [];
+  const directUpdates: CoreV2PlannedBarHeightUpdate[] = [];
   const seenTargets = new Set<string>();
   let changed = false;
   try {
@@ -496,8 +518,10 @@ export function planCoreV2BarHeightBatch(
           target,
         );
       }
-      const matches = root.components.filter(({ id }) => id === target.id);
-      const component = matches.length === 1 ? matches[0] : undefined;
+      const componentIndex = root.components.findIndex(({ id }) => id === target.id);
+      const component = componentIndex < 0
+        ? undefined
+        : root.components[componentIndex];
       if (
         component?.type !== 'bar' ||
         typeof component.size !== 'object' ||
@@ -515,7 +539,7 @@ export function planCoreV2BarHeightBatch(
         );
       }
       if (component.size.height === height) {
-        noteOutcome(journal, target, 'unchanged');
+        unchanged.push(target);
         continue;
       }
       const update = Object.freeze({
@@ -523,11 +547,12 @@ export function planCoreV2BarHeightBatch(
         componentId: target.id,
         height,
       });
-      directUpdates.set(key, update);
+      directUpdates.push(update);
       const replacement = replaceOwnedCoreV2BarHeightRoot(
         root,
         target.id,
         height,
+        componentIndex,
       );
       if (replacement === null) {
         transactionFail(
@@ -541,7 +566,7 @@ export function planCoreV2BarHeightBatch(
       }
       roots[rootIndex] = replacement;
       changed = true;
-      noteOutcome(journal, target, 'applied');
+      applied.push(target);
     }
   } catch (error) {
     if (!(error instanceof TransactionValidationFailure)) throw error;
@@ -551,8 +576,8 @@ export function planCoreV2BarHeightBatch(
   const candidate = changed
     ? assembleOwnedCoreV2Dataset(current, roots)
     : current;
-  const applied = journalTargets(journal, 'applied');
-  const unchanged = journalTargets(journal, 'unchanged');
+  const frozenApplied = Object.freeze(applied);
+  const frozenUnchanged = Object.freeze(unchanged);
   return Object.freeze({
     status: 'planned',
     changed,
@@ -563,11 +588,11 @@ export function planCoreV2BarHeightBatch(
     ...(actionId === undefined ? {} : { actionId }),
     ...(recordHistory === undefined ? {} : { recordHistory }),
     candidate,
-    applied,
+    applied: frozenApplied,
     missing: EMPTY_TARGETS,
-    unchanged,
-    directBarHeightUpdates: Object.freeze([...directUpdates.values()]),
-    summary: freezeSummary(applied.length, 0, unchanged.length),
+    unchanged: frozenUnchanged,
+    directBarHeightUpdates: Object.freeze(directUpdates),
+    summary: freezeSummary(frozenApplied.length, 0, frozenUnchanged.length),
   });
 }
 
@@ -609,6 +634,20 @@ export function planCoreV2TextBatch(
         'INVALID_INPUT',
         '$.texts',
         'texts length must match targets length',
+      );
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(record, 'styles') &&
+      (
+        !Array.isArray(record.styles) ||
+        record.styles.length !== record.targets.length
+      )
+    ) {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        '$.styles',
+        'styles must be an ordered array matching targets length',
       );
     }
     if (
@@ -676,8 +715,9 @@ export function planCoreV2TextBatch(
     );
   }
   const roots: CoreV2Element[] = [...current.dataset];
-  const journal = new Map<string, TargetJournalEntry>();
-  const directUpdates = new Map<string, CoreV2PlannedTextUpdate>();
+  const applied: CoreV2MutationTarget[] = [];
+  const unchanged: CoreV2MutationTarget[] = [];
+  const directUpdates: CoreV2PlannedTextUpdate[] = [];
   const seenTargets = new Set<string>();
   let changed = false;
   try {
@@ -717,6 +757,24 @@ export function planCoreV2TextBatch(
           index,
         );
       }
+      let stylePatch: CoreV2TextStyle | undefined;
+      if (Array.isArray(record.styles)) {
+        try {
+          stylePatch = normalizeCoreV2TextStylePatch(
+            record.styles[index],
+            `$.styles[${index}]`,
+          );
+        } catch (error) {
+          if (!(error instanceof CoreV2DatasetError)) throw error;
+          transactionFail(
+            'INVALID_VALUE',
+            'INVALID_INPUT',
+            error.datasetPath,
+            error.message,
+            index,
+          );
+        }
+      }
       const target = Object.freeze({
         kind: 'component' as const,
         ownerId: targetRecord.ownerId,
@@ -746,8 +804,10 @@ export function planCoreV2TextBatch(
           target,
         );
       }
-      const matches = root.components.filter(({ id }) => id === target.id);
-      const component = matches.length === 1 ? matches[0] : undefined;
+      const componentIndex = root.components.findIndex(({ id }) => id === target.id);
+      const component = componentIndex < 0
+        ? undefined
+        : root.components[componentIndex];
       if (component?.type !== 'text') {
         transactionFail(
           'INVALID_MUTATION',
@@ -758,8 +818,14 @@ export function planCoreV2TextBatch(
           target,
         );
       }
-      if (component.text === text) {
-        noteOutcome(journal, target, 'unchanged');
+      const nextStyle = stylePatch === undefined
+        ? component.style
+        : Object.freeze({ ...component.style, ...stylePatch });
+      if (
+        component.text === text &&
+        jsonEquivalent(component.style, nextStyle)
+      ) {
+        unchanged.push(target);
         continue;
       }
       const update = Object.freeze({
@@ -767,8 +833,14 @@ export function planCoreV2TextBatch(
         componentId: target.id,
         text,
       });
-      directUpdates.set(key, update);
-      const replacement = replaceOwnedCoreV2TextRoot(root, target.id, text);
+      directUpdates.push(update);
+      const replacement = replaceOwnedCoreV2TextRoot(
+        root,
+        target.id,
+        text,
+        stylePatch,
+        componentIndex,
+      );
       if (replacement === null) {
         transactionFail(
           'INVALID_MUTATION',
@@ -781,7 +853,7 @@ export function planCoreV2TextBatch(
       }
       roots[rootIndex] = replacement;
       changed = true;
-      noteOutcome(journal, target, 'applied');
+      applied.push(target);
     }
   } catch (error) {
     if (!(error instanceof TransactionValidationFailure)) throw error;
@@ -791,8 +863,8 @@ export function planCoreV2TextBatch(
   const candidate = changed
     ? assembleOwnedCoreV2Dataset(current, roots)
     : current;
-  const applied = journalTargets(journal, 'applied');
-  const unchanged = journalTargets(journal, 'unchanged');
+  const frozenApplied = Object.freeze(applied);
+  const frozenUnchanged = Object.freeze(unchanged);
   return Object.freeze({
     status: 'planned',
     changed,
@@ -803,11 +875,11 @@ export function planCoreV2TextBatch(
     ...(actionId === undefined ? {} : { actionId }),
     ...(recordHistory === undefined ? {} : { recordHistory }),
     candidate,
-    applied,
+    applied: frozenApplied,
     missing: EMPTY_TARGETS,
-    unchanged,
-    directTextUpdates: Object.freeze([...directUpdates.values()]),
-    summary: freezeSummary(applied.length, 0, unchanged.length),
+    unchanged: frozenUnchanged,
+    directTextUpdates: Object.freeze(directUpdates),
+    summary: freezeSummary(frozenApplied.length, 0, frozenUnchanged.length),
   });
 }
 
@@ -840,6 +912,8 @@ export function planCoreV2BulkPatch(
   }
 
   if (request.operations.length > 0) {
+    const directAngles = planOwnedElementAngleTransaction(current, request);
+    if (directAngles !== null) return directAngles;
     const directBars = planOwnedBarHeightTransaction(current, request);
     if (directBars !== null) return directBars;
     const incremental = planFlatOwnedMergeTransaction(current, request);
@@ -873,6 +947,98 @@ const OWNED_ROOT_INDEX_CACHE = new WeakMap<
   readonly CoreV2Element[],
   ReadonlyMap<string, number> | null
 >();
+
+function planOwnedElementAngleTransaction(
+  current: MaterializedCoreV2Dataset,
+  request: NormalizedTransaction,
+): CoreV2MutationTransactionPlan | null {
+  if (current.dataset.length === 0 || request.operations.length === 0) return null;
+  const rootIndexById = ownedRootIndexById(current.dataset);
+  if (rootIndexById === null) return null;
+  const roots: CoreV2Element[] = [...current.dataset];
+  const applied: CoreV2MutationTarget[] = [];
+  const unchanged: CoreV2MutationTarget[] = [];
+  const directUpdates: CoreV2PlannedElementAngleUpdate[] = [];
+  const seen = new Set<string>();
+
+  for (const operation of request.operations) {
+    if (
+      operation.op !== 'merge' ||
+      operation.target.kind !== 'element' ||
+      operation.changes.length !== 1
+    ) {
+      return null;
+    }
+    const change = operation.changes[0];
+    if (
+      change === undefined ||
+      change.path.length !== 2 ||
+      change.path[0] !== 'attrs' ||
+      change.path[1] !== 'angle' ||
+      typeof change.value !== 'number' ||
+      !Number.isFinite(change.value) ||
+      seen.has(operation.target.id)
+    ) {
+      return null;
+    }
+    seen.add(operation.target.id);
+    const rootIndex = rootIndexById.get(operation.target.id);
+    const root = rootIndex === undefined ? undefined : roots[rootIndex];
+    if (
+      rootIndex === undefined ||
+      root === undefined ||
+      !FAST_FLAT_ROOT_TYPES.has(root.type) ||
+      (
+        root.attrs !== undefined &&
+        Object.hasOwn(root.attrs, 'rotation')
+      )
+    ) {
+      return null;
+    }
+    if (
+      root.attrs !== undefined &&
+      Object.hasOwn(root.attrs, 'angle') &&
+      root.attrs.angle === change.value
+    ) {
+      unchanged.push(operation.target);
+      continue;
+    }
+    const replacement = replaceOwnedCoreV2ElementAngleRoot(
+      root,
+      change.value,
+    );
+    if (replacement === null) return null;
+    roots[rootIndex] = replacement;
+    applied.push(operation.target);
+    directUpdates.push(Object.freeze({
+      id: operation.target.id,
+      angle: change.value,
+    }));
+  }
+
+  const candidate = applied.length === 0
+    ? current
+    : assembleOwnedCoreV2Dataset(current, roots);
+  const frozenApplied = Object.freeze(applied);
+  const frozenUnchanged = Object.freeze(unchanged);
+  return Object.freeze({
+    status: 'planned',
+    changed: frozenApplied.length > 0,
+    schemaRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+    strict: request.strict,
+    conflictPolicy: request.conflictPolicy,
+    operations: request.operations,
+    ...(request.actionId === undefined ? {} : { actionId: request.actionId }),
+    ...(request.recordHistory === undefined ? {} : { recordHistory: request.recordHistory }),
+    ...(request.history === undefined ? {} : { history: request.history }),
+    candidate,
+    applied: frozenApplied,
+    missing: EMPTY_TARGETS,
+    unchanged: frozenUnchanged,
+    directElementAngleUpdates: Object.freeze(directUpdates),
+    summary: freezeSummary(frozenApplied.length, 0, frozenUnchanged.length),
+  });
+}
 
 function planOwnedBarHeightTransaction(
   current: MaterializedCoreV2Dataset,
@@ -1036,18 +1202,31 @@ function planFlatOwnedMergeTransaction(
   }
 
   const roots: CoreV2Element[] = [...current.dataset];
+  const dirtyEntries = [...mutableRoots.entries()];
+  let normalizedDirtyRoots: readonly CoreV2Element[];
   try {
-    for (const [rootIndex, root] of mutableRoots) {
-      const normalized = materializeCoreV2Dataset([root]).dataset[0];
-      if (normalized === undefined) return null;
-      roots[rootIndex] = normalized;
+    normalizedDirtyRoots = materializeCoreV2Dataset(
+      dirtyEntries.map(([, root]) => root),
+    ).dataset;
+    if (normalizedDirtyRoots.length !== dirtyEntries.length) return null;
+    for (let index = 0; index < dirtyEntries.length; index += 1) {
+      const entry = dirtyEntries[index];
+      const normalized = normalizedDirtyRoots[index];
+      if (entry === undefined || normalized === undefined) return null;
+      roots[entry[0]] = normalized;
     }
   } catch (error) {
     if (error instanceof CoreV2DatasetError) return null;
     throw error;
   }
   const candidate = preview
-    ? assembleOwnedCoreV2PreviewDataset(current, roots)
+    ? assembleOwnedCoreV2SparsePreviewDataset(
+        current,
+        dirtyEntries.map(([rootIndex], index) => Object.freeze({
+          index: rootIndex,
+          root: normalizedDirtyRoots[index]!,
+        })),
+      )
     : assembleOwnedCoreV2Dataset(current, roots);
   const applied = journalTargets(journal, 'applied');
   const missing = journalTargets(journal, 'missing');
@@ -1194,6 +1373,8 @@ export function planCoreV2MutationTransaction(
 
   const structural = planOwnedTopLevelStructuralTransaction(current, request);
   if (structural !== null) return structural;
+  const directAngles = planOwnedElementAngleTransaction(current, request);
+  if (directAngles !== null) return directAngles;
   const directBars = planOwnedBarHeightTransaction(current, request);
   if (directBars !== null) return directBars;
   const incremental = planFlatOwnedMergeTransaction(current, request);

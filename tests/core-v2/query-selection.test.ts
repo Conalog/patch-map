@@ -163,6 +163,40 @@ describe('Core v2 logical query and selection substrate', () => {
     expect(JSON.stringify(QUERY_DATASET)).toBe(fingerprint);
   });
 
+  it('resolves top-level spatial targets before materializing the complete catalog', () => {
+    const materialized = materializeCoreV2Dataset(
+      Array.from({ length: 5_000 }, (_, index) => ({
+        type: 'item',
+        id: `node-${index}`,
+        size: { width: 80, height: 40 },
+        components: [
+          {
+            type: 'bar',
+            id: 'bar',
+            source: { type: 'rect', fill: '#00aa66' },
+            size: { width: 60, height: 10 },
+          },
+          { type: 'text', id: 'label', text: `${index}` },
+        ],
+      })),
+    );
+    const index = new CoreV2LogicalSceneIndex(materialized.dataset);
+
+    expect(index.hitFromTarget('node-4999')).toMatchObject({
+      target: {
+        key: 'element:node-4999',
+        sceneOrder: 14_997,
+        value: { id: 'node-4999' },
+      },
+      candidates: [{ key: 'element:node-4999' }],
+    });
+    expect(index.query({ where: { ownerId: 'node-4999', id: 'label' } }))
+      .toMatchObject({
+        status: 'matched',
+        targets: [{ key: 'component:node-4999/label' }],
+      });
+  });
+
   it('reduces replace, add, remove, toggle, and clear to ordered unique snapshots', () => {
     const valid = new Set(['item-a', 'rect-b', 'text-c']);
     const operations = [
