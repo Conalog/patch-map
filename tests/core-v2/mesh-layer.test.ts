@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Mesh } from 'pixi.js';
+import { Matrix, Mesh } from 'pixi.js';
 import type { MeshGeometry } from 'pixi.js';
 
 import type { RenderStoreView } from '../../src/core-v1/renderer/types';
@@ -210,6 +210,59 @@ describe('aggregate mesh geometry builders', () => {
 });
 
 describe('AggregateMeshLayer', () => {
+  it('culls geometry chunks from retained bounds while preserving spanning relations', () => {
+    const store = createStore();
+    (store.flags as Uint8Array)[2] = RenderFlags.Visible;
+    const layer = new AggregateMeshLayer({ chunkSize: 2, label: 'viewport chunks' });
+    layer.sync(store, { fullRebuildEpoch: 1 });
+
+    expect(layer.cull(new Matrix(), 70, 40, 0)).toBe(1);
+    expect(
+      layer.quadContainer.children.find((child) => child.label.includes(': rect chunk 0'))?.visible,
+    ).toBe(true);
+    expect(
+      layer.quadContainer.children.find((child) => child.label.includes(': rect chunk 1'))?.visible,
+    ).toBe(false);
+    expect(
+      layer.relationContainer.children.find(
+        (child) => child.label.includes(': relation chunk 1'),
+      )?.visible,
+    ).toBe(true);
+
+    expect(layer.cull(new Matrix(1, 0, 0, 1, -80, 0), 70, 40, 0)).toBe(1);
+    expect(
+      layer.quadContainer.children.find((child) => child.label.includes(': rect chunk 0'))?.visible,
+    ).toBe(false);
+    expect(
+      layer.quadContainer.children.find((child) => child.label.includes(': rect chunk 1'))?.visible,
+    ).toBe(true);
+    layer.destroy();
+  });
+
+  it('defers offscreen bar uploads and catches up before a chunk becomes visible', () => {
+    const store = createBarChunkStore();
+    const layer = new AggregateMeshLayer({ chunkSize: 2, label: 'deferred bars' });
+    layer.sync(store, { fullRebuildEpoch: 1 });
+    expect(layer.cull(new Matrix(), 80, 40, 0)).toBe(1);
+
+    (store.value as Float32Array).set([80, 70, 60, 50]);
+    (store as { revision: number }).revision = 2;
+    const visibleOnly = layer.sync(store, {
+      changedRanges: [{ start: 0, end: store.capacity }],
+    });
+    expect(visibleOnly.uploadedChunks).toBe(1);
+    expect(visibleOnly.geometrySlotsVisited).toBe(2);
+    expect(layer.hasVisibleDeferredBarUpdates()).toBe(false);
+
+    expect(layer.cull(new Matrix(1, 0, 0, 1, -180, 0), 80, 40, 0)).toBe(1);
+    expect(layer.hasVisibleDeferredBarUpdates()).toBe(true);
+    const caughtUp = layer.sync(store, { changedRanges: [] });
+    expect(caughtUp.uploadedChunks).toBe(1);
+    expect(caughtUp.geometrySlotsVisited).toBe(2);
+    expect(layer.hasVisibleDeferredBarUpdates()).toBe(false);
+    layer.destroy();
+  });
+
   it('expands endpoint-only dirtiness to a relation in another Mesh chunk', () => {
     const store = createStore();
     (store.flags as Uint8Array)[2] = RenderFlags.Visible;
@@ -500,5 +553,28 @@ function createStore(): RenderStoreView {
     view: { x: 0, y: 0, scale: 1 },
     background: 0xffffffff,
     renderOrder: () => Uint32Array.from([0, 2, 1, 3]),
+  };
+}
+
+function createBarChunkStore(): RenderStoreView {
+  const store = createStore();
+  return {
+    ...store,
+    kind: new Uint8Array(store.capacity).fill(RenderKind.Bar),
+    flags: new Uint8Array(store.capacity).fill(RenderFlags.Visible),
+    x: Float32Array.from([0, 20, 200, 220]),
+    y: new Float32Array(store.capacity).fill(10),
+    width: new Float32Array(store.capacity).fill(10),
+    height: new Float32Array(store.capacity).fill(10),
+    opacity: new Float32Array(store.capacity).fill(1),
+    fill: new Uint32Array(store.capacity).fill(0x00cc66ff),
+    value: Float32Array.from([10, 20, 30, 40]),
+    min: new Float64Array(store.capacity),
+    max: new Float32Array(store.capacity).fill(100),
+    trackFill: new Uint32Array(store.capacity).fill(0xddeeffff),
+    relationFrom: new Int32Array(store.capacity).fill(-1),
+    relationTo: new Int32Array(store.capacity).fill(-1),
+    ids: ['bar-0', 'bar-1', 'bar-2', 'bar-3'],
+    renderOrder: () => Uint32Array.from([0, 1, 2, 3]),
   };
 }

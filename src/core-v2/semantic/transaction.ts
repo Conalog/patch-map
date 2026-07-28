@@ -4,6 +4,7 @@ import {
   CORE_V2_ELEMENT_TYPES,
   CoreV2DatasetError,
   materializeCoreV2Dataset,
+  replaceOwnedCoreV2BarHeightRoot,
   type CoreV2Element,
   type MaterializedCoreV2Dataset,
 } from './dataset';
@@ -118,6 +119,22 @@ export interface CoreV2BulkPatchRequest {
   readonly actionId?: string;
 }
 
+export interface CoreV2BarHeightBatchTarget {
+  readonly ownerId: string;
+  readonly componentId: string;
+}
+
+export interface CoreV2BarHeightBatchRequest {
+  readonly targets: readonly CoreV2BarHeightBatchTarget[];
+  readonly heights: ArrayLike<number>;
+  readonly actionId?: string;
+  readonly recordHistory?: boolean;
+}
+
+export interface CoreV2PlannedBarHeightUpdate extends CoreV2BarHeightBatchTarget {
+  readonly height: number;
+}
+
 export type CoreV2MutationDiagnosticCategory =
   | 'INVALID_INPUT'
   | 'MISSING_TARGET'
@@ -166,6 +183,8 @@ export type CoreV2MutationTransactionPlan =
       readonly actionId?: string;
       readonly recordHistory?: boolean;
       readonly history?: CoreV2MutationJsonValue;
+      /** Compact exact-height batch used by the aggregate bar hot path. */
+      readonly directBarHeightUpdates?: readonly CoreV2PlannedBarHeightUpdate[];
       /** Logical selection replacement authored by group/ungroup. */
       readonly selectionIds?: readonly string[];
       /** Semantic hierarchy IDs whose aggregate retained order may change. */
@@ -235,6 +254,13 @@ const TRANSACTION_FIELDS = new Set([
   'history',
 ]);
 const BULK_PATCH_FIELDS = new Set(['targets', 'changes', 'strict', 'actionId']);
+const BAR_HEIGHT_BATCH_FIELDS = new Set([
+  'targets',
+  'heights',
+  'actionId',
+  'recordHistory',
+]);
+const BAR_HEIGHT_BATCH_TARGET_FIELDS = new Set(['ownerId', 'componentId']);
 const TARGET_ELEMENT_FIELDS = new Set(['kind', 'id']);
 const TARGET_COMPONENT_FIELDS = new Set(['kind', 'ownerId', 'id']);
 const ADD_FIELDS = new Set(['op', 'parent', 'collection', 'index', 'value']);
@@ -275,6 +301,249 @@ const EMPTY_TARGETS: readonly [] = Object.freeze([]);
 const EMPTY_OPERATIONS: readonly CoreV2MutationOperation[] = Object.freeze([]);
 
 /**
+ * Validate one compact, ordered bar-height batch without materializing the
+ * equivalent merge/change/path object graph. The candidate remains an owned,
+ * structurally shared PATCH MAP dataset and therefore uses the same history,
+ * reconcile, atomic publication, and semantic-hash authorities as transact().
+ */
+export function planCoreV2BarHeightBatch(
+  current: MaterializedCoreV2Dataset,
+  requestInput: unknown,
+): CoreV2MutationTransactionPlan {
+  let record: Readonly<Record<string, unknown>>;
+  try {
+    record = strictRecord(
+      requestInput,
+      '$',
+      'bar height batch must be a strict plain record',
+    );
+    rejectUnknownFields(record, BAR_HEIGHT_BATCH_FIELDS, '$');
+    if (!Array.isArray(record.targets)) {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        '$.targets',
+        'targets must be an ordered array',
+      );
+    }
+    if (!isNumberArrayLike(record.heights)) {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        '$.heights',
+        'heights must be a numeric array or typed array',
+      );
+    }
+    if (record.targets.length !== record.heights.length) {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        '$.heights',
+        'heights length must match targets length',
+      );
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(record, 'actionId') &&
+      (typeof record.actionId !== 'string' || record.actionId.length === 0)
+    ) {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        '$.actionId',
+        'actionId must be a non-empty string',
+      );
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(record, 'recordHistory') &&
+      typeof record.recordHistory !== 'boolean'
+    ) {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        '$.recordHistory',
+        'recordHistory must be a boolean',
+      );
+    }
+  } catch (error) {
+    if (!(error instanceof TransactionValidationFailure)) throw error;
+    return rejected(error.diagnostic);
+  }
+
+  const actionId = typeof record.actionId === 'string'
+    ? record.actionId
+    : undefined;
+  const recordHistory = typeof record.recordHistory === 'boolean'
+    ? record.recordHistory
+    : undefined;
+  if (record.targets.length === 0) {
+    return Object.freeze({
+      status: 'planned',
+      changed: false,
+      schemaRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+      strict: true,
+      conflictPolicy: 'reject',
+      operations: EMPTY_OPERATIONS,
+      ...(actionId === undefined ? {} : { actionId }),
+      ...(recordHistory === undefined ? {} : { recordHistory }),
+      candidate: current,
+      applied: EMPTY_TARGETS,
+      missing: EMPTY_TARGETS,
+      unchanged: EMPTY_TARGETS,
+      directBarHeightUpdates: Object.freeze([]),
+      summary: freezeSummary(0, 0, 0),
+    });
+  }
+
+  const rootIndexById = new Map(
+    current.dataset.map((root, index) => [root.id, index] as const),
+  );
+  const roots: CoreV2Element[] = [...current.dataset];
+  const journal = new Map<string, TargetJournalEntry>();
+  const directUpdates = new Map<string, CoreV2PlannedBarHeightUpdate>();
+  const seenTargets = new Set<string>();
+  let changed = false;
+  try {
+    for (let index = 0; index < record.targets.length; index += 1) {
+      const targetRecord = strictRecord(
+        record.targets[index],
+        `$.targets[${index}]`,
+        'bar height target must be a strict plain record',
+      );
+      rejectUnknownFields(
+        targetRecord,
+        BAR_HEIGHT_BATCH_TARGET_FIELDS,
+        `$.targets[${index}]`,
+        index,
+      );
+      if (
+        typeof targetRecord.ownerId !== 'string' ||
+        targetRecord.ownerId.length === 0 ||
+        typeof targetRecord.componentId !== 'string' ||
+        targetRecord.componentId.length === 0
+      ) {
+        transactionFail(
+          'INVALID_VALUE',
+          'INVALID_INPUT',
+          `$.targets[${index}]`,
+          'bar height target requires non-empty ownerId and componentId',
+          index,
+        );
+      }
+      const height = record.heights[index];
+      if (typeof height !== 'number' || !Number.isFinite(height) || height < 0) {
+        transactionFail(
+          'INVALID_VALUE',
+          'INVALID_INPUT',
+          `$.heights[${index}]`,
+          'bar height must be finite and non-negative',
+          index,
+        );
+      }
+      const target = Object.freeze({
+        kind: 'component' as const,
+        ownerId: targetRecord.ownerId,
+        id: targetRecord.componentId,
+      });
+      const key = targetKey(target);
+      if (seenTargets.has(key)) {
+        transactionFail(
+          'DUPLICATE_ID',
+          'INVALID_INPUT',
+          `$.targets[${index}]`,
+          `bar height batch repeats ${targetLabel(target)}`,
+          index,
+          target,
+        );
+      }
+      seenTargets.add(key);
+      const rootIndex = rootIndexById.get(target.ownerId);
+      const root = rootIndex === undefined ? undefined : roots[rootIndex];
+      if (rootIndex === undefined || root?.type !== 'item') {
+        transactionFail(
+          'MISSING_TARGET',
+          'MISSING_TARGET',
+          `$.targets[${index}]`,
+          `No staged record matches ${targetLabel(target)}`,
+          index,
+          target,
+        );
+      }
+      const matches = root.components.filter(({ id }) => id === target.id);
+      const component = matches.length === 1 ? matches[0] : undefined;
+      if (
+        component?.type !== 'bar' ||
+        typeof component.size !== 'object' ||
+        component.size === null ||
+        Array.isArray(component.size) ||
+        !('height' in component.size)
+      ) {
+        transactionFail(
+          'INVALID_MUTATION',
+          'INVALID_INPUT',
+          `$.targets[${index}]`,
+          `${targetLabel(target)} is not one numeric-height bar component`,
+          index,
+          target,
+        );
+      }
+      if (component.size.height === height) {
+        noteOutcome(journal, target, 'unchanged');
+        continue;
+      }
+      const update = Object.freeze({
+        ownerId: target.ownerId,
+        componentId: target.id,
+        height,
+      });
+      directUpdates.set(key, update);
+      const replacement = replaceOwnedCoreV2BarHeightRoot(
+        root,
+        target.id,
+        height,
+      );
+      if (replacement === null) {
+        transactionFail(
+          'INVALID_MUTATION',
+          'INVALID_INPUT',
+          `$.targets[${index}]`,
+          `${targetLabel(target)} could not accept the bar height`,
+          index,
+          target,
+        );
+      }
+      roots[rootIndex] = replacement;
+      changed = true;
+      noteOutcome(journal, target, 'applied');
+    }
+  } catch (error) {
+    if (!(error instanceof TransactionValidationFailure)) throw error;
+    return rejected(error.diagnostic, actionId);
+  }
+
+  const candidate = changed
+    ? assembleOwnedCoreV2Dataset(current, roots)
+    : current;
+  const applied = journalTargets(journal, 'applied');
+  const unchanged = journalTargets(journal, 'unchanged');
+  return Object.freeze({
+    status: 'planned',
+    changed,
+    schemaRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+    strict: true,
+    conflictPolicy: 'reject',
+    operations: EMPTY_OPERATIONS,
+    ...(actionId === undefined ? {} : { actionId }),
+    ...(recordHistory === undefined ? {} : { recordHistory }),
+    candidate,
+    applied,
+    missing: EMPTY_TARGETS,
+    unchanged,
+    directBarHeightUpdates: Object.freeze([...directUpdates.values()]),
+    summary: freezeSummary(applied.length, 0, unchanged.length),
+  });
+}
+
+/**
  * Validate a bulk target-set merge. An empty target set is a real product
  * no-op, while an empty raw transaction remains invalid.
  */
@@ -303,6 +572,8 @@ export function planCoreV2BulkPatch(
   }
 
   if (request.operations.length > 0) {
+    const directBars = planOwnedBarHeightTransaction(current, request);
+    if (directBars !== null) return directBars;
     const incremental = planFlatOwnedMergeTransaction(current, request);
     if (incremental !== null) return incremental;
     return planNormalizedCoreV2MutationTransaction(current, request);
@@ -331,6 +602,93 @@ const FAST_FLAT_ROOT_TYPES = new Set([
   'text',
 ]);
 
+function planOwnedBarHeightTransaction(
+  current: MaterializedCoreV2Dataset,
+  request: NormalizedTransaction,
+): CoreV2MutationTransactionPlan | null {
+  if (current.dataset.length === 0 || request.operations.length === 0) return null;
+  const rootIndexById = new Map(
+    current.dataset.map((root, index) => [root.id, index] as const),
+  );
+  if (rootIndexById.size !== current.dataset.length) return null;
+  const roots: CoreV2Element[] = [...current.dataset];
+  const journal = new Map<string, TargetJournalEntry>();
+  let changed = false;
+
+  for (const operation of request.operations) {
+    if (
+      operation.op !== 'merge' ||
+      operation.target.kind !== 'component' ||
+      operation.changes.length !== 1
+    ) {
+      return null;
+    }
+    const [change] = operation.changes;
+    if (
+      change === undefined ||
+      change.path.length !== 2 ||
+      change.path[0] !== 'size' ||
+      change.path[1] !== 'height' ||
+      typeof change.value !== 'number' ||
+      !Number.isFinite(change.value) ||
+      change.value < 0
+    ) {
+      return null;
+    }
+    const rootIndex = rootIndexById.get(operation.target.ownerId);
+    const root = rootIndex === undefined ? undefined : roots[rootIndex];
+    if (rootIndex === undefined || root?.type !== 'item') return null;
+    const matches = root.components.filter(({ id }) => id === operation.target.id);
+    const component = matches.length === 1 ? matches[0] : undefined;
+    if (
+      component?.type !== 'bar' ||
+      typeof component.size !== 'object' ||
+      component.size === null ||
+      Array.isArray(component.size) ||
+      !('width' in component.size) ||
+      !('height' in component.size)
+    ) {
+      return null;
+    }
+    if (component.size.height === change.value) {
+      noteOutcome(journal, operation.target, 'unchanged');
+      continue;
+    }
+    const replacement = replaceOwnedCoreV2BarHeightRoot(
+      root,
+      operation.target.id,
+      change.value,
+    );
+    if (replacement === null) return null;
+    roots[rootIndex] = replacement;
+    changed = true;
+    noteOutcome(journal, operation.target, 'applied');
+  }
+
+  const candidate = changed
+    ? assembleOwnedCoreV2Dataset(current, roots)
+    : current;
+  const applied = journalTargets(journal, 'applied');
+  const missing = journalTargets(journal, 'missing');
+  const unchanged = journalTargets(journal, 'unchanged');
+  return Object.freeze({
+    status: 'planned',
+    changed,
+    schemaRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+    strict: request.strict,
+    conflictPolicy: request.conflictPolicy,
+    operations: request.operations,
+    ...(request.actionId === undefined ? {} : { actionId: request.actionId }),
+    ...(request.recordHistory === undefined ? {} : { recordHistory: request.recordHistory }),
+    ...(request.history === undefined ? {} : { history: request.history }),
+    candidate,
+    applied,
+    missing,
+    unchanged,
+    summary: freezeSummary(applied.length, missing.length, unchanged.length),
+  });
+}
+
 /**
  * Structural-share the common flat merge candidate. Validation, missing
  * targets, hierarchy, identity/type edits, or large whole-scene writes fall
@@ -342,8 +700,7 @@ function planFlatOwnedMergeTransaction(
 ): CoreV2MutationTransactionPlan | null {
   if (
     current.dataset.length === 0 ||
-    request.operations.some((operation) => operation.op !== 'merge') ||
-    current.dataset.some((root) => !FAST_FLAT_ROOT_TYPES.has(root.type))
+    request.operations.some((operation) => operation.op !== 'merge')
   ) {
     return null;
   }
@@ -362,11 +719,12 @@ function planFlatOwnedMergeTransaction(
     const rootId = operation.target.kind === 'element'
       ? operation.target.id
       : operation.target.ownerId;
-    if (!rootIndexById.has(rootId)) return null;
+    const rootIndex = rootIndexById.get(rootId);
+    if (rootIndex === undefined) return null;
+    const root = current.dataset[rootIndex];
+    if (root === undefined || !FAST_FLAT_ROOT_TYPES.has(root.type)) return null;
     dirtyRootIds.add(rootId);
   }
-  if (dirtyRootIds.size * 2 > current.dataset.length) return null;
-
   const mutableRoots = new Map<number, MutableJsonRecord>();
   const journal = new Map<string, TargetJournalEntry>();
   try {
@@ -503,6 +861,8 @@ export function planCoreV2MutationTransaction(
     return rejected(error.diagnostic);
   }
 
+  const directBars = planOwnedBarHeightTransaction(current, request);
+  if (directBars !== null) return directBars;
   const incremental = planFlatOwnedMergeTransaction(current, request);
   if (incremental !== null) return incremental;
   return planNormalizedCoreV2MutationTransaction(current, request);
@@ -2213,6 +2573,15 @@ function outcomeRank(outcome: TargetOutcome): number {
     case 'applied':
       return 2;
   }
+}
+
+function isNumberArrayLike(value: unknown): value is ArrayLike<number> {
+  return Array.isArray(value) ||
+    (
+      ArrayBuffer.isView(value) &&
+      !(value instanceof DataView) &&
+      'length' in value
+    );
 }
 
 function mergedValue(current: MutableJsonValue, incoming: MutableJsonValue): MutableJsonValue {

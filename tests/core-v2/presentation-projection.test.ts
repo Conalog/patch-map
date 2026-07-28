@@ -46,14 +46,18 @@ describe('Core v2 presentation projection', () => {
     expect(presented.byEntityId.rect).toBe(rect);
     expect(presented.byEntityId.bar?.localBounds[3]).toBe(10);
     expect(semantic.byEntityId.bar?.localBounds[3]).toBe(40);
+    const activeRecord = presented.byEntityId.bar;
 
     expect(store.applyBarHeight('bar', 36.25)).toBe(true);
     expect(store.presentation).toBe(presented);
     expect(store.presentation?.byEntityId).toBe(byEntityId);
+    expect(store.presentation?.byEntityId.bar).toBe(activeRecord);
     expect(store.visibleHeight('bar')).toBe(36.25);
     expect(semantic.byEntityId.bar?.localBounds[3]).toBe(40);
     expect(store.applyBarHeight('bar', 36.25)).toBe(false);
     expect(store.applyBarHeight('missing', 1)).toBe(false);
+    expect(store.applyBarHeight('bar', 40)).toBe(true);
+    expect(store.presentation?.byEntityId.bar).toBe(bar);
   });
 
   it('replaces and clears ownership without retaining caller mutation aliases', () => {

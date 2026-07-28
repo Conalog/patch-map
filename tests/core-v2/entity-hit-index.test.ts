@@ -240,11 +240,11 @@ describe('Core v2 bounded entity hit index', () => {
 
     core.reconcile([{ type: 'rect', id: 'target', size: 10, attrs: { x: 300 } }]);
     expect(core.hitTestScreen({ x: 305, y: 5 })?.slot).toBe(0);
-    // Reconcile itself takes before/after snapshots; only the first later hit
-    // contributes the single lazy index build.
-    expect(snapshotSpy).toHaveBeenCalledTimes(9);
+    // Reconcile publishes its prepared scene without repeating before/after
+    // snapshots; only the first later hit contributes the lazy index build.
+    expect(snapshotSpy).toHaveBeenCalledTimes(7);
     expect(core.hitTestScreen({ x: 305, y: 5 })?.slot).toBe(0);
-    expect(snapshotSpy).toHaveBeenCalledTimes(9);
+    expect(snapshotSpy).toHaveBeenCalledTimes(7);
     expect(querySpy).not.toHaveBeenCalled();
 
     expect(await core.destroy()).toBe(true);

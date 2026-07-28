@@ -23,6 +23,12 @@ interface RecordedReconcile {
     allowedComponentOrderOwners: readonly string[];
     allowedElementOrderIds?: readonly string[];
     selectionIds?: readonly string[];
+    incrementalRootIds?: readonly string[];
+    directBarHeightUpdates?: readonly Readonly<{
+      ownerId: string;
+      componentId: string;
+      height: number;
+    }>[];
   }>;
 }
 
@@ -62,7 +68,10 @@ class TransactionSurface implements CoreV2EngineSurface {
       options: Object.freeze({
         animateBarChanges: options.animateBarChanges ?? false,
         animatedBarTargets: Object.freeze(
-          (options.animatedBarTargets ?? []).map((target) => Object.freeze({ ...target })),
+          (options.animatedBarTargets ?? []).map((target) => Object.freeze({
+            ownerId: target.ownerId,
+            componentId: target.componentId,
+          })),
         ),
         allowedComponentOrderOwners: Object.freeze([
           ...(options.allowedComponentOrderOwners ?? []),
@@ -73,6 +82,17 @@ class TransactionSurface implements CoreV2EngineSurface {
         ...(options.selectionIds === undefined
           ? {}
           : { selectionIds: Object.freeze([...options.selectionIds]) }),
+        ...(options.incrementalRootIds === undefined
+          ? {}
+          : { incrementalRootIds: Object.freeze([...options.incrementalRootIds]) }),
+        ...(options.directBarHeightUpdates === undefined
+          ? {}
+          : {
+              directBarHeightUpdates: Object.freeze(
+                options.directBarHeightUpdates.map((update) =>
+                  Object.freeze({ ...update })),
+              ),
+            }),
       }),
     }));
     if (this.mode === 'throw') throw new Error('surface transaction failure');
@@ -724,6 +744,10 @@ describe('CoreV2Engine update transactions', () => {
       animateBarChanges: true,
       animatedBarTargets: [{ ownerId: 'item-a', componentId: 'bar' }],
       allowedComponentOrderOwners: [],
+      incrementalRootIds: ['item-a'],
+      directBarHeightUpdates: [
+        { ownerId: 'item-a', componentId: 'bar', height: 30 },
+      ],
     });
     expect(componentById(engine, 'item-a', 'bar')).toMatchObject({
       size: { width: 60, height: 30 },
@@ -737,8 +761,80 @@ describe('CoreV2Engine update transactions', () => {
       animateBarChanges: false,
       animatedBarTargets: [],
       allowedComponentOrderOwners: [],
+      incrementalRootIds: ['item-a'],
     });
     expect(itemById(engine, 'item-a').size.width).toBe(140);
+  });
+
+  it('commits compact bar batches through direct projection and one history unit', async () => {
+    const { engine, surface } = await createEngine(engines, 'compact-bar-batch');
+    engine.loadDataset(updateScene());
+    const targets = Object.freeze([
+      Object.freeze({ ownerId: 'item-a', componentId: 'bar' }),
+    ]);
+    const heights = new Float64Array([34]);
+    const requestBefore = [...heights];
+
+    expect(engine.updateBarHeights({
+      targets,
+      heights,
+      actionId: 'bar-batch-1',
+    })).toMatchObject({
+      status: 'committed',
+      changed: true,
+      actionId: 'bar-batch-1',
+      applied: [{ kind: 'component', ownerId: 'item-a', id: 'bar' }],
+      history: {
+        recorded: true,
+        commandId: 'bar-batch-1',
+        depthDelta: 1,
+      },
+    });
+    expect(surface.reconcileCalls[0]?.options).toEqual({
+      animateBarChanges: true,
+      animatedBarTargets: [{ ownerId: 'item-a', componentId: 'bar' }],
+      allowedComponentOrderOwners: [],
+      incrementalRootIds: ['item-a'],
+      directBarHeightUpdates: [
+        { ownerId: 'item-a', componentId: 'bar', height: 34 },
+      ],
+    });
+    expect(componentById(engine, 'item-a', 'bar'))
+      .toMatchObject({ size: { width: 60, height: 34 } });
+    expect([...heights]).toEqual(requestBefore);
+    expect(targets).toEqual([{ ownerId: 'item-a', componentId: 'bar' }]);
+
+    expect(engine.undo()).toMatchObject({
+      status: 'committed',
+      direction: 'undo',
+      history: { undoDepth: 0, redoDepth: 1 },
+    });
+    expect(componentById(engine, 'item-a', 'bar'))
+      .toMatchObject({ size: { width: 60, height: 10 } });
+
+    const authorityBefore = engine.exportDataset();
+    const snapshotBefore = engine.snapshot();
+    const historyBefore = engine.historyState();
+    expect(engine.updateBarHeights({
+      targets: [
+        { ownerId: 'item-a', componentId: 'bar' },
+        { ownerId: 'missing', componentId: 'bar' },
+      ],
+      heights: new Float64Array([48, 12]),
+      actionId: 'bar-batch-invalid',
+    })).toMatchObject({
+      status: 'rejected',
+      changed: false,
+      transactionDiagnostic: {
+        code: 'MISSING_TARGET',
+        operationIndex: 1,
+      },
+      history: { recorded: false, depthDelta: 0 },
+    });
+    expect(engine.exportDataset()).toBe(authorityBefore);
+    expect(engine.snapshot()).toEqual(snapshotBefore);
+    expect(engine.historyState()).toEqual(historyBefore);
+    expect(surface.reconcileCalls).toHaveLength(2);
   });
 
   it('publishes move/group/ungroup atomically with logical selection, history, and cycle refusal', async () => {

@@ -744,7 +744,9 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("facts['entity-id'] === 'item-a::icon:icon'");
     expect(source).toContain("facts['icon-bounds'] === '[47,12,40,15]'");
     expect(source).toContain("ui.phases.tint['semantic-tint'] === '#00ff00ff'");
-    expect(source).toContain("ui.phases.tint['renderer-tint'] === 'packed 0x00ff00ff · rgb 0x00ff00 · alpha 1.000'");
+    expect(source).toContain(
+      "ui.phases.tint['renderer-tint'] === '패킹 0x00ff00ff · RGB 0x00ff00 · 투명도 1.000'",
+    );
     expect(source).toContain("ui.resourceJournal.events.includes('backend-texture-resolved')");
   });
 

@@ -5,6 +5,7 @@ import {
   type CoreV2ComponentVisualGeometryProbe,
   type CoreV2ComponentVisualProductProbe,
   type CoreV2ComponentVisualTarget,
+  type CoreV2DirectBarHeightUpdate,
   type CoreV2Options,
   type CoreV2PresentationLifecycleResult,
   type CoreV2RootPointerInput,
@@ -148,11 +149,14 @@ import {
 import {
   CORE_V2_MUTATION_TRANSACTION_REVISION,
   detachCoreV2MutationJsonValue,
+  planCoreV2BarHeightBatch,
   planCoreV2BulkPatch,
   planCoreV2MutationTransaction,
+  type CoreV2BarHeightBatchRequest,
   type CoreV2BulkPatchRequest,
   type CoreV2MutationJsonValue,
   type CoreV2MutationOperation,
+  type CoreV2PlannedBarHeightUpdate,
   type CoreV2MutationTarget,
   type CoreV2MutationTransactionDiagnostic,
   type CoreV2MutationTransactionPlan,
@@ -732,6 +736,8 @@ export interface CoreV2SurfaceReconcileOptions {
   readonly selectionIds?: readonly string[];
   /** Engine-owned dirty flat roots eligible for guarded incremental parsing. */
   readonly incrementalRootIds?: readonly string[];
+  /** Validated numeric height-only bar mutations eligible for direct projection. */
+  readonly directBarHeightUpdates?: readonly CoreV2DirectBarHeightUpdate[];
 }
 
 export interface CoreV2EngineSceneImageAttemptProbe extends Omit<
@@ -2385,6 +2391,32 @@ export class CoreV2Engine {
   }
 
   /**
+   * Commit one ordered exact-height batch without allocating the equivalent
+   * merge/change/path graph for every bar. It intentionally shares the same
+   * atomic reconcile, history, animation, and publication authorities as
+   * transact().
+   */
+  public updateBarHeights(
+    request: CoreV2BarHeightBatchRequest,
+  ): CoreV2EngineTransactionResult {
+    const surface = this.requireSurface('updateBarHeights');
+    this.cancelActiveTransformerEdit('redraw', true);
+    const previousRevisions = this.revisionStamp();
+    const previousHistory = this.history.state();
+    const plan = planCoreV2BarHeightBatch(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      request,
+    );
+    return this.applyPlannedTransaction(
+      surface,
+      plan,
+      'transact',
+      previousRevisions,
+      previousHistory,
+    );
+  }
+
+  /**
    * Merge one change list over an explicit target set. Unlike a raw staged
    * transaction, an empty target set is a validated no-op with no publication,
    * revision, history, or event side effects.
@@ -2811,31 +2843,57 @@ export class CoreV2Engine {
       return result;
     }
 
-    const incrementalRootIds = incrementalFlatRootIds(
-      this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset,
-      plan.candidate.dataset,
-      plan.operations,
-    );
-    const componentSemantics = incrementalRootIds === undefined
-      ? indexComponentSemantics(plan.candidate.dataset)
-      : reconcileFlatComponentSemantics(
+    const currentDataset =
+      this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset;
+    const plannedBarHeightUpdates = plan.directBarHeightUpdates;
+    const incrementalRootIds = plannedBarHeightUpdates === undefined
+      ? incrementalFlatRootIds(
+          currentDataset,
+          plan.candidate.dataset,
+          plan.operations,
+        )
+      : incrementalBarHeightRootIds(
+          currentDataset,
+          plan.candidate.dataset,
+          plannedBarHeightUpdates,
+        );
+    const directBarComponentSemantics = plannedBarHeightUpdates === undefined
+      ? reconcileDirectBarHeightComponentSemantics(
           this.componentSemantics,
-          this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset,
           plan.candidate.dataset,
-          incrementalRootIds,
-        );
-    const textSemantics = incrementalRootIds === undefined
-      ? indexTextSemantics(plan.candidate.dataset)
-      : reconcileFlatTextSemantics(
-          this.textSemantics,
-          this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset,
+          plan.operations,
+        )
+      : reconcilePlannedBarHeightComponentSemantics(
+          this.componentSemantics,
           plan.candidate.dataset,
-          incrementalRootIds,
+          plannedBarHeightUpdates,
         );
+    const componentSemantics = directBarComponentSemantics ??
+      (incrementalRootIds === undefined
+        ? indexComponentSemantics(plan.candidate.dataset)
+        : reconcileFlatComponentSemantics(
+            this.componentSemantics,
+            currentDataset,
+            plan.candidate.dataset,
+            incrementalRootIds,
+          ));
+    const textSemantics = directBarComponentSemantics !== null ||
+      operationsOnlyUpdateBarSize(plan.operations, componentSemantics)
+      ? this.textSemantics
+      : incrementalRootIds === undefined
+        ? indexTextSemantics(plan.candidate.dataset)
+        : reconcileFlatTextSemantics(
+            this.textSemantics,
+            currentDataset,
+            plan.candidate.dataset,
+            incrementalRootIds,
+          );
     const selectionBefore = this.logicalSelectionIds;
     const modeBefore = this.hostInteractions.modeProbe().activeState;
     const requestedSelectionAfter = plan.selectionIds ??
-      transactionSelectionAfter(selectionBefore, plan.operations);
+      (plannedBarHeightUpdates === undefined
+        ? transactionSelectionAfter(selectionBefore, plan.operations)
+        : selectionBefore);
     let companionAfter: CoreV2EngineHistoryCompanion;
     try {
       companionAfter = this.nextHistoryCompanion(
@@ -2879,8 +2937,13 @@ export class CoreV2Engine {
       return result;
     }
 
-    const animatedBarTargets = directAnimatedBarTargets(plan.operations, plan.candidate.dataset);
-    const allowedComponentOrderOwners = componentOrderOwners(plan.operations);
+    const animatedBarTargets = plannedBarHeightUpdates ??
+      directAnimatedBarTargets(plan.operations, componentSemantics);
+    const directBarHeightUpdates = plannedBarHeightUpdates ??
+      directBarHeightUpdatesFor(plan.operations, componentSemantics);
+    const allowedComponentOrderOwners = plannedBarHeightUpdates === undefined
+      ? componentOrderOwners(plan.operations)
+      : EMPTY_HISTORY_ORDER_IDS;
     let reconcile: CoreV2SurfaceReconcileResult;
     try {
       reconcile = surface.reconcile(plan.candidate.dataset, {
@@ -2892,6 +2955,9 @@ export class CoreV2Engine {
         ...(incrementalRootIds === undefined
           ? {}
           : { incrementalRootIds }),
+        ...(directBarHeightUpdates === undefined
+          ? {}
+          : { directBarHeightUpdates }),
         ...(plan.allowedElementOrderIds === undefined
           ? {}
           : { allowedElementOrderIds: plan.allowedElementOrderIds }),
@@ -6581,7 +6647,7 @@ export class CoreV2Engine {
     ids: readonly string[],
     materialized: MaterializedCoreV2Dataset | null,
   ): readonly string[] {
-    if (materialized === null) return Object.freeze([]);
+    if (materialized === null || ids.length === 0) return Object.freeze([]);
     const index = materialized === this.materialized
       ? this.logicalSceneIndex()
       : new CoreV2LogicalSceneIndex(materialized.dataset);
@@ -7576,6 +7642,9 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
       ...(options.incrementalRootIds === undefined
         ? {}
         : { incrementalRootIds: options.incrementalRootIds }),
+      ...(options.directBarHeightUpdates === undefined
+        ? {}
+        : { directBarHeightUpdates: options.directBarHeightUpdates }),
     });
     if (result.status === 'committed') {
       this.geometryRevision += 1;
@@ -8709,6 +8778,12 @@ const EMPTY_RECONCILE_DIAGNOSTICS = Object.freeze([] as CoreV2ReconcileDiagnosti
 function freezeMutationTargets(
   values: readonly CoreV2MutationTarget[],
 ): readonly CoreV2MutationTarget[] {
+  if (
+    Object.isFrozen(values) &&
+    values.every((target) => Object.isFrozen(target))
+  ) {
+    return values;
+  }
   return Object.freeze(values.map((target) => Object.freeze({ ...target })));
 }
 
@@ -8839,21 +8914,153 @@ function transactionSelectionAfter(
 
 function directAnimatedBarTargets(
   operations: readonly CoreV2MutationOperation[],
-  dataset: readonly NormalizedCoreV2Element[],
+  componentSemantics: ReadonlyMap<string, CoreV2EngineComponentSemanticProbe>,
 ): readonly Readonly<{ readonly ownerId: string; readonly componentId: string }>[] {
   const targets = new Map<string, Readonly<{ ownerId: string; componentId: string }>>();
   for (const operation of operations) {
     if (operation.op !== 'merge' || operation.target.kind !== 'component') continue;
     if (!operation.changes.some((change) => change.path[0] === 'size')) continue;
-    const record = findEngineSemanticTarget(dataset, operation.target);
-    if (record?.type !== 'bar') continue;
+    const key = componentSemanticKey(operation.target.ownerId, operation.target.id);
+    if (componentSemantics.get(key)?.componentType !== 'bar') continue;
     const target = Object.freeze({
       ownerId: operation.target.ownerId,
       componentId: operation.target.id,
     });
-    targets.set(componentSemanticKey(target.ownerId, target.componentId), target);
+    targets.set(key, target);
   }
   return Object.freeze([...targets.values()]);
+}
+
+function reconcileDirectBarHeightComponentSemantics(
+  current: ReadonlyMap<string, CoreV2EngineComponentSemanticProbe>,
+  candidate: readonly NormalizedCoreV2Element[],
+  operations: readonly CoreV2MutationOperation[],
+): Map<string, CoreV2EngineComponentSemanticProbe> | null {
+  if (operations.length === 0) return null;
+  const roots = new Map(candidate.map((root) => [root.id, root] as const));
+  if (roots.size !== candidate.length) return null;
+  const next = new Map(current);
+  for (const operation of operations) {
+    if (
+      operation.op !== 'merge' ||
+      operation.target.kind !== 'component' ||
+      operation.changes.length !== 1
+    ) {
+      return null;
+    }
+    const [change] = operation.changes;
+    if (
+      change === undefined ||
+      change.path.length !== 2 ||
+      change.path[0] !== 'size' ||
+      change.path[1] !== 'height'
+    ) {
+      return null;
+    }
+    const root = roots.get(operation.target.ownerId);
+    if (root?.type !== 'item') return null;
+    const matches = root.components.filter(({ id }) => id === operation.target.id);
+    const component = matches.length === 1 ? matches[0] : undefined;
+    const key = componentSemanticKey(operation.target.ownerId, operation.target.id);
+    const before = current.get(key);
+    if (component?.type !== 'bar' || before?.componentType !== 'bar') return null;
+    next.set(key, Object.freeze({
+      ...before,
+      authoredSize: component.size,
+    }));
+  }
+  return next;
+}
+
+function reconcilePlannedBarHeightComponentSemantics(
+  current: ReadonlyMap<string, CoreV2EngineComponentSemanticProbe>,
+  candidate: readonly NormalizedCoreV2Element[],
+  updates: readonly CoreV2PlannedBarHeightUpdate[],
+): Map<string, CoreV2EngineComponentSemanticProbe> | null {
+  if (updates.length === 0) return null;
+  const roots = new Map(candidate.map((root) => [root.id, root] as const));
+  if (roots.size !== candidate.length) return null;
+  const next = new Map(current);
+  for (const update of updates) {
+    const root = roots.get(update.ownerId);
+    if (root?.type !== 'item') return null;
+    const component = root.components.find(({ id }) => id === update.componentId);
+    const key = componentSemanticKey(update.ownerId, update.componentId);
+    const before = current.get(key);
+    if (component?.type !== 'bar' || before?.componentType !== 'bar') return null;
+    next.set(key, Object.freeze({
+      ...before,
+      authoredSize: component.size,
+    }));
+  }
+  return next;
+}
+
+function operationsOnlyUpdateBarSize(
+  operations: readonly CoreV2MutationOperation[],
+  componentSemantics: ReadonlyMap<string, CoreV2EngineComponentSemanticProbe>,
+): boolean {
+  return operations.length > 0 && operations.every((operation) => {
+    if (
+      operation.op !== 'merge' ||
+      operation.target.kind !== 'component' ||
+      operation.changes.length === 0 ||
+      operation.changes.some((change) => change.path[0] !== 'size')
+    ) {
+      return false;
+    }
+    return componentSemantics.get(
+      componentSemanticKey(operation.target.ownerId, operation.target.id),
+    )?.componentType === 'bar';
+  });
+}
+
+function directBarHeightUpdatesFor(
+  operations: readonly CoreV2MutationOperation[],
+  componentSemantics: ReadonlyMap<string, CoreV2EngineComponentSemanticProbe>,
+): readonly CoreV2DirectBarHeightUpdate[] | undefined {
+  if (operations.length === 0) return undefined;
+  const updates = new Map<string, CoreV2DirectBarHeightUpdate>();
+  for (const operation of operations) {
+    if (
+      operation.op !== 'merge' ||
+      operation.target.kind !== 'component' ||
+      operation.changes.length !== 1
+    ) {
+      return undefined;
+    }
+    const [change] = operation.changes;
+    if (
+      change === undefined ||
+      change.path.length !== 2 ||
+      change.path[0] !== 'size' ||
+      change.path[1] !== 'height'
+    ) {
+      return undefined;
+    }
+    const key = componentSemanticKey(operation.target.ownerId, operation.target.id);
+    const semantic = componentSemantics.get(key);
+    const size = semantic?.authoredSize;
+    const height = typeof size === 'object' &&
+      size !== null &&
+      'height' in size
+      ? size.height
+      : undefined;
+    if (
+      semantic?.componentType !== 'bar' ||
+      typeof height !== 'number' ||
+      !Number.isFinite(height) ||
+      height < 0
+    ) {
+      return undefined;
+    }
+    updates.set(key, Object.freeze({
+      ownerId: operation.target.ownerId,
+      componentId: operation.target.id,
+      height,
+    }));
+  }
+  return Object.freeze([...updates.values()]);
 }
 
 function componentOrderOwners(
@@ -8894,7 +9101,6 @@ function incrementalFlatRootIds(
       after === undefined ||
       before.id !== after.id ||
       before.type !== after.type ||
-      !INCREMENTAL_FLAT_ROOT_TYPES.has(after.type) ||
       rootOrder.has(after.id)
     ) {
       return undefined;
@@ -8911,7 +9117,53 @@ function incrementalFlatRootIds(
     if (!rootOrder.has(rootId)) return undefined;
     dirty.add(rootId);
   }
-  if (dirty.size === 0 || dirty.size * 2 > candidate.length) return undefined;
+  if (dirty.size === 0) return undefined;
+  for (const rootId of dirty) {
+    const index = rootOrder.get(rootId);
+    const root = index === undefined ? undefined : candidate[index];
+    if (root === undefined || !INCREMENTAL_FLAT_ROOT_TYPES.has(root.type)) {
+      return undefined;
+    }
+  }
+  return Object.freeze(
+    [...dirty].sort((left, right) => rootOrder.get(left)! - rootOrder.get(right)!),
+  );
+}
+
+function incrementalBarHeightRootIds(
+  current: readonly NormalizedCoreV2Element[],
+  candidate: readonly NormalizedCoreV2Element[],
+  updates: readonly CoreV2PlannedBarHeightUpdate[],
+): readonly string[] | undefined {
+  if (
+    current.length === 0 ||
+    current.length !== candidate.length ||
+    updates.length === 0
+  ) {
+    return undefined;
+  }
+  const rootOrder = new Map<string, number>();
+  for (let index = 0; index < candidate.length; index += 1) {
+    const before = current[index];
+    const after = candidate[index];
+    if (
+      before === undefined ||
+      after === undefined ||
+      before.id !== after.id ||
+      before.type !== after.type ||
+      rootOrder.has(after.id)
+    ) {
+      return undefined;
+    }
+    rootOrder.set(after.id, index);
+  }
+  const dirty = new Set<string>();
+  for (const update of updates) {
+    const index = rootOrder.get(update.ownerId);
+    const root = index === undefined ? undefined : candidate[index];
+    if (root?.type !== 'item') return undefined;
+    dirty.add(update.ownerId);
+  }
   return Object.freeze(
     [...dirty].sort((left, right) => rootOrder.get(left)! - rootOrder.get(right)!),
   );

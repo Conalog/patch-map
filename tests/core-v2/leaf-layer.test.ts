@@ -1,4 +1,4 @@
-import { Assets, Texture } from 'pixi.js';
+import { Assets, Matrix, Texture } from 'pixi.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { RenderStoreView } from '../../src/core-v1/renderer/types';
@@ -60,6 +60,81 @@ describe('Core v2 aggregate leaf policy', () => {
       staleCompletionCount: 0,
     });
     await layer.destroy();
+    await layer.destroy();
+  });
+
+  it('culls object-backed leaves from stored quads under the current world transform', async () => {
+    const layer = new AggregateLeafLayer();
+    layer.sync(createTextStoreAt([0, 500, 2_000]), { fullRebuildEpoch: 1 });
+
+    expect(layer.cull(new Matrix(), 120, 100, 0)).toBe(1);
+    expect(layer.textContainer.children.map(({ visible }) => visible)).toEqual([
+      true,
+      false,
+      false,
+    ]);
+
+    expect(layer.cull(new Matrix(1, 0, 0, 1, -450, 0), 120, 100, 0)).toBe(1);
+    expect(layer.textContainer.children.map(({ visible }) => visible)).toEqual([
+      false,
+      true,
+      false,
+    ]);
+    await layer.destroy();
+  });
+
+  it('publishes a text frame only after the culled leaf becomes visible', async () => {
+    const layer = new AggregateLeafLayer();
+    layer.sync(createTextStoreAt([0, 500]), { fullRebuildEpoch: 1 });
+    layer.cull(new Matrix(), 120, 100, 0);
+    layer.confirmRenderedFrame(1);
+
+    expect(layer.textRendererProbe('text-0')).toMatchObject({
+      publicationStatus: 'current',
+      lastRenderedFrame: 1,
+    });
+    expect(layer.textRendererProbe('text-1')).toMatchObject({
+      publicationStatus: 'pending',
+      lastRenderedFrame: null,
+    });
+
+    layer.cull(new Matrix(1, 0, 0, 1, -450, 0), 120, 100, 0);
+    layer.confirmRenderedFrame(2);
+    expect(layer.textRendererProbe('text-1')).toMatchObject({
+      publicationStatus: 'current',
+      lastRenderedFrame: 2,
+    });
+    await layer.destroy();
+  });
+
+  it('chunks large fallback-text lanes so offscreen groups leave Pixi traversal', async () => {
+    const layer = new AggregateLeafLayer();
+    const positions = Array.from({ length: 1_025 }, (_value, index) => index * 50);
+    layer.sync(createTextStoreAt(positions), { fullRebuildEpoch: 1 });
+
+    expect(layer.renderLaneProbe().text).toMatchObject({
+      role: 'text',
+      renderObjectCount: 1_025,
+    });
+    expect(layer.textContainer.children.length).toBeLessThan(20);
+    expect(layer.cull(new Matrix(), 120, 100, 0)).toBe(3);
+    expect(layer.textContainer.children.filter(({ visible }) => visible)).toHaveLength(1);
+    layer.confirmRenderedFrame(1);
+    expect(layer.textRendererProbe('text-0')).toMatchObject({
+      publicationStatus: 'current',
+    });
+    expect(layer.textRendererProbe('text-1024')).toMatchObject({
+      publicationStatus: 'pending',
+    });
+
+    expect(
+      layer.cull(new Matrix(1, 0, 0, 1, -positions[1024]!, 0), 120, 100, 0),
+    ).toBe(1);
+    layer.confirmRenderedFrame(2);
+    expect(layer.textRendererProbe('text-1024')).toMatchObject({
+      publicationStatus: 'current',
+      lastRenderedFrame: 2,
+    });
     await layer.destroy();
   });
 
@@ -1042,6 +1117,24 @@ function createImageStoreForSources(
     view: { x: 0, y: 0, scale: 1 },
     background: 0,
     renderOrder: () => Uint32Array.from(sources.map((_source, index) => index)),
+  };
+}
+
+function createTextStoreAt(xValues: readonly number[]): RenderStoreView {
+  const store = createImageStoreForSources(xValues.map((_value, index) => `label-${index}`));
+  return {
+    ...store,
+    kind: new Uint8Array(xValues.length).fill(RenderKind.Text),
+    x: Float64Array.from(xValues),
+    y: new Float64Array(xValues.length).fill(10),
+    width: new Float64Array(xValues.length).fill(40),
+    height: new Float64Array(xValues.length).fill(20),
+    text: xValues.map((_value, index) => `label-${index}`),
+    color: new Uint32Array(xValues.length).fill(0xffffffff),
+    fontSize: new Float64Array(xValues.length).fill(12),
+    fontFamily: xValues.map(() => 'Arial'),
+    fontWeight: new Uint16Array(xValues.length).fill(400),
+    ids: xValues.map((_value, index) => `text-${index}`),
   };
 }
 

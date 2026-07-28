@@ -465,6 +465,48 @@ export function assembleOwnedCoreV2Dataset(
   });
 }
 
+/**
+ * Replace one numeric bar height inside an already materialized top-level item.
+ * The caller has validated the transaction envelope; every untouched field is
+ * structurally shared from the deeply frozen Engine-owned root.
+ */
+export function replaceOwnedCoreV2BarHeightRoot(
+  root: CoreV2Element,
+  componentId: string,
+  height: number,
+): CoreV2ItemElement | null {
+  if (
+    !OWNED_CORE_V2_ROOTS.has(root) ||
+    root.type !== 'item' ||
+    !Number.isFinite(height) ||
+    height < 0
+  ) {
+    return null;
+  }
+  const componentIndex = root.components.findIndex(({ id }) => id === componentId);
+  const component = componentIndex < 0 ? undefined : root.components[componentIndex];
+  if (
+    component?.type !== 'bar' ||
+    typeof component.size !== 'object' ||
+    component.size === null ||
+    Array.isArray(component.size) ||
+    !('width' in component.size) ||
+    !('height' in component.size)
+  ) {
+    return null;
+  }
+  const size = Object.freeze({ ...component.size, height });
+  const replacement = Object.freeze({ ...component, size });
+  const components = [...root.components];
+  components[componentIndex] = replacement;
+  const next = Object.freeze({
+    ...root,
+    components: Object.freeze(components),
+  });
+  OWNED_CORE_V2_ROOTS.add(next);
+  return next;
+}
+
 /** Internal capability check for detached, deeply frozen materializer output. */
 export function isOwnedCoreV2Dataset(
   value: unknown,
@@ -1537,26 +1579,58 @@ function cloneJsonValue(value: unknown, path: string, ancestors = new Set<object
 }
 
 function semanticHash(value: unknown): string {
-  const canonical = stableSerialize(value);
-  let hash = 0xcbf29ce484222325n;
-  for (let index = 0; index < canonical.length; index += 1) {
-    hash ^= BigInt(canonical.charCodeAt(index));
-    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
-  }
-  return `fnv1a64:${hash.toString(16).padStart(16, '0')}`;
+  let high = 0xcbf29ce4;
+  let low = 0x84222325;
+  stableSerializeIntoHash(value, (fragment) => {
+    for (let index = 0; index < fragment.length; index += 1) {
+      low = (low ^ fragment.charCodeAt(index)) >>> 0;
+      const lowProduct = low * 0x1b3;
+      high = (
+        Math.imul(high, 0x1b3) +
+        Math.floor(lowProduct / 0x1_0000_0000) +
+        (low << 8)
+      ) >>> 0;
+      low = Math.imul(low, 0x1b3) >>> 0;
+    }
+  });
+  return `fnv1a64:${high.toString(16).padStart(8, '0')}${low
+    .toString(16)
+    .padStart(8, '0')}`;
 }
 
-function stableSerialize(value: unknown): string {
-  if (value === null) return 'null';
-  if (typeof value === 'string' || typeof value === 'boolean' || typeof value === 'number') {
-    return JSON.stringify(value);
+function stableSerializeIntoHash(
+  value: unknown,
+  write: (fragment: string) => void,
+): void {
+  if (value === null) {
+    write('null');
+    return;
   }
-  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+  if (typeof value === 'string' || typeof value === 'boolean' || typeof value === 'number') {
+    write(JSON.stringify(value));
+    return;
+  }
+  if (Array.isArray(value)) {
+    write('[');
+    for (let index = 0; index < value.length; index += 1) {
+      if (index > 0) write(',');
+      stableSerializeIntoHash(value[index], write);
+    }
+    write(']');
+    return;
+  }
   if (isRecord(value)) {
-    return `{${Object.keys(value)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`)
-      .join(',')}}`;
+    write('{');
+    const keys = Object.keys(value).sort();
+    for (let index = 0; index < keys.length; index += 1) {
+      const key = keys[index]!;
+      if (index > 0) write(',');
+      write(JSON.stringify(key));
+      write(':');
+      stableSerializeIntoHash(value[key], write);
+    }
+    write('}');
+    return;
   }
   invalidValue('$', 'normalized dataset contains a non-canonical value');
 }

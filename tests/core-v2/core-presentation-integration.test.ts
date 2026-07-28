@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { CoreView, SlotRange } from '../../src/core-v1/contracts';
 import type { RendererFlushResult, RenderStoreView } from '../../src/core-v1/renderer/types';
@@ -22,7 +22,9 @@ import type {
   PixiCoreV2RendererDebug,
   RootInteractionHandlers,
 } from '../../src/core-v2/renderers/types';
+import { materializeCoreV2Dataset } from '../../src/core-v2/semantic/dataset';
 import { applyCoreV2Affine } from '../../src/core-v2/semantic/geometry';
+import { planCoreV2BarHeightBatch } from '../../src/core-v2/semantic/transaction';
 
 describe('Core v2 bar presentation integration', () => {
   const allocated: CoreV2[] = [];
@@ -72,6 +74,105 @@ describe('Core v2 bar presentation integration', () => {
         active: false,
         controller: { activeCount: 0, totalSettlementCount: 1 },
       });
+  });
+
+  it('renders a same-clock viewport frame without rebuilding unchanged presentation geometry', () => {
+    const { core, renderer } = createTestCore(allocated);
+    core.load(scene(10));
+    core.publishFrame(0);
+    core.reconcile(scene(40));
+    const projectionCallCount = renderer.projectionCalls.length;
+    const before = core.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' });
+
+    core.publishFrame(0);
+
+    expect(core.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' })).toEqual(before);
+    expect(renderer.projectionCalls).toHaveLength(projectionCallCount);
+    expect(core.activeAnimations).toBe(1);
+  });
+
+  it('does not rebuild dense entity snapshots for steady presentation frames after a view-only commit', () => {
+    const { core } = createTestCore(allocated);
+    core.load(scene(10));
+    core.publishFrame(0);
+    core.reconcile(scene(40));
+    const internals = core as unknown as {
+      readonly scene: { get: (target: unknown) => unknown };
+    };
+    const getSpy = vi.spyOn(internals.scene, 'get');
+
+    core.setView({ x: 12, y: 8, scale: 1.25, rotation: 0 });
+    getSpy.mockClear();
+    core.publishFrame(100);
+
+    expect(getSpy).not.toHaveBeenCalled();
+    expect(core.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' }))
+      .toMatchObject({ presentationHeight: 36.25, active: true });
+  });
+
+  it('leaves pointer-gesture frame ownership to the host when auto-render is disabled', () => {
+    const { core } = createTestCore(allocated);
+    const gesture = core as unknown as {
+      onPointerDown(x: number, y: number, pointerId: number, button: number): void;
+      onPointerMove(x: number, y: number, pointerId: number): void;
+      onPointerUp(pointerId: number): void;
+    };
+
+    gesture.onPointerDown(20, 30, 7, 1);
+    expect(core.debugSnapshot()).toMatchObject({
+      activeGestureCount: 1,
+      scheduler: { continuous: false, pending: false, frameCount: 0 },
+    });
+
+    gesture.onPointerMove(32, 38, 7);
+    expect(core.view).toMatchObject({ x: 12, y: 8 });
+    expect(core.debugSnapshot()).toMatchObject({
+      activeGestureCount: 1,
+      renderer: { view: { x: 0, y: 0 } },
+      scheduler: { continuous: false, pending: false, frameCount: 0 },
+    });
+
+    gesture.onPointerUp(7);
+    expect(core.debugSnapshot()).toMatchObject({
+      activeGestureCount: 0,
+      scheduler: { continuous: false, pending: false, frameCount: 0 },
+    });
+  });
+
+  it('matches the canonical parser for transformed direct bar-height projections', () => {
+    for (const placement of [
+      'top',
+      'bottom',
+      'center',
+      'left-bottom',
+      'right',
+    ] as const) {
+      const initial = materializeCoreV2Dataset(transformedBarScene(12, placement));
+      const plan = planCoreV2BarHeightBatch(initial, {
+        targets: [{ ownerId: 'item-a', componentId: 'level' }],
+        heights: new Float64Array([43]),
+      });
+      expect(plan.status).toBe('planned');
+      if (plan.status !== 'planned') throw new Error('Expected direct bar plan');
+      const update = plan.directBarHeightUpdates?.[0];
+      expect(update).toEqual({ ownerId: 'item-a', componentId: 'level', height: 43 });
+
+      const { core: direct } = createTestCore(allocated);
+      const { core: canonical } = createTestCore(allocated);
+      direct.load(initial.dataset);
+      canonical.load(initial.dataset);
+
+      expect(direct.reconcile(plan.candidate.dataset, {
+        animateBarChanges: false,
+        directBarHeightUpdates: update === undefined ? [] : [update],
+      }).status).toBe('committed');
+      expect(canonical.reconcile(plan.candidate.dataset, {
+        animateBarChanges: false,
+      }).status).toBe('committed');
+
+      expect(roundGeometry(direct.projection)).toEqual(roundGeometry(canonical.projection));
+      expect(roundGeometry(direct.snapshot())).toEqual(roundGeometry(canonical.snapshot()));
+    }
   });
 
   it('rejects backward publication without poisoning a later atomic reconcile', () => {
@@ -455,6 +556,27 @@ function scene(height: number, animation = true): readonly unknown[] {
   }];
 }
 
+function transformedBarScene(
+  height: number,
+  placement: 'top' | 'bottom' | 'center' | 'left-bottom' | 'right',
+): readonly unknown[] {
+  return [{
+    type: 'item',
+    id: 'item-a',
+    size: { width: 100, height: 80 },
+    attrs: { x: 60, y: 30, angle: 37, scaleX: -1, scaleY: 1.25 },
+    components: [{
+      type: 'bar',
+      id: 'level',
+      source: { type: 'rect', fill: '#336699' },
+      size: { width: 60, height },
+      placement,
+      animation: true,
+      animationDuration: 200,
+    }],
+  }];
+}
+
 function panelScene(): readonly unknown[] {
   return [{
     type: 'item',
@@ -525,4 +647,17 @@ function bottomLeft(index: CoreV2ProjectionIndex, entityId: string): readonly [n
   const projection = index.byEntityId[entityId];
   if (projection === undefined) throw new Error(`missing ${entityId}`);
   return applyCoreV2Affine(projection.affine, [0, projection.localBounds[3]]);
+}
+
+function roundGeometry(value: unknown): unknown {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? Math.round(value * 1e12) / 1e12 : value;
+  }
+  if (Array.isArray(value)) return value.map(roundGeometry);
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, roundGeometry(entry)]),
+    );
+  }
+  return value;
 }

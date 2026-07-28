@@ -79,6 +79,7 @@ describe('Core v2 approved dataset foundation', () => {
     expect(bar).toMatchObject({ type: 'bar', placement: 'bottom', animation: true, animationDuration: 200 });
     expect(text).toMatchObject({ type: 'text', split: 0 });
     expect(first.semanticHash).toBe(second.semanticHash);
+    expect(first.semanticHash).toBe(referenceSemanticHash(first.dataset));
     expect(JSON.stringify(input)).toBe(before);
   });
 
@@ -126,3 +127,34 @@ describe('Core v2 approved dataset foundation', () => {
     expect(result.dataset[0]?.fill).toBe('primary.default');
   });
 });
+
+function referenceSemanticHash(value: unknown): string {
+  let hash = 0xcbf29ce484222325n;
+  for (const character of stableSerialize(value)) {
+    hash ^= BigInt(character.charCodeAt(0));
+    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
+  }
+  return `fnv1a64:${hash.toString(16).padStart(16, '0')}`;
+}
+
+function stableSerialize(value: unknown): string {
+  if (value === null) return 'null';
+  if (
+    typeof value === 'string' ||
+    typeof value === 'boolean' ||
+    typeof value === 'number'
+  ) {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableSerialize(entry)).join(',')}]`;
+  }
+  if (typeof value === 'object') {
+    const record = value as Readonly<Record<string, unknown>>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableSerialize(record[key])}`)
+      .join(',')}}`;
+  }
+  throw new TypeError('reference hash only accepts canonical JSON');
+}

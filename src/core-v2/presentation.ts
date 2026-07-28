@@ -506,7 +506,12 @@ export class CoreV2PresentationController {
     mutableUpdates: CoreV2PresentationUpdate[],
     mutableSettledIds: string[],
   ): CoreV2PresentationFrame {
-    if (mutableUpdates.length > 1) mutableUpdates.sort(compareUpdates);
+    if (
+      mutableUpdates.length > 1 &&
+      !updatesAreOrdered(mutableUpdates)
+    ) {
+      mutableUpdates.sort(compareUpdates);
+    }
     if (mutableSettledIds.length > 1) mutableSettledIds.sort();
     const updates = mutableUpdates.length === 0
       ? EMPTY_UPDATES
@@ -639,6 +644,21 @@ function dirtyEntityIds(updates: readonly CoreV2PresentationUpdate[]): readonly 
 
 function compareUpdates(left: CoreV2PresentationUpdate, right: CoreV2PresentationUpdate): number {
   return left.slot - right.slot || left.entityId.localeCompare(right.entityId);
+}
+
+function updatesAreOrdered(updates: readonly CoreV2PresentationUpdate[]): boolean {
+  for (let index = 1; index < updates.length; index += 1) {
+    const previous = updates[index - 1];
+    const current = updates[index];
+    if (
+      previous !== undefined &&
+      current !== undefined &&
+      compareUpdates(previous, current) > 0
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function growUint32(values: Uint32Array, capacity: number): Uint32Array {

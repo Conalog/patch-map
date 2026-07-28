@@ -670,15 +670,24 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       effectiveStore,
       storeReplaced || ranges === undefined ? undefined : ranges,
     );
-    const aggregate = !storeReplaced && ranges?.length === 0
+    let aggregateViewportWork = false;
+    if (this.aggregate instanceof AggregateMeshLayer) {
+      this.aggregate.cull(this.worldMatrix, this.widthValue, this.heightValue);
+      aggregateViewportWork = this.aggregate.hasVisibleDeferredBarUpdates();
+    }
+    const aggregate = !storeReplaced && ranges?.length === 0 && !aggregateViewportWork
       ? idleAggregateResult(this.lastAggregateResult)
       : this.syncAggregate(effectiveStore, ranges);
     this.lastAggregateResult = aggregate;
+    if (this.aggregate instanceof AggregateMeshLayer) {
+      this.aggregate.cull(this.worldMatrix, this.widthValue, this.heightValue);
+    }
     const leaves = this.leaves.sync(effectiveStore, {
       fullRebuildEpoch: this.storeEpoch,
       projectionContext: this.projectionContext(),
       ...(ranges === undefined ? {} : { changedRanges: ranges }),
     });
+    this.leaves.cull(this.worldMatrix, this.widthValue, this.heightValue);
     this.textProjectionSynchronizedRevision = this.projectionRevision;
     this.syncSelectionOverlay(
       effectiveStore,

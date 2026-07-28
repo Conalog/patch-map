@@ -35,6 +35,7 @@ import {
   resolveCoreV2SlotQuad,
   type CoreV2EntityPaintProbe,
   type CoreV2ProjectionRenderContext,
+  type CoreV2QuadVertices,
   type CoreV2RenderLaneProbe,
   type CoreV2ResolvedRenderQuad,
   type CoreV2TextAttachedSignatures,
@@ -43,6 +44,7 @@ import {
 } from './types';
 
 interface TextEntry {
+  readonly slot: number;
   readonly object: BitmapText | Text;
   readonly route: CoreV2TextRenderRoute;
   readonly entityId: string;
@@ -53,6 +55,14 @@ interface TextEntry {
   lastRenderedSignatures: CoreV2TextAttachedSignatures | null;
   lastRenderedFrame: number | null;
   lastRenderedVisibleGraphemeCount: number;
+  vertices: CoreV2QuadVertices;
+}
+
+interface TextChunk {
+  readonly key: number;
+  readonly container: Container;
+  readonly slots: Set<number>;
+  vertices: CoreV2QuadVertices;
 }
 
 type LeafImageLane = 'background-assets' | 'content-assets';
@@ -64,6 +74,7 @@ interface ImageEntry {
   readonly bindingGeneration: number;
   readonly role: Exclude<LeafAssetRenderRole, 'none'>;
   readonly lane: LeafImageLane;
+  vertices: CoreV2QuadVertices;
 }
 
 export type LeafAssetSourceKind = 'alias' | 'url' | 'data-uri' | 'descriptor';
@@ -182,6 +193,14 @@ export interface LeafLayerDebug {
 
 const PLACEHOLDER_TINT = 0xc7ceda;
 const IMAGE_CHILD_APPEND_BATCH_SIZE = 1_024;
+const TEXT_CHUNKING_CAPACITY_THRESHOLD = 1_024;
+const TEXT_CHUNK_SLOT_SPAN = 64;
+const EMPTY_QUAD_VERTICES: CoreV2QuadVertices = Object.freeze([
+  0, 0,
+  0, 0,
+  0, 0,
+  0, 0,
+]);
 
 export class AggregateLeafLayer {
   public readonly container = new Container({ label: 'core-v2:text-and-assets' });
@@ -204,6 +223,10 @@ export class AggregateLeafLayer {
   private readonly textProbesByEntityId = new Map<string, CoreV2TextRendererProbe>();
   private readonly textLastRenderedGraphemeCountByEntityId = new Map<string, number>();
   private readonly pendingTextEntries = new Set<TextEntry>();
+  private readonly textChunks = new Map<number, TextChunk>();
+  private readonly dirtyTextChunkKeys = new Set<number>();
+  private textChunkOrderDirty = false;
+  private textChunking = false;
   private readonly images = new Map<number, ImageEntry>();
   private readonly imageBindingBySlot = new Map<number, string>();
   private readonly imageSlotsByBinding = new Map<string, Set<number>>();
@@ -360,7 +383,7 @@ export class AggregateLeafLayer {
       text: freezeLaneProbe(
         'text',
         this.textContainer.label,
-        this.textContainer.children.length,
+        this.texts.size,
       ),
     });
   }
@@ -394,12 +417,13 @@ export class AggregateLeafLayer {
     }
     this.confirmedTextFrame = frame;
     for (const entry of this.pendingTextEntries) {
+      if (!entry.object.visible || !this.textEntryChunkVisible(entry)) continue;
       entry.lastRenderedSignatures = entry.attachedSignatures;
       entry.lastRenderedFrame = frame;
       entry.lastRenderedVisibleGraphemeCount = entry.attachedVisibleGraphemeCount;
       this.publishTextProbe(entry);
+      this.pendingTextEntries.delete(entry);
     }
-    this.pendingTextEntries.clear();
     if (this.framePendingAssetReleases.length > 0) {
       this.readyAssetReleases.push(...this.framePendingAssetReleases.splice(0));
     }
@@ -426,6 +450,7 @@ export class AggregateLeafLayer {
     if (fullRebuild) {
       this.clearDisplayObjects();
       this.storeEpoch = epoch;
+      this.textChunking = store.capacity >= TEXT_CHUNKING_CAPACITY_THRESHOLD;
     }
 
     if (fullRebuild || !options.changedRanges) {
@@ -450,14 +475,91 @@ export class AggregateLeafLayer {
         }
       }
     }
+    this.rebuildDirtyTextChunks();
+    this.sortTextChunks();
     this.sortImageChildren();
     this.dirtyAssetSlots.clear();
     this.backgroundAssetContainer.label =
       `PATCH MAP Core v2 / background assets (${this.backgroundAssetContainer.children.length})`;
     this.contentAssetContainer.label =
       `PATCH MAP Core v2 / content assets (${this.contentAssetContainer.children.length})`;
-    this.textContainer.label = `PATCH MAP Core v2 / text (${this.textContainer.children.length})`;
+    this.textContainer.label = `PATCH MAP Core v2 / text (${this.texts.size})`;
     return this.debugSnapshot();
+  }
+
+  /**
+   * Cull object-backed leaves against the screen without asking Pixi to
+   * calculate bounds for every Text or Sprite. Aggregate geometry remains
+   * batched and is intentionally outside this pass.
+   */
+  public cull(
+    worldMatrix: Matrix,
+    viewportWidth: number,
+    viewportHeight: number,
+    padding = 32,
+  ): number {
+    this.assertAlive();
+    if (
+      !Number.isFinite(viewportWidth) ||
+      viewportWidth <= 0 ||
+      !Number.isFinite(viewportHeight) ||
+      viewportHeight <= 0 ||
+      !Number.isFinite(padding) ||
+      padding < 0
+    ) {
+      throw new TypeError('leaf culling viewport and padding must be finite and positive');
+    }
+    let visibleCount = 0;
+    if (this.textChunking) {
+      for (const chunk of this.textChunks.values()) {
+        const chunkVisible = quadIntersectsViewport(
+          chunk.vertices,
+          worldMatrix,
+          viewportWidth,
+          viewportHeight,
+          padding,
+        );
+        chunk.container.visible = chunkVisible;
+        if (!chunkVisible) continue;
+        for (const slot of chunk.slots) {
+          const entry = this.texts.get(slot);
+          if (entry === undefined) continue;
+          const visible = quadIntersectsViewport(
+            entry.vertices,
+            worldMatrix,
+            viewportWidth,
+            viewportHeight,
+            padding,
+          );
+          entry.object.visible = visible;
+          if (visible) visibleCount += 1;
+        }
+      }
+    } else {
+      for (const entry of this.texts.values()) {
+        const visible = quadIntersectsViewport(
+          entry.vertices,
+          worldMatrix,
+          viewportWidth,
+          viewportHeight,
+          padding,
+        );
+        entry.object.visible = visible;
+        if (visible) visibleCount += 1;
+      }
+    }
+    for (const entry of this.images.values()) {
+      const visible = quadIntersectsViewport(
+        entry.vertices,
+        worldMatrix,
+        viewportWidth,
+        viewportHeight,
+        padding,
+      );
+      entry.object.visible = visible;
+      if (visible) visibleCount += 1;
+    }
+    return visibleCount;
   }
 
   public debugSnapshot(): LeafLayerDebug {
@@ -734,6 +836,7 @@ export class AggregateLeafLayer {
       object.eventMode = 'none';
       object.label = `core-v2:${route}`;
       entry = {
+        slot,
         object,
         route,
         entityId,
@@ -744,9 +847,10 @@ export class AggregateLeafLayer {
         lastRenderedSignatures: previousPublication?.signatures ?? null,
         lastRenderedFrame: previousPublication?.frame ?? null,
         lastRenderedVisibleGraphemeCount: previousPublication?.visibleGraphemeCount ?? 0,
+        vertices: EMPTY_QUAD_VERTICES,
       };
       this.texts.set(slot, entry);
-      this.textContainer.addChild(object);
+      this.textParentForSlot(slot).addChild(object);
     } else if (entry.object.text !== value) {
       entry.object.text = value;
     }
@@ -766,11 +870,14 @@ export class AggregateLeafLayer {
     }
 
     const object = entry.object;
+    const quad = resolveCoreV2SlotQuad(store, slot, projectionContext);
     applyLeafProjection(
       object,
-      resolveCoreV2SlotQuad(store, slot, projectionContext),
+      quad,
       this.transformMatrix,
     );
+    entry.vertices = quad.vertices;
+    if (this.textChunking) this.dirtyTextChunkKeys.add(textChunkKey(slot));
     object.alpha = alpha;
     object.tint = packedRgb(packedColor);
     object.visible = true;
@@ -855,17 +962,27 @@ export class AggregateLeafLayer {
       const object = new Sprite({ texture });
       object.eventMode = 'none';
       object.label = `${lane}:${role === 'image' ? 'image' : 'placeholder'}`;
-      entry = { object, entityId, bindingKey, bindingGeneration, role, lane };
+      entry = {
+        object,
+        entityId,
+        bindingKey,
+        bindingGeneration,
+        role,
+        lane,
+        vertices: EMPTY_QUAD_VERTICES,
+      };
       this.addImageEntry(slot, entry);
     }
     const sprite = entry.object;
+    const quad = resolveCoreV2SlotQuad(store, slot, projectionContext);
     applyLeafProjection(
       sprite,
-      resolveCoreV2SlotQuad(store, slot, projectionContext),
+      quad,
       this.transformMatrix,
       texture.width,
       texture.height,
     );
+    entry.vertices = quad.vertices;
     sprite.tint = role === 'image'
       ? packedRgb(store.tint[slot] ?? 0xffffffff)
       : PLACEHOLDER_TINT;
@@ -899,7 +1016,93 @@ export class AggregateLeafLayer {
     this.textProbesByEntityId.delete(entry.entityId);
     this.textLastRenderedGraphemeCountByEntityId.delete(entry.entityId);
     this.paintProbesByEntityId.delete(entry.entityId);
+    if (this.textChunking) {
+      const key = textChunkKey(slot);
+      this.textChunks.get(key)?.slots.delete(slot);
+      this.dirtyTextChunkKeys.add(key);
+    }
     entry.object.destroy();
+  }
+
+  private textParentForSlot(slot: number): Container {
+    if (!this.textChunking) return this.textContainer;
+    const key = textChunkKey(slot);
+    const existing = this.textChunks.get(key);
+    if (existing !== undefined) {
+      existing.slots.add(slot);
+      this.dirtyTextChunkKeys.add(key);
+      return existing.container;
+    }
+    const container = new Container({
+      label: `PATCH MAP Core v2 / text chunk ${key}`,
+      sortableChildren: false,
+    });
+    container.eventMode = 'none';
+    container.interactiveChildren = false;
+    const chunk: TextChunk = {
+      key,
+      container,
+      slots: new Set([slot]),
+      vertices: EMPTY_QUAD_VERTICES,
+    };
+    this.textChunks.set(key, chunk);
+    this.dirtyTextChunkKeys.add(key);
+    this.textChunkOrderDirty = true;
+    this.textContainer.addChild(container);
+    return container;
+  }
+
+  private rebuildDirtyTextChunks(): void {
+    if (!this.textChunking || this.dirtyTextChunkKeys.size === 0) return;
+    for (const key of this.dirtyTextChunkKeys) {
+      const chunk = this.textChunks.get(key);
+      if (chunk === undefined) continue;
+      let minX = Number.POSITIVE_INFINITY;
+      let minY = Number.POSITIVE_INFINITY;
+      let maxX = Number.NEGATIVE_INFINITY;
+      let maxY = Number.NEGATIVE_INFINITY;
+      for (const slot of chunk.slots) {
+        const vertices = this.texts.get(slot)?.vertices;
+        if (vertices === undefined) continue;
+        for (let index = 0; index < vertices.length; index += 2) {
+          const x = vertices[index];
+          const y = vertices[index + 1];
+          if (x === undefined || y === undefined) continue;
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+      }
+      if (!Number.isFinite(minX)) {
+        chunk.container.destroy();
+        this.textChunks.delete(key);
+        this.textChunkOrderDirty = true;
+        continue;
+      }
+      chunk.vertices = Object.freeze([
+        minX, minY,
+        maxX, minY,
+        maxX, maxY,
+        minX, maxY,
+      ] as const);
+    }
+    this.dirtyTextChunkKeys.clear();
+  }
+
+  private sortTextChunks(): void {
+    if (!this.textChunking || !this.textChunkOrderDirty) return;
+    const containers = [...this.textChunks.values()]
+      .sort((left, right) => left.key - right.key)
+      .map(({ container }) => container);
+    this.textContainer.removeChildren();
+    if (containers.length > 0) this.textContainer.addChild(...containers);
+    this.textChunkOrderDirty = false;
+  }
+
+  private textEntryChunkVisible(entry: TextEntry): boolean {
+    return !this.textChunking ||
+      this.textChunks.get(textChunkKey(entry.slot))?.container.visible === true;
   }
 
   private observeImageSlot(
@@ -1120,6 +1323,11 @@ export class AggregateLeafLayer {
     this.textProbesByEntityId.clear();
     this.textLastRenderedGraphemeCountByEntityId.clear();
     this.pendingTextEntries.clear();
+    for (const chunk of this.textChunks.values()) chunk.container.destroy();
+    this.textChunks.clear();
+    this.dirtyTextChunkKeys.clear();
+    this.textChunkOrderDirty = false;
+    this.textChunking = false;
     this.images.clear();
     this.imageBindingBySlot.clear();
     this.imageSlotsByBinding.clear();
@@ -1143,6 +1351,10 @@ export class AggregateLeafLayer {
   }
 }
 
+function textChunkKey(slot: number): number {
+  return Math.floor(slot / TEXT_CHUNK_SLOT_SPAN);
+}
+
 function imageLane(
   entityId: string,
   projectionContext?: CoreV2ProjectionRenderContext,
@@ -1152,6 +1364,33 @@ function imageLane(
   if (component.renderRole === 'background-asset') return 'background-assets';
   if (component.renderRole === 'content-asset') return 'content-assets';
   return null;
+}
+
+function quadIntersectsViewport(
+  vertices: CoreV2QuadVertices,
+  matrix: Matrix,
+  width: number,
+  height: number,
+  padding: number,
+): boolean {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (let index = 0; index < vertices.length; index += 2) {
+    const x = vertices[index]!;
+    const y = vertices[index + 1]!;
+    const screenX = matrix.a * x + matrix.c * y + matrix.tx;
+    const screenY = matrix.b * x + matrix.d * y + matrix.ty;
+    minX = Math.min(minX, screenX);
+    minY = Math.min(minY, screenY);
+    maxX = Math.max(maxX, screenX);
+    maxY = Math.max(maxY, screenY);
+  }
+  return maxX >= -padding &&
+    minX <= width + padding &&
+    maxY >= -padding &&
+    minY <= height + padding;
 }
 
 function imageLaneContainer(

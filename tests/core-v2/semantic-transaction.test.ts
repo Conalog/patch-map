@@ -9,6 +9,7 @@ import {
 } from '../../src/core-v2/semantic/dataset';
 import {
   CORE_V2_MUTATION_TRANSACTION_REVISION,
+  planCoreV2BarHeightBatch,
   planCoreV2BulkPatch,
   planCoreV2MutationTransaction,
 } from '../../src/core-v2/semantic/transaction';
@@ -20,6 +21,95 @@ import {
 } from '../../src/core-v2/semantic/geometry';
 
 describe('Core v2 staged semantic transaction planner', () => {
+  it('plans a compact typed-array bar batch without mutating caller input', () => {
+    const current = materializeCoreV2Dataset([
+      {
+        type: 'item',
+        id: 'item-a',
+        size: { width: 100, height: 80 },
+        components: [barComponent('bar-a', '#2563ebff')],
+      },
+      {
+        type: 'item',
+        id: 'item-b',
+        size: { width: 100, height: 80 },
+        components: [barComponent('bar-b', '#ef4444ff')],
+      },
+    ]);
+    const targets = Object.freeze([
+      Object.freeze({ ownerId: 'item-a', componentId: 'bar-a' }),
+      Object.freeze({ ownerId: 'item-b', componentId: 'bar-b' }),
+    ]);
+    const heights = new Float64Array([42, 10]);
+    const before = JSON.stringify(current);
+
+    const result = planCoreV2BarHeightBatch(current, {
+      targets,
+      heights,
+      actionId: 'compact-bars',
+    });
+
+    expect(result.status).toBe('planned');
+    if (result.status !== 'planned') throw new Error('Expected planned bar batch');
+    expect(result).toMatchObject({
+      changed: true,
+      actionId: 'compact-bars',
+      operations: [],
+      applied: [{ kind: 'component', ownerId: 'item-a', id: 'bar-a' }],
+      unchanged: [{ kind: 'component', ownerId: 'item-b', id: 'bar-b' }],
+      summary: { appliedCount: 1, missingCount: 0, unchangedCount: 1 },
+      directBarHeightUpdates: [
+        { ownerId: 'item-a', componentId: 'bar-a', height: 42 },
+      ],
+    });
+    expect(requireComponent(result.candidate, 'item-a', 'bar-a'))
+      .toMatchObject({ size: { width: 60, height: 42 } });
+    expect(JSON.stringify(current)).toBe(before);
+    expect(targets).toEqual([
+      { ownerId: 'item-a', componentId: 'bar-a' },
+      { ownerId: 'item-b', componentId: 'bar-b' },
+    ]);
+    expect([...heights]).toEqual([42, 10]);
+  });
+
+  it('rejects a late missing or duplicate compact bar target atomically', () => {
+    const current = materializeCoreV2Dataset([{
+      type: 'item',
+      id: 'item-a',
+      size: { width: 100, height: 80 },
+      components: [barComponent('bar-a', '#2563ebff')],
+    }]);
+
+    for (const request of [
+      {
+        targets: [
+          { ownerId: 'item-a', componentId: 'bar-a' },
+          { ownerId: 'missing', componentId: 'bar' },
+        ],
+        heights: new Float64Array([42, 18]),
+      },
+      {
+        targets: [
+          { ownerId: 'item-a', componentId: 'bar-a' },
+          { ownerId: 'item-a', componentId: 'bar-a' },
+        ],
+        heights: new Float64Array([42, 18]),
+      },
+    ]) {
+      const result = planCoreV2BarHeightBatch(current, request);
+      expect(result).toMatchObject({
+        status: 'rejected',
+        changed: false,
+        candidate: null,
+      });
+      expect(current.semanticHash).toBe(
+        materializeCoreV2Dataset(current.dataset).semanticHash,
+      );
+      expect(requireComponent(current, 'item-a', 'bar-a'))
+        .toMatchObject({ size: { height: 10 } });
+    }
+  });
+
   it('runs ordered nested merges against one detached staged candidate', () => {
     const current = makeScene();
     const before = JSON.stringify(current);

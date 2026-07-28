@@ -5,6 +5,7 @@ import {
   Mesh,
   MeshGeometry,
   Texture,
+  type Matrix,
 } from 'pixi.js';
 
 import type { CoreView, SlotRange } from '../../core-v1/contracts';
@@ -180,6 +181,21 @@ interface ChunkRecord {
   visibleRects: number;
   visibleBars: number;
   visibleRelations: number;
+  geometryBounds: AggregateViewportBounds | null;
+}
+
+interface AggregateViewportBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+interface AggregateViewportCull {
+  readonly matrix: Matrix;
+  readonly width: number;
+  readonly height: number;
+  readonly padding: number;
 }
 
 interface AggregateChunkLaneGeometry {
@@ -1319,7 +1335,89 @@ function createChunkRecord(): ChunkRecord {
     visibleRects: 0,
     visibleBars: 0,
     visibleRelations: 0,
+    geometryBounds: null,
   };
+}
+
+function aggregateLaneGeometryBounds(
+  geometry: AggregateChunkLaneGeometry,
+): AggregateViewportBounds | null {
+  let bounds: AggregateViewportBounds | null = null;
+  for (const group of [
+    ...geometry.backgroundGroups,
+    ...geometry.rectGroups,
+    ...geometry.barGroups,
+  ]) {
+    bounds = includePositionBounds(bounds, group.positions);
+  }
+  for (const background of geometry.styledBackgrounds) {
+    bounds = includePositionBounds(bounds, background.quad.vertices);
+  }
+  return bounds;
+}
+
+function includePositionBounds(
+  bounds: AggregateViewportBounds | null,
+  positions: ArrayLike<number>,
+): AggregateViewportBounds | null {
+  let next = bounds;
+  for (let index = 0; index + 1 < positions.length; index += 2) {
+    const x = positions[index];
+    const y = positions[index + 1];
+    if (x === undefined || y === undefined || !Number.isFinite(x) || !Number.isFinite(y)) {
+      continue;
+    }
+    next ??= { minX: x, minY: y, maxX: x, maxY: y };
+    next.minX = Math.min(next.minX, x);
+    next.minY = Math.min(next.minY, y);
+    next.maxX = Math.max(next.maxX, x);
+    next.maxY = Math.max(next.maxY, y);
+  }
+  return next;
+}
+
+function chunkIntersectsViewport(
+  chunk: ChunkRecord,
+  viewport: AggregateViewportCull,
+): boolean {
+  const bounds = chunk.geometryBounds;
+  if (bounds === null) return true;
+  const { matrix, width, height, padding } = viewport;
+  const corners = [
+    bounds.minX, bounds.minY,
+    bounds.maxX, bounds.minY,
+    bounds.maxX, bounds.maxY,
+    bounds.minX, bounds.maxY,
+  ];
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (let index = 0; index < corners.length; index += 2) {
+    const x = corners[index]!;
+    const y = corners[index + 1]!;
+    const screenX = matrix.a * x + matrix.c * y + matrix.tx;
+    const screenY = matrix.b * x + matrix.d * y + matrix.ty;
+    minX = Math.min(minX, screenX);
+    minY = Math.min(minY, screenY);
+    maxX = Math.max(maxX, screenX);
+    maxY = Math.max(maxY, screenY);
+  }
+  return maxX >= -padding &&
+    minX <= width + padding &&
+    maxY >= -padding &&
+    minY <= height + padding;
+}
+
+function setChunkGeometryVisible(chunk: ChunkRecord, visible: boolean): void {
+  for (const records of [
+    chunk.backgroundMeshes,
+    chunk.rectMeshes,
+    chunk.barMeshes,
+  ]) {
+    for (const { mesh } of records.values()) mesh.visible = visible;
+  }
+  if (chunk.backgroundGraphics !== null) chunk.backgroundGraphics.visible = visible;
 }
 
 function freezeEntityPaintProbe(
@@ -1395,10 +1493,12 @@ export class AggregateMeshLayer {
   #fullRebuildEpoch: number | undefined;
   #previousAlive = new Uint8Array(0);
   #previousKind = new Uint8Array(0);
+  readonly #deferredBarChunks = new Set<number>();
   #destroyed = false;
   #debug: AggregateMeshLayerDebug;
   #view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
   #projectionContext: CoreV2ProjectionRenderContext | undefined;
+  #viewportCull: AggregateViewportCull | null = null;
   readonly #trackQuadScratch = createCoreV2ResolvedRenderQuadScratch();
   readonly #fillQuadScratch = createCoreV2ResolvedRenderQuadScratch();
 
@@ -1500,6 +1600,55 @@ export class AggregateMeshLayer {
     return true;
   }
 
+  /**
+   * Cull fixed geometry chunks from their retained scene-space bounds. Relation
+   * meshes stay visible because their endpoints may span multiple chunks.
+   */
+  public cull(
+    worldMatrix: Matrix,
+    viewportWidth: number,
+    viewportHeight: number,
+    padding = 48,
+  ): number {
+    this.#assertAlive();
+    if (
+      !Number.isFinite(viewportWidth) ||
+      viewportWidth <= 0 ||
+      !Number.isFinite(viewportHeight) ||
+      viewportHeight <= 0 ||
+      !Number.isFinite(padding) ||
+      padding < 0
+    ) {
+      throw new TypeError('aggregate culling viewport and padding must be finite and positive');
+    }
+    const viewport: AggregateViewportCull = {
+      matrix: worldMatrix.clone(),
+      width: viewportWidth,
+      height: viewportHeight,
+      padding,
+    };
+    this.#viewportCull = viewport;
+    let visibleChunks = 0;
+    for (const chunk of this.#chunks.values()) {
+      const visible = chunkIntersectsViewport(chunk, viewport);
+      setChunkGeometryVisible(chunk, visible);
+      if (visible) visibleChunks += 1;
+    }
+    return visibleChunks;
+  }
+
+  /** True when a previously offscreen bar chunk has entered the viewport. */
+  public hasVisibleDeferredBarUpdates(): boolean {
+    if (this.#viewportCull === null) return false;
+    for (const chunkIndex of this.#deferredBarChunks) {
+      const chunk = this.#chunks.get(chunkIndex);
+      if (chunk !== undefined && chunkIntersectsViewport(chunk, this.#viewportCull)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public sync(
     store: RenderStoreView,
     options: AggregateMeshSyncOptions = {},
@@ -1517,9 +1666,9 @@ export class AggregateMeshLayer {
       epochChanged ||
       options.changedRanges === undefined;
     const maximumChunk = Math.ceil(Math.max(0, store.capacity) / this.chunkSize);
-    const dirtyChunks = fullRebuild
+    const requestedDirtyChunks = new Set(fullRebuild
       ? Array.from({ length: maximumChunk }, (_, chunk) => chunk)
-      : [...dirtyChunkIndices(store.capacity, this.chunkSize, options.changedRanges ?? [])];
+      : dirtyChunkIndices(store.capacity, this.chunkSize, options.changedRanges ?? []));
     const barOnlyChunks = fullRebuild
       ? new Map<number, readonly number[]>()
       : barOnlyDirtyChunkSlots(
@@ -1531,19 +1680,48 @@ export class AggregateMeshLayer {
       );
 
     if (fullRebuild) {
+      this.#deferredBarChunks.clear();
       for (const chunk of this.#chunks.keys()) {
         if (chunk >= maximumChunk) this.#destroyChunk(chunk);
+      }
+    }
+    const dirtyChunks = new Set(requestedDirtyChunks);
+    if (!fullRebuild && this.#viewportCull !== null) {
+      for (const chunkIndex of this.#deferredBarChunks) {
+        const chunk = this.#chunks.get(chunkIndex);
+        if (chunk !== undefined && chunkIntersectsViewport(chunk, this.#viewportCull)) {
+          dirtyChunks.add(chunkIndex);
+        }
       }
     }
 
     let uploadedChunks = 0;
     let uploadedBytes = 0;
     let geometrySlotsVisited = 0;
-    for (const chunk of dirtyChunks) {
-      const changedBarSlots = barOnlyChunks.get(chunk);
+    for (const chunkIndex of [...dirtyChunks].sort((left, right) => left - right)) {
+      const chunk = this.#chunks.get(chunkIndex);
+      const requested = requestedDirtyChunks.has(chunkIndex);
+      let changedBarSlots = requested
+        ? barOnlyChunks.get(chunkIndex)
+        : chunk?.barSlots;
+      if (
+        changedBarSlots !== undefined &&
+        chunk !== undefined &&
+        this.#viewportCull !== null
+      ) {
+        this.#expandBarChunkBounds(store, chunk, changedBarSlots);
+        if (!chunkIntersectsViewport(chunk, this.#viewportCull)) {
+          this.#deferredBarChunks.add(chunkIndex);
+          continue;
+        }
+        if (this.#deferredBarChunks.has(chunkIndex)) {
+          changedBarSlots = chunk.barSlots;
+        }
+      }
       const delta = changedBarSlots !== undefined
-        ? this.#syncBarChunk(store, chunk, changedBarSlots)
-        : this.#syncChunk(store, chunk);
+        ? this.#syncBarChunk(store, chunkIndex, changedBarSlots)
+        : this.#syncChunk(store, chunkIndex);
+      this.#deferredBarChunks.delete(chunkIndex);
       if (delta.changed) uploadedChunks += 1;
       uploadedBytes += delta.bytes;
       geometrySlotsVisited += delta.visitedSlots;
@@ -1625,6 +1803,8 @@ export class AggregateMeshLayer {
     this.#lastRevision = -1;
     this.#previousAlive = new Uint8Array(0);
     this.#previousKind = new Uint8Array(0);
+    this.#deferredBarChunks.clear();
+    this.#viewportCull = null;
     this.#paintProbesByEntityId.clear();
     this.#debug = Object.freeze({
       ...this.#debug,
@@ -1765,6 +1945,7 @@ export class AggregateMeshLayer {
     chunk.visibleBackgrounds = built.visibleBackgrounds;
     chunk.visibleBars = built.visibleBars;
     chunk.visibleRelations = built.visibleRelations;
+    chunk.geometryBounds = aggregateLaneGeometryBounds(built);
     chunk.barSlots.length = 0;
     chunk.barSlots.push(...built.barSlots);
     chunk.barBindings.clear();
@@ -1774,6 +1955,12 @@ export class AggregateMeshLayer {
     for (const [entityId, probe] of built.paintProbes) {
       chunk.paintEntityIds.add(entityId);
       this.#paintProbesByEntityId.set(entityId, probe);
+    }
+    if (this.#viewportCull !== null) {
+      setChunkGeometryVisible(
+        chunk,
+        chunkIntersectsViewport(chunk, this.#viewportCull),
+      );
     }
     return {
       bytes:
@@ -1786,6 +1973,33 @@ export class AggregateMeshLayer {
         relationDelta.changed,
       visitedSlots: end - start,
     };
+  }
+
+  #expandBarChunkBounds(
+    store: RenderStoreView,
+    chunk: ChunkRecord,
+    changedSlots: readonly number[],
+  ): void {
+    for (const slot of changedSlots) {
+      if (
+        slot < 0 ||
+        slot >= store.capacity ||
+        (store.alive[slot] as number) === 0 ||
+        (store.kind[slot] as number) !== RenderKind.Bar
+      ) {
+        continue;
+      }
+      writeCoreV2SlotQuad(
+        this.#trackQuadScratch,
+        store,
+        slot,
+        this.#projectionContext,
+      );
+      chunk.geometryBounds = includePositionBounds(
+        chunk.geometryBounds,
+        this.#trackQuadScratch.vertices,
+      );
+    }
   }
 
   #syncBarChunk(
@@ -1826,6 +2040,16 @@ export class AggregateMeshLayer {
     for (const record of dirtyRecords) {
       record.geometry.getBuffer('aPosition').update(record.geometry.positions.byteLength);
       bytes += record.geometry.positions.byteLength;
+      chunk.geometryBounds = includePositionBounds(
+        chunk.geometryBounds,
+        record.geometry.positions,
+      );
+    }
+    if (this.#viewportCull !== null) {
+      setChunkGeometryVisible(
+        chunk,
+        chunkIntersectsViewport(chunk, this.#viewportCull),
+      );
     }
     return {
       bytes,
@@ -1863,6 +2087,15 @@ export class AggregateMeshLayer {
     for (const [entityId, probe] of built.paintProbes) {
       chunk.paintEntityIds.add(entityId);
       this.#paintProbesByEntityId.set(entityId, probe);
+    }
+    for (const group of built.groups) {
+      chunk.geometryBounds = includePositionBounds(chunk.geometryBounds, group.positions);
+    }
+    if (this.#viewportCull !== null) {
+      setChunkGeometryVisible(
+        chunk,
+        chunkIntersectsViewport(chunk, this.#viewportCull),
+      );
     }
     return { ...delta, visitedSlots: chunk.barSlots.length };
   }
@@ -1969,6 +2202,7 @@ export class AggregateMeshLayer {
     for (const record of chunk.rectMeshes.values()) destroyMeshRecord(record);
     for (const record of chunk.barMeshes.values()) destroyMeshRecord(record);
     for (const record of chunk.relationMeshes.values()) destroyMeshRecord(record);
+    this.#deferredBarChunks.delete(chunkIndex);
     this.#chunks.delete(chunkIndex);
   }
 }

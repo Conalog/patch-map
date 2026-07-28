@@ -7,7 +7,18 @@ import {
   coreV2AffineCenter,
   freezeCoreV2Affine,
   freezeCoreV2Bounds,
+  type CoreV2AffineMatrix,
+  type CoreV2BoundsTuple,
+  type CoreV2PointTuple,
 } from './semantic/geometry';
+
+interface MutableBarProjectionRecord {
+  readonly destination: CoreV2EntityProjection;
+  readonly projection: CoreV2EntityProjection;
+  readonly localBounds: [number, number, number, number];
+  readonly affine: [number, number, number, number, number, number];
+  readonly visibleCenter: [number, number];
+}
 
 /**
  * Mutable only inside the presentation owner. The outer projection index stays
@@ -18,6 +29,7 @@ export class CoreV2PresentationProjectionStore {
   private semanticValue: CoreV2ProjectionIndex | null = null;
   private presentationValue: CoreV2ProjectionIndex | null = null;
   private byEntityId: Record<string, CoreV2EntityProjection> | null = null;
+  private readonly mutableBars = new Map<string, MutableBarProjectionRecord>();
 
   public get semantic(): CoreV2ProjectionIndex | null {
     return this.semanticValue;
@@ -32,13 +44,19 @@ export class CoreV2PresentationProjectionStore {
     semantic: CoreV2ProjectionIndex,
     visibleBarHeights: ReadonlyMap<string, number> = new Map(),
   ): CoreV2ProjectionIndex {
+    this.mutableBars.clear();
     const byEntityId: Record<string, CoreV2EntityProjection> = {
       ...semantic.byEntityId,
     };
     for (const [entityId, height] of visibleBarHeights) {
       const destination = semantic.byEntityId[entityId];
       if (destination !== undefined) {
-        byEntityId[entityId] = projectCoreV2BarPresentationHeight(destination, height);
+        const normalizedHeight = validateVisibleHeight(height);
+        if (!Object.is(normalizedHeight, destination.localBounds[3])) {
+          const mutable = createMutableBarProjection(destination, normalizedHeight);
+          this.mutableBars.set(entityId, mutable);
+          byEntityId[entityId] = mutable.projection;
+        }
       }
     }
     this.semanticValue = semantic;
@@ -55,9 +73,21 @@ export class CoreV2PresentationProjectionStore {
     const semantic = this.semanticValue?.byEntityId[entityId];
     const current = this.byEntityId?.[entityId];
     if (semantic === undefined || current === undefined || this.byEntityId === null) return false;
-    const next = projectCoreV2BarPresentationHeight(semantic, height);
-    if (sameProjectionGeometry(current, next)) return false;
-    this.byEntityId[entityId] = next;
+    const normalizedHeight = validateVisibleHeight(height);
+    if (Object.is(current.localBounds[3], normalizedHeight)) return false;
+    if (Object.is(semantic.localBounds[3], normalizedHeight)) {
+      this.mutableBars.delete(entityId);
+      this.byEntityId[entityId] = semantic;
+      return true;
+    }
+    let mutable = this.mutableBars.get(entityId);
+    if (mutable === undefined || mutable.destination !== semantic) {
+      mutable = createMutableBarProjection(semantic, normalizedHeight);
+      this.mutableBars.set(entityId, mutable);
+      this.byEntityId[entityId] = mutable.projection;
+      return true;
+    }
+    updateMutableBarProjection(mutable, normalizedHeight);
     return true;
   }
 
@@ -69,6 +99,7 @@ export class CoreV2PresentationProjectionStore {
     this.semanticValue = null;
     this.presentationValue = null;
     this.byEntityId = null;
+    this.mutableBars.clear();
   }
 }
 
@@ -81,9 +112,7 @@ export function projectCoreV2BarPresentationHeight(
   destination: CoreV2EntityProjection,
   visibleHeight: number,
 ): CoreV2EntityProjection {
-  if (!Number.isFinite(visibleHeight) || visibleHeight < 0) {
-    throw new RangeError('visibleHeight must be finite and non-negative');
-  }
+  validateVisibleHeight(visibleHeight);
   const [localX, localY, localWidth, destinationHeight] = destination.localBounds;
   const height = canonicalNumber(visibleHeight);
   if (Object.is(height, destinationHeight)) return destination;
@@ -107,17 +136,74 @@ export function projectCoreV2BarPresentationHeight(
   });
 }
 
-function sameProjectionGeometry(
-  left: CoreV2EntityProjection,
-  right: CoreV2EntityProjection,
-): boolean {
-  return sameNumbers(left.localBounds, right.localBounds) &&
-    sameNumbers(left.affine, right.affine) &&
-    sameNumbers(left.visibleCenter, right.visibleCenter);
+function createMutableBarProjection(
+  destination: CoreV2EntityProjection,
+  height: number,
+): MutableBarProjectionRecord {
+  const localBounds: [number, number, number, number] = [
+    destination.localBounds[0],
+    destination.localBounds[1],
+    destination.localBounds[2],
+    height,
+  ];
+  const affine: [number, number, number, number, number, number] = [
+    destination.affine[0],
+    destination.affine[1],
+    destination.affine[2],
+    destination.affine[3],
+    destination.affine[4],
+    destination.affine[5],
+  ];
+  const visibleCenter: [number, number] = [0, 0];
+  const projection = Object.freeze({
+    ...destination,
+    localBounds: localBounds as CoreV2BoundsTuple,
+    affine: affine as CoreV2AffineMatrix,
+    worldBasis: destination.worldBasis,
+    visibleCenter: visibleCenter as CoreV2PointTuple,
+  });
+  const record = {
+    destination,
+    projection,
+    localBounds,
+    affine,
+    visibleCenter,
+  };
+  updateMutableBarProjection(record, height);
+  return record;
 }
 
-function sameNumbers(left: readonly number[], right: readonly number[]): boolean {
-  return left.length === right.length && left.every((value, index) => Object.is(value, right[index]));
+function updateMutableBarProjection(
+  record: MutableBarProjectionRecord,
+  height: number,
+): void {
+  const destination = record.destination;
+  const [localX, localY, localWidth, destinationHeight] = destination.localBounds;
+  const [a, b, c, d, tx, ty] = destination.affine;
+  const bottomAnchorOffset = destinationHeight - height;
+  const presentationTx = tx + c * bottomAnchorOffset;
+  const presentationTy = ty + d * bottomAnchorOffset;
+  record.localBounds[0] = localX;
+  record.localBounds[1] = localY;
+  record.localBounds[2] = localWidth;
+  record.localBounds[3] = height;
+  record.affine[0] = a;
+  record.affine[1] = b;
+  record.affine[2] = c;
+  record.affine[3] = d;
+  record.affine[4] = presentationTx;
+  record.affine[5] = presentationTy;
+  const centerX = localX + localWidth / 2;
+  const centerY = localY + height / 2;
+  record.visibleCenter[0] = a * centerX + c * centerY + presentationTx;
+  record.visibleCenter[1] = b * centerX + d * centerY + presentationTy;
+}
+
+function validateVisibleHeight(value: number): number {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new RangeError('visibleHeight must be finite and non-negative');
+  }
+  return canonicalNumber(value);
 }
 
 function canonicalNumber(value: number): number {
