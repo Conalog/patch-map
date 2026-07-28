@@ -37,7 +37,7 @@ release evidence without changing approved expected observations.
   remains. Every case has shared product execution, independent comparison,
   and the same focused Lab shell; `DAT-008` is the intentional exception to a
   terminal actual.
-- Final verification passes 142 Core v2 files/1,345 tests, full lint and
+- Current verification passes 175 files/1,591 tests, full lint and
   typecheck, both builds, and canonical contract verification. Headless
   Chromium completes 158 routes and 2,028 assertions in first/repeat/fresh
   sessions: 1,993 match, 21 are declared immutable conflicts, and 14 are
@@ -63,6 +63,15 @@ release evidence without changing approved expected observations.
   checks, including direct gestures, undo/redo shortcuts, visible bar
   animation, capture, destroy/re-init, and all 173 localized route mappings,
   with zero console/page/network errors.
+- The 5,000-bar `REN-009` path now uses one compact atomic height batch,
+  incremental direct projection, visible-chunk Mesh uploads, fallback-text
+  chunk culling, and viewport-first manual frames. The preserved headless 2+7
+  checkpoint records 1x action/pan p95 of 275.2/1,696.0 ms and 31.8 canvas
+  fps; the Chromium 4x proxy records 954.3/2,653.7 ms and 17.3 canvas fps.
+  Every run visibly interpolates, moves the viewport, destroys to zero canvas,
+  and reports zero console/page/network/external errors. Pre-harness baseline
+  raw is unavailable; its comparable exploratory medians remain explicitly
+  labeled, while native Windows is still pending.
 
 # Next Step
 
