@@ -9,6 +9,7 @@ nonzero until a digest-bound native manifest passes:
 
 ```text
 npm run verify:release-readiness:core-v2
+npm run generate:release-manifest:core-v2 -- --output performance/core-v2/results/native-release-manifest.json
 npm run verify:release-readiness:core-v2:strict -- --native-manifest <path>
 ```
 
@@ -44,10 +45,22 @@ node scripts/verification/core-v2-manual-lab-browser.mjs `
 
 node performance/core-v2/contract-run.mjs `
   --native-windows --headed --channel=msedge --cell-id=$cell --output-dir=$root
+
+$env:CORE_V2_MEMORY_ARTIFACT_DIR = $root
+node scripts/verification/core-v2-memory.mjs `
+  --native-windows --headed --channel=msedge --cell-id=$cell
 ```
 
 Every owned browser, context, page, and temporary server closes in `finally`.
 The persistent user dogfood server is not used by these commands.
+
+Set `CORE_V2_CODE_COMMIT` to the exact 64-hex candidate before generating or
+running evidence. For a `latest-1` cell, replace `--channel` with the preserved
+browser's exact `--executable-path`. The memory runner refuses a native marker
+outside Windows, in headless mode, without an exact browser target/cell ID, or
+when WebGL2 resolves to a software renderer. It records ten ownership cycles
+and a forced-GC window around those cycles; the ordinary local proxy retains
+its established two-warmup/seven-measured plus nine ownership-cycle protocol.
 
 ## Approved target performance profile
 
@@ -93,3 +106,14 @@ dependencies, build output, bundles, or source maps are rejected. The current
 local report intentionally remains `pending-external-evidence` until those
 hardware, assistive-technology, production-host, migration, and review artifacts
 exist.
+
+The generated pending manifest reserves five unique digest roles per browser
+cell: `functional`, `nvda`, `inputs`, `performance`, and `lifecycle`. It also
+reserves unique `actual-host`, `security`, `migration`, and `review` roles.
+The strict verifier rejects missing roles, role substitution, duplicate
+artifacts, digest drift, placeholder exact-version values, candidate/package
+drift, null numeric observations, headless/WebGPU substitution, budget
+regression, nine-cycle lifecycle evidence, mock-host evidence, and pending
+review. `npm run verify:native-release-probes:core-v2` proves one complete
+digest-bound synthetic manifest can pass and that every declared drift class
+fails without modifying approved expected evidence.
