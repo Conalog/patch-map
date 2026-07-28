@@ -13,6 +13,11 @@ import {
   parseCoreV2ContractRoute,
   type CoreV2ContractRoute,
 } from './route';
+import {
+  mountCoreV2ManualWorkbench,
+  renderCoreV2ManualWorkbench,
+  type CoreV2ManualLabBridge,
+} from '../interactive/manual-workbench';
 
 declare global {
   interface Window {
@@ -23,6 +28,7 @@ declare global {
 export interface CoreV2ContractLabMount {
   readonly route: CoreV2ContractRoute | null;
   readonly bridge: CoreV2ContractLabBridgeV1 | null;
+  readonly manual: CoreV2ManualLabBridge | null;
   readonly routeError: CoreV2ContractRouteError | null;
   destroy(): Promise<void>;
 }
@@ -432,8 +438,9 @@ export function renderCoreV2ContractLab(route: CoreV2ContractRoute): string {
       <p class="contract-stub-notice">${executable
         ? 'Actual-only case execution is available on the PixiJS WebGL baseline. The canvas is transient and is removed by executor cleanup; this Lab reports observed or failed facts without an expected comparison.'
         : 'This approved route remains explicitly not implemented. No engine action, semantic observation, or promotion result is produced.'}</p>
+      ${renderCoreV2ManualWorkbench(presenter)}
       <section class="contract-case-card" aria-labelledby="contract-case-title">
-        <span class="contract-kicker">Focused case</span>
+        <span class="contract-kicker">Independent exact evidence runner</span>
         <h2 id="contract-case-title">${escapeHtml(presenter.title)}</h2>
         <p class="contract-instruction">${escapeHtml(presenter.instruction)}</p>
         <div class="contract-canvas" data-testid="canvas-host">
@@ -1838,6 +1845,7 @@ export function mountCoreV2ContractLab(
     return Object.freeze({
       route: null,
       bridge: null,
+      manual: null,
       routeError,
       destroy(): Promise<void> {
         target.replaceChildren();
@@ -1847,6 +1855,12 @@ export function mountCoreV2ContractLab(
   }
 
   target.innerHTML = renderCoreV2ContractLab(route);
+  const manual = mountCoreV2ManualWorkbench(target, {
+    caseId: route.scenario,
+    title: route.presenter.title,
+    size: route.size,
+    seed: route.seed,
+  });
   const surfaceHost = target.querySelector<HTMLElement>('[data-contract-surface]');
   if (!surfaceHost) throw new Error(`Core v2 contract Lab surface is missing: ${route.scenario}`);
   let executable = false;
@@ -1880,10 +1894,14 @@ export function mountCoreV2ContractLab(
   return Object.freeze({
     route,
     bridge,
+    manual,
     routeError: null,
     async destroy(): Promise<void> {
       abortController.abort();
-      await bridge.destroyCase();
+      await Promise.all([
+        bridge.destroyCase(),
+        manual.destroy(),
+      ]);
       if (window.__PATCH_MAP_CORE_V2_CONTRACT_LAB__ === bridge) {
         delete window.__PATCH_MAP_CORE_V2_CONTRACT_LAB__;
       }
