@@ -1,7 +1,7 @@
 {
   "$schema": "core-v2-release-readiness/1",
-  "generatedAt": "2026-07-28T20:22:25.874Z",
-  "codeCommit": "e3ea1b5c4fabc1c9645abcb00db0163e98e3f83e",
+  "generatedAt": "2026-07-28T20:43:11.343Z",
+  "codeCommit": "e1e2b7740c1865cfd480ac1bfc43767711ecd32e",
   "status": "pending-external-evidence",
   "releaseVerified": false,
   "immutableContractModified": false,
@@ -137,7 +137,7 @@
       {
         "id": "memory-lifecycle",
         "path": "performance/core-v2/results/memory-lifecycle.json",
-        "sha256": "d7342af61410df25c5196dec01bc04bc2d17389cfbb4018251f8b7b375b6040e",
+        "sha256": "5571ab1f06c549a43b7e4ead793203fcfde1cb93d022ff8b4a71b65ad94a3856",
         "classification": "local-2-plus-7-lifecycle-proof",
         "status": "pass"
       },
