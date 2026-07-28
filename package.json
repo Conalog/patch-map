@@ -81,6 +81,7 @@
     "perf:core-v2": "node performance/core-v2/run.mjs",
     "perf:core-v2:quick": "node performance/core-v2/run.mjs --quick",
     "perf:core-v2:contract": "node performance/core-v2/contract-run.mjs",
+    "perf:core-v2:bar-pan": "node scripts/verification/core-v2-bar-animation-pan-performance.mjs",
     "perf:core-v2:extraction": "node scripts/verification/core-v2-extraction-performance.mjs",
     "verify:performance-report:core-v2": "node performance/core-v2/report/verify.mjs",
     "verify:performance-contract:core-v2": "node performance/core-v2/report/verify-contract.mjs"
