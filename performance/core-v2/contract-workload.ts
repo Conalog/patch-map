@@ -6,7 +6,7 @@ import {
   materializeCoreV2Dataset,
   validateCoreV2DatasetReferences,
   type CoreV2EngineGeometryProbe,
-  type CoreV2MutationOperation,
+  type CoreV2EngineTransactionPerformanceProbe,
   type CoreV2SemanticProductProbe,
 } from '../../src/core-v2';
 import { buildCoreV2SeededScenarioScene } from '../../lab/performance-v2/contract/seeded-scene';
@@ -45,6 +45,9 @@ export interface CoreV2PerformanceBarState {
   readonly frameGapsMs: readonly number[];
   readonly retargetAtMs: number;
   readonly settleAtMs: number;
+  readonly diagnosticTransactionPhases?: readonly (
+    CoreV2EngineTransactionPerformanceProbe | null
+  )[];
 }
 
 export interface CoreV2PerformanceTextObservation {
@@ -56,6 +59,7 @@ export interface CoreV2PerformanceTextObservation {
   readonly actionToVisibleMs: number;
   readonly frameGapMs: number;
   readonly sceneRevisionDelta: number;
+  readonly diagnosticTransactionPhase?: CoreV2EngineTransactionPerformanceProbe | null;
 }
 
 export interface CoreV2PerformanceBulkObservation {
@@ -67,6 +71,7 @@ export interface CoreV2PerformanceBulkObservation {
   readonly changed: boolean;
   readonly invalidNodeCount: number;
   readonly nonFiniteCount: number;
+  readonly diagnosticTransactionPhase?: CoreV2EngineTransactionPerformanceProbe | null;
 }
 
 export interface CoreV2PerformanceInteractionObservation {
@@ -77,6 +82,10 @@ export interface CoreV2PerformanceInteractionObservation {
   readonly staleGestureCount: number;
   readonly nonFiniteCount: number;
   readonly finalSelectionIds: readonly string[];
+  readonly diagnosticOperationMs?: readonly number[];
+  readonly diagnosticTransactionPhases?: readonly (
+    CoreV2EngineTransactionPerformanceProbe | null
+  )[];
 }
 
 export interface CoreV2PerformanceSemanticProjection {
@@ -213,6 +222,7 @@ export async function startCoreV2BarAnimation(
     targetFraction: number;
     durationMs: number;
     retargetAtMs: number;
+    diagnostics?: boolean;
   }>,
 ): Promise<CoreV2PerformanceBarState> {
   const targetIndices = seededIndices(input.size, input.targetFraction, input.seed);
@@ -220,19 +230,29 @@ export async function startCoreV2BarAnimation(
     40 + ((index * 17 + ordinal * 13 + input.seed) % 21));
   const finalDestinations = targetIndices.map((index, ordinal) =>
     14 + ((index * 11 + ordinal * 7 + input.seed) % 19));
+  const targets = targetIndices.map((index) => ({
+    ownerId: `node-${index}`,
+    componentId: 'bar' as const,
+  }));
   const first = await measureCoreV2VisibleAction(engine, 0, () =>
-    engine.transact({
-      strict: true,
+    engine.updateBarHeights({
       actionId: `prf-bar-start-${input.seed}`,
-      operations: barOperations(targetIndices, firstDestinations),
+      targets,
+      heights: new Float64Array(firstDestinations),
     }));
+  const firstTransactionProbe = input.diagnostics === true
+    ? engine.transactionPerformanceProbe()
+    : null;
   requireCommitted(first.result, 'initial bar animation transaction');
   const midpoint = await measureCoreV2VisibleAction(engine, input.retargetAtMs, () =>
-    engine.transact({
-      strict: true,
+    engine.updateBarHeights({
       actionId: `prf-bar-retarget-${input.seed}`,
-      operations: barOperations(targetIndices, finalDestinations),
+      targets,
+      heights: new Float64Array(finalDestinations),
     }));
+  const midpointTransactionProbe = input.diagnostics === true
+    ? engine.transactionPerformanceProbe()
+    : null;
   requireCommitted(midpoint.result, 'retargeted bar animation transaction');
   return deepFreeze({
     targets: targetIndices.map((index, ordinal) => ({
@@ -244,6 +264,14 @@ export async function startCoreV2BarAnimation(
     frameGapsMs: [first.frameGapMs, midpoint.frameGapMs],
     retargetAtMs: input.retargetAtMs,
     settleAtMs: input.retargetAtMs + input.durationMs,
+    ...(input.diagnostics === true
+      ? {
+          diagnosticTransactionPhases: [
+            firstTransactionProbe,
+            midpointTransactionProbe,
+          ],
+        }
+      : {}),
   });
 }
 
@@ -262,6 +290,9 @@ export async function panZoomAndSettleCoreV2BarAnimation(
   activeAnimationsAfterSettle: number;
   nonFiniteCount: number;
   staleGestureCount: number;
+  diagnosticTransactionPhases?: readonly (
+    CoreV2EngineTransactionPerformanceProbe | null
+  )[];
 }>> {
   const actionToVisibleMs = [...state.actionToVisibleMs];
   const frameGapsMs = [...state.frameGapsMs];
@@ -305,6 +336,9 @@ export async function panZoomAndSettleCoreV2BarAnimation(
     activeAnimationsAfterSettle: semantic.interaction.activeAnimationCount ?? 0,
     nonFiniteCount: semantic.geometry.nonFiniteValueCount,
     staleGestureCount: staleGestureCount(engine),
+    ...(state.diagnosticTransactionPhases === undefined
+      ? {}
+      : { diagnosticTransactionPhases: state.diagnosticTransactionPhases }),
   });
 }
 
@@ -317,42 +351,39 @@ export async function updateCoreV2RandomText(
     targetFraction: number;
     includeWordWrapWidth: boolean;
     timeMs: number;
+    diagnostics?: boolean;
   }>,
 ): Promise<CoreV2PerformanceTextObservation> {
   const targetIndices = seededIndices(input.size, input.targetFraction, input.seed ^ input.actionIndex);
-  const operations: CoreV2MutationOperation[] = targetIndices.map((index, ordinal) => ({
-    op: 'merge',
-    target: { kind: 'component', ownerId: `node-${index}`, id: 'label' },
-    changes: [
-      {
-        path: ['text'],
-        value: `${index}:${input.actionIndex}:${(input.seed + ordinal * 37) % 10_000}`,
-      },
-      {
-        path: ['style', 'fontSize'],
-        value: 11 + ((index + ordinal + input.actionIndex) % 4),
-      },
-      {
-        path: ['style', 'fill'],
-        value: rgbaHex(
+  const targets = targetIndices.map((index) => ({
+    ownerId: `node-${index}`,
+    componentId: 'label',
+  }));
+  const texts = targetIndices.map((index, ordinal) =>
+    `${index}:${input.actionIndex}:${(input.seed + ordinal * 37) % 10_000}`);
+  const styles = targetIndices.map((index, ordinal) => ({
+    fontSize: 11 + ((index + ordinal + input.actionIndex) % 4),
+    fill: rgbaHex(
           32 + ((index * 29 + ordinal) % 192),
           32 + ((index * 13 + ordinal * 3) % 192),
           32 + ((index * 7 + ordinal * 5) % 192),
         ),
-      },
-      ...(input.includeWordWrapWidth
-        ? [{ path: ['style', 'wordWrapWidth'] as const, value: 48 + ((index + ordinal) % 80) }]
-        : []),
-    ],
+    ...(input.includeWordWrapWidth
+      ? { wordWrapWidth: 48 + ((index + ordinal) % 80) }
+      : {}),
   }));
   const before = engine.snapshot().revisions.sceneRevision;
   const measurement = await measureCoreV2VisibleAction(engine, input.timeMs, () =>
-    engine.transact({
-      strict: true,
+    engine.updateTexts({
       actionId: `prf-text-${input.actionIndex}-${input.seed}`,
-      operations,
+      targets,
+      texts,
+      styles,
     }));
   requireCommitted(measurement.result, 'text transaction');
+  const diagnosticTransactionPhase = input.diagnostics === true
+    ? engine.transactionPerformanceProbe()
+    : null;
   let staleLayoutCountAfterFrame = 0;
   let normalizedLinesExact = true;
   let unresolvedIntentCount = 0;
@@ -383,6 +414,7 @@ export async function updateCoreV2RandomText(
     actionToVisibleMs: measurement.actionToVisibleMs,
     frameGapMs: measurement.frameGapMs,
     sceneRevisionDelta: engine.snapshot().revisions.sceneRevision - before,
+    ...(input.diagnostics === true ? { diagnosticTransactionPhase } : {}),
   });
 }
 
@@ -395,6 +427,7 @@ export async function applyCoreV2PerformanceBulkPatch(
     strict: boolean;
     timeMs: number;
     actionId: string;
+    diagnostics?: boolean;
   }>,
 ): Promise<CoreV2PerformanceBulkObservation> {
   const targetIndices = seededIndices(input.size, input.targetFraction, input.seed);
@@ -412,6 +445,9 @@ export async function applyCoreV2PerformanceBulkPatch(
   if (measurement.result.status !== 'committed' && measurement.result.status !== 'unchanged') {
     throw new Error(`bulk transaction did not publish: ${measurement.result.status}`);
   }
+  const diagnosticTransactionPhase = input.diagnostics === true
+    ? engine.transactionPerformanceProbe()
+    : null;
   const semantic = engine.semanticProbe();
   return deepFreeze({
     targetCount: targetIndices.length,
@@ -422,6 +458,7 @@ export async function applyCoreV2PerformanceBulkPatch(
     changed: measurement.result.changed,
     invalidNodeCount: 0,
     nonFiniteCount: semantic.geometry.nonFiniteValueCount,
+    ...(input.diagnostics === true ? { diagnosticTransactionPhase } : {}),
   });
 }
 
@@ -433,10 +470,15 @@ export async function runCoreV2ContinuousInteraction(
     durationMs: number;
     gestureSequence: readonly string[];
     startTimeMs?: number;
+    diagnostics?: boolean;
   }>,
 ): Promise<CoreV2PerformanceInteractionObservation> {
   const inputToVisibleMs: number[] = [];
   const frameGapsMs: number[] = [];
+  const diagnosticOperationMs: number[] = [];
+  const diagnosticTransactionPhases: Array<
+    CoreV2EngineTransactionPerformanceProbe | null
+  > = [];
   let transformedHitMismatchCount = 0;
   const selectionId = 'node-0';
   const timeStep = input.durationMs / Math.max(1, input.gestureSequence.length);
@@ -447,8 +489,11 @@ export async function runCoreV2ContinuousInteraction(
       + Math.min(input.durationMs, Math.round(index * timeStep));
     const geometry = requiredEntityGeometry(engine.geometryProbe(), selectionId);
     const point = boundsCenter(geometry.screenBounds);
+    let operationMs = 0;
     const measurement = await measureCoreV2VisibleAction(engine, timeMs, () => {
-      switch (gesture) {
+      const operationStarted = performance.now();
+      try {
+        switch (gesture) {
         case 'pan':
           return engine.panViewport([4, -2], 'pointer');
         case 'zoom':
@@ -476,34 +521,63 @@ export async function runCoreV2ContinuousInteraction(
             [[point.x - 10, point.y - 10], [point.x + 10, point.y + 10]],
           ]);
         case 'move':
-          return engine.applyTransformerEdit({
-            kind: 'move',
-            selectionIds: [selectionId],
-            deltaWorld: [1, 1],
-          }, { actionId: 'prf-interaction-move' });
+          return runPerformanceTransformerGesture(
+            engine,
+            10_000 + index,
+            'prf-interaction-move',
+            'frame',
+            {
+              kind: 'move',
+              selectionIds: [selectionId],
+              deltaWorld: [1, 1],
+            },
+          );
         case 'resize':
-          return engine.applyTransformerEdit({
-            kind: 'resize',
-            selectionIds: [selectionId],
-            handle: 'se',
-            deltaWorld: [1, 1],
-          }, { actionId: 'prf-interaction-resize' });
+          return runPerformanceTransformerGesture(
+            engine,
+            10_000 + index,
+            'prf-interaction-resize',
+            'se',
+            {
+              kind: 'resize',
+              selectionIds: [selectionId],
+              handle: 'se',
+              deltaWorld: [1, 1],
+            },
+          );
         case 'rotate':
-          return engine.applyTransformerEdit({
-            kind: 'rotate',
-            selectionIds: [selectionId],
-            deltaDegrees: 1,
-          }, { actionId: 'prf-interaction-rotate' });
+          return runPerformanceTransformerGesture(
+            engine,
+            10_000 + index,
+            'prf-interaction-rotate',
+            'rotate',
+            {
+              kind: 'rotate',
+              selectionIds: [selectionId],
+              deltaDegrees: 1,
+            },
+          );
         case 'edge-auto-pan':
           return engine.edgeAutoPanTransformer([799, 300], [4, 0]);
         case 'hover':
           return engine.hoverTooltipAtScreen(point, [160, 80]);
-        default:
-          throw new Error(`unsupported PRF interaction gesture: ${gesture}`);
+          default:
+            throw new Error(`unsupported PRF interaction gesture: ${gesture}`);
+        }
+      } finally {
+        operationMs = performance.now() - operationStarted;
       }
     });
     inputToVisibleMs.push(measurement.actionToVisibleMs);
     frameGapsMs.push(measurement.frameGapMs);
+    if (input.diagnostics === true) {
+      diagnosticOperationMs.push(operationMs);
+      diagnosticTransactionPhases.push(
+        gesture === 'move' || gesture === 'rotate'
+          ? engine.transactionPerformanceProbe()
+          : null,
+      );
+    }
   }
 
   const semantic = engine.semanticProbe();
@@ -517,6 +591,9 @@ export async function runCoreV2ContinuousInteraction(
       semantic.geometry.nonFiniteValueCount
       + countNonFinite(engine.geometryProbe()),
     finalSelectionIds: [...engine.snapshot().selectionIds],
+    ...(input.diagnostics === true
+      ? { diagnosticOperationMs, diagnosticTransactionPhases }
+      : {}),
   });
 }
 
@@ -591,20 +668,6 @@ export function coreV2PerformancePercentile(
   return sorted[index]!;
 }
 
-function barOperations(
-  targetIndices: readonly number[],
-  destinations: readonly number[],
-): readonly CoreV2MutationOperation[] {
-  return targetIndices.map((index, ordinal) => ({
-    op: 'merge',
-    target: { kind: 'component', ownerId: `node-${index}`, id: 'bar' },
-    changes: [{
-      path: ['size', 'height'],
-      value: destinations[ordinal]!,
-    }],
-  }));
-}
-
 function seededIndices(size: number, fraction: number, seed: number): readonly number[] {
   if (!Number.isSafeInteger(size) || size <= 0 || size > 5_000) {
     throw new RangeError('performance size must be a positive integer up to 5000');
@@ -638,6 +701,27 @@ function requiredEntityGeometry(
   const entity = geometry?.entities.find((candidate) => candidate.id === id);
   if (entity === undefined) throw new Error(`missing aggregate geometry for ${id}`);
   return entity;
+}
+
+function runPerformanceTransformerGesture(
+  engine: CoreV2Engine,
+  pointerId: number,
+  actionId: string,
+  handle: 'frame' | 'se' | 'rotate',
+  request: Parameters<CoreV2Engine['previewTransformerEdit']>[1],
+): unknown {
+  engine.beginTransformerEdit({
+    pointerId,
+    actionId,
+    kind: request.kind,
+    handle,
+    selectionIds: request.selectionIds,
+  });
+  const preview = engine.previewTransformerEdit(pointerId, request);
+  if (preview.status === 'rejected' || preview.status === 'refused') {
+    return engine.cancelTransformerEdit(pointerId, 'redraw');
+  }
+  return engine.completeTransformerEdit(pointerId);
 }
 
 function boundsCenter(bounds: readonly [number, number, number, number]): Readonly<{

@@ -155,6 +155,7 @@ async function runTrial(
         targetFraction: 0.1,
         durationMs: 200,
         retargetAtMs: 100,
+        diagnostics: spec.mode === 'smoke',
       });
       const settled = await panZoomAndSettleCoreV2BarAnimation(engine, barState, {
         panCss: [40, -20],
@@ -175,6 +176,7 @@ async function runTrial(
           targetFraction: 0.333,
           includeWordWrapWidth,
           timeMs: 320 + actionIndex * 16,
+          diagnostics: spec.mode === 'smoke',
         });
         actionToVisibleMs.push(observation.actionToVisibleMs);
         frameGapsMs.push(observation.frameGapMs);
@@ -187,6 +189,7 @@ async function runTrial(
         strict: true,
         timeMs: 352,
         actionId: 'contract-performance-bulk-2000',
+        diagnostics: spec.mode === 'smoke',
       });
       actionToVisibleMs.push(bulkObservation.actionToVisibleMs);
       frameGapsMs.push(bulkObservation.frameGapMs);
@@ -208,6 +211,7 @@ async function runTrial(
           'edge-auto-pan',
           'hover',
         ],
+        diagnostics: spec.mode === 'smoke',
       });
       actionToVisibleMs.push(...interactionObservation.inputToVisibleMs);
       frameGapsMs.push(...interactionObservation.frameGapsMs);
@@ -231,6 +235,7 @@ async function runTrial(
         const observation = await applyCoreV2PerformanceBulkPatch(engine, {
           size: spec.size,
           ...options,
+          diagnostics: spec.mode === 'smoke',
         });
         actionToVisibleMs.push(observation.actionToVisibleMs);
         frameGapsMs.push(observation.frameGapMs);
@@ -255,6 +260,7 @@ async function runTrial(
           strict: true,
           timeMs: 48,
           actionId: `contract-performance-bulk-${spec.size}`,
+          diagnostics: spec.mode === 'smoke',
         });
         actionToVisibleMs.push(observation.actionToVisibleMs);
         frameGapsMs.push(observation.frameGapMs);

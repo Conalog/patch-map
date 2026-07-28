@@ -9,13 +9,14 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
 const ROOT = process.cwd();
-const WARMUPS = 2;
-const MEASURED = 7;
+const SMOKE = process.argv.includes('--smoke');
+const WARMUPS = SMOKE ? 0 : 2;
+const MEASURED = SMOKE ? 1 : 7;
 const SIZE = 5_000;
 const SEED = 319;
 const PAN_MOVES = 12;
 const PAN_MOVE_WAIT_MS = 28;
-const PROFILES = Object.freeze([
+const FULL_PROFILES = Object.freeze([
   Object.freeze({
     id: 'chromium-headless-1x',
     cpuThrottleRate: 1,
@@ -39,6 +40,11 @@ const PROFILES = Object.freeze([
     }),
   }),
 ]);
+const PROFILES = SMOKE
+  ? Object.freeze([
+      process.argv.includes('--4x') ? FULL_PROFILES[1] : FULL_PROFILES[0],
+    ])
+  : FULL_PROFILES;
 const OUTPUT_PATH = path.resolve(
   process.env.CORE_V2_BAR_PAN_PERF_OUTPUT
     ?? path.join(
@@ -147,7 +153,10 @@ function validateTrial(trial, label) {
 
 function profileBudgetViolations(profile) {
   const violations = [];
-  if (profile.warmupRaw.length !== WARMUPS || profile.measuredRaw.length !== MEASURED) {
+  if (
+    !SMOKE &&
+    (profile.warmupRaw.length !== WARMUPS || profile.measuredRaw.length !== MEASURED)
+  ) {
     violations.push(`${profile.id} did not preserve the 2+7 protocol`);
   }
   profile.warmupRaw.forEach((trial, index) => {

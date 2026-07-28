@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-28T14:45:14.147Z",
+  "generatedAt": "2026-07-28T19:41:38.440Z",
   "headed": false,
   "checks": [
     {
@@ -241,8 +241,8 @@
         "before": {
           "barCount": 500,
           "activeAnimations": 0,
-          "rendererFrame": 25,
-          "schedulerFrame": 11,
+          "rendererFrame": 24,
+          "schedulerFrame": 10,
           "uploadedChunks": 0,
           "uploadedBytes": 0
         },
@@ -253,31 +253,31 @@
             {
               "id": "item-00005::bar:bar",
               "before": 51.8,
-              "during": 51.73652732854982
+              "during": 51.737274978606095
             },
             {
               "id": "item-00017::bar:bar",
               "before": 48.3,
-              "during": 48.31725396305126
+              "during": 48.31705072713647
             },
             {
               "id": "item-00019::bar:bar",
               "before": 21,
-              "during": 20.933387895541276
+              "during": 20.934172525248982
             },
             {
               "id": "item-00042::bar:bar",
               "before": 4.2,
-              "during": 4.192218803672431
+              "during": 4.192310459053232
             },
             {
               "id": "item-00054::bar:bar",
               "before": 32.9,
-              "during": 32.86020179056961
+              "during": 32.86067057710152
             }
           ],
-          "rendererFrame": 27,
-          "schedulerFrame": 13,
+          "rendererFrame": 26,
+          "schedulerFrame": 12,
           "uploadedChunks": 4,
           "uploadedBytes": 45808
         }
@@ -322,39 +322,39 @@
             {
               "id": "item-00005::bar:bar",
               "before": 51.8,
-              "during": 51.73652732854982
+              "during": 51.737274978606095
             },
             {
               "id": "item-00017::bar:bar",
               "before": 48.3,
-              "during": 48.31725396305126
+              "during": 48.31705072713647
             },
             {
               "id": "item-00019::bar:bar",
               "before": 21,
-              "during": 20.933387895541276
+              "during": 20.934172525248982
             },
             {
               "id": "item-00042::bar:bar",
               "before": 4.2,
-              "during": 4.192218803672431
+              "during": 4.192310459053232
             },
             {
               "id": "item-00054::bar:bar",
               "before": 32.9,
-              "during": 32.86020179056961
+              "during": 32.86067057710152
             }
           ],
-          "rendererFrame": 27,
-          "schedulerFrame": 13,
+          "rendererFrame": 26,
+          "schedulerFrame": 12,
           "uploadedChunks": 4,
           "uploadedBytes": 45808
         },
         "after": {
           "barCount": 500,
           "activeAnimations": 0,
-          "rendererFrame": 52,
-          "schedulerFrame": 38,
+          "rendererFrame": 51,
+          "schedulerFrame": 37,
           "uploadedChunks": 4,
           "uploadedBytes": 31808
         }
@@ -378,7 +378,7 @@
       "details": {
         "totalBarCount": 9365,
         "visibleBarCount": 0,
-        "rendererFrame": 54,
+        "rendererFrame": 53,
         "strategy": "mesh",
         "uploadedChunks": 0,
         "uploadedBytes": 0
@@ -391,7 +391,7 @@
         "before": {
           "totalBarCount": 9365,
           "visibleBarCount": 0,
-          "rendererFrame": 54,
+          "rendererFrame": 53,
           "strategy": "mesh",
           "uploadedChunks": 0,
           "uploadedBytes": 0
@@ -401,7 +401,7 @@
           "changedCount": 9365,
           "totalBarCount": 9365,
           "visibleBarCount": 9365,
-          "rendererFrame": 55,
+          "rendererFrame": 54,
           "strategy": "mesh",
           "uploadedChunks": 1,
           "uploadedBytes": 29920,
@@ -417,14 +417,14 @@
           "requestedFraction": 0.01,
           "scheduledAnimations": 78,
           "activeAnimations": 78,
-          "rendererFrame": 55,
-          "schedulerFrame": 39
+          "rendererFrame": 54,
+          "schedulerFrame": 38
         },
         "before": {
           "barCount": 9365,
           "activeAnimations": 0,
-          "rendererFrame": 55,
-          "schedulerFrame": 39,
+          "rendererFrame": 54,
+          "schedulerFrame": 38,
           "uploadedChunks": 1,
           "uploadedBytes": 29920
         },
@@ -435,31 +435,31 @@
             {
               "id": "caseOIin7QU7U9g.1.0::bar:Fx8vZTbchk9JsRR",
               "before": 74,
-              "during": 72.50196011548641
+              "during": 72.49854508879689
             },
             {
               "id": "dIQ3fKnIwryC8Ed.1.51::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 71.6800817310435
+              "during": 71.67479309828553
             },
             {
               "id": "U1hDt5R93SGYZOb.1.8::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.43175107649499
+              "during": 72.42817599682925
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.17::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.62849962746061
+              "during": 72.62537306826461
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.47::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.43244508310119
+              "during": 72.42887158553691
             }
           ],
-          "rendererFrame": 61,
-          "schedulerFrame": 45,
+          "rendererFrame": 60,
+          "schedulerFrame": 44,
           "uploadedChunks": 1,
           "uploadedBytes": 10880
         }
@@ -506,39 +506,39 @@
             {
               "id": "caseOIin7QU7U9g.1.0::bar:Fx8vZTbchk9JsRR",
               "before": 74,
-              "during": 72.50196011548641
+              "during": 72.49854508879689
             },
             {
               "id": "dIQ3fKnIwryC8Ed.1.51::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 71.6800817310435
+              "during": 71.67479309828553
             },
             {
               "id": "U1hDt5R93SGYZOb.1.8::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.43175107649499
+              "during": 72.42817599682925
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.17::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.62849962746061
+              "during": 72.62537306826461
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.47::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.43244508310119
+              "during": 72.42887158553691
             }
           ],
-          "rendererFrame": 61,
-          "schedulerFrame": 45,
+          "rendererFrame": 60,
+          "schedulerFrame": 44,
           "uploadedChunks": 1,
           "uploadedBytes": 10880
         },
         "after": {
           "barCount": 9365,
           "activeAnimations": 0,
-          "rendererFrame": 89,
-          "schedulerFrame": 73,
+          "rendererFrame": 90,
+          "schedulerFrame": 74,
           "uploadedChunks": 1,
           "uploadedBytes": 10880
         }

@@ -14,12 +14,19 @@ const WARMUPS = SMOKE ? 0 : 2;
 const MEASURED = SMOKE ? 1 : 7;
 const SIZE = 5_000;
 const SEED = 319;
-const PROFILES = process.argv.includes('--1x-only') || SMOKE
-  ? [{ id: 'chromium-headless-1x', cpuThrottleRate: 1 }]
-  : [
-      { id: 'chromium-headless-1x', cpuThrottleRate: 1 },
-      { id: 'chromium-headless-4x', cpuThrottleRate: 4 },
-    ];
+const ONE_X_PROFILE = Object.freeze({
+  id: 'chromium-headless-1x',
+  cpuThrottleRate: 1,
+});
+const FOUR_X_PROFILE = Object.freeze({
+  id: 'chromium-headless-4x',
+  cpuThrottleRate: 4,
+});
+const PROFILES = SMOKE
+  ? [process.argv.includes('--4x') ? FOUR_X_PROFILE : ONE_X_PROFILE]
+  : process.argv.includes('--1x-only')
+    ? [ONE_X_PROFILE]
+    : [ONE_X_PROFILE, FOUR_X_PROFILE];
 const OUTPUT_PATH = path.resolve(
   process.env.CORE_V2_INTERACTION_PERF_OUTPUT
     ?? path.join(
@@ -69,17 +76,36 @@ function summarize(trials, profileId) {
 async function command(page, name) {
   return page.evaluate(async (commandName) => {
     const bridge = window.__PATCH_MAP_CORE_V2_MANUAL_LAB__;
+    const sample = window.__CORE_V2_INTERACTION_SAMPLE__;
+    const engineBefore = bridge.engine();
+    const sceneRevisionBefore =
+      engineBefore?.snapshot().revisions.sceneRevision ?? null;
     const started = performance.now();
+    const publicationCursor = sample?.publications.length ?? 0;
     const value = await bridge.run(commandName);
+    const ended = performance.now();
+    const state = bridge.state();
+    const engineAfter = bridge.engine();
+    const sceneRevisionAfter =
+      engineAfter?.snapshot().revisions.sceneRevision ?? null;
     return {
-      ms: performance.now() - started,
+      ms: ended - started,
+      startedAt: started,
+      endedAt: ended,
+      publicationCursor,
       status:
         value !== null
         && typeof value === 'object'
         && typeof value.status === 'string'
           ? value.status
           : 'completed',
-      state: bridge.state(),
+      state,
+      transaction:
+        sceneRevisionBefore === null ||
+        sceneRevisionAfter === null ||
+        sceneRevisionAfter === sceneRevisionBefore
+          ? null
+          : engineAfter.transactionPerformanceProbe(),
     };
   }, name);
 }
@@ -88,6 +114,7 @@ async function instrument(page) {
   await page.evaluate(() => {
     const engine = window.__PATCH_MAP_CORE_V2_MANUAL_LAB__.engine();
     const calls = Object.create(null);
+    const publications = [];
     const wrap = (name) => {
       const original = engine[name];
       if (typeof original !== 'function') return;
@@ -97,11 +124,20 @@ async function instrument(page) {
         try {
           return original.apply(this, args);
         } finally {
-          calls[name].push(performance.now() - started);
+          const ended = performance.now();
+          calls[name].push(ended - started);
+          if (name === 'publishFrame') {
+            publications.push({
+              startedAt: started,
+              endedAt: ended,
+              durationMs: ended - started,
+            });
+          }
         }
       };
     };
     [
+      'selectionHitTestScreen',
       'applySelection',
       'hoverTooltipAtScreen',
       'toggleTooltipPinAtScreen',
@@ -111,12 +147,17 @@ async function instrument(page) {
       'completeTransformerEdit',
       'cancelTransformerEdit',
       'applyTransformerEdit',
+      'panViewportBy',
+      'zoomViewportAt',
+      'fitViewport',
+      'setViewport',
+      'setWorldTransform',
       'updateBarHeights',
       'updateTexts',
       'publishFrame',
       'handleHistoryShortcut',
     ].forEach(wrap);
-    window.__CORE_V2_INTERACTION_SAMPLE__ = { calls };
+    window.__CORE_V2_INTERACTION_SAMPLE__ = { calls, publications };
   });
 }
 
@@ -132,6 +173,17 @@ async function callDurations(page, name, cursor) {
     const samples = window.__CORE_V2_INTERACTION_SAMPLE__?.calls[method] ?? [];
     return samples.slice(start);
   }, { method: name, start: cursor });
+}
+
+async function firstPublicationAfter(page, cursor) {
+  await page.waitForFunction(
+    (start) =>
+      (window.__CORE_V2_INTERACTION_SAMPLE__?.publications.length ?? 0) > start,
+    cursor,
+    { timeout: 5_000 },
+  );
+  return page.evaluate((start) =>
+    window.__CORE_V2_INTERACTION_SAMPLE__.publications[start], cursor);
 }
 
 async function visibleTargets(page) {
@@ -278,6 +330,18 @@ async function runTrial(page, baseUrl, trialIndex) {
     const result = await command(page, name);
     metrics[metric] = result.ms;
     facts[`${metric}Status`] = result.status;
+    facts[`${metric}Transaction`] = result.transaction;
+    return result;
+  };
+  const recordVisibleCommand = async (metric, name) => {
+    const result = await recordCommand(metric, name);
+    const publication = await firstPublicationAfter(page, result.publicationCursor);
+    metrics[`${metric}InputToVisibleMs`] = publication.endedAt - result.startedAt;
+    metrics[`${metric}PostActionToVisibleMs`] = Math.max(
+      0,
+      publication.endedAt - result.endedAt,
+    );
+    metrics[`${metric}FirstFrameMs`] = publication.durationMs;
     return result;
   };
 
@@ -478,6 +542,7 @@ async function runTrial(page, baseUrl, trialIndex) {
   metrics.keyboardRedoProductMs = shortcutDurations[1] ?? 0;
 
   await recordCommand('fitAllMs', 'fit-all');
+  await recordCommand('fitAllRepeatMs', 'fit-all');
   await selectIds(page, [targets[0].ownerId]);
   await recordCommand('fitSelectionMs', 'fit-selection');
   await recordCommand('viewResetMs', 'view-reset');
@@ -487,6 +552,9 @@ async function runTrial(page, baseUrl, trialIndex) {
   await recordCommand('worldFlipXMs', 'world-flip-x');
   await recordCommand('worldFlipYMs', 'world-flip-y');
 
+  // Keep the animation-overlap stress on a visible, identity-stable target
+  // after the preceding world-transform coverage has completed.
+  await recordCommand('viewResetBeforeAnimationMs', 'view-reset');
   await selectIds(page, [targets[0].ownerId]);
   await recordCommand('animateSelectedActionMs', 'animate-selected');
   await waitForAnimations(page);
@@ -496,6 +564,43 @@ async function runTrial(page, baseUrl, trialIndex) {
   const allAnimationCalls = await callDurations(page, 'updateBarHeights', 0);
   metrics.animateAllProductMs = allAnimationCalls.at(-1) ?? 0;
   facts.allAnimationStarted = allAnimation.state.activeAnimations > 0;
+  const animatedHit = await page.evaluate(() => {
+    const bridge = window.__PATCH_MAP_CORE_V2_MANUAL_LAB__;
+    const engine = bridge.engine();
+    const canvas = engine.canvasHandle().element;
+    const target = engine.geometryProbe().entities.find((entity) => {
+      const [x, y, width, height] = entity.screenBounds;
+      return (
+        width > 2
+        && height > 2
+        && x >= 8
+        && y >= 8
+        && x + width <= canvas.clientWidth - 8
+        && y + height <= canvas.clientHeight - 8
+      );
+    });
+    if (target === undefined) throw new Error('animated hit target is unavailable');
+    const [x, y, width, height] = target.screenBounds;
+    const point = { x: x + width / 2, y: y + height / 2 };
+    const samples = [];
+    const activeBefore = bridge.state().activeAnimations;
+    for (let index = 0; index < 4; index += 1) {
+      const started = performance.now();
+      const hit = engine.selectionHitTestScreen(point);
+      samples.push(performance.now() - started);
+      if (hit.target === null) throw new Error('animated hit target was missed');
+    }
+    return {
+      samples,
+      activeBefore,
+      activeAfter: bridge.state().activeAnimations,
+    };
+  });
+  metrics.animateAllHitFirstMs = animatedHit.samples[0];
+  metrics.animateAllHitSteadyP95Ms = percentile(animatedHit.samples.slice(1), 0.95);
+  metrics.animateAllHitMaxMs = Math.max(...animatedHit.samples);
+  facts.animateAllHitActiveBefore = animatedHit.activeBefore;
+  facts.animateAllHitActiveAfter = animatedHit.activeAfter;
   const animationPublishCursor = await callCursor(page, 'publishFrame');
   box = await activateMode(page, 'pan');
   const animationPanStarted = performance.now();
@@ -520,32 +625,32 @@ async function runTrial(page, baseUrl, trialIndex) {
     : Math.max(...animationPanFrames);
   await waitForAnimations(page);
 
-  await recordCommand('randomTextMs', 'random-text');
+  await recordVisibleCommand('randomTextMs', 'random-text');
   const textUpdateCalls = await callDurations(page, 'updateTexts', 0);
   metrics.randomTextProductMs = textUpdateCalls.at(-1) ?? 0;
-  await recordCommand('createElementMs', 'create-element');
-  await recordCommand('undoCreateMs', 'undo');
-  await recordCommand('redoCreateMs', 'redo');
-  await recordCommand('undoRedoCreateMs', 'undo');
+  await recordVisibleCommand('createElementMs', 'create-element');
+  await recordVisibleCommand('undoCreateMs', 'undo');
+  await recordVisibleCommand('redoCreateMs', 'redo');
+  await recordVisibleCommand('undoRedoCreateMs', 'undo');
   await recordCommand('selectFirstForDuplicateMs', 'select-first');
-  await recordCommand('duplicateSelectedMs', 'duplicate-selected');
-  await recordCommand('undoDuplicateMs', 'undo');
+  await recordVisibleCommand('duplicateSelectedMs', 'duplicate-selected');
+  await recordVisibleCommand('undoDuplicateMs', 'undo');
   await recordCommand('selectFirstThreeForGroupMs', 'select-first-three');
-  await recordCommand('groupSelectedMs', 'group-selected');
-  await recordCommand('undoGroupMs', 'undo');
+  await recordVisibleCommand('groupSelectedMs', 'group-selected');
+  await recordVisibleCommand('undoGroupMs', 'undo');
   await recordCommand('selectFirstForFrontMs', 'select-first');
-  await recordCommand('frontSelectedMs', 'front-selected');
-  await recordCommand('undoFrontMs', 'undo');
+  await recordVisibleCommand('frontSelectedMs', 'front-selected');
+  await recordVisibleCommand('undoFrontMs', 'undo');
   await recordCommand('selectFirstForDeleteMs', 'select-first');
-  await recordCommand('deleteSelectedMs', 'delete-selected');
-  await recordCommand('undoDeleteMs', 'undo');
+  await recordVisibleCommand('deleteSelectedMs', 'delete-selected');
+  await recordVisibleCommand('undoDeleteMs', 'undo');
   await recordCommand('selectFirstThreeForAlignMs', 'select-first-three');
-  await recordCommand('alignSelectedMs', 'align-selected');
-  await recordCommand('undoAlignMs', 'undo');
-  await recordCommand('distributeSelectedMs', 'distribute-selected');
-  await recordCommand('undoDistributeMs', 'undo');
-  await recordCommand('textSelectedMs', 'text-selected');
-  await recordCommand('undoTextMs', 'undo');
+  await recordVisibleCommand('alignSelectedMs', 'align-selected');
+  await recordVisibleCommand('undoAlignMs', 'undo');
+  await recordVisibleCommand('distributeSelectedMs', 'distribute-selected');
+  await recordVisibleCommand('undoDistributeMs', 'undo');
+  await recordVisibleCommand('textSelectedMs', 'text-selected');
+  await recordVisibleCommand('undoTextMs', 'undo');
 
   await recordCommand('assetAcquireMs', 'asset-acquire');
   await recordCommand('assetReleaseMs', 'asset-release');
@@ -587,6 +692,12 @@ function functionalViolations(trial, label) {
   }
   if (!trial.facts.allAnimationStarted) {
     violations.push(`${label} full bar animation was not visible`);
+  }
+  if (
+    trial.facts.animateAllHitActiveBefore <= 0
+    || trial.facts.animateAllHitActiveAfter <= 0
+  ) {
+    violations.push(`${label} animated hit-test did not overlap the full animation`);
   }
   if (trial.facts.destroyCanvasCount !== 0) {
     violations.push(`${label} destroy retained a canvas`);
@@ -676,7 +787,7 @@ async function main() {
     }
     const cpus = os.cpus();
     const output = Object.freeze({
-      $schema: 'core-v2-interaction-performance/1',
+      $schema: 'core-v2-interaction-performance/2',
       generatedAt: new Date().toISOString(),
       protocol: Object.freeze({
         warmups: WARMUPS,
@@ -718,6 +829,8 @@ async function main() {
         + `${profile.summary.paintSelectionMs.p95.toFixed(1)}ms, `
         + `move preview/commit=${profile.summary.transformMovePreviewP95Ms.p95.toFixed(1)}/`
         + `${profile.summary.transformMoveCommitMs.p95.toFixed(1)}ms, `
+        + `animated hit first/steady=${profile.summary.animateAllHitFirstMs.p95.toFixed(1)}/`
+        + `${profile.summary.animateAllHitSteadyP95Ms.p95.toFixed(1)}ms, `
         + `create/delete=${profile.summary.createElementMs.p95.toFixed(1)}/`
         + `${profile.summary.deleteSelectedMs.p95.toFixed(1)}ms\n`,
       );

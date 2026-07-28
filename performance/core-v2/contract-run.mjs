@@ -266,6 +266,17 @@ async function main() {
       )).length;
     assert(browserErrorCount === 0, 'smoke browser errors');
     assert(lifecycleFailures === 0, 'smoke lifecycle cleanup');
+    const smokeRun = rawOutput.runs[0];
+    const smokeTrial = smokeRun?.measuredRaw[0];
+    assert(smokeRun !== undefined && smokeTrial !== undefined, 'smoke measured trial');
+    process.stdout.write(
+      `[core-v2-contract-perf] smoke metrics ${JSON.stringify({
+        size: smokeRun.size,
+        phases: smokeTrial.phases,
+        visible: smokeTrial.visible,
+        longTaskDurationsMs: smokeTrial.longTaskDurationsMs,
+      })}\n`,
+    );
     process.stdout.write(
       `[core-v2-contract-perf] smoke passed; browser errors 0; lifecycle failures 0\n`,
     );
