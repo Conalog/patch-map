@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-15T13:55:23.204Z",
-  "headed": true,
+  "generatedAt": "2026-07-28T14:45:14.147Z",
+  "headed": false,
   "checks": [
     {
       "label": "initial direct synthetic load",
@@ -23,14 +23,14 @@
           "loadedAssetCount": 0,
           "unresolvedAssetCount": 1,
           "imageCount": 50,
-          "frame": 3,
+          "frame": 4,
           "lastInvalidation": "synchronize"
         },
         "after": {
           "loadedAssetCount": 1,
           "unresolvedAssetCount": 0,
           "imageCount": 50,
-          "frame": 5,
+          "frame": 6,
           "lastInvalidation": "asset:core-v2-synthetic-dot:load"
         }
       }
@@ -78,16 +78,16 @@
         "before": {
           "entityCount": 500,
           "renderedTextCount": 500,
-          "bitmapTextCount": 500,
-          "fallbackTextCount": 0,
-          "frame": 5
+          "bitmapTextCount": 0,
+          "fallbackTextCount": 500,
+          "frame": 6
         },
         "after": {
           "entityCount": 500,
           "renderedTextCount": 500,
-          "bitmapTextCount": 500,
-          "fallbackTextCount": 0,
-          "frame": 6
+          "bitmapTextCount": 0,
+          "fallbackTextCount": 500,
+          "frame": 7
         }
       }
     },
@@ -103,14 +103,14 @@
           "loadedAssetCount": 1,
           "unresolvedAssetCount": 0,
           "imageCount": 50,
-          "frame": 7,
+          "frame": 8,
           "lastInvalidation": "commit"
         },
         "after": {
           "loadedAssetCount": 0,
           "unresolvedAssetCount": 1,
           "imageCount": 50,
-          "frame": 9,
+          "frame": 10,
           "lastInvalidation": "asset:core-v2-synthetic-dot:unload"
         }
       }
@@ -123,13 +123,13 @@
           "loadedAssetCount": 0,
           "unresolvedAssetCount": 1,
           "imageCount": 50,
-          "frame": 9,
+          "frame": 10,
           "lastInvalidation": "asset:core-v2-synthetic-dot:unload"
         },
         "nextFrame": {
           "loadedAssetCount": 0,
           "unresolvedAssetCount": 1,
-          "frame": 10,
+          "frame": 11,
           "lastInvalidation": "asset:core-v2-synthetic-dot:unload"
         }
       }
@@ -140,14 +140,14 @@
       "details": {
         "before": {
           "view": {
-            "x": 314.98805815160955,
+            "x": 320.48805815160955,
             "y": 24,
             "scale": 0.2751817237798546,
             "rotation": 0
           },
-          "frame": 10,
+          "frame": 11,
           "viewport": {
-            "width": 969,
+            "width": 980,
             "height": 578
           }
         },
@@ -158,9 +158,9 @@
             "scale": 1,
             "rotation": 0
           },
-          "frame": 11,
+          "frame": 12,
           "viewport": {
-            "width": 969,
+            "width": 980,
             "height": 578
           }
         }
@@ -177,28 +177,28 @@
             "scale": 1,
             "rotation": 0
           },
-          "frame": 11,
+          "frame": 12,
           "viewport": {
-            "width": 969,
+            "width": 980,
             "height": 578
           }
         },
         "fit": {
           "view": {
-            "x": 314.98805815160955,
+            "x": 320.48805815160955,
             "y": 24,
             "scale": 0.2751817237798546,
             "rotation": 0
           },
-          "frame": 12,
+          "frame": 13,
           "viewport": {
-            "width": 969,
+            "width": 980,
             "height": 578
           },
           "presentedBounds": {
-            "left": 314.98805815160955,
+            "left": 320.48805815160955,
             "top": 24,
-            "right": 654.0119418483905,
+            "right": 659.5119418483905,
             "bottom": 554
           }
         }
@@ -214,7 +214,7 @@
       "details": {
         "id": "__core_v2_browser_non_target__",
         "screen": {
-          "x": 957,
+          "x": 968,
           "y": 566
         },
         "anyHitId": "__core_v2_browser_non_target__",
@@ -231,7 +231,7 @@
       "passed": true
     },
     {
-      "label": "real wheel zoom remains cursor-centered ({\"beforeZoom\":{\"world\":{\"x\":657.7905660377359,\"y\":1002.9735849056603},\"scale\":0.2751817237798546},\"afterZoom\":{\"world\":{\"x\":657.7905660377359,\"y\":1001.6468424383269},\"scale\":0.4722137263540888},\"zoomScreenError\":0.626506004411758})",
+      "label": "real wheel zoom remains cursor-centered ({\"beforeZoom\":{\"world\":{\"x\":655.9735849056605,\"y\":1002.9735849056603},\"scale\":0.2751817237798546},\"afterZoom\":{\"world\":{\"x\":655.9735849056605,\"y\":1002.749101717343},\"scale\":0.32945233772303184},\"zoomScreenError\":0.07395651117066131})",
       "passed": true
     },
     {
@@ -241,8 +241,8 @@
         "before": {
           "barCount": 500,
           "activeAnimations": 0,
-          "rendererFrame": 22,
-          "schedulerFrame": 8,
+          "rendererFrame": 25,
+          "schedulerFrame": 11,
           "uploadedChunks": 0,
           "uploadedBytes": 0
         },
@@ -276,8 +276,8 @@
               "during": 32.86020179056961
             }
           ],
-          "rendererFrame": 24,
-          "schedulerFrame": 10,
+          "rendererFrame": 27,
+          "schedulerFrame": 13,
           "uploadedChunks": 4,
           "uploadedBytes": 45808
         }
@@ -345,16 +345,16 @@
               "during": 32.86020179056961
             }
           ],
-          "rendererFrame": 24,
-          "schedulerFrame": 10,
+          "rendererFrame": 27,
+          "schedulerFrame": 13,
           "uploadedChunks": 4,
           "uploadedBytes": 45808
         },
         "after": {
           "barCount": 500,
           "activeAnimations": 0,
-          "rendererFrame": 49,
-          "schedulerFrame": 35,
+          "rendererFrame": 52,
+          "schedulerFrame": 38,
           "uploadedChunks": 4,
           "uploadedBytes": 31808
         }
@@ -378,10 +378,10 @@
       "details": {
         "totalBarCount": 9365,
         "visibleBarCount": 0,
-        "rendererFrame": 50,
+        "rendererFrame": 54,
         "strategy": "mesh",
-        "uploadedChunks": 73,
-        "uploadedBytes": 1611456
+        "uploadedChunks": 0,
+        "uploadedBytes": 0
       }
     },
     {
@@ -391,20 +391,20 @@
         "before": {
           "totalBarCount": 9365,
           "visibleBarCount": 0,
-          "rendererFrame": 50,
+          "rendererFrame": 54,
           "strategy": "mesh",
-          "uploadedChunks": 73,
-          "uploadedBytes": 1611456
+          "uploadedChunks": 0,
+          "uploadedBytes": 0
         },
         "after": {
           "operationCount": 9365,
           "changedCount": 9365,
           "totalBarCount": 9365,
           "visibleBarCount": 9365,
-          "rendererFrame": 51,
+          "rendererFrame": 55,
           "strategy": "mesh",
-          "uploadedChunks": 73,
-          "uploadedBytes": 1648240,
+          "uploadedChunks": 1,
+          "uploadedBytes": 29920,
           "lastInvalidation": "commit"
         }
       }
@@ -417,16 +417,16 @@
           "requestedFraction": 0.01,
           "scheduledAnimations": 78,
           "activeAnimations": 78,
-          "rendererFrame": 51,
-          "schedulerFrame": 35
+          "rendererFrame": 55,
+          "schedulerFrame": 39
         },
         "before": {
           "barCount": 9365,
           "activeAnimations": 0,
-          "rendererFrame": 51,
-          "schedulerFrame": 35,
-          "uploadedChunks": 73,
-          "uploadedBytes": 1648240
+          "rendererFrame": 55,
+          "schedulerFrame": 39,
+          "uploadedChunks": 1,
+          "uploadedBytes": 29920
         },
         "during": {
           "activeAnimations": 78,
@@ -435,33 +435,33 @@
             {
               "id": "caseOIin7QU7U9g.1.0::bar:Fx8vZTbchk9JsRR",
               "before": 74,
-              "during": 72.50196011548638
+              "during": 72.50196011548641
             },
             {
               "id": "dIQ3fKnIwryC8Ed.1.51::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 71.68008173104346
+              "during": 71.6800817310435
             },
             {
               "id": "U1hDt5R93SGYZOb.1.8::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.43175107649496
+              "during": 72.43175107649499
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.17::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.62849962746058
+              "during": 72.62849962746061
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.47::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.43244508310116
+              "during": 72.43244508310119
             }
           ],
-          "rendererFrame": 57,
-          "schedulerFrame": 41,
-          "uploadedChunks": 44,
-          "uploadedBytes": 480576
+          "rendererFrame": 61,
+          "schedulerFrame": 45,
+          "uploadedChunks": 1,
+          "uploadedBytes": 10880
         }
       }
     },
@@ -506,41 +506,41 @@
             {
               "id": "caseOIin7QU7U9g.1.0::bar:Fx8vZTbchk9JsRR",
               "before": 74,
-              "during": 72.50196011548638
+              "during": 72.50196011548641
             },
             {
               "id": "dIQ3fKnIwryC8Ed.1.51::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 71.68008173104346
+              "during": 71.6800817310435
             },
             {
               "id": "U1hDt5R93SGYZOb.1.8::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.43175107649496
+              "during": 72.43175107649499
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.17::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.62849962746058
+              "during": 72.62849962746061
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.47::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.43244508310116
+              "during": 72.43244508310119
             }
           ],
-          "rendererFrame": 57,
-          "schedulerFrame": 41,
-          "uploadedChunks": 44,
-          "uploadedBytes": 480576
+          "rendererFrame": 61,
+          "schedulerFrame": 45,
+          "uploadedChunks": 1,
+          "uploadedBytes": 10880
         },
         "after": {
           "barCount": 9365,
           "activeAnimations": 0,
-          "rendererFrame": 86,
-          "schedulerFrame": 70,
-          "uploadedChunks": 44,
-          "uploadedBytes": 480576
+          "rendererFrame": 89,
+          "schedulerFrame": 73,
+          "uploadedChunks": 1,
+          "uploadedBytes": 10880
         }
       }
     },
