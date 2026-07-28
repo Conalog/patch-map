@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-28T19:41:38.440Z",
+  "generatedAt": "2026-07-28T20:20:44.060Z",
+  "codeCommit": "e3ea1b5c4fabc1c9645abcb00db0163e98e3f83e",
   "headed": false,
   "checks": [
     {
@@ -241,8 +242,8 @@
         "before": {
           "barCount": 500,
           "activeAnimations": 0,
-          "rendererFrame": 24,
-          "schedulerFrame": 10,
+          "rendererFrame": 36,
+          "schedulerFrame": 22,
           "uploadedChunks": 0,
           "uploadedBytes": 0
         },
@@ -263,7 +264,7 @@
             {
               "id": "item-00019::bar:bar",
               "before": 21,
-              "during": 20.934172525248982
+              "during": 20.93417252524898
             },
             {
               "id": "item-00042::bar:bar",
@@ -276,8 +277,8 @@
               "during": 32.86067057710152
             }
           ],
-          "rendererFrame": 26,
-          "schedulerFrame": 12,
+          "rendererFrame": 38,
+          "schedulerFrame": 24,
           "uploadedChunks": 4,
           "uploadedBytes": 45808
         }
@@ -332,7 +333,7 @@
             {
               "id": "item-00019::bar:bar",
               "before": 21,
-              "during": 20.934172525248982
+              "during": 20.93417252524898
             },
             {
               "id": "item-00042::bar:bar",
@@ -345,16 +346,16 @@
               "during": 32.86067057710152
             }
           ],
-          "rendererFrame": 26,
-          "schedulerFrame": 12,
+          "rendererFrame": 38,
+          "schedulerFrame": 24,
           "uploadedChunks": 4,
           "uploadedBytes": 45808
         },
         "after": {
           "barCount": 500,
           "activeAnimations": 0,
-          "rendererFrame": 51,
-          "schedulerFrame": 37,
+          "rendererFrame": 56,
+          "schedulerFrame": 42,
           "uploadedChunks": 4,
           "uploadedBytes": 31808
         }
@@ -378,7 +379,7 @@
       "details": {
         "totalBarCount": 9365,
         "visibleBarCount": 0,
-        "rendererFrame": 53,
+        "rendererFrame": 58,
         "strategy": "mesh",
         "uploadedChunks": 0,
         "uploadedBytes": 0
@@ -391,7 +392,7 @@
         "before": {
           "totalBarCount": 9365,
           "visibleBarCount": 0,
-          "rendererFrame": 53,
+          "rendererFrame": 58,
           "strategy": "mesh",
           "uploadedChunks": 0,
           "uploadedBytes": 0
@@ -401,7 +402,7 @@
           "changedCount": 9365,
           "totalBarCount": 9365,
           "visibleBarCount": 9365,
-          "rendererFrame": 54,
+          "rendererFrame": 59,
           "strategy": "mesh",
           "uploadedChunks": 1,
           "uploadedBytes": 29920,
@@ -417,14 +418,14 @@
           "requestedFraction": 0.01,
           "scheduledAnimations": 78,
           "activeAnimations": 78,
-          "rendererFrame": 54,
-          "schedulerFrame": 38
+          "rendererFrame": 59,
+          "schedulerFrame": 43
         },
         "before": {
           "barCount": 9365,
           "activeAnimations": 0,
-          "rendererFrame": 54,
-          "schedulerFrame": 38,
+          "rendererFrame": 59,
+          "schedulerFrame": 43,
           "uploadedChunks": 1,
           "uploadedBytes": 29920
         },
@@ -435,31 +436,31 @@
             {
               "id": "caseOIin7QU7U9g.1.0::bar:Fx8vZTbchk9JsRR",
               "before": 74,
-              "during": 72.49854508879689
+              "during": 72.50196011548641
             },
             {
               "id": "dIQ3fKnIwryC8Ed.1.51::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 71.67479309828553
+              "during": 71.6800817310435
             },
             {
               "id": "U1hDt5R93SGYZOb.1.8::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.42817599682925
+              "during": 72.43175107649499
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.17::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.62537306826461
+              "during": 72.62849962746061
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.47::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.42887158553691
+              "during": 72.43244508310119
             }
           ],
-          "rendererFrame": 60,
-          "schedulerFrame": 44,
+          "rendererFrame": 65,
+          "schedulerFrame": 49,
           "uploadedChunks": 1,
           "uploadedBytes": 10880
         }
@@ -506,39 +507,39 @@
             {
               "id": "caseOIin7QU7U9g.1.0::bar:Fx8vZTbchk9JsRR",
               "before": 74,
-              "during": 72.49854508879689
+              "during": 72.50196011548641
             },
             {
               "id": "dIQ3fKnIwryC8Ed.1.51::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 71.67479309828553
+              "during": 71.6800817310435
             },
             {
               "id": "U1hDt5R93SGYZOb.1.8::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.42817599682925
+              "during": 72.43175107649499
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.17::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.62537306826461
+              "during": 72.62849962746061
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.47::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.42887158553691
+              "during": 72.43244508310119
             }
           ],
-          "rendererFrame": 60,
-          "schedulerFrame": 44,
+          "rendererFrame": 65,
+          "schedulerFrame": 49,
           "uploadedChunks": 1,
           "uploadedBytes": 10880
         },
         "after": {
           "barCount": 9365,
           "activeAnimations": 0,
-          "rendererFrame": 90,
-          "schedulerFrame": 74,
+          "rendererFrame": 95,
+          "schedulerFrame": 79,
           "uploadedChunks": 1,
           "uploadedBytes": 10880
         }
@@ -576,5 +577,12 @@
   },
   "status": "pass",
   "failures": [],
+  "environment": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "browserTarget": "playwright-chromium",
+    "browserVersion": "143.0.7499.4",
+    "nativeCellId": null
+  },
   "windowsNative": "pending"
 }

@@ -1,0 +1,300 @@
+{
+  "$schema": "core-v2-webgpu-experimental/1",
+  "generatedAt": "2026-07-28T20:20:33.072Z",
+  "codeCommit": "e3ea1b5c4fabc1c9645abcb00db0163e98e3f83e",
+  "classification": "experimental-non-production",
+  "productionBaseline": "PixiJS WebGL2 aggregate mesh",
+  "protocol": {
+    "dataset": "5000",
+    "sourceRecords": 5000,
+    "expectedEntities": 25499,
+    "strategy": "mesh",
+    "requestedBackend": "webgpu",
+    "browserMode": "headless",
+    "chromiumArgs": [
+      "--enable-unsafe-webgpu",
+      "--use-angle=metal"
+    ],
+    "lifecycle": "load -> prepare -> asset load/unload -> full bar animation -> text -> interaction -> capture -> resize -> destroy/re-init -> destroy",
+    "fallbackPolicy": "fail when the active renderer backend is not exactly webgpu"
+  },
+  "environment": {
+    "platform": "darwin",
+    "release": "23.0.0",
+    "architecture": "arm64",
+    "node": "v22.21.1",
+    "browser": "143.0.7499.4",
+    "headed": false,
+    "cpuModel": "Apple M2",
+    "logicalCpuCount": 8,
+    "adapter": {
+      "vendor": "apple",
+      "architecture": "metal-3",
+      "device": "",
+      "description": ""
+    },
+    "windowsNative": "not-applicable-to-this-experimental-macos-proxy"
+  },
+  "checks": [
+    {
+      "name": "secure-context WebGPU adapter is available",
+      "status": "pass",
+      "observation": {
+        "navigatorGpu": true,
+        "adapter": {
+          "vendor": "apple",
+          "architecture": "metal-3",
+          "device": "",
+          "description": ""
+        }
+      }
+    },
+    {
+      "name": "Core v2 activates WebGPU without a silent WebGL fallback",
+      "status": "pass",
+      "observation": {
+        "status": "ready",
+        "generation": 1,
+        "dataset": "5000",
+        "selectedStrategy": "mesh",
+        "selectedBackend": "webgpu",
+        "activeStrategy": "mesh",
+        "activeBackend": "webgpu",
+        "loaded": true,
+        "destroyed": false,
+        "entityCount": 25499,
+        "frame": 3,
+        "lastAction": "boot",
+        "lastActionMs": null,
+        "error": null
+      }
+    },
+    {
+      "name": "5,000-record JSON load publishes one real WebGPU canvas",
+      "status": "pass",
+      "observation": {
+        "entityCount": 25499,
+        "frame": 3,
+        "canvasCount": 1
+      }
+    },
+    {
+      "name": "caller-owned input remains immutable",
+      "status": "pass",
+      "observation": {
+        "inputImmutable": "PASS"
+      }
+    },
+    {
+      "name": "prepare publishes a later visible WebGPU frame",
+      "status": "pass",
+      "observation": {
+        "beforeFrame": 3,
+        "afterFrame": 4
+      }
+    },
+    {
+      "name": "asset load and unload preserve explicit WebGPU texture ownership",
+      "status": "pass",
+      "observation": {
+        "before": {
+          "loadedAssetCount": 0,
+          "unresolvedAssetCount": 1,
+          "frame": 4
+        },
+        "loaded": {
+          "loadedAssetCount": 1,
+          "unresolvedAssetCount": 0,
+          "frame": 6
+        },
+        "unloaded": {
+          "loadedAssetCount": 0,
+          "unresolvedAssetCount": 1,
+          "frame": 8
+        }
+      }
+    },
+    {
+      "name": "all 5,000 bars visibly interpolate and settle through the central scheduler",
+      "status": "pass",
+      "observation": {
+        "before": {
+          "count": 5000,
+          "digest": 3048156281,
+          "activeAnimations": 0,
+          "frame": 8
+        },
+        "during": {
+          "count": 5000,
+          "digest": 1088332443,
+          "activeAnimations": 5000,
+          "frame": 17
+        },
+        "after": {
+          "count": 5000,
+          "digest": 1501441265,
+          "activeAnimations": 0,
+          "frame": 33
+        }
+      }
+    },
+    {
+      "name": "seeded text changes preserve identity/count and publish a WebGPU frame",
+      "status": "pass",
+      "observation": {
+        "before": {
+          "count": 5000,
+          "digest": 1326450119,
+          "frame": 33
+        },
+        "after": {
+          "count": 5000,
+          "digest": 4009881692,
+          "frame": 34
+        }
+      }
+    },
+    {
+      "name": "root federated pointer hit selects the transformed entity",
+      "status": "pass",
+      "observation": {
+        "expectedId": "item-00213",
+        "selectedId": "item-00213"
+      }
+    },
+    {
+      "name": "wheel zoom and viewport pan publish transformed WebGPU frames",
+      "status": "pass",
+      "observation": {
+        "before": {
+          "x": 298.79999999999995,
+          "y": -22.835000000000036,
+          "scale": 0.1,
+          "rotation": 0
+        },
+        "after": {
+          "view": {
+            "x": 306.75569096407855,
+            "y": -102.54101638738655,
+            "scale": 0.11972173631218103,
+            "rotation": 0
+          },
+          "frameBeforePan": 36,
+          "frameAfterPan": 37
+        }
+      }
+    },
+    {
+      "name": "Pixi Extract captures the WebGPU frame as PNG",
+      "status": "pass",
+      "observation": {
+        "encodedLength": 193794
+      }
+    },
+    {
+      "name": "responsive resize updates the WebGPU renderer",
+      "status": "pass",
+      "observation": {
+        "widthBefore": 980,
+        "widthAfter": 770
+      }
+    },
+    {
+      "name": "destroy releases the WebGPU canvas and runtime",
+      "status": "pass",
+      "observation": {
+        "state": {
+          "status": "offline",
+          "generation": 1,
+          "dataset": "5000",
+          "selectedStrategy": "mesh",
+          "selectedBackend": "webgpu",
+          "activeStrategy": null,
+          "activeBackend": null,
+          "loaded": false,
+          "destroyed": true,
+          "entityCount": 0,
+          "frame": 0,
+          "lastAction": "destroy",
+          "lastActionMs": 22,
+          "error": null
+        },
+        "canvasCount": 0
+      }
+    },
+    {
+      "name": "fresh lifecycle reinitializes the same WebGPU backend and dataset",
+      "status": "pass",
+      "observation": {
+        "state": {
+          "status": "ready",
+          "generation": 2,
+          "dataset": "5000",
+          "selectedStrategy": "mesh",
+          "selectedBackend": "webgpu",
+          "activeStrategy": "mesh",
+          "activeBackend": "webgpu",
+          "loaded": true,
+          "destroyed": false,
+          "entityCount": 25499,
+          "frame": 2,
+          "lastAction": "load",
+          "lastActionMs": 743.2000000476837,
+          "error": null
+        },
+        "canvasCount": 1
+      }
+    },
+    {
+      "name": "final cleanup leaves no WebGPU canvas",
+      "status": "pass",
+      "observation": {
+        "state": {
+          "status": "offline",
+          "generation": 2,
+          "dataset": "5000",
+          "selectedStrategy": "mesh",
+          "selectedBackend": "webgpu",
+          "activeStrategy": null,
+          "activeBackend": null,
+          "loaded": false,
+          "destroyed": true,
+          "entityCount": 0,
+          "frame": 0,
+          "lastAction": "destroy",
+          "lastActionMs": 6.800000011920929,
+          "error": null
+        },
+        "canvasCount": 0
+      }
+    },
+    {
+      "name": "console error count is zero",
+      "status": "pass",
+      "observation": []
+    },
+    {
+      "name": "page error count is zero",
+      "status": "pass",
+      "observation": []
+    },
+    {
+      "name": "network error count is zero",
+      "status": "pass",
+      "observation": []
+    }
+  ],
+  "errors": {
+    "console": [],
+    "page": [],
+    "network": []
+  },
+  "status": "pass",
+  "failures": [],
+  "fatalError": null,
+  "limitations": [
+    "This result does not replace the WebGL2 production baseline.",
+    "The Chromium unsafe-WebGPU flag and host adapter profile are experimental.",
+    "Native Windows Chrome/Edge and headed NVDA qualification are separate pending release gates."
+  ]
+}

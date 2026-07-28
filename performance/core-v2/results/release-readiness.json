@@ -1,0 +1,192 @@
+{
+  "$schema": "core-v2-release-readiness/1",
+  "generatedAt": "2026-07-28T20:22:25.874Z",
+  "codeCommit": "e3ea1b5c4fabc1c9645abcb00db0163e98e3f83e",
+  "status": "pending-external-evidence",
+  "releaseVerified": false,
+  "immutableContractModified": false,
+  "approvedProfile": {
+    "runtimeMatrix": {
+      "os": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "browsers": [
+        "Chrome latest-1",
+        "Chrome latest",
+        "Edge latest-1",
+        "Edge latest"
+      ],
+      "mandatoryBackend": "WebGL2",
+      "optionalBackend": "WebGPU"
+    },
+    "performance": {
+      "profile": {
+        "id": "windows-low-end-n100-8g-v1",
+        "os": {
+          "name": "Windows 11",
+          "release": "24H2",
+          "architecture": "x64",
+          "baseBuild": 26100,
+          "recordExactCumulativeBuild": true
+        },
+        "cpu": {
+          "model": "Intel Processor N100",
+          "cores": 4,
+          "threads": 4
+        },
+        "memory": {
+          "capacityGiB": 8,
+          "type": "DDR4-3200",
+          "channels": 1
+        },
+        "gpu": {
+          "model": "Intel UHD Graphics for Alder Lake-N",
+          "executionUnits": 24,
+          "memory": "shared",
+          "recordExactDriver": true
+        },
+        "display": {
+          "physicalPixels": [
+            1920,
+            1080
+          ],
+          "refreshHz": 60,
+          "viewportCssPixels": [
+            1280,
+            720
+          ],
+          "devicePixelRatio": 1,
+          "osScalePercent": 100,
+          "browserZoomPercent": 100
+        },
+        "browser": {
+          "headed": true,
+          "hardwareAcceleration": true,
+          "mandatoryBackend": "WebGL2",
+          "versions": "exact OQ-024 release versions recorded per run"
+        },
+        "power": {
+          "source": "AC",
+          "windowsMode": "Balanced",
+          "batterySaver": false,
+          "remoteDesktopOrVm": false,
+          "cooldownMinutesBeforeCell": 5
+        },
+        "assets": {
+          "location": "local",
+          "cacheState": "warm",
+          "networkIncludedInEngineTiming": false
+        }
+      },
+      "globalBudgets": {
+        "warmups": 2,
+        "measuredSamples": 7,
+        "frameGapP95MsMax": 33,
+        "interactionActionToVisibleP95MsMax": 50,
+        "mainThreadTasksAtLeast100MsExact": 0,
+        "droppedFrameRatioMax": 0.02,
+        "postDestroyForcedGcGrowthMiBMax": 2,
+        "lifecycleCycles": 10,
+        "canvasListenerTickerTextureDeltaAfterDestroyExact": 0,
+        "maximumFrozenBaselineRegressionPercent": 10
+      },
+      "workloadBudgetProfile": "windows-low-end-workload-budgets/1"
+    },
+    "inputDevices": {
+      "mandatory": [
+        "mouse",
+        "precision-trackpad",
+        "keyboard",
+        "browser-zoom",
+        "host-css-transform",
+        "scroll",
+        "DPR-change"
+      ],
+      "capabilityDependent": [
+        "touch",
+        "pen",
+        "multi-pointer"
+      ]
+    }
+  },
+  "localCandidate": {
+    "status": "pass",
+    "evidence": [
+      {
+        "id": "browser-functional",
+        "path": "performance/core-v2/results/browser-functional.json",
+        "sha256": "27feea75b1502be79e297b7d4a7986787fea01ae2c80decd956969a9e5d339da",
+        "classification": "headless-local-functional-proxy",
+        "status": "pass"
+      },
+      {
+        "id": "manual-lab-all-routes",
+        "path": "performance/core-v2/results/manual-lab-functional.json",
+        "sha256": "4249fa8eeb1f32e7696c2da2c5af9cdfdaf3afe8831b6efab0dadf045ada6023",
+        "classification": "headless-173-route-human-lab-proxy",
+        "status": "pass"
+      },
+      {
+        "id": "packed-consumer",
+        "path": "performance/core-v2/results/package-consumer.json",
+        "sha256": "41ee25b2bf8f29b4efa8e66d459a21c4a5c2b058896883cf6267e003f490cf55",
+        "classification": "packed-package-and-38-journey-proof",
+        "status": "pass"
+      },
+      {
+        "id": "memory-lifecycle",
+        "path": "performance/core-v2/results/memory-lifecycle.json",
+        "sha256": "d7342af61410df25c5196dec01bc04bc2d17389cfbb4018251f8b7b375b6040e",
+        "classification": "local-2-plus-7-lifecycle-proof",
+        "status": "pass"
+      },
+      {
+        "id": "contract-performance",
+        "path": "performance/core-v2/results/contract-performance.json",
+        "sha256": "0b11d34ca5eff787add012f53a44b1f2e80b351e4cc5292eacb46c13d5142059",
+        "classification": "chromium-4x-development-proxy",
+        "status": "pass"
+      },
+      {
+        "id": "interaction-performance-5000",
+        "path": "docs/tasks/2026/07-15/performance-core-v2/evidence/interaction-performance-5000.json",
+        "sha256": "dbf8439bc5c10582eb721d8b9654203d60562b2f75468478e390897e12ca0bb7",
+        "classification": "headless-1x-and-4x-interaction-proxy",
+        "status": "pass"
+      },
+      {
+        "id": "bar-animation-pan-performance",
+        "path": "docs/tasks/2026/07-15/performance-core-v2/evidence/bar-animation-pan-performance.json",
+        "sha256": "29508dd2bc043b723137bec0b254ef61ab92a5c6448f92c0117fe42903e66f50",
+        "classification": "headless-1x-and-4x-overlap-proxy",
+        "status": "pass"
+      },
+      {
+        "id": "webgpu-experimental",
+        "path": "performance/core-v2/results/webgpu-experimental.json",
+        "sha256": "89615a0d0e27b651fa185d925a689a2dcbbe5f68416ad8732f09e57f84800404",
+        "classification": "experimental-non-production",
+        "status": "pass"
+      }
+    ],
+    "failures": [],
+    "interpretation": "Local headless/WebGL proxy, package, lifecycle, and experimental WebGPU evidence cannot promote native or assistive-technology cells."
+  },
+  "nativeRelease": {
+    "status": "pending",
+    "manifestPath": null,
+    "manifestSha256": null,
+    "checks": [],
+    "failures": [
+      "native Windows 10/11 Chrome/Edge latest-two headed WebGL2 matrix is missing",
+      "headed NVDA evidence on every supported browser cell is missing",
+      "real mouse/precision-trackpad/keyboard/browser-zoom/CSS-transform/scroll/DPR traces are missing",
+      "target Windows N100 2+7 performance and 10-cycle lifecycle evidence is missing",
+      "packed actual-host 38-journey evidence is missing",
+      "canary and rollback rehearsal evidence is missing",
+      "independent release review is missing"
+    ]
+  },
+  "promotionRule": "releaseVerified is true only when every local artifact remains valid and a digest-bound native manifest passes all eight headed Windows WebGL2 cells, target performance, NVDA/input-device, actual-host, migration, security, and review checks."
+}
