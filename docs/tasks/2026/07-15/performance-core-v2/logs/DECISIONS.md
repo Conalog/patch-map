@@ -243,3 +243,9 @@
 - Keep Engine loading array-strict. Admit only canonical arrays or the explicit generic-item object through the host compatibility materializer, validate array persistence and semantic hashes before writes, and let one instance-local migration authority select a host-supplied engine only at mount/remount.
 - This prevents guessed legacy conversion, partial writes, expected-data leakage, active-session hot swaps, duplicate effects, and accidental bundling or emulation of the frozen prior engine.
 - MIG-001..003 and the host adapter share the boundary. The Lab exercises the previous-host seam with a Core v2 stand-in, while the real prior-engine factory, headed assistive-technology run, and native Windows qualification remain external release responsibilities.
+
+**2026-07-28**
+- Background: The exact 173-case runner intentionally creates transient execution sessions, which proves approved observations but does not let a product owner freely build history, repeat gestures, or inspect a long-lived scene.
+- Decision: Keep the exact runner independent and add one expected-blind, persistent human workbench. A declarative 173-case/646-action catalog selects among eleven shared product-control groups; every control calls the public `CoreV2Engine`, and the manual scene remains alive until explicit destroy or route navigation.
+- Why: Direct selection, transform, history, viewport, animation, asset, lifecycle, accessibility, and diagnostic experimentation needs durable state without duplicating 381 action handlers or importing normalized expected evidence into product execution.
+- Impact: All focused routes expose one real WebGL2 canvas, case-specific recipes, approved-action links, live probes, and repeatable controls. Root-only interaction, one central frame loop, stable logical identity, input immutability, and explicit destroy/re-init ownership remain intact; the exact evidence firewall and approved expected artifacts are unchanged.
