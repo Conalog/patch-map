@@ -10,6 +10,8 @@ import { parsePatchMapV010 } from '../../src/core-v2/parser';
 import { materializeCoreV2Dataset } from '../../src/core-v2/semantic/dataset';
 import {
   planCoreV2DatasetReconcile,
+  planCoreV2ParsedSceneReconcile,
+  planCoreV2ParsedSceneReconcileIncremental,
   planCoreV2SceneReconcile,
 } from '../../src/core-v2/semantic/reconcile';
 
@@ -59,6 +61,31 @@ describe('Core v2 dense reconcile planner', () => {
       data: { fill: 0xaabbccff },
     });
     scene.destroy();
+  });
+
+  it('plans an identity-stable dirty row exactly and rejects undeclared row changes', () => {
+    const current = parsePatchMapV010(materializeCoreV2Dataset([
+      { type: 'rect', id: 'a', size: { width: 20, height: 10 }, attrs: { x: 0 } },
+      { type: 'rect', id: 'b', size: { width: 20, height: 10 }, attrs: { x: 30 } },
+      { type: 'rect', id: 'c', size: { width: 20, height: 10 }, attrs: { x: 60 } },
+    ]).dataset).document;
+    const entities = current.entities.map((entity) =>
+      entity.id === 'b' ? Object.freeze({ ...entity, x: 42 }) : entity);
+    const candidate = Object.freeze({
+      ...current,
+      entities: Object.freeze(entities),
+    });
+
+    const incremental = planCoreV2ParsedSceneReconcileIncremental(
+      current,
+      candidate,
+      ['b'],
+    );
+    const canonical = planCoreV2ParsedSceneReconcile(current, candidate);
+
+    expect(incremental).toEqual(canonical);
+    expect(planCoreV2ParsedSceneReconcileIncremental(current, candidate, ['a']))
+      .toBeNull();
   });
 
   it('keeps owner-local component identity while changing component geometry and text', () => {

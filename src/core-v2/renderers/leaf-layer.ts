@@ -234,6 +234,7 @@ export class AggregateLeafLayer {
   private readonly imageProbesByEntityId = new Map<string, LeafSceneImageProbe>();
   private readonly paintProbesByEntityId = new Map<string, CoreV2EntityPaintProbe>();
   private readonly bindings = new Map<string, LeafAssetBinding>();
+  private readonly hostAssetBindingKeyByAlias = new Map<string, string>();
   private readonly framePendingAssetReleases: CoreV2AssetAcquisition[] = [];
   private readonly readyAssetReleases: CoreV2AssetAcquisition[] = [];
   private readonly dirtyAssetSlots = new Set<number>();
@@ -392,20 +393,29 @@ export class AggregateLeafLayer {
   public async loadAsset(alias: string, url: string): Promise<void> {
     const cleanAlias = nonempty(alias, 'asset alias');
     const cleanUrl = nonempty(url, 'asset URL');
-    const observation = await this.bindSceneAsset(cleanAlias, {
+    const sceneAliasKey = `alias:${cleanAlias}`;
+    const bindingKey =
+      this.bindings.has(sceneAliasKey) || this.imageSlotsByBinding.has(sceneAliasKey)
+        ? sceneAliasKey
+        : cleanAlias;
+    const observation = await this.bindSceneAsset(bindingKey, {
       kind: 'source',
       source: cleanUrl,
     });
     if (observation.status === 'stale') return;
-    const binding = this.bindings.get(cleanAlias);
+    const binding = this.bindings.get(bindingKey);
     if (binding?.generation === observation.generation && binding.state === 'failed') {
       if (binding.failure instanceof Error) throw binding.failure;
       throw new Error('Core v2 asset binding failed');
     }
+    this.hostAssetBindingKeyByAlias.set(cleanAlias, bindingKey);
   }
 
   public unloadAsset(alias: string): Promise<boolean> {
-    return this.unbindSceneAsset(alias);
+    const cleanAlias = nonempty(alias, 'asset alias');
+    const bindingKey = this.hostAssetBindingKeyByAlias.get(cleanAlias) ?? cleanAlias;
+    this.hostAssetBindingKeyByAlias.delete(cleanAlias);
+    return this.unbindSceneAsset(bindingKey);
   }
 
   /** Called only after Pixi has successfully rendered the attached leaves. */
@@ -442,6 +452,7 @@ export class AggregateLeafLayer {
       readonly changedRanges?: readonly SlotRange[];
       readonly fullRebuildEpoch?: number;
       readonly projectionContext?: CoreV2ProjectionRenderContext;
+      readonly projectionTransformOnly?: boolean;
     } = {},
   ): LeafLayerDebug {
     this.assertAlive();
@@ -462,7 +473,11 @@ export class AggregateLeafLayer {
         const start = Math.max(0, range.start);
         const end = Math.min(store.capacity, range.end);
         for (let slot = start; slot < end; slot += 1) {
-          this.syncSlot(store, slot, options.projectionContext);
+          if (options.projectionTransformOnly === true) {
+            this.syncSlotProjectionOnly(store, slot, options.projectionContext);
+          } else {
+            this.syncSlot(store, slot, options.projectionContext);
+          }
         }
       }
       for (const slot of this.dirtyAssetSlots) {
@@ -613,6 +628,7 @@ export class AggregateLeafLayer {
       ...this.readyAssetReleases,
     ]);
     this.bindings.clear();
+    this.hostAssetBindingKeyByAlias.clear();
     this.framePendingAssetReleases.length = 0;
     this.readyAssetReleases.length = 0;
     this.dirtyAssetSlots.clear();
@@ -768,6 +784,47 @@ export class AggregateLeafLayer {
     }
     if (!visible) return;
     if (kind === RenderKind.Text) this.syncText(store, slot, projectionContext);
+  }
+
+  private syncSlotProjectionOnly(
+    store: RenderStoreView,
+    slot: number,
+    projectionContext?: CoreV2ProjectionRenderContext,
+  ): void {
+    const alive = store.alive[slot] === 1;
+    const visible = alive && ((store.flags[slot] ?? 0) & RenderFlags.Visible) !== 0;
+    const kind = store.kind[slot];
+    const entityId = store.ids[slot] ?? `@slot:${slot}`;
+    if (visible && kind === RenderKind.Text) {
+      const entry = this.texts.get(slot);
+      if (entry !== undefined && entry.entityId === entityId) {
+        const quad = resolveCoreV2SlotQuad(store, slot, projectionContext);
+        applyLeafProjection(entry.object, quad, this.transformMatrix);
+        entry.vertices = quad.vertices;
+        if (this.textChunking) this.dirtyTextChunkKeys.add(textChunkKey(slot));
+        entry.object.visible = true;
+        return;
+      }
+    } else if (visible && kind === RenderKind.Image) {
+      const entry = this.images.get(slot);
+      if (entry !== undefined && entry.entityId === entityId) {
+        const quad = resolveCoreV2SlotQuad(store, slot, projectionContext);
+        applyLeafProjection(
+          entry.object,
+          quad,
+          this.transformMatrix,
+          entry.object.texture.width,
+          entry.object.texture.height,
+        );
+        entry.vertices = quad.vertices;
+        entry.object.visible = true;
+        return;
+      }
+    } else if (kind !== RenderKind.Text && kind !== RenderKind.Image) {
+      return;
+    }
+    // Unexpected topology/visibility cannot use the transform-only promise.
+    this.syncSlot(store, slot, projectionContext);
   }
 
   private syncText(

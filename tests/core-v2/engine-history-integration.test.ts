@@ -6,6 +6,7 @@ import {
   type CoreV2Point,
   type CoreV2SurfaceDebug,
   type CoreV2SurfaceOptions,
+  type CoreV2SurfaceReconcileOptions,
   type CoreV2SurfaceReconcileResult,
 } from '../../src/core-v2/engine';
 
@@ -15,6 +16,7 @@ class HistorySurface implements CoreV2EngineSurface {
   public mode: 'committed' | 'refused' = 'committed';
   public selectionIds: readonly string[] = Object.freeze([]);
   public reconcileCount = 0;
+  public reconcileOptions: readonly CoreV2SurfaceReconcileOptions[] = Object.freeze([]);
   public loaded: unknown = null;
   private width: number;
   private height: number;
@@ -31,8 +33,12 @@ class HistorySurface implements CoreV2EngineSurface {
     this.selectionIds = Object.freeze([]);
   }
 
-  public reconcile(input: unknown): CoreV2SurfaceReconcileResult {
+  public reconcile(
+    input: unknown,
+    options: CoreV2SurfaceReconcileOptions = {},
+  ): CoreV2SurfaceReconcileResult {
     this.reconcileCount += 1;
+    this.reconcileOptions = Object.freeze([...this.reconcileOptions, options]);
     if (this.mode === 'committed') this.loaded = input;
     return Object.freeze({
       status: this.mode,
@@ -119,6 +125,8 @@ describe('CoreV2Engine semantic history integration', () => {
     expect(zIndex(engine, 'low')).toBe(6);
     expect(events).toEqual(['undo:-1:3', 'redo:6:4']);
     expect(surface.reconcileCount).toBe(3);
+    expect(surface.reconcileOptions.map(({ incrementalRootIds }) => incrementalRootIds))
+      .toEqual([['low'], ['low'], ['low']]);
     await engine.destroy();
   });
 

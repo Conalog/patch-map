@@ -106,6 +106,224 @@ export function planCoreV2ParsedSceneReconcile(
   );
 }
 
+/**
+ * Guarded identity-stable planner for parser-owned flat-root edits. It scans
+ * the ordered row arrays to prove every unlisted entity is still the exact
+ * immutable record, then computes deltas only for the supplied dirty IDs.
+ */
+export function planCoreV2ParsedSceneReconcileIncremental(
+  current: SceneDocument,
+  candidate: SceneDocument,
+  dirtyEntityIds: readonly string[],
+  options: CoreV2ReconcileOptions = {},
+): CoreV2DenseReconcilePlan | null {
+  if (
+    dirtyEntityIds.length === 0 ||
+    current.entities.length !== candidate.entities.length ||
+    current.background !== candidate.background ||
+    !sameOptionalView(current.view, candidate.view)
+  ) {
+    return null;
+  }
+  const dirty = new Set(dirtyEntityIds);
+  if (dirty.size !== dirtyEntityIds.length) return null;
+  const changedEntities: CoreOperation[] = [];
+  const changedRelations: CoreOperation[] = [];
+  let patched = 0;
+  let visibilityChanged = 0;
+  let changedEntityCount = 0;
+
+  for (let index = 0; index < candidate.entities.length; index += 1) {
+    const before = current.entities[index] as CanonicalEntity | undefined;
+    const after = candidate.entities[index] as CanonicalEntity | undefined;
+    if (
+      before === undefined ||
+      after === undefined ||
+      before.id !== after.id ||
+      before.kind !== after.kind
+    ) {
+      return null;
+    }
+    if (before === after) {
+      if (dirty.has(after.id)) dirty.delete(after.id);
+      continue;
+    }
+    if (!dirty.delete(after.id) || before.zIndex !== after.zIndex) return null;
+    const operations = entityDelta(before, after);
+    if (operations.length === 0) continue;
+    changedEntityCount += 1;
+    for (const operation of operations) {
+      if (operation.type === 'patch') patched += 1;
+      else visibilityChanged += 1;
+      if (after.kind === 'relation') changedRelations.push(operation);
+      else changedEntities.push(operation);
+    }
+  }
+  if (dirty.size !== 0) return null;
+
+  const selectionOperations = options.selectionIds === undefined
+    ? []
+    : [freezeOperation({
+        type: 'selection',
+        targets: normalizedSelectionIds(options.selectionIds),
+      })];
+  const operations = Object.freeze([
+    ...changedEntities,
+    ...changedRelations,
+    ...selectionOperations,
+  ]);
+  return freezePlan({
+    batch: freezeBatch(operations, options),
+    safeToCommit: true,
+    diagnostics: Object.freeze([]),
+    summary: {
+      operationCount: operations.length,
+      added: 0,
+      patched,
+      visibilityChanged,
+      removed: 0,
+      replaced: 0,
+      unchanged: candidate.entities.length - changedEntityCount,
+      viewChanged: false,
+      unsupported: 0,
+    },
+  });
+}
+
+/**
+ * Guarded structural window planner. The incremental structural parser keeps
+ * every unaffected entity record by identity, so a small changed middle
+ * window can publish add/remove/patch operations without indexing and
+ * comparing the other 20,000 dense rows. Large reorders deliberately return
+ * null and use the canonical planner.
+ */
+export function planCoreV2ParsedSceneReconcileStructuralWindow(
+  current: SceneDocument,
+  candidate: SceneDocument,
+  options: CoreV2ReconcileOptions = {},
+): CoreV2DenseReconcilePlan | null {
+  if (
+    current.background !== candidate.background ||
+    !sameOptionalView(current.view, candidate.view)
+  ) {
+    return null;
+  }
+  const before = current.entities as unknown as readonly CanonicalEntity[];
+  const after = candidate.entities as unknown as readonly CanonicalEntity[];
+  let prefix = 0;
+  while (
+    prefix < before.length &&
+    prefix < after.length &&
+    before[prefix] === after[prefix]
+  ) {
+    prefix += 1;
+  }
+  let beforeEnd = before.length;
+  let afterEnd = after.length;
+  while (
+    beforeEnd > prefix &&
+    afterEnd > prefix &&
+    before[beforeEnd - 1] === after[afterEnd - 1]
+  ) {
+    beforeEnd -= 1;
+    afterEnd -= 1;
+  }
+  const beforeWindow = before.slice(prefix, beforeEnd);
+  const afterWindow = after.slice(prefix, afterEnd);
+  if (
+    beforeWindow.length === 0 && afterWindow.length === 0 ||
+    beforeWindow.length + afterWindow.length > 512
+  ) {
+    return null;
+  }
+
+  const currentById = indexEntities(beforeWindow);
+  const candidateById = indexEntities(afterWindow);
+  const removedRelations: CoreOperation[] = [];
+  const removedEntities: CoreOperation[] = [];
+  const addedEntities: CoreOperation[] = [];
+  const changedEntities: CoreOperation[] = [];
+  const addedRelations: CoreOperation[] = [];
+  const changedRelations: CoreOperation[] = [];
+  let added = 0;
+  let patched = 0;
+  let visibilityChanged = 0;
+  let removed = 0;
+  let replaced = 0;
+  let changedEntityCount = 0;
+
+  for (const entity of beforeWindow) {
+    const next = candidateById.get(entity.id);
+    if (next?.kind === entity.kind) continue;
+    const operation = freezeOperation({ type: 'remove', target: entity.id });
+    (entity.kind === 'relation' ? removedRelations : removedEntities).push(operation);
+    removed += 1;
+    if (next !== undefined) replaced += 1;
+  }
+  for (const entity of afterWindow) {
+    const previous = currentById.get(entity.id);
+    if (previous === undefined || previous.kind !== entity.kind) {
+      const operation = freezeOperation({ type: 'add', entity: canonicalToInput(entity) });
+      (entity.kind === 'relation' ? addedRelations : addedEntities).push(operation);
+      added += 1;
+      continue;
+    }
+    const operations = entityDelta(previous, entity);
+    if (operations.length === 0) continue;
+    changedEntityCount += 1;
+    for (const operation of operations) {
+      if (operation.type === 'patch') patched += 1;
+      else visibilityChanged += 1;
+      (entity.kind === 'relation' ? changedRelations : changedEntities).push(operation);
+    }
+  }
+
+  const allowedRetainedOrderIds = normalizedAllowedRetainedOrderIds(
+    options.allowedRetainedOrderIds,
+  );
+  const diagnostics: CoreV2ReconcileDiagnostic[] = [];
+  if (authoredOrderChanged(beforeWindow, afterWindow, allowedRetainedOrderIds)) {
+    diagnostics.push(freezeDiagnostic({
+      severity: 'error',
+      code: 'ENTITY_ORDER_CHANGE_UNSUPPORTED',
+      message: 'Retained same-z entity order changed, but the dense transaction seam has no reorder operation',
+      path: '$.entities',
+    }));
+  }
+  const selectionOperations = options.selectionIds === undefined
+    ? []
+    : [freezeOperation({
+        type: 'selection',
+        targets: normalizedSelectionIds(options.selectionIds),
+      })];
+  const operations = Object.freeze([
+    ...removedRelations,
+    ...removedEntities,
+    ...addedEntities,
+    ...changedEntities,
+    ...addedRelations,
+    ...changedRelations,
+    ...selectionOperations,
+  ]);
+  const unsupported = diagnostics.length;
+  return freezePlan({
+    batch: freezeBatch(operations, options),
+    safeToCommit: unsupported === 0,
+    diagnostics,
+    summary: {
+      operationCount: operations.length,
+      added,
+      patched,
+      visibilityChanged,
+      removed,
+      replaced,
+      unchanged: after.length - added - changedEntityCount,
+      viewChanged: false,
+      unsupported,
+    },
+  });
+}
+
 function planNormalizedCoreV2SceneReconcile(
   current: SceneDocument,
   candidate: SceneDocument,
@@ -228,6 +446,21 @@ function planNormalizedCoreV2SceneReconcile(
   });
 }
 
+function sameOptionalView(
+  left: CoreView | undefined,
+  right: CoreView | undefined,
+): boolean {
+  if (left === right) return true;
+  return (
+    left !== undefined &&
+    right !== undefined &&
+    left.x === right.x &&
+    left.y === right.y &&
+    left.scale === right.scale &&
+    (left.rotation ?? 0) === (right.rotation ?? 0)
+  );
+}
+
 function normalizedSelectionIds(values: readonly string[]): readonly string[] {
   if (!Array.isArray(values)) throw new TypeError('selectionIds must be an array');
   return Object.freeze([...new Set(values.map((value, index) => {
@@ -288,8 +521,17 @@ export function planCoreV2DatasetReconcile(
   });
 }
 
+const ENTITY_INDEX_CACHE = new WeakMap<
+  readonly CanonicalEntity[],
+  ReadonlyMap<string, CanonicalEntity>
+>();
+
 function indexEntities(entities: readonly CanonicalEntity[]): ReadonlyMap<string, CanonicalEntity> {
-  return new Map(entities.map((entity) => [entity.id, entity]));
+  const cached = ENTITY_INDEX_CACHE.get(entities);
+  if (cached !== undefined) return cached;
+  const index = new Map(entities.map((entity) => [entity.id, entity]));
+  ENTITY_INDEX_CACHE.set(entities, index);
+  return index;
 }
 
 function entityDelta(
@@ -453,6 +695,7 @@ function authoredOrderChanged(
     const next = candidateById.get(entity.id);
     if (next?.kind === entity.kind && next.zIndex === entity.zIndex) retainedSameZ.add(entity.id);
   }
+  if (retainedOrderUnchanged(current, candidate, retainedSameZ)) return false;
   const currentOrder = orderByZIndex(current, retainedSameZ);
   const candidateOrder = orderByZIndex(candidate, retainedSameZ);
   for (const [zIndex, currentIds] of currentOrder) {
@@ -465,6 +708,33 @@ function authoredOrderChanged(
     }
   }
   return false;
+}
+
+function retainedOrderUnchanged(
+  current: readonly CanonicalEntity[],
+  candidate: readonly CanonicalEntity[],
+  retainedIds: ReadonlySet<string>,
+): boolean {
+  let candidateIndex = 0;
+  for (const entity of current) {
+    if (!retainedIds.has(entity.id)) continue;
+    let next: CanonicalEntity | undefined;
+    while (candidateIndex < candidate.length) {
+      const value = candidate[candidateIndex];
+      candidateIndex += 1;
+      if (value !== undefined && retainedIds.has(value.id)) {
+        next = value;
+        break;
+      }
+    }
+    if (next?.id !== entity.id) return false;
+  }
+  while (candidateIndex < candidate.length) {
+    const value = candidate[candidateIndex];
+    candidateIndex += 1;
+    if (value !== undefined && retainedIds.has(value.id)) return false;
+  }
+  return true;
 }
 
 function orderChangeIsScoped(

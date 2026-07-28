@@ -1,6 +1,8 @@
 import {
+  assembleOwnedCoreV2Dataset,
   CoreV2DatasetError,
   materializeCoreV2Dataset,
+  materializeOwnedCoreV2StructuralDataset,
   type CoreV2Component,
   type CoreV2Element,
   type MaterializedCoreV2Dataset,
@@ -60,6 +62,7 @@ export type CoreV2SemanticRemovalResult =
 
 interface LocatedTarget {
   readonly path: string;
+  readonly rootIndex: number;
   readonly elementType?: CoreV2Element['type'];
 }
 
@@ -140,10 +143,38 @@ export function applyCoreV2SemanticPatch(
     );
   }
 
-  const staged = rewriteDataset(current.dataset, location.path, patch);
+  const currentRoot = current.dataset[location.rootIndex];
+  const canRewriteOwnedRoot =
+    currentRoot !== undefined &&
+    isIncrementalFlatRoot(currentRoot) &&
+    (
+      location.path === `$[${location.rootIndex}]` ||
+      location.path.startsWith(`$[${location.rootIndex}].components[`)
+    );
   let candidate: MaterializedCoreV2Dataset;
   try {
-    candidate = materializeCoreV2Dataset(staged);
+    if (canRewriteOwnedRoot) {
+      const stagedRoot = rewriteElement(
+        currentRoot,
+        `$[${location.rootIndex}]`,
+        location.path,
+        patch,
+      );
+      const normalizedRoot = materializeCoreV2Dataset([stagedRoot]).dataset[0];
+      if (normalizedRoot === undefined) {
+        throw new Error('single-root semantic patch lost its normalized root');
+      }
+      if (jsonEquivalent(currentRoot, normalizedRoot)) {
+        candidate = current;
+      } else {
+        const roots = [...current.dataset];
+        roots[location.rootIndex] = normalizedRoot;
+        candidate = assembleOwnedCoreV2Dataset(current, roots);
+      }
+    } else {
+      const staged = rewriteDataset(current.dataset, location.path, patch);
+      candidate = materializeCoreV2Dataset(staged);
+    }
   } catch (error) {
     if (!(error instanceof CoreV2DatasetError)) throw error;
     return rejected(
@@ -207,7 +238,9 @@ export function removeCoreV2SemanticTarget(
   const staged = removeDatasetElement(current.dataset, location.path);
   let candidate: MaterializedCoreV2Dataset;
   try {
-    candidate = materializeCoreV2Dataset(staged);
+    candidate = location.path === `$[${location.rootIndex}]`
+      ? materializeOwnedCoreV2StructuralDataset(staged)
+      : materializeCoreV2Dataset(staged);
   } catch (error) {
     if (!(error instanceof CoreV2DatasetError)) throw error;
     return removalRejected(
@@ -311,7 +344,7 @@ function locateTargets(
 ): readonly LocatedTarget[] {
   const located: LocatedTarget[] = [];
   elements.forEach((element, index) => {
-    locateInElement(element, `$[${index}]`, target, located);
+    locateInElement(element, `$[${index}]`, index, target, located);
   });
   return located;
 }
@@ -319,11 +352,12 @@ function locateTargets(
 function locateInElement(
   element: CoreV2Element,
   path: string,
+  rootIndex: number,
   target: CoreV2SemanticTarget,
   located: LocatedTarget[],
 ): void {
   if (target.kind === 'element' && element.id === target.id) {
-    located.push({ path, elementType: element.type });
+    located.push({ path, rootIndex, elementType: element.type });
   }
 
   if (target.kind === 'component' && element.id === target.ownerId) {
@@ -332,6 +366,7 @@ function locateInElement(
       if (component.id === target.id) {
         located.push({
           path: `${path}${components.path}[${index}]`,
+          rootIndex,
         });
       }
     });
@@ -339,9 +374,20 @@ function locateInElement(
 
   if (element.type === 'group') {
     element.children.forEach((child, index) => {
-      locateInElement(child, `${path}.children[${index}]`, target, located);
+      locateInElement(child, `${path}.children[${index}]`, rootIndex, target, located);
     });
   }
+}
+
+function isIncrementalFlatRoot(
+  element: CoreV2Element,
+): element is Exclude<CoreV2Element, { readonly type: 'group' | 'grid' | 'relations' }> {
+  return (
+    element.type === 'item' ||
+    element.type === 'rect' ||
+    element.type === 'image' ||
+    element.type === 'text'
+  );
 }
 
 function elementComponents(element: CoreV2Element): Readonly<{

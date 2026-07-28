@@ -316,13 +316,16 @@ export function layoutCoreV2Text(options: CoreV2TextLayoutOptions): CoreV2TextLa
     autoFont: options.autoFont !== undefined,
     fontPolicy,
   });
-  const visibleFontRuns = buildFontRuns({
-    text: core.visibleText,
-    normalizedCarriageReturnIsBoundary: false,
-    fontSizePx,
-    autoFont: options.autoFont !== undefined,
-    fontPolicy,
-  });
+  const visibleFontRuns =
+    core.visibleText === options.source && !options.source.includes('\r')
+      ? sourceFontRuns
+      : buildFontRuns({
+          text: core.visibleText,
+          normalizedCarriageReturnIsBoundary: false,
+          fontSizePx,
+          autoFont: options.autoFont !== undefined,
+          fontPolicy,
+        });
   const fontRuns = overflow === 'ellipsis' ? visibleFontRuns : sourceFontRuns;
   const rendererRoute = chooseRendererRoute(
     core.visibleText,
@@ -457,6 +460,7 @@ export function relocateCoreV2TextLayout(
 
 /** Deterministic UAX-29-profile segmentation with no host ICU dependency. */
 export function segmentCoreV2Graphemes(source: string): readonly string[] {
+  if (isPrintableAscii(source)) return Object.freeze(source.split(''));
   const tokens = scalarTokens(source);
   if (tokens.length === 0) return Object.freeze([]);
   const result: string[] = [];
@@ -526,7 +530,9 @@ function produceLayoutCore(input: Readonly<{
   letterSpacingPx: number;
 }>): LayoutCore {
   const sourceGraphemes = segmentCoreV2Graphemes(input.source);
-  const layoutGraphemes = segmentCoreV2Graphemes(input.layoutSource);
+  const layoutGraphemes = input.layoutSource === input.source
+    ? sourceGraphemes
+    : segmentCoreV2Graphemes(input.layoutSource);
   const hardLines = splitHardLines(layoutGraphemes);
   const splitLines = splitByCount(hardLines, input.split);
   const lines = input.wordWrapWidthPx === null
@@ -566,6 +572,14 @@ function produceLayoutCore(input: Readonly<{
     naturalLineAdvancesPx,
     truncated: overflowResult.truncated,
   });
+}
+
+function isPrintableAscii(source: string): boolean {
+  for (let index = 0; index < source.length; index += 1) {
+    const code = source.charCodeAt(index);
+    if (code < 0x20 || code > 0x7e) return false;
+  }
+  return true;
 }
 
 function chooseFontSize(

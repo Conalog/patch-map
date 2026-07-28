@@ -116,6 +116,43 @@ describe('Core v2 orientation renderer lanes', () => {
     layer.destroy();
   });
 
+  it('limits a projection-transform-only Mesh sync to upright bar slots', () => {
+    const parsed = parsePatchMapV010([item('upright-mixed', 'upright', [
+      {
+        type: 'bar',
+        id: 'upright-level',
+        size: { width: 16, height: 6 },
+        source: { type: 'rect', fill: '#334455' },
+      },
+      {
+        type: 'text',
+        id: 'upright-label',
+        text: '42',
+        style: { fontSize: 10 },
+      },
+    ])]);
+    const entities = parsed.document.entities.filter((candidate) =>
+      candidate.kind === 'bar' || candidate.kind === 'text'
+    );
+    const store = createRenderStore(entities);
+    const layer = new AggregateMeshLayer({ chunkSize: 8 });
+    layer.sync(store, {
+      fullRebuildEpoch: 1,
+      projectionContext: projectionContext(parsed.projection, 1, 0, false, false),
+    });
+    const changed = layer.sync(store, {
+      changedRanges: [{ start: 0, end: store.capacity }],
+      fullRebuildEpoch: 1,
+      projectionContext: projectionContext(parsed.projection, 2, 90, true, false),
+      projectionTransformOnly: true,
+    });
+
+    expect(entities.map(({ kind }) => kind)).toEqual(['bar', 'text']);
+    expect(changed.uploadedChunks).toBe(1);
+    expect(changed.geometrySlotsVisited).toBe(1);
+    layer.destroy();
+  });
+
   it('uploads direct dense bar geometry while its parser projection is stale', () => {
     const parsed = parsePatchMapV010([item('direct-meter', 'follow-item', [{
       type: 'bar',
@@ -182,6 +219,42 @@ describe('Core v2 orientation renderer lanes', () => {
     expect(resolveCoreV2SlotQuad(store, textSlot, context).screenBasis).toEqual([1, 0, 0, 1]);
     expect([text.position.x, text.position.y]).toEqual(
       resolveCoreV2SlotQuad(store, textSlot, context).center,
+    );
+    await layer.destroy();
+  });
+
+  it('repositions an existing upright Text leaf without rebuilding it', async () => {
+    const parsed = parsePatchMapV010([item('upright-text-item', 'upright', [{
+      type: 'text',
+      id: 'upright-text',
+      text: '42',
+      style: { fontSize: 10 },
+    }])]);
+    const entity = parsed.document.entities.find((candidate) => candidate.kind === 'text');
+    if (!entity) throw new Error('upright text entity was not projected');
+    const store = createRenderStore([entity]);
+    const layer = new AggregateLeafLayer();
+    layer.sync(store, {
+      fullRebuildEpoch: 1,
+      projectionContext: projectionContext(parsed.projection, 1, 0, false, false),
+    });
+    const text = layer.textContainer.children[0];
+    if (!text) throw new Error('upright text leaf was not rendered');
+    const before = displayBasis(text);
+    const nextContext = projectionContext(parsed.projection, 2, 90, true, false);
+
+    layer.sync(store, {
+      changedRanges: [{ start: 0, end: 1 }],
+      fullRebuildEpoch: 1,
+      projectionContext: nextContext,
+      projectionTransformOnly: true,
+    });
+
+    expect(layer.textContainer.children[0]).toBe(text);
+    expect(displayBasis(text)).not.toEqual(before);
+    expectBasisClose(displayBasis(text), resolveCoreV2SlotQuad(store, 0, nextContext).basis);
+    expect([text.position.x, text.position.y]).toEqual(
+      resolveCoreV2SlotQuad(store, 0, nextContext).center,
     );
     await layer.destroy();
   });

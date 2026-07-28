@@ -302,6 +302,12 @@ describe('Core v2 aggregate selection and transformer substrate', () => {
     engine.dispatchPointerInput(enginePointer('up', 2, [20, 30], 116));
     expect(pointerEvents).toEqual(['down', 'up', 'click']);
     expect(surface.selectionIds).toEqual(['item-a']);
+    engine.dispatchPointerInput(enginePointer('down', 3, [170, 50], 132, true));
+    engine.dispatchPointerInput(enginePointer('up', 3, [170, 50], 148, true));
+    expect(surface.selectionIds).toEqual(['item-a', 'rect-b']);
+    engine.dispatchPointerInput(enginePointer('down', 4, [170, 50], 164, true));
+    engine.dispatchPointerInput(enginePointer('up', 4, [170, 50], 180, true));
+    expect(surface.selectionIds).toEqual(['item-a']);
 
     await expect(engine.destroy()).resolves.toBe(true);
     expect(engine.transformerGestureProbe()).toMatchObject({
@@ -504,6 +510,7 @@ function enginePointer(
   pointerId: number,
   screen: readonly [number, number],
   timeMs: number,
+  shift = false,
 ): CoreV2EnginePointerInput {
   return Object.freeze({
     type,
@@ -514,7 +521,7 @@ function enginePointer(
     button: 0,
     buttons: type === 'up' ? 0 : 1,
     modifiers: Object.freeze({
-      shift: false,
+      shift,
       ctrl: false,
       alt: false,
       meta: false,

@@ -6,6 +6,7 @@ import {
   type CoreV2ComponentVisualProductProbe,
   type CoreV2ComponentVisualTarget,
   type CoreV2DirectBarHeightUpdate,
+  type CoreV2DirectTextUpdate,
   type CoreV2Options,
   type CoreV2PresentationLifecycleResult,
   type CoreV2RootPointerInput,
@@ -18,6 +19,7 @@ import {
   type CoreV2TextStateProbe,
   type CoreV2TextTarget,
   type CoreV2TextTransformProbe,
+  type CoreV2TransientProjectionResult,
   normalizeCoreV2TextTarget,
 } from './core';
 import type {
@@ -33,6 +35,7 @@ import {
   normalizeCoreV2ViewportPadding,
   resolveCoreV2ViewportContributors,
   type CoreV2ViewportContributorResult,
+  type CoreV2ViewportGeometry,
   type CoreV2ViewportPolicy,
 } from './viewport';
 import type { CoreV2PaintOrderProductProbe } from './paint-order-product';
@@ -126,6 +129,8 @@ import {
 import {
   CoreV2DatasetError,
   materializeCoreV2Dataset,
+  ownedCoreV2ElementIds,
+  ownedCoreV2Materialization,
   validateCoreV2DatasetReferences,
   type MaterializedCoreV2Dataset,
   type CoreV2AssetSource,
@@ -152,11 +157,15 @@ import {
   planCoreV2BarHeightBatch,
   planCoreV2BulkPatch,
   planCoreV2MutationTransaction,
+  planCoreV2PreviewMutationTransaction,
+  planCoreV2TextBatch,
+  promoteCoreV2PreviewMutationTransaction,
   type CoreV2BarHeightBatchRequest,
   type CoreV2BulkPatchRequest,
   type CoreV2MutationJsonValue,
   type CoreV2MutationOperation,
   type CoreV2PlannedBarHeightUpdate,
+  type CoreV2TextBatchRequest,
   type CoreV2MutationTarget,
   type CoreV2MutationTransactionDiagnostic,
   type CoreV2MutationTransactionPlan,
@@ -168,6 +177,11 @@ import {
   type CoreV2RelativeGeometryChanges,
   type CoreV2VisibleCenterResize,
 } from './semantic/geometry-update';
+import {
+  CoreV2ScreenRegionIndex,
+  type CoreV2ScreenRegionBounds,
+  type CoreV2ScreenRegionCandidates,
+} from './semantic/screen-region-index';
 import type { CoreV2ReconcileDiagnostic } from './semantic/reconcile';
 import { CoreV2PresentationError } from './presentation';
 import {
@@ -662,6 +676,11 @@ export interface CoreV2SurfaceGeometrySnapshot {
   }> | null;
 }
 
+export type CoreV2SurfaceRegionGeometryCandidates = CoreV2ScreenRegionCandidates<
+  CoreV2SurfaceEntityGeometry,
+  CoreV2SurfaceRelationGeometry
+>;
+
 export interface CoreV2GeometryRevisionTuple {
   readonly scene: number;
   readonly view: number;
@@ -736,8 +755,12 @@ export interface CoreV2SurfaceReconcileOptions {
   readonly selectionIds?: readonly string[];
   /** Engine-owned dirty flat roots eligible for guarded incremental parsing. */
   readonly incrementalRootIds?: readonly string[];
+  /** Engine-owned top-level structural sharing eligible for guarded parsing. */
+  readonly structuralSharing?: boolean;
   /** Validated numeric height-only bar mutations eligible for direct projection. */
   readonly directBarHeightUpdates?: readonly CoreV2DirectBarHeightUpdate[];
+  /** Validated component text replacements eligible for direct projection. */
+  readonly directTextUpdates?: readonly CoreV2DirectTextUpdate[];
 }
 
 export interface CoreV2EngineSceneImageAttemptProbe extends Omit<
@@ -950,7 +973,23 @@ export interface CoreV2EngineSurface {
   hitTestScreen(point: CoreV2Point): string | null;
   screenToWorld(point: CoreV2Point): CoreV2Point;
   debugSnapshot(): CoreV2SurfaceDebug;
+  /**
+   * View-independent geometry for fit/focus. Implementations may retain this
+   * across pan, zoom, and resize while invalidating screen-space geometry.
+   */
+  worldGeometrySnapshot?(): CoreV2ViewportGeometry;
   geometrySnapshot?(): CoreV2SurfaceGeometrySnapshot;
+  selectionGeometries?(
+    selectionIds: readonly string[],
+  ): readonly CoreV2SurfaceEntityGeometry[];
+  previewIncrementalRoots?(
+    input: unknown,
+    dirtyRootIds: readonly string[],
+  ): CoreV2TransientProjectionResult | null;
+  clearIncrementalPreview?(): CoreV2TransientProjectionResult;
+  queryRegionGeometry?(
+    bounds: CoreV2ScreenRegionBounds,
+  ): CoreV2SurfaceRegionGeometryCandidates;
   sceneImageProbe?(): CoreV2EngineSceneImagesProbe;
   retrySceneImage?(entityId: string): CoreV2SceneImageRetryResult;
   componentVisualProbe?(
@@ -1783,7 +1822,9 @@ interface ActiveCoreV2TransformerEdit {
   readonly historyDepthBefore: number;
   readonly previewCountBefore: number;
   readonly latestPlan: CoreV2TransformerEditPlan | null;
+  readonly latestMutationPlan: CoreV2MutationTransactionPlan | null;
   readonly previewMaterialized: MaterializedCoreV2Dataset | null;
+  readonly transientPreview: boolean;
 }
 
 export class CoreV2Engine {
@@ -1835,6 +1876,10 @@ export class CoreV2Engine {
     readonly materialized: MaterializedCoreV2Dataset;
     readonly index: CoreV2LogicalSceneIndex;
   }> | null = null;
+  private readonly logicalSceneIndexesByMaterialized =
+    new WeakMap<MaterializedCoreV2Dataset, CoreV2LogicalSceneIndex>();
+  private readonly logicalSelectionIndexesByMaterialized =
+    new WeakMap<MaterializedCoreV2Dataset, CoreV2LogicalSceneIndex>();
   private componentSemantics = new Map<string, CoreV2EngineComponentSemanticProbe>();
   private textSemantics = new Map<string, IndexedEngineTextSemantic>();
   private logicalSelectionIds: readonly string[] = Object.freeze([]);
@@ -2348,6 +2393,7 @@ export class CoreV2Engine {
     this.hostInteractions.clearLogicalBindings();
     this.accessibility.replaceScene();
     this.materialized = materialized;
+    this.logicalSceneIndexCache = null;
     this.targetLifecycleGeneration += 1;
     this.clearHistoryAuthority('replace');
     this.componentSemantics = componentSemantics;
@@ -2404,6 +2450,31 @@ export class CoreV2Engine {
     const previousRevisions = this.revisionStamp();
     const previousHistory = this.history.state();
     const plan = planCoreV2BarHeightBatch(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      request,
+    );
+    return this.applyPlannedTransaction(
+      surface,
+      plan,
+      'transact',
+      previousRevisions,
+      previousHistory,
+    );
+  }
+
+  /**
+   * Commit one owner-qualified text batch without allocating a generic
+   * operation/path graph for every label. Text layout and renderer
+   * reconciliation remain exact and history uses the same atomic boundary.
+   */
+  public updateTexts(
+    request: CoreV2TextBatchRequest,
+  ): CoreV2EngineTransactionResult {
+    const surface = this.requireSurface('updateTexts');
+    this.cancelActiveTransformerEdit('redraw', true);
+    const previousRevisions = this.revisionStamp();
+    const previousHistory = this.history.state();
+    const plan = planCoreV2TextBatch(
       this.materialized ?? EMPTY_MATERIALIZED_DATASET,
       request,
     );
@@ -2846,17 +2917,24 @@ export class CoreV2Engine {
     const currentDataset =
       this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset;
     const plannedBarHeightUpdates = plan.directBarHeightUpdates;
-    const incrementalRootIds = plannedBarHeightUpdates === undefined
-      ? incrementalFlatRootIds(
-          currentDataset,
-          plan.candidate.dataset,
-          plan.operations,
-        )
-      : incrementalBarHeightRootIds(
+    const plannedTextUpdates = plan.directTextUpdates;
+    const incrementalRootIds = plannedBarHeightUpdates !== undefined
+      ? incrementalBarHeightRootIds(
           currentDataset,
           plan.candidate.dataset,
           plannedBarHeightUpdates,
-        );
+        )
+      : plannedTextUpdates !== undefined
+        ? incrementalOwnedRootIds(currentDataset, plan.candidate.dataset)
+        : incrementalFlatRootIds(
+            currentDataset,
+            plan.candidate.dataset,
+            plan.operations,
+          );
+    const structuralSharing = operationsMayChangeElementStructure(plan.operations);
+    const structuralRootDelta = structuralSharing
+      ? ownedStructuralRootDelta(currentDataset, plan.candidate.dataset)
+      : null;
     const directBarComponentSemantics = plannedBarHeightUpdates === undefined
       ? reconcileDirectBarHeightComponentSemantics(
           this.componentSemantics,
@@ -2868,30 +2946,46 @@ export class CoreV2Engine {
           plan.candidate.dataset,
           plannedBarHeightUpdates,
         );
-    const componentSemantics = directBarComponentSemantics ??
-      (incrementalRootIds === undefined
-        ? indexComponentSemantics(plan.candidate.dataset)
-        : reconcileFlatComponentSemantics(
-            this.componentSemantics,
-            currentDataset,
-            plan.candidate.dataset,
-            incrementalRootIds,
-          ));
-    const textSemantics = directBarComponentSemantics !== null ||
-      operationsOnlyUpdateBarSize(plan.operations, componentSemantics)
-      ? this.textSemantics
-      : incrementalRootIds === undefined
-        ? indexTextSemantics(plan.candidate.dataset)
-        : reconcileFlatTextSemantics(
-            this.textSemantics,
-            currentDataset,
-            plan.candidate.dataset,
-            incrementalRootIds,
-          );
+    const componentSemantics = plannedTextUpdates !== undefined
+      ? this.componentSemantics
+      : directBarComponentSemantics ??
+        (incrementalRootIds === undefined
+          ? structuralRootDelta === null
+            ? indexComponentSemantics(plan.candidate.dataset)
+            : reconcileStructuralComponentSemantics(
+                this.componentSemantics,
+                structuralRootDelta,
+              )
+          : reconcileFlatComponentSemantics(
+              this.componentSemantics,
+              currentDataset,
+              plan.candidate.dataset,
+              incrementalRootIds,
+            ));
+    const textSemantics =
+      plannedTextUpdates === undefined &&
+      (
+        directBarComponentSemantics !== null ||
+        operationsOnlyUpdateBarSize(plan.operations, componentSemantics)
+      )
+        ? this.textSemantics
+        : incrementalRootIds === undefined
+          ? structuralRootDelta === null
+            ? indexTextSemantics(plan.candidate.dataset)
+            : reconcileStructuralTextSemantics(
+                this.textSemantics,
+                structuralRootDelta,
+              )
+          : reconcileFlatTextSemantics(
+              this.textSemantics,
+              currentDataset,
+              plan.candidate.dataset,
+              incrementalRootIds,
+            );
     const selectionBefore = this.logicalSelectionIds;
     const modeBefore = this.hostInteractions.modeProbe().activeState;
     const requestedSelectionAfter = plan.selectionIds ??
-      (plannedBarHeightUpdates === undefined
+      (plannedBarHeightUpdates === undefined && plannedTextUpdates === undefined
         ? transactionSelectionAfter(selectionBefore, plan.operations)
         : selectionBefore);
     let companionAfter: CoreV2EngineHistoryCompanion;
@@ -2900,6 +2994,8 @@ export class CoreV2Engine {
         plan.history,
         requestedSelectionAfter,
         plan.candidate,
+        incrementalRootIds !== undefined,
+        structuralRootDelta !== null,
       );
     } catch (error) {
       const diagnostic = this.diagnosticFrom(error, operation);
@@ -2941,7 +3037,8 @@ export class CoreV2Engine {
       directAnimatedBarTargets(plan.operations, componentSemantics);
     const directBarHeightUpdates = plannedBarHeightUpdates ??
       directBarHeightUpdatesFor(plan.operations, componentSemantics);
-    const allowedComponentOrderOwners = plannedBarHeightUpdates === undefined
+    const allowedComponentOrderOwners =
+      plannedBarHeightUpdates === undefined && plannedTextUpdates === undefined
       ? componentOrderOwners(plan.operations)
       : EMPTY_HISTORY_ORDER_IDS;
     let reconcile: CoreV2SurfaceReconcileResult;
@@ -2955,9 +3052,13 @@ export class CoreV2Engine {
         ...(incrementalRootIds === undefined
           ? {}
           : { incrementalRootIds }),
+        ...(structuralSharing ? { structuralSharing: true } : {}),
         ...(directBarHeightUpdates === undefined
           ? {}
           : { directBarHeightUpdates }),
+        ...(plannedTextUpdates === undefined
+          ? {}
+          : { directTextUpdates: plannedTextUpdates }),
         ...(plan.allowedElementOrderIds === undefined
           ? {}
           : { allowedElementOrderIds: plan.allowedElementOrderIds }),
@@ -3003,7 +3104,26 @@ export class CoreV2Engine {
       return result;
     }
 
+    const retainedSelectionIndex =
+      plannedBarHeightUpdates === undefined && plannedTextUpdates === undefined
+        ? undefined
+        : this.logicalSceneIndexCache?.index ??
+          (this.materialized === null
+            ? undefined
+            : this.logicalSelectionIndexesByMaterialized.get(this.materialized));
     this.materialized = plan.candidate;
+    if (retainedSelectionIndex !== undefined) {
+      this.logicalSelectionIndexesByMaterialized.set(
+        plan.candidate,
+        retainedSelectionIndex,
+      );
+    }
+    if (
+      plannedBarHeightUpdates === undefined &&
+      plannedTextUpdates === undefined
+    ) {
+      this.logicalSceneIndexCache = null;
+    }
     this.componentSemantics = componentSemantics;
     this.textSemantics = textSemantics;
     this.logicalSelectionIds = selectionAfter;
@@ -3165,8 +3285,28 @@ export class CoreV2Engine {
       );
     }
 
-    const componentSemantics = indexComponentSemantics(mutation.candidate.dataset);
-    const textSemantics = indexTextSemantics(mutation.candidate.dataset);
+    const currentDataset =
+      this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset;
+    const incrementalRootIds = incrementalOwnedRootIds(
+      currentDataset,
+      mutation.candidate.dataset,
+    );
+    const componentSemantics = incrementalRootIds === undefined
+      ? indexComponentSemantics(mutation.candidate.dataset)
+      : reconcileFlatComponentSemantics(
+          this.componentSemantics,
+          currentDataset,
+          mutation.candidate.dataset,
+          incrementalRootIds,
+        );
+    const textSemantics = incrementalRootIds === undefined
+      ? indexTextSemantics(mutation.candidate.dataset)
+      : reconcileFlatTextSemantics(
+          this.textSemantics,
+          currentDataset,
+          mutation.candidate.dataset,
+          incrementalRootIds,
+        );
     const selectionBefore = this.logicalSelectionIds;
     let preparedHistory: CoreV2HistoryPreparedRecord;
     try {
@@ -3202,6 +3342,7 @@ export class CoreV2Engine {
         animateBarChanges:
           !this.accessibility.reducedMotion &&
           mutation.target.kind === 'component',
+        ...(incrementalRootIds === undefined ? {} : { incrementalRootIds }),
       });
     } catch (error) {
       this.history.cancelPrepared(preparedHistory);
@@ -3237,6 +3378,7 @@ export class CoreV2Engine {
     }
 
     this.materialized = mutation.candidate;
+    this.logicalSceneIndexCache = null;
     this.componentSemantics = componentSemantics;
     this.textSemantics = textSemantics;
     this.sceneRevision += 1;
@@ -3314,10 +3456,26 @@ export class CoreV2Engine {
       );
     }
 
-    const componentSemantics = indexComponentSemantics(mutation.candidate.dataset);
-    const textSemantics = indexTextSemantics(mutation.candidate.dataset);
+    const structuralRootDelta = ownedStructuralRootDelta(
+      this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset,
+      mutation.candidate.dataset,
+    );
+    const componentSemantics = structuralRootDelta === null
+      ? indexComponentSemantics(mutation.candidate.dataset)
+      : reconcileStructuralComponentSemantics(
+          this.componentSemantics,
+          structuralRootDelta,
+        );
+    const textSemantics = structuralRootDelta === null
+      ? indexTextSemantics(mutation.candidate.dataset)
+      : reconcileStructuralTextSemantics(
+          this.textSemantics,
+          structuralRootDelta,
+        );
     const selectionBefore = this.logicalSelectionIds;
-    const selectionAfter = this.validLogicalSelection(selectionBefore, mutation.candidate);
+    const selectionAfter = structuralRootDelta === null
+      ? this.validLogicalSelection(selectionBefore, mutation.candidate)
+      : this.validOwnedStructuralSelection(selectionBefore, mutation.candidate);
     let preparedHistory: CoreV2HistoryPreparedRecord;
     try {
       preparedHistory = this.history.prepareOwnedChangedRecord({
@@ -3350,6 +3508,9 @@ export class CoreV2Engine {
     try {
       reconcile = surface.reconcile(mutation.candidate.dataset, {
         animateBarChanges: false,
+        ...(mutation.target.kind === 'element'
+          ? { structuralSharing: true }
+          : {}),
         ...(!sameStringArray(selectionBefore, selectionAfter)
           ? { selectionIds: selectionAfter }
           : {}),
@@ -3388,6 +3549,7 @@ export class CoreV2Engine {
     }
 
     this.materialized = mutation.candidate;
+    this.logicalSceneIndexCache = null;
     this.componentSemantics = componentSemantics;
     this.textSemantics = textSemantics;
     this.logicalSelectionIds = selectionAfter;
@@ -4698,7 +4860,7 @@ export class CoreV2Engine {
   ): CoreV2TransformableSubsetProbe {
     this.requireSurface('transformableSubset');
     return evaluateCoreV2TransformableSubset(
-      this.logicalSceneIndex(),
+      this.logicalSceneSelectionIndex(),
       selectionIds,
       lockedIds,
     );
@@ -4710,14 +4872,17 @@ export class CoreV2Engine {
     }> = {},
   ): CoreV2SelectionVisualProbe | null {
     const surface = this.requireSurface('selectionVisualProbe');
-    const geometry = surface.geometrySnapshot?.() ?? null;
-    if (geometry === null) return null;
+    const selectionIds = options.selectionIds ?? this.logicalSelectionIds;
+    const geometries = surface.selectionGeometries?.(selectionIds) ??
+      surface.geometrySnapshot?.().entities ??
+      null;
+    if (geometries === null) return null;
     return createCoreV2SelectionVisualProbe(
-      this.logicalSceneIndex(),
-      geometry.entities,
+      this.logicalSceneSelectionIndex(),
+      geometries,
       {
         ...options,
-        selectionIds: options.selectionIds ?? this.logicalSelectionIds,
+        selectionIds,
         viewportScale: options.viewportScale ?? this.viewportScale,
       },
     );
@@ -4732,7 +4897,7 @@ export class CoreV2Engine {
     const visual = this.selectionVisualProbe(options);
     if (visual === null) return null;
     const subset = evaluateCoreV2TransformableSubset(
-      this.logicalSceneIndex(),
+      this.logicalSceneSelectionIndex(),
       visual.overlayTargets.map((target) => target.selectionId),
       options.lockedIds ?? [],
     );
@@ -4950,7 +5115,9 @@ export class CoreV2Engine {
       historyDepthBefore: this.history.state().undoDepth,
       previewCountBefore: this.transformerEditPreviewCount,
       latestPlan: null,
+      latestMutationPlan: null,
       previewMaterialized: null,
+      transientPreview: false,
     });
     return this.transformerEditProbe();
   }
@@ -4988,8 +5155,9 @@ export class CoreV2Engine {
     }
 
     let previewMaterialized = active.startMaterialized;
+    let mutationPlan: CoreV2MutationTransactionPlan | null = null;
     if (plan.status === 'planned') {
-      const preview = planCoreV2MutationTransaction(active.startMaterialized, {
+      const preview = planCoreV2PreviewMutationTransaction(active.startMaterialized, {
         strict: true,
         recordHistory: false,
         operations: plan.operations,
@@ -4997,11 +5165,33 @@ export class CoreV2Engine {
       if (preview.status !== 'planned') {
         throw new Error(`transformer preview transaction became ${preview.status}`);
       }
+      mutationPlan = preview;
       previewMaterialized = preview.candidate;
     }
-    const reconcile = surface.reconcile(previewMaterialized.dataset, {
-      animateBarChanges: false,
-    });
+    const incrementalRootIds = plan.status === 'planned'
+      ? incrementalFlatRootIds(
+          active.startMaterialized.dataset,
+          previewMaterialized.dataset,
+          plan.operations,
+        )
+      : undefined;
+    const transient = incrementalRootIds === undefined
+      ? null
+      : surface.previewIncrementalRoots?.(
+          previewMaterialized.dataset,
+          incrementalRootIds,
+        ) ?? null;
+    const reconcile: CoreV2SurfaceReconcileResult = transient === null
+      ? surface.reconcile(previewMaterialized.dataset, {
+          animateBarChanges: false,
+          ...(incrementalRootIds === undefined ? {} : { incrementalRootIds }),
+        })
+      : Object.freeze({
+          status: 'committed',
+          operationCount: plan.operations.length,
+          denseChanged: false,
+          diagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+        });
     const diagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
     if (reconcile.status === 'refused') {
       return Object.freeze({
@@ -5018,7 +5208,9 @@ export class CoreV2Engine {
     this.activeTransformerEdit = Object.freeze({
       ...active,
       latestPlan: plan,
+      latestMutationPlan: mutationPlan,
       previewMaterialized,
+      transientPreview: transient !== null,
     });
     return Object.freeze({
       status: plan.status === 'planned' ? 'previewed' : 'unchanged',
@@ -5061,11 +5253,28 @@ export class CoreV2Engine {
     }
 
     this.activeTransformerEdit = null;
-    const transaction = this.transact({
-      strict: true,
-      actionId: active.actionId,
-      operations: plan.operations,
-    });
+    const surface = this.requireSurface('completeTransformerEdit');
+    const previewPlan = active.latestMutationPlan;
+    if (previewPlan === null || previewPlan.status !== 'planned') {
+      throw new Error('planned transformer completion lost its preview transaction');
+    }
+    const previousRevisions = this.revisionStamp();
+    const previousHistory = this.history.state();
+    const promoted = promoteCoreV2PreviewMutationTransaction(
+      active.startMaterialized,
+      Object.freeze({
+        ...previewPlan,
+        actionId: active.actionId,
+        recordHistory: true,
+      }),
+    );
+    const transaction = this.applyPlannedTransaction(
+      surface,
+      promoted,
+      'transact',
+      previousRevisions,
+      previousHistory,
+    );
     if (transaction.status !== 'committed') {
       this.restoreTransformerPreview(active);
       const gesture = this.cancelTransformerHandleGesture(pointerId, 'redraw');
@@ -5183,11 +5392,14 @@ export class CoreV2Engine {
   public applySelection(input: CoreV2SelectionSetOperation): CoreV2SelectionChange {
     const surface = this.requireSurface('select');
     const materialized = this.materialized;
-    const logicalIndex = materialized === null ? null : this.logicalSceneIndex();
     const change = applyCoreV2SelectionOperation(
       this.logicalSelectionIds,
       input,
-      (id) => logicalIndex?.target(id) !== null,
+      (id) => {
+        if (materialized === null) return false;
+        const owned = this.ownedSelectionTargetExists(id, materialized);
+        return owned ?? this.logicalSceneIndex().target(id) !== null;
+      },
     );
     if (change.changed) {
       if (this.cancelActiveTransformerEdit('selection-change', true) === null) {
@@ -5324,7 +5536,7 @@ export class CoreV2Engine {
       this.hostInteractions.modeProbe().activeState === 'select'
     ) {
       this.applySelection({
-        op: 'replace',
+        op: click.payload.modifiers.shift ? 'toggle' : 'replace',
         ids: click.payload.target === null ? [] : [click.payload.target.id],
         source: 'canvas',
       });
@@ -5378,9 +5590,13 @@ export class CoreV2Engine {
   ): CoreV2EngineRegionSelectionResult {
     const surface = this.requireSurface('selectBox');
     const geometry = requireRegionGeometry(surface, 'selectBox');
+    const queryBounds = boxRegionQueryBounds(start, end);
+    const candidates = queryBounds === null
+      ? geometry
+      : surface.queryRegionGeometry?.(queryBounds) ?? geometry;
     const hit = hitCoreV2BoxRegion(
-      geometry.entities,
-      geometry.relations,
+      candidates.entities,
+      candidates.relations,
       start,
       end,
       options.partialIntersection === undefined
@@ -5399,9 +5615,16 @@ export class CoreV2Engine {
   ): CoreV2EngineRegionSelectionResult {
     const surface = this.requireSurface('selectPaint');
     const geometry = requireRegionGeometry(surface, 'selectPaint');
+    const queryBounds = paintRegionQueryBounds(
+      segments,
+      options.toleranceCssPx ?? 0,
+    );
+    const candidates = queryBounds === null
+      ? geometry
+      : surface.queryRegionGeometry?.(queryBounds) ?? geometry;
     const hit = hitCoreV2PaintRegion(
-      geometry.entities,
-      geometry.relations,
+      candidates.entities,
+      candidates.relations,
       segments,
       options.toleranceCssPx === undefined
         ? {}
@@ -6378,8 +6601,25 @@ export class CoreV2Engine {
         false,
       );
     }
+    if (active.transientPreview && surface.clearIncrementalPreview !== undefined) {
+      surface.clearIncrementalPreview();
+      if (!sameStringArray(this.logicalSelectionIds, active.startSelectionIds)) {
+        surface.select(active.startSelectionIds);
+        this.logicalSelectionIds = active.startSelectionIds;
+      }
+      this.interactionRevision += 1;
+      return;
+    }
+    const incrementalRootIds = active.latestPlan?.status === 'planned'
+      ? incrementalFlatRootIds(
+          active.previewMaterialized.dataset,
+          active.startMaterialized.dataset,
+          active.latestPlan.operations,
+        )
+      : undefined;
     const reconcile = surface.reconcile(active.startMaterialized.dataset, {
       animateBarChanges: false,
+      ...(incrementalRootIds === undefined ? {} : { incrementalRootIds }),
       ...(!sameStringArray(this.logicalSelectionIds, active.startSelectionIds)
         ? { selectionIds: active.startSelectionIds }
         : {}),
@@ -6441,23 +6681,73 @@ export class CoreV2Engine {
     let reconcileDiagnostics: readonly CoreV2ReconcileDiagnostic[] = EMPTY_RECONCILE_DIAGNOSTICS;
     const modeBefore = this.hostInteractions.modeProbe().activeState;
     const hostCompanionBefore = this.historyHostCompanion;
+    const currentMaterialized = this.materialized ?? EMPTY_MATERIALIZED_DATASET;
     const apply = (transition: CoreV2EngineHistoryTransition): boolean => {
       let materialized: MaterializedCoreV2Dataset;
+      let componentSemantics: Map<string, CoreV2EngineComponentSemanticProbe>;
+      let textSemantics: Map<string, IndexedEngineTextSemantic>;
+      let incrementalRootIds: readonly string[] | undefined;
+      let structuralRootDelta: CoreV2OwnedStructuralRootDelta | null;
       const selectionBefore = this.logicalSelectionIds;
       try {
-        materialized = materializeCoreV2Dataset(transition.snapshot.dataset);
+        materialized = ownedCoreV2Materialization(transition.snapshot.dataset) ??
+          materializeCoreV2Dataset(transition.snapshot.dataset);
+        incrementalRootIds = incrementalOwnedRootIds(
+          currentMaterialized.dataset,
+          materialized.dataset,
+        );
         const orderScope = historyReconcileOrderScope(transition.command);
+        structuralRootDelta =
+          incrementalRootIds === undefined &&
+          orderScope.allowedElementOrderIds.length > 0
+            ? ownedStructuralRootDelta(
+                currentMaterialized.dataset,
+                materialized.dataset,
+              )
+            : null;
+        componentSemantics = incrementalRootIds === undefined
+          ? structuralRootDelta === null
+            ? indexComponentSemantics(materialized.dataset)
+            : reconcileStructuralComponentSemantics(
+                this.componentSemantics,
+                structuralRootDelta,
+              )
+          : reconcileFlatComponentSemantics(
+              this.componentSemantics,
+              currentMaterialized.dataset,
+              materialized.dataset,
+              incrementalRootIds,
+            );
+        textSemantics = incrementalRootIds === undefined
+          ? structuralRootDelta === null
+            ? indexTextSemantics(materialized.dataset)
+            : reconcileStructuralTextSemantics(
+                this.textSemantics,
+                structuralRootDelta,
+              )
+          : reconcileFlatTextSemantics(
+              this.textSemantics,
+              currentMaterialized.dataset,
+              materialized.dataset,
+              incrementalRootIds,
+            );
         const companion = transition.snapshot.companion;
         const mode = companion?.mode ?? 'select';
         if (!isCoreV2InteractionMode(mode)) {
           throw new TypeError('history companion mode is unsupported');
         }
-        const selection = this.validLogicalSelection(
-          companion?.selectionIds ?? Object.freeze([]),
-          materialized,
-        );
+        const requestedSelection = companion?.selectionIds ?? Object.freeze([]);
+        const selection = incrementalRootIds === undefined
+          ? structuralRootDelta === null
+            ? this.validLogicalSelection(requestedSelection, materialized)
+            : this.validOwnedStructuralSelection(requestedSelection, materialized)
+          : this.validOwnedStableSelection(requestedSelection, materialized);
         const reconcile = surface.reconcile?.(materialized.dataset, {
           animateBarChanges: false,
+          ...(incrementalRootIds === undefined ? {} : { incrementalRootIds }),
+          ...(orderScope.allowedElementOrderIds.length === 0
+            ? {}
+            : { structuralSharing: true }),
           ...(orderScope.allowedElementOrderIds.length === 0
             ? {}
             : { allowedElementOrderIds: orderScope.allowedElementOrderIds }),
@@ -6484,8 +6774,9 @@ export class CoreV2Engine {
       }
 
       this.materialized = materialized;
-      this.componentSemantics = indexComponentSemantics(materialized.dataset);
-      this.textSemantics = indexTextSemantics(materialized.dataset);
+      this.logicalSceneIndexCache = null;
+      this.componentSemantics = componentSemantics;
+      this.textSemantics = textSemantics;
       this.sceneRevision += 1;
       this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
       if (
@@ -6597,6 +6888,8 @@ export class CoreV2Engine {
     value: CoreV2MutationJsonValue | undefined,
     fallbackSelectionIds: readonly string[],
     materialized: MaterializedCoreV2Dataset,
+    stableIdentity = false,
+    structuralIdentity = false,
   ): CoreV2EngineHistoryCompanion {
     const record = isCoreV2HistoryCompanionRecord(value) ? value : null;
     const selectedValue = record?.selectedIds;
@@ -6613,12 +6906,14 @@ export class CoreV2Engine {
     if (modeValue !== undefined && !isCoreV2InteractionMode(modeValue)) {
       throw new TypeError('history companion mode is unsupported');
     }
-    const selectedIds = this.validLogicalSelection(
-      selectedValue === undefined
-        ? fallbackSelectionIds
-        : selectedValue as readonly string[],
-      materialized,
-    );
+    const requestedIds = selectedValue === undefined
+      ? fallbackSelectionIds
+      : selectedValue as readonly string[];
+    const selectedIds = stableIdentity
+      ? this.validOwnedStableSelection(requestedIds, materialized)
+      : structuralIdentity
+        ? this.validOwnedStructuralSelection(requestedIds, materialized)
+        : this.validLogicalSelection(requestedIds, materialized);
     return Object.freeze({
       selectionIds: selectedIds,
       mode: modeValue === undefined
@@ -6656,15 +6951,143 @@ export class CoreV2Engine {
     );
   }
 
+  private validOwnedStructuralSelection(
+    ids: readonly string[],
+    materialized: MaterializedCoreV2Dataset,
+  ): readonly string[] {
+    if (ids.length === 0) return Object.freeze([]);
+    const elementIds = ownedCoreV2ElementIds(materialized.dataset);
+    if (elementIds === null) return this.validLogicalSelection(ids, materialized);
+    const previousElementIds = this.materialized === null
+      ? null
+      : ownedCoreV2ElementIds(this.materialized.dataset);
+    const currentIndex = this.logicalSceneIndexCache?.index ?? null;
+    const selected: string[] = [];
+    for (const id of new Set(ids)) {
+      if (elementIds.has(id)) {
+        selected.push(id);
+        continue;
+      }
+      const previousElementId = id.startsWith('element:')
+        ? id.slice('element:'.length)
+        : id;
+      // A structural command removed this exact previously-owned element.
+      // Its selection is deterministically dropped; building a 5,000-target
+      // logical query snapshot cannot change that result.
+      if (previousElementIds?.has(previousElementId)) continue;
+      if (currentIndex === null) {
+        return this.validLogicalSelection(ids, materialized);
+      }
+      const target = currentIndex.target(id);
+      if (
+        target !== null &&
+        (
+          elementIds.has(target.id) ||
+          (target.ownerId !== null && elementIds.has(target.ownerId))
+        )
+      ) {
+        selected.push(id);
+      }
+    }
+    return Object.freeze(selected);
+  }
+
+  private validOwnedStableSelection(
+    ids: readonly string[],
+    materialized: MaterializedCoreV2Dataset,
+  ): readonly string[] {
+    return Object.freeze(
+      [...new Set(ids)].filter((id) => {
+        const owned = this.ownedSelectionTargetExists(id, materialized);
+        return owned ?? this.logicalSceneIdentityIndex().target(id) !== null;
+      }),
+    );
+  }
+
+  /**
+   * Validate the stable element/component selection forms without rebuilding
+   * the full logical query snapshot after an otherwise small structural edit.
+   * Grid instance aliases remain on the canonical index fallback because they
+   * are expanded query identities rather than owned dataset element IDs.
+   */
+  private ownedSelectionTargetExists(
+    id: string,
+    materialized: MaterializedCoreV2Dataset,
+  ): boolean | null {
+    const elementIds = ownedCoreV2ElementIds(materialized.dataset);
+    if (elementIds === null) return null;
+    if (elementIds.has(id)) return true;
+    if (id.startsWith('element:')) {
+      return elementIds.has(id.slice('element:'.length));
+    }
+    const componentKey = (ownerId: string, componentId: string): boolean =>
+      this.componentSemantics.has(componentSemanticKey(ownerId, componentId));
+    if (id.startsWith('component:')) {
+      const body = id.slice('component:'.length);
+      const separator = body.indexOf('/');
+      return separator > 0 && separator < body.length - 1
+        ? componentKey(body.slice(0, separator), body.slice(separator + 1))
+        : false;
+    }
+    const ownerSeparator = id.indexOf('/');
+    if (ownerSeparator > 0 && ownerSeparator < id.length - 1) {
+      return componentKey(
+        id.slice(0, ownerSeparator),
+        id.slice(ownerSeparator + 1),
+      );
+    }
+    const selectionSeparator = id.indexOf('::');
+    const typeSeparator = selectionSeparator < 0
+      ? -1
+      : id.indexOf(':', selectionSeparator + 2);
+    if (
+      selectionSeparator > 0 &&
+      typeSeparator > selectionSeparator + 2 &&
+      typeSeparator < id.length - 1
+    ) {
+      const ownerId = id.slice(0, selectionSeparator);
+      const componentType = id.slice(selectionSeparator + 2, typeSeparator);
+      const componentId = id.slice(typeSeparator + 1);
+      const semantic = this.componentSemantics.get(componentSemanticKey(
+        ownerId,
+        componentId,
+      ));
+      return semantic !== undefined && semantic.componentType === componentType;
+    }
+    return null;
+  }
+
   private logicalSceneIndex(): CoreV2LogicalSceneIndex {
     const materialized = this.materialized ?? EMPTY_MATERIALIZED_DATASET;
     if (this.logicalSceneIndexCache?.materialized !== materialized) {
+      let index = this.logicalSceneIndexesByMaterialized.get(materialized);
+      if (index === undefined) {
+        index = new CoreV2LogicalSceneIndex(materialized.dataset);
+        this.logicalSceneIndexesByMaterialized.set(materialized, index);
+      }
       this.logicalSceneIndexCache = Object.freeze({
         materialized,
-        index: new CoreV2LogicalSceneIndex(materialized.dataset),
+        index,
       });
+      this.logicalSelectionIndexesByMaterialized.set(materialized, index);
     }
     return this.logicalSceneIndexCache.index;
+  }
+
+  /**
+   * Stable-identity transactions only need target membership validation.
+   * Reuse an older value snapshot while IDs/hierarchy are proven unchanged;
+   * ordinary query callers still rebuild through logicalSceneIndex() so
+   * labels, values, order, and locks can never be stale.
+   */
+  private logicalSceneIdentityIndex(): CoreV2LogicalSceneIndex {
+    return this.logicalSceneIndexCache?.index ?? this.logicalSceneIndex();
+  }
+
+  private logicalSceneSelectionIndex(): CoreV2LogicalSceneIndex {
+    const materialized = this.materialized ?? EMPTY_MATERIALIZED_DATASET;
+    return this.logicalSelectionIndexesByMaterialized.get(materialized) ??
+      this.logicalSceneIndex();
   }
 
   private refreshAccessibilityAuthority(operation: string): void {
@@ -7308,7 +7731,7 @@ export class CoreV2Engine {
         worldBounds: null,
       });
     }
-    const geometry = surface.geometrySnapshot?.();
+    const geometry = surface.worldGeometrySnapshot?.() ?? surface.geometrySnapshot?.();
     if (!geometry) {
       throw this.operationError(
         'UNSUPPORTED_RUNTIME',
@@ -7533,9 +7956,17 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     | null = null;
   private canvasPresent = true;
   private geometryRevision = 0;
+  private worldGeometryCache: CoreV2ViewportGeometry | null = null;
+  private worldGeometryProjection: CoreV2ProjectionIndex | null = null;
   private geometryCache: CoreV2SurfaceGeometrySnapshot | null = null;
+  private geometryBaseCache: CoreV2SurfaceGeometrySnapshot | null = null;
+  private geometryById = new Map<string, CoreV2SurfaceEntityGeometry>();
   private geometryProjection: CoreV2ProjectionIndex | null = null;
   private geometryRevisionProjection: CoreV2ProjectionIndex | null = null;
+  private regionHitIndex: CoreV2ScreenRegionIndex<
+    CoreV2SurfaceEntityGeometry,
+    CoreV2SurfaceRelationGeometry
+  > | null = null;
   private relationHitIndex = emptyCoreV2RelationHitIndex();
   private surfaceView: CoreV2SurfaceView = Object.freeze({
     x: 0,
@@ -7550,6 +7981,10 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     this.core = core;
     this.unbindCoreViewportChanges = typeof core.bindRootViewportChanges === 'function'
       ? core.bindRootViewportChanges(({ source, view }) => {
+          const orientationChanged = (
+            view.rotation !== undefined &&
+            view.rotation !== this.surfaceView.rotation
+          );
           this.surfaceView = Object.freeze({
             ...this.surfaceView,
             x: view.x,
@@ -7558,7 +7993,8 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
             rotation: view.rotation ?? this.surfaceView.rotation,
           });
           this.geometryRevision += 1;
-          this.invalidateGeometryCache();
+          if (orientationChanged) this.invalidateGeometryCache();
+          else this.invalidateScreenGeometryCache();
           const center = core.screenToWorld({
             x: core.renderer.width / 2,
             y: core.renderer.height / 2,
@@ -7642,9 +8078,15 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
       ...(options.incrementalRootIds === undefined
         ? {}
         : { incrementalRootIds: options.incrementalRootIds }),
+      ...(options.structuralSharing === undefined
+        ? {}
+        : { structuralSharing: options.structuralSharing }),
       ...(options.directBarHeightUpdates === undefined
         ? {}
         : { directBarHeightUpdates: options.directBarHeightUpdates }),
+      ...(options.directTextUpdates === undefined
+        ? {}
+        : { directTextUpdates: options.directTextUpdates }),
     });
     if (result.status === 'committed') {
       this.geometryRevision += 1;
@@ -7659,11 +8101,43 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     });
   }
 
+  public previewIncrementalRoots(
+    input: unknown,
+    dirtyRootIds: readonly string[],
+  ): CoreV2TransientProjectionResult | null {
+    const result = this.core.previewIncrementalRoots(input, dirtyRootIds);
+    if (result?.changed) {
+      this.geometryRevision += 1;
+      this.geometryRevisionProjection = this.core.visibleProjection;
+      this.invalidateGeometryCache();
+    }
+    return result;
+  }
+
+  public clearIncrementalPreview(): CoreV2TransientProjectionResult {
+    const result = this.core.clearIncrementalPreview();
+    if (result.changed) {
+      this.geometryRevision += 1;
+      this.geometryRevisionProjection = this.core.visibleProjection;
+      this.invalidateGeometryCache();
+    }
+    return result;
+  }
+
   public publishFrame(timeMs: number): void {
+    const projectionBefore = this.core.visibleProjection;
+    const activeAnimationsBefore = this.core.activeAnimations;
     this.core.publishFrame(timeMs);
-    this.geometryRevision += 1;
-    this.geometryRevisionProjection = this.core.visibleProjection;
-    this.invalidateGeometryCache();
+    const projectionAfter = this.core.visibleProjection;
+    if (
+      projectionAfter !== projectionBefore ||
+      activeAnimationsBefore > 0 ||
+      this.core.activeAnimations > 0
+    ) {
+      this.geometryRevision += 1;
+      this.geometryRevisionProjection = projectionAfter;
+      this.invalidateGeometryCache();
+    }
   }
 
   public suspendPresentation(
@@ -7690,7 +8164,7 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     const changed = this.core.resize(width, height, pixelRatio);
     if (changed) {
       this.geometryRevision += 1;
-      this.invalidateGeometryCache();
+      this.invalidateScreenGeometryCache();
     }
     return changed;
   }
@@ -7701,6 +8175,11 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
       flipX: view.flipX ?? false,
       flipY: view.flipY ?? false,
     });
+    const orientationChanged = (
+      nextView.rotation !== this.surfaceView.rotation ||
+      nextView.flipX !== this.surfaceView.flipX ||
+      nextView.flipY !== this.surfaceView.flipY
+    );
     this.core.setWorldTransform({
       x: nextView.x,
       y: nextView.y,
@@ -7711,7 +8190,8 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     });
     this.surfaceView = nextView;
     this.geometryRevision += 1;
-    this.invalidateGeometryCache();
+    if (orientationChanged) this.invalidateGeometryCache();
+    else this.invalidateScreenGeometryCache();
   }
 
   public setViewportGesturePolicies(
@@ -7775,7 +8255,7 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
   public select(ids: readonly string[]): void {
     this.core.selectSemantic(ids);
     this.geometryRevision += 1;
-    this.invalidateGeometryCache();
+    this.invalidateGeometrySelectionCache();
   }
 
   public setAccessibilityTree(
@@ -7868,12 +8348,48 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
     });
   }
 
+  public worldGeometrySnapshot(): CoreV2ViewportGeometry {
+    const projection = this.core.visibleProjection;
+    if (
+      this.worldGeometryCache !== null &&
+      this.worldGeometryProjection === projection
+    ) {
+      return this.worldGeometryCache;
+    }
+    const geometry = createCoreV2SurfaceWorldGeometrySnapshot(
+      this.core.snapshot(),
+      projection,
+      this.surfaceView,
+    );
+    this.worldGeometryCache = geometry;
+    this.worldGeometryProjection = projection;
+    return geometry;
+  }
+
   public geometrySnapshot(): CoreV2SurfaceGeometrySnapshot {
     const projection = this.core.visibleProjection;
     if (this.geometryCache && this.geometryProjection === projection) return this.geometryCache;
     if (this.geometryRevisionProjection !== projection) {
       this.geometryRevision += 1;
       this.geometryRevisionProjection = projection;
+    }
+    if (this.geometryBaseCache !== null && this.geometryProjection === projection) {
+      const selection = this.core.selection();
+      const selectionOverlay = selectionOverlayFromEntityGeometry(
+        selection.refs.flatMap((ref) => {
+          const id = this.core.get(ref)?.id;
+          const geometry = id === undefined ? undefined : this.geometryById.get(id);
+          return geometry === undefined ? [] : [geometry];
+        }),
+      );
+      const geometry = Object.freeze({
+        ...this.geometryBaseCache,
+        revision: this.geometryRevision,
+        sceneRevision: selection.revision,
+        selectionOverlay,
+      });
+      this.geometryCache = geometry;
+      return geometry;
     }
     const geometry = Object.freeze({
       ...createCoreV2SurfaceGeometrySnapshot(
@@ -7884,9 +8400,52 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
       revision: this.geometryRevision,
     });
     this.geometryCache = geometry;
+    this.geometryBaseCache = geometry;
+    if (
+      this.worldGeometryCache === null ||
+      this.worldGeometryProjection !== projection
+    ) {
+      this.worldGeometryCache = Object.freeze({
+        entities: geometry.entities,
+        relations: geometry.relations,
+      });
+      this.worldGeometryProjection = projection;
+    }
+    this.geometryById = new Map(geometry.entities.map((entity) => [entity.id, entity]));
     this.geometryProjection = projection;
+    this.regionHitIndex = CoreV2ScreenRegionIndex.build(
+      geometry.entities,
+      geometry.relations,
+    );
     this.relationHitIndex = buildCoreV2RelationHitIndex(geometry.relations);
     return geometry;
+  }
+
+  public selectionGeometries(
+    selectionIds: readonly string[],
+  ): readonly CoreV2SurfaceEntityGeometry[] {
+    // Interaction mode and host probes are valid immediately after renderer
+    // initialization, before a dataset is loaded. An empty selection has no
+    // semantic identities to resolve and must not force the Core parser seam.
+    if (selectionIds.length === 0) return Object.freeze([]);
+    const projection = this.core.visibleProjection;
+    const geometries = this.core.semanticSelectionEntityIds(selectionIds).flatMap((id) => {
+      const entity = this.core.get(id);
+      if (entity === null || entity.kind === 'relation') return [];
+      return [createCoreV2SurfaceEntityGeometry(entity, projection, this.surfaceView)];
+    });
+    return Object.freeze(geometries);
+  }
+
+  public queryRegionGeometry(
+    bounds: CoreV2ScreenRegionBounds,
+  ): CoreV2SurfaceRegionGeometryCandidates {
+    const geometry = this.geometrySnapshot();
+    this.regionHitIndex ??= CoreV2ScreenRegionIndex.build(
+      geometry.entities,
+      geometry.relations,
+    );
+    return this.regionHitIndex.query(bounds);
   }
 
   public sceneImageProbe(): CoreV2EngineSceneImagesProbe {
@@ -8033,9 +8592,22 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
   }
 
   private invalidateGeometryCache(): void {
+    this.worldGeometryCache = null;
+    this.worldGeometryProjection = null;
+    this.invalidateScreenGeometryCache();
+  }
+
+  private invalidateScreenGeometryCache(): void {
     this.geometryCache = null;
+    this.geometryBaseCache = null;
+    this.geometryById.clear();
     this.geometryProjection = null;
+    this.regionHitIndex = null;
     this.relationHitIndex = emptyCoreV2RelationHitIndex();
+  }
+
+  private invalidateGeometrySelectionCache(): void {
+    this.geometryCache = null;
   }
 }
 
@@ -8112,6 +8684,74 @@ function indexComponentSemantics(
   };
   visit(dataset);
   return index;
+}
+
+interface CoreV2OwnedStructuralRootDelta {
+  readonly removed: readonly NormalizedCoreV2Element[];
+  readonly added: readonly NormalizedCoreV2Element[];
+}
+
+function ownedStructuralRootDelta(
+  before: readonly NormalizedCoreV2Element[],
+  after: readonly NormalizedCoreV2Element[],
+): CoreV2OwnedStructuralRootDelta | null {
+  if (before.length === 0) return null;
+  const previous = new Map<string, NormalizedCoreV2Element>();
+  for (const root of before) {
+    if (previous.has(root.id)) return null;
+    previous.set(root.id, root);
+  }
+  const added: NormalizedCoreV2Element[] = [];
+  const seen = new Set<string>();
+  const removed: NormalizedCoreV2Element[] = [];
+  for (const root of after) {
+    if (seen.has(root.id)) return null;
+    seen.add(root.id);
+    const prior = previous.get(root.id);
+    if (prior === root) {
+      previous.delete(root.id);
+      continue;
+    }
+    if (prior !== undefined) {
+      removed.push(prior);
+      previous.delete(root.id);
+    }
+    added.push(root);
+  }
+  removed.push(...previous.values());
+  return Object.freeze({
+    removed: Object.freeze(removed),
+    added: Object.freeze(added),
+  });
+}
+
+function reconcileStructuralComponentSemantics(
+  current: ReadonlyMap<string, CoreV2EngineComponentSemanticProbe>,
+  delta: CoreV2OwnedStructuralRootDelta,
+): Map<string, CoreV2EngineComponentSemanticProbe> {
+  const next = new Map(current);
+  visitStructuralComponents(delta.removed, (ownerId, component) => {
+    next.delete(componentSemanticKey(ownerId, component.id));
+  });
+  visitStructuralComponents(delta.added, (ownerId, component) => {
+    addComponentSemantic(next, ownerId, component);
+  });
+  return next;
+}
+
+function visitStructuralComponents(
+  elements: readonly NormalizedCoreV2Element[],
+  visit: (ownerId: string, component: CoreV2Component) => void,
+): void {
+  for (const element of elements) {
+    if (element.type === 'item') {
+      for (const component of element.components) visit(element.id, component);
+    } else if (element.type === 'grid') {
+      for (const component of element.item.components) visit(element.id, component);
+    } else if (element.type === 'group') {
+      visitStructuralComponents(element.children, visit);
+    }
+  }
 }
 
 function reconcileFlatComponentSemantics(
@@ -8253,6 +8893,99 @@ function indexTextSemantics(
   };
   visit(dataset, true, false);
   return index;
+}
+
+function reconcileStructuralTextSemantics(
+  current: ReadonlyMap<string, IndexedEngineTextSemantic>,
+  delta: CoreV2OwnedStructuralRootDelta,
+): Map<string, IndexedEngineTextSemantic> {
+  const next = new Map(current);
+  visitStructuralTextTargets(
+    delta.removed,
+    true,
+    false,
+    (target) => next.delete(engineTextTargetKey(target)),
+  );
+  addStructuralTextSemantics(next, delta.added, true, false);
+  return next;
+}
+
+function visitStructuralTextTargets(
+  elements: readonly NormalizedCoreV2Element[],
+  ancestorVisible: boolean,
+  ancestorLocked: boolean,
+  visit: (target: CoreV2TextTarget) => void,
+): void {
+  for (const element of elements) {
+    const visible = ancestorVisible && element.show;
+    const locked = ancestorLocked || element.locked;
+    if (element.type === 'text') {
+      visit(Object.freeze({ kind: 'element', id: element.id }));
+    } else if (element.type === 'item') {
+      for (const component of element.components) {
+        if (component.type === 'text') {
+          visit(Object.freeze({
+            kind: 'component',
+            ownerId: element.id,
+            id: component.id,
+          }));
+        }
+      }
+    } else if (element.type === 'grid') {
+      for (const component of element.item.components) {
+        if (component.type === 'text') {
+          visit(Object.freeze({
+            kind: 'component',
+            ownerId: element.id,
+            id: component.id,
+          }));
+        }
+      }
+    } else if (element.type === 'group') {
+      visitStructuralTextTargets(element.children, visible, locked, visit);
+    }
+  }
+}
+
+function addStructuralTextSemantics(
+  index: Map<string, IndexedEngineTextSemantic>,
+  elements: readonly NormalizedCoreV2Element[],
+  ancestorVisible: boolean,
+  ancestorLocked: boolean,
+): void {
+  for (const element of elements) {
+    const visible = ancestorVisible && element.show;
+    const locked = ancestorLocked || element.locked;
+    if (element.type === 'text') {
+      addEngineTextElementSemantic(index, element, visible, locked);
+    } else if (element.type === 'item') {
+      for (const component of element.components) {
+        if (component.type !== 'text') continue;
+        addEngineTextComponentSemantic(index, {
+          ownerId: element.id,
+          component,
+          show: visible && component.show,
+          locked,
+          contentOrientation: element.contentOrientation,
+          gridTemplate: false,
+        });
+      }
+    } else if (element.type === 'grid') {
+      for (const component of element.item.components) {
+        if (component.type !== 'text') continue;
+        addEngineTextComponentSemantic(index, {
+          ownerId: element.id,
+          component,
+          show: visible && component.show,
+          locked,
+          contentOrientation: element.item.contentOrientation,
+          gridTemplate: true,
+        });
+      }
+    } else if (element.type === 'group') {
+      addStructuralTextSemantics(index, element.children, visible, locked);
+    }
+  }
 }
 
 function reconcileFlatTextSemantics(
@@ -8500,6 +9233,49 @@ function requireRegionGeometry(
     throw new Error(`${operation} requires aggregate surface geometry`);
   }
   return geometry;
+}
+
+function boxRegionQueryBounds(
+  start: readonly [number, number],
+  end: readonly [number, number],
+): CoreV2ScreenRegionBounds | null {
+  if (![...start, ...end].every(Number.isFinite)) return null;
+  const x = Math.min(start[0], end[0]);
+  const y = Math.min(start[1], end[1]);
+  return Object.freeze([
+    x,
+    y,
+    Math.max(start[0], end[0]) - x,
+    Math.max(start[1], end[1]) - y,
+  ]);
+}
+
+function paintRegionQueryBounds(
+  segments: readonly (readonly [
+    readonly [number, number],
+    readonly [number, number],
+  ])[],
+  toleranceCssPx: number,
+): CoreV2ScreenRegionBounds | null {
+  if (!Number.isFinite(toleranceCssPx) || toleranceCssPx < 0) return null;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const segment of segments) {
+    if (![...segment[0], ...segment[1]].every(Number.isFinite)) continue;
+    minX = Math.min(minX, segment[0][0], segment[1][0]);
+    minY = Math.min(minY, segment[0][1], segment[1][1]);
+    maxX = Math.max(maxX, segment[0][0], segment[1][0]);
+    maxY = Math.max(maxY, segment[0][1], segment[1][1]);
+  }
+  if (![minX, minY, maxX, maxY].every(Number.isFinite)) return null;
+  return Object.freeze([
+    minX - toleranceCssPx,
+    minY - toleranceCssPx,
+    maxX - minX + toleranceCssPx * 2,
+    maxY - minY + toleranceCssPx * 2,
+  ]);
 }
 
 function targetAliasesMatch(
@@ -9073,12 +9849,65 @@ function componentOrderOwners(
   )]);
 }
 
+function operationsMayChangeElementStructure(
+  operations: readonly CoreV2MutationOperation[],
+): boolean {
+  return operations.some((operation) => {
+    switch (operation.op) {
+      case 'add':
+      case 'move':
+      case 'group':
+      case 'ungroup':
+        return true;
+      case 'remove':
+        return operation.target.kind === 'element';
+      default:
+        return false;
+    }
+  });
+}
+
 const INCREMENTAL_FLAT_ROOT_TYPES = new Set([
   'item',
   'rect',
   'image',
   'text',
 ]);
+
+/**
+ * History retains Engine-owned immutable datasets, so unchanged root identity
+ * is an exact dirty-set signal. This avoids reparsing/reindexing all 5,000
+ * roots during undo/redo while still falling back for reorder, hierarchy, and
+ * relation changes.
+ */
+function incrementalOwnedRootIds(
+  current: readonly NormalizedCoreV2Element[],
+  candidate: readonly NormalizedCoreV2Element[],
+): readonly string[] | undefined {
+  if (current.length === 0 || current.length !== candidate.length) {
+    return undefined;
+  }
+  const dirty: string[] = [];
+  const ids = new Set<string>();
+  for (let index = 0; index < candidate.length; index += 1) {
+    const before = current[index];
+    const after = candidate[index];
+    if (
+      before === undefined ||
+      after === undefined ||
+      before.id !== after.id ||
+      before.type !== after.type ||
+      ids.has(after.id)
+    ) {
+      return undefined;
+    }
+    ids.add(after.id);
+    if (before === after) continue;
+    if (!INCREMENTAL_FLAT_ROOT_TYPES.has(after.type)) return undefined;
+    dirty.push(after.id);
+  }
+  return dirty.length === 0 ? undefined : Object.freeze(dirty);
+}
 
 function incrementalFlatRootIds(
   current: readonly NormalizedCoreV2Element[],
@@ -9299,42 +10128,8 @@ export function createCoreV2SurfaceGeometrySnapshot(
 ): CoreV2SurfaceGeometrySnapshot {
   const entityGeometries = snapshot.entities
     .filter((entity) => entity.kind !== 'relation')
-    .map((entity) => {
-      const entityProjection = projection?.byEntityId[entity.id];
-      const geometry = entityProjection
-        ? resolveProjectedEntityGeometry(entityProjection, surfaceView)
-        : resolveDenseEntityGeometry(entity.bounds, entity.rotation, surfaceView);
-      return Object.freeze<CoreV2SurfaceEntityGeometry>({
-        id: entity.id,
-        kind: entity.kind,
-        localBounds: entityProjection?.localBounds ?? freezeBounds(
-          0,
-          0,
-          entity.bounds.width,
-          entity.bounds.height,
-        ),
-        worldBounds: geometry.worldBounds,
-        screenBounds: geometry.screenBounds,
-        visibleBounds: entity.visible ? geometry.worldBounds : null,
-        visible: entity.visible,
-        interactive: entity.interactive,
-        scaleX: entityProjection?.scaleX ?? 1,
-        scaleY: entityProjection?.scaleY ?? 1,
-        ...(entityProjection?.ownerItemId ? { ownerItemId: entityProjection.ownerItemId } : {}),
-        ...(entityProjection?.componentId ? { componentId: entityProjection.componentId } : {}),
-        ...(entityProjection?.componentType ? { componentType: entityProjection.componentType } : {}),
-        ...(entityProjection
-          ? {
-              contentOrientation: entityProjection.contentOrientation,
-              screenBasis: geometry.screenBasis,
-              visibleCenter: entityProjection.visibleCenter,
-              screenAngle: entityProjection.contentOrientation === 'upright'
-                ? 0
-                : normalizeDegrees(entityProjection.rotationDegrees + surfaceView.rotation),
-            }
-          : {}),
-      });
-    });
+    .map((entity) =>
+      createCoreV2SurfaceEntityGeometry(entity, projection, surfaceView));
   const geometryById = new Map(entityGeometries.map((entity) => [entity.id, entity]));
   const relations = snapshot.entities.flatMap((entity) => {
     if (entity.kind !== 'relation') return [];
@@ -9442,6 +10237,134 @@ export function createCoreV2SurfaceGeometrySnapshot(
     selectionOverlay: selectionOverlay === null
       ? null
       : Object.freeze({ screenBounds: selectionOverlay }),
+  });
+}
+
+function createCoreV2SurfaceEntityGeometry(
+  entity: SceneSnapshot['entities'][number],
+  projection: CoreV2ProjectionIndex | null,
+  surfaceView: CoreV2SurfaceView,
+): CoreV2SurfaceEntityGeometry {
+  const entityProjection = projection?.byEntityId[entity.id];
+  const geometry = entityProjection
+    ? resolveProjectedEntityGeometry(entityProjection, surfaceView)
+    : resolveDenseEntityGeometry(entity.bounds, entity.rotation, surfaceView);
+  return Object.freeze({
+    id: entity.id,
+    kind: entity.kind,
+    localBounds: entityProjection?.localBounds ?? freezeBounds(
+      0,
+      0,
+      entity.bounds.width,
+      entity.bounds.height,
+    ),
+    worldBounds: geometry.worldBounds,
+    screenBounds: geometry.screenBounds,
+    visibleBounds: entity.visible ? geometry.worldBounds : null,
+    visible: entity.visible,
+    interactive: entity.interactive,
+    scaleX: entityProjection?.scaleX ?? 1,
+    scaleY: entityProjection?.scaleY ?? 1,
+    ...(entityProjection?.ownerItemId ? { ownerItemId: entityProjection.ownerItemId } : {}),
+    ...(entityProjection?.componentId ? { componentId: entityProjection.componentId } : {}),
+    ...(entityProjection?.componentType ? { componentType: entityProjection.componentType } : {}),
+    ...(entityProjection
+      ? {
+          contentOrientation: entityProjection.contentOrientation,
+          screenBasis: geometry.screenBasis,
+          visibleCenter: entityProjection.visibleCenter,
+          screenAngle: entityProjection.contentOrientation === 'upright'
+            ? 0
+            : normalizeDegrees(entityProjection.rotationDegrees + surfaceView.rotation),
+        }
+      : {}),
+  });
+}
+
+export function createCoreV2SurfaceWorldGeometrySnapshot(
+  snapshot: SceneSnapshot,
+  projection: CoreV2ProjectionIndex | null = null,
+  surfaceView: CoreV2SurfaceView = Object.freeze({
+    ...snapshot.view,
+    rotation: snapshot.view.rotation ?? 0,
+  }),
+): CoreV2ViewportGeometry {
+  const resolvedById = new Map<string, Readonly<{
+    readonly worldBounds: readonly [number, number, number, number];
+    readonly visibleCenter: readonly [number, number];
+    readonly visible: boolean;
+  }>>();
+  const entities = snapshot.entities.flatMap((entity) => {
+    if (entity.kind === 'relation') return [];
+    const entityProjection = projection?.byEntityId[entity.id];
+    const geometry = entityProjection
+      ? resolveProjectedEntityWorldGeometry(entityProjection, surfaceView)
+      : resolveDenseEntityWorldGeometry(entity.bounds, entity.rotation);
+    const resolved = Object.freeze({
+      worldBounds: geometry.worldBounds,
+      visibleCenter: entityProjection?.visibleCenter ?? boundsCenter(geometry.worldBounds),
+      visible: entity.visible,
+    });
+    resolvedById.set(entity.id, resolved);
+    return [Object.freeze({
+      id: entity.id,
+      worldBounds: geometry.worldBounds,
+      visible: entity.visible,
+    })];
+  });
+  const relations = snapshot.entities.flatMap((entity) => {
+    if (entity.kind !== 'relation') return [];
+    const sourceId = entity.data.from;
+    const targetId = entity.data.to;
+    if (typeof sourceId !== 'string' || typeof targetId !== 'string') return [];
+    const source = resolvedById.get(sourceId);
+    const target = resolvedById.get(targetId);
+    if (!source || !target) return [];
+    const relationProjection = projection?.relationsByEntityId?.[entity.id];
+    const fallbackProjection = Object.freeze({
+      entityId: entity.id,
+      relationId: relationSourceId(entity),
+      sourceId,
+      targetId,
+      key: `${sourceId}>${targetId}`,
+      identityKey: `${sourceId.length}:${sourceId}${targetId.length}:${targetId}`,
+      authoredIndex: 0,
+      affine: createCoreV2Affine(),
+    });
+    const resolved = resolveCoreV2RelationPath(
+      relationProjection ?? fallbackProjection,
+      {
+        id: sourceId,
+        center: source.visibleCenter,
+        worldBounds: source.worldBounds,
+        visible: source.visible,
+      },
+      {
+        id: targetId,
+        center: target.visibleCenter,
+        worldBounds: target.worldBounds,
+        visible: target.visible,
+      },
+      {
+        color: typeof entity.data.color === 'number' ? entity.data.color : 0x000000ff,
+        width: typeof entity.data.lineWidth === 'number' ? entity.data.lineWidth : 1,
+        opacity: entity.opacity,
+        zIndex: entity.zIndex,
+        visible: entity.visible,
+      },
+    );
+    return [Object.freeze({
+      id: entity.id,
+      relationId: resolved.relationId,
+      sourceId,
+      targetId,
+      worldBounds: resolved.worldBounds,
+      visible: resolved.visible,
+    })];
+  });
+  return Object.freeze({
+    entities: Object.freeze(entities),
+    relations: Object.freeze(relations),
   });
 }
 
@@ -9698,17 +10621,21 @@ interface ResolvedEntityGeometry {
   readonly screenBasis: CoreV2AffineBasis;
 }
 
-function resolveProjectedEntityGeometry(
+interface ResolvedWorldEntityGeometry {
+  readonly worldBounds: readonly [number, number, number, number];
+  readonly worldCorners: readonly (readonly [number, number])[];
+}
+
+function resolveProjectedEntityWorldGeometry(
   projection: NonNullable<CoreV2ProjectionIndex['byEntityId'][string]>,
   view: CoreV2SurfaceView,
-): ResolvedEntityGeometry {
-  const orientedWorldAffine = multiplyCoreV2Affine(
-    createCoreV2Affine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
-    createCoreV2Affine(0, 0, view.rotation),
-  );
+): ResolvedWorldEntityGeometry {
   let worldCorners: readonly (readonly [number, number])[];
-  let screenBasis: CoreV2AffineBasis;
   if (projection.contentOrientation === 'upright') {
+    const orientedWorldAffine = multiplyCoreV2Affine(
+      createCoreV2Affine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
+      createCoreV2Affine(0, 0, view.rotation),
+    );
     const inverseWorld = invertCoreV2Affine(orientedWorldAffine);
     const width = projection.localBounds[2] * Math.hypot(
       projection.affine[0],
@@ -9722,21 +10649,62 @@ function resolveProjectedEntityGeometry(
     const yAxis = Object.freeze([inverseWorld[2], inverseWorld[3]] as const);
     const [centerX, centerY] = projection.visibleCenter;
     worldCorners = Object.freeze([
-      Object.freeze([centerX - xAxis[0] * width / 2 - yAxis[0] * height / 2, centerY - xAxis[1] * width / 2 - yAxis[1] * height / 2] as const),
-      Object.freeze([centerX + xAxis[0] * width / 2 - yAxis[0] * height / 2, centerY + xAxis[1] * width / 2 - yAxis[1] * height / 2] as const),
-      Object.freeze([centerX + xAxis[0] * width / 2 + yAxis[0] * height / 2, centerY + xAxis[1] * width / 2 + yAxis[1] * height / 2] as const),
-      Object.freeze([centerX - xAxis[0] * width / 2 + yAxis[0] * height / 2, centerY - xAxis[1] * width / 2 + yAxis[1] * height / 2] as const),
+      Object.freeze([
+        centerX - xAxis[0] * width / 2 - yAxis[0] * height / 2,
+        centerY - xAxis[1] * width / 2 - yAxis[1] * height / 2,
+      ] as const),
+      Object.freeze([
+        centerX + xAxis[0] * width / 2 - yAxis[0] * height / 2,
+        centerY + xAxis[1] * width / 2 - yAxis[1] * height / 2,
+      ] as const),
+      Object.freeze([
+        centerX + xAxis[0] * width / 2 + yAxis[0] * height / 2,
+        centerY + xAxis[1] * width / 2 + yAxis[1] * height / 2,
+      ] as const),
+      Object.freeze([
+        centerX - xAxis[0] * width / 2 + yAxis[0] * height / 2,
+        centerY - xAxis[1] * width / 2 + yAxis[1] * height / 2,
+      ] as const),
     ]);
-    screenBasis = Object.freeze([1, 0, 0, 1] as const);
   } else {
     worldCorners = coreV2AffineCorners(projection.affine, projection.localBounds);
-    screenBasis = coreV2AffineBasis(multiplyCoreV2Affine(orientedWorldAffine, projection.affine));
   }
-  const screenCorners = worldCorners.map((point) => surfacePointToScreen(point, view));
   return Object.freeze({
     worldBounds: boundsForTuplePoints(worldCorners),
+    worldCorners,
+  });
+}
+
+function resolveProjectedEntityGeometry(
+  projection: NonNullable<CoreV2ProjectionIndex['byEntityId'][string]>,
+  view: CoreV2SurfaceView,
+): ResolvedEntityGeometry {
+  const worldGeometry = resolveProjectedEntityWorldGeometry(projection, view);
+  const orientedWorldAffine = multiplyCoreV2Affine(
+    createCoreV2Affine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
+    createCoreV2Affine(0, 0, view.rotation),
+  );
+  const screenBasis = projection.contentOrientation === 'upright'
+    ? Object.freeze([1, 0, 0, 1] as const)
+    : coreV2AffineBasis(multiplyCoreV2Affine(orientedWorldAffine, projection.affine));
+  const screenCorners = worldGeometry.worldCorners.map((point) =>
+    surfacePointToScreen(point, view));
+  return Object.freeze({
+    worldBounds: worldGeometry.worldBounds,
     screenBounds: boundsForTuplePoints(screenCorners),
     screenBasis,
+  });
+}
+
+function resolveDenseEntityWorldGeometry(
+  bounds: Readonly<{ x: number; y: number; width: number; height: number }>,
+  rotation: number,
+): ResolvedWorldEntityGeometry {
+  const worldCorners = rotatedWorldCorners(bounds, rotation).map((point) =>
+    freezePoint(point.x, point.y));
+  return Object.freeze({
+    worldBounds: boundsForTuplePoints(worldCorners),
+    worldCorners,
   });
 }
 
@@ -9745,14 +10713,15 @@ function resolveDenseEntityGeometry(
   rotation: number,
   view: CoreV2SurfaceView,
 ): ResolvedEntityGeometry {
-  const worldCorners = rotatedWorldCorners(bounds, rotation).map((point) => freezePoint(point.x, point.y));
-  const screenCorners = worldCorners.map((point) => surfacePointToScreen(point, view));
+  const worldGeometry = resolveDenseEntityWorldGeometry(bounds, rotation);
+  const screenCorners = worldGeometry.worldCorners.map((point) =>
+    surfacePointToScreen(point, view));
   const worldAffine = multiplyCoreV2Affine(
     createCoreV2Affine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
     createCoreV2Affine(0, 0, view.rotation + rotation),
   );
   return Object.freeze({
-    worldBounds: boundsForTuplePoints(worldCorners),
+    worldBounds: worldGeometry.worldBounds,
     screenBounds: boundsForTuplePoints(screenCorners),
     screenBasis: coreV2AffineBasis(worldAffine),
   });
@@ -9813,6 +10782,13 @@ function unionBounds(
   const maxX = Math.max(...bounds.map((entry) => entry[0] + entry[2]));
   const maxY = Math.max(...bounds.map((entry) => entry[1] + entry[3]));
   return freezeBounds(minX, minY, maxX - minX, maxY - minY);
+}
+
+function selectionOverlayFromEntityGeometry(
+  selected: readonly CoreV2SurfaceEntityGeometry[],
+): CoreV2SurfaceGeometrySnapshot['selectionOverlay'] {
+  const screenBounds = unionBounds(selected.map((entity) => entity.screenBounds));
+  return screenBounds === null ? null : Object.freeze({ screenBounds });
 }
 
 function boundsCenter(

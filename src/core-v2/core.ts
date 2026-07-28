@@ -27,6 +27,7 @@ import type {
   ParseIdentityIndex,
   ParsePatchMapOptions,
   ParsePatchMapResult,
+  CoreV2BarProjection,
   CoreV2ComponentVisualProjection,
   CoreV2ComponentRenderRole,
   CoreV2EntityProjection,
@@ -51,16 +52,30 @@ import {
   type CoreV2PaintOrderProductProbe,
 } from './paint-order-product';
 import {
+  inheritPatchMapV010DirectParseIndexes,
+  type CoreV2DirectTextParseTargetIndex,
   parsePatchMapV010,
   parsePatchMapV010Async,
+  parsePatchMapV010DirectTextBatch,
+  parsePatchMapV010SelectedRoots,
   projectCoreV2IntrinsicImageAffine,
 } from './parser';
-import { parsePatchMapV010IncrementalFlat } from './incremental-parser';
+import {
+  inheritPatchMapV010IncrementalParserCaches,
+  parsePatchMapV010IncrementalFlat,
+  parsePatchMapV010IncrementalStructure,
+  primePatchMapV010IncrementalFlat,
+} from './incremental-parser';
 import { isOwnedCoreV2Dataset } from './semantic/dataset';
-import { withRendererDegradationDiagnostics } from './renderers/degradation';
+import {
+  inheritRendererDegradationDiagnostics,
+  withRendererDegradationDiagnostics,
+} from './renderers/degradation';
 import { InvalidationScheduler, type FrameSchedulerDebug } from './scheduler';
 import {
   planCoreV2ParsedSceneReconcile,
+  planCoreV2ParsedSceneReconcileIncremental,
+  planCoreV2ParsedSceneReconcileStructuralWindow,
   type CoreV2DenseReconcilePlan,
   type CoreV2ReconcileOptions as CoreV2DenseReconcileOptions,
 } from './semantic/reconcile';
@@ -147,6 +162,12 @@ export interface CoreV2SemanticRefreshOptions {
   readonly strict?: boolean;
 }
 
+export interface CoreV2TransientProjectionResult {
+  readonly changed: boolean;
+  readonly entityIds: readonly string[];
+  readonly dirtyRanges: readonly SlotRange[];
+}
+
 export interface CoreV2SelectionOverlayPolicyInput {
   readonly visibleIds: readonly string[] | null;
   readonly transformableIds: readonly string[] | null;
@@ -205,15 +226,32 @@ export interface CoreV2ReconcileOptions extends CoreV2DenseReconcileOptions {
    */
   readonly incrementalRootIds?: readonly string[];
   /**
+   * The Engine has staged an owned top-level structural edit whose unchanged
+   * roots retain identity. The guarded parser may reuse those roots; any
+   * hierarchy, relation, diagnostic, or ownership ambiguity falls back to the
+   * canonical full parser.
+   */
+  readonly structuralSharing?: boolean;
+  /**
    * Engine-validated numeric height-only bar mutations. This is an internal
    * parse acceleration hint; unsupported ownership or geometry falls back to
    * the canonical parser before any dense state is published.
    */
   readonly directBarHeightUpdates?: readonly CoreV2DirectBarHeightUpdate[];
+  /**
+   * Engine-validated component text replacements. The guarded parser updates
+   * only those text entities and falls back whenever exact diagnostics or
+   * identity cannot be preserved.
+   */
+  readonly directTextUpdates?: readonly CoreV2DirectTextUpdate[];
 }
 
 export interface CoreV2DirectBarHeightUpdate extends CoreV2ComponentVisualTarget {
   readonly height: number;
+}
+
+export interface CoreV2DirectTextUpdate extends CoreV2ComponentVisualTarget {
+  readonly text: string;
 }
 
 export interface CoreV2ReconcileTimings {
@@ -405,7 +443,16 @@ export interface CoreV2TextProductProbe {
 
 interface IndexedComponentTarget {
   readonly entityId: string;
+  readonly entityIndex: number;
   readonly semanticOwnerId: string;
+  /**
+   * Direct component batches only accept top-level item owners. Retaining
+   * their immutable source slots avoids rebuilding two 5,000-entry lookup
+   * maps on every all-bar animation command.
+   */
+  readonly rootIndex: number | null;
+  readonly componentIndex: number | null;
+  readonly componentPath: string | null;
 }
 
 interface IndexedTextTarget {
@@ -436,6 +483,15 @@ interface PanState {
   y: number;
 }
 
+interface CoreV2TransientIncrementalParse {
+  readonly base: ParsePatchMapResult;
+  readonly optionsKey: string;
+  readonly dirtyRootIds: readonly string[];
+  readonly dirtyIndices: readonly number[];
+  readonly dirtyRoots: readonly object[];
+  readonly selected: ParsePatchMapResult;
+}
+
 export class CoreV2 {
   public readonly renderer: PixiCoreV2Renderer;
   public readonly initializationMetrics: PixiCoreV2InitializationMetrics;
@@ -455,6 +511,7 @@ export class CoreV2 {
   private projectionValue: CoreV2ProjectionIndex | null = null;
   private ownedInputDataset: readonly unknown[] | null = null;
   private ownedParseOptionsKey: string | null = null;
+  private transientIncrementalParse: CoreV2TransientIncrementalParse | null = null;
   private presentationController: CoreV2PresentationController;
   private presentationGeneration = 1;
   private sceneImageReconcileSuspended = false;
@@ -705,7 +762,9 @@ export class CoreV2 {
   }
 
   private applyLoadedProjection(parse: ParsePatchMapResult, store: LoadResult): void {
+    this.transientIncrementalParse = null;
     this.parseResultValue = parse;
+    primePatchMapV010IncrementalFlat(parse);
     this.projectionValue = parse.projection;
     this.resetPresentationController();
     const presentation = this.presentationProjection.replace(parse.projection);
@@ -773,6 +832,48 @@ export class CoreV2 {
     return true;
   }
 
+  private matchesOwnedStructuralInput(
+    input: unknown,
+    options: ParsePatchMapOptions,
+  ): input is readonly unknown[] {
+    const optionsKey = incrementalParseOptionsKey(options);
+    return (
+      isOwnedCoreV2Dataset(input) &&
+      this.ownedInputDataset !== null &&
+      optionsKey !== null &&
+      optionsKey === this.ownedParseOptionsKey
+    );
+  }
+
+  private cachedTransientSelectedParse(
+    input: unknown,
+    base: ParsePatchMapResult,
+    dirtyRootIds: readonly string[],
+    options: ParsePatchMapOptions,
+  ): ParsePatchMapResult | null {
+    const cached = this.transientIncrementalParse;
+    if (
+      cached === null ||
+      cached.base !== base ||
+      !Array.isArray(input) ||
+      incrementalParseOptionsKey(options) !== cached.optionsKey ||
+      !sameStringArray(dirtyRootIds, cached.dirtyRootIds) ||
+      cached.dirtyIndices.length !== cached.dirtyRoots.length
+    ) {
+      return null;
+    }
+    for (let index = 0; index < cached.dirtyIndices.length; index += 1) {
+      const rootIndex = cached.dirtyIndices[index];
+      if (
+        rootIndex === undefined ||
+        input[rootIndex] !== cached.dirtyRoots[index]
+      ) {
+        return null;
+      }
+    }
+    return cached.selected;
+  }
+
   /**
    * Incrementally reconcile a direct PATCH MAP v0.10 input into the current
    * dense store. Safe candidates commit exactly one batch; this method never
@@ -805,41 +906,134 @@ export class CoreV2 {
           options.directBarHeightUpdates,
           this.componentTargets,
         );
-    const incrementalParse = directBarParse !== null ||
-      options.incrementalRootIds === undefined ||
+    const directTextParse =
+      directBarParse !== null ||
+      options.directTextUpdates === undefined ||
       !this.matchesOwnedIncrementalInput(
+        input,
+        options.directTextUpdates.map(({ ownerId }) => ownerId),
+        parseOptions,
+      )
+        ? null
+        : parsePatchMapV010DirectTextBatch(
+            input,
+            currentParse,
+            options.directTextUpdates,
+            parseOptions,
+            directTextParseTargetHints(
+              options.directTextUpdates,
+              this.componentTargets,
+            ),
+          );
+    const structuralParse =
+      directBarParse !== null ||
+      directTextParse !== null ||
+      options.structuralSharing !== true ||
+      !this.matchesOwnedStructuralInput(input, parseOptions)
+        ? null
+        : parsePatchMapV010IncrementalStructure(
+            input,
+            this.ownedInputDataset,
+            currentParse,
+            parseOptions,
+          );
+    const incrementalInputMatches =
+      directBarParse === null &&
+      directTextParse === null &&
+      structuralParse === null &&
+      options.incrementalRootIds !== undefined &&
+      this.matchesOwnedIncrementalInput(
         input,
         options.incrementalRootIds,
         parseOptions,
-      )
+      );
+    const cachedSelectedParse = !incrementalInputMatches
+      ? null
+      : this.cachedTransientSelectedParse(
+          input,
+          currentParse,
+          options.incrementalRootIds ?? [],
+          parseOptions,
+        );
+    const incrementalParse = !incrementalInputMatches
       ? null
       : parsePatchMapV010IncrementalFlat(
           input,
           currentParse,
-          options.incrementalRootIds,
+          options.incrementalRootIds ?? [],
           parseOptions,
+          cachedSelectedParse ?? undefined,
         );
+    const parserResult =
+      directBarParse ??
+        directTextParse ??
+        structuralParse ??
+        incrementalParse ??
+        parsePatchMapV010(input, parseOptions);
+    const hierarchyOnlyTargetMapping =
+      structuralParse !== null &&
+      structuralTargetMappingsReusable(currentParse, parserResult, options);
+    if (
+      directBarParse !== null ||
+      directTextParse !== null ||
+      hierarchyOnlyTargetMapping
+    ) {
+      inheritRendererDegradationDiagnostics(currentParse, parserResult);
+    }
     const parse = withRendererDegradationDiagnostics(
-      directBarParse ?? incrementalParse ?? parsePatchMapV010(input, parseOptions),
+      parserResult,
       this.renderer.strategy,
     );
+    inheritPatchMapV010DirectParseIndexes(parserResult, parse);
+    inheritPatchMapV010IncrementalParserCaches(parserResult, parse);
+    const incrementalEntityIds = directBarParse !== null
+      ? directBarEntityIds(
+          options.directBarHeightUpdates ?? [],
+          this.componentTargets,
+        )
+      : directTextParse !== null
+        ? directTextEntityIds(options.directTextUpdates ?? [], this.textTargets)
+        : incrementalParse === null
+          ? undefined
+          : incrementalDenseEntityIds(parse, options.incrementalRootIds ?? []);
     const parseMs = now() - parseStarted;
 
     const planStarted = now();
-    const plan = planCoreV2ParsedSceneReconcile(
+    const reconcileOptions = denseReconcileOptions(
+      options,
+      currentParse,
+      parse,
+      this.scene.selection().refs.flatMap((ref) => {
+        const entity = this.scene.get(ref);
+        return entity === null ? [] : [entity.id];
+      }),
+    );
+    const plan = (
+      incrementalEntityIds === undefined
+        ? null
+        : planCoreV2ParsedSceneReconcileIncremental(
+            currentParse.document,
+            parse.document,
+            incrementalEntityIds,
+            reconcileOptions,
+          )
+    ) ?? (
+      structuralParse === null
+        ? null
+        : planCoreV2ParsedSceneReconcileStructuralWindow(
+            currentParse.document,
+            parse.document,
+            reconcileOptions,
+          )
+    ) ?? planCoreV2ParsedSceneReconcile(
       currentParse.document,
       parse.document,
-      denseReconcileOptions(
-        options,
-        currentParse,
-        parse,
-        this.scene.selection().refs.flatMap((ref) => {
-          const entity = this.scene.get(ref);
-          return entity === null ? [] : [entity.id];
-        }),
-      ),
+      reconcileOptions,
     );
     const semanticChanged = directBarParse !== null ||
+      directTextParse !== null ||
+      structuralParse !== null ||
+      incrementalParse !== null ||
       !jsonEquivalent(currentParse, parse);
     const planMs = now() - planStarted;
 
@@ -873,8 +1067,11 @@ export class CoreV2 {
       parse.projection,
       !this.reducedMotionValue && options.animateBarChanges !== false,
       options.animatedBarTargets,
+      incrementalEntityIds ??
+        (hierarchyOnlyTargetMapping ? Object.freeze([]) : undefined),
     );
     this.parseResultValue = parse;
+    this.transientIncrementalParse = null;
     this.projectionValue = parse.projection;
     this.retainOwnedInputDataset(input, parseOptions);
     this.staleHitProjectionIds.clear();
@@ -883,13 +1080,15 @@ export class CoreV2 {
       commit.changedRanges,
       this.staleHitProjectionIds,
     );
-    if (directBarParse === null) {
+    if (directBarParse === null && directTextParse === null) {
       this.sceneImages.reconcile(parse.projection, {
         activeEntityIds: this.activeSceneImageIds(),
       });
       this.reapplyResolvedIntrinsicSizes();
-      this.componentTargets = indexComponentTargets(parse);
-      this.textTargets = indexTextTargets(parse);
+      if (incrementalParse === null && !hierarchyOnlyTargetMapping) {
+        this.componentTargets = indexComponentTargets(parse);
+        this.textTargets = indexTextTargets(parse);
+      }
       this.applyPresentationPolicyToRenderer();
     }
     this.spatialHitAnimationEnds.clear();
@@ -1465,6 +1664,15 @@ export class CoreV2 {
     });
   }
 
+  public semanticSelectionEntityIds(ids: readonly string[]): readonly string[] {
+    this.assertAlive();
+    const parse = this.parseResultValue;
+    if (parse === null) {
+      throw new Error('CoreV2 semantic selection requires a loaded dataset');
+    }
+    return semanticSelectionDenseIds(parse, ids, this.componentTargets);
+  }
+
   public setSelectionOverlayPolicy(
     input: CoreV2SelectionOverlayPolicyInput,
   ): boolean {
@@ -1577,6 +1785,112 @@ export class CoreV2 {
       hiddenLayerIds: policy?.hiddenLayerIds ?? Object.freeze([]),
       fillOverrides: policy?.fillOverrides ?? Object.freeze([]),
       entities: Object.freeze(entities),
+    });
+  }
+
+  public previewIncrementalRoots(
+    input: unknown,
+    dirtyRootIds: readonly string[],
+  ): CoreV2TransientProjectionResult | null {
+    this.assertAlive();
+    this.transientIncrementalParse = null;
+    const current = this.parseResultValue;
+    if (
+      current === null ||
+      !this.matchesOwnedIncrementalInput(input, dirtyRootIds, this.parseOptions)
+    ) {
+      return null;
+    }
+    const roots = input as readonly Readonly<{ readonly id: string }>[];
+    const dirty = new Set(dirtyRootIds);
+    if (dirty.size !== dirtyRootIds.length) return null;
+    const dirtyIndices: number[] = [];
+    for (let index = 0; index < roots.length; index += 1) {
+      if (dirty.has(roots[index]!.id)) {
+        dirtyIndices.push(index);
+        dirty.delete(roots[index]!.id);
+      }
+    }
+    if (dirty.size !== 0) return null;
+    const selected = parsePatchMapV010SelectedRoots(
+      roots,
+      dirtyIndices,
+      this.parseOptions,
+    );
+    if (selected.diagnostics.some(({ level }) => level === 'error')) return null;
+
+    const entityIds: string[] = [];
+    for (const rootId of dirtyRootIds) {
+      const expected = current.identity.entityIdsBySourceId[rootId] ?? [];
+      const actual = selected.identity.entityIdsBySourceId[rootId] ?? [];
+      if (!sameStringArray(expected, actual)) return null;
+      for (const entityId of actual) {
+        if (selected.projection.byEntityId[entityId] === undefined) return null;
+        entityIds.push(entityId);
+      }
+    }
+    const uniqueEntityIds = Object.freeze([...new Set(entityIds)]);
+    const optionsKey = incrementalParseOptionsKey(this.parseOptions);
+    if (optionsKey === null) return null;
+    this.transientIncrementalParse = Object.freeze({
+      base: current,
+      optionsKey,
+      dirtyRootIds: Object.freeze([...dirtyRootIds]),
+      dirtyIndices: Object.freeze(dirtyIndices),
+      dirtyRoots: Object.freeze(dirtyIndices.map((index) => roots[index] as object)),
+      selected,
+    });
+    const presentation = this.presentationProjection.applyTransientEntityProjections(
+      selected.projection.byEntityId,
+      uniqueEntityIds,
+    );
+    if (presentation === null) return null;
+    const dirtyRanges = contiguousSlotRanges(uniqueEntityIds.flatMap((entityId) => {
+      const ref = this.scene.ref(entityId);
+      return ref === null ? [] : [ref.slot];
+    }));
+    this.renderer.setProjection(
+      presentation,
+      dirtyRanges,
+      this.staleHitProjectionIds,
+    );
+    this.componentRendererFactsPublished = false;
+    this.textRendererFactsPublished = false;
+    this.renderedSceneRevision = null;
+    this.invalidateEntityHitIndex();
+    this.invalidate('transformer-preview');
+    return Object.freeze({
+      changed: dirtyRanges.length > 0,
+      entityIds: uniqueEntityIds,
+      dirtyRanges,
+    });
+  }
+
+  public clearIncrementalPreview(): CoreV2TransientProjectionResult {
+    this.assertAlive();
+    this.transientIncrementalParse = null;
+    const entityIds = this.presentationProjection.clearTransientEntityProjections();
+    const dirtyRanges = contiguousSlotRanges(entityIds.flatMap((entityId) => {
+      const ref = this.scene.ref(entityId);
+      return ref === null ? [] : [ref.slot];
+    }));
+    const presentation = this.presentationProjection.presentation;
+    if (presentation !== null && dirtyRanges.length > 0) {
+      this.renderer.setProjection(
+        presentation,
+        dirtyRanges,
+        this.staleHitProjectionIds,
+      );
+      this.componentRendererFactsPublished = false;
+      this.textRendererFactsPublished = false;
+      this.renderedSceneRevision = null;
+      this.invalidateEntityHitIndex();
+      this.invalidate('transformer-preview-clear');
+    }
+    return Object.freeze({
+      changed: dirtyRanges.length > 0,
+      entityIds,
+      dirtyRanges,
     });
   }
 
@@ -1859,6 +2173,7 @@ export class CoreV2 {
     this.projectionValue = null;
     this.ownedInputDataset = null;
     this.ownedParseOptionsKey = null;
+    this.transientIncrementalParse = null;
     this.componentTargets.clear();
     this.componentRendererFactsPublished = false;
     this.textTargets.clear();
@@ -1989,6 +2304,7 @@ export class CoreV2 {
     next: CoreV2ProjectionIndex,
     animateBarChanges: boolean,
     animatedBarTargets?: readonly CoreV2ComponentVisualTarget[],
+    incrementalEntityIds?: readonly string[],
   ): CoreV2ProjectionIndex {
     const previousBars = this.projectionValue?.barsByEntityId ?? {};
     const nextBars = next.barsByEntityId ?? {};
@@ -1997,6 +2313,103 @@ export class CoreV2 {
     const animatedTargetKeys = animatedBarTargets === undefined
       ? null
       : new Set(animatedBarTargets.map(componentTargetKey));
+
+    if (
+      incrementalEntityIds !== undefined &&
+      incrementalBarPresentationCompatible(
+        previousBars,
+        nextBars,
+        incrementalEntityIds,
+      )
+    ) {
+      for (const entityId of incrementalEntityIds) {
+        const bar = nextBars[entityId];
+        const previous = previousBars[entityId];
+        const active = this.presentationController.probe(entityId);
+        if (bar === undefined) {
+          if (active !== null) {
+            this.presentationController.cancel({
+              entityId,
+              generation: active.generation,
+              timeMs,
+              reason: 'remove',
+            });
+          }
+          continue;
+        }
+        const entity = this.scene.get(entityId);
+        const ref = entity?.ref ?? null;
+        const currentHeight = this.presentationProjection.visibleHeight(entityId) ??
+          previous?.destinationHeight ??
+          bar.destinationHeight;
+        const canAnimate = animateBarChanges &&
+          (
+            animatedTargetKeys === null ||
+            animatedTargetKeys.has(componentTargetKey({
+              ownerId: bar.ownerId,
+              componentId: bar.componentId,
+            }))
+          ) &&
+          previous !== undefined &&
+          entity?.kind === 'bar' &&
+          entity.visible &&
+          ref !== null &&
+          bar.animation;
+        const destinationChanged =
+          previous?.destinationHeight !== bar.destinationHeight;
+        if (!canAnimate) {
+          if (active !== null) {
+            this.presentationController.cancel({
+              entityId,
+              generation: active.generation,
+              timeMs,
+              reason: entity === null ? 'remove' : entity.visible ? 'replacement' : 'hide',
+            });
+          }
+          continue;
+        }
+        if (destinationChanged) {
+          const retargeted = this.presentationController.retarget({
+            entityId,
+            slot: ref.slot,
+            generation: ref.generation,
+            currentVisibleValue: currentHeight,
+            destinationValue: bar.destinationHeight,
+            timeMs,
+            durationMs: bar.animationDuration,
+            enabled: bar.animation,
+          });
+          if (retargeted.scheduled) {
+            visibleHeights.set(entityId, retargeted.startValue);
+          }
+          continue;
+        }
+        if (
+          active !== null &&
+          active.slot === ref.slot &&
+          active.generation === ref.generation
+        ) {
+          visibleHeights.set(entityId, active.currentValue);
+        } else if (active !== null) {
+          this.presentationController.cancel({
+            entityId,
+            generation: active.generation,
+            timeMs,
+            reason: 'replacement',
+          });
+        }
+      }
+      const incremental = this.presentationProjection.replaceIncremental(
+        next,
+        incrementalEntityIds,
+        visibleHeights,
+      );
+      if (incremental !== null) {
+        this.presentationValidatedEntityEpoch = this.presentationEntityEpoch;
+        this.invalidPresentationEntityIds.clear();
+        return incremental;
+      }
+    }
 
     for (const entityId of Object.keys(previousBars).sort()) {
       if (nextBars[entityId] !== undefined) continue;
@@ -2653,13 +3066,12 @@ function semanticSelectionDenseIds(
   componentTargets?: ReadonlyMap<string, IndexedComponentTarget | null>,
 ): readonly string[] {
   if (!Array.isArray(semanticIds)) throw new TypeError('selectionIds must be an array');
-  const documentIds = new Set(parse.document.entities.map(({ id }) => id));
   const denseIds = new Set<string>();
   semanticIds.forEach((semanticId, index) => {
     if (typeof semanticId !== 'string' || semanticId.length === 0) {
       throw new TypeError(`selectionIds[${index}] must be a non-empty string`);
     }
-    if (documentIds.has(semanticId)) {
+    if (Object.hasOwn(parse.identity.entitySourceById, semanticId)) {
       denseIds.add(semanticId);
       return;
     }
@@ -2695,7 +3107,7 @@ function semanticSelectionDenseIds(
       }
     }
     for (const entityId of parse.identity.entityIdsBySourceId[semanticId] ?? []) {
-      if (documentIds.has(entityId)) denseIds.add(entityId);
+      if (Object.hasOwn(parse.identity.entitySourceById, entityId)) denseIds.add(entityId);
     }
   });
   return Object.freeze([...denseIds]);
@@ -2802,6 +3214,94 @@ function reconcileFacts(
   });
 }
 
+function incrementalDenseEntityIds(
+  parse: ParsePatchMapResult,
+  rootIds: readonly string[],
+): readonly string[] {
+  const ids = new Set<string>();
+  for (const rootId of rootIds) {
+    for (const entityId of parse.identity.entityIdsBySourceId[rootId] ?? []) {
+      ids.add(entityId);
+    }
+  }
+  return Object.freeze([...ids]);
+}
+
+function directTextEntityIds(
+  updates: readonly CoreV2DirectTextUpdate[],
+  targets: ReadonlyMap<string, IndexedTextTarget | null>,
+): readonly string[] | undefined {
+  const ids = new Set<string>();
+  for (const update of updates) {
+    const indexed = targets.get(coreV2TextTargetKey({
+      kind: 'component',
+      ownerId: update.ownerId,
+      id: update.componentId,
+    }));
+    if (indexed === undefined || indexed === null) return undefined;
+    ids.add(indexed.entityId);
+  }
+  return ids.size === 0 ? undefined : Object.freeze([...ids]);
+}
+
+function directTextParseTargetHints(
+  updates: readonly CoreV2DirectTextUpdate[],
+  targets: ReadonlyMap<string, IndexedComponentTarget | null>,
+): readonly CoreV2DirectTextParseTargetIndex[] | undefined {
+  const hints: CoreV2DirectTextParseTargetIndex[] = [];
+  for (const update of updates) {
+    const indexed = targets.get(componentTargetKey(update));
+    if (
+      indexed === undefined ||
+      indexed === null ||
+      indexed.rootIndex === null ||
+      indexed.componentIndex === null ||
+      indexed.componentPath === null
+    ) {
+      return undefined;
+    }
+    hints.push(indexed as CoreV2DirectTextParseTargetIndex);
+  }
+  return hints.length === 0 ? undefined : Object.freeze(hints);
+}
+
+function directBarEntityIds(
+  updates: readonly CoreV2DirectBarHeightUpdate[],
+  targets: ReadonlyMap<string, IndexedComponentTarget | null>,
+): readonly string[] | undefined {
+  const ids = new Set<string>();
+  for (const update of updates) {
+    const indexed = targets.get(componentTargetKey(update));
+    if (indexed === undefined || indexed === null) return undefined;
+    ids.add(indexed.entityId);
+  }
+  return ids.size === 0 ? undefined : Object.freeze([...ids]);
+}
+
+function incrementalBarPresentationCompatible(
+  previous: Readonly<Record<string, CoreV2BarProjection>>,
+  next: Readonly<Record<string, CoreV2BarProjection>>,
+  entityIds: readonly string[],
+): boolean {
+  for (const entityId of entityIds) {
+    const before = previous[entityId];
+    const after = next[entityId];
+    if (before === undefined || after === undefined) {
+      if (before !== after) return false;
+      continue;
+    }
+    if (
+      before.ownerId !== after.ownerId ||
+      before.componentId !== after.componentId ||
+      before.animation !== after.animation ||
+      before.animationDuration !== after.animationDuration
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function reconcileDirectBarHeightParse(
   input: unknown,
   previous: ParsePatchMapResult,
@@ -2809,11 +3309,6 @@ function reconcileDirectBarHeightParse(
   componentTargets: ReadonlyMap<string, IndexedComponentTarget | null>,
 ): ParsePatchMapResult | null {
   if (!isOwnedCoreV2Dataset(input) || updates.length === 0) return null;
-  const roots = new Map(input.map((root) => [root.id, root] as const));
-  if (roots.size !== input.length) return null;
-  const entityIndices = new Map(
-    previous.document.entities.map((entity, index) => [entity.id, index] as const),
-  );
   const entities = [...previous.document.entities];
   const entityProjections = { ...previous.projection.byEntityId };
   const barProjections = { ...(previous.projection.barsByEntityId ?? {}) };
@@ -2827,12 +3322,21 @@ function reconcileDirectBarHeightParse(
     const targetKey = componentTargetKey(update);
     if (seenTargets.has(targetKey)) return null;
     seenTargets.add(targetKey);
-    const root = roots.get(update.ownerId);
-    if (root?.type !== 'item') return null;
-    const components = root.components.filter(({ id }) => id === update.componentId);
-    const component = components.length === 1 ? components[0] : undefined;
+    const indexed = componentTargets.get(targetKey);
+    if (
+      indexed === undefined ||
+      indexed === null ||
+      indexed.rootIndex === null ||
+      indexed.componentIndex === null
+    ) {
+      return null;
+    }
+    const root = input[indexed.rootIndex];
+    if (root?.type !== 'item' || root.id !== update.ownerId) return null;
+    const component = root.components[indexed.componentIndex];
     if (
       component?.type !== 'bar' ||
+      component.id !== update.componentId ||
       typeof component.size !== 'object' ||
       component.size === null ||
       !('height' in component.size) ||
@@ -2842,20 +3346,16 @@ function reconcileDirectBarHeightParse(
       return null;
     }
 
-    const indexed = componentTargets.get(targetKey);
-    if (indexed === undefined || indexed === null) return null;
-    const entityIndex = entityIndices.get(indexed.entityId);
-    const entity = entityIndex === undefined
-      ? undefined
-      : previous.document.entities[entityIndex];
+    const entityIndex = indexed.entityIndex;
+    const entity = previous.document.entities[entityIndex];
     const bar = barProjections[indexed.entityId];
     const projection = entityProjections[indexed.entityId];
     const ownerProjection = bar === undefined
       ? undefined
       : previous.projection.byEntityId[bar.ownerId];
     if (
-      entityIndex === undefined ||
-      entity?.kind !== 'bar' ||
+      entity?.id !== indexed.entityId ||
+      entity.kind !== 'bar' ||
       bar === undefined ||
       projection === undefined ||
       ownerProjection === undefined
@@ -2951,6 +3451,35 @@ function directBarPlacementDeltaY(
     return -deltaHeight / 2;
   }
   return 0;
+}
+
+function structuralTargetMappingsReusable(
+  current: ParsePatchMapResult,
+  candidate: ParsePatchMapResult,
+  options: CoreV2ReconcileOptions,
+): boolean {
+  if (
+    (options.allowedElementOrderIds?.length ?? 0) === 0 ||
+    current.identity.counts.entities !== candidate.identity.counts.entities ||
+    current.identity.counts.sourceComponents !==
+      candidate.identity.counts.sourceComponents
+  ) {
+    return false;
+  }
+  for (const entityId of candidate.identity.entityIds) {
+    const before = current.identity.entitySourceById[entityId];
+    const after = candidate.identity.entitySourceById[entityId];
+    if (
+      before === undefined ||
+      after === undefined ||
+      before.sourceElementId !== after.sourceElementId ||
+      before.instanceId !== after.instanceId ||
+      before.componentId !== after.componentId
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 interface CoreV2ReconcileFactStamp {
@@ -3069,32 +3598,53 @@ function indexComponentTargets(
   parse: ParsePatchMapResult,
 ): Map<string, IndexedComponentTarget | null> {
   const targets = new Map<string, IndexedComponentTarget | null>();
+  const entityIndices = new Map(
+    parse.document.entities.map((entity, index) => [entity.id, index] as const),
+  );
+  const indexedByEntityId = new Map<string, IndexedComponentTarget | null>();
+  const resolveIndexed = (
+    entityId: string,
+    semanticOwnerId: string,
+  ): IndexedComponentTarget | null => {
+    const cached = indexedByEntityId.get(entityId);
+    if (cached !== undefined) return cached;
+    const indexed = indexedComponentTarget(
+      parse,
+      entityId,
+      semanticOwnerId,
+      entityIndices,
+    );
+    indexedByEntityId.set(entityId, indexed);
+    return indexed;
+  };
   const components = parse.projection.componentsByEntityId ?? {};
-  for (const entityId of Object.keys(components).sort()) {
+  for (const entityId of Object.keys(components)) {
     const component = components[entityId];
     if (!component) continue;
     const semanticOwnerId = parse.identity.entitySourceById[entityId]?.sourceElementId ??
       component.ownerId;
-    const indexed = Object.freeze({ entityId, semanticOwnerId });
+    const indexed = resolveIndexed(entityId, semanticOwnerId);
+    if (indexed === null) continue;
     indexComponentTarget(targets, component.ownerId, component.componentId, indexed);
     if (semanticOwnerId !== component.ownerId) {
       indexComponentTarget(targets, semanticOwnerId, component.componentId, indexed);
     }
   }
   const bars = parse.projection.barsByEntityId ?? {};
-  for (const entityId of Object.keys(bars).sort()) {
+  for (const entityId of Object.keys(bars)) {
     const bar = bars[entityId];
     if (!bar) continue;
     const semanticOwnerId = parse.identity.entitySourceById[entityId]?.sourceElementId ??
       bar.ownerId;
-    const indexed = Object.freeze({ entityId, semanticOwnerId });
+    const indexed = resolveIndexed(entityId, semanticOwnerId);
+    if (indexed === null) continue;
     indexComponentTarget(targets, bar.ownerId, bar.componentId, indexed);
     if (semanticOwnerId !== bar.ownerId) {
       indexComponentTarget(targets, semanticOwnerId, bar.componentId, indexed);
     }
   }
   const texts = parse.projection.textsByEntityId ?? {};
-  for (const entityId of Object.keys(texts).sort()) {
+  for (const entityId of Object.keys(texts)) {
     const text = texts[entityId];
     if (
       text?.targetKind !== 'component' ||
@@ -3105,13 +3655,76 @@ function indexComponentTargets(
     }
     const semanticOwnerId = parse.identity.entitySourceById[entityId]?.sourceElementId ??
       text.ownerId;
-    const indexed = Object.freeze({ entityId, semanticOwnerId });
+    const indexed = resolveIndexed(entityId, semanticOwnerId);
+    if (indexed === null) continue;
     indexComponentTarget(targets, text.ownerId, text.componentId, indexed);
     if (semanticOwnerId !== text.ownerId) {
       indexComponentTarget(targets, semanticOwnerId, text.componentId, indexed);
     }
   }
   return targets;
+}
+
+function indexedComponentTarget(
+  parse: ParsePatchMapResult,
+  entityId: string,
+  semanticOwnerId: string,
+  entityIndices: ReadonlyMap<string, number>,
+): IndexedComponentTarget | null {
+  const entityIndex = entityIndices.get(entityId);
+  if (entityIndex === undefined) return null;
+  const source = parse.identity.entitySourceById[entityId];
+  const rootIndex = directTopLevelSourceIndex(source?.sourceElementPath);
+  const componentSlots = directTopLevelComponentSourceSlots(source?.componentPath);
+  return Object.freeze({
+    entityId,
+    entityIndex,
+    semanticOwnerId,
+    rootIndex:
+      rootIndex !== null && rootIndex === componentSlots?.rootIndex
+        ? rootIndex
+        : null,
+    componentIndex: componentSlots?.componentIndex ?? null,
+    componentPath: source?.componentPath ?? null,
+  });
+}
+
+function directTopLevelSourceIndex(path: string | undefined): number | null {
+  if (
+    path === undefined ||
+    !path.startsWith('$[') ||
+    !path.endsWith(']') ||
+    path.indexOf(']', 2) !== path.length - 1
+  ) {
+    return null;
+  }
+  const index = Number(path.slice(2, -1));
+  return Number.isSafeInteger(index) && index >= 0 ? index : null;
+}
+
+function directTopLevelComponentSourceSlots(
+  path: string | undefined,
+): Readonly<{ readonly rootIndex: number; readonly componentIndex: number }> | null {
+  if (path === undefined || !path.startsWith('$[') || !path.endsWith(']')) return null;
+  const rootEnd = path.indexOf(']', 2);
+  const componentPrefix = '].components[';
+  if (
+    rootEnd < 3 ||
+    path.slice(rootEnd, rootEnd + componentPrefix.length) !== componentPrefix
+  ) {
+    return null;
+  }
+  const rootIndex = Number(path.slice(2, rootEnd));
+  const componentIndex = Number(path.slice(rootEnd + componentPrefix.length, -1));
+  if (
+    !Number.isSafeInteger(rootIndex) ||
+    rootIndex < 0 ||
+    !Number.isSafeInteger(componentIndex) ||
+    componentIndex < 0
+  ) {
+    return null;
+  }
+  return Object.freeze({ rootIndex, componentIndex });
 }
 
 function componentVisualProjection(
@@ -3321,7 +3934,7 @@ function indexTextTargets(
 ): Map<string, IndexedTextTarget | null> {
   const targets = new Map<string, IndexedTextTarget | null>();
   const texts = parse.projection.textsByEntityId ?? {};
-  for (const entityId of Object.keys(texts).sort()) {
+  for (const entityId of Object.keys(texts)) {
     const text = texts[entityId];
     if (!text) continue;
     const source = parse.identity.entitySourceById[entityId];

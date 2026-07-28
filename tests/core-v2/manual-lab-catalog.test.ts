@@ -161,6 +161,7 @@ describe('Core v2 human-operated Lab catalog', () => {
     );
     expect(source).toContain('next.updateBarHeights({');
     expect(source).toContain('const heights = new Float64Array(targets.length);');
+    expect(source).toContain('next.updateTexts({');
   });
 });
 

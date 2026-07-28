@@ -1,10 +1,13 @@
 import {
   assembleOwnedCoreV2Dataset,
+  assembleOwnedCoreV2PreviewDataset,
   CORE_V2_COMPONENT_TYPES,
   CORE_V2_ELEMENT_TYPES,
   CoreV2DatasetError,
   materializeCoreV2Dataset,
+  materializeOwnedCoreV2StructuralDataset,
   replaceOwnedCoreV2BarHeightRoot,
+  replaceOwnedCoreV2TextRoot,
   type CoreV2Element,
   type MaterializedCoreV2Dataset,
 } from './dataset';
@@ -135,6 +138,22 @@ export interface CoreV2PlannedBarHeightUpdate extends CoreV2BarHeightBatchTarget
   readonly height: number;
 }
 
+export interface CoreV2TextBatchTarget {
+  readonly ownerId: string;
+  readonly componentId: string;
+}
+
+export interface CoreV2TextBatchRequest {
+  readonly targets: readonly CoreV2TextBatchTarget[];
+  readonly texts: readonly string[];
+  readonly actionId?: string;
+  readonly recordHistory?: boolean;
+}
+
+export interface CoreV2PlannedTextUpdate extends CoreV2TextBatchTarget {
+  readonly text: string;
+}
+
 export type CoreV2MutationDiagnosticCategory =
   | 'INVALID_INPUT'
   | 'MISSING_TARGET'
@@ -185,6 +204,8 @@ export type CoreV2MutationTransactionPlan =
       readonly history?: CoreV2MutationJsonValue;
       /** Compact exact-height batch used by the aggregate bar hot path. */
       readonly directBarHeightUpdates?: readonly CoreV2PlannedBarHeightUpdate[];
+      /** Compact owner-qualified text batch used by the editor text hot path. */
+      readonly directTextUpdates?: readonly CoreV2PlannedTextUpdate[];
       /** Logical selection replacement authored by group/ungroup. */
       readonly selectionIds?: readonly string[];
       /** Semantic hierarchy IDs whose aggregate retained order may change. */
@@ -261,6 +282,13 @@ const BAR_HEIGHT_BATCH_FIELDS = new Set([
   'recordHistory',
 ]);
 const BAR_HEIGHT_BATCH_TARGET_FIELDS = new Set(['ownerId', 'componentId']);
+const TEXT_BATCH_FIELDS = new Set([
+  'targets',
+  'texts',
+  'actionId',
+  'recordHistory',
+]);
+const TEXT_BATCH_TARGET_FIELDS = new Set(['ownerId', 'componentId']);
 const TARGET_ELEMENT_FIELDS = new Set(['kind', 'id']);
 const TARGET_COMPONENT_FIELDS = new Set(['kind', 'ownerId', 'id']);
 const ADD_FIELDS = new Set(['op', 'parent', 'collection', 'index', 'value']);
@@ -544,6 +572,246 @@ export function planCoreV2BarHeightBatch(
 }
 
 /**
+ * Validate one ordered owner-qualified text batch without allocating a merge
+ * operation/path graph or normalizing and hashing each dirty root separately.
+ */
+export function planCoreV2TextBatch(
+  current: MaterializedCoreV2Dataset,
+  requestInput: unknown,
+): CoreV2MutationTransactionPlan {
+  let record: Readonly<Record<string, unknown>>;
+  try {
+    record = strictRecord(
+      requestInput,
+      '$',
+      'text batch must be a strict plain record',
+    );
+    rejectUnknownFields(record, TEXT_BATCH_FIELDS, '$');
+    if (!Array.isArray(record.targets)) {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        '$.targets',
+        'targets must be an ordered array',
+      );
+    }
+    if (!isStringArray(record.texts)) {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        '$.texts',
+        'texts must be an ordered string array',
+      );
+    }
+    if (record.targets.length !== record.texts.length) {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        '$.texts',
+        'texts length must match targets length',
+      );
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(record, 'actionId') &&
+      (typeof record.actionId !== 'string' || record.actionId.length === 0)
+    ) {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        '$.actionId',
+        'actionId must be a non-empty string',
+      );
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(record, 'recordHistory') &&
+      typeof record.recordHistory !== 'boolean'
+    ) {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        '$.recordHistory',
+        'recordHistory must be a boolean',
+      );
+    }
+  } catch (error) {
+    if (!(error instanceof TransactionValidationFailure)) throw error;
+    return rejected(error.diagnostic);
+  }
+
+  const actionId = typeof record.actionId === 'string'
+    ? record.actionId
+    : undefined;
+  const recordHistory = typeof record.recordHistory === 'boolean'
+    ? record.recordHistory
+    : undefined;
+  if (record.targets.length === 0) {
+    return Object.freeze({
+      status: 'planned',
+      changed: false,
+      schemaRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+      strict: true,
+      conflictPolicy: 'reject',
+      operations: EMPTY_OPERATIONS,
+      ...(actionId === undefined ? {} : { actionId }),
+      ...(recordHistory === undefined ? {} : { recordHistory }),
+      candidate: current,
+      applied: EMPTY_TARGETS,
+      missing: EMPTY_TARGETS,
+      unchanged: EMPTY_TARGETS,
+      directTextUpdates: Object.freeze([]),
+      summary: freezeSummary(0, 0, 0),
+    });
+  }
+
+  const rootIndexById = ownedRootIndexById(current.dataset);
+  if (rootIndexById === null) {
+    return rejected(
+      diagnostic(
+        'DUPLICATE_ID',
+        'INVALID_INPUT',
+        '$.targets',
+        'current owned root identity is ambiguous',
+      ),
+      actionId,
+    );
+  }
+  const roots: CoreV2Element[] = [...current.dataset];
+  const journal = new Map<string, TargetJournalEntry>();
+  const directUpdates = new Map<string, CoreV2PlannedTextUpdate>();
+  const seenTargets = new Set<string>();
+  let changed = false;
+  try {
+    for (let index = 0; index < record.targets.length; index += 1) {
+      const targetRecord = strictRecord(
+        record.targets[index],
+        `$.targets[${index}]`,
+        'text target must be a strict plain record',
+      );
+      rejectUnknownFields(
+        targetRecord,
+        TEXT_BATCH_TARGET_FIELDS,
+        `$.targets[${index}]`,
+        index,
+      );
+      if (
+        typeof targetRecord.ownerId !== 'string' ||
+        targetRecord.ownerId.length === 0 ||
+        typeof targetRecord.componentId !== 'string' ||
+        targetRecord.componentId.length === 0
+      ) {
+        transactionFail(
+          'INVALID_VALUE',
+          'INVALID_INPUT',
+          `$.targets[${index}]`,
+          'text target requires non-empty ownerId and componentId',
+          index,
+        );
+      }
+      const text = record.texts[index];
+      if (typeof text !== 'string') {
+        transactionFail(
+          'INVALID_VALUE',
+          'INVALID_INPUT',
+          `$.texts[${index}]`,
+          'text must be a string',
+          index,
+        );
+      }
+      const target = Object.freeze({
+        kind: 'component' as const,
+        ownerId: targetRecord.ownerId,
+        id: targetRecord.componentId,
+      });
+      const key = targetKey(target);
+      if (seenTargets.has(key)) {
+        transactionFail(
+          'DUPLICATE_ID',
+          'INVALID_INPUT',
+          `$.targets[${index}]`,
+          `text batch repeats ${targetLabel(target)}`,
+          index,
+          target,
+        );
+      }
+      seenTargets.add(key);
+      const rootIndex = rootIndexById.get(target.ownerId);
+      const root = rootIndex === undefined ? undefined : roots[rootIndex];
+      if (rootIndex === undefined || root?.type !== 'item') {
+        transactionFail(
+          'MISSING_TARGET',
+          'MISSING_TARGET',
+          `$.targets[${index}]`,
+          `No staged record matches ${targetLabel(target)}`,
+          index,
+          target,
+        );
+      }
+      const matches = root.components.filter(({ id }) => id === target.id);
+      const component = matches.length === 1 ? matches[0] : undefined;
+      if (component?.type !== 'text') {
+        transactionFail(
+          'INVALID_MUTATION',
+          'INVALID_INPUT',
+          `$.targets[${index}]`,
+          `${targetLabel(target)} is not one text component`,
+          index,
+          target,
+        );
+      }
+      if (component.text === text) {
+        noteOutcome(journal, target, 'unchanged');
+        continue;
+      }
+      const update = Object.freeze({
+        ownerId: target.ownerId,
+        componentId: target.id,
+        text,
+      });
+      directUpdates.set(key, update);
+      const replacement = replaceOwnedCoreV2TextRoot(root, target.id, text);
+      if (replacement === null) {
+        transactionFail(
+          'INVALID_MUTATION',
+          'INVALID_INPUT',
+          `$.targets[${index}]`,
+          `${targetLabel(target)} could not accept the text`,
+          index,
+          target,
+        );
+      }
+      roots[rootIndex] = replacement;
+      changed = true;
+      noteOutcome(journal, target, 'applied');
+    }
+  } catch (error) {
+    if (!(error instanceof TransactionValidationFailure)) throw error;
+    return rejected(error.diagnostic, actionId);
+  }
+
+  const candidate = changed
+    ? assembleOwnedCoreV2Dataset(current, roots)
+    : current;
+  const applied = journalTargets(journal, 'applied');
+  const unchanged = journalTargets(journal, 'unchanged');
+  return Object.freeze({
+    status: 'planned',
+    changed,
+    schemaRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+    strict: true,
+    conflictPolicy: 'reject',
+    operations: EMPTY_OPERATIONS,
+    ...(actionId === undefined ? {} : { actionId }),
+    ...(recordHistory === undefined ? {} : { recordHistory }),
+    candidate,
+    applied,
+    missing: EMPTY_TARGETS,
+    unchanged,
+    directTextUpdates: Object.freeze([...directUpdates.values()]),
+    summary: freezeSummary(applied.length, 0, unchanged.length),
+  });
+}
+
+/**
  * Validate a bulk target-set merge. An empty target set is a real product
  * no-op, while an empty raw transaction remains invalid.
  */
@@ -601,6 +869,10 @@ const FAST_FLAT_ROOT_TYPES = new Set([
   'image',
   'text',
 ]);
+const OWNED_ROOT_INDEX_CACHE = new WeakMap<
+  readonly CoreV2Element[],
+  ReadonlyMap<string, number> | null
+>();
 
 function planOwnedBarHeightTransaction(
   current: MaterializedCoreV2Dataset,
@@ -697,6 +969,7 @@ function planOwnedBarHeightTransaction(
 function planFlatOwnedMergeTransaction(
   current: MaterializedCoreV2Dataset,
   request: NormalizedTransaction,
+  preview = false,
 ): CoreV2MutationTransactionPlan | null {
   if (
     current.dataset.length === 0 ||
@@ -704,11 +977,8 @@ function planFlatOwnedMergeTransaction(
   ) {
     return null;
   }
-  const rootIndexById = new Map<string, number>();
-  for (const [index, root] of current.dataset.entries()) {
-    if (rootIndexById.has(root.id)) return null;
-    rootIndexById.set(root.id, index);
-  }
+  const rootIndexById = ownedRootIndexById(current.dataset);
+  if (rootIndexById === null) return null;
   const dirtyRootIds = new Set<string>();
   for (const operation of request.operations) {
     if (operation.op !== 'merge') return null;
@@ -776,7 +1046,9 @@ function planFlatOwnedMergeTransaction(
     if (error instanceof CoreV2DatasetError) return null;
     throw error;
   }
-  const candidate = assembleOwnedCoreV2Dataset(current, roots);
+  const candidate = preview
+    ? assembleOwnedCoreV2PreviewDataset(current, roots)
+    : assembleOwnedCoreV2Dataset(current, roots);
   const applied = journalTargets(journal, 'applied');
   const missing = journalTargets(journal, 'missing');
   const unchanged = journalTargets(journal, 'unchanged');
@@ -799,6 +1071,23 @@ function planFlatOwnedMergeTransaction(
     unchanged,
     summary: freezeSummary(applied.length, missing.length, unchanged.length),
   });
+}
+
+function ownedRootIndexById(
+  dataset: readonly CoreV2Element[],
+): ReadonlyMap<string, number> | null {
+  const cached = OWNED_ROOT_INDEX_CACHE.get(dataset);
+  if (cached !== undefined) return cached;
+  const indexById = new Map<string, number>();
+  for (const [index, root] of dataset.entries()) {
+    if (indexById.has(root.id)) {
+      OWNED_ROOT_INDEX_CACHE.set(dataset, null);
+      return null;
+    }
+    indexById.set(root.id, index);
+  }
+  OWNED_ROOT_INDEX_CACHE.set(dataset, indexById);
+  return indexById;
 }
 
 function fastFlatMergePathSupported(
@@ -833,6 +1122,48 @@ function flatRootTarget(
 }
 
 /**
+ * Stage a transient visual preview. The flat-root fast path deliberately skips
+ * the whole-dataset semantic hash; the normal planner remains mandatory before
+ * history or authoritative semantic publication.
+ */
+export function planCoreV2PreviewMutationTransaction(
+  current: MaterializedCoreV2Dataset,
+  requestInput: unknown,
+  schemaRevision: string = CORE_V2_MUTATION_TRANSACTION_REVISION,
+): CoreV2MutationTransactionPlan {
+  if (schemaRevision !== CORE_V2_MUTATION_TRANSACTION_REVISION) {
+    return planCoreV2MutationTransaction(current, requestInput, schemaRevision);
+  }
+  let request: NormalizedTransaction;
+  try {
+    request = normalizeTransaction(requestInput);
+  } catch (error) {
+    if (!(error instanceof TransactionValidationFailure)) throw error;
+    return rejected(error.diagnostic);
+  }
+  const incremental = planFlatOwnedMergeTransaction(current, request, true);
+  return incremental ?? planNormalizedCoreV2MutationTransaction(current, request);
+}
+
+/**
+ * Promote an internally validated flat preview into an authoritative candidate
+ * without cloning and normalizing its dirty roots again. Canonical hashing is
+ * deliberately deferred until this promotion so pointer-move previews remain
+ * cheap while pointer-up still publishes the exact deterministic hash.
+ */
+export function promoteCoreV2PreviewMutationTransaction(
+  current: MaterializedCoreV2Dataset,
+  preview: CoreV2MutationTransactionPlan,
+): CoreV2MutationTransactionPlan {
+  if (preview.status !== 'planned' || !preview.changed) return preview;
+  const candidate = assembleOwnedCoreV2Dataset(current, preview.candidate.dataset);
+  return Object.freeze({
+    ...preview,
+    candidate,
+  });
+}
+
+/**
  * Validate and stage one versioned mutation transaction without touching engine,
  * history, renderer, or handle state. All operations run against one detached
  * candidate and the dataset is materialized exactly once after staging succeeds.
@@ -861,11 +1192,165 @@ export function planCoreV2MutationTransaction(
     return rejected(error.diagnostic);
   }
 
+  const structural = planOwnedTopLevelStructuralTransaction(current, request);
+  if (structural !== null) return structural;
   const directBars = planOwnedBarHeightTransaction(current, request);
   if (directBars !== null) return directBars;
   const incremental = planFlatOwnedMergeTransaction(current, request);
   if (incremental !== null) return incremental;
   return planNormalizedCoreV2MutationTransaction(current, request);
+}
+
+/**
+ * Preserve normalized root identity for the common one-action top-level editor
+ * operations. The generic planner remains the authority for nested,
+ * multi-operation, missing, or otherwise ambiguous requests.
+ */
+function planOwnedTopLevelStructuralTransaction(
+  current: MaterializedCoreV2Dataset,
+  request: NormalizedTransaction,
+): CoreV2MutationTransactionPlan | null {
+  if (request.operations.length !== 1 || current.dataset.length === 0) return null;
+  const operation = request.operations[0];
+  if (
+    operation === undefined ||
+    !(
+      operation.op === 'add' ||
+      operation.op === 'move' ||
+      operation.op === 'group' ||
+      operation.op === 'ungroup' ||
+      operation.op === 'remove'
+    )
+  ) {
+    return null;
+  }
+  const rootIndexById = ownedRootIndexById(current.dataset);
+  if (rootIndexById === null) return null;
+  if (
+    (operation.op === 'add' || operation.op === 'move') &&
+    operation.parent !== null
+  ) {
+    return null;
+  }
+  if (
+    (operation.op === 'move' ||
+      operation.op === 'ungroup' ||
+      operation.op === 'remove') &&
+    (
+      operation.op === 'remove' && operation.target.kind !== 'element' ||
+      rootIndexById.get(operation.target.id) === undefined
+    )
+  ) {
+    return null;
+  }
+  if (
+    operation.op === 'group' &&
+    (
+      operation.targets.length === 0 ||
+      operation.targets.some(({ id }) => rootIndexById.get(id) === undefined)
+    )
+  ) {
+    return null;
+  }
+
+  const staged = [...current.dataset] as unknown as MutableJsonValue[];
+  const cloneRoot = (id: string): boolean => {
+    const index = rootIndexById.get(id);
+    if (index === undefined) return false;
+    staged[index] = cloneMutableJson(staged[index], `$[${index}]`);
+    return true;
+  };
+  if (operation.op === 'move' || operation.op === 'ungroup') {
+    if (!cloneRoot(operation.target.id)) return null;
+  } else if (operation.op === 'group') {
+    for (const { id } of operation.targets) {
+      if (!cloneRoot(id)) return null;
+    }
+  }
+
+  const journal = new Map<string, TargetJournalEntry>();
+  let selectionIds: readonly string[] | undefined;
+  let allowedElementOrderIds: readonly string[] = Object.freeze([]);
+  try {
+    const index = indexDataset(staged);
+    if (
+      operation.op === 'add' ||
+      operation.op === 'move' ||
+      operation.op === 'group' ||
+      operation.op === 'ungroup'
+    ) {
+      const result = applyStructuralOperation(
+        staged,
+        index,
+        operation,
+        '$.operations[0]',
+        0,
+        request.strict,
+      );
+      if (!result.changed) return null;
+      for (const outcome of result.outcomes) {
+        noteOutcome(journal, outcome.target, outcome.outcome);
+      }
+      selectionIds = result.selectionIds;
+      allowedElementOrderIds = result.allowedElementOrderIds;
+    } else {
+      const located = locate(
+        index,
+        operation.target,
+        '$.operations[0]',
+        0,
+      );
+      if (located === undefined || located.parent !== staged) return null;
+      removeTarget(located, operation, '$.operations[0]', 0);
+      noteOutcome(journal, operation.target, 'applied');
+    }
+  } catch (error) {
+    if (!(error instanceof TransactionValidationFailure)) throw error;
+    return rejected(error.diagnostic, request.actionId);
+  }
+
+  let candidate: MaterializedCoreV2Dataset;
+  try {
+    candidate = materializeOwnedCoreV2StructuralDataset(staged);
+  } catch (error) {
+    if (!(error instanceof CoreV2DatasetError)) throw error;
+    const code = datasetDiagnosticCode(error);
+    return rejected(
+      diagnostic(
+        code,
+        'INVALID_INPUT',
+        error.datasetPath,
+        error.message,
+        undefined,
+        undefined,
+        error.code,
+      ),
+      request.actionId,
+    );
+  }
+  const applied = journalTargets(journal, 'applied');
+  const missing = journalTargets(journal, 'missing');
+  const unchanged = journalTargets(journal, 'unchanged');
+  return Object.freeze({
+    status: 'planned',
+    changed: true,
+    schemaRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
+    strict: request.strict,
+    conflictPolicy: request.conflictPolicy,
+    operations: request.operations,
+    ...(request.actionId === undefined ? {} : { actionId: request.actionId }),
+    ...(request.recordHistory === undefined ? {} : { recordHistory: request.recordHistory }),
+    ...(request.history === undefined ? {} : { history: request.history }),
+    ...(selectionIds === undefined ? {} : { selectionIds }),
+    ...(allowedElementOrderIds.length === 0
+      ? {}
+      : { allowedElementOrderIds }),
+    candidate,
+    applied,
+    missing,
+    unchanged,
+    summary: freezeSummary(applied.length, missing.length, unchanged.length),
+  });
 }
 
 function planNormalizedCoreV2MutationTransaction(
@@ -2582,6 +3067,11 @@ function isNumberArrayLike(value: unknown): value is ArrayLike<number> {
       !(value instanceof DataView) &&
       'length' in value
     );
+}
+
+function isStringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) &&
+    value.every((entry): entry is string => typeof entry === 'string');
 }
 
 function mergedValue(current: MutableJsonValue, incoming: MutableJsonValue): MutableJsonValue {

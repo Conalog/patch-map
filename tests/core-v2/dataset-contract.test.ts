@@ -4,7 +4,12 @@ import { fileURLToPath } from 'node:url';
 import catalogProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
 import { describe, expect, it } from 'vitest';
 
-import { materializeCoreV2Dataset } from '../../src/core-v2/semantic/dataset';
+import {
+  assembleOwnedCoreV2Dataset,
+  assembleOwnedCoreV2PreviewDataset,
+  materializeCoreV2Dataset,
+  ownedCoreV2Materialization,
+} from '../../src/core-v2/semantic/dataset';
 import type { CoreV2DatasetError } from '../../src/core-v2/semantic/dataset';
 
 const productionFixturePath = fileURLToPath(
@@ -81,6 +86,18 @@ describe('Core v2 approved dataset foundation', () => {
     expect(first.semanticHash).toBe(second.semanticHash);
     expect(first.semanticHash).toBe(referenceSemanticHash(first.dataset));
     expect(JSON.stringify(input)).toBe(before);
+  });
+
+  it('recovers canonical owned materializations but excludes transient preview hashes', () => {
+    const current = materializeCoreV2Dataset([
+      { type: 'rect', id: 'one', size: { width: 10, height: 10 } },
+    ]);
+    const assembled = assembleOwnedCoreV2Dataset(current, current.dataset);
+    const preview = assembleOwnedCoreV2PreviewDataset(current, current.dataset);
+
+    expect(ownedCoreV2Materialization(current.dataset)).toBe(current);
+    expect(ownedCoreV2Materialization(assembled.dataset)).toBe(assembled);
+    expect(ownedCoreV2Materialization(preview.dataset)).toBeNull();
   });
 
   it('rejects an unsupported discriminator atomically with the closed diagnostic code', () => {

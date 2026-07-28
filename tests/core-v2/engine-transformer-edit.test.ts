@@ -18,6 +18,7 @@ class TransformerSurface implements CoreV2EngineSurface {
   public selectionIds: readonly string[] = Object.freeze([]);
   public frameCount = 0;
   public reconcileCount = 0;
+  public lastReconcileOptions: CoreV2SurfaceReconcileOptions = Object.freeze({});
   private width: number;
   private height: number;
   private pixelRatio: number;
@@ -38,6 +39,7 @@ class TransformerSurface implements CoreV2EngineSurface {
     options: CoreV2SurfaceReconcileOptions = {},
   ): CoreV2SurfaceReconcileResult {
     this.reconcileCount += 1;
+    this.lastReconcileOptions = Object.freeze({ ...options });
     this.loaded = input as readonly CoreV2Element[];
     if (options.selectionIds !== undefined) {
       this.selectionIds = Object.freeze([...options.selectionIds]);
@@ -190,6 +192,40 @@ describe('CoreV2Engine transformer edit integration', () => {
     expect(geometry(engine, 'rect-b')).toMatchObject({ width: 40, height: 30 });
     expect(engine.redo()).toMatchObject({ status: 'committed', actionId: 'gesture-1' });
     expect(geometry(engine, 'rect-b')).toMatchObject({ width: 70, height: 60 });
+  });
+
+  it('publishes flat-root previews through the incremental reconcile seam', async () => {
+    const { engine, surface } = await createEngine(engines);
+    engine.loadDataset([
+      {
+        type: 'rect',
+        id: 'flat-a',
+        size: { width: 40, height: 30 },
+        fill: '#ff8800',
+        attrs: { x: 10, y: 20 },
+      },
+      {
+        type: 'rect',
+        id: 'flat-b',
+        size: { width: 20, height: 20 },
+        fill: '#0088ff',
+        attrs: { x: 80, y: 20 },
+      },
+    ]);
+    engine.beginTransformerEdit({
+      pointerId: 77,
+      actionId: 'flat-preview',
+      kind: 'move',
+      handle: 'frame',
+      selectionIds: ['flat-a'],
+    });
+
+    expect(engine.previewTransformerEdit(77, {
+      kind: 'move',
+      selectionIds: ['flat-a'],
+      deltaWorld: [5, 3],
+    })).toMatchObject({ status: 'previewed', changed: true });
+    expect(surface.lastReconcileOptions.incrementalRootIds).toEqual(['flat-a']);
   });
 
   it('reverts every explicit cancellation reason without history or retained resources', async () => {

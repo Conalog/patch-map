@@ -30,6 +30,7 @@ export class CoreV2PresentationProjectionStore {
   private presentationValue: CoreV2ProjectionIndex | null = null;
   private byEntityId: Record<string, CoreV2EntityProjection> | null = null;
   private readonly mutableBars = new Map<string, MutableBarProjectionRecord>();
+  private readonly transientOverrides = new Map<string, CoreV2EntityProjection>();
 
   public get semantic(): CoreV2ProjectionIndex | null {
     return this.semanticValue;
@@ -45,6 +46,7 @@ export class CoreV2PresentationProjectionStore {
     visibleBarHeights: ReadonlyMap<string, number> = new Map(),
   ): CoreV2ProjectionIndex {
     this.mutableBars.clear();
+    this.transientOverrides.clear();
     const byEntityId: Record<string, CoreV2EntityProjection> = {
       ...semantic.byEntityId,
     };
@@ -68,9 +70,113 @@ export class CoreV2PresentationProjectionStore {
     return this.presentationValue;
   }
 
+  /**
+   * Publish a same-identity semantic projection by replacing only explicitly
+   * changed entity records. This keeps the O(scene) by-entity table stable
+   * during flat-root transformer previews.
+   */
+  public replaceIncremental(
+    semantic: CoreV2ProjectionIndex,
+    changedEntityIds: readonly string[],
+    visibleBarHeights: ReadonlyMap<string, number> = new Map(),
+  ): CoreV2ProjectionIndex | null {
+    if (this.presentationValue === null || this.byEntityId === null) return null;
+    this.clearTransientEntityProjections();
+    for (const entityId of changedEntityIds) {
+      const destination = semantic.byEntityId[entityId];
+      this.mutableBars.delete(entityId);
+      if (destination === undefined) {
+        delete this.byEntityId[entityId];
+        continue;
+      }
+      const visibleHeight = visibleBarHeights.get(entityId);
+      if (
+        visibleHeight !== undefined &&
+        !Object.is(validateVisibleHeight(visibleHeight), destination.localBounds[3])
+      ) {
+        const mutable = createMutableBarProjection(destination, visibleHeight);
+        this.mutableBars.set(entityId, mutable);
+        this.byEntityId[entityId] = mutable.projection;
+      } else {
+        this.byEntityId[entityId] = destination;
+      }
+    }
+    this.semanticValue = semantic;
+    this.presentationValue = Object.freeze({
+      ...semantic,
+      byEntityId: this.byEntityId,
+    });
+    return this.presentationValue;
+  }
+
+  public applyTransientEntityProjections(
+    overrides: Readonly<Record<string, CoreV2EntityProjection>>,
+    entityIds: readonly string[],
+  ): CoreV2ProjectionIndex | null {
+    if (
+      this.semanticValue === null ||
+      this.presentationValue === null ||
+      this.byEntityId === null
+    ) {
+      return null;
+    }
+    if (entityIds.some((entityId) => overrides[entityId] === undefined)) return null;
+    this.clearTransientEntityProjections();
+    for (const entityId of entityIds) {
+      const projection = overrides[entityId]!;
+      const visibleHeight = this.visibleHeight(entityId);
+      this.transientOverrides.set(entityId, projection);
+      if (
+        visibleHeight !== null &&
+        !Object.is(visibleHeight, projection.localBounds[3]) &&
+        this.mutableBars.has(entityId)
+      ) {
+        const mutable = createMutableBarProjection(projection, visibleHeight);
+        this.mutableBars.set(entityId, mutable);
+        this.byEntityId[entityId] = mutable.projection;
+      } else {
+        this.byEntityId[entityId] = projection;
+      }
+    }
+    return this.presentationValue;
+  }
+
+  public clearTransientEntityProjections(): readonly string[] {
+    if (this.semanticValue === null || this.byEntityId === null) {
+      this.transientOverrides.clear();
+      return Object.freeze([]);
+    }
+    const cleared = [...this.transientOverrides.keys()];
+    for (const entityId of cleared) {
+      const semantic = this.semanticValue.byEntityId[entityId];
+      if (semantic === undefined) {
+        delete this.byEntityId[entityId];
+        this.mutableBars.delete(entityId);
+        continue;
+      }
+      const mutable = this.mutableBars.get(entityId);
+      if (mutable === undefined) {
+        this.byEntityId[entityId] = semantic;
+        continue;
+      }
+      const visibleHeight = mutable.projection.localBounds[3];
+      if (Object.is(visibleHeight, semantic.localBounds[3])) {
+        this.mutableBars.delete(entityId);
+        this.byEntityId[entityId] = semantic;
+      } else {
+        const restored = createMutableBarProjection(semantic, visibleHeight);
+        this.mutableBars.set(entityId, restored);
+        this.byEntityId[entityId] = restored.projection;
+      }
+    }
+    this.transientOverrides.clear();
+    return Object.freeze(cleared);
+  }
+
   /** Mutate one internal projection record; the semantic destination is untouched. */
   public applyBarHeight(entityId: string, height: number): boolean {
-    const semantic = this.semanticValue?.byEntityId[entityId];
+    const semantic = this.transientOverrides.get(entityId) ??
+      this.semanticValue?.byEntityId[entityId];
     const current = this.byEntityId?.[entityId];
     if (semantic === undefined || current === undefined || this.byEntityId === null) return false;
     const normalizedHeight = validateVisibleHeight(height);
@@ -100,6 +206,7 @@ export class CoreV2PresentationProjectionStore {
     this.presentationValue = null;
     this.byEntityId = null;
     this.mutableBars.clear();
+    this.transientOverrides.clear();
   }
 }
 

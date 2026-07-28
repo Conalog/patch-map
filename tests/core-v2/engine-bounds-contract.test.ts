@@ -152,6 +152,7 @@ describe('CoreV2Engine atomic destroyTarget seam', () => {
     engine.loadDataset(boundsDataset, { datasetRef: 'bounds' });
     const events: unknown[] = [];
     engine.on('targetDestroyed', (event) => events.push(event));
+    engine.select(['rotated']);
 
     const result = engine.destroyTarget({ kind: 'element', id: 'rotated' });
 
@@ -172,6 +173,7 @@ describe('CoreV2Engine atomic destroyTarget seam', () => {
     expect(surface).toMatchObject({ loadCount: 1, reconcileCount: 1 });
     expect(engine.query({ id: 'rotated' })).toBeNull();
     expect(engine.query({ id: 'flipped' })).not.toBeNull();
+    expect(engine.snapshot().selectionIds).toEqual([]);
     expect(engine.exportDataset()).toHaveLength(boundsDataset.length - 1);
     expect(events).toEqual([result]);
     engine.publishFrame(1);

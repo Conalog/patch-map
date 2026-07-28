@@ -215,6 +215,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private presentationBaseStore: RenderStoreView | null = null;
   private pendingRanges: SlotRange[] | undefined;
   private pendingOverlayRanges: SlotRange[] | undefined;
+  private pendingProjectionTransformOnly = false;
   private storeEpoch = 0;
   private frame = 0;
   private widthValue: number;
@@ -303,6 +304,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
         onBindingTransition: ({ key, state, dirtySlots }) => {
           if (this.destroyedValue) return;
           this.lastInvalidation = `scene-asset:${key}:${state}`;
+          this.pendingProjectionTransformOnly = false;
           this.pendingRanges = mergeRanges(
             this.pendingRanges ?? [],
             contiguousRanges(dirtySlots),
@@ -429,6 +431,12 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   ): void {
     this.assertAlive();
     this.lastInvalidation = reason;
+    // A view-only commit intentionally publishes an empty range after
+    // setWorldOrientation(). Preserve the orientation fast-path promise in
+    // that case; any actual scene mutation or full rebuild revokes it.
+    if (options.fullRebuild || ranges.length > 0) {
+      this.pendingProjectionTransformOnly = false;
+    }
     if (options.fullRebuild) {
       this.storeEpoch += 1;
       this.pendingRanges = undefined;
@@ -475,6 +483,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       : this.lastSourceStore;
     this.pendingRanges = undefined;
     this.pendingOverlayRanges = undefined;
+    this.pendingProjectionTransformOnly = false;
     this.lastInvalidation = normalized === null
       ? 'presentation-policy:clear'
       : `presentation-policy:${normalized.revision}`;
@@ -537,6 +546,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     const previous = this.projectionIndex;
     const previousStaleEntityIds = this.staleProjectionEntityIds;
     this.projectionIndex = index;
+    this.pendingProjectionTransformOnly = false;
     this.staleProjectionEntityIds = nextStaleEntityIds;
     this.projectionRevision += 1;
     const projectionRanges = changedRanges === undefined
@@ -566,11 +576,14 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.worldOrientation = Object.freeze({ ...world });
     this.projectionRevision += 1;
     this.applyWorldTransform();
+    const transformOnlyEligible =
+      this.pendingRanges !== undefined && this.pendingRanges.length === 0;
     if (this.lastStore) {
       const upright = projectionOrientationRanges(this.lastStore, this.projectionIndex, 'upright');
       this.pendingRanges = mergeRanges(this.pendingRanges ?? [], upright);
       this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], upright);
     }
+    this.pendingProjectionTransformOnly = transformOnlyEligible;
     this.lastInvalidation = 'world-orientation';
     return true;
   }
@@ -616,11 +629,14 @@ export class PixiCoreV2Renderer implements CoreRenderer {
         rotationDegrees: this.view.rotation ?? 0,
       });
       this.projectionRevision += 1;
+      const transformOnlyEligible =
+        this.pendingRanges !== undefined && this.pendingRanges.length === 0;
       if (this.lastStore) {
         const upright = projectionOrientationRanges(this.lastStore, this.projectionIndex, 'upright');
         this.pendingRanges = mergeRanges(this.pendingRanges ?? [], upright);
         this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], upright);
       }
+      this.pendingProjectionTransformOnly = transformOnlyEligible;
     }
     if (scaleChanged) this.pendingOverlayRanges = undefined;
     this.applyWorldTransform();
@@ -636,6 +652,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       this.storeEpoch += 1;
       this.pendingRanges = undefined;
       this.pendingOverlayRanges = undefined;
+      this.pendingProjectionTransformOnly = false;
       this.selectedSlots.clear();
       this.visibleOverlaySlots.clear();
       this.transformerOverlaySlots.clear();
@@ -659,17 +676,25 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       this.relationSlots = adjacency.relationSlots;
       this.relationEndpointsBySlot = adjacency.endpointsByRelation;
     }
-    const ranges = this.pendingRanges === undefined || this.relationSlotsByEndpoint.size === 0
+    const projectionTransformOnly =
+      this.pendingProjectionTransformOnly &&
+      !storeReplaced &&
+      this.pendingRanges !== undefined;
+    const ranges = this.pendingRanges === undefined ||
+      this.relationSlotsByEndpoint.size === 0 ||
+      projectionTransformOnly
       ? this.pendingRanges
       : expandCoreV2RelationDependencyRanges(
           effectiveStore,
           this.pendingRanges,
           this.relationSlotsByEndpoint,
         );
-    this.syncTextVisibility(
-      effectiveStore,
-      storeReplaced || ranges === undefined ? undefined : ranges,
-    );
+    if (!projectionTransformOnly) {
+      this.syncTextVisibility(
+        effectiveStore,
+        storeReplaced || ranges === undefined ? undefined : ranges,
+      );
+    }
     let aggregateViewportWork = false;
     if (this.aggregate instanceof AggregateMeshLayer) {
       this.aggregate.cull(this.worldMatrix, this.widthValue, this.heightValue);
@@ -677,7 +702,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     }
     const aggregate = !storeReplaced && ranges?.length === 0 && !aggregateViewportWork
       ? idleAggregateResult(this.lastAggregateResult)
-      : this.syncAggregate(effectiveStore, ranges);
+      : this.syncAggregate(effectiveStore, ranges, projectionTransformOnly);
     this.lastAggregateResult = aggregate;
     if (this.aggregate instanceof AggregateMeshLayer) {
       this.aggregate.cull(this.worldMatrix, this.widthValue, this.heightValue);
@@ -686,6 +711,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       fullRebuildEpoch: this.storeEpoch,
       projectionContext: this.projectionContext(),
       ...(ranges === undefined ? {} : { changedRanges: ranges }),
+      ...(projectionTransformOnly ? { projectionTransformOnly: true } : {}),
     });
     this.leaves.cull(this.worldMatrix, this.widthValue, this.heightValue);
     this.textProjectionSynchronizedRevision = this.projectionRevision;
@@ -729,6 +755,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.lastSourceStore = store;
     this.pendingRanges = [];
     this.pendingOverlayRanges = [];
+    this.pendingProjectionTransformOnly = false;
     const overlayCount = this.visibleOverlaySlots.size > 0 ? 2 : 0;
     this.lastLaneProbe = this.buildLaneProbe(overlayCount);
     this.lastDebug = Object.freeze({
@@ -785,12 +812,25 @@ export class PixiCoreV2Renderer implements CoreRenderer {
 
   public async prepareGpu(): Promise<void> {
     this.assertAlive();
-    await this.application.renderer.prepare.upload(this.world);
+    // Canvas Text owns a lazily regenerated texture. Preparing the complete
+    // RenderGroup makes Pixi retain a batch instruction for that initial
+    // texture; the first later `text.text = ...` update can then invalidate
+    // the texture before the prepared batch is rebuilt. Keep dynamic text out
+    // of the preload queue and let the first visible render rasterize it.
+    // Aggregate geometry and decoded image leaves remain safe, useful upload
+    // targets and preserve the purpose of the explicit GPU preparation phase.
+    await this.application.renderer.prepare.upload([
+      this.backgroundGeometryLane,
+      this.leaves.backgroundAssetContainer,
+      this.aggregate.container,
+      this.leaves.contentAssetContainer,
+    ]);
   }
 
   public async loadAsset(alias: string, url: string): Promise<void> {
     await this.leaves.loadAsset(alias, url);
     this.lastInvalidation = `asset:${alias}:load`;
+    this.pendingProjectionTransformOnly = false;
     this.pendingRanges ??= [];
   }
 
@@ -798,6 +838,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     const unloaded = await this.leaves.unloadAsset(alias);
     if (unloaded) {
       this.lastInvalidation = `asset:${alias}:unload`;
+      this.pendingProjectionTransformOnly = false;
       this.pendingRanges ??= [];
     }
     return unloaded;
@@ -814,6 +855,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.assertAlive();
     const completion = this.leaves.bindSceneAsset(key, request);
     this.lastInvalidation = `scene-asset:${key}:bind`;
+    this.pendingProjectionTransformOnly = false;
     this.pendingRanges ??= [];
     return completion;
   }
@@ -823,6 +865,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     const unbound = await this.leaves.unbindSceneAsset(key);
     if (unbound) {
       this.lastInvalidation = `scene-asset:${key}:unbind`;
+      this.pendingProjectionTransformOnly = false;
       this.pendingRanges ??= [];
     }
     return unbound;
@@ -1353,6 +1396,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.presentationBaseStore = null;
     this.pendingRanges = [];
     this.pendingOverlayRanges = [];
+    this.pendingProjectionTransformOnly = false;
     this.selectedSlots.clear();
     this.relationSlotsByEndpoint = new Map();
     this.relationSlots.clear();
@@ -1433,12 +1477,17 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     }
   }
 
-  private syncAggregate(store: RenderStoreView, ranges: readonly SlotRange[] | undefined): AggregateResult {
+  private syncAggregate(
+    store: RenderStoreView,
+    ranges: readonly SlotRange[] | undefined,
+    projectionTransformOnly = false,
+  ): AggregateResult {
     if (this.aggregate instanceof AggregateMeshLayer) {
       const debug = this.aggregate.sync(store, {
         fullRebuildEpoch: this.storeEpoch,
         projectionContext: this.projectionContext(),
         ...(ranges === undefined ? {} : { changedRanges: ranges }),
+        ...(projectionTransformOnly ? { projectionTransformOnly: true } : {}),
       });
       return {
         renderObjects: debug.meshCount,
@@ -1455,6 +1504,7 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       fullRebuildEpoch: this.storeEpoch,
       projectionContext: this.projectionContext(),
       ...(ranges === undefined ? {} : { changedRanges: ranges }),
+      ...(projectionTransformOnly ? { projectionTransformOnly: true } : {}),
     });
     return {
       renderObjects: debug.aggregateDisplayObjectCount,

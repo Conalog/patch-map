@@ -12,6 +12,7 @@ import {
   planCoreV2BarHeightBatch,
   planCoreV2BulkPatch,
   planCoreV2MutationTransaction,
+  planCoreV2TextBatch,
 } from '../../src/core-v2/semantic/transaction';
 import {
   CORE_V2_IDENTITY_AFFINE,
@@ -108,6 +109,77 @@ describe('Core v2 staged semantic transaction planner', () => {
       expect(requireComponent(current, 'item-a', 'bar-a'))
         .toMatchObject({ size: { height: 10 } });
     }
+  });
+
+  it('plans a compact text batch with structural sharing and atomic rejection', () => {
+    const current = materializeCoreV2Dataset([
+      {
+        type: 'item',
+        id: 'item-a',
+        size: { width: 100, height: 80 },
+        components: [
+          barComponent('bar-a', '#2563ebff'),
+          textComponent('label-a', 'Alpha'),
+        ],
+      },
+      {
+        type: 'item',
+        id: 'item-b',
+        size: { width: 100, height: 80 },
+        components: [textComponent('label-b', 'Bravo')],
+      },
+    ]);
+    const targets = Object.freeze([
+      Object.freeze({ ownerId: 'item-a', componentId: 'label-a' }),
+      Object.freeze({ ownerId: 'item-b', componentId: 'label-b' }),
+    ]);
+    const texts = Object.freeze(['Changed', 'Bravo']);
+    const before = JSON.stringify(current);
+
+    const result = planCoreV2TextBatch(current, {
+      targets,
+      texts,
+      actionId: 'compact-texts',
+    });
+
+    expect(result.status).toBe('planned');
+    if (result.status !== 'planned') throw new Error('Expected planned text batch');
+    expect(result).toMatchObject({
+      changed: true,
+      actionId: 'compact-texts',
+      operations: [],
+      applied: [{ kind: 'component', ownerId: 'item-a', id: 'label-a' }],
+      unchanged: [{ kind: 'component', ownerId: 'item-b', id: 'label-b' }],
+      summary: { appliedCount: 1, missingCount: 0, unchangedCount: 1 },
+      directTextUpdates: [
+        { ownerId: 'item-a', componentId: 'label-a', text: 'Changed' },
+      ],
+    });
+    expect(requireComponent(result.candidate, 'item-a', 'label-a'))
+      .toMatchObject({ text: 'Changed' });
+    expect(result.candidate.dataset[1]).toBe(current.dataset[1]);
+    expect(JSON.stringify(current)).toBe(before);
+    expect(targets).toEqual([
+      { ownerId: 'item-a', componentId: 'label-a' },
+      { ownerId: 'item-b', componentId: 'label-b' },
+    ]);
+    expect(texts).toEqual(['Changed', 'Bravo']);
+
+    const rejected = planCoreV2TextBatch(current, {
+      targets: [
+        { ownerId: 'item-a', componentId: 'label-a' },
+        { ownerId: 'missing', componentId: 'label' },
+      ],
+      texts: ['Tentative', 'Never published'],
+    });
+    expect(rejected).toMatchObject({
+      status: 'rejected',
+      changed: false,
+      candidate: null,
+      diagnostic: { code: 'MISSING_TARGET', operationIndex: 1 },
+    });
+    expect(requireComponent(current, 'item-a', 'label-a'))
+      .toMatchObject({ text: 'Alpha' });
   });
 
   it('runs ordered nested merges against one detached staged candidate', () => {

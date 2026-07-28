@@ -286,6 +286,14 @@ async function reinitialize(): Promise<CoreV2> {
     background: 0xf7f8faff,
     powerPreference: 'high-performance',
     autoRender: true,
+    assetPolicy: ({ descriptor, packageOwned }) => {
+      if (
+        !packageOwned &&
+        descriptor.src !== CORE_V2_SYNTHETIC_ASSET_DATA_URL
+      ) {
+        throw new Error('Core v2 performance Lab rejected a non-fixture asset');
+      }
+    },
   });
   runtime = core;
   generation += 1;

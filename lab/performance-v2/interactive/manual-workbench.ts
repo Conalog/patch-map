@@ -362,6 +362,7 @@ export function mountCoreV2ManualWorkbench(
     surfaceHost.replaceChildren();
     const size = surfaceSize(canvasFrame);
     const next = new CoreV2Engine({ historyLimit: 100 });
+    const instanceId = `manual-${options.caseId.toLowerCase()}-${generation + 1}`;
     frameClock = 0;
     lastFrameWallTime = null;
     pendingAnimationElapsed = 0;
@@ -369,8 +370,9 @@ export function mountCoreV2ManualWorkbench(
     panViewportFramesSinceAnimationAdvance = 0;
     lastLiveRefreshWallTime = 0;
     generation += 1;
+    next.registerAssets(instanceId);
     await next.initialize({
-      instanceId: `manual-${options.caseId.toLowerCase()}-${generation}`,
+      instanceId,
       target: surfaceHost,
       width: size.width,
       height: size.height,
@@ -802,15 +804,14 @@ export function mountCoreV2ManualWorkbench(
           mode: event.shiftKey ? 'add' : 'replace',
           toleranceCssPx: 10,
         });
-      } else if (gesture.kind === 'paint' && mode === 'select' && !gesture.moved) {
-        const hit = next.selectionHitTestScreen({ x: screen[0], y: screen[1] });
-        if (event.shiftKey) {
-          const target = hit.target?.selectionId ?? null;
-          const selected = target === null
-            ? gesture.selectionBefore
-            : toggleValue(gesture.selectionBefore, target);
-          next.applySelection({ op: 'replace', ids: selected, source: 'canvas' });
-        }
+      } else if (
+        gesture.kind === 'paint' &&
+        mode === 'select' &&
+        !gesture.moved
+      ) {
+        // Root pointer authority already applies replace/toggle selection from
+        // the exact click event. Do not repeat the 5,000-scene selection pass
+        // in the Lab host for Shift-click.
       } else if (
         gesture.kind === 'transform' &&
         next.transformerEditProbe().activeSessionCount > 0
@@ -1065,18 +1066,19 @@ export function mountCoreV2ManualWorkbench(
           result = resizeSurface(960, 620);
           break;
         case 'page-hide':
-          lifecycleClock = Math.max(lifecycleClock + 1, performance.now());
+          lifecycleClock = Math.max(lifecycleClock + 1, frameClock, performance.now());
           result = requireEngine().setDocumentVisibility({
             state: 'hidden',
             timeMs: lifecycleClock,
           });
           break;
         case 'page-show':
-          lifecycleClock = Math.max(lifecycleClock + 1, performance.now());
+          lifecycleClock = Math.max(lifecycleClock + 1, frameClock, performance.now());
           result = requireEngine().setDocumentVisibility({
             state: 'visible',
             timeMs: lifecycleClock,
           });
+          frameClock = Math.max(frameClock, lifecycleClock);
           publishNow('page visible');
           break;
         case 'accessibility-tree':
@@ -1110,9 +1112,6 @@ export function mountCoreV2ManualWorkbench(
       lastAction = command;
       status = liveEngine() === null ? 'destroyed' : 'ready';
       if (liveEngine() !== null) {
-        if (commandAffectsSelectionVisual(command)) {
-          refreshSelectionVisual(requireEngine());
-        }
         startFrameLoop(500);
       }
       setMessage(`‘${actionDisplay(command)}’ 작업을 완료했습니다. 계속 조작하거나 같은 작업을 다시 실행해도 됩니다.`);
@@ -1121,8 +1120,7 @@ export function mountCoreV2ManualWorkbench(
       fail(error);
       throw error;
     } finally {
-      if (commandAffectsSelectionVisual(command)) refresh();
-      else queueRefresh();
+      queueRefresh();
     }
   }
 
@@ -1247,20 +1245,14 @@ export function mountCoreV2ManualWorkbench(
   function randomizeTexts(): unknown {
     const next = requireEngine();
     animationSequence += 1;
-    const operations = scene.textTargets
-      .filter((_, index) => index % 4 === animationSequence % 4)
-      .map(({ ownerId, componentId }, index) => ({
-        op: 'merge' as const,
-        target: { kind: 'component' as const, ownerId, id: componentId },
-        changes: [{
-          path: ['text'] as const,
-          value: `${ownerId.slice(5)}:${animationSequence}:${index}`,
-        }],
-      }));
-    return next.transact({
-      strict: true,
+    const targets = scene.textTargets
+      .filter((_, index) => index % 4 === animationSequence % 4);
+    const texts = targets.map(({ ownerId }, index) =>
+      `${ownerId.slice(5)}:${animationSequence}:${index}`);
+    return next.updateTexts({
       actionId: `manual-text-${animationSequence}`,
-      operations,
+      targets,
+      texts,
     });
   }
 
@@ -2394,12 +2386,6 @@ function surfaceSize(frame: HTMLElement): Readonly<{ width: number; height: numb
   });
 }
 
-function toggleValue(values: readonly string[], value: string): readonly string[] {
-  return values.includes(value)
-    ? Object.freeze(values.filter((candidate) => candidate !== value))
-    : Object.freeze([...values, value]);
-}
-
 function midpoint(
   left: readonly [number, number],
   right: readonly [number, number],
@@ -2466,16 +2452,6 @@ function setText(root: ParentNode, key: string, value: string): void {
 
 function summarize(value: unknown): string {
   return JSON.stringify(value, null, 2);
-}
-
-function commandAffectsSelectionVisual(command: string): boolean {
-  return command !== 'animate-all' &&
-    command !== 'animate-partial' &&
-    command !== 'animate-selected' &&
-    command !== 'random-text' &&
-    command !== 'frames-toggle' &&
-    command !== 'publish-frame' &&
-    command !== 'reduced-motion';
 }
 
 function fingerprint(input: unknown): string {

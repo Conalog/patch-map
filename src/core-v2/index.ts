@@ -189,8 +189,10 @@ export {
 export type * from './semantic/probe';
 export {
   CORE_V2_MUTATION_TRANSACTION_REVISION,
+  planCoreV2BarHeightBatch,
   planCoreV2BulkPatch,
   planCoreV2MutationTransaction,
+  planCoreV2TextBatch,
 } from './semantic/transaction';
 export type * from './semantic/transaction';
 export {

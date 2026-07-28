@@ -387,6 +387,32 @@ const WHITE = '#ffffffff';
 const TRANSPARENT = '#00000000';
 const OWNED_CORE_V2_DATASETS = new WeakSet<object>();
 const OWNED_CORE_V2_ROOTS = new WeakSet<object>();
+const OWNED_CORE_V2_MATERIALIZATIONS = new WeakMap<
+  object,
+  CoreV2DatasetMaterialization
+>();
+const OWNED_CORE_V2_ELEMENT_IDS = new WeakMap<object, ReadonlySet<string>>();
+const STABLE_ROOT_SERIALIZATIONS = new WeakMap<object, string>();
+const STABLE_VALUE_SERIALIZATIONS = new WeakMap<object, string>();
+const STABLE_SERIALIZATION_KEY_ORDERS = new Map<
+  number,
+  Array<Readonly<{
+    readonly authored: readonly string[];
+    readonly sorted: readonly string[];
+  }>>
+>();
+const MAX_STABLE_SERIALIZATION_KEY_ORDER_SHAPES = 128;
+let stableSerializationKeyOrderShapeCount = 0;
+let semanticHashWasmModule: WebAssembly.Module | null | false = null;
+const SEMANTIC_HASH_WASM_BYTES = new Uint8Array([
+  0, 97, 115, 109, 1, 0, 0, 0, 1, 7, 1, 96, 2, 127, 127, 1, 126, 3, 2, 1,
+  0, 5, 3, 1, 0, 1, 7, 17, 2, 6, 109, 101, 109, 111, 114, 121, 2, 0, 4, 104,
+  97, 115, 104, 0, 0, 10, 73, 1, 71, 2, 1, 126, 1, 127, 66, 165, 198, 136,
+  161, 200, 156, 167, 249, 75, 33, 2, 32, 0, 32, 1, 65, 1, 116, 106, 33, 3,
+  2, 64, 3, 64, 32, 0, 32, 3, 79, 13, 1, 32, 2, 32, 0, 47, 1, 0, 173, 133,
+  66, 179, 131, 128, 128, 128, 32, 126, 33, 2, 32, 0, 65, 2, 106, 33, 0,
+  12, 0, 11, 11, 32, 2, 11,
+]);
 
 /**
  * Validate and detach a canonical PATCH MAP array before it becomes authoritative.
@@ -408,6 +434,7 @@ export function materializeCoreV2Dataset(input: unknown): CoreV2DatasetMateriali
   );
   dataset.forEach((root) => OWNED_CORE_V2_ROOTS.add(root));
   OWNED_CORE_V2_DATASETS.add(dataset);
+  OWNED_CORE_V2_ELEMENT_IDS.set(dataset, new Set(state.elementIds));
   const rootIds = Object.freeze(dataset.map((element) => element.id));
   const elementTypes = Object.freeze(
     CORE_V2_ELEMENT_TYPES.filter((type) => state.elementTypes.has(type)),
@@ -416,7 +443,7 @@ export function materializeCoreV2Dataset(input: unknown): CoreV2DatasetMateriali
     CORE_V2_COMPONENT_TYPES.filter((type) => state.componentTypes.has(type)),
   );
 
-  return Object.freeze({
+  const materialized = Object.freeze({
     dataset,
     rootIds,
     elementTypes,
@@ -424,6 +451,8 @@ export function materializeCoreV2Dataset(input: unknown): CoreV2DatasetMateriali
     semanticHash: semanticHash(dataset),
     visibleBoundsFinite: true,
   });
+  OWNED_CORE_V2_MATERIALIZATIONS.set(dataset, materialized);
+  return materialized;
 }
 
 /**
@@ -435,6 +464,125 @@ export function assembleOwnedCoreV2Dataset(
   current: MaterializedCoreV2Dataset,
   roots: readonly CoreV2Element[],
 ): CoreV2DatasetMaterialization {
+  validateOwnedCoreV2Roots(current, roots);
+  const dataset = Object.freeze([...roots]);
+  OWNED_CORE_V2_DATASETS.add(dataset);
+  const elementIds = OWNED_CORE_V2_ELEMENT_IDS.get(current.dataset);
+  if (elementIds !== undefined) OWNED_CORE_V2_ELEMENT_IDS.set(dataset, elementIds);
+  const materialized = Object.freeze({
+    dataset,
+    rootIds: current.rootIds,
+    elementTypes: current.elementTypes,
+    componentTypes: current.componentTypes,
+    semanticHash: semanticHash(dataset),
+    visibleBoundsFinite: current.visibleBoundsFinite,
+  });
+  OWNED_CORE_V2_MATERIALIZATIONS.set(dataset, materialized);
+  return materialized;
+}
+
+/**
+ * Assemble a transient transformer preview without hashing all unchanged
+ * roots. The inherited hash is intentionally non-authoritative: callers must
+ * run the canonical transaction planner before history or semantic commit.
+ */
+export function assembleOwnedCoreV2PreviewDataset(
+  current: MaterializedCoreV2Dataset,
+  roots: readonly CoreV2Element[],
+): CoreV2DatasetMaterialization {
+  validateOwnedCoreV2Roots(current, roots);
+  const dataset = Object.freeze([...roots]);
+  OWNED_CORE_V2_DATASETS.add(dataset);
+  const elementIds = OWNED_CORE_V2_ELEMENT_IDS.get(current.dataset);
+  if (elementIds !== undefined) OWNED_CORE_V2_ELEMENT_IDS.set(dataset, elementIds);
+  const materialized = Object.freeze({
+    dataset,
+    rootIds: current.rootIds,
+    elementTypes: current.elementTypes,
+    componentTypes: current.componentTypes,
+    semanticHash: current.semanticHash,
+    visibleBoundsFinite: current.visibleBoundsFinite,
+  });
+  return materialized;
+}
+
+/**
+ * Normalize only new or structurally edited roots, then assemble one exact
+ * authoritative dataset around unchanged Engine-owned roots. Structural
+ * editor actions otherwise clone and normalize the full 5,000-root scene even
+ * when they add, remove, reorder, group, or ungroup only a few roots.
+ */
+export function materializeOwnedCoreV2StructuralDataset(
+  input: readonly unknown[],
+): CoreV2DatasetMaterialization {
+  const roots = input.map((root) => {
+    if (
+      root !== null &&
+      typeof root === 'object' &&
+      OWNED_CORE_V2_ROOTS.has(root)
+    ) {
+      return root as CoreV2Element;
+    }
+    const normalized = materializeCoreV2Dataset([root]).dataset[0];
+    if (normalized === undefined) {
+      invalidValue('$', 'structural root normalization produced no element');
+    }
+    return normalized;
+  });
+  const state: NormalizationState = {
+    elementIds: new Set(),
+    componentIdsByOwner: new Map(),
+    elementTypes: new Set(),
+    componentTypes: new Set(),
+  };
+  roots.forEach((root, index) =>
+    inventoryOwnedStructuralElement(root, `$[${index}]`, state));
+  const dataset = Object.freeze(roots);
+  dataset.forEach((root) => OWNED_CORE_V2_ROOTS.add(root));
+  OWNED_CORE_V2_DATASETS.add(dataset);
+  OWNED_CORE_V2_ELEMENT_IDS.set(dataset, new Set(state.elementIds));
+  const materialized = Object.freeze({
+    dataset,
+    rootIds: Object.freeze(dataset.map(({ id }) => id)),
+    elementTypes: Object.freeze(
+      CORE_V2_ELEMENT_TYPES.filter((type) => state.elementTypes.has(type)),
+    ),
+    componentTypes: Object.freeze(
+      CORE_V2_COMPONENT_TYPES.filter((type) => state.componentTypes.has(type)),
+    ),
+    semanticHash: semanticHash(dataset),
+    visibleBoundsFinite: true,
+  });
+  OWNED_CORE_V2_MATERIALIZATIONS.set(dataset, materialized);
+  return materialized;
+}
+
+/**
+ * Recover the canonical materialization that owns a detached dataset shell.
+ * Transient preview assemblies are intentionally excluded because their
+ * inherited semantic hash is not authoritative.
+ */
+export function ownedCoreV2Materialization(
+  input: unknown,
+): MaterializedCoreV2Dataset | null {
+  return input !== null && typeof input === 'object'
+    ? OWNED_CORE_V2_MATERIALIZATIONS.get(input) ?? null
+    : null;
+}
+
+/** Exact immutable element membership retained with Engine-owned datasets. */
+export function ownedCoreV2ElementIds(
+  input: unknown,
+): ReadonlySet<string> | null {
+  return input !== null && typeof input === 'object'
+    ? OWNED_CORE_V2_ELEMENT_IDS.get(input) ?? null
+    : null;
+}
+
+function validateOwnedCoreV2Roots(
+  current: MaterializedCoreV2Dataset,
+  roots: readonly CoreV2Element[],
+): void {
   if (roots.length !== current.dataset.length) {
     throw new RangeError('owned Core v2 root count changed');
   }
@@ -453,16 +601,66 @@ export function assembleOwnedCoreV2Dataset(
       );
     }
   }
-  const dataset = Object.freeze([...roots]);
-  OWNED_CORE_V2_DATASETS.add(dataset);
-  return Object.freeze({
-    dataset,
-    rootIds: current.rootIds,
-    elementTypes: current.elementTypes,
-    componentTypes: current.componentTypes,
-    semanticHash: semanticHash(dataset),
-    visibleBoundsFinite: current.visibleBoundsFinite,
-  });
+}
+
+function inventoryOwnedStructuralElement(
+  element: CoreV2Element,
+  path: string,
+  state: NormalizationState,
+): void {
+  if (state.elementIds.has(element.id)) {
+    throw new CoreV2DatasetError(
+      'DUPLICATE_ID',
+      `${path}.id`,
+      `duplicate element id ${JSON.stringify(element.id)}`,
+    );
+  }
+  state.elementIds.add(element.id);
+  state.elementTypes.add(element.type);
+  if (element.type === 'group') {
+    element.children.forEach((child, index) =>
+      inventoryOwnedStructuralElement(child, `${path}.children[${index}]`, state));
+    return;
+  }
+  if (element.type === 'item') {
+    inventoryOwnedStructuralComponents(
+      element.id,
+      element.components,
+      `${path}.components`,
+      state,
+    );
+    return;
+  }
+  if (element.type === 'grid') {
+    inventoryOwnedStructuralComponents(
+      element.id,
+      element.item.components,
+      `${path}.item.components`,
+      state,
+    );
+  }
+}
+
+function inventoryOwnedStructuralComponents(
+  ownerId: string,
+  components: readonly CoreV2Component[],
+  path: string,
+  state: NormalizationState,
+): void {
+  const ids = new Set<string>();
+  for (let index = 0; index < components.length; index += 1) {
+    const component = components[index]!;
+    if (ids.has(component.id)) {
+      throw new CoreV2DatasetError(
+        'DUPLICATE_ID',
+        `${path}[${index}].id`,
+        `duplicate component id ${JSON.stringify(component.id)} for ${JSON.stringify(ownerId)}`,
+      );
+    }
+    ids.add(component.id);
+    state.componentTypes.add(component.type);
+  }
+  state.componentIdsByOwner.set(ownerId, ids);
 }
 
 /**
@@ -497,6 +695,38 @@ export function replaceOwnedCoreV2BarHeightRoot(
   }
   const size = Object.freeze({ ...component.size, height });
   const replacement = Object.freeze({ ...component, size });
+  const components = [...root.components];
+  components[componentIndex] = replacement;
+  const next = Object.freeze({
+    ...root,
+    components: Object.freeze(components),
+  });
+  OWNED_CORE_V2_ROOTS.add(next);
+  return next;
+}
+
+/**
+ * Replace one text payload inside an already materialized top-level item.
+ * The batch planner validates identity and value shape before using this
+ * structural-sharing path, so unrelated component/style/layout input remains
+ * byte-for-byte owned by the current immutable root.
+ */
+export function replaceOwnedCoreV2TextRoot(
+  root: CoreV2Element,
+  componentId: string,
+  text: string,
+): CoreV2ItemElement | null {
+  if (
+    !OWNED_CORE_V2_ROOTS.has(root) ||
+    root.type !== 'item' ||
+    typeof text !== 'string'
+  ) {
+    return null;
+  }
+  const componentIndex = root.components.findIndex(({ id }) => id === componentId);
+  const component = componentIndex < 0 ? undefined : root.components[componentIndex];
+  if (component?.type !== 'text') return null;
+  const replacement = Object.freeze({ ...component, text });
   const components = [...root.components];
   components[componentIndex] = replacement;
   const next = Object.freeze({
@@ -1579,60 +1809,203 @@ function cloneJsonValue(value: unknown, path: string, ancestors = new Set<object
 }
 
 function semanticHash(value: unknown): string {
+  if (Array.isArray(value)) {
+    const acceleratedDataset = wasmSemanticHashDataset(value);
+    if (acceleratedDataset !== null) return acceleratedDataset;
+  }
+  const serialized = stableDatasetSerialization(value);
+  const accelerated = wasmSemanticHash(serialized);
+  if (accelerated !== null) return accelerated;
+
   let high = 0xcbf29ce4;
   let low = 0x84222325;
-  stableSerializeIntoHash(value, (fragment) => {
-    for (let index = 0; index < fragment.length; index += 1) {
-      low = (low ^ fragment.charCodeAt(index)) >>> 0;
-      const lowProduct = low * 0x1b3;
-      high = (
-        Math.imul(high, 0x1b3) +
-        Math.floor(lowProduct / 0x1_0000_0000) +
-        (low << 8)
-      ) >>> 0;
-      low = Math.imul(low, 0x1b3) >>> 0;
-    }
-  });
+  for (let index = 0; index < serialized.length; index += 1) {
+    low = (low ^ serialized.charCodeAt(index)) >>> 0;
+    const lowProduct = low * 0x1b3;
+    high = (
+      Math.imul(high, 0x1b3) +
+      Math.floor(lowProduct / 0x1_0000_0000) +
+      (low << 8)
+    ) >>> 0;
+    low = Math.imul(low, 0x1b3) >>> 0;
+  }
   return `fnv1a64:${high.toString(16).padStart(8, '0')}${low
     .toString(16)
     .padStart(8, '0')}`;
 }
 
-function stableSerializeIntoHash(
-  value: unknown,
-  write: (fragment: string) => void,
-): void {
+function wasmSemanticHashDataset(roots: readonly unknown[]): string | null {
+  if (typeof WebAssembly === 'undefined') return null;
+  try {
+    if (semanticHashWasmModule === null) {
+      semanticHashWasmModule = new WebAssembly.Module(SEMANTIC_HASH_WASM_BYTES);
+    }
+    if (semanticHashWasmModule === false) return null;
+    const serializedRoots: string[] = [];
+    let length = 2 + Math.max(0, roots.length - 1);
+    for (const root of roots) {
+      let serialized: string;
+      if (root !== null && typeof root === 'object') {
+        serialized = STABLE_ROOT_SERIALIZATIONS.get(root) ?? stableSerialize(root);
+        STABLE_ROOT_SERIALIZATIONS.set(root, serialized);
+      } else {
+        serialized = stableSerialize(root);
+      }
+      serializedRoots.push(serialized);
+      length += serialized.length;
+    }
+    const exports = new WebAssembly.Instance(semanticHashWasmModule).exports as {
+      readonly memory?: WebAssembly.Memory;
+      readonly hash?: (offset: number, length: number) => bigint;
+    };
+    const memory = exports.memory;
+    const hash = exports.hash;
+    if (memory === undefined || hash === undefined) return null;
+    const requiredPages = Math.max(
+      1,
+      Math.ceil((length * Uint16Array.BYTES_PER_ELEMENT) / 65_536),
+    );
+    if (requiredPages > 1) memory.grow(requiredPages - 1);
+    const units = new Uint16Array(memory.buffer, 0, length);
+    let offset = 0;
+    units[offset++] = 91;
+    for (let index = 0; index < serializedRoots.length; index += 1) {
+      if (index > 0) units[offset++] = 44;
+      const serialized = serializedRoots[index]!;
+      for (let character = 0; character < serialized.length; character += 1) {
+        units[offset++] = serialized.charCodeAt(character);
+      }
+    }
+    units[offset] = 93;
+    const value = BigInt.asUintN(64, hash(0, length));
+    return `fnv1a64:${value.toString(16).padStart(16, '0')}`;
+  } catch {
+    semanticHashWasmModule = false;
+    return null;
+  }
+}
+
+function stableDatasetSerialization(value: unknown): string {
+  if (Array.isArray(value)) {
+    const roots = value as readonly unknown[];
+    const fragments = ['['];
+    for (let index = 0; index < roots.length; index += 1) {
+      if (index > 0) fragments.push(',');
+      const root: unknown = roots[index];
+      if (root !== null && typeof root === 'object') {
+        let serialized = STABLE_ROOT_SERIALIZATIONS.get(root);
+        if (serialized === undefined) {
+          serialized = stableSerialize(root);
+          STABLE_ROOT_SERIALIZATIONS.set(root, serialized);
+        }
+        fragments.push(serialized);
+      } else {
+        fragments.push(stableSerialize(root));
+      }
+    }
+    fragments.push(']');
+    return fragments.join('');
+  }
+  return stableSerialize(value);
+}
+
+function wasmSemanticHash(serialized: string): string | null {
+  if (typeof WebAssembly === 'undefined') return null;
+  try {
+    if (semanticHashWasmModule === null) {
+      semanticHashWasmModule = new WebAssembly.Module(SEMANTIC_HASH_WASM_BYTES);
+    }
+    if (semanticHashWasmModule === false) return null;
+    const exports = new WebAssembly.Instance(semanticHashWasmModule).exports as {
+      readonly memory?: WebAssembly.Memory;
+      readonly hash?: (offset: number, length: number) => bigint;
+    };
+    const memory = exports.memory;
+    const hash = exports.hash;
+    if (memory === undefined || hash === undefined) return null;
+    const requiredPages = Math.max(
+      1,
+      Math.ceil((serialized.length * Uint16Array.BYTES_PER_ELEMENT) / 65_536),
+    );
+    if (requiredPages > 1) memory.grow(requiredPages - 1);
+    const units = new Uint16Array(memory.buffer, 0, serialized.length);
+    for (let index = 0; index < serialized.length; index += 1) {
+      units[index] = serialized.charCodeAt(index);
+    }
+    const value = BigInt.asUintN(64, hash(0, serialized.length));
+    return `fnv1a64:${value.toString(16).padStart(16, '0')}`;
+  } catch {
+    semanticHashWasmModule = false;
+    return null;
+  }
+}
+
+function stableSerialize(value: unknown): string {
   if (value === null) {
-    write('null');
-    return;
+    return 'null';
   }
   if (typeof value === 'string' || typeof value === 'boolean' || typeof value === 'number') {
-    write(JSON.stringify(value));
-    return;
+    return JSON.stringify(value);
   }
+  const cached = STABLE_VALUE_SERIALIZATIONS.get(value as object);
+  if (cached !== undefined) return cached;
   if (Array.isArray(value)) {
-    write('[');
+    const fragments = ['['];
     for (let index = 0; index < value.length; index += 1) {
-      if (index > 0) write(',');
-      stableSerializeIntoHash(value[index], write);
+      if (index > 0) fragments.push(',');
+      fragments.push(stableSerialize(value[index]));
     }
-    write(']');
-    return;
+    fragments.push(']');
+    const serialized = fragments.join('');
+    if (Object.isFrozen(value)) STABLE_VALUE_SERIALIZATIONS.set(value, serialized);
+    return serialized;
   }
   if (isRecord(value)) {
-    write('{');
-    const keys = Object.keys(value).sort();
+    const fragments = ['{'];
+    const authoredKeys = Object.keys(value);
+    const keys = stableSerializationKeyOrder(authoredKeys);
     for (let index = 0; index < keys.length; index += 1) {
       const key = keys[index]!;
-      if (index > 0) write(',');
-      write(JSON.stringify(key));
-      write(':');
-      stableSerializeIntoHash(value[key], write);
+      if (index > 0) fragments.push(',');
+      fragments.push(JSON.stringify(key), ':', stableSerialize(value[key]));
     }
-    write('}');
-    return;
+    fragments.push('}');
+    const serialized = fragments.join('');
+    if (Object.isFrozen(value)) STABLE_VALUE_SERIALIZATIONS.set(value, serialized);
+    return serialized;
   }
   invalidValue('$', 'normalized dataset contains a non-canonical value');
+}
+
+function stableSerializationKeyOrder(
+  authoredKeys: readonly string[],
+): readonly string[] {
+  let candidates = STABLE_SERIALIZATION_KEY_ORDERS.get(authoredKeys.length);
+  if (candidates !== undefined) {
+    for (const candidate of candidates) {
+      let matches = true;
+      for (let index = 0; index < authoredKeys.length; index += 1) {
+        if (candidate.authored[index] !== authoredKeys[index]) {
+          matches = false;
+          break;
+        }
+      }
+      if (matches) return candidate.sorted;
+    }
+  } else if (
+    stableSerializationKeyOrderShapeCount >=
+    MAX_STABLE_SERIALIZATION_KEY_ORDER_SHAPES
+  ) {
+    return Object.freeze([...authoredKeys].sort());
+  } else {
+    candidates = [];
+    STABLE_SERIALIZATION_KEY_ORDERS.set(authoredKeys.length, candidates);
+  }
+  const authored = Object.freeze([...authoredKeys]);
+  const sorted = Object.freeze([...authoredKeys].sort());
+  candidates.push(Object.freeze({ authored, sorted }));
+  stableSerializationKeyOrderShapeCount += 1;
+  return sorted;
 }
 
 function isPercentage(value: string): boolean {

@@ -77,6 +77,55 @@ describe('Core v2 presentation projection', () => {
     expect(() => projectCoreV2BarPresentationHeight(secondSemantic.byEntityId.bar!, -1))
       .toThrow(RangeError);
   });
+
+  it('updates only dirty projection records for same-identity previews', () => {
+    const bar = projection(40, createCoreV2Affine(0, 0));
+    const rect = projection(20, createCoreV2Affine(100, 0));
+    const store = new CoreV2PresentationProjectionStore();
+    const first = store.replace(index({ bar, rect }), new Map([['bar', 10]]));
+    const byEntityId = first.byEntityId;
+    const movedBar = projection(40, createCoreV2Affine(25, 15));
+    const nextSemantic = index({ bar: movedBar, rect });
+
+    const next = store.replaceIncremental(
+      nextSemantic,
+      ['bar'],
+      new Map([['bar', 10]]),
+    );
+
+    expect(next).not.toBeNull();
+    expect(next?.byEntityId).toBe(byEntityId);
+    expect(next?.byEntityId.rect).toBe(rect);
+    expect(next?.byEntityId.bar?.localBounds[3]).toBe(10);
+    expect(next?.byEntityId.bar?.affine[4]).toBe(25);
+    expect(next?.byEntityId.bar?.affine[5]).toBe(45);
+    expect(nextSemantic.byEntityId.bar?.localBounds[3]).toBe(40);
+  });
+
+  it('applies and clears transient geometry without changing semantic authority', () => {
+    const bar = projection(40, createCoreV2Affine(0, 0));
+    const rect = projection(20, createCoreV2Affine(100, 0));
+    const semantic = index({ bar, rect });
+    const store = new CoreV2PresentationProjectionStore();
+    const presented = store.replace(semantic, new Map([['bar', 10]]));
+    const movedBar = projection(40, createCoreV2Affine(30, 20));
+
+    expect(store.applyTransientEntityProjections(
+      { bar: movedBar },
+      ['bar'],
+    )).toBe(presented);
+    expect(store.semantic).toBe(semantic);
+    expect(store.presentation?.byEntityId.bar?.localBounds[3]).toBe(10);
+    expect(store.presentation?.byEntityId.bar?.affine[4]).toBe(30);
+    expect(store.presentation?.byEntityId.bar?.affine[5]).toBe(50);
+
+    expect(store.clearTransientEntityProjections()).toEqual(['bar']);
+    expect(store.presentation?.byEntityId.bar?.localBounds[3]).toBe(10);
+    expect(store.presentation?.byEntityId.bar?.affine[4]).toBe(0);
+    expect(store.presentation?.byEntityId.bar?.affine[5]).toBe(30);
+    expect(store.semantic).toBe(semantic);
+    expect(store.presentation?.byEntityId.rect).toBe(rect);
+  });
 });
 
 function projection(

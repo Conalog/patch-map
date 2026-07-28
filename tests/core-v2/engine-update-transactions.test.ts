@@ -29,6 +29,11 @@ interface RecordedReconcile {
       componentId: string;
       height: number;
     }>[];
+    directTextUpdates?: readonly Readonly<{
+      ownerId: string;
+      componentId: string;
+      text: string;
+    }>[];
   }>;
 }
 
@@ -90,6 +95,14 @@ class TransactionSurface implements CoreV2EngineSurface {
           : {
               directBarHeightUpdates: Object.freeze(
                 options.directBarHeightUpdates.map((update) =>
+                  Object.freeze({ ...update })),
+              ),
+            }),
+        ...(options.directTextUpdates === undefined
+          ? {}
+          : {
+              directTextUpdates: Object.freeze(
+                options.directTextUpdates.map((update) =>
                   Object.freeze({ ...update })),
               ),
             }),
@@ -833,6 +846,76 @@ describe('CoreV2Engine update transactions', () => {
     });
     expect(engine.exportDataset()).toBe(authorityBefore);
     expect(engine.snapshot()).toEqual(snapshotBefore);
+    expect(engine.historyState()).toEqual(historyBefore);
+    expect(surface.reconcileCalls).toHaveLength(2);
+  });
+
+  it('commits compact text batches atomically and restores them as one history unit', async () => {
+    const { engine, surface } = await createEngine(engines, 'compact-text-batch');
+    engine.loadDataset(updateScene());
+    const targets = Object.freeze([
+      Object.freeze({ ownerId: 'item-a', componentId: 'label' }),
+    ]);
+    const texts = Object.freeze(['Changed']);
+
+    expect(engine.updateTexts({
+      targets,
+      texts,
+      actionId: 'text-batch-1',
+    })).toMatchObject({
+      status: 'committed',
+      changed: true,
+      actionId: 'text-batch-1',
+      applied: [
+        { kind: 'component', ownerId: 'item-a', id: 'label' },
+      ],
+      history: {
+        recorded: true,
+        commandId: 'text-batch-1',
+        depthDelta: 1,
+      },
+    });
+    expect(surface.reconcileCalls[0]?.options).toEqual({
+      animateBarChanges: false,
+      animatedBarTargets: [],
+      allowedComponentOrderOwners: [],
+      incrementalRootIds: ['item-a'],
+      directTextUpdates: [
+        { ownerId: 'item-a', componentId: 'label', text: 'Changed' },
+      ],
+    });
+    expect(componentById(engine, 'item-a', 'label')).toMatchObject({ text: 'Changed' });
+    expect(targets).toEqual([
+      { ownerId: 'item-a', componentId: 'label' },
+    ]);
+    expect(texts).toEqual(['Changed']);
+
+    expect(engine.undo()).toMatchObject({
+      status: 'committed',
+      direction: 'undo',
+      history: { undoDepth: 0, redoDepth: 1 },
+    });
+    expect(componentById(engine, 'item-a', 'label')).toMatchObject({ text: 'Alpha' });
+
+    const authorityBefore = engine.exportDataset();
+    const historyBefore = engine.historyState();
+    expect(engine.updateTexts({
+      targets: [
+        { ownerId: 'item-a', componentId: 'label' },
+        { ownerId: 'missing', componentId: 'label' },
+      ],
+      texts: ['Tentative', 'Never published'],
+      actionId: 'text-batch-invalid',
+    })).toMatchObject({
+      status: 'rejected',
+      changed: false,
+      transactionDiagnostic: {
+        code: 'MISSING_TARGET',
+        operationIndex: 1,
+      },
+      history: { recorded: false, depthDelta: 0 },
+    });
+    expect(engine.exportDataset()).toBe(authorityBefore);
     expect(engine.historyState()).toEqual(historyBefore);
     expect(surface.reconcileCalls).toHaveLength(2);
   });

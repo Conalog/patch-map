@@ -8,6 +8,20 @@ import {
 } from '../../src/core-v2/engine';
 
 describe('CoreV2Engine renderer-aligned geometry probe', () => {
+  it('keeps empty selection geometry valid before the first dataset load', () => {
+    let semanticResolutionCount = 0;
+    const surface = new PixiEngineSurface({
+      destroyed: false,
+      semanticSelectionEntityIds: () => {
+        semanticResolutionCount += 1;
+        throw new Error('dataset is not loaded');
+      },
+    } as never);
+
+    expect(surface.selectionGeometries([])).toEqual([]);
+    expect(semanticResolutionCount).toBe(0);
+  });
+
   it('projects entity, relation, and selected bounds through the active view', () => {
     const snapshot: SceneSnapshot = {
       revision: 7,
@@ -177,7 +191,9 @@ describe('CoreV2Engine renderer-aligned geometry probe', () => {
     };
     const core = {
       destroyed: false,
+      activeAnimations: 0,
       projection: null,
+      visibleProjection: null,
       snapshot: (): SceneSnapshot => {
         snapshotCalls += 1;
         return {
@@ -203,6 +219,12 @@ describe('CoreV2Engine renderer-aligned geometry probe', () => {
       selectSemantic: () => {
         selected = true;
       },
+      selection: () => ({
+        revision: selected ? 1 : 0,
+        refs: selected ? [entity.ref] : [],
+      }),
+      get: () => entity,
+      publishFrame: () => {},
       resize: () => true,
       setWorldTransform: () => {},
     };
@@ -219,24 +241,35 @@ describe('CoreV2Engine renderer-aligned geometry probe', () => {
 
     expect(surface.reconcile([])).toMatchObject({ status: 'committed' });
     const afterMutation = surface.geometrySnapshot();
+    const worldAfterMutation = surface.worldGeometrySnapshot();
     expect(afterMutation).not.toBe(beforeSelection);
     expect(afterMutation.revision).toBeGreaterThan(beforeSelection.revision ?? -1);
 
-    surface.setView({ x: 0, y: 0, scale: 1, rotation: 0 });
+    surface.setView({ x: 20, y: 30, scale: 2, rotation: 0 });
     const afterView = surface.geometrySnapshot();
     expect(afterView).not.toBe(afterMutation);
     expect(afterView.revision).toBeGreaterThan(afterMutation.revision ?? -1);
+    expect(surface.worldGeometrySnapshot()).toBe(worldAfterMutation);
 
     surface.select(['selected']);
     const afterSelection = surface.geometrySnapshot();
     expect(afterSelection).not.toBe(afterView);
     expect(afterSelection.revision).toBeGreaterThan(afterView.revision ?? -1);
-    expect(afterSelection.selectionOverlay?.screenBounds).toEqual([10, 20, 30, 40]);
+    expect(afterSelection.selectionOverlay?.screenBounds).toEqual([40, 70, 60, 80]);
+    expect(surface.worldGeometrySnapshot()).toBe(worldAfterMutation);
+    expect(snapshotCalls).toBe(3);
 
     expect(surface.resize(640, 480, 2)).toBe(true);
     const afterResize = surface.geometrySnapshot();
     expect(afterResize).not.toBe(afterSelection);
     expect(afterResize.revision).toBeGreaterThan(afterSelection.revision ?? -1);
+    expect(surface.worldGeometrySnapshot()).toBe(worldAfterMutation);
+    surface.publishFrame(1);
+    expect(surface.geometrySnapshot()).toBe(afterResize);
+    expect(surface.worldGeometrySnapshot()).toBe(worldAfterMutation);
+
+    surface.setView({ x: 20, y: 30, scale: 2, rotation: 90 });
+    expect(surface.worldGeometrySnapshot()).not.toBe(worldAfterMutation);
   });
 
   it('correlates surface generations with Engine scene, view, and interaction revisions', async () => {

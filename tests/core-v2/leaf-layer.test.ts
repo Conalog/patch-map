@@ -227,6 +227,70 @@ describe('Core v2 aggregate leaf policy', () => {
     await layer.destroy();
   });
 
+  it('maps host alias loads onto the canonical scene binding key', async () => {
+    mockOwnedAssetTransport();
+    vi.spyOn(Assets, 'get').mockReturnValue(undefined as never);
+    vi.spyOn(Assets, 'load').mockResolvedValue(Texture.WHITE as never);
+    vi.spyOn(Assets, 'unload').mockResolvedValue(undefined as never);
+    const layer = createAssetLayer();
+    const store = createImageStore('fixture-alias');
+    const projectionContext = {
+      index: {
+        byEntityId: Object.freeze({}),
+        imagesByEntityId: Object.freeze({
+          'image-0': Object.freeze({
+            entityId: 'image-0',
+            authoredSource: 'fixture-alias',
+            bindingKey: 'alias:fixture-alias',
+            cacheIdentity: 'alias:fixture-alias',
+            sourceKind: 'alias' as const,
+            authoredSize: true,
+            dimensionMode: 'authored' as const,
+          }),
+        }),
+      },
+      revision: 1,
+      world: { rotationDegrees: 0, flipX: false, flipY: false },
+    };
+
+    expect(layer.sync(store, {
+      fullRebuildEpoch: 1,
+      projectionContext,
+    })).toMatchObject({
+      unresolvedAssetCount: 1,
+      placeholderCount: 1,
+    });
+
+    await layer.loadAsset('fixture-alias', 'core-v2-test://fixture-alias.png');
+    expect(layer.sync(store, {
+      fullRebuildEpoch: 1,
+      changedRanges: [],
+      projectionContext,
+    })).toMatchObject({
+      loadedAssetCount: 1,
+      unresolvedAssetCount: 0,
+      placeholderCount: 0,
+    });
+    expect(layer.sceneImageProbe('image-0')).toMatchObject({
+      bindingKey: 'alias:fixture-alias',
+      role: 'image',
+      renderObjectCount: 1,
+    });
+
+    await expect(layer.unloadAsset('fixture-alias')).resolves.toBe(true);
+    expect(layer.sync(store, {
+      fullRebuildEpoch: 1,
+      changedRanges: [],
+      projectionContext,
+    })).toMatchObject({
+      loadedAssetCount: 0,
+      unresolvedAssetCount: 1,
+      placeholderCount: 1,
+    });
+    await layer.finalizeAssetUnloads();
+    await layer.destroy();
+  });
+
   it('borrows a texture already present in the external Assets cache', async () => {
     const url = 'core-v2-test://external-texture.png';
     vi.spyOn(Assets, 'get').mockReturnValue(Texture.WHITE as never);

@@ -96,6 +96,8 @@ export interface AggregateMeshSyncOptions {
   readonly fullRebuildEpoch?: number;
   readonly force?: boolean;
   readonly projectionContext?: CoreV2ProjectionRenderContext;
+  /** World orientation changed while store topology and styles stayed fixed. */
+  readonly projectionTransformOnly?: boolean;
 }
 
 export interface AggregateMeshLayerDebug {
@@ -581,6 +583,36 @@ export function dirtyChunkIndices(
     for (let chunk = first; chunk <= last; chunk += 1) chunks.add(chunk);
   }
   return [...chunks].sort((left, right) => left - right);
+}
+
+function dirtyBarSlotsByChunk(
+  store: RenderStoreView,
+  chunkSize: number,
+  changedRanges: readonly SlotRange[],
+): ReadonlyMap<number, readonly number[]> {
+  const slotsByChunk = new Map<number, Set<number>>();
+  for (const range of changedRanges) {
+    const start = Math.max(0, Math.min(store.capacity, Math.floor(range.start)));
+    const end = Math.max(start, Math.min(store.capacity, Math.ceil(range.end)));
+    for (let slot = start; slot < end; slot += 1) {
+      if (
+        (store.alive[slot] as number) === 0 ||
+        (store.kind[slot] as number) !== RenderKind.Bar
+      ) {
+        continue;
+      }
+      const chunkIndex = Math.floor(slot / chunkSize);
+      const slots = slotsByChunk.get(chunkIndex) ?? new Set<number>();
+      slots.add(slot);
+      slotsByChunk.set(chunkIndex, slots);
+    }
+  }
+  return new Map(
+    [...slotsByChunk].map(([chunkIndex, slots]) => [
+      chunkIndex,
+      Object.freeze([...slots]),
+    ] as const),
+  );
 }
 
 function barOnlyDirtyChunkSlots(
@@ -1666,18 +1698,29 @@ export class AggregateMeshLayer {
       epochChanged ||
       options.changedRanges === undefined;
     const maximumChunk = Math.ceil(Math.max(0, store.capacity) / this.chunkSize);
+    const projectionBarChunks =
+      !fullRebuild && options.projectionTransformOnly === true
+        ? dirtyBarSlotsByChunk(
+            store,
+            this.chunkSize,
+            options.changedRanges ?? [],
+          )
+        : null;
     const requestedDirtyChunks = new Set(fullRebuild
       ? Array.from({ length: maximumChunk }, (_, chunk) => chunk)
-      : dirtyChunkIndices(store.capacity, this.chunkSize, options.changedRanges ?? []));
+      : projectionBarChunks === null
+        ? dirtyChunkIndices(store.capacity, this.chunkSize, options.changedRanges ?? [])
+        : projectionBarChunks.keys());
     const barOnlyChunks = fullRebuild
       ? new Map<number, readonly number[]>()
-      : barOnlyDirtyChunkSlots(
-        store,
-        this.chunkSize,
-        options.changedRanges ?? [],
-        this.#previousAlive,
-        this.#previousKind,
-      );
+      : projectionBarChunks ??
+        barOnlyDirtyChunkSlots(
+          store,
+          this.chunkSize,
+          options.changedRanges ?? [],
+          this.#previousAlive,
+          this.#previousKind,
+        );
 
     if (fullRebuild) {
       this.#deferredBarChunks.clear();

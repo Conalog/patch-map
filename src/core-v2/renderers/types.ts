@@ -177,6 +177,8 @@ export interface AggregateLayerSyncOptions {
   readonly changedRanges?: readonly SlotRange[];
   readonly fullRebuildEpoch?: number;
   readonly projectionContext?: CoreV2ProjectionRenderContext;
+  /** Recompute projection transforms only; semantic/style/topology is unchanged. */
+  readonly projectionTransformOnly?: boolean;
 }
 
 export interface AggregateLayerDebug {
