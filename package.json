@@ -64,6 +64,7 @@
     "verify:lab": "node scripts/verification/browser-lab.mjs",
     "verify:lab:core-v1": "node scripts/verification/core-v1-browser.mjs",
     "verify:lab:core-v2": "node scripts/verification/core-v2-browser.mjs --headed",
+    "verify:lab:core-v2:webgpu": "node scripts/verification/core-v2-webgpu-experimental.mjs",
     "verify:lab:core-v2:manual": "node scripts/verification/core-v2-manual-lab-browser.mjs",
     "verify:lab:core-v2:manual:all": "node scripts/verification/core-v2-manual-lab-browser.mjs --all-routes",
     "verify:package:core-v1": "node scripts/verification/core-v1-package.mjs",
@@ -84,7 +85,9 @@
     "perf:core-v2:bar-pan": "node scripts/verification/core-v2-bar-animation-pan-performance.mjs",
     "perf:core-v2:extraction": "node scripts/verification/core-v2-extraction-performance.mjs",
     "verify:performance-report:core-v2": "node performance/core-v2/report/verify.mjs",
-    "verify:performance-contract:core-v2": "node performance/core-v2/report/verify-contract.mjs"
+    "verify:performance-contract:core-v2": "node performance/core-v2/report/verify-contract.mjs",
+    "verify:release-readiness:core-v2": "node scripts/verification/core-v2-release-readiness.mjs",
+    "verify:release-readiness:core-v2:strict": "node scripts/verification/core-v2-release-readiness.mjs --require-release"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

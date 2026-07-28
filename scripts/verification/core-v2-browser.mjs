@@ -6,9 +6,24 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
+import {
+  parseCoreV2BrowserLaunch,
+  parseCoreV2NativeWindowsCell,
+} from './core-v2-browser-launch.mjs';
+
 const ROOT = process.cwd();
 const RESULTS = path.join(ROOT, 'performance/core-v2/results');
-const headed = process.argv.includes('--headed');
+const codeCommit = process.env.CORE_V2_CODE_COMMIT ?? 'uncommitted';
+const browserLaunch = parseCoreV2BrowserLaunch(process.argv.slice(2));
+const nativeWindows = parseCoreV2NativeWindowsCell(
+  process.argv.slice(2),
+  browserLaunch,
+);
+const headed = browserLaunch.headed;
+const outputPath = path.resolve(
+  process.env.CORE_V2_BROWSER_OUTPUT
+    ?? path.join(RESULTS, 'browser-functional.json'),
+);
 const server = await createServer({
   root: ROOT,
   configFile: path.join(ROOT, 'vite.core-v2-lab.config.ts'),
@@ -17,7 +32,7 @@ const server = await createServer({
 await server.listen();
 const baseUrl = server.resolvedUrls?.local?.[0];
 if (!baseUrl) throw new Error('Core v2 lab server has no URL');
-const browser = await chromium.launch({ headless: !headed });
+const browser = await chromium.launch(browserLaunch.launchOptions);
 const context = await browser.newContext({ viewport: { width: 1_440, height: 1_000 }, deviceScaleFactor: 1 });
 const page = await context.newPage();
 const errors = { console: [], page: [], network: [] };
@@ -443,15 +458,23 @@ try {
   const evidence = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
+    codeCommit,
     headed,
     checks,
     errors,
     status: failures.length === 0 ? 'pass' : 'fail',
     failures,
-    windowsNative: 'pending',
+    environment: {
+      platform: process.platform,
+      architecture: process.arch,
+      browserTarget: browserLaunch.target,
+      browserVersion: browser.version(),
+      nativeCellId: nativeWindows.cellId,
+    },
+    windowsNative: nativeWindows.evidenceStatus,
   };
-  await mkdir(RESULTS, { recursive: true });
-  await writeFile(path.join(RESULTS, 'browser-functional.json'), `${JSON.stringify(evidence, null, 2)}\n`);
+  await mkdir(path.dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, `${JSON.stringify(evidence, null, 2)}\n`);
   if (failures.length) throw new Error(failures.join('; '));
   process.stdout.write(`PASS: ${checks.length} Core v2 ${headed ? 'headed ' : ''}browser checks, Mesh+Particle+production, console/page/network errors 0\n`);
 } finally {

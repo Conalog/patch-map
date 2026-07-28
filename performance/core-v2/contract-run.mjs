@@ -3,11 +3,17 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+
+import {
+  parseCoreV2BrowserLaunch,
+  parseCoreV2NativeWindowsCell,
+} from '../../scripts/verification/core-v2-browser-launch.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const RESULTS_ROOT = fileURLToPath(new URL('./results/', import.meta.url));
@@ -39,7 +45,7 @@ const PERFORMANCE_CASE_IDS = Object.freeze([
 const WARMUPS = 2;
 const MEASURED = 7;
 const SEED = 319;
-const CPU_THROTTLE_RATE = 4;
+const PROXY_CPU_THROTTLE_RATE = 4;
 const CPU_PROFILE = 'windows-low-end-n100-8g-v1';
 const PRODUCTION_DATASET_SHA256 =
   '4bc16c65500b4f305114162fdc4472b45997eea7498020496072ca0b741e95c3';
@@ -148,7 +154,15 @@ async function runHarness(page, size, smoke) {
 }
 
 async function main() {
-  const headed = process.argv.includes('--headed');
+  const nativeWindows = process.argv.includes('--native-windows');
+  const browserLaunch = parseCoreV2BrowserLaunch(process.argv.slice(2), {
+    extraArgs: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
+  });
+  const nativeCell = parseCoreV2NativeWindowsCell(
+    process.argv.slice(2),
+    browserLaunch,
+  );
+  const headed = browserLaunch.headed;
   const smoke = process.argv.includes('--smoke');
   const smokeSize = smoke
     ? parseSize(argumentValue('--smoke-size') ?? '100')
@@ -156,14 +170,20 @@ async function main() {
   const requestedHeaded = !process.argv.includes('--request-headless');
   const codeCommit = argumentValue('--code-commit') ?? 'uncommitted';
   const externalUrl = argumentValue('--url');
+  const cellId = argumentValue('--cell-id');
+  const outputDirectory = argumentValue('--output-dir');
+  const resultsRoot = outputDirectory ? path.resolve(ROOT, outputDirectory) : RESULTS_ROOT;
+  const cpuThrottleRate = nativeWindows ? 1 : PROXY_CPU_THROTTLE_RATE;
+  if (nativeWindows) {
+    assert(nativeCell.requested, '--native-windows cell validation');
+    assert(cellId === nativeCell.cellId, '--native-windows cell identity');
+    assert(outputDirectory !== undefined, '--native-windows requires --output-dir');
+  }
   const runSizes = smoke ? [smokeSize] : SIZES;
   const runWarmups = smoke ? 0 : WARMUPS;
   const runMeasured = smoke ? 1 : MEASURED;
   const server = await startServer(externalUrl);
-  const browser = await chromium.launch({
-    headless: !headed,
-    args: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
-  });
+  const browser = await chromium.launch(browserLaunch.launchOptions);
   const context = await browser.newContext({
     viewport: { width: 1_280, height: 800 },
     deviceScaleFactor: 1,
@@ -197,7 +217,7 @@ async function main() {
     await cdp.send('Performance.enable');
     await cdp.send('HeapProfiler.enable');
     await cdp.send('Emulation.setCPUThrottlingRate', {
-      rate: CPU_THROTTLE_RATE,
+      rate: cpuThrottleRate,
     });
     await page.goto(server.pageUrl, { waitUntil: 'networkidle' });
     await page.waitForFunction(
@@ -222,7 +242,7 @@ async function main() {
         sizes: runSizes,
         seed: SEED,
         backend: 'webgl2',
-        cpuThrottleRate: CPU_THROTTLE_RATE,
+        cpuThrottleRate,
         requestedHeaded,
         actualMode: headed ? 'headed' : 'headless',
       },
@@ -231,10 +251,18 @@ async function main() {
         architecture: process.arch,
         nodeVersion: process.version,
         browserVersion: await browser.version(),
+        browserTarget: browserLaunch.target,
         gpu,
         cpuProfile: CPU_PROFILE,
-        measurementClass: 'chromium-4x-development-proxy',
-        windowsNative: 'pending',
+        measurementClass: nativeWindows
+          ? 'native-windows-release-candidate'
+          : 'chromium-4x-development-proxy',
+        windowsNative: nativeWindows ? 'measured-candidate-unreviewed' : 'pending',
+        cellId: cellId ?? null,
+        osRelease: os.release(),
+        cpuModel: os.cpus()[0]?.model ?? 'unknown',
+        logicalCpuCount: os.cpus().length,
+        totalMemoryBytes: os.totalmem(),
       },
       browser: {
         consoleErrors,
@@ -286,11 +314,11 @@ async function main() {
   const rawFilename = `contract-performance-raw-${timestamp}.json`;
   const rawText = `${JSON.stringify(rawOutput, null, 2)}\n`;
   const rawDigest = hashText(rawText);
-  await mkdir(RESULTS_ROOT, { recursive: true });
+  await mkdir(resultsRoot, { recursive: true });
   await Promise.all([
-    writeFile(path.join(RESULTS_ROOT, rawFilename), rawText),
+    writeFile(path.join(resultsRoot, rawFilename), rawText),
     writeFile(
-      path.join(RESULTS_ROOT, 'contract-performance-raw-latest.json'),
+      path.join(resultsRoot, 'contract-performance-raw-latest.json'),
       rawText,
     ),
   ]);
@@ -299,16 +327,17 @@ async function main() {
     codeCommit,
     requestedHeaded,
     actualMode: headed ? 'headed' : 'headless',
+    nativeWindows,
   });
   summary.provenance.rawArtifactSha256 = rawDigest;
   summary.rawArtifact = {
-    path: `performance/core-v2/results/${rawFilename}`,
+    path: path.relative(ROOT, path.join(resultsRoot, rawFilename)),
     sha256: rawDigest,
     sampleCount: SIZES.length * MEASURED,
     warmupSampleCount: SIZES.length * WARMUPS,
   };
   await writeFile(
-    path.join(RESULTS_ROOT, 'contract-performance.json'),
+    path.join(resultsRoot, 'contract-performance.json'),
     `${JSON.stringify(summary, null, 2)}\n`,
   );
   process.stdout.write(
@@ -434,7 +463,7 @@ async function summarizeEvidence(raw, runInfo) {
       sizes: SIZES,
       seed: SEED,
       backend: 'webgl2',
-      cpuThrottleRate: CPU_THROTTLE_RATE,
+      cpuThrottleRate: raw.protocol.cpuThrottleRate,
     },
     provenance: {
       codeCommit: runInfo.codeCommit,
@@ -448,13 +477,19 @@ async function summarizeEvidence(raw, runInfo) {
       cpuProfile: CPU_PROFILE,
       contractProfileBound: true,
       browserVersion: raw.environment.browserVersion,
+      browserTarget: raw.environment.browserTarget,
       runtimeResourceIds: [],
       measurementClass: raw.environment.measurementClass,
       requestedHeaded: runInfo.requestedHeaded,
       actualMode: runInfo.actualMode,
       headedReleaseStatus:
         runInfo.actualMode === 'headed' ? 'measured' : 'pending',
-      windowsNative: 'pending',
+      windowsNative: runInfo.nativeWindows ? 'measured-candidate-unreviewed' : 'pending',
+      cellId: raw.environment.cellId,
+      osRelease: raw.environment.osRelease,
+      cpuModel: raw.environment.cpuModel,
+      logicalCpuCount: raw.environment.logicalCpuCount,
+      totalMemoryBytes: raw.environment.totalMemoryBytes,
       gpu: raw.environment.gpu,
     },
     rawArtifact: null,

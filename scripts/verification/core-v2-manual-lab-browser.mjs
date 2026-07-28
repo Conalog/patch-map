@@ -1,13 +1,27 @@
 #!/usr/bin/env node
 
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
+import {
+  parseCoreV2BrowserLaunch,
+  parseCoreV2NativeWindowsCell,
+} from './core-v2-browser-launch.mjs';
+
 const ROOT = process.cwd();
 const allRoutes = process.argv.includes('--all-routes');
+const codeCommit = process.env.CORE_V2_CODE_COMMIT ?? 'uncommitted';
+const browserLaunch = parseCoreV2BrowserLaunch(process.argv.slice(2));
+const nativeWindows = parseCoreV2NativeWindowsCell(
+  process.argv.slice(2),
+  browserLaunch,
+);
+const outputPath = process.env.CORE_V2_MANUAL_LAB_OUTPUT
+  ? path.resolve(process.env.CORE_V2_MANUAL_LAB_OUTPUT)
+  : null;
 const catalogPath = path.join(
   ROOT,
   'docs/reference/core-v2-functional-contract/evidence/catalog-fixtures.v1.json',
@@ -32,6 +46,7 @@ let server;
 let browser;
 let context;
 let page;
+let browserVersion = null;
 const checks = [];
 const failures = [];
 const errors = {
@@ -49,7 +64,8 @@ try {
   await server.listen();
   const baseUrl = server.resolvedUrls?.local?.[0];
   if (!baseUrl) throw new Error('Core v2 manual Lab server has no URL');
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch(browserLaunch.launchOptions);
+  browserVersion = browser.version();
   context = await browser.newContext({
     viewport: { width: 1_440, height: 1_000 },
     deviceScaleFactor: 1,
@@ -310,8 +326,18 @@ try {
 
 const report = {
   revision: 'core-v2-manual-lab-browser/1',
+  codeCommit,
   mode: allRoutes ? 'all-routes' : 'representative',
   routeCount: routeCases.length,
+  environment: {
+    platform: process.platform,
+    architecture: process.arch,
+    headed: browserLaunch.headed,
+    browserTarget: browserLaunch.target,
+    browserVersion,
+    windowsNative: nativeWindows.evidenceStatus,
+    nativeCellId: nativeWindows.cellId,
+  },
   checks,
   failures,
   errors,
@@ -319,6 +345,7 @@ const report = {
 const output = allRoutes
   ? {
       revision: report.revision,
+      codeCommit: report.codeCommit,
       mode: report.mode,
       routeCount: report.routeCount,
       checkCount: checks.length,
@@ -326,8 +353,13 @@ const output = allRoutes
       failedCheckCount: failures.length,
       failures,
       errors,
+      environment: report.environment,
     }
   : report;
+if (outputPath) {
+  await mkdir(path.dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, `${JSON.stringify(output, null, 2)}\n`, 'utf8');
+}
 console.log(JSON.stringify(output, null, 2));
 if (failures.length > 0) process.exitCode = 1;
 
