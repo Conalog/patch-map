@@ -37,11 +37,12 @@ release evidence without changing approved expected observations.
   remains. Every case has shared product execution, independent comparison,
   and the same focused Lab shell; `DAT-008` is the intentional exception to a
   terminal actual.
-- The latest interaction checkpoint is green across 146 Core v2 files/1,403
-  tests, including targeted provenance and adaptive-culling regressions. Full
-  lint/typecheck, Core v2 and Lab builds, canonical contract verification, 31
-  product browser checks, and all 189 human-Lab checks across 173 routes pass
-  with zero console/page/network errors.
+- The latest release-qualification checkpoint is green across 147 Core v2
+  files/1,408 tests, including targeted provenance, adaptive-culling, and
+  exact-browser launch regressions. Full lint/typecheck, canonical contract
+  verification, 31 product browser checks, and all 189 human-Lab checks across
+  173 routes pass with zero console/page/network errors. The unchanged Core v2
+  and Lab build proof remains the latest product-build checkpoint.
 - Packed ESM/CJS/types and all 38 journeys pass against artifact
   `c762337093139d7b42a089a5f8cdc83f0b6705a4e70d090f2755cb0c2253c966`;
   four examples execute, audit/package hygiene pass, and canvas cleanup is
@@ -54,8 +55,8 @@ release evidence without changing approved expected observations.
 - Preserved Chromium 4x evidence has 18 runs/162 raw trials. Median
   2,000-record bar/text/10% bulk improves 45–66%, 5,000-record
   move/rotate/10% bulk improves 64–75%, and whole-scene bulk improves 21%;
-  edge auto-pan regresses 23%. Headed assistive-technology evidence, native
-  Windows Chrome/Edge, and WebGPU remain pending.
+  edge auto-pan regresses 23%. Headed assistive-technology evidence and native
+  Windows Chrome/Edge remain pending.
 - A persistent human-operated WebGL2 workbench now maps all 173 cases and 646
   approved actions to shared Selection, Transformer, History, Viewport,
   Animation, Data, Authoring, Assets, Lifecycle, Accessibility, and
@@ -96,13 +97,33 @@ release evidence without changing approved expected observations.
   remain explicitly classified as expensive one-shot operations. Chromium 4x
   animation-pan remains above a 16.7 ms native-frame target and requires native
   Windows qualification.
+- The separately labeled experimental WebGPU checkpoint activates PixiJS
+  `webgpu` without WebGL fallback on Chromium 143 and Apple Metal 3. It passes
+  18/18 checks over 5,000 source records/25,499 render entities: direct load,
+  immutability, prepare, asset load/unload, visible all-bar animation, seeded
+  text, transformed root hit, wheel/pan, PNG extraction, resize, destroy,
+  re-init, final zero-canvas cleanup, and zero console/page/network errors.
+  This result does not replace the WebGL2 production baseline.
+- The release-readiness verifier hashes eight local candidate artifacts and
+  reports local status `pass`. Shared launch options now support headless
+  Playwright Chromium by default plus exact headed `chrome`, `msedge`, or
+  executable-path cells; `--native-windows` refuses non-Windows, unheaded,
+  unpinned, or unnamed runs. Strict promotion remains
+  `pending-external-evidence` until the eight Windows 10/11 browser cells,
+  headed NVDA and real input-device traces, target N100 2+7 performance and
+  ten-cycle lifecycle evidence, packed non-mock production-host journeys,
+  canary/rollback rehearsal, security evidence, and independent review are
+  digest-bound.
 
 # Next Step
 
 Use the persistent manual Lab for product-owner dogfooding, then run the
 release-owned headed Windows Chrome/Edge plus NVDA and native performance
-matrix. Adjudicate the 14 proxy deficits and declared contract conflicts
-without changing immutable expected evidence.
+matrix through the exact-browser qualification commands. Bind the real
+production-host 38-journey, security, canary/rollback, and independent-review
+artifacts, then run the strict release-readiness verifier. Adjudicate the 14
+proxy deficits and declared contract conflicts without changing immutable
+expected evidence.
 
 # Working Boundary
 
