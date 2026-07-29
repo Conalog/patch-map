@@ -48,6 +48,10 @@
   human Lab zoom floors to 2.5%. At 10,000 records, whole-scene fit now reaches
   6.03% in the Playground and 4.33% in the manual Lab; wheel and the visible
   축소 button reach 2.5% with transformed interaction intact.
+- Manual Lab control `edd726ca465749a7b5b6ed09d4b5714e42ee9551`
+  exposes `10,000개 객체 · 탐색용` in the always-visible route controls.
+  Manual and exact dataset selectors remain separate, so exploratory loading
+  cannot alter the approved exact size corpus.
 - Full headless first/repeat/fresh execution covers 158 routes and 2,028
   assertions per session: 1,988 pass, 26 declared immutable conflicts and 14
   measured deficits, with deterministic cleanup and zero console, page,
