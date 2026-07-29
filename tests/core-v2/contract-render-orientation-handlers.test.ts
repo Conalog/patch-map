@@ -269,7 +269,7 @@ describe('Core v2 LAY-004 render-orientation actual-only handlers', () => {
       identity: { before: 'item', after: 'item' },
       item: {
         contentOrientation: 'upright',
-        screenAngle: 0,
+        screenAngle: 270,
         visibleCenter: [50, 40],
       },
     });
@@ -310,7 +310,7 @@ describe('Core v2 LAY-004 render-orientation actual-only handlers', () => {
     ]);
     for (const row of flipSweep) {
       expect(row.state).toEqual(row.transform);
-      expect((row.upright as JsonRecord).screenBasis).toEqual([1, 0, 0, 1]);
+      expect((row.upright as JsonRecord).screenBasis).toEqual([0, -1, 1, 0]);
       expect((row.upright as JsonRecord).visibleCenter).toEqual([50, 40]);
     }
 

@@ -290,7 +290,7 @@ describe('ParticleGraphicsLayer', () => {
       staticInvalidatedUploadCount: 1,
     });
     expect(particle).toMatchObject({ x: 20, y: 25 });
-    expect(particle?.rotation).toBeCloseTo(Math.PI / 2, 12);
+    expect(particle?.rotation).toBeCloseTo(Math.PI, 12);
     expect(particle?.scaleY).toBeLessThan(0);
     expect(layer.sync(store, {
       fullRebuildEpoch: 1,

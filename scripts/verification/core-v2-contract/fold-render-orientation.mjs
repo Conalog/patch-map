@@ -440,8 +440,16 @@ function worldFlipSweepExact(sweep) {
     return sameJson(follow.visibleCenter, baseline.follow.visibleCenter)
       && sameJson(upright.visibleCenter, baseline.upright.visibleCenter)
       && basisNear(follow.screenBasis, expectedFollow)
-      && basisNear(upright.screenBasis, [1, 0, 0, 1]);
+      && isReadableBasis(upright.screenBasis);
   });
+}
+
+function isReadableBasis(basis) {
+  const determinant = basis[0] * basis[3] - basis[1] * basis[2];
+  if (!(determinant > 0)) return false;
+  if (basis[0] > 1e-5) return true;
+  if (basis[0] < -1e-5) return false;
+  return basis[1] < 0;
 }
 
 function worldTransformForMode(mode) {

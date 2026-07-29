@@ -98,14 +98,39 @@ describe('Core v2 orientation renderer lanes', () => {
   });
 
   it.each([
-    { rotationDegrees: 45, flipX: false, flipY: false },
-    { rotationDegrees: 90, flipX: false, flipY: false },
-    { rotationDegrees: 45, flipX: true, flipY: false },
-    { rotationDegrees: 45, flipX: false, flipY: true },
-    { rotationDegrees: 45, flipX: true, flipY: true },
+    {
+      rotationDegrees: 45,
+      flipX: false,
+      flipY: false,
+      expectedAngle: 45,
+    },
+    {
+      rotationDegrees: 90,
+      flipX: false,
+      flipY: false,
+      expectedAngle: 270,
+    },
+    {
+      rotationDegrees: 45,
+      flipX: true,
+      flipY: false,
+      expectedAngle: 315,
+    },
+    {
+      rotationDegrees: 45,
+      flipX: false,
+      flipY: true,
+      expectedAngle: 315,
+    },
+    {
+      rotationDegrees: 45,
+      flipX: true,
+      flipY: true,
+      expectedAngle: 45,
+    },
   ])(
-    'keeps the owner-level upright content frame inside its background at $rotationDegrees° [$flipX,$flipY]',
-    ({ rotationDegrees, flipX, flipY }) => {
+    'keeps readable content inside its background at $rotationDegrees° [$flipX,$flipY]',
+    ({ rotationDegrees, flipX, flipY, expectedAngle }) => {
       const parsed = parsePatchMapV010([{
         type: 'item',
         id: 'contained-meter',
@@ -154,7 +179,7 @@ describe('Core v2 orientation renderer lanes', () => {
 
       for (let slot = 0; slot < entities.length; slot += 1) {
         const quad = resolveCoreV2SlotQuad(store, slot, context);
-        expect(quad.screenBasis).toEqual([1, 0, 0, 1]);
+        expectBasisClose(quad.screenBasis, rotationBasis(expectedAngle));
         for (let index = 0; index < quad.vertices.length; index += 2) {
           const screenPoint = applyCoreV2Affine(world, [
             quad.vertices[index] as number,
@@ -172,7 +197,38 @@ describe('Core v2 orientation renderer lanes', () => {
       const barProjection = parsed.projection.byEntityId[
         'contained-meter::bar:level'
       ];
-      expect(bar.center).not.toEqual(barProjection?.visibleCenter);
+      expect(bar.center).toEqual(barProjection?.visibleCenter);
+    },
+  );
+
+  it.each([
+    { angle: 0, expectedAngle: 0 },
+    { angle: 89, expectedAngle: 89 },
+    { angle: 90, expectedAngle: 270 },
+    { angle: 131, expectedAngle: 311 },
+    { angle: 180, expectedAngle: 0 },
+    { angle: 229, expectedAngle: 49 },
+    { angle: 269, expectedAngle: 89 },
+    { angle: 270, expectedAngle: 270 },
+    { angle: 315, expectedAngle: 315 },
+  ])(
+    'chooses the readable half-plane for an authored $angle° item',
+    ({ angle, expectedAngle }) => {
+      const parsed = parsePatchMapV010([item('readable-meter', 'upright', [{
+        type: 'text',
+        id: 'readable-label',
+        text: '42',
+        style: { fontSize: 10 },
+      }], { angle })]);
+      const entity = parsed.document.entities.find((candidate) => candidate.kind === 'text');
+      if (!entity) throw new Error('readable text entity was not projected');
+      const quad = resolveCoreV2SlotQuad(
+        createRenderStore([entity]),
+        0,
+        projectionContext(parsed.projection, 1, 0, false, false),
+      );
+
+      expectBasisClose(quad.screenBasis, rotationBasis(expectedAngle));
     },
   );
 
@@ -272,7 +328,7 @@ describe('Core v2 orientation renderer lanes', () => {
     layer.destroy();
   });
 
-  it('applies signed follow basis and upright counter-basis to Sprite/Text leaves', async () => {
+  it('applies signed follow basis and readable upright basis to Sprite/Text leaves', async () => {
     const parsed = parsePatchMapV010([
       item('follow-icon-item', 'follow-item', [{
         type: 'icon',
@@ -301,7 +357,10 @@ describe('Core v2 orientation renderer lanes', () => {
 
     expectBasisClose(displayBasis(image), resolveCoreV2SlotQuad(store, imageSlot, context).basis);
     expectBasisClose(displayBasis(text), resolveCoreV2SlotQuad(store, textSlot, context).basis);
-    expect(resolveCoreV2SlotQuad(store, textSlot, context).screenBasis).toEqual([1, 0, 0, 1]);
+    expectBasisClose(
+      resolveCoreV2SlotQuad(store, textSlot, context).screenBasis,
+      rotationBasis(270),
+    );
     expect([text.position.x, text.position.y]).toEqual(
       resolveCoreV2SlotQuad(store, textSlot, context).center,
     );
@@ -488,4 +547,11 @@ function displayBasis(object: Readonly<{
 function expectBasisClose(actual: readonly number[], expected: readonly number[]): void {
   expect(actual).toHaveLength(expected.length);
   expected.forEach((value, index) => expect(actual[index]).toBeCloseTo(value, 8));
+}
+
+function rotationBasis(angle: number): readonly number[] {
+  const radians = angle * Math.PI / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  return [cosine, sine, -sine, cosine];
 }

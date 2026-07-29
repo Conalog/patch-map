@@ -80,7 +80,10 @@ const REN_011_TEXT_CHOICES: readonly CoreV2TextInspectorChoice[] = Object.freeze
   Object.freeze({ id: 'overflow-visible', label: '넘침 표시' }),
   Object.freeze({ id: 'overflow-hidden', label: '넘침 숨김' }),
   Object.freeze({ id: 'overflow-ellipsis', label: '넘침 말줄임표' }),
-  Object.freeze({ id: 'upright', label: '회전 항목 안에서 정방향' }),
+  Object.freeze({
+    id: 'upright',
+    label: '항목 회전을 따르고 거꾸로 보일 때만 180° 보정',
+  }),
 ]);
 
 const REN_006_TEXT_FIELDS = Object.freeze([

@@ -58,7 +58,6 @@ import type {
   RootPointerInput,
 } from './types';
 import {
-  createCoreV2UprightFrameCache,
   createCoreV2WorldAffine,
   resolveCoreV2SlotQuad,
   type CoreV2ProjectionRenderContext,
@@ -231,7 +230,6 @@ export class PixiCoreV2Renderer implements CoreRenderer {
   private relationSlots = new Set<number>();
   private relationEndpointsBySlot: ReadonlyMap<number, readonly [number, number]> = new Map();
   private projectionRevision = 0;
-  private readonly uprightFrameCache = createCoreV2UprightFrameCache();
   private textProjectionSynchronizedRevision = -1;
   private lastRenderedTextProjectionRevision: number | null = null;
   private lastRenderedTextStoreRevision: number | null = null;
@@ -1511,9 +1509,6 @@ export class PixiCoreV2Renderer implements CoreRenderer {
     this.textEntityIdBySlot.clear();
     this.textVisibilityByEntityId.clear();
     this.staleProjectionEntityIds = new Set();
-    this.uprightFrameCache.frames.clear();
-    this.uprightFrameCache.index = null;
-    this.uprightFrameCache.revision = -1;
     this.textProjectionSynchronizedRevision = -1;
     this.lastRenderedTextProjectionRevision = null;
     this.lastRenderedTextStoreRevision = null;
@@ -1864,7 +1859,6 @@ export class PixiCoreV2Renderer implements CoreRenderer {
       revision: this.projectionRevision,
       world: this.worldOrientation,
       staleEntityIds: this.staleProjectionEntityIds,
-      uprightFrameCache: this.uprightFrameCache,
     });
   }
 

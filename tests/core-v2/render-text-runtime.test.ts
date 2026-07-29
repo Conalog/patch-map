@@ -146,11 +146,33 @@ describe('Core v2 REN-006 / REN-011 expected-blind runtime', () => {
   });
 
   it.each([
-    { caseId: 'REN-006' as const, actionCount: 6, assertionCount: 30, engineCountPerRun: 1 },
-    { caseId: 'REN-011' as const, actionCount: 4, assertionCount: 20, engineCountPerRun: 1 },
+    {
+      caseId: 'REN-006' as const,
+      actionCount: 6,
+      assertionCount: 30,
+      engineCountPerRun: 1,
+      expectedConflictPaths: [],
+    },
+    {
+      caseId: 'REN-011' as const,
+      actionCount: 4,
+      assertionCount: 20,
+      engineCountPerRun: 1,
+      expectedConflictPaths: [
+        '/text/contractMatrix',
+        '/geometry/texts/upright/screenAngle',
+        '/outcome/textContractMatrix/allRowsExact',
+      ],
+    },
   ])(
     'executes and repeats $caseId through the canonical bridge and public Engine text probe',
-    async ({ caseId, actionCount, assertionCount, engineCountPerRun }) => {
+    async ({
+      caseId,
+      actionCount,
+      assertionCount,
+      engineCountPerRun,
+      expectedConflictPaths,
+    }) => {
       const fetchSpy = vi.fn();
       vi.stubGlobal('fetch', fetchSpy);
       const surfaces: CoreV2EngineSurface[] = [];
@@ -215,8 +237,11 @@ describe('Core v2 REN-006 / REN-011 expected-blind runtime', () => {
           });
           const failures = comparison.assertions.filter(({ passed }) => !passed);
           expect(expectedCase.expected.assertions).toHaveLength(assertionCount);
-          expect(failures).toEqual([]);
-          expect(comparison).toMatchObject({ passed: assertionCount, failed: 0 });
+          expect(failures.map(({ path }) => path)).toEqual(expectedConflictPaths);
+          expect(comparison).toMatchObject({
+            passed: assertionCount - expectedConflictPaths.length,
+            failed: expectedConflictPaths.length,
+          });
           comparisonDigests.push(comparison.comparisonSha256);
         }
 

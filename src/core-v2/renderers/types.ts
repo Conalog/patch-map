@@ -9,12 +9,10 @@ import type {
 } from '../semantic/text-render-route';
 import {
   freezeCoreV2Affine,
-  resolveCoreV2UprightOwnerFrame,
-  writeCoreV2UprightRect,
+  writeCoreV2ReadableRect,
   type CoreV2AffineBasis,
   type CoreV2AffineMatrix,
   type CoreV2PointTuple,
-  type CoreV2UprightOwnerFrame,
 } from '../semantic/geometry';
 
 export type CoreV2RendererStrategy = 'mesh' | 'particle';
@@ -137,28 +135,6 @@ export interface CoreV2ProjectionRenderContext {
    * until JSON reconciliation publishes a current projection again.
    */
   readonly staleEntityIds?: ReadonlySet<string>;
-  /** Renderer-owned cache; cleared whenever projection/world identity changes. */
-  readonly uprightFrameCache?: CoreV2UprightFrameCache;
-}
-
-export interface CoreV2UprightFrameCache {
-  revision: number;
-  index: CoreV2ProjectionIndex | null;
-  rotationDegrees: number;
-  flipX: boolean;
-  flipY: boolean;
-  readonly frames: Map<string, CoreV2UprightOwnerFrame | null>;
-}
-
-export function createCoreV2UprightFrameCache(): CoreV2UprightFrameCache {
-  return {
-    revision: -1,
-    index: null,
-    rotationDegrees: Number.NaN,
-    flipX: false,
-    flipY: false,
-    frames: new Map(),
-  };
 }
 
 export type CoreV2QuadVertices = readonly [
@@ -175,7 +151,7 @@ export type CoreV2QuadVertices = readonly [
 export interface CoreV2ResolvedRenderQuad {
   readonly entityId: string;
   readonly projection: CoreV2EntityProjection | null;
-  /** Scene-space center after any owner-level upright content-frame mapping. */
+  /** Scene-space center after any readable-orientation partial-width offset. */
   readonly center: CoreV2PointTuple;
   /** Scene-space basis consumed by Pixi objects before the world container. */
   readonly basis: CoreV2AffineBasis;
@@ -423,7 +399,6 @@ export function writeCoreV2SlotQuad(
       worldB,
       worldC,
       worldD,
-      context,
     );
     return output;
   }
@@ -468,7 +443,6 @@ function writeProjectedQuad(
   worldB: number,
   worldC: number,
   worldD: number,
-  context?: CoreV2ProjectionRenderContext,
 ): void {
   const [localX, localY, localWidth, localHeight] = projection.localBounds;
   const [a, b, c, d, tx, ty] = projection.affine;
@@ -477,51 +451,25 @@ function writeProjectedQuad(
   const width = localWidth * fraction * xScale;
   const height = localHeight * yScale;
   if (projection.contentOrientation === 'upright') {
-    const ownerId = projection.ownerItemId;
-    let ownerFrame: CoreV2UprightOwnerFrame | null = null;
-    if (
-      ownerId !== undefined &&
-      context !== undefined &&
-      context.staleEntityIds?.has(ownerId) !== true
-    ) {
-      const owner = context.index.byEntityId[ownerId];
-      if (owner !== undefined) ownerFrame = uprightOwnerFrame(context, ownerId, owner);
-    }
-    if (ownerFrame !== null) {
-      writeCoreV2UprightRect(output, projection, ownerFrame, fraction);
-      writeQuadValues(
-        output,
-        output.center[0],
-        output.center[1],
-        output.basis[0],
-        output.basis[1],
-        output.basis[2],
-        output.basis[3],
-        output.width,
-        output.height,
-        worldA,
-        worldB,
-        worldC,
-        worldD,
-      );
-      return;
-    }
-    const determinant = worldA * worldD - worldB * worldC;
-    const basisA = worldD / determinant;
-    const basisB = -worldB / determinant;
-    const basisC = -worldC / determinant;
-    const basisD = worldA / determinant;
-    const centerOffset = (localWidth * fraction - localWidth) * xScale / 2;
+    writeCoreV2ReadableRect(
+      output,
+      projection,
+      worldA,
+      worldB,
+      worldC,
+      worldD,
+      fraction,
+    );
     writeQuadValues(
       output,
-      projection.visibleCenter[0] + basisA * centerOffset,
-      projection.visibleCenter[1] + basisB * centerOffset,
-      basisA,
-      basisB,
-      basisC,
-      basisD,
-      width,
-      height,
+      output.center[0],
+      output.center[1],
+      output.basis[0],
+      output.basis[1],
+      output.basis[2],
+      output.basis[3],
+      output.width,
+      output.height,
       worldA,
       worldB,
       worldC,
@@ -563,45 +511,6 @@ function writeProjectedQuad(
   vertices[5] = bottomRightY;
   vertices[6] = bottomLeftX;
   vertices[7] = bottomLeftY;
-}
-
-function uprightOwnerFrame(
-  context: CoreV2ProjectionRenderContext,
-  ownerId: string,
-  owner: CoreV2EntityProjection,
-): CoreV2UprightOwnerFrame | null {
-  const cache = context.uprightFrameCache;
-  if (cache === undefined) {
-    return resolveCoreV2UprightOwnerFrame(
-      owner,
-      createCoreV2WorldAffine(context.world),
-      context.world.flipX,
-      context.world.flipY,
-    );
-  }
-  if (
-    cache.revision !== context.revision ||
-    cache.index !== context.index ||
-    cache.rotationDegrees !== context.world.rotationDegrees ||
-    cache.flipX !== context.world.flipX ||
-    cache.flipY !== context.world.flipY
-  ) {
-    cache.frames.clear();
-    cache.revision = context.revision;
-    cache.index = context.index;
-    cache.rotationDegrees = context.world.rotationDegrees;
-    cache.flipX = context.world.flipX;
-    cache.flipY = context.world.flipY;
-  }
-  if (cache.frames.has(ownerId)) return cache.frames.get(ownerId) ?? null;
-  const frame = resolveCoreV2UprightOwnerFrame(
-    owner,
-    createCoreV2WorldAffine(context.world),
-    context.world.flipX,
-    context.world.flipY,
-  );
-  cache.frames.set(ownerId, frame);
-  return frame;
 }
 
 function writeQuadValues(

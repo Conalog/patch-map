@@ -200,7 +200,8 @@ describe('Core v2 REN-006 / REN-011 focused text Lab UI', () => {
     expect(source).toContain('assertTextFocusedUi(caseSpec.id, run.ui, runLabel)');
     expect(source).toContain("choices.rapid['intermediate-publication-count'] === '0'");
     expect(source).toContain("choices.placed['local-bounds'] === '[219,135,16,20]'");
-    expect(source).toContain("choices.upright['screen-angle'] === '0'");
+    expect(source).toContain("choices.upright['screen-angle'] === '37'");
+    expect(source).toContain("facts['all-rows-exact'] === 'false'");
   });
 });
 

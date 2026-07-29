@@ -213,18 +213,18 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(records).toHaveLength(158);
     expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(2_028);
     expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 2_028;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_993;');
-    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_988;');
+    expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 26;');
     expect(source).toContain('const EXPECTED_PERFORMANCE_DEFICIT_TOTAL = 14;');
-    expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;');
+    expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 28;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 1993 pass, 21 immutable conflicts, and 14 performance deficits'",
+      "'canonical comparison must be exactly 1988 pass, 26 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 1993 pass, 21 immutable conflicts, and 14 performance deficits'",
+      "'repeat comparison must be exactly 1988 pass, 26 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 1993 pass, 21 immutable conflicts, and 14 performance deficits'",
+      "'fresh comparison must be exactly 1988 pass, 26 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
@@ -376,8 +376,8 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('comparison.failed === expectedFailures.length');
     expect(source).toContain('sameJson(comparisonFailures(comparison), expectedFailures)');
     expect(source).toContain('latentConflicts: UPD_007_LATENT_IMMUTABLE_CONFLICTS');
-    expect(source).toContain("'render checkpoint observed immutable conflict inventory must remain 21'");
-    expect(source).toContain("'render checkpoint declared immutable conflict inventory must remain 23'");
+    expect(source).toContain("'render checkpoint observed immutable conflict inventory must remain 26'");
+    expect(source).toContain("'render checkpoint declared immutable conflict inventory must remain 28'");
     expect(source).toContain('latentCases: selectedRenderCases');
     expect(source).toContain(".filter((record) => (record.latentConflicts?.length ?? 0) > 0)");
     expect(source).toContain("import { inspectCoreV2UpdateConflictActuals } from './core-v2-contract/update-conflict-actuals.mjs';");
@@ -414,7 +414,7 @@ describe('Core v2 render browser checkpoint script', () => {
       "'render checkpoint measured performance deficit inventory must remain 14'",
     );
     expect(source).toContain(
-      "'render checkpoint passing assertion inventory must remain 1993'",
+      "'render checkpoint passing assertion inventory must remain 1988'",
     );
   });
 

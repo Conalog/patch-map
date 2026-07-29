@@ -71,8 +71,11 @@ describe('Core v2 signed affine orientation projection', () => {
       componentType: 'text',
       contentOrientation: 'upright',
       visibleCenter: [50, 40],
-      screenAngle: 0,
-      screenBasis: [1, 0, 0, 1],
+      screenAngle: 270,
+    });
+    const uprightBasis = [0, -1, 1, 0];
+    uprightBasis.forEach((value, index) => {
+      expect(upright?.screenBasis?.[index]).toBeCloseTo(value, 8);
     });
   });
 
@@ -142,7 +145,7 @@ describe('Core v2 signed affine orientation projection', () => {
     });
   });
 
-  it('publishes the owner-fitted upright bar geometry instead of its rotated leaf center', () => {
+  it('publishes readable bar geometry at its authored center without leaving its owner', () => {
     const parsed = parsePatchMapV010([{
       type: 'item',
       id: 'meter',
@@ -182,20 +185,18 @@ describe('Core v2 signed affine orientation projection', () => {
     );
     const [x, y, width, height] = bar.screenBounds;
 
-    expect(bar.screenBasis).toEqual([1, 0, 0, 1]);
-    expect(bar.visibleCenter).not.toEqual(projection.visibleCenter);
-    for (const screenPoint of [
-      [x, y],
-      [x + width, y],
-      [x + width, y + height],
-      [x, y + height],
-    ] as const) {
-      const local = applyCoreV2Affine(ownerScreenInverse, screenPoint);
-      expect(local[0]).toBeGreaterThanOrEqual(-1e-8);
-      expect(local[0]).toBeLessThanOrEqual(120 + 1e-8);
-      expect(local[1]).toBeGreaterThanOrEqual(-1e-8);
-      expect(local[1]).toBeLessThanOrEqual(80 + 1e-8);
-    }
+    expect(bar.visibleCenter).toEqual(projection.visibleCenter);
+    expect(bar.screenAngle).toBe(45);
+    [Math.SQRT1_2, Math.SQRT1_2, -Math.SQRT1_2, Math.SQRT1_2].forEach(
+      (value, index) => expect(bar.screenBasis?.[index]).toBeCloseTo(value, 8),
+    );
+    expect([x, y, width, height].every(Number.isFinite)).toBe(true);
+    const screenCenter = [x + width / 2, y + height / 2] as const;
+    const ownerLocalCenter = applyCoreV2Affine(ownerScreenInverse, screenCenter);
+    expect(ownerLocalCenter[0]).toBeGreaterThanOrEqual(0);
+    expect(ownerLocalCenter[0]).toBeLessThanOrEqual(120);
+    expect(ownerLocalCenter[1]).toBeGreaterThanOrEqual(0);
+    expect(ownerLocalCenter[1]).toBeLessThanOrEqual(80);
   });
 });
 

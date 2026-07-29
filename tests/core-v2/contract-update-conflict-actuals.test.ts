@@ -14,10 +14,25 @@ const {
   ) => readonly Readonly<Record<string, unknown>>[];
 };
 
-describe('Core v2 update immutable-conflict actual pins', () => {
-  it('accepts only the exact product diagnostics and revisions already disclosed', () => {
+describe('Core v2 immutable-conflict actual pins', () => {
+  it('accepts only the exact product diagnostics, revisions, and readable orientations disclosed', () => {
     expect(CORE_V2_UPDATE_CONFLICT_ACTUALS_REVISION)
-      .toBe('core-v2-update-conflict-actuals/1');
+      .toBe('core-v2-update-conflict-actuals/2');
+    expect(inspectCoreV2UpdateConflictActuals('LAY-004', {
+      text: { upright: { screenAngle: { at90: 270 } } },
+      geometry: {
+        orientationMatrix: Array.from({ length: 10 }, () => ({})).concat({
+          screenBasis: [0.390731, 0.920505, -0.920505, 0.390731],
+        }),
+      },
+    })).toEqual([]);
+    expect(inspectCoreV2UpdateConflictActuals('REN-011', {
+      text: { contractMatrix: Array.from({ length: 6 }, () => ({})).concat({
+        screenAngle: 37,
+      }) },
+      geometry: { texts: { upright: { screenAngle: 37 } } },
+      outcome: { textContractMatrix: { allRowsExact: false } },
+    })).toEqual([]);
     expect(inspectCoreV2UpdateConflictActuals('UPD-003', {
       outcome: { invalidCrossScope: { code: 'INVALID_RECORD_KIND' } },
     })).toEqual([]);
@@ -30,6 +45,26 @@ describe('Core v2 update immutable-conflict actual pins', () => {
   });
 
   it('rejects arbitrary replacement diagnostics and revision-domain drift', () => {
+    expect(inspectCoreV2UpdateConflictActuals('LAY-004', {
+      text: { upright: { screenAngle: { at90: 0 } } },
+      geometry: { orientationMatrix: [] },
+    })).toEqual([
+      expect.objectContaining({
+        path: '/text/upright/screenAngle/at90',
+        expectedActual: 270,
+        observedActual: 0,
+        status: 'value-mismatch',
+      }),
+      expect.objectContaining({
+        path: '/geometry/orientationMatrix/10/screenBasis',
+        status: 'unresolved',
+      }),
+    ]);
+    expect(inspectCoreV2UpdateConflictActuals('REN-011', {
+      text: { contractMatrix: Array.from({ length: 7 }, () => ({ screenAngle: 0 })) },
+      geometry: { texts: { upright: { screenAngle: 0 } } },
+      outcome: { textContractMatrix: { allRowsExact: true } },
+    })).toHaveLength(3);
     expect(inspectCoreV2UpdateConflictActuals('UPD-003', {
       outcome: { invalidCrossScope: { code: 'ARBITRARY_DIAGNOSTIC' } },
     })).toEqual([

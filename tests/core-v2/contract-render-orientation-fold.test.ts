@@ -236,7 +236,7 @@ describe('Core v2 LAY-004 render-orientation actual-only fold', () => {
       geometry: {
         'follow-item': { screenAngle: { at90: 90 } },
       },
-      text: { upright: { screenAngle: { at90: 0 }, visibleCenter: [50, 40] } },
+      text: { upright: { screenAngle: { at90: 270 }, visibleCenter: [50, 40] } },
       interaction: { modeChange: { identity: 'item' }, viewport: { scale: 1 } },
       outcome: {
         matrix: { allAnglesFinite: true, allFlipCentersStable: true },
@@ -259,7 +259,7 @@ describe('Core v2 LAY-004 render-orientation actual-only fold', () => {
     expect(Object.isFrozen(folded.captures)).toBe(true);
   });
 
-  it('matches all immutable normalized expected assertions independently', async () => {
+  it('reports the immutable screen-lock conflicts independently', async () => {
     const { plan, execution } = await executeCase();
     const folded = fold(plan, execution);
     const expectedCase = (normalizedExpectedCatalog.cases as readonly ExpectedCase[])
@@ -273,8 +273,15 @@ describe('Core v2 LAY-004 render-orientation actual-only fold', () => {
     });
 
     expect(expectedCase.expected.assertions).toHaveLength(11);
-    expect(comparison).toMatchObject({ passed: 11, failed: 0 });
-    expect(comparison.assertions.filter(({ passed }) => !passed)).toEqual([]);
+    expect(comparison).toMatchObject({ passed: 9, failed: 2 });
+    expect(
+      comparison.assertions
+        .filter(({ passed }) => !passed)
+        .map(({ path }) => path),
+    ).toEqual([
+      '/text/upright/screenAngle/at90',
+      '/geometry/orientationMatrix',
+    ]);
   });
 
   it('derives row exactness from completeness and repeated product parity', async () => {

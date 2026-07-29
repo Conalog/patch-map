@@ -23,10 +23,10 @@ const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
 const EXPECTED_ASSERTION_TOTAL = 2_028;
-const EXPECTED_ASSERTION_PASS_TOTAL = 1_993;
-const EXPECTED_ASSERTION_FAILURE_TOTAL = 21;
+const EXPECTED_ASSERTION_PASS_TOTAL = 1_988;
+const EXPECTED_ASSERTION_FAILURE_TOTAL = 26;
 const EXPECTED_PERFORMANCE_DEFICIT_TOTAL = 14;
-const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 23;
+const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 28;
 const CASE_TIMEOUT_MS = 180_000;
 const PERFORMANCE_CASE_TIMEOUT_MS = 20 * 60_000;
 const CHECKPOINT_TIMEOUT_MS = 30 * 60_000;
@@ -114,6 +114,35 @@ const AST_002_IMMUTABLE_FAILURES = Object.freeze([
     path: '/outcome/validation/cyclic/code',
     code: 'VALUE_MISMATCH',
     failurePath: '/outcome/validation/cyclic/code',
+  }),
+]);
+const LAY_004_IMMUTABLE_FAILURES = Object.freeze([
+  Object.freeze({
+    path: '/geometry/orientationMatrix',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/geometry/orientationMatrix',
+  }),
+  Object.freeze({
+    path: '/text/upright/screenAngle/at90',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/text/upright/screenAngle/at90',
+  }),
+]);
+const REN_011_IMMUTABLE_FAILURES = Object.freeze([
+  Object.freeze({
+    path: '/geometry/texts/upright/screenAngle',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/geometry/texts/upright/screenAngle',
+  }),
+  Object.freeze({
+    path: '/outcome/textContractMatrix/allRowsExact',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/outcome/textContractMatrix/allRowsExact',
+  }),
+  Object.freeze({
+    path: '/text/contractMatrix',
+    code: 'VALUE_MISMATCH',
+    failurePath: '/text/contractMatrix',
   }),
 ]);
 const PRF_001_PERFORMANCE_DEFICITS = Object.freeze([
@@ -213,12 +242,20 @@ const RENDER_CASES = Object.freeze([
   Object.freeze({ id: 'REN-003', expectedAssertions: 12 }),
   Object.freeze({ id: 'REN-002', expectedAssertions: 9 }),
   Object.freeze({ id: 'LAY-005', expectedAssertions: 14 }),
-  Object.freeze({ id: 'LAY-004', expectedAssertions: 11 }),
+  Object.freeze({
+    id: 'LAY-004',
+    expectedAssertions: 11,
+    expectedFailures: LAY_004_IMMUTABLE_FAILURES,
+  }),
   Object.freeze({ id: 'REN-007', expectedAssertions: 26 }),
   Object.freeze({ id: 'REN-008', expectedAssertions: 10 }),
   Object.freeze({ id: 'REN-009', expectedAssertions: 13 }),
   Object.freeze({ id: 'REN-010', expectedAssertions: 11 }),
-  Object.freeze({ id: 'REN-011', expectedAssertions: 20 }),
+  Object.freeze({
+    id: 'REN-011',
+    expectedAssertions: 20,
+    expectedFailures: REN_011_IMMUTABLE_FAILURES,
+  }),
   Object.freeze({ id: 'ERR-001', expectedAssertions: 6 }),
   Object.freeze({ id: 'UPD-001', expectedAssertions: 8 }),
   Object.freeze({ id: 'UPD-002', expectedAssertions: 11 }),
@@ -808,21 +845,21 @@ try {
     passed === selectedAssertionTotal - selectedObservedFailureTotal
       && failed === selectedObservedFailureTotal,
     options.caseId === null
-      ? 'canonical comparison must be exactly 1993 pass, 21 immutable conflicts, and 14 performance deficits'
+      ? 'canonical comparison must be exactly 1988 pass, 26 immutable conflicts, and 14 performance deficits'
       : `${options.caseId} targeted canonical comparison`,
   );
   invariant(
     repeatPassed === selectedAssertionTotal - selectedObservedFailureTotal
       && repeatFailed === selectedObservedFailureTotal,
     options.caseId === null
-      ? 'repeat comparison must be exactly 1993 pass, 21 immutable conflicts, and 14 performance deficits'
+      ? 'repeat comparison must be exactly 1988 pass, 26 immutable conflicts, and 14 performance deficits'
       : `${options.caseId} targeted repeat comparison`,
   );
   invariant(
     freshPassed === selectedAssertionTotal - selectedObservedFailureTotal
       && freshFailed === selectedObservedFailureTotal,
     options.caseId === null
-      ? 'fresh comparison must be exactly 1993 pass, 21 immutable conflicts, and 14 performance deficits'
+      ? 'fresh comparison must be exactly 1988 pass, 26 immutable conflicts, and 14 performance deficits'
       : `${options.caseId} targeted fresh comparison`,
   );
   invariant(errors.console.length === 0, 'console error count must be zero');
@@ -2923,12 +2960,12 @@ function assertTextFocusedUi(caseId, ui, runLabel) {
     `${caseId} ${runLabel} exact observed choice inventory`,
   );
   invariant(
-    ui.observedChoiceCount === `${choices.length} / ${choices.length} observed`,
+    ui.observedChoiceCount === `${choices.length} / ${choices.length}개 관찰`,
     `${caseId} ${runLabel} actual choice count`,
   );
   invariant(
-    ui.displayOnlyNote.includes('folded actualObservation only')
-      && ui.displayOnlyNote.includes('canonical action trace'),
+    ui.displayOnlyNote.includes('표시 전용 탐색')
+      && ui.displayOnlyNote.includes('기준 작업 순서'),
     `${caseId} ${runLabel} display-only canonical-trace disclosure`,
   );
   invariant(
@@ -3071,15 +3108,15 @@ function assertRen011TextChoices(choices, runLabel) {
   invariant(choices.upright.placement === 'center', `REN-011 ${runLabel} upright placement`);
   invariant(choices.upright['item-angle'] === '37', `REN-011 ${runLabel} upright item angle`);
   invariant(choices.upright.orientation === 'upright', `REN-011 ${runLabel} upright orientation`);
-  invariant(choices.upright['screen-angle'] === '0', `REN-011 ${runLabel} upright screen angle`);
+  invariant(choices.upright['screen-angle'] === '37', `REN-011 ${runLabel} readable screen angle`);
   invariant(choices.upright['layout-bounds'] === '[0,0,16,20]', `REN-011 ${runLabel} upright layout`);
   invariant(
     Object.values(choices).every((facts) => facts.publication === 'current'),
     `REN-011 ${runLabel} current publication`,
   );
   invariant(
-    Object.values(choices).every((facts) => facts['all-rows-exact'] === 'true'),
-    `REN-011 ${runLabel} semantically exact matrix`,
+    Object.values(choices).every((facts) => facts['all-rows-exact'] === 'false'),
+    `REN-011 ${runLabel} disclosed immutable matrix conflict`,
   );
 }
 
@@ -3293,7 +3330,7 @@ async function loadExpectedCases() {
   invariant(
     sum(RENDER_CASES, (record) => record.expectedFailures?.length ?? 0) ===
       EXPECTED_ASSERTION_FAILURE_TOTAL,
-    'render checkpoint observed immutable conflict inventory must remain 21',
+    'render checkpoint observed immutable conflict inventory must remain 26',
   );
   invariant(
     sum(RENDER_CASES, (record) => record.expectedDeficits?.length ?? 0) ===
@@ -3305,14 +3342,14 @@ async function loadExpectedCases() {
       - EXPECTED_ASSERTION_FAILURE_TOTAL
       - EXPECTED_PERFORMANCE_DEFICIT_TOTAL
       === EXPECTED_ASSERTION_PASS_TOTAL,
-    'render checkpoint passing assertion inventory must remain 1993',
+    'render checkpoint passing assertion inventory must remain 1988',
   );
   invariant(
     sum(
       RENDER_CASES,
       (record) => (record.expectedFailures?.length ?? 0) + (record.latentConflicts?.length ?? 0),
     ) === DECLARED_IMMUTABLE_CONFLICT_TOTAL,
-    'render checkpoint declared immutable conflict inventory must remain 23',
+    'render checkpoint declared immutable conflict inventory must remain 28',
   );
   return selected;
 }

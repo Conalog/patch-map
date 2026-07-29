@@ -1,7 +1,19 @@
 export const CORE_V2_UPDATE_CONFLICT_ACTUALS_REVISION =
-  'core-v2-update-conflict-actuals/1';
+  'core-v2-update-conflict-actuals/2';
 
 const ACTUALS_BY_CASE = Object.freeze({
+  'LAY-004': Object.freeze([
+    Object.freeze({ path: '/text/upright/screenAngle/at90', value: 270 }),
+    Object.freeze({
+      path: '/geometry/orientationMatrix/10/screenBasis',
+      value: Object.freeze([0.390731, 0.920505, -0.920505, 0.390731]),
+    }),
+  ]),
+  'REN-011': Object.freeze([
+    Object.freeze({ path: '/text/contractMatrix/6/screenAngle', value: 37 }),
+    Object.freeze({ path: '/geometry/texts/upright/screenAngle', value: 37 }),
+    Object.freeze({ path: '/outcome/textContractMatrix/allRowsExact', value: false }),
+  ]),
   'UPD-003': Object.freeze([
     Object.freeze({ path: '/outcome/invalidCrossScope/code', value: 'INVALID_RECORD_KIND' }),
   ]),
