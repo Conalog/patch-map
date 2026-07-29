@@ -18,6 +18,7 @@ import {
   multiplyCoreV2Affine,
 } from '../../src/core-v2/semantic/geometry';
 import {
+  createCoreV2ProjectionQuadCache,
   createCoreV2WorldAffine,
   createCoreV2ResolvedRenderQuadScratch,
   resolveCoreV2SlotQuad,
@@ -26,6 +27,44 @@ import {
 } from '../../src/core-v2/renderers/types';
 
 describe('Core v2 orientation renderer lanes', () => {
+  it('caches readable bases across animation frames and invalidates on world revision', () => {
+    const parsed = parsePatchMapV010([item('cache-meter', 'upright', [{
+      type: 'bar',
+      id: 'cache-level',
+      size: { width: 18, height: 6 },
+      source: { type: 'rect', fill: '#223344' },
+    }], { angle: 37 })]);
+    const entity = parsed.document.entities.find((candidate) => candidate.kind === 'bar');
+    if (!entity) throw new Error('cache bar entity was not projected');
+    const store = createRenderStore([entity]);
+    const cache = createCoreV2ProjectionQuadCache();
+    const initialContext = Object.freeze({
+      ...projectionContext(parsed.projection, 1, 0, false, false),
+      quadCache: cache,
+    });
+    const scratch = createCoreV2ResolvedRenderQuadScratch();
+
+    writeCoreV2SlotQuad(scratch, store, 0, initialContext, 0.25);
+    const initialFrame = cache.readableFrames.get(entity.id);
+    expect(initialFrame).toBeDefined();
+    expect(cache.readableFrames.size).toBe(1);
+    expect(cache.worldA).toBe(1);
+    expect(cache.worldD).toBe(1);
+
+    writeCoreV2SlotQuad(scratch, store, 0, initialContext, 0.75);
+    expect(cache.readableFrames.get(entity.id)).toBe(initialFrame);
+    expect(scratch.width).toBeCloseTo((initialFrame?.fullWidth ?? 0) * 0.75, 8);
+
+    const rotatedContext = Object.freeze({
+      ...projectionContext(parsed.projection, 2, 90, false, false),
+      quadCache: cache,
+    });
+    writeCoreV2SlotQuad(scratch, store, 0, rotatedContext, 0.75);
+    expect(cache.readableFrames.size).toBe(1);
+    expect(cache.readableFrames.get(entity.id)).not.toBe(initialFrame);
+    expectBasisClose(scratch.screenBasis, rotationBasis(307));
+  });
+
   it('reuses one numeric quad target across animated width writes', () => {
     const parsed = parsePatchMapV010([item('scratch-meter', 'follow-item', [{
       type: 'bar',

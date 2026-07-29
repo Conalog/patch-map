@@ -135,6 +135,51 @@ export interface CoreV2ProjectionRenderContext {
    * until JSON reconciliation publishes a current projection again.
    */
   readonly staleEntityIds?: ReadonlySet<string>;
+  /** Renderer-owned world/readable basis cache, invalidated by identity or world changes. */
+  readonly quadCache?: CoreV2ProjectionQuadCache;
+}
+
+export interface CoreV2ReadableQuadFrame {
+  readonly centerX: number;
+  readonly centerY: number;
+  readonly basisA: number;
+  readonly basisB: number;
+  readonly basisC: number;
+  readonly basisD: number;
+  readonly screenA: number;
+  readonly screenB: number;
+  readonly screenC: number;
+  readonly screenD: number;
+  readonly fullWidth: number;
+  readonly height: number;
+}
+
+export interface CoreV2ProjectionQuadCache {
+  revision: number;
+  index: CoreV2ProjectionIndex | null;
+  rotationDegrees: number;
+  flipX: boolean;
+  flipY: boolean;
+  worldA: number;
+  worldB: number;
+  worldC: number;
+  worldD: number;
+  readonly readableFrames: Map<string, CoreV2ReadableQuadFrame>;
+}
+
+export function createCoreV2ProjectionQuadCache(): CoreV2ProjectionQuadCache {
+  return {
+    revision: -1,
+    index: null,
+    rotationDegrees: Number.NaN,
+    flipX: false,
+    flipY: false,
+    worldA: 1,
+    worldB: 0,
+    worldC: 0,
+    worldD: 1,
+    readableFrames: new Map(),
+  };
 }
 
 export type CoreV2QuadVertices = readonly [
@@ -378,15 +423,20 @@ export function writeCoreV2SlotQuad(
   const projection = context?.staleEntityIds?.has(entityId) === true
     ? null
     : context?.index.byEntityId[entityId] ?? null;
-  const radians = (context?.world.rotationDegrees ?? 0) * Math.PI / 180;
-  const cosine = Math.cos(radians);
-  const sine = Math.sin(radians);
+  const cachedWorld = context?.quadCache === undefined
+    ? null
+    : synchronizeProjectionQuadCache(context, context.quadCache);
+  const radians = cachedWorld === null
+    ? (context?.world.rotationDegrees ?? 0) * Math.PI / 180
+    : 0;
+  const cosine = cachedWorld === null ? Math.cos(radians) : 0;
+  const sine = cachedWorld === null ? Math.sin(radians) : 0;
   const flipX = context?.world.flipX === true ? -1 : 1;
   const flipY = context?.world.flipY === true ? -1 : 1;
-  const worldA = cosine * flipX;
-  const worldB = sine * flipY;
-  const worldC = -sine * flipX;
-  const worldD = cosine * flipY;
+  const worldA = cachedWorld?.worldA ?? cosine * flipX;
+  const worldB = cachedWorld?.worldB ?? sine * flipY;
+  const worldC = cachedWorld?.worldC ?? -sine * flipX;
+  const worldD = cachedWorld?.worldD ?? cosine * flipY;
 
   output.entityId = entityId;
   output.projection = projection;
@@ -399,6 +449,7 @@ export function writeCoreV2SlotQuad(
       worldB,
       worldC,
       worldD,
+      context,
     );
     return output;
   }
@@ -443,14 +494,25 @@ function writeProjectedQuad(
   worldB: number,
   worldC: number,
   worldD: number,
+  context?: CoreV2ProjectionRenderContext,
 ): void {
   const [localX, localY, localWidth, localHeight] = projection.localBounds;
   const [a, b, c, d, tx, ty] = projection.affine;
-  const xScale = Math.hypot(a, b);
-  const yScale = Math.hypot(c, d);
-  const width = localWidth * fraction * xScale;
-  const height = localHeight * yScale;
   if (projection.contentOrientation === 'upright') {
+    const cache = context?.quadCache;
+    if (cache !== undefined) {
+      const frame = readableQuadFrame(
+        output,
+        projection,
+        cache,
+        worldA,
+        worldB,
+        worldC,
+        worldD,
+      );
+      writeCachedReadableQuad(output, frame, fraction);
+      return;
+    }
     writeCoreV2ReadableRect(
       output,
       projection,
@@ -478,6 +540,10 @@ function writeProjectedQuad(
     return;
   }
 
+  const xScale = Math.hypot(a, b);
+  const yScale = Math.hypot(c, d);
+  const width = localWidth * fraction * xScale;
+  const height = localHeight * yScale;
   const partialWidth = localWidth * fraction;
   const topLeftX = a * localX + c * localY + tx;
   const topLeftY = b * localX + d * localY + ty;
@@ -513,6 +579,116 @@ function writeProjectedQuad(
   vertices[7] = bottomLeftY;
 }
 
+function synchronizeProjectionQuadCache(
+  context: CoreV2ProjectionRenderContext,
+  cache: CoreV2ProjectionQuadCache,
+): CoreV2ProjectionQuadCache {
+  if (
+    cache.revision === context.revision
+    && cache.index === context.index
+    && cache.rotationDegrees === context.world.rotationDegrees
+    && cache.flipX === context.world.flipX
+    && cache.flipY === context.world.flipY
+  ) {
+    return cache;
+  }
+  const radians = context.world.rotationDegrees * Math.PI / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  const flipX = context.world.flipX ? -1 : 1;
+  const flipY = context.world.flipY ? -1 : 1;
+  cache.revision = context.revision;
+  cache.index = context.index;
+  cache.rotationDegrees = context.world.rotationDegrees;
+  cache.flipX = context.world.flipX;
+  cache.flipY = context.world.flipY;
+  cache.worldA = cosine * flipX;
+  cache.worldB = sine * flipY;
+  cache.worldC = -sine * flipX;
+  cache.worldD = cosine * flipY;
+  cache.readableFrames.clear();
+  return cache;
+}
+
+function readableQuadFrame(
+  output: CoreV2ResolvedRenderQuadScratch,
+  projection: CoreV2EntityProjection,
+  cache: CoreV2ProjectionQuadCache,
+  worldA: number,
+  worldB: number,
+  worldC: number,
+  worldD: number,
+): CoreV2ReadableQuadFrame {
+  const cached = cache.readableFrames.get(projection.entityId);
+  if (cached !== undefined) return cached;
+  writeCoreV2ReadableRect(output, projection, worldA, worldB, worldC, worldD);
+  writeQuadValues(
+    output,
+    output.center[0],
+    output.center[1],
+    output.basis[0],
+    output.basis[1],
+    output.basis[2],
+    output.basis[3],
+    output.width,
+    output.height,
+    worldA,
+    worldB,
+    worldC,
+    worldD,
+  );
+  const frame = Object.freeze({
+    centerX: output.center[0],
+    centerY: output.center[1],
+    basisA: output.basis[0],
+    basisB: output.basis[1],
+    basisC: output.basis[2],
+    basisD: output.basis[3],
+    screenA: output.screenBasis[0],
+    screenB: output.screenBasis[1],
+    screenC: output.screenBasis[2],
+    screenD: output.screenBasis[3],
+    fullWidth: output.width,
+    height: output.height,
+  });
+  cache.readableFrames.set(projection.entityId, frame);
+  return frame;
+}
+
+function writeCachedReadableQuad(
+  output: CoreV2ResolvedRenderQuadScratch,
+  frame: CoreV2ReadableQuadFrame,
+  fraction: number,
+): void {
+  const width = frame.fullWidth * fraction;
+  const centerOffset = (width - frame.fullWidth) / 2;
+  const centerX = frame.centerX + frame.basisA * centerOffset;
+  const centerY = frame.centerY + frame.basisB * centerOffset;
+  output.center[0] = centerX;
+  output.center[1] = centerY;
+  output.basis[0] = frame.basisA;
+  output.basis[1] = frame.basisB;
+  output.basis[2] = frame.basisC;
+  output.basis[3] = frame.basisD;
+  output.screenBasis[0] = frame.screenA;
+  output.screenBasis[1] = frame.screenB;
+  output.screenBasis[2] = frame.screenC;
+  output.screenBasis[3] = frame.screenD;
+  output.width = width;
+  output.height = frame.height;
+  writeQuadVertices(
+    output.vertices,
+    centerX,
+    centerY,
+    frame.basisA,
+    frame.basisB,
+    frame.basisC,
+    frame.basisD,
+    width,
+    frame.height,
+  );
+}
+
 function writeQuadValues(
   output: CoreV2ResolvedRenderQuadScratch,
   centerX: number,
@@ -543,13 +719,36 @@ function writeQuadValues(
   );
   output.width = width;
   output.height = height;
+  writeQuadVertices(
+    output.vertices,
+    centerX,
+    centerY,
+    basisA,
+    basisB,
+    basisC,
+    basisD,
+    width,
+    height,
+  );
+}
+
+function writeQuadVertices(
+  vertices: [number, number, number, number, number, number, number, number],
+  centerX: number,
+  centerY: number,
+  basisA: number,
+  basisB: number,
+  basisC: number,
+  basisD: number,
+  width: number,
+  height: number,
+): void {
   const halfWidth = width / 2;
   const halfHeight = height / 2;
   const xWidth = basisA * halfWidth;
   const yWidth = basisB * halfWidth;
   const xHeight = basisC * halfHeight;
   const yHeight = basisD * halfHeight;
-  const vertices = output.vertices;
   vertices[0] = centerX - xWidth - xHeight;
   vertices[1] = centerY - yWidth - yHeight;
   vertices[2] = centerX + xWidth - xHeight;
