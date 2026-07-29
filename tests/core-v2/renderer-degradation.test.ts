@@ -7,7 +7,7 @@ import {
 } from '../../src/core-v2/renderers/degradation';
 
 describe('Core v2 renderer fidelity diagnostics', () => {
-  it('surfaces retained Mesh radius and omitted stroke semantics without mutating parse evidence', () => {
+  it('does not report implemented standalone rect radius and stroke as degraded', () => {
     const parsed = parsePatchMapV010([{
       type: 'rect',
       id: 'rounded',
@@ -23,7 +23,7 @@ describe('Core v2 renderer fidelity diagnostics', () => {
     const enriched = withRendererDegradationDiagnostics(parsed, 'mesh');
 
     expect(parsed.diagnostics).toBe(originalDiagnostics);
-    expect(enriched.diagnostics.map((entry) => entry.code)).toEqual(
+    expect(enriched.diagnostics.map((entry) => entry.code)).not.toEqual(
       expect.arrayContaining(['mesh-radius-degraded', 'mesh-stroke-unsupported']),
     );
     expect(enriched.document).toBe(parsed.document);
@@ -46,11 +46,15 @@ describe('Core v2 renderer fidelity diagnostics', () => {
 
   it('reuses renderer-only facts without duplicating diagnostics across incremental shells', () => {
     const parsed = parsePatchMapV010([{
-      type: 'rect',
-      id: 'rounded',
+      type: 'item',
+      id: 'meter',
       size: { width: 20, height: 10 },
-      fill: '#ffffff',
-      radius: 4,
+      components: [{
+        type: 'bar',
+        id: 'rounded-bar',
+        size: { width: 20, height: 10 },
+        source: { type: 'rect', fill: '#ffffff', radius: 4 },
+      }],
     }]);
     const enriched = withRendererDegradationDiagnostics(parsed, 'mesh');
     const incrementalShell = Object.freeze({

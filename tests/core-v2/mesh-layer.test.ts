@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Matrix, Mesh } from 'pixi.js';
+import { Graphics, Matrix, Mesh } from 'pixi.js';
 import type { MeshGeometry } from 'pixi.js';
 
 import type { RenderStoreView } from '../../src/core-v1/renderer/types';
@@ -210,6 +210,37 @@ describe('aggregate mesh geometry builders', () => {
 });
 
 describe('AggregateMeshLayer', () => {
+  it('renders rounded and stroked standalone rects through one aggregate Graphics lane', () => {
+    const store = createStore();
+    (store.stroke as Uint32Array)[0] = 0x331100ff;
+    (store.strokeWidth as Float64Array)[0] = 3;
+    (store.radius as Float64Array)[0] = 5;
+    const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'styled rects' });
+
+    const initial = layer.sync(store, { fullRebuildEpoch: 1 });
+    expect(initial.ordinaryGraphicsObjectCount).toBe(1);
+    expect(layer.entityPaintProbe('rect')).toMatchObject({
+      lane: 'ordinary-geometry',
+      rendererKind: 'graphics',
+      primitiveCount: 1,
+    });
+    const styled = layer.ordinaryGeometryContainer.children.find(
+      (child): child is Graphics => (
+        child instanceof Graphics && child.label.includes('styled rect chunk 0')
+      ),
+    );
+    expect(styled).toBeDefined();
+
+    (store.strokeWidth as Float64Array)[0] = 0;
+    (store.radius as Float64Array)[0] = 0;
+    (store as { revision: number }).revision = 2;
+    const square = layer.sync(store, { changedRanges: [{ start: 0, end: 1 }] });
+    expect(square.ordinaryGraphicsObjectCount).toBe(0);
+    expect(layer.entityPaintProbe('rect')).toMatchObject({ rendererKind: 'mesh' });
+    expect(styled?.destroyed).toBe(true);
+    layer.destroy();
+  });
+
   it('culls geometry chunks from retained bounds while preserving spanning relations', () => {
     const store = createStore();
     (store.flags as Uint8Array)[2] = RenderFlags.Visible;

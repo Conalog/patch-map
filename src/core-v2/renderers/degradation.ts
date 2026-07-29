@@ -111,7 +111,7 @@ function meshDegradationDiagnostics(
       level: 'warning',
       code: 'mesh-radius-degraded',
       path: '$.renderer.mesh',
-      message: `${roundedCount} retained rect/bar radius value(s) render as square corners in the selected Mesh strategy`,
+      message: `${roundedCount} retained bar radius value(s) render as square corners in the selected Mesh strategy`,
     }));
   }
   if (omittedStrokeCount > 0) {
@@ -146,16 +146,11 @@ function attachMeshDegradationDiagnostics(
 
 function hasRoundedMeshDegradation(entity: EntityInput): boolean {
   return (
-    (entity.kind === 'rect' || entity.kind === 'bar') &&
+    entity.kind === 'bar' &&
     (entity.radius ?? 0) > 0
   );
 }
 
-function hasOmittedMeshStroke(entity: EntityInput): boolean {
-  return (
-    entity.kind === 'rect' &&
-    (entity.strokeWidth ?? 0) > 0 &&
-    entity.stroke !== undefined &&
-    (entity.stroke & 0xff) > 0
-  );
+function hasOmittedMeshStroke(_entity: EntityInput): boolean {
+  return false;
 }
