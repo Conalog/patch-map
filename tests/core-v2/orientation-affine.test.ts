@@ -141,6 +141,62 @@ describe('Core v2 signed affine orientation projection', () => {
       expect(background?.worldBasis[index]).toBeCloseTo(value, 8);
     });
   });
+
+  it('publishes the owner-fitted upright bar geometry instead of its rotated leaf center', () => {
+    const parsed = parsePatchMapV010([{
+      type: 'item',
+      id: 'meter',
+      size: { width: 120, height: 80 },
+      padding: 8,
+      contentOrientation: 'upright',
+      components: [
+        {
+          type: 'background',
+          id: 'surface',
+          source: { type: 'rect', fill: '#e2e8f0' },
+        },
+        {
+          type: 'bar',
+          id: 'level',
+          size: { width: 100, height: 16 },
+          placement: 'bottom',
+          source: { type: 'rect', fill: '#22c55e' },
+        },
+      ],
+    }]);
+    const scene = new CoreScene();
+    scene.load(parsed.document);
+    const view = { x: 0, y: 0, scale: 1, rotation: 45, flipX: false, flipY: false };
+    const geometry = createCoreV2SurfaceGeometrySnapshot(
+      scene.snapshot(),
+      parsed.projection,
+      view,
+    );
+    const bar = geometry.entities.find((entity) => entity.componentId === 'level');
+    const owner = parsed.projection.byEntityId.meter;
+    const projection = parsed.projection.byEntityId['meter::bar:level'];
+    if (!bar || !owner || !projection) throw new Error('upright bar geometry was not published');
+    const world = createCoreV2Affine(0, 0, 45);
+    const ownerScreenInverse = invertCoreV2Affine(
+      multiplyCoreV2Affine(world, owner.affine),
+    );
+    const [x, y, width, height] = bar.screenBounds;
+
+    expect(bar.screenBasis).toEqual([1, 0, 0, 1]);
+    expect(bar.visibleCenter).not.toEqual(projection.visibleCenter);
+    for (const screenPoint of [
+      [x, y],
+      [x + width, y],
+      [x + width, y + height],
+      [x, y + height],
+    ] as const) {
+      const local = applyCoreV2Affine(ownerScreenInverse, screenPoint);
+      expect(local[0]).toBeGreaterThanOrEqual(-1e-8);
+      expect(local[0]).toBeLessThanOrEqual(120 + 1e-8);
+      expect(local[1]).toBeGreaterThanOrEqual(-1e-8);
+      expect(local[1]).toBeLessThanOrEqual(80 + 1e-8);
+    }
+  });
 });
 
 function item(id: string, contentOrientation: 'follow-item' | 'upright') {

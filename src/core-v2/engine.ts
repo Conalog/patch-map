@@ -122,6 +122,8 @@ import {
   createCoreV2Affine,
   invertCoreV2Affine,
   multiplyCoreV2Affine,
+  resolveCoreV2UprightOwnerFrame,
+  writeCoreV2UprightRect,
   type CoreV2AffineBasis,
 } from './semantic/geometry';
 import {
@@ -10444,7 +10446,7 @@ function createCoreV2SurfaceEntityGeometry(
 ): CoreV2SurfaceEntityGeometry {
   const entityProjection = projection?.byEntityId[entity.id];
   const geometry = entityProjection
-    ? resolveProjectedEntityGeometry(entityProjection, surfaceView)
+    ? resolveProjectedEntityGeometry(entityProjection, projection, surfaceView)
     : resolveDenseEntityGeometry(entity.bounds, entity.rotation, surfaceView);
   return Object.freeze({
     id: entity.id,
@@ -10469,7 +10471,7 @@ function createCoreV2SurfaceEntityGeometry(
       ? {
           contentOrientation: entityProjection.contentOrientation,
           screenBasis: geometry.screenBasis,
-          visibleCenter: entityProjection.visibleCenter,
+          visibleCenter: geometry.visibleCenter,
           screenAngle: entityProjection.contentOrientation === 'upright'
             ? 0
             : normalizeDegrees(entityProjection.rotationDegrees + surfaceView.rotation),
@@ -10495,11 +10497,11 @@ export function createCoreV2SurfaceWorldGeometrySnapshot(
     if (entity.kind === 'relation') return [];
     const entityProjection = projection?.byEntityId[entity.id];
     const geometry = entityProjection
-      ? resolveProjectedEntityWorldGeometry(entityProjection, surfaceView)
+      ? resolveProjectedEntityWorldGeometry(entityProjection, projection, surfaceView)
       : resolveDenseEntityWorldGeometry(entity.bounds, entity.rotation);
     const resolved = Object.freeze({
       worldBounds: geometry.worldBounds,
-      visibleCenter: entityProjection?.visibleCenter ?? boundsCenter(geometry.worldBounds),
+      visibleCenter: geometry.visibleCenter,
       visible: entity.visible,
     });
     resolvedById.set(entity.id, resolved);
@@ -10816,67 +10818,84 @@ interface ResolvedEntityGeometry {
   readonly worldBounds: readonly [number, number, number, number];
   readonly screenBounds: readonly [number, number, number, number];
   readonly screenBasis: CoreV2AffineBasis;
+  readonly visibleCenter: readonly [number, number];
 }
 
 interface ResolvedWorldEntityGeometry {
   readonly worldBounds: readonly [number, number, number, number];
   readonly worldCorners: readonly (readonly [number, number])[];
+  readonly visibleCenter: readonly [number, number];
 }
 
 function resolveProjectedEntityWorldGeometry(
   projection: NonNullable<CoreV2ProjectionIndex['byEntityId'][string]>,
+  index: CoreV2ProjectionIndex,
   view: CoreV2SurfaceView,
 ): ResolvedWorldEntityGeometry {
+  const orientedWorldAffine = multiplyCoreV2Affine(
+    createCoreV2Affine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
+    createCoreV2Affine(0, 0, view.rotation),
+  );
   let worldCorners: readonly (readonly [number, number])[];
+  let visibleCenter = projection.visibleCenter;
   if (projection.contentOrientation === 'upright') {
-    const orientedWorldAffine = multiplyCoreV2Affine(
-      createCoreV2Affine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
-      createCoreV2Affine(0, 0, view.rotation),
-    );
-    const inverseWorld = invertCoreV2Affine(orientedWorldAffine);
-    const width = projection.localBounds[2] * Math.hypot(
-      projection.affine[0],
-      projection.affine[1],
-    );
-    const height = projection.localBounds[3] * Math.hypot(
-      projection.affine[2],
-      projection.affine[3],
-    );
-    const xAxis = Object.freeze([inverseWorld[0], inverseWorld[1]] as const);
-    const yAxis = Object.freeze([inverseWorld[2], inverseWorld[3]] as const);
-    const [centerX, centerY] = projection.visibleCenter;
-    worldCorners = Object.freeze([
-      Object.freeze([
-        centerX - xAxis[0] * width / 2 - yAxis[0] * height / 2,
-        centerY - xAxis[1] * width / 2 - yAxis[1] * height / 2,
-      ] as const),
-      Object.freeze([
-        centerX + xAxis[0] * width / 2 - yAxis[0] * height / 2,
-        centerY + xAxis[1] * width / 2 - yAxis[1] * height / 2,
-      ] as const),
-      Object.freeze([
-        centerX + xAxis[0] * width / 2 + yAxis[0] * height / 2,
-        centerY + xAxis[1] * width / 2 + yAxis[1] * height / 2,
-      ] as const),
-      Object.freeze([
-        centerX - xAxis[0] * width / 2 + yAxis[0] * height / 2,
-        centerY - xAxis[1] * width / 2 + yAxis[1] * height / 2,
-      ] as const),
-    ]);
+    const owner = projection.ownerItemId === undefined
+      ? undefined
+      : index.byEntityId[projection.ownerItemId];
+    const frame = owner === undefined
+      ? null
+      : resolveCoreV2UprightOwnerFrame(
+          owner,
+          orientedWorldAffine,
+          view.flipX === true,
+          view.flipY === true,
+        );
+    if (frame !== null) {
+      const resolved = writeCoreV2UprightRect(
+        {
+          center: [0, 0],
+          basis: [1, 0, 0, 1],
+          width: 0,
+          height: 0,
+        },
+        projection,
+        frame,
+      );
+      visibleCenter = freezePoint(resolved.center[0], resolved.center[1]);
+      worldCorners = resolvedUprightCorners(resolved);
+    } else {
+      const inverseWorld = invertCoreV2Affine(orientedWorldAffine);
+      const width = projection.localBounds[2] * Math.hypot(
+        projection.affine[0],
+        projection.affine[1],
+      );
+      const height = projection.localBounds[3] * Math.hypot(
+        projection.affine[2],
+        projection.affine[3],
+      );
+      worldCorners = resolvedUprightCorners({
+        center: [projection.visibleCenter[0], projection.visibleCenter[1]],
+        basis: [inverseWorld[0], inverseWorld[1], inverseWorld[2], inverseWorld[3]],
+        width,
+        height,
+      });
+    }
   } else {
     worldCorners = coreV2AffineCorners(projection.affine, projection.localBounds);
   }
   return Object.freeze({
     worldBounds: boundsForTuplePoints(worldCorners),
     worldCorners,
+    visibleCenter,
   });
 }
 
 function resolveProjectedEntityGeometry(
   projection: NonNullable<CoreV2ProjectionIndex['byEntityId'][string]>,
+  index: CoreV2ProjectionIndex,
   view: CoreV2SurfaceView,
 ): ResolvedEntityGeometry {
-  const worldGeometry = resolveProjectedEntityWorldGeometry(projection, view);
+  const worldGeometry = resolveProjectedEntityWorldGeometry(projection, index, view);
   const orientedWorldAffine = multiplyCoreV2Affine(
     createCoreV2Affine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
     createCoreV2Affine(0, 0, view.rotation),
@@ -10890,6 +10909,7 @@ function resolveProjectedEntityGeometry(
     worldBounds: worldGeometry.worldBounds,
     screenBounds: boundsForTuplePoints(screenCorners),
     screenBasis,
+    visibleCenter: worldGeometry.visibleCenter,
   });
 }
 
@@ -10902,6 +10922,10 @@ function resolveDenseEntityWorldGeometry(
   return Object.freeze({
     worldBounds: boundsForTuplePoints(worldCorners),
     worldCorners,
+    visibleCenter: freezePoint(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+    ),
   });
 }
 
@@ -10921,7 +10945,32 @@ function resolveDenseEntityGeometry(
     worldBounds: worldGeometry.worldBounds,
     screenBounds: boundsForTuplePoints(screenCorners),
     screenBasis: coreV2AffineBasis(worldAffine),
+    visibleCenter: worldGeometry.visibleCenter,
   });
+}
+
+function resolvedUprightCorners(
+  resolved: Readonly<{
+    center: readonly [number, number];
+    basis: readonly [number, number, number, number];
+    width: number;
+    height: number;
+  }>,
+): readonly (readonly [number, number])[] {
+  const halfWidth = resolved.width / 2;
+  const halfHeight = resolved.height / 2;
+  const xWidth = resolved.basis[0] * halfWidth;
+  const yWidth = resolved.basis[1] * halfWidth;
+  const xHeight = resolved.basis[2] * halfHeight;
+  const yHeight = resolved.basis[3] * halfHeight;
+  const centerX = resolved.center[0];
+  const centerY = resolved.center[1];
+  return Object.freeze([
+    freezePoint(centerX - xWidth - xHeight, centerY - yWidth - yHeight),
+    freezePoint(centerX + xWidth - xHeight, centerY + yWidth - yHeight),
+    freezePoint(centerX + xWidth + xHeight, centerY + yWidth + yHeight),
+    freezePoint(centerX - xWidth + xHeight, centerY - yWidth + yHeight),
+  ]);
 }
 
 function surfacePointToScreen(

@@ -13,6 +13,12 @@ import {
   buildAggregateChunkGeometry,
 } from '../../src/core-v2/renderers/mesh-layer';
 import {
+  applyCoreV2Affine,
+  invertCoreV2Affine,
+  multiplyCoreV2Affine,
+} from '../../src/core-v2/semantic/geometry';
+import {
+  createCoreV2WorldAffine,
   createCoreV2ResolvedRenderQuadScratch,
   resolveCoreV2SlotQuad,
   writeCoreV2SlotQuad,
@@ -90,6 +96,85 @@ describe('Core v2 orientation renderer lanes', () => {
     expect([...fill.positions]).toEqual(expectedFill.vertices.map(Math.fround));
     expect(expectedFill.center).not.toEqual(expectedTrack.center);
   });
+
+  it.each([
+    { rotationDegrees: 45, flipX: false, flipY: false },
+    { rotationDegrees: 90, flipX: false, flipY: false },
+    { rotationDegrees: 45, flipX: true, flipY: false },
+    { rotationDegrees: 45, flipX: false, flipY: true },
+    { rotationDegrees: 45, flipX: true, flipY: true },
+  ])(
+    'keeps the owner-level upright content frame inside its background at $rotationDegrees° [$flipX,$flipY]',
+    ({ rotationDegrees, flipX, flipY }) => {
+      const parsed = parsePatchMapV010([{
+        type: 'item',
+        id: 'contained-meter',
+        size: { width: 120, height: 80 },
+        padding: 8,
+        contentOrientation: 'upright',
+        components: [
+          {
+            type: 'background',
+            id: 'surface',
+            source: { type: 'rect', fill: '#e2e8f0' },
+          },
+          {
+            type: 'bar',
+            id: 'level',
+            size: { width: 100, height: 16 },
+            placement: 'bottom',
+            source: { type: 'rect', fill: '#22c55e' },
+          },
+          {
+            type: 'text',
+            id: 'label',
+            text: '42',
+            placement: 'center',
+            style: { fontSize: 12 },
+          },
+        ],
+      }]);
+      const entities = parsed.document.entities.filter((candidate) =>
+        candidate.kind === 'bar' || candidate.kind === 'text'
+      );
+      const store = createRenderStore(entities);
+      const context = projectionContext(
+        parsed.projection,
+        1,
+        rotationDegrees,
+        flipX,
+        flipY,
+      );
+      const world = createCoreV2WorldAffine(context.world);
+      const owner = parsed.projection.byEntityId['contained-meter'];
+      if (!owner) throw new Error('contained meter owner projection was not created');
+      const ownerScreenInverse = invertCoreV2Affine(
+        multiplyCoreV2Affine(world, owner.affine),
+      );
+
+      for (let slot = 0; slot < entities.length; slot += 1) {
+        const quad = resolveCoreV2SlotQuad(store, slot, context);
+        expect(quad.screenBasis).toEqual([1, 0, 0, 1]);
+        for (let index = 0; index < quad.vertices.length; index += 2) {
+          const screenPoint = applyCoreV2Affine(world, [
+            quad.vertices[index] as number,
+            quad.vertices[index + 1] as number,
+          ]);
+          const ownerLocal = applyCoreV2Affine(ownerScreenInverse, screenPoint);
+          expect(ownerLocal[0]).toBeGreaterThanOrEqual(-1e-8);
+          expect(ownerLocal[0]).toBeLessThanOrEqual(120 + 1e-8);
+          expect(ownerLocal[1]).toBeGreaterThanOrEqual(-1e-8);
+          expect(ownerLocal[1]).toBeLessThanOrEqual(80 + 1e-8);
+        }
+      }
+
+      const bar = resolveCoreV2SlotQuad(store, 0, context);
+      const barProjection = parsed.projection.byEntityId[
+        'contained-meter::bar:level'
+      ];
+      expect(bar.center).not.toEqual(barProjection?.visibleCenter);
+    },
+  );
 
   it('breaks Mesh same-store early return when upright projection revision changes', () => {
     const parsed = parsePatchMapV010([item('upright-meter', 'upright', [{
