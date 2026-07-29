@@ -519,7 +519,7 @@ describe('AggregateMeshLayer', () => {
     layer.destroy();
   });
 
-  it('routes rounded bars through aggregate Graphics and returns to the Mesh hot path', () => {
+  it('keeps rounded bars on the aggregate Mesh hot path', () => {
     const store = createStore();
     (store.radius as Float64Array)[1] = 4;
     const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'rounded bars' });
@@ -530,12 +530,17 @@ describe('AggregateMeshLayer', () => {
     );
     const roundedMeshes = layer.relationContainer.children.filter((child) =>
       child instanceof Mesh && child.label.includes(': bar chunk 0'),
-    );
-    expect(rounded).toHaveLength(2);
-    expect(roundedMeshes).toHaveLength(0);
+    ) as Mesh<MeshGeometry>[];
+    expect(rounded).toHaveLength(0);
+    expect(roundedMeshes).toHaveLength(2);
+    expect(roundedMeshes.every((mesh) =>
+      mesh.geometry.positions.length > 8 &&
+      mesh.geometry.indices.length > 6
+    )).toBe(true);
+    expect(initial.uploadedBytes).toBeGreaterThan(0);
     expect(initial.visibleQuads).toBe(3);
     expect(layer.entityPaintProbe('bar')).toMatchObject({
-      rendererKind: 'graphics',
+      rendererKind: 'mesh',
       primitiveCount: 2,
       renderObjectCount: 0,
     });
@@ -544,9 +549,10 @@ describe('AggregateMeshLayer', () => {
     (store as { revision: number }).revision = 2;
     const animated = layer.sync(store, { changedRanges: [{ start: 1, end: 2 }] });
     expect(animated.geometrySlotsVisited).toBe(1);
+    expect(animated.uploadedBytes).toBeGreaterThan(0);
     expect(layer.relationContainer.children.filter((child) =>
       child instanceof Graphics && child.label.includes(': styled bar chunk 0'),
-    )).toHaveLength(2);
+    )).toHaveLength(0);
 
     (store.radius as Float64Array)[1] = 0;
     (store as { revision: number }).revision = 3;
@@ -563,7 +569,7 @@ describe('AggregateMeshLayer', () => {
     });
 
     layer.destroy();
-    expect(rounded.every((graphics) => graphics.destroyed)).toBe(true);
+    expect(roundedMeshes.every((mesh) => mesh.destroyed)).toBe(true);
   });
 
   it('takes the structural path when a non-bar slot is replaced by a bar', () => {

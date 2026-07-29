@@ -37,6 +37,10 @@ const BAR_TRACK_PASS = 1;
 const BAR_FILL_PASS = 2;
 const RELATION_PASS = 0;
 const PASSES_PER_Z_INDEX = 4;
+const ROUNDED_BAR_CORNER_SEGMENTS = 4;
+const ROUNDED_BAR_PERIMETER_VERTICES = 4 * (ROUNDED_BAR_CORNER_SEGMENTS + 1);
+const ROUNDED_BAR_VERTICES_PER_PRIMITIVE = ROUNDED_BAR_PERIMETER_VERTICES + 1;
+const ROUNDED_BAR_INDICES_PER_PRIMITIVE = ROUNDED_BAR_PERIMETER_VERTICES * 3;
 
 export interface AggregateQuad {
   readonly x: number;
@@ -141,6 +145,12 @@ interface MutableLineGroup extends PackedMeshStyle {
   readonly key: string;
   readonly drawOrder: number;
   readonly primitives: AggregateLine[];
+}
+
+interface MutableRoundedBarGroup extends PackedMeshStyle {
+  readonly key: string;
+  readonly drawOrder: number;
+  readonly primitives: StyledBackgroundPrimitive[];
 }
 
 interface MeshRecord {
@@ -549,6 +559,84 @@ export function buildQuadGeometry(quads: readonly AggregateQuad[]): AggregateGeo
   return finishGeometry(positions, uvs, indices, drawable.length);
 }
 
+function buildRoundedBarGeometry(
+  primitives: readonly StyledBackgroundPrimitive[],
+): AggregateGeometryData {
+  const positions = new Float32Array(
+    primitives.length * ROUNDED_BAR_VERTICES_PER_PRIMITIVE * 2,
+  );
+  const uvs = new Float32Array(
+    primitives.length * ROUNDED_BAR_VERTICES_PER_PRIMITIVE * 2,
+  );
+  const indices = new Uint32Array(
+    primitives.length * ROUNDED_BAR_INDICES_PER_PRIMITIVE,
+  );
+
+  for (let primitiveIndex = 0; primitiveIndex < primitives.length; primitiveIndex += 1) {
+    const primitive = primitives[primitiveIndex] as StyledBackgroundPrimitive;
+    const projection = primitive.quad.projection;
+    const localWidth = projection?.localBounds[2] ?? primitive.quad.width;
+    const localHeight = projection?.localBounds[3] ?? primitive.quad.height;
+    if (!(localWidth > 0) || !(localHeight > 0)) continue;
+
+    const scaleX = primitive.quad.width / localWidth;
+    const scaleY = primitive.quad.height / localHeight;
+    const [basisA, basisB, basisC, basisD] = primitive.quad.basis;
+    const [topLeftX, topLeftY] = primitive.quad.vertices;
+    const radii = fitCoreV2CornerRadii(
+      localWidth,
+      localHeight,
+      primitive.paint.radius,
+    );
+    const vertexBase = primitiveIndex * ROUNDED_BAR_VERTICES_PER_PRIMITIVE;
+    const positionBase = vertexBase * 2;
+    const indexBase = primitiveIndex * ROUNDED_BAR_INDICES_PER_PRIMITIVE;
+
+    const writeVertex = (vertexIndex: number, localX: number, localY: number): void => {
+      const offset = positionBase + vertexIndex * 2;
+      positions[offset] = Math.fround(
+        topLeftX + basisA * scaleX * localX + basisC * scaleY * localY,
+      );
+      positions[offset + 1] = Math.fround(
+        topLeftY + basisB * scaleX * localX + basisD * scaleY * localY,
+      );
+      uvs[offset] = localX / localWidth;
+      uvs[offset + 1] = localY / localHeight;
+    };
+
+    writeVertex(0, localWidth / 2, localHeight / 2);
+    let perimeterIndex = 0;
+    const corners = [
+      [localWidth - radii[1], radii[1], radii[1], -Math.PI / 2],
+      [localWidth - radii[2], localHeight - radii[2], radii[2], 0],
+      [radii[3], localHeight - radii[3], radii[3], Math.PI / 2],
+      [radii[0], radii[0], radii[0], Math.PI],
+    ] as const;
+    for (const [centerX, centerY, radius, startAngle] of corners) {
+      for (let segment = 0; segment <= ROUNDED_BAR_CORNER_SEGMENTS; segment += 1) {
+        const angle = startAngle +
+          (segment / ROUNDED_BAR_CORNER_SEGMENTS) * (Math.PI / 2);
+        writeVertex(
+          1 + perimeterIndex,
+          centerX + Math.cos(angle) * radius,
+          centerY + Math.sin(angle) * radius,
+        );
+        perimeterIndex += 1;
+      }
+    }
+
+    for (let edge = 0; edge < ROUNDED_BAR_PERIMETER_VERTICES; edge += 1) {
+      const offset = indexBase + edge * 3;
+      indices[offset] = vertexBase;
+      indices[offset + 1] = vertexBase + 1 + edge;
+      indices[offset + 2] =
+        vertexBase + 1 + ((edge + 1) % ROUNDED_BAR_PERIMETER_VERTICES);
+    }
+  }
+
+  return finishGeometry(positions, uvs, indices, primitives.length);
+}
+
 /** Build butt-capped relation segments as triangle quads. */
 export function buildLineGeometry(lines: readonly AggregateLine[]): AggregateGeometryData {
   const drawable = lines.filter(isFiniteLine);
@@ -734,6 +822,35 @@ function getLineGroup(
     groups.set(key, group);
   }
   return group;
+}
+
+function buildRoundedBarGroups(
+  primitives: readonly StyledBackgroundPrimitive[],
+): readonly AggregateGeometryGroup[] {
+  const groups = new Map<string, MutableRoundedBarGroup>();
+  for (const primitive of primitives) {
+    const style = packedRgbaToMeshStyle(primitive.fill, primitive.opacity);
+    if (style.alpha <= 0) continue;
+    const key = `rounded:${styleKey(style, primitive.drawOrder)}`;
+    let group = groups.get(key);
+    if (group === undefined) {
+      group = {
+        key,
+        ...style,
+        drawOrder: primitive.drawOrder,
+        primitives: [],
+      };
+      groups.set(key, group);
+    }
+    group.primitives.push(primitive);
+  }
+  return [...groups.values()].map((group) => ({
+    key: group.key,
+    tint: group.tint,
+    alpha: group.alpha,
+    drawOrder: group.drawOrder,
+    ...buildRoundedBarGeometry(group.primitives),
+  }));
 }
 
 function geometryGroup(
@@ -968,13 +1085,16 @@ function buildAggregateBarLaneGeometry(
       : appendBarSlot(store, slot, groups, bindings, projectionContext);
     visibleBars += primitives;
     const entityId = store.ids[slot] ?? `@slot:${slot}`;
-    paintProbes.set(entityId, barEntityPaintProbe(entityId, primitives, styled));
+    paintProbes.set(entityId, barEntityPaintProbe(entityId, primitives));
   }
   return {
-    groups: [...groups.values()].map((group) =>
-      geometryGroup(group, buildQuadGeometry(group.primitives)),
-    ),
-    styledBars,
+    groups: [
+      ...[...groups.values()].map((group) =>
+        geometryGroup(group, buildQuadGeometry(group.primitives)),
+      ),
+      ...buildRoundedBarGroups(styledBars),
+    ],
+    styledBars: [],
     bindings,
     paintProbes,
     visibleBars,
@@ -984,12 +1104,11 @@ function buildAggregateBarLaneGeometry(
 function barEntityPaintProbe(
   entityId: string,
   primitives: number,
-  styled = false,
 ): CoreV2EntityPaintProbe {
   return freezeEntityPaintProbe({
     entityId,
     lane: 'relations-dynamic',
-    rendererKind: primitives > 0 ? (styled ? 'graphics' : 'mesh') : 'none',
+    rendererKind: primitives > 0 ? 'mesh' : 'none',
     primitiveCount: primitives,
     renderObjectCount: 0,
     packedTint: null,
@@ -1194,7 +1313,7 @@ function buildAggregateChunkLaneGeometry(
         ? appendStyledBarSlot(store, slot, styledBars, barBindings, projectionContext)
         : appendBarSlot(store, slot, barGroups, barBindings, projectionContext);
       visibleBars += primitives;
-      paintProbes.set(entityId, barEntityPaintProbe(entityId, primitives, styled));
+      paintProbes.set(entityId, barEntityPaintProbe(entityId, primitives));
       continue;
     }
     if (
@@ -1430,10 +1549,13 @@ function buildAggregateChunkLaneGeometry(
       geometryGroup(group, buildQuadGeometry(group.primitives)),
     ),
     styledRects,
-    barGroups: [...barGroups.values()].map((group) =>
-      geometryGroup(group, buildQuadGeometry(group.primitives)),
-    ),
-    styledBars,
+    barGroups: [
+      ...[...barGroups.values()].map((group) =>
+        geometryGroup(group, buildQuadGeometry(group.primitives)),
+      ),
+      ...buildRoundedBarGroups(styledBars),
+    ],
+    styledBars: [],
     relationGroups: [...relationGroups.values()].map((group) =>
       geometryGroup(group, buildLineGeometry(group.primitives)),
     ),
