@@ -6,8 +6,10 @@ import {
   materializeCoreV2Dataset,
   validateCoreV2DatasetReferences,
   type CoreV2EngineGeometryProbe,
+  type CoreV2EngineTextProbe,
   type CoreV2EngineTransactionPerformanceProbe,
   type CoreV2SemanticProductProbe,
+  type CoreV2SurfaceEntityGeometry,
 } from '../../src/core-v2';
 import { buildCoreV2SeededScenarioScene } from '../../lab/performance-v2/contract/seeded-scene';
 
@@ -60,6 +62,13 @@ export interface CoreV2PerformanceTextObservation {
   readonly frameGapMs: number;
   readonly sceneRevisionDelta: number;
   readonly diagnosticTransactionPhase?: CoreV2EngineTransactionPerformanceProbe | null;
+}
+
+export interface CoreV2TextUpdatePublicationClassification {
+  readonly visibleFrameRequired: boolean;
+  readonly attachmentCurrent: boolean;
+  readonly staleLayout: boolean;
+  readonly unresolvedPaintIntent: boolean;
 }
 
 export interface CoreV2PerformanceBulkObservation {
@@ -388,6 +397,10 @@ export async function updateCoreV2RandomText(
   let normalizedLinesExact = true;
   let unresolvedIntentCount = 0;
   let nonFiniteCount = 0;
+  const geometryByEntityId = new Map(
+    (engine.geometryProbe()?.entities ?? []).map((entity) => [entity.id, entity] as const),
+  );
+  const viewportScreenBounds = engine.viewportProbe().screenBounds;
   for (const [ordinal, index] of targetIndices.entries()) {
     const expectedSource = `${index}:${input.actionIndex}:${(input.seed + ordinal * 37) % 10_000}`;
     const probe = engine.textProbe({
@@ -395,9 +408,16 @@ export async function updateCoreV2RandomText(
       ownerId: `node-${index}`,
       id: 'label',
     });
-    if (probe?.publication.status !== 'current') staleLayoutCountAfterFrame += 1;
+    const publication = classifyCoreV2TextUpdatePublication(
+      probe,
+      probe?.entityId === null || probe?.entityId === undefined
+        ? undefined
+        : geometryByEntityId.get(probe.entityId),
+      viewportScreenBounds,
+    );
+    if (publication.staleLayout) staleLayoutCountAfterFrame += 1;
     if (probe?.semantic?.source !== expectedSource) normalizedLinesExact = false;
-    if (probe?.rendererPaint === null || probe?.rendererPaint === undefined) {
+    if (publication.unresolvedPaintIntent) {
       unresolvedIntentCount += 1;
     }
     nonFiniteCount += countNonFinite(probe?.geometry ?? null);
@@ -416,6 +436,68 @@ export async function updateCoreV2RandomText(
     sceneRevisionDelta: engine.snapshot().revisions.sceneRevision - before,
     ...(input.diagnostics === true ? { diagnosticTransactionPhase } : {}),
   });
+}
+
+/**
+ * Distinguish a genuinely stale visible text leaf from an intentionally
+ * culled leaf. A culled leaf may remain frame-pending, but its current
+ * semantic/layout/renderer signature must already be attached so the next
+ * visible frame cannot expose the prior glyphs.
+ */
+export function classifyCoreV2TextUpdatePublication(
+  probe: Pick<
+    CoreV2EngineTextProbe,
+    'entityId' | 'publication' | 'renderer' | 'rendererPaint'
+  > | null,
+  geometry: Pick<CoreV2SurfaceEntityGeometry, 'screenBounds'> | undefined,
+  viewportScreenBounds: readonly [number, number, number, number],
+  cullPadding = 32,
+): CoreV2TextUpdatePublicationClassification {
+  const visibleFrameRequired = geometry === undefined ||
+    boundsIntersectExpandedViewport(
+      geometry.screenBounds,
+      viewportScreenBounds,
+      cullPadding,
+    );
+  const renderer = probe?.renderer ?? null;
+  const attached = renderer?.attachedSignatures ?? null;
+  const semantic = renderer?.semanticSignatures ?? null;
+  const attachmentCurrent = renderer !== null &&
+    renderer.route !== null &&
+    renderer.route !== 'none' &&
+    renderer.rendererKind !== 'none' &&
+    renderer.objectCount === 1 &&
+    attached !== null &&
+    semantic !== null &&
+    attached.content === semantic.content &&
+    attached.style === semantic.style &&
+    attached.layout === semantic.layout;
+  const publicationCurrent = probe?.publication.status === 'current';
+  return Object.freeze({
+    visibleFrameRequired,
+    attachmentCurrent,
+    staleLayout: visibleFrameRequired && !publicationCurrent,
+    unresolvedPaintIntent:
+      probe?.rendererPaint === null || probe?.rendererPaint === undefined
+        ? visibleFrameRequired || !attachmentCurrent
+        : false,
+  });
+}
+
+function boundsIntersectExpandedViewport(
+  bounds: readonly [number, number, number, number],
+  viewport: readonly [number, number, number, number],
+  padding: number,
+): boolean {
+  if (!Number.isFinite(padding) || padding < 0) {
+    throw new RangeError('text cull padding must be finite and non-negative');
+  }
+  const [x, y, width, height] = bounds;
+  const [viewportX, viewportY, viewportWidth, viewportHeight] = viewport;
+  return x + width >= viewportX - padding &&
+    x <= viewportX + viewportWidth + padding &&
+    y + height >= viewportY - padding &&
+    y <= viewportY + viewportHeight + padding;
 }
 
 export async function applyCoreV2PerformanceBulkPatch(

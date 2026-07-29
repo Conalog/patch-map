@@ -4,6 +4,7 @@ import {
   CORE_V2_CONTRACT_PERFORMANCE_SIZES,
   buildCoreV2ContractPerformanceDataset,
   canonicalCoreV2DatasetSha256,
+  classifyCoreV2TextUpdatePublication,
   coreV2PerformancePercentile,
   countCoreV2LongTasksAtLeast,
   measureCoreV2VisibleAction,
@@ -90,5 +91,64 @@ describe('Core v2 contract performance workload', () => {
       frameTimeMs: 30,
     });
     expect(engine.publishFrame).toHaveBeenCalledWith(123);
+  });
+
+  it('distinguishes current offscreen text attachments from visible stale frames', () => {
+    const pendingAttached = {
+      entityId: 'node-99::text:label',
+      publication: { status: 'pending' },
+      renderer: {
+        route: 'fallback-text',
+        rendererKind: 'fallback-text',
+        objectCount: 1,
+        semanticSignatures: { content: 'next', style: 'style', layout: 'layout' },
+        attachedSignatures: {
+          content: 'next',
+          style: 'style',
+          layout: 'layout',
+          renderer: 'fallback:next',
+        },
+      },
+      rendererPaint: null,
+    } as const;
+    const viewport = [0, 0, 800, 600] as const;
+
+    expect(classifyCoreV2TextUpdatePublication(
+      pendingAttached as never,
+      { screenBounds: [2_000, 2_000, 80, 20] },
+      viewport,
+    )).toEqual({
+      visibleFrameRequired: false,
+      attachmentCurrent: true,
+      staleLayout: false,
+      unresolvedPaintIntent: false,
+    });
+    expect(classifyCoreV2TextUpdatePublication(
+      pendingAttached as never,
+      { screenBounds: [100, 100, 80, 20] },
+      viewport,
+    )).toMatchObject({
+      visibleFrameRequired: true,
+      staleLayout: true,
+      unresolvedPaintIntent: true,
+    });
+    expect(classifyCoreV2TextUpdatePublication(
+      {
+        ...pendingAttached,
+        renderer: {
+          ...pendingAttached.renderer,
+          attachedSignatures: {
+            ...pendingAttached.renderer.attachedSignatures,
+            content: 'old',
+          },
+        },
+      } as never,
+      { screenBounds: [2_000, 2_000, 80, 20] },
+      viewport,
+    )).toMatchObject({
+      visibleFrameRequired: false,
+      attachmentCurrent: false,
+      unresolvedPaintIntent: true,
+    });
   });
 });
