@@ -57,8 +57,8 @@ const LOCAL_ARTIFACTS = Object.freeze([
     pass: (value) =>
       value.mode === 'all-routes'
       && value.routeCount === 173
-      && value.checkCount === 189
-      && value.passedCheckCount === 189
+      && value.checkCount === 192
+      && value.passedCheckCount === 192
       && value.failedCheckCount === 0
       && value.environment?.headed === false
       && value.failures?.length === 0
