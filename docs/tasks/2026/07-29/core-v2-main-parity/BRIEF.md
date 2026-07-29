@@ -28,16 +28,25 @@
 
 - The user explicitly approved the narrow `main` comparison exception on
   2026-07-29.
-- No `main` implementation source has been inspected or copied.
-- The first tranche is comparison substrate: disposable runtime launch,
-  canonical input/action catalog, independent observations, classification,
-  and deterministic artifact output.
+- No `main` implementation source was inspected or copied.
+- All 173 cases are cross-walked to direct overlap, partial overlap, Core
+  extension, consumer seam, or external evidence.
+- The final 28-scenario/121-checkpoint black-box matrix passes with zero
+  blocking mismatch and zero runtime errors. Eight broad canonical scenarios
+  retain classified diagnostic differences and two inputs are rejected by
+  `main`; all sixteen isolated blocking `PAR-*` scenarios pass.
+- Styled rectangle radius/stroke and rounded-bar geometry misses are repaired.
+  Rounded bars remain on aggregate Mesh and retain non-zero GPU uploads.
+- Full unit, static, build, browser, 173-route Lab, package, 2+7 memory,
+  WebGPU, interaction, contract-performance, and 18-run renderer gates pass.
+- Detailed classifications and results are in `RESULTS.md`; evidence is in
+  `artifacts/first-tranche/`.
 
 # Next Step
 
-- Launch a disposable detached `main` runtime without reading implementation
-  source, inventory its public controls and accepted dataset entry points, and
-  pair them with Core v2's 173-case action/probe descriptors.
+- Remove the disposable detached `main` worktree, leave the user dogfood Lab
+  running, and keep native Windows/N100/NVDA/input/host/security/migration
+  qualification pending until measured externally.
 
 # Working Boundary
 

@@ -37,12 +37,19 @@
 
 # Current State
 
-- User-authorized `main` black-box parity work is active at
+- User-authorized `main` black-box parity work is complete at
   `docs/tasks/2026/07-29/core-v2-main-parity/`; approved expected evidence and
   frozen implementations remain unchanged.
-- Product/evidence candidate `2b995ab054d441f48c964b995713fb2388dea04b`
-  passes 148 Core v2 files/1,430 tests, lint, typecheck, both builds, canonical
-  verification, 31 product-browser checks, and 189 manual-Lab checks over all
+- The final matrix cross-walks all 173 cases and executes 28 black-box
+  scenarios/121 checkpoints. Sixteen isolated blocking scenarios pass, with
+  zero blocking mismatch and zero runtime error. Broad canonical diagnostics
+  retain eight classified mismatches and two main-rejected approved inputs.
+- Product fixes preserve styled rectangle radius/stroke and rounded bar
+  geometry. Rounded track/fill stays on aggregate Mesh rather than per-entity
+  display objects or Graphics fallback.
+- Product/parity candidate `8d285dbf738f27fb36ae9bd96492210dd515cb81`
+  passes 149 Core v2 files/1,447 tests, lint, typecheck, both builds, canonical
+  verification, 31 product-browser checks, and 192 manual-Lab checks over all
   173 routes.
 - Exploratory Lab extension `8db2f0cd080da1d33c928c19f7378bf5690f3bb1`
   adds a 10,000-record option without expanding the approved exact size
@@ -81,9 +88,9 @@
 
 # Next Step
 
-- Resume the active black-box parity tranche from
-  `docs/tasks/2026/07-29/core-v2-main-parity/BRIEF.md`; external
-  Windows/N100/NVDA/input cells remain pending for strict promotion.
+- Preserve the completed local parity/release candidate. External
+  Windows/N100/NVDA/input/actual-host/security/migration/review cells remain
+  pending for strict promotion.
 
 # Working Boundary
 
