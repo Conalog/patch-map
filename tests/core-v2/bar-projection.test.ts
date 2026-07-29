@@ -39,6 +39,7 @@ describe('Core v2 bar projection sidecar', () => {
       animation: false,
       animationDuration: 350,
       destinationHeight: 42,
+      percentageReferenceHeight: 84,
     });
     expect(parsed.document.entities.find((entity) => entity.id === projection?.entityId)).toMatchObject({
       kind: 'bar',
@@ -88,6 +89,7 @@ describe('Core v2 bar projection sidecar', () => {
         animation: true,
         animationDuration: 200,
         destinationHeight: 10,
+        percentageReferenceHeight: 80,
       },
       'rack.0.1::bar:level': {
         entityId: 'rack.0.1::bar:level',
@@ -99,6 +101,7 @@ describe('Core v2 bar projection sidecar', () => {
         animation: true,
         animationDuration: 200,
         destinationHeight: 10,
+        percentageReferenceHeight: 80,
       },
     });
     expect(first.projection.barsByEntityId).toEqual(second.projection.barsByEntityId);
