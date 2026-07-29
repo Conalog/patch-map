@@ -17,7 +17,10 @@ import {
 } from './manual-case-catalog';
 import {
   buildCoreV2ManualScene,
+  CORE_V2_MANUAL_SCENE_SIZE_OPTIONS,
+  isCoreV2ManualSceneSize,
   type CoreV2ManualScene,
+  type CoreV2ManualSceneSize,
 } from './manual-scene';
 
 type ManualPointerMode =
@@ -48,6 +51,7 @@ interface ManualPointerGesture {
 
 export interface CoreV2ManualLabState {
   readonly caseId: string;
+  readonly sceneSize: string;
   readonly status: 'booting' | 'ready' | 'busy' | 'destroyed' | 'failed';
   readonly generation: number;
   readonly mode: ManualPointerMode;
@@ -137,6 +141,7 @@ const MANUAL_COMMAND_HELP: Readonly<Record<string, string>> = Object.freeze({
   'reduced-motion': '체크한 동작 줄이기 정책을 현재 세션에 적용합니다.',
   'style-selected': '입력한 채움·투명도·모서리 값을 선택 객체에 적용합니다.',
   'text-selected': '입력한 텍스트를 선택한 텍스트 대상에 적용합니다.',
+  'scene-size': '선택한 크기의 결정적인 예제 장면을 불러옵니다.',
   'scene-regenerate': '같은 크기와 시드로 결정적인 예제 장면을 다시 만듭니다.',
   'scene-export-json': '현재 장면을 아래 JSON 편집기로 내보냅니다.',
   'scene-invalid-json': '원자적 실패를 확인할 중복 ID 입력을 준비합니다.',
@@ -288,8 +293,9 @@ export function mountCoreV2ManualWorkbench(
   const abortController = new AbortController();
   const { signal } = abortController;
   let engine: CoreV2Engine | null = null;
+  let manualSceneSize: CoreV2ManualSceneSize = requireManualSceneSize(options.size);
   let scene: CoreV2ManualScene = buildCoreV2ManualScene(
-    options.size,
+    manualSceneSize,
     options.seed,
     defaultManualAnimationDuration(options.caseId),
   );
@@ -328,6 +334,8 @@ export function mountCoreV2ManualWorkbench(
   const ready = boot();
   void ready.catch(() => undefined);
 
+  required<HTMLSelectElement>(host, '[data-manual-scene-size]').value =
+    manualSceneSize;
   bindStaticControls();
   activateTool(descriptor.tools[0] ?? 'diagnostics');
   installPerformanceObserver();
@@ -972,7 +980,7 @@ export function mountCoreV2ManualWorkbench(
           break;
         case 'animation-duration': {
           const durationMs = manualAnimationDuration();
-          scene = buildCoreV2ManualScene(options.size, options.seed, durationMs);
+          scene = buildCoreV2ManualScene(manualSceneSize, options.seed, durationMs);
           result = loadManualScene(requireEngine(), scene);
           requireEngine().fitViewport({ paddingCssPx: 46 });
           publishNow(`bar animation ${durationMs}ms`);
@@ -1001,9 +1009,24 @@ export function mountCoreV2ManualWorkbench(
         case 'text-selected':
           result = editSelectedText();
           break;
+        case 'scene-size': {
+          const nextSize = selectedManualSceneSize();
+          const nextScene = buildCoreV2ManualScene(
+            nextSize,
+            options.seed,
+            manualAnimationDuration(),
+          );
+          result = loadManualScene(requireEngine(), nextScene, nextSize);
+          manualSceneSize = nextSize;
+          scene = nextScene;
+          requireEngine().fitViewport({ paddingCssPx: 46 });
+          publishNow(`load ${nextSize} example records`);
+          refreshSceneEditor();
+          break;
+        }
         case 'scene-regenerate':
           scene = buildCoreV2ManualScene(
-            options.size,
+            manualSceneSize,
             (options.seed + ++actionSequence) >>> 0,
             manualAnimationDuration(),
           );
@@ -1413,10 +1436,14 @@ export function mountCoreV2ManualWorkbench(
     return result;
   }
 
-  function loadManualScene(next: CoreV2Engine, nextScene: CoreV2ManualScene): unknown {
+  function loadManualScene(
+    next: CoreV2Engine,
+    nextScene: CoreV2ManualScene,
+    size: CoreV2ManualSceneSize = manualSceneSize,
+  ): unknown {
     const before = fingerprint(nextScene.dataset);
     const result = next.loadDataset(nextScene.dataset, {
-      datasetRef: `manual:${options.caseId}:${options.size}:${options.seed}`,
+      datasetRef: `manual:${options.caseId}:${size}:${options.seed}`,
     });
     const after = fingerprint(nextScene.dataset);
     setText(host, 'immutability', before === after ? '통과' : '실패');
@@ -1524,6 +1551,7 @@ export function mountCoreV2ManualWorkbench(
     host.dataset.manualStatus = status;
     setText(host, 'status', coreV2KoreanStatus(status));
     setText(host, 'last-action', actionDisplay(lastAction));
+    setText(host, 'scene-size', manualSceneSizeLabel(manualSceneSize));
     const history = next?.historyState() ?? { undoDepth: 0, redoDepth: 0 };
     const snapshot = next?.snapshot() ?? null;
     const selectedIds = snapshot?.selectionIds ?? [];
@@ -1877,6 +1905,7 @@ export function mountCoreV2ManualWorkbench(
     const history = next?.historyState() ?? { undoDepth: 0, redoDepth: 0 };
     return Object.freeze({
       caseId: options.caseId,
+      sceneSize: manualSceneSize,
       status,
       generation,
       mode,
@@ -2012,6 +2041,12 @@ export function mountCoreV2ManualWorkbench(
     }
     return durationMs;
   }
+
+  function selectedManualSceneSize(): CoreV2ManualSceneSize {
+    return requireManualSceneSize(
+      required<HTMLSelectElement>(host, '[data-manual-scene-size]').value,
+    );
+  }
 }
 
 function renderSelectionPanel(): string {
@@ -2126,9 +2161,32 @@ function defaultManualAnimationDuration(caseId: string): number {
   return caseId === 'REN-009' ? 5_000 : 200;
 }
 
+function requireManualSceneSize(value: string): CoreV2ManualSceneSize {
+  if (!isCoreV2ManualSceneSize(value)) {
+    throw new RangeError(`지원하지 않는 직접 조작 예제 크기입니다: ${value}`);
+  }
+  return value;
+}
+
+function manualSceneSizeLabel(size: CoreV2ManualSceneSize): string {
+  if (size === 'production') return 'production 예제';
+  const suffix = size === '10000' ? ' · 탐색용' : '';
+  return `${Number(size).toLocaleString('ko-KR')}개${suffix}`;
+}
+
 function renderDataPanel(): string {
   return toolPanel('data', 'PATCH MAP JSON 직접 입력과 원자적 갱신', `
     <p>현재 장면과 같은 v0.10 JSON을 직접 편집해 다시 불러올 수 있습니다. 실패하면 일부만 반영하지 않고 기존 장면을 유지합니다.</p>
+    <div class="manual-field-action">
+      <label>예제 데이터 크기
+        <select data-manual-scene-size aria-label="예제 데이터 크기">
+          ${CORE_V2_MANUAL_SCENE_SIZE_OPTIONS.map((size) =>
+            `<option value="${size}">${manualSceneSizeLabel(size)}</option>`).join('')}
+        </select>
+      </label>
+      ${commandButton('scene-size', '선택 크기 불러오기')}
+    </div>
+    <p>10,000개는 브라우저 한계를 직접 살펴보는 탐색용 장면입니다. 아래의 정확 계약 실행은 승인된 5,000개/production 측정 범위를 그대로 유지합니다.</p>
     <div class="manual-button-grid">
       ${commandButton('scene-regenerate', '시드 장면 다시 만들기')}
       ${commandButton('scene-export-json', '현재 장면 → 편집기')}
@@ -2137,7 +2195,10 @@ function renderDataPanel(): string {
     </div>
     <label class="manual-check"><input type="checkbox" data-manual-strict-load> 엄격한 참조 유효성 검사</label>
     <textarea class="manual-json-editor" data-manual-scene-json spellcheck="false" aria-label="편집 가능한 PATCH MAP JSON"></textarea>
-    <dl class="manual-mini-ledger"><div><dt>입력 객체 불변</dt><dd data-manual-readout="immutability">확인 전</dd></div></dl>
+    <dl class="manual-mini-ledger">
+      <div><dt>예제 생성 크기</dt><dd data-manual-readout="scene-size">확인 전</dd></div>
+      <div><dt>입력 객체 불변</dt><dd data-manual-readout="immutability">확인 전</dd></div>
+    </dl>
   `);
 }
 

@@ -67,6 +67,7 @@
     "verify:lab:core-v2:webgpu": "node scripts/verification/core-v2-webgpu-experimental.mjs",
     "verify:lab:core-v2:manual": "node scripts/verification/core-v2-manual-lab-browser.mjs",
     "verify:lab:core-v2:manual:all": "node scripts/verification/core-v2-manual-lab-browser.mjs --all-routes",
+    "verify:lab:core-v2:10000": "node scripts/verification/core-v2-exploratory-10000-browser.mjs --headless",
     "verify:package:core-v1": "node scripts/verification/core-v1-package.mjs",
     "verify:package:core-v2": "npm run build:core-v2 && node scripts/verification/core-v2-package.mjs",
     "verify:memory:core-v1": "node scripts/verification/core-v1-memory.mjs",

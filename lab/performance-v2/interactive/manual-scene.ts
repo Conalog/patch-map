@@ -1,6 +1,24 @@
 import { buildCoreV2SeededScenarioScene } from '../contract/seeded-scene';
 
 export const CORE_V2_MANUAL_SCENE_REVISION = 'core-v2-manual-scene/1' as const;
+export const CORE_V2_MANUAL_SCENE_SIZE_OPTIONS = Object.freeze([
+  '100',
+  '500',
+  '1000',
+  '2000',
+  '5000',
+  '10000',
+  'production',
+] as const);
+
+export type CoreV2ManualSceneSize =
+  (typeof CORE_V2_MANUAL_SCENE_SIZE_OPTIONS)[number];
+
+export function isCoreV2ManualSceneSize(
+  value: string,
+): value is CoreV2ManualSceneSize {
+  return CORE_V2_MANUAL_SCENE_SIZE_OPTIONS.some((size) => size === value);
+}
 
 export interface CoreV2ManualScene {
   readonly revision: typeof CORE_V2_MANUAL_SCENE_REVISION;
@@ -26,7 +44,11 @@ export function buildCoreV2ManualScene(
   const recordCount = size === 'production'
     ? 500
     : Math.max(1, Number.parseInt(size, 10));
-  if (!Number.isSafeInteger(recordCount) || recordCount < 1) {
+  if (
+    !Number.isSafeInteger(recordCount) ||
+    recordCount < 1 ||
+    recordCount > 10_000
+  ) {
     throw new RangeError(`Core v2 manual scene size is invalid: ${size}`);
   }
   if (
@@ -38,9 +60,7 @@ export function buildCoreV2ManualScene(
       `Core v2 manual bar animation duration is invalid: ${animationDurationMs}`,
     );
   }
-  const seeded = structuredClone(
-    buildCoreV2SeededScenarioScene(recordCount, seed),
-  ) as Readonly<Record<string, unknown>>[];
+  const seeded = buildManualSeededScenarioScene(recordCount, seed);
   const shifted = seeded.map((record) => {
     const attrs = isRecord(record.attrs) ? record.attrs : {};
     const componentValues = Array.isArray(record.components)
@@ -150,6 +170,51 @@ export function buildCoreV2ManualScene(
     barTargets,
     textTargets,
   });
+}
+
+function buildManualSeededScenarioScene(
+  recordCount: number,
+  seed: number,
+): readonly Readonly<Record<string, unknown>>[] {
+  if (recordCount <= 5_000) {
+    return buildCoreV2SeededScenarioScene(recordCount, seed);
+  }
+
+  const columns = Math.ceil(Math.sqrt(recordCount));
+  const records: Readonly<Record<string, unknown>>[] = [];
+  for (let offset = 0; offset < recordCount; offset += 5_000) {
+    const chunkIndex = Math.floor(offset / 5_000);
+    const chunkSize = Math.min(5_000, recordCount - offset);
+    const chunkSeed = chunkIndex === 0
+      ? seed
+      : (seed ^ Math.imul(chunkIndex, 0x9e37_79b1)) >>> 0;
+    const chunk = buildCoreV2SeededScenarioScene(chunkSize, chunkSeed);
+    for (const [localIndex, record] of chunk.entries()) {
+      const globalIndex = offset + localIndex;
+      const attrs = isRecord(record.attrs) ? record.attrs : {};
+      const componentValues = Array.isArray(record.components)
+        ? record.components as readonly unknown[]
+        : undefined;
+      const components = componentValues === undefined
+        ? undefined
+        : componentValues.map((component) =>
+            isRecord(component) && component.type === 'text'
+              ? { ...component, text: String(globalIndex) }
+              : component);
+      records.push({
+        ...record,
+        id: `node-${globalIndex}`,
+        label: `Node ${globalIndex}`,
+        attrs: {
+          ...attrs,
+          x: (globalIndex % columns) * 128,
+          y: Math.floor(globalIndex / columns) * 92,
+        },
+        ...(components === undefined ? {} : { components }),
+      });
+    }
+  }
+  return records;
 }
 
 function numberValue(value: unknown, fallback: number): number {

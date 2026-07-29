@@ -18,7 +18,10 @@ import {
   CORE_V2_MANUAL_TOOL_LABELS,
   selectCoreV2ManualCase,
 } from '../../lab/performance-v2/interactive/manual-case-catalog';
-import { buildCoreV2ManualScene } from '../../lab/performance-v2/interactive/manual-scene';
+import {
+  buildCoreV2ManualScene,
+  CORE_V2_MANUAL_SCENE_SIZE_OPTIONS,
+} from '../../lab/performance-v2/interactive/manual-scene';
 import { materializeCoreV2Dataset } from '../../src/core-v2/semantic/dataset';
 
 describe('Core v2 human-operated Lab catalog', () => {
@@ -101,6 +104,9 @@ describe('Core v2 human-operated Lab catalog', () => {
       expect(markup).toContain('초당 프레임 / 최대 간격');
       expect(markup).toContain('data-manual-command="undo"');
       expect(markup).toContain('data-manual-command="animate-all"');
+      expect(markup).toContain('data-manual-command="scene-size"');
+      expect(markup).toContain('data-manual-scene-size');
+      expect(markup).toContain('<option value="10000">10,000개 · 탐색용</option>');
       expect(markup).toContain('data-manual-command="destroy-session"');
       for (const action of presenter.actions) {
         expect(markup).toContain(`data-manual-approved-action="${action.type}"`);
@@ -190,9 +196,41 @@ describe('Core v2 manual Lab scene', () => {
   });
 
   it('preserves canonical scale selections through the same generator', () => {
+    expect(CORE_V2_MANUAL_SCENE_SIZE_OPTIONS).toEqual([
+      '100',
+      '500',
+      '1000',
+      '2000',
+      '5000',
+      '10000',
+      'production',
+    ]);
     expect(buildCoreV2ManualScene('1', 0).barTargets).toHaveLength(1);
     expect(buildCoreV2ManualScene('5000', 0xffff_ffff).barTargets).toHaveLength(5_000);
+    const exploratory = buildCoreV2ManualScene('10000', 319);
+    expect(exploratory.barTargets).toHaveLength(10_000);
+    expect(exploratory.textTargets).toHaveLength(10_000);
+    expect(Object.isFrozen(exploratory.dataset)).toBe(true);
     expect(buildCoreV2ManualScene('production', 319).barTargets).toHaveLength(500);
+  });
+
+  it('exposes 10,000 only as an exploratory Lab size while preserving exact route inputs', async () => {
+    const [markup, source] = await Promise.all([
+      readFile(
+        new URL('../../lab/performance-v2/index.html', import.meta.url),
+        'utf8',
+      ),
+      readFile(
+        new URL('../../lab/performance-v2/main.ts', import.meta.url),
+        'utf8',
+      ),
+    ]);
+
+    expect(markup).toContain(
+      '<option value="10000">Synthetic / 10,000 items · exploratory</option>',
+    );
+    expect(source).toContain("| '10000'");
+    expect(source).toContain("value === '10000'");
   });
 
   it('applies a bounded human-Lab animation duration without mutating seeded input', () => {

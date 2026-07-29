@@ -12,7 +12,14 @@ import {
   createCoreV2,
 } from '../../src/core-v2/index';
 
-type DatasetKey = '100' | '500' | '1000' | '2000' | '5000' | 'production';
+type DatasetKey =
+  | '100'
+  | '500'
+  | '1000'
+  | '2000'
+  | '5000'
+  | '10000'
+  | 'production';
 type LabStatus = 'booting' | 'busy' | 'ready' | 'offline' | 'failed';
 
 interface CoreV2LabState {
@@ -542,7 +549,13 @@ function backendValue(): CoreV2BackendPreference {
 }
 
 function isDatasetKey(value: string | null): value is DatasetKey {
-  return value === '100' || value === '500' || value === '1000' || value === '2000' || value === '5000' || value === 'production';
+  return value === '100' ||
+    value === '500' ||
+    value === '1000' ||
+    value === '2000' ||
+    value === '5000' ||
+    value === '10000' ||
+    value === 'production';
 }
 
 function datasetLabel(dataset: DatasetKey): string {

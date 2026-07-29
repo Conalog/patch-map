@@ -148,6 +148,7 @@ describe('Core v2 focused contract Lab routes', () => {
     ['/lab/core-v2?scenario=lif-001&size=100&seed=1', 'INVALID_SCENARIO'],
     ['/lab/core-v2?scenario=LIF-000&size=100&seed=1', 'INVALID_SCENARIO'],
     ['/lab/core-v2?scenario=LIF-001&size=0100&seed=1', 'INVALID_SIZE'],
+    ['/lab/core-v2?scenario=LIF-001&size=10000&seed=1', 'INVALID_SIZE'],
     ['/lab/core-v2?scenario=LIF-001&size=100&seed=01', 'INVALID_SEED'],
     ['/lab/core-v2?scenario=LIF-001&size=100&seed=+1', 'INVALID_QUERY'],
     ['/lab/core-v2?scenario=LIF-001&size=100&seed=4294967296', 'INVALID_SEED'],
