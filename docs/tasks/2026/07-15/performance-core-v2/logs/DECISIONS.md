@@ -267,3 +267,9 @@
 - Core v2는 Flip × Rotation 뒤의 최종 화면 basis에서 반사를 제거한 다음 읽기 가능한 반원에 들어오도록 원래 각도 또는 180도 추가 각도를 선택하고, authored center와 크기 및 부분 bar의 leading edge를 보존한다.
 - 이 규칙은 방사형 카드 예시와 확인한 main 동작을 재현하면서도 Core v2의 screen-axis flip 순서, aggregate renderer, 프레임 containment를 유지한다.
 - LAY-004 두 항목과 REN-011 세 항목이 screen-lock immutable expected와 새로 충돌해 observed conflict는 26, latent 포함 declared conflict는 28이 되었으며 expected는 변경하지 않는다. Windows native는 계속 pending이다.
+
+**2026-07-29**
+- PRF-004 intentionally keeps offscreen fallback text detached or cull-pending, so publication freshness cannot be inferred from a missing offscreen Pixi leaf.
+- Classify screen-visible pending text as stale, but classify offscreen pending text as cull-pending only when its semantic, attachment, and presentation signatures still match the authoritative product state.
+- This distinguishes the performance optimization from lost publication without fabricating a rendered leaf or importing normalized expected evidence into product execution.
+- The full 158-route first/repeat/fresh checkpoint observes the same fourteen measured deficits and zero browser errors; the product hot path, immutable expected evidence, and external Windows pending status remain unchanged.
