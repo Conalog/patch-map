@@ -43,6 +43,11 @@
   matrix. Headless Mesh WebGL loads 50,999 Playground entities and a
   10,005-root/30,000-component manual scene, overlaps animation with pan, and
   destroys to zero canvas with no browser errors.
+- Lab viewport fix `2f184689a3d46c34155232081ac41e0b7ec2c820`
+  preserves product and exact-contract defaults while lowering only the two
+  human Lab zoom floors to 2.5%. At 10,000 records, whole-scene fit now reaches
+  6.03% in the Playground and 4.33% in the manual Lab; wheel and the visible
+  축소 button reach 2.5% with transformed interaction intact.
 - Full headless first/repeat/fresh execution covers 158 routes and 2,028
   assertions per session: 1,988 pass, 26 declared immutable conflicts and 14
   measured deficits, with deterministic cleanup and zero console, page,
