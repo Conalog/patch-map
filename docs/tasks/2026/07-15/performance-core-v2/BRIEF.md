@@ -37,6 +37,9 @@
 
 # Current State
 
+- User-authorized `main` black-box parity work is active at
+  `docs/tasks/2026/07-29/core-v2-main-parity/`; approved expected evidence and
+  frozen implementations remain unchanged.
 - Product/evidence candidate `2b995ab054d441f48c964b995713fb2388dea04b`
   passes 148 Core v2 files/1,430 tests, lint, typecheck, both builds, canonical
   verification, 31 product-browser checks, and 189 manual-Lab checks over all
@@ -78,9 +81,9 @@
 
 # Next Step
 
-- No local product step remains. When the external environments are available,
-  run the exact Windows/N100/NVDA/input cells and bind actual-host, security,
-  migration/rollback, and independent-review evidence before strict promotion.
+- Resume the active black-box parity tranche from
+  `docs/tasks/2026/07-29/core-v2-main-parity/BRIEF.md`; external
+  Windows/N100/NVDA/input cells remain pending for strict promotion.
 
 # Working Boundary
 
