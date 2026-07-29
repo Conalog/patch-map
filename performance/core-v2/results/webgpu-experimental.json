@@ -1,7 +1,7 @@
 {
   "$schema": "core-v2-webgpu-experimental/1",
-  "generatedAt": "2026-07-29T07:48:35.379Z",
-  "codeCommit": "2b995ab054d441f48c964b995713fb2388dea04b",
+  "generatedAt": "2026-07-29T14:03:10.011Z",
+  "codeCommit": "8d285dbf738f27fb36ae9bd96492210dd515cb81",
   "classification": "experimental-non-production",
   "productionBaseline": "PixiJS WebGL2 aggregate mesh",
   "protocol": {
@@ -130,19 +130,19 @@
         },
         "during": {
           "count": 5000,
-          "digest": 1248634260,
+          "digest": 1550416935,
           "activeAnimations": 5000,
           "frame": 17,
-          "minPercent": 0.35111184596330774,
-          "maxPercent": 99.9497592650174,
+          "minPercent": 1.028460069860146,
+          "maxPercent": 99.8528372357581,
           "percentageReferenceCount": 5000,
-          "distinctRoundedPercentCount": 101
+          "distinctRoundedPercentCount": 100
         },
         "after": {
           "count": 5000,
           "digest": 2556553620,
           "activeAnimations": 0,
-          "frame": 34,
+          "frame": 20,
           "minPercent": 0.044945813715457916,
           "maxPercent": 99.99812343157828,
           "percentageReferenceCount": 5000,
@@ -157,12 +157,12 @@
         "before": {
           "count": 5000,
           "digest": 1326450119,
-          "frame": 34
+          "frame": 20
         },
         "after": {
           "count": 5000,
           "digest": 4009881692,
-          "frame": 35
+          "frame": 21
         }
       }
     },
@@ -170,8 +170,8 @@
       "name": "root federated pointer hit selects the transformed entity",
       "status": "pass",
       "observation": {
-        "expectedId": "item-00213",
-        "selectedId": "item-00213"
+        "expectedId": "item-00000",
+        "selectedId": "item-00000"
       }
     },
     {
@@ -179,20 +179,20 @@
       "status": "pass",
       "observation": {
         "before": {
-          "x": 298.79999999999995,
-          "y": -22.835000000000036,
-          "scale": 0.1,
+          "x": 327.5843443976087,
+          "y": 24.110429054541385,
+          "scale": 0.08494542657028833,
           "rotation": 0
         },
         "after": {
           "view": {
-            "x": 306.75569096407855,
-            "y": -102.54101638738655,
-            "scale": 0.11972173631218103,
+            "x": 341.2168078629737,
+            "y": -46.33713360408643,
+            "scale": 0.10169813960773795,
             "rotation": 0
           },
-          "frameBeforePan": 37,
-          "frameAfterPan": 38
+          "frameBeforePan": 23,
+          "frameAfterPan": 24
         }
       }
     },
@@ -200,7 +200,7 @@
       "name": "Pixi Extract captures the WebGPU frame as PNG",
       "status": "pass",
       "observation": {
-        "encodedLength": 201658
+        "encodedLength": 169734
       }
     },
     {
@@ -228,7 +228,7 @@
           "entityCount": 0,
           "frame": 0,
           "lastAction": "destroy",
-          "lastActionMs": 16.799999952316284,
+          "lastActionMs": 18.700000047683716,
           "error": null
         },
         "canvasCount": 0
@@ -251,7 +251,7 @@
           "entityCount": 25499,
           "frame": 2,
           "lastAction": "load",
-          "lastActionMs": 671.7000000476837,
+          "lastActionMs": 706.3999999761581,
           "error": null
         },
         "canvasCount": 1
@@ -274,7 +274,7 @@
           "entityCount": 0,
           "frame": 0,
           "lastAction": "destroy",
-          "lastActionMs": 7.199999928474426,
+          "lastActionMs": 7.600000023841858,
           "error": null
         },
         "canvasCount": 0

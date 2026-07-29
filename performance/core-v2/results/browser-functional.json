@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-29T07:35:11.261Z",
-  "codeCommit": "2b995ab054d441f48c964b995713fb2388dea04b",
+  "generatedAt": "2026-07-29T13:54:04.541Z",
+  "codeCommit": "8d285dbf738f27fb36ae9bd96492210dd515cb81",
   "headed": false,
   "checks": [
     {
@@ -242,8 +242,8 @@
         "before": {
           "barCount": 500,
           "activeAnimations": 0,
-          "rendererFrame": 23,
-          "schedulerFrame": 9,
+          "rendererFrame": 32,
+          "schedulerFrame": 18,
           "uploadedChunks": 0,
           "uploadedBytes": 0
         },
@@ -254,33 +254,33 @@
             {
               "id": "item-00005::bar:bar",
               "before": 51.8,
-              "during": 51.72960506892518
+              "during": 51.560161037146706
             },
             {
               "id": "item-00017::bar:bar",
               "before": 48.3,
-              "during": 48.31913566125406
+              "during": 48.36519613100847
             },
             {
               "id": "item-00019::bar:bar",
               "before": 21,
-              "during": 20.926123252811237
+              "during": 20.748298319862027
             },
             {
               "id": "item-00042::bar:bar",
               "before": 4.2,
-              "during": 4.191370194972985
+              "during": 4.170597833456139
             },
             {
               "id": "item-00054::bar:bar",
               "before": 32.9,
-              "during": 32.855861441692234
+              "during": 32.74961777950855
             }
           ],
-          "rendererFrame": 25,
-          "schedulerFrame": 11,
+          "rendererFrame": 34,
+          "schedulerFrame": 20,
           "uploadedChunks": 4,
-          "uploadedBytes": 45808
+          "uploadedBytes": 268992
         }
       }
     },
@@ -323,41 +323,41 @@
             {
               "id": "item-00005::bar:bar",
               "before": 51.8,
-              "during": 51.72960506892518
+              "during": 51.560161037146706
             },
             {
               "id": "item-00017::bar:bar",
               "before": 48.3,
-              "during": 48.31913566125406
+              "during": 48.36519613100847
             },
             {
               "id": "item-00019::bar:bar",
               "before": 21,
-              "during": 20.926123252811237
+              "during": 20.748298319862027
             },
             {
               "id": "item-00042::bar:bar",
               "before": 4.2,
-              "during": 4.191370194972985
+              "during": 4.170597833456139
             },
             {
               "id": "item-00054::bar:bar",
               "before": 32.9,
-              "during": 32.855861441692234
+              "during": 32.74961777950855
             }
           ],
-          "rendererFrame": 25,
-          "schedulerFrame": 11,
+          "rendererFrame": 34,
+          "schedulerFrame": 20,
           "uploadedChunks": 4,
-          "uploadedBytes": 45808
+          "uploadedBytes": 268992
         },
         "after": {
           "barCount": 500,
           "activeAnimations": 0,
-          "rendererFrame": 50,
-          "schedulerFrame": 36,
+          "rendererFrame": 52,
+          "schedulerFrame": 38,
           "uploadedChunks": 4,
-          "uploadedBytes": 31808
+          "uploadedBytes": 166992
         }
       }
     },
@@ -379,7 +379,7 @@
       "details": {
         "totalBarCount": 9365,
         "visibleBarCount": 0,
-        "rendererFrame": 52,
+        "rendererFrame": 54,
         "strategy": "mesh",
         "uploadedChunks": 0,
         "uploadedBytes": 0
@@ -392,7 +392,7 @@
         "before": {
           "totalBarCount": 9365,
           "visibleBarCount": 0,
-          "rendererFrame": 52,
+          "rendererFrame": 54,
           "strategy": "mesh",
           "uploadedChunks": 0,
           "uploadedBytes": 0
@@ -402,10 +402,10 @@
           "changedCount": 9365,
           "totalBarCount": 9365,
           "visibleBarCount": 9365,
-          "rendererFrame": 53,
+          "rendererFrame": 55,
           "strategy": "mesh",
           "uploadedChunks": 1,
-          "uploadedBytes": 29920,
+          "uploadedBytes": 195840,
           "lastInvalidation": "commit"
         }
       }
@@ -418,16 +418,16 @@
           "requestedFraction": 0.01,
           "scheduledAnimations": 78,
           "activeAnimations": 78,
-          "rendererFrame": 53,
-          "schedulerFrame": 37
+          "rendererFrame": 55,
+          "schedulerFrame": 39
         },
         "before": {
           "barCount": 9365,
           "activeAnimations": 0,
-          "rendererFrame": 53,
-          "schedulerFrame": 37,
+          "rendererFrame": 55,
+          "schedulerFrame": 39,
           "uploadedChunks": 1,
-          "uploadedBytes": 29920
+          "uploadedBytes": 195840
         },
         "during": {
           "activeAnimations": 78,
@@ -436,33 +436,33 @@
             {
               "id": "caseOIin7QU7U9g.1.0::bar:Fx8vZTbchk9JsRR",
               "before": 74,
-              "during": 72.50196011548641
+              "during": 71.88524137465973
             },
             {
               "id": "dIQ3fKnIwryC8Ed.1.51::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 71.6800817310435
+              "during": 70.72500898001577
             },
             {
               "id": "U1hDt5R93SGYZOb.1.8::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.43175107649499
+              "during": 71.78612841223539
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.17::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.62849962746061
+              "during": 72.06387515281223
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.47::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.43244508310119
+              "during": 71.78710813011318
             }
           ],
-          "rendererFrame": 59,
-          "schedulerFrame": 43,
+          "rendererFrame": 62,
+          "schedulerFrame": 46,
           "uploadedChunks": 1,
-          "uploadedBytes": 10880
+          "uploadedBytes": 57120
         }
       }
     },
@@ -507,41 +507,41 @@
             {
               "id": "caseOIin7QU7U9g.1.0::bar:Fx8vZTbchk9JsRR",
               "before": 74,
-              "during": 72.50196011548641
+              "during": 71.88524137465973
             },
             {
               "id": "dIQ3fKnIwryC8Ed.1.51::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 71.6800817310435
+              "during": 70.72500898001577
             },
             {
               "id": "U1hDt5R93SGYZOb.1.8::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.43175107649499
+              "during": 71.78612841223539
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.17::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.62849962746061
+              "during": 72.06387515281223
             },
             {
               "id": "XA6L5EsYrAdcJfH.0.47::bar:imblgsDT1tnSz3m",
               "before": 74,
-              "during": 72.43244508310119
+              "during": 71.78710813011318
             }
           ],
-          "rendererFrame": 59,
-          "schedulerFrame": 43,
+          "rendererFrame": 62,
+          "schedulerFrame": 46,
           "uploadedChunks": 1,
-          "uploadedBytes": 10880
+          "uploadedBytes": 57120
         },
         "after": {
           "barCount": 9365,
           "activeAnimations": 0,
-          "rendererFrame": 89,
-          "schedulerFrame": 73,
+          "rendererFrame": 90,
+          "schedulerFrame": 74,
           "uploadedChunks": 1,
-          "uploadedBytes": 10880
+          "uploadedBytes": 57120
         }
       }
     },

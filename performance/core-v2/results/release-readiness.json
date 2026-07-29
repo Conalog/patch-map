@@ -1,7 +1,7 @@
 {
   "$schema": "core-v2-release-readiness/1",
-  "generatedAt": "2026-07-29T09:30:03.878Z",
-  "codeCommit": "2b995ab054d441f48c964b995713fb2388dea04b",
+  "generatedAt": "2026-07-29T14:31:34.302Z",
+  "codeCommit": "8d285dbf738f27fb36ae9bd96492210dd515cb81",
   "status": "pending-external-evidence",
   "releaseVerified": false,
   "immutableContractModified": false,
@@ -116,8 +116,8 @@
       {
         "id": "browser-functional",
         "path": "performance/core-v2/results/browser-functional.json",
-        "sha256": "f9d4d72cdf55e236c8df7ab5f41a33ce083a408140bfddcdd3f2bc987e38e882",
-        "codeCommit": "2b995ab054d441f48c964b995713fb2388dea04b",
+        "sha256": "cab1f9bf64b2b24aab5c76d33d45ec8d215f377b6eb8c031cf247894d3b8263c",
+        "codeCommit": "8d285dbf738f27fb36ae9bd96492210dd515cb81",
         "codeCommitMatchesCandidate": true,
         "classification": "headless-local-functional-proxy",
         "status": "pass"
@@ -125,8 +125,8 @@
       {
         "id": "manual-lab-all-routes",
         "path": "performance/core-v2/results/manual-lab-functional.json",
-        "sha256": "586a6c442fb8c2a88006b6704c2c8e2aee4f994967eec2b3083b2a6dc602c99e",
-        "codeCommit": "2b995ab054d441f48c964b995713fb2388dea04b",
+        "sha256": "171f5175001b7c76a076e091efc04c1c84d9804561cdc379183606185ab898ee",
+        "codeCommit": "8d285dbf738f27fb36ae9bd96492210dd515cb81",
         "codeCommitMatchesCandidate": true,
         "classification": "headless-173-route-human-lab-proxy",
         "status": "pass"
@@ -134,8 +134,8 @@
       {
         "id": "packed-consumer",
         "path": "performance/core-v2/results/package-consumer.json",
-        "sha256": "6589c2f1d844ede619b4d3f68a3edee8da98dd697f2da75271e8be6d4c9bc9b1",
-        "codeCommit": "2b995ab054d441f48c964b995713fb2388dea04b",
+        "sha256": "84751e0f1a31a23cc2ab1b9ccc1e7282836aa72c5fbec0c4eec39f9119453908",
+        "codeCommit": "8d285dbf738f27fb36ae9bd96492210dd515cb81",
         "codeCommitMatchesCandidate": true,
         "classification": "packed-package-and-38-journey-proof",
         "status": "pass"
@@ -143,8 +143,8 @@
       {
         "id": "memory-lifecycle",
         "path": "performance/core-v2/results/memory-lifecycle.json",
-        "sha256": "addd9eadd9ec64133e95b955b0f8b26fce52f36cbcc4037913be9a1916c9b648",
-        "codeCommit": "2b995ab054d441f48c964b995713fb2388dea04b",
+        "sha256": "a15efa5c6705d5a79c6e7a410d6aa6bfe5e9481414bf4a791a0a9a9e3f8b91c4",
+        "codeCommit": "8d285dbf738f27fb36ae9bd96492210dd515cb81",
         "codeCommitMatchesCandidate": true,
         "classification": "local-2-plus-7-lifecycle-proof",
         "status": "pass"
@@ -152,8 +152,8 @@
       {
         "id": "contract-performance",
         "path": "performance/core-v2/results/contract-performance.json",
-        "sha256": "bf0f294edacfbbb8c65ad0a2b496ce3fec3d50f3cb8c1bc7b7bbd2225ccf4894",
-        "codeCommit": "2b995ab054d441f48c964b995713fb2388dea04b",
+        "sha256": "dcc76d18766e596c216818bf3d05261aa36f549f365191ca47ea34760ed7f034",
+        "codeCommit": "8d285dbf738f27fb36ae9bd96492210dd515cb81",
         "codeCommitMatchesCandidate": true,
         "classification": "chromium-4x-development-proxy",
         "status": "pass"
@@ -161,8 +161,8 @@
       {
         "id": "interaction-performance-5000",
         "path": "docs/tasks/2026/07-15/performance-core-v2/evidence/interaction-performance-5000.json",
-        "sha256": "4c4d0a80630aa0e1acd26f537dd1e555c01fe4ca2ce5e13b7efdfc8c3b86842c",
-        "codeCommit": "2b995ab054d441f48c964b995713fb2388dea04b",
+        "sha256": "6bf28e8aac40a4095ecb68e357cb4fea0b2eb4178e204069825017d14a5d9064",
+        "codeCommit": "8d285dbf738f27fb36ae9bd96492210dd515cb81",
         "codeCommitMatchesCandidate": true,
         "classification": "headless-1x-and-4x-interaction-proxy",
         "status": "pass"
@@ -170,8 +170,8 @@
       {
         "id": "bar-animation-pan-performance",
         "path": "docs/tasks/2026/07-15/performance-core-v2/evidence/bar-animation-pan-performance.json",
-        "sha256": "2abe44b3331f25ebac6fd5b92e29b0a4cb6a4cb45264e4ee4a8c281dbcd5d618",
-        "codeCommit": "2b995ab054d441f48c964b995713fb2388dea04b",
+        "sha256": "84acd2c39c8121856b9fba33fcfc4c63784f65eff3579546dced7d7ae20dfbdc",
+        "codeCommit": "8d285dbf738f27fb36ae9bd96492210dd515cb81",
         "codeCommitMatchesCandidate": true,
         "classification": "headless-1x-and-4x-overlap-proxy",
         "status": "pass"
@@ -179,8 +179,8 @@
       {
         "id": "full-renderer-performance",
         "path": "performance/core-v2/results/latest-full-4x.json",
-        "sha256": "6d8651ce8c773ec67a01076859c4f6c75487589acde2b2b3453645fde6dc41fb",
-        "codeCommit": "2b995ab054d441f48c964b995713fb2388dea04b",
+        "sha256": "f9eeca9a86419177195e15efefd401ba942566c7971795570552185da0e74ce2",
+        "codeCommit": "8d285dbf738f27fb36ae9bd96492210dd515cb81",
         "codeCommitMatchesCandidate": true,
         "classification": "headless-full-scale-mesh-particle-4x-proxy",
         "status": "pass"
@@ -188,8 +188,8 @@
       {
         "id": "webgpu-experimental",
         "path": "performance/core-v2/results/webgpu-experimental.json",
-        "sha256": "12c43f997683d27293568c44685c2919d29109e8bf7a222d7cc5426bac750dbe",
-        "codeCommit": "2b995ab054d441f48c964b995713fb2388dea04b",
+        "sha256": "59b9f078914dc7b2771e2f0518686ee638eecd1ca480abd1fb7b69d536912acd",
+        "codeCommit": "8d285dbf738f27fb36ae9bd96492210dd515cb81",
         "codeCommitMatchesCandidate": true,
         "classification": "experimental-non-production",
         "status": "pass"

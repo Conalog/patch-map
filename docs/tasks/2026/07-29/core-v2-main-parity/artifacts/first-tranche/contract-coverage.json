@@ -1,0 +1,3866 @@
+{
+  "schemaRevision": "core-v2-main-parity-contract-map/2026-07-29.1",
+  "contractRevision": "core-v2-functional-contract/2026-07-16.2",
+  "expectedBlind": true,
+  "caseCount": 173,
+  "mappedCaseCount": 173,
+  "modeCounts": {
+    "consumer-seam": 48,
+    "core-contract-extension": 5,
+    "direct-main-overlap": 12,
+    "external-evidence": 16,
+    "main-partial": 92
+  },
+  "suiteCounts": {
+    "accessibility-input": 3,
+    "animation-publication": 3,
+    "asset-lifecycle": 3,
+    "consumer-journeys": 38,
+    "data-hierarchy": 8,
+    "determinism": 4,
+    "errors-atomicity": 6,
+    "events-selection": 18,
+    "history": 6,
+    "layout-orientation": 5,
+    "lifecycle": 6,
+    "migration": 3,
+    "operations-diagnostics": 2,
+    "package": 5,
+    "performance": 9,
+    "pixijs-boundary": 5,
+    "query-targets": 2,
+    "rendering": 11,
+    "security": 4,
+    "transformer": 10,
+    "updates": 14,
+    "viewport": 8
+  },
+  "cases": [
+    {
+      "id": "EVT-001",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "pointer-series"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "EVT-002",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "physical-click-series"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "EVT-003",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "pointer-hover-series",
+        "hover-overlap-redraw-probe"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "EVT-004",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "gesture-termination-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "EVT-005",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "bind-events",
+        "binding-probe-sequence"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "EVT-006",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "dispatch-propagating-event",
+        "keyboard-matrix",
+        "transformer-handle-propagation-probe"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "EVT-007",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "state-stack",
+        "dispatch-state-owned-input",
+        "destroy-state-stack"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "EVT-008",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "click-suppression-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "EVT-009",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "subscribe-events",
+        "set-selection"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "QRY-001",
+      "caseType": "capability",
+      "suite": "query-targets",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "load-dataset",
+        "query-scene"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-002",
+        "PAR-004"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "QRY-002",
+      "caseType": "capability",
+      "suite": "query-targets",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "query-scene",
+        "reuse-query-result-matrix",
+        "replace-scene",
+        "reuse-query-result",
+        "reuse-query-result-matrix",
+        "resolve-target"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-002",
+        "PAR-004"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "SEL-001",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "point-hit-matrix",
+        "overlap-and-relation-hit-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-009",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "SEL-002",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "selection-unit-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-009",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "SEL-003",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "selection-eligibility-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-009",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "SEL-004",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "selection-set-operations"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-009",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "SEL-005",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "box-selection",
+        "box-selection",
+        "box-selection",
+        "relation-box-intersection-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-009",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "SEL-006",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "paint-selection"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-009",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "SEL-007",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "selection-visual-matrix",
+        "selection-eligibility-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-009",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "SEL-008",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "canvas-user-select",
+        "set-external-selection",
+        "replace-scene",
+        "replace-scene",
+        "remount"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-009",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "SEL-009",
+      "caseType": "capability",
+      "suite": "events-selection",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "select-relation-endpoints",
+        "replace-endpoint",
+        "select-relation-endpoints",
+        "select-relation-endpoints",
+        "remove-relation-endpoint",
+        "select-relation-endpoints"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007",
+        "PAR-009",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "HIS-001",
+      "caseType": "capability",
+      "suite": "history",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "history-recorded-transaction",
+        "undo",
+        "redo",
+        "history-domain-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "HIS-002",
+      "caseType": "capability",
+      "suite": "history",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "history-capacity-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "HIS-003",
+      "caseType": "capability",
+      "suite": "history",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "history-recorded-transactions",
+        "undo",
+        "undo",
+        "redo"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "HIS-004",
+      "caseType": "capability",
+      "suite": "history",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "keyboard-history-matrix",
+        "host-history-control"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "HIS-005",
+      "caseType": "capability",
+      "suite": "history",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "history-recorded-transaction",
+        "undo",
+        "publish-frame",
+        "redo",
+        "publish-frame",
+        "clear-history",
+        "replace-scene",
+        "destroy"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "HIS-006",
+      "caseType": "capability",
+      "suite": "history",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "compound-editor-transaction",
+        "undo",
+        "redo",
+        "compound-editor-domain-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "ERR-001",
+      "caseType": "capability",
+      "suite": "errors-atomicity",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "load-dataset",
+        "run-invalid-operation-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "LIF-002",
+        "PAR-005"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "ERR-002",
+      "caseType": "capability",
+      "suite": "errors-atomicity",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "load-dataset",
+        "snapshot-observation",
+        "query-target",
+        "merge-target",
+        "replace-scene",
+        "snapshot-observation",
+        "merge-target",
+        "snapshot-observation"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "LIF-002",
+        "PAR-005"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "ERR-003",
+      "caseType": "capability",
+      "suite": "errors-atomicity",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "load-dataset",
+        "resolve-asset",
+        "retry-asset"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "LIF-002",
+        "PAR-005"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "ERR-004",
+      "caseType": "capability",
+      "suite": "errors-atomicity",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "begin-move-gesture",
+        "move-pointer",
+        "run-terminal-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "LIF-002",
+        "PAR-005"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "ERR-005",
+      "caseType": "capability",
+      "suite": "errors-atomicity",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "submit-scene-revision",
+        "submit-scene-revision",
+        "complete-request",
+        "complete-request"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "LIF-002",
+        "PAR-005"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "ERR-006",
+      "caseType": "capability",
+      "suite": "errors-atomicity",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "call-operation-state-matrix",
+        "destroy-instance",
+        "create-fresh-instance"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "LIF-002",
+        "PAR-005"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "DET-001",
+      "caseType": "capability",
+      "suite": "determinism",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "hash-caller-input",
+        "load-dataset",
+        "hash-caller-input",
+        "mutate-caller-input",
+        "hash-caller-input",
+        "snapshot-scene"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-002",
+        "PAR-005",
+        "PAR-008"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "DET-002",
+      "caseType": "capability",
+      "suite": "determinism",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "run-fresh-session",
+        "run-fresh-session",
+        "compare-normalized-observation"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-002",
+        "PAR-005",
+        "PAR-008"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "DET-003",
+      "caseType": "capability",
+      "suite": "determinism",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "generate-seeded-scene",
+        "advance-seeded-action",
+        "regenerate-seeded-scene"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-002",
+        "PAR-005",
+        "PAR-008"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "DET-004",
+      "caseType": "capability",
+      "suite": "determinism",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "load-dataset",
+        "apply-transaction",
+        "export-canonical-dataset",
+        "load-export-fresh-instance"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-002",
+        "PAR-005",
+        "PAR-008"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "PRF-001",
+      "caseType": "capability",
+      "suite": "performance",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "run-performance-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-004",
+        "PAR-006",
+        "PAR-012"
+      ],
+      "independentGate": "verify:core-v2:performance",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "PRF-002",
+      "caseType": "capability",
+      "suite": "performance",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "measure-load-phase-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-004",
+        "PAR-006",
+        "PAR-012"
+      ],
+      "independentGate": "verify:core-v2:performance",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "PRF-003",
+      "caseType": "capability",
+      "suite": "performance",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "load-generated-scene",
+        "animate-random-bars",
+        "pan-and-zoom-during-animation"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-004",
+        "PAR-006",
+        "PAR-012"
+      ],
+      "independentGate": "verify:core-v2:performance",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "PRF-004",
+      "caseType": "capability",
+      "suite": "performance",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "load-generated-scene",
+        "render-random-text",
+        "change-random-text"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-004",
+        "PAR-006",
+        "PAR-012"
+      ],
+      "independentGate": "verify:core-v2:performance",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "PRF-005",
+      "caseType": "capability",
+      "suite": "performance",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "apply-bulk-transaction",
+        "apply-trusted-overlay"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-004",
+        "PAR-006",
+        "PAR-012"
+      ],
+      "independentGate": "verify:core-v2:performance",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "PRF-006",
+      "caseType": "capability",
+      "suite": "performance",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "run-continuous-interaction-trace"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-004",
+        "PAR-006",
+        "PAR-012"
+      ],
+      "independentGate": "verify:core-v2:performance",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "PRF-007",
+      "caseType": "capability",
+      "suite": "performance",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "run-lifecycle-cycles"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-004",
+        "PAR-006",
+        "PAR-012"
+      ],
+      "independentGate": "verify:core-v2:performance",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "PRF-008",
+      "caseType": "capability",
+      "suite": "performance",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "load-dataset",
+        "extract-published-tuple",
+        "swap-image-and-restore-canvas"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-004",
+        "PAR-006",
+        "PAR-012"
+      ],
+      "independentGate": "verify:core-v2:performance",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "PRF-009",
+      "caseType": "capability",
+      "suite": "performance",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "capture-before-optimization-fixture",
+        "run-post-optimization-cases",
+        "compare-normalized-semantics"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-004",
+        "PAR-006",
+        "PAR-012"
+      ],
+      "independentGate": "verify:core-v2:performance",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "LIF-001",
+      "caseType": "capability",
+      "suite": "lifecycle",
+      "comparisonMode": "direct-main-overlap",
+      "actionTypes": [
+        "initialize",
+        "initialize"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "LIF-002",
+        "LIF-003",
+        "PAR-010"
+      ],
+      "independentGate": "verify:core-v2:memory",
+      "rationale": "the first-tranche black-box harness runs the canonical case profile in both runtimes"
+    },
+    {
+      "id": "LIF-002",
+      "caseType": "capability",
+      "suite": "lifecycle",
+      "comparisonMode": "direct-main-overlap",
+      "actionTypes": [
+        "initialize",
+        "snapshot-resolved-dataset",
+        "exercise-authoritative-draw-races",
+        "publishFrame"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "LIF-002",
+        "LIF-003",
+        "PAR-010"
+      ],
+      "independentGate": "verify:core-v2:memory",
+      "rationale": "the first-tranche black-box harness runs the canonical case profile in both runtimes"
+    },
+    {
+      "id": "LIF-003",
+      "caseType": "capability",
+      "suite": "lifecycle",
+      "comparisonMode": "direct-main-overlap",
+      "actionTypes": [
+        "loadDataset",
+        "select",
+        "seed-replacement-stale-state",
+        "startAnimation",
+        "replaceDataset",
+        "replaceDataset",
+        "replaceDataset",
+        "replaceDataset",
+        "replaceDataset",
+        "replaceDataset"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "LIF-002",
+        "LIF-003",
+        "PAR-010"
+      ],
+      "independentGate": "verify:core-v2:memory",
+      "rationale": "the first-tranche black-box harness runs the canonical case profile in both runtimes"
+    },
+    {
+      "id": "LIF-004",
+      "caseType": "capability",
+      "suite": "lifecycle",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "set-view",
+        "select",
+        "resizeHost",
+        "publishFrame",
+        "hitTest",
+        "convertScreenToWorld"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "LIF-002",
+        "LIF-003",
+        "PAR-010"
+      ],
+      "independentGate": "verify:core-v2:memory",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "LIF-005",
+      "caseType": "capability",
+      "suite": "lifecycle",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "initialize",
+        "loadDataset",
+        "destroy",
+        "destroy",
+        "repeatLifecycle"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "LIF-002",
+        "LIF-003",
+        "PAR-010"
+      ],
+      "independentGate": "verify:core-v2:memory",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "LIF-006",
+      "caseType": "capability",
+      "suite": "lifecycle",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "startAnimation",
+        "startPendingAssetLoad",
+        "startViewportDeceleration",
+        "beginPointerGesture",
+        "startExtraction",
+        "setDocumentVisibility",
+        "setDocumentVisibility",
+        "publishFrame"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "LIF-002",
+        "LIF-003",
+        "PAR-010"
+      ],
+      "independentGate": "verify:core-v2:memory",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "DAT-001",
+      "caseType": "capability",
+      "suite": "data-hierarchy",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "queryAll",
+        "attemptStrictLoadVariant"
+      ],
+      "sharedParityProbeIds": [
+        "DAT-002",
+        "DAT-003",
+        "DAT-004",
+        "PAR-001",
+        "PAR-009"
+      ],
+      "independentGate": "verify:core-v2-contract",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "DAT-002",
+      "caseType": "capability",
+      "suite": "data-hierarchy",
+      "comparisonMode": "direct-main-overlap",
+      "actionTypes": [
+        "freezeInput",
+        "loadDataset",
+        "snapshot",
+        "loadDataset",
+        "snapshot"
+      ],
+      "sharedParityProbeIds": [
+        "DAT-002",
+        "DAT-003",
+        "DAT-004",
+        "PAR-001",
+        "PAR-009"
+      ],
+      "independentGate": "verify:core-v2-contract",
+      "rationale": "the first-tranche black-box harness runs the canonical case profile in both runtimes"
+    },
+    {
+      "id": "DAT-003",
+      "caseType": "capability",
+      "suite": "data-hierarchy",
+      "comparisonMode": "direct-main-overlap",
+      "actionTypes": [
+        "loadShorthandMatrix",
+        "observeGeometry",
+        "validate",
+        "validate"
+      ],
+      "sharedParityProbeIds": [
+        "DAT-002",
+        "DAT-003",
+        "DAT-004",
+        "PAR-001",
+        "PAR-009"
+      ],
+      "independentGate": "verify:core-v2-contract",
+      "rationale": "the first-tranche black-box harness runs the canonical case profile in both runtimes"
+    },
+    {
+      "id": "DAT-004",
+      "caseType": "capability",
+      "suite": "data-hierarchy",
+      "comparisonMode": "direct-main-overlap",
+      "actionTypes": [
+        "initializeInstances",
+        "resolveColors",
+        "resolveColors",
+        "resolveColorInputMatrix",
+        "resolveColor"
+      ],
+      "sharedParityProbeIds": [
+        "DAT-002",
+        "DAT-003",
+        "DAT-004",
+        "PAR-001",
+        "PAR-009"
+      ],
+      "independentGate": "verify:core-v2-contract",
+      "rationale": "the first-tranche black-box harness runs the canonical case profile in both runtimes"
+    },
+    {
+      "id": "DAT-005",
+      "caseType": "capability",
+      "suite": "data-hierarchy",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadGrid",
+        "exerciseGridEdgeMatrix",
+        "setGridCell",
+        "setGridCell"
+      ],
+      "sharedParityProbeIds": [
+        "DAT-002",
+        "DAT-003",
+        "DAT-004",
+        "PAR-001",
+        "PAR-009"
+      ],
+      "independentGate": "verify:core-v2-contract",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "DAT-006",
+      "caseType": "capability",
+      "suite": "data-hierarchy",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "ingestLegacyRoot",
+        "snapshot",
+        "loadDataset",
+        "snapshot",
+        "ingestLegacyRoot"
+      ],
+      "sharedParityProbeIds": [
+        "DAT-002",
+        "DAT-003",
+        "DAT-004",
+        "PAR-001",
+        "PAR-009"
+      ],
+      "independentGate": "verify:core-v2-contract",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "DAT-007",
+      "caseType": "capability",
+      "suite": "data-hierarchy",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "select",
+        "applyInvalidCases",
+        "query"
+      ],
+      "sharedParityProbeIds": [
+        "DAT-002",
+        "DAT-003",
+        "DAT-004",
+        "PAR-001",
+        "PAR-009"
+      ],
+      "independentGate": "verify:core-v2-contract",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "DAT-008",
+      "caseType": "capability",
+      "suite": "data-hierarchy",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadFreshSessions",
+        "validateDuplicateIdentityMatrix",
+        "retainTarget",
+        "remove",
+        "add",
+        "patchStaleTarget"
+      ],
+      "sharedParityProbeIds": [
+        "DAT-002",
+        "DAT-003",
+        "DAT-004",
+        "PAR-001",
+        "PAR-009"
+      ],
+      "independentGate": "verify:core-v2-contract",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "PIX-001",
+      "caseType": "capability",
+      "suite": "pixijs-boundary",
+      "comparisonMode": "core-contract-extension",
+      "actionTypes": [
+        "initialize-engine",
+        "load-dataset",
+        "inspect-pixijs-public-surface"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "PAR-001",
+        "PAR-006"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "the approved Core v2 boundary has no equivalent main public behavior and is verified independently"
+    },
+    {
+      "id": "PIX-002",
+      "caseType": "capability",
+      "suite": "pixijs-boundary",
+      "comparisonMode": "core-contract-extension",
+      "actionTypes": [
+        "query-logical-target",
+        "map-logical-target-to-render-owner"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "PAR-001",
+        "PAR-006"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "the approved Core v2 boundary has no equivalent main public behavior and is verified independently"
+    },
+    {
+      "id": "PIX-003",
+      "caseType": "capability",
+      "suite": "pixijs-boundary",
+      "comparisonMode": "core-contract-extension",
+      "actionTypes": [
+        "run-supported-runtime-matrix",
+        "attempt-unsupported-backend"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "PAR-001",
+        "PAR-006"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "the approved Core v2 boundary has no equivalent main public behavior and is verified independently"
+    },
+    {
+      "id": "PIX-004",
+      "caseType": "capability",
+      "suite": "pixijs-boundary",
+      "comparisonMode": "core-contract-extension",
+      "actionTypes": [
+        "publish-revision-tuple",
+        "extract-pixijs-scene",
+        "restore-authoritative-canvas"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "PAR-001",
+        "PAR-006"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "the approved Core v2 boundary has no equivalent main public behavior and is verified independently"
+    },
+    {
+      "id": "PIX-005",
+      "caseType": "capability",
+      "suite": "pixijs-boundary",
+      "comparisonMode": "core-contract-extension",
+      "actionTypes": [
+        "run-renderer-loss-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "PAR-001",
+        "PAR-006"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "the approved Core v2 boundary has no equivalent main public behavior and is verified independently"
+    },
+    {
+      "id": "PKG-001",
+      "caseType": "capability",
+      "suite": "package",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "build-package",
+        "pack-package",
+        "install-offline-consumer",
+        "run-consumer-flow"
+      ],
+      "sharedParityProbeIds": [],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "PKG-002",
+      "caseType": "capability",
+      "suite": "package",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "run-redesigned-host-adapter"
+      ],
+      "sharedParityProbeIds": [],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "PKG-003",
+      "caseType": "capability",
+      "suite": "package",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "initialize-instances",
+        "mutate-instance",
+        "destroy-instance",
+        "recreate-instance"
+      ],
+      "sharedParityProbeIds": [],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "PKG-004",
+      "caseType": "capability",
+      "suite": "package",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "install-packed-artifact",
+        "run-host-journey-matrix"
+      ],
+      "sharedParityProbeIds": [],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "PKG-005",
+      "caseType": "capability",
+      "suite": "package",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "compile-public-examples",
+        "run-public-examples",
+        "validate-documentation-digest"
+      ],
+      "sharedParityProbeIds": [],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "REN-001",
+      "caseType": "capability",
+      "suite": "rendering",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "patch",
+        "patch"
+      ],
+      "sharedParityProbeIds": [
+        "REN-003",
+        "REN-008",
+        "REN-009",
+        "REN-011",
+        "PAR-001",
+        "PAR-006",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "REN-002",
+      "caseType": "capability",
+      "suite": "rendering",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadGrid",
+        "snapshotGrid",
+        "reloadGrid"
+      ],
+      "sharedParityProbeIds": [
+        "REN-003",
+        "REN-008",
+        "REN-009",
+        "REN-011",
+        "PAR-001",
+        "PAR-006",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "REN-003",
+      "caseType": "capability",
+      "suite": "rendering",
+      "comparisonMode": "direct-main-overlap",
+      "actionTypes": [
+        "loadDataset",
+        "setComponentVisibility",
+        "setComponentVisibility"
+      ],
+      "sharedParityProbeIds": [
+        "REN-003",
+        "REN-008",
+        "REN-009",
+        "REN-011",
+        "PAR-001",
+        "PAR-006",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "the first-tranche black-box harness runs the canonical case profile in both runtimes"
+    },
+    {
+      "id": "REN-004",
+      "caseType": "capability",
+      "suite": "rendering",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "patch"
+      ],
+      "sharedParityProbeIds": [
+        "REN-003",
+        "REN-008",
+        "REN-009",
+        "REN-011",
+        "PAR-001",
+        "PAR-006",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "REN-005",
+      "caseType": "capability",
+      "suite": "rendering",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "resolveAsset",
+        "replaceSource",
+        "completeAsset"
+      ],
+      "sharedParityProbeIds": [
+        "REN-003",
+        "REN-008",
+        "REN-009",
+        "REN-011",
+        "PAR-001",
+        "PAR-006",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "REN-006",
+      "caseType": "capability",
+      "suite": "rendering",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "snapshot-observation",
+        "patch",
+        "patch",
+        "patch",
+        "publishFrame"
+      ],
+      "sharedParityProbeIds": [
+        "REN-003",
+        "REN-008",
+        "REN-009",
+        "REN-011",
+        "PAR-001",
+        "PAR-006",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "REN-007",
+      "caseType": "capability",
+      "suite": "rendering",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "observeRelationPath",
+        "patch",
+        "setVisibility",
+        "setVisibility",
+        "observeRelationContractMatrix"
+      ],
+      "sharedParityProbeIds": [
+        "REN-003",
+        "REN-008",
+        "REN-009",
+        "REN-011",
+        "PAR-001",
+        "PAR-006",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "REN-008",
+      "caseType": "capability",
+      "suite": "rendering",
+      "comparisonMode": "direct-main-overlap",
+      "actionTypes": [
+        "loadDataset",
+        "replaceComponentSource",
+        "setComponentVisibility",
+        "setComponentVisibility"
+      ],
+      "sharedParityProbeIds": [
+        "REN-003",
+        "REN-008",
+        "REN-009",
+        "REN-011",
+        "PAR-001",
+        "PAR-006",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "the first-tranche black-box harness runs the canonical case profile in both runtimes"
+    },
+    {
+      "id": "REN-009",
+      "caseType": "capability",
+      "suite": "rendering",
+      "comparisonMode": "direct-main-overlap",
+      "actionTypes": [
+        "loadDataset",
+        "patch",
+        "publishFrame",
+        "publishFrame"
+      ],
+      "sharedParityProbeIds": [
+        "REN-003",
+        "REN-008",
+        "REN-009",
+        "REN-011",
+        "PAR-001",
+        "PAR-006",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "the first-tranche black-box harness runs the canonical case profile in both runtimes"
+    },
+    {
+      "id": "REN-010",
+      "caseType": "capability",
+      "suite": "rendering",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "replaceSource",
+        "patch"
+      ],
+      "sharedParityProbeIds": [
+        "REN-003",
+        "REN-008",
+        "REN-009",
+        "REN-011",
+        "PAR-001",
+        "PAR-006",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "REN-011",
+      "caseType": "capability",
+      "suite": "rendering",
+      "comparisonMode": "direct-main-overlap",
+      "actionTypes": [
+        "loadDataset",
+        "observeItemTextMatrix",
+        "patch",
+        "publishFrame"
+      ],
+      "sharedParityProbeIds": [
+        "REN-003",
+        "REN-008",
+        "REN-009",
+        "REN-011",
+        "PAR-001",
+        "PAR-006",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "the first-tranche black-box harness runs the canonical case profile in both runtimes"
+    },
+    {
+      "id": "LAY-001",
+      "caseType": "capability",
+      "suite": "layout-orientation",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "patch"
+      ],
+      "sharedParityProbeIds": [
+        "LAY-004",
+        "LAY-005",
+        "PAR-001",
+        "PAR-002",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "LAY-002",
+      "caseType": "capability",
+      "suite": "layout-orientation",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadPlacementMatrix",
+        "observeBounds",
+        "observePlacementMatrix"
+      ],
+      "sharedParityProbeIds": [
+        "LAY-004",
+        "LAY-005",
+        "PAR-001",
+        "PAR-002",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "LAY-003",
+      "caseType": "capability",
+      "suite": "layout-orientation",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "patch",
+        "undo",
+        "redo"
+      ],
+      "sharedParityProbeIds": [
+        "LAY-004",
+        "LAY-005",
+        "PAR-001",
+        "PAR-002",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "LAY-004",
+      "caseType": "capability",
+      "suite": "layout-orientation",
+      "comparisonMode": "direct-main-overlap",
+      "actionTypes": [
+        "loadOrientationMatrix",
+        "setWorldTransform",
+        "setContentOrientation",
+        "observeOrientationMatrix"
+      ],
+      "sharedParityProbeIds": [
+        "LAY-004",
+        "LAY-005",
+        "PAR-001",
+        "PAR-002",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "the first-tranche black-box harness runs the canonical case profile in both runtimes"
+    },
+    {
+      "id": "LAY-005",
+      "caseType": "capability",
+      "suite": "layout-orientation",
+      "comparisonMode": "direct-main-overlap",
+      "actionTypes": [
+        "loadBoundsMatrix",
+        "queryBounds",
+        "hitTest",
+        "destroyTarget"
+      ],
+      "sharedParityProbeIds": [
+        "LAY-004",
+        "LAY-005",
+        "PAR-001",
+        "PAR-002",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "the first-tranche black-box harness runs the canonical case profile in both runtimes"
+    },
+    {
+      "id": "AST-001",
+      "caseType": "capability",
+      "suite": "asset-lifecycle",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "registerAssets",
+        "registerAssets",
+        "initializeWithRequiredAssetFailure",
+        "acquireAsset",
+        "acquireAsset",
+        "destroy",
+        "destroy",
+        "registerAlias"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-001",
+        "PAR-008",
+        "PAR-013",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:memory",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "AST-002",
+      "caseType": "capability",
+      "suite": "asset-lifecycle",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "freezeDescriptors",
+        "loadDescriptors",
+        "construct-cyclic-descriptor",
+        "validate-asset-descriptor"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-001",
+        "PAR-008",
+        "PAR-013",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:memory",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "AST-003",
+      "caseType": "capability",
+      "suite": "asset-lifecycle",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "startAssetRequest",
+        "replaceSource",
+        "completeAssetRequest",
+        "destroy",
+        "completeAssetRequest"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-001",
+        "PAR-008",
+        "PAR-013",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:memory",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "SEC-001",
+      "caseType": "capability",
+      "suite": "security",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "run-asset-ingestion-policy-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-008"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "SEC-002",
+      "caseType": "capability",
+      "suite": "security",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "run-extraction-preflight-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-008"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "SEC-003",
+      "caseType": "capability",
+      "suite": "security",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "inject-sensitive-failure-fields",
+        "capture-diagnostic-channels"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-008"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "SEC-004",
+      "caseType": "capability",
+      "suite": "security",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "build-and-pack",
+        "inspect-package-contents",
+        "run-dependency-license-vulnerability-audit"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-008"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "ACC-001",
+      "caseType": "capability",
+      "suite": "accessibility-input",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "read-logical-accessibility-tree",
+        "focus-accessibility-target",
+        "activate-accessibility-target"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "ACC-002",
+      "caseType": "capability",
+      "suite": "accessibility-input",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "run-pointer-action-trace",
+        "run-host-control-action-trace",
+        "compare-semantic-observations"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "ACC-003",
+      "caseType": "capability",
+      "suite": "accessibility-input",
+      "comparisonMode": "external-evidence",
+      "actionTypes": [
+        "set-reduced-motion",
+        "patch-component",
+        "focus-and-select",
+        "set-reduced-motion"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-007"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "native hardware, assistive technology, security, or performance evidence cannot be inferred from canvas parity"
+    },
+    {
+      "id": "OPS-001",
+      "caseType": "capability",
+      "suite": "operations-diagnostics",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "capture-runtime-diagnostics"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "PAR-005"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "OPS-002",
+      "caseType": "capability",
+      "suite": "operations-diagnostics",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "register-callbacks",
+        "configure-callback",
+        "configure-callback",
+        "emit-update",
+        "dispose-callbacks"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-001",
+        "PAR-005"
+      ],
+      "independentGate": "verify:core-v2:release",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "MIG-001",
+      "caseType": "capability",
+      "suite": "migration",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "load-canonical-and-legacy-corpus",
+        "apply-representative-edits",
+        "export-validate-reload",
+        "attempt-nonserializable-save"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-002",
+        "PAR-005"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "MIG-002",
+      "caseType": "capability",
+      "suite": "migration",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "mount-authoritative-and-shadow",
+        "run-effect-trace",
+        "evaluate-canary-cohorts"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-002",
+        "PAR-005"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "MIG-003",
+      "caseType": "capability",
+      "suite": "migration",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "set-rollback-flag",
+        "run-trigger-state-matrix",
+        "remount-authoritative-engine"
+      ],
+      "sharedParityProbeIds": [
+        "LIF-002",
+        "PAR-005"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "UPD-001",
+      "caseType": "capability",
+      "suite": "updates",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "retainTarget",
+        "replaceDataset",
+        "resolveTarget",
+        "patch"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "UPD-002",
+      "caseType": "capability",
+      "suite": "updates",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "freezePatch",
+        "merge",
+        "merge"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "UPD-003",
+      "caseType": "capability",
+      "suite": "updates",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "replace",
+        "replace",
+        "replace"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "UPD-004",
+      "caseType": "capability",
+      "suite": "updates",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "patch",
+        "relativePatch",
+        "resizeAroundOrigin"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "UPD-005",
+      "caseType": "capability",
+      "suite": "updates",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "patch",
+        "readCurrentState",
+        "publishFrame"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "UPD-006",
+      "caseType": "capability",
+      "suite": "updates",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "bulkPatch",
+        "bulkPatch",
+        "bulkPatch",
+        "bulkPatch"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "UPD-007",
+      "caseType": "capability",
+      "suite": "updates",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "generateSyntheticScene",
+        "bulkOverlay",
+        "publishFrame",
+        "bulkOverlay"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "UPD-008",
+      "caseType": "capability",
+      "suite": "updates",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "capture-observation",
+        "reconcileComponents",
+        "setComponentVisibility",
+        "setComponentVisibility"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "UPD-009",
+      "caseType": "capability",
+      "suite": "updates",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "setSelection",
+        "moveAcrossParents",
+        "group",
+        "ungroup",
+        "moveAcrossParents",
+        "moveAcrossParents"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "UPD-010",
+      "caseType": "capability",
+      "suite": "updates",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "loadDataset",
+        "patch",
+        "setVisibility",
+        "setVisibility",
+        "remove"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "UPD-011",
+      "caseType": "capability",
+      "suite": "updates",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "startAsyncRevision",
+        "startAsyncRevision",
+        "startAsyncRevision",
+        "completeAsyncRevision",
+        "completeAsyncRevision",
+        "destroy",
+        "completeAsyncRevision"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "UPD-012",
+      "caseType": "capability",
+      "suite": "updates",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "setHighlightPolicy",
+        "setLayerVisibility",
+        "clearPresentationPolicy"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "ANI-001",
+      "caseType": "capability",
+      "suite": "animation-publication",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "patch",
+        "advanceClock",
+        "patch",
+        "advanceClock",
+        "advanceClock"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-006",
+        "PAR-012"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "ANI-002",
+      "caseType": "capability",
+      "suite": "animation-publication",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "runAnimationSchedule",
+        "snapshotAt",
+        "runAnimationSchedule",
+        "snapshotAt",
+        "advanceClock",
+        "destroy",
+        "advanceClock"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-006",
+        "PAR-012"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "ANI-003",
+      "caseType": "capability",
+      "suite": "animation-publication",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "patch",
+        "advanceClock",
+        "undo",
+        "redo",
+        "replaceDataset",
+        "destroy",
+        "advanceClock"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-006",
+        "PAR-012"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "UPD-013",
+      "caseType": "capability",
+      "suite": "updates",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "streamOverlay",
+        "publishFrame"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "UPD-014",
+      "caseType": "capability",
+      "suite": "updates",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "snapshot",
+        "replaceExternalDependency",
+        "refresh",
+        "publishFrame"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "VIE-001",
+      "caseType": "capability",
+      "suite": "viewport",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "view-gesture-series"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-002",
+        "PAR-004",
+        "PAR-010",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "VIE-002",
+      "caseType": "capability",
+      "suite": "viewport",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "set-view",
+        "settle-view",
+        "serialize-view",
+        "remount-and-restore",
+        "restore-view"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-002",
+        "PAR-004",
+        "PAR-010",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "VIE-003",
+      "caseType": "capability",
+      "suite": "viewport",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "focus-target-matrix",
+        "focus-contributor-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-002",
+        "PAR-004",
+        "PAR-010",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "VIE-004",
+      "caseType": "capability",
+      "suite": "viewport",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "fit-target-matrix",
+        "fit-targets",
+        "fit-contributor-matrix",
+        "resize-after-fit"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-002",
+        "PAR-004",
+        "PAR-010",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "VIE-005",
+      "caseType": "capability",
+      "suite": "viewport",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "world-rotation-series",
+        "resize-surface"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-002",
+        "PAR-004",
+        "PAR-010",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "VIE-006",
+      "caseType": "capability",
+      "suite": "viewport",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "world-flip-matrix",
+        "view-dependent-feature-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-002",
+        "PAR-004",
+        "PAR-010",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "VIE-007",
+      "caseType": "capability",
+      "suite": "viewport",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "surface-resize-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-002",
+        "PAR-004",
+        "PAR-010",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "VIE-008",
+      "caseType": "capability",
+      "suite": "viewport",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "viewport-policy-lifecycle"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-002",
+        "PAR-004",
+        "PAR-010",
+        "PAR-011"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "TRN-001",
+      "caseType": "capability",
+      "suite": "transformer",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "transform-target-operations",
+        "replace-scene"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-007"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "TRN-002",
+      "caseType": "capability",
+      "suite": "transformer",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "inspect-transform-handles"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-007"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "TRN-003",
+      "caseType": "capability",
+      "suite": "transformer",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "evaluate-transformable-subset",
+        "evaluate-transformable-kind-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-007"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "TRN-004",
+      "caseType": "capability",
+      "suite": "transformer",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "resize-handle-matrix",
+        "resize-target-class-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-007"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "TRN-005",
+      "caseType": "capability",
+      "suite": "transformer",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "ratio-resize-series",
+        "ratio-lock-policy-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-007"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "TRN-006",
+      "caseType": "capability",
+      "suite": "transformer",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "rotate-selection",
+        "rotation-frame-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-007"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "TRN-007",
+      "caseType": "capability",
+      "suite": "transformer",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "rotation-snap-series"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-007"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "TRN-008",
+      "caseType": "capability",
+      "suite": "transformer",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "move-transform",
+        "move-transform",
+        "key-nudge",
+        "edge-auto-pan",
+        "move-ineligible-mixed-set",
+        "measure-transform-visual-follow"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-007"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "TRN-009",
+      "caseType": "capability",
+      "suite": "transformer",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "transform-gesture",
+        "undo",
+        "redo",
+        "transform-cancel-matrix",
+        "transform-completion-matrix"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-007"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "TRN-010",
+      "caseType": "capability",
+      "suite": "transformer",
+      "comparisonMode": "main-partial",
+      "actionTypes": [
+        "transform-handle-gesture",
+        "pointer-click"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-007"
+      ],
+      "independentGate": "verify:core-v2:browser",
+      "rationale": "shared visible semantics run through explicit black-box probes; Core-only contract detail remains independently gated"
+    },
+    {
+      "id": "CSM-001",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "initialize-engine",
+        "load-scene",
+        "await-first-useful-frame",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-002",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "load-scene",
+        "select-targets",
+        "replace-scene",
+        "query-stale-target",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-003",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "set-host-state",
+        "set-host-state",
+        "load-scene",
+        "query-target",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-004",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "load-scene",
+        "submit-async-revision",
+        "submit-async-revision",
+        "complete-async-revision",
+        "complete-async-revision",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-005",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "load-scene",
+        "apply-merge",
+        "redraw-scene",
+        "apply-merge",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-006",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "load-scene",
+        "apply-live-overlay",
+        "await-frame",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-007",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "submit-overlay-revision",
+        "submit-overlay-revision",
+        "submit-overlay-revision",
+        "complete-overlay-revisions",
+        "destroy-engine",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-008",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "load-scene",
+        "apply-presentation-overlay",
+        "export-canonical-dataset",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-009",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "load-scene",
+        "restore-or-fit-view",
+        "restore-or-fit-view",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-010",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "load-scene",
+        "pan-view",
+        "zoom-view",
+        "fit-view",
+        "await-view-settle",
+        "remount-and-restore-view",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-011",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "single-select",
+        "toggle-select",
+        "select-related-targets",
+        "box-select",
+        "clear-selection",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-012",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "apply-host-selection",
+        "user-select",
+        "redraw-scene",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-013",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "hover-target",
+        "secondary-click-target",
+        "begin-drag",
+        "replace-scene",
+        "destroy-engine",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-014",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "apply-view-column",
+        "apply-view-column",
+        "apply-view-column",
+        "remount-and-restore-column",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-015",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "pointerdown",
+        "pointercancel",
+        "dispatch-host-shortcut",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-016",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "select-targets",
+        "snapshot-command-targets",
+        "clear-selection",
+        "apply-command-status",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-017",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "mount-load-interact",
+        "destroy-engine",
+        "mount-load-interact",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-018",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "initialize-editor-engine",
+        "load-scene",
+        "enable-editor-policies",
+        "attempt-blocked-plant-mount",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-019",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "create-element-matrix",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-020",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "single-select",
+        "toggle-select",
+        "box-select",
+        "drill-down",
+        "secondary-click",
+        "clear-selection",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-021",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "select-from-sidebar",
+        "range-select-from-sidebar",
+        "rename-target",
+        "reveal-target",
+        "clear-selection",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-022",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "begin-move",
+        "move-targets",
+        "end-move",
+        "nudge-targets",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-023",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "run-resize-handle-matrix",
+        "rotate-target",
+        "cancel-transform",
+        "undo",
+        "redo",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-024",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "run-pan-source-matrix",
+        "zoom-view",
+        "hit-test",
+        "exit-temporary-navigation-policy",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-025",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "enter-grid-edit",
+        "reveal-inactive-cells",
+        "resize-grid",
+        "set-grid-cell-active",
+        "set-grid-cell-active",
+        "exit-grid-edit",
+        "undo",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-026",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "enter-relation-edit",
+        "add-relation-link",
+        "remove-relation-link",
+        "add-relation-link",
+        "exit-relation-edit",
+        "undo",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-027",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "open-text-editor",
+        "replace-scene",
+        "resolve-editor-target-by-id",
+        "commit-text-edit",
+        "commit-text-edit",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-028",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "edit-position-angle",
+        "align-targets",
+        "distribute-targets",
+        "distribute-targets",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-029",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "apply-style-transaction",
+        "apply-style-transaction",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-030",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "move-hierarchy",
+        "reorder-z",
+        "move-hierarchy",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-031",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "group-targets",
+        "duplicate-tree",
+        "copy-paste-tree",
+        "ungroup-target",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-032",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "paste-external-text",
+        "paste-images",
+        "drop-images",
+        "drop-images",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-033",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "select-targets",
+        "request-delete-plan",
+        "apply-host-cascade-confirmation",
+        "delete-transaction",
+        "undo",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-034",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "run-editor-mutation-matrix",
+        "undo-all",
+        "redo-all",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-035",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "apply-merge",
+        "export-canonical-dataset",
+        "host-validate-and-upload",
+        "host-validate-and-upload",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-036",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "run-editor-lifecycle-cycles",
+        "destroy-engine",
+        "remount-editor",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-037",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "load-scene",
+        "replace-scene",
+        "apply-presentation-overlay",
+        "fit-view",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    },
+    {
+      "id": "CSM-038",
+      "caseType": "consumer-journey",
+      "suite": "consumer-journeys",
+      "comparisonMode": "consumer-seam",
+      "actionTypes": [
+        "load-scene",
+        "extract-scene",
+        "show-host-image",
+        "restore-engine-canvas",
+        "probe-declared-failure"
+      ],
+      "sharedParityProbeIds": [
+        "PAR-003",
+        "PAR-004",
+        "PAR-005",
+        "PAR-007",
+        "PAR-008",
+        "PAR-009",
+        "PAR-010",
+        "PAR-011",
+        "PAR-012",
+        "PAR-013",
+        "PAR-014",
+        "PAR-015",
+        "PAR-016"
+      ],
+      "independentGate": "verify:core-v2:packed-consumer",
+      "rationale": "the behavior crosses package/host ownership and is verified through the packed consumer plus shared visible probes"
+    }
+  ]
+}
