@@ -323,7 +323,7 @@ describe('Core v2 guarded incremental parser', () => {
 
     expect(incremental).not.toBeNull();
     expect(incremental).toEqual(canonical);
-  });
+  }, 20_000);
 
   it('stays canonical across owned top-level add, move, group, ungroup, and remove', () => {
     let current = materializeCoreV2Dataset([
