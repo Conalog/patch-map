@@ -187,6 +187,9 @@ describe('Core v2 focused contract Lab shell', () => {
     expect(markup).toContain('data-action-status="queued"');
     expect(markup).toContain('기술 ID · contract/');
     expect(markup).toContain('직접 조작할 때는 위의 한국어 도구와 안내만 따라가면 됩니다');
+    expect(markup).toContain('data-testid="manual-dataset-size"');
+    expect(markup).toContain('<option value="10000">10,000개 객체 · 탐색용</option>');
+    expect(markup).toContain('정확 실행 크기');
     expect(markup).not.toContain('data-contract-status="pass"');
   });
 

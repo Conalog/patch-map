@@ -25,6 +25,10 @@ import {
   renderCoreV2ManualWorkbench,
   type CoreV2ManualLabBridge,
 } from '../interactive/manual-workbench';
+import {
+  CORE_V2_MANUAL_SCENE_SIZE_OPTIONS,
+  type CoreV2ManualSceneSize,
+} from '../interactive/manual-scene';
 
 declare global {
   interface Window {
@@ -177,6 +181,12 @@ function scenarioList(route: CoreV2ContractRoute): string {
     const searchText = `${presenter.caseId} ${koreanTitle} ${presenter.title} ${presenter.priority}`.toLowerCase();
     return `<a class="contract-scenario-link${selected ? ' is-selected' : ''}" href="${href}" data-scenario-index="${escapeHtml(searchText)}"${selected ? ' aria-current="page"' : ''}><span>${presenter.caseId}</span><strong>${escapeHtml(koreanTitle)}</strong><small title="계약 우선순위">우선순위 ${presenter.priority}</small></a>`;
   }).join('');
+}
+
+function manualDatasetSizeLabel(size: CoreV2ManualSceneSize): string {
+  if (size === 'production') return '운영 데이터 형태';
+  const exploratory = size === '10000' ? ' · 탐색용' : '';
+  return `${Number(size).toLocaleString('ko-KR')}개 객체${exploratory}`;
 }
 
 function actionControls(route: CoreV2ContractRoute, executable: boolean): string {
@@ -425,6 +435,9 @@ export function renderCoreV2ContractLab(route: CoreV2ContractRoute): string {
   const sizeOptions = CORE_V2_CONTRACT_DATASET_SIZES.map((size) =>
     `<option value="${size}"${size === route.size ? ' selected' : ''}>${size === 'production' ? '운영 데이터 형태' : `${size}개 객체`}</option>`,
   ).join('');
+  const manualSizeOptions = CORE_V2_MANUAL_SCENE_SIZE_OPTIONS.map((size) =>
+    `<option value="${size}"${size === route.size ? ' selected' : ''}>${manualDatasetSizeLabel(size)}</option>`,
+  ).join('');
 
   return `<main class="contract-lab-shell" data-testid="${presenter.rootTestId}" data-contract-status="${initialStatus}">
   <header class="contract-lab-header">
@@ -439,7 +452,8 @@ export function renderCoreV2ContractLab(route: CoreV2ContractRoute): string {
     </aside>
     <section class="contract-focus">
       <div class="contract-route-controls">
-        <label>데이터셋 크기<select data-testid="dataset-size">${sizeOptions}</select></label>
+        <label>직접 조작 크기<select data-testid="manual-dataset-size">${manualSizeOptions}</select></label>
+        <label>정확 실행 크기<select data-testid="dataset-size">${sizeOptions}</select></label>
         <label>무작위 시드<input data-testid="seed" inputmode="numeric" value="${route.seed}" pattern="(?:0|[1-9][0-9]*)"></label>
         <button type="button" data-testid="load-dataset"${executable ? '' : ' disabled'} title="승인된 작업을 정확한 순서로 한 번 자동 실행합니다.">정확 실행 시작</button>
         <button type="button" data-testid="reset-case" disabled title="자동 실행 결과를 지우고 처음 상태로 되돌립니다.">자동 실행 초기화</button>
@@ -447,7 +461,7 @@ export function renderCoreV2ContractLab(route: CoreV2ContractRoute): string {
         <button type="button" data-testid="destroy-case" disabled title="자동 실행기의 임시 런타임을 종료하고 자원을 정리합니다.">자동 런타임 종료</button>
         <button type="button" data-testid="copy-url" title="현재 케이스·크기·시드 주소를 클립보드에 복사합니다.">현재 주소 복사</button>
       </div>
-      <p class="contract-stub-notice">${executable
+      <p class="contract-stub-notice">직접 조작 크기의 10,000개는 자유 실험용입니다. 아래 독립 정확 실행기는 승인된 정확 실행 크기를 별도로 유지합니다. ${executable
         ? 'PixiJS WebGL 기준선에서 실제 제품만 실행합니다. 자동 실행기의 캔버스는 임시이며 정리 단계에서 제거됩니다. 이 화면은 예상값과 비교하지 않고 실제 관찰 또는 실패 정보만 보여줍니다.'
         : '이 승인 경로는 명시적으로 미구현 상태입니다. 엔진 작업·의미 관찰·승격 결과를 만들지 않습니다.'}</p>
       ${renderCoreV2ManualWorkbench(presenter)}
@@ -489,6 +503,7 @@ function bindShell(
   route: CoreV2ContractRoute,
   abortController: AbortController,
   bridge: CoreV2ContractLabBridgeV1,
+  manual: CoreV2ManualLabBridge,
   executable: boolean,
 ): void {
   const signal = abortController.signal;
@@ -534,6 +549,35 @@ function bindShell(
   size?.addEventListener('change', () => {
     const next = CORE_V2_CONTRACT_DATASET_SIZES.find((candidate) => candidate === size.value);
     if (next) void navigate(buildCoreV2ContractRoute(route.scenario, next, route.seed));
+  }, { signal });
+
+  const manualSize = target.querySelector<HTMLSelectElement>(
+    '[data-testid="manual-dataset-size"]',
+  );
+  manualSize?.addEventListener('change', () => {
+    const next = CORE_V2_MANUAL_SCENE_SIZE_OPTIONS.find(
+      (candidate) => candidate === manualSize.value,
+    );
+    const workbenchSize = target.querySelector<HTMLSelectElement>(
+      '[data-manual-scene-size]',
+    );
+    if (next === undefined || workbenchSize === null) return;
+    workbenchSize.value = next;
+    manualSize.disabled = true;
+    void manual.ready
+      .then(() => manual.run('scene-size'))
+      .catch(() => {
+        manualSize.value = manual.state().sceneSize;
+      })
+      .finally(() => {
+        manualSize.disabled = false;
+      });
+  }, { signal });
+  target.addEventListener('core-v2-manual-scene-size-change', (event) => {
+    if (!(event instanceof CustomEvent) || manualSize === null) return;
+    const detail: unknown = (event as CustomEvent<unknown>).detail;
+    const next = isRecord(detail) ? detail.size : undefined;
+    if (typeof next === 'string') manualSize.value = next;
   }, { signal });
 
   const seed = target.querySelector<HTMLInputElement>('[data-testid="seed"]');
@@ -1908,7 +1952,7 @@ export function mountCoreV2ContractLab(
       });
   }
   const abortController = new AbortController();
-  bindShell(target, route, abortController, bridge, executable);
+  bindShell(target, route, abortController, bridge, manual, executable);
   window.__PATCH_MAP_CORE_V2_CONTRACT_LAB__ = bridge;
 
   return Object.freeze({

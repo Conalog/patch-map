@@ -58,7 +58,7 @@ try {
   );
 
   process.stdout.write(`${JSON.stringify({
-    revision: 'core-v2-exploratory-10000-browser/2',
+    revision: 'core-v2-exploratory-10000-browser/3',
     status: 'pass',
     browser: browser.version(),
     headed: browserLaunch.headed,
@@ -275,9 +275,7 @@ async function verifyManualLab(activePage, baseUrl) {
   );
   await activePage.locator('[data-manual-tool-button="animation"]').click();
   await activePage.locator('[data-manual-animation-duration]').fill('15000');
-  await activePage.locator('[data-manual-tool-button="data"]').click();
-  await activePage.locator('[data-manual-scene-size]').selectOption('10000');
-  await activePage.locator('[data-manual-command="scene-size"]').click();
+  await activePage.getByTestId('manual-dataset-size').selectOption('10000');
   await activePage.waitForFunction(
     () => {
       const state = window.__PATCH_MAP_CORE_V2_MANUAL_LAB__?.state();
@@ -297,6 +295,8 @@ async function verifyManualLab(activePage, baseUrl) {
       rendererBackend: engine?.snapshot().resources.renderer?.backend ?? null,
       selectedSize:
         document.querySelector('[data-manual-scene-size]')?.value ?? null,
+      selectedTopSize:
+        document.querySelector('[data-testid="manual-dataset-size"]')?.value ?? null,
       immutable:
         document.querySelector('[data-manual-readout="immutability"]')?.textContent ?? null,
     };
@@ -310,6 +310,7 @@ async function verifyManualLab(activePage, baseUrl) {
       loaded.viewport?.scale >= 0.025 &&
       loaded.viewport.scale < 0.5 &&
       loaded.selectedSize === '10000' &&
+      loaded.selectedTopSize === '10000' &&
       loaded.immutable === '통과',
     'human-operated Lab fits the exploratory 10,000 scene below the former 50% zoom floor',
     loaded,

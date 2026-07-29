@@ -1024,6 +1024,10 @@ export function mountCoreV2ManualWorkbench(
           requireEngine().fitViewport({ paddingCssPx: 46 });
           publishNow(`load ${nextSize} example records`);
           refreshSceneEditor();
+          host.dispatchEvent(new CustomEvent('core-v2-manual-scene-size-change', {
+            bubbles: true,
+            detail: { size: nextSize },
+          }));
           break;
         }
         case 'scene-regenerate':
