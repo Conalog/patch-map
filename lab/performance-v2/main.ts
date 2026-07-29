@@ -72,6 +72,7 @@ let diagnosticCount = 0;
 let refreshFrame = 0;
 let animationMonitorFrame = 0;
 let resizeFrame = 0;
+let barAnimationSequence = 0;
 
 applyUrlSelection();
 datasetSelect.addEventListener('change', () => {
@@ -193,8 +194,15 @@ async function runAction(action: string): Promise<void> {
       }
       case 'animate-all':
         assertLoaded();
-        requireRuntime().animateBarHeights({ fraction: 1, durationMs: 420, seed: 0xa11ba7 });
-        message('Animating every bar through the central Core v2 scheduler.');
+        barAnimationSequence += 1;
+        requireRuntime().animateBarHeights({
+          fraction: 1,
+          durationMs: 420,
+          seed: (0xa11ba7 + barAnimationSequence) >>> 0,
+          minPercent: 0,
+          maxPercent: 100,
+        });
+        message('Animating every bar to an independent random height between 0% and 100%.');
         monitorAnimations();
         break;
       case 'animate-partial':

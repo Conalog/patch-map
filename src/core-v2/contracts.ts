@@ -231,6 +231,11 @@ export interface CoreV2BarProjection {
   readonly animation: boolean;
   readonly animationDuration: number;
   readonly destinationHeight: number;
+  /**
+   * Parser-owned reference used to resolve an authored percentage height.
+   * Present on parser projections; optional only for legacy injected fixtures.
+   */
+  readonly percentageReferenceHeight?: number;
 }
 
 /** Immutable numeric metadata that the Core v1-compatible dense rows omit. */

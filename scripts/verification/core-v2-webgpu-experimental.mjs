@@ -191,13 +191,17 @@ try {
   const barsAfter = await barState(page);
   record(
     barsBefore.count === 5_000
-      && barsDuring.activeAnimations > 0
+      && barsDuring.activeAnimations === 5_000
       && barsDuring.digest !== barsBefore.digest
       && barsDuring.frame > barsBefore.frame
       && barsAfter.activeAnimations === 0
       && barsAfter.digest !== barsBefore.digest
-      && barsAfter.frame > barsDuring.frame,
-    'all 5,000 bars visibly interpolate and settle through the central scheduler',
+      && barsAfter.frame > barsDuring.frame
+      && barsAfter.percentageReferenceCount === 5_000
+      && barsAfter.minPercent >= 0
+      && barsAfter.maxPercent <= 100
+      && barsAfter.distinctRoundedPercentCount >= 90,
+    'all 5,000 bars independently animate within zero-to-one-hundred percent and settle',
     { before: barsBefore, during: barsDuring, after: barsAfter },
   );
 
@@ -478,15 +482,32 @@ function barState(activePage) {
     if (!runtime) throw new Error('Core v2 WebGPU runtime is missing for bar state');
     const bars = runtime.snapshot().entities.filter((entity) => entity.kind === 'bar');
     let digest = 0x811c9dc5;
+    let minPercent = Number.POSITIVE_INFINITY;
+    let maxPercent = Number.NEGATIVE_INFINITY;
+    let percentageReferenceCount = 0;
+    const distinctRoundedPercents = new Set();
     for (const bar of bars) {
       digest ^= Math.round(bar.bounds.height * 1_000);
       digest = Math.imul(digest, 0x01000193);
+      const reference =
+        runtime.projection?.barsByEntityId?.[bar.id]?.percentageReferenceHeight;
+      if (typeof reference === 'number' && reference > 0) {
+        const percent = bar.bounds.height / reference * 100;
+        minPercent = Math.min(minPercent, percent);
+        maxPercent = Math.max(maxPercent, percent);
+        percentageReferenceCount += 1;
+        distinctRoundedPercents.add(Math.round(percent));
+      }
     }
     return {
       count: bars.length,
       digest: digest >>> 0,
       activeAnimations: runtime.activeAnimations,
       frame: runtime.debugSnapshot().renderer.frame,
+      minPercent,
+      maxPercent,
+      percentageReferenceCount,
+      distinctRoundedPercentCount: distinctRoundedPercents.size,
     };
   });
 }

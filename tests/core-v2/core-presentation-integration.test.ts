@@ -387,6 +387,45 @@ describe('Core v2 bar presentation integration', () => {
     expect(renderer.projectionCalls.at(-1)).toMatchObject({ staleIds: [] });
   });
 
+  it('animates every bar to an independent deterministic zero-to-one-hundred percent height', () => {
+    const { core } = createTestCore(allocated);
+    core.load(twoBarScene(12, 34));
+    const scheduled = core.animateBarHeights({
+      fraction: 1,
+      durationMs: 200,
+      seed: 0xa11ba8,
+      minPercent: 0,
+      maxPercent: 100,
+    });
+
+    expect(scheduled.operationCount).toBe(2);
+    core.advance(200);
+
+    const heights = core.query({ kinds: ['bar'] })
+      .map((ref) => core.get(ref)?.bounds.height)
+      .filter((height): height is number => height !== undefined);
+    expect(heights).toHaveLength(2);
+    expect(heights[0]).not.toBe(heights[1]);
+    expect(heights.every((height) => height >= 0 && height <= 80)).toBe(true);
+  });
+
+  it('rejects ambiguous or out-of-range percentage animation options atomically', () => {
+    const { core } = createTestCore(allocated);
+    core.load(scene(10));
+    const before = core.snapshot();
+
+    expect(() => core.animateBarHeights({
+      minPercent: 0,
+      maxPercent: 101,
+    })).toThrow('between zero and one hundred');
+    expect(() => core.animateBarHeights({
+      minPercent: 0,
+      maxPercent: 100,
+      minScale: 0.5,
+    })).toThrow('cannot be combined');
+    expect(core.snapshot()).toEqual(before);
+  });
+
   it('publishes through Engine and maps backward clock conflicts without advancing revisions', async () => {
     const { core } = createTestCore(allocated);
     const surface = new PixiEngineSurface(core);

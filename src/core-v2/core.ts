@@ -504,6 +504,12 @@ export interface AnimateBarsOptions {
   readonly durationMs?: number;
   readonly minScale?: number;
   readonly maxScale?: number;
+  /**
+   * Absolute authored percentage range, resolved against each bar's own
+   * parser-owned percentage reference. Cannot be mixed with scale options.
+   */
+  readonly minPercent?: number;
+  readonly maxPercent?: number;
 }
 
 interface PanState {
@@ -2157,9 +2163,34 @@ export class CoreV2 {
   public animateBarHeights(options: AnimateBarsOptions = {}): CommitResult {
     this.assertAlive();
     const fraction = clampFraction(options.fraction ?? 1);
+    const usesPercentRange =
+      options.minPercent !== undefined ||
+      options.maxPercent !== undefined;
+    if (
+      usesPercentRange &&
+      (options.minScale !== undefined || options.maxScale !== undefined)
+    ) {
+      throw new RangeError('bar percent and scale ranges cannot be combined');
+    }
     const minScale = options.minScale ?? 0.25;
     const maxScale = options.maxScale ?? 1.1;
-    if (!(minScale > 0) || !(maxScale >= minScale)) throw new RangeError('invalid bar scale range');
+    if (!usesPercentRange && (!(minScale > 0) || !(maxScale >= minScale))) {
+      throw new RangeError('invalid bar scale range');
+    }
+    const minPercent = options.minPercent ?? 0;
+    const maxPercent = options.maxPercent ?? 100;
+    if (
+      usesPercentRange &&
+      (
+        !Number.isFinite(minPercent) ||
+        !Number.isFinite(maxPercent) ||
+        minPercent < 0 ||
+        maxPercent > 100 ||
+        maxPercent < minPercent
+      )
+    ) {
+      throw new RangeError('bar percent range must be between zero and one hundred');
+    }
     const random = seededRandom(options.seed ?? 0x5eedc0de);
     const bars = this.scene.query({ kinds: ['bar'] });
     const operations: TransactionBatch['operations'][number][] = [];
@@ -2167,11 +2198,20 @@ export class CoreV2 {
       if (random() > fraction) continue;
       const bar = this.scene.get(ref);
       if (!bar) continue;
+      const randomUnit = random();
+      const destinationHeight = usesPercentRange
+        ? barPercentageHeight(
+            this.projectionValue?.barsByEntityId?.[bar.id],
+            minPercent + randomUnit * (maxPercent - minPercent),
+          )
+        : Math.max(1, bar.bounds.height * (
+            minScale + randomUnit * (maxScale - minScale)
+          ));
       operations.push({
         type: 'animate',
         target: ref,
         property: 'height',
-        to: Math.max(1, bar.bounds.height * (minScale + random() * (maxScale - minScale))),
+        to: destinationHeight,
         durationMs: options.durationMs ?? 240,
         easing: 'easeInOut',
       });
@@ -3255,6 +3295,21 @@ function clampFraction(value: number): number {
     throw new RangeError('fraction must be between zero and one');
   }
   return value;
+}
+
+function barPercentageHeight(
+  projection: CoreV2BarProjection | undefined,
+  percent: number,
+): number {
+  const reference = projection?.percentageReferenceHeight;
+  if (
+    typeof reference !== 'number' ||
+    !Number.isFinite(reference) ||
+    reference < 0
+  ) {
+    throw new Error('bar percentage animation requires a parser-owned height reference');
+  }
+  return reference * percent / 100;
 }
 
 function mergeSlotRanges(

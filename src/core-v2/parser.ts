@@ -1201,6 +1201,7 @@ function parseComponent(
       animation,
       animationDuration,
       destinationHeight: local.height,
+      percentageReferenceHeight: content.height,
     });
     addEntity(
       {
