@@ -9,6 +9,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
 const ROOT = process.cwd();
+const CODE_COMMIT = process.env.CORE_V2_CODE_COMMIT ?? 'uncommitted';
 const SMOKE = process.argv.includes('--smoke');
 const WARMUPS = SMOKE ? 0 : 2;
 const MEASURED = SMOKE ? 1 : 7;
@@ -789,6 +790,7 @@ async function main() {
     const output = Object.freeze({
       $schema: 'core-v2-interaction-performance/2',
       generatedAt: new Date().toISOString(),
+      codeCommit: CODE_COMMIT,
       protocol: Object.freeze({
         warmups: WARMUPS,
         measured: MEASURED,

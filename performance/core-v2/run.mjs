@@ -10,6 +10,7 @@ import { createServer } from 'vite';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const BENCHMARK_ROOT = fileURLToPath(new URL('.', import.meta.url));
+const CODE_COMMIT = process.env.CORE_V2_CODE_COMMIT ?? 'uncommitted';
 const FULL_SCALES = Object.freeze([100, 500, 1_000, 2_000, 5_000, 'production']);
 const QUICK_SCALES = Object.freeze([100, 1_000]);
 const WARMUPS = 2;
@@ -110,6 +111,7 @@ function markdownReport(output, resultPath) {
   return `# PATCH MAP Core v2 ${output.mode} performance checkpoint
 
 - Result JSON: ${resultPath}
+- Implementation commit: ${output.codeCommit}
 - Protocol: ${output.protocol.warmups} warmups, ${output.protocol.measured} measured trials, Chromium ${output.protocol.cpuThrottleRate}x CPU throttle
 - Scales: ${output.protocol.scales.join(', ')}
 - Selected strategy: ${output.selection.selectedStrategy}
@@ -319,6 +321,7 @@ async function main() {
     output = {
       schemaVersion: 1,
       generatedAt: new Date().toISOString(),
+      codeCommit: CODE_COMMIT,
       mode: quick ? 'quick' : 'full',
       protocol: {
         warmups: WARMUPS,

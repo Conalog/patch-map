@@ -20,7 +20,7 @@ describe('Core v2 native release readiness', () => {
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
     expect(result.stdout).toContain(
-      'PASS: native release positive proof + 15 negative drift probes',
+      'PASS: local commit binding + native release positive proof + 15 negative drift probes',
     );
   }, 35_000);
 });

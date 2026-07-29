@@ -26,12 +26,22 @@ const DECISION_FIXTURES_PATH = path.join(
 );
 const NATIVE_MANIFEST_PATH = argumentValue('--native-manifest');
 const REQUIRE_RELEASE = process.argv.includes('--require-release');
-const HASH = /^[a-f0-9]{64}$/u;
+const COMMIT_HASH = /^[a-f0-9]{40}$/u;
+const SHA256_HASH = /^[a-f0-9]{64}$/u;
+const FULL_RENDERER_SCALES = Object.freeze([
+  100,
+  500,
+  1_000,
+  2_000,
+  5_000,
+  'production',
+]);
 const PROHIBITED_PATH_SEGMENT = /(^|[\\/])(node_modules|dist|bundle)([\\/]|$)|\.map$|\.umd\.|\.bundle\./u;
 const LOCAL_ARTIFACTS = Object.freeze([
   {
     id: 'browser-functional',
     path: 'performance/core-v2/results/browser-functional.json',
+    codeCommit: (value) => value.codeCommit,
     pass: (value) =>
       value.status === 'pass'
       && value.headed === false
@@ -43,6 +53,7 @@ const LOCAL_ARTIFACTS = Object.freeze([
   {
     id: 'manual-lab-all-routes',
     path: 'performance/core-v2/results/manual-lab-functional.json',
+    codeCommit: (value) => value.codeCommit,
     pass: (value) =>
       value.mode === 'all-routes'
       && value.routeCount === 173
@@ -57,11 +68,12 @@ const LOCAL_ARTIFACTS = Object.freeze([
   {
     id: 'packed-consumer',
     path: 'performance/core-v2/results/package-consumer.json',
+    codeCommit: (value) => value.provenance?.codeCommit,
     pass: (value) =>
       value.status === 'pass'
       && value.failures?.length === 0
       && value.provenance?.expectedEvidenceBound === true
-      && HASH.test(value.provenance?.packedPackageSha256 ?? '')
+      && SHA256_HASH.test(value.provenance?.packedPackageSha256 ?? '')
       && value.packageMatrix?.failure === null
       && value.packageMatrix?.remainingCanvasCount === 0
       && value.journeyMatrix?.journeyCount === 38
@@ -74,6 +86,7 @@ const LOCAL_ARTIFACTS = Object.freeze([
   {
     id: 'memory-lifecycle',
     path: 'performance/core-v2/results/memory-lifecycle.json',
+    codeCommit: (value) => value.codeCommit,
     pass: (value) =>
       value.status === 'pass'
       && value.protocol?.warmups === 2
@@ -86,6 +99,7 @@ const LOCAL_ARTIFACTS = Object.freeze([
   {
     id: 'contract-performance',
     path: 'performance/core-v2/results/contract-performance.json',
+    codeCommit: (value) => value.provenance?.codeCommit,
     pass: (value) =>
       value.status === 'complete'
       && value.protocol?.warmups === 2
@@ -99,6 +113,7 @@ const LOCAL_ARTIFACTS = Object.freeze([
     id: 'interaction-performance-5000',
     path:
       'docs/tasks/2026/07-15/performance-core-v2/evidence/interaction-performance-5000.json',
+    codeCommit: (value) => value.codeCommit,
     pass: (value) =>
       value.status === 'pass'
       && value.protocol?.warmups === 2
@@ -113,6 +128,7 @@ const LOCAL_ARTIFACTS = Object.freeze([
     id: 'bar-animation-pan-performance',
     path:
       'docs/tasks/2026/07-15/performance-core-v2/evidence/bar-animation-pan-performance.json',
+    codeCommit: (value) => value.codeCommit,
     pass: (value) =>
       value.status === 'pass'
       && value.protocol?.warmups === 2
@@ -124,8 +140,16 @@ const LOCAL_ARTIFACTS = Object.freeze([
     classification: 'headless-1x-and-4x-overlap-proxy',
   },
   {
+    id: 'full-renderer-performance',
+    path: 'performance/core-v2/results/latest-full-4x.json',
+    codeCommit: (value) => value.codeCommit,
+    pass: fullRendererMatrixPass,
+    classification: 'headless-full-scale-mesh-particle-4x-proxy',
+  },
+  {
     id: 'webgpu-experimental',
     path: 'performance/core-v2/results/webgpu-experimental.json',
+    codeCommit: (value) => value.codeCommit,
     pass: (value) =>
       value.status === 'pass'
       && value.classification === 'experimental-non-production'
@@ -148,15 +172,23 @@ for (const descriptor of LOCAL_ARTIFACTS) {
   const absolutePath = safeWorkspacePath(descriptor.path);
   const bytes = await readFile(absolutePath);
   const value = JSON.parse(bytes.toString('utf8'));
-  const status = descriptor.pass(value) ? 'pass' : 'fail';
+  const artifactCommit = descriptor.codeCommit(value);
+  const shapePass = descriptor.pass(value);
+  const commitPass =
+    COMMIT_HASH.test(CODE_COMMIT)
+    && artifactCommit === CODE_COMMIT;
+  const status = shapePass && commitPass ? 'pass' : 'fail';
   localEvidence.push({
     id: descriptor.id,
     path: descriptor.path,
     sha256: sha256(bytes),
+    codeCommit: artifactCommit ?? null,
+    codeCommitMatchesCandidate: commitPass,
     classification: descriptor.classification,
     status,
   });
-  if (status !== 'pass') localFailures.push(descriptor.id);
+  if (!shapePass) localFailures.push(`${descriptor.id}:artifact-shape`);
+  if (!commitPass) localFailures.push(`${descriptor.id}:code-commit`);
 }
 
 let nativeEvidence = {
@@ -255,15 +287,15 @@ async function validateNativeManifest(manifest, context) {
 
   add(manifest?.$schema === CORE_V2_NATIVE_RELEASE_SCHEMA, 'native manifest schema');
   add(manifest?.status === 'pass', 'native manifest terminal pass');
-  add(HASH.test(manifest?.implementation?.commit ?? ''), 'implementation commit');
-  if (HASH.test(context.codeCommit)) {
+  add(COMMIT_HASH.test(manifest?.implementation?.commit ?? ''), 'implementation commit');
+  if (COMMIT_HASH.test(context.codeCommit)) {
     add(
       manifest?.implementation?.commit === context.codeCommit,
       'native manifest implementation commit matches the candidate',
     );
   }
   add(
-    HASH.test(manifest?.implementation?.packedPackageSha256 ?? ''),
+    SHA256_HASH.test(manifest?.implementation?.packedPackageSha256 ?? ''),
     'packed package SHA-256',
   );
   add(
@@ -300,8 +332,8 @@ async function validateNativeManifest(manifest, context) {
         (artifactRoleCounts.get(artifact.role) ?? 0) + 1,
       );
     }
-    add(HASH.test(artifact?.sha256 ?? ''), `${label} SHA-256`);
-    if (nonEmpty(artifact?.path) && HASH.test(artifact?.sha256 ?? '')) {
+    add(SHA256_HASH.test(artifact?.sha256 ?? ''), `${label} SHA-256`);
+    if (nonEmpty(artifact?.path) && SHA256_HASH.test(artifact?.sha256 ?? '')) {
       try {
         const absolutePath = safeWorkspacePath(artifact.path);
         await access(absolutePath);
@@ -498,7 +530,7 @@ async function validateNativeManifest(manifest, context) {
   add(manifest?.actualHost?.mock === false, 'actual host is not a mock');
   add(manifest?.actualHost?.journeyCount === 38, 'actual host 38 journeys');
   add(nonPlaceholder(manifest?.actualHost?.hostRevision), 'actual host revision');
-  add(HASH.test(manifest?.actualHost?.hostCommit ?? ''), 'actual host commit');
+  add(COMMIT_HASH.test(manifest?.actualHost?.hostCommit ?? ''), 'actual host commit');
   add(
     manifest?.actualHost?.packedPackageSha256
       === manifest?.implementation?.packedPackageSha256,
@@ -545,6 +577,51 @@ async function validateNativeManifest(manifest, context) {
   function artifactHasRole(id, role) {
     return nonEmpty(id) && artifactById.get(id)?.role === role;
   }
+}
+
+function fullRendererMatrixPass(value) {
+  const runs = Array.isArray(value?.runs) ? value.runs : [];
+  const signatures = new Set(
+    runs.map((run) => `${run?.role}/${run?.strategy}/${String(run?.scale)}`),
+  );
+  const expectedSignatures = FULL_RENDERER_SCALES.flatMap((scale) => [
+    `spike/mesh/${String(scale)}`,
+    `spike/particle/${String(scale)}`,
+    `selected/mesh/${String(scale)}`,
+  ]);
+  return value?.schemaVersion === 1
+    && value?.mode === 'full'
+    && value?.protocol?.warmups === 2
+    && value?.protocol?.measured === 7
+    && value?.protocol?.cpuThrottleRate === 4
+    && deepEqual(value?.protocol?.scales, FULL_RENDERER_SCALES)
+    && value?.selection?.selectedStrategy === 'mesh'
+    && value?.environment?.headed === false
+    && value?.environment?.windowsNative === 'pending'
+    && everyErrorArrayEmpty(value?.browser)
+    && runs.length === expectedSignatures.length
+    && signatures.size === expectedSignatures.length
+    && expectedSignatures.every((signature) => signatures.has(signature))
+    && runs.every(rendererMatrixRunPass);
+}
+
+function rendererMatrixRunPass(run) {
+  const summary = run?.summary;
+  return Array.isArray(run?.warmupRaw)
+    && run.warmupRaw.length === 2
+    && Array.isArray(run?.measuredRaw)
+    && run.measuredRaw.length === 7
+    && summary
+    && typeof summary === 'object'
+    && Object.values(summary).length > 0
+    && Object.values(summary).every((metric) =>
+      Array.isArray(metric?.samples)
+      && metric.samples.length === 7
+      && metric.samples.every(Number.isFinite)
+      && Number.isFinite(metric?.min)
+      && Number.isFinite(metric?.median)
+      && Number.isFinite(metric?.p95)
+      && Number.isFinite(metric?.max));
 }
 
 function requiredDecision(fixtures, decision) {

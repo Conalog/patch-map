@@ -12,7 +12,19 @@ import path from 'node:path';
 import process from 'node:process';
 
 const ROOT = process.cwd();
-const CANDIDATE_COMMIT = 'a'.repeat(64);
+const packageEvidence = JSON.parse(
+  await readFile(
+    path.join(ROOT, 'performance/core-v2/results/package-consumer.json'),
+    'utf8',
+  ),
+);
+const CANDIDATE_COMMIT = packageEvidence?.provenance?.codeCommit;
+if (
+  typeof CANDIDATE_COMMIT !== 'string'
+  || !/^[a-f0-9]{40}$/u.test(CANDIDATE_COMMIT)
+) {
+  throw new Error('packed consumer evidence must expose a 40-character implementation commit');
+}
 const TEMP_RELATIVE = path.join(
   'performance/core-v2/results',
   `.native-release-probes-${process.pid}`,
@@ -56,6 +68,21 @@ try {
     || validReport.releaseVerified !== true
   ) {
     throw new Error('complete native release manifest did not promote');
+  }
+
+  const localDriftRun = runVerifier('b'.repeat(40));
+  if (localDriftRun.status === 0) {
+    throw new Error('local implementation commit drift unexpectedly promoted');
+  }
+  const localDriftReport = JSON.parse(
+    await readFile(path.join(ROOT, REPORT_RELATIVE), 'utf8'),
+  );
+  if (
+    !localDriftReport.localCandidate?.failures?.includes(
+      'browser-functional:code-commit',
+    )
+  ) {
+    throw new Error('local implementation commit drift was not reported');
   }
 
   const probes = [
@@ -188,7 +215,8 @@ try {
   }
 
   process.stdout.write(
-    `PASS: native release positive proof + ${probes.length} negative drift probes\n`,
+    `PASS: local commit binding + native release positive proof + `
+      + `${probes.length} negative drift probes\n`,
   );
 } finally {
   await rm(TEMP, { recursive: true, force: true });
@@ -255,7 +283,7 @@ async function completeManifest(template) {
   manifest.actualHost.status = 'pass';
   manifest.actualHost.mock = false;
   manifest.actualHost.hostRevision = 'production-host/2026-07-29';
-  manifest.actualHost.hostCommit = 'd'.repeat(64);
+  manifest.actualHost.hostCommit = 'd'.repeat(40);
   manifest.security.status = 'pass';
   manifest.security.auditFindingCount = 0;
   manifest.migration.status = 'pass';
@@ -268,7 +296,7 @@ async function completeManifest(template) {
   return manifest;
 }
 
-function runVerifier() {
+function runVerifier(codeCommit = CANDIDATE_COMMIT) {
   return spawnSync(
     process.execPath,
     [
@@ -281,7 +309,7 @@ function runVerifier() {
       encoding: 'utf8',
       env: {
         ...process.env,
-        CORE_V2_CODE_COMMIT: CANDIDATE_COMMIT,
+        CORE_V2_CODE_COMMIT: codeCommit,
         CORE_V2_RELEASE_READINESS_OUTPUT: REPORT_RELATIVE,
       },
     },
