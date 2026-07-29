@@ -187,6 +187,7 @@ interface ChunkRecord {
   readonly rectMeshes: Map<string, MeshRecord>;
   readonly rectGraphics: Map<number, GraphicsRecord>;
   readonly barMeshes: Map<string, MeshRecord>;
+  readonly barGraphics: Map<number, GraphicsRecord>;
   readonly relationMeshes: Map<string, MeshRecord>;
   readonly barSlots: number[];
   readonly barBindings: Map<number, BarSlotBinding>;
@@ -219,6 +220,7 @@ interface AggregateChunkLaneGeometry {
   readonly rectGroups: readonly AggregateGeometryGroup[];
   readonly styledRects: readonly StyledBackgroundPrimitive[];
   readonly barGroups: readonly AggregateGeometryGroup[];
+  readonly styledBars: readonly StyledBackgroundPrimitive[];
   readonly relationGroups: readonly AggregateGeometryGroup[];
   readonly barSlots: readonly number[];
   readonly barBindings: ReadonlyMap<number, BarSlotBinding>;
@@ -231,6 +233,7 @@ interface AggregateChunkLaneGeometry {
 
 interface AggregateBarLaneGeometry {
   readonly groups: readonly AggregateGeometryGroup[];
+  readonly styledBars: readonly StyledBackgroundPrimitive[];
   readonly bindings: ReadonlyMap<number, BarSlotBinding>;
   readonly paintProbes: ReadonlyMap<string, CoreV2EntityPaintProbe>;
   readonly visibleBars: number;
@@ -784,6 +787,92 @@ function resolveBarProgress(store: RenderStoreView, slot: number): number {
     : 0;
 }
 
+function isStyledBar(store: RenderStoreView, slot: number): boolean {
+  return Math.max(0, store.radius[slot] as number) > 0;
+}
+
+function styledBarPaint(
+  entityId: string,
+  fill: number,
+  radius: number,
+): CoreV2BackgroundPaintProjection {
+  return Object.freeze({
+    entityId,
+    sourceKind: 'rect',
+    fill: fill >>> 0,
+    borderWidth: 0,
+    borderColor: 0,
+    radius: Object.freeze([radius, radius, radius, radius] as const),
+    tint: 0xffffffff,
+  });
+}
+
+function appendStyledBarSlot(
+  store: RenderStoreView,
+  slot: number,
+  primitives: StyledBackgroundPrimitive[],
+  bindings: Map<number, BarSlotBinding>,
+  projectionContext?: CoreV2ProjectionRenderContext,
+): number {
+  const x = store.x[slot] as number;
+  const y = store.y[slot] as number;
+  const width = store.width[slot] as number;
+  const height = store.height[slot] as number;
+  const rotation = store.rotation[slot] as number;
+  const progress = resolveBarProgress(store, slot);
+  const entityId = store.ids[slot] ?? `@slot:${slot}`;
+  let count = 0;
+  if (isDrawable(store, slot) && width > 0 && height > 0) {
+    const opacity = store.opacity[slot] as number;
+    const zIndex = store.zIndex[slot] as number;
+    const radius = Math.max(0, store.radius[slot] as number);
+    const trackFill = (store.trackFill[slot] as number) >>> 0;
+    const trackStyle = packedRgbaToMeshStyle(trackFill, opacity);
+    if (trackStyle.alpha > 0) {
+      primitives.push({
+        entityId,
+        quad: resolveCoreV2SlotQuad(store, slot, projectionContext),
+        paint: styledBarPaint(entityId, trackFill, radius),
+        fill: trackFill,
+        borderColor: 0,
+        opacity,
+        drawOrder: zIndex * PASSES_PER_Z_INDEX + BAR_TRACK_PASS,
+      });
+      count += 1;
+    }
+
+    const fillWidth = width * progress;
+    const fill = (store.fill[slot] as number) >>> 0;
+    const fillStyle = packedRgbaToMeshStyle(fill, opacity);
+    if (fillWidth > 0 && fillStyle.alpha > 0) {
+      const fillRadius = Math.min(radius, fillWidth / 2, height / 2);
+      primitives.push({
+        entityId,
+        quad: resolveCoreV2SlotQuad(store, slot, projectionContext, progress),
+        paint: styledBarPaint(entityId, fill, fillRadius),
+        fill,
+        borderColor: 0,
+        opacity,
+        drawOrder: zIndex * PASSES_PER_Z_INDEX + BAR_FILL_PASS,
+      });
+      count += 1;
+    }
+  }
+  bindings.set(slot, {
+    entityId,
+    track: null,
+    fill: null,
+    x,
+    y,
+    width,
+    height,
+    rotation,
+    progress,
+    projectionRevision: projectionContext?.revision ?? -1,
+  });
+  return count;
+}
+
 function appendBarSlot(
   store: RenderStoreView,
   slot: number,
@@ -860,6 +949,7 @@ function buildAggregateBarLaneGeometry(
   projectionContext?: CoreV2ProjectionRenderContext,
 ): AggregateBarLaneGeometry {
   const groups = new Map<string, MutableQuadGroup>();
+  const styledBars: StyledBackgroundPrimitive[] = [];
   const bindings = new Map<number, BarSlotBinding>();
   const paintProbes = new Map<string, CoreV2EntityPaintProbe>();
   let visibleBars = 0;
@@ -872,26 +962,34 @@ function buildAggregateBarLaneGeometry(
     ) {
       continue;
     }
-    const primitives = appendBarSlot(store, slot, groups, bindings, projectionContext);
+    const styled = isStyledBar(store, slot);
+    const primitives = styled
+      ? appendStyledBarSlot(store, slot, styledBars, bindings, projectionContext)
+      : appendBarSlot(store, slot, groups, bindings, projectionContext);
     visibleBars += primitives;
     const entityId = store.ids[slot] ?? `@slot:${slot}`;
-    paintProbes.set(entityId, barEntityPaintProbe(entityId, primitives));
+    paintProbes.set(entityId, barEntityPaintProbe(entityId, primitives, styled));
   }
   return {
     groups: [...groups.values()].map((group) =>
       geometryGroup(group, buildQuadGeometry(group.primitives)),
     ),
+    styledBars,
     bindings,
     paintProbes,
     visibleBars,
   };
 }
 
-function barEntityPaintProbe(entityId: string, primitives: number): CoreV2EntityPaintProbe {
+function barEntityPaintProbe(
+  entityId: string,
+  primitives: number,
+  styled = false,
+): CoreV2EntityPaintProbe {
   return freezeEntityPaintProbe({
     entityId,
     lane: 'relations-dynamic',
-    rendererKind: primitives > 0 ? 'mesh' : 'none',
+    rendererKind: primitives > 0 ? (styled ? 'graphics' : 'mesh') : 'none',
     primitiveCount: primitives,
     renderObjectCount: 0,
     packedTint: null,
@@ -955,6 +1053,7 @@ function barSlotBindingMatches(
   records: ReadonlyMap<string, MeshRecord>,
 ): boolean {
   if (
+    isStyledBar(store, slot) ||
     binding === undefined ||
     binding.entityId !== (store.ids[slot] ?? `@slot:${slot}`) ||
     (store.alive[slot] as number) === 0 ||
@@ -1072,6 +1171,7 @@ function buildAggregateChunkLaneGeometry(
   const rectGroups = new Map<string, MutableQuadGroup>();
   const styledRects: StyledBackgroundPrimitive[] = [];
   const barGroups = new Map<string, MutableQuadGroup>();
+  const styledBars: StyledBackgroundPrimitive[] = [];
   const relationGroups = new Map<string, MutableLineGroup>();
   const barSlots: number[] = [];
   const barBindings = new Map<number, BarSlotBinding>();
@@ -1089,9 +1189,12 @@ function buildAggregateChunkLaneGeometry(
     const kind = store.kind[slot] as number;
     if (kind === RenderKind.Bar) {
       barSlots.push(slot);
-      const primitives = appendBarSlot(store, slot, barGroups, barBindings, projectionContext);
+      const styled = isStyledBar(store, slot);
+      const primitives = styled
+        ? appendStyledBarSlot(store, slot, styledBars, barBindings, projectionContext)
+        : appendBarSlot(store, slot, barGroups, barBindings, projectionContext);
       visibleBars += primitives;
-      paintProbes.set(entityId, barEntityPaintProbe(entityId, primitives));
+      paintProbes.set(entityId, barEntityPaintProbe(entityId, primitives, styled));
       continue;
     }
     if (
@@ -1330,6 +1433,7 @@ function buildAggregateChunkLaneGeometry(
     barGroups: [...barGroups.values()].map((group) =>
       geometryGroup(group, buildQuadGeometry(group.primitives)),
     ),
+    styledBars,
     relationGroups: [...relationGroups.values()].map((group) =>
       geometryGroup(group, buildLineGeometry(group.primitives)),
     ),
@@ -1418,6 +1522,7 @@ function createChunkRecord(): ChunkRecord {
     rectMeshes: new Map(),
     rectGraphics: new Map(),
     barMeshes: new Map(),
+    barGraphics: new Map(),
     relationMeshes: new Map(),
     barSlots: [],
     barBindings: new Map(),
@@ -1447,6 +1552,9 @@ function aggregateLaneGeometryBounds(
   }
   for (const rect of geometry.styledRects) {
     bounds = includePositionBounds(bounds, rect.quad.vertices);
+  }
+  for (const bar of geometry.styledBars) {
+    bounds = includePositionBounds(bounds, bar.quad.vertices);
   }
   return bounds;
 }
@@ -1536,6 +1644,16 @@ function setChunkGeometryVisible(
     }
   }
   for (const record of chunk.rectGraphics.values()) {
+    const recordVisible =
+      visible && (!precise || boundsIntersectsViewport(record.bounds, viewport));
+    record.graphics.visible = recordVisible;
+    if (recordVisible) {
+      if (record.graphics.parent !== record.parent) record.parent.addChild(record.graphics);
+    } else if (record.graphics.parent === record.parent) {
+      record.parent.removeChild(record.graphics);
+    }
+  }
+  for (const record of chunk.barGraphics.values()) {
     const recordVisible =
       visible && (!precise || boundsIntersectsViewport(record.bounds, viewport));
     record.graphics.visible = recordVisible;
@@ -1941,7 +2059,8 @@ export class AggregateMeshLayer {
       backgroundGraphicsObjectCount += chunk.backgroundGraphics === null ? 0 : 1;
       ordinaryMeshCount += chunk.rectMeshes.size;
       ordinaryGraphicsObjectCount += chunk.rectGraphics.size;
-      relationMeshCount += chunk.barMeshes.size + chunk.relationMeshes.size;
+      relationMeshCount +=
+        chunk.barMeshes.size + chunk.barGraphics.size + chunk.relationMeshes.size;
       visibleBackgroundPrimitives += chunk.visibleBackgrounds;
       visibleOrdinaryPrimitives += chunk.visibleRects;
       visibleRelationsDynamicPrimitives += chunk.visibleBars + chunk.visibleRelations;
@@ -2086,6 +2205,7 @@ export class AggregateMeshLayer {
       built.rectGroups.length === 0 &&
       built.styledRects.length === 0 &&
       built.barGroups.length === 0 &&
+      built.styledBars.length === 0 &&
       built.relationGroups.length === 0 &&
       built.barSlots.length === 0 &&
       built.paintProbes.size === 0
@@ -2134,6 +2254,11 @@ export class AggregateMeshLayer {
       chunkIndex,
       'bar',
     );
+    const barGraphicsChanged = this.#syncBarGraphics(
+      chunk,
+      built.styledBars,
+      chunkIndex,
+    );
     const relationDelta = this.#syncGroups(
       this.relationContainer,
       chunk.relationMeshes,
@@ -2175,6 +2300,7 @@ export class AggregateMeshLayer {
         rectDelta.changed ||
         rectGraphicsChanged ||
         barDelta.changed ||
+        barGraphicsChanged ||
         relationDelta.changed,
       visitedSlots: end - start,
     };
@@ -2289,6 +2415,11 @@ export class AggregateMeshLayer {
       chunkIndex,
       'bar',
     );
+    const graphicsChanged = this.#syncBarGraphics(
+      chunk,
+      built.styledBars,
+      chunkIndex,
+    );
     chunk.visibleBars = built.visibleBars;
     chunk.barBindings.clear();
     for (const [slot, binding] of built.bindings) {
@@ -2301,6 +2432,12 @@ export class AggregateMeshLayer {
     for (const group of built.groups) {
       chunk.geometryBounds = includePositionBounds(chunk.geometryBounds, group.positions);
     }
+    for (const primitive of built.styledBars) {
+      chunk.geometryBounds = includePositionBounds(
+        chunk.geometryBounds,
+        primitive.quad.vertices,
+      );
+    }
     if (this.#viewportCull !== null) {
       setChunkGeometryVisible(
         chunk,
@@ -2311,7 +2448,11 @@ export class AggregateMeshLayer {
         true,
       );
     }
-    return { ...delta, visitedSlots: chunk.barSlots.length };
+    return {
+      bytes: delta.bytes,
+      changed: delta.changed || graphicsChanged,
+      visitedSlots: chunk.barSlots.length,
+    };
   }
 
   #syncBackgroundGraphics(
@@ -2388,6 +2529,63 @@ export class AggregateMeshLayer {
           graphics,
           context,
           parent: this.ordinaryGeometryContainer,
+          bounds,
+          primitiveCount: group.length,
+        });
+      } else {
+        current.graphics.context = context;
+        current.graphics.zIndex = drawOrder;
+        current.context.destroy();
+        current.context = context;
+        current.bounds = bounds;
+        current.primitiveCount = group.length;
+      }
+      changed = true;
+    }
+    return changed;
+  }
+
+  #syncBarGraphics(
+    chunk: ChunkRecord,
+    primitives: readonly StyledBackgroundPrimitive[],
+    chunkIndex: number,
+  ): boolean {
+    const grouped = new Map<number, StyledBackgroundPrimitive[]>();
+    for (const primitive of primitives) {
+      const group = grouped.get(primitive.drawOrder);
+      if (group === undefined) grouped.set(primitive.drawOrder, [primitive]);
+      else group.push(primitive);
+    }
+
+    let changed = false;
+    for (const [drawOrder, record] of chunk.barGraphics) {
+      if (grouped.has(drawOrder)) continue;
+      record.graphics.destroy({ context: false });
+      record.context.destroy();
+      chunk.barGraphics.delete(drawOrder);
+      changed = true;
+    }
+
+    for (const [drawOrder, group] of grouped) {
+      const context = new GraphicsContext();
+      context.batchMode = 'auto';
+      let bounds: AggregateViewportBounds | null = null;
+      for (const primitive of group) {
+        appendStyledBackground(context, primitive);
+        bounds = includePositionBounds(bounds, primitive.quad.vertices);
+      }
+      const current = chunk.barGraphics.get(drawOrder);
+      if (current === undefined) {
+        const graphics = new Graphics({ context });
+        graphics.label =
+          `${this.#baseLabel}: styled bar chunk ${chunkIndex} order ${drawOrder}`;
+        graphics.eventMode = 'none';
+        graphics.zIndex = drawOrder;
+        this.relationsDynamicContainer.addChild(graphics);
+        chunk.barGraphics.set(drawOrder, {
+          graphics,
+          context,
+          parent: this.relationsDynamicContainer,
           bounds,
           primitiveCount: group.length,
         });
@@ -2482,6 +2680,10 @@ export class AggregateMeshLayer {
       record.context.destroy();
     }
     for (const record of chunk.barMeshes.values()) destroyMeshRecord(record);
+    for (const record of chunk.barGraphics.values()) {
+      record.graphics.destroy({ context: false });
+      record.context.destroy();
+    }
     for (const record of chunk.relationMeshes.values()) destroyMeshRecord(record);
     this.#deferredBarChunks.delete(chunkIndex);
     this.#chunks.delete(chunkIndex);

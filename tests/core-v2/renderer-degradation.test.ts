@@ -44,7 +44,7 @@ describe('Core v2 renderer fidelity diagnostics', () => {
     expect(withRendererDegradationDiagnostics(parsed, 'particle')).toBe(parsed);
   });
 
-  it('reuses renderer-only facts without duplicating diagnostics across incremental shells', () => {
+  it('keeps rounded bars free of retired Mesh degradation warnings across shells', () => {
     const parsed = parsePatchMapV010([{
       type: 'item',
       id: 'meter',
@@ -66,7 +66,7 @@ describe('Core v2 renderer fidelity diagnostics', () => {
     const reused = withRendererDegradationDiagnostics(incrementalShell, 'mesh');
     expect(reused.diagnostics.filter(
       ({ code }) => code === 'mesh-radius-degraded',
-    )).toHaveLength(1);
+    )).toHaveLength(0);
     expect(reused.document).toBe(enriched.document);
   });
 });

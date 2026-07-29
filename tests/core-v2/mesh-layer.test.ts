@@ -519,6 +519,53 @@ describe('AggregateMeshLayer', () => {
     layer.destroy();
   });
 
+  it('routes rounded bars through aggregate Graphics and returns to the Mesh hot path', () => {
+    const store = createStore();
+    (store.radius as Float64Array)[1] = 4;
+    const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'rounded bars' });
+
+    const initial = layer.sync(store, { fullRebuildEpoch: 1 });
+    const rounded = layer.relationContainer.children.filter((child) =>
+      child instanceof Graphics && child.label.includes(': styled bar chunk 0'),
+    );
+    const roundedMeshes = layer.relationContainer.children.filter((child) =>
+      child instanceof Mesh && child.label.includes(': bar chunk 0'),
+    );
+    expect(rounded).toHaveLength(2);
+    expect(roundedMeshes).toHaveLength(0);
+    expect(initial.visibleQuads).toBe(3);
+    expect(layer.entityPaintProbe('bar')).toMatchObject({
+      rendererKind: 'graphics',
+      primitiveCount: 2,
+      renderObjectCount: 0,
+    });
+
+    (store.value as Float32Array)[1] = 75;
+    (store as { revision: number }).revision = 2;
+    const animated = layer.sync(store, { changedRanges: [{ start: 1, end: 2 }] });
+    expect(animated.geometrySlotsVisited).toBe(1);
+    expect(layer.relationContainer.children.filter((child) =>
+      child instanceof Graphics && child.label.includes(': styled bar chunk 0'),
+    )).toHaveLength(2);
+
+    (store.radius as Float64Array)[1] = 0;
+    (store as { revision: number }).revision = 3;
+    layer.sync(store, { changedRanges: [{ start: 1, end: 2 }] });
+    expect(layer.relationContainer.children.filter((child) =>
+      child instanceof Graphics && child.label.includes(': styled bar chunk 0'),
+    )).toHaveLength(0);
+    expect(layer.relationContainer.children.filter((child) =>
+      child instanceof Mesh && child.label.includes(': bar chunk 0'),
+    )).toHaveLength(2);
+    expect(layer.entityPaintProbe('bar')).toMatchObject({
+      rendererKind: 'mesh',
+      primitiveCount: 2,
+    });
+
+    layer.destroy();
+    expect(rounded.every((graphics) => graphics.destroyed)).toBe(true);
+  });
+
   it('takes the structural path when a non-bar slot is replaced by a bar', () => {
     const store = createStore();
     const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'mesh replacement' });
