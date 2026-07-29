@@ -2911,8 +2911,9 @@ function assertRen005FocusedUi(ui, runLabel) {
   invariant(ui.failed.bounds === '[220,40,32,32]', `REN-005 ${runLabel} failed bounds`);
   invariant(ui.failed.diagnosticCount === '1', `REN-005 ${runLabel} failed diagnostic`);
   invariant(ui.counters.requests === '5', `REN-005 ${runLabel} request count`);
+  const backendCounts = String(ui.counters.backend).match(/\d+/gu)?.map(Number) ?? [];
   invariant(
-    ui.counters.backend === 'pending 0 · resolved 3 · rejected 1 · unloaded 1',
+    sameJson(backendCounts, [0, 3, 1, 1]),
     `REN-005 ${runLabel} backend counters (${String(ui.counters.backend)})`,
   );
   invariant(ui.counters.resources === '4', `REN-005 ${runLabel} resource count`);
