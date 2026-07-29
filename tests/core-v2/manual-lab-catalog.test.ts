@@ -22,6 +22,10 @@ import {
   buildCoreV2ManualScene,
   CORE_V2_MANUAL_SCENE_SIZE_OPTIONS,
 } from '../../lab/performance-v2/interactive/manual-scene';
+import {
+  CORE_V2_MANUAL_LAB_ZOOM_LIMITS,
+  CORE_V2_PERFORMANCE_LAB_ZOOM_LIMITS,
+} from '../../lab/performance-v2/lab-settings';
 import { materializeCoreV2Dataset } from '../../src/core-v2/semantic/dataset';
 
 describe('Core v2 human-operated Lab catalog', () => {
@@ -231,6 +235,13 @@ describe('Core v2 manual Lab scene', () => {
     );
     expect(source).toContain("| '10000'");
     expect(source).toContain("value === '10000'");
+  });
+
+  it('uses a lower zoom floor only in the human-operated Lab surfaces', () => {
+    expect(CORE_V2_PERFORMANCE_LAB_ZOOM_LIMITS).toEqual([0.025, 8]);
+    expect(CORE_V2_MANUAL_LAB_ZOOM_LIMITS).toEqual([0.025, 30]);
+    expect(Object.isFrozen(CORE_V2_PERFORMANCE_LAB_ZOOM_LIMITS)).toBe(true);
+    expect(Object.isFrozen(CORE_V2_MANUAL_LAB_ZOOM_LIMITS)).toBe(true);
   });
 
   it('applies a bounded human-Lab animation duration without mutating seeded input', () => {

@@ -22,6 +22,7 @@ import {
   type CoreV2ManualScene,
   type CoreV2ManualSceneSize,
 } from './manual-scene';
+import { CORE_V2_MANUAL_LAB_ZOOM_LIMITS } from '../lab-settings';
 
 type ManualPointerMode =
   | 'select'
@@ -397,6 +398,7 @@ export function mountCoreV2ManualWorkbench(
       background: '#f8fafcff',
       devtools: true,
       powerPreference: 'high-performance',
+      zoomLimits: CORE_V2_MANUAL_LAB_ZOOM_LIMITS,
     });
     engine = next;
     bindEngine(next);
@@ -2108,7 +2110,7 @@ function renderHistoryPanel(): string {
 
 function renderViewPanel(): string {
   return toolPanel('view', '화면 위치·배율과 월드 방향', `
-    <p>캔버스의 빈 곳을 ‘화면 이동’ 모드로 끌거나 휠로 확대할 수 있습니다. 아래 버튼은 같은 동작을 정확한 값으로 반복합니다.</p>
+    <p>캔버스의 빈 곳을 ‘화면 이동’ 모드로 끌거나 휠로 확대·축소할 수 있습니다. 큰 장면도 전체를 볼 수 있도록 이 Lab은 2.5% 배율까지 축소됩니다. 아래 버튼은 같은 동작을 정확한 값으로 반복합니다.</p>
     <div class="manual-button-grid">
       ${commandButton('fit-all', '전체 맞춤')}
       ${commandButton('fit-selection', '선택 맞춤')}

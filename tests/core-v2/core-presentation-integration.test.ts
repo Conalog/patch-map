@@ -186,6 +186,22 @@ describe('Core v2 bar presentation integration', () => {
     });
   });
 
+  it('applies explicit viewport zoom limits to programmatic zoom and fit', () => {
+    const { core } = createTestCore(allocated);
+    core.load([{
+      type: 'item',
+      id: 'large-world',
+      size: { width: 100_000, height: 80_000 },
+    }]);
+    core.setViewportZoomLimits([0.002, 8]);
+
+    core.fit(0);
+    expect(core.view.scale).toBe(0.0075);
+
+    core.zoomAt({ x: 400, y: 300 }, 0.01);
+    expect(core.view.scale).toBe(0.002);
+  });
+
   it('matches the canonical parser for transformed direct bar-height projections', () => {
     for (const placement of [
       'top',

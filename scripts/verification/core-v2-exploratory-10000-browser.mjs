@@ -58,7 +58,7 @@ try {
   );
 
   process.stdout.write(`${JSON.stringify({
-    revision: 'core-v2-exploratory-10000-browser/1',
+    revision: 'core-v2-exploratory-10000-browser/2',
     status: 'pass',
     browser: browser.version(),
     headed: browserLaunch.headed,
@@ -92,6 +92,7 @@ async function verifyPerformancePlayground(activePage, baseUrl) {
   );
   const loaded = await activePage.evaluate(() => ({
     state: window.__PATCH_MAP_CORE_V2_LAB__.state,
+    view: window.__PATCH_MAP_CORE_V2_LAB__.getRuntime()?.view ?? null,
     selectedSize:
       document.querySelector('[data-testid="dataset-select"]')?.value ?? null,
     immutable:
@@ -105,9 +106,11 @@ async function verifyPerformancePlayground(activePage, baseUrl) {
       loaded.state.entityCount === 50_999 &&
       loaded.state.activeStrategy === 'mesh' &&
       loaded.state.activeBackend === 'webgl' &&
+      loaded.view?.scale >= 0.025 &&
+      loaded.view.scale < 0.1 &&
       loaded.immutable === 'PASS' &&
       loaded.canvasCount === 1,
-    'performance Playground loads 10,000 immutable records on aggregate Mesh WebGL',
+    'performance Playground fits 10,000 immutable records below the former 10% zoom floor',
     loaded,
   );
 
@@ -115,6 +118,47 @@ async function verifyPerformancePlayground(activePage, baseUrl) {
   const canvas = activePage.locator('[data-testid="canvas-host"] canvas');
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Core v2 exploratory Playground canvas has no bounds');
+  const anchorCss = { x: box.width / 2, y: box.height / 2 };
+  const worldBeforeZoom = await activePage.evaluate((anchor) => {
+    const runtime = window.__PATCH_MAP_CORE_V2_LAB__.getRuntime();
+    if (!runtime) throw new Error('Core v2 exploratory Playground runtime is missing');
+    return runtime.screenToWorld(anchor);
+  }, anchorCss);
+  await activePage.mouse.move(
+    box.x + anchorCss.x,
+    box.y + anchorCss.y,
+  );
+  await activePage.mouse.wheel(0, 10_000);
+  await activePage.waitForFunction(
+    () =>
+      (window.__PATCH_MAP_CORE_V2_LAB__.getRuntime()?.view.scale ?? 1) <= 0.025_001,
+    undefined,
+    { timeout: 10_000 },
+  );
+  const zoomed = await activePage.evaluate((anchor) => {
+    const runtime = window.__PATCH_MAP_CORE_V2_LAB__.getRuntime();
+    if (!runtime) throw new Error('Core v2 exploratory Playground runtime is missing');
+    return {
+      view: runtime.view,
+      worldAtAnchor: runtime.screenToWorld(anchor),
+    };
+  }, anchorCss);
+  const anchorDriftCss = Math.hypot(
+    worldBeforeZoom.x - zoomed.worldAtAnchor.x,
+    worldBeforeZoom.y - zoomed.worldAtAnchor.y,
+  ) * zoomed.view.scale;
+  assert(
+    Math.abs(zoomed.view.scale - 0.025) < 1e-9 &&
+      anchorDriftCss <= 0.5,
+    'performance Playground wheel reaches 2.5% while preserving the cursor anchor',
+    { worldBeforeZoom, zoomed, anchorDriftCss },
+  );
+  await activePage.evaluate(() => {
+    const runtime = window.__PATCH_MAP_CORE_V2_LAB__.getRuntime();
+    if (!runtime) throw new Error('Core v2 exploratory Playground runtime is missing');
+    runtime.fit();
+    runtime.flush('exploratory-zoom-reset');
+  });
   await activePage.getByTestId('animate-all').click();
   await activePage.waitForFunction(
     () => {
@@ -247,6 +291,7 @@ async function verifyManualLab(activePage, baseUrl) {
     const engine = bridge?.engine();
     return {
       state: bridge?.state(),
+      viewport: engine?.snapshot().viewport ?? null,
       rootCount: engine?.snapshot().rootIds.length ?? -1,
       semanticCounts: engine?.semanticProbe().scene.counts ?? null,
       rendererBackend: engine?.snapshot().resources.renderer?.backend ?? null,
@@ -262,12 +307,27 @@ async function verifyManualLab(activePage, baseUrl) {
       loaded.semanticCounts?.rootElements === 10_005 &&
       loaded.semanticCounts?.components === 30_000 &&
       loaded.rendererBackend === 'webgl' &&
+      loaded.viewport?.scale >= 0.025 &&
+      loaded.viewport.scale < 0.5 &&
       loaded.selectedSize === '10000' &&
       loaded.immutable === '통과',
-    'human-operated Lab switches a canonical route to the exploratory 10,000 scene',
+    'human-operated Lab fits the exploratory 10,000 scene below the former 50% zoom floor',
     loaded,
   );
 
+  await activePage.locator('[data-manual-tool-button="view"]').click();
+  for (let index = 0; index < 4; index += 1) {
+    await activePage.locator('[data-manual-command="zoom-out"]').click();
+  }
+  const minimumZoom = await activePage.evaluate(
+    () => window.__PATCH_MAP_CORE_V2_MANUAL_LAB__?.engine()?.snapshot().viewport.scale ?? null,
+  );
+  assert(
+    minimumZoom !== null && Math.abs(minimumZoom - 0.025) < 1e-9,
+    'human-operated Lab Zoom out button reaches the 2.5% exploratory floor',
+    { initialViewport: loaded.viewport, minimumZoom },
+  );
+  await activePage.locator('[data-manual-command="fit-all"]').click();
   await activePage.locator('[data-manual-tool-button="animation"]').click();
   await activePage.locator('[data-manual-mode="pan"]').click();
   const canvas = activePage.locator('[data-testid="manual-canvas-host"] canvas');

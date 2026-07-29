@@ -68,6 +68,7 @@ export function fitView(
   bounds: CoreBounds,
   viewport: { readonly width: number; readonly height: number },
   padding = 24,
+  limits: { readonly min?: number; readonly max?: number } = {},
 ): CoreView {
   if (
     !Number.isFinite(bounds.x) ||
@@ -80,11 +81,14 @@ export function fitView(
   if (!(viewport.width > 0) || !(viewport.height > 0) || !(padding >= 0)) {
     throw new RangeError('viewport must be positive and padding must be non-negative');
   }
+  const min = limits.min ?? CORE_V2_MIN_SCALE;
+  const max = limits.max ?? CORE_V2_MAX_SCALE;
+  if (!(min > 0) || !(max >= min)) throw new RangeError('invalid view scale limits');
   const availableWidth = Math.max(1, viewport.width - padding * 2);
   const availableHeight = Math.max(1, viewport.height - padding * 2);
-  const widthScale = bounds.width > 0 ? availableWidth / bounds.width : CORE_V2_MAX_SCALE;
-  const heightScale = bounds.height > 0 ? availableHeight / bounds.height : CORE_V2_MAX_SCALE;
-  const scale = Math.max(CORE_V2_MIN_SCALE, Math.min(CORE_V2_MAX_SCALE, widthScale, heightScale));
+  const widthScale = bounds.width > 0 ? availableWidth / bounds.width : max;
+  const heightScale = bounds.height > 0 ? availableHeight / bounds.height : max;
+  const scale = Math.max(min, Math.min(max, widthScale, heightScale));
   return Object.freeze({
     x: viewport.width / 2 - (bounds.x + bounds.width / 2) * scale,
     y: viewport.height / 2 - (bounds.y + bounds.height / 2) * scale,

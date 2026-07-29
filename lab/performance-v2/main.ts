@@ -11,6 +11,7 @@ import {
   type CoreV2RendererStrategy,
   createCoreV2,
 } from '../../src/core-v2/index';
+import { CORE_V2_PERFORMANCE_LAB_ZOOM_LIMITS } from './lab-settings';
 
 type DatasetKey =
   | '100'
@@ -310,6 +311,7 @@ async function reinitialize(): Promise<CoreV2> {
       }
     },
   });
+  core.setViewportZoomLimits(CORE_V2_PERFORMANCE_LAB_ZOOM_LIMITS);
   runtime = core;
   generation += 1;
   loaded = false;

@@ -1527,7 +1527,12 @@ export class CoreV2 {
 
   public zoomAt(screenPoint: CorePoint, factor: number): CommitResult {
     if (!(factor > 0) || !Number.isFinite(factor)) throw new RangeError('zoom factor must be positive');
-    return this.setView(zoomViewAt(this.currentView, screenPoint, this.currentView.scale * factor));
+    return this.setView(zoomViewAt(
+      this.currentView,
+      screenPoint,
+      this.currentView.scale * factor,
+      { min: this.viewportZoomLimits[0], max: this.viewportZoomLimits[1] },
+    ));
   }
 
   public resetView(): CommitResult {
@@ -1539,7 +1544,12 @@ export class CoreV2 {
     const snapshot = this.scene.snapshot();
     const bounds = boundsFor(snapshot.entities);
     if (!bounds) return null;
-    return this.setView(fitView(bounds, { width: this.renderer.width, height: this.renderer.height }, padding));
+    return this.setView(fitView(
+      bounds,
+      { width: this.renderer.width, height: this.renderer.height },
+      padding,
+      { min: this.viewportZoomLimits[0], max: this.viewportZoomLimits[1] },
+    ));
   }
 
   public screenToWorld(point: CorePoint): CorePoint {

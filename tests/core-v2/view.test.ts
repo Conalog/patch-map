@@ -39,4 +39,14 @@ describe('Core v2 view transforms', () => {
     expect(fitted.scale).toBe(2);
     expect(worldToScreen({ x: 200, y: 100 }, fitted)).toEqual({ x: 250, y: 150 });
   });
+
+  it('keeps the product fit floor by default and accepts a lower explicit Lab floor', () => {
+    const bounds = { x: 0, y: 0, width: 10_000, height: 5_000 };
+    const viewport = { width: 500, height: 300 };
+
+    expect(fitView(bounds, viewport, 50).scale).toBe(0.1);
+    expect(fitView(bounds, viewport, 50, { min: 0.025, max: 8 }).scale).toBe(0.04);
+    expect(() => fitView(bounds, viewport, 50, { min: 0, max: 8 }))
+      .toThrow('invalid view scale limits');
+  });
 });
