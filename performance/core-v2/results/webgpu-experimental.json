@@ -1,7 +1,7 @@
 {
   "$schema": "core-v2-webgpu-experimental/1",
-  "generatedAt": "2026-07-28T20:20:33.072Z",
-  "codeCommit": "e3ea1b5c4fabc1c9645abcb00db0163e98e3f83e",
+  "generatedAt": "2026-07-29T07:48:35.379Z",
+  "codeCommit": "2b995ab054d441f48c964b995713fb2388dea04b",
   "classification": "experimental-non-production",
   "productionBaseline": "PixiJS WebGL2 aggregate mesh",
   "protocol": {
@@ -115,26 +115,38 @@
       }
     },
     {
-      "name": "all 5,000 bars visibly interpolate and settle through the central scheduler",
+      "name": "all 5,000 bars independently animate within zero-to-one-hundred percent and settle",
       "status": "pass",
       "observation": {
         "before": {
           "count": 5000,
           "digest": 3048156281,
           "activeAnimations": 0,
-          "frame": 8
+          "frame": 8,
+          "minPercent": 0,
+          "maxPercent": 100,
+          "percentageReferenceCount": 5000,
+          "distinctRoundedPercentCount": 101
         },
         "during": {
           "count": 5000,
-          "digest": 1088332443,
+          "digest": 1248634260,
           "activeAnimations": 5000,
-          "frame": 17
+          "frame": 17,
+          "minPercent": 0.35111184596330774,
+          "maxPercent": 99.9497592650174,
+          "percentageReferenceCount": 5000,
+          "distinctRoundedPercentCount": 101
         },
         "after": {
           "count": 5000,
-          "digest": 1501441265,
+          "digest": 2556553620,
           "activeAnimations": 0,
-          "frame": 33
+          "frame": 34,
+          "minPercent": 0.044945813715457916,
+          "maxPercent": 99.99812343157828,
+          "percentageReferenceCount": 5000,
+          "distinctRoundedPercentCount": 101
         }
       }
     },
@@ -145,12 +157,12 @@
         "before": {
           "count": 5000,
           "digest": 1326450119,
-          "frame": 33
+          "frame": 34
         },
         "after": {
           "count": 5000,
           "digest": 4009881692,
-          "frame": 34
+          "frame": 35
         }
       }
     },
@@ -179,8 +191,8 @@
             "scale": 0.11972173631218103,
             "rotation": 0
           },
-          "frameBeforePan": 36,
-          "frameAfterPan": 37
+          "frameBeforePan": 37,
+          "frameAfterPan": 38
         }
       }
     },
@@ -188,7 +200,7 @@
       "name": "Pixi Extract captures the WebGPU frame as PNG",
       "status": "pass",
       "observation": {
-        "encodedLength": 193794
+        "encodedLength": 201658
       }
     },
     {
@@ -216,7 +228,7 @@
           "entityCount": 0,
           "frame": 0,
           "lastAction": "destroy",
-          "lastActionMs": 22,
+          "lastActionMs": 16.799999952316284,
           "error": null
         },
         "canvasCount": 0
@@ -239,7 +251,7 @@
           "entityCount": 25499,
           "frame": 2,
           "lastAction": "load",
-          "lastActionMs": 743.2000000476837,
+          "lastActionMs": 671.7000000476837,
           "error": null
         },
         "canvasCount": 1
@@ -262,7 +274,7 @@
           "entityCount": 0,
           "frame": 0,
           "lastAction": "destroy",
-          "lastActionMs": 6.800000011920929,
+          "lastActionMs": 7.199999928474426,
           "error": null
         },
         "canvasCount": 0

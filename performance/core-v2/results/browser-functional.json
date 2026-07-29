@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-28T20:20:44.060Z",
-  "codeCommit": "e3ea1b5c4fabc1c9645abcb00db0163e98e3f83e",
+  "generatedAt": "2026-07-29T07:35:11.261Z",
+  "codeCommit": "2b995ab054d441f48c964b995713fb2388dea04b",
   "headed": false,
   "checks": [
     {
@@ -242,8 +242,8 @@
         "before": {
           "barCount": 500,
           "activeAnimations": 0,
-          "rendererFrame": 36,
-          "schedulerFrame": 22,
+          "rendererFrame": 23,
+          "schedulerFrame": 9,
           "uploadedChunks": 0,
           "uploadedBytes": 0
         },
@@ -254,31 +254,31 @@
             {
               "id": "item-00005::bar:bar",
               "before": 51.8,
-              "during": 51.737274978606095
+              "during": 51.72960506892518
             },
             {
               "id": "item-00017::bar:bar",
               "before": 48.3,
-              "during": 48.31705072713647
+              "during": 48.31913566125406
             },
             {
               "id": "item-00019::bar:bar",
               "before": 21,
-              "during": 20.93417252524898
+              "during": 20.926123252811237
             },
             {
               "id": "item-00042::bar:bar",
               "before": 4.2,
-              "during": 4.192310459053232
+              "during": 4.191370194972985
             },
             {
               "id": "item-00054::bar:bar",
               "before": 32.9,
-              "during": 32.86067057710152
+              "during": 32.855861441692234
             }
           ],
-          "rendererFrame": 38,
-          "schedulerFrame": 24,
+          "rendererFrame": 25,
+          "schedulerFrame": 11,
           "uploadedChunks": 4,
           "uploadedBytes": 45808
         }
@@ -323,39 +323,39 @@
             {
               "id": "item-00005::bar:bar",
               "before": 51.8,
-              "during": 51.737274978606095
+              "during": 51.72960506892518
             },
             {
               "id": "item-00017::bar:bar",
               "before": 48.3,
-              "during": 48.31705072713647
+              "during": 48.31913566125406
             },
             {
               "id": "item-00019::bar:bar",
               "before": 21,
-              "during": 20.93417252524898
+              "during": 20.926123252811237
             },
             {
               "id": "item-00042::bar:bar",
               "before": 4.2,
-              "during": 4.192310459053232
+              "during": 4.191370194972985
             },
             {
               "id": "item-00054::bar:bar",
               "before": 32.9,
-              "during": 32.86067057710152
+              "during": 32.855861441692234
             }
           ],
-          "rendererFrame": 38,
-          "schedulerFrame": 24,
+          "rendererFrame": 25,
+          "schedulerFrame": 11,
           "uploadedChunks": 4,
           "uploadedBytes": 45808
         },
         "after": {
           "barCount": 500,
           "activeAnimations": 0,
-          "rendererFrame": 56,
-          "schedulerFrame": 42,
+          "rendererFrame": 50,
+          "schedulerFrame": 36,
           "uploadedChunks": 4,
           "uploadedBytes": 31808
         }
@@ -379,7 +379,7 @@
       "details": {
         "totalBarCount": 9365,
         "visibleBarCount": 0,
-        "rendererFrame": 58,
+        "rendererFrame": 52,
         "strategy": "mesh",
         "uploadedChunks": 0,
         "uploadedBytes": 0
@@ -392,7 +392,7 @@
         "before": {
           "totalBarCount": 9365,
           "visibleBarCount": 0,
-          "rendererFrame": 58,
+          "rendererFrame": 52,
           "strategy": "mesh",
           "uploadedChunks": 0,
           "uploadedBytes": 0
@@ -402,7 +402,7 @@
           "changedCount": 9365,
           "totalBarCount": 9365,
           "visibleBarCount": 9365,
-          "rendererFrame": 59,
+          "rendererFrame": 53,
           "strategy": "mesh",
           "uploadedChunks": 1,
           "uploadedBytes": 29920,
@@ -418,14 +418,14 @@
           "requestedFraction": 0.01,
           "scheduledAnimations": 78,
           "activeAnimations": 78,
-          "rendererFrame": 59,
-          "schedulerFrame": 43
+          "rendererFrame": 53,
+          "schedulerFrame": 37
         },
         "before": {
           "barCount": 9365,
           "activeAnimations": 0,
-          "rendererFrame": 59,
-          "schedulerFrame": 43,
+          "rendererFrame": 53,
+          "schedulerFrame": 37,
           "uploadedChunks": 1,
           "uploadedBytes": 29920
         },
@@ -459,8 +459,8 @@
               "during": 72.43244508310119
             }
           ],
-          "rendererFrame": 65,
-          "schedulerFrame": 49,
+          "rendererFrame": 59,
+          "schedulerFrame": 43,
           "uploadedChunks": 1,
           "uploadedBytes": 10880
         }
@@ -530,16 +530,16 @@
               "during": 72.43244508310119
             }
           ],
-          "rendererFrame": 65,
-          "schedulerFrame": 49,
+          "rendererFrame": 59,
+          "schedulerFrame": 43,
           "uploadedChunks": 1,
           "uploadedBytes": 10880
         },
         "after": {
           "barCount": 9365,
           "activeAnimations": 0,
-          "rendererFrame": 95,
-          "schedulerFrame": 79,
+          "rendererFrame": 89,
+          "schedulerFrame": 73,
           "uploadedChunks": 1,
           "uploadedBytes": 10880
         }

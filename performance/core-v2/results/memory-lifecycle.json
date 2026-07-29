@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-28T20:43:07.263Z",
-  "codeCommit": "e1e2b7740c1865cfd480ac1bfc43767711ecd32e",
+  "generatedAt": "2026-07-29T07:37:41.655Z",
+  "codeCommit": "2b995ab054d441f48c964b995713fb2388dea04b",
   "workload": {
     "sourceItems": 1000,
     "expandedEntities": 5099
@@ -5621,31 +5621,31 @@
     }
   ],
   "jsHeap": {
-    "before": 8668732,
-    "after": 15830408,
-    "processDelta": 7161676,
+    "before": 8851268,
+    "after": 16019284,
+    "processDelta": 7168016,
     "samples": [
-      258459,
-      82399,
-      414323,
-      59959,
-      53075,
-      35555,
-      218099
+      255887,
+      87023,
+      411831,
+      60855,
+      52143,
+      35663,
+      220111
     ],
-    "median": 82399,
-    "p95": 414323,
-    "maximum": 414323,
-    "trend": -40360
+    "median": 87023,
+    "p95": 411831,
+    "maximum": 411831,
+    "trend": -35776
   },
   "nativeRelease": {
     "lifecycleCycles": 9,
     "forcedGcMeasurementWindow": {
-      "beforeBytes": 14027168,
-      "afterBytes": 15830408
+      "beforeBytes": 14213572,
+      "afterBytes": 16019284
     },
-    "postDestroyForcedGcGrowthBytes": 1803240,
-    "postDestroyForcedGcGrowthMiB": 1.7197036743164062,
+    "postDestroyForcedGcGrowthBytes": 1805712,
+    "postDestroyForcedGcGrowthMiB": 1.7220611572265625,
     "canvasListenerTickerTextureDelta": 0,
     "qualification": "not-run"
   },
