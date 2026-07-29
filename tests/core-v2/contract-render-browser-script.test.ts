@@ -629,6 +629,8 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("await bridge.awaitMilestone(0, 'released')");
     expect(source).toContain("observed.events[0]?.source === 'pointer'");
     expect(source).toContain("observed.events[1]?.source === 'wheel'");
+    expect(source).toContain('const cursorScreenError = Math.hypot(');
+    expect(source).toContain('Number.isFinite(cursorScreenError) && cursorScreenError < 1');
     expect(source).toContain('observed.nativeWheel?.count === 1');
     expect(source).toContain("event?.type === 'hover-change'");
     expect(source).toContain("event?.type === 'click' && event.payload?.button === 2");

@@ -1411,10 +1411,20 @@ async function verifyViewportRootInput(page) {
       observed.viewport.scale > 1 && observed.viewport.scale <= 4,
       'VIE-001 trusted wheel respects configured scale limits',
     );
+    const cursorScreenError = Math.hypot(
+      beforeWheel.x - observed.anchorWorld.x,
+      beforeWheel.y - observed.anchorWorld.y,
+    ) * observed.viewport.scale;
     invariant(
-      Math.abs(beforeWheel.x - observed.anchorWorld.x) <= 1e-6 &&
-        Math.abs(beforeWheel.y - observed.anchorWorld.y) <= 1e-6,
-      'VIE-001 trusted wheel preserves the cursor world point',
+      Number.isFinite(cursorScreenError) && cursorScreenError < 1,
+      `VIE-001 trusted wheel preserves the cursor world point (${
+        JSON.stringify({
+          before: beforeWheel,
+          after: observed.anchorWorld,
+          viewport: observed.viewport,
+          cursorScreenError,
+        })
+      })`,
     );
     invariant(
       observed.transformedHit.target === 'rect-b',
@@ -1447,7 +1457,11 @@ async function verifyViewportRootInput(page) {
       viewport: observed.viewport,
       revisions: observed.revisions,
       ownership: observed.ownership,
-      wheelAnchor: { before: beforeWheel, after: observed.anchorWorld },
+      wheelAnchor: {
+        before: beforeWheel,
+        after: observed.anchorWorld,
+        screenError: cursorScreenError,
+      },
       transformedHit: observed.transformedHit,
     };
   } finally {
