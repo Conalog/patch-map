@@ -38,6 +38,11 @@
   passes 148 Core v2 files/1,430 tests, lint, typecheck, both builds, canonical
   verification, 31 product-browser checks, and 189 manual-Lab checks over all
   173 routes.
+- Exploratory Lab extension `8db2f0cd080da1d33c928c19f7378bf5690f3bb1`
+  adds a 10,000-record option without expanding the approved exact size
+  matrix. Headless Mesh WebGL loads 50,999 Playground entities and a
+  10,005-root/30,000-component manual scene, overlaps animation with pan, and
+  destroys to zero canvas with no browser errors.
 - Full headless first/repeat/fresh execution covers 158 routes and 2,028
   assertions per session: 1,988 pass, 26 declared immutable conflicts and 14
   measured deficits, with deterministic cleanup and zero console, page,
