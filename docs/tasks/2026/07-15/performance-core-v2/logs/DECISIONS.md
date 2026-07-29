@@ -273,3 +273,9 @@
 - Classify screen-visible pending text as stale, but classify offscreen pending text as cull-pending only when its semantic, attachment, and presentation signatures still match the authoritative product state.
 - This distinguishes the performance optimization from lost publication without fabricating a rendered leaf or importing normalized expected evidence into product execution.
 - The full 158-route first/repeat/fresh checkpoint observes the same fourteen measured deficits and zero browser errors; the product hot path, immutable expected evidence, and external Windows pending status remain unchanged.
+
+**2026-07-29**
+- Background: Readable orientation corrected the bar quad basis but retained its authored scene center. A vertical flip or readable 180-degree half-turn therefore moved a bottom-placed bar to the visible top of its item even though its text stayed readable.
+- Decision: For upright bars only, apply the same reflection/half-turn correction to the bar's owner-relative center around the item center. Keep text center behavior unchanged and keep presentation height changes anchored to the corrected visible bottom edge.
+- Why: Content orientation covers placement as well as basis for a bottom meter. Transforming the aggregate quad around its owner preserves padding, containment, signed affine behavior, and animation semantics without per-entity Pixi nodes or listeners.
+- Impact: Mesh, Particle/Graphics, semantic geometry, selection/hit probes, and the manual Lab share the corrected center. The prior authored-center statement remains valid for text but is superseded for bars. Immutable expected evidence is unchanged; LAY-004 still reports only its two declared conflicts, and Windows native remains pending.

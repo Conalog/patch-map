@@ -26,8 +26,11 @@
   root-only event authority, one manual scheduler, exact incremental
   publication, and explicit scene-versus-frame state.
 - Readable content follows authored/item/world rotation, removes reflection,
-  and adds 180 degrees only in the upside-down half-plane. Text and bars keep
-  their authored center, extent, containment, and partial-bar leading edge.
+  and adds 180 degrees only in the upside-down half-plane. Text keeps its
+  authored center; bars apply the same readable correction to their
+  owner-relative placement so a bottom bar stays on the visible bottom.
+  Extent, containment, animation bottom edge, and partial-bar leading edge
+  remain stable.
 - Frozen screen-lock expected remains unchanged. Twenty-six immutable
   conflicts are observed, two `UPD-007` conflicts remain latent, and fourteen
   measured performance deficits remain visible.
@@ -52,6 +55,13 @@
   exposes `10,000개 객체 · 탐색용` in the always-visible route controls.
   Manual and exact dataset selectors remain separate, so exploratory loading
   cannot alter the approved exact size corpus.
+- Readable-bar correction `c6bf55425c564b717e136cb1890ef407e1958e0b`
+  moves bar placement through the same reflection/half-turn transform as its
+  aggregate quad. Headless WebGL proves vertical flip, in-flight height
+  animation, and 180-degree correction keep the visible bottom padding fixed;
+  LAY-004 first/repeat/fresh retains only its two declared immutable conflicts.
+  The 5,000-bar 2+7 pan matrix passes at 61.0/50.6 median FPS for Chromium
+  headless 1x/4x.
 - Full headless first/repeat/fresh execution covers 158 routes and 2,028
   assertions per session: 1,988 pass, 26 declared immutable conflicts and 14
   measured deficits, with deterministic cleanup and zero console, page,
