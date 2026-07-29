@@ -194,4 +194,28 @@ describe('Core v2 manual Lab scene', () => {
     expect(buildCoreV2ManualScene('5000', 0xffff_ffff).barTargets).toHaveLength(5_000);
     expect(buildCoreV2ManualScene('production', 319).barTargets).toHaveLength(500);
   });
+
+  it('applies a bounded human-Lab animation duration without mutating seeded input', () => {
+    const scene = buildCoreV2ManualScene('100', 319, 5_000);
+    const durations = scene.dataset.flatMap((record) => {
+      const components = Array.isArray(record.components)
+        ? record.components as readonly unknown[]
+        : [];
+      return components.flatMap((component) =>
+        isUnknownRecord(component) && component.type === 'bar'
+          ? [component.animationDuration]
+          : []);
+    });
+
+    expect(scene.animationDurationMs).toBe(5_000);
+    expect(durations).toHaveLength(100);
+    expect(durations.every((duration) => duration === 5_000)).toBe(true);
+    expect(() => buildCoreV2ManualScene('100', 319, 60_001)).toThrow(
+      'manual bar animation duration is invalid',
+    );
+  });
 });
+
+function isUnknownRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}

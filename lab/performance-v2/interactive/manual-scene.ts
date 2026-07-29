@@ -4,6 +4,7 @@ export const CORE_V2_MANUAL_SCENE_REVISION = 'core-v2-manual-scene/1' as const;
 
 export interface CoreV2ManualScene {
   readonly revision: typeof CORE_V2_MANUAL_SCENE_REVISION;
+  readonly animationDurationMs: number;
   readonly dataset: readonly Readonly<Record<string, unknown>>[];
   readonly primaryIds: readonly string[];
   readonly relationIds: readonly string[];
@@ -17,20 +18,43 @@ export interface CoreV2ManualScene {
   }>[];
 }
 
-export function buildCoreV2ManualScene(size: string, seed: number): CoreV2ManualScene {
+export function buildCoreV2ManualScene(
+  size: string,
+  seed: number,
+  animationDurationMs = 200,
+): CoreV2ManualScene {
   const recordCount = size === 'production'
     ? 500
     : Math.max(1, Number.parseInt(size, 10));
   if (!Number.isSafeInteger(recordCount) || recordCount < 1) {
     throw new RangeError(`Core v2 manual scene size is invalid: ${size}`);
   }
+  if (
+    !Number.isSafeInteger(animationDurationMs) ||
+    animationDurationMs < 0 ||
+    animationDurationMs > 60_000
+  ) {
+    throw new RangeError(
+      `Core v2 manual bar animation duration is invalid: ${animationDurationMs}`,
+    );
+  }
   const seeded = structuredClone(
     buildCoreV2SeededScenarioScene(recordCount, seed),
   ) as Readonly<Record<string, unknown>>[];
   const shifted = seeded.map((record) => {
     const attrs = isRecord(record.attrs) ? record.attrs : {};
+    const componentValues = Array.isArray(record.components)
+      ? record.components as readonly unknown[]
+      : undefined;
+    const components = componentValues === undefined
+      ? undefined
+      : componentValues.map((component) =>
+          isRecord(component) && component.type === 'bar'
+            ? { ...component, animationDuration: animationDurationMs }
+            : component);
     return {
       ...record,
+      ...(components === undefined ? {} : { components }),
       attrs: {
         ...attrs,
         y: numberValue(attrs.y, 0) + 270,
@@ -112,6 +136,7 @@ export function buildCoreV2ManualScene(size: string, seed: number): CoreV2Manual
   }));
   return deepFreeze({
     revision: CORE_V2_MANUAL_SCENE_REVISION,
+    animationDurationMs,
     dataset,
     primaryIds: [
       'manual-rect-a',

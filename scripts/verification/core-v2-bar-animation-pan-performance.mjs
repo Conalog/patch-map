@@ -211,6 +211,10 @@ async function runTrial(page, trialIndex) {
     throw new Error(`trial ${trialIndex} Lab failed: ${initialState?.error ?? 'unknown'}`);
   }
 
+  // Keep the historical performance protocol explicit even though the human
+  // REN-009 Lab defaults to a slower duration for hands-on pan inspection.
+  await page.locator('[data-manual-animation-duration]').fill('200');
+  await page.locator('[data-manual-command="animation-duration"]').click();
   await page.locator('[data-manual-mode="pan"]').click();
   const canvas = page.locator('[data-testid="manual-canvas-host"] canvas');
   await canvas.scrollIntoViewIfNeeded();

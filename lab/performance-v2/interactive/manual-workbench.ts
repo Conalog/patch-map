@@ -130,6 +130,7 @@ const MANUAL_COMMAND_HELP: Readonly<Record<string, string>> = Object.freeze({
   'animate-all': '모든 예제 막대의 높이를 무작위 값으로 애니메이션합니다.',
   'animate-partial': '예제 막대 중 시드로 고른 10%만 애니메이션합니다.',
   'animate-selected': '현재 선택한 항목의 막대만 애니메이션합니다.',
+  'animation-duration': '입력한 재생 시간으로 사람 조작용 장면을 다시 만듭니다.',
   'random-text': '예제 라벨 텍스트를 시드 기반 값으로 바꿉니다.',
   'frames-toggle': '자동 프레임 게시를 일시 정지하거나 다시 시작합니다.',
   'publish-frame': '현재 상태를 화면에 한 프레임 게시합니다.',
@@ -258,7 +259,7 @@ export function renderCoreV2ManualWorkbench(
           ${renderTransformPanel()}
           ${renderHistoryPanel()}
           ${renderViewPanel()}
-          ${renderAnimationPanel()}
+          ${renderAnimationPanel(presenter.caseId)}
           ${renderDataPanel()}
           ${renderAuthoringPanel()}
           ${renderAssetsPanel()}
@@ -287,7 +288,11 @@ export function mountCoreV2ManualWorkbench(
   const abortController = new AbortController();
   const { signal } = abortController;
   let engine: CoreV2Engine | null = null;
-  let scene: CoreV2ManualScene = buildCoreV2ManualScene(options.size, options.seed);
+  let scene: CoreV2ManualScene = buildCoreV2ManualScene(
+    options.size,
+    options.seed,
+    defaultManualAnimationDuration(options.caseId),
+  );
   let status: CoreV2ManualLabState['status'] = 'booting';
   let generation = 0;
   let mode: ManualPointerMode = 'select';
@@ -965,6 +970,18 @@ export function mountCoreV2ManualWorkbench(
         case 'animate-selected':
           result = animateBars('selected');
           break;
+        case 'animation-duration': {
+          const durationMs = manualAnimationDuration();
+          scene = buildCoreV2ManualScene(options.size, options.seed, durationMs);
+          result = loadManualScene(requireEngine(), scene);
+          requireEngine().fitViewport({ paddingCssPx: 46 });
+          publishNow(`bar animation ${durationMs}ms`);
+          refreshSceneEditor();
+          setMessage(
+            `막대 애니메이션 시간을 ${(durationMs / 1_000).toFixed(1)}초로 적용했습니다.`,
+          );
+          break;
+        }
         case 'random-text':
           result = randomizeTexts();
           break;
@@ -985,7 +1002,11 @@ export function mountCoreV2ManualWorkbench(
           result = editSelectedText();
           break;
         case 'scene-regenerate':
-          scene = buildCoreV2ManualScene(options.size, (options.seed + ++actionSequence) >>> 0);
+          scene = buildCoreV2ManualScene(
+            options.size,
+            (options.seed + ++actionSequence) >>> 0,
+            manualAnimationDuration(),
+          );
           result = loadManualScene(requireEngine(), scene);
           requireEngine().fitViewport({ paddingCssPx: 46 });
           publishNow('regenerate scene');
@@ -1976,6 +1997,21 @@ export function mountCoreV2ManualWorkbench(
   function angleAmount(): number {
     return numberInput('angle-amount', 15);
   }
+
+  function manualAnimationDuration(): number {
+    const durationMs = numberInput(
+      'animation-duration',
+      defaultManualAnimationDuration(options.caseId),
+    );
+    if (
+      !Number.isSafeInteger(durationMs) ||
+      durationMs < 0 ||
+      durationMs > 60_000
+    ) {
+      throw new RangeError('막대 애니메이션 시간은 0~60,000ms 정수여야 합니다.');
+    }
+    return durationMs;
+  }
 }
 
 function renderSelectionPanel(): string {
@@ -2055,9 +2091,14 @@ function renderViewPanel(): string {
   `);
 }
 
-function renderAnimationPanel(): string {
+function renderAnimationPanel(caseId: string): string {
+  const durationMs = defaultManualAnimationDuration(caseId);
   return toolPanel('animation', '애니메이션·텍스트·화면 스타일', `
     <p>막대 높이와 텍스트를 반복해서 바꾸거나 선택 객체의 보이는 스타일을 편집합니다. 막대가 움직일 때 캔버스도 함께 조작해보세요.</p>
+    <div class="manual-field-action">
+      <label>막대 재생 시간(ms)<input data-manual-animation-duration type="number" value="${durationMs}" min="0" max="60000" step="100"></label>
+      ${commandButton('animation-duration', '재생 시간 적용')}
+    </div>
     <div class="manual-button-grid">
       ${commandButton('animate-all', '전체 막대 움직이기')}
       ${commandButton('animate-partial', '막대 10% 움직이기')}
@@ -2079,6 +2120,10 @@ function renderAnimationPanel(): string {
       ${commandButton('text-selected', '텍스트 적용')}
     </div>
   `);
+}
+
+function defaultManualAnimationDuration(caseId: string): number {
+  return caseId === 'REN-009' ? 5_000 : 200;
 }
 
 function renderDataPanel(): string {
