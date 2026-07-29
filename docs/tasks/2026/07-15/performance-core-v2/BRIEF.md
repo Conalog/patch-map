@@ -13,8 +13,10 @@
 - Work only on `performance/core-v2`; immutable fixtures/expected/review
   evidence, frozen implementations, dependency internals, and other
   refs/worktrees remain outside the boundary.
-- WebGL2 is production; WebGPU and Chromium 4x remain separately labeled
-  experimental/development proxies until native Windows qualification.
+- WebGL2 is production; WebGPU and Chromium 4x remain experimental/development
+  proxies. Under the 2026-07-29 user-approved
+  completion boundary, external-only native/AT/host/review qualification stays
+  pending without blocking the locally verified production candidate.
 
 # Current Facts
 
@@ -27,6 +29,9 @@
 - All 173 routes are executable; 172 produce terminal actuals and `DAT-008`
   truthfully stops at its malformed approved action. Twenty-one immutable
   conflicts are observed and two `UPD-007` conflicts remain latent.
+- External pending does not mean `release-verified`: the strict manifest and
+  approved expected evidence remain unchanged and must still pass before a
+  native production release is promoted.
 
 # Current State
 
@@ -50,13 +55,17 @@
   result is explicitly non-native. The manifest generator plus one positive
   and 15 negative probes enforce eight unique Windows cells and 44 digest
   roles without allowing placeholders, role substitution, or mock promotion.
+- The Core v2 local production candidate is complete: all locally executable
+  product, automation, Lab, package, lifecycle, and performance gates pass.
+  `release-readiness.json` truthfully remains `pending-external-evidence` with
+  local status `pass` and native status `pending`.
 
 # Next Step
 
-- Run the generated manifest on the exact headed Windows 10/11 Chrome/Edge
-  latest-two cells, N100 target, NVDA, and real input devices; bind the actual
-  production-host, security, migration/rollback, and independent-review
-  artifacts, then run the strict release-readiness verifier.
+- No local implementation step remains. When the external environments become
+  available, run the generated manifest on the exact Windows/N100/NVDA/input
+  cells and bind actual-host, security, migration/rollback, and independent
+  review evidence before invoking strict release promotion.
 
 # Working Boundary
 
