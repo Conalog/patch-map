@@ -261,3 +261,9 @@
 - Treat those external-only qualification cells as explicit non-blocking pending for completion of the local production candidate; keep strict native release promotion separate and unchanged.
 - The user explicitly approved leaving externally unmeasurable items pending, and the original performance policy already requires native Windows to remain pending until measured rather than fabricated.
 - The Goal may complete on the verified local candidate, but release-readiness remains pending-external-evidence and releaseVerified stays false until every strict digest-bound external cell passes.
+
+**2026-07-29**
+- 사용자가 contentOrientation을 화면 고정이 아니라 항목과 함께 회전하되 거꾸로 읽히는 반원에서만 180도 보정하는 동작으로 명확히 했고, 이전 화면 고정 보정은 회전 프레임 경계를 침범했다.
+- Core v2는 Flip × Rotation 뒤의 최종 화면 basis에서 반사를 제거한 다음 읽기 가능한 반원에 들어오도록 원래 각도 또는 180도 추가 각도를 선택하고, authored center와 크기 및 부분 bar의 leading edge를 보존한다.
+- 이 규칙은 방사형 카드 예시와 확인한 main 동작을 재현하면서도 Core v2의 screen-axis flip 순서, aggregate renderer, 프레임 containment를 유지한다.
+- LAY-004 두 항목과 REN-011 세 항목이 screen-lock immutable expected와 새로 충돌해 observed conflict는 26, latent 포함 declared conflict는 28이 되었으며 expected는 변경하지 않는다. Windows native는 계속 pending이다.

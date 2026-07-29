@@ -27,45 +27,47 @@
   root-only event authority, one manual scheduler, exact incremental
   publication, and explicit scene-versus-frame state.
 - All 173 routes are executable; 172 produce terminal actuals and `DAT-008`
-  truthfully stops at its malformed approved action. Twenty-one immutable
-  conflicts are observed and two `UPD-007` conflicts remain latent.
+  truthfully stops at its malformed approved action. Twenty-six immutable
+  conflicts are observed and two `UPD-007` conflicts remain latent. The five
+  new conflicts disclose the user-approved readable-orientation behavior
+  against the frozen screen-lock expected evidence.
 - External pending does not mean `release-verified`: the strict manifest and
   approved expected evidence remain unchanged and must still pass before a
   native production release is promoted.
 
 # Current State
 
-- Full local gates pass 148 Core v2 files/1,409 tests, lint, typecheck, and
-  canonical contract verification. The Korean human Lab passes 189/189 checks
-  over all 173 routes; product browser checks pass 31/31 with zero browser
-  errors. The persistent dogfood server remains on port 4176.
+- Readable content orientation is implemented at `90d1212`: content follows
+  authored/item/world rotation, removes reflection, and adds 180 degrees only
+  in the upside-down half-plane. Bars and text retain their authored center,
+  extent, and partial-bar leading edge inside the owner frame.
+- Current gates pass 148 Core v2 files/1,427 tests, lint, typecheck, Core v2
+  Lab build, and canonical contract verification. LAY-004, REN-006, and
+  REN-011 pass headless first/repeat/fresh sessions with deterministic actuals,
+  complete canvas cleanup, and zero console/page/network errors. The
+  representative Korean manual Lab passes all checks. Port 4176 stays live for
+  dogfood.
 - The optimized 5,000-entity matrix covers every pointer, selection,
   transformer, viewport, history, authoring, animation, text, asset,
-  accessibility, extraction, resize, and lifecycle interaction. At 1x,
+  accessibility, extraction, resize, and lifecycle interaction. Its 1x
   pan/zoom/animation-pan p95 is 1.6/1.5/8.4 ms; Chromium 4x records
-  7.6/3.9/31.3 ms. The dedicated all-bar checkpoint improves 1x action/pan
-  p95 to 133.5/664.4 ms at 61.6 fps and 4x to 510.9/953.0 ms at 50.4 fps;
-  4x still has two long tasks per pan run and native Windows is pending.
-- Packed ESM/CJS/types and 38 journeys remain proven against digest
-  `c762337093139d7b42a089a5f8cdc83f0b6705a4e70d090f2755cb0c2253c966`.
-  Experimental WebGPU passes 18/18 on Apple Metal but does not replace WebGL2.
-- Release ownership evidence bound to implementation `e1e2b77` passes local
-  2+7 over 5,099 entities: retained-heap median 82,399 bytes, forced-GC window
-  1.72 MiB, owner delta zero, and errors zero. This headless macOS SwiftShader
-  result is explicitly non-native. The manifest generator plus one positive
-  and 15 negative probes enforce eight unique Windows cells and 44 digest
-  roles without allowing placeholders, role substitution, or mock promotion.
-- The Core v2 local production candidate is complete: all locally executable
-  product, automation, Lab, package, lifecycle, and performance gates pass.
-  `release-readiness.json` truthfully remains `pending-external-evidence` with
-  local status `pass` and native status `pending`.
+  7.6/3.9/31.3 ms and remains only a development proxy.
+- A post-change 5,000-entity headless 1x smoke passes every interaction:
+  pan frame p95 2.3 ms, animation-pan p95 9.0 ms, world rotation 29.5 ms,
+  and X/Y flips 18.8/18.4 ms.
+- Package exports/dependencies/assets and lifecycle ownership did not change,
+  so packed-consumer and 2+7 memory gates were not rerun or misrepresented as
+  current code-bound evidence. Experimental WebGPU remains non-production.
+- `release-readiness.json` truthfully remains
+  `pending-external-evidence`; native Windows is pending.
 
 # Next Step
 
-- No local implementation step remains. When the external environments become
-  available, run the generated manifest on the exact Windows/N100/NVDA/input
-  cells and bind actual-host, security, migration/rollback, and independent
-  review evidence before invoking strict release promotion.
+- No local readable-orientation step remains. If the approved contract is ever
+  revised, reconcile its screen-lock rows separately; do not mutate the
+  current expected evidence. When external environments become available, run
+  the exact Windows/N100/NVDA/input cells and bind actual-host, security,
+  migration/rollback, and independent review evidence before strict promotion.
 
 # Working Boundary
 
