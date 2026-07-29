@@ -624,6 +624,9 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("caseSpec.id === 'EVT-008'");
     expect(source).toContain("caseSpec.id === 'ACC-002'");
     expect(source).toContain('await verifyPointerRootInput(page, caseSpec.id)');
+    expect(source).toContain("state?.status === 'armed'");
+    expect(source).toContain('state.caseId === expectedCaseId');
+    expect(source).toContain('`[data-testid="scenario-${expectedCaseId.toLowerCase()}"]`');
     expect(source).toContain('return bridge.armGesture(0)');
     expect(source).toContain("await bridge.awaitMilestone(0, 'settled')");
     expect(source).toContain("await bridge.awaitMilestone(0, 'released')");

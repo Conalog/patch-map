@@ -1729,11 +1729,16 @@ async function verifyPointerRootInput(page, caseId) {
 async function openFocusedCase(page, routeUrl, route, caseId) {
   await page.goto(routeUrl, { waitUntil: 'networkidle' });
   await page.waitForFunction(
-    (bridgeName) => {
+    ({ bridgeName, expectedCaseId }) => {
       const bridge = window[bridgeName];
-      return bridge?.state().status === 'armed';
+      const state = bridge?.state();
+      return state?.status === 'armed'
+        && state.caseId === expectedCaseId
+        && document.querySelector(
+          `[data-testid="scenario-${expectedCaseId.toLowerCase()}"]`,
+        ) !== null;
     },
-    BRIDGE_NAME,
+    { bridgeName: BRIDGE_NAME, expectedCaseId: caseId },
     { timeout: 30_000 },
   );
   invariant(new URL(page.url()).pathname + new URL(page.url()).search === route, `${caseId} canonical route`);
