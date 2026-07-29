@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 import { describe, expect, it } from 'vitest';
 
+import packageConsumerEvidence from '../../performance/core-v2/results/package-consumer.json';
 import {
   CORE_V2_PACKAGE_INTEGRATION_CASE_IDS,
   CORE_V2_PACKAGE_INTEGRATION_RUNTIME_REVISION,
@@ -29,6 +30,7 @@ interface PackageFoldRuntime {
 
 const handlers = handlerModule as unknown as PackageHandlerRuntime;
 const fold = foldModule as unknown as PackageFoldRuntime;
+const packedProvenance = packageConsumerEvidence.provenance;
 
 describe('Core v2 packed integration automation substrate', () => {
   it('registers five cases through one collision-free shared handler family', () => {
@@ -84,14 +86,20 @@ describe('Core v2 packed integration automation substrate', () => {
       schemaVersion: 2,
       status: 'pass',
       provenance: {
-        codeCommit: '4fc62f28fcabffb61c40e1ff52760775a14b3524',
-        packedPackageSha256:
-          'c762337093139d7b42a089a5f8cdc83f0b6705a4e70d090f2755cb0c2253c966',
+        codeCommit: packedProvenance.codeCommit,
+        packedPackageSha256: packedProvenance.packedPackageSha256,
+        expectedEvidenceBound: true,
       },
       packageMatrix: {
         remainingCanvasCount: 0,
       },
     });
+    expect(packedProvenance.codeCommit).toMatch(/^[0-9a-f]{40}$/u);
+    expect(packedProvenance.packedPackageSha256).toMatch(/^[0-9a-f]{64}$/u);
+    expect(packageConsumerEvidence.artifact.sha256)
+      .toBe(packedProvenance.packedPackageSha256);
+    expect(packageConsumerEvidence.supplyChain.sourceRevision)
+      .toBe(packedProvenance.codeCommit);
   });
 
   it('keeps product transport, handlers, and fold outside the expected/comparator boundary', async () => {

@@ -45,6 +45,7 @@ import {
   type CoreV2PresentationPolicyProductProbe,
 } from '../../src/core-v2/presentation-policy';
 import type { CoreV2SemanticTarget } from '../../src/core-v2/semantic/probe';
+import packageConsumerEvidence from '../../performance/core-v2/results/package-consumer.json';
 // @ts-expect-error -- the independent browser-safe comparator is authored as ESM JavaScript.
 import * as compareModule from '../../scripts/verification/core-v2-contract/compare.mjs';
 
@@ -63,11 +64,19 @@ interface CompareRuntime {
 }
 
 const { compareObservation } = compareModule as unknown as CompareRuntime;
-const PACKED_CODE_COMMIT = '4fc62f28fcabffb61c40e1ff52760775a14b3524';
+const PACKED_CODE_COMMIT = packageConsumerEvidence.provenance.codeCommit;
 const PACKED_PACKAGE_SHA256 =
-  'c762337093139d7b42a089a5f8cdc83f0b6705a4e70d090f2755cb0c2253c966';
+  packageConsumerEvidence.provenance.packedPackageSha256;
 
 describe('Core v2 executable Lab product bridge', () => {
+  it('binds packed route observations to the current candidate proof', () => {
+    expect(PACKED_CODE_COMMIT).toMatch(/^[0-9a-f]{40}$/u);
+    expect(PACKED_PACKAGE_SHA256).toMatch(/^[0-9a-f]{64}$/u);
+    expect(packageConsumerEvidence.provenance.expectedEvidenceBound).toBe(true);
+    expect(packageConsumerEvidence.artifact.sha256).toBe(PACKED_PACKAGE_SHA256);
+    expect(packageConsumerEvidence.supplyChain.sourceRevision).toBe(PACKED_CODE_COMMIT);
+  });
+
   it.each(CORE_V2_EXECUTABLE_CASE_IDS.filter(
     (caseId) => caseId !== 'DAT-008'
       && caseId !== 'AST-001'
