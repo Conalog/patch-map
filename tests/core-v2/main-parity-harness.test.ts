@@ -96,11 +96,16 @@ describe('Core v2 main black-box parity harness', () => {
     expect(source).not.toContain('catalog-review-registry');
   });
 
-  it('loads main only through the public package alias and never imports Core v2 into that realm', async () => {
-    const source = await readFile(mainOraclePath, 'utf8');
-    expect(source).toContain("from '@patch-map-main-oracle'");
-    expect(source).not.toContain('src/core-v2');
-    expect(source).not.toContain('catalog-normalized-expected');
+  it('loads main only through the isolated public package URL and never imports Core v2 into that realm', async () => {
+    const [oracleSource, runnerSource] = await Promise.all([
+      readFile(mainOraclePath, 'utf8'),
+      readFile(scriptPath, 'utf8'),
+    ]);
+    expect(oracleSource).toContain("startsWith('/@fs/')");
+    expect(oracleSource).toContain('import(/* @vite-ignore */ mainModuleUrl)');
+    expect(runnerSource).toContain("mainUrl.searchParams.set('mainModule', `/@fs${MAIN_ESM}`)");
+    expect(oracleSource).not.toContain('src/core-v2');
+    expect(oracleSource).not.toContain('catalog-normalized-expected');
   });
 
   it('has valid Node syntax', () => {

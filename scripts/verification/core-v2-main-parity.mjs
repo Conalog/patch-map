@@ -92,8 +92,10 @@ try {
   const corePage = await coreContext.newPage();
   bindErrors(mainPage, runtimeErrors.main);
   bindErrors(corePage, runtimeErrors.coreV2);
+  const mainUrl = new URL('lab/main-parity/main.html', baseUrl);
+  mainUrl.searchParams.set('mainModule', `/@fs${MAIN_ESM}`);
   await Promise.all([
-    mainPage.goto(new URL('lab/main-parity/main.html', baseUrl).href, {
+    mainPage.goto(mainUrl.href, {
       waitUntil: 'networkidle',
     }),
     corePage.goto(new URL('lab/main-parity/core-v2.html', baseUrl).href, {

@@ -1,7 +1,12 @@
-// The verifier resolves this alias to the built public ESM package from the
-// detached, read-only main worktree. This page never imports Core v2, so Pixi
-// extension registries remain isolated.
-import { Patchmap, Transformer } from '@patch-map-main-oracle';
+// The verifier supplies the built public ESM URL from the detached, read-only
+// main worktree. A runtime URL keeps ordinary Core v2 Vite servers from
+// dependency-scanning the black-box oracle. This page never imports Core v2,
+// so Pixi extension registries remain isolated.
+const mainModuleUrl = new URL(window.location.href).searchParams.get('mainModule');
+if (mainModuleUrl === null || !mainModuleUrl.startsWith('/@fs/')) {
+  throw new Error('missing isolated main oracle module URL');
+}
+const { Patchmap, Transformer } = await import(/* @vite-ignore */ mainModuleUrl);
 
 const host = document.querySelector('#oracle-host');
 if (!(host instanceof HTMLElement)) throw new Error('missing main parity host');
