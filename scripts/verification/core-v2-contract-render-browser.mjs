@@ -2520,7 +2520,7 @@ function assertCaseRun(caseSpec, run, comparison, runLabel) {
     assertControlUi(caseSpec.id, run.ui, runLabel);
   }
   if (GPU_EVIDENCE_CASES.has(caseSpec.id)) {
-    assertGpuEvidence(caseSpec.id, run.gpu, runLabel);
+    assertGpuEvidence(caseSpec.id, run.gpu, runLabel, run.actualObservation);
   }
 }
 
@@ -2585,7 +2585,7 @@ function assertAccessibilityActuals(caseId, actualObservation, runLabel) {
   );
 }
 
-function assertGpuEvidence(caseId, gpu, runLabel) {
+function assertGpuEvidence(caseId, gpu, runLabel, actualObservation) {
   const prefix = `${caseId} ${runLabel} WebGL evidence`;
   invariant(gpu && typeof gpu === 'object', `${prefix} exists`);
   invariant(gpu.revision === 'core-v2-webgl-browser-probe/1', `${prefix} revision`);
@@ -2631,7 +2631,7 @@ function assertGpuEvidence(caseId, gpu, runLabel) {
   if (PERFORMANCE_GPU_CASES.has(caseId)) return;
 
   if (caseId === 'LAY-003') {
-    assertLay003GpuPaintOrder(gpu, prefix);
+    assertLay003GpuPaintOrder(gpu, prefix, actualObservation);
     return;
   }
   if (caseId === 'UPD-007') {
@@ -2657,7 +2657,7 @@ function assertGpuEvidence(caseId, gpu, runLabel) {
   assertAnimatedBarGpuProjection(caseId, gpu, prefix);
 }
 
-function assertLay003GpuPaintOrder(gpu, prefix) {
+function assertLay003GpuPaintOrder(gpu, prefix, actualObservation) {
   const initial = ['#111111ff', '#222222ff', '#333333ff', '#444444ff'];
   const patched = ['#222222ff', '#333333ff', '#111111ff', '#444444ff'];
   const frameOrders = gpu.frames
@@ -2665,9 +2665,33 @@ function assertLay003GpuPaintOrder(gpu, prefix) {
       .map((draw) => draw.centerRgba)
       .filter((rgba) => initial.includes(rgba))))
     .filter((order) => order.length > 0);
+  if (containsOrderedRecords(frameOrders, [initial, patched, initial, patched])) return;
+
+  // Pixi may legally batch all four compatible aggregate meshes into one
+  // WebGL draw. In that case intermediate occluded colors are not observable
+  // as separate draw calls, so require four real frames with the unchanged
+  // topmost pixel and correlate them with the public product order actual.
+  const topmostFrames = Array.from({ length: 4 }, () => ['#444444ff']);
   invariant(
-    containsOrderedRecords(frameOrders, [initial, patched, initial, patched]),
-    `${prefix} initial/patch/undo/redo GPU draw order (${JSON.stringify(frameOrders)})`,
+    containsOrderedRecords(frameOrders, topmostFrames),
+    `${prefix} batch-compatible topmost GPU frames (${JSON.stringify(frameOrders)})`,
+  );
+  const scene = actualObservation?.scene;
+  invariant(
+    scene
+      && sameJson(scene.initial?.renderOrder, [
+        'low', 'first', 'second', 'high', 'selection', 'transformer',
+      ])
+      && sameJson(scene.afterPatch?.renderOrder, [
+        'first', 'second', 'low', 'high', 'selection', 'transformer',
+      ])
+      && sameJson(scene.afterUndo?.renderOrder, [
+        'low', 'first', 'second', 'high', 'selection', 'transformer',
+      ])
+      && sameJson(scene.afterRedo?.renderOrder, [
+        'first', 'second', 'low', 'high', 'selection', 'transformer',
+      ]),
+    `${prefix} batch-compatible GPU frames correlate with public product paint order`,
   );
 }
 

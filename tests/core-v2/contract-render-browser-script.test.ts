@@ -695,8 +695,9 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain('surface.entityListenerCount === 0');
     expect(source).toContain('surface.shadowDomFocusedId === focusedId');
     expect(source).toContain('if (PERFORMANCE_GPU_CASES.has(caseId)) return;');
-    expect(source).toContain('assertLay003GpuPaintOrder(gpu, prefix)');
-    expect(source).toContain('initial/patch/undo/redo GPU draw order');
+    expect(source).toContain('assertLay003GpuPaintOrder(gpu, prefix, actualObservation)');
+    expect(source).toContain('batch-compatible topmost GPU frames');
+    expect(source).toContain('batch-compatible GPU frames correlate with public product paint order');
     expect(source).toContain('visible 10 -> 36.25 -> 40 bar projection');
     expect(source).toContain('visible retargeted 10 -> 36.25 -> 22.03125 -> 20 projection');
     expect(source).toContain('both frame-cadence schedules reach the same visible projection');
