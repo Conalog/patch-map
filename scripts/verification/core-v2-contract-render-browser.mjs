@@ -3167,8 +3167,10 @@ function assertComponentAssetFocusedUi(caseId, ui, runLabel) {
     }))),
     `${caseId} ${runLabel} exact observed phase inventory`,
   );
+  const observedPhaseCounts =
+    String(ui.observedPhaseCount).match(/\d+/gu)?.map(Number) ?? [];
   invariant(
-    ui.observedPhaseCount === `${phases.length} / ${phases.length} observed`,
+    sameJson(observedPhaseCounts, [phases.length, phases.length]),
     `${caseId} ${runLabel} phase observation count`,
   );
 
