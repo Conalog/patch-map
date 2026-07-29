@@ -519,6 +519,7 @@ async function readableBarPlacement(ownerId) {
 
 async function canvasClick(point) {
   const canvas = page.locator('[data-testid="manual-canvas-host"] canvas');
+  await canvas.scrollIntoViewIfNeeded();
   const box = await canvas.boundingBox();
   if (!box) throw new Error('manual canvas has no bounds');
   await page.mouse.click(box.x + point[0], box.y + point[1]);
@@ -526,6 +527,7 @@ async function canvasClick(point) {
 
 async function canvasDrag(start, end) {
   const canvas = page.locator('[data-testid="manual-canvas-host"] canvas');
+  await canvas.scrollIntoViewIfNeeded();
   const box = await canvas.boundingBox();
   if (!box) throw new Error('manual canvas has no bounds');
   const safeStart = clampCanvasPoint(start, box);
