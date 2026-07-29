@@ -1099,7 +1099,19 @@ async function installWebGlCanvasProbe(page, caseId) {
     }
 
     function readBarColumn(context, canvas) {
-      const x = Math.max(0, Math.min(canvas.width - 1, Math.floor(50 * canvas.width / 800)));
+      const candidateCssXs = [32, 40, 48, 56, 64, 72, 80, 88];
+      let bestColumn = null;
+      for (const cssX of candidateCssXs) {
+        const column = readBarColumnAtCssX(context, canvas, cssX);
+        if (column !== null && (bestColumn === null || column.height > bestColumn.height)) {
+          bestColumn = column;
+        }
+      }
+      return bestColumn;
+    }
+
+    function readBarColumnAtCssX(context, canvas, cssX) {
+      const x = Math.max(0, Math.min(canvas.width - 1, Math.floor(cssX * canvas.width / 800)));
       const pixels = new Uint8Array(canvas.height * 4);
       context.readPixels(x, 0, 1, canvas.height, context.RGBA, context.UNSIGNED_BYTE, pixels);
       let bestStart = -1;

@@ -686,6 +686,8 @@ describe('Core v2 render browser checkpoint script', () => {
     expect(source).toContain("'drawElementsInstanced'");
     expect(source).toContain('context.readPixels(x, y, 1, 1');
     expect(source).toContain('context.readPixels(x, 0, 1, canvas.height');
+    expect(source).toContain('const candidateCssXs = [32, 40, 48, 56, 64, 72, 80, 88]');
+    expect(source).toContain('column.height > bestColumn.height');
     expect(source).toContain('if (PIXIJS_INTEGRATION_TRANCHE_CASES.has(caseId)) return;');
     expect(source).toContain('if (SECURITY_OPERATIONS_TRANCHE_CASES.has(caseId)) return;');
     expect(source).toContain('if (ACCESSIBILITY_TRANCHE_CASES.has(caseId)) return;');
