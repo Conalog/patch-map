@@ -229,6 +229,7 @@ export function writeCoreV2ReadableRect(
   worldC: number,
   worldD: number,
   widthFraction = 1,
+  placementAnchor?: CoreV2PointTuple,
 ): CoreV2ReadableRectTarget {
   const fraction = Number.isFinite(widthFraction)
     ? Math.max(0, Math.min(1, widthFraction))
@@ -275,9 +276,40 @@ export function writeCoreV2ReadableRect(
   const width = fullWidth * fraction;
   const height = child.localBounds[3] * yScale;
   const partialCenterOffset = (width - fullWidth) / 2;
+  let centerX = child.visibleCenter[0];
+  let centerY = child.visibleCenter[1];
 
-  output.center[0] = child.visibleCenter[0] + basisA * partialCenterOffset;
-  output.center[1] = child.visibleCenter[1] + basisB * partialCenterOffset;
+  /*
+   * Readable orientation is a component transform, not only a glyph/quad
+   * basis transform. Bars opt into an owner-center anchor so a bottom-placed
+   * bar stays on the readable bottom after reflection or the half-plane's
+   * 180° correction. Text deliberately omits the anchor and keeps its authored
+   * center. The inverse original basis preserves the exact authored offset,
+   * including signed scale and skew, without allocating matrices per entity.
+   */
+  if (placementAnchor !== undefined && xScale > 0 && yScale > 0) {
+    const originalA = a / xScale;
+    const originalB = b / xScale;
+    const originalC = c / yScale;
+    const originalD = d / yScale;
+    const originalDeterminant = originalA * originalD - originalB * originalC;
+    if (Math.abs(originalDeterminant) > Number.EPSILON) {
+      const offsetX = child.visibleCenter[0] - placementAnchor[0];
+      const offsetY = child.visibleCenter[1] - placementAnchor[1];
+      const inverseOriginal = 1 / originalDeterminant;
+      const localOffsetX =
+        (originalD * offsetX - originalC * offsetY) * inverseOriginal;
+      const localOffsetY =
+        (-originalB * offsetX + originalA * offsetY) * inverseOriginal;
+      centerX =
+        placementAnchor[0] + basisA * localOffsetX + basisC * localOffsetY;
+      centerY =
+        placementAnchor[1] + basisB * localOffsetX + basisD * localOffsetY;
+    }
+  }
+
+  output.center[0] = centerX + basisA * partialCenterOffset;
+  output.center[1] = centerY + basisB * partialCenterOffset;
   output.basis[0] = normalizeSignedZero(basisA);
   output.basis[1] = normalizeSignedZero(basisB);
   output.basis[2] = normalizeSignedZero(basisC);

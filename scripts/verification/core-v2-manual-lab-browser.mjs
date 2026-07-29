@@ -13,6 +13,7 @@ import {
 
 const ROOT = process.cwd();
 const allRoutes = process.argv.includes('--all-routes');
+const orientationOnly = process.argv.includes('--orientation-only');
 const codeCommit = process.env.CORE_V2_CODE_COMMIT ?? 'uncommitted';
 const browserLaunch = parseCoreV2BrowserLaunch(process.argv.slice(2));
 const nativeWindows = parseCoreV2NativeWindowsCell(
@@ -98,6 +99,9 @@ try {
     rendererSupport,
   );
 
+  if (orientationOnly) {
+    await verifyReadableBarOrientation();
+  } else {
   const rectA = await geometry('manual-rect-a');
   await canvasClick(center(rectA.screenBounds));
   await page.waitForFunction(() =>
@@ -226,6 +230,8 @@ try {
     { frameBeforeAnimation, frameAfterAnimation },
   );
 
+  await verifyReadableBarOrientation();
+
   await openCase('CSM-038');
   await page.evaluate(() => {
     window.__MANUAL_CANVAS_IDENTITY__ =
@@ -313,6 +319,7 @@ try {
       routeProbe,
     );
   }
+  }
 
   check(errors.console.length === 0, 'console error count is zero', errors.console);
   check(errors.page.length === 0, 'page error count is zero', errors.page);
@@ -327,8 +334,8 @@ try {
 const report = {
   revision: 'core-v2-manual-lab-browser/1',
   codeCommit,
-  mode: allRoutes ? 'all-routes' : 'representative',
-  routeCount: routeCases.length,
+  mode: orientationOnly ? 'orientation-only' : allRoutes ? 'all-routes' : 'representative',
+  routeCount: orientationOnly ? 1 : routeCases.length,
   environment: {
     platform: process.platform,
     architecture: process.arch,
@@ -393,6 +400,121 @@ async function geometry(id) {
       worldBounds: target.worldBounds,
     };
   }, id);
+}
+
+async function verifyReadableBarOrientation() {
+  await openCase('LAY-004');
+  await page.evaluate(() => {
+    const duration = document.querySelector('[data-manual-animation-duration]');
+    if (!(duration instanceof HTMLInputElement)) {
+      throw new Error('manual animation duration input is unavailable');
+    }
+    duration.value = '2000';
+    return window.__PATCH_MAP_CORE_V2_MANUAL_LAB__?.run('animation-duration');
+  });
+  const readableBarBeforeFlip = await readableBarPlacement('node-0');
+  await page.evaluate(() =>
+    window.__PATCH_MAP_CORE_V2_MANUAL_LAB__?.run('world-flip-y')
+  );
+  await page.waitForFunction(() =>
+    window.__PATCH_MAP_CORE_V2_MANUAL_LAB__?.engine()
+      ?.viewportTransformProbe().world.flipY === true,
+  );
+  const readableBarAfterFlip = await readableBarPlacement('node-0');
+  check(
+    readableBarAfterFlip.barCenterY > readableBarAfterFlip.ownerCenterY &&
+      Math.abs(readableBarAfterFlip.bottomGap - readableBarBeforeFlip.bottomGap) <= 0.25,
+    'Vertical flip keeps the readable bar attached to the visible bottom of its item',
+    {
+      before: readableBarBeforeFlip,
+      after: readableBarAfterFlip,
+    },
+  );
+  await page.evaluate(() =>
+    window.__PATCH_MAP_CORE_V2_MANUAL_LAB__?.run('animate-all')
+  );
+  await page.waitForFunction(() =>
+    (window.__PATCH_MAP_CORE_V2_MANUAL_LAB__?.state().activeAnimations ?? 0) > 0,
+  );
+  await page.waitForFunction((beforeHeight) => {
+    const engine = window.__PATCH_MAP_CORE_V2_MANUAL_LAB__?.engine();
+    const bar = engine?.geometryProbe().entities.find((entity) =>
+      entity.ownerItemId === 'node-0' && entity.componentType === 'bar'
+    );
+    return bar !== undefined && Math.abs(bar.screenBounds[3] - beforeHeight) > 0.25;
+  }, readableBarAfterFlip.barHeight);
+  const readableBarDuringAnimation = await readableBarPlacement('node-0');
+  check(
+    Math.abs(
+      readableBarDuringAnimation.bottomGap - readableBarAfterFlip.bottomGap,
+    ) <= 0.25 &&
+      Math.abs(
+        readableBarDuringAnimation.barHeight - readableBarAfterFlip.barHeight,
+      ) > 0.25,
+    'Vertically flipped bar animation keeps the visible bottom edge stationary',
+    {
+      beforeAnimation: readableBarAfterFlip,
+      duringAnimation: readableBarDuringAnimation,
+    },
+  );
+  await page.waitForFunction(
+    () =>
+      (window.__PATCH_MAP_CORE_V2_MANUAL_LAB__?.state().activeAnimations ?? 1) === 0,
+    undefined,
+    { timeout: 10_000 },
+  );
+  await page.evaluate(async () => {
+    const bridge = window.__PATCH_MAP_CORE_V2_MANUAL_LAB__;
+    await bridge?.run('view-reset');
+    for (let step = 0; step < 12; step += 1) {
+      await bridge?.run('world-rotate-right');
+    }
+  });
+  await page.waitForFunction(() => {
+    const world = window.__PATCH_MAP_CORE_V2_MANUAL_LAB__?.engine()
+      ?.viewportTransformProbe().world;
+    return world?.rotationDegrees === 180 && world.flipY === false;
+  });
+  const readableBarAfterHalfTurn = await readableBarPlacement('node-0');
+  check(
+    readableBarAfterHalfTurn.barCenterY > readableBarAfterHalfTurn.ownerCenterY &&
+      Math.abs(
+        readableBarAfterHalfTurn.bottomGap / readableBarAfterHalfTurn.ownerHeight
+        - readableBarBeforeFlip.bottomGap / readableBarBeforeFlip.ownerHeight,
+      ) <= 0.001,
+    'A 180 degree readable correction keeps the bar on the visible bottom',
+    {
+      before: readableBarBeforeFlip,
+      after: readableBarAfterHalfTurn,
+    },
+  );
+}
+
+async function readableBarPlacement(ownerId) {
+  return page.evaluate((targetOwnerId) => {
+    const engine = window.__PATCH_MAP_CORE_V2_MANUAL_LAB__?.engine();
+    const entities = engine?.geometryProbe().entities ?? [];
+    const owner = entities.find(({ id }) => id === targetOwnerId);
+    const bar = entities.find((entity) =>
+      entity.ownerItemId === targetOwnerId &&
+      entity.componentType === 'bar'
+    );
+    if (!owner || !bar) {
+      throw new Error(`missing readable bar placement for ${targetOwnerId}`);
+    }
+    const ownerCenterY = owner.screenBounds[1] + owner.screenBounds[3] / 2;
+    const barCenterY = bar.screenBounds[1] + bar.screenBounds[3] / 2;
+    return {
+      ownerCenterY,
+      ownerHeight: owner.screenBounds[3],
+      barCenterY,
+      bottomGap:
+        owner.screenBounds[1] + owner.screenBounds[3]
+        - (bar.screenBounds[1] + bar.screenBounds[3]),
+      barHeight: bar.screenBounds[3],
+      barScreenAngle: bar.screenAngle,
+    };
+  }, ownerId);
 }
 
 async function canvasClick(point) {

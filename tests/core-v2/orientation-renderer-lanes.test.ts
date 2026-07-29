@@ -7,6 +7,7 @@ import {
 } from '../../src/core-v1/renderer/types';
 import type { CoreV2ProjectionIndex } from '../../src/core-v2/contracts';
 import { parsePatchMapV010 } from '../../src/core-v2/parser';
+import { projectCoreV2BarPresentationHeight } from '../../src/core-v2/presentation-projection';
 import { AggregateLeafLayer } from '../../src/core-v2/renderers/leaf-layer';
 import {
   AggregateMeshLayer,
@@ -144,6 +145,12 @@ describe('Core v2 orientation renderer lanes', () => {
       expectedAngle: 45,
     },
     {
+      rotationDegrees: 180,
+      flipX: false,
+      flipY: false,
+      expectedAngle: 0,
+    },
+    {
       rotationDegrees: 90,
       flipX: false,
       flipY: false,
@@ -154,6 +161,12 @@ describe('Core v2 orientation renderer lanes', () => {
       flipX: true,
       flipY: false,
       expectedAngle: 315,
+    },
+    {
+      rotationDegrees: 0,
+      flipX: false,
+      flipY: true,
+      expectedAngle: 0,
     },
     {
       rotationDegrees: 45,
@@ -233,12 +246,72 @@ describe('Core v2 orientation renderer lanes', () => {
       }
 
       const bar = resolveCoreV2SlotQuad(store, 0, context);
-      const barProjection = parsed.projection.byEntityId[
-        'contained-meter::bar:level'
-      ];
-      expect(bar.center).toEqual(barProjection?.visibleCenter);
+      const ownerScreenCenter = applyCoreV2Affine(world, owner.visibleCenter);
+      const barScreenCenter = applyCoreV2Affine(world, bar.center);
+      const relativeX = barScreenCenter[0] - ownerScreenCenter[0];
+      const relativeY = barScreenCenter[1] - ownerScreenCenter[1];
+      const readableHorizontalOffset =
+        relativeX * bar.screenBasis[0] + relativeY * bar.screenBasis[1];
+      const readableBottomOffset =
+        relativeX * bar.screenBasis[2]
+        + relativeY * bar.screenBasis[3]
+        + bar.height / 2;
+      expect(readableHorizontalOffset).toBeCloseTo(0, 8);
+      expect(readableBottomOffset).toBeCloseTo(32, 8);
     },
   );
+
+  it('keeps the readable bottom edge fixed during a vertically flipped bar animation', () => {
+    const parsed = parsePatchMapV010([{
+      type: 'item',
+      id: 'animated-meter',
+      size: { width: 120, height: 80 },
+      padding: 8,
+      contentOrientation: 'upright',
+      components: [{
+        type: 'bar',
+        id: 'level',
+        size: { width: 100, height: 16 },
+        placement: 'bottom',
+        source: { type: 'rect', fill: '#22c55e' },
+      }],
+    }]);
+    const entity = parsed.document.entities.find((candidate) => candidate.kind === 'bar');
+    const destination = parsed.projection.byEntityId['animated-meter::bar:level'];
+    if (!entity || !destination) throw new Error('animated bar was not projected');
+    const store = createRenderStore([entity]);
+    const short = projectCoreV2BarPresentationHeight(destination, 4);
+    const shortIndex = Object.freeze({
+      ...parsed.projection,
+      byEntityId: Object.freeze({
+        ...parsed.projection.byEntityId,
+        [entity.id]: short,
+      }),
+    });
+    const world = createCoreV2WorldAffine({
+      rotationDegrees: 0,
+      flipX: false,
+      flipY: true,
+    });
+    const fullQuad = resolveCoreV2SlotQuad(
+      store,
+      0,
+      projectionContext(parsed.projection, 1, 0, false, true),
+    );
+    const shortQuad = resolveCoreV2SlotQuad(
+      store,
+      0,
+      projectionContext(shortIndex, 2, 0, false, true),
+    );
+    const fullBottom = readableBottomPoint(fullQuad, world);
+    const shortBottom = readableBottomPoint(shortQuad, world);
+    const fullTop = readableTopPoint(fullQuad, world);
+    const shortTop = readableTopPoint(shortQuad, world);
+
+    expect(shortBottom[0]).toBeCloseTo(fullBottom[0], 8);
+    expect(shortBottom[1]).toBeCloseTo(fullBottom[1], 8);
+    expect(shortTop[1]).toBeGreaterThan(fullTop[1]);
+  });
 
   it.each([
     { angle: 0, expectedAngle: 0 },
@@ -593,4 +666,34 @@ function rotationBasis(angle: number): readonly number[] {
   const cosine = Math.cos(radians);
   const sine = Math.sin(radians);
   return [cosine, sine, -sine, cosine];
+}
+
+function readableBottomPoint(
+  quad: Readonly<{
+    center: readonly [number, number];
+    screenBasis: readonly [number, number, number, number];
+    height: number;
+  }>,
+  world: ReturnType<typeof createCoreV2WorldAffine>,
+): readonly [number, number] {
+  const center = applyCoreV2Affine(world, quad.center);
+  return [
+    center[0] + quad.screenBasis[2] * quad.height / 2,
+    center[1] + quad.screenBasis[3] * quad.height / 2,
+  ];
+}
+
+function readableTopPoint(
+  quad: Readonly<{
+    center: readonly [number, number];
+    screenBasis: readonly [number, number, number, number];
+    height: number;
+  }>,
+  world: ReturnType<typeof createCoreV2WorldAffine>,
+): readonly [number, number] {
+  const center = applyCoreV2Affine(world, quad.center);
+  return [
+    center[0] - quad.screenBasis[2] * quad.height / 2,
+    center[1] - quad.screenBasis[3] * quad.height / 2,
+  ];
 }

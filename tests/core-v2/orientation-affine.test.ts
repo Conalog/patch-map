@@ -145,7 +145,7 @@ describe('Core v2 signed affine orientation projection', () => {
     });
   });
 
-  it('publishes readable bar geometry at its authored center without leaving its owner', () => {
+  it('publishes readable bar geometry at the visible bottom without leaving its owner', () => {
     const parsed = parsePatchMapV010([{
       type: 'item',
       id: 'meter',
@@ -198,6 +198,59 @@ describe('Core v2 signed affine orientation projection', () => {
     expect(ownerLocalCenter[1]).toBeGreaterThanOrEqual(0);
     expect(ownerLocalCenter[1]).toBeLessThanOrEqual(80);
   });
+
+  it.each([
+    { rotation: 180, flipY: false },
+    { rotation: 0, flipY: true },
+  ])(
+    'moves a bottom bar with its readable frame at $rotation° [flipY=$flipY]',
+    ({ rotation, flipY }) => {
+      const parsed = parsePatchMapV010([{
+        type: 'item',
+        id: 'flipped-meter',
+        size: { width: 120, height: 80 },
+        padding: 8,
+        contentOrientation: 'upright',
+        components: [{
+          type: 'bar',
+          id: 'level',
+          size: { width: 100, height: 16 },
+          placement: 'bottom',
+          source: { type: 'rect', fill: '#22c55e' },
+        }],
+      }]);
+      const scene = new CoreScene();
+      scene.load(parsed.document);
+      const view = { x: 0, y: 0, scale: 1, rotation, flipX: false, flipY };
+      const geometry = createCoreV2SurfaceGeometrySnapshot(
+        scene.snapshot(),
+        parsed.projection,
+        view,
+      );
+      const bar = geometry.entities.find((entity) => entity.componentId === 'level');
+      const owner = parsed.projection.byEntityId['flipped-meter'];
+      if (!bar || !owner || !bar.screenBasis) {
+        throw new Error('readable bottom bar geometry was not published');
+      }
+      const world = createCoreV2Affine(0, 0, 0, 1, flipY ? -1 : 1);
+      const rotatedWorld = multiplyCoreV2Affine(
+        world,
+        createCoreV2Affine(0, 0, rotation),
+      );
+      const ownerScreen = applyCoreV2Affine(rotatedWorld, owner.visibleCenter);
+      const [x, y, width, height] = bar.screenBounds;
+      const barScreen = [x + width / 2, y + height / 2] as const;
+      const relativeX = barScreen[0] - ownerScreen[0];
+      const relativeY = barScreen[1] - ownerScreen[1];
+      const bottomOffset =
+        relativeX * bar.screenBasis[2]
+        + relativeY * bar.screenBasis[3]
+        + height / 2;
+
+      expect(bar.visibleCenter).toEqual([60, 16]);
+      expect(bottomOffset).toBeCloseTo(32, 8);
+    },
+  );
 });
 
 function item(id: string, contentOrientation: 'follow-item' | 'upright') {

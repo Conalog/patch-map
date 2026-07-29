@@ -499,6 +499,7 @@ function writeProjectedQuad(
   const [localX, localY, localWidth, localHeight] = projection.localBounds;
   const [a, b, c, d, tx, ty] = projection.affine;
   if (projection.contentOrientation === 'upright') {
+    const placementAnchor = readableBarPlacementAnchor(projection, context?.index);
     const cache = context?.quadCache;
     if (cache !== undefined) {
       const frame = readableQuadFrame(
@@ -509,6 +510,7 @@ function writeProjectedQuad(
         worldB,
         worldC,
         worldD,
+        placementAnchor,
       );
       writeCachedReadableQuad(output, frame, fraction);
       return;
@@ -521,6 +523,7 @@ function writeProjectedQuad(
       worldC,
       worldD,
       fraction,
+      placementAnchor,
     );
     writeQuadValues(
       output,
@@ -618,10 +621,20 @@ function readableQuadFrame(
   worldB: number,
   worldC: number,
   worldD: number,
+  placementAnchor?: CoreV2PointTuple,
 ): CoreV2ReadableQuadFrame {
   const cached = cache.readableFrames.get(projection.entityId);
   if (cached !== undefined) return cached;
-  writeCoreV2ReadableRect(output, projection, worldA, worldB, worldC, worldD);
+  writeCoreV2ReadableRect(
+    output,
+    projection,
+    worldA,
+    worldB,
+    worldC,
+    worldD,
+    1,
+    placementAnchor,
+  );
   writeQuadValues(
     output,
     output.center[0],
@@ -653,6 +666,19 @@ function readableQuadFrame(
   });
   cache.readableFrames.set(projection.entityId, frame);
   return frame;
+}
+
+function readableBarPlacementAnchor(
+  projection: CoreV2EntityProjection,
+  index?: CoreV2ProjectionIndex,
+): CoreV2PointTuple | undefined {
+  if (
+    projection.componentType !== 'bar'
+    || projection.ownerItemId === undefined
+  ) {
+    return undefined;
+  }
+  return index?.byEntityId[projection.ownerItemId]?.visibleCenter;
 }
 
 function writeCachedReadableQuad(

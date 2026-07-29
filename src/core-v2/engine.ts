@@ -44,6 +44,7 @@ import type { CoreV2PaintOrderProductProbe } from './paint-order-product';
 import type { SceneSnapshot, SlotRange } from '../core-v1/contracts';
 import type {
   CoreV2ComponentRenderRole,
+  CoreV2EntityProjection,
   CoreV2ImageSourceKind,
   CoreV2ProjectionIndex,
   CoreV2TextProjection,
@@ -123,6 +124,7 @@ import {
   multiplyCoreV2Affine,
   writeCoreV2ReadableRect,
   type CoreV2AffineBasis,
+  type CoreV2PointTuple,
 } from './semantic/geometry';
 import {
   relationPathHitScreen,
@@ -10444,7 +10446,7 @@ function createCoreV2SurfaceEntityGeometry(
 ): CoreV2SurfaceEntityGeometry {
   const entityProjection = projection?.byEntityId[entity.id];
   const geometry = entityProjection
-    ? resolveProjectedEntityGeometry(entityProjection, surfaceView)
+    ? resolveProjectedEntityGeometry(entityProjection, surfaceView, projection)
     : resolveDenseEntityGeometry(entity.bounds, entity.rotation, surfaceView);
   return Object.freeze({
     id: entity.id,
@@ -10498,7 +10500,7 @@ export function createCoreV2SurfaceWorldGeometrySnapshot(
     if (entity.kind === 'relation') return [];
     const entityProjection = projection?.byEntityId[entity.id];
     const geometry = entityProjection
-      ? resolveProjectedEntityWorldGeometry(entityProjection, surfaceView)
+      ? resolveProjectedEntityWorldGeometry(entityProjection, surfaceView, projection)
       : resolveDenseEntityWorldGeometry(entity.bounds, entity.rotation);
     const resolved = Object.freeze({
       worldBounds: geometry.worldBounds,
@@ -10832,6 +10834,7 @@ interface ResolvedWorldEntityGeometry {
 function resolveProjectedEntityWorldGeometry(
   projection: NonNullable<CoreV2ProjectionIndex['byEntityId'][string]>,
   view: CoreV2SurfaceView,
+  index?: CoreV2ProjectionIndex | null,
 ): ResolvedWorldEntityGeometry {
   const orientedWorldAffine = multiplyCoreV2Affine(
     createCoreV2Affine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
@@ -10852,6 +10855,8 @@ function resolveProjectedEntityWorldGeometry(
       orientedWorldAffine[1],
       orientedWorldAffine[2],
       orientedWorldAffine[3],
+      1,
+      readableBarPlacementAnchor(projection, index),
     );
     worldBasis = Object.freeze([
       resolved.basis[0],
@@ -10868,15 +10873,21 @@ function resolveProjectedEntityWorldGeometry(
     worldBounds: boundsForTuplePoints(worldCorners),
     worldCorners,
     worldBasis,
-    visibleCenter: projection.visibleCenter,
+    visibleCenter: projection.contentOrientation === 'upright'
+      ? freezePoint(
+          (worldCorners[0]![0] + worldCorners[2]![0]) / 2,
+          (worldCorners[0]![1] + worldCorners[2]![1]) / 2,
+        )
+      : projection.visibleCenter,
   });
 }
 
 function resolveProjectedEntityGeometry(
   projection: NonNullable<CoreV2ProjectionIndex['byEntityId'][string]>,
   view: CoreV2SurfaceView,
+  index?: CoreV2ProjectionIndex | null,
 ): ResolvedEntityGeometry {
-  const worldGeometry = resolveProjectedEntityWorldGeometry(projection, view);
+  const worldGeometry = resolveProjectedEntityWorldGeometry(projection, view, index);
   const orientedWorldAffine = multiplyCoreV2Affine(
     createCoreV2Affine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
     createCoreV2Affine(0, 0, view.rotation),
@@ -10902,6 +10913,19 @@ function resolveProjectedEntityGeometry(
     screenBasis,
     visibleCenter: worldGeometry.visibleCenter,
   });
+}
+
+function readableBarPlacementAnchor(
+  projection: CoreV2EntityProjection,
+  index?: CoreV2ProjectionIndex | null,
+): CoreV2PointTuple | undefined {
+  if (
+    projection.componentType !== 'bar'
+    || projection.ownerItemId === undefined
+  ) {
+    return undefined;
+  }
+  return index?.byEntityId[projection.ownerItemId]?.visibleCenter;
 }
 
 function resolveDenseEntityWorldGeometry(
