@@ -12,10 +12,24 @@ The normal lifecycle is:
    `CoreV2AssetRuntime`;
 2. await `initialize()` with a host, dimensions, and WebGL preference;
 3. pass PATCH MAP v0.10 JSON to `loadDataset()`;
-4. use public query, transaction, selection, transformer, viewport, event,
+4. create one package-owned `CoreV2FrameLoop` with
+   `engine.createFrameLoop()` when the host wants managed visible animation,
+   or call `publishFrame()` at an explicit deterministic boundary;
+5. use public query, transaction, selection, transformer, viewport, event,
    history, snapshot, and extraction methods;
-5. call `publishFrame()` at the host's explicit state-to-frame boundary;
 6. await `destroy()` and dispose host subscriptions.
+
+`createFrameLoop()` keeps cadence, logical animation time, large-scene
+viewport-first publication, pause/resume, and RAF cancellation inside the
+package. Engine mutations and product-owned pointer/view events invalidate
+that loop automatically. The host does not duplicate bar thresholds or
+pointer bookkeeping. `destroy()` cancels the owned loop before releasing the
+Pixi surface; creating a second live loop for the same runtime is rejected.
+
+For low-level aggregate-only consumers, `createCoreV2()` remains automatic by
+default. Passing `{ autoRender: false }` and then calling
+`core.createFrameLoop()` selects the same reusable manual-loop policy used by
+the Engine and both Core v2 Labs.
 
 `loadDataset()` detaches caller data. It preserves stable element IDs,
 component owner/ID identity, relation endpoints, and deterministic ordering

@@ -3,12 +3,21 @@
 The host owns layout, persistence, application commands, accessibility DOM,
 and when a state revision becomes a visible frame. Core v2 owns normalized
 scene state, aggregate Pixi rendering, hit testing, selection, transformation,
-history, renderer resources, and per-instance subscriptions.
+history, renderer resources, per-instance subscriptions, and reusable frame
+cadence.
 
 Use one `CoreV2Engine` per mounted map. A host slot must contain exactly one
 active Core v2 canvas. Multiple engines may share one `CoreV2AssetRuntime`;
 each engine keeps its own asset session and releases only its leases at
 destroy. Do not call PixiJS global cache destruction from an instance.
+
+Use `engine.createFrameLoop()` when the host wants visible animation and
+gesture frames without implementing its own requestAnimationFrame scheduler.
+The Engine owns that loop, schedules it from product changes, pauses it across
+document visibility transitions, and destroys it before the Pixi surface.
+Deterministic evidence runners may omit it and continue to call
+`publishFrame(timeMs)` explicitly. Never run both a host RAF publisher and the
+package loop for the same Engine.
 
 The packaged `examples/core-v2/host-adapter.ts` demonstrates the intended
 adapter boundary:

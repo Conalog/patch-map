@@ -1,9 +1,9 @@
 # Goal
 
 - Connect all 38 approved decisions and 173 capabilities/journeys to PixiJS
-  product behavior, independent actual automation, the same focused Lab,
-  packed integration, performance, and release evidence without changing
-  approved expected observations.
+  product behavior, independent actual automation, the focused Lab, packed
+  integration, performance, and release evidence without changing approved
+  expected observations.
 
 # Scope
 
@@ -14,8 +14,8 @@
   evidence, frozen implementations, dependency internals, and other
   refs/worktrees remain outside the boundary.
 - WebGL2 is production. WebGPU and Chromium 4x are experimental/development
-  proxies; external native and assistive-technology qualification stays
-  pending without blocking the locally verified candidate.
+  proxies; native Windows and assistive-technology qualification stay pending
+  until measured on their actual targets.
 
 # Current Facts
 
@@ -23,74 +23,43 @@
   approved decisions, 135 capabilities, 38 journeys, 646 actions, and 1,388
   assertions. Canonical verification and 32 negative drift probes pass.
 - Core v2 uses a dense store, aggregate Mesh/asset/text/interaction layers,
-  root-only event authority, one manual scheduler, exact incremental
-  publication, and explicit scene-versus-frame state.
+  root-only event authority, stable indexes, exact incremental publication,
+  and explicit scene-versus-frame state.
+- `CoreV2FrameLoop` and `CoreV2AdaptiveFrameBudget` are published product
+  owners for RAF cadence, monotonic animation time, viewport-first large-scene
+  pacing, visibility pause/resume, invalidation, and destroy cancellation.
+  Core and Engine expose allocation-free animation/workload/gesture facts;
+  the performance Playground and 173-case workbench use the same defaults,
+  while deterministic runners may still publish explicit clocks.
 - Readable content follows authored/item/world rotation, removes reflection,
   and adds 180 degrees only in the upside-down half-plane. Text keeps its
-  authored center; bars apply the same readable correction to their
-  owner-relative placement so a bottom bar stays on the visible bottom.
-  Extent, containment, animation bottom edge, and partial-bar leading edge
-  remain stable.
-- Frozen screen-lock expected remains unchanged. Twenty-six immutable
-  conflicts are observed, two `UPD-007` conflicts remain latent, and fourteen
-  measured performance deficits remain visible.
+  authored center; bars transform owner-relative placement so visible bottom
+  anchoring, containment, and animation edges remain stable.
 
 # Current State
 
-- User-authorized `main` black-box parity work is complete at
-  `docs/tasks/2026/07-29/core-v2-main-parity/`; approved expected evidence and
-  frozen implementations remain unchanged.
-- The final matrix cross-walks all 173 cases and executes 28 black-box
-  scenarios/121 checkpoints. Sixteen isolated blocking scenarios pass, with
-  zero blocking mismatch and zero runtime error. Broad canonical diagnostics
-  retain eight classified mismatches and two main-rejected approved inputs.
-- Product fixes preserve styled rectangle radius/stroke and rounded bar
-  geometry. Rounded track/fill stays on aggregate Mesh rather than per-entity
-  display objects or Graphics fallback.
-- Product/parity candidate `8d285dbf738f27fb36ae9bd96492210dd515cb81`
-  passes 149 Core v2 files/1,447 tests, lint, typecheck, both builds, canonical
-  verification, 31 product-browser checks, and 192 manual-Lab checks over all
-  173 routes.
-- Exploratory Lab extension `8db2f0cd080da1d33c928c19f7378bf5690f3bb1`
-  adds a 10,000-record option without expanding the approved exact size
-  matrix. Headless Mesh WebGL loads 50,999 Playground entities and a
-  10,005-root/30,000-component manual scene, overlaps animation with pan, and
-  destroys to zero canvas with no browser errors.
-- Lab viewport fix `2f184689a3d46c34155232081ac41e0b7ec2c820`
-  preserves product and exact-contract defaults while lowering only the two
-  human Lab zoom floors to 2.5%. At 10,000 records, whole-scene fit now reaches
-  6.03% in the Playground and 4.33% in the manual Lab; wheel and the visible
-  축소 button reach 2.5% with transformed interaction intact.
-- Manual Lab control `edd726ca465749a7b5b6ed09d4b5714e42ee9551`
-  exposes `10,000개 객체 · 탐색용` in the always-visible route controls.
-  Manual and exact dataset selectors remain separate, so exploratory loading
-  cannot alter the approved exact size corpus.
-- Readable-bar correction `c6bf55425c564b717e136cb1890ef407e1958e0b`
-  moves bar placement through the same reflection/half-turn transform as its
-  aggregate quad. Headless WebGL proves vertical flip, in-flight height
-  animation, and 180-degree correction keep the visible bottom padding fixed;
-  LAY-004 first/repeat/fresh retains only its two declared immutable conflicts.
-  The 5,000-bar 2+7 pan matrix passes at 61.0/50.6 median FPS for Chromium
-  headless 1x/4x.
-- Full headless first/repeat/fresh execution covers 158 routes and 2,028
-  assertions per session: 1,988 pass, 26 declared immutable conflicts and 14
-  measured deficits, with deterministic cleanup and zero console, page,
-  network, or external-fixture errors.
-- Packed ESM/CJS/types consumption covers 38 journeys; 2+7 memory covers 5,099
-  entities and nine ownership cycles with terminal owner/canvas release.
-  Eighteen renderer runs preserve 162 raw trials; Mesh is selected and the
-  Particle spike remains rejected. WebGPU passes its separate 18-check
-  experimental run.
-- Local release verification and fifteen native drift probes pass.
-  `release-readiness.json` remains `pending-external-evidence` and
-  `releaseVerified` remains false. Port 4176 intentionally stays live for
-  user dogfood; all test-owned browsers and temporary servers are closed.
+- The package-owned frame-loop tranche covers 149 files/1,456 tests: 1,455
+  pass in the full run and its sole `UPD-007` timeout passes alone in 2.62
+  seconds. Changed-path regressions, lint, typecheck, both builds, and
+  canonical verification pass; all 173 manual routes pass 192/192 checks with
+  zero console/page/network errors.
+- Headless 10,000-record Playground and manual scenes prove full-bar animation
+  overlaps pan and destroys to zero canvas. Packed ESM/CJS/types and all 38
+  journeys pass; 2+7 memory over 5,099 entities retains a 91,163-byte median
+  and releases DOM/scheduler/renderer ownership.
+- The final uncontended 5,000-bar 2+7 WebGL checkpoint passes at 60.3/40.8
+  median canvas FPS for Chromium 1x/4x. The current WebGPU adapter is
+  unavailable, so that rerun and Windows native remain pending without
+  replacing prior evidence.
+- Approved evidence/result JSON remains frozen. Test-owned browsers and
+  temporary servers close; the user dogfood server on port 4176 is the only
+  intentional survivor.
 
 # Next Step
 
-- Preserve the completed local parity/release candidate. External
-  Windows/N100/NVDA/input/actual-host/security/migration/review cells remain
-  pending for strict promotion.
+- Preserve the completed local candidate. Run strict external
+  Windows/N100/NVDA/input/actual-host/security/migration/review cells only in
+  their qualified environments; do not weaken `pending-external-evidence`.
 
 # Working Boundary
 
