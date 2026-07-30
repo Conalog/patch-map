@@ -118,6 +118,7 @@ import {
   CORE_V2_SELECTION_TRANSFORMER_REVISION,
   CORE_V2_TRANSFORMER_EDIT_REVISION,
   CoreV2Engine,
+  CoreV2FrameLoop,
   CoreV2HostInteractionAuthority,
   CoreV2MigrationAuthority,
   CoreV2PageLifecycleAuthority,
@@ -251,9 +252,26 @@ const loaded = core.load(input);
 await core.prepare();
 core.fit();
 core.flush('consumer-first-frame');
+const coreFrameLoop = core.createFrameLoop();
 core.animateBarHeights({ durationMs: 32, seed: 1 });
-core.advance(16);
-core.flush('consumer-animation');
+coreFrameLoop.request(100);
+await new Promise((resolve, reject) => {
+  const deadline = performance.now() + 2_000;
+  const poll = () => {
+    if (
+      core.activeAnimations === 0 &&
+      !coreFrameLoop.debugSnapshot().pending
+    ) {
+      resolve();
+    } else if (performance.now() >= deadline) {
+      reject(new Error('packed Core v2 frame loop did not settle'));
+    } else {
+      requestAnimationFrame(poll);
+    }
+  };
+  poll();
+});
+const frameLoopBeforeDestroy = coreFrameLoop.debugSnapshot();
 const capture = await core.captureBase64();
 const debugBeforeDestroy = core.debugSnapshot();
 await core.destroy();
@@ -646,6 +664,13 @@ window.__PACKAGE_RESULT__ = {
   renderObjects: debugBeforeDestroy.renderer.aggregateRenderObjects,
   canvasCountAfterDestroy: document.querySelectorAll('canvas').length,
   destroyed: core.debugSnapshot().destroyed,
+  frameLoopPackage: {
+    exportType: typeof CoreV2FrameLoop,
+    factoryType: typeof core.createFrameLoop,
+    frameCount: frameLoopBeforeDestroy.frameCount,
+    pendingBeforeDestroy: frameLoopBeforeDestroy.pending,
+    destroyedAfterCore: coreFrameLoop.debugSnapshot().destroyed,
+  },
   authoringRevision: CORE_V2_AUTHORING_REVISION,
   transactionRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
   commandTargetRevision: CORE_V2_COMMAND_TARGET_REVISION,
@@ -904,6 +929,7 @@ const {
   CORE_V2_TRANSFORMER_EDIT_REVISION,
   CoreV2PointerGestureAuthority,
   CoreV2Engine,
+  CoreV2FrameLoop,
   CoreV2HostInteractionAuthority,
   CoreV2MigrationAuthority,
   CoreV2PageLifecycleAuthority,
@@ -926,6 +952,8 @@ process.stdout.write(JSON.stringify({
   authoringRevision: CORE_V2_AUTHORING_REVISION,
   authoringPlannerType: typeof planCoreV2AuthoringAction,
   authoringEngineMethodType: typeof CoreV2Engine.prototype.author,
+  frameLoopType: typeof CoreV2FrameLoop,
+  frameLoopFactoryType: typeof CoreV2Engine.prototype.createFrameLoop,
   transactionRevision: CORE_V2_MUTATION_TRANSACTION_REVISION,
   commandTargetRevision: CORE_V2_COMMAND_TARGET_REVISION,
   commandTargetFactoryType: typeof createCoreV2CommandTargetState,
@@ -1074,6 +1102,13 @@ process.stdout.write(JSON.stringify({
   if (esm.strategy !== 'mesh' || esm.backend !== 'webgl') failures.push('packed ESM did not use selected WebGL Mesh runtime');
   if (!(esm.renderObjects > 0)) failures.push('packed ESM produced no aggregate render objects');
   if (esm.canvasCountAfterDestroy !== 0 || !esm.destroyed) failures.push('packed ESM lifecycle leaked a canvas or live runtime');
+  if (
+    esm.frameLoopPackage?.exportType !== 'function' ||
+    esm.frameLoopPackage?.factoryType !== 'function' ||
+    !(esm.frameLoopPackage?.frameCount > 0) ||
+    esm.frameLoopPackage?.pendingBeforeDestroy !== false ||
+    esm.frameLoopPackage?.destroyedAfterCore !== true
+  ) failures.push('packed ESM frame-loop export or lifecycle ownership failed');
   if (esm.transactionRevision !== 'core-v2-mutation-transaction/1') failures.push('packed ESM transaction revision export failed');
   if (
     esm.authoringRevision !== 'core-v2-authoring/1' ||
@@ -1346,6 +1381,8 @@ process.stdout.write(JSON.stringify({
     cjs.authoringRevision !== 'core-v2-authoring/1' ||
     cjs.authoringPlannerType !== 'function' ||
     cjs.authoringEngineMethodType !== 'function' ||
+    cjs.frameLoopType !== 'function' ||
+    cjs.frameLoopFactoryType !== 'function' ||
     cjs.transactionRevision !== 'core-v2-mutation-transaction/1' ||
     cjs.commandTargetRevision !== 'core-v2-command-target/1' ||
     cjs.commandTargetFactoryType !== 'function' ||
