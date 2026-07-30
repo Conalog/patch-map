@@ -1,8 +1,9 @@
 import {
   CoreV2Engine,
+  type CoreV2AssetAcquisition,
+  type CoreV2FrameLoop,
   type CoreV2EngineHistoryResult,
-} from '../../../src/core-v2/engine';
-import type { CoreV2AssetAcquisition } from '../../../src/core-v2/assets';
+} from '../../../src/core-v2/index';
 import {
   coreV2KoreanStatus,
 } from '../contract/korean-copy';
@@ -311,23 +312,17 @@ export function mountCoreV2ManualWorkbench(
   let panPointerId: number | null = null;
   let canvasAbortController: AbortController | null = null;
   let resizeFrame = 0;
-  let renderFrame = 0;
   let refreshFrame = 0;
-  let monitorUntil = 0;
   let framesPaused = false;
   let savedViewport: ReturnType<CoreV2Engine['serializeViewport']> | null = null;
   let lifecycleClock = 0;
-  let frameClock = 0;
-  let lastFrameWallTime: number | null = null;
-  let pendingAnimationElapsed = 0;
-  let lastAnimationAdvanceWallTime = 0;
-  let panViewportFramesSinceAnimationAdvance = 0;
   let lastLiveRefreshWallTime = 0;
   let longTaskCount = 0;
   let eventJournal: Array<Readonly<Record<string, unknown>>> = [];
   let frameTimes: number[] = [];
   let assetLeases: CoreV2AssetAcquisition[] = [];
   let engineUnbinds: Array<() => void> = [];
+  let frameLoop: CoreV2FrameLoop | null = null;
   let resizeObserver: ResizeObserver | null = null;
   let performanceObserver: PerformanceObserver | null = null;
   let destroyed = false;
@@ -377,11 +372,6 @@ export function mountCoreV2ManualWorkbench(
     const size = surfaceSize(canvasFrame);
     const next = new CoreV2Engine({ historyLimit: 100 });
     const instanceId = `manual-${options.caseId.toLowerCase()}-${generation + 1}`;
-    frameClock = 0;
-    lastFrameWallTime = null;
-    pendingAnimationElapsed = 0;
-    lastAnimationAdvanceWallTime = 0;
-    panViewportFramesSinceAnimationAdvance = 0;
     lastLiveRefreshWallTime = 0;
     generation += 1;
     next.registerAssets(instanceId);
@@ -401,11 +391,24 @@ export function mountCoreV2ManualWorkbench(
       zoomLimits: CORE_V2_MANUAL_LAB_ZOOM_LIMITS,
     });
     engine = next;
+    frameLoop = next.createFrameLoop({
+      onFrame: ({ wallTimeMs, activeAnimationsAfter }) => {
+        frameTimes.push(wallTimeMs);
+        if (frameTimes.length > 120) frameTimes = frameTimes.slice(-120);
+        if (
+          activeAnimationsAfter === 0 ||
+          wallTimeMs - lastLiveRefreshWallTime >= 200
+        ) {
+          lastLiveRefreshWallTime = wallTimeMs;
+          queueRefresh();
+        }
+      },
+    });
     bindEngine(next);
     if (loadScene) {
       loadManualScene(next, scene);
       next.fitViewport({ paddingCssPx: 46 });
-      publishEngineFrame(next, performance.now());
+      publishEngineFrame(next);
     }
     bindCanvas(next);
     installResizeObserver();
@@ -511,7 +514,7 @@ export function mountCoreV2ManualWorkbench(
         }
         activePointer = null;
         hideMarquee();
-        publishEngineFrame(next, performance.now());
+        publishEngineFrame(next);
         lastAction = 'transform-cancelled';
         event.preventDefault();
         refresh();
@@ -625,7 +628,6 @@ export function mountCoreV2ManualWorkbench(
     const selectionBefore = next.snapshot().selectionIds;
     if (mode === 'pan') {
       panPointerId = event.pointerId;
-      panViewportFramesSinceAnimationAdvance = 0;
       canvas.setPointerCapture(event.pointerId);
       startFrameLoop(800);
       return;
@@ -836,7 +838,7 @@ export function mountCoreV2ManualWorkbench(
       lastAction = gesture.kind === 'transform'
         ? `${gesture.transformKind ?? 'transform'}-gesture`
         : `${gesture.kind}-selection`;
-      publishEngineFrame(next, performance.now());
+      publishEngineFrame(next);
     } finally {
       activePointer = null;
       hideMarquee();
@@ -865,7 +867,7 @@ export function mountCoreV2ManualWorkbench(
     activePointer = null;
     hideMarquee();
     lastAction = 'gesture-cancelled';
-    publishEngineFrame(next, performance.now());
+    publishEngineFrame(next);
     refresh();
   }
 
@@ -997,7 +999,11 @@ export function mountCoreV2ManualWorkbench(
           break;
         case 'frames-toggle':
           framesPaused = !framesPaused;
-          if (!framesPaused) startFrameLoop(800);
+          if (framesPaused) {
+            frameLoop?.pause();
+          } else {
+            frameLoop?.resume(800);
+          }
           result = { framesPaused };
           break;
         case 'reduced-motion':
@@ -1115,22 +1121,25 @@ export function mountCoreV2ManualWorkbench(
         case 'resize-large':
           result = resizeSurface(960, 620);
           break;
-        case 'page-hide':
-          lifecycleClock = Math.max(lifecycleClock + 1, frameClock, performance.now());
+        case 'page-hide': {
+          const frameTime = frameLoop?.debugSnapshot().logicalTimeMs ?? 0;
+          lifecycleClock = Math.max(lifecycleClock + 1, frameTime, performance.now());
           result = requireEngine().setDocumentVisibility({
             state: 'hidden',
             timeMs: lifecycleClock,
           });
           break;
-        case 'page-show':
-          lifecycleClock = Math.max(lifecycleClock + 1, frameClock, performance.now());
+        }
+        case 'page-show': {
+          const frameTime = frameLoop?.debugSnapshot().logicalTimeMs ?? 0;
+          lifecycleClock = Math.max(lifecycleClock + 1, frameTime, performance.now());
           result = requireEngine().setDocumentVisibility({
             state: 'visible',
             timeMs: lifecycleClock,
           });
-          frameClock = Math.max(frameClock, lifecycleClock);
           publishNow('page visible');
           break;
+        }
         case 'accessibility-tree':
           result = requireEngine().accessibilityTree();
           showAdvancedResult(result);
@@ -1438,7 +1447,7 @@ export function mountCoreV2ManualWorkbench(
     });
     const after = fingerprint(input);
     setText(host, 'immutability', before === after ? '통과' : '실패');
-    publishEngineFrame(next, performance.now());
+    publishEngineFrame(next);
     return result;
   }
 
@@ -1476,7 +1485,7 @@ export function mountCoreV2ManualWorkbench(
 
   async function captureScene(): Promise<unknown> {
     const next = requireEngine();
-    publishEngineFrame(next, performance.now());
+    publishEngineFrame(next);
     const snapshot = next.snapshot();
     const capture = await next.extractPublishedScene({
       targetTuple: snapshot.publishedTuple,
@@ -1685,91 +1694,24 @@ export function mountCoreV2ManualWorkbench(
   }
 
   function startFrameLoop(durationMs: number): void {
-    monitorUntil = Math.max(monitorUntil, performance.now() + durationMs);
-    if (renderFrame !== 0 || framesPaused || liveEngine() === null) return;
-    const tick = (time: number): void => {
-      renderFrame = 0;
-      const next = liveEngine();
-      if (next === null || framesPaused) return;
-      const animationsBefore = activeAnimationCount(next);
-      const largeSceneAnimatedPan =
-        panPointerId !== null &&
-        scene.barTargets.length >= 2_000 &&
-        animationsBefore > 0;
-      const panFrameInterval = animationsBefore >= 2_000 ? 75 : 50;
-      const viewportFramesRequired = animationsBefore >= 2_000 ? 3 : 1;
-      const deferHeavyPanFrame =
-        largeSceneAnimatedPan &&
-        (
-          panViewportFramesSinceAnimationAdvance < viewportFramesRequired ||
-          time - lastAnimationAdvanceWallTime < panFrameInterval
-        );
-      // Keep publishing the cheap viewport-only frame while the expensive
-      // all-bar interpolation is budgeted. This preserves direct-manipulation
-      // motion instead of making the canvas wait for the next bar upload.
-      publishEngineFrame(next, time, !deferHeavyPanFrame);
-      if (largeSceneAnimatedPan) {
-        panViewportFramesSinceAnimationAdvance = deferHeavyPanFrame
-          ? panViewportFramesSinceAnimationAdvance + 1
-          : 0;
-      } else {
-        panViewportFramesSinceAnimationAdvance = 0;
-      }
-      frameTimes.push(time);
-      if (frameTimes.length > 120) frameTimes = frameTimes.slice(-120);
-      const animations = activeAnimationCount(next);
-      const shouldContinue =
-        animations > 0 ||
-        activePointer !== null ||
-        panPointerId !== null ||
-        time < monitorUntil;
-      if (
-        !shouldContinue ||
-        time - lastLiveRefreshWallTime >= 200
-      ) {
-        lastLiveRefreshWallTime = time;
-        queueRefresh();
-      }
-      if (shouldContinue) {
-        renderFrame = requestAnimationFrame(tick);
-      }
-    };
-    renderFrame = requestAnimationFrame(tick);
+    if (framesPaused || liveEngine() === null) return;
+    frameLoop?.request(durationMs);
   }
 
   function publishNow(action: string): void {
     const next = requireEngine();
-    publishEngineFrame(next, performance.now());
+    publishEngineFrame(next);
     lastAction = action;
     startFrameLoop(350);
   }
 
   function publishEngineFrame(
     next: CoreV2Engine,
-    timeMs: number,
-    advancePresentation = true,
   ): void {
-    const elapsed = lastFrameWallTime === null
-      ? 0.01
-      : Math.max(0.01, Math.min(50, timeMs - lastFrameWallTime));
-    lastFrameWallTime = timeMs;
-    const animationsBefore = activeAnimationCount(next);
-    if (animationsBefore === 0) {
-      pendingAnimationElapsed = 0;
-      frameClock += elapsed;
-    } else if (advancePresentation) {
-      frameClock += pendingAnimationElapsed + elapsed;
-      pendingAnimationElapsed = 0;
-    } else {
-      pendingAnimationElapsed += elapsed;
+    if (next !== liveEngine()) {
+      throw new Error('Core v2 frame loop target no longer owns the active engine');
     }
-    next.publishFrame(frameClock);
-    if (animationsBefore === 0 || advancePresentation) {
-      // Start the next heavy-frame budget after the renderer has returned,
-      // so one slow WebGL frame cannot immediately trigger another.
-      lastAnimationAdvanceWallTime = performance.now();
-    }
-    if (activeAnimationCount(next) === 0) pendingAnimationElapsed = 0;
+    frameLoop?.publishNow();
   }
 
   function installResizeObserver(): void {
@@ -1942,7 +1884,7 @@ export function mountCoreV2ManualWorkbench(
   }
 
   function activeAnimationCount(next: CoreV2Engine | null): number {
-    return next?.pageLifecycleProbe().activeAnimationCount ?? 0;
+    return next?.activeAnimations ?? 0;
   }
 
   async function destroyEngine(): Promise<void> {
@@ -1950,16 +1892,14 @@ export function mountCoreV2ManualWorkbench(
     canvasAbortController = null;
     resizeObserver?.disconnect();
     resizeObserver = null;
-    cancelAnimationFrame(renderFrame);
     cancelAnimationFrame(refreshFrame);
     cancelAnimationFrame(resizeFrame);
-    renderFrame = 0;
     refreshFrame = 0;
     resizeFrame = 0;
+    frameLoop?.destroy();
+    frameLoop = null;
     activePointer = null;
     panPointerId = null;
-    pendingAnimationElapsed = 0;
-    panViewportFramesSinceAnimationAdvance = 0;
     hideMarquee();
     await releaseAllAssets();
     for (const unbind of engineUnbinds.splice(0)) unbind();

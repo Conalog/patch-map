@@ -7,6 +7,7 @@ import {
 import {
   type CoreV2,
   type CoreV2BackendPreference,
+  type CoreV2FrameLoop,
   type CoreV2LoadResult,
   type CoreV2RendererStrategy,
   createCoreV2,
@@ -78,9 +79,10 @@ let inputImmutable: boolean | null = null;
 let datasetSummary = 'No JSON loaded';
 let diagnosticCount = 0;
 let refreshFrame = 0;
-let animationMonitorFrame = 0;
 let resizeFrame = 0;
 let barAnimationSequence = 0;
+let lastFrameReadoutMs = 0;
+let frameLoop: CoreV2FrameLoop | null = null;
 
 applyUrlSelection();
 datasetSelect.addEventListener('change', () => {
@@ -109,9 +111,9 @@ for (const button of document.querySelectorAll<HTMLButtonElement>('[data-action]
   });
 }
 
-// Interaction itself belongs to Pixi's root federated event boundary. These
-// bubbling observers only refresh the lab readout after Core v2 handles it.
-for (const eventName of ['pointerdown', 'pointermove', 'pointerup', 'wheel'] as const) {
+// Core v2 owns pointer activity and frame invalidation. The Lab observes only
+// to refresh detached readouts after the package has handled the event.
+for (const eventName of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'wheel'] as const) {
   canvasHost.addEventListener(eventName, queueReadout, { passive: true });
 }
 
@@ -122,6 +124,7 @@ const resizeObserver = new ResizeObserver(() => {
     if (!core || busy) return;
     const size = surfaceSize();
     core.resize(size.width, size.height, window.devicePixelRatio || 1);
+    frameLoop?.publishNow();
     queueReadout();
   });
 });
@@ -130,7 +133,8 @@ resizeObserver.observe(canvasFrame);
 window.addEventListener('beforeunload', () => {
   resizeObserver.disconnect();
   cancelAnimationFrame(refreshFrame);
-  cancelAnimationFrame(animationMonitorFrame);
+  frameLoop?.destroy();
+  frameLoop = null;
   const core = liveRuntime();
   if (core) void core.destroy();
 });
@@ -211,13 +215,11 @@ async function runAction(action: string): Promise<void> {
           maxPercent: 100,
         });
         message('Animating every bar to an independent random height between 0% and 100%.');
-        monitorAnimations();
         break;
       case 'animate-partial':
         assertLoaded();
         requireRuntime().animateBarHeights({ fraction: 0.1, durationMs: 420, seed: 0x10ba7 });
         message('Animating a seeded 10% bar subset; only the renderer dirty range is committed.');
-        monitorAnimations();
         break;
       case 'random-text':
         assertLoaded();
@@ -301,7 +303,7 @@ async function reinitialize(): Promise<CoreV2> {
     antialias: false,
     background: 0xf7f8faff,
     powerPreference: 'high-performance',
-    autoRender: true,
+    autoRender: false,
     assetPolicy: ({ descriptor, packageOwned }) => {
       if (
         !packageOwned &&
@@ -313,6 +315,17 @@ async function reinitialize(): Promise<CoreV2> {
   });
   core.setViewportZoomLimits(CORE_V2_PERFORMANCE_LAB_ZOOM_LIMITS);
   runtime = core;
+  frameLoop = core.createFrameLoop({
+    onFrame: ({ wallTimeMs, activeAnimationsAfter }) => {
+      if (
+        activeAnimationsAfter === 0 ||
+        wallTimeMs - lastFrameReadoutMs >= 200
+      ) {
+        lastFrameReadoutMs = wallTimeMs;
+        queueReadout();
+      }
+    },
+  });
   generation += 1;
   loaded = false;
   currentInput = null;
@@ -340,12 +353,12 @@ async function reinitialize(): Promise<CoreV2> {
 async function destroyRuntime(): Promise<void> {
   const core = runtime;
   runtime = null;
+  frameLoop?.destroy();
+  frameLoop = null;
   if (core && !core.destroyed) await core.destroy();
   loaded = false;
   currentInput = null;
   currentInputFingerprint = null;
-  cancelAnimationFrame(animationMonitorFrame);
-  animationMonitorFrame = 0;
 }
 
 function loadDataset(dataset: DatasetKey): CoreV2LoadResult {
@@ -448,20 +461,6 @@ function stateSnapshot(): CoreV2LabState {
     lastActionMs,
     error: lastError,
   });
-}
-
-function monitorAnimations(): void {
-  cancelAnimationFrame(animationMonitorFrame);
-  const tick = (): void => {
-    renderReadout();
-    const core = liveRuntime();
-    if (core && core.activeAnimations > 0) {
-      animationMonitorFrame = requestAnimationFrame(tick);
-    } else {
-      animationMonitorFrame = 0;
-    }
-  };
-  animationMonitorFrame = requestAnimationFrame(tick);
 }
 
 function queueReadout(): void {

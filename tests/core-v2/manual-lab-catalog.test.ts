@@ -121,11 +121,15 @@ describe('Core v2 human-operated Lab catalog', () => {
     }
   });
 
-  it('keeps whole-scene semantic probes out of frame and status hot paths', async () => {
-    const source = await readFile(
-      new URL('../../lab/performance-v2/interactive/manual-workbench.ts', import.meta.url),
-      'utf8',
-    );
+  it('uses the package frame loop without whole-scene probes or Lab-owned cadence', async () => {
+    const [source, schedulerSource, performanceLabSource] = await Promise.all([
+      readFile(
+        new URL('../../lab/performance-v2/interactive/manual-workbench.ts', import.meta.url),
+        'utf8',
+      ),
+      readFile(new URL('../../src/core-v2/scheduler.ts', import.meta.url), 'utf8'),
+      readFile(new URL('../../lab/performance-v2/main.ts', import.meta.url), 'utf8'),
+    ]);
     const refresh = source.slice(
       source.indexOf('  function refresh(): void {'),
       source.indexOf('  function queueRefresh(): void {'),
@@ -147,28 +151,25 @@ describe('Core v2 human-operated Lab catalog', () => {
       source.indexOf('  async function destroyEngine(): Promise<void> {'),
     );
 
-    for (const hotPath of [refresh, frameLoop, stateSnapshot]) {
+    for (const hotPath of [refresh, stateSnapshot]) {
       expect(hotPath).toContain('activeAnimationCount(next)');
       expect(hotPath).not.toContain('semanticProbe(');
     }
-    expect(animationProbe).toContain('pageLifecycleProbe().activeAnimationCount');
+    expect(frameLoop).not.toContain('semanticProbe(');
+    expect(animationProbe).toContain('next?.activeAnimations ?? 0');
     expect(animationProbe).not.toContain('semanticProbe(');
-    expect(frameLoop).toContain('panPointerId !== null');
-    expect(frameLoop).toContain('scene.barTargets.length >= 2_000');
-    expect(frameLoop).toContain('animationsBefore >= 2_000 ? 75 : 50');
-    expect(frameLoop).toContain('animationsBefore >= 2_000 ? 3 : 1');
-    expect(frameLoop).toContain('const deferHeavyPanFrame');
-    expect(frameLoop).toContain('time - lastAnimationAdvanceWallTime < panFrameInterval');
-    expect(frameLoop).toContain(
-      'panViewportFramesSinceAnimationAdvance < viewportFramesRequired',
-    );
-    expect(frameLoop).toContain(
-      'publishEngineFrame(next, time, !deferHeavyPanFrame)',
-    );
-    expect(framePublication).toContain('pendingAnimationElapsed');
-    expect(framePublication).toContain(
-      'lastAnimationAdvanceWallTime = performance.now()',
-    );
+    expect(source).toContain('next.createFrameLoop({');
+    expect(source).not.toContain('setViewportGestureActive');
+    expect(source).not.toContain('setWorkloadSize');
+    expect(frameLoop).toContain('frameLoop?.request(durationMs)');
+    expect(framePublication).toContain('frameLoop?.publishNow()');
+    expect(source).not.toContain('deferHeavyPanFrame');
+    expect(source).not.toContain('pendingAnimationElapsed');
+    expect(schedulerSource).toContain('export class CoreV2AdaptiveFrameBudget');
+    expect(schedulerSource).toContain('largePresentationIntervalMs ?? 75');
+    expect(schedulerSource).toContain('largeViewportFramesPerPresentation ?? 3');
+    expect(performanceLabSource).toContain('core.createFrameLoop({');
+    expect(performanceLabSource).toContain('autoRender: false');
     expect(source).toContain('next.updateBarHeights({');
     expect(source).toContain('const heights = new Float64Array(targets.length);');
     expect(source).toContain('next.updateTexts({');
