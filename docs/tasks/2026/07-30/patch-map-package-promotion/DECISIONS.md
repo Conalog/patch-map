@@ -24,3 +24,15 @@
 - Immutable contract/evidence and frozen performance result paths may retain
   `core-v2`; changing them would invalidate approved digests and is outside
   this cleanup.
+
+## 2026-07-30 — One consumer API and one Lab
+
+- `/lab/patch-map/` is the sole user-facing Lab and maps all 173 approved
+  cases to persistent manual controls.
+- The separate aggregate-renderer performance Playground and its WebGPU
+  selector, bridge, browser verifier, styles, and entry point are removed.
+- `PatchMapRuntime` and `createPatchMapRuntime()` remain implementation
+  internals. The root package, packed consumer, examples, and Lab use
+  `PatchMap`.
+- Internal performance harnesses may import the core module explicitly, but
+  that path is not a published package export.

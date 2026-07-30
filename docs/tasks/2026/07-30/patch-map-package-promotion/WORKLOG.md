@@ -43,3 +43,28 @@
   console/page/network errors. Browser and Vite test processes exited cleanly.
 - Product cleanup commit: `68888cc` (`refactor: promote PatchMap as the root
   product`).
+
+## 2026-07-30 — Single PatchMap Lab
+
+- Removed the duplicate low-level performance Playground, its public bridge,
+  renderer/backend selectors, styles, and dedicated WebGL/WebGPU browser
+  verifiers. `/lab/patch-map/` now builds and serves only the Korean 173-case
+  manual Lab.
+- Removed `PatchMapRuntime`, `createPatchMapRuntime()`, and low-level-only
+  types from the root package export. The Lab and packed consumer now use
+  `PatchMap`; the internal performance harness imports the non-published core
+  module explicitly.
+- Changed packed verification to write transient results by default. A first
+  verification run updated the frozen package evidence before this guard was
+  added; that generated change was discarded, the original evidence restored
+  exactly, and the package gate rerun without frozen-file drift.
+- Verification: targeted 48/48 and release-regression 10/10 tests PASS;
+  typecheck and full lint PASS; Lab and package builds PASS; full unit
+  149/149 files and 1,456/1,456 tests PASS; canonical 38 decisions and 173
+  cases PASS; packed ESM/CJS/types, four examples, and 38 journeys PASS;
+  headless 173-route Lab 192/192 PASS with zero browser errors; headless
+  10,000-record fit/zoom/animation-during-pan/destroy PASS with canvas and
+  bridge cleanup at zero.
+- Renderer, scheduler, resource ownership, and destroy paths did not change,
+  so the full performance matrix and 2+7 memory gate were not repeated.
+  Windows-native and qualified WebGPU measurements remain pending.

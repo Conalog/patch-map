@@ -26,10 +26,10 @@ that loop automatically. The host does not duplicate bar thresholds or
 pointer bookkeeping. `destroy()` cancels the owned loop before releasing the
 Pixi surface; creating a second live loop for the same runtime is rejected.
 
-For low-level aggregate-only consumers, `createPatchMapRuntime()` remains automatic by
-default. Passing `{ autoRender: false }` and then calling
-`core.createFrameLoop()` selects the same reusable manual-loop policy used by
-the Engine and both PatchMap Labs.
+The aggregate renderer and dense runtime are package internals. Consumers use
+`PatchMap` and `engine.createFrameLoop()` so the same lifecycle, scheduling,
+animation, viewport, and cleanup policy is shared by every service and the
+single PatchMap Lab.
 
 `loadDataset()` detaches caller data. It preserves stable element IDs,
 component owner/ID identity, relation endpoints, and deterministic ordering

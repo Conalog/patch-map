@@ -26,6 +26,11 @@
 
 - Dense-store, transaction, validation, and renderer-view code inherited from
   the performance control may be retained only as neutral PatchMap internals.
+- Ship one user-facing Lab at `/lab/patch-map/`. It uses `PatchMap` and the
+  package-owned frame loop for all 173 manually operable cases; a separate
+  low-level performance Playground does not ship.
+- Keep `PatchMapRuntime` and `createPatchMapRuntime()` internal. Product
+  consumers, examples, Labs, and packed verification use `PatchMap`.
 - Remove the unfinished Core v1 Canvas2D product surface, package export,
   Lab, product tests, build configuration, and consumer verification.
 - Remove legacy root product code once the root package exports the completed

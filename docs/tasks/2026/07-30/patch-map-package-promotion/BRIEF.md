@@ -40,10 +40,17 @@
   substrate lives under `src/patch-map/dense`.
 - Current docs, examples, Lab routes, build configuration, DevTools labels,
   browser bridges, and operational verification scripts use PatchMap naming.
+- `/lab/patch-map/` is now the only user-facing Lab. It exposes the 173-case
+  Korean manual workbench through `PatchMap`; the duplicate low-level
+  performance Playground and its public runtime factory are removed.
 - Immutable contract/evidence and frozen performance results remain unchanged.
-- Final gates pass: 149 files/1,456 unit tests, typecheck, full lint, package
-  build, Lab build, canonical 38/173 contract verification, 173-route headless
-  Lab (192/192), packed ESM/CJS/types plus 38 journeys, and lifecycle memory.
+- Current single-Lab gates pass: targeted tests, typecheck, full lint, package
+  and Lab builds, canonical 38/173 contract verification, 173-route headless
+  Lab (192/192), a 10,000-record animation/pan/destroy check, and packed
+  ESM/CJS/types plus 38 journeys.
+- Final full-unit verification passes 149/149 files and 1,456/1,456 tests.
+  Package verification writes transient output unless a release artifact
+  directory is explicitly requested, so frozen evidence remains unchanged.
 - Final current-diff review is clean. The product cleanup is fixed in
   `68888cc`; reviewer-found CI path coverage and public Lab-route issues were
   corrected before that commit.
