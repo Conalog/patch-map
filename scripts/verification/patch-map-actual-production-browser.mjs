@@ -98,6 +98,16 @@ async function verifyActualProductionLab(activePage, baseUrl) {
     undefined,
     { timeout: 60_000 },
   );
+  await activePage.waitForFunction(
+    () => {
+      const probe = window.__PATCH_MAP_MANUAL_LAB__?.engine()?.sceneImageProbe();
+      const image = probe?.images['0VQUL2c700nbal7'];
+      return image?.state === 'resolved' &&
+        image.publication.rendererFacts === 'current';
+    },
+    undefined,
+    { timeout: 60_000 },
+  );
 
   const loaded = await activePage.evaluate(() => {
     const bridge = window.__PATCH_MAP_MANUAL_LAB__;
@@ -118,6 +128,35 @@ async function verifyActualProductionLab(activePage, baseUrl) {
       viewport: snapshot?.viewport ?? null,
       canvasCount:
         document.querySelectorAll('[data-testid="manual-canvas-host"] canvas').length,
+      backgroundImage:
+        engine?.sceneImageProbe()?.images['0VQUL2c700nbal7'] ?? null,
+      paintOrder: (() => {
+        const entries = engine?.paintOrderProbe()?.plan.entries ?? [];
+        const image = entries.find(({ entityId }) => entityId === '0VQUL2c700nbal7');
+        const overlay = entries.find(({ entityId }) => entityId === '0VQUMUbL004tcz7');
+        return {
+          image: image ?? null,
+          overlay: overlay ?? null,
+          overlayAlpha: Number(overlay?.compatibilityKey.split(':').at(-1)),
+        };
+      })(),
+      geometryAlignment: (() => {
+        const entities = engine?.geometryProbe()?.entities ?? [];
+        const image = entities.find(({ id }) => id === '0VQUL2c700nbal7');
+        const overlay = entities.find(({ id }) => id === '0VQUMUbL004tcz7');
+        const imageCenter = image?.visibleCenter ?? [];
+        const overlayCenter = overlay?.visibleCenter ?? [];
+        return {
+          imageCenter,
+          overlayCenter,
+          centerDistance: imageCenter.length === 2 && overlayCenter.length === 2
+            ? Math.hypot(
+                imageCenter[0] - overlayCenter[0],
+                imageCenter[1] - overlayCenter[1],
+              )
+            : Number.POSITIVE_INFINITY,
+        };
+      })(),
     };
   });
   assert(
@@ -131,7 +170,16 @@ async function verifyActualProductionLab(activePage, baseUrl) {
       loaded.selectedSize === 'actual-production' &&
       loaded.selectedTopSize === 'actual-production' &&
       loaded.immutable === '통과' &&
-      loaded.canvasCount === 1,
+      loaded.canvasCount === 1 &&
+      loaded.backgroundImage?.state === 'resolved' &&
+      loaded.backgroundImage?.publication.rendererFacts === 'current' &&
+      loaded.backgroundImage?.renderObjectCount === 1 &&
+      loaded.backgroundImage?.placeholderCount === 0 &&
+      loaded.backgroundImage?.naturalSize?.[0] === 1_730 &&
+      loaded.backgroundImage?.naturalSize?.[1] === 1_488 &&
+      loaded.paintOrder.image?.paintIndex < loaded.paintOrder.overlay?.paintIndex &&
+      Math.abs(loaded.paintOrder.overlayAlpha - 0.6) < 0.000_001 &&
+      loaded.geometryAlignment.centerDistance < 25,
     'the single PatchMap Lab loads the unmodified actual production JSON',
     loaded,
   );
