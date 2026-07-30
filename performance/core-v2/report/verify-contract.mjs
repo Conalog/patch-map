@@ -199,7 +199,7 @@ async function main() {
   );
 
   process.stdout.write(
-    `Core v2 contract performance evidence verified: `
+    `PatchMap contract performance evidence verified: `
       + `${raw.runs.length} workloads, 2+7, raw ${rawDigest}, `
       + `${allLongTasks.filter((duration) => duration >= 100).length} long tasks, `
       + `browser/lifecycle errors 0, headed and Windows pending\n`,
@@ -277,7 +277,7 @@ function sameJson(left, right) {
 
 function assert(condition, message) {
   if (!condition) {
-    throw new Error(`Core v2 contract performance verification failed: ${message}`);
+    throw new Error(`PatchMap contract performance verification failed: ${message}`);
   }
 }
 

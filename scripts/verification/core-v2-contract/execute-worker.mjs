@@ -25,10 +25,10 @@ const POINTER_EVENT_CASE_IDS = new Set([
   'SEL-006',
 ]);
 
-export class CoreV2ContractExecutionError extends Error {
+export class PatchMapContractExecutionError extends Error {
   constructor(code, message, partialExecution, cause) {
     super(`${code}: ${message}`, { cause });
-    this.name = 'CoreV2ContractExecutionError';
+    this.name = 'PatchMapContractExecutionError';
     this.code = code;
     this.partialExecution = partialExecution;
   }
@@ -67,7 +67,7 @@ export async function executeContractCase(options) {
   const execution = finalizeExecution(state, failure);
   if (failure) {
     const code = actionFailure ? errorCode(actionFailure) : 'CLEANUP_FAILED';
-    throw new CoreV2ContractExecutionError(code, errorMessage(failure), execution, failure);
+    throw new PatchMapContractExecutionError(code, errorMessage(failure), execution, failure);
   }
   return execution;
 }
@@ -544,7 +544,7 @@ function recordEngineEvent(state, record, event, payload) {
     assertJsonEvidenceSafe(payload, `${record.role} ${event}`);
     actual = structuredClone(payload);
   } catch (error) {
-    const failure = new CoreV2EventJournalError(
+    const failure = new PatchMapEventJournalError(
       'UNSERIALIZABLE_ENGINE_EVENT',
       `${record.role} generation ${record.generation} emitted non-JSON-safe ${event}`,
       error,
@@ -572,7 +572,7 @@ function assertNoJournalFailures(state) {
   const failures = state.eventJournalFailures.slice(state.eventJournalFailureCursor);
   state.eventJournalFailureCursor = state.eventJournalFailures.length;
   const first = failures[0];
-  throw new CoreV2EventJournalError(
+  throw new PatchMapEventJournalError(
     first.error.code,
     `engine event journal rejected ${failures.length} event payload(s): ${first.role} ${first.event}`,
   );
@@ -683,7 +683,7 @@ function releaseJournalSubscriptions(record) {
   }
   record.journalUnsubscribers.length = 0;
   if (errors.length > 0) {
-    throw new CoreV2EventJournalError(
+    throw new PatchMapEventJournalError(
       'EVENT_JOURNAL_UNSUBSCRIBE_FAILED',
       `${record.role} event journal unsubscribe failed: ${errors.map((error) => error.code).join(', ')}`,
     );
@@ -736,14 +736,14 @@ async function captureSemanticProbe(record) {
   try {
     payload = await record.engine.semanticProbe();
   } catch (error) {
-    throw new CoreV2SemanticProbeError(
+    throw new PatchMapSemanticProbeError(
       'SEMANTIC_PROBE_FAILED',
       `${record.role} generation ${record.generation} semanticProbe() failed`,
       error,
     );
   }
   if (payload === undefined) {
-    throw new CoreV2SemanticProbeError(
+    throw new PatchMapSemanticProbeError(
       'SEMANTIC_PROBE_UNDEFINED',
       `${record.role} generation ${record.generation} semanticProbe() returned undefined`,
     );
@@ -752,7 +752,7 @@ async function captureSemanticProbe(record) {
     assertJsonEvidenceSafe(payload, `${record.role} semanticProbe()`);
     return deepFreeze(structuredClone(payload));
   } catch (error) {
-    throw new CoreV2SemanticProbeError(
+    throw new PatchMapSemanticProbeError(
       'UNSERIALIZABLE_SEMANTIC_PROBE',
       `${record.role} generation ${record.generation} semanticProbe() returned non-JSON-safe data`,
       error,
@@ -838,18 +838,18 @@ function rejectJsonEvidence(path, reason) {
   throw new TypeError(`${path} is not JSON-evidence-safe: ${reason}`);
 }
 
-class CoreV2EventJournalError extends Error {
+class PatchMapEventJournalError extends Error {
   constructor(code, message, cause) {
     super(`${code}: ${message}`, { cause });
-    this.name = 'CoreV2EventJournalError';
+    this.name = 'PatchMapEventJournalError';
     this.code = code;
   }
 }
 
-class CoreV2SemanticProbeError extends Error {
+class PatchMapSemanticProbeError extends Error {
   constructor(code, message, cause) {
     super(`${code}: ${message}`, { cause });
-    this.name = 'CoreV2SemanticProbeError';
+    this.name = 'PatchMapSemanticProbeError';
     this.code = code;
   }
 }

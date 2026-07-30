@@ -1,0 +1,31 @@
+name: PatchMap contract drift
+
+on:
+  pull_request:
+    paths:
+      - 'docs/reference/core-v2-functional-contract/**'
+      - 'scripts/verification/core-v2-contract/**'
+      - 'scripts/verification/*core-v2*.mjs'
+      - 'package.json'
+      - '.github/workflows/patch-map-contract.yml'
+  push:
+    paths:
+      - 'docs/reference/core-v2-functional-contract/**'
+      - 'scripts/verification/core-v2-contract/**'
+      - 'scripts/verification/*core-v2*.mjs'
+      - 'package.json'
+      - '.github/workflows/patch-map-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run verify:contract

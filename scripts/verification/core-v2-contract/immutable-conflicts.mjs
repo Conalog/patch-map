@@ -11,7 +11,7 @@ function conflict(path) {
  * are the single executable ledger for the already-reviewed conflicts; package
  * verification accepts no other CSM comparison failure.
  */
-export const CORE_V2_CSM_DECLARED_IMMUTABLE_CONFLICTS = Object.freeze({
+export const PATCH_MAP_CSM_DECLARED_IMMUTABLE_CONFLICTS = Object.freeze({
   'CSM-022': Object.freeze([
     conflict('/geometry/targets/item-a/worldBounds/x'),
     conflict('/geometry/targets/rect-b/worldBounds/x'),
@@ -33,6 +33,6 @@ export const CORE_V2_CSM_DECLARED_IMMUTABLE_CONFLICTS = Object.freeze({
   ]),
 });
 
-export function coreV2DeclaredCsmConflicts(caseId) {
-  return CORE_V2_CSM_DECLARED_IMMUTABLE_CONFLICTS[caseId] ?? Object.freeze([]);
+export function patchMapDeclaredCsmConflicts(caseId) {
+  return PATCH_MAP_CSM_DECLARED_IMMUTABLE_CONFLICTS[caseId] ?? Object.freeze([]);
 }

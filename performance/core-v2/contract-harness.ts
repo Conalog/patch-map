@@ -1,30 +1,30 @@
 import {
-  CoreV2Engine,
-  materializeCoreV2Dataset,
-} from '../../src/core-v2';
+  PatchMap,
+  materializePatchMapDataset,
+} from '../../src/patch-map';
 import {
-  CORE_V2_CONTRACT_PERFORMANCE_SAMPLES,
-  CORE_V2_CONTRACT_PERFORMANCE_SEED,
-  CORE_V2_CONTRACT_PERFORMANCE_WARMUPS,
-  applyCoreV2PerformanceBulkPatch,
-  buildCoreV2ContractPerformanceDataset,
-  canonicalCoreV2DatasetSha256,
-  initializeCoreV2ContractPerformanceEngine,
-  measureCoreV2VisibleAction,
-  panZoomAndSettleCoreV2BarAnimation,
-  projectCoreV2PerformanceSemantics,
-  runCoreV2ContinuousInteraction,
-  startCoreV2BarAnimation,
-  updateCoreV2RandomText,
-  validateCoreV2ContractPerformanceDataset,
-  type CoreV2ContractPerformanceSize,
-  type CoreV2PerformanceBulkObservation,
-  type CoreV2PerformanceInteractionObservation,
-  type CoreV2PerformanceTextObservation,
+  PATCH_MAP_CONTRACT_PERFORMANCE_SAMPLES,
+  PATCH_MAP_CONTRACT_PERFORMANCE_SEED,
+  PATCH_MAP_CONTRACT_PERFORMANCE_WARMUPS,
+  applyPatchMapPerformanceBulkPatch,
+  buildPatchMapContractPerformanceDataset,
+  canonicalPatchMapDatasetSha256,
+  initializePatchMapContractPerformanceEngine,
+  measurePatchMapVisibleAction,
+  panZoomAndSettlePatchMapBarAnimation,
+  projectPatchMapPerformanceSemantics,
+  runPatchMapContinuousInteraction,
+  startPatchMapBarAnimation,
+  updatePatchMapRandomText,
+  validatePatchMapContractPerformanceDataset,
+  type PatchMapContractPerformanceSize,
+  type PatchMapPerformanceBulkObservation,
+  type PatchMapPerformanceInteractionObservation,
+  type PatchMapPerformanceTextObservation,
 } from './contract-workload';
 
 interface ContractHarnessSpec {
-  readonly size: CoreV2ContractPerformanceSize;
+  readonly size: PatchMapContractPerformanceSize;
   readonly seed: number;
   readonly warmups: number;
   readonly measured: number;
@@ -39,7 +39,7 @@ interface ContractHarnessResult {
 
 declare global {
   interface Window {
-    __PATCH_MAP_CORE_V2_CONTRACT_PERFORMANCE__: {
+    __PATCH_MAP_CONTRACT_PERFORMANCE__: {
       run(spec: ContractHarnessSpec): Promise<ContractHarnessResult>;
     };
     gc?: () => void;
@@ -49,7 +49,7 @@ declare global {
 const surface = requiredElement<HTMLDivElement>('surface');
 const status = requiredElement<HTMLPreElement>('status');
 
-window.__PATCH_MAP_CORE_V2_CONTRACT_PERFORMANCE__ = Object.freeze({
+window.__PATCH_MAP_CONTRACT_PERFORMANCE__ = Object.freeze({
   async run(spec: ContractHarnessSpec): Promise<ContractHarnessResult> {
     validateSpec(spec);
     const warmupRaw: Readonly<Record<string, unknown>>[] = [];
@@ -101,32 +101,32 @@ async function runTrial(
   warmup: boolean,
 ): Promise<Readonly<Record<string, unknown>>> {
   surface.replaceChildren();
-  const source = buildCoreV2ContractPerformanceDataset(spec.size, spec.seed);
+  const source = buildPatchMapContractPerformanceDataset(spec.size, spec.seed);
   const input = structuredClone(source);
   const serializedBefore = JSON.stringify(input);
   const longTaskDurationsMs: number[] = [];
   const observer = createLongTaskObserver(longTaskDurationsMs);
-  const engine = new CoreV2Engine();
+  const engine = new PatchMap();
   let destroyed = false;
   const actionToVisibleMs: number[] = [];
   const frameGapsMs: number[] = [];
   let bar: Readonly<Record<string, unknown>> | null = null;
-  const text: CoreV2PerformanceTextObservation[] = [];
-  const bulk: CoreV2PerformanceBulkObservation[] = [];
-  let interaction: CoreV2PerformanceInteractionObservation | null = null;
+  const text: PatchMapPerformanceTextObservation[] = [];
+  const bulk: PatchMapPerformanceBulkObservation[] = [];
+  let interaction: PatchMapPerformanceInteractionObservation | null = null;
 
   try {
     const validateStarted = performance.now();
-    const validation = validateCoreV2ContractPerformanceDataset(input);
+    const validation = validatePatchMapContractPerformanceDataset(input);
     const validateMs = performance.now() - validateStarted;
 
     const materializeStarted = performance.now();
-    const materialized = materializeCoreV2Dataset(input);
+    const materialized = materializePatchMapDataset(input);
     const materializeMs = performance.now() - materializeStarted;
-    const canonicalDatasetSha256 = await canonicalCoreV2DatasetSha256(input);
+    const canonicalDatasetSha256 = await canonicalPatchMapDatasetSha256(input);
 
     const assetStarted = performance.now();
-    await initializeCoreV2ContractPerformanceEngine(engine, {
+    await initializePatchMapContractPerformanceEngine(engine, {
       instanceId:
         `contract-${String(spec.size)}-${warmup ? 'warmup' : 'measured'}-${trial}`,
       target: surface,
@@ -149,7 +149,7 @@ async function runTrial(
     const firstUsefulFrameMs = performance.now() - firstFrameStarted;
 
     if (spec.size === 2_000) {
-      const barState = await startCoreV2BarAnimation(engine, {
+      const barState = await startPatchMapBarAnimation(engine, {
         size: spec.size,
         seed: spec.seed,
         targetFraction: 0.1,
@@ -157,7 +157,7 @@ async function runTrial(
         retargetAtMs: 100,
         diagnostics: spec.mode === 'smoke',
       });
-      const settled = await panZoomAndSettleCoreV2BarAnimation(engine, barState, {
+      const settled = await panZoomAndSettlePatchMapBarAnimation(engine, barState, {
         panCss: [40, -20],
         zoomFactor: 1.5,
         anchorCss: [400, 300],
@@ -169,7 +169,7 @@ async function runTrial(
         ...settled,
       };
       for (const [actionIndex, includeWordWrapWidth] of [false, true].entries()) {
-        const observation = await updateCoreV2RandomText(engine, {
+        const observation = await updatePatchMapRandomText(engine, {
           size: spec.size,
           seed: spec.seed,
           actionIndex,
@@ -182,7 +182,7 @@ async function runTrial(
         frameGapsMs.push(observation.frameGapMs);
         text.push(observation);
       }
-      const bulkObservation = await applyCoreV2PerformanceBulkPatch(engine, {
+      const bulkObservation = await applyPatchMapPerformanceBulkPatch(engine, {
         size: spec.size,
         seed: spec.seed,
         targetFraction: 0.1,
@@ -195,7 +195,7 @@ async function runTrial(
       frameGapsMs.push(bulkObservation.frameGapMs);
       bulk.push(bulkObservation);
     } else if (spec.size === 5_000) {
-      const interactionObservation = await runCoreV2ContinuousInteraction(engine, {
+      const interactionObservation = await runPatchMapContinuousInteraction(engine, {
         size: spec.size,
         seed: spec.seed,
         durationMs: 5_000,
@@ -232,7 +232,7 @@ async function runTrial(
           seed: spec.seed + 1,
         },
       ] as const) {
-        const observation = await applyCoreV2PerformanceBulkPatch(engine, {
+        const observation = await applyPatchMapPerformanceBulkPatch(engine, {
           size: spec.size,
           ...options,
           diagnostics: spec.mode === 'smoke',
@@ -242,9 +242,9 @@ async function runTrial(
         bulk.push(observation);
       }
     } else {
-      const pan = await measureCoreV2VisibleAction(engine, 16, () =>
+      const pan = await measurePatchMapVisibleAction(engine, 16, () =>
         engine.panViewport([4, -2], 'pointer'));
-      const zoom = await measureCoreV2VisibleAction(engine, 32, () =>
+      const zoom = await measurePatchMapVisibleAction(engine, 32, () =>
         engine.zoomViewportAt({
           factor: 1.01,
           anchorCss: [400, 300],
@@ -253,7 +253,7 @@ async function runTrial(
       actionToVisibleMs.push(pan.actionToVisibleMs, zoom.actionToVisibleMs);
       frameGapsMs.push(pan.frameGapMs, zoom.frameGapMs);
       if (typeof spec.size === 'number') {
-        const observation = await applyCoreV2PerformanceBulkPatch(engine, {
+        const observation = await applyPatchMapPerformanceBulkPatch(engine, {
           size: spec.size,
           seed: spec.seed,
           targetFraction: 0.1,
@@ -268,7 +268,7 @@ async function runTrial(
       }
     }
 
-    const projection = projectCoreV2PerformanceSemantics(engine);
+    const projection = projectPatchMapPerformanceSemantics(engine);
     const active = engine.snapshot();
     const destroyStarted = performance.now();
     const destroyReturned = await engine.destroy();
@@ -356,10 +356,10 @@ function validateSpec(spec: ContractHarnessSpec): void {
   const validCounts = spec.mode === 'smoke'
     ? spec.warmups === 0 && spec.measured === 1
     : (
-        spec.warmups === CORE_V2_CONTRACT_PERFORMANCE_WARMUPS
-        && spec.measured === CORE_V2_CONTRACT_PERFORMANCE_SAMPLES
+        spec.warmups === PATCH_MAP_CONTRACT_PERFORMANCE_WARMUPS
+        && spec.measured === PATCH_MAP_CONTRACT_PERFORMANCE_SAMPLES
       );
-  if (spec.seed !== CORE_V2_CONTRACT_PERFORMANCE_SEED || !validCounts) {
+  if (spec.seed !== PATCH_MAP_CONTRACT_PERFORMANCE_SEED || !validCounts) {
     throw new Error('contract performance protocol drift');
   }
 }

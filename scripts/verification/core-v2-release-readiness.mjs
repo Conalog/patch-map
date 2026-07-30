@@ -8,16 +8,16 @@ import process from 'node:process';
 import {
   CAPABILITY_DEPENDENT_INPUTS,
   cellArtifactRole,
-  CORE_V2_NATIVE_RELEASE_SCHEMA,
+  PATCH_MAP_NATIVE_RELEASE_SCHEMA,
   MANDATORY_INPUTS,
   REQUIRED_BROWSER_CELLS,
   requiredNativeArtifactRoles,
 } from './core-v2-native-release-contract.mjs';
 
 const ROOT = process.cwd();
-const CODE_COMMIT = process.env.CORE_V2_CODE_COMMIT ?? 'uncommitted';
+const CODE_COMMIT = process.env.PATCH_MAP_CODE_COMMIT ?? 'uncommitted';
 const OUTPUT_PATH = path.resolve(
-  process.env.CORE_V2_RELEASE_READINESS_OUTPUT
+  process.env.PATCH_MAP_RELEASE_READINESS_OUTPUT
     ?? path.join(ROOT, 'performance/core-v2/results/release-readiness.json'),
 );
 const DECISION_FIXTURES_PATH = path.join(
@@ -285,7 +285,7 @@ async function validateNativeManifest(manifest, context) {
   const artifactById = new Map();
   const artifactRoleCounts = new Map();
 
-  add(manifest?.$schema === CORE_V2_NATIVE_RELEASE_SCHEMA, 'native manifest schema');
+  add(manifest?.$schema === PATCH_MAP_NATIVE_RELEASE_SCHEMA, 'native manifest schema');
   add(manifest?.status === 'pass', 'native manifest terminal pass');
   add(COMMIT_HASH.test(manifest?.implementation?.commit ?? ''), 'implementation commit');
   if (COMMIT_HASH.test(context.codeCommit)) {

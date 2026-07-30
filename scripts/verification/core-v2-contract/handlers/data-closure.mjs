@@ -648,7 +648,7 @@ function replacementProjection(value) {
 
 function unsupportedDiagnostic(operation) {
   return {
-    name: 'CoreV2UnsupportedOperation',
+    name: 'PatchMapUnsupportedOperation',
     code: 'UNSUPPORTED_OPERATION',
     category: 'UNSUPPORTED_RUNTIME',
     operation,

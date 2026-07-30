@@ -338,7 +338,7 @@ for (const run of output.runs ?? []) validateRun(run, expectedKeys);
 check(expectedKeys.size === 0, `missing required runs: ${[...expectedKeys].join(', ')}`);
 
 if (failures.length > 0) {
-  process.stderr.write(`FAIL: ${failures.length} Core v2 performance evidence error(s)\n`);
+  process.stderr.write(`FAIL: ${failures.length} PatchMap performance evidence error(s)\n`);
   for (const failure of failures) process.stderr.write(`- ${failure}\n`);
   process.exitCode = 1;
 } else {

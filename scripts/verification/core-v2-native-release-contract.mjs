@@ -1,4 +1,4 @@
-export const CORE_V2_NATIVE_RELEASE_SCHEMA =
+export const PATCH_MAP_NATIVE_RELEASE_SCHEMA =
   'core-v2-native-release-evidence/1';
 
 export const REQUIRED_BROWSER_CELLS = Object.freeze(

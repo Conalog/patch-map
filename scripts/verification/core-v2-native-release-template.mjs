@@ -7,7 +7,7 @@ import process from 'node:process';
 import {
   CAPABILITY_DEPENDENT_INPUTS,
   cellArtifactRole,
-  CORE_V2_NATIVE_RELEASE_SCHEMA,
+  PATCH_MAP_NATIVE_RELEASE_SCHEMA,
   GLOBAL_NATIVE_ARTIFACT_ROLES,
   MANDATORY_INPUTS,
   REQUIRED_BROWSER_CELLS,
@@ -43,7 +43,7 @@ const performanceDecision = requiredDecision(decisionFixtures, 'OQ-025');
 const inputDecision = requiredDecision(decisionFixtures, 'OQ-029');
 const candidateCommit =
   argumentValue('--commit')
-  ?? process.env.CORE_V2_CODE_COMMIT
+  ?? process.env.PATCH_MAP_CODE_COMMIT
   ?? packageEvidence.provenance?.codeCommit
   ?? 'pending';
 const packedPackageSha256 =
@@ -68,7 +68,7 @@ const artifactDescriptors = [
 ];
 
 const manifest = {
-  $schema: CORE_V2_NATIVE_RELEASE_SCHEMA,
+  $schema: PATCH_MAP_NATIVE_RELEASE_SCHEMA,
   generatedAt: new Date().toISOString(),
   status: 'pending',
   implementation: {

@@ -10,7 +10,7 @@ import { createServer } from 'vite';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const BENCHMARK_ROOT = fileURLToPath(new URL('.', import.meta.url));
-const CODE_COMMIT = process.env.CORE_V2_CODE_COMMIT ?? 'uncommitted';
+const CODE_COMMIT = process.env.PATCH_MAP_CODE_COMMIT ?? 'uncommitted';
 const FULL_SCALES = Object.freeze([100, 500, 1_000, 2_000, 5_000, 'production']);
 const QUICK_SCALES = Object.freeze([100, 1_000]);
 const WARMUPS = 2;
@@ -108,7 +108,7 @@ function markdownReport(output, resultPath) {
   });
 
   const gpu = output.environment.gpu;
-  return `# PATCH MAP Core v2 ${output.mode} performance checkpoint
+  return `# PatchMap ${output.mode} performance checkpoint
 
 - Result JSON: ${resultPath}
 - Implementation commit: ${output.codeCommit}
@@ -209,7 +209,7 @@ async function startServer(explicitUrl) {
     } catch (closeError) {
       throw new AggregateError(
         [error, closeError],
-        'Core v2 benchmark server startup and cleanup both failed',
+        'PatchMap benchmark server startup and cleanup both failed',
       );
     }
     throw error;
@@ -218,7 +218,7 @@ async function startServer(explicitUrl) {
 
 async function runHarness(page, { role, strategy, scale, seed }) {
   const result = await page.evaluate(
-    async (spec) => window.__PATCH_MAP_CORE_V2_BENCHMARK__.run(spec),
+    async (spec) => window.__PATCH_MAP_BENCHMARK__.run(spec),
     { strategy, scale, seed, warmups: WARMUPS, measured: MEASURED },
   );
   if (!result || !Array.isArray(result.warmupRaw) || !Array.isArray(result.measuredRaw)) {
@@ -286,13 +286,13 @@ async function main() {
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: CPU_THROTTLE_RATE });
     await page.goto(server.pageUrl, { waitUntil: 'networkidle' });
     await page.waitForFunction(
-      () => typeof window.__PATCH_MAP_CORE_V2_BENCHMARK__?.run === 'function',
+      () => typeof window.__PATCH_MAP_BENCHMARK__?.run === 'function',
       undefined,
       { timeout: 30_000 },
     );
 
     const advertisedSelection = await page.evaluate(
-      () => window.__PATCH_MAP_CORE_V2_BENCHMARK__.selectedStrategy ?? null,
+      () => window.__PATCH_MAP_BENCHMARK__.selectedStrategy ?? null,
     );
     const selectedStrategy = assertStrategy(
       selectedOverride ?? advertisedSelection ?? 'mesh',

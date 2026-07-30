@@ -1,8 +1,7 @@
 node_modules/
 dist/
 .lab-dist/
-.core-v1-lab-dist/
-.core-v2-lab-dist/
+.patch-map-lab-dist/
 .perf-results/
 artifacts/raw/
 lab/artifacts/

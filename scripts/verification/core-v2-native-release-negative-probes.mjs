@@ -309,8 +309,8 @@ function runVerifier(codeCommit = CANDIDATE_COMMIT) {
       encoding: 'utf8',
       env: {
         ...process.env,
-        CORE_V2_CODE_COMMIT: codeCommit,
-        CORE_V2_RELEASE_READINESS_OUTPUT: REPORT_RELATIVE,
+        PATCH_MAP_CODE_COMMIT: codeCommit,
+        PATCH_MAP_RELEASE_READINESS_OUTPUT: REPORT_RELATIVE,
       },
     },
   );

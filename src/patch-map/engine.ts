@@ -1,0 +1,11238 @@
+import {
+  createPatchMapRuntime,
+  type PatchMapRuntime,
+  type PatchMapBarPresentationProductProbe,
+  type PatchMapComponentVisualGeometryProbe,
+  type PatchMapComponentVisualProductProbe,
+  type PatchMapComponentVisualTarget,
+  type PatchMapDirectBarHeightUpdate,
+  type PatchMapDirectElementAngleUpdate,
+  type PatchMapDirectTextUpdate,
+  type PatchMapRuntimeOptions,
+  type PatchMapPresentationLifecycleResult,
+  type PatchMapReconcileTimings,
+  type PatchMapRootPointerInput,
+  type PatchMapRootViewportChangeSource,
+  type PatchMapSelectionOverlayPolicyInput,
+  type PatchMapSemanticRefreshResult,
+  type PatchMapTextGeometryProbe,
+  type PatchMapTextProductProbe,
+  type PatchMapTextRendererProductProbe,
+  type PatchMapTextStateProbe,
+  type PatchMapTextTarget,
+  type PatchMapTextTransformProbe,
+  type PatchMapTransientProjectionResult,
+  normalizePatchMapTextTarget,
+} from './core';
+import {
+  PatchMapFrameLoop,
+  type PatchMapFrameLoopOptions,
+} from './scheduler';
+import type {
+  PatchMapPresentationPolicyInput,
+  PatchMapPresentationPolicyProductProbe,
+} from './presentation-policy';
+import {
+  PATCH_MAP_DEFAULT_VIEWPORT_POLICIES,
+  PATCH_MAP_VIEWPORT_POLICIES,
+  PATCH_MAP_VIEWPORT_REVISION,
+  patchMapBoundsCenter,
+  patchMapViewportFitScale,
+  normalizePatchMapViewportPadding,
+  resolvePatchMapViewportContributors,
+  type PatchMapViewportContributorResult,
+  type PatchMapViewportGeometry,
+  type PatchMapViewportPolicy,
+} from './viewport';
+import type { PatchMapPaintOrderProductProbe } from './paint-order-product';
+import type { SceneSnapshot, SlotRange } from './dense/contracts';
+import type {
+  PatchMapComponentRenderRole,
+  PatchMapEntityProjection,
+  PatchMapImageSourceKind,
+  PatchMapProjectionIndex,
+  PatchMapTextProjection,
+} from './contracts';
+import type {
+  PatchMapEntityPaintProbe,
+  PatchMapPixiPublicSurfaceProbe,
+  PatchMapPixiRendererLossProbe,
+  PatchMapRenderLaneRole,
+  PatchMapRenderLaneSnapshot,
+} from './renderers/types';
+import {
+  PatchMapPixiRuntimeError,
+  type PatchMapPixiRenderer,
+} from './renderers/pixi-renderer';
+import type {
+  PatchMapSceneImageAttemptProbe,
+  PatchMapSceneImageProductProbe,
+  PatchMapSceneImageRetryResult,
+  PatchMapSceneImagesProbe,
+} from './scene-images';
+import {
+  PATCH_MAP_ASSET_RUNTIME,
+  PATCH_MAP_BUILTIN_ASSETS,
+  PatchMapAssetError,
+  type PatchMapAssetAcquisition,
+  type PatchMapAssetPolicy,
+  type PatchMapAssetRegistration,
+  type PatchMapAssetRegistrationResult,
+  type PatchMapAssetRuntime,
+  type PatchMapAssetRuntimeProbe,
+  type PatchMapAssetSession,
+  type PatchMapAssetSessionProbe,
+} from './assets';
+import {
+  PATCH_MAP_HOST_ASSET_INGESTION_REVISION,
+  PatchMapHostAssetIngestionAuthority,
+  type PatchMapHostAssetIngestionInput,
+  type PatchMapHostAssetIngestionPlan,
+  type PatchMapHostAssetIngestionProbe,
+} from './host-asset-ingestion';
+import {
+  PATCH_MAP_EDITOR_MUTATION_KINDS,
+  PATCH_MAP_EDITOR_WORKFLOW_REVISION,
+  PatchMapEditorWorkflowAuthority,
+  planPatchMapEditorMatrixMutation,
+  type PatchMapEditorMutationKind,
+  type PatchMapEditorWorkflowAction,
+  type PatchMapEditorWorkflowDiagnostic,
+  type PatchMapEditorWorkflowFacts,
+  type PatchMapEditorWorkflowPlan,
+  type PatchMapEditorWorkflowProbe,
+} from './editor-workflow';
+import {
+  PATCH_MAP_PAGE_LIFECYCLE_REVISION,
+  PatchMapPageLifecycleAuthority,
+  type PatchMapDocumentVisibilityState,
+  type PatchMapPageLifecycleProbe,
+  type PatchMapPageLifecycleTransition,
+  type PatchMapPageLifecycleWorkCompletion,
+  type PatchMapPageLifecycleWorkKind,
+  type PatchMapPageLifecycleWorkToken,
+} from './page-lifecycle';
+import {
+  PatchMapAccessibilityAuthority,
+  derivePatchMapAccessibilityTargets,
+  type PatchMapAccessibilityActivationInput,
+  type PatchMapAccessibilityActivationResult,
+  type PatchMapAccessibilityProbe,
+  type PatchMapAccessibilityRenderNode,
+  type PatchMapAccessibilitySurfaceProbe,
+} from './accessibility';
+import {
+  patchMapAffineBasis,
+  patchMapAffineCorners,
+  createPatchMapAffine,
+  multiplyPatchMapAffine,
+  writePatchMapReadableRect,
+  type PatchMapAffineBasis,
+  type PatchMapPointTuple,
+} from './semantic/geometry';
+import {
+  relationPathHitScreen,
+  resolvePatchMapRelationPath,
+} from './semantic/relations';
+import {
+  PatchMapDatasetError,
+  materializePatchMapDataset,
+  ownedPatchMapElementIds,
+  ownedPatchMapExactPatchIndices,
+  ownedPatchMapMaterialization,
+  ownedPatchMapPreviewPatchIndices,
+  releasePatchMapSemanticHashScratch,
+  validatePatchMapDatasetReferences,
+  type MaterializedPatchMapDataset,
+  type PatchMapAssetSource,
+  type PatchMapBackgroundSource,
+  type PatchMapComponent,
+  type PatchMapComponentSize,
+  type PatchMapComponentType,
+  type PatchMapTextStyle,
+  type NormalizedPatchMapElement,
+} from './semantic/dataset';
+import {
+  createPatchMapSemanticProbe,
+  type PatchMapSemanticProductProbe,
+  type PatchMapSemanticTarget,
+} from './semantic/probe';
+import {
+  applyPatchMapSemanticPatch,
+  removePatchMapSemanticTarget,
+  type PatchMapSemanticMutationDiagnostic,
+} from './semantic/mutation';
+import {
+  PATCH_MAP_MUTATION_TRANSACTION_REVISION,
+  detachPatchMapMutationJsonValue,
+  planPatchMapBarHeightBatch,
+  planPatchMapBulkPatch,
+  planPatchMapMutationTransaction,
+  planPatchMapPreviewMutationTransaction,
+  planPatchMapTextBatch,
+  promotePatchMapPreviewMutationTransaction,
+  type PatchMapBarHeightBatchRequest,
+  type PatchMapBulkPatchRequest,
+  type PatchMapMutationJsonValue,
+  type PatchMapMutationOperation,
+  type PatchMapPlannedBarHeightUpdate,
+  type PatchMapTextBatchRequest,
+  type PatchMapMutationTarget,
+  type PatchMapMutationTransactionDiagnostic,
+  type PatchMapMutationTransactionPlan,
+  type PatchMapMutationTransactionRequest,
+} from './semantic/transaction';
+import {
+  applyPatchMapRelativeGeometryUpdate,
+  resizePatchMapGeometryAroundOrigin,
+  type PatchMapRelativeGeometryChanges,
+  type PatchMapVisibleCenterResize,
+} from './semantic/geometry-update';
+import {
+  PatchMapScreenRegionIndex,
+  type PatchMapScreenRegionBounds,
+  type PatchMapScreenRegionCandidates,
+} from './semantic/screen-region-index';
+import type { PatchMapReconcileDiagnostic } from './semantic/reconcile';
+import { PatchMapPresentationError } from './presentation';
+import {
+  PatchMapSemanticHistory,
+  type PatchMapHistoryCapacityChange,
+  type PatchMapHistoryDirection,
+  type PatchMapHistoryInspection,
+  type PatchMapHistoryPreparedRecord,
+  type PatchMapHistoryState,
+  type PatchMapHistoryTransition,
+  type PatchMapSemanticHistorySnapshotInput,
+} from './history';
+import {
+  PATCH_MAP_QUERY_SELECTION_REVISION,
+  PatchMapLogicalSceneIndex,
+  applyPatchMapSelectionOperation,
+  patchMapLogicalTargetKey,
+  type PatchMapLogicalTargetSnapshot,
+  type PatchMapQueryReuseOperation,
+  type PatchMapSceneQuery,
+  type PatchMapSelectionChange,
+  type PatchMapSelectionEligibilityOptions,
+  type PatchMapSelectionHit,
+  type PatchMapSelectionHitOptions,
+  type PatchMapSelectionInteraction,
+  type PatchMapSelectionInteractionOptions,
+  type PatchMapSelectionSetOperation,
+} from './query-selection';
+import {
+  PATCH_MAP_POINTER_GESTURE_REVISION,
+  PatchMapPointerGestureAuthority,
+  hitPatchMapBoxRegion,
+  hitPatchMapPaintRegion,
+  type PatchMapGestureCancelReason,
+  type PatchMapGestureTerminationReason,
+  type PatchMapOwnedGestureKind,
+  type PatchMapOwnedGestureTermination,
+  type PatchMapPointerDispatchResult,
+  type PatchMapPointerGestureProbe,
+  type PatchMapPointerInput,
+  type PatchMapRegionHitResult,
+  type PatchMapSemanticPointerEvent,
+} from './pointer-gesture';
+import {
+  PatchMapHostInteractionAuthority,
+  advancePatchMapCommandTargetState,
+  patchMapOwnsKeyboardInput,
+  patchMapTransformerHandlePropagationProbe,
+  createPatchMapCommandTargetState,
+  createPatchMapLogicalPropagationTrace,
+  type PatchMapCommandTargetState,
+  type PatchMapCommandTargetStatus,
+  type PatchMapHostEventSubscription,
+  type PatchMapHostInteractionProbe,
+  type PatchMapHostObservedEvent,
+  type PatchMapHostTooltipPublication,
+  type PatchMapHostTooltipState,
+  type PatchMapHostTooltipSubscription,
+  type PatchMapInteractionMode,
+  type PatchMapInteractionModeOperation,
+  type PatchMapInteractionModeProbe,
+  type PatchMapInteractionModeResult,
+  type PatchMapLogicalEventBindingDescriptor,
+  type PatchMapLogicalEventDelivery,
+  type PatchMapLogicalEventBindingHandle,
+  type PatchMapLogicalPropagationOptions,
+  type PatchMapLogicalPropagationTrace,
+  type PatchMapSelectionHostPublication,
+  type PatchMapTooltipClearReason,
+} from './host-interaction';
+import {
+  PatchMapTransformerGestureAuthority,
+  createPatchMapSelectionVisualProbe,
+  createPatchMapTransformerHandleProbe,
+  evaluatePatchMapTransformableSubset,
+  hitPatchMapTransformerHandle,
+  resolvePatchMapRelationEndpoints,
+  type PatchMapRelationEndpointResolution,
+  type PatchMapSelectionVisualOptions,
+  type PatchMapSelectionVisualProbe,
+  type PatchMapTransformableSubsetProbe,
+  type PatchMapTransformerGestureProbe,
+  type PatchMapTransformerHandle,
+  type PatchMapTransformerHandleProbe,
+  type PatchMapTransformerInputFamily,
+} from './selection-transformer';
+import {
+  PATCH_MAP_TRANSFORMER_EDIT_REVISION,
+  planPatchMapTransformerEdit,
+  resolvePatchMapEdgeAutoPan,
+  resolvePatchMapRotationSnap,
+  type PatchMapEdgeAutoPanResult,
+  type PatchMapRotationSnapResult,
+  type PatchMapTransformerEditKind,
+  type PatchMapTransformerEditPlan,
+  type PatchMapTransformerEditRequest,
+} from './transformer-edit';
+import {
+  PATCH_MAP_AUTHORING_REVISION,
+  planPatchMapAuthoringAction,
+  type PatchMapAuthoringActionType,
+  type PatchMapAuthoringDiagnostic,
+  type PatchMapAuthoringFacts,
+  type PatchMapAuthoringPlan,
+} from './authoring';
+import {
+  PatchMapExtractionSecurityAuthority,
+  PatchMapOperationsAuthority,
+  type PatchMapOperationalCallback,
+  type PatchMapOperationalDiagnosticInput,
+  type PatchMapOperationalDispatchResult,
+  type PatchMapOperationalEventInput,
+  type PatchMapOperationalSubscription,
+  type PatchMapOperationsProbe,
+  type PatchMapRuntimeDiagnosticsSnapshot,
+  type PatchMapSanitizedDiagnostic,
+} from './operations';
+
+export type PatchMapLifecycle =
+  | 'new'
+  | 'initializing'
+  | 'ready-empty'
+  | 'scene-ready'
+  | 'destroying'
+  | 'destroyed';
+
+export type PatchMapDiagnosticCategory =
+  | 'INVALID_INPUT'
+  | 'MISSING_TARGET'
+  | 'STALE_TARGET'
+  | 'NOT_READY'
+  | 'DESTROYED'
+  | 'CANCELLED'
+  | 'SUPERSEDED'
+  | 'CONFLICT'
+  | 'ASSET_FAILURE'
+  | 'EXTRACTION_FAILURE'
+  | 'UNSUPPORTED_RUNTIME'
+  | 'RENDERER_LOST'
+  | 'HOST_CALLBACK_FAILURE'
+  | 'INTERNAL_FAILURE';
+
+export interface PatchMapEngineDiagnostic {
+  readonly code: string;
+  readonly category: PatchMapDiagnosticCategory;
+  readonly operation: string;
+  readonly lifecycleGeneration: number;
+  readonly sceneRevision: number;
+  readonly revisionStamp: PatchMapRevisionStamp;
+  readonly recoverable: boolean;
+  readonly retryable: boolean;
+  readonly appliedCount: number;
+  readonly missingCount: number;
+  readonly unchangedCount: number;
+  readonly datasetPath?: string;
+  readonly logicalId?: string | null;
+  readonly sanitizedAssetId?: string;
+  readonly sanitizedHash?: string;
+}
+
+export interface PatchMapRevisionStamp {
+  readonly lifecycleGeneration: number;
+  readonly sceneRevision: number;
+  readonly viewRevision: number;
+  readonly interactionRevision: number;
+}
+
+export interface PatchMapPublishedTuple {
+  readonly scene: number;
+  readonly view: number;
+  readonly interaction: number;
+}
+
+export interface PatchMapEngineCanvasHandle {
+  readonly element: HTMLCanvasElement;
+  readonly identity: 'initial-canvas';
+  readonly cssSize: readonly [number, number];
+  readonly backingSize: readonly [number, number];
+}
+
+export interface PatchMapEngineExtractionRequest {
+  readonly targetTuple: PatchMapPublishedTuple;
+  readonly cssSize: readonly [number, number];
+  readonly mime: 'image/png';
+}
+
+export interface PatchMapEngineExtractionResult {
+  readonly capturedTuple: PatchMapPublishedTuple;
+  readonly cssSize: readonly [number, number];
+  readonly backingSize: readonly [number, number];
+  readonly mime: 'image/png';
+  readonly dataUrl: string;
+  readonly canvasIdentity: 'initial-canvas';
+  readonly authoritativeCanvasRetained: true;
+  readonly temporaryImageCount: 0;
+  readonly renderTextureCount: 0;
+}
+
+export interface PatchMapEnginePageLifecycleWorkInput {
+  readonly kind: PatchMapPageLifecycleWorkKind;
+  readonly requestId: string;
+}
+
+export interface PatchMapEngineDocumentVisibilityInput {
+  readonly state: PatchMapDocumentVisibilityState;
+  readonly timeMs: number;
+}
+
+export interface PatchMapEnginePageLifecycleProbe extends PatchMapPageLifecycleProbe {
+  readonly activeAnimationCount: number;
+  readonly decelerationActive: boolean;
+  readonly activeGestureCount: number;
+  readonly pointerCaptureCount: number;
+}
+
+export interface PatchMapEngineDocumentVisibilityResult {
+  readonly schemaRevision: typeof PATCH_MAP_PAGE_LIFECYCLE_REVISION;
+  readonly transition: PatchMapPageLifecycleTransition;
+  readonly presentation: PatchMapPresentationLifecycleResult | null;
+  readonly probe: PatchMapEnginePageLifecycleProbe;
+}
+
+export interface PatchMapSurfaceOptions {
+  readonly target?: HTMLElement;
+  readonly canvas?: HTMLCanvasElement;
+  readonly width: number;
+  readonly height: number;
+  readonly pixelRatio: number;
+  readonly antialias: boolean;
+  readonly background: number;
+  readonly strategy: 'mesh' | 'particle';
+  readonly preference: 'webgl' | 'webgpu';
+  readonly backend?: 'webgl2' | 'webgpu';
+  readonly requireWebGL2?: boolean;
+  readonly devtools?: boolean;
+  readonly powerPreference: 'high-performance' | 'low-power';
+  readonly assetSession?: PatchMapAssetSession;
+}
+
+export interface PatchMapPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface PatchMapViewportState {
+  readonly centerWorld: readonly [number, number];
+  readonly scale: number;
+  readonly screenBounds: readonly [number, number, number, number];
+}
+
+export type PatchMapViewportChangeSource =
+  | 'programmatic'
+  | 'pointer'
+  | 'middle-pointer'
+  | 'modifier-wheel'
+  | 'wheel'
+  | 'pinch'
+  | 'deceleration'
+  | 'focus'
+  | 'fit'
+  | 'restore'
+  | 'fallback-fit';
+
+export interface PatchMapViewportChangeResult {
+  readonly changed: boolean;
+  readonly blocked: boolean;
+  readonly source: PatchMapViewportChangeSource;
+  readonly previous: PatchMapViewportState;
+  readonly viewport: PatchMapViewportState;
+  readonly previousRevisions: PatchMapRevisionStamp;
+  readonly revisions: PatchMapRevisionStamp;
+}
+
+export interface PatchMapSurfaceViewportInput {
+  readonly source: PatchMapRootViewportChangeSource;
+  readonly centerWorld: readonly [number, number];
+  readonly scale: number;
+}
+
+export type PatchMapSurfacePointerInput = Readonly<
+  Omit<PatchMapPointerInput, 'viewRevision'>
+>;
+
+export type PatchMapEnginePointerInput = Readonly<
+  PatchMapSurfacePointerInput & {
+    readonly viewRevision?: number;
+  }
+>;
+
+export interface PatchMapSerializedViewportState {
+  readonly schemaRevision: typeof PATCH_MAP_VIEWPORT_REVISION;
+  readonly centerWorld: readonly [number, number];
+  readonly scale: number;
+}
+
+export interface PatchMapViewportPersistenceProbe {
+  readonly settledPublicationCount: number;
+  readonly persistenceWriteCount: number;
+  readonly equivalentSaveCount: 0;
+  readonly suppressedEquivalentSaveCount: number;
+  readonly settled: boolean;
+  readonly serialized: PatchMapSerializedViewportState | null;
+}
+
+export interface PatchMapHostLifecycleRebindResult {
+  readonly lifecycleGeneration: number;
+  readonly sceneRevision: number;
+  readonly canvasCount: number;
+  readonly selectionIds: readonly string[];
+  readonly revisions: PatchMapRevisionStamp;
+}
+
+export interface PatchMapViewportSettleResult {
+  readonly changed: boolean;
+  readonly viewport: PatchMapViewportState;
+  readonly publicationCount: number;
+  readonly persistence: PatchMapViewportPersistenceProbe;
+}
+
+export interface PatchMapViewportRestoreResult {
+  readonly status: 'restored' | 'fallback:auto-fit';
+  readonly changed: boolean;
+  readonly viewport: PatchMapViewportState;
+  readonly fit: PatchMapViewportFitResult | null;
+}
+
+export interface PatchMapViewportTargetOptions {
+  readonly targets?: readonly string[] | null;
+  readonly rejectIds?: readonly string[];
+  readonly relationEndpointsAvailable?: boolean;
+}
+
+export interface PatchMapViewportFocusResult extends PatchMapViewportContributorResult {
+  readonly status: 'applied' | 'empty';
+  readonly changed: boolean;
+  readonly viewport: PatchMapViewportState;
+}
+
+export interface PatchMapViewportFitOptions extends PatchMapViewportTargetOptions {
+  readonly paddingCssPx?: number | readonly [number, number];
+}
+
+export interface PatchMapViewportFitResult extends PatchMapViewportContributorResult {
+  readonly status: 'applied' | 'empty';
+  readonly changed: boolean;
+  readonly paddingCssPx: readonly [number, number];
+  readonly viewport: PatchMapViewportState;
+}
+
+export type PatchMapViewportPolicyOperation =
+  | Readonly<{ readonly op: 'add' | 'start' | 'stop' | 'remove'; readonly policy: PatchMapViewportPolicy }>
+  | Readonly<{ readonly op: 'temporary'; readonly policy: PatchMapViewportPolicy }>
+  | Readonly<{ readonly op: 'restore-temporary' | 'cancel-all' | 'redraw' }>;
+
+export interface PatchMapViewportPolicyProbe {
+  readonly schemaRevision: typeof PATCH_MAP_VIEWPORT_REVISION;
+  readonly policies: readonly PatchMapViewportPolicy[];
+  readonly enabledPolicies: readonly PatchMapViewportPolicy[];
+  readonly temporary: boolean;
+  readonly callbacksByPolicy: Readonly<Record<PatchMapViewportPolicy, 0 | 1>>;
+  readonly resources: Readonly<{
+    readonly tickers: 0;
+    readonly listeners: 0;
+    readonly captures: 0;
+    readonly motions: 0 | 1;
+    readonly cursors: 0;
+  }>;
+  readonly destroyed: boolean;
+}
+
+export interface PatchMapWorldTransformInput {
+  readonly rotationDegrees: number;
+  readonly flipX: boolean;
+  readonly flipY: boolean;
+}
+
+export type PatchMapWorldTransformState = PatchMapWorldTransformInput;
+
+export interface PatchMapViewportTransformProbe {
+  readonly schemaRevision: typeof PATCH_MAP_VIEWPORT_REVISION;
+  readonly world: PatchMapWorldTransformState;
+  readonly pointerTransformRevision: number;
+  readonly resizePolicyApplicationCount: number;
+  readonly blackFrameCount: number;
+  readonly pendingResizeFrame: boolean;
+  readonly surface: Readonly<{
+    readonly canvasCount: number;
+    readonly cssSize: readonly [number, number];
+    readonly backingSize: readonly [number, number];
+  }>;
+}
+
+export interface PatchMapSurfaceView {
+  readonly x: number;
+  readonly y: number;
+  readonly scale: number;
+  readonly rotation: number;
+  readonly flipX?: boolean;
+  readonly flipY?: boolean;
+}
+
+export interface PatchMapSurfaceDebug {
+  readonly cssSize: readonly [number, number];
+  readonly backingSize: readonly [number, number];
+  readonly selectionIds: readonly string[];
+  readonly activeAnimationCount: number;
+  /** Public aggregate renderer facts. Injected legacy surfaces may omit them. */
+  readonly activeGestureCount?: number;
+  readonly renderCommandCount?: number;
+  readonly visiblePrimitiveCount?: number;
+}
+
+export interface PatchMapInteractionOwnershipProbe {
+  readonly rootBindingCount: number;
+  readonly rootListenerCount?: number;
+  readonly entityCallbackCount: number;
+}
+
+export interface PatchMapSurfaceEntityGeometry {
+  readonly id: string;
+  readonly kind: string;
+  readonly localBounds?: readonly [number, number, number, number];
+  readonly worldBounds: readonly [number, number, number, number];
+  readonly screenBounds: readonly [number, number, number, number];
+  readonly visibleBounds?: readonly [number, number, number, number] | null;
+  readonly visible: boolean;
+  readonly interactive: boolean;
+  readonly scaleX?: number;
+  readonly scaleY?: number;
+  readonly ownerItemId?: string;
+  readonly componentId?: string;
+  readonly componentType?: string;
+  readonly contentOrientation?: 'follow-item' | 'upright';
+  readonly screenBasis?: PatchMapAffineBasis;
+  readonly visibleCenter?: readonly [number, number];
+  readonly screenAngle?: number;
+}
+
+export interface PatchMapSurfaceRelationGeometry {
+  readonly id: string;
+  readonly relationId?: string;
+  readonly key?: string;
+  readonly identityKey?: string;
+  readonly sourceId: string;
+  readonly targetId: string;
+  readonly kind?: 'segment' | 'polyline';
+  readonly localPoints?: readonly (readonly [number, number])[];
+  readonly worldPoints?: readonly (readonly [number, number])[];
+  readonly screenPoints?: readonly (readonly [number, number])[];
+  readonly worldBounds?: readonly [number, number, number, number];
+  readonly screenBounds?: readonly [number, number, number, number];
+  readonly visible?: boolean;
+  readonly style?: Readonly<{
+    readonly color: number;
+    readonly colorHex: string;
+    readonly width: number;
+    readonly opacity: number;
+    readonly zIndex: number;
+  }>;
+  readonly visibleStrokeWidthsCssPx?: readonly number[];
+  readonly worldEndpoints: readonly [
+    readonly [number, number],
+    readonly [number, number],
+  ];
+  readonly screenEndpoints: readonly [
+    readonly [number, number],
+    readonly [number, number],
+  ];
+}
+
+export interface PatchMapSurfaceOmittedRelationGeometry {
+  readonly id: string;
+  readonly relationId: string;
+  readonly key: string;
+  readonly identityKey: string;
+  readonly sourceId: string;
+  readonly targetId: string;
+  readonly authoredIndex: number;
+  readonly reason: 'missing-source' | 'missing-target' | 'missing-source-and-target';
+}
+
+export interface PatchMapSurfaceGeometrySnapshot {
+  /** Surface geometry generation; legacy injected surfaces may use the dense scene revision. */
+  readonly revision?: number;
+  /** Dense scene revision used to derive the snapshot, when independently available. */
+  readonly sceneRevision?: number;
+  readonly entities: readonly PatchMapSurfaceEntityGeometry[];
+  readonly relations: readonly PatchMapSurfaceRelationGeometry[];
+  readonly omittedRelations?: readonly PatchMapSurfaceOmittedRelationGeometry[];
+  readonly selectionOverlay: Readonly<{
+    screenBounds: readonly [number, number, number, number];
+  }> | null;
+}
+
+export type PatchMapSurfaceRegionGeometryCandidates = PatchMapScreenRegionCandidates<
+  PatchMapSurfaceEntityGeometry,
+  PatchMapSurfaceRelationGeometry
+>;
+
+export interface PatchMapGeometryRevisionTuple {
+  readonly scene: number;
+  readonly view: number;
+  readonly interaction: number;
+}
+
+export type PatchMapEngineGeometryProbe = Readonly<
+  Omit<PatchMapSurfaceGeometrySnapshot, 'revision' | 'sceneRevision'> & {
+    /** Engine scene revision represented by the correlated surface generation. */
+    readonly revision: number | null;
+    /** Independent surface geometry generation, when published. */
+    readonly surfaceRevision: number | null;
+    /** Engine revision tuple represented by the correlated surface generation. */
+    readonly representedRevisions: PatchMapGeometryRevisionTuple | null;
+    /** Per-domain lag from the current Engine tuple. */
+    readonly revisionLags: PatchMapGeometryRevisionTuple | null;
+    /** Scene-domain compatibility projection of `revisionLags.scene`. */
+    readonly revisionLag: number | null;
+  }
+>;
+
+export interface PatchMapEngineRelationProbe {
+  readonly revision: number | null;
+  readonly surfaceRevision: number | null;
+  readonly representedRevisions: PatchMapGeometryRevisionTuple | null;
+  readonly revisionLags: PatchMapGeometryRevisionTuple | null;
+  readonly revisionLag: number | null;
+  readonly relations: readonly PatchMapSurfaceRelationGeometry[];
+  readonly omittedRelations: readonly PatchMapSurfaceOmittedRelationGeometry[];
+}
+
+export interface PatchMapRelationHitOptions {
+  readonly toleranceCssPx?: number;
+}
+
+export interface PatchMapRelationHit {
+  readonly id: string;
+  readonly relationId: string;
+  readonly key: string;
+  readonly identityKey: string;
+  readonly sourceId: string;
+  readonly targetId: string;
+}
+
+export interface PatchMapRelationHitIndex {
+  /** Screen-grid candidates in ascending scene order. */
+  readonly cells: ReadonlyMap<string, readonly number[]>;
+  /** Oversized paths tested for every query, also in ascending scene order. */
+  readonly overflow: readonly number[];
+}
+
+export interface PatchMapSurfaceReconcileResult {
+  readonly status: 'committed' | 'refused';
+  readonly operationCount: number;
+  readonly denseChanged: boolean;
+  readonly diagnostics: readonly PatchMapReconcileDiagnostic[];
+  readonly timings?: PatchMapReconcileTimings;
+}
+
+export interface PatchMapSurfaceReconcileOptions {
+  /** Animate direct component bar changes; snap ancestor/layout reconciliation. */
+  readonly animateBarChanges?: boolean;
+  /** Owner-qualified direct bar destinations permitted to animate. */
+  readonly animatedBarTargets?: readonly Readonly<{
+    readonly ownerId: string;
+    readonly componentId: string;
+  }>[];
+  /** Semantic item owners whose supplied component order is authoritative. */
+  readonly allowedComponentOrderOwners?: readonly string[];
+  /** Semantic hierarchy IDs whose retained aggregate order may change. */
+  readonly allowedElementOrderIds?: readonly string[];
+  /** Logical selection replacement committed with the candidate scene. */
+  readonly selectionIds?: readonly string[];
+  /** Engine-owned dirty flat roots eligible for guarded incremental parsing. */
+  readonly incrementalRootIds?: readonly string[];
+  /** Engine-owned top-level structural sharing eligible for guarded parsing. */
+  readonly structuralSharing?: boolean;
+  /** Validated numeric height-only bar mutations eligible for direct projection. */
+  readonly directBarHeightUpdates?: readonly PatchMapDirectBarHeightUpdate[];
+  /** Validated component text replacements eligible for direct projection. */
+  readonly directTextUpdates?: readonly PatchMapDirectTextUpdate[];
+  /** Validated flat-root absolute angles eligible for affine-delta projection. */
+  readonly directElementAngleUpdates?: readonly PatchMapDirectElementAngleUpdate[];
+}
+
+export interface PatchMapEngineSceneImageAttemptProbe extends Omit<
+  PatchMapSceneImageAttemptProbe,
+  'authoredSource' | 'sourceKind' | 'resourceState'
+> {
+  readonly authoredSource?: PatchMapAssetSource;
+  readonly authoredSourceKind?: PatchMapImageSourceKind;
+  readonly state: PatchMapSceneImageAttemptProbe['resourceState'];
+}
+
+export interface PatchMapEngineSceneImageRecord extends Omit<
+  PatchMapSceneImageProductProbe,
+  'authoredSource' | 'attempts'
+> {
+  readonly authoredSource?: PatchMapAssetSource;
+  readonly authoredSourceKind?: PatchMapImageSourceKind;
+  readonly opacity: number;
+  readonly zIndex: number;
+  readonly hitBounds: readonly [number, number, number, number] | null;
+  readonly initial: PatchMapEngineSceneImageAttemptProbe | null;
+  readonly attempts: readonly PatchMapEngineSceneImageAttemptProbe[];
+}
+
+export type PatchMapEngineSceneImagesProbe = Readonly<
+  Omit<PatchMapSceneImagesProbe, 'images'> & {
+    readonly images: Readonly<Record<string, PatchMapEngineSceneImageRecord>>;
+  }
+>;
+
+export interface PatchMapSurfaceComponentVisualProbe {
+  readonly target: PatchMapComponentVisualTarget;
+  readonly semanticOwnerId: string;
+  readonly entityId: string;
+  readonly logicalIdentity: string;
+  readonly componentType: string;
+  readonly renderRole: PatchMapComponentVisualProductProbe['renderRole'];
+  readonly entityKind: string;
+  readonly geometry: PatchMapComponentVisualGeometryProbe;
+  readonly publication: PatchMapComponentVisualProductProbe['publication'];
+  readonly sceneImage: PatchMapEngineSceneImageRecord | null;
+  readonly rendererPaint: PatchMapEntityPaintProbe | null;
+  readonly renderLanes: PatchMapRenderLaneSnapshot | null;
+}
+
+export interface PatchMapEngineComponentSemanticProbe {
+  readonly target: Readonly<{
+    readonly kind: 'component';
+    readonly ownerId: string;
+    readonly id: string;
+  }>;
+  readonly ownerId: string;
+  readonly componentId: string;
+  readonly componentType: PatchMapComponentType;
+  readonly authoredSize: PatchMapComponentSize | null;
+  readonly source: PatchMapBackgroundSource | null;
+  readonly tint: unknown;
+  readonly show: boolean;
+}
+
+export interface PatchMapEngineComponentVisualProbe {
+  readonly target: PatchMapComponentVisualTarget;
+  readonly semantic: PatchMapEngineComponentSemanticProbe | null;
+  readonly entityId: string | null;
+  readonly logicalIdentity: string | null;
+  readonly componentType: string | null;
+  readonly renderRole: PatchMapComponentVisualProductProbe['renderRole'] | null;
+  readonly entityKind: string | null;
+  readonly geometry: PatchMapComponentVisualGeometryProbe | null;
+  readonly publication: PatchMapComponentVisualProductProbe['publication'] | null;
+  readonly sceneImage: PatchMapEngineSceneImageRecord | null;
+  readonly rendererPaint: PatchMapEntityPaintProbe | null;
+  readonly renderLanes: PatchMapRenderLaneSnapshot | null;
+  readonly revisions: PatchMapRevisionStamp;
+  readonly availability: Readonly<{
+    readonly semantic: boolean;
+    readonly surface: boolean;
+    readonly rendererPaint: boolean;
+    readonly renderLanes: boolean;
+  }>;
+}
+
+export interface PatchMapEngineBarPresentationProbe extends PatchMapBarPresentationProductProbe {
+  readonly revisions: PatchMapRevisionStamp;
+  readonly publishedTuple: PatchMapPublishedTuple;
+  readonly frameRevision: number;
+}
+
+export interface PatchMapEngineTextSemanticProbe {
+  readonly target: PatchMapTextTarget;
+  readonly semanticOwnerId: string;
+  readonly source: string;
+  readonly authoredStyle: PatchMapTextStyle;
+  readonly placement: PatchMapTextProjection['placement'];
+  readonly margin: PatchMapTextProjection['margin'];
+  readonly tint: unknown;
+  readonly split: number;
+  readonly show: boolean;
+  readonly locked: boolean;
+  readonly contentOrientation: PatchMapTextProjection['contentOrientation'];
+}
+
+export type PatchMapEngineTextPublicationStatus =
+  | 'unavailable'
+  | 'absent'
+  | 'pending'
+  | 'current';
+
+export interface PatchMapEngineTextRevisionTuple {
+  readonly current: PatchMapRevisionStamp;
+  readonly published: PatchMapPublishedTuple;
+  readonly frameRevision: number;
+  readonly surfaceSceneRevision: number | null;
+  readonly surfaceRenderedSceneRevision: number | null;
+  readonly rendererFrame: number | null;
+}
+
+export interface PatchMapEngineTextProbe {
+  readonly target: PatchMapTextTarget;
+  readonly semantic: PatchMapEngineTextSemanticProbe | null;
+  readonly semanticOwnerId: string | null;
+  readonly entityId: string | null;
+  readonly projection: PatchMapTextProjection | null;
+  readonly geometry: PatchMapTextGeometryProbe | null;
+  readonly state: PatchMapTextStateProbe | null;
+  readonly transform: PatchMapTextTransformProbe | null;
+  readonly renderer: PatchMapTextRendererProductProbe | null;
+  readonly rendererPaint: PatchMapEntityPaintProbe | null;
+  readonly renderLanes: PatchMapRenderLaneSnapshot | null;
+  readonly publication: Readonly<{
+    readonly status: PatchMapEngineTextPublicationStatus;
+    readonly revisions: PatchMapEngineTextRevisionTuple;
+  }>;
+  readonly availability: Readonly<{
+    readonly semantic: boolean;
+    readonly surface: boolean;
+    readonly renderer: boolean;
+    readonly rendererPaint: boolean;
+    readonly renderLanes: boolean;
+  }>;
+}
+
+export type PatchMapEnginePaintOrderProbe = Readonly<
+  PatchMapPaintOrderProductProbe & {
+    readonly revisions: PatchMapRevisionStamp;
+    readonly publishedTuple: PatchMapPublishedTuple;
+    readonly frameRevision: number;
+    readonly history: PatchMapHistoryState;
+  }
+>;
+
+export interface PatchMapEngineSurface {
+  readonly canvasCount: number;
+  readonly destroyed: boolean;
+  canvasElement?(): HTMLCanvasElement | null;
+  captureBase64?(): Promise<string>;
+  prepare?(): Promise<PatchMapSurfacePrepareResult>;
+  load(input: unknown): void;
+  loadAsync?(input: unknown, assertCurrent?: () => void): Promise<void>;
+  /**
+   * Atomically reconcile a detached PATCH MAP candidate without replacing the
+   * whole dense scene. Older injected surfaces may omit this capability; the
+   * Engine then refuses partial mutation instead of falling back to `load`.
+   */
+  reconcile?(
+    input: unknown,
+    options?: PatchMapSurfaceReconcileOptions,
+  ): PatchMapSurfaceReconcileResult;
+  publishFrame(timeMs: number): void;
+  suspendPresentation?(
+    timeMs: number,
+  ): PatchMapPresentationLifecycleResult;
+  resumePresentation?(
+    timeMs: number,
+  ): PatchMapPresentationLifecycleResult;
+  resize(width: number, height: number, pixelRatio: number): boolean;
+  setView(view: PatchMapSurfaceView): void;
+  setViewportGesturePolicies?(policies: readonly PatchMapViewportPolicy[]): void;
+  setViewportZoomLimits?(limits: readonly [number, number]): void;
+  bindViewportInput?(
+    listener: (input: PatchMapSurfaceViewportInput) => void,
+  ): () => void;
+  bindPointerInput?(
+    listener: (input: PatchMapSurfacePointerInput) => void,
+  ): () => void;
+  bindAccessibilityActivation?(
+    listener: (
+      targetId: string,
+      input: PatchMapAccessibilityActivationInput,
+    ) => void,
+  ): () => void;
+  cancelViewportGestures?(): void;
+  select(ids: readonly string[]): void;
+  setAccessibilityTree?(
+    nodes: readonly PatchMapAccessibilityRenderNode[],
+  ): PatchMapAccessibilitySurfaceProbe | undefined;
+  focusAccessibilityTarget?(targetId: string): boolean;
+  accessibilitySurfaceProbe?(): PatchMapAccessibilitySurfaceProbe | undefined;
+  setReducedMotion?(enabled: boolean): boolean;
+  setSelectionOverlayPolicy?(input: PatchMapSelectionOverlayPolicyInput): boolean;
+  setPresentationPolicy?(
+    input: PatchMapPresentationPolicyInput,
+  ): PatchMapPresentationPolicyProductProbe;
+  clearPresentationPolicy?(): PatchMapPresentationPolicyProductProbe;
+  presentationPolicyProbe?(): PatchMapPresentationPolicyProductProbe;
+  refreshSemanticTargets?(
+    targets: readonly PatchMapSemanticTarget[],
+    options?: Readonly<{ readonly strict?: boolean }>,
+  ): PatchMapSemanticRefreshResult;
+  hitTestScreen(point: PatchMapPoint): string | null;
+  screenToWorld(point: PatchMapPoint): PatchMapPoint;
+  /** Optional allocation-free frame facts for current aggregate surfaces. */
+  frameLoopActiveAnimations?(): number;
+  frameLoopWorkloadSize?(): number;
+  viewportGestureActive?(): boolean;
+  debugSnapshot(): PatchMapSurfaceDebug;
+  /**
+   * View-independent geometry for fit/focus. Implementations may retain this
+   * across pan, zoom, and resize while invalidating screen-space geometry.
+   */
+  worldGeometrySnapshot?(): PatchMapViewportGeometry;
+  geometrySnapshot?(): PatchMapSurfaceGeometrySnapshot;
+  selectionGeometries?(
+    selectionIds: readonly string[],
+  ): readonly PatchMapSurfaceEntityGeometry[];
+  previewIncrementalRoots?(
+    input: unknown,
+    dirtyRootIds: readonly string[],
+  ): PatchMapTransientProjectionResult | null;
+  clearIncrementalPreview?(): PatchMapTransientProjectionResult;
+  queryRegionGeometry?(
+    bounds: PatchMapScreenRegionBounds,
+  ): PatchMapSurfaceRegionGeometryCandidates;
+  sceneImageProbe?(): PatchMapEngineSceneImagesProbe;
+  retrySceneImage?(entityId: string): PatchMapSceneImageRetryResult;
+  componentVisualProbe?(
+    target: PatchMapComponentVisualTarget,
+  ): PatchMapSurfaceComponentVisualProbe | null;
+  barPresentationProbe?(
+    target: PatchMapComponentVisualTarget,
+  ): PatchMapBarPresentationProductProbe | null;
+  paintOrderProbe?(): PatchMapPaintOrderProductProbe;
+  textProbe?(target: PatchMapTextTarget): PatchMapTextProductProbe | null;
+  settleSceneImages?(): Promise<void>;
+  settleSceneImageBindings?(bindingKeys: readonly string[]): Promise<void>;
+  relationHitTestScreen?(
+    point: PatchMapPoint,
+    options?: PatchMapRelationHitOptions,
+  ): PatchMapRelationHit | null;
+  interactionOwnershipProbe?(): PatchMapInteractionOwnershipProbe;
+  pixiPublicSurfaceProbe?(): PatchMapPixiPublicSurfaceProbe;
+  rendererLossProbe?(): PatchMapPixiRendererLossProbe;
+  forceRendererLoss?(): boolean;
+  destroy(): Promise<boolean>;
+}
+
+export interface PatchMapSurfacePrepareResult {
+  readonly storeSyncMs: number;
+  readonly gpuPrepareMs: number;
+}
+
+export type PatchMapEngineSurfaceFactory = (
+  options: PatchMapSurfaceOptions,
+) => Promise<PatchMapEngineSurface>;
+
+export interface PatchMapOptions {
+  readonly surfaceFactory?: PatchMapEngineSurfaceFactory;
+  readonly assetRuntime?: PatchMapAssetRuntime;
+  readonly assetPolicy?: PatchMapAssetPolicy;
+  readonly historyLimit?: number;
+  readonly operations?: PatchMapOperationsAuthority;
+  readonly extractionSecurity?: PatchMapExtractionSecurityAuthority;
+}
+
+export interface PatchMapInitializeOptions {
+  readonly instanceId: string;
+  readonly target?: HTMLElement;
+  readonly canvas?: HTMLCanvasElement;
+  readonly width: number;
+  readonly height: number;
+  readonly pixelRatio?: number;
+  readonly antialias?: boolean;
+  readonly background?: number | string;
+  readonly zoomLimits?: readonly [number, number];
+  readonly strategy?: 'mesh' | 'particle';
+  readonly preference?: 'webgl' | 'webgpu';
+  /** Normative backend request. WebGL1 is an explicit unsupported fixture. */
+  readonly backend?: 'webgl2' | 'webgpu' | 'webgl1';
+  /** Opt-in official PixiJS DevTools Application registration. */
+  readonly devtools?: boolean;
+  readonly powerPreference?: 'high-performance' | 'low-power';
+  readonly requiredAssets?: readonly PatchMapAssetRegistration[];
+}
+
+export interface PatchMapInitializeResult {
+  readonly lifecycle: 'ready-empty' | 'scene-ready';
+  readonly instanceId: string;
+  readonly revisions: PatchMapRevisionStamp;
+  readonly facilities: readonly string[];
+}
+
+export type PatchMapEnginePixiPublicSurfaceProbe = Readonly<
+  PatchMapPixiPublicSurfaceProbe & {
+    readonly lifecycle: PatchMapLifecycle;
+    readonly revisions: PatchMapRevisionStamp;
+    readonly canvasCount: number;
+  }
+>;
+
+export type PatchMapEngineRendererLossProbe = Readonly<
+  PatchMapPixiRendererLossProbe & {
+    readonly revisions: PatchMapRevisionStamp;
+    readonly publishedTuple: PatchMapPublishedTuple;
+    readonly canvasCount: number;
+  }
+>;
+
+export interface PatchMapAggregateRenderOwnerProbe {
+  readonly target: PatchMapComponentVisualTarget;
+  readonly logicalTarget: PatchMapLogicalTargetSnapshot;
+  readonly entityId: string;
+  readonly aggregateRenderOwnerId: `render-owner:${string}/${string}`;
+  readonly rendererKind: PatchMapEntityPaintProbe['rendererKind'] | null;
+  readonly renderLane: PatchMapRenderLaneSnapshot[PatchMapRenderLaneRole] | null;
+  readonly worldBounds: readonly [number, number, number, number];
+  readonly visible: boolean;
+  readonly revisions: PatchMapRevisionStamp;
+  readonly publishedTuple: PatchMapPublishedTuple;
+  readonly frameRevision: number;
+}
+
+export interface PatchMapLoadOptions {
+  readonly datasetRef?: string;
+  /**
+   * Reject dangling relation endpoints before publication. Omitted/false keeps
+   * compatibility projection behavior and reports dangling paths as omitted.
+   */
+  readonly strict?: boolean;
+}
+
+export interface PatchMapEngineLoadResult {
+  readonly lifecycle: 'ready-empty' | 'scene-ready';
+  readonly sceneRevision: number;
+  readonly semanticHash: string;
+  readonly rootIds: readonly string[];
+}
+
+export type PatchMapEnginePrepareResult = Readonly<
+  | {
+      readonly status: 'prepared';
+      readonly storeSyncMs: number;
+      readonly gpuPrepareMs: number;
+      readonly revisions: PatchMapRevisionStamp;
+      readonly publishedTuple: PatchMapPublishedTuple;
+    }
+  | {
+      readonly status: 'unsupported';
+      readonly storeSyncMs: null;
+      readonly gpuPrepareMs: null;
+      readonly revisions: PatchMapRevisionStamp;
+      readonly publishedTuple: PatchMapPublishedTuple;
+    }
+>;
+
+/**
+ * Detached immutable query result. The private Engine registry, not these
+ * public fields, authorizes later mutation use.
+ */
+export interface PatchMapResolvedTargetSnapshot {
+  readonly target: PatchMapMutationTarget;
+  readonly lifecycleGeneration: number;
+  readonly sceneRevision: number;
+  readonly value: Readonly<Record<string, unknown>>;
+}
+
+export interface PatchMapEngineQueryResult {
+  readonly schemaRevision: typeof PATCH_MAP_QUERY_SELECTION_REVISION;
+  readonly status: 'matched' | 'empty' | 'rejected';
+  readonly code: 'CONFLICT' | null;
+  readonly lifecycleGeneration: number;
+  readonly sceneRevision: number;
+  readonly targets: readonly PatchMapLogicalTargetSnapshot[];
+}
+
+export type PatchMapEngineQueryReuseResult =
+  | Readonly<{
+      readonly status: 'accepted';
+      readonly code: null;
+      readonly operation: PatchMapQueryReuseOperation;
+      readonly appliedCount: number;
+      readonly targets: readonly PatchMapLogicalTargetSnapshot[];
+    }>
+  | Readonly<{
+      readonly status: 'rejected';
+      readonly code: 'STALE_TARGET';
+      readonly operation: PatchMapQueryReuseOperation;
+      readonly appliedCount: 0;
+      readonly targets: readonly PatchMapLogicalTargetSnapshot[];
+    }>;
+
+export interface PatchMapEngineSelectionHit extends PatchMapSelectionHit {
+  readonly worldPoint: PatchMapPoint;
+}
+
+export interface PatchMapEnginePointSelectionResult extends PatchMapEngineSelectionHit {
+  readonly change: PatchMapSelectionChange;
+}
+
+export interface PatchMapExternalSelectionResult {
+  readonly requestedIds: readonly string[];
+  readonly missingIds: readonly string[];
+  readonly change: PatchMapSelectionChange;
+}
+
+export type PatchMapCommandTargetStatusResult =
+  | Readonly<{
+      readonly status: 'applied';
+      readonly code: null;
+      readonly state: PatchMapCommandTargetState;
+    }>
+  | Readonly<{
+      readonly status: 'rejected';
+      readonly code: 'MISSING_TARGET' | 'STALE_TARGET';
+      readonly state: PatchMapCommandTargetState;
+    }>;
+
+export interface PatchMapEngineRelationEndpointSelectionResult
+  extends PatchMapRelationEndpointResolution {
+  readonly change: PatchMapSelectionChange;
+}
+
+export interface PatchMapEngineRegionSelectionOptions
+  extends PatchMapSelectionEligibilityOptions {
+  readonly mode?: 'replace' | 'add' | 'toggle';
+  readonly commit?: boolean;
+  readonly partialIntersection?: boolean;
+  readonly toleranceCssPx?: number;
+}
+
+export interface PatchMapEngineRegionSelectionResult {
+  readonly schemaRevision: typeof PATCH_MAP_POINTER_GESTURE_REVISION;
+  readonly targets: readonly PatchMapLogicalTargetSnapshot[];
+  readonly candidateIds: readonly string[];
+  readonly filteredIds: readonly string[];
+  readonly lockedIds: readonly string[];
+  readonly relationIds: readonly string[];
+  readonly duplicateCount: number;
+  readonly nonFiniteCount: number;
+  readonly liveChangeCount: number;
+  readonly strokeCssPx: 1;
+  readonly change: PatchMapSelectionChange | null;
+}
+
+export interface PatchMapEngineTransactionHistory {
+  readonly recorded: boolean;
+  readonly commandId: string | null;
+  readonly depthDelta: number;
+  readonly state: PatchMapHistoryState;
+}
+
+export interface PatchMapEngineTransactionPerformanceProbe {
+  readonly transactionPlanMs: number;
+  readonly preReconcileMs: number;
+  readonly reconcileMs: number;
+  readonly postReconcileMs: number;
+  readonly totalMs: number;
+  readonly surfaceTimings: PatchMapReconcileTimings | null;
+}
+
+interface PatchMapEngineTransactionResultBase {
+  readonly changed: boolean;
+  readonly actionId: string | null;
+  readonly previousRevisions: PatchMapRevisionStamp;
+  readonly revisions: PatchMapRevisionStamp;
+  readonly semanticHash: string | null;
+  readonly applied: readonly PatchMapMutationTarget[];
+  readonly missing: readonly PatchMapMutationTarget[];
+  readonly unchanged: readonly PatchMapMutationTarget[];
+  readonly history: PatchMapEngineTransactionHistory;
+}
+
+export type PatchMapEngineTransactionResult =
+  | Readonly<PatchMapEngineTransactionResultBase & {
+      readonly status: 'committed';
+      readonly changed: true;
+      readonly publication: 'pending';
+      readonly denseOperationCount: number;
+      readonly denseChanged: boolean;
+      readonly reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[];
+    }>
+  | Readonly<PatchMapEngineTransactionResultBase & {
+      readonly status: 'unchanged';
+      readonly changed: false;
+    }>
+  | Readonly<PatchMapEngineTransactionResultBase & {
+      readonly status: 'rejected';
+      readonly changed: false;
+      readonly diagnostic: PatchMapEngineDiagnostic;
+      readonly transactionDiagnostic?: PatchMapMutationTransactionDiagnostic;
+    }>
+  | Readonly<PatchMapEngineTransactionResultBase & {
+      readonly status: 'refused';
+      readonly changed: false;
+      readonly diagnostic: PatchMapEngineDiagnostic;
+      readonly reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[];
+    }>;
+
+export interface PatchMapEngineAuthoringResult {
+  readonly schemaRevision: typeof PATCH_MAP_AUTHORING_REVISION;
+  readonly actionType: PatchMapAuthoringActionType | null;
+  readonly status: 'committed' | 'unchanged' | 'rejected' | 'refused';
+  readonly changed: boolean;
+  readonly code: string | null;
+  readonly plan: PatchMapAuthoringPlan;
+  readonly facts: PatchMapAuthoringFacts;
+  readonly transaction: PatchMapEngineTransactionResult | null;
+  readonly diagnostic: PatchMapAuthoringDiagnostic | PatchMapEngineDiagnostic | null;
+  readonly history: PatchMapHistoryState;
+}
+
+export interface PatchMapEngineHostAssetIngestionResult {
+  readonly schemaRevision: typeof PATCH_MAP_HOST_ASSET_INGESTION_REVISION;
+  readonly status:
+    | 'committed'
+    | 'unchanged'
+    | 'ignored'
+    | 'failed'
+    | 'rejected'
+    | 'refused';
+  readonly changed: boolean;
+  readonly code: string | null;
+  readonly createdTextId: string | null;
+  readonly createdImageIds: readonly string[];
+  readonly plan: PatchMapHostAssetIngestionPlan;
+  readonly transaction: PatchMapEngineTransactionResult | null;
+  readonly probe: PatchMapHostAssetIngestionProbe;
+}
+
+export interface PatchMapEngineEditorWorkflowResult {
+  readonly schemaRevision: typeof PATCH_MAP_EDITOR_WORKFLOW_REVISION;
+  readonly actionType: PatchMapEditorWorkflowAction['type'];
+  readonly status: 'committed' | 'unchanged' | 'rejected' | 'refused';
+  readonly changed: boolean;
+  readonly code: string | null;
+  readonly plan: PatchMapEditorWorkflowPlan;
+  readonly facts: PatchMapEditorWorkflowFacts;
+  readonly transaction: PatchMapEngineTransactionResult | null;
+  readonly diagnostic: PatchMapEditorWorkflowDiagnostic | PatchMapEngineDiagnostic | null;
+  readonly history: PatchMapHistoryState;
+  readonly selectionIds: readonly string[];
+  readonly probe: PatchMapEditorWorkflowProbe;
+}
+
+export interface PatchMapEngineEditorMutationMatrixInput {
+  readonly mutationKinds: readonly PatchMapEditorMutationKind[];
+  readonly oneActionEach: true;
+  readonly companion: PatchMapMutationJsonValue;
+}
+
+export interface PatchMapEngineEditorMutationMatrixResult {
+  readonly schemaRevision: typeof PATCH_MAP_EDITOR_WORKFLOW_REVISION;
+  readonly status: 'committed' | 'rejected' | 'refused';
+  readonly changed: boolean;
+  readonly code: string | null;
+  readonly requestedCount: number;
+  readonly executedCount: number;
+  readonly transactions: readonly PatchMapEngineTransactionResult[];
+  readonly history: PatchMapHistoryState;
+  readonly companionRestored: boolean;
+}
+
+interface PatchMapEnginePatchResultBase {
+  readonly changed: boolean;
+  readonly target: PatchMapSemanticTarget | null;
+  readonly previousRevisions: PatchMapRevisionStamp;
+  readonly revisions: PatchMapRevisionStamp;
+  readonly semanticHash: string | null;
+  readonly applied: readonly PatchMapSemanticTarget[];
+  readonly missing: readonly PatchMapSemanticTarget[];
+  readonly unchanged: readonly PatchMapSemanticTarget[];
+}
+
+export type PatchMapEnginePatchResult =
+  | Readonly<PatchMapEnginePatchResultBase & {
+      readonly status: 'committed';
+      readonly changed: true;
+      readonly target: PatchMapSemanticTarget;
+      readonly publication: 'pending';
+      readonly denseOperationCount: number;
+      readonly denseChanged: boolean;
+      readonly reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[];
+    }>
+  | Readonly<PatchMapEnginePatchResultBase & {
+      readonly status: 'unchanged';
+      readonly changed: false;
+      readonly target: PatchMapSemanticTarget;
+    }>
+  | Readonly<PatchMapEnginePatchResultBase & {
+      readonly status: 'rejected';
+      readonly changed: false;
+      readonly diagnostic: PatchMapEngineDiagnostic;
+      readonly mutationDiagnostic?: PatchMapSemanticMutationDiagnostic;
+    }>
+  | Readonly<PatchMapEnginePatchResultBase & {
+      readonly status: 'refused';
+      readonly changed: false;
+      readonly target: PatchMapSemanticTarget;
+      readonly diagnostic: PatchMapEngineDiagnostic;
+      readonly reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[];
+    }>;
+
+interface PatchMapEngineDestroyTargetResultBase {
+  readonly changed: boolean;
+  readonly target: PatchMapSemanticTarget | null;
+  readonly previousRevisions: PatchMapRevisionStamp;
+  readonly revisions: PatchMapRevisionStamp;
+  readonly semanticHash: string | null;
+  readonly applied: readonly PatchMapSemanticTarget[];
+  readonly missing: readonly PatchMapSemanticTarget[];
+  readonly unchanged: readonly PatchMapSemanticTarget[];
+}
+
+export type PatchMapEngineDestroyTargetResult =
+  | Readonly<PatchMapEngineDestroyTargetResultBase & {
+      readonly status: 'committed';
+      readonly changed: true;
+      readonly target: Extract<PatchMapSemanticTarget, { readonly kind: 'element' }>;
+      readonly publication: 'pending';
+      readonly denseOperationCount: number;
+      readonly denseChanged: boolean;
+      readonly reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[];
+    }>
+  | Readonly<PatchMapEngineDestroyTargetResultBase & {
+      readonly status: 'rejected';
+      readonly changed: false;
+      readonly diagnostic: PatchMapEngineDiagnostic;
+      readonly mutationDiagnostic: PatchMapSemanticMutationDiagnostic;
+    }>
+  | Readonly<PatchMapEngineDestroyTargetResultBase & {
+      readonly status: 'refused';
+      readonly changed: false;
+      readonly target: Extract<PatchMapSemanticTarget, { readonly kind: 'element' }>;
+      readonly diagnostic: PatchMapEngineDiagnostic;
+      readonly reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[];
+    }>;
+
+export interface PatchMapDatasetSubmission {
+  readonly requestId: string;
+  readonly datasetRef?: string;
+  readonly sourceRevision?: number;
+  readonly input: Promise<unknown>;
+  /** Per-request temporary-resource disposer; invoked exactly once. */
+  readonly release?: (
+    result: PatchMapDatasetSubmissionResult,
+  ) => void | Promise<void>;
+}
+
+export type PatchMapDatasetSubmissionResult =
+  | Readonly<{
+      status: 'committed';
+      requestId: string;
+      sourceRevision?: number;
+      sceneRevision: number;
+      semanticHash: string;
+    }>
+  | Readonly<{
+      status: 'superseded';
+      requestId: string;
+      sourceRevision?: number;
+      diagnostic: PatchMapEngineDiagnostic;
+    }>
+  | Readonly<{
+      status: 'rejected';
+      requestId: string;
+      sourceRevision?: number;
+      diagnostic: PatchMapEngineDiagnostic;
+    }>;
+
+export interface PatchMapEnginePresentationResult {
+  readonly changed: boolean;
+  readonly publication: 'pending' | 'current';
+  readonly previousRevisions: PatchMapRevisionStamp;
+  readonly revisions: PatchMapRevisionStamp;
+  readonly policy: PatchMapPresentationPolicyProductProbe;
+}
+
+export interface PatchMapLiveOverlayTuple {
+  readonly sourceRevision: number;
+  readonly payloadHash: string;
+  readonly sceneRevision: number;
+}
+
+export interface PatchMapLiveOverlayPublishedTuple extends PatchMapLiveOverlayTuple {
+  readonly frameRevision: number;
+}
+
+export interface PatchMapLiveOverlayInput {
+  readonly sourceRevision: number;
+  readonly payloadHash: string;
+  readonly transaction: PatchMapMutationTransactionRequest;
+}
+
+export type PatchMapLiveOverlayResult =
+  | Readonly<{
+      readonly status: 'accepted';
+      readonly changed: boolean;
+      readonly publication: 'pending';
+      readonly tuple: PatchMapLiveOverlayTuple;
+      readonly transaction: PatchMapEngineTransactionResult;
+    }>
+  | Readonly<{
+      readonly status: 'superseded' | 'rejected';
+      readonly changed: false;
+      readonly sourceRevision: number;
+      readonly payloadHash: string;
+      readonly diagnostic: PatchMapEngineDiagnostic;
+      readonly transaction?: PatchMapEngineTransactionResult;
+    }>;
+
+export interface PatchMapLiveOverlayProbe {
+  readonly latestAccepted: PatchMapLiveOverlayTuple | null;
+  readonly latestPublished: PatchMapLiveOverlayPublishedTuple | null;
+  readonly pendingPublicationCount: 0 | 1;
+  readonly acceptedCount: number;
+  readonly publicationCount: number;
+}
+
+export interface PatchMapSemanticRefreshInput {
+  readonly targets: readonly PatchMapSemanticTarget[];
+  readonly strict?: boolean;
+  readonly recordHistory?: boolean;
+}
+
+export type PatchMapEngineSemanticRefreshResult =
+  | Readonly<{
+      readonly status: 'committed';
+      readonly changed: true;
+      readonly publication: 'pending';
+      readonly previousRevisions: PatchMapRevisionStamp;
+      readonly revisions: PatchMapRevisionStamp;
+      readonly recomputedTargets: readonly string[];
+      readonly missingTargets: readonly string[];
+      readonly dirtyRanges: readonly SlotRange[];
+      readonly dataDiffCount: 0;
+      readonly history: PatchMapHistoryState;
+      readonly selectionIds: readonly string[];
+    }>
+  | Readonly<{
+      readonly status: 'unchanged' | 'rejected';
+      readonly changed: false;
+      readonly previousRevisions: PatchMapRevisionStamp;
+      readonly revisions: PatchMapRevisionStamp;
+      readonly recomputedTargets: readonly string[];
+      readonly missingTargets: readonly string[];
+      readonly dirtyRanges: readonly SlotRange[];
+      readonly dataDiffCount: 0;
+      readonly history: PatchMapHistoryState;
+      readonly selectionIds: readonly string[];
+      readonly diagnostic?: PatchMapEngineDiagnostic;
+    }>;
+
+export interface PatchMapExternalDependencyResult {
+  readonly changed: boolean;
+  readonly dependencyId: string;
+  readonly previousRevision: string | null;
+  readonly revision: string;
+}
+
+export interface PatchMapEngineSnapshot {
+  readonly lifecycle: PatchMapLifecycle;
+  readonly instanceId: string | null;
+  readonly revisions: PatchMapRevisionStamp;
+  readonly publishedTuple: PatchMapPublishedTuple;
+  readonly frameRevision: number;
+  readonly datasetRef: string | null;
+  readonly semanticHash: string | null;
+  readonly rootIds: readonly string[];
+  readonly historyDepth: number;
+  readonly pendingWork: number;
+  readonly zoomLimits: readonly [number, number];
+  readonly viewport: PatchMapViewportState;
+  readonly selectionIds: readonly string[];
+  readonly facilities: readonly string[];
+  readonly resources: Readonly<{
+    canvasCount: number;
+    canvas: Readonly<{
+      cssSize: readonly [number, number];
+      backingSize: readonly [number, number];
+    }>;
+    renderer: Readonly<{
+      resolution: number;
+      antialias: boolean;
+      background: string;
+      backend: 'webgl' | 'webgpu';
+    }> | null;
+    rendering: Readonly<{
+      commandCount: number | null;
+      visiblePrimitiveCount: number | null;
+    }>;
+    assets: PatchMapAssetSessionProbe | null;
+    subscriptions: Readonly<{ active: number; duplicates: 0 }>;
+  }>;
+}
+
+export type PatchMapEngineHistoryResult =
+  | Readonly<{
+      readonly status: 'committed';
+      readonly changed: true;
+      readonly direction: PatchMapHistoryDirection;
+      readonly actionId: string;
+      readonly recordCount: number;
+      readonly previousRevisions: PatchMapRevisionStamp;
+      readonly revisions: PatchMapRevisionStamp;
+      readonly sceneRevision: number;
+      readonly semanticHash: string;
+      readonly publication: 'pending';
+      readonly history: PatchMapHistoryState;
+    }>
+  | Readonly<{
+      readonly status: 'unavailable';
+      readonly changed: false;
+      readonly direction: PatchMapHistoryDirection;
+      readonly previousRevisions: PatchMapRevisionStamp;
+      readonly revisions: PatchMapRevisionStamp;
+      readonly sceneRevision: number;
+      readonly semanticHash: string | null;
+      readonly history: PatchMapHistoryState;
+    }>
+  | Readonly<{
+      readonly status: 'refused';
+      readonly changed: false;
+      readonly direction: PatchMapHistoryDirection;
+      readonly previousRevisions: PatchMapRevisionStamp;
+      readonly revisions: PatchMapRevisionStamp;
+      readonly sceneRevision: number;
+      readonly semanticHash: string | null;
+      readonly diagnostic: PatchMapEngineDiagnostic;
+      readonly reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[];
+      readonly history: PatchMapHistoryState;
+    }>;
+
+export interface PatchMapEngineHistoryCompanionState {
+  readonly selectionIds: readonly string[];
+  readonly mode: PatchMapInteractionMode;
+  /** Detached host-authored JSON restored atomically with Engine state. */
+  readonly hostCompanion: PatchMapMutationJsonValue | null;
+}
+
+export type PatchMapEngineHistoryCapacityResult =
+  | Readonly<{
+      readonly status: 'committed';
+      readonly changed: boolean;
+      readonly code: null;
+      readonly change: PatchMapHistoryCapacityChange;
+    }>
+  | Readonly<{
+      readonly status: 'rejected';
+      readonly changed: false;
+      readonly code: 'INVALID_VALUE';
+      readonly capacity: number;
+      readonly history: PatchMapHistoryState;
+    }>;
+
+export interface PatchMapEngineHistoryClearResult {
+  readonly changed: boolean;
+  readonly reason: 'host' | 'replace' | 'destroy';
+  readonly history: PatchMapHistoryState;
+}
+
+export interface PatchMapHistoryShortcutInput {
+  readonly key: string;
+  readonly code?: string;
+  readonly ctrlKey: boolean;
+  readonly metaKey: boolean;
+  readonly shiftKey: boolean;
+  readonly pathKind: string;
+}
+
+export interface PatchMapHistoryShortcutResult {
+  readonly action: PatchMapHistoryDirection | null;
+  readonly handled: boolean;
+  readonly preventDefault: boolean;
+  readonly result: PatchMapEngineHistoryResult | null;
+}
+
+export interface PatchMapEngineHistoryRestoredEvent {
+  readonly direction: PatchMapHistoryDirection;
+  readonly sceneRevision: number;
+  readonly selectionIds: readonly string[];
+  readonly mode: PatchMapInteractionMode;
+  readonly publication: 'pending';
+}
+
+export interface PatchMapEngineHistoryVisibleEvent {
+  readonly direction: PatchMapHistoryDirection;
+  readonly sceneRevision: number;
+  readonly frameRevision: number;
+  readonly publication: 'published';
+}
+
+export interface PatchMapEngineTransformerEditOptions {
+  readonly actionId?: string;
+  readonly recordHistory?: boolean;
+}
+
+export interface PatchMapEngineTransformerEditResult {
+  readonly schemaRevision: typeof PATCH_MAP_TRANSFORMER_EDIT_REVISION;
+  readonly status: PatchMapTransformerEditPlan['status'] | PatchMapEngineTransactionResult['status'];
+  readonly changed: boolean;
+  readonly plan: PatchMapTransformerEditPlan;
+  readonly transaction: PatchMapEngineTransactionResult | null;
+  readonly historyDepthDelta: number;
+}
+
+export interface PatchMapEngineTransformerSessionBeginInput {
+  readonly pointerId: number;
+  readonly actionId: string;
+  readonly kind: PatchMapTransformerEditKind;
+  readonly handle: PatchMapTransformerHandle;
+  readonly selectionIds?: readonly string[];
+}
+
+export interface PatchMapEngineTransformerSessionProbe {
+  readonly schemaRevision: typeof PATCH_MAP_TRANSFORMER_EDIT_REVISION;
+  readonly activeSessionCount: 0 | 1;
+  readonly activePointerId: number | null;
+  readonly activeKind: PatchMapTransformerEditKind | null;
+  readonly activeActionId: string | null;
+  readonly previewCount: number;
+  readonly committedMutationCount: number;
+  readonly cancelledSessionCount: number;
+  readonly staleCompletionCount: number;
+  readonly previewOverlayCount: 0 | 1;
+  readonly edgePanActiveCount: 0;
+}
+
+export interface PatchMapEngineTransformerPreviewResult {
+  readonly status: 'previewed' | 'unchanged' | 'rejected' | 'refused';
+  readonly changed: boolean;
+  readonly plan: PatchMapTransformerEditPlan;
+  readonly reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[];
+  readonly probe: PatchMapEngineTransformerSessionProbe;
+}
+
+export interface PatchMapEngineTransformerCompletionResult {
+  readonly status: 'committed' | 'unchanged' | 'refused' | 'stale';
+  readonly changed: boolean;
+  readonly mutationCount: 0 | 1;
+  readonly historyDepthDelta: 0 | 1;
+  readonly transaction: PatchMapEngineTransactionResult | null;
+  readonly gesture: ReturnType<PatchMap['completeTransformerHandleGesture']> | null;
+  readonly probe: PatchMapEngineTransformerSessionProbe;
+}
+
+export interface PatchMapEngineTransformerCancelResult {
+  readonly status: 'cancelled' | 'stale';
+  readonly cancelled: boolean;
+  readonly reason: PatchMapGestureCancelReason;
+  readonly historyDepthDelta: 0;
+  readonly gesture: ReturnType<PatchMap['cancelTransformerHandleGesture']> | null;
+  readonly probe: PatchMapEngineTransformerSessionProbe;
+}
+
+export interface PatchMapEngineTransformerEdgePanResult extends PatchMapEdgeAutoPanResult {
+  readonly policyRestored: true;
+  readonly edgePanActiveCount: 0;
+}
+
+type PatchMapEngineEventMap = {
+  readonly ready: PatchMapInitializeResult;
+  readonly sceneCommitted: PatchMapEngineLoadResult;
+  readonly drawComplete: Readonly<{
+    requestId: string;
+    sourceRevision?: number;
+    sceneRevision: number;
+    semanticHash: string;
+    datasetRef: string | null;
+  }>;
+  readonly frame: Readonly<{
+    frameRevision: number;
+    publishedTuple: PatchMapPublishedTuple;
+  }>;
+  readonly viewChanged: PatchMapViewportChangeResult;
+  readonly viewSettled: PatchMapViewportSettleResult;
+  readonly viewportPolicyChanged: PatchMapViewportPolicyProbe;
+  readonly documentVisibilityChanged: PatchMapEngineDocumentVisibilityResult;
+  readonly presentationChanged: PatchMapEnginePresentationResult;
+  readonly overlayAccepted: PatchMapLiveOverlayTuple;
+  readonly overlayPublished: PatchMapLiveOverlayPublishedTuple;
+  readonly semanticRefreshed: Extract<
+    PatchMapEngineSemanticRefreshResult,
+    { readonly status: 'committed' }
+  >;
+  readonly pointerEvent: PatchMapSemanticPointerEvent;
+  readonly selectionChanged: PatchMapSelectionChange;
+  readonly change:
+    | Extract<PatchMapEnginePatchResult, { readonly status: 'committed' }>
+    | Extract<PatchMapEngineTransactionResult, { readonly status: 'committed' }>;
+  readonly targetDestroyed: Extract<
+    PatchMapEngineDestroyTargetResult,
+    { readonly status: 'committed' }
+  >;
+  readonly historyUndone: Extract<PatchMapEngineHistoryResult, { readonly status: 'committed' }>;
+  readonly historyRedone: Extract<PatchMapEngineHistoryResult, { readonly status: 'committed' }>;
+  readonly semanticRestored: PatchMapEngineHistoryRestoredEvent;
+  readonly selectionReconciled: PatchMapEngineHistoryRestoredEvent;
+  readonly historyVisible: PatchMapEngineHistoryVisibleEvent;
+  readonly historyCleared: PatchMapEngineHistoryClearResult;
+  readonly diagnostic: PatchMapEngineDiagnostic;
+  readonly destroyed: Readonly<{ lifecycleGeneration: number }>;
+};
+
+type PatchMapEngineEvent = keyof PatchMapEngineEventMap;
+type PatchMapEngineListener<K extends PatchMapEngineEvent> = (event: PatchMapEngineEventMap[K]) => void;
+
+const DEFAULT_ZOOM_LIMITS = Object.freeze([0.5, 30] as const);
+const EMPTY_MATERIALIZED_DATASET = materializePatchMapDataset([]);
+const PATCH_MAP_QUERY_REUSE_OPERATIONS = Object.freeze([
+  'update',
+  'event-bind',
+  'focus',
+  'transform',
+  'select',
+] as const satisfies readonly PatchMapQueryReuseOperation[]);
+const FACILITIES = Object.freeze([
+  'renderer',
+  'viewport',
+  'world',
+  'state',
+  'history',
+  'resize',
+  'assets',
+] as const);
+
+interface IndexedEngineTextSemantic {
+  readonly probe: PatchMapEngineTextSemanticProbe;
+  readonly gridTemplate: boolean;
+}
+
+interface PatchMapResolvedTargetAuthority {
+  readonly target: PatchMapMutationTarget;
+  readonly lifecycleGeneration: number;
+  readonly sceneRevision: number;
+}
+
+interface PatchMapQueryResultAuthority {
+  readonly lifecycleGeneration: number;
+  readonly sceneRevision: number;
+  readonly targets: readonly PatchMapLogicalTargetSnapshot[];
+}
+
+type PatchMapEngineHistoryCompanion = PatchMapEngineHistoryCompanionState;
+type PatchMapEngineHistoryTransition = PatchMapHistoryTransition<
+  readonly NormalizedPatchMapElement[],
+  PatchMapEngineHistoryCompanion
+>;
+
+interface PreparedPatchMapEngineLoad {
+  readonly materialized: MaterializedPatchMapDataset;
+  readonly componentSemantics: Map<string, PatchMapEngineComponentSemanticProbe>;
+  readonly textSemantics: Map<string, IndexedEngineTextSemantic>;
+}
+
+interface ActivePatchMapTransformerEdit {
+  readonly pointerId: number;
+  readonly actionId: string;
+  readonly kind: PatchMapTransformerEditKind;
+  readonly handle: PatchMapTransformerHandle;
+  readonly selectionIds: readonly string[];
+  readonly startMaterialized: MaterializedPatchMapDataset;
+  readonly startSelectionIds: readonly string[];
+  readonly historyDepthBefore: number;
+  readonly previewCountBefore: number;
+  readonly latestPlan: PatchMapTransformerEditPlan | null;
+  readonly latestMutationPlan: PatchMapMutationTransactionPlan | null;
+  readonly previewMaterialized: MaterializedPatchMapDataset | null;
+  readonly transientPreview: boolean;
+}
+
+export class PatchMap {
+  private readonly surfaceFactory: PatchMapEngineSurfaceFactory;
+  private readonly assetRuntime: PatchMapAssetRuntime;
+  private readonly assetPolicy: PatchMapAssetPolicy | undefined;
+  private readonly operations: PatchMapOperationsAuthority;
+  private readonly extractionSecurity: PatchMapExtractionSecurityAuthority;
+  private readonly history: PatchMapSemanticHistory<
+    readonly NormalizedPatchMapElement[],
+    PatchMapEngineHistoryCompanion
+  >;
+  private readonly hostInteractions: PatchMapHostInteractionAuthority;
+  private readonly hostAssetIngestion = new PatchMapHostAssetIngestionAuthority();
+  private readonly editorWorkflows = new PatchMapEditorWorkflowAuthority();
+  private readonly pageLifecycle = new PatchMapPageLifecycleAuthority();
+  private readonly accessibility = new PatchMapAccessibilityAuthority();
+  private readonly transformerGestures = new PatchMapTransformerGestureAuthority();
+  private activeTransformerEdit: ActivePatchMapTransformerEdit | null = null;
+  private transformerEditPreviewCount = 0;
+  private transformerEditCommittedMutationCount = 0;
+  private transformerEditCancelledSessionCount = 0;
+  private transformerEditStaleCompletionCount = 0;
+  private pendingTransactionPlanMs = 0;
+  private lastTransactionPerformance: PatchMapEngineTransactionPerformanceProbe | null = null;
+  private readonly listeners = new Map<PatchMapEngineEvent, Set<(event: unknown) => void>>();
+  private lifecycle: PatchMapLifecycle = 'new';
+  private surface: PatchMapEngineSurface | null = null;
+  private frameLoop: PatchMapFrameLoop | null = null;
+  private frameLoopPausedForVisibility = false;
+  private frameClockMs = 0;
+  private retainedCleanupSurface: PatchMapEngineSurface | null = null;
+  private authoritativeCanvas: HTMLCanvasElement | null = null;
+  private terminalRendererLossProbe: PatchMapPixiRendererLossProbe | null = null;
+  private initializePromise: Promise<PatchMapInitializeResult> | null = null;
+  private instanceId: string | null = null;
+  private materialized: MaterializedPatchMapDataset | null = null;
+  private readonly resolvedTargetAuthorities = new WeakMap<
+    PatchMapResolvedTargetSnapshot,
+    PatchMapResolvedTargetAuthority
+  >();
+  private readonly queryResultAuthorities = new WeakMap<
+    PatchMapEngineQueryResult,
+    PatchMapQueryResultAuthority
+  >();
+  private readonly commandTargetAuthorities = new WeakMap<
+    PatchMapCommandTargetState,
+    Readonly<{
+      readonly lifecycleGeneration: number;
+      readonly targetIds: readonly string[];
+    }>
+  >();
+  private logicalSceneIndexCache: Readonly<{
+    readonly materialized: MaterializedPatchMapDataset;
+    readonly index: PatchMapLogicalSceneIndex;
+  }> | null = null;
+  private defaultViewportContributorsCache: Readonly<{
+    readonly dataset: readonly NormalizedPatchMapElement[];
+    readonly geometry: PatchMapViewportGeometry;
+    readonly result: PatchMapViewportContributorResult;
+  }> | null = null;
+  private readonly logicalSceneIndexesByMaterialized =
+    new WeakMap<MaterializedPatchMapDataset, PatchMapLogicalSceneIndex>();
+  private readonly logicalSelectionIndexesByMaterialized =
+    new WeakMap<MaterializedPatchMapDataset, PatchMapLogicalSceneIndex>();
+  private componentSemantics = new Map<string, PatchMapEngineComponentSemanticProbe>();
+  private textSemantics = new Map<string, IndexedEngineTextSemantic>();
+  private logicalSelectionIds: readonly string[] = Object.freeze([]);
+  private historyHostCompanion: PatchMapMutationJsonValue | null = null;
+  private pendingHistoryPublications: readonly Readonly<{
+    readonly direction: PatchMapHistoryDirection;
+    readonly sceneRevision: number;
+  }>[] = Object.freeze([]);
+  private datasetRef: string | null = null;
+  private lifecycleGeneration = 0;
+  private targetLifecycleGeneration = 0;
+  private sceneRevision = 0;
+  private viewRevision = 0;
+  private interactionRevision = 0;
+  private frameRevision = 0;
+  private publishedTuple: PatchMapPublishedTuple = Object.freeze({ scene: 0, view: 0, interaction: 0 });
+  private geometryRevisionCorrelation: Readonly<{
+    readonly surfaceRevision: number;
+    readonly representedRevisions: PatchMapGeometryRevisionTuple;
+  }> | null = null;
+  private zoomLimits: readonly [number, number] = DEFAULT_ZOOM_LIMITS;
+  private rendererConfiguration: Readonly<{
+    resolution: number;
+    antialias: boolean;
+    background: string;
+    backend: 'webgl' | 'webgpu';
+  }> | null = null;
+  private submissionSequence = 0;
+  private loadSequence = 0;
+  private pendingWork = 0;
+  private latestOverlayAccepted: PatchMapLiveOverlayTuple | null = null;
+  private latestOverlayPublished: PatchMapLiveOverlayPublishedTuple | null = null;
+  private pendingOverlayPublication: PatchMapLiveOverlayTuple | null = null;
+  private overlayAcceptedCount = 0;
+  private overlayPublicationCount = 0;
+  private readonly externalDependencyRevisions = new Map<string, string>();
+  private viewportWidth = 0;
+  private viewportHeight = 0;
+  private viewportPixelRatio = 1;
+  private viewportCenterWorld: readonly [number, number] = Object.freeze([0, 0]);
+  private viewportScale = 1;
+  private viewportPolicyRegistry = new Set<PatchMapViewportPolicy>(
+    PATCH_MAP_DEFAULT_VIEWPORT_POLICIES,
+  );
+  private viewportPolicyEnabled = new Set<PatchMapViewportPolicy>(
+    PATCH_MAP_DEFAULT_VIEWPORT_POLICIES,
+  );
+  private viewportTemporaryPolicies: Readonly<{
+    readonly registry: readonly PatchMapViewportPolicy[];
+    readonly enabled: readonly PatchMapViewportPolicy[];
+  }> | null = null;
+  private viewportMotion: Readonly<{
+    readonly velocityX: number;
+    readonly velocityY: number;
+  }> | null = null;
+  private lastSettledViewportKey: string | null = null;
+  private lastSerializedViewportKey: string | null = null;
+  private lastSerializedViewport: PatchMapSerializedViewportState | null = null;
+  private viewportSettledPublicationCount = 0;
+  private viewportPersistenceWriteCount = 0;
+  private viewportSuppressedEquivalentSaveCount = 0;
+  private surfaceViewportInputUnbind: (() => void) | null = null;
+  private surfacePointerInputUnbind: (() => void) | null = null;
+  private surfaceAccessibilityActivationUnbind: (() => void) | null = null;
+  private pointerGestureAuthority: PatchMapPointerGestureAuthority | null = null;
+  private worldRotationDegrees = 0;
+  private worldFlipX = false;
+  private worldFlipY = false;
+  private viewportPointerTransformRevision = 0;
+  private viewportResizePolicyApplicationCount = 0;
+  private viewportBlackFrameCount = 0;
+  private viewportResizePendingFrame = false;
+  private assetSession: PatchMapAssetSession | null = null;
+  private requiredAssetAcquisitions: PatchMapAssetAcquisition[] = [];
+
+  public constructor(options: PatchMapOptions = {}) {
+    this.surfaceFactory = options.surfaceFactory ?? createPixiSurface;
+    this.assetRuntime = options.assetRuntime ?? PATCH_MAP_ASSET_RUNTIME;
+    this.assetPolicy = options.assetPolicy;
+    this.operations = options.operations ?? new PatchMapOperationsAuthority();
+    this.extractionSecurity = options.extractionSecurity
+      ?? new PatchMapExtractionSecurityAuthority();
+    this.history = new PatchMapSemanticHistory({
+      ...(options.historyLimit === undefined ? {} : { capacity: options.historyLimit }),
+    });
+    this.hostInteractions = new PatchMapHostInteractionAuthority({
+      queryTargets: (query) => {
+        const evaluated = this.logicalSceneIndex().query(query);
+        return evaluated.status === 'rejected' ? Object.freeze([]) : evaluated.targets;
+      },
+    });
+  }
+
+  public on<K extends PatchMapEngineEvent>(event: K, listener: PatchMapEngineListener<K>): () => void {
+    const listeners = this.listeners.get(event) ?? new Set<(event: unknown) => void>();
+    listeners.add(listener as (event: unknown) => void);
+    this.listeners.set(event, listeners);
+    return () => listeners.delete(listener as (event: unknown) => void);
+  }
+
+  public subscribeOperationalEvent(
+    id: string,
+    callback: PatchMapOperationalCallback,
+  ): PatchMapOperationalSubscription {
+    return this.operations.subscribeTelemetry(id, callback);
+  }
+
+  public subscribeOperationalDiagnostics(
+    id: string,
+    callback: (diagnostic: PatchMapSanitizedDiagnostic) => void,
+  ): PatchMapOperationalSubscription {
+    return this.operations.subscribeDiagnostics(id, callback);
+  }
+
+  public emitOperationalEvent(
+    input: PatchMapOperationalEventInput,
+  ): PatchMapOperationalDispatchResult {
+    return this.operations.emitTelemetry(input);
+  }
+
+  public reportOperationalFailure(
+    input: Omit<
+      PatchMapOperationalDiagnosticInput,
+      'category' | 'lifecycleGeneration' | 'revisionStamp' | 'sceneRevision'
+    > & Readonly<{ readonly category: PatchMapDiagnosticCategory }>,
+  ): PatchMapSanitizedDiagnostic & PatchMapEngineDiagnostic {
+    const diagnostic = this.operations.reportDiagnostic({
+      ...input,
+      lifecycleGeneration: this.lifecycleGeneration,
+      sceneRevision: this.sceneRevision,
+      revisionStamp: this.revisionStamp(),
+    }) as PatchMapSanitizedDiagnostic & PatchMapEngineDiagnostic;
+    this.deliverEngineEvent('diagnostic', diagnostic);
+    return diagnostic;
+  }
+
+  public setRuntimeDiagnosticsEnabled(enabled: boolean): boolean {
+    return this.operations.setCollectionEnabled(enabled);
+  }
+
+  public setOperationalTelemetryEnabled(enabled: boolean): boolean {
+    return this.operations.setTelemetryEnabled(enabled);
+  }
+
+  public operationsProbe(): PatchMapOperationsProbe {
+    return this.operations.probe();
+  }
+
+  public extractionSecurityProbe(): ReturnType<PatchMapExtractionSecurityAuthority['preflight']> {
+    return this.extractionSecurity.preflight();
+  }
+
+  public setExtractionAssetReadability(
+    logicalAssetId: string,
+    readability: Parameters<PatchMapExtractionSecurityAuthority['setAssetReadability']>[1],
+  ): void {
+    this.extractionSecurity.setAssetReadability(logicalAssetId, readability);
+  }
+
+  public deleteExtractionAssetReadability(logicalAssetId: string): boolean {
+    return this.extractionSecurity.deleteAsset(logicalAssetId);
+  }
+
+  public clearExtractionAssetReadability(): void {
+    this.extractionSecurity.clear();
+  }
+
+  public registerAssets(
+    instanceId: string,
+    registrations: readonly PatchMapAssetRegistration[] = PATCH_MAP_BUILTIN_ASSETS,
+  ): PatchMapAssetRegistrationResult {
+    this.assertAssetLifecycle('registerAssets');
+    return this.ensureAssetSession(instanceId).registerAssets(registrations);
+  }
+
+  public acquireAsset(alias: string): Promise<PatchMapAssetAcquisition> {
+    this.assertAssetLifecycle('acquireAsset');
+    if (!this.assetSession) {
+      return Promise.reject(this.operationError('NOT_READY', 'NOT_READY', 'acquireAsset', true));
+    }
+    return this.assetSession.acquire(alias);
+  }
+
+  public assetProbe(alias?: string): Readonly<{
+    session: PatchMapAssetSessionProbe | null;
+    runtime: PatchMapAssetRuntimeProbe;
+  }> {
+    return Object.freeze({
+      session: this.assetSession?.probe() ?? null,
+      runtime: this.assetRuntime.probe(alias),
+    });
+  }
+
+  /** O(1) frame-loop seam shared by browser hosts and the PatchMap Labs. */
+  public get activeAnimations(): number {
+    const surface = this.surface;
+    if (surface === null) return 0;
+    return surface.frameLoopActiveAnimations?.()
+      ?? surface.debugSnapshot().activeAnimationCount;
+  }
+
+  /** O(1) source workload shared with the package frame-loop policy. */
+  public get frameWorkloadSize(): number {
+    return this.surface?.frameLoopWorkloadSize?.()
+      ?? this.materialized?.rootIds.length
+      ?? 0;
+  }
+
+  /** Current monotonic product presentation clock for late frame-loop ownership. */
+  public get frameTimeMs(): number {
+    return this.frameClockMs;
+  }
+
+  /** Product-owned pointer/motion state; Lab hosts do not mirror it. */
+  public get viewportGestureActive(): boolean {
+    if (this.viewportMotion !== null) return true;
+    if (this.surface?.viewportGestureActive?.() === true) return true;
+    return (this.pointerGestureAuthority?.probe().activeGestureCount ?? 0) > 0;
+  }
+
+  /** Structural PatchMapFrameLoop target state without allocating a snapshot. */
+  public get destroyed(): boolean {
+    return this.lifecycle === 'destroyed' || this.lifecycle === 'destroying';
+  }
+
+  /**
+   * Creates the one Engine-owned manual frame loop. Engine destroy always
+   * cancels it before releasing the Pixi surface.
+   */
+  public createFrameLoop(options: PatchMapFrameLoopOptions = {}): PatchMapFrameLoop {
+    this.requireSurface('createFrameLoop');
+    if (this.frameLoop !== null && !this.frameLoop.isDestroyed) {
+      throw this.operationError('CONFLICT', 'CONFLICT', 'createFrameLoop', false);
+    }
+    this.frameLoop = new PatchMapFrameLoop(this, options);
+    if (this.pageLifecycle.probe().state === 'hidden') {
+      this.frameLoop.pause();
+      this.frameLoopPausedForVisibility = true;
+    }
+    return this.frameLoop;
+  }
+
+  public initialize(options: PatchMapInitializeOptions): Promise<PatchMapInitializeResult> {
+    if (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
+      return Promise.reject(this.operationError('DESTROYED', 'DESTROYED', 'initialize', false));
+    }
+    if (this.retainedCleanupSurface) {
+      return Promise.reject(
+        this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'initialize', false),
+      );
+    }
+    if (options.backend === 'webgl1') {
+      return Promise.reject(
+        this.operationError(
+          'UNSUPPORTED_RUNTIME',
+          'UNSUPPORTED_RUNTIME',
+          'initialize',
+          false,
+        ),
+      );
+    }
+    const backend = options.backend ??
+      (options.preference === 'webgpu' ? 'webgpu' : 'webgl2');
+    const preference = backend === 'webgpu' ? 'webgpu' : 'webgl';
+    if (options.preference !== undefined && options.preference !== preference) {
+      return Promise.reject(
+        this.operationError('INVALID_VALUE', 'INVALID_INPUT', 'initialize', true),
+      );
+    }
+    validateInitializeOptions(options);
+    if (!this.operations.isInstanceCompatible(options.instanceId)) {
+      return Promise.reject(
+        this.operationError('CONFLICT', 'CONFLICT', 'initialize', false),
+      );
+    }
+    let assetSession: PatchMapAssetSession;
+    try {
+      assetSession = this.ensureAssetSession(options.instanceId);
+    } catch (error) {
+      return Promise.reject(this.assetInitializationError(error));
+    }
+    this.operations.configureInstance(options.instanceId);
+    if (this.initializePromise) return this.initializePromise;
+    if (this.surface) return Promise.resolve(this.initializeResult());
+    try {
+      if (options.requiredAssets) assetSession.registerAssets(options.requiredAssets);
+    } catch (error) {
+      return Promise.reject(this.assetInitializationError(error));
+    }
+    this.lifecycle = 'initializing';
+    this.terminalRendererLossProbe = null;
+    this.instanceId = options.instanceId;
+    this.zoomLimits = normalizeZoomLimits(options.zoomLimits ?? DEFAULT_ZOOM_LIMITS);
+    const surfaceOptions: PatchMapSurfaceOptions = {
+      width: options.width,
+      height: options.height,
+      pixelRatio: options.pixelRatio ?? globalThis.devicePixelRatio ?? 1,
+      antialias: options.antialias ?? true,
+      background: normalizeBackground(options.background ?? '#FAFAFA'),
+      strategy: options.strategy ?? 'mesh',
+      preference,
+      backend,
+      requireWebGL2: backend === 'webgl2',
+      devtools: options.devtools ?? false,
+      powerPreference: options.powerPreference ?? 'high-performance',
+      assetSession,
+      ...(options.target ? { target: options.target } : {}),
+      ...(options.canvas ? { canvas: options.canvas } : {}),
+    };
+    this.viewportWidth = surfaceOptions.width;
+    this.viewportHeight = surfaceOptions.height;
+    this.viewportPixelRatio = surfaceOptions.pixelRatio;
+    this.viewportCenterWorld = Object.freeze([surfaceOptions.width / 2, surfaceOptions.height / 2]);
+    this.viewportScale = 1;
+    this.worldRotationDegrees = 0;
+    this.worldFlipX = false;
+    this.worldFlipY = false;
+    this.resetViewportRuntime();
+    const requiredAliases = options.requiredAssets?.map(({ alias }) => alias) ?? [];
+    this.initializePromise = (async (): Promise<PatchMapInitializeResult> => {
+      const attemptAcquisitions: PatchMapAssetAcquisition[] = [];
+      let pendingSurface: PatchMapEngineSurface | null = null;
+      try {
+        for (const alias of requiredAliases) {
+          attemptAcquisitions.push(await assetSession.acquire(alias));
+        }
+        if (this.isDestroyingOrDestroyed()) {
+          throw this.operationError('DESTROYED', 'DESTROYED', 'initialize', false);
+        }
+        this.rendererConfiguration = Object.freeze({
+          resolution: surfaceOptions.pixelRatio,
+          antialias: surfaceOptions.antialias,
+          background: packedColorToHex(surfaceOptions.background),
+          backend: surfaceOptions.preference,
+        });
+        pendingSurface = await this.surfaceFactory(surfaceOptions);
+        pendingSurface.setViewportGesturePolicies?.(this.orderedEnabledViewportPolicies());
+        pendingSurface.setViewportZoomLimits?.(this.zoomLimits);
+        if (this.isDestroyingOrDestroyed()) {
+          this.retainedCleanupSurface = pendingSurface;
+          pendingSurface = null;
+          throw this.operationError('DESTROYED', 'DESTROYED', 'initialize', false);
+        }
+        const readySurface = pendingSurface;
+        const viewportInputUnbind = readySurface.bindViewportInput?.((input) => {
+          this.acceptSurfaceViewportInput(readySurface, input);
+        }) ?? null;
+        const pointerAuthority = new PatchMapPointerGestureAuthority({
+          hitTest: (point) => readySurface.hitTestScreen(point),
+        });
+        const pointerInputUnbind = readySurface.bindPointerInput?.((input) => {
+          this.acceptSurfacePointerInput(readySurface, input);
+        }) ?? null;
+        const accessibilityActivationUnbind =
+          readySurface.bindAccessibilityActivation?.((targetId, input) => {
+            if (this.surface !== readySurface || this.isDestroyingOrDestroyed()) {
+              return;
+            }
+            this.activateAccessibilityTarget(targetId, input);
+          }) ?? null;
+        this.surface = readySurface;
+        this.authoritativeCanvas = readySurface.canvasElement?.() ?? null;
+        this.surfaceViewportInputUnbind = viewportInputUnbind;
+        this.surfacePointerInputUnbind = pointerInputUnbind;
+        this.surfaceAccessibilityActivationUnbind =
+          accessibilityActivationUnbind;
+        this.pointerGestureAuthority = pointerAuthority;
+        this.geometryRevisionCorrelation = null;
+        pendingSurface = null;
+        this.requiredAssetAcquisitions.push(...attemptAcquisitions);
+        this.lifecycleGeneration += 1;
+        this.lifecycle = this.materialized?.rootIds.length ? 'scene-ready' : 'ready-empty';
+        const result = this.initializeResult();
+        this.emit('ready', result);
+        return result;
+      } catch (error) {
+        const cleanupFailures: unknown[] = [];
+        if (pendingSurface) {
+          const cleanup = await this.cleanupSurface(pendingSurface);
+          if (cleanup.error) cleanupFailures.push(cleanup.error);
+        }
+        const acquisitionSettlements = await Promise.allSettled(
+          attemptAcquisitions.map(async (acquisition) => acquisition.release()),
+        );
+        cleanupFailures.push(...rejectedReasons(acquisitionSettlements));
+        this.surface = null;
+        this.authoritativeCanvas = null;
+        this.initializePromise = null;
+        this.rendererConfiguration = null;
+        if (this.lifecycle !== 'destroyed' && this.lifecycle !== 'destroying') {
+          this.lifecycle = 'new';
+        }
+        if (cleanupFailures.length > 0) {
+          throw this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'initialize', false);
+        }
+        throw this.assetInitializationError(error);
+      }
+    })();
+    return this.initializePromise;
+  }
+
+  public loadDataset(input: unknown, options: PatchMapLoadOptions = {}): PatchMapEngineLoadResult {
+    const surface = this.requireSurface('loadDataset');
+    const prepared = this.prepareDatasetLoad(input, options);
+    return this.publishPreparedDatasetLoad(surface, prepared, options);
+  }
+
+  /**
+   * Synchronize aggregate resources and ask PixiJS PrepareSystem to upload
+   * them without publishing a visible frame. Legacy injected surfaces report
+   * explicit unsupported status instead of fabricated upload timing.
+   */
+  public async prepareScene(): Promise<PatchMapEnginePrepareResult> {
+    const surface = this.requireSurface('prepareScene');
+    const revisions = this.revisionStamp();
+    const publishedTuple = this.publishedTuple;
+    if (surface.prepare === undefined) {
+      return Object.freeze({
+        status: 'unsupported',
+        storeSyncMs: null,
+        gpuPrepareMs: null,
+        revisions,
+        publishedTuple,
+      });
+    }
+    try {
+      const prepared = await surface.prepare();
+      validateNonNegativeFinite('storeSyncMs', prepared.storeSyncMs);
+      validateNonNegativeFinite('gpuPrepareMs', prepared.gpuPrepareMs);
+      return Object.freeze({
+        status: 'prepared',
+        storeSyncMs: prepared.storeSyncMs,
+        gpuPrepareMs: prepared.gpuPrepareMs,
+        revisions,
+        publishedTuple,
+      });
+    } catch (error) {
+      const diagnostic = this.diagnosticFrom(error, 'prepareScene');
+      this.emit('diagnostic', diagnostic);
+      throw new PatchMapError(diagnostic);
+    }
+  }
+
+  private publishPreparedDatasetLoad(
+    surface: PatchMapEngineSurface,
+    prepared: PreparedPatchMapEngineLoad,
+    options: PatchMapLoadOptions,
+  ): PatchMapEngineLoadResult {
+    this.cancelActiveTransformerEdit('replace', true);
+    this.loadSequence += 1;
+    surface.load(prepared.materialized.dataset);
+    this.pointerGestureAuthority?.interrupt('replace');
+    this.transformerGestures.interrupt();
+    return this.commitPreparedDatasetLoad(prepared, options);
+  }
+
+  public async loadDatasetAsync(
+    input: unknown,
+    options: PatchMapLoadOptions = {},
+  ): Promise<PatchMapEngineLoadResult> {
+    const surface = this.requireSurface('loadDatasetAsync');
+    this.cancelActiveTransformerEdit('replace', true);
+    const sequence = ++this.loadSequence;
+    const lifecycleGeneration = this.lifecycleGeneration;
+    const sceneRevision = this.sceneRevision;
+    this.pendingWork += 1;
+    try {
+      const materialized = materializePatchMapDataset(input);
+      this.validateStrictDatasetLoad(materialized, options);
+      await yieldPatchMapEngineTask();
+      this.assertCooperativeLoadCurrent(
+        surface,
+        sequence,
+        lifecycleGeneration,
+        sceneRevision,
+      );
+      const componentSemantics = indexComponentSemantics(materialized.dataset);
+      await yieldPatchMapEngineTask();
+      this.assertCooperativeLoadCurrent(
+        surface,
+        sequence,
+        lifecycleGeneration,
+        sceneRevision,
+      );
+      const textSemantics = indexTextSemantics(materialized.dataset);
+      const prepared = Object.freeze({
+        materialized,
+        componentSemantics,
+        textSemantics,
+      });
+      await yieldPatchMapEngineTask();
+      this.assertCooperativeLoadCurrent(
+        surface,
+        sequence,
+        lifecycleGeneration,
+        sceneRevision,
+      );
+      const assertCurrent = (): void => {
+        this.assertCooperativeLoadCurrent(
+          surface,
+          sequence,
+          lifecycleGeneration,
+          sceneRevision,
+        );
+      };
+      if (surface.loadAsync) await surface.loadAsync(materialized.dataset, assertCurrent);
+      else surface.load(materialized.dataset);
+      assertCurrent();
+      this.pointerGestureAuthority?.interrupt('replace');
+      this.transformerGestures.interrupt();
+      return this.commitPreparedDatasetLoad(prepared, options);
+    } finally {
+      this.pendingWork -= 1;
+    }
+  }
+
+  private prepareDatasetLoad(
+    input: unknown,
+    options: PatchMapLoadOptions = {},
+  ): PreparedPatchMapEngineLoad {
+    const materialized = materializePatchMapDataset(input);
+    this.validateStrictDatasetLoad(materialized, options);
+    return Object.freeze({
+      materialized,
+      componentSemantics: indexComponentSemantics(materialized.dataset),
+      textSemantics: indexTextSemantics(materialized.dataset),
+    });
+  }
+
+  private validateStrictDatasetLoad(
+    materialized: MaterializedPatchMapDataset,
+    options: PatchMapLoadOptions,
+  ): void {
+    if (options.strict !== undefined && typeof options.strict !== 'boolean') {
+      throw new PatchMapDatasetError(
+        'INVALID_VALUE',
+        '$.options.strict',
+        'strict must be a boolean',
+      );
+    }
+    if (options.strict === true) {
+      validatePatchMapDatasetReferences(materialized.dataset);
+    }
+  }
+
+  private commitPreparedDatasetLoad(
+    prepared: PreparedPatchMapEngineLoad,
+    options: PatchMapLoadOptions,
+  ): PatchMapEngineLoadResult {
+    const { componentSemantics, materialized, textSemantics } = prepared;
+    const selectionBefore = this.logicalSelectionIds;
+    const modeBefore = this.hostInteractions.modeProbe().activeState;
+    this.logicalSelectionIds = Object.freeze([]);
+    this.historyHostCompanion = null;
+    if (modeBefore !== 'select') {
+      this.hostInteractions.applyModeOperation({ op: 'replace', state: 'select' });
+    }
+    if (selectionBefore.length > 0 || modeBefore !== 'select') this.interactionRevision += 1;
+    this.hostInteractions.clearTooltip('redraw');
+    this.hostInteractions.clearLogicalBindings();
+    this.accessibility.replaceScene();
+    this.materialized = materialized;
+    this.defaultViewportContributorsCache = null;
+    this.logicalSceneIndexCache = null;
+    this.targetLifecycleGeneration += 1;
+    this.clearHistoryAuthority('replace');
+    this.componentSemantics = componentSemantics;
+    this.textSemantics = textSemantics;
+    this.resetLiveOverlayState();
+    this.datasetRef = options.datasetRef ?? null;
+    this.sceneRevision += 1;
+    this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
+    this.editorWorkflows.onSceneReplaced();
+    const result: PatchMapEngineLoadResult = Object.freeze({
+      lifecycle: this.lifecycle,
+      sceneRevision: this.sceneRevision,
+      semanticHash: materialized.semanticHash,
+      rootIds: materialized.rootIds,
+    });
+    this.emit('sceneCommitted', result);
+    return result;
+  }
+
+  /**
+   * Apply one versioned, ordered semantic transaction. Candidate validation,
+   * index construction, and history detachment finish before the aggregate
+   * surface is allowed to publish the candidate.
+   */
+  public transact(
+    request: PatchMapMutationTransactionRequest,
+    schemaRevision = PATCH_MAP_MUTATION_TRANSACTION_REVISION,
+  ): PatchMapEngineTransactionResult {
+    const surface = this.requireSurface('transact');
+    this.cancelActiveTransformerEdit('redraw', true);
+    const previousRevisions = this.revisionStamp();
+    const previousHistory = this.history.state();
+    const planStarted = enginePerformanceNow();
+    const plan = this.planMutationRequest(request, schemaRevision);
+    this.pendingTransactionPlanMs = enginePerformanceNow() - planStarted;
+    return this.applyPlannedTransaction(
+      surface,
+      plan,
+      'transact',
+      previousRevisions,
+      previousHistory,
+    );
+  }
+
+  /**
+   * Commit one ordered exact-height batch without allocating the equivalent
+   * merge/change/path graph for every bar. It intentionally shares the same
+   * atomic reconcile, history, animation, and publication authorities as
+   * transact().
+   */
+  public updateBarHeights(
+    request: PatchMapBarHeightBatchRequest,
+  ): PatchMapEngineTransactionResult {
+    const surface = this.requireSurface('updateBarHeights');
+    this.cancelActiveTransformerEdit('redraw', true);
+    const previousRevisions = this.revisionStamp();
+    const previousHistory = this.history.state();
+    const planStarted = enginePerformanceNow();
+    const plan = planPatchMapBarHeightBatch(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      request,
+    );
+    this.pendingTransactionPlanMs = enginePerformanceNow() - planStarted;
+    return this.applyPlannedTransaction(
+      surface,
+      plan,
+      'transact',
+      previousRevisions,
+      previousHistory,
+    );
+  }
+
+  /**
+   * Commit one owner-qualified text batch without allocating a generic
+   * operation/path graph for every label. Text layout and renderer
+   * reconciliation remain exact and history uses the same atomic boundary.
+   */
+  public updateTexts(
+    request: PatchMapTextBatchRequest,
+  ): PatchMapEngineTransactionResult {
+    const surface = this.requireSurface('updateTexts');
+    this.cancelActiveTransformerEdit('redraw', true);
+    const previousRevisions = this.revisionStamp();
+    const previousHistory = this.history.state();
+    const planStarted = enginePerformanceNow();
+    const plan = planPatchMapTextBatch(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      request,
+    );
+    this.pendingTransactionPlanMs = enginePerformanceNow() - planStarted;
+    return this.applyPlannedTransaction(
+      surface,
+      plan,
+      'transact',
+      previousRevisions,
+      previousHistory,
+    );
+  }
+
+  /**
+   * Merge one change list over an explicit target set. Unlike a raw staged
+   * transaction, an empty target set is a validated no-op with no publication,
+   * revision, history, or event side effects.
+   */
+  public bulkPatch(
+    request: PatchMapBulkPatchRequest,
+    schemaRevision = PATCH_MAP_MUTATION_TRANSACTION_REVISION,
+  ): PatchMapEngineTransactionResult {
+    const surface = this.requireSurface('bulkPatch');
+    this.cancelActiveTransformerEdit('redraw', true);
+    const previousRevisions = this.revisionStamp();
+    const previousHistory = this.history.state();
+    const planStarted = enginePerformanceNow();
+    const plan = this.planBulkPatchRequest(request, schemaRevision);
+    this.pendingTransactionPlanMs = enginePerformanceNow() - planStarted;
+    return this.applyPlannedTransaction(
+      surface,
+      plan,
+      'bulkPatch',
+      previousRevisions,
+      previousHistory,
+    );
+  }
+
+  /**
+   * Plan and commit one pinned editor action through the same immutable
+   * transaction, aggregate reconcile, selection, and history authority as
+   * lower-level semantic updates.
+   */
+  public author(action: unknown): PatchMapEngineAuthoringResult {
+    this.requireSurface('author');
+    const plan = planPatchMapAuthoringAction(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      action,
+      { selectionIds: this.logicalSelectionIds },
+    );
+    if (plan.status === 'rejected') {
+      return Object.freeze({
+        schemaRevision: PATCH_MAP_AUTHORING_REVISION,
+        actionType: plan.actionType,
+        status: 'rejected',
+        changed: false,
+        code: plan.diagnostic.code,
+        plan,
+        facts: plan.facts,
+        transaction: null,
+        diagnostic: plan.diagnostic,
+        history: this.history.state(),
+      });
+    }
+    if (plan.status === 'unchanged') {
+      return Object.freeze({
+        schemaRevision: PATCH_MAP_AUTHORING_REVISION,
+        actionType: plan.actionType,
+        status: 'unchanged',
+        changed: false,
+        code: null,
+        plan,
+        facts: plan.facts,
+        transaction: null,
+        diagnostic: null,
+        history: this.history.state(),
+      });
+    }
+
+    const transaction = this.transact(plan.transaction);
+    const diagnostic =
+      transaction.status === 'rejected' || transaction.status === 'refused'
+        ? transaction.diagnostic
+        : null;
+    return Object.freeze({
+      schemaRevision: PATCH_MAP_AUTHORING_REVISION,
+      actionType: plan.actionType,
+      status: transaction.status,
+      changed: transaction.changed,
+      code: diagnostic?.code ?? null,
+      plan,
+      facts: plan.facts,
+      transaction,
+      diagnostic,
+      history: transaction.history.state,
+    });
+  }
+
+  /**
+   * Commit host-prepared text/images without accepting DOM/File ownership.
+   * Multi-image intake, selection, and history publish as one transaction.
+   */
+  public ingestHostAsset(
+    input: PatchMapHostAssetIngestionInput,
+  ): PatchMapEngineHostAssetIngestionResult {
+    this.requireSurface('ingestHostAsset');
+    const plan = this.hostAssetIngestion.plan(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      input,
+    );
+    if (plan.status === 'ignored') {
+      return Object.freeze({
+        schemaRevision: PATCH_MAP_HOST_ASSET_INGESTION_REVISION,
+        status: 'ignored',
+        changed: false,
+        code: null,
+        createdTextId: null,
+        createdImageIds: Object.freeze([]),
+        plan,
+        transaction: null,
+        probe: this.hostAssetIngestion.probe(),
+      });
+    }
+    if (plan.status === 'failed') {
+      return Object.freeze({
+        schemaRevision: PATCH_MAP_HOST_ASSET_INGESTION_REVISION,
+        status: 'failed',
+        changed: false,
+        code: plan.code,
+        createdTextId: null,
+        createdImageIds: Object.freeze([]),
+        plan,
+        transaction: null,
+        probe: this.hostAssetIngestion.probe(),
+      });
+    }
+    const transaction = this.transact(plan.transaction);
+    if (transaction.status === 'committed') this.hostAssetIngestion.commit(plan);
+    const code =
+      transaction.status === 'rejected' || transaction.status === 'refused'
+        ? transaction.diagnostic.code
+        : null;
+    return Object.freeze({
+      schemaRevision: PATCH_MAP_HOST_ASSET_INGESTION_REVISION,
+      status: transaction.status,
+      changed: transaction.changed,
+      code,
+      createdTextId: transaction.status === 'committed' ? plan.createdTextId : null,
+      createdImageIds: transaction.status === 'committed'
+        ? plan.createdImageIds
+        : Object.freeze([]),
+      plan,
+      transaction,
+      probe: this.hostAssetIngestion.probe(),
+    });
+  }
+
+  public hostAssetIngestionProbe(): PatchMapHostAssetIngestionProbe {
+    this.requireSurface('hostAssetIngestionProbe');
+    return this.hostAssetIngestion.probe();
+  }
+
+  /**
+   * Execute one host/editor action against logical session authority. Every
+   * semantic change still enters through transact(); session-only actions only
+   * update selection and detached companion state.
+   */
+  public editorWorkflow(
+    action: PatchMapEditorWorkflowAction,
+  ): PatchMapEngineEditorWorkflowResult {
+    this.requireSurface('editorWorkflow');
+    const plan = this.editorWorkflows.plan(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      action,
+    );
+    if (plan.status === 'rejected') {
+      return Object.freeze({
+        schemaRevision: PATCH_MAP_EDITOR_WORKFLOW_REVISION,
+        actionType: plan.actionType,
+        status: 'rejected',
+        changed: false,
+        code: plan.diagnostic.code,
+        plan,
+        facts: plan.facts,
+        transaction: null,
+        diagnostic: plan.diagnostic,
+        history: this.history.state(),
+        selectionIds: Object.freeze([...this.logicalSelectionIds]),
+        probe: this.editorWorkflows.probe(),
+      });
+    }
+
+    if (plan.transaction === null) {
+      if (plan.selectionIds !== undefined) this.select(plan.selectionIds);
+      this.editorWorkflows.commit(plan);
+      if (plan.closeHistoryGroup) this.history.closeActionGroup();
+      return Object.freeze({
+        schemaRevision: PATCH_MAP_EDITOR_WORKFLOW_REVISION,
+        actionType: plan.actionType,
+        status: plan.status === 'unchanged' ? 'unchanged' : 'committed',
+        changed: plan.changed,
+        code: null,
+        plan,
+        facts: plan.facts,
+        transaction: null,
+        diagnostic: null,
+        history: this.history.state(),
+        selectionIds: Object.freeze([...this.logicalSelectionIds]),
+        probe: this.editorWorkflows.probe(),
+      });
+    }
+
+    const transaction = this.transact(plan.transaction);
+    const accepted = transaction.status === 'committed' || transaction.status === 'unchanged';
+    if (accepted) {
+      if (plan.selectionIds !== undefined) this.select(plan.selectionIds);
+      this.editorWorkflows.commit(plan);
+      if (plan.closeHistoryGroup) this.history.closeActionGroup();
+    } else {
+      this.editorWorkflows.discard(plan);
+    }
+    const diagnostic =
+      transaction.status === 'rejected' || transaction.status === 'refused'
+        ? transaction.diagnostic
+        : null;
+    return Object.freeze({
+      schemaRevision: PATCH_MAP_EDITOR_WORKFLOW_REVISION,
+      actionType: plan.actionType,
+      status: transaction.status,
+      changed: transaction.changed,
+      code: diagnostic?.code ?? null,
+      plan,
+      facts: plan.facts,
+      transaction,
+      diagnostic,
+      history: transaction.history.state,
+      selectionIds: Object.freeze([...this.logicalSelectionIds]),
+      probe: this.editorWorkflows.probe(),
+    });
+  }
+
+  public editorWorkflowProbe(): PatchMapEditorWorkflowProbe {
+    this.requireSurface('editorWorkflowProbe');
+    return this.editorWorkflows.probe();
+  }
+
+  /**
+   * Run the approved editor mutation taxonomy as twelve real, separately
+   * reversible semantic transactions. This is deliberately not a synthetic
+   * counter: every entry publishes through the current aggregate surface.
+   */
+  public runEditorMutationMatrix(
+    input: PatchMapEngineEditorMutationMatrixInput,
+  ): PatchMapEngineEditorMutationMatrixResult {
+    this.requireSurface('runEditorMutationMatrix');
+    const requested: readonly PatchMapEditorMutationKind[] = Object.freeze(
+      input.mutationKinds.map((kind) => kind),
+    );
+    const valid =
+      input.oneActionEach === true &&
+      requested.length === PATCH_MAP_EDITOR_MUTATION_KINDS.length &&
+      requested.every((kind, index) => kind === PATCH_MAP_EDITOR_MUTATION_KINDS[index]);
+    if (!valid) {
+      return Object.freeze({
+        schemaRevision: PATCH_MAP_EDITOR_WORKFLOW_REVISION,
+        status: 'rejected',
+        changed: false,
+        code: 'INVALID_VALUE',
+        requestedCount: requested.length,
+        executedCount: 0,
+        transactions: Object.freeze([]),
+        history: this.history.state(),
+        companionRestored: false,
+      });
+    }
+    const companion = detachPatchMapMutationJsonValue(
+      input.companion,
+      '$.editorMutationMatrix.companion',
+    );
+    this.setHistoryCompanion(companion);
+    const transactions: PatchMapEngineTransactionResult[] = [];
+    for (const kind of requested) {
+      const materialized = this.materialized;
+      if (materialized === null) {
+        return Object.freeze({
+          schemaRevision: PATCH_MAP_EDITOR_WORKFLOW_REVISION,
+          status: 'rejected',
+          changed: transactions.length > 0,
+          code: 'INVALID_MUTATION',
+          requestedCount: requested.length,
+          executedCount: transactions.length,
+          transactions: Object.freeze([...transactions]),
+          history: this.history.state(),
+          companionRestored: false,
+        });
+      }
+      let request: PatchMapMutationTransactionRequest;
+      try {
+        request = planPatchMapEditorMatrixMutation(materialized, kind, companion);
+      } catch {
+        return Object.freeze({
+          schemaRevision: PATCH_MAP_EDITOR_WORKFLOW_REVISION,
+          status: 'rejected',
+          changed: transactions.length > 0,
+          code: 'INVALID_MUTATION',
+          requestedCount: requested.length,
+          executedCount: transactions.length,
+          transactions: Object.freeze([...transactions]),
+          history: this.history.state(),
+          companionRestored: false,
+        });
+      }
+      const result = this.transact(request);
+      transactions.push(result);
+      if (result.status !== 'committed') {
+        const code =
+          result.status === 'rejected' || result.status === 'refused'
+            ? result.diagnostic.code
+            : 'INVALID_MUTATION';
+        return Object.freeze({
+          schemaRevision: PATCH_MAP_EDITOR_WORKFLOW_REVISION,
+          status: result.status === 'refused' ? 'refused' : 'rejected',
+          changed: transactions.some((entry) => entry.changed),
+          code,
+          requestedCount: requested.length,
+          executedCount: transactions.filter((entry) => entry.status === 'committed').length,
+          transactions: Object.freeze([...transactions]),
+          history: this.history.state(),
+          companionRestored: false,
+        });
+      }
+    }
+    this.history.closeActionGroup();
+    const currentCompanion = this.historyCompanionState().hostCompanion;
+    return Object.freeze({
+      schemaRevision: PATCH_MAP_EDITOR_WORKFLOW_REVISION,
+      status: 'committed',
+      changed: true,
+      code: null,
+      requestedCount: requested.length,
+      executedCount: transactions.length,
+      transactions: Object.freeze([...transactions]),
+      history: this.history.state(),
+      companionRestored:
+        JSON.stringify(currentCompanion) === JSON.stringify(companion),
+    });
+  }
+
+  private planMutationRequest(
+    request: PatchMapMutationTransactionRequest,
+    schemaRevision: string,
+  ): PatchMapMutationTransactionPlan {
+    return planPatchMapMutationTransaction(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      request,
+      schemaRevision,
+    );
+  }
+
+  private planBulkPatchRequest(
+    request: PatchMapBulkPatchRequest,
+    schemaRevision: string,
+  ): PatchMapMutationTransactionPlan {
+    return planPatchMapBulkPatch(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      request,
+      schemaRevision,
+    );
+  }
+
+  private applyPlannedTransaction(
+    surface: PatchMapEngineSurface,
+    plan: PatchMapMutationTransactionPlan,
+    operation: 'transact' | 'bulkPatch',
+    previousRevisions: PatchMapRevisionStamp,
+    previousHistory: PatchMapHistoryState,
+  ): PatchMapEngineTransactionResult {
+    const applyStarted = enginePerformanceNow();
+    if (plan.status === 'rejected') {
+      const diagnostic = this.engineTransactionDiagnostic(plan.diagnostic, operation);
+      const result = this.rejectedTransactionResult(
+        plan.actionId ?? null,
+        previousRevisions,
+        diagnostic,
+        plan.diagnostic,
+        previousHistory,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    const actionId = plan.actionId ?? null;
+    if (plan.conflictPolicy !== 'reject') {
+      const diagnostic = this.operationDiagnostic(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        operation,
+        true,
+      );
+      const result = this.rejectedTransactionResult(
+        actionId,
+        previousRevisions,
+        diagnostic,
+        undefined,
+        previousHistory,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+    if (!plan.changed) {
+      return Object.freeze({
+        status: 'unchanged',
+        changed: false,
+        actionId,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: freezeMutationTargets(plan.applied),
+        missing: freezeMutationTargets(plan.missing),
+        unchanged: freezeMutationTargets(plan.unchanged),
+        history: freezeTransactionHistory(false, null, previousHistory, previousHistory),
+      } satisfies PatchMapEngineTransactionResult);
+    }
+
+    if (!surface.reconcile) {
+      const diagnostic = this.operationDiagnostic(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        operation,
+        false,
+      );
+      const result = this.refusedTransactionResult(
+        actionId,
+        previousRevisions,
+        diagnostic,
+        plan,
+        previousHistory,
+        EMPTY_RECONCILE_DIAGNOSTICS,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    const currentDataset =
+      this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset;
+    const plannedBarHeightUpdates = plan.directBarHeightUpdates;
+    const plannedTextUpdates = plan.directTextUpdates;
+    const plannedElementAngleUpdates = plan.directElementAngleUpdates;
+    const incrementalRootIds = plannedBarHeightUpdates !== undefined
+      ? incrementalBarHeightRootIds(
+          currentDataset,
+          plan.candidate.dataset,
+          plannedBarHeightUpdates,
+        )
+      : plannedTextUpdates !== undefined
+        ? incrementalOwnedRootIds(currentDataset, plan.candidate.dataset)
+        : plannedElementAngleUpdates !== undefined
+          ? Object.freeze(plannedElementAngleUpdates.map(({ id }) => id))
+          : incrementalFlatRootIds(
+              currentDataset,
+              plan.candidate.dataset,
+              plan.operations,
+            );
+    const directSemanticProjection =
+      plannedBarHeightUpdates !== undefined ||
+      plannedTextUpdates !== undefined ||
+      plannedElementAngleUpdates !== undefined;
+    const elementGeometryOnly = operationsOnlyUpdateElementGeometry(plan.operations);
+    const structuralSharing = !directSemanticProjection &&
+      operationsMayChangeElementStructure(plan.operations);
+    const structuralRootDelta = structuralSharing
+      ? ownedStructuralRootDelta(currentDataset, plan.candidate.dataset)
+      : null;
+    const directBarComponentSemantics =
+      plannedElementAngleUpdates !== undefined || elementGeometryOnly
+      ? null
+      : plannedBarHeightUpdates === undefined
+      ? reconcileDirectBarHeightComponentSemantics(
+          this.componentSemantics,
+          plan.candidate.dataset,
+          plan.operations,
+        )
+      : reconcilePlannedBarHeightComponentSemantics(
+          this.componentSemantics,
+          plan.candidate.dataset,
+          plannedBarHeightUpdates,
+        );
+    const componentSemantics =
+      plannedTextUpdates !== undefined ||
+      plannedElementAngleUpdates !== undefined ||
+      elementGeometryOnly
+      ? this.componentSemantics
+      : directBarComponentSemantics ??
+        (incrementalRootIds === undefined
+          ? structuralRootDelta === null
+            ? indexComponentSemantics(plan.candidate.dataset)
+            : reconcileStructuralComponentSemantics(
+                this.componentSemantics,
+                structuralRootDelta,
+              )
+          : reconcileFlatComponentSemantics(
+              this.componentSemantics,
+              currentDataset,
+              plan.candidate.dataset,
+              incrementalRootIds,
+            ));
+    const textSemantics =
+      plannedElementAngleUpdates !== undefined || elementGeometryOnly
+      ? this.textSemantics
+      : plannedTextUpdates === undefined &&
+      (
+        directBarComponentSemantics !== null ||
+        operationsOnlyUpdateBarSize(plan.operations, componentSemantics)
+      )
+        ? this.textSemantics
+        : incrementalRootIds === undefined
+          ? structuralRootDelta === null
+            ? indexTextSemantics(plan.candidate.dataset)
+            : reconcileStructuralTextSemantics(
+                this.textSemantics,
+                structuralRootDelta,
+              )
+          : reconcileFlatTextSemantics(
+              this.textSemantics,
+              currentDataset,
+              plan.candidate.dataset,
+              incrementalRootIds,
+            );
+    const selectionBefore = this.logicalSelectionIds;
+    const modeBefore = this.hostInteractions.modeProbe().activeState;
+    const requestedSelectionAfter = plan.selectionIds ??
+      (!directSemanticProjection
+        ? transactionSelectionAfter(selectionBefore, plan.operations)
+        : selectionBefore);
+    let companionAfter: PatchMapEngineHistoryCompanion;
+    try {
+      companionAfter = this.nextHistoryCompanion(
+        plan.history,
+        requestedSelectionAfter,
+        plan.candidate,
+        incrementalRootIds !== undefined,
+        structuralRootDelta !== null,
+      );
+    } catch (error) {
+      const diagnostic = this.diagnosticFrom(error, operation);
+      const result = this.rejectedTransactionResult(
+        actionId,
+        previousRevisions,
+        diagnostic,
+        undefined,
+        previousHistory,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+    const selectionAfter = companionAfter.selectionIds;
+    const commandId = actionId ?? `transaction:${this.sceneRevision + 1}`;
+    let preparedHistory: PatchMapHistoryPreparedRecord | null = null;
+    try {
+      if (plan.recordHistory !== false) {
+        preparedHistory = this.history.prepareOwnedChangedRecord({
+          id: commandId,
+          before: this.historySnapshot(),
+          after: historySnapshotForDataset(plan.candidate.dataset, companionAfter),
+        });
+      }
+    } catch (error) {
+      const diagnostic = this.diagnosticFrom(error, operation);
+      const result = this.rejectedTransactionResult(
+        actionId,
+        previousRevisions,
+        diagnostic,
+        undefined,
+        previousHistory,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    const animatedBarTargets = plannedElementAngleUpdates !== undefined
+      ? EMPTY_COMPONENT_VISUAL_TARGETS
+      : plannedBarHeightUpdates ??
+        directAnimatedBarTargets(plan.operations, componentSemantics);
+    const directBarHeightUpdates = plannedElementAngleUpdates !== undefined
+      ? undefined
+      : plannedBarHeightUpdates ??
+        directBarHeightUpdatesFor(plan.operations, componentSemantics);
+    const allowedComponentOrderOwners =
+      !directSemanticProjection
+      ? componentOrderOwners(plan.operations)
+      : EMPTY_HISTORY_ORDER_IDS;
+    let reconcile: PatchMapSurfaceReconcileResult;
+    const reconcileStarted = enginePerformanceNow();
+    try {
+      reconcile = surface.reconcile(plan.candidate.dataset, {
+        animateBarChanges:
+          !this.accessibility.reducedMotion &&
+          animatedBarTargets.length > 0,
+        animatedBarTargets,
+        allowedComponentOrderOwners,
+        ...(incrementalRootIds === undefined
+          ? {}
+          : { incrementalRootIds }),
+        ...(structuralSharing ? { structuralSharing: true } : {}),
+        ...(directBarHeightUpdates === undefined
+          ? {}
+          : { directBarHeightUpdates }),
+        ...(plannedTextUpdates === undefined
+          ? {}
+          : { directTextUpdates: plannedTextUpdates }),
+        ...(plannedElementAngleUpdates === undefined
+          ? {}
+          : { directElementAngleUpdates: plannedElementAngleUpdates }),
+        ...(plan.allowedElementOrderIds === undefined
+          ? {}
+          : { allowedElementOrderIds: plan.allowedElementOrderIds }),
+        ...(!sameStringArray(selectionBefore, selectionAfter)
+          ? { selectionIds: selectionAfter }
+          : {}),
+      });
+    } catch (error) {
+      if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
+      const diagnostic = this.diagnosticFrom(error, operation);
+      const result = this.refusedTransactionResult(
+        actionId,
+        previousRevisions,
+        diagnostic,
+        plan,
+        previousHistory,
+        EMPTY_RECONCILE_DIAGNOSTICS,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+    const reconcileCompleted = enginePerformanceNow();
+
+    const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
+    if (reconcile.status === 'refused') {
+      if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
+      const datasetPath = reconcileDiagnostics.find((entry) => entry.severity === 'error')?.path;
+      const diagnostic = this.operationDiagnostic(
+        'CONFLICT',
+        'CONFLICT',
+        operation,
+        true,
+        datasetPath,
+      );
+      const result = this.refusedTransactionResult(
+        actionId,
+        previousRevisions,
+        diagnostic,
+        plan,
+        previousHistory,
+        reconcileDiagnostics,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    this.materialized = plan.candidate;
+    this.defaultViewportContributorsCache = null;
+    this.logicalSceneIndexCache = null;
+    this.componentSemantics = componentSemantics;
+    this.textSemantics = textSemantics;
+    this.logicalSelectionIds = selectionAfter;
+    this.historyHostCompanion = companionAfter.hostCompanion;
+    this.hostInteractions.applyModeOperation({
+      op: 'replace',
+      state: companionAfter.mode,
+    });
+    this.sceneRevision += 1;
+    this.lifecycle = plan.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
+    if (
+      !sameStringArray(selectionBefore, selectionAfter) ||
+      modeBefore !== companionAfter.mode ||
+      plan.history !== undefined
+    ) {
+      this.interactionRevision += 1;
+    }
+    let historyRecorded = false;
+    if (preparedHistory !== null) {
+      const historyStatus = this.history.commitPrepared(preparedHistory);
+      if (historyStatus === 'stale' || historyStatus === 'invalid' || historyStatus === 'cancelled') {
+        throw new Error(`${operation} history preflight became ${historyStatus} after surface commit`);
+      }
+      historyRecorded = historyStatus === 'recorded';
+    } else {
+      this.history.closeActionGroup();
+    }
+    const currentHistory = this.history.state();
+    const result = Object.freeze({
+      status: 'committed',
+      changed: true,
+      actionId,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: plan.candidate.semanticHash,
+      applied: freezeMutationTargets(plan.applied),
+      missing: freezeMutationTargets(plan.missing),
+      unchanged: freezeMutationTargets(plan.unchanged),
+      history: freezeTransactionHistory(
+        historyRecorded,
+        historyRecorded ? commandId : null,
+        previousHistory,
+        currentHistory,
+      ),
+      publication: 'pending',
+      denseOperationCount: reconcile.operationCount,
+      denseChanged: reconcile.denseChanged,
+      reconcileDiagnostics,
+    } satisfies PatchMapEngineTransactionResult);
+    const completed = enginePerformanceNow();
+    this.lastTransactionPerformance = Object.freeze({
+      transactionPlanMs: this.pendingTransactionPlanMs,
+      preReconcileMs: reconcileStarted - applyStarted,
+      reconcileMs: reconcileCompleted - reconcileStarted,
+      postReconcileMs: completed - reconcileCompleted,
+      totalMs:
+        this.pendingTransactionPlanMs +
+        (completed - applyStarted),
+      surfaceTimings: reconcile.timings ?? null,
+    });
+    this.pendingTransactionPlanMs = 0;
+    this.emit('change', result);
+    return result;
+  }
+
+  public transactionPerformanceProbe(): PatchMapEngineTransactionPerformanceProbe | null {
+    return this.lastTransactionPerformance;
+  }
+
+  public relativePatch(
+    targetInput: Extract<PatchMapMutationTarget, { readonly kind: 'element' }>,
+    changes: PatchMapRelativeGeometryChanges,
+  ): PatchMapEnginePatchResult {
+    this.requireSurface('relativePatch');
+    const target = normalizeEngineMutationTarget(targetInput);
+    if (target.kind !== 'element') throw new TypeError('relativePatch requires an element target');
+    const current = this.materialized === null
+      ? null
+      : findEngineSemanticTarget(this.materialized.dataset, target);
+    if (current === null) return this.patch(target, {});
+    const geometry = applyPatchMapRelativeGeometryUpdate(
+      current as unknown as NormalizedPatchMapElement,
+      changes,
+    );
+    if (geometry.candidate === null) {
+      return this.rejectedGeometryPatchResult(target, geometry, 'relativePatch');
+    }
+    if (geometry.status === 'unchanged') return this.patch(target, {});
+    return this.patch(target, { attrs: geometry.candidate.attrs });
+  }
+
+  public resizeAroundOrigin(
+    targetInput: Extract<PatchMapMutationTarget, { readonly kind: 'element' }>,
+    resize: Omit<PatchMapVisibleCenterResize, 'parentAffine'>,
+  ): PatchMapEnginePatchResult {
+    this.requireSurface('resizeAroundOrigin');
+    const target = normalizeEngineMutationTarget(targetInput);
+    if (target.kind !== 'element') throw new TypeError('resizeAroundOrigin requires an element target');
+    const current = this.materialized === null
+      ? null
+      : findEngineSemanticTarget(this.materialized.dataset, target);
+    if (current === null) return this.patch(target, {});
+    const geometry = resizePatchMapGeometryAroundOrigin(
+      current as unknown as NormalizedPatchMapElement,
+      resize,
+    );
+    if (geometry.candidate === null) {
+      return this.rejectedGeometryPatchResult(target, geometry, 'resizeAroundOrigin');
+    }
+    if (geometry.status === 'unchanged') return this.patch(target, {});
+    return this.patch(target, {
+      attrs: geometry.candidate.attrs,
+      size: geometry.candidate.size,
+    });
+  }
+
+  /**
+   * Apply one strict partial merge against the current stable logical target.
+   * Semantic authority advances only after the dense surface reports one
+   * successful incremental reconcile; no failure path substitutes a full load.
+   */
+  public patch(target: PatchMapSemanticTarget, patch: unknown): PatchMapEnginePatchResult {
+    const surface = this.requireSurface('patch');
+    this.cancelActiveTransformerEdit('redraw', true);
+    const previousRevisions = this.revisionStamp();
+    const mutation = applyPatchMapSemanticPatch(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      target,
+      patch,
+    );
+
+    if (mutation.status === 'rejected') {
+      const diagnostic = this.semanticMutationDiagnostic(mutation.diagnostic, mutation.target);
+      const result = Object.freeze({
+        status: 'rejected',
+        changed: false,
+        target: mutation.target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: mutation.diagnostic.reason === 'missing-target' && mutation.target
+          ? freezeTargets([mutation.target])
+          : EMPTY_TARGETS,
+        unchanged: EMPTY_TARGETS,
+        diagnostic,
+        mutationDiagnostic: mutation.diagnostic,
+      } satisfies PatchMapEnginePatchResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    if (mutation.status === 'unchanged') {
+      return Object.freeze({
+        status: 'unchanged',
+        changed: false,
+        target: mutation.target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: EMPTY_TARGETS,
+        unchanged: freezeTargets([mutation.target]),
+      } satisfies PatchMapEnginePatchResult);
+    }
+
+    if (!surface.reconcile) {
+      return this.refusedPatchResult(
+        mutation.target,
+        previousRevisions,
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        false,
+        EMPTY_RECONCILE_DIAGNOSTICS,
+      );
+    }
+
+    const currentDataset =
+      this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset;
+    const incrementalRootIds = incrementalOwnedRootIds(
+      currentDataset,
+      mutation.candidate.dataset,
+    );
+    const componentSemantics = incrementalRootIds === undefined
+      ? indexComponentSemantics(mutation.candidate.dataset)
+      : reconcileFlatComponentSemantics(
+          this.componentSemantics,
+          currentDataset,
+          mutation.candidate.dataset,
+          incrementalRootIds,
+        );
+    const textSemantics = incrementalRootIds === undefined
+      ? indexTextSemantics(mutation.candidate.dataset)
+      : reconcileFlatTextSemantics(
+          this.textSemantics,
+          currentDataset,
+          mutation.candidate.dataset,
+          incrementalRootIds,
+        );
+    const selectionBefore = this.logicalSelectionIds;
+    let preparedHistory: PatchMapHistoryPreparedRecord;
+    try {
+      preparedHistory = this.history.prepareOwnedChangedRecord({
+        id: `patch:${this.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
+        before: this.historySnapshot(),
+        after: historySnapshotForDataset(
+          mutation.candidate.dataset,
+          this.historyCompanionForSelection(selectionBefore),
+        ),
+      });
+    } catch (error) {
+      const diagnostic = this.diagnosticFrom(error, 'patch');
+      const result = Object.freeze({
+        status: 'refused',
+        changed: false,
+        target: mutation.target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: EMPTY_TARGETS,
+        unchanged: EMPTY_TARGETS,
+        diagnostic,
+        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+      } satisfies PatchMapEnginePatchResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+    let reconcile: PatchMapSurfaceReconcileResult;
+    try {
+      reconcile = surface.reconcile(mutation.candidate.dataset, {
+        animateBarChanges:
+          !this.accessibility.reducedMotion &&
+          mutation.target.kind === 'component',
+        ...(incrementalRootIds === undefined ? {} : { incrementalRootIds }),
+      });
+    } catch (error) {
+      this.history.cancelPrepared(preparedHistory);
+      const diagnostic = this.diagnosticFrom(error, 'patch');
+      const result = Object.freeze({
+        status: 'refused',
+        changed: false,
+        target: mutation.target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: EMPTY_TARGETS,
+        unchanged: EMPTY_TARGETS,
+        diagnostic,
+        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+      } satisfies PatchMapEnginePatchResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
+    if (reconcile.status === 'refused') {
+      this.history.cancelPrepared(preparedHistory);
+      return this.refusedPatchResult(
+        mutation.target,
+        previousRevisions,
+        'CONFLICT',
+        'CONFLICT',
+        true,
+        reconcileDiagnostics,
+      );
+    }
+
+    this.materialized = mutation.candidate;
+    this.defaultViewportContributorsCache = null;
+    this.logicalSceneIndexCache = null;
+    this.componentSemantics = componentSemantics;
+    this.textSemantics = textSemantics;
+    this.sceneRevision += 1;
+    this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
+    const historyStatus = this.history.commitPrepared(preparedHistory);
+    if (historyStatus === 'stale' || historyStatus === 'invalid' || historyStatus === 'cancelled') {
+      throw new Error(`patch history preflight became ${historyStatus} after surface commit`);
+    }
+    const result = Object.freeze({
+      status: 'committed',
+      changed: true,
+      target: mutation.target,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: mutation.candidate.semanticHash,
+      applied: freezeTargets([mutation.target]),
+      missing: EMPTY_TARGETS,
+      unchanged: EMPTY_TARGETS,
+      publication: 'pending',
+      denseOperationCount: reconcile.operationCount,
+      denseChanged: reconcile.denseChanged,
+      reconcileDiagnostics,
+    } satisfies PatchMapEnginePatchResult);
+    this.emit('change', result);
+    return result;
+  }
+
+  /**
+   * Remove one stable logical element through the same incremental reconcile
+   * authority as patch(). A missing reconcile seam or refused dense plan leaves
+   * semantic authority, revisions, selection, and the current surface unchanged.
+   */
+  public destroyTarget(target: PatchMapSemanticTarget): PatchMapEngineDestroyTargetResult {
+    const surface = this.requireSurface('destroyTarget');
+    this.cancelActiveTransformerEdit('redraw', true);
+    const previousRevisions = this.revisionStamp();
+    const mutation = removePatchMapSemanticTarget(
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      target,
+    );
+
+    if (mutation.status === 'rejected') {
+      const diagnostic = this.semanticMutationDiagnostic(
+        mutation.diagnostic,
+        mutation.target,
+        'destroyTarget',
+      );
+      const result = Object.freeze({
+        status: 'rejected',
+        changed: false,
+        target: mutation.target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: mutation.diagnostic.reason === 'missing-target' && mutation.target
+          ? freezeTargets([mutation.target])
+          : EMPTY_TARGETS,
+        unchanged: EMPTY_TARGETS,
+        diagnostic,
+        mutationDiagnostic: mutation.diagnostic,
+      } satisfies PatchMapEngineDestroyTargetResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    if (!surface.reconcile) {
+      return this.refusedDestroyTargetResult(
+        mutation.target,
+        previousRevisions,
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        false,
+        EMPTY_RECONCILE_DIAGNOSTICS,
+      );
+    }
+
+    const structuralRootDelta = ownedStructuralRootDelta(
+      this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset,
+      mutation.candidate.dataset,
+    );
+    const componentSemantics = structuralRootDelta === null
+      ? indexComponentSemantics(mutation.candidate.dataset)
+      : reconcileStructuralComponentSemantics(
+          this.componentSemantics,
+          structuralRootDelta,
+        );
+    const textSemantics = structuralRootDelta === null
+      ? indexTextSemantics(mutation.candidate.dataset)
+      : reconcileStructuralTextSemantics(
+          this.textSemantics,
+          structuralRootDelta,
+        );
+    const selectionBefore = this.logicalSelectionIds;
+    const selectionAfter = structuralRootDelta === null
+      ? this.validLogicalSelection(selectionBefore, mutation.candidate)
+      : this.validOwnedStructuralSelection(selectionBefore, mutation.candidate);
+    let preparedHistory: PatchMapHistoryPreparedRecord;
+    try {
+      preparedHistory = this.history.prepareOwnedChangedRecord({
+        id: `destroy:${this.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
+        before: this.historySnapshot(),
+        after: historySnapshotForDataset(
+          mutation.candidate.dataset,
+          this.historyCompanionForSelection(selectionAfter),
+        ),
+      });
+    } catch (error) {
+      const diagnostic = this.diagnosticFrom(error, 'destroyTarget');
+      const result = Object.freeze({
+        status: 'refused',
+        changed: false,
+        target: mutation.target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: EMPTY_TARGETS,
+        unchanged: EMPTY_TARGETS,
+        diagnostic,
+        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+      } satisfies PatchMapEngineDestroyTargetResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+    let reconcile: PatchMapSurfaceReconcileResult;
+    try {
+      reconcile = surface.reconcile(mutation.candidate.dataset, {
+        animateBarChanges: false,
+        ...(mutation.target.kind === 'element'
+          ? { structuralSharing: true }
+          : {}),
+        ...(!sameStringArray(selectionBefore, selectionAfter)
+          ? { selectionIds: selectionAfter }
+          : {}),
+      });
+    } catch (error) {
+      this.history.cancelPrepared(preparedHistory);
+      const diagnostic = this.diagnosticFrom(error, 'destroyTarget');
+      const result = Object.freeze({
+        status: 'refused',
+        changed: false,
+        target: mutation.target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: EMPTY_TARGETS,
+        unchanged: EMPTY_TARGETS,
+        diagnostic,
+        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+      } satisfies PatchMapEngineDestroyTargetResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
+    if (reconcile.status === 'refused') {
+      this.history.cancelPrepared(preparedHistory);
+      return this.refusedDestroyTargetResult(
+        mutation.target,
+        previousRevisions,
+        'CONFLICT',
+        'CONFLICT',
+        true,
+        reconcileDiagnostics,
+      );
+    }
+
+    this.materialized = mutation.candidate;
+    this.defaultViewportContributorsCache = null;
+    this.logicalSceneIndexCache = null;
+    this.componentSemantics = componentSemantics;
+    this.textSemantics = textSemantics;
+    this.logicalSelectionIds = selectionAfter;
+    this.sceneRevision += 1;
+    this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
+    if (!sameStringArray(selectionBefore, selectionAfter)) this.interactionRevision += 1;
+    const historyStatus = this.history.commitPrepared(preparedHistory);
+    if (historyStatus === 'stale' || historyStatus === 'invalid' || historyStatus === 'cancelled') {
+      throw new Error(`destroy history preflight became ${historyStatus} after surface commit`);
+    }
+    const result = Object.freeze({
+      status: 'committed',
+      changed: true,
+      target: mutation.target,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: mutation.candidate.semanticHash,
+      applied: freezeTargets([mutation.target]),
+      missing: EMPTY_TARGETS,
+      unchanged: EMPTY_TARGETS,
+      publication: 'pending',
+      denseOperationCount: reconcile.operationCount,
+      denseChanged: reconcile.denseChanged,
+      reconcileDiagnostics,
+    } satisfies PatchMapEngineDestroyTargetResult);
+    this.emit('targetDestroyed', result);
+    return result;
+  }
+
+  public setPresentationPolicy(
+    input: PatchMapPresentationPolicyInput,
+  ): PatchMapEnginePresentationResult {
+    const surface = this.requireSurface('setPresentationPolicy');
+    if (!surface.setPresentationPolicy || !surface.presentationPolicyProbe) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'setPresentationPolicy',
+        false,
+      );
+    }
+    const previousRevisions = this.revisionStamp();
+    const before = surface.presentationPolicyProbe();
+    const policy = surface.setPresentationPolicy(input);
+    const changed = policy.revision !== before.revision;
+    if (changed) this.interactionRevision += 1;
+    const result = Object.freeze({
+      changed,
+      publication: changed ? 'pending' : 'current',
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      policy,
+    } satisfies PatchMapEnginePresentationResult);
+    if (changed) this.emit('presentationChanged', result);
+    return result;
+  }
+
+  public clearPresentationPolicy(): PatchMapEnginePresentationResult {
+    const surface = this.requireSurface('clearPresentationPolicy');
+    if (!surface.clearPresentationPolicy || !surface.presentationPolicyProbe) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'clearPresentationPolicy',
+        false,
+      );
+    }
+    const previousRevisions = this.revisionStamp();
+    const before = surface.presentationPolicyProbe();
+    const policy = surface.clearPresentationPolicy();
+    const changed = policy.revision !== before.revision;
+    if (changed) this.interactionRevision += 1;
+    const result = Object.freeze({
+      changed,
+      publication: changed ? 'pending' : 'current',
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      policy,
+    } satisfies PatchMapEnginePresentationResult);
+    if (changed) this.emit('presentationChanged', result);
+    return result;
+  }
+
+  public presentationPolicyProbe(): PatchMapPresentationPolicyProductProbe {
+    const surface = this.requireSurface('presentationPolicyProbe');
+    if (!surface.presentationPolicyProbe) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'presentationPolicyProbe',
+        false,
+      );
+    }
+    return surface.presentationPolicyProbe();
+  }
+
+  public applyLiveOverlay(input: PatchMapLiveOverlayInput): PatchMapLiveOverlayResult {
+    this.requireSurface('applyLiveOverlay');
+    const sourceRevision = positiveSafeInteger(input.sourceRevision, 'sourceRevision');
+    const payloadHash = nonEmptyValue(input.payloadHash, 'payloadHash');
+    const latest = this.latestOverlayAccepted;
+    if (latest !== null && sourceRevision <= latest.sourceRevision) {
+      const diagnostic = this.operationDiagnostic(
+        'SUPERSEDED',
+        'SUPERSEDED',
+        'applyLiveOverlay',
+        true,
+      );
+      return Object.freeze({
+        status: 'superseded',
+        changed: false,
+        sourceRevision,
+        payloadHash,
+        diagnostic,
+      });
+    }
+    if (input.transaction.recordHistory === true) {
+      const diagnostic = this.operationDiagnostic(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        'applyLiveOverlay',
+        true,
+      );
+      this.emit('diagnostic', diagnostic);
+      return Object.freeze({
+        status: 'rejected',
+        changed: false,
+        sourceRevision,
+        payloadHash,
+        diagnostic,
+      });
+    }
+    const transaction = this.transact({
+      ...input.transaction,
+      recordHistory: false,
+    });
+    if (transaction.status === 'rejected' || transaction.status === 'refused') {
+      return Object.freeze({
+        status: 'rejected',
+        changed: false,
+        sourceRevision,
+        payloadHash,
+        diagnostic: transaction.diagnostic,
+        transaction,
+      });
+    }
+    const tuple = Object.freeze({
+      sourceRevision,
+      payloadHash,
+      sceneRevision: this.sceneRevision,
+    });
+    this.latestOverlayAccepted = tuple;
+    this.pendingOverlayPublication = tuple;
+    this.overlayAcceptedCount += 1;
+    this.emit('overlayAccepted', tuple);
+    return Object.freeze({
+      status: 'accepted',
+      changed: transaction.changed,
+      publication: 'pending',
+      tuple,
+      transaction,
+    });
+  }
+
+  public liveOverlayProbe(): PatchMapLiveOverlayProbe {
+    this.requireSurface('liveOverlayProbe');
+    return Object.freeze({
+      latestAccepted: this.latestOverlayAccepted,
+      latestPublished: this.latestOverlayPublished,
+      pendingPublicationCount: this.pendingOverlayPublication === null ? 0 : 1,
+      acceptedCount: this.overlayAcceptedCount,
+      publicationCount: this.overlayPublicationCount,
+    });
+  }
+
+  public replaceExternalDependency(
+    dependencyIdValue: string,
+    revisionValue: string,
+  ): PatchMapExternalDependencyResult {
+    this.requireSurface('replaceExternalDependency');
+    const dependencyId = nonEmptyValue(dependencyIdValue, 'dependencyId');
+    const revision = nonEmptyValue(revisionValue, 'revision');
+    const previousRevision = this.externalDependencyRevisions.get(dependencyId) ?? null;
+    const changed = previousRevision !== revision;
+    if (changed) this.externalDependencyRevisions.set(dependencyId, revision);
+    return Object.freeze({
+      changed,
+      dependencyId,
+      previousRevision,
+      revision,
+    });
+  }
+
+  public externalDependencyProbe(): Readonly<Record<string, string>> {
+    this.requireSurface('externalDependencyProbe');
+    return Object.freeze(Object.fromEntries(
+      [...this.externalDependencyRevisions].sort(([left], [right]) => left.localeCompare(right)),
+    ));
+  }
+
+  public refreshSemantic(
+    input: PatchMapSemanticRefreshInput,
+  ): PatchMapEngineSemanticRefreshResult {
+    const surface = this.requireSurface('refreshSemantic');
+    const previousRevisions = this.revisionStamp();
+    const history = this.history.state();
+    const selectionIds = this.logicalSelectionIds;
+    const rejectedBase = {
+      changed: false as const,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      recomputedTargets: Object.freeze([] as string[]),
+      missingTargets: Object.freeze([] as string[]),
+      dirtyRanges: Object.freeze([] as SlotRange[]),
+      dataDiffCount: 0 as const,
+      history,
+      selectionIds,
+    };
+    if (input.recordHistory === true) {
+      const diagnostic = this.operationDiagnostic(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'refreshSemantic',
+        true,
+      );
+      this.emit('diagnostic', diagnostic);
+      return Object.freeze({ status: 'rejected', ...rejectedBase, diagnostic });
+    }
+    if (!surface.refreshSemanticTargets) {
+      const diagnostic = this.operationDiagnostic(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'refreshSemantic',
+        false,
+      );
+      this.emit('diagnostic', diagnostic);
+      return Object.freeze({ status: 'rejected', ...rejectedBase, diagnostic });
+    }
+    const refreshed = surface.refreshSemanticTargets(input.targets, {
+      strict: input.strict ?? true,
+    });
+    if ((input.strict ?? true) && refreshed.missingTargets.length > 0) {
+      const diagnostic = this.operationDiagnostic(
+        'MISSING_TARGET',
+        'MISSING_TARGET',
+        'refreshSemantic',
+        true,
+      );
+      const result = Object.freeze({
+        status: 'rejected' as const,
+        changed: false as const,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        recomputedTargets: refreshed.recomputedTargets,
+        missingTargets: refreshed.missingTargets,
+        dirtyRanges: refreshed.dirtyRanges,
+        dataDiffCount: 0 as const,
+        history,
+        selectionIds,
+        diagnostic,
+      });
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+    if (!refreshed.changed) {
+      return Object.freeze({
+        status: 'unchanged',
+        changed: false,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        recomputedTargets: refreshed.recomputedTargets,
+        missingTargets: refreshed.missingTargets,
+        dirtyRanges: refreshed.dirtyRanges,
+        dataDiffCount: 0,
+        history,
+        selectionIds,
+      });
+    }
+    this.sceneRevision += 1;
+    const result = Object.freeze({
+      status: 'committed',
+      changed: true,
+      publication: 'pending',
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      recomputedTargets: refreshed.recomputedTargets,
+      missingTargets: refreshed.missingTargets,
+      dirtyRanges: refreshed.dirtyRanges,
+      dataDiffCount: 0,
+      history,
+      selectionIds,
+    } satisfies PatchMapEngineSemanticRefreshResult);
+    this.emit('semanticRefreshed', result);
+    return result;
+  }
+
+  public async submitDataset(submission: PatchMapDatasetSubmission): Promise<PatchMapDatasetSubmissionResult> {
+    let sourceFields: Readonly<{ readonly sourceRevision?: number }> = Object.freeze({});
+    let sequence = 0;
+    let inputResolved = false;
+    let outcome: PatchMapDatasetSubmissionResult | null = null;
+    this.pendingWork += 1;
+    try {
+      const sourceRevision = normalizeOptionalSourceRevision(submission.sourceRevision);
+      sourceFields = sourceRevision === undefined
+        ? Object.freeze({})
+        : Object.freeze({ sourceRevision });
+      if (!this.surface) {
+        outcome = Object.freeze({
+          status: 'rejected',
+          requestId: submission.requestId,
+          ...sourceFields,
+          diagnostic: this.operationDiagnostic('NOT_READY', 'NOT_READY', 'loadDataset', true),
+        } satisfies PatchMapDatasetSubmissionResult);
+        return outcome;
+      }
+      sequence = ++this.submissionSequence;
+      const input = await submission.input;
+      inputResolved = true;
+      const prepared = this.prepareDatasetLoad(input);
+      if (sequence !== this.submissionSequence || this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
+        outcome = Object.freeze({
+          status: 'superseded',
+          requestId: submission.requestId,
+          ...sourceFields,
+          diagnostic: this.operationDiagnostic('SUPERSEDED', 'SUPERSEDED', 'loadDataset', true),
+        } satisfies PatchMapDatasetSubmissionResult);
+        return outcome;
+      }
+      const surface = this.requireSurface('loadDataset');
+      const result = this.publishPreparedDatasetLoad(surface, prepared, {
+        ...(submission.datasetRef ? { datasetRef: submission.datasetRef } : {}),
+      });
+      this.emit('drawComplete', Object.freeze({
+        requestId: submission.requestId,
+        ...sourceFields,
+        sceneRevision: result.sceneRevision,
+        semanticHash: result.semanticHash,
+        datasetRef: submission.datasetRef ?? null,
+      }));
+      outcome = Object.freeze({
+        status: 'committed',
+        requestId: submission.requestId,
+        ...sourceFields,
+        sceneRevision: result.sceneRevision,
+        semanticHash: result.semanticHash,
+      } satisfies PatchMapDatasetSubmissionResult);
+      return outcome;
+    } catch (error) {
+      if (
+        !inputResolved &&
+        sequence !== 0 &&
+        (
+          sequence !== this.submissionSequence ||
+          this.lifecycle === 'destroyed' ||
+          this.lifecycle === 'destroying'
+        )
+      ) {
+        outcome = Object.freeze({
+          status: 'superseded',
+          requestId: submission.requestId,
+          ...sourceFields,
+          diagnostic: this.operationDiagnostic(
+            'SUPERSEDED',
+            'SUPERSEDED',
+            'loadDataset',
+            true,
+          ),
+        } satisfies PatchMapDatasetSubmissionResult);
+        return outcome;
+      }
+      const diagnostic = this.diagnosticFrom(error, 'loadDataset');
+      if (!this.isDestroyingOrDestroyed()) this.emit('diagnostic', diagnostic);
+      outcome = Object.freeze({
+        status: 'rejected',
+        requestId: submission.requestId,
+        ...sourceFields,
+        diagnostic,
+      } satisfies PatchMapDatasetSubmissionResult);
+      return outcome;
+    } finally {
+      try {
+        if (outcome !== null) await releaseDatasetSubmission(submission, outcome);
+      } finally {
+        this.pendingWork -= 1;
+      }
+    }
+  }
+
+  public registerPageLifecycleWork(
+    input: PatchMapEnginePageLifecycleWorkInput,
+  ): PatchMapPageLifecycleWorkToken {
+    this.requireSurface('registerPageLifecycleWork');
+    return this.pageLifecycle.register(input.kind, input.requestId);
+  }
+
+  public completePageLifecycleWork(
+    token: PatchMapPageLifecycleWorkToken,
+  ): PatchMapPageLifecycleWorkCompletion {
+    return this.pageLifecycle.complete(token);
+  }
+
+  public setDocumentVisibility(
+    input: PatchMapEngineDocumentVisibilityInput,
+  ): PatchMapEngineDocumentVisibilityResult {
+    const surface = this.requireSurface('setDocumentVisibility');
+    const before = this.pageLifecycle.probe();
+    if (input.state !== 'visible' && input.state !== 'hidden') {
+      throw new TypeError('document visibility state must be visible or hidden');
+    }
+    if (
+      !Number.isFinite(input.timeMs) ||
+      input.timeMs < before.clockMs
+    ) {
+      throw new RangeError('page lifecycle time must be finite and monotonic');
+    }
+    const pointerBefore = this.pointerGestureAuthority?.probe() ?? destroyedPointerGestureProbe();
+    const motionBefore = this.viewportMotion !== null;
+    let presentation: PatchMapPresentationLifecycleResult | null = null;
+    const changed = input.state !== before.state;
+    if (this.frameLoop?.isDestroyed) {
+      this.frameLoop = null;
+      this.frameLoopPausedForVisibility = false;
+    }
+    if (changed && input.state === 'hidden') {
+      if (
+        this.frameLoop !== null &&
+        !this.frameLoop.isPaused
+      ) {
+        this.frameLoop.pause();
+        this.frameLoopPausedForVisibility = true;
+      }
+      presentation = surface.suspendPresentation?.(input.timeMs) ?? null;
+    } else if (changed) {
+      presentation = surface.resumePresentation?.(input.timeMs) ?? null;
+    }
+    const transition = this.pageLifecycle.transition(input.state, input.timeMs);
+    if (changed) this.frameClockMs = input.timeMs;
+    if (transition.changed && transition.state === 'hidden') {
+      this.viewportMotion = null;
+      surface.cancelViewportGestures?.();
+      if (this.cancelActiveTransformerEdit('blur', true) === null) {
+        this.transformerGestures.interrupt();
+      }
+      this.pointerGestureAuthority?.interrupt('blur');
+      this.hostInteractions.clearTooltip('redraw');
+      if (
+        motionBefore ||
+        pointerBefore.activePointerCount > 0 ||
+        pointerBefore.activeGestureCount > 0
+      ) {
+        this.interactionRevision += 1;
+      }
+    }
+    const result = Object.freeze({
+      schemaRevision: PATCH_MAP_PAGE_LIFECYCLE_REVISION,
+      transition,
+      presentation,
+      probe: this.pageLifecycleProbe(),
+    } satisfies PatchMapEngineDocumentVisibilityResult);
+    if (
+      transition.changed &&
+      transition.state === 'visible' &&
+      this.frameLoop !== null
+    ) {
+      this.frameLoop.synchronizeLogicalTime(input.timeMs);
+      if (this.frameLoopPausedForVisibility) this.frameLoop.resume();
+      this.frameLoopPausedForVisibility = false;
+    }
+    if (transition.changed) this.emit('documentVisibilityChanged', result);
+    return result;
+  }
+
+  public pageLifecycleProbe(): PatchMapEnginePageLifecycleProbe {
+    const lifecycle = this.pageLifecycle.probe();
+    const pointer = this.pointerGestureAuthority?.probe() ?? destroyedPointerGestureProbe();
+    return Object.freeze({
+      ...lifecycle,
+      activeAnimationCount: this.activeAnimations,
+      decelerationActive: this.viewportMotion !== null,
+      activeGestureCount: pointer.activeGestureCount,
+      pointerCaptureCount: pointer.pointerCaptureCount,
+    });
+  }
+
+  public publishFrame(timeMs = globalThis.performance?.now() ?? Date.now()): void {
+    if (!Number.isFinite(timeMs)) throw new TypeError('timeMs must be finite');
+    if (this.pageLifecycle.probe().state === 'hidden') return;
+    const surface = this.requireSurface('publishFrame');
+    try {
+      this.refreshAccessibilitySurfaceIfActive('publishFrame');
+      surface.publishFrame(timeMs);
+      this.frameClockMs = timeMs;
+    } catch (error) {
+      const diagnostic = this.diagnosticFrom(error, 'publishFrame');
+      this.emit('diagnostic', diagnostic);
+      throw new PatchMapError(diagnostic);
+    }
+    if (this.viewportResizePendingFrame) {
+      const visiblePrimitiveCount = surface.debugSnapshot().visiblePrimitiveCount;
+      if (
+        (this.materialized?.rootIds.length ?? 0) > 0 &&
+        visiblePrimitiveCount === 0
+      ) {
+        this.viewportBlackFrameCount += 1;
+      }
+      this.viewportResizePendingFrame = false;
+    }
+    this.frameRevision += 1;
+    this.publishedTuple = Object.freeze({
+      scene: this.sceneRevision,
+      view: this.viewRevision,
+      interaction: this.interactionRevision,
+    });
+    this.emit('frame', Object.freeze({ frameRevision: this.frameRevision, publishedTuple: this.publishedTuple }));
+    if (this.pendingHistoryPublications.length > 0) {
+      const pending = this.pendingHistoryPublications;
+      this.pendingHistoryPublications = Object.freeze([]);
+      for (const entry of pending) {
+        if (entry.sceneRevision !== this.publishedTuple.scene) continue;
+        this.emit('historyVisible', Object.freeze({
+          direction: entry.direction,
+          sceneRevision: entry.sceneRevision,
+          frameRevision: this.frameRevision,
+          publication: 'published',
+        }));
+      }
+    }
+    if (this.pendingOverlayPublication !== null) {
+      const published = Object.freeze({
+        ...this.pendingOverlayPublication,
+        frameRevision: this.frameRevision,
+      });
+      this.latestOverlayPublished = published;
+      this.pendingOverlayPublication = null;
+      this.overlayPublicationCount += 1;
+      this.emit('overlayPublished', published);
+    }
+    this.pageLifecycle.publishedFrame();
+  }
+
+  public resize(width: number, height: number, pixelRatio = globalThis.devicePixelRatio ?? 1): boolean {
+    validatePositiveFinite('width', width);
+    validatePositiveFinite('height', height);
+    validatePositiveFinite('pixelRatio', pixelRatio);
+    const surface = this.requireSurface('resize');
+    const changed = surface.resize(width, height, pixelRatio);
+    if (!changed) return false;
+    this.viewportWidth = width;
+    this.viewportHeight = height;
+    this.viewportPixelRatio = pixelRatio;
+    surface.setView(this.resolvedSurfaceView());
+    this.viewRevision += 1;
+    this.viewportPointerTransformRevision = this.viewRevision;
+    this.viewportResizePolicyApplicationCount += 1;
+    this.viewportResizePendingFrame = true;
+    return true;
+  }
+
+  public viewportProbe(): PatchMapViewportState {
+    return this.viewportState();
+  }
+
+  public viewportTransformProbe(): PatchMapViewportTransformProbe {
+    const surface = this.requireSurface('viewportTransformProbe');
+    const debug = surface.debugSnapshot();
+    return Object.freeze({
+      schemaRevision: PATCH_MAP_VIEWPORT_REVISION,
+      world: this.worldTransformState(),
+      pointerTransformRevision: this.viewportPointerTransformRevision,
+      resizePolicyApplicationCount: this.viewportResizePolicyApplicationCount,
+      blackFrameCount: this.viewportBlackFrameCount,
+      pendingResizeFrame: this.viewportResizePendingFrame,
+      surface: Object.freeze({
+        canvasCount: surface.canvasCount,
+        cssSize: debug.cssSize,
+        backingSize: debug.backingSize,
+      }),
+    });
+  }
+
+  public panViewport(
+    deltaCss: readonly [number, number],
+    source: PatchMapViewportChangeSource = 'pointer',
+  ): PatchMapViewportChangeResult {
+    const delta = finiteTuple(deltaCss, 'deltaCss');
+    const surface = this.requireSurface('panViewport');
+    if (
+      (source === 'pointer' || source === 'middle-pointer') &&
+      !this.viewportPolicyEnabled.has('pan')
+    ) {
+      return this.blockedViewportResult(source);
+    }
+    if (source === 'deceleration' && !this.viewportPolicyEnabled.has('deceleration')) {
+      return this.blockedViewportResult(source);
+    }
+    const center = surface.screenToWorld({
+      x: this.viewportWidth / 2 - delta[0],
+      y: this.viewportHeight / 2 - delta[1],
+    });
+    return this.commitViewport([center.x, center.y], this.viewportScale, source);
+  }
+
+  public zoomViewportAt(input: Readonly<{
+    readonly factor: number;
+    readonly anchorCss: readonly [number, number];
+    readonly source?: 'wheel' | 'modifier-wheel' | 'pinch' | 'programmatic';
+  }>): PatchMapViewportChangeResult {
+    if (!Number.isFinite(input.factor) || !(input.factor > 0)) {
+      throw new RangeError('zoom factor must be positive and finite');
+    }
+    const anchor = finiteTuple(input.anchorCss, 'anchorCss');
+    const source = input.source ?? 'wheel';
+    const policy = source === 'pinch' ? 'pinch' : source === 'programmatic' ? null : 'wheel';
+    const surface = this.requireSurface('zoomViewportAt');
+    if (policy !== null && !this.viewportPolicyEnabled.has(policy)) {
+      return this.blockedViewportResult(source);
+    }
+    const worldUnderAnchor = surface.screenToWorld({ x: anchor[0], y: anchor[1] });
+    const nextScale = Math.min(
+      this.zoomLimits[1],
+      Math.max(this.zoomLimits[0], this.viewportScale * input.factor),
+    );
+    const ratio = this.viewportScale / nextScale;
+    const center: readonly [number, number] = Object.freeze([
+      worldUnderAnchor.x -
+        (worldUnderAnchor.x - this.viewportCenterWorld[0]) * ratio,
+      worldUnderAnchor.y -
+        (worldUnderAnchor.y - this.viewportCenterWorld[1]) * ratio,
+    ]);
+    return this.commitViewport(center, nextScale, source);
+  }
+
+  public startViewportDeceleration(
+    velocityCssPxPerMs: readonly [number, number],
+  ): boolean {
+    const velocity = finiteTuple(velocityCssPxPerMs, 'velocityCssPxPerMs');
+    this.requireSurface('startViewportDeceleration');
+    if (!this.viewportPolicyEnabled.has('deceleration')) return false;
+    this.viewportMotion = Object.freeze({
+      velocityX: velocity[0],
+      velocityY: velocity[1],
+    });
+    return true;
+  }
+
+  public advanceViewportMotion(deltaMs: number): PatchMapViewportChangeResult {
+    if (!Number.isFinite(deltaMs) || deltaMs < 0) {
+      throw new RangeError('viewport motion deltaMs must be finite and non-negative');
+    }
+    const motion = this.viewportMotion;
+    if (motion === null || !this.viewportPolicyEnabled.has('deceleration')) {
+      this.viewportMotion = null;
+      return this.blockedViewportResult('deceleration');
+    }
+    const decay = Math.exp(-deltaMs / 120);
+    const displacementScale = 120 * (1 - decay);
+    const result = this.panViewport(
+      [
+        motion.velocityX * displacementScale,
+        motion.velocityY * displacementScale,
+      ],
+      'deceleration',
+    );
+    const velocityX = motion.velocityX * decay;
+    const velocityY = motion.velocityY * decay;
+    this.viewportMotion = Math.hypot(velocityX, velocityY) < 0.001
+      ? null
+      : Object.freeze({ velocityX, velocityY });
+    return result;
+  }
+
+  public cancelViewportMotion(): boolean {
+    const changed = this.viewportMotion !== null;
+    this.viewportMotion = null;
+    this.surface?.cancelViewportGestures?.();
+    return changed;
+  }
+
+  public settleViewport(): PatchMapViewportSettleResult {
+    this.requireSurface('settleViewport');
+    this.cancelViewportMotion();
+    const key = viewportStateKey(this.viewportCenterWorld, this.viewportScale);
+    const changed = key !== this.lastSettledViewportKey;
+    if (changed) {
+      this.lastSettledViewportKey = key;
+      this.viewportSettledPublicationCount += 1;
+    }
+    const result = Object.freeze({
+      changed,
+      viewport: this.viewportState(),
+      publicationCount: this.viewportSettledPublicationCount,
+      persistence: this.viewportPersistenceProbe(),
+    } satisfies PatchMapViewportSettleResult);
+    if (changed) this.emit('viewSettled', result);
+    return result;
+  }
+
+  public serializeViewport(): PatchMapSerializedViewportState {
+    this.requireSurface('serializeViewport');
+    const serialized = serializedViewport(this.viewportCenterWorld, this.viewportScale);
+    const key = viewportStateKey(serialized.centerWorld, serialized.scale);
+    if (key === this.lastSerializedViewportKey) {
+      this.viewportSuppressedEquivalentSaveCount += 1;
+      return this.lastSerializedViewport ?? serialized;
+    }
+    this.lastSerializedViewportKey = key;
+    this.lastSerializedViewport = serialized;
+    this.viewportPersistenceWriteCount += 1;
+    return serialized;
+  }
+
+  public viewportPersistenceProbe(): PatchMapViewportPersistenceProbe {
+    return Object.freeze({
+      settledPublicationCount: this.viewportSettledPublicationCount,
+      persistenceWriteCount: this.viewportPersistenceWriteCount,
+      equivalentSaveCount: 0,
+      suppressedEquivalentSaveCount: this.viewportSuppressedEquivalentSaveCount,
+      settled:
+        this.lastSettledViewportKey ===
+        viewportStateKey(this.viewportCenterWorld, this.viewportScale),
+      serialized: this.lastSerializedViewport,
+    });
+  }
+
+  /**
+   * Rebind a long-lived GPU Engine to a new host UI generation. The aggregate
+   * renderer and canvas stay owned by the Engine, while gesture captures,
+   * pending loads, selection, and resolved-target authority cannot cross the
+   * host lifecycle boundary.
+   */
+  public rebindHostLifecycle(
+    requestedGeneration: number,
+  ): PatchMapHostLifecycleRebindResult {
+    if (
+      !Number.isSafeInteger(requestedGeneration) ||
+      requestedGeneration !== this.lifecycleGeneration + 1
+    ) {
+      throw new RangeError('host lifecycle generation must advance by exactly one');
+    }
+    const surface = this.requireSurface('rebindHostLifecycle');
+    this.hostInteractions.clearTooltip('redraw');
+    this.submissionSequence += 1;
+    this.loadSequence += 1;
+    this.viewportMotion = null;
+    surface.cancelViewportGestures?.();
+    if (this.cancelActiveTransformerEdit('redraw', true) === null) {
+      this.transformerGestures.interrupt();
+    }
+    if (this.logicalSelectionIds.length > 0) {
+      surface.select([]);
+      this.logicalSelectionIds = Object.freeze([]);
+      this.interactionRevision += 1;
+    }
+    this.lifecycleGeneration = requestedGeneration;
+    this.targetLifecycleGeneration += 1;
+    return Object.freeze({
+      lifecycleGeneration: this.lifecycleGeneration,
+      sceneRevision: this.sceneRevision,
+      canvasCount: surface.canvasCount,
+      selectionIds: this.logicalSelectionIds,
+      revisions: this.revisionStamp(),
+    });
+  }
+
+  public restoreViewport(
+    input: unknown,
+    fallback: PatchMapViewportFitOptions = {},
+  ): PatchMapViewportRestoreResult {
+    const restored = normalizeSerializedViewport(input, this.zoomLimits);
+    if (restored !== null) {
+      const result = this.commitViewport(
+        restored.centerWorld,
+        restored.scale,
+        'restore',
+      );
+      return Object.freeze({
+        status: 'restored',
+        changed: result.changed,
+        viewport: result.viewport,
+        fit: null,
+      });
+    }
+    const fit = this.fitViewport(fallback, 'fallback-fit');
+    return Object.freeze({
+      status: 'fallback:auto-fit',
+      changed: fit.changed,
+      viewport: fit.viewport,
+      fit,
+    });
+  }
+
+  public focusViewport(
+    options: PatchMapViewportTargetOptions = {},
+  ): PatchMapViewportFocusResult {
+    const contributors = this.resolveViewportContributors(options);
+    if (contributors.worldBounds === null) {
+      return Object.freeze({
+        ...contributors,
+        status: 'empty',
+        changed: false,
+        viewport: this.viewportState(),
+      });
+    }
+    const center = patchMapBoundsCenter(contributors.worldBounds);
+    const change = this.commitViewport(center, this.viewportScale, 'focus');
+    return Object.freeze({
+      ...contributors,
+      status: 'applied',
+      changed: change.changed,
+      viewport: change.viewport,
+    });
+  }
+
+  public fitViewport(
+    options: PatchMapViewportFitOptions = {},
+    source: 'fit' | 'fallback-fit' = 'fit',
+  ): PatchMapViewportFitResult {
+    const padding = normalizePatchMapViewportPadding(options.paddingCssPx);
+    const contributors = this.resolveViewportContributors(options);
+    const paddingCssPx = Object.freeze([padding.x, padding.y] as const);
+    if (contributors.worldBounds === null) {
+      return Object.freeze({
+        ...contributors,
+        status: 'empty',
+        changed: false,
+        paddingCssPx,
+        viewport: this.viewportState(),
+      });
+    }
+    const scale = patchMapViewportFitScale(
+      contributors.worldBounds,
+      [this.viewportWidth, this.viewportHeight],
+      padding,
+      this.worldRotationDegrees,
+      this.zoomLimits,
+    );
+    const center = patchMapBoundsCenter(contributors.worldBounds);
+    const change = this.commitViewport(center, scale, source);
+    return Object.freeze({
+      ...contributors,
+      status: 'applied',
+      changed: change.changed,
+      paddingCssPx,
+      viewport: change.viewport,
+    });
+  }
+
+  public configureViewportPolicy(
+    operation: PatchMapViewportPolicyOperation,
+  ): PatchMapViewportPolicyProbe {
+    const surface = this.requireSurface('configureViewportPolicy');
+    const registry = new Set(this.viewportPolicyRegistry);
+    const enabled = new Set(this.viewportPolicyEnabled);
+    let temporary = this.viewportTemporaryPolicies;
+    switch (operation.op) {
+      case 'add':
+        registry.add(normalizeViewportPolicy(operation.policy));
+        enabled.add(operation.policy);
+        break;
+      case 'start': {
+        const policy = normalizeViewportPolicy(operation.policy);
+        if (!registry.has(policy)) registry.add(policy);
+        enabled.add(policy);
+        break;
+      }
+      case 'stop':
+        enabled.delete(normalizeViewportPolicy(operation.policy));
+        break;
+      case 'remove': {
+        const policy = normalizeViewportPolicy(operation.policy);
+        registry.delete(policy);
+        enabled.delete(policy);
+        break;
+      }
+      case 'temporary': {
+        const policy = normalizeViewportPolicy(operation.policy);
+        if (temporary !== null) {
+          throw new Error('a temporary viewport policy is already active');
+        }
+        temporary = Object.freeze({
+          registry: orderedViewportPolicies(registry),
+          enabled: orderedViewportPolicies(enabled),
+        });
+        registry.add(policy);
+        enabled.add(policy);
+        break;
+      }
+      case 'restore-temporary':
+        if (temporary !== null) {
+          replacePolicySet(registry, temporary.registry);
+          replacePolicySet(enabled, temporary.enabled);
+          temporary = null;
+        }
+        break;
+      case 'cancel-all':
+        this.viewportMotion = null;
+        surface.cancelViewportGestures?.();
+        break;
+      case 'redraw':
+        break;
+    }
+    const orderedEnabled = orderedViewportPolicies(enabled);
+    surface.setViewportGesturePolicies?.(orderedEnabled);
+    this.viewportPolicyRegistry = registry;
+    this.viewportPolicyEnabled = enabled;
+    this.viewportTemporaryPolicies = temporary;
+    const probe = this.viewportPolicyProbe();
+    this.emit('viewportPolicyChanged', probe);
+    return probe;
+  }
+
+  public viewportPolicyProbe(): PatchMapViewportPolicyProbe {
+    const destroyed = this.lifecycle === 'destroyed' || this.lifecycle === 'destroying';
+    const registry = destroyed
+      ? Object.freeze([] as PatchMapViewportPolicy[])
+      : orderedViewportPolicies(this.viewportPolicyRegistry);
+    const enabled = destroyed
+      ? Object.freeze([] as PatchMapViewportPolicy[])
+      : orderedViewportPolicies(this.viewportPolicyEnabled);
+    const callbacks = Object.fromEntries(
+      PATCH_MAP_VIEWPORT_POLICIES.map((policy) => [
+        policy,
+        registry.includes(policy) ? 1 : 0,
+      ]),
+    ) as Record<PatchMapViewportPolicy, 0 | 1>;
+    return Object.freeze({
+      schemaRevision: PATCH_MAP_VIEWPORT_REVISION,
+      policies: registry,
+      enabledPolicies: enabled,
+      temporary: !destroyed && this.viewportTemporaryPolicies !== null,
+      callbacksByPolicy: Object.freeze(callbacks),
+      resources: Object.freeze({
+        tickers: 0,
+        listeners: 0,
+        captures: 0,
+        motions: destroyed || this.viewportMotion === null ? 0 : 1,
+        cursors: 0,
+      }),
+      destroyed,
+    });
+  }
+
+  public setViewport(input: Readonly<{
+    centerWorld: readonly [number, number];
+    scale: number;
+  }>): PatchMapViewportState {
+    return this.commitViewport(
+      input.centerWorld,
+      input.scale,
+      'programmatic',
+    ).viewport;
+  }
+
+  public setWorldTransform(input: PatchMapWorldTransformInput): PatchMapWorldTransformState {
+    if (!Number.isFinite(input.rotationDegrees)) {
+      throw new RangeError('rotationDegrees must be finite');
+    }
+    if (typeof input.flipX !== 'boolean' || typeof input.flipY !== 'boolean') {
+      throw new TypeError('flipX and flipY must be booleans');
+    }
+    const surface = this.requireSurface('setWorldTransform');
+    const rotationDegrees = Object.is(input.rotationDegrees, -0)
+      ? 0
+      : input.rotationDegrees;
+    if (
+      rotationDegrees === this.worldRotationDegrees &&
+      input.flipX === this.worldFlipX &&
+      input.flipY === this.worldFlipY
+    ) {
+      return this.worldTransformState();
+    }
+    const next = Object.freeze({
+      rotationDegrees,
+      flipX: input.flipX,
+      flipY: input.flipY,
+    });
+    surface.setView(this.resolvedSurfaceView(next));
+    this.worldRotationDegrees = next.rotationDegrees;
+    this.worldFlipX = next.flipX;
+    this.worldFlipY = next.flipY;
+    this.viewRevision += 1;
+    this.viewportPointerTransformRevision = this.viewRevision;
+    return this.worldTransformState();
+  }
+
+  public queryScene(input: PatchMapSceneQuery = {}): PatchMapEngineQueryResult {
+    this.requireSurface('queryScene');
+    const evaluated = this.logicalSceneIndex().query(input);
+    const result = Object.freeze({
+      schemaRevision: PATCH_MAP_QUERY_SELECTION_REVISION,
+      status: evaluated.status,
+      code: evaluated.code,
+      lifecycleGeneration: this.targetLifecycleGeneration,
+      sceneRevision: this.sceneRevision,
+      targets: evaluated.targets,
+    } satisfies PatchMapEngineQueryResult);
+    if (result.status !== 'rejected') {
+      this.queryResultAuthorities.set(result, Object.freeze({
+        lifecycleGeneration: this.targetLifecycleGeneration,
+        sceneRevision: this.sceneRevision,
+        targets: result.targets,
+      }));
+    }
+    return result;
+  }
+
+  /**
+   * Validate and unwrap a revision-bound query handle for another product
+   * subsystem. The returned logical targets are the same immutable snapshots;
+   * a copied, foreign, lifecycle-old, or scene-old result never authorizes a
+   * reused dense slot.
+   */
+  public reuseQueryResult(
+    result: PatchMapEngineQueryResult,
+    operation: PatchMapQueryReuseOperation,
+  ): PatchMapEngineQueryReuseResult {
+    this.requireSurface('reuseQueryResult');
+    if (!PATCH_MAP_QUERY_REUSE_OPERATIONS.includes(operation)) {
+      throw new TypeError('query reuse operation is unsupported');
+    }
+    const authority = this.queryResultAuthorities.get(result);
+    if (
+      authority === undefined ||
+      authority.lifecycleGeneration !== this.targetLifecycleGeneration ||
+      authority.sceneRevision !== this.sceneRevision
+    ) {
+      return Object.freeze({
+        status: 'rejected',
+        code: 'STALE_TARGET',
+        operation,
+        appliedCount: 0,
+        targets: Object.freeze([]),
+      });
+    }
+    return Object.freeze({
+      status: 'accepted',
+      code: null,
+      operation,
+      appliedCount: authority.targets.length,
+      targets: authority.targets,
+    });
+  }
+
+  public select(ids: readonly string[]): readonly string[] {
+    return this.applySelection({
+      op: 'replace',
+      ids,
+      source: 'programmatic',
+    }).current;
+  }
+
+  public accessibilityTree(root: 'scene' = 'scene'): PatchMapAccessibilityProbe {
+    if (root !== 'scene') {
+      throw new TypeError('PatchMap accessibility root must be scene');
+    }
+    this.refreshAccessibilityAuthority('accessibilityTree');
+    return this.accessibility.probe(
+      this.logicalSelectionIds,
+      this.surface?.accessibilitySurfaceProbe?.() ?? null,
+    );
+  }
+
+  public accessibilityProbe(): PatchMapAccessibilityProbe {
+    if (this.accessibility.enabled && !this.isDestroyingOrDestroyed()) {
+      this.refreshAccessibilityAuthority('accessibilityProbe');
+    }
+    return this.accessibility.probe(
+      this.logicalSelectionIds,
+      this.surface?.accessibilitySurfaceProbe?.() ?? null,
+    );
+  }
+
+  public focusAccessibilityTarget(targetId: string): PatchMapAccessibilityProbe {
+    const surface = this.requireSurface('focusAccessibilityTarget');
+    this.refreshAccessibilityAuthority('focusAccessibilityTarget');
+    this.accessibility.focus(targetId, true);
+    surface.focusAccessibilityTarget?.(targetId);
+    return this.accessibility.probe(
+      this.logicalSelectionIds,
+      surface.accessibilitySurfaceProbe?.() ?? null,
+    );
+  }
+
+  public activateAccessibilityTarget(
+    targetId: string,
+    input: PatchMapAccessibilityActivationInput,
+  ): PatchMapAccessibilityActivationResult {
+    this.requireSurface('activateAccessibilityTarget');
+    this.refreshAccessibilityAuthority('activateAccessibilityTarget');
+    const result = this.accessibility.activate(targetId, input);
+    if (result.selectRequested) this.select([targetId]);
+    return result;
+  }
+
+  public setReducedMotion(
+    enabled: boolean,
+  ): Readonly<{
+    readonly changed: boolean;
+    readonly enabled: boolean;
+    readonly activeAnimationCount: number;
+  }> {
+    const surface = this.requireSurface('setReducedMotion');
+    if (typeof enabled !== 'boolean') {
+      throw new TypeError('reduced motion must be a boolean');
+    }
+    surface.setReducedMotion?.(enabled);
+    const changed = this.accessibility.setReducedMotion(enabled);
+    if (this.accessibility.enabled) {
+      this.refreshAccessibilityAuthority('setReducedMotion');
+    }
+    return Object.freeze({
+      changed,
+      enabled: this.accessibility.reducedMotion,
+      activeAnimationCount: this.activeAnimations,
+    });
+  }
+
+  public bindLogicalEvents(
+    descriptors: readonly PatchMapLogicalEventBindingDescriptor[],
+    listener: (delivery: PatchMapLogicalEventDelivery) => void,
+  ): PatchMapLogicalEventBindingHandle {
+    this.requireSurface('bindLogicalEvents');
+    return this.hostInteractions.bindLogicalEvents(descriptors, listener);
+  }
+
+  public redrawLogicalEventBindings(): number {
+    this.requireSurface('redrawLogicalEventBindings');
+    return this.hostInteractions.redrawBindings();
+  }
+
+  public dispatchLogicalPropagation(
+    targetOrId: PatchMapMutationTarget | string,
+    options: PatchMapLogicalPropagationOptions = {},
+  ): PatchMapLogicalPropagationTrace | null {
+    this.requireSurface('dispatchLogicalPropagation');
+    const target = this.logicalSceneIndex().target(
+      typeof targetOrId === 'string'
+        ? targetOrId
+        : patchMapLogicalTargetKey(targetOrId),
+    );
+    return target === null
+      ? null
+      : createPatchMapLogicalPropagationTrace(target, this.sceneRevision, options);
+  }
+
+  public dispatchLogicalPropagationAtScreen(
+    point: PatchMapPoint,
+    options: PatchMapLogicalPropagationOptions = {},
+  ): PatchMapLogicalPropagationTrace | null {
+    const hit = this.selectionHitTestScreen(point, {
+      predicate: () => true,
+    });
+    return hit.target === null
+      ? null
+      : createPatchMapLogicalPropagationTrace(
+          hit.target,
+          this.sceneRevision,
+          options,
+        );
+  }
+
+  public ownsKeyboardInput(pathKind: string): boolean {
+    this.requireSurface('ownsKeyboardInput');
+    return patchMapOwnsKeyboardInput(pathKind);
+  }
+
+  public transformerHandlePropagationProbe(): ReturnType<
+    typeof patchMapTransformerHandlePropagationProbe
+  > {
+    this.requireSurface('transformerHandlePropagationProbe');
+    return patchMapTransformerHandlePropagationProbe();
+  }
+
+  public subscribeHostEvent(
+    family: string,
+    type: string | null,
+    listener: (event: PatchMapHostObservedEvent) => void,
+  ): PatchMapHostEventSubscription {
+    this.requireSurface('subscribeHostEvent');
+    return this.hostInteractions.subscribe(family, type, listener);
+  }
+
+  public applyInteractionModeOperation(
+    operation: PatchMapInteractionModeOperation,
+  ): PatchMapInteractionModeResult {
+    this.requireSurface('applyInteractionModeOperation');
+    return this.hostInteractions.applyModeOperation(operation);
+  }
+
+  public interactionModeProbe(): PatchMapInteractionModeProbe {
+    this.requireSurface('interactionModeProbe');
+    return this.hostInteractions.modeProbe();
+  }
+
+  public interactionInputOwner(state: string, input: string): string | null {
+    this.requireSurface('interactionInputOwner');
+    return this.hostInteractions.inputOwner(state, input);
+  }
+
+  public bindSelectionHost(
+    listener: (publication: PatchMapSelectionHostPublication) => void,
+  ): () => void {
+    this.requireSurface('bindSelectionHost');
+    return this.hostInteractions.bindSelectionHost(listener);
+  }
+
+  public bindTooltipHost(
+    listener: (publication: PatchMapHostTooltipPublication) => void,
+  ): PatchMapHostTooltipSubscription {
+    this.requireSurface('bindTooltipHost');
+    return this.hostInteractions.bindTooltipHost(listener);
+  }
+
+  public hoverTooltipAtScreen(
+    point: PatchMapPoint,
+    tooltipSizeCssPx: readonly [number, number],
+  ): PatchMapHostTooltipState {
+    return this.updateTooltipAtScreen('hover', point, tooltipSizeCssPx);
+  }
+
+  public toggleTooltipPinAtScreen(
+    point: PatchMapPoint,
+    tooltipSizeCssPx: readonly [number, number],
+  ): PatchMapHostTooltipState {
+    return this.updateTooltipAtScreen('pin', point, tooltipSizeCssPx);
+  }
+
+  public clearHostTooltip(reason: PatchMapTooltipClearReason): PatchMapHostTooltipState {
+    this.requireSurface('clearHostTooltip');
+    return this.hostInteractions.clearTooltip(reason);
+  }
+
+  public hostTooltipProbe(): PatchMapHostTooltipState {
+    return this.hostInteractions.tooltipProbe();
+  }
+
+  private updateTooltipAtScreen(
+    operation: 'hover' | 'pin',
+    point: PatchMapPoint,
+    tooltipSizeCssPx: readonly [number, number],
+  ): PatchMapHostTooltipState {
+    validatePoint(point, `${operation}TooltipAtScreen`);
+    const hit = this.selectionHitTestScreen(point);
+    if (hit.target === null) {
+      return this.hostInteractions.clearTooltip('empty-target');
+    }
+    const input = Object.freeze({
+      targetId: hit.target.ownerId ?? hit.target.selectionId,
+      anchorCss: Object.freeze([point.x, point.y] as const),
+      viewportCssPx: Object.freeze([
+        this.viewportWidth,
+        this.viewportHeight,
+      ] as const),
+      tooltipSizeCssPx,
+    });
+    const beforeRevision = this.hostInteractions.tooltipProbe().revision;
+    const state = operation === 'hover'
+      ? this.hostInteractions.hoverTooltip(input)
+      : this.hostInteractions.toggleTooltipPin(input);
+    if (state.revision !== beforeRevision) this.interactionRevision += 1;
+    return state;
+  }
+
+  public setExternalSelection(ids: readonly string[]): PatchMapExternalSelectionResult {
+    const change = this.applySelection({
+      op: 'replace',
+      ids,
+      source: 'external',
+    });
+    const requestedIds = Object.freeze([...new Set(ids)]);
+    const currentIds = new Set(change.current);
+    return Object.freeze({
+      requestedIds,
+      missingIds: Object.freeze(requestedIds.filter((id) => !currentIds.has(id))),
+      change,
+    });
+  }
+
+  /**
+   * Freeze the current logical selection for one host command. Later canvas or
+   * host selection changes cannot retarget the returned immutable state.
+   */
+  public snapshotCommandTargets(commandId: string): PatchMapCommandTargetState {
+    this.requireSurface('snapshotCommandTargets');
+    const state = createPatchMapCommandTargetState(commandId, this.logicalSelectionIds);
+    this.rememberCommandTargetState(state);
+    return state;
+  }
+
+  /**
+   * Advance a host-computed command status only while every frozen target is
+   * still present. An explicit target outside the open command is rejected
+   * without changing the immutable state.
+   */
+  public applyCommandTargetStatus(
+    current: PatchMapCommandTargetState,
+    status: PatchMapCommandTargetStatus,
+    targetId?: string,
+  ): PatchMapCommandTargetStatusResult {
+    this.requireSurface('applyCommandTargetStatus');
+    const authority = this.commandTargetAuthorities.get(current);
+    if (
+      authority === undefined ||
+      authority.lifecycleGeneration !== this.lifecycleGeneration
+    ) {
+      return Object.freeze({ status: 'rejected', code: 'STALE_TARGET', state: current });
+    }
+    const targetIds = authority.targetIds;
+    const missingTarget = (
+      targetId !== undefined &&
+      (!targetIds.includes(targetId) || this.logicalSceneIndex().target(targetId) === null)
+    ) || targetIds.some((id) => this.logicalSceneIndex().target(id) === null);
+    if (missingTarget) {
+      return Object.freeze({ status: 'rejected', code: 'MISSING_TARGET', state: current });
+    }
+    const state = advancePatchMapCommandTargetState(current, status);
+    this.rememberCommandTargetState(state);
+    return Object.freeze({ status: 'applied', code: null, state });
+  }
+
+  public hostInteractionProbe(): PatchMapHostInteractionProbe {
+    return this.hostInteractions.probe();
+  }
+
+  public transformableSubset(
+    selectionIds: readonly string[] = this.logicalSelectionIds,
+    lockedIds: readonly string[] = [],
+  ): PatchMapTransformableSubsetProbe {
+    this.requireSurface('transformableSubset');
+    return evaluatePatchMapTransformableSubset(
+      this.logicalSceneSelectionIndex(),
+      selectionIds,
+      lockedIds,
+    );
+  }
+
+  public selectionVisualProbe(
+    options: Omit<PatchMapSelectionVisualOptions, 'selectionIds'> & Readonly<{
+      readonly selectionIds?: readonly string[];
+    }> = {},
+  ): PatchMapSelectionVisualProbe | null {
+    const surface = this.requireSurface('selectionVisualProbe');
+    const selectionIds = options.selectionIds ?? this.logicalSelectionIds;
+    const geometries = surface.selectionGeometries?.(selectionIds) ??
+      surface.geometrySnapshot?.().entities ??
+      null;
+    if (geometries === null) return null;
+    return createPatchMapSelectionVisualProbe(
+      this.logicalSceneSelectionIndex(),
+      geometries,
+      {
+        ...options,
+        selectionIds,
+        viewportScale: options.viewportScale ?? this.viewportScale,
+      },
+    );
+  }
+
+  public setSelectionVisualPolicy(
+    options: Omit<PatchMapSelectionVisualOptions, 'selectionIds'> & Readonly<{
+      readonly selectionIds?: readonly string[];
+    }> = {},
+  ): PatchMapSelectionVisualProbe | null {
+    const surface = this.requireSurface('setSelectionVisualPolicy');
+    const visual = this.selectionVisualProbe(options);
+    if (visual === null) return null;
+    const subset = evaluatePatchMapTransformableSubset(
+      this.logicalSceneSelectionIndex(),
+      visual.overlayTargets.map((target) => target.selectionId),
+      options.lockedIds ?? [],
+    );
+    const changed = surface.setSelectionOverlayPolicy?.({
+      visibleIds: visual.overlayTargets.map((target) => target.selectionId),
+      transformableIds: subset.transformableTargets.map((target) => target.selectionId),
+      resizableIds: subset.resizableTargets.map((target) => target.selectionId),
+      hidden: visual.mode === 'hidden',
+      handleCssPx: visual.handleCssPx,
+      strokeCssPx: visual.strokeCssPx,
+    }) ?? false;
+    if (changed) this.interactionRevision += 1;
+    return visual;
+  }
+
+  public transformerHandleProbe(
+    options: Omit<PatchMapSelectionVisualOptions, 'selectionIds'> & Readonly<{
+      readonly selectionIds?: readonly string[];
+      readonly cornerCssPx?: number;
+      readonly edgeStripCssPx?: number;
+      readonly rotateZoneCssPx?: number;
+    }> = {},
+  ): PatchMapTransformerHandleProbe | null {
+    const visual = this.selectionVisualProbe(options);
+    if (visual === null || visual.frame === null) return null;
+    return createPatchMapTransformerHandleProbe(visual.frame, {
+      ...(options.cornerCssPx === undefined
+        ? {}
+        : { cornerCssPx: options.cornerCssPx }),
+      ...(options.edgeStripCssPx === undefined
+        ? {}
+        : { edgeStripCssPx: options.edgeStripCssPx }),
+      ...(options.rotateZoneCssPx === undefined
+        ? {}
+        : { rotateZoneCssPx: options.rotateZoneCssPx }),
+    });
+  }
+
+  public hitTransformerHandle(
+    point: readonly [number, number],
+    options: Parameters<PatchMap['transformerHandleProbe']>[0] = {},
+  ): PatchMapTransformerHandle | null {
+    const probe = this.transformerHandleProbe(options);
+    return probe === null ? null : hitPatchMapTransformerHandle(probe, point);
+  }
+
+  public selectRelationEndpoints(
+    relationIds: readonly string[],
+    mode: 'replace' | 'add' | 'toggle' = 'replace',
+    source: 'canvas' | 'external' | 'programmatic' = 'programmatic',
+  ): PatchMapEngineRelationEndpointSelectionResult {
+    this.requireSurface('selectRelationEndpoints');
+    const materialized = this.materialized;
+    if (materialized === null) {
+      throw this.operationError('NOT_READY', 'NOT_READY', 'selectRelationEndpoints', true);
+    }
+    const resolution = resolvePatchMapRelationEndpoints(
+      materialized.dataset,
+      this.logicalSceneIndex(),
+      relationIds,
+    );
+    const change = this.applySelection({
+      op: mode,
+      ids: resolution.targets.map((target) => target.selectionId),
+      source,
+    });
+    return Object.freeze({ ...resolution, change });
+  }
+
+  public beginTransformerHandleGesture(
+    pointerId: number,
+    handle: PatchMapTransformerHandle,
+  ): PatchMapTransformerGestureProbe {
+    this.requireSurface('beginTransformerHandleGesture');
+    this.hostInteractions.clearTooltip('drag');
+    this.transformerGestures.begin(pointerId, handle);
+    try {
+      this.requirePointerGestureAuthority('beginTransformerHandleGesture')
+        .beginOwnedGesture(
+          handle === 'rotate' ? 'rotate' : handle === 'frame' ? 'move' : 'resize',
+          pointerId,
+        );
+    } catch (error) {
+      this.transformerGestures.cancel(pointerId);
+      throw error;
+    }
+    return this.transformerGestures.probe();
+  }
+
+  public routeTransformerInput(
+    pointerId: number,
+    family: PatchMapTransformerInputFamily,
+  ): ReturnType<PatchMapTransformerGestureAuthority['route']> {
+    this.requireSurface('routeTransformerInput');
+    return this.transformerGestures.route(pointerId, family);
+  }
+
+  public completeTransformerHandleGesture(
+    pointerId: number,
+  ): Readonly<{
+    readonly completed: boolean;
+    readonly pointer: PatchMapOwnedGestureTermination | null;
+    readonly probe: PatchMapTransformerGestureProbe;
+  }> {
+    this.requireSurface('completeTransformerHandleGesture');
+    const completed = this.transformerGestures.complete(pointerId);
+    const pointer = completed
+      ? this.requirePointerGestureAuthority('completeTransformerHandleGesture')
+          .terminateOwnedGesture('pointer-up-outside')
+      : null;
+    return Object.freeze({
+      completed,
+      pointer,
+      probe: this.transformerGestures.probe(),
+    });
+  }
+
+  public cancelTransformerHandleGesture(
+    pointerId: number,
+    reason: PatchMapGestureCancelReason = 'pointer-cancel',
+  ): Readonly<{
+    readonly cancelled: boolean;
+    readonly pointer: PatchMapOwnedGestureTermination | null;
+    readonly probe: PatchMapTransformerGestureProbe;
+  }> {
+    this.requireSurface('cancelTransformerHandleGesture');
+    const cancelled = this.transformerGestures.cancel(pointerId);
+    const pointer = cancelled
+      ? this.requirePointerGestureAuthority('cancelTransformerHandleGesture')
+          .cancelOwnedGesture(reason)
+      : null;
+    return Object.freeze({
+      cancelled,
+      pointer,
+      probe: this.transformerGestures.probe(),
+    });
+  }
+
+  public transformerGestureProbe(): PatchMapTransformerGestureProbe {
+    return this.transformerGestures.probe();
+  }
+
+  public applyTransformerEdit(
+    request: PatchMapTransformerEditRequest,
+    options: PatchMapEngineTransformerEditOptions = {},
+  ): PatchMapEngineTransformerEditResult {
+    this.requireSurface('applyTransformerEdit');
+    const materialized = this.materialized;
+    if (materialized === null) {
+      throw this.operationError('NOT_READY', 'NOT_READY', 'applyTransformerEdit', true);
+    }
+    const plan = planPatchMapTransformerEdit(materialized.dataset, request);
+    if (plan.status !== 'planned') {
+      return Object.freeze({
+        schemaRevision: PATCH_MAP_TRANSFORMER_EDIT_REVISION,
+        status: plan.status,
+        changed: false,
+        plan,
+        transaction: null,
+        historyDepthDelta: 0,
+      });
+    }
+    const before = this.history.state();
+    const transaction = this.transact({
+      strict: true,
+      operations: plan.operations,
+      ...(options.actionId === undefined ? {} : { actionId: options.actionId }),
+      ...(options.recordHistory === undefined
+        ? {}
+        : { recordHistory: options.recordHistory }),
+    });
+    const after = this.history.state();
+    return Object.freeze({
+      schemaRevision: PATCH_MAP_TRANSFORMER_EDIT_REVISION,
+      status: transaction.status,
+      changed: transaction.changed,
+      plan,
+      transaction,
+      historyDepthDelta: after.undoDepth - before.undoDepth,
+    });
+  }
+
+  public beginTransformerEdit(
+    input: PatchMapEngineTransformerSessionBeginInput,
+  ): PatchMapEngineTransformerSessionProbe {
+    this.requireSurface('beginTransformerEdit');
+    if (this.activeTransformerEdit !== null) {
+      throw new Error('PatchMap transformer edit session is already active');
+    }
+    const materialized = this.materialized;
+    if (materialized === null) {
+      throw this.operationError('NOT_READY', 'NOT_READY', 'beginTransformerEdit', true);
+    }
+    assertTransformerHandleKind(input.handle, input.kind);
+    const actionId = nonEmptyValue(input.actionId, 'transformer actionId');
+    const selectionIds = Object.freeze([
+      ...(input.selectionIds ?? this.logicalSelectionIds),
+    ]);
+    if (input.selectionIds !== undefined) {
+      this.applySelection({
+        op: 'replace',
+        ids: selectionIds,
+        source: 'programmatic',
+      });
+    }
+    this.beginTransformerHandleGesture(input.pointerId, input.handle);
+    this.activeTransformerEdit = Object.freeze({
+      pointerId: input.pointerId,
+      actionId,
+      kind: input.kind,
+      handle: input.handle,
+      selectionIds,
+      startMaterialized: materialized,
+      startSelectionIds: Object.freeze([...this.logicalSelectionIds]),
+      historyDepthBefore: this.history.state().undoDepth,
+      previewCountBefore: this.transformerEditPreviewCount,
+      latestPlan: null,
+      latestMutationPlan: null,
+      previewMaterialized: null,
+      transientPreview: false,
+    });
+    return this.transformerEditProbe();
+  }
+
+  public previewTransformerEdit(
+    pointerId: number,
+    request: PatchMapTransformerEditRequest,
+  ): PatchMapEngineTransformerPreviewResult {
+    const surface = this.requireSurface('previewTransformerEdit');
+    const active = this.requireActiveTransformerEdit(pointerId, 'previewTransformerEdit');
+    if (request.kind !== active.kind) {
+      throw new TypeError('transformer preview kind must match the active session');
+    }
+    if (!sameStringArray(request.selectionIds, active.selectionIds)) {
+      throw new TypeError('transformer preview selection must match the active session');
+    }
+    const plan = planPatchMapTransformerEdit(active.startMaterialized.dataset, request);
+    if (plan.status === 'rejected') {
+      return Object.freeze({
+        status: 'rejected',
+        changed: false,
+        plan,
+        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+        probe: this.transformerEditProbe(),
+      });
+    }
+    if (!surface.reconcile) {
+      return Object.freeze({
+        status: 'refused',
+        changed: false,
+        plan,
+        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+        probe: this.transformerEditProbe(),
+      });
+    }
+
+    let previewMaterialized = active.startMaterialized;
+    let mutationPlan: PatchMapMutationTransactionPlan | null = null;
+    if (plan.status === 'planned') {
+      const preview = planPatchMapPreviewMutationTransaction(active.startMaterialized, {
+        strict: true,
+        recordHistory: false,
+        operations: plan.operations,
+      });
+      if (preview.status !== 'planned') {
+        throw new Error(`transformer preview transaction became ${preview.status}`);
+      }
+      mutationPlan = preview;
+      previewMaterialized = preview.candidate;
+    }
+    const incrementalRootIds = plan.status === 'planned'
+      ? incrementalFlatRootIds(
+          active.startMaterialized.dataset,
+          previewMaterialized.dataset,
+          plan.operations,
+        )
+      : undefined;
+    const transient = incrementalRootIds === undefined
+      ? null
+      : surface.previewIncrementalRoots?.(
+          previewMaterialized.dataset,
+          incrementalRootIds,
+        ) ?? null;
+    const reconcile: PatchMapSurfaceReconcileResult = transient === null
+      ? surface.reconcile(previewMaterialized.dataset, {
+          animateBarChanges: false,
+          ...(incrementalRootIds === undefined ? {} : { incrementalRootIds }),
+        })
+      : Object.freeze({
+          status: 'committed',
+          operationCount: plan.operations.length,
+          denseChanged: false,
+          diagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+        });
+    const diagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
+    if (reconcile.status === 'refused') {
+      return Object.freeze({
+        status: 'refused',
+        changed: false,
+        plan,
+        reconcileDiagnostics: diagnostics,
+        probe: this.transformerEditProbe(),
+      });
+    }
+
+    this.transformerEditPreviewCount += 1;
+    this.interactionRevision += 1;
+    this.activeTransformerEdit = Object.freeze({
+      ...active,
+      latestPlan: plan,
+      latestMutationPlan: mutationPlan,
+      previewMaterialized,
+      transientPreview: transient !== null,
+    });
+    return Object.freeze({
+      status: plan.status === 'planned' ? 'previewed' : 'unchanged',
+      changed: plan.changed,
+      plan,
+      reconcileDiagnostics: diagnostics,
+      probe: this.transformerEditProbe(),
+    });
+  }
+
+  public completeTransformerEdit(
+    pointerId: number,
+  ): PatchMapEngineTransformerCompletionResult {
+    const active = this.activeTransformerEdit;
+    if (active === null || active.pointerId !== pointerId) {
+      this.transformerEditStaleCompletionCount += 1;
+      return Object.freeze({
+        status: 'stale',
+        changed: false,
+        mutationCount: 0,
+        historyDepthDelta: 0,
+        transaction: null,
+        gesture: null,
+        probe: this.transformerEditProbe(),
+      });
+    }
+    const plan = active.latestPlan;
+    if (plan === null || plan.status !== 'planned') {
+      this.activeTransformerEdit = null;
+      const gesture = this.completeTransformerHandleGesture(pointerId);
+      return Object.freeze({
+        status: 'unchanged',
+        changed: false,
+        mutationCount: 0,
+        historyDepthDelta: 0,
+        transaction: null,
+        gesture,
+        probe: this.transformerEditProbe(),
+      });
+    }
+
+    this.activeTransformerEdit = null;
+    const surface = this.requireSurface('completeTransformerEdit');
+    const previewPlan = active.latestMutationPlan;
+    if (previewPlan === null || previewPlan.status !== 'planned') {
+      throw new Error('planned transformer completion lost its preview transaction');
+    }
+    const previousRevisions = this.revisionStamp();
+    const previousHistory = this.history.state();
+    const promoted = promotePatchMapPreviewMutationTransaction(
+      active.startMaterialized,
+      Object.freeze({
+        ...previewPlan,
+        actionId: active.actionId,
+        recordHistory: true,
+      }),
+    );
+    const transaction = this.applyPlannedTransaction(
+      surface,
+      promoted,
+      'transact',
+      previousRevisions,
+      previousHistory,
+    );
+    if (transaction.status !== 'committed') {
+      this.restoreTransformerPreview(active);
+      const gesture = this.cancelTransformerHandleGesture(pointerId, 'redraw');
+      this.transformerEditCancelledSessionCount += 1;
+      return Object.freeze({
+        status: 'refused',
+        changed: false,
+        mutationCount: 0,
+        historyDepthDelta: 0,
+        transaction,
+        gesture: Object.freeze({
+          completed: gesture.cancelled,
+          pointer: gesture.pointer,
+          probe: gesture.probe,
+        }),
+        probe: this.transformerEditProbe(),
+      });
+    }
+    const depthDelta = this.history.state().undoDepth - active.historyDepthBefore;
+    this.transformerEditCommittedMutationCount += 1;
+    const gesture = this.completeTransformerHandleGesture(pointerId);
+    return Object.freeze({
+      status: 'committed',
+      changed: true,
+      mutationCount: 1,
+      historyDepthDelta: depthDelta === 1 ? 1 : 0,
+      transaction,
+      gesture,
+      probe: this.transformerEditProbe(),
+    });
+  }
+
+  public cancelTransformerEdit(
+    pointerId: number,
+    reason: PatchMapGestureCancelReason,
+  ): PatchMapEngineTransformerCancelResult {
+    const active = this.activeTransformerEdit;
+    if (active === null || active.pointerId !== pointerId) {
+      return Object.freeze({
+        status: 'stale',
+        cancelled: false,
+        reason,
+        historyDepthDelta: 0,
+        gesture: null,
+        probe: this.transformerEditProbe(),
+      });
+    }
+    const gesture = this.cancelActiveTransformerEdit(reason, true);
+    if (gesture === null) throw new Error('active transformer cancellation was lost');
+    return Object.freeze({
+      status: 'cancelled',
+      cancelled: true,
+      reason,
+      historyDepthDelta: 0,
+      gesture,
+      probe: this.transformerEditProbe(),
+    });
+  }
+
+  public transformerEditProbe(): PatchMapEngineTransformerSessionProbe {
+    const active = this.activeTransformerEdit;
+    return Object.freeze({
+      schemaRevision: PATCH_MAP_TRANSFORMER_EDIT_REVISION,
+      activeSessionCount: active === null ? 0 : 1,
+      activePointerId: active?.pointerId ?? null,
+      activeKind: active?.kind ?? null,
+      activeActionId: active?.actionId ?? null,
+      previewCount: this.transformerEditPreviewCount,
+      committedMutationCount: this.transformerEditCommittedMutationCount,
+      cancelledSessionCount: this.transformerEditCancelledSessionCount,
+      staleCompletionCount: this.transformerEditStaleCompletionCount,
+      previewOverlayCount: active?.previewMaterialized === null || active === null ? 0 : 1,
+      edgePanActiveCount: 0,
+    });
+  }
+
+  public resolveTransformerRotationSnap(
+    startDegrees: number,
+    pointerDegrees: number,
+    snap: boolean,
+    incrementDegrees = 15,
+  ): PatchMapRotationSnapResult {
+    this.requireSurface('resolveTransformerRotationSnap');
+    return resolvePatchMapRotationSnap(
+      startDegrees,
+      pointerDegrees,
+      snap,
+      incrementDegrees,
+    );
+  }
+
+  public edgeAutoPanTransformer(
+    pointerScreen: readonly [number, number],
+    deltaCss: readonly [number, number],
+  ): PatchMapEngineTransformerEdgePanResult {
+    this.requireSurface('edgeAutoPanTransformer');
+    const resolved = resolvePatchMapEdgeAutoPan(
+      pointerScreen,
+      deltaCss,
+      this.viewportCenterWorld,
+      this.viewportScale,
+      [this.viewportWidth, this.viewportHeight],
+    );
+    this.setViewport({
+      centerWorld: resolved.centerWorld,
+      scale: this.viewportScale,
+    });
+    return Object.freeze({
+      ...resolved,
+      policyRestored: true,
+      edgePanActiveCount: 0,
+    });
+  }
+
+  public applySelection(input: PatchMapSelectionSetOperation): PatchMapSelectionChange {
+    const surface = this.requireSurface('select');
+    const materialized = this.materialized;
+    const change = applyPatchMapSelectionOperation(
+      this.logicalSelectionIds,
+      input,
+      (id) => {
+        if (materialized === null) return false;
+        const owned = this.ownedSelectionTargetExists(id, materialized);
+        return owned ?? this.logicalSceneIndex().target(id) !== null;
+      },
+    );
+    if (change.changed) {
+      if (this.cancelActiveTransformerEdit('selection-change', true) === null) {
+        this.transformerGestures.interrupt();
+      }
+    }
+    surface.select(change.current);
+    this.logicalSelectionIds = change.current;
+    if (change.changed) {
+      if (change.source !== 'canvas') {
+        this.pointerGestureAuthority?.interrupt('selection-change');
+      }
+      this.interactionRevision += 1;
+      this.emit('selectionChanged', change);
+      const source = change.source === 'canvas' ? 'pointer' : change.source;
+      this.hostInteractions.publish(
+        'selection',
+        'changed',
+        Object.freeze({
+          source,
+          target: change.current.at(-1) ?? null,
+          selectedIds: change.current,
+        }),
+        this.interactionRevision,
+      );
+      if (change.source === 'canvas') {
+        this.hostInteractions.publishSelectionToHost(
+          change.current,
+          this.interactionRevision,
+        );
+      }
+    }
+    return change;
+  }
+
+  public filterSelectionTargets(
+    targetIds: readonly string[],
+    options: PatchMapSelectionEligibilityOptions = {},
+  ): readonly PatchMapLogicalTargetSnapshot[] {
+    this.requireSurface('filterSelectionTargets');
+    return this.logicalSceneIndex().filterSelection(targetIds, options);
+  }
+
+  public selectionHitTestScreen(
+    point: PatchMapPoint,
+    options: PatchMapSelectionHitOptions = {},
+  ): PatchMapEngineSelectionHit {
+    validatePoint(point, 'selectionHitTestScreen');
+    const surface = this.requireSurface('selectionHitTestScreen');
+    const worldPoint = surface.screenToWorld(point);
+    if (selectionHitUsesSpatialFastPath(options)) {
+      const logicalIndex = this.logicalSceneSelectionIndex();
+      const id = surface.hitTestScreen(point);
+      const hit = id === null
+        ? Object.freeze({ target: null, candidates: Object.freeze([]) })
+        : logicalIndex.hitFromTarget(id);
+      return Object.freeze({ ...hit, worldPoint });
+    }
+    const logicalIndex = this.logicalSceneIndex();
+    const geometry = surface.geometrySnapshot?.();
+    if (geometry === undefined) {
+      const id = surface.hitTestScreen(point);
+      const target = id === null
+        ? null
+        : logicalIndex.filterSelection([id], options)[0] ?? null;
+      return Object.freeze({
+        target,
+        candidates: Object.freeze(target === null ? [] : [target]),
+        worldPoint,
+      });
+    }
+    const hit = logicalIndex.hitTest(
+      geometry.entities.map((entity) => Object.freeze({
+        id: entity.id,
+        ...(entity.ownerItemId === undefined ? {} : { ownerItemId: entity.ownerItemId }),
+        ...(entity.componentId === undefined ? {} : { componentId: entity.componentId }),
+        screenBounds: entity.screenBounds,
+        visible: entity.visible,
+      })),
+      point,
+      options,
+    );
+    return Object.freeze({
+      ...hit,
+      worldPoint,
+    });
+  }
+
+  public selectPoint(
+    point: PatchMapPoint,
+    options: PatchMapSelectionHitOptions & Readonly<{
+      readonly mode?: 'replace' | 'add' | 'toggle';
+    }> = {},
+  ): PatchMapEnginePointSelectionResult {
+    const hit = this.selectionHitTestScreen(point, options);
+    const ids = hit.target === null
+      ? Object.freeze([] as string[])
+      : Object.freeze([hit.target.selectionId]);
+    const mode = options.mode ?? 'replace';
+    const change = this.applySelection({
+      op: mode,
+      ids,
+      source: 'canvas',
+    });
+    return Object.freeze({ ...hit, change });
+  }
+
+  public dispatchPointerInput(input: PatchMapEnginePointerInput): PatchMapPointerDispatchResult {
+    this.requireSurface('dispatchPointerInput');
+    const authority = this.requirePointerGestureAuthority('dispatchPointerInput');
+    const transformerOwned = this.transformerGestures.owns(input.pointerId);
+    if (transformerOwned) {
+      this.transformerGestures.route(input.pointerId, 'transform');
+    }
+    const result = authority.dispatch(Object.freeze({
+      ...input,
+      viewRevision: input.viewRevision ?? this.viewRevision,
+    }));
+    if (transformerOwned) {
+      if (input.type === 'up' || input.type === 'up-outside') {
+        this.completeTransformerEdit(input.pointerId);
+      } else if (input.type === 'cancel' || input.type === 'leave') {
+        this.cancelTransformerEdit(input.pointerId, 'pointer-cancel');
+      }
+    }
+    if (result.events.length > 0) this.interactionRevision += 1;
+    for (const event of result.events) {
+      this.emit('pointerEvent', event);
+      this.hostInteractions.dispatchPointerEvent(event);
+    }
+    const click = result.events.find((event) => event.type === 'click');
+    if (
+      click !== undefined &&
+      click.payload.button === 0 &&
+      this.hostInteractions.modeProbe().activeState === 'select'
+    ) {
+      this.applySelection({
+        op: click.payload.modifiers.shift ? 'toggle' : 'replace',
+        ids: click.payload.target === null ? [] : [click.payload.target.id],
+        source: 'canvas',
+      });
+    }
+    return result;
+  }
+
+  public pointerGestureProbe(): PatchMapPointerGestureProbe {
+    return this.pointerGestureAuthority?.probe() ?? destroyedPointerGestureProbe();
+  }
+
+  public ownsContextMenu(point: PatchMapPoint): boolean {
+    validatePoint(point, 'ownsContextMenu');
+    return this.requireSurface('ownsContextMenu').hitTestScreen(point) !== null;
+  }
+
+  public interruptPointerGestures(
+    reason: PatchMapGestureCancelReason,
+  ): PatchMapOwnedGestureTermination | null {
+    this.requireSurface('interruptPointerGestures');
+    return this.requirePointerGestureAuthority('interruptPointerGestures').interrupt(reason);
+  }
+
+  public beginOwnedPointerGesture(kind: PatchMapOwnedGestureKind, pointerId: number): void {
+    this.requireSurface('beginOwnedPointerGesture');
+    this.hostInteractions.clearTooltip('drag');
+    this.requirePointerGestureAuthority('beginOwnedPointerGesture')
+      .beginOwnedGesture(kind, pointerId);
+  }
+
+  public terminateOwnedPointerGesture(
+    reason: PatchMapGestureTerminationReason,
+  ): PatchMapOwnedGestureTermination | null {
+    this.requireSurface('terminateOwnedPointerGesture');
+    return this.requirePointerGestureAuthority('terminateOwnedPointerGesture')
+      .terminateOwnedGesture(reason);
+  }
+
+  public cancelOwnedPointerGesture(
+    reason: PatchMapGestureCancelReason,
+  ): PatchMapOwnedGestureTermination | null {
+    this.requireSurface('cancelOwnedPointerGesture');
+    return this.requirePointerGestureAuthority('cancelOwnedPointerGesture')
+      .cancelOwnedGesture(reason);
+  }
+
+  public selectBox(
+    start: readonly [number, number],
+    end: readonly [number, number],
+    options: PatchMapEngineRegionSelectionOptions = {},
+  ): PatchMapEngineRegionSelectionResult {
+    const surface = this.requireSurface('selectBox');
+    const geometry = requireRegionGeometry(surface, 'selectBox');
+    const queryBounds = boxRegionQueryBounds(start, end);
+    const candidates = queryBounds === null
+      ? geometry
+      : surface.queryRegionGeometry?.(queryBounds) ?? geometry;
+    const hit = hitPatchMapBoxRegion(
+      candidates.entities,
+      candidates.relations,
+      start,
+      end,
+      options.partialIntersection === undefined
+        ? {}
+        : { partialIntersection: options.partialIntersection },
+    );
+    return this.applyRegionSelection(hit, options, 1);
+  }
+
+  public selectPaint(
+    segments: readonly (readonly [
+      readonly [number, number],
+      readonly [number, number],
+    ])[],
+    options: PatchMapEngineRegionSelectionOptions = {},
+  ): PatchMapEngineRegionSelectionResult {
+    const surface = this.requireSurface('selectPaint');
+    const geometry = requireRegionGeometry(surface, 'selectPaint');
+    const queryBounds = paintRegionQueryBounds(
+      segments,
+      options.toleranceCssPx ?? 0,
+    );
+    const candidates = queryBounds === null
+      ? geometry
+      : surface.queryRegionGeometry?.(queryBounds) ?? geometry;
+    const hit = hitPatchMapPaintRegion(
+      candidates.entities,
+      candidates.relations,
+      segments,
+      options.toleranceCssPx === undefined
+        ? {}
+        : { toleranceCssPx: options.toleranceCssPx },
+    );
+    return this.applyRegionSelection(hit, options, segments.length);
+  }
+
+  public resolveSelectionInteraction(
+    targetOrId: string,
+    options: PatchMapSelectionInteractionOptions,
+  ): PatchMapSelectionInteraction | null {
+    this.requireSurface('resolveSelectionInteraction');
+    return this.logicalSceneIndex().resolveSelectionInteraction(targetOrId, options);
+  }
+
+  public hitTest(point: PatchMapPoint): string | null {
+    validatePoint(point, 'hitTest');
+    return this.requireSurface('hitTest').hitTestScreen(point);
+  }
+
+  public screenToWorld(point: PatchMapPoint): PatchMapPoint {
+    validatePoint(point, 'screenToWorld');
+    return this.requireSurface('screenToWorld').screenToWorld(point);
+  }
+
+  public resolveTarget(targetInput: PatchMapMutationTarget): PatchMapResolvedTargetSnapshot | null {
+    this.requireSurface('resolveTarget');
+    const target = normalizeEngineMutationTarget(targetInput);
+    const value = this.materialized === null
+      ? null
+      : findEngineSemanticTarget(this.materialized.dataset, target);
+    if (value === null) return null;
+    const snapshot = Object.freeze({
+      target,
+      lifecycleGeneration: this.targetLifecycleGeneration,
+      sceneRevision: this.sceneRevision,
+      value: cloneDetachedEngineRecord(value),
+    });
+    this.resolvedTargetAuthorities.set(snapshot, Object.freeze({
+      target,
+      lifecycleGeneration: this.targetLifecycleGeneration,
+      sceneRevision: this.sceneRevision,
+    }));
+    return snapshot;
+  }
+
+  public patchResolved(
+    snapshot: PatchMapResolvedTargetSnapshot,
+    patch: unknown,
+  ): PatchMapEnginePatchResult {
+    this.requireSurface('patch');
+    const authority = this.resolvedTargetAuthorities.get(snapshot);
+    if (
+      authority === undefined ||
+      authority.lifecycleGeneration !== this.targetLifecycleGeneration ||
+      authority.sceneRevision !== this.sceneRevision
+    ) {
+      const previousRevisions = this.revisionStamp();
+      const target = authority?.target ?? normalizeSnapshotTarget(snapshot);
+      const diagnostic = this.operationDiagnostic(
+        'STALE_TARGET',
+        'STALE_TARGET',
+        'patch',
+        true,
+      );
+      const result = Object.freeze({
+        status: 'rejected',
+        changed: false,
+        target,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        semanticHash: this.materialized?.semanticHash ?? null,
+        applied: EMPTY_TARGETS,
+        missing: EMPTY_TARGETS,
+        unchanged: EMPTY_TARGETS,
+        diagnostic,
+      } satisfies PatchMapEnginePatchResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+    return this.patch(authority.target, patch);
+  }
+
+  public query(target: { readonly id: string }): Readonly<Record<string, unknown>> | null {
+    if (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
+      throw this.operationError('DESTROYED', 'DESTROYED', 'query', false);
+    }
+    if (!this.surface) throw this.operationError('NOT_READY', 'NOT_READY', 'query', true);
+    const value = this.materialized ? findElement(this.materialized.dataset, target.id) : null;
+    return value;
+  }
+
+  public snapshot(): PatchMapEngineSnapshot {
+    const surfaceDebug = this.surface?.debugSnapshot() ?? emptySurfaceDebug(
+      this.viewportWidth,
+      this.viewportHeight,
+      this.viewportPixelRatio,
+    );
+    return Object.freeze({
+      lifecycle: this.lifecycle,
+      instanceId: this.instanceId,
+      revisions: this.revisionStamp(),
+      publishedTuple: this.publishedTuple,
+      frameRevision: this.frameRevision,
+      datasetRef: this.datasetRef,
+      semanticHash: this.materialized?.semanticHash ?? null,
+      rootIds: this.materialized?.rootIds ?? Object.freeze([]),
+      historyDepth: this.history.state().undoDepth,
+      pendingWork: this.pendingWork,
+      zoomLimits: this.zoomLimits,
+      viewport: this.viewportState(),
+      selectionIds: this.logicalSelectionIds,
+      facilities: FACILITIES,
+      resources: Object.freeze({
+        canvasCount:
+          (this.surface?.canvasCount ?? 0) + (this.retainedCleanupSurface?.canvasCount ?? 0),
+        canvas: Object.freeze({
+          cssSize: surfaceDebug.cssSize,
+          backingSize: surfaceDebug.backingSize,
+        }),
+        renderer: this.rendererConfiguration,
+        rendering: Object.freeze({
+          commandCount: surfaceDebug.renderCommandCount ?? null,
+          visiblePrimitiveCount: surfaceDebug.visiblePrimitiveCount ?? null,
+        }),
+        assets: this.assetSession?.probe() ?? null,
+        subscriptions: Object.freeze({ active: this.subscriptionCount(), duplicates: 0 }),
+      }),
+    });
+  }
+
+  public runtimeDiagnostics(): PatchMapRuntimeDiagnosticsSnapshot {
+    if (!this.operations.isCollectionEnabled) {
+      return this.operations.captureRuntimeDiagnostics({
+        instanceId: this.instanceId,
+        lifecycle: this.lifecycle,
+        backend: { kind: null, lossState: 'uncollected' },
+        revisions: this.revisionStamp(),
+        counts: {
+          roots: 0,
+          elements: 0,
+          components: 0,
+          materialized: 0,
+          text: 0,
+          relations: 0,
+        },
+        activeWork: {
+          gestures: 0,
+          animations: 0,
+          pendingAssets: 0,
+          pendingWork: 0,
+        },
+        resources: {
+          canvases: 0,
+          listeners: 0,
+          observers: 0,
+          tickers: 0,
+          textureLeases: 0,
+          callbackRegistrations: 0,
+        },
+        cleanup: {
+          destroyed: this.lifecycle === 'destroyed',
+          released: this.lifecycle === 'destroyed',
+        },
+      });
+    }
+    const semantic = this.semanticProbe();
+    const surfaceDebug = this.surface?.debugSnapshot() ?? emptySurfaceDebug(
+      this.viewportWidth,
+      this.viewportHeight,
+      this.viewportPixelRatio,
+    );
+    const assetProbe = this.assetSession?.probe() ?? null;
+    const operationsProbe = this.operations.probe();
+    const rendererLoss = this.surface?.rendererLossProbe?.()
+      ?? this.terminalRendererLossProbe;
+    const elements = semantic.scene.counts.elements;
+    const components = semantic.scene.counts.components;
+    const canvasCount =
+      (this.surface?.canvasCount ?? 0) + (this.retainedCleanupSurface?.canvasCount ?? 0);
+    return this.operations.captureRuntimeDiagnostics({
+      instanceId: this.instanceId,
+      lifecycle: this.lifecycle,
+      backend: {
+        kind: this.rendererConfiguration?.backend ?? rendererLoss?.backend ?? null,
+        lossState: rendererLoss?.state ?? 'unavailable',
+      },
+      revisions: this.revisionStamp(),
+      counts: {
+        roots: semantic.scene.counts.rootElements,
+        elements,
+        components,
+        materialized: elements + components,
+        text: semantic.text.sourceCount,
+        relations: countPatchMapRelationLinks(this.materialized?.dataset ?? []),
+      },
+      activeWork: {
+        gestures: surfaceDebug.activeGestureCount ?? 0,
+        animations: surfaceDebug.activeAnimationCount,
+        pendingAssets: assetProbe?.pendingCount ?? 0,
+        pendingWork: this.pendingWork,
+      },
+      resources: {
+        canvases: canvasCount,
+        listeners: this.subscriptionCount(),
+        observers:
+          operationsProbe.diagnosticObserverCount + operationsProbe.telemetryObserverCount,
+        tickers: 0,
+        textureLeases: assetProbe?.leaseCount ?? 0,
+        callbackRegistrations: operationsProbe.callbackRegistrations,
+      },
+      cleanup: {
+        destroyed: this.lifecycle === 'destroyed',
+        released:
+          this.lifecycle === 'destroyed'
+          && canvasCount === 0
+          && this.pendingWork === 0
+          && operationsProbe.callbackRegistrations === 0,
+      },
+    });
+  }
+
+  public semanticProbe(): PatchMapSemanticProductProbe {
+    const surfaceDebug = this.surface?.debugSnapshot() ?? emptySurfaceDebug(
+      this.viewportWidth,
+      this.viewportHeight,
+      this.viewportPixelRatio,
+    );
+    return createPatchMapSemanticProbe(this.materialized, {
+      lifecycle: this.lifecycle,
+      datasetRef: this.datasetRef,
+      interactionMode: this.hostInteractions.modeProbe().activeState,
+      selectionIds: this.logicalSelectionIds,
+      activeAnimationCount: surfaceDebug.activeAnimationCount,
+      ...(surfaceDebug.activeGestureCount === undefined
+        ? {}
+        : { activeGestureCount: surfaceDebug.activeGestureCount }),
+      historyDepth: this.history.state().undoDepth,
+    });
+  }
+
+  public sceneImageProbe(): PatchMapEngineSceneImagesProbe | null {
+    return this.requireSurface('sceneImageProbe').sceneImageProbe?.() ?? null;
+  }
+
+  public retryAsset(
+    target: PatchMapComponentVisualTarget | string,
+  ): PatchMapSceneImageRetryResult {
+    const surface = this.requireSurface('retryAsset');
+    if (!surface.retrySceneImage) {
+      return Object.freeze({
+        status: 'unavailable',
+        entityId: typeof target === 'string' ? target : '',
+        bindingKey: null,
+        generation: 0,
+      });
+    }
+    let entityId: string;
+    if (typeof target === 'string') {
+      entityId = target;
+    } else {
+      const visual = this.componentVisualProbe(target);
+      entityId = visual?.entityId ?? '';
+    }
+    if (entityId.length === 0) {
+      return Object.freeze({
+        status: 'unavailable',
+        entityId,
+        bindingKey: null,
+        generation: 0,
+      });
+    }
+    return surface.retrySceneImage(entityId);
+  }
+
+  /**
+   * Join the detached semantic component index with an optional renderer
+   * surface probe. Legacy/injected surfaces stay observable as unavailable;
+   * no fixture values or scene-wide scans are used as fallbacks.
+   */
+  public componentVisualProbe(
+    target: PatchMapComponentVisualTarget,
+  ): PatchMapEngineComponentVisualProbe | null {
+    const normalizedTarget = normalizeEngineComponentVisualTarget(target);
+    const surface = this.requireSurface('componentVisualProbe');
+    const visual = surface.componentVisualProbe?.(normalizedTarget) ?? null;
+    const semanticOwnerId = visual?.semanticOwnerId ?? normalizedTarget.ownerId;
+    const semantic = this.componentSemantics.get(componentSemanticKey(
+      semanticOwnerId,
+      normalizedTarget.componentId,
+    )) ?? null;
+    if (semantic === null && visual === null) return null;
+    return Object.freeze({
+      target: normalizedTarget,
+      semantic,
+      entityId: visual?.entityId ?? null,
+      logicalIdentity: visual?.logicalIdentity ?? null,
+      componentType: visual?.componentType ?? semantic?.componentType ?? null,
+      renderRole: visual?.renderRole ?? null,
+      entityKind: visual?.entityKind ?? null,
+      geometry: visual?.geometry ?? null,
+      publication: visual?.publication ?? null,
+      sceneImage: visual?.sceneImage ?? null,
+      rendererPaint: visual?.rendererPaint ?? null,
+      renderLanes: visual?.renderLanes ?? null,
+      revisions: this.revisionStamp(),
+      availability: Object.freeze({
+        semantic: semantic !== null,
+        surface: visual !== null,
+        rendererPaint: visual?.rendererPaint !== null && visual?.rendererPaint !== undefined,
+        renderLanes: visual?.renderLanes !== null && visual?.renderLanes !== undefined,
+      }),
+    });
+  }
+
+  public barPresentationProbe(
+    target: PatchMapComponentVisualTarget,
+  ): PatchMapEngineBarPresentationProbe | null {
+    const normalizedTarget = normalizeEngineComponentVisualTarget(target);
+    const probe = this.requireSurface('barPresentationProbe')
+      .barPresentationProbe?.(normalizedTarget) ?? null;
+    if (probe === null) return null;
+    return Object.freeze({
+      ...probe,
+      revisions: this.revisionStamp(),
+      publishedTuple: this.publishedTuple,
+      frameRevision: this.frameRevision,
+    });
+  }
+
+  public paintOrderProbe(): PatchMapEnginePaintOrderProbe | null {
+    const probe = this.requireSurface('paintOrderProbe').paintOrderProbe?.() ?? null;
+    if (probe === null) return null;
+    return Object.freeze({
+      ...probe,
+      revisions: this.revisionStamp(),
+      publishedTuple: this.publishedTuple,
+      frameRevision: this.frameRevision,
+      history: this.history.state(),
+    });
+  }
+
+  /**
+   * Resolve text through prebuilt semantic and surface indexes. No probe-time
+   * traversal of materialized datasets, dense snapshots, or Pixi children is
+   * permitted on this path.
+   */
+  public textProbe(target: PatchMapTextTarget): PatchMapEngineTextProbe | null {
+    if (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') return null;
+    const normalizedTarget = normalizePatchMapTextTarget(target);
+    const surface = this.requireSurface('textProbe');
+    const requestedSemantic = this.textSemantics.get(engineTextTargetKey(normalizedTarget)) ?? null;
+    const visual = surface.textProbe?.(normalizedTarget) ?? null;
+    if (visual === null && requestedSemantic?.gridTemplate) return null;
+
+    const semantic = visual?.semanticOwnerId && normalizedTarget.kind === 'component'
+      ? this.textSemantics.get(engineTextTargetKey({
+          kind: 'component',
+          ownerId: visual.semanticOwnerId,
+          id: normalizedTarget.id,
+        })) ?? requestedSemantic
+      : requestedSemantic;
+    if (semantic === null && visual === null) return null;
+
+    const currentRevisions = this.revisionStamp();
+    const publishedCurrent = this.publishedTuple.scene === this.sceneRevision &&
+      this.publishedTuple.view === this.viewRevision &&
+      this.publishedTuple.interaction === this.interactionRevision;
+    const status: PatchMapEngineTextPublicationStatus = surfaceTextProbeIsAbsent(visual)
+      ? 'absent'
+      : surfaceTextProbeIsCurrent(visual) && publishedCurrent
+        ? 'current'
+        : visual === null
+          ? 'unavailable'
+          : 'pending';
+    const revisionTuple: PatchMapEngineTextRevisionTuple = Object.freeze({
+      current: currentRevisions,
+      published: this.publishedTuple,
+      frameRevision: this.frameRevision,
+      surfaceSceneRevision: visual?.publication.sceneRevision ?? null,
+      surfaceRenderedSceneRevision: visual?.publication.renderedSceneRevision ?? null,
+      rendererFrame: visual?.publication.rendererFrame ?? null,
+    });
+    const rendererAvailable = visual !== null &&
+      visual.renderer.route !== null &&
+      visual.renderer.route !== 'none' &&
+      visual.renderer.rendererKind !== 'none' &&
+      visual.renderer.route === visual.renderer.rendererKind;
+    return Object.freeze({
+      target: normalizedTarget,
+      semantic: semantic?.probe ?? null,
+      semanticOwnerId: visual?.semanticOwnerId ?? semantic?.probe.semanticOwnerId ?? null,
+      entityId: visual?.entityId ?? null,
+      projection: visual?.semantic ?? null,
+      geometry: visual?.geometry ?? null,
+      state: visual?.state ?? null,
+      transform: visual?.transform ?? null,
+      renderer: visual?.renderer ?? null,
+      rendererPaint: visual?.rendererPaint ?? null,
+      renderLanes: visual?.renderLanes ?? null,
+      publication: Object.freeze({ status, revisions: revisionTuple }),
+      availability: Object.freeze({
+        semantic: semantic !== null,
+        surface: visual !== null,
+        renderer: rendererAvailable,
+        rendererPaint: visual?.rendererPaint !== null && visual?.rendererPaint !== undefined,
+        renderLanes: visual?.renderLanes !== null && visual?.renderLanes !== undefined,
+      }),
+    });
+  }
+
+  public settleSceneImages(): Promise<void> {
+    const surface = this.requireSurface('settleSceneImages');
+    return surface.settleSceneImages ? surface.settleSceneImages() : Promise.resolve();
+  }
+
+  public settleSceneImageBindings(bindingKeys: readonly string[]): Promise<void> {
+    const surface = this.requireSurface('settleSceneImageBindings');
+    return surface.settleSceneImageBindings
+      ? surface.settleSceneImageBindings(bindingKeys)
+      : Promise.resolve();
+  }
+
+  /**
+   * Read renderer-aligned geometry without exposing the Pixi scene graph. The
+   * aggregate renderer remains free to use a handful of display objects while
+   * callers can still verify entity, relation, and selection alignment.
+   */
+  public geometryProbe(): PatchMapEngineGeometryProbe | null {
+    const surface = this.requireSurface('geometryProbe');
+    const geometry = surface.geometrySnapshot?.() ?? null;
+    if (geometry === null) return null;
+    const { revision: _surfaceRevision, sceneRevision: _denseRevision, ...facts } = geometry;
+    const correlation = this.correlateGeometryRevision(geometry.revision ?? null);
+    return Object.freeze({
+      ...facts,
+      ...correlation,
+    });
+  }
+
+  public relationProbe(): PatchMapEngineRelationProbe | null {
+    const surface = this.requireSurface('relationProbe');
+    const geometry = surface.geometrySnapshot?.() ?? null;
+    if (geometry === null) return null;
+    const correlation = this.correlateGeometryRevision(geometry.revision ?? null);
+    return Object.freeze({
+      ...correlation,
+      relations: geometry.relations,
+      omittedRelations: geometry.omittedRelations ?? Object.freeze([]),
+    });
+  }
+
+  public relationHitTestScreen(
+    point: PatchMapPoint,
+    options: PatchMapRelationHitOptions = {},
+  ): PatchMapRelationHit | null {
+    if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+      throw new RangeError('relation hit point must contain finite coordinates');
+    }
+    if (
+      options.toleranceCssPx !== undefined &&
+      (!Number.isFinite(options.toleranceCssPx) || options.toleranceCssPx < 0)
+    ) {
+      throw new RangeError('toleranceCssPx must be finite and non-negative');
+    }
+    const surface = this.requireSurface('relationHitTestScreen');
+    return surface.relationHitTestScreen?.(point, options) ?? null;
+  }
+
+  public interactionOwnershipProbe(): PatchMapInteractionOwnershipProbe | null {
+    return this.requireSurface('interactionOwnershipProbe').interactionOwnershipProbe?.() ?? null;
+  }
+
+  public pixiPublicSurfaceProbe(): PatchMapEnginePixiPublicSurfaceProbe | null {
+    const surface = this.requireSurface('pixiPublicSurfaceProbe');
+    const probe = surface.pixiPublicSurfaceProbe?.() ?? null;
+    if (probe === null) return null;
+    return Object.freeze({
+      ...probe,
+      lifecycle: this.lifecycle,
+      revisions: this.revisionStamp(),
+      canvasCount: surface.canvasCount,
+    });
+  }
+
+  public aggregateRenderOwnerProbe(
+    target: PatchMapComponentVisualTarget,
+  ): PatchMapAggregateRenderOwnerProbe | null {
+    const normalized = normalizeEngineComponentVisualTarget(target);
+    const logicalTarget = this.logicalSceneIndex().target({
+      kind: 'component',
+      ownerId: normalized.ownerId,
+      id: normalized.componentId,
+    });
+    const visual = this.componentVisualProbe(normalized);
+    if (
+      logicalTarget === null ||
+      visual === null ||
+      visual.entityId === null ||
+      visual.geometry === null
+    ) {
+      return null;
+    }
+    const laneRole = visual.rendererPaint?.lane ?? componentRenderLane(visual.renderRole);
+    return Object.freeze({
+      target: normalized,
+      logicalTarget,
+      entityId: visual.entityId,
+      aggregateRenderOwnerId:
+        `render-owner:${normalized.ownerId}/${normalized.componentId}`,
+      rendererKind: visual.rendererPaint?.rendererKind ?? null,
+      renderLane: laneRole === null ? null : visual.renderLanes?.[laneRole] ?? null,
+      worldBounds: visual.geometry.worldBounds,
+      visible: visual.geometry.visible,
+      revisions: this.revisionStamp(),
+      publishedTuple: this.publishedTuple,
+      frameRevision: this.frameRevision,
+    });
+  }
+
+  public rendererLossProbe(): PatchMapEngineRendererLossProbe | null {
+    if (
+      (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') &&
+      this.terminalRendererLossProbe !== null
+    ) {
+      return Object.freeze({
+        ...this.terminalRendererLossProbe,
+        revisions: this.revisionStamp(),
+        publishedTuple: this.publishedTuple,
+        canvasCount: 0,
+      });
+    }
+    const surface = this.requireSurface('rendererLossProbe');
+    const probe = surface.rendererLossProbe?.() ?? null;
+    if (probe === null) return null;
+    return Object.freeze({
+      ...probe,
+      revisions: this.revisionStamp(),
+      publishedTuple: this.publishedTuple,
+      canvasCount: surface.canvasCount,
+    });
+  }
+
+  public forceRendererLoss(): boolean {
+    const surface = this.requireSurface('forceRendererLoss');
+    if (surface.forceRendererLoss === undefined) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'forceRendererLoss',
+        false,
+      );
+    }
+    return surface.forceRendererLoss();
+  }
+
+  public exportDataset(): readonly NormalizedPatchMapElement[] {
+    this.requireSurface('exportDataset');
+    return this.materialized?.dataset ?? [];
+  }
+
+  public canvasHandle(): PatchMapEngineCanvasHandle {
+    const surface = this.requireSurface('canvasHandle');
+    return this.canvasHandleForSurface(surface, 'canvasHandle');
+  }
+
+  private canvasHandleForSurface(
+    surface: PatchMapEngineSurface,
+    operation: string,
+  ): PatchMapEngineCanvasHandle {
+    const canvas = surface.canvasElement?.() ?? null;
+    if (canvas === null || this.authoritativeCanvas === null) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        operation,
+        false,
+      );
+    }
+    if (canvas !== this.authoritativeCanvas) {
+      throw this.operationError(
+        'RENDERER_LOST',
+        'RENDERER_LOST',
+        operation,
+        true,
+      );
+    }
+    const debug = surface.debugSnapshot();
+    return Object.freeze({
+      element: canvas,
+      identity: 'initial-canvas',
+      cssSize: Object.freeze([...debug.cssSize] as [number, number]),
+      backingSize: Object.freeze([...debug.backingSize] as [number, number]),
+    });
+  }
+
+  public async extractPublishedScene(
+    request: PatchMapEngineExtractionRequest,
+  ): Promise<PatchMapEngineExtractionResult> {
+    validateExtractionRequest(request);
+    const surface = this.requireSurface('extractPublishedScene');
+    if (surface.captureBase64 === undefined) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'extractPublishedScene',
+        false,
+      );
+    }
+    const rendererLoss = surface.rendererLossProbe?.() ?? null;
+    if (rendererLoss?.contextLost === true || rendererLoss?.state === 'lost') {
+      throw this.operationError(
+        'RENDERER_LOST',
+        'RENDERER_LOST',
+        'extractPublishedScene',
+        true,
+      );
+    }
+    const extractionPreflight = this.extractionSecurity.preflight();
+    if (extractionPreflight.code !== null) {
+      const diagnostic = Object.freeze({
+        ...this.operationDiagnostic(
+          extractionPreflight.code,
+          'EXTRACTION_FAILURE',
+          'extractPublishedScene',
+          true,
+        ),
+        ...(extractionPreflight.sanitizedAssetId === null
+          ? {}
+          : { sanitizedAssetId: extractionPreflight.sanitizedAssetId }),
+      });
+      const failure = new PatchMapError(diagnostic);
+      this.emit('diagnostic', diagnostic);
+      throw failure;
+    }
+    if (!samePublishedTuple(this.publishedTuple, request.targetTuple)) {
+      throw this.operationError(
+        'STALE_TARGET',
+        'STALE_TARGET',
+        'extractPublishedScene',
+        true,
+      );
+    }
+    const before = this.canvasHandleForSurface(surface, 'extractPublishedScene');
+    if (
+      before.cssSize[0] !== request.cssSize[0] ||
+      before.cssSize[1] !== request.cssSize[1]
+    ) {
+      throw this.operationError(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        'extractPublishedScene',
+        true,
+      );
+    }
+
+    this.pendingWork += 1;
+    try {
+      const dataUrl = await surface.captureBase64();
+      if (this.surface !== surface || this.isDestroyingOrDestroyed()) {
+        throw this.operationError(
+          'DESTROYED',
+          'DESTROYED',
+          'extractPublishedScene',
+          false,
+        );
+      }
+      if (!samePublishedTuple(this.publishedTuple, request.targetTuple)) {
+        throw this.operationError(
+          'SUPERSEDED',
+          'SUPERSEDED',
+          'extractPublishedScene',
+          true,
+        );
+      }
+      const after = this.canvasHandleForSurface(surface, 'extractPublishedScene');
+      if (before.element !== after.element) {
+        throw this.operationError(
+          'RENDERER_LOST',
+          'RENDERER_LOST',
+          'extractPublishedScene',
+          true,
+        );
+      }
+      if (!dataUrl.startsWith('data:image/png;base64,')) {
+        throw this.operationError(
+          'EXTRACTION_READBACK_FAILED',
+          'EXTRACTION_FAILURE',
+          'extractPublishedScene',
+          true,
+        );
+      }
+      return Object.freeze({
+        capturedTuple: Object.freeze({ ...request.targetTuple }),
+        cssSize: after.cssSize,
+        backingSize: after.backingSize,
+        mime: 'image/png',
+        dataUrl,
+        canvasIdentity: after.identity,
+        authoritativeCanvasRetained: true,
+        temporaryImageCount: 0,
+        renderTextureCount: 0,
+      });
+    } catch (error) {
+      const rendererLoss = surface.rendererLossProbe?.() ?? null;
+      const failure = error instanceof PatchMapError
+        ? error
+        : rendererLoss?.contextLost === true || rendererLoss?.state === 'lost'
+          ? this.operationError(
+              'RENDERER_LOST',
+              'RENDERER_LOST',
+              'extractPublishedScene',
+              true,
+            )
+        : this.operationError(
+            extractionFailureCode(error),
+            'EXTRACTION_FAILURE',
+            'extractPublishedScene',
+            true,
+          );
+      if (!this.isDestroyingOrDestroyed()) {
+        this.emit('diagnostic', failure.diagnostic);
+      }
+      throw failure;
+    } finally {
+      this.pendingWork -= 1;
+    }
+  }
+
+  public historyState(): PatchMapHistoryState {
+    this.requireSurface('historyState');
+    return this.history.state();
+  }
+
+  public historyInspection(): PatchMapHistoryInspection<
+    readonly NormalizedPatchMapElement[],
+    PatchMapEngineHistoryCompanion
+  > {
+    this.requireSurface('historyInspection');
+    return this.history.inspect();
+  }
+
+  public historyCompanionState(): PatchMapEngineHistoryCompanionState {
+    this.requireSurface('historyCompanionState');
+    return this.historyCompanionForSelection(this.logicalSelectionIds);
+  }
+
+  /**
+   * Stage detached host editor state before a compound transaction. Recognized
+   * `selectedIds` and `mode` fields join Engine interaction authority; all JSON
+   * fields remain available as the opaque reversible host companion.
+   */
+  public setHistoryCompanion(
+    value: PatchMapMutationJsonValue,
+  ): PatchMapEngineHistoryCompanionState {
+    const surface = this.requireSurface('setHistoryCompanion');
+    const detached = detachPatchMapMutationJsonValue(value, '$.historyCompanion');
+    const previousSelection = this.logicalSelectionIds;
+    const previousMode = this.hostInteractions.modeProbe().activeState;
+    const next = this.nextHistoryCompanion(
+      detached,
+      previousSelection,
+      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+    );
+    surface.select(next.selectionIds);
+    this.logicalSelectionIds = next.selectionIds;
+    this.hostInteractions.applyModeOperation({ op: 'replace', state: next.mode });
+    this.historyHostCompanion = next.hostCompanion;
+    if (
+      !sameStringArray(previousSelection, next.selectionIds) ||
+      previousMode !== next.mode ||
+      next.hostCompanion !== null
+    ) {
+      this.interactionRevision += 1;
+    }
+    return this.historyCompanionForSelection(this.logicalSelectionIds);
+  }
+
+  public setHistoryCapacity(capacity: number): PatchMapEngineHistoryCapacityResult {
+    this.requireSurface('setHistoryCapacity');
+    try {
+      const change = this.history.setCapacity(capacity);
+      return Object.freeze({
+        status: 'committed',
+        changed: change.changed,
+        code: null,
+        change,
+      });
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error;
+      return Object.freeze({
+        status: 'rejected',
+        changed: false,
+        code: 'INVALID_VALUE',
+        capacity,
+        history: this.history.state(),
+      });
+    }
+  }
+
+  public clearHistory(): PatchMapEngineHistoryClearResult {
+    this.requireSurface('clearHistory');
+    return this.clearHistoryAuthority('host', true);
+  }
+
+  public handleHistoryShortcut(
+    input: PatchMapHistoryShortcutInput,
+  ): PatchMapHistoryShortcutResult {
+    this.requireSurface('handleHistoryShortcut');
+    const action = resolvePatchMapHistoryShortcut(input);
+    if (action === null || !patchMapOwnsKeyboardInput(input.pathKind)) {
+      return Object.freeze({
+        action,
+        handled: false,
+        preventDefault: false,
+        result: null,
+      });
+    }
+    const result = action === 'undo' ? this.undo() : this.redo();
+    return Object.freeze({
+      action,
+      handled: true,
+      preventDefault: true,
+      result,
+    });
+  }
+
+  public undo(): PatchMapEngineHistoryResult {
+    this.cancelActiveTransformerEdit('redraw', true);
+    return this.applyHistory('undo');
+  }
+
+  public redo(): PatchMapEngineHistoryResult {
+    this.cancelActiveTransformerEdit('redraw', true);
+    return this.applyHistory('redo');
+  }
+
+  public async destroy(): Promise<boolean> {
+    if (this.lifecycle === 'destroying') return false;
+    if (this.lifecycle === 'destroyed') return this.retryDestroyedCleanup();
+    this.frameLoop?.destroy();
+    this.frameLoop = null;
+    this.frameLoopPausedForVisibility = false;
+    this.cancelActiveTransformerEdit('destroy', false);
+    this.lifecycle = 'destroying';
+    this.submissionSequence += 1;
+    this.loadSequence += 1;
+    const surface = this.surface;
+    this.viewportMotion = null;
+    surface?.cancelViewportGestures?.();
+    this.pointerGestureAuthority?.destroy();
+    this.pointerGestureAuthority = null;
+    this.transformerGestures.destroy();
+    this.editorWorkflows.destroy();
+    this.pageLifecycle.destroy();
+    this.hostInteractions.destroy();
+    this.accessibility.destroy();
+    this.operations.disposeCallbacks();
+    const pendingInitialization = this.initializePromise;
+    const assetSession = this.assetSession;
+    const cleanupFailures: unknown[] = [];
+    const requiredAcquisitions = this.requiredAssetAcquisitions.splice(0);
+    let assetCleanup: Promise<void>;
+    if (surface) {
+      const cleanup = await this.cleanupSurface(surface);
+      if (cleanup.error) cleanupFailures.push(cleanup.error);
+      assetCleanup = this.destroyAssetSession(assetSession, requiredAcquisitions);
+    } else {
+      // Starting asset teardown cancels a required acquisition that may be
+      // holding initialization open. The late surface, if any, is retained by
+      // the initialization continuation until this destroy owns it below.
+      assetCleanup = this.destroyAssetSession(assetSession, requiredAcquisitions);
+    }
+    if (pendingInitialization) {
+      // Initialization owns a renderer allocation that may not exist yet. Its
+      // continuation observes `destroying`, transfers the late surface to the
+      // cleanup-only owner, and rejects. Waiting here makes destroy the physical
+      // resource boundary instead of losing the renderer reference.
+      await pendingInitialization.catch(() => undefined);
+    }
+    const retainedSurface = this.retainedCleanupSurface;
+    if (retainedSurface && retainedSurface !== surface) {
+      const cleanup = await this.cleanupSurface(retainedSurface);
+      if (cleanup.error) cleanupFailures.push(cleanup.error);
+    }
+    let assetCleanupSucceeded = assetSession === null;
+    try {
+      await assetCleanup;
+      assetCleanupSucceeded = true;
+    } catch (error) {
+      cleanupFailures.push(error);
+    }
+    this.surface = null;
+    this.authoritativeCanvas = null;
+    if (this.materialized !== null) {
+      releasePatchMapSemanticHashScratch(this.materialized.dataset);
+    }
+    this.materialized = null;
+    this.defaultViewportContributorsCache = null;
+    this.logicalSceneIndexCache = null;
+    this.logicalSelectionIds = Object.freeze([]);
+    this.resetLiveOverlayState();
+    this.viewportPolicyRegistry.clear();
+    this.viewportPolicyEnabled.clear();
+    this.viewportTemporaryPolicies = null;
+    this.externalDependencyRevisions.clear();
+    this.clearHistoryAuthority('destroy', true);
+    this.history.destroy();
+    this.historyHostCompanion = null;
+    this.pendingHistoryPublications = Object.freeze([]);
+    this.componentSemantics.clear();
+    this.textSemantics.clear();
+    this.pendingTransactionPlanMs = 0;
+    this.lastTransactionPerformance = null;
+    this.datasetRef = null;
+    this.rendererConfiguration = null;
+    this.initializePromise = null;
+    this.assetSession = assetCleanupSucceeded ? null : assetSession;
+    this.lifecycle = 'destroyed';
+    this.emit('destroyed', Object.freeze({ lifecycleGeneration: this.lifecycleGeneration }));
+    this.listeners.clear();
+    if (cleanupFailures.length > 0) {
+      throw this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'destroy', false);
+    }
+    return true;
+  }
+
+  private async retryDestroyedCleanup(): Promise<boolean> {
+    const cleanupFailures: unknown[] = [];
+    if (this.retainedCleanupSurface) {
+      const cleanup = await this.cleanupSurface(this.retainedCleanupSurface);
+      if (cleanup.error) cleanupFailures.push(cleanup.error);
+    }
+    if (this.assetSession && !this.assetSession.probe().destroyed) {
+      try {
+        await this.assetSession.destroy();
+        this.assetSession = null;
+      } catch (error) {
+        cleanupFailures.push(error);
+      }
+    } else if (this.assetSession?.probe().destroyed) {
+      try {
+        await this.assetSession.retryCleanup();
+        this.assetSession = null;
+      } catch (error) {
+        cleanupFailures.push(error);
+      }
+    }
+    if (cleanupFailures.length > 0) {
+      throw this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'destroy', false);
+    }
+    return false;
+  }
+
+  private resetLiveOverlayState(): void {
+    this.latestOverlayAccepted = null;
+    this.latestOverlayPublished = null;
+    this.pendingOverlayPublication = null;
+    this.overlayAcceptedCount = 0;
+    this.overlayPublicationCount = 0;
+  }
+
+  private requireActiveTransformerEdit(
+    pointerId: number,
+    operation: string,
+  ): ActivePatchMapTransformerEdit {
+    const active = this.activeTransformerEdit;
+    if (active === null || active.pointerId !== pointerId) {
+      throw new Error(`${operation} requires the active transformer pointer`);
+    }
+    return active;
+  }
+
+  private restoreTransformerPreview(active: ActivePatchMapTransformerEdit): void {
+    if (active.previewMaterialized === null) return;
+    const surface = this.requireSurface('restoreTransformerPreview');
+    if (!surface.reconcile) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'restoreTransformerPreview',
+        false,
+      );
+    }
+    if (active.transientPreview && surface.clearIncrementalPreview !== undefined) {
+      surface.clearIncrementalPreview();
+      if (!sameStringArray(this.logicalSelectionIds, active.startSelectionIds)) {
+        surface.select(active.startSelectionIds);
+        this.logicalSelectionIds = active.startSelectionIds;
+      }
+      this.interactionRevision += 1;
+      return;
+    }
+    const incrementalRootIds = active.latestPlan?.status === 'planned'
+      ? incrementalFlatRootIds(
+          active.previewMaterialized.dataset,
+          active.startMaterialized.dataset,
+          active.latestPlan.operations,
+        )
+      : undefined;
+    const reconcile = surface.reconcile(active.startMaterialized.dataset, {
+      animateBarChanges: false,
+      ...(incrementalRootIds === undefined ? {} : { incrementalRootIds }),
+      ...(!sameStringArray(this.logicalSelectionIds, active.startSelectionIds)
+        ? { selectionIds: active.startSelectionIds }
+        : {}),
+    });
+    if (reconcile.status === 'refused') {
+      throw this.operationError(
+        'CONFLICT',
+        'CONFLICT',
+        'restoreTransformerPreview',
+        false,
+      );
+    }
+    if (!sameStringArray(this.logicalSelectionIds, active.startSelectionIds)) {
+      this.logicalSelectionIds = active.startSelectionIds;
+    }
+    this.interactionRevision += 1;
+  }
+
+  private cancelActiveTransformerEdit(
+    reason: PatchMapGestureCancelReason,
+    restoreSurface: boolean,
+  ): ReturnType<PatchMap['cancelTransformerHandleGesture']> | null {
+    const active = this.activeTransformerEdit;
+    if (active === null) return null;
+    if (restoreSurface) this.restoreTransformerPreview(active);
+    this.activeTransformerEdit = null;
+    const gesture = this.cancelTransformerHandleGesture(active.pointerId, reason);
+    this.transformerEditCancelledSessionCount += 1;
+    return gesture;
+  }
+
+  private applyHistory(direction: PatchMapHistoryDirection): PatchMapEngineHistoryResult {
+    const surface = this.requireSurface(direction);
+    const previousRevisions = this.revisionStamp();
+    if (!surface.reconcile) {
+      const diagnostic = this.operationDiagnostic(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        direction,
+        false,
+      );
+      const result = Object.freeze({
+        status: 'refused',
+        changed: false,
+        direction,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        sceneRevision: this.sceneRevision,
+        semanticHash: this.materialized?.semanticHash ?? null,
+        diagnostic,
+        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
+        history: this.history.state(),
+      } satisfies PatchMapEngineHistoryResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+
+    let failure: PatchMapEngineDiagnostic | null = null;
+    let reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[] = EMPTY_RECONCILE_DIAGNOSTICS;
+    const modeBefore = this.hostInteractions.modeProbe().activeState;
+    const hostCompanionBefore = this.historyHostCompanion;
+    const currentMaterialized = this.materialized ?? EMPTY_MATERIALIZED_DATASET;
+    const apply = (transition: PatchMapEngineHistoryTransition): boolean => {
+      let materialized: MaterializedPatchMapDataset;
+      let componentSemantics: Map<string, PatchMapEngineComponentSemanticProbe>;
+      let textSemantics: Map<string, IndexedEngineTextSemantic>;
+      let incrementalRootIds: readonly string[] | undefined;
+      let structuralRootDelta: PatchMapOwnedStructuralRootDelta | null;
+      const selectionBefore = this.logicalSelectionIds;
+      try {
+        materialized = ownedPatchMapMaterialization(transition.snapshot.dataset) ??
+          materializePatchMapDataset(transition.snapshot.dataset);
+        incrementalRootIds = incrementalOwnedRootIds(
+          currentMaterialized.dataset,
+          materialized.dataset,
+        );
+        const orderScope = historyReconcileOrderScope(transition.command);
+        structuralRootDelta =
+          incrementalRootIds === undefined &&
+          orderScope.allowedElementOrderIds.length > 0
+            ? ownedStructuralRootDelta(
+                currentMaterialized.dataset,
+                materialized.dataset,
+              )
+            : null;
+        componentSemantics = incrementalRootIds === undefined
+          ? structuralRootDelta === null
+            ? indexComponentSemantics(materialized.dataset)
+            : reconcileStructuralComponentSemantics(
+                this.componentSemantics,
+                structuralRootDelta,
+              )
+          : reconcileFlatComponentSemantics(
+              this.componentSemantics,
+              currentMaterialized.dataset,
+              materialized.dataset,
+              incrementalRootIds,
+            );
+        textSemantics = incrementalRootIds === undefined
+          ? structuralRootDelta === null
+            ? indexTextSemantics(materialized.dataset)
+            : reconcileStructuralTextSemantics(
+                this.textSemantics,
+                structuralRootDelta,
+              )
+          : reconcileFlatTextSemantics(
+              this.textSemantics,
+              currentMaterialized.dataset,
+              materialized.dataset,
+              incrementalRootIds,
+            );
+        const companion = transition.snapshot.companion;
+        const mode = companion?.mode ?? 'select';
+        if (!isPatchMapInteractionMode(mode)) {
+          throw new TypeError('history companion mode is unsupported');
+        }
+        const requestedSelection = companion?.selectionIds ?? Object.freeze([]);
+        const selection = incrementalRootIds === undefined
+          ? structuralRootDelta === null
+            ? this.validLogicalSelection(requestedSelection, materialized)
+            : this.validOwnedStructuralSelection(requestedSelection, materialized)
+          : this.validOwnedStableSelection(requestedSelection, materialized);
+        const reconcile = surface.reconcile?.(materialized.dataset, {
+          animateBarChanges: false,
+          ...(incrementalRootIds === undefined ? {} : { incrementalRootIds }),
+          ...(orderScope.allowedElementOrderIds.length === 0
+            ? {}
+            : { structuralSharing: true }),
+          ...(orderScope.allowedElementOrderIds.length === 0
+            ? {}
+            : { allowedElementOrderIds: orderScope.allowedElementOrderIds }),
+          ...(orderScope.allowedComponentOrderOwners.length === 0
+            ? {}
+            : { allowedComponentOrderOwners: orderScope.allowedComponentOrderOwners }),
+          ...(!sameStringArray(selectionBefore, selection)
+            ? { selectionIds: selection }
+            : {}),
+        });
+        if (reconcile === undefined) return false;
+        reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
+        if (reconcile.status === 'refused') {
+          const datasetPath = reconcileDiagnostics.find((entry) => entry.severity === 'error')?.path;
+          failure = this.operationDiagnostic('CONFLICT', 'CONFLICT', direction, true, datasetPath);
+          return false;
+        }
+        this.logicalSelectionIds = selection;
+        this.hostInteractions.applyModeOperation({ op: 'replace', state: mode });
+        this.historyHostCompanion = companion?.hostCompanion ?? null;
+      } catch (error) {
+        failure = this.diagnosticFrom(error, direction);
+        return false;
+      }
+
+      this.materialized = materialized;
+      this.defaultViewportContributorsCache = null;
+      this.logicalSceneIndexCache = null;
+      this.componentSemantics = componentSemantics;
+      this.textSemantics = textSemantics;
+      this.sceneRevision += 1;
+      this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
+      if (
+        !sameStringArray(selectionBefore, this.logicalSelectionIds) ||
+        modeBefore !== this.hostInteractions.modeProbe().activeState ||
+        hostCompanionBefore !== this.historyHostCompanion
+      ) {
+        this.interactionRevision += 1;
+      }
+      return true;
+    };
+
+    const transition = direction === 'undo'
+      ? this.history.undo(apply)
+      : this.history.redo(apply);
+    if (transition === null && failure !== null) {
+      const result = Object.freeze({
+        status: 'refused',
+        changed: false,
+        direction,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        sceneRevision: this.sceneRevision,
+        semanticHash: this.materialized?.semanticHash ?? null,
+        diagnostic: failure,
+        reconcileDiagnostics,
+        history: this.history.state(),
+      } satisfies PatchMapEngineHistoryResult);
+      this.emit('diagnostic', failure);
+      return result;
+    }
+    if (transition === null) {
+      return Object.freeze({
+        status: 'unavailable',
+        changed: false,
+        direction,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        sceneRevision: this.sceneRevision,
+        semanticHash: this.materialized?.semanticHash ?? null,
+        history: this.history.state(),
+      } satisfies PatchMapEngineHistoryResult);
+    }
+
+    const materialized = this.materialized;
+    if (materialized === null) throw new Error('history transition lost semantic authority');
+    const result = Object.freeze({
+      status: 'committed',
+      changed: true,
+      direction,
+      actionId: transition.command.id,
+      recordCount: transition.command.recordCount,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      sceneRevision: this.sceneRevision,
+      semanticHash: materialized.semanticHash,
+      publication: 'pending',
+      history: this.history.state(),
+    } satisfies PatchMapEngineHistoryResult);
+    const restored = Object.freeze({
+      direction,
+      sceneRevision: this.sceneRevision,
+      selectionIds: Object.freeze([...this.logicalSelectionIds]),
+      mode: this.hostInteractions.modeProbe().activeState,
+      publication: 'pending',
+    } satisfies PatchMapEngineHistoryRestoredEvent);
+    this.emit('semanticRestored', restored);
+    this.emit('selectionReconciled', restored);
+    this.emit(direction === 'undo' ? 'historyUndone' : 'historyRedone', result);
+    this.pendingHistoryPublications = Object.freeze([
+      ...this.pendingHistoryPublications,
+      Object.freeze({ direction, sceneRevision: this.sceneRevision }),
+    ]);
+    return result;
+  }
+
+  private historySnapshot(): PatchMapSemanticHistorySnapshotInput<
+    readonly NormalizedPatchMapElement[],
+    PatchMapEngineHistoryCompanion
+  > {
+    return Object.freeze({
+      dataset: this.materialized?.dataset ?? Object.freeze([]),
+      companion: Object.freeze({
+        selectionIds: Object.freeze([...this.logicalSelectionIds]),
+        mode: this.hostInteractions.modeProbe().activeState,
+        hostCompanion: this.historyHostCompanion,
+      }),
+    });
+  }
+
+  private rememberCommandTargetState(state: PatchMapCommandTargetState): void {
+    this.commandTargetAuthorities.set(state, Object.freeze({
+      lifecycleGeneration: this.lifecycleGeneration,
+      targetIds: state.targetIds,
+    }));
+  }
+
+  private historyCompanionForSelection(
+    selectionIds: readonly string[],
+  ): PatchMapEngineHistoryCompanion {
+    return Object.freeze({
+      selectionIds: Object.freeze([...selectionIds]),
+      mode: this.hostInteractions.modeProbe().activeState,
+      hostCompanion: this.historyHostCompanion,
+    });
+  }
+
+  private nextHistoryCompanion(
+    value: PatchMapMutationJsonValue | undefined,
+    fallbackSelectionIds: readonly string[],
+    materialized: MaterializedPatchMapDataset,
+    stableIdentity = false,
+    structuralIdentity = false,
+  ): PatchMapEngineHistoryCompanion {
+    const record = isPatchMapHistoryCompanionRecord(value) ? value : null;
+    const selectedValue = record?.selectedIds;
+    if (
+      selectedValue !== undefined &&
+      (
+        !Array.isArray(selectedValue) ||
+        selectedValue.some((entry) => typeof entry !== 'string')
+      )
+    ) {
+      throw new TypeError('history companion selectedIds must be an array of strings');
+    }
+    const modeValue = record?.mode;
+    if (modeValue !== undefined && !isPatchMapInteractionMode(modeValue)) {
+      throw new TypeError('history companion mode is unsupported');
+    }
+    const requestedIds = selectedValue === undefined
+      ? fallbackSelectionIds
+      : selectedValue as readonly string[];
+    const selectedIds = stableIdentity
+      ? this.validOwnedStableSelection(requestedIds, materialized)
+      : structuralIdentity
+        ? this.validOwnedStructuralSelection(requestedIds, materialized)
+        : this.validLogicalSelection(requestedIds, materialized);
+    return Object.freeze({
+      selectionIds: selectedIds,
+      mode: modeValue === undefined
+        ? this.hostInteractions.modeProbe().activeState
+        : modeValue,
+      hostCompanion: value === undefined ? this.historyHostCompanion : value,
+    });
+  }
+
+  private clearHistoryAuthority(
+    reason: PatchMapEngineHistoryClearResult['reason'],
+    emitEvenIfUnchanged = false,
+  ): PatchMapEngineHistoryClearResult {
+    const changed = this.history.clear();
+    this.pendingHistoryPublications = Object.freeze([]);
+    const result = Object.freeze({
+      changed,
+      reason,
+      history: this.history.state(),
+    });
+    if (changed || emitEvenIfUnchanged) this.emit('historyCleared', result);
+    return result;
+  }
+
+  private validLogicalSelection(
+    ids: readonly string[],
+    materialized: MaterializedPatchMapDataset | null,
+  ): readonly string[] {
+    if (materialized === null || ids.length === 0) return Object.freeze([]);
+    const index = materialized === this.materialized
+      ? this.logicalSceneIndex()
+      : new PatchMapLogicalSceneIndex(materialized.dataset);
+    return Object.freeze(
+      [...new Set(ids)].filter((id) => index.target(id) !== null),
+    );
+  }
+
+  private validOwnedStructuralSelection(
+    ids: readonly string[],
+    materialized: MaterializedPatchMapDataset,
+  ): readonly string[] {
+    if (ids.length === 0) return Object.freeze([]);
+    const elementIds = ownedPatchMapElementIds(materialized.dataset);
+    if (elementIds === null) return this.validLogicalSelection(ids, materialized);
+    const previousElementIds = this.materialized === null
+      ? null
+      : ownedPatchMapElementIds(this.materialized.dataset);
+    const currentIndex = this.logicalSceneIndexCache?.index ?? null;
+    const selected: string[] = [];
+    for (const id of new Set(ids)) {
+      if (elementIds.has(id)) {
+        selected.push(id);
+        continue;
+      }
+      const previousElementId = id.startsWith('element:')
+        ? id.slice('element:'.length)
+        : id;
+      // A structural command removed this exact previously-owned element.
+      // Its selection is deterministically dropped; building a 5,000-target
+      // logical query snapshot cannot change that result.
+      if (previousElementIds?.has(previousElementId)) continue;
+      if (currentIndex === null) {
+        return this.validLogicalSelection(ids, materialized);
+      }
+      const target = currentIndex.target(id);
+      if (
+        target !== null &&
+        (
+          elementIds.has(target.id) ||
+          (target.ownerId !== null && elementIds.has(target.ownerId))
+        )
+      ) {
+        selected.push(id);
+      }
+    }
+    return Object.freeze(selected);
+  }
+
+  private validOwnedStableSelection(
+    ids: readonly string[],
+    materialized: MaterializedPatchMapDataset,
+  ): readonly string[] {
+    return Object.freeze(
+      [...new Set(ids)].filter((id) => {
+        const owned = this.ownedSelectionTargetExists(id, materialized);
+        return owned ?? this.logicalSceneIdentityIndex().target(id) !== null;
+      }),
+    );
+  }
+
+  /**
+   * Validate the stable element/component selection forms without rebuilding
+   * the full logical query snapshot after an otherwise small structural edit.
+   * Grid instance aliases remain on the canonical index fallback because they
+   * are expanded query identities rather than owned dataset element IDs.
+   */
+  private ownedSelectionTargetExists(
+    id: string,
+    materialized: MaterializedPatchMapDataset,
+  ): boolean | null {
+    const elementIds = ownedPatchMapElementIds(materialized.dataset);
+    if (elementIds === null) return null;
+    if (elementIds.has(id)) return true;
+    if (id.startsWith('element:')) {
+      return elementIds.has(id.slice('element:'.length));
+    }
+    const componentKey = (ownerId: string, componentId: string): boolean =>
+      this.componentSemantics.has(componentSemanticKey(ownerId, componentId));
+    if (id.startsWith('component:')) {
+      const body = id.slice('component:'.length);
+      const separator = body.indexOf('/');
+      return separator > 0 && separator < body.length - 1
+        ? componentKey(body.slice(0, separator), body.slice(separator + 1))
+        : false;
+    }
+    const ownerSeparator = id.indexOf('/');
+    if (ownerSeparator > 0 && ownerSeparator < id.length - 1) {
+      return componentKey(
+        id.slice(0, ownerSeparator),
+        id.slice(ownerSeparator + 1),
+      );
+    }
+    const selectionSeparator = id.indexOf('::');
+    const typeSeparator = selectionSeparator < 0
+      ? -1
+      : id.indexOf(':', selectionSeparator + 2);
+    if (
+      selectionSeparator > 0 &&
+      typeSeparator > selectionSeparator + 2 &&
+      typeSeparator < id.length - 1
+    ) {
+      const ownerId = id.slice(0, selectionSeparator);
+      const componentType = id.slice(selectionSeparator + 2, typeSeparator);
+      const componentId = id.slice(typeSeparator + 1);
+      const semantic = this.componentSemantics.get(componentSemanticKey(
+        ownerId,
+        componentId,
+      ));
+      return semantic !== undefined && semantic.componentType === componentType;
+    }
+    return null;
+  }
+
+  private logicalSceneIndex(): PatchMapLogicalSceneIndex {
+    const materialized = this.materialized ?? EMPTY_MATERIALIZED_DATASET;
+    if (this.logicalSceneIndexCache?.materialized !== materialized) {
+      let index = this.logicalSceneIndexesByMaterialized.get(materialized);
+      if (index === undefined) {
+        index = new PatchMapLogicalSceneIndex(materialized.dataset);
+        this.logicalSceneIndexesByMaterialized.set(materialized, index);
+      }
+      this.logicalSceneIndexCache = Object.freeze({
+        materialized,
+        index,
+      });
+      this.logicalSelectionIndexesByMaterialized.set(materialized, index);
+    }
+    return this.logicalSceneIndexCache.index;
+  }
+
+  /**
+   * Stable-identity transactions only need target membership validation.
+   * Reuse an older value snapshot while IDs/hierarchy are proven unchanged;
+   * ordinary query callers still rebuild through logicalSceneIndex() so
+   * labels, values, order, and locks can never be stale.
+   */
+  private logicalSceneIdentityIndex(): PatchMapLogicalSceneIndex {
+    return this.logicalSceneIndexCache?.index ?? this.logicalSceneIndex();
+  }
+
+  private logicalSceneSelectionIndex(): PatchMapLogicalSceneIndex {
+    const materialized = this.materialized ?? EMPTY_MATERIALIZED_DATASET;
+    let index = this.logicalSelectionIndexesByMaterialized.get(materialized);
+    if (index === undefined) {
+      index = new PatchMapLogicalSceneIndex(materialized.dataset);
+      this.logicalSelectionIndexesByMaterialized.set(materialized, index);
+    }
+    return index;
+  }
+
+  private refreshAccessibilityAuthority(operation: string): void {
+    const surface = this.requireSurface(operation);
+    const geometry = surface.geometrySnapshot?.();
+    if (geometry === undefined) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        operation,
+        false,
+      );
+    }
+    this.accessibility.reconcile(derivePatchMapAccessibilityTargets(
+      this.logicalSceneIndex().targets(),
+      geometry.entities,
+    ));
+    surface.setAccessibilityTree?.(this.accessibility.renderNodes());
+  }
+
+  private refreshAccessibilitySurfaceIfActive(operation: string): void {
+    if (!this.accessibility.enabled || this.isDestroyingOrDestroyed()) return;
+    this.refreshAccessibilityAuthority(operation);
+  }
+
+  private requirePointerGestureAuthority(operation: string): PatchMapPointerGestureAuthority {
+    const authority = this.pointerGestureAuthority;
+    if (authority === null) {
+      throw this.operationError('NOT_READY', 'NOT_READY', operation, true);
+    }
+    return authority;
+  }
+
+  private applyRegionSelection(
+    hit: PatchMapRegionHitResult,
+    options: PatchMapEngineRegionSelectionOptions,
+    liveChangeCount: number,
+  ): PatchMapEngineRegionSelectionResult {
+    const index = this.logicalSceneIndex();
+    const rejected = new Set(options.rejectIds ?? []);
+    const locked = new Set(options.lockedIds ?? []);
+    const filteredIds: string[] = [];
+    const lockedIds: string[] = [];
+    for (const id of hit.candidateIds) {
+      const target = index.target(id);
+      if (target === null) continue;
+      if (
+        target.locked ||
+        target.ancestorLocked ||
+        targetAliasesMatch(target, locked)
+      ) {
+        lockedIds.push(target.id);
+      } else if (
+        targetAliasesMatch(target, rejected) ||
+        (options.predicate !== undefined && !options.predicate(target))
+      ) {
+        filteredIds.push(target.id);
+      }
+    }
+    const targets = index.filterSelection(hit.candidateIds, {
+      ...(options.rejectIds === undefined ? {} : { rejectIds: options.rejectIds }),
+      ...(options.lockedIds === undefined ? {} : { lockedIds: options.lockedIds }),
+      ...(options.predicate === undefined ? {} : { predicate: options.predicate }),
+    });
+    const change = options.commit === false
+      ? null
+      : this.applySelection({
+          op: options.mode ?? 'replace',
+          ids: targets.map((target) => target.selectionId),
+          source: 'canvas',
+        });
+    return Object.freeze({
+      schemaRevision: PATCH_MAP_POINTER_GESTURE_REVISION,
+      targets,
+      candidateIds: hit.candidateIds,
+      filteredIds: Object.freeze(filteredIds),
+      lockedIds: Object.freeze(lockedIds),
+      relationIds: hit.relationIds,
+      duplicateCount: hit.duplicateCount,
+      nonFiniteCount: hit.nonFiniteCount,
+      liveChangeCount,
+      strokeCssPx: 1,
+      change,
+    });
+  }
+
+  private async cleanupSurface(
+    surface: PatchMapEngineSurface,
+  ): Promise<Readonly<{ released: boolean; error: Error | null }>> {
+    let lastError: Error | null = null;
+    let viewportCleanupFailed = false;
+    if (this.surface === surface && this.surfaceViewportInputUnbind !== null) {
+      try {
+        this.surfaceViewportInputUnbind();
+      } catch {
+        lastError = new Error('PatchMap viewport input cleanup failed');
+        viewportCleanupFailed = true;
+      } finally {
+        this.surfaceViewportInputUnbind = null;
+      }
+    }
+    if (this.surface === surface && this.surfacePointerInputUnbind !== null) {
+      try {
+        this.surfacePointerInputUnbind();
+      } catch {
+        lastError = new Error('PatchMap pointer input cleanup failed');
+        viewportCleanupFailed = true;
+      } finally {
+        this.surfacePointerInputUnbind = null;
+      }
+    }
+    if (
+      this.surface === surface &&
+      this.surfaceAccessibilityActivationUnbind !== null
+    ) {
+      try {
+        this.surfaceAccessibilityActivationUnbind();
+      } catch {
+        lastError = new Error(
+          'PatchMap accessibility activation cleanup failed',
+        );
+        viewportCleanupFailed = true;
+      } finally {
+        this.surfaceAccessibilityActivationUnbind = null;
+      }
+    }
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      let attemptFailed = false;
+      try {
+        await surface.destroy();
+        const rendererLoss = surface.rendererLossProbe?.() ?? null;
+        if (rendererLoss?.destroyed === true) {
+          this.terminalRendererLossProbe = rendererLoss;
+        }
+      } catch {
+        lastError = new Error('PatchMap surface cleanup failed');
+        attemptFailed = true;
+      }
+      if (surface.canvasCount === 0) {
+        if (this.surface === surface) this.surface = null;
+        if (this.retainedCleanupSurface === surface) this.retainedCleanupSurface = null;
+        return Object.freeze({
+          released: true,
+          error: attemptFailed || viewportCleanupFailed ? lastError : null,
+        });
+      }
+      if (!attemptFailed) lastError = new Error('PatchMap surface retained a canvas after destroy');
+    }
+    this.surface = this.surface === surface ? null : this.surface;
+    this.retainedCleanupSurface = surface;
+    return Object.freeze({ released: false, error: lastError });
+  }
+
+  private destroyAssetSession(
+    assetSession: PatchMapAssetSession | null,
+    requiredAcquisitions: readonly PatchMapAssetAcquisition[],
+  ): Promise<void> {
+    if (assetSession) return assetSession.destroy();
+    return Promise.allSettled(
+      requiredAcquisitions.map(async (acquisition) => acquisition.release()),
+    ).then((settlements) => {
+      if (rejectedReasons(settlements).length > 0) throw assetInternalEngineCleanupFailure();
+    });
+  }
+
+  private initializeResult(): PatchMapInitializeResult {
+    const lifecycle = this.lifecycle === 'scene-ready' ? 'scene-ready' : 'ready-empty';
+    return Object.freeze({
+      lifecycle,
+      instanceId: this.instanceId ?? '',
+      revisions: this.revisionStamp(),
+      facilities: FACILITIES,
+    });
+  }
+
+  private revisionStamp(): PatchMapRevisionStamp {
+    return Object.freeze({
+      lifecycleGeneration: this.lifecycleGeneration,
+      sceneRevision: this.sceneRevision,
+      viewRevision: this.viewRevision,
+      interactionRevision: this.interactionRevision,
+    });
+  }
+
+  private correlateGeometryRevision(surfaceRevision: number | null): Readonly<{
+    readonly revision: number | null;
+    readonly surfaceRevision: number | null;
+    readonly representedRevisions: PatchMapGeometryRevisionTuple | null;
+    readonly revisionLags: PatchMapGeometryRevisionTuple | null;
+    readonly revisionLag: number | null;
+  }> {
+    if (surfaceRevision === null || !Number.isFinite(surfaceRevision)) {
+      return Object.freeze({
+        revision: null,
+        surfaceRevision: null,
+        representedRevisions: null,
+        revisionLags: null,
+        revisionLag: null,
+      });
+    }
+    if (this.geometryRevisionCorrelation?.surfaceRevision !== surfaceRevision) {
+      this.geometryRevisionCorrelation = Object.freeze({
+        surfaceRevision,
+        representedRevisions: Object.freeze({
+          scene: this.sceneRevision,
+          view: this.viewRevision,
+          interaction: this.interactionRevision,
+        }),
+      });
+    }
+    const representedRevisions = this.geometryRevisionCorrelation.representedRevisions;
+    const revisionLags = Object.freeze({
+      scene: this.sceneRevision - representedRevisions.scene,
+      view: this.viewRevision - representedRevisions.view,
+      interaction: this.interactionRevision - representedRevisions.interaction,
+    });
+    return Object.freeze({
+      revision: representedRevisions.scene,
+      surfaceRevision,
+      representedRevisions,
+      revisionLags,
+      revisionLag: revisionLags.scene,
+    });
+  }
+
+  private assertCooperativeLoadCurrent(
+    surface: PatchMapEngineSurface,
+    sequence: number,
+    lifecycleGeneration: number,
+    sceneRevision: number,
+  ): void {
+    if (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
+      throw this.operationError('DESTROYED', 'DESTROYED', 'loadDatasetAsync', false);
+    }
+    if (
+      this.surface !== surface ||
+      this.loadSequence !== sequence ||
+      this.lifecycleGeneration !== lifecycleGeneration ||
+      this.sceneRevision !== sceneRevision
+    ) {
+      throw this.operationError('SUPERSEDED', 'SUPERSEDED', 'loadDatasetAsync', true);
+    }
+  }
+
+  private acceptSurfaceViewportInput(
+    surface: PatchMapEngineSurface,
+    input: PatchMapSurfaceViewportInput,
+  ): void {
+    if (
+      this.surface !== surface ||
+      this.lifecycle === 'destroyed' ||
+      this.lifecycle === 'destroying'
+    ) {
+      return;
+    }
+    const centerWorld = finiteTuple(input.centerWorld, 'surface viewport centerWorld');
+    if (
+      !Number.isFinite(input.scale) ||
+      input.scale < this.zoomLimits[0] ||
+      input.scale > this.zoomLimits[1]
+    ) {
+      throw new RangeError('surface viewport scale must be within the configured zoom limits');
+    }
+    const previous = this.viewportState();
+    if (
+      centerWorld[0] === this.viewportCenterWorld[0] &&
+      centerWorld[1] === this.viewportCenterWorld[1] &&
+      input.scale === this.viewportScale
+    ) {
+      return;
+    }
+    const previousRevisions = this.revisionStamp();
+    this.viewportCenterWorld = centerWorld;
+    this.viewportScale = input.scale;
+    this.viewRevision += 1;
+    this.viewportPointerTransformRevision = this.viewRevision;
+    const result = Object.freeze({
+      changed: true,
+      blocked: false,
+      source: input.source,
+      previous,
+      viewport: this.viewportState(),
+      previousRevisions,
+      revisions: this.revisionStamp(),
+    } satisfies PatchMapViewportChangeResult);
+    this.emit('viewChanged', result);
+  }
+
+  private acceptSurfacePointerInput(
+    surface: PatchMapEngineSurface,
+    input: PatchMapSurfacePointerInput,
+  ): void {
+    if (
+      this.surface !== surface ||
+      this.lifecycle === 'destroyed' ||
+      this.lifecycle === 'destroying'
+    ) {
+      return;
+    }
+    this.dispatchPointerInput(input);
+  }
+
+  private requireSurface(operation: string): PatchMapEngineSurface {
+    if (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
+      throw this.operationError('DESTROYED', 'DESTROYED', operation, false);
+    }
+    if (!this.surface) throw this.operationError('NOT_READY', 'NOT_READY', operation, true);
+    return this.surface;
+  }
+
+  private assertAssetLifecycle(operation: string): void {
+    if (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
+      throw this.operationError('DESTROYED', 'DESTROYED', operation, false);
+    }
+  }
+
+  private isDestroyingOrDestroyed(): boolean {
+    return this.lifecycle === 'destroying' || this.lifecycle === 'destroyed';
+  }
+
+  private ensureAssetSession(instanceId: string): PatchMapAssetSession {
+    if (this.assetSession) {
+      if (this.assetSession.instanceId !== instanceId) {
+        throw new PatchMapAssetError('CONFLICT', 'CONFLICT', false);
+      }
+      return this.assetSession;
+    }
+    if (this.instanceId !== null && this.instanceId !== instanceId) {
+      throw new PatchMapAssetError('CONFLICT', 'CONFLICT', false);
+    }
+    this.assetSession = this.assetRuntime.createSession({
+      instanceId,
+      ...(this.assetPolicy ? { policy: this.assetPolicy } : {}),
+    });
+    return this.assetSession;
+  }
+
+  private assetInitializationError(error: unknown): PatchMapError {
+    if (error instanceof PatchMapError) return error;
+    if (error instanceof PatchMapPixiRuntimeError) {
+      return this.operationError(error.code, error.code, 'initialize', false);
+    }
+    if (error instanceof PatchMapAssetError) {
+      return this.operationError(
+        error.code,
+        error.category,
+        'initialize',
+        error.retryable,
+      );
+    }
+    return this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'initialize', false);
+  }
+
+  private diagnosticFrom(error: unknown, operation: string): PatchMapEngineDiagnostic {
+    if (error instanceof PatchMapDatasetError) {
+      return this.operationDiagnostic(error.code, error.category, operation, true, error.datasetPath);
+    }
+    if (error instanceof PatchMapError) return error.diagnostic;
+    if (error instanceof PatchMapPixiRuntimeError) {
+      return this.operationDiagnostic(error.code, error.code, operation, false);
+    }
+    if (error instanceof PatchMapPresentationError) {
+      return this.operationDiagnostic('CONFLICT', 'CONFLICT', operation, true);
+    }
+    if (error instanceof PatchMapAssetError) {
+      return this.operationDiagnostic(error.code, error.category, operation, error.retryable);
+    }
+    return this.operationDiagnostic('INTERNAL_FAILURE', 'INTERNAL_FAILURE', operation, false);
+  }
+
+  private semanticMutationDiagnostic(
+    diagnostic: PatchMapSemanticMutationDiagnostic,
+    target: PatchMapSemanticTarget | null,
+    operation = 'patch',
+  ): PatchMapEngineDiagnostic {
+    const mapping = mutationDiagnosticMapping(diagnostic);
+    const base = this.operationDiagnostic(
+      mapping.code,
+      mapping.category,
+      operation,
+      mapping.recoverable,
+      diagnostic.path,
+    );
+    return Object.freeze({
+      ...base,
+      missingCount: diagnostic.reason === 'missing-target' && target ? 1 : 0,
+    });
+  }
+
+  private engineTransactionDiagnostic(
+    diagnostic: PatchMapMutationTransactionDiagnostic,
+    operation: string,
+  ): PatchMapEngineDiagnostic {
+    const category: PatchMapDiagnosticCategory = diagnostic.category === 'MISSING_TARGET'
+      ? 'MISSING_TARGET'
+      : diagnostic.category === 'CONFLICT'
+        ? 'CONFLICT'
+      : diagnostic.category === 'UNSUPPORTED_RUNTIME'
+        ? 'UNSUPPORTED_RUNTIME'
+        : 'INVALID_INPUT';
+    const base = this.operationDiagnostic(
+      diagnostic.code,
+      category,
+      operation,
+      true,
+      diagnostic.path,
+    );
+    return Object.freeze({
+      ...base,
+      missingCount: diagnostic.category === 'MISSING_TARGET' ? 1 : 0,
+    });
+  }
+
+  private rejectedTransactionResult(
+    actionId: string | null,
+    previousRevisions: PatchMapRevisionStamp,
+    diagnostic: PatchMapEngineDiagnostic,
+    transactionDiagnostic: PatchMapMutationTransactionDiagnostic | undefined,
+    history: PatchMapHistoryState,
+  ): Extract<PatchMapEngineTransactionResult, { readonly status: 'rejected' }> {
+    return Object.freeze({
+      status: 'rejected',
+      changed: false,
+      actionId,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: this.materialized?.semanticHash ?? null,
+      applied: freezeMutationTargets([]),
+      missing: freezeMutationTargets([]),
+      unchanged: freezeMutationTargets([]),
+      history: freezeTransactionHistory(false, null, history, history),
+      diagnostic,
+      ...(transactionDiagnostic === undefined ? {} : { transactionDiagnostic }),
+    });
+  }
+
+  private refusedTransactionResult(
+    actionId: string | null,
+    previousRevisions: PatchMapRevisionStamp,
+    diagnostic: PatchMapEngineDiagnostic,
+    _plan: Extract<
+      ReturnType<typeof planPatchMapMutationTransaction>,
+      { readonly status: 'planned' }
+    >,
+    history: PatchMapHistoryState,
+    reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[],
+  ): Extract<PatchMapEngineTransactionResult, { readonly status: 'refused' }> {
+    return Object.freeze({
+      status: 'refused',
+      changed: false,
+      actionId,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: this.materialized?.semanticHash ?? null,
+      applied: freezeMutationTargets([]),
+      missing: freezeMutationTargets([]),
+      unchanged: freezeMutationTargets([]),
+      history: freezeTransactionHistory(false, null, history, history),
+      diagnostic,
+      reconcileDiagnostics,
+    });
+  }
+
+  private rejectedGeometryPatchResult(
+    target: Extract<PatchMapMutationTarget, { readonly kind: 'element' }>,
+    failure: Readonly<{
+      readonly status: 'rejected' | 'unsupported';
+      readonly diagnostic: Readonly<{ readonly path: string }>;
+    }>,
+    operation: string,
+  ): Extract<PatchMapEnginePatchResult, { readonly status: 'rejected' }> {
+    const previousRevisions = this.revisionStamp();
+    const diagnostic = this.operationDiagnostic(
+      failure.status === 'unsupported' ? 'UNSUPPORTED_RUNTIME' : 'INVALID_VALUE',
+      failure.status === 'unsupported' ? 'UNSUPPORTED_RUNTIME' : 'INVALID_INPUT',
+      operation,
+      true,
+      failure.diagnostic.path,
+    );
+    const result = Object.freeze({
+      status: 'rejected',
+      changed: false,
+      target,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: this.materialized?.semanticHash ?? null,
+      applied: EMPTY_TARGETS,
+      missing: EMPTY_TARGETS,
+      unchanged: EMPTY_TARGETS,
+      diagnostic,
+    } satisfies PatchMapEnginePatchResult);
+    this.emit('diagnostic', diagnostic);
+    return result;
+  }
+
+  private refusedPatchResult(
+    target: PatchMapSemanticTarget,
+    previousRevisions: PatchMapRevisionStamp,
+    code: string,
+    category: PatchMapDiagnosticCategory,
+    recoverable: boolean,
+    reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[],
+  ): Extract<PatchMapEnginePatchResult, { readonly status: 'refused' }> {
+    const datasetPath = reconcileDiagnostics.find((entry) => entry.severity === 'error')?.path;
+    const diagnostic = this.operationDiagnostic(
+      code,
+      category,
+      'patch',
+      recoverable,
+      datasetPath,
+    );
+    const result = Object.freeze({
+      status: 'refused',
+      changed: false,
+      target,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: this.materialized?.semanticHash ?? null,
+      applied: EMPTY_TARGETS,
+      missing: EMPTY_TARGETS,
+      unchanged: EMPTY_TARGETS,
+      diagnostic,
+      reconcileDiagnostics,
+    } satisfies PatchMapEnginePatchResult);
+    this.emit('diagnostic', diagnostic);
+    return result;
+  }
+
+  private refusedDestroyTargetResult(
+    target: Extract<PatchMapSemanticTarget, { readonly kind: 'element' }>,
+    previousRevisions: PatchMapRevisionStamp,
+    code: string,
+    category: PatchMapDiagnosticCategory,
+    recoverable: boolean,
+    reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[],
+  ): Extract<PatchMapEngineDestroyTargetResult, { readonly status: 'refused' }> {
+    const datasetPath = reconcileDiagnostics.find((entry) => entry.severity === 'error')?.path;
+    const diagnostic = this.operationDiagnostic(
+      code,
+      category,
+      'destroyTarget',
+      recoverable,
+      datasetPath,
+    );
+    const result = Object.freeze({
+      status: 'refused',
+      changed: false,
+      target,
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      semanticHash: this.materialized?.semanticHash ?? null,
+      applied: EMPTY_TARGETS,
+      missing: EMPTY_TARGETS,
+      unchanged: EMPTY_TARGETS,
+      diagnostic,
+      reconcileDiagnostics,
+    } satisfies PatchMapEngineDestroyTargetResult);
+    this.emit('diagnostic', diagnostic);
+    return result;
+  }
+
+  private subscriptionCount(): number {
+    let count = 0;
+    for (const listeners of this.listeners.values()) count += listeners.size;
+    return count;
+  }
+
+  private commitViewport(
+    centerWorldValue: readonly [number, number],
+    scale: number,
+    source: PatchMapViewportChangeSource,
+  ): PatchMapViewportChangeResult {
+    const centerWorld = finiteTuple(centerWorldValue, 'centerWorld');
+    if (
+      !Number.isFinite(scale) ||
+      scale < this.zoomLimits[0] ||
+      scale > this.zoomLimits[1]
+    ) {
+      throw new RangeError('scale must be within the configured zoom limits');
+    }
+    const surface = this.requireSurface('setViewport');
+    const previous = this.viewportState();
+    const previousRevisions = this.revisionStamp();
+    const changed =
+      centerWorld[0] !== this.viewportCenterWorld[0] ||
+      centerWorld[1] !== this.viewportCenterWorld[1] ||
+      scale !== this.viewportScale;
+    if (changed) {
+      surface.setView(this.resolvedSurfaceView(
+        this.worldTransformState(),
+        centerWorld,
+        scale,
+      ));
+      this.viewportCenterWorld = centerWorld;
+      this.viewportScale = scale;
+      this.viewRevision += 1;
+      this.viewportPointerTransformRevision = this.viewRevision;
+      this.refreshAccessibilitySurfaceIfActive('setViewport');
+    }
+    const result = Object.freeze({
+      changed,
+      blocked: false,
+      source,
+      previous,
+      viewport: this.viewportState(),
+      previousRevisions,
+      revisions: this.revisionStamp(),
+    } satisfies PatchMapViewportChangeResult);
+    if (changed) this.emit('viewChanged', result);
+    return result;
+  }
+
+  private blockedViewportResult(
+    source: PatchMapViewportChangeSource,
+  ): PatchMapViewportChangeResult {
+    const viewport = this.viewportState();
+    const revisions = this.revisionStamp();
+    return Object.freeze({
+      changed: false,
+      blocked: true,
+      source,
+      previous: viewport,
+      viewport,
+      previousRevisions: revisions,
+      revisions,
+    });
+  }
+
+  private resolveViewportContributors(
+    options: PatchMapViewportTargetOptions,
+  ): PatchMapViewportContributorResult {
+    const surface = this.requireSurface('resolveViewportContributors');
+    const materialized = this.materialized;
+    if (materialized === null) {
+      return Object.freeze({
+        contributors: Object.freeze([]),
+        applied: Object.freeze([]),
+        missing: Object.freeze([...(options.targets ?? [])]),
+        excluded: Object.freeze([]),
+        duplicateCount: 0,
+        worldBounds: null,
+      });
+    }
+    const geometry = surface.worldGeometrySnapshot?.() ?? surface.geometrySnapshot?.();
+    if (!geometry) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'resolveViewportContributors',
+        false,
+      );
+    }
+    const defaultRequest =
+      (options.targets === undefined || options.targets === null) &&
+      options.rejectIds === undefined &&
+      options.relationEndpointsAvailable === undefined;
+    const cached = this.defaultViewportContributorsCache;
+    if (
+      defaultRequest &&
+      cached !== null &&
+      cached.dataset === materialized.dataset &&
+      cached.geometry === geometry
+    ) {
+      return cached.result;
+    }
+    const result = resolvePatchMapViewportContributors(materialized.dataset, geometry, {
+      targets: options.targets ?? null,
+      ...(options.rejectIds === undefined ? {} : { rejectIds: options.rejectIds }),
+      ...(options.relationEndpointsAvailable === undefined
+        ? {}
+        : { relationEndpointsAvailable: options.relationEndpointsAvailable }),
+    });
+    if (defaultRequest) {
+      this.defaultViewportContributorsCache = Object.freeze({
+        dataset: materialized.dataset,
+        geometry,
+        result,
+      });
+    }
+    return result;
+  }
+
+  private resetViewportRuntime(): void {
+    this.viewportPolicyRegistry = new Set(PATCH_MAP_DEFAULT_VIEWPORT_POLICIES);
+    this.viewportPolicyEnabled = new Set(PATCH_MAP_DEFAULT_VIEWPORT_POLICIES);
+    this.viewportTemporaryPolicies = null;
+    this.viewportMotion = null;
+    this.lastSettledViewportKey = null;
+    this.lastSerializedViewportKey = null;
+    this.lastSerializedViewport = null;
+    this.viewportSettledPublicationCount = 0;
+    this.viewportPersistenceWriteCount = 0;
+    this.viewportSuppressedEquivalentSaveCount = 0;
+    this.viewportPointerTransformRevision = this.viewRevision;
+    this.viewportResizePolicyApplicationCount = 0;
+    this.viewportBlackFrameCount = 0;
+    this.viewportResizePendingFrame = false;
+  }
+
+  private orderedEnabledViewportPolicies(): readonly PatchMapViewportPolicy[] {
+    return orderedViewportPolicies(this.viewportPolicyEnabled);
+  }
+
+  private resolvedSurfaceView(
+    world: PatchMapWorldTransformInput = this.worldTransformState(),
+    centerWorld: readonly [number, number] = this.viewportCenterWorld,
+    scale: number = this.viewportScale,
+  ): PatchMapSurfaceView {
+    const radians = world.rotationDegrees * Math.PI / 180;
+    const cosine = Math.cos(radians);
+    const sine = Math.sin(radians);
+    const scaledX = centerWorld[0] * scale;
+    const scaledY = centerWorld[1] * scale;
+    const transformedCenterX = (scaledX * cosine - scaledY * sine) * (world.flipX ? -1 : 1);
+    const transformedCenterY = (scaledX * sine + scaledY * cosine) * (world.flipY ? -1 : 1);
+    return Object.freeze({
+      x: this.viewportWidth / 2 - transformedCenterX,
+      y: this.viewportHeight / 2 - transformedCenterY,
+      scale,
+      rotation: world.rotationDegrees,
+      ...(world.flipX ? { flipX: true } : {}),
+      ...(world.flipY ? { flipY: true } : {}),
+    });
+  }
+
+  private worldTransformState(): PatchMapWorldTransformState {
+    return Object.freeze({
+      rotationDegrees: this.worldRotationDegrees,
+      flipX: this.worldFlipX,
+      flipY: this.worldFlipY,
+    });
+  }
+
+  private viewportState(): PatchMapViewportState {
+    return Object.freeze({
+      centerWorld: this.viewportCenterWorld,
+      scale: this.viewportScale,
+      screenBounds: Object.freeze([
+        0,
+        0,
+        this.viewportWidth,
+        this.viewportHeight,
+      ] as [number, number, number, number]),
+    });
+  }
+
+  private operationError(
+    code: string,
+    category: PatchMapDiagnosticCategory,
+    operation: string,
+    recoverable: boolean,
+  ): PatchMapError {
+    return new PatchMapError(this.operationDiagnostic(code, category, operation, recoverable));
+  }
+
+  private operationDiagnostic(
+    code: string,
+    category: PatchMapDiagnosticCategory,
+    operation: string,
+    recoverable: boolean,
+    datasetPath?: string,
+  ): PatchMapEngineDiagnostic {
+    return Object.freeze({
+      code,
+      category,
+      operation,
+      lifecycleGeneration: this.lifecycleGeneration,
+      sceneRevision: this.sceneRevision,
+      revisionStamp: this.revisionStamp(),
+      recoverable,
+      retryable: recoverable,
+      appliedCount: 0,
+      missingCount: 0,
+      unchangedCount: 0,
+      ...(datasetPath === undefined ? {} : { datasetPath }),
+    });
+  }
+
+  private emit<K extends PatchMapEngineEvent>(event: K, value: PatchMapEngineEventMap[K]): void {
+    if (event === 'diagnostic') {
+      this.operations.reportDiagnostic(value as PatchMapEngineDiagnostic);
+    } else {
+      this.operations.noteAction(event);
+    }
+    if (
+      event !== 'frame' &&
+      event !== 'historyVisible' &&
+      event !== 'overlayPublished' &&
+      event !== 'diagnostic' &&
+      event !== 'destroyed'
+    ) {
+      this.requestManagedFrameLoop();
+    }
+    this.deliverEngineEvent(event, value);
+  }
+
+  private requestManagedFrameLoop(): void {
+    if (this.frameLoop === null || this.pageLifecycle.probe().state === 'hidden') return;
+    if (this.frameLoop.isDestroyed) {
+      this.frameLoop = null;
+      return;
+    }
+    this.frameLoop.request();
+  }
+
+  private deliverEngineEvent<K extends PatchMapEngineEvent>(
+    event: K,
+    value: PatchMapEngineEventMap[K],
+  ): void {
+    const listeners = this.listeners.get(event);
+    if (listeners === undefined) return;
+    const callbackFailures: PatchMapSanitizedDiagnostic[] = [];
+    for (const listener of [...listeners]) {
+      if (!listeners.has(listener)) continue;
+      try {
+        listener(value);
+      } catch (error) {
+        if (event === 'diagnostic') continue;
+        callbackFailures.push(this.operations.reportDiagnostic({
+          code: 'HOST_CALLBACK_FAILURE',
+          category: 'HOST_CALLBACK_FAILURE',
+          operation: `event:${event}`,
+          lifecycleGeneration: this.lifecycleGeneration,
+          sceneRevision: this.sceneRevision,
+          revisionStamp: this.revisionStamp(),
+          recoverable: true,
+          retryable: false,
+          details: error,
+        }));
+      }
+    }
+    for (const failure of callbackFailures) {
+      this.deliverEngineEvent(
+        'diagnostic',
+        failure as PatchMapSanitizedDiagnostic & PatchMapEngineDiagnostic,
+      );
+    }
+  }
+}
+
+function rejectedReasons(
+  settlements: readonly PromiseSettledResult<unknown>[],
+): unknown[] {
+  const reasons: unknown[] = [];
+  for (const settlement of settlements) {
+    if (settlement.status === 'rejected') reasons.push(settlement.reason as unknown);
+  }
+  return reasons;
+}
+
+function normalizeOptionalSourceRevision(value: unknown): number | undefined {
+  return value === undefined ? undefined : positiveSafeInteger(value, 'sourceRevision');
+}
+
+function positiveSafeInteger(value: unknown, label: string): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 1) {
+    throw new RangeError(`${label} must be a positive safe integer`);
+  }
+  return value as number;
+}
+
+function nonEmptyValue(value: unknown, label: string): string {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new TypeError(`${label} must be a non-empty string`);
+  }
+  return value;
+}
+
+async function releaseDatasetSubmission(
+  submission: PatchMapDatasetSubmission,
+  result: PatchMapDatasetSubmissionResult,
+): Promise<void> {
+  await submission.release?.(result);
+}
+
+function yieldPatchMapEngineTask(): Promise<void> {
+  return new Promise((resolve) => {
+    globalThis.setTimeout(resolve, 0);
+  });
+}
+
+function assetInternalEngineCleanupFailure(): Error {
+  return new Error('PatchMap required asset cleanup failed');
+}
+
+export class PatchMapError extends Error {
+  public readonly diagnostic: PatchMapEngineDiagnostic;
+
+  public constructor(diagnostic: PatchMapEngineDiagnostic) {
+    super(`${diagnostic.code}: ${diagnostic.operation}`);
+    this.name = 'PatchMapError';
+    this.diagnostic = diagnostic;
+  }
+}
+
+export class PixiEngineSurface implements PatchMapEngineSurface {
+  private readonly core: PatchMapRuntime;
+  private readonly unbindCoreViewportChanges: () => void;
+  private readonly unbindCorePointerInputs: () => void;
+  private viewportInputListener:
+    | ((input: PatchMapSurfaceViewportInput) => void)
+    | null = null;
+  private pointerInputListener:
+    | ((input: PatchMapSurfacePointerInput) => void)
+    | null = null;
+  private canvasPresent = true;
+  private geometryRevision = 0;
+  private worldGeometryCache: PatchMapViewportGeometry | null = null;
+  private worldGeometryProjection: PatchMapProjectionIndex | null = null;
+  private geometryCache: PatchMapSurfaceGeometrySnapshot | null = null;
+  private geometryBaseCache: PatchMapSurfaceGeometrySnapshot | null = null;
+  private geometryById = new Map<string, PatchMapSurfaceEntityGeometry>();
+  private geometryProjection: PatchMapProjectionIndex | null = null;
+  private geometryRevisionProjection: PatchMapProjectionIndex | null = null;
+  private regionHitIndex: PatchMapScreenRegionIndex<
+    PatchMapSurfaceEntityGeometry,
+    PatchMapSurfaceRelationGeometry
+  > | null = null;
+  private relationHitIndex = emptyPatchMapRelationHitIndex();
+  private surfaceView: PatchMapSurfaceView = Object.freeze({
+    x: 0,
+    y: 0,
+    scale: 1,
+    rotation: 0,
+    flipX: false,
+    flipY: false,
+  });
+
+  public constructor(core: PatchMapRuntime) {
+    this.core = core;
+    this.unbindCoreViewportChanges = typeof core.bindRootViewportChanges === 'function'
+      ? core.bindRootViewportChanges(({ source, view }) => {
+          const orientationChanged = (
+            view.rotation !== undefined &&
+            view.rotation !== this.surfaceView.rotation
+          );
+          this.surfaceView = Object.freeze({
+            ...this.surfaceView,
+            x: view.x,
+            y: view.y,
+            scale: view.scale,
+            rotation: view.rotation ?? this.surfaceView.rotation,
+          });
+          this.geometryRevision += 1;
+          if (orientationChanged) this.invalidateGeometryCache();
+          else this.invalidateScreenGeometryCache();
+          const center = core.screenToWorld({
+            x: core.renderer.width / 2,
+            y: core.renderer.height / 2,
+          });
+          this.viewportInputListener?.(Object.freeze({
+            source,
+            centerWorld: Object.freeze([center.x, center.y] as const),
+            scale: view.scale,
+          }));
+        })
+      : () => {};
+    this.unbindCorePointerInputs = typeof core.bindRootPointerInputs === 'function'
+      ? core.bindRootPointerInputs((input) => {
+          this.pointerInputListener?.(surfacePointerInput(input));
+        })
+      : () => {};
+  }
+
+  public get canvasCount(): number {
+    return this.canvasPresent ? 1 : 0;
+  }
+
+  public get destroyed(): boolean {
+    return this.core.destroyed;
+  }
+
+  public canvasElement(): HTMLCanvasElement {
+    return this.core.renderer.canvas;
+  }
+
+  public captureBase64(): Promise<string> {
+    return this.core.captureBase64();
+  }
+
+  public async prepare(): Promise<PatchMapSurfacePrepareResult> {
+    const prepared = await this.core.prepare();
+    return Object.freeze({
+      storeSyncMs: prepared.storeSyncMs,
+      gpuPrepareMs: prepared.gpuPrepareMs,
+    });
+  }
+
+  public load(input: unknown): void {
+    this.core.load(input);
+    this.geometryRevision += 1;
+    this.geometryRevisionProjection = this.core.visibleProjection;
+    this.invalidateGeometryCache();
+  }
+
+  public async loadAsync(input: unknown, assertCurrent?: () => void): Promise<void> {
+    await this.core.loadAsync(
+      input,
+      undefined,
+      assertCurrent === undefined ? {} : { assertCurrent },
+    );
+    this.geometryRevision += 1;
+    this.geometryRevisionProjection = this.core.visibleProjection;
+    this.invalidateGeometryCache();
+  }
+
+  public reconcile(
+    input: unknown,
+    options: PatchMapSurfaceReconcileOptions = {},
+  ): PatchMapSurfaceReconcileResult {
+    const result = this.core.reconcile(input, {
+      ...(options.animateBarChanges === undefined
+        ? {}
+        : { animateBarChanges: options.animateBarChanges }),
+      ...(options.animatedBarTargets === undefined
+        ? {}
+        : { animatedBarTargets: options.animatedBarTargets }),
+      ...(options.allowedComponentOrderOwners === undefined
+        ? {}
+        : { allowedComponentOrderOwners: options.allowedComponentOrderOwners }),
+      ...(options.allowedElementOrderIds === undefined
+        ? {}
+        : { allowedElementOrderIds: options.allowedElementOrderIds }),
+      ...(options.selectionIds === undefined
+        ? {}
+        : { selectionIds: options.selectionIds }),
+      ...(options.incrementalRootIds === undefined
+        ? {}
+        : { incrementalRootIds: options.incrementalRootIds }),
+      ...(options.structuralSharing === undefined
+        ? {}
+        : { structuralSharing: options.structuralSharing }),
+      ...(options.directBarHeightUpdates === undefined
+        ? {}
+        : { directBarHeightUpdates: options.directBarHeightUpdates }),
+      ...(options.directTextUpdates === undefined
+        ? {}
+        : { directTextUpdates: options.directTextUpdates }),
+      ...(options.directElementAngleUpdates === undefined
+        ? {}
+        : { directElementAngleUpdates: options.directElementAngleUpdates }),
+    });
+    if (result.status === 'committed') {
+      this.geometryRevision += 1;
+      this.geometryRevisionProjection = this.core.visibleProjection;
+      this.invalidateGeometryCache();
+    }
+    return Object.freeze({
+      status: result.status,
+      operationCount: result.plan.summary.operationCount,
+      denseChanged: result.facts.denseChanged,
+      diagnostics: freezeReconcileDiagnostics(result.plan.diagnostics),
+      timings: result.timings,
+    });
+  }
+
+  public previewIncrementalRoots(
+    input: unknown,
+    dirtyRootIds: readonly string[],
+  ): PatchMapTransientProjectionResult | null {
+    const result = this.core.previewIncrementalRoots(input, dirtyRootIds);
+    if (result?.changed) {
+      this.geometryRevision += 1;
+      this.geometryRevisionProjection = this.core.visibleProjection;
+      this.invalidateGeometryCache();
+    }
+    return result;
+  }
+
+  public clearIncrementalPreview(): PatchMapTransientProjectionResult {
+    const result = this.core.clearIncrementalPreview();
+    if (result.changed) {
+      this.geometryRevision += 1;
+      this.geometryRevisionProjection = this.core.visibleProjection;
+      this.invalidateGeometryCache();
+    }
+    return result;
+  }
+
+  public publishFrame(timeMs: number): void {
+    const projectionBefore = this.core.visibleProjection;
+    const presentationRevisionBefore = this.core.presentationRevision;
+    this.core.publishFrame(timeMs);
+    const projectionAfter = this.core.visibleProjection;
+    if (
+      projectionAfter !== projectionBefore ||
+      this.core.presentationRevision !== presentationRevisionBefore
+    ) {
+      this.geometryRevision += 1;
+      this.geometryRevisionProjection = projectionAfter;
+      this.invalidateGeometryCache();
+    }
+  }
+
+  public suspendPresentation(
+    timeMs: number,
+  ): PatchMapPresentationLifecycleResult {
+    const result = this.core.suspendPresentation(timeMs);
+    this.geometryRevision += 1;
+    this.geometryRevisionProjection = this.core.visibleProjection;
+    this.invalidateGeometryCache();
+    return result;
+  }
+
+  public resumePresentation(
+    timeMs: number,
+  ): PatchMapPresentationLifecycleResult {
+    const result = this.core.resumePresentation(timeMs);
+    this.geometryRevision += 1;
+    this.geometryRevisionProjection = this.core.visibleProjection;
+    this.invalidateGeometryCache();
+    return result;
+  }
+
+  public resize(width: number, height: number, pixelRatio: number): boolean {
+    const changed = this.core.resize(width, height, pixelRatio);
+    if (changed) {
+      this.geometryRevision += 1;
+      this.invalidateScreenGeometryCache();
+    }
+    return changed;
+  }
+
+  public setView(view: PatchMapSurfaceView): void {
+    const nextView = Object.freeze({
+      ...view,
+      flipX: view.flipX ?? false,
+      flipY: view.flipY ?? false,
+    });
+    const orientationChanged = (
+      nextView.rotation !== this.surfaceView.rotation ||
+      nextView.flipX !== this.surfaceView.flipX ||
+      nextView.flipY !== this.surfaceView.flipY
+    );
+    this.core.setWorldTransform({
+      x: nextView.x,
+      y: nextView.y,
+      scale: nextView.scale,
+      rotationDegrees: nextView.rotation,
+      flipX: nextView.flipX,
+      flipY: nextView.flipY,
+    });
+    this.surfaceView = nextView;
+    this.geometryRevision += 1;
+    if (orientationChanged) this.invalidateGeometryCache();
+    else this.invalidateScreenGeometryCache();
+  }
+
+  public setViewportGesturePolicies(
+    policies: readonly PatchMapViewportPolicy[],
+  ): void {
+    this.core.setViewportGesturePolicies(policies);
+  }
+
+  public setViewportZoomLimits(limits: readonly [number, number]): void {
+    this.core.setViewportZoomLimits(limits);
+  }
+
+  public bindViewportInput(
+    listener: (input: PatchMapSurfaceViewportInput) => void,
+  ): () => void {
+    if (typeof listener !== 'function') {
+      throw new TypeError('viewport input listener must be a function');
+    }
+    if (this.viewportInputListener !== null) {
+      throw new Error('viewport input listener is already bound');
+    }
+    this.viewportInputListener = listener;
+    return () => {
+      if (this.viewportInputListener === listener) this.viewportInputListener = null;
+    };
+  }
+
+  public bindPointerInput(
+    listener: (input: PatchMapSurfacePointerInput) => void,
+  ): () => void {
+    if (typeof listener !== 'function') {
+      throw new TypeError('pointer input listener must be a function');
+    }
+    if (this.pointerInputListener !== null) {
+      throw new Error('pointer input listener is already bound');
+    }
+    this.pointerInputListener = listener;
+    return () => {
+      if (this.pointerInputListener === listener) this.pointerInputListener = null;
+    };
+  }
+
+  public bindAccessibilityActivation(
+    listener: (
+      targetId: string,
+      input: PatchMapAccessibilityActivationInput,
+    ) => void,
+  ): () => void {
+    const bind = (
+      this.core.renderer as Partial<PatchMapPixiRenderer>
+    ).bindAccessibilityActivation;
+    return bind === undefined
+      ? () => undefined
+      : bind.call(this.core.renderer, listener);
+  }
+
+  public cancelViewportGestures(): void {
+    this.core.cancelViewportGestures();
+  }
+
+  public select(ids: readonly string[]): void {
+    this.core.selectSemantic(ids);
+    this.geometryRevision += 1;
+    this.invalidateGeometrySelectionCache();
+  }
+
+  public setAccessibilityTree(
+    nodes: readonly PatchMapAccessibilityRenderNode[],
+  ): PatchMapAccessibilitySurfaceProbe | undefined {
+    const publish = (
+      this.core.renderer as Partial<PatchMapPixiRenderer>
+    ).setAccessibilityTree;
+    return publish?.call(this.core.renderer, nodes);
+  }
+
+  public focusAccessibilityTarget(targetId: string): boolean {
+    const focus = (
+      this.core.renderer as Partial<PatchMapPixiRenderer>
+    ).focusAccessibilityTarget;
+    return focus?.call(this.core.renderer, targetId) ?? false;
+  }
+
+  public accessibilitySurfaceProbe(): PatchMapAccessibilitySurfaceProbe | undefined {
+    const probe = (
+      this.core.renderer as Partial<PatchMapPixiRenderer>
+    ).accessibilitySurfaceProbe;
+    return probe?.call(this.core.renderer);
+  }
+
+  public setReducedMotion(enabled: boolean): boolean {
+    return this.core.setReducedMotion(enabled);
+  }
+
+  public setSelectionOverlayPolicy(input: PatchMapSelectionOverlayPolicyInput): boolean {
+    return this.core.setSelectionOverlayPolicy(input);
+  }
+
+  public setPresentationPolicy(
+    input: PatchMapPresentationPolicyInput,
+  ): PatchMapPresentationPolicyProductProbe {
+    return this.core.setPresentationPolicy(input);
+  }
+
+  public clearPresentationPolicy(): PatchMapPresentationPolicyProductProbe {
+    return this.core.clearPresentationPolicy();
+  }
+
+  public presentationPolicyProbe(): PatchMapPresentationPolicyProductProbe {
+    return this.core.presentationPolicyProbe();
+  }
+
+  public refreshSemanticTargets(
+    targets: readonly PatchMapSemanticTarget[],
+    options: Readonly<{ readonly strict?: boolean }> = {},
+  ): PatchMapSemanticRefreshResult {
+    const result = this.core.refreshSemanticTargets(targets, options);
+    if (result.changed) {
+      this.geometryRevision += 1;
+      this.geometryRevisionProjection = this.core.visibleProjection;
+      this.invalidateGeometryCache();
+    }
+    return result;
+  }
+
+  public hitTestScreen(point: PatchMapPoint): string | null {
+    const ref = this.core.hitTestScreen(point, { interactiveOnly: true });
+    return ref ? this.core.get(ref)?.id ?? null : null;
+  }
+
+  public screenToWorld(point: PatchMapPoint): PatchMapPoint {
+    return this.core.screenToWorld(point);
+  }
+
+  public frameLoopActiveAnimations(): number {
+    return this.core.activeAnimations;
+  }
+
+  public frameLoopWorkloadSize(): number {
+    return this.core.frameWorkloadSize;
+  }
+
+  public viewportGestureActive(): boolean {
+    return this.core.viewportGestureActive;
+  }
+
+  public debugSnapshot(): PatchMapSurfaceDebug {
+    const renderer = this.core.renderer;
+    const runtime = this.core.debugSnapshot();
+    const selectionIds = Object.freeze(
+      this.core.selection().refs.flatMap((ref) => {
+        const entity = this.core.get(ref);
+        return entity ? [entity.id] : [];
+      }),
+    );
+    return Object.freeze({
+      cssSize: Object.freeze([renderer.width, renderer.height] as [number, number]),
+      backingSize: Object.freeze([
+        Math.round(renderer.width * renderer.pixelRatio),
+        Math.round(renderer.height * renderer.pixelRatio),
+      ] as [number, number]),
+      selectionIds,
+      activeAnimationCount: this.core.activeAnimations,
+      activeGestureCount: runtime.activeGestureCount,
+      renderCommandCount: runtime.renderer.aggregateRenderObjects,
+      visiblePrimitiveCount: runtime.renderer.visiblePrimitives,
+    });
+  }
+
+  public worldGeometrySnapshot(): PatchMapViewportGeometry {
+    const projection = this.core.visibleProjection;
+    if (
+      this.worldGeometryCache !== null &&
+      this.worldGeometryProjection === projection
+    ) {
+      return this.worldGeometryCache;
+    }
+    const geometry = createPatchMapSurfaceWorldGeometrySnapshot(
+      this.core.snapshot(),
+      projection,
+      this.surfaceView,
+    );
+    this.worldGeometryCache = geometry;
+    this.worldGeometryProjection = projection;
+    return geometry;
+  }
+
+  public geometrySnapshot(): PatchMapSurfaceGeometrySnapshot {
+    const projection = this.core.visibleProjection;
+    if (this.geometryCache && this.geometryProjection === projection) return this.geometryCache;
+    if (this.geometryRevisionProjection !== projection) {
+      this.geometryRevision += 1;
+      this.geometryRevisionProjection = projection;
+    }
+    if (this.geometryBaseCache !== null && this.geometryProjection === projection) {
+      const selection = this.core.selection();
+      const selectionOverlay = selectionOverlayFromEntityGeometry(
+        selection.refs.flatMap((ref) => {
+          const id = this.core.get(ref)?.id;
+          const geometry = id === undefined ? undefined : this.geometryById.get(id);
+          return geometry === undefined ? [] : [geometry];
+        }),
+      );
+      const geometry = Object.freeze({
+        ...this.geometryBaseCache,
+        revision: this.geometryRevision,
+        sceneRevision: selection.revision,
+        selectionOverlay,
+      });
+      this.geometryCache = geometry;
+      return geometry;
+    }
+    const geometry = Object.freeze({
+      ...createPatchMapSurfaceGeometrySnapshot(
+        this.core.snapshot(),
+        projection,
+        this.surfaceView,
+      ),
+      revision: this.geometryRevision,
+    });
+    this.geometryCache = geometry;
+    this.geometryBaseCache = geometry;
+    if (
+      this.worldGeometryCache === null ||
+      this.worldGeometryProjection !== projection
+    ) {
+      this.worldGeometryCache = Object.freeze({
+        entities: geometry.entities,
+        relations: geometry.relations,
+      });
+      this.worldGeometryProjection = projection;
+    }
+    this.geometryById = new Map(geometry.entities.map((entity) => [entity.id, entity]));
+    this.geometryProjection = projection;
+    this.regionHitIndex = PatchMapScreenRegionIndex.build(
+      geometry.entities,
+      geometry.relations,
+    );
+    this.relationHitIndex = buildPatchMapRelationHitIndex(geometry.relations);
+    return geometry;
+  }
+
+  public selectionGeometries(
+    selectionIds: readonly string[],
+  ): readonly PatchMapSurfaceEntityGeometry[] {
+    // Interaction mode and host probes are valid immediately after renderer
+    // initialization, before a dataset is loaded. An empty selection has no
+    // semantic identities to resolve and must not force the Core parser seam.
+    if (selectionIds.length === 0) return Object.freeze([]);
+    const projection = this.core.visibleProjection;
+    const geometries = this.core.semanticSelectionEntityIds(selectionIds).flatMap((id) => {
+      const entity = this.core.get(id);
+      if (entity === null || entity.kind === 'relation') return [];
+      return [createPatchMapSurfaceEntityGeometry(entity, projection, this.surfaceView)];
+    });
+    return Object.freeze(geometries);
+  }
+
+  public queryRegionGeometry(
+    bounds: PatchMapScreenRegionBounds,
+  ): PatchMapSurfaceRegionGeometryCandidates {
+    const geometry = this.geometrySnapshot();
+    this.regionHitIndex ??= PatchMapScreenRegionIndex.build(
+      geometry.entities,
+      geometry.relations,
+    );
+    return this.regionHitIndex.query(bounds);
+  }
+
+  public sceneImageProbe(): PatchMapEngineSceneImagesProbe {
+    const controller = this.core.sceneImageProbe();
+    const entities = new Map(
+      this.core.snapshot().entities.map((entity) => [entity.id, entity] as const),
+    );
+    const images: Record<string, PatchMapEngineSceneImageRecord> = Object.create(null) as Record<
+      string,
+      PatchMapEngineSceneImageRecord
+    >;
+    for (const entityId of Object.keys(controller.images).sort()) {
+      const image = controller.images[entityId]!;
+      const entity = entities.get(entityId);
+      const attempts = Object.freeze(image.attempts.map(projectEngineImageAttempt));
+      images[entityId] = Object.freeze({
+        ...withoutImageAuthoredSource(image),
+        ...safeEngineImageSource(image.authoredSource, image.sourceKind),
+        opacity: entity?.opacity ?? 0,
+        zIndex: entity?.zIndex ?? 0,
+        hitBounds: this.core.hitBounds(entityId),
+        initial: attempts[0] ?? null,
+        attempts,
+      });
+    }
+    return Object.freeze({
+      ...controller,
+      images: Object.freeze(images),
+    });
+  }
+
+  public retrySceneImage(entityId: string): PatchMapSceneImageRetryResult {
+    return this.core.retrySceneImage(entityId);
+  }
+
+  public componentVisualProbe(
+    target: PatchMapComponentVisualTarget,
+  ): PatchMapSurfaceComponentVisualProbe | null {
+    const visual = this.core.componentVisualProbe(target);
+    if (!visual) return null;
+    const entity = this.core.get(visual.entityId);
+    return Object.freeze({
+      target: visual.target,
+      semanticOwnerId: visual.semanticOwnerId,
+      entityId: visual.entityId,
+      logicalIdentity: visual.logicalIdentity,
+      componentType: visual.componentType,
+      renderRole: visual.renderRole,
+      entityKind: visual.entityKind,
+      geometry: visual.geometry,
+      publication: visual.publication,
+      sceneImage: visual.image
+        ? projectEngineSceneImageRecord(visual.image, entity, visual.geometry.worldBounds)
+        : null,
+      rendererPaint: visual.rendererPaint,
+      renderLanes: visual.renderLanes,
+    });
+  }
+
+  public barPresentationProbe(
+    target: PatchMapComponentVisualTarget,
+  ): PatchMapBarPresentationProductProbe | null {
+    return this.core.barPresentationProbe(target);
+  }
+
+  public paintOrderProbe(): PatchMapPaintOrderProductProbe {
+    return this.core.paintOrderProbe();
+  }
+
+  public textProbe(target: PatchMapTextTarget): PatchMapTextProductProbe | null {
+    return this.core.textProbe(target);
+  }
+
+  public settleSceneImages(): Promise<void> {
+    return this.core.settleSceneImages();
+  }
+
+  public settleSceneImageBindings(bindingKeys: readonly string[]): Promise<void> {
+    return this.core.settleSceneImageBindings(bindingKeys);
+  }
+
+  public relationHitTestScreen(
+    point: PatchMapPoint,
+    options: PatchMapRelationHitOptions = {},
+  ): PatchMapRelationHit | null {
+    const geometry = this.geometrySnapshot();
+    const tolerance = options.toleranceCssPx ?? 4;
+    const candidateIndices = tolerance <= 4
+      ? queryPatchMapRelationHitIndex(this.relationHitIndex, point)
+      : geometry.relations.map((_relation, index) => index);
+    const candidates = candidateIndices.flatMap((index) => {
+      const relation = geometry.relations[index];
+      return relation ? [relation] : [];
+    });
+    return hitTestPatchMapSurfaceRelations(candidates, point, options);
+  }
+
+  public interactionOwnershipProbe(): PatchMapInteractionOwnershipProbe {
+    return this.core.interactionOwnershipProbe();
+  }
+
+  public pixiPublicSurfaceProbe(): PatchMapPixiPublicSurfaceProbe {
+    return this.core.renderer.publicSurfaceProbe();
+  }
+
+  public rendererLossProbe(): PatchMapPixiRendererLossProbe {
+    const renderer = this.core.renderer;
+    if (typeof renderer.rendererLossProbe === 'function') {
+      return renderer.rendererLossProbe();
+    }
+    const debug = renderer.debugSnapshot();
+    const backend = debug.backend === 'webgpu' ? 'webgpu' : 'webgl2';
+    return Object.freeze({
+      backend,
+      webGLVersion: backend === 'webgl2' ? 2 : null,
+      state: debug.destroyed ? 'destroyed' : 'healthy',
+      contextLost: false,
+      lossEventCount: 0,
+      restorationEventCount: 0,
+      recoveredFrameCount: 0,
+      listenerCount: 0,
+      lastLossFrame: null,
+      lastRecoveryFrame: null,
+      destroyed: debug.destroyed,
+    });
+  }
+
+  public forceRendererLoss(): boolean {
+    return this.core.renderer.forceRendererLoss();
+  }
+
+  public async destroy(): Promise<boolean> {
+    this.viewportInputListener = null;
+    this.pointerInputListener = null;
+    this.unbindCorePointerInputs();
+    this.unbindCoreViewportChanges();
+    try {
+      return await this.core.destroy();
+    } finally {
+      this.canvasPresent = false;
+      this.geometryRevisionProjection = null;
+      this.invalidateGeometryCache();
+    }
+  }
+
+  private invalidateGeometryCache(): void {
+    this.worldGeometryCache = null;
+    this.worldGeometryProjection = null;
+    this.invalidateScreenGeometryCache();
+  }
+
+  private invalidateScreenGeometryCache(): void {
+    this.geometryCache = null;
+    this.geometryBaseCache = null;
+    this.geometryById.clear();
+    this.geometryProjection = null;
+    this.regionHitIndex = null;
+    this.relationHitIndex = emptyPatchMapRelationHitIndex();
+  }
+
+  private invalidateGeometrySelectionCache(): void {
+    this.geometryCache = null;
+  }
+}
+
+function withoutImageAuthoredSource(
+  image: PatchMapSceneImageProductProbe,
+): Omit<PatchMapSceneImageProductProbe, 'authoredSource' | 'attempts'> {
+  const { authoredSource: _authoredSource, attempts: _attempts, ...rest } = image;
+  return rest;
+}
+
+function safeEngineImageSource(
+  authoredSource: PatchMapAssetSource,
+  sourceKind: PatchMapImageSourceKind,
+): Readonly<{
+  authoredSource?: PatchMapAssetSource;
+  authoredSourceKind?: PatchMapImageSourceKind;
+}> {
+  return sourceKind === 'data-uri'
+    ? Object.freeze({ authoredSourceKind: sourceKind })
+    : Object.freeze({ authoredSource });
+}
+
+function projectEngineImageAttempt(
+  attempt: PatchMapSceneImageAttemptProbe,
+): PatchMapEngineSceneImageAttemptProbe {
+  const {
+    authoredSource,
+    sourceKind,
+    resourceState,
+    ...rest
+  } = attempt;
+  return Object.freeze({
+    ...rest,
+    ...safeEngineImageSource(authoredSource, sourceKind),
+    state: resourceState,
+  });
+}
+
+function projectEngineSceneImageRecord(
+  image: PatchMapSceneImageProductProbe,
+  entity: SceneSnapshot['entities'][number] | null,
+  hitBounds: readonly [number, number, number, number] | null,
+): PatchMapEngineSceneImageRecord {
+  const attempts = Object.freeze(image.attempts.map(projectEngineImageAttempt));
+  return Object.freeze({
+    ...withoutImageAuthoredSource(image),
+    ...safeEngineImageSource(image.authoredSource, image.sourceKind),
+    opacity: entity?.opacity ?? 0,
+    zIndex: entity?.zIndex ?? 0,
+    hitBounds,
+    initial: attempts[0] ?? null,
+    attempts,
+  });
+}
+
+function indexComponentSemantics(
+  dataset: readonly NormalizedPatchMapElement[],
+): Map<string, PatchMapEngineComponentSemanticProbe> {
+  const index = new Map<string, PatchMapEngineComponentSemanticProbe>();
+  const visit = (elements: readonly NormalizedPatchMapElement[]): void => {
+    for (const element of elements) {
+      if (element.type === 'item') {
+        for (const component of element.components) {
+          addComponentSemantic(index, element.id, component);
+        }
+      } else if (element.type === 'grid') {
+        for (const component of element.item.components) {
+          addComponentSemantic(index, element.id, component);
+        }
+      } else if (element.type === 'group') {
+        visit(element.children);
+      }
+    }
+  };
+  visit(dataset);
+  return index;
+}
+
+interface PatchMapOwnedStructuralRootDelta {
+  readonly removed: readonly NormalizedPatchMapElement[];
+  readonly added: readonly NormalizedPatchMapElement[];
+}
+
+function ownedStructuralRootDelta(
+  before: readonly NormalizedPatchMapElement[],
+  after: readonly NormalizedPatchMapElement[],
+): PatchMapOwnedStructuralRootDelta | null {
+  if (before.length === 0) return null;
+  const previous = new Map<string, NormalizedPatchMapElement>();
+  for (const root of before) {
+    if (previous.has(root.id)) return null;
+    previous.set(root.id, root);
+  }
+  const added: NormalizedPatchMapElement[] = [];
+  const seen = new Set<string>();
+  const removed: NormalizedPatchMapElement[] = [];
+  for (const root of after) {
+    if (seen.has(root.id)) return null;
+    seen.add(root.id);
+    const prior = previous.get(root.id);
+    if (prior === root) {
+      previous.delete(root.id);
+      continue;
+    }
+    if (prior !== undefined) {
+      removed.push(prior);
+      previous.delete(root.id);
+    }
+    added.push(root);
+  }
+  removed.push(...previous.values());
+  return Object.freeze({
+    removed: Object.freeze(removed),
+    added: Object.freeze(added),
+  });
+}
+
+function reconcileStructuralComponentSemantics(
+  current: ReadonlyMap<string, PatchMapEngineComponentSemanticProbe>,
+  delta: PatchMapOwnedStructuralRootDelta,
+): Map<string, PatchMapEngineComponentSemanticProbe> {
+  const next = new Map(current);
+  visitStructuralComponents(delta.removed, (ownerId, component) => {
+    next.delete(componentSemanticKey(ownerId, component.id));
+  });
+  visitStructuralComponents(delta.added, (ownerId, component) => {
+    addComponentSemantic(next, ownerId, component);
+  });
+  return next;
+}
+
+function visitStructuralComponents(
+  elements: readonly NormalizedPatchMapElement[],
+  visit: (ownerId: string, component: PatchMapComponent) => void,
+): void {
+  for (const element of elements) {
+    if (element.type === 'item') {
+      for (const component of element.components) visit(element.id, component);
+    } else if (element.type === 'grid') {
+      for (const component of element.item.components) visit(element.id, component);
+    } else if (element.type === 'group') {
+      visitStructuralComponents(element.children, visit);
+    }
+  }
+}
+
+function reconcileFlatComponentSemantics(
+  current: ReadonlyMap<string, PatchMapEngineComponentSemanticProbe>,
+  beforeDataset: readonly NormalizedPatchMapElement[],
+  afterDataset: readonly NormalizedPatchMapElement[],
+  dirtyRootIds: readonly string[],
+): Map<string, PatchMapEngineComponentSemanticProbe> {
+  const next = new Map(current);
+  const dirty = new Set(dirtyRootIds);
+  for (const element of beforeDataset) {
+    if (!dirty.has(element.id) || element.type !== 'item') continue;
+    for (const component of element.components) {
+      next.delete(componentSemanticKey(element.id, component.id));
+    }
+  }
+  for (const element of afterDataset) {
+    if (!dirty.has(element.id) || element.type !== 'item') continue;
+    for (const component of element.components) {
+      addComponentSemantic(next, element.id, component);
+    }
+  }
+  return next;
+}
+
+function addComponentSemantic(
+  index: Map<string, PatchMapEngineComponentSemanticProbe>,
+  ownerId: string,
+  component: PatchMapComponent,
+): void {
+  const target = Object.freeze({ kind: 'component' as const, ownerId, id: component.id });
+  index.set(componentSemanticKey(ownerId, component.id), Object.freeze({
+    target,
+    ownerId,
+    componentId: component.id,
+    componentType: component.type,
+    authoredSize: 'size' in component
+      ? cloneDetachedComponentValue(component.size) as PatchMapComponentSize
+      : null,
+    source: component.type === 'text'
+      ? null
+      : cloneDetachedComponentValue(component.source) as PatchMapBackgroundSource,
+    tint: cloneDetachedComponentValue(component.tint),
+    show: component.show,
+  }));
+}
+
+function cloneDetachedComponentValue(value: unknown): unknown {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map((entry) => cloneDetachedComponentValue(entry)));
+  }
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(value)) {
+    Object.defineProperty(result, key, {
+      value: cloneDetachedComponentValue(Reflect.get(value, key)),
+      enumerable: true,
+      configurable: false,
+      writable: false,
+    });
+  }
+  return Object.freeze(result);
+}
+
+function normalizeEngineComponentVisualTarget(
+  target: PatchMapComponentVisualTarget,
+): PatchMapComponentVisualTarget {
+  if (target === null || typeof target !== 'object') {
+    throw new TypeError('component visual target must be an object');
+  }
+  if (typeof target.ownerId !== 'string' || target.ownerId.length === 0) {
+    throw new TypeError('component visual target ownerId must be a non-empty string');
+  }
+  if (typeof target.componentId !== 'string' || target.componentId.length === 0) {
+    throw new TypeError('component visual target componentId must be a non-empty string');
+  }
+  return Object.freeze({ ownerId: target.ownerId, componentId: target.componentId });
+}
+
+function componentRenderLane(
+  role: PatchMapComponentRenderRole | null,
+): PatchMapRenderLaneRole | null {
+  if (role === null) return null;
+  if (role === 'background-asset') return 'background-assets';
+  if (role === 'content-asset') return 'content-assets';
+  return role;
+}
+
+function componentSemanticKey(ownerId: string, componentId: string): string {
+  return `${ownerId.length}:${ownerId}:${componentId}`;
+}
+
+function indexTextSemantics(
+  dataset: readonly NormalizedPatchMapElement[],
+): Map<string, IndexedEngineTextSemantic> {
+  const index = new Map<string, IndexedEngineTextSemantic>();
+  const visit = (
+    elements: readonly NormalizedPatchMapElement[],
+    ancestorVisible: boolean,
+    ancestorLocked: boolean,
+  ): void => {
+    for (const element of elements) {
+      const visible = ancestorVisible && element.show;
+      const locked = ancestorLocked || element.locked;
+      if (element.type === 'text') {
+        addEngineTextElementSemantic(index, element, visible, locked);
+        continue;
+      }
+      if (element.type === 'item') {
+        for (const component of element.components) {
+          if (component.type !== 'text') continue;
+          addEngineTextComponentSemantic(index, {
+            ownerId: element.id,
+            component,
+            show: visible && component.show,
+            locked,
+            contentOrientation: element.contentOrientation,
+            gridTemplate: false,
+          });
+        }
+        continue;
+      }
+      if (element.type === 'grid') {
+        for (const component of element.item.components) {
+          if (component.type !== 'text') continue;
+          addEngineTextComponentSemantic(index, {
+            ownerId: element.id,
+            component,
+            show: visible && component.show,
+            locked,
+            contentOrientation: element.item.contentOrientation,
+            gridTemplate: true,
+          });
+        }
+        continue;
+      }
+      if (element.type === 'group') visit(element.children, visible, locked);
+    }
+  };
+  visit(dataset, true, false);
+  return index;
+}
+
+function reconcileStructuralTextSemantics(
+  current: ReadonlyMap<string, IndexedEngineTextSemantic>,
+  delta: PatchMapOwnedStructuralRootDelta,
+): Map<string, IndexedEngineTextSemantic> {
+  const next = new Map(current);
+  visitStructuralTextTargets(
+    delta.removed,
+    true,
+    false,
+    (target) => next.delete(engineTextTargetKey(target)),
+  );
+  addStructuralTextSemantics(next, delta.added, true, false);
+  return next;
+}
+
+function visitStructuralTextTargets(
+  elements: readonly NormalizedPatchMapElement[],
+  ancestorVisible: boolean,
+  ancestorLocked: boolean,
+  visit: (target: PatchMapTextTarget) => void,
+): void {
+  for (const element of elements) {
+    const visible = ancestorVisible && element.show;
+    const locked = ancestorLocked || element.locked;
+    if (element.type === 'text') {
+      visit(Object.freeze({ kind: 'element', id: element.id }));
+    } else if (element.type === 'item') {
+      for (const component of element.components) {
+        if (component.type === 'text') {
+          visit(Object.freeze({
+            kind: 'component',
+            ownerId: element.id,
+            id: component.id,
+          }));
+        }
+      }
+    } else if (element.type === 'grid') {
+      for (const component of element.item.components) {
+        if (component.type === 'text') {
+          visit(Object.freeze({
+            kind: 'component',
+            ownerId: element.id,
+            id: component.id,
+          }));
+        }
+      }
+    } else if (element.type === 'group') {
+      visitStructuralTextTargets(element.children, visible, locked, visit);
+    }
+  }
+}
+
+function addStructuralTextSemantics(
+  index: Map<string, IndexedEngineTextSemantic>,
+  elements: readonly NormalizedPatchMapElement[],
+  ancestorVisible: boolean,
+  ancestorLocked: boolean,
+): void {
+  for (const element of elements) {
+    const visible = ancestorVisible && element.show;
+    const locked = ancestorLocked || element.locked;
+    if (element.type === 'text') {
+      addEngineTextElementSemantic(index, element, visible, locked);
+    } else if (element.type === 'item') {
+      for (const component of element.components) {
+        if (component.type !== 'text') continue;
+        addEngineTextComponentSemantic(index, {
+          ownerId: element.id,
+          component,
+          show: visible && component.show,
+          locked,
+          contentOrientation: element.contentOrientation,
+          gridTemplate: false,
+        });
+      }
+    } else if (element.type === 'grid') {
+      for (const component of element.item.components) {
+        if (component.type !== 'text') continue;
+        addEngineTextComponentSemantic(index, {
+          ownerId: element.id,
+          component,
+          show: visible && component.show,
+          locked,
+          contentOrientation: element.item.contentOrientation,
+          gridTemplate: true,
+        });
+      }
+    } else if (element.type === 'group') {
+      addStructuralTextSemantics(index, element.children, visible, locked);
+    }
+  }
+}
+
+function reconcileFlatTextSemantics(
+  current: ReadonlyMap<string, IndexedEngineTextSemantic>,
+  beforeDataset: readonly NormalizedPatchMapElement[],
+  afterDataset: readonly NormalizedPatchMapElement[],
+  dirtyRootIds: readonly string[],
+): Map<string, IndexedEngineTextSemantic> {
+  const next = new Map(current);
+  const dirty = new Set(dirtyRootIds);
+  for (const element of beforeDataset) {
+    if (!dirty.has(element.id)) continue;
+    if (element.type === 'text') {
+      next.delete(engineTextTargetKey({ kind: 'element', id: element.id }));
+    } else if (element.type === 'item') {
+      for (const component of element.components) {
+        if (component.type !== 'text') continue;
+        next.delete(engineTextTargetKey({
+          kind: 'component',
+          ownerId: element.id,
+          id: component.id,
+        }));
+      }
+    }
+  }
+  for (const element of afterDataset) {
+    if (!dirty.has(element.id)) continue;
+    if (element.type === 'text') {
+      addEngineTextElementSemantic(next, element, element.show, element.locked);
+    } else if (element.type === 'item') {
+      for (const component of element.components) {
+        if (component.type !== 'text') continue;
+        addEngineTextComponentSemantic(next, {
+          ownerId: element.id,
+          component,
+          show: element.show && component.show,
+          locked: element.locked,
+          contentOrientation: element.contentOrientation,
+          gridTemplate: false,
+        });
+      }
+    }
+  }
+  return next;
+}
+
+function addEngineTextElementSemantic(
+  index: Map<string, IndexedEngineTextSemantic>,
+  element: Extract<NormalizedPatchMapElement, { readonly type: 'text' }>,
+  show: boolean,
+  locked: boolean,
+): void {
+  const target = Object.freeze({ kind: 'element' as const, id: element.id });
+  index.set(engineTextTargetKey(target), Object.freeze({
+    gridTemplate: false,
+    probe: freezeEngineTextSemantic({
+      target,
+      semanticOwnerId: element.id,
+      source: element.text,
+      authoredStyle: element.style,
+      placement: null,
+      margin: EMPTY_TEXT_MARGIN,
+      tint: null,
+      split: 0,
+      show,
+      locked,
+      contentOrientation: 'follow-item',
+    }),
+  }));
+}
+
+function addEngineTextComponentSemantic(
+  index: Map<string, IndexedEngineTextSemantic>,
+  input: Readonly<{
+    ownerId: string;
+    component: Extract<PatchMapComponent, { readonly type: 'text' }>;
+    show: boolean;
+    locked: boolean;
+    contentOrientation: PatchMapTextProjection['contentOrientation'];
+    gridTemplate: boolean;
+  }>,
+): void {
+  const target = Object.freeze({
+    kind: 'component' as const,
+    ownerId: input.ownerId,
+    id: input.component.id,
+  });
+  index.set(engineTextTargetKey(target), Object.freeze({
+    gridTemplate: input.gridTemplate,
+    probe: freezeEngineTextSemantic({
+      target,
+      semanticOwnerId: input.ownerId,
+      source: input.component.text,
+      authoredStyle: input.component.style,
+      placement: input.component.placement,
+      margin: input.component.margin,
+      tint: input.component.tint,
+      split: input.component.split,
+      show: input.show,
+      locked: input.locked,
+      contentOrientation: input.contentOrientation,
+    }),
+  }));
+}
+
+function freezeEngineTextSemantic(
+  probe: PatchMapEngineTextSemanticProbe,
+): PatchMapEngineTextSemanticProbe {
+  return Object.freeze({
+    ...probe,
+    target: normalizePatchMapTextTarget(probe.target),
+    authoredStyle: cloneDetachedComponentValue(probe.authoredStyle) as PatchMapTextStyle,
+    margin: cloneDetachedComponentValue(probe.margin) as PatchMapTextProjection['margin'],
+    tint: cloneDetachedComponentValue(probe.tint),
+  });
+}
+
+function engineTextTargetKey(target: PatchMapTextTarget): string {
+  return target.kind === 'element'
+    ? `element:${target.id.length}:${target.id}`
+    : `component:${target.ownerId.length}:${target.ownerId}:${target.id.length}:${target.id}`;
+}
+
+function surfaceTextProbeIsCurrent(probe: PatchMapTextProductProbe | null): boolean {
+  if (
+    probe === null ||
+    !probe.state.visible ||
+    probe.publication.status !== 'current' ||
+    probe.publication.sceneRevision !== probe.publication.renderedSceneRevision ||
+    probe.publication.rendererFrame === null ||
+    probe.renderer.route === null ||
+    probe.renderer.route === 'none' ||
+    probe.renderer.rendererKind === 'none' ||
+    probe.renderer.route !== probe.renderer.rendererKind ||
+    probe.renderer.objectCount !== 1 ||
+    probe.renderer.staleGlyphCount !== 0 ||
+    probe.renderer.lastRenderedFrame !== probe.publication.rendererFrame ||
+    probe.renderer.attachedSignatures === null ||
+    probe.renderer.lastRenderedSignatures === null ||
+    probe.rendererPaint === null ||
+    probe.renderLanes === null
+  ) {
+    return false;
+  }
+  const expected = {
+    content: probe.semantic.contentSignature,
+    style: probe.semantic.styleSignature,
+    layout: probe.semantic.layoutSignature,
+  };
+  const semantic = probe.renderer.semanticSignatures;
+  const attached = probe.renderer.attachedSignatures;
+  const rendered = probe.renderer.lastRenderedSignatures;
+  return semantic.content === expected.content &&
+    semantic.style === expected.style &&
+    semantic.layout === expected.layout &&
+    attached.content === semantic.content &&
+    attached.style === semantic.style &&
+    attached.layout === semantic.layout &&
+    rendered.content === attached.content &&
+    rendered.style === attached.style &&
+    rendered.layout === attached.layout &&
+    rendered.renderer === attached.renderer &&
+    probe.rendererPaint.entityId === probe.entityId &&
+    probe.rendererPaint.lane === 'text' &&
+    probe.rendererPaint.rendererKind === 'text' &&
+    probe.rendererPaint.primitiveCount === 1 &&
+    probe.rendererPaint.renderObjectCount === 1 &&
+    probe.rendererPaint.packedTint === (probe.semantic.color >>> 0) &&
+    probe.rendererPaint.rgbTint === (probe.semantic.color >>> 8) &&
+    probe.rendererPaint.alpha ===
+      (((probe.semantic.color >>> 0) & 0xff) / 255) * probe.state.opacity &&
+    probe.renderLanes.text.role === 'text' &&
+    probe.renderLanes.text.renderObjectCount >= 1 &&
+    probe.renderLanes.text.visiblePrimitiveCount >= 1;
+}
+
+function surfaceTextProbeIsAbsent(probe: PatchMapTextProductProbe | null): boolean {
+  return probe !== null &&
+    !probe.state.visible &&
+    probe.geometry.visibleBounds === null &&
+    probe.publication.status === 'absent' &&
+    probe.renderer.route === null &&
+    probe.renderer.rendererKind === 'none' &&
+    probe.renderer.objectCount === 0 &&
+    probe.renderer.staleGlyphCount === 0 &&
+    probe.renderer.attachedSignatures === null &&
+    probe.renderer.lastRenderedSignatures === null &&
+    probe.renderer.lastRenderedFrame === null &&
+    probe.rendererPaint === null &&
+    probe.renderLanes === null;
+}
+
+const EMPTY_TEXT_MARGIN = Object.freeze({
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0,
+});
+
+async function createPixiSurface(options: PatchMapSurfaceOptions): Promise<PatchMapEngineSurface> {
+  const coreOptions: PatchMapRuntimeOptions = {
+    width: options.width,
+    height: options.height,
+    pixelRatio: options.pixelRatio,
+    antialias: options.antialias,
+    background: options.background,
+    strategy: options.strategy,
+    preference: options.preference,
+    requireWebGL2: options.requireWebGL2 ?? options.preference === 'webgl',
+    devtools: options.devtools ?? false,
+    powerPreference: options.powerPreference,
+    autoRender: false,
+    rootSelectionMode: 'deferred',
+    internalStableRecordOverlays: true,
+    ...(options.assetSession ? { assetSession: options.assetSession } : {}),
+    ...(options.target ? { target: options.target } : {}),
+    ...(options.canvas ? { canvas: options.canvas } : {}),
+  };
+  return new PixiEngineSurface(await createPatchMapRuntime(coreOptions));
+}
+
+function surfacePointerInput(input: PatchMapRootPointerInput): PatchMapSurfacePointerInput {
+  return Object.freeze({
+    type: input.type,
+    pointerId: input.pointerId,
+    pointerType: input.pointerType,
+    button: input.button,
+    buttons: input.buttons,
+    screen: Object.freeze([input.screenX, input.screenY] as const),
+    timeMs: input.timeMs,
+    modifiers: Object.freeze({
+      shift: input.shiftKey,
+      ctrl: input.ctrlKey,
+      alt: input.altKey,
+      meta: input.metaKey,
+    }),
+  });
+}
+
+function requireRegionGeometry(
+  surface: PatchMapEngineSurface,
+  operation: string,
+): PatchMapSurfaceGeometrySnapshot {
+  const geometry = surface.geometrySnapshot?.();
+  if (geometry === undefined) {
+    throw new Error(`${operation} requires aggregate surface geometry`);
+  }
+  return geometry;
+}
+
+function boxRegionQueryBounds(
+  start: readonly [number, number],
+  end: readonly [number, number],
+): PatchMapScreenRegionBounds | null {
+  if (![...start, ...end].every(Number.isFinite)) return null;
+  const x = Math.min(start[0], end[0]);
+  const y = Math.min(start[1], end[1]);
+  return Object.freeze([
+    x,
+    y,
+    Math.max(start[0], end[0]) - x,
+    Math.max(start[1], end[1]) - y,
+  ]);
+}
+
+function paintRegionQueryBounds(
+  segments: readonly (readonly [
+    readonly [number, number],
+    readonly [number, number],
+  ])[],
+  toleranceCssPx: number,
+): PatchMapScreenRegionBounds | null {
+  if (!Number.isFinite(toleranceCssPx) || toleranceCssPx < 0) return null;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const segment of segments) {
+    if (![...segment[0], ...segment[1]].every(Number.isFinite)) continue;
+    minX = Math.min(minX, segment[0][0], segment[1][0]);
+    minY = Math.min(minY, segment[0][1], segment[1][1]);
+    maxX = Math.max(maxX, segment[0][0], segment[1][0]);
+    maxY = Math.max(maxY, segment[0][1], segment[1][1]);
+  }
+  if (![minX, minY, maxX, maxY].every(Number.isFinite)) return null;
+  return Object.freeze([
+    minX - toleranceCssPx,
+    minY - toleranceCssPx,
+    maxX - minX + toleranceCssPx * 2,
+    maxY - minY + toleranceCssPx * 2,
+  ]);
+}
+
+function targetAliasesMatch(
+  target: PatchMapLogicalTargetSnapshot,
+  values: ReadonlySet<string>,
+): boolean {
+  return values.has(target.key) ||
+    values.has(target.id) ||
+    values.has(target.selectionId) ||
+    (target.ownerId !== null && values.has(target.ownerId));
+}
+
+function destroyedPointerGestureProbe(): PatchMapPointerGestureProbe {
+  return Object.freeze({
+    activePointerCount: 0,
+    pointerCaptureCount: 0,
+    activeGestureCount: 0,
+    hoverTarget: null,
+    hoverListenerCount: 0,
+    staleGestureCount: 0,
+    destroyed: true,
+  });
+}
+
+function validateInitializeOptions(options: PatchMapInitializeOptions): void {
+  if (!options.instanceId) throw new TypeError('instanceId must be a non-empty string');
+  for (const [name, value] of [['width', options.width], ['height', options.height]] as const) {
+    if (!(value > 0) || !Number.isFinite(value)) throw new RangeError(`${name} must be positive and finite`);
+  }
+  if (options.pixelRatio !== undefined && (!(options.pixelRatio > 0) || !Number.isFinite(options.pixelRatio))) {
+    throw new RangeError('pixelRatio must be positive and finite');
+  }
+}
+
+function validateExtractionRequest(request: PatchMapEngineExtractionRequest): void {
+  if (request.mime !== 'image/png') {
+    throw new TypeError('extractPublishedScene mime must be image/png');
+  }
+  if (
+    !Array.isArray(request.cssSize) ||
+    request.cssSize.length !== 2 ||
+    !request.cssSize.every((value) => Number.isFinite(value) && value > 0)
+  ) {
+    throw new RangeError('extractPublishedScene cssSize must contain two positive finite values');
+  }
+  for (const key of ['scene', 'view', 'interaction'] as const) {
+    const value = request.targetTuple[key];
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new RangeError(`extractPublishedScene targetTuple.${key} must be non-negative`);
+    }
+  }
+}
+
+function extractionFailureCode(
+  error: unknown,
+): 'EXTRACTION_TAINTED' | 'EXTRACTION_READBACK_FAILED' {
+  if (
+    error instanceof DOMException
+    && (error.name === 'SecurityError' || error.name === 'InvalidStateError')
+  ) {
+    return error.name === 'SecurityError'
+      ? 'EXTRACTION_TAINTED'
+      : 'EXTRACTION_READBACK_FAILED';
+  }
+  return 'EXTRACTION_READBACK_FAILED';
+}
+
+function samePublishedTuple(
+  left: PatchMapPublishedTuple,
+  right: PatchMapPublishedTuple,
+): boolean {
+  return left.scene === right.scene &&
+    left.view === right.view &&
+    left.interaction === right.interaction;
+}
+
+function validatePositiveFinite(name: string, value: number): void {
+  if (!(value > 0) || !Number.isFinite(value)) throw new RangeError(`${name} must be positive and finite`);
+}
+
+function validateNonNegativeFinite(name: string, value: number): void {
+  if (value < 0 || !Number.isFinite(value)) {
+    throw new RangeError(`${name} must be non-negative and finite`);
+  }
+}
+
+function validatePoint(point: PatchMapPoint, operation: string): void {
+  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+    throw new RangeError(`${operation} point must contain finite coordinates`);
+  }
+}
+
+function finiteTuple(
+  value: readonly [number, number],
+  label: string,
+): readonly [number, number] {
+  if (
+    !Array.isArray(value) ||
+    value.length !== 2 ||
+    !Number.isFinite(value[0]) ||
+    !Number.isFinite(value[1])
+  ) {
+    throw new RangeError(`${label} must contain two finite coordinates`);
+  }
+  return Object.freeze([value[0], value[1]]);
+}
+
+function serializedViewport(
+  centerWorld: readonly [number, number],
+  scale: number,
+): PatchMapSerializedViewportState {
+  return Object.freeze({
+    schemaRevision: PATCH_MAP_VIEWPORT_REVISION,
+    centerWorld: Object.freeze([centerWorld[0], centerWorld[1]] as const),
+    scale,
+  });
+}
+
+function normalizeSerializedViewport(
+  value: unknown,
+  limits: readonly [number, number],
+): PatchMapSerializedViewportState | null {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as Readonly<Record<string, unknown>>;
+  const center = record.centerWorld;
+  const scale = record.scale;
+  if (
+    !Array.isArray(center) ||
+    center.length !== 2 ||
+    !Number.isFinite(center[0]) ||
+    !Number.isFinite(center[1]) ||
+    !Number.isFinite(scale) ||
+    (scale as number) < limits[0] ||
+    (scale as number) > limits[1]
+  ) {
+    return null;
+  }
+  return serializedViewport(
+    [center[0] as number, center[1] as number],
+    scale as number,
+  );
+}
+
+function viewportStateKey(
+  centerWorld: readonly [number, number],
+  scale: number,
+): string {
+  return `${canonicalViewportScalar(centerWorld[0])},${canonicalViewportScalar(centerWorld[1])},${canonicalViewportScalar(scale)}`;
+}
+
+function canonicalViewportScalar(value: number): number {
+  return Object.is(value, -0) ? 0 : value;
+}
+
+function normalizeViewportPolicy(value: unknown): PatchMapViewportPolicy {
+  if (
+    typeof value !== 'string' ||
+    !PATCH_MAP_VIEWPORT_POLICIES.includes(value as PatchMapViewportPolicy)
+  ) {
+    throw new TypeError('unsupported viewport policy');
+  }
+  return value as PatchMapViewportPolicy;
+}
+
+function orderedViewportPolicies(
+  values: ReadonlySet<PatchMapViewportPolicy>,
+): readonly PatchMapViewportPolicy[] {
+  return Object.freeze(PATCH_MAP_VIEWPORT_POLICIES.filter((policy) => values.has(policy)));
+}
+
+function replacePolicySet(
+  target: Set<PatchMapViewportPolicy>,
+  values: readonly PatchMapViewportPolicy[],
+): void {
+  target.clear();
+  for (const value of values) target.add(value);
+}
+
+function normalizeDegrees(value: number): number {
+  const normalized = ((value % 360) + 360) % 360;
+  return Object.is(normalized, -0) ? 0 : normalized;
+}
+
+function resolvePatchMapHistoryShortcut(
+  input: PatchMapHistoryShortcutInput,
+): PatchMapHistoryDirection | null {
+  if (input === null || typeof input !== 'object') {
+    throw new TypeError('history shortcut input must be an object');
+  }
+  if (typeof input.key !== 'string') {
+    throw new TypeError('history shortcut key must be a string');
+  }
+  if (
+    typeof input.ctrlKey !== 'boolean' ||
+    typeof input.metaKey !== 'boolean' ||
+    typeof input.shiftKey !== 'boolean'
+  ) {
+    throw new TypeError('history shortcut modifiers must be booleans');
+  }
+  if (input.ctrlKey === input.metaKey) return null;
+  const key = input.key.toLowerCase();
+  if (key === 'z') return input.shiftKey ? 'redo' : 'undo';
+  if (key === 'y' && !input.shiftKey) return 'redo';
+  return null;
+}
+
+function assertTransformerHandleKind(
+  handle: PatchMapTransformerHandle,
+  kind: PatchMapTransformerEditKind,
+): void {
+  const resolved = handle === 'frame'
+    ? 'move'
+    : handle === 'rotate'
+      ? 'rotate'
+      : 'resize';
+  if (resolved !== kind) {
+    throw new TypeError(`transformer ${handle} handle cannot begin a ${kind} edit`);
+  }
+}
+
+function isPatchMapInteractionMode(value: unknown): value is PatchMapInteractionMode {
+  return value === 'select' ||
+    value === 'pan' ||
+    value === 'transform' ||
+    value === 'relation-paint' ||
+    value === 'text-edit';
+}
+
+function isPatchMapHistoryCompanionRecord(
+  value: unknown,
+): value is Readonly<Record<string, PatchMapMutationJsonValue>> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function emptySurfaceDebug(width: number, height: number, pixelRatio: number): PatchMapSurfaceDebug {
+  return Object.freeze({
+    cssSize: Object.freeze([width, height] as [number, number]),
+    backingSize: Object.freeze([
+      Math.round(width * pixelRatio),
+      Math.round(height * pixelRatio),
+    ] as [number, number]),
+    selectionIds: Object.freeze([] as string[]),
+    activeAnimationCount: 0,
+    activeGestureCount: 0,
+    renderCommandCount: 0,
+    visiblePrimitiveCount: 0,
+  });
+}
+
+function normalizeZoomLimits(value: readonly [number, number]): readonly [number, number] {
+  const [min, max] = value;
+  if (!(min > 0) || !(max >= min) || !Number.isFinite(min) || !Number.isFinite(max)) {
+    throw new RangeError('zoomLimits must contain positive finite min/max values');
+  }
+  return Object.freeze([min, max]);
+}
+
+function normalizeBackground(value: number | string): number {
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value) || value < 0 || value > 0xffffffff) throw new TypeError('invalid background color');
+    return value >>> 0;
+  }
+  const match = /^#([0-9a-f]{6}|[0-9a-f]{8})$/i.exec(value);
+  if (!match) throw new TypeError('background must be #rrggbb or #rrggbbaa');
+  const body = match[1]!;
+  return Number.parseInt(body.length === 6 ? `${body}ff` : body, 16) >>> 0;
+}
+
+function packedColorToHex(value: number): string {
+  return `#${(value >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+const EMPTY_TARGETS = Object.freeze([] as PatchMapSemanticTarget[]);
+const EMPTY_COMPONENT_VISUAL_TARGETS = Object.freeze(
+  [] as PatchMapComponentVisualTarget[],
+);
+const EMPTY_RECONCILE_DIAGNOSTICS = Object.freeze([] as PatchMapReconcileDiagnostic[]);
+
+function freezeMutationTargets(
+  values: readonly PatchMapMutationTarget[],
+): readonly PatchMapMutationTarget[] {
+  if (
+    Object.isFrozen(values) &&
+    values.every((target) => Object.isFrozen(target))
+  ) {
+    return values;
+  }
+  return Object.freeze(values.map((target) => Object.freeze({ ...target })));
+}
+
+function freezeTransactionHistory(
+  recorded: boolean,
+  commandId: string | null,
+  previous: PatchMapHistoryState,
+  current: PatchMapHistoryState,
+): PatchMapEngineTransactionHistory {
+  return Object.freeze({
+    recorded,
+    commandId,
+    depthDelta: current.undoDepth - previous.undoDepth,
+    state: current,
+  });
+}
+
+function historySnapshotForDataset(
+  dataset: readonly NormalizedPatchMapElement[],
+  companion: PatchMapEngineHistoryCompanion,
+): PatchMapSemanticHistorySnapshotInput<
+  readonly NormalizedPatchMapElement[],
+  PatchMapEngineHistoryCompanion
+> {
+  return Object.freeze({
+    dataset,
+    companion,
+  });
+}
+
+interface PatchMapHistoryOrderIndex {
+  readonly elementIdsByParent: ReadonlyMap<string | null, readonly string[]>;
+  readonly componentIdsByOwner: ReadonlyMap<string, readonly string[]>;
+}
+
+interface PatchMapHistoryReconcileOrderScope {
+  readonly allowedElementOrderIds: readonly string[];
+  readonly allowedComponentOrderOwners: readonly string[];
+}
+
+const EMPTY_HISTORY_ORDER_IDS = Object.freeze([] as string[]);
+
+function historyReconcileOrderScope(
+  command: PatchMapEngineHistoryTransition['command'],
+): PatchMapHistoryReconcileOrderScope {
+  const allowedElementOrderIds = new Set<string>();
+  const allowedComponentOrderOwners = new Set<string>();
+
+  // History reconciles directly between grouped command boundaries rather than
+  // replaying each accepted record. Comparing those two boundaries once keeps
+  // the authorization exact without multiplying work by a gesture's record count.
+  const before = indexHistoryOrders(command.before.dataset);
+  const after = indexHistoryOrders(command.after.dataset);
+  const parentIds = new Set([
+    ...before.elementIdsByParent.keys(),
+    ...after.elementIdsByParent.keys(),
+  ]);
+  for (const parentId of parentIds) {
+    const beforeIds = before.elementIdsByParent.get(parentId) ?? EMPTY_HISTORY_ORDER_IDS;
+    const afterIds = after.elementIdsByParent.get(parentId) ?? EMPTY_HISTORY_ORDER_IDS;
+    if (sameStringArray(beforeIds, afterIds)) continue;
+    beforeIds.forEach((id) => allowedElementOrderIds.add(id));
+    afterIds.forEach((id) => allowedElementOrderIds.add(id));
+  }
+
+  const ownerIds = new Set([
+    ...before.componentIdsByOwner.keys(),
+    ...after.componentIdsByOwner.keys(),
+  ]);
+  for (const ownerId of ownerIds) {
+    const beforeIds = before.componentIdsByOwner.get(ownerId) ?? EMPTY_HISTORY_ORDER_IDS;
+    const afterIds = after.componentIdsByOwner.get(ownerId) ?? EMPTY_HISTORY_ORDER_IDS;
+    if (!sameStringArray(beforeIds, afterIds)) {
+      allowedComponentOrderOwners.add(ownerId);
+    }
+  }
+
+  return Object.freeze({
+    allowedElementOrderIds: Object.freeze([...allowedElementOrderIds].sort()),
+    allowedComponentOrderOwners: Object.freeze([...allowedComponentOrderOwners].sort()),
+  });
+}
+
+function indexHistoryOrders(
+  dataset: readonly NormalizedPatchMapElement[],
+): PatchMapHistoryOrderIndex {
+  const elementIdsByParent = new Map<string | null, readonly string[]>();
+  const componentIdsByOwner = new Map<string, readonly string[]>();
+  const visit = (
+    elements: readonly NormalizedPatchMapElement[],
+    parentId: string | null,
+  ): void => {
+    elementIdsByParent.set(
+      parentId,
+      Object.freeze(elements.map((element) => element.id)),
+    );
+    for (const element of elements) {
+      if (element.type === 'group') visit(element.children, element.id);
+      if (element.type === 'item') {
+        componentIdsByOwner.set(
+          element.id,
+          Object.freeze(element.components.map((component) => component.id)),
+        );
+      } else if (element.type === 'grid') {
+        componentIdsByOwner.set(
+          element.id,
+          Object.freeze(element.item.components.map((component) => component.id)),
+        );
+      }
+    }
+  };
+  visit(dataset, null);
+  return Object.freeze({ elementIdsByParent, componentIdsByOwner });
+}
+
+function transactionSelectionAfter(
+  selectionIds: readonly string[],
+  operations: readonly PatchMapMutationOperation[],
+): readonly string[] {
+  const removed = new Set(
+    operations.flatMap((operation) =>
+      operation.op === 'remove' && operation.target.kind === 'element'
+        ? [operation.target.id]
+        : []),
+  );
+  return Object.freeze(selectionIds.filter((id) => !removed.has(id)));
+}
+
+function directAnimatedBarTargets(
+  operations: readonly PatchMapMutationOperation[],
+  componentSemantics: ReadonlyMap<string, PatchMapEngineComponentSemanticProbe>,
+): readonly Readonly<{ readonly ownerId: string; readonly componentId: string }>[] {
+  const targets = new Map<string, Readonly<{ ownerId: string; componentId: string }>>();
+  for (const operation of operations) {
+    if (operation.op !== 'merge' || operation.target.kind !== 'component') continue;
+    if (!operation.changes.some((change) => change.path[0] === 'size')) continue;
+    const key = componentSemanticKey(operation.target.ownerId, operation.target.id);
+    if (componentSemantics.get(key)?.componentType !== 'bar') continue;
+    const target = Object.freeze({
+      ownerId: operation.target.ownerId,
+      componentId: operation.target.id,
+    });
+    targets.set(key, target);
+  }
+  return Object.freeze([...targets.values()]);
+}
+
+function reconcileDirectBarHeightComponentSemantics(
+  current: ReadonlyMap<string, PatchMapEngineComponentSemanticProbe>,
+  candidate: readonly NormalizedPatchMapElement[],
+  operations: readonly PatchMapMutationOperation[],
+): Map<string, PatchMapEngineComponentSemanticProbe> | null {
+  if (operations.length === 0) return null;
+  if (operations.some((operation) => (
+    operation.op !== 'merge' ||
+    operation.target.kind !== 'component' ||
+    operation.changes.length !== 1
+  ))) {
+    return null;
+  }
+  const roots = new Map(candidate.map((root) => [root.id, root] as const));
+  if (roots.size !== candidate.length) return null;
+  const next = new Map(current);
+  for (const operation of operations) {
+    if (operation.op !== 'merge' || operation.target.kind !== 'component') return null;
+    const [change] = operation.changes;
+    if (
+      change === undefined ||
+      change.path.length !== 2 ||
+      change.path[0] !== 'size' ||
+      change.path[1] !== 'height'
+    ) {
+      return null;
+    }
+    const root = roots.get(operation.target.ownerId);
+    if (root?.type !== 'item') return null;
+    const matches = root.components.filter(({ id }) => id === operation.target.id);
+    const component = matches.length === 1 ? matches[0] : undefined;
+    const key = componentSemanticKey(operation.target.ownerId, operation.target.id);
+    const before = current.get(key);
+    if (component?.type !== 'bar' || before?.componentType !== 'bar') return null;
+    next.set(key, Object.freeze({
+      ...before,
+      authoredSize: component.size,
+    }));
+  }
+  return next;
+}
+
+function reconcilePlannedBarHeightComponentSemantics(
+  current: ReadonlyMap<string, PatchMapEngineComponentSemanticProbe>,
+  candidate: readonly NormalizedPatchMapElement[],
+  updates: readonly PatchMapPlannedBarHeightUpdate[],
+): Map<string, PatchMapEngineComponentSemanticProbe> | null {
+  if (updates.length === 0) return null;
+  const roots = new Map(candidate.map((root) => [root.id, root] as const));
+  if (roots.size !== candidate.length) return null;
+  const next = new Map(current);
+  for (const update of updates) {
+    const root = roots.get(update.ownerId);
+    if (root?.type !== 'item') return null;
+    const component = root.components.find(({ id }) => id === update.componentId);
+    const key = componentSemanticKey(update.ownerId, update.componentId);
+    const before = current.get(key);
+    if (component?.type !== 'bar' || before?.componentType !== 'bar') return null;
+    next.set(key, Object.freeze({
+      ...before,
+      authoredSize: component.size,
+    }));
+  }
+  return next;
+}
+
+function operationsOnlyUpdateBarSize(
+  operations: readonly PatchMapMutationOperation[],
+  componentSemantics: ReadonlyMap<string, PatchMapEngineComponentSemanticProbe>,
+): boolean {
+  return operations.length > 0 && operations.every((operation) => {
+    if (
+      operation.op !== 'merge' ||
+      operation.target.kind !== 'component' ||
+      operation.changes.length === 0 ||
+      operation.changes.some((change) => change.path[0] !== 'size')
+    ) {
+      return false;
+    }
+    return componentSemantics.get(
+      componentSemanticKey(operation.target.ownerId, operation.target.id),
+    )?.componentType === 'bar';
+  });
+}
+
+function directBarHeightUpdatesFor(
+  operations: readonly PatchMapMutationOperation[],
+  componentSemantics: ReadonlyMap<string, PatchMapEngineComponentSemanticProbe>,
+): readonly PatchMapDirectBarHeightUpdate[] | undefined {
+  if (operations.length === 0) return undefined;
+  const updates = new Map<string, PatchMapDirectBarHeightUpdate>();
+  for (const operation of operations) {
+    if (
+      operation.op !== 'merge' ||
+      operation.target.kind !== 'component' ||
+      operation.changes.length !== 1
+    ) {
+      return undefined;
+    }
+    const [change] = operation.changes;
+    if (
+      change === undefined ||
+      change.path.length !== 2 ||
+      change.path[0] !== 'size' ||
+      change.path[1] !== 'height'
+    ) {
+      return undefined;
+    }
+    const key = componentSemanticKey(operation.target.ownerId, operation.target.id);
+    const semantic = componentSemantics.get(key);
+    const size = semantic?.authoredSize;
+    const height = typeof size === 'object' &&
+      size !== null &&
+      'height' in size
+      ? size.height
+      : undefined;
+    if (
+      semantic?.componentType !== 'bar' ||
+      typeof height !== 'number' ||
+      !Number.isFinite(height) ||
+      height < 0
+    ) {
+      return undefined;
+    }
+    updates.set(key, Object.freeze({
+      ownerId: operation.target.ownerId,
+      componentId: operation.target.id,
+      height,
+    }));
+  }
+  return Object.freeze([...updates.values()]);
+}
+
+function componentOrderOwners(
+  operations: readonly PatchMapMutationOperation[],
+): readonly string[] {
+  return Object.freeze([...new Set(
+    operations
+      .filter((operation) => operation.op === 'reconcile-components')
+      .map((operation) => operation.target.id),
+  )]);
+}
+
+function operationsMayChangeElementStructure(
+  operations: readonly PatchMapMutationOperation[],
+): boolean {
+  return operations.some((operation) => {
+    switch (operation.op) {
+      case 'add':
+      case 'move':
+      case 'group':
+      case 'ungroup':
+        return true;
+      case 'remove':
+        return operation.target.kind === 'element';
+      default:
+        return false;
+    }
+  });
+}
+
+function operationsOnlyUpdateElementGeometry(
+  operations: readonly PatchMapMutationOperation[],
+): boolean {
+  if (operations.length === 0) return false;
+  return operations.every((operation) => (
+    operation.op === 'merge' &&
+    operation.target.kind === 'element' &&
+    operation.changes.length > 0 &&
+    operation.changes.every((change) => {
+      if (change.path.length !== 2) return false;
+      const [domain, field] = change.path;
+      return (
+        domain === 'attrs' &&
+        (field === 'x' || field === 'y' || field === 'angle' || field === 'rotation')
+      ) || (
+        domain === 'size' &&
+        (field === 'width' || field === 'height')
+      );
+    })
+  ));
+}
+
+const INCREMENTAL_FLAT_ROOT_TYPES = new Set([
+  'item',
+  'rect',
+  'image',
+  'text',
+]);
+
+/**
+ * History retains Engine-owned immutable datasets, so unchanged root identity
+ * is an exact dirty-set signal. This avoids reparsing/reindexing all 5,000
+ * roots during undo/redo while still falling back for reorder, hierarchy, and
+ * relation changes.
+ */
+function incrementalOwnedRootIds(
+  current: readonly NormalizedPatchMapElement[],
+  candidate: readonly NormalizedPatchMapElement[],
+): readonly string[] | undefined {
+  if (current.length === 0 || current.length !== candidate.length) {
+    return undefined;
+  }
+  const exactDirtyIndices = ownedPatchMapExactPatchIndices(candidate, current);
+  if (exactDirtyIndices !== null) {
+    if (exactDirtyIndices.length === 0) return undefined;
+    const dirty: string[] = [];
+    for (const index of exactDirtyIndices) {
+      const before = current[index];
+      const after = candidate[index];
+      if (
+        before === undefined ||
+        after === undefined ||
+        before.id !== after.id ||
+        before.type !== after.type ||
+        !INCREMENTAL_FLAT_ROOT_TYPES.has(after.type)
+      ) {
+        return undefined;
+      }
+      dirty.push(after.id);
+    }
+    return Object.freeze(dirty);
+  }
+  const dirty: string[] = [];
+  const ids = new Set<string>();
+  for (let index = 0; index < candidate.length; index += 1) {
+    const before = current[index];
+    const after = candidate[index];
+    if (
+      before === undefined ||
+      after === undefined ||
+      before.id !== after.id ||
+      before.type !== after.type ||
+      ids.has(after.id)
+    ) {
+      return undefined;
+    }
+    ids.add(after.id);
+    if (before === after) continue;
+    if (!INCREMENTAL_FLAT_ROOT_TYPES.has(after.type)) return undefined;
+    dirty.push(after.id);
+  }
+  return dirty.length === 0 ? undefined : Object.freeze(dirty);
+}
+
+function incrementalFlatRootIds(
+  current: readonly NormalizedPatchMapElement[],
+  candidate: readonly NormalizedPatchMapElement[],
+  operations: readonly PatchMapMutationOperation[],
+): readonly string[] | undefined {
+  if (
+    current.length === 0 ||
+    current.length !== candidate.length ||
+      operations.length === 0
+  ) {
+    return undefined;
+  }
+  const sparseDirtyIndices =
+    ownedPatchMapExactPatchIndices(candidate, current) ??
+    ownedPatchMapPreviewPatchIndices(candidate, current);
+  if (sparseDirtyIndices !== null) {
+    const dirty = new Set<string>();
+    for (const operation of operations) {
+      if (operation.op !== 'merge') return undefined;
+      dirty.add(
+        operation.target.kind === 'element'
+          ? operation.target.id
+          : operation.target.ownerId,
+      );
+    }
+    const ordered: string[] = [];
+    for (const index of sparseDirtyIndices) {
+      const before = current[index];
+      const after = candidate[index];
+      if (
+        before === undefined ||
+        after === undefined ||
+        before.id !== after.id ||
+        before.type !== after.type ||
+        !dirty.delete(after.id) ||
+        !INCREMENTAL_FLAT_ROOT_TYPES.has(after.type)
+      ) {
+        return undefined;
+      }
+      ordered.push(after.id);
+    }
+    return dirty.size === 0 && ordered.length > 0
+      ? Object.freeze(ordered)
+      : undefined;
+  }
+  const rootOrder = new Map<string, number>();
+  for (let index = 0; index < candidate.length; index += 1) {
+    const before = current[index];
+    const after = candidate[index];
+    if (
+      before === undefined ||
+      after === undefined ||
+      before.id !== after.id ||
+      before.type !== after.type ||
+      rootOrder.has(after.id)
+    ) {
+      return undefined;
+    }
+    rootOrder.set(after.id, index);
+  }
+
+  const dirty = new Set<string>();
+  for (const operation of operations) {
+    if (operation.op !== 'merge') return undefined;
+    const rootId = operation.target.kind === 'element'
+      ? operation.target.id
+      : operation.target.ownerId;
+    if (!rootOrder.has(rootId)) return undefined;
+    dirty.add(rootId);
+  }
+  if (dirty.size === 0) return undefined;
+  for (const rootId of dirty) {
+    const index = rootOrder.get(rootId);
+    const root = index === undefined ? undefined : candidate[index];
+    if (root === undefined || !INCREMENTAL_FLAT_ROOT_TYPES.has(root.type)) {
+      return undefined;
+    }
+  }
+  return Object.freeze(
+    [...dirty].sort((left, right) => rootOrder.get(left)! - rootOrder.get(right)!),
+  );
+}
+
+function incrementalBarHeightRootIds(
+  current: readonly NormalizedPatchMapElement[],
+  candidate: readonly NormalizedPatchMapElement[],
+  updates: readonly PatchMapPlannedBarHeightUpdate[],
+): readonly string[] | undefined {
+  if (
+    current.length === 0 ||
+    current.length !== candidate.length ||
+    updates.length === 0
+  ) {
+    return undefined;
+  }
+  const exactDirtyIndices = ownedPatchMapExactPatchIndices(candidate, current);
+  if (exactDirtyIndices !== null) {
+    const updateOwnerIds = new Set(updates.map(({ ownerId }) => ownerId));
+    const dirty: string[] = [];
+    for (const index of exactDirtyIndices) {
+      const before = current[index];
+      const after = candidate[index];
+      if (
+        before === undefined ||
+        after?.type !== 'item' ||
+        before.id !== after.id ||
+        before.type !== after.type ||
+        !updateOwnerIds.delete(after.id)
+      ) {
+        return undefined;
+      }
+      dirty.push(after.id);
+    }
+    if (updateOwnerIds.size === 0) return Object.freeze(dirty);
+  }
+  const rootOrder = new Map<string, number>();
+  for (let index = 0; index < candidate.length; index += 1) {
+    const before = current[index];
+    const after = candidate[index];
+    if (
+      before === undefined ||
+      after === undefined ||
+      before.id !== after.id ||
+      before.type !== after.type ||
+      rootOrder.has(after.id)
+    ) {
+      return undefined;
+    }
+    rootOrder.set(after.id, index);
+  }
+  const dirty = new Set<string>();
+  for (const update of updates) {
+    const index = rootOrder.get(update.ownerId);
+    const root = index === undefined ? undefined : candidate[index];
+    if (root?.type !== 'item') return undefined;
+    dirty.add(update.ownerId);
+  }
+  return Object.freeze(
+    [...dirty].sort((left, right) => rootOrder.get(left)! - rootOrder.get(right)!),
+  );
+}
+
+function normalizeEngineMutationTarget(value: unknown): PatchMapMutationTarget {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('target must be an object');
+  }
+  const record = value as Readonly<Record<string, unknown>>;
+  if (record.kind === 'element' && typeof record.id === 'string' && record.id.length > 0) {
+    if (Object.keys(record).some((key) => key !== 'kind' && key !== 'id')) {
+      throw new TypeError('element target contains an unknown field');
+    }
+    return Object.freeze({ kind: 'element', id: record.id });
+  }
+  if (
+    record.kind === 'component' &&
+    typeof record.ownerId === 'string' &&
+    record.ownerId.length > 0 &&
+    typeof record.id === 'string' &&
+    record.id.length > 0
+  ) {
+    if (Object.keys(record).some((key) => !['kind', 'ownerId', 'id'].includes(key))) {
+      throw new TypeError('component target contains an unknown field');
+    }
+    return Object.freeze({ kind: 'component', ownerId: record.ownerId, id: record.id });
+  }
+  throw new TypeError('target must be an element or owner-qualified component');
+}
+
+function normalizeSnapshotTarget(value: unknown): PatchMapMutationTarget | null {
+  if (value === null || typeof value !== 'object') return null;
+  try {
+    return normalizeEngineMutationTarget(Reflect.get(value, 'target'));
+  } catch {
+    return null;
+  }
+}
+
+function findEngineSemanticTarget(
+  dataset: readonly NormalizedPatchMapElement[],
+  target: PatchMapMutationTarget,
+): NormalizedPatchMapElement | PatchMapComponent | null {
+  let result: NormalizedPatchMapElement | PatchMapComponent | null = null;
+  const visit = (elements: readonly NormalizedPatchMapElement[]): void => {
+    for (const element of elements) {
+      if (target.kind === 'element' && element.id === target.id) {
+        result = element;
+      }
+      if (target.kind === 'component' && element.id === target.ownerId) {
+        const components = element.type === 'item'
+          ? element.components
+          : element.type === 'grid'
+            ? element.item.components
+            : Object.freeze([] as PatchMapComponent[]);
+        const component = components.find((entry) => entry.id === target.id);
+        if (component !== undefined) {
+          result = component;
+        }
+      }
+      if (element.type === 'group') visit(element.children);
+    }
+  };
+  visit(dataset);
+  return result;
+}
+
+function cloneDetachedEngineRecord(
+  value: NormalizedPatchMapElement | PatchMapComponent,
+): Readonly<Record<string, unknown>> {
+  const clone = cloneDetachedComponentValue(value);
+  if (clone === null || typeof clone !== 'object' || Array.isArray(clone)) {
+    throw new Error('target snapshot clone lost record shape');
+  }
+  return clone as Readonly<Record<string, unknown>>;
+}
+
+function semanticTargetIdentity(target: PatchMapSemanticTarget): string {
+  return target.kind === 'element'
+    ? `element:${target.id.length}:${target.id}`
+    : `component:${target.ownerId.length}:${target.ownerId}:${target.id.length}:${target.id}`;
+}
+
+function freezeTargets(values: readonly PatchMapSemanticTarget[]): readonly PatchMapSemanticTarget[] {
+  return Object.freeze([...values]);
+}
+
+function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function freezeReconcileDiagnostics(
+  values: readonly PatchMapReconcileDiagnostic[],
+): readonly PatchMapReconcileDiagnostic[] {
+  return Object.freeze(values.map((diagnostic) => Object.freeze({ ...diagnostic })));
+}
+
+function mutationDiagnosticMapping(
+  diagnostic: PatchMapSemanticMutationDiagnostic,
+): Readonly<{
+  code: string;
+  category: PatchMapDiagnosticCategory;
+  recoverable: boolean;
+}> {
+  switch (diagnostic.reason) {
+    case 'missing-target':
+      return { code: 'MISSING_TARGET', category: 'MISSING_TARGET', recoverable: true };
+    case 'ambiguous-target':
+      return { code: 'INVALID_MUTATION', category: 'INVALID_INPUT', recoverable: true };
+    case 'unsupported-structure':
+      return { code: 'INVALID_MUTATION', category: 'INVALID_INPUT', recoverable: true };
+    case 'invalid-candidate':
+      return {
+        code: diagnostic.datasetCode ?? 'INVALID_MUTATION',
+        category: 'INVALID_INPUT',
+        recoverable: true,
+      };
+    case 'invalid-target':
+      return { code: 'INVALID_MUTATION', category: 'INVALID_INPUT', recoverable: true };
+    case 'invalid-value':
+      return { code: 'INVALID_VALUE', category: 'INVALID_INPUT', recoverable: true };
+  }
+}
+
+export function createPatchMapSurfaceGeometrySnapshot(
+  snapshot: SceneSnapshot,
+  projection: PatchMapProjectionIndex | null = null,
+  surfaceView: PatchMapSurfaceView = Object.freeze({
+    ...snapshot.view,
+    rotation: snapshot.view.rotation ?? 0,
+  }),
+): PatchMapSurfaceGeometrySnapshot {
+  const entityGeometries = snapshot.entities
+    .filter((entity) => entity.kind !== 'relation')
+    .map((entity) =>
+      createPatchMapSurfaceEntityGeometry(entity, projection, surfaceView));
+  const geometryById = new Map(entityGeometries.map((entity) => [entity.id, entity]));
+  const relations = snapshot.entities.flatMap((entity) => {
+    if (entity.kind !== 'relation') return [];
+    const sourceId = entity.data.from;
+    const targetId = entity.data.to;
+    if (typeof sourceId !== 'string' || typeof targetId !== 'string') return [];
+    const source = geometryById.get(sourceId);
+    const target = geometryById.get(targetId);
+    if (!source || !target) return [];
+    const relationProjection = projection?.relationsByEntityId?.[entity.id];
+    const fallbackProjection = Object.freeze({
+      entityId: entity.id,
+      relationId: relationSourceId(entity),
+      sourceId,
+      targetId,
+      key: `${sourceId}>${targetId}`,
+      identityKey: `${sourceId.length}:${sourceId}${targetId.length}:${targetId}`,
+      authoredIndex: 0,
+      affine: createPatchMapAffine(),
+    });
+    const resolved = resolvePatchMapRelationPath(
+      relationProjection ?? fallbackProjection,
+      {
+        id: sourceId,
+        center: source.visibleCenter ?? boundsCenter(source.worldBounds),
+        worldBounds: source.worldBounds,
+        visible: source.visible,
+      },
+      {
+        id: targetId,
+        center: target.visibleCenter ?? boundsCenter(target.worldBounds),
+        worldBounds: target.worldBounds,
+        visible: target.visible,
+      },
+      {
+        color: typeof entity.data.color === 'number' ? entity.data.color : 0x000000ff,
+        width: typeof entity.data.lineWidth === 'number' ? entity.data.lineWidth : 1,
+        opacity: entity.opacity,
+        zIndex: entity.zIndex,
+        visible: entity.visible,
+      },
+    );
+    const screenPoints = Object.freeze(
+      resolved.worldPoints.map((point) => surfacePointToScreen(point, surfaceView)),
+    );
+    const sourceWorld = resolved.worldPoints[0] ?? source.visibleCenter ?? boundsCenter(source.worldBounds);
+    const targetWorld = resolved.worldPoints[resolved.worldPoints.length - 1] ?? target.visibleCenter ?? boundsCenter(target.worldBounds);
+    const sourceScreen = screenPoints[0] ?? surfacePointToScreen(sourceWorld, surfaceView);
+    const targetScreen = screenPoints[screenPoints.length - 1] ?? surfacePointToScreen(targetWorld, surfaceView);
+    return [Object.freeze<PatchMapSurfaceRelationGeometry>({
+      id: entity.id,
+      relationId: resolved.relationId,
+      key: resolved.key,
+      identityKey: (relationProjection ?? fallbackProjection).identityKey,
+      sourceId,
+      targetId,
+      kind: resolved.kind,
+      localPoints: resolved.localPoints,
+      worldPoints: resolved.worldPoints,
+      screenPoints,
+      worldBounds: resolved.worldBounds,
+      screenBounds: boundsForTuplePoints(screenPoints),
+      visible: resolved.visible,
+      style: Object.freeze({
+        color: resolved.style.color,
+        colorHex: packedColorToHex(resolved.style.color),
+        width: resolved.style.width,
+        opacity: resolved.style.opacity,
+        zIndex: resolved.style.zIndex,
+      }),
+      visibleStrokeWidthsCssPx: Object.freeze(
+        resolved.worldStrokeWidths.map((width) => width * surfaceView.scale),
+      ),
+      worldEndpoints: Object.freeze([sourceWorld, targetWorld] as const),
+      screenEndpoints: Object.freeze([
+        sourceScreen,
+        targetScreen,
+      ] as const),
+    })];
+  });
+  const selectedRefs = new Set(snapshot.selection.refs.map((ref) => `${ref.slot}:${ref.generation}`));
+  const selectedBounds = snapshot.entities.flatMap((entity) => {
+    if (entity.kind === 'relation' || !selectedRefs.has(`${entity.ref.slot}:${entity.ref.generation}`)) return [];
+    const geometry = geometryById.get(entity.id);
+    return geometry ? [geometry.screenBounds] : [];
+  });
+  const selectionOverlay = unionBounds(selectedBounds);
+
+  return Object.freeze({
+    revision: snapshot.revision,
+    sceneRevision: snapshot.revision,
+    entities: Object.freeze(entityGeometries),
+    relations: Object.freeze(relations),
+    omittedRelations: Object.freeze((projection?.omittedRelations ?? []).map((relation) =>
+      Object.freeze({
+        id: relation.entityId,
+        relationId: relation.relationId,
+        key: relation.key,
+        identityKey: relation.identityKey,
+        sourceId: relation.sourceId,
+        targetId: relation.targetId,
+        authoredIndex: relation.authoredIndex,
+        reason: relation.reason,
+      }))),
+    selectionOverlay: selectionOverlay === null
+      ? null
+      : Object.freeze({ screenBounds: selectionOverlay }),
+  });
+}
+
+function createPatchMapSurfaceEntityGeometry(
+  entity: SceneSnapshot['entities'][number],
+  projection: PatchMapProjectionIndex | null,
+  surfaceView: PatchMapSurfaceView,
+): PatchMapSurfaceEntityGeometry {
+  const entityProjection = projection?.byEntityId[entity.id];
+  const geometry = entityProjection
+    ? resolveProjectedEntityGeometry(entityProjection, surfaceView, projection)
+    : resolveDenseEntityGeometry(entity.bounds, entity.rotation, surfaceView);
+  return Object.freeze({
+    id: entity.id,
+    kind: entity.kind,
+    localBounds: entityProjection?.localBounds ?? freezeBounds(
+      0,
+      0,
+      entity.bounds.width,
+      entity.bounds.height,
+    ),
+    worldBounds: geometry.worldBounds,
+    screenBounds: geometry.screenBounds,
+    visibleBounds: entity.visible ? geometry.worldBounds : null,
+    visible: entity.visible,
+    interactive: entity.interactive,
+    scaleX: entityProjection?.scaleX ?? 1,
+    scaleY: entityProjection?.scaleY ?? 1,
+    ...(entityProjection?.ownerItemId ? { ownerItemId: entityProjection.ownerItemId } : {}),
+    ...(entityProjection?.componentId ? { componentId: entityProjection.componentId } : {}),
+    ...(entityProjection?.componentType ? { componentType: entityProjection.componentType } : {}),
+    ...(entityProjection
+      ? {
+          contentOrientation: entityProjection.contentOrientation,
+          screenBasis: geometry.screenBasis,
+          visibleCenter: geometry.visibleCenter,
+          screenAngle: entityProjection.contentOrientation === 'upright'
+            ? normalizeDegrees(
+                Math.atan2(geometry.screenBasis[1], geometry.screenBasis[0])
+                  * 180 / Math.PI,
+              )
+            : normalizeDegrees(entityProjection.rotationDegrees + surfaceView.rotation),
+        }
+      : {}),
+  });
+}
+
+export function createPatchMapSurfaceWorldGeometrySnapshot(
+  snapshot: SceneSnapshot,
+  projection: PatchMapProjectionIndex | null = null,
+  surfaceView: PatchMapSurfaceView = Object.freeze({
+    ...snapshot.view,
+    rotation: snapshot.view.rotation ?? 0,
+  }),
+): PatchMapViewportGeometry {
+  const resolvedById = new Map<string, Readonly<{
+    readonly worldBounds: readonly [number, number, number, number];
+    readonly visibleCenter: readonly [number, number];
+    readonly visible: boolean;
+  }>>();
+  const entities = snapshot.entities.flatMap((entity) => {
+    if (entity.kind === 'relation') return [];
+    const entityProjection = projection?.byEntityId[entity.id];
+    const geometry = entityProjection
+      ? resolveProjectedEntityWorldGeometry(entityProjection, surfaceView, projection)
+      : resolveDenseEntityWorldGeometry(entity.bounds, entity.rotation);
+    const resolved = Object.freeze({
+      worldBounds: geometry.worldBounds,
+      visibleCenter: geometry.visibleCenter,
+      visible: entity.visible,
+    });
+    resolvedById.set(entity.id, resolved);
+    return [Object.freeze({
+      id: entity.id,
+      worldBounds: geometry.worldBounds,
+      visible: entity.visible,
+    })];
+  });
+  const relations = snapshot.entities.flatMap((entity) => {
+    if (entity.kind !== 'relation') return [];
+    const sourceId = entity.data.from;
+    const targetId = entity.data.to;
+    if (typeof sourceId !== 'string' || typeof targetId !== 'string') return [];
+    const source = resolvedById.get(sourceId);
+    const target = resolvedById.get(targetId);
+    if (!source || !target) return [];
+    const relationProjection = projection?.relationsByEntityId?.[entity.id];
+    const fallbackProjection = Object.freeze({
+      entityId: entity.id,
+      relationId: relationSourceId(entity),
+      sourceId,
+      targetId,
+      key: `${sourceId}>${targetId}`,
+      identityKey: `${sourceId.length}:${sourceId}${targetId.length}:${targetId}`,
+      authoredIndex: 0,
+      affine: createPatchMapAffine(),
+    });
+    const resolved = resolvePatchMapRelationPath(
+      relationProjection ?? fallbackProjection,
+      {
+        id: sourceId,
+        center: source.visibleCenter,
+        worldBounds: source.worldBounds,
+        visible: source.visible,
+      },
+      {
+        id: targetId,
+        center: target.visibleCenter,
+        worldBounds: target.worldBounds,
+        visible: target.visible,
+      },
+      {
+        color: typeof entity.data.color === 'number' ? entity.data.color : 0x000000ff,
+        width: typeof entity.data.lineWidth === 'number' ? entity.data.lineWidth : 1,
+        opacity: entity.opacity,
+        zIndex: entity.zIndex,
+        visible: entity.visible,
+      },
+    );
+    return [Object.freeze({
+      id: entity.id,
+      relationId: resolved.relationId,
+      sourceId,
+      targetId,
+      worldBounds: resolved.worldBounds,
+      visible: resolved.visible,
+    })];
+  });
+  return Object.freeze({
+    entities: Object.freeze(entities),
+    relations: Object.freeze(relations),
+  });
+}
+
+export function hitTestPatchMapSurfaceRelations(
+  relations: readonly PatchMapSurfaceRelationGeometry[],
+  point: PatchMapPoint,
+  options: PatchMapRelationHitOptions = {},
+): PatchMapRelationHit | null {
+  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+    throw new RangeError('relation hit point must contain finite coordinates');
+  }
+  const tolerance = options.toleranceCssPx ?? 4;
+  if (!Number.isFinite(tolerance) || tolerance < 0) {
+    throw new RangeError('toleranceCssPx must be finite and non-negative');
+  }
+  const screenPoint = Object.freeze([point.x, point.y] as const);
+  for (let relationIndex = relations.length - 1; relationIndex >= 0; relationIndex -= 1) {
+    const relation = relations[relationIndex];
+    if (!relation?.visible || !relation.screenPoints || !relation.style) continue;
+    for (let segmentIndex = relation.screenPoints.length - 1; segmentIndex >= 1; segmentIndex -= 1) {
+      const from = relation.screenPoints[segmentIndex - 1];
+      const to = relation.screenPoints[segmentIndex];
+      if (!from || !to) continue;
+      if (relationPathHitScreen(
+        Object.freeze([from, to]),
+        screenPoint,
+        relation.visibleStrokeWidthsCssPx?.[segmentIndex - 1] ?? relation.style.width,
+        tolerance,
+      )) {
+        return Object.freeze({
+          id: relation.id,
+          relationId: relation.relationId ?? relation.id,
+          key: relation.key ?? `${relation.sourceId}>${relation.targetId}`,
+          identityKey: relation.identityKey ??
+            `${relation.sourceId.length}:${relation.sourceId}${relation.targetId.length}:${relation.targetId}`,
+          sourceId: relation.sourceId,
+          targetId: relation.targetId,
+        });
+      }
+    }
+  }
+  return null;
+}
+
+const PATCH_MAP_RELATION_HIT_CELL_SIZE = 64;
+const PATCH_MAP_RELATION_HIT_MAX_CELLS_PER_PATH = 1_024;
+
+export function buildPatchMapRelationHitIndex(
+  relations: readonly PatchMapSurfaceRelationGeometry[],
+): PatchMapRelationHitIndex {
+  const mutable = new Map<string, number[]>();
+  const overflow: number[] = [];
+  relations.forEach((relation, index) => {
+    if (
+      !relation.visible || !relation.style ||
+      !relation.screenPoints || relation.screenPoints.length < 2
+    ) return;
+    const strokeRadius = Math.max(
+      4,
+      ...(relation.visibleStrokeWidthsCssPx ?? [relation.style?.width ?? 0]).map(
+        (width) => width / 2,
+      ),
+    );
+    const cellKeys = relationHitPathCellKeys(relation.screenPoints, strokeRadius);
+    if (cellKeys === null) {
+      overflow.push(index);
+      return;
+    }
+    for (const key of cellKeys) {
+      const indices = mutable.get(key) ?? [];
+      indices.push(index);
+      mutable.set(key, indices);
+    }
+  });
+  return Object.freeze({
+    cells: new Map(
+      [...mutable].map(([key, indices]) => [key, Object.freeze(indices)] as const),
+    ),
+    overflow: Object.freeze(overflow),
+  });
+}
+
+export function queryPatchMapRelationHitIndex(
+  index: PatchMapRelationHitIndex,
+  point: PatchMapPoint,
+): readonly number[] {
+  const local = index.cells.get(relationHitCellKey(point.x, point.y)) ?? [];
+  return mergeOrderedRelationIndices(local, index.overflow);
+}
+
+function relationHitCellKey(x: number, y: number): string {
+  return `${Math.floor(x / PATCH_MAP_RELATION_HIT_CELL_SIZE)}:${Math.floor(y / PATCH_MAP_RELATION_HIT_CELL_SIZE)}`;
+}
+
+function relationHitPathCellKeys(
+  points: readonly (readonly [number, number])[],
+  radius: number,
+): ReadonlySet<string> | null {
+  if (!Number.isFinite(radius) || radius < 0) return null;
+  const halo = Math.ceil(radius / PATCH_MAP_RELATION_HIT_CELL_SIZE);
+  const haloWidth = halo * 2 + 1;
+  const cellsPerStep = haloWidth * haloWidth;
+  if (
+    !Number.isSafeInteger(halo) ||
+    !Number.isSafeInteger(cellsPerStep) ||
+    cellsPerStep > PATCH_MAP_RELATION_HIT_MAX_CELLS_PER_PATH
+  ) {
+    return null;
+  }
+
+  const keys = new Set<string>();
+  for (let index = 1; index < points.length; index += 1) {
+    const from = points[index - 1];
+    const to = points[index];
+    if (!from || !to) continue;
+    const startColumn = relationHitCellCoordinate(from[0]);
+    const startRow = relationHitCellCoordinate(from[1]);
+    const endColumn = relationHitCellCoordinate(to[0]);
+    const endRow = relationHitCellCoordinate(to[1]);
+    if (
+      startColumn === null || startRow === null ||
+      endColumn === null || endRow === null
+    ) {
+      return null;
+    }
+    const stepBudget = Math.abs(endColumn - startColumn) +
+      Math.abs(endRow - startRow) + 1;
+    if (
+      !Number.isSafeInteger(stepBudget) ||
+      stepBudget > PATCH_MAP_RELATION_HIT_MAX_CELLS_PER_PATH
+    ) {
+      return null;
+    }
+    if (!addRelationSegmentCells(
+      keys,
+      from,
+      to,
+      startColumn,
+      startRow,
+      endColumn,
+      endRow,
+      halo,
+    )) {
+      return null;
+    }
+  }
+  return keys;
+}
+
+function addRelationSegmentCells(
+  keys: Set<string>,
+  from: readonly [number, number],
+  to: readonly [number, number],
+  startColumn: number,
+  startRow: number,
+  endColumn: number,
+  endRow: number,
+  halo: number,
+): boolean {
+  let column = startColumn;
+  let row = startRow;
+  const deltaX = to[0] - from[0];
+  const deltaY = to[1] - from[1];
+  const stepX = Math.sign(deltaX);
+  const stepY = Math.sign(deltaY);
+  const tDeltaX = stepX === 0
+    ? Number.POSITIVE_INFINITY
+    : PATCH_MAP_RELATION_HIT_CELL_SIZE / Math.abs(deltaX);
+  const tDeltaY = stepY === 0
+    ? Number.POSITIVE_INFINITY
+    : PATCH_MAP_RELATION_HIT_CELL_SIZE / Math.abs(deltaY);
+  let tMaxX = stepX === 0
+    ? Number.POSITIVE_INFINITY
+    : ((stepX > 0 ? column + 1 : column) * PATCH_MAP_RELATION_HIT_CELL_SIZE - from[0]) /
+      deltaX;
+  let tMaxY = stepY === 0
+    ? Number.POSITIVE_INFINITY
+    : ((stepY > 0 ? row + 1 : row) * PATCH_MAP_RELATION_HIT_CELL_SIZE - from[1]) /
+      deltaY;
+
+  while (true) {
+    for (let rowOffset = -halo; rowOffset <= halo; rowOffset += 1) {
+      for (let columnOffset = -halo; columnOffset <= halo; columnOffset += 1) {
+        const candidateColumn = column + columnOffset;
+        const candidateRow = row + rowOffset;
+        if (!Number.isSafeInteger(candidateColumn) || !Number.isSafeInteger(candidateRow)) {
+          return false;
+        }
+        keys.add(`${candidateColumn}:${candidateRow}`);
+        if (keys.size > PATCH_MAP_RELATION_HIT_MAX_CELLS_PER_PATH) return false;
+      }
+    }
+    if (column === endColumn && row === endRow) return true;
+    if (tMaxX < tMaxY) {
+      column += stepX;
+      tMaxX += tDeltaX;
+    } else if (tMaxY < tMaxX) {
+      row += stepY;
+      tMaxY += tDeltaY;
+    } else {
+      column += stepX;
+      row += stepY;
+      tMaxX += tDeltaX;
+      tMaxY += tDeltaY;
+    }
+  }
+}
+
+function relationHitCellCoordinate(value: number): number | null {
+  if (!Number.isFinite(value)) return null;
+  const coordinate = Math.floor(value / PATCH_MAP_RELATION_HIT_CELL_SIZE);
+  return Number.isSafeInteger(coordinate) ? coordinate : null;
+}
+
+function mergeOrderedRelationIndices(
+  local: readonly number[],
+  overflow: readonly number[],
+): readonly number[] {
+  if (local.length === 0) return overflow;
+  if (overflow.length === 0) return local;
+  const merged: number[] = [];
+  let localIndex = 0;
+  let overflowIndex = 0;
+  while (localIndex < local.length || overflowIndex < overflow.length) {
+    const localValue = local[localIndex];
+    const overflowValue = overflow[overflowIndex];
+    if (overflowValue === undefined || (localValue !== undefined && localValue < overflowValue)) {
+      merged.push(localValue as number);
+      localIndex += 1;
+    } else if (localValue === undefined || overflowValue < localValue) {
+      merged.push(overflowValue);
+      overflowIndex += 1;
+    } else {
+      merged.push(localValue);
+      localIndex += 1;
+      overflowIndex += 1;
+    }
+  }
+  return Object.freeze(merged);
+}
+
+function emptyPatchMapRelationHitIndex(): PatchMapRelationHitIndex {
+  return Object.freeze({ cells: new Map(), overflow: Object.freeze([]) });
+}
+
+function relationSourceId(entity: SceneSnapshot['entities'][number]): string {
+  const tag = entity.tags.find((entry) => entry.startsWith('source:'));
+  return tag?.slice('source:'.length) || entity.id;
+}
+
+interface ResolvedEntityGeometry {
+  readonly worldBounds: readonly [number, number, number, number];
+  readonly screenBounds: readonly [number, number, number, number];
+  readonly screenBasis: PatchMapAffineBasis;
+  readonly visibleCenter: readonly [number, number];
+}
+
+interface ResolvedWorldEntityGeometry {
+  readonly worldBounds: readonly [number, number, number, number];
+  readonly worldCorners: readonly (readonly [number, number])[];
+  readonly worldBasis: PatchMapAffineBasis;
+  readonly visibleCenter: readonly [number, number];
+}
+
+function resolveProjectedEntityWorldGeometry(
+  projection: NonNullable<PatchMapProjectionIndex['byEntityId'][string]>,
+  view: PatchMapSurfaceView,
+  index?: PatchMapProjectionIndex | null,
+): ResolvedWorldEntityGeometry {
+  const orientedWorldAffine = multiplyPatchMapAffine(
+    createPatchMapAffine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
+    createPatchMapAffine(0, 0, view.rotation),
+  );
+  let worldCorners: readonly (readonly [number, number])[];
+  let worldBasis: PatchMapAffineBasis;
+  if (projection.contentOrientation === 'upright') {
+    const resolved = writePatchMapReadableRect(
+      {
+        center: [0, 0],
+        basis: [1, 0, 0, 1],
+        width: 0,
+        height: 0,
+      },
+      projection,
+      orientedWorldAffine[0],
+      orientedWorldAffine[1],
+      orientedWorldAffine[2],
+      orientedWorldAffine[3],
+      1,
+      readableBarPlacementAnchor(projection, index),
+    );
+    worldBasis = Object.freeze([
+      resolved.basis[0],
+      resolved.basis[1],
+      resolved.basis[2],
+      resolved.basis[3],
+    ] as const);
+    worldCorners = resolvedReadableCorners(resolved);
+  } else {
+    worldBasis = patchMapAffineBasis(projection.affine);
+    worldCorners = patchMapAffineCorners(projection.affine, projection.localBounds);
+  }
+  return Object.freeze({
+    worldBounds: boundsForTuplePoints(worldCorners),
+    worldCorners,
+    worldBasis,
+    visibleCenter: projection.contentOrientation === 'upright'
+      ? freezePoint(
+          (worldCorners[0]![0] + worldCorners[2]![0]) / 2,
+          (worldCorners[0]![1] + worldCorners[2]![1]) / 2,
+        )
+      : projection.visibleCenter,
+  });
+}
+
+function resolveProjectedEntityGeometry(
+  projection: NonNullable<PatchMapProjectionIndex['byEntityId'][string]>,
+  view: PatchMapSurfaceView,
+  index?: PatchMapProjectionIndex | null,
+): ResolvedEntityGeometry {
+  const worldGeometry = resolveProjectedEntityWorldGeometry(projection, view, index);
+  const orientedWorldAffine = multiplyPatchMapAffine(
+    createPatchMapAffine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
+    createPatchMapAffine(0, 0, view.rotation),
+  );
+  const screenBasis = projection.contentOrientation === 'upright'
+    ? patchMapAffineBasis(multiplyPatchMapAffine(
+        orientedWorldAffine,
+        Object.freeze([
+          worldGeometry.worldBasis[0],
+          worldGeometry.worldBasis[1],
+          worldGeometry.worldBasis[2],
+          worldGeometry.worldBasis[3],
+          0,
+          0,
+        ] as const),
+      ))
+    : patchMapAffineBasis(multiplyPatchMapAffine(orientedWorldAffine, projection.affine));
+  const screenCorners = worldGeometry.worldCorners.map((point) =>
+    surfacePointToScreen(point, view));
+  return Object.freeze({
+    worldBounds: worldGeometry.worldBounds,
+    screenBounds: boundsForTuplePoints(screenCorners),
+    screenBasis,
+    visibleCenter: worldGeometry.visibleCenter,
+  });
+}
+
+function readableBarPlacementAnchor(
+  projection: PatchMapEntityProjection,
+  index?: PatchMapProjectionIndex | null,
+): PatchMapPointTuple | undefined {
+  if (
+    projection.componentType !== 'bar'
+    || projection.ownerItemId === undefined
+  ) {
+    return undefined;
+  }
+  return index?.byEntityId[projection.ownerItemId]?.visibleCenter;
+}
+
+function resolveDenseEntityWorldGeometry(
+  bounds: Readonly<{ x: number; y: number; width: number; height: number }>,
+  rotation: number,
+): ResolvedWorldEntityGeometry {
+  const worldCorners = rotatedWorldCorners(bounds, rotation).map((point) =>
+    freezePoint(point.x, point.y));
+  return Object.freeze({
+    worldBounds: boundsForTuplePoints(worldCorners),
+    worldCorners,
+    worldBasis: patchMapAffineBasis(createPatchMapAffine(0, 0, rotation)),
+    visibleCenter: freezePoint(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+    ),
+  });
+}
+
+function resolveDenseEntityGeometry(
+  bounds: Readonly<{ x: number; y: number; width: number; height: number }>,
+  rotation: number,
+  view: PatchMapSurfaceView,
+): ResolvedEntityGeometry {
+  const worldGeometry = resolveDenseEntityWorldGeometry(bounds, rotation);
+  const screenCorners = worldGeometry.worldCorners.map((point) =>
+    surfacePointToScreen(point, view));
+  const worldAffine = multiplyPatchMapAffine(
+    createPatchMapAffine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
+    createPatchMapAffine(0, 0, view.rotation + rotation),
+  );
+  return Object.freeze({
+    worldBounds: worldGeometry.worldBounds,
+    screenBounds: boundsForTuplePoints(screenCorners),
+    screenBasis: patchMapAffineBasis(worldAffine),
+    visibleCenter: worldGeometry.visibleCenter,
+  });
+}
+
+function resolvedReadableCorners(
+  resolved: Readonly<{
+    center: readonly [number, number];
+    basis: readonly [number, number, number, number];
+    width: number;
+    height: number;
+  }>,
+): readonly (readonly [number, number])[] {
+  const halfWidth = resolved.width / 2;
+  const halfHeight = resolved.height / 2;
+  const xWidth = resolved.basis[0] * halfWidth;
+  const yWidth = resolved.basis[1] * halfWidth;
+  const xHeight = resolved.basis[2] * halfHeight;
+  const yHeight = resolved.basis[3] * halfHeight;
+  const centerX = resolved.center[0];
+  const centerY = resolved.center[1];
+  return Object.freeze([
+    freezePoint(centerX - xWidth - xHeight, centerY - yWidth - yHeight),
+    freezePoint(centerX + xWidth - xHeight, centerY + yWidth - yHeight),
+    freezePoint(centerX + xWidth + xHeight, centerY + yWidth + yHeight),
+    freezePoint(centerX - xWidth + xHeight, centerY - yWidth + yHeight),
+  ]);
+}
+
+function surfacePointToScreen(
+  point: readonly [number, number],
+  view: PatchMapSurfaceView,
+): readonly [number, number] {
+  const scaledX = point[0] * view.scale;
+  const scaledY = point[1] * view.scale;
+  const radians = view.rotation * Math.PI / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  return freezePoint(
+    view.x + (scaledX * cosine - scaledY * sine) * (view.flipX ? -1 : 1),
+    view.y + (scaledX * sine + scaledY * cosine) * (view.flipY ? -1 : 1),
+  );
+}
+
+function boundsForTuplePoints(
+  points: readonly (readonly [number, number])[],
+): readonly [number, number, number, number] {
+  const xs = points.map((point) => point[0]);
+  const ys = points.map((point) => point[1]);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  return freezeBounds(minX, minY, Math.max(...xs) - minX, Math.max(...ys) - minY);
+}
+
+function rotatedWorldCorners(
+  bounds: Readonly<{ x: number; y: number; width: number; height: number }>,
+  rotation: number,
+): readonly PatchMapPoint[] {
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
+  const radians = rotation * (Math.PI / 180);
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  const corners = [
+    [-bounds.width / 2, -bounds.height / 2],
+    [bounds.width / 2, -bounds.height / 2],
+    [bounds.width / 2, bounds.height / 2],
+    [-bounds.width / 2, bounds.height / 2],
+  ] as const;
+  return corners.map(([localX, localY]) => Object.freeze({
+    x: centerX + localX * cosine - localY * sine,
+    y: centerY + localX * sine + localY * cosine,
+  }));
+}
+
+function unionBounds(
+  bounds: readonly (readonly [number, number, number, number])[],
+): readonly [number, number, number, number] | null {
+  if (bounds.length === 0) return null;
+  const minX = Math.min(...bounds.map((entry) => entry[0]));
+  const minY = Math.min(...bounds.map((entry) => entry[1]));
+  const maxX = Math.max(...bounds.map((entry) => entry[0] + entry[2]));
+  const maxY = Math.max(...bounds.map((entry) => entry[1] + entry[3]));
+  return freezeBounds(minX, minY, maxX - minX, maxY - minY);
+}
+
+function selectionOverlayFromEntityGeometry(
+  selected: readonly PatchMapSurfaceEntityGeometry[],
+): PatchMapSurfaceGeometrySnapshot['selectionOverlay'] {
+  const screenBounds = unionBounds(selected.map((entity) => entity.screenBounds));
+  return screenBounds === null ? null : Object.freeze({ screenBounds });
+}
+
+function boundsCenter(
+  bounds: readonly [number, number, number, number],
+): readonly [number, number] {
+  return freezePoint(bounds[0] + bounds[2] / 2, bounds[1] + bounds[3] / 2);
+}
+
+function countPatchMapRelationLinks(
+  dataset: readonly NormalizedPatchMapElement[],
+): number {
+  let count = 0;
+  const visit = (elements: readonly NormalizedPatchMapElement[]): void => {
+    for (const element of elements) {
+      if (element.type === 'relations') count += element.links.length;
+      if (element.type === 'group') visit(element.children);
+    }
+  };
+  visit(dataset);
+  return count;
+}
+
+export type { PatchMapComponentVisualTarget } from './core';
+
+function freezeBounds(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): readonly [number, number, number, number] {
+  return Object.freeze([
+    snapGeometryScalar(x),
+    snapGeometryScalar(y),
+    snapGeometryScalar(width),
+    snapGeometryScalar(height),
+  ] as const);
+}
+
+function freezePoint(x: number, y: number): readonly [number, number] {
+  return Object.freeze([snapGeometryScalar(x), snapGeometryScalar(y)] as const);
+}
+
+function snapGeometryScalar(value: number): number {
+  const integer = Math.round(value);
+  return Math.abs(value - integer) <= 1e-12 ? integer : value;
+}
+
+function findElement(
+  values: readonly NormalizedPatchMapElement[],
+  id: string,
+): Readonly<Record<string, unknown>> | null {
+  for (const value of values) {
+    if (value.id === id) return value;
+    if (value.type === 'group') {
+      const nested = findElement(value.children, id);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+function selectionHitUsesSpatialFastPath(options: PatchMapSelectionHitOptions): boolean {
+  return options.candidateIds === undefined &&
+    options.rejectIds === undefined &&
+    options.lockedIds === undefined &&
+    options.predicate === undefined;
+}
+
+function enginePerformanceNow(): number {
+  return typeof performance === 'undefined' ? Date.now() : performance.now();
+}

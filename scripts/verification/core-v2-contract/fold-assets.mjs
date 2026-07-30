@@ -1,4 +1,4 @@
-export const ASSET_FOLD_REVISION = 'core-v2-assets-fold/1';
+export const ASSET_FOLD_REVISION = 'patch-map-assets-fold/1';
 
 const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
 const EXECUTION_REVISION = 'core-v2-contract-case-execution/1';

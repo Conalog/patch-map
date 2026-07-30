@@ -3,7 +3,7 @@ export const DATA_FOUNDATION_FOLD_REVISION = 'core-v2-data-foundation-fold/1';
 const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
 const EXECUTION_REVISION = 'core-v2-contract-case-execution/1';
 const DELTA_REVISION = 'core-v2-semantic-observation-delta/1';
-const BROWSER_PROBE_REVISION = 'core-v2-browser-probe/1';
+const BROWSER_PROBE_REVISION = 'patch-map-browser-probe/1';
 
 const DOMAIN_NAMES = Object.freeze([
   'case',

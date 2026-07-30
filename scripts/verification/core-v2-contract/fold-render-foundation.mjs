@@ -3,7 +3,7 @@ export const RENDER_FOUNDATION_FOLD_REVISION = 'core-v2-render-foundation-fold/1
 const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
 const EXECUTION_REVISION = 'core-v2-contract-case-execution/1';
 const DELTA_REVISION = 'core-v2-semantic-observation-delta/1';
-const BROWSER_PROBE_REVISION = 'core-v2-browser-probe/1';
+const BROWSER_PROBE_REVISION = 'patch-map-browser-probe/1';
 
 const DOMAIN_NAMES = Object.freeze([
   'case',
@@ -72,7 +72,7 @@ const CASES = Object.freeze({
 /**
  * Fold the five render-foundation executions into the canonical fourteen-domain
  * observation. This module is import-free and expected-blind; every projected
- * value comes from the executable fixture, CoreV2Engine public probes, executor
+ * value comes from the executable fixture, PatchMap public probes, executor
  * journal, cleanup proof, or an optional independent browser probe.
  */
 export function foldRenderFoundationExecution(options) {

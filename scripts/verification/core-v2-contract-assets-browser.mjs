@@ -14,8 +14,8 @@ const EXPECTED_PATH = fileURLToPath(new URL(
   '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json',
   import.meta.url,
 ));
-const VITE_CONFIG_PATH = path.join(ROOT, 'vite.core-v2-lab.config.ts');
-const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
+const VITE_CONFIG_PATH = path.join(ROOT, 'vite.patch-map-lab.config.ts');
+const BRIDGE_NAME = '__PATCH_MAP_CONTRACT_LAB__';
 const CASE_ID = 'AST-001';
 const DATASET_SIZE = '100';
 const SEED = 319;

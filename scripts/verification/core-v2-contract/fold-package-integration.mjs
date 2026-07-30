@@ -1,5 +1,5 @@
 export const PACKAGE_INTEGRATION_FOLD_REVISION =
-  'core-v2-package-integration-fold/1';
+  'patch-map-package-integration-fold/1';
 
 const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
 const DOMAIN_NAMES = Object.freeze([

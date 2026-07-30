@@ -1,31 +1,31 @@
 import {
-  CoreV2Engine,
-  createCoreV2,
+  PatchMap,
+  createPatchMapRuntime,
   worldToScreen,
-  type CoreV2,
-  type CoreV2RendererStrategy,
+  type PatchMapRuntime,
+  type PatchMapRendererStrategy,
   type EntitySnapshot,
-} from '../../src/core-v2';
+} from '../../src/patch-map';
 import {
-  CORE_V2_SYNTHETIC_ASSET_ALIAS,
-  CORE_V2_SYNTHETIC_ASSET_DATA_URL,
+  PATCH_MAP_SYNTHETIC_ASSET_ALIAS,
+  PATCH_MAP_SYNTHETIC_ASSET_DATA_URL,
   createSyntheticPatchMap,
   resolveSyntheticBitmapTextCapability,
   seededRandom,
 } from './workloads';
-import { percentile, type CoreV2Trial, type CoreV2Scale } from './protocol';
+import { percentile, type PatchMapTrial, type PatchMapScale } from './protocol';
 
 interface BenchmarkSpec {
-  readonly strategy: CoreV2RendererStrategy;
-  readonly scale: CoreV2Scale;
+  readonly strategy: PatchMapRendererStrategy;
+  readonly scale: PatchMapScale;
   readonly seed: number;
   readonly warmups: number;
   readonly measured: number;
 }
 
 interface BenchmarkResult {
-  readonly warmupRaw: readonly CoreV2Trial[];
-  readonly measuredRaw: readonly CoreV2Trial[];
+  readonly warmupRaw: readonly PatchMapTrial[];
+  readonly measuredRaw: readonly PatchMapTrial[];
   readonly environment: Readonly<Record<string, unknown>>;
 }
 
@@ -63,8 +63,8 @@ interface ExtractionBenchmarkResult {
 
 declare global {
   interface Window {
-    __PATCH_MAP_CORE_V2_BENCHMARK__: {
-      readonly selectedStrategy: CoreV2RendererStrategy;
+    __PATCH_MAP_BENCHMARK__: {
+      readonly selectedStrategy: PatchMapRendererStrategy;
       run(spec: BenchmarkSpec): Promise<BenchmarkResult>;
       runExtraction(spec: BenchmarkSpec): Promise<ExtractionBenchmarkResult>;
     };
@@ -77,14 +77,14 @@ const status = requiredElement<HTMLPreElement>('status');
 let productionInputPromise: Promise<unknown> | null = null;
 const EXTRACTIONS_PER_TRIAL = 10;
 
-window.__PATCH_MAP_CORE_V2_BENCHMARK__ = {
+window.__PATCH_MAP_BENCHMARK__ = {
   selectedStrategy: 'mesh',
   async run(spec): Promise<BenchmarkResult> {
     validateSpec(spec);
     status.textContent = `${spec.strategy}/${spec.scale}: preparing input`;
     const source = await sourceFor(spec.scale, spec.seed);
-    const warmupRaw: CoreV2Trial[] = [];
-    const measuredRaw: CoreV2Trial[] = [];
+    const warmupRaw: PatchMapTrial[] = [];
+    const measuredRaw: PatchMapTrial[] = [];
 
     for (let index = 0; index < spec.warmups; index += 1) {
       status.textContent = `${spec.strategy}/${spec.scale}: warmup ${index + 1}/${spec.warmups}`;
@@ -174,13 +174,13 @@ async function runExtractionTrial(
   surface.replaceChildren();
   const input = structuredClone(source);
   const serializedBefore = JSON.stringify(input);
-  const engine = new CoreV2Engine({
+  const engine = new PatchMap({
     assetPolicy: ({ descriptor, packageOwned }) => {
       if (
         !packageOwned
-        && descriptor.src !== CORE_V2_SYNTHETIC_ASSET_DATA_URL
+        && descriptor.src !== PATCH_MAP_SYNTHETIC_ASSET_DATA_URL
       ) {
-        throw new Error('Core v2 extraction benchmark rejected a non-fixture asset');
+        throw new Error('PatchMap extraction benchmark rejected a non-fixture asset');
       }
     },
   });
@@ -196,8 +196,8 @@ async function runExtractionTrial(
       preference: 'webgl',
       antialias: false,
       requiredAssets: [{
-        alias: CORE_V2_SYNTHETIC_ASSET_ALIAS,
-        descriptor: CORE_V2_SYNTHETIC_ASSET_DATA_URL,
+        alias: PATCH_MAP_SYNTHETIC_ASSET_ALIAS,
+        descriptor: PATCH_MAP_SYNTHETIC_ASSET_DATA_URL,
         kind: 'image',
       }],
     });
@@ -205,7 +205,7 @@ async function runExtractionTrial(
       datasetRef: `performance:${String(spec.scale)}:${seed}`,
     });
     if (JSON.stringify(input) !== serializedBefore) {
-      throw new Error('Core v2 extraction benchmark mutated its input');
+      throw new Error('PatchMap extraction benchmark mutated its input');
     }
     engine.publishFrame(0);
     await nextAnimationFrame();
@@ -230,7 +230,7 @@ async function runExtractionTrial(
       });
       extractionSamplesMs.push(performance.now() - started);
       if (!extracted.dataUrl.startsWith('data:image/png;base64,')) {
-        throw new Error('Core v2 extraction benchmark received non-PNG data');
+        throw new Error('PatchMap extraction benchmark received non-PNG data');
       }
       dataUrlLengths.push(extracted.dataUrl.length);
       capturedTuple = extracted.capturedTuple;
@@ -282,12 +282,12 @@ async function runMeasuredTrial(
   spec: BenchmarkSpec,
   trial: number,
   seed: number,
-): Promise<CoreV2Trial> {
+): Promise<PatchMapTrial> {
   await forceGc();
   const heapBefore = usedHeap();
   const result = await runTrial(source, spec, trial, seed);
 
-  // Measure only after runTrial's input clone, serialized fingerprint, CoreV2
+  // Measure only after runTrial's input clone, serialized fingerprint, PatchMapRuntime
   // instance, and Pixi application have left their lexical scope. The returned
   // numeric/raw evidence remains live by design and is included in this delta.
   await forceGc();
@@ -303,11 +303,11 @@ async function runTrial(
   spec: BenchmarkSpec,
   trial: number,
   seed: number,
-): Promise<CoreV2Trial> {
+): Promise<PatchMapTrial> {
   surface.replaceChildren();
   const input = structuredClone(source);
   const serializedBefore = JSON.stringify(input);
-  const core = await createCoreV2({
+  const core = await createPatchMapRuntime({
     target: surface,
     width: 960,
     height: 540,
@@ -318,17 +318,17 @@ async function runTrial(
     antialias: false,
     resolveBitmapTextCapability: resolveSyntheticBitmapTextCapability,
     assetPolicy: ({ descriptor }) => {
-      if (descriptor.src !== CORE_V2_SYNTHETIC_ASSET_DATA_URL) {
-        throw new Error('Core v2 benchmark asset policy rejected a non-fixture source');
+      if (descriptor.src !== PATCH_MAP_SYNTHETIC_ASSET_DATA_URL) {
+        throw new Error('PatchMap benchmark asset policy rejected a non-fixture source');
       }
     },
   });
   let destroyed = false;
   try {
-    await core.loadAsset(CORE_V2_SYNTHETIC_ASSET_ALIAS, CORE_V2_SYNTHETIC_ASSET_DATA_URL);
-    await core.loadAsset('inverter', CORE_V2_SYNTHETIC_ASSET_DATA_URL);
+    await core.loadAsset(PATCH_MAP_SYNTHETIC_ASSET_ALIAS, PATCH_MAP_SYNTHETIC_ASSET_DATA_URL);
+    await core.loadAsset('inverter', PATCH_MAP_SYNTHETIC_ASSET_DATA_URL);
     const load = core.load(input);
-    if (JSON.stringify(input) !== serializedBefore) throw new Error('Core v2 mutated benchmark input');
+    if (JSON.stringify(input) !== serializedBefore) throw new Error('PatchMap mutated benchmark input');
 
     const prepared = await core.prepare();
     const firstVisibleStarted = performance.now();
@@ -362,7 +362,7 @@ async function runTrial(
     uploadChunks += finalDebug.renderer.uploadedChunks;
     uploadBytes += finalDebug.renderer.uploadedBytes;
 
-    await core.unloadAsset(CORE_V2_SYNTHETIC_ASSET_ALIAS);
+    await core.unloadAsset(PATCH_MAP_SYNTHETIC_ASSET_ALIAS);
     await core.unloadAsset('inverter');
     const destroyStarted = performance.now();
     await core.destroy();
@@ -371,7 +371,7 @@ async function runTrial(
     const destroyedDebug = core.debugSnapshot();
 
     const reinitializeStarted = performance.now();
-    const reinitialized = await createCoreV2({
+    const reinitialized = await createPatchMapRuntime({
       target: surface,
       width: 320,
       height: 180,
@@ -451,7 +451,7 @@ async function runTrial(
   }
 }
 
-function measurePanZoom(core: CoreV2): readonly number[] {
+function measurePanZoom(core: PatchMapRuntime): readonly number[] {
   const frames: number[] = [];
   for (let index = 0; index < 24; index += 1) {
     const started = performance.now();
@@ -463,7 +463,7 @@ function measurePanZoom(core: CoreV2): readonly number[] {
   return Object.freeze(frames);
 }
 
-function ensureBarsVisible(core: CoreV2): {
+function ensureBarsVisible(core: PatchMapRuntime): {
   readonly sourceVisibleCount: number;
   readonly revealedCount: number;
   readonly animatedVisibleCount: number;
@@ -513,7 +513,7 @@ function ensureBarsVisible(core: CoreV2): {
 }
 
 function measureBarAnimation(
-  core: CoreV2,
+  core: PatchMapRuntime,
   seed: number,
   fraction: number,
   startClockMs: number,
@@ -560,7 +560,7 @@ function measureBarAnimation(
 }
 
 function measureFirstText(
-  core: CoreV2,
+  core: PatchMapRuntime,
   seed: number,
 ): { readonly entityId: string; readonly renderedCount: number; readonly phase: SplitPhase } {
   const entityId = `__core_v2_benchmark_cjk_${seed}`;
@@ -598,7 +598,7 @@ function measureFirstText(
 }
 
 function measureRandomText(
-  core: CoreV2,
+  core: PatchMapRuntime,
   seed: number,
   requiredEntityId: string,
 ): { readonly changedCount: number; readonly phase: SplitPhase } {
@@ -628,7 +628,7 @@ function measureRandomText(
   });
 }
 
-function measureHits(core: CoreV2): {
+function measureHits(core: PatchMapRuntime): {
   readonly target: EntitySnapshot | null;
   readonly operations: number;
   readonly batchMs: number;
@@ -668,7 +668,7 @@ function splitPhase(commitMs: number, renderMs: number, started: number): SplitP
   return Object.freeze({ commitMs, renderMs, totalMs: performance.now() - started });
 }
 
-function measureSelection(core: CoreV2, target: EntitySnapshot | null): SplitWithSelection {
+function measureSelection(core: PatchMapRuntime, target: EntitySnapshot | null): SplitWithSelection {
   const point = target
     ? worldToScreen(
         { x: target.bounds.x + target.bounds.width / 2, y: target.bounds.y + target.bounds.height / 2 },
@@ -709,7 +709,7 @@ function animationPhase(
   });
 }
 
-async function sourceFor(scale: CoreV2Scale, seed: number): Promise<unknown> {
+async function sourceFor(scale: PatchMapScale, seed: number): Promise<unknown> {
   if (scale !== 'production') return createSyntheticPatchMap(scale, seed);
   productionInputPromise ??= fetch('/lab/fixtures/production-like.json').then(async (response) => {
     if (!response.ok) throw new Error(`production fixture failed with HTTP ${response.status}`);

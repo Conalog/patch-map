@@ -1,24 +1,24 @@
 import productionShapedWorkloadJson from '../../docs/reference/core-v2-functional-contract/evidence/production-shaped-workload.v1.json';
 import {
-  CoreV2DatasetError,
-  CoreV2Engine,
-  createCoreV2SemanticProbe,
-  materializeCoreV2Dataset,
-  validateCoreV2DatasetReferences,
-  type CoreV2EngineGeometryProbe,
-  type CoreV2EngineTextProbe,
-  type CoreV2EngineTransactionPerformanceProbe,
-  type CoreV2SemanticProductProbe,
-  type CoreV2SurfaceEntityGeometry,
-} from '../../src/core-v2';
-import { buildCoreV2SeededScenarioScene } from '../../lab/performance-v2/contract/seeded-scene';
+  PatchMapDatasetError,
+  PatchMap,
+  createPatchMapSemanticProbe,
+  materializePatchMapDataset,
+  validatePatchMapDatasetReferences,
+  type PatchMapEngineGeometryProbe,
+  type PatchMapEngineTextProbe,
+  type PatchMapEngineTransactionPerformanceProbe,
+  type PatchMapSemanticProductProbe,
+  type PatchMapSurfaceEntityGeometry,
+} from '../../src/patch-map';
+import { buildPatchMapSeededScenarioScene } from '../../lab/patch-map/contract/seeded-scene';
 
-export const CORE_V2_CONTRACT_PERFORMANCE_WORKLOAD_REVISION =
+export const PATCH_MAP_CONTRACT_PERFORMANCE_WORKLOAD_REVISION =
   'core-v2-contract-performance-workload/1' as const;
-export const CORE_V2_CONTRACT_PERFORMANCE_SEED = 319;
-export const CORE_V2_CONTRACT_PERFORMANCE_WARMUPS = 2;
-export const CORE_V2_CONTRACT_PERFORMANCE_SAMPLES = 7;
-export const CORE_V2_CONTRACT_PERFORMANCE_SIZES = Object.freeze([
+export const PATCH_MAP_CONTRACT_PERFORMANCE_SEED = 319;
+export const PATCH_MAP_CONTRACT_PERFORMANCE_WARMUPS = 2;
+export const PATCH_MAP_CONTRACT_PERFORMANCE_SAMPLES = 7;
+export const PATCH_MAP_CONTRACT_PERFORMANCE_SIZES = Object.freeze([
   100,
   500,
   1_000,
@@ -27,17 +27,17 @@ export const CORE_V2_CONTRACT_PERFORMANCE_SIZES = Object.freeze([
   'production-shaped-workload-v1',
 ] as const);
 
-export type CoreV2ContractPerformanceSize =
-  (typeof CORE_V2_CONTRACT_PERFORMANCE_SIZES)[number];
+export type PatchMapContractPerformanceSize =
+  (typeof PATCH_MAP_CONTRACT_PERFORMANCE_SIZES)[number];
 
-export interface CoreV2VisibleMeasurement<Result> {
+export interface PatchMapVisibleMeasurement<Result> {
   readonly result: Result;
   readonly actionToVisibleMs: number;
   readonly frameGapMs: number;
   readonly frameTimeMs: number;
 }
 
-export interface CoreV2PerformanceBarState {
+export interface PatchMapPerformanceBarState {
   readonly targets: readonly Readonly<{
     readonly ownerId: string;
     readonly componentId: 'bar';
@@ -48,11 +48,11 @@ export interface CoreV2PerformanceBarState {
   readonly retargetAtMs: number;
   readonly settleAtMs: number;
   readonly diagnosticTransactionPhases?: readonly (
-    CoreV2EngineTransactionPerformanceProbe | null
+    PatchMapEngineTransactionPerformanceProbe | null
   )[];
 }
 
-export interface CoreV2PerformanceTextObservation {
+export interface PatchMapPerformanceTextObservation {
   readonly targetCount: number;
   readonly staleLayoutCountAfterFrame: number;
   readonly normalizedLinesExact: boolean;
@@ -61,17 +61,17 @@ export interface CoreV2PerformanceTextObservation {
   readonly actionToVisibleMs: number;
   readonly frameGapMs: number;
   readonly sceneRevisionDelta: number;
-  readonly diagnosticTransactionPhase?: CoreV2EngineTransactionPerformanceProbe | null;
+  readonly diagnosticTransactionPhase?: PatchMapEngineTransactionPerformanceProbe | null;
 }
 
-export interface CoreV2TextUpdatePublicationClassification {
+export interface PatchMapTextUpdatePublicationClassification {
   readonly visibleFrameRequired: boolean;
   readonly attachmentCurrent: boolean;
   readonly staleLayout: boolean;
   readonly unresolvedPaintIntent: boolean;
 }
 
-export interface CoreV2PerformanceBulkObservation {
+export interface PatchMapPerformanceBulkObservation {
   readonly targetCount: number;
   readonly actionToVisibleMs: number;
   readonly frameGapMs: number;
@@ -80,10 +80,10 @@ export interface CoreV2PerformanceBulkObservation {
   readonly changed: boolean;
   readonly invalidNodeCount: number;
   readonly nonFiniteCount: number;
-  readonly diagnosticTransactionPhase?: CoreV2EngineTransactionPerformanceProbe | null;
+  readonly diagnosticTransactionPhase?: PatchMapEngineTransactionPerformanceProbe | null;
 }
 
-export interface CoreV2PerformanceInteractionObservation {
+export interface PatchMapPerformanceInteractionObservation {
   readonly gestures: readonly string[];
   readonly inputToVisibleMs: readonly number[];
   readonly frameGapsMs: readonly number[];
@@ -93,11 +93,11 @@ export interface CoreV2PerformanceInteractionObservation {
   readonly finalSelectionIds: readonly string[];
   readonly diagnosticOperationMs?: readonly number[];
   readonly diagnosticTransactionPhases?: readonly (
-    CoreV2EngineTransactionPerformanceProbe | null
+    PatchMapEngineTransactionPerformanceProbe | null
   )[];
 }
 
-export interface CoreV2PerformanceSemanticProjection {
+export interface PatchMapPerformanceSemanticProjection {
   readonly scene: Readonly<{
     readonly semanticHash: string | null;
     readonly rootCount: number;
@@ -121,18 +121,18 @@ export interface CoreV2PerformanceSemanticProjection {
   }>;
 }
 
-export function buildCoreV2ContractPerformanceDataset(
-  size: CoreV2ContractPerformanceSize,
-  seed = CORE_V2_CONTRACT_PERFORMANCE_SEED,
+export function buildPatchMapContractPerformanceDataset(
+  size: PatchMapContractPerformanceSize,
+  seed = PATCH_MAP_CONTRACT_PERFORMANCE_SEED,
   actionIndex = 0,
 ): readonly Readonly<Record<string, unknown>>[] {
   const dataset = size === 'production-shaped-workload-v1'
     ? structuredClone(productionShapedWorkloadJson)
-    : structuredClone(buildCoreV2SeededScenarioScene(size, seed, actionIndex));
+    : structuredClone(buildPatchMapSeededScenarioScene(size, seed, actionIndex));
   return deepFreeze(dataset) as readonly Readonly<Record<string, unknown>>[];
 }
 
-export async function canonicalCoreV2DatasetSha256(input: unknown): Promise<string> {
+export async function canonicalPatchMapDatasetSha256(input: unknown): Promise<string> {
   const digest = await crypto.subtle.digest(
     'SHA-256',
     new TextEncoder().encode(JSON.stringify(sortJson(input))),
@@ -142,7 +142,7 @@ export async function canonicalCoreV2DatasetSha256(input: unknown): Promise<stri
     .join('');
 }
 
-export function validateCoreV2ContractPerformanceDataset(
+export function validatePatchMapContractPerformanceDataset(
   input: unknown,
 ): Readonly<{
   semanticHash: string;
@@ -154,21 +154,21 @@ export function validateCoreV2ContractPerformanceDataset(
     datasetPath: string;
   }>[];
 }> {
-  const materialized = materializeCoreV2Dataset(input);
+  const materialized = materializePatchMapDataset(input);
   const strictReferenceDiagnostics: Array<Readonly<{
     code: string;
     datasetPath: string;
   }>> = [];
   try {
-    validateCoreV2DatasetReferences(materialized.dataset);
+    validatePatchMapDatasetReferences(materialized.dataset);
   } catch (error) {
-    if (!(error instanceof CoreV2DatasetError) || error.code !== 'MISSING_TARGET') throw error;
+    if (!(error instanceof PatchMapDatasetError) || error.code !== 'MISSING_TARGET') throw error;
     strictReferenceDiagnostics.push(Object.freeze({
       code: error.code,
       datasetPath: error.datasetPath,
     }));
   }
-  const semantic = createCoreV2SemanticProbe(materialized, {
+  const semantic = createPatchMapSemanticProbe(materialized, {
     lifecycle: materialized.rootIds.length === 0 ? 'ready-empty' : 'scene-ready',
   });
   return Object.freeze({
@@ -180,8 +180,8 @@ export function validateCoreV2ContractPerformanceDataset(
   });
 }
 
-export async function initializeCoreV2ContractPerformanceEngine(
-  engine: CoreV2Engine,
+export async function initializePatchMapContractPerformanceEngine(
+  engine: PatchMap,
   input: Readonly<{
     instanceId: string;
     target?: HTMLElement;
@@ -205,11 +205,11 @@ export async function initializeCoreV2ContractPerformanceEngine(
   });
 }
 
-export async function measureCoreV2VisibleAction<Result>(
-  engine: CoreV2Engine,
+export async function measurePatchMapVisibleAction<Result>(
+  engine: PatchMap,
   timeMs: number,
   operation: () => Result | Promise<Result>,
-): Promise<CoreV2VisibleMeasurement<Result>> {
+): Promise<PatchMapVisibleMeasurement<Result>> {
   const beforeFrame = await nextAnimationFrameTime();
   const started = performance.now();
   const result = await operation();
@@ -223,8 +223,8 @@ export async function measureCoreV2VisibleAction<Result>(
   });
 }
 
-export async function startCoreV2BarAnimation(
-  engine: CoreV2Engine,
+export async function startPatchMapBarAnimation(
+  engine: PatchMap,
   input: Readonly<{
     size: number;
     seed: number;
@@ -233,7 +233,7 @@ export async function startCoreV2BarAnimation(
     retargetAtMs: number;
     diagnostics?: boolean;
   }>,
-): Promise<CoreV2PerformanceBarState> {
+): Promise<PatchMapPerformanceBarState> {
   const targetIndices = seededIndices(input.size, input.targetFraction, input.seed);
   const firstDestinations = targetIndices.map((index, ordinal) =>
     40 + ((index * 17 + ordinal * 13 + input.seed) % 21));
@@ -243,7 +243,7 @@ export async function startCoreV2BarAnimation(
     ownerId: `node-${index}`,
     componentId: 'bar' as const,
   }));
-  const first = await measureCoreV2VisibleAction(engine, 0, () =>
+  const first = await measurePatchMapVisibleAction(engine, 0, () =>
     engine.updateBarHeights({
       actionId: `prf-bar-start-${input.seed}`,
       targets,
@@ -253,7 +253,7 @@ export async function startCoreV2BarAnimation(
     ? engine.transactionPerformanceProbe()
     : null;
   requireCommitted(first.result, 'initial bar animation transaction');
-  const midpoint = await measureCoreV2VisibleAction(engine, input.retargetAtMs, () =>
+  const midpoint = await measurePatchMapVisibleAction(engine, input.retargetAtMs, () =>
     engine.updateBarHeights({
       actionId: `prf-bar-retarget-${input.seed}`,
       targets,
@@ -284,9 +284,9 @@ export async function startCoreV2BarAnimation(
   });
 }
 
-export async function panZoomAndSettleCoreV2BarAnimation(
-  engine: CoreV2Engine,
-  state: CoreV2PerformanceBarState,
+export async function panZoomAndSettlePatchMapBarAnimation(
+  engine: PatchMap,
+  state: PatchMapPerformanceBarState,
   input: Readonly<{
     panCss: readonly [number, number];
     zoomFactor: number;
@@ -300,16 +300,16 @@ export async function panZoomAndSettleCoreV2BarAnimation(
   nonFiniteCount: number;
   staleGestureCount: number;
   diagnosticTransactionPhases?: readonly (
-    CoreV2EngineTransactionPerformanceProbe | null
+    PatchMapEngineTransactionPerformanceProbe | null
   )[];
 }>> {
   const actionToVisibleMs = [...state.actionToVisibleMs];
   const frameGapsMs = [...state.frameGapsMs];
-  const pan = await measureCoreV2VisibleAction(engine, state.retargetAtMs + 16, () =>
+  const pan = await measurePatchMapVisibleAction(engine, state.retargetAtMs + 16, () =>
     engine.panViewport(input.panCss, 'pointer'));
   actionToVisibleMs.push(pan.actionToVisibleMs);
   frameGapsMs.push(pan.frameGapMs);
-  const zoom = await measureCoreV2VisibleAction(engine, state.retargetAtMs + 32, () =>
+  const zoom = await measurePatchMapVisibleAction(engine, state.retargetAtMs + 32, () =>
     engine.zoomViewportAt({
       factor: input.zoomFactor,
       anchorCss: input.anchorCss,
@@ -322,7 +322,7 @@ export async function panZoomAndSettleCoreV2BarAnimation(
     state.retargetAtMs + 128,
     state.settleAtMs,
   ]) {
-    const frame = await measureCoreV2VisibleAction(engine, timeMs, () => undefined);
+    const frame = await measurePatchMapVisibleAction(engine, timeMs, () => undefined);
     actionToVisibleMs.push(frame.actionToVisibleMs);
     frameGapsMs.push(frame.frameGapMs);
   }
@@ -351,8 +351,8 @@ export async function panZoomAndSettleCoreV2BarAnimation(
   });
 }
 
-export async function updateCoreV2RandomText(
-  engine: CoreV2Engine,
+export async function updatePatchMapRandomText(
+  engine: PatchMap,
   input: Readonly<{
     size: number;
     seed: number;
@@ -362,7 +362,7 @@ export async function updateCoreV2RandomText(
     timeMs: number;
     diagnostics?: boolean;
   }>,
-): Promise<CoreV2PerformanceTextObservation> {
+): Promise<PatchMapPerformanceTextObservation> {
   const targetIndices = seededIndices(input.size, input.targetFraction, input.seed ^ input.actionIndex);
   const targets = targetIndices.map((index) => ({
     ownerId: `node-${index}`,
@@ -382,7 +382,7 @@ export async function updateCoreV2RandomText(
       : {}),
   }));
   const before = engine.snapshot().revisions.sceneRevision;
-  const measurement = await measureCoreV2VisibleAction(engine, input.timeMs, () =>
+  const measurement = await measurePatchMapVisibleAction(engine, input.timeMs, () =>
     engine.updateTexts({
       actionId: `prf-text-${input.actionIndex}-${input.seed}`,
       targets,
@@ -408,7 +408,7 @@ export async function updateCoreV2RandomText(
       ownerId: `node-${index}`,
       id: 'label',
     });
-    const publication = classifyCoreV2TextUpdatePublication(
+    const publication = classifyPatchMapTextUpdatePublication(
       probe,
       probe?.entityId === null || probe?.entityId === undefined
         ? undefined
@@ -444,15 +444,15 @@ export async function updateCoreV2RandomText(
  * semantic/layout/renderer signature must already be attached so the next
  * visible frame cannot expose the prior glyphs.
  */
-export function classifyCoreV2TextUpdatePublication(
+export function classifyPatchMapTextUpdatePublication(
   probe: Pick<
-    CoreV2EngineTextProbe,
+    PatchMapEngineTextProbe,
     'entityId' | 'publication' | 'renderer' | 'rendererPaint'
   > | null,
-  geometry: Pick<CoreV2SurfaceEntityGeometry, 'screenBounds'> | undefined,
+  geometry: Pick<PatchMapSurfaceEntityGeometry, 'screenBounds'> | undefined,
   viewportScreenBounds: readonly [number, number, number, number],
   cullPadding = 32,
-): CoreV2TextUpdatePublicationClassification {
+): PatchMapTextUpdatePublicationClassification {
   const visibleFrameRequired = geometry === undefined ||
     boundsIntersectExpandedViewport(
       geometry.screenBounds,
@@ -500,8 +500,8 @@ function boundsIntersectExpandedViewport(
     y <= viewportY + viewportHeight + padding;
 }
 
-export async function applyCoreV2PerformanceBulkPatch(
-  engine: CoreV2Engine,
+export async function applyPatchMapPerformanceBulkPatch(
+  engine: PatchMap,
   input: Readonly<{
     size: number;
     seed: number;
@@ -511,10 +511,10 @@ export async function applyCoreV2PerformanceBulkPatch(
     actionId: string;
     diagnostics?: boolean;
   }>,
-): Promise<CoreV2PerformanceBulkObservation> {
+): Promise<PatchMapPerformanceBulkObservation> {
   const targetIndices = seededIndices(input.size, input.targetFraction, input.seed);
   const before = engine.snapshot().revisions.sceneRevision;
-  const measurement = await measureCoreV2VisibleAction(engine, input.timeMs, () =>
+  const measurement = await measurePatchMapVisibleAction(engine, input.timeMs, () =>
     engine.bulkPatch({
       strict: input.strict,
       actionId: input.actionId,
@@ -544,8 +544,8 @@ export async function applyCoreV2PerformanceBulkPatch(
   });
 }
 
-export async function runCoreV2ContinuousInteraction(
-  engine: CoreV2Engine,
+export async function runPatchMapContinuousInteraction(
+  engine: PatchMap,
   input: Readonly<{
     size: number;
     seed: number;
@@ -554,12 +554,12 @@ export async function runCoreV2ContinuousInteraction(
     startTimeMs?: number;
     diagnostics?: boolean;
   }>,
-): Promise<CoreV2PerformanceInteractionObservation> {
+): Promise<PatchMapPerformanceInteractionObservation> {
   const inputToVisibleMs: number[] = [];
   const frameGapsMs: number[] = [];
   const diagnosticOperationMs: number[] = [];
   const diagnosticTransactionPhases: Array<
-    CoreV2EngineTransactionPerformanceProbe | null
+    PatchMapEngineTransactionPerformanceProbe | null
   > = [];
   let transformedHitMismatchCount = 0;
   const selectionId = 'node-0';
@@ -572,7 +572,7 @@ export async function runCoreV2ContinuousInteraction(
     const geometry = requiredEntityGeometry(engine.geometryProbe(), selectionId);
     const point = boundsCenter(geometry.screenBounds);
     let operationMs = 0;
-    const measurement = await measureCoreV2VisibleAction(engine, timeMs, () => {
+    const measurement = await measurePatchMapVisibleAction(engine, timeMs, () => {
       const operationStarted = performance.now();
       try {
         switch (gesture) {
@@ -679,9 +679,9 @@ export async function runCoreV2ContinuousInteraction(
   });
 }
 
-export function projectCoreV2PerformanceSemantics(
-  engine: CoreV2Engine,
-): CoreV2PerformanceSemanticProjection {
+export function projectPatchMapPerformanceSemantics(
+  engine: PatchMap,
+): PatchMapPerformanceSemanticProjection {
   const snapshot = engine.snapshot();
   const semantic = engine.semanticProbe();
   const revisions = [
@@ -730,14 +730,14 @@ export function projectCoreV2PerformanceSemantics(
   });
 }
 
-export function countCoreV2LongTasksAtLeast(
+export function countPatchMapLongTasksAtLeast(
   durationsMs: readonly number[],
   thresholdMs: number,
 ): number {
   return durationsMs.filter((duration) => duration >= thresholdMs).length;
 }
 
-export function coreV2PerformancePercentile(
+export function patchMapPerformancePercentile(
   values: readonly number[],
   quantile: number,
 ): number {
@@ -777,20 +777,20 @@ function requireCommitted(
 }
 
 function requiredEntityGeometry(
-  geometry: CoreV2EngineGeometryProbe | null,
+  geometry: PatchMapEngineGeometryProbe | null,
   id: string,
-): CoreV2EngineGeometryProbe['entities'][number] {
+): PatchMapEngineGeometryProbe['entities'][number] {
   const entity = geometry?.entities.find((candidate) => candidate.id === id);
   if (entity === undefined) throw new Error(`missing aggregate geometry for ${id}`);
   return entity;
 }
 
 function runPerformanceTransformerGesture(
-  engine: CoreV2Engine,
+  engine: PatchMap,
   pointerId: number,
   actionId: string,
   handle: 'frame' | 'se' | 'rotate',
-  request: Parameters<CoreV2Engine['previewTransformerEdit']>[1],
+  request: Parameters<PatchMap['previewTransformerEdit']>[1],
 ): unknown {
   engine.beginTransformerEdit({
     pointerId,
@@ -816,7 +816,7 @@ function boundsCenter(bounds: readonly [number, number, number, number]): Readon
   });
 }
 
-function staleGestureCount(engine: CoreV2Engine): number {
+function staleGestureCount(engine: PatchMap): number {
   const pointer = engine.pointerGestureProbe();
   const transformer = engine.transformerEditProbe();
   return pointer.staleGestureCount + transformer.staleCompletionCount;

@@ -1,9 +1,9 @@
-export const CORE_V2_SCALE_MATRIX = Object.freeze([100, 500, 1_000, 2_000, 5_000] as const);
-export const CORE_V2_WARMUP_RUNS = 2;
-export const CORE_V2_MEASURED_RUNS = 7;
-export const CORE_V2_CPU_THROTTLE_RATE = 4;
+export const PATCH_MAP_SCALE_MATRIX = Object.freeze([100, 500, 1_000, 2_000, 5_000] as const);
+export const PATCH_MAP_WARMUP_RUNS = 2;
+export const PATCH_MAP_MEASURED_RUNS = 7;
+export const PATCH_MAP_CPU_THROTTLE_RATE = 4;
 
-export type CoreV2Scale = (typeof CORE_V2_SCALE_MATRIX)[number] | 'production';
+export type PatchMapScale = (typeof PATCH_MAP_SCALE_MATRIX)[number] | 'production';
 
 export interface SummaryStats {
   readonly samples: readonly number[];
@@ -29,7 +29,7 @@ export interface SplitPhaseSample {
   readonly totalMs: number;
 }
 
-export interface CoreV2TrialPhases {
+export interface PatchMapTrialPhases {
   readonly applicationInitMs: number;
   readonly normalizeMs: number;
   readonly storeLoadMs: number;
@@ -51,7 +51,7 @@ export interface CoreV2TrialPhases {
   readonly retainedJsHeapBytes: number | null;
 }
 
-export interface CoreV2TrialDiagnostics {
+export interface PatchMapTrialDiagnostics {
   readonly sourceRecordCount: number;
   readonly expandedEntityCount: number;
   readonly componentCount: number;
@@ -80,11 +80,11 @@ export interface CoreV2TrialDiagnostics {
   readonly initialFallbackTextCount: number;
 }
 
-export interface CoreV2Trial {
+export interface PatchMapTrial {
   readonly trial: number;
   readonly seed: number;
-  readonly phases: CoreV2TrialPhases;
-  readonly diagnostics: CoreV2TrialDiagnostics;
+  readonly phases: PatchMapTrialPhases;
+  readonly diagnostics: PatchMapTrialDiagnostics;
 }
 
 export function summarize(samples: readonly number[]): SummaryStats {
@@ -110,13 +110,13 @@ export function percentile(samples: readonly number[], quantile: number): number
 }
 
 export function assertProtocolTrials(
-  warmupRaw: readonly CoreV2Trial[],
-  measuredRaw: readonly CoreV2Trial[],
+  warmupRaw: readonly PatchMapTrial[],
+  measuredRaw: readonly PatchMapTrial[],
 ): void {
-  if (warmupRaw.length !== CORE_V2_WARMUP_RUNS) {
-    throw new Error(`expected ${CORE_V2_WARMUP_RUNS} warmup trials, received ${warmupRaw.length}`);
+  if (warmupRaw.length !== PATCH_MAP_WARMUP_RUNS) {
+    throw new Error(`expected ${PATCH_MAP_WARMUP_RUNS} warmup trials, received ${warmupRaw.length}`);
   }
-  if (measuredRaw.length !== CORE_V2_MEASURED_RUNS) {
-    throw new Error(`expected ${CORE_V2_MEASURED_RUNS} measured trials, received ${measuredRaw.length}`);
+  if (measuredRaw.length !== PATCH_MAP_MEASURED_RUNS) {
+    throw new Error(`expected ${PATCH_MAP_MEASURED_RUNS} measured trials, received ${measuredRaw.length}`);
   }
 }

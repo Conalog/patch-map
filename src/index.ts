@@ -1,13 +1,8 @@
-export { Patchmap, type PatchmapInitOptions } from './patchmap';
-export { Transformer, type TransformerOptions } from './transformer';
-export { State, PROPAGATE_EVENT } from './state';
-export { Command, UndoRedoManager } from './history';
-export {
-  selector,
-  convertLegacyData,
-  findIntersectObject,
-  isMoved,
-  intersectPoint,
-  uid,
-} from './utils';
-export type * from './contracts';
+/**
+ * Public `@conalog/patch-map` entry.
+ *
+ * The package intentionally exposes one PixiJS product surface. Historical
+ * performance controls and experiment subpaths are not part of the release.
+ */
+export * from './patch-map/index';
+export type * from './patch-map/input';

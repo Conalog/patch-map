@@ -1,4 +1,4 @@
-export const CORE_V2_UPDATE_CONFLICT_ACTUALS_REVISION =
+export const PATCH_MAP_UPDATE_CONFLICT_ACTUALS_REVISION =
   'core-v2-update-conflict-actuals/2';
 
 const ACTUALS_BY_CASE = Object.freeze({
@@ -31,7 +31,7 @@ const ACTUALS_BY_CASE = Object.freeze({
  * path/code fingerprints alone cannot distinguish the accepted diagnostic from
  * an arbitrary new mismatch.
  */
-export function inspectCoreV2UpdateConflictActuals(caseId, actualObservation) {
+export function inspectPatchMapUpdateConflictActuals(caseId, actualObservation) {
   const records = ACTUALS_BY_CASE[caseId] ?? [];
   return Object.freeze(records.flatMap((record) => {
     const resolved = readJsonPointer(actualObservation, record.path);

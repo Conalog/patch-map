@@ -9,17 +9,17 @@ import { createServer } from 'vite';
 
 import { compareObservation } from './core-v2-contract/compare.mjs';
 import { maskVolatile } from './core-v2-contract/evidence.mjs';
-import { CORE_V2_CSM_DECLARED_IMMUTABLE_CONFLICTS } from './core-v2-contract/immutable-conflicts.mjs';
-import { inspectCoreV2UpdateConflictActuals } from './core-v2-contract/update-conflict-actuals.mjs';
+import { PATCH_MAP_CSM_DECLARED_IMMUTABLE_CONFLICTS } from './core-v2-contract/immutable-conflicts.mjs';
+import { inspectPatchMapUpdateConflictActuals } from './core-v2-contract/update-conflict-actuals.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const EXPECTED_PATH = fileURLToPath(new URL(
   '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json',
   import.meta.url,
 ));
-const VITE_CONFIG_PATH = path.join(ROOT, 'vite.core-v2-lab.config.ts');
-const BRIDGE_NAME = '__PATCH_MAP_CORE_V2_CONTRACT_LAB__';
-const GPU_PROBE_NAME = '__PATCH_MAP_CORE_V2_WEBGL_PROBE__';
+const VITE_CONFIG_PATH = path.join(ROOT, 'vite.patch-map-lab.config.ts');
+const BRIDGE_NAME = '__PATCH_MAP_CONTRACT_LAB__';
+const GPU_PROBE_NAME = '__PATCH_MAP_WEBGL_PROBE__';
 const DATASET_SIZE = '100';
 const SEED = 319;
 const EXPECTED_ASSERTION_TOTAL = 2_028;
@@ -102,13 +102,13 @@ const EVT_008_IMMUTABLE_FAILURES = Object.freeze([
   }),
 ]);
 const CSM_022_IMMUTABLE_FAILURES =
-  CORE_V2_CSM_DECLARED_IMMUTABLE_CONFLICTS['CSM-022'];
+  PATCH_MAP_CSM_DECLARED_IMMUTABLE_CONFLICTS['CSM-022'];
 const CSM_024_IMMUTABLE_FAILURES =
-  CORE_V2_CSM_DECLARED_IMMUTABLE_CONFLICTS['CSM-024'];
+  PATCH_MAP_CSM_DECLARED_IMMUTABLE_CONFLICTS['CSM-024'];
 const CSM_028_IMMUTABLE_FAILURES =
-  CORE_V2_CSM_DECLARED_IMMUTABLE_CONFLICTS['CSM-028'];
+  PATCH_MAP_CSM_DECLARED_IMMUTABLE_CONFLICTS['CSM-028'];
 const CSM_030_IMMUTABLE_FAILURES =
-  CORE_V2_CSM_DECLARED_IMMUTABLE_CONFLICTS['CSM-030'];
+  PATCH_MAP_CSM_DECLARED_IMMUTABLE_CONFLICTS['CSM-030'];
 const AST_002_IMMUTABLE_FAILURES = Object.freeze([
   Object.freeze({
     path: '/outcome/validation/cyclic/code',
@@ -1324,7 +1324,7 @@ async function executeFreshSession({
 }
 
 async function verifyViewportRootInput(page) {
-  const wheelProbeName = '__PATCH_MAP_CORE_V2_NATIVE_WHEEL_PROBE__';
+  const wheelProbeName = '__PATCH_MAP_NATIVE_WHEEL_PROBE__';
   let armed = false;
   let cleanup = null;
   try {
@@ -1386,7 +1386,7 @@ async function verifyViewportRootInput(page) {
       const bridge = window[bridgeName];
       await bridge.awaitMilestone(0, 'settled');
       const observation = await bridge.actualObservation();
-      const nativeWheel = window.__PATCH_MAP_CORE_V2_NATIVE_WHEEL_PROBE__?.state ?? null;
+      const nativeWheel = window.__PATCH_MAP_NATIVE_WHEEL_PROBE__?.state ?? null;
       return {
         events: observation.events,
         viewport: observation.viewport,
@@ -1466,12 +1466,12 @@ async function verifyViewportRootInput(page) {
     };
   } finally {
     cleanup = await page.evaluate(async ({ bridgeName, shouldRelease }) => {
-      const nativeWheelProbe = window.__PATCH_MAP_CORE_V2_NATIVE_WHEEL_PROBE__;
+      const nativeWheelProbe = window.__PATCH_MAP_NATIVE_WHEEL_PROBE__;
       if (nativeWheelProbe) {
         nativeWheelProbe.element.removeEventListener('wheel', nativeWheelProbe.listener, {
           capture: true,
         });
-        delete window.__PATCH_MAP_CORE_V2_NATIVE_WHEEL_PROBE__;
+        delete window.__PATCH_MAP_NATIVE_WHEEL_PROBE__;
       }
       const bridge = window[bridgeName];
       if (bridge && shouldRelease) await bridge.awaitMilestone(0, 'released');
@@ -1493,7 +1493,7 @@ async function verifyPointerRootInput(page, caseId) {
     caseId === 'EVT-003' || caseId === 'EVT-008' || caseId === 'ACC-002',
     `unsupported trusted pointer case ${caseId}`,
   );
-  const contextMenuProbeName = '__PATCH_MAP_CORE_V2_NATIVE_CONTEXT_MENU_PROBE__';
+  const contextMenuProbeName = '__PATCH_MAP_NATIVE_CONTEXT_MENU_PROBE__';
   let armed = false;
   let cleanup = null;
   try {
@@ -1766,16 +1766,16 @@ async function destroyBrowserCase(page, caseId) {
       if (button.disabled) throw new Error('Focused Lab control destroy-case is disabled');
       const completion = new Promise((resolve, reject) => {
         const timeout = window.setTimeout(() => {
-          root.removeEventListener('core-v2-contract-destroy-complete', onComplete);
+          root.removeEventListener('patch-map-contract-destroy-complete', onComplete);
           reject(new Error(`Focused ${bridge.state().rootTestId} destroy completion event timed out`));
         }, 30_000);
         const onComplete = (event) => {
           if (!(event instanceof CustomEvent) || event.detail?.operation !== 'destroyCase') return;
           window.clearTimeout(timeout);
-          root.removeEventListener('core-v2-contract-destroy-complete', onComplete);
+          root.removeEventListener('patch-map-contract-destroy-complete', onComplete);
           resolve(event.detail.cleanup);
         };
-        root.addEventListener('core-v2-contract-destroy-complete', onComplete);
+        root.addEventListener('patch-map-contract-destroy-complete', onComplete);
       });
       button.click();
       cleanup = await completion;
@@ -1936,13 +1936,13 @@ async function executeBrowserRun(
       if (!(root instanceof HTMLElement)) throw new Error(`Missing focused root ${rootTestId}`);
       return new Promise((resolve, reject) => {
         const timeout = window.setTimeout(() => {
-          root.removeEventListener('core-v2-contract-run-complete', onComplete);
+          root.removeEventListener('patch-map-contract-run-complete', onComplete);
           reject(new Error(`Focused ${rootTestId} run completion event timed out`));
         }, completionTimeout);
         const onComplete = (event) => {
           if (!(event instanceof CustomEvent) || event.detail?.operation !== expectedOperation) return;
           window.clearTimeout(timeout);
-          root.removeEventListener('core-v2-contract-run-complete', onComplete);
+          root.removeEventListener('patch-map-contract-run-complete', onComplete);
           if (!event.detail.run || typeof event.detail.run !== 'object') {
             const execution = bridge.execution();
             const failureMessage = typeof execution?.error?.message === 'string'
@@ -1955,7 +1955,7 @@ async function executeBrowserRun(
           }
           resolve(event.detail.run);
         };
-        root.addEventListener('core-v2-contract-run-complete', onComplete);
+        root.addEventListener('patch-map-contract-run-complete', onComplete);
       });
     }
 
@@ -2588,7 +2588,7 @@ function assertDestroyControl(caseId, destroyed, runLabel) {
 }
 
 function assertImmutableConflictActuals(caseId, actualObservation, runLabel) {
-  const mismatches = inspectCoreV2UpdateConflictActuals(caseId, actualObservation);
+  const mismatches = inspectPatchMapUpdateConflictActuals(caseId, actualObservation);
   invariant(
     mismatches.length === 0,
     `${caseId} ${runLabel} immutable-conflict actuals (${JSON.stringify(mismatches)})`,

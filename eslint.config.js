@@ -10,7 +10,7 @@ const typescriptFiles = [
   'scripts/**/*.ts',
   'lab/**/*.ts',
   'vite.config.ts',
-  'vite.lab.config.ts',
+  'vite.patch-map-lab.config.ts',
 ];
 
 export default defineConfig(
@@ -23,7 +23,6 @@ export default defineConfig(
       'lab/artifacts/**',
       'lab/fixtures/**',
       'node_modules/**',
-      'scripts/perf/**',
     ],
   },
   {

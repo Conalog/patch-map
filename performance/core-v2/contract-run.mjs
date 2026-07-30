@@ -11,9 +11,9 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
 import {
-  parseCoreV2BrowserLaunch,
-  parseCoreV2NativeWindowsCell,
-} from '../../scripts/verification/core-v2-browser-launch.mjs';
+  parsePatchMapBrowserLaunch,
+  parsePatchMapNativeWindowsCell,
+} from '../../scripts/verification/patch-map-browser-launch.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const RESULTS_ROOT = fileURLToPath(new URL('./results/', import.meta.url));
@@ -130,7 +130,7 @@ async function runHarness(page, size, smoke) {
   const warmups = smoke ? 0 : WARMUPS;
   const measured = smoke ? 1 : MEASURED;
   const result = await page.evaluate(
-    async (spec) => window.__PATCH_MAP_CORE_V2_CONTRACT_PERFORMANCE__.run(spec),
+    async (spec) => window.__PATCH_MAP_CONTRACT_PERFORMANCE__.run(spec),
     {
       size,
       seed: SEED,
@@ -155,10 +155,10 @@ async function runHarness(page, size, smoke) {
 
 async function main() {
   const nativeWindows = process.argv.includes('--native-windows');
-  const browserLaunch = parseCoreV2BrowserLaunch(process.argv.slice(2), {
+  const browserLaunch = parsePatchMapBrowserLaunch(process.argv.slice(2), {
     extraArgs: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
   });
-  const nativeCell = parseCoreV2NativeWindowsCell(
+  const nativeCell = parsePatchMapNativeWindowsCell(
     process.argv.slice(2),
     browserLaunch,
   );
@@ -221,7 +221,7 @@ async function main() {
     });
     await page.goto(server.pageUrl, { waitUntil: 'networkidle' });
     await page.waitForFunction(
-      () => typeof window.__PATCH_MAP_CORE_V2_CONTRACT_PERFORMANCE__?.run === 'function',
+      () => typeof window.__PATCH_MAP_CONTRACT_PERFORMANCE__?.run === 'function',
     );
     const gpu = await collectGpuMetadata(page);
     assert(gpu.context === 'webgl2', 'WebGL2 context availability');
@@ -609,7 +609,7 @@ function parseSize(value) {
 }
 
 function assert(condition, message) {
-  if (!condition) throw new Error(`Invalid Core v2 contract performance run: ${message}`);
+  if (!condition) throw new Error(`Invalid PatchMap contract performance run: ${message}`);
 }
 
 main().catch((error) => {

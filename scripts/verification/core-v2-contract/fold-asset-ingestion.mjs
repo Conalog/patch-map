@@ -1,5 +1,5 @@
 export const ASSET_INGESTION_FOLD_REVISION =
-  'core-v2-asset-ingestion-fold/1';
+  'patch-map-asset-ingestion-fold/1';
 
 const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
 const EXECUTION_REVISION = 'core-v2-contract-case-execution/1';

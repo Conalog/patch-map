@@ -75,7 +75,7 @@ const HANDLERS = Object.freeze({
  * Register the exact five-case render-foundation product action surface.
  *
  * This module deliberately has no imports. The executor injects the real
- * CoreV2Engine, approved datasets, clock, and immutable-input fingerprinting;
+ * PatchMap, approved datasets, clock, and immutable-input fingerprinting;
  * handlers consult only those public product seams and the selected fixture.
  */
 export function createRenderFoundationHandlerEntries() {

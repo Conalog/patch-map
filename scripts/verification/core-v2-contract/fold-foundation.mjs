@@ -4,7 +4,7 @@ const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
 const EXECUTION_REVISION = 'core-v2-contract-case-execution/1';
 const DELTA_REVISION = 'core-v2-semantic-observation-delta/1';
 const PRODUCT_PROBE_REVISION = 'core-v2-semantic-probe/1';
-const BROWSER_PROBE_REVISION = 'core-v2-browser-probe/1';
+const BROWSER_PROBE_REVISION = 'patch-map-browser-probe/1';
 const HOST_PROBE_REVISION = 'core-v2-packed-host-probe/1';
 
 const DOMAIN_NAMES = Object.freeze([

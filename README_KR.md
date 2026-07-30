@@ -1,932 +1,105 @@
 # PATCH MAP
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Conalog/patch-map)
 
-[English](./README.md) | 한국어
+[English](./README.md)
 
-PATCH MAP은 PATCH 서비스의 요구 사항을 충족시키기 위해 `pixi.js`와 `pixi-viewport`를 기반으로 최적화된 캔버스 라이브러리입니다.
-<br/>
-따라서 이를 사용하기 위해서는 아래 두 라이브러리에 대한 이해가 필수적입니다.
+`@conalog/patch-map`은 PATCH MAP v0.10 데이터셋을 위한 PixiJS v8 GPU
+렌더러·인터랙션 런타임입니다. 권위 데이터는 dense store에 보관하고,
+소수의 aggregate scene graph로 렌더링합니다. viewport, 선택, history,
+asset, 화면 추출, lifecycle 정리까지 라이브러리가 직접 소유합니다.
 
-- **[pixi.js](https://github.com/pixijs/pixijs)**  
-- **[pixi-viewport](https://github.com/pixi-viewport/pixi-viewport)**  
-
-<br/>
-
-
-## 목차
-
-- [🚀 시작하기](#-시작하기)
-  - [설치](#설치)
-  - [기본 예제](#기본-예제)
-- [Patchmap](#patchmap)
-  - [init(el, options)](#initel-options)
-  - [destroy()](#destroy)
-  - [draw(data)](#drawdata)
-  - [update(options)](#updateoptions)
-  - [event](#event)
-  - [viewport](#viewport)
-  - [asset](#asset)
-  - [focus(ids, opts)](#focusids-opts)
-  - [fit(ids, options)](#fitids-options)
-  - [rotation](#rotation)
-  - [flip](#flip)
-  - [selector(path)](#selectorpath)
-  - [stateManager](#statemanager)  
-  - [SelectionState](#selectionstate)
-  - [Transformer](#transformer)
-- [undoRedoManager](#undoredomanager)
-  - [execute(command, options)](#executecommand-options)
-  - [undo()](#undo)
-  - [redo()](#redo)
-  - [canUndo()](#canundo)
-  - [canRedo()](#canredo)
-  - [clear()](#clear)
-- [📢 사용 가능한 전체 이벤트 목록](#-사용-가능한-전체-이벤트-목록)
-- [🧑‍💻 개발](#-개발)
-  - [개발 환경 세팅](#개발-환경-세팅)
-  - [VSCode 통합](#vscode-통합)
-- [🤝 기여하기](#-기여하기)
-- [📄 라이선스](#라이선스)
-- [🔤 Fira Code](#fira-code)
-
-
-## 🚀 시작하기
-
-### 설치
-
-#### NPM
+## 설치
 
 ```sh
-npm install @conalog/patch-map
+npm install @conalog/patch-map pixi.js
 ```
 
-#### CDN
+## 기본 사용법
 
-```html
-<script src="https://cdn.jsdelivr.net/npm/pixi.js@latest/dist/pixi.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@conalog/patch-map@latest/dist/index.umd.js"></script>
-```
+```ts
+import { PatchMap } from '@conalog/patch-map';
 
-### 기본 예제
-
-시작하는 데 도움이 되는 간단한 예제입니다: [예제](https://codesandbox.io/p/sandbox/yvjrpx)
-
-```js
-import { Patchmap } from '@conalog/patch-map';
-
-const data = [
-  {
-    type: 'group',
-    id: 'group-id-1',
-    label: 'group-label-1',
-    children: [{
-      type: 'grid',
-      id: 'grid-1',
-      label: 'grid-label-1',
-      cells: [ [1, 0, 1], [1, 1, 1] ],
-      gap: 4,
-      item: {
-        size: { width: 40, height: 80 },
-        components: [
-          {
-            type: 'background',
-            source: {
-              type: 'rect',
-              fill: 'white',
-              borderWidth: 2,
-              borderColor: 'primary.dark',
-              radius: 4,
-            }
-          },
-          { type: 'icon', source: 'loading', tint: 'black', size: 16 },
-        ]
-      },
-    }],
-    attrs: { x: 100, y: 100, },
-  }
-];
-
-const patchmap = new Patchmap();
-
-await patchmap.init(document.body);
-
-patchmap.draw(data);
-```
-
-<br/>
-
-
-## Patchmap
-
-### `init(el, options)`
-
-PATCH MAP을 초기화하는 것으로, 1번만 실행되어야 합니다.
-
-```js
-await patchmap.init(el, {
-  app: { background: '#CCCCCC' },
-  viewport: {
-    plugins: { decelerate: { disabled: true } }
-  },
-  theme: {
-    primary: { default: '#c2410c' }
-  }
-});
-```
-
-#### **Options**
-
-렌더링 동작을 사용자 정의하려면 다음 옵션을 사용하세요:
-
-- `app`
-  - `pixi.js Application options` ([Docs](https://pixijs.download/release/docs/app.ApplicationOptions.html))  
-
-  Default:
-  ```js
-  {
-    background: '#FAFAFA',
-    antialias: true,
-    autoDensity: true,
-    resolution: 2,
-  }
-  ```
-
-- `viewport`
-  - `Viewport options` ([Docs](https://viewport.pixijs.io/jsdoc/Viewport.html))  
-  - `plugins` - Viewport의 동작을 향상시키거나 수정하는 플러그인입니다. 새로운 플러그인을 추가하거나 기본 플러그인을 비활성화할 수 있습니다.  
-  
-  Default:
-  ```js
-  {
-    passiveWheel: false,
-    plugins: {
-      clampZoom: { minScale: 0.5, maxScale: 30 },
-      drag: {},
-      wheel: {},
-      decelerate: {},
+const data = [{
+  type: 'item',
+  id: 'rack-01',
+  attrs: { x: 40, y: 32 },
+  size: { width: 80, height: 120 },
+  components: [
+    {
+      type: 'background',
+      id: 'frame',
+      source: { type: 'rect', fill: '#e2e8f0', radius: 6 },
     },
-  }
-  ```
-
-- `theme`  
-  Default:
-  ```js
-  {
-    primary: {
-      default: '#0C73BF',
-      dark: '#083967',
-      accent: '#EF4444',
+    {
+      type: 'bar',
+      id: 'usage',
+      source: { type: 'rect', fill: '#2563eb', radius: 4 },
+      size: { width: '72%', height: '65%' },
+      placement: 'bottom',
+      animation: true,
+      animationDuration: 500,
     },
-    gray: {
-      light: '#9EB3C3',
-      default: '#D9D9D9',
-      dark: '#71717A',
+    {
+      type: 'text',
+      id: 'label',
+      text: '65',
+      placement: 'top',
+      style: { fontSize: 14, fill: '#0f172a' },
     },
-    white: '#FFFFFF',
-    black: '#1A1A1A',
-  }
-  ```
+  ],
+}];
 
-<br/>
+const patchMap = new PatchMap();
 
-### `destroy()`
-메모리 누수를 방지하고자 등록된 Asset 및 Application을 destroy합니다.
-
-<br/>
-
-### `draw(data)`
-캔버스에 맵 데이터를 렌더링합니다.  
-```js
-const data = [
-  {
-    type: 'group',
-    id: 'group-id-1',
-    label: 'group-label-1',
-    children: [{
-      type: 'grid',
-      id: 'grid-1',
-      label: 'grid-label-1',
-      cells: [ [1, 0, 1], [1, 1, 1] ],
-      gap: 4,
-      item: {
-        size: { width: 40, height: 80 },
-        components: [
-          {
-            type: 'background',
-            source: {
-              type: 'rect',
-              fill: 'white',
-              borderWidth: 2,
-              borderColor: 'primary.dark',
-              radius: 4,
-            }
-          },
-          { type: 'icon', source: 'loading', tint: 'black', size: 16 },
-        ]
-      },
-    }],
-    attrs: { x: 100, y: 100, },
-  }
-];
-patchmap.draw(data);
-```
-
-**Data Schema**
-
-draw method가 요구하는 **데이터 구조**입니다.  
-**자세한 타입 정의**는 [data.d.ts](src/display/data-schema/data.d.ts) 파일을 참조하세요.
-
-#### AssetSource descriptor
-
-`image.source`, `background.source`, `icon.source`에는 문자열 asset key/URL
-또는 inline `AssetSource` descriptor를 사용할 수 있습니다. SVG `resolution`
-같은 Pixi loader 옵션이 필요한 URL 기반 texture에는 descriptor를 사용하세요.
-
-`background.source`는 `{ type: 'rect', fill: 'white' }` 같은 `TextureStyle`
-객체도 계속 허용합니다. `src` 필드가 있는 객체는 `AssetSource` descriptor로
-취급되며 descriptor schema를 만족해야 합니다.
-
-```js
-const svgIcon = {
-  type: 'icon',
-  source: {
-    src: 'https://example.com/icon.svg',
-    data: { resolution: 3 },
-  },
-  tint: 'black',
-  size: 16,
-};
-
-const svgBackground = {
-  type: 'background',
-  source: {
-    src: 'https://example.com/background.svg',
-    data: { resolution: 3 },
-  },
-};
-```
-
-`AssetSource`는 직접 URL 또는 data URI를 지정할 때 사용합니다. 재사용 가능한
-공개 alias는 계속 `init({ assets })`에 등록하고 문자열 source로 참조하세요.
-
-허용되는 `AssetSource` 필드는 다음과 같습니다.
-
-| Field | Required | Description |
-| --- | --- | --- |
-| `src` | Yes | Pixi `Assets.load`에 전달할 URL 또는 data URI입니다. |
-| `data` | No | SVG의 `{ resolution: 3 }` 같은 Pixi loader data입니다. |
-| `format` | No | Pixi에 전달할 파일 format 힌트입니다. |
-| `parser` | No | `'svg'`, `'texture'` 같은 Pixi asset parser id입니다. |
-| `loadParser` | No | 호환성을 위해 허용하는 deprecated Pixi parser 필드입니다. |
-
-Inline descriptor에는 공개 `alias`를 지정할 수 없습니다. PATCH MAP은 `src`,
-`data`, `format`, `parser`/`loadParser`로 내부 cache key를 생성합니다.
-
-#### Spacing shorthand
-
-컴포넌트의 `margin`, element/item의 `padding` 같은 박스형 spacing 필드는 `draw(data)`와 `update({ changes })` 모두에서 아래 입력을 정규화합니다.
-
-- `number` - 네 방향 모두 같은 값을 적용합니다.
-- `{ x, y }` - `x`는 `left/right`, `y`는 `top/bottom`에 적용합니다.
-- `{ top, right, bottom, left }` - 각 방향 값을 그대로 적용합니다.
-- 축 키와 edge 키를 함께 사용한 경우 - `top/right/bottom/left`가 `x` 또는 `y`로부터 만들어진 값을 덮어씁니다.
-
-```js
-patchmap.update({
-  path: '$..[?(@.id=="item-1")]',
-  changes: {
-    padding: { bottom: 12, x: 3 },
-    components: [
-      {
-        type: 'text',
-        margin: { top: 10, x: 5 },
-      },
-    ],
-  },
-});
-```
-
-<br/>
-
-### `update(options)`
-캔버스에 렌더링된 객체의 속성을 업데이트합니다. 기본적으로 변경된 속성만 반영하지만, refresh 또는 mergeStrategy 옵션을 통해 업데이트 동작을 정밀하게 제어할 수 있습니다.
-
-#### **`Options`**
-- `path` (optional, string) - [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 selector로, 이벤트가 적용될 객체를 선택합니다.
-- `elements` (optional, object \| array) - 업데이트할 하나 이상의 객체에 대한 직접 참조입니다. 단일 객체 또는 배열을 허용합니다. ([selector](#selectorpath)에서 반환된 객체 등).
-- `changes` (optional, object) - 적용할 새로운 속성 (예: 색상, 텍스트 가시성). `refresh` 옵션을 `true`로 설정할 경우 생략할 수 있습니다.
-- `history` (optional, boolean \| string) - 해당 `update` 메소드에 의한 변경 사항을 `undoRedoManager`에 기록할 것인지 결정합니다. 이전에 저장된 기록의 historyId와 일치하는 문자열이 제공되면, 두 기록이 하나의 실행 취소/재실행 단계로 병합됩니다.
-- `relativeTransform` (optional, boolean) - `position`, `rotation`, `angle` 값에 대해서 상대값을 이용할 지 결정합니다. 만약, `true` 라면 전달된 값을 객체의 값에 더합니다.
-- `rotateOrigin` (optional, `'center'`) - `'center'`로 설정하면 `attrs.angle` 또는 `attrs.rotation` 업데이트 시 필요한 `attrs.x/y` 보정을 함께 적용해 각 객체의 보이는 중심을 유지합니다.
-- `mergeStrategy` (optional, string) - `changes` 객체를 기존 속성에 적용하는 방식을 결정합니다. 기본값은 `'merge'` 입니다.
-  - `'merge'` (기본값): `changes` 객체를 기존 속성에 깊게 병합(deep merge)합니다. 객체 내의 개별 속성이 업데이트됩니다.
-  - `'replace'`: `changes`에 지정된 최상위 속성을 통째로 교체합니다. `undo`를 실행하거나 `style`, `components`와 같은 복잡한 속성을 특정 상태로 완전히 리셋할 때 유용합니다.
-- `refresh` (optional, boolean) - `true`로 설정하면, `changes`의 속성 값이 이전과 동일하더라도 모든 속성 핸들러를 강제로 다시 실행하여 객체를 "새로고침"합니다. 부모의 상태 변화에 따라 자식 객체를 다시 계산해야 할 때 유용합니다. 기본값은 `false` 입니다.
-
-```js
-// label이 "grid-label-1"인 객체들에 대해 변경 사항 적용
-patchmap.update({
-  path: `$..children[?(@.label=="grid-label-1")]`,
-  changes: {
-    item: {
-      components: [{ type: 'icon', source: 'wifi' }],
-    },
-  },
+await patchMap.initialize({
+  instanceId: 'rack-map',
+  target: document.querySelector('#map')!,
+  width: 960,
+  height: 640,
+  preference: 'webgl',
+  strategy: 'mesh',
 });
 
-// type이 "group"인 객체들에 대해 변경 사항 적용
-patchmap.update({
-  path: `$..children[?(@.type=="group")]`,
-  changes: { 
-    show: false
-  }
+patchMap.loadDataset(data);
+patchMap.fitViewport({ paddingCssPx: 24 });
+
+const frameLoop = patchMap.createFrameLoop();
+frameLoop.publishNow();
+
+patchMap.updateBarHeights({
+  targets: [{ ownerId: 'rack-01', componentId: 'usage' }],
+  heights: [82],
 });
+frameLoop.request(600);
 
-// type이 "group"인 객체 내에 type이 "grid"인 객체에 대해 변경 사항 적용
-patchmap.update({
-  path: `$..children[?(@.type=="group")].children[?(@.type=="grid")]`,
-  changes: {
-    item: {
-      components: [{ type: 'icon', tint: 'red' }],
-    },
-  },
-});
-
-// type이 "relations"인 모든 객체를 찾아서(refresh: true로) 강제로 전체 속성 업데이트(새로고침) 수행
-patchmap.update({
-  path: `$..children[?(@.type==="relations")]`,
-  refresh: true
-});
+// 화면에서 제거할 때
+frameLoop.destroy();
+await patchMap.destroy();
 ```
 
-<br/>
+입력 객체는 내부 데이터와 분리되며 수정되지 않습니다. element ID와
+component의 owner/ID identity가 유지됩니다. strict load와 mutation 오류는
+부분 적용 없이 원자적으로 실패합니다.
 
-### `event`
-캔버스 및 다양한 컴포넌트에 대한 이벤트를 관리합니다.  
-더블 클릭과 같은 여러 이벤트 동작에 대해 알고자 한다면, 해당 [addEventListener documentation](https://pixijs.download/release/docs/scene.Container.html#addEventListener) 문서를 참고하길 바랍니다.
+## 지원 범위
 
-#### add(options)
-- `id` (optional, string) - 이벤트의 고유 식별자입니다. 나중에 이벤트를 관리하는 데 유용합니다.
-- `path` (required, string) - [jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 selector로, 이벤트가 적용될 객체를 선택합니다.
-  - `'$'`는 빈 공간 클릭을 포함한 patch-map canvas surface(`viewport`)를 가리킵니다.
-  - `$.children[...]`, `$..[...]` 같은 그 외 path traversal은 patch-map `world`를 기준으로 해석됩니다.
-- `action` (required, string) - 이벤트 유형을 지정합니다. 예를 들어, 'click', 'pointerdown' 등이 있습니다.
-- `fn` (required, function) - 이벤트가 발생했을 때 실행될 콜백 함수입니다. 이벤트 객체를 매개변수로 받습니다.
+- WebGL2: production 기준선
+- WebGPU: experimental
+- WebGL1·Canvas fallback: 미지원
+- PixiJS peer dependency: `>=8 <9`
 
-```js
-const id = patchmap.event.add({
-  path: '$',
-  action: 'click tap',
-  fn: (e) => {
-    console.log(e.target.id)
-  }
-});
+자세한 내용은 [제품 문서](./docs/patch-map/README.md), 배포에 포함되는
+[예제](./examples/patch-map), `npm run lab`으로 실행하는 조작형 Lab에서
+확인할 수 있습니다.
 
-patchmap.event.add({
-  id: 'pointerdown-event',
-  path: '$..[?(@.label=="group-label-1")]',
-  action: 'pointerdown',
-  fn: (e) => {
-    console.log(e.target.type);
-  }
-});
-
-patchmap.event.add({
-  id: 'double-click',
-  path: '$',
-  action: 'click',
-  fn: (e) => {
-    if (e.detail === 2 && e.target.type === 'canvas') {
-      console.log('Double click detected on canvas');
-    }
-  }
-});
-```
-
-```js
-// 'pointerdown-event' & 'double-click' 이벤트를 활성화합니다.
-patchmap.event.on('pointerdown-event double-click');
-
-// 'pointerdown-event' & 'double-click' 이벤트를 비활성화합니다.
-patchmap.event.off('pointerdown-event double-click');
-
-// 'pointerdown-event' & 'double-click' 이벤트를 제거합니다.
-patchmap.event.remove('pointerdown-event');
-
-// 등록되어 있는 'double-click' 이벤트를 가져옵니다.
-const event = patchmap.event.get('double-click');
-
-// 등록된 모든 이벤트를 가져옵니다.
-const events = patchmap.event.getAll();
-```
-
-<br/>
-
-### `viewport`
-- viewport 플러그인에 대한 자세한 내용은 [pixi-viewport](https://viewport.pixijs.io/jsdoc/Viewport.html)를 참조하세요.
-```js
-patchmap.viewport.plugin.add({
-  mouseEdges: { speed: 16, distance: 20, allowButtons: true },
-});
-
-patchmap.viewport.plugin.stop('mouse-edges');
-
-patchmap.viewport.plugin.start('mouse-edges');
-
-patchmap.viewport.plugin.remove('mouse-edges');
-```
-<br/>
-
-
-### `asset`
-- asset에 대한 내용은 [pixi.js Assets](https://pixijs.download/release/docs/assets.Assets.html)를 참조하세요.
-
-<br/>
-
-### `focus(ids, opts)`
-- `ids` (optional, string \| string[]) - focus할 객체 ID를 나타내는 문자열 또는 문자열 배열입니다.
-- `opts` (optional, object)
-  `filter` (`(obj) => unknown`) - 최종 viewport 대상 집합에서 유지할 객체만 남깁니다. truthy 값을 반환하면 포함되고, falsy 값을 반환하면 제외됩니다.
-- `ids`를 지정하지 않으면 `relations`를 제외한 top-level 관리 대상 element가 기본 focus 대상 집합이 됩니다.
-- `filter`는 target traversal 중에 적용됩니다. `group` 같은 컨테이너에서 falsy를 반환하면 해당 subtree 전체가 viewport bounds 계산에서 제외됩니다.
-- 옵션만 전달할 때는 `ids` 자리에 `null` 또는 `undefined`를 넣습니다.
-- `group` 같은 컨테이너 element는 자기 자신이 먼저 필터링되지 않는 한, 관리 대상 하위 element 기준으로 viewport bounds 계산에 반영됩니다.
-```js
-// 기본 대상 집합(top-level 관리 대상 element, relations 제외)을 기준으로 focus
-patchmap.focus()
-
-// id가 'group-id-1'인 객체를 기준으로 focus
-patchmap.focus('group-id-1')
-
-// id가 'grid-1'인 객체를 기준으로 focus
-patchmap.focus('grid-1')
-
-// id가 'item-1'과 'item-2'인 객체들을 기준으로 focus
-patchmap.focus(['item-1', 'item-2'])
-
-// background 이미지를 제외하고 전체 element를 기준으로 focus
-patchmap.focus(null, {
-  filter: (obj) => obj.id !== 'background-image',
-})
-
-// 명시한 ids를 기준으로 찾은 뒤 filter를 적용
-patchmap.focus(['item-1', 'item-2'], {
-  filter: (obj) => obj.id !== 'item-2',
-})
-```
-
-<br/>
-
-### `fit(ids, options)`
-- `ids` (optional, string \| string[]) - fit할 객체 ID를 나타내는 문자열 또는 문자열 배열입니다.
-- `options` (optional, object)
-  - `filter` (`(obj) => unknown`) - 최종 viewport 대상 집합에서 유지할 객체만 남깁니다. truthy 값을 반환하면 포함되고, falsy 값을 반환하면 제외됩니다.
-  - `padding` (optional, number \| { x?: number, y?: number }) - 축 기반 fit 패딩입니다. `fit()`은 기본적으로 각 방향에 `16` 패딩을 사용합니다. 숫자를 전달하면 네 방향 모두 그 값으로 대체되고, 객체를 전달하면 지정한 축만 덮어쓰며 나머지는 `16`을 유지합니다.
-  - `fit()`의 `padding`은 숫자 또는 `{ x, y }`만 허용합니다. `{ top, right, bottom, left }` 같은 edge 기반 키는 유효하지 않습니다.
-  - `ids`를 지정하지 않으면 `relations`를 제외한 top-level 관리 대상 element가 기본 fit 대상 집합이 됩니다.
-  - `filter`는 target traversal 중에 적용됩니다. `group` 같은 컨테이너에서 falsy를 반환하면 해당 subtree 전체가 viewport bounds 계산에서 제외됩니다.
-  - 옵션만 전달할 때는 `ids` 자리에 `null` 또는 `undefined`를 넣습니다. 첫 번째 인자에 객체 하나만 넘기면 `options`가 아니라 `ids`로 해석됩니다.
-  - `group` 같은 컨테이너 element는 자기 자신이 먼저 필터링되지 않는 한, 관리 대상 하위 element 기준으로 viewport bounds 계산에 반영됩니다.
-```js
-// 기본 대상 집합(top-level 관리 대상 element, relations 제외)을 기준으로 fit
-patchmap.fit()
-
-// 기본 대상 집합에 네 방향 모두 24px 패딩을 적용해 fit
-patchmap.fit(undefined, { padding: 24 })
-
-// id가 'group-id-1'인 객체를 기준으로 fit
-patchmap.fit('group-id-1')
-
-// id가 'grid-1'인 객체를 기준으로 fit
-patchmap.fit('grid-1')
-
-// id가 'item-1'과 'item-2'인 객체들을 기준으로 fit
-patchmap.fit(['item-1', 'item-2'])
-
-// background 이미지를 제외하고 전체 element를 기준으로 fit
-patchmap.fit(null, {
-  filter: (obj) => obj.id !== 'background-image',
-})
-
-// 대상 객체에 네 방향 모두 24px 패딩으로 fit
-patchmap.fit('group-id-1', { padding: 24 })
-
-// top/bottom=10px, left/right=5px로 fit
-patchmap.fit('grid-1', { padding: { y: 10, x: 5 } })
-
-// 명시한 ids를 기준으로 찾은 뒤 filter와 padding을 함께 적용
-patchmap.fit(['item-1', 'item-2'], {
-  filter: (obj) => obj.id !== 'item-2',
-  padding: { y: 10, x: 5 },
-})
-```
-
-<br/>
-
-### `rotation`
-월드 뷰 회전을 제어하는 컨트롤러입니다. 각도는 degrees 기준입니다.
-
-```js
-patchmap.rotation.value = 90
-patchmap.rotation.rotateBy(90)
-patchmap.rotation.reset()
-```
-
-<br/>
-
-### `flip`
-월드 뷰 플립을 제어하는 컨트롤러입니다.
-
-```js
-patchmap.flip.x = true
-patchmap.flip.y = false
-patchmap.flip.set({ x: true, y: true })
-patchmap.flip.toggleX()
-patchmap.flip.toggleY()
-patchmap.flip.reset()
-```
-
-`contentOrientation`은 `item` 또는 `grid.item` 내부 `text` / `icon` /
-`bar`가 아이템 각도와 월드 회전 / 플립에 어떻게 반응할지 정합니다.
-`item`의 기본값은 `contentOrientation: 'upright'`입니다.
-`grid.item`의 기본값도 `contentOrientation: 'upright'`입니다.
-`contentOrientation: 'follow-item'`은 아이템 각도를 따라가고,
-`contentOrientation: 'upright'`는 월드 회전과 플립이 걸려도 화면에서
-똑바로 읽히는 방향을 유지합니다.
-
-<br/>
-
-### `selector(path)`
-
-[jsonpath](https://github.com/JSONPath-Plus/JSONPath) 문법에 따른 객체 탐색기입니다. 루트 경로 `$`는 patch-map의 `world`를 가리킵니다.
-
-```js
-const result = patchmap.selector('$..[?(@.label=="group-label-1")]')
-```
-
-<br/>
-
-### `stateManager`
-
-`patchmap` 인스턴스의 이벤트 상태를 관리하는 `StateManager` 인스턴스입니다. `State` 클래스를 상속받아 자신만의 상태를 정의하고, `stateManager`에 등록하여 사용할 수 있습니다. 이를 통해 사용자의 복잡한 인터랙션을 체계적으로 관리할 수 있습니다.
-
-`patchmap.draw()`가 실행되면 기본적으로 `selection`이라는 이름의 `SelectionState`가 등록됩니다.
-
-```js
-// selection 상태를 활성화하여 객체 선택 및 드래그 선택 기능을 사용합니다.
-patchmap.stateManager.setState('selection', {
-  draggable: true,
-  selectUnit: 'grid',
-  filter: (obj) => obj.type !== 'relations',
-  onClick: (obj, event) => {
-    console.log('Selected:', obj);
-    // 선택된 객체를 transformer에 할당
-    if (patchmap.transformer) {
-      patchmap.transformer.elements = obj;
-    }
-  },
-  onDrag: (objs, event) => {
-    console.log('Drag Selected:', objs);
-    if (patchmap.transformer) {
-      patchmap.transformer.elements = objs;
-    }
-  },
-});
-```
-
-#### 사용자 정의 상태 만들기
-
-`State`를 상속하여 새로운 상태 클래스를 만들고, `stateManager`에 등록하여 사용할 수 있습니다.
-
-```js
-import { State, PROPAGATE_EVENT } from '@conalog/patch-map';
-
-// 1. 새로운 상태 클래스 정의
-class CustomState extends State {
-  // 이 상태가 처리할 이벤트를 static 속성으로 정의합니다.
-  static handledEvents = ['onpointerdown', 'onkeydown'];
-
-  enter(store, customOptions) {
-    super.enter(store);
-    console.log('CustomState가 시작되었습니다.', customOptions);
-  }
-
-  exit() {
-    console.log('CustomState가 종료되었습니다.');
-    super.exit();
-  }
-
-  onpointerdown(event) {
-    console.log('Pointer down in CustomState');
-    // 이벤트를 여기서 처리하고 전파를 중지합니다.
-  }
-
-  onkeydown(event) {
-    if (event.key === 'Escape') {
-      // 'selection' 상태(기본 상태)로 전환합니다.
-      this.store.stateManager.setState('selection');
-    }
-    // 이벤트를 스택의 다음 상태로 전파하려면 PROPAGATE_EVENT를 반환합니다.
-    return PROPAGATE_EVENT;
-  }
-}
-
-// 2. StateManager에 등록
-patchmap.stateManager.register('custom', CustomState);
-
-// 3. 필요할 때 상태 전환
-patchmap.stateManager.setState('custom', { message: 'Hello World' });
-```
-
-<br/>
-
-### `SelectionState`
-사용자의 선택 및 드래그 이벤트를 처리하는 기본 상태(State)입니다. `patchmap.draw()`가 실행되면 'selection'이라는 이름으로 `stateManager`에 자동으로 등록됩니다. `stateManager.setState('selection', options)`를 호출하여 활성화하고 설정을 전달할 수 있습니다.
-
-- `draggable` (optional, boolean): 드래그를 통한 다중 선택 활성화 여부를 결정합니다.
-- `paintSelection` (optional, boolean): 마우스를 누른 채 이동하는 경로상의 객체들을 실시간으로 누적 선택하는 '페인트 선택' 기능을 활성화합니다. 활성화 시 기존의 사각형 범위 선택 대신, 붓으로 칠하듯 자유로운 궤적을 따라 원하는 객체들을 훑어서 선택할 수 있습니다.
-- `selectUnit` (optional, string): 선택 시 반환될 논리적 단위를 지정합니다. 기본값은 `'entity'` 입니다.
-  - `'entity'`: 개별 객체를 선택합니다.
-  - `'closestGroup'`: 선택된 객체에서 가장 가까운 상위 그룹을 선택합니다.
-  - `'highestGroup'`: 선택된 객체에서 가장 최상위 그룹을 선택합니다.
-  - `'grid'`: 선택된 객체가 속한 그리드를 선택합니다.
-- `drillDown` (optional, boolean): 더블 클릭(또는 연속 클릭) 시 중첩된 그룹 내부로 단계별로 진입하며 하위 요소를 탐색하여 선택하는 기능을 활성화합니다. 활성화 시 이미 상위 그룹이 선택된 상태에서 다시 클릭하면, 해당 클릭 지점에 있는 더 깊은 단계의 자식 객체를 찾아 선택합니다.
-- `deepSelect` (optional, boolean): Ctrl(Windows) 또는 Meta(Mac) 키를 누른 상태에서 클릭할 때, 설정된 selectUnit과 관계없이 즉시 하위 요소(기본 'grid' 단위)를 검색하여 선택할 수 있는 기능을 활성화합니다. 복잡한 그룹 구조를 거치지 않고 특정 요소를 빠르게 선택하고 싶을 때 유용합니다.
-- `filter` (optional, function): 선택 대상 객체를 조건에 따라 필터링할 수 있는 함수입니다.
-- `selectionBoxStyle` (optional, object): 드래그 선택 시 표시되는 사각형의 스타일을 지정합니다.
-  - `fill` (object): 채우기 스타일. 기본값: `{ color: '#9FD6FF', alpha: 0.2 }`.
-  - `stroke` (object): 테두리 스타일. 기본값: `{ width: 2, color: '#1099FF' }`.
-
-#### 이벤트 콜백
-- `onDown` (optional, function): 포인터를 눌렀을 때 '즉시' 호출됩니다. 'Select-on-Down' UX(즉각적인 선택 피드백)를 구현할 때 사용합니다.
-- `onUp` (optional, function):  드래그가 아닐 경우, `pointerup` 시점에 호출됩니다.
-- `onClick` (optional, function): '클릭'이 '완료'되었을 때 호출됩니다. 탭(tap)도 동일하게 onClick으로 처리됩니다. 더블클릭이 아닐 때만 호출됩니다.
-- `onDoubleClick` (optional, function): '더블클릭'이 '완료'되었을 때 호출됩니다. `e.detail === 2`를 기반으로 호출됩니다.
-- `onRightClick` (optional, function): '우클릭'이 '완료'되었을 때 호출됩니다. 캔버스 영역 내에서 브라우저 기본 컨텍스트 메뉴가 나타나지 않도록 자동으로 방지됩니다.
-- `onDragStart` (optional, function): 드래그(다중 선택)가 '시작'되는 시점 (일정 거리 이상 이동)에 1회 호출됩니다.
-- `onDrag` (optional, function): 드래그가 '진행'되는 동안 실시간으로 호출됩니다.
-- `onDragEnd` (optional, function): 드래그가 '종료'되었을 때 (`pointerup`) 호출됩니다.
-- `onOver` (optional, function): 포인터가 (드래그 중이 아닐 때) 객체 위로 이동했을 때 호출됩니다.
-
-```js
-patchmap.stateManager.setState('selection', {
-  draggable: true,
-  selectUnit: 'grid',
-  filter: (obj) => obj.type !== 'relations',
-
-  // '클릭' 완료 시 선택을 확정합니다.
-  onClick: (target, event) => {
-    console.log('Clicked:', target?.id);
-    if (patchmap.transformer) {
-      patchmap.transformer.elements = target ? [target] : [];
-    }
-  },
-
-  // '더블클릭' 시 다른 동작을 수행합니다. (이 경우 onClick은 호출되지 않습니다)
-  onDoubleClick: (target, event) => {
-    console.log('Double Clicked:', target?.id);
-    // 예: patchmap.stateManager.setState('textEdit', target);
-  },
-
-  // 드래그가 끝났을 때 최종 선택을 확정합니다.
-  onDragEnd: (selected, event) => {
-    console.log('Drag Selected:', selected.map(s => s.id));
-    if (patchmap.transformer) {
-      patchmap.transformer.elements = selected;
-    }
-  },
-  
-  // onDown: (target) => {
-  //   if (patchmap.transformer) {
-  //     patchmap.transformer.elements = target ? [target] : [];
-  //   }
-  // },
-  // onDragStart: () => {
-  //   if (patchmap.transformer) {
-  //     patchmap.transformer.elements = [];
-  //   }
-  // },
-});
-```
-
-<br/>
-
-### `Transformer`
-
-선택된 요소의 외곽선을 시각적으로 표시하고, 크기 조절이나 회전과 같은 변형 작업을 수행하기 위한 시각적 도구입니다. `Transformer` 인스턴스를 생성하여 `patchmap.transformer`에 할당하면 활성화됩니다.
-
-#### new Transformer(options)
-
-`Transformer` 인스턴스를 생성할 때 다음과 같은 옵션을 전달하여 동작을 제어할 수 있습니다.
-
-  - `elements` (optional, Array<PIXI.DisplayObject>): 초기에 외곽선을 표시할 요소들의 배열입니다.
-  - `wireframeStyle` (optional, object): 외곽선의 스타일을 지정합니다.
-      - `thickness` (number): 선의 두께 (기본값: `1.5`).
-      - `color` (string): 선의 색상 (기본값: `'#1099FF'`).
-  - `boundsDisplayMode` (optional, string): 외곽선을 표시할 단위를 결정합니다 (기본값: `'all'`).
-      - `'all'`: 그룹의 전체 외곽선과 그룹 내 개별 요소의 외곽선을 모두 표시합니다.
-      - `'groupOnly'`: 그룹의 전체 외곽선만 표시합니다.
-      - `'elementOnly'`: 그룹 내 개별 요소의 외곽선만 표시합니다.
-      - `'none'`: 외곽선을 표시하지 않습니다.
-  - `resizeHandles` (optional, boolean): 그룹 리사이즈 핸들과 엣지 히트 타깃을 활성화합니다 (기본값: `false`).
-  - `rotateHandles` (optional, boolean): 회전 가능한 선택 영역의 모서리 바깥 invisible 회전 히트 타깃을 활성화합니다 (기본값: `false`).
-  - `transformHistory` (optional, boolean): 리사이즈와 회전 변경 사항을 `undoRedoManager`에 기록할지 결정합니다 (기본값: `false`). 활성화하면 한 번의 드래그 제스처 내 업데이트가 하나의 실행 취소/재실행 단계로 묶입니다.
-  - `resizeKeepRatio` (optional, boolean): Shift 없이도 리사이즈 비율을 고정합니다 (기본값: `false`). Shift 드래그는 이 옵션과 관계없이 항상 비율을 고정합니다.
-  - `getResizeKeepRatio` (optional, function): 현재 리사이즈 이동에서 비율을 고정할지 결정합니다. `{ event, handle, elements }`를 받아 Shift 없이 비율을 고정하려면 `true`를 반환하면 됩니다.
-
-`resizeHistory`는 제거되었습니다. 리사이즈와 회전 제스처 모두 `transformHistory`를 사용하세요.
-
-단일 선택 객체가 회전된 상태라면 resize 핸들은 해당 객체의 oriented frame을 따라갑니다. 다중 선택 resize는 계속 axis-aligned frame을 사용합니다.
-
-#### 회전 핸들
-
-`rotateHandles`를 활성화하면 transformer는 선택 영역의 각 모서리 바깥에 보이지 않는 히트 타깃을 만듭니다. 이 타깃을 드래그하면 회전 가능한 선택 요소들이 보이는 선택 영역 중심을 기준으로 회전합니다.
-
-회전은 다음 요소 타입에서 지원됩니다.
-
-  - `Grid`
-  - `Item`
-  - `Rect`
-  - `Image`
-  - `Text`
-
-`Relations`, `Group`은 transformer 회전 대상이 아닙니다.
-
-단일 객체 선택은 선택 객체의 회전을 따라가는 oriented 선택 박스를 사용합니다. 다중 객체 선택은 항상 수평 group 박스를 사용합니다. mixed selection에서는 회전 히트 타깃과 회전 중심이 선택된 전체 group frame을 기준으로 잡히고, 회전 불가 요소나 locked 요소는 선택 상태로 남지만 변경되지 않습니다.
-
-회전 중 Shift를 누르면 회전 delta가 15도 단위로 스냅됩니다. 이미 `attrs.rotation`을 사용하는 요소는 계속 `rotation`을 쓰고, 그 외에는 회전 제스처가 `angle`을 씁니다.
-
-```js
-import { Patchmap, Transformer } from '@conalog/patch-map';
-
-const patchmap = new Patchmap();
-await patchmap.init(element);
-patchmap.draw(data);
-
-// 1. Transformer 인스턴스 생성 및 할당
-const transformer = new Transformer({
-  wireframeStyle: {
-    thickness: 2,
-    color: '#FF00FF',
-  },
-  boundsDisplayMode: 'groupOnly',
-  resizeHandles: true,
-  rotateHandles: true,
-  transformHistory: true,
-  getResizeKeepRatio: ({ event }) => event.shiftKey || isLayoutSizeLocked(),
-});
-patchmap.transformer = transformer;
-
-// 2. 선택된 객체를 transformer의 elements 속성에 할당하여 외곽선 표시
-const selectedObject = patchmap.selector('$..[?(@.id=="group-id-1")]')[0];
-patchmap.transformer.elements = [selectedObject];
-
-// 선택 해제 시
-patchmap.transformer.elements = [];
-```
-
-#### transformer.selection
-
-`Transformer`의 선택 상태를 전문적으로 관리하는 `SelectionModel` 인스턴스입니다. 이를 통해 선택된 요소를 프로그래밍 방식으로 제어할 수 있습니다.
-
-```js
-// 선택 요소 추가, 제거, 교체
-transformer.selection.add(item1);
-transformer.selection.remove(item1);
-transformer.selection.set([item2]);
-
-// 선택 변경 이벤트 구독
-transformer.on('update_elements', ({ current, added, removed }) => {
-  console.log('현재 선택:', current);
-});
-```
-
-<br/>
-
-## undoRedoManager
-`UndoRedoManager` 클래스의 인스턴스입니다. 이 매니저는 실행된 명령을 기록하고, 이를 통해 실행 취소(undo) 및 재실행(redo) 기능을 제공합니다.
-
-### method
-
-#### `execute(command, options)`
-주어진 명령을 실행하고, 이를 기록합니다. `options` 객체를 통해 `historyId`를 설정할 수 있습니다.
-
-#### `undo()`
-마지막으로 실행된 명령을 취소합니다.
-```js
-undoRedoManager.undo();
-```
-
-#### `redo()`
-마지막으로 취소된 명령을 재실행합니다.
-```js
-undoRedoManager.redo();
-```
-
-#### `canUndo()`
-
-실행 취소가 가능한지 여부를 반환합니다.
-
-#### `canRedo()`
-
-재실행이 가능한지 여부를 반환합니다.
-
-#### `clear()`
-
-모든 명령 기록을 초기화합니다.
-
-<br/>
-
-## 📢 사용 가능한 전체 이벤트 목록
-
-이번 업데이트로 인해 구독 가능한 이벤트 목록입니다. `.on(eventName, callback)`을 사용하여 구독할 수 있습니다.
-
-#### `Patchmap`
-
-  * `patchmap:initialized`: `patchmap.init()`이 성공적으로 완료되었을 때 발생합니다.
-  * `patchmap:draw`: `patchmap.draw()`를 통해 새로운 데이터가 렌더링되었을 때 발생합니다.
-  * `patchmap:updated`: `patchmap.update()`를 통해 요소가 업데이트되었을 때 발생합니다.
-  * `patchmap:destroyed`: `patchmap.destroy()`가 호출되어 인스턴스가 파괴될 때 발생합니다.
-
-#### `UndoRedoManager`
-
-  * `history:executed`: 새로운 커맨드가 실행 스택에 추가되었을 때 발생합니다.
-  * `history:undone`: `undo()`가 실행되었을 때 발생합니다.
-  * `history:redone`: `redo()`가 실행되었을 때 발생합니다.
-  * `history:cleared`: `clear()`로 모든 히스토리가 삭제되었을 때 발생합니다.
-  * `history:destroyed`: `destroy()`가 호출되었을 때 발생합니다.
-  * `history:*`: 위의 모든 `history:` 네임스페이스 이벤트를 구독합니다.
-
-#### `StateManager`
-
-  * `state:pushed`: 새로운 상태가 스택에 추가되었을 때 발생합니다.
-  * `state:popped`: 현재 상태가 스택에서 제거되었을 때 발생합니다.
-  * `state:set`: `setState()`를 통해 상태 스택이 리셋되고 새로운 상태가 설정되었을 때 발생합니다.
-  * `state:reset`: `resetState()`로 모든 상태가 제거되었을 때 발생합니다.
-  * `state:destroyed`: `destroy()`가 호출되었을 때 발생합니다.
-  * `modifier:activated`: 수정자(Modifier) 상태가 활성화되었을 때 발생합니다.
-  * `modifier:deactivated`: 수정자(Modifier) 상태가 비활성화되었을 때 발생합니다.
-  * `state:*`: 위의 모든 `state:` 네임스페이스 이벤트를 구독합니다.
-  * `modifier:*`: 위의 모든 `modifier:` 네임스페이스 이벤트를 구독합니다.
-
-#### `Transformer`
-
-  * `update_elements`: `transformer.elements` 또는 `transformer.selection`의 내용이 변경될 때 발생합니다.
-
-<br/>
-
-## 🧑‍💻 개발
-
-### 개발 환경 세팅
+## 개발 검증
 
 ```sh
-npm install      # 의존성 설치
-npm run dev      # 개발 서버 시작
-npm run build    # 라이브러리 빌드
-npm run lint:fix # 코드 포맷팅 수정
+npm run typecheck
+npm run lint
+npm run unit
+npm run build
+npm run verify:contract
 ```
 
-### VSCode 통합
-
-일관된 코드 포맷팅을 위해 Biome을 설정하세요.
-
-1.  [Biome 확장](https://biomejs.dev/reference/vscode/)을 설치하세요.
-2.  VSCode 설정을 업데이트하세요:
-
-```json
-{
-  "editor.formatOnSave": true,
-  "editor.defaultFormatter": "biomejs.biome",
-  "editor.codeActionsOnSave": {
-    "quickfix.biome": "explicit"
-  },
-}
-```
-3. Biome이 특정 파일 형식을 포맷하지 않는 경우  
-특정 확장자에 대해 개별적으로 설정을 추가하세요:
-```json
-{
-  ...
-  "[javascript]": {
-    "editor.defaultFormatter": "biomejs.biome"
-  },
-  "[json]": {
-    "editor.defaultFormatter": "biomejs.biome"
-  }
-}
-```
-
-## 🤝 기여하기
-
-기여 가이드, PR 템플릿, 작업 흐름은 [CONTRIBUTING.md](./CONTRIBUTING.md)를 참고하세요.
-
-## 라이선스
-- [MIT](./LICENSE)
-
-### Third-party Code
-
-`src/utils/zod-deep-strict-partial.js` 파일은 원래 Apache License 2.0 하에 라이선스된 코드를 포함합니다. 원래의 저작권 고지 및 라이선스 조건이 파일에 보존되어 있습니다.
-
-## Fira Code
-이 프로젝트는 캔버스 상에서 문자 가독성을 높이기 위해 [Fira Code](https://github.com/tonsky/FiraCode) 폰트를 사용합니다.  
-Fira Code는 [SIL Open Font License, Version 1.1](https://scripts.sil.org/OFL) 하에 배포되며, 라이선스 사본은 [OFL-1.1.txt](./src/assets/fonts/OFL-1.1.txt)에 제공됩니다.
+이 브랜치에서는 버전을 `0.10.0`으로 유지합니다. 배포 버전은 merge 후
+올립니다.

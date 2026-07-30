@@ -1,5 +1,5 @@
 export const ASSET_INGESTION_HANDLER_REVISION =
-  'core-v2-asset-ingestion-handlers/1';
+  'patch-map-asset-ingestion-handlers/1';
 
 export const ASSET_INGESTION_CASE_IDS = Object.freeze([
   'ERR-003',

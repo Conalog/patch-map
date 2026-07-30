@@ -1,5 +1,5 @@
 export const PACKAGE_INTEGRATION_HANDLER_REVISION =
-  'core-v2-package-integration-handlers/1';
+  'patch-map-package-integration-handlers/1';
 
 export const PACKAGE_INTEGRATION_CASE_IDS = Object.freeze([
   'PKG-001',
