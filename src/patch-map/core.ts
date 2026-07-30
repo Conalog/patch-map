@@ -1224,7 +1224,7 @@ export class PatchMapRuntime {
     const presentation = this.reconcileBarPresentation(
       parse.projection,
       !this.reducedMotionValue && options.animateBarChanges !== false,
-      options.animatedBarTargets,
+      directBarParse === null ? options.animatedBarTargets : undefined,
       incrementalEntityIds ??
         (
           hierarchyOnlyTargetMapping
@@ -1269,7 +1269,10 @@ export class PatchMapRuntime {
       this.applyPresentationPolicyToRenderer();
     }
     this.spatialHitAnimationEnds.clear();
-    this.invalidateEntityHitIndex();
+    this.invalidateEntityHitIndex(
+      directBarParse !== null &&
+      this.presentationController.activeCount > 0,
+    );
     if (
       this.presentationController.activeCount >= ANIMATED_BAR_HIT_PRIME_THRESHOLD &&
       this.rootPointerListeners.size > 0
@@ -1466,7 +1469,12 @@ export class PatchMapRuntime {
       rendererDomain === undefined ? {} : { domain: rendererDomain },
     );
     if (hasSelection) this.renderer.markOverlayChanges(result.changedRanges, 'selection');
-    if (hitImpact.invalidate) this.invalidateEntityHitIndex();
+    if (hitImpact.invalidate) {
+      this.invalidateEntityHitIndex(
+        rendererDomain === 'bar-only' &&
+        this.presentationController.activeCount > 0,
+      );
+    }
     let projectionStalenessChanged = false;
     for (const id of hitImpact.removedIds) {
       projectionStalenessChanged = this.staleHitProjectionIds.delete(id) ||
@@ -2679,10 +2687,12 @@ export class PatchMapRuntime {
       : left;
   }
 
-  private invalidateEntityHitIndex(): void {
+  private invalidateEntityHitIndex(preserveAnimatedBars = false): void {
     this.entityHitIndexValue = null;
-    this.animatedBarHitIndexValue = null;
-    this.presentationHitIndexActive = false;
+    if (!preserveAnimatedBars) {
+      this.animatedBarHitIndexValue = null;
+      this.presentationHitIndexActive = false;
+    }
   }
 
   private applyPresentationPolicyToRenderer(): void {

@@ -835,11 +835,14 @@ describe('PatchMap update transactions', () => {
     const heights = new Float64Array([34]);
     const requestBefore = [...heights];
 
-    expect(engine.updateBarHeights({
+    const result = engine.updateBarHeights({
       targets,
       heights,
       actionId: 'bar-batch-1',
-    })).toMatchObject({
+    });
+    expect(Object.getOwnPropertyDescriptor(result, 'semanticHash')?.get)
+      .toBeTypeOf('function');
+    expect(result).toMatchObject({
       status: 'committed',
       changed: true,
       actionId: 'bar-batch-1',
@@ -850,6 +853,9 @@ describe('PatchMap update transactions', () => {
         depthDelta: 1,
       },
     });
+    expect(result.semanticHash).toBe(engine.snapshot().semanticHash);
+    expect(engine.selectionIds).toEqual([]);
+    expect(engine.publishedFrameRevision).toBe(engine.snapshot().frameRevision);
     expect(surface.reconcileCalls[0]?.options).toEqual({
       animateBarChanges: true,
       animatedBarTargets: [{ ownerId: 'item-a', componentId: 'bar' }],

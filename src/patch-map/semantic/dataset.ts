@@ -488,14 +488,23 @@ export function assembleOwnedPatchMapDataset(
     base: current.dataset,
     dirtyIndices,
   }));
-  const materialized = Object.freeze({
+  let cachedSemanticHash: string | undefined;
+  const materialized = {
     dataset,
     rootIds: current.rootIds,
     elementTypes: current.elementTypes,
     componentTypes: current.componentTypes,
-    semanticHash: semanticHash(dataset),
     visibleBoundsFinite: current.visibleBoundsFinite,
+  } as PatchMapDatasetMaterialization;
+  Object.defineProperty(materialized, 'semanticHash', {
+    enumerable: true,
+    configurable: false,
+    get: () => {
+      cachedSemanticHash ??= semanticHash(dataset);
+      return cachedSemanticHash;
+    },
   });
+  Object.freeze(materialized);
   OWNED_PATCH_MAP_MATERIALIZATIONS.set(dataset, materialized);
   return materialized;
 }

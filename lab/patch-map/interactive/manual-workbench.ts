@@ -325,6 +325,7 @@ export function mountPatchMapManualWorkbench(
   let frameLoop: PatchMapFrameLoop | null = null;
   let resizeObserver: ResizeObserver | null = null;
   let performanceObserver: PerformanceObserver | null = null;
+  let lastSnapshot: ReturnType<PatchMap['snapshot']> | null = null;
   let destroyed = false;
 
   const ready = boot();
@@ -1280,11 +1281,11 @@ export function mountPatchMapManualWorkbench(
   function animateBars(scope: 'all' | 'partial' | 'selected'): unknown {
     const next = requireEngine();
     animationSequence += 1;
-    const selected = new Set(next.snapshot().selectionIds);
     let targets = scene.barTargets;
     if (scope === 'partial') {
       targets = targets.filter((_, index) => index % 10 === animationSequence % 10);
     } else if (scope === 'selected') {
+      const selected = new Set(next.snapshot().selectionIds);
       targets = targets.filter(({ ownerId }) => selected.has(ownerId));
       if (targets.length === 0) targets = scene.barTargets.slice(0, 1);
     }
@@ -1568,22 +1569,32 @@ export function mountPatchMapManualWorkbench(
     setText(host, 'last-action', actionDisplay(lastAction));
     setText(host, 'scene-size', manualSceneSizeLabel(manualSceneSize));
     const history = next?.historyState() ?? { undoDepth: 0, redoDepth: 0 };
-    const snapshot = next?.snapshot() ?? null;
-    const selectedIds = snapshot?.selectionIds ?? [];
     const animations = activeAnimationCount(next);
+    if (next === null) {
+      lastSnapshot = null;
+    } else if (animations === 0) {
+      lastSnapshot = next.snapshot();
+    }
+    const snapshot = lastSnapshot;
+    const selectedIds = next?.selectionIds ?? snapshot?.selectionIds ?? [];
+    const viewport = next?.viewportProbe() ?? snapshot?.viewport ?? null;
     setText(host, 'selection-count', String(selectedIds.length));
     setText(host, 'selection-ids', selectedIds.length === 0 ? '선택 없음' : selectedIds.join('\n'));
     setText(host, 'history', `${history.undoDepth} / ${history.redoDepth}`);
     setText(host, 'animations', String(animations));
-    setText(host, 'frame', String(snapshot?.frameRevision ?? 0));
+    setText(
+      host,
+      'frame',
+      String(next?.publishedFrameRevision ?? snapshot?.frameRevision ?? 0),
+    );
     setText(host, 'canvas', String(snapshot?.resources.canvasCount ?? 0));
     setText(host, 'generation', String(generation));
     setText(
       host,
       'viewport',
-      snapshot === null
+      viewport === null
         ? '세션 꺼짐'
-        : `${snapshot.viewport.scale.toFixed(3)}× @ ${snapshot.viewport.centerWorld.map((value) => value.toFixed(1)).join(', ')}`,
+        : `${viewport.scale.toFixed(3)}× @ ${viewport.centerWorld.map((value) => value.toFixed(1)).join(', ')}`,
     );
     setText(
       host,
@@ -1849,7 +1860,13 @@ export function mountPatchMapManualWorkbench(
 
   function stateSnapshot(): PatchMapManualLabState {
     const next = liveEngine();
-    const snapshot = next?.snapshot() ?? null;
+    const animations = activeAnimationCount(next);
+    if (next === null) {
+      lastSnapshot = null;
+    } else if (animations === 0) {
+      lastSnapshot = next.snapshot();
+    }
+    const snapshot = lastSnapshot;
     const history = next?.historyState() ?? { undoDepth: 0, redoDepth: 0 };
     return Object.freeze({
       caseId: options.caseId,
@@ -1857,12 +1874,12 @@ export function mountPatchMapManualWorkbench(
       status,
       generation,
       mode,
-      selectedIds: snapshot?.selectionIds ?? Object.freeze([]),
+      selectedIds: next?.selectionIds ?? snapshot?.selectionIds ?? Object.freeze([]),
       history: Object.freeze({
         undoDepth: history.undoDepth,
         redoDepth: history.redoDepth,
       }),
-      activeAnimations: activeAnimationCount(next),
+      activeAnimations: animations,
       canvasCount: snapshot?.resources.canvasCount ?? 0,
       lastAction,
       error: lastError,
@@ -1879,8 +1896,7 @@ export function mountPatchMapManualWorkbench(
 
   function liveEngine(): PatchMap | null {
     if (engine === null) return null;
-    const lifecycle = engine.snapshot().lifecycle;
-    return lifecycle === 'destroyed' || lifecycle === 'destroying' ? null : engine;
+    return engine.destroyed ? null : engine;
   }
 
   function activeAnimationCount(next: PatchMap | null): number {
@@ -1905,6 +1921,7 @@ export function mountPatchMapManualWorkbench(
     for (const unbind of engineUnbinds.splice(0)) unbind();
     const previous = engine;
     engine = null;
+    lastSnapshot = null;
     if (previous !== null) await previous.destroy();
     surfaceHost.replaceChildren();
   }

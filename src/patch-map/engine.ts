@@ -2118,6 +2118,16 @@ export class PatchMap {
       ?? surface.debugSnapshot().activeAnimationCount;
   }
 
+  /** Lightweight live selection state that does not materialize a semantic digest. */
+  public get selectionIds(): readonly string[] {
+    return this.logicalSelectionIds;
+  }
+
+  /** Lightweight published-frame counter for animation HUDs and host diagnostics. */
+  public get publishedFrameRevision(): number {
+    return this.frameRevision;
+  }
+
   /** O(1) source workload shared with the package frame-loop policy. */
   public get frameWorkloadSize(): number {
     return this.surface?.frameLoopWorkloadSize?.()
@@ -3257,13 +3267,12 @@ export class PatchMap {
       this.history.closeActionGroup();
     }
     const currentHistory = this.history.state();
-    const result = Object.freeze({
+    const result = freezeCommittedTransactionResult(plan.candidate, {
       status: 'committed',
       changed: true,
       actionId,
       previousRevisions,
       revisions: this.revisionStamp(),
-      semanticHash: plan.candidate.semanticHash,
       applied: freezeMutationTargets(plan.applied),
       missing: freezeMutationTargets(plan.missing),
       unchanged: freezeMutationTargets(plan.unchanged),
@@ -3277,7 +3286,7 @@ export class PatchMap {
       denseOperationCount: reconcile.operationCount,
       denseChanged: reconcile.denseChanged,
       reconcileDiagnostics,
-    } satisfies PatchMapEngineTransactionResult);
+    });
     const completed = enginePerformanceNow();
     this.lastTransactionPerformance = Object.freeze({
       transactionPlanMs: this.pendingTransactionPlanMs,
@@ -9778,6 +9787,25 @@ function freezeMutationTargets(
     return values;
   }
   return Object.freeze(values.map((target) => Object.freeze({ ...target })));
+}
+
+function freezeCommittedTransactionResult(
+  candidate: MaterializedPatchMapDataset,
+  value: Omit<
+    Extract<PatchMapEngineTransactionResult, { readonly status: 'committed' }>,
+    'semanticHash'
+  >,
+): Extract<PatchMapEngineTransactionResult, { readonly status: 'committed' }> {
+  const result = value as Extract<
+    PatchMapEngineTransactionResult,
+    { readonly status: 'committed' }
+  >;
+  Object.defineProperty(result, 'semanticHash', {
+    enumerable: true,
+    configurable: false,
+    get: () => candidate.semanticHash,
+  });
+  return Object.freeze(result);
 }
 
 function freezeTransactionHistory(

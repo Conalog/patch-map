@@ -103,6 +103,22 @@ describe('PatchMap approved dataset foundation', () => {
     expect(ownedPatchMapMaterialization(preview.dataset)).toBeNull();
   });
 
+  it('defers exact shared-candidate hashing until the digest is observed', () => {
+    const current = materializePatchMapDataset([
+      { type: 'rect', id: 'one', size: { width: 10, height: 10 } },
+    ]);
+    const replacement = materializePatchMapDataset([
+      { type: 'rect', id: 'one', size: { width: 20, height: 10 } },
+    ]).dataset[0]!;
+    const assembled = assembleOwnedPatchMapDataset(current, [replacement]);
+    const descriptor = Object.getOwnPropertyDescriptor(assembled, 'semanticHash');
+
+    expect(descriptor?.enumerable).toBe(true);
+    expect(descriptor?.get).toBeTypeOf('function');
+    expect(assembled.semanticHash).toBe(referenceSemanticHash(assembled.dataset));
+    expect(assembled.semanticHash).toBe(referenceSemanticHash(assembled.dataset));
+  });
+
   it('retains exact sparse preview lineage without accepting a different base', () => {
     const current = materializePatchMapDataset([
       { type: 'rect', id: 'one', size: { width: 10, height: 10 } },

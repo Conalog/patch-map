@@ -147,6 +147,52 @@ describe('PatchMap bar presentation integration', () => {
     expect(internals.animatedBarHitIndexValue).toBeNull();
   });
 
+  it('reuses the animated-bar hit envelope across direct mid-animation retargets', async () => {
+    const { core } = createTestCore(allocated);
+    const engine = new PatchMap({
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+    });
+    await engine.initialize({
+      instanceId: 'presentation-retarget-hit-envelope',
+      width: 800,
+      height: 600,
+    });
+    engine.loadDataset(scene(10));
+    engine.publishFrame(0);
+    engine.updateBarHeights({
+      targets: [{ ownerId: 'item-a', componentId: 'level' }],
+      heights: new Float64Array([40]),
+      recordHistory: false,
+    });
+    engine.publishFrame(50);
+    const internals = core as unknown as {
+      animatedBarHitIndexValue: unknown;
+    };
+    const firstCenter =
+      core.visibleProjection?.byEntityId['item-a::bar:level']?.visibleCenter;
+    if (firstCenter === undefined) throw new Error('missing first bar center');
+    expect(core.hitTestScreen({ x: firstCenter[0], y: firstCenter[1] }))
+      .not.toBeNull();
+    const envelope = internals.animatedBarHitIndexValue;
+    expect(envelope).not.toBeNull();
+
+    engine.updateBarHeights({
+      targets: [{ ownerId: 'item-a', componentId: 'level' }],
+      heights: new Float64Array([70]),
+      recordHistory: false,
+    });
+    expect(internals.animatedBarHitIndexValue).toBe(envelope);
+    engine.publishFrame(100);
+    const secondCenter =
+      core.visibleProjection?.byEntityId['item-a::bar:level']?.visibleCenter;
+    if (secondCenter === undefined) throw new Error('missing second bar center');
+    expect(core.hitTestScreen({ x: secondCenter[0], y: secondCenter[1] }))
+      .not.toBeNull();
+    expect(internals.animatedBarHitIndexValue).toBe(envelope);
+
+    await engine.destroy();
+  });
+
   it('invalidates surface geometry only when a presentation frame advances', () => {
     const { core } = createTestCore(allocated);
     const surface = new PixiEngineSurface(core);
