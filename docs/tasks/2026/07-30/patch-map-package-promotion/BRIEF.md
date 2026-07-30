@@ -72,6 +72,11 @@
   Windows native remains pending.
 - Packed ESM/CJS/types, four examples, and all 38 consumer journeys pass with
   lifecycle cleanup after the lightweight state getters were added.
+- The single Lab now offers the user-supplied actual production JSON as a
+  separate `실제 운영 데이터 · 605개 원본` choice. Its 605 roots, 643
+  components, original IDs/relations/visibility, and remote image source load
+  without mutation through `PatchMap`; the 588KB fixture chunk loads only
+  after the user selects it.
 - Package verification writes transient output unless a release artifact
   directory is explicitly requested, so frozen evidence remains unchanged.
 - Repository residue cleanup is fixed in `1f2f3ef`; it removes 431 tracked
@@ -80,7 +85,7 @@
 
 # Next Step
 
-- Commit the repeated-bar performance tranche, complete final review, and
+- Commit the actual-production Lab fixture tranche, complete final review, and
   create the PR from the clean `performance/core-v2` branch. Version bumping
   remains post-merge work.
 

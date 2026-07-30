@@ -133,3 +133,22 @@
   PASS with 90,715-byte retained-heap median and DOM/scheduler/renderer
   released; packed ESM/CJS/types, four examples, and all 38 consumer journeys
   PASS with lifecycle cleanup. Windows-native performance remains pending.
+
+## 2026-07-30 — Actual production data in the single Lab
+
+- Added the user-supplied 1,071,991-byte PATCH MAP JSON as the separate
+  `실제 운영 데이터 · 605개 원본` manual-Lab option without replacing the
+  seeded production-shaped workload or changing the canonical contract sizes.
+- Preserved all 605 roots, stable IDs, 643 components, 170 relation records,
+  authored visibility, content orientation, and the original remote image
+  source. The frozen source is loaded without seed transformation or caller
+  mutation.
+- Split the fixture into an on-demand Lab chunk: the normal Lab chunk remains
+  3,777.98KB and the production fixture adds 588.09KB/52.28KB gzip only after
+  selection.
+- Verification: focused 10/10 unit tests PASS; typecheck and scoped lint PASS;
+  Lab build PASS; headless Playwright Chromium loaded WebGL, 605 roots and 643
+  components, fit at the 2.5% floor, pan, and destroy PASS with input
+  immutability and zero console/page/network errors. Renderer, scheduler,
+  package exports, and resource ownership did not change, so performance,
+  memory, packed-consumer, and full contract gates were not repeated.
