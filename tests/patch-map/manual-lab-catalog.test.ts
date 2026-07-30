@@ -20,6 +20,7 @@ import {
 } from '../../lab/patch-map/interactive/manual-case-catalog';
 import {
   buildPatchMapManualScene,
+  buildPatchMapManualSceneAsync,
   PATCH_MAP_MANUAL_SCENE_SIZE_OPTIONS,
 } from '../../lab/patch-map/interactive/manual-scene';
 import { PATCH_MAP_MANUAL_LAB_ZOOM_LIMITS } from '../../lab/patch-map/lab-settings';
@@ -203,6 +204,7 @@ describe('PatchMap manual Lab scene', () => {
       '5000',
       '10000',
       'production',
+      'actual-production',
     ]);
     expect(buildPatchMapManualScene('1', 0).barTargets).toHaveLength(1);
     expect(buildPatchMapManualScene('5000', 0xffff_ffff).barTargets).toHaveLength(5_000);
@@ -211,6 +213,30 @@ describe('PatchMap manual Lab scene', () => {
     expect(exploratory.textTargets).toHaveLength(10_000);
     expect(Object.isFrozen(exploratory.dataset)).toBe(true);
     expect(buildPatchMapManualScene('production', 319).barTargets).toHaveLength(500);
+  });
+
+  it('loads the actual production JSON as one immutable manual Lab option', async () => {
+    const first = await buildPatchMapManualSceneAsync('actual-production', 319);
+    const second = await buildPatchMapManualSceneAsync('actual-production', 999);
+    const before = JSON.stringify(first.dataset);
+    const materialized = materializePatchMapDataset(first.dataset);
+
+    expect(first.dataset).toBe(second.dataset);
+    expect(first.dataset).toHaveLength(605);
+    expect(first.primaryIds).toEqual([
+      '0VQUL2c700nbal7',
+      '0VQUMUbL004tcz7',
+      'F70QxBkaoSjfPH8',
+      'iH20HgdUEFOBr7g',
+      'GK72GTlPzbeRyKt',
+      'Ogb2flEqTTcIdcC',
+    ]);
+    expect(first.relationIds).toEqual(['0VOBsciH00fn0Va']);
+    expect(first.barTargets).toHaveLength(25);
+    expect(first.textTargets).toHaveLength(0);
+    expect(materialized.rootIds).toHaveLength(605);
+    expect(JSON.stringify(first.dataset)).toBe(before);
+    expect(Object.isFrozen(first.dataset)).toBe(true);
   });
 
   it('uses the exploratory zoom floor only in the human-operated Lab', () => {

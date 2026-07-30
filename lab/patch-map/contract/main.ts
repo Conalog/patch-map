@@ -185,6 +185,7 @@ function scenarioList(route: PatchMapContractRoute): string {
 
 function manualDatasetSizeLabel(size: PatchMapManualSceneSize): string {
   if (size === 'production') return '운영 데이터 형태';
+  if (size === 'actual-production') return '실제 운영 데이터 · 605개 원본';
   const exploratory = size === '10000' ? ' · 탐색용' : '';
   return `${Number(size).toLocaleString('ko-KR')}개 객체${exploratory}`;
 }
@@ -461,7 +462,7 @@ export function renderPatchMapContractLab(route: PatchMapContractRoute): string 
         <button type="button" data-testid="destroy-case" disabled title="자동 실행기의 임시 런타임을 종료하고 자원을 정리합니다.">자동 런타임 종료</button>
         <button type="button" data-testid="copy-url" title="현재 케이스·크기·시드 주소를 클립보드에 복사합니다.">현재 주소 복사</button>
       </div>
-      <p class="contract-stub-notice">직접 조작 크기의 10,000개는 자유 실험용입니다. 아래 독립 정확 실행기는 승인된 정확 실행 크기를 별도로 유지합니다. ${executable
+      <p class="contract-stub-notice">직접 조작 크기의 10,000개는 자유 실험용이고, 실제 운영 데이터는 등록된 605개 원본 JSON을 그대로 사용합니다. 아래 독립 정확 실행기는 승인된 정확 실행 크기를 별도로 유지합니다. ${executable
         ? 'PixiJS WebGL 기준선에서 실제 제품만 실행합니다. 자동 실행기의 캔버스는 임시이며 정리 단계에서 제거됩니다. 이 화면은 예상값과 비교하지 않고 실제 관찰 또는 실패 정보만 보여줍니다.'
         : '이 승인 경로는 명시적으로 미구현 상태입니다. 엔진 작업·의미 관찰·승격 결과를 만들지 않습니다.'}</p>
       ${renderPatchMapManualWorkbench(presenter)}

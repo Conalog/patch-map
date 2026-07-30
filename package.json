@@ -40,6 +40,7 @@
     "verify:lab": "node scripts/verification/patch-map-manual-lab-browser.mjs",
     "verify:lab:all": "node scripts/verification/patch-map-manual-lab-browser.mjs --all-routes",
     "verify:lab:10000": "node scripts/verification/patch-map-exploratory-10000-browser.mjs --headless",
+    "verify:lab:actual-production": "node scripts/verification/patch-map-actual-production-browser.mjs --headless",
     "verify:package": "npm run build && node scripts/verification/patch-map-package.mjs",
     "verify:memory": "node scripts/verification/patch-map-memory.mjs",
     "verify:local": "npm test && npm run verify:contract && npm run build:lab && npm run verify:package && npm run verify:lab:all && npm run verify:memory",

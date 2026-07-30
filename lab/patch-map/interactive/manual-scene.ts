@@ -9,6 +9,7 @@ export const PATCH_MAP_MANUAL_SCENE_SIZE_OPTIONS = Object.freeze([
   '5000',
   '10000',
   'production',
+  'actual-production',
 ] as const);
 
 export type PatchMapManualSceneSize =
@@ -28,19 +29,28 @@ export interface PatchMapManualScene {
   readonly relationIds: readonly string[];
   readonly barTargets: readonly Readonly<{
     readonly ownerId: string;
-    readonly componentId: 'bar';
+    readonly componentId: string;
   }>[];
   readonly textTargets: readonly Readonly<{
     readonly ownerId: string;
-    readonly componentId: 'label';
+    readonly componentId: string;
   }>[];
 }
+
+let actualProductionDataset:
+  readonly Readonly<Record<string, unknown>>[] | null = null;
 
 export function buildPatchMapManualScene(
   size: string,
   seed: number,
   animationDurationMs = 200,
 ): PatchMapManualScene {
+  if (size === 'actual-production') {
+    if (actualProductionDataset === null) {
+      throw new Error('Actual production data must be loaded asynchronously');
+    }
+    return buildActualProductionScene(actualProductionDataset, animationDurationMs);
+  }
   const recordCount = size === 'production'
     ? 500
     : Math.max(1, Number.parseInt(size, 10));
@@ -169,6 +179,81 @@ export function buildPatchMapManualScene(
     relationIds: ['manual-relations'],
     barTargets,
     textTargets,
+  });
+}
+
+export async function buildPatchMapManualSceneAsync(
+  size: string,
+  seed: number,
+  animationDurationMs = 200,
+): Promise<PatchMapManualScene> {
+  if (size !== 'actual-production') {
+    return buildPatchMapManualScene(size, seed, animationDurationMs);
+  }
+  if (actualProductionDataset === null) {
+    const module = await import('../../fixtures/actual-production.json');
+    actualProductionDataset = deepFreeze(
+      module.default as unknown as readonly Readonly<Record<string, unknown>>[],
+    );
+  }
+  return buildActualProductionScene(actualProductionDataset, animationDurationMs);
+}
+
+function buildActualProductionScene(
+  dataset: readonly Readonly<Record<string, unknown>>[],
+  animationDurationMs: number,
+): PatchMapManualScene {
+  if (
+    !Number.isSafeInteger(animationDurationMs) ||
+    animationDurationMs < 0 ||
+    animationDurationMs > 60_000
+  ) {
+    throw new RangeError(
+      `PatchMap manual bar animation duration is invalid: ${animationDurationMs}`,
+    );
+  }
+  const primaryIds = dataset.flatMap((record) =>
+    record.type !== 'relations' && typeof record.id === 'string'
+      ? [record.id]
+      : []).slice(0, 6);
+  const relationIds = dataset.flatMap((record) =>
+    record.type === 'relations' && typeof record.id === 'string'
+      ? [record.id]
+      : []).slice(0, 1);
+  const barTargets = actualItemComponentTargets(dataset, 'bar');
+  const textTargets = actualItemComponentTargets(dataset, 'text');
+  return deepFreeze({
+    revision: PATCH_MAP_MANUAL_SCENE_REVISION,
+    animationDurationMs,
+    dataset,
+    primaryIds,
+    relationIds,
+    barTargets,
+    textTargets,
+  });
+}
+
+function actualItemComponentTargets(
+  dataset: readonly Readonly<Record<string, unknown>>[],
+  type: 'bar' | 'text',
+): readonly Readonly<{ readonly ownerId: string; readonly componentId: string }>[] {
+  return dataset.flatMap((record) => {
+    if (
+      record.type !== 'item' ||
+      typeof record.id !== 'string' ||
+      !Array.isArray(record.components)
+    ) {
+      return [];
+    }
+    return record.components.flatMap((component) =>
+      isRecord(component) &&
+      component.type === type &&
+      typeof component.id === 'string'
+        ? [{
+            ownerId: record.id as string,
+            componentId: component.id,
+          }]
+        : []);
   });
 }
 

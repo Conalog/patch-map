@@ -18,6 +18,7 @@ import {
 } from './manual-case-catalog';
 import {
   buildPatchMapManualScene,
+  buildPatchMapManualSceneAsync,
   PATCH_MAP_MANUAL_SCENE_SIZE_OPTIONS,
   isPatchMapManualSceneSize,
   type PatchMapManualScene,
@@ -985,7 +986,11 @@ export function mountPatchMapManualWorkbench(
           break;
         case 'animation-duration': {
           const durationMs = manualAnimationDuration();
-          scene = buildPatchMapManualScene(manualSceneSize, options.seed, durationMs);
+          scene = await buildPatchMapManualSceneAsync(
+            manualSceneSize,
+            options.seed,
+            durationMs,
+          );
           result = loadManualScene(requireEngine(), scene);
           requireEngine().fitViewport({ paddingCssPx: 46 });
           publishNow(`bar animation ${durationMs}ms`);
@@ -1020,7 +1025,7 @@ export function mountPatchMapManualWorkbench(
           break;
         case 'scene-size': {
           const nextSize = selectedManualSceneSize();
-          const nextScene = buildPatchMapManualScene(
+          const nextScene = await buildPatchMapManualSceneAsync(
             nextSize,
             options.seed,
             manualAnimationDuration(),
@@ -1038,7 +1043,7 @@ export function mountPatchMapManualWorkbench(
           break;
         }
         case 'scene-regenerate':
-          scene = buildPatchMapManualScene(
+          scene = await buildPatchMapManualSceneAsync(
             manualSceneSize,
             (options.seed + ++actionSequence) >>> 0,
             manualAnimationDuration(),
@@ -2132,7 +2137,8 @@ function requireManualSceneSize(value: string): PatchMapManualSceneSize {
 }
 
 function manualSceneSizeLabel(size: PatchMapManualSceneSize): string {
-  if (size === 'production') return 'production 예제';
+  if (size === 'production') return '운영 데이터 형태 · 생성';
+  if (size === 'actual-production') return '실제 운영 데이터 · 605개 원본';
   const suffix = size === '10000' ? ' · 탐색용' : '';
   return `${Number(size).toLocaleString('ko-KR')}개${suffix}`;
 }
@@ -2149,7 +2155,7 @@ function renderDataPanel(): string {
       </label>
       ${commandButton('scene-size', '선택 크기 불러오기')}
     </div>
-    <p>10,000개는 브라우저 한계를 직접 살펴보는 탐색용 장면입니다. 아래의 정확 계약 실행은 승인된 5,000개/production 측정 범위를 그대로 유지합니다.</p>
+    <p>10,000개는 브라우저 한계를 직접 살펴보는 탐색용 장면입니다. ‘실제 운영 데이터’는 605개 최상위 객체와 2,676개 활성 grid cell이 있는 원본 JSON을 시드 변환 없이 불러옵니다. 아래의 정확 계약 실행은 승인된 5,000개/production 측정 범위를 그대로 유지합니다.</p>
     <div class="manual-button-grid">
       ${commandButton('scene-regenerate', '시드 장면 다시 만들기')}
       ${commandButton('scene-export-json', '현재 장면 → 편집기')}
