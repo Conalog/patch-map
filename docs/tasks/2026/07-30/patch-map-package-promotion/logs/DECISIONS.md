@@ -70,3 +70,10 @@
 - Performance budgets are not relaxed after measurement. Median improvement
   and unfavorable 1x/4x outliers are both retained in the raw checkpoint;
   external Windows-native qualification remains pending.
+
+**2026-07-30**
+
+- **Background:** Standalone root imagery and item component assets shared one Pixi container, so a site underlay could only render above all aggregate geometry or force every item icon behind its own frame.
+- **Decision:** Keep one aggregate scene owner but split standalone images into a dedicated underlay container; retain separate component background, geometry, content, text, and interaction lanes. Preserve the approved default Sprite-center image pivot, while treating v0.10 `attrs.display: "image"` records as the producer's legacy top-left layout profile.
+- **Why:** This preserves PATCH MAP root-underlay semantics and component content visibility without reintroducing per-entity display objects, listeners, tickers, or closures.
+- **Impact:** Renderer lifecycle and DevTools ownership stay aggregate. Async asset settlement must wake the package-owned frame loop, and Lab external assets remain available only through an explicit allowlisted profile.

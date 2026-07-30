@@ -152,3 +152,11 @@
   immutability and zero console/page/network errors. Renderer, scheduler,
   package exports, and resource ownership did not change, so performance,
   memory, packed-consumer, and full contract gates were not repeated.
+
+**2026-07-30**
+
+- **Actual production rendering compatibility.** Fixed the v0.10 visual-property family instead of special-casing sample IDs: `attrs.alpha` now multiplies through group/grid/item/component/direct and relation ownership, including local image/text opacity. The producer's `attrs.display: "image"` profile aligns authored image and overlay top-left rotation while the approved default image-center contract remains unchanged.
+- Split standalone root images from component assets inside the aggregate Pixi hierarchy, kept root imagery in the underlay, and preserved background, bar/relation, icon, text, and interaction overlay lanes without per-entity scene nodes.
+- Added the Lab's explicit `images.conalog.com` ingestion profile and connected asynchronous Core invalidation to the `PatchMap` frame owner. The default package policy remains deny-by-default and resolved asset leases still release on destroy.
+- Verification: targeted 77/77 and 29/29 tests PASS; typecheck/full lint PASS; full unit 148 files/1,457 tests PASS; package and Lab builds PASS; canonical 38/173 contract PASS; 173-route headless Lab 192/192 PASS; actual-production headless background `resolved/current` at 1730×1488, image/overlay center distance 11.02px, overlay alpha 0.6, pan/destroy and console/page/network error zero PASS; packed ESM/CJS/types, four examples and 38 journeys PASS; 2+7 memory over 5,099 entities PASS with 94,087-byte retained-heap median and DOM/scheduler/renderer released.
+- The memory command's transient update to the retained result path was discarded so digest-bound historical evidence stayed unchanged. No hot animation path changed, so no new full performance matrix was run; Windows-native and qualified WebGPU remain pending.
