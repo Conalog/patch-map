@@ -24,7 +24,7 @@ const nativeWindows = parsePatchMapNativeWindowsCell(
 const HOST_LIFECYCLE_CYCLES = nativeWindows.requested ? 10 : 9;
 const RESULTS = path.resolve(
   process.env.PATCH_MAP_MEMORY_ARTIFACT_DIR
-    ?? path.join(ROOT, 'performance/core-v2/results'),
+    ?? path.join(ROOT, 'performance/patch-map/results'),
 );
 const server = await createServer({
   root: ROOT,
@@ -62,7 +62,7 @@ try {
   });
   await cdp.send('Performance.enable');
   await cdp.send('HeapProfiler.enable');
-  await page.goto(new URL('performance/core-v2/index.html', baseUrl).href, { waitUntil: 'networkidle' });
+  await page.goto(new URL('performance/patch-map/index.html', baseUrl).href, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => typeof window.__PATCH_MAP_BENCHMARK__?.run === 'function');
   const gpu = await page.evaluate(() => {
     const canvas = document.createElement('canvas');

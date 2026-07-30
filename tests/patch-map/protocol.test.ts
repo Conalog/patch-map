@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { percentile, summarize } from '../../performance/core-v2/protocol';
+import { percentile, summarize } from '../../performance/patch-map/protocol';
 import {
   createSyntheticPatchMap,
   resolveSyntheticBitmapTextCapability,
-} from '../../performance/core-v2/workloads';
+} from '../../performance/patch-map/workloads';
 import { parsePatchMapV010 } from '../../src/patch-map/parser';
 import { selectPatchMapTextRenderRoute } from '../../src/patch-map/semantic/text-render-route';
 

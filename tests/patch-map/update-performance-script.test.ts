@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { createSyntheticPatchMap } from '../../performance/core-v2/workloads';
+import { createSyntheticPatchMap } from '../../performance/patch-map/workloads';
 import { PatchMap } from '../../src/patch-map/engine';
 
 // @ts-expect-error -- verification runner is authored as ESM JavaScript.

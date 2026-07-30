@@ -9,7 +9,7 @@ import {
   countPatchMapLongTasksAtLeast,
   measurePatchMapVisibleAction,
   validatePatchMapContractPerformanceDataset,
-} from '../../performance/core-v2/contract-workload';
+} from '../../performance/patch-map/contract-workload';
 import type { PatchMap } from '../../src/patch-map/engine';
 
 afterEach(() => {

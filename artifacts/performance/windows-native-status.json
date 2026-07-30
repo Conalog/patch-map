@@ -1,9 +1,0 @@
-{
-  "schemaVersion": 1,
-  "gate": "windows-native-reference",
-  "status": "pending",
-  "reason": "The oracle host is macOS 14.0 arm64; no Windows result was created or inferred.",
-  "runbook": "docs/oracle/windows-baseline-runbook.md",
-  "requiredWarmups": 2,
-  "requiredMeasuredSamples": 7
-}

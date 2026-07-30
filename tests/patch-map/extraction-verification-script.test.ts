@@ -10,7 +10,7 @@ const performanceSource = readFileSync(
   'utf8',
 );
 const harnessSource = readFileSync(
-  new URL('../../performance/core-v2/harness.ts', import.meta.url),
+  new URL('../../performance/patch-map/harness.ts', import.meta.url),
   'utf8',
 );
 const packageSource = readFileSync(

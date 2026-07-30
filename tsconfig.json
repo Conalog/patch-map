@@ -27,7 +27,7 @@
     "tests",
     "scripts",
     "lab",
-    "performance/core-v2",
+    "performance/patch-map",
     "vite.config.ts",
     "vite.patch-map-lab.config.ts"
   ],

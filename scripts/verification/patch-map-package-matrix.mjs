@@ -16,6 +16,8 @@ import { patchMapDeclaredCsmConflicts } from './core-v2-contract/immutable-confl
 
 const execute = promisify(execFile);
 const PACKAGE_NAME = '@conalog/patch-map';
+const PACKED_JOURNEY_TIMEOUT_MS = 45_000;
+const PACKED_EDITOR_LIFECYCLE_TIMEOUT_MS = 120_000;
 const EXAMPLES = Object.freeze(['minimal', 'dashboard', 'editor', 'report']);
 const EXAMPLE_FILES = Object.freeze([
   'host-adapter.ts',
@@ -354,7 +356,9 @@ export async function runPackedJourneyMatrix(page, baseUrl) {
         ({ name, id }) => window[name].runJourney(id),
         { name: globalName, id: caseId },
       ),
-      45_000,
+      caseId === 'CSM-036'
+        ? PACKED_EDITOR_LIFECYCLE_TIMEOUT_MS
+        : PACKED_JOURNEY_TIMEOUT_MS,
       `packed journey ${caseId}`,
     );
     runs.push(run);

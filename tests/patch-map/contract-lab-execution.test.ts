@@ -45,7 +45,7 @@ import {
   type PatchMapPresentationPolicyProductProbe,
 } from '../../src/patch-map/presentation-policy';
 import type { PatchMapSemanticTarget } from '../../src/patch-map/semantic/probe';
-import packageConsumerEvidence from '../../performance/core-v2/results/package-consumer.json';
+import packageConsumerEvidence from '../../performance/patch-map/results/package-consumer.json';
 // @ts-expect-error -- the independent browser-safe comparator is authored as ESM JavaScript.
 import * as compareModule from '../../scripts/verification/core-v2-contract/compare.mjs';
 

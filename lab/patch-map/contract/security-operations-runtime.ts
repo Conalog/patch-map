@@ -1,4 +1,4 @@
-import packageConsumerResultJson from '../../../performance/core-v2/results/package-consumer.json';
+import packageConsumerResultJson from '../../../performance/patch-map/results/package-consumer.json';
 import {
   PatchMapOperationsAuthority,
   type PatchMap,

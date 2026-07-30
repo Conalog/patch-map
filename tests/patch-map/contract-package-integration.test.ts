@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 import { describe, expect, it } from 'vitest';
 
-import packageConsumerEvidence from '../../performance/core-v2/results/package-consumer.json';
+import packageConsumerEvidence from '../../performance/patch-map/results/package-consumer.json';
 import {
   PATCH_MAP_PACKAGE_INTEGRATION_CASE_IDS,
   PATCH_MAP_PACKAGE_INTEGRATION_RUNTIME_REVISION,

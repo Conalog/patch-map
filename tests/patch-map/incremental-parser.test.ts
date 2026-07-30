@@ -25,7 +25,7 @@ import {
   planPatchMapMutationTransaction,
   planPatchMapTextBatch,
 } from '../../src/patch-map/semantic/transaction';
-import { buildPatchMapContractPerformanceDataset } from '../../performance/core-v2/contract-workload';
+import { buildPatchMapContractPerformanceDataset } from '../../performance/patch-map/contract-workload';
 import { buildPatchMapManualScene } from '../../lab/patch-map/interactive/manual-scene';
 
 describe('PatchMap guarded incremental parser', () => {

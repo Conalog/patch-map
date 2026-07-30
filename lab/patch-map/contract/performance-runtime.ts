@@ -12,7 +12,7 @@ import {
   type PatchMapContractPerformanceSize,
   type PatchMapPerformanceBarState,
   type PatchMapPerformanceSemanticProjection,
-} from '../../../performance/core-v2/contract-workload';
+} from '../../../performance/patch-map/contract-workload';
 import type { PatchMap } from '../../../src/patch-map';
 
 export const PATCH_MAP_PERFORMANCE_RUNTIME_REVISION =
@@ -20,7 +20,7 @@ export const PATCH_MAP_PERFORMANCE_RUNTIME_REVISION =
 export const PATCH_MAP_PERFORMANCE_CLEANUP_REVISION =
   'core-v2-performance-runtime-cleanup/1' as const;
 export const PATCH_MAP_PERFORMANCE_EVIDENCE_PATH =
-  '/performance/core-v2/results/contract-performance.json' as const;
+  '/performance/patch-map/results/contract-performance.json' as const;
 
 export const PATCH_MAP_PERFORMANCE_CASE_IDS = Object.freeze([
   'PRF-001',

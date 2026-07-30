@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const scriptPath = fileURLToPath(
   new URL(
-    '../../scripts/verification/core-v2-native-release-negative-probes.mjs',
+    '../../scripts/verification/patch-map-native-release-negative-probes.mjs',
     import.meta.url,
   ),
 );

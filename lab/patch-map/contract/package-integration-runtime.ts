@@ -1,4 +1,4 @@
-import packageConsumerResultJson from '../../../performance/core-v2/results/package-consumer.json';
+import packageConsumerResultJson from '../../../performance/patch-map/results/package-consumer.json';
 
 export const PATCH_MAP_PACKAGE_INTEGRATION_RUNTIME_REVISION =
   'patch-map-package-integration-runtime/1' as const;

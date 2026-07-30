@@ -320,7 +320,7 @@ function evidence(): Readonly<Record<string, unknown>> {
       runtimeResourceIds: [],
     },
     rawArtifact: {
-      path: 'performance/core-v2/results/contract-performance-raw.test.json',
+      path: 'performance/patch-map/results/contract-performance-raw.test.json',
       sha256: RAW_DIGEST,
       sampleCount: 42,
     },
