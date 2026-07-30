@@ -79,7 +79,13 @@ import {
   inheritRendererDegradationDiagnosticsIncremental,
   withRendererDegradationDiagnostics,
 } from './renderers/degradation';
-import { InvalidationScheduler, type FrameSchedulerDebug } from './scheduler';
+import {
+  CoreV2AdaptiveFrameBudget,
+  CoreV2FrameLoop,
+  InvalidationScheduler,
+  type CoreV2FrameLoopOptions,
+  type FrameSchedulerDebug,
+} from './scheduler';
 import {
   planCoreV2ParsedSceneReconcile,
   planCoreV2ParsedSceneReconcileIncremental,
@@ -537,6 +543,9 @@ export class CoreV2 {
   private scene: CoreV2Scene;
   private readonly sceneOptions: CoreSceneOptions;
   private readonly scheduler: InvalidationScheduler;
+  private readonly adaptiveFrameBudget = new CoreV2AdaptiveFrameBudget();
+  private externalFrameLoop: CoreV2FrameLoop | null = null;
+  private automaticAnimationFramesActive = false;
   private readonly sceneImages: CoreV2SceneImageController;
   private readonly presentationProjection = new CoreV2PresentationProjectionStore();
   private readonly parseOptions: ParsePatchMapOptions;
@@ -558,7 +567,6 @@ export class CoreV2 {
   private worldFlipX = false;
   private worldFlipY = false;
   private animationClockMs = 0;
-  private lastAnimationFrameTime: number | null = null;
   private lastFrameReport: FrameReport | null = null;
   private suspended = false;
   private pan: PanState | null = null;
@@ -675,6 +683,21 @@ export class CoreV2 {
     return this.destroyedValue
       ? 0
       : this.scene.activeAnimations + this.presentationController.activeCount;
+  }
+
+  /** Source-level workload size used by the shared adaptive frame policy. */
+  public get frameWorkloadSize(): number {
+    return this.parseResultValue?.identity.counts.sourceElements ?? 0;
+  }
+
+  /** Current monotonic presentation clock used by a package-owned frame loop. */
+  public get frameTimeMs(): number {
+    return this.animationClockMs;
+  }
+
+  /** Root-owned gesture state used by automatic and host-driven frame loops. */
+  public get viewportGestureActive(): boolean {
+    return !this.destroyedValue && this.pan !== null;
   }
 
   public get presentationRevision(): number {
@@ -825,7 +848,8 @@ export class CoreV2 {
     this.presentationValidatedEntityEpoch = this.presentationEntityEpoch;
     this.invalidPresentationEntityIds.clear();
     this.animationClockMs = 0;
-    this.lastAnimationFrameTime = null;
+    this.automaticAnimationFramesActive = false;
+    this.adaptiveFrameBudget.reset();
     this.staleHitProjectionIds.clear();
     this.renderer.setProjection(presentation, undefined, this.staleHitProjectionIds);
   }
@@ -1307,9 +1331,19 @@ export class CoreV2 {
     if (!Number.isFinite(timeMs)) throw new TypeError('timeMs must be finite');
     this.applyPendingIntrinsicImageSizes();
     this.scheduler.cancelPending();
-    if (timeMs !== this.animationClockMs) this.advancePresentation(timeMs);
+    if (timeMs !== this.animationClockMs) {
+      if (this.scene.activeAnimations > 0) {
+        this.advance(timeMs);
+      } else {
+        // Renderer-side bar presentation is the common Engine path. Preserve
+        // its aggregate dirty-range fast path without entering the dense
+        // transaction animation table when that table is idle.
+        this.advancePresentation(timeMs);
+      }
+    }
     this.animationClockMs = timeMs;
-    this.lastAnimationFrameTime = null;
+    this.adaptiveFrameBudget.reset(now());
+    this.automaticAnimationFramesActive = false;
     this.lastFrameReport = this.flushScene();
     if (this.lastFrameReport.rendered) void this.sceneImages.finalizeAfterRenderedFrame();
     if (this.autoRender && this.activeAnimations > 0) this.scheduler.invalidate('presentation');
@@ -1358,7 +1392,8 @@ export class CoreV2 {
       this.presentationController.settle(timeMs),
     );
     this.animationClockMs = timeMs;
-    this.lastAnimationFrameTime = null;
+    this.adaptiveFrameBudget.reset(now());
+    this.automaticAnimationFramesActive = false;
     this.suspended = true;
     return Object.freeze({
       state: 'suspended',
@@ -1381,7 +1416,8 @@ export class CoreV2 {
       this.presentationController.settle(timeMs),
     );
     this.animationClockMs = timeMs;
-    this.lastAnimationFrameTime = null;
+    this.adaptiveFrameBudget.reset(now());
+    this.automaticAnimationFramesActive = false;
     this.suspended = false;
     return Object.freeze({
       state: 'running',
@@ -1430,7 +1466,6 @@ export class CoreV2 {
       rendererDomain === undefined ? {} : { domain: rendererDomain },
     );
     if (hasSelection) this.renderer.markOverlayChanges(result.changedRanges, 'selection');
-    if (this.scene.activeAnimations > 0) this.lastAnimationFrameTime = null;
     if (hitImpact.invalidate) this.invalidateEntityHitIndex();
     let projectionStalenessChanged = false;
     for (const id of hitImpact.removedIds) {
@@ -1478,6 +1513,10 @@ export class CoreV2 {
 
   public advance(timeMs: number): AdvanceResult {
     this.assertAlive();
+    // Validate and advance the presentation authority first. Its structured
+    // monotonic-clock error is part of the public Core/Engine contract, and a
+    // rejected frame must not partially advance dense transaction animations.
+    const presentation = this.advancePresentation(timeMs);
     const result = this.scene.advance(timeMs);
     this.animationClockMs = timeMs;
     if (result.changed > 0) {
@@ -1489,7 +1528,6 @@ export class CoreV2 {
     }
     this.pruneCompletedSpatialHitAnimations(timeMs);
     this.renderer.markChanges(result.changedRanges, 'animation');
-    const presentation = this.advancePresentation(timeMs);
     if (presentation.changedCount === 0 && presentation.activeCount === 0) return result;
     return Object.freeze({
       ...result,
@@ -2400,6 +2438,26 @@ export class CoreV2 {
     this.scheduler.setContinuous(false, 'gesture-cancel');
   }
 
+  /**
+   * Creates the one package-owned manual frame loop for this Core instance.
+   * Automatic Core instances already own their scheduler and reject a second
+   * frame owner.
+   */
+  public createFrameLoop(options: CoreV2FrameLoopOptions = {}): CoreV2FrameLoop {
+    this.assertAlive();
+    if (this.autoRender) {
+      throw new Error('createFrameLoop requires autoRender: false');
+    }
+    if (
+      this.externalFrameLoop !== null &&
+      !this.externalFrameLoop.isDestroyed
+    ) {
+      throw new Error('CoreV2 already owns an active frame loop');
+    }
+    this.externalFrameLoop = new CoreV2FrameLoop(this, options);
+    return this.externalFrameLoop;
+  }
+
   public async destroy(): Promise<boolean> {
     if (this.destroyedValue) return false;
     this.destroyedValue = true;
@@ -2408,7 +2466,10 @@ export class CoreV2 {
     this.viewportPolicies.clear();
     this.rootViewportListeners.clear();
     this.rootPointerListeners.clear();
+    this.externalFrameLoop?.destroy();
+    this.externalFrameLoop = null;
     this.scheduler.destroy();
+    this.adaptiveFrameBudget.destroy();
     this.unbindInteractions();
     this.entityHitIndexValue = null;
     this.staleHitProjectionIds.clear();
@@ -2461,30 +2522,45 @@ export class CoreV2 {
   private renderScheduledFrame(timeMs: number): boolean {
     if (this.destroyedValue || this.suspended) return false;
     this.applyPendingIntrinsicImageSizes();
-    if (this.activeAnimations > 0) {
-      if (this.lastAnimationFrameTime === null) this.lastAnimationFrameTime = timeMs;
-      const delta = Math.max(0, timeMs - this.lastAnimationFrameTime);
-      this.lastAnimationFrameTime = timeMs;
-      this.animationClockMs += delta;
-      if (this.scene.activeAnimations > 0) {
-        const spatialAnimationActive = this.spatialHitAnimationEnds.size > 0;
-        const advanced = this.scene.advance(this.animationClockMs);
-        if (advanced.changed > 0 && spatialAnimationActive) this.invalidateEntityHitIndex();
-        this.renderer.markChanges(advanced.changedRanges, 'animation');
+    const activeAnimationsBefore = this.activeAnimations;
+    if (activeAnimationsBefore > 0) {
+      if (!this.automaticAnimationFramesActive) {
+        this.adaptiveFrameBudget.reset(timeMs);
+        this.automaticAnimationFramesActive = true;
       }
-      this.advancePresentation(this.animationClockMs);
-      this.pruneCompletedSpatialHitAnimations(this.animationClockMs);
+      const plan = this.adaptiveFrameBudget.plan({
+        wallTimeMs: timeMs,
+        activeAnimationCount: activeAnimationsBefore,
+        workloadSize: this.frameWorkloadSize,
+        viewportGestureActive: this.viewportGestureActive,
+      });
+      if (plan.presentationAdvanced) {
+        this.animationClockMs += plan.presentationDeltaMs;
+        if (this.scene.activeAnimations > 0) {
+          const spatialAnimationActive = this.spatialHitAnimationEnds.size > 0;
+          const advanced = this.scene.advance(this.animationClockMs);
+          if (advanced.changed > 0 && spatialAnimationActive) this.invalidateEntityHitIndex();
+          this.renderer.markChanges(advanced.changedRanges, 'animation');
+        }
+        this.advancePresentation(this.animationClockMs);
+        this.pruneCompletedSpatialHitAnimations(this.animationClockMs);
+      }
+      this.lastFrameReport = this.flushScene();
+      this.adaptiveFrameBudget.complete(plan, now());
+    } else {
+      this.adaptiveFrameBudget.reset(timeMs);
+      this.lastFrameReport = this.flushScene();
     }
-    this.lastFrameReport = this.flushScene();
     if (this.lastFrameReport.rendered) void this.sceneImages.finalizeAfterRenderedFrame();
     const active = this.activeAnimations > 0;
-    if (!active) this.lastAnimationFrameTime = null;
+    if (!active) this.automaticAnimationFramesActive = false;
     return active;
   }
 
   private invalidate(reason: string): void {
     this.componentRendererFactsPublished = false;
     this.textRendererFactsPublished = false;
+    this.requestExternalFrameLoop();
     if (this.autoRender && !this.suspended) this.scheduler.invalidate(reason);
   }
 
@@ -2496,6 +2572,15 @@ export class CoreV2 {
       this.renderedSceneRevision = report.revision;
     }
     return report;
+  }
+
+  private requestExternalFrameLoop(): void {
+    if (this.externalFrameLoop === null) return;
+    if (this.externalFrameLoop.isDestroyed) {
+      this.externalFrameLoop = null;
+      return;
+    }
+    this.externalFrameLoop.request();
   }
 
   private entityHitIndex(): CoreV2EntityHitIndex {
@@ -3181,6 +3266,7 @@ export class CoreV2 {
         x,
         y,
       };
+      this.requestExternalFrameLoop();
       if (this.autoRender) this.scheduler.setContinuous(true, 'gesture');
     }
   }
@@ -3199,6 +3285,7 @@ export class CoreV2 {
   private onPointerUp(pointerId: number): void {
     if (this.pan?.pointerId !== pointerId) return;
     this.pan = null;
+    this.requestExternalFrameLoop();
     if (this.autoRender) this.scheduler.setContinuous(false, 'gesture-end');
   }
 

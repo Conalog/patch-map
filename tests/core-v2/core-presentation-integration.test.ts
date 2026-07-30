@@ -91,6 +91,30 @@ describe('Core v2 bar presentation integration', () => {
     expect(core.activeAnimations).toBe(1);
   });
 
+  it('advances transaction animations through the public frame publication clock', () => {
+    const { core } = createTestCore(allocated);
+    core.load(scene(10));
+    core.publishFrame(0);
+    const entityId = 'item-a::bar:level';
+    const initialHeight = core.get(entityId)?.bounds.height;
+
+    core.animateBarHeights({
+      fraction: 1,
+      durationMs: 100,
+      seed: 0xa11ba7,
+      minPercent: 100,
+      maxPercent: 100,
+    });
+    expect(core.activeAnimations).toBeGreaterThan(0);
+
+    core.publishFrame(50);
+    expect(core.get(entityId)?.bounds.height).not.toBe(initialHeight);
+    expect(core.activeAnimations).toBeGreaterThan(0);
+
+    core.publishFrame(100);
+    expect(core.activeAnimations).toBe(0);
+  });
+
   it('reuses the animated-bar hit envelope across presentation frames', () => {
     const { core } = createTestCore(allocated);
     core.load(scene(10));
@@ -144,15 +168,20 @@ describe('Core v2 bar presentation integration', () => {
     core.publishFrame(0);
     core.reconcile(scene(40));
     const internals = core as unknown as {
-      readonly scene: { get: (target: unknown) => unknown };
+      readonly scene: {
+        get: (target: unknown) => unknown;
+        advance: (timeMs: number) => unknown;
+      };
     };
     const getSpy = vi.spyOn(internals.scene, 'get');
+    const advanceSpy = vi.spyOn(internals.scene, 'advance');
 
     core.setView({ x: 12, y: 8, scale: 1.25, rotation: 0 });
     getSpy.mockClear();
     core.publishFrame(100);
 
     expect(getSpy).not.toHaveBeenCalled();
+    expect(advanceSpy).not.toHaveBeenCalled();
     expect(core.barPresentationProbe({ ownerId: 'item-a', componentId: 'level' }))
       .toMatchObject({ presentationHeight: 36.25, active: true });
   });

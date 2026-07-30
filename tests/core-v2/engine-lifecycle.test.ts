@@ -9,6 +9,7 @@ import {
   type CoreV2SurfaceDebug,
   type CoreV2SurfaceOptions,
 } from '../../src/core-v2/engine';
+import type { FrameDriver } from '../../src/core-v2/scheduler';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -32,12 +33,32 @@ function createSurfaceFactory() {
   return { factory, options, surfaces };
 }
 
+function createFrameDriver(): FrameDriver & { pending(): number } {
+  let nextHandle = 1;
+  const callbacks = new Map<number, FrameRequestCallback>();
+  return {
+    now: () => 10,
+    request: (callback) => {
+      const handle = nextHandle++;
+      callbacks.set(handle, callback);
+      return handle;
+    },
+    cancel: (handle) => {
+      callbacks.delete(handle);
+    },
+    pending: () => callbacks.size,
+  };
+}
+
 class FakeSurface implements CoreV2EngineSurface {
   public canvasCount = 1;
   public destroyed = false;
   public loadCount = 0;
   public prepareCount = 0;
   public frameCount = 0;
+  public debugSnapshotCount = 0;
+  public activeAnimationCountValue = 0;
+  public frameWorkloadSizeValue = 0;
   public lastInput: unknown = null;
   public activeGestureCount = 0;
   public renderCommandCount = 0;
@@ -104,7 +125,16 @@ class FakeSurface implements CoreV2EngineSurface {
     });
   }
 
+  public frameLoopActiveAnimations(): number {
+    return this.activeAnimationCountValue;
+  }
+
+  public frameLoopWorkloadSize(): number {
+    return this.frameWorkloadSizeValue;
+  }
+
   public debugSnapshot(): CoreV2SurfaceDebug {
+    this.debugSnapshotCount += 1;
     return Object.freeze({
       cssSize: Object.freeze([this.width, this.height] as [number, number]),
       backingSize: Object.freeze([
@@ -112,7 +142,7 @@ class FakeSurface implements CoreV2EngineSurface {
         Math.round(this.height * this.pixelRatio),
       ] as [number, number]),
       selectionIds: this.selectionIds,
-      activeAnimationCount: 0,
+      activeAnimationCount: this.activeAnimationCountValue,
       activeGestureCount: this.activeGestureCount,
       renderCommandCount: this.renderCommandCount,
       visiblePrimitiveCount: this.visiblePrimitiveCount,
@@ -128,6 +158,62 @@ class FakeSurface implements CoreV2EngineSurface {
 }
 
 describe('CoreV2Engine lifecycle authority', () => {
+  it('reads frame-loop facts without allocating a surface debug snapshot', async () => {
+    const { factory, surfaces } = createSurfaceFactory();
+    const engine = new CoreV2Engine({ surfaceFactory: factory });
+    await engine.initialize({ instanceId: 'frame-facts', width: 800, height: 600 });
+    const surface = surfaces[0]!;
+    surface.activeAnimationCountValue = 5_000;
+    surface.frameWorkloadSizeValue = 12_345;
+    const debugSnapshotCount = surface.debugSnapshotCount;
+
+    expect(engine.activeAnimations).toBe(5_000);
+    expect(engine.frameWorkloadSize).toBe(12_345);
+    expect(surface.debugSnapshotCount).toBe(debugSnapshotCount);
+
+    await engine.destroy();
+  });
+
+  it('owns and cancels its public manual frame loop before surface teardown', async () => {
+    const { factory } = createSurfaceFactory();
+    const driver = createFrameDriver();
+    const engine = new CoreV2Engine({ surfaceFactory: factory });
+    await engine.initialize({ instanceId: 'managed-frames', width: 800, height: 600 });
+
+    const loop = engine.createFrameLoop({ driver });
+    engine.loadDataset(catalogProfiles.datasets['interactive-scene']);
+    expect(driver.pending()).toBe(1);
+    expect(() => engine.createFrameLoop({ driver })).toThrow();
+
+    engine.setDocumentVisibility({ state: 'hidden', timeMs: 10 });
+    expect(driver.pending()).toBe(0);
+    engine.setDocumentVisibility({ state: 'visible', timeMs: 20 });
+    expect(driver.pending()).toBe(1);
+
+    await engine.destroy();
+    expect(driver.pending()).toBe(0);
+    expect(loop.debugSnapshot().destroyed).toBe(true);
+  });
+
+  it('starts a late-owned frame loop paused while the document is hidden', async () => {
+    const { factory } = createSurfaceFactory();
+    const driver = createFrameDriver();
+    const engine = new CoreV2Engine({ surfaceFactory: factory });
+    await engine.initialize({ instanceId: 'hidden-frames', width: 800, height: 600 });
+    engine.setDocumentVisibility({ state: 'hidden', timeMs: 10 });
+
+    const loop = engine.createFrameLoop({ driver });
+    loop.request(100);
+    expect(loop.isPaused).toBe(true);
+    expect(driver.pending()).toBe(0);
+
+    engine.setDocumentVisibility({ state: 'visible', timeMs: 20 });
+    expect(loop.isPaused).toBe(false);
+    expect(driver.pending()).toBe(1);
+
+    await engine.destroy();
+  });
+
   it('deduplicates repeated initialization and publishes one ready event', async () => {
     const { factory, options, surfaces } = createSurfaceFactory();
     const engine = new CoreV2Engine({ surfaceFactory: factory });

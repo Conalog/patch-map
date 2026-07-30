@@ -24,6 +24,10 @@ import {
   type CoreV2TransientProjectionResult,
   normalizeCoreV2TextTarget,
 } from './core';
+import {
+  CoreV2FrameLoop,
+  type CoreV2FrameLoopOptions,
+} from './scheduler';
 import type {
   CoreV2PresentationPolicyInput,
   CoreV2PresentationPolicyProductProbe,
@@ -982,6 +986,10 @@ export interface CoreV2EngineSurface {
   ): CoreV2SemanticRefreshResult;
   hitTestScreen(point: CoreV2Point): string | null;
   screenToWorld(point: CoreV2Point): CoreV2Point;
+  /** Optional allocation-free frame facts for current aggregate surfaces. */
+  frameLoopActiveAnimations?(): number;
+  frameLoopWorkloadSize?(): number;
+  viewportGestureActive?(): boolean;
   debugSnapshot(): CoreV2SurfaceDebug;
   /**
    * View-independent geometry for fit/focus. Implementations may retain this
@@ -1872,6 +1880,9 @@ export class CoreV2Engine {
   private readonly listeners = new Map<CoreV2EngineEvent, Set<(event: unknown) => void>>();
   private lifecycle: CoreV2Lifecycle = 'new';
   private surface: CoreV2EngineSurface | null = null;
+  private frameLoop: CoreV2FrameLoop | null = null;
+  private frameLoopPausedForVisibility = false;
+  private frameClockMs = 0;
   private retainedCleanupSurface: CoreV2EngineSurface | null = null;
   private authoritativeCanvas: HTMLCanvasElement | null = null;
   private terminalRendererLossProbe: PixiCoreV2RendererLossProbe | null = null;
@@ -2097,6 +2108,55 @@ export class CoreV2Engine {
       session: this.assetSession?.probe() ?? null,
       runtime: this.assetRuntime.probe(alias),
     });
+  }
+
+  /** O(1) frame-loop seam shared by browser hosts and the Core v2 Labs. */
+  public get activeAnimations(): number {
+    const surface = this.surface;
+    if (surface === null) return 0;
+    return surface.frameLoopActiveAnimations?.()
+      ?? surface.debugSnapshot().activeAnimationCount;
+  }
+
+  /** O(1) source workload shared with the package frame-loop policy. */
+  public get frameWorkloadSize(): number {
+    return this.surface?.frameLoopWorkloadSize?.()
+      ?? this.materialized?.rootIds.length
+      ?? 0;
+  }
+
+  /** Current monotonic product presentation clock for late frame-loop ownership. */
+  public get frameTimeMs(): number {
+    return this.frameClockMs;
+  }
+
+  /** Product-owned pointer/motion state; Lab hosts do not mirror it. */
+  public get viewportGestureActive(): boolean {
+    if (this.viewportMotion !== null) return true;
+    if (this.surface?.viewportGestureActive?.() === true) return true;
+    return (this.pointerGestureAuthority?.probe().activeGestureCount ?? 0) > 0;
+  }
+
+  /** Structural CoreV2FrameLoop target state without allocating a snapshot. */
+  public get destroyed(): boolean {
+    return this.lifecycle === 'destroyed' || this.lifecycle === 'destroying';
+  }
+
+  /**
+   * Creates the one Engine-owned manual frame loop. Engine destroy always
+   * cancels it before releasing the Pixi surface.
+   */
+  public createFrameLoop(options: CoreV2FrameLoopOptions = {}): CoreV2FrameLoop {
+    this.requireSurface('createFrameLoop');
+    if (this.frameLoop !== null && !this.frameLoop.isDestroyed) {
+      throw this.operationError('CONFLICT', 'CONFLICT', 'createFrameLoop', false);
+    }
+    this.frameLoop = new CoreV2FrameLoop(this, options);
+    if (this.pageLifecycle.probe().state === 'hidden') {
+      this.frameLoop.pause();
+      this.frameLoopPausedForVisibility = true;
+    }
+    return this.frameLoop;
   }
 
   public initialize(options: CoreV2InitializeOptions): Promise<CoreV2InitializeResult> {
@@ -4033,12 +4093,24 @@ export class CoreV2Engine {
     const motionBefore = this.viewportMotion !== null;
     let presentation: CoreV2PresentationLifecycleResult | null = null;
     const changed = input.state !== before.state;
+    if (this.frameLoop?.isDestroyed) {
+      this.frameLoop = null;
+      this.frameLoopPausedForVisibility = false;
+    }
     if (changed && input.state === 'hidden') {
+      if (
+        this.frameLoop !== null &&
+        !this.frameLoop.isPaused
+      ) {
+        this.frameLoop.pause();
+        this.frameLoopPausedForVisibility = true;
+      }
       presentation = surface.suspendPresentation?.(input.timeMs) ?? null;
     } else if (changed) {
       presentation = surface.resumePresentation?.(input.timeMs) ?? null;
     }
     const transition = this.pageLifecycle.transition(input.state, input.timeMs);
+    if (changed) this.frameClockMs = input.timeMs;
     if (transition.changed && transition.state === 'hidden') {
       this.viewportMotion = null;
       surface.cancelViewportGestures?.();
@@ -4061,6 +4133,15 @@ export class CoreV2Engine {
       presentation,
       probe: this.pageLifecycleProbe(),
     } satisfies CoreV2EngineDocumentVisibilityResult);
+    if (
+      transition.changed &&
+      transition.state === 'visible' &&
+      this.frameLoop !== null
+    ) {
+      this.frameLoop.synchronizeLogicalTime(input.timeMs);
+      if (this.frameLoopPausedForVisibility) this.frameLoop.resume();
+      this.frameLoopPausedForVisibility = false;
+    }
     if (transition.changed) this.emit('documentVisibilityChanged', result);
     return result;
   }
@@ -4068,10 +4149,9 @@ export class CoreV2Engine {
   public pageLifecycleProbe(): CoreV2EnginePageLifecycleProbe {
     const lifecycle = this.pageLifecycle.probe();
     const pointer = this.pointerGestureAuthority?.probe() ?? destroyedPointerGestureProbe();
-    const activeAnimationCount = this.surface?.debugSnapshot().activeAnimationCount ?? 0;
     return Object.freeze({
       ...lifecycle,
-      activeAnimationCount,
+      activeAnimationCount: this.activeAnimations,
       decelerationActive: this.viewportMotion !== null,
       activeGestureCount: pointer.activeGestureCount,
       pointerCaptureCount: pointer.pointerCaptureCount,
@@ -4085,6 +4165,7 @@ export class CoreV2Engine {
     try {
       this.refreshAccessibilitySurfaceIfActive('publishFrame');
       surface.publishFrame(timeMs);
+      this.frameClockMs = timeMs;
     } catch (error) {
       const diagnostic = this.diagnosticFrom(error, 'publishFrame');
       this.emit('diagnostic', diagnostic);
@@ -4706,7 +4787,7 @@ export class CoreV2Engine {
     return Object.freeze({
       changed,
       enabled: this.accessibility.reducedMotion,
-      activeAnimationCount: surface.debugSnapshot().activeAnimationCount,
+      activeAnimationCount: this.activeAnimations,
     });
   }
 
@@ -6530,6 +6611,9 @@ export class CoreV2Engine {
   public async destroy(): Promise<boolean> {
     if (this.lifecycle === 'destroying') return false;
     if (this.lifecycle === 'destroyed') return this.retryDestroyedCleanup();
+    this.frameLoop?.destroy();
+    this.frameLoop = null;
+    this.frameLoopPausedForVisibility = false;
     this.cancelActiveTransformerEdit('destroy', false);
     this.lifecycle = 'destroying';
     this.submissionSequence += 1;
@@ -7947,7 +8031,25 @@ export class CoreV2Engine {
     } else {
       this.operations.noteAction(event);
     }
+    if (
+      event !== 'frame' &&
+      event !== 'historyVisible' &&
+      event !== 'overlayPublished' &&
+      event !== 'diagnostic' &&
+      event !== 'destroyed'
+    ) {
+      this.requestManagedFrameLoop();
+    }
     this.deliverEngineEvent(event, value);
+  }
+
+  private requestManagedFrameLoop(): void {
+    if (this.frameLoop === null || this.pageLifecycle.probe().state === 'hidden') return;
+    if (this.frameLoop.isDestroyed) {
+      this.frameLoop = null;
+      return;
+    }
+    this.frameLoop.request();
   }
 
   private deliverEngineEvent<K extends CoreV2EngineEvent>(
@@ -8422,6 +8524,18 @@ export class PixiEngineSurface implements CoreV2EngineSurface {
 
   public screenToWorld(point: CoreV2Point): CoreV2Point {
     return this.core.screenToWorld(point);
+  }
+
+  public frameLoopActiveAnimations(): number {
+    return this.core.activeAnimations;
+  }
+
+  public frameLoopWorkloadSize(): number {
+    return this.core.frameWorkloadSize;
+  }
+
+  public viewportGestureActive(): boolean {
+    return this.core.viewportGestureActive;
   }
 
   public debugSnapshot(): CoreV2SurfaceDebug {

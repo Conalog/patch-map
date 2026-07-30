@@ -1,4 +1,19 @@
 export { CoreV2, createCoreV2, normalizeCoreV2TextTarget } from './core';
+export {
+  CoreV2AdaptiveFrameBudget,
+  CoreV2FrameLoop,
+} from './scheduler';
+export type {
+  CoreV2AdaptiveFrameBudgetDebug,
+  CoreV2AdaptiveFrameBudgetOptions,
+  CoreV2AdaptiveFrameInput,
+  CoreV2AdaptiveFramePlan,
+  CoreV2FrameLoopDebug,
+  CoreV2FrameLoopObservation,
+  CoreV2FrameLoopOptions,
+  CoreV2FrameLoopTarget,
+  FrameDriver,
+} from './scheduler';
 export type {
   AnimateBarsOptions,
   CoreV2LoadResult,
