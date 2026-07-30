@@ -60,7 +60,19 @@
   ESM/CJS/types plus 38 journeys.
 - Final full-unit verification passes 148/148 files and 1,451/1,451 tests
   after removal of the completed main-parity harness test.
-  Package verification writes transient output unless a release artifact
+- Repeated 5,000-bar retargeting now defers exact semantic digest
+  materialization until observation, avoids redundant direct-batch target
+  filtering, and reuses the active spatial hit envelope. The Lab does not
+  force full snapshots while animations are active and reads live selection,
+  viewport, and frame state through lightweight product seams.
+- The new repeated-retarget checkpoint preserves 2+7 raw 1x/4x samples. At
+  1x the repeated-action trial median is 90.0ms and pan-overlap rAF-gap trial
+  median is 115.9ms. A 544.3ms 1x outlier and 1,036.9ms 4x p95 exceed the
+  predeclared budgets, so the performance checkpoint honestly remains FAIL;
+  Windows native remains pending.
+- Packed ESM/CJS/types, four examples, and all 38 consumer journeys pass with
+  lifecycle cleanup after the lightweight state getters were added.
+- Package verification writes transient output unless a release artifact
   directory is explicitly requested, so frozen evidence remains unchanged.
 - Repository residue cleanup is fixed in `1f2f3ef`; it removes 431 tracked
   files and more than 742,000 generated/evidence lines while preserving every
@@ -68,8 +80,9 @@
 
 # Next Step
 
-- Complete final review and create the PR from the clean
-  `performance/core-v2` branch. Version bumping remains post-merge work.
+- Commit the repeated-bar performance tranche, complete final review, and
+  create the PR from the clean `performance/core-v2` branch. Version bumping
+  remains post-merge work.
 
 # Verification Cadence
 

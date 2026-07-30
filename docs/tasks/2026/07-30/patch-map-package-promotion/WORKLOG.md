@@ -102,3 +102,34 @@
   change, so the full performance matrix and 2+7 memory gate were not rerun.
 - Cleanup commit: `1f2f3ef` (`refactor: consolidate PatchMap repository
   tooling`).
+
+## 2026-07-30 — Repeated 5,000-bar retarget performance
+
+- Reproduced rapid full-bar updates before prior animation settlement. Active
+  presentation count stayed bounded at 5,000 and the central frame loop kept
+  one pending RAF; the primary synchronous cost was exact full-dataset digest
+  materialization followed by direct projection reconciliation, not animation
+  or ticker accumulation.
+- Deferred exact semantic hashing until observation, made committed result
+  digests lazy and memoized, stopped the Lab from forcing full snapshots during
+  active animations, removed redundant direct-batch animation-target Set
+  construction, and reused the animated spatial hit envelope across exact
+  direct retargets.
+- Rejected two measured alternatives: holding normalized batch inputs
+  increased allocation pressure, and copying broad stable records instead of
+  overlaying them raised reconcile time to 178–227ms. Neither remains in the
+  product.
+- Headless 5,000-bar smoke with six updates and active pan PASS: repeated
+  action median 92.8ms/p95 108.5ms, rAF-gap p95 116.1ms, two long tasks,
+  exact digest observable after settlement, and bridge/canvas cleanup zero.
+- The final 2+7 checkpoint preserved all raw 1x/4x samples. 1x repeated-action
+  trial median was 90.0ms and rAF-gap trial median was 115.9ms versus the
+  original diagnostic's 127–198ms action range and 184.3ms rAF p95. One
+  system-wide slow trial reached 544.3ms; 4x reached 1,036.9ms, so the
+  predeclared 250ms/900ms action budgets remain FAIL rather than being relaxed.
+- Verification: targeted 71/71 then 58/58 tests PASS; typecheck and scoped/full
+  lint PASS; full unit 148/148 files and 1,453/1,453 tests PASS; Lab build PASS;
+  canonical 38 decisions and 173 cases PASS; 2+7 memory over 5,099 entities
+  PASS with 90,715-byte retained-heap median and DOM/scheduler/renderer
+  released; packed ESM/CJS/types, four examples, and all 38 consumer journeys
+  PASS with lifecycle cleanup. Windows-native performance remains pending.

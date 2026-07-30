@@ -51,3 +51,22 @@
   `performance/patch-map/results`.
 - Repository CI covers product source, tests, the canonical contract, the
   production package build, and the PatchMap Lab build.
+
+## 2026-07-30 — Keep exact digests off the animation hot path
+
+- Structurally shared semantic candidates retain the canonical exact FNV
+  digest, but materialize and memoize it only when a consumer observes
+  `semanticHash`. Transaction results expose the same enumerable immutable
+  value through a lazy getter.
+- The manual Lab must not force a full semantic snapshot while bar
+  presentations are active. Live selection, frame, animation, and viewport
+  status use lightweight `PatchMap` state seams; a full snapshot is refreshed
+  after animation settlement.
+- A direct mid-animation bar retarget preserves the existing animated-bar
+  broad-phase envelope. Exact hit testing remains the union of the retained
+  current-path envelope and the newly committed dense destination, so
+  correctness is retained without rebuilding 5,000 spatial entries per
+  retarget.
+- Performance budgets are not relaxed after measurement. Median improvement
+  and unfavorable 1x/4x outliers are both retained in the raw checkpoint;
+  external Windows-native qualification remains pending.
