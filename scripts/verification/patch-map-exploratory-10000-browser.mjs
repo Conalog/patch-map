@@ -49,7 +49,6 @@ try {
     }
   });
 
-  const playground = await verifyPerformancePlayground(page, baseUrl);
   const manualLab = await verifyManualLab(page, baseUrl);
   assert(
     Object.values(errors).every((entries) => entries.length === 0),
@@ -58,14 +57,13 @@ try {
   );
 
   process.stdout.write(`${JSON.stringify({
-    revision: 'patch-map-exploratory-10000-browser/3',
+    revision: 'patch-map-exploratory-10000-browser/4',
     status: 'pass',
     browser: browser.version(),
     headed: browserLaunch.headed,
     target: browserLaunch.target,
     windowsNative: 'pending',
     checks,
-    playground,
     manualLab,
     errors,
   }, null, 2)}\n`);
@@ -76,191 +74,11 @@ try {
   await server?.close().catch(() => undefined);
 }
 
-async function verifyPerformancePlayground(activePage, baseUrl) {
-  const started = performance.now();
-  await activePage.goto(
-    new URL(
-      'lab/patch-map/?dataset=10000&strategy=mesh&backend=webgl',
-      baseUrl,
-    ).href,
-    { waitUntil: 'networkidle', timeout: 60_000 },
-  );
-  await activePage.waitForFunction(
-    () => document.body.dataset.labReady === 'true',
-    undefined,
-    { timeout: 60_000 },
-  );
-  const loaded = await activePage.evaluate(() => ({
-    state: window.__PATCH_MAP_LAB__.state,
-    view: window.__PATCH_MAP_LAB__.getRuntime()?.view ?? null,
-    selectedSize:
-      document.querySelector('[data-testid="dataset-select"]')?.value ?? null,
-    immutable:
-      document.querySelector('[data-testid="input-immutability"]')?.textContent ?? null,
-    canvasCount:
-      document.querySelectorAll('[data-testid="canvas-host"] canvas').length,
-  }));
-  assert(
-    loaded.state.dataset === '10000' &&
-      loaded.selectedSize === '10000' &&
-      loaded.state.entityCount === 50_999 &&
-      loaded.state.activeStrategy === 'mesh' &&
-      loaded.state.activeBackend === 'webgl' &&
-      loaded.view?.scale >= 0.025 &&
-      loaded.view.scale < 0.1 &&
-      loaded.immutable === 'PASS' &&
-      loaded.canvasCount === 1,
-    'performance Playground fits 10,000 immutable records below the former 10% zoom floor',
-    loaded,
-  );
-
-  const before = await samplePlaygroundBars(activePage);
-  const canvas = activePage.locator('[data-testid="canvas-host"] canvas');
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error('PatchMap exploratory Playground canvas has no bounds');
-  const anchorCss = { x: box.width / 2, y: box.height / 2 };
-  const worldBeforeZoom = await activePage.evaluate((anchor) => {
-    const runtime = window.__PATCH_MAP_LAB__.getRuntime();
-    if (!runtime) throw new Error('PatchMap exploratory Playground runtime is missing');
-    return runtime.screenToWorld(anchor);
-  }, anchorCss);
-  await activePage.mouse.move(
-    box.x + anchorCss.x,
-    box.y + anchorCss.y,
-  );
-  await activePage.mouse.wheel(0, 10_000);
-  await activePage.waitForFunction(
-    () =>
-      (window.__PATCH_MAP_LAB__.getRuntime()?.view.scale ?? 1) <= 0.025_001,
-    undefined,
-    { timeout: 10_000 },
-  );
-  const zoomed = await activePage.evaluate((anchor) => {
-    const runtime = window.__PATCH_MAP_LAB__.getRuntime();
-    if (!runtime) throw new Error('PatchMap exploratory Playground runtime is missing');
-    return {
-      view: runtime.view,
-      worldAtAnchor: runtime.screenToWorld(anchor),
-    };
-  }, anchorCss);
-  const anchorDriftCss = Math.hypot(
-    worldBeforeZoom.x - zoomed.worldAtAnchor.x,
-    worldBeforeZoom.y - zoomed.worldAtAnchor.y,
-  ) * zoomed.view.scale;
-  assert(
-    Math.abs(zoomed.view.scale - 0.025) < 1e-9 &&
-      anchorDriftCss <= 0.5,
-    'performance Playground wheel reaches 2.5% while preserving the cursor anchor',
-    { worldBeforeZoom, zoomed, anchorDriftCss },
-  );
-  await activePage.evaluate(() => {
-    const runtime = window.__PATCH_MAP_LAB__.getRuntime();
-    if (!runtime) throw new Error('PatchMap exploratory Playground runtime is missing');
-    runtime.fit();
-    runtime.flush('exploratory-zoom-reset');
-  });
-  await activePage.getByTestId('animate-all').click();
-  await activePage.waitForFunction(
-    () => {
-      const state = window.__PATCH_MAP_LAB__.state;
-      return state.lastAction === 'animate-all' && state.status !== 'busy';
-    },
-    undefined,
-    { timeout: 30_000 },
-  );
-  await activePage.waitForFunction(
-    () =>
-      (window.__PATCH_MAP_LAB__.getRuntime()?.activeAnimations ?? 1) === 0,
-    undefined,
-    { timeout: 30_000 },
-  );
-  const afterButton = await samplePlaygroundBars(activePage);
-  assert(
-    before.some((value, index) => value !== afterButton[index]),
-    'the visible Animate all bars button changes 10,000-record bar output',
-    { before, afterButton },
-  );
-  const overlapAnimation = await activePage.evaluate(() => {
-    const runtime = window.__PATCH_MAP_LAB__.getRuntime();
-    if (!runtime) throw new Error('PatchMap exploratory Playground runtime is missing');
-    const result = runtime.animateBarHeights({
-      fraction: 1,
-      durationMs: 15_000,
-      seed: 0x10_000,
-      minPercent: 0,
-      maxPercent: 100,
-    });
-    return {
-      operationCount: result.operationCount,
-      activeAnimations: runtime.activeAnimations,
-    };
-  });
-  const viewBefore = await activePage.evaluate(
-    () => window.__PATCH_MAP_LAB__.getRuntime()?.view,
-  );
-  await activePage.mouse.move(box.x + box.width - 24, box.y + box.height - 24);
-  await activePage.mouse.down();
-  await activePage.mouse.move(
-    box.x + box.width - 124,
-    box.y + box.height - 76,
-    { steps: 8 },
-  );
-  const animationsDuringPan = await activePage.evaluate(
-    () => window.__PATCH_MAP_LAB__.getRuntime()?.activeAnimations ?? 0,
-  );
-  await activePage.mouse.up();
-  const viewAfter = await activePage.evaluate(
-    () => window.__PATCH_MAP_LAB__.getRuntime()?.view,
-  );
-  const after = await samplePlaygroundBars(activePage);
-  assert(
-    overlapAnimation.operationCount === 10_000 &&
-      overlapAnimation.activeAnimations > 0 &&
-      animationsDuringPan > 0 &&
-      viewBefore !== undefined &&
-      viewAfter !== undefined &&
-      (viewBefore.x !== viewAfter.x || viewBefore.y !== viewAfter.y) &&
-      afterButton.some((value, index) => value !== after[index]),
-    '10,000-bar animation remains active while the viewport moves and changes heights',
-    {
-      overlapAnimation,
-      animationsDuringPan,
-      viewBefore,
-      viewAfter,
-      afterButton,
-      after,
-    },
-  );
-
-  await activePage.getByTestId('destroy').click();
-  await activePage.waitForFunction(
-    () => window.__PATCH_MAP_LAB__.state.status === 'offline',
-    undefined,
-    { timeout: 30_000 },
-  );
-  const cleanup = await activePage.evaluate(() => ({
-    canvasCount:
-      document.querySelectorAll('[data-testid="canvas-host"] canvas').length,
-    runtimePresent: window.__PATCH_MAP_LAB__.getRuntime() !== null,
-  }));
-  assert(
-    cleanup.canvasCount === 0 && cleanup.runtimePresent === false,
-    'performance Playground destroy releases its 10,000-record canvas',
-    cleanup,
-  );
-  return {
-    loadAndInteractionMs: performance.now() - started,
-    entityCount: loaded.state.entityCount,
-    animationsDuringPan,
-    cleanupCanvasCount: cleanup.canvasCount,
-  };
-}
-
 async function verifyManualLab(activePage, baseUrl) {
   const started = performance.now();
   await activePage.goto(
     new URL(
-      'lab/patch-map?scenario=REN-009&size=5000&seed=319',
+      'lab/patch-map/?scenario=REN-009&size=5000&seed=319',
       baseUrl,
     ).href,
     { waitUntil: 'networkidle', timeout: 60_000 },
@@ -312,7 +130,7 @@ async function verifyManualLab(activePage, baseUrl) {
       loaded.selectedSize === '10000' &&
       loaded.selectedTopSize === '10000' &&
       loaded.immutable === '통과',
-    'human-operated Lab fits the exploratory 10,000 scene below the former 50% zoom floor',
+    'the single PatchMap Lab fits the exploratory 10,000 scene',
     loaded,
   );
 
@@ -325,9 +143,10 @@ async function verifyManualLab(activePage, baseUrl) {
   );
   assert(
     minimumZoom !== null && Math.abs(minimumZoom - 0.025) < 1e-9,
-    'human-operated Lab Zoom out button reaches the 2.5% exploratory floor',
+    'the single PatchMap Lab Zoom out button reaches the 2.5% exploratory floor',
     { initialViewport: loaded.viewport, minimumZoom },
   );
+
   await activePage.locator('[data-manual-command="fit-all"]').click();
   await activePage.locator('[data-manual-tool-button="animation"]').click();
   await activePage.locator('[data-manual-mode="pan"]').click();
@@ -365,9 +184,10 @@ async function verifyManualLab(activePage, baseUrl) {
       viewAfter !== undefined &&
       (viewBefore.centerWorld[0] !== viewAfter.centerWorld[0] ||
         viewBefore.centerWorld[1] !== viewAfter.centerWorld[1]),
-    'human-operated 10,000-bar animation overlaps a visible pan gesture',
+    'the single PatchMap Lab keeps 10,000-bar animation active during pan',
     { animationsDuringPan, viewBefore, viewAfter },
   );
+
   await activePage.evaluate(
     () => window.__PATCH_MAP_MANUAL_LAB__?.destroy(),
   );
@@ -378,7 +198,7 @@ async function verifyManualLab(activePage, baseUrl) {
   }));
   assert(
     cleanup.canvasCount === 0 && cleanup.bridgePresent === false,
-    'human-operated Lab destroy removes its 10,000-record canvas and bridge',
+    'the single PatchMap Lab destroy removes its 10,000-record canvas and bridge',
     cleanup,
   );
   return {
@@ -388,17 +208,6 @@ async function verifyManualLab(activePage, baseUrl) {
     animationsDuringPan,
     cleanupCanvasCount: cleanup.canvasCount,
   };
-}
-
-async function samplePlaygroundBars(activePage) {
-  return activePage.evaluate(() => {
-    const runtime = window.__PATCH_MAP_LAB__.getRuntime();
-    if (!runtime) throw new Error('PatchMap exploratory Playground runtime is missing');
-    return runtime.snapshot().entities
-      .filter((entity) => entity.kind === 'bar')
-      .slice(0, 16)
-      .map((entity) => entity.bounds.height);
-  });
 }
 
 function assert(condition, description, details) {

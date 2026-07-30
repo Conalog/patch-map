@@ -4,7 +4,7 @@ import {
   type PatchMapContractPresenterDescriptor,
 } from './presenters';
 
-export const PATCH_MAP_CONTRACT_ROUTE_PATH = '/lab/patch-map';
+export const PATCH_MAP_CONTRACT_ROUTE_PATH = '/lab/patch-map/';
 export const PATCH_MAP_CONTRACT_LEGACY_ROUTE_PATH = '/lab/core-v2';
 export const PATCH_MAP_CONTRACT_DATASET_SIZES = [
   '100',

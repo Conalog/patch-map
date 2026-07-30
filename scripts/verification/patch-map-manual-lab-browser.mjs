@@ -372,7 +372,7 @@ if (failures.length > 0) process.exitCode = 1;
 
 async function openCase(caseId) {
   const url = new URL(
-    `lab/patch-map?scenario=${caseId}&size=100&seed=319`,
+    `lab/patch-map/?scenario=${caseId}&size=100&seed=319`,
     server.resolvedUrls.local[0],
   ).href;
   await page.goto(url, { waitUntil: 'networkidle' });

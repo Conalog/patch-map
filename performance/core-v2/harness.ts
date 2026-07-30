@@ -1,11 +1,13 @@
 import {
   PatchMap,
-  createPatchMapRuntime,
   worldToScreen,
-  type PatchMapRuntime,
   type PatchMapRendererStrategy,
   type EntitySnapshot,
 } from '../../src/patch-map';
+import {
+  createPatchMapRuntime,
+  type PatchMapRuntime,
+} from '../../src/patch-map/core';
 import {
   PATCH_MAP_SYNTHETIC_ASSET_ALIAS,
   PATCH_MAP_SYNTHETIC_ASSET_DATA_URL,

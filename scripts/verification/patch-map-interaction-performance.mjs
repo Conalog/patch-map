@@ -307,7 +307,7 @@ async function selectIds(page, ids) {
 
 async function runTrial(page, baseUrl, trialIndex) {
   await page.goto(
-    new URL(`lab/patch-map?scenario=EVT-001&size=${SIZE}&seed=${SEED}`, baseUrl).href,
+    new URL(`lab/patch-map/?scenario=EVT-001&size=${SIZE}&seed=${SEED}`, baseUrl).href,
     { waitUntil: 'networkidle', timeout: 60_000 },
   );
   await page.evaluate(() => window.__PATCH_MAP_MANUAL_LAB__.ready);

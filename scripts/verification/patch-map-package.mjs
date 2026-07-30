@@ -23,11 +23,11 @@ import {
 
 const execute = promisify(execFile);
 const ROOT = process.cwd();
+const temporary = await mkdtemp(path.join(tmpdir(), 'patch-map-package-'));
 const RESULTS = path.resolve(
   process.env.PATCH_MAP_PACKAGE_ARTIFACT_DIR
-    ?? path.join(ROOT, 'performance/core-v2/results'),
+    ?? path.join(temporary, 'results'),
 );
-const temporary = await mkdtemp(path.join(tmpdir(), 'patch-map-package-'));
 const consumer = path.join(temporary, 'consumer');
 const reproduciblePackDirectory = path.join(temporary, 'reproducible-pack');
 const errors = { console: [], page: [], network: [] };
@@ -124,7 +124,6 @@ import {
   PatchMapPageLifecycleAuthority,
   PatchMapPointerGestureAuthority,
   PatchMapTransformerGestureAuthority,
-  createPatchMapRuntime,
   createPatchMapCommandTargetState,
   hitPatchMapBoxRegion,
   hitPatchMapPaintRegion,
@@ -247,34 +246,6 @@ const pointerPaint = hitPatchMapPaintRegion([
   },
 ], [], [[[0, 30], [100, 30]]]);
 pointerAuthority.destroy();
-const core = await createPatchMapRuntime({ target: document.querySelector('#host'), width: 640, height: 360, strategy: 'mesh', preference: 'webgl', autoRender: false });
-const loaded = core.load(input);
-await core.prepare();
-core.fit();
-core.flush('consumer-first-frame');
-const coreFrameLoop = core.createFrameLoop();
-core.animateBarHeights({ durationMs: 32, seed: 1 });
-coreFrameLoop.request(100);
-await new Promise((resolve, reject) => {
-  const deadline = performance.now() + 2_000;
-  const poll = () => {
-    if (
-      core.activeAnimations === 0 &&
-      !coreFrameLoop.debugSnapshot().pending
-    ) {
-      resolve();
-    } else if (performance.now() >= deadline) {
-      reject(new Error('packed PatchMap frame loop did not settle'));
-    } else {
-      requestAnimationFrame(poll);
-    }
-  };
-  poll();
-});
-const frameLoopBeforeDestroy = coreFrameLoop.debugSnapshot();
-const capture = await core.captureBase64();
-const debugBeforeDestroy = core.debugSnapshot();
-await core.destroy();
 const engine = new PatchMap();
 await engine.initialize({
   instanceId: 'packed-engine-transaction',
@@ -285,6 +256,9 @@ await engine.initialize({
   preference: 'webgl',
 });
 engine.loadDataset(input);
+await engine.publishFrame(0);
+const initialEngineSnapshot = engine.snapshot();
+const initialSemantic = engine.semanticProbe();
 const mountAllowed = resolvePatchMapEditorMount(false);
 const mountBlocked = resolvePatchMapEditorMount(true);
 const tooltipPublications = [];
@@ -647,6 +621,23 @@ const pageLifecycleVisible = engine.setDocumentVisibility({
 engine.publishFrame(10_116.666667);
 engine.publishFrame(10_133.333334);
 const pageLifecycleAfterResume = engine.pageLifecycleProbe();
+const packageFrameLoop = engine.createFrameLoop();
+packageFrameLoop.request(100);
+await new Promise((resolve, reject) => {
+  const deadline = performance.now() + 2_000;
+  const poll = () => {
+    const frameLoop = packageFrameLoop.debugSnapshot();
+    if (frameLoop.frameCount > 0 && !frameLoop.pending) {
+      resolve();
+    } else if (performance.now() >= deadline) {
+      reject(new Error('packed PatchMap frame loop did not settle'));
+    } else {
+      requestAnimationFrame(poll);
+    }
+  };
+  poll();
+});
+const frameLoopBeforeDestroy = packageFrameLoop.debugSnapshot();
 const engineDestroyResult = await engine.destroy();
 const tooltipSubscriptionDisposeAfterDestroy = tooltipSubscription.dispose();
 const hostInteractionAfterDestroy = engine.hostInteractionProbe();
@@ -656,20 +647,20 @@ window.__PACKAGE_RESULT__ = {
   immutable: before === JSON.stringify(input),
   hierarchyImmutable: hierarchyBefore === JSON.stringify(hierarchyInput),
   parsedEntities: parsed.identity.counts.entities,
-  loadedEntities: loaded.store.entityCount,
-  capturePrefix: capture.slice(0, 22),
-  captureLength: capture.length,
-  backend: debugBeforeDestroy.renderer.backend,
-  strategy: debugBeforeDestroy.renderer.strategy,
-  renderObjects: debugBeforeDestroy.renderer.aggregateRenderObjects,
+  loadedEntities:
+    initialSemantic.scene.counts.elements + initialSemantic.scene.counts.components,
+  capturePrefix: engineExtraction.dataUrlPrefix,
+  captureLength: engineExtraction.dataUrlLength,
+  backend: initialEngineSnapshot.resources.renderer?.backend ?? null,
+  renderObjects: initialEngineSnapshot.resources.rendering.commandCount ?? 0,
   canvasCountAfterDestroy: document.querySelectorAll('canvas').length,
-  destroyed: core.debugSnapshot().destroyed,
+  destroyed: engineAfterDestroy.lifecycle === 'destroyed',
   frameLoopPackage: {
     exportType: typeof PatchMapFrameLoop,
-    factoryType: typeof core.createFrameLoop,
+    factoryType: typeof engine.createFrameLoop,
     frameCount: frameLoopBeforeDestroy.frameCount,
     pendingBeforeDestroy: frameLoopBeforeDestroy.pending,
-    destroyedAfterCore: coreFrameLoop.debugSnapshot().destroyed,
+    destroyedAfterEngine: packageFrameLoop.debugSnapshot().destroyed,
   },
   authoringRevision: PATCH_MAP_AUTHORING_REVISION,
   transactionRevision: PATCH_MAP_MUTATION_TRANSACTION_REVISION,
@@ -1099,7 +1090,7 @@ process.stdout.write(JSON.stringify({
   if (esm.parsedEntities !== esm.loadedEntities || esm.loadedEntities < 3) failures.push('packed ESM entity counts disagree');
   if (!String(esm.capturePrefix).startsWith('data:image/png')) failures.push('packed ESM capture is not PNG data');
   if (!(esm.captureLength > 100)) failures.push('packed ESM capture is unexpectedly empty');
-  if (esm.strategy !== 'mesh' || esm.backend !== 'webgl') failures.push('packed ESM did not use selected WebGL Mesh runtime');
+  if (esm.backend !== 'webgl') failures.push('packed ESM did not use the selected WebGL runtime');
   if (!(esm.renderObjects > 0)) failures.push('packed ESM produced no aggregate render objects');
   if (esm.canvasCountAfterDestroy !== 0 || !esm.destroyed) failures.push('packed ESM lifecycle leaked a canvas or live runtime');
   if (
@@ -1107,7 +1098,7 @@ process.stdout.write(JSON.stringify({
     esm.frameLoopPackage?.factoryType !== 'function' ||
     !(esm.frameLoopPackage?.frameCount > 0) ||
     esm.frameLoopPackage?.pendingBeforeDestroy !== false ||
-    esm.frameLoopPackage?.destroyedAfterCore !== true
+    esm.frameLoopPackage?.destroyedAfterEngine !== true
   ) failures.push('packed ESM frame-loop export or lifecycle ownership failed');
   if (esm.transactionRevision !== 'core-v2-mutation-transaction/1') failures.push('packed ESM transaction revision export failed');
   if (

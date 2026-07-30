@@ -1,4 +1,3 @@
-export { PatchMapRuntime, createPatchMapRuntime, normalizePatchMapTextTarget } from './core';
 export {
   PatchMapAdaptiveFrameBudget,
   PatchMapFrameLoop,
@@ -15,23 +14,13 @@ export type {
   FrameDriver,
 } from './scheduler';
 export type {
-  AnimateBarsOptions,
-  PatchMapLoadResult,
-  PatchMapRuntimeOptions,
   PatchMapBarPresentationProductProbe,
-  PatchMapPrepareResult,
   PatchMapPresentationLifecycleResult,
-  PatchMapReconcileFacts,
-  PatchMapReconcileOptions,
-  PatchMapReconcileResult,
   PatchMapReconcileTimings,
-  PatchMapRuntimeDebug,
   PatchMapSelectionOverlayPolicyInput,
-  PatchMapSemanticRefreshOptions,
   PatchMapSemanticRefreshResult,
   PatchMapTextGeometryProbe,
   PatchMapTextProductProbe,
-  PatchMapTextProductPublicationStatus,
   PatchMapTextRendererProductProbe,
   PatchMapTextStateProbe,
   PatchMapTextTarget,

@@ -22,10 +22,7 @@ import {
   buildPatchMapManualScene,
   PATCH_MAP_MANUAL_SCENE_SIZE_OPTIONS,
 } from '../../lab/patch-map/interactive/manual-scene';
-import {
-  PATCH_MAP_MANUAL_LAB_ZOOM_LIMITS,
-  PATCH_MAP_PERFORMANCE_LAB_ZOOM_LIMITS,
-} from '../../lab/patch-map/lab-settings';
+import { PATCH_MAP_MANUAL_LAB_ZOOM_LIMITS } from '../../lab/patch-map/lab-settings';
 import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
 
 describe('PatchMap human-operated Lab catalog', () => {
@@ -122,13 +119,12 @@ describe('PatchMap human-operated Lab catalog', () => {
   });
 
   it('uses the package frame loop without whole-scene probes or Lab-owned cadence', async () => {
-    const [source, schedulerSource, performanceLabSource] = await Promise.all([
+    const [source, schedulerSource] = await Promise.all([
       readFile(
         new URL('../../lab/patch-map/interactive/manual-workbench.ts', import.meta.url),
         'utf8',
       ),
       readFile(new URL('../../src/patch-map/scheduler.ts', import.meta.url), 'utf8'),
-      readFile(new URL('../../lab/patch-map/main.ts', import.meta.url), 'utf8'),
     ]);
     const refresh = source.slice(
       source.indexOf('  function refresh(): void {'),
@@ -168,8 +164,6 @@ describe('PatchMap human-operated Lab catalog', () => {
     expect(schedulerSource).toContain('export class PatchMapAdaptiveFrameBudget');
     expect(schedulerSource).toContain('largePresentationIntervalMs ?? 75');
     expect(schedulerSource).toContain('largeViewportFramesPerPresentation ?? 3');
-    expect(performanceLabSource).toContain('core.createFrameLoop({');
-    expect(performanceLabSource).toContain('autoRender: false');
     expect(source).toContain('next.updateBarHeights({');
     expect(source).toContain('const heights = new Float64Array(targets.length);');
     expect(source).toContain('next.updateTexts({');
@@ -219,30 +213,28 @@ describe('PatchMap manual Lab scene', () => {
     expect(buildPatchMapManualScene('production', 319).barTargets).toHaveLength(500);
   });
 
-  it('exposes 10,000 only as an exploratory Lab size while preserving exact route inputs', async () => {
-    const [markup, source] = await Promise.all([
-      readFile(
-        new URL('../../lab/patch-map/index.html', import.meta.url),
-        'utf8',
-      ),
-      readFile(
-        new URL('../../lab/patch-map/main.ts', import.meta.url),
-        'utf8',
-      ),
-    ]);
-
-    expect(markup).toContain(
-      '<option value="10000">Synthetic / 10,000 items · exploratory</option>',
-    );
-    expect(source).toContain("| '10000'");
-    expect(source).toContain("value === '10000'");
+  it('uses the exploratory zoom floor only in the human-operated Lab', () => {
+    expect(PATCH_MAP_MANUAL_LAB_ZOOM_LIMITS).toEqual([0.025, 30]);
+    expect(Object.isFrozen(PATCH_MAP_MANUAL_LAB_ZOOM_LIMITS)).toBe(true);
   });
 
-  it('uses a lower zoom floor only in the human-operated Lab surfaces', () => {
-    expect(PATCH_MAP_PERFORMANCE_LAB_ZOOM_LIMITS).toEqual([0.025, 8]);
-    expect(PATCH_MAP_MANUAL_LAB_ZOOM_LIMITS).toEqual([0.025, 30]);
-    expect(Object.isFrozen(PATCH_MAP_PERFORMANCE_LAB_ZOOM_LIMITS)).toBe(true);
-    expect(Object.isFrozen(PATCH_MAP_MANUAL_LAB_ZOOM_LIMITS)).toBe(true);
+  it('ships one PatchMap-based Lab entry without the low-level Playground', async () => {
+    const [markup, viteConfig, packageJson, publicEntry] = await Promise.all([
+      readFile(new URL('../../lab/patch-map/index.html', import.meta.url), 'utf8'),
+      readFile(new URL('../../vite.patch-map-lab.config.ts', import.meta.url), 'utf8'),
+      readFile(new URL('../../package.json', import.meta.url), 'utf8'),
+      readFile(new URL('../../src/patch-map/index.ts', import.meta.url), 'utf8'),
+    ]);
+
+    expect(markup).toContain('data-patch-map-contract-lab');
+    expect(markup).toContain('./contract/main.ts');
+    expect(markup).not.toContain('Aggregate GPU renderer lab');
+    expect(viteConfig).toContain("lab: fileURLToPath(new URL('./lab/patch-map/index.html'");
+    expect(viteConfig).not.toContain('performance:');
+    expect(packageJson).not.toContain('lab:contract');
+    expect(packageJson).not.toContain('verify:lab:webgpu');
+    expect(publicEntry).not.toContain('createPatchMapRuntime');
+    expect(publicEntry).not.toContain('PatchMapRuntime,');
   });
 
   it('applies a bounded human-Lab animation duration without mutating seeded input', () => {

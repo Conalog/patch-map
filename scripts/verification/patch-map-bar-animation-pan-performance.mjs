@@ -195,7 +195,7 @@ function profileBudgetViolations(profile) {
 
 async function runTrial(page, trialIndex) {
   await page.goto(
-    `lab/patch-map?scenario=REN-009&size=${SIZE}&seed=${SEED}`,
+    `lab/patch-map/?scenario=REN-009&size=${SIZE}&seed=${SEED}`,
     { waitUntil: 'networkidle', timeout: 60_000 },
   );
   await page.waitForFunction(

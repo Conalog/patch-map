@@ -4,18 +4,26 @@ import { defineConfig } from 'vite';
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url));
 const historicalContractRoute = '/lab/core-v2';
-const currentContractEntry = '/lab/patch-map.html';
+const currentLabRoute = '/lab/patch-map';
+const currentLabEntry = '/lab/patch-map/index.html';
 
 export default defineConfig({
   root: projectRoot,
   publicDir: false,
   plugins: [
     {
-      name: 'patch-map-historical-contract-route',
+      name: 'patch-map-lab-route',
       configureServer(server) {
         server.middlewares.use((request, _response, next) => {
-          if (request.url?.startsWith(historicalContractRoute)) {
-            request.url = request.url.replace(historicalContractRoute, currentContractEntry);
+          if (request.url !== undefined) {
+            const queryIndex = request.url.indexOf('?');
+            const pathname = queryIndex === -1
+              ? request.url
+              : request.url.slice(0, queryIndex);
+            const search = queryIndex === -1 ? '' : request.url.slice(queryIndex);
+            if (pathname === historicalContractRoute || pathname === currentLabRoute) {
+              request.url = `${currentLabEntry}${search}`;
+            }
           }
           next();
         });
@@ -33,8 +41,7 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       input: {
-        performance: fileURLToPath(new URL('./lab/patch-map/index.html', import.meta.url)),
-        contract: fileURLToPath(new URL('./lab/patch-map.html', import.meta.url)),
+        lab: fileURLToPath(new URL('./lab/patch-map/index.html', import.meta.url)),
       },
     },
   },
