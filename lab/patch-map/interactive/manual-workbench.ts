@@ -1,6 +1,10 @@
 import {
   PatchMap,
+  PatchMapAssetRuntime,
+  createPatchMapAssetIngestionPolicy,
+  createPatchMapPixiAssetBackend,
   type PatchMapAssetAcquisition,
+  type PatchMapAssetIngestionPolicyProfile,
   type PatchMapFrameLoop,
   type PatchMapEngineHistoryResult,
 } from '../../../src/patch-map/index';
@@ -105,6 +109,24 @@ const MANUAL_EVENT_NAMES = Object.freeze([
   'diagnostic',
   'documentVisibilityChanged',
 ] as const);
+
+const MANUAL_LAB_EXTERNAL_ASSET_PROFILE: PatchMapAssetIngestionPolicyProfile =
+  Object.freeze({
+    protocols: Object.freeze(['https:']),
+    origins: Object.freeze(['https://images.conalog.com']),
+    redirects: 'revalidate',
+    credentials: 'omit',
+    mediaTypes: Object.freeze([
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+      'image/avif',
+      'image/svg+xml',
+    ]),
+    maxEncodedBytes: 32 * 1024 * 1024,
+    maxDecodedWidth: 20_000,
+    maxDecodedHeight: 20_000,
+  });
 
 const MANUAL_COMMAND_HELP: Readonly<Record<string, string>> = Object.freeze({
   'select-first': '첫 번째 예제 객체 하나를 선택합니다.',
@@ -328,6 +350,12 @@ export function mountPatchMapManualWorkbench(
   let performanceObserver: PerformanceObserver | null = null;
   let lastSnapshot: ReturnType<PatchMap['snapshot']> | null = null;
   let destroyed = false;
+  const assetPolicy = createPatchMapAssetIngestionPolicy(
+    MANUAL_LAB_EXTERNAL_ASSET_PROFILE,
+  );
+  const assetRuntime = new PatchMapAssetRuntime(createPatchMapPixiAssetBackend({
+    ingestionPolicy: MANUAL_LAB_EXTERNAL_ASSET_PROFILE,
+  }));
 
   const ready = boot();
   void ready.catch(() => undefined);
@@ -372,7 +400,11 @@ export function mountPatchMapManualWorkbench(
     await destroyEngine();
     surfaceHost.replaceChildren();
     const size = surfaceSize(canvasFrame);
-    const next = new PatchMap({ historyLimit: 100 });
+    const next = new PatchMap({
+      historyLimit: 100,
+      assetPolicy,
+      assetRuntime,
+    });
     const instanceId = `manual-${options.caseId.toLowerCase()}-${generation + 1}`;
     lastLiveRefreshWallTime = 0;
     generation += 1;

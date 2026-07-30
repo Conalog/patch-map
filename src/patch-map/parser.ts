@@ -177,12 +177,14 @@ interface ElementContext {
   readonly transform: Transform;
   readonly visible: boolean;
   readonly interactive: boolean;
+  readonly opacity: number;
   readonly ancestorIdentities: readonly MutableElementIdentity[];
 }
 
 interface EntityOwner {
   readonly element: MutableElementIdentity;
   readonly ancestors: readonly MutableElementIdentity[];
+  readonly opacity: number;
   readonly instance?: MutableExpandedItemIdentity;
   readonly component?: MutableComponentIdentity;
 }
@@ -261,6 +263,7 @@ const ROOT_CONTEXT: ElementContext = {
   },
   visible: true,
   interactive: true,
+  opacity: 1,
   ancestorIdentities: [],
 };
 
@@ -521,7 +524,12 @@ function appendDirectTextComponent(
     content,
     contentOrientation,
     root.show !== false,
-    { element, ancestors: [], instance },
+    {
+      element,
+      ancestors: [],
+      opacity: attributeAlpha(attrs, `${rootPath}.attrs.alpha`, state),
+      instance,
+    },
     state,
   );
   return true;
@@ -775,9 +783,11 @@ function parseElement(
   const localTransform = elementTransform(attrs, path, context.transform, type, state);
   const visible = context.visible && value.show !== false;
   const interactive = context.interactive && value.locked !== true;
+  const opacity = context.opacity * attributeAlpha(attrs, `${path}.attrs.alpha`, state);
   const owner: EntityOwner = {
     element: identity,
     ancestors: context.ancestorIdentities,
+    opacity,
   };
 
   switch (type) {
@@ -792,6 +802,7 @@ function parseElement(
           transform: localTransform,
           visible,
           interactive,
+          opacity,
           ancestorIdentities: [...context.ancestorIdentities, identity],
         },
         state,
@@ -884,6 +895,8 @@ function parseGrid(
       );
       const itemAttrs = isRecord(item.attrs) ? item.attrs : undefined;
       inspectAttributes(itemAttrs, `${path}.item.attrs`, 'item', state);
+      const itemOpacity = owner.opacity *
+        attributeAlpha(itemAttrs, `${path}.item.attrs.alpha`, state);
       const itemTransform = elementTransform(
         itemAttrs,
         `${path}.item`,
@@ -901,7 +914,7 @@ function parseGrid(
         visible && cellValue !== 0,
         interactive && cellValue !== 0,
         itemSize,
-        owner,
+        { ...owner, opacity: itemOpacity },
         { row, column, cell: cellValue },
         state,
       );
@@ -974,6 +987,7 @@ function parseItemInstance(
       height: denseTransform.height,
       rotation: transform.rotation,
       fill: 0x00000000,
+      ...(owner.opacity === 1 ? {} : { opacity: owner.opacity }),
       visible,
       interactive,
       zIndex: 0,
@@ -1050,6 +1064,7 @@ function parseComponent(
   const componentVisible = visible && value.show !== false;
   const attrs = isRecord(value.attrs) ? value.attrs : undefined;
   inspectAttributes(attrs, `${path}.attrs`, type, state);
+  const opacity = owner.opacity * attributeAlpha(attrs, `${path}.attrs.alpha`, state);
 
   if (type === 'background') {
     const source = value.source;
@@ -1103,6 +1118,7 @@ function parseComponent(
           height: denseTransform.height,
           rotation: transform.rotation,
           fill,
+          ...(opacity === 1 ? {} : { opacity }),
           ...(sourceRecord.borderColor !== undefined || borderWidth > 0
             ? { stroke: borderColor }
             : {}),
@@ -1151,7 +1167,7 @@ function parseComponent(
       state,
     );
     addEntity(
-      imageEntity(
+      withEntityOpacity(imageEntity(
         entityId,
         transform,
         local,
@@ -1161,7 +1177,7 @@ function parseComponent(
         -10,
         path,
         state,
-      ),
+      ), opacity),
       { ...owner, component },
       state,
       centerPivotTopLeft(transform, local, 'follow-item'),
@@ -1217,6 +1233,7 @@ function parseComponent(
         max: 1,
         fill,
         trackFill,
+        ...(opacity === 1 ? {} : { opacity }),
         ...(finiteNumber(source?.radius) !== undefined
           ? { radius: Math.max(0, finiteNumber(source?.radius) as number) }
           : {}),
@@ -1246,7 +1263,7 @@ function parseComponent(
       state,
     );
     addEntity(
-      imageEntity(
+      withEntityOpacity(imageEntity(
         entityId,
         transform,
         local,
@@ -1263,7 +1280,7 @@ function parseComponent(
         20,
         path,
         state,
-      ),
+      ), opacity),
       { ...owner, component },
       state,
       centerPivotTopLeft(transform, local, contentOrientation),
@@ -1320,7 +1337,7 @@ function parseComponent(
       layout,
     }, state);
     addEntity(
-      textEntity(
+      withEntityOpacity(textEntity(
         entityId,
         transform,
         local,
@@ -1332,7 +1349,7 @@ function parseComponent(
         30,
         path,
         state,
-      ),
+      ), opacity),
       { ...owner, component },
       state,
       centerPivotTopLeft(transform, local, contentOrientation),
@@ -1373,6 +1390,7 @@ function parseDirectRect(
       height: denseTransform.height,
       rotation: transform.rotation,
       fill: resolveColor(value.fill, 0xffffffff, `${path}.fill`, state),
+      ...(owner.opacity === 1 ? {} : { opacity: owner.opacity }),
       ...(value.stroke !== undefined
         ? { stroke: resolveColor(stroke?.color ?? value.stroke, 0x000000ff, `${path}.stroke`, state) }
         : {}),
@@ -1405,7 +1423,10 @@ function parseDirectImage(
   const size = !authoredSize
     ? { width: 32, height: 32 }
     : fixedSize(value.size, `${path}.size`, state);
-  const denseTransform = centerPivotImage(transform, size);
+  const attrs = isRecord(value.attrs) ? value.attrs : undefined;
+  const denseTransform = authoredSize && attrs?.display === 'image'
+    ? centerPivotTopLeft(transform, size)
+    : centerPivotImage(transform, size);
   const projected = imageEntity(
     sourceId,
     transform,
@@ -1432,9 +1453,15 @@ function parseDirectImage(
       y: denseTransform.y,
       width: denseTransform.width,
       height: denseTransform.height,
-      ...(value.opacity === undefined
+      ...((owner.opacity === 1 && value.opacity === undefined)
         ? {}
-        : { opacity: projectedOpacity(value.opacity, `${path}.opacity`, state) }),
+        : {
+            opacity: owner.opacity * (
+              value.opacity === undefined
+                ? 1
+                : projectedOpacity(value.opacity, `${path}.opacity`, state)
+            ),
+          }),
       interactive,
     },
     owner,
@@ -1486,7 +1513,7 @@ function parseDirectText(
     layout,
   }, state);
   addEntity(
-    textEntity(
+    withEntityOpacity(textEntity(
       sourceId,
       transform,
       box,
@@ -1498,7 +1525,7 @@ function parseDirectText(
       zIndex(value.attrs),
       path,
       state,
-    ),
+    ), owner.opacity),
     owner,
     state,
     centerPivotTopLeft(transform, box),
@@ -1567,7 +1594,8 @@ function parseRelations(
         to,
         color: resolveColor(style.color, 0x000000ff, `${path}.style.color`, state),
         lineWidth: Math.max(0, finiteNumber(style.width) ?? 1),
-        opacity: clamp01(finiteNumber(style.alpha) ?? finiteNumber(style.opacity) ?? 1),
+        opacity: owner.opacity *
+          clamp01(finiteNumber(style.alpha) ?? finiteNumber(style.opacity) ?? 1),
         visible,
         interactive: false,
         zIndex: zIndex(value.attrs),
@@ -1878,6 +1906,15 @@ function imageEntity(
     interactive: false,
     zIndex: layer,
     tags: ['image'],
+  };
+}
+
+function withEntityOpacity(entity: EntityInput, opacity: number): EntityInput {
+  const combined = opacity * (entity.opacity ?? 1);
+  if (combined === (entity.opacity ?? 1)) return entity;
+  return {
+    ...entity,
+    opacity: combined,
   };
 }
 
@@ -2745,7 +2782,9 @@ function inspectAttributes(attrs: JsonRecord | undefined, path: string, type: st
       );
       continue;
     }
-    const projected = (TRANSFORM_ATTRIBUTE_KEYS.has(key) && TRANSFORM_ATTRIBUTE_TYPES.has(type)) ||
+    const projected = key === 'alpha' ||
+      (key === 'display' && type === 'image') ||
+      (TRANSFORM_ATTRIBUTE_KEYS.has(key) && TRANSFORM_ATTRIBUTE_TYPES.has(type)) ||
       (SIGNED_SCALE_ATTRIBUTE_KEYS.has(key) && SIGNED_SCALE_ATTRIBUTE_TYPES.has(type)) ||
       (key === 'zIndex' && Z_INDEX_ATTRIBUTE_TYPES.has(type));
     if (projected || key === 'metadata') continue;
@@ -2830,6 +2869,16 @@ function projectedOpacity(value: unknown, path: string, state: ParseState): numb
     warn(state, path, 'opacity-clamped', 'Opacity outside 0..1 was clamped');
   }
   return clamp01(opacity);
+}
+
+function attributeAlpha(
+  attrs: JsonRecord | undefined,
+  path: string,
+  state: ParseState,
+): number {
+  return attrs?.alpha === undefined
+    ? 1
+    : projectedOpacity(attrs.alpha, path, state);
 }
 
 function projectedRadius(value: unknown, path: string, state: ParseState): number | undefined {

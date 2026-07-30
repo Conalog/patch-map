@@ -464,7 +464,7 @@ describe('PatchMap orientation renderer lanes', () => {
     layer.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
     const imageSlot = entities.findIndex((entity) => entity.kind === 'image');
     const textSlot = entities.findIndex((entity) => entity.kind === 'text');
-    const image = layer.imageContainer.children[0]!;
+    const image = layer.contentAssetContainer.children[0]!;
     const text = layer.textContainer.children[0]!;
 
     expectBasisClose(displayBasis(image), resolvePatchMapSlotQuad(store, imageSlot, context).basis);
@@ -534,7 +534,7 @@ describe('PatchMap orientation renderer lanes', () => {
     const expected = resolvePatchMapSlotQuad(store, 0, context).basis;
     const layer = new AggregateLeafLayer();
     layer.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
-    const image = layer.imageContainer.children[0];
+    const image = layer.contentAssetContainer.children[0];
 
     if (!image) throw new Error('nested image leaf was not rendered');
     expect(Math.abs(expected[0] * expected[2] + expected[1] * expected[3])).toBeGreaterThan(0.1);

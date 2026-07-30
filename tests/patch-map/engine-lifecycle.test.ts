@@ -195,6 +195,23 @@ describe('PatchMap lifecycle authority', () => {
     expect(loop.debugSnapshot().destroyed).toBe(true);
   });
 
+  it('bridges asynchronous surface invalidation into the product frame loop', async () => {
+    const { factory, options } = createSurfaceFactory();
+    const driver = createFrameDriver();
+    const engine = new PatchMap({ surfaceFactory: factory });
+    await engine.initialize({ instanceId: 'async-frame-wake', width: 800, height: 600 });
+    engine.createFrameLoop({ driver });
+
+    expect(driver.pending()).toBe(0);
+    options[0]?.requestFrame?.();
+    expect(driver.pending()).toBe(1);
+
+    await engine.destroy();
+    expect(driver.pending()).toBe(0);
+    options[0]?.requestFrame?.();
+    expect(driver.pending()).toBe(0);
+  });
+
   it('starts a late-owned frame loop paused while the document is hidden', async () => {
     const { factory } = createSurfaceFactory();
     const driver = createFrameDriver();

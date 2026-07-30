@@ -29,6 +29,12 @@ describe('PatchMap fixed component render lanes', () => {
   it('backs every production role with a fixed aggregate container in exact paint order', async () => {
     const parsed = parsePatchMapV010([
       {
+        type: 'image',
+        id: 'site-underlay',
+        source: 'fixture-site-underlay',
+        size: { width: 400, height: 300 },
+      },
+      {
         type: 'item',
         id: 'geometry-owner',
         size: { width: 100, height: 80 },
@@ -66,30 +72,34 @@ describe('PatchMap fixed component render lanes', () => {
 
     const world = new Container();
     const overlay = new Graphics();
-    world.addChild(
+    mesh.container.addChild(
+      leaves.standaloneAssetContainer,
+      mesh.ordinaryGeometryContainer,
       mesh.backgroundGeometryContainer,
       leaves.backgroundAssetContainer,
-      mesh.container,
+      mesh.relationsDynamicContainer,
       leaves.contentAssetContainer,
       leaves.textContainer,
-      overlay,
     );
+    world.addChild(mesh.container, overlay);
 
     expect(world.children).toEqual([
-      mesh.backgroundGeometryContainer,
-      leaves.backgroundAssetContainer,
       mesh.container,
-      leaves.contentAssetContainer,
-      leaves.textContainer,
       overlay,
     ]);
     expect(mesh.container.children).toEqual([
+      leaves.standaloneAssetContainer,
       mesh.ordinaryGeometryContainer,
+      mesh.backgroundGeometryContainer,
+      leaves.backgroundAssetContainer,
       mesh.relationsDynamicContainer,
+      leaves.contentAssetContainer,
+      leaves.textContainer,
     ]);
+    expect(leaves.standaloneAssetContainer.children).toHaveLength(1);
     expect(leaves.backgroundAssetContainer.children).toHaveLength(1);
     expect(leaves.contentAssetContainer.children).toHaveLength(1);
-    expect(leaves.imageContainer).toBe(leaves.contentAssetContainer);
+    expect(leaves.imageContainer).toBe(leaves.standaloneAssetContainer);
 
     expect(mesh.entityPaintProbe('geometry-owner::background:geometry-bg')).toMatchObject({
       lane: 'background-geometry',
@@ -108,6 +118,11 @@ describe('PatchMap fixed component render lanes', () => {
       renderObjectCount: 1,
     });
     expect(leaves.entityPaintProbe('asset-owner::icon:icon')).toMatchObject({
+      lane: 'content-assets',
+      rendererKind: 'sprite',
+      renderObjectCount: 1,
+    });
+    expect(leaves.entityPaintProbe('site-underlay')).toMatchObject({
       lane: 'content-assets',
       rendererKind: 'sprite',
       renderObjectCount: 1,

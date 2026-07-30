@@ -263,10 +263,19 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
       expect.objectContaining({ code: 'inactive-cell-strategy-unsupported' }),
       expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.display' }),
       expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.opacity' }),
-      expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.alpha' }),
       expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.tags' }),
       expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.zIndex' }),
     ]));
+    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: 'attribute-preserved-only',
+      path: '$[0].attrs.alpha',
+    }));
+    expect(result.document.entities.find(({ id }) => id === 'item-a')).toMatchObject({
+      opacity: 0.5,
+    });
+    expect(result.document.entities.find(({ id }) => id === 'item-a::bar:bar-a')).toMatchObject({
+      opacity: 0.5,
+    });
     expect(result.projection.relationsByEntityId?.['@relation:5:links6:item-a6:item-a']?.affine).toEqual([
       1, 0, 0, 1, 10, 0,
     ]);
@@ -277,6 +286,48 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
       animationDuration: 500,
       destinationHeight: 10,
     });
+  });
+
+  it('multiplies attrs alpha through groups, items, components, and local text style', () => {
+    const result = parsePatchMapV010([
+      {
+        type: 'group',
+        id: 'group',
+        attrs: { alpha: 0.5 },
+        children: [{
+          type: 'item',
+          id: 'item',
+          attrs: { alpha: 0.8 },
+          size: 20,
+          components: [
+            {
+              type: 'background',
+              id: 'background',
+              attrs: { alpha: 0.5 },
+              source: { type: 'rect', fill: '#ffffff' },
+            },
+            {
+              type: 'text',
+              id: 'label',
+              attrs: { alpha: 0.25 },
+              text: '42',
+              style: { alpha: 0.5, fontSize: 12 },
+            },
+          ],
+        }],
+      },
+    ]);
+
+    expect(result.document.entities.find(({ id }) => id === 'item')).toMatchObject({
+      opacity: 0.4,
+    });
+    expect(result.document.entities.find(({ id }) => id === 'item::background:background'))
+      .toMatchObject({ opacity: 0.2 });
+    expect(result.document.entities.find(({ id }) => id === 'item::text:label'))
+      .toMatchObject({ opacity: 0.05 });
+    expect(result.diagnostics.some(
+      ({ code, path }) => code === 'attribute-preserved-only' && path.endsWith('.alpha'),
+    )).toBe(false);
   });
 
   it('fails atomically for duplicate visible IDs and explicitly omits dangling endpoints', () => {

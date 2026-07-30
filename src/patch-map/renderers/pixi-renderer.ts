@@ -325,15 +325,37 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.selectionOverlay.eventMode = 'none';
     this.transformerOverlay = new Graphics({ label: 'PatchMap / transformer overlay (0)' });
     this.transformerOverlay.eventMode = 'none';
-    this.world.addChild(
-      this.backgroundGeometryLane,
-      this.leaves.backgroundAssetContainer,
-      this.aggregate.container,
-      this.leaves.contentAssetContainer,
-      this.leaves.textContainer,
-      this.selectionOverlay,
-      this.transformerOverlay,
-    );
+    if (this.aggregate instanceof AggregateMeshLayer) {
+      // Preserve aggregate batching while matching PATCH MAP's authored
+      // underlay -> item frame -> component-content order. Standalone root
+      // images cannot share the component-asset lane: doing so either covers
+      // the complete scene or hides every item icon behind the root overlay.
+      this.aggregate.container.addChild(
+        this.leaves.standaloneAssetContainer,
+        this.aggregate.ordinaryGeometryContainer,
+        this.aggregate.backgroundGeometryContainer,
+        this.leaves.backgroundAssetContainer,
+        this.aggregate.relationsDynamicContainer,
+        this.leaves.contentAssetContainer,
+        this.leaves.textContainer,
+      );
+      this.world.addChild(
+        this.aggregate.container,
+        this.selectionOverlay,
+        this.transformerOverlay,
+      );
+    } else {
+      this.world.addChild(
+        this.leaves.standaloneAssetContainer,
+        this.backgroundGeometryLane,
+        this.leaves.backgroundAssetContainer,
+        this.aggregate.container,
+        this.leaves.contentAssetContainer,
+        this.leaves.textContainer,
+        this.selectionOverlay,
+        this.transformerOverlay,
+      );
+    }
     this.application.stage.label = 'PatchMap';
     this.application.stage.eventMode = 'static';
     this.application.stage.interactiveChildren = false;
@@ -925,6 +947,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     // Aggregate geometry and decoded image leaves remain safe, useful upload
     // targets and preserve the purpose of the explicit GPU preparation phase.
     await this.application.renderer.prepare.upload([
+      this.leaves.standaloneAssetContainer,
       this.backgroundGeometryLane,
       this.leaves.backgroundAssetContainer,
       this.aggregate.container,

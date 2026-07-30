@@ -430,6 +430,8 @@ export interface PatchMapSurfaceOptions {
   readonly devtools?: boolean;
   readonly powerPreference: 'high-performance' | 'low-power';
   readonly assetSession?: PatchMapAssetSession;
+  /** Internal bridge from async Pixi/Core invalidation to the product frame owner. */
+  readonly requestFrame?: () => void;
 }
 
 export interface PatchMapPoint {
@@ -2233,6 +2235,7 @@ export class PatchMap {
       devtools: options.devtools ?? false,
       powerPreference: options.powerPreference ?? 'high-performance',
       assetSession,
+      requestFrame: () => this.requestManagedFrameLoop(),
       ...(options.target ? { target: options.target } : {}),
       ...(options.canvas ? { canvas: options.canvas } : {}),
     };
@@ -9422,6 +9425,7 @@ async function createPixiSurface(options: PatchMapSurfaceOptions): Promise<Patch
     autoRender: false,
     rootSelectionMode: 'deferred',
     internalStableRecordOverlays: true,
+    ...(options.requestFrame ? { requestFrame: options.requestFrame } : {}),
     ...(options.assetSession ? { assetSession: options.assetSession } : {}),
     ...(options.target ? { target: options.target } : {}),
     ...(options.canvas ? { canvas: options.canvas } : {}),

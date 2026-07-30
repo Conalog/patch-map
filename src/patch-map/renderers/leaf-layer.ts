@@ -66,7 +66,7 @@ interface TextChunk {
   allChildrenVisible: boolean;
 }
 
-type LeafImageLane = 'background-assets' | 'content-assets';
+type LeafImageLane = 'standalone-assets' | 'background-assets' | 'content-assets';
 
 interface ImageEntry {
   readonly object: Sprite;
@@ -205,6 +205,10 @@ const EMPTY_QUAD_VERTICES: PatchMapQuadVertices = Object.freeze([
 
 export class AggregateLeafLayer {
   public readonly container = new Container({ label: 'patch-map:text-and-assets' });
+  public readonly standaloneAssetContainer = new Container({
+    label: 'PatchMap / standalone assets (0)',
+    sortableChildren: false,
+  });
   public readonly backgroundAssetContainer = new Container({
     label: 'PatchMap / background assets (0)',
     sortableChildren: false,
@@ -216,8 +220,8 @@ export class AggregateLeafLayer {
     // a pending Sprite is replaced after its equal-z siblings were inserted.
     sortableChildren: false,
   });
-  /** Compatibility alias: pre-component images are content assets. */
-  public readonly imageContainer = this.contentAssetContainer;
+  /** Compatibility alias for the original standalone-image leaf surface. */
+  public readonly imageContainer = this.standaloneAssetContainer;
   public readonly textContainer = new Container({ label: 'PatchMap / text (0)' });
 
   private readonly texts = new Map<number, TextEntry>();
@@ -257,6 +261,9 @@ export class AggregateLeafLayer {
     this.container.interactiveChildren = false;
     this.textContainer.eventMode = 'none';
     this.textContainer.interactiveChildren = false;
+    this.standaloneAssetContainer.eventMode = 'none';
+    this.standaloneAssetContainer.interactiveChildren = false;
+    this.standaloneAssetContainer.sortableChildren = false;
     this.backgroundAssetContainer.eventMode = 'none';
     this.backgroundAssetContainer.interactiveChildren = false;
     this.backgroundAssetContainer.sortableChildren = false;
@@ -264,6 +271,7 @@ export class AggregateLeafLayer {
     this.contentAssetContainer.interactiveChildren = false;
     this.contentAssetContainer.sortableChildren = false;
     this.container.addChild(
+      this.standaloneAssetContainer,
       this.backgroundAssetContainer,
       this.contentAssetContainer,
       this.textContainer,
@@ -381,7 +389,8 @@ export class AggregateLeafLayer {
       contentAssets: freezeLaneProbe(
         'content-assets',
         this.contentAssetContainer.label,
-        this.contentAssetContainer.children.length,
+        this.standaloneAssetContainer.children.length +
+          this.contentAssetContainer.children.length,
       ),
       text: freezeLaneProbe(
         'text',
@@ -519,6 +528,8 @@ export class AggregateLeafLayer {
     this.dirtyAssetSlots.clear();
     this.backgroundAssetContainer.label =
       `PatchMap / background assets (${this.backgroundAssetContainer.children.length})`;
+    this.standaloneAssetContainer.label =
+      `PatchMap / standalone assets (${this.standaloneAssetContainer.children.length})`;
     this.contentAssetContainer.label =
       `PatchMap / content assets (${this.contentAssetContainer.children.length})`;
     this.textContainer.label = `PatchMap / text (${this.texts.size})`;
@@ -681,6 +692,7 @@ export class AggregateLeafLayer {
     this.staleCompletionCount = 0;
     this.storeEpoch = -1;
     this.dirtyImageLanes.clear();
+    this.standaloneAssetContainer.destroy();
     this.backgroundAssetContainer.destroy();
     this.contentAssetContainer.destroy();
     this.textContainer.destroy();
@@ -1100,7 +1112,7 @@ export class AggregateLeafLayer {
     this.setImageProbe(slot, entityId, bindingKey, bindingGeneration, 1, role);
     this.paintProbesByEntityId.set(entityId, freezeEntityPaintProbe({
       entityId,
-      lane,
+      lane: publicImageLane(lane),
       rendererKind: 'sprite',
       primitiveCount: 1,
       renderObjectCount: 1,
@@ -1232,7 +1244,7 @@ export class AggregateLeafLayer {
     }
     this.paintProbesByEntityId.set(entityId, freezeEntityPaintProbe({
       entityId,
-      lane,
+      lane: publicImageLane(lane),
       rendererKind: 'none',
       primitiveCount: 0,
       renderObjectCount: 0,
@@ -1259,7 +1271,7 @@ export class AggregateLeafLayer {
     }
     this.paintProbesByEntityId.set(entityId, freezeEntityPaintProbe({
       entityId,
-      lane,
+      lane: publicImageLane(lane),
       rendererKind: 'none',
       primitiveCount: 0,
       renderObjectCount: 0,
@@ -1450,6 +1462,7 @@ export class AggregateLeafLayer {
     }
     this.dirtyImageLanes.clear();
     this.textContainer.removeChildren();
+    this.standaloneAssetContainer.removeChildren();
     this.backgroundAssetContainer.removeChildren();
     this.contentAssetContainer.removeChildren();
   }
@@ -1468,7 +1481,7 @@ function imageLane(
   projectionContext?: PatchMapProjectionRenderContext,
 ): LeafImageLane | null {
   const component = projectionContext?.index.componentsByEntityId?.[entityId];
-  if (component === undefined) return 'content-assets';
+  if (component === undefined) return 'standalone-assets';
   if (component.renderRole === 'background-asset') return 'background-assets';
   if (component.renderRole === 'content-asset') return 'content-assets';
   return null;
@@ -1533,9 +1546,14 @@ function imageLaneContainer(
   layer: AggregateLeafLayer,
   lane: LeafImageLane,
 ): Container {
+  if (lane === 'standalone-assets') return layer.standaloneAssetContainer;
   return lane === 'background-assets'
     ? layer.backgroundAssetContainer
     : layer.contentAssetContainer;
+}
+
+function publicImageLane(lane: LeafImageLane): 'background-assets' | 'content-assets' {
+  return lane === 'background-assets' ? 'background-assets' : 'content-assets';
 }
 
 function freezeLaneProbe(

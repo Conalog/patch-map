@@ -163,6 +163,8 @@ export interface PatchMapRuntimeOptions extends PatchMapPixiRendererOptions, Cor
    * deeply frozen plain projection records.
    */
   readonly internalStableRecordOverlays?: boolean;
+  /** Product-owned frame-loop wake-up for async resource completion. */
+  readonly requestFrame?: () => void;
 }
 
 export type PatchMapRootViewportChangeSource =
@@ -550,6 +552,7 @@ export class PatchMapRuntime {
   private readonly presentationProjection = new PatchMapPresentationProjectionStore();
   private readonly parseOptions: ParsePatchMapOptions;
   private readonly autoRender: boolean;
+  private readonly requestFrame: (() => void) | undefined;
   private readonly rootSelectionMode: 'immediate' | 'deferred';
   private readonly stableRecordStrategy: PatchMapStableRecordStrategy;
   private readonly unbindInteractions: () => void;
@@ -610,6 +613,7 @@ export class PatchMapRuntime {
     this.initializationMetrics = renderer.initializationMetrics;
     this.parseOptions = options.parse ?? {};
     this.autoRender = options.autoRender ?? true;
+    this.requestFrame = options.requestFrame;
     this.rootSelectionMode = options.rootSelectionMode ?? 'immediate';
     this.stableRecordStrategy = options.internalStableRecordOverlays === true
       ? 'internal-overlay'
@@ -2569,6 +2573,7 @@ export class PatchMapRuntime {
     this.componentRendererFactsPublished = false;
     this.textRendererFactsPublished = false;
     this.requestExternalFrameLoop();
+    this.requestFrame?.();
     if (this.autoRender && !this.suspended) this.scheduler.invalidate(reason);
   }
 

@@ -179,7 +179,7 @@ describe('PatchMap image source projection', () => {
     expect(result.projection.imagesByEntityId?.sized?.dimensionMode).toBe('authored');
   });
 
-  it('keeps standalone image rotation on the Sprite center pivot', () => {
+  it('keeps ordinary authored standalone image rotation on the Sprite center pivot', () => {
     const result = parsePatchMapV010([{
       type: 'image',
       id: 'transformed',
@@ -196,6 +196,51 @@ describe('PatchMap image source projection', () => {
       rotation: 90,
     });
     expect(result.projection.byEntityId.transformed?.visibleCenter).toEqual([150, 125]);
+  });
+
+  it('aligns legacy display-image records with same-transform v0.10 geometry', () => {
+    const result = parsePatchMapV010([
+      {
+        type: 'image',
+        id: 'site-image',
+        source: 'fixture-image',
+        size: { width: 200, height: 120 },
+        attrs: { x: -25, y: 40, angle: 36.5, display: 'image' },
+      },
+      {
+        type: 'rect',
+        id: 'site-overlay',
+        size: { width: 200, height: 120 },
+        attrs: { x: -25, y: 40, angle: 36.5 },
+      },
+    ]);
+
+    const image = result.document.entities[0];
+    const overlay = result.document.entities[1];
+    if (!image || image.kind === 'relation' || !overlay || overlay.kind === 'relation') {
+      throw new Error('expected projected image and rect geometry');
+    }
+    expect([
+      image?.x,
+      image?.y,
+      image?.width,
+      image?.height,
+      image?.rotation,
+    ]).toEqual([
+      overlay?.x,
+      overlay?.y,
+      overlay?.width,
+      overlay?.height,
+      overlay?.rotation,
+    ]);
+    expect(result.projection.byEntityId['site-image']?.affine)
+      .toEqual(result.projection.byEntityId['site-overlay']?.affine);
+    expect(result.projection.byEntityId['site-image']?.visibleCenter)
+      .toEqual(result.projection.byEntityId['site-overlay']?.visibleCenter);
+    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: 'attribute-preserved-only',
+      path: '$[0].attrs.display',
+    }));
   });
 
   it('projects image components into the same lossless source table', () => {
