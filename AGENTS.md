@@ -28,11 +28,13 @@ and atomic failure. Keep the aggregate PixiJS renderer, root interaction
 authority, central scheduler, and explicit resource ownership; do not add
 per-entity display objects, listeners, tickers, or closures to hot paths.
 
-Approved functional-contract fixtures, normalized expected observations,
-review evidence, and frozen comparison/performance results are immutable.
-Their digest-bound `core-v2` identifiers and historical paths may remain.
-Current product code, docs, examples, package exports, builds, and public Lab
-routes use PatchMap naming.
+Approved functional-contract fixtures, normalized expected observations, and
+review evidence are immutable. Retained digest-bound performance evidence may
+keep its historical `core-v2` identifiers and paths. The obsolete clean-room
+handoff, Core v1 control, completed parity captures, and unreferenced raw
+performance outputs were removed with explicit user approval on 2026-07-30.
+Current product code, docs, examples, package exports, builds, operational
+tools, and public Lab routes use PatchMap naming.
 
 WebGL is the production baseline. WebGPU remains experimental. Chromium is a
 development proxy; Windows native and other qualified external cells stay

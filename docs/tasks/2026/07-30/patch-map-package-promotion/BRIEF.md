@@ -11,7 +11,8 @@
   IDs/component identity, atomic failure, aggregate rendering, and explicit
   lifecycle ownership.
 - Preserve immutable functional-contract fixtures, normalized expected
-  observations, review evidence, and frozen comparison results.
+  observations, review evidence, and retained digest-bound performance
+  evidence.
 - Remove Core v1 product code, Lab, build/package surface, and tests. Move only
   the dense-store substrate still used by the product into neutral internal
   paths.
@@ -26,9 +27,9 @@
 - The completed candidate already passes the 173-case contract, packed
   consumer, headless browser, lifecycle memory, and 10,000-record Lab gates.
 - The final renderer owns its scheduler and aggregate PixiJS lifecycle.
-- Core v1 is an incomplete performance control. Its dense store is a current
-  internal dependency, while its Canvas2D renderer and public surface are not
-  part of the final product.
+- Core v1 was an incomplete performance control. Its reusable dense substrate
+  now lives under `src/patch-map/dense`; the Core v1 tree is no longer a
+  product or verification dependency.
 - Package version remains `0.10.0`; the user will bump it after merge.
 
 # Current State
@@ -43,22 +44,32 @@
 - `/lab/patch-map/` is now the only user-facing Lab. It exposes the 173-case
   Korean manual workbench through `PatchMap`; the duplicate low-level
   performance Playground and its public runtime factory are removed.
-- Immutable contract/evidence and frozen performance results remain unchanged.
+- The canonical 173-case contract/evidence corpus remains unchanged.
+- With explicit user approval, obsolete clean-room handoff files, the Core v1
+  performance control, completed main-parity harness/captures, old task
+  working logs, and unreferenced timestamped performance outputs are removed.
+- Active benchmark and release tooling lives under `performance/patch-map`
+  and `patch-map-*` script paths. Eleven directly referenced result artifacts
+  remain, including the digest-bound named/raw-latest pair required by the
+  contract performance verifier.
+- GitHub CI now runs install, full typecheck/lint/unit, canonical contract,
+  package build, and Lab build for every pull request and push.
 - Current single-Lab gates pass: targeted tests, typecheck, full lint, package
   and Lab builds, canonical 38/173 contract verification, 173-route headless
   Lab (192/192), a 10,000-record animation/pan/destroy check, and packed
   ESM/CJS/types plus 38 journeys.
-- Final full-unit verification passes 149/149 files and 1,456/1,456 tests.
+- Final full-unit verification passes 148/148 files and 1,451/1,451 tests
+  after removal of the completed main-parity harness test.
   Package verification writes transient output unless a release artifact
   directory is explicitly requested, so frozen evidence remains unchanged.
-- Final current-diff review is clean. The product cleanup is fixed in
-  `68888cc`; reviewer-found CI path coverage and public Lab-route issues were
-  corrected before that commit.
+- Repository residue cleanup is fixed in `1f2f3ef`; it removes 431 tracked
+  files and more than 742,000 generated/evidence lines while preserving every
+  live source reference and canonical contract input.
 
 # Next Step
 
-- Create and review the PR from the clean `performance/core-v2` branch.
-  Version bumping remains post-merge work.
+- Complete final review and create the PR from the clean
+  `performance/core-v2` branch. Version bumping remains post-merge work.
 
 # Verification Cadence
 

@@ -68,3 +68,37 @@
 - Renderer, scheduler, resource ownership, and destroy paths did not change,
   so the full performance matrix and 2+7 memory gate were not repeated.
   Windows-native and qualified WebGPU measurements remain pending.
+
+## 2026-07-30 — Repository residue cleanup
+
+- Removed the obsolete clean-room handoff/export, root `artifacts` and
+  `fixtures`, Core v1 performance control, completed main-parity harness and
+  captures, obsolete implementation/task working documents, and unreferenced
+  timestamped performance outputs with explicit user approval.
+- Preserved the canonical 173-case functional-contract corpus, its immutable
+  normalized expected observations/reviews, five digest-bound extraction and
+  interaction artifacts, and eleven performance/release results with live
+  source references.
+- Moved active performance tooling from `performance/core-v2` to
+  `performance/patch-map`, renamed current native/release scripts to
+  `patch-map-*`, and removed the completed `verify:main-parity` surface.
+- Replaced contract-only path-filtered CI with full PR/push validation:
+  install, typecheck/lint/unit, canonical contract, product build, and Lab
+  build.
+- The packed 38-journey run exposed CSM-036 near its generic 45-second
+  timeout. Its production-sized editor remount/cleanup journey now has a
+  dedicated 120-second verifier ceiling; the rerun completed all 38 journeys
+  with lifecycle cleanup.
+- Verification: targeted 9 files/281 tests PASS; typecheck PASS; full lint
+  PASS; product and Lab builds PASS; full unit 148 files/1,451 tests PASS;
+  canonical 38 decisions/173 cases PASS; performance evidence verifiers PASS;
+  native release positive proof plus 15 negative probes PASS; packed
+  ESM/CJS/types, four examples, and 38 journeys PASS; headless 173-route Lab
+  192/192 PASS with zero console/page/network errors.
+- Retained local evidence for commit `8d285db` remains internally valid and
+  native Windows/NVDA/device/actual-host qualification remains pending.
+  Cleanup commit `1f2f3ef` does not reuse that evidence as a new performance
+  claim. Renderer, scheduler, resource ownership, and destroy paths did not
+  change, so the full performance matrix and 2+7 memory gate were not rerun.
+- Cleanup commit: `1f2f3ef` (`refactor: consolidate PatchMap repository
+  tooling`).

@@ -21,9 +21,11 @@
 
 - Current product code, docs, examples, build names, package exports, and Lab
   routes use PatchMap naming.
-- Immutable contract/evidence and frozen performance result paths may retain
-  `core-v2`; changing them would invalidate approved digests and is outside
-  this cleanup.
+- Immutable contract/evidence and retained digest-bound performance results
+  may retain `core-v2`; changing their contents would invalidate approved
+  observations.
+- Active performance and release tooling uses `performance/patch-map` and
+  `patch-map-*` paths.
 
 ## 2026-07-30 — One consumer API and one Lab
 
@@ -36,3 +38,16 @@
   `PatchMap`.
 - Internal performance harnesses may import the core module explicitly, but
   that path is not a published package export.
+
+## 2026-07-30 — Prune completed experiments and handoff residue
+
+- User approval permits deleting the obsolete clean-room export, root handoff
+  manifests, Core v1 performance control, completed main-parity harness and
+  captures, old task working logs, and unreferenced timestamped performance
+  outputs.
+- Preserve the canonical 173-case functional-contract corpus and the five
+  digest-bound performance/extraction artifacts still exercised by tests.
+- Keep only current or directly referenced runtime evidence in
+  `performance/patch-map/results`.
+- Repository CI covers product source, tests, the canonical contract, the
+  production package build, and the PatchMap Lab build.

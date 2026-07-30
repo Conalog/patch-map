@@ -7,9 +7,9 @@
 - The completed PixiJS implementation is the product. `core-v1` and
   user-facing `core-v2` package, route, build, and example identities do not
   ship.
-- Historical contract revisions and digest-bound evidence may retain their
-  original `core-v2` identifiers. They are verification inputs, not public
-  product names.
+- Historical contract revisions and retained digest-bound evidence may retain
+  their original `core-v2` identifiers. They are verification inputs, not
+  public product names.
 
 ## Product boundary
 
@@ -35,8 +35,13 @@
   Lab, product tests, build configuration, and consumer verification.
 - Remove legacy root product code once the root package exports the completed
   PixiJS implementation.
-- Do not modify immutable fixtures, normalized expected observations, review
-  evidence, frozen comparison results, or their digest-bound identifiers.
+- Do not modify immutable functional-contract fixtures, normalized expected
+  observations, review evidence, or retained digest-bound performance
+  evidence.
+- The obsolete clean-room export, Core v1 control, completed main-parity
+  harness/captures, and unreferenced timestamped performance outputs are not
+  release inputs and were removed with explicit user approval on 2026-07-30.
+- Active performance and release tooling lives under PatchMap-neutral paths.
 - Published files contain only the built package, current product
   documentation/examples, license, and readme files.
 
