@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { PATCH_MAP_IDENTITY_AFFINE } from '../../src/patch-map/semantic/geometry';
+import { deterministicPatchMapTokenColor } from '../../src/patch-map/parser/color';
 import { createPatchMapParseState } from '../../src/patch-map/parser/parse-state';
 import {
   barAnimationDuration,
@@ -83,5 +84,17 @@ describe('PatchMap parser value normalization', () => {
       message: 'Bar animationDuration must be a nonnegative finite number',
       sourceId: 'bar-a',
     });
+  });
+
+  it('terminates cyclic theme aliases with the deterministic token fallback', () => {
+    const state = createPatchMapParseState({ colors: { a: 'b', b: 'a' } });
+
+    expect(resolveColor('a', 0, '$.fill', state)).toBe(deterministicPatchMapTokenColor('a'));
+    expect(state.diagnostics).toEqual([{
+      level: 'warning',
+      code: 'color-fallback',
+      path: '$.fill',
+      message: 'Unknown color token "a" used deterministic hash fallback',
+    }]);
   });
 });

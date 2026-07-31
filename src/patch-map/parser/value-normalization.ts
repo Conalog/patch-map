@@ -327,8 +327,32 @@ export function resolveColor(
   path: string,
   state: PatchMapParseState,
 ): Rgba {
-  if (value === undefined) return fallback >>> 0;
-  const numeric = finiteNumber(value);
+  let resolvedValue = value;
+  let rootThemeToken: string | undefined;
+  let visitedThemeTokens: Set<string> | undefined;
+
+  while (typeof resolvedValue === 'string') {
+    const themeValue =
+      state.options.colors?.[resolvedValue] ?? PATCH_MAP_DEFAULT_COLOR_THEME[resolvedValue];
+    if (themeValue === undefined || themeValue === resolvedValue) break;
+
+    rootThemeToken ??= resolvedValue;
+    visitedThemeTokens ??= new Set([resolvedValue]);
+    if (typeof themeValue === 'string' && visitedThemeTokens.has(themeValue)) {
+      warnPatchMapParse(
+        state,
+        path,
+        'color-fallback',
+        `Unknown color token ${JSON.stringify(rootThemeToken)} used deterministic hash fallback`,
+      );
+      return deterministicPatchMapTokenColor(rootThemeToken);
+    }
+    if (typeof themeValue === 'string') visitedThemeTokens.add(themeValue);
+    resolvedValue = themeValue;
+  }
+
+  if (resolvedValue === undefined) return fallback >>> 0;
+  const numeric = finiteNumber(resolvedValue);
   if (
     numeric !== undefined &&
     Number.isInteger(numeric) &&
@@ -337,19 +361,16 @@ export function resolveColor(
   ) {
     return (numeric <= 0xffffff ? numeric * 0x100 + 0xff : numeric) >>> 0;
   }
-  if (typeof value === 'string') {
-    const themeValue = state.options.colors?.[value] ?? PATCH_MAP_DEFAULT_COLOR_THEME[value];
-    if (themeValue !== undefined && themeValue !== value) {
-      return resolveColor(themeValue, fallback, path, state);
-    }
-    const parsed = parsePatchMapCssColor(value);
+  if (typeof resolvedValue === 'string') {
+    const parsed = parsePatchMapCssColor(resolvedValue);
     if (parsed !== undefined) return parsed;
-    const hashed = deterministicPatchMapTokenColor(value);
+    const fallbackToken = rootThemeToken ?? resolvedValue;
+    const hashed = deterministicPatchMapTokenColor(fallbackToken);
     warnPatchMapParse(
       state,
       path,
       'color-fallback',
-      `Unknown color token ${JSON.stringify(value)} used deterministic hash fallback`,
+      `Unknown color token ${JSON.stringify(fallbackToken)} used deterministic hash fallback`,
     );
     return hashed;
   }
