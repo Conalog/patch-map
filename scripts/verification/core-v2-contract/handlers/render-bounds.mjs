@@ -1,4 +1,6 @@
-import { clone, deepFreeze } from '../value-atoms.mjs';
+import { clone, deepFreeze, createOrderedExactKeyAssertion } from '../value-atoms.mjs';
+
+const assertExactKeys = createOrderedExactKeyAssertion(assert);
 
 export const RENDER_BOUNDS_ACTION_TYPES = Object.freeze([
   'loadBoundsMatrix',
@@ -314,12 +316,6 @@ function booleanValue(value, label) {
 function finiteNumber(value, label) {
   assert(typeof value === 'number' && Number.isFinite(value), label);
   return value;
-}
-
-function assertExactKeys(value, keys, label) {
-  const allowed = new Set(keys);
-  for (const key of Object.keys(value)) assert(allowed.has(key), `${label} unknown key ${key}`);
-  for (const key of keys) assert(Object.hasOwn(value, key), `${label} missing key ${key}`);
 }
 
 function sameJson(left, right) {

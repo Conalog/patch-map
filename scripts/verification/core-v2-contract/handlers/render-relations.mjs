@@ -1,4 +1,6 @@
-import { clone, deepFreeze } from '../value-atoms.mjs';
+import { clone, deepFreeze, createOrderedExactKeyAssertion } from '../value-atoms.mjs';
+
+const assertExactKeys = createOrderedExactKeyAssertion(assert);
 
 export const RENDER_RELATIONS_ACTION_TYPES = Object.freeze([
   'loadDataset',
@@ -753,12 +755,6 @@ function normalizeNumber(value, label) {
   const numeric = finiteNumber(value, label);
   const rounded = Math.round(numeric * 1_000_000) / 1_000_000;
   return Object.is(rounded, -0) ? 0 : rounded;
-}
-
-function assertExactKeys(value, keys, label) {
-  const allowed = new Set(keys);
-  for (const key of Object.keys(value)) assert(allowed.has(key), `${label} unknown key ${key}`);
-  for (const key of keys) assert(Object.hasOwn(value, key), `${label} missing key ${key}`);
 }
 
 function sameJson(left, right) {

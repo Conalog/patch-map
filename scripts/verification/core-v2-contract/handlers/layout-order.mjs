@@ -1,4 +1,6 @@
-import { clone, deepFreeze } from '../value-atoms.mjs';
+import { clone, deepFreeze, createOrderedExactKeyAssertion } from '../value-atoms.mjs';
+
+const assertExactKeys = createOrderedExactKeyAssertion(assert);
 
 export const LAYOUT_ORDER_HANDLER_REVISION = 'core-v2-layout-order-handlers/1';
 
@@ -873,12 +875,6 @@ function callSync(target, method, ...args) {
 
 function traceAction(type, operands) {
   return Object.freeze({ type, operands: deepFreeze(operands) });
-}
-
-function assertExactKeys(value, keys, label) {
-  const allowed = new Set(keys);
-  for (const key of Object.keys(value)) assert(allowed.has(key), `${label} unknown key ${key}`);
-  for (const key of keys) assert(Object.hasOwn(value, key), `${label} missing key ${key}`);
 }
 
 function recordValue(value, label) {

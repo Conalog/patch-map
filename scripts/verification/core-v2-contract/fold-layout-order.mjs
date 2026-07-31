@@ -1,4 +1,6 @@
-import { clone, deepFreeze } from './value-atoms.mjs';
+import { clone, deepFreeze, createOrderedExactKeyAssertion } from './value-atoms.mjs';
+
+const assertExactKeys = createOrderedExactKeyAssertion(assert);
 
 export const LAYOUT_ORDER_FOLD_REVISION = 'core-v2-layout-order-fold/1';
 
@@ -1548,12 +1550,6 @@ function nonNegativeInteger(value, label) {
 
 function assertUint32(value, label) {
   assert(Number.isInteger(value) && value >= 0 && value <= 0xffffffff, label);
-}
-
-function assertExactKeys(value, keys, label) {
-  const allowed = new Set(keys);
-  for (const key of Object.keys(value)) assert(allowed.has(key), `${label} unknown key ${key}`);
-  for (const key of keys) assert(Object.hasOwn(value, key), `${label} missing key ${key}`);
 }
 
 function sameJson(left, right) {
