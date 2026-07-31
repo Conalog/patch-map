@@ -18,6 +18,7 @@ class TransformerSurface implements PatchMapEngineSurface {
   public selectionIds: readonly string[] = Object.freeze([]);
   public frameCount = 0;
   public reconcileCount = 0;
+  public refuseNextReconcile = false;
   public lastReconcileOptions: PatchMapSurfaceReconcileOptions = Object.freeze({});
   private width: number;
   private height: number;
@@ -40,14 +41,18 @@ class TransformerSurface implements PatchMapEngineSurface {
   ): PatchMapSurfaceReconcileResult {
     this.reconcileCount += 1;
     this.lastReconcileOptions = Object.freeze({ ...options });
-    this.loaded = input as readonly PatchMapElement[];
-    if (options.selectionIds !== undefined) {
-      this.selectionIds = Object.freeze([...options.selectionIds]);
+    const status = this.refuseNextReconcile ? 'refused' : 'committed';
+    this.refuseNextReconcile = false;
+    if (status === 'committed') {
+      this.loaded = input as readonly PatchMapElement[];
+      if (options.selectionIds !== undefined) {
+        this.selectionIds = Object.freeze([...options.selectionIds]);
+      }
     }
     return Object.freeze({
-      status: 'committed',
-      operationCount: 1,
-      denseChanged: true,
+      status,
+      operationCount: status === 'committed' ? 1 : 0,
+      denseChanged: status === 'committed',
       diagnostics: Object.freeze([]),
     });
   }
@@ -226,6 +231,35 @@ describe('PatchMap transformer edit integration', () => {
       deltaWorld: [5, 3],
     })).toMatchObject({ status: 'previewed', changed: true });
     expect(surface.lastReconcileOptions.incrementalRootIds).toEqual(['flat-a']);
+  });
+
+  it('restores a refused completion before clearing and counting its session', async () => {
+    const { engine, surface } = await createEngine(engines);
+    engine.loadDataset(scene());
+    engine.applySelection({ op: 'replace', ids: ['rect-b'], source: 'programmatic' });
+    beginMovePreview(engine, 78);
+    expect(geometryFromDataset(surface.loaded, 'rect-b')).toMatchObject({ x: 170, y: 45 });
+
+    surface.refuseNextReconcile = true;
+    expect(engine.completeTransformerEdit(78)).toMatchObject({
+      status: 'refused',
+      changed: false,
+      mutationCount: 0,
+      historyDepthDelta: 0,
+      probe: {
+        activeSessionCount: 0,
+        previewOverlayCount: 0,
+        committedMutationCount: 0,
+        cancelledSessionCount: 1,
+      },
+    });
+    expect(geometry(engine, 'rect-b')).toMatchObject({ x: 160, y: 40 });
+    expect(geometryFromDataset(surface.loaded, 'rect-b')).toMatchObject({ x: 160, y: 40 });
+    expect(engine.historyState()).toMatchObject({ undoDepth: 0, redoDepth: 0 });
+    expect(engine.transformerGestureProbe()).toMatchObject({
+      activeGestureCount: 0,
+      pointerCaptureCount: 0,
+    });
   });
 
   it('reverts every explicit cancellation reason without history or retained resources', async () => {

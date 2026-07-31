@@ -199,6 +199,10 @@ import {
   PatchMapViewportAuthority,
   type PatchMapViewportViewEffect,
 } from './engine/viewport-authority';
+import {
+  PatchMapTransformerEditAuthority,
+  type PatchMapTransformerEditSession,
+} from './engine/transformer-edit-authority';
 export type {
   PatchMapEngineComponentSemanticProbe,
   PatchMapEngineTextSemanticProbe,
@@ -391,7 +395,6 @@ import {
   resolvePatchMapRotationSnap,
   type PatchMapRotationSnapResult,
   type PatchMapTransformerEditKind,
-  type PatchMapTransformerEditPlan,
   type PatchMapTransformerEditRequest,
 } from './transformer-edit';
 import {
@@ -501,22 +504,6 @@ interface PreparedPatchMapEngineLoad {
   readonly textSemantics: Map<string, IndexedEngineTextSemantic>;
 }
 
-interface ActivePatchMapTransformerEdit {
-  readonly pointerId: number;
-  readonly actionId: string;
-  readonly kind: PatchMapTransformerEditKind;
-  readonly handle: PatchMapTransformerHandle;
-  readonly selectionIds: readonly string[];
-  readonly startMaterialized: MaterializedPatchMapDataset;
-  readonly startSelectionIds: readonly string[];
-  readonly historyDepthBefore: number;
-  readonly previewCountBefore: number;
-  readonly latestPlan: PatchMapTransformerEditPlan | null;
-  readonly latestMutationPlan: PatchMapMutationTransactionPlan | null;
-  readonly previewMaterialized: MaterializedPatchMapDataset | null;
-  readonly transientPreview: boolean;
-}
-
 export class PatchMap {
   private readonly surfaceFactory: PatchMapEngineSurfaceFactory;
   private readonly assetRuntime: PatchMapAssetRuntime;
@@ -533,12 +520,8 @@ export class PatchMap {
   private readonly pageLifecycle = new PatchMapPageLifecycleAuthority();
   private readonly accessibility = new PatchMapAccessibilityAuthority();
   private readonly transformerGestures = new PatchMapTransformerGestureAuthority();
+  private readonly transformerEdits = new PatchMapTransformerEditAuthority();
   private readonly viewportAuthority = new PatchMapViewportAuthority();
-  private activeTransformerEdit: ActivePatchMapTransformerEdit | null = null;
-  private transformerEditPreviewCount = 0;
-  private transformerEditCommittedMutationCount = 0;
-  private transformerEditCancelledSessionCount = 0;
-  private transformerEditStaleCompletionCount = 0;
   private pendingTransactionPlanMs = 0;
   private lastTransactionPerformance: PatchMapEngineTransactionPerformanceProbe | null = null;
   private readonly listeners = new Map<PatchMapEngineEvent, Set<(event: unknown) => void>>();
@@ -3716,9 +3699,7 @@ export class PatchMap {
     input: PatchMapEngineTransformerSessionBeginInput,
   ): PatchMapEngineTransformerSessionProbe {
     this.requireSurface('beginTransformerEdit');
-    if (this.activeTransformerEdit !== null) {
-      throw new Error('PatchMap transformer edit session is already active');
-    }
+    this.transformerEdits.assertIdle();
     const materialized = this.materialized;
     if (materialized === null) {
       throw this.operationError('NOT_READY', 'NOT_READY', 'beginTransformerEdit', true);
@@ -3736,7 +3717,7 @@ export class PatchMap {
       });
     }
     this.beginTransformerHandleGesture(input.pointerId, input.handle);
-    this.activeTransformerEdit = Object.freeze({
+    this.transformerEdits.begin({
       pointerId: input.pointerId,
       actionId,
       kind: input.kind,
@@ -3745,11 +3726,6 @@ export class PatchMap {
       startMaterialized: materialized,
       startSelectionIds: Object.freeze([...this.logicalSelectionIds]),
       historyDepthBefore: this.history.state().undoDepth,
-      previewCountBefore: this.transformerEditPreviewCount,
-      latestPlan: null,
-      latestMutationPlan: null,
-      previewMaterialized: null,
-      transientPreview: false,
     });
     return this.transformerEditProbe();
   }
@@ -3759,7 +3735,7 @@ export class PatchMap {
     request: PatchMapTransformerEditRequest,
   ): PatchMapEngineTransformerPreviewResult {
     const surface = this.requireSurface('previewTransformerEdit');
-    const active = this.requireActiveTransformerEdit(pointerId, 'previewTransformerEdit');
+    const active = this.transformerEdits.require(pointerId, 'previewTransformerEdit');
     if (request.kind !== active.kind) {
       throw new TypeError('transformer preview kind must match the active session');
     }
@@ -3835,10 +3811,8 @@ export class PatchMap {
       });
     }
 
-    this.transformerEditPreviewCount += 1;
     this.interactionRevision += 1;
-    this.activeTransformerEdit = Object.freeze({
-      ...active,
+    this.transformerEdits.recordPreview(active, {
       latestPlan: plan,
       latestMutationPlan: mutationPlan,
       previewMaterialized,
@@ -3856,9 +3830,8 @@ export class PatchMap {
   public completeTransformerEdit(
     pointerId: number,
   ): PatchMapEngineTransformerCompletionResult {
-    const active = this.activeTransformerEdit;
-    if (active === null || active.pointerId !== pointerId) {
-      this.transformerEditStaleCompletionCount += 1;
+    const completion = this.transformerEdits.prepareCompletion(pointerId);
+    if (completion.status === 'stale') {
       return Object.freeze({
         status: 'stale',
         changed: false,
@@ -3869,10 +3842,10 @@ export class PatchMap {
         probe: this.transformerEditProbe(),
       });
     }
-    const plan = active.latestPlan;
-    if (plan === null || plan.status !== 'planned') {
-      this.activeTransformerEdit = null;
+    const active = completion.session;
+    if (completion.status === 'unchanged') {
       const gesture = this.completeTransformerHandleGesture(pointerId);
+      this.transformerEdits.settle(active, 'unchanged');
       return Object.freeze({
         status: 'unchanged',
         changed: false,
@@ -3884,7 +3857,6 @@ export class PatchMap {
       });
     }
 
-    this.activeTransformerEdit = null;
     const surface = this.requireSurface('completeTransformerEdit');
     const previewPlan = active.latestMutationPlan;
     if (previewPlan === null || previewPlan.status !== 'planned') {
@@ -3910,7 +3882,7 @@ export class PatchMap {
     if (transaction.status !== 'committed') {
       this.restoreTransformerPreview(active);
       const gesture = this.cancelTransformerHandleGesture(pointerId, 'redraw');
-      this.transformerEditCancelledSessionCount += 1;
+      this.transformerEdits.settle(active, 'cancelled');
       return Object.freeze({
         status: 'refused',
         changed: false,
@@ -3926,7 +3898,7 @@ export class PatchMap {
       });
     }
     const depthDelta = this.history.state().undoDepth - active.historyDepthBefore;
-    this.transformerEditCommittedMutationCount += 1;
+    this.transformerEdits.settle(active, 'committed');
     const gesture = this.completeTransformerHandleGesture(pointerId);
     return Object.freeze({
       status: 'committed',
@@ -3943,7 +3915,7 @@ export class PatchMap {
     pointerId: number,
     reason: PatchMapGestureCancelReason,
   ): PatchMapEngineTransformerCancelResult {
-    const active = this.activeTransformerEdit;
+    const active = this.transformerEdits.current();
     if (active === null || active.pointerId !== pointerId) {
       return Object.freeze({
         status: 'stale',
@@ -3967,20 +3939,7 @@ export class PatchMap {
   }
 
   public transformerEditProbe(): PatchMapEngineTransformerSessionProbe {
-    const active = this.activeTransformerEdit;
-    return Object.freeze({
-      schemaRevision: PATCH_MAP_TRANSFORMER_EDIT_REVISION,
-      activeSessionCount: active === null ? 0 : 1,
-      activePointerId: active?.pointerId ?? null,
-      activeKind: active?.kind ?? null,
-      activeActionId: active?.actionId ?? null,
-      previewCount: this.transformerEditPreviewCount,
-      committedMutationCount: this.transformerEditCommittedMutationCount,
-      cancelledSessionCount: this.transformerEditCancelledSessionCount,
-      staleCompletionCount: this.transformerEditStaleCompletionCount,
-      previewOverlayCount: active?.previewMaterialized === null || active === null ? 0 : 1,
-      edgePanActiveCount: 0,
-    });
+    return this.transformerEdits.probe();
   }
 
   public resolveTransformerRotationSnap(
@@ -5223,18 +5182,7 @@ export class PatchMap {
     this.overlayPublicationCount = 0;
   }
 
-  private requireActiveTransformerEdit(
-    pointerId: number,
-    operation: string,
-  ): ActivePatchMapTransformerEdit {
-    const active = this.activeTransformerEdit;
-    if (active === null || active.pointerId !== pointerId) {
-      throw new Error(`${operation} requires the active transformer pointer`);
-    }
-    return active;
-  }
-
-  private restoreTransformerPreview(active: ActivePatchMapTransformerEdit): void {
+  private restoreTransformerPreview(active: PatchMapTransformerEditSession): void {
     if (active.previewMaterialized === null) return;
     const surface = this.requireSurface('restoreTransformerPreview');
     if (!surface.reconcile) {
@@ -5286,12 +5234,11 @@ export class PatchMap {
     reason: PatchMapGestureCancelReason,
     restoreSurface: boolean,
   ): NonNullable<PatchMapEngineTransformerCancelResult['gesture']> | null {
-    const active = this.activeTransformerEdit;
+    const active = this.transformerEdits.current();
     if (active === null) return null;
     if (restoreSurface) this.restoreTransformerPreview(active);
-    this.activeTransformerEdit = null;
     const gesture = this.cancelTransformerHandleGesture(active.pointerId, reason);
-    this.transformerEditCancelledSessionCount += 1;
+    this.transformerEdits.settle(active, 'cancelled');
     return gesture;
   }
 
