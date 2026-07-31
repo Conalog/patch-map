@@ -357,7 +357,7 @@ export class PatchMapOperationsAuthority {
     } finally {
       this.deliveryDepth -= 1;
     }
-    const queuedActionCount = this.queuedActions.length - queueStart;
+    const queuedActionCount = Math.max(0, this.queuedActions.length - queueStart);
     if (this.deliveryDepth === 0) {
       while (this.queuedActions.length > 0) {
         const queued = this.queuedActions.shift();

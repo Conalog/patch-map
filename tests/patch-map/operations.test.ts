@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  type PatchMapOperationalDispatchResult,
   PatchMapExtractionSecurityAuthority,
   PatchMapOperationsAuthority,
   redactPatchMapOperationalDiagnostic,
@@ -165,6 +166,50 @@ describe('PatchMap production operations authority', () => {
       revisionStamp: REVISIONS,
     }).deliveredCount).toBe(0);
     expect(operations.probe().callbackRegistrations).toBe(0);
+  });
+
+  it('keeps nested dispatch queue counts nonnegative when disposal clears the outer queue', () => {
+    const operations = new PatchMapOperationsAuthority({ telemetryEnabled: true });
+    const delivery: string[] = [];
+    let nestedDispatch: PatchMapOperationalDispatchResult | null = null;
+    operations.subscribeTelemetry('observer', (event, control) => {
+      delivery.push(event.type);
+      if (event.type === 'outer') {
+        control.enqueue('cleared-action', () => delivery.push('queued-action'));
+        nestedDispatch = operations.emitTelemetry({
+          type: 'nested',
+          operation: 'nested-dispose',
+          revisionStamp: REVISIONS,
+        });
+        return;
+      }
+      operations.disposeCallbacks();
+    });
+
+    const outerDispatch = operations.emitTelemetry({
+      type: 'outer',
+      operation: 'outer-dispatch',
+      revisionStamp: REVISIONS,
+    });
+
+    expect(delivery).toEqual(['outer', 'nested']);
+    expect(nestedDispatch).toEqual({
+      deliveredCount: 1,
+      callbackFailureCount: 0,
+      queuedActionCount: 0,
+      queuedActionFailureCount: 0,
+    });
+    expect(outerDispatch).toEqual({
+      deliveredCount: 1,
+      callbackFailureCount: 0,
+      queuedActionCount: 0,
+      queuedActionFailureCount: 0,
+    });
+    expect(operations.probe()).toMatchObject({
+      callbackRegistrations: 0,
+      queuedActionCount: 0,
+      disposed: true,
+    });
   });
 
   it('records a failed queued action without recursively redispatching telemetry', () => {
