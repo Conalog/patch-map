@@ -36,7 +36,6 @@ import {
 import type { PatchMapPaintOrderProductProbe } from './paint-order-product';
 import {
   inheritPatchMapV010DirectParseIndexes,
-  type PatchMapDirectTextParseTargetIndex,
   parsePatchMapV010,
   parsePatchMapV010Async,
   parsePatchMapV010DirectTextBatch,
@@ -115,8 +114,6 @@ import {
   type PatchMapComponentVisualProductProbe,
   type PatchMapComponentVisualTarget,
   type PatchMapDirectBarHeightUpdate,
-  type PatchMapDirectElementAngleUpdate,
-  type PatchMapDirectTextUpdate,
   type PatchMapLoadResult,
   type PatchMapPrepareResult,
   type PatchMapPresentationLifecycleResult,
@@ -157,7 +154,6 @@ import {
   indexPatchMapComponentProbeTargets as indexComponentTargets,
   indexPatchMapTextProbeTargets as indexTextTargets,
   patchMapComponentProbeTargetKey as componentTargetKey,
-  patchMapTextProbeTargetKey as patchMapTextTargetKey,
 } from './core/product-probe-reader';
 import { PatchMapRootInteractionAuthority } from './core/root-interaction-authority';
 import { PatchMapBarPresentationAuthority } from './core/bar-presentation-authority';
@@ -173,6 +169,15 @@ import {
   semanticPresentationFillDenseIds,
   semanticSelectionDenseIds,
 } from './core/semantic-dense-planning';
+import {
+  changedProjectionEntityIds,
+  directBarEntityIds,
+  directElementAngleEntityIds,
+  directTextEntityIds,
+  directTextParseTargetHints,
+  incrementalDenseEntityIds,
+  structuralTargetMappingsReusable,
+} from './core/reconcile-planning';
 
 export { normalizePatchMapTextTarget } from './core/contracts';
 export type * from './core/contracts';
@@ -2623,101 +2628,6 @@ function reconcileFacts(
   });
 }
 
-function incrementalDenseEntityIds(
-  parse: ParsePatchMapResult,
-  rootIds: readonly string[],
-): readonly string[] {
-  const ids = new Set<string>();
-  for (const rootId of rootIds) {
-    for (const entityId of parse.identity.entityIdsBySourceId[rootId] ?? []) {
-      ids.add(entityId);
-    }
-  }
-  return Object.freeze([...ids]);
-}
-
-function directElementAngleEntityIds(
-  parse: ParsePatchMapResult,
-  updates: readonly PatchMapDirectElementAngleUpdate[],
-): readonly string[] | undefined {
-  const ids = new Set<string>();
-  for (const update of updates) {
-    const entityIds = parse.identity.entityIdsBySourceId[update.id];
-    if (entityIds === undefined || entityIds.length === 0) return undefined;
-    for (const entityId of entityIds) ids.add(entityId);
-  }
-  return ids.size === 0 ? undefined : Object.freeze([...ids]);
-}
-
-function directTextEntityIds(
-  updates: readonly PatchMapDirectTextUpdate[],
-  targets: ReadonlyMap<string, IndexedTextTarget | null>,
-): readonly string[] | undefined {
-  const ids = new Set<string>();
-  for (const update of updates) {
-    const indexed = targets.get(patchMapTextTargetKey({
-      kind: 'component',
-      ownerId: update.ownerId,
-      id: update.componentId,
-    }));
-    if (indexed === undefined || indexed === null) return undefined;
-    ids.add(indexed.entityId);
-  }
-  return ids.size === 0 ? undefined : Object.freeze([...ids]);
-}
-
-function directTextParseTargetHints(
-  updates: readonly PatchMapDirectTextUpdate[],
-  targets: ReadonlyMap<string, IndexedComponentTarget | null>,
-): readonly PatchMapDirectTextParseTargetIndex[] | undefined {
-  const hints: PatchMapDirectTextParseTargetIndex[] = [];
-  for (const update of updates) {
-    const indexed = targets.get(componentTargetKey(update));
-    if (
-      indexed === undefined ||
-      indexed === null ||
-      indexed.rootIndex === null ||
-      indexed.componentIndex === null ||
-      indexed.componentPath === null
-    ) {
-      return undefined;
-    }
-    hints.push(indexed as PatchMapDirectTextParseTargetIndex);
-  }
-  return hints.length === 0 ? undefined : Object.freeze(hints);
-}
-
-function directBarEntityIds(
-  updates: readonly PatchMapDirectBarHeightUpdate[],
-  targets: ReadonlyMap<string, IndexedComponentTarget | null>,
-): readonly string[] | undefined {
-  const ids = new Set<string>();
-  for (const update of updates) {
-    const indexed = targets.get(componentTargetKey(update));
-    if (indexed === undefined || indexed === null) return undefined;
-    ids.add(indexed.entityId);
-  }
-  return ids.size === 0 ? undefined : Object.freeze([...ids]);
-}
-
-function changedProjectionEntityIds(
-  previous: PatchMapProjectionIndex,
-  next: PatchMapProjectionIndex,
-): readonly string[] {
-  const changed: string[] = [];
-  const seen = new Set<string>();
-  for (const entityId of Object.keys(previous.byEntityId)) {
-    seen.add(entityId);
-    if (previous.byEntityId[entityId] !== next.byEntityId[entityId]) {
-      changed.push(entityId);
-    }
-  }
-  for (const entityId of Object.keys(next.byEntityId)) {
-    if (!seen.has(entityId)) changed.push(entityId);
-  }
-  return Object.freeze(changed);
-}
-
 function reconcileDirectBarHeightParse(
   input: unknown,
   previous: ParsePatchMapResult,
@@ -2942,35 +2852,6 @@ function patchMapProjectionStableRecords(
     projection.barsByEntityId,
     projection.relationsByEntityId,
   ];
-}
-
-function structuralTargetMappingsReusable(
-  current: ParsePatchMapResult,
-  candidate: ParsePatchMapResult,
-  options: PatchMapReconcileOptions,
-): boolean {
-  if (
-    (options.allowedElementOrderIds?.length ?? 0) === 0 ||
-    current.identity.counts.entities !== candidate.identity.counts.entities ||
-    current.identity.counts.sourceComponents !==
-      candidate.identity.counts.sourceComponents
-  ) {
-    return false;
-  }
-  for (const entityId of candidate.identity.entityIds) {
-    const before = current.identity.entitySourceById[entityId];
-    const after = candidate.identity.entitySourceById[entityId];
-    if (
-      before === undefined ||
-      after === undefined ||
-      before.sourceElementId !== after.sourceElementId ||
-      before.instanceId !== after.instanceId ||
-      before.componentId !== after.componentId
-    ) {
-      return false;
-    }
-  }
-  return true;
 }
 
 interface PatchMapReconcileFactStamp {
