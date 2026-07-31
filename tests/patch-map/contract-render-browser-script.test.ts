@@ -22,20 +22,51 @@ const scriptUrl = new URL(
   import.meta.url,
 );
 const scriptPath = fileURLToPath(scriptUrl);
+const catalogPath = fileURLToPath(new URL(
+  '../../scripts/verification/core-v2-contract-render-browser/catalog.mjs',
+  import.meta.url,
+));
+const assertionsPath = fileURLToPath(new URL(
+  '../../scripts/verification/core-v2-contract-render-browser/assertions.mjs',
+  import.meta.url,
+));
+let rootSource = '';
+let catalogSource = '';
+let assertionsSource = '';
 let source = '';
 
 beforeAll(async () => {
-  source = await readFile(scriptPath, 'utf8');
+  [rootSource, catalogSource, assertionsSource] = await Promise.all([
+    readFile(scriptPath, 'utf8'),
+    readFile(catalogPath, 'utf8'),
+    readFile(assertionsPath, 'utf8'),
+  ]);
+  source = [rootSource, catalogSource, assertionsSource].join('\n');
 });
 
 describe('PatchMap render browser checkpoint script', () => {
   it('is valid Node syntax', () => {
-    const checked = spawnSync(process.execPath, ['--check', scriptPath], {
-      encoding: 'utf8',
-    });
+    for (const path of [scriptPath, catalogPath, assertionsPath]) {
+      const checked = spawnSync(process.execPath, ['--check', path], {
+        encoding: 'utf8',
+      });
 
-    expect(checked.status).toBe(0);
-    expect(checked.stderr).toBe('');
+      expect(checked.status).toBe(0);
+      expect(checked.stderr).toBe('');
+    }
+  });
+
+  it('keeps catalog and assertions acyclic, fixture-blind, and free of checkpoint ownership', () => {
+    expect(rootSource).toContain("from './core-v2-contract-render-browser/catalog.mjs'");
+    expect(rootSource).toContain("from './core-v2-contract-render-browser/assertions.mjs'");
+    expect(catalogSource).not.toMatch(/core-v2-contract-render-browser\.mjs|assertions\.mjs/u);
+    expect(assertionsSource).toContain("from './catalog.mjs'");
+    for (const childSource of [catalogSource, assertionsSource]) {
+      expect(childSource).not.toMatch(
+        /catalog-normalized-expected|docs\/reference|src\/patch-map|playwright|from 'vite'|readFile|writeFile/u,
+      );
+      expect(childSource).not.toMatch(/\breport(?:\.|\[)|closeOwnedResources|process\.exitCode/u);
+    }
   });
 
   it('pins exactly the one-hundred-fifty-eight selected routes and their 2028 canonical assertions', () => {
@@ -382,7 +413,7 @@ describe('PatchMap render browser checkpoint script', () => {
     expect(source).toContain("'render checkpoint declared immutable conflict inventory must remain 28'");
     expect(source).toContain('latentCases: selectedRenderCases');
     expect(source).toContain(".filter((record) => (record.latentConflicts?.length ?? 0) > 0)");
-    expect(source).toContain("import { inspectPatchMapUpdateConflictActuals } from './core-v2-contract/update-conflict-actuals.mjs';");
+    expect(source).toContain("import { inspectPatchMapUpdateConflictActuals } from '../core-v2-contract/update-conflict-actuals.mjs';");
     expect(source).toContain('assertImmutableConflictActuals(caseSpec.id, run.actualObservation, runLabel)');
     expect(source).toContain('inspectPatchMapUpdateConflictActuals(caseId, actualObservation)');
   });
@@ -422,14 +453,14 @@ describe('PatchMap render browser checkpoint script', () => {
 
   it('keeps canonical expected data outside the public Lab bridge executor', () => {
     expect(source.match(/catalog-normalized-expected\.v1\.json/gu)).toHaveLength(1);
-    expect(source).toContain("import { compareObservation } from './core-v2-contract/compare.mjs';");
+    expect(source).toContain("import { compareObservation } from '../core-v2-contract/compare.mjs';");
     expect(source).toContain('actual: browserRun.actualObservation');
     expect(source).toContain('fixtures: browserRun.fixtures');
     expect(source).toContain('captures: browserRun.captures');
 
-    const browserRunSource = source.slice(
-      source.indexOf('async function executeBrowserRun'),
-      source.indexOf('function compareCaseRun'),
+    const browserRunSource = rootSource.slice(
+      rootSource.indexOf('async function executeBrowserRun'),
+      rootSource.indexOf('async function loadExpectedCases'),
     );
     expect(browserRunSource).not.toMatch(/normalized|expectedCase|compareObservation|readFile/u);
     expect(browserRunSource).toContain('bridge[operationName]');
