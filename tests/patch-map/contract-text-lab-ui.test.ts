@@ -15,6 +15,14 @@ const browserScriptUrl = new URL(
   '../../scripts/verification/core-v2-contract-render-browser.mjs',
   import.meta.url,
 );
+const browserCatalogUrl = new URL(
+  '../../scripts/verification/core-v2-contract-render-browser/catalog.mjs',
+  import.meta.url,
+);
+const browserAssertionsUrl = new URL(
+  '../../scripts/verification/core-v2-contract-render-browser/assertions.mjs',
+  import.meta.url,
+);
 
 describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
   it('keeps terminal traces bounded and hidden unless the actual execution failed', async () => {
@@ -187,8 +195,12 @@ describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
   });
 
   it('keeps both text cases in the shared browser checkpoint with their focused inspectors', async () => {
-    const source = await readFile(browserScriptUrl, 'utf8');
-    const caseBlock = source.match(
+    const [source, catalogSource, assertionSource] = await Promise.all([
+      readFile(browserScriptUrl, 'utf8'),
+      readFile(browserCatalogUrl, 'utf8'),
+      readFile(browserAssertionsUrl, 'utf8'),
+    ]);
+    const caseBlock = catalogSource.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body ?? '';
     const records = [...caseBlock.matchAll(
@@ -202,7 +214,7 @@ describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
       { id: 'REN-006', expectedAssertions: 30 },
       { id: 'REN-011', expectedAssertions: 20 },
     ]);
-    expect(source).toContain(
+    expect(catalogSource).toContain(
       "const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-006', 'REN-008', 'REN-010', 'REN-011']);",
     );
     expect(source).toContain('async function collectTextFocusedUi');
@@ -210,11 +222,11 @@ describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
     expect(source).toContain("inspectorTestId: 'ren-011-text-inspector'");
     expect(source).toContain('Number(inspector.dataset.observedChoiceCount) === config.choices.length');
     expect(source).toContain('async function readTextFocusedUi');
-    expect(source).toContain('assertTextFocusedUi(caseSpec.id, run.ui, runLabel)');
-    expect(source).toContain("choices.rapid['intermediate-publication-count'] === '0'");
-    expect(source).toContain("choices.placed['local-bounds'] === '[219,135,16,20]'");
-    expect(source).toContain("choices.upright['screen-angle'] === '37'");
-    expect(source).toContain("facts['all-rows-exact'] === 'false'");
+    expect(assertionSource).toContain('assertTextFocusedUi(caseSpec.id, run.ui, runLabel)');
+    expect(assertionSource).toContain("choices.rapid['intermediate-publication-count'] === '0'");
+    expect(assertionSource).toContain("choices.placed['local-bounds'] === '[219,135,16,20]'");
+    expect(assertionSource).toContain("choices.upright['screen-angle'] === '37'");
+    expect(assertionSource).toContain("facts['all-rows-exact'] === 'false'");
   });
 });
 
