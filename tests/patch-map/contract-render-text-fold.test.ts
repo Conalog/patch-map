@@ -31,7 +31,7 @@ describe('PatchMap REN-006 / REN-011 actual-only fold', () => {
       ].map((path) => readFile(new URL(path, import.meta.url), 'utf8')))
         .then((sources) => sources.join('\n')),
     ]);
-    const forbiddenEvidenceName = ['catalog', 'normalized', 'expected', 'v1', 'json'].join('-');
+    const forbiddenEvidenceName = ['catalog-normalized-expected', 'v1', 'json'].join('.');
 
     expect(RENDER_TEXT_FOLD_REVISION).toBe('core-v2-render-text-fold/1');
     expect(source).not.toContain(forbiddenEvidenceName);
