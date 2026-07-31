@@ -74,3 +74,6 @@
   asset owner, or per-entity object. Packed-consumer was not repeated because
   package exports/dependencies did not change; performance was deferred until
   the fresh pre-hot-path baseline. Windows native remains pending.
+
+**2026-07-31**
+- **Batch:** T5 aggregate Mesh planning boundary. **Work:** Moved typed-array geometry atoms into `renderers/mesh/geometry.ts` and store/projection-to-CPU lane planning into `renderers/mesh/chunk-geometry.ts`; retained Pixi creation, culling, GPU upload, incremental binding validation, and destroy ownership in `mesh-layer.ts` with facade re-exports. **Evidence:** Typecheck, full lint, targeted 59 renderer tests, package/Lab builds, canonical 173 contract, and two independent reviews passed; the full unit run passed 1,454/1,457 before three CPU-contention timeouts, and isolated reruns passed UPD-007/CSM-018 at normal limits plus both CSM-010 assertions at a diagnostic 180-second limit (95.7 seconds). **Result:** Reduced `mesh-layer.ts` from 2,789 to 1,625 lines without changing algorithms, public imports, resource ownership, or hot-path allocations; browser, package-consumer, memory, and performance gates were intentionally not repeated because those paths did not change.

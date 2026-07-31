@@ -40,12 +40,15 @@
   behind typed maps, leaving atomic load/patch/history decisions in `PatchMap`.
 - T4 moved the Pixi/Core surface adapter and its port contracts below the
   facade; headless 173-route, actual-production, and 2+7 ownership gates pass.
+- T5 split aggregate Mesh geometry and store-to-CPU lane planning into pure
+  modules; `mesh-layer.ts` remains the sole Pixi resource, upload, culling,
+  and destroy owner.
 
 # Next Step
 
-- Capture a fresh 5,000/10,000/actual-production WebGL baseline in temporary
-  evidence, then split mesh planning from retained Pixi resources before
-  changing rounded-bar or presentation hot paths.
+- Complete the uncontended 10,000-bar WebGL checkpoint, then optimize rounded
+  bar retention and presentation reconcile as separately measurable hot-path
+  changes.
 
 # Working Boundary
 
