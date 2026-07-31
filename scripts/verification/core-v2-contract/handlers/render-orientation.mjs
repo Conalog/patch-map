@@ -352,11 +352,11 @@ function buildOrientationDataset(itemId, itemFixture, rows, worldTransform) {
 }
 
 function orientationRowElement(row, center, size, worldTransform) {
-  const global = multiplyBasis(
+  const globalBasis = multiplyBasis(
     scaleBasis(worldTransform.flipX ? -1 : 1, worldTransform.flipY ? -1 : 1),
     rotationBasis(worldTransform.rotationDegrees),
   );
-  const compensation = multiplyBasis(invertBasis(global), rotationBasis(row.worldAngle));
+  const compensation = multiplyBasis(invertBasis(globalBasis), rotationBasis(row.worldAngle));
   const frame = decomposeBasis(compensation);
   const localBasis = multiplyBasis(
     compensation,

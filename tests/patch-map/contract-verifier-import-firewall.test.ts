@@ -30,8 +30,8 @@ afterEach(async () => {
   ));
 });
 
-describe('core-v2 verifier recursive import firewall', () => {
-  it('covers every committed handler and fold without replacing their direct import-free checks', async () => {
+describe('core-v2 committed verifier source policy firewall', () => {
+  it('covers exactly 35 committed handlers and 34 folds under the static source policy', async () => {
     await expect(assertCoreV2ContractImportFirewall()).resolves.toEqual({
       handlerCount: 35,
       foldCount: 34,
@@ -43,8 +43,10 @@ describe('core-v2 verifier recursive import firewall', () => {
       handlerSource: [
         "import { browserValue } from '../value-atoms.mjs';",
         'const now = globalThis.performance?.now?.() ?? 0;',
-        'const global = { local: true };',
-        'export { browserValue, global, now };',
+        "const constructed = { constructor: { name: 'Record' } };",
+        'const constructorValue = constructed.constructor;',
+        'const constructorName = constructed.constructor.name;',
+        'export { browserValue, constructorName, constructorValue, now };',
         '',
       ].join('\n'),
       foldSource: "import { browserValue } from './value-atoms.mjs';\nexport { browserValue };\n",
@@ -75,7 +77,12 @@ describe('core-v2 verifier recursive import firewall', () => {
   it.each([
     ['Node', 'export const value = process.env.NODE_ENV;\n', 'NODE_GLOBAL'],
     ['dynamic', 'export const value = Function("return 1")();\n', 'DYNAMIC_CODE_GLOBAL'],
-  ])('blocks %s globals directly in verifier entries', async (_label, handlerSource, code) => {
+    [
+      'locally bound Node global',
+      'function inner() { const global = {}; return global; }\nexport const value = inner();\n',
+      'NODE_GLOBAL',
+    ],
+  ])('blocks %s source use directly in verifier entries', async (_label, handlerSource, code) => {
     const root = await createGraph({
       handlerSource,
       foldSource: '',
@@ -164,6 +171,36 @@ describe('core-v2 verifier recursive import firewall', () => {
       'DYNAMIC_CODE_GLOBAL',
     ],
     [
+      'non-allowlisted globalThis property',
+      'export const value = globalThis.constructor.constructor("return process")();\n',
+      {},
+      'GLOBAL_PROPERTY_NOT_ALLOWED',
+    ],
+    [
+      'dotted window property',
+      'export const value = window.Math;\n',
+      {},
+      'GLOBAL_PROPERTY_NOT_ALLOWED',
+    ],
+    [
+      'dotted self property',
+      'export const value = self.Math;\n',
+      {},
+      'GLOBAL_PROPERTY_NOT_ALLOWED',
+    ],
+    [
+      'direct constructor invocation',
+      'export const value = (() => {}).constructor("return process")();\n',
+      {},
+      'DYNAMIC_CONSTRUCTOR_ACCESS',
+    ],
+    [
+      'chained constructor access',
+      'export const value = ({}).constructor.constructor("return process")();\n',
+      {},
+      'DYNAMIC_CONSTRUCTOR_ACCESS',
+    ],
+    [
       'aliased browser global root',
       'export const value = globalThis;\n',
       {},
@@ -178,6 +215,18 @@ describe('core-v2 verifier recursive import firewall', () => {
     [
       'template expected path',
       'export const value = fetch(`./catalog-normalized-expected.json`);\n',
+      {},
+      'EXPECTED_VALUE_FILE',
+    ],
+    [
+      'split literal expected path',
+      "export const value = './catalog-normalized-' + 'expected.json';\n",
+      {},
+      'EXPECTED_VALUE_FILE',
+    ],
+    [
+      'template static string expected path',
+      "export const value = `./catalog-${'normalized-'}expected.json`;\n",
       {},
       'EXPECTED_VALUE_FILE',
     ],

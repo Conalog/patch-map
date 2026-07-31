@@ -36,9 +36,13 @@ const DYNAMIC_CODE_GLOBALS = new Set([
   'eval',
   'importScripts',
 ]);
-const DOTTED_BROWSER_GLOBAL_ROOTS = new Set([
+const BROWSER_GLOBAL_ROOTS = new Set([
   'globalThis',
   'window',
+]);
+const ALLOWED_DOTTED_BROWSER_GLOBALS = new Set([
+  'globalThis.Math',
+  'globalThis.performance',
 ]);
 const EXPECTED_VALUE_TOKENS = new Set([
   'approvedExpected',
@@ -236,23 +240,44 @@ function assertWithinContractRoot(root, target, chain) {
 }
 
 function assertExpectedBlindSource(tokens, chain) {
-  for (const token of tokens) {
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
     if (token.kind === 'identifier' && EXPECTED_VALUE_TOKENS.has(token.value)) {
       fail('EXPECTED_VALUE_TOKEN', chain, `forbidden token ${JSON.stringify(token.value)}`);
     }
-    if (token.kind === 'string' && EXPECTED_VALUE_FILE.test(token.value)) {
-      fail('EXPECTED_VALUE_FILE', chain, `forbidden expected path ${JSON.stringify(token.value)}`);
+    if (token.kind === 'string') {
+      const value = readStaticStringRun(tokens, index);
+      if (EXPECTED_VALUE_FILE.test(value)) {
+        fail('EXPECTED_VALUE_FILE', chain, `forbidden expected path ${JSON.stringify(value)}`);
+      }
     }
   }
 }
 
+function readStaticStringRun(tokens, start) {
+  let value = tokens[start].value;
+  let index = start + 1;
+  while (index < tokens.length) {
+    if (tokens[index].kind === 'string') {
+      value += tokens[index].value;
+      index += 1;
+      continue;
+    }
+    if (tokens[index].value === '+' && tokens[index + 1]?.kind === 'string') {
+      value += tokens[index + 1].value;
+      index += 2;
+      continue;
+    }
+    break;
+  }
+  return value;
+}
+
 function assertSourceGlobalPolicy(tokens, chain, leaf) {
   const sourceName = chain.at(-1) ?? 'verifier source';
-  const shadowsGlobal = !leaf && hasSimpleLocalBinding(tokens, 'global');
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (token.kind === 'identifier' && NODE_ONLY_GLOBALS.has(token.value)) {
-      if (token.value === 'global' && shadowsGlobal && tokens[index - 1]?.value !== '.') continue;
       fail('NODE_GLOBAL', chain, `${sourceName} uses Node-only global ${token.value}`);
     }
     if (token.kind === 'identifier' && DYNAMIC_CODE_GLOBALS.has(token.value)) {
@@ -265,8 +290,15 @@ function assertSourceGlobalPolicy(tokens, chain, leaf) {
     if (leaf && token.kind === 'string' && token.escaped) {
       fail('ESCAPED_STRING', chain, `${VALUE_ATOMS_FILENAME} uses an escaped string token`);
     }
+    if (isDynamicConstructorAccess(tokens, index)) {
+      fail(
+        'DYNAMIC_CONSTRUCTOR_ACCESS',
+        chain,
+        `${sourceName} uses dynamic constructor access`,
+      );
+    }
     const dottedRoot = token.kind === 'identifier' && (
-      DOTTED_BROWSER_GLOBAL_ROOTS.has(token.value) ||
+      BROWSER_GLOBAL_ROOTS.has(token.value) ||
       (leaf && token.value === 'self')
     );
     if (!dottedRoot) continue;
@@ -284,15 +316,39 @@ function assertSourceGlobalPolicy(tokens, chain, leaf) {
         `${sourceName} passes or aliases browser global root ${token.value}`,
       );
     }
+    const property = tokens[index + 2];
+    const propertyName = property?.kind === 'identifier' ? property.value : '';
+    if (NODE_ONLY_GLOBALS.has(propertyName) || DYNAMIC_CODE_GLOBALS.has(propertyName)) continue;
+    if (!ALLOWED_DOTTED_BROWSER_GLOBALS.has(`${token.value}.${propertyName}`)) {
+      fail(
+        'GLOBAL_PROPERTY_NOT_ALLOWED',
+        chain,
+        `${sourceName} uses non-allowlisted browser global property ${token.value}.${propertyName}`,
+      );
+    }
   }
 }
 
-function hasSimpleLocalBinding(tokens, name) {
-  return tokens.some((token, index) =>
-    token.kind === 'identifier' &&
-    (token.value === 'const' || token.value === 'let' || token.value === 'var') &&
-    tokens[index + 1]?.kind === 'identifier' &&
-    tokens[index + 1].value === name);
+function isDynamicConstructorAccess(tokens, index) {
+  const constructor = tokens[index];
+  if (
+    constructor?.kind !== 'identifier' ||
+    constructor.value !== 'constructor' ||
+    tokens[index - 1]?.value !== '.'
+  ) {
+    return false;
+  }
+  if (tokens[index + 1]?.value === '(') return true;
+  if (
+    tokens[index + 1]?.value === '?' &&
+    tokens[index + 2]?.value === '.' &&
+    tokens[index + 3]?.value === '('
+  ) {
+    return true;
+  }
+  return tokens[index + 1]?.value === '.' &&
+    tokens[index + 2]?.kind === 'identifier' &&
+    tokens[index + 2].value === 'constructor';
 }
 
 function isComputedGlobalAccess(tokens, index) {
