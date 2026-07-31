@@ -10,6 +10,7 @@ import {
   type PatchMapAccessibilityActivationInput,
   type PatchMapAccessibilityRenderNode,
   type PatchMapAccessibilitySurfaceProbe,
+  type PatchMapAccessibilityTargetInput,
   type PatchMapEngineSurface,
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceEntityGeometry,
@@ -239,6 +240,71 @@ describe('PatchMap accessibility product authority', () => {
       },
     });
     expect(authority.probe([]).targets['item-a']).toBeUndefined();
+  });
+
+  it('keeps reconcile authority state atomic when count validation or target freezing fails', () => {
+    const authority = new PatchMapAccessibilityAuthority();
+    const retainedTarget: PatchMapAccessibilityTargetInput = {
+      id: 'item-a',
+      label: 'Item A',
+      type: 'item',
+      screenBounds: [10, 20, 100, 80],
+      sceneOrder: 0,
+      locked: false,
+      actions: ['focus', 'activate', 'select'],
+    };
+    authority.reconcile({
+      targets: [retainedTarget],
+      hiddenFocusableCount: 2,
+      invalidNodeCount: 3,
+      nonFiniteBoundsCount: 1,
+    });
+    authority.activate('item-a', {
+      source: 'Enter',
+      activationId: 'atomic-activation',
+    });
+    authority.activate('item-a', {
+      source: 'pixi-click-alias',
+      activationId: 'atomic-activation',
+    });
+    const before = authority.probe(['item-a']);
+
+    expect(() => authority.reconcile({
+      targets: [{
+        id: 'rect-b',
+        label: 'Rect B',
+        type: 'rect',
+        screenBounds: [160, 40, 40, 30],
+        sceneOrder: 1,
+        locked: false,
+        actions: ['focus', 'activate', 'select'],
+      }],
+      hiddenFocusableCount: 9,
+      invalidNodeCount: -1,
+      nonFiniteBoundsCount: 7,
+    })).toThrow('invalidNodeCount must be a non-negative safe integer');
+    expect(authority.enabled).toBe(true);
+    expect(authority.probe(['item-a'])).toEqual(before);
+
+    const throwingTarget: PatchMapAccessibilityTargetInput = {
+      id: 'throws',
+      label: 'Throws',
+      type: 'rect',
+      screenBounds: [0, 0, 1, 1],
+      sceneOrder: 2,
+      locked: false,
+      get actions(): PatchMapAccessibilityTargetInput['actions'] {
+        throw new Error('target freeze failed');
+      },
+    };
+    expect(() => authority.reconcile({
+      targets: [retainedTarget, throwingTarget],
+      hiddenFocusableCount: 0,
+      invalidNodeCount: 0,
+      nonFiniteBoundsCount: 0,
+    })).toThrow('target freeze failed');
+    expect(authority.enabled).toBe(true);
+    expect(authority.probe(['item-a'])).toEqual(before);
   });
 });
 

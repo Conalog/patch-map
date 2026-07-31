@@ -62,19 +62,24 @@ export class PatchMapAccessibilityAuthority {
   public reconcile(derivation: PatchMapAccessibilityDerivation): void {
     this.assertAlive();
     const retainedIds = new Set(derivation.targets.map(({ id }) => id));
-    this.targetsValue = Object.freeze(derivation.targets.map(freezeTargetInput));
-    this.hiddenFocusableCountValue = nonNegativeInteger(
+    const targets = Object.freeze(derivation.targets.map(freezeTargetInput));
+    const hiddenFocusableCount = nonNegativeInteger(
       derivation.hiddenFocusableCount,
       'hiddenFocusableCount',
     );
-    this.invalidNodeCountValue = nonNegativeInteger(
+    const invalidNodeCount = nonNegativeInteger(
       derivation.invalidNodeCount,
       'invalidNodeCount',
     );
-    this.nonFiniteBoundsCountValue = nonNegativeInteger(
+    const nonFiniteBoundsCount = nonNegativeInteger(
       derivation.nonFiniteBoundsCount,
       'nonFiniteBoundsCount',
     );
+
+    this.targetsValue = targets;
+    this.hiddenFocusableCountValue = hiddenFocusableCount;
+    this.invalidNodeCountValue = invalidNodeCount;
+    this.nonFiniteBoundsCountValue = nonFiniteBoundsCount;
     for (const id of [...this.performedActionsByTarget.keys()]) {
       if (!retainedIds.has(id)) this.performedActionsByTarget.delete(id);
     }
