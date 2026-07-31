@@ -42,6 +42,12 @@ describe('PatchMap parser value normalization', () => {
       scaleX: 1,
       scaleY: 1,
       affine: PATCH_MAP_IDENTITY_AFFINE,
+      imageIntrinsicTransform: Object.freeze({
+        parentAffine: PATCH_MAP_IDENTITY_AFFINE,
+        localTranslationAffine: PATCH_MAP_IDENTITY_AFFINE,
+        localRotationScaleAffine: PATCH_MAP_IDENTITY_AFFINE,
+        localPivotScaleAffine: PATCH_MAP_IDENTITY_AFFINE,
+      }),
     };
 
     const transform = elementTransform(
