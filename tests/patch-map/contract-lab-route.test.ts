@@ -908,6 +908,7 @@ describe('PatchMap actual-only Lab bridge', () => {
       'replacement-recovery-runtime.ts',
       'lifecycle-interruption-runtime.ts',
       'main.ts',
+      'run-observer.ts',
     ].map((file) => readFile(new URL(`../../lab/patch-map/contract/${file}`, import.meta.url), 'utf8')));
     const runtimeSources = await readTypeScriptSources(
       new URL('../../lab/patch-map/contract/executable-runtime/', import.meta.url),
@@ -923,7 +924,7 @@ describe('PatchMap actual-only Lab bridge', () => {
     const joined = [...rootSources, ...runtimeSources, ...automationSources].join('\n');
     expect(joined).not.toContain('catalog-normalized-expected');
     expect(joined).not.toMatch(/from ['"].*compare/);
-    expect(joined).not.toMatch(/from ['"].*observe/);
+    expect(joined).not.toMatch(/from ['"](?!\.\/run-observer['"]).*observe/);
     expect(joined).not.toMatch(/node:/);
     expect(joined).not.toMatch(/(?:execute|mutate|select|transform)(?:Scene|Entity|Selection|Viewport)/);
     expect(joined).toContain("state.status === 'failed'\n          ? 'not-run'");

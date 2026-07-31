@@ -7,6 +7,10 @@ import { renderPatchMapContractLab } from '../../lab/patch-map/contract/main';
 import { parsePatchMapContractRoute } from '../../lab/patch-map/contract/route';
 
 const mainUrl = new URL('../../lab/patch-map/contract/main.ts', import.meta.url);
+const runObserverUrl = new URL(
+  '../../lab/patch-map/contract/run-observer.ts',
+  import.meta.url,
+);
 const browserScriptUrl = new URL(
   '../../scripts/verification/core-v2-contract-render-browser.mjs',
   import.meta.url,
@@ -144,7 +148,10 @@ describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
   });
 
   it('keeps the Lab inspector expected-blind and refreshes it only from folded actualObservation', async () => {
-    const source = await readFile(mainUrl, 'utf8');
+    const [source, runObserverSource] = await Promise.all([
+      readFile(mainUrl, 'utf8'),
+      readFile(runObserverUrl, 'utf8'),
+    ]);
     const inspectorSource = source.slice(
       source.indexOf('function renderTextInspectorOptions'),
       source.indexOf('function refreshComponentAssetInspector'),
@@ -169,8 +176,8 @@ describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
     expect(source).toContain(
       'refreshTextInspector(root, route.scenario, observation, route.seed, runObservation !== null)',
     );
-    expect(source).toContain("if (scenario === 'REN-006') return 'ren-006';");
-    expect(source).toContain("if (scenario === 'REN-011') return 'ren-011';");
+    expect(runObserverSource).toContain("if (scenario === 'REN-006') return 'ren-006';");
+    expect(runObserverSource).toContain("if (scenario === 'REN-011') return 'ren-011';");
   });
 
   it('keeps both text cases in the shared browser checkpoint with their focused inspectors', async () => {
