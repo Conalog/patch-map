@@ -64,6 +64,14 @@ export interface PatchMapPublishedTuple {
   readonly interaction: number;
 }
 
+export interface PatchMapHostLifecycleRebindResult {
+  readonly lifecycleGeneration: number;
+  readonly sceneRevision: number;
+  readonly canvasCount: number;
+  readonly selectionIds: readonly string[];
+  readonly revisions: PatchMapRevisionStamp;
+}
+
 export interface PatchMapEnginePageLifecycleWorkInput {
   readonly kind: PatchMapPageLifecycleWorkKind;
   readonly requestId: string;
