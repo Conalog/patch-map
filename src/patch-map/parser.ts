@@ -39,12 +39,7 @@ import {
   patchPatchMapStableRecord,
   type PatchMapStableRecordStrategy,
 } from './semantic/stable-record-overlay';
-import { PATCH_MAP_DEFAULT_COLOR_THEME } from './semantic/color';
-import {
-  deterministicPatchMapTokenColor,
-  multiplyPatchMapRgba,
-  parsePatchMapCssColor,
-} from './parser/color';
+import { multiplyPatchMapRgba } from './parser/color';
 import { normalizePatchMapImageSource } from './parser/image-source';
 import {
   cachePatchMapV010DirectParseIndexes,
@@ -80,35 +75,45 @@ import {
   type PatchMapParseState as ParseState,
   type PatchMapParserEntityOwner as EntityOwner,
 } from './parser/parse-state';
+import {
+  PATCH_MAP_PLACEMENTS as TEXT_PLACEMENTS,
+  attributeAlpha,
+  axisSpacing,
+  barAnimation,
+  barAnimationDuration,
+  barPlacement,
+  boxSpacing,
+  clamp01,
+  componentTransform,
+  elementTransform,
+  eventInteractivity,
+  finiteNumber,
+  fixedSize,
+  fontWeight,
+  inspectAttributes,
+  isParserRecord as isRecord,
+  nonNegative,
+  parseContentOrientation,
+  placeBox,
+  projectedOpacity,
+  projectedRadius,
+  relationEndpoint,
+  resolveColor,
+  resolveComponentSize,
+  zIndex,
+  type PatchMapParserBox as Box,
+  type PatchMapParserRecord as JsonRecord,
+} from './parser/value-normalization';
 
 export { inheritPatchMapV010DirectParseIndexes };
 export type { PatchMapDirectTextParseTargetIndex };
 export { projectPatchMapIntrinsicImageAffine };
 
-type JsonRecord = Record<string, unknown>;
-
 type Transform = PatchMapParserTransform;
 type EntityProjectionDraft = PatchMapEntityProjectionDraft;
 type Size = PatchMapParserSize;
 
-interface Box extends Size {
-  readonly x: number;
-  readonly y: number;
-}
-
 const ZERO_EDGES: PatchMapEdges = Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 });
-const TEXT_PLACEMENTS = new Set<PatchMapPlacement>([
-  'left',
-  'left-top',
-  'left-bottom',
-  'top',
-  'right',
-  'right-top',
-  'right-bottom',
-  'bottom',
-  'center',
-  'none',
-]);
 const AVAILABLE_TEXT_FONTS = Object.freeze(['Fira Code', 'Unifont']);
 const BASIC_TEXT_STYLE_KEYS = new Set([
   'fontFamily',
@@ -125,34 +130,6 @@ const BASIC_TEXT_STYLE_KEYS = new Set([
   'autoFont',
   'overflow',
 ]);
-const TRANSFORM_ATTRIBUTE_KEYS = new Set(['x', 'y', 'angle', 'rotation']);
-const SIGNED_SCALE_ATTRIBUTE_KEYS = new Set(['scaleX', 'scaleY']);
-const SIGNED_SCALE_ATTRIBUTE_TYPES = new Set([
-  'group',
-  'grid',
-  'item',
-  'rect',
-  'image',
-  'text',
-  'background',
-  'bar',
-  'icon',
-  'relations',
-]);
-const TRANSFORM_ATTRIBUTE_TYPES = new Set([
-  'group',
-  'grid',
-  'item',
-  'rect',
-  'image',
-  'text',
-  'background',
-  'bar',
-  'icon',
-  'relations',
-]);
-const Z_INDEX_ATTRIBUTE_TYPES = new Set(['rect', 'image', 'text', 'relations']);
-
 const ROOT_CONTEXT: ElementContext = {
   transform: {
     x: 0,
@@ -1878,225 +1855,6 @@ function hasAdvancedTextStyle(style: JsonRecord): boolean {
   return Object.keys(style).some((key) => !BASIC_TEXT_STYLE_KEYS.has(key));
 }
 
-function elementTransform(
-  attrs: JsonRecord | undefined,
-  path: string,
-  parent: Transform,
-  type: string,
-  state: ParseState,
-): Transform {
-  const projectsSignedScale = SIGNED_SCALE_ATTRIBUTE_TYPES.has(type);
-  return composePatchMapParserTransform(
-    parent,
-    numericAttribute(attrs?.x, `${path}.attrs.x`, state),
-    numericAttribute(attrs?.y, `${path}.attrs.y`, state),
-    rotationDegrees(attrs, `${path}.attrs`, state),
-    projectsSignedScale ? scaleAttribute(attrs?.scaleX, `${path}.attrs.scaleX`, state) : 1,
-    projectsSignedScale ? scaleAttribute(attrs?.scaleY, `${path}.attrs.scaleY`, state) : 1,
-  );
-}
-
-function componentTransform(
-  itemTransform: Transform,
-  box: Box,
-  attrs: JsonRecord | undefined,
-  path: string,
-  state: ParseState,
-): Transform {
-  return composePatchMapParserTransform(
-    itemTransform,
-    box.x + numericAttribute(attrs?.x, `${path}.attrs.x`, state),
-    box.y + numericAttribute(attrs?.y, `${path}.attrs.y`, state),
-    rotationDegrees(attrs, `${path}.attrs`, state),
-    scaleAttribute(attrs?.scaleX, `${path}.attrs.scaleX`, state),
-    scaleAttribute(attrs?.scaleY, `${path}.attrs.scaleY`, state),
-  );
-}
-
-function parseContentOrientation(
-  value: unknown,
-  path: string,
-  sourceId: string,
-  state: ParseState,
-): PatchMapContentOrientation {
-  if (value === undefined || value === 'upright') return 'upright';
-  if (value === 'follow-item') return value;
-  warn(
-    state,
-    path,
-    'invalid-content-orientation',
-    'Invalid contentOrientation fell back to upright',
-    sourceId,
-  );
-  return 'upright';
-}
-
-function rotationDegrees(attrs: JsonRecord | undefined, path: string, state: ParseState): number {
-  const angle = finiteNumber(attrs?.angle);
-  if (angle !== undefined) return angle;
-  const rotation = finiteNumber(attrs?.rotation);
-  if (rotation !== undefined) return rotation * 180 / Math.PI;
-  if (attrs?.angle !== undefined || attrs?.rotation !== undefined) {
-    warn(state, path, 'invalid-rotation', 'Invalid angle/rotation fell back to zero');
-  }
-  return 0;
-}
-
-function fixedSize(value: unknown, path: string, state: ParseState): Size {
-  if (finiteNumber(value) !== undefined) {
-    const size = nonNegative(finiteNumber(value) as number, path, state);
-    return { width: size, height: size };
-  }
-  if (isRecord(value)) {
-    const width = finiteNumber(value.width);
-    const height = finiteNumber(value.height);
-    if (width !== undefined && height !== undefined) {
-      return {
-        width: nonNegative(width, `${path}.width`, state),
-        height: nonNegative(height, `${path}.height`, state),
-      };
-    }
-  }
-  warn(state, path, 'invalid-size', 'Invalid fixed size fell back to 0×0');
-  return { width: 0, height: 0 };
-}
-
-function resolveComponentSize(value: unknown, reference: Size, path: string, state: ParseState): Size {
-  if (isRecord(value) && ('width' in value || 'height' in value)) {
-    return {
-      width: componentLength(value.width, reference.width, `${path}.width`, state),
-      height: componentLength(value.height, reference.height, `${path}.height`, state),
-    };
-  }
-  const length = componentLength(value, Math.min(reference.width, reference.height), path, state);
-  return { width: length, height: length };
-}
-
-function barPlacement(
-  value: unknown,
-  path: string,
-  state: ParseState,
-): PatchMapPlacement {
-  if (value === undefined) return 'bottom';
-  if (typeof value === 'string' && TEXT_PLACEMENTS.has(value as PatchMapPlacement)) {
-    return value as PatchMapPlacement;
-  }
-  if (typeof value === 'string') {
-    warn(state, path, 'invalid-placement', 'Invalid placement fell back to center');
-  }
-  return 'center';
-}
-
-function barAnimation(
-  value: unknown,
-  path: string,
-  sourceId: string,
-  state: ParseState,
-): boolean {
-  if (value === undefined) return true;
-  if (typeof value === 'boolean') return value;
-  fatal(
-    state,
-    path,
-    'invalid-component-animation',
-    'Bar animation must be a boolean',
-    sourceId,
-  );
-}
-
-function barAnimationDuration(
-  value: unknown,
-  path: string,
-  sourceId: string,
-  state: ParseState,
-): number {
-  if (value === undefined) return 200;
-  const duration = finiteNumber(value);
-  if (duration !== undefined && duration >= 0) return duration;
-  fatal(
-    state,
-    path,
-    'invalid-animation-duration',
-    'Bar animationDuration must be a nonnegative finite number',
-    sourceId,
-  );
-}
-
-function componentLength(value: unknown, reference: number, path: string, state: ParseState): number {
-  const numeric = finiteNumber(value);
-  if (numeric !== undefined) return nonNegative(numeric, path, state);
-  if (typeof value === 'string') {
-    const match = /^\s*(-?(?:\d+\.?\d*|\.\d+))%\s*$/.exec(value);
-    if (match) return nonNegative(reference * Number(match[1]) / 100, path, state);
-  }
-  if (isRecord(value)) {
-    const amount = finiteNumber(value.value);
-    if (amount !== undefined && value.unit === 'px') return nonNegative(amount, path, state);
-    if (amount !== undefined && value.unit === '%') {
-      return nonNegative(reference * amount / 100, path, state);
-    }
-  }
-  warn(state, path, 'invalid-component-size', 'Invalid component length fell back to 0');
-  return 0;
-}
-
-function placeBox(
-  reference: Box,
-  size: Size,
-  placementValue: unknown,
-  marginValue: unknown,
-  path: string,
-  state: ParseState,
-): Box {
-  const margin = boxSpacing(marginValue, `${path}.margin`, state);
-  let placement: PatchMapPlacement = 'center';
-  if (
-    typeof placementValue === 'string' &&
-    TEXT_PLACEMENTS.has(placementValue as PatchMapPlacement)
-  ) {
-    placement = placementValue as PatchMapPlacement;
-  } else if (typeof placementValue === 'string') {
-    warn(state, `${path}.placement`, 'invalid-placement', 'Invalid placement fell back to center');
-  }
-  return resolvePatchMapPlacementBounds(reference, size, placement, margin, path);
-}
-
-function boxSpacing(value: unknown, path: string, state: ParseState): {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-} {
-  const uniform = finiteNumber(value);
-  if (uniform !== undefined) {
-    return { top: uniform, right: uniform, bottom: uniform, left: uniform };
-  }
-  if (value === undefined) return { top: 0, right: 0, bottom: 0, left: 0 };
-  if (!isRecord(value)) {
-    warn(state, path, 'invalid-spacing', 'Invalid spacing fell back to zero');
-    return { top: 0, right: 0, bottom: 0, left: 0 };
-  }
-  const x = finiteNumber(value.x) ?? 0;
-  const y = finiteNumber(value.y) ?? 0;
-  return {
-    top: finiteNumber(value.top) ?? y,
-    right: finiteNumber(value.right) ?? x,
-    bottom: finiteNumber(value.bottom) ?? y,
-    left: finiteNumber(value.left) ?? x,
-  };
-}
-
-function axisSpacing(value: unknown, path: string, state: ParseState): { x: number; y: number } {
-  const uniform = finiteNumber(value);
-  if (uniform !== undefined) return { x: uniform, y: uniform };
-  if (value === undefined) return { x: 0, y: 0 };
-  if (isRecord(value)) {
-    return { x: finiteNumber(value.x) ?? 0, y: finiteNumber(value.y) ?? 0 };
-  }
-  warn(state, path, 'invalid-gap', 'Invalid gap fell back to zero');
-  return { x: 0, y: 0 };
-}
-
 function imageSourceProjection(
   entityId: string,
   value: unknown,
@@ -2149,72 +1907,6 @@ function normalizeImageSource(
   return normalizePatchMapImageSource(authoredSource);
 }
 
-function relationEndpoint(value: unknown, path: string, state: ParseState, sourceId: string): string {
-  if (typeof value === 'string' && value.length > 0) return value;
-  if (isRecord(value) && typeof value.id === 'string' && value.id.length > 0) return value.id;
-  fatal(state, path, 'invalid-relation-endpoint', 'Relation endpoint must be a string or { id }', sourceId);
-}
-
-function resolveColor(value: unknown, fallback: Rgba, path: string, state: ParseState): Rgba {
-  if (value === undefined) return fallback >>> 0;
-  const numeric = finiteNumber(value);
-  if (numeric !== undefined && Number.isInteger(numeric) && numeric >= 0 && numeric <= 0xffffffff) {
-    return (numeric <= 0xffffff ? numeric * 0x100 + 0xff : numeric) >>> 0;
-  }
-  if (typeof value === 'string') {
-    const themeValue = state.options.colors?.[value] ?? PATCH_MAP_DEFAULT_COLOR_THEME[value];
-    if (themeValue !== undefined && themeValue !== value) {
-      return resolveColor(themeValue, fallback, path, state);
-    }
-    const parsed = parsePatchMapCssColor(value);
-    if (parsed !== undefined) return parsed;
-    const hashed = deterministicPatchMapTokenColor(value);
-    warn(state, path, 'color-fallback', `Unknown color token ${JSON.stringify(value)} used deterministic hash fallback`);
-    return hashed;
-  }
-  warn(state, path, 'color-fallback', 'Unsupported color value used the documented fallback');
-  return fallback >>> 0;
-}
-
-function inspectAttributes(attrs: JsonRecord | undefined, path: string, type: string, state: ParseState): void {
-  if (!attrs) return;
-  for (const key of Object.keys(attrs)) {
-    if (key === 'skew' || key === 'skewX' || key === 'skewY') {
-      warnOnce(
-        state,
-        `affine-skew:${type}:${key}`,
-        `${path}.${key}`,
-        'affine-skew-unsupported',
-        'Authored skew is preserved in identity but is outside the orthogonal PatchMap projection contract',
-      );
-      continue;
-    }
-    if (key === 'pivot' || key === 'pivotX' || key === 'pivotY') {
-      warnOnce(
-        state,
-        `affine-pivot:${type}:${key}`,
-        `${path}.${key}`,
-        'affine-pivot-unsupported',
-        'Authored pivot is preserved in identity but PatchMap uses the PATCH MAP top-left origin',
-      );
-      continue;
-    }
-    const projected = key === 'alpha' ||
-      (key === 'display' && type === 'image') ||
-      (TRANSFORM_ATTRIBUTE_KEYS.has(key) && TRANSFORM_ATTRIBUTE_TYPES.has(type)) ||
-      (SIGNED_SCALE_ATTRIBUTE_KEYS.has(key) && SIGNED_SCALE_ATTRIBUTE_TYPES.has(type)) ||
-      (key === 'zIndex' && Z_INDEX_ATTRIBUTE_TYPES.has(type));
-    if (projected || key === 'metadata') continue;
-    warnOnce(
-      state,
-      `attr:${type}:${key}`,
-      `${path}.${key}`,
-      'attribute-preserved-only',
-      `Attribute ${JSON.stringify(key)} is preserved in identity but has no dense-store projection`,
-    );
-  }
-}
-
 function sourceIdentifier(
   value: unknown,
   fallback: string,
@@ -2244,115 +1936,7 @@ function pathToken(path: string): string {
   return path.replace(/^\$\.?/, '').replace(/[^a-zA-Z0-9_-]+/g, '.').replace(/^\.|\.$/g, '') || 'root';
 }
 
-function numericAttribute(value: unknown, path: string, state: ParseState): number {
-  const parsed = finiteNumber(value);
-  if (parsed !== undefined) return parsed;
-  if (value !== undefined) warn(state, path, 'invalid-number', 'Invalid numeric attribute fell back to zero');
-  return 0;
-}
-
-function scaleAttribute(value: unknown, path: string, state: ParseState): number {
-  if (value === undefined) return 1;
-  const parsed = finiteNumber(value);
-  if (parsed !== undefined) return parsed;
-  warn(state, path, 'invalid-scale', 'Invalid signed scale fell back to one');
-  return 1;
-}
-
-function zIndex(attrs: unknown): number {
-  return isRecord(attrs) ? finiteNumber(attrs.zIndex) ?? 0 : 0;
-}
-
-function eventInteractivity(
-  value: unknown,
-  fallback: boolean,
-  path: string,
-  state: ParseState,
-): boolean {
-  if (value === undefined) return fallback;
-  if (value === 'none' || value === 'passive') return false;
-  if (value === 'auto' || value === 'static' || value === 'dynamic') return fallback;
-  warn(state, path, 'invalid-event-mode', 'Invalid eventMode fell back to the inherited hit-test policy');
-  return fallback;
-}
-
-function projectedOpacity(value: unknown, path: string, state: ParseState): number {
-  const opacity = finiteNumber(value);
-  if (opacity === undefined) {
-    warn(state, path, 'invalid-opacity', 'Invalid opacity fell back to fully opaque');
-    return 1;
-  }
-  if (opacity < 0 || opacity > 1) {
-    warn(state, path, 'opacity-clamped', 'Opacity outside 0..1 was clamped');
-  }
-  return clamp01(opacity);
-}
-
-function attributeAlpha(
-  attrs: JsonRecord | undefined,
-  path: string,
-  state: ParseState,
-): number {
-  return attrs?.alpha === undefined
-    ? 1
-    : projectedOpacity(attrs.alpha, path, state);
-}
-
-function projectedRadius(value: unknown, path: string, state: ParseState): number | undefined {
-  const scalar = finiteNumber(value);
-  if (scalar !== undefined) return Math.max(0, scalar);
-  const corners = Array.isArray(value)
-    ? value.map((entry) => finiteNumber(entry))
-    : isRecord(value)
-      ? [
-          finiteNumber(value.topLeft) ?? 0,
-          finiteNumber(value.topRight) ?? 0,
-          finiteNumber(value.bottomRight) ?? 0,
-          finiteNumber(value.bottomLeft) ?? 0,
-        ]
-      : undefined;
-  if (corners !== undefined && corners.length === 4 && corners.every((entry) => entry !== undefined)) {
-    warn(
-      state,
-      path,
-      'corner-radius-degraded',
-      'Per-corner radius is preserved by the semantic dataset and uses the maximum corner in the scalar dense renderer',
-    );
-    return Math.max(0, ...corners);
-  }
-  if (value !== undefined) {
-    warn(state, path, 'invalid-radius', 'Invalid radius was omitted from dense rendering');
-  }
-  return undefined;
-}
-
-function fontWeight(value: unknown): number | undefined {
-  const numeric = finiteNumber(value);
-  if (numeric !== undefined) return numeric;
-  if (value === 'normal') return 400;
-  if (value === 'bold') return 700;
-  return undefined;
-}
-
-function nonNegative(value: number, path: string, state: ParseState): number {
-  if (value >= 0) return value;
-  warn(state, path, 'negative-length', 'Negative length was clamped to zero');
-  return 0;
-}
-
-function finiteNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
-function clamp01(value: number): number {
-  return Math.min(1, Math.max(0, value));
-}
-
 function appendRecord(record: Record<string, string[]>, key: string, value: string): void {
   const list = record[key] ?? (record[key] = []);
   list.push(value);
-}
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
