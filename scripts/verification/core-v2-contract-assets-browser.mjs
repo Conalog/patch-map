@@ -19,7 +19,7 @@ const BRIDGE_NAME = '__PATCH_MAP_CONTRACT_LAB__';
 const CASE_ID = 'AST-001';
 const DATASET_SIZE = '100';
 const SEED = 319;
-const ROUTE = '/lab/core-v2?scenario=AST-001&size=100&seed=319';
+const ROUTE = '/lab/patch-map/?scenario=AST-001&size=100&seed=319';
 const EXPECTED_ASSERTION_COUNT = 18;
 const EXPECTED_PASSED_COUNT = 17;
 const EXPECTED_FAILED_COUNT = 1;

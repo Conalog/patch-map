@@ -30,7 +30,7 @@ describe('PatchMap AST-001 browser checkpoint script', () => {
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
     expect(source).toContain(
-      "const ROUTE = '/lab/core-v2?scenario=AST-001&size=100&seed=319';",
+      "const ROUTE = '/lab/patch-map/?scenario=AST-001&size=100&seed=319';",
     );
     expect(source).toContain('const EXPECTED_ASSERTION_COUNT = 18;');
     expect(source).toContain('const EXPECTED_PASSED_COUNT = 17;');

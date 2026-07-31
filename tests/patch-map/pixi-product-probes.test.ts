@@ -128,7 +128,7 @@ class PixiProbeSurface implements PatchMapEngineSurface {
       canvas: Object.freeze({
         authoritative: true,
         attached: true,
-        patchMapCore: 'v2',
+        patchMapProduct: 'patch-map',
       }),
       stage: Object.freeze({
         label: 'PatchMap',

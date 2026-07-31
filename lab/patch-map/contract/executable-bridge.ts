@@ -399,7 +399,7 @@ export function createPatchMapExecutableLabBridge(
       driverId: 'trusted-pointer-wheel',
       ownerQualifiedTarget:
         `[data-testid="${casePlan.rootTestId}"] [data-contract-surface] `
-        + 'canvas[data-patch-map-core="v2"]',
+        + 'canvas[data-patch-map-product="patch-map"]',
       cssLocalAnchors: [
         { x: 400, y: 300 },
         { x: 440, y: 280 },
@@ -559,7 +559,7 @@ export function createPatchMapExecutableLabBridge(
           : 'trusted-accessibility-click',
       ownerQualifiedTarget:
         `[data-testid="${casePlan.rootTestId}"] [data-contract-surface] `
-        + 'canvas[data-patch-map-core="v2"]',
+        + 'canvas[data-patch-map-product="patch-map"]',
       cssLocalAnchors: anchors,
       button: options.caseId === 'EVT-008' ? 2 : 0,
       modifiers: [],
@@ -970,7 +970,7 @@ function sumFinite(values: readonly Readonly<Record<string, unknown>>[], field: 
 function assertSurfaceIsReleased(surfaceHost: HTMLElement | undefined): void {
   if (!surfaceHost || typeof surfaceHost.querySelector !== 'function') return;
   invariant(
-    surfaceHost.querySelector('canvas[data-patch-map-core="v2"]') === null,
+    surfaceHost.querySelector('canvas[data-patch-map-product="patch-map"]') === null,
     'executor left a tracked PixiJS canvas in the Lab host',
   );
 }

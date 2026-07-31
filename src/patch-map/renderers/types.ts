@@ -291,7 +291,7 @@ export interface PatchMapPixiPublicSurfaceProbe {
   readonly canvas: Readonly<{
     readonly authoritative: boolean;
     readonly attached: boolean;
-    readonly patchMapCore: 'v2' | null;
+    readonly patchMapProduct: 'patch-map' | null;
   }>;
   readonly stage: Readonly<{
     readonly label: string;

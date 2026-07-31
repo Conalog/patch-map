@@ -369,7 +369,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     }
     this.target?.appendChild(this.canvas);
     this.canvas.style.touchAction = 'none';
-    this.canvas.dataset.patchMapCore = 'v2';
+    this.canvas.dataset.patchMapProduct = 'patch-map';
 
     const rendererBuildMs = metrics.rendererBuildMs + (now() - buildStarted);
     this.initializationMetrics = Object.freeze({
@@ -1404,7 +1404,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       canvas: Object.freeze({
         authoritative: this.application.canvas === this.canvas,
         attached: this.target?.contains(this.canvas) ?? this.canvas.isConnected,
-        patchMapCore: this.canvas.dataset.patchMapCore === 'v2' ? 'v2' : null,
+        patchMapProduct: this.canvas.dataset.patchMapProduct === 'patch-map'
+          ? 'patch-map'
+          : null,
       }),
       stage: Object.freeze({
         label: stage.label,

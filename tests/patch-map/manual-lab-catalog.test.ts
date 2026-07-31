@@ -290,6 +290,7 @@ describe('PatchMap manual Lab scene', () => {
     expect(markup).not.toContain('Aggregate GPU renderer lab');
     expect(viteConfig).toContain("lab: fileURLToPath(new URL('./lab/patch-map/index.html'");
     expect(viteConfig).not.toContain('performance:');
+    expect(viteConfig).not.toContain('/lab/core-v2');
     expect(packageJson).not.toContain('lab:contract');
     expect(packageJson).not.toContain('verify:lab:webgpu');
     expect(publicEntry).not.toContain('createPatchMapRuntime');

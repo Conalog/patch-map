@@ -228,7 +228,9 @@ describe('PatchMap render browser checkpoint script', () => {
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
-    expect(source).toContain('/lab/core-v2?scenario=${caseSpec.id}&size=${DATASET_SIZE}&seed=${SEED}');
+    expect(source).toContain(
+      '/lab/patch-map/?scenario=${caseSpec.id}&size=${DATASET_SIZE}&seed=${SEED}',
+    );
     expect(source).toContain("new URL(page.url()).pathname + new URL(page.url()).search === route");
   });
 

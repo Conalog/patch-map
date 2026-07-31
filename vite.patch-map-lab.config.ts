@@ -3,7 +3,6 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url));
-const historicalContractRoute = '/lab/core-v2';
 const currentLabRoute = '/lab/patch-map';
 const currentLabEntry = '/lab/patch-map/index.html';
 
@@ -21,7 +20,7 @@ export default defineConfig({
               ? request.url
               : request.url.slice(0, queryIndex);
             const search = queryIndex === -1 ? '' : request.url.slice(queryIndex);
-            if (pathname === historicalContractRoute || pathname === currentLabRoute) {
+            if (pathname === currentLabRoute) {
               request.url = `${currentLabEntry}${search}`;
             }
           }

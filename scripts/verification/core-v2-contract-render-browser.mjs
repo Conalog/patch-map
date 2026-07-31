@@ -1050,7 +1050,7 @@ async function installWebGlCanvasProbe(page, caseId) {
         actualContext: metadata.actualContext,
         width: metadata.canvas.width,
         height: metadata.canvas.height,
-        trackedCanvas: metadata.canvas.dataset.patchMapCore === 'v2',
+        trackedCanvas: metadata.canvas.dataset.patchMapProduct === 'patch-map',
       });
       return metadata.contextIndex;
     }
@@ -1064,7 +1064,7 @@ async function installWebGlCanvasProbe(page, caseId) {
         source,
         width: metadata.canvas.width,
         height: metadata.canvas.height,
-        trackedCanvas: metadata.canvas.dataset.patchMapCore === 'v2',
+        trackedCanvas: metadata.canvas.dataset.patchMapProduct === 'patch-map',
         draws: [],
       };
       metadata.frameIndex += 1;
@@ -1170,7 +1170,7 @@ async function executeCase({ browser: activeBrowser, baseUrl, caseSpec, expected
   const page = await context.newPage();
   attachErrorCapture(page, caseSpec.id, capturedErrors);
   await installWebGlCanvasProbe(page, caseSpec.id);
-  const route = `/lab/core-v2?scenario=${caseSpec.id}&size=${DATASET_SIZE}&seed=${SEED}`;
+  const route = `/lab/patch-map/?scenario=${caseSpec.id}&size=${DATASET_SIZE}&seed=${SEED}`;
   const routeUrl = new URL(route, baseUrl).href;
 
   try {
@@ -1477,7 +1477,8 @@ async function verifyViewportRootInput(page) {
       if (bridge && shouldRelease) await bridge.awaitMilestone(0, 'released');
       const host = document.querySelector('[data-contract-surface]');
       return {
-        canvasCount: host?.querySelectorAll('canvas[data-patch-map-core="v2"]').length ?? 0,
+        canvasCount:
+          host?.querySelectorAll('canvas[data-patch-map-product="patch-map"]').length ?? 0,
         released: shouldRelease,
       };
     }, { bridgeName: BRIDGE_NAME, shouldRelease: armed }).catch(() => null);
@@ -1711,7 +1712,8 @@ async function verifyPointerRootInput(page, caseId) {
       if (bridge && shouldRelease) await bridge.awaitMilestone(0, 'released');
       const host = document.querySelector('[data-contract-surface]');
       return {
-        canvasCount: host?.querySelectorAll('canvas[data-patch-map-core="v2"]').length ?? 0,
+        canvasCount:
+          host?.querySelectorAll('canvas[data-patch-map-product="patch-map"]').length ?? 0,
         released: shouldRelease,
       };
     }, {
