@@ -15,9 +15,9 @@
 
 # Current Facts
 
-- `src/patch-map` contains 64 files and 64,704 LOC. `engine.ts` is 11,270 LOC
-  and combines public contracts, the product facade, the Pixi surface adapter,
-  semantic indexing, geometry snapshots, and relation hit indexing.
+- `src/patch-map` contains 76 files and 65,664 LOC. `engine.ts` is 7,871 LOC;
+  public Engine contracts, Pixi surface adaptation, geometry, semantic
+  indexing, and Mesh planning now have explicit owners below the facade.
 - Renderer ownership is sound: one manual Application loop, aggregate layers,
   one root interaction authority, and explicit asset/destroy coordination.
 - Exact clone analysis reports 7.3% across product, Lab, tests, performance,
@@ -52,13 +52,16 @@
 - T8 separates the manual Lab's pure markup/copy/panel renderer from its live
   session and shares only exact browser-safe value helpers across seven
   contract runtimes. Import-free contract files remain standalone.
+- T9 moves Core and Engine public DTO contracts to type-only owners and moves
+  the actual-only contract Lab surface double into a test support boundary.
+  Root exports, runtime authority, and the expected/comparator firewall remain
+  unchanged; full unit/build/contract and packed-consumer gates pass.
 
 # Next Step
 
-- Select one final high-value ownership extraction from the remaining
-  `engine.ts`, `core.ts`, and Lab composition analyses; then run the
-  package/memory/performance checks required by the chosen path and finish the
-  PR-ready review.
+- Run the final release checkpoint: headless Lab, lifecycle memory, quiet-host
+  performance confirmation, task-local context validation, and independent PR
+  review; then commit the durable checkpoint and leave a clean worktree.
 
 # Working Boundary
 
