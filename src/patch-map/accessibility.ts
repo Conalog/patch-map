@@ -1,5 +1,5 @@
 import type { PatchMapLogicalTargetSnapshot } from './query-selection';
-import type { PatchMapSurfaceEntityGeometry } from './engine';
+import type { PatchMapSurfaceEntityGeometry } from './engine/surface-contract';
 
 export const PATCH_MAP_ACCESSIBILITY_REVISION =
   'core-v2-accessibility/1' as const;

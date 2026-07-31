@@ -30,13 +30,16 @@
 - The worktree started clean on `performance/core-v2`.
 - Three independent analyses completed: structure/dependency, duplication/test
   structure, and PixiJS lifecycle/hot-path performance.
-- The migration is staged so every tranche remains buildable and rollbackable.
+- T1 moved exact hash, grid, and relation endpoint atoms to shared owners and
+  removed the accessibility-to-engine type back-edge without changing the
+  package surface.
 
 # Next Step
 
-- Complete the first low-risk tranche: introduce shared exact utilities and
-  explicit engine/surface contracts, remove the facade type dependency cycle,
-  and validate only the affected parser/asset/spatial/public-boundary tests.
+- Extract pure surface geometry and relation hit indexing from `engine.ts`,
+  keeping `PatchMap` as the sole lifecycle/publication coordinator. Move the
+  Pixi surface adapter only after its destroy and late-initialization ownership
+  can be verified as one cohesive checkpoint.
 
 # Working Boundary
 

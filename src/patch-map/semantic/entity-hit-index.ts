@@ -15,6 +15,10 @@ import {
   invertPatchMapAffine,
   type PatchMapPointTuple,
 } from './geometry';
+import {
+  boundedSpatialCellCoverage as boundedCellCoverage,
+  spatialCellKey as cellKey,
+} from './spatial-grid';
 
 export const PATCH_MAP_ENTITY_HIT_CELL_SIZE = 128;
 export const PATCH_MAP_ENTITY_HIT_MAX_CELLS = 256;
@@ -289,29 +293,6 @@ function boundsForFinitePoints(
     : null;
 }
 
-function boundedCellCoverage(
-  bounds: readonly [number, number, number, number],
-  cellSize: number,
-  maxCells: number,
-): Readonly<{
-  minColumn: number;
-  maxColumn: number;
-  minRow: number;
-  maxRow: number;
-}> | null {
-  const minColumn = Math.floor(bounds[0] / cellSize);
-  const maxColumn = Math.floor((bounds[0] + bounds[2]) / cellSize);
-  const minRow = Math.floor(bounds[1] / cellSize);
-  const maxRow = Math.floor((bounds[1] + bounds[3]) / cellSize);
-  if (![minColumn, maxColumn, minRow, maxRow].every(Number.isSafeInteger)) return null;
-  const columns = maxColumn - minColumn + 1;
-  const rows = maxRow - minRow + 1;
-  if (columns <= 0 || rows <= 0 || columns > maxCells || rows > Math.floor(maxCells / columns)) {
-    return null;
-  }
-  return Object.freeze({ minColumn, maxColumn, minRow, maxRow });
-}
-
 function mergeTopmostFirst(
   local: readonly PatchMapEntityHitEntry[],
   overflow: readonly PatchMapEntityHitEntry[],
@@ -354,8 +335,4 @@ function containsRotatedDenseEntity(entity: EntitySnapshot, point: CorePoint): b
   return [centerX, centerY, localX, localY].every(Number.isFinite) &&
     Math.abs(localX) <= entity.bounds.width / 2 &&
     Math.abs(localY) <= entity.bounds.height / 2;
-}
-
-function cellKey(column: number, row: number): string {
-  return `${column}:${row}`;
 }

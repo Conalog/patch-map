@@ -58,6 +58,7 @@ import {
   type PatchMapStableRecordStrategy,
 } from './semantic/stable-record-overlay';
 import { PATCH_MAP_DEFAULT_COLOR_THEME } from './semantic/color';
+import { stableHash64Hex as stableHash } from './shared/stable-hash';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -2629,15 +2630,6 @@ function stableSerializeJson(value: unknown): string {
       .join(',')}}`;
   }
   return JSON.stringify(`@unsupported:${typeof value}`);
-}
-
-function stableHash(value: string): string {
-  let hash = 0xcbf29ce484222325n;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= BigInt(value.charCodeAt(index));
-    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
-  }
-  return hash.toString(16).padStart(16, '0');
 }
 
 function relationEndpoint(value: unknown, path: string, state: ParseState, sourceId: string): string {
