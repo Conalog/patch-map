@@ -1,6 +1,40 @@
 import type { PatchMapAffineBasis } from '../semantic/geometry';
 import type { PatchMapScreenRegionCandidates } from '../semantic/screen-region-index';
 
+export interface PatchMapPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface PatchMapSurfaceView {
+  readonly x: number;
+  readonly y: number;
+  readonly scale: number;
+  readonly rotation: number;
+  readonly flipX?: boolean;
+  readonly flipY?: boolean;
+}
+
+export interface PatchMapRelationHitOptions {
+  readonly toleranceCssPx?: number;
+}
+
+export interface PatchMapRelationHit {
+  readonly id: string;
+  readonly relationId: string;
+  readonly key: string;
+  readonly identityKey: string;
+  readonly sourceId: string;
+  readonly targetId: string;
+}
+
+export interface PatchMapRelationHitIndex {
+  /** Screen-grid candidates in ascending scene order. */
+  readonly cells: ReadonlyMap<string, readonly number[]>;
+  /** Oversized paths tested for every query, also in ascending scene order. */
+  readonly overflow: readonly number[];
+}
+
 export interface PatchMapSurfaceEntityGeometry {
   readonly id: string;
   readonly kind: string;

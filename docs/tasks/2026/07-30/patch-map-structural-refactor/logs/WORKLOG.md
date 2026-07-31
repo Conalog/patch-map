@@ -22,3 +22,19 @@
   `accessibility -> engine` back-edge without changing runtime ownership or the
   root public API; browser, memory, packed-consumer, and performance gates were
   intentionally not run because their code paths did not change.
+
+**2026-07-30**
+
+- **Batch:** T2 surface geometry ownership.
+- **Work:** Moved surface/world geometry snapshots, readable content
+  orientation, relation hit testing/indexing, and private geometry helpers from
+  `engine.ts` into `engine/surface-geometry.ts`; moved their narrow value
+  contracts into `engine/surface-contract.ts` and retained facade re-exports.
+- **Evidence:** Targeted 56 tests, scoped lint, and typecheck passed. The
+  tranche gate passed 148 files / 1,457 tests, full lint/typecheck, package and
+  Lab builds, and the canonical 173-record verifier. Independent normalized
+  review found all 30 moved functions behavior-equivalent.
+- **Result:** Reduced `engine.ts` from 11,200 to 10,408 lines and established a
+  one-way pure geometry boundary. No Pixi, scheduler, asset, publication, or
+  lifecycle owner changed, so browser, packed-consumer, memory, and performance
+  gates were intentionally deferred.

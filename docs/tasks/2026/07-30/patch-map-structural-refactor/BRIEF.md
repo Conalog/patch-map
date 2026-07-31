@@ -33,13 +33,15 @@
 - T1 moved exact hash, grid, and relation endpoint atoms to shared owners and
   removed the accessibility-to-engine type back-edge without changing the
   package surface.
+- T2 moved surface/world geometry and relation hit indexing into a pure engine
+  module while keeping `PatchMap` and `PixiEngineSurface` as the only runtime
+  owners in the facade.
 
 # Next Step
 
-- Extract pure surface geometry and relation hit indexing from `engine.ts`,
-  keeping `PatchMap` as the sole lifecycle/publication coordinator. Move the
-  Pixi surface adapter only after its destroy and late-initialization ownership
-  can be verified as one cohesive checkpoint.
+- Extract component/text semantic indexing from `engine.ts` behind typed maps,
+  then move the Pixi surface adapter only after its destroy and
+  late-initialization ownership can be verified as one cohesive checkpoint.
 
 # Working Boundary
 
