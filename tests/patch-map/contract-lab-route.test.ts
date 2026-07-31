@@ -913,6 +913,9 @@ describe('PatchMap actual-only Lab bridge', () => {
     const runtimeSources = await readTypeScriptSources(
       new URL('../../lab/patch-map/contract/executable-runtime/', import.meta.url),
     );
+    const inspectorSources = await readTypeScriptSources(
+      new URL('../../lab/patch-map/contract/inspectors/', import.meta.url),
+    );
     const automationSources = await Promise.all([
       '../../scripts/verification/core-v2-contract/handlers/replacement-recovery.mjs',
       '../../scripts/verification/core-v2-contract/fold-replacement-recovery.mjs',
@@ -921,10 +924,15 @@ describe('PatchMap actual-only Lab bridge', () => {
       '../../scripts/verification/core-v2-contract/handlers/authoring.mjs',
       '../../scripts/verification/core-v2-contract/fold-authoring.mjs',
     ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
-    const joined = [...rootSources, ...runtimeSources, ...automationSources].join('\n');
+    const joined = [
+      ...rootSources,
+      ...runtimeSources,
+      ...inspectorSources,
+      ...automationSources,
+    ].join('\n');
     expect(joined).not.toContain('catalog-normalized-expected');
     expect(joined).not.toMatch(/from ['"].*compare/);
-    expect(joined).not.toMatch(/from ['"](?!\.\/run-observer['"]).*observe/);
+    expect(joined).not.toMatch(/from ['"](?!\.\.?\/run-observer['"]).*observe/);
     expect(joined).not.toMatch(/node:/);
     expect(joined).not.toMatch(/(?:execute|mutate|select|transform)(?:Scene|Entity|Selection|Viewport)/);
     expect(joined).toContain("state.status === 'failed'\n          ? 'not-run'");

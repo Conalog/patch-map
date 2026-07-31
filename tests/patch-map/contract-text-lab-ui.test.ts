@@ -152,10 +152,16 @@ describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
       readFile(mainUrl, 'utf8'),
       readFile(runObserverUrl, 'utf8'),
     ]);
-    const inspectorSource = source.slice(
-      source.indexOf('function renderTextInspectorOptions'),
-      source.indexOf('function refreshComponentAssetInspector'),
-    );
+    const inspectorSource = [
+      source.slice(
+        source.indexOf('function renderTextInspectorOptions'),
+        source.indexOf('export function renderPatchMapContractLab'),
+      ),
+      source.slice(
+        source.indexOf('function refreshTextInspector'),
+        source.indexOf('function terminalRen005Product'),
+      ),
+    ].join('\n');
     const chooserListener = source.slice(
       source.indexOf("const textChooser = target.querySelector<HTMLSelectElement>"),
       source.indexOf("const componentAssetChooser = target.querySelector<HTMLSelectElement>"),
