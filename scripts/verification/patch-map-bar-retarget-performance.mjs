@@ -29,13 +29,20 @@ const UPDATE_COUNT = 6;
 const UPDATE_INTERVAL_MS = 75;
 const WARMUPS = SMOKE ? 0 : 2;
 const MEASURED = SMOKE ? 1 : 7;
+const REQUESTED_PROFILE = process.env.PATCH_MAP_PERF_PROFILE ?? 'all';
+if (!['all', '1x', '4x'].includes(REQUESTED_PROFILE)) {
+  throw new Error(`Unsupported PATCH_MAP_PERF_PROFILE: ${REQUESTED_PROFILE}`);
+}
 const PROFILES = Object.freeze(
   (SMOKE
     ? [{ id: 'chromium-headless-1x', cpuThrottleRate: 1 }]
     : [
         { id: 'chromium-headless-1x', cpuThrottleRate: 1 },
         { id: 'chromium-headless-4x', cpuThrottleRate: 4 },
-      ]).map((profile) => Object.freeze(profile)),
+      ].filter((profile) =>
+        REQUESTED_PROFILE === 'all' ||
+        profile.id === `chromium-headless-${REQUESTED_PROFILE}`
+      )).map((profile) => Object.freeze(profile)),
 );
 const OUTPUT_PATH = path.resolve(
   process.env.PATCH_MAP_BAR_RETARGET_PERF_OUTPUT
