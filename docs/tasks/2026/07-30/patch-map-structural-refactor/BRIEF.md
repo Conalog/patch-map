@@ -20,12 +20,13 @@
   focused downward owners while their atomic writers remain singular.
 - Mesh and Pixi renderer coordinators are 1,256 and 2,002 LOC after CPU value
   planning moved below unchanged GPU/Application/resource owners.
-- Operations are a 425-line callback/diagnostic writer above contract,
-  redaction, and extraction-security owners. Scene images are a 978-line
-  lifecycle writer above contract and pure reconcile-value owners.
+- Operations and scene images retain their callback, diagnostic, async asset,
+  release, invalidation, and destroy writers above focused value contracts.
 - Semantic reconcile is a 702-line planner/cache facade above contract,
   entity-delta, retained-order, and result-value owners. The 1,094-line dense
   store and 929-line transformer planner are cohesive keep decisions.
+- Query/selection is a 340-line lazy index facade above contracts, immutable
+  logical target values, query policy, and selection reduction.
 - Renderer ownership stays one manual loop, aggregate layers, one root
   interaction authority, and explicit asset/destroy coordination.
 - The shipping identity is only `@conalog/patch-map`, `PatchMap`, and
@@ -43,13 +44,9 @@
 - Parser, Dataset, transaction, reconcile, text, authoring, editor, host,
   renderer planning, Lab presentation, and large contract-test composition now
   have explicit domain owners without a parallel public or write path.
-- Expected-blind verification shares only proven import-free value atoms and
+- Expected-blind verification shares proven import-free value atoms and
   recursively fail-closes expected, external, dynamic-global, constructor, and
   static-string access across all committed handlers and folds.
-- Operations retain one callback queue and diagnostic writer; scene images
-  retain prepared-plan, async freshness, renderer binding, release,
-  invalidation, and destroy ownership. Review also fixed nonnegative nested
-  queue counts and teardown continuation after synchronous unbind failures.
 - The checkpoint passes 190 unit files / 1,681 tests, full lint/typecheck,
   product/Lab builds, canonical 38/173, and 2+7 memory with 5,099 entities and
   nine ownership cycles. Browser, packed consumer, and performance were not
@@ -60,11 +57,13 @@
 - Engine now delegates the repeated full/structural/flat component and text
   semantic branches to one existing planner owner without new collections,
   passes, closures, or atomic write paths.
+- Query extraction preserves lazy top-level hits, catalog identity/order,
+  selection reduction, deep immutability, and every collection/pass count.
 
 # Next Step
 
-- Split query/selection contracts and pure value policies while keeping the
-  lazy logical index, spatial hit testing, and target caches in its facade.
+- Split transformer gesture ownership and pointer region geometry while
+  retaining both interaction state machines in their facades.
 
 # Working Boundary
 
